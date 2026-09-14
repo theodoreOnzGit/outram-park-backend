@@ -6,10 +6,21 @@ transport-kernel verification and the classical ICSBEP criticals are **Part II**
 **Source record:**
 `crates/outram-mc-libs/verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md`.
 
-> **Rebaselined twice — 2026-09-12 (#193, F-19 threshold) and 2026-09-13 (#194,
-> continuous thermal kernel).** Everything below is the post-#194 state. The
-> superseded rows are kept in the CSVs, flagged, because the supersession *is*
-> part of the story: three baselines in three days, `+4004 → −469 → +37` pcm.
+> **Rebaselined three times — 2026-09-12 (#193, F-19 threshold), 2026-09-13
+> (#194, continuous thermal kernel) and 2026-09-14 (MF=6 LAW=1 continuum
+> emission for MT=91/MT=16, replacing a Weisskopf evaporation stand-in).**
+> Everything below is the post-MF=6 state, re-extracted 2026-09-14 from a fresh
+> run of `examples/fhr_ring_rpt_endf.rs` (4000 × [30 + 80], reflective sphere
+> r = 3, seed 20260910). The superseded rows are kept in the CSVs, flagged,
+> because the supersession *is* part of the story: four baselines in four days,
+> `+4004 → −469 → +37 → −460` pcm.
+>
+> **Every row here is a SINGLE DRAW.** Each arm carries ~210–240 pcm of its own
+> statistics, so two runs of unchanged code differ by ~300 pcm of standard
+> error and no drift smaller than that is resolved by this table. Pooling over
+> seeds the way Godiva was pooled is `gh:#196` / `bn:op-awwi` and **has not been
+> done**. Quote the Δ columns as this run's values, not as measurements of the
+> change between baselines.
 >
 > **Re-extract before submission.** The numbers have moved on every day of this
 > work so far, and `op-77pu` / #188 is still open beneath them.
@@ -18,23 +29,33 @@ transport-kernel verification and the classical ICSBEP criticals are **Part II**
 
 | case | tracking | `outram-mc-libs` | OpenMC | Δ |
 |---|---|---|---|---|
-| explicit TRISO | delta (Woodcock) | 1.36547 ± 0.00229 | 1.36510 ± 0.00063 | **+37 pcm (0.2σ)** |
-| ring-RPT | delta (Woodcock) | 1.36363 ± 0.00216 | 1.36479 ± 0.00067 | **−116 pcm (0.5σ)** |
-| ring-RPT | CSG surface-tracked | 1.36810 ± 0.00213 | 1.36479 ± 0.00067 | +331 pcm (1.5σ) |
-| naive homogenised | delta (Woodcock) | 1.32971 ± 0.00237 | — | — |
+| explicit TRISO | delta (Woodcock) | 1.36050 ± 0.00200 | 1.36510 ± 0.00063 | **−460 pcm (2.2σ)** |
+| ring-RPT | delta (Woodcock) | 1.36311 ± 0.00228 | 1.36479 ± 0.00067 | **−168 pcm (0.7σ)** |
+| ring-RPT | CSG surface-tracked | 1.36752 ± 0.00210 | 1.36479 ± 0.00067 | +273 pcm (1.2σ) |
+| naive homogenised | delta (Woodcock) | 1.32645 ± 0.00216 | — | — |
 
-**The explicit pebble is +37 pcm from a reference carrying ±63 pcm of its own.**
-That is agreement, not a residual. The trajectory across three days is
-`+4004 → −469 → +37` — the F-19 threshold fix (#193) then the continuous thermal
-kernel (#194).
+**The explicit pebble is now −460 pcm from the reference, at 2.2σ of the
+combined statistics** — no longer the clean agreement the +37 baseline showed.
+The trajectory across four days is `+4004 → −469 → +37 → −460`: the F-19
+threshold fix (#193), the continuous thermal kernel (#194), then the evaluated
+MF=6 continuum law.
+
+**Read that −460 with the single-draw caveat above.** Where the MF=6 change
+*is* resolved is Godiva, pooled over 64 paired seeds: the evaluated law sits at
+**+214 ± 20 pcm** against the stand-in's **+319 ± 25 pcm**, a difference of
+**−105 ± 32 pcm (3.3σ)**. The pebble moved the same direction, and by more than
+that, on one seed per arm — consistent in sign, not established in size.
+
+The ring-RPT arm, which is what the paper is about, is the one that barely
+moved: **−168 pcm (0.7σ)**, still agreement.
 
 **The RPT equivalence, which is what the paper is about:**
 
 | code | RPT − explicit | σ from zero |
 |---|---|---|
-| `outram-mc-libs` | **−184 ± 315 pcm** | 0.58σ |
+| `outram-mc-libs` | **+260 ± 303 pcm** | 0.86σ |
 | OpenMC | −31 ± 92 pcm | 0.34σ |
-| cross-code difference | −153 ± 328 pcm | 0.47σ — consistent |
+| cross-code difference | +291 ± 317 pcm | 0.92σ — consistent |
 
 Six factors landed on the reference at the F-19 fix — **η −0.00 %, f −0.01 %,
 p +0.04 %, ε −0.08 %**, against +0.11 / −0.17 / +8.54 / −4.99 % before it.

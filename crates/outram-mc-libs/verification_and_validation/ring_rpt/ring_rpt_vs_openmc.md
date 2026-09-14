@@ -82,6 +82,52 @@ the HIGH data path or the eigenvalue driver in general — those reproduce a
 
 Not a validated result — an AI-assisted code-to-code check, no human V&V.
 
+## 2026-09-14 — re-extraction: the MF=6 state measured with absolutes
+
+The 2026-09-13 (later) entry below recorded the MF=6 change as **pcm deltas
+only** (`explicit −466`, `ring-RPT −236`) and carried no absolute k, so the
+Part III dataset could not be re-extracted from it. Re-run here at the same
+settings to record absolutes.
+
+**Run:** `examples/fhr_ring_rpt_endf.rs`, 4000 × [30 inactive + 80 active],
+reflective sphere r = 3, seed 20260910, ENDF/B-VIII.0 with the
+`c_Graphite` S(α,β) law. This is the deck-matched driver — *not*
+`examples/dh_keff_vv.rs`, whose ring-RPT arm keeps S(α,β) on the annulus and is
+deliberately not bit-comparable to the published deck.
+
+| case | tracking | `outram-mc-libs` | OpenMC | Δ |
+|---|---|---|---|---|
+| explicit TRISO | delta | **1.36050 ± 0.00200** | 1.36510 ± 0.00063 | **−460 pcm (2.2σ)** |
+| ring-RPT | delta | **1.36311 ± 0.00228** | 1.36479 ± 0.00067 | **−168 pcm (0.7σ)** |
+| ring-RPT | CSG | **1.36752 ± 0.00210** | 1.36479 ± 0.00067 | +273 pcm (1.2σ) |
+| naive homogenised | delta | **1.32645 ± 0.00216** | — | — |
+
+Gates, with the previously recorded value in brackets:
+
+| gate | this run | recorded |
+|---|---|---|
+| RPT − explicit | **+260 ± 303 pcm (0.86σ)** | +226 ± 316 |
+| naive − explicit | **−3405 ± 294 pcm (11.6σ)** | −3191 (10.7σ) |
+| CSG − delta-tracked | **+441 ± 310 pcm (1.43σ)** | +18 (0.05σ) |
+| explicit vs OpenMC | **−460 pcm** | −466 |
+| ring-RPT vs OpenMC | **−168 pcm** | −236 |
+
+**The two vs-OpenMC figures reproduce the 09-13 entry** (−460 vs −466, −168 vs
+−236), both inside the ±1000 pcm drift gate. **Cross-code RPT equivalence still
+holds:** +260 ± 303 here against OpenMC's −31 ± 92, a difference of
++291 ± 317 pcm (0.92σ) — consistent with zero, which is the paper's claim.
+
+**`CSG − delta-tracked` moved the most**, +18 → +441 pcm. At 1.43σ it is not
+significant and both values are consistent with zero, but the central value
+moved by more than a σ and it is the one gate here worth watching.
+
+**Still a single draw per arm**, which is the same limitation the entry below
+names: ~210–240 pcm of statistics each, so ~300 pcm of standard error between
+any two runs, and no drift smaller than that is resolved. `gh:#196` /
+`bn:op-awwi` (pooling over seeds) remains open and is what would settle it.
+
+Not a validated result — an AI-assisted code-to-code check, no human V&V.
+
 ## 2026-09-13 (later) — MT=91/MT=16 stop guessing and read the evaluated MF=6 law
 
 The continuum inelastic (MT=91) and (n,2n) (MT=16) outgoing energies had been
