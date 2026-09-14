@@ -24,25 +24,17 @@
 // from incGamma.C.
 // Algorithm: DiDonato & Morris (DM) — ACM TOMS 12(4), 1986.
 
-// erf / erfc are not in stable Rust std; call through C ABI.
-extern "C" {
-    fn erf(x: f64) -> f64;
-    fn erfc(x: f64) -> f64;
-    fn tgamma(x: f64) -> f64;
-}
-
-#[inline]
-fn c_erf(x: f64) -> f64 {
-    unsafe { erf(x) }
-}
-#[inline]
-fn c_erfc(x: f64) -> f64 {
-    unsafe { erfc(x) }
-}
-#[inline]
-fn c_gamma(x: f64) -> f64 {
-    unsafe { tgamma(x) }
-}
+// erf / erfc / tgamma are not in stable Rust std. They used to be reached
+// through an `extern "C"` block, i.e. the system C libm -- the last real C in
+// this workspace, and a silent dependency on a platform libc that
+// wasm32-unknown-unknown does not have at all. `petir::real` supplies all
+// three in pure Rust (a musl-derived `libm`), which also makes them
+// bit-identical across platforms. See bn:op-chyp.6.
+//
+// The swap changes bits: measured against glibc, erf is 99.0 % bit-identical
+// and tgamma only 25.0 %, all within a few ulp. petir::real's docs carry the
+// full table.
+use petir::real::{erf as c_erf, erfc as c_erfc, tgamma as c_gamma};
 
 fn factorial(n: i32) -> f64 {
     (1..=n).fold(1.0_f64, |acc, i| acc * i as f64)

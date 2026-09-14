@@ -57,9 +57,11 @@ pub mod cheb_slice;
 pub mod error;
 pub mod expint;
 pub mod gamma_inc;
+pub mod real;
 
 pub use cheb::ChebSeries;
 pub use cheb_slice::{basis, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale};
 pub use error::{PetirError, Result};
 pub use expint::{expint_e1, expint_e1_scaled};
 pub use gamma_inc::{gamma_inc_lower, gamma_inc_p};
+pub use real::{erf, erfc, lgamma, tgamma};

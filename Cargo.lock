@@ -6253,6 +6253,7 @@ dependencies = [
  "approx",
  "ndarray",
  "ndarray-linalg",
+ "petir",
  "rayon",
  "thiserror 2.0.18",
  "uom 0.38.0",
@@ -6369,6 +6370,7 @@ name = "outram-park-fork-coolprop"
 version = "0.1.2"
 dependencies = [
  "approx",
+ "petir",
  "uom 0.38.0",
 ]
 
