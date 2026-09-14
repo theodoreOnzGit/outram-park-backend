@@ -34,6 +34,28 @@ transport-kernel verification and the classical ICSBEP criticals are **Part II**
 | ring-RPT | CSG surface-tracked | 1.36752 ± 0.00210 | 1.36479 ± 0.00067 | +273 pcm (1.2σ) |
 | naive homogenised | delta (Woodcock) | 1.32645 ± 0.00216 | — | — |
 
+### Two kinds of number here — do not read them the same way
+
+This table mixes an **agreement check** with a **physics measurement**, and
+"better" means the opposite thing for each. A reader skimming for big numbers
+will get this backwards.
+
+| | wants to be | why |
+|---|---|---|
+| `vs OpenMC` column (−460, −168, +273) | **small** | a code-to-code agreement check against a reference. Large means *this code is wrong*. |
+| `naive − explicit` (−3405) | **large** | the double-heterogeneity effect itself — the quantity the paper exists to measure. Small would mean the TRISO structure had stopped being modelled. |
+
+Concretely: **−460 pcm is good and +4004 pcm was a bug** (the F-19 threshold
+defect, 18.8σ, closed by #193). **−3405 pcm is not a bug and never was** — it
+is U-238's resonances losing their spatial self-shielding when the particles
+are smeared into the matrix, and it is the result. The two happen to be the
+same order of magnitude, which is precisely why they get confused.
+
+So: a fix that moves the `vs OpenMC` column toward zero is progress. A fix that
+moves `naive − explicit` toward zero would be a regression, and is the standing
+check that a code which had quietly stopped resolving the TRISO particles would
+fail.
+
 **The explicit pebble is now −460 pcm from the reference, at 2.2σ of the
 combined statistics** — no longer the clean agreement the +37 baseline showed.
 The trajectory across four days is `+4004 → −469 → +37 → −460`: the F-19
@@ -62,11 +84,15 @@ p +0.04 %, ε −0.08 %**, against +0.11 / −0.17 / +8.54 / −4.99 % before it
 Re-extract these at the continuous-kernel baseline before writing; the k rows
 moved and the factor rows quoted here are from 2026-09-12.
 
-`naive − explicit = −3575 pcm (10.9σ)` is the double-heterogeneity effect RPT
-exists to remove, and it stays **real and unchanged in character** across both
-fixes (−3191 → −3282 → −3575). That is the check that matters whenever a fix
-moves absolute k by hundreds of pcm: a code that had quietly stopped modelling
-the TRISO structure would have lost that number too.
+`naive − explicit = −3405 ± 294 pcm (11.6σ)` is the double-heterogeneity
+effect RPT exists to remove, and it stays **real and unchanged in character**
+across every fix so far (−3191 → −3282 → −3575 → −3405). That is the check that
+matters whenever a fix moves absolute k by hundreds of pcm: a code that had
+quietly stopped modelling the TRISO structure would have lost this number too.
+
+Its own movement is not a result — the −3575 → −3405 step is 170 pcm against
+~300 pcm of single-draw noise, so it is consistent with no change at all. Read
+it as "still ~11σ from zero", not as a trend.
 
 ## The defect story, which is the paper's methodological contribution
 
