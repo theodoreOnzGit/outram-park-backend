@@ -244,10 +244,29 @@ pub fn parse_mf5_section(section: &Section) -> Result<Vec<Mf5Subsection>, NjoyEr
                 }
             }
             12 => {
+                // The blocker is NOT the branch itself. `acefc.f90:7037-7126`
+                // is ~90 lines of adaptive linearization onto ACE LAW=4, which
+                // is a routine port. What it calls is the problem: `fmn`
+                // (`acefc.f90:9155-9176`) evaluates the Madland-Nix shape in
+                // terms of `e1`, the exponential integral, and `gami`, the
+                // incomplete gamma — both taken by NJOY from SLATEC
+                // (`mathm.f90:37-422` and `:424-445`, ~400 lines dominated by
+                // Chebyshev coefficient tables). Those are SLATEC's numerics
+                // rather than NJOY's own, they are absent from this crate, and
+                // transcribing the coefficient tables needs verifying against
+                // SLATEC itself, not against NJOY. That is its own task with
+                // its own oracle.
+                //
+                // Reachability, measured 2026-09-14: every MF=5 subsection in
+                // all nine evaluations under `reference-data/endf/` declares
+                // `LF = 1` (tabulated). No data held here takes this branch.
                 return Err(NjoyError::NotPorted(
-                    "MF=5 LF=12 (Madland-Nix fission spectrum) — needs acelf5's adaptive \
-                     linearization of the analytic Madland-Nix shape; out of the requested \
-                     LF=1/5/7/9/11 scope",
+                    "MF=5 LF=12 (Madland-Nix fission spectrum) — the branch itself is a \
+                     routine port of acefc.f90:7037-7126, but it needs `fmn` \
+                     (acefc.f90:9155), which needs the exponential integral `e1` and \
+                     incomplete gamma `gami` that NJOY takes from SLATEC \
+                     (mathm.f90:37-445); neither is ported here. No evaluation in \
+                     reference-data/endf/ uses LF=12",
                 ));
             }
             _ => {
