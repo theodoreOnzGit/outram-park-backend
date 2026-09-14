@@ -580,12 +580,11 @@ impl LeaprDeck {
     /// "it will be computed correctly".
     pub fn unsupported_features(&self) -> Vec<String> {
         let mut out = Vec::new();
-        if self.ncold != ColdOption::None {
-            out.push(format!(
-                "ncold = {} (cold H2/D2 Young-Koppel orchestrator is ported but not reference-validated)",
-                self.ncold.code()
-            ));
-        }
+        // `ncold` is NOT unsupported: the cold H2/D2 Young-Koppel orchestrator
+        // is ported, and as of 2026-09-14 it is validated against NJOY2016's
+        // own reference tape for its test 22 (para-hydrogen at 20 K, `ncold = 2`)
+        // — see `tests/leapr_cold_hydrogen_njoy_oracle.rs`. The entry was
+        // "ported but not reference-validated"; the validation now exists.
         // nsk = 2 (Sköld) is applied by `generate_tape` (`skold.rs`). nsk = 1
         // (Vineyard) only reads the S(kappa) table upstream — `ska` is used by
         // `coldh` and `skold` alone (`leapr.f90:359-372, 2463`) — so outside a

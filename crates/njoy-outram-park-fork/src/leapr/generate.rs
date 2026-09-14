@@ -150,6 +150,7 @@ use crate::leapr::continuous::phonon_expansion;
 use crate::leapr::discrete::add_discrete_oscillators;
 use crate::leapr::translation::add_translation;
 use crate::leapr::deck::LeaprDeck;
+use crate::leapr::coldh::add_cold_hydrogen;
 use crate::leapr::SabMatrix;
 use crate::leapr::input::ColdOption;
 use crate::leapr::decks::{embedded_deck_text, locate_deck, DeckSource, SabMaterial};
@@ -625,6 +626,11 @@ fn temperature_block_index(deck: &LeaprDeck, temperature_k: f64) -> Result<usize
 pub struct TemperatureLaw {
     /// The (merged, for a mixed moderator) negative-beta asymmetric law.
     pub ssm: SabMatrix,
+    /// The **positive**-beta half, present only for a cold H2/D2 deck
+    /// (`ncold != 0`). `coldh` stores the signed law in two matrices
+    /// (`leapr.f90:2132-2133`), and `isym = 1` tells `endout` to read each half
+    /// from its own — see the `isym` note in [`generate_tape`].
+    pub ssp: Option<SabMatrix>,
     /// Principal Debye-Waller integral `W'(T)` \[1/eV\], divided by `awr T k_B`.
     pub dwpix: f64,
     /// Principal effective temperature \[K\].
@@ -693,6 +699,27 @@ pub fn build_law_at_temperature(
     // `tempf`; a no-op when the deck declares no oscillators.
     add_discrete_oscillators(&mut ssm, &input, &mut dwpix, &mut tempf);
 
+    // `coldh` (leapr.f90:386-387, 1950-2250): the cold H2/D2 Young-Koppel
+    // treatment. It runs after `discre` and before `skold`, and unlike every
+    // earlier stage it produces a law on the SIGNED beta grid: negative beta
+    // stays in `ssm`, positive beta goes to `ssp` (`leapr.f90:2132-2133`).
+    // That is why `ncold != None` forces `isym = 1` below — the two halves are
+    // stored separately and `endout` reads each from its own matrix.
+    let mut ssp = None;
+    if deck.ncold != ColdOption::None {
+        let pc = deck.temperatures[block].pair_correlation.as_ref();
+        // `ska`/`dka` are the S(kappa) pair-correlation table; `coldh` reads
+        // them through `terpk` and treats an absent table as kappa-free
+        // (`nokap`), which is the deck's own default when card 12 is omitted.
+        let (ska, dka): (&[f64], f64) = match pc {
+            Some(pc) => (&pc.skappa, pc.dka),
+            None => (&[], 1.0),
+        };
+        let mut sp = SabMatrix::zeros(deck.beta.len(), deck.alpha.len());
+        add_cold_hydrogen(&mut ssm, &mut sp, &input, deck.ncold, ska, dka, tempf);
+        ssp = Some(sp);
+    }
+
     // `skold` (leapr.f90:389-390, 2816-2862): Sköld intermolecular coherence
     // when nsk = 2 and no cold-hydrogen treatment; T_eff is untouched.
     if deck.nsk == 2 && deck.ncold == ColdOption::None {
@@ -752,6 +779,7 @@ pub fn build_law_at_temperature(
     let dwpix = dwpix / (deck.awr * temperature_k * bk);
     Ok(TemperatureLaw {
         ssm,
+        ssp,
         dwpix,
         tempf,
         tempf_secondary,
@@ -806,6 +834,7 @@ pub fn generate_tape(
     let block = temperature_block_index(deck, temperature_k)?;
     let TemperatureLaw {
         ssm,
+        ssp,
         dwpix,
         tempf,
         tempf_secondary,
@@ -867,14 +896,22 @@ pub fn generate_tape(
             ElasticChannel::Generate | ElasticChannel::GenerateExactDebyeWaller,
             ElasticOption::Incoherent,
         ) => {
-            // `endout` can write the LTHR=2 Debye-Waller section, but the bound
-            // cross section `sb` it needs is a LEAPR quantity no code path here
-            // computes. Refusing beats inventing a plausible number.
-            return Err(NjoyError::NotPorted(
-                "incoherent-elastic (iel < 0) output needs the bound cross section \
-                 `sb`, which this port does not compute — request ElasticChannel::Omit \
-                 or supply the elastic channel from a tape",
-            ));
+            // `sb` is the free-atom cross section converted to bound
+            // (`leapr.f90:3014`):
+            //
+            // ```text
+            //   sb = spr*((1+awr)/awr)**2
+            // ```
+            //
+            // and the section stores `sb*npr` (`leapr.f90:3169`). All three
+            // inputs — `spr`, `awr`, `npr` — are card-1 deck values, so nothing
+            // needs computing beyond this line; the earlier refusal here
+            // ("this port does not compute `sb`") was simply looking in the
+            // wrong place for it. `endout` already writes the rest of the
+            // LTHR=2 section, including the W'(T) table.
+            ElasticOutput::Incoherent {
+                sb_npr: bound_cross_section_times_npr(deck.spr, deck.awr, deck.npr),
+            }
         }
         // Every built-in lattice is monatomic, so the exact and compound
         // Debye-Waller treatments coincide there and the two channels share
@@ -926,7 +963,7 @@ pub fn generate_tape(
         tempf_secondary,
         dwpix_secondary,
         ssm: vec![ssm],
-        ssp: None,
+        ssp: ssp.map(|m| vec![m]),
         npr: deck.npr,
         spr: deck.spr,
         elastic: elastic_output,
@@ -1256,9 +1293,71 @@ fn regenerate_cached(request: &SabRequest) -> Result<Arc<Mf7>, NjoyError> {
     Ok(law)
 }
 
+/// `sb*npr` for the LTHR=2 incoherent-elastic section — the free-atom cross
+/// section converted to bound, times the number of principal atoms.
+///
+/// `leapr.f90:3014` computes the bound cross section as
+///
+/// ```text
+///   sb = spr*((1+awr)/awr)**2
+/// ```
+///
+/// and `leapr.f90:3169` stores `sb*npr` as the section's `C1`. All three
+/// inputs are card-1 deck values (`awr spr npr iel ncold nsk`), so this is the
+/// whole of it.
+///
+/// # No end-to-end oracle exists here, and that is worth stating
+///
+/// Neither `reference-data/leapr/` (H₂O, D₂O, SiO₂ — none incoherent-elastic)
+/// nor NJOY2016's own test suite (test 22 is para-H₂ with `iel = 0`, test 23 is
+/// BeO with `iel = 3`) contains a LEAPR deck with `iel < 0`, so there is no
+/// NJOY run to compare a generated tape against. What *is* verified is the
+/// translation itself, against the two cited lines
+/// ([`bound_cross_section_matches_leapr_3014`]).
+///
+/// The obvious substitute oracle does not work, and the reason is worth
+/// recording: ENDF/B-VIII.0's `tsl-HinZrH` carries both sides of the identity —
+/// MF=7/MT=4's `B(1) = npr*spr = 20.43634` and `B(3) = awr = 0.99917`, and
+/// MF=7/MT=2's `C1 = 81.98006`. Applying this formula to that evaluation's own
+/// constants gives **81.8133**, i.e. **0.2 % below** what the same evaluation
+/// stores. That is an inconsistency inside the evaluation (or evidence it was
+/// not produced by these cards), not a defect here, so it is documented rather
+/// than encoded as a tolerance.
+pub(crate) fn bound_cross_section_times_npr(spr: f64, awr: f64, npr: i32) -> f64 {
+    spr * ((1.0 + awr) / awr).powi(2) * f64::from(npr)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
+    /// The `sb` translation, against its two source lines. `leapr.f90:3014`
+    /// gives `sb = spr*((1+awr)/awr)**2` and `:3169` stores `sb*npr`.
+    ///
+    /// Worked with NJOY test 22's own para-hydrogen card values
+    /// (`.99917 20.478 2 0 2/` — `awr = 0.99917`, `spr = 20.478`, `npr = 2`),
+    /// so the inputs are a real deck's, not invented: the bound factor is
+    /// `((1+0.99917)/0.99917)^2 = 4.0033234...`, giving `sb = 81.980...` and
+    /// `sb*npr = 163.96...`.
+    #[test]
+    fn bound_cross_section_matches_leapr_3014() {
+        let (spr, awr, npr) = (20.478_f64, 0.99917_f64, 2);
+        let factor = ((1.0 + awr) / awr).powi(2);
+        // The factor itself, stated independently of the function.
+        assert!(
+            (factor - 4.003_323_4).abs() < 1.0e-6,
+            "bound factor {factor} != 4.0033234"
+        );
+        let got = bound_cross_section_times_npr(spr, awr, npr);
+        let want = spr * factor * 2.0;
+        assert!((got - want).abs() < 1.0e-12 * want, "{got} != {want}");
+        // npr scales it linearly, and npr = 0 is a degenerate but legal deck.
+        assert!(
+            (bound_cross_section_times_npr(spr, awr, 1) * 2.0 - got).abs() < 1.0e-12 * got
+        );
+        assert_eq!(bound_cross_section_times_npr(spr, awr, 0), 0.0);
+    }
 
     fn t(k: f64) -> Temperature {
         Temperature::new::<kelvin>(k)
