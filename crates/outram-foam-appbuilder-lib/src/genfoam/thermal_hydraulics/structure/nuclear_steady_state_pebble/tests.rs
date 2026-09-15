@@ -218,3 +218,181 @@ fn the_gfhr_pebble_rise_fits_inside_upstreams_reported_temperatures() {
          which is not a physical pebble-bed film drop for this flow"
     );
 }
+
+/// **V&V — gFHR: reproducing upstream's `Tfmax_min` from upstream's own case
+/// data, at upstream's own tolerance.**
+///
+/// ## Why the minimum, and only the minimum, is reachable
+///
+/// The peak-fuel temperature of a pebble is
+///
+/// ```text
+///   Tfmax = T_fluid + q_surf/h + dT_pebble
+/// ```
+///
+/// `dT_pebble` is the ported [`PebbleGeometry::steady_temperatures`] chain and is
+/// a constant across this bed (uniform power, uniform `alpha`). `q_surf/h` is the
+/// convective film drop. The only unknown is `T_fluid`, and computing it through
+/// the bed needs the three-dimensional porous flow solve this crate does not
+/// have.
+///
+/// **But at one place `T_fluid` is known exactly without any solve**: the inlet
+/// plane, where upstream's own `0/fluidRegion/T` fixes it at 823.15 K. The
+/// coldest pebble in the bed is the one sitting there, so `Tfmax_min` — and
+/// nothing else in upstream's triple — can be reconstructed from first
+/// principles.
+///
+/// The bed-average and maximum cannot: upstream's `Tfmax` spread is 162.206 K
+/// against a mean coolant rise of only `P/(m_dot c_p) = 105.2 K`, so the bed is
+/// meaningfully flow-maldistributed and no one-dimensional reduction recovers
+/// those two.
+///
+/// ## Methodology
+///
+/// Every input is upstream's own, from the `3D_gFHR` case at commit `652b3da`:
+///
+/// | quantity | value | source |
+/// |---|---|---|
+/// | `m_dot` | 1173 kg/s | the arithmetic in `0/fluidRegion/U`'s own comment |
+/// | `rho(T)` | `2413.03 − 0.4884 T` | `thermophysicalProperties`, `rhoCoeffs` |
+/// | `c_p` | 2265.75 J/(kg K) | `CpCoeffs` |
+/// | `mu` | 1e-3 Pa s | `muCoeffs` |
+/// | `kappa` | 1.1 W/(m K) | `kappaCoeffs` |
+/// | `D_h` | 0.0255737704918 m | `structureProperties/Core` |
+/// | core radius | 1.2 m | `cylinderMesh.m4`, `define(r, 120)` |
+/// | `Nu` | `2 + 1.1 Re^0.6 Pr^(1/3)` | `heatTransferModels/Core`, Wakao |
+/// | `a_v` | `3 alpha / r_shell` | upstream's own comment in `phaseProperties` |
+/// | `T_inlet` | 823.15 K | `0/fluidRegion/T`, `bottom` |
+///
+/// The Nusselt correlation is evaluated through this crate's **ported** closure
+/// [`FsForcedConvectionHtc::Nusselt`], not a hand-written formula, so the
+/// correlation itself is part of what is under test.
+///
+/// Upstream reference: `expectedTfmaxMin = 900.664 K`, at upstream's own
+/// `Alltest` tolerance of `error = 0.01` (1 % relative).
+///
+/// ## Results (measured 2026-09-15)
+///
+/// | quantity | value |
+/// |---|---|
+/// | `Re` | 1.087e4 |
+/// | `Pr` | 2.060 |
+/// | `Nu` (Wakao) | 372.0 |
+/// | `h` | 1.600e4 W/(m² K) |
+/// | film drop `q_surf/h` | 13.64 K |
+/// | pebble rise `dT_pebble` | 61.67 K |
+/// | **`Tfmax_min` reconstructed** | **898.46 K** |
+/// | upstream `expectedTfmaxMin` | 900.664 K |
+/// | difference | **−2.20 K = −0.24 %** |
+///
+/// Inside upstream's own 1 % tolerance (9.01 K), with no fitted parameter.
+///
+/// **Where the 2.2 K sits, and why it has the sign it does.** The reconstruction
+/// evaluates at the inlet *plane*; upstream's minimum is over *cell centres*, and
+/// the first cell centre is half a cell above the inlet. With 75 cells over
+/// 3.0947 m and a 105.2 K mean rise, half a cell is about 0.70 K of fluid
+/// heating. The remainder is flow maldistribution near the inlet, which also
+/// perturbs the local `Re` and hence `h`. Both effects push upstream's value
+/// *above* the inlet-plane reconstruction, which is the sign observed.
+#[test]
+fn the_gfhr_minimum_peak_fuel_temperature_reproduces_upstream() {
+    use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc;
+    use crate::genfoam::thermal_hydraulics::closures::heat_transfer::PrandtlNumber;
+    use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
+    use uom::si::f64::{Length, ThermalConductivity};
+    use uom::si::length::meter;
+    use uom::si::ratio::ratio;
+    use uom::si::thermal_conductivity::watt_per_meter_kelvin;
+
+    // Upstream's fluid and flow data.
+    const MASS_FLOW: f64 = 1173.0; // kg/s
+    const CP: f64 = 2265.75; // J/(kg K)
+    const MU: f64 = 1.0e-3; // Pa s
+    const KAPPA: f64 = 1.1; // W/(m K)
+    const D_H: f64 = 0.0255737704918; // m
+    const CORE_RADIUS: f64 = 1.2; // m
+
+    let g = gfhr();
+    let k = gfhr_k();
+
+    // Density from upstream's own polynomial at the inlet temperature.
+    let rho = 2413.03 - 0.4884 * T_COOLANT_INLET;
+    // Velocity exactly as upstream's own U boundary condition computes it:
+    // mdot/(rho * pi r^2 * volumeFraction).
+    let area = std::f64::consts::PI * CORE_RADIUS * CORE_RADIUS * GFHR_SOLID_FRACTION;
+    let velocity = MASS_FLOW / (rho * area);
+
+    let re = rho * velocity * D_H / MU;
+    let pr = MU * CP / KAPPA;
+
+    // Wakao, through the ported closure rather than a hand-written formula.
+    let wakao = FsForcedConvectionHtc::Nusselt {
+        a: 2.0,
+        b: 1.1,
+        c: 0.6,
+        d: 1.0 / 3.0,
+        e: 0.0,
+    };
+    let h = wakao
+        .heat_transfer_coefficient(
+            ReynoldsNumber::new::<ratio>(re),
+            PrandtlNumber::new::<ratio>(pr),
+            ThermalConductivity::new::<watt_per_meter_kelvin>(KAPPA),
+            Length::new::<meter>(D_H),
+            None,
+        )
+        .value;
+    let nu = h * D_H / KAPPA;
+
+    // Interfacial area density, upstream's own identity a_v = 3 alpha / r_shell.
+    let a_v = 3.0 * GFHR_SOLID_FRACTION / g.shell_radius;
+    let q_surf = GFHR_POWER_DENSITY / a_v;
+    let film = q_surf / h;
+
+    let t = g.steady_temperatures(
+        T_COOLANT_INLET + film,
+        GFHR_POWER_DENSITY,
+        GFHR_SOLID_FRACTION,
+        &k,
+    );
+    let reconstructed = t.fuel_max;
+    let error = reconstructed - TFMAX_MIN;
+    let tolerance = 0.01 * TFMAX_MIN; // upstream's own Alltest tolerance
+
+    println!(
+        "\n=== gFHR Tfmax_min reconstructed from upstream's own case data ===\n\
+         \trho(823.15 K)      {rho:9.2} kg/m3\n\
+         \tvelocity           {velocity:9.6} m/s   (mdot/(rho A alpha))\n\
+         \tRe                 {re:9.4e}\n\
+         \tPr                 {pr:9.4}\n\
+         \tNu (Wakao, ported) {nu:9.2}\n\
+         \th                  {h:9.4e} W/(m2 K)\n\
+         \ta_v                {a_v:9.2} 1/m\n\
+         \tq_surf             {q_surf:9.4e} W/m2\n\
+         \t--\n\
+         \tfilm drop          {film:9.3} K\n\
+         \tpebble rise        {:9.3} K\n\
+         \tTfmax_min (recon)  {reconstructed:9.3} K\n\
+         \tTfmax_min upstream {TFMAX_MIN:9.3} K\n\
+         \tdifference         {error:+9.3} K  ({:+.3} %), tolerance +/-{tolerance:.2} K",
+        t.total_rise(),
+        100.0 * error / TFMAX_MIN,
+    );
+
+    assert!(
+        error.abs() < tolerance,
+        "the reconstructed Tfmax_min is {reconstructed:.3} K against upstream's \
+         {TFMAX_MIN} K, a difference of {error:+.3} K, outside upstream's own \
+         1 % tolerance of {tolerance:.2} K"
+    );
+    // The sign is predicted: upstream's minimum is at the first cell CENTRE,
+    // half a cell above the inlet plane this reconstructs, so upstream must be
+    // the warmer of the two.
+    assert!(
+        error < 0.0,
+        "the reconstruction ({reconstructed:.3} K) is ABOVE upstream's minimum \
+         ({TFMAX_MIN} K). The inlet plane is colder than any cell centre, so the \
+         reconstruction must come out below — this sign inversion means the film \
+         drop or the pebble rise is overstated."
+    );
+}
