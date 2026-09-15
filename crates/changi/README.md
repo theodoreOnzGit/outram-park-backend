@@ -1,12 +1,34 @@
 # CHANGI
 
-Atmospheric dispersion, plume transport, deposition and ground contamination for
-the OUTRAM PARK suite — *"what happens after release?"*
+**C**onsequence and **H**azard **A**nalysis for **N**uclear **G**round-level and
+atmospheric **I**mpacts.
 
-> **No acronym expansion is claimed.** Several crates here spell theirs out
-> (PETIR, RAFFLES, BOON-LAY); CHANGI's reserved-name entries in `GOVERNANCE.md`
-> and `docs/ecosystem-naming.md` give a scope but no expansion, so none is
-> invented here. That is the maintainer's to choose.
+Atmospheric consequences for the OUTRAM PARK suite — *"what happens after
+release?"*
+
+## Scope
+
+- Atmospheric dispersion
+- Plume transport
+- Radionuclide deposition
+- Ground contamination
+- Radiological consequence assessment
+- Dose assessment
+- Emergency planning support
+- Level 3 PSA support
+
+**Input:** source terms produced by SEMBAWANG (reserved name, not yet created).
+Until SEMBAWANG exists, a release-rate time series has to be supplied by hand —
+FLEXPART needs nothing more than that from the accident side.
+
+> **The last four scope items are capabilities, not claims of authority.**
+> `docs/ecosystem-naming.md` decision 3 draws this line explicitly: *"The
+> capability is in scope; that framing is not."* CHANGI may implement
+> consequence and dose assessment methods and the machinery an emergency-planning
+> or Level 3 PSA study needs. Its outputs must not be presented as authoritative
+> for operational emergency response, for dose assessment of real populations, or
+> for regulatory Level 3 PSA — see the intended-use limit below, which comes from
+> `RESPONSIBLE_USE.md` and is unchanged.
 
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
@@ -17,13 +39,19 @@ Named for Changi, following the workspace's Singapore-place-name convention.
 
 **CHANGI is for research, education and verification/validation only.**
 
-It must **not** be presented as, or used for, emergency planning, emergency
-response, dose assessment for real populations, operational Level 3 PSA support,
-or any safety-critical or licensing decision. This limit comes from the workspace
-`RESPONSIBLE_USE.md` and was fixed as a deliberate decision when the CHANGI name
-was reserved (`docs/ecosystem-naming.md`, decision 3, 2026-08-05) — the original
-naming draft claimed emergency-response capability and was corrected precisely
-because it contradicted that policy. Do not reintroduce that framing.
+Its outputs must **not** be treated as authoritative for operational emergency
+response, dose assessment of real populations, regulatory or licensing
+decisions, or any safety-critical purpose. This limit comes from the workspace
+`RESPONSIBLE_USE.md` (§ intended use, and line 43: outputs "must not be treated
+as authoritative for safety, licensing, operational, regulatory, or
+emergency-response purposes") and from `docs/ecosystem-naming.md` decision 3
+(2026-08-05).
+
+The distinction decision 3 draws is between **capability** and **framing**:
+implementing consequence-assessment, dose and Level 3 PSA *methods* is in scope;
+presenting the results as fit for operational use is not. Do not reintroduce the
+operational framing — an earlier naming draft did, and it was corrected for
+exactly this reason.
 
 ## Where it sits
 

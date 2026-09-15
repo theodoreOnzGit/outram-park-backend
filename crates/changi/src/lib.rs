@@ -1,27 +1,41 @@
 // SPDX-License-Identifier: GPL-3.0
 
-//! # CHANGI — atmospheric dispersion, deposition and ground contamination
+//! # CHANGI — atmospheric consequences
+//!
+//! **C**onsequence and **H**azard **A**nalysis for **N**uclear **G**round-level
+//! and atmospheric **I**mpacts.
 //!
 //! CHANGI answers *"what happens after release?"*: how a radionuclide plume is
 //! transported through the atmosphere, how it is depleted by dry and wet
-//! deposition and radioactive decay, and where it reaches the ground.
+//! deposition and radioactive decay, where it reaches the ground, and what
+//! consequence that implies.
 //!
-//! It sits third in the OUTRAM PARK offsite chain — SEMBAWANG (severe accident:
-//! *what gets released?*) → **CHANGI** (dispersion: *what happens after
-//! release?*) → REDHILL (groundwater: *what happens after deposition?*).
+//! It is the middle link of the OUTRAM PARK offsite chain — SEMBAWANG (severe
+//! accident: *what gets released?*) → **CHANGI** (*what happens after
+//! release?*) → REDHILL (*what happens after deposition and infiltration?*).
+//! Its input is a source term produced by SEMBAWANG; until that crate exists, a
+//! release-rate time series must be supplied by hand.
 //!
-//! ## Intended use — binding scope limit
+//! ## Scope
 //!
-//! **CHANGI is for research, education and verification/validation only.**
+//! Atmospheric dispersion; plume transport; radionuclide deposition; ground
+//! contamination; radiological consequence assessment; dose assessment;
+//! emergency planning support; Level 3 PSA support.
 //!
-//! It must **not** be presented as, or used for, emergency planning, emergency
-//! response, dose assessment for real populations, operational Level 3 PSA
-//! support, nuclear facility operation, or any safety-critical or licensing
-//! decision. This limit is set by the workspace `RESPONSIBLE_USE.md` and was
-//! recorded as a deliberate decision when the CHANGI name was reserved
-//! (`docs/ecosystem-naming.md`, decision 3, 2026-08-05); the original naming
-//! draft claimed emergency-response capability and was corrected precisely
-//! because it contradicted that policy. Do not reintroduce that framing.
+//! ## Intended use — binding limit
+//!
+//! **CHANGI is for research, education and verification/validation only.** Its
+//! outputs must **not** be treated as authoritative for operational emergency
+//! response, dose assessment of real populations, regulatory or licensing
+//! decisions, nuclear facility operation, or any safety-critical purpose.
+//!
+//! The line, drawn by `docs/ecosystem-naming.md` decision 3 (2026-08-05), is
+//! between **capability and framing**: *"The capability is in scope; that
+//! framing is not."* Implementing consequence-assessment, dose and Level 3 PSA
+//! *methods* is in scope — the last four scope items above are exactly that.
+//! Presenting the results as fit for operational use is not, per
+//! `RESPONSIBLE_USE.md`. An earlier naming draft blurred the two and was
+//! corrected; do not reintroduce the operational framing.
 //!
 //! ## Status
 //!

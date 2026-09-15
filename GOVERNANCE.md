@@ -182,8 +182,8 @@ planned scope, not places to send code yet.
 | **BEDOK** | System-level multiphysics coupling — TH and neutronics coupled above 1-D neutronics fidelity but below CFD fidelity; reactor transient simulation, reduced-order multiphysics | Exists (`bedok`) |
 | **OUTRAM-FOAM** | OpenFOAM-derived workflows, CFD, high-fidelity multiphysics, GeN-Foam-derived capability | Exists (`outram-foam-*`) |
 | **SEMBAWANG** | Severe accident progression — melt behaviour, relocation, vessel failure, MCCI, hydrogen, aerosols, source term. *"What gets released?"* | Reserved name |
-| **CHANGI** | Atmospheric dispersion, plume transport, deposition, ground contamination, dose assessment. *"What happens after release?"* | Exists (`changi`) — first FLEXPART slice ported |
-| **REDHILL** | Groundwater and geological transport, subsurface radionuclide migration, porous-media flow. *"What happens after deposition?"* | Reserved name |
+| **CHANGI** — *Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts* | Atmospheric dispersion, plume transport, radionuclide deposition, ground contamination, radiological consequence assessment, dose assessment, emergency-planning support, Level 3 PSA support. Input: source terms from SEMBAWANG. *"What happens after release?"* | Exists (`changi`) — first FLEXPART slice ported |
+| **REDHILL** — *Radionuclide Effluent Dispersion solver for Hydrogeological Infiltration and Leaching through Layers* | Groundwater transport, geological migration, subsurface radionuclide transport, PFLOTRAN-based workflows, porous-media flow, repository assessment, long-term environmental transport. *"What happens after deposition and infiltration?"* | Reserved name |
 
 **TUAS does not own** compressible flow, multiphase flow, general steam tables,
 or general equation-of-state infrastructure. Those are TAMPINES.
