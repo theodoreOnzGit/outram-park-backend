@@ -184,6 +184,34 @@ entirely I/O.
 - `outram_foam_appbuilder_lib::io::poly_mesh` — `parse_cell_zones`,
   `read_cell_zones`, `zone_of_cell`.
 
+## Routes that were checked and ruled out
+
+Recorded so they are not re-searched.
+
+- **Running upstream.** The definitive route, and it is barred: `dl.openfoam.com`
+  and `develop.openfoam.com` both return 403 on CONNECT under this session's
+  egress policy. Ubuntu `universe` carries only OpenFOAM v1912, seven years of
+  API drift from the v2506 GeN-Foam builds against, so the distro package is not
+  a substitute.
+- **Upstream's own `tests/` directory.** Contains only
+  `hydrogenThermophysicalProperties` and `radialBasisFunctions` build tests. No
+  reference values.
+- **A one-phase water-cooled substitute for PSBT.** Every `featureCases` entry
+  that ships reference values and uses water is two-phase (`1D_PSBT_SC` ×4,
+  `1D_CHF`, `1D_boiling`). `2D_fullCoupling` and
+  `2D_onePhaseAndPointKineticsCoupling` are one-phase but carry no reference
+  values and are generic coupling demos, not reactor cases. `2D_KNS37-L22` is
+  sodium.
+- **Reducing gFHR's convective coupling to closed form.** The case's own mesh
+  (r = 1.2 m, h = 3.0947 m) and power density give 279.5 MW, independently
+  confirming the 280 MW in upstream's `lumped_structure.py`; with
+  `mdot = 1173 kg/s` and `cp = 2265.75 J/(kg·K)` the mean coolant rise is
+  105.2 K. But upstream's `Tfmax` spread is **162.2 K**, half again larger, and
+  the film drop implied by `Tfmax_min` (15.8 K) disagrees with the one implied by
+  `Tfmax_avg` (44.4 K). That gap is three-dimensional flow maldistribution
+  through the bed, so no one-dimensional reduction recovers the statistics. The
+  porous flow solve is genuinely required.
+
 ## Scope
 
 None of this is validation against experiment. The two `k_eff` cases compare
