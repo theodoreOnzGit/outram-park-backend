@@ -38,7 +38,7 @@ pub mod linearize;
 pub mod mf1;
 pub mod mf2;
 pub mod rm;
-mod urr;
+pub mod urr;
 pub mod rml;
 pub mod slbw;
 

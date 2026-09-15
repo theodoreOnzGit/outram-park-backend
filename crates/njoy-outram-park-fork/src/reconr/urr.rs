@@ -88,7 +88,7 @@
 
 use crate::endf::mt::MtReaction;
 use crate::mixr::mix::sigfig;
-use crate::reconr::ReconrSection;
+use crate::reconr::{eval_lin_lin, ReconrSection};
 use crate::unresr::mf2::{ilist, UnresolvedCase, UnresolvedRange};
 use crate::unresr::unresolved_cross_sections;
 use crate::unresr::wfun::WTable;
@@ -122,46 +122,101 @@ fn unresolved_grid(range: &UnresolvedRange) -> Vec<f64> {
     // will be inserted (`unresr.f90:753-781`).
     let mut list = vec![f64::MAX];
 
-    let mut tabulated = 0usize;
-    if let UnresolvedCase::CaseC { l_states, .. } = &range.case_ {
-        for l in l_states {
-            for j in &l.j_states {
-                for p in &j.points {
-                    if p.e > range.el && p.e < range.eh {
-                        ilist(p.e, &mut list);
-                        tabulated += 1;
+    // The parameter energies, in `eunr` order. Upstream takes `ener >= el` and
+    // `ener < eh` (`reconr.f90:1500`), so the range bottom IS a grid point and
+    // the range top is NOT -- the top is carried by the shaded node below.
+    let mut params: Vec<f64> = Vec::new();
+    match &range.case_ {
+        UnresolvedCase::CaseC { l_states, .. } => {
+            for l in l_states {
+                for j in &l.j_states {
+                    for p in &j.points {
+                        params.push(p.e);
                     }
                 }
             }
         }
+        UnresolvedCase::CaseB {
+            fission_energies, ..
+        } => params.extend(fission_energies.iter().copied()),
+        UnresolvedCase::CaseA { .. } => {}
     }
-    if let UnresolvedCase::CaseB {
-        fission_energies, ..
-    } = &range.case_
-    {
-        for &e in fission_energies {
-            if e > range.el && e < range.eh {
-                ilist(e, &mut list);
-                tabulated += 1;
+    params.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    params.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+    // NOTE: do NOT filter the list here. `rdf2u2` tests `ener >= el .and.
+    // ener < eh` to decide whether to ADD an energy, but reads `enex` as the
+    // next tabulated energy unconditionally (`reconr.f90:1500-1503`). Dropping
+    // out-of-range entries first loses the gap-fill above the last in-range
+    // parameter -- on U-234 that silently cost 7.2e4 and 8.5e4, two of the
+    // twenty-seven points NJOY stores.
+    let in_range = |e: f64| e >= range.el && e < range.eh;
+
+    if params.iter().copied().filter(|&e| in_range(e)).count() == 0 {
+        // Case A, and Case B with no fission grid, tabulate no energies of
+        // their own. Upstream's `eunr` would then carry only the bounds; a
+        // two-point lin-lin grid across two decades of a cross section varying
+        // like 1/sqrt(E) is not defensible, so fill logarithmically. **This is
+        // the only part of this function that is not a literal translation,
+        // and it is unverified against NJOY** -- no held evaluation reaches it.
+        let (lo, hi) = (range.el.max(1.0e-5), range.eh);
+        for i in 1..FALLBACK_FILL {
+            let f = i as f64 / FALLBACK_FILL as f64;
+            ilist(sigfig(lo * (hi / lo).powf(f), 7, 0), &mut list);
+        }
+    } else {
+        for (i, &ener) in params.iter().enumerate() {
+            if !in_range(ener) {
+                continue;
+            }
+            ilist(sigfig(ener, 7, 0), &mut list);
+            // `rdf2u2`, `reconr.f90:1499-1533`: where the next parameter energy
+            // is more than `wide` away, fill the gap from the built-in grid, so
+            // the stored table is not linearly interpolated across a factor of
+            // two in energy.
+            let Some(&enex) = params.get(i + 1) else {
+                continue;
+            };
+            if enex <= WIDE * ener {
+                continue;
+            }
+            let mut e = ener;
+            loop {
+                // Advance to the first `egridu` node above `e + e/1000`
+                // (`:1515-1521`).
+                let Some(&next) = EGRIDU.iter().find(|&&g| g >= e + e / 1000.0) else {
+                    break;
+                };
+                e = next;
+                if e >= enex {
+                    break;
+                }
+                ilist(sigfig(e, 7, 0), &mut list);
             }
         }
     }
 
-    if tabulated == 0 {
-        // See the divergence note on this function.
-        let (lo, hi) = (range.el.max(1.0e-5), range.eh);
-        for i in 1..FALLBACK_FILL {
-            let f = i as f64 / FALLBACK_FILL as f64;
-            ilist(lo * (hi / lo).powf(f), &mut list);
-        }
-    }
-
+    // Shaded range bounds (`reconr.f90:757-775`).
     ilist(sigfig(range.el, 7, 1), &mut list);
     ilist(sigfig(range.eh, 7, -1), &mut list);
 
     list.retain(|&e| e.is_finite() && e > 0.0 && e < f64::MAX);
     list
 }
+
+/// Gap factor above which `rdf2u2` fills from [`EGRIDU`] (`reconr.f90:1339`).
+const WIDE: f64 = 1.26;
+
+/// NJOY's built-in unresolved fill grid (`egridu`, `reconr.f90:1239-1251`) --
+/// 78 nodes on the 1, 1.25, 1.5, 1.7, 2, 2.5, 3, 3.5, 4, 5, 6, 7.2, 8.5 pattern
+/// from 10 eV to 8.5 MeV.
+const EGRIDU: [f64; 78] = [
+    1.0e1, 1.25e1, 1.5e1, 1.7e1, 2.0e1, 2.5e1, 3.0e1, 3.5e1, 4.0e1, 5.0e1, 6.0e1, 7.2e1, 8.5e1,
+    1.0e2, 1.25e2, 1.5e2, 1.7e2, 2.0e2, 2.5e2, 3.0e2, 3.5e2, 4.0e2, 5.0e2, 6.0e2, 7.2e2, 8.5e2,
+    1.0e3, 1.25e3, 1.5e3, 1.7e3, 2.0e3, 2.5e3, 3.0e3, 3.5e3, 4.0e3, 5.0e3, 6.0e3, 7.2e3, 8.5e3,
+    1.0e4, 1.25e4, 1.5e4, 1.7e4, 2.0e4, 2.5e4, 3.0e4, 3.5e4, 4.0e4, 5.0e4, 6.0e4, 7.2e4, 8.5e4,
+    1.0e5, 1.25e5, 1.5e5, 1.7e5, 2.0e5, 2.5e5, 3.0e5, 3.5e5, 4.0e5, 5.0e5, 6.0e5, 7.2e5, 8.5e5,
+    1.0e6, 1.25e6, 1.5e6, 1.7e6, 2.0e6, 2.5e6, 3.0e6, 3.5e6, 4.0e6, 5.0e6, 6.0e6, 7.2e6, 8.5e6,
+];
 
 /// Bisection depth cap per interval while refining the unresolved grid.
 const MAX_REFINE_DEPTH: usize = 10;
@@ -242,6 +297,147 @@ fn refine_unresolved_grid(
     out.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
     Ok(out)
 }
+
+/// Build the **MF=2/MT=152** unresolved table RECONR writes to the PENDF —
+/// ported from `genunr` (`reconr.f90:1628-1735`).
+///
+/// # What the section is for
+///
+/// `genunr` evaluates the infinitely-dilute unresolved cross sections on the
+/// `eunr` grid and stores them in this section; `sigunr` (`:1737-1769`) then
+/// interpolates *this table* to fill MF=3 at energies `eunr` does not carry.
+/// Downstream, GROUPR's `stounr` reads it back — which in this crate is
+/// [`crate::groupr::urr_pendf::read_urr_from_tape`], so writing it here closes
+/// a loop that was previously open at both ends.
+///
+/// # Record layout (`sunr`, `reconr.f90:1650-1663`)
+///
+/// ```text
+/// CONT:  ZA, AWR, LSSF, 0, 0, INTUNR
+/// LIST:  TEMP, 0, NX=5, NSIG0=1, NW=1+6*NUNR, NUNR
+///        body: BIG=1e10, then per energy
+///              E, total, elastic, fission, capture, total-again
+/// ```
+///
+/// The fifth column really is the total a second time
+/// (`sunr(l+5)=sunr(l+1)`, `:1690`), not a transport cross section — worth
+/// knowing before comparing it against a kernel whose fifth output is
+/// transport.
+///
+/// # Two details that are easy to miss
+///
+/// - **For `LSSF = 0` the stored values include the MF=3 background**
+///   (`:1694-1727`): `genunr` walks the evaluation's MF=3 and adds it to
+///   column `ix` = 1, 2, 3, 4 for MT = 1, 2, 18, 102, updating the duplicate
+///   column 5 alongside column 1. For `LSSF ≠ 0` it returns before that
+///   (`:1694`) and stores the bare cross sections.
+/// - **Every stored value is rounded to seven significant figures** with
+///   `sigfig(...,7,0)` (`:1719`, `:1723`). That rounding is the resolution
+///   floor any comparison against this table runs into, and reproducing it
+///   here keeps a round-trip through
+///   [`crate::groupr::urr_pendf::read_urr_from_tape`] exact rather than
+///   nearly-exact.
+///
+/// Returns `None` when the material has no `LRU = 2` range, matching upstream's
+/// `if (lrp.eq.3) call genunr` gate at `:352` — a material with no unresolved
+/// parameters gets no MT=152 section.
+pub fn build_mt152(
+    za: f64,
+    awr: f64,
+    ranges: &[UnresolvedRange],
+    background: &[ReconrSection],
+    temperature_k: f64,
+    eps: f64,
+) -> Result<Option<Vec<[f64; 6]>>, NjoyError> {
+    let Some(range) = ranges.first() else {
+        return Ok(None);
+    };
+    let table = WTable::new();
+
+    // One merged grid across every range, as `eunr` is a single sorted list.
+    let mut grid: Vec<f64> = Vec::new();
+    for r in ranges {
+        grid.extend(unresolved_grid(r));
+    }
+    grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    grid.dedup_by(|a, b| (*a - *b).abs() < 1e-10 * b.abs().max(1.0));
+    if grid.len() < 2 {
+        return Ok(None);
+    }
+
+    // `genunr` stores the dilute values on `eunr` itself -- it does not refine
+    // (refinement is this port's addition on the MF=3 side, see
+    // `refine_unresolved_grid`). Storing a refined grid here would be a
+    // different section from the one upstream writes.
+    let mut body: Vec<f64> = Vec::with_capacity(1 + 6 * grid.len());
+    body.push(INFINITE_DILUTION);
+    for &e in &grid {
+        let mut row = [0.0_f64; 4];
+        for r in ranges {
+            if e < r.el || e > r.eh {
+                continue;
+            }
+            let out = unresolved_cross_sections(
+                std::slice::from_ref(r),
+                e,
+                temperature_k,
+                &[INFINITE_DILUTION],
+                [0.0; 4],
+                &table,
+            )?;
+            if let Some(v) = out.first() {
+                // reconr.f90:1683-1687 -- abundance-weighted accumulation.
+                for k in 0..4 {
+                    row[k] += r.abn * v[k];
+                }
+            }
+        }
+        // reconr.f90:1694-1727 -- add the MF=3 background, LSSF=0 only.
+        if range.lssf == 0 {
+            for (k, mt) in [(0usize, 1i32), (1, 2), (2, 18), (3, 102)] {
+                if let Some(sec) = background
+                    .iter()
+                    .find(|s| s.mt == MtReaction::from_any(mt))
+                {
+                    row[k] += eval_lin_lin(&sec.pairs, e);
+                }
+            }
+        }
+        for v in row.iter_mut() {
+            *v = sigfig(*v, 7, 0);
+        }
+        body.extend([e, row[0], row[1], row[2], row[3], row[0]]);
+    }
+
+    let nunr = grid.len();
+    let _ = eps;
+    let mut rows: Vec<[f64; 6]> = Vec::with_capacity(2 + body.len().div_ceil(6));
+    // CONT
+    rows.push([za, awr, range.lssf as f64, 0.0, 0.0, INTUNR_LIN_LIN as f64]);
+    // LIST header
+    rows.push([
+        temperature_k,
+        0.0,
+        N_REACTION_COLUMNS as f64,
+        1.0,
+        (1 + 6 * nunr) as f64,
+        nunr as f64,
+    ]);
+    for chunk in body.chunks(6) {
+        let mut r = [0.0_f64; 6];
+        r[..chunk.len()].copy_from_slice(chunk);
+        rows.push(r);
+    }
+    Ok(Some(rows))
+}
+
+/// Reaction columns stored in MF=2/MT=152 (`nx`): total, elastic, fission,
+/// capture, and the total repeated (`reconr.f90:1690`).
+const N_REACTION_COLUMNS: usize = 5;
+
+/// The sigma-zero interpolation law RECONR records (`intunr`); `unresr.f90:532`
+/// defaults it to 2 (lin-lin).
+const INTUNR_LIN_LIN: i32 = 2;
 
 /// Add the infinitely-dilute unresolved contribution of every `LSSF = 0` range
 /// to the MF=3 sections.
