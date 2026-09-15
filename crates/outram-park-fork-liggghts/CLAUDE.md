@@ -84,7 +84,12 @@ are different claims and this entry keeps them apart.
   **What this still does NOT establish.** It shows this crate reproduces
   LIGGGHTS. It does **not** show LIGGGHTS' granular physics is right for an
   HTR-10 bed: there is still **no experimental comparison** anywhere in this
-  repository. For reference, the settled voidage both codes produce
+  repository. An **angle-of-repose** case — the canonical granular validation,
+  and the most valuable single addition this crate could get — was attempted
+  on 2026-09-15 and **abandoned unresolved**; the three setups tried and why
+  each was invalid are recorded in the V&V document § 4.5, so the next attempt
+  does not repeat them. **Do not quote an angle-of-repose number from this
+  work.** For reference, the settled voidage both codes produce
   (`ε ≈ 0.442`) sits 2.2 percentage points above the Dixon (1988) correlation
   for `D/d = 6` (`ε = 0.4198`) — an observation, not a validation, and no
   calibration of `µ`/`e`/`E` against bed data has been attempted.

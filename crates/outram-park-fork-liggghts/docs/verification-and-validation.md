@@ -200,12 +200,41 @@ the faithful version, verified bit-identical above.
 
 ---
 
+## 4.5 Angle of repose — attempted, NOT established
+
+The canonical granular validation case, and the one most directly relevant to a
+pebble bed: a heap of frictional spheres should stand at roughly 25-30 deg.
+It is **not** established here, and this section records what was tried so the
+next attempt does not repeat it.
+
+Three LIGGGHTS setups were run (upstream only — this never got as far as a
+port comparison, so **none of it is evidence about this crate's code**):
+
+| Setup | Result | Why it failed |
+|---|---|---|
+| Pour 600 pebbles from a narrow region onto an open floor | 64 inserted, spread to a flat monolayer | insertion region too small; no confinement during the pour |
+| Lifting cylinder, `lattice sc` column, `H/D = 4` | **did not move at all** (`z_max` 0.2721 → 0.2723 m over 3 s after the wall was removed) | a perfectly symmetric lattice column has no lateral force, so a deterministic run sits in its unstable equilibrium forever. A real pour has symmetry-breaking that a lattice does not. |
+| Lifting cylinder, random packing, `H/D ≈ 4` then `≈ 1` | surface slope **2.70 deg** then **9.88 deg**; material spread to `r = 0.39 m` and `0.33 m`, some leaving the domain | removing a primitive wall *instantaneously* lets the outer particles leave ballistically. This measures a collapse/splash, not repose. |
+
+What a working version needs, and what this one lacks: the cylinder must be
+**lifted slowly** (a moving mesh wall, not an instantaneous `unfix` of a
+primitive), or the pour must be onto a fixed-diameter plate so excess material
+rolls off the edge. Both are a real setup exercise, not a parameter tweak.
+
+**No angle-of-repose number from this work should be quoted.** The two figures
+above are properties of a badly-posed numerical experiment, not of the contact
+model, and the temptation to keep adjusting the geometry until the number lands
+near the literature value is precisely the failure this project's rules forbid.
+
 ## 5. What is still NOT validated
 
 Unchanged from the 2026-09-06 declaration, and not weakened by anything above:
 
 - **No experimental comparison.** Nothing here is compared against a measured
   pebble bed, an angle-of-repose experiment, or a published granular benchmark.
+  An angle-of-repose case was attempted and **abandoned unresolved** — see
+  § 4.5 for the three setups tried and why each was invalid. It remains the
+  most valuable single addition to this crate's validation.
 - **Bulk packing is verified against LIGGGHTS, not against reality.** For
   reference, the settled voidage both codes produce (`ε ≈ 0.442`) sits above the
   Dixon (1988) correlation value for `D/d = 6` (`ε = 0.4198`, i.e. `φ = 0.5802`)
