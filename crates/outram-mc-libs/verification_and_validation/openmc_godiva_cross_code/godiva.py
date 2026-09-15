@@ -12,11 +12,13 @@ both ways gives (a) an apples-to-apples transport comparison with ptables off an
 (b) a direct measurement of what URR self-shielding is worth on Godiva.
 """
 import sys, os, openmc
+import numpy as np
 
 WORK = os.environ.get("WORK_DIR", "./work")
 
 PTABLES = "--ptables" in sys.argv
 KINF = "--kinf" in sys.argv   # reflective boundary: infinite medium, no leakage
+SPECTRUM = "--spectrum" in sys.argv  # tally flux vs energy on the crate's 50-bin log grid
 SEED = 1
 for a in sys.argv:
     if a.startswith("--seed="):
@@ -57,7 +59,20 @@ settings.source = openmc.IndependentSource(
 )
 settings.output = {"tallies": False}
 
-model = openmc.Model(geometry=geometry, materials=materials, settings=settings)
+# Flux spectrum on EXACTLY the grid examples/godiva_spectrum_vs_openmc.rs uses:
+# 50 log bins over 1e-3 .. 2e7 eV. Same edges on both sides or the comparison
+# measures rebinning rather than physics.
+tallies = None
+if SPECTRUM:
+    edges = np.exp(np.linspace(np.log(1.0e-3), np.log(2.0e7), 51))
+    t = openmc.Tally(name="flux spectrum")
+    t.filters = [openmc.EnergyFilter(edges)]
+    t.scores = ["flux"]
+    tallies = openmc.Tallies([t])
+    settings.output = {"tallies": True}
+
+model = openmc.Model(geometry=geometry, materials=materials, settings=settings,
+                     tallies=tallies)
 tag = ("kinf_" if KINF else "") + ("ptables_on" if PTABLES else "ptables_off")
 cwd = f"{WORK}/run_{tag}_seed{SEED}"
 os.makedirs(cwd, exist_ok=True)
@@ -69,3 +84,15 @@ with openmc.StatePoint(sp_path) as sp:
     k = sp.keff
 print(f"RESULT {tag} seed={SEED} k={k.nominal_value:.6f} +/- {k.std_dev:.6f} "
       f"pcm={(k.nominal_value-1.0)*1e5:+.0f} +/- {k.std_dev*1e5:.0f}")
+
+if SPECTRUM:
+    with openmc.StatePoint(sp_path) as sp:
+        tl = sp.get_tally(name="flux spectrum")
+        flux = np.array(tl.mean).ravel()
+    total = flux.sum()
+    out = os.environ.get("OPENMC_SPECTRUM", f"{WORK}/openmc_spectrum.csv")
+    with open(out, "w") as fh:
+        fh.write("e_lo,e_hi,flux_norm\n")
+        for i in range(len(flux)):
+            fh.write(f"{edges[i]:.6e},{edges[i+1]:.6e},{flux[i]/total:.6e}\n")
+    print(f"wrote {out} ({len(flux)} bins, normalised to unit integral)")

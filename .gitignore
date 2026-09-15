@@ -99,3 +99,8 @@ docs/token-usage.md
 #   kovan agent-docs-gen --list
 #   kovan agent-docs-gen --crates <crate>,<crate>
 /agent-docs/
+
+# Godiva spectrum-comparison outputs (regenerable; see
+# crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/)
+ours_spectrum.csv
+openmc_spectrum.csv

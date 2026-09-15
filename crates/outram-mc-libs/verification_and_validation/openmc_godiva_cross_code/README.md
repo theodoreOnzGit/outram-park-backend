@@ -132,6 +132,20 @@ OUTRAM_GODIVA_SEEDS=16 cargo run --release -p outram-mc-libs \
     --features endf-pebble-cases --example godiva_mf6_continuum_ensemble
 ```
 
+The spectrum comparison (section 6) — four seeds per side, then difference:
+
+```sh
+for s in 1 2 3 4; do
+  OURS_SEED=$s OURS_SPECTRUM=/tmp/ours_spec_$s.csv \
+    cargo run --release -p outram-mc-libs --features endf-pebble-cases \
+      --example godiva_spectrum_vs_openmc
+  OPENMC_SPECTRUM=/tmp/omc_spec_$s.csv python3 godiva.py --spectrum --seed=$s
+done
+
+python3 compare_spectrum.py --ours /tmp/ours_spec_*.csv \
+                            --openmc /tmp/omc_spec_*.csv
+```
+
 The ACE files are ~270 MB in total and are **not** committed; regenerate them.
 
 ## Localising the +250 pcm: it is NOT the data, and it IS mostly leakage
@@ -271,6 +285,89 @@ fission neutrons against OpenMC's, on the same evaluation:
 > 0.018 %. The artefact was in the oracle both times, and in the `⟨μ⟩` table
 > above as well.
 
+### 6. The spectrum itself — measured, and it is too hard
+
+The five comparisons above are all *integrated*: they compare a cross section,
+a mean, an eigenvalue. None of them can say **where in energy** the remaining
+`~69 ± 23 pcm` of `k_inf` comes from. A flux-vs-energy tally can, so that is the
+measurement that closes this section.
+
+**Method.** Both codes tally track-length flux on the **same** 50 log-spaced
+bins over `1e-3 … 2e7 eV` — ours via `examples/godiva_spectrum_vs_openmc.rs`
+(the `EnergyFilter`/`ScoreType::Flux` construction already used by
+`tests/openmc_notebooks/flux_spectrum.rs` and the TUI overlay, not written for
+this study), OpenMC via `godiva.py --spectrum`. Both spectra are normalised to
+unit integral, because neither side carries a volume or power normalisation and
+only the shape is meaningful. Same geometry, same three ICSBEP nuclides, same
+5000 histories × [40 inactive + 120 active], probability tables off on both
+sides.
+
+**Four seeds per side**, differenced by `compare_spectrum.py` using the
+**seed-to-seed** spread as the uncertainty rather than the per-run tally sigma.
+The question is whether the two *codes* differ, and at these statistics
+re-randomisation dominates; a single pair of runs cannot answer it. (Three
+small-sample results reversed earlier in this investigation. The seed count is
+quoted with every number here for that reason.)
+
+**Result, measured 2026-09-15 — our spectrum is harder:**
+
+| quantity | ours | OpenMC | difference | sigma |
+|---|---|---|---|---|
+| mean `E` [eV] | 1.47466e6 | 1.46804e6 | **+0.45 %** | 3.5 |
+| mean `ln E` | 13.6841 | 13.6774 | **+0.05 %** | 4.9 |
+| flux fraction below 300 keV | 0.154809 | 0.156861 | **−1.31 %** | 5.2 |
+| flux fraction above 4.8 MeV | 0.040170 | 0.039690 | **+1.21 %** | 2.8 |
+
+Per bin, the difference is monotone on both sides of a crossing near
+300–450 keV — a deficit below it that grows as energy falls, an excess above it
+that grows as energy rises:
+
+```text
+       E_lo        E_hi       ours     OpenMC    rel diff   sigma   share
+  1.011e+04   1.625e+04    0.00064    0.00067      -4.50%     1.2   0.07%
+  1.625e+04   2.611e+04    0.00166    0.00172      -3.48%     2.5   0.17%
+  2.611e+04   4.195e+04    0.00412    0.00425      -2.93%     1.2   0.42%
+  4.195e+04   6.742e+04    0.00958    0.00977      -1.90%     1.9   0.98%
+  6.742e+04   1.083e+05    0.02142    0.02176      -1.54%     1.7   2.18%
+  1.083e+05   1.741e+05    0.04275    0.04324      -1.12%     2.8   4.32%
+  1.741e+05   2.798e+05    0.07419    0.07499      -1.06%     2.1   7.50%
+  2.798e+05   4.496e+05    0.11189    0.11185      +0.03%     0.1  11.18%   <- crossing
+  4.496e+05   7.226e+05    0.14091    0.14140      -0.35%     1.4  14.14%
+  7.226e+05   1.161e+06    0.15943    0.15872      +0.45%     2.5  15.87%
+  1.161e+06   1.866e+06    0.16098    0.16048      +0.31%     0.7  16.05%
+  1.866e+06   2.999e+06    0.13894    0.13851      +0.31%     1.3  13.85%
+  2.999e+06   4.819e+06    0.09288    0.09249      +0.42%     1.0   9.25%
+  4.819e+06   7.744e+06    0.03509    0.03473      +1.03%     2.2   3.47%
+  7.744e+06   1.245e+07    0.00493    0.00480      +2.84%     6.1   0.48%
+
+total absolute shape difference = 0.0051
+  i.e. ~0.26% of the spectrum sits in different bins between the two codes
+```
+
+**No single bin proves this, and the write-up should not pretend otherwise.**
+The one bin past 3 sigma — `7.744e6 … 1.245e7 eV` at `+2.84 %`, 6.1 sigma —
+carries **0.48 %** of the flux, and the bins carrying 7–16 % agree to ±0.45 %.
+The per-bin sigmas are individually weak and cannot be pooled: the spectra are
+normalised, so a deficit anywhere forces an excess elsewhere and the bins are
+not independent. It is the four **aggregates** above that resolve the
+difference, which is why `compare_spectrum.py` prints them.
+
+**Interpretation.** Too little down-scatter. For A ≈ 235, elastic scattering
+removes almost no energy — `⟨E'/E⟩ ≈ 1 − 2A/(A+1)² ≈ 0.992` per collision — so
+**inelastic scattering is the dominant energy-loss mechanism in this system**,
+and a spectrum that is too hard is what an inelastic secondary-energy treatment
+returning neutrons too high in energy would produce. A harder spectrum raises
+both `ν̄(E)` and U-238 threshold fission, which is the right sign for a positive
+`k_inf` residual.
+
+**What it does not establish.** It shows that the spectrum differs and where,
+not which reaction causes it. MT=91's continuum law shape, the discrete
+MT=51–90 level selection, and `(n,2n)` would all produce a hardness difference
+of this sign; separating them needs ablation of each in turn, the same way
+elastic anisotropy was priced below. This measurement **corroborates** the
+inelastic secondary-energy hypothesis and rules out "the spectra agree and the
+residual is something else" — no more than that.
+
 ### What this leaves
 
 - **Implement anisotropic inelastic angular distributions.** Expected to remove
@@ -285,8 +382,12 @@ fission neutrons against OpenMC's, on the same evaluation:
   lands on the *same* reaction class as the leakage share, which is suggestive
   but not evidence.
 
-  A flux-vs-energy tally comparison in both codes is the natural next
-  measurement; an eigenvalue cannot localise a spectral shift, a spectrum can.
+  **That measurement has now been made** (section 6 above): the spectrum is
+  harder than OpenMC's at 5 sigma on the flux fraction below 300 keV, with a
+  monotone high-energy excess — consistent with too little inelastic
+  down-scatter, and the right sign for a positive `k_inf` residual. It narrows
+  the residual to the inelastic secondary-energy treatment without yet naming
+  which part of it.
 - URR probability tables are a **separate** gap, and a small one: measured at
   `+43 ± 38 pcm`, consistent with zero (see the ablation section below). Fixing
   the anisotropy moves k down; probability tables, if they move it at all, move
@@ -352,7 +453,7 @@ does not matter".
 | elastic ⟨μ⟩ | ≤ 5.6e-4 absolute | cleared |
 | fission spectrum ⟨E_out⟩ | ≤ 0.018 % | cleared |
 | **inelastic angular** | **not sampled at all** | **convicted: ~181 pcm leakage** |
-| inelastic secondary energy | not compared | open: ~69 pcm spectral |
+| inelastic secondary energy | spectrum **+0.45 % harder** in mean `E` (3.5 sigma); −1.31 % of the flux below 300 keV (5.2 sigma) | **implicated: ~69 pcm spectral** — sign and location match, reaction not yet isolated |
 
 ## Scope, and what this is not
 
