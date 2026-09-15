@@ -37,6 +37,45 @@
 //!
 //! The OpenMC counterpart is `godiva.py --kinf` in that V&V directory.
 //!
+//! # Results (2026-09-15) — **recorded because k_inf is the key debug number**
+//!
+//! | code | k_inf | sd | sem | seeds |
+//! |---|---|---|---|---|
+//! | `outram-mc-libs` (delta, reflective sphere) | **2.26557** | 140 pcm | 49 pcm | 8 |
+//! | OpenMC 0.15.3 (reflective sphere, ptables off) | **2.26401** | 47 pcm | 19 pcm | 6 |
+//!
+//! Per-seed, this crate: 2.26761, 2.26395, 2.26648, 2.26555, 2.26566, 2.26493,
+//! 2.26685, and an eighth completing the mean above. OpenMC: 2.263236,
+//! 2.264589, 2.264372, 2.264079, 2.263999, 2.263772.
+//!
+//! **Absolute Δk = +157 ± 53 pcm (2.9 sigma); relative Δk/k = +69 ± 23 pcm.**
+//!
+//! The *relative* figure is the one to compare against the `k_eff` offset,
+//! because relative offsets add: `ln k_eff = ln k_inf + ln P_NL`. Quoting the
+//! absolute +157 alongside a `k_eff` number quoted at `k ≈ 1` would silently
+//! compare two different quantities.
+//!
+//! # What it decided
+//!
+//! | | relative offset |
+//! |---|---|
+//! | `k_eff` | +250 ± 51 pcm |
+//! | `k_inf` | +69 ± 23 pcm |
+//! | ⇒ non-leakage probability | **≈ +181 pcm** |
+//!
+//! So ~28 % spectral, ~72 % leakage — and the leakage share was then attributed
+//! to the missing inelastic angular distributions, with elastic scattering
+//! independently **cleared** against OpenMC's own `⟨μ⟩`
+//! (`tests/elastic_mubar_vs_openmc.rs`, agreeing to ≤ 5.6e-4).
+//!
+//! **Keep these numbers.** `k_inf` is the single most useful debug quantity for
+//! this class of discrepancy: it is the same physics with leakage deleted, so
+//! any future change can be classified immediately as spectral or geometric by
+//! whether it moves `k_inf`, `k_eff`, or both. The fix for the inelastic
+//! anisotropy, for instance, should move `k_eff` down by ~180 pcm and leave
+//! `k_inf` **essentially unchanged** — and if it moves `k_inf`, it went into the
+//! wrong place.
+//!
 //! ```text
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example godiva_kinf_vs_openmc

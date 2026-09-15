@@ -171,11 +171,60 @@ Remove the boundary and leakage goes with it. Relative offsets add, since
 | k_inf | **+69 ± 23 pcm** (2.9 sigma) |
 | ⇒ non-leakage probability | **≈ +181 pcm** |
 
-(`outram-mc-libs` k_inf = 2.26557 ± 49 pcm over 8 seeds; OpenMC 2.26401 ± 19 pcm
-over 6.) So about **28% is spectral and 72% is leakage** — our neutrons escape
-less than they should.
+So about **28% is spectral and 72% is leakage** — our neutrons escape less than
+they should.
 
-### 3. The leakage share is the missing inelastic angular distributions
+**The k_inf values themselves, recorded — they are the key debug number.**
+
+| code | k_inf | sd | sem | seeds |
+|---|---|---|---|---|
+| `outram-mc-libs` (delta, reflective sphere) | **2.26557** | 140 pcm | 49 pcm | 8 |
+| OpenMC 0.15.3 (reflective sphere, ptables off) | **2.26401** | 47 pcm | 19 pcm | 6 |
+
+Absolute `Δk = +157 ± 53 pcm`; relative `Δk/k = +69 ± 23 pcm`. **Quote the
+relative one** next to a `k_eff` offset — relative offsets add, and `k_eff ≈ 1`
+makes its absolute and relative figures coincide, so mixing them silently
+compares different quantities.
+
+`k_inf` is worth keeping because it is the same physics with leakage deleted:
+any future change classifies itself immediately by whether it moves `k_inf`,
+`k_eff`, or both. The inelastic-anisotropy fix should move `k_eff` down ~180 pcm
+and leave `k_inf` **essentially unchanged**; if it moves `k_inf`, it went in the
+wrong place.
+
+### 3. Elastic scattering is cleared against OpenMC
+
+Before convicting the inelastic distributions, the elastic ones — 85 % of all
+scattering — had to be excluded. `tests/elastic_mubar_vs_openmc.rs` compares
+this crate's `⟨μ⟩` against OpenMC's own read of the same evaluation:
+
+| E (eV) | this crate | OpenMC | difference |
+|---|---|---|---|
+| 1.0e3 | +0.00123 | +0.00179 | −5.6e-4 |
+| 1.0e5 | +0.13007 | +0.13007 | 0.0 |
+| 1.0e6 | +0.49728 | +0.49722 | +6e-5 |
+| 2.0e6 | +0.62270 | +0.62245 | +2.5e-4 |
+| 5.0e6 | +0.85160 | +0.85135 | +2.5e-4 |
+
+Worst 5.6e-4, at 1 keV where `⟨μ⟩ ≈ 0` and Godiva has negligible flux; ≤ 2.5e-4
+across the MeV range that carries it. 200 000 sampled draws at 2 MeV average
++0.62268 against the analytic +0.62270, so the sampler reproduces its table too.
+**Reading and sampling are both correct; elastic is not the bug.**
+
+The existing `tests/elastic_anisotropy_vs_endf_mf4.rs` could not have shown
+this — both of its sides come from our own parse, so a misreading of MF=4 would
+be invisible to it. That is why the oracle here is external.
+
+> **A latent gap found while doing this, filed rather than fixed.** This crate's
+> cosine tables carry **no interpolation flag**: `EnergyAngular` stores
+> cosines/pdf/cdf and the sampler always applies the linear-linear inverse CDF,
+> where OpenMC's `Tabular::sample` branches on `histogram` vs `lin_lin`. It is
+> harmless here — all 126 incident energies of U-235's elastic distribution are
+> linear-linear, which is *why* the table above agrees — but an evaluation using
+> histogram angular data would be mis-sampled silently. Not fixed blind: no
+> evaluation held here exercises it, so a fix would be untested code.
+
+### 4. The leakage share is the missing inelastic angular distributions
 
 `src/physics/scatter.rs` states it outright: *"Anisotropic **inelastic** angular
 laws (coupled to the MF=5/MF=6 energy distributions) remain future work."*
