@@ -632,7 +632,16 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
         h.get::<uom::si::available_energy::kilojoule_per_kilogram>(),
     );
     let region = {
-        let p_probe = p_rho_h_in_region(classified, rho, h);
+        // CLAMP the provisional pressure into the flash domain before using it.
+        //
+        // The fitted surface has no domain of its own and can return a pressure
+        // below the triple point. Unclamped, the validity check then fails, the
+        // region correction is skipped, AND the same bad pressure goes on to
+        // seed `t_ph_1` in the Region 1 anchor — so one out-of-domain fit value
+        // poisons both the branch decision and the temperature. Measured: the
+        // published-table node at 35 degC / 0.1 bar came back 96 % low this way,
+        // while the same state on a synthetic grid was fine at 0.97 %.
+        let p_probe = clamp_into_flash_domain(p_rho_h_in_region(classified, rho, h));
         if ph_is_within_validity_range(p_probe, h) {
             match ph_flash_region(p_probe, h) {
                 FwdEqnRegion::Region1 => RhoHRegion::Region1,
@@ -652,7 +661,7 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
         // piece. Near the saturation line the density carries no usable
         // pressure information and the fit is hopeless; away from it the fit is
         // fine. See [`region_1_saturated_liquid_snap`].
-        let p_fit = p_rho_h_in_region(region, rho, h);
+        let p_fit = clamp_into_flash_domain(p_rho_h_in_region(region, rho, h));
         if let Some(p_snapped) = region_1_saturated_liquid_snap(rho_si, h, p_fit) {
             return p_snapped.get::<pascal>();
         }
@@ -746,6 +755,24 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
     p_pa
 }
 
+/// Clamps a pressure into the `(p,h)` flash's accepted range.
+///
+/// Used on any pressure that came out of a FITTED surface before it is fed to
+/// an IF97 equation. The fits carry no domain of their own and will extrapolate
+/// past the triple point or past 100 MPa; the equations they then seed are not
+/// so forgiving. Clamping keeps a bad fit value merely bad rather than letting
+/// it disable the region correction and the temperature recovery at once.
+fn clamp_into_flash_domain(p: Pressure) -> Pressure {
+    const P_MAX_PASCAL: f64 = 100.0e6;
+    Pressure::new::<pascal>(
+        p.get::<pascal>()
+            .clamp(P_TRIPLE_POINT_PASCAL_FLOOR, P_MAX_PASCAL),
+    )
+}
+
+/// Triple-point pressure in pascal — the floor of the `(p,h)` flash domain.
+const P_TRIPLE_POINT_PASCAL_FLOOR: f64 = 611.657;
+
 /// The Region 1 sub-boundary: saturated-liquid snap for near-saturated liquid,
 /// returning `Some(p_sat)`, or `None` when the state is compressed enough to
 /// hand to the fitted surface.
@@ -830,7 +857,15 @@ fn region_1_saturated_liquid_snap(
     // only 0 degC, so feeding it the enthalpy of 340 degC liquid extrapolates
     // off the end of the fit. The round-trip test caught it as a snap
     // OVERSHOOTING the true pressure by 4.7x.
-    let t = t_ph_1(p_fit, h);
+    // `t_ph_1` is only the SEED. Using it as the answer is what capped this
+    // branch: it is a backward correlation with ~25 mK of fit error, and this
+    // expansion multiplies temperature error by `beta / kappa_T` (~9.5e5 Pa/K),
+    // so 25 mK becomes ~24 kPa — larger than the pressure itself below a bar.
+    //
+    // Refining against the FORWARD equation removes that ceiling: `h_f(T)` on
+    // the saturated-liquid line is `h_tp_1(T, p_sat(T))`, IF97-exact to 1e-8
+    // rather than a fit, and monotone in `T` with slope `c_p`.
+    let t = saturated_liquid_temperature_from_enthalpy(t_ph_1(p_fit, h), h, p_fit);
 
     let t_kelvin = t.get::<kelvin>();
     if !(T_TRIPLE_POINT_KELVIN..=T_REGION_13_BOUNDARY_KELVIN).contains(&t_kelvin) {
@@ -976,43 +1011,111 @@ const BETA_PROBE_KELVIN: f64 = 0.1;
 
 /// Temperature uncertainty assumed for the recovered `T`, in kelvin.
 ///
-/// **Measured, not quoted.** The first version of this used 25 mK — IF97's
-/// headline accuracy for the Region 1 backward `T(p,h)` correlation — and that
-/// is far too pessimistic for how `T` is actually obtained here. Instrumenting
-/// 5 degC / 100 bar gave a recovered `278.1497 K` against a true `278.1500 K`:
-/// **0.3 mK**. Seeding `t_ph_1` with the fitted pressure works well precisely
-/// because `dT/dp|_h` is tiny in liquid, so the pressure error barely
-/// propagates.
+/// **This tracks how `T` is obtained, and that changed.** It was 0.025 —
+/// IF97's accuracy for the backward `T(p,h)` correlation — back when that
+/// correlation WAS the answer. Measured then: the recovery ranged from 0.3 mK
+/// (5 degC / 100 bar) to 22 mK (20 degC, on the saturation line), so 25 mK was
+/// the right conservative figure.
 ///
-/// But 0.3 mK is NOT representative, and assuming it was is a mistake this
-/// comment records rather than hides. Instrumenting the on-saturation node at
-/// 20 degC / 0.0234 bar back-solves to a **22 mK** temperature error — the
-/// recovery is two orders of magnitude worse there than at 5 degC / 100 bar.
-/// So IF97's 25 mK headline is the right conservative figure after all, and
-/// this constant is set to it.
+/// `T` is now refined by [`saturated_liquid_temperature_from_enthalpy`], two
+/// Newton steps against the EXACT forward `h_f(T)` rather than a fit. Newton is
+/// quadratic and the function is smooth, so a 25 mK seed converges far below a
+/// microkelvin; the residual is set by the 0.05 K slope probe, not by any
+/// correlation. 0.1 mK is a conservative multiple of that.
 ///
-/// The consequence is worth stating plainly: the expansion amplifies
-/// temperature error by `beta / kappa_T` (about `9.5e5 Pa/K` at 45 degC), so
-/// 25 mK is roughly 24 kPa of irreducible pressure noise. Below a bar or so
-/// that exceeds the pressure being recovered, and **no explicit method can do
-/// better** — the limit is the temperature, not the approximation. Those states
-/// therefore return `p_sat`: large error, but bounded and one-sided.
-const BACKWARD_TEMPERATURE_UNCERTAINTY_KELVIN: f64 = 0.025;
+/// Why the value matters so much: the expansion amplifies temperature error by
+/// `beta / kappa_T`, about `9.5e5 Pa/K` for cold liquid. At 25 mK that was
+/// ~24 kPa — more than the pressure itself below a bar, which is why that whole
+/// corner fell back to returning `p_sat`. At 0.1 mK it is ~95 Pa.
+const BACKWARD_TEMPERATURE_UNCERTAINTY_KELVIN: f64 = 1.0e-4;
 
 /// How large the temperature-induced pressure noise may be, as a fraction of
 /// the recovered pressure, before the saturation-anchored expansion is
 /// abandoned in favour of returning `p_sat` itself.
 const TEMPERATURE_NOISE_FRACTION: f64 = 0.25;
 
+/// Temperature on the **saturated-liquid line** whose enthalpy is `h`, refined
+/// from `t_seed` against the forward equations.
+///
+/// Solves `h_tp_1(T, p) = h` by Newton with a numerical slope, at the state's
+/// OWN pressure.
+///
+/// **Not** `h_f(T) = h` on the saturation line — that was the first version and
+/// it is biased. `h` is the COMPRESSED-liquid enthalpy, which exceeds `h_f` at
+/// the true temperature by `(p - p_sat) * v * (1 - beta*T)`, so inverting along
+/// the saturation line converges correctly to the wrong `T`: about 40 mK high
+/// at 80 degC / 2.47 bar, which showed up as 21 % pressure error. Both ingredients are exact IF97 equations rather than
+/// backward correlations, so the answer is limited by convergence rather than
+/// by a fit — which is the point. The seed comes from `t_ph_1`, good to about
+/// 25 mK, and `dh_f/dT` is `c_p` (order 4 kJ/kg/K), so two steps are ample.
+///
+/// # Why this matters so much here
+///
+/// [`region_1_saturated_liquid_snap`] divides by `kappa_T`, amplifying any
+/// temperature error by `beta / kappa_T` — about `9.5e5 Pa/K` for cold liquid.
+/// At the seed's 25 mK that is ~24 kPa, which exceeds the pressure being
+/// recovered below about 1 bar and was the reason that whole corner fell back
+/// to returning `p_sat`. Refining here attacks the error at its source rather
+/// than gating around it.
+///
+/// Returns `t_seed` unchanged if the refinement cannot proceed (non-finite
+/// slope, or a step leaving Region 1), so a caller never gets a worse answer
+/// than it started with.
+fn saturated_liquid_temperature_from_enthalpy(
+    t_seed: ThermodynamicTemperature,
+    h: AvailableEnergy,
+    p: Pressure,
+) -> ThermodynamicTemperature {
+    const NEWTON_STEPS: usize = 2;
+    const SLOPE_PROBE_KELVIN: f64 = 0.05;
+
+    let h_target = h.get::<joule_per_kilogram>();
+    let h_f_at = |t_kelvin: f64| -> Option<f64> {
+        if !(T_TRIPLE_POINT_KELVIN..=T_REGION_13_BOUNDARY_KELVIN).contains(&t_kelvin) {
+            return None;
+        }
+        let t = ThermodynamicTemperature::new::<kelvin>(t_kelvin);
+        let value = h_tp_1(t, p).get::<joule_per_kilogram>();
+        value.is_finite().then_some(value)
+    };
+
+    let mut t_kelvin = t_seed.get::<kelvin>();
+    for _ in 0..NEWTON_STEPS {
+        let (Some(h_here), Some(h_probe)) =
+            (h_f_at(t_kelvin), h_f_at(t_kelvin + SLOPE_PROBE_KELVIN))
+        else {
+            return t_seed;
+        };
+        let slope = (h_probe - h_here) / SLOPE_PROBE_KELVIN;
+        if !(slope.is_finite() && slope.abs() > 0.0) {
+            return t_seed;
+        }
+        let next = t_kelvin - (h_here - h_target) / slope;
+        if !next.is_finite()
+            || !(T_TRIPLE_POINT_KELVIN..=T_REGION_13_BOUNDARY_KELVIN).contains(&next)
+        {
+            return t_seed;
+        }
+        t_kelvin = next;
+    }
+    ThermodynamicTemperature::new::<kelvin>(t_kelvin)
+}
+
 /// Compression above which the saturation-anchored linear expansion is
 /// abandoned and the fitted surface takes over — the Region 1 sub-boundary.
 ///
-/// The expansion assumes `kappa_T` is constant between `p_sat` and `p`. That
-/// holds while the compression is small; by 1000 bar the compression reaches
-/// about `4.5e-2` and `kappa_T` has changed materially across the interval, so
-/// the linear model is no longer the better of the two. Measured behaviour
+/// The expansion assumes `kappa_T` is constant between `p_sat` and `p`, which
+/// holds only while the compression is small.
+///
+/// Tightened from `5e-3` to `5e-4` (roughly 10 bar above saturation rather than
+/// 100) once the fitted surface became accurate here. Measured driver: at
+/// `5e-3` the worst anchored case was 80 degC / 50.474 bar — a state 50 bar
+/// above its 0.474 bar saturation pressure — at 27.2 % error, purely from
+/// stretching a linear model that far. The fit covers that state to 3.2e-4, so
+/// handing it over is strictly better. The expansion earns its place only very
+/// near the saturation line, which is exactly where the fit does not. Measured behaviour
 /// either side is in `region_1_round_trips_through_the_snap_and_the_fit`.
-const LIQUID_LINEAR_COMPRESSION_LIMIT: f64 = 5.0e-3;
+const LIQUID_LINEAR_COMPRESSION_LIMIT: f64 = 5.0e-4;
 
 /// Fraction of the saturation pressure by which a Region 1 state may sit above
 /// the saturation line and still be snapped to it.

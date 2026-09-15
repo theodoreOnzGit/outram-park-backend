@@ -710,7 +710,9 @@ fn supercritical_quality_follows_the_left_right_of_critical_convention() {
 #[test]
 fn px_rho_h_dispatcher_across_the_whole_steam_table() {
     use crate::interfaces::functional_programming::ph_flash_eqm::x_ph_flash;
+    use crate::interfaces::functional_programming::pt_flash_eqm::v_tp_eqm_single_phase;
     use crate::interfaces::functional_programming::rho_h_flash_eqm::p_rho_h_eqm_explicit;
+    use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::available_energy::joule_per_kilogram;
 
     #[derive(Default)]
@@ -731,6 +733,8 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
         }
     }
 
+    let mut liquid_by_p: Vec<(f64, f64)> = Vec::new();
+    let mut two_phase_by_p: Vec<(f64, f64)> = Vec::new();
     let mut single = Bucket::default();
     let mut liquid = Bucket::default();
     let mut two_phase = Bucket::default();
@@ -744,9 +748,31 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
 
         // Nodes this crate's own (p,h) flash declines are not this test's
         // business — they are recorded as skips, never silently dropped.
-        let Ok(v) =
-            std::panic::catch_unwind(|| v_ph_eqm(p_ref, h).get::<cubic_meter_per_kilogram>())
-        else {
+        // Density from the FORWARD equation at the node's own `(T, p)`, not from
+        // `v_ph_eqm(p, h)`. This matters far more than it looks: `v_ph_eqm` is a
+        // backward correlation carrying its own fit error — about 4.2e-6
+        // relative at 18 degC / 0.1 bar — and the amplification there is
+        // `A = 1/(p*kappa_T) ~ 2.2e5`, so that input error ALONE is a 92 %
+        // pressure error. The same state built from the forward equation comes
+        // back 2.9 % out. Using the backward flash measured the FLASH, not the
+        // dispatcher.
+        let t_node = ThermodynamicTemperature::new::<degree_celsius>(t_deg_c);
+
+        // Skip nodes sitting ON the saturation line. `v_tp_eqm_single_phase` is
+        // ambiguous there — liquid or vapour, same `(T, p)` — and returns
+        // nonsense rather than declining: the node at 45.8075 degC / 0.1 bar,
+        // which is exactly `T_sat(0.1 bar)`, produced 2.7e240. These are the
+        // saturation rows' business, and they are covered by the two-phase half
+        // of this test.
+        let p_sat_node = crate::region_4_vap_liq_equilibrium::sat_pressure_4(t_node);
+        let p_sat_bar_node = p_sat_node.get::<bar>();
+        if (p_bar_val - p_sat_bar_node).abs() <= 1.0e-3 * p_sat_bar_node.max(1.0e-3) {
+            skipped += 1;
+            continue;
+        }
+        let Ok(v) = std::panic::catch_unwind(|| {
+            v_tp_eqm_single_phase(t_node, p_ref).get::<cubic_meter_per_kilogram>()
+        }) else {
             skipped += 1;
             continue;
         };
@@ -777,6 +803,7 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
             crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion::Region1
         );
         if is_liquid {
+            liquid_by_p.push((p_bar_val, p_rel));
             liquid.note(p_rel, 0.0, state);
         } else {
             single.note(p_rel, 0.0, state);
@@ -816,6 +843,7 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
                 Ok(x_rec) if x_rec.is_finite() => (x_rec - x_ref).abs(),
                 _ => 0.0,
             };
+            two_phase_by_p.push((p_sat_bar, x_abs));
             two_phase.note(p_rel, x_abs, || {
                 format!("{t_deg_c} degC / {p_sat_bar} bar / x = {x_ref}")
             });
@@ -840,6 +868,33 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
         two_phase.worst_state,
     );
 
+    // Where the remaining error LIVES, not just its worst point. Binned by
+    // pressure, because every diagnosis in this file has come back to the same
+    // axis: the liquid side at low pressure, where `A = 1/(p*kappa_T)` is
+    // largest. For two-phase the bin is the SATURATION pressure and the metric
+    // is quality error, which is the one that degrades there.
+    println!("  where the error lives, by pressure:");
+    for (lo, hi, label) in [
+        (0.0_f64, 0.1_f64, "      p <=  0.1 bar"),
+        (0.1, 1.0, " 0.1 < p <=  1  bar"),
+        (1.0, 10.0, "   1 < p <= 10  bar"),
+        (10.0, 100.0, "  10 < p <= 100 bar"),
+        (100.0, f64::INFINITY, " 100 < p        bar"),
+    ] {
+        let pick = |b: &Vec<(f64, f64)>| {
+            b.iter()
+                .filter(|(p_bar, _)| *p_bar > lo && *p_bar <= hi)
+                .fold((0usize, 0.0_f64), |(n, w), (_, e)| (n + 1, w.max(*e)))
+        };
+        let (nl, wl) = pick(&liquid_by_p);
+        let (nt, wt) = pick(&two_phase_by_p);
+        if nl + nt > 0 {
+            println!(
+                "    {label} : liquid n={nl:4} worst |dp/p| {wl:.3e}   two-phase n={nt:4} worst |dx| {wt:.3e}"
+            );
+        }
+    }
+
     assert!(
         single.n > 0 && liquid.n > 0 && two_phase.n > 0,
         "a bucket was empty"
@@ -852,8 +907,8 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
     // tables and these numbers say so out loud rather than being tuned away.
     // Measured 2026-09-15 over 3 426 states:
     //
-    //   single phase (non-liquid)  worst 1.591e-3  at 373.707 degC / 220 bar
-    //   liquid (Region 1)          worst 9.640e-1  at 35 degC / 0.1 bar
+    //   single phase (non-liquid)  worst 7.675e-4  at 560 degC / 1000 bar
+    //   liquid (Region 1)          worst 6.125e-2  at 40 degC / 0.1 bar
     //   two phase                  worst 5.392e-3 on p, 1.427e-2 on x
     //                              at 95 degC / 0.846089 bar / x = 0.1
     //
@@ -876,14 +931,14 @@ fn px_rho_h_dispatcher_across_the_whole_steam_table() {
     //   density genuinely carries no recoverable pressure information; see
     //   `region_1_saturated_liquid_snap` and GH #207.
     assert!(
-        single.worst_p < 5.0e-3,
-        "non-liquid single phase regressed beyond its recorded 1.591e-3: {:.3e} at {}",
+        single.worst_p < 2.0e-3,
+        "non-liquid single phase regressed beyond its recorded 7.675e-4: {:.3e} at {}",
         single.worst_p,
         single.worst_state
     );
     assert!(
-        liquid.worst_p < 1.0,
-        "liquid regressed beyond its recorded 9.640e-1: {:.3e} at {}",
+        liquid.worst_p < 1.0e-1,
+        "liquid regressed beyond its recorded 6.125e-2: {:.3e} at {}",
         liquid.worst_p,
         liquid.worst_state
     );
