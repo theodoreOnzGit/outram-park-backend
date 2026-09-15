@@ -43,52 +43,45 @@
 //! is pairwise, the Rust port sums sequentially, so series-based quantities
 //! differ in the last bits. Nothing here is fitted to make a test pass.
 //!
-//! ## Results (taken 2026-09-15, upstream `de374c8`, 4 547 cases, all passing)
+//! ## Results (2026-09-15, upstream `de374c8`, 5 699 cases in 32 groups, all passing)
 //!
-//! `max_rel_dev` is the largest relative deviation observed across that group,
-//! measured by this test (re-print it with `--nocapture`).
+//! The full per-group table, the ill-conditioning analysis and the mutation
+//! evidence live in `docs/triso-atops-code-to-code.md`; re-print the measured
+//! deviations here at any time with `--nocapture`. In summary:
 //!
-//! | Function group | Cases | max_rel_dev | Tolerance |
-//! |---|---:|---:|---:|
-//! | `diffusion_coefficient.kernel` | 516 | 1.40e-16 | 1e-12 |
-//! | `diffusion_coefficient.graphite` | 516 | 1.55e-16 | 1e-12 |
-//! | `diffusion_coefficient_sic_ag` | 20 | 2.22e-16 | 1e-12 |
-//! | `rb_fail_noble_gases` | 270 | 1.75e-16 | 1e-12 |
-//! | `breakthrough_model` | 120 | 0 (exact) | 1e-9 |
-//! | `booth_longlived` | 60 | 7.16e-12 | 1e-9 |
-//! | `booth_shortlived_fast_diffuse` | 75 | 6.74e-13 | 1e-11 |
-//! | `attenuation_factor` | 60 | 4.16e-10 | 1e-9 |
-//! | `booth_transient` | 8 | 3.62e-11 | 1e-9 |
-//! | `breakthrough_model_transient` | 64 | 0 (exact) | 1e-9 |
-//! | `rf_graph` | 18 | 8.05e-15 | 1e-9 |
-//! | `circulating_steadystate` | 144 | 0 (exact) | 1e-12 |
-//! | `circulating` | 432 | 1.12e-14 | 1e-12 |
-//! | `plate_out_steadystate` | 144 | 0 (exact) | 1e-12 |
-//! | `plate_out` | 432 | 1.15e-14 | 1e-9 |
-//! | `clean_up_steadystate` | 144 | 0 (exact) | 1e-12 |
-//! | `clean_up` | 360 | 1.27e-14 | 1e-9 |
-//! | `rb_fail` (dispatcher) | 468 | 6.48e-11 | 1e-9 |
-//! | `release_rate` | 180 | 0 (exact) | 1e-12 |
-//! | `base_activities.source` | 216 | 1.83e-12 | 1e-9 |
-//! | `base_activities.graphite` | 216 | 1.65e-16 | 1e-9 |
-//! | nuclide decay constants (all 84) | 84 | 0 (exact) | 1e-12 |
+//! - Outside the ill-conditioned inputs below, agreement is between **exact
+//!   equality and 4.2e-10** relative, with seven groups bit-exact — including
+//!   the cumulative diffusion integral, the surface most exposed to a silent
+//!   ordering or off-by-one slip.
+//! - The end-to-end `normal_operation_node` chain agrees to **3.1e-11** across
+//!   all six outputs.
+//! - All 84 nuclide decay constants match exactly, and the test fails if
+//!   upstream carries a nuclide the port lacks.
 //!
-//! **Interpretation.** Every function agrees with upstream to between exact
-//! equality and 4.2e-10 relative. The largest residual is
-//! `attenuation_factor`, which evaluates `1/(1 - Σ)` and so amplifies the
-//! last-bit difference between NumPy's pairwise `np.sum` and the port's
-//! sequential summation; that it is the worst case was predicted before
-//! measuring, not discovered after. Seven groups are bit-exact. The Rust port
-//! of the TRISO-ATOPS calculation core is therefore **verified as a faithful
-//! translation** of upstream `de374c8`, subject to the two divergences below.
+//! **Ill-conditioned inputs.** Two upstream formulas lose precision
+//! catastrophically in part of their range, as a property of the formulas
+//! rather than of the port: `RF_Graph` evaluates `1 - exp(-x)` at `x` as small
+//! as 1e-13, and `breakthrough_model_transient` subtracts three terms of order
+//! 0.1 that can cancel to order 1e-13 (measured cancellation ratio 2.8e12,
+//! i.e. a best achievable relative precision of 6.2e-4). Asserting a tight
+//! tolerance there would be asserting noise.
 //!
-//! **The suite is not vacuous.** Confirmed by mutation on 2026-09-15: changing
-//! the iodine kernel pre-exponential (`1.3e-12` -> `1.3001e-12`, 7.7e-5
-//! relative), the noble-gas fit exponent (`0.302` -> `0.3021`) and one
-//! half-life in the nuclide table (Cs-137, `949_232_333` -> `949_232_444` s)
-//! failed exactly the five groups that read those values
-//! (`diffusion_coefficient.kernel`, `.graphite`, `rb_fail_noble_gases`,
-//! `rb_fail`, nuclide decay constants) and left the other 19 tests green.
+//! The generator therefore records a per-case **cancellation ratio** (`cond`,
+//! the fourth fixture column) and each case is asserted against
+//! `max(group_tol, 8 * eps * cond)`. That is algebraically an *absolute* check
+//! against the arithmetic noise floor, so it stays fully sensitive to real
+//! defects — a wrong constant shifts an intermediate term by ~1e15 times that
+//! floor. 169 of 5 699 cases carry `cond > 1`; the rest are asserted at full
+//! tightness.
+//!
+//! **The suite is not vacuous**, verified by mutation in two rounds — the
+//! second aimed specifically at the ill-conditioned groups, to confirm the
+//! widened bound masks nothing. Perturbing the `rf_graph` numerator, the
+//! transient breakthrough time-lag, the trapezoid weight in `integrate` and the
+//! noble-gas `k_plate` zeroing in `normal_operation_node` failed exactly the
+//! groups that read them — `release_fraction.kernel` included, despite its 16
+//! widened cases — and left every unrelated test green. Details and the
+//! first-round table are in the doc above.
 //!
 //! ## Where the port deliberately differs from upstream
 //!
@@ -125,6 +118,7 @@ use boon_lay::triso_atops_fork::release_models::steady_state::{
 use boon_lay::triso_atops_fork::release_models::transient::{
     booth_transient, breakthrough_model_transient, rf_graph,
 };
+use boon_lay::triso_atops_fork::normal_operation::NodalActivities;
 
 use uom::si::area::square_meter;
 use uom::si::diffusion_coefficient::square_meter_per_second;
@@ -169,6 +163,19 @@ struct Case {
     function: String,
     args: Vec<f64>,
     expected: f64,
+    /// Cancellation ratio of the upstream evaluation — `largest intermediate
+    /// term / |result|`, or `1/x` where the formula evaluates `1 - exp(-x)` at
+    /// small `x`. `1.0` means well conditioned.
+    ///
+    /// Where upstream's own f64 arithmetic cannot resolve the answer to better
+    /// than some relative precision, a tighter assertion would be asserting
+    /// noise. Widening by `8·eps·cond` is equivalent to an **absolute** check
+    /// against the arithmetic noise floor (`|got − want| <= 8·eps·largest_term`),
+    /// so it stays fully sensitive to real porting errors — a wrong constant or
+    /// sign shifts an intermediate term by O(0.1), which is ~1e15 times the
+    /// noise floor — while not failing on a difference neither implementation
+    /// could have avoided.
+    cond: f64,
 }
 
 /// Parse the fixture. The format is written by our own generator and is
@@ -183,6 +190,7 @@ fn cases() -> Vec<Case> {
             let function = f.next().expect("function column").to_string();
             let arg_field = f.next().expect("args column");
             let expected = f.next().expect("expected column");
+            let cond = f.next().expect("cond column");
             let args = if arg_field.is_empty() {
                 Vec::new()
             } else {
@@ -195,6 +203,7 @@ fn cases() -> Vec<Case> {
                 function,
                 args,
                 expected: expected.parse::<f64>().expect("f64 expected"),
+                cond: cond.parse::<f64>().expect("f64 cond"),
             }
         })
         .collect()
@@ -223,6 +232,7 @@ fn check_group(name: &str, tol: f64, eval: impl Fn(&[f64]) -> f64) -> f64 {
 
     let mut worst = 0.0_f64;
     let mut worst_args: Vec<f64> = Vec::new();
+    let mut widened = 0usize;
     for c in &group {
         let got = eval(&c.args);
         // NaN on both sides is agreement: upstream and port both decline to
@@ -231,19 +241,35 @@ fn check_group(name: &str, tol: f64, eval: impl Fn(&[f64]) -> f64) -> f64 {
             continue;
         }
         let dev = deviation(got, c.expected);
+        // Widen only as far as upstream's own arithmetic could resolve.
+        let noise_floor = 8.0 * f64::EPSILON * c.cond;
+        let tol_eff = tol.max(noise_floor);
+        if noise_floor > tol {
+            widened += 1;
+        }
         assert!(
-            dev <= tol,
-            "{name}{:?}: port {got:e} vs upstream {:e} (rel dev {dev:e} > tol {tol:e})",
+            dev <= tol_eff,
+            "{name}{:?}: port {got:e} vs upstream {:e} (rel dev {dev:e} > tol {tol_eff:e}; \
+             cond {:e})",
             c.args,
-            c.expected
+            c.expected,
+            c.cond
         );
-        if dev > worst {
+        // Rank the "worst" case by how close it came to its own tolerance, so a
+        // well-conditioned near-miss is not hidden by an ill-conditioned case
+        // that is comfortably inside a wide bound.
+        if dev / tol_eff > worst / tol.max(f64::MIN_POSITIVE) && dev > 0.0 {
             worst = dev;
             worst_args = c.args.clone();
         }
     }
+    let note = if widened > 0 {
+        format!(", {widened} ill-conditioned case(s) on a widened bound")
+    } else {
+        String::new()
+    };
     println!(
-        "{name}: {} cases, max_rel_dev = {worst:e} (tol {tol:e}) at args {worst_args:?}",
+        "{name}: {} cases, max_rel_dev = {worst:e} (tol {tol:e}{note}) at args {worst_args:?}",
         group.len()
     );
     worst
@@ -488,6 +514,175 @@ fn base_activities_graphite_matches_upstream() {
             a[5],
         )
         .graphite_activity
+    });
+}
+
+// ── transient release-fraction dispatcher ────────────────────────────────────
+
+/// Transient release from the **kernel**: Booth transient for non-silver,
+/// breakthrough-through-SiC for silver.
+#[test]
+fn release_fraction_kernel_matches_upstream() {
+    check_group("release_fraction.kernel", 1e-9, |a| {
+        let z = a[0] as u32;
+        release_fraction_transient(
+            z,
+            ElementGroup::from_atomic_number(z),
+            area_m2(a[1]),
+            len_m(a[2]),
+            Some(len_m(a[3])),
+            ReleaseMaterial::Kernel,
+        )
+        .get::<ratio>()
+    });
+}
+
+/// Transient release from **graphite**: identically zero for volatiles
+/// (noble gases and halogens), `RF_Graph` for fission metals.
+#[test]
+fn release_fraction_graphite_matches_upstream() {
+    check_group("release_fraction.graphite", 1e-9, |a| {
+        let z = a[0] as u32;
+        release_fraction_transient(
+            z,
+            ElementGroup::from_atomic_number(z),
+            area_m2(a[1]),
+            len_m(a[2]),
+            Some(len_m(a[3])),
+            ReleaseMaterial::Graphite,
+        )
+        .get::<ratio>()
+    });
+}
+
+// ── cumulative diffusion integral ────────────────────────────────────────────
+
+/// `∫₀ᵗ D(T(t')) dt'` accumulated along a temperature history, checked at
+/// **every** output time step rather than only the final value.
+///
+/// Upstream builds this with `np.diff(times, prepend=0)` and a cumulative sum
+/// over a 3-D array, so an ordering or off-by-one slip would be silent and
+/// would not show up in the endpoint alone. Row layout is
+/// `[z, n, t_0..t_{n-1}, T_0..T_{n-1}, out_index]`.
+fn check_integrate(name: &str, material: DiffusionMaterial) {
+    check_group(name, 1e-9, |a| {
+        let z = a[0] as u32;
+        let n = a[1] as usize;
+        let times: Vec<Time> = a[2..2 + n].iter().map(|v| t_s(*v)).collect();
+        let temps: Vec<ThermodynamicTemperature> =
+            a[2 + n..2 + 2 * n].iter().map(|v| temp_c(*v)).collect();
+        let idx = a[2 + 2 * n] as usize;
+        integrate_diffusion_over_time(z, &times, &temps, material)[idx].get::<square_meter>()
+    });
+}
+
+#[test]
+fn integrate_kernel_matches_upstream() {
+    check_integrate("integrate.kernel", DiffusionMaterial::Kernel);
+}
+
+#[test]
+fn integrate_graphite_matches_upstream() {
+    check_integrate("integrate.graphite", DiffusionMaterial::Graphite);
+}
+
+// ── end-to-end normal-operation node ─────────────────────────────────────────
+
+/// Drive the full `normal_operation_node` chain and compare every one of its six
+/// outputs against the same chain composed from upstream functions.
+///
+/// The reference is the composition in upstream `trisoatops.py` — the
+/// normal-operation driver — not `higher_activities` in isolation. That
+/// distinction matters: the group-dependent zeroing of `k_plate` (noble gases)
+/// and `k_clean` (non-halogens) lives at *that* call site upstream, so the
+/// port's decision to fold it into `normal_operation_node` is faithful rather
+/// than invented. Checking only `higher_activities` would have missed it.
+///
+/// The nuclide is identified by `(Z, A)`, not `Z` alone: Xe-133 and Xe-135 share
+/// `Z = 54` but have decay constants two orders of magnitude apart, so keying on
+/// `Z` would silently compare the wrong isotope.
+///
+/// Row layout: `[z, a_mass, sl, inventory_ci, T_core, T_graph, clean, k_plate,
+/// k_clean, a_graph, a_grain, a_SiC, r, t_run, t_irad, f_hm, f_sic, f_inc,
+/// f_inc_sic, c_par, p_par, hps_par]`.
+fn node_outputs(a: &[f64]) -> NodalActivities {
+    let (z, a_mass) = (a[0] as u32, a[1] as u32);
+    let table = supported_nuclides();
+    let nuclide = table
+        .iter()
+        .find(|n| n.z == z && n.a == a_mass)
+        .unwrap_or_else(|| panic!("nuclide Z={z} A={a_mass} is in the port's table"));
+    normal_operation_node(
+        nuclide,
+        a[2] != 0.0,
+        becquerels_from_curies(a[3]),
+        FailureFractions {
+            heavy_metal: a[15],
+            sic: a[16],
+            incremental: a[17],
+            incremental_sic: a[18],
+        },
+        PlantConstants {
+            k_plate: hz(a[7]),
+            k_clean: hz(a[8]),
+            graphite_thickness: len_m(a[9]),
+            grain_size: len_m(a[10]),
+            sic_thickness: len_m(a[11]),
+            kernel_radius: len_m(a[12]),
+            run_time: t_s(a[13]),
+            irradiation_time: t_s(a[14]),
+        },
+        NodeState {
+            core_temperature: temp_c(a[4]),
+            graphite_temperature: temp_c(a[5]),
+        },
+        a[6] != 0.0,
+        ParentPools {
+            circulating: a[19],
+            plate_out: a[20],
+            clean_up: a[21],
+        },
+    )
+}
+
+#[test]
+fn node_release_rate_matches_upstream() {
+    check_group("node.release_rate", 1e-9, |a| node_outputs(a).release_rate);
+}
+
+#[test]
+fn node_source_rate_matches_upstream() {
+    check_group("node.source_rate", 1e-9, |a| node_outputs(a).source_rate);
+}
+
+#[test]
+fn node_graphite_activity_matches_upstream() {
+    check_group("node.graphite_activity", 1e-9, |a| {
+        node_outputs(a).graphite_activity
+    });
+}
+
+#[test]
+fn node_circulating_activity_matches_upstream() {
+    check_group("node.circulating_activity", 1e-9, |a| {
+        node_outputs(a).circulating_activity
+    });
+}
+
+#[test]
+fn node_plate_out_activity_matches_upstream() {
+    check_group("node.plate_out_activity", 1e-9, |a| {
+        node_outputs(a).plate_out_activity
+    });
+}
+
+/// Clean-up activity. Rows exist only where upstream returns a value: with no
+/// clean-up system `higher_activities` returns `None` for HPS rather than a
+/// number, so those cases carry no reference and are not emitted.
+#[test]
+fn node_clean_up_activity_matches_upstream() {
+    check_group("node.clean_up_activity", 1e-9, |a| {
+        node_outputs(a).clean_up_activity
     });
 }
 
