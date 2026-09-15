@@ -18,6 +18,13 @@ outram-foam-basic-lib.workspace = true
 outram-foam-mesh.workspace = true
 outram-foam-appbuilder-lib.workspace = true
 
+[dev-dependencies]
+# Code-to-code verification only (tests/mechanics_code_to_code.rs, bead
+# op-cdte): the OFFBEAT small-strain mechanics solver is run alongside the
+# GeN-Foam one on a mesh this crate's own `blockMesh` tool writes. The CLI
+# binaries do not link OFFBEAT.
+outram-park-fork-offbeat.workspace = true
+
 [lib]
 name = "outram_foam_cli"
 path = "src/lib.rs"

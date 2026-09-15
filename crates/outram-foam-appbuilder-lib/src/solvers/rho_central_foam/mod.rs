@@ -83,6 +83,15 @@ fn velocity_component(u: &VolVectorField, comp: usize) -> VolScalarField {
                     ref_value: pick(*ref_value),
                     ref_grad: pick(*ref_grad),
                 },
+                BoundaryCondition::MixedField {
+                    value_fraction,
+                    ref_value,
+                    ref_grad,
+                } => BoundaryCondition::MixedField {
+                    value_fraction: value_fraction.clone(),
+                    ref_value: Field::new(ref_value.as_slice().iter().map(|v| pick(*v)).collect()),
+                    ref_grad: Field::new(ref_grad.as_slice().iter().map(|v| pick(*v)).collect()),
+                },
                 BoundaryCondition::InletOutlet { inlet_value } => BoundaryCondition::InletOutlet {
                     inlet_value: pick(*inlet_value),
                 },

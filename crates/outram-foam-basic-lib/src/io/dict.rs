@@ -185,6 +185,18 @@ pub enum FoamValue {
     Str(String),
     /// A parenthesised `( … )` list of values (may nest).
     List(Vec<FoamValue>),
+    /// A `{ … }` sub-dictionary appearing **as a list element**.
+    ///
+    /// OpenFOAM lists routinely carry dictionaries: `constant/polyMesh/boundary`
+    /// and `cellZones` are `N ( name { … } name { … } )`, and GeN-Foam's
+    /// `nuclearData` writes its `states` and `zones` the same way. Without this
+    /// variant the braces tokenise into stray [`Word`](Self::Word)s and the
+    /// entry silently flattens into nonsense rather than failing.
+    ///
+    /// The *name* preceding each such dictionary is a separate
+    /// [`Word`](Self::Word) element in the enclosing list — this variant holds
+    /// only the braced body, exactly as the grammar has it.
+    Dict(FoamDict),
 }
 
 impl FoamValue {
@@ -577,6 +589,7 @@ impl Parser {
                 FoamValue::Word(w) => FoamEntry::Word(w),
                 FoamValue::Str(s) => FoamEntry::Str(s),
                 FoamValue::List(l) => FoamEntry::List(l),
+                FoamValue::Dict(d) => FoamEntry::SubDict(d),
             },
             _ => FoamEntry::Tokens(values),
         })
@@ -590,6 +603,11 @@ impl Parser {
             .ok_or_else(|| self.err("expected a value, found end of input"))?;
         if t.text == "(" {
             return self.parse_list();
+        }
+        if t.text == "{" {
+            self.advance();
+            let d = self.parse_dict_body(false)?;
+            return Ok(FoamValue::Dict(d));
         }
         // consume the token
         let t = self.advance().unwrap();
@@ -695,10 +713,51 @@ impl FoamFile {
     }
 
     /// Read and parse a dictionary file from `path`.
+    ///
+    /// `#include` directives are **not** followed — use
+    /// [`read_with_includes`](Self::read_with_includes) for that.
     pub fn read(path: impl AsRef<Path>) -> Result<Self, IoError> {
         let path = path.as_ref();
         let text = std::fs::read_to_string(path)
             .map_err(|e| IoError::io(path.display().to_string(), e))?;
+        Self::parse_named(&text, path.display().to_string())
+    }
+
+    /// Read and parse a dictionary file from `path`, splicing in any
+    /// `#include "relative/name"` directives first.
+    ///
+    /// OpenFOAM's `#include` is a textual include resolved relative to the
+    /// *including* file's directory, and dictionaries in the wild lean on it —
+    /// GeN-Foam's `nuclearData`, for instance, puts each reactor state's zone
+    /// data in its own `XS…` file and includes it inside the `zones ( … )` list.
+    /// Parsing such a file without following the includes does not fail; it
+    /// silently yields a list containing the words `#include` and `XSref`, which
+    /// is the failure mode this exists to avoid.
+    ///
+    /// This is deliberately a **separate entry point** rather than a change to
+    /// [`read`](Self::read): following an include reads files the caller did not
+    /// name, so it is opt-in.
+    ///
+    /// # Scope and limits
+    ///
+    /// - Only `#include "…"` is handled. `#includeEtc`, `#includeFunc`,
+    ///   `#inputMode`, `#calc` and the other OpenFOAM directives are left in
+    ///   place as ordinary tokens.
+    /// - Includes nest, to a depth of [`MAX_INCLUDE_DEPTH`]. Exceeding it is an
+    ///   error rather than a hang, which is what a cyclic include would
+    ///   otherwise cause.
+    /// - The included text is spliced verbatim. An included file carrying its
+    ///   own `FoamFile { … }` header would therefore land mid-body; OpenFOAM
+    ///   behaves the same way, and files meant for inclusion do not carry one.
+    ///
+    /// # Errors
+    ///
+    /// [`IoError`] if `path` or any included file cannot be read, if an
+    /// `#include` is not followed by a quoted filename, or if the include depth
+    /// is exceeded.
+    pub fn read_with_includes(path: impl AsRef<Path>) -> Result<Self, IoError> {
+        let path = path.as_ref();
+        let text = resolve_includes(path, 0)?;
         Self::parse_named(&text, path.display().to_string())
     }
 
@@ -780,6 +839,13 @@ fn write_value(out: &mut String, v: &FoamValue) {
                 write_value(out, it);
             }
             out.push(')');
+        }
+        FoamValue::Dict(d) => {
+            // A dictionary inside a list is written on its own lines, the way
+            // OpenFOAM writes `boundary` and `cellZones`, rather than inline.
+            out.push_str("\n{\n");
+            write_dict_body(out, d, 1);
+            out.push('}');
         }
     }
 }
@@ -863,6 +929,58 @@ pub(crate) fn write_dict_body(out: &mut String, dict: &FoamDict, level: usize) {
 // ───────────────────────────────────────────────────────────────────────────
 //  Tests
 // ───────────────────────────────────────────────────────────────────────────
+
+/// Maximum `#include` nesting depth for [`FoamFile::read_with_includes`].
+///
+/// A cyclic include would otherwise recurse until the stack runs out; this
+/// turns that into a plain error naming the file.
+pub const MAX_INCLUDE_DEPTH: usize = 16;
+
+/// Read `path` and splice in every `#include "name"` it contains, recursively.
+///
+/// `name` is resolved relative to `path`'s own directory, as OpenFOAM does.
+fn resolve_includes(path: &Path, depth: usize) -> Result<String, IoError> {
+    if depth > MAX_INCLUDE_DEPTH {
+        return Err(IoError::parse(
+            path.display().to_string(),
+            format!("`#include` nesting deeper than {MAX_INCLUDE_DEPTH} (a cyclic include?)"),
+        ));
+    }
+    let text =
+        std::fs::read_to_string(path).map_err(|e| IoError::io(path.display().to_string(), e))?;
+    if !text.contains("#include") {
+        return Ok(text);
+    }
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+
+    let mut out = String::with_capacity(text.len());
+    for line in text.lines() {
+        let trimmed = line.trim_start();
+        // Only a line whose first token is `#include` is a directive; the word
+        // appearing inside a comment or a string is left alone.
+        match trimmed.strip_prefix("#include") {
+            Some(rest) if rest.starts_with(char::is_whitespace) => {
+                let quoted = rest.trim();
+                let name = quoted
+                    .strip_prefix('"')
+                    .and_then(|r| r.strip_suffix('"'))
+                    .ok_or_else(|| {
+                        IoError::parse(
+                            path.display().to_string(),
+                            format!("`#include` expects a quoted filename, found `{quoted}`"),
+                        )
+                    })?;
+                out.push_str(&resolve_includes(&dir.join(name), depth + 1)?);
+                out.push('\n');
+            }
+            _ => {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+    Ok(out)
+}
 
 #[cfg(test)]
 mod tests {
