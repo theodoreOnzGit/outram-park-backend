@@ -342,11 +342,33 @@ fn edwards_obrien_pipe_blowdown_600ms() {
     // flashing plateau (~17 -> ~36 psia); the plateau is recovered instead by
     // the two solver-physics fixes documented in the module header (conservative
     // energy ddt + fixed-enthalpy compressibility), not by the relaxation knob.
+    // Ablation knobs (bn:op-bgg0). Defaults are unchanged -- 4 outer, 4 inner,
+    // alpha_p = alpha_u = 1.0 -- so an unset environment reproduces the
+    // documented configuration exactly. They exist so the corrector count and
+    // the under-relaxation can be swept without editing and rebuilding the test
+    // body, which keeps each ablation point recorded as a command rather than
+    // as a diff. See docs/edwards_post_petir_ablation_log.md.
+    let n_outer: usize = std::env::var("EDW_NOUTER")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(4);
+    let n_inner: usize = std::env::var("EDW_NINNER")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(4);
+    let alpha_p: f64 = std::env::var("EDW_ALPHA_P")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
+    let alpha_u: f64 = std::env::var("EDW_ALPHA_U")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
     array.set_pimple_algorithm(
-        4,
-        4,
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
+        n_outer,
+        n_inner,
+        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_p),
+        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_u),
     );
 
     // Opt-in all-Mach hybrid mode for figure regeneration (EDW_HYBRID=1). The
@@ -622,6 +644,33 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         tail_end_p[0], tail_end_p[1], tail_end_p[2]
     );
     println!("GS-1 tail p rebound      : {rebound:+.1} psia (tail max − p@0.42s)");
+    // Pressure-bounding report. The clamp is a band-aid, not a safety net: a
+    // nonzero count means the pressure equation asked for a state the EOS
+    // cannot represent, and the run survived only because the clamp reshaped
+    // it. Reported rather than asserted FOR NOW -- see bn:op-bgg0. Once the
+    // stiff-at-the-boundary defect is fixed this should become a hard gate,
+    // because a converged, well-posed pressure equation should never trip it.
+    let bound_events = array.pressure_bound_events();
+    let worst_under = array
+        .pressure_bound_worst_undershoot()
+        .get::<uom::si::pressure::pascal>();
+    let worst_over = array
+        .pressure_bound_worst_overshoot()
+        .get::<uom::si::pressure::pascal>();
+    println!(
+        "pressure-bound events    : {bound_events} (worst undershoot {worst_under:.4e} Pa, \
+         worst overshoot {worst_over:.4e} Pa)"
+    );
+    println!(
+        "drained-cell holds       : {} (energy-hold band-aid engagements)",
+        array.drained_hold_events()
+    );
+    if bound_events > 0 {
+        println!(
+            "  ^^ NONZERO: the pressure solve left the EOS range and was clamped. \
+             This is a DEFECT SIGNAL, not a safety net -- see bn:op-bgg0."
+        );
+    }
     println!("=============================================================================\n");
 
     // Sanity: the artificial-cooling artefact would drive T toward ~274 K

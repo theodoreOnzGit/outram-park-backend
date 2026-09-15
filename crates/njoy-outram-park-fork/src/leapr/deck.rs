@@ -62,8 +62,10 @@ use crate::NjoyError;
 
 /// Pair-correlation input (cards 17-19), read when `nsk > 0` or `ncold > 0`.
 ///
-/// Carried through the parse for completeness; the Sköld correction that
-/// consumes it (`skold`, leapr.f90:2816-2922) is **not** ported.
+/// Consumed by the Sköld correction (`skold`, leapr.f90:2816-2922), which
+/// **is** ported ([`crate::leapr::skold::apply_skold`]) and validated
+/// like-for-like against NJOY2016 on D-in-D2O — 60,322 points at 293.6 K
+/// identical to 1e-13 (`tests/leapr_d2o_skold_njoy_oracle.rs`, 2026-09-10).
 #[derive(Debug, Clone, PartialEq)]
 pub struct PairCorrelation {
     /// Kappa increment `dka` \[inverse angstroms\]; the tabulated kappa values

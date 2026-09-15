@@ -27,8 +27,57 @@
 //! [`RealMath::r_exp`], [`RealMath::r_ln`], [`RealMath::r_powf`] — which route
 //! to [`crate::fast_exp`], [`crate::fast_log`] and [`crate::fast_pow`], ports
 //! of ARM optimized-routines verified bit-identical to upstream's own compiled
-//! C. There is no feature gate: this *is* the default route, and it is at
-//! worst comparable to the platform and at best faster than it.
+//! C. This *is* the default route, and it is at worst comparable to the
+//! platform and at best faster than it.
+//!
+//! # The `platform-libm` escape hatch -- read this before using it
+//!
+//! The `platform-libm` feature re-points all three methods at the platform's
+//! own `f64::exp` / `f64::ln` / `f64::powf`, i.e. back at whatever libm the
+//! host supplies. **It gives up the cross-platform determinism this module
+//! exists to provide**, so it is neither a performance knob nor a portability
+//! knob. Earlier revisions of this file stated flatly that no feature gate
+//! existed, and the bar for adding one was correspondingly high.
+//!
+//! It exists for exactly one job: **rebuilding a golden reference that was
+//! recorded before the ARM ports were adopted.** A fixture captured on the
+//! platform route cannot otherwise be regenerated without checking out the
+//! pre-adoption commit, which makes it a dead artefact the moment the
+//! surrounding code moves on.
+//!
+//! Three rules come with it.
+//!
+//! - **It is not additive**, which Cargo features are supposed to be. Enabling
+//!   it changes results in the last ulp for *every* crate in the resolve,
+//!   because Cargo unifies features. Enable it only in a single-crate
+//!   invocation (`cargo test -p <crate> --features ...`), **never
+//!   workspace-wide**, and never in a default feature set.
+//! - **It requires `std`** (hence `platform-libm = ["std"]`): the inherent
+//!   `f64` transcendental methods are defined in `std`, not `core`. The crate
+//!   stays `no_std` in every other configuration.
+//! - **Results taken under it are platform-dependent by construction** and must
+//!   be labelled with the machine that produced them, not quoted as though
+//!   they were reproducible anywhere.
+//!
+//! # A 1 ulp change does not stay 1 ulp in a chained transient
+//!
+//! Adopting the ports in `tampines-steam-tables` was verified by its 1009
+//! library tests being unchanged and its five generated V&V reports
+//! regenerating character-identical. That evidence is sound for *single-state
+//! property evaluation*, where a last-ulp difference is invisible against a
+//! 1e-8 verification tolerance, and it was blind to chained integration. The
+//! Edwards-O'Brien blowdown case -- roughly 20 000 timesteps x 24 cells x
+//! several flashes per cell per corrector, order 1e9 chained evaluations
+//! through a stiff pressure-velocity coupling -- passed before the sweep and
+//! panicked after it. Bisected to a single commit; see `bn:op-ppmk` and
+//! `bn:op-s2dc`.
+//!
+//! That is **not** evidence against the ports, which sit within about 1 ulp of
+//! glibc and are identical on every platform, where the platform route is
+//! neither. It is evidence that "unit tests unchanged" is the wrong acceptance
+//! check for a long chained solve, and it is why this escape hatch earns its
+//! keep: it lets the pre-adoption trajectory be re-derived and diffed rather
+//! than merely remembered.
 //!
 //! It deliberately does **not** cover `log10`, `cbrt`, `cos`, `sin`, `tanh` or
 //! `atan2`. Those have no ARM scalar-double implementation, so PETIR can only
@@ -84,6 +133,8 @@ pub trait RealMath {
     fn r_powf(self, y: f64) -> f64;
 }
 
+/// The default, deterministic route: PETIR's ARM optimized-routines ports.
+#[cfg(not(feature = "platform-libm"))]
 impl RealMath for f64 {
     #[inline]
     fn r_ln(self) -> f64 {
@@ -101,6 +152,28 @@ impl RealMath for f64 {
     }
 }
 
+/// The `platform-libm` route: the host's own libm, through the inherent `f64`
+/// methods. Platform-dependent in the last ulp. See the module docs for the one
+/// job this is for (rebuilding a pre-adoption golden reference) and the three
+/// rules that come with it.
+#[cfg(feature = "platform-libm")]
+impl RealMath for f64 {
+    #[inline]
+    fn r_ln(self) -> f64 {
+        f64::ln(self)
+    }
+
+    #[inline]
+    fn r_exp(self) -> f64 {
+        f64::exp(self)
+    }
+
+    #[inline]
+    fn r_powf(self, y: f64) -> f64 {
+        f64::powf(self, y)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,6 +182,7 @@ mod tests {
     /// not approximately. If these ever diverge, a call site's meaning depends
     /// on which spelling it used, which is the whole thing this trait exists to
     /// avoid.
+    #[cfg(not(feature = "platform-libm"))]
     #[test]
     fn the_methods_are_bit_identical_to_the_free_functions() {
         for k in -400..=400 {
@@ -128,6 +202,7 @@ mod tests {
     /// ...and that the route really is the ARM port, not `libm`. This is the
     /// property adopters are buying; pin it here rather than trusting the
     /// module docs to stay true.
+    #[cfg(not(feature = "platform-libm"))]
     #[test]
     fn the_route_is_the_arm_port() {
         for k in 1..=300 {
@@ -136,6 +211,43 @@ mod tests {
             assert_eq!(x.r_ln().to_bits(), crate::fast_log::ln_ieee(x).to_bits());
             assert_eq!(x.r_powf(1.7).to_bits(), crate::fast_pow::powf_ieee(x, 1.7).to_bits());
         }
+    }
+
+    /// Under `platform-libm` the route must be the PLATFORM's libm, not the
+    /// ARM port. This is the mirror of `the_route_is_the_arm_port`: whichever
+    /// configuration is built, exactly one of the two pins the route, so the
+    /// feature can never silently fail to take effect.
+    #[cfg(feature = "platform-libm")]
+    #[test]
+    fn the_route_is_the_platform_libm() {
+        for k in 1..=300 {
+            let x = f64::from(k) * 0.29;
+            assert_eq!(x.r_exp().to_bits(), f64::exp(x).to_bits(), "exp at {x}");
+            assert_eq!(x.r_ln().to_bits(), f64::ln(x).to_bits(), "ln at {x}");
+            assert_eq!(x.r_powf(1.7).to_bits(), f64::powf(x, 1.7).to_bits(), "powf at {x}");
+        }
+    }
+
+    /// The two routes must actually differ somewhere, or the escape hatch is a
+    /// no-op and a golden reference "rebuilt" under it would silently be the
+    /// port's trajectory wearing the platform's label.
+    ///
+    /// Asserted as "at least one disagreement across the sweep", not as a
+    /// per-point inequality: the two agree exactly at most arguments, which is
+    /// the point of the ports being within ~1 ulp of glibc. On a host whose
+    /// libm happens to be bit-identical to ARM's everywhere this would fail
+    /// loudly, which is the correct outcome -- there would then be no
+    /// pre-adoption trajectory to recover.
+    #[cfg(feature = "platform-libm")]
+    #[test]
+    fn the_two_routes_are_not_the_same_function() {
+        let differs = (1..=20_000).any(|k| {
+            let x = f64::from(k) * 0.0013;
+            x.r_exp().to_bits() != crate::real::exp(x).to_bits()
+                || x.r_ln().to_bits() != crate::real::ln(x).to_bits()
+                || x.r_powf(1.7).to_bits() != crate::real::powf(x, 1.7).to_bits()
+        });
+        assert!(differs, "platform libm is bit-identical to the ARM port on this host");
     }
 
     /// The IEEE special values must survive the extra hop.

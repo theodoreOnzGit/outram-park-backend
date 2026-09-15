@@ -52,6 +52,12 @@
 
 extern crate alloc;
 
+// Only for the `platform-libm` feature, whose whole purpose is to call the
+// platform's `f64::exp`/`ln`/`powf` -- inherent methods that live in `std`,
+// not `core`. The crate stays `no_std` in every other configuration.
+#[cfg(feature = "platform-libm")]
+extern crate std;
+
 pub mod cheb;
 pub mod cheb_slice;
 pub mod error;

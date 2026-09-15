@@ -1004,6 +1004,28 @@ pub struct TampinesSteamArray {
     /// been rebuilt within it. Only consulted under
     /// [`PsiRefresh::OncePerOuterCorrector`].
     psi_rebuilt_this_outer: bool,
+    /// TEMPORARY (bn:op-bgg0, log A4): one-shot latch so the pressure-bound
+    /// diagnostic reports the FIRST occurrence rather than every step.
+    p_bound_reported: bool,
+    /// One-shot latch so the drained-cell hold warns on its FIRST engagement
+    /// rather than on every step.
+    hold_reported: bool,
+    /// Number of cell-updates on which the pressure solve produced a value
+    /// outside `[p_min, p_max]` and was clamped by the bounding step.
+    ///
+    /// **A nonzero count means the solution is wrong, not that it was saved.**
+    /// See [`Self::pressure_bound_events`].
+    p_bound_events: usize,
+    /// Largest amount \[Pa\] by which the solve undershot `p_min` (0.0 if it
+    /// never did). See [`Self::pressure_bound_worst_undershoot`].
+    p_bound_worst_undershoot: f64,
+    /// Largest amount \[Pa\] by which the solve overshot `p_max` (0.0 if it
+    /// never did).
+    p_bound_worst_overshoot: f64,
+    /// Number of cell-updates on which the drained-cell enthalpy hold engaged
+    /// (the continuity density reached its floor, so `he` was held instead of
+    /// solved). See [`Self::drained_hold_events`].
+    drained_hold_events: usize,
     /// How the KNP face state gets its pressure and sound speed (default
     /// [`KnpFaceClosure::ReconstructedPressure`], the validated path). Only
     /// consulted in [`SolverMode::HybridAllMach`].
@@ -1214,6 +1236,12 @@ impl TampinesSteamArray {
             // so every existing constructor/test runs the unchanged code path.
             psi_refresh: PsiRefresh::EveryCorrector,
             psi_rebuilt_this_outer: false,
+            p_bound_reported: false,
+            hold_reported: false,
+            p_bound_events: 0,
+            p_bound_worst_undershoot: 0.0,
+            p_bound_worst_overshoot: 0.0,
+            drained_hold_events: 0,
             knp_face_closure: KnpFaceClosure::ReconstructedPressure,
             thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
@@ -1638,6 +1666,8 @@ impl TampinesSteamArray {
         let p_old = self.p.clone();
         let he_old = self.he.clone();
         let rho_old = self.rho.clone();
+        // Old-time face flux, for the transient Rhie-Chow correction below.
+        let phi_old = self.phi.clone();
 
         let mut u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
@@ -1769,7 +1799,46 @@ impl TampinesSteamArray {
 
                 let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
                                                              // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
-                let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
+                // phi_HbyA = rho_f * flux(HbyA) + rho_rAU_f * ddtCorr(U_old, phi_old)
+                //
+                // The second term is the TRANSIENT half of Rhie-Chow, and it
+                // was missing from this port. Upstream rhoPimpleFoam:
+                //
+                // ```cpp
+                // surfaceScalarField phiHbyA
+                // (
+                //     "phiHbyA",
+                //     fvc::interpolate(rho)*fvc::flux(HbyA)
+                //   + rhorAUf*fvc::ddtCorr(rho, U, phi)
+                // );
+                // ```
+                //
+                // `fvc::ddt_corr` was ported in full -- with OpenFOAM's
+                // `fvcDdtPhiCoeff` limiter -- and then never called from
+                // anywhere (see docs/rhopimplefoam-port-omissions.md row 1,
+                // bn:op-e1zz). Its own doc comment states that re-injecting it
+                // here "is what suppresses pressure-velocity (checkerboard)
+                // decoupling".
+                //
+                // WHY IT MATTERS HERE, measured 2026-09-14 (bn:op-bgg0, log
+                // A4). Without it the Edwards pressure field develops an
+                // odd-even oscillation -- 2.10, 2.86, 2.49, 3.74, 0.32,
+                // 2.66 MPa across six adjacent cells -- and the cell that
+                // fails first is the DENSE SUBCOOLED LIQUID one next to the
+                // flashing front. That is the stiff-at-the-boundary case: its
+                // `psi = drho/dp|_h` is legitimately tiny (1.02e-6, matching
+                // rho*kappa_T for liquid), so its pressure-equation diagonal
+                // is ~4e-5 and there is almost nothing to damp the
+                // oscillation. It solved to -27.2 kPa -- negative absolute
+                // pressure -- and was silently clamped to 611.8 Pa.
+                //
+                // The flux carries the pressure-driven part of the velocity;
+                // interpolating the cell velocity alone throws that away, and
+                // `phiCorr = phi_old - interpolate(U_old).Sf` is exactly the
+                // discrepancy. Re-injecting it keeps the face flux coupled to
+                // its own history.
+                let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya)
+                    + rho_rauf.clone() * fvc::ddt_corr(&u_old, &phi_old, dt);
 
                 // Pressure source = ψ·V/dt·p_old − (net φ_HbyA outflow) [kg/s].
                 let psi_sl = self.psi.internal.as_slice();
@@ -1909,6 +1978,68 @@ impl TampinesSteamArray {
                 // the flash rather than being silently pinned to a bound.
                 let p_min_pa = self.p_min.get::<uom::si::pressure::pascal>();
                 let p_max_pa = self.p_max.get::<uom::si::pressure::pascal>();
+
+                // ── LOUD band-aid: the pressure bound ──────────────────────
+                //
+                // The clamp below keeps a run alive when the pressure equation
+                // asks for a state the equation of state cannot represent. It
+                // is deliberately KEPT: a solver that panics mid-transient is
+                // useless to a user, and a bounded result is a usable one so
+                // long as nobody mistakes it for a correct one. So it must
+                // never be silent.
+                //
+                // A cell clamped UP from a negative absolute pressure is
+                // otherwise indistinguishable downstream from a cell that
+                // legitimately reached the floor, and that is exactly how the
+                // Edwards defect went undiagnosed (bn:op-bgg0, log A4: cell 21
+                // solved to -27.2 kPa and was clamped to 611.8 Pa -- a 6000x
+                // jump -- with nothing said).
+                //
+                // Warned ONCE per array, with the numbers a reader needs to
+                // start debugging. Running totals are on
+                // `pressure_bound_events` / `pressure_bound_worst_undershoot`.
+                if !self.p_bound_reported {
+                    if let Some(b) = (0..n)
+                        .find(|&c| p_new.internal[c] < p_min_pa || p_new.internal[c] > p_max_pa)
+                    {
+                        self.p_bound_reported = true;
+                        eprintln!(
+                            "WARNING [TampinesSteamArray]: pressure bounding engaged -- \
+                             the pressure solve left the EOS range and the value was CLAMPED. \
+                             Results from here on are NOT trustworthy. First occurrence: \
+                             cell {b}, solved p = {:.6e} Pa, clamped into [{:.6e}, {:.6e}] Pa \
+                             (psi = {:.6e}, rho = {:.6e} kg/m3). This is a defect signal, not \
+                             a safety net -- see pressure_bound_events() for the running count, \
+                             and bn:op-bgg0.",
+                            p_new.internal[b],
+                            p_min_pa,
+                            p_max_pa,
+                            self.psi.internal[b],
+                            self.rho.internal[b],
+                        );
+                    }
+                }
+
+
+                // Record every bounding event BEFORE clamping. The clamp is
+                // a band-aid, not a safety net: a cell clamped UP from a
+                // negative absolute pressure is indistinguishable downstream
+                // from one that legitimately landed on the floor, which is
+                // exactly how the Edwards defect stayed hidden (bn:op-bgg0,
+                // log A4 -- cell 21 solved to -27.2 kPa and was silently
+                // clamped to 611.8 Pa, a 6000x jump). Counting it makes the
+                // band-aid honest; see [`Self::pressure_bound_events`].
+                for pv in p_new.internal.iter() {
+                    if *pv < p_min_pa {
+                        self.p_bound_events += 1;
+                        self.p_bound_worst_undershoot =
+                            self.p_bound_worst_undershoot.max(p_min_pa - *pv);
+                    } else if *pv > p_max_pa {
+                        self.p_bound_events += 1;
+                        self.p_bound_worst_overshoot =
+                            self.p_bound_worst_overshoot.max(*pv - p_max_pa);
+                    }
+                }
                 for pv in p_new.internal.iter_mut() {
                     *pv = pv.clamp(p_min_pa, p_max_pa);
                 }
@@ -1992,11 +2123,24 @@ impl TampinesSteamArray {
             //     (small enthalpy change) that keeps the state on the
             //     saturation dome as p falls — the flashing plateau.
             //     See `fvm::ddt_coeff_old`.
+            let div_phi_final = fvc::div_flux(&self.phi);
+            // The UNCLAMPED continuity density, kept for the diagnostic below
+            // and for the drained-cell test: `rho_old - dt*div(phi)` is the
+            // mass the cell would hold if the flux this step were taken at
+            // face value. It can go NEGATIVE -- the flux can ask for more mass
+            // than the cell contains -- and that, not the smallness of the
+            // clamp, is the real signal. See `drained` below.
+            let mut rc_unclamped = vec![0.0_f64; n];
+            // Cells whose continuity density hit the floor: they hold no
+            // meaningful mass this step, so no specific enthalpy is solved for
+            // them. See the block after the energy matrix is assembled.
+            let mut drained = vec![false; n];
             let rho_cont = {
-                let div_phi_final = fvc::div_flux(&self.phi);
-                let mut rc = rho_old.clone() + (-dt) * div_phi_final;
+                let mut rc = rho_old.clone() + (-dt) * div_phi_final.clone();
                 for c in 0..n {
+                    rc_unclamped[c] = rc.internal[c];
                     if rc.internal[c] < 1e-4 {
+                        drained[c] = true;
                         rc.internal[c] = 1e-4;
                     }
                 }
@@ -2027,8 +2171,89 @@ impl TampinesSteamArray {
                     e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
+            // ── Drained-cell enthalpy hold (bn:op-bgg0) ─────────────────────
+            //
+            // A cell whose continuity density `rho_old - dt*div(phi)` has
+            // fallen to (or below) the floor holds no meaningful mass, and a
+            // massless cell has no meaningful SPECIFIC enthalpy. Solving for
+            // one is not merely inaccurate, it is arithmetically catastrophic,
+            // and the reason is precise:
+            //
+            // `rho_cont` exists so that discrete continuity
+            // `(rho_cont - rho_old)/dt = -div(phi)` holds EXACTLY, which is
+            // what makes `h_old*(rho_cont - rho_old)/dt` cancel the
+            // `h*div(phi)` part of `div(phi*h)` term for term (see the long
+            // comment above its construction). **The floor clamp breaks that
+            // identity.** Once it fires, an uncancelled `h*div(phi)` of
+            // perfectly ordinary size is left in the source and is divided by
+            // a diagonal pinned at `1e-4 * V/dt`.
+            //
+            // Measured on the Edwards break cell, 2026-09-14, at the step
+            // before the failure (`bn:op-bgg0`, log A2):
+            //
+            //     cell 22: rho_old = 1.45700e0,  div_phi = 1.03346e5,
+            //              rho_old - dt*div_phi = -1.64339e0   <-- NEGATIVE
+            //              diag = 2.38410e-3,  he = -1.71218e10 J/kg
+            //
+            // The flux asked to remove 3.1 kg/m3 from a cell holding 1.46 in a
+            // single 30 us step. So the clamp is not conservative rounding; it
+            // is papering over a mass over-drain, and the enthalpy that comes
+            // out is off by four orders of magnitude.
+            //
+            // Here we stop the second half of that -- the division -- by giving
+            // the cell an identity row: `he` is held at `he_old` rather than
+            // solved. The LDU convention is that `upper[f]` sits in row
+            // `owner[f]` and `lower[f]` in row `neighbour[f]` (see
+            // `gauss_seidel`), so zeroing the row means zeroing `upper` on
+            // faces this cell owns and `lower` on faces where it is the
+            // neighbour. The column is deliberately left intact: neighbours
+            // still see the held value, which is what "hold" should mean.
+            // `he` is solved by Gauss-Seidel, not CG, so the resulting
+            // asymmetry is fine.
+            //
+            // THIS DOES NOT FIX THE OVER-DRAIN, and must not be described as
+            // if it did. Mass is still being created by the clamp. What it
+            // fixes is that a massless cell can no longer emit a
+            // -1.7e10 J/kg enthalpy into the (p,h) flash.
+            for c in 0..n {
+                if drained[c] {
+                    self.drained_hold_events += 1;
+                    // Loud on first engagement. The hold is KEPT because a
+                    // solver that panics on a drained cell is useless to a
+                    // user -- but it masks a mass over-drain, so a run that
+                    // engages it has a mass-conservation error in it and the
+                    // user must be told rather than handed a plausible-looking
+                    // answer. Running total: `drained_hold_events()`.
+                    if !self.hold_reported {
+                        self.hold_reported = true;
+                        eprintln!(
+                            "WARNING [TampinesSteamArray]: drained-cell enthalpy hold engaged -- \
+                             cell {c}'s continuity density reached its floor, so its specific \
+                             enthalpy was HELD rather than solved. MASS IS NOT CONSERVED in that \
+                             cell: the flux asked to remove more mass than it contained \
+                             (rho_old = {:.6e} kg/m3, unclamped rho_old - dt*div(phi) = {:.6e}). \
+                             The run continues and its results are NOT trustworthy. See \
+                             drained_hold_events() for the running count, and bn:op-bgg0.",
+                            rho_old.internal[c],
+                            rc_unclamped[c],
+                        );
+                    }
+                    e_eqn.ldu.diag[c] = 1.0;
+                    e_eqn.source[c] = he_old.internal[c];
+                    for f in 0..e_eqn.ldu.n_internal_faces {
+                        if e_eqn.ldu.owner[f] == c {
+                            e_eqn.ldu.upper[f] = 0.0;
+                        }
+                        if e_eqn.ldu.neighbour[f] == c {
+                            e_eqn.ldu.lower[f] = 0.0;
+                        }
+                    }
+                }
+            }
+
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
+
             // Rebuild the enthalpy terminals by the UPWIND ADVECTION convention
             // (TUAS), from the mass flux that this corrector just settled on.
             //
@@ -2420,6 +2645,61 @@ impl TampinesSteamArray {
         );
         self.p_min = p_min;
         self.p_max = p_max;
+    }
+
+    /// How many times the pressure solve produced a value outside
+    /// `[p_min, p_max]` and had to be clamped, counted per cell-update over
+    /// the life of this array.
+    ///
+    /// **Treat a nonzero value as a defect signal.** The bounding step
+    /// (OpenFOAM's `pressureControl::limit`) reshapes a pressure the equation
+    /// of state could not have evaluated, so it keeps the run alive -- but a
+    /// converged, well-posed pressure equation should never ask for a pressure
+    /// outside the EOS range in the first place. Upstream carries the same
+    /// limiter for robust start-up, not as something to rely on every step.
+    ///
+    /// This counter exists because the clamp is otherwise **silent**: a cell
+    /// clamped up from -27.2 kPa to 611.8 Pa looks, to everything downstream,
+    /// exactly like a cell that legitimately reached the floor. That is how
+    /// the Edwards blowdown defect went undiagnosed (`bn:op-bgg0`).
+    ///
+    /// Pair it with [`Self::pressure_bound_worst_undershoot`] to see how far
+    /// out the solve actually went.
+    pub fn pressure_bound_events(&self) -> usize {
+        self.p_bound_events
+    }
+
+    /// The largest amount by which the pressure solve undershot `p_min` before
+    /// clamping, over the life of this array (zero if it never did).
+    ///
+    /// A large undershoot means the pressure equation is not merely grazing
+    /// the EOS floor but producing a physically impossible state -- negative
+    /// absolute pressure, in the Edwards case.
+    pub fn pressure_bound_worst_undershoot(&self) -> Pressure {
+        Pressure::new::<uom::si::pressure::pascal>(self.p_bound_worst_undershoot)
+    }
+
+    /// The largest amount by which the pressure solve overshot `p_max` before
+    /// clamping, over the life of this array (zero if it never did).
+    pub fn pressure_bound_worst_overshoot(&self) -> Pressure {
+        Pressure::new::<uom::si::pressure::pascal>(self.p_bound_worst_overshoot)
+    }
+
+    /// How many times the drained-cell enthalpy hold engaged, counted per
+    /// cell-update over the life of this array.
+    ///
+    /// The hold is a **band-aid**: it stops a cell whose continuity density has
+    /// reached the floor from having a meaningless *specific* enthalpy solved
+    /// for it (see the block in `step` that sets the identity row). It does not
+    /// fix the mass over-drain that puts the cell there.
+    ///
+    /// **A zero count is the goal.** If a configuration runs to completion
+    /// without ever engaging the hold, the underlying defect is not occurring
+    /// in that configuration and the band-aid is inert -- which is the evidence
+    /// needed to decide whether it should be removed rather than carried
+    /// indefinitely. See `docs/rhopimplefoam-port-omissions.md`.
+    pub fn drained_hold_events(&self) -> usize {
+        self.drained_hold_events
     }
 
     /// The current flux-discretisation mode (see [`SolverMode`]).

@@ -38,6 +38,7 @@ pub mod linearize;
 pub mod mf1;
 pub mod mf2;
 pub mod rm;
+pub mod urr;
 pub mod rml;
 pub mod slbw;
 
@@ -275,6 +276,16 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps);
+
+    // Phase 2c: add the infinitely-dilute unresolved (LRU=2) contribution for
+    // LSSF=0 ranges -- `genunr` (reconr.f90:1628-1735). Without this those
+    // ranges come back at ZERO cross section; see `urr`'s module doc.
+    if let Some(mf2_sec) = tape.section(mat, 2, 151) {
+        if mf2_sec.rows.len() > 1 {
+            let urr_ranges = crate::unresr::mf2::parse_lru2_ranges(&mf2_sec.rows[1..])?;
+            urr::add_unresolved_ranges(&mut sections, &urr_ranges, eps)?;
+        }
+    }
 
     Ok(ReconrResult {
         material,
@@ -670,6 +681,138 @@ pub(crate) fn rebuild_range(
         new_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         new_pairs.dedup_by(|a, b| (a.0 - b.0).abs() < 1e-10 * b.0.abs().max(1.0));
         sec.pairs = new_pairs;
+    }
+
+    rebuild_total_as_sum_of_parts(sections, &egrid);
+}
+
+/// Rebuild MF=3 MT=1 as the **sum of its parts**, which is what RECONR means by
+/// a redundant reaction: *"Redundant reactions are reconstructed to be the sum
+/// of their parts"* (`reconr.f90:72-73`).
+///
+/// # Why this is not the same as `background + resonance total`
+///
+/// The obvious-looking assembly — take MF=3 MT=1's own background and add the
+/// resonance total to it — is wrong whenever a **partial** carries an MF=3
+/// background that MT=1's own section does not. Sr-88 (ENDF/B-VIII.1, MAT 3837)
+/// is exactly that case: its MF=3 MT=1 and MT=2 backgrounds are identically
+/// zero while MT=102 carries a `1/v` remainder, so building the total that way
+/// silently dropped the capture background from it — 2.1629e-2 b at 1e-5 eV,
+/// 0.24 % of the total. `bn:op-u9jp`.
+///
+/// It is not wrong everywhere, which is why it survived: on Si-30
+/// (ENDF/B-VIII.0) the evaluation's MT=1 background already contains the
+/// partials' backgrounds, so the two constructions agree to every digit and
+/// this function is a no-op.
+///
+/// # Which sections count as parts
+///
+/// Mirrors `emerge`'s accumulation loop (`reconr.f90:4840-4893`). For the
+/// `mtr = 1` target upstream falls straight through to label 400 with no
+/// per-MT test of its own, so every MF=3 section contributes except those the
+/// loop excludes before that point:
+///
+/// - **MT=10** (`:4845`) — the lumped `(n,continuum)` special case.
+/// - **MT=46..49** (`:4847`) — reserved/derived.
+/// - **MT > 200 and MT < 600** (`:4848`, `mpmin = 600` for ENDF-6) — derived
+///   quantities such as `mubar`/`xi`/damage, which are not cross sections.
+///
+/// and, additionally, the **redundant sums themselves**, which would otherwise
+/// be double-counted with the partials they stand for:
+///
+/// - **MT=3** (nonelastic) and **MT=4** (sum of MT=51..91).
+/// - **MT=18** where the evaluation also carries MT=19..21 or 38.
+/// - **MT=103..107** where the evaluation also carries the corresponding
+///   discrete MT=600..849 levels. Where it does *not* — as Sr-88 does not —
+///   MT=103..107 **are** the parts and are summed.
+///
+/// # Verified
+///
+/// Reproduces NJOY2016's MT=1 exactly on both materials with a committed
+/// RECONR oracle: Si-30 (where it changes nothing) and Sr-88 (where it
+/// restores the missing 2.1629e-2 b). See
+/// `tests/reconr_mt1_is_the_sum_of_its_parts.rs`.
+fn rebuild_total_as_sum_of_parts(sections: &mut [ReconrSection], egrid: &[f64]) {
+    if egrid.is_empty() || !sections.iter().any(|s| s.mt == MtReaction::Mt1Total) {
+        return;
+    }
+
+    let present: Vec<i32> = sections.iter().map(|s| s.mt.number()).collect();
+    let has_discrete = |lo: i32, hi: i32| present.iter().any(|&m| (lo..=hi).contains(&m));
+    let has_total_fission = present.iter().any(|&m| m == 18);
+
+    // `emerge`'s exclusions (reconr.f90:4845-4848), plus the redundant sums.
+    let is_part = |mt: i32| -> bool {
+        if mt == 1 || mt == 3 || mt == 4 || mt == 10 {
+            return false;
+        }
+        if (46..=49).contains(&mt) {
+            return false;
+        }
+        if mt > 200 && mt < 600 {
+            return false;
+        }
+        // Fission: take MT=18, not MT=19/20/21/38.
+        //
+        // This is the OPPOSITE of the choice upstream's `anlyzd` records
+        // (`reconr.f90:553-556` sets `mtr18` and builds MT=18 from its parts),
+        // and it is deliberate, because it follows where THIS crate puts the
+        // resonance contribution: `assemble`'s `targets` list reconstructs
+        // `Mt18Fission`, and leaves MT=19..21/38 as pure background. NJOY's
+        // own PENDF carries the resonance fission on the first-chance section
+        // instead, so summing its parts loses nothing there.
+        //
+        // Measured on U-234 (ENDF/B-VIII.0, MAT 9225), which carries all of
+        // 18/19/20/21/38: at 1e-5 eV MT=19, 20, 21 and 38 are all exactly 0.0
+        // here while MT=18 is 3.448068842 b. Summing the parts instead of
+        // MT=18 lost precisely that 3.448 b and moved the total from NJOY's
+        // 5.206555e3 (matched to 3.2e-8) out to 5.203107e3 (6.6e-4). Getting
+        // this backwards is a silent 0.066 % hole in the total of a Godiva
+        // nuclide, so it is spelled out rather than left to inference.
+        if (19..=21).contains(&mt) && has_total_fission {
+            return false;
+        }
+        if mt == 38 && has_total_fission {
+            return false;
+        }
+        match mt {
+            103 => !has_discrete(600, 649),
+            104 => !has_discrete(650, 699),
+            105 => !has_discrete(700, 749),
+            106 => !has_discrete(750, 799),
+            107 => !has_discrete(800, 849),
+            _ => true,
+        }
+    };
+
+    // Sum the parts on the reconstruction grid. Sections are read before the
+    // total is written, so the borrow is split rather than interleaved.
+    let sums: Vec<(f64, f64)> = egrid
+        .iter()
+        .map(|&e| {
+            let total = sections
+                .iter()
+                .filter(|s| is_part(s.mt.number()))
+                .map(|s| eval_lin_lin(&s.pairs, e))
+                .sum();
+            (e, total)
+        })
+        .collect();
+
+    let Some(total_sec) = sections.iter_mut().find(|s| s.mt == MtReaction::Mt1Total) else {
+        return;
+    };
+    for (e, v) in sums {
+        // Replace the value at this grid energy; points outside the
+        // reconstruction grid keep whatever the background gave them, exactly
+        // as every other target does.
+        if let Some(slot) = total_sec
+            .pairs
+            .iter_mut()
+            .find(|(x, _)| (*x - e).abs() <= 1e-10 * e.abs().max(1.0))
+        {
+            slot.1 = v;
+        }
     }
 }
 

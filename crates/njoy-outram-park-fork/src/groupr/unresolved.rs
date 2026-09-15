@@ -552,6 +552,34 @@ impl UnresolvedTable {
         self.points.len()
     }
 
+    /// The stored URR energy points themselves, ascending in energy.
+    ///
+    /// [`Self::shield`] is the interpolating lookup this table exists for;
+    /// this is the raw tabulation behind it, exposed so a caller can compare a
+    /// stored table against an independent evaluation **at the energies the
+    /// table was actually evaluated at** rather than through the
+    /// interpolation. That distinction is the whole subject of
+    /// `verification_and_validation/urr_interpolation_study/`: a value read
+    /// between two stored points is an interpolation, and comparing against it
+    /// measures the interpolation, not the physics.
+    ///
+    /// Each point's `xs[column][dilution]` is indexed by
+    /// [`UrrReaction::column`] and by position in [`Self::sigma0_grid`].
+    pub fn points(&self) -> &[UrrEnergyPoint] {
+        &self.points
+    }
+
+    /// Number of reaction columns stored (`nx`).
+    ///
+    /// RECONR writes five (`genunr`, `reconr.f90:1628-1735`): total, elastic,
+    /// fission, capture, and then **the total again** — `sunr(l+5)=sunr(l+1)`
+    /// at `:1690`. The fifth column is a duplicate, not a transport cross
+    /// section, which is worth knowing before comparing column 5 against a
+    /// kernel whose fifth output is transport.
+    pub fn n_reactions(&self) -> usize {
+        self.n_reactions
+    }
+
     /// Retrieve the self-shielded cross section at energy `e` and correct the
     /// per-dilution background `sig` — the port of `getunr`
     /// (`groupr.f90:6896-6994`), `iovl == 0` path.

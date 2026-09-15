@@ -40,21 +40,26 @@
 //! residual on a *measured* configuration and hands the hunt a target that
 //! depends on nobody's deck.
 //!
-//! # Results (2026-09-14, ENDF/B-VIII.0, 3000 × [80 + 150] generations) — RESOLVED
+//! # Results (2026-09-14, ENDF/B-VIII.0, 10 000 × [250 + 400] generations) — RESOLVED
 //!
 //! ```text
-//! case 1   k_eff = 1.00037 ± 0.00189      Δk = +37  ± 189 pcm
-//! case 2   k_eff = 1.00080 ± 0.00169      Δk = +80  ± 169 pcm
-//! case 8   k_eff = 1.00176 ± 0.00190      Δk = +176 ± 190 pcm
+//! case 1   k_eff = 1.00201 ± 0.00063      Δk = +201 ± 63 pcm
+//! case 2   k_eff = 1.00237 ± 0.00063      Δk = +237 ± 63 pcm
+//! case 8   k_eff = 1.00087 ± 0.00062      Δk = +87  ± 62 pcm
 //! ```
 //!
 //! All three independently critical configurations agree with the **measured**
-//! benchmark within statistics.
+//! benchmark, comfortably inside its own ±600 pcm model uncertainty. Transport
+//! was ~1080 s per case.
 //!
-//! # The residual was a geometry defect, and this file had already proved it was not the data
+//! A small residual of order **+175 pcm** remains and *is* now resolved at this
+//! statistics (σ = 63 pcm, so ~3 σ from zero). It is not noise and should not be
+//! described as zero; see "what is left" below.
 //!
-//! Until 2026-09-14 the three cases read **+2950 / +2271 / +1713 pcm**
-//! (2026-09-11, 10 000 × [250 + 400]). The cause was
+//! # The old +2950 pcm was a geometry defect, and this file had already proved it was not the data
+//!
+//! Until 2026-09-14 the three cases read **+2950 / +2271 / +1713 pcm**. The
+//! cause was
 //! [`Geometry::cross_surface`](outram_mc_libs::geometry::geometry::Geometry::cross_surface)
 //! being handed a **global** position for a surface that lives inside a
 //! *translated* lattice universe, so the surface normal was computed about the
@@ -64,29 +69,35 @@
 //! was attributed to the wrong material. This benchmark is 23 lattices of
 //! **cylindrical pins** — the affected class exactly.
 //!
-//! **Paired A/B at identical settings**, the only attributable measurement:
+//! **Paired A/B at matched settings** (3000 × [80 + 150]), which is what makes
+//! the attribution rather than the comparison to an older record:
 //!
 //! | | k_eff | Δk from the benchmark |
 //! |---|---|---|
 //! | before the fix | 1.02341 ± 0.00188 | +2341 ± 188 pcm |
-//! | after the fix | 1.00037 ± 0.00189 | **+37 ± 189 pcm** |
+//! | after the fix | 1.00037 ± 0.00189 | +37 ± 189 pcm |
 //! | **difference** | | **−2304 ± 267 pcm (8.6 σ)** |
+//!
+//! The lower-statistics post-fix arms (+37 / +80 / +176 pcm) and the full-
+//! statistics ones above agree case by case to **0.8 / 0.9 / 0.4 σ**, so the
+//! two sets are one result at different precision.
 //!
 //! Fixed by `Geometry::cross_surface_in_frame`; diagnosis in
 //! `tests/openmc_notebooks/triso.rs::triso_nested_lattice_surface_vs_delta_keff`.
 //!
-//! ## The spread across cases is what identifies it, and this file already had that argument
+//! ## The spread across cases is what identified it, and this file already had that argument
 //!
 //! The CORRECTION below refuted a U-238 resonance-escape explanation on exactly
-//! the right grounds: the pitch, pellet, clad and fuel are identical in all
-//! three configurations, so resonance escape `p` is the same in each and an
-//! error in it **must give the same Δk**. It did not — the three were spread
-//! over **1237 pcm**.
+//! the right grounds: pitch, pellet, clad and fuel are identical in all three
+//! configurations, so resonance escape `p` is the same in each and an error in
+//! it **must give the same Δk**. It did not — the three spanned **1237 pcm**.
 //!
-//! That argument was correct and is what a geometry defect predicts, because
-//! the error scales with how much pin surface a neutron crosses, which differs
-//! between configurations. After the fix the spread is **139 pcm**, inside
-//! statistics. The refutation held; what was missing was the alternative.
+//! That argument was correct, and a geometry defect is what explains a spread,
+//! because the error scales with how much pin surface a neutron crosses, which
+//! differs between configurations. The spread is now **150 pcm across a ~88 pcm
+//! combined σ, i.e. 1.7 σ — not resolved.** The three configurations are no
+//! longer distinguishable from each other, which is the shape a *data* residual
+//! would have and the old numbers did not.
 //!
 //! **It was not the nuclear data.** Established rather than assumed — see the
 //! uniform-material discriminator in `triso.rs`, where one material written
@@ -95,25 +106,30 @@
 //! majorant below its grid floor, and across the resolved-resonance region)
 //! were tested and killed separately.
 //!
-//! ## Caveat on the superseded numbers
+//! ## What is left, and what it is worth comparing to
 //!
-//! The recorded +2950 pcm was taken at 10 000 × [250 + 400] (σ = 61 pcm); the
-//! A/B above ran 3000 × [80 + 150] (σ = 188 pcm). The pre-fix arms differ by
-//! ~600 pcm, roughly 3 σ of combined statistics, plausibly a mix of that and
-//! the physics changes which landed after 2026-09-11 (the MT=91 continuum
-//! Q-value cap, the evaluated MF=6 law, the continuous thermal kernel) and were
-//! never re-measured here. **The attributable claim therefore rests on the
-//! paired runs at matched settings, not on the difference from the recorded
-//! value.** A re-run at the original statistics would tighten all three and has
-//! not been done.
+//! The remaining ~+175 pcm is small, positive, and consistent across three
+//! configurations. For scale, **Godiva's pooled residual is +214 ± 20 pcm**
+//! (96 seeds) — a *fast bare sphere* with no lattice at all, and structurally
+//! untouched by the fix above (`run_keff` never calls `cross_surface`).
 //!
-//! Source convergence on the case-1 run: inactive quarters 0.9704 / 0.9988 /
-//! 1.0022 / 1.0077, active halves 0.99789 then 1.00284. The residual drift
-//! suggests more inactive generations would be worth having at these settings.
+//! Two residuals of similar size and sign on physically very different systems
+//! is **an observation worth pricing, not a conclusion**. It is equally
+//! consistent with a common small systematic, with a data-library difference,
+//! and with coincidence — three configurations here cannot separate those. The
+//! hunt for the fast-spectrum residual is GitHub issue #206 / `bn:op-mfs4`, and
+//! establishing a like-for-like OpenMC reference on the same evaluation is its
+//! first step for exactly this reason.
 //!
-//! **Supersedes (2026-09-11, 10 000 × [250 + 400]):** case 1
-//! `k_eff = 1.02950 ± 0.00061`, +2950 ± 61 pcm; case 2 +2271 ± 61 pcm; case 8
-//! +1713 ± 60 pcm.
+//! **Source convergence** is adequate but not generous at these settings:
+//! inactive quarters 0.9932 / 1.0010 / 0.9993 / 1.0006 on case 1, with active
+//! halves 1.00183 then 1.00220. The residual drift between halves suggests more
+//! inactive generations would be worth having before reading much into a
+//! sub-100 pcm effect.
+//!
+//! **Supersedes (2026-09-11, same 10 000 × [250 + 400] settings, pre-fix):**
+//! case 1 `k_eff = 1.02950 ± 0.00061`, +2950 ± 61 pcm; case 2 +2271 ± 61 pcm;
+//! case 8 +1713 ± 60 pcm.
 //!
 //! # CORRECTION 2026-09-11 — it is NOT U-238 resonance escape
 //!

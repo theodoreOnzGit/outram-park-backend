@@ -39,9 +39,23 @@ pub enum ResonanceFormalism {
     /// (zero-temperature only, matching this crate's SLBW/Reich-Moore
     /// reconstruction — Doppler broadening is BROADR's job).
     AdlerAdler,
-    /// LRF=7: R-Matrix Limited. Parsed and reconstructed via
-    /// `crate::samm` (Reich-Moore-limited, `KRM=3`/`IFG=0` only, matching
-    /// what `samm.f90` itself supports — see `crate::samm`'s module doc).
+    /// LRF=7: R-Matrix Limited. **Parsed** via
+    /// `crate::samm::mf2::parse_rml_section` (Reich-Moore-limited, `KRM=3`/
+    /// `IFG=0` only, matching what `samm.f90` itself supports — see
+    /// `crate::samm`'s module doc).
+    ///
+    /// **Reconstruction is DEFECTIVE and this doc used to claim otherwise.**
+    /// Measured 2026-09-14 on Sr-88 (MAT 3837, the only LRF=7 evaluation in
+    /// `reference-data/endf/`) against NJOY2016 2016.79 on NJOY's own
+    /// 44,441-point grid: the elastic cross section comes back as the bare
+    /// potential term `4 pi a^2 = 4.969 b` — constant across the bottom of the
+    /// resolved range where NJOY varies (8.843 b at 1e-5 eV) — so the R-matrix
+    /// resonance contribution is absent, not merely inaccurate. Worst relative
+    /// error MT=1 1.03e1 and MT=2 1.04e1 (both at 7.4368e5 eV), MT=102 1.38e0.
+    /// Consistent with `crate::samm::run` still returning
+    /// [`crate::NjoyError::NotPorted`]. Tracked as gh:#202 / `bn:op-hb9l`; no
+    /// fix attempted, and the comparison above is the gate a fix is measured
+    /// against. **Do not cite an LRF=7 reconstruction as verified.**
     RMatrixLimited,
 }
 
@@ -704,9 +718,45 @@ fn parse_reich_moore(
 
 /// LRU=2: unresolved resonance region — header parse only.
 ///
-/// RECONR does not use unresolved parameters (that is PURR's job). We read the
-/// SPI/AP header CONT so the cursor advances past the range header, then return
-/// a placeholder.
+/// We read the SPI/AP header CONT so the cursor advances past the range
+/// header, then return a placeholder.
+///
+/// # This is a KNOWN GAP, not a design decision
+///
+/// **This doc comment used to say "RECONR does not use unresolved parameters
+/// (that is PURR's job)". That is wrong about upstream** and the correction is
+/// kept here because the mistaken version made a real hole look intended.
+/// `reconr.f90`'s own header (`:81-87`) says the opposite: *"If unresolved
+/// parameters are present, the infinitely dilute cross sections are computed
+/// on a special energy grid … and the table is also used to compute the
+/// unresolved contributions in MF3."* PURR's job is the *self-shielded*
+/// treatment; the *infinitely dilute* one belongs here.
+///
+/// # What it costs, and why it is invisible on the usual materials
+///
+/// Whether it matters is decided by the range's **`LSSF` flag**, not by
+/// anything in this port:
+///
+/// - **`LSSF = 1`** — MF=3 already carries the infinitely-dilute unresolved
+///   cross sections, so RECONR adds nothing and skipping them is correct.
+///   ENDF/B-VIII.0 **U-235** and **U-238** are both `LSSF = 1`, which is why
+///   every case built on them looks healthy.
+/// - **`LSSF = 0`** — MF=3 does **not** carry them, and RECONR is expected to
+///   reconstruct them from the unresolved parameters. Skipping them leaves the
+///   whole unresolved window at **zero cross section**.
+///
+/// Measured 2026-09-14 on **U-234** (ENDF/B-VIII.0, MAT 9225, `LSSF = 0`,
+/// URR `1.5e3 .. 1.0e5 eV`): 7 of 10 log-spaced samples of MT=1 across that
+/// window come back `0.0`, against NJOY2016's `2.032567e1 b` at 1700 eV. MT=2,
+/// MT=18 and MT=102 are zero there too, and the MF=3 background is itself zero
+/// — so nothing fills the gap. **A zero total cross section is an infinite
+/// flight in transport**, and U-234 is one of Godiva's three ICSBEP nuclides.
+///
+/// # The machinery already exists — this is wiring, not porting
+///
+/// [`crate::unresr::unresolved_cross_sections`] computes exactly what is
+/// needed; pass `sig0 = [1e10]` for infinite dilution. It is currently
+/// consumed only by PURR. Tracked as `bn:op-12lu`.
 fn parse_lru2_header(
     cur: &mut SectionCursor<'_>,
     el: f64,
