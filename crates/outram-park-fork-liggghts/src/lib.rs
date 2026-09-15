@@ -80,12 +80,16 @@ pub mod bonded;
 pub mod boundary;
 pub mod contact;
 pub mod coupling;
+pub mod granular;
+pub mod granular_system;
+pub mod integrator;
 pub mod mesh_wall;
 pub mod particle;
 pub mod rolling;
 pub mod simulation;
 pub mod thermal;
 pub mod thermal_radiation;
+pub mod timestep;
 
 /// Errors produced by the DEM library in this crate.
 #[derive(Debug, thiserror::Error)]

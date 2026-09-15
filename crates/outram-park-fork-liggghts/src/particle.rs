@@ -327,18 +327,46 @@ impl Particle {
     /// analogously; only `angular_velocity` is integrated because Phase 1 does
     /// not track orientation.
     ///
-    /// # Order of accuracy and stability
+    /// # Order of accuracy and stability — READ THIS BEFORE USING IT FOR CONTACTS
     ///
-    /// Velocity-Verlet is a **second-order**, symplectic, time-reversible
-    /// integrator: local truncation error `O(dt³)` in position, global error
-    /// `O(dt²)`. Being symplectic, it does not secularly drift the energy of a
-    /// conservative system — the energy error stays bounded and oscillatory
-    /// rather than growing. For **constant** acceleration (free flight under
-    /// gravity, constant-torque spin-up) it is **exact** to floating-point
-    /// round-off, as the verification tests confirm. Stability caveat: for an
-    /// oscillatory restoring force of angular frequency `ω_max` (a linear
-    /// contact spring, Phase 2) the step is only stable for `dt < 2/ω_max`;
-    /// this bound is not exercised in Phase 1, which has no such forces.
+    /// For **constant** acceleration (free flight under gravity,
+    /// constant-torque spin-up) this update is **exact** to floating-point
+    /// round-off, as the verification tests confirm. That is the case it was
+    /// written for and the only case its original tests covered.
+    ///
+    /// It is **not velocity-Verlet and not symplectic.** (This doc comment
+    /// claimed both until 2026-09-15; the claim was wrong.) Because the same
+    /// acceleration `a(t)` drives both the position and the velocity update,
+    /// the one-step Jacobian for a linear restoring force `a = −ω²x` is
+    ///
+    /// ```text
+    ///   M = [ 1 − ω²dt²/2    dt ]        det M = 1 + ω²dt²/2  >  1
+    ///       [ −ω²dt           1 ]
+    /// ```
+    ///
+    /// so phase-space volume, and with it the energy of a *conservative*
+    /// oscillator, grows by `(1 + ω²dt²/2)` every step regardless of how well
+    /// resolved the step is. A DEM contact spring is exactly such an
+    /// oscillator. Measured consequences:
+    ///
+    /// - Unit oscillator at `dt = 0.1/ω` (≈63 steps/period), 20 000 steps:
+    ///   `E/E₀ = 2.13 × 10⁴³`, against `0.99969` for true velocity-Verlet.
+    /// - A perfectly **elastic** Hertz collision (`e = 1`, `d = 10 mm`,
+    ///   `E = 10 MPa`, `±1 m/s`) rebounds with measured restitution
+    ///   `e = 1.0031` at `dt = 1 µs`, rising to `1.0159` at `5 µs` and
+    ///   `1.0651` at `20 µs`. Restitution above 1 means the collision
+    ///   *manufactures* energy.
+    ///
+    /// **When it is nonetheless adequate:** with dissipative contacts
+    /// (`e < 1`) at a well-resolved step the physical damping dominates the
+    /// injection, and a settling column still comes to rest — measured decay
+    /// of a 3-sphere column at `e = 0.9`, `dt = 1 µs` is geometric for both
+    /// schemes. The defect bites as `e → 1`, as `dt` grows, and wherever a
+    /// long-lived assembly must conserve energy.
+    ///
+    /// **Use [`crate::integrator::VelocityVerlet`] for contact dynamics.** It
+    /// is the genuine kick–drift–kick scheme (`det M = 1`) and is what
+    /// [`crate::granular_system::GranularSystem`] runs.
     pub fn integrate(&mut self, force: Vec3, torque: Vec3, dt: f64) {
         // Translational: a = F / m  [m/s²]
         let accel = force.scale(1.0 / self.mass);
