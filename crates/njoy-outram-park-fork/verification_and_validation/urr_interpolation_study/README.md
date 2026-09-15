@@ -28,7 +28,7 @@ bit-identical while making `eunr` finer. Under that refinement NJOY's own
 output converges onto the values produced by a direct evaluation at each energy,
 the relative difference falling from `6.3e-3` to `4.7e-5` at worst, and to
 between `4e-10` and `4e-7` at four of the seven energies — at or below the
-floor of what NJOY's 7-significant-figure output can express.
+floor of what NJOY's 7-significant-figure output can express (Figure 1).
 
 The practical consequence is a statement about accuracy that is testable rather
 than asserted: at the energies RECONR interpolates, a directly-evaluated value
@@ -191,30 +191,44 @@ else, which is what makes §4.3 interpretable.
 
 Relative deviation of NJOY's MF=3 MT=18 from the direct evaluation:
 
+![Convergence of NJOY's unresolved-range output onto direct evaluation](fig1_convergence.png)
+
+*Figure 1. Relative deviation of NJOY2016's MF=3 MT=18 from a direct evaluation
+of the same quantity, against refinement of the unresolved parameter grid. Each
+series is one energy at which baseline NJOY interpolates rather than evaluates.
+The shaded band is NJOY's own output resolution: its PENDF carries seven
+significant figures, so near 1.4e-2 b the last printed digit is ~7e-7 relative,
+and a deviation inside the band is indistinguishable from zero **in the
+reference**. Four of the seven series fall into that band and stop there —
+they have converged as far as the comparison can resolve. The remaining three
+are still above it at x16.*
+
+Relative deviation of NJOY's MF=3 MT=18 from the direct evaluation, at full
+precision (`deviations.csv`):
+
 | E (eV) | base | x2 | x4 | x8 | x16 |
 |---|---|---|---|---|---|
 | 7.00000e3 | -9.00e-4 | -2.07e-3 | -5.41e-4 | -1.32e-4 | **-3.33e-5** |
-| 4.368748e4 | 5.80e-3 | 5.80e-3 | 1.29e-3 | 4.01e-4 | **1.90e-5** |
-| 4.51800e4 | 6.25e-3 | 6.25e-3 | 2.02e-4 | 1.01e-4 | **4.70e-5** |
-| 5.25000e4 | 3.70e-3 | 3.70e-3 | 1.31e-3 | ~0 | **4.29e-10** |
-| 7.00000e4 | -4.62e-3 | -4.62e-3 | ~0 | ~0 | **8.59e-8** |
-| 8.00000e4 | -5.69e-3 | ~0 | ~0 | ~0 | **-1.86e-7** |
-| 9.00000e4 | -4.71e-3 | -9.80e-3 | -5.3e-7 | -5.3e-7 | **-3.53e-7** |
+| 4.368748e4 | +5.80e-3 | +5.80e-3 | +1.29e-3 | +4.01e-4 | **+1.90e-5** |
+| 4.51800e4 | +6.25e-3 | +6.25e-3 | +2.02e-4 | +1.01e-4 | **+4.70e-5** |
+| 5.25000e4 | +3.70e-3 | +3.70e-3 | +1.31e-3 | +4.29e-10 | +4.29e-10 |
+| 7.00000e4 | -4.62e-3 | -4.62e-3 | +8.59e-8 | +8.59e-8 | +8.59e-8 |
+| 8.00000e4 | -5.69e-3 | -1.86e-7 | -1.86e-7 | -1.86e-7 | -1.86e-7 |
+| 9.00000e4 | -4.71e-3 | -9.80e-3 | -3.53e-7 | -3.53e-7 | -3.53e-7 |
 
-The baseline column and the `x2`-`x8` columns come from `converge.py`, which
-compares against this crate's values **rounded to the 7 figures NJOY prints**;
-entries shown there as `~0` were exactly `0.00e+00` at that precision. The
-`x16` column is computed by the Rust gate
-(`tests/reconr_urr_njoy_converges_to_ours.rs`) against the *unrounded* kernel
-output, which is why it resolves values like `4.29e-10` and `8.59e-8` where the
-script reported zero.
+Four series reach a floor and stay there — `4.29e-10`, `8.59e-8`, `-1.86e-7`,
+`-3.53e-7` — all at or below the `~7e-7` quantisation of NJOY's printed output.
+They are converged as far as this comparison can see; the residual is the
+reference's own write precision, not a physical difference. The other three fall
+by factors of 27 to 300 and are still above the floor at x16, worst `4.7e-5`.
 
-**That distinction matters and the weaker number is the one to quote.** The
-script's zeros are an artefact of rounding the comparison arm, not evidence of
-exact agreement. The honest statement is that after 16-fold refinement the
-worst remaining deviation is `4.7e-5` and four of the seven energies sit
-between `4e-10` and `4e-7` — at or below the floor of what NJOY's 7-figure
-output can express. The rest fall by factors of 27 to 300.
+> **A correction worth stating, because it changes the headline number.** An
+> earlier pass compared against this crate's values **rounded to the seven
+> figures NJOY prints**, and so reported several of these entries as exactly
+> `0.00e+00`. They are not zero. Every number above comes from
+> `deviations.py`, which reads the unrounded kernel output dumped by
+> `cargo run --example urr_kernel_dump` (`ours_mt18.csv`). Rounding the
+> comparison arm flatters the comparison arm.
 
 **Convergence is not monotone at every point.** `7.0e3` and `9.0e4` get *worse*
 at `x2` before improving, because inserting points changes which neighbours
@@ -269,9 +283,15 @@ for n in 2 4 8 16; do
   (cd run_x$n && ../build/njoy < ../u234-ENDF8.0-0K-err0.001.njoy-input)
 done
 
-# 4. Control and convergence
+# 4. The comparison arm, at full precision (Rust, not Python)
+cargo run --release -p njoy-outram-park-fork --example urr_kernel_dump \
+  > ours_mt18.csv
+
+# 5. Control, deviations and figure
 python3 control.py     # must print 0.00e+00 at every parameter energy
-python3 converge.py
+python3 deviations.py  run_base/tape22 run_x2/tape22 run_x4/tape22 \
+                       run_x8/tape22   run_x16/tape22
+python3 plot_convergence.py            # -> fig1_convergence.{pdf,png}
 ```
 
 The deck is committed at
@@ -282,12 +302,15 @@ The comparison arm's values are produced by
 `crates/njoy-outram-park-fork/tests/reconr_urr_kernel_vs_njoy2016.rs`, which
 asserts the §3 result, and `reconr_u234_unresolved_njoy_golden.rs`.
 
-> **On the scripts being Python.** This workspace's `CLAUDE.md` bars Python for
-> documentation and repository accounting. This is neither — it is a one-off
-> experiment that manipulates an ENDF tape — and keeping it in Python keeps the
+> **On the scripts being Python — settled.** This workspace's `CLAUDE.md` bars
+> Python for documentation and repository accounting. **Maintainer decision,
+> 2026-09-15: Python for a paper's plotting and analysis artifacts is an
+> accepted exception**, and these scripts stand as written. That keeps the
 > reproduction bar at "run a script" rather than "build a 40-crate Rust
-> workspace". If this is submitted, that choice should be revisited with the
-> maintainer.
+> workspace", which is the right trade for a preprint. The one piece that is
+> *not* Python is the comparison arm itself: `urr_kernel_dump` is a Rust
+> example, so the numbers being compared against never pass through a
+> reimplementation of the kernel.
 
 ---
 
