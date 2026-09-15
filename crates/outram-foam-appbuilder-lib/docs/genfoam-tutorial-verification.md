@@ -28,7 +28,7 @@ location with `GENFOAM_UPSTREAM`.
 | case | upstream reference | reference is | status |
 |---|---|---|---|
 | `reactorCases/3D_SmallESFR_NewSolverVerification` | `expectedKeff = 0.936827` | `k_eff` | **verified** |
-| `reactorCases/2D_MSFR` | `expectedKeff = 0.960283`, power 20 MW | `k_eff` | **bracketed** — `albedoSP3` BC missing |
+| `reactorCases/2D_MSFR` | `expectedKeff = 0.960283`, power 20 MW | `k_eff` | **posed identically**; +2002 pcm residual = feedback state |
 | `reactorCases/3D_gFHR` | `Tfmax` avg/min/max = 981.808 / 900.664 / 1062.87 K | fuel temperature | **consistency only** — pebble power model missing |
 | `featureCases/1D_PSBT_SC` | `alpha.vapour = 0.123835`, `T = 620.178 K` | exit void + temperature | **blocked** — two-phase solver missing |
 
@@ -58,19 +58,48 @@ magnitude, not a measurement of the feedback. Running the perturbed states
 through the parametrisation and comparing the reactivity coefficients themselves
 is what would upgrade it.
 
-### MSFR — bracketed
+### MSFR — posed identically, residual is feedback state
 
-| boundary | `k_eff` | vs upstream |
+Upstream's `albedoSP3` boundary condition is now ported (`op-3fer`), so the
+spatial neutronics is posed exactly as upstream poses it: same mesh, cross
+sections, zone map, diffusion operator, boundary conditions and power iteration.
+Upstream's per-patch spec is `topwall`/`bottomwall`/`reflector` at `gamma 0.1`
+and **`hx` at `gamma 0.5`** — assuming one gamma for the whole boundary is the
+obvious mistake, and this test made it before the dictionary was read in full.
+
+| | `k_eff` |
+|---|---|
+| port, reference state, upstream's boundaries | **0.979508** |
+| upstream coupled `expectedKeff` | 0.960283 |
+| difference | **+2002 pcm** |
+| (previously, blanket `fixedValue 0`) | 0.958444 |
+
+So the albedo condition is worth **+2106 pcm** — about as much as the whole
+remaining discrepancy.
+
+**The residual is the cross-section state, and it is measured, not guessed.**
+Upstream's number comes from its coupled `steadyStateEN` stage, where the salt
+has heated under 20 MW against a heat exchanger held at 900 K; this test
+evaluates at the nominal reference state, because the port has no coupled TH
+driver. Running the case's **own** perturbed states through the port's
+parametrisation gives
+
+| state | `k_eff` | coefficient |
 |---|---|---|
-| vacuum (lower bound) | 0.958444 | −191 pcm |
-| upstream | 0.960283 | — |
-| total reflection (upper bound) | 1.075834 | +12 033 pcm |
+| `TFuel` 900 → 1500 K | 0.960741 | **−3.3238 pcm/K** |
+| `rhoCool` 4125 → 3419 kg/m³ | 0.944979 | **+5.2838 pcm per kg/m³** |
+| both | 0.923777 | — |
 
-The case uses an `albedoSP3` boundary condition the port explicitly defers
-(`genfoam::neutronics::sp3`). Vacuum leaks strictly more than any albedo and
-total reflection strictly less, so the true answer must lie between. Upstream's
-does, 1.6 % up from the vacuum bound, consistent with its `gamma = 0.1`.
-Blocked on bead `op-29w8`.
+`+2002 pcm` is therefore a core running some 600 K above the 900 K cold leg, or
+a smaller rise with the density drop that accompanies it. The test asserts only
+what is rigorous and unfitted — the sign (feedback is negative, so upstream must
+sit below the reference state) and that upstream's value lies inside the span the
+case's own perturbed states allow. **It does not claim to reproduce 0.960283.**
+
+Closing it needs the coupled TH solve (pump, buoyancy, turbulence, the
+`fixedTemperature` heat exchanger) plus circulating-fuel precursor drift — filed
+separately. Note `beta_total` here is `2.853e-3`, so drift is worth at most
+~285 pcm and is *not* the main term.
 
 **A wrong answer this found.** Posed with `fixedValue 0` on *every* patch —
 including the two `wedge` planes of the axisymmetric mesh — the same solve
