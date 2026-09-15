@@ -13,8 +13,8 @@ use uom::si::specific_volume::cubic_meter_per_kilogram;
 use uom::si::thermodynamic_temperature::kelvin;
 
 use super::{
-    p_rho_h_conditioning, p_rho_h_eqm, p_rho_h_eqm_explicit, rho_h_is_within_validity_range,
-    tpx_rho_h_eqm,
+    p_rho_h_conditioning, p_rho_h_eqm, p_rho_h_eqm_explicit, p_rho_h_eqm_si,
+    rho_h_is_within_validity_range, tpx_rho_h_eqm,
 };
 use crate::interfaces::functional_programming::ph_flash_eqm::v_ph_eqm;
 use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
@@ -39,16 +39,67 @@ fn superheated_vapour_round_trips() {
     approx::assert_relative_eq!(p.get::<bar>(), 10.0, max_relative = 1.0e-9);
 }
 
-/// The dimensioned and undimensioned entry points agree exactly.
+/// The dimensioned and undimensioned ITERATIVE entry points agree exactly.
+///
+/// `p_rho_h_eqm_si` is the same algorithm as [`p_rho_h_eqm`] in SI scalars, so
+/// this is bit-for-bit, not approximate. (The similarly-named
+/// `p_rho_h_eqm_explicit` is a different algorithm entirely — the closed-form
+/// correlation — and is checked separately below.)
 #[test]
-fn explicit_and_dimensioned_entry_points_agree() {
+fn si_and_dimensioned_entry_points_agree() {
     let (rho, h) = state_from_ph(10.0, 3000.0);
     let dimensioned = p_rho_h_eqm(rho, h).get::<pascal>();
-    let explicit = p_rho_h_eqm_explicit(
+    let si = p_rho_h_eqm_si(
         rho.get::<kilogram_per_cubic_meter>(),
         h.get::<joule_per_kilogram>(),
     );
-    assert_eq!(dimensioned, explicit);
+    assert_eq!(dimensioned, si);
+}
+
+/// The explicit correlation must EXCLUDE compressed liquid and the bubble
+/// point, falling back to the iterative route there.
+///
+/// This is the carve-out that stops `p_rho_h_eqm_explicit` returning the fitted
+/// surface's worst numbers — measured at `3.185` relative in Region 1 (a factor
+/// of four) and `1.773e-1` within 5 % quality of the bubble point. In those two
+/// regimes the explicit entry point must agree with the accurate one EXACTLY,
+/// because it is literally calling it.
+#[test]
+fn the_explicit_route_defers_to_iteration_in_liquid_and_at_the_bubble_point() {
+    // Compressed liquid: 100 bar, 300 kJ/kg (about 70 degC, well subcooled).
+    let (rho_liquid, h_liquid) = state_from_ph(100.0, 300.0);
+    let explicit = p_rho_h_eqm_explicit(
+        rho_liquid.get::<kilogram_per_cubic_meter>(),
+        h_liquid.get::<joule_per_kilogram>(),
+    );
+    let iterative = p_rho_h_eqm(rho_liquid, h_liquid).get::<pascal>();
+    assert_eq!(
+        explicit, iterative,
+        "compressed liquid must not go through the fitted surface"
+    );
+
+    // Just above the bubble point at 10 bar. The quality is ASSERTED rather
+    // than assumed, so the test still means something if the saturation
+    // enthalpies shift.
+    let (rho_bubble, h_bubble) = state_from_ph(10.0, 790.0);
+    let x = crate::interfaces::functional_programming::ph_flash_eqm::x_ph_flash(
+        Pressure::new::<bar>(10.0),
+        h_bubble,
+    );
+    assert!(
+        x > 0.0 && x < 0.05,
+        "test state is meant to sit inside the excluded bubble-point band, got x = {x}"
+    );
+
+    let explicit_bubble = p_rho_h_eqm_explicit(
+        rho_bubble.get::<kilogram_per_cubic_meter>(),
+        h_bubble.get::<joule_per_kilogram>(),
+    );
+    let iterative_bubble = p_rho_h_eqm(rho_bubble, h_bubble).get::<pascal>();
+    assert_eq!(
+        explicit_bubble, iterative_bubble,
+        "the bubble-point band must not go through the fitted surface"
+    );
 }
 
 /// A two-phase state reports its region, and a quality strictly inside `(0,1)`.
@@ -142,8 +193,11 @@ fn non_finite_enthalpy_panics() {
 #[test]
 #[should_panic(expected = "outside the")]
 fn an_unreachable_state_panics_rather_than_returning_nonsense() {
-    // No pressure in the domain puts water at this enthalpy.
-    p_rho_h_eqm_explicit(1.0, 1.0e9);
+    // No pressure in the domain puts water at this enthalpy. Asserted against
+    // the ITERATIVE route: it brackets against the real flash domain and can
+    // therefore tell. `p_rho_h_eqm_explicit` evaluates a fitted surface, which
+    // has no domain of its own and will extrapolate instead — its doc says so.
+    p_rho_h_eqm_si(1.0, 1.0e9);
 }
 
 /// The conditioning measure separates the regime where the answer is

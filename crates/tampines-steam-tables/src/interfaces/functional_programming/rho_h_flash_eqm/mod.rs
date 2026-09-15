@@ -468,18 +468,160 @@ fn bracket_pressure(rho_si: f64, h: AvailableEnergy) -> Option<(f64, f64, f64, f
     None
 }
 
-/// Pressure in pascal from density in kg/m3 and specific enthalpy in J/kg.
+/// Pressure in pascal from density in kg/m3 and specific enthalpy in J/kg, by
+/// **iteration** — the undimensioned twin of [`p_rho_h_eqm`].
 ///
-/// The undimensioned twin of [`p_rho_h_eqm`], for hot loops that already hold
-/// SI scalars and do not want to pay for `uom` construction. Same algorithm,
-/// same tolerance, same panics.
+/// For hot loops that already hold SI scalars and do not want to pay for `uom`
+/// construction. Same algorithm, same tolerance, same panics as
+/// [`p_rho_h_eqm`].
+///
+/// # Renamed 2026-09-15 — read this if you were calling `p_rho_h_eqm_explicit`
+///
+/// This function used to be called `p_rho_h_eqm_explicit`, where "explicit"
+/// meant *explicit SI scalars*. That sat one module away from
+/// [`crate::backward_eqn_chebyshev_experimental::p_rho_h_in_region_explicit`],
+/// where "explicit" means *explicit closed-form equation* — the opposite kind
+/// of thing, since this one iterates and that one does not. The name now means
+/// what the rest of the crate means by it: [`p_rho_h_eqm_explicit`] is the
+/// closed-form correlation, and this is the iterative solve in SI scalars.
 ///
 /// # Panics
 ///
 /// Panics when `rho_si` is not strictly positive and finite, when `h_si` is not
 /// finite, or when the `(rho,h)` state lies outside the `(p,h)` flash domain
 /// (see [`rho_h_is_within_validity_range`] for a non-panicking check).
+/// Pressure from density and specific enthalpy by a **closed-form correlation**
+/// — no iteration.
+///
+/// This is the fast, approximate route: it evaluates this crate's own fitted
+/// `(rho,h)` backward surfaces (see
+/// [`crate::backward_eqn_chebyshev_experimental::p_rho_h`], GitHub issue #34)
+/// rather than inverting the IF97 backward equations numerically the way
+/// [`p_rho_h_eqm`] does. Where [`p_rho_h_eqm`] costs about 75 forward flashes
+/// per call, this costs one polynomial evaluation.
+///
+/// # THESE ARE NOT IAPWS EQUATIONS, AND THE ERROR IS LARGE IN PLACES
+///
+/// IAPWS-IF97 publishes **no** `(rho,h)` backward equations. These surfaces are
+/// fitted in-house, are **experimental, AI-assisted draft material with no
+/// human V&V sign-off**, and their accuracy varies enormously by region.
+/// Measured against this crate's own forward equations (regenerate with
+/// `cargo test --release -p tampines-steam-tables --lib
+/// backward_eqn_chebyshev_experimental::tests::p_rho_h`):
+///
+/// | region / subset | median | 99th pct | maximum |
+/// |---|---|---|---|
+/// | Region 1 (liquid) | 5.619e-4 | 1.838e0 | **3.185e0** |
+/// | Region 2 | 9.788e-6 | 6.240e-5 | 1.549e-4 |
+/// | Region 3 | 1.082e-4 | 3.407e-4 | 3.688e-4 |
+/// | Region 5 | 2.146e-5 | 1.833e-4 | 1.306e-3 |
+/// | Region 4, interior `0.05 <= x < 0.95` | 2.041e-4 | 2.967e-3 | 4.158e-3 |
+/// | Region 4, bubble point `x < 0.05` | 1.145e-4 | 1.409e-1 | **1.773e-1** |
+///
+/// **Region 1 can be wrong by a factor of four** — the worst recorded state
+/// recovers 0.00419 MPa where the reference is 0.00100 MPa. That is not a fit
+/// defect so much as conditioning: liquid water is nearly incompressible, so
+/// `|d ln p / d ln v|_h` reaches about `4.0e4` at 0.5 bar and any error in the
+/// density is amplified by that factor into the pressure. See
+/// [`p_rho_h_conditioning`], which reports the amplification for a given state
+/// so a caller can decide whether this route is usable there.
+///
+/// # Choosing between this and [`p_rho_h_eqm`]
+///
+/// Reach for this only where **speed matters more than the last few digits and
+/// the state is not in liquid or near the bubble point** — a first guess to
+/// seed an iteration, a plotting heuristic, a classifier. Use
+/// [`p_rho_h_eqm`] (or [`p_rho_h_eqm_si`]) wherever the answer is the product.
+///
+/// A worked example of choosing wrongly, and of a third option beating both:
+/// the steam-tables GUI draws constant-volume lines, which spend their length
+/// in exactly the two regions above that are weakest — the liquid branch and
+/// the bubble point. It uses neither route. Re-parameterising the curve by
+/// temperature makes the dome crossing a closed-form lever rule accurate to
+/// about `1e-14`, because at fixed `T` the saturation pressure is already
+/// known and nothing has to be inverted at all.
+///
+/// # Panics
+///
+/// Panics when `rho_si` is not strictly positive and finite, or when `h_si` is
+/// not finite. Unlike [`p_rho_h_eqm_si`] it does **not** panic for a state
+/// outside the `(p,h)` flash domain: a fitted surface has no domain check of
+/// its own, and will happily extrapolate. Call
+/// [`rho_h_is_within_validity_range`] first if that matters.
 pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
+    use crate::backward_eqn_chebyshev_experimental::{
+        p_rho_h_classified, rho_h_region_candidate, RhoHRegion,
+    };
+    use uom::si::mass_density::kilogram_per_cubic_meter;
+
+    assert!(
+        rho_si.is_finite() && rho_si > 0.0,
+        "p_rho_h_eqm_explicit: density must be finite and strictly positive, got {rho_si} kg/m3"
+    );
+    assert!(
+        h_si.is_finite(),
+        "p_rho_h_eqm_explicit: specific enthalpy must be finite, got {h_si} J/kg"
+    );
+
+    let rho = MassDensity::new::<kilogram_per_cubic_meter>(rho_si);
+    let h = AvailableEnergy::new::<joule_per_kilogram>(h_si);
+
+    // ── Carve-out: liquid and the bubble point do NOT go through the fit ────
+    //
+    // The Chebyshev surfaces are usable in vapour and in the interior of the
+    // dome, and they are not usable in compressed liquid (max 3.185 relative,
+    // i.e. a factor of four) or within about 5 % quality of the bubble point
+    // (max 1.773e-1). Returning those numbers from a function whose whole
+    // selling point is speed would be the worst kind of trade: silently wrong,
+    // and fast about it.
+    //
+    // Why a polynomial cannot fix this, so nobody re-fits it harder. In nearly
+    // incompressible liquid the surface being fitted is genuinely near-vertical
+    // -- `|d ln p / d ln v|_h` reaches about 4.0e4 at 0.5 bar -- so pressure
+    // swings by decades across a density range a fit can barely resolve. No
+    // amount of Chebyshev degree represents that well in `(rho, h)`; the
+    // conditioning is a property of the coordinates, not of the approximation.
+    // A replacement for this regime has to change variables (anchor on the
+    // saturation line and fit the departure from it, or fit in a stretched
+    // coordinate), which is a different algorithm rather than a better fit.
+    // Tracked as a bead; until it exists, these states take the accurate route.
+    let region = rho_h_region_candidate(
+        rho_si,
+        h.get::<uom::si::available_energy::kilojoule_per_kilogram>(),
+    );
+    if matches!(region, RhoHRegion::Region1) {
+        return p_rho_h_eqm_si(rho_si, h_si);
+    }
+
+    let p_pa = p_rho_h_classified(rho, h).get::<pascal>();
+
+    // Inside the dome the bubble-point exclusion needs the quality, which needs
+    // a pressure -- so use the cheap one to decide, then discard it if the state
+    // turns out to be in the excluded band. One extra flash, only in Region 4.
+    if matches!(region, RhoHRegion::Region4) {
+        let p = Pressure::new::<pascal>(p_pa);
+        if ph_is_within_validity_range(p, h) {
+            let x = x_ph_flash(p, h);
+            if x < BUBBLE_POINT_EXCLUSION_QUALITY {
+                return p_rho_h_eqm_si(rho_si, h_si);
+            }
+        } else {
+            return p_rho_h_eqm_si(rho_si, h_si);
+        }
+    }
+
+    p_pa
+}
+
+/// Quality below which [`p_rho_h_eqm_explicit`] refuses the fitted surface and
+/// falls back to the iterative route.
+///
+/// Set at the boundary of the measured bubble-point subset (`x < 0.05`), whose
+/// maximum error is `1.773e-1` against `4.158e-3` for the dome interior — a
+/// factor of 43 between the two sides of this line.
+const BUBBLE_POINT_EXCLUSION_QUALITY: f64 = 0.05;
+
+pub fn p_rho_h_eqm_si(rho_si: f64, h_si: f64) -> f64 {
     assert!(
         rho_si.is_finite() && rho_si > 0.0,
         "p_rho_h_eqm: density must be finite and strictly positive, got {rho_si} kg/m3"
@@ -603,7 +745,13 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
 /// Panics on a non-finite or non-positive density, a non-finite enthalpy, or a
 /// state outside the flash domain.
 pub fn p_rho_h_eqm(rho: MassDensity, h: AvailableEnergy) -> Pressure {
-    let p_pascal = p_rho_h_eqm_explicit(
+    // NOTE: `_si`, not `_explicit`. This is the accurate iterative route, and
+    // `p_rho_h_eqm_explicit` is now the fitted correlation -- a different
+    // algorithm with materially different accuracy. Routing this through the
+    // fit would silently downgrade every caller of the crate's primary
+    // `(rho,h)` entry point, which is exactly what happened for one commit
+    // during the 2026-09-15 rename and is why the suite gates it.
+    let p_pascal = p_rho_h_eqm_si(
         rho.get::<kilogram_per_cubic_meter>(),
         h.get::<joule_per_kilogram>(),
     );
