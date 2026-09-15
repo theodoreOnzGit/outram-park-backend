@@ -195,8 +195,12 @@ fn ln_gamma_lanczos(x: f64) -> f64 {
     // Lanczos is written for z! rather than Gamma(z), hence the shift.
     let z = x - 1.0;
 
-    let mut ag = LANCZOS_7_C[0];
-    for (k, c) in LANCZOS_7_C.iter().enumerate().skip(1) {
+    // The zeroth coefficient, then the eight terms `LANCZOS_7_C[k]/(z+k)`.
+    let Some((&c0, tail)) = LANCZOS_7_C.split_first() else {
+        return f64::NAN;
+    };
+    let mut ag = c0;
+    for (k, c) in (1..).zip(tail.iter()) {
         ag += c / (z + k as f64);
     }
 
@@ -382,8 +386,8 @@ pub fn factorial(n: u32) -> f64 {
         121_645_100_408_832_000.0,
         2_432_902_008_176_640_000.0,
     ];
-    if (n as usize) < EXACT.len() {
-        return EXACT[n as usize];
+    if let Some(&exact) = EXACT.get(n as usize) {
+        return exact;
     }
     ln_factorial(n).exp()
 }
@@ -598,7 +602,10 @@ mod tests {
             let ours = ln_gamma(x);
             let theirs = libm::lgamma(x);
             let rel = (ours - theirs).abs() / theirs.abs().max(1.0);
-            assert!(rel < 1e-14, "x={x}: ours={ours}, fdlibm={theirs}, rel={rel}");
+            assert!(
+                rel < 1e-14,
+                "x={x}: ours={ours}, fdlibm={theirs}, rel={rel}"
+            );
         }
     }
 

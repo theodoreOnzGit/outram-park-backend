@@ -86,6 +86,7 @@ use alloc::vec::Vec;
 #[allow(unused_imports)]
 use crate::real::Real;
 
+use crate::zip::zip_flat;
 use crate::{PetirError, Result};
 
 // --- Runge-Kutta-Fehlberg 4(5) tableau, from ode-initval2/rkf45.c -----------
@@ -166,29 +167,33 @@ where
     let mut sum = vec![0.0_f64; n];
     let mut out = y.to_vec();
 
+    // Each stage below is upstream's `for (i = 0; i < dim; i++)` loop with the
+    // subscripts replaced by a zip -- the arithmetic is character-for-character
+    // what `rk4.c` writes, so the rounding is identical. See `crate::zip`.
+
     // k1
     f(t, y, &mut k);
-    for i in 0..n {
-        sum[i] = k[i];
-        tmp[i] = y[i] + 0.5 * h * k[i];
+    for (s, tp, &yi, &ki) in zip_flat!(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
+        *s = ki;
+        *tp = yi + 0.5 * h * ki;
     }
     // k2
     f(t + 0.5 * h, &tmp, &mut k);
-    for i in 0..n {
-        sum[i] += 2.0 * k[i];
-        tmp[i] = y[i] + 0.5 * h * k[i];
+    for (s, tp, &yi, &ki) in zip_flat!(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
+        *s += 2.0 * ki;
+        *tp = yi + 0.5 * h * ki;
     }
     // k3
     f(t + 0.5 * h, &tmp, &mut k);
-    for i in 0..n {
-        sum[i] += 2.0 * k[i];
-        tmp[i] = y[i] + h * k[i];
+    for (s, tp, &yi, &ki) in zip_flat!(sum.iter_mut(), tmp.iter_mut(), y.iter(), k.iter()) {
+        *s += 2.0 * ki;
+        *tp = yi + h * ki;
     }
     // k4
     f(t + h, &tmp, &mut k);
-    for i in 0..n {
-        sum[i] += k[i];
-        out[i] = y[i] + (h / 6.0) * sum[i];
+    for (s, o, &yi, &ki) in zip_flat!(sum.iter_mut(), out.iter_mut(), y.iter(), k.iter()) {
+        *s += ki;
+        *o = yi + (h / 6.0) * *s;
     }
 
     Ok(out)
@@ -242,53 +247,79 @@ where
     let mut k6 = vec![0.0_f64; n];
     let mut tmp = vec![0.0_f64; n];
 
+    // Each stage below is upstream's `for (i = 0; i < dim; i++)` loop with the
+    // subscripts replaced by a zip. The tableau constants keep their literal
+    // subscripts (`AH[0]`, `B6[4]`): those index fixed-size `[f64; N]` arrays
+    // at compile-time-constant positions, so they are checked by the compiler
+    // and cannot fail -- and keeping them makes the loop diff against
+    // `rkf45.c` line for line. The arithmetic is unchanged, so the rounding
+    // matches upstream exactly. See `crate::zip`.
+
     // k1
     f(t, y, &mut k1);
-    for i in 0..n {
-        tmp[i] = y[i] + AH[0] * h * k1[i];
+    for (tp, &yi, &a) in zip_flat!(tmp.iter_mut(), y.iter(), k1.iter()) {
+        *tp = yi + AH[0] * h * a;
     }
     // k2
     f(t + AH[0] * h, &tmp, &mut k2);
-    for i in 0..n {
-        tmp[i] = y[i] + h * (B3[0] * k1[i] + B3[1] * k2[i]);
+    for (tp, &yi, &a, &b) in zip_flat!(tmp.iter_mut(), y.iter(), k1.iter(), k2.iter()) {
+        *tp = yi + h * (B3[0] * a + B3[1] * b);
     }
     // k3
     f(t + AH[1] * h, &tmp, &mut k3);
-    for i in 0..n {
-        tmp[i] = y[i] + h * (B4[0] * k1[i] + B4[1] * k2[i] + B4[2] * k3[i]);
+    for (tp, &yi, &a, &b, &c) in
+        zip_flat!(tmp.iter_mut(), y.iter(), k1.iter(), k2.iter(), k3.iter())
+    {
+        *tp = yi + h * (B4[0] * a + B4[1] * b + B4[2] * c);
     }
     // k4
     f(t + AH[2] * h, &tmp, &mut k4);
-    for i in 0..n {
-        tmp[i] =
-            y[i] + h * (B5[0] * k1[i] + B5[1] * k2[i] + B5[2] * k3[i] + B5[3] * k4[i]);
+    for (tp, &yi, &a, &b, &c, &d) in zip_flat!(
+        tmp.iter_mut(),
+        y.iter(),
+        k1.iter(),
+        k2.iter(),
+        k3.iter(),
+        k4.iter()
+    ) {
+        *tp = yi + h * (B5[0] * a + B5[1] * b + B5[2] * c + B5[3] * d);
     }
     // k5
     f(t + AH[3] * h, &tmp, &mut k5);
-    for i in 0..n {
-        tmp[i] = y[i]
-            + h * (B6[0] * k1[i]
-                + B6[1] * k2[i]
-                + B6[2] * k3[i]
-                + B6[3] * k4[i]
-                + B6[4] * k5[i]);
+    for (tp, &yi, &a, &b, &c, &d, &e) in zip_flat!(
+        tmp.iter_mut(),
+        y.iter(),
+        k1.iter(),
+        k2.iter(),
+        k3.iter(),
+        k4.iter(),
+        k5.iter()
+    ) {
+        *tp = yi + h * (B6[0] * a + B6[1] * b + B6[2] * c + B6[3] * d + B6[4] * e);
     }
     // k6
     f(t + AH[4] * h, &tmp, &mut k6);
 
     let mut out = vec![0.0_f64; n];
     let mut yerr = vec![0.0_f64; n];
-    for i in 0..n {
+    // Upstream splits this into two loops over the same six arrays; fused here
+    // because the zip is what costs, not the arithmetic, and neither term
+    // depends on the other.
+    for (o, er, &yi, &a, &c3, &c4, &c5, &c6) in zip_flat!(
+        out.iter_mut(),
+        yerr.iter_mut(),
+        y.iter(),
+        k1.iter(),
+        k3.iter(),
+        k4.iter(),
+        k5.iter(),
+        k6.iter()
+    ) {
         // Fifth-order solution.
-        let d = C1 * k1[i] + C3 * k3[i] + C4 * k4[i] + C5 * k5[i] + C6 * k6[i];
-        out[i] = y[i] + h * d;
+        let d = C1 * a + C3 * c3 + C4 * c4 + C5 * c5 + C6 * c6;
+        *o = yi + h * d;
         // Difference against the embedded fourth-order solution.
-        yerr[i] = h
-            * (EC[1] * k1[i]
-                + EC[3] * k3[i]
-                + EC[4] * k4[i]
-                + EC[5] * k5[i]
-                + EC[6] * k6[i]);
+        *er = h * (EC[1] * a + EC[3] * c3 + EC[4] * c4 + EC[5] * c5 + EC[6] * c6);
     }
 
     Ok(RkStep { y: out, yerr })
@@ -317,15 +348,40 @@ pub struct OdeSolution {
 }
 
 impl OdeSolution {
-    /// The final state.
-    pub fn final_state(&self) -> &[f64] {
-        // `points` always holds at least the initial condition.
-        &self.points[self.points.len() - 1].y
+    /// The final state, or `None` if the trajectory is empty.
+    ///
+    /// # Why this returns an `Option`
+    ///
+    /// A solution this crate produced always holds at least the initial
+    /// condition, so in practice this is always `Some`. But [`points`] is a
+    /// public field: a caller may build an `OdeSolution` themselves, or drain
+    /// one, and then there is no final state to return. Indexing the last
+    /// element would panic on that caller's machine -- which on bare metal
+    /// ends the program. The `Option` makes the case visible at the call site
+    /// instead, at the cost of one `unwrap`-or-match in the common path.
+    ///
+    /// [`points`]: OdeSolution::points
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use petir::ode::solve_rkf45;
+    /// let sol = solve_rkf45(
+    ///     |_t, y: &[f64], dy: &mut [f64]| dy[0] = y[0],
+    ///     0.0, 1.0, &[1.0], 1e-3, 1e-10, 1e-10, 10_000,
+    /// ).unwrap();
+    /// let y = sol.final_state().expect("a solved trajectory is never empty");
+    /// assert!((y[0] - core::f64::consts::E).abs() < 1e-8);
+    /// ```
+    pub fn final_state(&self) -> Option<&[f64]> {
+        self.points.last().map(|p| p.y.as_slice())
     }
 
-    /// The final value of the independent variable.
-    pub fn final_t(&self) -> f64 {
-        self.points[self.points.len() - 1].t
+    /// The final value of the independent variable, or `None` if the
+    /// trajectory is empty. See [`final_state`](OdeSolution::final_state) for
+    /// why this is an `Option`.
+    pub fn final_t(&self) -> Option<f64> {
+        self.points.last().map(|p| p.t)
     }
 }
 
@@ -358,7 +414,7 @@ impl OdeSolution {
 ///     |_t, y: &[f64], dy: &mut [f64]| dy[0] = y[0],
 ///     0.0, 1.0, &[1.0], 1e-3, 1e-10, 1e-10, 10_000,
 /// ).unwrap();
-/// assert!((sol.final_state()[0] - core::f64::consts::E).abs() < 1e-8);
+/// assert!((sol.final_state().unwrap()[0] - core::f64::consts::E).abs() < 1e-8);
 /// ```
 #[allow(clippy::too_many_arguments)]
 pub fn solve_rkf45<F>(
@@ -404,13 +460,13 @@ where
 
         // Component-wise error against the mixed tolerance.
         let mut worst_ratio = 0.0_f64;
-        for i in 0..n {
-            if !step.y[i].is_finite() || !step.yerr[i].is_finite() {
+        for (&yn, &en, &yi) in zip_flat!(step.y.iter(), step.yerr.iter(), y.iter()) {
+            if !yn.is_finite() || !en.is_finite() {
                 return Err(PetirError::Domain);
             }
-            let tol = epsabs + epsrel * y[i].abs().max(step.y[i].abs());
+            let tol = epsabs + epsrel * yi.abs().max(yn.abs());
             if tol > 0.0 {
-                let ratio = step.yerr[i].abs() / tol;
+                let ratio = en.abs() / tol;
                 if ratio > worst_ratio {
                     worst_ratio = ratio;
                 }

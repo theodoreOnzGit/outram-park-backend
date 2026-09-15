@@ -121,11 +121,11 @@ pub fn dot(x: &[f64], y: &[f64]) -> Result<f64> {
 /// assert_eq!(nrm2(&[1e-200, 0.0]), 1e-200);
 /// ```
 pub fn nrm2(x: &[f64]) -> f64 {
-    if x.is_empty() {
+    let Some((&x0, tail)) = x.split_first() else {
         return 0.0;
-    }
-    if x.len() == 1 {
-        return x[0].abs();
+    };
+    if tail.is_empty() {
+        return x0.abs();
     }
     let mut scale = 0.0_f64;
     let mut ssq = 1.0_f64;
@@ -233,11 +233,11 @@ pub fn scal(alpha: f64, x: &mut [f64]) {
 /// assert_eq!(iamax(&[]), None);
 /// ```
 pub fn iamax(x: &[f64]) -> Option<usize> {
-    if x.is_empty() {
+    let Some(&x0) = x.first() else {
         return None;
-    }
+    };
     let mut best = 0_usize;
-    let mut best_abs = x[0].abs();
+    let mut best_abs = x0.abs();
     for (i, &xi) in x.iter().enumerate().skip(1) {
         let a = xi.abs();
         // Strictly greater: ties keep the earlier index.

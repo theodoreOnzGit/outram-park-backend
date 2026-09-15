@@ -92,6 +92,7 @@ use alloc::vec::Vec;
 use crate::real::Real;
 
 use crate::scalar::{DBL_EPSILON, DBL_MIN};
+use crate::zip::zip_flat;
 use crate::{PetirError, Result};
 
 /// Which Gauss-Kronrod rule to apply.
@@ -217,44 +218,85 @@ where
     let mut fv1 = vec![0.0_f64; n];
     let mut fv2 = vec![0.0_f64; n];
 
+    // Upstream's `wgk[n-1]` is the weight at the centre, and its `for (j = 0;
+    // j < n - 1; j++)` loop walks everything BEFORE it -- so one `split_last`
+    // supplies both, with no subscript and no separate bounds check.
+    //
+    // Every built-in rule has a non-empty table (pinned by
+    // `the_tables_have_the_lengths_the_algorithm_assumes` below), so the
+    // `None` arm is unreachable. It returns the integral of a rule with no
+    // points, which is zero -- the right answer for that input rather than a
+    // disguised failure.
+    let Some((&wgk_centre, wgk_head)) = wgk.split_last() else {
+        return QkResult {
+            result: 0.0,
+            abserr: 0.0,
+            resabs: 0.0,
+            resasc: 0.0,
+        };
+    };
+
     let mut result_gauss = 0.0_f64;
-    let mut result_kronrod = f_center * wgk[n - 1];
+    let mut result_kronrod = f_center * wgk_centre;
     let mut result_abs = result_kronrod.abs();
 
     if n % 2 == 0 {
-        result_gauss = f_center * wg[n / 2 - 1];
+        // `wg[n/2 - 1]`. `split_last` above established `n >= 1`, and `n` is
+        // even here, so `n >= 2` and the subtraction cannot wrap.
+        if let Some(&w) = wg.get(n / 2 - 1) {
+            result_gauss = f_center * w;
+        }
     }
 
-    // Points shared with the underlying Gauss rule.
-    for j in 0..(n - 1) / 2 {
-        let jtw = j * 2 + 1; // in the original Fortran j = 1,2,3 -> jtw = 2,4,6
-        let abscissa = half_length * xgk[jtw];
+    // Points shared with the underlying Gauss rule: upstream's odd Kronrod
+    // indices `jtw = 2j + 1`, which is what `skip(1).step_by(2)` walks. The
+    // `take` reproduces upstream's `j < (n - 1) / 2` bound, which for the
+    // even-length tables stops one short of the strided sequence.
+    for (&x_j, &wgk_j, &wg_j, f1, f2) in zip_flat!(
+        xgk.iter().skip(1).step_by(2),
+        wgk.iter().skip(1).step_by(2),
+        wg.iter(),
+        fv1.iter_mut().skip(1).step_by(2),
+        fv2.iter_mut().skip(1).step_by(2)
+    )
+    .take((n - 1) / 2)
+    {
+        let abscissa = half_length * x_j;
         let fval1 = f(center - abscissa);
         let fval2 = f(center + abscissa);
         let fsum = fval1 + fval2;
-        fv1[jtw] = fval1;
-        fv2[jtw] = fval2;
-        result_gauss += wg[j] * fsum;
-        result_kronrod += wgk[jtw] * fsum;
-        result_abs += wgk[jtw] * (fval1.abs() + fval2.abs());
+        *f1 = fval1;
+        *f2 = fval2;
+        result_gauss += wg_j * fsum;
+        result_kronrod += wgk_j * fsum;
+        result_abs += wgk_j * (fval1.abs() + fval2.abs());
     }
 
-    // The points Kronrod adds.
-    for j in 0..n / 2 {
-        let jtwm1 = j * 2;
-        let abscissa = half_length * xgk[jtwm1];
+    // The points Kronrod adds: upstream's even indices `jtwm1 = 2j`.
+    for (&x_j, &wgk_j, f1, f2) in zip_flat!(
+        xgk.iter().step_by(2),
+        wgk.iter().step_by(2),
+        fv1.iter_mut().step_by(2),
+        fv2.iter_mut().step_by(2)
+    )
+    .take(n / 2)
+    {
+        let abscissa = half_length * x_j;
         let fval1 = f(center - abscissa);
         let fval2 = f(center + abscissa);
-        fv1[jtwm1] = fval1;
-        fv2[jtwm1] = fval2;
-        result_kronrod += wgk[jtwm1] * (fval1 + fval2);
-        result_abs += wgk[jtwm1] * (fval1.abs() + fval2.abs());
+        *f1 = fval1;
+        *f2 = fval2;
+        result_kronrod += wgk_j * (fval1 + fval2);
+        result_abs += wgk_j * (fval1.abs() + fval2.abs());
     }
 
     let mean = result_kronrod * 0.5;
-    let mut result_asc = wgk[n - 1] * (f_center - mean).abs();
-    for j in 0..n - 1 {
-        result_asc += wgk[j] * ((fv1[j] - mean).abs() + (fv2[j] - mean).abs());
+    let mut result_asc = wgk_centre * (f_center - mean).abs();
+    // `wgk_head` is `wgk[0 .. n-1]`, so the zip runs exactly upstream's
+    // `n - 1` times; `fv1`/`fv2` are longer and their last entry is never
+    // written, exactly as upstream leaves it.
+    for (&w, &a_j, &b_j) in zip_flat!(wgk_head.iter(), fv1.iter(), fv2.iter()) {
+        result_asc += w * ((a_j - mean).abs() + (b_j - mean).abs());
     }
 
     // The Gauss/Kronrod difference IS the error estimate.
@@ -381,12 +423,18 @@ where
     while segments.len() < limit {
         // Bisect the sub-interval carrying the largest error.
         let mut worst = 0usize;
+        let mut worst_abserr = f64::NEG_INFINITY;
         for (i, s) in segments.iter().enumerate() {
-            if s.abserr > segments[worst].abserr {
+            if s.abserr > worst_abserr {
+                worst_abserr = s.abserr;
                 worst = i;
             }
         }
-        let seg = segments[worst];
+        // `segments` is non-empty on every iteration (it is seeded with one
+        // segment and only ever grows), so this always resolves.
+        let Some(&seg) = segments.get(worst) else {
+            return Err(PetirError::Invalid);
+        };
 
         let mid = 0.5 * (seg.a + seg.b);
         // A sub-interval too small to bisect meaningfully: further subdivision
@@ -401,7 +449,10 @@ where
         area += (left.result + right.result) - seg.result;
         errsum += (left.abserr + right.abserr) - seg.abserr;
 
-        segments[worst] = Segment {
+        let Some(slot) = segments.get_mut(worst) else {
+            return Err(PetirError::Invalid);
+        };
+        *slot = Segment {
             a: seg.a,
             b: mid,
             result: left.result,
@@ -798,3 +849,64 @@ const WG_61: [f64; 15] = [
     0.102852652893558840341285636705415,
 ];
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The three tables of each rule must stand in the relationship
+    /// [`kronrod`] assumes, because two of that routine's branches are
+    /// unreachable only if they do.
+    ///
+    /// # Methodology
+    ///
+    /// For each of the six rules, check that
+    ///
+    /// - `wgk` has the same length `n` as `xgk` — `wgk_centre` is taken by
+    ///   `split_last` on `wgk` and paired with `xgk`-strided values;
+    /// - `wgk` is **non-empty**, which is what makes the "rule with no points"
+    ///   arm of `kronrod` unreachable;
+    /// - `wg` is long enough to hold `n / 2` entries, so the
+    ///   `wg.get(n / 2 - 1)` read for an even-length table always resolves;
+    /// - `wg` has exactly `n / 2` entries (integer division), the count
+    ///   QUADPACK's Gauss half-rule carries. This is also what makes the
+    ///   shared-point loop's `take((n - 1) / 2)` meaningful: for odd `n` the
+    ///   two agree and `wg` is the binding input, while for even `n` the
+    ///   strided `xgk` walk runs one step longer than upstream's bound and the
+    ///   `take` is what stops it.
+    ///
+    /// # Results
+    ///
+    /// Passes for all six rules as of 2026-09-15, on the tables extracted from
+    /// GSL 2.8 `qk15.c` … `qk61.c`:
+    /// `(n, wg.len())` = (8, 4), (11, 5), (16, 8), (21, 10), (26, 13), (31, 15)
+    /// — `wg.len() == n / 2` in every case.
+    /// Interpretation: the two `else`/`if let` arms in [`kronrod`] that exist
+    /// to avoid a subscript are dead code for every rule the enum can name,
+    /// which is what lets the routine stay infallible.
+    #[test]
+    fn the_tables_have_the_lengths_the_algorithm_assumes() {
+        for rule in [
+            QkRule::Qk15,
+            QkRule::Qk21,
+            QkRule::Qk31,
+            QkRule::Qk41,
+            QkRule::Qk51,
+            QkRule::Qk61,
+        ] {
+            let (xgk, wgk, wg) = rule.tables();
+            let n = xgk.len();
+            assert!(!wgk.is_empty(), "{rule:?}: wgk must be non-empty");
+            assert_eq!(wgk.len(), n, "{rule:?}: wgk and xgk must agree in length");
+            assert!(
+                wg.len() >= n / 2,
+                "{rule:?}: wg must hold at least n/2 = {} entries, has {}",
+                n / 2,
+                wg.len()
+            );
+            assert_eq!(wg.len(), n / 2, "{rule:?}: wg must hold n/2 entries");
+            // The rule's advertised point count is 2n - 1: n Kronrod abscissae
+            // mirrored about the centre, which is shared.
+            assert_eq!(rule.points(), 2 * n - 1, "{rule:?}: point count");
+        }
+    }
+}

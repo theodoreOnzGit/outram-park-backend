@@ -166,6 +166,11 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
+// Crate-internal plumbing: a flattening multi-way `zip`, so the ported kernels
+// can write parallel-array loops without a subscript. Not part of the public
+// API and not a numerical routine -- see the module docs.
+mod zip;
+
 pub mod cheb;
 pub mod cheb_slice;
 pub mod deriv;
@@ -189,7 +194,7 @@ pub mod specfunc;
 pub mod transfer_fn;
 
 pub use cheb::ChebSeries;
-pub use cheb_slice::{basis, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale};
+pub use cheb_slice::{basis, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale, try_eval2_sparse};
 pub use expint::{expint_e1, expint_e1_scaled};
 pub use gamma_inc::{gamma_inc_lower, gamma_inc_p};
 pub use error::{PetirError, Result};

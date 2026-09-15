@@ -59,6 +59,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use crate::zip::zip_flat;
 use crate::{PetirError, Result};
 
 /// Solve a symmetric tridiagonal system `A x = b`.
@@ -106,13 +107,22 @@ pub fn solve_symm_tridiag(diag: &[f64], offdiag: &[f64], b: &[f64]) -> Result<Ve
     }
 
     // A = L D L^T, with lower_diag(L) = gamma and diag(D) = alpha.
-    let mut gamma = vec![0.0_f64; n];
-    let mut alpha = vec![0.0_f64; n];
-    let mut c = vec![0.0_f64; n];
-    let mut z = vec![0.0_f64; n];
+    //
+    // Every recurrence below carries its `i - 1` term in a local and grows its
+    // output by `push`, rather than reading back through a subscript. The
+    // arithmetic is unchanged from `linalg/tridiag.c`; what is gone is the
+    // possibility of an out-of-range index, which on a `no_std` target is a
+    // dead device rather than a stack trace (see tests/no_panic_gate.rs).
+    let mut gamma: Vec<f64> = Vec::with_capacity(n.saturating_sub(1));
+    let mut alpha: Vec<f64> = Vec::with_capacity(n);
 
-    alpha[0] = diag[0];
-    if alpha[0] == 0.0 {
+    // `n == 0` is rejected above, so `split_first` always succeeds; the `else`
+    // arm exists because the compiler cannot see that, and reports rather than
+    // panics.
+    let Some((&d0, diag_tail)) = diag.split_first() else {
+        return Err(PetirError::Invalid);
+    };
+    if d0 == 0.0 {
         return Err(PetirError::ZeroDivide);
     }
 
@@ -121,49 +131,73 @@ pub fn solve_symm_tridiag(diag: &[f64], offdiag: &[f64], b: &[f64]) -> Result<Ve
     // GSL computes `gamma[0] = offdiag[0] / alpha[0]` unconditionally. For a
     // 1x1 system `offdiag` is EMPTY, so that reads one past the end of the
     // array -- undefined behaviour in C, which in practice returns whatever
-    // was in memory and is then never used. In Rust the same expression is a
-    // bounds check and a panic, which for a `no_std` target means a dead
-    // device (see tests/no_panic_gate.rs).
+    // was in memory and is then never used.
     //
-    // A 1x1 system needs no factorisation at all, so it returns directly.
-    if n == 1 {
-        return Ok(vec![b[0] / alpha[0]]);
-    }
+    // A 1x1 system needs no factorisation at all, so it returns directly. The
+    // length checks above already guarantee `b.len() == n == 1`.
+    let Some((&e0, offdiag_tail)) = offdiag.split_first() else {
+        let Some(&b0) = b.first() else {
+            return Err(PetirError::Invalid);
+        };
+        return Ok(vec![b0 / d0]);
+    };
 
-    gamma[0] = offdiag[0] / alpha[0];
+    alpha.push(d0);
+    let mut g_prev = e0 / d0;
+    gamma.push(g_prev);
 
-    for i in 1..n.saturating_sub(1) {
-        alpha[i] = diag[i] - offdiag[i - 1] * gamma[i - 1];
-        if alpha[i] == 0.0 {
+    // Upstream's `for (i = 1; i < n - 1; i++)`. At step `i` the zip supplies
+    // `diag[i]`, `offdiag[i - 1]` and `offdiag[i]`; it runs `n - 2` times
+    // because `offdiag_tail` is the shortest of the three.
+    for (&di, &e_prev, &ei) in zip_flat!(diag_tail.iter(), offdiag.iter(), offdiag_tail.iter()) {
+        let a = di - e_prev * g_prev;
+        if a == 0.0 {
             return Err(PetirError::ZeroDivide);
         }
-        gamma[i] = offdiag[i] / alpha[i];
+        alpha.push(a);
+        g_prev = ei / a;
+        gamma.push(g_prev);
     }
 
-    if n > 1 {
-        alpha[n - 1] = diag[n - 1] - offdiag[n - 2] * gamma[n - 2];
-        if alpha[n - 1] == 0.0 {
-            return Err(PetirError::ZeroDivide);
-        }
+    // The last diagonal entry: `alpha[n-1] = diag[n-1] - offdiag[n-2] * gamma[n-2]`.
+    // `g_prev` is `gamma[n - 2]` on exit from the loop above.
+    let (Some(&d_last), Some(&e_last)) = (diag.last(), offdiag.last()) else {
+        return Err(PetirError::Invalid);
+    };
+    let a_last = d_last - e_last * g_prev;
+    if a_last == 0.0 {
+        return Err(PetirError::ZeroDivide);
     }
+    alpha.push(a_last);
 
-    // Forward substitution.
-    z[0] = b[0];
-    for i in 1..n {
-        z[i] = b[i] - gamma[i - 1] * z[i - 1];
+    // Forward substitution: z[0] = b[0], z[i] = b[i] - gamma[i-1] * z[i-1].
+    let Some((&b0, b_tail)) = b.split_first() else {
+        return Err(PetirError::Invalid);
+    };
+    let mut z: Vec<f64> = Vec::with_capacity(n);
+    let mut z_prev = b0;
+    z.push(z_prev);
+    for (&bi, &g) in zip_flat!(b_tail.iter(), gamma.iter()) {
+        z_prev = bi - g * z_prev;
+        z.push(z_prev);
     }
-    for i in 0..n {
-        c[i] = z[i] / alpha[i];
-    }
+    let c: Vec<f64> = zip_flat!(z.iter(), alpha.iter())
+        .map(|(&zi, &ai)| zi / ai)
+        .collect();
 
-    // Back substitution.
-    let mut x = vec![0.0_f64; n];
-    x[n - 1] = c[n - 1];
-    if n >= 2 {
-        for i in (0..n - 1).rev() {
-            x[i] = c[i] - gamma[i] * x[i + 1];
-        }
+    // Back substitution: x[n-1] = c[n-1], x[i] = c[i] - gamma[i] * x[i+1].
+    // Built back-to-front and reversed once, so the `i + 1` term is a local.
+    let Some((&c_last, c_head)) = c.split_last() else {
+        return Err(PetirError::Invalid);
+    };
+    let mut x: Vec<f64> = Vec::with_capacity(n);
+    let mut x_next = c_last;
+    x.push(x_next);
+    for (&ci, &g) in zip_flat!(c_head.iter().rev(), gamma.iter().rev()) {
+        x_next = ci - g * x_next;
+        x.push(x_next);
     }
+    x.reverse();
 
     Ok(x)
 }

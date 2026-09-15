@@ -54,17 +54,54 @@ that drifts from its origin fails the build rather than rotting quietly.
 
 | Module | Lineage | Covers |
 |---|---|---|
-| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS |
+| `cheb`, `cheb_slice` | ported | Chebyshev fitting at the Gauss nodes, Clenshaw evaluation with an error estimate, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
+| `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
+| `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver |
+| `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
+| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve |
+| `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
+| `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
 | `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders |
-| `specfunc` | ported + lifted + delegated | Error-function family including the scaled `erfcx`, gamma family with GSL's Padé branches at the zeros, incomplete gamma and its inverse |
+| `roots` | ported | Bracketing (bisection, false position, Brent) and derivative-based (Newton, secant, Steffenson) root finders, with GSL's three convergence tests |
+| `specfunc`, `expint`, `gamma_inc` | ported + lifted + delegated | Error-function family including the scaled `erfcx`, gamma family with GSL's Padé branches at the zeros, incomplete gamma and its inverse, exponential integral `E_1` |
 | `transfer_fn` | ported | Continuous and discrete SISO transfer functions, `c2d` / `d2c`, and the O(1) fixed-state recurrence blocks |
+| `fast_exp`, `fast_log`, `fast_pow` | ported | ARM optimized-routines `exp`, `log` and `pow` — bit-identical to upstream |
 | `real` | — | The `no_std` float-math shim |
-| `scalar` | lifted | Guard constants and machine epsilons |
+| `scalar` | lifted + additions | OpenFOAM guard constants, extended here with GSL's epsilon constants (`bn:op-l87q`) |
 
-**Not here yet**, and tracked as beads rather than stubbed: quadrature,
-one-dimensional root finding, minimisation, numerical differentiation, ODE
-integration, interpolation, and Chebyshev fitting. An empty module that looks
-like an API is worse than an absent one.
+**Deliberate subsets rather than gaps**, each named where it matters and
+tracked as a bead: QAGS and the infinite-range and weighted quadrature
+variants; implicit and stiff ODE methods; Akima, Steffen and periodic splines;
+general-degree complex polynomial roots; Chebyshev least-squares regression at
+arbitrary points and adaptive degree selection. An empty module that looks like
+an API is worse than an absent one.
+
+## Errors are returned, and no routine panics on an index
+
+Two gates in `tests/no_panic_gate.rs` hold this up, and they cover different
+things:
+
+1. **No explicit panicking construct** in library code — no `panic!`,
+   `unwrap()`, `expect(..)`, `unreachable!`, `todo!` or `assert*!`.
+2. **No variable slice indexing** in any module PETIR ported or wrote. An index
+   must be an integer literal, which rustc's deny-by-default
+   `unconditional_panic` lint checks against a fixed-size array at compile
+   time. Everything else goes through `get` / `first` / `last` /
+   `split_first` / `split_last`, or a `zip` — which is what the crate-internal
+   `zip_flat!` exists for, so a five-way parallel-array loop does not have to
+   bind `((((a, b), c), d), e)`.
+
+Why it is worth the trouble: on `thumbv7em-none-eabihf` a panic is not a stack
+trace and a non-zero exit, it is the end of the program in a device that may be
+controlling something.
+
+The **19 verbatim lifts are exempt from the second gate only**, because
+rewriting a subscript in one would destroy the byte-identical property it
+exists for. The fix for those is upstream, then a re-lift.
+
+Neither gate covers allocation failure (`Vec` aborts; `alloc` has no stable
+fallible API) or `usize` overflow under `debug_assertions`. Saying so is the
+point: a crate claiming "no panics" while those held would be overclaiming.
 
 ## `no_std` is the contract
 

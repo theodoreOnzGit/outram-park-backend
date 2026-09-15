@@ -209,7 +209,11 @@ pub fn inverse(a: &SquareMatrix) -> Result<SquareMatrix> {
     for col in 0..n {
         // Back-substitute against the col-th column of the identity.
         let mut e = vec![0.0_f64; n];
-        e[col] = 1.0;
+        // `col < n` by the loop bound, so this always resolves.
+        let Some(slot) = e.get_mut(col) else {
+            return Err(PetirError::Invalid);
+        };
+        *slot = 1.0;
         lu.lu_back_substitute(&pivot, &mut e);
         for (row, &value) in e.iter().enumerate() {
             inv.set(row, col, value);
@@ -242,7 +246,10 @@ mod tests {
         // 3x3, expanded by hand: 1(5*9-6*8) - 2(4*9-6*7) + 3(4*8-5*7) = 0 ->
         // use a non-singular one instead.
         let d = det(&mat(3, &[2.0, -1.0, 0.0, -1.0, 2.0, -1.0, 0.0, -1.0, 2.0])).unwrap();
-        assert!((d - 4.0).abs() < 1e-12, "tridiagonal(2,-1) det = 4, got {d}");
+        assert!(
+            (d - 4.0).abs() < 1e-12,
+            "tridiagonal(2,-1) det = 4, got {d}"
+        );
     }
 
     /// The permutation sign is the easiest thing to get wrong and the hardest

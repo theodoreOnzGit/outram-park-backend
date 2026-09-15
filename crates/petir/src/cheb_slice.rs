@@ -35,6 +35,8 @@
 //! mixing them is silent — see
 //! [`ChebSeries::from_plain_coefficients`](crate::ChebSeries::from_plain_coefficients).
 
+use crate::zip::zip_flat;
+
 /// Map `v` from `[lo, hi]` onto the Chebyshev interval `[-1, 1]`.
 ///
 /// Does **not** clamp: outside `[lo, hi]` the recurrence extrapolates and
@@ -62,15 +64,20 @@ pub fn scale(v: f64, lo: f64, hi: f64) -> f64 {
 #[inline]
 pub fn basis<const N: usize>(x: f64) -> [f64; N] {
     let mut t = [0.0_f64; N];
-    if N == 0 {
-        return t;
-    }
-    t[0] = 1.0;
-    if N > 1 {
-        t[1] = x;
-    }
-    for k in 2..N {
-        t[k] = 2.0 * x * t[k - 1] - t[k - 2];
+    // The recurrence needs T_{k-1} and T_{k-2}; carrying both in locals lets
+    // the array be filled by a single forward walk with no subscript, so an
+    // out-of-range read is not expressible here rather than merely unlikely.
+    let mut t_km1 = 0.0_f64;
+    let mut t_km2 = 0.0_f64;
+    for (k, slot) in t.iter_mut().enumerate() {
+        let v = match k {
+            0 => 1.0,
+            1 => x,
+            _ => 2.0 * x * t_km1 - t_km2,
+        };
+        *slot = v;
+        t_km2 = t_km1;
+        t_km1 = v;
     }
     t
 }
@@ -99,17 +106,19 @@ pub fn eval_plain(x: f64, c: &[f64]) -> f64 {
 /// `0.0` for an empty `c`.
 #[inline]
 pub fn eval_gsl(x: f64, c: &[f64]) -> f64 {
-    if c.is_empty() {
+    // `c[1..]` walked backwards is upstream's `for (i = len-1; i >= 1; i--)`,
+    // and the split hands back `c[0]` for the closing half-term.
+    let Some((&c0, rest)) = c.split_first() else {
         return 0.0;
-    }
+    };
     let (mut d1, mut d2) = (0.0, 0.0);
     let y2 = 2.0 * x;
-    for i in (1..c.len()).rev() {
+    for &c_i in rest.iter().rev() {
         let temp = d1;
-        d1 = y2 * d1 - d2 + c[i];
+        d1 = y2 * d1 - d2 + c_i;
         d2 = temp;
     }
-    x * d1 - d2 + 0.5 * c[0]
+    x * d1 - d2 + 0.5 * c0
 }
 
 /// Dense tensor product `sum_ij c[i][j] T_i(x) T_j(y)`, plain convention.
@@ -120,9 +129,11 @@ pub fn eval2_dense<const M: usize, const N: usize>(x: f64, y: f64, c: &[[f64; N]
     let tx = basis::<M>(x);
     let ty = basis::<N>(y);
     let mut out = 0.0;
-    for i in 0..M {
-        for j in 0..N {
-            out += c[i][j] * tx[i] * ty[j];
+    // `i` outer, `j` inner -- the same accumulation order as the subscripted
+    // double loop, so the rounding is unchanged.
+    for (row, &tx_i) in zip_flat!(c.iter(), tx.iter()) {
+        for (&c_ij, &ty_j) in zip_flat!(row.iter(), ty.iter()) {
+            out += c_ij * tx_i * ty_j;
         }
     }
     out
@@ -133,17 +144,63 @@ pub fn eval2_dense<const M: usize, const N: usize>(x: f64, y: f64, c: &[[f64; N]
 /// Both `x` and `y` are expected on `[-1, 1]`. `MAX` bounds the degree in each
 /// direction and must exceed every `i` and `j` present.
 ///
-/// # Panics
-/// If any `i` or `j` is `>= MAX`.
+/// # Out-of-range degrees give `NaN`, and never a panic
+///
+/// This is the one function in the module whose subscripts came from the
+/// **caller** rather than from a length the function controls, so an
+/// out-of-range degree is genuinely reachable rather than merely
+/// unprovable-to-the-compiler. It used to panic, which on the bare-metal
+/// targets this crate exists for ends the program (see
+/// `tests/no_panic_gate.rs`).
+///
+/// It now returns `NaN`. That is deliberate rather than a fallback: `NaN`
+/// propagates through every later arithmetic operation and compares unequal to
+/// everything, so a bad table shows up immediately and loudly instead of as a
+/// plausible-looking number. Where the reason matters, use
+/// [`try_eval2_sparse`], which names it.
+///
+/// The signature stays infallible because the coefficient tables in practice
+/// are compile-time constants — `tampines-steam-tables`' backward
+/// correlations call this on a hot path and have no error to propagate.
 #[inline]
 pub fn eval2_sparse<const MAX: usize>(x: f64, y: f64, coeffs: &[(usize, usize, f64)]) -> f64 {
+    try_eval2_sparse::<MAX>(x, y, coeffs).unwrap_or(f64::NAN)
+}
+
+/// [`eval2_sparse`], reporting an out-of-range degree instead of returning
+/// `NaN`.
+///
+/// # Errors
+///
+/// [`crate::PetirError::Invalid`] if any `i` or `j` in `coeffs` is `>= MAX`,
+/// naming nothing further — the offending triple is in the caller's own table.
+///
+/// # Example
+///
+/// ```
+/// use petir::cheb_slice::try_eval2_sparse;
+/// // T_0(x) T_1(y) = y
+/// let c = [(0usize, 1usize, 1.0)];
+/// assert!((try_eval2_sparse::<4>(0.3, 0.5, &c).unwrap() - 0.5).abs() < 1e-15);
+/// // Degree 9 does not exist in a MAX = 4 basis.
+/// assert!(try_eval2_sparse::<4>(0.3, 0.5, &[(9, 0, 1.0)]).is_err());
+/// ```
+#[inline]
+pub fn try_eval2_sparse<const MAX: usize>(
+    x: f64,
+    y: f64,
+    coeffs: &[(usize, usize, f64)],
+) -> crate::Result<f64> {
     let tx = basis::<MAX>(x);
     let ty = basis::<MAX>(y);
     let mut out = 0.0;
     for &(i, j, c) in coeffs {
-        out += c * tx[i] * ty[j];
+        let (Some(&tx_i), Some(&ty_j)) = (tx.get(i), ty.get(j)) else {
+            return Err(crate::PetirError::Invalid);
+        };
+        out += c * tx_i * ty_j;
     }
-    out
+    Ok(out)
 }
 
 #[cfg(test)]

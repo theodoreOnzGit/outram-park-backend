@@ -461,9 +461,18 @@ fn exp_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
     let r = x + kd * NEG_LN2_HI_N + kd * NEG_LN2_LO_N;
     let idx = (2 * (ki % N)) as usize;
     let top = ki << (52 - TABLE_BITS);
-    let tail = f64::from_bits(TAB[idx]);
+    // `idx = 2 * (ki % N)` and `TAB` holds `2 * N` entries, so both reads are
+    // in range for every input -- but by arithmetic the compiler cannot
+    // follow. Fetching through `get` keeps the values (and therefore the
+    // bit-identity with upstream, pinned by
+    // tests/fast_exp_vs_arm_optimized_routines.rs) exactly as they were,
+    // while removing the panic the subscripts carried.
+    let (Some(&tab_lo), Some(&tab_hi)) = (TAB.get(idx), TAB.get(idx + 1)) else {
+        return Err((PetirError::Range, f64::NAN));
+    };
+    let tail = f64::from_bits(tab_lo);
     // Valid as a scale only for -1023*N < k < 1024*N.
-    let sbits = TAB[idx + 1].wrapping_add(top);
+    let sbits = tab_hi.wrapping_add(top);
 
     let r2 = r * r;
     // EXP_POLY_ORDER == 5.

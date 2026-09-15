@@ -51,6 +51,7 @@
 //! Bare dimensionless `f64` throughout; see [`crate::poly`] for why a
 //! coefficient vector cannot carry a single `uom` type.
 
+use crate::zip::zip_flat;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -126,13 +127,19 @@ pub fn eval_derivs(c: &[f64], x: f64, n_derivs: usize) -> Vec<f64> {
         // Horner on the n-th derivative's coefficient list, formed on the fly:
         // the coefficient of x^(i-n) in p^(n) is c[i] * i!/(i-n)!.
         let mut acc = 0.0_f64;
-        for i in (n..lenc).rev() {
+        // `n < lenc` was just established, so the tail always exists; pairing
+        // it with its own index range keeps `i` available for the falling
+        // factorial without a subscript.
+        let Some(tail) = c.get(n..) else {
+            break;
+        };
+        for (i, &ci) in (n..lenc).zip(tail.iter()).rev() {
             // Falling factorial i (i-1) ... (i-n+1).
             let mut fact = 1.0_f64;
             for j in 0..n {
                 fact *= (i - j) as f64;
             }
-            acc = acc * x + c[i] * fact;
+            acc = acc * x + ci * fact;
         }
         *slot = acc;
     }
@@ -213,29 +220,54 @@ impl DividedDifference {
         }
         let mut d: Vec<f64> = ya.to_vec();
         // In-place Neville-style accumulation, as GSL's gsl_poly_dd_init does.
+        //
+        // Upstream's inner loop is `for (i = n-1; i >= k; i--)`, reading
+        // `d[i-1]` -- the value the descending order has not yet overwritten.
+        // `split_last_mut` walks exactly that: `last` is `d[i]` and
+        // `head.last()` is `d[i-1]`, still untouched. The `xa[i] - xa[i-k]`
+        // differences ride alongside as a reversed zip of `xa[k..]` with
+        // `xa[..n-k]`, which is the same pairing written without subscripts.
         for k in 1..n {
-            for i in (k..n).rev() {
-                let dx = xa[i] - xa[i - k];
+            let (Some(xa_hi), Some(xa_lo)) = (xa.get(k..), xa.get(..n - k)) else {
+                return Err(crate::PetirError::Invalid);
+            };
+            let mut dx_pairs = zip_flat!(xa_hi.iter(), xa_lo.iter()).rev();
+            let Some(mut rest) = d.get_mut(k - 1..) else {
+                return Err(crate::PetirError::Invalid);
+            };
+            while let Some((last, head)) = rest.split_last_mut() {
+                // An empty head means `last` is `d[k-1]`, which this round
+                // does not touch -- upstream's `i >= k` bound.
+                let Some(&prev) = head.last() else {
+                    break;
+                };
+                let Some((&x_hi, &x_lo)) = dx_pairs.next() else {
+                    break;
+                };
+                let dx = x_hi - x_lo;
                 if dx == 0.0 {
                     return Err(crate::PetirError::ZeroDivide);
                 }
-                d[i] = (d[i] - d[i - 1]) / dx;
+                *last = (*last - prev) / dx;
+                rest = head;
             }
         }
-        Ok(Self {
-            d,
-            xa: xa.to_vec(),
-        })
+        Ok(Self { d, xa: xa.to_vec() })
     }
 
     /// Evaluate the interpolating polynomial at `x`, by Horner in Newton form.
     ///
     /// Translates GSL's `gsl_poly_dd_eval`.
     pub fn eval(&self, x: f64) -> f64 {
-        let n = self.d.len();
-        let mut y = self.d[n - 1];
-        for i in (0..n - 1).rev() {
-            y = self.d[i] + (x - self.xa[i]) * y;
+        // `new` rejects an empty point set, so `d` is never empty here; an
+        // empty table would be the zero polynomial, which is what is returned.
+        let Some((&d_last, d_head)) = self.d.split_last() else {
+            return 0.0;
+        };
+        let mut y = d_last;
+        // Upstream's `for (i = n-2; i >= 0; i--)` over `d[i]` and `xa[i]`.
+        for (&d_i, &xa_i) in zip_flat!(d_head.iter(), self.xa.iter()).rev() {
+            y = d_i + (x - xa_i) * y;
         }
         y
     }
@@ -273,19 +305,31 @@ impl DividedDifference {
         // polynomial 1, each step accumulates d[k] * prod into c and then
         // advances prod by one more factor.
         let mut prod = vec![0.0_f64; n];
-        prod[0] = 1.0;
-        for k in 0..n {
-            for i in 0..=k {
-                c[i] += self.d[k] * prod[i];
+        if let Some(p0) = prod.first_mut() {
+            *p0 = 1.0;
+        }
+        for (k, (&d_k, &xa_k)) in zip_flat!(self.d.iter(), self.xa.iter()).enumerate() {
+            for (c_i, &p_i) in zip_flat!(c.iter_mut(), prod.iter()).take(k + 1) {
+                *c_i += d_k * p_i;
             }
             if k + 1 < n {
                 // Multiply prod by (u + s), descending so each slot still
-                // holds its old value when it is read.
-                let s = xp - self.xa[k];
-                for i in (1..=k + 1).rev() {
-                    prod[i] = prod[i - 1] + s * prod[i];
+                // holds its old value when it is read -- the same
+                // `split_last_mut` walk as the divided-difference table above.
+                let s = xp - xa_k;
+                let Some(mut rest) = prod.get_mut(..=k + 1) else {
+                    break;
+                };
+                while let Some((last, head)) = rest.split_last_mut() {
+                    let Some(&prev) = head.last() else {
+                        break;
+                    };
+                    *last = prev + s * *last;
+                    rest = head;
                 }
-                prod[0] *= s;
+                if let Some(p0) = prod.first_mut() {
+                    *p0 *= s;
+                }
             }
         }
         c
@@ -353,7 +397,10 @@ mod tests {
         let ya = [1.0, 3.0, 7.0, 21.0, 57.0];
         let dd = DividedDifference::new(&xa, &ya).unwrap();
         for (&x, &y) in xa.iter().zip(ya.iter()) {
-            assert!((dd.eval(x) - y).abs() < 1e-11, "node ({x}, {y}) not interpolated");
+            assert!(
+                (dd.eval(x) - y).abs() < 1e-11,
+                "node ({x}, {y}) not interpolated"
+            );
         }
     }
 

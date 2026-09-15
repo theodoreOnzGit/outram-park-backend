@@ -82,7 +82,6 @@ fn rk4_shows_fourth_order_global_error_over_a_fixed_interval() {
     );
 }
 
-
 /// The embedded error estimate has to actually bound the error, or step
 /// control is built on sand.
 #[test]
@@ -103,19 +102,32 @@ fn adaptive_integration_reproduces_the_exponential() {
     let sol = solve_rkf45(rhs_exp, 0.0, 1.0, &[1.0], 1e-3, 1e-12, 1e-12, 100_000).unwrap();
     let exact = core::f64::consts::E;
     assert!(
-        (sol.final_state()[0] - exact).abs() < 1e-9,
+        (sol.final_state().unwrap()[0] - exact).abs() < 1e-9,
         "got {}, want {exact}",
-        sol.final_state()[0]
+        sol.final_state().unwrap()[0]
     );
-    assert!((sol.final_t() - 1.0).abs() < 1e-14, "must land exactly on t1");
+    assert!(
+        (sol.final_t().unwrap() - 1.0).abs() < 1e-14,
+        "must land exactly on t1"
+    );
     assert!(sol.accepted > 0);
 }
 
 #[test]
 fn adaptive_integration_reproduces_the_harmonic_oscillator() {
     let t_end = 10.0_f64;
-    let sol = solve_rkf45(rhs_sin, 0.0, t_end, &[0.0, 1.0], 1e-3, 1e-12, 1e-12, 100_000).unwrap();
-    let y = sol.final_state();
+    let sol = solve_rkf45(
+        rhs_sin,
+        0.0,
+        t_end,
+        &[0.0, 1.0],
+        1e-3,
+        1e-12,
+        1e-12,
+        100_000,
+    )
+    .unwrap();
+    let y = sol.final_state().unwrap();
     assert!(
         (y[0] - t_end.sin()).abs() < 1e-8,
         "sin: got {}, want {}",
@@ -152,7 +164,7 @@ fn the_oscillator_conserves_its_invariant() {
 fn a_tighter_tolerance_gives_a_more_accurate_answer() {
     let err_at = |tol: f64| {
         let sol = solve_rkf45(rhs_exp, 0.0, 1.0, &[1.0], 1e-2, tol, tol, 100_000).unwrap();
-        (sol.final_state()[0] - core::f64::consts::E).abs()
+        (sol.final_state().unwrap()[0] - core::f64::consts::E).abs()
     };
     let loose = err_at(1e-4);
     let tight = err_at(1e-12);
@@ -166,12 +178,15 @@ fn a_tighter_tolerance_gives_a_more_accurate_answer() {
 #[test]
 fn integrating_backwards_returns_to_the_initial_condition() {
     let fwd = solve_rkf45(rhs_sin, 0.0, 3.0, &[0.0, 1.0], 1e-3, 1e-12, 1e-12, 100_000).unwrap();
-    let end = fwd.final_state().to_vec();
+    let end = fwd.final_state().unwrap().to_vec();
 
     let back = solve_rkf45(rhs_sin, 3.0, 0.0, &end, 1e-3, 1e-12, 1e-12, 100_000).unwrap();
-    let y = back.final_state();
+    let y = back.final_state().unwrap();
 
-    assert!((back.final_t() - 0.0).abs() < 1e-12, "should land on t = 0");
+    assert!(
+        (back.final_t().unwrap() - 0.0).abs() < 1e-12,
+        "should land on t = 0"
+    );
     assert!(y[0].abs() < 1e-8, "y0 returned to {}, want 0", y[0]);
     assert!((y[1] - 1.0).abs() < 1e-8, "y1 returned to {}, want 1", y[1]);
 }
@@ -187,7 +202,7 @@ fn the_controller_rejects_steps_when_the_initial_guess_is_too_large() {
         "an absurd initial step should have been rejected at least once"
     );
     // ...and it still gets the right answer.
-    assert!((sol.final_state()[0] - 20.0_f64.sin()).abs() < 1e-7);
+    assert!((sol.final_state().unwrap()[0] - 20.0_f64.sin()).abs() < 1e-7);
 }
 
 #[test]
@@ -207,8 +222,14 @@ fn malformed_input_is_reported() {
         Err(PetirError::Invalid)
     ));
     // Empty system for the single-step routines.
-    assert!(matches!(rk4_step(rhs_exp, 0.0, &[], 0.1), Err(PetirError::Invalid)));
-    assert!(matches!(rkf45_step(rhs_exp, 0.0, &[], 0.1), Err(PetirError::Invalid)));
+    assert!(matches!(
+        rk4_step(rhs_exp, 0.0, &[], 0.1),
+        Err(PetirError::Invalid)
+    ));
+    assert!(matches!(
+        rkf45_step(rhs_exp, 0.0, &[], 0.1),
+        Err(PetirError::Invalid)
+    ));
 }
 
 /// A blow-up is reported, not returned as a plausible number.
@@ -249,7 +270,12 @@ fn the_trajectory_is_ordered_and_starts_at_the_initial_condition() {
     assert_eq!(sol.points[0].t, 0.0);
     assert_eq!(sol.points[0].y, vec![1.0]);
     for w in sol.points.windows(2) {
-        assert!(w[1].t > w[0].t, "trajectory went backwards: {} -> {}", w[0].t, w[1].t);
+        assert!(
+            w[1].t > w[0].t,
+            "trajectory went backwards: {} -> {}",
+            w[0].t,
+            w[1].t
+        );
     }
     assert_eq!(sol.points.len(), sol.accepted + 1);
 }
