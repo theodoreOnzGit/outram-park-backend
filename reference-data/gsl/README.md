@@ -17,6 +17,44 @@ git-tracked but never part of a published crate tarball.
 - **Driver:** `cheb_reference_driver.c` in this directory, committed so the file
   can be regenerated rather than trusted.
 
+## `qr-gsl-2.8-reference.txt` — Householder QR and least squares
+
+- **Built:** 2026-09-15, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, against
+  a full static GSL built from the vendored tree (`./configure
+  --disable-shared --enable-static && make`).
+- **Driver:** `qr_reference_driver.c` in this directory.
+- **Routines:** `gsl_linalg_QR_decomp_old` (the CLASSICAL Householder sweep,
+  which is what `petir::linalg::qr` ports) and `gsl_linalg_QR_lssolve`. Note
+  it is deliberately **not** `gsl_linalg_QR_decomp`, the blocked Level-3
+  variant — that computes an equally valid but numerically different
+  factorisation, and comparing against it would fail for a reason that says
+  nothing about the port.
+
+### Regenerating
+
+```sh
+G=crates/petir/upstream_source/GSL          # the vendored clone
+(cd $G && ./configure --disable-shared --enable-static && make -j"$(nproc)")
+gcc -O2 -I"$G" -o qrdriver reference-data/gsl/qr_reference_driver.c \
+    "$G/.libs/libgsl.a" "$G/cblas/.libs/libgslcblas.a" -lm
+./qrdriver > reference-data/gsl/qr-gsl-2.8-reference.txt
+```
+
+### What is in it
+
+Five cases: a 2x2 square system, a general 4x3, an overdetermined 5x3
+Vandermonde (the shape a polynomial fit makes), an 8x4 Chebyshev design matrix
+at non-node points (the shape `ChebSeries::fit` makes), and a 4x2 whose first
+column is scaled by 1e8 against the second. For each: every entry of the
+packed QR factor, every `tau`, and — where `m >= n` — the least-squares
+solution and residual.
+
+### What the comparison found (2026-09-15)
+
+85 values compared, **81 bit-identical (95.3 %)**; worst relative difference
+4.27e-16 on the factorisation, 4.94e-16 on the solution, 1.37e-14 on the
+residual. Replayed by `crates/petir/tests/gsl_qr_code_to_code.rs`.
+
 ## Regenerating
 
 ```sh

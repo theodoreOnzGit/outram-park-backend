@@ -54,11 +54,11 @@ that drifts from its origin fails the build rather than rotting quietly.
 
 | Module | Lineage | Covers |
 |---|---|---|
-| `cheb`, `cheb_slice` | ported | Chebyshev fitting at the Gauss nodes, Clenshaw evaluation with an error estimate, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
+| `cheb`, `cheb_slice` | ported | Chebyshev interpolation at the Gauss nodes **and least-squares fitting at arbitrary points**, Clenshaw evaluation with an error estimate, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 | `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
-| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve |
+| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, and rectangular Householder **QR with least-squares solve** |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 | `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
 | `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders |
@@ -72,9 +72,45 @@ that drifts from its origin fails the build rather than rotting quietly.
 **Deliberate subsets rather than gaps**, each named where it matters and
 tracked as a bead: QAGS and the infinite-range and weighted quadrature
 variants; implicit and stiff ODE methods; Akima, Steffen and periodic splines;
-general-degree complex polynomial roots; Chebyshev least-squares regression at
-arbitrary points and adaptive degree selection. An empty module that looks like
-an API is worse than an absent one.
+general-degree complex polynomial roots; and rank-deficient least squares (the
+QR is unpivoted, so a dependent design matrix is *reported*, not solved —
+`op-4m4b`). An empty module that looks like an API is worse than an absent one.
+
+One gap is blocked on a **source**, not on effort: **adaptive Chebyshev degree
+by tail-chopping** (`op-0sl9`). GSL has no adaptive-degree routine, so there is
+nothing vendored to port, and deriving a chopping rule from a description is
+what this crate's porting rule exists to prevent. SLATEC's `INITS`/`INITDS` is
+the named candidate and lives on netlib, which this environment's gateway
+refuses outright (`403` to `CONNECT www.netlib.org:443`). "Not done" is the
+honest state.
+
+## Two ways to build a Chebyshev series, and which to use
+
+| | `ChebSeries::new` | `ChebSeries::fit` |
+|---|---|---|
+| Input | a function you can **call** | data you **already have** |
+| Abscissae | the Chebyshev nodes, chosen for you | wherever your samples are |
+| Method | cosine transform (`cheb/init.c`) | Householder QR (`linalg/qr.c`) |
+| Samples needed | exactly `order + 1` | at least `order + 1`, usually many more |
+| Gives you | the interpolant | coefficients, residual, RMS, rank indicator |
+
+`new` is exact and fast and should be the default when you can evaluate the
+function at will. `fit` is for measured or expensively-simulated data, and for
+samples someone else's sampler chose.
+
+**Fitting is done in the Chebyshev basis rather than the monomial one on
+purpose.** A monomial design matrix is a Vandermonde matrix whose condition
+number grows exponentially with degree, so a `polyfit` past degree ~10 is
+dominated by rounding. The Chebyshev basis is near-orthogonal on the interval,
+which is what keeps the same fit solvable much further up. For the same
+reason the solve goes through QR rather than the normal equations `AᵀA c =
+Aᵀy`: forming `AᵀA` squares the condition number, turning an ordinary `1e8`
+problem into an unsolvable `1e16` one.
+
+Given `order + 1` samples taken exactly at the Chebyshev nodes the two paths
+must agree, and they do — to 2.13e-14 pointwise at order 12 on `exp(x)sin(3x)`
+over `[-2, 3]`. They share no code below the basis recurrence, so that
+agreement cross-checks both.
 
 ## Errors are returned, and no routine panics on an index
 

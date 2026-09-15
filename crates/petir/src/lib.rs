@@ -120,7 +120,7 @@
 //! | [`deriv`] | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 //! | [`integration`] | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules, `qag` adaptive driver |
 //! | [`interp`] | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
-//! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS |
+//! | [`linalg`] | lifted + ported | Dense `n x n` Crout LU, determinant, log-determinant, inverse, level-1 BLAS, symmetric tridiagonal, and rectangular Householder QR with a least-squares solve |
 //! | [`min`] | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 //! | [`ode`] | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
 //! | [`poly`] | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear/quadratic/cubic roots |
@@ -136,14 +136,25 @@
 //! infinite-range and weighted quadrature variants ([`integration`]), implicit
 //! and stiff ODE methods ([`ode`]), Akima and Steffen interpolation and the
 //! periodic spline ([`interp`]), general-degree complex polynomial roots
-//! ([`poly`]), and Chebyshev least-squares regression at arbitrary points.
+//! ([`poly`]), and rank-deficient least squares (`bn:op-4m4b` — the QR here
+//! is unpivoted, so a dependent design matrix is reported rather than solved).
 //! Each is tracked as a bead rather than stubbed, because an empty module that
 //! looks like an API is worse than an absent one.
 //!
-//! Chebyshev **least-squares regression at arbitrary points** (as opposed to
-//! interpolation at the Chebyshev nodes, which [`cheb`] does) and **adaptive
-//! degree selection by tail-chopping** are likewise not done -- `bn:op-bcy5`
-//! and `bn:op-0sl9`. The first needs a QR solve this crate does not yet carry.
+//! Chebyshev **least-squares regression at arbitrary points** is now DONE —
+//! [`ChebSeries::fit`] solves the overdetermined system in the Chebyshev basis
+//! through the Householder QR in [`linalg::qr`], which is what `bn:op-bcy5`
+//! asked for.
+//!
+//! **Adaptive degree selection by tail-chopping** (`bn:op-0sl9`) is still not
+//! done, and is blocked on a *source* rather than on effort. GSL has no
+//! adaptive-degree routine — `gsl_cheb_alloc` takes the order and that is
+//! that — so there is nothing in the vendored tree to port, and deriving a
+//! chopping rule from its description is exactly what the crate's porting
+//! rule forbids. SLATEC's `INITS`/`INITDS` is the named candidate and lives on
+//! netlib, which this build environment's gateway refuses (`403` to
+//! `CONNECT www.netlib.org:443`, re-checked 2026-09-15). Until a source can be
+//! vendored the honest state is "not done", not a hand-rolled rule.
 //!
 //! # Example
 //!
@@ -193,8 +204,10 @@ pub mod specfunc;
 #[cfg(feature = "transfer-fn")]
 pub mod transfer_fn;
 
-pub use cheb::ChebSeries;
-pub use cheb_slice::{basis, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale, try_eval2_sparse};
+pub use cheb::{ChebFit, ChebSeries};
+pub use cheb_slice::{
+    basis, basis_into, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale, try_eval2_sparse,
+};
 pub use expint::{expint_e1, expint_e1_scaled};
 pub use gamma_inc::{gamma_inc_lower, gamma_inc_p};
 pub use error::{PetirError, Result};

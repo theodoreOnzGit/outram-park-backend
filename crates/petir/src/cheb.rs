@@ -54,6 +54,11 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::error::{PetirError, Result};
+use crate::linalg::{Matrix, QrDecomposition};
+// Under a std-linked build (`cargo test`) f64's inherent sqrt shadows the
+// trait method, leaving the import formally unused. See crate::real.
+#[allow(unused_imports)]
+use crate::real::Real;
 use crate::zip::zip_flat;
 
 /// `GSL_DBL_EPSILON` (`gsl_machine.h:17`). Identical to [`f64::EPSILON`];
@@ -388,5 +393,156 @@ impl ChebSeries {
             *g0 = 2.0 * sum;
         }
         flat(g)
+    }
+}
+
+/// The outcome of a least-squares Chebyshev fit.
+///
+/// Returned by [`ChebSeries::fit`]. The residual is carried alongside the
+/// series because a fit without one is an assertion rather than a measurement:
+/// the coefficients alone cannot tell you whether the degree was adequate.
+#[derive(Debug, Clone)]
+pub struct ChebFit {
+    /// The fitted series, ready to [`eval`](ChebSeries::eval).
+    pub series: ChebSeries,
+    /// `y_i - p(x_i)` at each sample, in the order the samples were given.
+    ///
+    /// Look at its **shape**, not only its size. A residual that still has
+    /// visible structure — sign runs, a trend, a bump — means the degree is
+    /// too low and there is signal left to capture. One that looks like noise
+    /// means you have reached the data's own scatter and raising the degree
+    /// will fit that scatter instead.
+    pub residual: Vec<f64>,
+    /// Root-mean-square residual, `sqrt(sum r_i^2 / m)`.
+    pub rms_residual: f64,
+    /// The rank indicator from the underlying factorisation; see
+    /// [`QrDecomposition::rank`](crate::linalg::QrDecomposition::rank) for
+    /// what it does and does not establish. Near `f64::EPSILON` means the
+    /// sample points barely determine the requested degree.
+    pub conditioning: f64,
+}
+
+impl ChebSeries {
+    /// Least-squares fit of a Chebyshev series of the given `order` to
+    /// scattered samples.
+    ///
+    /// # How this differs from [`ChebSeries::new`], and when to use which
+    ///
+    /// [`new`](ChebSeries::new) **interpolates a function you can call**, at
+    /// abscissae it chooses — the Chebyshev nodes — and recovers the
+    /// coefficients by a cosine transform. It is exact, it is fast, and it
+    /// requires that you can evaluate the function wherever it likes.
+    ///
+    /// This fits **data you already have**, at whatever points it was measured
+    /// or sampled at, with more points than coefficients. There is no
+    /// transform available for that, so it solves the overdetermined system in
+    /// the Chebyshev basis by QR ([`crate::linalg::qr`]). Reach for it when
+    /// the samples come from an experiment, from a simulation you cannot
+    /// cheaply re-run, or from a sampler that chose the points for its own
+    /// reasons.
+    ///
+    /// Given samples exactly at the Chebyshev nodes and `order + 1` of them,
+    /// the two agree to rounding — which is what
+    /// `fit_reproduces_the_interpolant_at_the_nodes` checks.
+    ///
+    /// # Why the Chebyshev basis rather than fitting a monomial polynomial
+    ///
+    /// The monomial design matrix is a Vandermonde matrix, whose condition
+    /// number grows exponentially with degree; past degree 10 or so a
+    /// least-squares fit in `1, x, x^2, ...` is dominated by rounding. The
+    /// Chebyshev basis is near-orthogonal on `[a, b]`, so the same fit stays
+    /// solvable to much higher degree. That is the entire reason this routine
+    /// exists rather than a `polyfit`.
+    ///
+    /// # Arguments
+    ///
+    /// - `order` — the highest Chebyshev degree to include; the fit has
+    ///   `order + 1` coefficients.
+    /// - `a`, `b` — the interval the series is defined on, `a < b`. Samples
+    ///   are mapped onto `[-1, 1]` by [`crate::scale`].
+    /// - `xs`, `ys` — the samples. Order does not matter and repeats are
+    ///   allowed, provided enough *distinct* points remain to determine the
+    ///   coefficients.
+    ///
+    /// # Errors
+    ///
+    /// - [`PetirError::Domain`] if `a >= b`, or if any sample lies outside
+    ///   `[a, b]`. Outside the interval the Chebyshev basis grows without
+    ///   bound, so such a point would dominate the fit; that is a mistake
+    ///   worth reporting rather than absorbing.
+    /// - [`PetirError::LengthMismatch`] if `xs` and `ys` differ in length.
+    /// - [`PetirError::Invalid`] if there are fewer samples than
+    ///   `order + 1` — the system would be underdetermined.
+    /// - [`PetirError::Singular`] if the samples do not determine the
+    ///   requested degree, naming the first Chebyshev degree that is not
+    ///   pinned down. The usual cause is too few *distinct* abscissae: five
+    ///   samples at three distinct points cannot fix a cubic.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use petir::ChebSeries;
+    /// // Sample y = x^2 at six points and fit a quadratic; it is exact.
+    /// let xs = [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0];
+    /// let ys: Vec<f64> = xs.iter().map(|x| x * x).collect();
+    /// let fit = ChebSeries::fit(2, -1.0, 1.0, &xs, &ys).unwrap();
+    /// assert!(fit.rms_residual < 1e-14);
+    /// assert!((fit.series.eval(0.5) - 0.25).abs() < 1e-13);
+    /// ```
+    pub fn fit(order: usize, a: f64, b: f64, xs: &[f64], ys: &[f64]) -> Result<ChebFit> {
+        if !(a < b) {
+            // Matches `new`: cheb/init.c:70, "null function interval [a,b]".
+            return Err(PetirError::Domain);
+        }
+        if xs.len() != ys.len() {
+            return Err(PetirError::LengthMismatch {
+                expected: xs.len(),
+                found: ys.len(),
+            });
+        }
+        let n_coeff = order + 1;
+        let m = xs.len();
+        if m < n_coeff {
+            return Err(PetirError::Invalid);
+        }
+
+        // Design matrix: row i is T_0(t_i) .. T_order(t_i), with t_i the
+        // sample mapped onto [-1, 1]. Built through the same recurrence the
+        // rest of the crate evaluates with -- see `cheb_slice::basis_into`.
+        let mut design = Matrix::zeros(m, n_coeff)?;
+        let mut row = vec![0.0_f64; n_coeff];
+        for (i, (&x, &y)) in zip_flat!(xs.iter(), ys.iter()).enumerate() {
+            if !(x >= a && x <= b) || !y.is_finite() {
+                // Also catches NaN, which compares false against everything.
+                return Err(PetirError::Domain);
+            }
+            let t = crate::cheb_slice::scale(x, a, b);
+            crate::cheb_slice::basis_into(t, &mut row);
+            for (j, &tj) in row.iter().enumerate() {
+                design.set(i, j, tj);
+            }
+        }
+
+        let qr = QrDecomposition::new(design)?;
+        let conditioning = qr.diagonal_ratio();
+        let fit = qr.least_squares(ys)?;
+
+        let mut sum_sq = 0.0_f64;
+        for &r in &fit.residual {
+            sum_sq += r * r;
+        }
+        let rms_residual = (sum_sq / (m as f64)).sqrt();
+
+        // `least_squares` returns coefficients of T_0 .. T_order directly,
+        // which is the PLAIN convention; `ChebSeries` stores GSL's, where the
+        // zeroth is doubled and halved again on evaluation.
+        let series = ChebSeries::from_plain_coefficients(fit.solution, a, b)?;
+
+        Ok(ChebFit {
+            series,
+            residual: fit.residual,
+            rms_residual,
+            conditioning,
+        })
     }
 }
