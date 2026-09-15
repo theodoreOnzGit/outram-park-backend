@@ -225,6 +225,37 @@ coefficients says which order it means — reversing them silently reverses the
 polynomial, and it is the one place in this crate where a careless call compiles
 and is wrong.
 
+## Prior art in Rust
+
+PETIR is not the first attempt to bring these algorithms to Rust, and two
+crates got here earlier:
+
+- **[peroxide](https://github.com/Axect/Peroxide)** (MIT OR Apache-2.0) by
+  Tae Geun Kim — a full numeric stack: linear algebra including a `QR`
+  decomposition, ODE integration, interpolation and splines, quadrature, root
+  finding, optimisation, Chebyshev polynomials and nodes, plus eigenvalues,
+  sparse matrices, automatic differentiation and a dataframe that PETIR has
+  no equivalent for.
+- **[roots](https://github.com/vorot/roots)** (BSD-2-Clause) by Mikhail
+  Vorotilov — closed-form polynomial solvers **up to quartic**, where PETIR
+  stops at the cubic, and the bracketed iterative finders.
+
+The newest work here overlaps them most directly: the QR, the least-squares
+path and the Chebyshev machinery are ground peroxide had already covered.
+Arriving at the same place later by a different route is not discovery, and
+both crates were early to this in Rust when the ecosystem was still thin.
+
+**No code in PETIR is copied from, translated from, or derived from either.**
+Every routine traces to the upstream in its own file header, and
+`tests/verbatim_provenance.rs` plus the code-to-code reference sets hold that
+claim to account. Neither is a dependency of PETIR. The full acknowledgement,
+including a module-by-module overlap table, is in
+[`NOTICE`](NOTICE).
+
+PETIR exists alongside them because it is `no_std` unconditionally and carries
+provenance to a specific upstream commit for every routine — constraints
+particular to this workspace, not deficiencies in either crate.
+
 ## Licence
 
 GPL-3.0-only. GSL is GPL-3.0-**or-later**, verified on 2026-09-14 by reading its

@@ -203,6 +203,53 @@ PRIOR ART IN RUST — ACKNOWLEDGEMENT
                       the bracketed iterative root finders (bisection, regula
                       falsi, Brent-Dekker, inverse quadratic, Newton-Raphson).
 
+  WHERE THEY OVERLAP PETIR, MODULE BY MODULE. Recorded specifically rather
+  than as a generic wave at "scientific computing", because a vague
+  acknowledgement is worth less than an accurate one. Read from the published
+  sources at the versions above on 2026-09-15, not from memory:
+
+    petir module            peroxide 0.41.2              roots 0.0.8
+    --------------------    -------------------------    ---------------------
+    roots (6 methods)       numerical/root.rs,           numerical/{brent,
+                            numerical/newton.rs          regula_falsi, secant,
+                                                         newton_raphson,
+                                                         inverse_quadratic}.rs
+    poly (exact solvers)    structure/polynomial.rs      analytical/{linear,
+                                                         quadratic, cubic,
+                                                         quartic, biquadratic}
+    linalg::qr              traits/matrix.rs `QR<M>`     --
+    interp (spline)         numerical/{interp,spline}    --
+    integration             numerical/integral.rs        --
+    ode                     numerical/ode.rs             --
+    min                     numerical/optimize.rs        --
+    cheb                    structure/polynomial.rs      --
+                            `chebyshev_polynomial`,
+                            numerical/interp.rs
+                            `chebyshev_nodes`
+
+  THE NEWEST WORK IN PETIR IS THE MOST OVERLAPPED, WHICH IS WORTH SAYING
+  PLAINLY. The QR factorisation, the least-squares path and the Chebyshev
+  machinery added in September 2026 are precisely the ground peroxide had
+  already covered -- it carries a `QR<M>` decomposition, `chebyshev_polynomial`
+  and `chebyshev_nodes`. Arriving at the same place later, by a different
+  route, is not discovery.
+
+  ONE PRECISION, so this does not overstate their reach: peroxide's
+  `least_square` (src/ml/reg.rs) is simple linear regression -- it fits
+  `ax + b` from accumulated means -- not a general least-squares fit in an
+  arbitrary basis, which is what `ChebSeries::fit` does. peroxide has the QR
+  that such a fit needs; this file does not claim it exposes the fit itself.
+
+  AND WHERE THEY GO FURTHER THAN PETIR, which matters just as much:
+
+    - roots solves QUARTIC and BIQUADRATIC polynomials in closed form.
+      PETIR stops at the cubic (`poly/{linear,quadratic,cubic}_eqn.rs`) and
+      has no quartic solver at all. If you need one, that crate has it and
+      this one does not.
+    - peroxide carries eigenvalue decomposition, sparse matrices, automatic
+      differentiation, a dataframe and a statistics layer. PETIR has none of
+      these and no plan to acquire them.
+
   TO BE PRECISE ABOUT WHAT THIS IS AND IS NOT. This is an acknowledgement of
   prior art, NOT a statement of derivation. **No code in PETIR is copied from,
   translated from, or derived from either crate.** Every routine here traces to
@@ -217,6 +264,12 @@ PRIOR ART IN RUST — ACKNOWLEDGEMENT
   on someone else having used your solution, and because a reader comparing
   PETIR against the Rust ecosystem should be pointed at the work that came
   before it rather than left to assume there was none.
+
+  Both crates were EARLY to this in Rust -- doing the unglamorous work of
+  getting real numerical methods into the language while the ecosystem was
+  still thin, without which "just use the Rust crate" would not have been a
+  sentence anyone could say. That is the part worth acknowledging, and it is
+  not diminished by PETIR having different constraints.
 
   WHY PETIR EXISTS ALONGSIDE THEM, since that is the obvious next question:
   PETIR is `no_std` unconditionally and carries provenance to a specific
