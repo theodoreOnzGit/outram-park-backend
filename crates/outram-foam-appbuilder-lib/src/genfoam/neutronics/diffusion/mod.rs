@@ -203,6 +203,47 @@ impl DiffusionNeutronics {
             });
         }
         let xs_fields = DiffusionXsFields::materialize(&mesh, xs, zone_of_cell, raw_parameters)?;
+        Self::assemble(mesh, xs, xs_fields, flux_boundary, settings)
+    }
+
+    /// As [`new`](Self::new), but evaluating the cross sections at **each
+    /// cell's own** feedback state — the way GeN-Foam does it.
+    ///
+    /// `cell_parameters` is `n_cells x n_variables`, row-major; see
+    /// [`DiffusionXsFields::materialize_per_cell`] for why a single global
+    /// parameter vector is not equivalent.
+    ///
+    /// # Errors
+    ///
+    /// [`NeutronicsError::PatchCountMismatch`] if `flux_boundary` does not cover
+    /// every patch, or an [`XsError`](crate::genfoam::neutronics::xs::XsError)
+    /// from the cross-section evaluation.
+    pub fn new_with_cell_parameters(
+        mesh: Arc<FvMesh>,
+        xs: &CrossSectionData,
+        zone_of_cell: &[usize],
+        cell_parameters: &[f64],
+        flux_boundary: &[BoundaryCondition<f64>],
+        settings: DiffusionSettings,
+    ) -> Result<Self, NeutronicsError> {
+        if flux_boundary.len() != mesh.patches.len() {
+            return Err(NeutronicsError::PatchCountMismatch {
+                given: flux_boundary.len(),
+                patches: mesh.patches.len(),
+            });
+        }
+        let xs_fields =
+            DiffusionXsFields::materialize_per_cell(&mesh, xs, zone_of_cell, cell_parameters)?;
+        Self::assemble(mesh, xs, xs_fields, flux_boundary, settings)
+    }
+
+    fn assemble(
+        mesh: Arc<FvMesh>,
+        xs: &CrossSectionData,
+        xs_fields: DiffusionXsFields,
+        flux_boundary: &[BoundaryCondition<f64>],
+        settings: DiffusionSettings,
+    ) -> Result<Self, NeutronicsError> {
         let mut state = NeutronicsState::new(mesh, xs.energy_groups(), xs.prec_groups());
         Self::apply_flux_boundary(&mut state, flux_boundary);
         Ok(Self {

@@ -190,6 +190,19 @@ fn solve_at_state(
     albedo_patches: &[(&str, f64)],
     overrides: &[(&str, f64)],
 ) -> Solved {
+    solve_full(region, outer, albedo_patches, overrides, None)
+}
+
+/// As [`solve_at_state`], but with `per_cell` giving each cell its own feedback
+/// parameters (`n_cells x n_variables`, row-major) — the way GeN-Foam evaluates
+/// them. When `Some`, `overrides` is ignored.
+fn solve_full(
+    region: &Path,
+    outer: BoundaryCondition<f64>,
+    albedo_patches: &[(&str, f64)],
+    overrides: &[(&str, f64)],
+    per_cell: Option<&[f64]>,
+) -> Solved {
     let mesh: Arc<FvMesh> =
         read_poly_mesh(&region.join("polyMesh")).expect("read the upstream polyMesh");
 
@@ -243,9 +256,20 @@ fn solve_at_state(
         },
     };
 
-    let mut solver =
-        DiffusionNeutronics::new(mesh.clone(), &xs, &zone_map, &raw, &flux_boundary, settings)
-            .expect("build the diffusion solver");
+    let mut solver = match per_cell {
+        None => {
+            DiffusionNeutronics::new(mesh.clone(), &xs, &zone_map, &raw, &flux_boundary, settings)
+        }
+        Some(cells) => DiffusionNeutronics::new_with_cell_parameters(
+            mesh.clone(),
+            &xs,
+            &zone_map,
+            cells,
+            &flux_boundary,
+            settings,
+        ),
+    }
+    .expect("build the diffusion solver");
     for (name, gamma) in albedo_patches {
         let idx = mesh
             .patches
@@ -890,5 +914,101 @@ fn esfr_keff_against_upstream_run_at_its_converged_state() {
         conv_pcm.abs() < 100.0,
         "port and upstream differ by {conv_pcm:+.1} pcm at the same state, \
          outside upstream's own 0.001 relative tolerance"
+    );
+}
+
+/// **V&V — MSFR: `k_eff` against upstream, with the cross sections evaluated
+/// per cell as upstream evaluates them.**
+///
+/// ## What this closes
+///
+/// [`msfr_keff_against_upstream_run_at_its_converged_state`] compared the port
+/// at upstream's volume-**mean** `TFuel`/`rhoCool`, and named the residual: the
+/// `TFuel` parametrisation is logarithmic over a 991–1188 K field, so the mean
+/// of the cross sections is not the cross section at the mean. That was the
+/// stated approximation, and it is now removed —
+/// [`DiffusionNeutronics::new_with_cell_parameters`] evaluates each cell at its
+/// own state, which is what GeN-Foam does.
+///
+/// The per-cell state is upstream's own, committed as
+/// `tests/data/genfoam_msfr_cell_state.csv` (8595 cells, `TFuel` and `rhoCool`
+/// in `xsVariables` order) from the run that reproduced the tutorial's
+/// `expectedKeff` to +2.8 pcm.
+///
+/// ## Results (measured 2026-09-15)
+///
+/// See the printed report.
+#[test]
+fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
+    let root = require_upstream!();
+    let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
+    let Some(region) = stage_region(&case, "neutroRegion", "msfr_percell") else {
+        println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
+        return;
+    };
+
+    const UPSTREAM_KEFF: f64 = 0.96031;
+    const UP_TFUEL_MEAN: f64 = 1037.4605;
+    const UP_RHOCOOL_MEAN: f64 = 4011.5951;
+
+    // Upstream's per-cell state, in xsVariables order (TFuel, rhoCool).
+    let csv = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_msfr_cell_state.csv"),
+    )
+    .expect("read the MSFR per-cell state fixture");
+    let mut cells = Vec::new();
+    for line in csv.lines() {
+        if line.starts_with('#') || line.starts_with("TFuel,") || line.trim().is_empty() {
+            continue;
+        }
+        let mut it = line.split(',');
+        cells.push(it.next().unwrap().parse::<f64>().unwrap());
+        cells.push(it.next().unwrap().parse::<f64>().unwrap());
+    }
+    assert_eq!(cells.len(), 8595 * 2, "fixture should cover every cell");
+
+    let albedo = [
+        ("topwall", 0.1),
+        ("bottomwall", 0.1),
+        ("reflector", 0.1),
+        ("hx", 0.5),
+    ];
+    let at_mean = solve_full(
+        &region,
+        BoundaryCondition::ZeroGradient,
+        &albedo,
+        &[("TFuel", UP_TFUEL_MEAN), ("rhoCool", UP_RHOCOOL_MEAN)],
+        None,
+    );
+    let per_cell = solve_full(
+        &region,
+        BoundaryCondition::ZeroGradient,
+        &albedo,
+        &[],
+        Some(&cells),
+    );
+
+    let pcm = |a: f64| 1.0e5 * (a - UPSTREAM_KEFF) / UPSTREAM_KEFF;
+    let mean_pcm = pcm(at_mean.k_eff);
+    let cell_pcm = pcm(per_cell.k_eff);
+
+    println!(
+        "\n=== MSFR: per-cell cross sections vs upstream GeN-Foam run ===\n\
+         \tupstream k_eff                    = {UPSTREAM_KEFF:.6}\n\
+         \tport @ upstream's MEAN state      k = {:.6}  ({mean_pcm:+.1} pcm)\n\
+         \tport @ upstream's PER-CELL state  k = {:.6}  ({cell_pcm:+.1} pcm)\n\
+         \t--\n\
+         \tper-cell evaluation closed a further {:.0} pcm",
+        at_mean.k_eff,
+        per_cell.k_eff,
+        mean_pcm.abs() - cell_pcm.abs(),
+    );
+
+    assert!(per_cell.converged, "the power iteration did not converge");
+    assert!(
+        cell_pcm.abs() < mean_pcm.abs(),
+        "evaluating per cell ({cell_pcm:+.1} pcm) should beat evaluating at the \
+         mean ({mean_pcm:+.1} pcm) — the logarithmic TFuel law makes the mean of \
+         the cross sections differ from the cross section at the mean"
     );
 }
