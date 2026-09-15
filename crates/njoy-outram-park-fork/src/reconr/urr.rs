@@ -81,10 +81,39 @@
 //! the range (via [`crate::unresr::mf2::ilist`], upstream's own insertion
 //! helper), clipped to the range and closed with the shaded end points.
 //!
-//! Energy-independent cases (A, and B outside its fission grid) tabulate no
-//! points of their own, so the grid falls back to the range ends plus a
-//! log-spaced fill — flagged in [`unresolved_grid`] as the one place here that
-//! is *not* a literal translation.
+//! Energy-independent cases tabulate no points of their own, and each has its
+//! own construction upstream rather than a shared fallback: Case A walks
+//! `egridu` across the whole range (`rdf2u0`), Case B seeds from its
+//! fission-width grid and fills gaps (`rdf2u1`). Both are translated
+//! literally; see [`unresolved_grid`] for the table and for what was wrong
+//! here before 2026-09-15.
+//!
+//! # Where this port deliberately does not match NJOY
+//!
+//! One place, on one class of evaluation. RECONR's `unfac`
+//! (`reconr.f90:4473-4496`) has **no `l >= 3` branch** — `if (l.eq.0) … else
+//! if (l.eq.1) … else if (l.eq.2) … endif`, no `else` — so `vl` and `ps` are
+//! left at their previous values, and `csunr1` re-applies `vl = vl*e2`
+//! (`:4010`) inside its J loop, multiplying `vl` by another `sqrt(E)` per
+//! J-state. On an evaluation with `NLS > 3` that inflates the `l >= 3` neutron
+//! width by `E` and drives the stored cross section orders of magnitude past
+//! the unitarity limit.
+//!
+//! This port does not reproduce it, and that is not a local decision:
+//! [`crate::unresr::penetrability_factor`] clamps `l >= 2` to the `l = 2`
+//! formula because NJOY's **UNRESR** does exactly that — `uunfac`
+//! (`unresr.f90:1213-1239`) writes a bare `else` where RECONR's `unfac` and
+//! PURR's `unfac2` (`purr.f90:1487-1511`) write `else if (l.eq.2)`. The kernel
+//! here ports `uunfac`, so it is faithful to its own source, and the defect is
+//! confined to the two routines that fall through.
+//!
+//! Measured on Fe-58 (ENDF/B-VIII.0 Beta4, `NLS = 4`): NJOY stores
+//! `1.42e4 b` at 350 keV rising to `6.62e5 b` at 3 MeV, against this port's
+//! `4.57 b` and `4.76 b`, which track the evaluation's own MF=3.
+//! `tests/reconr_mt152_case_a_and_lssf1_vs_njoy2016.rs` reproduces NJOY's
+//! numbers from the defective recurrence to 2.7e-7, so this is a diagnosis
+//! rather than a difference of opinion. It affects `LSSF = 1` materials only
+//! in the self-shielding *ratios* UNRESR/PURR take, where the scale cancels.
 
 use crate::endf::mt::MtReaction;
 use crate::mixr::mix::sigfig;
@@ -98,109 +127,149 @@ use crate::NjoyError;
 /// `big = 1.e10_kr` (`reconr.f90:1644`).
 const INFINITE_DILUTION: f64 = 1.0e10;
 
-/// Number of log-spaced fill points for a range whose parameters carry no
-/// energy grid of their own. Not an upstream constant — see [`unresolved_grid`].
-const FALLBACK_FILL: usize = 40;
-
-/// Energies at which to evaluate the unresolved cross sections for `range`.
+/// Energies at which to evaluate the unresolved cross sections for `range` —
+/// upstream's `eunr`, built the way upstream builds it.
 ///
-/// Mirrors `eunr`: every energy the unresolved parameters are tabulated at,
-/// inside `[el, eh]`, plus the shaded range ends `sigfig(el,7,+1)` and
-/// `sigfig(eh,7,-1)` (`reconr.f90:757-775`), sorted and duplicate-free via
-/// upstream's own [`ilist`].
+/// Each ENDF representation gets its own construction, because upstream gives
+/// each its own subroutine and they genuinely differ:
 ///
-/// **One deliberate divergence.** Case A, and Case B away from its fission
-/// grid, tabulate no energies of their own, so upstream's `eunr` would carry
-/// only the boundaries. A two-point lin-lin grid across two decades of a
-/// cross section that varies like `1/sqrt(E)` is not defensible, so a
-/// log-spaced fill of [`FALLBACK_FILL`] points is added for those cases. This
-/// is the only part of this module that is not a literal translation, and it
-/// is **unverified against NJOY** — no held evaluation exercises it (U-234,
-/// the only `LSSF = 0` material here, is Case C).
+/// | case | upstream | energies seeded | gap-fill step |
+/// |---|---|---|---|
+/// | A (`LFW=0`) | `rdf2u0`, `reconr.f90:1288-1308` | none — walks [`EGRIDU`] across the whole range unconditionally | `E + E/100` |
+/// | B (`LFW=1`, `LRF≠2`) | `rdf2u1`, `:1370-1400` | the shared fission-width grid, in range | `E + E/100`, only where the next energy exceeds [`WIDE`]·`E` |
+/// | C (`LRF=2`) | `rdf2u2`, `:1497-1534` | the first J-state of the first L-state only | `E + E/1000`, same [`WIDE`] condition |
+///
+/// Every case then gets the shaded range ends `sigfig(el,7,+1)` and
+/// `sigfig(eh,7,-1)` (`reconr.f90:757-775`), and the whole list is kept sorted
+/// and duplicate-free by upstream's own [`ilist`].
+///
+/// Three details worth stating, each of which was wrong here before
+/// 2026-09-15 and each of which is now pinned by a test:
+///
+/// - **Case A does not interpolate over a log fill.** Until 2026-09-15 this
+///   function treated "the parameters tabulate no energies of their own" as a
+///   fallback and filled 40 log-spaced points. `rdf2u0` does nothing of the
+///   kind — it walks [`EGRIDU`] from `el` to `eh`. On Fe-58 the two differ in
+///   *count* (13 against 42) as well as in position, so the section produced
+///   was not the one NJOY writes. See
+///   `tests/reconr_mt152_case_a_vs_njoy2016.rs`.
+/// - **The gap-fill step is 1 % for A and B but 0.1 % for C.** Upstream really
+///   does write `ener+ener/100` in `rdf2u0`/`rdf2u1` and `ener+ener/1000` in
+///   `rdf2u2`.
+/// - **Case C seeds from the first J-state of the first L-state alone**
+///   (`if (n.eq.1.and.l.eq.1)`, `:1497`), not from the union over all of them.
+///   The union happens to agree on U-234, where every J tabulates the same
+///   mesh, which is why taking it went unnoticed.
+///
+/// `rdf2u0` runs its walk once per L-state, and `rdf2u1`/`rdf2u2` push
+/// duplicates freely; upstream removes them later in the sort at
+/// `reconr.f90:856-871`. [`ilist`] removes them on insertion instead, which is
+/// why the loops here run once.
 fn unresolved_grid(range: &UnresolvedRange) -> Vec<f64> {
     // `ilist` expects a list primed with a sentinel larger than anything that
     // will be inserted (`unresr.f90:753-781`).
     let mut list = vec![f64::MAX];
 
-    // The parameter energies, in `eunr` order. Upstream takes `ener >= el` and
-    // `ener < eh` (`reconr.f90:1500`), so the range bottom IS a grid point and
-    // the range top is NOT -- the top is carried by the shaded node below.
-    let mut params: Vec<f64> = Vec::new();
-    match &range.case_ {
-        UnresolvedCase::CaseC { l_states, .. } => {
-            for l in l_states {
-                for j in &l.j_states {
-                    for p in &j.points {
-                        params.push(p.e);
-                    }
-                }
-            }
-        }
-        UnresolvedCase::CaseB {
-            fission_energies, ..
-        } => params.extend(fission_energies.iter().copied()),
-        UnresolvedCase::CaseA { .. } => {}
+    /// Advance to the first [`EGRIDU`] node at or above `e + e/step_divisor`,
+    /// as the inner `do while (... enut.lt.ener+ener/N)` loops do.
+    fn next_grid_node(e: f64, step_divisor: f64) -> Option<f64> {
+        EGRIDU.iter().copied().find(|&g| g >= e + e / step_divisor)
     }
-    params.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    params.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
-    // NOTE: do NOT filter the list here. `rdf2u2` tests `ener >= el .and.
-    // ener < eh` to decide whether to ADD an energy, but reads `enex` as the
-    // next tabulated energy unconditionally (`reconr.f90:1500-1503`). Dropping
-    // out-of-range entries first loses the gap-fill above the last in-range
-    // parameter -- on U-234 that silently cost 7.2e4 and 8.5e4, two of the
-    // twenty-seven points NJOY stores.
-    let in_range = |e: f64| e >= range.el && e < range.eh;
 
-    if params.iter().copied().filter(|&e| in_range(e)).count() == 0 {
-        // Case A, and Case B with no fission grid, tabulate no energies of
-        // their own. Upstream's `eunr` would then carry only the bounds; a
-        // two-point lin-lin grid across two decades of a cross section varying
-        // like 1/sqrt(E) is not defensible, so fill logarithmically. **This is
-        // the only part of this function that is not a literal translation,
-        // and it is unverified against NJOY** -- no held evaluation reaches it.
-        let (lo, hi) = (range.el.max(1.0e-5), range.eh);
-        for i in 1..FALLBACK_FILL {
-            let f = i as f64 / FALLBACK_FILL as f64;
-            ilist(sigfig(lo * (hi / lo).powf(f), 7, 0), &mut list);
-        }
-    } else {
-        for (i, &ener) in params.iter().enumerate() {
-            if !in_range(ener) {
-                continue;
-            }
-            ilist(sigfig(ener, 7, 0), &mut list);
-            // `rdf2u2`, `reconr.f90:1499-1533`: where the next parameter energy
-            // is more than `wide` away, fill the gap from the built-in grid, so
-            // the stored table is not linearly interpolated across a factor of
-            // two in energy.
-            let Some(&enex) = params.get(i + 1) else {
-                continue;
-            };
-            if enex <= WIDE * ener {
-                continue;
-            }
-            let mut e = ener;
-            loop {
-                // Advance to the first `egridu` node above `e + e/1000`
-                // (`:1515-1521`).
-                let Some(&next) = EGRIDU.iter().find(|&&g| g >= e + e / 1000.0) else {
+    match &range.case_ {
+        // `rdf2u0`, `reconr.f90:1288-1308`. No seeded energies at all: walk
+        // `egridu` from `el` up, adding every node strictly below `eh`.
+        UnresolvedCase::CaseA { .. } => {
+            let mut ener = range.el;
+            while ener < range.eh {
+                let Some(next) = next_grid_node(ener, 100.0) else {
                     break;
                 };
-                e = next;
-                if e >= enex {
-                    break;
+                ener = next;
+                if ener < range.eh {
+                    ilist(sigfig(ener, 7, 0), &mut list);
                 }
-                ilist(sigfig(e, 7, 0), &mut list);
             }
+        }
+
+        // `rdf2u1`, `reconr.f90:1370-1400`. The shared fission-width grid,
+        // with `egridu` filling any gap wider than `wide`. Note there is NO
+        // unconditional walk here — a Case B range whose fission grid lies
+        // entirely outside `[el, eh)` contributes only the shaded bounds,
+        // which is upstream's behaviour and not an oversight.
+        UnresolvedCase::CaseB {
+            fission_energies, ..
+        } => {
+            seed_with_gap_fill(fission_energies, 100.0, range.el, range.eh, &mut list);
+        }
+
+        // `rdf2u2`, `reconr.f90:1497-1534`, guarded by `if (n.eq.1.and.l.eq.1)`
+        // — the first J-state of the first L-state seeds the grid on its own.
+        UnresolvedCase::CaseC { l_states, .. } => {
+            let first: Vec<f64> = l_states
+                .first()
+                .and_then(|l| l.j_states.first())
+                .map(|j| j.points.iter().map(|p| p.e).collect())
+                .unwrap_or_default();
+            seed_with_gap_fill(&first, 1000.0, range.el, range.eh, &mut list);
         }
     }
 
-    // Shaded range bounds (`reconr.f90:757-775`).
+    // Shaded range bounds (`reconr.f90:757-775`). Upstream also pushes
+    // `sigfig(el,7,-1)` and `sigfig(eh,7,+1)`, but the overlap filter at
+    // `:856-871` drops both — verified against every reference tape here:
+    // no MT=152 section carries them.
     ilist(sigfig(range.el, 7, 1), &mut list);
     ilist(sigfig(range.eh, 7, -1), &mut list);
 
     list.retain(|&e| e.is_finite() && e > 0.0 && e < f64::MAX);
     list
+}
+
+/// The seed-plus-gap-fill loop shared by `rdf2u1` and `rdf2u2`.
+///
+/// For each tabulated energy inside the range: insert it, then — when the
+/// *next* tabulated energy is more than [`WIDE`] times it — walk [`EGRIDU`]
+/// from it toward that next energy, inserting each node passed. `step_divisor`
+/// is 100 for `rdf2u1` and 1000 for `rdf2u2`, and `el`/`eh` bound the range
+/// (`ener >= el .and. ener < eh`, so the bottom is a candidate and the top is
+/// not).
+///
+/// `enex` is read as the next entry of the tabulated list **unconditionally**,
+/// without first discarding out-of-range entries (`reconr.f90:1500-1503`).
+/// Filtering first loses the fill above the last in-range energy — on U-234
+/// that silently cost `7.2e4` and `8.5e4`, two of the twenty-seven points NJOY
+/// stores.
+fn seed_with_gap_fill(
+    energies: &[f64],
+    step_divisor: f64,
+    el: f64,
+    eh: f64,
+    list: &mut Vec<f64>,
+) {
+    for (i, &ener) in energies.iter().enumerate() {
+        if !(ener >= el && ener < eh) {
+            continue;
+        }
+        ilist(sigfig(ener, 7, 0), list);
+        let Some(&enex) = energies.get(i + 1) else {
+            continue;
+        };
+        if enex <= WIDE * ener {
+            continue;
+        }
+        let mut e = ener;
+        loop {
+            let Some(next) = EGRIDU.iter().copied().find(|&g| g >= e + e / step_divisor) else {
+                break;
+            };
+            e = next;
+            if e >= enex {
+                break;
+            }
+            ilist(sigfig(e, 7, 0), list);
+        }
+    }
 }
 
 /// Gap factor above which `rdf2u2` fills from [`EGRIDU`] (`reconr.f90:1339`).
@@ -413,7 +482,14 @@ pub fn build_mt152(
     let _ = eps;
     let mut rows: Vec<[f64; 6]> = Vec::with_capacity(2 + body.len().div_ceil(6));
     // CONT
-    rows.push([za, awr, range.lssf as f64, 0.0, 0.0, INTUNR_LIN_LIN as f64]);
+    rows.push([
+        za,
+        awr,
+        range.lssf as f64,
+        0.0,
+        0.0,
+        stored_interpolation_law(ranges) as f64,
+    ]);
     // LIST header
     rows.push([
         temperature_k,
@@ -435,9 +511,40 @@ pub fn build_mt152(
 /// capture, and the total repeated (`reconr.f90:1690`).
 const N_REACTION_COLUMNS: usize = 5;
 
-/// The sigma-zero interpolation law RECONR records (`intunr`); `unresr.f90:532`
-/// defaults it to 2 (lin-lin).
-const INTUNR_LIN_LIN: i32 = 2;
+/// `rdfil2`'s default interpolation law for the stored table
+/// (`intunr=5`, log-log, `reconr.f90:809`).
+///
+/// It stands for Case A and Case B, which have no `INT` of their own. Case C
+/// overrides it from the evaluation — see [`stored_interpolation_law`].
+const INTUNR_DEFAULT: i32 = 5;
+
+/// The interpolation law `genunr` records as `sunr(6)` for `ranges`
+/// (`reconr.f90:1656`), which `sigunr` later reads back to interpolate the
+/// stored table (`:1749`).
+///
+/// [`INTUNR_DEFAULT`] unless a Case C range supplies one. `rdf2u2` assigns
+/// `intunr=l1h` inside its `do l` / `do n` loops (`:1487`) with no guard, so
+/// the **last** J-state of the **last** L-state is the one whose value
+/// survives — deliberately not the first, which is what seeds the energy grid.
+/// Every evaluation held here gives all J-states the same `INT`, so the
+/// distinction is untested; it is written this way because that is what
+/// upstream does.
+///
+/// Measured: ENDF/B-VIII.0 U-234 stores 2 (lin-lin) and U-238 stores 5
+/// (log-log); Fe-58, being Case A, takes the default 5.
+fn stored_interpolation_law(ranges: &[UnresolvedRange]) -> i32 {
+    let mut intunr = INTUNR_DEFAULT;
+    for r in ranges {
+        if let UnresolvedCase::CaseC { l_states, .. } = &r.case_ {
+            for l in l_states {
+                for j in &l.j_states {
+                    intunr = j.int_;
+                }
+            }
+        }
+    }
+    intunr
+}
 
 /// Add the infinitely-dilute unresolved contribution of every `LSSF = 0` range
 /// to the MF=3 sections.

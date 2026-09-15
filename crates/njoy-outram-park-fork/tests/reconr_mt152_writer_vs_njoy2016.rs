@@ -32,10 +32,15 @@
 //! # Scope
 //!
 //! One material, `LSSF = 0`, one temperature (0 K), infinite dilution only
-//! (`nsig0 = 1`). An `LSSF = 1` material takes the early return at `:1694` and
-//! stores bare cross sections; no such case is exercised here because U-234 is
-//! the only `LSSF = 0` material held, and the `LSSF = 1` ones (U-235, U-238)
-//! are the ones whose MT=152 this crate does not yet need to write.
+//! (`nsig0 = 1`), and Case C (`LRF=2`) only.
+//!
+//! The other paths are covered next door in
+//! `reconr_mt152_case_a_and_lssf1_vs_njoy2016.rs` (added 2026-09-15), which
+//! takes the `LSSF = 1` early return at `:1694` on U-238 — agreeing to 1e-13
+//! — and the Case A (`LRF=1`, `LFW=0`) energy grid on Fe-58. Case B
+//! (`LFW=1`, `LRF≠2`) remains unexercised for want of an evaluation; that is
+//! the last piece open on `bn:op-12lu`.
+//!
 //! Verification against NJOY2016, not validation.
 
 use njoy_outram_park_fork::endf::tape::Tape;

@@ -115,3 +115,49 @@ MF=3 MT=1/2/102 on NJOY's own 44,326-point grid across the resolved range.
 It is the regression gate for gh:#202 / `bn:op-hb9l`, where discarding this
 term left elastic flat at the potential value `4 pi a^2 = 4.969327 b`
 against NJOY's 8.843210 b at 1e-5 eV.
+
+## `fe58-…-0K-err0.001.mt152.pendf`, `u238-…-0K-err0.001.mt152.pendf` — the Case A and `LSSF=1` MT=152 oracles
+
+Added 2026-09-15. NJOY2016 upstream `ac5adf5f` (2016.79), gfortran 13.3.0,
+built and run in-session, from `../endf/n-026_Fe_058-ENDF8.0-Beta4.endf`
+(MAT 2637) and `../endf/n-092_U_238.endf` (MAT 9237), with the decks
+committed beside them as `*.njoy-input`.
+
+**These two hold only the MF=2/MT=152 section**, wrapped in the minimum ENDF
+terminators needed to parse — unlike every other file here, which is a whole
+PENDF. U-238's full RECONR output is 97 MB, far past what belongs in a
+repository, and extracting the one section keeps both materials on a single
+convention. To regenerate either in full, run the committed deck; to reduce it
+to what is committed here, keep the records whose columns 71-75 read `  2152`
+and append a SEND/FEND/MEND/TEND.
+
+They exist because the U-234 oracle beside them reaches only Case C with
+`LSSF = 0`, leaving two paths in the MT=152 writer untested:
+
+- **Fe-58** carries `LRU=2, LRF=1, LFW=0, LSSF=1` over `3.5e5 .. 3.0e6 eV`.
+  It is the **only** `LRU=2/LRF=1` range in `../endf/` (screened with
+  `../endf/screen_endf_flags.py`), so it is the only Case A oracle available,
+  and it happens to be `LSSF = 1` as well.
+- **U-238** carries Case C with `LSSF = 1` and `L <= 2`, which isolates the
+  `LSSF = 1` early return from the Case A grid change.
+
+Consumed by `tests/reconr_mt152_case_a_and_lssf1_vs_njoy2016.rs`. U-238 agrees
+to **1e-13** on all 336 stored values.
+
+**Fe-58's stored cross sections are wrong, and are committed deliberately as
+the record of an upstream defect.** `unfac` (`reconr.f90:4473-4496`) has no
+`l >= 3` branch — no `else` after `else if (l.eq.2)` — so `vl` and `ps` keep
+their previous values, and `csunr1`'s `vl = vl*e2` (`:4010`) sits inside the
+J loop, multiplying `vl` by another `sqrt(E)` per J-state. Fe-58 has `NLS = 4`,
+so its stored total runs `1.42e4 b` at 350 keV to `6.62e5 b` at 3 MeV, roughly
+1900x the unitarity limit and rising with energy. The test reproduces those
+numbers from the defective recurrence to 2.7e-7, so the diagnosis is measured
+rather than asserted. NJOY's *UNRESR* does not share the defect: `uunfac`
+(`unresr.f90:1213-1239`) writes a bare `else`, and this crate's kernel ports
+`uunfac`. With `LSSF = 1` the values never reach a transport calculation —
+the evaluation's own MF=3 carries the cross sections, and MT=152 is consumed
+by UNRESR/PURR only as the denominator of self-shielding ratios.
+
+Data policy: derived products of open ENDF/B-VIII.0 data processed with the
+BSD-licensed NJOY2016. Fe-58 is the ENDF/B-VIII.0 Beta4 release; see
+`../endf/README.md` for both tapes' provenance.
