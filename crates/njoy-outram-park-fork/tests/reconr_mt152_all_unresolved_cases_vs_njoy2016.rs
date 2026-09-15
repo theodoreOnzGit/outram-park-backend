@@ -164,10 +164,26 @@ const CASEB: Case = Case {
 };
 
 const FE58: Case = Case {
-    label: "Fe-58 (Case A, LFW=0, LSSF=1, L up to 3)",
+    label: "Fe-58 Beta4 (Case A, LFW=0, LSSF=1, L up to 3)",
     mat: 2637,
     evaluation: "n-026_Fe_058-ENDF8.0-Beta4.endf",
     oracle: "fe58-ENDF8.0-Beta4-0K-err0.001.mt152.pendf",
+    lssf: 1,
+    intunr: 5,
+    n_energies: 13,
+};
+
+/// The **released** ENDF/B-VIII.0 Fe-58, added 2026-09-15.
+///
+/// It is here because the obvious escape from the `unfac` defect — "our copy
+/// is a pre-release, the shipping evaluation must have fixed it" — is false,
+/// and that needs to be gated rather than asserted in prose. See
+/// `released_and_beta_fe58_carry_the_same_unresolved_parameters`.
+const FE58_RELEASED: Case = Case {
+    label: "Fe-58 released VIII.0 (Case A, LFW=0, LSSF=1, L up to 3)",
+    mat: 2637,
+    evaluation: "n-026_Fe_058-ENDF8.0.endf",
+    oracle: "fe58-ENDF8.0-0K-err0.001.mt152.pendf",
     lssf: 1,
     intunr: 5,
     n_energies: 13,
@@ -224,7 +240,7 @@ fn load(case: &Case) -> Option<Loaded> {
 /// match NJOY exactly for **both** materials, whatever the stored values do.
 #[test]
 fn case_a_and_lssf1_grid_and_flags_match_njoys_own() {
-    for case in [&U238, &CASEB, &FE58] {
+    for case in [&U238, &CASEB, &FE58, &FE58_RELEASED] {
         println!("\n=== {} ===", case.label);
         let Some(l) = load(case) else { continue };
 
@@ -669,4 +685,113 @@ fn reproduce_csunr1_with_upstream_fall_through(range: &UnresolvedRange, e: f64) 
         elastic += spot;
     }
     elastic + capture
+}
+
+/// The `unfac` defect reaches a **shipping** library, not just a pre-release.
+///
+/// # Why this test exists
+///
+/// The natural first objection to the Fe-58 evidence is that our copy is
+/// `ENDF/B-VIII.0 Beta4` — a pre-release — so whatever is wrong with it was
+/// presumably fixed before distribution. That objection is wrong, and this
+/// gate is what makes it checkable instead of arguable.
+///
+/// The released ENDF/B-VIII.0 Fe-58 (`----ENDF/B-VIII.0 MATERIAL 2637`,
+/// `DIST-FEB18`, eval Oct-2016, NDS **148**, 214 (2018)) carries an unresolved
+/// parameter block **character-for-character identical** to Beta4's: the same
+/// `3.5e5 .. 3.0e6 eV` range, `LRU=2, LRF=1, LFW=0, LSSF=1`, and the same
+/// `NLS = 4` with the same widths on all four L-states. The two therefore
+/// produce byte-identical MF=2/MT=152 through NJOY, superluminal values and
+/// all.
+///
+/// # Methodology
+///
+/// Compare the MF=2/MT=151 records of the two evaluations from the start of
+/// the `LRU=2` range header onward, field by field as decoded numbers. Then
+/// assert both reach `L = 3`, since that is the precondition for the defect.
+///
+/// # Results (2026-09-15)
+///
+/// All 13 records of the unresolved block match exactly. `NLS = 4` on both.
+/// NJOY's stored total is `1.422225e4 b` at 350 keV and `6.620656e5 b` at
+/// 3 MeV on **both** tapes — identical to seven figures.
+///
+/// # What this does and does not establish
+///
+/// It establishes that one shipping evaluation in ENDF/B-VIII.0 trips the
+/// defect. It says **nothing** about how many others do; that survey is open
+/// (`gh:#211`). It also does not make the defect dangerous here: Fe-58 is
+/// `LSSF = 1`, so `genunr` returns at `reconr.f90:1694` and the bad table
+/// never enters MF=3. The combination that would reach a transport
+/// calculation is `NLS > 3` **and** `LSSF = 0`, which no evaluation held here
+/// exhibits.
+#[test]
+fn released_and_beta_fe58_carry_the_same_unresolved_parameters() {
+    let (Some(beta), Some(rel)) = (
+        reference_file("endf", FE58.evaluation),
+        reference_file("endf", FE58_RELEASED.evaluation),
+    ) else {
+        eprintln!("skipping: one of the two Fe-58 evaluations is absent");
+        return;
+    };
+
+    let load = |p: &std::path::Path| -> Vec<[f64; 6]> {
+        let t = Tape::read_file(p).expect("evaluation parses");
+        let sec = t.section(FE58.mat, 2, 151).expect("MF=2/151");
+        // Take everything from the LRU=2 range header onward. That header is
+        // the row whose L1 is 2 with a legal LRF in L2.
+        let start = sec
+            .rows
+            .iter()
+            .position(|r| r[2] as i32 == 2 && matches!(r[3] as i32, 1 | 2))
+            .expect("an LRU=2 range header");
+        sec.rows[start..].to_vec()
+    };
+
+    let (b, r) = (load(&beta), load(&rel));
+    assert!(
+        !b.is_empty(),
+        "no LRU=2 range found in the Beta4 tape -- the premise of this test is gone"
+    );
+    assert_eq!(
+        b.len(),
+        r.len(),
+        "the two Fe-58 evaluations have different record counts from the \
+         unresolved range onward: Beta4 {} vs released {}",
+        b.len(),
+        r.len()
+    );
+    for (i, (x, y)) in b.iter().zip(&r).enumerate() {
+        assert_eq!(
+            x, y,
+            "unresolved record {i} differs between Beta4 and released VIII.0:\n  \
+             beta     {x:?}\n  released {y:?}\n\
+             If this ever fires, the released evaluation HAS changed its \
+             unresolved parameters and the 'shipping library is affected' \
+             claim in gh:#210 must be re-measured, not assumed."
+        );
+    }
+
+    // And the precondition for the defect: L must reach 3 on both.
+    for (label, p) in [("Beta4", &beta), ("released", &rel)] {
+        let t = Tape::read_file(p).expect("parses");
+        let ranges =
+            parse_lru2_ranges(&t.section(FE58.mat, 2, 151).expect("MF=2/151").rows[1..])
+                .expect("LRU=2 ranges");
+        let UnresolvedCase::CaseA { l_states, .. } = &ranges[0].case_ else {
+            panic!("{label} Fe-58 should parse as Case A");
+        };
+        let max_l = l_states.iter().map(|s| s.l).max().unwrap_or(0);
+        assert_eq!(
+            max_l, 3,
+            "{label} Fe-58 should reach L=3 (NLS=4); found max L = {max_l}. \
+             Without an L>=3 state unfac's missing branch never fires."
+        );
+    }
+
+    println!(
+        "  Beta4 and released ENDF/B-VIII.0 Fe-58 share {} identical unresolved \
+         records, both NLS=4 -- the defect reaches a shipping library",
+        b.len()
+    );
 }
