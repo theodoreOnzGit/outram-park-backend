@@ -64,12 +64,26 @@ pub fn scale(v: f64, lo: f64, hi: f64) -> f64 {
 #[inline]
 pub fn basis<const N: usize>(x: f64) -> [f64; N] {
     let mut t = [0.0_f64; N];
+    basis_into(x, &mut t);
+    t
+}
+
+/// [`basis`] for a length known only at run time.
+///
+/// Fills `out` with `T_0(x) ..= T_{out.len()-1}(x)` by the same recurrence,
+/// which is the single implementation both share — a least-squares fit
+/// ([`crate::cheb::ChebSeries::fit`]) needs a row whose width is the requested
+/// degree plus one, and that is not a compile-time constant.
+///
+/// `x` is expected on `[-1, 1]` (see [`scale`]).
+#[inline]
+pub fn basis_into(x: f64, out: &mut [f64]) {
     // The recurrence needs T_{k-1} and T_{k-2}; carrying both in locals lets
     // the array be filled by a single forward walk with no subscript, so an
     // out-of-range read is not expressible here rather than merely unlikely.
     let mut t_km1 = 0.0_f64;
     let mut t_km2 = 0.0_f64;
-    for (k, slot) in t.iter_mut().enumerate() {
+    for (k, slot) in out.iter_mut().enumerate() {
         let v = match k {
             0 => 1.0,
             1 => x,
@@ -79,7 +93,6 @@ pub fn basis<const N: usize>(x: f64) -> [f64; N] {
         t_km2 = t_km1;
         t_km1 = v;
     }
-    t
 }
 
 /// Evaluate `sum_k c[k] T_k(x)` — the **plain** convention.

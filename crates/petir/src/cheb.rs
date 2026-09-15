@@ -54,21 +54,70 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::error::{PetirError, Result};
+use crate::linalg::{Matrix, QrDecomposition};
+// Under a std-linked build (`cargo test`) f64's inherent sqrt shadows the
+// trait method, leaving the import formally unused. See crate::real.
+#[allow(unused_imports)]
+use crate::real::Real;
 use crate::zip::zip_flat;
 
 /// `GSL_DBL_EPSILON` (`gsl_machine.h:17`). Identical to [`f64::EPSILON`];
 /// spelled out so the port reads against upstream.
 const GSL_DBL_EPSILON: f64 = 2.2204460492503131e-16;
 
+/// Evaluation precision — ports `gsl_mode_t`'s `GSL_MODE_PREC` (`gsl_mode.h`).
+///
+/// An enum rather than the bit-masked `unsigned int` upstream uses, per the
+/// workspace rule that a closed set of choices is dispatched by enum: the
+/// compiler then forces every `match` to handle a new variant, where a stray
+/// bit pattern in `gsl_mode_t` silently falls through to the `else`.
+///
+/// # What the reduced modes actually do
+///
+/// [`Single`](Precision::Single) and [`Approx`](Precision::Approx) both select
+/// [`ChebSeries::order_sp`], which upstream leaves equal to the full order.
+/// So unless you set it, **all three modes give the same answer** — that is
+/// upstream's behaviour, faithfully, and it is documented here rather than
+/// papered over with an invented reduction rule.
+///
+/// Upstream distinguishes `GSL_PREC_SINGLE` from `GSL_PREC_APPROX` elsewhere
+/// (in `specfunc`, where different series are selected); `cheb/eval.c` tests
+/// only `== GSL_PREC_DOUBLE`, so the two behave identically here and this port
+/// keeps both variants rather than collapsing them, so a caller porting GSL
+/// code can pass what their source passed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Precision {
+    /// `GSL_PREC_DOUBLE` — the full series order.
+    Double,
+    /// `GSL_PREC_SINGLE` — [`ChebSeries::order_sp`].
+    Single,
+    /// `GSL_PREC_APPROX` — [`ChebSeries::order_sp`], as `Single`.
+    Approx,
+}
+
+impl Precision {
+    /// The order `cheb/eval.c:163-166` selects for this mode.
+    fn eval_order(self, cs: &ChebSeries) -> usize {
+        match self {
+            Precision::Double => cs.order(),
+            Precision::Single | Precision::Approx => cs.order_sp(),
+        }
+    }
+}
+
 /// A Chebyshev series approximating a function on `[a, b]`.
 ///
-/// Ports `gsl_cheb_series` (`cheb/gsl_chebyshev.h`). Upstream's `order_sp`
-/// (a single-precision order used by `gsl_cheb_eval_mode`) and `f` workspace
-/// are omitted — see the module docs.
+/// Ports `gsl_cheb_series` (`cheb/gsl_chebyshev.h`). Upstream's `f` workspace
+/// is omitted (it is scratch for `gsl_cheb_init`, not state); `order_sp` is
+/// carried — see [`order_sp`](Self::order_sp).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChebSeries {
     /// Coefficients `c[0..=order]`.
     c: Vec<f64>,
+    /// Upstream's `order_sp`: the order [`eval_mode`](Self::eval_mode) uses at
+    /// reduced precision. Defaults to the full order, as upstream's
+    /// `gsl_cheb_alloc` does.
+    order_sp: usize,
     /// Lower interval bound.
     a: f64,
     /// Upper interval bound.
@@ -126,7 +175,7 @@ impl ChebSeries {
             *cj = fac * sum;
         }
 
-        Ok(ChebSeries { c, a, b })
+        Ok(ChebSeries::with_default_order_sp(c, a, b))
     }
 
     /// Build directly from known coefficients on `[a, b]`.
@@ -147,7 +196,7 @@ impl ChebSeries {
         if c.is_empty() {
             return Err(PetirError::Invalid);
         }
-        Ok(ChebSeries { c, a, b })
+        Ok(ChebSeries::with_default_order_sp(c, a, b))
     }
 
     /// Build from coefficients in the **plain** convention, where the
@@ -178,6 +227,67 @@ impl ChebSeries {
             *c0 *= 2.0;
         }
         Self::from_coefficients(c, a, b)
+    }
+
+    /// Build with `order_sp` at the full order, which is what
+    /// `gsl_cheb_alloc` (`cheb/init.c:39`) does.
+    fn with_default_order_sp(c: Vec<f64>, a: f64, b: f64) -> Self {
+        let order_sp = c.len().saturating_sub(1);
+        ChebSeries { c, order_sp, a, b }
+    }
+
+    /// The reduced order [`eval_mode`](Self::eval_mode) uses at
+    /// [`Precision::Single`] or [`Precision::Approx`].
+    ///
+    /// # Upstream computes nothing here, and says so
+    ///
+    /// `gsl_cheb_alloc` sets `order_sp = order` (`cheb/init.c:39`) and never
+    /// changes it, so `gsl_cheb_eval_mode` at single precision is identical to
+    /// `gsl_cheb_eval` unless the caller sets the field themselves. GSL's own
+    /// header is explicit about why:
+    ///
+    /// > Users can use it if they like, but only they know how to calculate
+    /// > it, since it is specific to the approximated function.
+    ///
+    /// That is upstream declining to supply a degree-selection rule, not an
+    /// oversight — and it is independent confirmation that there is nothing in
+    /// GSL to port for adaptive degree selection (`bn:op-0sl9`).
+    ///
+    /// # How to choose one
+    ///
+    /// [`eval_n_err`](Self::eval_n_err) reports upstream's error estimate at
+    /// any order, so the smallest order meeting a tolerance you name can be
+    /// found by asking it:
+    ///
+    /// ```
+    /// use petir::ChebSeries;
+    /// let cs = ChebSeries::new(40, -1.0, 1.0, |x: f64| x.exp()).unwrap();
+    /// // The smallest order whose error estimate is within 1e-10, judged at
+    /// // the worst of a few sample points.
+    /// let chosen = (0..=cs.order())
+    ///     .find(|&n| {
+    ///         [-0.9_f64, -0.3, 0.4, 0.95]
+    ///             .iter()
+    ///             .all(|&x| cs.eval_n_err(n, x).1 <= 1e-10)
+    ///     })
+    ///     .unwrap_or(cs.order());
+    /// assert!(chosen < cs.order(), "exp needs far fewer than 40 terms");
+    /// ```
+    ///
+    /// This is a search over upstream's own error estimate, **not** a
+    /// tail-chopping rule: it has no plateau or envelope analysis and it needs
+    /// a tolerance from you, where Chebfun's `standardChop` infers one. It
+    /// does not close `bn:op-0sl9`.
+    pub fn order_sp(&self) -> usize {
+        self.order_sp
+    }
+
+    /// Set the reduced order used at [`Precision::Single`].
+    ///
+    /// Clamped to the series order — upstream does no such check, and a
+    /// larger value there would read past the coefficient array.
+    pub fn set_order_sp(&mut self, order_sp: usize) {
+        self.order_sp = order_sp.min(self.order());
     }
 
     /// The series order (`gsl_cheb_order`, `cheb/init.c:98`) — one less than
@@ -280,6 +390,43 @@ impl ChebSeries {
         (result, abserr)
     }
 
+    /// Evaluate at a precision (`gsl_cheb_eval_mode`, `cheb/eval.c:190`).
+    ///
+    /// [`Precision::Double`] uses the full order;
+    /// [`Single`](Precision::Single) and [`Approx`](Precision::Approx) use
+    /// [`order_sp`](Self::order_sp), which defaults to the full order — see
+    /// [`Precision`] for why all three therefore agree unless you have set it.
+    ///
+    /// Upstream calls these "not meant for casual use"; [`eval`](Self::eval)
+    /// and [`eval_n`](Self::eval_n) are the direct ways to say the same thing.
+    /// This exists so that code being ported from GSL can be transcribed
+    /// rather than reinterpreted.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use petir::{ChebSeries, Precision};
+    /// let mut cs = ChebSeries::new(24, -1.0, 1.0, |x: f64| x.exp()).unwrap();
+    /// // Untouched, every mode agrees -- upstream's default.
+    /// assert_eq!(cs.eval_mode(0.3, Precision::Single), cs.eval(0.3));
+    /// // Set a reduced order and the cheaper mode truncates.
+    /// cs.set_order_sp(6);
+    /// assert_eq!(cs.eval_mode(0.3, Precision::Single), cs.eval_n(6, 0.3));
+    /// assert_eq!(cs.eval_mode(0.3, Precision::Double), cs.eval(0.3));
+    /// ```
+    pub fn eval_mode(&self, x: f64, mode: Precision) -> f64 {
+        self.eval_n_unchecked(mode.eval_order(self).min(self.order()), x)
+    }
+
+    /// As [`eval_mode`](Self::eval_mode), with an error estimate
+    /// (`gsl_cheb_eval_mode_e`, `cheb/eval.c:148`).
+    ///
+    /// Returns `(result, abserr)`, the same pair and the same estimate as
+    /// [`eval_n_err`](Self::eval_n_err).
+    pub fn eval_mode_err(&self, x: f64, mode: Precision) -> (f64, f64) {
+        self.eval_n_err_unchecked(mode.eval_order(self).min(self.order()), x)
+    }
+
     /// The series of the derivative (`gsl_cheb_calc_deriv`, `cheb/deriv.c:26-59`).
     ///
     /// Returns a new series of the **same order** on the same interval, as
@@ -288,11 +435,7 @@ impl ChebSeries {
     pub fn deriv(&self) -> Self {
         let n = self.size();
         let con = 2.0 / (self.b - self.a);
-        let flat = |c| ChebSeries {
-            c,
-            a: self.a,
-            b: self.b,
-        };
+        let flat = |c| ChebSeries::with_default_order_sp(c, self.a, self.b);
         // Upstream sets d[n-1] = 0 and stops; a one-coefficient series is a
         // constant, whose derivative is zero.
         let Some(&c_last) = self.c.last() else {
@@ -344,11 +487,7 @@ impl ChebSeries {
     pub fn integ(&self) -> Self {
         let n = self.size();
         let con = 0.25 * (self.b - self.a);
-        let flat = |c| ChebSeries {
-            c,
-            a: self.a,
-            b: self.b,
-        };
+        let flat = |c| ChebSeries::with_default_order_sp(c, self.a, self.b);
         let Some(&c0) = self.c.first() else {
             return flat(vec![0.0; n]);
         };
@@ -388,5 +527,156 @@ impl ChebSeries {
             *g0 = 2.0 * sum;
         }
         flat(g)
+    }
+}
+
+/// The outcome of a least-squares Chebyshev fit.
+///
+/// Returned by [`ChebSeries::fit`]. The residual is carried alongside the
+/// series because a fit without one is an assertion rather than a measurement:
+/// the coefficients alone cannot tell you whether the degree was adequate.
+#[derive(Debug, Clone)]
+pub struct ChebFit {
+    /// The fitted series, ready to [`eval`](ChebSeries::eval).
+    pub series: ChebSeries,
+    /// `y_i - p(x_i)` at each sample, in the order the samples were given.
+    ///
+    /// Look at its **shape**, not only its size. A residual that still has
+    /// visible structure — sign runs, a trend, a bump — means the degree is
+    /// too low and there is signal left to capture. One that looks like noise
+    /// means you have reached the data's own scatter and raising the degree
+    /// will fit that scatter instead.
+    pub residual: Vec<f64>,
+    /// Root-mean-square residual, `sqrt(sum r_i^2 / m)`.
+    pub rms_residual: f64,
+    /// The rank indicator from the underlying factorisation; see
+    /// [`QrDecomposition::rank`](crate::linalg::QrDecomposition::rank) for
+    /// what it does and does not establish. Near `f64::EPSILON` means the
+    /// sample points barely determine the requested degree.
+    pub conditioning: f64,
+}
+
+impl ChebSeries {
+    /// Least-squares fit of a Chebyshev series of the given `order` to
+    /// scattered samples.
+    ///
+    /// # How this differs from [`ChebSeries::new`], and when to use which
+    ///
+    /// [`new`](ChebSeries::new) **interpolates a function you can call**, at
+    /// abscissae it chooses — the Chebyshev nodes — and recovers the
+    /// coefficients by a cosine transform. It is exact, it is fast, and it
+    /// requires that you can evaluate the function wherever it likes.
+    ///
+    /// This fits **data you already have**, at whatever points it was measured
+    /// or sampled at, with more points than coefficients. There is no
+    /// transform available for that, so it solves the overdetermined system in
+    /// the Chebyshev basis by QR ([`crate::linalg::qr`]). Reach for it when
+    /// the samples come from an experiment, from a simulation you cannot
+    /// cheaply re-run, or from a sampler that chose the points for its own
+    /// reasons.
+    ///
+    /// Given samples exactly at the Chebyshev nodes and `order + 1` of them,
+    /// the two agree to rounding — which is what
+    /// `fit_reproduces_the_interpolant_at_the_nodes` checks.
+    ///
+    /// # Why the Chebyshev basis rather than fitting a monomial polynomial
+    ///
+    /// The monomial design matrix is a Vandermonde matrix, whose condition
+    /// number grows exponentially with degree; past degree 10 or so a
+    /// least-squares fit in `1, x, x^2, ...` is dominated by rounding. The
+    /// Chebyshev basis is near-orthogonal on `[a, b]`, so the same fit stays
+    /// solvable to much higher degree. That is the entire reason this routine
+    /// exists rather than a `polyfit`.
+    ///
+    /// # Arguments
+    ///
+    /// - `order` — the highest Chebyshev degree to include; the fit has
+    ///   `order + 1` coefficients.
+    /// - `a`, `b` — the interval the series is defined on, `a < b`. Samples
+    ///   are mapped onto `[-1, 1]` by [`crate::scale`].
+    /// - `xs`, `ys` — the samples. Order does not matter and repeats are
+    ///   allowed, provided enough *distinct* points remain to determine the
+    ///   coefficients.
+    ///
+    /// # Errors
+    ///
+    /// - [`PetirError::Domain`] if `a >= b`, or if any sample lies outside
+    ///   `[a, b]`. Outside the interval the Chebyshev basis grows without
+    ///   bound, so such a point would dominate the fit; that is a mistake
+    ///   worth reporting rather than absorbing.
+    /// - [`PetirError::LengthMismatch`] if `xs` and `ys` differ in length.
+    /// - [`PetirError::Invalid`] if there are fewer samples than
+    ///   `order + 1` — the system would be underdetermined.
+    /// - [`PetirError::Singular`] if the samples do not determine the
+    ///   requested degree, naming the first Chebyshev degree that is not
+    ///   pinned down. The usual cause is too few *distinct* abscissae: five
+    ///   samples at three distinct points cannot fix a cubic.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use petir::ChebSeries;
+    /// // Sample y = x^2 at six points and fit a quadratic; it is exact.
+    /// let xs = [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0];
+    /// let ys: Vec<f64> = xs.iter().map(|x| x * x).collect();
+    /// let fit = ChebSeries::fit(2, -1.0, 1.0, &xs, &ys).unwrap();
+    /// assert!(fit.rms_residual < 1e-14);
+    /// assert!((fit.series.eval(0.5) - 0.25).abs() < 1e-13);
+    /// ```
+    pub fn fit(order: usize, a: f64, b: f64, xs: &[f64], ys: &[f64]) -> Result<ChebFit> {
+        if !(a < b) {
+            // Matches `new`: cheb/init.c:70, "null function interval [a,b]".
+            return Err(PetirError::Domain);
+        }
+        if xs.len() != ys.len() {
+            return Err(PetirError::LengthMismatch {
+                expected: xs.len(),
+                found: ys.len(),
+            });
+        }
+        let n_coeff = order + 1;
+        let m = xs.len();
+        if m < n_coeff {
+            return Err(PetirError::Invalid);
+        }
+
+        // Design matrix: row i is T_0(t_i) .. T_order(t_i), with t_i the
+        // sample mapped onto [-1, 1]. Built through the same recurrence the
+        // rest of the crate evaluates with -- see `cheb_slice::basis_into`.
+        let mut design = Matrix::zeros(m, n_coeff)?;
+        let mut row = vec![0.0_f64; n_coeff];
+        for (i, (&x, &y)) in zip_flat!(xs.iter(), ys.iter()).enumerate() {
+            if !(x >= a && x <= b) || !y.is_finite() {
+                // Also catches NaN, which compares false against everything.
+                return Err(PetirError::Domain);
+            }
+            let t = crate::cheb_slice::scale(x, a, b);
+            crate::cheb_slice::basis_into(t, &mut row);
+            for (j, &tj) in row.iter().enumerate() {
+                design.set(i, j, tj);
+            }
+        }
+
+        let qr = QrDecomposition::new(design)?;
+        let conditioning = qr.diagonal_ratio();
+        let fit = qr.least_squares(ys)?;
+
+        let mut sum_sq = 0.0_f64;
+        for &r in &fit.residual {
+            sum_sq += r * r;
+        }
+        let rms_residual = (sum_sq / (m as f64)).sqrt();
+
+        // `least_squares` returns coefficients of T_0 .. T_order directly,
+        // which is the PLAIN convention; `ChebSeries` stores GSL's, where the
+        // zeroth is doubled and halved again on evaluation.
+        let series = ChebSeries::from_plain_coefficients(fit.solution, a, b)?;
+
+        Ok(ChebFit {
+            series,
+            residual: fit.residual,
+            rms_residual,
+            conditioning,
+        })
     }
 }

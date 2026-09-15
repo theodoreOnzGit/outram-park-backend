@@ -54,14 +54,14 @@ that drifts from its origin fails the build rather than rotting quietly.
 
 | Module | Lineage | Covers |
 |---|---|---|
-| `cheb`, `cheb_slice` | ported | Chebyshev fitting at the Gauss nodes, Clenshaw evaluation with an error estimate, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
+| `cheb`, `cheb_slice` | ported | **The whole of GSL's `cheb/`** — interpolation at the Gauss nodes, least-squares fitting at arbitrary points, Clenshaw evaluation with an error estimate, precision-mode evaluation, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
-| `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver |
+| `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
-| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve |
+| `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, and rectangular Householder **QR with least-squares solve** |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 | `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
-| `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders |
+| `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders (OpenFOAM); closed-form **quartic** and biquadratic, and **all roots of any degree** by companion-matrix eigenvalues (the `roots` crate); polynomial **algebra** — multiply, long-divide, translate — with Lagrange interpolation and the **Legendre / Chebyshev / Hermite / Bessel** families (`peroxide`). See Prior art |
 | `roots` | ported | Bracketing (bisection, false position, Brent) and derivative-based (Newton, secant, Steffenson) root finders, with GSL's three convergence tests |
 | `specfunc`, `expint`, `gamma_inc` | ported + lifted + delegated | Error-function family including the scaled `erfcx`, gamma family with GSL's Padé branches at the zeros, incomplete gamma and its inverse, exponential integral `E_1` |
 | `transfer_fn` | ported | Continuous and discrete SISO transfer functions, `c2d` / `d2c`, and the O(1) fixed-state recurrence blocks |
@@ -72,9 +72,62 @@ that drifts from its origin fails the build rather than rotting quietly.
 **Deliberate subsets rather than gaps**, each named where it matters and
 tracked as a bead: QAGS and the infinite-range and weighted quadrature
 variants; implicit and stiff ODE methods; Akima, Steffen and periodic splines;
-general-degree complex polynomial roots; Chebyshev least-squares regression at
-arbitrary points and adaptive degree selection. An empty module that looks like
-an API is worse than an absent one.
+general-degree complex polynomial roots; and rank-deficient least squares (the
+QR is unpivoted, so a dependent design matrix is *reported*, not solved —
+`op-4m4b`). An empty module that looks like an API is worse than an absent one.
+
+One gap is blocked on a **source**, not on effort: **adaptive Chebyshev degree
+by tail-chopping** (`op-0sl9`). GSL has no adaptive-degree routine, so there is
+nothing vendored to port, and deriving a chopping rule from a description is
+what this crate's porting rule exists to prevent. SLATEC's `INITS`/`INITDS` is
+the named candidate and lives on netlib, which this environment's gateway
+refuses outright (`403` to `CONNECT www.netlib.org:443`). "Not done" is the
+honest state.
+
+## Two ways to build a Chebyshev series, and which to use
+
+| | `ChebSeries::new` | `ChebSeries::fit` |
+|---|---|---|
+| Input | a function you can **call** | data you **already have** |
+| Abscissae | the Chebyshev nodes, chosen for you | wherever your samples are |
+| Method | cosine transform (`cheb/init.c`) | Householder QR (`linalg/qr.c`) |
+| Samples needed | exactly `order + 1` | at least `order + 1`, usually many more |
+| Gives you | the interpolant | coefficients, residual, RMS, rank indicator |
+
+`new` is exact and fast and should be the default when you can evaluate the
+function at will. `fit` is for measured or expensively-simulated data, and for
+samples someone else's sampler chose.
+
+**Fitting is done in the Chebyshev basis rather than the monomial one on
+purpose.** A monomial design matrix is a Vandermonde matrix whose condition
+number grows exponentially with degree, so a `polyfit` past degree ~10 is
+dominated by rounding. The Chebyshev basis is near-orthogonal on the interval,
+which is what keeps the same fit solvable much further up. For the same
+reason the solve goes through QR rather than the normal equations `AᵀA c =
+Aᵀy`: forming `AᵀA` squares the condition number, turning an ordinary `1e8`
+problem into an unsolvable `1e16` one.
+
+Given `order + 1` samples taken exactly at the Chebyshev nodes the two paths
+must agree, and they do — to 2.13e-14 pointwise at order 12 on `exp(x)sin(3x)`
+over `[-2, 3]`. They share no code below the basis recurrence, so that
+agreement cross-checks both.
+
+### GSL's `cheb/` is covered completely
+
+All fourteen public entry points of `gsl_chebyshev.h` are accounted for, and
+`the_gsl_chebyshev_header_has_no_entry_point_petir_lacks` reads the vendored
+header on every run so the claim cannot rot. `gsl_cheb_alloc` and
+`gsl_cheb_free` are the only two without an equivalent: a `ChebSeries` owns its
+coefficients and the compiler drops it, so there is nothing for them to do.
+
+`gsl_cheb_eval_mode` / `_mode_e` are ported as `eval_mode` / `eval_mode_err`,
+with `gsl_mode_t` becoming the `Precision` enum. A caveat worth stating,
+because the API implies more than it delivers: **`gsl_cheb_alloc` sets
+`order_sp = order` and nothing in GSL ever changes it**, so the reduced
+precision modes are identical to full evaluation unless you call
+`set_order_sp` yourself. That is upstream's behaviour reproduced faithfully,
+not a gap in the port — GSL's own header says the reduced order is
+"specific to the approximated function" and leaves it to the caller.
 
 ## Errors are returned, and no routine panics on an index
 
@@ -171,6 +224,83 @@ so a ported routine reads like its source. Every function that takes
 coefficients says which order it means — reversing them silently reverses the
 polynomial, and it is the one place in this crate where a careless call compiles
 and is wrong.
+
+## Prior art in Rust
+
+PETIR is not the first attempt to bring these algorithms to Rust, and two
+crates got here earlier:
+
+- **[peroxide](https://github.com/Axect/Peroxide)** (MIT OR Apache-2.0) by
+  Tae Geun Kim — a full numeric stack: linear algebra including a `QR`
+  decomposition, ODE integration, interpolation and splines, quadrature, root
+  finding, optimisation, Chebyshev polynomials and nodes, plus eigenvalues,
+  sparse matrices, automatic differentiation and a dataframe that PETIR has
+  no equivalent for.
+- **[roots](https://github.com/vorot/roots)** (BSD-2-Clause) by Mikhail
+  Vorotilov — closed-form polynomial solvers **up to quartic**, and the
+  bracketed iterative finders.
+
+The newest work here overlaps them most directly: the QR, the least-squares
+path and the Chebyshev machinery are ground peroxide had already covered.
+Arriving at the same place later by a different route is not discovery, and
+both crates were early to this in Rust when the ecosystem was still thin.
+
+### Three modules are genuinely derived from them
+
+| module | from | licence |
+|---|---|---|
+| `src/poly/quartic.rs` | `roots` 0.0.8 — closed-form quartic and biquadratic | BSD-2-Clause |
+| `src/poly/companion.rs` | `roots` 0.0.8 — companion-matrix eigenvalue root finder | BSD-2-Clause |
+| `src/poly/dense.rs` | `peroxide` 0.41.2 — polynomial algebra, Legendre/Chebyshev/Hermite/Bessel | MIT (of MIT OR Apache-2.0) |
+| `src/integration/gauss_legendre*.rs` | `peroxide` 0.41.2 — Gauss-Legendre and Newton-Cotes quadrature, and the order-2-to-30 node/weight tables | MIT (of MIT OR Apache-2.0) |
+
+All were ported on 2026-09-15, with the full upstream notice and
+copyright kept in each file's header where source redistribution requires them.
+Both **BSD-2-Clause into GPL-3.0-only and MIT into GPL-3.0-only are one-way**:
+this code cannot flow back to either crate under its original licence without
+its author's agreement.
+
+`companion.rs` carries the longest chain in the crate, and every link in it
+asked to be named — Martin and Wilkinson's 1971 Algol `hqr2`, EISPACK, JAMA's
+public-domain Java, **Stepan Yakovenko**, whose hand-transpilation header asks
+*"hopefully someone will appreciate my one day of manual code conversion
+nightmare and mention me in the source code"*, and **Mikhail Vorotilov**, who
+added it to `roots` at his request. All five are named in the file.
+
+**Three upstream node values were wrong and are corrected here.** An audit of
+all 928 tabulated Gauss-Legendre values against Bonnet's recurrence
+(`tests/gauss_legendre_table_audit.rs`) found three bad nodes in `peroxide` —
+one of them a single-digit typo costing its 12-point rule about ten
+significant figures. The corrections agree with the standard published tables;
+every weight was correct. Reported upstream.
+
+Outside those files, **no code in PETIR is copied from, translated from,
+or derived from either crate.** Every other routine traces to the upstream in
+its own file header, and `tests/verbatim_provenance.rs` plus the code-to-code
+reference sets hold that claim to account. Neither crate is a *dependency* —
+all three modules were ported, not linked.
+
+**Every port is additive, and that is the rule.** Each fills a gap GSL does
+not cover: no closed form exists past the quartic; GSL's general-degree solver
+is four files over a complex layer this crate does not have; and GSL has no
+polynomial algebra at all. None of them replaces anything verified — PETIR's
+maturity rests on **bit-identity with GSL 2.8 compiled and run**, and
+re-porting a GSL-verified routine from either crate would break those
+comparisons by construction for no capability gain.
+
+Two things were deliberately **not** taken. `roots`' `find_roots_sturm` is
+broken — measured against upstream compiled and run, it never returns more
+than three roots at any degree and reports no error when it drops the rest;
+a test pins that so a future upstream fix gets noticed. And `peroxide` remains
+impossible as a *dependency* (it pulls `blas`, `lapack`, `netcdf`, `arrow`),
+which has no bearing on porting a pure-Rust routine out of it.
+
+PETIR otherwise exists alongside them because it is `no_std` unconditionally
+and carries provenance to a specific upstream commit for every routine —
+constraints particular to this workspace, not deficiencies in either crate.
+
+The full acknowledgement, including a module-by-module overlap table and the
+derivation record, is in [`NOTICE`](NOTICE).
 
 ## Licence
 

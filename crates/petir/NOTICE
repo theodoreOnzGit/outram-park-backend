@@ -203,20 +203,170 @@ PRIOR ART IN RUST — ACKNOWLEDGEMENT
                       the bracketed iterative root finders (bisection, regula
                       falsi, Brent-Dekker, inverse quadratic, Newton-Raphson).
 
-  TO BE PRECISE ABOUT WHAT THIS IS AND IS NOT. This is an acknowledgement of
-  prior art, NOT a statement of derivation. **No code in PETIR is copied from,
-  translated from, or derived from either crate.** Every routine here traces to
-  the upstream named in its own file header -- GSL, ARM optimized-routines,
-  OpenFOAM by way of outram-foam-basic-lib, or the GNU Octave control package
-  by way of chem-eng -- and `tests/verbatim_provenance.rs` and the code-to-code
-  reference sets under `reference-data/` are what hold that claim to account.
-  Neither peroxide nor roots is a dependency of PETIR, and no licence
-  obligation to either arises from this crate.
+  WHERE THEY OVERLAP PETIR, MODULE BY MODULE. Recorded specifically rather
+  than as a generic wave at "scientific computing", because a vague
+  acknowledgement is worth less than an accurate one. Read from the published
+  sources at the versions above on 2026-09-15, not from memory:
+
+    petir module            peroxide 0.41.2              roots 0.0.8
+    --------------------    -------------------------    ---------------------
+    roots (6 methods)       numerical/root.rs,           numerical/{brent,
+                            numerical/newton.rs          regula_falsi, secant,
+                                                         newton_raphson,
+                                                         inverse_quadratic}.rs
+    poly (exact solvers)    structure/polynomial.rs      analytical/{linear,
+                                                         quadratic, cubic,
+                                                         quartic, biquadratic}
+    linalg::qr              traits/matrix.rs `QR<M>`     --
+    interp (spline)         numerical/{interp,spline}    --
+    integration             numerical/integral.rs        --
+    ode                     numerical/ode.rs             --
+    min                     numerical/optimize.rs        --
+    cheb                    structure/polynomial.rs      --
+                            `chebyshev_polynomial`,
+                            numerical/interp.rs
+                            `chebyshev_nodes`
+
+  THE NEWEST WORK IN PETIR IS THE MOST OVERLAPPED, WHICH IS WORTH SAYING
+  PLAINLY. The QR factorisation, the least-squares path and the Chebyshev
+  machinery added in September 2026 are precisely the ground peroxide had
+  already covered -- it carries a `QR<M>` decomposition, `chebyshev_polynomial`
+  and `chebyshev_nodes`. Arriving at the same place later, by a different
+  route, is not discovery.
+
+  ONE PRECISION, so this does not overstate their reach: peroxide's
+  `least_square` (src/ml/reg.rs) is simple linear regression -- it fits
+  `ax + b` from accumulated means -- not a general least-squares fit in an
+  arbitrary basis, which is what `ChebSeries::fit` does. peroxide has the QR
+  that such a fit needs; this file does not claim it exposes the fit itself.
+
+  AND WHERE THEY GO FURTHER THAN PETIR, which matters just as much:
+
+    - roots solves QUARTIC and BIQUADRATIC polynomials in closed form.
+      PETIR had no quartic solver at all until 2026-09-15, when this gap was
+      closed by PORTING theirs -- see the derivation section below. The rest
+      of that crate (its numerical bracketing and polishing solvers) remains
+      unported; PETIR's equivalents come from GSL.
+    - peroxide carries eigenvalue decomposition, sparse matrices, automatic
+      differentiation, a dataframe and a statistics layer. PETIR has none of
+      these and no plan to acquire them. Its polynomial ALGEBRA and its
+      orthogonal-family generators are no longer a gap here -- they were
+      ported, with attribution, into src/poly/dense.rs; see below.
+
+  DERIVATION FROM BOTH CRATES -- THREE MODULES, AND REAL LICENCE OBLIGATIONS.
+
+    src/poly/quartic.rs    DERIVED FROM `roots` 0.0.8.
+                           Copyright (c) 2015, Mikhail Vorotilov. BSD-2-Clause.
+
+    src/poly/companion.rs  DERIVED FROM `roots` 0.0.8.
+                           Copyright (c) 2015, Mikhail Vorotilov. BSD-2-Clause.
+                           And through it from JAMA and EISPACK -- see below.
+
+    src/poly/dense.rs      DERIVED FROM `peroxide` 0.41.2.
+                           Copyright (c) Tae Geun Kim. MIT OR Apache-2.0,
+                           taken under the MIT option.
+
+  The full upstream notice sits in each file's header, as source
+  redistribution requires, together with the per-deviation reasoning. What
+  each port took:
+
+    quartic.rs    ported 2026-09-15 from `roots`' `src/analytical/`:
+                  quartic.rs, quartic_depressed.rs, biquadratic.rs,
+                  cubic_normalized.rs, quadratic.rs, linear.rs, roots.rs.
+
+    companion.rs  ported 2026-09-15 from `roots`' `src/numerical/eigen.rs`.
+                  This one carries a longer chain, and every link in it asked
+                  to be named: Martin and Wilkinson's Algol `hqr2`/`orthes`
+                  (Handbook for Automatic Computation Vol. II, 1971) -> the
+                  EISPACK Fortran -> JAMA's public-domain
+                  EigenvalueDecomposition.java (NIST / The MathWorks) ->
+                  Stepan Yakovenko's hand transpilation to Rust, whose own
+                  header asks "hopefully someone will appreciate my one day of
+                  manual code conversion nightmare and mention me in the
+                  source code" -> Mikhail Vorotilov, who added it to `roots`
+                  0.0.5 at his request. All five are named in the file.
+
+    dense.rs      ported 2026-09-15 from `peroxide`'s
+                  `src/structure/polynomial.rs`: the Polynomial type and its
+                  operators, long and synthetic division, translate_x, the
+                  Calculus methods, lagrange_polynomial, and the Legendre,
+                  Chebyshev, Hermite and Bessel generators.
+
+    src/integration/gauss_legendre.rs and gauss_legendre_tables.rs
+                  DERIVED FROM `peroxide` 0.41.2, same copyright and licence.
+                  Ported 2026-09-15 from `src/numerical/integral.rs`: the
+                  Gauss-Legendre and Newton-Cotes quadrature routines, and the
+                  58 node/weight tables for orders 2 to 30.
+
+                  SIX OF THOSE 928 VALUES DIFFER FROM UPSTREAM DELIBERATELY.
+                  Three node values in `peroxide` are wrong, each appearing
+                  twice by symmetry:
+
+                    order 11  0.519096129110681 -> 0.5190961292068118
+                    order 12  0.36783149891818  -> 0.3678314989981802
+                    order 12  0.125333408511469 -> 0.1252334085114689
+
+                  The last is a single-digit typo -- a 2 became a 3 in the
+                  fourth decimal -- and costs upstream's 12-point rule about
+                  ten significant figures. All three were found by
+                  `tests/gauss_legendre_table_audit.rs`, which checks every
+                  value against Bonnet's recurrence, and all three corrections
+                  agree with the standard published tables. Every WEIGHT is
+                  correct at every order. This is reported upstream as a bead.
+
+  BSD-2-Clause into GPL-3.0-only, and MIT into GPL-3.0-only, are both ONE-WAY
+  flows. None of these three files may be contributed back to its upstream
+  under that upstream's licence without its author's agreement, and the same
+  applies to anything derived from them here.
+
+  EVERYTHING ELSE IN PETIR IS NOT DERIVED FROM EITHER CRATE. Outside those
+  three files, no code here is copied from, translated from, or derived from
+  `roots` or from `peroxide`; every other routine traces to the upstream named
+  in its own file header -- GSL, ARM optimized-routines, OpenFOAM by way of
+  outram-foam-basic-lib, or the GNU Octave control package by way of chem-eng
+  -- and `tests/verbatim_provenance.rs` and the code-to-code reference sets
+  under `reference-data/` are what hold that claim to account.
+
+  NEITHER CRATE IS A DEPENDENCY. All three modules were ported, not linked, so
+  `Cargo.toml` names neither crate; the obligations above are
+  source-redistribution obligations, not dependency ones.
+
+  WHAT WAS DELIBERATELY NOT PORTED, and why -- since both crates overlap PETIR
+  far more widely than three files.
+
+    The GSL-verified modules, from either crate. PETIR's maturity rests on
+    bit-identity with GSL 2.8 compiled and executed; five of seven numerics
+    surfaces agree with it exactly, every iterate. `roots`' Brent is not GSL's
+    Brent, so swapping it in would break every one of those comparisons by
+    construction and buy no capability. Every port above is ADDITIVE: each
+    fills a gap GSL does not cover and replaces nothing that is verified.
+
+    `roots`' find_roots_sturm, which is broken. Measured against upstream
+    compiled and run (reference-data/roots/), it never returns more than three
+    roots at any degree -- 3, 3, 3, 1, 3, 1, 1 for degrees 4 through 10 of
+    prod(x-k) -- and reports no error when it drops the rest. A root finder
+    that silently returns some of the roots is worse than none. A test pins
+    that measurement so a future upstream fix gets noticed rather than the
+    decision inherited.
+
+    `peroxide` as a DEPENDENCY, which remains impossible: it pulls `blas`,
+    `blas-src`, `lapack`, `lapack-src`, `netcdf`, `arrow`, `csv` and `json`
+    across its feature set, and PETIR's crate rules forbid anything bringing
+    system BLAS/LAPACK, a C or Fortran toolchain, `std`, threads, or an
+    allocator beyond `alloc`. That has no bearing on PORTING from it: a
+    pure-Rust routine copied across brings none of those with it, which is why
+    dense.rs is here.
 
   It is recorded because credit for solving a problem first is not contingent
   on someone else having used your solution, and because a reader comparing
   PETIR against the Rust ecosystem should be pointed at the work that came
   before it rather than left to assume there was none.
+
+  Both crates were EARLY to this in Rust -- doing the unglamorous work of
+  getting real numerical methods into the language while the ecosystem was
+  still thin, without which "just use the Rust crate" would not have been a
+  sentence anyone could say. That is the part worth acknowledging, and it is
+  not diminished by PETIR having different constraints.
 
   WHY PETIR EXISTS ALONGSIDE THEM, since that is the obvious next question:
   PETIR is `no_std` unconditionally and carries provenance to a specific
