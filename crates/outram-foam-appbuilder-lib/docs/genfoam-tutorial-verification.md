@@ -29,7 +29,7 @@ location with `GENFOAM_UPSTREAM`.
 |---|---|---|---|
 | `reactorCases/3D_SmallESFR_NewSolverVerification` | `expectedKeff = 0.936827` | `k_eff` | **verified** |
 | `reactorCases/2D_MSFR` | `expectedKeff = 0.960283`, power 20 MW | `k_eff` | **posed identically**; +2002 pcm residual = feedback state |
-| `reactorCases/3D_gFHR` | `Tfmax` avg/min/max = 981.808 / 900.664 / 1062.87 K | fuel temperature | **consistency only** — pebble power model missing |
+| `reactorCases/3D_gFHR` | `Tfmax` avg/min/max = 981.808 / 900.664 / 1062.87 K | fuel temperature | **power model ported**; rise fits upstream's numbers, surface temp needs TH |
 | `featureCases/1D_PSBT_SC` | `alpha.vapour = 0.123835`, `T = 620.178 K` | exit void + temperature | **blocked** — two-phase solver missing |
 
 Upstream's tolerance is 0.001 relative for the two `k_eff` cases and 0.01 for
@@ -106,31 +106,53 @@ including the two `wedge` planes of the axisymmetric mesh — the same solve
 returns `k_eff = 0.153242`, −84 042 pcm. A wedge plane is a geometric artefact,
 not a surface. Patch *kind* decides the boundary.
 
-### gFHR — consistency only
+### gFHR — power model ported, rise fits upstream's own numbers
 
-The `nuclearSteadyStatePebble` and `lumpedNuclearStructure` power models are not
-ported, so `Tfmax` cannot be reproduced. What is checked instead: the
-pebble-internal conduction stack, rebuilt from upstream's own geometry,
-conductivities and power with the closed-form helpers in
-`tampines::pebble_bed::triso`.
+`nuclearSteadyStatePebble` is now ported
+(`genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble`,
+`op-5eoa`). Upstream's model is a **closed-form chain**, not an iteration, so the
+port is an exact transcription. Two things a from-physics derivation gets wrong
+and reading upstream fixes:
+
+1. The fuelled annulus goes outer-face-to-**volume-average**, not to its centre —
+   the average is what the dispersed particles sit at.
+2. The matrix conductivity comes from a **Maxwell** mixture rule over the TRISO
+   packing, not from bare graphite.
+
+Together those moved the total rise from 71.56 K (my earlier hand-derived stack)
+to **61.67 K**.
 
 | term | rise (K) |
 |---|---|
-| graphite shell, 1.80 → 2.00 cm | 11.87 |
-| fuelled annulus, 1.38 → 1.80 cm | 21.42 |
-| TRISO coatings | 31.25 |
-| UO2 kernel centre | 7.02 |
-| **total** | **71.56** |
+| surface → matrix outer | 11.634 |
+| matrix outer → volume average | 12.527 |
+| TRISO coatings | 30.626 |
+| kernel surface → centre | 6.883 |
+| **total** | **61.670** |
 
-45.1 % of upstream's 158.66 K inlet-to-peak-fuel rise; implied bed-average pebble
-surface temperature 910.2 K, between the 823.15 K inlet and the ~923 K outlet.
-Separately, the graphite-shell conductance agrees with upstream's own
-`lumped_structure.py` closed form to 6e-16 relative.
+**An independent confirmation.** The ported Maxwell rule gives
+`k_eff = 29.5870 W/(m·K)`. Upstream's own `lumped_structure.py` hardcodes
+`k_matrix = 29`, commenting "taking from python effective calculation" — two
+independent upstream artefacts agreeing with the port.
 
-**A gFHR pebble is not shaped like an HTR-10 pebble** — unfuelled central
-graphite core, annular fuelled matrix, unfuelled shell — so
-`tampines::pebble_bed::Pebble`, which assumes a fuelled centre, cannot be reused
-for it. Blocked on the pebble-power-model bead.
+**Why this is checkable without the coupled TH.** `powerDensityNeutronics` is a
+uniform *scalar*, `alpha` is uniform, and the chain is linear in power with no
+other spatial dependence — so the rise is the same constant in every cell. That
+turns upstream's published statistics into a real constraint:
+
+```text
+dT <= Tfmax_min - T_coolant_inlet = 900.664 - 823.15 = 77.514 K
+```
+
+Measured slack **15.844 K**, an ordinary pebble-bed convective film drop. Implied
+bed-average pebble surface **920.14 K**, between the 823.15 K inlet and the
+~923 K outlet. Uniform power also predicts the `Tfmax` spread (162.206 K) is
+surface-temperature spread only. Both bounds are upstream's own numbers; nothing
+is fitted.
+
+Still missing for a direct `Tfmax` reproduction: the convective coupling that
+produces the surface temperature, i.e. the porous TH driver. `lumpedNuclearStructure`
+(the case's second model) is also not ported.
 
 ### PSBT — blocked
 
