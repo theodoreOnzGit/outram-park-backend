@@ -292,6 +292,28 @@ PRIOR ART IN RUST — ACKNOWLEDGEMENT
                   Calculus methods, lagrange_polynomial, and the Legendre,
                   Chebyshev, Hermite and Bessel generators.
 
+    src/integration/gauss_legendre.rs and gauss_legendre_tables.rs
+                  DERIVED FROM `peroxide` 0.41.2, same copyright and licence.
+                  Ported 2026-09-15 from `src/numerical/integral.rs`: the
+                  Gauss-Legendre and Newton-Cotes quadrature routines, and the
+                  58 node/weight tables for orders 2 to 30.
+
+                  SIX OF THOSE 928 VALUES DIFFER FROM UPSTREAM DELIBERATELY.
+                  Three node values in `peroxide` are wrong, each appearing
+                  twice by symmetry:
+
+                    order 11  0.519096129110681 -> 0.5190961292068118
+                    order 12  0.36783149891818  -> 0.3678314989981802
+                    order 12  0.125333408511469 -> 0.1252334085114689
+
+                  The last is a single-digit typo -- a 2 became a 3 in the
+                  fourth decimal -- and costs upstream's 12-point rule about
+                  ten significant figures. All three were found by
+                  `tests/gauss_legendre_table_audit.rs`, which checks every
+                  value against Bonnet's recurrence, and all three corrections
+                  agree with the standard published tables. Every WEIGHT is
+                  correct at every order. This is reported upstream as a bead.
+
   BSD-2-Clause into GPL-3.0-only, and MIT into GPL-3.0-only, are both ONE-WAY
   flows. None of these three files may be contributed back to its upstream
   under that upstream's licence without its author's agreement, and the same

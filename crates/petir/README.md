@@ -56,7 +56,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 |---|---|---|
 | `cheb`, `cheb_slice` | ported | **The whole of GSL's `cheb/`** — interpolation at the Gauss nodes, least-squares fitting at arbitrary points, Clenshaw evaluation with an error estimate, precision-mode evaluation, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
-| `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver |
+| `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver (GSL); plus non-adaptive **Gauss-Legendre** to order 30 and **Newton-Cotes** (`peroxide`) |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
 | `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, and rectangular Householder **QR with least-squares solve** |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
@@ -252,8 +252,9 @@ both crates were early to this in Rust when the ecosystem was still thin.
 | `src/poly/quartic.rs` | `roots` 0.0.8 — closed-form quartic and biquadratic | BSD-2-Clause |
 | `src/poly/companion.rs` | `roots` 0.0.8 — companion-matrix eigenvalue root finder | BSD-2-Clause |
 | `src/poly/dense.rs` | `peroxide` 0.41.2 — polynomial algebra, Legendre/Chebyshev/Hermite/Bessel | MIT (of MIT OR Apache-2.0) |
+| `src/integration/gauss_legendre*.rs` | `peroxide` 0.41.2 — Gauss-Legendre and Newton-Cotes quadrature, and the order-2-to-30 node/weight tables | MIT (of MIT OR Apache-2.0) |
 
-All three were ported on 2026-09-15, with the full upstream notice and
+All were ported on 2026-09-15, with the full upstream notice and
 copyright kept in each file's header where source redistribution requires them.
 Both **BSD-2-Clause into GPL-3.0-only and MIT into GPL-3.0-only are one-way**:
 this code cannot flow back to either crate under its original licence without
@@ -266,7 +267,14 @@ public-domain Java, **Stepan Yakovenko**, whose hand-transpilation header asks
 nightmare and mention me in the source code"*, and **Mikhail Vorotilov**, who
 added it to `roots` at his request. All five are named in the file.
 
-Outside those three files, **no code in PETIR is copied from, translated from,
+**Three upstream node values were wrong and are corrected here.** An audit of
+all 928 tabulated Gauss-Legendre values against Bonnet's recurrence
+(`tests/gauss_legendre_table_audit.rs`) found three bad nodes in `peroxide` —
+one of them a single-digit typo costing its 12-point rule about ten
+significant figures. The corrections agree with the standard published tables;
+every weight was correct. Reported upstream.
+
+Outside those files, **no code in PETIR is copied from, translated from,
 or derived from either crate.** Every other routine traces to the upstream in
 its own file header, and `tests/verbatim_provenance.rs` plus the code-to-code
 reference sets hold that claim to account. Neither crate is a *dependency* —

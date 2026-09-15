@@ -79,6 +79,9 @@ the evaluation.
 | `poly::dense` Legendre orthogonality | the analytical result `int P_i P_j = 2 delta_ij/(2n+1)` | off-diagonal **2.220e-16**; diagonal 0 at `n<=2` rising to **1.455e-11** at `n=10` | `poly::dense::tests` |
 | `poly::dense::lagrange` vs `poly::eval::DividedDifference` | two independent interpolations, `peroxide` and GSL | agree to **8.882e-16** | `poly::dense::tests` |
 | `legendre` roots vs `poly::companion` | two ports of two unrelated upstreams composed | Gauss-Legendre nodes to **1.110e-16** | `poly::dense::tests` |
+| `integration::gauss_legendre` tables | Bonnet's recurrence, independent of the table | **0 bad entries of 928** after correcting 3 wrong upstream nodes; worst node movement 5.551e-16 | `gauss_legendre_table_audit.rs` |
+| `integration::gauss_legendre` rule | the analytical degree-of-exactness property | exact to degree `2n-1` to **7.216e-15**, and confirmed NOT exact at `2n` | `integration::gauss_legendre::tests` |
+| `gauss_legendre` vs `integration::kronrod` | `peroxide` vs QUADPACK/GSL, on polynomials both integrate exactly | agree to **1.266e-15** | `integration::gauss_legendre::tests` |
 | `poly::quartic::roots_cubic` vs `poly::cubic_eqn` | two independent closed-form cubics, from `roots` and from OpenFOAM | agree to **1.554e-15** over 5 cubics | `poly::quartic::tests` |
 
 ## Deviations from upstream, deliberate and pinned
@@ -123,6 +126,15 @@ the argument for doing them.
   Its own root errors grow from 3.9e-14 at degree 4 to 2.1e-9 at degree 10 —
   companion-matrix conditioning — and a double root is located only to about
   `sqrt(eps)`. Prefer `poly::quartic` wherever the degree allows.
+
+- **Gauss-Legendre and Newton-Cotes give no error estimate and do not adapt.**
+  They are not replacements for `qag`. Newton-Cotes additionally **diverges**
+  on equally-spaced high-order interpolation — measured on Runge's function,
+  the error grows to 5.9 at `n = 20` against an integral of 0.549. Use
+  `n <= 8` or use Gauss-Legendre.
+
+- **The Gauss-Legendre tables stop at order 30**, with no computed fallback
+  above it, and carry 15 significant figures rather than 17.
 
 - **`poly::dense`'s orthogonal families have no reference-code comparison
   either**, and their high-degree coefficients are not trustworthy. The
