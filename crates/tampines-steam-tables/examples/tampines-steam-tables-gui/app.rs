@@ -261,6 +261,10 @@ pub struct PlotterApp {
     export_pixels_per_point: f64,
     /// Built layers, cached per tab.
     cache: HashMap<DiagramKind, Vec<PlotLayer>>,
+    /// Built custom lines, cached against the inputs that determine them:
+    /// the custom-line list and the sample count. See
+    /// [`PlotterApp::custom_layers`] for why this cache is not optional.
+    custom_cache: Option<(Vec<CustomLine>, usize, Vec<PlotLayer>)>,
     /// Last status line, shown at the bottom of the sidebar.
     status: String,
     /// The selected GUI theme.
@@ -323,6 +327,7 @@ impl PlotterApp {
             out_dir,
             export_pixels_per_point: DEFAULT_PIXELS_PER_POINT,
             cache: HashMap::new(),
+            custom_cache: None,
             status: "ready".to_string(),
             theme: GuiTheme::GruvboxDark,
             applied_theme: None,
@@ -402,19 +407,63 @@ impl PlotterApp {
         self.cache.get(&tab).map(Vec::as_slice).unwrap_or(&[])
     }
 
-    /// Every user-added custom line, built into [`PlotLayer`]s. Not cached
-    /// like [`PlotterApp::layers_for_active_tab`]'s built-in layers — there
-    /// are typically only a handful, so rebuilding every frame is cheap, and
-    /// it means a line drawn on one diagram is drawn identically (same
-    /// underlying state, just a different projection) on every other.
-    fn custom_layers(&self) -> Vec<PlotLayer> {
-        self.custom_lines
+    /// Every user-added custom line, built into [`PlotLayer`]s, **cached**
+    /// against the inputs that determine them.
+    ///
+    /// # Why this is cached, when it once was not
+    ///
+    /// This used to rebuild on every frame, with the comment "there are
+    /// typically only a handful, so rebuilding every frame is cheap". That was
+    /// true of the curve generators as they then stood, and it stopped being
+    /// true when [`curves::isochore`] was rewritten to cross the saturation
+    /// dome: it now recovers pressure by inverting the IF97 backward equations
+    /// through `tpx_rho_h_eqm`, and IAPWS-IF97 publishes **no** `p(rho, h)`.
+    /// The inversion is therefore a bracketed root find in which every residual
+    /// evaluation is a full forward `(p, h)` flash.
+    ///
+    /// Measured 2026-09-15 (`diagnose_the_cost_of_the_inversion_relative_to_a_ph_flash`):
+    ///
+    /// | call | cost |
+    /// |---|---|
+    /// | `v_ph_eqm` (forward `(p,h)` flash) | 3 296.7 ns |
+    /// | `p_rho_h_eqm` (inverse) | 249 186.8 ns |
+    /// | ratio | **75.6x** |
+    ///
+    /// At the default 400 samples per curve that is about **100 ms to build
+    /// one isochore** — so rebuilding it every frame capped the plot page near
+    /// 10 fps with a single custom isochore on screen. That is the lag this
+    /// cache removes.
+    ///
+    /// # What invalidates it
+    ///
+    /// The cache key is the whole custom-line list plus `curve_samples`, so any
+    /// add, delete, value edit or sample-count change rebuilds; nothing else
+    /// does. [`CustomLine`] is `Copy + PartialEq`, which makes that comparison
+    /// exact rather than a heuristic — there is no "dirty" flag to forget to
+    /// set.
+    ///
+    /// The clone on a cache hit is a memcpy of a few hundred points per line,
+    /// which is several orders of magnitude below the build it replaces.
+    ///
+    /// Building here (rather than per diagram) still means a line drawn on one
+    /// diagram is drawn identically on every other — same underlying state,
+    /// just a different projection.
+    fn custom_layers(&mut self) -> Vec<PlotLayer> {
+        if let Some((lines, samples, built)) = &self.custom_cache {
+            if samples == &self.curve_samples && lines.as_slice() == self.custom_lines.as_slice() {
+                return built.clone();
+            }
+        }
+        let built: Vec<PlotLayer> = self
+            .custom_lines
             .iter()
             .enumerate()
             .filter_map(|(index, line)| {
                 line.build(self.curve_samples, custom_lines::colour_for_index(index))
             })
-            .collect()
+            .collect();
+        self.custom_cache = Some((self.custom_lines.clone(), self.curve_samples, built.clone()));
+        built
     }
 
     /// Axis scale for the current tab's y axis.

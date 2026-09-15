@@ -1799,44 +1799,44 @@ impl TampinesSteamArray {
 
                 let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
                                                              // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
-                // phi_HbyA = rho_f * flux(HbyA) + rho_rAU_f * ddtCorr(U_old, phi_old)
-                //
-                // The second term is the TRANSIENT half of Rhie-Chow, and it
-                // was missing from this port. Upstream rhoPimpleFoam:
-                //
-                // ```cpp
-                // surfaceScalarField phiHbyA
-                // (
-                //     "phiHbyA",
-                //     fvc::interpolate(rho)*fvc::flux(HbyA)
-                //   + rhorAUf*fvc::ddtCorr(rho, U, phi)
-                // );
-                // ```
-                //
-                // `fvc::ddt_corr` was ported in full -- with OpenFOAM's
-                // `fvcDdtPhiCoeff` limiter -- and then never called from
-                // anywhere (see docs/rhopimplefoam-port-omissions.md row 1,
-                // bn:op-e1zz). Its own doc comment states that re-injecting it
-                // here "is what suppresses pressure-velocity (checkerboard)
-                // decoupling".
-                //
-                // WHY IT MATTERS HERE, measured 2026-09-14 (bn:op-bgg0, log
-                // A4). Without it the Edwards pressure field develops an
-                // odd-even oscillation -- 2.10, 2.86, 2.49, 3.74, 0.32,
-                // 2.66 MPa across six adjacent cells -- and the cell that
-                // fails first is the DENSE SUBCOOLED LIQUID one next to the
-                // flashing front. That is the stiff-at-the-boundary case: its
-                // `psi = drho/dp|_h` is legitimately tiny (1.02e-6, matching
-                // rho*kappa_T for liquid), so its pressure-equation diagonal
-                // is ~4e-5 and there is almost nothing to damp the
-                // oscillation. It solved to -27.2 kPa -- negative absolute
-                // pressure -- and was silently clamped to 611.8 Pa.
-                //
-                // The flux carries the pressure-driven part of the velocity;
-                // interpolating the cell velocity alone throws that away, and
-                // `phiCorr = phi_old - interpolate(U_old).Sf` is exactly the
-                // discrepancy. Re-injecting it keeps the face flux coupled to
-                // its own history.
+                                                             // phi_HbyA = rho_f * flux(HbyA) + rho_rAU_f * ddtCorr(U_old, phi_old)
+                                                             //
+                                                             // The second term is the TRANSIENT half of Rhie-Chow, and it
+                                                             // was missing from this port. Upstream rhoPimpleFoam:
+                                                             //
+                                                             // ```cpp
+                                                             // surfaceScalarField phiHbyA
+                                                             // (
+                                                             //     "phiHbyA",
+                                                             //     fvc::interpolate(rho)*fvc::flux(HbyA)
+                                                             //   + rhorAUf*fvc::ddtCorr(rho, U, phi)
+                                                             // );
+                                                             // ```
+                                                             //
+                                                             // `fvc::ddt_corr` was ported in full -- with OpenFOAM's
+                                                             // `fvcDdtPhiCoeff` limiter -- and then never called from
+                                                             // anywhere (see docs/rhopimplefoam-port-omissions.md row 1,
+                                                             // bn:op-e1zz). Its own doc comment states that re-injecting it
+                                                             // here "is what suppresses pressure-velocity (checkerboard)
+                                                             // decoupling".
+                                                             //
+                                                             // WHY IT MATTERS HERE, measured 2026-09-14 (bn:op-bgg0, log
+                                                             // A4). Without it the Edwards pressure field develops an
+                                                             // odd-even oscillation -- 2.10, 2.86, 2.49, 3.74, 0.32,
+                                                             // 2.66 MPa across six adjacent cells -- and the cell that
+                                                             // fails first is the DENSE SUBCOOLED LIQUID one next to the
+                                                             // flashing front. That is the stiff-at-the-boundary case: its
+                                                             // `psi = drho/dp|_h` is legitimately tiny (1.02e-6, matching
+                                                             // rho*kappa_T for liquid), so its pressure-equation diagonal
+                                                             // is ~4e-5 and there is almost nothing to damp the
+                                                             // oscillation. It solved to -27.2 kPa -- negative absolute
+                                                             // pressure -- and was silently clamped to 611.8 Pa.
+                                                             //
+                                                             // The flux carries the pressure-driven part of the velocity;
+                                                             // interpolating the cell velocity alone throws that away, and
+                                                             // `phiCorr = phi_old - interpolate(U_old).Sf` is exactly the
+                                                             // discrepancy. Re-injecting it keeps the face flux coupled to
+                                                             // its own history.
                 let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya)
                     + rho_rauf.clone() * fvc::ddt_corr(&u_old, &phi_old, dt);
 
@@ -2019,7 +2019,6 @@ impl TampinesSteamArray {
                         );
                     }
                 }
-
 
                 // Record every bounding event BEFORE clamping. The clamp is
                 // a band-aid, not a safety net: a cell clamped UP from a
@@ -2234,8 +2233,7 @@ impl TampinesSteamArray {
                              (rho_old = {:.6e} kg/m3, unclamped rho_old - dt*div(phi) = {:.6e}). \
                              The run continues and its results are NOT trustworthy. See \
                              drained_hold_events() for the running count, and bn:op-bgg0.",
-                            rho_old.internal[c],
-                            rc_unclamped[c],
+                            rho_old.internal[c], rc_unclamped[c],
                         );
                     }
                     e_eqn.ldu.diag[c] = 1.0;
