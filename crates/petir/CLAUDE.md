@@ -35,7 +35,7 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### Three non-GSL ports exist, and they were maintainer-directed
+### Four non-GSL ports exist, and they were maintainer-directed
 
 Added 2026-09-15 at the maintainer's direction — "port select code from roots
 and peroxide to complement petir's capabilities, credit the author's
@@ -46,8 +46,9 @@ upstream":
 | `src/poly/quartic.rs` | `roots` 0.0.8 (Mikhail Vorotilov) | BSD-2-Clause |
 | `src/poly/companion.rs` | `roots` 0.0.8, and through it JAMA / EISPACK | BSD-2-Clause |
 | `src/poly/dense.rs` | `peroxide` 0.41.2 (Tae Geun Kim) | MIT (of MIT OR Apache-2.0) |
+| `src/integration/gauss_legendre*.rs` | `peroxide` 0.41.2 (Tae Geun Kim) | MIT (of MIT OR Apache-2.0) |
 
-Four things about them bind future work:
+Five things about them bind future work:
 
 - **Both flows are one-way.** BSD-2-Clause and MIT into GPL-3.0-only. Each
   file carries the full upstream notice and copyright in its header, as source
@@ -71,6 +72,15 @@ Four things about them bind future work:
   10) and reports no error when it drops the rest. `tests/roots_companion_code_to_code.rs`
   pins the measurement. If that test ever fails because upstream fixed it,
   reconsider — do not simply loosen it.
+
+- **Do not "restore" the Gauss-Legendre tables to match upstream.** Six of
+  the 928 values deliberately differ: three `peroxide` node values are wrong
+  (order 11 once, order 12 twice, each mirrored by symmetry), one of them a
+  single-digit typo costing its 12-point rule ten significant figures.
+  `tests/gauss_legendre_table_audit.rs` verifies every value against Bonnet's
+  recurrence and will fail if they are reverted. The corrections agree with
+  the standard published tables. All weights are correct and were never
+  touched.
 
 **`peroxide` as a DEPENDENCY remains ruled out** (it pulls
 `blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
