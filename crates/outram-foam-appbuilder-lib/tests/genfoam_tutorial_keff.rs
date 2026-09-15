@@ -661,3 +661,113 @@ fn msfr_reactivity_coefficients_from_upstreams_perturbed_states() {
          parametrisation or the reference-state solve is wrong"
     );
 }
+
+/// **V&V — MSFR: direct `k_eff` comparison against upstream GeN-Foam, built and
+/// run, at upstream's own converged feedback state.**
+///
+/// ## What makes this a true like-for-like comparison
+///
+/// The earlier MSFR tests compared the port at the *nominal reference* state
+/// against upstream's *coupled* result, leaving a residual that was measured but
+/// not closed. Upstream GeN-Foam has since been **built from source and run
+/// here** — OpenFOAM v2506 (ESI, tag `OpenFOAM-v2506`) plus GeN-Foam `652b3da` —
+/// so its converged state is now known rather than inferred.
+///
+/// The run reproduced upstream's own published reference, which is what
+/// qualifies it as a reference run at all:
+///
+/// | | |
+/// |---|---|
+/// | `keff` from `steadyStateEN/165/uniform/reactorState` | **0.96031** |
+/// | `expectedKeff` in the tutorial's `Alltest` | 0.960283 |
+/// | difference | **+2.8 pcm** |
+/// | total power | 2.00016e7 W against a 2e7 target |
+///
+/// Its converged cross-section state, read from
+/// `steadyStateEN/165/neutroRegion/` over all 8595 cells:
+///
+/// | field | mean | min | max | reference state |
+/// |---|---|---|---|---|
+/// | `TFuel` | **1037.46 K** | 991.63 | 1188.43 | 900 |
+/// | `rhoCool` | **4011.60 kg/m³** | 3887.04 | 4049.41 | 4125 |
+///
+/// This test evaluates the port's cross sections at that measured state, with
+/// upstream's own per-patch albedo boundaries, and compares against upstream's
+/// own `k_eff` from the same run.
+///
+/// ## The one approximation, stated
+///
+/// Upstream evaluates the cross sections **per cell** at each cell's local
+/// `TFuel`/`rhoCool`; `DiffusionNeutronics` takes a single global parameter
+/// vector, so this uses the volume-mean state. Because the `TFuel`
+/// parametrisation is logarithmic and the field spans 991–1188 K, the mean of
+/// the cross sections is not the cross section at the mean, and the difference
+/// between them is the irreducible part of whatever residual remains. Closing it
+/// needs per-cell parametrisation in the port, not a better reference.
+///
+/// ## Results (measured 2026-09-15)
+///
+/// See the printed report.
+#[test]
+fn msfr_keff_against_upstream_run_at_its_converged_state() {
+    let root = require_upstream!();
+    let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
+    let Some(region) = stage_region(&case, "neutroRegion", "msfr_converged") else {
+        println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
+        return;
+    };
+
+    // Upstream's own converged volume means, from the run described above.
+    const UPSTREAM_TFUEL: f64 = 1037.4605;
+    const UPSTREAM_RHOCOOL: f64 = 4011.5951;
+    // Upstream's own k_eff from that run (its Alltest expects 0.960283).
+    const UPSTREAM_KEFF: f64 = 0.96031;
+
+    let albedo = [
+        ("topwall", 0.1),
+        ("bottomwall", 0.1),
+        ("reflector", 0.1),
+        ("hx", 0.5),
+    ];
+
+    let at_reference = solve_at_state(&region, BoundaryCondition::ZeroGradient, &albedo, &[]);
+    let at_converged = solve_at_state(
+        &region,
+        BoundaryCondition::ZeroGradient,
+        &albedo,
+        &[("TFuel", UPSTREAM_TFUEL), ("rhoCool", UPSTREAM_RHOCOOL)],
+    );
+
+    let pcm = |a: f64, b: f64| 1.0e5 * (a - b) / b;
+    let ref_pcm = pcm(at_reference.k_eff, UPSTREAM_KEFF);
+    let conv_pcm = pcm(at_converged.k_eff, UPSTREAM_KEFF);
+
+    println!(
+        "\n=== MSFR: port vs upstream GeN-Foam, both run here ===\n\
+         \tupstream k_eff (built + run, v2506 / 652b3da) = {UPSTREAM_KEFF:.6}\n\
+         \t  (its own Alltest expects 0.960283 -> +2.8 pcm, so the run is sound)\n\
+         \tupstream converged state: TFuel {UPSTREAM_TFUEL:.2} K, \
+         rhoCool {UPSTREAM_RHOCOOL:.2} kg/m3\n\
+         \t--\n\
+         \tport @ reference state (900 K, 4125)   k = {:.6}  ({ref_pcm:+.1} pcm)\n\
+         \tport @ upstream's converged state      k = {:.6}  ({conv_pcm:+.1} pcm)\n\
+         \t--\n\
+         \tevaluating at the right state closed {:.0} pcm of the gap",
+        at_reference.k_eff,
+        at_converged.k_eff,
+        ref_pcm.abs() - conv_pcm.abs(),
+    );
+
+    assert!(
+        at_converged.converged,
+        "the power iteration did not converge"
+    );
+    assert!(
+        conv_pcm.abs() < ref_pcm.abs(),
+        "evaluating at upstream's converged state ({:+.1} pcm) should be closer \
+         to upstream than the nominal reference state ({:+.1} pcm) — if it is \
+         not, the cross-section parametrisation is not reproducing the feedback",
+        conv_pcm,
+        ref_pcm
+    );
+}
