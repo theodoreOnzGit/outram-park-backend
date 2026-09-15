@@ -9,24 +9,25 @@ Atmospheric dispersion, plume transport, deposition and ground contamination —
 the middle link of the offsite chain (SEMBAWANG → **CHANGI** → REDHILL). It
 hosts a Rust port of **FLEXPART v10.4** (GPL-3.0-or-later, commit `3d7eebf`).
 
-## Scope limit — capability vs framing, and do not blur them
+## Scope limit — binding, do not soften
 
-CHANGI's scope **does** include radiological consequence assessment, dose
-assessment, emergency-planning support and Level 3 PSA support. Those are on the
-maintainer's scope list and are legitimate things to implement here.
+**CHANGI is research, education and V&V only.** Never describe it, in code,
+docs, commit messages or chat, as supporting emergency planning, emergency
+response, dose assessment for real populations, or Level 3 PSA.
 
-What is forbidden is presenting the **outputs** as authoritative for operational
-emergency response, for dose assessment of real populations, or for regulatory
-or licensing decisions. `docs/ecosystem-naming.md` decision 3 (2026-08-05) draws
-the line in one sentence: *"The capability is in scope; that framing is not."*
-`RESPONSIBLE_USE.md` line 43 is the same rule from the other side — outputs
-"must not be treated as authoritative for safety, licensing, operational,
-regulatory, or emergency-response purposes".
+Radiological consequence assessment, dose assessment, emergency-planning support
+and Level 3 PSA support appear in the crate's **future** scope list. They are
+recorded so the direction is not lost; they are **not** what this crate is for
+today (maintainer direction, 2026-09-15), none is implemented, and none may be
+advertised as available.
 
-So: implement the methods, document them as research/V&V, and never write a
-sentence that offers the results for operational use. An earlier naming draft
-blurred exactly this and was corrected; an agent that re-blurs it is undoing a
-deliberate decision.
+This is not boilerplate. `docs/ecosystem-naming.md` decision 3 (2026-08-05)
+records that the original naming draft claimed exactly that capability and was
+**corrected** because it contradicted `RESPONSIBLE_USE.md`. An agent that
+reintroduces the framing is undoing a deliberate decision. Promoting an item
+from the future list to the current one is a maintainer decision taken in
+`RESPONSIBLE_USE.md`, never something an agent infers from having implemented
+the physics.
 
 ## Maturity
 

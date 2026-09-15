@@ -18,24 +18,28 @@
 //!
 //! ## Scope
 //!
-//! Atmospheric dispersion; plume transport; radionuclide deposition; ground
-//! contamination; radiological consequence assessment; dose assessment;
-//! emergency planning support; Level 3 PSA support.
+//! **Now** — research and educational use only: atmospheric dispersion, plume
+//! transport, radionuclide deposition, ground contamination.
+//!
+//! **Future, not current** (maintainer direction, 2026-09-15): radiological
+//! consequence assessment, dose assessment, emergency-planning support and
+//! Level 3 PSA support. None is implemented; none should be described as
+//! available. Moving any of them into the current scope is a deliberate
+//! maintainer decision taken in `RESPONSIBLE_USE.md`, not a side effect of
+//! adding a feature.
 //!
 //! ## Intended use — binding limit
 //!
-//! **CHANGI is for research, education and verification/validation only.** Its
-//! outputs must **not** be treated as authoritative for operational emergency
-//! response, dose assessment of real populations, regulatory or licensing
-//! decisions, nuclear facility operation, or any safety-critical purpose.
+//! **CHANGI is for research, education and verification/validation only.**
 //!
-//! The line, drawn by `docs/ecosystem-naming.md` decision 3 (2026-08-05), is
-//! between **capability and framing**: *"The capability is in scope; that
-//! framing is not."* Implementing consequence-assessment, dose and Level 3 PSA
-//! *methods* is in scope — the last four scope items above are exactly that.
-//! Presenting the results as fit for operational use is not, per
-//! `RESPONSIBLE_USE.md`. An earlier naming draft blurred the two and was
-//! corrected; do not reintroduce the operational framing.
+//! It must **not** be presented as, or used for, emergency planning, emergency
+//! response, dose assessment for real populations, Level 3 PSA support, nuclear
+//! facility operation, or any safety-critical or licensing decision. The limit
+//! is set by the workspace `RESPONSIBLE_USE.md` and by
+//! `docs/ecosystem-naming.md` decision 3 (2026-08-05), reaffirmed by the
+//! maintainer on 2026-09-15. An earlier naming draft claimed emergency-response
+//! capability and was corrected precisely because it contradicted that policy.
+//! Do not reintroduce that framing.
 //!
 //! ## Status
 //!

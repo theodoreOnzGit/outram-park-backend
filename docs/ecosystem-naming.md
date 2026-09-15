@@ -22,7 +22,7 @@ Singapore MRT station names identify **domains**, not crates.
 | **NEE SOON** | **Neutronics and nuclear data** — the integration crate for that domain, and only that domain | `nee_soon`, composing `njoy-outram-park-fork`, `outram-mc-libs`, `teh-o-prke` |
 | **BEDOK** | **Multiphysics coupling at system level** — TH and neutronics coupled, above 1-D neutronics fidelity but **below CFD fidelity** (CFD-level coupling stays with GeN-Foam in `outram-foam-appbuilder-lib`) | *new* |
 | **SEMBAWANG** | Severe accident progression — melt behaviour, relocation, vessel failure, MCCI, hydrogen, aerosols, source term. *"What gets released?"* | *new* — scoped in `docs/melcor-scoping.md` |
-| **CHANGI** — *Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts* | Atmospheric dispersion, plume transport, radionuclide deposition, ground contamination, radiological consequence assessment, dose assessment, emergency-planning support, Level 3 PSA support. Input: source terms from SEMBAWANG. *"What happens after release?"* | `changi` — FLEXPART v10.4 port begun 2026-09-15; surface-layer + deposition kernels verified code-to-code, the rest not yet ported |
+| **CHANGI** — *Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts* | **Now (research/educational):** atmospheric dispersion, plume transport, radionuclide deposition, ground contamination. **Future, not current:** radiological consequence assessment, dose assessment, emergency-planning support, Level 3 PSA support. Input: source terms from SEMBAWANG. *"What happens after release?"* | `changi` — FLEXPART v10.4 port begun 2026-09-15; surface-layer + deposition kernels verified code-to-code, the rest not yet ported |
 | **REDHILL** — *Radionuclide Effluent Dispersion solver for Hydrogeological Infiltration and Leaching through Layers* | Groundwater transport, geological migration, subsurface radionuclide transport, PFLOTRAN-based workflows, porous-media flow, repository assessment, long-term environmental transport. *"What happens after deposition and infiltration?"* | *new* — depends on `outram-park-fork-pflotran` |
 
 Neutronics, fuel performance, CFD, meshing, KOVAN and the remaining crates are
@@ -54,18 +54,16 @@ orphaned — they simply have no domain label yet.
    `RESPONSIBLE_USE.md` excludes those, and the draft's original wording
    contradicted it. The capability is in scope; that framing is not.
 
-   > **Clarified 2026-09-15**, when the maintainer supplied CHANGI's acronym and
-   > its full scope list, which names radiological consequence assessment, dose
-   > assessment, emergency-planning support and Level 3 PSA support. Those are
-   > **capabilities CHANGI may implement**, and are recorded as such in the
-   > crate. The decision above is unchanged and still governs how results are
-   > *presented*: outputs are not authoritative for operational emergency
-   > response, for dose assessment of real populations, or for regulatory
-   > Level 3 PSA. This is the "capability is in scope; that framing is not"
-   > sentence applied to a concrete scope list, not a relaxation of it. If the
-   > intended-use limit itself is ever to change, that is an edit to
-   > `RESPONSIBLE_USE.md` and must be made deliberately there, not implied by a
-   > scope bullet.
+   > **Reaffirmed 2026-09-15.** The maintainer supplied CHANGI's acronym and a
+   > scope list naming radiological consequence assessment, dose assessment,
+   > emergency-planning support and Level 3 PSA support, then confirmed that
+   > **the PSA and consequence use is future work and CHANGI stays research and
+   > educational for now**. Those four are therefore recorded in the crate as a
+   > *future* scope list, explicitly not current capability, and this decision
+   > stands unchanged. Promoting any of them to current scope is a deliberate
+   > edit to `RESPONSIBLE_USE.md`, never something implied by a scope bullet or
+   > by having implemented the physics.
+
 4. **Dependency directions fixed:**
    - **REDHILL depends on `outram-park-fork-pflotran`.**
    - **CHANGI depends on the FLEXPART port** (GPL-3.0; see
