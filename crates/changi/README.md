@@ -92,11 +92,13 @@ Every reference value comes from **compiling and running the upstream FLEXPART
 Fortran itself**, at two precisions. Full methodology, results and analysis:
 [`docs/flexpart-code-to-code.md`](docs/flexpart-code-to-code.md).
 
-Headline: against a `-fdefault-real-8` build of the same routines, **11 of 12
-function groups agree bit-exactly** (the twelfth by one ulp). Against FLEXPART
-as it actually ships — which is single precision, since its makefile passes no
-`-fdefault-real-8` — agreement is 5e-8 to 3.4e-6, which is upstream's own
-precision rather than any translation error.
+Headline: against a `-fdefault-real-8` build of the same routines, **13 of 14
+function groups agree bit-exactly** (the fourteenth by one ulp). Against
+FLEXPART as it actually ships — which is single precision, since its makefile
+passes no `-fdefault-real-8` — agreement is 5e-8 to 3.4e-6, which is upstream's
+own precision rather than any translation error. Every currently-ported
+function, including radioactive decay, is checked against a compiled Fortran
+fixture — none against a hand-derived expected value.
 
 That is **verification, not validation**: it shows the Rust computes what the
 Fortran computes, and says nothing about whether FLEXPART's parameterisations

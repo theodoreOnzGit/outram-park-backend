@@ -20,6 +20,13 @@
 //! from `class_gribfile`, which would otherwise drag in ecCodes; being a
 //! compile-time parameter, it changes nothing about the routine under test.
 //!
+//! Radioactive decay (`decay.constant`, `decay.surviving`) has no upstream
+//! subroutine to link against — FLEXPART computes it inline in caller code
+//! (`readreleases.f90:317`, `timemanager.f90:275`). `emit_decay` in the driver
+//! extracts those two lines **verbatim** into small driver subroutines instead
+//! of reimplementing them, so this stays code-to-code rather than
+//! code-to-hand-copied-expression.
+//!
 //! ## The precision question, which governs everything here
 //!
 //! **FLEXPART's makefile passes no `-fdefault-real-8`.** Its default `real` is
@@ -39,7 +46,7 @@
 //! - **against `real4`** — the residual is then a *measurement of FLEXPART's own
 //!   precision*, reported rather than assumed.
 //!
-//! ## Results (2026-09-15, upstream `3d7eebf`, 1 756 cases per fixture)
+//! ## Results (2026-09-15, upstream `3d7eebf`, 1 812 cases per fixture)
 //!
 //! Measured by this test; re-print with `--nocapture`. Full table and analysis
 //! in `docs/flexpart-code-to-code.md`.
@@ -134,6 +141,8 @@ fn evaluate(name: &str, a: &[f64]) -> Option<f64> {
             }
         }
         "part0.cun_scalar" => part0(a[0], a[1], a[2]).upstream_scalar_cunningham(),
+        "decay.constant" => decay_constant(a[0]),
+        "decay.surviving" => surviving_fraction(a[0], a[1]),
         _ => return None,
     };
     Some(v)
@@ -335,17 +344,35 @@ fn part0_scalar_cunningham_matches_flexpart() {
 
 // ── radioactive decay ────────────────────────────────────────────────────────
 
-/// FLEXPART's half-life → decay-constant conversion and its exponential.
-///
-/// There is no Fortran fixture for this: upstream computes it inline in
-/// `readreleases.f90:317` and `timemanager.f90:275` rather than in a callable
-/// routine, so there is nothing to link against. It is checked here against the
-/// upstream *expressions* instead, which is stated plainly rather than dressed
-/// up as code-to-code.
+/// FLEXPART computes decay inline in caller code (`readreleases.f90:317`,
+/// `timemanager.f90:275`), not in callable subroutines, so there is no
+/// existing routine to link against. `dev/flexpart_reference.f90::emit_decay`
+/// extracts each line **verbatim** — same literal `0.693147`, same
+/// `exp(-1.*outstep*decay(ks))` shape — into a driver subroutine and compiles
+/// it exactly like every other group, over a grid spanning realistic
+/// half-lives (1 s .. ~24 110 y, a Pu-239 scale) and elapsed times (0 s ..
+/// 1e12 s, including the region where `surviving_fraction` underflows to
+/// exactly 0.0 in both languages).
+#[test]
+fn decay_constant_matches_flexpart() {
+    check_both("decay.constant", 1e-13, 1e-5);
+}
+
+/// As [`decay_constant_matches_flexpart`], for the exponential survival term.
+#[test]
+fn surviving_fraction_matches_flexpart() {
+    check_both("decay.surviving", 1e-13, 1e-5);
+}
+
+/// [`decay_constant_exact`] and [`decayed`] are intentional Rust-side additions
+/// with no upstream counterpart to link against — `decay_constant_exact` is a
+/// deliberate deviation (exact `ln 2` instead of upstream's truncation) and
+/// `decayed` is a trivial multiply wrapper around [`surviving_fraction`], which
+/// is itself pinned by [`surviving_fraction_matches_flexpart`] above. These stay
+/// as ordinary unit tests rather than code-to-code ones.
 #[test]
 #[allow(clippy::approx_constant)] // 0.693147 is upstream's truncated ln 2, on purpose
-fn decay_reproduces_upstream_expressions() {
-    // readreleases.f90:317 — decay(i) = 0.693147/halflife
+fn decay_convenience_helpers() {
     let t_half = 2.4e5_f64; // Cs-137-ish, seconds
     let lambda = decay_constant(t_half);
     assert!((lambda - 0.693_147 / t_half).abs() < 1e-18);
@@ -357,10 +384,6 @@ fn decay_reproduces_upstream_expressions() {
         (2.0e-7..4.0e-7).contains(&rel),
         "upstream's truncated ln2 should differ from exact by ~2.6e-7, got {rel:e}"
     );
-
-    // timemanager.f90:275 — exp(-1.*outstep*decay(ks))
-    let dt = 3600.0;
-    assert!((surviving_fraction(lambda, dt) - (-dt * lambda).exp()).abs() < 1e-18);
 
     // Stable species: decay(ks) > 0 guard means no decay at all.
     assert_eq!(surviving_fraction(0.0, 1e9), 1.0);

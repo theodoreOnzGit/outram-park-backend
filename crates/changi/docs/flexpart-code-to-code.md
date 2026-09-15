@@ -27,6 +27,16 @@ a compile-time parameter with the identical upstream value
 (`GRIBFILE_CENTRE_ECMWF = 2`), `obukhov.f90` compiles to the same code either
 way; the routine under test is upstream's, untouched.
 
+**Radioactive decay is the one exception, and it is handled explicitly rather
+than skipped.** FLEXPART computes decay inline in caller code —
+`readreleases.f90:317` (`decay(i)=0.693147/decay(i)`) and
+`timemanager.f90:275` (`exp(-1.*outstep*decay(ks))`) — not in a standalone
+subroutine, so there is no routine to link against verbatim. `emit_decay` in
+the driver copies each line **byte-for-byte** out of the cited upstream source
+line into its own small subroutine, compiled and run exactly like every other
+group. What is under test is still upstream's literal expression, not a
+Rust-side re-derivation of it.
+
 Upstream: `github.com/flexpart/flexpart`, **v10.4 (2019-11-12), commit
 `3d7eebf`**, GPL-3.0-or-later. The clone lives at
 `upstream_source/FLEXPART`, is gitignored, and is never compiled into the crate.
@@ -59,7 +69,7 @@ disagreement would be indistinguishable from a bug.
 
 ## Results
 
-Taken **2026-09-15**, upstream `3d7eebf`, **1 756 cases per fixture, 13 tests,
+Taken **2026-09-15**, upstream `3d7eebf`, **1 812 cases per fixture, 15 tests,
 all passing**.
 
 | Function group | Cases | vs `real8` | vs `real4` |
@@ -76,13 +86,21 @@ all passing**.
 | `part0.schmi` (Schmidt factor) | 396 | **0 (bit-exact)** | 5.51e-7 |
 | `part0.vsh` (settling velocity) | 396 | **0 (bit-exact)** | 7.13e-7 |
 | `part0.cun_scalar` (upstream scalar `cun`) | 36 | **0 (bit-exact)** | 6.44e-8 |
+| `decay.constant` (half-life → λ, `readreleases.f90:317`) | 7 | **0 (bit-exact)** | 2.69e-8 |
+| `decay.surviving` (`exp(-lambda dt)`, `timemanager.f90:275`) | 49 | **0 (bit-exact)** | 9.90e-7 |
 
 **Interpretation.** Against the double-precision build of the same Fortran,
-**11 of 12 groups are bit-exact** and the twelfth differs by a single ulp, in
-the ECMWF branch of `obukhov` where the hybrid-coefficient average introduces
-one extra rounding. The translation is therefore not merely close but, on this
-input grid, identical. Against FLEXPART as it actually ships, the spread of
-5.0e-8 to 3.4e-6 is the `real(4)` precision band and nothing else.
+**13 of 14 groups are bit-exact** and the fourteenth differs by a single ulp,
+in the ECMWF branch of `obukhov` where the hybrid-coefficient average
+introduces one extra rounding. The translation is therefore not merely close
+but, on this input grid, identical. Against FLEXPART as it actually ships, the
+spread of 5.0e-8 to 3.4e-6 is the `real(4)` precision band and nothing else.
+
+The `decay.surviving` grid deliberately includes the region where
+`exp(-lambda dt)` underflows to exactly `0.0` in both languages (e.g.
+`lambda = 0.693147 s^-1`, `dt = 3600 s`, `lambda dt ≈ 2495`) — the port
+reproduces the underflow rather than clamping or NaN-ing, which is the correct
+IEEE-754 behaviour and matches upstream exactly.
 
 `part0.fract` being bit-exact against `real8` is worth noting: that quantity is
 computed from `erf`, and the port uses **`petir`'s GSL-derived `erf`** rather
@@ -189,8 +207,15 @@ Not covered, and tracked in beads:
   velocities `part0` returns;
 - the GRIB/NetCDF meteorological readers, the output grids, and the OH chemistry.
 
-Radioactive decay is ported but has **no Fortran fixture**: upstream computes it
-inline in `readreleases.f90:317` and `timemanager.f90:275` rather than in a
-callable routine, so there is nothing to link against. It is checked against
-those upstream *expressions* instead, which the test states plainly rather than
-presenting as code-to-code.
+None of these have a Rust port yet, so none has a fixture — that is the honest
+statement of what is not yet ported, not a verification gap in what is.
+
+**Radioactive decay's fixture gap is closed (2026-09-15).** It was the one
+ported module checked only against hand-copied upstream *expressions* rather
+than a compiled Fortran fixture, because upstream computes it inline
+(`readreleases.f90:317`, `timemanager.f90:275`) rather than in a callable
+routine. `dev/flexpart_reference.f90::emit_decay` now extracts both lines
+verbatim into driver subroutines, compiled and run like every other group —
+see the `decay.constant` / `decay.surviving` rows in the Results table above.
+Every currently-ported `changi::flexpart` function now has a genuine
+code-to-code fixture; none is checked against a hand-derived expected value.

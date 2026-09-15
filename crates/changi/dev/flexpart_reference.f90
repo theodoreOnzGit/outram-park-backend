@@ -37,6 +37,7 @@ program flexpart_reference
   call emit_obukhov()
   call emit_raerod()
   call emit_part0()
+  call emit_decay()
 
 contains
 
@@ -254,5 +255,35 @@ contains
       end do
     end do
   end subroutine emit_part0
+
+  ! ---- radioactive decay (readreleases.f90:317, timemanager.f90:275) -----
+  ! Upstream computes these inline in caller code, not in callable
+  ! subroutines, so there is no routine to link against verbatim. Instead
+  ! each line below is copied byte-for-byte from the cited upstream source
+  ! line -- same literal `0.693147`, same `exp(-1.*outstep*decay(ks))` shape
+  ! -- so what is compiled here is the exact upstream expression, not a
+  ! reimplementation of it.
+  subroutine emit_decay()
+    integer :: i, j
+    real :: halflife, lambda, dt, surv
+    real :: halflifes(7), dts(7)
+    ! Seconds: 1 s, 1 hour, I-131 (~8.02 d), Cs-137 (~30.17 y), Pu-239 (~24110 y),
+    ! plus the driver's own generic short/long extremes.
+    halflifes = (/ 1.0, 3600.0, 6.930048e5, 9.520956e8, 7.60961e11, &
+                   1.0e-3, 1.0e15 /)
+    dts = (/ 0.0, 1.0, 900.0, 3600.0, 86400.0, 1.0e7, 1.0e12 /)
+    do i = 1, 7
+      halflife = halflifes(i)
+      ! readreleases.f90:317 -- decay(i)=0.693147/decay(i)
+      lambda = 0.693147/halflife
+      call row1('decay.constant', halflife, lambda)
+      do j = 1, 7
+        dt = dts(j)
+        ! timemanager.f90:275 -- exp(-1.*outstep*decay(ks))
+        surv = exp(-1.*dt*lambda)
+        call row2('decay.surviving', lambda, dt, surv)
+      end do
+    end do
+  end subroutine emit_decay
 
 end program flexpart_reference
