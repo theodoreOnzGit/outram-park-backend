@@ -70,6 +70,17 @@ Outram Park may use AI-assisted coding, translation, refactoring, documentation,
 
 AI-generated or AI-assisted outputs are treated as untrusted draft material until reviewed.
 
+### What counts as the initial human review (maintainer convention, 2026-09-15)
+
+**Anything the maintainer posts to arXiv constitutes an initial human review of the material it reports.** Preparing a manuscript is where the generated numbers are read, the fitting domains and failure conditions are stated, and the author puts his name to them; posting is the point at which that has happened. Readers are actively invited to scrutinise, reproduce and challenge the result.
+
+This matters most for generated V&V reports. Those files carry a machine-written line saying no human has reviewed them, which is true **as of generation** and is deliberately not edited afterwards — the files are regenerated mechanically and their value is provenance. Where such a report's numbers are carried into a posted paper, the paper is that review, and the stale line in the generated file should be read as a statement about generation time rather than about the numbers' current standing.
+
+Two limits are part of the convention, not caveats bolted onto it:
+
+- arXiv is **not peer review**. Posting establishes authorship of the claims and opens them to scrutiny; it does not confer correctness.
+- It satisfies the **human inspection** requirement below and nothing else. Licence provenance review, unit testing, verification against analytical or published references, and validation against benchmarks are separate legs and are unaffected. A posted paper does not make a crate validated, does not move a maturity bar, and does not extend a correlation beyond the domain it was fitted on.
+
 AI-assisted contributions must undergo:
 
 - Human inspection
