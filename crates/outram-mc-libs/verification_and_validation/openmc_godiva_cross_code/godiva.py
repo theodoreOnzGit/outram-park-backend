@@ -16,6 +16,7 @@ import sys, os, openmc
 WORK = os.environ.get("WORK_DIR", "./work")
 
 PTABLES = "--ptables" in sys.argv
+KINF = "--kinf" in sys.argv   # reflective boundary: infinite medium, no leakage
 SEED = 1
 for a in sys.argv:
     if a.startswith("--seed="):
@@ -35,7 +36,7 @@ fuel.temperature = TEMP_K
 materials = openmc.Materials([fuel])
 materials.cross_sections = f"{WORK}/cross_sections.xml"
 
-sphere = openmc.Sphere(r=RADIUS, boundary_type="vacuum")
+sphere = openmc.Sphere(r=RADIUS, boundary_type="reflective" if KINF else "vacuum")
 core = openmc.Cell(name="core", fill=fuel, region=-sphere)
 geometry = openmc.Geometry([core])
 
@@ -57,7 +58,7 @@ settings.source = openmc.IndependentSource(
 settings.output = {"tallies": False}
 
 model = openmc.Model(geometry=geometry, materials=materials, settings=settings)
-tag = "ptables_on" if PTABLES else "ptables_off"
+tag = ("kinf_" if KINF else "") + ("ptables_on" if PTABLES else "ptables_off")
 cwd = f"{WORK}/run_{tag}_seed{SEED}"
 os.makedirs(cwd, exist_ok=True)
 model.export_to_model_xml(f"{cwd}/model.xml")
