@@ -121,11 +121,9 @@ fn mixing_the_conventions_is_wrong_by_exactly_half_the_constant_term() {
     );
     // ~904 kJ/kg on a saturated-liquid enthalpy: not a subtle error, but a
     // silent one -- both evaluators return a plausible number.
-    assert!(
-        offset > 900.0,
-        "offset {offset:.1} — sanity check on the magnitude"
-    );
+    assert!(offset > 900.0, "offset {offset:.1} — sanity check on the magnitude");
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Old-vs-new equivalence on tampines' real tables. The `old_*` functions are
@@ -213,9 +211,8 @@ fn tensor_product_is_bit_identical_to_the_old_implementation() {
             c[i][j] = ((i * 11 + j) as f64).sin() * 1.0e4 / ((i + j + 1) as f64);
         }
     }
-    let sparse: Vec<(usize, usize, f64)> = (0..9)
-        .flat_map(|i| (0..9).map(move |j| (i, j, c[i][j])))
-        .collect();
+    let sparse: Vec<(usize, usize, f64)> =
+        (0..9).flat_map(|i| (0..9).map(move |j| (i, j, c[i][j]))).collect();
 
     for k in 0..=60 {
         let x = -1.0 + 2.0 * f64::from(k) / 60.0;

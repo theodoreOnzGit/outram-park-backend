@@ -54,6 +54,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::error::{PetirError, Result};
+use crate::zip::zip_flat;
 
 /// `GSL_DBL_EPSILON` (`gsl_machine.h:17`). Identical to [`f64::EPSILON`];
 /// spelled out so the port reads against upstream.
@@ -182,7 +183,10 @@ impl ChebSeries {
     /// The series order (`gsl_cheb_order`, `cheb/init.c:98`) — one less than
     /// the number of coefficients.
     pub fn order(&self) -> usize {
-        self.c.len() - 1
+        // Saturating rather than `- 1`: every constructor rejects an empty
+        // coefficient vector, so this is always `len - 1`, but a bare
+        // subtraction would wrap-panic in a debug build if that ever changed.
+        self.c.len().saturating_sub(1)
     }
 
     /// Number of coefficients (`gsl_cheb_size`, `cheb/init.c:104`).
@@ -227,12 +231,21 @@ impl ChebSeries {
         // C: for (i = eval_order; i >= 1; i--). The C loop relies on `size_t`
         // stopping at 1; the Rust range is the same sweep, and is empty when
         // eval_order == 0, which is what the C does too.
-        for i in (1..=eval_order).rev() {
+        // `c[1 ..= eval_order]`, walked backwards. `eval_order` is at most
+        // `order() == len - 1`, so the slice always exists; an empty series
+        // evaluates to zero, which is what the zero polynomial is.
+        let Some((&c0, c_tail)) = self.c.split_first() else {
+            return 0.0;
+        };
+        let Some(used) = c_tail.get(..eval_order) else {
+            return 0.0;
+        };
+        for &c_i in used.iter().rev() {
             let temp = d1;
-            d1 = y2 * d1 - d2 + self.c[i];
+            d1 = y2 * d1 - d2 + c_i;
             d2 = temp;
         }
-        y * d1 - d2 + 0.5 * self.c[0]
+        y * d1 - d2 + 0.5 * c0
     }
 
     /// Evaluate with an error estimate
@@ -254,8 +267,16 @@ impl ChebSeries {
     fn eval_n_err_unchecked(&self, eval_order: usize, x: f64) -> (f64, f64) {
         let result = self.eval_n_unchecked(eval_order, x);
         // C sums |c[i]| for i = 0 ..= eval_order, then adds |c[eval_order]|.
-        let absc: f64 = self.c[..=eval_order].iter().map(|v| libm::fabs(*v)).sum();
-        let abserr = libm::fabs(self.c[eval_order]) + absc * GSL_DBL_EPSILON;
+        let Some(used) = self.c.get(..=eval_order) else {
+            // Unreachable: `eval_order <= order()`. An unknown error bound is
+            // reported as infinite rather than as a confident small number.
+            return (result, f64::INFINITY);
+        };
+        let absc: f64 = used.iter().map(|v| libm::fabs(*v)).sum();
+        let Some(&c_top) = used.last() else {
+            return (result, f64::INFINITY);
+        };
+        let abserr = libm::fabs(c_top) + absc * GSL_DBL_EPSILON;
         (result, abserr)
     }
 
@@ -267,24 +288,51 @@ impl ChebSeries {
     pub fn deriv(&self) -> Self {
         let n = self.size();
         let con = 2.0 / (self.b - self.a);
-        let mut d = vec![0.0; n];
-
-        d[n - 1] = 0.0;
-        if n > 1 {
-            d[n - 2] = 2.0 * (n as f64 - 1.0) * self.c[n - 1];
-            // C: for (i = n; i >= 3; i--) d[i-3] = d[i-1] + 2*(i-2)*c[i-2];
-            for i in (3..=n).rev() {
-                d[i - 3] = d[i - 1] + 2.0 * (i as f64 - 2.0) * self.c[i - 2];
-            }
-            for v in d.iter_mut().take(n) {
-                *v *= con;
-            }
-        }
-        ChebSeries {
-            c: d,
+        let flat = |c| ChebSeries {
+            c,
             a: self.a,
             b: self.b,
+        };
+        // Upstream sets d[n-1] = 0 and stops; a one-coefficient series is a
+        // constant, whose derivative is zero.
+        let Some(&c_last) = self.c.last() else {
+            return flat(vec![0.0; n]);
+        };
+        if n == 1 {
+            return flat(vec![0.0; 1]);
         }
+
+        // C: d[n-1] = 0; d[n-2] = 2*(n-1)*c[n-1];
+        //    for (i = n; i >= 3; i--) d[i-3] = d[i-1] + 2*(i-2)*c[i-2];
+        //
+        // Substituting m = i - 3, the loop descends m = n-3 ..= 0 writing d[m]
+        // and reading d[m+2] -- the value produced two steps earlier. Carrying
+        // those two in locals lets `d` be built by pushing, so nothing is read
+        // back through a subscript. The vector comes out reversed and is
+        // flipped once at the end.
+        let mut rev: Vec<f64> = Vec::with_capacity(n);
+        let d_top = 0.0_f64; // d[n-1]
+        let d_next = 2.0 * (n as f64 - 1.0) * c_last; // d[n-2]
+        rev.push(d_top);
+        rev.push(d_next);
+        let mut ahead2 = d_top; // the d[m+2] read at m = n-3
+        let mut ahead1 = d_next; // ... and at m = n-4
+
+        // c[m+1] for m = n-3 ..= 0 is c[1 .. n-1], walked backwards.
+        let Some(mid) = self.c.get(1..n - 1) else {
+            return flat(vec![0.0; n]);
+        };
+        for (m, &c_m1) in (0..n - 2).zip(mid.iter()).rev() {
+            let v = ahead2 + 2.0 * (m as f64 + 1.0) * c_m1;
+            ahead2 = ahead1;
+            ahead1 = v;
+            rev.push(v);
+        }
+        rev.reverse();
+        for v in rev.iter_mut() {
+            *v *= con;
+        }
+        flat(rev)
     }
 
     /// The series of the integral (`gsl_cheb_calc_integ`, `cheb/integ.c:26-64`).
@@ -296,29 +344,49 @@ impl ChebSeries {
     pub fn integ(&self) -> Self {
         let n = self.size();
         let con = 0.25 * (self.b - self.a);
-        let mut g = vec![0.0; n];
-
-        if n == 1 {
-            g[0] = 0.0;
-        } else if n == 2 {
-            g[1] = con * self.c[0];
-            g[0] = 2.0 * g[1];
-        } else {
-            let mut sum = 0.0;
-            let mut fac = 1.0;
-            for i in 1..=n - 2 {
-                g[i] = con * (self.c[i - 1] - self.c[i + 1]) / (i as f64);
-                sum += fac * g[i];
-                fac = -fac;
-            }
-            g[n - 1] = con * self.c[n - 2] / (n as f64 - 1.0);
-            sum += fac * g[n - 1];
-            g[0] = 2.0 * sum;
-        }
-        ChebSeries {
-            c: g,
+        let flat = |c| ChebSeries {
+            c,
             a: self.a,
             b: self.b,
+        };
+        let Some(&c0) = self.c.first() else {
+            return flat(vec![0.0; n]);
+        };
+
+        if n == 1 {
+            return flat(vec![0.0; 1]);
         }
+        if n == 2 {
+            let g1 = con * c0;
+            return flat(vec![2.0 * g1, g1]);
+        }
+
+        // Upstream's `for (i = 1; i <= n-2; i++)` reads c[i-1] and c[i+1],
+        // which is `c` zipped against itself offset by two; `g` is built by
+        // pushing, with a placeholder for g[0] that the alternating sum fills
+        // in at the end (upstream writes it last too).
+        let mut g: Vec<f64> = Vec::with_capacity(n);
+        g.push(0.0);
+        let mut sum = 0.0;
+        let mut fac = 1.0;
+        for (i, (&c_lo, &c_hi)) in (1..).zip(zip_flat!(self.c.iter(), self.c.iter().skip(2))) {
+            let g_i = con * (c_lo - c_hi) / (i as f64);
+            sum += fac * g_i;
+            fac = -fac;
+            g.push(g_i);
+        }
+
+        // g[n-1] = con * c[n-2] / (n-1). `n >= 3` here, so `n - 2 >= 1`.
+        let Some(&c_nm2) = self.c.get(n - 2) else {
+            return flat(vec![0.0; n]);
+        };
+        let g_last = con * c_nm2 / (n as f64 - 1.0);
+        sum += fac * g_last;
+        g.push(g_last);
+
+        if let Some(g0) = g.first_mut() {
+            *g0 = 2.0 * sum;
+        }
+        flat(g)
     }
 }

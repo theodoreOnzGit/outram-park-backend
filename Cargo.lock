@@ -6637,7 +6637,9 @@ dependencies = [
 name = "petir"
 version = "0.0.0"
 dependencies = [
+ "approx",
  "libm",
+ "uom 0.38.0",
 ]
 
 [[package]]

@@ -53,35 +53,18 @@ fn test_factor(observed: f64, expected: f64, factor: f64, what: &str) {
         let u = observed / expected;
         u <= factor && u >= 1.0 / factor
     };
-    assert!(
-        ok,
-        "{what}: {observed:e} vs {expected:e}, factor > {factor}"
-    );
+    assert!(ok, "{what}: {observed:e} vs {expected:e}, factor > {factor}");
 }
 
 // The test functions of cheb/test.c:28-58.
-fn f_t0(_x: f64) -> f64 {
-    1.0
-}
-fn f_t1(x: f64) -> f64 {
-    x
-}
-fn f_t2(x: f64) -> f64 {
-    2.0 * x * x - 1.0
-}
-fn f_dp(_x: f64) -> f64 {
-    2.0
-}
-fn f_p(x: f64) -> f64 {
-    2.0 * x + 3.0
-}
+fn f_t0(_x: f64) -> f64 { 1.0 }
+fn f_t1(x: f64) -> f64 { x }
+fn f_t2(x: f64) -> f64 { 2.0 * x * x - 1.0 }
+fn f_dp(_x: f64) -> f64 { 2.0 }
+fn f_p(x: f64) -> f64 { 2.0 * x + 3.0 }
 /// First-order approximation to the integral over [-5, 5] (upstream's comment).
-fn f_ip1(x: f64) -> f64 {
-    30.0 * (x + 5.0) / 10.0
-}
-fn f_ip2(x: f64) -> f64 {
-    x * x + 3.0 * x - 10.0
-}
+fn f_ip1(x: f64) -> f64 { 30.0 * (x + 5.0) / 10.0 }
+fn f_ip2(x: f64) -> f64 { x * x + 3.0 * x - 10.0 }
 
 /// `test_dim` (`cheb/test.c:70-106`): build, then check the series, its
 /// derivative and its integral against closed forms over the interval.
@@ -98,24 +81,14 @@ fn test_dim(n: usize, a: f64, b: f64, f: fn(f64) -> f64, df: fn(f64) -> f64, ifn
     let csd = cs.deriv();
     let mut x = a;
     while x < b {
-        test_abs(
-            csd.eval(x),
-            df(x),
-            TOL,
-            &format!("cheb_eval, deriv F({x:.3})"),
-        );
+        test_abs(csd.eval(x), df(x), TOL, &format!("cheb_eval, deriv F({x:.3})"));
         x += step;
     }
 
     let csi = cs.integ();
     let mut x = a;
     while x < b {
-        test_abs(
-            csi.eval(x),
-            ifn(x),
-            TOL,
-            &format!("cheb_eval, integ F({x:.3})"),
-        );
+        test_abs(csi.eval(x), ifn(x), TOL, &format!("cheb_eval, integ F({x:.3})"));
         x += step;
     }
 }
@@ -131,34 +104,19 @@ fn chebyshev_polynomials_have_unit_expansions() {
     assert_eq!(cs.size(), 41, "cheb_size");
     for i in 0..cs.order() {
         let expected = if i == 0 { 2.0 } else { 0.0 };
-        test_abs(
-            cs.coefficients()[i],
-            expected,
-            TOL,
-            &format!("c[{i}] for T_0(x)"),
-        );
+        test_abs(cs.coefficients()[i], expected, TOL, &format!("c[{i}] for T_0(x)"));
     }
 
     let cs = ChebSeries::new(40, -1.0, 1.0, f_t1).unwrap();
     for i in 0..cs.order() {
         let expected = if i == 1 { 1.0 } else { 0.0 };
-        test_abs(
-            cs.coefficients()[i],
-            expected,
-            TOL,
-            &format!("c[{i}] for T_1(x)"),
-        );
+        test_abs(cs.coefficients()[i], expected, TOL, &format!("c[{i}] for T_1(x)"));
     }
 
     let cs = ChebSeries::new(40, -1.0, 1.0, f_t2).unwrap();
     for i in 0..cs.order() {
         let expected = if i == 2 { 1.0 } else { 0.0 };
-        test_abs(
-            cs.coefficients()[i],
-            expected,
-            TOL,
-            &format!("c[{i}] for T_2(x)"),
-        );
+        test_abs(cs.coefficients()[i], expected, TOL, &format!("c[{i}] for T_2(x)"));
     }
 }
 
@@ -207,24 +165,14 @@ fn sin_series_evaluates_and_bounds_its_own_error() {
 
     let mut x = -pi;
     while x < pi {
-        test_abs(
-            cs.eval_n(25, x),
-            x.sin(),
-            TOL,
-            &format!("cheb_eval_n, sin({x:.3})"),
-        );
+        test_abs(cs.eval_n(25, x), x.sin(), TOL, &format!("cheb_eval_n, sin({x:.3})"));
         x += step;
     }
 
     let mut x = -pi;
     while x < pi {
         let (r, e) = cs.eval_n_err(25, x);
-        test_abs(
-            r,
-            x.sin(),
-            100.0 * TOL,
-            &format!("cheb_eval_n_err, sin({x:.3})"),
-        );
+        test_abs(r, x.sin(), 100.0 * TOL, &format!("cheb_eval_n_err, sin({x:.3})"));
         test_factor(
             (r - x.sin()).abs() + f64::EPSILON,
             e,
@@ -246,12 +194,7 @@ fn derivative_of_the_sin_series_is_cos() {
 
     let mut x = -pi;
     while x < pi {
-        test_abs(
-            csd.eval(x),
-            x.cos(),
-            1600.0 * TOL,
-            &format!("cheb_eval, deriv sin({x:.3})"),
-        );
+        test_abs(csd.eval(x), x.cos(), 1600.0 * TOL, &format!("cheb_eval, deriv sin({x:.3})"));
         x += step;
     }
 
@@ -278,12 +221,7 @@ fn integral_of_the_sin_series_is_minus_one_plus_cos() {
 
     let mut x = -pi;
     while x < pi {
-        test_abs(
-            csi.eval(x),
-            -(1.0 + x.cos()),
-            TOL,
-            &format!("cheb_eval, integ sin({x:.3})"),
-        );
+        test_abs(csi.eval(x), -(1.0 + x.cos()), TOL, &format!("cheb_eval, integ sin({x:.3})"));
         x += step;
     }
 
@@ -323,26 +261,11 @@ fn derivative_and_integral_error_estimates() {
     let mut x = -pi;
     while x < pi {
         let (r, e) = csd.eval_err(x);
-        test_abs(
-            r,
-            x.cos(),
-            TOL,
-            &format!("cheb_eval_err, deriv sin({x:.3})"),
-        );
+        test_abs(r, x.cos(), TOL, &format!("cheb_eval_err, deriv sin({x:.3})"));
         test_factor((r - x.cos()).abs() + f64::EPSILON, e, FTOL, "deriv error");
         let (r, e) = csi.eval_err(x);
-        test_abs(
-            r,
-            -(1.0 + x.cos()),
-            TOL,
-            &format!("cheb_eval_err, integ sin({x:.3})"),
-        );
-        test_factor(
-            (r + 1.0 + x.cos()).abs() + f64::EPSILON,
-            e,
-            FTOL,
-            "integ error",
-        );
+        test_abs(r, -(1.0 + x.cos()), TOL, &format!("cheb_eval_err, integ sin({x:.3})"));
+        test_factor((r + 1.0 + x.cos()).abs() + f64::EPSILON, e, FTOL, "integ error");
         x += step;
     }
 }

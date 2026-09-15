@@ -505,9 +505,21 @@ fn log_inline(ix: u64) -> (f64, f64) {
     let z = f64::from_bits(iz);
     let kd = k as f64;
 
-    let invc = f64::from_bits(POW_TAB[3 * i]);
-    let logc = f64::from_bits(POW_TAB[3 * i + 1]);
-    let logctail = f64::from_bits(POW_TAB[3 * i + 2]);
+    // `i = (...) % LOG_N` and `POW_TAB` holds `3 * LOG_N` entries, so all
+    // three reads are in range -- by arithmetic the compiler cannot follow.
+    // `log_inline` has no error channel (upstream's `log_inline` returns a
+    // double-double), so the unreachable arm yields NaN, which propagates
+    // loudly through `pow` rather than ending the program.
+    let (Some(&t_invc), Some(&t_logc), Some(&t_tail)) = (
+        POW_TAB.get(3 * i),
+        POW_TAB.get(3 * i + 1),
+        POW_TAB.get(3 * i + 2),
+    ) else {
+        return (f64::NAN, f64::NAN);
+    };
+    let invc = f64::from_bits(t_invc);
+    let logc = f64::from_bits(t_logc);
+    let logctail = f64::from_bits(t_tail);
 
     // 1/c is j/N or j/N/2 for an integer j in [N, 2N), and |z/c - 1| < 1/N, so
     // r = z/c - 1 is exactly representable.
@@ -661,9 +673,17 @@ fn exp_inline(x: f64, xtail: f64, sign_bias: u32) -> core::result::Result<f64, (
 
     let idx = (2 * (ki % EXP_N)) as usize;
     let top = (ki.wrapping_add(u64::from(sign_bias))) << (52 - EXP_TABLE_BITS);
-    let tail = f64::from_bits(EXP_TAB[idx]);
+    // `idx = 2 * (ki % EXP_N)` and `EXP_TAB` holds `2 * EXP_N` entries, so
+    // both reads are in range for every input -- by arithmetic the compiler
+    // cannot follow. `get` keeps the values, and therefore the bit-identity
+    // with upstream pinned by tests/fast_pow_vs_arm_optimized_routines.rs,
+    // exactly as they were.
+    let (Some(&tab_lo), Some(&tab_hi)) = (EXP_TAB.get(idx), EXP_TAB.get(idx + 1)) else {
+        return Err((PetirError::Range, f64::NAN));
+    };
+    let tail = f64::from_bits(tab_lo);
     // Valid as a scale only for -1023*N < k < 1024*N.
-    let sbits = EXP_TAB[idx + 1].wrapping_add(top);
+    let sbits = tab_hi.wrapping_add(top);
 
     let r2 = r * r;
     // EXP_POLY_ORDER == 5.

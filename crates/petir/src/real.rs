@@ -183,6 +183,278 @@ pub fn atan2(y: f64, x: f64) -> f64 {
     libm::atan2(y, x)
 }
 
+
+// ---------------------------------------------------------------------------
+// The method-syntax half: everything `core` omits, as a trait.
+// ---------------------------------------------------------------------------
+//
+// The free functions above exist for two reasons: `std` does not HAVE
+// erf/erfc/tgamma/lgamma at all, and exp/ln/powf are routed deliberately
+// through the ARM optimized-routines ports rather than through libm.
+//
+// The trait below exists for a third: `core` withholds the elementary
+// operations as METHODS. `sqrt`, `exp`, `ln`, `powf` and the trig and rounding
+// families are defined on `f64` by `std`, not by `core`, so a `no_std` crate
+// cannot write `x.sqrt()`.
+//
+// WHICH TO REACH FOR. Prefer the FREE FUNCTIONS in new code: they are the
+// routed, verified path, and for exp/ln/powf they are the ARM ports that are
+// bit-identical to upstream. The trait is what lets PETIR carry kernels LIFTED
+// VERBATIM from elsewhere in this workspace without rewriting every call site,
+// and that byte-for-byte property is the whole value of a lift (see
+// `tests/verbatim_provenance.rs`).
+//
+// NOTE the deliberate asymmetry: `Real::exp`, `Real::ln` and `Real::powf` go to
+// `libm`, NOT to the ARM ports, because a verbatim lift must behave exactly as
+// it did in the crate it came from. Changing the method path would silently
+// change the numerics of lifted code. Routing a consumer onto the ARM port is
+// an explicit, per-call-site decision (bn:op-j57z), not something a lift should
+// inherit by accident.
+
+/// The float operations `core` lacks, provided for `no_std` builds.
+///
+/// Implemented for [`f64`] only — PETIR is a double-precision library
+/// throughout, matching GSL's and Octave's default storage type. Every method
+/// has the same contract, argument order and edge-case behaviour as the
+/// identically named [`f64`] inherent method in `std`.
+pub trait Real: Copy {
+    /// Square root. `NaN` for negative arguments; `-0.0` for `-0.0`.
+    fn sqrt(self) -> Self;
+    /// Cube root, defined for negative arguments (`(-8).cbrt() == -2`).
+    fn cbrt(self) -> Self;
+    /// `e^self`.
+    fn exp(self) -> Self;
+    /// `2^self`.
+    fn exp2(self) -> Self;
+    /// `e^self - 1`, accurate for `self` near zero.
+    fn exp_m1(self) -> Self;
+    /// Natural logarithm. `NaN` for negative arguments, `-inf` at zero.
+    fn ln(self) -> Self;
+    /// `ln(1 + self)`, accurate for `self` near zero.
+    fn ln_1p(self) -> Self;
+    /// Base-10 logarithm.
+    fn log10(self) -> Self;
+    /// Base-2 logarithm.
+    fn log2(self) -> Self;
+    /// Logarithm to an arbitrary `base`, computed as `self.ln() / base.ln()`.
+    fn log(self, base: Self) -> Self;
+    /// `self^n` for a real exponent.
+    fn powf(self, n: Self) -> Self;
+    /// `self^n` for an integer exponent, by exponentiation-by-squaring.
+    fn powi(self, n: i32) -> Self;
+    /// Sine of an angle in radians.
+    fn sin(self) -> Self;
+    /// Cosine of an angle in radians.
+    fn cos(self) -> Self;
+    /// Tangent of an angle in radians.
+    fn tan(self) -> Self;
+    /// Sine and cosine together, in one call.
+    fn sin_cos(self) -> (Self, Self);
+    /// Arcsine, in radians over `[-pi/2, pi/2]`.
+    fn asin(self) -> Self;
+    /// Arccosine, in radians over `[0, pi]`.
+    fn acos(self) -> Self;
+    /// Arctangent, in radians over `(-pi/2, pi/2)`.
+    fn atan(self) -> Self;
+    /// Four-quadrant arctangent of `self / other`, in radians over `(-pi, pi]`.
+    fn atan2(self, other: Self) -> Self;
+    /// Hyperbolic sine.
+    fn sinh(self) -> Self;
+    /// Hyperbolic cosine.
+    fn cosh(self) -> Self;
+    /// Hyperbolic tangent.
+    fn tanh(self) -> Self;
+    /// Inverse hyperbolic sine.
+    fn asinh(self) -> Self;
+    /// Inverse hyperbolic cosine.
+    fn acosh(self) -> Self;
+    /// Inverse hyperbolic tangent.
+    fn atanh(self) -> Self;
+    /// `sqrt(self^2 + other^2)` without intermediate overflow or underflow.
+    fn hypot(self, other: Self) -> Self;
+    /// Largest integer less than or equal to `self`.
+    fn floor(self) -> Self;
+    /// Smallest integer greater than or equal to `self`.
+    fn ceil(self) -> Self;
+    /// Nearest integer, halfway cases rounded away from zero.
+    fn round(self) -> Self;
+    /// Integer part, truncating toward zero.
+    fn trunc(self) -> Self;
+    /// Fractional part, `self - self.trunc()`, carrying `self`'s sign.
+    fn fract(self) -> Self;
+    /// `self * a + b` with a single rounding (fused multiply-add).
+    fn mul_add(self, a: Self, b: Self) -> Self;
+    /// Least non-negative remainder of `self (mod rhs)`.
+    fn rem_euclid(self, rhs: Self) -> Self;
+}
+
+impl Real for f64 {
+    #[inline]
+    fn sqrt(self) -> f64 {
+        libm::sqrt(self)
+    }
+    #[inline]
+    fn cbrt(self) -> f64 {
+        libm::cbrt(self)
+    }
+    #[inline]
+    fn exp(self) -> f64 {
+        libm::exp(self)
+    }
+    #[inline]
+    fn exp2(self) -> f64 {
+        libm::exp2(self)
+    }
+    #[inline]
+    fn exp_m1(self) -> f64 {
+        libm::expm1(self)
+    }
+    #[inline]
+    fn ln(self) -> f64 {
+        libm::log(self)
+    }
+    #[inline]
+    fn ln_1p(self) -> f64 {
+        libm::log1p(self)
+    }
+    #[inline]
+    fn log10(self) -> f64 {
+        libm::log10(self)
+    }
+    #[inline]
+    fn log2(self) -> f64 {
+        libm::log2(self)
+    }
+    #[inline]
+    fn log(self, base: f64) -> f64 {
+        libm::log(self) / libm::log(base)
+    }
+    #[inline]
+    fn powf(self, n: f64) -> f64 {
+        libm::pow(self, n)
+    }
+    /// Exponentiation by squaring, mirroring what `std` lowers `powi` to.
+    ///
+    /// A negative exponent is handled as `1 / self^|n|`. `i32::MIN` cannot be
+    /// negated in two's complement, so it is widened to `i64` before the
+    /// absolute value is taken.
+    #[inline]
+    fn powi(self, n: i32) -> f64 {
+        let mut e = (n as i64).unsigned_abs();
+        let mut base = self;
+        let mut acc = 1.0_f64;
+        while e > 0 {
+            if e & 1 == 1 {
+                acc *= base;
+            }
+            base *= base;
+            e >>= 1;
+        }
+        if n < 0 {
+            1.0 / acc
+        } else {
+            acc
+        }
+    }
+    #[inline]
+    fn sin(self) -> f64 {
+        libm::sin(self)
+    }
+    #[inline]
+    fn cos(self) -> f64 {
+        libm::cos(self)
+    }
+    #[inline]
+    fn tan(self) -> f64 {
+        libm::tan(self)
+    }
+    #[inline]
+    fn sin_cos(self) -> (f64, f64) {
+        libm::sincos(self)
+    }
+    #[inline]
+    fn asin(self) -> f64 {
+        libm::asin(self)
+    }
+    #[inline]
+    fn acos(self) -> f64 {
+        libm::acos(self)
+    }
+    #[inline]
+    fn atan(self) -> f64 {
+        libm::atan(self)
+    }
+    #[inline]
+    fn atan2(self, other: f64) -> f64 {
+        libm::atan2(self, other)
+    }
+    #[inline]
+    fn sinh(self) -> f64 {
+        libm::sinh(self)
+    }
+    #[inline]
+    fn cosh(self) -> f64 {
+        libm::cosh(self)
+    }
+    #[inline]
+    fn tanh(self) -> f64 {
+        libm::tanh(self)
+    }
+    #[inline]
+    fn asinh(self) -> f64 {
+        libm::asinh(self)
+    }
+    #[inline]
+    fn acosh(self) -> f64 {
+        libm::acosh(self)
+    }
+    #[inline]
+    fn atanh(self) -> f64 {
+        libm::atanh(self)
+    }
+    #[inline]
+    fn hypot(self, other: f64) -> f64 {
+        libm::hypot(self, other)
+    }
+    #[inline]
+    fn floor(self) -> f64 {
+        libm::floor(self)
+    }
+    #[inline]
+    fn ceil(self) -> f64 {
+        libm::ceil(self)
+    }
+    #[inline]
+    fn round(self) -> f64 {
+        libm::round(self)
+    }
+    #[inline]
+    fn trunc(self) -> f64 {
+        libm::trunc(self)
+    }
+    #[inline]
+    fn fract(self) -> f64 {
+        self - libm::trunc(self)
+    }
+    #[inline]
+    fn mul_add(self, a: f64, b: f64) -> f64 {
+        libm::fma(self, a, b)
+    }
+    /// `self - rhs * (self / rhs).floor()`, clamped into `[0, |rhs|)`.
+    ///
+    /// Matches `f64::rem_euclid`: the result is never negative, and rounding
+    /// can only push it to `|rhs|` at the very edge, which is folded back to
+    /// zero.
+    #[inline]
+    fn rem_euclid(self, rhs: f64) -> f64 {
+        let r = libm::fmod(self, rhs);
+        if r < 0.0 {
+            r + libm::fabs(rhs)
+        } else {
+            r
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

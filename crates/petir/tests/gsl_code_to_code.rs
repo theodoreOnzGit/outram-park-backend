@@ -59,9 +59,7 @@ fn cases() -> Vec<(&'static str, usize, f64, f64, fn(f64) -> f64)> {
     vec![
         ("sin40", 40, -pi, pi, f64::sin as fn(f64) -> f64),
         ("exp12", 12, -1.0, 2.0, f64::exp),
-        ("runge24", 24, -1.0, 1.0, |x: f64| {
-            1.0 / (1.0 + 25.0 * x * x)
-        }),
+        ("runge24", 24, -1.0, 1.0, |x: f64| 1.0 / (1.0 + 25.0 * x * x)),
         ("sin1", 1, -5.0, 5.0, f64::sin),
         ("sin2", 2, -5.0, 5.0, f64::sin),
     ]
@@ -107,9 +105,7 @@ fn petir_reproduces_gsl_2_8_output() {
                     exact += 1;
                 }
                 let d = (ours - theirs).abs();
-                let e = worst
-                    .entry(label.to_string())
-                    .or_insert((0.0, String::new()));
+                let e = worst.entry(label.to_string()).or_insert((0.0, String::new()));
                 if d > e.0 {
                     *e = (d, format!("{tag} at {at:.4e}"));
                 }
@@ -131,10 +127,7 @@ fn petir_reproduces_gsl_2_8_output() {
         }
     }
 
-    assert!(
-        n_cmp > 6000,
-        "only {n_cmp} values compared — reference truncated?"
-    );
+    assert!(n_cmp > 6000, "only {n_cmp} values compared — reference truncated?");
     println!(
         "  vs GSL 2.8: {n_cmp} values, {exact} bit-identical ({:.1} %)",
         100.0 * exact as f64 / n_cmp as f64
@@ -198,8 +191,7 @@ fn gsl_coefficients_through_our_evaluator_are_bit_exact() {
     }
     println!("  GSL coefficients through our evaluator: {exact} / {n} bit-identical");
     assert_eq!(
-        exact,
-        n,
+        exact, n,
         "our eval/deriv/integ must be BIT-exact given identical coefficients — \
          {} of {n} differ. The pipeline test's residual is only attributable to \
          cos() while this holds.",

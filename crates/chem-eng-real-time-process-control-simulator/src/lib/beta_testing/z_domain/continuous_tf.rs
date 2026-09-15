@@ -173,7 +173,10 @@ impl ContinuousTransferFn {
     /// Returns infinity for an integrating system (`den[0] = 0`).
     pub fn steady_state_gain(&self) -> f64 {
         let n0 = self.num.first().copied().unwrap_or(0.0);
-        let d0 = self.den[0];
+        // `first()` to match `n0` above, and so that an empty denominator --
+        // which no constructor here produces -- yields NaN rather than a
+        // panic. See the crate note on bare-metal lifting.
+        let d0 = self.den.first().copied().unwrap_or(0.0);
         n0 / d0
     }
 }

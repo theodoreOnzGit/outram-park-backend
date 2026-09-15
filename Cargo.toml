@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "crates/bedok",
-    "crates/petir",
     "crates/chem-eng-real-time-process-control-simulator",
     "crates/teh-o-prke",
     "crates/tuas_boussinesq_solver",
@@ -86,6 +85,13 @@ members = [
     # module boundaries + provenance only, nothing implemented. Scoping doc:
     # docs/raven-port-scoping.md.
     "crates/raffles",
+    # petir — PETIR (Portable Embedded Toolkit for Iterative Routines): the
+    # workspace's `no_std` numerical core. Translations of the GNU Scientific
+    # Library (GPL-3.0) and GNU Octave (GPL-3.0) numerics, plus the dense
+    # matrix / polynomial / special-function kernels lifted verbatim from
+    # outram-foam-basic-lib and the Octave-derived transfer functions from
+    # chem-eng. `no_std` + `alloc`, libm-backed, no_std `uom` (epic op-petir).
+    "crates/petir",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -320,10 +326,10 @@ chem-eng-real-time-process-control-simulator = { path = "crates/chem-eng-real-ti
 outram-park-fork-offbeat = { path = "crates/outram-park-fork-offbeat", version = "0.0.0" }
 teh-o-prke = { path = "crates/teh-o-prke", version = "0.1.5" }
 tuas_boussinesq_solver = { path = "crates/tuas_boussinesq_solver", version = "0.1.6" }
-petir = { path = "crates/petir", version = "0.0.0" }
 tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.8" }
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.3" }
 raffles                      = { path = "crates/raffles",                      version = "0.0.0" }
+petir                        = { path = "crates/petir",                        version = "0.0.0" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.3" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }

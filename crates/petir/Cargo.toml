@@ -8,12 +8,22 @@ edition.workspace = true
 # upstream_source/README.md for why that distinction matters). Porting GPL
 # source creates a derivative work, so the obligation carries over and the flow
 # is ONE-WAY: code here cannot go back upstream under another licence.
+#
+# It also carries kernels lifted verbatim from outram-foam-basic-lib (GPL-3.0,
+# itself derived from OpenFOAM) and transfer-function blocks derived from
+# chem-eng-real-time-process-control-simulator (GPL-3.0). Both are in-workspace
+# and GPL-3.0, so no additional obligation arises; provenance headers still
+# travel with every file.
 license.workspace = true
 description = "PETIR — Polynomials, Equations, Transforms, Integration and Roots. A no_std, dependency-lean core numerics library ported from the GNU Scientific Library. Independent port, not affiliated with or endorsed by GSL or the FSF. AI-assisted draft: unverified and untrusted except where a specific V&V case demonstrates otherwise — not for safety-critical use."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 categories.workspace = true
+# `docs/` is the repo-only API mirror; `upstream_source/GSL` is the gitignored
+# reference clone. Neither is packaged. upstream_source/README.md is NOT
+# excluded -- the provenance record must travel with the crate.
+exclude = ["docs", "upstream_source/GSL"]
 
 [dependencies]
 # libm is REQUIRED, not a nicety: in no_std the f64 transcendentals are
@@ -22,8 +32,47 @@ categories.workspace = true
 # which is deliberate and must not be silently undone.
 libm.workspace = true
 
+# uom — OPTIONAL, and deliberately confined to the `transfer-fn` module.
+#
+# The epic (bn:op-chyp) settled "Raw f64, not uom -- PETIR is dimensionless
+# numerics; uom belongs at the physics crates' API boundaries, not inside a
+# Chebyshev evaluator." That still holds and is not being relaxed: every
+# numerical kernel in this crate -- linalg, poly, specfunc, and everything that
+# follows them -- takes and returns bare f64.
+#
+# The one place units are genuinely load-bearing is `transfer_fn`, whose blocks
+# are derived from chem-eng-real-time-process-control-simulator, where a sample
+# time IS a `uom` Time and a dimensionless signal IS a `Ratio`. Stripping the
+# units there would be a regression against the code being ported, not a
+# simplification. So uom is confined behind a feature: a caller who wants only
+# the numerics (njoy-outram-park-fork and raffles are the motivating cases, both
+# explicitly dependency-lean) gets no uom in their graph at all.
+#
+# CRATE-LOCAL, NOT `workspace = true`, and that is forced rather than chosen:
+# the root entry is `uom = "0.38.0"` with default features, which include `std`.
+# Cargo's workspace inheritance can only ADD features, never remove them -- a
+# member writing `default-features = false` has it silently ignored (Cargo warns
+# and plans to make it an error). There is no way to get a no_std uom through
+# inheritance. The version string is kept BYTE-IDENTICAL to the root entry; if
+# you bump uom there, bump it here in the same change. `tests/dependency_policy.rs`
+# checks that mechanically so the drift cannot go unnoticed.
+uom = { version = "0.38.0", default-features = false, features = ["autoconvert", "f64", "si"], optional = true }
+
+[dev-dependencies]
+approx.workspace = true
+# `libm` is a dev-dependency as well as a dependency so the V&V tests can call
+# it DIRECTLY. `petir::real::{exp, ln, powf}` route to the ARM
+# optimized-routines ports, so comparing a fast port against `petir::real`
+# would compare it with itself; the cross-check has to reach the musl-derived
+# implementation by name to stay an independent second opinion.
+libm.workspace = true
+
 [features]
-default = []
+default = ["transfer-fn"]
+# Continuous and discrete transfer functions (the `transfer_fn` module). Pulls
+# in no_std `uom` for sample times and signal ratios. Turn it off for a
+# units-free, uom-free numerics core.
+transfer-fn = ["dep:uom"]
 # Opt in to std only for downstream convenience (e.g. std::error::Error).
 # The library itself must keep compiling and passing without it.
 std = []
@@ -34,13 +83,3 @@ std = []
 # recorded before the ports were adopted. See `mathf`'s module docs for the
 # full rules, and never enable it in a workspace-wide build.
 platform-libm = ["std"]
-
-[dev-dependencies]
-# The GSL cross-check example needs std (file IO). The library stays no_std.
-#
-# `libm` is a dev-dependency as well as a dependency so the V&V tests can call
-# it DIRECTLY. `petir::real::{exp, ln, powf}` now route to the ARM
-# optimized-routines ports, so comparing a fast port against `petir::real`
-# would compare it with itself; the cross-check has to reach the musl-derived
-# implementation by name to stay an independent second opinion.
-libm.workspace = true
