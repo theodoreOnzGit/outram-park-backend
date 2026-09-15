@@ -56,11 +56,24 @@
 //! standard error of the two pooled means. Three, not one: a V&V gate that fires
 //! on ordinary statistical fluctuation trains people to ignore it.
 //!
-//! # Results
+//! # Results (2026-09-15, 8 seeds per arm, ENDF/B-VIII.0)
 //!
-//! Filled in by the run; see the printed table. This program asserts the
-//! agreement rather than printing it, per this crate's "oracle examples assert
-//! their comparison" rule.
+//! | arm | k_mean | sd (pcm) | sem (pcm) | Δk vs ICSBEP |
+//! |---|---|---|---|---|
+//! | surface | 1.00273 | 143 | 50 | +273 pcm |
+//! | delta (Woodcock) | 1.00283 | 148 | 52 | +283 pcm |
+//!
+//! **surface − delta = −10 ± 73 pcm (0.1 sigma).** The two methods agree
+//! essentially exactly, and both agree with the crate's 16-seed surface
+//! ensemble (`+247 ± 43 pcm`).
+//!
+//! That result carries weight beyond this gate. `outram-mc-libs` sits
+//! `+250 ± 51 pcm` above OpenMC on identical nuclear data
+//! (`verification_and_validation/openmc_godiva_cross_code/`), and because the
+//! two tracking methods agree here, that offset is **common to both** — which
+//! rules out a boundary-crossing bug, a flight-sampling bug, or a defective
+//! majorant, and points at the physics they share: cross-section lookup,
+//! reaction partition, and secondary energy-angle sampling.
 //!
 //! # Scope
 //!
