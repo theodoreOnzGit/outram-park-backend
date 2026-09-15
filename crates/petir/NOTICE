@@ -243,22 +243,64 @@ PRIOR ART IN RUST — ACKNOWLEDGEMENT
   AND WHERE THEY GO FURTHER THAN PETIR, which matters just as much:
 
     - roots solves QUARTIC and BIQUADRATIC polynomials in closed form.
-      PETIR stops at the cubic (`poly/{linear,quadratic,cubic}_eqn.rs`) and
-      has no quartic solver at all. If you need one, that crate has it and
-      this one does not.
+      PETIR had no quartic solver at all until 2026-09-15, when this gap was
+      closed by PORTING theirs -- see the derivation section below. The rest
+      of that crate (its numerical bracketing and polishing solvers) remains
+      unported; PETIR's equivalents come from GSL.
     - peroxide carries eigenvalue decomposition, sparse matrices, automatic
       differentiation, a dataframe and a statistics layer. PETIR has none of
       these and no plan to acquire them.
 
-  TO BE PRECISE ABOUT WHAT THIS IS AND IS NOT. This is an acknowledgement of
-  prior art, NOT a statement of derivation. **No code in PETIR is copied from,
-  translated from, or derived from either crate.** Every routine here traces to
-  the upstream named in its own file header -- GSL, ARM optimized-routines,
+  DERIVATION FROM `roots` -- ONE MODULE, AND IT IS A REAL LICENCE OBLIGATION.
+
+    src/poly/quartic.rs  is DERIVED FROM the `roots` crate, version 0.0.8.
+                         Copyright (c) 2015, Mikhail Vorotilov. BSD-2-Clause.
+
+  Ported on 2026-09-15 from these files under that crate's `src/analytical/`:
+  `quartic.rs`, `quartic_depressed.rs`, `biquadratic.rs`, `cubic_normalized.rs`,
+  `quadratic.rs`, `linear.rs` and `roots.rs`. The arithmetic is unchanged; what
+  changed is specialisation to `f64`, removal of upstream's one `panic!`,
+  removal of slice subscripts, and routing `sqrt`/`cbrt`/`acos`/`cos` through
+  `crate::real::Real` because `core` has none of them. The full BSD-2-Clause
+  notice is retained in that file's header, as source redistribution requires,
+  and the per-deviation reasoning is recorded there too.
+
+  BSD-2-Clause into GPL-3.0-only is a ONE-WAY flow. That file may not be
+  contributed back to `roots` under its original licence without Mikhail
+  Vorotilov's agreement, and the same applies to anything derived from it here.
+
+  EVERYTHING ELSE IN PETIR IS NOT DERIVED FROM EITHER CRATE. Outside
+  `src/poly/quartic.rs`, no code here is copied from, translated from, or
+  derived from `roots` or from `peroxide`; every other routine traces to the
+  upstream named in its own file header -- GSL, ARM optimized-routines,
   OpenFOAM by way of outram-foam-basic-lib, or the GNU Octave control package
   by way of chem-eng -- and `tests/verbatim_provenance.rs` and the code-to-code
   reference sets under `reference-data/` are what hold that claim to account.
-  Neither peroxide nor roots is a dependency of PETIR, and no licence
-  obligation to either arises from this crate.
+
+  NEITHER CRATE IS A DEPENDENCY. The quartic was ported, not linked, so
+  `Cargo.toml` names neither; the obligation above is a source-redistribution
+  obligation, not a dependency one. Nothing is owed to peroxide at all -- the
+  overlap table above is prior art and nothing more.
+
+  WHY PORT ONLY THE QUARTIC, when both crates overlap PETIR much more widely
+  than that. Two different answers.
+
+    peroxide is ruled out by its dependencies, not by its licence. It pulls
+    `blas`, `blas-src`, `lapack`, `lapack-src`, `netcdf`, `arrow`, `csv` and
+    `json` across its feature set. PETIR's crate rules forbid anything that
+    brings system BLAS/LAPACK, a C or Fortran toolchain, `std`, threads, or an
+    allocator beyond `alloc`, and the workspace Android rule forbids them
+    again. There is no configuration of peroxide that PETIR could consume or
+    port wholesale.
+
+    roots is ruled in on licence and dependencies -- it has no dependencies at
+    all -- but re-porting the routines PETIR already has would DESTROY its
+    verification evidence. PETIR's maturity rests on bit-identity with GSL 2.8
+    compiled and executed: five of seven numerics surfaces agree with it
+    exactly, every iterate. `roots`' Brent is not GSL's Brent, so swapping it
+    in would break every one of those comparisons by construction, and buy no
+    capability. The quartic is the one place where a port is additive: it fills
+    a documented gap, replaces nothing, and disturbs no reference set.
 
   It is recorded because credit for solving a problem first is not contingent
   on someone else having used your solution, and because a reader comparing

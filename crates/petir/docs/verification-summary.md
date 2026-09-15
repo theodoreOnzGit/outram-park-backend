@@ -73,6 +73,8 @@ the evaluation.
 | `fast_exp`, `fast_log`, `fast_pow` | ARM optimized-routines | **100% bit-identical** | `fast_*_vs_arm_optimized_routines.rs` |
 | the 19 verbatim lifts | `outram-foam-basic-lib` (OpenFOAM), `chem-eng` (GNU Octave) | byte-identical after documented `std`→`core` substitutions, 0 allowed deviations on 17 of 19 | `verbatim_provenance.rs` |
 | `specfunc::inc_gamma` vs `gamma_inc` | two independent lineages within PETIR | agree to 4.82e-10 | `incomplete_gamma_cross_check.rs` |
+| `poly::quartic` | the `roots` crate 0.0.8 (Mikhail Vorotilov, BSD-2-Clause) | upstream's own assertions replayed and passing; worst scaled residual **3.655e-18** over 7 quartics | `poly::quartic::tests` |
+| `poly::quartic::roots_cubic` vs `poly::cubic_eqn` | two independent closed-form cubics, from `roots` and from OpenFOAM | agree to **1.554e-15** over 5 cubics | `poly::quartic::tests` |
 
 ## Deviations from upstream, deliberate and pinned
 
@@ -102,6 +104,14 @@ the argument for doing them.
    returns `petir::Result`.
 
 ## What is NOT covered
+
+- **The quartic has no reference-code comparison**, because there is nothing to
+  compare it against: GSL's `poly/` carries `solve_quadratic.c` and
+  `solve_cubic.c` and stops there, solving higher degrees numerically by
+  balanced QR on the companion matrix (`zsolve.c`) instead. Its evidence is
+  therefore upstream's own test assertions, a residual check, and cross-code
+  agreement between the two independent cubics PETIR now carries — not the
+  compiled-binary comparison the GSL surfaces above have.
 
 - **No published-benchmark comparison.** Nothing here is validation.
 - **Six modules are ported from GSL but exercise only part of its surface** —

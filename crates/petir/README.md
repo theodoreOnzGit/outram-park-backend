@@ -61,7 +61,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, and rectangular Householder **QR with least-squares solve** |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 | `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
-| `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders |
+| `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders (OpenFOAM), and a closed-form **quartic** and biquadratic (the `roots` crate — see Prior art) |
 | `roots` | ported | Bracketing (bisection, false position, Brent) and derivative-based (Newton, secant, Steffenson) root finders, with GSL's three convergence tests |
 | `specfunc`, `expint`, `gamma_inc` | ported + lifted + delegated | Error-function family including the scaled `erfcx`, gamma family with GSL's Padé branches at the zeros, incomplete gamma and its inverse, exponential integral `E_1` |
 | `transfer_fn` | ported | Continuous and discrete SISO transfer functions, `c2d` / `d2c`, and the O(1) fixed-state recurrence blocks |
@@ -237,24 +237,47 @@ crates got here earlier:
   sparse matrices, automatic differentiation and a dataframe that PETIR has
   no equivalent for.
 - **[roots](https://github.com/vorot/roots)** (BSD-2-Clause) by Mikhail
-  Vorotilov — closed-form polynomial solvers **up to quartic**, where PETIR
-  stops at the cubic, and the bracketed iterative finders.
+  Vorotilov — closed-form polynomial solvers **up to quartic**, and the
+  bracketed iterative finders.
 
 The newest work here overlaps them most directly: the QR, the least-squares
 path and the Chebyshev machinery are ground peroxide had already covered.
 Arriving at the same place later by a different route is not discovery, and
 both crates were early to this in Rust when the ecosystem was still thin.
 
-**No code in PETIR is copied from, translated from, or derived from either.**
-Every routine traces to the upstream in its own file header, and
-`tests/verbatim_provenance.rs` plus the code-to-code reference sets hold that
-claim to account. Neither is a dependency of PETIR. The full acknowledgement,
-including a module-by-module overlap table, is in
-[`NOTICE`](NOTICE).
+### One module is genuinely derived from `roots`
 
-PETIR exists alongside them because it is `no_std` unconditionally and carries
-provenance to a specific upstream commit for every routine — constraints
-particular to this workspace, not deficiencies in either crate.
+`src/poly/quartic.rs` **is a port of `roots` 0.0.8**, done on 2026-09-15 —
+`find_roots_quartic` and the `quartic_depressed`, `biquadratic`,
+`cubic_normalized`, `quadratic`, `linear` and `Roots` files it recurses
+through. Mikhail Vorotilov's copyright and the full BSD-2-Clause notice are in
+that file's header, where source redistribution requires them. BSD-2-Clause
+into GPL-3.0-only is **one-way**: that code cannot flow back to `roots` under
+its original licence without its author's agreement.
+
+Outside that one file, **no code in PETIR is copied from, translated from, or
+derived from either crate.** Every other routine traces to the upstream in its
+own file header, and `tests/verbatim_provenance.rs` plus the code-to-code
+reference sets hold that claim to account. Neither crate is a *dependency* —
+the quartic was ported, not linked.
+
+**Why only the quartic, when the overlap is far wider.** peroxide is ruled out
+by its dependencies rather than its licence: it pulls `blas`, `lapack`,
+`netcdf`, `arrow` and more across its feature set, and PETIR's rules forbid
+anything bringing system BLAS/LAPACK, a C or Fortran toolchain, `std` or
+threads. `roots` is dependency-free and could be ported further — but PETIR's
+maturity rests on **bit-identity with GSL 2.8 compiled and run**, and `roots`'
+Brent is not GSL's Brent, so re-porting the routines PETIR already has would
+break every one of those comparisons by construction for no capability gain.
+The quartic is the one place where a port is additive: it fills a documented
+gap and replaces nothing that is verified.
+
+PETIR otherwise exists alongside them because it is `no_std` unconditionally
+and carries provenance to a specific upstream commit for every routine —
+constraints particular to this workspace, not deficiencies in either crate.
+
+The full acknowledgement, including a module-by-module overlap table and the
+derivation record, is in [`NOTICE`](NOTICE).
 
 ## Licence
 

@@ -35,6 +35,32 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
+### One non-GSL port exists, and it was a maintainer-approved exception
+
+`src/poly/quartic.rs` is ported from the **`roots` crate 0.0.8**
+(Mikhail Vorotilov, BSD-2-Clause), not from GSL — added 2026-09-15 at the
+maintainer's direction ("port from them and make it official, put their names
+and contributions in the source"). GSL has no closed-form quartic to port:
+`poly/` stops at `solve_cubic.c`.
+
+Two things about it bind future work:
+
+- **BSD-2-Clause into GPL-3.0-only is one-way.** That file carries the full
+  upstream notice and Vorotilov's copyright in its header, as source
+  redistribution requires. Do not strip either, and do not contribute anything
+  derived from it back to `roots` without its author's agreement.
+- **Do not widen this into the GSL-verified modules.** `roots` also has
+  bracketing and polishing solvers that overlap `crate::roots`, but this
+  crate's maturity rests on bit-identity with compiled GSL — five of seven
+  numerics surfaces agree exactly, every iterate. `roots`' Brent is not GSL's
+  Brent, so re-porting would break those comparisons by construction for no
+  capability gain. The quartic was additive; a second port of an already-
+  verified routine would not be, and needs the maintainer, not an agent.
+
+`peroxide` is separately ruled out, on dependencies rather than licence: it
+pulls `blas`/`lapack`/`netcdf`/`arrow` across its feature set, which the
+"Dependencies" section below forbids outright. Do not revisit that one.
+
 ### The three lineages, and saying which one you are in
 
 Every module declares itself as **ported**, **lifted verbatim**, or
