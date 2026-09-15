@@ -66,9 +66,7 @@ pub mod units;
 
 pub use heat_exchanger::{hx_wall_temperature, HeatExchanger};
 pub use heat_source::{explicit_heat_source, wall_heat_flux, PassiveStructure};
-pub use nuclear_steady_state_pebble::{
-    PebbleConductivities, PebbleGeometry, PebbleTemperatures,
-};
+pub use nuclear_steady_state_pebble::{PebbleConductivities, PebbleGeometry, PebbleTemperatures};
 pub use power_model::{FixedPower, FixedTemperature, PowerModel};
 pub use power_off::{FieldReduction, PowerOffCriterion, ThresholdDirection};
 pub use pump::Pump;

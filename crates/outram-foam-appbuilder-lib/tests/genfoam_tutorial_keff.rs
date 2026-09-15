@@ -39,18 +39,19 @@
 //! **Compared:** the eigenvalue of the reference-state multigroup diffusion
 //! problem on upstream's mesh, against upstream's published `expectedKeff`.
 //!
-//! **NOT compared:** upstream's `expectedKeff` is produced by its full coupled
-//! `steadyStateEN` run — a thermal-hydraulic steady state first, then the
-//! neutronics eigenvalue with cross sections evaluated at the *converged* field
-//! temperatures and densities, not at the nominal reference state. These tests
-//! evaluate at the reference state, because the port has no coupled
-//! multi-region driver wired to a case. The gap between the two is a physical
-//! feedback effect, not a numerical error, and each test states the measured
-//! size of that gap rather than hiding it in a loose tolerance.
+//! **NOT compared:** the port has no coupled multi-region driver wired to a
+//! case, so it does not *produce* upstream's converged thermal-hydraulic state —
+//! it is handed that state (per cell, from upstream's own written fields) and
+//! asked for the eigenvalue. What is verified is the neutronics path, given the
+//! state; the thermal-hydraulic path that produces the state is verified
+//! separately (`genfoam_gfhr_pebble_vs_upstream`, `genfoam_psbt_closures`).
+//! Tests that additionally evaluate at the nominal *reference* state report that
+//! number too, and state the measured size of the feedback gap rather than
+//! hiding it in a loose tolerance.
 //!
 //! This is therefore a **verification of the neutronics path against an
 //! independently-produced reference**, not a reproduction of upstream's coupled
-//! result. It is not validation against experiment.
+//! result end to end. It is not validation against experiment.
 //!
 //! # Running
 //!
@@ -67,17 +68,35 @@
 //!
 //! # Results (measured 2026-09-15)
 //!
+//! Upstream has since been **built and run here** (OpenFOAM v2506 + GeN-Foam
+//! `652b3da`), so the comparison is now against runs taken on this machine, each
+//! of which first reproduced the tutorial's own `Alltest` reference. Every
+//! number below is at upstream's own converged feedback state, with upstream's
+//! own boundary conditions.
+//!
 //! | case | port | upstream | difference |
 //! |---|---|---|---|
-//! | ESFR, reference state, upstream's own zero-flux boundary | 0.944987 | 0.936827 | **+871 pcm**, correct sign for negative SFR feedback |
-//! | MSFR, vacuum lower bound | 0.958444 | 0.960283 | −191 pcm |
-//! | MSFR, reflective upper bound | 1.075834 | 0.960283 | +12 033 pcm |
+//! | ESFR, upstream's converged state | 0.937442 | 0.936873 | **+60.7 pcm** |
+//! | **MSFR, as the tutorial ships it** | **0.960314** | **0.960312** | **+0.2 pcm** |
+//! | MSFR, precursor drift suppressed on both sides | 0.962032 | 0.962019 | +1.4 pcm |
 //!
-//! Upstream's MSFR value falls **inside** the port's leakage bracket, which is
-//! the strongest statement available while the `albedoSP3` boundary the case
-//! actually uses is unimplemented. Full methodology, interpretation and the
-//! wrong answer that the wedge-patch treatment fixed are in each test's own doc
-//! comment.
+//! The MSFR case was **+787.8 pcm** adrift before 2026-09-15. Bisecting it
+//! against upstream — by disabling, one at a time and in upstream itself, the
+//! cross-section parametrisation, the precursor drift and the albedo boundary —
+//! split it into three independent parts, two of which were port defects (the
+//! Laplacian's delta coefficient, 609 pcm; the albedo weight that shared it) and
+//! one of which was unported physics (circulating-fuel precursor drift,
+//! 178 pcm). See [`msfr_keff_against_upstream_with_per_cell_cross_sections`] for
+//! the bisection and
+//! [`msfr_keff_against_upstream_with_precursor_drift`] for the drift.
+//!
+//! The port's leakage bracket — MSFR with a vacuum boundary (0.950415) and with
+//! a reflective one (1.075834) — is kept as
+//! [`msfr_reference_state_keff_brackets_upstream`]. It is no longer the
+//! strongest available statement, now that the `albedoSP3` boundary is
+//! implemented and agrees exactly, but both ends are themselves verified against
+//! upstream runs with the same boundary imposed (0.950409 and 1.075830), which
+//! makes it a check on the operator's two limiting cases.
 //!
 //! Not covered here: `3D_gFHR` and `1D_PSBT_SC`, whose upstream references are
 //! thermal-hydraulic (`Tfmax`, subchannel conditions) rather than `k_eff`, and
@@ -88,7 +107,7 @@ use std::process::Command;
 use std::sync::Arc;
 
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
-    DiffusionNeutronics, DiffusionSettings,
+    DiffusionNeutronics, DiffusionSettings, PrecursorTransport,
 };
 use outram_foam_appbuilder_lib::genfoam::neutronics::albedo::AlbedoLinearisation;
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
@@ -161,6 +180,95 @@ struct Solved {
     converged: bool,
 }
 
+/// Read a per-cell feedback-state fixture: one row per cell, the `xsVariables`
+/// in declaration order, `#` comments and a header line skipped.
+fn read_cell_state(path: &Path, n_cells: usize) -> Vec<f64> {
+    let csv = std::fs::read_to_string(path)
+        .unwrap_or_else(|e| panic!("read the cell-state fixture {}: {e}", path.display()));
+    let mut cells = Vec::new();
+    let mut n_vars = 0usize;
+    for line in csv.lines() {
+        if line.starts_with('#') || line.trim().is_empty() {
+            continue;
+        }
+        if line
+            .split(',')
+            .next()
+            .is_some_and(|f| f.parse::<f64>().is_err())
+        {
+            n_vars = line.split(',').count();
+            continue;
+        }
+        for field in line.split(',') {
+            cells.push(field.parse::<f64>().expect("a numeric fixture field"));
+        }
+    }
+    assert_eq!(
+        cells.len(),
+        n_cells * n_vars,
+        "fixture should cover every cell"
+    );
+    cells
+}
+
+/// Read upstream's own precursor-transport fields for the MSFR case.
+///
+/// `alpha` and `diffCoeffPrec` come from
+/// `tests/data/genfoam_msfr_precursor_cells.csv`, the face flux `phi` from
+/// `tests/data/genfoam_msfr_precursor_phi.csv`. Both are harvested from an
+/// upstream run that reproduced the tutorial's own `expectedKeff`; see the
+/// files' own headers for provenance.
+///
+/// The two `wedge` planes are not in the fixture — an axisymmetric symmetry
+/// plane carries no flux, and upstream's own values there are machine zero — so
+/// they are filled with zeros.
+fn read_precursor_transport(mesh: &Arc<FvMesh>, data_dir: &Path) -> PrecursorTransport {
+    let cells = std::fs::read_to_string(data_dir.join("genfoam_msfr_precursor_cells.csv"))
+        .expect("read the MSFR precursor cell fixture");
+    let (mut alpha, mut diffusivity) = (Vec::new(), Vec::new());
+    for line in cells.lines() {
+        if line.starts_with('#') || line.starts_with("alpha,") || line.trim().is_empty() {
+            continue;
+        }
+        let mut it = line.split(',');
+        alpha.push(it.next().unwrap().parse::<f64>().unwrap());
+        diffusivity.push(it.next().unwrap().parse::<f64>().unwrap());
+    }
+    assert_eq!(alpha.len(), mesh.n_cells, "alpha fixture vs mesh");
+
+    let phi_csv = std::fs::read_to_string(data_dir.join("genfoam_msfr_precursor_phi.csv"))
+        .expect("read the MSFR precursor phi fixture");
+    let mut phi_internal = vec![0.0; mesh.n_internal_faces];
+    let mut phi_boundary: Vec<Vec<f64>> = mesh.patches.iter().map(|p| vec![0.0; p.size]).collect();
+    let mut seen_internal = 0usize;
+    for line in phi_csv.lines() {
+        if line.starts_with('#') || line.starts_with("section,") || line.trim().is_empty() {
+            continue;
+        }
+        let mut it = line.split(',');
+        let section = it.next().unwrap();
+        let index: usize = it.next().unwrap().parse().unwrap();
+        let value: f64 = it.next().unwrap().parse().unwrap();
+        if section == "internal" {
+            phi_internal[index] = value;
+            seen_internal += 1;
+        } else {
+            let p = mesh
+                .patches
+                .iter()
+                .position(|p| p.name == section)
+                .unwrap_or_else(|| panic!("mesh has no `{section}` patch"));
+            phi_boundary[p][index] = value;
+        }
+    }
+    assert_eq!(
+        seen_internal, mesh.n_internal_faces,
+        "phi fixture does not cover every internal face"
+    );
+
+    PrecursorTransport::new(mesh, alpha, phi_internal, phi_boundary, diffusivity)
+}
+
 /// Run the full chain on one staged neutronics region.
 ///
 /// `flux_boundary` is upstream's own condition for the case; both tutorials here
@@ -190,7 +298,7 @@ fn solve_at_state(
     albedo_patches: &[(&str, f64)],
     overrides: &[(&str, f64)],
 ) -> Solved {
-    solve_full(region, outer, albedo_patches, overrides, None)
+    solve_full(region, outer, albedo_patches, overrides, None, None)
 }
 
 /// As [`solve_at_state`], but with `per_cell` giving each cell its own feedback
@@ -202,6 +310,7 @@ fn solve_full(
     albedo_patches: &[(&str, f64)],
     overrides: &[(&str, f64)],
     per_cell: Option<&[f64]>,
+    drift: Option<&Path>,
 ) -> Solved {
     let mesh: Arc<FvMesh> =
         read_poly_mesh(&region.join("polyMesh")).expect("read the upstream polyMesh");
@@ -254,6 +363,9 @@ fn solve_full(
             tolerance: 1e-12,
             max_iter: 50_000,
         },
+        // GeN-Foam's neutroRegion `fvSchemes` asks for `Gauss linear
+        // uncorrected`, i.e. OpenFOAM's `nonOrthDeltaCoeffs`.
+        ..DiffusionSettings::default()
     };
 
     let mut solver = match per_cell {
@@ -277,6 +389,9 @@ fn solve_full(
             .position(|p| p.name == *name)
             .unwrap_or_else(|| panic!("mesh has no `{name}` patch"));
         solver.set_albedo_boundary(idx, *gamma, AlbedoLinearisation::CellValue);
+    }
+    if let Some(data_dir) = drift {
+        solver.set_precursor_drift(read_precursor_transport(&mesh, data_dir));
     }
 
     let report = solver.solve_eigenvalue().expect("eigenvalue solve");
@@ -517,13 +632,34 @@ fn msfr_reference_state_keff_brackets_upstream() {
     );
 }
 
-/// **V&V — MSFR: `k_eff` with upstream's own albedo boundary conditions.**
+/// **V&V — MSFR: the `albedoSP3` boundary condition against upstream, run here,
+/// with every other difference switched off.**
 ///
 /// ## Methodology
 ///
-/// The same mesh, cross sections and reference state as
-/// [`msfr_reference_state_keff_brackets_upstream`], now posed with the boundary
-/// conditions upstream's `0/neutroRegion/defaultFlux` actually specifies:
+/// The boundary condition is the only thing under test, so everything that could
+/// confound it is removed from **both** sides rather than argued about:
+///
+/// | confounder | how it is removed |
+/// |---|---|
+/// | cross-section feedback | upstream's `xsVariables` dictionary emptied, so every zone uses its `reference` data verbatim; the port is evaluated at the reference state, which its RBF reproduces exactly |
+/// | circulating-fuel precursor drift | upstream's `controlDict` set to `liquidFuel false`, which is the `chi_eff` collapse the port implements |
+/// | thermal-hydraulic coupling | both runs start from the tutorial's own converged `t = 165 s` fields |
+///
+/// What is left is one multigroup diffusion eigenvalue problem, posed on the
+/// same mesh with the same numbers, differing only in whose boundary condition
+/// implementation evaluates it. Reproduce the upstream side with:
+///
+/// ```bash
+/// cp -r $GENFOAM/Tutorials/reactorCases/2D_MSFR/steadyStateEN/165  case/0
+/// cp -r $GENFOAM/Tutorials/reactorCases/2D_MSFR/steadyStateEN/{constant,system} case/
+/// # system/controlDict:            liquidFuel false;  startTime 0;  endTime 200;
+/// # constant/neutroRegion/nuclearData:  xsVariables { }
+/// GeN-Foam            # -> 0.973858 in 200/uniform/reactorState
+/// ```
+///
+/// The boundary conditions themselves are upstream's own, read off
+/// `0/neutroRegion/defaultFlux`:
 ///
 /// | patch | upstream | here |
 /// |---|---|---|
@@ -531,64 +667,42 @@ fn msfr_reference_state_keff_brackets_upstream() {
 /// | `topwall`, `bottomwall`, `reflector` | `albedoSP3`, `gamma 0.1` | albedo, `gamma = 0.1` |
 /// | `hx` | `albedoSP3`, **`gamma 0.5`** | albedo, `gamma = 0.5` |
 ///
-/// The `hx` patch is vacuum-valued, not 0.1 like the other three — worth calling
-/// out because assuming a single `gamma` for the whole boundary is the obvious
-/// mistake, and one this test made before the dictionary was read in full.
-///
-/// The albedo condition is a port of upstream's `albedoSP3` verified against
-/// upstream's own coefficient functions, using
-/// [`AlbedoLinearisation::CellValue`] — upstream's `gradientInternalCoeffs()`
-/// returns `-gamma/D` against the *cell* value, with no face-value closure. See
-/// `genfoam::neutronics::albedo`.
-///
-/// ## What this does and does not settle
-///
-/// The boundary treatment is now upstream's, so the **spatial neutronics** —
-/// mesh, cross sections, zone map, diffusion operator, boundary conditions,
-/// power iteration — is posed identically. What remains different is the
-/// **state at which the cross sections are evaluated**: upstream's
-/// `expectedKeff` comes from its coupled `steadyStateEN` stage, where the salt
-/// has heated under 20 MW against a heat exchanger held at 900 K, so its cross
-/// sections sit at the converged `TFuel`/`rhoCool`; this test evaluates at the
-/// nominal reference state (`TFuel 900 K`, `rhoCool 4125 kg/m3`), because the
-/// port has no coupled thermal-hydraulic driver to produce the fed-back state.
-///
-/// **That is a real gap and this test does not paper over it.** Two things are
-/// asserted, both from upstream's own data and neither fitted to the answer:
-///
-/// 1. **Sign.** The MSFR's feedbacks are negative, so upstream's coupled value
-///    must fall *below* the reference-state value. If the port came out below
-///    upstream, no amount of feedback could explain it.
-/// 2. **Magnitude.** The gap must be within the span the case's own perturbed
-///    states can produce — see
-///    [`msfr_reactivity_coefficients_from_upstreams_perturbed_states`], which
-///    bounds it at `k(TFuel 1500 K, rhoCool 3419) = 0.923777`.
-///
-/// Closing the remaining gap to a direct equality needs the coupled TH solve
-/// (pump, buoyancy, turbulence, the `fixedTemperature` heat exchanger) and the
-/// circulating-fuel precursor drift the README mentions. Tracked under
-/// `op-2df1`.
+/// The `hx` patch is vacuum-valued, not `0.1` like the other three — worth
+/// calling out because assuming a single `gamma` for the whole boundary is the
+/// obvious mistake, and one this test made before the dictionary was read in
+/// full. [`AlbedoLinearisation::CellValue`] is used because upstream's
+/// `gradientInternalCoeffs()` returns `-gamma/D` against the *cell* value, with
+/// no face-value closure.
 ///
 /// ## Results (measured 2026-09-15)
 ///
-/// | quantity | value |
-/// |---|---|
-/// | `k_eff`, port, reference state, upstream's boundaries | **0.979508** |
-/// | `k_eff`, upstream coupled `expectedKeff` | 0.960283 |
-/// | difference | **+2002 pcm** |
-/// | port at `TFuel 1500 K` | 0.960741 |
-/// | port at `TFuel 1500 K` + `rhoCool 3419` | 0.923777 |
+/// | boundary condition | port | upstream, run here | difference |
+/// |---|---|---|---|
+/// | `albedoSP3`, per-patch gamma | **0.973858** | **0.973858** | **0.0 pcm** |
+/// | `fixedValue 0` (vacuum) | 0.950415 | 0.950409 | +0.6 pcm |
+/// | `zeroGradient` (reflective) | 1.075834 | 1.075830 | +0.4 pcm |
 ///
-/// The measured feedback coefficients are **−3.32 pcm/K** in `TFuel` and
-/// **+5.28 pcm per kg/m3** in `rhoCool`. A +2002 pcm gap is therefore what a
-/// core running some 600 K above the 900 K cold leg produces, or a smaller
-/// temperature rise combined with the density drop that accompanies it — both
-/// physically ordinary for this case, and neither verifiable from here.
+/// All three agree to better than 1 pcm, across a 12 500 pcm span of leakage.
+/// That is what makes this a verification of the *operator* and not of one
+/// tuned case: a coefficient error would have to be invisible at both limits
+/// and in between.
 ///
-/// For scale: swapping the boundary from a blanket `fixedValue 0` to upstream's
-/// actual albedo moved `k_eff` by **+2106 pcm** (0.958444 to 0.979508), so the
-/// boundary condition ported here is worth about as much as the entire
-/// remaining discrepancy.
+/// ## The defect this found
+///
+/// It did not always agree. The albedo weight is a `mixed` fraction
+/// `w = gamma_albedo * delta / D`, which the Laplacian multiplies by
+/// `D |Sf| / delta_laplacian` — so the diagonal contribution is
+/// `gamma_albedo |Sf| * delta / delta_laplacian`, and it equals upstream's
+/// `gamma_albedo |Sf|` **only when those two deltas are the same length**.
+/// While `fvm::laplacian` divided by `|d|` and the albedo weight also used
+/// `|d|`, they cancelled by accident. Fixing the Laplacian to OpenFOAM's
+/// `nonOrthDeltaCoeffs` broke the cancellation and cost -185 pcm until the
+/// albedo was made to ask the Laplacian for its delta
+/// ([`DeltaCoeff::boundary_delta`]) instead of recomputing one.
+///
+/// The general lesson, worth more than the number: two places computing "the
+/// distance to the face" independently is a latent bug even when they agree,
+/// because nothing makes them keep agreeing.
 #[test]
 fn msfr_keff_with_upstreams_albedo_boundary() {
     let root = require_upstream!();
@@ -597,6 +711,11 @@ fn msfr_keff_with_upstreams_albedo_boundary() {
         println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
         return;
     };
+
+    // Upstream GeN-Foam, built and run here, with the parametrisation and the
+    // precursor drift switched off so only the boundary condition differs.
+    // See the doc comment above for the exact case set-up.
+    const UPSTREAM_REF_STATE: f64 = 0.973858;
 
     // Per-patch gamma, read off upstream's own 0/neutroRegion/defaultFlux.
     let s = solve_with_albedo(
@@ -610,24 +729,19 @@ fn msfr_keff_with_upstreams_albedo_boundary() {
         ],
     );
 
-    let expected = 0.960283;
-    let pcm = report("MSFR (2D_MSFR) — upstream's albedo boundary", &s, expected);
+    let pcm = report(
+        "MSFR (2D_MSFR) — upstream's albedo boundary",
+        &s,
+        UPSTREAM_REF_STATE,
+    );
 
     assert!(s.converged, "the power iteration did not converge");
     assert!(
-        pcm > 0.0,
-        "the reference-state k_eff ({:.6}) is BELOW upstream's coupled value \
-         ({expected}). The MSFR's feedbacks are negative, so no fed-back state \
-         can raise k above the reference one — the discrepancy cannot be \
-         feedback and is a defect somewhere in the neutronics.",
-        s.k_eff
-    );
-    // The fully-perturbed state of the case's own data is the floor; upstream's
-    // converged state lies between it and the reference state.
-    assert!(
-        s.k_eff > expected && expected > 0.923777,
-        "upstream's k_eff is outside the feedback span [0.923777, {:.6}] the \
-         case's own perturbed states allow",
+        pcm.abs() < 5.0,
+        "the port's albedoSP3 boundary gives k_eff = {:.6} where upstream gives \
+         {UPSTREAM_REF_STATE:.6} on the identical problem ({pcm:+.2} pcm). With \
+         the parametrisation and the precursor drift switched off on both sides, \
+         nothing but the boundary condition can account for a difference.",
         s.k_eff
     );
 }
@@ -935,9 +1049,61 @@ fn esfr_keff_against_upstream_run_at_its_converged_state() {
 /// in `xsVariables` order) from the run that reproduced the tutorial's
 /// `expectedKeff` to +2.8 pcm.
 ///
+/// ## The like-for-like reference is upstream's **drift-off** run
+///
+/// The MSFR tutorial sets `liquidFuel true`, so upstream transports the delayed
+/// precursors — it solves an advection-diffusion equation for each precursor
+/// group (`neutronics/include/precEq.H`) and feeds the resulting
+/// `delayedNeutroSource` into the flux equation. This port instead collapses to
+/// `chi_eff = chi_p (1 - beta) + chi_d beta`, which is **exactly** upstream's
+/// `liquidFuel false` branch, so that is the run this test is judged against.
+///
+/// Both upstream runs were taken here, from the tutorial's own converged state
+/// at t = 165 s, changing nothing but that one switch:
+///
+/// | upstream configuration | `k_eff` |
+/// |---|---|
+/// | `liquidFuel true` (as shipped) | **0.960312** |
+/// | `liquidFuel false` (what this test compares against) | **0.962019** |
+/// | worth of precursor drift | **-177.8 pcm** |
+///
+/// Drift has since been ported
+/// ([`msfr_keff_against_upstream_with_precursor_drift`], +0.2 pcm against the
+/// as-shipped value), but this test deliberately leaves it **off**: with drift
+/// suppressed on both sides it isolates the diffusion operator, the albedo
+/// boundaries and the cross-section parametrisation from the transport model, so
+/// a regression in either half lands on a different test. The +179 pcm gap to
+/// the as-shipped value that it reports is therefore expected, and is asserted
+/// to equal the measured worth of drift rather than being waved away.
+///
 /// ## Results (measured 2026-09-15)
 ///
-/// See the printed report.
+/// | | port | upstream | difference |
+/// |---|---|---|---|
+/// | per-cell XS, drift off | **0.962032** | 0.962019 | **+1.4 pcm** |
+/// | per-cell XS, vs as-shipped | 0.962032 | 0.960312 | +179.1 pcm (= the drift) |
+///
+/// +1.4 pcm on a 6-group, 8595-cell, 4-zone eigenvalue problem with per-cell
+/// feedback and four albedo patches is a code-to-code agreement, not a
+/// characterisation.
+///
+/// ## What this number cost, and the two defects it exposed
+///
+/// It was **+787.8 pcm** before 2026-09-15. Bisecting it against upstream — by
+/// disabling, one at a time, the cross-section parametrisation (empty
+/// `xsVariables`), the precursor drift (`liquidFuel false`) and the albedo
+/// boundary (`fixedValue 0` / `zeroGradient`) in upstream itself — split it into
+/// three independent parts and found two real port defects:
+///
+/// | part | worth | cause |
+/// |---|---|---|
+/// | operator | 609 pcm | `fvm::laplacian` divided by `\|d\|` where OpenFOAM's `uncorrected` scheme divides by `n . d` (`nonOrthDeltaCoeffs`). Fixed: [`DeltaCoeff::NonOrthogonal`]. |
+/// | albedo weight | (inside the above) | the Robin weight used a different distance from the Laplacian, so `gamma_albedo` no longer cancelled to `gamma \|Sf\|`. Fixed by sharing one delta. |
+/// | precursor drift | 178 pcm | unported physics; since ported — [`msfr_keff_against_upstream_with_precursor_drift`]. |
+/// | parametrisation | 14 pcm | already correct; the RBF port moves `k_eff` by -1201 pcm against upstream's -1215 pcm. |
+///
+/// The bisection is reproducible: each row is an upstream run with one switch
+/// flipped, not an inference.
 #[test]
 fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
     let root = require_upstream!();
@@ -947,7 +1113,12 @@ fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
         return;
     };
 
-    const UPSTREAM_KEFF: f64 = 0.96031;
+    // Upstream, run here from the tutorial's own converged t = 165 s state.
+    // `AS_SHIPPED` is `liquidFuel true`, i.e. with circulating-fuel precursor
+    // drift; `DRIFT_OFF` is the same case with that one switch flipped, which is
+    // the model this port implements (see the doc comment above).
+    const UPSTREAM_AS_SHIPPED: f64 = 0.960312;
+    const UPSTREAM_DRIFT_OFF: f64 = 0.962019;
     const UP_TFUEL_MEAN: f64 = 1037.4605;
     const UP_RHOCOOL_MEAN: f64 = 4011.5951;
 
@@ -979,6 +1150,7 @@ fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
         &albedo,
         &[("TFuel", UP_TFUEL_MEAN), ("rhoCool", UP_RHOCOOL_MEAN)],
         None,
+        None,
     );
     let per_cell = solve_full(
         &region,
@@ -986,19 +1158,27 @@ fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
         &albedo,
         &[],
         Some(&cells),
+        None,
     );
 
-    let pcm = |a: f64| 1.0e5 * (a - UPSTREAM_KEFF) / UPSTREAM_KEFF;
-    let mean_pcm = pcm(at_mean.k_eff);
-    let cell_pcm = pcm(per_cell.k_eff);
+    let pcm = |a: f64, b: f64| 1.0e5 * (a - b) / b;
+    let mean_pcm = pcm(at_mean.k_eff, UPSTREAM_DRIFT_OFF);
+    let cell_pcm = pcm(per_cell.k_eff, UPSTREAM_DRIFT_OFF);
+    let shipped_pcm = pcm(per_cell.k_eff, UPSTREAM_AS_SHIPPED);
+    let drift_worth = pcm(UPSTREAM_AS_SHIPPED, UPSTREAM_DRIFT_OFF);
 
     println!(
         "\n=== MSFR: per-cell cross sections vs upstream GeN-Foam run ===\n\
-         \tupstream k_eff                    = {UPSTREAM_KEFF:.6}\n\
-         \tport @ upstream's MEAN state      k = {:.6}  ({mean_pcm:+.1} pcm)\n\
-         \tport @ upstream's PER-CELL state  k = {:.6}  ({cell_pcm:+.1} pcm)\n\
+         \tupstream, liquidFuel false (what the port models) = {UPSTREAM_DRIFT_OFF:.6}\n\
+         \tupstream, liquidFuel true  (as shipped)           = {UPSTREAM_AS_SHIPPED:.6}\n\
+         \t  -> precursor drift is worth {drift_worth:+.1} pcm (op-exma)\n\
          \t--\n\
-         \tper-cell evaluation closed a further {:.0} pcm",
+         \tport @ upstream's MEAN state      k = {:.6}  ({mean_pcm:+.1} pcm vs drift-off)\n\
+         \tport @ upstream's PER-CELL state  k = {:.6}  ({cell_pcm:+.1} pcm vs drift-off)\n\
+         \t  per-cell evaluation closed a further {:.0} pcm\n\
+         \t--\n\
+         \tport vs the as-shipped tutorial value: {shipped_pcm:+.1} pcm,\n\
+         \t  which is the missing drift and nothing else.",
         at_mean.k_eff,
         per_cell.k_eff,
         mean_pcm.abs() - cell_pcm.abs(),
@@ -1010,5 +1190,161 @@ fn msfr_keff_against_upstream_with_per_cell_cross_sections() {
         "evaluating per cell ({cell_pcm:+.1} pcm) should beat evaluating at the \
          mean ({mean_pcm:+.1} pcm) — the logarithmic TFuel law makes the mean of \
          the cross sections differ from the cross section at the mean"
+    );
+    // The verification claim. Judged against upstream's `liquidFuel false` run,
+    // which is the model this port implements, at upstream's own per-cell state
+    // and with upstream's own albedo patches. 25 pcm is a quarter of upstream's
+    // own 0.001 relative tutorial tolerance.
+    assert!(
+        cell_pcm.abs() < 25.0,
+        "port and upstream differ by {cell_pcm:+.1} pcm at the same state and the \
+         same physics (upstream with liquidFuel false, k = {UPSTREAM_DRIFT_OFF:.6})"
+    );
+    // And the gap to the as-shipped tutorial value is accounted for: it is the
+    // precursor drift, to within the tolerance above. If this ever fails, either
+    // drift landed (op-exma) — update both constants — or a second, unexplained
+    // term has appeared.
+    assert!(
+        (shipped_pcm + drift_worth).abs() < 25.0,
+        "the gap to upstream's as-shipped value ({shipped_pcm:+.1} pcm) no longer \
+         equals the measured worth of precursor drift ({:+.1} pcm); something \
+         other than drift is now in play",
+        -drift_worth
+    );
+}
+
+/// **V&V — MSFR: `k_eff` against upstream *as the tutorial ships*, with
+/// circulating-fuel precursor drift.**
+///
+/// ## What this closes
+///
+/// [`msfr_keff_against_upstream_with_per_cell_cross_sections`] matched upstream
+/// run with `liquidFuel false` to +1.4 pcm, and named the one remaining
+/// difference: the tutorial actually runs with `liquidFuel true`, so upstream
+/// transports its delayed-neutron precursors and the port did not. That was
+/// worth a measured −177.8 pcm. This test turns drift on and compares against
+/// the value the tutorial ships.
+///
+/// ## Methodology
+///
+/// Everything is upstream's own, from the run that reproduced the tutorial's
+/// `expectedKeff` (0.960283) to +3.0 pcm:
+///
+/// | input | source |
+/// |---|---|
+/// | mesh, cross sections, zone map | `Tutorials/reactorCases/2D_MSFR/rootCase` |
+/// | per-cell `TFuel` / `rhoCool` | `tests/data/genfoam_msfr_cell_state.csv` |
+/// | `alpha`, `diffCoeffPrec` | `tests/data/genfoam_msfr_precursor_cells.csv` |
+/// | face flux `phi = fvc::flux(U alpha)` | `tests/data/genfoam_msfr_precursor_phi.csv` |
+/// | boundary conditions | `0/neutroRegion/defaultFlux` (`albedoSP3`, 0.1 / 0.5) |
+///
+/// The last three are `NO_WRITE` in upstream. Harvesting them needed those five
+/// `IOobject`s flipped to `AUTO_WRITE` in the upstream clone — a diagnostic
+/// change with no physics in it, and one verified as such: the harvest run
+/// returned `keff = 0.960312`, identical to the same case built without it.
+///
+/// What the port still supplies itself is the whole neutronics: the diffusion
+/// operator, the albedo boundaries, the cross-section parametrisation, the
+/// precursor transport equation and the power iteration. It is handed the
+/// thermal-hydraulic *state* because it has no coupled multi-region driver;
+/// it is not handed any part of the answer.
+///
+/// ## Results (measured 2026-09-15)
+///
+/// | | `k_eff` | vs upstream as shipped |
+/// |---|---|---|
+/// | upstream, `liquidFuel true` (as shipped) | 0.960312 | — |
+/// | port, drift **off** | 0.962032 | +179.1 pcm |
+/// | **port, drift on** | see the printed report | |
+///
+/// The assertion is 25 pcm, a quarter of upstream's own 0.001 relative
+/// tolerance for this tutorial.
+///
+/// ## What this is not
+///
+/// Verification, not validation. Both codes are being compared to each other on
+/// the same idealised 2-D axisymmetric model; neither is being compared to a
+/// measurement. The MSFR tutorial is itself a demonstration case, not a
+/// benchmark with a published reference `k_eff`.
+#[test]
+fn msfr_keff_against_upstream_with_precursor_drift() {
+    let root = require_upstream!();
+    let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
+    let Some(region) = stage_region(&case, "neutroRegion", "msfr_drift") else {
+        println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
+        return;
+    };
+    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+
+    // Upstream, run here. `AS_SHIPPED` is the tutorial's own configuration.
+    const UPSTREAM_AS_SHIPPED: f64 = 0.960312;
+    const UPSTREAM_DRIFT_OFF: f64 = 0.962019;
+
+    let cells = read_cell_state(&data.join("genfoam_msfr_cell_state.csv"), 8595);
+    let albedo = [
+        ("topwall", 0.1),
+        ("bottomwall", 0.1),
+        ("reflector", 0.1),
+        ("hx", 0.5),
+    ];
+
+    let without = solve_full(
+        &region,
+        BoundaryCondition::ZeroGradient,
+        &albedo,
+        &[],
+        Some(&cells),
+        None,
+    );
+    let with = solve_full(
+        &region,
+        BoundaryCondition::ZeroGradient,
+        &albedo,
+        &[],
+        Some(&cells),
+        Some(&data),
+    );
+
+    let pcm = |a: f64, b: f64| 1.0e5 * (a - b) / b;
+    let off_pcm = pcm(without.k_eff, UPSTREAM_AS_SHIPPED);
+    let on_pcm = pcm(with.k_eff, UPSTREAM_AS_SHIPPED);
+    let port_drift = pcm(with.k_eff, without.k_eff);
+    let upstream_drift = pcm(UPSTREAM_AS_SHIPPED, UPSTREAM_DRIFT_OFF);
+
+    println!(
+        "\n=== MSFR: circulating-fuel precursor drift vs upstream ===\n\
+         \tupstream, as shipped (liquidFuel true) = {UPSTREAM_AS_SHIPPED:.6}\n\
+         \tupstream, liquidFuel false             = {UPSTREAM_DRIFT_OFF:.6}\n\
+         \t--\n\
+         \tport, drift off  k = {:.6}  ({off_pcm:+.1} pcm)\n\
+         \tport, drift ON   k = {:.6}  ({on_pcm:+.1} pcm)\n\
+         \t--\n\
+         \tworth of drift: port {port_drift:+.1} pcm, upstream {upstream_drift:+.1} pcm\n\
+         \t  (difference {:+.1} pcm)",
+        without.k_eff,
+        with.k_eff,
+        port_drift - upstream_drift,
+    );
+
+    assert!(with.converged, "the power iteration did not converge");
+    assert!(
+        port_drift < 0.0,
+        "drift raised k_eff by {port_drift:+.1} pcm. Circulating fuel carries \
+         precursors from the high-importance core towards lower-importance \
+         regions, so it must lower k_eff; upstream measures {upstream_drift:+.1} pcm."
+    );
+    // The verification claim: the port reproduces the tutorial's own k_eff.
+    assert!(
+        on_pcm.abs() < 25.0,
+        "port k_eff = {:.6} against upstream's {UPSTREAM_AS_SHIPPED:.6} \
+         ({on_pcm:+.1} pcm), outside the 25 pcm bar",
+        with.k_eff
+    );
+    // And the drift term itself agrees, not just the total — a compensating
+    // pair of errors would pass the line above but not this one.
+    assert!(
+        (port_drift - upstream_drift).abs() < 25.0,
+        "the port makes drift worth {port_drift:+.1} pcm where upstream makes it \
+         {upstream_drift:+.1} pcm"
     );
 }

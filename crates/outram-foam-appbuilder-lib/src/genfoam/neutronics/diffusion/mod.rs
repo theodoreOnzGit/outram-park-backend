@@ -96,13 +96,16 @@ mod tests;
 
 use std::sync::Arc;
 
-use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField};
+use outram_foam_basic_lib::prelude::{
+    fvm::DeltaCoeff, BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
+};
 
 use crate::genfoam::neutronics::state::NeutronicsState;
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::neutronics::NeutronicsError;
 
 pub use fields::DiffusionXsFields;
+pub use precursor_drift::PrecursorTransport;
 
 /// Convergence and linear-solver controls for a diffusion solve.
 ///
@@ -119,6 +122,16 @@ pub struct DiffusionSettings {
     pub max_outer_iterations: usize,
     /// Inner linear-solver settings (one group solve).
     pub linear: SolverSettings,
+    /// Which face-distance coefficient the flux Laplacian divides by.
+    ///
+    /// GeN-Foam's neutronics regions ship
+    /// `laplacianSchemes { default Gauss linear uncorrected; }`, so the faithful
+    /// setting — and the default here — is
+    /// [`DeltaCoeff::NonOrthogonal`](outram_foam_basic_lib::prelude::fvm::DeltaCoeff::NonOrthogonal),
+    /// OpenFOAM's `nonOrthDeltaCoeffs`. On an orthogonal mesh the two choices
+    /// coincide; on the `2D_MSFR` tutorial mesh the orthogonal one under-states
+    /// the leakage by 580 pcm.
+    pub delta_coeff: DeltaCoeff,
 }
 
 impl Default for DiffusionSettings {
@@ -131,6 +144,7 @@ impl Default for DiffusionSettings {
                 tolerance: 1e-9,
                 max_iter: 2000,
             },
+            delta_coeff: DeltaCoeff::NonOrthogonal,
         }
     }
 }
@@ -162,6 +176,12 @@ pub struct DiffusionNeutronics {
     state: NeutronicsState,
     xs: DiffusionXsFields,
     settings: DiffusionSettings,
+    /// Circulating-fuel precursor transport, when the fuel moves.
+    ///
+    /// `None` is stationary fuel (GeN-Foam's `liquidFuel false`), where the
+    /// delayed source collapses into `chi_eff`. `Some` is `liquidFuel true`;
+    /// set it with [`Self::set_precursor_drift`].
+    drift: Option<PrecursorTransport>,
 }
 
 impl DiffusionNeutronics {
@@ -250,6 +270,7 @@ impl DiffusionNeutronics {
             state,
             xs: xs_fields,
             settings,
+            drift: None,
         })
     }
 
@@ -319,12 +340,42 @@ impl DiffusionNeutronics {
                     gamma,
                     &self.xs.d[g],
                     linearisation,
+                    self.settings.delta_coeff,
                 )
             })
             .collect();
         for (g, field) in self.state.flux_mut().iter_mut().enumerate() {
             field.boundary[patch_index] = patches[g].clone();
         }
+    }
+
+    /// Turn on **circulating-fuel precursor drift** — GeN-Foam's
+    /// `liquidFuel true`.
+    ///
+    /// With this set, [`Self::solve_eigenvalue`] transports each delayed-neutron
+    /// precursor group through the moving fuel and sources the delayed neutrons
+    /// where the precursors have actually reached, instead of assuming they
+    /// decay where they were born. See
+    /// [`precursor_drift`] for the equation, the reduction to the stationary
+    /// case, and the measured worth on the MSFR tutorial.
+    ///
+    /// Call it before solving. Passing the fields for a stationary fuel (zero
+    /// `phi`, zero diffusivity) is allowed and reproduces the `chi_eff`
+    /// collapse, but is wasted work — leave it unset instead.
+    ///
+    /// # Note
+    ///
+    /// Only the eigenvalue solve honours this. [`Self::step`] (the transient)
+    /// still uses the `chi_eff` collapse, because the transient precursor
+    /// equation keeps a time derivative this does not yet carry.
+    pub fn set_precursor_drift(&mut self, transport: PrecursorTransport) {
+        self.drift = Some(transport);
+    }
+
+    /// The circulating-fuel precursor transport fields, if set.
+    #[must_use]
+    pub fn precursor_drift(&self) -> Option<&PrecursorTransport> {
+        self.drift.as_ref()
     }
 
     /// The shared neutronics state (flux, precursors, power density, `k_eff`).
@@ -473,4 +524,5 @@ impl WithInternal for VolScalarField {
 }
 
 mod eigenvalue;
+pub mod precursor_drift;
 mod transient;

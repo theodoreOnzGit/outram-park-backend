@@ -109,6 +109,7 @@
 use outram_foam_basic_lib::fields::boundary::bc::{BoundaryCondition, PatchField};
 use outram_foam_basic_lib::fields::field::Field;
 use outram_foam_basic_lib::fields::VolScalarField;
+use outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff;
 use outram_foam_basic_lib::mesh::FvMesh;
 
 /// Which linearisation of the albedo condition to assemble.
@@ -230,6 +231,7 @@ pub fn albedo_patch_field(
     gamma: f64,
     diffusion_coefficient: &VolScalarField,
     linearisation: AlbedoLinearisation,
+    delta_coeff: DeltaCoeff,
 ) -> PatchField<f64> {
     assert!(
         gamma.is_finite() && gamma >= 0.0,
@@ -246,7 +248,19 @@ pub fn albedo_patch_field(
         .map(|fi| {
             let gf = patch.start + fi;
             let owner = mesh.owner[gf];
-            let delta = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+            // MUST be the same length the Laplacian divides this face by.
+            //
+            // Upstream's contribution is `gamma_albedo |Sf|` outright — its
+            // `gradientInternalCoeffs() = -gamma_albedo/D` carries no delta, and
+            // the `D` cancels against the `gammaMagSf = D |Sf|` the Laplacian
+            // multiplies it by. Here the same term is reached as
+            // `w * (D |Sf| / delta_laplacian)` with `w = gamma_albedo delta/D`,
+            // so it only reduces to `gamma_albedo |Sf|` when this `delta` is
+            // *that* `delta_laplacian`. Using the Euclidean `|Cf - C_P|` while
+            // the Laplacian uses the patch-normal projection over-states the
+            // leakage by `1/cos(theta)` -- worth -185 pcm on the `2D_MSFR`
+            // tutorial, whose top and bottom walls sit at cos(theta) = 0.64.
+            let delta = delta_coeff.boundary_delta(mesh, gf);
             let d = diffusion_coefficient.internal[owner];
             if !(d > 0.0) {
                 return 1.0;

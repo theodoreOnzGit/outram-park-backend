@@ -138,8 +138,11 @@ impl Sp3Neutronics {
                 let rhs1_field = with_values(self.template(), rhs1);
                 {
                     let phi0 = &self.flux_star[gg];
-                    let eqn = fvm::laplacian(&xs.base.d_face[gg], phi0)
-                        + fvm::sp(&xs.base.sigma_removal[gg], phi0)
+                    let eqn = fvm::laplacian_with_delta(
+                        &xs.base.d_face[gg],
+                        phi0,
+                        self.settings.delta_coeff,
+                    ) + fvm::sp(&xs.base.sigma_removal[gg], phi0)
                         - fvm::su(&rhs1_field, phi0);
                     let (sol, _perf) = eqn.solve_cg_with_guess(
                         format!("fluxStar{gg}"),
@@ -157,8 +160,11 @@ impl Sp3Neutronics {
                 let rhs2_field = with_values(self.template(), rhs2);
                 {
                     let phi2f = &self.flux_star2[gg];
-                    let eqn = fvm::laplacian(&xs.d2_face[gg], phi2f)
-                        + fvm::sp(&xs.second_moment_removal[gg], phi2f)
+                    let eqn = fvm::laplacian_with_delta(
+                        &xs.d2_face[gg],
+                        phi2f,
+                        self.settings.delta_coeff,
+                    ) + fvm::sp(&xs.second_moment_removal[gg], phi2f)
                         - fvm::su(&rhs2_field, phi2f);
                     let (sol, _perf) = eqn.solve_cg_with_guess(
                         format!("fluxStar2{gg}"),

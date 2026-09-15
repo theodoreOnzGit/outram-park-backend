@@ -51,7 +51,22 @@
 //! convention (pass `k = 1` for physical transients).
 //!
 //! Both a steady solve (for eigenvalue outer iterations) and a
-//! backward-Euler transient step are provided. Spatial discretisation is
+//! backward-Euler transient step are provided.
+//!
+//! # A second implementation of this equation exists in the workspace
+//!
+//! `outram-foam-appbuilder-lib`'s
+//! `genfoam::neutronics::diffusion::precursor_drift` solves the same balance
+//! from GeN-Foam's `precEq.H`. It is **not** a duplicate by oversight: it
+//! carries a fluid volume fraction `alpha` (solving for `C* = C/alpha`, because
+//! `alpha` is discontinuous across a zone boundary), takes `beta`, `lambda` and
+//! the diffusivity as per-cell fields rather than scalars, and is verified
+//! code-to-code against upstream GeN-Foam on the `2D_MSFR` tutorial. This one is
+//! still an untrusted draft with no human V&V.
+//!
+//! **Do not change one without looking at the other**, and do not assume this
+//! module is the more trustworthy of the two — today it is not. Whether to
+//! converge them is a maintainer decision, filed as a bead. Spatial discretisation is
 //! first-order upwind for advection (`fvm::div`) and Gauss-orthogonal for
 //! diffusion (`fvm::laplacian`); the asymmetric system is solved with
 //! Gauss-Seidel, which converges because decay plus upwinding keep the

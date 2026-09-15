@@ -24,6 +24,123 @@ use crate::fields::surface_field::SurfaceScalarField;
 use crate::fields::vol_field::VolScalarField;
 use crate::ldu_matrix::fv_matrix::FvMatrix;
 use crate::mesh::fv_mesh::PatchKind;
+use crate::primitives::Vector3;
+
+/// OpenFOAM's floor on `n . d` as a fraction of `|d|`, guarding the division at
+/// extreme non-orthogonality
+/// (`basicFvGeometryScheme::nonOrthDeltaCoeffs`, OpenFOAM v2506).
+const NON_ORTH_FLOOR: f64 = 0.05;
+
+/// Which face-to-face distance the Laplacian divides by — OpenFOAM's choice of
+/// `deltaCoeffs` versus `nonOrthDeltaCoeffs`.
+///
+/// This selects the **implicit** coefficient only. It says nothing about the
+/// explicit deferred correction, which lives in
+/// [`laplacian_corrected`](super::laplacian_corrected) and is orthogonal to this
+/// choice. Together the two reproduce OpenFOAM's three `snGradSchemes` entries:
+///
+/// | OpenFOAM `snGradSchemes` | `DeltaCoeff` | explicit correction |
+/// |---|---|---|
+/// | `orthogonal` | [`Orthogonal`](Self::Orthogonal) | none |
+/// | `uncorrected` | [`NonOrthogonal`](Self::NonOrthogonal) | none |
+/// | `corrected` | [`NonOrthogonal`](Self::NonOrthogonal) | full (`laplacian_corrected`) |
+///
+/// # Why the distinction matters
+///
+/// `uncorrected` is **not** "the orthogonal scheme". It still projects the
+/// cell-to-cell vector onto the face normal; it merely drops the explicit term.
+/// Treating the two as the same under-estimates every face conductance by
+/// `1/cos(theta)`, `theta` being the face's non-orthogonality angle — silently,
+/// and with no residual to reveal it. Measured on the GeN-Foam `2D_MSFR`
+/// neutronics mesh (whose `fvSchemes` asks for `uncorrected`), that is 1.7 % on
+/// the interior faces and up to 12 % on the boundary patches, worth **+580 pcm**
+/// in `k_eff`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DeltaCoeff {
+    /// `1/|d|` — OpenFOAM's `deltaCoeffs`, exact only on an orthogonal mesh.
+    ///
+    /// The **default**, so that every existing caller keeps its behaviour
+    /// bit-for-bit.
+    #[default]
+    Orthogonal,
+    /// `1/max(n . d, 0.05 |d|)` — OpenFOAM's `nonOrthDeltaCoeffs`, the
+    /// projection of the cell-to-cell vector onto the face normal.
+    ///
+    /// On a boundary face OpenFOAM first replaces `d = Cf - C_P` by its
+    /// patch-normal component `n (n . d)` (`fvPatch::delta()`), which makes the
+    /// coefficient `1/(n . d)` there.
+    NonOrthogonal,
+}
+
+impl DeltaCoeff {
+    /// The distance `[m]` this scheme divides by on **internal** face `face`.
+    ///
+    /// The reciprocal is OpenFOAM's `deltaCoeffs`/`nonOrthDeltaCoeffs` entry for
+    /// that face. Exposed so a caller that builds its own boundary or face
+    /// coefficient can divide by exactly the same length the Laplacian does —
+    /// a Robin condition whose weight uses a different one is silently wrong by
+    /// `1/cos(theta)`.
+    #[must_use]
+    pub fn interior_delta(self, mesh: &crate::mesh::fv_mesh::FvMesh, face: usize) -> f64 {
+        interior_delta(
+            self,
+            mesh.face_area_vectors[face],
+            mesh.cell_centres[mesh.neighbour[face]] - mesh.cell_centres[mesh.owner[face]],
+            mesh.face_areas[face],
+        )
+    }
+
+    /// The distance `[m]` this scheme divides by on **boundary** face `face`
+    /// (a global face index, `patch.start + i`).
+    ///
+    /// See [`Self::interior_delta`] for why a caller would want this.
+    #[must_use]
+    pub fn boundary_delta(self, mesh: &crate::mesh::fv_mesh::FvMesh, face: usize) -> f64 {
+        boundary_delta(
+            self,
+            mesh.face_area_vectors[face],
+            mesh.face_centres[face] - mesh.cell_centres[mesh.owner[face]],
+            mesh.face_areas[face],
+        )
+    }
+}
+
+/// The interior-face distance the Laplacian divides by, per `mode`.
+///
+/// `d` is the owner-to-neighbour vector `[m]`, `sf` the face area vector
+/// `[m^2]`. Returns the effective distance `[m]`, never negative.
+fn interior_delta(mode: DeltaCoeff, sf: Vector3, d: Vector3, area: f64) -> f64 {
+    match mode {
+        DeltaCoeff::Orthogonal => d.mag(),
+        DeltaCoeff::NonOrthogonal => {
+            if area < 1.0e-300 {
+                return d.mag();
+            }
+            let n_hat = sf * (1.0 / area);
+            n_hat.dot(d).max(NON_ORTH_FLOOR * d.mag())
+        }
+    }
+}
+
+/// The boundary-face distance the Laplacian divides by, per `mode`.
+///
+/// `d` is the owner-cell-centre-to-face-centre vector `[m]`. For
+/// [`DeltaCoeff::NonOrthogonal`] this mirrors `fvPatch::delta()` followed by
+/// `nonOrthDeltaCoeffs`: the vector is first projected onto the patch normal, so
+/// the result is `max(n . d, 0.05 |n . d|)`.
+fn boundary_delta(mode: DeltaCoeff, sf: Vector3, d: Vector3, area: f64) -> f64 {
+    match mode {
+        DeltaCoeff::Orthogonal => d.mag(),
+        DeltaCoeff::NonOrthogonal => {
+            if area < 1.0e-300 {
+                return d.mag();
+            }
+            let n_hat = sf * (1.0 / area);
+            let p = n_hat.dot(d);
+            p.max(NON_ORTH_FLOOR * p.abs())
+        }
+    }
+}
 
 /// Implicit Gauss-orthogonal Laplacian: assembles the matrix for `−∇·(Γ∇φ)`.
 ///
@@ -65,14 +182,44 @@ use crate::mesh::fv_mesh::PatchKind;
 /// reduces exactly to the plain cyclic seam. Mirrors
 /// `Foam::cyclicAMIFvPatchField` + `src/meshTools/AMIInterpolation/...`.
 pub fn laplacian(gamma: &SurfaceScalarField, phi: &VolScalarField) -> FvMatrix {
+    laplacian_with_delta(gamma, phi, DeltaCoeff::Orthogonal)
+}
+
+/// [`laplacian`] with an explicit choice of face-distance coefficient.
+///
+/// `mode` picks between OpenFOAM's `deltaCoeffs` and `nonOrthDeltaCoeffs` — see
+/// [`DeltaCoeff`] for the mapping onto OpenFOAM's `snGradSchemes`. Everything
+/// else (sign convention, boundary-condition arms, cyclic and cyclicAMI seam
+/// couplings) is exactly as documented on [`laplacian`], which is this function
+/// called with [`DeltaCoeff::Orthogonal`].
+///
+/// Pass [`DeltaCoeff::NonOrthogonal`] to reproduce a case whose `fvSchemes`
+/// asks for `uncorrected` — every GeN-Foam neutronics case does.
+///
+/// # Seam couplings are not covered
+///
+/// Cyclic and cyclicAMI seams keep the orthogonal `1/|d|` treatment whatever
+/// `mode` says: OpenFOAM's coupled patches override `delta()` with a form this
+/// port does not yet implement, so silently applying the projection there would
+/// be a guess rather than a port. Do not rely on `mode` at a periodic seam.
+pub fn laplacian_with_delta(
+    gamma: &SurfaceScalarField,
+    phi: &VolScalarField,
+    mode: DeltaCoeff,
+) -> FvMatrix {
     let mesh = phi.mesh.clone();
     let mut mat = FvMatrix::new(mesh.clone());
 
-    // Internal faces: Gauss orthogonal
+    // Internal faces: Gauss, with the delta coefficient `mode` selects.
     for f in 0..mesh.n_internal_faces {
         let o = mesh.owner[f];
         let n = mesh.neighbour[f];
-        let delta = (mesh.cell_centres[n] - mesh.cell_centres[o]).mag();
+        let delta = interior_delta(
+            mode,
+            mesh.face_area_vectors[f],
+            mesh.cell_centres[n] - mesh.cell_centres[o],
+            mesh.face_areas[f],
+        );
         if delta < 1e-300 {
             continue;
         }
@@ -93,7 +240,12 @@ pub fn laplacian(gamma: &SurfaceScalarField, phi: &VolScalarField) -> FvMatrix {
         for fi in 0..patch.size {
             let gf = patch.start + fi;
             let owner = mesh.owner[gf];
-            let d = (mesh.face_centres[gf] - mesh.cell_centres[owner]).mag();
+            let d = boundary_delta(
+                mode,
+                mesh.face_area_vectors[gf],
+                mesh.face_centres[gf] - mesh.cell_centres[owner],
+                mesh.face_areas[gf],
+            );
             if d < 1e-300 {
                 continue;
             }
@@ -778,5 +930,125 @@ mod tests {
                 cc.weight_sum()
             );
         }
+    }
+
+    /// A sheared mesh whose faces are not perpendicular to the cell-to-cell
+    /// vector: two unit cells side by side in `x`, but the second cell's centre
+    /// displaced in `y` so that `d` leans away from the face normal by a known
+    /// angle. Every face normal stays along `+x`.
+    ///
+    /// With `dy` the lean, `cos(theta) = 0.5/|d|` on the internal face and
+    /// `0.25/|Cf - C_P|` on each boundary face.
+    fn sheared_mesh(dy: f64) -> Arc<crate::mesh::fv_mesh::FvMesh> {
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![0.5, 0.5])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, dy, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_areas(vec![1.0, 1.0, 1.0])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .expect("sheared mesh"),
+        )
+    }
+
+    /// On an orthogonal mesh the two delta schemes are the same length, so the
+    /// matrices are bit-identical. This is what lets `DeltaCoeff::Orthogonal`
+    /// stay the default without changing any orthogonal-mesh result.
+    #[test]
+    fn the_two_delta_schemes_agree_on_an_orthogonal_mesh() {
+        let mesh = sheared_mesh(0.0);
+        let gamma = uniform_gamma(mesh.clone(), 1.0);
+        let phi = VolScalarField::uniform("phi", mesh.clone(), 0.0);
+        let a = laplacian_with_delta(&gamma, &phi, DeltaCoeff::Orthogonal);
+        let b = laplacian_with_delta(&gamma, &phi, DeltaCoeff::NonOrthogonal);
+        for c in 0..mesh.n_cells {
+            assert_eq!(a.ldu.diag[c], b.ldu.diag[c], "diagonal differs at cell {c}");
+        }
+        assert_eq!(a.ldu.upper[0], b.ldu.upper[0]);
+    }
+
+    /// The whole point of the distinction: on a sheared mesh the non-orthogonal
+    /// scheme divides by the *projection* `n . d`, which is shorter than `|d|`,
+    /// so its conductance is larger by exactly `1/cos(theta)`.
+    #[test]
+    fn the_non_orthogonal_delta_is_larger_by_one_over_cos_theta() {
+        let dy = 0.5; // 45 degrees on the internal face
+        let mesh = sheared_mesh(dy);
+        let d = mesh.cell_centres[1] - mesh.cell_centres[0];
+        let cos_theta = 0.5 / d.mag();
+        assert!((cos_theta - 1.0 / 2.0_f64.sqrt()).abs() < 1e-12);
+
+        assert!((DeltaCoeff::Orthogonal.interior_delta(&mesh, 0) - d.mag()).abs() < 1e-14);
+        assert!((DeltaCoeff::NonOrthogonal.interior_delta(&mesh, 0) - 0.5).abs() < 1e-14);
+
+        let gamma = uniform_gamma(mesh.clone(), 1.0);
+        let phi = VolScalarField::uniform("phi", mesh.clone(), 0.0);
+        let a = laplacian_with_delta(&gamma, &phi, DeltaCoeff::Orthogonal);
+        let b = laplacian_with_delta(&gamma, &phi, DeltaCoeff::NonOrthogonal);
+        assert!(
+            (b.ldu.upper[0] / a.ldu.upper[0] - 1.0 / cos_theta).abs() < 1e-12,
+            "expected the conductance ratio to be 1/cos(theta) = {:.6}, got {:.6}",
+            1.0 / cos_theta,
+            b.ldu.upper[0] / a.ldu.upper[0]
+        );
+    }
+
+    /// The boundary face is projected onto the *patch normal* first
+    /// (`fvPatch::delta()`), so its delta is `n . (Cf - C_P)` — here exactly
+    /// `0.25`, independent of how far the cell centre has slid along the wall.
+    #[test]
+    fn the_boundary_delta_is_the_patch_normal_projection() {
+        for dy in [0.0, 0.25, 0.5, 1.0] {
+            let mesh = sheared_mesh(dy);
+            // Patch 1 ("left"), global face 2: owner cell 0, centre (0.25, 0, 0),
+            // face centre (0, 0, 0), outward normal -x. n . (Cf - C_P) = 0.25.
+            let got = DeltaCoeff::NonOrthogonal.boundary_delta(&mesh, 2);
+            assert!(
+                (got - 0.25).abs() < 1e-14,
+                "dy = {dy}: boundary delta {got}, expected 0.25"
+            );
+        }
+        // Cell 1's centre slides along the "right" wall as dy grows, so the
+        // Euclidean distance grows while the normal projection does not.
+        let mesh = sheared_mesh(0.5);
+        assert!((DeltaCoeff::NonOrthogonal.boundary_delta(&mesh, 1) - 0.25).abs() < 1e-14);
+        let euclid = (mesh.face_centres[1] - mesh.cell_centres[1]).mag();
+        assert!((DeltaCoeff::Orthogonal.boundary_delta(&mesh, 1) - euclid).abs() < 1e-14);
+        assert!(euclid > 0.5, "the Euclidean distance should have grown");
+    }
+
+    /// `laplacian` is `laplacian_with_delta(.., Orthogonal)` — asserted rather
+    /// than assumed, because every existing caller depends on it.
+    #[test]
+    fn the_default_laplacian_is_the_orthogonal_scheme() {
+        let mesh = sheared_mesh(0.5);
+        let gamma = uniform_gamma(mesh.clone(), 2.0);
+        let phi = VolScalarField::uniform("phi", mesh.clone(), 0.0);
+        let a = laplacian(&gamma, &phi);
+        let b = laplacian_with_delta(&gamma, &phi, DeltaCoeff::Orthogonal);
+        for c in 0..mesh.n_cells {
+            assert_eq!(a.ldu.diag[c], b.ldu.diag[c]);
+        }
+        assert_eq!(DeltaCoeff::default(), DeltaCoeff::Orthogonal);
     }
 }

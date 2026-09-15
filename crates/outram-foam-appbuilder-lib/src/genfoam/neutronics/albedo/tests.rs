@@ -6,6 +6,7 @@
 //! Unit tests for the albedo (Robin) boundary condition.
 
 use super::*;
+use outram_foam_basic_lib::fv_operators::fvm::DeltaCoeff;
 use outram_foam_basic_lib::mesh::{BoundaryPatch, FvMeshBuilder, PatchKind};
 use outram_foam_basic_lib::primitives::Vector3;
 use std::sync::Arc;
@@ -87,7 +88,14 @@ fn the_limits_reduce_to_zero_gradient_and_to_fixed_value() {
     let mesh = bar(10, 1.0);
     let d = VolScalarField::uniform("D", mesh.clone(), 1.5e-2);
 
-    let reflector = albedo_patch_field(&mesh, 0, 0.0, &d, AlbedoLinearisation::FaceValue);
+    let reflector = albedo_patch_field(
+        &mesh,
+        0,
+        0.0,
+        &d,
+        AlbedoLinearisation::FaceValue,
+        DeltaCoeff::Orthogonal,
+    );
     assert_eq!(
         weight_of(&reflector),
         vec![0.0],
@@ -96,7 +104,14 @@ fn the_limits_reduce_to_zero_gradient_and_to_fixed_value() {
 
     // gamma -> infinity is the absorbing limit; a large finite value must
     // approach w = 1 from below and never exceed it.
-    let absorbing = albedo_patch_field(&mesh, 0, 1.0e12, &d, AlbedoLinearisation::FaceValue);
+    let absorbing = albedo_patch_field(
+        &mesh,
+        0,
+        1.0e12,
+        &d,
+        AlbedoLinearisation::FaceValue,
+        DeltaCoeff::Orthogonal,
+    );
     let w = weight_of(&absorbing)[0];
     assert!(
         w < 1.0 && w > 1.0 - 1e-9,
@@ -121,6 +136,7 @@ fn the_weight_tracks_the_groups_own_diffusion_coefficient() {
         gamma,
         &fast,
         AlbedoLinearisation::FaceValue,
+        DeltaCoeff::Orthogonal,
     ))[0];
     let w_slow = weight_of(&albedo_patch_field(
         &mesh,
@@ -128,6 +144,7 @@ fn the_weight_tracks_the_groups_own_diffusion_coefficient() {
         gamma,
         &slow,
         AlbedoLinearisation::FaceValue,
+        DeltaCoeff::Orthogonal,
     ))[0];
 
     // delta = dx/2 = 0.05 m for a 10-cell unit bar.
@@ -202,6 +219,7 @@ fn the_discretised_weight_matches_the_analytic_robin_face_value() {
                 gamma,
                 &d,
                 AlbedoLinearisation::FaceValue,
+                DeltaCoeff::Orthogonal,
             ))[0];
             let discretised = (1.0 - w) * phi_c;
             let analytic = phi_c / (1.0 + gamma * delta / d_value);
@@ -223,6 +241,7 @@ fn the_discretised_weight_matches_the_analytic_robin_face_value() {
                 gamma,
                 &d,
                 AlbedoLinearisation::FaceValue,
+                DeltaCoeff::Orthogonal,
             ))[0];
             let analytic = phi_c / (1.0 + gamma * delta / d_value);
             worst_physical = worst_physical.max(((1.0 - w) * phi_c - analytic).abs() / analytic);
@@ -257,7 +276,8 @@ fn a_non_physical_diffusion_coefficient_degrades_to_vacuum() {
             0,
             0.1,
             &zero,
-            AlbedoLinearisation::FaceValue
+            AlbedoLinearisation::FaceValue,
+            DeltaCoeff::Orthogonal,
         )),
         vec![1.0]
     );
@@ -268,7 +288,8 @@ fn a_non_physical_diffusion_coefficient_degrades_to_vacuum() {
             0,
             0.1,
             &negative,
-            AlbedoLinearisation::FaceValue
+            AlbedoLinearisation::FaceValue,
+            DeltaCoeff::Orthogonal,
         )),
         vec![1.0]
     );

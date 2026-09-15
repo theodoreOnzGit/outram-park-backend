@@ -119,7 +119,11 @@ impl Sp3Neutronics {
             {
                 let phi0 = &self.flux_star[gg];
                 let eqn = fvm::ddt_coeff(&xs.base.inv_velocity[gg], phi0, &star_old[gg], dt_s)
-                    + fvm::laplacian(&xs.base.d_face[gg], phi0)
+                    + fvm::laplacian_with_delta(
+                        &xs.base.d_face[gg],
+                        phi0,
+                        self.settings.delta_coeff,
+                    )
                     + fvm::sp(&xs.base.sigma_removal[gg], phi0)
                     - fvm::su(&rhs1_field, phi0);
                 let (sol, _perf) =
@@ -142,7 +146,7 @@ impl Sp3Neutronics {
             {
                 let phi2f = &self.flux_star2[gg];
                 let eqn = fvm::ddt_coeff(&three_iv, phi2f, &star2_old[gg], dt_s)
-                    + fvm::laplacian(&xs.d2_face[gg], phi2f)
+                    + fvm::laplacian_with_delta(&xs.d2_face[gg], phi2f, self.settings.delta_coeff)
                     + fvm::sp(&xs.second_moment_removal[gg], phi2f)
                     - fvm::su(&rhs2_field, phi2f);
                 let (sol, _perf) =

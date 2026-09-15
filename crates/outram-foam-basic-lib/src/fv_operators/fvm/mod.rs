@@ -51,7 +51,7 @@ pub use ddt::{ddt, ddt_coeff};
 pub use ddt_vec::{ddt_coeff_vec, ddt_vec};
 pub use div::div;
 pub use div_vec::div_vec;
-pub use laplacian::laplacian;
+pub use laplacian::{laplacian, laplacian_with_delta, DeltaCoeff};
 pub use laplacian_corrected::{
     laplacian_corrected, max_non_orthogonality_deg, non_ortho_geometry,
     solve_laplacian_non_orthogonal, NonOrthoGeometry, NonOrthoScheme,

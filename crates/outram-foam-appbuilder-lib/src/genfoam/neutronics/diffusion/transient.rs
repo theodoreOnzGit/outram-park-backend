@@ -110,7 +110,7 @@ impl DiffusionNeutronics {
             // group prompt-fission diagonal); the transient time term keeps the
             // diagonal dominant, so warm-started CG applies.
             let eqn = fvm::ddt_coeff(&self.xs.inv_velocity[gg], flux_g, flux_g_old_field, dt_s)
-                + fvm::laplacian(&self.xs.d_face[gg], flux_g)
+                + fvm::laplacian_with_delta(&self.xs.d_face[gg], flux_g, self.settings.delta_coeff)
                 + fvm::sp(&self.xs.sigma_removal[gg], flux_g)
                 - fvm::sp(&cg_nf_field, flux_g)
                 - fvm::su(&q_field, flux_g);
