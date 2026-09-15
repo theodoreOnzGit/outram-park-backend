@@ -132,10 +132,20 @@ Bead status:
 
 ## Verification approach & results
 
+> **See also: [`triso-atops-code-to-code.md`](triso-atops-code-to-code.md)** —
+> an exhaustive **code-to-code** verification of the whole calculation core
+> against the upstream Python (4 547 cases, all 22 pointwise function surfaces
+> plus all 84 nuclide decay constants, added 2026-09-15). That is the primary
+> evidence that the *translation* is faithful; the analytical checks below are
+> the evidence that the *physics* is right. Two deliberate divergences from
+> upstream are documented there.
+
 There is no single published end-to-end benchmark source term in the upstream
 repo or User Manual, so verification (V&V stage: *verified = implemented
 correctly*) is against (a) the NP-MHTGR Arrhenius correlations recomputed
-independently, and (b) the analytical limits of the Booth / breakthrough models.
+independently, (b) the analytical limits of the Booth / breakthrough models,
+and (c) direct execution of the upstream Python over a branch-covering input
+grid (the code-to-code suite linked above).
 
 Results, taken **2026-07-15** against upstream commit `de374c8` (see the doc
 comments in `tests/triso_atops_fork_verification.rs` and the inline
