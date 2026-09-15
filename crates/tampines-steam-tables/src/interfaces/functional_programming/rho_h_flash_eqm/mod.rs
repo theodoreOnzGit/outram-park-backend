@@ -155,6 +155,7 @@ use crate::region_1_subcooled_liquid::{h_tp_1, v_tp_1};
 use crate::region_2_vapour::backward_eqn_ph_2::t_ph_2;
 use crate::region_1_subcooled_liquid::backward_eqn_ph_1::t_ph_1;
 use crate::region_3_single_phase_plus_supercritical_steam::backward_eqn_ph_3::t_ph_flash::t_ph_3;
+use crate::region_3_single_phase_plus_supercritical_steam::intensive_properties::p_rho_t_3;
 use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
 
 #[cfg(test)]
@@ -552,7 +553,7 @@ fn bracket_pressure(rho_si: f64, h: AvailableEnergy) -> Option<(f64, f64, f64, f
 /// [`rho_h_is_within_validity_range`] first if that matters.
 pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
     use crate::backward_eqn_chebyshev_experimental::{
-        p_rho_h_classified, rho_h_region_candidate, RhoHRegion,
+        p_rho_h_in_region, rho_h_region_candidate, RhoHRegion,
     };
     use uom::si::mass_density::kilogram_per_cubic_meter;
 
@@ -587,16 +588,50 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
     // saturation line and fit the departure from it, or fit in a stretched
     // coordinate), which is a different algorithm rather than a better fit.
     // Tracked as a bead; until it exists, these states take the accurate route.
-    let region = rho_h_region_candidate(
+    // ── Region selection: correct the classifier with one exact flash ──────
+    //
+    // `rho_h_region_candidate` is a STATISTICAL classifier and it misfiles
+    // states — the module docs put it around 2.7 % overall and 8.4 % in
+    // Region 4. A misfiled state is not a small error: it is evaluated on the
+    // wrong surface entirely, and it also bypasses whichever carve-out its real
+    // region has.
+    //
+    // Measured on the published tables: 355 degC / 175.701 bar at x = 0.1 is
+    // genuinely **Region 4** and the classifier calls it **Region 3**. It
+    // therefore never reached the bubble-point exclusion at all, and came back
+    // 22.1 % out on pressure and 0.12 out on quality.
+    //
+    // The crate already owns an exact region router, `ph_flash_region`, which
+    // needs a pressure. So: take the classifier's answer, get a provisional
+    // pressure from it, then ask the exact router what region that state really
+    // is, and re-evaluate on the corrected surface. One extra flash (~3.3 us)
+    // buys the branch decision out of the classifier's error budget.
+    let classified = rho_h_region_candidate(
         rho_si,
         h.get::<uom::si::available_energy::kilojoule_per_kilogram>(),
     );
+    let region = {
+        let p_probe = p_rho_h_in_region(classified, rho, h);
+        if ph_is_within_validity_range(p_probe, h) {
+            match ph_flash_region(p_probe, h) {
+                FwdEqnRegion::Region1 => RhoHRegion::Region1,
+                FwdEqnRegion::Region2 => RhoHRegion::Region2,
+                FwdEqnRegion::Region3 => RhoHRegion::Region3,
+                FwdEqnRegion::Region4 => RhoHRegion::Region4,
+                // Region 5 has no `(rho,h)` surface; keep the classifier's view
+                // rather than inventing one.
+                FwdEqnRegion::Region5 => classified,
+            }
+        } else {
+            classified
+        }
+    };
     if matches!(region, RhoHRegion::Region1) {
         // Region 1 is split by a SUB-BOUNDARY rather than handled as one
         // piece. Near the saturation line the density carries no usable
         // pressure information and the fit is hopeless; away from it the fit is
         // fine. See [`region_1_saturated_liquid_snap`].
-        let p_fit = p_rho_h_classified(rho, h);
+        let p_fit = p_rho_h_in_region(region, rho, h);
         if let Some(p_snapped) = region_1_saturated_liquid_snap(rho_si, h, p_fit) {
             return p_snapped.get::<pascal>();
         }
@@ -605,7 +640,53 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
         return p_fit.get::<pascal>();
     }
 
-    let p_pa = p_rho_h_classified(rho, h).get::<pascal>();
+    let p_pa = p_rho_h_in_region(region, rho, h).get::<pascal>();
+
+    // ── Region 3 uses the EXACT equation, not a fit ────────────────────────
+    //
+    // Region 3's fundamental equation is a Helmholtz free energy explicit in
+    // `(rho, T)`, so `p_rho_t_3` returns pressure directly from the density we
+    // were handed — no polynomial, no iteration, and the density enters
+    // exactly rather than through a fitted surface.
+    //
+    // The only thing needed is `T`, and that is cheap: seed `t_ph_3` with the
+    // fitted pressure. `dT/dp|_h` is modest here, so a fitted pressure good to
+    // a few percent gives a temperature good enough for the fundamental
+    // equation to do the rest.
+    //
+    // Same move as the steam-tables GUI isochore and the Region 1 anchor: where
+    // IF97 publishes an explicit equation along some axis, pose the question
+    // along that axis instead of fitting across it. It also sidesteps the fit's
+    // weakest sample — its own V&V report covers Region 3 with n = 16 and calls
+    // it "the least well supported".
+    if matches!(region, RhoHRegion::Region3) {
+        let p_fit = Pressure::new::<pascal>(p_pa);
+        if ph_is_within_validity_range(p_fit, h) {
+            let t = t_ph_3(p_fit, h);
+            let p_exact = p_rho_t_3(rho, t).get::<pascal>();
+            // VALIDATE that the answer really is Region 3 before trusting it.
+            //
+            // `rho_h_region_candidate` is a statistical classifier and misfiles
+            // some states; the module docs put it at roughly 2.7 % overall. A
+            // misfiled Region 2 state handed to Region 3's fundamental equation
+            // does not degrade gracefully — it returns a confident number from
+            // the wrong equation of state. Measured: routing on the classifier
+            // alone made the worst non-liquid single-phase error WORSE, 3.137e-1
+            // to 3.588e-1 at 510 degC / 400 bar, a state the classifier calls
+            // Region 3 and the flash calls Region 2.
+            //
+            // Re-flashing the recovered `(p, h)` is the cheap, decisive check:
+            // if it does not come back Region 3, fall through to the fit.
+            if p_exact.is_finite() && p_exact > 0.0 {
+                let p_check = Pressure::new::<pascal>(p_exact);
+                if ph_is_within_validity_range(p_check, h)
+                    && matches!(ph_flash_region(p_check, h), FwdEqnRegion::Region3)
+                {
+                    return p_exact;
+                }
+            }
+        }
+    }
 
     // Inside the dome the bubble-point exclusion needs the quality, which needs
     // a pressure -- so use the cheap one to decide, then discard it if the state
@@ -614,7 +695,26 @@ pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
         let p = Pressure::new::<pascal>(p_pa);
         if ph_is_within_validity_range(p, h) {
             let x = x_ph_flash(p, h);
-            if x < BUBBLE_POINT_EXCLUSION_QUALITY {
+            // The exclusion band WIDENS approaching the critical point.
+            //
+            // A fixed `x < 0.05` is right at low pressure and far too narrow
+            // near critical: as `h_fg -> 0` the lever arm collapses, so a given
+            // enthalpy error maps to a much larger quality error and the fitted
+            // surface degrades well away from the bubble point. Measured on the
+            // published tables: 355 degC / 175.701 bar at **x = 0.1** — outside
+            // the fixed band — came back 22.1 % out on pressure and 0.12 out on
+            // quality.
+            //
+            // The band is therefore scaled by how close `p` is to `p_crit`,
+            // reaching `NEAR_CRITICAL_EXCLUSION_QUALITY` at the critical
+            // pressure. Those states take the iterative route: slower, but the
+            // alternative is a confident wrong answer where the fit has least
+            // to work with.
+            let p_ratio = (p.get::<megapascal>() / P_C_MPA).clamp(0.0, 1.0);
+            let exclusion = BUBBLE_POINT_EXCLUSION_QUALITY
+                + (NEAR_CRITICAL_EXCLUSION_QUALITY - BUBBLE_POINT_EXCLUSION_QUALITY)
+                    * p_ratio.powi(2);
+            if x < exclusion {
                 return p_rho_h_eqm_si(rho_si, h_si);
             }
         } else {
@@ -928,6 +1028,15 @@ const T_REGION_13_BOUNDARY_KELVIN: f64 = 623.15;
 /// maximum error is `1.773e-1` against `4.158e-3` for the dome interior — a
 /// factor of 43 between the two sides of this line.
 const BUBBLE_POINT_EXCLUSION_QUALITY: f64 = 0.05;
+
+/// Bubble-point exclusion quality at the critical pressure.
+///
+/// The band grows quadratically in `p / p_crit` from
+/// [`BUBBLE_POINT_EXCLUSION_QUALITY`] to this value, because the lever arm
+/// `h_fg` collapses as the critical point is approached and the fitted surface
+/// loses resolution well away from `x = 0`. Measured driver: 355 degC /
+/// 175.701 bar at `x = 0.1`, 22.1 % out on pressure under the fixed band.
+const NEAR_CRITICAL_EXCLUSION_QUALITY: f64 = 0.35;
 
 pub fn p_rho_h_eqm_si(rho_si: f64, h_si: f64) -> f64 {
     assert!(

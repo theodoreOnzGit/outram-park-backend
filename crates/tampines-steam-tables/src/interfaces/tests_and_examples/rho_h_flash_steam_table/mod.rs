@@ -657,3 +657,246 @@ fn supercritical_quality_follows_the_left_right_of_critical_convention() {
         );
     }
 }
+
+/// Regression: the **explicit dispatcher** `px(rho,h)` across the entire steam
+/// table — 2 554 single-phase nodes plus the saturation rows at five qualities.
+///
+/// # What this covers that the other tests here do not
+///
+/// The existing across-the-table tests exercise [`p_rho_h_eqm`], the ITERATIVE
+/// route. This one exercises [`p_rho_h_eqm_explicit`], the closed-form
+/// dispatcher, which is a different algorithm per regime: Chebyshev surfaces in
+/// vapour, Region 3, Region 5 and the dome interior; a saturation-anchored
+/// expansion or a snap to `p_sat` in near-saturated liquid; and iteration in the
+/// bubble-point band. A regression here is a regression in whichever branch
+/// owns that state, which is why the report is broken out by branch rather than
+/// reduced to one number.
+///
+/// # Methodology
+///
+/// Density is taken from this crate's **own** `v(p,h)` at each table node rather
+/// than from the table's printed specific volume. That is deliberate: the
+/// published `v` carries six significant figures, and in nearly incompressible
+/// liquid that rounding is amplified by `A ~ 1/(p*kappa_T)`, which reaches
+/// `4.0e4` at 0.5 bar. Feeding table-rounded density would measure the TABLE's
+/// precision, not the dispatcher's. Two-phase states are built from the
+/// saturation rows by the lever rule at `x = 0.1 … 0.9`.
+///
+/// Quality is recovered as `x_ph_flash(p_recovered, h)`, so it inherits the
+/// pressure error — which is the point: a caller reading `px` gets both, and
+/// both should be judged together.
+///
+/// # THIS IS A CHARACTERISATION TEST, NOT A VALIDATION
+///
+/// The dispatcher does **not** meet 5 % across the published tables. This test
+/// records what it actually does, with ceilings set just above the measured
+/// worst cases so a regression is caught without the current state being
+/// certified as good. Do not describe `p_rho_h_eqm_explicit` as
+/// steam-table-validated on the strength of this test passing.
+///
+/// # Pass criteria, and why they differ by branch
+///
+/// Single-phase and dome-interior states are held to 5 %. Near-saturated liquid
+/// is held only to "not wildly high", because the snap branch deliberately
+/// returns `p_sat` — a documented LOWER bound — where the temperature noise
+/// exceeds the pressure being recovered. Asserting a tight relative band there
+/// would be asserting something physically unavailable; see
+/// `region_1_saturated_liquid_snap`.
+///
+/// # Results
+///
+/// Printed by the test. Recorded in the commit that introduced it rather than
+/// duplicated here, so the two cannot drift apart.
+#[test]
+fn px_rho_h_dispatcher_across_the_whole_steam_table() {
+    use crate::interfaces::functional_programming::ph_flash_eqm::x_ph_flash;
+    use crate::interfaces::functional_programming::rho_h_flash_eqm::p_rho_h_eqm_explicit;
+    use uom::si::available_energy::joule_per_kilogram;
+
+    #[derive(Default)]
+    struct Bucket {
+        n: usize,
+        worst_p: f64,
+        worst_x: f64,
+        worst_state: String,
+    }
+    impl Bucket {
+        fn note(&mut self, p_rel: f64, x_abs: f64, state: impl Fn() -> String) {
+            self.n += 1;
+            if p_rel > self.worst_p {
+                self.worst_p = p_rel;
+                self.worst_state = state();
+            }
+            self.worst_x = self.worst_x.max(x_abs);
+        }
+    }
+
+    let mut single = Bucket::default();
+    let mut liquid = Bucket::default();
+    let mut two_phase = Bucket::default();
+    let mut skipped = 0_usize;
+
+    // ── Single-phase nodes ────────────────────────────────────────────────
+    for node in SINGLE_PHASE_NODES {
+        let [p_bar_val, t_deg_c, _v_tab, h_kj] = *node;
+        let p_ref = Pressure::new::<bar>(p_bar_val);
+        let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
+
+        // Nodes this crate's own (p,h) flash declines are not this test's
+        // business — they are recorded as skips, never silently dropped.
+        let Ok(v) =
+            std::panic::catch_unwind(|| v_ph_eqm(p_ref, h).get::<cubic_meter_per_kilogram>())
+        else {
+            skipped += 1;
+            continue;
+        };
+        if !(v.is_finite() && v > 0.0) {
+            skipped += 1;
+            continue;
+        }
+        let rho_si = 1.0 / v;
+
+        let Ok(p_rec_pa) = std::panic::catch_unwind(|| {
+            p_rho_h_eqm_explicit(rho_si, h.get::<joule_per_kilogram>())
+        }) else {
+            skipped += 1;
+            continue;
+        };
+        if !p_rec_pa.is_finite() || p_rec_pa <= 0.0 {
+            skipped += 1;
+            continue;
+        }
+
+        let p_rel = (p_rec_pa / 1.0e5 - p_bar_val).abs() / p_bar_val;
+        let state = || format!("{t_deg_c} degC / {p_bar_val} bar");
+
+        // Liquid is bucketed separately: it is the regime with its own branch
+        // and its own documented failure mode.
+        let is_liquid = matches!(
+            ph_flash_region(p_ref, h),
+            crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion::Region1
+        );
+        if is_liquid {
+            liquid.note(p_rel, 0.0, state);
+        } else {
+            single.note(p_rel, 0.0, state);
+        }
+    }
+
+    // ── Two-phase states from the saturation rows ─────────────────────────
+    for node in SATURATION_NODES {
+        let [t_deg_c, p_sat_bar, v_f, v_g, h_f, h_g] = *node;
+        if !(v_g > v_f && h_g > h_f && p_sat_bar > 0.0) {
+            skipped += 1;
+            continue;
+        }
+        for x_ref in [0.1_f64, 0.25, 0.5, 0.75, 0.9] {
+            let v = v_f + x_ref * (v_g - v_f);
+            let h_kj = h_f + x_ref * (h_g - h_f);
+            let h = AvailableEnergy::new::<kilojoule_per_kilogram>(h_kj);
+            let rho_si = 1.0 / v;
+
+            let Ok(p_rec_pa) = std::panic::catch_unwind(|| {
+                p_rho_h_eqm_explicit(rho_si, h.get::<joule_per_kilogram>())
+            }) else {
+                skipped += 1;
+                continue;
+            };
+            if !p_rec_pa.is_finite() || p_rec_pa <= 0.0 {
+                skipped += 1;
+                continue;
+            }
+
+            let p_rel = (p_rec_pa / 1.0e5 - p_sat_bar).abs() / p_sat_bar;
+
+            // Quality is read back at the RECOVERED pressure, so it carries the
+            // pressure error — which is what a `px` caller actually experiences.
+            let p_rec = Pressure::new::<pascal>(p_rec_pa);
+            let x_abs = match std::panic::catch_unwind(|| x_ph_flash(p_rec, h)) {
+                Ok(x_rec) if x_rec.is_finite() => (x_rec - x_ref).abs(),
+                _ => 0.0,
+            };
+            two_phase.note(p_rel, x_abs, || {
+                format!("{t_deg_c} degC / {p_sat_bar} bar / x = {x_ref}")
+            });
+        }
+    }
+
+    println!(
+        "px(rho,h) dispatcher across the steam table ({} skipped)\n  \
+         single phase (non-liquid): n = {:5}  worst |dp/p| = {:.3e}  at {}\n  \
+         liquid (Region 1)        : n = {:5}  worst |dp/p| = {:.3e}  at {}\n  \
+         two phase (x = 0.1-0.9)  : n = {:5}  worst |dp/p| = {:.3e}  worst |dx| = {:.3e}  at {}",
+        skipped,
+        single.n,
+        single.worst_p,
+        single.worst_state,
+        liquid.n,
+        liquid.worst_p,
+        liquid.worst_state,
+        two_phase.n,
+        two_phase.worst_p,
+        two_phase.worst_x,
+        two_phase.worst_state,
+    );
+
+    assert!(
+        single.n > 0 && liquid.n > 0 && two_phase.n > 0,
+        "a bucket was empty"
+    );
+
+    // ── Regression ceilings, set at MEASURED behaviour, not at a target ────
+    //
+    // This is a CHARACTERISATION test, not a validation, and the distinction is
+    // the whole point: the dispatcher does not meet 5 % across the published
+    // tables and these numbers say so out loud rather than being tuned away.
+    // Measured 2026-09-15 over 3 426 states:
+    //
+    //   single phase (non-liquid)  worst 1.591e-3  at 373.707 degC / 220 bar
+    //   liquid (Region 1)          worst 9.640e-1  at 35 degC / 0.1 bar
+    //   two phase                  worst 5.392e-3 on p, 1.427e-2 on x
+    //                              at 95 degC / 0.846089 bar / x = 0.1
+    //
+    // The ceilings below sit just above those, so the test catches a REGRESSION
+    // while refusing to certify the current state as good. Do not relax one to
+    // make a change pass; if a branch gets worse, that is the finding.
+    //
+    // What each worst case is telling us (all tracked in GH #207):
+    //
+    // The single-phase and two-phase figures above are POST-FIX. Before the
+    // region correction they were 3.137e-1 and 2.207e-1 / 1.204e-1, and the
+    // cause was not the polynomials: the statistical classifier was picking the
+    // wrong surface. 355 degC / 175.701 bar at x = 0.1 is genuinely Region 4
+    // and was classified Region 3, so it never reached the bubble-point
+    // exclusion either. Re-deriving the region from an exact flash on a
+    // provisional pressure improved single phase ~200x and two phase ~41x.
+    //
+    // * 35 degC / 0.1 bar — the low-pressure liquid corner, and the one that
+    //   did NOT improve, because it is not a classification problem. There the
+    //   density genuinely carries no recoverable pressure information; see
+    //   `region_1_saturated_liquid_snap` and GH #207.
+    assert!(
+        single.worst_p < 5.0e-3,
+        "non-liquid single phase regressed beyond its recorded 1.591e-3: {:.3e} at {}",
+        single.worst_p,
+        single.worst_state
+    );
+    assert!(
+        liquid.worst_p < 1.0,
+        "liquid regressed beyond its recorded 9.640e-1: {:.3e} at {}",
+        liquid.worst_p,
+        liquid.worst_state
+    );
+    assert!(
+        two_phase.worst_p < 1.5e-2,
+        "two phase regressed beyond its recorded 5.392e-3: {:.3e} at {}",
+        two_phase.worst_p,
+        two_phase.worst_state
+    );
+    assert!(
+        two_phase.worst_x < 3.0e-2,
+        "two-phase quality regressed beyond its recorded 1.427e-2: {:.3e} at {}",
+        two_phase.worst_x,
+        two_phase.worst_state
+    );
+}
