@@ -48,9 +48,10 @@ Every **sampled frame** is compared, not just the endpoint.
 | head-on, Hertz | normal force, viscoelastic damping, restitution | 251 | `0` | `0` | `0` |
 | head-on, Hooke | linearised normal model, `v_char = 2 m/s` | 251 | `0` | `0` | `0` |
 | wall bounce + gravity | primitive wall branch (`R* = r`, `m* = m`), contact make/break over 400 000 steps | 2001 | `0` | `0` | — |
+| rolling, counter-spinning pair | **CDT rolling resistance** (`µ_r = 0.1`) | 201 | `0` | `0` | `0` |
 | oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | `1.11e-16` | `5.68e-14` |
 
-**Three of the four are bit-identical to upstream over the whole trajectory.**
+**Four of the five are bit-identical to upstream over the whole trajectory.**
 
 The oblique case — the one that exercises everything the stateless
 [`contact`](../src/contact.rs) module cannot do — agrees to round-off:
@@ -66,6 +67,7 @@ Endpoint values, both codes agreeing to every printed digit:
 | head-on Hooke | `v_x = −0.899972 m/s` |
 | oblique | `v = (−0.751987, 0.577628, 0) m/s`, `ω_z = −83.1815 rad/s` |
 | wall bounce | `z = 0.013708858 m` |
+| rolling | `ω_y = ±13.617325830096817 rad/s` (from `±20`), `v_x = ∓0.238460 m/s` |
 
 Note the Hertz and Hooke cases land on *different* realised restitutions
 (`0.900007` vs `0.899972`) and each code reproduces its own model's value. The
@@ -182,6 +184,20 @@ and callers; [`granular.rs`](../src/granular.rs) implements upstream's version.
    the elastic force alone *and writes the rescaled displacement back* to the
    history.
 
+### 4.3 `rolling.rs`'s constant-torque model diverges from upstream CDT
+
+Also documented rather than changed in place; `granular::RollingModel::Cdt` is
+the faithful version, verified bit-identical above.
+
+1. **Normal force.** Scales the torque by the **total** `|F_n|`, including the
+   viscous damping term; upstream CDT uses the **elastic** part only,
+   `k_n·δ_n`. In the unit-test configuration the two differ by 21 %.
+2. **Torsion.** Does not remove the component of the resisting torque along the
+   contact normal. Upstream removes it unless `torsionTorque` is explicitly
+   enabled, and it defaults **off**.
+3. **Wall branch.** Uses `ω_i − ω_j`; upstream uses the contact-point rolling
+   velocity `w_r = c_r ω_i / r`.
+
 ---
 
 ## 5. What is still NOT validated
@@ -200,10 +216,10 @@ Unchanged from the 2026-09-06 declaration, and not weakened by anything above:
 - **No thermal DEM cross-check.** `thermal`, `thermal_radiation`, `bonded`,
   `rolling`, `mesh_wall` and `coupling` have unit tests only; none is compared
   against upstream.
-- **Cohesion and rolling models are not translated.** Upstream's
-  `cohesion_model_sjkr*`, `rolling_model_epsd*` and the `limitForce` /
+- **Cohesion, and the EPSD rolling family, are not translated.** Upstream's
+  `cohesion_model_sjkr*`, `rolling_model_epsd*`/`luding`, and the `limitForce` /
   `viscous` / `heating` switches are not ported (see `granular.rs`
-  "Honest scope").
+  "Honest scope"). The CDT rolling model **is** ported and verified.
 - **Mixed materials are not supported.** A single shared material is assumed;
   upstream carries per-type-pair property matrices.
 - **No human V&V.** Everything here is AI-generated draft material under
@@ -216,10 +232,10 @@ Unchanged from the 2026-09-06 declaration, and not weakened by anything above:
 ## 6. Reproducing
 
 ```bash
-# unit tests (100)
+# unit tests (102)
 cargo test --release -p outram-park-fork-liggghts --lib
 
-# cross-code tests against the committed LIGGGHTS reference data (4)
+# cross-code tests against the committed LIGGGHTS reference data (5)
 cargo test --release -p outram-park-fork-liggghts --test liggghts_cross_code
 
 # bulk pebble-bed settling (long: ~210 s)

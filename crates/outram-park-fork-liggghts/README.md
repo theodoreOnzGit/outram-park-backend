@@ -44,12 +44,13 @@ than being trusted. Measured 2026-09-15, every sampled frame compared:
 | head-on collision, Hertz | 251 | **bit-identical** |
 | head-on collision, Hooke | 251 | **bit-identical** |
 | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
+| rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
 | oblique + friction (shear history, slip, torque) | 251 | round-off (1-3 ulp) |
 | bulk bed, 354 pebbles, `D/d = 6` | settled | packing fraction within **0.20 %** |
 
 ```bash
-cargo test --release -p outram-park-fork-liggghts --lib                     # 100 unit tests
-cargo test --release -p outram-park-fork-liggghts --test liggghts_cross_code # 4 cross-code
+cargo test --release -p outram-park-fork-liggghts --lib                     # 102 unit tests
+cargo test --release -p outram-park-fork-liggghts --test liggghts_cross_code # 5 cross-code
 cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk -- --ignored
 ```
 

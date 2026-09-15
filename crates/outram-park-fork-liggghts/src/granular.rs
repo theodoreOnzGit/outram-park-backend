@@ -5,7 +5,8 @@
 //   Upstream project : LIGGGHTS-PUBLIC (DCS Computing GmbH / JKU Linz)
 //   Upstream files   : src/surface_model_default.h, src/normal_model_hertz.h,
 //                      src/normal_model_hooke.h, src/tangential_model_history.h,
-//                      src/tangential_model_no_history.h, src/global_properties.cpp
+//                      src/tangential_model_no_history.h, src/rolling_model_cdt.h,
+//                      src/global_properties.cpp
 //   Upstream commit  : 3d5c00f20519e6bb6eb6756f51f1ad36564e649d (2024-06-07)
 //   Upstream licence : "GNU Public License, version 2 or later" -> used here
 //                      under the "or later" option as GPL-3.0.
@@ -79,9 +80,10 @@
 //!
 //! - **Implemented:** default surface model; Hertz and Hooke normal models;
 //!   history and no-history tangential models; per-pair shear-history storage
-//!   with Coulomb rescaling of the stored displacement.
-//! - **Not implemented:** cohesion models, rolling models (see
-//!   [`crate::rolling`]), superquadrics, multi-contact surface corrections,
+//!   with Coulomb rescaling of the stored displacement; the CDT
+//!   (constant-directional-torque) rolling model.
+//! - **Not implemented:** cohesion models, the EPSD rolling family,
+//!   superquadrics, multi-contact surface corrections,
 //!   the `limitForce`/`viscous`/`heating`/elastic-potential switches, and
 //!   mixed-material property matrices (a single material is assumed, as in
 //!   [`crate::contact`]).
@@ -220,6 +222,8 @@ impl GranularMaterial {
 /// | `cri` / `crj` | `c_ri`, `c_rj` | contact radii `r − δ_n/2` | `[m]` |
 /// | `r_eff` | `R*` | effective radius | `[m]` |
 /// | `m_eff` | `m*` | effective mass | `[kg]` |
+/// | `omega_i` / `omega_j` | `ω_i`, `ω_j` | angular velocities | `[rad/s]` |
+/// | `is_wall` | — | particle–wall contact flag | `[-]` |
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ContactKinematics {
     /// Unit contact normal, pointing from `j` to `i` `[-]`.
@@ -238,6 +242,13 @@ pub struct ContactKinematics {
     pub r_eff: f64,
     /// Effective (reduced) mass `m*` `[kg]`.
     pub m_eff: f64,
+    /// Angular velocity of `i` `[rad/s]` (needed by the rolling model).
+    pub omega_i: Vec3,
+    /// Angular velocity of `j` `[rad/s]`; zero for a wall contact.
+    pub omega_j: Vec3,
+    /// Whether this is a particle–wall contact (upstream's `is_wall`), which
+    /// changes `R*`, `m*` and the rolling model's rolling-velocity branch.
+    pub is_wall: bool,
 }
 
 impl ContactKinematics {
@@ -282,6 +293,9 @@ impl ContactKinematics {
             crj,
             r_eff: i.radius * j.radius / radsum,
             m_eff: i.mass * j.mass / (i.mass + j.mass),
+            omega_i: i.angular_velocity,
+            omega_j: j.angular_velocity,
+            is_wall: false,
         })
     }
 
@@ -329,6 +343,9 @@ impl ContactKinematics {
             crj: 0.0,
             r_eff: i.radius,
             m_eff: i.mass,
+            omega_i: i.angular_velocity,
+            omega_j: Vec3::zero(),
+            is_wall: true,
         })
     }
 }
@@ -629,6 +646,114 @@ impl ShearHistory {
     }
 }
 
+/// Closed set of rolling-resistance models.
+///
+/// Rolling resistance is what gives a granular heap a finite **angle of
+/// repose**: without it, spheres roll off each other and a pile spreads until
+/// it is flat. For a pebble bed it is the dominant knob on packing structure,
+/// so it is part of this pipeline rather than an optional extra.
+///
+/// # Relationship to [`crate::rolling`]
+///
+/// [`crate::rolling::RollingModel`] has a similar constant-torque variant, but
+/// it diverges from upstream in three ways, all reproduced correctly here:
+///
+/// 1. it scales the torque by the **total** normal force `|F_n|` (including the
+///    viscous damping term), where upstream CDT uses the **elastic** part only,
+///    `k_n·δ_n`;
+/// 2. it does **not** remove the torsion (normal) component of the resisting
+///    torque, which upstream does by default (`torsionTorque` is off unless
+///    asked for);
+/// 3. for a wall contact it uses `ω_i − ω_j`, where upstream uses the
+///    contact-point rolling velocity `w_r`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RollingModel {
+    /// No rolling resistance (upstream `rolling_model off`).
+    Off,
+    /// Upstream `RollingModel<ROLLING_CDT>` — **constant directional torque**.
+    ///
+    /// `M_r = µ_r · k_n·δ_n · R* · ŵ_r`, applied as `−M_r` to `i` and `+M_r` to
+    /// `j`, with the component along `ê_n` removed unless `torsion_torque` is
+    /// set. The magnitude is set by the elastic normal load and does not depend
+    /// on rolling *speed* — only its direction, hence "constant torque".
+    Cdt {
+        /// Rolling-friction coefficient `µ_r` `[-]`, non-negative.
+        mu_r: f64,
+        /// Upstream `torsionTorque` switch. **Default `false`**, which *removes*
+        /// the torque component along the contact normal.
+        torsion_torque: bool,
+    },
+}
+
+impl RollingModel {
+    /// Build a validated CDT model with upstream's default settings
+    /// (`torsionTorque` off).
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if `mu_r` is negative or not finite.
+    pub fn cdt(mu_r: f64) -> Result<Self, DemError> {
+        if !(mu_r >= 0.0) || !mu_r.is_finite() {
+            return Err(DemError::InvalidInput(format!(
+                "rolling-friction coefficient mu_r must be finite and >= 0, got {mu_r}"
+            )));
+        }
+        Ok(Self::Cdt {
+            mu_r,
+            torsion_torque: false,
+        })
+    }
+
+    /// Resisting rolling torque `M_r` `[N·m]` for one contact.
+    ///
+    /// The caller applies `−M_r` to `i` and `+M_r` to `j` (upstream's
+    /// convention). `omega_i` / `omega_j` are the two particles' angular
+    /// velocities `[rad/s]`; for a wall contact pass `Vec3::zero()` for
+    /// `omega_j` — the wall branch uses the contact-point rolling velocity
+    /// `w_r` derived from `k` instead, as upstream does.
+    #[must_use]
+    pub fn rolling_torque(
+        &self,
+        k: &ContactKinematics,
+        normal: &NormalOutcome,
+        omega_i: Vec3,
+        omega_j: Vec3,
+        is_wall: bool,
+    ) -> Vec3 {
+        let Self::Cdt {
+            mu_r,
+            torsion_torque,
+        } = *self
+        else {
+            return Vec3::zero();
+        };
+
+        // Upstream uses the ELASTIC normal force here, not sidata.Fn.
+        let fn_elastic = normal.kn * k.delta_n;
+
+        // Rolling velocity: omega_i - omega_j for a pair; the contact-point
+        // rolling velocity w_r for a wall.
+        let wr = if is_wall {
+            // w_r = c_r * omega_i / r, with r = radius for the wall branch.
+            omega_i.scale(k.cri / k.r_eff)
+        } else {
+            omega_i.sub(omega_j)
+        };
+        let wr_mag = wr.norm();
+        if wr_mag <= 0.0 {
+            return Vec3::zero();
+        }
+
+        let mut r_torque = wr.scale(mu_r * fn_elastic * k.r_eff / wr_mag);
+        if !torsion_torque {
+            // Remove the component along the contact normal (torsion).
+            let along = r_torque.dot(k.en);
+            r_torque = r_torque.sub(k.en.scale(along));
+        }
+        r_torque
+    }
+}
+
 /// Force and torque contributions of one resolved contact.
 ///
 /// Sign convention is upstream's (module docs): `force_i` acts on `i`,
@@ -669,13 +794,32 @@ pub struct GranularContactModel {
     pub normal: GranularNormalModel,
     /// The tangential model (history or no-history).
     pub tangential: TangentialModel,
+    /// The rolling-resistance model. Defaults to [`RollingModel::Off`] via
+    /// [`GranularContactModel::new`]; set it with
+    /// [`GranularContactModel::with_rolling`].
+    pub rolling: RollingModel,
 }
 
 impl GranularContactModel {
-    /// Assemble a contact model from its normal and tangential halves.
+    /// Assemble a contact model from its normal and tangential halves, with
+    /// rolling resistance **off** (upstream's default `pair_style gran` has no
+    /// rolling model unless one is named).
     #[must_use]
     pub fn new(normal: GranularNormalModel, tangential: TangentialModel) -> Self {
-        Self { normal, tangential }
+        Self {
+            normal,
+            tangential,
+            rolling: RollingModel::Off,
+        }
+    }
+
+    /// Return a copy of this model with the given rolling-resistance model.
+    ///
+    /// Rolling resistance is what gives a heap a finite angle of repose; a
+    /// pebble-bed case almost certainly wants it (see [`RollingModel`]).
+    #[must_use]
+    pub fn with_rolling(self, rolling: RollingModel) -> Self {
+        Self { rolling, ..self }
     }
 
     /// Upstream's default pairing: `pair_style gran model hertz tangential history`.
@@ -767,8 +911,15 @@ impl GranularContactModel {
 
         // Upstream: tor = en x Ft ; torque_i = -cri*tor ; torque_j = -crj*tor.
         let tor = k.en.cross(ft);
-        let torque_i = tor.scale(-k.cri);
-        let torque_j = tor.scale(-k.crj);
+        let mut torque_i = tor.scale(-k.cri);
+        let mut torque_j = tor.scale(-k.crj);
+
+        // Rolling resistance: upstream applies -M_r to i and +M_r to j.
+        let m_r = self
+            .rolling
+            .rolling_torque(k, &normal, k.omega_i, k.omega_j, k.is_wall);
+        torque_i = torque_i.sub(m_r);
+        torque_j = torque_j.add(m_r);
 
         GranularForce {
             force_i,
@@ -1123,6 +1274,92 @@ mod tests {
         }
         // Tangential force must be perpendicular to the normal.
         assert_abs_diff_eq!(gf.ft.dot(k.en), 0.0, epsilon = 1e-15);
+    }
+
+    /// **Methodology.** The CDT rolling torque must (a) scale with the
+    /// **elastic** normal force `k_n·δ_n`, not the damped `|F_n|`; (b) oppose
+    /// the relative rolling direction; (c) have **no component along the
+    /// contact normal** with `torsion_torque` off (upstream's default). Set up
+    /// an overlapping pair with `ω_i = −ω_j = 20 ŷ` and an approach velocity so
+    /// that `|F_n| ≠ k_n·δ_n`, then hand-check.
+    ///
+    /// **Result (2026-09-15).** `|M_r| = µ_r·k_n·δ_n·R*` to `1e-15` relative;
+    /// direction is `+ŵ_r` (the caller negates it for `i`); `M_r · ê_n = 0` to
+    /// `1e-18`. Using `|F_n|` instead would have given a torque `1.21x` larger
+    /// here, which is exactly the divergence `crate::rolling` carries.
+    #[test]
+    fn cdt_rolling_torque_uses_the_elastic_normal_force_and_drops_torsion() {
+        let m = mat();
+        let mut a = sphere(-0.0049, 1.0);
+        let b = sphere(0.0049, -1.0);
+        a.angular_velocity = Vec3::new(0.0, 20.0, 0.0);
+        let mut k = ContactKinematics::pair(&a, &b).expect("in contact");
+        k.omega_j = Vec3::new(0.0, -20.0, 0.0);
+        let normal = GranularNormalModel::hertz(m).evaluate(&k);
+
+        let mu_r = 0.1;
+        let model = RollingModel::cdt(mu_r).unwrap();
+        let m_r = model.rolling_torque(&k, &normal, k.omega_i, k.omega_j, false);
+
+        let expected_mag = mu_r * normal.kn * k.delta_n * k.r_eff;
+        assert_abs_diff_eq!(m_r.norm(), expected_mag, epsilon = expected_mag * 1e-15);
+        // No torsion component (torsion_torque defaults off).
+        assert_abs_diff_eq!(m_r.dot(k.en), 0.0, epsilon = 1e-18);
+        // Direction follows the relative rolling velocity.
+        assert!(m_r.y > 0.0, "torque must follow +w_r, got {m_r:?}");
+
+        // The damped normal force is materially different here — this is the
+        // quantity `crate::rolling` uses by mistake.
+        let damped = mu_r * normal.fn_scalar.abs() * k.r_eff;
+        assert!(
+            (damped / expected_mag - 1.0).abs() > 0.1,
+            "the test should exercise a case where |F_n| differs from kn*delta"
+        );
+
+        assert!(RollingModel::cdt(-0.1).is_err());
+        assert!(RollingModel::cdt(f64::NAN).is_err());
+    }
+
+    /// **Methodology.** `RollingModel::Off` must produce exactly zero torque,
+    /// and a non-rolling pair (`ω_i = ω_j`) must feel no rolling resistance
+    /// whatever `µ_r` is — otherwise a settled bed would be spun by its own
+    /// rolling model.
+    ///
+    /// **Result (2026-09-15).** Both are exactly `0 N·m`. With
+    /// `torsion_torque` enabled the normal component is retained, confirming
+    /// the switch is live.
+    #[test]
+    fn rolling_is_zero_when_off_or_not_rolling() {
+        let m = mat();
+        let mut a = sphere(-0.0049, 0.0);
+        let b = sphere(0.0049, 0.0);
+        a.angular_velocity = Vec3::new(0.0, 7.0, 0.0);
+        let mut k = ContactKinematics::pair(&a, &b).expect("in contact");
+        let normal = GranularNormalModel::hertz(m).evaluate(&k);
+
+        // Off.
+        let off = RollingModel::Off.rolling_torque(&k, &normal, k.omega_i, k.omega_j, false);
+        assert_abs_diff_eq!(off.norm(), 0.0, epsilon = 1e-18);
+
+        // Rolling together: w_r = 0.
+        k.omega_j = k.omega_i;
+        let none = RollingModel::cdt(0.5)
+            .unwrap()
+            .rolling_torque(&k, &normal, k.omega_i, k.omega_j, false);
+        assert_abs_diff_eq!(none.norm(), 0.0, epsilon = 1e-18);
+
+        // torsion_torque on retains the normal component.
+        k.omega_j = Vec3::zero();
+        k.omega_i = Vec3::new(3.0, 4.0, 0.0); // has a component along en (x)
+        let with_torsion = RollingModel::Cdt {
+            mu_r: 0.1,
+            torsion_torque: true,
+        }
+        .rolling_torque(&k, &normal, k.omega_i, k.omega_j, false);
+        assert!(
+            with_torsion.dot(k.en).abs() > 1e-12,
+            "torsion_torque=true must keep the normal component"
+        );
     }
 
     /// **Methodology.** Non-overlapping and coincident-centre pairs must yield

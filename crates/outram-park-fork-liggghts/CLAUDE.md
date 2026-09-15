@@ -64,19 +64,22 @@ are different claims and this entry keeps them apart.
   | head-on, Hertz | 251 | **bit-identical** |
   | head-on, Hooke | 251 | **bit-identical** |
   | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
+  | rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
   | oblique + friction (shear history, slip, torque) | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp) |
   | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
 
-  Measured at this entry: **104 tests pass** (100 unit + 4 cross-code), plus one
+  Measured at this entry: **107 tests pass** (102 unit + 5 cross-code), plus one
   `#[ignore]`d 210 s bulk test. Full methodology and results:
   [`docs/verification-and-validation.md`](docs/verification-and-validation.md).
 
-  **Two defects were found in the process** (both documented in that file):
+  **Three defects were found in the process** (all documented in that file):
   `Particle::integrate` is not symplectic despite its doc comment claiming it
   was — an elastic collision rebounds with restitution `1.0031` at `dt = 1 µs`,
   i.e. it manufactures energy — and `contact.rs` diverges from upstream on the
   contact-radius lever arm and the tangential-damping branch, on top of having
-  no shear history at all.
+  no shear history at all; and `rolling.rs`'s constant-torque model uses the
+  damped `|F_n|` where upstream CDT uses the elastic `k_n·δ_n` (21 % apart in
+  the unit-test configuration) and keeps the torsion component upstream drops.
 
   **What this still does NOT establish.** It shows this crate reproduces
   LIGGGHTS. It does **not** show LIGGGHTS' granular physics is right for an

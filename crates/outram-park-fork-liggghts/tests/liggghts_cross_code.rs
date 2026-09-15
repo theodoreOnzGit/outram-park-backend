@@ -72,7 +72,7 @@
 
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{
-    GranularContactModel, GranularMaterial, GranularNormalModel, TangentialModel,
+    GranularContactModel, GranularMaterial, GranularNormalModel, RollingModel, TangentialModel,
 };
 use outram_park_fork_liggghts::granular_system::GranularSystem;
 use outram_park_fork_liggghts::particle::{Particle, Vec3};
@@ -129,10 +129,24 @@ fn replay_pair(
     v_a: Vec3,
     v_b: Vec3,
 ) -> (f64, f64, f64) {
-    let particles = vec![
-        sphere(Vec3::new(-0.0060, 0.0, 0.0), v_a),
-        sphere(Vec3::new(0.0060, 0.0, 0.0), v_b),
-    ];
+    replay_pair_at(rows, model, 0.0060, v_a, v_b, Vec3::zero(), Vec3::zero())
+}
+
+/// As [`replay_pair`], with explicit initial separation and spins.
+fn replay_pair_at(
+    rows: &[Vec<f64>],
+    model: GranularContactModel,
+    half_gap: f64,
+    v_a: Vec3,
+    v_b: Vec3,
+    w_a: Vec3,
+    w_b: Vec3,
+) -> (f64, f64, f64) {
+    let mut pa = sphere(Vec3::new(-half_gap, 0.0, 0.0), v_a);
+    let mut pb = sphere(Vec3::new(half_gap, 0.0, 0.0), v_b);
+    pa.angular_velocity = w_a;
+    pb.angular_velocity = w_b;
+    let particles = vec![pa, pb];
     let mut sys =
         GranularSystem::new(particles, vec![], model, Vec3::zero(), 1.0e-6).expect("valid system");
 
@@ -300,4 +314,51 @@ fn wall_bounce_matches_liggghts() {
     assert!(bounced, "the reference case must actually bounce");
     assert!(dz <= 1e-15, "height drift {dz:e} m vs LIGGGHTS");
     assert!(dv <= 1e-13, "velocity drift {dv:e} m/s vs LIGGGHTS");
+}
+
+/// Two spheres held in contact and **counter-spinning**, with the CDT rolling
+/// model active (`µ_r = 0.1`) — isolates
+/// [`RollingModel::Cdt`](outram_park_fork_liggghts::granular::RollingModel).
+///
+/// **Methodology.** Both spheres start overlapping by `2e-4 m` with
+/// `ω_y = ±20 rad/s` and no translational velocity. The rolling torque bleeds
+/// the spin away while friction pushes the pair apart, so the case exercises
+/// the rolling model, the shear history and the normal model together.
+/// LIGGGHTS input: `reference-data/liggghts/in.rolling_pair`.
+///
+/// **Result (2026-09-15).** Bit-identical to LIGGGHTS across all 201 frames.
+/// Final state in both codes: `ω_y = ±13.617325830096817 rad/s` (from `±20`),
+/// `v_x = ∓0.23846042770436646 m/s`.
+///
+/// This is the test that pins upstream's three CDT details the pre-existing
+/// [`crate::rolling`] module gets differently: the **elastic** normal force
+/// `k_n·δ_n` rather than the damped `|F_n|`, removal of the torsion component,
+/// and the wall-branch rolling velocity.
+#[test]
+fn rolling_cdt_matches_liggghts() {
+    let Some(rows) = load("rolling_pair.csv") else {
+        eprintln!("skipping: reference-data/liggghts/ not present");
+        return;
+    };
+    assert_eq!(rows.len(), 201, "unexpected reference frame count");
+    let model = GranularContactModel::hertz_history(material())
+        .with_rolling(RollingModel::cdt(0.1).expect("valid mu_r"));
+    let (dx, dv, dw) = replay_pair_at(
+        &rows,
+        model,
+        0.0049,
+        Vec3::zero(),
+        Vec3::zero(),
+        Vec3::new(0.0, 20.0, 0.0),
+        Vec3::new(0.0, -20.0, 0.0),
+    );
+    assert!(dx <= 1e-15, "position drift {dx:e} m vs LIGGGHTS");
+    assert!(dv <= 1e-13, "velocity drift {dv:e} m/s vs LIGGGHTS");
+    assert!(dw <= 1e-11, "spin drift {dw:e} rad/s vs LIGGGHTS");
+    // The rolling model must actually have bled spin away, or this proves nothing.
+    let final_wy = rows.last().expect("frames")[8]; // omegay of atom 1
+    assert!(
+        final_wy < 15.0 && final_wy > 10.0,
+        "reference case should decay the spin from 20 rad/s, got {final_wy}"
+    );
 }
