@@ -27,6 +27,29 @@
 //! either the case data or one of the two codes is wrong, and that is worth
 //! knowing before anyone ports the pebble model.
 //!
+//! # SUPERSEDED for the full chain — read this first
+//!
+//! Upstream's `nuclearSteadyStatePebble` has since been ported properly, to
+//! `outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble`,
+//! and **its numbers are the ones to cite**. Two things this file gets
+//! differently from upstream, found by doing that port:
+//!
+//! - **The annulus term.** This file takes the fuelled annulus' *outer face to
+//!   its centre*; upstream takes it *to its volume average*, because the volume
+//!   average is what the dispersed particles actually sit at. That is the larger
+//!   of the two differences.
+//! - **The matrix conductivity.** This file uses the `k_matrix = 29` that
+//!   upstream's `lumped_structure.py` hardcodes; upstream's solver computes it
+//!   from a **Maxwell** mixture rule over the TRISO packing, giving 29.587 —
+//!   which is a pleasing independent confirmation of the 29, but is not the same
+//!   input.
+//!
+//! Together those put this file's total rise at 71.56 K against the ported
+//! model's 61.67 K. **The 61.67 K is upstream's model; the 71.56 K is this
+//! file's own formulation of the same physics.** What remains valid and exact
+//! here is the shell-conductance comparison in the second test, which is a
+//! like-for-like check against upstream's own closed form.
+//!
 //! The conduction stack is assembled from this workspace's own closed-form
 //! helpers in [`tampines::pebble_bed::triso`], which were written for the HTR-10
 //! pebble and know nothing of gFHR.
