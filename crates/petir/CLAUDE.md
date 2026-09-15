@@ -35,6 +35,59 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
+### Four non-GSL ports exist, and they were maintainer-directed
+
+Added 2026-09-15 at the maintainer's direction — "port select code from roots
+and peroxide to complement petir's capabilities, credit the author's
+upstream":
+
+| module | upstream | licence |
+|---|---|---|
+| `src/poly/quartic.rs` | `roots` 0.0.8 (Mikhail Vorotilov) | BSD-2-Clause |
+| `src/poly/companion.rs` | `roots` 0.0.8, and through it JAMA / EISPACK | BSD-2-Clause |
+| `src/poly/dense.rs` | `peroxide` 0.41.2 (Tae Geun Kim) | MIT (of MIT OR Apache-2.0) |
+| `src/integration/gauss_legendre*.rs` | `peroxide` 0.41.2 (Tae Geun Kim) | MIT (of MIT OR Apache-2.0) |
+
+Five things about them bind future work:
+
+- **Both flows are one-way.** BSD-2-Clause and MIT into GPL-3.0-only. Each
+  file carries the full upstream notice and copyright in its header, as source
+  redistribution requires. Do not strip them, do not "tidy" them into the
+  NOTICE only, and do not contribute anything derived from them back upstream
+  without the author's agreement.
+- **`companion.rs` names five people, on purpose.** Stepan Yakovenko's own
+  header asks to be mentioned in the source code. That request is honoured;
+  do not remove it in a refactor.
+- **Do not widen this into the GSL-verified modules.** Both upstreams have
+  routines overlapping `crate::roots`, `crate::min`, `crate::integration` and
+  `crate::interp`, but this crate's maturity rests on bit-identity with
+  compiled GSL — five of seven numerics surfaces agree exactly, every
+  iterate. `roots`' Brent is not GSL's Brent, so re-porting would break those
+  comparisons by construction for no capability gain. Every port above is
+  ADDITIVE, filling a gap GSL does not cover. A port that replaces a verified
+  routine needs the maintainer, not an agent.
+- **Do not port `roots`' `find_roots_sturm`.** It is broken, and this was
+  measured, not assumed: against upstream compiled and run it never returns
+  more than three roots at any degree (3, 3, 3, 1, 3, 1, 1 for degrees 4 to
+  10) and reports no error when it drops the rest. `tests/roots_companion_code_to_code.rs`
+  pins the measurement. If that test ever fails because upstream fixed it,
+  reconsider — do not simply loosen it.
+
+- **Do not "restore" the Gauss-Legendre tables to match upstream.** Six of
+  the 928 values deliberately differ: three `peroxide` node values are wrong
+  (order 11 once, order 12 twice, each mirrored by symmetry), one of them a
+  single-digit typo costing its 12-point rule ten significant figures.
+  `tests/gauss_legendre_table_audit.rs` verifies every value against Bonnet's
+  recurrence and will fail if they are reverted. The corrections agree with
+  the standard published tables. All weights are correct and were never
+  touched.
+
+**`peroxide` as a DEPENDENCY remains ruled out** (it pulls
+`blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
+forbids). That is a separate question from porting a pure-Rust routine out of
+it, which is fine and is what `dense.rs` did — do not conflate the two, as an
+earlier session did.
+
 ### The three lineages, and saying which one you are in
 
 Every module declares itself as **ported**, **lifted verbatim**, or
@@ -143,9 +196,63 @@ above this crate.
 
 ## Maturity
 
-**Not declared mature.** The workspace's API-dogfooding rule therefore does not
-apply yet, and nothing in this crate may be described as validated. Unit tests
-and cross-checks against independent implementations are *verification*, and
-only at the unit level.
+**DECLARED MATURE 2026-09-15 by the maintainer.** The workspace's
+API-dogfooding rule therefore now applies to this crate — see "What maturity
+obliges" below.
 
-Proposing maturity is allowed; declaring it is the maintainer's call alone.
+- 2026-09-15 — mature. Bar: **agreement with GSL 2.8 compiled and run.**
+  Evidence class: cross-code. Measured, against a GSL built from the vendored
+  tree with its output committed under `reference-data/gsl/`:
+
+  | surface | bit-identical | worst relative difference |
+  |---|---|---|
+  | `cheb` pipeline (`init`/`eval`/`deriv`/`integ`) | 4707/6114 (77.0 %) | — |
+  | `cheb::eval_mode`, default `order_sp` | 461/615 (75.0 %) | 1.06e-15 results, 1.05e-2 error estimates |
+  | `cheb::eval_mode`, reduced `order_sp` | 357/369 (96.7 %) | — |
+  | `linalg::qr` factorisation and least squares | 81/85 (95.3 %) | 4.27e-16 factor, 4.94e-16 solution |
+  | `expint`, `gamma_inc` | see `gsl_expint.rs`, `gsl_gamma_inc.rs` | — |
+  | `roots` (bracketing / polishing), `min`, `interp`, `ode` (RKF45) | 100 % — every iterate, value and error estimate | 0 |
+  | `deriv` | 76/78 (97.4 %) | 3.27e-16 |
+  | `integration` (6 Kronrod rules + QAG) | 27/28 (96.4 %) | 1.82e-16 |
+  | `fast_exp` / `fast_log` / `fast_pow` | 100 % vs ARM optimized-routines | 0 |
+
+  The declaration was made on the condition "if it agrees with GSL". It does.
+
+### What the bar does NOT cover, and it matters
+
+**Nothing here has been compared against a published benchmark.** Cross-code
+agreement with GSL establishes that this is a faithful port of GSL; it does
+*not* establish that GSL is right for your problem, and it is not validation
+in the sense `VERIFICATION_AND_VALIDATION.md` uses. Do not describe any PETIR
+result as validated.
+
+**Both bookkeeping axes in `README.md` remain unsigned** (❌). Maturity and
+bookkeeping sign-off are different things: the maintainer declared the former
+on 2026-09-15 and described the latter as "almost" ready on the same day.
+An assistant must not flip either axis — see the workspace `CLAUDE.md`.
+
+**Evidence WAS uneven at the moment of declaration; it no longer is.**
+Compiled-GSL references existed for `cheb`, `expint`, `gamma_inc` and
+`linalg::qr`, while `roots`, `min`, `deriv`, `interp`, `integration` and `ode`
+had only GSL's own assertions and analytical results. Those six were given
+compiled references the same day
+(`tests/gsl_numerics_code_to_code.rs`), and five of the seven surfaces came
+back **bit-identical throughout** — every iterate of every root finder and
+minimiser, every interpolated value, every RKF45 step and its error estimate.
+The full table is in [`docs/verification-summary.md`](docs/verification-summary.md).
+
+The 19 verbatim lifts are a separate lineage entirely (OpenFOAM via
+`outram-foam-basic-lib`, GNU Octave via `chem-eng`), pinned by
+`tests/verbatim_provenance.rs` rather than by any GSL comparison.
+
+### What maturity obliges
+
+The workspace rule "if it is too complex for Haiku, it is a bad API" now
+binds this crate. The Rust half applies directly: any trait whose bound a
+caller can plausibly fail should carry
+`#[diagnostic::on_unimplemented]`. PETIR's public trait surface is small —
+`real::Real` is the one callers name — so this is a bounded job rather than
+the 65-trait audit `op-wiep` describes for the workspace.
+
+Revising the bar is a maintainer decision; record it as a further dated entry
+above and keep the superseded ones.

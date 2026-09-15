@@ -1090,7 +1090,7 @@ later needs to know not just today's bar but that it moved, or it will
 misread older results as failures against a standard that did not exist when
 they were produced.
 
-**Declared mature as of 2026-09-13** (11 of 38 crates). The bar and its
+**Declared mature as of 2026-09-15** (12 of 38 crates). The bar and its
 evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
 the authority:
 
@@ -1107,10 +1107,28 @@ the authority:
 | `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **granular physics NOT validated** | analytical / MMS |
 | `farrer-park` | MMS L2 order within 0.15 of theory per element; patch test 1e-12; Lamé **displacement** within 1%, **stress** on observed order (1 ± 0.2 linear, 2 ± 0.2 quadratic); **shear locking uncured, no benchmark validation** | analytical / MMS |
 | `outram-park-fork-dwsim-libs` | agrees with upstream DWSIM `1abf72d1` to 4 sig figs; **PR EOS matches to 6 s.f. (measured 2026-09-13)**; flash-layer comparison still open | cross-code |
+| `petir` | agrees with GSL 2.8 compiled and run — 5 of 7 numerics surfaces bit-identical throughout, the rest 75-97 % with worst relative difference 1.1e-15; ARM `exp`/`log`/`pow` bit-identical | cross-code |
 
 Every other crate is **not** declared, and the dogfooding rule does not apply
-to it. Five honest notes on this roster: `teh-o-prke` is the thinnest of the
-eleven and lacks analytical transient validation (its own file says so, and
+to it.
+
+**`petir` was declared on 2026-09-15**, by the maintainer, on the stated
+condition "if it agrees with GSL". It does, and by the strongest mechanism on
+this roster: GSL 2.8 was **built from the vendored tree and executed**, and its
+output committed under `reference-data/gsl/` so the comparison regenerates
+rather than being trusted.
+
+One qualification belonged with the declaration and was closed the same day.
+At the moment of declaration the compiled comparison covered `cheb`,
+`expint`, `gamma_inc` and the `linalg` QR only; `roots`, `min`, `deriv`,
+`interp`, `integration` and `ode` had GSL-derived tests but no compiled
+reference. Those six were given one, and five of the seven surfaces came back
+**bit-identical throughout**. The consolidated table — every surface, its
+upstream, its measured agreement, and what is NOT covered — is
+`crates/petir/docs/verification-summary.md`.
+
+Six honest notes on this roster: `teh-o-prke` is the thinnest of the
+twelve and lacks analytical transient validation (its own file says so, and
 says what would fix it); `outram-mc-libs`' 500 pcm is set at what it achieves
 today rather than at what criticality work should eventually demand; the
 Scilab half of the process-control crate's evidence lives in the maintainer's
@@ -1127,6 +1145,9 @@ and run headless (procedure in that crate's `CLAUDE.md`), and its `Z_PR` agrees
 with this port to 6 significant figures. The flash-layer comparison the bar
 also names is still open, and 0 of the 107 rows in its port-coverage matrix are
 `PORTED + VALIDATED`. Read that crate's file before citing it as validated.
+Finally, `petir`'s bar is cross-code agreement **alone** — nothing in it has
+been compared against a published benchmark, and both of its bookkeeping axes
+remain unsigned.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**

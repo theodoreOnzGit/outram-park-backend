@@ -83,6 +83,15 @@
 //!
 //! Bare dimensionless `f64`.
 
+/// Gauss-Legendre and Newton-Cotes quadrature, ported from the `peroxide`
+/// crate. Complements the QUADPACK rules in this module rather than replacing
+/// them — they are non-adaptive and give no error estimate, in exchange for
+/// exactness on polynomials up to degree `2n - 1`.
+pub mod gauss_legendre;
+/// The Gauss-Legendre node and weight tables for orders 2 to 30, ported
+/// verbatim from the `peroxide` crate. Data, not algorithm.
+pub mod gauss_legendre_tables;
+
 use alloc::vec;
 use alloc::vec::Vec;
 

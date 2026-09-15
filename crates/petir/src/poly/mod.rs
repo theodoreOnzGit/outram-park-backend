@@ -83,6 +83,23 @@ pub mod polynomial;
 /// `a`, `b`, `c` are the coefficients of `a x^2 + b x + c`, dimensionless.
 #[allow(missing_docs)]
 pub mod quadratic_eqn;
+/// Closed-form quartic (and biquadratic) root finder, ported from the `roots`
+/// crate. Unlike the `*_eqn` types above -- which come from OpenFOAM via
+/// `outram-foam-basic-lib` -- this module is a derivative of Mikhail
+/// Vorotilov's BSD-2-Clause `roots` crate, and returns a [`quartic::RootSet`]
+/// of the distinct real roots only. See the module header for the notice.
+pub mod quartic;
+/// All roots of a polynomial of **arbitrary degree**, as the eigenvalues of
+/// its companion matrix — ported from the `roots` crate, by way of JAMA and
+/// EISPACK. The one routine here that is iterative rather than closed-form,
+/// the one that goes past the quartic, and the only one that returns complex
+/// roots.
+pub mod companion;
+/// A heap-allocated polynomial with **algebra** — multiplication, long
+/// division, translation — and the classical orthogonal families built from
+/// it (Legendre, Chebyshev, Hermite, Bessel). Ported from the `peroxide`
+/// crate. This is the only module here that can multiply two polynomials.
+pub mod dense;
 /// Tagged root container, `Foam::Roots`. [`RootType`] distinguishes `Real`,
 /// `Complex`, `PosInf`, `NegInf` and `Nan` roots so that a caller can tell a
 /// genuine root from a degenerate one instead of inspecting the value.
@@ -95,3 +112,11 @@ pub use linear_eqn::LinearEqn;
 pub use polynomial::Polynomial;
 pub use quadratic_eqn::QuadraticEqn;
 pub use roots::{RootType, Roots};
+pub use dense::{bessel, chebyshev, hermite, legendre, ChebyshevKind, DensePoly};
+pub use companion::{
+    real_roots_companion, roots_companion, roots_companion_monic_ascending, ComplexRoot,
+};
+pub use quartic::{
+    roots_biquadratic, roots_cubic, roots_cubic_normalized, roots_linear, roots_quadratic,
+    roots_quartic, roots_quartic_depressed, RootSet,
+};
