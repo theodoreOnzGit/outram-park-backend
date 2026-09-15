@@ -227,6 +227,65 @@ impl DiffusionNeutronics {
         }
     }
 
+    /// Impose an **albedo** (partially reflecting) boundary on one patch, for
+    /// every energy group.
+    ///
+    /// This is GeN-Foam's `albedoSP3` condition as the diffusion solver uses it
+    /// — see [`crate::genfoam::neutronics::albedo`] for the derivation and for
+    /// what of upstream's patch class is SP3-only and deliberately absent.
+    ///
+    /// # Why this is a method and not a constructor argument
+    ///
+    /// The Robin weight depends on the group's own diffusion coefficient, so a
+    /// single `BoundaryCondition` handed to [`Self::new`] cannot express it —
+    /// that argument is applied to every group alike. Upstream has the same
+    /// requirement and meets it the same way, resetting its `Dalbedo` field to
+    /// `D[energyI]` before each group's solve
+    /// (`diffusion/include/fluxEq.H`). Here the per-group weight is built once,
+    /// from the cross-section fields the solver already holds, because they do
+    /// not change during an eigenvalue solve.
+    ///
+    /// Call it after [`Self::new`] and before solving. It overwrites whatever
+    /// condition that patch previously carried, in every group.
+    ///
+    /// # Parameters
+    ///
+    /// - `patch_index` — index into the mesh's patch list.
+    /// - `gamma` — the albedo coefficient, as GeN-Foam case dictionaries state
+    ///   it directly. `0` is a perfect reflector, `0.5` a vacuum; convert from a
+    ///   reflection fraction with
+    ///   [`gamma_from_albedo`](crate::genfoam::neutronics::albedo::gamma_from_albedo).
+    /// - `linearisation` — which `phi` the leakage current is evaluated at; see
+    ///   [`AlbedoLinearisation`](crate::genfoam::neutronics::albedo::AlbedoLinearisation).
+    ///   Pass `CellValue` to match GeN-Foam.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `patch_index` is out of range or `gamma` is negative or
+    /// non-finite.
+    pub fn set_albedo_boundary(
+        &mut self,
+        patch_index: usize,
+        gamma: f64,
+        linearisation: crate::genfoam::neutronics::albedo::AlbedoLinearisation,
+    ) {
+        let mesh = self.state.mesh().clone();
+        let patches: Vec<_> = (0..self.energy_groups())
+            .map(|g| {
+                crate::genfoam::neutronics::albedo::albedo_patch_field(
+                    &mesh,
+                    patch_index,
+                    gamma,
+                    &self.xs.d[g],
+                    linearisation,
+                )
+            })
+            .collect();
+        for (g, field) in self.state.flux_mut().iter_mut().enumerate() {
+            field.boundary[patch_index] = patches[g].clone();
+        }
+    }
+
     /// The shared neutronics state (flux, precursors, power density, `k_eff`).
     #[must_use]
     pub fn state(&self) -> &NeutronicsState {

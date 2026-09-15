@@ -686,6 +686,21 @@ fn write_boundary_scalar(s: &mut String, field: &VolScalarField) {
                 ));
                 write_value_scalar(s, pf.values.as_slice());
             }
+            BoundaryCondition::MixedField {
+                value_fraction,
+                ref_value,
+                ref_grad,
+            } => {
+                // OpenFOAM's `mixed` with non-uniform coefficient lists.
+                s.push_str("        type            mixed;\n");
+                s.push_str("        refValue        ");
+                write_value_scalar(s, ref_value.as_slice());
+                s.push_str("        refGradient     ");
+                write_value_scalar(s, ref_grad.as_slice());
+                s.push_str("        valueFraction   ");
+                write_value_scalar(s, value_fraction.as_slice());
+                write_value_scalar(s, pf.values.as_slice());
+            }
             BoundaryCondition::InletOutlet { inlet_value } => {
                 s.push_str("        type            inletOutlet;\n");
                 s.push_str(&format!(
@@ -809,6 +824,21 @@ fn write_boundary_vector(s: &mut String, field: &VolVectorField) {
                     "        valueFraction   uniform {};\n",
                     fmt_scalar(*value_fraction)
                 ));
+                write_value_vector(s, pf.values.as_slice());
+            }
+            BoundaryCondition::MixedField {
+                value_fraction,
+                ref_value,
+                ref_grad,
+            } => {
+                // OpenFOAM's `mixed` with non-uniform coefficient lists.
+                s.push_str("        type            mixed;\n");
+                s.push_str("        refValue        ");
+                write_value_vector(s, ref_value.as_slice());
+                s.push_str("        refGradient     ");
+                write_value_vector(s, ref_grad.as_slice());
+                s.push_str("        valueFraction   ");
+                write_value_scalar(s, value_fraction.as_slice());
                 write_value_vector(s, pf.values.as_slice());
             }
             BoundaryCondition::InletOutlet { inlet_value } => {

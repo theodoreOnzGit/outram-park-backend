@@ -108,6 +108,18 @@ pub fn laplacian_vec(
                         + *ref_value * (w * coeff)
                         + *ref_grad * ((1.0 - w) * coeff * delta);
                 }
+                // Per-face Robin: identical algebra, coefficients read per face.
+                BoundaryCondition::MixedField {
+                    value_fraction,
+                    ref_value,
+                    ref_grad,
+                } => {
+                    let w = value_fraction[fi];
+                    mat.ldu.diag[owner] += w * coeff;
+                    mat.source[owner] = mat.source[owner]
+                        + ref_value[fi] * (w * coeff)
+                        + ref_grad[fi] * ((1.0 - w) * coeff * delta);
+                }
                 // Zero-gradient-like (no implicit/explicit diffusion contribution).
                 // `InletOutlet`/`OutletInlet`/`Freestream`/
                 // `PressureInletOutletVelocity` carry no flux in the diffusion

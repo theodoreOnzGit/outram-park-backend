@@ -128,6 +128,17 @@ pub fn laplacian(gamma: &SurfaceScalarField, phi: &VolScalarField) -> FvMatrix {
                     mat.ldu.diag[owner] += w * coeff;
                     mat.source[owner] += w * coeff * ref_value + (1.0 - w) * coeff * d * ref_grad;
                 }
+                // Per-face Robin: identical algebra, coefficients read per face.
+                BoundaryCondition::MixedField {
+                    value_fraction,
+                    ref_value,
+                    ref_grad,
+                } => {
+                    let w = value_fraction[fi];
+                    mat.ldu.diag[owner] += w * coeff;
+                    mat.source[owner] +=
+                        w * coeff * ref_value[fi] + (1.0 - w) * coeff * d * ref_grad[fi];
+                }
                 // fixedFluxPressure: a fixedGradient whose gradient the solver
                 // set (snGrad(p)); same explicit boundary flux as FixedGradient.
                 BoundaryCondition::FixedFluxPressure { gradient } => {

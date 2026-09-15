@@ -90,6 +90,7 @@ use std::sync::Arc;
 use outram_foam_appbuilder_lib::genfoam::neutronics::diffusion::{
     DiffusionNeutronics, DiffusionSettings,
 };
+use outram_foam_appbuilder_lib::genfoam::neutronics::albedo::AlbedoLinearisation;
 use outram_foam_appbuilder_lib::genfoam::neutronics::xs::CrossSectionData;
 use outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data;
 use outram_foam_appbuilder_lib::io::poly_mesh::{read_cell_zones, read_poly_mesh, zone_of_cell};
@@ -166,6 +167,29 @@ struct Solved {
 /// set `".*" { type fixedValue; value uniform 0; }`, i.e. zero flux on every
 /// patch, so the solve sees exactly the boundary upstream solved.
 fn solve_reference_eigenvalue(region: &Path, outer: BoundaryCondition<f64>) -> Solved {
+    solve_with_albedo(region, outer, &[])
+}
+
+/// As [`solve_reference_eigenvalue`], but additionally imposing an albedo
+/// boundary with coefficient `gamma` on each patch named in `albedo_patches`,
+/// which overrides `outer` for those patches.
+fn solve_with_albedo(
+    region: &Path,
+    outer: BoundaryCondition<f64>,
+    albedo_patches: &[(&str, f64)],
+) -> Solved {
+    solve_at_state(region, outer, albedo_patches, &[])
+}
+
+/// As [`solve_with_albedo`], but evaluating the cross sections at an explicit
+/// feedback state given as `(variable name, value)` overrides on the reference
+/// state — the mechanism by which upstream's perturbed `states` are used.
+fn solve_at_state(
+    region: &Path,
+    outer: BoundaryCondition<f64>,
+    albedo_patches: &[(&str, f64)],
+    overrides: &[(&str, f64)],
+) -> Solved {
     let mesh: Arc<FvMesh> =
         read_poly_mesh(&region.join("polyMesh")).expect("read the upstream polyMesh");
 
@@ -184,7 +208,13 @@ fn solve_reference_eigenvalue(region: &Path, outer: BoundaryCondition<f64>) -> S
     let raw: Vec<f64> = input
         .xs_variables
         .iter()
-        .map(|v| reference.parameters[&v.name])
+        .map(|v| {
+            overrides
+                .iter()
+                .find(|(n, _)| *n == v.name)
+                .map(|(_, x)| *x)
+                .unwrap_or(reference.parameters[&v.name])
+        })
         .collect();
 
     // A wedge (or empty) plane is a geometric artefact of a reduced-dimension
@@ -216,6 +246,15 @@ fn solve_reference_eigenvalue(region: &Path, outer: BoundaryCondition<f64>) -> S
     let mut solver =
         DiffusionNeutronics::new(mesh.clone(), &xs, &zone_map, &raw, &flux_boundary, settings)
             .expect("build the diffusion solver");
+    for (name, gamma) in albedo_patches {
+        let idx = mesh
+            .patches
+            .iter()
+            .position(|p| p.name == *name)
+            .unwrap_or_else(|| panic!("mesh has no `{name}` patch"));
+        solver.set_albedo_boundary(idx, *gamma, AlbedoLinearisation::CellValue);
+    }
+
     let report = solver.solve_eigenvalue().expect("eigenvalue solve");
 
     Solved {
@@ -451,5 +490,174 @@ fn msfr_reference_state_keff_brackets_upstream() {
          boundary condition.",
         vacuum.k_eff,
         reflective.k_eff
+    );
+}
+
+/// **V&V — MSFR: `k_eff` with upstream's own albedo boundary conditions.**
+///
+/// ## Methodology
+///
+/// The same mesh, cross sections and reference state as
+/// [`msfr_reference_state_keff_brackets_upstream`], now posed with the boundary
+/// conditions upstream's `0/neutroRegion/defaultFlux` actually specifies:
+///
+/// | patch | upstream | here |
+/// |---|---|---|
+/// | `front`, `back` | `wedge` | zero gradient (symmetry planes) |
+/// | `topwall`, `bottomwall`, `reflector` | `albedoSP3`, `gamma 0.1` | albedo, `gamma = 0.1` |
+/// | `hx` | `albedoSP3`, **`gamma 0.5`** | albedo, `gamma = 0.5` |
+///
+/// The `hx` patch is vacuum-valued, not 0.1 like the other three — worth calling
+/// out because assuming a single `gamma` for the whole boundary is the obvious
+/// mistake, and one this test made before the dictionary was read in full.
+///
+/// The albedo condition is a port of upstream's `albedoSP3` verified against
+/// upstream's own coefficient functions, using
+/// [`AlbedoLinearisation::CellValue`] — upstream's `gradientInternalCoeffs()`
+/// returns `-gamma/D` against the *cell* value, with no face-value closure. See
+/// `genfoam::neutronics::albedo`.
+///
+/// ## What this does and does not settle
+///
+/// The boundary treatment is now upstream's, so the **spatial neutronics** —
+/// mesh, cross sections, zone map, diffusion operator, boundary conditions,
+/// power iteration — is posed identically. What remains different is the
+/// **state at which the cross sections are evaluated**: upstream's
+/// `expectedKeff` comes from its coupled `steadyStateEN` stage, where the salt
+/// has heated under 20 MW against a heat exchanger held at 900 K, so its cross
+/// sections sit at the converged `TFuel`/`rhoCool`; this test evaluates at the
+/// nominal reference state (`TFuel 900 K`, `rhoCool 4125 kg/m3`), because the
+/// port has no coupled thermal-hydraulic driver to produce the fed-back state.
+///
+/// **That is a real gap and this test does not paper over it.** Two things are
+/// asserted, both from upstream's own data and neither fitted to the answer:
+///
+/// 1. **Sign.** The MSFR's feedbacks are negative, so upstream's coupled value
+///    must fall *below* the reference-state value. If the port came out below
+///    upstream, no amount of feedback could explain it.
+/// 2. **Magnitude.** The gap must be within the span the case's own perturbed
+///    states can produce — see
+///    [`msfr_reactivity_coefficients_from_upstreams_perturbed_states`], which
+///    bounds it at `k(TFuel 1500 K, rhoCool 3419) = 0.923777`.
+///
+/// Closing the remaining gap to a direct equality needs the coupled TH solve
+/// (pump, buoyancy, turbulence, the `fixedTemperature` heat exchanger) and the
+/// circulating-fuel precursor drift the README mentions. Tracked under
+/// `op-2df1`.
+///
+/// ## Results (measured 2026-09-15)
+///
+/// | quantity | value |
+/// |---|---|
+/// | `k_eff`, port, reference state, upstream's boundaries | **0.979508** |
+/// | `k_eff`, upstream coupled `expectedKeff` | 0.960283 |
+/// | difference | **+2002 pcm** |
+/// | port at `TFuel 1500 K` | 0.960741 |
+/// | port at `TFuel 1500 K` + `rhoCool 3419` | 0.923777 |
+///
+/// The measured feedback coefficients are **−3.32 pcm/K** in `TFuel` and
+/// **+5.28 pcm per kg/m3** in `rhoCool`. A +2002 pcm gap is therefore what a
+/// core running some 600 K above the 900 K cold leg produces, or a smaller
+/// temperature rise combined with the density drop that accompanies it — both
+/// physically ordinary for this case, and neither verifiable from here.
+///
+/// For scale: swapping the boundary from a blanket `fixedValue 0` to upstream's
+/// actual albedo moved `k_eff` by **+2106 pcm** (0.958444 to 0.979508), so the
+/// boundary condition ported here is worth about as much as the entire
+/// remaining discrepancy.
+#[test]
+fn msfr_keff_with_upstreams_albedo_boundary() {
+    let root = require_upstream!();
+    let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
+    let Some(region) = stage_region(&case, "neutroRegion", "msfr_albedo") else {
+        println!("SKIP: could not stage the MSFR case (is `gzip` available?)");
+        return;
+    };
+
+    // Per-patch gamma, read off upstream's own 0/neutroRegion/defaultFlux.
+    let s = solve_with_albedo(
+        &region,
+        BoundaryCondition::ZeroGradient,
+        &[
+            ("topwall", 0.1),
+            ("bottomwall", 0.1),
+            ("reflector", 0.1),
+            ("hx", 0.5),
+        ],
+    );
+
+    let expected = 0.960283;
+    let pcm = report("MSFR (2D_MSFR) — upstream's albedo boundary", &s, expected);
+
+    assert!(s.converged, "the power iteration did not converge");
+    assert!(
+        pcm > 0.0,
+        "the reference-state k_eff ({:.6}) is BELOW upstream's coupled value \
+         ({expected}). The MSFR's feedbacks are negative, so no fed-back state \
+         can raise k above the reference one — the discrepancy cannot be \
+         feedback and is a defect somewhere in the neutronics.",
+        s.k_eff
+    );
+    // The fully-perturbed state of the case's own data is the floor; upstream's
+    // converged state lies between it and the reference state.
+    assert!(
+        s.k_eff > expected && expected > 0.923777,
+        "upstream's k_eff is outside the feedback span [0.923777, {:.6}] the \
+         case's own perturbed states allow",
+        s.k_eff
+    );
+}
+
+/// Diagnostic: the MSFR reactivity coefficients implied by upstream's own
+/// perturbed cross-section states, and what temperature shift the gap between
+/// the port's reference-state `k_eff` and upstream's coupled one would need.
+#[test]
+fn msfr_reactivity_coefficients_from_upstreams_perturbed_states() {
+    let root = require_upstream!();
+    let case = root.join("Tutorials/reactorCases/2D_MSFR/rootCase");
+    let Some(region) = stage_region(&case, "neutroRegion", "msfr_coeff") else {
+        println!("SKIP");
+        return;
+    };
+    let albedo = [
+        ("topwall", 0.1),
+        ("bottomwall", 0.1),
+        ("reflector", 0.1),
+        ("hx", 0.5),
+    ];
+    let run = |ov: &[(&str, f64)]| {
+        solve_at_state(&region, BoundaryCondition::ZeroGradient, &albedo, ov).k_eff
+    };
+
+    let k_ref = run(&[]);
+    let k_hot = run(&[("TFuel", 1500.0)]);
+    let k_light = run(&[("rhoCool", 3419.0)]);
+    let k_both = run(&[("TFuel", 1500.0), ("rhoCool", 3419.0)]);
+
+    let pcm = |a: f64, b: f64| 1.0e5 * (a - b) / (a * b);
+    println!(
+        "\nMSFR reactivity coefficients from upstream's own perturbed states:\n\
+         \tk(reference: TFuel 900 K, rhoCool 4125)   = {k_ref:.6}\n\
+         \tk(TFuel 1500 K)                           = {k_hot:.6}  \
+         ({:+.1} pcm over 600 K -> {:+.4} pcm/K)\n\
+         \tk(rhoCool 3419 kg/m3)                     = {k_light:.6}  \
+         ({:+.1} pcm over -706 kg/m3 -> {:+.4} pcm per kg/m3)\n\
+         \tk(both perturbed)                         = {k_both:.6}\n\
+         \tupstream coupled expectedKeff             = 0.960283",
+        pcm(k_hot, k_ref),
+        pcm(k_hot, k_ref) / 600.0,
+        pcm(k_light, k_ref),
+        pcm(k_light, k_ref) / -706.0,
+    );
+    // Upstream's coupled value must lie between the port's unfed-back reference
+    // state and its fully-perturbed one: the case's own perturbed states bound
+    // how far negative feedback can carry k, and upstream's converged state is
+    // somewhere inside that span. Both ends come from upstream's own data, so
+    // nothing here is fitted to the answer.
+    assert!(
+        k_both < 0.960283 && 0.960283 < k_ref,
+        "upstream's coupled k_eff 0.960283 is outside the span the case's own \
+         perturbed states allow, [{k_both:.6}, {k_ref:.6}] — the feedback \
+         parametrisation or the reference-state solve is wrong"
     );
 }
