@@ -544,6 +544,27 @@ fn bracket_pressure(rho_si: f64, h: AvailableEnergy) -> Option<(f64, f64, f64, f
 /// about `1e-14`, because at fixed `T` the saturation pressure is already
 /// known and nothing has to be inverted at all.
 ///
+/// # Cost, measured 2026-09-15
+///
+/// The speed advantage is real but **not uniform**, and there is one regime
+/// where this function is slower than the iterative route it exists to replace:
+///
+/// | state | this | [`p_rho_h_eqm_si`] | ratio |
+/// |---|---|---|---|
+/// | vapour, `rho = 4.07`, `h = 3000 kJ/kg` | 1 893 ns | 54 043 ns | 28x faster |
+/// | low-pressure vapour, `rho = 0.84` | 4 316 ns | 184 381 ns | 43x faster |
+/// | liquid, `rho = 982`, `h = 300 kJ/kg` | 3 848 ns | 58 486 ns | 15x faster |
+/// | **near-critical two-phase, `rho = 315.6`** | **242 713 ns** | 225 577 ns | **0.93x — SLOWER** |
+///
+/// The last row is a direct consequence of the near-critical exclusion: such a
+/// state pays for the classifier, the fitted surface and the region flash, then
+/// is handed to the iterative route anyway. It pays twice.
+///
+/// Fixing it means deciding to iterate **before** any of that work, from `rho`
+/// and `h` alone — a proximity test against the critical point rather than a
+/// quality test needing a pressure. Tracked in GH #207; until then a caller in
+/// that regime should call [`p_rho_h_eqm`] directly.
+///
 /// # Panics
 ///
 /// Panics when `rho_si` is not strictly positive and finite, or when `h_si` is
