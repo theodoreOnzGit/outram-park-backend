@@ -6268,6 +6268,7 @@ dependencies = [
  "outram-foam-appbuilder-lib",
  "outram-foam-basic-lib",
  "outram-foam-mesh",
+ "outram-park-fork-offbeat",
  "thiserror 2.0.18",
  "uom 0.38.0",
 ]
