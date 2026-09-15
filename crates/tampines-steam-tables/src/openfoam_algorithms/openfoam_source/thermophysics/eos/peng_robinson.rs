@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
+
 use super::traits::EquationOfState;
 use crate::openfoam_algorithms::openfoam_source::constants::{P_REF, R_UNIVERSAL};
 use crate::openfoam_algorithms::openfoam_source::cubic_eqn::CubicEqn;
@@ -141,7 +143,7 @@ impl PengRobinsonGas {
         if den <= 0.0 || num <= 0.0 {
             return 0.0;
         }
-        (num / den).ln()
+        (num / den).r_ln()
     }
 }
 
@@ -294,7 +296,7 @@ impl EquationOfState for PengRobinsonGas {
         let z = self.z_vapour(pv, tv);
 
         let s = r
-            * (-(pv / P_REF).ln() + (z - b_dim).ln()
+            * (-(pv / P_REF).r_ln() + (z - b_dim).r_ln()
                 - 2.078 * kappa * ((1.0 + kappa) / tr.sqrt() - kappa) * self.log_factor(z, b_dim));
 
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(s)

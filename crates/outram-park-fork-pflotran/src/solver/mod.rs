@@ -37,14 +37,12 @@
 pub mod block;
 
 pub use block::{
-    block_bicgstab, BlockJacobiPreconditioner, BlockLduMatrix, BlockNewtonConfig, BlockNewtonReport,
-    BlockNewtonSolver, BlockNonlinearSystem,
+    block_bicgstab, BlockJacobiPreconditioner, BlockLduMatrix, BlockNewtonConfig,
+    BlockNewtonReport, BlockNewtonSolver, BlockNonlinearSystem,
 };
 
 use crate::error::PflotranError;
-use outram_foam_basic_lib::krylov::{
-    self, KrylovSettings, Preconditioner,
-};
+use outram_foam_basic_lib::krylov::{self, KrylovSettings, Preconditioner};
 use outram_foam_basic_lib::ldu_matrix::LduMatrix;
 
 /// Compiler-enforced contract for a nonlinear system `F(x) = 0` solved by
@@ -434,7 +432,11 @@ mod tests {
             }
             Ok(())
         }
-        fn assemble_jacobian(&mut self, x: &[f64], jac: &mut LduMatrix) -> Result<(), PflotranError> {
+        fn assemble_jacobian(
+            &mut self,
+            x: &[f64],
+            jac: &mut LduMatrix,
+        ) -> Result<(), PflotranError> {
             let inv = 1.0 / self.h2;
             for d in jac.diag.iter_mut() {
                 *d = 0.0;
@@ -488,7 +490,11 @@ mod tests {
             }
             Ok(())
         }
-        fn assemble_jacobian(&mut self, _x: &[f64], jac: &mut LduMatrix) -> Result<(), PflotranError> {
+        fn assemble_jacobian(
+            &mut self,
+            _x: &[f64],
+            jac: &mut LduMatrix,
+        ) -> Result<(), PflotranError> {
             for (i, d) in jac.diag.iter_mut().enumerate() {
                 *d = self.diag[i];
             }
@@ -517,7 +523,9 @@ mod tests {
             max_backtracks: 10,
         });
         let mut x = vec![0.0; sys.n_dof()];
-        let report = solver.solve(&mut sys, &mut x).expect("Bratu should converge");
+        let report = solver
+            .solve(&mut sys, &mut x)
+            .expect("Bratu should converge");
 
         assert!(report.converged);
         assert!(
@@ -570,7 +578,9 @@ mod tests {
             max_backtracks: 0, // full Newton — a linear system needs no damping
         });
         let mut x = vec![0.0, 0.0];
-        let report = solver.solve(&mut sys, &mut x).expect("linear solve converges");
+        let report = solver
+            .solve(&mut sys, &mut x)
+            .expect("linear solve converges");
 
         assert!(report.converged);
         // One Newton step lands on the root; the convergence test then fires at

@@ -1,0 +1,142 @@
+raffles
+Part of Outram Park (outram-park-backend).
+
+RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation.
+
+
+UPSTREAM PROJECT
+================
+
+This crate is an independent Rust port / translation of the uncertainty-
+quantification and risk-analysis core of RAVEN.
+
+  Project:     RAVEN (Risk Analysis Virtual ENvironment)
+  Developer:   Idaho National Laboratory (INL)
+  Repository:  https://github.com/idaholab/raven
+  Homepage:    https://raven.inl.gov
+  License:     Apache License, Version 2.0 (Apache-2.0)
+
+REFERENCE POINT (what this port is being written against)
+
+  Branch:            devel
+  Commit:            01216937967c38ee287859270c035c8eca906dc6
+  Commit date:       2026-07-14T19:03:16Z
+  Latest release at
+  time of access:    RAVENv3.2 (published 2026-03-12T19:46:54Z)
+  Date accessed:     2026-08-06
+
+  Upstream LICENSE.txt, preserved verbatim in this crate as
+  `LICENSE-APACHE-RAVEN`:
+    path   LICENSE.txt   (branch devel)
+    blob   9b5e4019df618fc47d429529c369f4903142669b
+    size   11558 bytes
+    sha256 49bbe9114e49214df2ccc324cb3ac8d1d1aa1c3a0947f94c286765e86647b32e
+
+  Upstream NOTICE.txt, preserved verbatim in this crate as `NOTICE-RAVEN`:
+    path   NOTICE.txt    (branch devel)
+    size   4859 bytes
+    sha256 e53e0d1060708ca94f7328ed5569463fc642645b3c0f788a839340d71ed26c6b
+
+Both files were fetched from
+https://raw.githubusercontent.com/idaholab/raven/devel/ on 2026-08-06 and are
+reproduced byte-for-byte — they were NOT retyped, paraphrased, or reformatted.
+
+
+REQUIRED APACHE-2.0 ATTRIBUTION
+===============================
+
+Apache-2.0 section 4 requires that derivative works retain the upstream
+copyright, patent, trademark and attribution notices, and that the contents of
+any upstream NOTICE file be carried forward. Reproducing the upstream notice:
+
+  Copyright 2017 Battelle Energy Alliance, LLC
+  ALL RIGHTS RESERVED
+
+  These data were produced by Office of Nuclear Energy of the U.S. Department
+  of Energy under Contract No. DE-AC07-05ID14517 with the Department of
+  Energy. The Government is granted for itself, and others acting on its
+  behalf, a paid-up, a nonexclusive, irrevocable worldwide license in this
+  data to reproduce, distribute copies to the public, prepare derivative
+  works, perform publicly and display publicly, and to permit others to do so.
+  NEITHER THE UNITED STATES NOR THE UNITED STATES DEPARTMENT OF ENERGY, NOR
+  ANY OF THEIR EMPLOYEES, MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR ASSUMES
+  ANY LEGAL LIABILITY OR RESPONSIBILITY FOR THE ACCURACY, COMPLETENESS, OR
+  USEFULNESS OF ANY DATA, APPARATUS, PRODUCT, OR PROCESS DISCLOSED, OR
+  REPRESENTS THAT ITS USE WOULD NOT INFRINGE PRIVATELY OWNED RIGHTS.
+
+RAVEN's own NOTICE.txt names its main authors: Andrea Alfonsi, Cristian
+Rabiti, Diego Mandelli, Joshua Cogliati, Congjian Wang, Daniel Maljovec, Paul
+Talbot, Sonat Sen, Robert Kinoshita and Jun Chen (all Idaho National
+Laboratory). The full text, including their ORCIDs, is in `NOTICE-RAVEN`.
+
+THIRD-PARTY CODE INSIDE RAVEN — DO NOT PORT WITHOUT RE-CHECKING. RAVEN's
+NOTICE.txt further discloses that RAVEN itself contains third-party code under
+separate BSD licences:
+
+  - AMSC — Copyright 2014 University of Utah, Scientific Computing and
+    Imaging Institute (3-clause BSD).
+  - NGL  — Copyright 2012 Carlos D. Correa (2-clause BSD).
+
+Both are GPLv3-compatible, but they are NOT covered by the Apache-2.0 grant
+above. Any RAFFLES file derived from those parts of RAVEN (they sit in the
+topological-decomposition / Morse-Smale complex area, adjacent to sensitivity
+analysis) must carry the *BSD* attribution, not the Apache-2.0 one. Check
+which upstream component a file comes from before writing its header.
+
+
+LICENCE DIRECTION — APACHE-2.0 INTO GPL-3.0 IS ONE-WAY
+======================================================
+
+RAFFLES is distributed under GPL-3.0-only, the Outram Park workspace default.
+
+Apache-2.0 is one-way compatible with GPLv3: Apache-2.0 code may be
+incorporated into a GPLv3 work, and the combined result is governed by GPLv3.
+The reverse does not hold — GPLv3 is not compatible with Apache-2.0, and
+Apache-2.0 alone cannot satisfy GPLv3's terms. Concretely:
+
+  * Code may flow  RAVEN (Apache-2.0)  ->  RAFFLES (GPL-3.0-only).
+  * Code may NOT flow  RAFFLES (GPL-3.0-only)  ->  RAVEN (Apache-2.0).
+
+Do not contribute RAFFLES code, patches, or translated files upstream to
+RAVEN, and do not offer RAFFLES code to anyone under Apache-2.0 terms. Once a
+translation lands here it is GPLv3 and it stays GPLv3. If the RAVEN project
+ever wants something from this work, it has to be rewritten by them from the
+specification, or separately relicensed by every RAFFLES copyright holder —
+neither of which an AI assistant or a contributor may arrange unilaterally.
+
+This restriction is on the direction of code flow, not on ideas: reading
+RAVEN's papers and documentation and implementing the published algorithms is
+unaffected.
+
+
+PER-FILE ATTRIBUTION HEADERS (workspace rule)
+=============================================
+
+Every RAFFLES source file that is derived from a RAVEN source file must carry
+an attribution header naming the upstream project, the upstream source file,
+the version/commit it was taken from, the copyright holder, and the licence.
+Do not strip these headers during refactors. A worked example header — copy it
+verbatim and edit the fields — is in this crate's `CLAUDE.md`.
+
+No RAVEN source has been ported into this crate yet. It is a documented
+scaffold: module boundaries, licensing and provenance only.
+
+
+INDEPENDENCE / TRADEMARK
+========================
+
+This is an independent fork. RAFFLES is not the RAVEN project, is not a
+release of RAVEN, and is not endorsed by or affiliated with RAVEN, Idaho
+National Laboratory, Battelle Energy Alliance, LLC, or the U.S. Department of
+Energy. "RAVEN" is used only to identify the upstream work being ported. See
+the workspace `TRADEMARKS.md`.
+
+
+INTENDED USE
+============
+
+Per the workspace `RESPONSIBLE_USE.md`: education, research, capability
+building, and verification & validation only. Despite the "risk analysis"
+name, RAFFLES is NOT for nuclear facility operation, reactor control,
+licensing decisions, safety-critical decision-making, probabilistic safety
+assessment of a real facility, emergency response, or operational deployment.

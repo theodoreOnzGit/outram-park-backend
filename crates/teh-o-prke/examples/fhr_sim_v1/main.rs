@@ -1,5 +1,8 @@
 #[cfg(not(target_os = "android"))]
-use std::{sync::{Arc, Mutex}, thread};
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+};
 
 #[cfg(not(target_os = "android"))]
 use uom::si::{f64::*, power::kilowatt};
@@ -22,11 +25,8 @@ fn main() {}
 /// the latter uses the tampines-steam-tables
 #[cfg(not(target_os = "android"))]
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-fn main(){
-
+fn main() {
     fhr_simulator_v1().unwrap();
-
-
 }
 #[cfg(not(target_os = "android"))]
 pub fn fhr_simulator_v1() -> eframe::Result<()> {
@@ -41,14 +41,11 @@ pub fn fhr_simulator_v1() -> eframe::Result<()> {
         native_options,
         Box::new(|cc| {
             // image support,
-            // from 
+            // from
             // https://github.com/emilk/egui/tree/master/examples/images
             egui_extras::install_image_loaders(&cc.egui_ctx);
             Ok(Box::new(FHRSimulatorApp::new(cc)))
-
-    }
-
-        ),
+        }),
     )
 }
 #[cfg(not(target_os = "android"))]
@@ -56,21 +53,20 @@ pub fn fhr_simulator_v1() -> eframe::Result<()> {
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Clone, Debug)]
 pub struct FHRSimulatorApp {
-
     pub fhr_state: Arc<Mutex<FHRState>>,
 
     /// what panel is open
     pub open_panel: Panel,
 
     #[serde(skip)]
-    /// pointer for plotting 
-    pub fhr_simulator_ptr_for_plotting: Arc<Mutex<PagePlotData>>
+    /// pointer for plotting
+    pub fhr_simulator_ptr_for_plotting: Arc<Mutex<PagePlotData>>,
 }
 
 #[cfg(not(target_os = "android"))]
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-#[derive(Clone,Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct FHRState {
     /// left control rod insertion fraction
     pub left_cr_insertion_frac: f32,
@@ -95,26 +91,25 @@ pub struct FHRState {
     /// this displays reactor thermal power in megawatts,
     /// including decay heat
     pub reactor_power_megawatts: f64,
-    /// this is decay heat in megawatts 
+    /// this is decay heat in megawatts
     pub reactor_decay_heat_megawatts: f64,
     /// this displays reactor keff
     pub keff: f64,
-    /// this displays reactivity in dollars 
+    /// this displays reactivity in dollars
     pub reactivity_dollars: f64,
-    /// this displays xenon feedback in dollars 
+    /// this displays xenon feedback in dollars
     pub xenon135_feedback_dollars: f64,
 
-    // this is important for coupling between prke loop and thermal 
+    // this is important for coupling between prke loop and thermal
     // hydraulics loop
     pub prke_loop_accumulated_timestep_seconds: f64,
     pub prke_loop_accumulated_heat_removal_kilojoules: f64,
 
-    /// pump pressure settings 
+    /// pump pressure settings
     pub fhr_pri_loop_pump_pressure_kilopascals: f64,
     pub fhr_intermediate_loop_pump_pressure_kilopascals: f64,
 
-
-    // this is important for timestep monitoring 
+    // this is important for timestep monitoring
     // time diagnostics
     pub prke_simulation_time_seconds: f64,
     pub prke_elapsed_time_seconds: f64,
@@ -125,8 +120,7 @@ pub struct FHRState {
     pub thermal_hydraulics_calc_time_microseconds: f64,
     pub thermal_hydraulics_timestep_microseconds: f64,
 
-
-    // diagnostics for thermal hydraulics loop 
+    // diagnostics for thermal hydraulics loop
     pub reactor_branch_flowrate_kg_per_s: f64,
     pub downcomer1_branch_flowrate_kg_per_s: f64,
     pub downcomer2_branch_flowrate_kg_per_s: f64,
@@ -138,7 +132,7 @@ pub struct FHRState {
 impl Default for FHRState {
     fn default() -> Self {
         let default_temperature_degc = 500.0;
-        FHRState { 
+        FHRState {
             left_cr_insertion_frac: 0.40,
             right_cr_insertion_frac: 0.40,
             pebble_core_temp_degc: default_temperature_degc,
@@ -180,19 +174,15 @@ impl Default for FHRState {
 
 #[cfg(not(target_os = "android"))]
 impl FHRState {
-
-    pub fn obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter(
-        &mut self) -> Power {
-        let heat_removal_rate_kilowatts = 
-            self.prke_loop_accumulated_heat_removal_kilojoules/
-            self.prke_loop_accumulated_timestep_seconds;
+    pub fn obtain_average_heat_removal_rate_from_pebble_bed_and_reset_counter(&mut self) -> Power {
+        let heat_removal_rate_kilowatts = self.prke_loop_accumulated_heat_removal_kilojoules
+            / self.prke_loop_accumulated_timestep_seconds;
 
         self.prke_loop_accumulated_timestep_seconds = 0.0;
         self.prke_loop_accumulated_heat_removal_kilojoules = 0.0;
         return Power::new::<kilowatt>(heat_removal_rate_kilowatts);
     }
 }
-
 
 #[cfg(not(target_os = "android"))]
 impl FHRSimulatorApp {
@@ -209,51 +199,37 @@ impl FHRSimulatorApp {
 
         let new_fhr_app: FHRSimulatorApp = Default::default();
 
-        let fhr_state_prke_ptr: Arc<Mutex<FHRState>> = 
-            new_fhr_app.fhr_state.clone();
-        let fhr_state_thermal_hydraulics_ptr: Arc<Mutex<FHRState>> = 
-            new_fhr_app.fhr_state.clone();
-        // these are pointers/references for plotting reactor power 
-        // both the instantaneous state 
+        let fhr_state_prke_ptr: Arc<Mutex<FHRState>> = new_fhr_app.fhr_state.clone();
+        let fhr_state_thermal_hydraulics_ptr: Arc<Mutex<FHRState>> = new_fhr_app.fhr_state.clone();
+        // these are pointers/references for plotting reactor power
+        // both the instantaneous state
         // and page plotting
-        let fhr_state_plot_ptr: Arc<Mutex<FHRState>> = 
-            new_fhr_app.fhr_state.clone();
-        let fhr_page_plot_ptr: Arc<Mutex<PagePlotData>> = 
+        let fhr_state_plot_ptr: Arc<Mutex<FHRState>> = new_fhr_app.fhr_state.clone();
+        let fhr_page_plot_ptr: Arc<Mutex<PagePlotData>> =
             new_fhr_app.fhr_simulator_ptr_for_plotting.clone();
 
         // now spawn a thread to do the kinetics
         //
-        thread::spawn(move ||{
+        thread::spawn(move || {
             // now I also have a PRKE data which lives inside this loop
             FHRSimulatorApp::calculate_prke_loop(fhr_state_prke_ptr);
         });
 
         // spawn a thread to do the thermal hydraulics
-        thread::spawn(move ||{
-            FHRSimulatorApp::calculate_thermal_hydraulics_loop(
-                fhr_state_thermal_hydraulics_ptr
-            );
-            
+        thread::spawn(move || {
+            FHRSimulatorApp::calculate_thermal_hydraulics_loop(fhr_state_thermal_hydraulics_ptr);
         });
         // spawn a thread to do the updating of graph plots
-        thread::spawn(move ||{
-            FHRSimulatorApp::update_plot_from_fhr_state(
-                fhr_state_plot_ptr,
-                fhr_page_plot_ptr
-            );
-            
+        thread::spawn(move || {
+            FHRSimulatorApp::update_plot_from_fhr_state(fhr_state_plot_ptr, fhr_page_plot_ptr);
         });
 
         new_fhr_app
     }
-
-
-    
 }
 #[cfg(not(target_os = "android"))]
 impl Default for FHRSimulatorApp {
     fn default() -> Self {
-
         let fhr_state = FHRState::default();
         let fhr_state_ptr = Arc::new(Mutex::new(fhr_state));
         let fhr_plot: PagePlotData = PagePlotData::default();
@@ -264,7 +240,6 @@ impl Default for FHRSimulatorApp {
             fhr_state: fhr_state_ptr,
             open_panel: default_open_panel,
             fhr_simulator_ptr_for_plotting: fhr_plot_ptr,
-
         }
     }
 }

@@ -68,9 +68,7 @@ use uom::si::thermodynamic_temperature::kelvin;
 use crate::interfaces::functional_programming::ph_flash_eqm::{
     ph_flash_region, s_ph_eqm, t_ph_eqm, v_ph_eqm, x_ph_flash,
 };
-use crate::interfaces::functional_programming::pt_flash_eqm::{
-    v_tp_eqm_single_phase, FwdEqnRegion,
-};
+use crate::interfaces::functional_programming::pt_flash_eqm::{v_tp_eqm_single_phase, FwdEqnRegion};
 use crate::region_1_subcooled_liquid::h_tp_1;
 use crate::region_2_vapour::h_tp_2;
 use crate::region_4_vap_liq_equilibrium::sat_pressure_4;
@@ -164,15 +162,30 @@ fn ph_flash_neighbourhood_of_psat_273_15_does_not_panic() {
     }
 }
 
-/// Defect 2: a Region 5 `(p,h)` input produces the explicit, documented
-/// "unsupported" panic — NOT a `todo!()` and NOT a wrong number.
+/// Region 5 `(p,h)` now round-trips, where it used to be refused outright.
 ///
-/// Methodology: T = 1500 K, p = 0.5 MPa is IAPWS-IF97 Region 5. Compute
-/// `h = h_tp_5(T,p)` forward (reference h = 5219.76855 kJ/kg, IF97 Table 42 /
-/// International Steam Tables Table 2.27), then attempt a `(p,h)` flash.
+/// ## What changed, and what did not
+///
+/// This test previously asserted a panic: IAPWS-IF97 publishes no backward
+/// `(p,h)` correlation for Region 5, so the flash had no route and said so.
+/// IAPWS still publishes none. What changed is that the dispatcher now falls
+/// back on this crate's own Region 5 `T(p,h)` correlation, so the flash has a
+/// route — an **in-house fit, not an IAPWS value**. The old behaviour is kept
+/// exactly where it is still correct, which the two tests below pin.
+///
+/// ## Methodology
+///
+/// T = 1500 K, p = 0.5 MPa is IAPWS-IF97 Region 5. Compute `h = h_tp_5(T,p)`
+/// forward (reference h = 5219.76855 kJ/kg, IF97 Table 42 / International Steam
+/// Tables Table 2.27), flash back with `t_ph_eqm`, and require the original
+/// temperature. Pass criterion 1e-4 relative — the correlation is a fit to the
+/// forward equations, not an exact inversion of them.
+///
+/// ## Results (measured 2026-09-14)
+///
+/// Round-trips within the gate; the residual is printed.
 #[test]
-#[should_panic(expected = "no backward (p,h) correlation for Region 5")]
-fn region_5_ph_flash_is_explicitly_unsupported() {
+fn region_5_ph_flash_round_trips_through_the_in_house_correlation() {
     let t = ThermodynamicTemperature::new::<kelvin>(1500.0);
     let p = Pressure::new::<megapascal>(0.5);
     let h = h_tp_5(t, p);
@@ -182,8 +195,30 @@ fn region_5_ph_flash_is_explicitly_unsupported() {
         5219.76855,
         max_relative = 1e-6
     );
-    // this must panic with the explicit unsupported message
-    let _ = t_ph_eqm(p, h);
+
+    assert_eq!(ph_flash_region(p, h), FwdEqnRegion::Region5);
+
+    let t_back = t_ph_eqm(p, h);
+    println!(
+        "Region 5 (p,h) round trip: T = 1500 K -> {:.6} K",
+        t_back.get::<kelvin>()
+    );
+    approx::assert_relative_eq!(t_back.get::<kelvin>(), 1500.0, max_relative = 1e-4);
+}
+
+/// Region 5 above its own 50 MPa pressure limit is still refused.
+///
+/// Region 5 is defined only to 50 MPa while Regions 1 to 4 run to 100 MPa, so a
+/// point above the 1073.15 K isotherm at higher pressure is outside IF97
+/// altogether — not merely outside a backward equation. Wiring Region 5 in must
+/// not have quietly widened that, so this pins it.
+#[test]
+#[should_panic(expected = "outside the formulation entirely")]
+fn region_5_above_its_pressure_limit_is_still_refused() {
+    let t = ThermodynamicTemperature::new::<kelvin>(1500.0);
+    let h = h_tp_5(t, Pressure::new::<megapascal>(0.5));
+    let p_too_high = Pressure::new::<megapascal>(80.0);
+    let _ = t_ph_eqm(p_too_high, h);
 }
 
 /// Defect 3 (companion): a single-phase `(T,p)` forward flash handed a

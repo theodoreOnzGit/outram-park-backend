@@ -21,22 +21,56 @@ pub static R13I1: FluidEos = FluidEos {
     t_max: 420.0,
     p_max: 50000000.0,
     acentric: 0.17618111777018552,
-    residual: &[
-    ResidualTerm::Power { n: &[1.12191, -3.08087, 1.11307, -0.184885, 0.110971, 0.000325, 0.333357, -0.0288288, -0.371554, -0.0997985, -0.0333205, 0.0207882], t: &[0.25, 1.125, 1.5, 1.375, 0.25, 0.875, 0.625, 1.75, 3.625, 3.625, 14.5, 12.0], d: &[1.0, 1.0, 1.0, 2.0, 3.0, 7.0, 2.0, 5.0, 1.0, 4.0, 3.0, 4.0], l: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0] },
-    ],
+    residual: &[ResidualTerm::Power {
+        n: &[
+            1.12191, -3.08087, 1.11307, -0.184885, 0.110971, 0.000325, 0.333357, -0.0288288,
+            -0.371554, -0.0997985, -0.0333205, 0.0207882,
+        ],
+        t: &[
+            0.25, 1.125, 1.5, 1.375, 0.25, 0.875, 0.625, 1.75, 3.625, 3.625, 14.5, 12.0,
+        ],
+        d: &[1.0, 1.0, 1.0, 2.0, 3.0, 7.0, 2.0, 5.0, 1.0, 4.0, 3.0, 4.0],
+        l: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0],
+    }],
     ideal: &[
-    IdealTerm::Lead { a1: 0.0, a2: 0.0 },
-    IdealTerm::LogTau { a: 3.0 },
-    IdealTerm::PlanckEinstein { n: &[6.2641], t: &[1.7505801634547473] },
-    IdealTerm::EnthalpyEntropyOffset { a1: -24.691504134838297, a2: 14.217528781905427 },
+        IdealTerm::Lead { a1: 0.0, a2: 0.0 },
+        IdealTerm::LogTau { a: 3.0 },
+        IdealTerm::PlanckEinstein {
+            n: &[6.2641],
+            t: &[1.7505801634547473],
+        },
+        IdealTerm::EnthalpyEntropyOffset {
+            a1: -24.691504134838297,
+            a2: 14.217528781905427,
+        },
     ],
 };
 
 /// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
 /// as the VLE initial guess and for standalone saturation lookups.
 pub static R13I1_ANCILLARIES: FluidAncillaries = FluidAncillaries {
-    p_sat: SatAncillary { reducing_value: 3953000.0, t_r: 396.44, using_tau_r: true, exponential: true, n: &[-6.8642, 1.7877, -1.0619, -2.1677], t: &[1.0, 1.5, 1.9, 3.8] },
-    rho_l: SatAncillary { reducing_value: 4430.6, t_r: 396.44, using_tau_r: false, exponential: false, n: &[18.776, -78.705, 149.49, -130.69, 43.856], t: &[0.58, 0.8, 1.0, 1.2, 1.4] },
-    rho_v: SatAncillary { reducing_value: 4430.6, t_r: 396.44, using_tau_r: false, exponential: true, n: &[-47.722, 108.57, -169.0, 171.54, -82.244, -40.758, -83.584], t: &[0.65, 0.8, 1.1, 1.4, 1.75, 5.8, 13.0] },
+    p_sat: SatAncillary {
+        reducing_value: 3953000.0,
+        t_r: 396.44,
+        using_tau_r: true,
+        exponential: true,
+        n: &[-6.8642, 1.7877, -1.0619, -2.1677],
+        t: &[1.0, 1.5, 1.9, 3.8],
+    },
+    rho_l: SatAncillary {
+        reducing_value: 4430.6,
+        t_r: 396.44,
+        using_tau_r: false,
+        exponential: false,
+        n: &[18.776, -78.705, 149.49, -130.69, 43.856],
+        t: &[0.58, 0.8, 1.0, 1.2, 1.4],
+    },
+    rho_v: SatAncillary {
+        reducing_value: 4430.6,
+        t_r: 396.44,
+        using_tau_r: false,
+        exponential: true,
+        n: &[-47.722, 108.57, -169.0, 171.54, -82.244, -40.758, -83.584],
+        t: &[0.65, 0.8, 1.1, 1.4, 1.75, 5.8, 13.0],
+    },
 };
-

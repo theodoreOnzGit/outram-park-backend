@@ -566,12 +566,12 @@ impl GrouprInput {
         let ismooth = s.get(8).copied().unwrap_or(1);
 
         let neutron_groups = neutron_group_from_ign(ign)?;
-        let photon_groups = PhotonGroupStructure::from_igg(igg)
-            .ok_or_else(|| card_err("card 2: illegal igg"))?;
+        let photon_groups =
+            PhotonGroupStructure::from_igg(igg).ok_or_else(|| card_err("card 2: illegal igg"))?;
         let weight =
             WeightSelection::from_iwt(iwt).ok_or_else(|| card_err("card 2: illegal iwt"))?;
-        let iprint = PrintOption::from_iprint(iprint)
-            .ok_or_else(|| card_err("card 2: illegal iprint"))?;
+        let iprint =
+            PrintOption::from_iprint(iprint).ok_or_else(|| card_err("card 2: illegal iprint"))?;
         let ismooth = SmoothingOption::from_ismooth(ismooth)
             .ok_or_else(|| card_err("card 2: illegal ismooth"))?;
 
@@ -657,16 +657,16 @@ impl GrouprInput {
                 break;
             }
             if mfd == -1 {
-                return Err(NjoyError::NotPorted("groupr::parse::card9a_extended_residual"));
+                return Err(NjoyError::NotPorted(
+                    "groupr::parse::card9a_extended_residual",
+                ));
             }
             let mtd = *nums.get(1).ok_or_else(|| card_err("card 9: mtd"))?;
             reactions.push(ReactionRequest { mfd, mtd, name });
         }
 
         // --- card 10: next material (optional) ---
-        let next_material = lines
-            .next()
-            .and_then(|l| parse_ints(l).first().copied());
+        let next_material = lines.next().and_then(|l| parse_ints(l).first().copied());
 
         Ok(Self {
             units,
@@ -720,7 +720,11 @@ fn tokens(line: &str) -> impl Iterator<Item = &str> {
 /// `3.0` truncates toward zero).
 fn parse_ints(line: &str) -> Vec<i32> {
     tokens(line)
-        .map_while(|t| t.parse::<i32>().ok().or_else(|| t.parse::<f64>().ok().map(|f| f as i32)))
+        .map_while(|t| {
+            t.parse::<i32>()
+                .ok()
+                .or_else(|| t.parse::<f64>().ok().map(|f| f as i32))
+        })
         .collect()
 }
 
@@ -743,9 +747,7 @@ fn strip_title(line: &str) -> String {
     if let Some(stripped) = t.strip_suffix('/') {
         t = stripped.trim();
     }
-    let t = t
-        .trim_matches(|c| c == '\'' || c == '"')
-        .trim();
+    let t = t.trim_matches(|c| c == '\'' || c == '"').trim();
     t.to_string()
 }
 
@@ -904,9 +906,30 @@ mod tests {
         assert_eq!(inp.temperatures, vec![293.6, 900.0]);
         assert_eq!(inp.sigma_zeros, vec![1.0e10, 100.0]);
         assert_eq!(inp.reactions.len(), 3);
-        assert_eq!(inp.reactions[0], ReactionRequest { mfd: 3, mtd: 1, name: "total".into() });
-        assert_eq!(inp.reactions[1], ReactionRequest { mfd: 3, mtd: 18, name: "fission".into() });
-        assert_eq!(inp.reactions[2], ReactionRequest { mfd: 3, mtd: 102, name: "capture".into() });
+        assert_eq!(
+            inp.reactions[0],
+            ReactionRequest {
+                mfd: 3,
+                mtd: 1,
+                name: "total".into()
+            }
+        );
+        assert_eq!(
+            inp.reactions[1],
+            ReactionRequest {
+                mfd: 3,
+                mtd: 18,
+                name: "fission".into()
+            }
+        );
+        assert_eq!(
+            inp.reactions[2],
+            ReactionRequest {
+                mfd: 3,
+                mtd: 102,
+                name: "capture".into()
+            }
+        );
         assert_eq!(inp.next_material, Some(0));
     }
 
@@ -937,10 +960,7 @@ mod tests {
 ";
         let inp = GrouprInput::parse(deck).expect("deck parses");
         assert_eq!(inp.neutron_groups, NeutronGroupStructure::Arbitrary);
-        assert_eq!(
-            inp.neutron_grid,
-            Some(vec![1.0e-5, 1.0, 1.0e3, 2.0e7])
-        );
+        assert_eq!(inp.neutron_grid, Some(vec![1.0e-5, 1.0, 1.0e3, 2.0e7]));
         let p = inp.thermal_fission_params.expect("card 8c present");
         assert_eq!(p.thermal_break_ev, 0.1);
         assert_eq!(p.thermal_temp_ev, 0.025);
@@ -961,9 +981,7 @@ mod tests {
     #[test]
     fn parse_reports_notported_weight_cards() {
         let base = |iwt: i32| {
-            format!(
-                "20 21 0 22/\n9228 3 0 {iwt} 1/\n'x'/\n300.0/\n1.0e10/\n3 1 'total'/\n0/\n0/\n"
-            )
+            format!("20 21 0 22/\n9228 3 0 {iwt} 1/\n'x'/\n300.0/\n1.0e10/\n3 1 'total'/\n0/\n0/\n")
         };
         assert!(matches!(
             GrouprInput::parse(&base(-3)),

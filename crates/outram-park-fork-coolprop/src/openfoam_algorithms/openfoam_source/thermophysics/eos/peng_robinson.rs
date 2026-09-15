@@ -47,8 +47,8 @@ use super::traits::EquationOfState;
 #[derive(Debug, Clone, Copy)]
 pub struct PengRobinsonGas {
     mol_weight: MolarMass, // W [kg/mol]
-    tc:    f64,            // critical temperature [K]
-    pc:    f64,            // critical pressure [Pa]
+    tc: f64,               // critical temperature [K]
+    pc: f64,               // critical pressure [Pa]
     omega: f64,            // acentric factor [-]
 }
 
@@ -182,16 +182,16 @@ impl EquationOfState for PengRobinsonGas {
     fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
-        let r  = self.r_spec();
+        let r = self.r_spec();
 
         let a_dim = self.a_dim(pv, tv);
         let b_dim = self.b_dim(pv, tv);
-        let z     = self.z_vapour(pv, tv);
+        let z = self.z_vapour(pv, tv);
 
         let a_spec = self.a_spec(tv);
         let b_spec = self.b_spec();
-        let kappa  = self.kappa();
-        let tr     = tv / self.tc;
+        let kappa = self.kappa();
+        let tr = tv / self.tc;
 
         // da_spec/dT
         let ap = kappa * a_spec * (kappa / self.tc - (1.0 + kappa) / (tv * self.tc).sqrt());
@@ -214,14 +214,14 @@ impl EquationOfState for PengRobinsonGas {
     fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
-        let r  = self.r_spec();
+        let r = self.r_spec();
 
         let b_dim = self.b_dim(pv, tv);
-        let z     = self.z_vapour(pv, tv);
+        let z = self.z_vapour(pv, tv);
 
         let a_spec = self.a_spec(tv);
         let b_spec = self.b_spec();
-        let kappa  = self.kappa();
+        let kappa = self.kappa();
 
         // d²a_spec/dT²
         let app = kappa * a_spec * (1.0 + kappa) / (2.0 * (tv * tv * tv * self.tc).sqrt());
@@ -241,15 +241,16 @@ impl EquationOfState for PengRobinsonGas {
     fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
-        let r  = self.r_spec();
+        let r = self.r_spec();
 
-        let tr    = tv / self.tc;
+        let tr = tv / self.tc;
         let kappa = self.kappa();
         let alpha = self.alpha(tr);
         let b_dim = self.b_dim(pv, tv);
-        let z     = self.z_vapour(pv, tv);
+        let z = self.z_vapour(pv, tv);
 
-        let h = r * self.tc
+        let h = r
+            * self.tc
             * (tr * (z - 1.0) - 2.078 * (1.0 + kappa) * alpha.sqrt() * self.log_factor(z, b_dim));
 
         AvailableEnergy::new::<joule_per_kilogram>(h)
@@ -259,13 +260,13 @@ impl EquationOfState for PengRobinsonGas {
     fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
-        let r  = self.r_spec();
+        let r = self.r_spec();
 
-        let tr    = tv / self.tc;
+        let tr = tv / self.tc;
         let kappa = self.kappa();
         let alpha = self.alpha(tr);
         let b_dim = self.b_dim(pv, tv);
-        let z     = self.z_vapour(pv, tv);
+        let z = self.z_vapour(pv, tv);
 
         // E_dep = H_dep − R·T·(Z−1) = R·Tc·(−2.078·(1+κ)·√α·ln(...))
         let e = -r * self.tc * 2.078 * (1.0 + kappa) * alpha.sqrt() * self.log_factor(z, b_dim);
@@ -281,18 +282,16 @@ impl EquationOfState for PengRobinsonGas {
     fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let pv = p.get::<pascal>();
         let tv = t.get::<kelvin>();
-        let r  = self.r_spec();
+        let r = self.r_spec();
 
-        let tr    = tv / self.tc;
+        let tr = tv / self.tc;
         let kappa = self.kappa();
         let b_dim = self.b_dim(pv, tv);
-        let z     = self.z_vapour(pv, tv);
+        let z = self.z_vapour(pv, tv);
 
-        let s = r * (
-            -(pv / P_REF).ln()
-            + (z - b_dim).ln()
-            - 2.078 * kappa * ((1.0 + kappa) / tr.sqrt() - kappa) * self.log_factor(z, b_dim)
-        );
+        let s = r
+            * (-(pv / P_REF).ln() + (z - b_dim).ln()
+                - 2.078 * kappa * ((1.0 + kappa) / tr.sqrt() - kappa) * self.log_factor(z, b_dim));
 
         SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(s)
     }
@@ -332,7 +331,7 @@ mod tests {
     fn co2_ideal_gas_limit() {
         // At low pressure, Z → 1 and ρ → p/(R·T)
         let c = co2();
-        let p = Pressure::new::<pascal>(1000.0);     // 1 kPa — very low
+        let p = Pressure::new::<pascal>(1000.0); // 1 kPa — very low
         let t = ThermodynamicTemperature::new::<kelvin>(1000.0); // far above Tc
         let z = c.z(p, t).get::<ratio>();
         assert_relative_eq!(z, 1.0, epsilon = 0.005);
@@ -372,7 +371,10 @@ mod tests {
         let p = Pressure::new::<pascal>(100.0);
         let t = ThermodynamicTemperature::new::<kelvin>(500.0);
         let h = c.h_eos(p, t).get::<joule_per_kilogram>();
-        assert!(h.abs() < 50.0, "h_eos = {h} J/kg should be near-zero at low p");
+        assert!(
+            h.abs() < 50.0,
+            "h_eos = {h} J/kg should be near-zero at low p"
+        );
     }
 
     #[test]
@@ -418,7 +420,10 @@ mod tests {
         let rho = c.rho(p, t).get::<kilogram_per_cubic_meter>();
         let nist = 70.2_f64;
         let rel_err = ((rho - nist) / nist).abs();
-        assert!(rel_err < 0.05, "CO₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+        assert!(
+            rel_err < 0.05,
+            "CO₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}"
+        );
     }
 
     #[test]
@@ -432,7 +437,10 @@ mod tests {
         let rho = c.rho(p, t).get::<kilogram_per_cubic_meter>();
         let nist = 197.6_f64;
         let rel_err = ((rho - nist) / nist).abs();
-        assert!(rel_err < 0.08, "CO₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+        assert!(
+            rel_err < 0.08,
+            "CO₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}"
+        );
     }
 
     #[test]
@@ -446,7 +454,10 @@ mod tests {
         let rho = n.rho(p, t).get::<kilogram_per_cubic_meter>();
         let nist = 105.8_f64;
         let rel_err = ((rho - nist) / nist).abs();
-        assert!(rel_err < 0.05, "N₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+        assert!(
+            rel_err < 0.05,
+            "N₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}"
+        );
     }
 
     #[test]
@@ -460,6 +471,9 @@ mod tests {
         let rho = n.rho(p, t).get::<kilogram_per_cubic_meter>();
         let nist = 75.5_f64;
         let rel_err = ((rho - nist) / nist).abs();
-        assert!(rel_err < 0.05, "N₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}");
+        assert!(
+            rel_err < 0.05,
+            "N₂ density = {rho:.2} kg/m³, NIST = {nist}, rel_err = {rel_err:.3}"
+        );
     }
 }

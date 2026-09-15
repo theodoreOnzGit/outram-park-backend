@@ -1,5 +1,27 @@
-//! Monte Carlo **simulation setup + run** — the backend the outram-mc GUI drives
-//! (feature `mc-export`).
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Monte Carlo setup/run driver over `outram-mc-libs`. Contains no transport
+// physics of its own — the k-eigenvalue calculation and its references live in
+// `outram-mc-libs` and `njoy-outram-park-fork`. No upstream source was copied.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+//! Monte Carlo **simulation setup + run** — the backend the **MC Studio** egui
+//! app (`examples/mc_studio`) drives (feature `mc-export`).
 //!
 //! [`crate::export`] turns authored geometry into an `outram-mc-libs`
 //! [`Geometry`]. This module is the rest of "set up and run a *basic* Monte
@@ -119,7 +141,9 @@ pub enum SimError {
 impl std::fmt::Display for SimError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SimError::Nuclide(m) => write!(f, "nuclide not available in the CORE data library: {m}"),
+            SimError::Nuclide(m) => {
+                write!(f, "nuclide not available in the CORE data library: {m}")
+            }
             SimError::NoMaterial => write!(f, "simulation has no materials (need at least one)"),
             SimError::BadMaterialIndex(i) => write!(f, "material index {i} out of range"),
             SimError::Export(e) => write!(f, "geometry export failed: {e}"),
@@ -170,7 +194,10 @@ pub fn build_materials(specs: &[MaterialSpec]) -> Result<(Vec<Nuclide>, Vec<Mate
             components: s
                 .nuclides
                 .iter()
-                .map(|(n, d)| NuclideComponent { nuclide_idx: index[n], atom_density: *d })
+                .map(|(n, d)| NuclideComponent {
+                    nuclide_idx: index[n],
+                    atom_density: *d,
+                })
                 .collect(),
         })
         .collect();
@@ -232,11 +259,26 @@ impl McSimSetup {
         match &self.geometry {
             SimGeometry::BareSphere { radius_cm } => {
                 // run_keff takes a single homogeneous material; no tally support.
-                Ok(run_keff(*radius_cm, &materials[0], &nuclides, &self.settings))
+                Ok(run_keff(
+                    *radius_cm,
+                    &materials[0],
+                    &nuclides,
+                    &self.settings,
+                ))
             }
             SimGeometry::Csg { geometry, source } => {
-                let src = SourceBox { lower: source.lower, upper: source.upper };
-                Ok(run_keff_csg(geometry, &materials, &nuclides, src, &self.settings, tally))
+                let src = SourceBox {
+                    lower: source.lower,
+                    upper: source.upper,
+                };
+                Ok(run_keff_csg(
+                    geometry,
+                    &materials,
+                    &nuclides,
+                    src,
+                    &self.settings,
+                    tally,
+                ))
             }
         }
     }
@@ -267,7 +309,13 @@ pub fn csg_from_mesh(mesh: &Mesh, material_idx: usize) -> Result<SimGeometry, Si
         lo = Position::new(lo.x.min(v.x), lo.y.min(v.y), lo.z.min(v.z));
         hi = Position::new(hi.x.max(v.x), hi.y.max(v.y), hi.z.max(v.z));
     }
-    Ok(SimGeometry::Csg { geometry, source: SourceBox { lower: lo, upper: hi } })
+    Ok(SimGeometry::Csg {
+        geometry,
+        source: SourceBox {
+            lower: lo,
+            upper: hi,
+        },
+    })
 }
 
 /// Build a track-length **cell tally** scoring flux and ν-fission over the given
@@ -280,7 +328,13 @@ pub fn cell_flux_tally(cell_indices: Vec<usize>) -> Tally {
     let scores = vec![ScoreType::Flux, ScoreType::NuFission];
     let n_bins = cell_indices.len() * scores.len();
     let filter: Box<dyn Filter> = Box::new(CellFilter { cell_indices });
-    Tally { id: 1, name: "cell flux".into(), filters: vec![filter], scores, bins: vec![TallyBin::default(); n_bins] }
+    Tally {
+        id: 1,
+        name: "cell flux".into(),
+        filters: vec![filter],
+        scores,
+        bins: vec![TallyBin::default(); n_bins],
+    }
 }
 
 /// Read one bin of a tally built by [`cell_flux_tally`] as `(mean, rel_std_dev)`
@@ -288,7 +342,10 @@ pub fn cell_flux_tally(cell_indices: Vec<usize>) -> Tally {
 /// `0` (flux) or `1` (ν-fission). Returns `None` if the bin index is out of range.
 pub fn tally_value(tally: &Tally, cell: usize, score: usize, n_active: u64) -> Option<(f64, f64)> {
     let i = cell * tally.scores.len() + score;
-    tally.bins.get(i).map(|b| (b.mean(n_active), b.rel_std_dev(n_active)))
+    tally
+        .bins
+        .get(i)
+        .map(|b| (b.mean(n_active), b.rel_std_dev(n_active)))
 }
 
 #[cfg(test)]
@@ -312,8 +369,16 @@ mod tests {
     #[test]
     fn build_materials_dedups_and_indexes() {
         let specs = vec![
-            MaterialSpec { name: "fuel".into(), temperature_k: 900.0, nuclides: vec![("U235".into(), 1e-2), ("O16".into(), 2e-2)] },
-            MaterialSpec { name: "moderator".into(), temperature_k: 600.0, nuclides: vec![("H1".into(), 6e-2), ("O16".into(), 3e-2)] },
+            MaterialSpec {
+                name: "fuel".into(),
+                temperature_k: 900.0,
+                nuclides: vec![("U235".into(), 1e-2), ("O16".into(), 2e-2)],
+            },
+            MaterialSpec {
+                name: "moderator".into(),
+                temperature_k: 600.0,
+                nuclides: vec![("H1".into(), 6e-2), ("O16".into(), 3e-2)],
+            },
         ];
         let (nuclides, materials) = build_materials(&specs).expect("CORE nuclides available");
         // U235, O16, H1 — three unique nuclides.
@@ -372,9 +437,21 @@ mod tests {
             },
         };
         let r = sim.run().expect("Godiva bare-sphere run");
-        assert!(r.k_mean.is_finite() && r.k_std.is_finite(), "finite result: {} ± {}", r.k_mean, r.k_std);
-        assert!(r.k_mean > 0.90 && r.k_mean < 1.15, "near-critical k_eff, got {}", r.k_mean);
-        assert!(!r.k_by_generation.is_empty(), "per-generation eigenvalue history recorded");
+        assert!(
+            r.k_mean.is_finite() && r.k_std.is_finite(),
+            "finite result: {} ± {}",
+            r.k_mean,
+            r.k_std
+        );
+        assert!(
+            r.k_mean > 0.90 && r.k_mean < 1.15,
+            "near-critical k_eff, got {}",
+            r.k_mean
+        );
+        assert!(
+            !r.k_by_generation.is_empty(),
+            "per-generation eigenvalue history recorded"
+        );
     }
 
     /// V&V — the authoring→export→simulate bridge runs. Methodology: build a
@@ -399,7 +476,11 @@ mod tests {
             },
         };
         let r = sim.run().expect("authored CSG run");
-        assert!(r.k_mean > 0.90 && r.k_mean < 1.20, "authored sphere near-critical k_eff, got {}", r.k_mean);
+        assert!(
+            r.k_mean > 0.90 && r.k_mean < 1.20,
+            "authored sphere near-critical k_eff, got {}",
+            r.k_mean
+        );
     }
 
     /// V&V — a cell flux tally accumulates. Methodology: authored Godiva sphere
@@ -426,7 +507,10 @@ mod tests {
         let mut tally = cell_flux_tally(vec![0]);
         sim.run_with_tally(&mut tally).expect("tallied run");
         let (flux, rel) = tally_value(&tally, 0, 0, n_active).expect("flux bin");
-        assert!(flux > 0.0 && flux.is_finite(), "positive flux score, got {flux}");
+        assert!(
+            flux > 0.0 && flux.is_finite(),
+            "positive flux score, got {flux}"
+        );
         assert!(rel.is_finite(), "finite relative error, got {rel}");
     }
 }

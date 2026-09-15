@@ -1,5 +1,17 @@
 # Review manifest — deep GPU penetration into the MC transport loop (op-u6s.7)
 
+<!-- op-jis-historical-note -->
+> ⚠️ **HISTORICAL RECORD — the statistics below predate `op-jis` (noted 2026-08-06).**
+> Every measured number in this manifest was produced **before** bead `op-jis`
+> added OpenMC's PCG-RXS-M-XS output permutation to `rng::lcg::prn` on
+> 2026-08-06. The LCG **state recurrence was not changed**, so integer-state
+> facts still hold, but every statistic derived from the sampled **uniform
+> values** — k values and their σ, tallies, fractions, σ-distances — **no longer
+> reflects the current generator**. This is a dated review record, so its numbers
+> are deliberately **left exactly as they were measured** and are *not* rewritten
+> here. Do not cite them as current; current values live in the crate's V&V docs
+> and test doc comments.
+
 > # ⚠️ UNTRUSTED AI DRAFT — NOT YET HUMAN-REVIEWED ⚠️
 >
 > Everything below was produced by an AI fleet (lead + Opus subagents) and is

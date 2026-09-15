@@ -1,0 +1,141 @@
+================================================================================
+NOTICE — Virtual Test Bed (VTB), vendored third-party reference material
+================================================================================
+
+This file was added by the OUTRAM PARK project. It is NOT part of the upstream
+distribution. Every other file in this directory tree, except `INVENTORY.md`, is
+unmodified upstream material.
+
+--------------------------------------------------------------------------------
+Upstream project
+--------------------------------------------------------------------------------
+  Project:      Virtual Test Bed (VTB)
+  Upstream:     https://github.com/idaholab/virtual_test_bed
+  Documentation:https://mooseframework.inl.gov/virtual_test_bed/
+  Origin:       National Reactor Innovation Center (NRIC), in collaboration
+                with the U.S. Department of Energy NEAMS program.
+  Operator:     Battelle Energy Alliance, LLC (Idaho National Laboratory),
+                under Contract No. DE-AC07-05ID14517 with the U.S. Department
+                of Energy.
+
+  Vendored:     commit f3314028132912e5b02b9040d9e7cc60290fce4b
+                (upstream commit date 2026-08-03)
+  Date accessed: 2026-08-06
+
+--------------------------------------------------------------------------------
+Licence
+--------------------------------------------------------------------------------
+  Licence:      Creative Commons Attribution 4.0 International (CC-BY-4.0)
+  Licence text: preserved verbatim in `LICENSE` in this directory
+                (byte-identical to upstream)
+  Canonical:    https://creativecommons.org/licenses/by/4.0/
+  Legal code:   https://creativecommons.org/licenses/by/4.0/legalcode
+
+  CC-BY-4.0 permits redistribution and adaptation, including for commercial
+  purposes, PROVIDED attribution is given. It is compatible with this
+  workspace's GPL-3.0 licensing: CC-BY-4.0 material may be redistributed
+  alongside GPLv3 code, and this tree is redistributed under CC-BY-4.0, not
+  relicensed under GPLv3.
+
+  The upstream `COPYRIGHT` file is also preserved verbatim in this directory
+  (byte-identical to upstream). It carries the Battelle Energy Alliance, LLC
+  and UChicago Argonne, LLC (Argonne National Laboratory) government-licence
+  notices, which are additional to, and not superseded by, CC-BY-4.0.
+
+--------------------------------------------------------------------------------
+REQUIRED ATTRIBUTION
+--------------------------------------------------------------------------------
+  Any use, reproduction, or adaptation of material from this directory must
+  credit the source. Suggested attribution:
+
+      "Virtual Test Bed (VTB), National Reactor Innovation Center (NRIC) /
+       Idaho National Laboratory, U.S. Department of Energy NEAMS program.
+       https://github.com/idaholab/virtual_test_bed — licensed under
+       CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/).
+       Commit f3314028132912e5b02b9040d9e7cc60290fce4b, accessed 2026-08-06.
+       Not modified."
+
+  If VTB material is used to derive a result, a figure, a benchmark input, or
+  a validation case in this project, that attribution must be carried into the
+  derived artefact and into any resulting publication. See
+  `RESEARCH_INTEGRITY_AND_PROVENANCE.md` at the workspace root.
+
+  © 2020-2021 Battelle Energy Alliance, LLC — ALL RIGHTS RESERVED
+  (see `COPYRIGHT` for the complete notices).
+
+--------------------------------------------------------------------------------
+Status of this copy: UNMODIFIED, PARTIAL
+--------------------------------------------------------------------------------
+  This is unmodified third-party material vendored for reference only. No file
+  taken from upstream has been edited, reformatted, or re-encoded; each is a
+  byte-for-byte copy of the file at the commit named above. This was verified
+  mechanically: all 1536 vendored files were compared against the upstream
+  clone and all 1536 matched exactly, and every vendored path was confirmed to
+  be an upstream git-tracked path.
+
+  This copy is a SUBSET, not the whole repository. The full upstream tree is
+  2491 tracked paths and 352 MB checked out, which is too large to commit here.
+  The subset rule applied — reproducible from a fresh clone at the pinned
+  commit — was:
+
+    1. drop `doc/content/media/`      (711 files; figures, screenshots, video)
+    2. drop any file >= 1 MiB          (32 files; binary meshes, multigroup
+                                        cross-section libraries, large data)
+    3. drop Git LFS pointer stubs      (73 files; upstream stores these assets
+                                        in LFS, so a plain clone yields only
+                                        132-byte pointers, not the content)
+    4. drop `.git/`, `.github/`, `.civet/`, `.gitattributes`, `.gitmodules`,
+       and upstream's own `.gitignore`  (see the note below — dropping it is
+                                        load-bearing, not cosmetic)
+    5. drop `apps/`                    (empty submodule mount points; the
+                                        submodules resolve to INL-internal
+                                        hosts such as github.inl.gov and are
+                                        not publicly cloneable)
+
+  Note on the dropped Git control files. Upstream's `.gitignore` is a MOOSE
+  build-artifact ignore list that ignores `*.csv`, `*.xml`, `*.txt`, `*.e`,
+  `*.dat` and `*.png` wholesale; upstream keeps those files in tree only because
+  they were force-added before the rules applied. Carried into this repository it
+  would have silently dropped 57 genuine reference files (material property CSVs,
+  OpenMC geometry/materials XML, orifice-coordinate tables) from the commit.
+  Likewise `.gitattributes` declares `filter=lfs` on paths whose content is not
+  LFS-backed in this copy. Both are build plumbing for a repository that is
+  compiled and run; nothing here is compiled or run, so both were removed. No
+  content file was altered.
+
+  What was kept: every MOOSE/Griffin/Pronghorn/BISON/SAM/Nek/Cardinal/OpenMC
+  input deck, every documentation markdown page, and the gold/reference result
+  CSVs. That is the reference value of the VTB for this project. See
+  `INVENTORY.md` for the contents and for the list of excluded large files.
+
+  Nothing here is compiled, linked, or executed by any crate in this workspace.
+  None of it is packaged into a published crate: it lives outside `crates/`, and
+  Cargo only packages files beneath a crate's own directory.
+
+  To obtain an excluded asset, clone upstream at the pinned commit and fetch
+  Git LFS content:
+
+      git clone https://github.com/idaholab/virtual_test_bed
+      cd virtual_test_bed
+      git checkout f3314028132912e5b02b9040d9e7cc60290fce4b
+      git lfs pull
+
+--------------------------------------------------------------------------------
+Data policy
+--------------------------------------------------------------------------------
+  The VTB is public, openly licensed material published by INL/NRIC for open
+  distribution. It therefore satisfies the workspace data-scope rule in
+  `DATA_POLICY.md` (open-source and public literature data only). It contains
+  no NUS Confidential/Restricted data, no partner or industrial confidential
+  data, and no operational facility data.
+
+  Per `RESPONSIBLE_USE.md`, this material is vendored for education, research,
+  and verification & validation only. It is NOT to be used for nuclear facility
+  operation, reactor control, licensing decisions, or any safety-critical or
+  safeguards-sensitive purpose. Upstream's own disclaimer (see `README.md`)
+  applies: neither the U.S. Government nor any agency thereof warrants the
+  accuracy, completeness, or usefulness of this information.
+
+  No VTB result has been verified or validated by the OUTRAM PARK project. The
+  gold/reference CSVs vendored here are upstream's own regression baselines and
+  carry no OUTRAM PARK V&V standing.

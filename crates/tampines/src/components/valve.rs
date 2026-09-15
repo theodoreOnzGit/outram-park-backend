@@ -27,12 +27,17 @@ impl Valve {
         opening_characteristic: OpeningCharacteristic,
         opening_percent: Ratio,
     ) -> Self {
-        Self { kv_max, opening_characteristic, opening_percent }
+        Self {
+            kv_max,
+            opening_characteristic,
+            opening_percent,
+        }
     }
 
     /// This valve's current (opening-adjusted) flow coefficient.
     pub fn current_kv(&self) -> ValveFlowCoefficient {
-        self.opening_characteristic.kv_at_opening(self.kv_max, self.opening_percent)
+        self.opening_characteristic
+            .kv_at_opening(self.kv_max, self.opening_percent)
     }
 
     /// Mass flow rate through this valve for the given upstream/downstream
@@ -43,11 +48,7 @@ impl Valve {
     /// ([`outram_park_fork_dwsim_libs::valve::iec_60534`]); this wrapper's
     /// job (picking the right service branch from a real fluid state) is
     /// not yet wired up.
-    pub fn mass_flow(
-        &self,
-        _p1: Pressure,
-        _p2: Pressure,
-    ) -> Result<MassRate, TampinesError> {
+    pub fn mass_flow(&self, _p1: Pressure, _p2: Pressure) -> Result<MassRate, TampinesError> {
         Err(TampinesError::NotYetImplemented {
             component: "components::valve::Valve::mass_flow",
         })

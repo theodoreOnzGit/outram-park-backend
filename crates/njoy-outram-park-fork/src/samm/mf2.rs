@@ -21,7 +21,8 @@
 //! upstream Fortran, corrected here in [`reorder_eliminated_channel`] (bug
 //! op-cjw.3); see its doc comment for the derivation and verification.
 
-use crate::endf::records::SectionCursor;
+use crate::endf::interp::eval_tab1;
+use crate::endf::records::{SectionCursor, Tab1};
 use crate::NjoyError;
 
 /// One particle pair (an entrance/exit channel's asymptotic two-body system)
@@ -90,6 +91,132 @@ pub struct RmlResonance {
     pub channel_widths: Vec<f64>,
 }
 
+/// A **background R-matrix** attached to one explicit channel of a spin group
+/// (`KBK > 0`) — ported from `rdsammy` (`samm.f90:1199-1256`, which reads it)
+/// and `setr` (`samm.f90:3265-3295`, which adds it to the diagonal of the
+/// R-matrix before any resonance contribution).
+///
+/// # What it is, physically
+///
+/// The resolved resonances an evaluation lists cover a finite window. Levels
+/// outside that window — bound states below it and the continuum above — still
+/// contribute a slowly varying term to the R-matrix. `KBK` is how an ENDF
+/// LRF=7 evaluation carries that contribution rather than dropping it.
+///
+/// **This term is not a refinement.** For a nuclide whose lowest resolved
+/// resonance is far above thermal, it can dominate the low-energy elastic
+/// cross section outright, because the resonance sum has nothing to say there
+/// and the hard-sphere term alone is not the whole answer. Sr-88
+/// (ENDF/B-VIII.1, MAT 3837) is exactly that case: all 443 of its resonances
+/// sit above 12.4 keV, every one of its 7 spin groups carries `LBK = 2` on the
+/// elastic channel, and discarding it left elastic at the bare potential
+/// 4.969 b against NJOY's 8.843 b at 1e-5 eV. See `bn:op-hb9l` / gh:#202.
+///
+/// # Variants
+///
+/// The three `LBK` forms ENDF-6 defines. `LBK = 0` means no background and is
+/// represented by the absence of this value, not by a variant.
+#[derive(Debug, Clone)]
+pub enum BackgroundRMatrix {
+    /// `LBK = 1` — an arbitrary tabulated complex function, as two TAB1
+    /// records (real part then imaginary part), interpolated with the usual
+    /// ENDF laws (`setr`, `samm.f90:3269-3277`, via `terpa`).
+    Tabulated {
+        /// Real part `Re R_bg(E)`.
+        re: Tab1,
+        /// Imaginary part `Im R_bg(E)`.
+        im: Tab1,
+    },
+    /// `LBK = 2` — the SAMMY parametrisation (`samm.f90:3278-3284`), purely
+    /// real:
+    ///
+    /// `R_bg(E) = R0 - S1 (EU - ED) + (R1 + R2 E) E - (S0 + S1 E) ln((EU - E)/(E - ED))`
+    ///
+    /// Valid for `ED < E < EU`; the logarithm diverges at either bound.
+    Sammy {
+        /// Lower energy bound `ED` \[eV\].
+        ed: f64,
+        /// Upper energy bound `EU` \[eV\].
+        eu: f64,
+        /// Constant term `R0` \[dimensionless\].
+        r0: f64,
+        /// Linear coefficient `R1` \[1/eV\].
+        r1: f64,
+        /// Quadratic coefficient `R2` \[1/eV²\].
+        r2: f64,
+        /// Logarithmic coefficient `S0` \[dimensionless\].
+        s0: f64,
+        /// Logarithmic slope `S1` \[1/eV\].
+        s1: f64,
+    },
+    /// `LBK = 3` — the Fröhner parametrisation (`samm.f90:3285-3293`), which
+    /// unlike the other two carries a non-zero **imaginary** part:
+    ///
+    /// `Re R_bg(E) = R0 + 2 R1 artanh((2E - (EU + ED))/(EU - ED))`
+    ///
+    /// `Im R_bg(E) = R2 / (EU - ED) / (1 - ((2E - (EU + ED))/(EU - ED))^2)`
+    Frohner {
+        /// Lower energy bound `ED` \[eV\].
+        ed: f64,
+        /// Upper energy bound `EU` \[eV\].
+        eu: f64,
+        /// Constant term `R0` \[dimensionless\].
+        r0: f64,
+        /// `artanh` coefficient `R1` \[dimensionless\].
+        r1: f64,
+        /// Imaginary-part numerator `R2` \[eV\].
+        r2: f64,
+    },
+}
+
+impl BackgroundRMatrix {
+    /// Evaluate the background R-matrix at incident energy `e` \[eV\],
+    /// returning `(Re, Im)` — the two values `setr` adds to `rmat(1,kl)` and
+    /// `rmat(2,kl)` on the channel's diagonal.
+    ///
+    /// Mirrors `setr` (`samm.f90:3265-3295`) term for term. Outside the
+    /// tabulated range, [`Self::Tabulated`] returns `0.0` exactly as
+    /// [`eval_tab1`] does; the two closed forms are evaluated as written, so a
+    /// caller handing them an energy outside `(ED, EU)` gets whatever the
+    /// formula gives there (upstream applies no guard either — the resolved
+    /// range is expected to lie inside the bounds).
+    pub fn evaluate(&self, e: f64) -> Result<(f64, f64), NjoyError> {
+        match self {
+            Self::Tabulated { re, im } => Ok((
+                eval_tab1(e, &re.interp, &re.pairs)?,
+                eval_tab1(e, &im.interp, &im.pairs)?,
+            )),
+            // samm.f90:3279-3283.
+            Self::Sammy {
+                ed,
+                eu,
+                r0,
+                r1,
+                r2,
+                s0,
+                s1,
+            } => {
+                let real = r0 - s1 * (eu - ed) + (r1 + r2 * e) * e
+                    - (s0 + s1 * e) * ((eu - e) / (e - ed)).ln();
+                Ok((real, 0.0))
+            }
+            // samm.f90:3286-3292.
+            Self::Frohner {
+                ed,
+                eu,
+                r0,
+                r1,
+                r2,
+            } => {
+                let esum = ed + eu;
+                let ediff = eu - ed;
+                let x = (2.0 * e - esum) / ediff;
+                Ok((r0 + 2.0 * r1 * x.atanh(), r2 / ediff / (1.0 - x * x)))
+            }
+        }
+    }
+}
+
 /// One spin-parity group `(Jπ)` — ported from `samm.f90:1093-1257`'s
 /// per-group loop.
 #[derive(Debug, Clone)]
@@ -102,6 +229,10 @@ pub struct SpinGroup {
     pub channels: Vec<RmlChannel>,
     /// Resonances in this group.
     pub resonances: Vec<RmlResonance>,
+    /// Background R-matrix per **explicit** channel, parallel to
+    /// [`Self::channels`] — `None` where the evaluation gives none
+    /// (`LBK = 0`, the common case). See [`BackgroundRMatrix`].
+    pub backgrounds: Vec<Option<BackgroundRMatrix>>,
 }
 
 /// One LRF=7 (R-matrix limited) resonance-range section.
@@ -204,7 +335,9 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
         }
         let ichan = channels.len();
         let igamma = igamma.ok_or_else(|| {
-            NjoyError::EndfParse("samm: spin group has no eliminated (particle-pair 1) channel".to_string())
+            NjoyError::EndfParse(
+                "samm: spin group has no eliminated (particle-pair 1) channel".to_string(),
+            )
         })?;
 
         // samm.f90:1134-1196 — resonance-parameter list.
@@ -222,8 +355,9 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
             // gamgam <- raw channel 0's width, channel_widths[k] <- raw
             // channel (k+1)'s width, for k = 0..ichan.
             let mut gamma_gamma = res_list.data.get(base + 1).copied().unwrap_or(0.0);
-            let mut channel_widths: Vec<f64> =
-                (0..ichan).map(|k| res_list.data.get(base + 2 + k).copied().unwrap_or(0.0)).collect();
+            let mut channel_widths: Vec<f64> = (0..ichan)
+                .map(|k| res_list.data.get(base + 2 + k).copied().unwrap_or(0.0))
+                .collect();
 
             // samm.f90:1185-1194 — eliminated-channel reorder. Two off-by-one
             // defects in the upstream Fortran are corrected here (see
@@ -231,14 +365,20 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
             // derivation and verification); bug op-cjw.3.
             reorder_eliminated_channel(&mut gamma_gamma, &mut channel_widths, igamma)?;
 
-            resonances.push(RmlResonance { energy, gamma_gamma, channel_widths });
+            resonances.push(RmlResonance {
+                energy,
+                gamma_gamma,
+                channel_widths,
+            });
         }
 
-        // samm.f90:1199-1256 — background R-matrix elements. Not ported (see
-        // crate README caveats — a secondary, rarer LRF=7 feature); the
-        // cursor is still advanced correctly past them so subsequent parsing
-        // (the next spin group, or whatever follows this section) is not
-        // corrupted.
+        // samm.f90:1199-1256 — background R-matrix elements, one CONT-headed
+        // block per `KBK`. Upstream stores `backgr(lch-1, igroup) = lbk` and
+        // the parameters in `backgrdata(lch-1, igroup, ., 1..7)`; `lch` is
+        // 1-based over the RAW channel list (channel 1 being the eliminated
+        // capture channel, which upstream refuses outright), so `lch - 2` is
+        // the 0-based index into the explicit channels kept above.
+        let mut backgrounds: Vec<Option<BackgroundRMatrix>> = vec![None; ichan];
         for _ in 0..kbk {
             let bk_head = cur.read_cont()?;
             let lch = bk_head.l1;
@@ -249,18 +389,61 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
                         .to_string(),
                 ));
             }
+            let slot = if lch >= 2 { (lch - 2) as usize } else { usize::MAX };
             if lbk == 1 {
-                cur.read_tab1()?;
-                cur.read_tab1()?;
+                // samm.f90:1221-1233 — two TAB1s, real part then imaginary.
+                let re = cur.read_tab1()?;
+                let im = cur.read_tab1()?;
+                if lbk != 0 && slot < backgrounds.len() {
+                    backgrounds[slot] = Some(BackgroundRMatrix::Tabulated { re, im });
+                }
             } else if lbk == 2 || lbk == 3 {
-                cur.read_list()?;
+                // samm.f90:1235-1253 — one LIST; ED/EU are its C1/C2 and the
+                // coefficients are the first body words (`res(jnow+6..)` being
+                // the body, the 6-word CONT header having been consumed).
+                let list = cur.read_list()?;
+                let body = |k: usize| list.data.get(k).copied().unwrap_or(0.0);
+                let ed = list.head.c1;
+                let eu = list.head.c2;
+                let (r0, r1, r2) = (body(0), body(1), body(2));
+                if slot < backgrounds.len() {
+                    backgrounds[slot] = Some(if lbk == 2 {
+                        BackgroundRMatrix::Sammy {
+                            ed,
+                            eu,
+                            r0,
+                            r1,
+                            r2,
+                            // samm.f90:1250-1252 — S0/S1 are read for LBK=2 only.
+                            s0: body(3),
+                            s1: body(4),
+                        }
+                    } else {
+                        BackgroundRMatrix::Frohner {
+                            ed,
+                            eu,
+                            r0,
+                            r1,
+                            r2,
+                        }
+                    });
+                }
             }
         }
 
-        spin_groups.push(SpinGroup { j, parity, channels, resonances });
+        spin_groups.push(SpinGroup {
+            j,
+            parity,
+            channels,
+            resonances,
+            backgrounds,
+        });
     }
 
-    Ok(RmlSection { particle_pairs, spin_groups })
+    Ok(RmlSection {
+        particle_pairs,
+        spin_groups,
+    })
 }
 
 /// Separate the eliminated radiative-capture width `Γγ` out of a resonance's
@@ -421,7 +604,11 @@ mod tests {
         let mut w = vec![20.0, 30.0, 100.0]; // [B, C, Γγ]
         reorder_eliminated_channel(&mut gg, &mut w, 3).unwrap();
         assert_eq!(gg, 100.0, "Γγ recovered from the last provisional slot");
-        assert_eq!(w, vec![10.0, 20.0, 30.0], "explicit widths [A, B, C] in order");
+        assert_eq!(
+            w,
+            vec![10.0, 20.0, 30.0],
+            "explicit widths [A, B, C] in order"
+        );
     }
 
     /// A larger middle case (5 explicit channels, eliminated at raw position 3,

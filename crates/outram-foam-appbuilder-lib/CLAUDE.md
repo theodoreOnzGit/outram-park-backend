@@ -3,9 +3,53 @@
 Solver application layer for the OUTRAM PARK OpenFOAM-in-Rust stack.
 This crate provides:
 1. **Solver loops** — Rust ports of pimpleFoam, rhoPimpleFoam, sonicFoam,
-   rhoCentralFoam, and HRMFoam.
-2. **Case I/O** — polyMesh reader, controlDict/fvSchemes/fvSolution parsers,
-   and OpenFOAM / VTK output writers.
+   rhoCentralFoam, HRMFoam, reactingTwoPhaseEulerFoam, and a
+   pimpleFoam + `solidificationMelting` composition (`melt_foam`).
+2. **Case I/O** — polyMesh and field readers. **The
+   controlDict/fvSchemes/fvSolution parsers and every OpenFOAM/VTK writer are
+   `todo!()`** — cases are configured by constructing the structs in Rust and
+   results are read off the solver's public fields.
+3. **Turbulence selection** — `TurbulenceClosure`, the Layer-5 adapter over
+   `outram-foam-turbulence-lib`.
+4. **The GeN-Foam port** (`genfoam`) — deterministic reactor neutronics,
+   thermal-hydraulics, thermo-mechanics, and their multi-region coupling.
+
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: the `rhoCentralFoam` port reproduces **Sod
+  (1978) Table II** with the **exact Riemann solution (Toro, ch. 4) as the
+  arbiter**, at discrete `L2` within **5% of field peak** per variable, and
+  `L∞` permitted to stay O(1) at the discontinuities. Evidence class:
+  **analytical / manufactured solution** (the exact Riemann solver is the
+  reference, not another code), supported by cross-code comparison against an
+  OpenFOAM `rhoCentralFoam` reference run in the companion tutorial case.
+
+  Measured at declaration: 100 cells, `dt = 1e-6 s`, run to Sod's canonical
+  τ = 0.2 (t = 6.3246e-3 s); `L2` norms land at **1–5% of peak**, which is the
+  expected accuracy of a 2nd-order scheme on this problem. **326 tests pass,
+  0 fail, 4 ignored**; the Sod validation test itself
+  (`rho_central_foam_matches_sod_table_ii`) is a plain `#[test]` and runs.
+
+  Two things make this bar unusually honest and worth preserving as the
+  template for other solver crates:
+
+  1. **`L∞` is deliberately not bounded tight.** It is dominated by the one or
+     two cells straddling the shock and the contact, which a 2nd-order scheme
+     necessarily smears. Demanding a small `L∞` here would be demanding the
+     scheme not be what it is. Read it as "worst single cell", not as accuracy.
+  2. **The exact solution, not Table II, is the arbiter.** Table II's coarse
+     9-station sampling does not always resolve the local profile, so each
+     station is additionally flagged for whether it is faithful. A bar written
+     against the published table alone would have been measuring the table's
+     sampling as much as the port.
+
+
+> The `README.md` "Limitations" section is the authoritative per-module status
+> and is kept current; prefer it over any summary here.
 
 > Workspace member of the **OUTRAM PARK** backend. See the root `CLAUDE.md`
 > for the shared dependency policy.
@@ -122,14 +166,30 @@ live in **`docs/planned-modules.md`**.
 
 - Follow the workspace `CLAUDE.md` porting workflow: update `src/prelude.rs`
   and `README.md` for every new public item.
-- The `controlDict` time loop must honour `adjustTimeStep` — call
-  `adjust_delta_t(co_max, dt_max)` at the end of each step.
 - Boundary condition enforcement (fixedValue, zeroGradient, etc.) is handled
   inside `FvMesh` / `FvPatch` from `outram-foam-basic-lib`. This crate calls
   `.correct_boundary_conditions()` at the top of each time step, never
   re-implements BC logic.
-- `WriteControl::TimeStep` writes every N steps; `WriteControl::RunTime` writes
-  every N seconds (wall time). Both must be supported.
+
+### Time and write control — intended, not yet implemented
+
+These two are **design targets, not descriptions of the current code.** Both
+were previously written here as though already true; they are not, so do not
+cite them as existing behaviour:
+
+- **`adjustTimeStep` is not implemented.** Every solver's `run()` steps at the
+  fixed `control.delta_t`; `adjust_time_step`, `max_co` and `max_delta_t` are
+  carried on `ControlDict` but consulted nowhere, and there is no
+  `adjust_delta_t` method. Implementing it means adding an adaptive-Δt path to
+  each `run()` loop.
+- **No write control is implemented,** because no writer is: every function in
+  `io::output` is `todo!()`. `WriteControl::TimeStep` (every N steps) and
+  `WriteControl::RunTime` (every N seconds) both need to be supported once
+  field output exists.
+
+Only `ControlDict::{start, stop, delta_t}` currently affect a run, and only
+`StartControl::StartTime` / `StopControl::EndTime` do anything — the other
+variants cause `run()` to take zero steps.
 
 ## Build and test
 

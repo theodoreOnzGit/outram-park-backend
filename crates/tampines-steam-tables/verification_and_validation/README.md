@@ -52,6 +52,44 @@ interpretation of what the numbers mean and whether the pass criterion was met.
   **gitignored** (see `.gitignore`) and **excluded from `cargo publish`** (see
   `Cargo.toml`'s `exclude`). Regenerate them by re-running the verification
   test/example that produced them; don't hand-edit.
+- **`.md` files under `generated/` are committed too** — see below. The rule is
+  the same either way: markdown is the record and is committed; `.csv` is not,
+  at any depth.
+
+## `generated/` — machine-written reports
+
+`generated/` holds V&V reports **written by the diagnostic tests themselves**,
+not by a human. They are committed like every other `.md` here, and are
+regenerable in seconds:
+
+```bash
+cargo test --release -p tampines-steam-tables --lib backward_eqn_chebyshev_experimental
+```
+
+Although both are committed, they are different kinds of artifact and the
+distinction matters:
+
+- The hand-written files are a **durable, human-reviewed record**, authored
+  once and kept. They are the trust workflow described in the banner at the top.
+- The `generated/` files are a **live measurement dump** — they are rewritten
+  wholesale on every run and always describe the code as it is right now. They
+  carry a "do not hand-edit" banner naming the command that regenerates them,
+  and a `Status` section stating plainly that they are measurements rather than
+  a validation sign-off.
+
+Because they are committed, a diff on `generated/` after a code change is a
+useful review signal in its own right: it shows exactly how the measured
+accuracy moved.
+
+Currently `generated/` covers the experimental non-IAPWS Chebyshev backward
+correlations in `src/backward_eqn_chebyshev_experimental/` (see GitHub issue
+#34): Region 5 `T(p,h)`/`T(p,s)`, the near-critical Region 4 `(h,s)` flash, and
+`p(rho,h)` across the regions including a report on why the Region 1 inversion
+is ill-conditioned at low pressure.
+
+A generated report is **not** a substitute for a hand-written V&V case. If one
+of these correlations is ever to be described as validated, that needs a
+committed `.md` here and a human sign-off, per the banner.
 
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).

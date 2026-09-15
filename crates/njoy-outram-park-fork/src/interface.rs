@@ -25,14 +25,10 @@
 
 use std::{fs::File, path::Path};
 
-use uom::si::{
-    area::barn,
-    energy::electronvolt,
-    thermodynamic_temperature::kelvin,
-};
+use uom::si::{area::barn, energy::electronvolt, thermodynamic_temperature::kelvin};
 
 use crate::{
-    broadr::doppler_broaden,
+    broadr::broaden_result,
     endf::{tape::Tape, MtReaction},
     reconr::{eval_lin_lin, reconr, ReconrConfig, ReconrResult},
     units::{CrossSection, NeutronEnergy, Temperature},
@@ -58,7 +54,7 @@ use crate::{
 #[derive(Debug)]
 pub struct NuclearDataLibrary {
     tape: Tape,
-    mat:  i32,
+    mat: i32,
     temperature: Temperature,
     reconr: Option<ReconrResult>,
 }
@@ -108,7 +104,11 @@ impl NuclearDataLibrary {
     /// Returns [`NjoyError::NotPorted`] for resonance formalisms not yet ported
     /// (LRF ≥ 3: Reich-Moore, R-Matrix Limited).
     pub fn reconstruct(mut self, tolerance: f64) -> Result<Self, NjoyError> {
-        let config = ReconrConfig { mat: self.mat, tolerance, temperature: 0.0 };
+        let config = ReconrConfig {
+            mat: self.mat,
+            tolerance,
+            temperature: 0.0,
+        };
         self.reconr = Some(reconr(&self.tape, &config)?);
         Ok(self)
     }
@@ -116,14 +116,17 @@ impl NuclearDataLibrary {
     /// Apply Doppler broadening at temperature `t` using the SIGMA1 free-gas method.
     ///
     /// Requires [`reconstruct`][Self::reconstruct] to have been called first.
-    /// Broadens all reconstructed cross sections using the effective target
-    /// temperature `t` \[K\].
+    /// Broadens the reconstructed cross sections up to upstream BROADR's
+    /// default `thnmax` — the top of the resolved resonance region (see
+    /// [`crate::broadr::broadening_limit`]) — and leaves everything above it
+    /// exactly as RECONR produced it, using the effective target temperature
+    /// `t` \[K\].
     ///
     /// # Errors
     ///
     /// Returns [`NjoyError::NotPorted`] if RECONR has not been run first.
     pub fn broaden(mut self, t: Temperature) -> Result<Self, NjoyError> {
-        let awr = self.awr().ok_or(NjoyError::NotPorted(
+        self.awr().ok_or(NjoyError::NotPorted(
             "call .reconstruct() before .broaden()",
         ))?;
         let temp_k = t.get::<kelvin>();
@@ -131,7 +134,7 @@ impl NuclearDataLibrary {
 
         if temp_k > 0.0 {
             if let Some(r) = &mut self.reconr {
-                r.sections = doppler_broaden(&r.sections, awr, temp_k);
+                *r = broaden_result(r, temp_k);
             }
         }
         Ok(self)
@@ -169,7 +172,7 @@ impl NuclearDataLibrary {
     /// # use njoy_outram_park_fork::{interface::NuclearDataLibrary, MtReaction};
     /// # use uom::si::energy::electronvolt;
     /// # let lib = NuclearDataLibrary::from_file(
-    /// #     "tests/resources/n-018_Ar_37-tendl2023.endf", 1828
+    /// #     "../../reference-data/endf/n-018_Ar_37-tendl2023.endf", 1828
     /// # ).unwrap().reconstruct(0.001).unwrap();
     /// let e = uom::si::f64::Energy::new::<electronvolt>(1540.0);
     /// let xs = lib.xs_for_reaction(MtReaction::Mt2Elastic, e);
@@ -213,19 +216,27 @@ impl NuclearDataLibrary {
             "call .reconstruct() before .to_continuous_energy_data()",
         ))?;
 
-        let reactions = r.sections.iter().map(|sec| {
-            let data = sec.pairs.iter().map(|&(e, sigma)| {
-                (
-                    NeutronEnergy::new::<electronvolt>(e),
-                    CrossSection::new::<barn>(sigma),
-                )
-            }).collect();
-            ReactionCrossSection { mt: sec.mt, data }
-        }).collect();
+        let reactions = r
+            .sections
+            .iter()
+            .map(|sec| {
+                let data = sec
+                    .pairs
+                    .iter()
+                    .map(|&(e, sigma)| {
+                        (
+                            NeutronEnergy::new::<electronvolt>(e),
+                            CrossSection::new::<barn>(sigma),
+                        )
+                    })
+                    .collect();
+                ReactionCrossSection { mt: sec.mt, data }
+            })
+            .collect();
 
         Ok(ContinuousEnergyData {
-            za:          r.material.za,
-            awr:         r.material.awr,
+            za: r.material.za,
+            awr: r.material.awr,
             temperature: self.temperature,
             reactions,
         })
@@ -271,12 +282,8 @@ impl NuclearDataLibrary {
         // producing reactions: Law 3 for discrete levels, Law 4 from MF=6.
         let partials: Vec<(i32, f64)> =
             r.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
-        let emissions = crate::acer::energy::build_emissions(
-            &self.tape,
-            self.mat,
-            r.material.awr,
-            &partials,
-        );
+        let emissions =
+            crate::acer::energy::build_emissions(&self.tape, self.mat, r.material.awr, &partials);
 
         let ang = self
             .tape
@@ -290,8 +297,9 @@ impl NuclearDataLibrary {
         // data (non-fissionable ⇒ MT=18 absent ⇒ ν̄/χ never evaluated).
         let nu = crate::nuclear_data::secondary::NuBar::from_endf(&self.tape, self.mat)?
             .unwrap_or_default();
-        let chi = crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(&self.tape, self.mat)?
-            .unwrap_or_default();
+        let chi =
+            crate::nuclear_data::secondary::FissionSpectrum::from_endf_mf5(&self.tape, self.mat)?
+                .unwrap_or_default();
         let emission = crate::heatr::build_emission_spectra(&self.tape, self.mat);
         let photons = crate::photon::PhotonProduction::from_endf(&self.tape, self.mat, r);
         let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission)
@@ -374,7 +382,9 @@ impl ReactionCrossSection {
     /// tabulated range.
     pub fn at(&self, e: NeutronEnergy) -> CrossSection {
         let e_ev = e.get::<electronvolt>();
-        let pairs: Vec<(f64, f64)> = self.data.iter()
+        let pairs: Vec<(f64, f64)> = self
+            .data
+            .iter()
             .map(|(en, xs)| (en.get::<electronvolt>(), xs.get::<barn>()))
             .collect();
         CrossSection::new::<barn>(eval_lin_lin(&pairs, e_ev))

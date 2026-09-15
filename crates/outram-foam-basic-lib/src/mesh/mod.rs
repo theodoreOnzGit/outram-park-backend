@@ -24,21 +24,27 @@
 //! This module holds the flat, cache-friendly mesh representation the FV
 //! operators run on. It contains:
 //!
-//! - [`FvMesh`] — the mesh itself (cells, faces, owner/neighbour connectivity,
-//!   cell volumes [m³], face-area vectors [m²], and cell/face centres [m]),
-//!   plus [`FvMeshBuilder`] to assemble one incrementally.
-//! - [`BoundaryPatch`] / [`PatchKind`] — boundary-patch descriptors.
-//! - [`RegionInterface`] — a face-to-face coupling map between two regions'
+//! - [`FvMesh`](crate::mesh::fv_mesh::FvMesh) — the mesh itself (cells, faces, owner/neighbour connectivity,
+//!   cell volumes `[m³]`, face-area vectors `[m²]`, and cell/face centres `[m]`),
+//!   plus [`FvMeshBuilder`](crate::mesh::fv_mesh::FvMeshBuilder) to assemble one incrementally.
+//! - [`BoundaryPatch`](crate::mesh::fv_mesh::BoundaryPatch) /
+//!   [`PatchKind`](crate::mesh::fv_mesh::PatchKind) — boundary-patch descriptors.
+//! - [`ami`](crate::mesh::ami) — arbitrary-mesh-interface (non-conformal periodic / `cyclicAMI`)
+//!   face-overlap weighting and [`AmiCoupling`](crate::mesh::ami::AmiCoupling)
+//!   representation.
+//! - [`RegionInterface`](crate::mesh::region_interface::RegionInterface) — a face-to-face coupling map between two regions'
 //!   patches (used by conjugate-heat-transfer solvers).
-//! - [`MeshError`] — the errors raised during mesh construction and validation.
+//! - [`MeshError`](crate::mesh::error::MeshError) — the errors raised during mesh construction and validation.
 //!
 //! It stores only the data required by the operators; the OpenFOAM
 //! `polyMesh → primitiveMesh → lduMesh` inheritance chain is not reproduced.
 
+pub mod ami;
 pub mod error;
 pub mod fv_mesh;
 pub mod region_interface;
 
+pub use ami::{AmiCoupling, AmiOverlap, AmiWeight};
 pub use error::MeshError;
 pub use fv_mesh::*;
 pub use region_interface::RegionInterface;

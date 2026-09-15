@@ -82,9 +82,7 @@
 //!   it deviates from upstream's literal C++).
 
 use super::{LatentHeat, PrandtlNumber};
-use crate::genfoam::thermal_hydraulics::units::{
-    HeatFlux, HeatTransferCoefficient, ReynoldsNumber,
-};
+use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient, ReynoldsNumber};
 use uom::si::angle::degree;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::dynamic_viscosity::pascal_second;

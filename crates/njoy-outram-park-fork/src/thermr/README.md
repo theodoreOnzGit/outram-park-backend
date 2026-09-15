@@ -35,6 +35,14 @@ consumer surface for Monte Carlo is `scattering`
 (`IncoherentInelasticScattering`); the ACE `…t` table writer is
 [`crate::acer::thermal`] (`AceTable::thermal_from_mf7`).
 
+`temperature_thinning` is a **study tool, not a production path**: it measures
+what dropping tabulated temperatures from an evaluation would cost, by
+withholding a tabulated temperature, interpolating to it from the ones kept
+(through the same kernel and `LI` law the production reader uses), and
+comparing against the evaluation's own values. It also does leave-one-out
+characterisation of the *existing* interpolation and an ENDF-byte model for the
+MT=4 section. Nothing in it changes how a requested temperature is resolved.
+
 ## Testing
 
 **Ported and verified** — Al-27 (σ_b≈1.45 b; σ_inel rises to σ_free≈1.35 b near
@@ -49,8 +57,39 @@ machine-exact (rel 1.7e-16); T_eff(293.6 K)=1194 K. The 17.4 MB `tsl-HinH2O`
 file is not checked in, so the test reads `$HINH2O_TSL` (or a default path) and
 skips when absent. See `docs/ai-fleet-review/op-cjw-thermr-h2o/REVIEW_MANIFEST.md`.
 
+**Temperature-grid thinning cost (graphite, ENDF/B-VIII.0, 2026-08-13)** —
+`tests/thermal_temperature_thinning.rs` (8 tests, 0.49 s) with the full report
+in `examples/temperature_thinning_study.rs` and the durable record in
+`verification_and_validation/thermal_temperature_grid_thinning.md`. Headline:
+MF=7/MT=4 is 99.59 % of the 8.7 MB tape, so thinning its ten temperatures is
+where the bytes are. Keeping 296/600/1200/2000 K costs **1.6–3.1 %** in
+`σ_total(0.0253 eV)` across 293–1000 K and saves 54.3 % of the tape;
+296/400/500/600/1000/2000 K costs **nothing** below 600 K (it keeps every point
+HTR-10 operates between) and still saves 36.2 %. Every candidate grid meets a
+5 % criterion over 293–1000 K; **none meets 1 %**. The error is concentrated at
+high incident energy and high-`Q` Bragg edges, outside the thermal window.
+
 ## Caveats
 
+- **Temperature interpolation is a port-only extension — NJOY has none.**
+  `thermr.f90`'s main loop requires the PENDF to carry the requested
+  temperature (`:347-349`, "desired temperature not on tape") and `calcem`
+  refuses any MF=7 block farther than `T/500` from the request (`:1720-1741`,
+  "desired temperature not found"); NJOY users run LEAPR at the exact
+  temperature. This port keeps the maintainer's 2026-08-11 decision to
+  interpolate inside the tabulated grid (HTR-10's 393.15/523.15 K are not
+  tabulated), and since 2026-09-10 (`op-55lj`) does it on the **evaluated
+  quantities**: the kernel and `σ_inel` are computed at each bracketing
+  tabulated temperature (its own `S(α,β)`, kinematics and `T_eff`) and the
+  two results interpolated in `T` with the file's `LI` law, so the result is
+  bracketed by construction — 4.6349 b at 393.15 K / 3.9 eV inside
+  [4.6097, 4.6367] on MAT 30. The previous scheme (interpolate `S` at fixed
+  `(α,β)`, integrate with the target temperature's kinematics) gave 4.4175 b
+  there, 4 % below the bracket, because `LAT=1` scales `α,β` with `1/kT`.
+  Locked by `tests/thermal_temperature_thinning.rs::production_interpolation_stays_inside_its_bracket`.
+  The tolerance for snapping to a tabulated block is `rdelas`'s `T/1000+5` K,
+  deliberately looser than `calcem`'s `T/500` (293.15 K → the 296 K graphite
+  block, which `calcem` alone would refuse).
 - Only the **IFENG=0** (equiprobable) inelastic form is emitted — the
   skewed/continuous **IFENG=1/2** forms are not ported.
 - Multi-scatterer mixing is taken as `nmix = 1`.

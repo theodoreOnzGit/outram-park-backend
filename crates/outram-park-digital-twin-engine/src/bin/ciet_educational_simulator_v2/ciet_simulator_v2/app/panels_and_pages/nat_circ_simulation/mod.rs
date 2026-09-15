@@ -37,12 +37,11 @@ pub fn _coupled_dracs_loop_version_7(global_ciet_state_ptr: SharedCietState) {
 
     use tuas_boussinesq_solver::heat_transfer_correlations::nusselt_number_correlations::enums::NusseltCorrelation;
     use tuas_boussinesq_solver::pre_built_components::ciet_isothermal_test_components::*;
-    use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
-    use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::dracs_loop_dhx_tube_temperature_diagnostics;
-    use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::dracs_loop_calc_functions_sam_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration, coupled_dracs_loop_link_up_components_sam_tchx_calibration, dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration};
-    use tuas_boussinesq_solver::pre_built_components::ciet_steady_state_natural_circulation_test_components::coupled_dracs_loop_tests::pri_loop_calc_functions::{coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate, coupled_dracs_pri_loop_dhx_heater_link_up_components, pri_loop_advance_timestep_dhx_br_and_heater_br_except_dhx, pri_loop_dhx_shell_temperature_diagnostics, pri_loop_heater_temperature_diagnostics};
-    use tuas_boussinesq_solver::pre_built_components::
-        ciet_steady_state_natural_circulation_test_components::dracs_loop_components::*;
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dhx_constructor::new_dhx_sthe_version_1;
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dracs_loop_calc_functions_no_tchx_calibration::dracs_loop_dhx_tube_temperature_diagnostics;
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::dracs_loop_calc_functions_sam_tchx_calibration::{coupled_dracs_fluid_mechanics_calc_abs_mass_rate_sam_tchx_calibration, coupled_dracs_loop_link_up_components_sam_tchx_calibration, dracs_loop_advance_timestep_except_dhx_sam_tchx_calibration};
+        use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::coupled_dracs_loop_tests::pri_loop_calc_functions::{coupled_dracs_pri_loop_branches_fluid_mechanics_calc_abs_mass_rate, coupled_dracs_pri_loop_dhx_heater_link_up_components, pri_loop_advance_timestep_dhx_br_and_heater_br_except_dhx, pri_loop_dhx_shell_temperature_diagnostics, pri_loop_heater_temperature_diagnostics};
+    use tuas_boussinesq_solver::pre_built_components::ciet_nat_circ_tests::dracs_loop_components::*;
     use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
     use uom::si::heat_transfer::watt_per_square_meter_kelvin;
     use uom::si::time::second;
@@ -949,15 +948,31 @@ pub fn _coupled_dracs_loop_version_7(global_ciet_state_ptr: SharedCietState) {
             (loop_time_end - loop_time_start).as_millis() as f64;
         local_ciet_state.calc_time_ms = time_taken_for_calculation_loop_milliseconds;
 
-        let time_to_sleep_milliseconds: u64 = (timestep.get::<millisecond>()
-            - time_taken_for_calculation_loop_milliseconds)
-            .round()
-            .abs() as u64;
+        // Remaining budget for this timestep, computed sign-safely and
+        // wrap-safely (kopi-beans `op-xvye`; see
+        // `outram_park_digital_twin_engine::app_scaffold::real_time_pacing`
+        // for the shared version of this arithmetic).
+        //
+        // What was here before had two defects:
+        //   (timestep_ms - calc_ms).round().abs() as u64
+        // whose `.abs()` turned an OVERRUN into a positive sleep budget, so an
+        // overrunning step slept *extra* on top of the overrun; and
+        //   Duration::from_millis(that - 1)
+        // which was evaluated BEFORE the `> 1` guard below and wrapped
+        // `0u64 - 1` to `u64::MAX` (a ~584-million-year Duration under the
+        // mandatory release profile; a panic in debug).
+        let timestep_budget =
+            Duration::from_secs_f64((timestep.get::<millisecond>() * 1.0e-3).max(0.0));
+        let calculation_cost = Duration::from_secs_f64(
+            (time_taken_for_calculation_loop_milliseconds * 1.0e-3).max(0.0),
+        );
+        let remaining_budget: Duration = timestep_budget.saturating_sub(calculation_cost);
 
-        let time_to_sleep: Duration = Duration::from_millis(time_to_sleep_milliseconds - 1);
+        let time_to_sleep: Duration = remaining_budget.saturating_sub(Duration::from_millis(1));
 
-        // last condition for sleeping
-        let real_time_in_current_timestep: bool = time_to_sleep_milliseconds > 1;
+        // last condition for sleeping: unchanged in meaning -- only sleep when
+        // more than a whole millisecond of the budget is left.
+        let real_time_in_current_timestep: bool = remaining_budget > Duration::from_millis(1);
 
         global_ciet_state_ptr
             .write()

@@ -37,7 +37,10 @@ fn compare(label: &str, temp_c: f64, expected_lo: f64, expected_hi: f64) {
     let mc = mc_kernel_release_fraction(nuclide, radius, temperature, time, 40_000, 0x0C1A_5EED);
 
     println!("CRP-6 Case 1 — {label} ({temp_c}\u{b0}C, 200 h)");
-    println!("  D               = {:e} m^2/s", d.get::<uom::si::diffusion_coefficient::square_meter_per_second>());
+    println!(
+        "  D               = {:e} m^2/s",
+        d.get::<uom::si::diffusion_coefficient::square_meter_per_second>()
+    );
     println!("  MC release      = {mc:.4}");
     println!("  Crank analytic  = {analytical:.4}");
     println!("  |MC - Crank|    = {:.4}", (mc - analytical).abs());

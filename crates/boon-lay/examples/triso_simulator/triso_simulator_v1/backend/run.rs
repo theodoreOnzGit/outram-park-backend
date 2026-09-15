@@ -330,15 +330,32 @@ fn advance_diffusion_wos(
                 selected_nuclide,
                 timestep,
             ) {
-                diffuse_cpu(&mut walkers, &mut released, &triso_cell, &params, timestep, true);
+                diffuse_cpu(
+                    &mut walkers,
+                    &mut released,
+                    &triso_cell,
+                    &params,
+                    timestep,
+                    true,
+                );
             }
         }
-        ComputeType::CpuMultiThread(_) => {
-            diffuse_cpu(&mut walkers, &mut released, &triso_cell, &params, timestep, true)
-        }
-        ComputeType::CpuSingleThread => {
-            diffuse_cpu(&mut walkers, &mut released, &triso_cell, &params, timestep, false)
-        }
+        ComputeType::CpuMultiThread(_) => diffuse_cpu(
+            &mut walkers,
+            &mut released,
+            &triso_cell,
+            &params,
+            timestep,
+            true,
+        ),
+        ComputeType::CpuSingleThread => diffuse_cpu(
+            &mut walkers,
+            &mut released,
+            &triso_cell,
+            &params,
+            timestep,
+            false,
+        ),
     }
 
     for (s, w) in sims.iter_mut().zip(walkers.iter()) {

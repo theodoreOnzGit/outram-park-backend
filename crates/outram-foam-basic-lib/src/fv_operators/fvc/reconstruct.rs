@@ -114,7 +114,7 @@ pub fn reconstruct(phi: &SurfaceScalarField) -> VolVectorField {
         .collect();
 
     VolVectorField::new(
-        format!("reconstruct({})", phi.name),
+        crate::fv_operators::naming::derived_name("reconstruct", &phi.name),
         phi.mesh.clone(),
         Field::from_fn(n, |c| pseudo_inv_mv(m[c], rhs[c])),
         boundary,

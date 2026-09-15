@@ -46,17 +46,12 @@ use super::traits::ThermoModel;
 pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
     eos: E,
     cps: Polynomial<N>,
-    hf: f64,  // heat of formation [J/kg]
-    sf: f64,  // specific entropy at T_std [J/(kg·K)]
+    hf: f64, // heat of formation [J/kg]
+    sf: f64, // specific entropy at T_std [J/(kg·K)]
 }
 
 impl<E: EquationOfState, const N: usize> HPolynomialThermo<E, N> {
-    pub fn new(
-        eos: E,
-        cps: Polynomial<N>,
-        hf: AvailableEnergy,
-        sf: SpecificHeatCapacity,
-    ) -> Self {
+    pub fn new(eos: E, cps: Polynomial<N>, hf: AvailableEnergy, sf: SpecificHeatCapacity) -> Self {
         Self {
             eos,
             cps,
@@ -69,16 +64,36 @@ impl<E: EquationOfState, const N: usize> HPolynomialThermo<E, N> {
 // --- EquationOfState delegation ---
 
 impl<E: EquationOfState, const N: usize> EquationOfState for HPolynomialThermo<E, N> {
-    fn mol_weight(&self) -> MolarMass           { self.eos.mol_weight() }
-    fn r(&self) -> SpecificHeatCapacity         { self.eos.r() }
-    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { self.eos.rho(p, t) }
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { self.eos.psi(p, t) }
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { self.eos.z(p, t) }
-    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.cp_m_cv(p, t) }
-    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.cp_eos(p, t) }
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.eos.h_eos(p, t) }
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.eos.e_eos(p, t) }
-    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.s_eos(p, t) }
+    fn mol_weight(&self) -> MolarMass {
+        self.eos.mol_weight()
+    }
+    fn r(&self) -> SpecificHeatCapacity {
+        self.eos.r()
+    }
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        self.eos.rho(p, t)
+    }
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        self.eos.psi(p, t)
+    }
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        self.eos.z(p, t)
+    }
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.cp_m_cv(p, t)
+    }
+    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.cp_eos(p, t)
+    }
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.eos.h_eos(p, t)
+    }
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.eos.e_eos(p, t)
+    }
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.s_eos(p, t)
+    }
 }
 
 // --- ThermoModel ---
@@ -128,7 +143,7 @@ mod tests {
     fn air_const_poly() -> HPolynomialThermo<PerfectGas, 1> {
         HPolynomialThermo::new(
             PerfectGas::new(MolarMass::new::<gram_per_mole>(28.97)),
-            Polynomial::new([1004.0_f64]),  // Cp = 1004 J/(kg·K)
+            Polynomial::new([1004.0_f64]), // Cp = 1004 J/(kg·K)
             AvailableEnergy::new::<joule_per_kilogram>(0.0),
             SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(0.0),
         )
@@ -178,7 +193,9 @@ mod tests {
         let p = Pressure::new::<pascal>(101_325.0);
         let t_in = ThermodynamicTemperature::new::<kelvin>(700.0);
         let ha = a.ha(p, t_in);
-        let t_out = a.t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0)).unwrap();
+        let t_out = a
+            .t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(400.0))
+            .unwrap();
         assert_relative_eq!(t_in.get::<kelvin>(), t_out.get::<kelvin>(), epsilon = 0.01);
     }
 

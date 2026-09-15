@@ -19,8 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Per-species thermodynamic models — specific heat Cp [J/(kg·K)],
-//! sensible/absolute specific enthalpy [J/kg], specific entropy [J/(kg·K)], and
+//! Per-species thermodynamic models — specific heat Cp `[J/(kg·K)]`,
+//! sensible/absolute specific enthalpy `[J/kg]`, specific entropy `[J/(kg·K)]`, and
 //! Newton `T`-inversion, layered on top of an
 //! [`EquationOfState`](crate::thermophysics::eos::EquationOfState).
 //!

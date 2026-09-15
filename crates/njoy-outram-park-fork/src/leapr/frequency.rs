@@ -157,7 +157,12 @@ impl FrequencyModel {
             *pi = *pi * (be / 2.0).exp() / f0;
         }
 
-        FrequencyModel { deltab, f0, tbar, t1: p }
+        FrequencyModel {
+            deltab,
+            f0,
+            tbar,
+            t1: p,
+        }
     }
 }
 

@@ -81,6 +81,7 @@
 pub mod chf;
 pub mod drift_flux;
 pub mod dryout;
+pub mod heat_transfer;
 pub mod pimple;
 pub mod two_fluid;
 pub mod two_fluid_pimple;

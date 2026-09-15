@@ -155,7 +155,11 @@ fn richards_transport_coupling_advects_a_tracer() {
             "concentration out of [0,1] at cell {i}: {v}"
         );
     }
-    assert!(c[0] > 0.5, "tracer did not enter at the inflow: c0={}", c[0]);
+    assert!(
+        c[0] > 0.5,
+        "tracer did not enter at the inflow: c0={}",
+        c[0]
+    );
     assert!(c[0] > c[n - 1], "no transport gradient established");
     // Solute mass must have increased (tracer entered from the inflow).
     assert!(tr.total_mass(&c) > m_initial, "no solute mass gained");
@@ -225,11 +229,18 @@ fn output_writers_produce_wellformed_csv_and_vtk() {
         .expect("csv writes");
     let lines: Vec<&str> = csv.lines().collect();
     assert_eq!(lines[0], "x,y,z,pressure,saturation");
-    assert_eq!(lines.len(), nx * ny * nz + 1, "one header + one row per cell");
+    assert_eq!(
+        lines.len(),
+        nx * ny * nz + 1,
+        "one header + one row per cell"
+    );
 
     let vtk = write_vtk_structured(nx, ny, nz, deck.grid.dx, deck.grid.dy, deck.grid.dz, &p, &s)
         .expect("vtk writes");
-    assert!(vtk.contains("STRUCTURED_POINTS"), "vtk missing dataset kind");
+    assert!(
+        vtk.contains("STRUCTURED_POINTS"),
+        "vtk missing dataset kind"
+    );
     assert!(vtk.contains("CELL_DATA"), "vtk missing cell data");
     assert!(vtk.contains("pressure"), "vtk missing pressure field");
     assert!(vtk.contains("saturation"), "vtk missing saturation field");

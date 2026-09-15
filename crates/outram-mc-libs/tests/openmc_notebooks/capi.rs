@@ -60,18 +60,28 @@
 //! asserted; the reference is the sign/monotonicity of the response and the
 //! read-back of a valid tally.
 //!
-//! **Results (measured 2026-07-17, this harness; deterministic seed, 500
+//! **Results (measured 2026-08-06, this harness; deterministic seed, 500
 //! particles, 20 inactive + 40 active).**
-//! - Run A (nominal HEU, R = 6 cm): **k_A = 0.98609 ± 0.00910**; fuel-cell
-//!   track-length flux = 1.303e5 (> 0) and ν-fission tally = 1.951e4 (> 0) read
+//! - Run A (nominal HEU, R = 6 cm): **k_A = 0.97975 ± 0.00941**; fuel-cell
+//!   track-length flux = 1.3127e5 (> 0) and ν-fission tally = 1.9686e4 (> 0) read
 //!   back live.
-//! - Run B (1.5× denser HEU, same R): **k_B = 1.31288 ± 0.00984**.
-//! - Response: **Δk = k_B − k_A = +0.3268** (≈ +24× the combined σ ≈ 0.01340) —
+//! - Run B (1.5× denser HEU, same R): **k_B = 1.31318 ± 0.00845**.
+//! - Response: **Δk = k_B − k_A = +0.33343** (≈ +26× the combined σ = 0.01265) —
 //!   a denser fixed-size core is markedly more reactive, the physically correct
 //!   direction. The values are printed at run time (`--nocapture`) and recorded
 //!   in `verification_and_validation/openmc_notebook_comparisons/capi.csv`.
 //!   Interpretation: the in-memory build/run/introspect/edit-and-re-run surface
 //!   behaves correctly; only mid-run batch-stepping (op-6tz.20) remains a gap.
+//!
+//! **Supersedes (pre-`op-jis` figures, measured 2026-07-17).** The numbers above
+//! replace values taken with the old `prn` output function (uniforms formed from
+//! the raw top-52 state bits, before bead `op-jis` added OpenMC's PCG-RXS-M-XS
+//! output permutation). The LCG *state* recurrence is unchanged, but every
+//! sampled uniform moved, and with it both eigenvalues and both tally sums.
+//! Superseded: **k_A = 0.98609 ± 0.00910**, fuel flux = 1.303e5,
+//! ν-fission = 1.951e4; **k_B = 1.31288 ± 0.00984**; **Δk = +0.3268** (≈ +24×
+//! the combined σ ≈ 0.01340). The sign and magnitude of the response — the only
+//! thing this test asserts — are unchanged.
 
 use outram_mc_libs::geometry::cell::Cell;
 use outram_mc_libs::geometry::cell::{HalfSpaceSense, RegionToken};
@@ -102,9 +112,18 @@ fn heu_material(factor: f64) -> Material {
         name: "Godiva HEU".into(),
         temperature: 293.6,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 * factor }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 * factor }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 * factor }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4 * factor,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2 * factor,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3 * factor,
+            }, // U-238
         ],
     }
 }
@@ -131,14 +150,20 @@ fn cylinder_geometry() -> Geometry {
     })];
     let fuel = Cell::material(
         1,
-        vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
         0,
         293.6,
     );
     Geometry {
         surfaces,
         cells: vec![fuel],
-        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -147,12 +172,18 @@ fn cylinder_geometry() -> Geometry {
 /// Run the in-memory model once and return `(k ± σ, fuel-cell flux sum,
 /// fuel-cell ν-fission sum)`. The tally read-back is the crate-native analogue of
 /// the notebook's "read tallies live".
-fn run_and_read(material: Material, nuclides: &[Nuclide], settings: &KeffSettings) -> (f64, f64, f64, f64) {
+fn run_and_read(
+    material: Material,
+    nuclides: &[Nuclide],
+    settings: &KeffSettings,
+) -> (f64, f64, f64, f64) {
     let geom = cylinder_geometry();
     let materials = vec![material];
 
     // Single-cell flux + ν-fission tally (the "introspection" surface).
-    let filter = CellFilter { cell_indices: vec![0] };
+    let filter = CellFilter {
+        cell_indices: vec![0],
+    };
     let mut tally = Tally {
         id: 1,
         name: "fuel cell".into(),
@@ -167,7 +198,12 @@ fn run_and_read(material: Material, nuclides: &[Nuclide], settings: &KeffSetting
     };
     let result = run_keff_csg(&geom, &materials, nuclides, src, settings, Some(&mut tally));
     // bins: [flux, nu_fission]
-    (result.k_mean, result.k_std, tally.bins[0].sum, tally.bins[1].sum)
+    (
+        result.k_mean,
+        result.k_std,
+        tally.bins[0].sum,
+        tally.bins[1].sum,
+    )
 }
 
 /// PARTIAL-LIVE (op-6tz.20): the crate-native analogue of the `capi` notebook's
@@ -206,11 +242,26 @@ fn capi_in_memory_build_run_edit_rerun() {
     );
 
     // ── Introspection surface: the live-read tally is valid & physical ────────
-    assert!(k_a.is_finite() && k_a > 0.0, "Run A k must be finite & positive, got {k_a}");
-    assert!(k_b.is_finite() && k_b > 0.0, "Run B k must be finite & positive, got {k_b}");
-    assert!(flux_a > 0.0, "fuel cell accumulated no flux (tally read-back failed)");
-    assert!(nufis_a > 0.0, "no fission production tallied in the fuel (tally read-back failed)");
-    assert!(s_a < 0.02 && s_b < 0.02, "eigenvalue under-converged: σ_A={s_a}, σ_B={s_b}");
+    assert!(
+        k_a.is_finite() && k_a > 0.0,
+        "Run A k must be finite & positive, got {k_a}"
+    );
+    assert!(
+        k_b.is_finite() && k_b > 0.0,
+        "Run B k must be finite & positive, got {k_b}"
+    );
+    assert!(
+        flux_a > 0.0,
+        "fuel cell accumulated no flux (tally read-back failed)"
+    );
+    assert!(
+        nufis_a > 0.0,
+        "no fission production tallied in the fuel (tally read-back failed)"
+    );
+    assert!(
+        s_a < 0.02 && s_b < 0.02,
+        "eigenvalue under-converged: σ_A={s_a}, σ_B={s_b}"
+    );
 
     // ── Monotonic response: a denser fixed-size (leaky) core is more reactive ──
     // Require the increase to exceed 3× the combined statistical uncertainty so

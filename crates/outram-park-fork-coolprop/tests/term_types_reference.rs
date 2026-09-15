@@ -89,61 +89,129 @@ fn check(
     let liq = state_trho(fluid, t_l, rhomolar_l * mm);
     let dh = dev(liq.enthalpy * mm, h_l_ref);
     let ds = dev(liq.entropy * mm, s_l_ref);
-    assert!(dh < 1e-4, "{name}: triple-liquid h_molar dev {dh:.2e} (got {}, ref {h_l_ref})", liq.enthalpy * mm);
-    assert!(ds < 1e-4, "{name}: triple-liquid s_molar dev {ds:.2e} (got {}, ref {s_l_ref})", liq.entropy * mm);
+    assert!(
+        dh < 1e-4,
+        "{name}: triple-liquid h_molar dev {dh:.2e} (got {}, ref {h_l_ref})",
+        liq.enthalpy * mm
+    );
+    assert!(
+        ds < 1e-4,
+        "{name}: triple-liquid s_molar dev {ds:.2e} (got {}, ref {s_l_ref})",
+        liq.entropy * mm
+    );
 
     let vap = state_trho(fluid, t_v, rhomolar_v * mm);
     let dp = (vap.pressure - p_v_ref).abs() / p_v_ref;
     // 5e-3 bounds the reference vapour density's ~3-sig-fig precision at
     // ρ ~ 1e-4 mol/m³ (see module docs); the residual is checked hard above.
-    assert!(dp < 5e-3, "{name}: triple-vapour pressure dev {dp:.2e} (got {}, ref {p_v_ref})", vap.pressure);
+    assert!(
+        dp < 5e-3,
+        "{name}: triple-vapour pressure dev {dp:.2e} (got {}, ref {p_v_ref})",
+        vap.pressure
+    );
 }
 
 #[test]
 fn nitrogen_ideal_power_and_planck_einstein_function_t() {
-    check(Fluid::Nitrogen, 0.028_013_48,
-        63.151, 30957.310_275, -4222.6109, 67.9513,
-        63.151, 24.069_588, 12519.795_379);
+    check(
+        Fluid::Nitrogen,
+        0.028_013_48,
+        63.151,
+        30957.310_275,
+        -4222.6109,
+        67.9513,
+        63.151,
+        24.069_588,
+        12519.795_379,
+    );
 }
 
 #[test]
 fn fluorine_residual_exponential_and_ideal_generalized() {
-    check(Fluid::Fluorine, 0.037_996_81,
-        53.4811, 44917.310_369, -1778.2909, -26.0725,
-        53.4811, 0.537_249, 238.810_332);
+    check(
+        Fluid::Fluorine,
+        0.037_996_81,
+        53.4811,
+        44917.310_369,
+        -1778.2909,
+        -26.0725,
+        53.4811,
+        0.537_249,
+        238.810_332,
+    );
 }
 
 #[test]
 fn methanol_double_exponential_and_cp0_polyt() {
-    check(Fluid::Methanol, 0.032_042_16,
-        175.61, 28230.396_622, -12439.5748, -49.5241,
-        175.61, 0.000_128, 0.186_350);
+    check(
+        Fluid::Methanol,
+        0.032_042_16,
+        175.61,
+        28230.396_622,
+        -12439.5748,
+        -49.5241,
+        175.61,
+        0.000_128,
+        0.186_350,
+    );
 }
 
 #[test]
 fn r125_lemmon2005_double_exponential() {
-    check(Fluid::R125, 0.120_021_4,
-        172.52, 14086.490_950, 10457.4795, 58.8377,
-        172.52, 2.038_125, 2914.046_009);
+    check(
+        Fluid::R125,
+        0.120_021_4,
+        172.52,
+        14086.490_950,
+        10457.4795,
+        58.8377,
+        172.52,
+        2.038_125,
+        2914.046_009,
+    );
 }
 
 #[test]
 fn ammonia_gaob_bell_term() {
-    check(Fluid::Ammonia, 0.017_030_52,
-        195.495, 43090.208_806, 0.5071, 0.0019,
-        195.495, 3.742_198, 6055.813_575);
+    check(
+        Fluid::Ammonia,
+        0.017_030_52,
+        195.495,
+        43090.208_806,
+        0.5071,
+        0.0019,
+        195.495,
+        3.742_198,
+        6055.813_575,
+    );
 }
 
 #[test]
 fn r22_ideal_cp0_constant() {
-    check(Fluid::R22, 0.086_468,
-        115.73, 19906.534_061, 2559.4876, 6.5813,
-        115.73, 0.000_394, 0.379_475);
+    check(
+        Fluid::R22,
+        0.086_468,
+        115.73,
+        19906.534_061,
+        2559.4876,
+        6.5813,
+        115.73,
+        0.000_394,
+        0.379_475,
+    );
 }
 
 #[test]
 fn heptane_ideal_cp0_aly_lee() {
-    check(Fluid::NHeptane, 0.100_202,
-        182.55, 7745.685_209, -41621.0135, -153.9828,
-        182.55, 0.000_116, 0.175_490);
+    check(
+        Fluid::NHeptane,
+        0.100_202,
+        182.55,
+        7745.685_209,
+        -41621.0135,
+        -153.9828,
+        182.55,
+        0.000_116,
+        0.175_490,
+    );
 }

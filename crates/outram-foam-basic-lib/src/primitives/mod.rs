@@ -31,6 +31,11 @@
 //! order and the OpenFOAM operator conventions (`&`, `&&`, `^`, `*`).
 
 /// The scalar floating-point type and the small/large numeric constants.
+/// Spectral decomposition of 3x3 tensors -- eigenvalues, eigenvectors, and the
+/// basis every isotropic tensor function (logarithm, exponential, square root)
+/// is built on.
+pub mod eigen;
+
 pub mod scalar;
 /// Isotropic diagonal tensor `ii * I` (`SphericalTensor`).
 pub mod spherical_tensor;
@@ -41,9 +46,11 @@ pub mod tensor;
 /// 3-component vector (`Vector3`).
 pub mod vector;
 
-pub use scalar::{
-    Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL,
+pub use eigen::{
+    eigen_values, eigen_values_checked, eigen_values_symm, eigen_vectors, eigen_vectors_symm,
+    eigen_vectors_symm_with, eigen_vectors_with,
 };
+pub use scalar::{Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 pub use spherical_tensor::SphericalTensor;
 pub use symm_tensor::SymmTensor;
 pub use tensor::Tensor;

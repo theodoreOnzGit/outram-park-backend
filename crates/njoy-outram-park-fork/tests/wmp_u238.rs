@@ -13,14 +13,22 @@ use std::path::PathBuf;
 
 /// Path to the U-238 WMP file (dev machine layout: sibling `WMP_Library` clone).
 fn u238_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../WMP_Library/WMP_Library/092238.h5")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../WMP_Library/WMP_Library/092238.h5")
 }
 
 #[test]
 fn u238_loads_and_has_expected_metadata() {
     let path = u238_path();
     if !path.exists() {
+        // The WMP library is a git-lfs tree OUTSIDE this repository, so this
+        // gate cannot go through reference_file_or_skip; honour the shared
+        // flag directly so CI cannot count these as passes.
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "WMP library {} absent, so this test asserts nothing, and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set",
+            path.display()
+        );
         eprintln!("SKIP: {} not present (git-lfs)", path.display());
         return;
     }
@@ -41,6 +49,15 @@ fn u238_loads_and_has_expected_metadata() {
 fn u238_capture_resonance_and_doppler_broadening() {
     let path = u238_path();
     if !path.exists() {
+        // The WMP library is a git-lfs tree OUTSIDE this repository, so this
+        // gate cannot go through reference_file_or_skip; honour the shared
+        // flag directly so CI cannot count these as passes.
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "WMP library {} absent, so this test asserts nothing, and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set",
+            path.display()
+        );
         eprintln!("SKIP: {} not present (git-lfs)", path.display());
         return;
     }
@@ -77,7 +94,10 @@ fn u238_capture_resonance_and_doppler_broadening() {
     assert!(peak_0k > 1000.0, "0 K peak = {peak_0k} b");
     // Doppler broadening lowers the peak monotonically with temperature.
     assert!(peak_300 < peak_0k, "294 K peak {peak_300} !< 0 K {peak_0k}");
-    assert!(peak_1000 < peak_300, "1000 K peak {peak_1000} !< 294 K {peak_300}");
+    assert!(
+        peak_1000 < peak_300,
+        "1000 K peak {peak_1000} !< 294 K {peak_300}"
+    );
 
     // Wing absorption rises with temperature (area is broadly conserved).
     let wing_300 = wmp.evaluate(6.5, 293.6).capture();
@@ -89,6 +109,15 @@ fn u238_capture_resonance_and_doppler_broadening() {
 fn u238_cross_sections_are_physical_across_the_range() {
     let path = u238_path();
     if !path.exists() {
+        // The WMP library is a git-lfs tree OUTSIDE this repository, so this
+        // gate cannot go through reference_file_or_skip; honour the shared
+        // flag directly so CI cannot count these as passes.
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "WMP library {} absent, so this test asserts nothing, and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set",
+            path.display()
+        );
         eprintln!("SKIP: {} not present (git-lfs)", path.display());
         return;
     }
@@ -98,14 +127,29 @@ fn u238_cross_sections_are_physical_across_the_range() {
     let mut e = 1e-3;
     while e < wmp.e_max {
         let xs = wmp.evaluate(e, 293.6);
-        assert!(xs.scatter.is_finite() && xs.scatter >= -1e-6, "scatter@{e} = {}", xs.scatter);
-        assert!(xs.absorption.is_finite() && xs.absorption >= -1e-6, "abs@{e} = {}", xs.absorption);
-        assert!(xs.fission.is_finite() && xs.fission >= -1e-6, "fis@{e} = {}", xs.fission);
+        assert!(
+            xs.scatter.is_finite() && xs.scatter >= -1e-6,
+            "scatter@{e} = {}",
+            xs.scatter
+        );
+        assert!(
+            xs.absorption.is_finite() && xs.absorption >= -1e-6,
+            "abs@{e} = {}",
+            xs.absorption
+        );
+        assert!(
+            xs.fission.is_finite() && xs.fission >= -1e-6,
+            "fis@{e} = {}",
+            xs.fission
+        );
         assert!(xs.total() >= xs.absorption - 1e-6);
         e *= 1.2;
     }
 
     // Thermal capture (0.0253 eV) for U-238 is ~2.7 b — check the right order.
     let thermal_cap = wmp.evaluate(0.0253, 293.6).capture();
-    assert!((1.0..10.0).contains(&thermal_cap), "thermal capture = {thermal_cap} b");
+    assert!(
+        (1.0..10.0).contains(&thermal_cap),
+        "thermal capture = {thermal_cap} b"
+    );
 }

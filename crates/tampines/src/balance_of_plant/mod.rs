@@ -39,6 +39,11 @@ impl RankineCycle {
         condenser: Condenser,
         feedwater_pump: Pump,
     ) -> Self {
-        Self { steam_generator, turbine, condenser, feedwater_pump }
+        Self {
+            steam_generator,
+            turbine,
+            condenser,
+            feedwater_pump,
+        }
     }
 }

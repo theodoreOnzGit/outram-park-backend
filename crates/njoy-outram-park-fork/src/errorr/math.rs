@@ -671,8 +671,8 @@ pub fn cleb(i1: i32, i2: i32, i3: i32) -> f64 {
         return cleb;
     }
 
-    let arg =
-        FAC[(n1 - 1) as usize] * FAC[(n2 - 1) as usize] * FAC[(n3 - 1) as usize] / FAC[(n4 - 1) as usize];
+    let arg = FAC[(n1 - 1) as usize] * FAC[(n2 - 1) as usize] * FAC[(n3 - 1) as usize]
+        / FAC[(n4 - 1) as usize];
     let z1 = arg * ipow10(nept);
     let d123 = z1.sqrt();
 
@@ -834,7 +834,11 @@ mod tests {
     #[test]
     fn cleb_1_1_0_known_value() {
         let expect = -1.0 / 3.0f64.sqrt();
-        assert!((cleb(1, 1, 0) - expect).abs() < 1e-6, "cleb = {}", cleb(1, 1, 0));
+        assert!(
+            (cleb(1, 1, 0) - expect).abs() < 1e-6,
+            "cleb = {}",
+            cleb(1, 1, 0)
+        );
     }
 
     /// METHODOLOGY: triangle-rule / parity gates return 0. INPUTS:

@@ -196,10 +196,19 @@ mod tests {
     #[test]
     fn density_increases_with_pressure() {
         let eos = LiquidWaterEos::water();
-        let lo = eos.density(pressure(1.0e5)).get::<kilogram_per_cubic_meter>();
-        let mid = eos.density(pressure(5.0e6)).get::<kilogram_per_cubic_meter>();
-        let hi = eos.density(pressure(1.0e7)).get::<kilogram_per_cubic_meter>();
-        assert!(lo < mid && mid < hi, "density must be monotone increasing in p");
+        let lo = eos
+            .density(pressure(1.0e5))
+            .get::<kilogram_per_cubic_meter>();
+        let mid = eos
+            .density(pressure(5.0e6))
+            .get::<kilogram_per_cubic_meter>();
+        let hi = eos
+            .density(pressure(1.0e7))
+            .get::<kilogram_per_cubic_meter>();
+        assert!(
+            lo < mid && mid < hi,
+            "density must be monotone increasing in p"
+        );
     }
 
     #[test]
@@ -207,12 +216,19 @@ mod tests {
         let eos = LiquidWaterEos::water();
         for &p0 in &[1.0e5, 1.0e6, 5.0e6, 2.0e7] {
             let h = p0 * 1e-6;
-            let fd = (eos.density(pressure(p0 + h)).get::<kilogram_per_cubic_meter>()
-                - eos.density(pressure(p0 - h)).get::<kilogram_per_cubic_meter>())
+            let fd = (eos
+                .density(pressure(p0 + h))
+                .get::<kilogram_per_cubic_meter>()
+                - eos
+                    .density(pressure(p0 - h))
+                    .get::<kilogram_per_cubic_meter>())
                 / (2.0 * h);
             let analytic = eos.d_density_d_pressure(pressure(p0));
             let rel = (fd - analytic).abs() / analytic.abs();
-            assert!(rel < 1e-6, "FD mismatch at p={p0}: fd={fd}, analytic={analytic}, rel={rel}");
+            assert!(
+                rel < 1e-6,
+                "FD mismatch at p={p0}: fd={fd}, analytic={analytic}, rel={rel}"
+            );
         }
     }
 

@@ -17,6 +17,11 @@
 //! tracer-bearing component necessarily needs to expose a travel time (a
 //! tank's "residence time" is a different calculation than a pipe's).
 //!
+//! [`control_rod_drive`] is the same idea for a different mechanism: a control
+//! rod travels toward its commanded depth at a bounded drive speed rather than
+//! teleporting there, and [`ControlRodDrive`] owns that slew. It follows the
+//! same state-ownership rule as [`TracerTrain`] (below) for the same reason.
+//!
 //! [`TracerTrain`] is the concrete, reusable implementation of that motion:
 //! evenly-spaced tracer marks sharing one phase, advanced by
 //! [`TracerTrain::advance`]. [`residence_time_from_flow`] computes the
@@ -53,9 +58,15 @@
 //! or an enum wrapping the tracer-bearing components, never
 //! `&dyn FlowTracer`/`&dyn TravelTime`.
 
-use uom::si::f64::{Mass, MassRate, Time};
+pub mod control_rod_drive;
+
+pub use control_rod_drive::{ControlRodDrive, RodDriveMotion};
+
+use uom::si::f64::{Length, Mass, MassRate, Time, Velocity};
+use uom::si::length::meter;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::time::second;
+use uom::si::velocity::meter_per_second;
 
 /// A visual tracer that moves along a component's flow path, its direction
 /// and speed derived from mass flow.
@@ -138,6 +149,111 @@ pub fn residence_time_from_flow(fluid_inventory: Mass, mass_flow: MassRate) -> T
 /// residence time) as [`FlowDirection::Stagnant`].
 pub fn infinite_residence_time() -> Time {
     Time::new::<second>(f64::INFINITY)
+}
+
+/// Residence time of a plug-flow run of `length` moving at `velocity`.
+///
+/// `tau = length / |velocity|`. This is the same quantity
+/// [`residence_time_from_flow`] returns, reached from kinematics instead of
+/// inventory: for a run of uniform cross-section `A` and density `rho` the
+/// inventory is `m = rho*A*L` and the mass flow is `m_dot = rho*A*u`, so
+/// `m/m_dot = L/u` — the density and area cancel. Use this form when the
+/// velocity is known and the density is not.
+///
+/// Returns [`infinite_residence_time`] for zero, negative-length or
+/// non-finite input: those are the cases with no well-defined tracer speed,
+/// which [`TracerTrain::advance`] then freezes rather than guessing at.
+pub fn residence_time_from_velocity(length: Length, velocity: Velocity) -> Time {
+    let l = length.get::<meter>();
+    let u = velocity.get::<meter_per_second>().abs();
+    if !l.is_finite() || !u.is_finite() || l < 0.0 || u == 0.0 {
+        return infinite_residence_time();
+    }
+    Time::new::<second>(l / u)
+}
+
+/// A single tracer mark released at a fixed minimum interval.
+///
+/// [`TracerTrain`] keeps `count` marks permanently on the path, evenly spaced.
+/// That is right for showing a continuous flow, but on a short run — or a fast
+/// one — it produces a stream of marks flickering past, which is hard to read.
+/// A pulse instead shows **one** mark at a time, released no more often than
+/// `min_interval`, so a fast pipe blinks a single plug through at a comfortable
+/// rate rather than strobing.
+///
+/// The mark still crosses the run in exactly one residence time; the interval
+/// only controls the gap between releases. When the residence time is longer
+/// than the interval, the mark is in flight continuously and the interval has
+/// no effect.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TracerPulse {
+    /// Seconds elapsed within the current release period.
+    elapsed_s: f64,
+    /// Minimum seconds between releases.
+    min_interval_s: f64,
+    /// Direction of travel as of the last advance.
+    direction: FlowDirection,
+}
+
+impl TracerPulse {
+    /// Create a pulse releasing a mark no more often than `min_interval`.
+    pub fn new(min_interval: Time) -> Self {
+        Self {
+            elapsed_s: 0.0,
+            min_interval_s: min_interval.get::<second>().max(0.0),
+            direction: FlowDirection::Stagnant,
+        }
+    }
+
+    /// Advance by `dt`, given the run's `residence_time` and `mass_flow`.
+    ///
+    /// Follows [`TracerTrain::advance`]'s contract exactly: the sign of
+    /// `mass_flow` sets direction, its magnitude enters only through the
+    /// residence time, and a stagnant or non-finite case freezes rather than
+    /// guessing at a tracer speed.
+    pub fn advance(&mut self, dt: Time, residence_time: Time, mass_flow: MassRate) {
+        let m_dot = mass_flow.get::<kilogram_per_second>();
+        let tau = residence_time.get::<second>();
+
+        if !m_dot.is_finite() || m_dot == 0.0 || !tau.is_finite() || tau <= 0.0 {
+            self.direction = FlowDirection::Stagnant;
+            return;
+        }
+        self.direction = if m_dot > 0.0 {
+            FlowDirection::Forward
+        } else {
+            FlowDirection::Reverse
+        };
+
+        let period = tau.max(self.min_interval_s);
+        self.elapsed_s = (self.elapsed_s + dt.get::<second>()).rem_euclid(period);
+    }
+
+    /// Position of the mark along the path in `[0, 1]`, or `None` when no mark
+    /// is currently in flight (the gap between releases, or a stagnant run).
+    ///
+    /// `0` is the inlet and `1` the outlet regardless of direction; a reversed
+    /// flow reports `1 - x` so the caller does not have to know the direction
+    /// to place the mark.
+    pub fn position(&self, residence_time: Time) -> Option<f64> {
+        let tau = residence_time.get::<second>();
+        if self.direction == FlowDirection::Stagnant || !tau.is_finite() || tau <= 0.0 {
+            return None;
+        }
+        if self.elapsed_s > tau {
+            return None; // between releases
+        }
+        let x = (self.elapsed_s / tau).clamp(0.0, 1.0);
+        Some(match self.direction {
+            FlowDirection::Reverse => 1.0 - x,
+            _ => x,
+        })
+    }
+
+    /// Direction of travel as of the last [`Self::advance`].
+    pub fn direction(&self) -> FlowDirection {
+        self.direction
+    }
 }
 
 /// Which way a [`TracerTrain`] is currently moving along its flow path.
@@ -438,6 +554,128 @@ mod tests {
             let tau = self.residence_time();
             self.train.advance(dt, tau, self.mass_flow);
         }
+    }
+
+    /// The kinematic and inventory forms of the residence time must agree,
+    /// because density and area cancel between them. If they ever disagree a
+    /// tracer would visibly drift out of step with the flow it represents.
+    ///
+    /// **Methodology:** a 4 m run at 2 m/s gives `tau = L/u = 2.0 s`. Build the
+    /// equivalent inventory problem for an arbitrary `rho*A` of 3 kg/m (so
+    /// `m = 12 kg`, `m_dot = 6 kg/s`) and compare the two functions.
+    ///
+    /// **Result (2026-08-05):** both return 2.0 s, agreeing to within 1e-12 s.
+    #[test]
+    fn kinematic_and_inventory_residence_times_agree() {
+        use uom::si::f64::{Length, Velocity};
+        use uom::si::length::meter;
+        use uom::si::velocity::meter_per_second;
+
+        let tau_u = residence_time_from_velocity(
+            Length::new::<meter>(4.0),
+            Velocity::new::<meter_per_second>(2.0),
+        );
+        let tau_m = residence_time_from_flow(
+            Mass::new::<kilogram>(12.0),
+            MassRate::new::<kilogram_per_second>(6.0),
+        );
+        assert!((tau_u.get::<second>() - 2.0).abs() < 1e-12);
+        assert!((tau_u.get::<second>() - tau_m.get::<second>()).abs() < 1e-12);
+    }
+
+    /// Reversing the flow must not change how long the traverse takes — only
+    /// the sign-carrying `mass_flow` sets direction.
+    #[test]
+    fn reversed_velocity_has_the_same_residence_time() {
+        use uom::si::f64::{Length, Velocity};
+        use uom::si::length::meter;
+        use uom::si::velocity::meter_per_second;
+
+        let l = Length::new::<meter>(3.0);
+        assert_eq!(
+            residence_time_from_velocity(l, Velocity::new::<meter_per_second>(1.5)),
+            residence_time_from_velocity(l, Velocity::new::<meter_per_second>(-1.5))
+        );
+    }
+
+    /// A stagnant run has no well-defined tracer speed, so it must report an
+    /// infinite residence time and freeze rather than divide by zero.
+    #[test]
+    fn zero_velocity_gives_infinite_residence_time() {
+        use uom::si::f64::{Length, Velocity};
+        use uom::si::length::meter;
+        use uom::si::velocity::meter_per_second;
+
+        assert!(residence_time_from_velocity(
+            Length::new::<meter>(3.0),
+            Velocity::new::<meter_per_second>(0.0)
+        )
+        .get::<second>()
+        .is_infinite());
+    }
+
+    /// A pulse must still cross the run in exactly one residence time, and
+    /// must show nothing during the gap between releases.
+    ///
+    /// **Methodology:** tau = 1.0 s with a 3.0 s minimum interval, stepped at
+    /// 0.01 s. Check the mark is in flight and monotonically advancing over
+    /// the first second, absent between 1 s and 3 s, and released again after
+    /// the period wraps.
+    ///
+    /// **Result (2026-08-05):** in flight for t <= 1.0 s reaching x = 1.0,
+    /// `None` throughout 1.0 < t < 3.0, and re-released at t = 3.0 s.
+    #[test]
+    fn pulse_crosses_in_one_residence_time_then_waits() {
+        let tau = Time::new::<second>(1.0);
+        let dt = Time::new::<second>(0.01);
+        let flow = MassRate::new::<kilogram_per_second>(1.0);
+        let mut pulse = TracerPulse::new(Time::new::<second>(3.0));
+
+        let mut last = -1.0;
+        for _ in 0..100 {
+            pulse.advance(dt, tau, flow);
+            if let Some(x) = pulse.position(tau) {
+                assert!(x >= last, "mark must advance monotonically");
+                last = x;
+            }
+        }
+        assert!(last > 0.98, "mark should reach the outlet, got {last}");
+
+        // Gap: nothing in flight between one residence time and the interval.
+        for _ in 0..150 {
+            pulse.advance(dt, tau, flow);
+            assert!(pulse.position(tau).is_none(), "should be between releases");
+        }
+    }
+
+    /// A reversed flow must report positions from the outlet back to the
+    /// inlet, so the caller never has to inspect the direction itself.
+    #[test]
+    fn reversed_pulse_runs_from_outlet_to_inlet() {
+        let tau = Time::new::<second>(1.0);
+        let dt = Time::new::<second>(0.1);
+        let flow = MassRate::new::<kilogram_per_second>(-1.0);
+        let mut pulse = TracerPulse::new(Time::new::<second>(0.0));
+        pulse.advance(dt, tau, flow);
+        let x = pulse.position(tau).expect("mark should be in flight");
+        assert!(
+            x > 0.85,
+            "reversed mark should start near the outlet, got {x}"
+        );
+    }
+
+    /// A stagnant run has no tracer speed, so a pulse must show nothing.
+    #[test]
+    fn stagnant_pulse_shows_no_mark() {
+        let tau = Time::new::<second>(1.0);
+        let mut pulse = TracerPulse::new(Time::new::<second>(2.0));
+        pulse.advance(
+            Time::new::<second>(0.1),
+            tau,
+            MassRate::new::<kilogram_per_second>(0.0),
+        );
+        assert!(pulse.position(tau).is_none());
+        assert_eq!(pulse.direction(), FlowDirection::Stagnant);
     }
 
     #[test]

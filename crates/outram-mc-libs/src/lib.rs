@@ -2,8 +2,8 @@
 //!
 //! Pure-Rust port of selected [OpenMC](https://openmc.org) Monte Carlo
 //! neutron-transport kernels (RNG, geometry/CSG, particle tracking,
-//! k-eigenvalue, delta/Woodcock tracking). Data-free: cross sections are
-//! pulled from `njoy-outram-park-fork`'s `XsProvider` surface.
+//! k-eigenvalue and fixed-source drivers, delta/Woodcock tracking). Data-free:
+//! cross sections are pulled from `njoy-outram-park-fork`'s `XsProvider` surface.
 //!
 //! ## License & provenance — read this first
 //!
@@ -20,6 +20,14 @@
 //! Laboratory.** See `TRADEMARKS.md` (this crate's directory, mirrored from
 //! the workspace root) for the full attribution and non-affiliation notice.
 
+/// The error type every ENDF-reading entry point in this crate returns
+/// (`Nuclide::from_endf_file`, `from_tape`, `from_endf`).
+///
+/// Re-exported so callers can name it without taking their own dependency on
+/// `njoy-outram-park-fork`.
+pub use njoy_outram_park_fork::NjoyError;
+
+pub mod mathf;
 pub mod rng;
 pub mod geometry;
 pub mod particle;
@@ -27,6 +35,7 @@ pub mod material;
 pub mod source;
 pub mod tally;
 pub mod physics;
+pub mod dh_universe;
 pub mod pebble_beds;
 pub mod stochastic;
 pub mod depletion;
@@ -39,4 +48,10 @@ pub mod gpu;
 /// report from measured benchmark timings. Machine-specific output is written to
 /// a gitignored local path — see [`perf_report`].
 pub mod perf_report;
+pub mod vv;
 pub mod prelude;
+
+/// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
+/// `rayon` does not build. Numerically exact here — see the module docs.
+#[cfg(target_arch = "wasm32")]
+mod wasm_par;

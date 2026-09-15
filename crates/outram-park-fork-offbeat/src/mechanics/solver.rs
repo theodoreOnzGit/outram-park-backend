@@ -21,6 +21,13 @@ use outram_foam_basic_lib::ldu_matrix::SolverSettings;
 use outram_foam_basic_lib::mesh::FvMesh;
 use outram_foam_basic_lib::primitives::{SymmTensor, Tensor, Vector3};
 
+use crate::error::{OffbeatError, Result};
+use crate::materials::MaterialState;
+use crate::rheology::{
+    equivalent_strain, CreepTimeStepControl, IrradiationState, Rheology, RheologyInputs,
+    RheologyState, StressCorrection,
+};
+
 /// Isotropic linear-elastic material constants.
 ///
 /// Stores Young's modulus and Poisson's ratio — the pair the fuel-performance
@@ -84,6 +91,79 @@ impl LinearElastic {
             });
         }
         Ok(Self { young, poisson })
+    }
+
+    /// Build from a material's own correlations at a given state — **refusing
+    /// the case** when the correlation pair leaves the admissible range.
+    ///
+    /// # The policy this encodes
+    ///
+    /// MATPRO fits Zircaloy's Young's and shear moduli as *independent* lines,
+    /// so `ν = E/(2G) − 1` crosses the incompressible limit `0.5` at
+    /// `T = 1354.84` K and reaches `0.912` at 1800 K — the top of upstream's
+    /// own stated validity range. At 600 K a retained cold-work fraction above
+    /// `0.1197` does the same. That is a faithful port of a real upstream
+    /// defect; upstream neither detects nor guards it.
+    ///
+    /// Three policies were available (bead `op-6sl.7`): clamp `ν` below `0.5`,
+    /// fall back to a constant ratio, or refuse. **This refuses**, and the
+    /// reason is worth stating because clamping looks like the accommodating
+    /// choice and is in fact the worst one: `λ = Eν/((1+ν)(1−2ν))` grows
+    /// without bound as `ν → 0.5`, so a clamp at `0.5 − ε` makes `λ ≈ E/(3ε)`
+    /// — **the clamp tolerance, not the material, would set the stiffness.**
+    /// A silent answer that is wrong by however many orders of magnitude the
+    /// author of `ε` happened to choose is worse than no answer. Falling back
+    /// to a constant `ν` is defensible but substitutes a different material
+    /// without saying so, which is the same failure wearing a hat.
+    ///
+    /// A caller that genuinely wants an approximation above the crossover can
+    /// still build one explicitly with [`new`](Self::new) and document the
+    /// choice at the call site, where a reader will see it.
+    ///
+    /// # Errors
+    ///
+    /// [`OffbeatError::Unphysical`](crate::error::OffbeatError::Unphysical)
+    /// naming Poisson's ratio and the offending value, when
+    /// [`PoissonRatioModel::is_admissible`](crate::materials::properties::poisson_ratio::PoissonRatioModel::is_admissible)
+    /// is false — plus whatever either
+    /// model's own `value_checked` rejects (an out-of-range temperature, say).
+    ///
+    /// ```
+    /// use outram_park_fork_offbeat::materials::MaterialState;
+    /// use outram_park_fork_offbeat::materials::properties::poisson_ratio::PoissonRatioModel;
+    /// use outram_park_fork_offbeat::materials::properties::young_modulus::YoungModulusModel;
+    /// use outram_park_fork_offbeat::mechanics::LinearElastic;
+    ///
+    /// let young = YoungModulusModel::MatproZircaloy;
+    /// let poisson = PoissonRatioModel::MatproZircaloy;
+    ///
+    /// // Normal operating temperature: fine.
+    /// let cold = MaterialState::fresh(600.0);
+    /// assert!(LinearElastic::from_models(young, poisson, &cold).is_ok());
+    ///
+    /// // Above the 1354.84 K crossover the case is refused, not clamped.
+    /// let hot = MaterialState::fresh(1500.0);
+    /// assert!(LinearElastic::from_models(young, poisson, &hot).is_err());
+    /// ```
+    pub fn from_models(
+        young: crate::materials::properties::young_modulus::YoungModulusModel,
+        poisson: crate::materials::properties::poisson_ratio::PoissonRatioModel,
+        state: &crate::materials::MaterialState,
+    ) -> crate::error::Result<Self> {
+        let e = young.value_checked(state)?;
+        let nu = poisson.value_checked(state)?;
+        if !poisson.is_admissible(state) {
+            return Err(crate::error::OffbeatError::Unphysical {
+                quantity: "Poisson's ratio from the material correlation",
+                value: nu,
+                unit: "-",
+                reason: "outside (-1, 0.5), so the elasticity tensor is not positive \
+                         definite. The case is refused rather than clamped: lambda \
+                         diverges as nu approaches 0.5, so a clamp tolerance would set \
+                         the stiffness instead of the material. See bead op-6sl.7",
+            });
+        }
+        Self::new(e, nu)
     }
 
     /// Shear modulus `μ = E / (2(1+ν))` \[Pa\].
@@ -187,6 +267,55 @@ pub struct MechanicsReport {
     pub max_displacement: f64,
 }
 
+/// Outcome of one inelastic (creep/plasticity) timestep.
+///
+/// Returned by [`MechanicsSolver::solve_creep_step`]. Carries the mechanics
+/// convergence report plus the per-step inelastic increments a caller needs to
+/// pick the next timestep and to decide whether the step was acceptable.
+///
+/// # Units — raw `f64`, strict SI
+///
+/// Strains dimensionless, time in second.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CreepStepReport {
+    /// Convergence of the displacement/stress corrector loop.
+    pub mechanics: MechanicsReport,
+
+    /// Largest single-cell equivalent **inelastic** increment `Δε_c,eq +
+    /// Δε_p,eq` \[-\] over the step.
+    ///
+    /// This is upstream's `maxCreep` diagnostic and the quantity
+    /// [`CreepTimeStepControl::max_maximum_increment`] bounds.
+    pub max_equivalent_inelastic_increment: f64,
+
+    /// Volume-averaged equivalent inelastic increment \[-\] over the step,
+    /// `Σ_c V_c Δε_eq,c / Σ_c V_c`.
+    ///
+    /// Upstream's `averageCreep`, bounded by
+    /// [`CreepTimeStepControl::max_average_increment`].
+    pub average_equivalent_inelastic_increment: f64,
+
+    /// Largest single-cell equivalent **creep** increment \[-\] alone.
+    pub max_equivalent_creep_increment: f64,
+
+    /// Largest single-cell equivalent **plastic** increment \[-\] alone.
+    pub max_equivalent_plastic_increment: f64,
+
+    /// Number of cells that yielded plastically during the step.
+    ///
+    /// Upstream prints the same count as a percentage each step; a sudden jump
+    /// is the usual first sign that the timestep is too large.
+    pub yielding_cells: usize,
+
+    /// Timestep \[s\] the creep control suggests for the **next** step.
+    ///
+    /// [`f64::INFINITY`] when no limit binds (the default control imposes
+    /// none), so a coupling layer can `min` it against every other physics
+    /// module's suggestion. Set a real bound with
+    /// [`MechanicsSolver::set_creep_time_step_control`].
+    pub suggested_next_time_step: f64,
+}
+
 /// Segregated small-strain mechanics solver on a single mesh region.
 ///
 /// # Typical use
@@ -238,8 +367,40 @@ pub struct MechanicsSolver {
     /// Density \[kg/m³\], used only by the transient (inertial) form.
     density: f64,
 
+    /// The inelastic driver, absent for a purely elastic case.
+    rheology: Option<Rheology>,
+
+    /// Per-cell constitutive history at the **start** of the current timestep.
+    ///
+    /// Advanced exactly once per completed
+    /// [`solve_creep_step`](Self::solve_creep_step), never inside the corrector
+    /// loop — see the module documentation of [`crate::rheology`], item 3.
+    states: Vec<RheologyState>,
+
+    /// Per-cell **total accumulated** inelastic strain `ε_p + ε_c` \[-\], the
+    /// additional (tensor) eigenstrain fed back into the momentum balance.
+    ///
+    /// This is upstream's `additionalStrain`, and it is what makes the
+    /// corrected, softer stress an equilibrium stress again.
+    inelastic: Vec<SymmTensor>,
+
+    /// Per-cell mechanical strain \[-\] at the end of the previous timestep,
+    /// used only to form the equivalent strain rate the FRAPTRAN yield model
+    /// asks for.
+    mech_strain_old: Vec<SymmTensor>,
+
+    /// Per-cell composition/temperature/irradiation history.
+    material_states: Vec<MaterialState>,
+
+    /// Per-cell instantaneous irradiation environment.
+    irradiation: Vec<IrradiationState>,
+
+    /// Bound on how much inelastic strain one step may accumulate.
+    time_step_control: CreepTimeStepControl,
+
     n_correctors: usize,
     corrector_tol: f64,
+    inelastic_tol: f64,
     settings: SolverSettings,
 }
 
@@ -292,10 +453,27 @@ impl MechanicsSolver {
             sigma,
             eigenstrain: VolScalarField::uniform("eigenstrain", mesh.clone(), 0.0),
             density: 10_960.0, // theoretical density of UO2; override with `set_density`
+            rheology: None,
+            states: vec![RheologyState::pristine(); n],
+            inelastic: vec![SymmTensor::ZERO; n],
+            mech_strain_old: vec![SymmTensor::ZERO; n],
+            // Room temperature, unirradiated: the beginning-of-life state, and
+            // the only one that can be assumed without knowing the case.
+            // Override with `set_uniform_material_state` /
+            // `set_material_state_field`.
+            material_states: vec![MaterialState::fresh(293.15); n],
+            irradiation: vec![IrradiationState::default(); n],
+            time_step_control: CreepTimeStepControl::default(),
             mesh,
             material,
             n_correctors: 100,
             corrector_tol: 1.0e-10,
+            // Absolute change in the accumulated inelastic strain tensor
+            // between two outer correctors. Strain is dimensionless and the
+            // increments of interest are micro-strain, so 1e-14 is several
+            // orders below anything physical while remaining reachable in
+            // double precision.
+            inelastic_tol: 1.0e-14,
             // The library default (1e-7, 1000 sweeps) is tuned for a transient
             // CFD pressure solve that is warm-started from the previous step and
             // gets many chances to converge. This solve is different on both
@@ -373,6 +551,130 @@ impl MechanicsSolver {
         }
     }
 
+    /// Attach an inelastic driver, turning
+    /// [`solve_creep_step`](Self::solve_creep_step) on.
+    ///
+    /// Every cell starts from [`RheologyState::pristine`]; the accumulated
+    /// inelastic strain is reset to zero, because a history built against a
+    /// different constitutive law is not meaningful.
+    ///
+    /// # Errors
+    ///
+    /// [`OffbeatError::Mesh`] if the driver's cell count differs from the
+    /// mesh's — a case-setup error, caught once here rather than per cell per
+    /// timestep.
+    pub fn set_rheology(&mut self, rheology: Rheology) -> Result<()> {
+        if rheology.n_cells() != self.mesh.n_cells {
+            return Err(OffbeatError::Mesh(format!(
+                "rheology covers {} cells but the mesh has {}",
+                rheology.n_cells(),
+                self.mesh.n_cells
+            )));
+        }
+        self.rheology = Some(rheology);
+        self.states = vec![RheologyState::pristine(); self.mesh.n_cells];
+        self.inelastic = vec![SymmTensor::ZERO; self.mesh.n_cells];
+        self.mech_strain_old = vec![SymmTensor::ZERO; self.mesh.n_cells];
+        Ok(())
+    }
+
+    /// Give every cell the same composition, temperature and irradiation
+    /// history.
+    ///
+    /// Convenient for a verification case at uniform temperature; a real rod
+    /// uses [`set_material_state_field`](Self::set_material_state_field).
+    pub fn set_uniform_material_state(&mut self, state: MaterialState) {
+        for s in &mut self.material_states {
+            *s = state;
+        }
+    }
+
+    /// Set the per-cell composition, temperature and irradiation history.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `values.len()` differs from the cell count.
+    pub fn set_material_state_field(&mut self, values: &[MaterialState]) {
+        assert_eq!(
+            values.len(),
+            self.mesh.n_cells,
+            "material state must be supplied for every cell"
+        );
+        self.material_states.copy_from_slice(values);
+    }
+
+    /// Give every cell the same fast flux, fission rate and grain radius.
+    pub fn set_uniform_irradiation(&mut self, irradiation: IrradiationState) {
+        for s in &mut self.irradiation {
+            *s = irradiation;
+        }
+    }
+
+    /// Set the per-cell fast flux, fission rate and grain radius.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `values.len()` differs from the cell count.
+    pub fn set_irradiation_field(&mut self, values: &[IrradiationState]) {
+        assert_eq!(
+            values.len(),
+            self.mesh.n_cells,
+            "irradiation state must be supplied for every cell"
+        );
+        self.irradiation.copy_from_slice(values);
+    }
+
+    /// Bound how much inelastic strain a single step may accumulate.
+    ///
+    /// The default imposes no bound, matching upstream, and
+    /// [`CreepStepReport::suggested_next_time_step`] is then always infinite.
+    /// The creep integration is implicit in stress but **explicit in state** —
+    /// the yield stress, the hardening and the creep-rate correlations are all
+    /// evaluated at the start-of-step state — so an unbounded step silently
+    /// loses accuracy rather than diverging. That is why the bound matters.
+    pub fn set_creep_time_step_control(&mut self, control: CreepTimeStepControl) {
+        self.time_step_control = control;
+    }
+
+    /// Set the convergence tolerance \[-\] on the accumulated inelastic strain
+    /// between two outer correctors.
+    ///
+    /// The default is 1e-14. This is checked **in addition** to the
+    /// displacement tolerance of
+    /// [`set_corrector_control`](Self::set_corrector_control): a step in which
+    /// the displacement has stopped moving but the inelastic strain has not is
+    /// not converged.
+    pub fn set_inelastic_tolerance(&mut self, tolerance: f64) {
+        self.inelastic_tol = tolerance;
+    }
+
+    /// This cell's accumulated plastic and creep history.
+    ///
+    /// Valid between timesteps; during a
+    /// [`solve_creep_step`](Self::solve_creep_step) it is still the
+    /// start-of-step value, by construction.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `cell` is outside the mesh.
+    #[must_use]
+    pub fn rheology_state(&self, cell: usize) -> RheologyState {
+        self.states[cell]
+    }
+
+    /// This cell's total accumulated inelastic strain `ε_p + ε_c` \[-\].
+    ///
+    /// The additional eigenstrain the momentum balance is currently carrying —
+    /// upstream's `additionalStrain`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `cell` is outside the mesh.
+    #[must_use]
+    pub fn inelastic_strain(&self, cell: usize) -> SymmTensor {
+        self.inelastic[cell]
+    }
+
     /// The converged displacement field \[m\].
     #[must_use]
     pub fn displacement(&self) -> &VolVectorField {
@@ -402,7 +704,10 @@ impl MechanicsSolver {
     /// [`solve_transient`](Self::solve_transient) only when a genuine dynamic
     /// event (a pellet-cladding impact, a reactivity pulse) is being modelled.
     pub fn solve_quasi_static(&mut self) -> MechanicsReport {
-        self.solve_inner(None)
+        let (report, _) = self
+            .solve_inner(None, None)
+            .expect("a solve with no rheology attached cannot fail");
+        report
     }
 
     /// Solve the transient form `ρ ∂²D/∂t² = ∇·σ` over a timestep `dt` \[s\].
@@ -410,7 +715,127 @@ impl MechanicsSolver {
     /// Requires the displacement history, so call
     /// [`advance_time`](Self::advance_time) once per completed timestep.
     pub fn solve_transient(&mut self, dt: f64) -> MechanicsReport {
-        self.solve_inner(Some(dt))
+        let (report, _) = self
+            .solve_inner(Some(dt), None)
+            .expect("a solve with no rheology attached cannot fail");
+        report
+    }
+
+    /// Advance one quasi-static timestep of length `dt` \[s\] **with the
+    /// attached constitutive law integrated**, and commit the result.
+    ///
+    /// This is the wired-up version of
+    /// [`solve_quasi_static`](Self::solve_quasi_static): the same segregated
+    /// displacement solve, with the inelastic (creep + plastic) correction
+    /// inside the corrector loop and the resulting inelastic strain fed back as
+    /// an additional eigenstrain. It is the finite-volume analogue of
+    /// upstream's `correctAdditionalStrain`.
+    ///
+    /// # What one call does, in order
+    ///
+    /// Repeat until the displacement and the inelastic strain both stop moving
+    /// (or the corrector budget runs out):
+    ///
+    /// 1. Solve `∇·[(2μ+λ)∇D] + divSigmaExp − ∇(3K ε*) − ∇·[2μ ε_in + λ tr(ε_in) I] = 0`
+    ///    for the displacement `D`, with `ε_in` the inelastic strain currently
+    ///    believed.
+    /// 2. Form the total strain `ε = ½(∇D + ∇Dᵀ)` and subtract the isotropic
+    ///    eigenstrain: `ε_mech = ε − ε* I`. **This subtraction is the whole
+    ///    point** — see the trap below.
+    /// 3. Integrate the constitutive law in every cell, always from the *same*
+    ///    start-of-step [`RheologyState`], and take the new inelastic strain to
+    ///    be `ε_mech − ε_el`.
+    ///
+    /// Then, exactly once: write the corrected stress into
+    /// [`stress`](Self::stress) and [`RheologyState::advance`] every cell.
+    ///
+    /// # The two traps this method exists to close
+    ///
+    /// **Eigenstrain subtraction.** A freely expanding, unconstrained pellet
+    /// has a large total strain and *zero* stress. Hand the constitutive law
+    /// the total strain instead of the mechanical strain and it sees a
+    /// hydrostatic `3K ε*` — of order 1.5 GPa for a 300 K temperature rise —
+    /// which is then fed back into the momentum balance as if it were real.
+    ///
+    /// **Advancing once.** [`RheologyState::advance`] is called after the
+    /// corrector loop, never inside it. Advancing inside would compound the
+    /// inelastic increment once per corrector, which over-predicts creep
+    /// silently: the answer stays smooth and plausible and is simply wrong by
+    /// the corrector count.
+    ///
+    /// # Errors
+    ///
+    /// - [`OffbeatError::Mesh`] if no rheology has been attached (call
+    ///   [`set_rheology`](Self::set_rheology) first).
+    /// - [`OffbeatError::Unphysical`] if `dt` is negative.
+    /// - Every error [`Rheology::correct`] can raise — in particular
+    ///   [`OffbeatError::ConstitutiveNotConverged`], which normally means the
+    ///   timestep is too large for the creep rate. Nothing is committed when
+    ///   the step fails: the state is left exactly as it was.
+    pub fn solve_creep_step(&mut self, dt: f64) -> Result<CreepStepReport> {
+        if self.rheology.is_none() {
+            return Err(OffbeatError::Mesh(
+                "solve_creep_step needs a constitutive law; call set_rheology first".to_string(),
+            ));
+        }
+        if !(dt >= 0.0) {
+            return Err(OffbeatError::Unphysical {
+                quantity: "timestep",
+                value: dt,
+                unit: "s",
+                reason: "must be non-negative",
+            });
+        }
+
+        let (mechanics, corrections) = self.solve_inner(None, Some(dt))?;
+
+        // Commit — once, after the corrector loop has converged.
+        let mut max_inelastic = 0.0_f64;
+        let mut max_creep = 0.0_f64;
+        let mut max_plastic = 0.0_f64;
+        let mut yielding_cells = 0usize;
+        let mut volume_weighted = 0.0_f64;
+        let mut total_volume = 0.0_f64;
+
+        for (c, correction) in corrections.iter().enumerate() {
+            let inelastic = correction.equivalent_creep_strain_increment
+                + correction.equivalent_plastic_strain_increment;
+            max_inelastic = max_inelastic.max(inelastic);
+            max_creep = max_creep.max(correction.equivalent_creep_strain_increment);
+            max_plastic = max_plastic.max(correction.equivalent_plastic_strain_increment);
+            if correction.yielding {
+                yielding_cells += 1;
+            }
+            let volume = self.mesh.cell_volumes[c];
+            volume_weighted += volume * inelastic;
+            total_volume += volume;
+
+            self.sigma.internal[c] = correction.stress;
+            self.states[c].advance(correction);
+            self.mech_strain_old[c] = correction.elastic_strain
+                + self.states[c].plastic_strain
+                + self.states[c].creep_strain;
+        }
+
+        let average = if total_volume > 0.0 {
+            volume_weighted / total_volume
+        } else {
+            0.0
+        };
+
+        Ok(CreepStepReport {
+            mechanics,
+            max_equivalent_inelastic_increment: max_inelastic,
+            average_equivalent_inelastic_increment: average,
+            max_equivalent_creep_increment: max_creep,
+            max_equivalent_plastic_increment: max_plastic,
+            yielding_cells,
+            suggested_next_time_step: self.time_step_control.next_time_step(
+                average,
+                max_inelastic,
+                dt,
+            ),
+        })
     }
 
     /// Rotate the displacement history (`D_00 ← D_0`, `D_0 ← D`).
@@ -425,8 +850,20 @@ impl MechanicsSolver {
         }
     }
 
-    /// Shared assembly for the quasi-static (`dt = None`) and transient forms.
-    fn solve_inner(&mut self, dt: Option<f64>) -> MechanicsReport {
+    /// Shared assembly for the quasi-static (`inertial_dt = None`), transient
+    /// and inelastic forms.
+    ///
+    /// `creep_dt` selects the inelastic path: `None` leaves the material purely
+    /// elastic (and the returned correction vector empty), `Some(dt)` runs the
+    /// attached [`Rheology`] inside the corrector loop over a step of `dt`
+    /// seconds. Nothing is committed here — the caller owns the decision to
+    /// advance the per-cell state.
+    fn solve_inner(
+        &mut self,
+        inertial_dt: Option<f64>,
+        creep_dt: Option<f64>,
+    ) -> Result<(MechanicsReport, Vec<StressCorrection>)> {
+        let dt = inertial_dt;
         let mu = self.material.shear_modulus();
         let lambda = self.material.lame_lambda();
         let two_mu_lam = self.material.two_mu_plus_lambda();
@@ -448,7 +885,14 @@ impl MechanicsSolver {
         };
         let grad_load = fvc::grad(&load);
 
+        // Cloned once so the corrector loop can mutate `self` while dispatching
+        // on the law. `Rheology` is a `Vec` of enum variants plus an `Arc`ed
+        // cell map, so this copies a handful of words, not the mesh.
+        let rheology = self.rheology.clone();
+
+        let mut corrections: Vec<StressCorrection> = Vec::new();
         let mut final_change = f64::INFINITY;
+        let mut inelastic_change = 0.0_f64;
         let mut iterations = 0;
         for iter in 0..self.n_correctors {
             iterations = iter + 1;
@@ -459,6 +903,9 @@ impl MechanicsSolver {
             let grad_d = fvc::grad_vec(&self.disp);
             let correction = Self::stress_correction_field(&grad_d, mu, lambda, two_mu_lam);
             let div_sigma_exp = fvc::div_tensor(&correction);
+            // Additional (tensor) eigenstrain load from the inelastic strain:
+            // −∇·[2μ ε_in + λ tr(ε_in) I]. Zero while no rheology is attached.
+            let div_inelastic = self.inelastic_load(mu, lambda);
 
             let mut eqn = match dt {
                 None => fvm::laplacian_vec(&gamma, &self.disp, self.mesh.clone()),
@@ -474,9 +921,11 @@ impl MechanicsSolver {
                 }
             };
 
-            // Body force (divSigmaExp − ∇(3K ε*)) integrated over each cell.
+            // Body force (divSigmaExp − ∇(3K ε*) − ∇·σ_in) integrated over each
+            // cell.
             for c in 0..n {
-                let body = div_sigma_exp.internal[c] - grad_load.internal[c];
+                let body =
+                    div_sigma_exp.internal[c] - grad_load.internal[c] - div_inelastic.internal[c];
                 eqn.source[c] += body * self.mesh.cell_volumes[c];
             }
 
@@ -491,23 +940,112 @@ impl MechanicsSolver {
                 self.disp.internal[c] = d_new.internal[c];
             }
 
-            if final_change < self.corrector_tol {
+            // Integrate the constitutive law on the freshly solved strain, and
+            // update the additional eigenstrain from it. Always from the
+            // start-of-step state: `self.states` is untouched here.
+            inelastic_change = 0.0;
+            if let (Some(rheology), Some(step)) = (rheology.as_ref(), creep_dt) {
+                let grad_d = fvc::grad_vec(&self.disp);
+                corrections.clear();
+                corrections.reserve(n);
+                for c in 0..n {
+                    let mechanical = Self::symm_grad(&grad_d.internal[c])
+                        - self.eigenstrain.internal[c] * SymmTensor::IDENTITY;
+                    let rate = if step > 0.0 {
+                        equivalent_strain(mechanical - self.mech_strain_old[c]) / step
+                    } else {
+                        0.0
+                    };
+                    let inputs = RheologyInputs {
+                        elastic: self.material,
+                        mechanical_strain: mechanical,
+                        material: self.material_states[c],
+                        irradiation: self.irradiation[c],
+                        dt: step,
+                        equivalent_strain_rate: rate,
+                    };
+                    let corrected = rheology.correct(c, &inputs, &self.states[c])?;
+                    // ε_in = ε_mech − ε_el is the *total* accumulated inelastic
+                    // strain (history plus this step's increment), which is
+                    // exactly the additional eigenstrain the momentum balance
+                    // needs.
+                    let updated = mechanical - corrected.elastic_strain;
+                    let delta = (updated - self.inelastic[c]).mag();
+                    if delta > inelastic_change {
+                        inelastic_change = delta;
+                    }
+                    self.inelastic[c] = updated;
+                    corrections.push(corrected);
+                }
+            }
+
+            if final_change < self.corrector_tol && inelastic_change < self.inelastic_tol {
                 break;
             }
         }
 
-        self.update_stress(mu, lambda, three_k);
+        if corrections.is_empty() {
+            self.update_stress(mu, lambda, three_k);
+        }
 
         let max_displacement = (0..n)
             .map(|c| self.disp.internal[c].mag())
             .fold(0.0_f64, f64::max);
 
-        MechanicsReport {
+        let report = MechanicsReport {
             iterations,
             final_change,
-            converged: final_change < self.corrector_tol,
+            converged: final_change < self.corrector_tol && inelastic_change < self.inelastic_tol,
             max_displacement,
+        };
+        Ok((report, corrections))
+    }
+
+    /// `∇·[2μ ε_in + λ tr(ε_in) I]` \[Pa/m\] — the divergence of the stress the
+    /// accumulated inelastic strain would carry if it were elastic.
+    ///
+    /// Subtracting this from the momentum source is the finite-volume analogue
+    /// of upstream's `correctAdditionalStrain`: it removes from the balance
+    /// exactly the stress the material has *shed* by creeping or yielding, so
+    /// the softer corrected stress is once again an equilibrium stress.
+    ///
+    /// Both inelastic increments are deviatoric under the von Mises flow rules
+    /// used here, so `tr(ε_in)` is zero in practice; the trace term is kept so
+    /// that a future volumetric inelastic mechanism cannot silently fall
+    /// through.
+    fn inelastic_load(&self, mu: f64, lambda: f64) -> VolVectorField {
+        let n = self.mesh.n_cells;
+        let mut field = VolSymmTensorField::new(
+            "sigmaInelastic",
+            self.mesh.clone(),
+            Field::new(vec![SymmTensor::ZERO; n]),
+            self.mesh
+                .patches
+                .iter()
+                .map(|p| PatchField::zero_gradient_symm_tensor(p.size))
+                .collect(),
+        );
+        for c in 0..n {
+            let e = self.inelastic[c];
+            field.internal[c] = 2.0 * mu * e + (lambda * e.tr()) * SymmTensor::IDENTITY;
         }
+        fvc::div_symm_tensor(&field)
+    }
+
+    /// Symmetric part of the displacement gradient, `ε = ½(∇D + ∇Dᵀ)` \[-\].
+    ///
+    /// The small-strain (engineering) strain tensor. `grad_d` follows the
+    /// OpenFOAM convention `(∇D)_ij = ∂D_j/∂x_i`, which the symmetrisation
+    /// makes irrelevant.
+    fn symm_grad(grad_d: &Tensor) -> SymmTensor {
+        SymmTensor::new(
+            grad_d.xx,
+            0.5 * (grad_d.xy + grad_d.yx),
+            0.5 * (grad_d.xz + grad_d.zx),
+            grad_d.yy,
+            0.5 * (grad_d.yz + grad_d.zy),
+            grad_d.zz,
+        )
     }
 
     /// `σ_e − (2μ+λ)∇D`, the explicit part of the segregated split.
@@ -572,5 +1110,7 @@ impl MechanicsSolver {
     }
 }
 
+#[cfg(test)]
+mod rheology_tests;
 #[cfg(test)]
 mod tests;

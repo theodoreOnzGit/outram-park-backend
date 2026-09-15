@@ -67,18 +67,43 @@
 //! what lets a segregated finite-volume code reuse the ordinary Laplacian
 //! machinery per component. The price is that outer iteration.
 //!
+//! # Inelastic deformation: creep and plasticity
+//!
+//! [`crate::rheology`] owns the constitutive laws; this module drives them.
+//! Attach one with [`MechanicsSolver::set_rheology`] and step the solve with
+//! [`MechanicsSolver::solve_creep_step`] instead of
+//! [`MechanicsSolver::solve_quasi_static`]. The coupling adds two things to the
+//! equation above:
+//!
+//! - the strain handed to the constitutive law is the **mechanical** strain
+//!   `ε − ε* I`, with the eigenstrain already removed, so an unconstrained
+//!   freely expanding body is correctly stress-free and does not creep;
+//! - the accumulated inelastic strain `ε_in = ε_p + ε_c` re-enters the momentum
+//!   balance as an additional (tensor) eigenstrain through the extra explicit
+//!   term `−∇·[2μ ε_in + λ tr(ε_in) I]`, which restores equilibrium after the
+//!   corrected stress comes back softer than the elastic one. This is the
+//!   finite-volume analogue of upstream's `correctAdditionalStrain`, and it
+//!   rides on exactly the same explicit-remainder hook as the segregated split.
+//!
+//! The per-cell [`RheologyState`](crate::rheology::RheologyState) is advanced
+//! **once** per completed step, after the corrector loop, never inside it.
+//!
 //! # Scope of this port
 //!
 //! **Implemented:** small-strain isotropic linear elasticity with arbitrary
-//! isotropic eigenstrain, quasi-static and transient (inertial) forms, on a
-//! single mesh region.
+//! isotropic eigenstrain, quasi-static and transient (inertial) forms, and the
+//! inelastic coupling described above (creep and plasticity through
+//! [`crate::rheology`], with [`CreepTimeStepControl`](crate::rheology::CreepTimeStepControl)
+//! bounding the step), on a single mesh region.
 //!
-//! **Not implemented here:** plasticity and creep (they belong in
-//! [`crate::rheology`], which returns a corrected stress this solver consumes),
-//! contact and gap closure ([`crate::gap`]), large-strain updated/total
-//! Lagrangian kinematics, and multi-material interface correction. Each is
-//! tracked separately under bead `op-6sl`.
+//! **Not implemented here:** contact and gap closure ([`crate::gap`]),
+//! large-strain updated/total Lagrangian kinematics, traction boundary
+//! conditions, and multi-material interface correction — the last of which
+//! matters for the stress *recovery* across a sharp material interface; see the
+//! measured limitation recorded on
+//! `solver::rheology_tests::spatially_varying_creep_keeps_the_axial_stress_uniform`.
+//! Each is tracked separately under bead `op-6sl`.
 
 mod solver;
 
-pub use solver::{Eigenstrain, LinearElastic, MechanicsReport, MechanicsSolver};
+pub use solver::{CreepStepReport, Eigenstrain, LinearElastic, MechanicsReport, MechanicsSolver};

@@ -26,12 +26,25 @@
 //! not silent runtime fallbacks) and results written back out. No C++/FFI is
 //! used — see `poly_mesh`'s header for the rationale.
 //!
-//! - [`control_dict`] — `system/controlDict` (time control, write control).
-//! - [`fv_schemes`] — `system/fvSchemes` (ddt/grad/div/laplacian scheme choices).
-//! - [`fv_solution`] — `system/fvSolution` (linear-solver + PIMPLE controls).
-//! - [`poly_mesh`] — `constant/polyMesh` reader (points/faces/owner/neighbour).
-//! - [`field_reader`] — `0/<field>` internal-field readers (scalar and vector).
-//! - [`output`] — OpenFOAM-ASCII / VTK field writers (currently unimplemented).
+//! ## What actually reads and writes today
+//!
+//! **Only the mesh and field readers work.** The three `system/` dictionary
+//! parsers and every writer are `todo!()` and panic if called, so a case is
+//! configured by constructing the structs in Rust and its results are read off
+//! the solver's public fields rather than from disk.
+//!
+//! | Module | Covers | Status |
+//! |---|---|---|
+//! | [`poly_mesh`] | `constant/polyMesh` (points/faces/owner/neighbour) | **Implemented** |
+//! | [`field_reader`] | `0/<field>` internal fields, scalar and vector | **Implemented** |
+//! | [`control_dict`] | `system/controlDict` time + write control | struct only; `read` is `todo!()` |
+//! | [`fv_schemes`] | `system/fvSchemes` ddt/grad/div/laplacian choices | struct only; `read` is `todo!()` |
+//! | [`fv_solution`] | `system/fvSolution` linear-solver + PIMPLE controls | struct only; `read` is `todo!()` |
+//! | [`output`] | OpenFOAM-ASCII and legacy-VTK field writers | **all `todo!()`** |
+//!
+//! The "struct only" rows are still useful: the dictionaries they model are
+//! typed enums, so a scheme or solver selection that OpenFOAM would accept
+//! silently and misinterpret is instead a compile error here.
 
 pub mod control_dict;
 pub mod field_reader;

@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use super::{pi_5, tau_5, REGION_5_COEFFS_IDEAL};
 use uom::si::f64::*;
 
@@ -13,7 +15,7 @@ pub fn gamma_5_ideal(t: ThermodynamicTemperature, p: Pressure) -> f64 {
         let ni: f64 = coefficient[1];
         sum += ni * tau.powi(ji);
     }
-    pi.ln() + sum
+    pi.r_ln() + sum
 }
 
 /// Returns the region-5 ideal gamma_tau_tau

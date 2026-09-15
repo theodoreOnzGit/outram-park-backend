@@ -137,7 +137,8 @@ impl CollisionTables {
     ) -> Self {
         // Reuse the native-breakpoint union grid + macroscopic total so the
         // collision kernel shares the flight kernel's grid and Σ_t exactly.
-        let union = UnionTotalXs::tabulate_native(material, nuclides, e_min_ev, e_max_ev, backbone_points);
+        let union =
+            UnionTotalXs::tabulate_native(material, nuclides, e_min_ev, e_max_ev, backbone_points);
         let grid = union.grid;
         let macro_total = union.sigma_total;
         let g = grid.len();
@@ -210,9 +211,18 @@ mod tests {
             name: "Godiva".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         };
         (material, nuclides)
@@ -275,6 +285,9 @@ mod tests {
             let rel = (s - t.macro_total[i]).abs() / t.macro_total[i].abs().max(1e-30);
             max_rel = max_rel.max(rel);
         }
-        assert!(max_rel < 1e-12, "macro_total vs sum micro rel diff {max_rel}");
+        assert!(
+            max_rel < 1e-12,
+            "macro_total vs sum micro rel diff {max_rel}"
+        );
     }
 }

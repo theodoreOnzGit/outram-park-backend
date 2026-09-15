@@ -1,3 +1,30 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements the Tutte / discrete-harmonic planar embedding:
+// W. T. Tutte, "How to Draw a Graph", Proc. London Math. Soc. s3-13(1), 1963,
+// pp. 743-767; M. Eck, T. DeRose, T. Duchamp, H. Hoppe, M. Lounsbery and
+// W. Stuetzle, "Multiresolution Analysis of Arbitrary Meshes", SIGGRAPH '95,
+// pp. 173-182 (discrete harmonic map); M. S. Floater, "Parametrization and smooth
+// approximation of surface triangulations", CAGD 14(3), 1997, pp. 231-250.
+// Written from the published formulations; no upstream source was copied.
+// Blender analogue (architecture only): the UV Unwrap operator.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Planar **mesh parameterization** — flatten a disk-topology surface patch to
 //! 2D `(u, v)` coordinates by a harmonic / Tutte embedding.
 //!
@@ -171,7 +198,9 @@ pub fn parameterize(
 
     let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
         .map_err(|_| ParamError::Assembly)?;
-    let llt = a.sp_cholesky(Side::Lower).map_err(|_| ParamError::NotPositiveDefinite)?;
+    let llt = a
+        .sp_cholesky(Side::Lower)
+        .map_err(|_| ParamError::NotPositiveDefinite)?;
     let b = Mat::<f64>::from_fn(nfree, 2, |i, j| rhs[i][j]);
     let x = llt.solve(&b);
 
@@ -354,10 +383,16 @@ mod tests {
         for (i, &(u, v)) in uv.iter().enumerate() {
             let r = (u * u + v * v).sqrt();
             if on_bound[i] {
-                assert!((r - 1.0).abs() < 1e-12, "boundary vertex {i} off circle: r={r}");
+                assert!(
+                    (r - 1.0).abs() < 1e-12,
+                    "boundary vertex {i} off circle: r={r}"
+                );
                 n_bound += 1;
             } else {
-                assert!(r < 1.0 - 1e-9, "interior vertex {i} not strictly inside: r={r}");
+                assert!(
+                    r < 1.0 - 1e-9,
+                    "interior vertex {i} not strictly inside: r={r}"
+                );
                 n_interior += 1;
             }
         }
@@ -394,15 +429,25 @@ mod tests {
         let on_bound = crate::laplacian::boundary_vertices(&grid);
         for (i, &(u, v)) in uv_s.iter().enumerate() {
             if on_bound[i] {
-                let on_side = u.abs() < 1e-9 || (u - 1.0).abs() < 1e-9 || v.abs() < 1e-9 || (v - 1.0).abs() < 1e-9;
+                let on_side = u.abs() < 1e-9
+                    || (u - 1.0).abs() < 1e-9
+                    || v.abs() < 1e-9
+                    || (v - 1.0).abs() < 1e-9;
                 assert!(on_side, "boundary vertex {i} not on square: ({u},{v})");
             }
         }
 
         let flat = flatten_to_plane(&grid, LaplacianWeighting::Uniform, BoundaryShape::Circle)
             .expect("flatten");
-        assert_eq!(flat.euler_characteristic(), grid.euler_characteristic(), "flatten preserves topology");
-        assert!(flat.positions().iter().all(|p| p.z == 0.0), "flattened mesh is planar");
+        assert_eq!(
+            flat.euler_characteristic(),
+            grid.euler_characteristic(),
+            "flatten preserves topology"
+        );
+        assert!(
+            flat.positions().iter().all(|p| p.z == 0.0),
+            "flattened mesh is planar"
+        );
     }
 
     /// A **closed** mesh (a cube) has no boundary and must be rejected, not

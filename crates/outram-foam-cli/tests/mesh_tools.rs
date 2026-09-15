@@ -66,12 +66,19 @@ fn block_mesh_cavity_roundtrip() {
 
     let pm_dir = case.join("constant/polyMesh");
     for f in ["points", "faces", "owner", "neighbour", "boundary"] {
-        assert!(pm_dir.join(f).is_file(), "expected polyMesh/{f} to be written");
+        assert!(
+            pm_dir.join(f).is_file(),
+            "expected polyMesh/{f} to be written"
+        );
     }
 
     let mesh = IoPolyMesh::read(&pm_dir).expect("re-read polyMesh");
     assert_eq!(mesh.n_cells, 400, "cavity 20x20x1 should have 400 cells");
-    assert_eq!(mesh.n_points(), 882, "cavity should have 21*21*2 = 882 points");
+    assert_eq!(
+        mesh.n_points(),
+        882,
+        "cavity should have 21*21*2 = 882 points"
+    );
     assert_eq!(mesh.patches.len(), 3, "cavity has 3 boundary patches");
 
     // The re-read connectivity must reconstruct a valid finite-volume mesh.
@@ -92,7 +99,10 @@ fn poly_dual_mesh_box_roundtrip() {
         .join("constant")
         .join(poly_dual_mesh::DUAL_OUTPUT_SUBDIR);
     for f in ["points", "faces", "owner", "neighbour", "boundary"] {
-        assert!(dual_dir.join(f).is_file(), "expected dualMesh/{f} to be written");
+        assert!(
+            dual_dir.join(f).is_file(),
+            "expected dualMesh/{f} to be written"
+        );
     }
 
     let dual = IoPolyMesh::read(&dual_dir).expect("re-read dual polyMesh");

@@ -51,8 +51,10 @@ impl<T: ThermoModel> TabulatedTransport<T> {
     ) -> Self {
         Self {
             thermo,
-            mu_ts: mu_table.0,    mu_vs: mu_table.1,
-            kappa_ts: kappa_table.0, kappa_vs: kappa_table.1,
+            mu_ts: mu_table.0,
+            mu_vs: mu_table.1,
+            kappa_ts: kappa_table.0,
+            kappa_vs: kappa_table.1,
         }
     }
 }
@@ -60,41 +62,75 @@ impl<T: ThermoModel> TabulatedTransport<T> {
 // --- EquationOfState delegation ---
 
 impl<T: ThermoModel> EquationOfState for TabulatedTransport<T> {
-    fn mol_weight(&self) -> MolarMass                    { self.thermo.mol_weight() }
-    fn r(&self) -> SpecificHeatCapacity                  { self.thermo.r() }
-    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { self.thermo.rho(p, t) }
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { self.thermo.psi(p, t) }
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { self.thermo.z(p, t) }
-    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_m_cv(p, t) }
-    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_eos(p, t) }
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.h_eos(p, t) }
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.e_eos(p, t) }
-    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s_eos(p, t) }
+    fn mol_weight(&self) -> MolarMass {
+        self.thermo.mol_weight()
+    }
+    fn r(&self) -> SpecificHeatCapacity {
+        self.thermo.r()
+    }
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        self.thermo.rho(p, t)
+    }
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        self.thermo.psi(p, t)
+    }
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        self.thermo.z(p, t)
+    }
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_m_cv(p, t)
+    }
+    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_eos(p, t)
+    }
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.h_eos(p, t)
+    }
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.e_eos(p, t)
+    }
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s_eos(p, t)
+    }
 }
 
 // --- ThermoModel delegation ---
 
 impl<T: ThermoModel> ThermoModel for TabulatedTransport<T> {
-    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp(p, t) }
-    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.ha(p, t) }
-    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.hs(p, t) }
-    fn hc(&self) -> AvailableEnergy { self.thermo.hc() }
-    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s(p, t) }
+    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp(p, t)
+    }
+    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.ha(p, t)
+    }
+    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.hs(p, t)
+    }
+    fn hc(&self) -> AvailableEnergy {
+        self.thermo.hc()
+    }
+    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s(p, t)
+    }
 }
 
 // --- TransportModel ---
 
 impl<T: ThermoModel> TransportModel for TabulatedTransport<T> {
     fn mu(&self, _p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity {
-        DynamicViscosity::new::<pascal_second>(
-            interpolate_xy(t.get::<kelvin>(), &self.mu_ts, &self.mu_vs),
-        )
+        DynamicViscosity::new::<pascal_second>(interpolate_xy(
+            t.get::<kelvin>(),
+            &self.mu_ts,
+            &self.mu_vs,
+        ))
     }
 
     fn kappa(&self, _p: Pressure, t: ThermodynamicTemperature) -> ThermalConductivity {
-        ThermalConductivity::new::<watt_per_meter_kelvin>(
-            interpolate_xy(t.get::<kelvin>(), &self.kappa_ts, &self.kappa_vs),
-        )
+        ThermalConductivity::new::<watt_per_meter_kelvin>(interpolate_xy(
+            t.get::<kelvin>(),
+            &self.kappa_ts,
+            &self.kappa_vs,
+        ))
     }
 }
 
@@ -122,8 +158,8 @@ mod tests {
             AvailableEnergy::new::<joule_per_kilogram>(0.0),
         );
         // Air viscosity at 2 points: 1.82e-5 Pa·s at 293 K, 2.20e-5 Pa·s at 373 K
-        let mu_ts    = vec![293.0, 373.0];
-        let mu_vs    = vec![1.82e-5, 2.20e-5];
+        let mu_ts = vec![293.0, 373.0];
+        let mu_vs = vec![1.82e-5, 2.20e-5];
         // Air conductivity at 2 points: 0.0257 at 293 K, 0.0311 at 373 K
         let kappa_ts = vec![293.0, 373.0];
         let kappa_vs = vec![0.0257, 0.0311];
@@ -143,7 +179,11 @@ mod tests {
         let a = air_tabulated();
         let p = Pressure::new::<pascal>(101_325.0);
         let t = ThermodynamicTemperature::new::<kelvin>(373.0);
-        assert_relative_eq!(a.kappa(p, t).get::<watt_per_meter_kelvin>(), 0.0311, epsilon = 1e-10);
+        assert_relative_eq!(
+            a.kappa(p, t).get::<watt_per_meter_kelvin>(),
+            0.0311,
+            epsilon = 1e-10
+        );
     }
 
     #[test]

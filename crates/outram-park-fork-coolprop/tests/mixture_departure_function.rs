@@ -46,7 +46,10 @@ fn pure_r32_limit_is_exact() {
     let r32 = Fluid::R32.eos();
     let tr = mix.reducing_temperature();
     let rho_r = mix.reducing_density();
-    println!("T_r([1,0]) = {tr} (R32 Tc = {}), rho_r([1,0]) = {rho_r} (R32 rho_c = {})", r32.t_critical, r32.rho_critical);
+    println!(
+        "T_r([1,0]) = {tr} (R32 Tc = {}), rho_r([1,0]) = {rho_r} (R32 rho_c = {})",
+        r32.t_critical, r32.rho_critical
+    );
     assert!((tr - r32.t_critical).abs() / r32.t_critical < 1e-9);
     assert!((rho_r - r32.rho_critical).abs() / r32.rho_critical < 1e-9);
 }
@@ -61,19 +64,36 @@ fn departure_function_is_actually_exercised() {
 
     // Ideal mole-fraction-weighted sum only (bypassing the mixture's own
     // residual_derivs, to isolate the departure contribution).
-    let ideal_a = 0.697 * Fluid::R32.eos().residual_derivs(delta, tau).a + 0.303 * Fluid::R125.eos().residual_derivs(delta, tau).a;
+    let ideal_a = 0.697 * Fluid::R32.eos().residual_derivs(delta, tau).a
+        + 0.303 * Fluid::R125.eos().residual_derivs(delta, tau).a;
 
-    println!("alpha_r with departure = {}, ideal-mixing-only = {ideal_a}", with_departure.a);
+    println!(
+        "alpha_r with departure = {}, ideal-mixing-only = {ideal_a}",
+        with_departure.a
+    );
     let rel_diff = (with_departure.a - ideal_a).abs() / ideal_a.abs().max(1e-10);
-    assert!(rel_diff > 0.001, "departure contribution should be non-negligible, got rel diff {rel_diff:e}");
+    assert!(
+        rel_diff > 0.001,
+        "departure contribution should be non-negligible, got rel diff {rel_diff:e}"
+    );
 }
 
 #[test]
 fn r32_r125_blend_state_is_physical() {
     let blend = Mixture::new(vec![Fluid::R32, Fluid::R125], vec![0.697, 0.303]).unwrap();
-    let state = blend.state_trho_molar(300.0, 8000.0).expect("valid blend state");
-    println!("state(300K, 8000 mol/m3): p={:.3} Pa, cp={:.4} J/(mol.K), cv={:.4} J/(mol.K)", state.pressure, state.cp, state.cv);
+    let state = blend
+        .state_trho_molar(300.0, 8000.0)
+        .expect("valid blend state");
+    println!(
+        "state(300K, 8000 mol/m3): p={:.3} Pa, cp={:.4} J/(mol.K), cv={:.4} J/(mol.K)",
+        state.pressure, state.cp, state.cv
+    );
     assert!(state.pressure.is_finite() && state.pressure > 0.0);
     assert!(state.cp.is_finite() && state.cp > 0.0);
-    assert!(state.cp > state.cv, "cp {} should exceed cv {}", state.cp, state.cv);
+    assert!(
+        state.cp > state.cv,
+        "cp {} should exceed cv {}",
+        state.cp,
+        state.cv
+    );
 }

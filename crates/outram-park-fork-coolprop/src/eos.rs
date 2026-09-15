@@ -107,7 +107,10 @@ pub enum IdealTerm {
     LogTau { a: f64 },
     /// `Σ n_k·ln(1 - exp(-t_k·τ))` — Planck–Einstein (vibrational) terms.
     /// CoolProp `IdealGasHelmholtzPlanckEinstein`.
-    PlanckEinstein { n: &'static [f64], t: &'static [f64] },
+    PlanckEinstein {
+        n: &'static [f64],
+        t: &'static [f64],
+    },
     /// `a1 + a2·τ` — a reference-state offset for enthalpy/entropy. Affects
     /// only absolute `h`/`s`/`u`; pressure, `c_v`, `c_p` and the speed of
     /// sound are unchanged. CoolProp `IdealGasHelmholtzEnthalpyEntropyOffset`
@@ -115,7 +118,10 @@ pub enum IdealTerm {
     EnthalpyEntropyOffset { a1: f64, a2: f64 },
     /// `Σ n_k·τ^{t_k}` — an ideal-gas power series in `τ`. CoolProp
     /// `IdealGasHelmholtzPower`.
-    Power { n: &'static [f64], t: &'static [f64] },
+    Power {
+        n: &'static [f64],
+        t: &'static [f64],
+    },
     /// `Σ n_k·ln(c_k + d_k·exp(θ_k·τ))` — the generalized Planck–Einstein form.
     /// CoolProp `IdealGasHelmholtzPlanckEinsteinGeneralized`; the codegen also
     /// lowers `IdealGasHelmholtzPlanckEinsteinFunctionT` and the sinh/cosh part
@@ -221,7 +227,7 @@ impl ResidualTerm {
                     let a = ni * delta.powf(di) * tau.powf(ti) * e;
                     let fd = (di - dl) / delta; // (∂a/∂δ)/a
                     let ft = ti / tau; //           (∂a/∂τ)/a
-                    // (∂²a/∂δ²)/a = [ (d-dl)(d-1-dl) - l·dl ] / δ²
+                                       // (∂²a/∂δ²)/a = [ (d-dl)(d-1-dl) - l·dl ] / δ²
                     let fdd = ((di - dl) * (di - 1.0 - dl) - li * dl) / (delta * delta);
                     acc.add_scaled(&HelmholtzDerivs {
                         a,
@@ -233,7 +239,15 @@ impl ResidualTerm {
                     });
                 }
             }
-            ResidualTerm::Gaussian { n, t, d, eta, epsilon, beta, gamma } => {
+            ResidualTerm::Gaussian {
+                n,
+                t,
+                d,
+                eta,
+                epsilon,
+                beta,
+                gamma,
+            } => {
                 for i in 0..n.len() {
                     let (di, ti, ni) = (d[i], t[i], n[i]);
                     let (etai, epsi, betai, gami) = (eta[i], epsilon[i], beta[i], gamma[i]);
@@ -277,7 +291,15 @@ impl ResidualTerm {
                     });
                 }
             }
-            ResidualTerm::DoubleExponential { n, t, d, gd, ld, gt, lt } => {
+            ResidualTerm::DoubleExponential {
+                n,
+                t,
+                d,
+                gd,
+                ld,
+                gt,
+                lt,
+            } => {
                 // u = -gd·δ^ld - gt·τ^lt; the δ and τ parts of u are
                 // independent, so the B-factors separate (adt = ad·at/a).
                 for i in 0..n.len() {
@@ -311,13 +333,23 @@ impl ResidualTerm {
                     });
                 }
             }
-            ResidualTerm::GaoB { n, t, d, eta, beta, gamma, epsilon, b } => {
+            ResidualTerm::GaoB {
+                n,
+                t,
+                d,
+                eta,
+                beta,
+                gamma,
+                epsilon,
+                b,
+            } => {
                 // a = n·Ftau·Fdelta with Ftau = τ^t·exp(1/P), P = b + β(τ-γ)²,
                 // and Fdelta = δ^d·exp(η(δ-ε)²). The factors separate, so we
                 // transcribe CoolProp's per-factor first/second derivatives.
                 for i in 0..n.len() {
                     let (ni, ti, di) = (n[i], t[i], d[i]);
-                    let (etai, betai, gami, epsi, bi) = (eta[i], beta[i], gamma[i], epsilon[i], b[i]);
+                    let (etai, betai, gami, epsi, bi) =
+                        (eta[i], beta[i], gamma[i], epsilon[i], b[i]);
                     let gmt = gami - tau;
                     let p = bi + betai * gmt * gmt;
                     let ftau = tau.powf(ti) * (1.0 / p).exp();
@@ -326,20 +358,28 @@ impl ResidualTerm {
                     let a = ni * ftau * fdelta;
 
                     // τ·dFtau/dτ and τ²·d²Ftau/dτ² (CoolProp `taudFtaudtau`, `tau2d2Ftaudtau2`)
-                    let taud_ftau = (2.0 * betai * tau.powf(ti + 1.0) * gmt + ti * tau.powf(ti) * p * p)
-                        * (1.0 / p).exp() / (p * p);
+                    let taud_ftau = (2.0 * betai * tau.powf(ti + 1.0) * gmt
+                        + ti * tau.powf(ti) * p * p)
+                        * (1.0 / p).exp()
+                        / (p * p);
                     let tau2d2_ftau = tau.powf(ti)
                         * (4.0 * betai * ti * tau * p * p * gmt
-                            + 2.0 * betai * tau * tau
+                            + 2.0
+                                * betai
+                                * tau
+                                * tau
                                 * (4.0 * betai * p * gmt * gmt + 2.0 * betai * gmt * gmt - p * p)
                             + ti * p.powi(4) * (ti - 1.0))
-                        * (1.0 / p).exp() / p.powi(4);
+                        * (1.0 / p).exp()
+                        / p.powi(4);
 
                     // δ·dFdelta/dδ and δ²·d²Fdelta/dδ² (CoolProp `deltadFdeltaddelta`, `delta2d2Fdeltaddelta2`)
-                    let deltad_fdelta = (di * delta.powf(di) + 2.0 * delta.powf(di + 1.0) * etai * de)
+                    let deltad_fdelta = (di * delta.powf(di)
+                        + 2.0 * delta.powf(di + 1.0) * etai * de)
                         * (etai * de * de).exp();
                     let delta2d2_fdelta = delta.powf(di)
-                        * (4.0 * di * delta * etai * de + di * (di - 1.0)
+                        * (4.0 * di * delta * etai * de
+                            + di * (di - 1.0)
                             + 2.0 * delta * delta * etai * (2.0 * etai * de * de + 1.0))
                         * (etai * de * de).exp();
 
@@ -353,7 +393,16 @@ impl ResidualTerm {
                     });
                 }
             }
-            ResidualTerm::NonAnalytic { n, a, b, beta, big_a, big_b, big_c, big_d } => {
+            ResidualTerm::NonAnalytic {
+                n,
+                a,
+                b,
+                beta,
+                big_a,
+                big_b,
+                big_c,
+                big_d,
+            } => {
                 accumulate_non_analytic(n, a, b, beta, big_a, big_b, big_c, big_d, delta, tau, acc);
             }
         }
@@ -397,8 +446,16 @@ fn accumulate_non_analytic(
     // CoolProp offsets away from the branch point (delta=1, tau=1) by a few
     // ULPs rather than evaluate exactly there, where several of the
     // theta/DELTA derivatives below are formally 0^0 or 0/0.
-    let delta = if (delta - 1.0).abs() < 10.0 * f64::EPSILON { 1.0 + 10.0 * f64::EPSILON } else { delta };
-    let tau = if (tau - 1.0).abs() < 10.0 * f64::EPSILON { 1.0 + 10.0 * f64::EPSILON } else { tau };
+    let delta = if (delta - 1.0).abs() < 10.0 * f64::EPSILON {
+        1.0 + 10.0 * f64::EPSILON
+    } else {
+        delta
+    };
+    let tau = if (tau - 1.0).abs() < 10.0 * f64::EPSILON {
+        1.0 + 10.0 * f64::EPSILON
+    } else {
+        tau
+    };
 
     for i in 0..n.len() {
         let (ni, ai, bi, betai) = (n[i], a[i], b[i], beta[i]);
@@ -410,7 +467,8 @@ fn accumulate_non_analytic(
         // derivatives below are nonzero (theta is otherwise constant in i).
         let theta = (1.0 - tau) + aai * dm1_sq.powf(1.0 / (2.0 * betai));
         let dtheta_ddelta = aai / betai * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0) * dm1;
-        let d2theta_ddelta2 = aai / betai * (1.0 / betai - 1.0) * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0);
+        let d2theta_ddelta2 =
+            aai / betai * (1.0 / betai - 1.0) * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0);
 
         // PSI = exp(-C*(delta-1)^2 - D*(tau-1)^2).
         let psi = (-cci * dm1_sq - ddi * (tau - 1.0) * (tau - 1.0)).exp();
@@ -424,9 +482,12 @@ fn accumulate_non_analytic(
 
         // DELTA = theta^2 + B*[(delta-1)^2]^a.
         let big_delta = theta * theta + bbi * dm1_sq.powf(ai);
-        let d_big_delta_ddelta = 2.0 * theta * dtheta_ddelta + 2.0 * bbi * ai * dm1_sq.powf(ai - 1.0) * dm1;
-        let d2_big_delta_ddelta2 =
-            2.0 * (theta * d2theta_ddelta2 + dtheta_ddelta * dtheta_ddelta + bbi * (2.0 * ai * ai - ai) * dm1_sq.powf(ai - 1.0));
+        let d_big_delta_ddelta =
+            2.0 * theta * dtheta_ddelta + 2.0 * bbi * ai * dm1_sq.powf(ai - 1.0) * dm1;
+        let d2_big_delta_ddelta2 = 2.0
+            * (theta * d2theta_ddelta2
+                + dtheta_ddelta * dtheta_ddelta
+                + bbi * (2.0 * ai * ai - ai) * dm1_sq.powf(ai - 1.0));
 
         // DELTA^b and its derivatives.
         let delta_bi = big_delta.powf(bi);
@@ -435,9 +496,13 @@ fn accumulate_non_analytic(
         let d2_delta_bi_ddelta2 = bi
             * (big_delta.powf(bi - 1.0) * d2_big_delta_ddelta2
                 + (bi - 1.0) * big_delta.powf(bi - 2.0) * d_big_delta_ddelta * d_big_delta_ddelta);
-        let d2_delta_bi_ddelta_dtau = -aai * bi * 2.0 / betai * big_delta.powf(bi - 1.0) * dm1 * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0)
+        let d2_delta_bi_ddelta_dtau = -aai * bi * 2.0 / betai
+            * big_delta.powf(bi - 1.0)
+            * dm1
+            * dm1_sq.powf(1.0 / (2.0 * betai) - 1.0)
             - 2.0 * theta * bi * (bi - 1.0) * big_delta.powf(bi - 2.0) * d_big_delta_ddelta;
-        let d2_delta_bi_dtau2 = 2.0 * bi * big_delta.powf(bi - 1.0) + 4.0 * theta * theta * bi * (bi - 1.0) * big_delta.powf(bi - 2.0);
+        let d2_delta_bi_dtau2 = 2.0 * bi * big_delta.powf(bi - 1.0)
+            + 4.0 * theta * theta * bi * (bi - 1.0) * big_delta.powf(bi - 2.0);
 
         acc.add_scaled(&HelmholtzDerivs {
             a: delta * ni * delta_bi * psi,
@@ -447,7 +512,11 @@ fn accumulate_non_analytic(
                 * (delta_bi * (2.0 * dpsi_ddelta + delta * d2psi_ddelta2)
                     + 2.0 * d_delta_bi_ddelta * (psi + delta * dpsi_ddelta)
                     + d2_delta_bi_ddelta2 * delta * psi),
-            att: ni * delta * (d2_delta_bi_dtau2 * psi + 2.0 * d_delta_bi_dtau * dpsi_dtau + delta_bi * d2psi_dtau2),
+            att: ni
+                * delta
+                * (d2_delta_bi_dtau2 * psi
+                    + 2.0 * d_delta_bi_dtau * dpsi_dtau
+                    + delta_bi * d2psi_dtau2),
             adt: ni
                 * (delta_bi * (dpsi_dtau + delta * d2psi_ddelta_dtau)
                     + delta * d_delta_bi_ddelta * dpsi_dtau

@@ -196,7 +196,8 @@ pub fn probe() -> Option<GpuContext> {
 
     // Headless: no surface, so `compatible_surface: None`. `Default` supplies
     // the default power preference and `force_fallback_adapter: false`.
-    let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).ok()?;
+    let adapter =
+        block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default())).ok()?;
 
     // Capture the adapter identity (name + backend) before the device request so
     // per-machine performance reports can label the hardware.
@@ -205,7 +206,11 @@ pub fn probe() -> Option<GpuContext> {
     let (device, queue) =
         block_on(adapter.request_device(&wgpu::DeviceDescriptor::default())).ok()?;
 
-    Some(GpuContext { device, queue, info })
+    Some(GpuContext {
+        device,
+        queue,
+        info,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +297,11 @@ impl GpuContext {
         // A storage buffer must be non-empty; if there are no coefficients, use a
         // single zero so the buffer/binding is valid. `n_coeff == 0` means the
         // shader loop runs zero iterations, so the padding value is never read.
-        let coeff_src: Vec<f32> = if coeffs.is_empty() { vec![0.0] } else { coeffs.to_vec() };
+        let coeff_src: Vec<f32> = if coeffs.is_empty() {
+            vec![0.0]
+        } else {
+            coeffs.to_vec()
+        };
         let coeff_bytes = f32_slice_to_le_bytes(&coeff_src);
         // Params: n_coeff, n_energy, pad, pad -> 16 bytes.
         let mut param_bytes = Vec::with_capacity(16);
@@ -304,21 +313,27 @@ impl GpuContext {
         let output_size = (n_energy as u64) * 4;
 
         // --- buffers ----------------------------------------------------------
-        let energy_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("wmp-curvefit-energies"),
-            contents: &energy_bytes,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
-        let coeff_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("wmp-curvefit-coeffs"),
-            contents: &coeff_bytes,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
-        let param_buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("wmp-curvefit-params"),
-            contents: &param_bytes,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        let energy_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("wmp-curvefit-energies"),
+                contents: &energy_bytes,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+        let coeff_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("wmp-curvefit-coeffs"),
+                contents: &coeff_bytes,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
+        let param_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("wmp-curvefit-params"),
+                contents: &param_bytes,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
         let output_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("wmp-curvefit-output"),
             size: output_size,
@@ -344,60 +359,80 @@ impl GpuContext {
             count: None,
         };
         let bind_group_layout =
-            self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("wmp-curvefit-bgl"),
-                entries: &[
-                    storage_entry(0, true),  // energies (read)
-                    storage_entry(1, true),  // coeffs   (read)
-                    storage_entry(2, false), // result   (read_write)
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
+            self.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("wmp-curvefit-bgl"),
+                    entries: &[
+                        storage_entry(0, true),  // energies (read)
+                        storage_entry(1, true),  // coeffs   (read)
+                        storage_entry(2, false), // result   (read_write)
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                ],
-            });
+                    ],
+                });
 
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("wmp-curvefit-bg"),
             layout: &bind_group_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: energy_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: coeff_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: output_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 3, resource: param_buf.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: energy_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: coeff_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: output_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: param_buf.as_entire_binding(),
+                },
             ],
         });
 
         // --- shader + pipeline -----------------------------------------------
-        let shader = self.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("wmp-curvefit-shader"),
-            source: wgpu::ShaderSource::Wgsl(WGSL.into()),
-        });
-        let pipeline_layout =
-            self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let shader = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("wmp-curvefit-shader"),
+                source: wgpu::ShaderSource::Wgsl(WGSL.into()),
+            });
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("wmp-curvefit-pl"),
                 bind_group_layouts: &[Some(&bind_group_layout)],
                 immediate_size: 0,
             });
-        let pipeline = self.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("wmp-curvefit-pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("main"),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
-        });
+        let pipeline = self
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("wmp-curvefit-pipeline"),
+                layout: Some(&pipeline_layout),
+                module: &shader,
+                entry_point: Some("main"),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
+            });
 
         // --- encode + submit --------------------------------------------------
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("wmp-curvefit-enc") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("wmp-curvefit-enc"),
+            });
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("wmp-curvefit-pass"),
@@ -417,7 +452,13 @@ impl GpuContext {
         // Drive the map to completion (single-threaded, blocking).
         let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
 
-        let data = slice.get_mapped_range();
+        // wgpu 30: `get_mapped_range` became fallible. The buffer was just
+        // polled to completion above, so a failure here means the mapping
+        // itself is broken, not a normal runtime condition — worth a panic,
+        // not a `Result` this GPU-readback helper would have to propagate.
+        let data = slice
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         let out = le_bytes_to_f32_vec(&data);
         drop(data);
         staging_buf.unmap();
@@ -533,11 +574,7 @@ mod tests {
         let coeffs = [2.0_f64, 3.0, 5.0];
         let got = curvefit_background_batch_cpu(&energies, &coeffs);
         assert_eq!(got.len(), 1);
-        assert!(
-            (got[0] - 7.0).abs() < 1e-12,
-            "expected 7.0, got {}",
-            got[0]
-        );
+        assert!((got[0] - 7.0).abs() < 1e-12, "expected 7.0, got {}", got[0]);
     }
 
     /// Verification: the GPU (`f32`) path agrees with the CPU (`f64`) reference,

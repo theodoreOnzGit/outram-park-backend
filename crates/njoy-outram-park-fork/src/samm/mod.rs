@@ -39,25 +39,30 @@
 //!   actual entry point**, `samm.f90`'s own `cssammy`). This is where an
 //!   actual cross section, in barns, comes out end-to-end.
 //!
-//! **Scope (2026-07-07):** since RECONR — the only current caller — always
-//! disables `Want_Partial_Derivs`/`Want_Angular_Dist` (`reconr.f90:149-150`),
-//! the derivative routines (`babb`, `derres`, `derext`) and the
-//! angular-distribution routines (`angle`, `lmaxxx`, `kclbsch`, `clbsch`,
-//! `setleg`) are deferred until `ERRORR` (the only caller that enables them)
-//! is actually being built, rather than ported now against no reachable
-//! caller. See `README.md`.
+//! - [`derivs`] — the resonance-parameter derivatives
+//!   (`Want_Partial_Derivs`: `babb`, `abpart`'s derivative half, `setqri`,
+//!   `settri`, `derres`), driven by [`xsformula::cross_sections_with_derivs`]
+//!   / [`xsformula::cssammy_with_derivs`] for ERRORR's `LRF=7` MF=32 path.
 //!
-//! **Status:** what remains is Phase 6's energy-grid driver loop (wiring
-//! [`xsformula::cssammy`] into RECONR's own resonance-reconstruction loop,
-//! rather than something internal to `samm` itself) plus the deferred
-//! derivative/angular work above. `run()` remains
-//! [`crate::NjoyError::NotPorted`] — it was never `samm`'s real entry
-//! point; RECONR/UNRESR call [`setup::setup`] + [`xsformula::cssammy`]
-//! directly (once RECONR's own driver is updated to do so).
+//! **Verified** against NJOY2016 on ENDF/B-VII.1 Cl-35 (2026-09-11): the
+//! cross sections at every node of NJOY's RECONR grid to the 7-figure
+//! printing floor (`tests/reconr_cl35_rml_njoy_golden.rs`), and the
+//! derivatives through ERRORR's group covariances to 4.8e-7
+//! (`tests/errorr_mf32_cl35_rml_golden.rs`).
+//!
+//! **Not ported:** the angular-distribution routines (`angle`, `lmaxxx`,
+//! `kclbsch`, `clbsch`, `setleg`) — both NJOY2016 callers hard-code
+//! `Want_Angular_Dist = .false.` (`reconr.f90:149-150`, `errorr.f90:393`),
+//! so they are dead code upstream as shipped; and `derext` (background
+//! R-matrix parameters, `KBK > 0`, which [`mf2`] does not carry).
+//! `run()` remains [`crate::NjoyError::NotPorted`] — it was never `samm`'s
+//! real entry point; RECONR calls [`setup::setup`] + [`xsformula::cssammy`]
+//! and ERRORR [`setup::setup_with_derivs`] + [`xsformula::cssammy_with_derivs`].
 
 pub mod betset;
 pub mod context;
 pub mod coulomb;
+pub mod derivs;
 pub mod linpack;
 pub mod mf2;
 pub mod penetrability;

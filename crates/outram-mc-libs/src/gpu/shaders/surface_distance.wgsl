@@ -36,6 +36,28 @@ struct Roots {
     n: u32,
 };
 
+// f32::EPSILON. WGSL has no such builtin, so it is spelled as a literal here and
+// carried identically by the Rust f32 mirror in surface_distance.rs.
+const F32_EPS: f32 = 1.1920929e-7;
+
+// Safety factor on the estimated rounding noise of the cancelled c0 term in
+// torus_distance. ulp(x) <= x * F32_EPS, and the FMA-vs-two-rounding difference is
+// bounded by about half an ULP of the larger operand; 4 ULPs leaves margin for the
+// multiplications feeding it. MUST match the Rust mirror.
+const C0_CANCELLATION_ULPS: f32 = 4.0;
+
+// Upper bound on the noise-derived root gate in torus_distance, in cm. Stops a
+// near-zero c1 from widening the gate enough to discard a real crossing.
+// 1.0e-3 cm = 10 um. MUST match the Rust mirror.
+const EPS_CAP: f32 = 1.0e-3;
+
+// A cubic has at most three real roots. f32 noise can split a clustered triple
+// root into four entries that survive push_unique's dedup radius; without this
+// clamp cubic_real_roots can report n = 4, and quartic_real_roots then indexes a
+// 3-element crits array with 4 and writes bp[5] on a 5-element array. WGSL
+// bounds-clamps rather than trapping, so that corrupts silently. See op-9s8.12.
+const MAX_CUBIC_REAL_ROOTS: u32 = 3u;
+
 // Horner evaluation over the first `n` (leading-first) coefficients.
 fn poly_eval(c: array<f32, 5>, n: u32, x: f32) -> f32 {
     var acc: f32 = 0.0;
@@ -212,7 +234,12 @@ fn cubic_real_roots(a: f32, b: f32, c: f32, d: f32) -> Roots {
     let deriv = array<f32, 5>(3.0 * a, 2.0 * b, c, 0.0, 0.0);
     let crit2 = quadratic_real_roots(3.0 * a, 2.0 * b, c);
     let crits = array<f32, 3>(crit2.r[0], crit2.r[1], 0.0);
-    return collect_real_roots(coeffs, 4u, deriv, 3u, crits, crit2.n);
+    var out = collect_real_roots(coeffs, 4u, deriv, 3u, crits, crit2.n);
+    // Clamp to the mathematical maximum — see MAX_CUBIC_REAL_ROOTS. This is what
+    // keeps quartic_real_roots' 3-element crits array and collect_real_roots'
+    // 5-element bp array in bounds. The Rust mirror enforces the same cap.
+    out.n = min(out.n, MAX_CUBIC_REAL_ROOTS);
+    return out;
 }
 
 // Real roots of a x⁴ + b x³ + c x² + d x + e, ascending.
@@ -295,12 +322,37 @@ fn torus_distance(
     let c3 = 4.0 * ga * gb;
     let c2 = 4.0 * gb * gb + 2.0 * ga * gc - 4.0 * a2 * alpha;
     let c1 = 4.0 * gb * gc - 8.0 * a2 * beta;
-    let c0 = gc * gc - 4.0 * a2 * gamma;
+
+    // c0 is the quartic's constant term (the torus sense at t = 0). When the ray
+    // origin lies on or very near the torus this is a catastrophically cancelling
+    // difference of two nearly equal positive quantities — for an origin exactly on
+    // the surface the operands are bit-identical and every mantissa bit is lost.
+    //
+    // Critically, WGSL/SPIR-V permit fusing `gc*gc - X` into a single FMA (naga
+    // emits no NoContraction decoration, so the driver may), while the Rust f32
+    // mirror never contracts. The fused form keeps gc*gc exact through one rounding
+    // and leaves ~half an ULP of residue where the CPU gets exactly 0.0. That
+    // residue displaces the true root at t = 0 to -c0/c1, which is then returned as
+    // a genuine near-zero crossing. See bead op-9s8.11.
+    //
+    // Snapping c0 to zero at or below the rounding noise of its own subtraction
+    // makes both paths agree: below that threshold the value carries no
+    // information. MUST stay identical to the Rust mirror in surface_distance.rs.
+    let c0_raw = gc * gc - 4.0 * a2 * gamma;
+    let c0_noise = C0_CANCELLATION_ULPS * F32_EPS * max(abs(gc * gc), abs(4.0 * a2 * gamma));
+    var c0: f32 = c0_raw;
+    if (abs(c0_raw) <= c0_noise) { c0 = 0.0; }
 
     let roots = quartic_real_roots(c4, c3, c2, c1, c0);
 
+    // The gate tracks that noise floor rather than sitting below it: a residual
+    // perturbation dc0 displaces a simple root near zero by dc0/|c1|. The old fixed
+    // 1.0e-7 sat about an order of magnitude under the real f32 noise floor for
+    // cm-scale torus geometry, so noise roots always passed. EPS_CAP stops a
+    // near-zero c1 from widening the gate enough to swallow a real crossing.
     var eps: f32 = 1.0e-7;
     if (coincident) { eps = 1.0e-5; }
+    if (abs(c1) > 0.0) { eps = max(eps, min(c0_noise / abs(c1), EPS_CAP)); }
     var best: f32 = INF;
     for (var i: u32 = 0u; i < roots.n; i = i + 1u) {
         let t = roots.r[i];

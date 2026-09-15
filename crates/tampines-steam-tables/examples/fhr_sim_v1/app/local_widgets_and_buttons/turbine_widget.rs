@@ -1,7 +1,3 @@
-pub struct TurbineWidget {
+pub struct TurbineWidget {}
 
-}
-
-impl TurbineWidget {
-
-}
+impl TurbineWidget {}

@@ -6,7 +6,10 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ViscosityModel, HardcodedViscosity, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
+use crate::transport::{
+    FluidTransport, ViscosityModel, HardcodedViscosity, ConductivityModel, ConductivityDilute,
+    ConductivityResidual, CriticalConductivity,
+};
 
 /// o-Xylene Helmholtz equation of state (from CoolProp).
 pub static O_XYLENE: FluidEos = FluidEos {
@@ -23,28 +26,150 @@ pub static O_XYLENE: FluidEos = FluidEos {
     p_max: 70000000.0,
     acentric: 0.312,
     residual: &[
-    ResidualTerm::Power { n: &[0.0036765156, -0.13918171, 0.014104203, 1.5398899, -2.3600925, -0.44359159, 0.19596977, -1.0909408, -0.21890801, 1.1179223, -0.93563815, -0.018102996], t: &[1.0, 0.6, 0.91, 0.3, 0.895, 1.167, 0.435, 2.766, 3.8, 1.31, 3.0, 0.77], d: &[5.0, 1.0, 4.0, 1.0, 1.0, 2.0, 3.0, 1.0, 3.0, 2.0, 2.0, 7.0], l: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 2.0, 1.0] },
-    ResidualTerm::Gaussian { n: &[1.4172368, -0.57134695, -0.081944041, -40.682878], t: &[1.41, 4.8, 1.856, 2.0], d: &[1.0, 1.0, 3.0, 3.0], eta: &[1.1723, 1.095, 1.6166, 20.4], epsilon: &[0.552, 0.728, 0.498, 0.894], beta: &[2.442, 1.342, 3.0, 450.0], gamma: &[1.2655, 0.3959, 0.7789, 1.162] },
+        ResidualTerm::Power {
+            n: &[
+                0.0036765156,
+                -0.13918171,
+                0.014104203,
+                1.5398899,
+                -2.3600925,
+                -0.44359159,
+                0.19596977,
+                -1.0909408,
+                -0.21890801,
+                1.1179223,
+                -0.93563815,
+                -0.018102996,
+            ],
+            t: &[
+                1.0, 0.6, 0.91, 0.3, 0.895, 1.167, 0.435, 2.766, 3.8, 1.31, 3.0, 0.77,
+            ],
+            d: &[5.0, 1.0, 4.0, 1.0, 1.0, 2.0, 3.0, 1.0, 3.0, 2.0, 2.0, 7.0],
+            l: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0, 1.0, 2.0, 1.0],
+        },
+        ResidualTerm::Gaussian {
+            n: &[1.4172368, -0.57134695, -0.081944041, -40.682878],
+            t: &[1.41, 4.8, 1.856, 2.0],
+            d: &[1.0, 1.0, 3.0, 3.0],
+            eta: &[1.1723, 1.095, 1.6166, 20.4],
+            epsilon: &[0.552, 0.728, 0.498, 0.894],
+            beta: &[2.442, 1.342, 3.0, 450.0],
+            gamma: &[1.2655, 0.3959, 0.7789, 1.162],
+        },
     ],
     ideal: &[
-    IdealTerm::Lead { a1: 10.137376, a2: -0.91282993 },
-    IdealTerm::LogTau { a: 2.748798 },
-    IdealTerm::PlanckEinstein { n: &[4.754892, 6.915052, 25.84813, 10.93886], t: &[0.3569960920827787, 0.9948291099373432, 2.738556688599449, 7.83963418213782] },
+        IdealTerm::Lead {
+            a1: 10.137376,
+            a2: -0.91282993,
+        },
+        IdealTerm::LogTau { a: 2.748798 },
+        IdealTerm::PlanckEinstein {
+            n: &[4.754892, 6.915052, 25.84813, 10.93886],
+            t: &[
+                0.3569960920827787,
+                0.9948291099373432,
+                2.738556688599449,
+                7.83963418213782,
+            ],
+        },
     ],
 };
 
 /// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
 /// as the VLE initial guess and for standalone saturation lookups.
 pub static O_XYLENE_ANCILLARIES: FluidAncillaries = FluidAncillaries {
-    p_sat: SatAncillary { reducing_value: 3737500.0, t_r: 630.259, using_tau_r: true, exponential: true, n: &[-40.23194106786901, 34.55252883118712, -0.8596814216655824, -3.137628550668386, -0.7730882264500827, -1.1362454591454407], t: &[1.111, 1.156, 1.998, 3.199, 5.528, 7.601] },
-    rho_l: SatAncillary { reducing_value: 2684.5000000000005, t_r: 630.259, using_tau_r: false, exponential: false, n: &[0.08168792579534072, 6.203503021781052, -3.8477589500686986, 4.572403149688544, -31656.07188921996, 32296.361131648908], t: &[0.102, 0.561, 0.718, 5.254, 13.734, 13.785] },
-    rho_v: SatAncillary { reducing_value: 2684.5000000000005, t_r: 630.259, using_tau_r: true, exponential: true, n: &[-0.05612298788265898, -1.1710766690915488, -4.043955284669913, -7.601531777020512, 34.00048793856129, -267.1634261051362], t: &[0.041, 0.47, 0.602, 3.963, 9.65, 15.203] },
+    p_sat: SatAncillary {
+        reducing_value: 3737500.0,
+        t_r: 630.259,
+        using_tau_r: true,
+        exponential: true,
+        n: &[
+            -40.23194106786901,
+            34.55252883118712,
+            -0.8596814216655824,
+            -3.137628550668386,
+            -0.7730882264500827,
+            -1.1362454591454407,
+        ],
+        t: &[1.111, 1.156, 1.998, 3.199, 5.528, 7.601],
+    },
+    rho_l: SatAncillary {
+        reducing_value: 2684.5000000000005,
+        t_r: 630.259,
+        using_tau_r: false,
+        exponential: false,
+        n: &[
+            0.08168792579534072,
+            6.203503021781052,
+            -3.8477589500686986,
+            4.572403149688544,
+            -31656.07188921996,
+            32296.361131648908,
+        ],
+        t: &[0.102, 0.561, 0.718, 5.254, 13.734, 13.785],
+    },
+    rho_v: SatAncillary {
+        reducing_value: 2684.5000000000005,
+        t_r: 630.259,
+        using_tau_r: true,
+        exponential: true,
+        n: &[
+            -0.05612298788265898,
+            -1.1710766690915488,
+            -4.043955284669913,
+            -7.601531777020512,
+            34.00048793856129,
+            -267.1634261051362,
+        ],
+        t: &[0.041, 0.47, 0.602, 3.963, 9.65, 15.203],
+    },
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
 /// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static O_XYLENE_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: Some(ViscosityModel::Hardcoded(HardcodedViscosity::OXylene { molar_mass: 0.106165 })),
-    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 630.259, a: &[-0.0008374880000000001, 0.012785600000000001, -0.0371925, 0.06395479999999999, -0.00443443], n: &[0.0, 1.0, 2.0, 3.0, 4.0], b: &[0.262226, -0.490519, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 630.259, rhomass_reducing: 285.0, b: &[-0.0346292, 0.0455879, 0.0757735, -0.0594473, -0.06743779999999999, 0.0550012, 0.027695, -0.0255522, -0.00374238, 0.00418805], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.03, gamma: 1.239, big_gamma: 0.058, zeta0: 2.36e-10, qd: 1406469760.9001405, t_ref: -1.0 }) }),
+    viscosity: Some(ViscosityModel::Hardcoded(HardcodedViscosity::OXylene {
+        molar_mass: 0.106165,
+    })),
+    conductivity: Some(ConductivityModel::Correlation {
+        dilute: ConductivityDilute::RatioPolynomials {
+            t_reducing: 630.259,
+            a: &[
+                -0.0008374880000000001,
+                0.012785600000000001,
+                -0.0371925,
+                0.06395479999999999,
+                -0.00443443,
+            ],
+            n: &[0.0, 1.0, 2.0, 3.0, 4.0],
+            b: &[0.262226, -0.490519, 1.0],
+            m: &[0.0, 1.0, 2.0],
+        },
+        residual: ConductivityResidual::Polynomial {
+            t_reducing: 630.259,
+            rhomass_reducing: 285.0,
+            b: &[
+                -0.0346292,
+                0.0455879,
+                0.0757735,
+                -0.0594473,
+                -0.06743779999999999,
+                0.0550012,
+                0.027695,
+                -0.0255522,
+                -0.00374238,
+                0.00418805,
+            ],
+            t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0],
+            d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0],
+        },
+        critical: Some(CriticalConductivity::SimplifiedOlchowySengers {
+            r0: 1.03,
+            gamma: 1.239,
+            big_gamma: 0.058,
+            zeta0: 2.36e-10,
+            qd: 1406469760.9001405,
+            t_ref: -1.0,
+        }),
+    }),
 };
-

@@ -565,7 +565,10 @@ mod tests {
             alpha0,
         )
         .unwrap();
-        let drift = DriftFlux::new(mix, SlipModel::UserDefined(vec![Vector3::ZERO; mesh.n_cells]));
+        let drift = DriftFlux::new(
+            mix,
+            SlipModel::UserDefined(vec![Vector3::ZERO; mesh.n_cells]),
+        );
         DriftFluxPimple::new(drift)
     }
 
@@ -593,7 +596,10 @@ mod tests {
             assert!(u.mag() < 1.0, "U unexpectedly large in cell {c}: {u:?}");
             assert!(sim.p.internal[c].is_finite(), "p non-finite in cell {c}");
             let a = sim.drift.mixture.alpha().internal[c];
-            assert!((0.0..=1.0).contains(&a), "alpha out of [0,1] in cell {c}: {a}");
+            assert!(
+                (0.0..=1.0).contains(&a),
+                "alpha out of [0,1] in cell {c}: {a}"
+            );
         }
     }
 
@@ -657,8 +663,8 @@ mod tests {
         }
         let rho_m = 1000.0; // α=0 ⇒ ρ_m = ρ_c
         let target = -rho_m * g; // dp/dz [Pa/m]
-        // Interior finite differences (skip the near-wall cells at each end
-        // where the no-slip diffusion boundary layer perturbs the balance).
+                                 // Interior finite differences (skip the near-wall cells at each end
+                                 // where the no-slip diffusion boundary layer perturbs the balance).
         let mut sum = 0.0;
         let mut cnt = 0;
         for c in 2..(n - 3) {
@@ -690,15 +696,9 @@ mod tests {
     #[test]
     fn alpha_stays_bounded_under_coupling() {
         let mesh = column_mesh(5);
-        let mix = DriftFluxMixture::new(
-            mesh.clone(),
-            rho(1.2),
-            rho(1000.0),
-            mu(1e-5),
-            mu(1e-3),
-            0.5,
-        )
-        .unwrap();
+        let mix =
+            DriftFluxMixture::new(mesh.clone(), rho(1.2), rho(1000.0), mu(1e-5), mu(1e-3), 0.5)
+                .unwrap();
         let drift = DriftFlux::new(
             mix,
             SlipModel::UserDefined(vec![v3(0.0, 0.0, 0.05); mesh.n_cells]),

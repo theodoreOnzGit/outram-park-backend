@@ -262,7 +262,10 @@ impl DelayedChiGroup {
         if self.spectrum.is_empty() {
             return 0.0;
         }
-        self.spectrum.iter().map(|&(_, y)| y).fold(f64::INFINITY, f64::min)
+        self.spectrum
+            .iter()
+            .map(|&(_, y)| y)
+            .fold(f64::INFINITY, f64::min)
     }
 }
 
@@ -326,7 +329,11 @@ impl DelayedChi {
                 _ => return Ok(None),
             };
 
-            groups.push(DelayedChiGroup { fraction, lf, spectrum });
+            groups.push(DelayedChiGroup {
+                fraction,
+                lf,
+                spectrum,
+            });
         }
 
         Ok(Some(DelayedChi { groups }))
@@ -366,7 +373,7 @@ mod tests {
     fn mf1_455_ldg0_rows(lambdas: &[f64], nu_lo: f64, nu_hi: f64) -> Vec<[f64; 6]> {
         let nnf = lambdas.len();
         let mut rows = vec![[92235.0, 233.0, 0.0, 2.0, 0.0, 0.0]]; // HEAD LDG=0 LNU=2
-        // LIST head: N1 = NNF.
+                                                                   // LIST head: N1 = NNF.
         rows.push([0.0, 0.0, 0.0, 0.0, nnf as f64, 0.0]);
         // LIST data packed 6 per row.
         for chunk in lambdas.chunks(6) {
@@ -443,7 +450,11 @@ mod tests {
             assert_eq!(grp.lf, 5);
             assert!(grp.spectrum.iter().all(|&(_, y)| y >= 0.0));
             // Triangle area = 0.5 * base(2e6) * height(1e-6) = 1.0.
-            assert!((grp.normalization() - 1.0).abs() < 1e-6, "norm {}", grp.normalization());
+            assert!(
+                (grp.normalization() - 1.0).abs() < 1e-6,
+                "norm {}",
+                grp.normalization()
+            );
         }
         assert!((chi.groups[0].fraction[0].1 - 0.035).abs() < 1e-9);
         assert!((chi.groups[1].fraction[0].1 - 0.18).abs() < 1e-9);
@@ -454,7 +465,7 @@ mod tests {
     #[test]
     fn unsupported_lf_returns_none() {
         let mut rows = vec![[92235.0, 233.0, 0.0, 0.0, 1.0, 0.0]]; // NK=1
-        // p_k TAB1 with LF=7.
+                                                                   // p_k TAB1 with LF=7.
         rows.push([0.0, 0.0, 0.0, 7.0, 1.0, 2.0]);
         rows.push([2.0, 2.0, 0.0, 0.0, 0.0, 0.0]);
         rows.push([1.0e-5, 1.0, 3.0e7, 1.0, 0.0, 0.0]);

@@ -42,8 +42,16 @@ fn main() {
     let tets = tetrahedralize(&hex);
     println!("\nTetrahedralization (centroid subdivision):");
     println!("  tets               = {}", tets.cell_count());
-    println!("  faces              = {} ({} internal, {} boundary)", tets.face_count(), tets.n_internal_faces(), tets.n_boundary_faces());
-    println!("  volume             = {:.4}  (conserved)", tets.total_volume());
+    println!(
+        "  faces              = {} ({} internal, {} boundary)",
+        tets.face_count(),
+        tets.n_internal_faces(),
+        tets.n_boundary_faces()
+    );
+    println!(
+        "  volume             = {:.4}  (conserved)",
+        tets.total_volume()
+    );
 
     let q = check_quality(&tets);
     println!("  negative-vol tets  = {}", q.n_negative_volume_cells);
@@ -57,7 +65,10 @@ fn main() {
     let dual = polyhedral_dual(&tets);
     println!("\nTet-primal polyhedral dual (one cell per tet vertex):");
     println!("  cells              = {}", dual.cell_count());
-    println!("  volume             = {:.4}  (conserved through both steps)", dual.total_volume());
+    println!(
+        "  volume             = {:.4}  (conserved through both steps)",
+        dual.total_volume()
+    );
     match dual.validate() {
         Ok(()) => println!("  validate(): OK — polyhedral cells closed."),
         Err(e) => println!("  validate(): {e}"),

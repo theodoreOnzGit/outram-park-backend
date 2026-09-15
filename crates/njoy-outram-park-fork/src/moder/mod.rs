@@ -160,5 +160,7 @@ pub fn select_materials(
 /// reached directly through [`select_materials`]; ASCII (de)serialisation
 /// through [`crate::endf::tape::Tape::read`] / [`crate::endf::tape::Tape::write`].
 pub fn run() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("moder driver (selection: crate::moder::select_materials)"))
+    Err(NjoyError::NotPorted(
+        "moder driver (selection: crate::moder::select_materials)",
+    ))
 }

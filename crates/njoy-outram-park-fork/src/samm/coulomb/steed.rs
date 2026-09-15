@@ -86,7 +86,15 @@ pub struct CoulfgResult {
 /// derivative (upstream's `jdopha`/`jdoder` flags, `>0` meaning "yes").
 /// `ishift`: whether to compute the shift factor (`>0` meaning "yes",
 /// matching [`crate::samm::mf2::ParticlePair::shift_flag`]).
-pub fn coulfg(xx: f64, eta1: f64, lll: i32, llmax: i32, jdopha: bool, jdoder: bool, ishift: i32) -> CoulfgResult {
+pub fn coulfg(
+    xx: f64,
+    eta1: f64,
+    lll: i32,
+    llmax: i32,
+    jdopha: bool,
+    jdoder: bool,
+    ishift: i32,
+) -> CoulfgResult {
     const ACCUR: f64 = 1.0e-16;
     const TM30: f64 = 1.0e-30;
     const ABORT: f64 = 2.0e4;
@@ -110,7 +118,18 @@ pub fn coulfg(xx: f64, eta1: f64, lll: i32, llmax: i32, jdopha: bool, jdoder: bo
     if xx <= acch {
         log::error!("samm coulfg: xx={xx} <= sqrt(accur)={acch}; try small-x solutions, or check for negative x");
         return CoulfgResult {
-            fc, gc, fcp, gcp, pcoul, scoul, dpcoul, sinphi, cosphi, dphi, ifail: -1, iexp: 1,
+            fc,
+            gc,
+            fcp,
+            gcp,
+            pcoul,
+            scoul,
+            dpcoul,
+            sinphi,
+            cosphi,
+            dphi,
+            ifail: -1,
+            iexp: 1,
         };
     }
 
@@ -170,7 +189,18 @@ pub fn coulfg(xx: f64, eta1: f64, lll: i32, llmax: i32, jdopha: bool, jdoder: bo
             if p_retry > 2 {
                 log::error!("samm coulfg: CF1 failed to converge after {ABORT} iterations (f={f}, df={df}, pk={pk}, px={px}, acc={acc})");
                 return CoulfgResult {
-                    fc, gc, fcp, gcp, pcoul, scoul, dpcoul, sinphi, cosphi, dphi, ifail: 1, iexp: 1,
+                    fc,
+                    gc,
+                    fcp,
+                    gcp,
+                    pcoul,
+                    scoul,
+                    dpcoul,
+                    sinphi,
+                    cosphi,
+                    dphi,
+                    ifail: 1,
+                    iexp: 1,
                 };
             }
         }
@@ -183,7 +213,18 @@ pub fn coulfg(xx: f64, eta1: f64, lll: i32, llmax: i32, jdopha: bool, jdoder: bo
         if pk > px {
             log::error!("samm coulfg: CF1 failed to converge after {ABORT} iterations (f={f}, df={df}, pk={pk}, px={px}, acc={acc})");
             return CoulfgResult {
-                fc, gc, fcp, gcp, pcoul, scoul, dpcoul, sinphi, cosphi, dphi, ifail: 1, iexp: 1,
+                fc,
+                gc,
+                fcp,
+                gcp,
+                pcoul,
+                scoul,
+                dpcoul,
+                sinphi,
+                cosphi,
+                dphi,
+                ifail: 1,
+                iexp: 1,
             };
         }
         if df.abs() < f.abs() * acc {
@@ -275,7 +316,18 @@ pub fn coulfg(xx: f64, eta1: f64, lll: i32, llmax: i32, jdopha: bool, jdoder: bo
             if pk2 > ta {
                 log::error!("samm coulfg: CF2 failed to converge after {ABORT} iterations (p={p}, q={q}, dp={dp}, dq={dq}, acc={acc})");
                 return CoulfgResult {
-                    fc, gc, fcp, gcp, pcoul, scoul, dpcoul, sinphi, cosphi, dphi, ifail: 2, iexp: 1,
+                    fc,
+                    gc,
+                    fcp,
+                    gcp,
+                    pcoul,
+                    scoul,
+                    dpcoul,
+                    sinphi,
+                    cosphi,
+                    dphi,
+                    ifail: 2,
+                    iexp: 1,
                 };
             }
             if dp.abs() + dq.abs() < (p.abs() + q.abs()) * acc {
@@ -286,9 +338,22 @@ pub fn coulfg(xx: f64, eta1: f64, lll: i32, llmax: i32, jdopha: bool, jdoder: bo
         // never reads it again in this subroutine -- write-only dead local,
         // intentionally not ported.
         if q <= acc4 * p.abs() {
-            log::error!("samm coulfg: final q <= |p|*acc*1e4 (q={q}, p={p}, acc={acc}, llmax={llmax})");
+            log::error!(
+                "samm coulfg: final q <= |p|*acc*1e4 (q={q}, p={p}, acc={acc}, llmax={llmax})"
+            );
             return CoulfgResult {
-                fc, gc, fcp, gcp, pcoul, scoul, dpcoul, sinphi, cosphi, dphi, ifail: 3, iexp: 1,
+                fc,
+                gc,
+                fcp,
+                gcp,
+                pcoul,
+                scoul,
+                dpcoul,
+                sinphi,
+                cosphi,
+                dphi,
+                ifail: 3,
+                iexp: 1,
             };
         }
         gam = (f - p) / q;
@@ -365,5 +430,18 @@ pub fn coulfg(xx: f64, eta1: f64, lll: i32, llmax: i32, jdopha: bool, jdoder: bo
         }
     }
 
-    CoulfgResult { fc, gc, fcp, gcp, pcoul, scoul, dpcoul, sinphi, cosphi, dphi, ifail: 0, iexp }
+    CoulfgResult {
+        fc,
+        gc,
+        fcp,
+        gcp,
+        pcoul,
+        scoul,
+        dpcoul,
+        sinphi,
+        cosphi,
+        dphi,
+        ifail: 0,
+        iexp,
+    }
 }

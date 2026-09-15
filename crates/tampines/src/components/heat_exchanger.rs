@@ -25,8 +25,16 @@ pub struct HeatExchanger {
 impl HeatExchanger {
     /// Construct a new heat exchanger with the given arrangement, area, and
     /// overall coefficient.
-    pub fn new(arrangement: FlowArrangement, area: Area, overall_coefficient: HeatTransfer) -> Self {
-        Self { arrangement, area, overall_coefficient }
+    pub fn new(
+        arrangement: FlowArrangement,
+        area: Area,
+        overall_coefficient: HeatTransfer,
+    ) -> Self {
+        Self {
+            arrangement,
+            area,
+            overall_coefficient,
+        }
     }
 
     /// Duty and outlet temperatures for the given inlet temperatures.

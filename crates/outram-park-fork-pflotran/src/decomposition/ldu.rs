@@ -196,14 +196,22 @@ impl DistributedLduMatrix1D {
             let gi = decomp.global_index(i);
             // West face exists iff this is not the global-left cell.
             if gi > 0 {
-                let k_w = if i > 0 { k_local[i - 1] } else { kh.left.unwrap_or(0.0) };
+                let k_w = if i > 0 {
+                    k_local[i - 1]
+                } else {
+                    kh.left.unwrap_or(0.0)
+                };
                 let t = geom * harmonic(k_local[i], k_w);
                 west[i] = -t;
                 diag[i] += t;
             }
             // East face exists iff this is not the global-right cell.
             if gi + 1 < decomp.n_global {
-                let k_e = if i + 1 < l { k_local[i + 1] } else { kh.right.unwrap_or(0.0) };
+                let k_e = if i + 1 < l {
+                    k_local[i + 1]
+                } else {
+                    kh.right.unwrap_or(0.0)
+                };
                 let t = geom * harmonic(k_local[i], k_e);
                 east[i] = -t;
                 diag[i] += t;
@@ -413,10 +421,16 @@ mod tests {
                 let x_local = x[d.start..d.start + d.local_len].to_vec();
                 let y_local = dm.matvec(c, &x_local).unwrap();
                 let expected = &serial_y[d.start..d.start + d.local_len];
-                y_local.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-12)
+                y_local
+                    .iter()
+                    .zip(expected)
+                    .all(|(a, e)| (a - e).abs() < 1e-12)
             })
             .unwrap();
-            assert!(ok.iter().all(|&b| b), "distributed SpMV != LduMatrix::multiply for p={p}");
+            assert!(
+                ok.iter().all(|&b| b),
+                "distributed SpMV != LduMatrix::multiply for p={p}"
+            );
         }
     }
 
@@ -444,7 +458,10 @@ mod tests {
                 x.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7)
             })
             .unwrap();
-            assert!(ok.iter().all(|&b| b), "distributed LDU solve != serial for p={p}");
+            assert!(
+                ok.iter().all(|&b| b),
+                "distributed LDU solve != serial for p={p}"
+            );
         }
     }
 
@@ -458,7 +475,10 @@ mod tests {
         let ldu = assemble_advection_diffusion_ldu(&grid, &k, 2.0, 0.3);
         // Sanity: the matrix really is non-symmetric.
         assert!(
-            ldu.upper.iter().zip(&ldu.lower).any(|(u, l)| (u - l).abs() > 1e-9),
+            ldu.upper
+                .iter()
+                .zip(&ldu.lower)
+                .any(|(u, l)| (u - l).abs() > 1e-9),
             "advection-diffusion matrix should be non-symmetric"
         );
         let b: Vec<f64> = (0..n).map(|i| ((i % 5) as f64) + 0.5).collect();
@@ -485,7 +505,10 @@ mod tests {
                 res_ok && match_ok
             })
             .unwrap();
-            assert!(ok.iter().all(|&b| b), "distributed BiCGStab != serial for p={p}");
+            assert!(
+                ok.iter().all(|&b| b),
+                "distributed BiCGStab != serial for p={p}"
+            );
         }
     }
 
@@ -540,7 +563,10 @@ mod tests {
                 same_matrix && solve_ok
             })
             .unwrap();
-            assert!(ok.iter().all(|&b| b), "local assembly != global / wrong solve for p={p}");
+            assert!(
+                ok.iter().all(|&b| b),
+                "local assembly != global / wrong solve for p={p}"
+            );
         }
     }
 
@@ -568,6 +594,10 @@ mod tests {
             }
         })
         .unwrap();
-        assert!(sol[0] < 1e-8, "distributed LDU residual too large: {}", sol[0]);
+        assert!(
+            sol[0] < 1e-8,
+            "distributed LDU residual too large: {}",
+            sol[0]
+        );
     }
 }

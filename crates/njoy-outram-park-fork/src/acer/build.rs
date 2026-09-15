@@ -183,8 +183,7 @@ impl AceTable {
             .sections
             .iter()
             .filter(|s| {
-                role_of(i32::from(s.mt), has_discrete_inelastic, has_total_fission)
-                    == Role::Partial
+                role_of(i32::from(s.mt), has_discrete_inelastic, has_total_fission) == Role::Partial
             })
             .collect();
 
@@ -214,7 +213,12 @@ impl AceTable {
         // and again for the SIG block).
         let partial_xs: Vec<Vec<f64>> = partials
             .iter()
-            .map(|sec| egrid.iter().map(|&e| sigfig(eval_partial(sec, e), 7)).collect())
+            .map(|sec| {
+                egrid
+                    .iter()
+                    .map(|&e| sigfig(eval_partial(sec, e), 7))
+                    .collect()
+            })
             .collect();
 
         let mut total = elastic_xs.clone();
@@ -319,14 +323,17 @@ impl AceTable {
         for e in &producers {
             angulars.push(e.angular.as_ref());
         }
-        let any_aniso = angulars.iter().any(|a| a.is_some_and(|x| !x.is_all_isotropic()));
+        let any_aniso = angulars
+            .iter()
+            .any(|a| a.is_some_and(|x| !x.is_all_isotropic()));
         if any_aniso || nr > 0 {
             let (land, and) = append_angular_blocks(&mut b, &angulars);
             jxs[jxs::LAND] = land;
             jxs[jxs::AND] = and;
         }
         if nr > 0 {
-            let (ldlw, dlw) = append_dlw(&mut b, &producers, egrid[0] / EMEV, egrid[nes - 1] / EMEV);
+            let (ldlw, dlw) =
+                append_dlw(&mut b, &producers, egrid[0] / EMEV, egrid[nes - 1] / EMEV);
             jxs[jxs::LDLW] = ldlw;
             jxs[jxs::DLW] = dlw;
         }
@@ -380,7 +387,10 @@ struct XssBuilder {
 
 impl XssBuilder {
     fn new() -> Self {
-        XssBuilder { xss: Vec::new(), is_int: Vec::new() }
+        XssBuilder {
+            xss: Vec::new(),
+            is_int: Vec::new(),
+        }
     }
 
     /// Append a real-valued word (written `1pE20.11`).
@@ -600,7 +610,10 @@ mod tests {
         };
         assert_eq!(eval_partial(&sec, 5.0e5), 0.0, "below threshold → 0");
         assert_eq!(eval_partial(&sec, 1.0e6), 0.0, "at threshold");
-        assert!((eval_partial(&sec, 1.5e6) - 1.5).abs() < 1e-12, "interpolated");
+        assert!(
+            (eval_partial(&sec, 1.5e6) - 1.5).abs() < 1e-12,
+            "interpolated"
+        );
         assert_eq!(eval_partial(&sec, 9.9e6), 3.0, "above range → clamp high");
     }
 }

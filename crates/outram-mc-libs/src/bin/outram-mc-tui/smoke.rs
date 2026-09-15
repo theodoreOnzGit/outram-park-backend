@@ -28,7 +28,12 @@ use crate::ui::draw;
 /// from `RunSettings::default()`, so this stays "a few histories" regardless
 /// of what a future change to that default picks.
 fn tiny_settings() -> RunSettings {
-    RunSettings { n_particles: 20, n_inactive: 1, n_active: 2, ..RunSettings::default() }
+    RunSettings {
+        n_particles: 20,
+        n_inactive: 1,
+        n_active: 2,
+        ..RunSettings::default()
+    }
 }
 
 /// Renders the geometry-picker screen (the app's initial screen) and checks
@@ -40,13 +45,24 @@ fn geometry_picker_renders() {
     let mut terminal = Terminal::new(backend).expect("test terminal");
     let mut app = App::new();
 
-    terminal.draw(|frame| draw(frame, &mut app)).expect("draw geometry picker");
+    terminal
+        .draw(|frame| draw(frame, &mut app))
+        .expect("draw geometry picker");
 
     let text = buffer_text(terminal.backend().buffer());
-    assert!(text.contains("OUTRAM-MC"), "header missing from geometry picker frame:\n{text}");
-    assert!(text.contains("Pebble bed") || text.contains("LWR cell"), "no preset card visible:\n{text}");
+    assert!(
+        text.contains("OUTRAM-MC"),
+        "header missing from geometry picker frame:\n{text}"
+    );
+    assert!(
+        text.contains("Pebble bed") || text.contains("LWR cell"),
+        "no preset card visible:\n{text}"
+    );
     // At least one tap target was registered (the picker is genuinely touch-driven).
-    assert!(!app.hit_regions.is_empty(), "geometry picker registered no tap targets");
+    assert!(
+        !app.hit_regions.is_empty(),
+        "geometry picker registered no tap targets"
+    );
 }
 
 /// A tiny, real Godiva-preset transport run (synchronous, not through the
@@ -58,9 +74,20 @@ fn tiny_godiva_run_and_render() {
     let settings = tiny_settings();
 
     let outcome = run_case(preset, settings).expect("tiny Godiva run should succeed");
-    assert!(outcome.k_mean.is_finite() && outcome.k_mean > 0.0, "k_mean not finite/positive: {}", outcome.k_mean);
-    assert_eq!(outcome.k_by_generation.len(), settings.n_inactive + settings.n_active, "ran all generations");
-    assert!(outcome.spectrum.is_some(), "bare-sphere preset (CSG-backed) should carry a spectrum overlay");
+    assert!(
+        outcome.k_mean.is_finite() && outcome.k_mean > 0.0,
+        "k_mean not finite/positive: {}",
+        outcome.k_mean
+    );
+    assert_eq!(
+        outcome.k_by_generation.len(),
+        settings.n_inactive + settings.n_active,
+        "ran all generations"
+    );
+    assert!(
+        outcome.spectrum.is_some(),
+        "bare-sphere preset (CSG-backed) should carry a spectrum overlay"
+    );
 
     let backend = TestBackend::new(48, 30);
     let mut terminal = Terminal::new(backend).expect("test terminal");
@@ -71,10 +98,18 @@ fn tiny_godiva_run_and_render() {
     app.revealed = outcome.k_by_generation.len();
     app.last_outcome = Some(Ok(outcome));
 
-    terminal.draw(|frame| draw(frame, &mut app)).expect("draw run screen");
+    terminal
+        .draw(|frame| draw(frame, &mut app))
+        .expect("draw run screen");
     let text = buffer_text(terminal.backend().buffer());
-    assert!(text.contains("k_mean"), "run screen missing k_mean readout:\n{text}");
-    assert!(text.contains("convergence"), "run screen missing the convergence chart block:\n{text}");
+    assert!(
+        text.contains("k_mean"),
+        "run screen missing k_mean readout:\n{text}"
+    );
+    assert!(
+        text.contains("convergence"),
+        "run screen missing the convergence chart block:\n{text}"
+    );
 }
 
 /// Renders the spectrum screen after a tiny LWR-cell run (the other
@@ -84,7 +119,10 @@ fn spectrum_screen_renders_after_lwr_run() {
     let preset = GeometryPreset::LwrCell;
     let settings = tiny_settings();
     let outcome = run_case(preset, settings).expect("tiny LWR-cell run should succeed");
-    assert!(outcome.spectrum.is_some(), "LWR cell preset should carry a spectrum overlay");
+    assert!(
+        outcome.spectrum.is_some(),
+        "LWR cell preset should carry a spectrum overlay"
+    );
 
     let backend = TestBackend::new(48, 30);
     let mut terminal = Terminal::new(backend).expect("test terminal");
@@ -94,9 +132,14 @@ fn spectrum_screen_renders_after_lwr_run() {
     app.screen = Screen::Spectrum;
     app.last_outcome = Some(Ok(outcome));
 
-    terminal.draw(|frame| draw(frame, &mut app)).expect("draw spectrum screen");
+    terminal
+        .draw(|frame| draw(frame, &mut app))
+        .expect("draw spectrum screen");
     let text = buffer_text(terminal.backend().buffer());
-    assert!(text.contains("flux") && text.contains("Sigma_t"), "spectrum overlay caption missing:\n{text}");
+    assert!(
+        text.contains("flux") && text.contains("Sigma_t"),
+        "spectrum overlay caption missing:\n{text}"
+    );
 }
 
 /// A pebble-bed preset (delta-tracking driver, no tally hook) should honestly
@@ -107,7 +150,10 @@ fn pebble_bed_has_no_spectrum_overlay() {
     assert!(!preset.supports_spectrum());
     let settings = tiny_settings();
     let outcome = run_case(preset, settings).expect("tiny pebble-bed run should succeed");
-    assert!(outcome.spectrum.is_none(), "pebble bed should not carry a spectrum overlay in this crate version");
+    assert!(
+        outcome.spectrum.is_none(),
+        "pebble bed should not carry a spectrum overlay in this crate version"
+    );
 }
 
 fn buffer_text(buffer: &ratatui::buffer::Buffer) -> String {
@@ -130,13 +176,19 @@ fn every_preset_builds_and_runs() {
         GeometryPreset::BareSphere(SphereVariant::Godiva),
         GeometryPreset::BareSphere(SphereVariant::Jezebel),
     ] {
-        let outcome = run_case(preset, settings).unwrap_or_else(|e| panic!("{} failed to build/run: {e}", preset.title()));
+        let outcome = run_case(preset, settings)
+            .unwrap_or_else(|e| panic!("{} failed to build/run: {e}", preset.title()));
         assert!(
             outcome.k_mean.is_finite() && outcome.k_mean > 0.0,
             "{}: k_mean not finite/positive: {}",
             preset.title(),
             outcome.k_mean
         );
-        eprintln!("[every_preset_builds_and_runs] {}: k = {:.4} +/- {:.4}", preset.title(), outcome.k_mean, outcome.k_std);
+        eprintln!(
+            "[every_preset_builds_and_runs] {}: k = {:.4} +/- {:.4}",
+            preset.title(),
+            outcome.k_mean,
+            outcome.k_std
+        );
     }
 }

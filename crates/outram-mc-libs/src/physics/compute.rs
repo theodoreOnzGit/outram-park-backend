@@ -136,7 +136,9 @@ impl ThreadCount {
     /// on Android — a phone just reports fewer cores).
     pub fn resolve(self) -> usize {
         fn logical_cores() -> usize {
-            std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1)
         }
         match self {
             ThreadCount::Auto => logical_cores(),

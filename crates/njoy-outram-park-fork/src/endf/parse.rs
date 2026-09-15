@@ -44,7 +44,11 @@ pub fn parse_endf_float(s: &str) -> Result<f64, NjoyError> {
             s.parse::<f64>().ok()
         }
         Some(sep) => {
-            let mantissa = &s[..sep];
+            // Fortran also writes an explicit exponent letter (`1.00000E-5`,
+            // `1.5D+3`); ENDF/B-VIII.0 C-12/C-13/O-16/Li-7 MF=3 use that form.
+            // Without stripping it the mantissa `1.00000E` fails to parse and
+            // the field silently became 0.0 (bead op-sti5).
+            let mantissa = s[..sep].trim_end_matches(['E', 'e', 'D', 'd']);
             let exponent = &s[sep..]; // includes the `+`/`-`
             let mant: Option<f64> = if mantissa.is_empty() || mantissa == "+" || mantissa == "-" {
                 Some(1.0_f64.copysign(if mantissa.starts_with('-') { -1.0 } else { 1.0 }))
@@ -302,10 +306,15 @@ pub fn parse_line(line: &str) -> Result<RawLine, NjoyError> {
     }
 
     let mat = s[66..70].trim().parse::<i32>().unwrap_or(0);
-    let mf  = s[70..72].trim().parse::<i32>().unwrap_or(0);
-    let mt  = s[72..75].trim().parse::<i32>().unwrap_or(0);
+    let mf = s[70..72].trim().parse::<i32>().unwrap_or(0);
+    let mt = s[72..75].trim().parse::<i32>().unwrap_or(0);
 
-    Ok(RawLine { fields, mat, mf, mt })
+    Ok(RawLine {
+        fields,
+        mat,
+        mf,
+        mt,
+    })
 }
 
 #[cfg(test)]
@@ -330,6 +339,20 @@ mod tests {
         assert!((v - 0.9991673).abs() < 1e-9, "got {}", v);
     }
 
+    /// Fortran E/D-exponent forms as they appear packed in the ENDF/B-VIII.0
+    /// C-12 tape (`n-006_C_012-ENDF8.0.endf` MF=3/MT=1 line 4:
+    /// ` 1.00000E-5 4.94234700 1.090516E-5 …`) — these read as 0.0 before the
+    /// fix (op-sti5).
+    #[test]
+    fn endf_float_fortran_exponent_letter() {
+        assert!((parse_endf_float(" 1.00000E-5").unwrap() - 1.0e-5).abs() < 1e-17);
+        assert!((parse_endf_float("1.090516E-5").unwrap() - 1.090516e-5).abs() < 1e-17);
+        assert!((parse_endf_float(" .001000000").unwrap() - 1.0e-3).abs() < 1e-15);
+        assert!((parse_endf_float("   1.5D+3  ").unwrap() - 1.5e3).abs() < 1e-9);
+        assert!((parse_endf_float("  -2.5e-01 ").unwrap() + 0.25).abs() < 1e-15);
+        assert!((parse_endf_float("  1.5E5    ").unwrap() - 1.5e5).abs() < 1e-9);
+    }
+
     #[test]
     fn endf_float_large() {
         let v = parse_endf_float(" 2.000000+7").unwrap();
@@ -339,14 +362,15 @@ mod tests {
     #[test]
     fn parse_cont_line() {
         // From He-4: " 2.004000+3 3.968219+0         -1          0          0          0 228 1451"
-        let line = " 2.004000+3 3.968219+0         -1          0          0          0 228 1451    1";
+        let line =
+            " 2.004000+3 3.968219+0         -1          0          0          0 228 1451    1";
         let rl = parse_line(line).unwrap();
         assert_eq!(rl.mat, 228);
         assert_eq!(rl.mf, 1);
         assert_eq!(rl.mt, 451);
         assert!((rl.fields[0] - 2004.0).abs() < 0.001, "{}", rl.fields[0]);
         assert!((rl.fields[1] - 3.968219).abs() < 1e-5, "{}", rl.fields[1]);
-        assert_eq!(rl.fields[2] as i32, -1);  // L1 = -1
-        assert_eq!(rl.fields[3] as i32,  0);
+        assert_eq!(rl.fields[2] as i32, -1); // L1 = -1
+        assert_eq!(rl.fields[3] as i32, 0);
     }
 }

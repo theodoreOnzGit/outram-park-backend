@@ -58,15 +58,37 @@ things TAMPINES has that the CoolProp fork does not (as of 2026-07-10):
   `(p,h)`/`(p,s)`.
 - **Multiphase critical (choked) flow for steam-water mixtures.** TAMPINES'
   `steam_turbine_equations::converging_diverging_nozzles::choked_flow` module
-  is a validated Homogeneous Equilibrium Model (HEM) suite — a unified
+  is a Homogeneous Equilibrium Model (HEM) suite — a unified
   dispatcher routing a stagnation `(p₀, h₀)` to a dedicated in-dome,
   subcooled-liquid, or superheated-vapour solver by its position relative to
-  the p-h VLE dome, verified against Moody (1975), Zaloudek, and Marviken
-  reference data (see the Changelog below for the debugging history, e.g. the
-  near-bubble-point HEM artifact and the Moody-vs-Zaloudek subcooled-regime
-  reconciliation). The CoolProp fork has no choked-flow / critical-mass-flux
-  model at all — it is a property-lookup library, not a nozzle/turbine
-  equation set.
+  the p-h VLE dome. V&V status (re-read from the test source, 2026-08-11):
+  **verified against Moody (1975) Fig. 1** — 13 active isobar tests
+  (p₀/p_ref = 0.25–30.0) asserting an absolute log10 mass-flux bound of
+  0.06 (0.08 for deeply-subcooled Region-1 points), region-filtered so that
+  points neither in-dome (Region 4) nor deeply subcooled are skipped as a
+  documented HEM limitation — and **against Zaloudek graph-read HEM
+  curves** — 20+ active tests per file across the in-dome / subcooled /
+  superheated / generic-dispatcher / backward-throat files
+  (critical-pressure relative tolerance 0.005–0.05 by curve, mass-flux
+  log10 tolerance 0.05). **Marviken is now gated, with a split result**: the
+  NUREG/CR-2671 test-23/24 data in `marviken_tests.rs` runs as six active
+  tests (no `#[ignore]`, ~1.4 s). Against the 500 mm / `L/D` = 0.3 nozzle,
+  the HEM dispatcher **validates on test 23** (3 K subcooling: mean
+  deviation 12.6 %, worst 23.1 %, inside the justified $\pm 25\%$
+  experimental band) but **fails on test 24** (33 K subcooling: mean
+  $-48.5\%$, worst $-70.2\%$), so it is kept as an honest characterisation
+  and **the crate must not be called Marviken-validated for subcooled
+  stagnation states**. The bare HEM maximum-mass-flux criterion, evaluated
+  in the same file from the public `(p,s)` flashes, reproduces *both* tests
+  to a mean of 9–10 % — so the test-24 deficit is a branch-selection defect
+  in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`, **not** an
+  HEM physics limitation. Measured 2026-08-11; see the module doc of
+  `marviken_tests.rs` for methodology, error budget and the full lessons
+  note (bead `op-21g.16`). (See the Changelog below for the debugging
+  history, e.g. the near-bubble-point HEM artifact and the
+  Moody-vs-Zaloudek subcooled-regime reconciliation.) The CoolProp fork has
+  no choked-flow / critical-mass-flux model at all — it is a
+  property-lookup library, not a nozzle/turbine equation set.
 
 Everything else — steam-turbine equations, the OpenFOAM finite-volume
 algorithms, the FHR educational simulator — is TAMPINES-specific scope the
@@ -115,6 +137,48 @@ reactor kinetics through `teh-o-prke`'s Nordheim-Fuchs exact timestepper
 (10 ms timestep) instead of the numerical six-group PRKE solver this crate
 used to host. `fhr_sim_v1` remains in this crate (`examples/fhr_sim_v1/`).
 
+## Compiling `tampines-steam-tables-gui` for Windows (cross-compile from Linux)
+
+`tampines-steam-tables-gui` (`examples/tampines-steam-tables-gui/`) is an
+`egui`/`eframe` app. It can be cross-compiled into a native Windows `.exe`
+directly from Linux with [`cargo-xwin`](https://github.com/rust-cross/cargo-xwin),
+which downloads the MSVC CRT/Windows SDK headers needed to link the
+`x86_64-pc-windows-msvc` target — no Wine and no real Windows/MSVC install
+required.
+
+One-time setup:
+
+```bash
+rustup target add x86_64-pc-windows-msvc
+cargo install cargo-xwin
+# clang + lld provide the cross linker/compiler driver cargo-xwin shells out to
+sudo pacman -S clang lld       # Arch / EndeavourOS
+# sudo apt install clang lld   # Debian / Ubuntu / Mint
+```
+
+Then, from the workspace root (`outram-park-backend/`):
+
+```bash
+cargo xwin build --release -p tampines-steam-tables \
+  --example tampines-steam-tables-gui \
+  --target x86_64-pc-windows-msvc
+```
+
+The executable lands at
+`target/x86_64-pc-windows-msvc/release/examples/tampines-steam-tables-gui.exe`.
+
+**Verified 2026-08-21** (cargo-xwin 0.23.0, clang 22.1.8, rustc 1.96.0): a
+clean `--release` cross-build of the GUI example — including its full
+`egui`/`eframe`/`wgpu`/`egui-file-dialog` dependency stack — completes and
+produces a valid `PE32+ executable for MS Windows ... x86-64`. This is the
+same binary shape as the `fhr_sim_v2.exe` release-tag downloads referenced
+below, just cross-compiled locally instead of pulled from a GitHub release.
+
+`x86_64-pc-windows-gnu` (mingw) is also a valid target in principle, but is
+**not** verified on this machine — no `x86_64-w64-mingw32-gcc` is installed
+here, only the `msvc` path above via `cargo-xwin` has actually been built and
+checked.
+
 ## To Run on Windows
 
 For installation, you can just download the fhr_sim_v2.exe from the 
@@ -129,19 +193,57 @@ calculations for simplicity.
 cargo run --release -p tampines --example fhr_sim_v2
 ```
 
-Note that for windows PCs, sometimes there will be problems where 
-windows defender blocks the fhr_sim_v2 from being run. In those cases,
-it's better to use windows subsystem for linux (WSL). One needs to note 
-to use:
+### Running the test suite
+
+Always use `--release`. Split the fast library tests from the one very slow
+integration test:
 
 ```bash
-sudo apt install libopenblas-dev
+# Fast path — 938 library test functions, finishes in seconds
+cargo test --release -p tampines-steam-tables --lib
+
+# Slow path — the Edwards-O'Brien blowdown transient. Give it 10+ minutes.
+cargo test --release -p tampines-steam-tables --test edwards_blowdown
 ```
 
-Before running:
+**Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
+14 ignored**. List the ignored ones with
+`cargo test --release -p tampines-steam-tables --lib -- --ignored --list`.
+
+**A timeout is not a test failure.** `tests/edwards_blowdown.rs` integrates a
+600 ms two-phase pipe blowdown at `dt = 30 µs` — 20 000 PIMPLE steps, each doing
+real IAPWS-IF97 `(p, h)` flashes on every cell. Measured 2026-08-11:
+`edwards_obrien_pipe_blowdown_600ms` alone took **384.75 s**, and the full
+`edwards_blowdown` target (both tests, run in parallel by cargo) took
+**393.58 s**. A bare `cargo test` over the whole crate will therefore exceed a
+default command timeout. If that happens, report that the run was killed and how
+far it got — do not record it as a failing test, and never loosen a tolerance
+because a long test was inconvenient.
+
+Treat any written-down timing, including the two above, as indicative only:
+they are hardware- and load-dependent, and the wall-clock time of a `cargo test`
+command also covers compilation and any wait on the cargo build-directory lock
+when something else is building the workspace. The harness's own
+`finished in <N>s` line is the figure to quote.
+
+Note that for windows PCs, sometimes there will be problems where 
+windows defender blocks the fhr_sim_v2 from being run. In those cases,
+it's better to use windows subsystem for linux (WSL), then run:
+
 ```bash
 cargo run --release -p tampines --example fhr_sim_v2
 ```
+
+**No system BLAS is required** (corrected 2026-08-11). This section used to tell
+WSL users to `sudo apt install libopenblas-dev` first. That was needed when
+`tampines-steam-tables` and `tuas_boussinesq_solver` still declared
+`ndarray-linalg`; neither does any more (TUAS dropped it at v0.1.2 in favour of
+pure-Rust `peroxide`, and this crate's vestigial entries were deleted). Verify
+with `grep -n ndarray-linalg crates/tampines-steam-tables/Cargo.toml
+crates/tuas_boussinesq_solver/Cargo.toml` — no dependency declaration matches.
+Workspace-wide, the only remaining OpenBLAS consumer is
+`outram-foam-basic-lib`'s `matrix_bench` dev-dependency, which
+`fhr_sim_v2` never touches.
 
 I used rustup to install rust. So if versions of Rust are outdated 
 (error messages may tell you so), then use:
@@ -169,15 +271,20 @@ This crate has two intentions that pull in opposite directions:
 
 2. **TAMPINES should host an OpenFOAM-style array solver of its own.**
    `openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray` is a 1-D
-   compressible PIMPLE pipe solver built on `outram-foam-basic-lib`'s `FvMesh`,
-   fields, and FV operators (via `create_one_d_mesh`). That means
-   *`tampines-steam-tables` depends on an OpenFOAM crate*.
+   compressible PIMPLE pipe solver built on the OpenFOAM `FvMesh`,
+   fields, and FV operators (via `create_one_d_mesh`). Those primitives
+   could either come from a dependency on an OpenFOAM crate, or — as
+   actually built, see "Current choice" below — from a copy vendored
+   inside this crate.
 
 Both can be true **without a dependency cycle**, but only if the edges are
 drawn carefully. Cargo forbids cyclic `[dependencies]` between crates, so this
 is a hard constraint, not a style preference.
 
-### The current graph (a clean DAG)
+### The graph as designed (a clean DAG)
+
+The dependency-cycle analysis below was written assuming the edge
+`tampines-steam-tables → outram-foam-basic-lib`:
 
 ```
 outram-foam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operators)
@@ -189,9 +296,15 @@ outram-foam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operato
    └────────────────────────────  tampines-steam-tables     (+ tuas)
 ```
 
-Every arrow points **down** to `outram-foam-basic-lib`. `tampines-steam-tables`
-already depends on `outram-foam-basic-lib` (for `TampinesSteamArray`); nothing
-depends on `tampines-steam-tables` yet.
+Every arrow points **down** to `outram-foam-basic-lib`. **Note (verified
+against `Cargo.toml`, 2026-08-11): that edge was never actually drawn.**
+The OpenFOAM primitives `TampinesSteamArray` needs were instead **vendored
+in-crate** under `src/openfoam_algorithms/openfoam_source/` as
+`pub(crate)` modules (see "Current choice" below), so this crate's
+`[dependencies]` are only `approx`, `ndarray`, `thiserror`, `uom` — no
+`outram-foam-basic-lib`, and nothing depends on `tampines-steam-tables`
+from the OpenFOAM stack yet. The cycle analysis below still documents the
+constraint any future real dependency edge must respect.
 
 ### The invariant
 
@@ -293,18 +406,130 @@ declared in appbuilder, or the solver holding the steam table directly where it
 currently evaluates `ρ = ψ·p`.
 
 There is a deliberate symmetry: `TampinesSteamArray` (in TAMPINES) is a simpler
-1-D sibling of appbuilder's `RhoPimpleFoam`. The array is validated against
-Marviken in-crate; the full solver in appbuilder then consumes the *same* tables
-one layer up.
+1-D sibling of appbuilder's `RhoPimpleFoam`. The array is *intended* to be
+validated against Marviken in-crate. **That validation is still outstanding for
+`TampinesSteamArray` itself** — what landed on 2026-08-11 (bead `op-21g.16`) is
+the Marviken comparison for the *steady HEM critical-flow* dispatcher, not for
+the transient array solver. Its outcome is split and is written up in the module
+doc of `marviken_tests.rs`: HEM validates against test 23 (3 K subcooling, mean
+deviation 12.6 %) and **fails** against test 24 (33 K subcooling, mean
+$-48.5\%$), with the deficit traced to a solver branch choice rather than to the
+equilibrium assumption. The full solver in appbuilder then consumes the *same*
+tables one layer up.
 
-**Current choice:** Solution **A** realised at the `outram-foam-appbuilder-lib`
-level, with **B** for the thermo model and **D** available if the property-only
-compile surface ever needs trimming. `tampines-steam-tables` depends only on
-`outram-foam-basic-lib`; the forbidden `outram-foam-basic-lib → tampines` edge is
-never drawn.
+**Current choice (what was actually built, verified against `Cargo.toml`
+2026-08-11):** none of A–D exactly. Instead of depending on
+`outram-foam-basic-lib`, the needed Layers 1–4 primitives (fields, mesh, FV
+operators, LDU matrix, interpolation, thermophysics kernels, …) were
+**vendored into this crate** as a copy under
+`src/openfoam_algorithms/openfoam_source/`, kept `pub(crate)` so none of it
+leaks into the public API. This crate's `[dependencies]` are therefore only
+`approx`, `ndarray`, `thiserror`, `uom` — property-only consumers get a lean
+crate with no OpenFOAM dependency (the outcome Solution **D** aimed for),
+while `TampinesSteamArray` still builds on OpenFOAM-style primitives
+in-crate. The forbidden `outram-foam-basic-lib → tampines` edge is never
+drawn, and in fact no dependency edge exists between the two crates in
+either direction; Solutions **A**/**B** remain the plan for wiring the
+steam tables into `outram-foam-appbuilder-lib`-level solvers.
 
 
 # Changelog
+
+v0.2.9 — mean-flow stage-by-stage turbine model (patch, additive)
+
+Adds `steam_turbine_equations::mean_flow_stages`, which resolves a steam
+turbine into stages along the mean streamline with **one homogeneous-
+equilibrium control volume per stage** (bead `op-yi7m`, gh:#164). Purely
+additive: no existing signature changes, and the 982 pre-existing library tests
+are untouched.
+
+- **Every stage is both impulse and reaction**, solved in two parts in the order
+  they physically happen. The blade first turns the relative flow at constant
+  relative speed, and the tangential momentum removed is work by the Euler
+  equation on the velocity triangle. The rotor passage then acts as a nozzle,
+  because its exit pressure is below its inlet pressure, and the blade row
+  develops lift from that acceleration. `StageWorkSplit` reports the two
+  contributions separately, and both terms are public so a unit test can
+  exercise either mechanism on its own.
+- **The split does not double count.** The lift term is driven by the velocity
+  increment the rotor pressure drop produced, `dw = sqrt(w2^2 + 2 dh_rotor) -
+  w2`, not by the full relative velocity. A rotor with no pressure drop
+  therefore has no reaction part and reduces exactly to the classical impulse
+  stage — asserted, not assumed.
+- **Stage pressures are supplied, not derived** from an assumed degree of
+  reaction. Splitting an enthalpy drop by reaction would need an `(h,s)` flash,
+  whose gaps at the triple point and at 1000 bar are recorded in this crate's
+  `CLAUDE.md`. Supplying pressures keeps every stage on the validated `(p,s)`
+  and `(p,h)` paths; the degree of reaction is *reported* from the kinematics
+  instead of prescribed.
+- **Angle convention:** angles are measured from **axial**, not from
+  tangential. The classical optimum blade-speed ratio therefore reads
+  `U/c1 = sin(alpha1)/2` here rather than the textbook `cos(alpha1)/2`. Same
+  physics, and the test sweeps it numerically rather than asserting the formula.
+- **14 tests plus one `#[ignore]`d diagnostic**, following this crate's existing
+  diagnostic pattern. They anchor on closed-form turbomachinery results rather
+  than on the model's own output: symmetric-impulse work `2U(c_th1 - U)`, its
+  optimum blade-speed ratio, the vanishing reaction term at zero rotor drop,
+  energy conservation through the control-volume chain, and reheat appearing as
+  staged isentropic drops summing above the single-step drop.
+- **Worked machine.** Eight stages, 40 bar / 400 degC admission, 0.35 bar
+  exhaust: 702 kJ/kg total work, stage efficiency rising 0.674 to 0.765,
+  reaction fraction rising 0.359 to 0.427 toward the LP end, moisture first
+  appearing at stage 6, exhaust quality 0.949. The wetness is not imposed — it
+  falls out of the equilibrium flashes.
+- **Scope.** Mean-line only: no radial equilibrium, no spanwise variation, no
+  tip leakage. The equilibrium assumption is inherited from the flashes, so
+  supersaturation and droplet lag in the wet stages are outside it, exactly as
+  they are for the rest of this crate's HEM work. Stage pressures are not solved
+  from a mass-flow match.
+
+## Transient variant — `mean_flow_stages::transient`
+
+The same stage chain driven in time by the crate's **1-D HEM KNP hybrid
+solver** (`TampinesSteamArray` in `SolverMode::HybridAllMach`), meshed **one
+cell per stage**. What the steady model is told, the solver now owns:
+
+- **Pressure is solved**, from the boundary conditions, rather than supplied
+  per stage.
+- **Axial velocity is solved**, so the velocity triangle is built on the
+  momentum equation's own answer instead of on an assumed nozzle enthalpy drop.
+  That is what makes the model transient rather than a design-point one.
+- **The work leaves through the energy equation.** Each stage's specific work
+  becomes a power from the local mass flux and is registered as a negative
+  per-cell power source, so the shaft work is an energy sink the solver sees.
+
+The KNP hybrid is selected by the constructor rather than inherited: turbine
+passages run near-sonic at the nozzle throats and the last stages expand into
+the dome, which is the regime the plain pressure-based path rings in. The mode
+is public, so the historical bit-identical `Pimple` path is still reachable.
+
+Because pressure is solved, there is no interstage station to read a degree of
+reaction off, so the rotor's share of the local drop is a per-stage input
+(`rotor_drop_fraction`). Zero reproduces the pure impulse stage, and that limit
+is asserted through the solver as well as in the steady model.
+
+### The shaft is closed-loop
+
+Shaft speed is **not** an input. Each stage's tangential momentum change becomes
+a torque, the torques sum, and `ThreePhaseElectricGeneratorTurbine` advances the
+rotor against the electrical braking of its own load. The next timestep's
+velocity triangles are built at the new speed, so steam, shaft and load are
+coupled and the machine can spin up, coast down and answer a load change.
+
+Torque is built from tangential momentum, `T = mdot * r * dc_theta`, and **not**
+by dividing shaft power by shaft speed. The difference matters at exactly one
+point and it is the important one: at standstill the blade speed is zero, so the
+work is zero, but the tangential momentum change is not. That is a turbine's
+starting torque. Recovering torque from power would give `0/0` there and the
+machine could never start. `VelocityTriangle::tangential_velocity_change` and
+`RotorBlading::reaction_tangential_velocity_change` exist to keep that quantity
+separate from the work for both mechanisms.
+
+**Still assumed:** the annulus is uniform, which is the mean-line assumption
+showing up in the mesh.
+
+Suite after this change: **1009 passed, 0 failed, 14 ignored**
+(`cargo test --release --lib`).
 
 v0.2.4 — `HybridAllMach` stabilised over the full transient (patch)
 

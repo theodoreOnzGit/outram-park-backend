@@ -326,10 +326,9 @@ pub fn interp_xs_gpu(
     });
 
     // --- Dispatch -------------------------------------------------------------
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("xs_interp.encoder"),
-        });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("xs_interp.encoder"),
+    });
     {
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("xs_interp.pass"),
@@ -349,11 +348,11 @@ pub fn interp_xs_gpu(
         res.unwrap();
     });
     // Block until the GPU has finished and the map callback has fired.
-    device
-        .poll(wgpu::PollType::wait_indefinitely())
-        .unwrap();
+    device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
 
-    let view = slice.get_mapped_range();
+    let view = slice
+        .get_mapped_range()
+        .expect("staging buffer mapping failed after a completed poll");
     let out = bytes_to_f32_vec(&view, n_query);
     drop(view);
     staging_buf.unmap();
@@ -364,6 +363,9 @@ pub fn interp_xs_gpu(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // The GPU kernels themselves are f32 and call std's f32 maths; only the
+    // f64 reference solutions in these tests use the routed f64 maths.
+    use crate::mathf::RealMath;
 
     /// V&V (CPU reference, analytical): linear interpolation on a uniform grid.
     ///
@@ -388,7 +390,7 @@ mod tests {
 
         let queries = [
             0.0, 1.0, 2.0, 3.0, 4.0, // grid points
-            0.5, 1.5, 2.5, 3.5, // midpoints
+            0.5, 1.5, 2.5, 3.5,  // midpoints
             -0.5, // out of range below -> extrapolate
             5.5,  // out of range above -> extrapolate
         ];
@@ -396,10 +398,7 @@ mod tests {
 
         for (&q, &got) in queries.iter().zip(out.iter()) {
             let want = f(q);
-            assert!(
-                (got - want).abs() < 1e-12,
-                "q={q}: got {got}, want {want}"
-            );
+            assert!((got - want).abs() < 1e-12, "q={q}: got {got}, want {want}");
         }
         // Spell out the two documented out-of-range clamps explicitly.
         assert!((out[9] - 0.0).abs() < 1e-12, "below-range extrapolation");
@@ -478,19 +477,19 @@ mod tests {
         let n_grid = 256usize;
         let e_lo = 1e-3f64;
         let e_hi = 2e7f64;
-        let log_lo = e_lo.log10();
-        let log_hi = e_hi.log10();
+        let log_lo = e_lo.r_log10();
+        let log_hi = e_hi.r_log10();
         let grid_f64: Vec<f64> = (0..n_grid)
             .map(|i| {
                 let t = i as f64 / (n_grid - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo))
+                10f64.r_powf(log_lo + t * (log_hi - log_lo))
             })
             .collect();
 
         // Smooth synthetic sigma(E): slowing-down trend + a bump near 1 keV.
         let sigma_of = |e: f64| {
-            let l = e.log10();
-            100.0 / e.sqrt() + 5.0 * (-(l - 3.0).powi(2)).exp()
+            let l = e.r_log10();
+            100.0 / e.sqrt() + 5.0 * (-(l - 3.0).powi(2)).r_exp()
         };
         let sigma_f64: Vec<f64> = grid_f64.iter().map(|&e| sigma_of(e)).collect();
 
@@ -500,7 +499,7 @@ mod tests {
         let mut queries_f64: Vec<f64> = (0..n_query)
             .map(|i| {
                 let t = i as f64 / (n_query - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo))
+                10f64.r_powf(log_lo + t * (log_hi - log_lo))
             })
             .collect();
         queries_f64.push(grid_f64[0]);

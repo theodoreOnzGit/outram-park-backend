@@ -5,8 +5,7 @@
 //! range for colour mapping, the same pattern
 //! [`crate::components::pipe::PipeVisual`] uses for [`tampines::components::Pipe`].
 
-use crate::color_maps::hot_to_cold_colour_mark_1;
-use crate::components::hotness_from_temperature;
+use crate::components::temperature_colour;
 use egui::{Color32, Pos2, Rect, Response, Sense, Ui, Vec2, Widget};
 use nee_soon::NordheimFuchsExactTimestepper;
 use uom::si::f64::ThermodynamicTemperature;
@@ -25,7 +24,7 @@ pub struct ReactorVesselVisual {
     /// On-screen size.
     pub screen_vector: Vec2,
     /// Fuel temperature mapped to
-    /// [`crate::color_maps::hot_to_cold_colour_mark_1`]'s `hotness = 0.0`
+    /// the coldest displayable colour (`hotness = 0.0`)
     /// (coldest displayable colour).
     pub min_temp: ThermodynamicTemperature,
     /// Fuel temperature mapped to `hotness = 1.0` (hottest displayable
@@ -59,21 +58,21 @@ impl ReactorVesselVisual {
 
 impl Widget for ReactorVesselVisual {
     /// Renders the vessel as a rectangle filled by the lumped fuel
-    /// temperature's hotness (via [`hot_to_cold_colour_mark_1`]), outlined in
+    /// temperature (via [`crate::components::temperature_colour`]), outlined in
     /// a neutral stroke so the vessel boundary stays readable at every fill
     /// colour.
     fn ui(self, ui: &mut Ui) -> Response {
         let rect = Rect::from_center_size(self.screen_position, self.screen_vector);
         let response = ui.allocate_rect(rect, Sense::hover());
 
-        let hotness =
-            hotness_from_temperature(self.physics.fuel_temperature, self.min_temp, self.max_temp);
+        let colour =
+            temperature_colour(self.physics.fuel_temperature, self.min_temp, self.max_temp);
         let painter = ui.painter();
-        painter.rect_filled(rect, 2.0, hot_to_cold_colour_mark_1(hotness));
+        painter.rect_filled(rect, 2.0, colour);
         painter.rect_stroke(
             rect,
             2.0,
-            egui::Stroke::new(2.0, Color32::DARK_GRAY),
+            egui::Stroke::new(2.0_f32, Color32::DARK_GRAY),
             egui::StrokeKind::Middle,
         );
         response
@@ -83,6 +82,7 @@ impl Widget for ReactorVesselVisual {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::hotness_from_temperature;
     use uom::si::thermodynamic_temperature::kelvin;
 
     #[test]

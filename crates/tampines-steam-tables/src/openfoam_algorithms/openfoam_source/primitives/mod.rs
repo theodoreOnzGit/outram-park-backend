@@ -39,9 +39,7 @@ pub mod tensor;
 /// 3-component vector — see [`Vector3`].
 pub mod vector;
 
-pub use scalar::{
-    Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL,
-};
+pub use scalar::{Label, Scalar, GREAT, ROOT_GREAT, ROOT_SMALL, ROOT_VSMALL, SMALL, VGREAT, VSMALL};
 pub use spherical_tensor::SphericalTensor;
 pub use symm_tensor::SymmTensor;
 pub use tensor::Tensor;

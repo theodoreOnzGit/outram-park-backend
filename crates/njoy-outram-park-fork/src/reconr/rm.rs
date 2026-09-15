@@ -60,7 +60,9 @@ fn thrinv(d: &mut [[f64; 3]; 3]) -> bool {
     }
     for lr in 0..3 {
         let fooey = 1.0 - d[lr][lr];
-        if fooey == 0.0 { return false; }
+        if fooey == 0.0 {
+            return false;
+        }
         d[lr][lr] = 1.0 / fooey;
         let mut s = [0.0f64; 3];
         for j in 0..3 {
@@ -104,17 +106,25 @@ fn mat_mul_3x3(a: &[[f64; 3]; 3], b: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
 /// physical resonance parameters).
 fn frobns(mut a: [[f64; 3]; 3], b: [[f64; 3]; 3]) -> ([[f64; 3]; 3], [[f64; 3]; 3]) {
     let a_orig = a;
-    if !thrinv(&mut a) { return ([[0.0; 3]; 3], [[0.0; 3]; 3]); }
-    let q     = mat_mul_3x3(&a, &b);
+    if !thrinv(&mut a) {
+        return ([[0.0; 3]; 3], [[0.0; 3]; 3]);
+    }
+    let q = mat_mul_3x3(&a, &b);
     let d_tmp = mat_mul_3x3(&b, &q);
     let mut c_mat = a_orig;
     for i in 0..3 {
-        for j in 0..3 { c_mat[i][j] += d_tmp[i][j]; }
+        for j in 0..3 {
+            c_mat[i][j] += d_tmp[i][j];
+        }
     }
-    if !thrinv(&mut c_mat) { return ([[0.0; 3]; 3], [[0.0; 3]; 3]); }
+    if !thrinv(&mut c_mat) {
+        return ([[0.0; 3]; 3], [[0.0; 3]; 3]);
+    }
     let mut d_mat = mat_mul_3x3(&q, &c_mat);
     for i in 0..3 {
-        for j in 0..3 { d_mat[i][j] = -d_mat[i][j]; }
+        for j in 0..3 {
+            d_mat[i][j] = -d_mat[i][j];
+        }
     }
     (c_mat, d_mat)
 }
@@ -140,18 +150,38 @@ fn kkkkkk_code(
     match kchanl {
         1 => {
             if kpstv > 0 {
-                if kngtv == 0 { if interior { 2 } else { 1 } } else { 1 }
+                if kngtv == 0 {
+                    if interior {
+                        2
+                    } else {
+                        1
+                    }
+                } else {
+                    1
+                }
             } else if kngtv == 0 {
-                if interior { 2 } else { 1 }
+                if interior {
+                    2
+                } else {
+                    1
+                }
             } else {
                 0
             }
         }
         2 => {
             if kpstv > 0 {
-                if kngtv > 0 { 1 } else { 0 }
+                if kngtv > 0 {
+                    1
+                } else {
+                    0
+                }
             } else if kngtv > 0 {
-                if interior { 2 } else { 1 }
+                if interior {
+                    2
+                } else {
+                    1
+                }
             } else {
                 0
             }
@@ -178,35 +208,41 @@ fn kkkkkk_code(
 ///
 /// Returns [`RmSigmas`] with total/elastic/fission/capture in barns.
 pub fn eval_rm_lstate(e: f64, ls: &RmLState, ap: f64, spi: f64, naps: i32) -> RmSigmas {
-    if e <= 0.0 { return RmSigmas::default(); }
+    if e <= 0.0 {
+        return RmSigmas::default();
+    }
 
     let awri = ls.awri;
-    let apl  = ls.apl;
-    let ll   = ls.l;
+    let apl = ls.apl;
+    let ll = ls.l;
 
     let arat = awri / (awri + 1.0);
 
     // Channel radii
-    let ra   = channel_radius(awri, naps, ap);
+    let ra = channel_radius(awri, naps, ap);
     let ra_l = if apl != 0.0 && naps == 1 { apl } else { ra };
     let ap_c = if apl != 0.0 { apl } else { ap };
 
-    let k      = WAVE_K * arat * e.sqrt();
-    let pifac  = PI / (k * k);
-    let rho    = k * ra_l;
-    let rhoc   = k * ap_c;
+    let k = WAVE_K * arat * e.sqrt();
+    let pifac = PI / (k * k);
+    let rho = k * ra_l;
+    let rhoc = k * ap_c;
 
     let (_, pe) = shift_and_penetrability(ll, rho);
-    let phi     = phase_shift(ll, rhoc);
-    let p1      = (2.0 * phi).cos();
-    let p2      = (2.0 * phi).sin();
+    let phi = phase_shift(ll, rhoc);
+    let p1 = (2.0 * phi).cos();
+    let p2 = (2.0 * phi).sin();
 
     // J-value range for this l-state
-    let fl    = ll as f64;
+    let fl = ll as f64;
     let ajmin = ((spi - fl).abs() - 0.5).abs();
     let ajmax = spi + fl + 0.5;
-    let numj  = (ajmax - ajmin + 1.0).round() as usize;
-    let jjl   = if ll != 0 && fl > spi - 0.5 && fl <= spi { 0usize } else { 1 };
+    let numj = (ajmax - ajmin + 1.0).round() as usize;
+    let jjl = if ll != 0 && fl > spi - 0.5 && fl <= spi {
+        0usize
+    } else {
+        1
+    };
 
     let gjd = 2.0 * (2.0 * spi + 1.0);
 
@@ -227,69 +263,102 @@ pub fn eval_rm_lstate(e: f64, ls: &RmLState, ap: f64, spi: f64, naps: i32) -> Rm
 
             for res in &ls.resonances {
                 let aj_abs = res.aj.abs();
-                if (aj_abs - ajc).abs() > 0.25 { continue; }
+                if (aj_abs - ajc).abs() > 0.25 {
+                    continue;
+                }
 
-                if res.aj > 0.0 { kpstv += 1; } else { kngtv += 1; }
-                if kchanl == 1 && res.aj < 0.0 { continue; }
-                if kchanl == 2 && res.aj > 0.0 { continue; }
+                if res.aj > 0.0 {
+                    kpstv += 1;
+                } else {
+                    kngtv += 1;
+                }
+                if kchanl == 1 && res.aj < 0.0 {
+                    continue;
+                }
+                if kchanl == 2 && res.aj > 0.0 {
+                    continue;
+                }
 
                 let rho_r = WAVE_K * arat * res.er.abs().sqrt() * ra_l;
                 let (_, per) = shift_and_penetrability(ll, rho_r);
                 let per = per.max(1e-30);
 
                 let a1 = (res.gn * pe / per).max(0.0).sqrt();
-                let a2 = if res.gfa != 0.0 { res.gfa.abs().sqrt().copysign(res.gfa) } else { 0.0 };
-                let a3 = if res.gfb != 0.0 { res.gfb.abs().sqrt().copysign(res.gfb) } else { 0.0 };
+                let a2 = if res.gfa != 0.0 {
+                    res.gfa.abs().sqrt().copysign(res.gfa)
+                } else {
+                    0.0
+                };
+                let a3 = if res.gfb != 0.0 {
+                    res.gfb.abs().sqrt().copysign(res.gfb)
+                } else {
+                    0.0
+                };
 
                 let diff = res.er - e;
-                let den  = diff * diff + 0.25 * res.gg * res.gg;
-                if den < 1e-60 { continue; }
+                let den = diff * diff + 0.25 * res.gg * res.gg;
+                if den < 1e-60 {
+                    continue;
+                }
 
-                let de2 = 0.5  * diff / den;
+                let de2 = 0.5 * diff / den;
                 let gg4 = 0.25 * res.gg / den;
 
                 r[0][0] += gg4 * a1 * a1;
                 s[0][0] -= de2 * a1 * a1;
 
                 if res.gfa != 0.0 || res.gfb != 0.0 {
-                    r[0][1] += gg4 * a1 * a2;  s[0][1] -= de2 * a1 * a2;
-                    r[0][2] += gg4 * a1 * a3;  s[0][2] -= de2 * a1 * a3;
-                    r[1][1] += gg4 * a2 * a2;  s[1][1] -= de2 * a2 * a2;
-                    r[2][2] += gg4 * a3 * a3;  s[2][2] -= de2 * a3 * a3;
-                    r[1][2] += gg4 * a2 * a3;  s[1][2] -= de2 * a2 * a3;
+                    r[0][1] += gg4 * a1 * a2;
+                    s[0][1] -= de2 * a1 * a2;
+                    r[0][2] += gg4 * a1 * a3;
+                    s[0][2] -= de2 * a1 * a3;
+                    r[1][1] += gg4 * a2 * a2;
+                    s[1][1] -= de2 * a2 * a2;
+                    r[2][2] += gg4 * a3 * a3;
+                    s[2][2] -= de2 * a3 * a3;
+                    r[1][2] += gg4 * a2 * a3;
+                    s[1][2] -= de2 * a2 * a3;
                     has_fission = true;
                 }
             }
 
             let kkk = kkkkkk_code(kchanl, kpstv, kngtv, jj, jjl, numj);
-            if kkk == 0 { continue; }
+            if kkk == 0 {
+                continue;
+            }
 
             let (termt, termn, termf);
 
             if has_fission {
                 // 3×3 matrix path
-                r[0][0] += 1.0;  r[1][1] += 1.0;  r[2][2] += 1.0;
-                r[1][0] = r[0][1];  s[1][0] = s[0][1];
-                r[2][0] = r[0][2];  s[2][0] = s[0][2];
-                r[2][1] = r[1][2];  s[2][1] = s[1][2];
+                r[0][0] += 1.0;
+                r[1][1] += 1.0;
+                r[2][2] += 1.0;
+                r[1][0] = r[0][1];
+                s[1][0] = s[0][1];
+                r[2][0] = r[0][2];
+                s[2][0] = s[0][2];
+                r[2][1] = r[1][2];
+                s[2][1] = s[1][2];
 
                 let (ri, si) = frobns(r, s);
-                termf = 4.0 * gj * (ri[0][1].powi(2) + si[0][1].powi(2)
-                                  + ri[0][2].powi(2) + si[0][2].powi(2));
+                termf = 4.0
+                    * gj
+                    * (ri[0][1].powi(2) + si[0][1].powi(2) + ri[0][2].powi(2) + si[0][2].powi(2));
                 let u11r = p1 * (2.0 * ri[0][0] - 1.0) + 2.0 * p2 * si[0][0];
                 let u11i = p2 * (1.0 - 2.0 * ri[0][0]) + 2.0 * p1 * si[0][0];
-                termt    = 2.0 * gj * (1.0 - u11r);
-                termn    = gj * ((1.0 - u11r).powi(2) + u11i.powi(2));
+                termt = 2.0 * gj * (1.0 - u11r);
+                termn = gj * ((1.0 - u11r).powi(2) + u11i.powi(2));
             } else {
                 // Scalar path (no fission)
-                let dd   = r[0][0];
-                let rr   = 1.0 + dd;
-                let ss   = s[0][0];
+                let dd = r[0][0];
+                let rr = 1.0 + dd;
+                let ss = s[0][0];
                 let amag = rr * rr + ss * ss;
-                let rri  = rr / amag;
-                let ssi  = -ss / amag;
-                let uur  = p1 * (2.0 * rri - 1.0) + 2.0 * p2 * ssi;
-                let uui  = p2 * (1.0 - 2.0 * rri) + 2.0 * p1 * ssi;
+                let rri = rr / amag;
+                let ssi = -ss / amag;
+                let uur = p1 * (2.0 * rri - 1.0) + 2.0 * p2 * ssi;
+                let uui = p2 * (1.0 - 2.0 * rri) + 2.0 * p1 * ssi;
 
                 const SMALL: f64 = 3.0e-4;
                 if dd.abs() < SMALL && phi.abs() < SMALL {
@@ -313,14 +382,14 @@ pub fn eval_rm_lstate(e: f64, ls: &RmLState, ap: f64, spi: f64, naps: i32) -> Rm
             };
 
             let termg = termt - termf - termn;
-            out.total   += termt;
+            out.total += termt;
             out.elastic += termn;
             out.fission += termf;
             out.capture += termg;
         }
     }
 
-    out.total   *= pifac;
+    out.total *= pifac;
     out.elastic *= pifac;
     out.fission *= pifac;
     out.capture *= pifac;
@@ -335,9 +404,16 @@ mod tests {
     #[test]
     fn rm_non_fissile_scalar_path() {
         let ls = RmLState {
-            awri: 36.6, apl: 0.0, l: 0,
+            awri: 36.6,
+            apl: 0.0,
+            l: 0,
             resonances: vec![RmResonance {
-                er: 1000.0, aj: 2.0, gn: 10.0, gg: 1.0, gfa: 0.0, gfb: 0.0,
+                er: 1000.0,
+                aj: 2.0,
+                gn: 10.0,
+                gg: 1.0,
+                gfa: 0.0,
+                gfb: 0.0,
             }],
         };
         let s = eval_rm_lstate(1000.0, &ls, 0.338, 1.5, 1);
@@ -349,9 +425,16 @@ mod tests {
     #[test]
     fn rm_fissile_matrix_path() {
         let ls = RmLState {
-            awri: 235.0, apl: 0.0, l: 0,
+            awri: 235.0,
+            apl: 0.0,
+            l: 0,
             resonances: vec![RmResonance {
-                er: 0.3, aj: 3.0, gn: 0.001, gg: 0.04, gfa: 0.05, gfb: 0.0,
+                er: 0.3,
+                aj: 3.0,
+                gn: 0.001,
+                gg: 0.04,
+                gfa: 0.05,
+                gfb: 0.0,
             }],
         };
         let s = eval_rm_lstate(0.3, &ls, 0.9, 3.5, 1);

@@ -36,10 +36,12 @@
 //!
 //! ## Honest scope
 //!
-//! The fluid **thermophysical package** (`he <-> T`, `rho(p,T)`) is still a
-//! scaffold in [`super::super::thermophysical`], so this driver runs with
-//! **constant fluid properties** supplied on the [`Fluid`] fields (`rho`, `mu`,
-//! `Cp`, `kappa`) and treats the enthalpy as `he = Cp * T` about `T = 0`. That
+//! This driver runs with **constant fluid properties** supplied on the
+//! [`Fluid`] fields (`rho`, `mu`, `Cp`, `kappa`) and treats the enthalpy as
+//! `he = Cp * T` about `T = 0`. The reason is wiring, not absence: the bespoke
+//! hydrogen thermophysical package in [`super::super::thermophysical`] *is*
+//! ported (EOS, thermodynamics, viscosity, conductivity), but this driver does
+//! not yet call it as its `he <-> T` / `rho(p,T)` package. That
 //! is sufficient for the incompressible porous momentum/energy physics that is
 //! the ported slice's purpose (friction pressure drop, structure heat coupling)
 //! and is what the V&V exercises. The structure side is wired as a

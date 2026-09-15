@@ -1,0 +1,8 @@
+default_job = "release-test"
+
+[jobs.release-check]
+command = ["cargo", "check", "--release"]
+
+[jobs.release-test]
+command = ["cargo", "test", "--release"]
+need_stdout = true

@@ -59,8 +59,7 @@ impl CIETApp {
         // slider leaves the value bit-identical, and a moved one does not.
         let snapshot_heater_power_kilowatts = ciet_state_local.heater_power_kilowatts;
         let snapshot_ctah_pump_pressure_pascals = ciet_state_local.ctah_pump_pressure_pascals;
-        let snapshot_steady_state_power_kw =
-            ciet_state_local.heater_control.steady_state_power_kw;
+        let snapshot_steady_state_power_kw = ciet_state_local.heater_control.steady_state_power_kw;
 
         // time display and timestep settings
         let sim_time_seconds = ciet_state_local.simulation_time_seconds;
@@ -1055,15 +1054,13 @@ impl CIETApp {
         let pump_pressure_moved =
             ciet_state_local.ctah_pump_pressure_pascals != snapshot_ctah_pump_pressure_pascals;
         let steady_state_power_moved =
-            ciet_state_local.heater_control.steady_state_power_kw
-                != snapshot_steady_state_power_kw;
+            ciet_state_local.heater_control.steady_state_power_kw != snapshot_steady_state_power_kw;
 
         if heater_power_moved || pump_pressure_moved || steady_state_power_moved {
             let mut shared_ciet_state = self.ciet_state.write().unwrap();
 
             if heater_power_moved {
-                shared_ciet_state.heater_power_kilowatts =
-                    ciet_state_local.heater_power_kilowatts;
+                shared_ciet_state.heater_power_kilowatts = ciet_state_local.heater_power_kilowatts;
             }
             if pump_pressure_moved {
                 shared_ciet_state.ctah_pump_pressure_pascals =

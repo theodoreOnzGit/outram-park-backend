@@ -41,33 +41,67 @@ pub struct PolynomialTransport<T: ThermoModel, const N: usize> {
 
 impl<T: ThermoModel, const N: usize> PolynomialTransport<T, N> {
     pub fn new(thermo: T, mu_poly: Polynomial<N>, kappa_poly: Polynomial<N>) -> Self {
-        Self { thermo, mu_poly, kappa_poly }
+        Self {
+            thermo,
+            mu_poly,
+            kappa_poly,
+        }
     }
 }
 
 // --- EquationOfState delegation ---
 
 impl<T: ThermoModel, const N: usize> EquationOfState for PolynomialTransport<T, N> {
-    fn mol_weight(&self) -> MolarMass                    { self.thermo.mol_weight() }
-    fn r(&self) -> SpecificHeatCapacity                  { self.thermo.r() }
-    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { self.thermo.rho(p, t) }
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { self.thermo.psi(p, t) }
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { self.thermo.z(p, t) }
-    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_m_cv(p, t) }
-    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp_eos(p, t) }
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.h_eos(p, t) }
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.e_eos(p, t) }
-    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s_eos(p, t) }
+    fn mol_weight(&self) -> MolarMass {
+        self.thermo.mol_weight()
+    }
+    fn r(&self) -> SpecificHeatCapacity {
+        self.thermo.r()
+    }
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        self.thermo.rho(p, t)
+    }
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        self.thermo.psi(p, t)
+    }
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        self.thermo.z(p, t)
+    }
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_m_cv(p, t)
+    }
+    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp_eos(p, t)
+    }
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.h_eos(p, t)
+    }
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.e_eos(p, t)
+    }
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s_eos(p, t)
+    }
 }
 
 // --- ThermoModel delegation ---
 
 impl<T: ThermoModel, const N: usize> ThermoModel for PolynomialTransport<T, N> {
-    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.cp(p, t) }
-    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.ha(p, t) }
-    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.thermo.hs(p, t) }
-    fn hc(&self) -> AvailableEnergy { self.thermo.hc() }
-    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.thermo.s(p, t) }
+    fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.cp(p, t)
+    }
+    fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.ha(p, t)
+    }
+    fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.thermo.hs(p, t)
+    }
+    fn hc(&self) -> AvailableEnergy {
+        self.thermo.hc()
+    }
+    fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.thermo.s(p, t)
+    }
 }
 
 // --- TransportModel ---

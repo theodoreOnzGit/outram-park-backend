@@ -112,9 +112,27 @@ impl<'a> SectionCursor<'a> {
         self.rows.len().saturating_sub(self.pos)
     }
 
+    /// Index of the next unread row (0-based within the section).
+    pub fn position(&self) -> usize {
+        self.pos
+    }
+
+    /// Skip `n` rows (an INTG block, whose lines are not six floats).
+    pub fn skip_rows(&mut self, n: usize) -> Result<(), NjoyError> {
+        if self.pos + n > self.rows.len() {
+            return Err(NjoyError::EndfParse(
+                "unexpected end of section data".into(),
+            ));
+        }
+        self.pos += n;
+        Ok(())
+    }
+
     fn next_row(&mut self) -> Result<&[f64; 6], NjoyError> {
         if self.pos >= self.rows.len() {
-            return Err(NjoyError::EndfParse("unexpected end of section data".into()));
+            return Err(NjoyError::EndfParse(
+                "unexpected end of section data".into(),
+            ));
         }
         let row = &self.rows[self.pos];
         self.pos += 1;
@@ -155,11 +173,12 @@ impl<'a> SectionCursor<'a> {
             .collect();
         // (x, y) pairs: 2*NP values packed 6 per row
         let xy_flat = read_pairs(self, 2 * np)?;
-        let pairs = xy_flat
-            .chunks(2)
-            .map(|c| (c[0], c[1]))
-            .collect();
-        Ok(Tab1 { head, interp, pairs })
+        let pairs = xy_flat.chunks(2).map(|c| (c[0], c[1])).collect();
+        Ok(Tab1 {
+            head,
+            interp,
+            pairs,
+        })
     }
 
     /// Read one TAB2 record (CONT + NR interp pairs only).

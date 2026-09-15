@@ -1,3 +1,5 @@
+use petir::mathf::RealMath;
+
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 use uom::si::ratio::ratio;
 use uom::si::f64::*;
@@ -59,12 +61,10 @@ const H3A_PRIME_S_BOUNDARY_EQN_COEFFS: [[f64; 3]; 19] = [
 
 /// this function represents the saturated liquid line
 /// for hs flashing between region 1 and region 4
-pub fn h1_prime_s_boundary_enthalpy(
-    s: SpecificHeatCapacity) -> AvailableEnergy {
-
+pub fn h1_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy {
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(3.8);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(1700.0);
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut eta: f64 = 0.0;
 
@@ -73,23 +73,18 @@ pub fn h1_prime_s_boundary_enthalpy(
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma - 1.09).powf(ii) * (sigma + 0.366e-4).powf(ji);
+        eta += ni * (sigma - 1.09).r_powf(ii) * (sigma + 0.366e-4).r_powf(ji);
     }
 
     return h_ref * eta;
-
 }
-
-
 
 /// this function represents the saturated liquid line
 /// for hs flashing between region 3a and region 4
-pub fn h3a_prime_s_boundary_enthalpy(
-    s: SpecificHeatCapacity) -> AvailableEnergy {
-
+pub fn h3a_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy {
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(3.8);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(1700.0);
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut eta: f64 = 0.0;
 
@@ -98,9 +93,8 @@ pub fn h3a_prime_s_boundary_enthalpy(
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma - 1.09).powf(ii) * (sigma + 0.366e-4).powf(ji);
+        eta += ni * (sigma - 1.09).r_powf(ii) * (sigma + 0.366e-4).r_powf(ji);
     }
 
     return h_ref * eta;
-
 }

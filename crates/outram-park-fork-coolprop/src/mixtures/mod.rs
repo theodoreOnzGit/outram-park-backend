@@ -134,7 +134,10 @@ impl Mixture {
         if (sum - 1.0).abs() > Self::SUM_TOLERANCE {
             return Err(MixtureError::UnnormalizedComposition);
         }
-        Ok(Self { components, mole_fractions })
+        Ok(Self {
+            components,
+            mole_fractions,
+        })
     }
 
     /// Composition-dependent reducing temperature `T_r(x)` \[K\].
@@ -161,7 +164,8 @@ impl Mixture {
         }
         for i in 0..self.components.len() {
             for j in (i + 1)..self.components.len() {
-                let Some(pair) = binary_pairs::lookup(self.components[i], self.components[j]) else {
+                let Some(pair) = binary_pairs::lookup(self.components[i], self.components[j])
+                else {
                     continue;
                 };
                 if pair.f_departure == 0.0 || pair.departure_terms.is_empty() {
@@ -189,7 +193,12 @@ impl Mixture {
     /// historical fitting artefact, not a physical constant that should be
     /// mixed).
     pub fn state_trho_molar(&self, t: f64, rho_molar: f64) -> Result<MixtureState, MixtureError> {
-        if self.components.is_empty() || self.mole_fractions.iter().any(|x| !x.is_finite() || *x < 0.0) {
+        if self.components.is_empty()
+            || self
+                .mole_fractions
+                .iter()
+                .any(|x| !x.is_finite() || *x < 0.0)
+        {
             return Err(MixtureError::MalformedComposition);
         }
         const R: f64 = 8.314472;
@@ -229,7 +238,12 @@ impl Mixture {
         let den = 1.0 + 2.0 * delta * res.ad + delta * delta * res.add;
         let cp = cv + R * num / den;
 
-        let m_bar: f64 = self.components.iter().zip(&self.mole_fractions).map(|(f, x)| x * f.eos().molar_mass).sum();
+        let m_bar: f64 = self
+            .components
+            .iter()
+            .zip(&self.mole_fractions)
+            .map(|(f, x)| x * f.eos().molar_mass)
+            .sum();
         let w2 = (R * t / m_bar) * (den - num / (tau * tau * (ide.att + res.att)));
         let speed_of_sound = if w2 > 0.0 { w2.sqrt() } else { f64::NAN };
 

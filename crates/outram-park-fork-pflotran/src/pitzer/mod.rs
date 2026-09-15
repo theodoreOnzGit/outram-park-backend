@@ -407,9 +407,18 @@ mod tests {
         let g01 = nacl.mean_activity_coefficient(0.1).unwrap();
         let g10 = nacl.mean_activity_coefficient(1.0).unwrap();
         let g30 = nacl.mean_activity_coefficient(3.0).unwrap();
-        assert!((g01 - 0.778).abs() < 0.01, "NaCl gamma_pm(0.1)={g01}, expected ~0.778");
-        assert!((g10 - 0.657).abs() < 0.01, "NaCl gamma_pm(1.0)={g10}, expected ~0.657");
-        assert!((g30 - 0.714).abs() < 0.01, "NaCl gamma_pm(3.0)={g30}, expected ~0.714");
+        assert!(
+            (g01 - 0.778).abs() < 0.01,
+            "NaCl gamma_pm(0.1)={g01}, expected ~0.778"
+        );
+        assert!(
+            (g10 - 0.657).abs() < 0.01,
+            "NaCl gamma_pm(1.0)={g10}, expected ~0.657"
+        );
+        assert!(
+            (g30 - 0.714).abs() < 0.01,
+            "NaCl gamma_pm(3.0)={g30}, expected ~0.714"
+        );
     }
 
     /// NaCl osmotic coefficient at m=1.0 vs Pitzer & Mayorga (1973):
@@ -417,7 +426,10 @@ mod tests {
     #[test]
     fn nacl_osmotic_coefficient_published() {
         let phi = PitzerBinaryParams::nacl().osmotic_coefficient(1.0).unwrap();
-        assert!((phi - 0.936).abs() < 0.01, "NaCl phi(1.0)={phi}, expected ~0.936");
+        assert!(
+            (phi - 0.936).abs() < 0.01,
+            "NaCl phi(1.0)={phi}, expected ~0.936"
+        );
     }
 
     /// CaCl2 exhibits the characteristic high-molality upturn: gamma_pm at
@@ -428,10 +440,16 @@ mod tests {
         let cacl2 = PitzerBinaryParams::cacl2();
         let g10 = cacl2.mean_activity_coefficient(1.0).unwrap();
         let g30 = cacl2.mean_activity_coefficient(3.0).unwrap();
-        assert!(g30 > g10, "CaCl2 upturn: gamma(3.0)={g30} should exceed gamma(1.0)={g10}");
+        assert!(
+            g30 > g10,
+            "CaCl2 upturn: gamma(3.0)={g30} should exceed gamma(1.0)={g10}"
+        );
         // And by m=3 it has risen back above unity (a hallmark the DH/Davies
         // models cannot reproduce).
-        assert!(g30 > 1.0, "CaCl2 gamma(3.0)={g30} should be > 1 (upturn past unity)");
+        assert!(
+            g30 > 1.0,
+            "CaCl2 gamma(3.0)={g30} should be > 1 (upturn past unity)"
+        );
     }
 
     /// Dilute limit: gamma_pm -> 1 and phi -> 1 as m -> 0 (Debye–Hückel
@@ -444,9 +462,15 @@ mod tests {
             assert_eq!(salt.osmotic_coefficient(0.0).unwrap(), 1.0);
             // Approaching zero: monotone toward unity from below.
             let g_tiny = salt.mean_activity_coefficient(1e-6).unwrap();
-            assert!(g_tiny < 1.0 && g_tiny > 0.99, "gamma(1e-6)={g_tiny} should be just under 1");
+            assert!(
+                g_tiny < 1.0 && g_tiny > 0.99,
+                "gamma(1e-6)={g_tiny} should be just under 1"
+            );
             let phi_tiny = salt.osmotic_coefficient(1e-6).unwrap();
-            assert!(phi_tiny < 1.0 && phi_tiny > 0.99, "phi(1e-6)={phi_tiny} should be just under 1");
+            assert!(
+                phi_tiny < 1.0 && phi_tiny > 0.99,
+                "phi(1e-6)={phi_tiny} should be just under 1"
+            );
         }
     }
 
@@ -458,7 +482,10 @@ mod tests {
         let g05 = nacl.mean_activity_coefficient(0.5).unwrap();
         let g10 = nacl.mean_activity_coefficient(1.0).unwrap();
         let g60 = nacl.mean_activity_coefficient(6.0).unwrap();
-        assert!(g10 < g05, "NaCl gamma should still be dropping from 0.5 to 1.0");
+        assert!(
+            g10 < g05,
+            "NaCl gamma should still be dropping from 0.5 to 1.0"
+        );
         assert!(g60 > g10, "NaCl gamma should have risen again by m=6");
     }
 

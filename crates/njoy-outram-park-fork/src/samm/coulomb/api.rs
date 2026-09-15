@@ -21,7 +21,14 @@ use super::steed::coulfg;
 /// paths (`coulfg`/`bigeta` convergence failures) are logged and fall
 /// through to a best-effort `coulx` retry, matching upstream's own
 /// fallback behavior.
-pub fn pspcou(rho: f64, lll: i32, eta: f64, ishift: i32, jdopha: bool, jdoder: bool) -> Option<CoulombPsp> {
+pub fn pspcou(
+    rho: f64,
+    lll: i32,
+    eta: f64,
+    ishift: i32,
+    jdopha: bool,
+    jdoder: bool,
+) -> Option<CoulombPsp> {
     if lll < 0 {
         return None;
     }
@@ -29,14 +36,38 @@ pub fn pspcou(rho: f64, lll: i32, eta: f64, ishift: i32, jdopha: bool, jdoder: b
     let llmax = lll + 2;
 
     let mut result = if rho < 1.02 {
-        coulx(eta, rho, lll, jdopha, jdoder, ishift).unwrap_or(CoulombPsp { p: 0.0, s: 0.0, dp: 0.0, sinphi: 0.0, cosphi: 1.0, dphi: 0.0, dshift: 0.0 })
+        coulx(eta, rho, lll, jdopha, jdoder, ishift).unwrap_or(CoulombPsp {
+            p: 0.0,
+            s: 0.0,
+            dp: 0.0,
+            sinphi: 0.0,
+            cosphi: 1.0,
+            dphi: 0.0,
+            dshift: 0.0,
+        })
     } else {
         let cf = coulfg(rho, eta, lll, llmax, jdopha, jdoder, ishift);
         if cf.ifail != 0 {
             log::warn!("samm pspcou: coulfg failed (ifail={}), falling back to coulx (rho={rho}, eta={eta}, lll={lll})", cf.ifail);
-            coulx(eta, rho, lll, jdopha, jdoder, ishift).unwrap_or(CoulombPsp { p: 0.0, s: 0.0, dp: 0.0, sinphi: 0.0, cosphi: 1.0, dphi: 0.0, dshift: 0.0 })
+            coulx(eta, rho, lll, jdopha, jdoder, ishift).unwrap_or(CoulombPsp {
+                p: 0.0,
+                s: 0.0,
+                dp: 0.0,
+                sinphi: 0.0,
+                cosphi: 1.0,
+                dphi: 0.0,
+                dshift: 0.0,
+            })
         } else {
-            CoulombPsp { p: cf.pcoul, s: cf.scoul, dp: cf.dpcoul, sinphi: cf.sinphi, cosphi: cf.cosphi, dphi: cf.dphi, dshift: 0.0 }
+            CoulombPsp {
+                p: cf.pcoul,
+                s: cf.scoul,
+                dp: cf.dpcoul,
+                sinphi: cf.sinphi,
+                cosphi: cf.cosphi,
+                dphi: cf.dphi,
+                dshift: 0.0,
+            }
         }
     };
 
@@ -98,21 +129,81 @@ pub fn pghcou(rho: f64, l: i32, bound: f64, ishift: i32, eta: f64, jdopha: bool)
     let hh = if hh_raw <= 1.0e-35 { 0.0 } else { hh_raw };
 
     if gg == 0.0 && hh == 0.0 {
-        return Some(Pghcou { g: 0.0, h: 0.0, p: 0.0, dp: 0.0, ds: 0.0, iffy: true, sinphi, cosphi, dphi });
+        return Some(Pghcou {
+            g: 0.0,
+            h: 0.0,
+            p: 0.0,
+            dp: 0.0,
+            ds: 0.0,
+            iffy: true,
+            sinphi,
+            cosphi,
+            dphi,
+        });
     }
     if hh == 0.0 {
-        return Some(Pghcou { g: 1.0 / gg, h: 0.0, p: 0.0, dp, ds, iffy: false, sinphi, cosphi, dphi });
+        return Some(Pghcou {
+            g: 1.0 / gg,
+            h: 0.0,
+            p: 0.0,
+            dp,
+            ds,
+            iffy: false,
+            sinphi,
+            cosphi,
+            dphi,
+        });
     }
     let p = hh;
     if gg == 0.0 {
-        return Some(Pghcou { g: 0.0, h: -1.0 / hh, p, dp, ds, iffy: false, sinphi, cosphi, dphi });
+        return Some(Pghcou {
+            g: 0.0,
+            h: -1.0 / hh,
+            p,
+            dp,
+            ds,
+            iffy: false,
+            sinphi,
+            cosphi,
+            dphi,
+        });
     }
     if hh + gg == hh {
-        return Some(Pghcou { g: (gg / hh) / hh, h: -1.0 / hh, p, dp, ds, iffy: false, sinphi, cosphi, dphi });
+        return Some(Pghcou {
+            g: (gg / hh) / hh,
+            h: -1.0 / hh,
+            p,
+            dp,
+            ds,
+            iffy: false,
+            sinphi,
+            cosphi,
+            dphi,
+        });
     }
     if hh + gg == gg {
-        return Some(Pghcou { g: 1.0 / gg, h: -(hh / gg) / gg, p, dp, ds, iffy: false, sinphi, cosphi, dphi });
+        return Some(Pghcou {
+            g: 1.0 / gg,
+            h: -(hh / gg) / gg,
+            p,
+            dp,
+            ds,
+            iffy: false,
+            sinphi,
+            cosphi,
+            dphi,
+        });
     }
     let d = hh * hh + gg * gg;
-    Some(Pghcou { g: gg / d, h: -hh / d, p, dp, ds, iffy: false, sinphi, cosphi, dphi })
+    Some(Pghcou {
+        g: gg / d,
+        h: -hh / d,
+        p,
+        dp,
+        ds,
+        iffy: false,
+        sinphi,
+        cosphi,
+        dphi,
+    })
 }

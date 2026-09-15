@@ -26,6 +26,26 @@ pub enum NjoyError {
     #[error("not yet ported from NJOY2016: {0}")]
     NotPorted(&'static str),
 
+    /// A thermal-scattering evaluation was queried at a temperature outside its
+    /// tabulated range (beyond the NJOY `rdelas` matching tolerance of
+    /// `T/1000 + 5` K), which would require extrapolating the scattering law.
+    /// All temperatures are in kelvin. The caller must either request a
+    /// temperature inside `[min_k, max_k]` (interpolation is supported there)
+    /// or use an evaluation that tabulates the desired temperature — this
+    /// error is never silently downgraded to a nearest-temperature snap.
+    #[error(
+        "requested thermal-scattering temperature {requested_k} K is outside the \
+         evaluation's tabulated range {min_k}–{max_k} K (extrapolation refused)"
+    )]
+    TemperatureOutOfRange {
+        /// The temperature the caller asked for \[K\].
+        requested_k: f64,
+        /// Lowest tabulated temperature \[K\].
+        min_k: f64,
+        /// Highest tabulated temperature \[K\].
+        max_k: f64,
+    },
+
     /// A Windowed-Multipole data file (MIT CRPG `WMP_Library` HDF5, or an
     /// embedded blob) was missing a dataset, had an unexpected shape, or could
     /// not be decoded.

@@ -7,7 +7,6 @@ use uom::si::available_energy::kilojoule_per_kilogram;
 /// correlations by pressure and the 2b/2c boundary `p_2b2c(h)`.
 #[inline]
 pub fn t_ph_2(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
-
     let p_ref = Pressure::new::<megapascal>(1.0);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(2000.0);
     let pi: f64 = (p / p_ref).into();
@@ -16,7 +15,9 @@ pub fn t_ph_2(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
 
     match p.get::<pascal>() {
         pres if (0.0..=4.0e6).contains(&pres) => t_ph_2a(pi, eta),
-        pres if (4.0e6..=100.0e6).contains(&pres) && pres < p_2b2c.get::<pascal>() => t_ph_2b(pi, eta),
+        pres if (4.0e6..=100.0e6).contains(&pres) && pres < p_2b2c.get::<pascal>() => {
+            t_ph_2b(pi, eta)
+        }
         _ => t_ph_2c(pi, eta),
     }
 }
@@ -25,33 +26,31 @@ pub fn t_ph_2(p: Pressure, h: AvailableEnergy) -> ThermodynamicTemperature {
 /// using dimensionless enthalpy eta
 #[inline]
 pub fn p_2b2c(h: AvailableEnergy) -> Pressure {
-
     let p_ref = Pressure::new::<megapascal>(1.0);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(1.0);
-    let eta: f64 = (h/h_ref).into();
+    let eta: f64 = (h / h_ref).into();
     let n1 = 0.90584278514723e3;
     let n2 = -0.67955786399241;
     let n3 = 0.12809002730136e-3;
-    let p_2b2c = (n1 +  n2 * eta +  n3 * eta.powi(2)) * p_ref;
+    let p_2b2c = (n1 + n2 * eta + n3 * eta.powi(2)) * p_ref;
 
     p_2b2c
 }
 
 /// eqn for determining enthalpy boundary between subregion 2b and 2c
 /// using dimensionless pressure pi
-#[inline] 
+#[inline]
 pub fn h_2b2c(p: Pressure) -> AvailableEnergy {
     let p_ref = Pressure::new::<megapascal>(1.0);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(1.0);
-    let pi: f64 = (p/p_ref).into();
+    let pi: f64 = (p / p_ref).into();
     let n3 = 0.12809002730136e-3;
     let n4 = 0.265_265_719_084_28e4;
     let n5 = 0.452_575_789_059_48e1;
 
-    let h_2b2c = n4 + ( (pi-n5)/n3 ).sqrt();
+    let h_2b2c = n4 + ((pi - n5) / n3).sqrt();
 
     return h_2b2c * h_ref;
-
 }
 
 /// Subregion 2a backward `(p,h)` correlation: temperature T (K) from the
@@ -106,7 +105,8 @@ pub fn t_ph_2a(pi: f64, eta: f64) -> ThermodynamicTemperature {
 
     // Calculate T
     let x: [usize; 34] = core::array::from_fn(|i| i + 1);
-    let theta: f64 = x.into_iter()
+    let theta: f64 = x
+        .into_iter()
         .map(|x| n[x - 1] * pi.powi(i[x - 1]) * (eta - 2.1).powi(j[x - 1]))
         .sum();
 
@@ -171,7 +171,8 @@ pub fn t_ph_2b(pi: f64, eta: f64) -> ThermodynamicTemperature {
     // Calculate T
     let x: [usize; 38] = core::array::from_fn(|i| i + 1);
 
-    let theta: f64 = x.into_iter()
+    let theta: f64 = x
+        .into_iter()
         .map(|x| n[x - 1] * (pi - 2.0).powi(i[x - 1]) * (eta - 2.6).powi(j[x - 1]))
         .sum();
     let t_ref_kelvin: f64 = 1.0;
@@ -217,10 +218,10 @@ pub fn t_ph_2c(pi: f64, eta: f64) -> ThermodynamicTemperature {
 
     // Calculate T
     let x: [usize; 23] = core::array::from_fn(|i| i + 1);
-    let theta: f64 = x.into_iter()
+    let theta: f64 = x
+        .into_iter()
         .map(|x| n[x - 1] * (pi + 25.0).powi(i[x - 1]) * (eta - 1.8).powi(j[x - 1]))
         .sum();
     let t_ref_kelvin: f64 = 1.0;
     return ThermodynamicTemperature::new::<kelvin>(theta * t_ref_kelvin);
 }
-

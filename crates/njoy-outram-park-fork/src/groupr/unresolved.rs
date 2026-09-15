@@ -161,6 +161,38 @@ pub fn genflx_bondarenko(
     dilutions: &[f64],
     energy_grid: &[f64],
 ) -> Result<SelfShieldedFluxSet, NjoyError> {
+    genflx_bondarenko_urr(sigma_t, None, weight, sigma_pot, dilutions, energy_grid)
+}
+
+/// [`genflx_bondarenko`] with the **URR-shielded total** in the denominator —
+/// the full narrow-resonance branch of `genflx` (`groupr.f90:5636-5650`).
+///
+/// Upstream does not form `fac` from the smooth total: at every flux point it
+/// sets `tot(iz) = sigt(e)` for each dilution, calls `getunr(1, e, en, tot)` so
+/// that inside the unresolved range `tot(iz)` becomes the MT=152 self-shielded
+/// total for that `sigz(iz)`, and only then takes
+/// `fac = (sigpot + sigz)/(tot(iz) + sigz)`. Passing `urr = None` reproduces
+/// [`genflx_bondarenko`] exactly (the `stounr` "no unresolved sigma zero data"
+/// case, where `getunr` returns its input unchanged).
+///
+/// # Why this exists (measured 2026-09-10)
+/// Against an NJOY2016 GENDF written after UNRESR (U-238, 293.6 K, `iwt = 3`),
+/// the flux built from the smooth total was **6.8 % low** in the 20–50 keV
+/// group at `sigma_0 = 1` b (0.062356 vs NJOY 0.066892) while `sigma_g` was
+/// still within 1.5e-3 — the signature of a too-large denominator in `fac`
+/// rather than a wrong `sigma_rx`. Shielding the total restores the
+/// `tests/groupr_u238_gendf_golden.rs` agreement to the 7-figure floor.
+///
+/// # Errors
+/// As [`genflx_bondarenko`], plus any [`UnresolvedTable::shield`] failure.
+pub fn genflx_bondarenko_urr(
+    sigma_t: &PointwiseXs,
+    urr: Option<&UnresolvedTable>,
+    weight: &GroupFlux,
+    sigma_pot: f64,
+    dilutions: &[f64],
+    energy_grid: &[f64],
+) -> Result<SelfShieldedFluxSet, NjoyError> {
     if energy_grid.len() < 2 {
         return Err(NjoyError::EndfParse(
             "genflx_bondarenko: energy grid needs >= 2 points".into(),
@@ -174,21 +206,115 @@ pub fn genflx_bondarenko(
         }
     }
 
-    let mut fluxes = Vec::with_capacity(dilutions.len());
-    for &s0 in dilutions {
-        let mut tab = Vec::with_capacity(energy_grid.len());
-        for &e in energy_grid {
-            let st = sigma_t.value(e);
-            let c = weight.value(e);
-            tab.push((e, bondarenko_flux_value(st, c, sigma_pot, s0)));
+    let n = dilutions.len();
+    let mut tabs: Vec<Vec<(f64, f64)>> = (0..n)
+        .map(|_| Vec::with_capacity(energy_grid.len()))
+        .collect();
+    let mut tot = vec![0.0_f64; n];
+    for &e in energy_grid {
+        let st = sigma_t.value(e);
+        let c = weight.value(e);
+        // tot(iz) = ttt for every iz, then getunr(1, e, en, tot)
+        // (groupr.f90:5638-5642) — a no-op outside the unresolved range.
+        tot.fill(st);
+        if let Some(table) = urr {
+            let shielded = table.shield(UrrReaction::Total, e, &tot, dilutions)?;
+            tot.copy_from_slice(&shielded.sig);
         }
-        fluxes.push(GroupFlux::Tabulated(Arc::new(tab)));
+        for (iz, &s0) in dilutions.iter().enumerate() {
+            tabs[iz].push((e, bondarenko_flux_value(tot[iz], c, sigma_pot, s0)));
+        }
     }
 
     Ok(SelfShieldedFluxSet {
         dilutions: dilutions.to_vec(),
-        fluxes,
+        fluxes: tabs
+            .into_iter()
+            .map(|t| GroupFlux::Tabulated(Arc::new(t)))
+            .collect(),
     })
+}
+
+/// The full `genflx` Bondarenko flux table with its **Legendre components**
+/// — `fout(l) = wtf*fac` for `il = 1` and `fout(l) = fout(l-1)*fac` above
+/// (`groupr.f90:5651-5657`, `fac = (sigpot+sigz)/(tot+sigz)`), i.e. the
+/// `il`-th component is `wtf * fac^il`, which `getflx` hands to `panel` as
+/// `flux(iz, il)` (`:6498-6503`) for a `lord > 0` matrix with `nsigz > 1`.
+///
+/// Returns `components[iz][il]` for `il = 0..nl` (0-based Legendre order);
+/// `components[iz][0]` is exactly [`genflx_bondarenko_urr`]'s flux for
+/// dilution `iz`.
+///
+/// # Errors
+/// As [`genflx_bondarenko_urr`]; `nl == 0` is an [`NjoyError::EndfParse`].
+pub fn genflx_bondarenko_components(
+    sigma_t: &PointwiseXs,
+    urr: Option<&UnresolvedTable>,
+    weight: &GroupFlux,
+    sigma_pot: f64,
+    dilutions: &[f64],
+    energy_grid: &[f64],
+    nl: usize,
+) -> Result<Vec<Vec<GroupFlux>>, NjoyError> {
+    if nl == 0 {
+        return Err(NjoyError::EndfParse(
+            "genflx_bondarenko_components: nl must be >= 1".into(),
+        ));
+    }
+    if energy_grid.len() < 2 {
+        return Err(NjoyError::EndfParse(
+            "genflx_bondarenko: energy grid needs >= 2 points".into(),
+        ));
+    }
+    for w in energy_grid.windows(2) {
+        if !(w[1] > w[0]) {
+            return Err(NjoyError::EndfParse(
+                "genflx_bondarenko: energy grid must be strictly ascending".into(),
+            ));
+        }
+    }
+    let n = dilutions.len();
+    let mut tabs: Vec<Vec<Vec<(f64, f64)>>> = (0..n)
+        .map(|_| {
+            (0..nl)
+                .map(|_| Vec::with_capacity(energy_grid.len()))
+                .collect()
+        })
+        .collect();
+    let mut tot = vec![0.0_f64; n];
+    for &e in energy_grid {
+        let st = sigma_t.value(e);
+        let c = weight.value(e);
+        tot.fill(st);
+        if let Some(table) = urr {
+            let shielded = table.shield(UrrReaction::Total, e, &tot, dilutions)?;
+            tot.copy_from_slice(&shielded.sig);
+        }
+        for (iz, &s0) in dilutions.iter().enumerate() {
+            // fac as in bondarenko_flux_value: 1 at infinite dilution or a
+            // non-positive denominator.
+            let denom = tot[iz] + s0;
+            let fac = if s0.is_infinite() || denom <= 0.0 {
+                1.0
+            } else {
+                (s0 + sigma_pot) / denom
+            };
+            let mut f = c;
+            for il in 0..nl {
+                f *= fac;
+                tabs[iz][il].push((e, f));
+            }
+        }
+    }
+    Ok(tabs
+        .into_iter()
+        .map(|per_il| {
+            per_il
+                .into_iter()
+                .map(|t| GroupFlux::Tabulated(Arc::new(t)))
+                .collect()
+        })
+        .collect())
 }
 
 // ===========================================================================
@@ -424,6 +550,34 @@ impl UnresolvedTable {
     /// Number of stored URR energy points (`nunr`).
     pub fn n_points(&self) -> usize {
         self.points.len()
+    }
+
+    /// The stored URR energy points themselves, ascending in energy.
+    ///
+    /// [`Self::shield`] is the interpolating lookup this table exists for;
+    /// this is the raw tabulation behind it, exposed so a caller can compare a
+    /// stored table against an independent evaluation **at the energies the
+    /// table was actually evaluated at** rather than through the
+    /// interpolation. That distinction is the whole subject of
+    /// `verification_and_validation/urr_interpolation_study/`: a value read
+    /// between two stored points is an interpolation, and comparing against it
+    /// measures the interpolation, not the physics.
+    ///
+    /// Each point's `xs[column][dilution]` is indexed by
+    /// [`UrrReaction::column`] and by position in [`Self::sigma0_grid`].
+    pub fn points(&self) -> &[UrrEnergyPoint] {
+        &self.points
+    }
+
+    /// Number of reaction columns stored (`nx`).
+    ///
+    /// RECONR writes five (`genunr`, `reconr.f90:1628-1735`): total, elastic,
+    /// fission, capture, and then **the total again** — `sunr(l+5)=sunr(l+1)`
+    /// at `:1690`. The fifth column is a duplicate, not a transport cross
+    /// section, which is worth knowing before comparing column 5 against a
+    /// kernel whose fifth output is transport.
+    pub fn n_reactions(&self) -> usize {
+        self.n_reactions
     }
 
     /// Retrieve the self-shielded cross section at energy `e` and correct the
@@ -731,7 +885,10 @@ mod tests {
             assert_eq!(bondarenko_flux_value(st, 1.0, spot, f64::INFINITY), 1.0);
             // very large dilution -> approaches C = 1
             let big = bondarenko_flux_value(st, 1.0, spot, 1.0e12);
-            assert!((big - 1.0).abs() < 1e-9, "sigma_t={st}: big-dilution phi={big}");
+            assert!(
+                (big - 1.0).abs() < 1e-9,
+                "sigma_t={st}: big-dilution phi={big}"
+            );
             // zero dilution -> C * sigma_pot / sigma_t (the 1/sigma_t NR shape)
             let nr = bondarenko_flux_value(st, 1.0, spot, 0.0);
             assert!((nr - spot / st).abs() < 1e-13, "sigma_t={st}: nr phi={nr}");
@@ -811,7 +968,11 @@ mod tests {
         let xs = [1.0, 2.0, 5.0, 12.0];
         for k in 0..sigs.len() {
             let v = terpu(sigs[k], &xs, &sigs);
-            assert!((v - xs[k]).abs() < 1e-10, "node {k}: terpu={v}, xs={}", xs[k]);
+            assert!(
+                (v - xs[k]).abs() < 1e-10,
+                "node {k}: terpu={v}, xs={}",
+                xs[k]
+            );
         }
         let mid = terpu(50.0, &xs, &sigs); // between sigs=100 (2.0) and 10 (5.0)
         assert!((2.0..=5.0).contains(&mid), "terpu(50)={mid} out of (2,5)");
@@ -928,7 +1089,9 @@ mod tests {
         let above = t.shield(UrrReaction::Total, 40.0, &[1.0], &[10.0]).unwrap();
         assert_eq!(above.next_energy, None);
         // Fission column not stored (only reaction 0 present).
-        let absent = t.shield(UrrReaction::Fission, 20.0, &[1.0], &[10.0]).unwrap();
+        let absent = t
+            .shield(UrrReaction::Fission, 20.0, &[1.0], &[10.0])
+            .unwrap();
         assert_eq!(absent.next_energy, None);
         assert_eq!(absent.sig, vec![1.0]);
     }

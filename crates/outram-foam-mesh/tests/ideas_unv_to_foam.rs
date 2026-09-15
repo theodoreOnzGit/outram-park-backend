@@ -81,8 +81,16 @@ fn two_hex_counts_patches_and_volume() {
 
     // ── Named patches ──
     assert_eq!(fv.n_patches(), 3, "inlet + outlet + defaultFaces");
-    let inlet = fv.patches.iter().find(|p| p.name == "inlet").expect("inlet patch");
-    let outlet = fv.patches.iter().find(|p| p.name == "outlet").expect("outlet patch");
+    let inlet = fv
+        .patches
+        .iter()
+        .find(|p| p.name == "inlet")
+        .expect("inlet patch");
+    let outlet = fv
+        .patches
+        .iter()
+        .find(|p| p.name == "outlet")
+        .expect("outlet patch");
     let deflt = fv
         .patches
         .iter()

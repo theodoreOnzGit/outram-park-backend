@@ -49,10 +49,10 @@ pub fn gauss_seidel(
     // gives correct forward Gauss-Seidel (lower-indexed peers already updated).
     let mut adj: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
     for f in 0..mat.n_internal_faces {
-        let o  = mat.owner[f];
+        let o = mat.owner[f];
         let nb = mat.neighbour[f];
         adj[o].push((nb, mat.upper[f]));
-        adj[nb].push((o,  mat.lower[f]));
+        adj[nb].push((o, mat.lower[f]));
     }
 
     for iter in 0..max_iter {
@@ -84,7 +84,7 @@ mod tests {
 
     fn tridiag_3x3() -> LduMatrix {
         let mut m = LduMatrix::new(3, vec![0, 1], vec![1, 2]);
-        m.diag  = vec![ 4.0,  4.0,  4.0];  // diagonal dominant
+        m.diag = vec![4.0, 4.0, 4.0]; // diagonal dominant
         m.upper = vec![-1.0, -1.0];
         m.lower = vec![-1.0, -1.0];
         m

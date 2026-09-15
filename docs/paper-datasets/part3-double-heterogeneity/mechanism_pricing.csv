@@ -1,0 +1,6 @@
+mechanism_switched_off,delta_k_pcm,sigma_pcm,sigma_distance,p_vs_openmc_before,p_vs_openmc_after,role,source_record
+graphite S(alpha_beta) -> free gas,-127,337,0.38,+8.54%,+8.18%,candidate - null,ring_rpt/ring_rpt_vs_openmc.md
+MF=4 elastic angle -> isotropic CM,-81,317,0.26,+8.54%,+8.49%,candidate - null,ring_rpt/ring_rpt_vs_openmc.md
+free-gas target motion -> at rest,-2242,323,6.9,+8.54%,+6.03%,POSITIVE CONTROL,ring_rpt/ring_rpt_vs_openmc.md
+inelastic channel all nuclides,-4190,335,12.5,+8.54%,-1.03%,candidate - HIT,ring_rpt/ring_rpt_vs_openmc.md
+inelastic channel F-19 only,-4033,333,12.1,+8.54%,-0.45%,LOCALISED TO ONE NUCLIDE,ring_rpt/ring_rpt_vs_openmc.md

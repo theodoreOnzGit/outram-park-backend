@@ -68,18 +68,47 @@
 //!   3. **Mass conservation**: |Σ_f φ_f| / (ρ_inf · U_inf · A_inlet) < 1×10⁻⁶
 //!      (global mass imbalance should be near machine precision).
 //!
-//! ## Status
+//! ## Status (corrected 2026-08-07 — the previous note was wrong on two counts)
 //!
 //! `aerofoil_mesh_loads` is active and passing — the 16 000-cell extruded mesh
 //! (with cellZones/faceZones, which the reader ignores) loads and validates.
 //!
 //! `aerofoil_cp_matches_openfoam`, `aerofoil_cl_matches_openfoam`, and
-//! `aerofoil_mass_conservation` remain `#[ignore]`: this is a RAS k-ω SST case
-//! and the turbulence model is still a stub in `RhoPimpleFoam`. Running the
-//! solver laminar would not reproduce the turbulent reference, so the Cp/CL
-//! comparisons are blocked until the k-ω SST closure is implemented (a Layer-4
-//! task in `outram-foam-turbulence-lib`). The verification bodies below are wired
-//! and ready; only the turbulence model is missing.
+//! `aerofoil_mass_conservation` remain `#[ignore]`, but **not for the reason
+//! previously recorded here.** That note said the k-ω SST model "is still a stub
+//! in `RhoPimpleFoam`" and that "the verification bodies below are wired and
+//! ready; only the turbulence model is missing". Both statements were false:
+//!
+//! 1. **k-ω SST is not a stub.** It is fully implemented and unit-tested in
+//!    `outram-foam-turbulence-lib` (`k_omega_sst/mod.rs`, ~490 lines: F1/F2
+//!    blending, the Bradshaw stress limiter, and the k and ω transport
+//!    equations). It was merely never *connected* to any solver. It is now:
+//!    `RhoPimpleFoam` carries a
+//!    [`outram_foam_appbuilder_lib::turbulence::TurbulenceClosure`] field, and
+//!    `tests/turbulence_coupling.rs` verifies the coupling against the analytic
+//!    homogeneous-decay solution.
+//! 2. **The verification bodies were never wired.** All three functions below
+//!    are empty `let _ = (…);` placeholders followed by a `// TODO:` comment —
+//!    they compute nothing and compare nothing. Un-ignoring them would have made
+//!    three vacuous tests pass.
+//!
+//! **The real blockers, as of 2026-08-07:**
+//!
+//! - **No turbulence wall functions.** The closures use zero-gradient near-wall
+//!   boundary conditions, so ω is never driven to its `6ν/(β y²)` near-wall
+//!   asymptote and ν_t = k/ω is unbounded near a wall. Measured consequence
+//!   (`tests/turbulence_coupling.rs`): a Re = 100 lid-driven cavity develops
+//!   ν_t/ν ≈ 260–330. On this aerofoil, whose whole Cp/CL signature is a
+//!   boundary-layer phenomenon, that is disqualifying — a Cp comparison run this
+//!   way would be numerology, not verification.
+//! - **The test bodies still have to be written**, including reading the
+//!   OpenFOAM reference fields from `0.15/` (which *are* present in the case
+//!   directory) and filling in `REFERENCE_CL`/`REFERENCE_AVAILABLE`.
+//! - **Cost.** 16 000 cells × 7 500 steps (t_end = 0.15 s, Δt = 2e-5 s) is not a
+//!   test-suite-sized run and will need its own harness or a coarsened case.
+//!
+//! Do not un-ignore these until a body actually asserts something and wall
+//! functions exist.
 
 use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 use outram_foam_basic_lib::prelude::PatchKind;
@@ -175,7 +204,7 @@ fn aerofoil_mesh_loads() {
 ///
 /// Requires: polyMesh + initial fields + completed OpenFOAM run in 0.15/.
 #[test]
-#[ignore = "blocked on k-ω SST turbulence model (stub in RhoPimpleFoam); RAS case cannot be reproduced laminar — see module doc"]
+#[ignore = "test body is an unimplemented TODO (asserts nothing), and a boundary-layer Cp comparison additionally needs turbulence wall functions — see module doc"]
 fn aerofoil_cp_matches_openfoam() {
     // Cp = (p - p_inf) / q_inf
     let _ = (q_inf(), mach_inf(), CHORD, REFERENCE_AVAILABLE);
@@ -193,7 +222,7 @@ fn aerofoil_cp_matches_openfoam() {
 ///
 /// Requires: polyMesh + initial fields + completed solver run.
 #[test]
-#[ignore = "blocked on k-ω SST turbulence model (stub in RhoPimpleFoam); RAS case cannot be reproduced laminar — see module doc"]
+#[ignore = "test body is an unimplemented TODO (asserts nothing), REFERENCE_CL is a placeholder, and CL needs turbulence wall functions — see module doc"]
 fn aerofoil_cl_matches_openfoam() {
     let _ = (REFERENCE_CL, REFERENCE_AVAILABLE, rho_inf(), U_INF, CHORD);
 
@@ -207,7 +236,7 @@ fn aerofoil_cl_matches_openfoam() {
 ///
 /// Requires: polyMesh + completed solver run.
 #[test]
-#[ignore = "blocked on k-ω SST turbulence model (stub in RhoPimpleFoam); needs a converged turbulent run — see module doc"]
+#[ignore = "test body is an unimplemented TODO (asserts nothing); also needs a 16 000-cell x 7 500-step run, not a test-suite-sized case — see module doc"]
 fn aerofoil_mass_conservation() {
     let _ = (rho_inf(), U_INF);
 

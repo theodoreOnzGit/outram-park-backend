@@ -60,7 +60,10 @@ impl Group {
     /// This group's rank of the process with the given world rank, or `None` if it
     /// is not a member (mirrors `MPI_Group_rank` for the caller's own rank).
     pub fn rank_of(&self, world_rank: i32) -> Option<i32> {
-        self.ranks.iter().position(|&r| r == world_rank).map(|i| i as i32)
+        self.ranks
+            .iter()
+            .position(|&r| r == world_rank)
+            .map(|i| i as i32)
     }
 
     /// Subgroup containing the members at the given **group-rank indices**, in the

@@ -492,7 +492,10 @@ impl OdeSystem for KineticOde {
         }
 
         let warm = self.last_primary.borrow().clone();
-        let spec = match self.network.speciate(floored.as_slice(), Some(warm.as_slice())) {
+        let spec = match self
+            .network
+            .speciate(floored.as_slice(), Some(warm.as_slice()))
+        {
             Ok(s) => s,
             Err(e) => {
                 *self.error.borrow_mut() = Some(e);
@@ -582,7 +585,10 @@ mod tests {
 
         // Ns = 0, so free primary == totals.
         let si0 = sys.saturation_index(0, &totals);
-        assert!((si0 - (-2.0)).abs() < 1e-9, "initial SI = {si0}, expected -2");
+        assert!(
+            (si0 - (-2.0)).abs() < 1e-9,
+            "initial SI = {si0}, expected -2"
+        );
 
         let steps = sys.react(&mut totals, &mut minerals, 1.0).unwrap();
         assert!(steps > 0, "expected at least one ODE step");
@@ -604,7 +610,11 @@ mod tests {
             "totals {totals:?} did not approach 1e-3"
         );
         // Some mineral was consumed but not all.
-        assert!(minerals[0] < 1.0 && minerals[0] > 0.0, "m = {}", minerals[0]);
+        assert!(
+            minerals[0] < 1.0 && minerals[0] > 0.0,
+            "m = {}",
+            minerals[0]
+        );
     }
 
     /// **Elemental / mole conservation.**
@@ -718,7 +728,10 @@ mod tests {
             "supersaturated solution did not precipitate: m = {}",
             minerals[0]
         );
-        assert!(totals[0] < 1.0e-2 && totals[1] < 1.0e-2, "totals {totals:?} did not fall");
+        assert!(
+            totals[0] < 1.0e-2 && totals[1] < 1.0e-2,
+            "totals {totals:?} did not fall"
+        );
     }
 
     /// **Constructor validation:** a mineral whose stoichiometry length does not

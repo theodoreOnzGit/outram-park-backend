@@ -21,7 +21,7 @@
 /// documentation for the underlying physics and constructors
 /// (`new_cylinder`, `new_annular_cylinder`, `new_odd_shaped_pipe`,
 /// `new_custom_component`).
-pub use tuas_boussinesq_solver::array_control_vol_and_fluid_component_collections::one_d_fluid_array_with_lateral_coupling::FluidArray as SinglePhaseFluidArray;
+pub use tuas_boussinesq_solver::array_fluid_collections::fluid_array_lateral_coupling::FluidArray as SinglePhaseFluidArray;
 
 /// The liquid substances a [`SinglePhaseFluidArray`] can currently be backed
 /// by. Re-exported from `tuas_boussinesq_solver` for convenience.

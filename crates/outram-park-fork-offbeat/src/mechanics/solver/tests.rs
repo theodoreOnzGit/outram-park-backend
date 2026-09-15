@@ -461,3 +461,89 @@ fn imposed_strain_solution_is_grid_independent() {
         }
     }
 }
+
+/// **Methodology.** MATPRO fits Zircaloy's Young's and shear moduli as two
+/// independent lines, so `ν = E/(2G) − 1` climbs with temperature and crosses
+/// the incompressible limit `0.5`. Bead `op-6sl.7` asked which of three
+/// policies [`LinearElastic::from_models`] should take — clamp `ν`, fall back
+/// to a constant, or refuse — and the answer is **refuse**. This pins that
+/// decision so a later "helpful" clamp cannot be added silently.
+///
+/// Three checks. Below the crossover the constructor succeeds and its `λ` is
+/// finite and positive. Above it the constructor returns
+/// [`OffbeatError::Unphysical`] rather than any number at all. And the
+/// arithmetic that motivates the refusal is exhibited directly: `λ` is
+/// evaluated at a sequence of `ν` approaching `0.5` to show it diverges, so a
+/// clamp at `0.5 − ε` would report a stiffness fixed by `ε` rather than by the
+/// material.
+///
+/// Inputs: `YoungModulusModel::MatproZircaloy` and
+/// `PoissonRatioModel::MatproZircaloy` on a fresh (zero cold-work, zero burnup)
+/// state. Pass criterion: `Ok` at 600 K with finite positive `λ`; `Err` at
+/// 1500 K; and `λ(ν)` rising by at least three decades as `ε` falls three
+/// decades.
+///
+/// **Results (measured 2026-08-05, release).** At 600 K the correlation gives
+/// `ν = 0.386353680`, `E = 7.595e10` Pa, `λ = 9.312224092515265e10` Pa — an
+/// ordinary Zircaloy stiffness. At 1500 K it gives `ν = 0.5674999999999999`,
+/// and the constructor refuses.
+///
+/// The clamp sweep is the argument in one table:
+///
+/// | clamp | `λ` \[Pa\] |
+/// |---|---|
+/// | `ν = 0.5 − 1e-3` | 1.2641444296197453e13 |
+/// | `ν = 0.5 − 1e-4` | 1.2656645443030928e14 |
+/// | `ν = 0.5 − 1e-5` | 1.2658164554417703e15 |
+/// | `ν = 0.5 − 1e-6` | 1.2658316455882982e16 |
+///
+/// Exactly one decade of `λ` per decade of `ε`, as `λ ≈ E/(3ε)` predicts. Set
+/// against the material's own `9.31e10` Pa at 600 K, a clamp at `1e-6` would
+/// report a bulk stiffness **five orders of magnitude** too large — and the
+/// figure would be traceable to nothing but whoever picked `ε`. That is the
+/// whole case for refusing.
+#[test]
+fn the_matpro_zircaloy_poisson_crossover_refuses_the_case_rather_than_clamping() {
+    use crate::materials::properties::poisson_ratio::PoissonRatioModel;
+    use crate::materials::properties::young_modulus::YoungModulusModel;
+
+    let young = YoungModulusModel::MatproZircaloy;
+    let poisson = PoissonRatioModel::MatproZircaloy;
+
+    let cold = MaterialState::fresh(600.0);
+    let admissible = LinearElastic::from_models(young, poisson, &cold)
+        .expect("600 K is well below the 1354.84 K crossover");
+    println!(
+        "600 K:  nu = {:.9}  E = {:e} Pa  lambda = {:e} Pa",
+        admissible.poisson,
+        admissible.young,
+        admissible.lame_lambda()
+    );
+    assert!(admissible.lame_lambda().is_finite() && admissible.lame_lambda() > 0.0);
+
+    let hot = MaterialState::fresh(1500.0);
+    let refused = LinearElastic::from_models(young, poisson, &hot);
+    println!("1500 K: nu = {:.9}  ->  {refused:?}", poisson.value(&hot));
+    assert!(
+        matches!(refused, Err(OffbeatError::Unphysical { .. })),
+        "above the crossover the case must be refused, not clamped"
+    );
+
+    // Why clamping would be worse than refusing: lambda is unbounded as
+    // nu -> 0.5, so the clamp tolerance would set the answer.
+    let e = admissible.young;
+    let mut previous = f64::NAN;
+    for decade in 3..=6 {
+        let epsilon = 10.0_f64.powi(-decade);
+        let nu = 0.5 - epsilon;
+        let lambda = e * nu / ((1.0 + nu) * (1.0 - 2.0 * nu));
+        println!("clamp at nu = 0.5 - 1e-{decade}  ->  lambda = {lambda:e} Pa");
+        if previous.is_finite() {
+            assert!(
+                lambda > 9.0 * previous,
+                "lambda must grow ~10x per decade of clamp tolerance"
+            );
+        }
+        previous = lambda;
+    }
+}

@@ -36,10 +36,24 @@ inputs, the tolerance, and the pass criterion.
 BibTeX entry(ies) for the benchmark/reference data, with page and/or table
 number so a reader can find the exact number being checked against.
 
+## OpenMC input scripts   ← code-to-code cases only
+
+Required whenever this case **ran OpenMC** to produce the reference (not when
+the reference is a notebook's stored cell output). Embed the driver script
+(the one that builds the model and calls `openmc.run()`) verbatim as a fenced
+`python` block; commit the full set of scripts as a verbatim snapshot under
+`<topic>/openmc_inputs/` with the upstream LICENSE/notice; and give the
+provenance block — deck source URL + commit, OpenMC version + commit,
+cross-section library + version, chain file, particle/batch/inactive counts,
+Shannon-entropy check. See the crate `CLAUDE.md`, "Code-to-code verification:
+commit the OpenMC input scripts".
+
 ## Results
 
 A CSV table (computed vs reference vs relative error) plus prose
 interpretation of what the numbers mean and whether the pass criterion was met.
+Every reported number carries its statistical uncertainty, and the Δ is judged
+against the **combined** σ of both codes.
 ```
 
 ## What's committed vs gitignored
@@ -52,6 +66,10 @@ interpretation of what the numbers mean and whether the pass criterion was met.
   **gitignored** (see `.gitignore`) and **excluded from `cargo publish`** (see
   `Cargo.toml`'s `exclude`). Regenerate them by re-running the verification
   test/example that produced them; don't hand-edit.
+- **`<topic>/openmc_inputs/` snapshots are committed** — the OpenMC decks that
+  generated a code-to-code reference are small and are the reproducibility
+  artefact for the reference side; they are kept verbatim, with their upstream
+  LICENSE, and are not regenerated.
 
 See `outram-park-fork-coolprop/verification_and_validation/` for a worked
 example (`water_critical_point_iapws95.md`).

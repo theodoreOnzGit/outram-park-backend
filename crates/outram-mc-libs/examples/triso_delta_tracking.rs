@@ -71,16 +71,28 @@ fn main() {
             name: "HEU kernel".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         },
         Material {
             id: 2,
             name: "H matrix".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 4.0e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 3,
+                atom_density: 4.0e-2,
+            }],
         },
     ];
 
@@ -99,11 +111,29 @@ fn main() {
 
     // Geometry lookup for delta tracking: which material index is at this point?
     // Inside a kernel → fuel (0); otherwise → matrix (1). O(1) via the hash grid.
-    let material_at = move |p: Position| Some(if packed.is_inside_kernel(p) { 0usize } else { 1usize });
+    let material_at = move |p: Position| {
+        Some(if packed.is_inside_kernel(p) {
+            0usize
+        } else {
+            1usize
+        })
+    };
 
     // Delta-tracking-driven fission-source power iteration.
-    let settings = KeffSettings { n_particles: 2000, n_inactive: 25, n_active: 75, ..KeffSettings::default() };
-    let result = run_keff_delta(half, &materials, &nuclides, &majorant, material_at, &settings);
+    let settings = KeffSettings {
+        n_particles: 2000,
+        n_inactive: 25,
+        n_active: 75,
+        ..KeffSettings::default()
+    };
+    let result = run_keff_delta(
+        half,
+        &materials,
+        &nuclides,
+        &majorant,
+        material_at,
+        &settings,
+    );
 
     println!(
         "Doubly-heterogeneous k∞ = {:.5} ± {:.5} over {} generations (delta tracking).",

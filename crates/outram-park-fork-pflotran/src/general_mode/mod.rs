@@ -685,7 +685,11 @@ impl GeneralFlow {
     ) -> f64 {
         let rho = self.fluids.gas_density;
         let dphi = (p_g_o - p_g_n) + rho * self.gravity * (z_o - z_n);
-        let kr_up = if dphi >= 0.0 { self.krg(se_o) } else { self.krg(se_n) };
+        let kr_up = if dphi >= 0.0 {
+            self.krg(se_o)
+        } else {
+            self.krg(se_n)
+        };
         let mobility = self.permeability * kr_up / self.fluids.gas_viscosity;
         rho * mobility * t_geom * dphi
     }
@@ -718,8 +722,8 @@ impl GeneralFlow {
 
         let acc_w = v * inv_dt * phi * (rho_l_i * s_l_i - rho_l_old * s0);
         let acc_g = v * inv_dt * phi * rho_g * ((1.0 - s_l_i) - (1.0 - s0));
-        let acc_e = v * inv_dt * (self.energy_density(p_l_i, s_l_i, t_i)
-            - self.energy_density(p0, s0, t0));
+        let acc_e =
+            v * inv_dt * (self.energy_density(p_l_i, s_l_i, t_i) - self.energy_density(p0, s0, t0));
 
         // Cell-local face-state helpers.
         let se_i = self.se_of_sl(s_l_i);
@@ -747,7 +751,9 @@ impl GeneralFlow {
             let p_g_o = p_l_o + self.capillary_pressure(s_l_o);
             let p_g_n = p_l_n + self.capillary_pressure(s_l_n);
 
-            let m_w = self.water_flux(p_l_o, t_o, se_o, self.z[o], p_l_n, t_n, se_n, self.z[n], t_geom);
+            let m_w = self.water_flux(
+                p_l_o, t_o, se_o, self.z[o], p_l_n, t_n, se_n, self.z[n], t_geom,
+            );
             let m_g = self.gas_flux(p_g_o, se_o, self.z[o], p_g_n, se_n, self.z[n], t_geom);
 
             // Advected enthalpy: upstream by each phase's mass-flux sign
@@ -797,7 +803,14 @@ impl GeneralFlow {
 
                     // Cell is the owner side; ghost is the neighbour side.
                     let m_w = self.water_flux(
-                        p_l_i, t_i, se_i, self.z[i], *liquid_pressure, *temperature, se_bc, z_bc,
+                        p_l_i,
+                        t_i,
+                        se_i,
+                        self.z[i],
+                        *liquid_pressure,
+                        *temperature,
+                        se_bc,
+                        z_bc,
                         t_geom,
                     );
                     let m_g = self.gas_flux(p_g_i, se_i, self.z[i], p_g_bc, se_bc, z_bc, t_geom);
@@ -888,7 +901,10 @@ impl BlockNonlinearSystem for GeneralFlow {
         let this = &*self;
 
         // Base residual triples over all cells (parallel; independent per cell).
-        let r0: Vec<[f64; 3]> = (0..n).into_par_iter().map(|i| this.cell_residual(i, x)).collect();
+        let r0: Vec<[f64; 3]> = (0..n)
+            .into_par_iter()
+            .map(|i| this.cell_residual(i, x))
+            .collect();
 
         jac.zero();
 
@@ -1158,7 +1174,7 @@ mod tests {
             vg_curves(),
             0.35,
             1.0e-12,
-            0.0, // no gravity
+            0.0,    // no gravity
             vec![], // all no-flow + adiabatic
         )
         .unwrap();
@@ -1191,8 +1207,14 @@ mod tests {
         let moved_t = (0..n)
             .map(|c| (state[3 * c + 2] - t_init[c]).abs())
             .fold(0.0, f64::max);
-        assert!(moved_s > 1.0e-4, "saturation did not redistribute (moved={moved_s})");
-        assert!(moved_t > 1.0e-3, "temperature did not redistribute (moved={moved_t})");
+        assert!(
+            moved_s > 1.0e-4,
+            "saturation did not redistribute (moved={moved_s})"
+        );
+        assert!(
+            moved_t > 1.0e-3,
+            "temperature did not redistribute (moved={moved_t})"
+        );
 
         let water1 = sim.problem().total_water_mass(&state);
         let gas1 = sim.problem().total_gas_mass(&state);
@@ -1201,8 +1223,14 @@ mod tests {
         let rel_w = (water1 - water0).abs() / water0.abs();
         let rel_g = (gas1 - gas0).abs() / gas0.abs();
         let rel_e = (energy1 - energy0).abs() / energy0.abs();
-        assert!(rel_w < 1.0e-6, "water mass not conserved: rel drift {rel_w:e}");
-        assert!(rel_g < 1.0e-6, "gas mass not conserved: rel drift {rel_g:e}");
+        assert!(
+            rel_w < 1.0e-6,
+            "water mass not conserved: rel drift {rel_w:e}"
+        );
+        assert!(
+            rel_g < 1.0e-6,
+            "gas mass not conserved: rel drift {rel_g:e}"
+        );
         assert!(rel_e < 1.0e-6, "energy not conserved: rel drift {rel_e:e}");
     }
 
@@ -1281,7 +1309,9 @@ mod tests {
             GeneralSimulation::new(problem, uniform_state(n, 1.0e5, s_init, t_uniform)).unwrap();
 
         for _ in 0..8 {
-            let report = sim.step(20.0).expect("isothermal imbibition step converges");
+            let report = sim
+                .step(20.0)
+                .expect("isothermal imbibition step converges");
             assert!(report.converged);
             for &s in &sim.liquid_saturation() {
                 assert!(
@@ -1299,12 +1329,22 @@ mod tests {
         }
 
         let s = sim.liquid_saturation();
-        assert!(s[0] > s_init + 1.0e-3, "inflow cell did not wet up: {}", s[0]);
+        assert!(
+            s[0] > s_init + 1.0e-3,
+            "inflow cell did not wet up: {}",
+            s[0]
+        );
         // Front at the wet boundary; monotone decreasing away from it.
         let s_max = s.iter().cloned().fold(f64::MIN, f64::max);
-        assert!((s[0] - s_max).abs() < 1.0e-9, "front is not at the wet boundary");
+        assert!(
+            (s[0] - s_max).abs() < 1.0e-9,
+            "front is not at the wet boundary"
+        );
         for w in s.windows(2) {
-            assert!(w[1] <= w[0] + 1.0e-3, "saturation not monotone along x: {w:?}");
+            assert!(
+                w[1] <= w[0] + 1.0e-3,
+                "saturation not monotone along x: {w:?}"
+            );
         }
     }
 
@@ -1395,7 +1435,10 @@ mod tests {
             }
             // Cold (isothermal) column: temperature must stay flat at t_cold.
             for &t in &cold.temperature() {
-                assert!((t - t_cold).abs() < 1.0e-4, "cold column drifted from isothermal: {t}");
+                assert!(
+                    (t - t_cold).abs() < 1.0e-4,
+                    "cold column drifted from isothermal: {t}"
+                );
             }
         }
 
@@ -1445,13 +1488,19 @@ mod tests {
         let report = sim.step(25.0).expect("driven GENERAL step converges");
         assert!(report.converged);
         for w in report.residual_history.windows(2) {
-            assert!(w[1] <= w[0] * (1.0 + 1.0e-6) + 1.0e-12, "residual increased: {w:?}");
+            assert!(
+                w[1] <= w[0] * (1.0 + 1.0e-6) + 1.0e-12,
+                "residual increased: {w:?}"
+            );
         }
         for &p in &sim.liquid_pressure() {
             assert!(p.is_finite(), "non-finite pressure");
         }
         for &s in &sim.liquid_saturation() {
-            assert!((-1.0e-6..=1.0 + 1.0e-6).contains(&s), "saturation out of [0,1]: {s}");
+            assert!(
+                (-1.0e-6..=1.0 + 1.0e-6).contains(&s),
+                "saturation out of [0,1]: {s}"
+            );
         }
         for &t in &sim.temperature() {
             assert!(t.is_finite() && t > 0.0, "non-physical temperature: {t}");

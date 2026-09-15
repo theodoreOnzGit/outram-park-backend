@@ -137,6 +137,29 @@ fn dominant_inhour_root(rho: f64) -> f64 {
     0.5 * (lo + hi)
 }
 
+/// Verify the point-kinetics integrator against the **analytical inhour
+/// equation** for a step reactivity insertion.
+///
+/// # Methodology
+///
+/// Full statement of the inputs (Keepin 1965 six-group β/λ, Λ = 5.0e-4 s,
+/// ρ = 0.0025, Δt = 1e-3 s), the inhour equation itself, and the reference
+/// asymptotic period are in this file's module header — see its
+/// `## Methodology` section rather than duplicating it here.
+///
+/// **Pass criterion:** `|T_num − T_ref| / T_ref < 1 %`, where `T_ref = 1/ω*`
+/// and `ω*` is the dominant root of the inhour equation found by bisection.
+///
+/// # Results
+///
+/// Recorded in this file's module header (`## Results`, measured 2026-07-15
+/// with `cargo test --release`): `T_ref = 11.3207 s` (`ω* = 0.088334 s⁻¹`)
+/// against `T_num = 11.3199 s`, a relative deviation of **6.5e-5** — about
+/// 150× inside the 1 % gate. The residual is the O(Δt) truncation error of the
+/// backward-Euler integrator, so it is expected to fall linearly with Δt.
+///
+/// The integrator is deterministic, so no statistical uncertainty applies;
+/// repeat runs on the same build reproduce these digits exactly.
 #[test]
 fn asymptotic_period_matches_inhour_equation() {
     let p = params();
@@ -188,6 +211,28 @@ fn asymptotic_period_matches_inhour_equation() {
     );
 }
 
+/// Control case: with **zero** reactivity inserted, an equilibrium state must
+/// stay at equilibrium.
+///
+/// # Methodology
+///
+/// Starts from `PointKineticsState::new_equilibrium` at `P0 = 1 MW` with the
+/// same Keepin six-group parameters as
+/// [`asymptotic_period_matches_inhour_equation`], then integrates 30 000 steps
+/// of Δt = 1 ms (30 s of problem time) with ρ = 0. The exact solution is
+/// `P(t) = P0` for all `t`, so any drift is pure numerical error in the
+/// precursor/power coupling — this is what distinguishes a genuine period
+/// prediction from an integrator that merely happens to grow at the right rate.
+///
+/// **Pass criterion:** relative power drift `|P(30 s) − P0| / P0 < 1e-9`.
+///
+/// # Results
+///
+/// Recorded in this file's module header (measured 2026-07-15,
+/// `cargo test --release`): relative drift **< 1e-9** over the full 30 000
+/// steps. The equilibrium precursor concentrations are therefore consistent
+/// with the power normalisation to near machine precision, and no spurious
+/// source or sink accumulates over a long run.
 #[test]
 fn null_transient_control() {
     let p = params();

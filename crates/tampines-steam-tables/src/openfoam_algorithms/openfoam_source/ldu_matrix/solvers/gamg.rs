@@ -133,7 +133,11 @@ impl GamgCycle {
             }
 
             let coarse = agglomerate_matrix(current, &map, n_coarse);
-            levels.push(GamgLevel { restrict_map: map, n_coarse, matrix: coarse });
+            levels.push(GamgLevel {
+                restrict_map: map,
+                n_coarse,
+                matrix: coarse,
+            });
         }
 
         GamgCycle { levels }
@@ -169,7 +173,11 @@ impl GamgCycle {
         let correction = prolong_field(&e_coarse, &lvl.restrict_map);
         let ac = mat.multiply(&correction);
         let denom = dot(&correction, &ac);
-        let sf = if denom.abs() > 1e-300 { dot(&r, &correction) / denom } else { 1.0 };
+        let sf = if denom.abs() > 1e-300 {
+            dot(&r, &correction) / denom
+        } else {
+            1.0
+        };
         for (xi, ci) in x.iter_mut().zip(&correction) {
             *xi += sf * ci;
         }
@@ -190,8 +198,14 @@ impl GamgCycle {
 ///
 /// # Example
 ///
-/// ```
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
+/// `openfoam_algorithms::openfoam_source` is `pub(crate)`, so this example is
+/// written against the crate-internal path and cannot be compiled as a doctest
+/// (rustdoc builds doctests as an external crate, which cannot see
+/// `pub(crate)` items).  It is exercised for real by the unit test
+/// `tests::gamg_solves_1d_poisson` at the bottom of this file.
+///
+/// ```ignore
+/// use crate::openfoam_algorithms::openfoam_source::*;
 ///
 /// // 1-D Poisson −∇²φ = 1 on [0,1], φ(0)=φ(1)=0, 63 interior points.
 /// let n = 63;
@@ -239,7 +253,11 @@ pub fn gamg(
         let final_residual = l2(&r) / b_norm;
         return (
             x,
-            SolverPerformance { n_iterations: 1, final_residual, converged: true },
+            SolverPerformance {
+                n_iterations: 1,
+                final_residual,
+                converged: true,
+            },
         );
     }
 
@@ -250,7 +268,11 @@ pub fn gamg(
     if final_residual < settings.tolerance {
         return (
             x,
-            SolverPerformance { n_iterations: 0, final_residual, converged: true },
+            SolverPerformance {
+                n_iterations: 0,
+                final_residual,
+                converged: true,
+            },
         );
     }
 
@@ -368,7 +390,10 @@ fn pair_agglomerate(ldu: &LduMatrix, weights: &[f64], forward: bool) -> (Vec<usi
         n_coarse += 1;
     }
 
-    (map.into_iter().map(|m| m as usize).collect(), n_coarse as usize)
+    (
+        map.into_iter().map(|m| m as usize).collect(),
+        n_coarse as usize,
+    )
 }
 
 /// Build the coarse symmetric matrix by restricting `fine` through
@@ -520,9 +545,16 @@ mod tests {
         let n = 200;
         let h = 1.0 / (n + 1) as f64;
         let (m, b) = poisson_1d(n);
-        let settings = SolverSettings { tolerance: 1e-9, max_iter: 100 };
+        let settings = SolverSettings {
+            tolerance: 1e-9,
+            max_iter: 100,
+        };
         let (x, perf) = gamg(&m, &b, None, &settings);
-        assert!(perf.converged, "GAMG did not converge: res = {}", perf.final_residual);
+        assert!(
+            perf.converged,
+            "GAMG did not converge: res = {}",
+            perf.final_residual
+        );
         for i in 0..n {
             let xi = (i + 1) as f64 * h;
             let exact = xi * (1.0 - xi) / 2.0;
@@ -537,7 +569,10 @@ mod tests {
         // textbook-optimal standalone — hence the loose absolute bound — but it
         // must stay bounded across an 8× refinement, unlike PCG whose count
         // grows ∝ Nₓ.)
-        let settings = SolverSettings { tolerance: 1e-8, max_iter: 200 };
+        let settings = SolverSettings {
+            tolerance: 1e-8,
+            max_iter: 200,
+        };
         let (m1, b1) = poisson_1d(250);
         let (m2, b2) = poisson_1d(2000);
         let (_, p1) = gamg(&m1, &b1, None, &settings);
@@ -555,7 +590,10 @@ mod tests {
     #[test]
     fn gamg_warm_start_returns_immediately() {
         let (m, b) = poisson_1d(200);
-        let settings = SolverSettings { tolerance: 1e-8, max_iter: 100 };
+        let settings = SolverSettings {
+            tolerance: 1e-8,
+            max_iter: 100,
+        };
         let (x, _) = gamg(&m, &b, None, &settings);
         // Re-solving from the converged field needs zero cycles.
         let (_, perf) = gamg(&m, &b, Some(&x), &settings);
@@ -571,7 +609,10 @@ mod tests {
         m.upper = vec![-1.0, -1.0];
         m.lower = vec![-1.0, -1.0];
         let b = vec![1.0, 1.0, 1.0];
-        let settings = SolverSettings { tolerance: 1e-10, max_iter: 50 };
+        let settings = SolverSettings {
+            tolerance: 1e-10,
+            max_iter: 50,
+        };
         let (x, perf) = gamg(&m, &b, None, &settings);
         assert!(perf.converged);
         // A·x = b solution: [1.5, 2.0, 1.5].

@@ -1,0 +1,19 @@
+reconr
+ 20 21/
+ 'h2 pendf, err 0.001'/
+ 128 0/
+ 0.001/
+ 0/
+broadr
+ 20 21 22/
+ 128 2/
+ 0.001/
+ 293.6 600./
+ 0/
+resxsr
+ 25/
+ 1 2 1 1e-5 1e3 0.001/
+ 'w4 test' 1/
+ 'resxsr oracle: h2 293.6 + 600 K pendf, eps 0.001'/
+ 'h2' 128 22/
+stop

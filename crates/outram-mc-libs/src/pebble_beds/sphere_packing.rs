@@ -124,7 +124,9 @@ pub enum PackingError {
     },
     /// A sphere could not be placed without overlap within the attempt budget —
     /// the domain is effectively saturated (try a lower packing fraction).
-    #[error("could not place sphere {placed}/{target} within {attempts} attempts (domain saturated)")]
+    #[error(
+        "could not place sphere {placed}/{target} within {attempts} attempts (domain saturated)"
+    )]
     PlacementFailed {
         /// How many spheres were placed before giving up.
         placed: usize,
@@ -274,15 +276,18 @@ pub fn pack_spheres(
             let py = lo + span * prn(&mut rng);
             let pz = lo + span * prn(&mut rng);
             let key = (cell_of(px), cell_of(py), cell_of(pz));
-            let overlaps = mesh.get(&key).map(|idxs| {
-                idxs.iter().any(|&q| {
-                    let c = spheres[q];
-                    let dx = px - c.x;
-                    let dy = py - c.y;
-                    let dz = pz - c.z;
-                    dx * dx + dy * dy + dz * dz < sqd
+            let overlaps = mesh
+                .get(&key)
+                .map(|idxs| {
+                    idxs.iter().any(|&q| {
+                        let c = spheres[q];
+                        let dx = px - c.x;
+                        let dy = py - c.y;
+                        let dz = pz - c.z;
+                        dx * dx + dy * dy + dz * dz < sqd
+                    })
                 })
-            }).unwrap_or(false);
+                .unwrap_or(false);
             if overlaps {
                 continue;
             }
@@ -365,7 +370,13 @@ impl PackedSpheres {
                 }
             }
         }
-        Self { spheres, half_width, radius, cell_length, grid }
+        Self {
+            spheres,
+            half_width,
+            radius,
+            cell_length,
+            grid,
+        }
     }
 
     /// Is the point `p` \[cm\] inside any packed kernel?
@@ -377,15 +388,91 @@ impl PackedSpheres {
         let cell_of = |x: f64| ((x + self.half_width) / self.cell_length).floor() as i64;
         let key = (cell_of(p.x), cell_of(p.y), cell_of(p.z));
         let r2 = self.radius * self.radius;
-        self.grid.get(&key).map(|idxs| {
-            idxs.iter().any(|&q| {
-                let c = self.spheres[q as usize].center;
-                let dx = p.x - c.x;
-                let dy = p.y - c.y;
-                let dz = p.z - c.z;
-                dx * dx + dy * dy + dz * dz < r2
+        self.grid
+            .get(&key)
+            .map(|idxs| {
+                idxs.iter().any(|&q| {
+                    let c = self.spheres[q as usize].center;
+                    let dx = p.x - c.x;
+                    let dy = p.y - c.y;
+                    let dz = p.z - c.z;
+                    dx * dx + dy * dy + dz * dz < r2
+                })
             })
-        }).unwrap_or(false)
+            .unwrap_or(false)
+    }
+
+    /// Centre \[cm\] of the packed sphere that contains `p`, or `None` if `p` is
+    /// in the matrix between spheres or outside the domain.
+    ///
+    /// Same O(1) grid lookup as [`is_inside_kernel`](Self::is_inside_kernel); the
+    /// packed spheres do not overlap, so at most one contains `p`. Used to
+    /// resolve *which* particle a point falls in when the packed body has
+    /// internal structure — e.g. the concentric layers of a TRISO particle
+    /// (see [`crate::pebble_beds::fhr_pebble`]).
+    pub fn containing_center(&self, p: Position) -> Option<Position> {
+        let cell_of = |x: f64| ((x + self.half_width) / self.cell_length).floor() as i64;
+        let key = (cell_of(p.x), cell_of(p.y), cell_of(p.z));
+        let r2 = self.radius * self.radius;
+        self.grid.get(&key).and_then(|idxs| {
+            idxs.iter().find_map(|&q| {
+                let c = self.spheres[q as usize].center;
+                let (dx, dy, dz) = (p.x - c.x, p.y - c.y, p.z - c.z);
+                if dx * dx + dy * dy + dz * dz < r2 {
+                    Some(c)
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
+    /// Volume fraction of packed spheres inside the ball `r < radius`, by uniform
+    /// point sampling.
+    ///
+    /// **This is not [`packing_fraction`](Self::packing_fraction), and the
+    /// difference is a modelling trap.** That one reports `N·v / (2·half_width)³`
+    /// — the fraction over the packing **cube**. But sphere *centres* are confined
+    /// to `half_width − radius`, so the density of centres is
+    /// `N / (2(half_width − radius))³`, and the volume fraction at a point well
+    /// inside the cube is higher than the nominal by `(h/(h−r))³`. Clip that cube
+    /// to a ball and you get a ball that is *denser* than the number you asked
+    /// for: for the FHR pebble (`h = 1.9425`, `r = 0.0425`, nominal 0.30) the
+    /// `r < 1.9` fuel sphere comes out at **0.3072, +2.4 %**.
+    ///
+    /// That matters because a deck specifies its packing fraction over the fuel
+    /// **region**, not over whatever cube a packer happened to use —
+    /// `openmc.model.pack_spheres(radius, region=-fuel_sph, pf=0.30)` puts
+    /// exactly 30 % into the sphere. So this is the quantity to match, and
+    /// `packing_fraction()` is the quantity to stop quoting.
+    ///
+    /// Pure: `seed` drives a local LCG, nothing global is touched.
+    pub fn volume_fraction_in_ball(&self, radius: f64, samples: usize, mut seed: u64) -> f64 {
+        if samples == 0 || !(radius > 0.0) {
+            return 0.0;
+        }
+        let mut prn = move || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+        let (mut inside, mut n) = (0usize, 0usize);
+        while n < samples {
+            let p = Position::new(
+                (2.0 * prn() - 1.0) * radius,
+                (2.0 * prn() - 1.0) * radius,
+                (2.0 * prn() - 1.0) * radius,
+            );
+            if p.norm() >= radius {
+                continue;
+            }
+            n += 1;
+            if self.is_inside_kernel(p) {
+                inside += 1;
+            }
+        }
+        inside as f64 / n as f64
     }
 
     /// The packed kernels.
@@ -463,7 +550,11 @@ mod tests {
         // Target count from the same floor formula.
         let expected_n = sphere_count(radius, half, pf);
         assert_eq!(packed.len(), expected_n, "placed sphere count");
-        assert!(packed.len() > 50, "expected a non-trivial packing, got {}", packed.len());
+        assert!(
+            packed.len() > 50,
+            "expected a non-trivial packing, got {}",
+            packed.len()
+        );
 
         // No overlaps: closest centre pair ≥ one diameter (minus float slack).
         let dmin = packed.min_center_distance().unwrap();

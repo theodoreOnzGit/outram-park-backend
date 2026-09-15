@@ -21,19 +21,53 @@
 
 //! Ordinary differential equation solvers for systems `dy/dx = f(x, y)`.
 //!
-//! Ports the OpenFOAM `ODE` layer: user systems implement the [`OdeSystem`]
+//! Ports the OpenFOAM `ODE` layer: user systems implement the [`OdeSystem`](crate::ode::OdeSystem)
 //! trait, and one of the concrete steppers integrates them with adaptive step
-//! control — [`Euler`] (explicit 1st order), [`Rkf45`] (explicit Runge-Kutta-
-//! Fehlberg 4(5)), and [`Rosenbrock23`] (semi-implicit, for stiff systems,
+//! control — [`Euler`](crate::ode::euler::Euler) (explicit 1st order),
+//! [`Rkf45`](crate::ode::rkf45::Rkf45) (explicit Runge-Kutta-Fehlberg 4(5)), and
+//! [`Rosenbrock23`](crate::ode::rosenbrock23::Rosenbrock23) (semi-implicit, for stiff systems,
 //! requiring a Jacobian). The independent variable `x`, state `y`, and step
 //! size are bare `f64` in the caller's own units; tolerances are set through
-//! [`OdeSolverConfig`].
+//! [`OdeSolverConfig`](crate::ode::OdeSolverConfig).
+//!
+//! # Storing an integrator: [`OdeIntegrator`](crate::ode::integrator::OdeIntegrator)
+//!
+//! The three steppers above take the system by reference on every call, which
+//! is awkward for any caller that wants to *keep* "the integrator for this
+//! material point" as a struct field — storing a borrow would force a lifetime
+//! parameter, which the workspace design rules forbid.
+//!
+//! [`integrator`](crate::ode::integrator) solves that with two enums that own
+//! what they integrate: [`OdeSolver`](crate::ode::integrator::OdeSolver) selects
+//! the stepper, and
+//! [`OdeIntegrator`](crate::ode::integrator::OdeIntegrator) selects how the
+//! system is supplied —
+//! [`OdeIntegrator::TypedState`](crate::ode::integrator::OdeIntegrator::TypedState)
+//! (a concrete system owned
+//! by value, statically dispatched, **preferred**) or
+//! [`OdeIntegrator::DynSystem`](crate::ode::integrator::OdeIntegrator::DynSystem)
+//! (an `Arc<dyn OdeSystem + Send + Sync>`, kept by
+//! maintainer decision for flexibility). Neither borrows, so neither needs a
+//! lifetime.
 
 pub mod euler;
+pub mod integrator;
+pub mod parallel;
 pub mod rkf45;
 pub mod rosenbrock23;
 
 pub use euler::Euler;
+pub use integrator::{
+    DynSystemIntegrator, NoTypedSystem, OdeIntegrator, OdeSolver, SharedOdeSystem,
+    TypedStateIntegrator,
+};
+pub use parallel::{
+    adaptive_quadrature_batch, ensemble_backend_for, integrate_ensemble, integrate_ensemble_mixed,
+    quadrature_backend_for, quadrature_batch, AdaptiveSettings, GaussOrder, OdeEnsemble,
+    OdeEnsembleFailure, OdeLane, OdeLaneSolution, OdeLaneStatus, QuadratureBatch,
+    QuadratureBatchFailure, QuadratureInterval, QuadratureRule, QuadratureSolution,
+    QuadratureStatus,
+};
 pub use rkf45::Rkf45;
 pub use rosenbrock23::Rosenbrock23;
 
@@ -108,6 +142,24 @@ pub enum OdeError {
     /// The interval could not be spanned within `max_steps` sub-steps; carries
     /// the number of steps taken.
     MaxStepsExceeded(usize),
+    /// The system produced a non-finite (NaN or infinite) error estimate, so
+    /// the state cannot be trusted and integration stopped.
+    ///
+    /// The usual cause is `derivatives` or `jacobian` returning a non-finite
+    /// value — for example a numerically-differenced Jacobian
+    /// ([`crate::math::differentiate::NumericalJacobian`]) that could not form
+    /// a column, or an evaluation that left the model's valid range.
+    ///
+    /// # Why this variant exists
+    ///
+    /// Before bead `op-ad6h` this case did not error at all: it returned
+    /// `Ok(())` with a NaN state, because the per-equation error fold used
+    /// `f64::max`, which discards NaN. A wrong answer reported as success is
+    /// the worst failure mode available to a solver, so it is now a distinct
+    /// error rather than being folded into
+    /// [`StepSizeUnderflow`](Self::StepSizeUnderflow), which would have named
+    /// the wrong cause.
+    NonFiniteState,
 }
 
 impl std::fmt::Display for OdeError {
@@ -115,6 +167,10 @@ impl std::fmt::Display for OdeError {
         match self {
             Self::StepSizeUnderflow => write!(f, "ODE step size underflow"),
             Self::MaxStepsExceeded(n) => write!(f, "ODE exceeded {n} steps"),
+            Self::NonFiniteState => write!(
+                f,
+                "ODE produced a non-finite error estimate (NaN or infinite state)"
+            ),
         }
     }
 }
@@ -139,7 +195,28 @@ pub(crate) fn normalize_error(
             let tol = abs_tol + rel_tol * a.abs().max(b.abs());
             e.abs() / tol
         })
-        .fold(0.0_f64, f64::max)
+        // NB: `fold(0.0, f64::max)` here was a silent-wrong-answer bug
+        // (bead `op-ad6h`). Rust's `f64::max` follows IEEE-754 `maxNum` and
+        // DISCARDS a NaN operand, so `f64::max(0.0, NaN) == 0.0`: a NaN error
+        // read as *zero* error, the step was accepted as perfectly converged,
+        // and `integrate` returned `Ok(())` with a NaN state. Returning NaN
+        // instead would not fix it either, because the caller's accept test is
+        // `err <= 1.0` and every comparison against NaN is false — the step
+        // would be rejected, but `dx` would then shrink to underflow with no
+        // indication of why.
+        //
+        // So a non-finite error is reported as `INFINITY`, which is both true
+        // ("this step is unboundedly bad") and actionable: the caller rejects
+        // it and, per the check in `adaptive_step`, returns
+        // `OdeError::NonFiniteState` rather than a misleading
+        // `StepSizeUnderflow`.
+        .fold(0.0_f64, |acc, e| {
+            if e.is_nan() || acc.is_nan() {
+                f64::INFINITY
+            } else {
+                acc.max(e)
+            }
+        })
 }
 
 /// Adaptive step-size loop shared by all explicit solvers.
@@ -147,10 +224,10 @@ pub(crate) fn normalize_error(
 /// Calls `inner_step(x0, y0, dydx0, dx, y_out) -> err`, retrying with a
 /// smaller `dx` whenever `err > 1`. Updates `x`, `y`, and `dx_try`.
 /// Matches `Foam::adaptiveSolver::solve`.
-pub(crate) fn adaptive_step(
+pub(crate) fn adaptive_step<Sys: OdeSystem + ?Sized>(
     cfg: &OdeSolverConfig,
     mut inner_step: impl FnMut(f64, &[f64], &[f64], f64, &mut Vec<f64>) -> f64,
-    ode: &dyn OdeSystem,
+    ode: &Sys,
     x: &mut f64,
     y: &mut Vec<f64>,
     dydx0: &mut Vec<f64>,
@@ -162,6 +239,14 @@ pub(crate) fn adaptive_step(
 
     let err = loop {
         let err = inner_step(*x, y, dydx0, dx, y_temp);
+        // A non-finite error means the system produced NaN or an infinite
+        // value; shrinking `dx` cannot recover from that, so fail immediately
+        // and name the real cause instead of grinding down to a misleading
+        // `StepSizeUnderflow`. See `OdeError::NonFiniteState` and bead
+        // `op-ad6h`.
+        if !err.is_finite() {
+            return Err(OdeError::NonFiniteState);
+        }
         if err <= 1.0 {
             break err;
         }

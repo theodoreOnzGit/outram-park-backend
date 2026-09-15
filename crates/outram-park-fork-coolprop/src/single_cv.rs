@@ -58,7 +58,12 @@ use crate::{conductivity, viscosity};
 /// Build the mixture [`FluidState`] + quality for a `(p, h)` input, or the
 /// single-phase state via the flash. `p` \[Pa\], `h` \[J/kg\].
 fn state_quality_ph(fluid: Fluid, p: f64, h: f64) -> Result<(FluidState, Option<f64>), FlashError> {
-    if let PhaseAtPh::TwoPhase { temperature, quality, density } = phase_at_ph(fluid, p, h) {
+    if let PhaseAtPh::TwoPhase {
+        temperature,
+        quality,
+        density,
+    } = phase_at_ph(fluid, p, h)
+    {
         let sat = saturation_at_temperature(fluid, temperature).ok_or(FlashError::NonConvergent)?;
         let sl = state_trho(fluid, temperature, sat.rho_liquid);
         let sv = state_trho(fluid, temperature, sat.rho_vapour);
@@ -145,7 +150,12 @@ impl OPCPFluidSingleCV {
             temperature.get::<kelvin>(),
             density.get::<kilogram_per_cubic_meter>(),
         );
-        Self { fluid, state, volume, quality: None }
+        Self {
+            fluid,
+            state,
+            volume,
+            quality: None,
+        }
     }
 
     /// Construct from pressure and temperature (single-phase `(p, T)` flash —
@@ -158,7 +168,12 @@ impl OPCPFluidSingleCV {
         volume: Volume,
     ) -> Result<Self, FlashError> {
         let state = state_pt(fluid, temperature.get::<kelvin>(), pressure.get::<pascal>())?;
-        Ok(Self { fluid, state, volume, quality: None })
+        Ok(Self {
+            fluid,
+            state,
+            volume,
+            quality: None,
+        })
     }
 
     /// Construct from pressure and specific enthalpy. Detects a **two-phase**
@@ -176,7 +191,12 @@ impl OPCPFluidSingleCV {
             pressure.get::<pascal>(),
             specific_enthalpy.get::<joule_per_kilogram>(),
         )?;
-        Ok(Self { fluid, state, volume, quality })
+        Ok(Self {
+            fluid,
+            state,
+            volume,
+            quality,
+        })
     }
 
     /// Construct from pressure and specific entropy. Two-phase-aware (as
@@ -193,7 +213,12 @@ impl OPCPFluidSingleCV {
             pressure.get::<pascal>(),
             specific_entropy.get::<joule_per_kilogram_kelvin>(),
         )?;
-        Ok(Self { fluid, state, volume, quality })
+        Ok(Self {
+            fluid,
+            state,
+            volume,
+            quality,
+        })
     }
 
     // ── Re-equilibration setters (keep the same volume) ─────────────────────
@@ -215,13 +240,21 @@ impl OPCPFluidSingleCV {
         pressure: Pressure,
         temperature: ThermodynamicTemperature,
     ) -> Result<(), FlashError> {
-        self.state = state_pt(self.fluid, temperature.get::<kelvin>(), pressure.get::<pascal>())?;
+        self.state = state_pt(
+            self.fluid,
+            temperature.get::<kelvin>(),
+            pressure.get::<pascal>(),
+        )?;
         self.quality = None;
         Ok(())
     }
 
     /// Re-equilibrate to a new `(p, h)` state (two-phase-aware).
-    pub fn set_ph(&mut self, pressure: Pressure, specific_enthalpy: AvailableEnergy) -> Result<(), FlashError> {
+    pub fn set_ph(
+        &mut self,
+        pressure: Pressure,
+        specific_enthalpy: AvailableEnergy,
+    ) -> Result<(), FlashError> {
         let (state, quality) = state_quality_ph(
             self.fluid,
             pressure.get::<pascal>(),
@@ -233,7 +266,11 @@ impl OPCPFluidSingleCV {
     }
 
     /// Re-equilibrate to a new `(p, s)` state (two-phase-aware).
-    pub fn set_ps(&mut self, pressure: Pressure, specific_entropy: SpecificHeatCapacity) -> Result<(), FlashError> {
+    pub fn set_ps(
+        &mut self,
+        pressure: Pressure,
+        specific_entropy: SpecificHeatCapacity,
+    ) -> Result<(), FlashError> {
         let (state, quality) = state_quality_ps(
             self.fluid,
             pressure.get::<pascal>(),

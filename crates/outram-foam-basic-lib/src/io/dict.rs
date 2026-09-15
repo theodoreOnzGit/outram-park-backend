@@ -547,10 +547,12 @@ impl Parser {
             let t = self
                 .advance()
                 .ok_or_else(|| self.err("unexpected end of input inside `[ … ]`"))?;
-            *slot = t
-                .text
-                .parse::<f64>()
-                .map_err(|_| self.err(format!("dimension exponent {i} is not a number: `{}`", t.text)))?;
+            *slot = t.text.parse::<f64>().map_err(|_| {
+                self.err(format!(
+                    "dimension exponent {i} is not a number: `{}`",
+                    t.text
+                ))
+            })?;
         }
         self.expect("]")?;
         // Trailing values (scalar / vector) up to the terminating ';'.

@@ -50,7 +50,7 @@ pub fn div_flux(phi: &SurfaceScalarField) -> VolScalarField {
         .collect();
 
     VolScalarField::new(
-        format!("div({})", phi.name),
+        crate::fv_operators::naming::derived_name("div", &phi.name),
         phi.mesh.clone(),
         Field::from_fn(mesh.n_cells, |c| d[c] / mesh.cell_volumes[c]),
         boundary,
@@ -87,7 +87,7 @@ pub fn div(phi: &SurfaceScalarField, psi: &VolScalarField) -> VolScalarField {
         .collect();
 
     VolScalarField::new(
-        format!("div({},{})", phi.name, psi.name),
+        crate::fv_operators::naming::derived_name2("div", &phi.name, &psi.name),
         phi.mesh.clone(),
         Field::from_fn(mesh.n_cells, |c| d[c] / mesh.cell_volumes[c]),
         boundary,
@@ -124,7 +124,7 @@ pub fn div_vec(phi: &SurfaceScalarField, u: &VolVectorField) -> VolVectorField {
         .collect();
 
     VolVectorField::new(
-        format!("div({},{})", phi.name, u.name),
+        crate::fv_operators::naming::derived_name2("div", &phi.name, &u.name),
         phi.mesh.clone(),
         Field::from_fn(mesh.n_cells, |c| d[c] * (1.0 / mesh.cell_volumes[c])),
         boundary,

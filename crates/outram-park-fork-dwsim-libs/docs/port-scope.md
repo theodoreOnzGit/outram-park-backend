@@ -8,6 +8,17 @@ trait hierarchy) live in CLAUDE.md.
 
 DWSIM reference C# source tree: `/home/teddy0/Documents/research/dwsim/`
 
+> **Status (2026-08): most of Tiers 1–3 and part of Tier 4 are now ported.**
+> The flash family (VLE / inside-out / VLLE / LLE / SLE / SVLLE /
+> single-component), Gibbs-minimisation speciation, the electrolyte tier, all
+> equipment models below, the reactor tier (conversion / equilibrium / CSTR /
+> PFR / Gibbs), and the advanced EOS PR78 / full PRSV2 / LKP / PR+Lee-Kesler are
+> ported. This document is the **original priority plan**; for the current
+> per-model port status see [`chemistry-model-survey.md`](./chemistry-model-survey.md).
+> Everything ported is **verified, not benchmark-validated** — untrusted draft
+> until human V&V. Remaining gaps: the Tier-4 advanced-EOS packages (PC-SAFT,
+> GERG-2008, Twu / Mathias-Copeman α-variants) and Petalas-Aziz two-phase pipe.
+
 ## Scope — libraries useful for thermal hydraulics
 
 Listed in priority order for porting.  All paths are relative to

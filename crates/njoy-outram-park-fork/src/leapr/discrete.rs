@@ -20,7 +20,6 @@
 //! ## Units
 //! `alpha`, `beta`, `S` dimensionless; oscillator energies in eV; temperatures K.
 
-use crate::common::phys::BK_EV_PER_K;
 use crate::leapr::input::LeaprInput;
 use crate::leapr::SabMatrix;
 
@@ -72,7 +71,8 @@ pub fn bessel_i1(x: f64) -> f64 {
     } else {
         let v = 1.0 / y;
         let mut b = 0.02282967 + v * (-0.02895312 + v * (0.01787654 - v * 0.00420059));
-        b = 0.39894228 + v * (-0.03988024 + v * (-0.00362018 + v * (0.00163801 + v * (-0.01031555 + v * b))));
+        b = 0.39894228
+            + v * (-0.03988024 + v * (-0.00362018 + v * (0.00163801 + v * (-0.01031555 + v * b))));
         b / x.sqrt() * x.exp()
     }
 }
@@ -268,8 +268,16 @@ pub(crate) fn sint(
             }
         }
     }
-    let ss1 = if sex[k1 - 1] <= 0.0 { SLIM } else { sex[k1 - 1].ln() };
-    let ss3 = if sex[k3 - 1] <= 0.0 { SLIM } else { sex[k3 - 1].ln() };
+    let ss1 = if sex[k1 - 1] <= 0.0 {
+        SLIM
+    } else {
+        sex[k1 - 1].ln()
+    };
+    let ss3 = if sex[k3 - 1] <= 0.0 {
+        SLIM
+    } else {
+        sex[k3 - 1].ln()
+    };
     let ex = ((bex[k3 - 1] - x) * ss1 + (x - bex[k1 - 1]) * ss3) * rdbex[k1 - 1];
     if ex > SLIM {
         ex.exp()
@@ -309,6 +317,10 @@ pub fn add_discrete_oscillators(
     let tbeta = input.continuous.tbeta;
     let twt = input.continuous.twt;
     let tempr = input.temperature_k;
+    // Boltzmann constant from the job's own constant set, so that a run
+    // reproducing a pre-2018 evaluation uses that evaluation's value
+    // (see `crate::leapr::vintage`).
+    let bk = input.constants.bk_ev_per_k();
 
     // oscillator parameters
     let mut bdeln = vec![0.0_f64; nd];
@@ -326,7 +338,7 @@ pub fn add_discrete_oscillators(
         let cn = (eb + 1.0 / eb) / 2.0;
         ar[i] = adel / (sn * bdeln[i]);
         dist[i] = adel * bdel * cn / (2.0 * sn);
-        tsave += dist[i] / BK_EV_PER_K;
+        tsave += dist[i] / bk;
         dbw[i] = ar[i] * cn;
         if *dwpix > 0.0 {
             *dwpix += dbw[i];
@@ -422,7 +434,7 @@ pub fn add_discrete_oscillators(
             nn = n;
             ben[..nn].copy_from_slice(&bes[..nn]);
             wtn[..nn].copy_from_slice(&wts[..nn]);
-            tbart += dist[i] / BK_EV_PER_K / tempr;
+            tbart += dist[i] / bk / tempr;
         }
 
         // final line list is in ben/wtn with count nn
@@ -526,16 +538,32 @@ mod tests {
     /// match to `< 5e-7` absolute (the A-S polynomial accuracy).
     #[test]
     fn bessel_reference_values() {
-        assert!((bessel_i0(1.0) - 1.2660658).abs() < 5e-7, "I0(1) = {}", bessel_i0(1.0));
-        assert!((bessel_i1(1.0) - 0.5651591).abs() < 5e-7, "I1(1) = {}", bessel_i1(1.0));
+        assert!(
+            (bessel_i0(1.0) - 1.2660658).abs() < 5e-7,
+            "I0(1) = {}",
+            bessel_i0(1.0)
+        );
+        assert!(
+            (bessel_i1(1.0) - 0.5651591).abs() < 5e-7,
+            "I1(1) = {}",
+            bessel_i1(1.0)
+        );
     }
 
     /// Large-argument branch: `I0(5) = 27.2399`, `I1(5) = 24.3356`.
     /// Result (2026-07-15): relative error `< 1e-4` (A-S asymptotic form).
     #[test]
     fn bessel_large_argument_branch() {
-        assert!((bessel_i0(5.0) - 27.2399).abs() / 27.2399 < 1e-4, "I0(5) = {}", bessel_i0(5.0));
-        assert!((bessel_i1(5.0) - 24.3356).abs() / 24.3356 < 1e-4, "I1(5) = {}", bessel_i1(5.0));
+        assert!(
+            (bessel_i0(5.0) - 27.2399).abs() / 27.2399 < 1e-4,
+            "I0(5) = {}",
+            bessel_i0(5.0)
+        );
+        assert!(
+            (bessel_i1(5.0) - 24.3356).abs() / 24.3356 < 1e-4,
+            "I1(5) = {}",
+            bessel_i1(5.0)
+        );
     }
 
     /// `bfact` sanity: the zero-phonon weight `bzero` must be positive and the
@@ -550,7 +578,12 @@ mod tests {
         assert!(bzero > 0.0 && bzero.is_finite(), "bzero = {bzero}");
         for k in 0..50 {
             if bplus[k] > 0.0 && bminus[k] > 0.0 {
-                assert!(bminus[k] >= bplus[k] * 0.999, "k={k} bminus {} < bplus {}", bminus[k], bplus[k]);
+                assert!(
+                    bminus[k] >= bplus[k] * 0.999,
+                    "k={k} bminus {} < bplus {}",
+                    bminus[k],
+                    bplus[k]
+                );
             }
         }
     }
@@ -577,7 +610,11 @@ mod tests {
                 c: 0.0,
                 tbeta: 0.6,
             },
-            oscillators: vec![DiscreteOscillator { energy_ev: 0.2, weight: 0.4 }],
+            oscillators: vec![DiscreteOscillator {
+                energy_ev: 0.2,
+                weight: 0.4,
+            }],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let mut sab = SabMatrix::zeros(nbeta, alpha.len());
         for j in 0..alpha.len() {
@@ -595,7 +632,10 @@ mod tests {
                 assert!(v.is_finite() && v >= 0.0, "sab[{k},{j}] = {v}");
             }
         }
-        assert!(dwpix > dw_before, "dwpix {dwpix} did not grow from {dw_before}");
+        assert!(
+            dwpix > dw_before,
+            "dwpix {dwpix} did not grow from {dw_before}"
+        );
         assert!(tempf.is_finite());
     }
 }

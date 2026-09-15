@@ -1,3 +1,25 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Affine 3-D placement (3x3 linear part plus translation) with a normal-matrix
+// inverse-transpose. Standard linear algebra, no named published algorithm and no
+// upstream source — written from first principles.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Affine transforms over mesh vertices — the **CPU reference path**.
 //!
 //! An [`Affine3`] is a `3x3` linear map plus a translation, i.e. the standard
@@ -52,7 +74,10 @@ impl Affine3 {
 
     /// A pure translation by `t` (identity linear part).
     pub const fn translation(t: Vec3) -> Affine3 {
-        Affine3 { linear: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], translation: t }
+        Affine3 {
+            linear: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            translation: t,
+        }
     }
 
     /// A non-uniform scale about the origin by `(sx, sy, sz)`, no translation.
@@ -65,7 +90,10 @@ impl Affine3 {
 
     /// Build from an explicit row-major `3x3` linear part and a translation.
     pub const fn from_rows(linear: [[f64; 3]; 3], translation: Vec3) -> Affine3 {
-        Affine3 { linear, translation }
+        Affine3 {
+            linear,
+            translation,
+        }
     }
 
     /// Transform a single point `p` by this affine map, returning `M p + t`.

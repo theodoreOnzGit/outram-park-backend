@@ -12,15 +12,28 @@
 //! / `aarch64-linux-android`, with no target gate. `async-opcua` was chosen
 //! precisely for that: its crypto is RustCrypto, not `openssl-sys`.
 //!
+//! ## What is CIET's, and what is shared
+//!
+//! The reactor-agnostic half — TCP transport, the server thread and its tokio
+//! runtime, PKI paths, mDNS, address-space construction, the read/write
+//! callbacks — lives in [`opcua_core`](crate::opcua_core) and serves any OUTRAM
+//! PARK simulator. **This module is only CIET's half of that contract**: the
+//! plant state, the node map, the identity strings, and the mapping between
+//! them. If you are adding a variable, everything you need is here; if you are
+//! adding a *second simulator*, read [`opcua_core::simulator`](crate::opcua_core::simulator)
+//! instead.
+//!
 //! ## Layout
 //!
 //! | Module | Role |
 //! |---|---|
 //! | [`state`] | [`CietState`], the flat plant snapshot shared between threads |
 //! | [`node_map`] | the enums defining every OPC-UA variable — the single source of truth |
-//! | [`pki_paths`] | where the PKI directory lives (`~/.outram-park/...`) |
-//! | [`server`] | the OPC-UA server, run on its own thread with its own tokio runtime |
-//! | [`discovery`] | cooperative mDNS announce (server) and browse (client) |
+//! | [`user_controls`] | the pending-write mailbox remote writes are parked in |
+//! | [`simulator`] | CIET's identity profile and [`CietNode`](simulator::CietNode), the shared layer's view of the node map |
+//! | [`server`] | starting the shared OPC-UA server, bound to CIET |
+//! | [`pki_paths`] | where CIET's PKI directory lives (`~/.outram-park/...`) |
+//! | [`discovery`] | CIET's mDNS marker, and a browser bound to it |
 //!
 //! ## Reading this module for the first time
 //!
@@ -59,10 +72,12 @@ pub mod discovery;
 pub mod node_map;
 pub mod pki_paths;
 pub mod server;
+pub mod simulator;
 pub mod state;
 pub mod user_controls;
 
 pub use node_map::{
     CietControl, CietSignal, CietSwitch, CIET_NAMESPACE_URI, DEFAULT_OPCUA_PORT, ENDPOINT_PATH,
 };
+pub use simulator::{CietNode, CietOpcuaSimulator, CIET_OPCUA_PROFILE};
 pub use state::{CietState, HeaterControlSettings, HeaterType, SharedCietState};

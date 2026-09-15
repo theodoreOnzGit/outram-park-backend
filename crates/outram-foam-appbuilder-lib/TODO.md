@@ -7,9 +7,11 @@ after wiring up the pimpleFoam / rhoCentralFoam / rhoPimpleFoam tutorial tests.
 
 | Tutorial | Active tests | Ignored | Blocker |
 |---|---|---|---|
-| `pimple_foam_cavity` | mesh load, velocity-vs-icoFoam (1.4 % L∞) | Ghia Re=100 | mesh is Re=10; needs a ν=1e-3 re-run |
+| `pimple_foam_cavity` | mesh load, velocity-vs-icoFoam (1.4 % L∞), Ghia Re=100 (coarse + fine mesh), pressure-solver comparison | — | none |
 | `rho_central_foam_shock_tube` | mesh load, pressure (0.7 % L1), shock position | — | none |
-| `rho_pimple_foam_aerofoil_naca0012` | mesh load | Cp, CL, mass conservation | k-ω SST turbulence stub |
+| `rho_pimple_foam_aerofoil_naca0012` | mesh load | Cp, CL, mass conservation | test bodies are empty TODOs; also needs turbulence wall functions (**not** a k-ω SST stub — that claim was wrong, see below) |
+| `turbulence_coupling` (tests/) | analytic k-ω decay through PIMPLE, closure-changes-momentum | — | none |
+| `fv_scheme_selection` (tests/) | Gauss linear vs upwind vs Ghia 1982, backward-ddt selection | — | none |
 
 ## Solvers
 
@@ -19,11 +21,16 @@ Fixed/added this session: momentum Laplacian sign, pressure-source sign,
 **proper PISO corrector loop** (H(U) re-evaluated each pass — the Co≈0.85
 stability fix), and **`fvc::ddtCorr`** with the `fvcDdtPhiCoeff` limiter. The
 cavity now runs at icoFoam's dt = 5e-3 and matches to 1.4 %. Remaining:
-- [ ] **Second-order convection** (`Gauss linear`) option — the port uses
-  first-order upwind (`fvm::div`), which is the bulk of the remaining 1.4 %
-  cavity difference vs icoFoam. A linear/limited-linear scheme would tighten it.
-- [ ] Un-ignore `cavity_ghia_benchmark_re100` after re-running the case at
-  ν = 1e-3 (Re = 100) so the shipped Ghia 1982 data applies.
+- [x] **Second-order convection** (`Gauss linear`) option — **done**, in
+  `solvers::schemes::div_vec_scheme`. Measured on the Re = 100 cavity, 20×20
+  (`tests/fv_scheme_selection.rs`, 2026-08-07): centreline RMS error vs Ghia
+  et al. (1982) falls from 0.0363 to 0.0224 (−38 %). The *limited*/TVD schemes
+  (`linearUpwind`, `vanLeer`, `MUSCL`, `limitedLinear`) remain unimplemented
+  and return `AppBuilderError::UnsupportedScheme` — they need a face-`r`
+  reconstruction that `outram-foam-basic-lib` does not expose.
+- [x] Un-ignore `cavity_ghia_benchmark_re100` — **done**; it, its fine-mesh
+  variant, and `cavity_pressure_solver_comparison_fine_mesh` are all active and
+  passing in `tutorials/pimple_foam_cavity.rs`.
 
 ### rhoCentralFoam (`solvers::rho_central_foam`)
 Fixed/added: boundary-face flux (the end cells were missing their wall pressure
@@ -32,14 +39,15 @@ force, producing a 5× spike), and **2nd-order vanLeer MUSCL reconstruction**
 KNP flux now matches OpenFOAM rhoCentralFoam's scheme family. Nothing
 outstanding for the Sod tube.
 
-#### Sod Shock Tube  (HIGH PRIORITY)
+#### Sod Shock Tube
 
-HIGH PRIORITY ITEM.
-
-Sod shock tube is validated, but not in printable csv format. I want this 
-V&V item in csv format within the comments.
-
-The following reference must be inside the comments:
+- [x] **CSV output — done.** `tests/sod_shock_tube_validation/main.rs` writes
+  both `sod_shock_tube_rhocentralfoam_vs_table_ii.csv` (`:688`, the 9-station
+  Table II comparison) and `sod_shock_tube_profile_vs_exact_riemann.csv`
+  (`:755`, the full profile with L2/L∞ norms in its header).
+- [ ] **Add the BibTeX block below to `main.rs`'s module doc.** The module
+  currently carries only a prose citation (`main.rs:19-21`); the verbatim
+  entry is still wanted in the comments:
 
 ```
 @article{Sod1978,
@@ -69,21 +77,63 @@ explicit, density-based path used by rhoCentralFoam. Remaining:
   reconstruction used here.
 
 ### rhoPimpleFoam (`solvers::rho_pimple_foam`)
-- [ ] **Apply the proven pimpleFoam coupling fixes** — this solver still has the
-  same structure that was broken in pimpleFoam: `- fvm::laplacian_vec` (should be
-  `+`), `+= phi_int` pressure source (should be `-=`, negated), unconstrained
-  HbyA boundary flux, Gauss-Seidel pressure solve, a single-pass corrector that
-  never re-evaluates H(U), and no ddtCorr. It will diverge as-is. Port the full
-  set now proven on pimpleFoam (sign, sign, constrainHbyA, `solve_cg`, per-step
-  BC re-application, the PISO corrector loop restructure, and `fvc::ddtCorr`),
-  then validate.
-- [ ] **k-ω SST turbulence model** — now **implemented and unit-tested** in
-  `outram-foam-turbulence-lib` (F1/F2 blending, νt stress limiter, k/ω transport,
-  wall distance, `div_dev_rho_reff`). Still to do for the aerofoil: (a) wire the
-  model into `RhoPimpleFoam` (call `div_dev_rho_reff` in the momentum predictor
-  and `correct()` after the pressure loop), and (b) turbulence wall-function
-  boundary conditions (`nutkWallFunction`, `omegaWallFunction`, …) — without
-  them the near-wall k/ω are unphysical on a y⁺ > 11 mesh.
+- [x] **Apply the proven pimpleFoam coupling fixes** — **done.** This item used
+  to claim the solver still had pimpleFoam's broken structure and "will diverge
+  as-is". That is no longer true and has not been for some time: the port now
+  has `+ fvm::laplacian_vec` (`mod.rs:235`), the negated `-= phi_int` pressure
+  source (`:304-305`), `constrainHbyA` (`:296`), the PCG `solve_cg` pressure
+  solve (`:350`), and the restructured PISO corrector loop (`:184-190`). The
+  low-Mach cavity stability test in that module passes.
+- [ ] **`fvc::ddtCorr` for rhoPimpleFoam** — the one genuine remainder of the
+  above. The Rhie-Chow transient flux correction is not applied in this solver
+  (no `ddt_corr` call), unlike `pimple_foam`.
+- [x] **Wire the turbulence closures into the solvers.** Done 2026-08-07.
+  `src/turbulence/mod.rs` adds the enum-dispatched `TurbulenceClosure`
+  (`Laminar` | `KOmegaSST` | `KEpsilon` | `KOmega` | `SpalartAllmaras` |
+  `Smagorinsky`) over `outram-foam-turbulence-lib`; `PimpleFoam` and
+  `RhoPimpleFoam` each carry one, assemble the momentum stress term from
+  `div_dev_reff`, and call `correct()` after the pressure correctors.
+  `RhoPimpleFoam` converts kinematic ↔ dynamic (μ_eff = μ + ρν_t,
+  α_eff = α + ρν_t/Pr_t) and feeds the closures the volumetric flux φ/ρ_f.
+  **Laminar is the default**, so no existing result changed (verified: the
+  cavity fields are bit-identical). Verification in
+  `tests/turbulence_coupling.rs` — homogeneous k-ω decay through the PIMPLE loop
+  matches the analytic law to 1.8e-5 (ω) and converges at first order in k
+  (observed order 1.00).
+
+  Before this, **~3 178 lines of turbulence closures had zero call sites
+  anywhere in the workspace** while `Cargo.toml` already declared the
+  dependency. The old note that k-ω SST was "a stub in `RhoPimpleFoam`" was
+  wrong: it was fully implemented, just never connected.
+- [ ] **Turbulence wall functions** (`nutkWallFunction`, `omegaWallFunction`,
+  `kqRWallFunction`) — **the remaining blocker for every wall-bounded RAS case**,
+  including the aerofoil. The closures use zero-gradient near-wall BCs, so ω is
+  never driven to its `6ν/(β y²)` asymptote and ν_t = k/ω is unbounded near a
+  wall. Measured (`tests/turbulence_coupling.rs`, 2026-08-07): a Re = 100
+  lid-driven cavity with Wilcox k-ω develops ν_t/ν ≈ 260–330. Until this is
+  fixed, no wall-bounded RAS result from this stack may be compared with a
+  friction correlation and called validated.
+  `outram-foam-turbulence-lib::wall_functions` has `y_plus`/`u_tau`/`nu_t_wall`
+  as standalone helpers, but they are not wired in as patch boundary conditions;
+  doing so is a Layer-4 change in that crate.
+- [ ] **Rhie–Chow `ddtCorr` for non-Euler time schemes.** `DdtScheme::Backward`
+  is now honoured by `PimpleFoam`, but `outram-foam-basic-lib`'s
+  `fvc::ddt_corr` implements only the Euler form while `rAU` picks up BDF2's
+  `1.5 V/Δt` diagonal. Measured consequence (`tests/fv_scheme_selection.rs`):
+  the Euler and Backward cavity runs converge to steady states differing by
+  1.0e-2 to 2.9e-2 m/s, and the gap *grows* as Δt is refined. Needs OpenFOAM's
+  `backwardDdtScheme::fvcDdtPhiCorr` in `outram-foam-basic-lib`.
+- [ ] **Limited/TVD `div` schemes.** `crate::solvers::schemes::div_vec_scheme`
+  implements `Gauss upwind` and `Gauss linear`; `linearUpwind`, `vanLeer`,
+  `MUSCL` and `limitedLinear` return `AppBuilderError::UnsupportedScheme` (never
+  a silent fallback). They need a face limiter driven by a reconstructed upwind
+  gradient for a vector field. `outram-foam-basic-lib::limiters::FluxLimiter`
+  supplies the ψ(r) functions; the face-`r` reconstruction is what is missing.
+- [ ] **`grad`, `laplacian`, `snGrad`, `interpolation` scheme selections are
+  still not consulted by any solver.** Only `ddt` and `div` are live. Wiring the
+  laplacian selection should target `outram-foam-basic-lib`'s new
+  `fvm::laplacian_corrected` / `NonOrthoScheme` and `fvc::grad_least_squares`
+  rather than a fresh implementation.
 
 ### Mesh refinement for the lid-driven cavity (`pimple_foam_cavity`)
 - [x] **Re-run the Ghia Re=100 benchmark on a refined mesh.** Done on a 41×41

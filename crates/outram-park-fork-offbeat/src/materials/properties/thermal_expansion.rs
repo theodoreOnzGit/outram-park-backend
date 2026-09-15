@@ -89,7 +89,7 @@
 //! [`coefficient`](ThermalExpansionModel::coefficient) methods **clamp** the
 //! temperature to the enforced range endpoints before evaluating; the
 //! `*_checked` variants return
-//! [`OffbeatError::OutOfRange`](crate::error::OffbeatError::OutOfRange)
+//! [`OffbeatError::OutOfRange`]
 //! instead. Note that clamping is a *deviation* from upstream for the two
 //! variants that do have a range: upstream
 //! [`MatproZy`](ThermalExpansionModel::MatproZy) prints a warning and then

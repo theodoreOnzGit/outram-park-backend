@@ -88,9 +88,15 @@ impl Hdf5Snapshot {
             }
         }
         // Per-axis cell-centre coordinates (structured grid: separable per axis).
-        let x = (0..nx).map(|i| grid.cell_center(grid.cell_index(i, 0, 0))[0]).collect();
-        let y = (0..ny).map(|j| grid.cell_center(grid.cell_index(0, j, 0))[1]).collect();
-        let z = (0..nz).map(|k| grid.cell_center(grid.cell_index(0, 0, k))[2]).collect();
+        let x = (0..nx)
+            .map(|i| grid.cell_center(grid.cell_index(i, 0, 0))[0])
+            .collect();
+        let y = (0..ny)
+            .map(|j| grid.cell_center(grid.cell_index(0, j, 0))[1])
+            .collect();
+        let z = (0..nz)
+            .map(|k| grid.cell_center(grid.cell_index(0, 0, k))[2])
+            .collect();
         Ok(Hdf5Snapshot {
             dims: [nx, ny, nz],
             x,
@@ -107,7 +113,11 @@ impl Hdf5Snapshot {
     /// [`PflotranError::Io`] if the HDF5 writer fails.
     pub fn to_bytes(&self) -> Result<Vec<u8>, PflotranError> {
         let mut fb = FileBuilder::new();
-        let dims_i32 = [self.dims[0] as i32, self.dims[1] as i32, self.dims[2] as i32];
+        let dims_i32 = [
+            self.dims[0] as i32,
+            self.dims[1] as i32,
+            self.dims[2] as i32,
+        ];
         fb.create_dataset("grid_dimensions")
             .with_i32_data(&dims_i32)
             .with_shape(&[3]);
@@ -161,7 +171,11 @@ impl Hdf5Snapshot {
         if dims_i32.len() != 3 {
             return Err(h5("grid_dimensions", "expected 3 entries"));
         }
-        let dims = [dims_i32[0] as usize, dims_i32[1] as usize, dims_i32[2] as usize];
+        let dims = [
+            dims_i32[0] as usize,
+            dims_i32[1] as usize,
+            dims_i32[2] as usize,
+        ];
 
         let read_axis = |name: &str| -> Result<Vec<f64>, PflotranError> {
             file.dataset(name)
@@ -239,8 +253,14 @@ mod tests {
             z: vec![0.5],
             time: 86_400.0,
             fields: vec![
-                ("Pressure".into(), vec![1e5, 1.1e5, 1.2e5, 1.3e5, 1.4e5, 1.5e5]),
-                ("Temperature".into(), vec![300.0, 301.0, 302.0, 303.0, 304.0, 305.0]),
+                (
+                    "Pressure".into(),
+                    vec![1e5, 1.1e5, 1.2e5, 1.3e5, 1.4e5, 1.5e5],
+                ),
+                (
+                    "Temperature".into(),
+                    vec![300.0, 301.0, 302.0, 303.0, 304.0, 305.0],
+                ),
             ],
         }
     }
@@ -287,8 +307,8 @@ mod tests {
         let grid = CartesianGrid::uniform(4, 2, 1, m(1.0), m(1.0), m(1.0)).unwrap();
         let n = grid.n_cells();
         let pressure: Vec<f64> = (0..n).map(|c| c as f64).collect();
-        let snap =
-            Hdf5Snapshot::from_grid_fields(&grid, 10.0, vec![("Pressure".into(), pressure)]).unwrap();
+        let snap = Hdf5Snapshot::from_grid_fields(&grid, 10.0, vec![("Pressure".into(), pressure)])
+            .unwrap();
         assert_eq!(snap.dims, [4, 2, 1]);
         assert_eq!(snap.x.len(), 4);
         assert_eq!(snap.y.len(), 2);
@@ -306,8 +326,9 @@ mod tests {
         let grid = CartesianGrid::uniform(5, 1, 1, m(2.0), m(1.0), m(1.0)).unwrap();
         let n = grid.n_cells();
         let t: Vec<f64> = (0..n).map(|c| 300.0 + c as f64).collect();
-        let snap = Hdf5Snapshot::from_grid_fields(&grid, 3600.0, vec![("Temperature".into(), t.clone())])
-            .unwrap();
+        let snap =
+            Hdf5Snapshot::from_grid_fields(&grid, 3600.0, vec![("Temperature".into(), t.clone())])
+                .unwrap();
         let back = Hdf5Snapshot::from_bytes(snap.to_bytes().unwrap()).unwrap();
         assert_eq!(back.fields[0].0, "Temperature");
         assert_eq!(back.fields[0].1, t);

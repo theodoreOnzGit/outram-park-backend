@@ -197,7 +197,10 @@ async fn read_double(session: &Session, ns: u16, identifier: &str) -> f64 {
     match dv.value.clone() {
         Some(Variant::Double(v)) => v,
         Some(Variant::Float(v)) => v as f64,
-        other => panic!("{identifier}: expected a Double, got {other:?} (status {:?})", dv.status),
+        other => panic!(
+            "{identifier}: expected a Double, got {other:?} (status {:?})",
+            dv.status
+        ),
     }
 }
 

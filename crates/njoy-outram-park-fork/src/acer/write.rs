@@ -44,7 +44,12 @@ impl AceTable {
             fortran_e(self.kt_mev, 4, 11),
             fixed10(&self.date),
         )?;
-        writeln!(w, "{:<70}{:<10}", fixed(&self.comment, 70), fixed10(&self.mat_id))?;
+        writeln!(
+            w,
+            "{:<70}{:<10}",
+            fixed(&self.comment, 70),
+            fixed10(&self.mat_id)
+        )?;
 
         // ── 16 (IZ, AW) pairs, 4 per line (all zero for a plain neutron table) ─
         for row in 0..4 {

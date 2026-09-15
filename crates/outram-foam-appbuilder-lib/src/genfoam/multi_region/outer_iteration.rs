@@ -57,12 +57,17 @@
 //! it. The [`RegionKernel`] trait is a *compile-time contract* each model
 //! satisfies (it is never used as `dyn`).
 //!
-//! ## What is realised vs. scaffolded
+//! ## What is realised vs. deferred
 //!
-//! The mesh-based neutronics-diffusion / SP3 / SN and the full thermal-hydraulics
-//! solvers are still being ported in the parallel fleet, so the loop cannot yet
-//! dispatch to them. What it *does* drive end-to-end, using only already-ported
-//! code, is a genuine **0-D neutronics ↔ lumped thermal-hydraulics** coupling:
+//! The loop dispatches to mesh-based **diffusion** neutronics
+//! ([`RegionModel::MeshNeutronics`], wrapping the ported
+//! [`DiffusionNeutronics`](crate::genfoam::neutronics::DiffusionNeutronics)) and
+//! to a per-cell thermal region ([`RegionModel::MeshThermalHydraulics`]). SP3,
+//! S_N and the full porous thermal-hydraulics driver drop into the same
+//! dispatch seam but are not yet wired as region models.
+//!
+//! It also drives, using only 0-D code, a **point-kinetics ↔ lumped
+//! thermal-hydraulics** coupling:
 //! [`LumpedNeutronics`] wraps the ported
 //! [`point_kinetics`](crate::genfoam::neutronics::point_kinetics) and consumes a
 //! mapped fuel temperature as Doppler-feedback reactivity; [`LumpedThermal`]

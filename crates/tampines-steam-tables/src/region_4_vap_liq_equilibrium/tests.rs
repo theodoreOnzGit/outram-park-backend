@@ -5,171 +5,113 @@ use uom::si::pressure::megapascal;
 use uom::si::available_energy::kilojoule_per_kilogram;
 
 use crate::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_two_phase;
-use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4, tsat_hs_4, w_ps_eqm_region4_finite_diff_vol, w_ps_eqm_region4_kieffer};
+use crate::region_4_vap_liq_equilibrium::{
+    sat_pressure_4, sat_temp_4, tsat_hs_4, w_ps_eqm_region4_finite_diff_vol,
+    w_ps_eqm_region4_kieffer,
+};
 
 #[test]
-pub fn sat_pressure_test_1(){
-
+pub fn sat_pressure_test_1() {
     let ref_p_sat_mpa = 0.353658941e-2;
     let t = ThermodynamicTemperature::new::<kelvin>(300.0);
 
-    let p_sat_test_mpa = sat_pressure_4(t)
-        .get::<megapascal>();
+    let p_sat_test_mpa = sat_pressure_4(t).get::<megapascal>();
 
-    approx::assert_relative_eq!(
-        ref_p_sat_mpa,
-        p_sat_test_mpa,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_p_sat_mpa, p_sat_test_mpa, max_relative = 1e-8);
 }
 #[test]
-pub fn sat_pressure_test_2(){
-
+pub fn sat_pressure_test_2() {
     let ref_p_sat_mpa = 0.263889776e1;
 
     let t = ThermodynamicTemperature::new::<kelvin>(500.0);
 
-    let p_sat_test_mpa = sat_pressure_4(t)
-        .get::<megapascal>();
+    let p_sat_test_mpa = sat_pressure_4(t).get::<megapascal>();
 
-    approx::assert_relative_eq!(
-        ref_p_sat_mpa,
-        p_sat_test_mpa,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_p_sat_mpa, p_sat_test_mpa, max_relative = 1e-8);
 }
 #[test]
-pub fn sat_pressure_test_3(){
-
+pub fn sat_pressure_test_3() {
     let ref_p_sat_mpa = 0.123443146e2;
 
     let t = ThermodynamicTemperature::new::<kelvin>(600.0);
 
-    let p_sat_test_mpa = sat_pressure_4(t)
-        .get::<megapascal>();
+    let p_sat_test_mpa = sat_pressure_4(t).get::<megapascal>();
 
-    approx::assert_relative_eq!(
-        ref_p_sat_mpa,
-        p_sat_test_mpa,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_p_sat_mpa, p_sat_test_mpa, max_relative = 1e-8);
 }
 #[test]
-pub fn sat_temp_test_1(){
-
+pub fn sat_temp_test_1() {
     let ref_t_sat_kelvin = 0.372755919e3;
 
     let p = Pressure::new::<megapascal>(0.1);
 
-    let t_sat_test_kelvin = sat_temp_4(p)
-        .get::<kelvin>();
+    let t_sat_test_kelvin = sat_temp_4(p).get::<kelvin>();
 
-    approx::assert_relative_eq!(
-        ref_t_sat_kelvin,
-        t_sat_test_kelvin,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_t_sat_kelvin, t_sat_test_kelvin, max_relative = 1e-8);
 }
 #[test]
-pub fn sat_temp_test_2(){
-
+pub fn sat_temp_test_2() {
     let ref_t_sat_kelvin = 0.453035632e3;
 
     let p = Pressure::new::<megapascal>(1.0);
 
-    let t_sat_test_kelvin = sat_temp_4(p)
-        .get::<kelvin>();
+    let t_sat_test_kelvin = sat_temp_4(p).get::<kelvin>();
 
-    approx::assert_relative_eq!(
-        ref_t_sat_kelvin,
-        t_sat_test_kelvin,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_t_sat_kelvin, t_sat_test_kelvin, max_relative = 1e-8);
 }
 #[test]
-pub fn sat_temp_test_3(){
-
+pub fn sat_temp_test_3() {
     let ref_t_sat_kelvin = 0.584149488e3;
 
     let p = Pressure::new::<megapascal>(10.0);
 
-    let t_sat_test_kelvin = sat_temp_4(p)
-        .get::<kelvin>();
+    let t_sat_test_kelvin = sat_temp_4(p).get::<kelvin>();
 
-    approx::assert_relative_eq!(
-        ref_t_sat_kelvin,
-        t_sat_test_kelvin,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_t_sat_kelvin, t_sat_test_kelvin, max_relative = 1e-8);
 }
 
-
 #[test]
-pub fn hs_backward_sat_temp_test_1(){
-
+pub fn hs_backward_sat_temp_test_1() {
     let ref_t_sat_kelvin = 3.468_475_498e2;
 
     let h = AvailableEnergy::new::<kilojoule_per_kilogram>(1800.0);
     let s = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.3);
 
+    let t_sat_test_kelvin = tsat_hs_4(h, s).get::<kelvin>();
 
-    let t_sat_test_kelvin = tsat_hs_4(h,s)
-        .get::<kelvin>();
-
-    approx::assert_relative_eq!(
-        ref_t_sat_kelvin,
-        t_sat_test_kelvin,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_t_sat_kelvin, t_sat_test_kelvin, max_relative = 1e-8);
 }
 
-
 #[test]
-pub fn hs_backward_sat_temp_test_2(){
-
+pub fn hs_backward_sat_temp_test_2() {
     let ref_t_sat_kelvin = 4.251_373_305e2;
 
     let h = AvailableEnergy::new::<kilojoule_per_kilogram>(2400.0);
     let s = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(6.0);
 
+    let t_sat_test_kelvin = tsat_hs_4(h, s).get::<kelvin>();
 
-    let t_sat_test_kelvin = tsat_hs_4(h,s)
-        .get::<kelvin>();
-
-    approx::assert_relative_eq!(
-        ref_t_sat_kelvin,
-        t_sat_test_kelvin,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_t_sat_kelvin, t_sat_test_kelvin, max_relative = 1e-8);
 }
 #[test]
-pub fn hs_backward_sat_temp_test_3(){
-
+pub fn hs_backward_sat_temp_test_3() {
     let ref_t_sat_kelvin = 5.225_579_013e2;
 
     let h = AvailableEnergy::new::<kilojoule_per_kilogram>(2500.0);
     let s = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.5);
 
+    let t_sat_test_kelvin = tsat_hs_4(h, s).get::<kelvin>();
 
-    let t_sat_test_kelvin = tsat_hs_4(h,s)
-        .get::<kelvin>();
-
-    approx::assert_relative_eq!(
-        ref_t_sat_kelvin,
-        t_sat_test_kelvin,
-        max_relative=1e-8
-        );
+    approx::assert_relative_eq!(ref_t_sat_kelvin, t_sat_test_kelvin, max_relative = 1e-8);
 }
 
-
-
 // test data from:
-// Kieffer, S. W. (1977). Sound speed in liquid‐gas mixtures: 
-// Water‐air and water‐steam. 
+// Kieffer, S. W. (1977). Sound speed in liquid‐gas mixtures:
+// Water‐air and water‐steam.
 // Journal of Geophysical research, 82(20), 2895-2904.
 //
 // Fig 9.
-// 1 bar saturation pressure 
+// 1 bar saturation pressure
 //
 // x = mass fraction of steam (quality)
 // y = speed of sound (m/s)
@@ -188,7 +130,6 @@ pub fn hs_backward_sat_temp_test_3(){
 // 0.35266992,248.83097247
 // 0.76596782,398.7333797
 
-
 use uom::si::pressure::bar;
 use uom::si::velocity::meter_per_second;
 
@@ -197,8 +138,7 @@ use crate::region_1_subcooled_liquid::h_tp_1;
 use crate::region_2_vapour::h_tp_2;
 
 #[test]
-pub fn w_px_eqm_1_bar(){
-
+pub fn w_px_eqm_1_bar() {
     let p = Pressure::new::<bar>(1.0);
 
     let quality_vs_speed_of_sound_meter_per_s: Vec<(f64, f64)> = vec![
@@ -217,31 +157,29 @@ pub fn w_px_eqm_1_bar(){
         (0.76596782, 398.73337970),
     ];
 
-        for (x, w_expected) in quality_vs_speed_of_sound_meter_per_s.iter() {
-            // interpolate entropy at quality x
-            // compute equilibrium speed of sound
-            let t_sat = sat_temp_4(p);
-            let h_liq = h_tp_1(t_sat, p);
-            let h_vap = h_tp_2(t_sat, p);
+    for (x, w_expected) in quality_vs_speed_of_sound_meter_per_s.iter() {
+        // interpolate entropy at quality x
+        // compute equilibrium speed of sound
+        let t_sat = sat_temp_4(p);
+        let h_liq = h_tp_1(t_sat, p);
+        let h_vap = h_tp_2(t_sat, p);
 
-            // we need to find the correct enthalpy
-            // so we can find the entropy
-            let h = *x * h_vap + (1.0 - x) * h_liq;
-            let s = s_ph_eqm(p, h);
-            let w_test = w_ps_eqm_region4_kieffer(p, s);
-            dbg!(&(x,w_test,w_expected));
-            // assert within tolerance
-            approx::assert_abs_diff_eq!(
-                w_test.get::<meter_per_second>().log10(),
-                w_expected.log10(),
-                epsilon=0.1
-            );
-        }
-    
+        // we need to find the correct enthalpy
+        // so we can find the entropy
+        let h = *x * h_vap + (1.0 - x) * h_liq;
+        let s = s_ph_eqm(p, h);
+        let w_test = w_ps_eqm_region4_kieffer(p, s);
+        dbg!(&(x, w_test, w_expected));
+        // assert within tolerance
+        approx::assert_abs_diff_eq!(
+            w_test.get::<meter_per_second>().log10(),
+            w_expected.log10(),
+            epsilon = 0.1
+        );
+    }
 }
 #[test]
-pub fn w_px_eqm_1_bar_finite_diff_vol(){
-
+pub fn w_px_eqm_1_bar_finite_diff_vol() {
     let p = Pressure::new::<bar>(1.0);
 
     let quality_vs_speed_of_sound_meter_per_s: Vec<(f64, f64)> = vec![
@@ -260,34 +198,33 @@ pub fn w_px_eqm_1_bar_finite_diff_vol(){
         (0.76596782, 398.73337970),
     ];
 
-        for (x, w_expected) in quality_vs_speed_of_sound_meter_per_s.iter() {
-            // interpolate entropy at quality x
-            // compute equilibrium speed of sound
-            let t_sat = sat_temp_4(p);
-            let h_liq = h_tp_1(t_sat, p);
-            let h_vap = h_tp_2(t_sat, p);
+    for (x, w_expected) in quality_vs_speed_of_sound_meter_per_s.iter() {
+        // interpolate entropy at quality x
+        // compute equilibrium speed of sound
+        let t_sat = sat_temp_4(p);
+        let h_liq = h_tp_1(t_sat, p);
+        let h_vap = h_tp_2(t_sat, p);
 
-            // we need to find the correct enthalpy
-            // so we can find the entropy
-            let h = *x * h_vap + (1.0 - x) * h_liq;
-            let s = s_ph_eqm(p, h);
-            let w_test = w_ps_eqm_region4_finite_diff_vol(p, s);
-            dbg!(&(x,w_test,w_expected));
-            // assert within tolerance
-            approx::assert_abs_diff_eq!(
-                w_test.get::<meter_per_second>().log10(),
-                w_expected.log10(),
-                epsilon=0.1
-            );
-        }
-    
+        // we need to find the correct enthalpy
+        // so we can find the entropy
+        let h = *x * h_vap + (1.0 - x) * h_liq;
+        let s = s_ph_eqm(p, h);
+        let w_test = w_ps_eqm_region4_finite_diff_vol(p, s);
+        dbg!(&(x, w_test, w_expected));
+        // assert within tolerance
+        approx::assert_abs_diff_eq!(
+            w_test.get::<meter_per_second>().log10(),
+            w_expected.log10(),
+            epsilon = 0.1
+        );
+    }
 }
 
-// 5 bar 
+// 5 bar
 // x = mass fraction of steam (quality)
 // y = speed of sound (m/s)
 #[test]
-pub fn w_px_eqm_5_bar(){
+pub fn w_px_eqm_5_bar() {
     let p = Pressure::new::<bar>(5.0);
     let quality_vs_speed_of_sound_meter_per_s: Vec<(f64, f64)> = vec![
         (0.00001306, 4.73988624),
@@ -316,16 +253,16 @@ pub fn w_px_eqm_5_bar(){
         approx::assert_abs_diff_eq!(
             w_test.get::<meter_per_second>().log10(),
             w_expected.log10(),
-            epsilon=0.1
+            epsilon = 0.1
         );
     }
 }
 
-// 10 bar 
+// 10 bar
 // x = mass fraction of steam (quality)
 // y = speed of sound (m/s)
 #[test]
-pub fn w_px_eqm_10_bar(){
+pub fn w_px_eqm_10_bar() {
     let p = Pressure::new::<bar>(10.0);
     let quality_vs_speed_of_sound_meter_per_s: Vec<(f64, f64)> = vec![
         (0.00001274, 8.74942519),
@@ -353,16 +290,16 @@ pub fn w_px_eqm_10_bar(){
         approx::assert_abs_diff_eq!(
             w_test.get::<meter_per_second>().log10(),
             w_expected.log10(),
-            epsilon=0.1
+            epsilon = 0.1
         );
     }
 }
 
-// 50 bar 
+// 50 bar
 // x = mass fraction of steam (quality)
 // y = speed of sound (m/s)
 #[test]
-pub fn w_px_eqm_50_bar(){
+pub fn w_px_eqm_50_bar() {
     let p = Pressure::new::<bar>(50.0);
     let quality_vs_speed_of_sound_meter_per_s: Vec<(f64, f64)> = vec![
         (0.00001338, 32.76109143),
@@ -390,16 +327,16 @@ pub fn w_px_eqm_50_bar(){
         approx::assert_abs_diff_eq!(
             w_test.get::<meter_per_second>().log10(),
             w_expected.log10(),
-            epsilon=0.1
+            epsilon = 0.1
         );
     }
 }
 
-// 100 bar 
+// 100 bar
 // x = mass fraction of steam (quality)
 // y = speed of sound (m/s)
 #[test]
-pub fn w_px_eqm_100_bar(){
+pub fn w_px_eqm_100_bar() {
     let p = Pressure::new::<bar>(100.0);
     let quality_vs_speed_of_sound_meter_per_s: Vec<(f64, f64)> = vec![
         (0.00001214, 66.45468401),
@@ -425,16 +362,16 @@ pub fn w_px_eqm_100_bar(){
         approx::assert_abs_diff_eq!(
             w_test.get::<meter_per_second>().log10(),
             w_expected.log10(),
-            epsilon=0.2
+            epsilon = 0.2
         );
     }
 }
 
-// 200 bar 
+// 200 bar
 // x = mass fraction of steam (quality)
 // y = speed of sound (m/s)
 #[test]
-pub fn w_px_eqm_200_bar(){
+pub fn w_px_eqm_200_bar() {
     let p = Pressure::new::<bar>(200.0);
     let quality_vs_speed_of_sound_meter_per_s: Vec<(f64, f64)> = vec![
         (0.00001157, 144.68035187),
@@ -457,7 +394,7 @@ pub fn w_px_eqm_200_bar(){
         approx::assert_abs_diff_eq!(
             w_test.get::<meter_per_second>().log10(),
             w_expected.log10(),
-            epsilon=0.2
+            epsilon = 0.2
         );
     }
 }

@@ -1,3 +1,25 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Edge chamfering by per-face corner inset plus edge/vertex gap filling. No named
+// published algorithm — written from first principles; no upstream source was
+// copied. Blender analogue (architecture only): the Bevel tool in edge mode.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Edge bevel — chamfer every edge of a closed mesh.
 //!
 //! This is the pure-Rust analogue of Blender's **Bevel** on edges (as opposed
@@ -53,8 +75,11 @@ use std::collections::{HashMap, HashSet};
 /// ```
 pub fn bevel_edges(mesh: &Mesh, width: f64) -> Mesh {
     let ps = mesh.positions();
-    let polys: Vec<Vec<usize>> =
-        mesh.polygons().iter().map(|p| p.iter().map(|v| v.0).collect()).collect();
+    let polys: Vec<Vec<usize>> = mesh
+        .polygons()
+        .iter()
+        .map(|p| p.iter().map(|v| v.0).collect())
+        .collect();
     let nf = polys.len();
 
     // Face-corner vertices: one new vertex per (face, corner), inset inward.
@@ -67,7 +92,9 @@ pub fn bevel_edges(mesh: &Mesh, width: f64) -> Mesh {
             let v = ps[poly[i]];
             let prev = ps[poly[(i + k - 1) % k]];
             let next = ps[poly[(i + 1) % k]];
-            let pos = v.add(prev.sub(v).normalize().scale(width)).add(next.sub(v).normalize().scale(width));
+            let pos = v
+                .add(prev.sub(v).normalize().scale(width))
+                .add(next.sub(v).normalize().scale(width));
             new_positions.push(pos);
             row.push(new_positions.len() - 1);
         }
@@ -203,7 +230,11 @@ mod tests {
     #[test]
     fn cube_edge_bevel_counts_and_watertight() {
         let beveled = bevel_edges(&primitives::cube(2.0), 0.3);
-        assert_eq!(beveled.vertex_count(), 24, "6 faces × 4 face-corner vertices");
+        assert_eq!(
+            beveled.vertex_count(),
+            24,
+            "6 faces × 4 face-corner vertices"
+        );
         assert_eq!(beveled.face_count(), 26, "6 shrunk + 12 edge + 8 corner");
         assert_eq!(beveled.edge_count(), 48);
         assert_eq!(beveled.euler_characteristic(), 2, "closed genus-0 surface");
@@ -218,7 +249,10 @@ mod tests {
         let beveled = bevel_edges(&primitives::cube(2.0), 0.3);
         let corner_r = (3.0f64).sqrt(); // cube(2.0) corner at (±1,±1,±1)
         assert!(
-            beveled.positions().iter().all(|p| p.length() <= corner_r + 1e-9),
+            beveled
+                .positions()
+                .iter()
+                .all(|p| p.length() <= corner_r + 1e-9),
             "every face-corner vertex is pulled inside the original corner radius",
         );
     }
@@ -229,7 +263,9 @@ mod tests {
         use crate::ops::MeshOp;
         let cube = primitives::cube(2.0);
         let direct = bevel_edges(&cube, 0.25);
-        let via_op = MeshOp::BevelEdges { width: 0.25 }.apply(cube).expect("edge bevel infallible");
+        let via_op = MeshOp::BevelEdges { width: 0.25 }
+            .apply(cube)
+            .expect("edge bevel infallible");
         assert_eq!(via_op.vertex_count(), direct.vertex_count());
         assert_eq!(via_op.face_count(), direct.face_count());
         assert_eq!(via_op.euler_characteristic(), direct.euler_characteristic());

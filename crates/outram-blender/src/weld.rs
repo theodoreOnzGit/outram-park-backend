@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Merge coincident vertices by spatial-hash bucketing plus union-find:
+// R. E. Tarjan, "Efficiency of a Good But Not Linear Set Union Algorithm",
+// Journal of the ACM 22(2), 1975, pp. 215-225.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the bmo_remove_doubles operator
+// (Merge by Distance).
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Weld / remove-doubles — merge coincident vertices within a distance
 //! tolerance into a single vertex.
 //!
@@ -97,7 +122,11 @@ pub fn weld(mesh: &Mesh, distance: f64) -> Mesh {
         let h = distance;
         let tol_sq = distance * distance;
         let cell_of = |p: &Vec3| -> (i64, i64, i64) {
-            ((p.x / h).floor() as i64, (p.y / h).floor() as i64, (p.z / h).floor() as i64)
+            (
+                (p.x / h).floor() as i64,
+                (p.y / h).floor() as i64,
+                (p.z / h).floor() as i64,
+            )
         };
         let mut grid: HashMap<(i64, i64, i64), Vec<usize>> = HashMap::new();
         for (i, p) in positions.iter().enumerate() {
@@ -190,7 +219,10 @@ struct UnionFind {
 
 impl UnionFind {
     fn new(n: usize) -> Self {
-        UnionFind { parent: (0..n).collect(), rank: vec![0; n] }
+        UnionFind {
+            parent: (0..n).collect(),
+            rank: vec![0; n],
+        }
     }
 
     fn find(&mut self, x: usize) -> usize {
@@ -256,7 +288,11 @@ mod tests {
     #[test]
     fn exploded_cube_welds_back_to_canonical() {
         let soup = explode(&primitives::cube(2.0));
-        assert_eq!(soup.vertex_count(), 24, "exploded cube has 6 faces × 4 corners");
+        assert_eq!(
+            soup.vertex_count(),
+            24,
+            "exploded cube has 6 faces × 4 corners"
+        );
         let welded = weld(&soup, 0.5);
         assert_eq!(welded.vertex_count(), 8, "8 distinct corners survive");
         assert_eq!(welded.face_count(), 6);
@@ -318,7 +354,11 @@ mod tests {
     fn zero_tolerance_merges_exact_duplicates() {
         let soup = explode(&primitives::cube(2.0));
         let welded = weld(&soup, 0.0);
-        assert_eq!(welded.vertex_count(), 8, "exact duplicates collapse at tol 0");
+        assert_eq!(
+            welded.vertex_count(),
+            8,
+            "exact duplicates collapse at tol 0"
+        );
         assert_eq!(welded.euler_characteristic(), 2);
     }
 
@@ -332,11 +372,11 @@ mod tests {
         let tol = 0.1;
         let s = 0.6 * tol;
         let positions = vec![
-            Vec3::new(0.0, 0.0, 0.0), // 0 (A)
-            Vec3::new(s, 0.0, 0.0),   // 1 (B)  A–B = 0.6 tol
+            Vec3::new(0.0, 0.0, 0.0),     // 0 (A)
+            Vec3::new(s, 0.0, 0.0),       // 1 (B)  A–B = 0.6 tol
             Vec3::new(2.0 * s, 0.0, 0.0), // 2 (C) B–C = 0.6 tol, A–C = 1.2 tol
-            Vec3::new(1.0, 0.0, 0.0), // 3
-            Vec3::new(0.5, 1.0, 0.0), // 4
+            Vec3::new(1.0, 0.0, 0.0),     // 3
+            Vec3::new(0.5, 1.0, 0.0),     // 4
         ];
         // Faces reference A, B, C as if separate corners.
         let faces = vec![vec![0usize, 3, 4], vec![1, 3, 4], vec![2, 3, 4]];
@@ -366,7 +406,11 @@ mod tests {
         let soup = Mesh::from_polygons(&positions, &faces);
         let welded = weld(&soup, tol);
         assert_eq!(welded.face_count(), 1, "the collapsed triangle is dropped");
-        assert_eq!(welded.vertex_count(), 3, "surviving quad-turned-tri has 3 corners");
+        assert_eq!(
+            welded.vertex_count(),
+            3,
+            "surviving quad-turned-tri has 3 corners"
+        );
     }
 
     /// V&V — the `MeshOp::Weld` dispatch matches the direct free-function call.
@@ -375,7 +419,9 @@ mod tests {
         use crate::ops::MeshOp;
         let soup = explode(&primitives::cube(2.0));
         let direct = weld(&soup, 0.5);
-        let via_op = MeshOp::Weld { distance: 0.5 }.apply(soup).expect("weld is infallible");
+        let via_op = MeshOp::Weld { distance: 0.5 }
+            .apply(soup)
+            .expect("weld is infallible");
         assert_eq!(via_op.vertex_count(), direct.vertex_count());
         assert_eq!(via_op.face_count(), direct.face_count());
         assert_eq!(via_op.euler_characteristic(), direct.euler_characteristic());

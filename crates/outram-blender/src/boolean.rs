@@ -1,3 +1,27 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Exact convex-intersection fast path by half-space clipping (a convex polyhedron
+// is the intersection of its face half-spaces); the general path is delegated to
+// boolean_general.rs. Written from first principles; no upstream source was
+// copied. Blender analogue (architecture only): the bmo_boolean operator, which
+// upstream is backed by the Manifold library.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Mesh boolean / CSG operator — **entry point + exact convex fast path**.
 //!
 //! Blender analogue: `bmesh/tools/bmesh_boolean` / the `bmo_boolean` operator,
@@ -90,7 +114,9 @@ pub fn boolean(a: &Mesh, b: &Mesh, mode: BooleanMode) -> Result<Mesh, BooleanErr
     // goes through the general arrangement + winding-classification pipeline in
     // [`crate::boolean_general`].
     const CONVEX_REL_EPS: f64 = 1e-7;
-    if mode == BooleanMode::Intersect && is_convex(a, CONVEX_REL_EPS) && is_convex(b, CONVEX_REL_EPS)
+    if mode == BooleanMode::Intersect
+        && is_convex(a, CONVEX_REL_EPS)
+        && is_convex(b, CONVEX_REL_EPS)
     {
         return intersect_convex(a, b);
     }
@@ -135,7 +161,9 @@ fn intersect_convex(a: &Mesh, b: &Mesh) -> Result<Mesh, BooleanError> {
     // Running result starts as A's face polygons.
     let mut polys = poly_soup(a);
     if polys.is_empty() {
-        return Err(BooleanError::Unsupported("empty or non-overlapping intersection"));
+        return Err(BooleanError::Unsupported(
+            "empty or non-overlapping intersection",
+        ));
     }
 
     // Clip against every face half-space of B.
@@ -147,14 +175,18 @@ fn intersect_convex(a: &Mesh, b: &Mesh) -> Result<Mesh, BooleanError> {
         let c = b.face_centroid(FaceId(f));
         polys = clip_soup_against_plane(&polys, n, c, clip_eps, weld);
         if polys.is_empty() {
-            return Err(BooleanError::Unsupported("empty or non-overlapping intersection"));
+            return Err(BooleanError::Unsupported(
+                "empty or non-overlapping intersection",
+            ));
         }
     }
 
     // A closed solid needs at least four faces; fewer means the clip collapsed
     // to a coplanar/degenerate sliver (surfaces merely touching), not a volume.
     if polys.len() < 4 {
-        return Err(BooleanError::Unsupported("empty or non-overlapping intersection"));
+        return Err(BooleanError::Unsupported(
+            "empty or non-overlapping intersection",
+        ));
     }
 
     build_mesh(&polys, weld)
@@ -383,7 +415,9 @@ fn build_mesh(polys: &[Poly], weld: f64) -> Result<Mesh, BooleanError> {
     }
 
     if faces.len() < 4 || positions.len() < 4 {
-        return Err(BooleanError::Unsupported("empty or non-overlapping intersection"));
+        return Err(BooleanError::Unsupported(
+            "empty or non-overlapping intersection",
+        ));
     }
     Ok(Mesh::from_polygons(&positions, &faces))
 }
@@ -488,11 +522,21 @@ mod tests {
 
         let out = boolean(&a, &b, BooleanMode::Intersect).expect("convex intersect should succeed");
 
-        assert_eq!(out.euler_characteristic(), 2, "intersection must be a closed box (chi=2)");
+        assert_eq!(
+            out.euler_characteristic(),
+            2,
+            "intersection must be a closed box (chi=2)"
+        );
         let (lo, hi) = bounds(&out);
         let tol = 1e-9;
-        assert!(approx(lo.x, 0.0, tol) && approx(lo.y, 0.0, tol) && approx(lo.z, 0.0, tol), "min = {lo:?}");
-        assert!(approx(hi.x, 1.0, tol) && approx(hi.y, 1.0, tol) && approx(hi.z, 1.0, tol), "max = {hi:?}");
+        assert!(
+            approx(lo.x, 0.0, tol) && approx(lo.y, 0.0, tol) && approx(lo.z, 0.0, tol),
+            "min = {lo:?}"
+        );
+        assert!(
+            approx(hi.x, 1.0, tol) && approx(hi.y, 1.0, tol) && approx(hi.z, 1.0, tol),
+            "max = {hi:?}"
+        );
     }
 
     /// Methodology: intersect `primitives::cube(2.0)` with an identical copy.
@@ -511,8 +555,14 @@ mod tests {
         assert_eq!(out.euler_characteristic(), 2);
         let (lo, hi) = bounds(&out);
         let tol = 1e-9;
-        assert!(approx(lo.x, -1.0, tol) && approx(lo.y, -1.0, tol) && approx(lo.z, -1.0, tol), "min = {lo:?}");
-        assert!(approx(hi.x, 1.0, tol) && approx(hi.y, 1.0, tol) && approx(hi.z, 1.0, tol), "max = {hi:?}");
+        assert!(
+            approx(lo.x, -1.0, tol) && approx(lo.y, -1.0, tol) && approx(lo.z, -1.0, tol),
+            "min = {lo:?}"
+        );
+        assert!(
+            approx(hi.x, 1.0, tol) && approx(hi.y, 1.0, tol) && approx(hi.z, 1.0, tol),
+            "max = {hi:?}"
+        );
     }
 
     /// Union and Difference now dispatch to the general pipeline
@@ -528,7 +578,11 @@ mod tests {
         let b = primitives::cube(1.0);
 
         let uni = boolean(&a, &b, BooleanMode::Union).expect("union ok");
-        assert_eq!(uni.euler_characteristic(), 2, "union of nested cubes is the outer cube (chi=2)");
+        assert_eq!(
+            uni.euler_characteristic(),
+            2,
+            "union of nested cubes is the outer cube (chi=2)"
+        );
 
         let diff = boolean(&a, &b, BooleanMode::Difference).expect("difference ok");
         assert_eq!(
@@ -550,13 +604,33 @@ mod tests {
     fn nonconvex_operand_intersect_is_supported() {
         let a = l_prism();
         let b = primitives::cube(6.0);
-        let out = boolean(&a, &b, BooleanMode::Intersect).expect("non-convex intersect should work");
-        assert_eq!(out.euler_characteristic(), 2, "L-prism ∩ enclosing cube is the L-prism (chi=2)");
+        let out =
+            boolean(&a, &b, BooleanMode::Intersect).expect("non-convex intersect should work");
+        assert_eq!(
+            out.euler_characteristic(),
+            2,
+            "L-prism ∩ enclosing cube is the L-prism (chi=2)"
+        );
         let (lo, hi) = bounds(&out);
         let tol = 1e-9;
-        assert!(approx(lo.x, 0.0, tol) && approx(hi.x, 2.0, tol), "x=({},{})", lo.x, hi.x);
-        assert!(approx(lo.y, 0.0, tol) && approx(hi.y, 2.0, tol), "y=({},{})", lo.y, hi.y);
-        assert!(approx(lo.z, 0.0, tol) && approx(hi.z, 1.0, tol), "z=({},{})", lo.z, hi.z);
+        assert!(
+            approx(lo.x, 0.0, tol) && approx(hi.x, 2.0, tol),
+            "x=({},{})",
+            lo.x,
+            hi.x
+        );
+        assert!(
+            approx(lo.y, 0.0, tol) && approx(hi.y, 2.0, tol),
+            "y=({},{})",
+            lo.y,
+            hi.y
+        );
+        assert!(
+            approx(lo.z, 0.0, tol) && approx(hi.z, 1.0, tol),
+            "z=({},{})",
+            lo.z,
+            hi.z
+        );
     }
 
     /// Two disjoint convex meshes: the intersection is empty and must report
@@ -567,7 +641,10 @@ mod tests {
         let a = primitives::cube(2.0);
         let b = map_positions(&primitives::cube(2.0), |p| Vec3::new(p.x + 10.0, p.y, p.z));
         let r = boolean(&a, &b, BooleanMode::Intersect);
-        assert!(matches!(r, Err(BooleanError::Unsupported(_))), "disjoint intersect must be Unsupported, got {r:?}");
+        assert!(
+            matches!(r, Err(BooleanError::Unsupported(_))),
+            "disjoint intersect must be Unsupported, got {r:?}"
+        );
     }
 
     /// Best-effort robustness check on a rotated operand (limitation note in the
@@ -590,14 +667,34 @@ mod tests {
             Vec3::new(p.x * c - p.y * s, p.x * s + p.y * c, p.z)
         });
 
-        let out = boolean(&a, &b, BooleanMode::Intersect).expect("rotated convex intersect should succeed");
+        let out = boolean(&a, &b, BooleanMode::Intersect)
+            .expect("rotated convex intersect should succeed");
 
-        assert_eq!(out.euler_characteristic(), 2, "octagonal prism must be closed (chi=2)");
+        assert_eq!(
+            out.euler_characteristic(),
+            2,
+            "octagonal prism must be closed (chi=2)"
+        );
         let (lo, hi) = bounds(&out);
         let tol = 1e-9;
-        assert!(approx(lo.z, -1.0, tol) && approx(hi.z, 1.0, tol), "z-bounds = ({}, {})", lo.z, hi.z);
+        assert!(
+            approx(lo.z, -1.0, tol) && approx(hi.z, 1.0, tol),
+            "z-bounds = ({}, {})",
+            lo.z,
+            hi.z
+        );
         // Intersection cannot extend beyond the axis cube.
-        assert!(lo.x >= -1.0 - tol && hi.x <= 1.0 + tol, "x extent = ({}, {})", lo.x, hi.x);
-        assert!(lo.y >= -1.0 - tol && hi.y <= 1.0 + tol, "y extent = ({}, {})", lo.y, hi.y);
+        assert!(
+            lo.x >= -1.0 - tol && hi.x <= 1.0 + tol,
+            "x extent = ({}, {})",
+            lo.x,
+            hi.x
+        );
+        assert!(
+            lo.y >= -1.0 - tol && hi.y <= 1.0 + tol,
+            "y extent = ({}, {})",
+            lo.y,
+            hi.y
+        );
     }
 }

@@ -3,10 +3,10 @@
 /// C++ source: `src/random_dist.cpp`, `include/openmc/random_dist.h`.
 /// Also covers energy/angle distributions from
 /// `src/distribution_energy.cpp`, `src/distribution_angle.cpp`.
-
 use std::f64::consts::PI;
 
 use super::lcg::prn;
+use crate::mathf::RealMath;
 
 /// Sample a uniform deviate on `[low, high)`.
 #[inline]
@@ -27,7 +27,7 @@ pub fn sample_normal(seed: &mut u64) -> f64 {
     // rare but possible; clamp to the smallest positive f64.
     let u1 = prn(seed).max(f64::MIN_POSITIVE);
     let u2 = prn(seed);
-    (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos()
+    (-2.0 * u1.r_ln()).sqrt() * (2.0 * PI * u2).r_cos()
 }
 
 /// Sample a 3-D displacement from N(0, σ²) in each axis independently.
@@ -36,9 +36,11 @@ pub fn sample_normal(seed: &mut u64) -> f64 {
 /// Used by boon-lay Lagrangian diffusion to advance a particle one step.
 #[inline]
 pub fn sample_normal_3d(seed: &mut u64, sigma: f64) -> (f64, f64, f64) {
-    (sigma * sample_normal(seed),
-     sigma * sample_normal(seed),
-     sigma * sample_normal(seed))
+    (
+        sigma * sample_normal(seed),
+        sigma * sample_normal(seed),
+        sigma * sample_normal(seed),
+    )
 }
 
 /// Sample from an exponential distribution with the given `rate` λ.
@@ -49,7 +51,7 @@ pub fn sample_normal_3d(seed: &mut u64, sigma: f64) -> (f64, f64, f64) {
 /// in boon-lay collision/scattering modules.
 #[inline]
 pub fn sample_exp(seed: &mut u64, rate: f64) -> f64 {
-    -prn(seed).ln() / rate
+    -prn(seed).r_ln() / rate
 }
 
 /// Sample a Maxwellian energy distribution: f(E) ∝ √E · exp(−E / θ).
@@ -65,8 +67,8 @@ pub fn maxwell(seed: &mut u64, theta: f64) -> f64 {
     let r1 = prn(seed).max(f64::MIN_POSITIVE);
     let r2 = prn(seed).max(f64::MIN_POSITIVE);
     let r3 = prn(seed);
-    let c = (0.5 * PI * r3).cos();
-    -theta * (r1.ln() + r2.ln() * c * c)
+    let c = (0.5 * PI * r3).r_cos();
+    -theta * (r1.r_ln() + r2.r_ln() * c * c)
 }
 
 /// Sample a Watt fission spectrum: f(E) ∝ exp(−E/a) · sinh(√(b·E)).
@@ -90,7 +92,7 @@ pub fn isotropic_direction(seed: &mut u64) -> (f64, f64, f64) {
     let mu = 2.0 * prn(seed) - 1.0;
     let phi = 2.0 * PI * prn(seed);
     let a = (1.0 - mu * mu).max(0.0).sqrt();
-    (mu, a * phi.cos(), a * phi.sin())
+    (mu, a * phi.r_cos(), a * phi.r_sin())
 }
 
 #[cfg(test)]
@@ -115,8 +117,10 @@ mod tests {
         let n = 100_000;
         let mean = (0..n).map(|_| sample_exp(&mut seed, rate)).sum::<f64>() / n as f64;
         let expected = 1.0 / rate;
-        assert!((mean - expected).abs() / expected < 0.01,
-            "mean = {mean:.4}, expected {expected:.4}");
+        assert!(
+            (mean - expected).abs() / expected < 0.01,
+            "mean = {mean:.4}, expected {expected:.4}"
+        );
     }
 
     #[test]

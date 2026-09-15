@@ -316,24 +316,18 @@ mod tests {
     /// energy points (the middle one flagged as resolved/unresolved overlap via
     /// a negative energy). Returns `(data, sigma0_grid, points)` so a test can
     /// reuse it as both tape input and the expected [`UnresolvedTable`] content.
-    fn synthetic_body(
-        temz_energies: [f64; 3],
-    ) -> (Vec<f64>, Vec<f64>, Vec<UrrEnergyPoint>) {
+    fn synthetic_body(temz_energies: [f64; 3]) -> (Vec<f64>, Vec<f64>, Vec<UrrEnergyPoint>) {
         let sigma0 = vec![1.0e10, 100.0];
         // xs[point][reaction][dilution], barn.
         let xs_by_point: [[[f64; 2]; 3]; 3] = [
-            [[10.0, 9.0], [8.0, 7.5], [1.0, 0.9]], // point 0
-            [[12.0, 11.0], [9.0, 8.5], [1.5, 1.4]], // point 1 (overlap)
+            [[10.0, 9.0], [8.0, 7.5], [1.0, 0.9]],   // point 0
+            [[12.0, 11.0], [9.0, 8.5], [1.5, 1.4]],  // point 1 (overlap)
             [[15.0, 14.0], [10.0, 9.5], [2.0, 1.9]], // point 2
         ];
         let overlap = [false, true, false];
 
         // Signed energies as stored on tape (overlap => negative).
-        let signed = [
-            temz_energies[0],
-            -temz_energies[1],
-            temz_energies[2],
-        ];
+        let signed = [temz_energies[0], -temz_energies[1], temz_energies[2]];
 
         let mut data = sigma0.clone();
         for ip in 0..3 {
@@ -424,7 +418,11 @@ mod tests {
 
         // Recover each stored cross section through `shield` at the stored
         // (energy, dilution) nodes and check < 1e-12 against the known values.
-        let reactions = [UrrReaction::Total, UrrReaction::Elastic, UrrReaction::Fission];
+        let reactions = [
+            UrrReaction::Total,
+            UrrReaction::Elastic,
+            UrrReaction::Fission,
+        ];
         for (ip, e) in energies.iter().enumerate() {
             for (rx_col, &rx) in reactions.iter().enumerate() {
                 let want = &points[ip].xs[rx_col];
@@ -469,7 +467,11 @@ mod tests {
             let (_, s, mut p) = synthetic_body(energies);
             let mut data = s.clone();
             for pt in &mut p {
-                let signed_e = if pt.overlap { -pt.energy_ev } else { pt.energy_ev };
+                let signed_e = if pt.overlap {
+                    -pt.energy_ev
+                } else {
+                    pt.energy_ev
+                };
                 data.push(signed_e);
                 for col in &mut pt.xs {
                     for x in col.iter_mut() {

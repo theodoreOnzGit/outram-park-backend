@@ -70,23 +70,34 @@
 //! The `verification_and_validation/` tree is gitignored (reproducible local
 //! outputs); the interpretation lives in the Results section below.
 //!
-//! # Results (2026-07-17, NVIDIA GeForce RTX 3050 — Vulkan backend)
+//! # Results (re-measured 2026-08-06, NVIDIA RTX A5000 / NVK GA102 — Vulkan backend)
 //!
 //! Measured on this machine by running the command below; numbers transcribed
-//! from the real run (no fabricated values). k_eff is deterministic (fixed
-//! seed) and reproduced bit-for-bit across 3 runs; timings/throughput are the
-//! representative first run and were stable to ~2% across the 3 runs.
+//! from the real run (no fabricated values). k_eff is deterministic for a fixed
+//! seed *and* a fixed generator; timings/throughput are a representative run.
+//! The superseded figures in this section were taken on 2026-07-17 on an
+//! **RTX 3050** under the pre-`op-jis` `prn` output function — both the hardware
+//! and the RNG differ, and each block below says which of the two moved it.
 //!
-//! **CPU k_eff baseline (LOW tier, 5000 × [40 + 120]).**
+//! **CPU k_eff baseline (LOW tier, 5000 × [40 + 120]), re-measured 2026-08-06.**
 //!
 //! | Quantity | Value |
 //! |---|---|
-//! | k_eff | 1.01024 ± 0.00171 |
-//! | Δk vs benchmark (1.0000) | +1024 pcm |
-//! | wall-clock | 1.224 s |
-//! | source-history throughput | 653 725 histories/s |
+//! | k_eff | 1.01107 ± 0.00170 |
+//! | Δk vs benchmark (1.0000 ± 0.0010) | +1107 pcm |
+//! | wall-clock | 0.572 s |
+//! | source-history throughput | 1 399 230 histories/s |
 //!
-//! The k_eff sits ~+1024 pcm high, consistent with the LOW tier's documented
+//! **Supersedes** k_eff = **1.01024 ± 0.00171 (+1024 pcm)**, wall-clock 1.224 s,
+//! throughput 653 725 histories/s. The eigenvalue was measured with the
+//! pre-`op-jis` `prn` output function (raw top-52 LCG state bits); bead
+//! `op-jis` replaced it with OpenMC's PCG-RXS-M-XS output permutation on
+//! 2026-08-06. The central value moved +0.00083, **0.49 of a single sigma** —
+//! a re-seeding-scale fluctuation, not a physics change. The wall-clock and
+//! throughput figures are machine/driver dependent and are not attributable to
+//! the RNG change at all.
+//!
+//! The k_eff sits ~+1100 pcm high, consistent with the LOW tier's documented
 //! Godiva bias (no self-shielding, one mean cosine, evaporation stand-in for
 //! resolved inelastic) — see `crates/outram-mc-libs/src/physics/keff.rs`. This
 //! benchmark is about *performance*, not closing that bias; the eigenvalue is
@@ -94,30 +105,46 @@
 //!
 //! **Isolated XS-kernel throughput (GPU vs CPU, end-to-end host-visible time).**
 //!
+//! Re-measured 2026-08-06 on **NVIDIA RTX A5000 (NVK GA102), Vulkan**:
+//!
 //! | batch | CPU ms | GPU ms | CPU Mqueries/s | GPU Mqueries/s | GPU speedup | max \|Δ\| cm^-1 | mean \|Δ\| cm^-1 |
 //! |---|---|---|---|---|---|---|---|
-//! | 65 536 (2^16) | 2.157 | 0.866 | 30.4 | 75.7 | 2.49× | 2.561e-06 | 7.031e-09 |
-//! | 262 144 (2^18) | 8.727 | 1.466 | 30.0 | 178.8 | 5.95× | 1.245e-05 | 7.197e-09 |
-//! | 1 048 576 (2^20) | 35.312 | 4.779 | 29.7 | 219.4 | 7.39× | 1.854e-05 | 7.119e-09 |
+//! | 65 536 (2^16) | 1.527 | 0.948 | 42.9 | 69.1 | 1.61× | 1.798e-06 | 7.556e-09 |
+//! | 262 144 (2^18) | 3.020 | 2.172 | 86.8 | 120.7 | 1.39× | 3.410e-06 | 7.507e-09 |
+//! | 1 048 576 (2^20) | 12.269 | 6.651 | 85.5 | 157.7 | 1.84× | 6.110e-05 | 7.626e-09 |
 //!
-//! **Interpretation.** On this machine the GPU beats the CPU at *every* batch
-//! size tested (2.49× at 2^16, rising to 7.39× at 2^20) — the CPU single-thread
-//! `f64` interpolation runs at a steady ~30 Mqueries/s while the GPU's effective
-//! throughput climbs from 76 to 219 Mqueries/s as the fixed host-visible
-//! overhead (the `f32` buffer upload + read-back that this end-to-end timing
-//! includes) amortises over a larger batch. The speedup still *grows with batch
-//! size*, which is the tell-tale of an upload/readback-bound kernel: the bigger
-//! the batch, the smaller the fixed overhead's share, so the largest batch wins
-//! most. (Had the CPU reference been vectorised/multi-threaded, the small-batch
-//! GPU speedup could well drop below 1× — the honest reading is "GPU wins for
-//! large batches on this hardware against this single-thread CPU baseline", not
-//! "GPU is unconditionally faster".) Agreement is excellent throughout: max
-//! |ΔSigma_t| ≈ 1.85e-5 cm^-1 against Sigma_t of O(0.05-40 cm^-1), i.e. the
-//! `f32` path tracks the `f64` reference to single-precision rounding — sound as
+//! **Supersedes** the earlier table, measured on an **RTX 3050**:
+//! 2^16 — 2.157 / 0.866 ms, 30.4 / 75.7 Mq/s, 2.49×, 2.561e-06 / 7.031e-09;
+//! 2^18 — 8.727 / 1.466 ms, 30.0 / 178.8 Mq/s, 5.95×, 1.245e-05 / 7.197e-09;
+//! 2^20 — 35.312 / 4.779 ms, 29.7 / 219.4 Mq/s, 7.39×, 1.854e-05 / 7.119e-09.
+//!
+//! **Two independent things changed, and they must not be conflated.**
+//! (1) The **error columns** moved because of bead `op-jis`: the query energies
+//! are Watt-sampled through `prn`, whose output function became OpenMC's
+//! PCG-RXS-M-XS permutation on 2026-08-06, so this is a *different set of query
+//! energies*, not a change in interpolation accuracy. (2) The **timing columns**
+//! moved because this run is on **different hardware** (RTX A5000 vs RTX 3050) —
+//! nothing to do with the RNG.
+//!
+//! **Interpretation.** The GPU still beats the single-thread CPU `f64` baseline
+//! at every batch size, but by a far smaller and *non-monotonic* margin on this
+//! adapter (1.61× at 2^16, 1.39× at 2^18, 1.84× at 2^20). The clean
+//! "speedup grows with batch size" story from the RTX 3050 run does **not**
+//! reproduce here, and it would be wrong to keep asserting it: the CPU side is
+//! also much faster on this machine (43-87 Mqueries/s vs a steady ~30), so the
+//! ratio is compressed and the residual shape is dominated by fixed host-visible
+//! upload/read-back overhead rather than by a clean amortisation trend. The
+//! honest reading remains "GPU wins on this hardware against this single-thread
+//! CPU baseline", not "GPU is unconditionally faster" — a vectorised or
+//! multi-threaded CPU reference could plausibly erase the small-batch win
+//! entirely.
+//!
+//! Agreement stays excellent: max |ΔSigma_t| = 6.11e-5 cm^-1 at the largest
+//! batch, against Sigma_t of O(0.05-40 cm^-1), with mean |Δ| ~ 7.6e-9 — the
+//! `f32` path tracks the `f64` reference to single-precision rounding. Sound as
 //! an accelerator, never trusted as the reference. Bottom line: batched Sigma_t
-//! lookup is worth offloading to the RTX 3050; wiring it into the full transport
-//! loop (op-u6s.4) is where an end-to-end k_eff speedup would actually be
-//! measured.
+//! lookup is worth offloading; wiring it into the full transport loop (op-u6s.4)
+//! is where an end-to-end k_eff speedup would actually be measured.
 //!
 //! # Run
 //!
@@ -241,9 +268,18 @@ fn godiva_material() -> (Material, Vec<Nuclide>) {
         name: "Godiva HEU".into(),
         temperature: TEMPERATURE_K,
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: N_U234 },
-            NuclideComponent { nuclide_idx: 1, atom_density: N_U235 },
-            NuclideComponent { nuclide_idx: 2, atom_density: N_U238 },
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: N_U234,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: N_U235,
+            },
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: N_U238,
+            },
         ],
     };
     (material, nuclides)
@@ -276,7 +312,10 @@ fn run_cpu_keff(material: &Material, nuclides: &[Nuclide]) -> KeffResult {
     let histories_per_s = total_histories as f64 / wall;
     let pcm = (result.k_mean - 1.0) * 1.0e5;
 
-    println!("    k_eff             = {:.5} +/- {:.5}", result.k_mean, result.k_std);
+    println!(
+        "    k_eff             = {:.5} +/- {:.5}",
+        result.k_mean, result.k_std
+    );
     println!("    ICSBEP benchmark  = 1.0000 +/- 0.0010");
     println!("    Delta-k           = {pcm:+.0} pcm");
     println!("    wall-clock        = {wall:.3} s");
@@ -318,15 +357,16 @@ fn run_xs_kernel_benchmark(material: &Material, nuclides: &[Nuclide]) -> Vec<XsR
     // Probe for a real GPU. `None` => CPU-only, GPU columns skipped.
     let gpu = outram_mc_libs::gpu::probe();
     match &gpu {
-        Some(ctx) => println!("    GPU adapter: {} ({:?})", ctx.info.name, ctx.info.backend),
+        Some(ctx) => println!(
+            "    GPU adapter: {} ({:?})",
+            ctx.info.name, ctx.info.backend
+        ),
         None => println!("    GPU adapter: NONE — GPU path skipped, CPU throughput only"),
     }
     println!(
         "    query energies: U-235 thermal-Watt spectrum, clamped to [{E_MIN_EV:.0e}, {E_MAX_EV:.0e}] eV"
     );
-    println!(
-        "    (GPU timing is END-TO-END host-visible: f32 upload + dispatch + readback)\n"
-    );
+    println!("    (GPU timing is END-TO-END host-visible: f32 upload + dispatch + readback)\n");
 
     println!(
         "    {:>10}  {:>9}  {:>9}  {:>12}  {:>12}  {:>9}  {:>12}  {:>12}",
@@ -368,7 +408,13 @@ fn run_xs_kernel_benchmark(material: &Material, nuclides: &[Nuclide]) -> Vec<XsR
                 let gpu_qps = n as f64 / (gpu_secs / N_REPS as f64);
                 let speedup = cpu_ms / gpu_ms;
                 let (max_e, mean_e) = agreement(&last, &cpu_ref);
-                (Some(gpu_ms), Some(gpu_qps), Some(speedup), Some(max_e), Some(mean_e))
+                (
+                    Some(gpu_ms),
+                    Some(gpu_qps),
+                    Some(speedup),
+                    Some(max_e),
+                    Some(mean_e),
+                )
             }
             None => (None, None, None, None, None),
         };
@@ -548,23 +594,27 @@ fn fmt_csv_opt(x: Option<f64>) -> String {
 /// Console: optional ms to 3 dp, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt3(x: Option<f64>) -> String {
-    x.map(|v| format!("{v:.3}")).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{v:.3}"))
+        .unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional queries/s in Mqueries/s to 1 dp, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt_mqs(x: Option<f64>) -> String {
-    x.map(|v| format!("{:.1}", v / 1e6)).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{:.1}", v / 1e6))
+        .unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional speedup like `2.37x`, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt_speedup(x: Option<f64>) -> String {
-    x.map(|v| format!("{v:.2}x")).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{v:.2}x"))
+        .unwrap_or_else(|| "n/a".to_string())
 }
 
 /// Console: optional value in scientific notation to 3 dp, or `n/a`.
 #[cfg(not(target_os = "android"))]
 fn fmt_opt_sci(x: Option<f64>) -> String {
-    x.map(|v| format!("{v:.3e}")).unwrap_or_else(|| "n/a".to_string())
+    x.map(|v| format!("{v:.3e}"))
+        .unwrap_or_else(|| "n/a".to_string())
 }

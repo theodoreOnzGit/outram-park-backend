@@ -5,7 +5,7 @@ use uom::si::f64::*;
 use crate::region_2_vapour::{h_2b2c, p_2b2c};
 
 #[test]
-pub fn boundary_2b2c_pressure(){
+pub fn boundary_2b2c_pressure() {
     // this is the ph point that must be met
     let p_verification = Pressure::new::<megapascal>(0.100_000_000e3);
     let h_verification = AvailableEnergy::new::<kilojoule_per_kilogram>(0.351_600_432_3e4);
@@ -15,12 +15,12 @@ pub fn boundary_2b2c_pressure(){
     approx::assert_relative_eq!(
         p_verification.get::<megapascal>(),
         p_test.get::<megapascal>(),
-        max_relative=1e-8
-        );
+        max_relative = 1e-8
+    );
 }
 
 #[test]
-pub fn boundary_2b2c_enthalpy(){
+pub fn boundary_2b2c_enthalpy() {
     // this is the ph point that must be met
     let p_verification = Pressure::new::<megapascal>(0.100_000_000e3);
     let h_verification = AvailableEnergy::new::<kilojoule_per_kilogram>(0.351_600_432_3e4);
@@ -30,8 +30,6 @@ pub fn boundary_2b2c_enthalpy(){
     approx::assert_relative_eq!(
         h_verification.get::<kilojoule_per_kilogram>(),
         h_test.get::<kilojoule_per_kilogram>(),
-        max_relative=1e-8
-        );
-
+        max_relative = 1e-8
+    );
 }
-

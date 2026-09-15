@@ -34,17 +34,17 @@ use tuas_boussinesq_solver::prelude::beta_testing::InsulatedPorousMediaFluidComp
 //
 use uom::si::f64::*;
 
-use tuas_boussinesq_solver::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent;
+use tuas_boussinesq_solver::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
 use tuas_boussinesq_solver::
-array_control_vol_and_fluid_component_collections::
+array_fluid_collections::
 fluid_component_collection::
 fluid_component_collection::FluidComponentCollection;
 // let's construct the branches with test pressures and obtain
-use tuas_boussinesq_solver::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
+use tuas_boussinesq_solver::array_fluid_collections::fluid_component_collection::fluid_component_traits::FluidComponentTrait;
 use uom::ConstZero;
 
 use tuas_boussinesq_solver::
-array_control_vol_and_fluid_component_collections::
+array_fluid_collections::
 fluid_component_collection::
 fluid_component_super_collection::FluidComponentSuperCollection;
 

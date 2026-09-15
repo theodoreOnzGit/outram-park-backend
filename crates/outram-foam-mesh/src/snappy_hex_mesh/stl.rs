@@ -22,7 +22,7 @@
 //! Triangulated-surface (STL) input for `snappyHexMesh`.
 //!
 //! A stereolithography (STL) file is a "triangle soup": an unordered list of
-//! flat triangular facets, each with three corner points [m] and a (frequently
+//! flat triangular facets, each with three corner points `[m]` and a (frequently
 //! unreliable) stored normal. `snappyHexMesh` uses this surface for three
 //! purposes, all provided here:
 //!
@@ -42,7 +42,7 @@
 use crate::MeshError;
 use outram_foam_basic_lib::primitives::Vector3;
 
-/// One triangular facet of a surface [m].
+/// One triangular facet of a surface `[m]`.
 ///
 /// The three corners `a`, `b`, `c` are stored in the file's winding order. The
 /// geometric normal is recomputed from the corners (via [`Triangle::normal`])
@@ -50,16 +50,16 @@ use outram_foam_basic_lib::primitives::Vector3;
 /// wrong.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Triangle {
-    /// First corner [m].
+    /// First corner `[m]`.
     pub a: Vector3,
-    /// Second corner [m].
+    /// Second corner `[m]`.
     pub b: Vector3,
-    /// Third corner [m].
+    /// Third corner `[m]`.
     pub c: Vector3,
 }
 
 impl Triangle {
-    /// Construct a triangle from its three corner points [m].
+    /// Construct a triangle from its three corner points `[m]`.
     pub fn new(a: Vector3, b: Vector3, c: Vector3) -> Self {
         Self { a, b, c }
     }
@@ -70,17 +70,17 @@ impl Triangle {
         (self.b - self.a).cross(self.c - self.a).normalise(1e-300)
     }
 
-    /// Twice the triangle area (magnitude of the un-normalised cross product) [m²].
+    /// Twice the triangle area (magnitude of the un-normalised cross product) `[m²]`.
     pub fn area(&self) -> f64 {
         0.5 * (self.b - self.a).cross(self.c - self.a).mag()
     }
 
-    /// Centroid (arithmetic mean of the three corners) [m].
+    /// Centroid (arithmetic mean of the three corners) `[m]`.
     pub fn centroid(&self) -> Vector3 {
         (self.a + self.b + self.c) / 3.0
     }
 
-    /// Closest point on the (filled) triangle to `p` [m].
+    /// Closest point on the (filled) triangle to `p` `[m]`.
     ///
     /// Uses the Voronoi-region method of Ericson, *Real-Time Collision
     /// Detection* (2005), §5.1.5 — it classifies `p` against the triangle's
@@ -183,7 +183,7 @@ impl Triangle {
 /// (ideally) manifold; `snappyHexMesh` requires this of its input STL too.
 #[derive(Debug, Clone, Default)]
 pub struct TriangleSoup {
-    /// The facets making up the surface [m].
+    /// The facets making up the surface `[m]`.
     pub triangles: Vec<Triangle>,
     /// Optional solid name from the STL `solid <name>` line.
     pub name: String,
@@ -199,6 +199,113 @@ impl TriangleSoup {
         }
     }
 
+    /// A closed UV sphere of radius `r` `[m]` centred at `centre` `[m]`, as an
+    /// outward-wound triangle soup.
+    ///
+    /// Built-in geometry so a caller can exercise the mesher without supplying
+    /// an STL file. The surface is tessellated with `n_lat` latitude bands ×
+    /// `n_lon` longitude sectors (`2 · n_lat · n_lon` triangles), so it
+    /// approximates the analytic sphere with a chord error of order
+    /// `r · (π / n_lat)² / 8`. Both counts must be `>= 3` for a closed surface;
+    /// 24 × 24 is a reasonable default (1152 facets, chord error ≈ 0.2 % of `r`).
+    ///
+    /// Every facet is wound counter-clockwise seen from outside, so
+    /// [`contains_point`](Self::contains_point) treats the interior as "inside".
+    ///
+    /// # Panics
+    /// If `n_lat < 3`, `n_lon < 3`, or `r <= 0`.
+    pub fn uv_sphere(centre: Vector3, r: f64, n_lat: usize, n_lon: usize) -> Self {
+        assert!(n_lat >= 3 && n_lon >= 3, "need at least 3×3 tessellation");
+        assert!(r > 0.0, "sphere radius must be positive");
+        let point = |ia: f64, io: f64| -> Vector3 {
+            let theta = std::f64::consts::PI * ia; // 0..π  (polar angle)
+            let phi = 2.0 * std::f64::consts::PI * io; // 0..2π (azimuth)
+            Vector3::new(
+                centre.x + r * theta.sin() * phi.cos(),
+                centre.y + r * theta.sin() * phi.sin(),
+                centre.z + r * theta.cos(),
+            )
+        };
+        let mut tris = Vec::with_capacity(2 * n_lat * n_lon);
+        for i in 0..n_lat {
+            for j in 0..n_lon {
+                let (a0, a1) = (i as f64 / n_lat as f64, (i + 1) as f64 / n_lat as f64);
+                let (o0, o1) = (j as f64 / n_lon as f64, (j + 1) as f64 / n_lon as f64);
+                let p00 = point(a0, o0);
+                let p01 = point(a0, o1);
+                let p10 = point(a1, o0);
+                let p11 = point(a1, o1);
+                tris.push(Triangle::new(p00, p11, p01));
+                tris.push(Triangle::new(p00, p10, p11));
+            }
+        }
+        Self::new("sphere", tris)
+    }
+
+    /// A closed axis-aligned box spanning `min`..`max` `[m]`, as an
+    /// outward-wound triangle soup (12 facets).
+    ///
+    /// Built-in geometry for testing feature snapping: a box has 90° creases,
+    /// so any [`SnapControls::feature_angle_deg`](crate::snappy_hex_mesh::SnapControls::feature_angle_deg)
+    /// below 90 detects all of its edges.
+    ///
+    /// # Panics
+    /// If any component of `max` is not strictly greater than `min`.
+    pub fn cuboid(min: Vector3, max: Vector3) -> Self {
+        assert!(
+            max.x > min.x && max.y > min.y && max.z > min.z,
+            "cuboid needs max > min on every axis"
+        );
+        let c = |x: f64, y: f64, z: f64| Vector3::new(x, y, z);
+        let (x0, y0, z0) = (min.x, min.y, min.z);
+        let (x1, y1, z1) = (max.x, max.y, max.z);
+        // Each quad is split into two outward-wound triangles.
+        let quad = |a: Vector3, b: Vector3, d: Vector3, e: Vector3| {
+            [Triangle::new(a, b, d), Triangle::new(a, d, e)]
+        };
+        let mut tris = Vec::with_capacity(12);
+        // x-min (outward −x), x-max (+x)
+        tris.extend(quad(
+            c(x0, y0, z0),
+            c(x0, y0, z1),
+            c(x0, y1, z1),
+            c(x0, y1, z0),
+        ));
+        tris.extend(quad(
+            c(x1, y0, z0),
+            c(x1, y1, z0),
+            c(x1, y1, z1),
+            c(x1, y0, z1),
+        ));
+        // y-min (−y), y-max (+y)
+        tris.extend(quad(
+            c(x0, y0, z0),
+            c(x1, y0, z0),
+            c(x1, y0, z1),
+            c(x0, y0, z1),
+        ));
+        tris.extend(quad(
+            c(x0, y1, z0),
+            c(x0, y1, z1),
+            c(x1, y1, z1),
+            c(x1, y1, z0),
+        ));
+        // z-min (−z), z-max (+z)
+        tris.extend(quad(
+            c(x0, y0, z0),
+            c(x0, y1, z0),
+            c(x1, y1, z0),
+            c(x1, y0, z0),
+        ));
+        tris.extend(quad(
+            c(x0, y0, z1),
+            c(x1, y0, z1),
+            c(x1, y1, z1),
+            c(x0, y1, z1),
+        ));
+        Self::new("cuboid", tris)
+    }
+
     /// Number of facets.
     pub fn len(&self) -> usize {
         self.triangles.len()
@@ -209,7 +316,7 @@ impl TriangleSoup {
         self.triangles.is_empty()
     }
 
-    /// Axis-aligned bounding box `(min, max)` of every vertex [m].
+    /// Axis-aligned bounding box `(min, max)` of every vertex `[m]`.
     /// Returns `None` for an empty soup.
     pub fn bounding_box(&self) -> Option<(Vector3, Vector3)> {
         let mut it = self
@@ -226,7 +333,7 @@ impl TriangleSoup {
         Some((lo, hi))
     }
 
-    /// Closest point on the whole surface to `p` [m] (brute force over all
+    /// Closest point on the whole surface to `p` `[m]` (brute force over all
     /// facets). Returns `None` for an empty soup.
     pub fn nearest_point(&self, p: Vector3) -> Option<Vector3> {
         let mut best: Option<(f64, Vector3)> = None;
@@ -240,7 +347,7 @@ impl TriangleSoup {
         best.map(|(_, q)| q)
     }
 
-    /// Euclidean distance from `p` to the nearest surface point [m].
+    /// Euclidean distance from `p` to the nearest surface point `[m]`.
     /// Returns `f64::INFINITY` for an empty soup.
     pub fn distance_to(&self, p: Vector3) -> f64 {
         match self.nearest_point(p) {
@@ -438,12 +545,7 @@ pub fn read_stl_binary(bytes: &[u8]) -> Result<TriangleSoup, MeshError> {
         )));
     }
     let rf = |off: usize| -> f64 {
-        f32::from_le_bytes([
-            bytes[off],
-            bytes[off + 1],
-            bytes[off + 2],
-            bytes[off + 3],
-        ]) as f64
+        f32::from_le_bytes([bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]]) as f64
     };
     let mut triangles = Vec::with_capacity(count);
     for i in 0..count {

@@ -17,7 +17,7 @@
 //!   links (ambient-temperature and mixed power/ambient couplings).
 //! - [`calculation`] — advance the structure one timestep.
 //! - [`postprocessing`] — read back the nodal temperature vector.
-use crate::array_control_vol_and_fluid_component_collections::one_d_solid_array_with_lateral_coupling::SolidColumn;
+use crate::array_fluid_collections::solid_array_lateral_coupling::SolidColumn;
 use crate::boussinesq_thermophysical_properties::SolidMaterial;
 
 use super::heat_transfer_entities::cv_types::CVType;
@@ -34,9 +34,8 @@ use uom::si::f64::*;
 /// The standard assumption is that each axial end boundary has no conduction
 /// heat transfer in the axial direction (zero-power boundary condition) unless
 /// the user links something else to it.
-#[derive(Clone,Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SolidStructure {
-
     inner_nodes: usize,
 
     /// this HeatTransferEntity represents the solid body itself
@@ -51,11 +50,9 @@ pub struct SolidStructure {
 
     /// cross-sectional area of the solid, in square metres (m^2)
     pub cross_sectional_area: Area,
-
 }
 
 impl SolidStructure {
-
     /// constructs a solid structure as a hollow cylinder.
     ///
     /// `initial_temperature` (K) sets every node's starting temperature,
@@ -64,29 +61,29 @@ impl SolidStructure {
     /// outer diameters of the cylindrical shell, and `cylinder_length` (m) its
     /// axial length. `user_specified_inner_nodes` sets the number of interior
     /// axial nodes (total nodes = inner nodes + 2).
-    pub fn new_hollow_cylinder(initial_temperature: ThermodynamicTemperature,
+    pub fn new_hollow_cylinder(
+        initial_temperature: ThermodynamicTemperature,
         solid_pressure: Pressure,
         cross_sectional_area: Area,
         shell_id: Length,
         shell_od: Length,
         cylinder_length: Length,
         pipe_shell_material: SolidMaterial,
-        user_specified_inner_nodes: usize,) -> SolidStructure {
-
+        user_specified_inner_nodes: usize,
+    ) -> SolidStructure {
         // now the outer pipe array
-        let pipe_shell = 
-        SolidColumn::new_cylindrical_shell(
+        let pipe_shell = SolidColumn::new_cylindrical_shell(
             cylinder_length,
             shell_id,
             shell_od,
             initial_temperature,
             solid_pressure,
             pipe_shell_material,
-            user_specified_inner_nodes 
+            user_specified_inner_nodes,
         );
 
-
-        return Self { inner_nodes: user_specified_inner_nodes,
+        return Self {
+            inner_nodes: user_specified_inner_nodes,
             solid_array: CVType::SolidArrayCV(pipe_shell).into(),
             strucutre_length: cylinder_length,
             cross_sectional_area,
@@ -94,15 +91,12 @@ impl SolidStructure {
     }
 }
 
-
 /// stuff such as conductances are calculated here
 pub mod preprocessing;
-
-
 
 /// stuff for calculation is done here, ie, advancing timestep
 pub mod calculation;
 
-/// postprocessing stuff, ie, get the temperature vectors 
-/// of both arrays of control volumes 
+/// postprocessing stuff, ie, get the temperature vectors
+/// of both arrays of control volumes
 pub mod postprocessing;

@@ -84,16 +84,59 @@ pub fn run_case(preset: GeometryPreset, settings: RunSettings) -> Result<RunOutc
     let gpu_available = outram_mc_libs::gpu::probe().is_some();
 
     let (k_mean, k_std, k_by_generation, spectrum) = match built {
-        BuiltCase::Csg { geom, materials, nuclides, source } => {
+        BuiltCase::Csg {
+            geom,
+            materials,
+            nuclides,
+            source,
+        } => {
             let (mut tally, edges) = new_spectrum_tally();
-            let result = run_keff_csg(&geom, &materials, &nuclides, source, &keff_settings, Some(&mut tally));
-            let overlay = SpectrumOverlay::finish(&tally, &edges, keff_settings.n_active as u64, &materials[0], &nuclides);
-            (result.k_mean, result.k_std, result.k_by_generation, Some(overlay))
+            let result = run_keff_csg(
+                &geom,
+                &materials,
+                &nuclides,
+                source,
+                &keff_settings,
+                Some(&mut tally),
+            );
+            let overlay = SpectrumOverlay::finish(
+                &tally,
+                &edges,
+                keff_settings.n_active as u64,
+                &materials[0],
+                &nuclides,
+            );
+            (
+                result.k_mean,
+                result.k_std,
+                result.k_by_generation,
+                Some(overlay),
+            )
         }
-        BuiltCase::Delta { half_width, materials, nuclides, majorant, packed, fuel_material_idx, matrix_material_idx } => {
-            let material_at =
-                move |p: Position| Some(if packed.is_inside_kernel(p) { fuel_material_idx } else { matrix_material_idx });
-            let result = run_keff_delta(half_width, &materials, &nuclides, &majorant, material_at, &keff_settings);
+        BuiltCase::Delta {
+            half_width,
+            materials,
+            nuclides,
+            majorant,
+            packed,
+            fuel_material_idx,
+            matrix_material_idx,
+        } => {
+            let material_at = move |p: Position| {
+                Some(if packed.is_inside_kernel(p) {
+                    fuel_material_idx
+                } else {
+                    matrix_material_idx
+                })
+            };
+            let result = run_keff_delta(
+                half_width,
+                &materials,
+                &nuclides,
+                &majorant,
+                material_at,
+                &keff_settings,
+            );
             (result.k_mean, result.k_std, result.k_by_generation, None)
         }
     };
@@ -134,14 +177,18 @@ pub struct RunHandle {
 
 impl RunHandle {
     pub fn new() -> Self {
-        Self { phase: Arc::new(Mutex::new(RunPhase::Idle)) }
+        Self {
+            phase: Arc::new(Mutex::new(RunPhase::Idle)),
+        }
     }
 
     /// Start a run on a background thread, replacing whatever phase was
     /// previously stored (starting a new run always supersedes an old
     /// finished/idle one — there is only ever one run in flight).
     pub fn start(&self, preset: GeometryPreset, settings: RunSettings) {
-        *self.phase.lock().expect("run-phase mutex poisoned") = RunPhase::Running { started: Instant::now() };
+        *self.phase.lock().expect("run-phase mutex poisoned") = RunPhase::Running {
+            started: Instant::now(),
+        };
         let phase = Arc::clone(&self.phase);
         thread::spawn(move || {
             let outcome = run_case(preset, settings);

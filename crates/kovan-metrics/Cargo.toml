@@ -1,0 +1,19 @@
+[package]
+name = "kovan-metrics"
+description = "KOVAN repository accounting — per-commit API-token trailers and historian reports, read from git and the Claude Code session transcripts."
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Repo-root discovery reuses kovan-discovery's git layer rather than a second
+# implementation (see `git::repo_root`). kovan (the crate) already links it, so this
+# adds no weight to the shipped `kovan` binary.
+kovan-discovery.workspace = true
+# Baseline file (JSON) and the Claude Code session transcripts (JSONL).
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

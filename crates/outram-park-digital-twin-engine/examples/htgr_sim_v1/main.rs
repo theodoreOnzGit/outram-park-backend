@@ -1,10 +1,16 @@
 //! # `htgr_sim_v1` -- HTGR educational simulator (scaffold)
 //!
 //! A first-cut interactive simulator for a **helium-cooled, graphite-moderated
-//! prismatic-block High-Temperature Gas-cooled Reactor (HTGR)**, built on the
+//! pebble-bed High-Temperature Gas-cooled Reactor (HTGR)**, built on the
 //! `outram-park-digital-twin-engine` crate's reusable widgets and app scaffold
 //! from the start -- deliberately **not** re-deriving local widget/threading
 //! boilerplate the way the older `fhr_sim_v2` example did.
+//!
+//! The plant is laid out as an HTR-10-style machine: a pebble bed in one
+//! pressure vessel, a once-through helical-coil steam generator with the
+//! helium circulator above it in a second pressure vessel beside it, and a hot
+//! gas duct cross-vessel between the two. See [`app::schematic`] for what that
+//! arrangement is and where it comes from.
 //!
 //! ## What this is (and is not)
 //!
@@ -40,7 +46,11 @@ fn main() {}
 #[cfg(not(target_os = "android"))]
 mod app;
 #[cfg(not(target_os = "android"))]
+mod headless;
+#[cfg(not(target_os = "android"))]
 mod physics;
+#[cfg(not(target_os = "android"))]
+mod runtime;
 
 #[cfg(not(target_os = "android"))]
 use app::HtgrSimApp;
@@ -49,6 +59,33 @@ use app::HtgrSimApp;
 #[cfg(not(target_os = "android"))]
 fn main() -> eframe::Result<()> {
     env_logger::init(); // `RUST_LOG=debug` for logs.
+
+    // Headless mode: run the plant with no GUI and print a CSV trace.
+    //
+    //     cargo run --release --example htgr_sim_v1 -- --headless [steps] [sample_every]
+    //
+    // Exists so the physics can be run and observed without eframe -- for
+    // recording the pre-refactor reference baseline (bead op-fbou) and for
+    // regression tests. See `headless`.
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--headless") {
+        let nums: Vec<usize> = args[1..]
+            .iter()
+            .filter(|a| !a.starts_with("--"))
+            .filter_map(|a| a.parse().ok())
+            .collect();
+        let cfg = headless::HeadlessConfig {
+            steps: nums.first().copied().unwrap_or(600),
+            sample_every: nums.get(1).copied().unwrap_or(60),
+            ..Default::default()
+        };
+        eprintln!(
+            "htgr_sim_v1 headless: {} steps, sampling every {}",
+            cfg.steps, cfg.sample_every
+        );
+        headless::run_and_print(&cfg);
+        return Ok(());
+    }
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1600.0, 900.0]),

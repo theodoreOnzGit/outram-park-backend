@@ -1,0 +1,235 @@
+PETIR — Polynomials, Equations, Transforms, Integration, Roots
+Copyright (C) 2026 Theodore Ong and the outram-park contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 3, as published by the Free
+Software Foundation.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+
+================================================================================
+DERIVED WORK — GNU Scientific Library (GSL)
+================================================================================
+
+PETIR is a `no_std` Rust port of parts of the GNU Scientific Library. Porting
+GPL source creates a derivative work, so the upstream licence and copyright
+carry over, and every ported file carries a provenance header naming the
+upstream file, the commit it was read at, its copyright holder and its licence.
+
+  Project    : GNU Scientific Library (GSL) 2.8
+  Upstream   : https://git.savannah.gnu.org/git/gsl.git
+  Read from  : https://github.com/ampl/gsl (mirror — savannah is unreachable
+               from the build environment; see upstream_source/README.md)
+  Commit     : cf180cd7fbd06039a577f9c9ff0b428784765ac1 (2026-05-19)
+  Accessed   : 2026-09-14
+  Licence    : GNU General Public License, version 3 or later
+
+LICENCE VERIFICATION (per bn:op-chyp.3 — verified, not asserted)
+
+  `COPYING` in the upstream tree is the unmodified GNU GPL version 3 text of
+  29 June 2007, sha256
+  8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903 (35147
+  bytes).
+
+  COPYING alone does not establish the version GSL grants under: it is the
+  licence text, and the "either version 3 ... or (at your option) any later
+  version" wording inside it belongs to the "How to Apply These Terms" appendix
+  — boilerplate, not GSL's statement. The grant is in the per-file headers, and
+  every file in GSL's cheb/ module carries:
+
+      This program is free software; you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation; either version 3 of the License, or (at
+      your option) any later version.
+
+  GSL is therefore GPL-3.0-or-later. This workspace is GPL-3.0-only, which is
+  compatible: the "or later" option is exercised by choosing version 3.
+
+  The flow is ONE-WAY. Code here cannot go back upstream under a different
+  licence.
+
+COPYRIGHT HOLDERS
+
+  GSL's copyright is held by its individual authors and the Free Software
+  Foundation, and differs per module. Do not copy one file's holder onto
+  another; re-read the header of each file before porting it.
+
+    GSL cheb/eval.c, cheb/init.c, cheb/deriv.c, cheb/integ.c,
+    cheb/gsl_chebyshev.h   Copyright (C) 1996, 1997, 1998, 1999, 2000
+                           Gerard Jungman
+
+================================================================================
+DERIVED WORK — ARM optimized-routines
+================================================================================
+
+`src/fast_exp.rs`, `src/fast_log.rs` and `src/fast_pow.rs` are Rust
+transcriptions of ARM optimized-routines' `math/exp.c` + `math/exp_data.c`,
+`math/log.c` + `math/log_data.c`, and `math/pow.c` + `math/pow_common.h` +
+`math/pow_log_data.c` respectively. This is the implementation **glibc itself
+ships** for these three functions (ARM contributed it upstream), which is why
+the ports are both fast and, modulo one compiler contraction, bit-compatible
+with the platform libm on Linux.
+
+  Project    : ARM optimized-routines
+  Upstream   : https://github.com/ARM-software/optimized-routines
+  Commit     : f2e4faf58c6c671154f472a76eaaa977bb36c870 (2026-09-09)
+  Accessed   : 2026-09-14
+  Licence    : MIT OR Apache-2.0 WITH LLVM-exception
+
+LICENCE VERIFICATION (read from upstream, not asserted)
+
+  `LICENSE` in the upstream tree is a dual-licence file, sha256
+  650afbf29f214451e02241adc42534e82c9d6ae2b38e2444b92b5a1ffcaf9346 (13491
+  bytes), opening:
+
+      MIT OR Apache-2.0 WITH LLVM-exception
+      =====================================
+
+      MIT License
+      -----------
+
+      Copyright (c) 1999-2022, Arm Limited.
+
+  and carrying the full Apache License 2.0 text plus the LLVM Exceptions.
+  Every ported file states the same grant in its own header — `math/exp.c`,
+  verbatim:
+
+      Copyright (c) 2018-2025, Arm Limited.
+      SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
+
+  Both options are permissive and GPL-3.0-compatible, so this derivative work
+  is GPL-3.0-only like the rest of the workspace. The flow is ONE-WAY: code
+  here cannot go back upstream under the original licence.
+
+COPYRIGHT HOLDERS
+
+  Arm Limited, per the individual file headers:
+
+    math/exp.c            Copyright (c) 2018-2025, Arm Limited
+    math/exp_data.c       Copyright (c) 2018-2023, Arm Limited
+    math/log.c            Copyright (c) 2018-2025, Arm Limited
+    math/log_data.c       Copyright (c) 2018, Arm Limited
+    math/pow.c            Copyright (c) 2018-2026, Arm Limited
+    math/pow_common.h     Copyright (c) 2026, Arm Limited
+    math/pow_log_data.c   Copyright (c) 2018, Arm Limited
+    math/math_config.h    Copyright (c) 2017-2025, Arm Limited
+    math/math_err.c       Copyright (c) 2018, Arm Limited
+
+================================================================================
+OTHER UPSTREAM SOURCES
+================================================================================
+
+  SLATEC (public domain, no derivative obligation) is a permitted source where
+  GSL lacks a routine — e.g. CSEVL/DCSEVL and INITS/INITDS.
+
+  GNU Octave (GPL-3.0-or-later) is a secondary source, but its special
+  functions are largely SLATEC-derived (liboctave/external/slatec-fn/); for
+  those, port from SLATEC directly rather than inheriting Octave's chain. Only
+  genuinely Octave-original routines should be taken from Octave. Neither is
+  vendored at present.
+
+================================================================================
+IN-WORKSPACE UPSTREAMS (lifted verbatim)
+================================================================================
+
+  Beyond the ports above, PETIR carries code lifted BYTE-FOR-BYTE from two
+  other crates in this workspace. Both are GPL-3.0-only and authored here, so
+  no new licence obligation arises -- but the provenance still travels with
+  every file, and `tests/verbatim_provenance.rs` checks mechanically that the
+  copies have not drifted from their sources. As of 2026-09-14 all nineteen
+  lifts are at ZERO declared deviation.
+
+  outram-foam-basic-lib (GPL-3.0-only; derived from OpenFOAM,
+  Copyright (C) 2004-2023 OpenFOAM Foundation and 2016-2023 OpenCFD Ltd)
+
+    src/matrix/square_matrix.rs        -> linalg/square_matrix.rs
+    src/polynomial/{roots, linear_eqn,
+      quadratic_eqn, cubic_eqn,
+      polynomial}.rs                   -> poly/
+    src/math/erf_inv.rs                -> specfunc/erf_inv.rs
+    src/math/inc_gamma.rs              -> specfunc/inc_gamma.rs
+    src/math/inv_inc_gamma.rs          -> specfunc/inv_inc_gamma.rs
+    src/primitives/scalar.rs           -> scalar.rs
+
+  chem-eng-real-time-process-control-simulator (GPL-3.0-only; itself a port of
+  the GNU Octave control package, GPL-3.0-or-later)
+
+    src/lib/beta_testing/z_domain/*.rs -> transfer_fn/
+    src/lib/beta_testing/
+      stable_transfer_functions/*.rs   -> transfer_fn/
+
+  Not lifted: that crate's `transfer_fn_wrapper_and_enums` layer, which writes
+  simulation output through `csv::Writer` -- a std-and-filesystem dependency
+  with no place in a no_std numerics crate.
+
+================================================================================
+DEPENDENCY LICENCES
+================================================================================
+
+  libm  MIT OR Apache-2.0 — a pure-Rust port of musl's libm. Permissive into
+        GPL-3.0. Required, not optional: in no_std the f64 transcendentals are
+        std-only, and GSL calls them throughout.
+
+  uom   Apache-2.0 OR MIT — dimensional analysis. Permissive into GPL-3.0.
+        OPTIONAL, behind the default-on `transfer-fn` feature, and used only by
+        the transfer-function blocks, where a sample time genuinely is a Time
+        and a signal genuinely is a Ratio. Every numerics layer takes bare f64.
+        Built with default-features off: uom's defaults include `std`.
+
+================================================================================
+PRIOR ART IN RUST — ACKNOWLEDGEMENT
+================================================================================
+
+  PETIR is not the first attempt to bring these algorithms to Rust, and the
+  people who got there earlier deserve saying so by name. Two crates in
+  particular cover ground PETIR covers, and both are in this workspace's
+  dependency graph already (root `[workspace.dependencies]`):
+
+    peroxide 0.41.2   MIT OR Apache-2.0
+                      Tae Geun Kim ("axect", <axect@outlook.kr>)
+                      https://github.com/Axect/Peroxide
+                      A full numeric/scientific-computing stack for Rust:
+                      linear algebra, statistics, ODE integration,
+                      interpolation, root finding, special functions,
+                      automatic differentiation.
+
+    roots 0.0.8       BSD-2-Clause
+                      Mikhail Vorotilov <mikhail.vorotilov@gmail.com>
+                      https://github.com/vorot/roots
+                      Closed-form solvers for polynomials up to quartic, and
+                      the bracketed iterative root finders (bisection, regula
+                      falsi, Brent-Dekker, inverse quadratic, Newton-Raphson).
+
+  TO BE PRECISE ABOUT WHAT THIS IS AND IS NOT. This is an acknowledgement of
+  prior art, NOT a statement of derivation. **No code in PETIR is copied from,
+  translated from, or derived from either crate.** Every routine here traces to
+  the upstream named in its own file header -- GSL, ARM optimized-routines,
+  OpenFOAM by way of outram-foam-basic-lib, or the GNU Octave control package
+  by way of chem-eng -- and `tests/verbatim_provenance.rs` and the code-to-code
+  reference sets under `reference-data/` are what hold that claim to account.
+  Neither peroxide nor roots is a dependency of PETIR, and no licence
+  obligation to either arises from this crate.
+
+  It is recorded because credit for solving a problem first is not contingent
+  on someone else having used your solution, and because a reader comparing
+  PETIR against the Rust ecosystem should be pointed at the work that came
+  before it rather than left to assume there was none.
+
+  WHY PETIR EXISTS ALONGSIDE THEM, since that is the obvious next question:
+  PETIR is `no_std` unconditionally and carries provenance to a specific
+  upstream commit for every routine, because this workspace needs kernels that
+  build for bare metal and wasm AND that a reviewer can diff line-for-line
+  against a reference implementation with its own test suite. Those are
+  constraints particular to this project, not deficiencies in either crate
+  above.
+
+================================================================================
+NOT AFFILIATED
+================================================================================
+
+  PETIR is an independent port. It is not affiliated with, endorsed by, or
+  supported by the GSL maintainers, the Free Software Foundation, or any of the
+  copyright holders named above.

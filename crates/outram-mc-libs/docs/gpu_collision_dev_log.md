@@ -2,6 +2,20 @@
 
 > **UNTRUSTED AI-DRAFT.** Drafted with AI assistance and verified by the in-crate V&V tests; still requires human review before promotion past the "Unit Tested" V&V stage (see `RESPONSIBLE_USE.md`).
 
+<!-- op-jis-supersede-banner -->
+> ⚠️ **Partially superseded — `op-jis` PCG output permutation (2026-08-06).**
+> `rng::lcg::prn` gained OpenMC's PCG-RXS-M-XS output permutation. The LCG
+> **state recurrence is unchanged**, so the bit-exact LCG-state claims in this
+> log still hold, and the **GPU-vs-CPU-mirror f32 gate is unaffected** (it
+> compares the WGSL kernel against `advance_event_cpu_mirror`, both of which
+> derive their uniform from the **top-24 bits inside the shader path**, not from
+> `prn`). The **three-compute-mode k agreement** figures were re-measured on
+> **2026-08-06** and are updated below with a *Supersedes* note. The
+> **before/after k table** is from an `--ignored` benchmark that was not re-run,
+> so it is marked **PENDING A RE-RUN** rather than replaced. Wall-clock timing
+> tables are machine-state performance records, not sampled statistics, and are
+> left as measured.
+
 This log records a completed effort in `outram-mc-libs`: moving Monte-Carlo neutron
 **collision** physics onto the GPU (bead op-u6s.8) and reproducing the Godiva
 k-eigenvalue timing benchmark on a real NVIDIA GeForce RTX 3050. All numbers below
@@ -142,6 +156,13 @@ called out here rather than hidden.
   states bit-exact.
 - **Interpretation:** the fused GPU collision kernel reproduces the CPU mirror's logic
   to f32 rounding.
+- **Unaffected by `op-jis` (2026-08-06) — stated explicitly.** Both arms of this
+  gate draw their uniform from the **top-24 bits of the advanced state inside the
+  f32 shader path** (documented above), *not* from `rng::lcg::prn`, so the
+  PCG-RXS-M-XS output permutation does not enter it. The 5.07e-7 / 2.93e-7
+  figures and the 0/4096 outcome match therefore stand as measured and need no
+  re-run; the bit-exact LCG-state claim likewise holds because `op-jis` left the
+  state recurrence untouched.
 
 ### Three-compute-mode k agreement
 
@@ -150,14 +171,25 @@ called out here rather than hidden.
 - **Methodology:** run the same eigenvalue problem through `CpuSingleThread` (the
   trusted f64 reference), `CpuMultiThread`, and the fused collision-on-GPU path;
   compare $k$ against the single-thread reference within combined uncertainty.
-- **Results:**
-  - $k_{\text{single}} = 1.00762 \pm 0.00827$ (trusted reference)
-  - $k_{\text{multi}} = 1.00715 \pm 0.00768$
-  - $k_{\text{gpu}} = 1.01284 \pm 0.00823$ (fused collision on GPU)
-  - single-vs-gpu $|\Delta k| = 0.00522 = $ **0.45σ** (combined σ 0.01167; the 5σ gate
-    band is 0.0583) — well within combined uncertainty.
+- **Results (re-measured 2026-08-06 under the `op-jis` PCG output permutation):**
+  - $k_{\text{single}} = 1.01207 \pm 0.00673$ (trusted reference)
+  - $k_{\text{multi}} = 1.01897 \pm 0.00945$
+  - $k_{\text{gpu}} = 1.00863 \pm 0.00834$ (fused collision on GPU)
+  - single-vs-gpu $|\Delta k| = 0.00344 = $ **0.32σ** (combined σ 0.01072; the 5σ gate
+    band is 0.0536) — well within combined uncertainty.
+  - single-vs-multi $|\Delta k| = 0.00690 = $ **0.59σ** (combined σ 0.01160; 5σ
+    band 0.0580).
+- **Supersedes** the pre-`op-jis` figures $k_{\text{single}} = 1.00762 \pm
+  0.00827$, $k_{\text{multi}} = 1.00715 \pm 0.00768$, $k_{\text{gpu}} = 1.01284
+  \pm 0.00823$, and single-vs-gpu $|\Delta k| = 0.00522 =$ 0.45σ (combined σ
+  0.01167, 5σ band 0.0583). Those were measured with the pre-`op-jis` output
+  function — the raw top-52 bits of the LCG state — and no longer reflect the
+  generator. The geometry, material, history count, generations, and seed are
+  unchanged; only the uniform stream moved. The σ-distances quoted for
+  2026-08-06 are computed from the three measured $k \pm \sigma$ values above.
 - **Interpretation:** moving the whole collision onto the GPU does not change the
-  physics.
+  physics. That conclusion is unchanged by `op-jis` — the three backends still
+  agree well inside the 5σ gate on the new generator.
 
 ## Before vs after benchmark (the deliverable)
 
@@ -172,7 +204,17 @@ active generations, from the `gpu_collision_before_after` test. Wall-clock secon
 | 100 000 | 1.955 | 0.482 | 0.223 | 4.05x |
 | 1 000 000 | 19.256 | 5.409 | 2.915 | 3.56x |
 
-`k` agreement across those same runs (all within combined σ):
+`k` agreement across those same runs (all within combined σ) — **SUPERSEDED BY
+`op-jis`, PENDING A RE-RUN:**
+
+> ⚠️ The nine k values below were measured with the **pre-`op-jis` output
+> function** (raw top-52 state bits) and are statistics of sampled uniforms, so
+> all of them moved on 2026-08-06. The `gpu_collision_before_after` benchmark is
+> an `--ignored` test that was **not** re-run in the `op-jis` pass, so **no
+> post-`op-jis` replacements exist** and none have been invented. The old values
+> are retained as the historical record; **do not cite them as current**. The
+> wall-clock table above is a performance record on one machine state, not a
+> sampled statistic, and is left as measured.
 
 | Histories/gen | k before | k after | k multi |
 |---|---|---|---|

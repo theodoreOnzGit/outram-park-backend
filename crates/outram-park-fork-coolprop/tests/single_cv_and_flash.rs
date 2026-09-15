@@ -31,11 +31,11 @@ use uom::si::{
 
 /// (fluid, T [K], ρ [kg/m³]) — all single-phase (superheated / supercritical / gas).
 const CASES: &[(Fluid, f64, f64)] = &[
-    (Fluid::Water, 600.0, 2.0),        // superheated steam, ~0.5 MPa
-    (Fluid::Water, 800.0, 30.0),       // hotter, denser vapour
+    (Fluid::Water, 600.0, 2.0),           // superheated steam, ~0.5 MPa
+    (Fluid::Water, 800.0, 30.0),          // hotter, denser vapour
     (Fluid::CarbonDioxide, 400.0, 150.0), // supercritical CO2 (well above Tc≈304 K)
-    (Fluid::Nitrogen, 300.0, 20.0),    // gas
-    (Fluid::Methanol, 600.0, 5.0),     // superheated (exercises the newer terms)
+    (Fluid::Nitrogen, 300.0, 20.0),       // gas
+    (Fluid::Methanol, 600.0, 5.0),        // superheated (exercises the newer terms)
 ];
 
 #[test]
@@ -44,7 +44,11 @@ fn density_pt_round_trip() {
         let p = state_trho(f, t, rho).pressure;
         let rho_back = density_pt(f, t, p).expect("density solve converges");
         let rel = (rho_back - rho).abs() / rho;
-        assert!(rel < 1e-6, "{}: ρ {rho} -> p {p} -> ρ {rho_back} (rel {rel:.2e})", f.name());
+        assert!(
+            rel < 1e-6,
+            "{}: ρ {rho} -> p {p} -> ρ {rho_back} (rel {rel:.2e})",
+            f.name()
+        );
     }
 }
 
@@ -55,17 +59,39 @@ fn state_pt_ph_ps_round_trip() {
 
         // (p, T) -> (T, ρ)
         let s_pt = state_pt(f, t, s0.pressure).expect("pt flash");
-        assert!((s_pt.density - rho).abs() / rho < 1e-6, "{}: pt ρ", f.name());
+        assert!(
+            (s_pt.density - rho).abs() / rho < 1e-6,
+            "{}: pt ρ",
+            f.name()
+        );
 
         // (p, h) -> T
         let s_ph = state_ph(f, s0.pressure, s0.enthalpy).expect("ph flash");
-        assert!((s_ph.temperature - t).abs() / t < 1e-6, "{}: ph T ({} vs {t})", f.name(), s_ph.temperature);
-        assert!((s_ph.density - rho).abs() / rho < 1e-6, "{}: ph ρ", f.name());
+        assert!(
+            (s_ph.temperature - t).abs() / t < 1e-6,
+            "{}: ph T ({} vs {t})",
+            f.name(),
+            s_ph.temperature
+        );
+        assert!(
+            (s_ph.density - rho).abs() / rho < 1e-6,
+            "{}: ph ρ",
+            f.name()
+        );
 
         // (p, s) -> T
         let s_ps = state_ps(f, s0.pressure, s0.entropy).expect("ps flash");
-        assert!((s_ps.temperature - t).abs() / t < 1e-6, "{}: ps T ({} vs {t})", f.name(), s_ps.temperature);
-        assert!((s_ps.density - rho).abs() / rho < 1e-6, "{}: ps ρ", f.name());
+        assert!(
+            (s_ps.temperature - t).abs() / t < 1e-6,
+            "{}: ps T ({} vs {t})",
+            f.name(),
+            s_ps.temperature
+        );
+        assert!(
+            (s_ps.density - rho).abs() / rho < 1e-6,
+            "{}: ps ρ",
+            f.name()
+        );
     }
 }
 
@@ -89,7 +115,11 @@ fn cv_constructors_and_getters_agree() {
     let cv = OPCPFluidSingleCV::try_new_from_pt(Fluid::Water, p, t, vol).unwrap();
     assert!((cv.get_temperature().get::<kelvin>() - 600.0).abs() < 1e-6);
     assert!((cv.get_pressure().get::<pascal>() - 5.0e5).abs() / 5.0e5 < 1e-9);
-    assert!((cv.get_density().get::<kilogram_per_cubic_meter>() - ref_state.density).abs() / ref_state.density < 1e-9);
+    assert!(
+        (cv.get_density().get::<kilogram_per_cubic_meter>() - ref_state.density).abs()
+            / ref_state.density
+            < 1e-9
+    );
     // specific volume = 1/ρ
     let v = cv.get_specific_volume().value;
     assert!((v - 1.0 / ref_state.density).abs() / v < 1e-12);

@@ -1,3 +1,25 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// ASCII and binary STL read/write. The STL file format is a public de-facto
+// standard originated by 3D Systems, Inc.; this implementation is written from the
+// public format description and contains no upstream source.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! STL import / export — the lingua franca for surface-mesh interchange.
 //!
 //! STL (STereoLithography) is an unstructured **triangle soup**: a flat list of
@@ -180,7 +202,10 @@ pub fn from_stl_binary(bytes: &[u8]) -> Result<Mesh, StlError> {
     let count = u32::from_le_bytes([bytes[80], bytes[81], bytes[82], bytes[83]]) as usize;
     let expected = 84 + 50 * count;
     if bytes.len() != expected {
-        return Err(StlError::BadBinaryLength { got: bytes.len(), expected });
+        return Err(StlError::BadBinaryLength {
+            got: bytes.len(),
+            expected,
+        });
     }
     let mut coords: Vec<Vec3> = Vec::with_capacity(count * 3);
     for t in 0..count {
@@ -251,14 +276,19 @@ fn facet_normal(positions: &[Vec3], tri: [usize; 3]) -> Vec3 {
 /// Build a triangle-soup [`Mesh`] from a flat list of corner positions (three
 /// consecutive entries per triangle).
 fn soup_to_mesh(coords: &[Vec3]) -> Mesh {
-    let faces: Vec<Vec<usize>> = (0..coords.len() / 3).map(|t| vec![3 * t, 3 * t + 1, 3 * t + 2]).collect();
+    let faces: Vec<Vec<usize>> = (0..coords.len() / 3)
+        .map(|t| vec![3 * t, 3 * t + 1, 3 * t + 2])
+        .collect();
     Mesh::from_polygons(coords, &faces)
 }
 
 /// Read the next whitespace token as an `f64`.
 fn next_f64<'a>(it: &mut impl Iterator<Item = &'a str>) -> Result<f64, StlError> {
-    let tok = it.next().ok_or_else(|| StlError::Parse("truncated vertex line".into()))?;
-    tok.parse::<f64>().map_err(|e| StlError::Parse(format!("bad coordinate {tok:?}: {e}")))
+    let tok = it
+        .next()
+        .ok_or_else(|| StlError::Parse("truncated vertex line".into()))?;
+    tok.parse::<f64>()
+        .map_err(|e| StlError::Parse(format!("bad coordinate {tok:?}: {e}")))
 }
 
 /// Read a little-endian `f32` at byte offset `off`.
@@ -280,10 +310,18 @@ mod tests {
     fn ascii_round_trip_cube() {
         let cube = primitives::cube(2.0);
         let text = to_stl_ascii(&cube);
-        assert_eq!(text.matches("facet normal").count(), 12, "6 quads → 12 facets");
+        assert_eq!(
+            text.matches("facet normal").count(),
+            12,
+            "6 quads → 12 facets"
+        );
 
         let soup = from_stl_ascii(&text).expect("parse ascii STL");
-        assert_eq!(soup.vertex_count(), 36, "triangle soup: 12 tris × 3 corners");
+        assert_eq!(
+            soup.vertex_count(),
+            36,
+            "triangle soup: 12 tris × 3 corners"
+        );
         assert_eq!(soup.face_count(), 12);
 
         let welded = weld(&soup, 1e-9);
@@ -302,7 +340,11 @@ mod tests {
     fn binary_round_trip_cube() {
         let cube = primitives::cube(2.0);
         let bytes = to_stl_binary(&cube);
-        assert_eq!(bytes.len(), 84 + 50 * 12, "80 header + 4 count + 50/tri × 12");
+        assert_eq!(
+            bytes.len(),
+            84 + 50 * 12,
+            "80 header + 4 count + 50/tri × 12"
+        );
 
         let soup = from_stl_binary(&bytes).expect("parse binary STL");
         assert_eq!(soup.face_count(), 12);

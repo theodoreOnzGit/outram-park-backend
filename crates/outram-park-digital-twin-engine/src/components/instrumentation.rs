@@ -26,7 +26,11 @@ impl InstrumentationVisual {
     /// Construct a placeholder instrumentation visual with the given label
     /// and pre-formatted value.
     pub fn new(screen_position: Pos2, label: impl Into<String>, value: impl Into<String>) -> Self {
-        Self { screen_position, label: label.into(), value: value.into() }
+        Self {
+            screen_position,
+            label: label.into(),
+            value: value.into(),
+        }
     }
 }
 

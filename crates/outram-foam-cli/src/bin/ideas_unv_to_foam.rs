@@ -74,7 +74,8 @@ pub fn run_with_unv(args: &CaseArgs, unv: Option<PathBuf>) -> Result<(), CliErro
     let case = args.case_dir()?;
     let unv_path = resolve_unv(&case, unv)?;
 
-    let mesh = ideas_unv_to_foam::convert_file(&unv_path).map_err(|e| CliError::Tool(e.to_string()))?;
+    let mesh =
+        ideas_unv_to_foam::convert_file(&unv_path).map_err(|e| CliError::Tool(e.to_string()))?;
 
     let io_mesh = bridge(&mesh);
 
@@ -169,17 +170,11 @@ fn print_summary(mesh: &UnvPolyMesh, unv_path: &Path, poly_dir: &Path) {
     println!("  points:          {}", mesh.points.len());
     println!("  faces:           {}", fv.n_faces);
     println!("  internal faces:  {}", fv.n_internal_faces);
-    println!(
-        "  boundary faces:  {}",
-        fv.n_faces - fv.n_internal_faces
-    );
+    println!("  boundary faces:  {}", fv.n_faces - fv.n_internal_faces);
     println!("  cells:           {}", fv.n_cells);
     println!("  patches:         {}", fv.patches.len());
     if mesh.n_skipped_elements > 0 {
-        println!(
-            "  skipped (deferred) elements: {}",
-            mesh.n_skipped_elements
-        );
+        println!("  skipped (deferred) elements: {}", mesh.n_skipped_elements);
     }
     for p in &fv.patches {
         println!(

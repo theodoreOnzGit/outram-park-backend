@@ -1,12 +1,14 @@
 # KOVAN — Epics and Beads (registry-first redesign)
 
-> **Staging doc — pending import into beads.** This is the maintainer's
-> planning sketch for the KOVAN knowledge layer, to be filed as beads under the
-> existing KOVAN epic **`op-5v5`** once the repo is on the Rust `beads-rs`
-> tool (see `CLAUDE.md` → "Issue tracking & roadmap — beads"). File one
-> sub-epic per `E#`, one child bead per `E#.n`, wiring the dependency edges
-> described in the ordering notes. Preserve the `[VERIFY]` flags as bead notes —
-> those beads likely overlap existing `op-5v5.1..7` children and must be
+> **Staging doc — pending import into the tracker.** This is the maintainer's
+> planning sketch for the KOVAN knowledge layer, to be filed as issues under the
+> existing KOVAN epic **`op-5v5`** once kopi-beans (`bn`) can actually read
+> this repo's store (see `CLAUDE.md` → "Issue tracking & roadmap — kopi-beans"
+> — as of 2026-08-07 this is blocked by
+> [kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16)). File one
+> sub-epic per `E#`, one child issue per `E#.n`, wiring the dependency edges
+> described in the ordering notes. Preserve the `[VERIFY]` flags as issue notes —
+> those issues likely overlap existing `op-5v5.1..7` children and must be
 > reconciled (not blindly duplicated) against them before/at filing.
 >
 > **Status:** planning sketch, written from design discussion. Not reconciled

@@ -42,7 +42,7 @@ judged against the published benchmark profile in **Sod (1978) Table II**.
 
 Sod, G. A. (1978). *A Survey of Several Finite Difference Methods for Systems of
 Nonlinear Hyperbolic Conservation Laws.* Journal of Computational Physics,
-**27**(1), 1–31. DOI: [10.1016/0021-9991(78)90023-2](https://doi.org/10.1016cess mirror (HAL): <https://hal.science/hal-01635155>.
+**27**(1), 1–31. DOI: <https://doi.org/10.1016/0021-9991(78)90023-2>. Open-access mirror (HAL): <https://hal.science/hal-01635155>.
 
 Initial conditions ($\gamma = 1.4$), dimensionless:
 $\rho_L = 1.0$, $P_L = 1.0$, $u_L = 0$;
@@ -152,6 +152,20 @@ expected accuracy of a 2nd-order shock-capturing central scheme, with monotone
 ---
 
 # Appendix — Deriving the exact Riemann solution, step by step
+
+> ⚠️ **This appendix is text-corrupted from "Step 3" (below) onward and is not
+> currently readable.** Scattered single characters — both letters and spaces —
+> have been replaced by `*`, e.g. "Wh\*t is continuous", "the momen\*um
+> balance", "press\*re". Because `*` is also the notation for the star state
+> (`p^*`, `u^*`) and markdown emphasis, the damage cannot be reversed
+> mechanically without risking corruption of the physics.
+>
+> **Steps 0-2 are intact.** The derivation from Step 3 on needs to be restored
+> by hand against Toro (2013) ch. 4 before it can be relied on. Nothing in the
+> validation gate depends on this prose — the arbiter is the *code* in
+> `main.rs`, which is independently checked by
+> `exact_riemann_reproduces_sod_star_state` — so this is a documentation
+> defect, not a V&V defect. Flagged during the 2026-08-07 bookkeeping pass.
 
 This appendix derives the analytic "exact" solution that `main.rs` uses as the
 arbiter (functions `star_pressure`, `star_velocity`, `sample`, …). It follows

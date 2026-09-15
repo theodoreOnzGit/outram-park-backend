@@ -400,7 +400,10 @@ mod tests {
     fn density_equals_reference_at_reference_state() {
         let w = ThermalWaterProperties::water();
         let rho = w
-            .density(pressure(w.reference_pressure), temperature(w.reference_temperature))
+            .density(
+                pressure(w.reference_pressure),
+                temperature(w.reference_temperature),
+            )
             .get::<kilogram_per_cubic_meter>();
         assert!((rho - w.reference_density).abs() < 1e-9);
     }
@@ -409,18 +412,31 @@ mod tests {
     fn density_decreases_with_temperature() {
         let w = ThermalWaterProperties::water();
         let p = pressure(w.reference_pressure);
-        let cold = w.density(p, temperature(283.15)).get::<kilogram_per_cubic_meter>();
-        let mid = w.density(p, temperature(303.15)).get::<kilogram_per_cubic_meter>();
-        let hot = w.density(p, temperature(333.15)).get::<kilogram_per_cubic_meter>();
-        assert!(cold > mid && mid > hot, "density must fall as T rises (thermal expansion)");
+        let cold = w
+            .density(p, temperature(283.15))
+            .get::<kilogram_per_cubic_meter>();
+        let mid = w
+            .density(p, temperature(303.15))
+            .get::<kilogram_per_cubic_meter>();
+        let hot = w
+            .density(p, temperature(333.15))
+            .get::<kilogram_per_cubic_meter>();
+        assert!(
+            cold > mid && mid > hot,
+            "density must fall as T rises (thermal expansion)"
+        );
     }
 
     #[test]
     fn density_increases_with_pressure() {
         let w = ThermalWaterProperties::water();
         let t = temperature(w.reference_temperature);
-        let lo = w.density(pressure(1.0e5), t).get::<kilogram_per_cubic_meter>();
-        let hi = w.density(pressure(1.0e7), t).get::<kilogram_per_cubic_meter>();
+        let lo = w
+            .density(pressure(1.0e5), t)
+            .get::<kilogram_per_cubic_meter>();
+        let hi = w
+            .density(pressure(1.0e7), t)
+            .get::<kilogram_per_cubic_meter>();
         assert!(lo < hi, "density must rise with p (compressibility)");
     }
 
@@ -456,7 +472,9 @@ mod tests {
     #[test]
     fn viscosity_equals_reference_at_reference_temperature() {
         let w = ThermalWaterProperties::water();
-        let mu = w.viscosity(temperature(w.reference_temperature)).get::<pascal_second>();
+        let mu = w
+            .viscosity(temperature(w.reference_temperature))
+            .get::<pascal_second>();
         assert!((mu - w.reference_viscosity).abs() < 1e-15);
     }
 
@@ -470,7 +488,11 @@ mod tests {
         // Sanity: ~2:1 drop from 20 C to 60 C with B~1800 K.
         let at20 = w.viscosity(temperature(293.15)).get::<pascal_second>();
         let at60 = w.viscosity(temperature(333.15)).get::<pascal_second>();
-        assert!((at20 / at60) > 1.8 && (at20 / at60) < 2.4, "ratio={}", at20 / at60);
+        assert!(
+            (at20 / at60) > 1.8 && (at20 / at60) < 2.4,
+            "ratio={}",
+            at20 / at60
+        );
     }
 
     #[test]
@@ -483,23 +505,57 @@ mod tests {
     #[test]
     fn water_new_rejects_bad_inputs() {
         // reference_density <= 0
-        assert!(ThermalWaterProperties::new(0.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.6).is_err());
+        assert!(
+            ThermalWaterProperties::new(0.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.6)
+                .is_err()
+        );
         // reference_temperature <= 0
-        assert!(ThermalWaterProperties::new(1000.0, 1e5, 0.0, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.6).is_err());
+        assert!(
+            ThermalWaterProperties::new(1000.0, 1e5, 0.0, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.6)
+                .is_err()
+        );
         // negative compressibility
-        assert!(ThermalWaterProperties::new(1000.0, 1e5, 293.15, -1.0, 2.1e-4, 1e-3, 4182.0, 0.6).is_err());
+        assert!(
+            ThermalWaterProperties::new(1000.0, 1e5, 293.15, -1.0, 2.1e-4, 1e-3, 4182.0, 0.6)
+                .is_err()
+        );
         // negative thermal_expansion
-        assert!(ThermalWaterProperties::new(1000.0, 1e5, 293.15, 4.5e-10, -1.0, 1e-3, 4182.0, 0.6).is_err());
+        assert!(
+            ThermalWaterProperties::new(1000.0, 1e5, 293.15, 4.5e-10, -1.0, 1e-3, 4182.0, 0.6)
+                .is_err()
+        );
         // viscosity <= 0
-        assert!(ThermalWaterProperties::new(1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 0.0, 4182.0, 0.6).is_err());
+        assert!(ThermalWaterProperties::new(
+            1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 0.0, 4182.0, 0.6
+        )
+        .is_err());
         // specific_heat <= 0
-        assert!(ThermalWaterProperties::new(1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 0.0, 0.6).is_err());
+        assert!(
+            ThermalWaterProperties::new(1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 0.0, 0.6)
+                .is_err()
+        );
         // thermal_conductivity <= 0
-        assert!(ThermalWaterProperties::new(1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.0).is_err());
+        assert!(ThermalWaterProperties::new(
+            1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.0
+        )
+        .is_err());
         // non-finite pressure
-        assert!(ThermalWaterProperties::new(1000.0, f64::NAN, 293.15, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.6).is_err());
+        assert!(ThermalWaterProperties::new(
+            1000.0,
+            f64::NAN,
+            293.15,
+            4.5e-10,
+            2.1e-4,
+            1e-3,
+            4182.0,
+            0.6
+        )
+        .is_err());
         // all valid
-        assert!(ThermalWaterProperties::new(1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.6).is_ok());
+        assert!(ThermalWaterProperties::new(
+            1000.0, 1e5, 293.15, 4.5e-10, 2.1e-4, 1e-3, 4182.0, 0.6
+        )
+        .is_ok());
     }
 
     #[test]

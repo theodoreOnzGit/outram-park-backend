@@ -7,10 +7,8 @@ use super::heat_transfer_geometry::*;
 use crate::heat_transfer_correlations::heat_transfer_interactions::*;
 use crate::tuas_lib_error::TuasLibError;
 
-
-
 /// Contains possible heat transfer interactions between the nodes
-#[derive(Debug,Clone,Copy,PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HeatTransferInteractionType {
     /// The user specifies a thermal conductance between the nodes
     /// in units of power/kelvin
@@ -19,7 +17,7 @@ pub enum HeatTransferInteractionType {
     /// 1D Cartesian Coordinates Thermal Resistance
     /// We return a ThermalConductance because it's more convenient
     ///
-    /// basically have two control volumes, each node represents a control 
+    /// basically have two control volumes, each node represents a control
     /// volume
     ///
     /// // ----------------------------
@@ -29,30 +27,24 @@ pub enum HeatTransferInteractionType {
     /// // ----------------------------
     /// // cv_1                      cv_2
     ///
-    /// between them there is a thermal resistance 
+    /// between them there is a thermal resistance
     /// based on a q'' = k dT/dx
     ///
-    /// we have one material which determines conductivity 
-    /// and then a length which determines the distance between 
+    /// we have one material which determines conductivity
+    /// and then a length which determines the distance between
     /// the two control volumes
     ///
-    SingleCartesianThermalConductanceOneDimension(
-        Material,
-        XThicknessThermalConduction
-    ),
+    SingleCartesianThermalConductanceOneDimension(Material, XThicknessThermalConduction),
 
-
-    /// suppose there are two blocks with the same cross sectional 
-    /// area, each of its own thickness and material makeup 
+    /// suppose there are two blocks with the same cross sectional
+    /// area, each of its own thickness and material makeup
     ///
     /// this is DualCartesianThermalConductanceThreeDimension
-    /// we have three dimensional blocks, but the conduction is along 
+    /// we have three dimensional blocks, but the conduction is along
     /// the thickness of the block, tube or cylinder
     DualCartesianThermalConductanceThreeDimension(
-        DataDualCartesianThermalConductanceThreeDimension
+        DataDualCartesianThermalConductanceThreeDimension,
     ),
-
-
 
     /// 1D Cartesian Coordinates Thermal Resistance, for solids only
     /// We return a ThermalConductance because it's more convenient
@@ -66,11 +58,11 @@ pub enum HeatTransferInteractionType {
     /// // -------------------------------------------------------
     /// // cv_1                      cv_2                     cv_3
     ///
-    /// between them there is a thermal resistance 
+    /// between them there is a thermal resistance
     /// based on a q'' = k dT/dx
     ///
-    /// we have two materials which determines conductivity 
-    /// and then two lengths which determines the distance between 
+    /// we have two materials which determines conductivity
+    /// and then two lengths which determines the distance between
     /// the two control volumes
     ///
     /// Information must be passed in as a tuple,
@@ -84,7 +76,7 @@ pub enum HeatTransferInteractionType {
     /// 1D Cylindrical Coordinates Thermal Resistance
     /// We return a ThermalConductance because it's more convenient
     ///
-    /// basically have three control volumes 
+    /// basically have three control volumes
     ///
     /// // -------------------------------------------------------
     /// // |                          |                          |
@@ -93,30 +85,32 @@ pub enum HeatTransferInteractionType {
     /// // -------------------------------------------------------
     /// // cv_1                      cv_2                     cv_3
     ///
-    /// between them there is a thermal resistance 
+    /// between them there is a thermal resistance
     /// based on a q'' = k dT/dr
     ///
-    /// we have two materials which determines conductivity 
-    /// and then two lengths which determines the distance between 
-    /// the two control volumes 
+    /// we have two materials which determines conductivity
+    /// and then two lengths which determines the distance between
+    /// the two control volumes
     ///
-    /// one also needs to determine the 
-    /// inner diameter, outer diameter and length of the tube 
+    /// one also needs to determine the
+    /// inner diameter, outer diameter and length of the tube
     ///  
-    /// the first material and thickness argument represents 
+    /// the first material and thickness argument represents
     /// cv_1 to cv_2 (the inner shell)
     ///
-    /// and the second entry pertains to the outer shell 
+    /// and the second entry pertains to the outer shell
     /// cv_2 to cv_3, or the outer shell
     ///
-    /// 
+    ///
     ///
     DualCylindricalThermalConductance(
-        (Material,RadialCylindricalThicknessThermalConduction),
-        (Material,RadialCylindricalThicknessThermalConduction),
-        (InnerDiameterThermalConduction, 
-         OuterDiameterThermalConduction, 
-         CylinderLengthThermalConduction)
+        (Material, RadialCylindricalThicknessThermalConduction),
+        (Material, RadialCylindricalThicknessThermalConduction),
+        (
+            InnerDiameterThermalConduction,
+            OuterDiameterThermalConduction,
+            CylinderLengthThermalConduction,
+        ),
     ),
 
     /// 1D Cylindrical Coordinates Thermal Resistance
@@ -128,28 +122,28 @@ pub enum HeatTransferInteractionType {
     /// // ----------------------------
     /// // |                          |                          
     /// // * solid_cv_1               *                          *
-    /// // |                          |                         (T_f) 
+    /// // |                          |                         (T_f)
     /// // ----------------------------
     /// //                        solid_surface              Fluid_node
     ///
-    /// Where r is the radius 
+    /// Where r is the radius
     /// basically the liquid is on the outside (larger r)
     ///
-    /// between solid_cv_1 and the solid_surface 
-    /// cv_2 there is a thermal resistance 
+    /// between solid_cv_1 and the solid_surface
+    /// cv_2 there is a thermal resistance
     /// based on a q'' = k dT/dr
     ///
     /// between solid_surface and fluid_node, there is convection resistance
-    /// specified by a Nusselt Number so that we get a heat transfer 
+    /// specified by a Nusselt Number so that we get a heat transfer
     /// coefficient
     ///
     /// For the conduction bit,
-    /// we have one material which determines conductivity 
-    /// and then length which determines the distance between 
+    /// we have one material which determines conductivity
+    /// and then length which determines the distance between
     /// the two control volumes
     ///
-    /// the thermal conductance is determined by 
-    /// Thermal conductance 
+    /// the thermal conductance is determined by
+    /// Thermal conductance
     /// /// (2 * pi * L * K)/
     /// ln(outer_radius/inner_radius)
     ///
@@ -157,23 +151,29 @@ pub enum HeatTransferInteractionType {
     /// under common_functions
     ///
     ///
-    /// For convection, the heat flux from solid surface to fluid 
+    /// For convection, the heat flux from solid surface to fluid
     /// is:
     ///
     /// q = h A(T_s - T_f)
-    /// 
+    ///
     /// for hA
-    /// surface area is calculated by specifying an outer diameter 
+    /// surface area is calculated by specifying an outer diameter
     /// and a cylindrical axial length
     ///
     ///
     ///
     CylindricalConductionConvectionLiquidOutside(
-        (Material,RadialCylindricalThicknessThermalConduction,
-         ThermodynamicTemperature,Pressure),
-         (HeatTransfer, 
-          OuterDiameterThermalConduction, 
-          CylinderLengthThermalConduction),
+        (
+            Material,
+            RadialCylindricalThicknessThermalConduction,
+            ThermodynamicTemperature,
+            Pressure,
+        ),
+        (
+            HeatTransfer,
+            OuterDiameterThermalConduction,
+            CylinderLengthThermalConduction,
+        ),
     ),
 
     /// 1D Cylindrical Coordinates Thermal Resistance
@@ -192,21 +192,21 @@ pub enum HeatTransferInteractionType {
     /// Where r is the radius
     /// basically the liquid is on the inside (smaller r)
     ///
-    /// between solid_cv_1 and solid_surface 
-    /// there is a thermal resistance 
+    /// between solid_cv_1 and solid_surface
+    /// there is a thermal resistance
     /// based on a q'' = k dT/dr
     ///
     /// between solid_surface and fluid_node, there is convection resistance
-    /// specified by a Nusselt Number so that we get a heat transfer 
+    /// specified by a Nusselt Number so that we get a heat transfer
     /// coefficient
     ///
     /// For the conduction bit,
-    /// we have one material which determines conductivity 
-    /// and then length which determines the distance between 
+    /// we have one material which determines conductivity
+    /// and then length which determines the distance between
     /// the two control volumes
     ///
-    /// the thermal conductance is determined by 
-    /// Thermal conductance 
+    /// the thermal conductance is determined by
+    /// Thermal conductance
     /// /// (2 * pi * L * K)/
     /// ln(outer_radius/inner_radius)
     ///
@@ -214,25 +214,30 @@ pub enum HeatTransferInteractionType {
     /// under common_functions
     ///
     ///
-    /// For convection, the heat flux from solid surface to fluid 
+    /// For convection, the heat flux from solid surface to fluid
     /// is:
     ///
     /// q = h A(T_s - T_f)
-    /// 
+    ///
     /// for hA
-    /// surface area is calculated by specifying an outer diameter 
+    /// surface area is calculated by specifying an outer diameter
     /// and a cylindrical axial length
     ///
     ///
     ///
     CylindricalConductionConvectionLiquidInside(
-        (Material,RadialCylindricalThicknessThermalConduction,
-         ThermodynamicTemperature,Pressure),
-         (HeatTransfer, 
-          InnerDiameterThermalConduction, 
-          CylinderLengthThermalConduction),
+        (
+            Material,
+            RadialCylindricalThicknessThermalConduction,
+            ThermodynamicTemperature,
+            Pressure,
+        ),
+        (
+            HeatTransfer,
+            InnerDiameterThermalConduction,
+            CylinderLengthThermalConduction,
+        ),
     ),
-
 
     /// The user Specifies a heat Addition for the BC
     /// The uom type is Power
@@ -242,81 +247,76 @@ pub enum HeatTransferInteractionType {
     /// you will, of course, need to provide an area
     UserSpecifiedHeatFluxCustomArea(Area),
 
-    /// Use this enum to identify that you are 
-    /// specifying a curved cylindrical surface area 
+    /// Use this enum to identify that you are
+    /// specifying a curved cylindrical surface area
     /// on the outer surface of a cylinder
     UserSpecifiedHeatFluxCylindricalOuterArea(
         CylinderLengthThermalConduction,
         OuterDiameterThermalConduction,
     ),
 
-    /// Use this enum to identify that you are 
-    /// specifying a curved cylindrical surface area 
+    /// Use this enum to identify that you are
+    /// specifying a curved cylindrical surface area
     /// on the inner surface of a cylinder
     UserSpecifiedHeatFluxCylindricalInnerArea(
         CylinderLengthThermalConduction,
         InnerDiameterThermalConduction,
     ),
 
-
-    /// For convection between solid and fluid, 
-    /// the heat flux from solid surface to fluid 
+    /// For convection between solid and fluid,
+    /// the heat flux from solid surface to fluid
     /// is:
     ///
     /// q = h A(T_s - T_f)
-    /// 
-    /// this interaction calculates power based on a given h and A 
-    UserSpecifiedConvectionResistance(
-        DataUserSpecifiedConvectionResistance
-    ),
+    ///
+    /// this interaction calculates power based on a given h and A
+    UserSpecifiedConvectionResistance(DataUserSpecifiedConvectionResistance),
 
-
-    /// For advection one would only specify the mass flowrate 
+    /// For advection one would only specify the mass flowrate
     /// from one control volume to another
     Advection(DataAdvection),
 
-
-    /// for radiation heat transfer 
-    /// The basic thing is that RHT power scales with 
-    /// temperature 
+    /// for radiation heat transfer
+    /// The basic thing is that RHT power scales with
+    /// temperature
     ///
     /// P = coefficient * (T_hot^4 - T_cold^4)
     ///
-    /// If we wanted to calculate a conductance, we would note that 
+    /// If we wanted to calculate a conductance, we would note that
     /// P = h A (T_hot - T_cold)
     ///
-    /// h A = conductance 
-    /// or we can use 
-    /// H = conductance 
+    /// h A = conductance
+    /// or we can use
+    /// H = conductance
     ///
     /// H (T_hot - T_cold) = coefficient * (T_hot^4 - T_cold^4)
     ///
     /// note that temperatures are necessarily in kelvin
     ///
-    /// decompose the power 4 relation 
+    /// decompose the power 4 relation
     /// (a^2 - b^2) = (a+b)(a-b)
     ///
-    /// (T_hot^4 - T_cold^4) = 
-    /// (T_hot^2 + T_cold^2) 
+    /// (T_hot^4 - T_cold^4) =
+    /// (T_hot^2 + T_cold^2)
     /// (T_hot^2 - T_cold^2)
     ///
     /// Decomposing again:
-    /// (T_hot^4 - T_cold^4) = 
-    /// (T_hot^2 + T_cold^2) 
-    /// (T_hot + T_cold) 
+    /// (T_hot^4 - T_cold^4) =
+    /// (T_hot^2 + T_cold^2)
+    /// (T_hot + T_cold)
     /// (T_hot - T_cold)
     ///
     ///
-    /// H (T_hot - T_cold) = 
-    /// coefficient * 
-    /// (T_hot^2 + T_cold^2) 
-    /// (T_hot + T_cold) 
+    /// H (T_hot - T_cold) =
+    /// coefficient *
+    /// (T_hot^2 + T_cold^2)
+    /// (T_hot + T_cold)
     /// (T_hot - T_cold)
     ///
     /// Therefore, conductance can be expressed as:
     ///
     ///
-    /// H = coefficient * (T_hot^2 + T_cold^2)*(T_hot + T_cold) 
+    /// H = coefficient * (T_hot^2 + T_cold^2)*(T_hot + T_cold)
     ///
     /// If one wants to be more precise with units,
     /// then we should use:
@@ -326,47 +326,40 @@ pub enum HeatTransferInteractionType {
     /// where sigma is the stefan boltzmann constant
     /// in W m^(-2) T^(-4)
     ///
-    /// H = sigma * coefficient * (T_hot^2 + T_cold^2)*(T_hot + T_cold) 
+    /// H = sigma * coefficient * (T_hot^2 + T_cold^2)*(T_hot + T_cold)
     ///
     /// the coefficient is in units of area, so provide it yourself
     ///  
-    SimpleRadiation(
-        Area, 
-    ),
+    SimpleRadiation(Area),
 }
-
-
 
 /// here we have a struct for simple convection resistance
 /// in three dimensions
 /// on
-#[derive(Debug,Clone,Copy,PartialEq)]
-pub struct DataUserSpecifiedConvectionResistance{
-
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DataUserSpecifiedConvectionResistance {
     /// surface area for heat convection
     pub surf_area: SurfaceArea,
     /// heat transfer coefficient in watts per square meter per kelvin
     pub heat_transfer_coeff: HeatTransfer,
-
 }
 
-/// here we have a useful for necessary advection information 
+/// here we have a useful for necessary advection information
 
-#[derive(Debug,Clone,Copy,PartialEq)]
-pub struct DataAdvection{
-
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DataAdvection {
     /// mass flowrate
     pub mass_flowrate: MassRate,
     /// fluid density of control volume on left
     ///
-    /// which means when you link control volumes or boundary 
+    /// which means when you link control volumes or boundary
     /// link(cv1, cv2, interaction)
     ///
-    /// the picture is like this 
+    /// the picture is like this
     ///
     /// (cv1) ----> advection ---> (cv2)
     ///
-    /// cv1 is the left control volume 
+    /// cv1 is the left control volume
     /// cv2 is the right control volume
     ///
     /// now, the cv is not always a cv, it could be any heat
@@ -377,22 +370,20 @@ pub struct DataAdvection{
     /// which means when you link control volumes or boundary
     /// link(cv1, cv2, interaction)
     ///
-    /// the picture is like this 
+    /// the picture is like this
     ///
     /// (cv1) ----> advection ---> (cv2)
     ///
-    /// cv1 is the left control volume 
+    /// cv1 is the left control volume
     /// cv2 is the right control volume
     /// now, the cv is not always a cv, it could be any heat
     /// transfer entity
-    pub fluid_density_heat_transfer_entity_2: MassDensity
-
+    pub fluid_density_heat_transfer_entity_2: MassDensity,
 }
 
 impl DataAdvection {
-
-    /// constructs an advection interaction by specifying 
-    /// a fluid material 
+    /// constructs an advection interaction by specifying
+    /// a fluid material
     /// temperature of the heat transfer entity 1
     /// and temperature of heat transfer entity 2
     ///
@@ -406,8 +397,6 @@ impl DataAdvection {
         temperature_1: ThermodynamicTemperature,
         temperature_2: ThermodynamicTemperature,
     ) -> Self {
-
-
         let density_1 = fluid_material.try_get_density(temperature_1).unwrap();
         let density_2 = fluid_material.try_get_density(temperature_2).unwrap();
         return Self {
@@ -427,33 +416,30 @@ impl Into<HeatTransferInteractionType> for DataAdvection {
 impl TryFrom<HeatTransferInteractionType> for DataAdvection {
     type Error = TuasLibError;
 
-    fn try_from(heat_transfer_interaction: HeatTransferInteractionType) -> Result<Self, Self::Error> {
-
+    fn try_from(
+        heat_transfer_interaction: HeatTransferInteractionType,
+    ) -> Result<Self, Self::Error> {
         match heat_transfer_interaction {
             HeatTransferInteractionType::Advection(data_advection) => {
                 return Ok(data_advection);
-            },
+            }
             _ => return Err(TuasLibError::WrongHeatTransferInteractionType),
         }
-
     }
 }
 
-
 impl HeatTransferInteractionType {
-
     /// based on the heat transfer interaction type,
     /// we can calculate a thermal conductance given certain parameters
-    /// 
+    ///
     /// this function abstracts the details away for you
     pub fn get_thermal_conductance_based_on_interaction(
         &self,
         temperature_1: ThermodynamicTemperature,
         temperature_2: ThermodynamicTemperature,
         pressure_1: Pressure,
-        pressure_2: Pressure) 
-        -> Result<ThermalConductance, TuasLibError> 
-    {
+        pressure_2: Pressure,
+    ) -> Result<ThermalConductance, TuasLibError> {
         let interaction = *self;
 
         let conductance: ThermalConductance = match 
@@ -727,4 +713,3 @@ impl HeatTransferInteractionType {
         return Ok(conductance);
     }
 }
-

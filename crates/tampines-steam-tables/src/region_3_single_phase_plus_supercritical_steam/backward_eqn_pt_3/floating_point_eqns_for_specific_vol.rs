@@ -6,6 +6,8 @@
 //! entry points (`v_tp_3`, `v_tp_3c`, ...) in the parent module call these.
 //! `subregion` classifies a `(t,p)` point into the matching letter.
 
+use petir::mathf::RealMath;
+
 use super::BackwardPTRegion3;
 
 /// looking at table 2.103 and the preceeding
@@ -365,7 +367,7 @@ pub(crate) fn subregion_f(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p * 002.5e-8) - 0.587).powf(0.5)).powi(i[x - 1])
+                * ((((p * 002.5e-8) - 0.587).r_powf(0.5)).powi(i[x - 1])
                     * ((t / 730.0) - 0.891).powi(j[x - 1]))
         })
         .sum();
@@ -552,7 +554,7 @@ pub(crate) fn subregion_i(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p * 4.0e-8) - 0.910).powf(0.5)).powi(i[x - 1])
+                * ((((p * 4.0e-8) - 0.910).r_powf(0.5)).powi(i[x - 1])
                     * ((t / 660.0) - 0.984).powi(j[x - 1]))
         })
         .sum();
@@ -608,7 +610,7 @@ pub(crate) fn subregion_j(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p * 4.0e-8) - 0.875).powf(0.5)).powi(i[x - 1])
+                * ((((p * 4.0e-8) - 0.875).r_powf(0.5)).powi(i[x - 1])
                     * ((t / 670.0) - 0.964).powi(j[x - 1]))
         })
         .sum();
@@ -805,7 +807,7 @@ pub(crate) fn subregion_m(t: f64, p: f64) -> f64 {
         .map(|x| {
             n[x - 1]
                 * (((p / 23.0e6) - 1.0).powi(i[x - 1])
-                    * (((t / 650.0) - 0.997).powf(0.25)).powi(j[x - 1]))
+                    * (((t / 650.0) - 0.997).r_powf(0.25)).powi(j[x - 1]))
         })
         .sum();
     v * 0.0028
@@ -873,7 +875,7 @@ pub(crate) fn subregion_n(t: f64, p: f64) -> f64 {
                 * (((p / 23.0e6) - 0.976).powi(i[x - 1]) * ((t / 650.0) - 0.997).powi(j[x - 1]))
         })
         .sum();
-    v.exp() * 0.0031
+    v.r_exp() * 0.0031
 }
 
 pub(crate) fn subregion_o(t: f64, p: f64) -> f64 {
@@ -919,7 +921,7 @@ pub(crate) fn subregion_o(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p / 23.0e6) - 0.974).powf(0.5)).powi(i[x - 1])
+                * ((((p / 23.0e6) - 0.974).r_powf(0.5)).powi(i[x - 1])
                     * ((t / 650.0) - 0.996).powi(j[x - 1]))
         })
         .sum();
@@ -973,7 +975,7 @@ pub(crate) fn subregion_p(t: f64, p: f64) -> f64 {
         .into_iter()
         .map(|x| {
             n[x - 1]
-                * ((((p / 23.0e6) - 0.972).powf(0.5)).powi(i[x - 1])
+                * ((((p / 23.0e6) - 0.972).r_powf(0.5)).powi(i[x - 1])
                     * ((t / 650.0) - 0.997).powi(j[x - 1]))
         })
         .sum();
@@ -1566,7 +1568,7 @@ fn psat97(t: &f64) -> f64 {
 /// based on rusteam
 fn tsat97(p: &f64) -> f64 {
     // Calulate additional values
-    let beta: f64 = (p * 1e-6).powf(0.25);
+    let beta: f64 = (p * 1e-6).r_powf(0.25);
     let coef_e: f64 =
         beta.powi(2) + REGION_4_SATURATION_COEFFS[2] * beta + REGION_4_SATURATION_COEFFS[5];
     let coef_f: f64 = REGION_4_SATURATION_COEFFS[0] * beta.powi(2)
@@ -1698,12 +1700,12 @@ pub(crate) fn subregion(t: f64, p: f64) -> BackwardPTRegion3 {
             t_rx += coefficients_rx[x] * (p * 1e-6).powi(x as i32);
             t_uv += coefficients_uv[x] * (p * 1e-6).powi(x as i32)
         }
-        t_ab += coefficients_ab[x] * ((p * 1e-6).ln()).powi(ii[x]);
+        t_ab += coefficients_ab[x] * ((p * 1e-6).r_ln()).powi(ii[x]);
         t_gh += coefficients_gh[x] * (p * 1e-6).powi(x as i32);
         t_ij += coefficients_ij[x] * (p * 1e-6).powi(x as i32);
         t_jk += coefficients_jk[x] * (p * 1e-6).powi(x as i32);
-        t_op += coefficients_op[x] * ((p * 1e-6).ln()).powi(ii[x]);
-        t_wx += coefficients_wx[x] * ((p * 1e-6).ln()).powi(ii[x]);
+        t_op += coefficients_op[x] * ((p * 1e-6).r_ln()).powi(ii[x]);
+        t_wx += coefficients_wx[x] * ((p * 1e-6).r_ln()).powi(ii[x]);
     }
 
     // Calculate the Density

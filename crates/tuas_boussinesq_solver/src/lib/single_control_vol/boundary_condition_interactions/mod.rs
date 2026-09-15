@@ -21,15 +21,13 @@
 /// at zero gradient BCs
 pub mod advection_to_bcs;
 
-
-
-/// calculates a conductance interaction between the constant 
+/// calculates a conductance interaction between the constant
 /// temperature bc and cv
 ///
 /// for conductance, orientation of bc and cv does not usually matter
 pub mod conductance_to_bcs;
 
-/// calculates a conductance interaction between the constant 
+/// calculates a conductance interaction between the constant
 /// temperature bc and cv
 ///
 /// for conductance, orientation of bc and cv does not usually matter

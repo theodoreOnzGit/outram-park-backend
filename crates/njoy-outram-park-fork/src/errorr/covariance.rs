@@ -41,7 +41,7 @@
 //! # Validated against the real tape
 //!
 //! The field mapping below was cross-checked line-for-line against
-//! `crates/njoy-outram-park-fork/tests/resources/n-092_U_235-ENDF8.0.endf`
+//! `reference-data/endf/n-092_U_235-ENDF8.0.endf`
 //! (MAT=9228): MF=33/MT=1 (7 lines: HEAD + one NC-type subsection with
 //! `LTY=0`, a 9-pair "this reaction is the sum of its components" list) and
 //! MF=33/MT=2 (HEAD declares `NL=9`; first subsection is `NI`-type with
@@ -104,7 +104,11 @@ pub enum SubsectionFormat {
 pub fn detect_endf_version(tape: &Tape, mat: i32) -> Result<SubsectionFormat, NjoyError> {
     let section = tape
         .section(mat, 1, 451)
-        .ok_or(NjoyError::SectionNotFound { mat, mf: 1, mt: 451 })?;
+        .ok_or(NjoyError::SectionNotFound {
+            mat,
+            mf: 1,
+            mt: 451,
+        })?;
     let mut cur = SectionCursor::new(&section.rows);
     let _head = cur.read_cont()?; // errorr.f90:456 — (ZA,AWR,LRP,LFI,NLIB,NMOD), unused here.
     let descriptive = cur.read_cont()?; // errorr.f90:457 — (ELIS,STA,LIS,LISO,0,NFOR).
@@ -300,7 +304,12 @@ pub fn read_covariance_section(
         subsections.push(read_subsection(&mut cur)?);
     }
 
-    Ok(CovarianceSection { za, awr, mtl, subsections })
+    Ok(CovarianceSection {
+        za,
+        awr,
+        mtl,
+        subsections,
+    })
 }
 
 /// Read one `NL` subsection: its CONT header plus its `NC` and `NI`
@@ -336,7 +345,14 @@ fn read_subsection(cur: &mut SectionCursor<'_>) -> Result<CovarianceSubsection, 
         ni.push(NiSubsection { ls, lb, list });
     }
 
-    Ok(CovarianceSubsection { xmf1, xlfs1, mat1, mt1, nc, ni })
+    Ok(CovarianceSubsection {
+        xmf1,
+        xlfs1,
+        mat1,
+        mt1,
+        nc,
+        ni,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -375,7 +391,11 @@ mod tests {
             [1.0, 2.0, 1.0, 5.0, 1.0, 16.0],
             [1.0, 17.0, 1.0, 18.0, 1.0, 0.0],
         ];
-        let key = EndfKey { mat: 9228, mf: 33, mt: 1 };
+        let key = EndfKey {
+            mat: 9228,
+            mf: 33,
+            mt: 1,
+        };
         let tape = Tape::from_sections("synthetic".into(), vec![Section { key, rows }]);
 
         let sec = read_covariance_section(&tape, 9228, 33, 1, SubsectionFormat::EndfFormatVOrVi)
@@ -401,14 +421,13 @@ mod tests {
     }
 
     /// Structural smoke test against the real U-235 ENDF8.0 tape
-    /// (`tests/resources/n-092_U_235-ENDF8.0.endf`, MAT=9228): parse the
+    /// (`reference-data/endf/n-092_U_235-ENDF8.0.endf`, MAT=9228): parse the
     /// MF=33/MT=1 (total) and MF=33/MT=2 (elastic) sections and assert the
     /// invariants hand-verified against the raw file (see module docs).
     /// Structural only — no covariance values are computed or asserted.
     #[test]
     fn real_tape_mf33_mt1_and_mt2_structural_invariants() {
-        let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        p.push("tests/resources/n-092_U_235-ENDF8.0.endf");
+        let p = crate::reference_data::reference_endf_dir().join("n-092_U_235-ENDF8.0.endf");
         let tape = Tape::read(std::fs::File::open(p).unwrap()).unwrap();
 
         assert_eq!(
@@ -444,6 +463,10 @@ mod tests {
         assert_eq!(first_ni.list.head.n1, 113_050);
         assert_eq!(first_ni.list.head.n2, 475);
         assert_eq!(first_ni.list.data.len(), 113_050);
-        assert_eq!(113_050, 475 * 476 / 2, "LB=5 symmetric upper-triangular pack size");
+        assert_eq!(
+            113_050,
+            475 * 476 / 2,
+            "LB=5 symmetric upper-triangular pack size"
+        );
     }
 }

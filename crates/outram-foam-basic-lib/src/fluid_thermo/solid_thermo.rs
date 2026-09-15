@@ -44,15 +44,15 @@ pub trait SolidThermo {
     /// The finite-volume mesh this solid region is defined on.
     fn mesh(&self) -> &Arc<FvMesh>;
 
-    /// Temperature field [K].
+    /// Temperature field `[K]`.
     fn t(&self) -> &VolScalarField;
-    /// Mutable temperature field [K] — for the energy equation to update in place.
+    /// Mutable temperature field `[K]` — for the energy equation to update in place.
     fn t_mut(&mut self) -> &mut VolScalarField;
 
-    /// Thermal conductivity κ [W/(m·K)] — used in `fvm::laplacian(kappa, T)`.
+    /// Thermal conductivity κ `[W/(m·K)]` — used in `fvm::laplacian(kappa, T)`.
     fn kappa(&self) -> VolScalarField;
 
-    /// Volumetric heat capacity ρ·Cp [J/(m³·K)] — used in `fvm::ddt(rho_cp, T)`.
+    /// Volumetric heat capacity ρ·Cp `[J/(m³·K)]` — used in `fvm::ddt(rho_cp, T)`.
     fn rho_cp(&self) -> VolScalarField;
 
     /// Recompute temperature-dependent properties after T has been updated.
@@ -91,7 +91,7 @@ pub trait SolidThermo {
 /// ```
 #[derive(Debug, Clone)]
 pub struct ConstSolidThermo {
-    /// Temperature field [K].
+    /// Temperature field `[K]`.
     pub t: VolScalarField,
     kappa_val: f64,  // [W/(m·K)]
     rho_cp_val: f64, // [J/(m³·K)]
@@ -100,9 +100,9 @@ pub struct ConstSolidThermo {
 impl ConstSolidThermo {
     /// Create a uniform solid thermo.
     ///
-    /// - `t_init`: initial temperature [K]
-    /// - `kappa`: thermal conductivity [W/(m·K)]
-    /// - `rho_cp`: volumetric heat capacity ρ·Cp [J/(m³·K)]
+    /// - `t_init`: initial temperature `[K]`
+    /// - `kappa`: thermal conductivity `[W/(m·K)]`
+    /// - `rho_cp`: volumetric heat capacity ρ·Cp `[J/(m³·K)]`
     pub fn new(mesh: Arc<FvMesh>, t_init: f64, kappa: f64, rho_cp: f64) -> Self {
         Self {
             t: VolScalarField::uniform("T", mesh, t_init),

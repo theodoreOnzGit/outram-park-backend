@@ -522,7 +522,12 @@ pub fn block_bicgstab(
 
     // Report the best iterate with its recomputed true relative residual.
     let final_rel = true_rel_residual(a, b, &best_x, bnorm);
-    (best_x, iters, final_rel, converged && final_rel <= tolerance)
+    (
+        best_x,
+        iters,
+        final_rel,
+        converged && final_rel <= tolerance,
+    )
 }
 
 /// True relative residual `||b - A·x|| / ||b||` (recomputed, not the recurrence
@@ -959,7 +964,10 @@ mod tests {
 
         let precond = BlockJacobiPreconditioner::new(&a);
         let (x, iters, rel, converged) = block_bicgstab(&a, &b, None, &precond, 1e-12, 1000);
-        assert!(converged, "BiCGStab did not converge (rel {rel}, iters {iters})");
+        assert!(
+            converged,
+            "BiCGStab did not converge (rel {rel}, iters {iters})"
+        );
 
         let mut max_err = 0.0f64;
         for i in 0..n {

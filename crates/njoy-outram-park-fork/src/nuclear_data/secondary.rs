@@ -54,8 +54,7 @@ impl NuBar {
         match head.l2 {
             2 => {
                 let tab1 = cur.read_tab1()?;
-                let (energy, nu_total): (Vec<f64>, Vec<f64>) =
-                    tab1.pairs.iter().copied().unzip();
+                let (energy, nu_total): (Vec<f64>, Vec<f64>) = tab1.pairs.iter().copied().unzip();
                 Ok(Some(NuBar { energy, nu_total }))
             }
             1 => {
@@ -200,7 +199,10 @@ pub struct ChiTabular {
 impl Default for FissionSpectrum {
     /// A representative fast-fission Watt spectrum (U-235 thermal-fission params).
     fn default() -> Self {
-        FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 }
+        FissionSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        }
     }
 }
 
@@ -306,10 +308,12 @@ impl FissionSpectrum {
                 mean_of_pdf(&chi.tables[i].e_out, &chi.tables[i].pdf)
             }
             FissionSpectrum::Maxwell { theta, .. } => {
-                1.5 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0)
+                1.5 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs)
+                    .unwrap_or(0.0)
             }
             FissionSpectrum::Evaporation { theta, .. } => {
-                2.0 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs).unwrap_or(0.0)
+                2.0 * crate::endf::interp::eval_tab1(e_in, &theta.interp, &theta.pairs)
+                    .unwrap_or(0.0)
             }
             FissionSpectrum::WattEnergyDependent { a, b, .. } => {
                 let av = crate::endf::interp::eval_tab1(e_in, &a.interp, &a.pairs).unwrap_or(0.0);
@@ -412,9 +416,17 @@ fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate
         let p_tab = cur.read_tab1()?;
         let u = p_tab.head.c1;
         let law = match p_tab.head.l2 {
-            1 => Some(FissionSpectrum::ContinuousTabular(parse_lf1_tabular(&mut cur)?)),
-            7 => Some(FissionSpectrum::Maxwell { theta: cur.read_tab1()?, u }),
-            9 => Some(FissionSpectrum::Evaporation { theta: cur.read_tab1()?, u }),
+            1 => Some(FissionSpectrum::ContinuousTabular(parse_lf1_tabular(
+                &mut cur,
+            )?)),
+            7 => Some(FissionSpectrum::Maxwell {
+                theta: cur.read_tab1()?,
+                u,
+            }),
+            9 => Some(FissionSpectrum::Evaporation {
+                theta: cur.read_tab1()?,
+                u,
+            }),
             11 => {
                 let a = cur.read_tab1()?;
                 let b = cur.read_tab1()?;
@@ -432,6 +444,209 @@ fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate
         Ok(Some(partitions.into_iter().next().unwrap().1))
     } else {
         Ok(Some(FissionSpectrum::Mixture(partitions)))
+    }
+}
+
+/// One neutron-emitting subsection of an ENDF **MF=6 LAW=1** reaction.
+///
+/// An (n,2n) reaction is written either as a single subsection of yield 2
+/// (U-238, U-235 in ENDF/B-VIII.0) or as two subsections of yield 1 carrying
+/// *different* spectra for the first and second emitted neutron (F-19, same
+/// library). One branch is one subsection, so both conventions are represented
+/// without the consumer having to know which it got.
+#[derive(Debug, Clone)]
+pub struct ContinuumBranch {
+    /// This subsection's outgoing-energy law `f₀(E→E')`, incident and outgoing
+    /// grids in **eV**, pdf in eV⁻¹ — the same representation as the MF=5 LF=1
+    /// fission spectrum, so it samples through the identical code path.
+    pub spectrum: ChiTabular,
+    /// This subsection's neutron multiplicity `y(E)` as `(E \[eV\], y)` pairs.
+    pub yield_pairs: Vec<(f64, f64)>,
+}
+
+impl ContinuumBranch {
+    /// Multiplicity `y` at incident energy `e_in` \[eV\], lin-lin interpolated
+    /// and clamped to the end values outside the tabulated range. Returns 1.0 if
+    /// the table is empty.
+    pub fn yield_at(&self, e_in: f64) -> f64 {
+        let p = &self.yield_pairs;
+        match p.len() {
+            0 => 1.0,
+            1 => p[0].1,
+            _ => {
+                if e_in <= p[0].0 {
+                    return p[0].1;
+                }
+                if e_in >= p[p.len() - 1].0 {
+                    return p[p.len() - 1].1;
+                }
+                for i in 1..p.len() {
+                    let (x0, y0) = p[i - 1];
+                    let (x1, y1) = p[i];
+                    if e_in <= x1 {
+                        return if x1 > x0 {
+                            y0 + (y1 - y0) * (e_in - x0) / (x1 - x0)
+                        } else {
+                            y1
+                        };
+                    }
+                }
+                p[p.len() - 1].1
+            }
+        }
+    }
+}
+
+/// The secondary-neutron emission of an ENDF **MF=6 LAW=1** reaction — the
+/// continuum inelastic (MT=91) and (n,xn) energy distributions.
+///
+/// # Why this exists
+///
+/// RECONR reconstructs MF=3 cross sections but no secondary-energy law, so
+/// `outram-mc-libs` modelled the MT=91 continuum with a **Weisskopf evaporation
+/// stand-in**. That is a shape assumption, not the evaluation's own data, and
+/// MT=91 carries 10–25 % of the collisions in a bare fast metal sphere (measured
+/// on Godiva, 2026-09-13 — see `gh:#192`). This type carries the evaluated law
+/// instead, in the same [`ChiTabular`] form the MF=5 LF=1 fission spectrum uses,
+/// so the transport layer samples it with the machinery it already has.
+///
+/// # What it does and does not carry
+///
+/// The **energy** spectrum `f₀(E→E')` of every leading neutron subsection is
+/// carried in full. The **angular** correlation present in MF=6 (Legendre
+/// `f₁…f_NA` when LANG=1, Kalbach `r`/`a` when LANG=2) is **not**: emission is
+/// isotropic in the frame named by [`cm_frame`](Self::cm_frame), which is the
+/// same reduction ACE Law 4 makes (see
+/// [`crate::acer::energy::Mf6Neutron`]). Correlated emission is the follow-up,
+/// not something this type approximates.
+#[derive(Debug, Clone)]
+pub struct ContinuumEmission {
+    /// One entry per neutron (ZAP=1) LAW=1 subsection, in file order. Never
+    /// empty — [`from_endf_mf6`](Self::from_endf_mf6) returns `None` rather than
+    /// an emission with no branches.
+    pub branches: Vec<ContinuumBranch>,
+    /// `true` when the distributions are tabulated in the **centre-of-mass**
+    /// frame (ENDF `LCT = 2`), which is the usual case for MT=91 on actinide
+    /// evaluations. The transport layer must then transform the sampled `E'` to
+    /// the laboratory frame; `false` means it is already laboratory-frame.
+    /// `LCT` is a property of the whole MF=6 section, so it is shared by every
+    /// branch.
+    pub cm_frame: bool,
+}
+
+impl ContinuumEmission {
+    /// Read the MF=6 LAW=1 neutron emission of reaction `mt` for material `mat`.
+    ///
+    /// Returns `Ok(None)` when the material has no MF=6/`mt` section, or when the
+    /// section uses a law this port does not read (LAW≠1, or a subsection layout
+    /// [`crate::acer::energy::parse_mf6_law1_neutrons`] rejects) — the caller is
+    /// expected to keep its previous fallback in that case rather than fail.
+    ///
+    /// Units are converted here: [`crate::acer::energy::Law4`] is an ACE-side
+    /// structure and carries MeV, while every `nuclear_data` consumer works in eV.
+    pub fn from_endf_mf6(
+        tape: &crate::endf::tape::Tape,
+        mat: i32,
+        mt: i32,
+    ) -> Result<Option<ContinuumEmission>, crate::NjoyError> {
+        let Some(sec) = tape.section(mat, 6, mt) else {
+            return Ok(None);
+        };
+        let neutrons = match crate::acer::energy::parse_mf6_law1_neutrons(sec) {
+            Ok(n) => n,
+            // An unported law is a reason to fall back, not to fail the load.
+            Err(crate::NjoyError::NotPorted(_)) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+
+        const EMEV: f64 = 1.0e6;
+        // `>= 2`, not `== 2`: ENDF-6 also defines **LCT = 3** (the first two
+        // particles in the centre of mass, the rest in the laboratory), and the
+        // emitted neutron is one of the first two. NJOY does exactly this
+        // collapse — `acefc.f90:7187`, `if (lct.gt.2) lct=2`. ENDF/B-VIII.0's
+        // C-12 MF=6/MT=5 carries LCT = 3, so treating it as laboratory would put
+        // a CM spectrum through no frame transform at all.
+        let cm_frame = neutrons.first().map(|n| n.lct >= 2).unwrap_or(false);
+        let mut branches = Vec::with_capacity(neutrons.len());
+        for neutron in neutrons {
+            let mut incident = Vec::with_capacity(neutron.law4.incident.len());
+            let mut tables = Vec::with_capacity(neutron.law4.incident.len());
+            for t in &neutron.law4.incident {
+                // `ND > 0` means the table's leading entries are **discrete
+                // lines**, not a continuum. [`ChiTabular`] is a pure continuum
+                // pdf/cdf and cannot represent them: sampled as continuum, a
+                // zero-width discrete line is either lost or smeared. Refuse the
+                // whole emission rather than return a law that samples wrongly —
+                // the caller's documented behaviour on `None` is to keep its own
+                // fallback, which is a known approximation rather than a silent
+                // one. No evaluation in `reference-data/endf/` currently has
+                // `ND > 0` on a neutron subsection, so this is a guard, not a
+                // live path.
+                if t.nd() != 0 {
+                    return Ok(None);
+                }
+                incident.push(t.e_in_mev * EMEV);
+                tables.push(ChiEout {
+                    e_out: t.e_out_mev.iter().map(|&x| x * EMEV).collect(),
+                    // pdf is a density in the energy variable, so it scales inversely.
+                    pdf: t.pdf.iter().map(|&y| y / EMEV).collect(),
+                    cdf: t.cdf.clone(),
+                    // `lep()`, not the raw `intt`: ACE packs `INTT = LEP + 10·ND`,
+                    // so a histogram table carrying discrete lines reads `intt =
+                    // 11` and a bare `intt != 1` would call it lin-lin.
+                    linlin: t.lep() != 1,
+                });
+            }
+            if incident.is_empty() {
+                continue;
+            }
+            branches.push(ContinuumBranch {
+                spectrum: ChiTabular { incident, tables },
+                yield_pairs: neutron.yield_pairs,
+            });
+        }
+        if branches.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(ContinuumEmission {
+            branches,
+            cm_frame,
+        }))
+    }
+
+    /// Total neutron multiplicity at incident energy `e_in` \[eV\] — the sum
+    /// over branches.
+    ///
+    /// This is the number the transport layer must emit: 1 for MT=91, 2 for
+    /// MT=16 **however the evaluation writes it** (one branch of yield 2, or two
+    /// branches of yield 1).
+    pub fn total_yield_at(&self, e_in: f64) -> f64 {
+        self.branches.iter().map(|b| b.yield_at(e_in)).sum()
+    }
+
+    /// The branch an emitted neutron is drawn from, chosen in proportion to the
+    /// branches' yields at `e_in`, given a uniform variate `xi` in `[0, 1)`.
+    ///
+    /// With a single branch this always returns it. With F-19's two equal-yield
+    /// (n,2n) branches it picks each half the time, which reproduces the
+    /// evaluation's *average* emission spectrum over the two neutrons — it does
+    /// not correlate the pair, so a code emitting both neutrons of one event
+    /// should take one draw per neutron.
+    pub fn branch_for(&self, e_in: f64, xi: f64) -> &ContinuumBranch {
+        let total = self.total_yield_at(e_in);
+        if self.branches.len() == 1 || !(total > 0.0) {
+            return &self.branches[0];
+        }
+        let mut acc = 0.0;
+        let target = xi.clamp(0.0, 1.0) * total;
+        for b in &self.branches {
+            acc += b.yield_at(e_in);
+            if target < acc {
+                return b;
+            }
+        }
+        &self.branches[self.branches.len() - 1]
     }
 }
 
@@ -454,7 +669,12 @@ fn parse_lf1_tabular(
         let mut pdf: Vec<f64> = g.pairs.iter().map(|&(_, y)| y).collect();
         let cdf = build_cdf(&e_out, &mut pdf, linlin);
         incident.push(e_in);
-        tables.push(ChiEout { e_out, pdf, cdf, linlin });
+        tables.push(ChiEout {
+            e_out,
+            pdf,
+            cdf,
+            linlin,
+        });
     }
     Ok(ChiTabular { incident, tables })
 }
@@ -545,9 +765,16 @@ mod tests {
     /// `e_in` (fixed-parameter Watt has no incident-energy dependence).
     #[test]
     fn watt_mean_energy_matches_closed_form() {
-        let chi = FissionSpectrum::Watt { a: 0.988e6, b: 2.249e-6 };
+        let chi = FissionSpectrum::Watt {
+            a: 0.988e6,
+            b: 2.249e-6,
+        };
         let expected = 1.5 * 0.988e6 + 0.25 * 0.988e6 * 0.988e6 * 2.249e-6;
-        assert!((chi.mean_energy(1.0e6) - expected).abs() < 1.0, "got {}", chi.mean_energy(1.0e6));
+        assert!(
+            (chi.mean_energy(1.0e6) - expected).abs() < 1.0,
+            "got {}",
+            chi.mean_energy(1.0e6)
+        );
         // Energy-independent: same at a very different e_in.
         assert!((chi.mean_energy(1.0e5) - expected).abs() < 1.0);
     }
@@ -561,7 +788,11 @@ mod tests {
             e_out: vec![0.0, 1.0e6, 2.0e6],
             pdf: vec![5.0e-7, 5.0e-7, 5.0e-7],
         };
-        assert!((chi.mean_energy(0.0) - 1.0e6).abs() < 1.0, "got {}", chi.mean_energy(0.0));
+        assert!(
+            (chi.mean_energy(0.0) - 1.0e6).abs() < 1.0,
+            "got {}",
+            chi.mean_energy(0.0)
+        );
     }
 
     /// One NR=1/NP=2 lin-lin TAB1 row group: header + 1 interp row + 1 xy row.

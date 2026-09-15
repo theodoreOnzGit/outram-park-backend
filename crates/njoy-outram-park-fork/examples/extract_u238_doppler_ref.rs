@@ -65,15 +65,24 @@ fn openmc_capture_fine(file: &File, temp_k: u32) -> Vec<(f64, f64)> {
     let energy = read_f64(file, &format!("/U238/energy/{temp_k}K"));
     let xs = read_f64(file, &format!("/U238/reactions/reaction_102/{temp_k}K/xs"));
     // MT=102 has threshold_idx = 0, so xs aligns 1:1 with the energy grid.
-    assert_eq!(energy.len(), xs.len(), "capture xs/grid length mismatch at {temp_k}K");
+    assert_eq!(
+        energy.len(),
+        xs.len(),
+        "capture xs/grid length mismatch at {temp_k}K"
+    );
     energy.into_iter().zip(xs).collect()
 }
 
 fn main() {
     let h5 = manifest().join("tests/resources/U238.h5");
     if !h5.exists() {
-        eprintln!("U238.h5 not present at {} — nothing to extract.", h5.display());
-        eprintln!("(The reference CSVs are committed; this extractor is only needed to regenerate them.)");
+        eprintln!(
+            "U238.h5 not present at {} — nothing to extract.",
+            h5.display()
+        );
+        eprintln!(
+            "(The reference CSVs are committed; this extractor is only needed to regenerate them.)"
+        );
         std::process::exit(0);
     }
 

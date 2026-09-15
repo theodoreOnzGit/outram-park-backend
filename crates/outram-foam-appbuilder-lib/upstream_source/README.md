@@ -13,11 +13,15 @@
 
 ## Provenance
 
-`openfoam-appbuilder-lib` is the solver-application layer for the workspace's
-OpenFOAM-in-Rust stack — solver time loops (PISO/PIMPLE), polyMesh I/O, case
-file parsing, and field output, ported from OpenFOAM's application/solver
-C++ source, sitting on top of `openfoam-basic-lib` (primitives/FV operators)
-and `openfoam-turbulence-lib` (turbulence closures).
+`outram-foam-appbuilder-lib` is the solver-application layer for the
+workspace's OpenFOAM-in-Rust stack — solver time loops (PISO/PIMPLE) plus
+polyMesh and field **readers**, ported from OpenFOAM's application/solver C++
+source, sitting on top of `outram-foam-basic-lib` (primitives/FV operators)
+and `outram-foam-turbulence-lib` (turbulence closures).
+
+Note that case-dictionary parsing (`ControlDict::read`, `FvSchemes::read`,
+`FvSolution::read`) and field output (`io::output`) are **not implemented** —
+every one is `todo!()`. Cases are built by constructing the structs in Rust.
 
 **Note:** this crate does not currently maintain a persistent local OpenFOAM
 clone with an automated data-driven codegen pipeline — translation is done by

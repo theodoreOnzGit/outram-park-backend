@@ -57,9 +57,7 @@
 use std::sync::Arc;
 
 use crate::groupr::panel::{group_integral, GroupFlux, PointwiseXs};
-use crate::groupr::unresolved::{
-    genflx_bondarenko, UnresolvedTable, UrrReaction,
-};
+use crate::groupr::unresolved::{genflx_bondarenko_urr, UnresolvedTable, UrrReaction};
 use crate::NjoyError;
 
 /// A self-shielded multigroup cross section: `sigma_g(sigma_0)` for one reaction
@@ -83,7 +81,11 @@ impl SelfShieldedMgxs {
     /// Group cross section \[barn\] at dilution index `is`, group `g`; `0.0` for
     /// out-of-range indices.
     pub fn get(&self, is: usize, g: usize) -> f64 {
-        self.sigma.get(is).and_then(|r| r.get(g)).copied().unwrap_or(0.0)
+        self.sigma
+            .get(is)
+            .and_then(|r| r.get(g))
+            .copied()
+            .unwrap_or(0.0)
     }
 
     /// Number of groups (`group_bounds.len() - 1`).
@@ -160,7 +162,10 @@ pub fn self_shielded_group_xs(
     // (1) Build the per-dilution Bondarenko weighting fluxes on the fine grid.
     // This also validates the energy grid (strictly ascending, >= 2 points).
     // Narrow-resonance branch of `genflx` (groupr.f90:5623-5665).
-    let flux_set = genflx_bondarenko(sigma_t, weight, sigma_pot, dilutions, energy_grid)?;
+    // With a URR table the total in the denominator is the MT=152 shielded
+    // total per dilution, as upstream's getunr(1, e, en, tot) call makes it
+    // (groupr.f90:5636-5650); see `genflx_bondarenko_urr` for the measurement.
+    let flux_set = genflx_bondarenko_urr(sigma_t, urr, weight, sigma_pot, dilutions, energy_grid)?;
 
     let n_groups = group_bounds.len() - 1;
     let mut sigma = Vec::with_capacity(dilutions.len());
@@ -288,7 +293,10 @@ mod tests {
             let got = mgxs.get(0, g);
             let want = reference[g];
             let rel = (got - want).abs() / want.abs().max(1e-30);
-            assert!(rel < 1e-6, "group {g}: inf-dilution {got} != reference {want}");
+            assert!(
+                rel < 1e-6,
+                "group {g}: inf-dilution {got} != reference {want}"
+            );
             // Hand value: 51.0 barn per triangular half.
             assert!((want - 51.0).abs() < 1e-9, "reference group {g} = {want}");
         }

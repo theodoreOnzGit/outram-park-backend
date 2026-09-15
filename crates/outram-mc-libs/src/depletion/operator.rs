@@ -167,13 +167,18 @@ impl BurnupResult {
 
     /// The end-of-life (final) record.
     pub fn eol(&self) -> &BurnupStep {
-        self.steps.last().expect("at least the BOL record is always present")
+        self.steps
+            .last()
+            .expect("at least the BOL record is always present")
     }
 
     /// The time history `(time_days, atom_density)` of one nuclide across every
     /// recorded step — the primary comparison quantity against the notebook.
     pub fn history(&self, nuclide: &str) -> Vec<(f64, f64)> {
-        self.steps.iter().map(|s| (s.time_days, s.density(nuclide))).collect()
+        self.steps
+            .iter()
+            .map(|s| (s.time_days, s.density(nuclide)))
+            .collect()
     }
 }
 
@@ -250,7 +255,10 @@ fn k_inf(densities: &[f64], xs: &[OneGroupXs]) -> f64 {
 /// Build the frozen one-group [`ReactionRates`] for a step from the flux and the
 /// per-nuclide cross sections (`rate[1/s] = flux * sigma[barn] * 1e-24`).
 fn reaction_rates(names: &[&str], flux: f64, xs: &[OneGroupXs]) -> ReactionRates {
-    let mut rates = ReactionRates { flux, ..ReactionRates::zero() };
+    let mut rates = ReactionRates {
+        flux,
+        ..ReactionRates::zero()
+    };
     for i in 0..names.len() {
         rates.set(
             names[i],
@@ -296,7 +304,11 @@ pub fn deplete_predictor(
         time_days,
         flux,
         k_inf: k_inf(densities, &xs),
-        densities: names.iter().zip(densities).map(|(n, d)| (n.to_string(), *d)).collect(),
+        densities: names
+            .iter()
+            .zip(densities)
+            .map(|(n, d)| (n.to_string(), *d))
+            .collect(),
     };
 
     let mut steps = Vec::with_capacity(settings.n_steps + 1);
@@ -340,7 +352,10 @@ pub fn mc_keff_of_actinide_sphere(
     let mut components: Vec<NuclideComponent> = Vec::new();
     for (name, dens) in inventory {
         if let Ok(nuc) = Nuclide::from_core(name) {
-            components.push(NuclideComponent { nuclide_idx: nuclides.len(), atom_density: *dens });
+            components.push(NuclideComponent {
+                nuclide_idx: nuclides.len(),
+                atom_density: *dens,
+            });
             nuclides.push(nuc);
         }
     }

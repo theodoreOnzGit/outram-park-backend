@@ -1,5 +1,7 @@
 use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::constructive_solid_geometry::TrisoRegion;
-use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::{constructive_solid_geometry::TrisoCell, SingleParticleDiffusionSimulatorMC};
+use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::{
+    constructive_solid_geometry::TrisoCell, SingleParticleDiffusionSimulatorMC,
+};
 use crate::prelude::SingleNuclideSimulatorMC;
 use fission_yields_data::prelude::Nuclide;
 use uom::si::f64::*;

@@ -205,7 +205,11 @@ impl FissionMatrix {
     /// Transfer element from incident group `g` to outgoing group `gp` \[barn\];
     /// `0.0` for out-of-range indices.
     pub fn element(&self, g: usize, gp: usize) -> f64 {
-        self.matrix.get(g).and_then(|r| r.get(gp)).copied().unwrap_or(0.0)
+        self.matrix
+            .get(g)
+            .and_then(|r| r.get(gp))
+            .copied()
+            .unwrap_or(0.0)
     }
 
     /// Row sum `sum_gp sigma_f[g -> gp]` — the incident-group `nu*sigma_f`
@@ -302,11 +306,19 @@ mod tests {
 
         let sum: f64 = gc.chi.iter().sum();
         assert!((sum - 1.0).abs() < 1e-10, "sum chi_g = {sum}");
-        assert!(gc.chi.iter().all(|&c| c >= 0.0), "negative chi: {:?}", gc.chi);
+        assert!(
+            gc.chi.iter().all(|&c| c >= 0.0),
+            "negative chi: {:?}",
+            gc.chi
+        );
         assert_eq!(gc.chi.len(), 4);
 
         let fast = gc.chi[2] + gc.chi[3];
-        assert!(fast > 0.95, "fast-group fraction {fast} too low; chi = {:?}", gc.chi);
+        assert!(
+            fast > 0.95,
+            "fast-group fraction {fast} too low; chi = {:?}",
+            gc.chi
+        );
         // The single highest group carries the majority (Watt mean ~2 MeV).
         assert!(gc.chi[3] > 0.5, "top group {} should dominate", gc.chi[3]);
     }

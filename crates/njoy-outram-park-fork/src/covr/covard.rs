@@ -23,16 +23,11 @@
 //!    matrix, zero out spurious covariances where a cross section is zero, and
 //!    convert absolute covariances to relative (`covr.f90:895-935`).
 //!
-//! This crate does **not** yet have an ERRORR covariance *tape* to read: the
-//! ERRORR module ([`crate::errorr`]) ports the card deck and group structures
-//! but not the covariance-output kernels (`covout`/`colaps`), so there is no
-//! on-tape byte stream to parse. This port therefore models job (2) — the
-//! numeric transform — operating on an **in-memory** representation of an
-//! ERRORR covariance subsection ([`ErrorrCovarianceSection`]) rather than
-//! decoding `contio`/`listio` records off a physical tape. When the ERRORR
-//! covariance-output path is ported, its in-memory product should adopt (or be
-//! adapted to) [`ErrorrCovarianceSection`] so this reader can consume it
-//! directly. The ENDF-record-decoding half (job 1) stays a documented gap.
+//! Job (1) lives in [`crate::covr::tape`], which walks the crate's parsed
+//! [`crate::endf::tape::Tape`] and assembles an [`ErrorrCovarianceSection`];
+//! job (2) is [`ErrorrCovarianceSection::to_dense`] here. The split keeps the
+//! numeric transform testable on hand-built sections while the reader is
+//! verified against NJOY's own tapes (`tests/covr_boxer_golden.rs`).
 //!
 //! # The auto- vs cross-covariance rsd sourcing (human verify point)
 //!
@@ -108,7 +103,7 @@ pub struct CovarianceRowBlock {
 /// - `xy` — cross section of the **column** reaction `(mat1,mt1)`, one per
 ///   group, barns (`covr.f90:805-807`); equals `xx` for an auto-covariance.
 /// - `group_boundaries` — the `ixmax+1` group-boundary energies in eV
-///   (`covr.f90:777-778`). Read by `covard` but used only by the (unported)
+///   (`covr.f90:777-778`). Read by `covard`; used by the (out-of-scope)
 ///   plot path; retained here for completeness / round-tripping.
 /// - `blocks` — the sparse covariance row-blocks.
 #[derive(Debug, Clone, PartialEq)]

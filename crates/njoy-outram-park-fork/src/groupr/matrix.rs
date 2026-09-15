@@ -51,10 +51,17 @@
 //! function [`FeedFunction::TwoBodyElastic`], the incident-energy matrix panel
 //! integrator [`scatter_matrix`], and the GENDF matrix-record packing.
 //!
-//! **Not ported** (documented [`crate::NjoyError::NotPorted`] on use): the
-//! anisotropic-CM elastic feed (a File-4 Legendre expansion `fle(il)` of the CM
-//! angular distribution, `getfle` `groupr.f90:9679-...`, used at
-//! `getdis:9522-9526`) and the File-6 continuum feed (`getmf6`/`cm2lab`/`f6lab`).
+//! **Ported elsewhere (2026-09-10):** the exact `getdis` with the File-4
+//! Legendre expansion `fle(il)` ([`crate::groupr::two_body`], fed by
+//! [`crate::groupr::file4`]) and the statement-for-statement matrix `panel`/
+//! `displa` ([`crate::groupr::matrix_panel`]), golden-validated against an
+//! NJOY MF=6/MT=2 section. Use those for anything that must match NJOY;
+//! this module's [`scatter_matrix`] is the earlier trapezoid reduction.
+//!
+//! **Not ported** (documented [`crate::NjoyError::NotPorted`] on use): in
+//! this module the anisotropic-CM elastic feed variant (see
+//! [`crate::groupr::two_body::TwoBodyFeed`] instead) and the File-6
+//! continuum feed (`getmf6`/`cm2lab`/`f6lab`).
 //! Those build a non-isotropic `ff(il, ig)`; here `fle` is fixed to the isotropic
 //! `[1, 0, 0, …]`. See the [`FeedFunction`] variants for the exact gaps.
 
@@ -200,7 +207,14 @@ pub enum FeedFunction {
         awr: f64,
     },
 
-    /// Anisotropic-CM elastic / discrete-inelastic feed — **not ported**.
+    /// Anisotropic-CM elastic / discrete-inelastic feed — a **superseded
+    /// placeholder**, not an outstanding gap. The exact `getdis` *is* ported:
+    /// it lives in [`crate::groupr::two_body::TwoBodyFeed`], takes its File-4
+    /// Legendre coefficients from [`crate::groupr::file4`] (`getfle`/`getco`),
+    /// and is driven by [`crate::groupr::matrix_panel::two_body_matrix`]. Use
+    /// that path; this variant exists only so the older isotropic-only
+    /// [`FeedFunction`] surface stays exhaustive, and it still returns
+    /// [`NjoyError::NotPorted`] rather than silently doing the wrong thing.
     ///
     /// Would replace the isotropic `fle = [1, 0, …]` with the File-4 Legendre
     /// expansion of the CM angular distribution (`getfle`, and `getdis:9522-9526`
@@ -208,8 +222,13 @@ pub enum FeedFunction {
     /// returns [`NjoyError::NotPorted`] for this variant.
     AnisotropicElastic,
 
-    /// File-6 continuum-energy-angle feed (`getmf6`/`cm2lab`/`f6lab`) —
-    /// **not ported**. [`FeedFunction::deposit`] returns [`NjoyError::NotPorted`].
+    /// File-6 continuum-energy-angle feed (`getmf6`/`cm2lab`/`f6lab`) — a
+    /// **superseded placeholder**, not an outstanding gap. That feed *is*
+    /// ported: [`crate::groupr::mf6_feed::Mf6Feed`] behind
+    /// [`crate::groupr::matrix_panel::Continuum6Feed`], driven by
+    /// [`crate::groupr::matrix_panel::feed_matrix`]. Use that path; this
+    /// variant still returns [`NjoyError::NotPorted`] rather than silently
+    /// doing the wrong thing.
     Continuum6,
 }
 
@@ -241,7 +260,9 @@ impl FeedFunction {
         nl: usize,
     ) -> Result<FeedDeposit, NjoyError> {
         if nl == 0 {
-            return Err(NjoyError::EndfParse("scatter_matrix: nl must be >= 1".into()));
+            return Err(NjoyError::EndfParse(
+                "scatter_matrix: nl must be >= 1".into(),
+            ));
         }
         if secondary_bounds.len() < 2 {
             return Err(NjoyError::EndfParse(
@@ -309,8 +330,8 @@ fn elastic_deposit(awr: f64, e_in: f64, bounds: &[f64], nl: usize) -> FeedDeposi
         for (node, weight) in GL8_NODES.iter().zip(GL8_WEIGHTS.iter()) {
             let wqp = aa + b * node; // CM cosine
             let wqw = b * weight; // CM-cosine weight
-            // Isotropic CM distribution: prob = sum fle(il) P(il) (2il-1)/2
-            //   with fle = [1, 0, …]  ->  prob = 1/2 (getdis:9523-9526).
+                                  // Isotropic CM distribution: prob = sum fle(il) P(il) (2il-1)/2
+                                  //   with fle = [1, 0, …]  ->  prob = 1/2 (getdis:9523-9526).
             let prob_cm = 0.5;
             // CM -> lab cosine (getdis:9552); yld = 1 for elastic (getdis:9414).
             let denom = (one_p_ast2 + 2.0 * ast * wqp).sqrt();
@@ -503,7 +524,9 @@ pub fn scatter_matrix(
     nl: usize,
 ) -> Result<ScatterMatrix, NjoyError> {
     if nl == 0 {
-        return Err(NjoyError::EndfParse("scatter_matrix: nl must be >= 1".into()));
+        return Err(NjoyError::EndfParse(
+            "scatter_matrix: nl must be >= 1".into(),
+        ));
     }
     validate_bounds(incident_bounds, "incident_bounds")?;
     validate_bounds(secondary_bounds, "secondary_bounds")?;
@@ -827,10 +850,7 @@ mod tests {
 
         let section = m.to_gendf_section(6, 2, 6012.0, 0.0, 293.6);
         // At least one record must be a real matrix record (NG2 > 2, IG2LO > 0).
-        let has_matrix = section
-            .records
-            .iter()
-            .any(|r| r.ng2 > 2 && r.ig2lo > 0);
+        let has_matrix = section.records.iter().any(|r| r.ng2 > 2 && r.ig2lo > 0);
         assert!(has_matrix, "expected a NG2>2, IG2LO>0 matrix record");
         assert_eq!(section.nl, 2);
 

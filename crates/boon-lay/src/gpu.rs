@@ -121,6 +121,7 @@ pub fn probe() -> Option<GpuContext> {
         power_preference: wgpu::PowerPreference::None,
         force_fallback_adapter: false,
         compatible_surface: None,
+        apply_limit_buckets: false,
     }))
     .ok()?;
     let info = adapter.get_info();
@@ -317,8 +318,9 @@ pub fn try_kernel_release_fraction_gpu(
         ],
     });
 
-    let mut encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("wos-encoder") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("wos-encoder"),
+    });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("wos-pass"),
@@ -347,7 +349,10 @@ pub fn try_kernel_release_fraction_gpu(
         None => return Err(GpuError::MapCallbackMissing),
     }
     let times: Vec<f32> = {
-        let view = readback_buffer.slice(..).get_mapped_range();
+        let view = readback_buffer
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32_vec(&view)
     };
     readback_buffer.unmap();
@@ -457,12 +462,16 @@ fn p_transmit(d1: f32, d2: f32, k: f32) -> f32 {
     return num / den;
 }
 
-fn set_radius(p: ptr<function, vec3<f32>>, target: f32) {
+// NOTE: the radius parameter must NOT be named `target` -- that is a reserved
+// keyword in WGSL, and naga rejects the whole shader module at parse time
+// ("name `target` is a reserved keyword"), which takes down the entire GPU
+// path on every adapter, not just some.
+fn set_radius(p: ptr<function, vec3<f32>>, target_radius: f32) {
     let rho = length(*p);
     if (rho <= 0.0) {
-        *p = vec3<f32>(target, 0.0, 0.0);
+        *p = vec3<f32>(target_radius, 0.0, 0.0);
     } else {
-        *p = *p * (target / rho);
+        *p = *p * (target_radius / rho);
     }
 }
 
@@ -646,7 +655,9 @@ pub fn try_advance_multilayer_gpu(
 
     let mk_storage = |label, data: &[u8], rw: bool| {
         let usage = if rw {
-            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC
+            wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC
         } else {
             wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST
         };
@@ -725,8 +736,9 @@ pub fn try_advance_multilayer_gpu(
         ],
     });
 
-    let mut encoder = device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("ml-encoder") });
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("ml-encoder"),
+    });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("ml-pass"),
@@ -756,12 +768,18 @@ pub fn try_advance_multilayer_gpu(
     map_and_wait(device, &flags_readback)?;
 
     let pos_data: Vec<f32> = {
-        let view = pos_readback.slice(..).get_mapped_range();
+        let view = pos_readback
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_f32_vec(&view)
     };
     pos_readback.unmap();
     let flags_data: Vec<u32> = {
-        let view = flags_readback.slice(..).get_mapped_range();
+        let view = flags_readback
+            .slice(..)
+            .get_mapped_range()
+            .expect("staging buffer mapping failed after a completed poll");
         bytes_to_u32_vec(&view)
     };
     flags_readback.unmap();
@@ -797,7 +815,8 @@ pub fn advance_multilayer_best_effort(
     until: Time,
 ) -> bool {
     if let Some(ctx) = cached_context() {
-        if try_advance_multilayer_gpu(ctx, cell, params, walkers, released, nuclide, until).is_ok() {
+        if try_advance_multilayer_gpu(ctx, cell, params, walkers, released, nuclide, until).is_ok()
+        {
             return true;
         }
     }
@@ -872,12 +891,18 @@ fn block_on<F: Future>(future: F) -> F::Output {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
+        use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
     use uom::si::length::micrometer;
     use uom::si::thermodynamic_temperature::degree_celsius;
     use uom::si::time::hour;
 
-    fn crp6_inputs() -> (Nuclide, Length, ThermodynamicTemperature, Time, EnsembleConfig) {
+    fn crp6_inputs() -> (
+        Nuclide,
+        Length,
+        ThermodynamicTemperature,
+        Time,
+        EnsembleConfig,
+    ) {
         (
             Nuclide::Cs137,
             Length::new::<micrometer>(212.5),

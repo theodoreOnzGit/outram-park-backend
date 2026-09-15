@@ -456,7 +456,7 @@ impl Widget for ElementBox {
         let rounding = egui::CornerRadius::same(8);
 
         let painter: Painter = ui.painter().clone();
-        let bg_stroke = Stroke::new(1.5, color.gamma_multiply(0.8));
+        let bg_stroke = Stroke::new(1.5_f32, color.gamma_multiply(0.8));
         painter.rect(
             rect,
             rounding,

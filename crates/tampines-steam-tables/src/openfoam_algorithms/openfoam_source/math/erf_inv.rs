@@ -29,16 +29,22 @@
 ///
 /// Reference: S. Winitzki, "A handy approximation for the error function and
 /// its inverse", preprint 2008.
+use petir::mathf::RealMath;
+
 pub fn erf_inv(y: f64) -> f64 {
     const A: f64 = 0.147;
     let pi = std::f64::consts::PI;
 
-    let k = 2.0 / (A * pi) + 0.5 * (1.0 - y * y).ln();
-    let h = (1.0 - y * y).ln() / A;
+    let k = 2.0 / (A * pi) + 0.5 * (1.0 - y * y).r_ln();
+    let h = (1.0 - y * y).r_ln() / A;
 
     let x = (-k + (k * k - h).sqrt()).sqrt();
 
-    if y < 0.0 { -x } else { x }
+    if y < 0.0 {
+        -x
+    } else {
+        x
+    }
 }
 
 #[cfg(test)]
@@ -60,7 +66,8 @@ mod tests {
             let neg = erf_inv(-y_target.abs());
             assert!(
                 (pos + neg).abs() < 1e-14,
-                "erf_inv not odd at |y|={}", y_target.abs()
+                "erf_inv not odd at |y|={}",
+                y_target.abs()
             );
             assert!(pos > 0.0, "positive input gives positive output");
         }

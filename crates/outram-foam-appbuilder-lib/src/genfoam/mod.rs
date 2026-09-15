@@ -69,10 +69,13 @@
 //! - [`multi_region`] — the mesh-to-mesh mapping, coupling-field registry, and
 //!   the tightly-coupled Picard outer iteration are implemented (with some
 //!   scaffolded gaps noted in that module's header).
-//! - [`thermal_hydraulics`] — partially ported: the `uom` unit aliases and the
-//!   fluid-structure drag closure carry real physics; the phase/structure
-//!   state, solver drivers, and remaining closures are documented scaffolds.
-//!   See that module's header for the per-sub-module breakdown.
+//! - [`thermal_hydraulics`] — the phase/structure field state, the one-phase
+//!   porous solver driver, all six closure families, the TH boundary
+//!   conditions, the diagnostic function objects and the bespoke hydrogen
+//!   thermophysical package are implemented with unit tests. The two-phase
+//!   (MULES) solver, `onePhaseLegacy` and the `nusselt_baffle` boundary
+//!   condition remain unported. See that module's header for the per-sub-module
+//!   breakdown and the full gap list.
 //!
 //! The generic FV building blocks ([`common`]) round out the subtree.
 

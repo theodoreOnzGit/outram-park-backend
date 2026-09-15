@@ -33,7 +33,10 @@ fn pure_nitrogen_limit_is_exact() {
 
     let tr = mix.reducing_temperature();
     let rho_r = mix.reducing_density();
-    println!("T_r([1,0]) = {tr} (N2 Tc = {}), rho_r([1,0]) = {rho_r} (N2 rho_c = {})", n2.t_critical, n2.rho_critical);
+    println!(
+        "T_r([1,0]) = {tr} (N2 Tc = {}), rho_r([1,0]) = {rho_r} (N2 rho_c = {})",
+        n2.t_critical, n2.rho_critical
+    );
 
     assert!((tr - n2.t_critical).abs() / n2.t_critical < 1e-12);
     assert!((rho_r - n2.rho_critical).abs() / n2.rho_critical < 1e-12);
@@ -42,21 +45,45 @@ fn pure_nitrogen_limit_is_exact() {
 #[test]
 fn air_like_mixture_matches_known_air_properties() {
     let air = Mixture::new(vec![Fluid::Nitrogen, Fluid::Oxygen], vec![0.79, 0.21]).unwrap();
-    let state = air.state_trho_molar(300.0, 40.0).expect("valid air-like state");
+    let state = air
+        .state_trho_molar(300.0, 40.0)
+        .expect("valid air-like state");
 
-    println!("air-like (300K, 40 mol/m3): p={:.3} Pa, cp={:.4} J/(mol.K), w={:.4} m/s", state.pressure, state.cp, state.speed_of_sound);
+    println!(
+        "air-like (300K, 40 mol/m3): p={:.3} Pa, cp={:.4} J/(mol.K), w={:.4} m/s",
+        state.pressure, state.cp, state.speed_of_sound
+    );
 
     // ~1 atm at these (T, rho_molar) for a near-ideal diatomic mixture.
-    assert!((state.pressure - 101_325.0).abs() / 101_325.0 < 0.02, "p = {} Pa, expected near 1 atm", state.pressure);
+    assert!(
+        (state.pressure - 101_325.0).abs() / 101_325.0 < 0.02,
+        "p = {} Pa, expected near 1 atm",
+        state.pressure
+    );
 
     // Speed of sound in air at 300 K is widely cited as ~347 m/s.
-    assert!((state.speed_of_sound - 347.0).abs() / 347.0 < 0.01, "w = {} m/s, expected ~347 m/s", state.speed_of_sound);
+    assert!(
+        (state.speed_of_sound - 347.0).abs() / 347.0 < 0.01,
+        "w = {} m/s, expected ~347 m/s",
+        state.speed_of_sound
+    );
 
-    assert!(state.cp > state.cv, "cp {} should exceed cv {}", state.cp, state.cv);
+    assert!(
+        state.cp > state.cv,
+        "cp {} should exceed cv {}",
+        state.cp,
+        state.cv
+    );
 }
 
 #[test]
 fn malformed_composition_is_rejected() {
-    assert!(Mixture::new(vec![Fluid::Nitrogen], vec![1.0]).is_err(), "single-component 'mixture' should be rejected");
-    assert!(Mixture::new(vec![Fluid::Nitrogen, Fluid::Oxygen], vec![1.0]).is_err(), "mismatched array lengths should be rejected");
+    assert!(
+        Mixture::new(vec![Fluid::Nitrogen], vec![1.0]).is_err(),
+        "single-component 'mixture' should be rejected"
+    );
+    assert!(
+        Mixture::new(vec![Fluid::Nitrogen, Fluid::Oxygen], vec![1.0]).is_err(),
+        "mismatched array lengths should be rejected"
+    );
 }

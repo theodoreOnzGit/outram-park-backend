@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use petir::mathf::RealMath;
+
 use crate::openfoam_algorithms::openfoam_source::imports::*;
 use crate::openfoam_algorithms::openfoam_source::constants::T_STD;
 use crate::openfoam_algorithms::openfoam_source::eos::EquationOfState;
@@ -39,10 +41,10 @@ use super::traits::ThermoModel;
 #[derive(Debug, Clone)]
 pub struct HConstThermo<E: EquationOfState> {
     eos: E,
-    cp: f64,      // Cp contribution [J/(kg·K)]
-    hf: f64,      // heat of formation [J/kg]
-    tref: f64,    // reference T for sensible enthalpy [K]
-    hsref: f64,   // sensible enthalpy at Tref [J/kg]
+    cp: f64,    // Cp contribution [J/(kg·K)]
+    hf: f64,    // heat of formation [J/kg]
+    tref: f64,  // reference T for sensible enthalpy [K]
+    hsref: f64, // sensible enthalpy at Tref [J/kg]
 }
 
 impl<E: EquationOfState> HConstThermo<E> {
@@ -70,24 +72,43 @@ impl<E: EquationOfState> HConstThermo<E> {
 // --- EquationOfState delegation ---
 
 impl<E: EquationOfState> EquationOfState for HConstThermo<E> {
-    fn mol_weight(&self) -> MolarMass           { self.eos.mol_weight() }
-    fn r(&self) -> SpecificHeatCapacity         { self.eos.r() }
-    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { self.eos.rho(p, t) }
-    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { self.eos.psi(p, t) }
-    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { self.eos.z(p, t) }
-    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.cp_m_cv(p, t) }
-    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.cp_eos(p, t) }
-    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.eos.h_eos(p, t) }
-    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { self.eos.e_eos(p, t) }
-    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { self.eos.s_eos(p, t) }
+    fn mol_weight(&self) -> MolarMass {
+        self.eos.mol_weight()
+    }
+    fn r(&self) -> SpecificHeatCapacity {
+        self.eos.r()
+    }
+    fn rho(&self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity {
+        self.eos.rho(p, t)
+    }
+    fn psi(&self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility {
+        self.eos.psi(p, t)
+    }
+    fn z(&self, p: Pressure, t: ThermodynamicTemperature) -> Ratio {
+        self.eos.z(p, t)
+    }
+    fn cp_m_cv(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.cp_m_cv(p, t)
+    }
+    fn cp_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.cp_eos(p, t)
+    }
+    fn h_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.eos.h_eos(p, t)
+    }
+    fn e_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
+        self.eos.e_eos(p, t)
+    }
+    fn s_eos(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
+        self.eos.s_eos(p, t)
+    }
 }
 
 // --- ThermoModel ---
 
 impl<E: EquationOfState> ThermoModel for HConstThermo<E> {
     fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.cp)
-            + self.eos.cp_eos(p, t)
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.cp) + self.eos.cp_eos(p, t)
     }
 
     fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy {
@@ -108,7 +129,7 @@ impl<E: EquationOfState> ThermoModel for HConstThermo<E> {
 
     fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity {
         let t_val = t.get::<kelvin>();
-        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.cp * (t_val / T_STD).ln())
+        SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(self.cp * (t_val / T_STD).r_ln())
             + self.eos.s_eos(p, t)
     }
 }
@@ -153,7 +174,9 @@ mod tests {
         let p = Pressure::new::<pascal>(101_325.0);
         let t_in = ThermodynamicTemperature::new::<kelvin>(450.0);
         let ha = a.ha(p, t_in);
-        let t_out = a.t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(300.0)).unwrap();
+        let t_out = a
+            .t_from_ha(ha, p, ThermodynamicTemperature::new::<kelvin>(300.0))
+            .unwrap();
         assert_relative_eq!(t_in.get::<kelvin>(), t_out.get::<kelvin>(), epsilon = 1e-4);
     }
 

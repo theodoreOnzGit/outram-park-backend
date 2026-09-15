@@ -38,15 +38,15 @@ use crate::thermophysics::transport::TransportModel;
 pub struct PsiThermo<M: TransportModel> {
     /// Per-species transport/thermo/EOS kernel (mesh-independent).
     pub species: M,
-    /// Pressure field [Pa].
+    /// Pressure field `[Pa]`.
     pub p: VolScalarField,
-    /// Temperature field [K].
+    /// Temperature field `[K]`.
     pub t: VolScalarField,
-    /// Sensible enthalpy `hs` [J/kg].
+    /// Sensible enthalpy `hs` `[J/kg]`.
     pub he: VolScalarField,
-    /// Density field ρ [kg/m³], stored as `ρ = ψ · p`.
+    /// Density field ρ `[kg/m³]`, stored as `ρ = ψ · p`.
     pub rho: VolScalarField,
-    /// Compressibility field ψ = ρ/p [s²/m²].
+    /// Compressibility field ψ = ρ/p `[s²/m²]`.
     pub psi: VolScalarField,
 }
 

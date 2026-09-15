@@ -144,6 +144,8 @@
 //! solutions; none is a validation against experiment, and none may be
 //! described as one.
 
+pub mod aster;
+
 mod by_material;
 mod creep;
 mod law;

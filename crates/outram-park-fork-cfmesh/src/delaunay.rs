@@ -1,3 +1,42 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] Robust geometric predicates `orient3d` and `insphere`.
+//       Jonathan Richard Shewchuk, "Adaptive Precision Floating-Point
+//       Arithmetic and Fast Robust Geometric Predicates", Discrete &
+//       Computational Geometry 18(3):305-363, 1997, and the accompanying
+//       `predicates.c` (Carnegie Mellon University).
+//       https://www.cs.cmu.edu/~quake/robust.html
+//       Shewchuk places `predicates.c` in the public domain for any use.
+//       ATTRIBUTION NOTE: only the *determinant formulations* of orient3d and
+//       insphere are taken from that work. Shewchuk's adaptive exact-arithmetic
+//       expansions are NOT implemented here — these are plain f64 evaluations
+//       of the same determinants, so they are fast but not exact, and are
+//       therefore NOT a substitute for `predicates.c` on degenerate input.
+//
+//   [2] Bistellar (Lawson) 2->3 / 3->2 flips.
+//       C. L. Lawson, "Software for C1 surface interpolation", in Mathematical
+//       Software III, Academic Press, 1977; and B. Joe, "Construction of
+//       three-dimensional Delaunay triangulations using local transformations",
+//       CAGD 8(2):123-142, 1991. Standard published technique, no code reused.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **Flip-based Delaunay** improvement of a tetrahedral mesh.
 //!
 //! The centroid-subdivision [`crate::tet::tetrahedralize`] produces a valid,
@@ -21,14 +60,26 @@
 //! a valid tiling (no inverted or overlapping tets). The driver sweeps until no
 //! improving flip remains or an iteration cap is hit.
 //!
-//! # Predicates
+//! # Predicates — attribution
 //!
 //! [`orient3d`] (signed volume) and [`insphere`] (in-circumsphere) are the two
-//! Shewchuk predicates, here in plain `f64` arithmetic — adequate for the
-//! well-conditioned meshes this crate generates. **Exact/adaptive predicates**
-//! (for robustness on near-degenerate inputs) are future work; near-degenerate
-//! configurations are simply left un-flipped rather than flipped wrongly, so the
-//! result is always a valid mesh.
+//! geometric predicates of **Jonathan Richard Shewchuk**, *Adaptive Precision
+//! Floating-Point Arithmetic and Fast Robust Geometric Predicates*, Discrete &
+//! Computational Geometry 18(3):305-363, 1997, and the accompanying
+//! `predicates.c` (Carnegie Mellon University,
+//! <https://www.cs.cmu.edu/~quake/robust.html>, released by the author into the
+//! public domain).
+//!
+//! **What is and is not taken from that work.** Only the *determinant
+//! formulations* are — the `(b-a)·((c-a)×(d-a))` orientation determinant and the
+//! lifted 4x4 in-sphere determinant. Shewchuk's actual contribution, the
+//! adaptive multi-stage exact-arithmetic expansions that make those determinants
+//! *robust*, is **not implemented here**: these are plain `f64` evaluations.
+//! They are therefore fast and adequate for the well-conditioned meshes this
+//! crate generates, but they are **not** a substitute for `predicates.c` and
+//! must not be described as robust predicates. Exact/adaptive arithmetic is
+//! future work; until then, near-degenerate configurations are simply left
+//! un-flipped rather than flipped wrongly, so the result is always a valid mesh.
 //!
 //! # Guarantees & scope
 //!
@@ -45,6 +96,18 @@ use std::collections::HashMap;
 /// Signed volume × 6 of the tetrahedron `(a, b, c, d)`: `(b−a)·((c−a)×(d−a))`.
 /// Strictly positive iff the tet is **positively oriented** (`d` on the
 /// positive side of the plane `a, b, c`).
+///
+/// Units: cubic metres × 6, for inputs in metres. The sign is the meaningful
+/// output; the magnitude is only used here as a positive-volume test.
+///
+/// **Attribution and accuracy.** This is Shewchuk's `orient3d` determinant
+/// (J. R. Shewchuk, *Adaptive Precision Floating-Point Arithmetic and Fast
+/// Robust Geometric Predicates*, Discrete & Computational Geometry
+/// 18(3):305-363, 1997), evaluated in **plain `f64`** — *without* his adaptive
+/// exact-arithmetic expansions. Near-degenerate (nearly coplanar) input can
+/// therefore return the wrong sign. Callers in this crate treat a near-zero
+/// result as "do not flip", which keeps the mesh valid; do not rely on this
+/// function as a robust predicate. See the module docs.
 pub fn orient3d(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f64 {
     b.sub(a).dot(c.sub(a).cross(d.sub(a)))
 }
@@ -52,7 +115,14 @@ pub fn orient3d(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> f64 {
 /// In-sphere predicate. When `(a, b, c, d)` is **positively oriented**
 /// (`orient3d(a,b,c,d) > 0`), returns a value `> 0` iff `e` lies strictly
 /// **inside** the circumsphere of `a, b, c, d`, `< 0` if strictly outside, and
-/// `0` if cospherical. (Standard lifted 4×4 determinant.)
+/// `0` if cospherical. Positions in metres; only the sign is meaningful.
+///
+/// **Attribution and accuracy.** This is Shewchuk's `insphere` — the standard
+/// lifted 4x4 determinant with rows `(p - e, |p - e|^2)` (same reference as
+/// [`orient3d`]) — evaluated in **plain `f64`**, *without* his adaptive
+/// exact-arithmetic expansions, so it can return the wrong sign on
+/// near-cospherical input. Callers treat a near-zero result as "not worth
+/// flipping". See the module docs.
 pub fn insphere(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -> f64 {
     // Rows: (p − e, |p − e|²) for p in {a, b, c, d}; determinant of the 4×4.
     let row = |p: Vec3| {
@@ -133,7 +203,10 @@ impl TetMesh {
             }
             tets.push(oriented([vs[0], vs[1], vs[2], vs[3]], &mesh.points));
         }
-        Some(TetMesh { pts: mesh.points.clone(), tets })
+        Some(TetMesh {
+            pts: mesh.points.clone(),
+            tets,
+        })
     }
 
     /// Rebuild a [`VolumeMesh`] (4 triangular faces per tet, matched by
@@ -142,11 +215,17 @@ impl TetMesh {
         let cells: Vec<Vec<Vec<usize>>> = self
             .tets
             .iter()
-            .map(|t| vec![vec![t[1], t[2], t[3]], vec![t[0], t[2], t[3]], vec![t[0], t[1], t[3]], vec![t[0], t[1], t[2]]])
+            .map(|t| {
+                vec![
+                    vec![t[1], t[2], t[3]],
+                    vec![t[0], t[2], t[3]],
+                    vec![t[0], t[1], t[3]],
+                    vec![t[0], t[1], t[2]],
+                ]
+            })
             .collect();
         from_cell_faces(self.pts.clone(), &cells)
     }
-
 }
 
 /// Improve `mesh` toward Delaunay by bistellar (2→3 / 3→2) flips, returning the
@@ -263,7 +342,8 @@ pub fn flip_to_delaunay(mesh: &VolumeMesh, max_flips: usize) -> VolumeMesh {
     // worse (f64 predicates can misjudge near-degenerate configs; this is the
     // safety net that keeps the result trustworthy).
     let after: Vec<[usize; 4]> = live.into_iter().flatten().collect();
-    let accept = after.iter().all(|&t| tet_positive(&pts, t)) && count_non_delaunay(&pts, &after) <= nd_before;
+    let accept = after.iter().all(|&t| tet_positive(&pts, t))
+        && count_non_delaunay(&pts, &after) <= nd_before;
     let tets = if accept { after } else { orig };
     TetMesh { pts, tets }.to_volume()
 }
@@ -276,7 +356,11 @@ fn count_non_delaunay(pts: &[Vec3], tets: &[[usize; 4]]) -> usize {
             fmap.entry(f).or_default().push(apex);
         }
     }
-    fmap.iter().filter(|(abc, apexes)| apexes.len() == 2 && !is_locally_delaunay(pts, **abc, apexes[0], apexes[1])).count()
+    fmap.iter()
+        .filter(|(abc, apexes)| {
+            apexes.len() == 2 && !is_locally_delaunay(pts, **abc, apexes[0], apexes[1])
+        })
+        .count()
 }
 
 /// Undirected edge key.
@@ -316,7 +400,10 @@ fn tet_positive(pts: &[Vec3], t: [usize; 4]) -> bool {
 /// bipyramid is convex (all three are strictly positive) — else `None`.
 fn flip_2_3(pts: &[Vec3], abc: [usize; 3], d: usize, e: usize) -> Option<Vec<[usize; 4]>> {
     let [a, b, c] = abc;
-    let out: Vec<[usize; 4]> = [[a, b, d, e], [b, c, d, e], [c, a, d, e]].iter().map(|&t| oriented(t, pts)).collect();
+    let out: Vec<[usize; 4]> = [[a, b, d, e], [b, c, d, e], [c, a, d, e]]
+        .iter()
+        .map(|&t| oriented(t, pts))
+        .collect();
     out.iter().all(|&t| tet_positive(pts, t)).then_some(out)
 }
 
@@ -377,16 +464,32 @@ mod tests {
         assert!(orient3d(a, b, c, d) > 0.0, "unit tet positively oriented");
         // Circumsphere of this tet passes through the 4 corners; its centre is
         // (0.5,0.5,0.5). A point near the centroid is inside; a far point out.
-        assert!(insphere(a, b, c, d, Vec3::new(0.25, 0.25, 0.25)) > 0.0, "interior point inside sphere");
-        assert!(insphere(a, b, c, d, Vec3::new(5.0, 5.0, 5.0)) < 0.0, "far point outside sphere");
+        assert!(
+            insphere(a, b, c, d, Vec3::new(0.25, 0.25, 0.25)) > 0.0,
+            "interior point inside sphere"
+        );
+        assert!(
+            insphere(a, b, c, d, Vec3::new(5.0, 5.0, 5.0)) < 0.0,
+            "far point outside sphere"
+        );
     }
 
     /// Build a VolumeMesh of two tets sharing triangle `abc`, apexes `d`, `e`.
     fn two_tets(a: Vec3, b: Vec3, c: Vec3, d: Vec3, e: Vec3) -> VolumeMesh {
         let pts = vec![a, b, c, d, e];
         let (ia, ib, ic, id, ie) = (0, 1, 2, 3, 4);
-        let t1 = vec![vec![ib, ic, id], vec![ia, ic, id], vec![ia, ib, id], vec![ia, ib, ic]];
-        let t2 = vec![vec![ib, ic, ie], vec![ia, ic, ie], vec![ia, ib, ie], vec![ia, ib, ic]];
+        let t1 = vec![
+            vec![ib, ic, id],
+            vec![ia, ic, id],
+            vec![ia, ib, id],
+            vec![ia, ib, ic],
+        ];
+        let t2 = vec![
+            vec![ib, ic, ie],
+            vec![ia, ic, ie],
+            vec![ia, ib, ie],
+            vec![ia, ib, ic],
+        ];
         from_cell_faces(pts, &[t1, t2])
     }
 
@@ -408,15 +511,29 @@ mod tests {
         let vol0 = mesh.total_volume();
 
         let tm = TetMesh::from_volume(&mesh).expect("two tets");
-        assert!(count_non_delaunay(&tm.pts, &tm.tets) >= 1, "input has a non-Delaunay face");
+        assert!(
+            count_non_delaunay(&tm.pts, &tm.tets) >= 1,
+            "input has a non-Delaunay face"
+        );
 
         let flipped = flip_to_delaunay(&mesh, 100);
         assert_eq!(flipped.cell_count(), 3, "2→3 flip yields three tets");
-        assert!((flipped.total_volume() - vol0).abs() < 1e-12, "volume conserved");
-        assert_eq!(check_quality(&flipped).n_negative_volume_cells, 0, "all tets positive");
+        assert!(
+            (flipped.total_volume() - vol0).abs() < 1e-12,
+            "volume conserved"
+        );
+        assert_eq!(
+            check_quality(&flipped).n_negative_volume_cells,
+            0,
+            "all tets positive"
+        );
         flipped.validate().expect("closed");
         let ftm = TetMesh::from_volume(&flipped).unwrap();
-        assert_eq!(count_non_delaunay(&ftm.pts, &ftm.tets), 0, "flipped bipyramid is Delaunay");
+        assert_eq!(
+            count_non_delaunay(&ftm.pts, &ftm.tets),
+            0,
+            "flipped bipyramid is Delaunay"
+        );
     }
 
     /// V&V — on a full tet mesh, flipping never breaks validity and never
@@ -431,15 +548,31 @@ mod tests {
         let before = count_non_delaunay(&btm.pts, &btm.tets);
 
         let flipped = flip_to_delaunay(&tets, 5_000);
-        assert!((flipped.total_volume() - 1.0).abs() < 1e-9, "volume conserved: {}", flipped.total_volume());
+        assert!(
+            (flipped.total_volume() - 1.0).abs() < 1e-9,
+            "volume conserved: {}",
+            flipped.total_volume()
+        );
         flipped.validate().expect("valid mesh");
-        assert_eq!(check_quality(&flipped).n_negative_volume_cells, 0, "no inverted tets");
+        assert_eq!(
+            check_quality(&flipped).n_negative_volume_cells,
+            0,
+            "no inverted tets"
+        );
 
         let atm = TetMesh::from_volume(&flipped).unwrap();
         let after = count_non_delaunay(&atm.pts, &atm.tets);
-        assert!(after <= before, "flips do not worsen Delaunay-ness: {before} -> {after}");
+        assert!(
+            after <= before,
+            "flips do not worsen Delaunay-ness: {before} -> {after}"
+        );
         // 2→3 growth stays within the safety cap (no runaway).
-        assert!(flipped.cell_count() <= 2 * tets.cell_count(), "growth bounded: {} <= 2×{}", flipped.cell_count(), tets.cell_count());
+        assert!(
+            flipped.cell_count() <= 2 * tets.cell_count(),
+            "growth bounded: {} <= 2×{}",
+            flipped.cell_count(),
+            tets.cell_count()
+        );
     }
 
     /// V&V — robustness guard: an **already-invalid** tet mesh (inverted cells)
@@ -464,9 +597,16 @@ mod tests {
         }
         let v = pinned.iter().position(|&p| !p).expect("interior vertex");
         tets.points[v] = tets.points[v].add(Vec3::new(10.0, 10.0, 10.0));
-        assert!(check_quality(&tets).n_negative_volume_cells > 0, "input is now invalid");
+        assert!(
+            check_quality(&tets).n_negative_volume_cells > 0,
+            "input is now invalid"
+        );
 
         let out = flip_to_delaunay(&tets, 10_000);
-        assert_eq!(out.cell_count(), n0, "invalid input returned unchanged (no thrashing)");
+        assert_eq!(
+            out.cell_count(),
+            n0,
+            "invalid input returned unchanged (no thrashing)"
+        );
     }
 }

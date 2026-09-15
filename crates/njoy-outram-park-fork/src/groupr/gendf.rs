@@ -289,9 +289,7 @@ impl GendfTape {
 
     /// The first section matching `(mf, mt)`, if present.
     pub fn section(&self, mf: i32, mt: i32) -> Option<&GendfSection> {
-        self.sections
-            .iter()
-            .find(|s| s.mf == mf && s.mt == mt)
+        self.sections.iter().find(|s| s.mf == mf && s.mt == mt)
     }
 
     /// Serialize the whole tape to a flat row image and read it back — the
@@ -383,11 +381,7 @@ mod tests {
             0.0,
             4,
             293.6,
-            &[
-                (1, 1.0e5, 5.1),
-                (2, 8.0e4, 6.3),
-                (4, 2.0e4, 7.7),
-            ],
+            &[(1, 1.0e5, 5.1), (2, 8.0e4, 6.3), (4, 2.0e4, 7.7)],
         );
         let rows = section.to_rows();
         let back = GendfSection::from_rows(3, 2, &rows).unwrap();
@@ -418,13 +412,13 @@ mod tests {
         assert_eq!(rows[0][3], 1.0); // NZ
         assert_eq!(rows[0][4], 0.0); // LRFLAG
         assert_eq!(rows[0][5], 175.0); // NGN
-        // LIST head
+                                       // LIST head
         assert_eq!(rows[1][0], 900.0); // temperature
         assert_eq!(rows[1][2], 2.0); // NG2
         assert_eq!(rows[1][3], 0.0); // IG2LO
         assert_eq!(rows[1][4], 2.0); // NW
         assert_eq!(rows[1][5], 7.0); // ig
-        // Data
+                                     // Data
         assert_eq!(rows[2][0], 2.5); // flux
         assert_eq!(rows[2][1], 9.9); // sigma
     }

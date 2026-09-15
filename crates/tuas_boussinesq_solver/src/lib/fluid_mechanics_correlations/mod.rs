@@ -1,28 +1,28 @@
 //! License
-//!    This file is part of a thermal hydraulics library written 
+//!    This file is part of a thermal hydraulics library written
 //!    in rust meant to help with the
 //!    fluid mechanics and heat transfer aspects of the calculations
-//!    for the Compact Integral Effects Tests (CIET) and hopefully 
-//!    Gen IV Reactors such as the Fluoride Salt cooled High Temperature 
+//!    for the Compact Integral Effects Tests (CIET) and hopefully
+//!    Gen IV Reactors such as the Fluoride Salt cooled High Temperature
 //!    Reactor (FHR)
 //!     
 //!    Copyright (C) 2022-2023  Theodore Kay Chen Ong, Singapore Nuclear
-//!    Research and Safety Initiative, Per F. Peterson, University of 
+//!    Research and Safety Initiative, Per F. Peterson, University of
 //!    California, Berkeley Thermal Hydraulics Laboratory
 //!
-//!    tuas_boussinesq_solver is free software; you can 
+//!    tuas_boussinesq_solver is free software; you can
 //!    redistribute it and/or modify it
 //!    under the terms of the GNU General Public License as published by the
 //!    Free Software Foundation; either version 2 of the License, or (at your
 //!    option) any later version.
 //!
-//!    tuas_boussinesq_solver is distributed in the hope 
+//!    tuas_boussinesq_solver is distributed in the hope
 //!    that it will be useful, but WITHOUT
 //!    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 //!    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 //!    for more details.
 //!
-//!    This thermal hydraulics library 
+//!    This thermal hydraulics library
 //!    contains some code copied from GeN-Foam, and OpenFOAM derivative.
 //!    This offering is not approved or endorsed by the OpenFOAM Foundation nor
 //!    OpenCFD Limited, producer and distributor of the OpenFOAM(R)software via
@@ -65,93 +65,81 @@
 /// using churchill correlation
 pub mod churchill_friction_factor;
 
-
 /// contains functions and/or structs
 /// which help you calcualte a custom fLDK factor
 ///
-/// ie 
+/// ie
 ///
-/// (f L/D +K ) 
+/// (f L/D +K )
 ///
 /// f is the darcy firction factor
 /// L/D is length to diameter ratio
 /// K is the form loss
 pub mod custom_fldk;
 
-
 /// contains functions and/or structs
 /// which help you dimensionalise and nondimensionalise variables
 /// eg Reynold's number
 pub mod dimensionalisation;
 
-
-
 ///// Contains structs or classes which
-///// help you calculate pressure loss from mass 
+///// help you calculate pressure loss from mass
 ///// flowrate and vice versa for pipes and custom components
 //pub mod fluid_component_calculation;
 //
 //
 ///// Contains structs or classes which
-///// help you calculate pressure loss from mass 
+///// help you calculate pressure loss from mass
 ///// flowrate and vice versa for therminol VP 1 or
 ///// dowtherm A components
 //pub mod therminol_component;
 //
 //
-///// Contains traits which allow you to calculate 
+///// Contains traits which allow you to calculate
 ///// mass flowrate, pressure drop and pressure change
 ///// for fluid components in series or parallel
 //pub mod fluid_component_collection;
 
-
-/// Courant Number Modules 
+/// Courant Number Modules
 pub mod courant_number;
-
-
-
 
 use crate::tuas_lib_error::TuasLibError;
 /// This function calculates darcy friction factor
 /// It takes in a Reynold's number and roughness ratio
 ///
-/// and gives the darcy friction factor for laminar 
-/// turbulent, and transition regimes. 
+/// and gives the darcy friction factor for laminar
+/// turbulent, and transition regimes.
 ///
 /// However, Re = 0 will not work!
 /// ```rust
-/// let darcy_friction_factor = 
+/// let darcy_friction_factor =
 ///     tuas_boussinesq_solver::
 ///     fluid_mechanics_correlations::darcy(1800.0,0.0015).unwrap();
 ///
 /// println!("{}", darcy_friction_factor);
 /// ```
-pub fn darcy(reynolds_number: f64, roughness_ratio: f64) -> Result<f64,
-TuasLibError>{
-    return churchill_friction_factor:: 
-        darcy(reynolds_number, roughness_ratio);
+pub fn darcy(reynolds_number: f64, roughness_ratio: f64) -> Result<f64, TuasLibError> {
+    return churchill_friction_factor::darcy(reynolds_number, roughness_ratio);
 }
 
 /// This function calculates moody friction factor
 /// It takes in a Reynold's number and roughness ratio
 ///
-/// and gives the darcy friction factor for laminar 
-/// turbulent, and transition regimes. 
+/// and gives the darcy friction factor for laminar
+/// turbulent, and transition regimes.
 ///
 /// It's basically the same as darcy friction factor
 ///
 /// However, Re = 0 will not work!
 /// ```rust
-/// let moody_friction_factor = 
+/// let moody_friction_factor =
 ///     tuas_boussinesq_solver::
 ///     fluid_mechanics_correlations::moody(1800.0,0.0015).unwrap();
 ///
 /// println!("{}", moody_friction_factor);
 /// ```
-pub fn moody(reynolds_number: f64, roughness_ratio: f64) -> Result<f64,
-TuasLibError>{
-    return churchill_friction_factor:: 
-        moody(reynolds_number, roughness_ratio);
+pub fn moody(reynolds_number: f64, roughness_ratio: f64) -> Result<f64, TuasLibError> {
+    return churchill_friction_factor::moody(reynolds_number, roughness_ratio);
 }
 
 /// This function calculates the fldk
@@ -169,24 +157,26 @@ TuasLibError>{
 ///
 /// However, Re = 0 will not work!
 /// ```rust
-///    let fldk = 
-///        tuas_boussinesq_solver:: 
+///    let fldk =
+///        tuas_boussinesq_solver::
 ///        fluid_mechanics_correlations::fldk(
 ///            15000.0,0.00014,10.0,5.0).unwrap();
 ///
 ///    println!("{}", fldk);
 /// ```
-pub fn fldk(reynolds_number: f64,
-                   roughness_ratio: f64,
-                   length_to_diameter_ratio: f64,
-                   k: f64) -> Result<f64, TuasLibError>{
-    return churchill_friction_factor::
-        f_ldk(reynolds_number,
-             roughness_ratio,
-             length_to_diameter_ratio,
-             k);
+pub fn fldk(
+    reynolds_number: f64,
+    roughness_ratio: f64,
+    length_to_diameter_ratio: f64,
+    k: f64,
+) -> Result<f64, TuasLibError> {
+    return churchill_friction_factor::f_ldk(
+        reynolds_number,
+        roughness_ratio,
+        length_to_diameter_ratio,
+        k,
+    );
 }
-
 
 /// This function calculates the bejan number
 ///
@@ -194,7 +184,7 @@ pub fn fldk(reynolds_number: f64,
 ///
 ///
 /// Be = (P * D^2)/(mu * nu)
-/// 
+///
 /// P is pressure loss
 /// D is hydraulic diameter
 /// mu is dynamic viscosity
@@ -217,48 +207,52 @@ pub fn fldk(reynolds_number: f64,
 /// in terms of pressure loss, which may usually
 /// be the case for pipes anyhow
 ///
-/// 
+///
 ///
 /// ```rust
-/// let bejan_d = 
+/// let bejan_d =
 ///     tuas_boussinesq_solver::
 ///     fluid_mechanics_correlations::get_bejan_d(
 ///         0.00000000000001,0.00014,10.0,5.0).unwrap();
 ///
 /// println!("{}", bejan_d);
 ///
-/// let bejan_d = 
+/// let bejan_d =
 ///     tuas_boussinesq_solver::
 ///     fluid_mechanics_correlations::get_bejan_d(
 ///         -5000.0,0.00014,10.0,5.0).unwrap();
 ///
 /// println!("{}", bejan_d);
 ///
-/// let bejan_d = 
+/// let bejan_d =
 ///     tuas_boussinesq_solver::
 ///     fluid_mechanics_correlations::get_bejan_d(
 ///         0.0,0.00014,10.0,5.0).unwrap();
 ///
 /// println!("{}", bejan_d);
 /// ```
-pub fn get_bejan_d(reynolds_number: f64,
-                   roughness_ratio: f64,
-                   length_to_diameter_ratio: f64,
-                   k: f64) -> Result<f64, TuasLibError> {
-    return churchill_friction_factor::
-        get_bejan_number_d(reynolds_number, roughness_ratio,
-              length_to_diameter_ratio, k);
+pub fn get_bejan_d(
+    reynolds_number: f64,
+    roughness_ratio: f64,
+    length_to_diameter_ratio: f64,
+    k: f64,
+) -> Result<f64, TuasLibError> {
+    return churchill_friction_factor::get_bejan_number_d(
+        reynolds_number,
+        roughness_ratio,
+        length_to_diameter_ratio,
+        k,
+    );
 }
-
 
 /// This function calculates the Reynolds number given
 /// a Bejan number.
 ///
-/// Remember Bejan number is dimensionless pressure 
+/// Remember Bejan number is dimensionless pressure
 /// drop
 ///
 /// Be = (P * D^2)/(mu * nu)
-/// 
+///
 /// P is pressure loss
 /// D is hydraulic diameter
 /// mu is dynamic viscosity
@@ -279,7 +273,7 @@ pub fn get_bejan_d(reynolds_number: f64,
 /// in terms of pressure loss, which may usually
 /// be the case for pipes anyhow
 ///
-/// 
+///
 /// In the following example, we get a bejan number calculated
 /// first with Re = 5000.0
 /// and then using that bejan number, we try and find the Re again
@@ -291,14 +285,14 @@ pub fn get_bejan_d(reynolds_number: f64,
 /// ```rust
 ///
 /// extern crate approx;
-/// let bejan_d = 
+/// let bejan_d =
 /// tuas_boussinesq_solver::fluid_mechanics_correlations::
 ///     get_bejan_d(
 ///         5000.0,0.00014,10.0,5.0).unwrap();
 ///
 /// println!("{}", bejan_d);
 ///
-/// let reynolds_number = 
+/// let reynolds_number =
 /// tuas_boussinesq_solver::fluid_mechanics_correlations::
 ///     get_reynolds_number(
 ///         bejan_d,0.00014,10.0,5.0).unwrap();
@@ -320,7 +314,7 @@ pub fn get_bejan_d(reynolds_number: f64,
 /// you restrict Re to a certain range
 ///
 /// To get around this, we assume that pressure losses are a function
-/// of Re and vice versa, 
+/// of Re and vice versa,
 ///
 /// meaning to say each pressure loss value maps to a single Re
 /// and therefore dimensionless pressure losses (Be) should also
@@ -328,20 +322,22 @@ pub fn get_bejan_d(reynolds_number: f64,
 ///
 /// Therefore, we must supply a Bejan number to get an Re value.
 ///
-pub fn get_reynolds_number(bejan_d: f64,
-             roughness_ratio: f64,
-             length_to_diameter: f64,
-             form_loss_k: f64) -> Result<f64,TuasLibError> {
-    return churchill_friction_factor::
-        get_reynolds_from_bejan(bejan_d, roughness_ratio,
-              length_to_diameter, form_loss_k);
-
+pub fn get_reynolds_number(
+    bejan_d: f64,
+    roughness_ratio: f64,
+    length_to_diameter: f64,
+    form_loss_k: f64,
+) -> Result<f64, TuasLibError> {
+    return churchill_friction_factor::get_reynolds_from_bejan(
+        bejan_d,
+        roughness_ratio,
+        length_to_diameter,
+        form_loss_k,
+    );
 }
 
-
-
-/// pipe calculations 
+/// pipe calculations
 ///
-/// these are pre-built functions which make calculating mass flowrate 
+/// these are pre-built functions which make calculating mass flowrate
 /// and pressure drop across pipes easier
 pub mod pipe_calculations;

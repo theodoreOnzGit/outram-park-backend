@@ -83,7 +83,11 @@ mod tests {
     #[test]
     fn electron_mass_energy() {
         // m_e c² ≈ 510.999 keV = 510999 eV
-        assert!((EPAIR_EV - 510_999.0).abs() < 1.0, "m_e c² = {} eV", EPAIR_EV);
+        assert!(
+            (EPAIR_EV - 510_999.0).abs() < 1.0,
+            "m_e c² = {} eV",
+            EPAIR_EV
+        );
     }
 
     #[test]

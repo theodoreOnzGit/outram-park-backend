@@ -1,0 +1,53 @@
+# Cargo configuration for the OUTRAM PARK workspace.
+#
+# ── wasm32: getrandom's backend must be named explicitly ─────────────────────
+#
+# getrandom 0.3 refuses to build for wasm32-unknown-unknown unless it is told
+# where entropy comes from, because that target has no OS. Naming the backend
+# needs BOTH a Cargo feature (`wasm_js`, added per-crate under a
+# `cfg(target_arch = "wasm32")` dependency table) AND this cfg flag — the
+# feature alone is insufficient, and getrandom's own error message says so.
+#
+# It lives here rather than in a build script so that a plain
+# `cargo check --target wasm32-unknown-unknown` works with no extra
+# environment, which is what the wasm gate (bead op-okqo.6) runs.
+#
+# Scope: this applies ONLY to the wasm32-unknown-unknown target. Native and
+# Android builds read nothing from this section.
+#
+# What it implies: on wasm the entropy source is the JavaScript host's
+# `crypto.getRandomValues`. That is correct for a browser and for Node, and it
+# means a wasm build of this workspace is not usable in a bare wasm runtime
+# with no JS glue. Nothing in this workspace needs randomness for physics — the
+# dependency arrives via `peroxide` (which pulls `rand` unconditionally, with no
+# feature to switch it off) and via `uuid`. See bead op-okqo.3.
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+# ── wasm32-wasip1: run the test harness under Node's built-in WASI ───────────
+#
+# The compile gate (scripts/check-wasm.sh) targets wasm32-unknown-unknown,
+# because that is what a browser runs — but that target cannot *execute* a
+# `cargo test` binary (no stdout, no exit code, no harness entry point without
+# wasm-bindgen and a browser).
+#
+# wasm32-wasip1 shares `target_arch = "wasm32"`, so every cfg gate in this
+# workspace applies identically, while giving the harness the small POSIX
+# surface it needs. That makes it the place to answer what the compile gate
+# cannot: does the wasm path actually RUN, and does it fall back to
+# single-threaded CPU instead of panicking?
+#
+# Caveat, repeated in the runner script: WASI is not a browser. It has a clock
+# and a filesystem, so Instant::now and std::fs work here and would not in a
+# browser. What it shares with the browser is the absence of threads, which is
+# precisely the fallback these tests exercise.
+#
+#   cargo test --target wasm32-wasip1 -p <crate>
+#
+# Requires Node >= 20 on PATH.
+[target.wasm32-wasip1]
+# Cargo invokes the runner with the PACKAGE directory as cwd, not the workspace
+# root, so a plain relative path to the script does not resolve. Rather than
+# hard-coding an absolute path (which would not survive a fresh clone), this
+# walks up from cwd until it finds scripts/wasi-run.mjs.
+runner = ["bash", "-c", "d=$PWD; while [ ! -f \"$d/scripts/wasi-run.mjs\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; exec node --no-warnings \"$d/scripts/wasi-run.mjs\" \"$@\"", "--"]

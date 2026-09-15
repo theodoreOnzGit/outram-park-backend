@@ -1,8 +1,9 @@
+use petir::mathf::RealMath;
+
 use super::{delta_3, tau_3, REGION_3_COEFFS};
 
-
 use uom::si::f64::*;
-/// Returns the region-3 phi 
+/// Returns the region-3 phi
 /// remember, phi is dimensionless_helmholtz_free_energy
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
@@ -16,5 +17,5 @@ pub fn phi_3(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ni: f64 = coefficient[2];
         sum += ni * delta.powi(ii) * tau.powi(ji);
     }
-    sum + REGION_3_COEFFS[0][2] * delta_3(rho).ln()
+    sum + REGION_3_COEFFS[0][2] * delta_3(rho).r_ln()
 }

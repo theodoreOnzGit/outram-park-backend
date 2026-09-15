@@ -113,10 +113,7 @@ impl Co2Properties {
     ///
     /// [`PflotranError::InvalidInput`] if `T <= 0 K`, `P <= 0 Pa`, `P > 500 MPa`,
     /// or either input is non-finite.
-    pub fn compressibility(
-        temperature_k: f64,
-        pressure_pa: f64,
-    ) -> Result<f64, PflotranError> {
+    pub fn compressibility(temperature_k: f64, pressure_pa: f64) -> Result<f64, PflotranError> {
         Self::validate(temperature_k, pressure_pa)?;
 
         // Non-dimensional RK parameters.

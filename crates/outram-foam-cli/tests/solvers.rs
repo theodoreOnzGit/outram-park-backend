@@ -170,7 +170,8 @@ fn write_shock_tube_case(root: &Path, mesh: Arc<FvMesh>) {
         header: Some(FoamHeader::standard("dictionary", "controlDict")),
         dict: d,
     };
-    ff.write(sys.join("controlDict")).expect("write controlDict");
+    ff.write(sys.join("controlDict"))
+        .expect("write controlDict");
 
     // 0/ initial fields.
     let zero = root.join("0");
@@ -267,7 +268,10 @@ fn stubbed_solvers_fail_honestly() {
     let case = TmpCase::new("stub");
 
     for (bin, needle) in [
-        (env!("CARGO_BIN_EXE_rhoPimpleFoam"), "thermophysicalProperties"),
+        (
+            env!("CARGO_BIN_EXE_rhoPimpleFoam"),
+            "thermophysicalProperties",
+        ),
         (env!("CARGO_BIN_EXE_sonicFoam"), "thermophysicalProperties"),
         (env!("CARGO_BIN_EXE_gen-foam"), "point-kinetics"),
     ] {

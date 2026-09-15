@@ -22,7 +22,8 @@
 //! One-dimensional table interpolation over sorted `(xs, ys)` samples.
 //!
 //! Ports the OpenFOAM `interpolateXY` / `interpolateSplineXY` helpers:
-//! [`interpolate_xy`] (piecewise-linear) and [`interpolate_spline_xy`]
+//! [`interpolate_xy`](crate::interpolation::interpolate_xy::interpolate_xy) (piecewise-linear) and
+//! [`interpolate_spline_xy`](crate::interpolation::interpolate_spline_xy::interpolate_spline_xy)
 //! (Catmull-Rom cubic). Both assume `xs` is sorted ascending and clamp to the
 //! endpoint value outside the table range. Abscissae and ordinates are bare
 //! `f64` in the caller's own units.

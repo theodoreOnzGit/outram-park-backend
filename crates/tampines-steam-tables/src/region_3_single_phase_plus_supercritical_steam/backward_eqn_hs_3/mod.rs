@@ -3,6 +3,8 @@
 //! an (h,s) flash in region 3 — once `p` is known, `T`/`v` follow from the
 //! `(p,h)` or `(p,s)` backward equations in the sibling modules.
 
+use petir::mathf::RealMath;
+
 use uom::si::available_energy::kilojoule_per_kilogram;
 use uom::si::f64::*;
 use uom::si::pressure::megapascal;
@@ -43,7 +45,7 @@ pub(crate) fn p_hs_3a(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        pi += ni * (eta - 1.01).powf(ii) * (sigma - 0.75).powf(ji);
+        pi += ni * (eta - 1.01).r_powf(ii) * (sigma - 0.75).r_powf(ji);
     }
 
     return pi * p_ref;
@@ -66,7 +68,7 @@ pub(crate) fn p_hs_3b(h: AvailableEnergy, s: SpecificHeatCapacity) -> Pressure {
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        pi += ni * (eta - 0.681).powf(ii) * (sigma - 0.792).powf(ji);
+        pi += ni * (eta - 0.681).r_powf(ii) * (sigma - 0.792).r_powf(ji);
     }
 
     return pi.recip() * p_ref;

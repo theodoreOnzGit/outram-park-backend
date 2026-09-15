@@ -1,0 +1,4941 @@
+IAEA-TECDOC-1382
+
+Evaluation of high temperature gas cooled reactor performance:
+
+Benchmark analysis related to initial testing of the HTTR and HTR-10
+
+November 2003
+
+The originating Section of this publication in the IAEA was:
+
+Nuclear Power Technology Development Section International Atomic Energy Agency Wagramer Strasse 5 P.O. Box 100 A-1400 Vienna, Austria
+
+EVALUATION OF HIGH TEMPERATURE GAS COOLED REACTOR PERFORMANCE: BENCHMARK ANALYSIS RELATED TO INITIAL TESTING OF THE HTTR AND HTR-10 IAEA, VIENNA, 2003 IAEA-TECDOC-1382 ISBN 92–0–116203–0 ISSN 1011–4289
+
+© IAEA, 2003
+
+Printed by the IAEA in Austria November 2003
+
+FOREWORD
+
+The Co-ordinated Research Project (CRP) on Evaluation of High Temperature Gas Cooled Reactor (HTGR) Performance was initiated by the  IAEA in 1998 on the recommendation of the  Technical Working Group on Gas Cooled Reactors. This CRP was established to foster the sharing of research and associated technical information between participating Member States in the ongoing development of the HTGR as a future source of nuclear energy  for high temperature process heat applications and the production of electricity.
+
+The  IAEA has facilitated an extensive programme that addresses the technical development of advanced gas cooled reactor technology. This CRP complements other recently completed CRPs in validating safety and performance capabilities of the HTGR. For this CRP, computer codes and models are verified through actual test results from operating reactor facilities. Specifically, the  IAEA is  grateful to the Japan Atomic Energy Research Institute for providing the HTTR, China’s  Institute of Nuclear Energy  Technology for the HTR-10 and the Russian Federation’s OKBM  and the Kurchatov  Institute for the ASTRA critical facility in support of this CRP.
+
+The focus of this TECDOC is on core physics benchmarks in conjunction with initial testing of the HTTR and HTR-10 and also selected thermal hydraulic benchmarks on the HTTR. The following  Member State national institutions participated in the performance of this CRP:
+
+•  Institute of Energy Technology (INET), Beijing, China •  SACLAY (CEA), Gif-sur-Yvette, France •  Research Centre Juelich (ISR), Juelich, Germany •  National Nuclear Energy Agency (BATAN), Serpong, Indonesia •  Japan Atomic Energy Research Institute (JAERI), Oarai, Japan •  Nuclear Research and Consultancy (NRG), Petten, Netherlands •  OKBM/Kurchatov Institute, Nizhny Novgorod, Russian Federation •  Pebble Bed Modular Reactor (PBMR), Centurion, South Africa •  Department of Nuclear Engineering, Hacettepe University, Ankara, Turkey •  Oak Ridge National Laboratory (ORNL), Oak Ridge, TN, United States of America
+
+The development of this report was co-ordinated by K. Kunitomi (JAERI), Y. Sun (INET) and S. Ball (ORNL) with final compilation by H.L. Brey (Consultant to JAERI). The IAEA officer responsible for this publication was M. Methnani of the Division of Nuclear Power.
+
+EDITORIAL NOTE
+
+The use of particular designations of countries or territories does not imply any  judgement  by  the publisher, the IAEA, as to the legal status of such  countries  or  territories,  of  their  authorities  and institutions or of the delimitation of their boundaries.
+
+The mention of names of specific companies or products (whether or not indicated as registered) does not imply any intention to infringe proprietary rights, nor should it be construed as an endorsement or recommendation on the part of the IAEA.
+
+CONTENTS
+
+CHAPTER 1. INTRODUCTION .............................................................................................. 1
+
+CHAPTER 2. HIGH TEMPERATURE TEST REACTOR (HTTR) REACTOR PHYSICS BENCHMARKS ........................................................... 3
+
+2.1.  HTTR general information................................................................................................. 3 2.1.1. Facility description.................................................................................................. 3 2.1.2. Reactor physics benchmark problem descriptions ................................................ 25 2.2  Reactor physics benchmark analysis and results............................................................... 27 2.2.1 Japan....................................................................................................................... 27 2.2.2. France .................................................................................................................... 50 2.2.3. Germany ................................................................................................................ 69 2.2.4. Indonesia ............................................................................................................... 93 2.2.5. Netherlands............................................................................................................ 98 2.2.6. Russian Federation .............................................................................................. 117 2.2.7. Turkey ................................................................................................................. 131 2.2.8. United States of America .................................................................................... 136 2.3. References to Chapter 2 .................................................................................................. 141
+
+CHAPTER 3. HIGH TEMPERATURE TEST REACTOR THERMAL HYDRAULIC BENCHMARKS ............................................... 145
+
+3.1.  Thermal hydraulic benchmark information.................................................................... 145 3.1.1. Description of systems for VC and LP benchmarks ........................................... 145 3.1.2. HTTR thermal hydraulic benchmark problem descriptions................................ 156 3.2.  Thermal hydraulic benchmark analysis/results .............................................................. 157 3.2.1. Japan.................................................................................................................... 157 3.2.2. Russian Federation .............................................................................................. 171 3.2.3. South Africa ........................................................................................................ 183 3.2.4. United States of America .................................................................................... 208 3.2.5. France .................................................................................................................. 218 3.3. References to Chapter 3 .................................................................................................. 224
+
+CHAPTER 4. THE HIGH TEMPERATURE GAS COOLED REACTOR TEST MODULE CORE PHYSICS BENCHMARKS............................................. 227
+
+4.1.  HTR-10 general information.......................................................................................... 227 4.1.1. Facility description.............................................................................................. 227 4.1.2. Benchmark problem descriptions........................................................................ 239 4.2.  HTR-10 benchmark problem analysis/results ................................................................ 244 4.2.1. China ................................................................................................................... 244 4.2.2. Indonesia ............................................................................................................. 254 4.2.3. Japan.................................................................................................................... 261 4.2.4. Russian Federation .............................................................................................. 265 4.2.5. Netherlands.......................................................................................................... 271 4.2.6. United States of America .................................................................................... 280 4.2.7. Turkey ................................................................................................................. 290 4.2.8. France .................................................................................................................. 295 4.2.9. Germany .............................................................................................................. 304
+
+4.2.10 South Africa ....................................................................................................... 314 4.3. References to Chapter 4 .................................................................................................. 322
+
+CHAPTER 5. RESULTS, CONCLUSIONS AND RECOMMENDATIONS ...................... 327
+
+5.1.  HTTR reactor physics benchmarks ................................................................................ 327 5.1.1. Collation of codes and models ............................................................................ 327 5.1.2. Collation of benchmark analysis results.............................................................. 328 5.1.3. Discussion of results and general conclusions .................................................... 332 5.1.4. Recommendations ............................................................................................... 333 5.2.  HTTR thermal hydraulic benchmarks............................................................................ 333 5.2.1. HTTR vessel cooling........................................................................................... 333 5.2.2. HTTR loss of off-site electric power................................................................... 335 5.3.  HTR-10 reactor physics benchmarks ............................................................................. 336 5.3.1. Analysis methods and models ............................................................................. 336 5.3.2. Collation of results .............................................................................................. 338 5.3.3. Analysis and conclusions .................................................................................... 341 5.3.4. Recommendations ............................................................................................... 342
+
+APPENDIX: RELATED IAEA PUBLICATIONS ............................................................... 343
+
+CONTRIBUTORS TO DRAFTING AND REVIEW ........................................................... 345
+
+Chapter 1
+
+## INTRODUCTION
+
+Of paramount significance in the development of new high temperature  gas cooled reactor (HTGR) concepts is the predicted capability for this advanced nuclear plant to achieve a high degree of safety through  reliance on passive safety features. Because of this, the investigation and validation of the safety and  operational aspects of the HTGR were the primary focus  for many of the coordinated research programmes  (CRPs) initiated by the IAEA in the 1990s. These included:
+
+•  the neutronic physics behaviour of the HTGR core, •  fuel performance and fission product behaviour, and •  the ability of the HTGR to dissipate decay heat by natural transport mechanisms under accident conditions
+
+The principal tools utilized in these CRPs included scientific research and engineering development through analytical evaluation of benchmark problems, application of new and/or existing computer codes and models and utilization of test apparatus and loops for specific component validation.
+
+The next important step in bringing this  advanced nuclear power programme from concept to actuality is to verify system performance and safety under actual HTGR operating conditions. It is the need for validation via testing in nuclear reactors that was the stimulus for the  IAEA to initiate this CRP on “Evaluation  of High Temperature  Gas Cooled Reactor Performance”.
+
+The principal facilities utilized in the performance of this CRP included Japan’s High Temperature Engineering Test Reactor (HTTR), China’s High Temperature Test Module (HTR-10), and Russia’s ASTRA critical assembly. Selected codes and models associated with the Gas Turbine Modular Helium Reactor (GT-MHR) and Pebble Bed Modular Reactor (PBMR) plant designs are also investigated within the scope of this CRP.
+
+The objectives of this CRP include:
+
+1. Validation of analytical codes and performance models to actual operating conditions of HTGRs, 2. Formulation of research and development code-to-experiment benchmark activities for inclusion into the test  programmes for the  HTTR, the HTR-10 and the ASTRA facilities, 3.  Investigation of analytical codes and models associated with future HTGR gas turbine plants utilizing code-to-code benchmark problems, and 4. Demonstration of HTGR safety characteristics.
+
+Overall, this TECDOC addresses performance based HTGR code  and model verification during startup, steady state and transient operational conditions of the HTR-10 and HTTR test facilities are being evaluated.  Also included within the scope of this CRP is the utilization of national research facilities and computer models to investigate the areas of core physics, safety  characteristics of the  HTGR, fission product release  and transportation behaviour, thermal hydraulics, control response and high temperature component performance. 1
+
+This TECDOC documents the benchmark problem results obtained by Chief Scientific Investigators (CSIs) from China, France, Germany, Indonesia, Japan, the Netherlands, Russia, South Africa, Turkey and the United States for the following areas:
+
+•  Reactor physics benchmark analysis of the HTTR including initial criticality, control rod worth, excess reactivity, scram reactivity and temperature coefficient of reactivity,
+
+•  Reactor physics benchmark analysis of the  HTR-10 including initial criticality, temperature coefficient of reactivity and control rod (including differential) worth,
+
+•  Selected thermal hydraulic benchmark analysis for the HTTR including vessel cooling and loss of off-site electric power.
+
+The presentation of this TECDOC is by  facility  and benchmark type with Chapter 2 devoted to HTTR core physics, Chapter 3 to the HTTR thermal hydraulic benchmark problems associated with vessel  cooling and loss of electric power. Chapter 4 is devoted to HTR-10 core physics benchmarks. Each of these  chapters includes a description of the test reactor, an overview of the benchmark problems being addressed, individual analysis by each Member State and a review of the actual test results of each problem as performed on the test reactor. Chapter 5 provides a collation of the results,  general conclusions and recommendations for code and model improvements determined as the result of participation in the CRP.
+
+2 Chapter 2
+
+HIGH TEMPERATURE ENGINEERING TEST REACTOR (HTTR) REACTOR PHYSICS BENCHMARKS
+
+### 2.1. HTTR GENERAL INFORMATION
+
+The High Temperature Engineering Test Reactor (HTTR) of the Japan Atomic Energy Research  Institute (JAERI) is  a  graphite-moderated and helium gas cooled reactor with an outlet temperature of 950°C and a thermal output of 30 MW [2-1].
+
+The major objectives of the HTTR are to establish and upgrade the technological basis for advanced high temperature  gas-cooled reactors (HTGRs)  and to conduct various irradiation tests for innovative high temperature basic researches.
+
+The construction was completed on May 1996. The fuel loading of was started on July 1, 1998 from core periphery. The first criticality  was attained in annular type core of 19 columns on Nov.10, 1998. The first full power operation with an  average  core outlet temperature of 850°C was completed on 7 December 2001, and operational licensing of the HTTR was approved on 6 March 2002.
+
+#### 2.1.1. Facility Description
+
+##### 2.1.1.1. Background
+
+In June 1987, the Japanese Atomic Energy Commission (JAEC) issued a revised “Long Term Program for Development and Utilization of Nuclear Energy” stressing that Japan should proceed to develop more advanced reactor technologies in parallel  with the upgrading of existing nuclear  reactors.  It was recognized in this programme that the HTGR was not to be incorporated into the present existing power plant system, but the benefits that could be derived, such as its inherent safety  and production of high temperature heat, are remarkable and should be pursued. Therefore, the promotion of R&D on the HTGR in Japan is quite significant from the viewpoint of a new nuclear technology frontier.
+
+Within this programme, the early  construction of a test  reactor in place of the experimental Very High Temperature Reactor (VHTR) was recommended based on the estimated length of time (~ 10  years) to construct the plant and perform associated testing. Based on the conclusions by a special committee investigating the HTGR R&D plan for the JAEC, demand of nuclear heat applications to ~ 1,000°C is expected to become strong in the early part of the 21 st century. The committee requested that a test reactor making the most use of Japanese technology  be designed and built to test and study advanced HTGRs for the future. Accordingly, the  test reactor should have  an in-core irradiation region equipped with the capability to test the threshold of fuel failure and for the irradiation of various materials.
+
+The committee’s report  also stated that the reactor outlet coolant temperature should be 950°C, which is the highest temperature attainable  considering the  current technology level. For irradiation tests, a prismatic block type core structure was proposed, with a thermal power rating of 30MW for securing adequate regions for irradiation tests at high temperature [2-6, 2-7]. 3
+
+Based on these suggestions,  JAERI suspended the previous programme where the experimental VHTR was defined as an initial step toward nuclear heat application development and proceed with the design  and  R&D specifically necessary to prepare the safety analysis report of the HTTR, with the objectives to:
+
+•  Establish and upgrade the technology base of the HTGR •  Perform innovative basic research in the field of high temperature engineering •  Demonstrate high temperature heat applications and utilization achieved from nuclear heat.
+
+The Japanese government approved proceeding with the HTTR in its 1989 fiscal year budget. Construction began in March 1991 following submittal by JAERI of the HTTR safety analysis report and subsequent review by the Science and Technology Agency, and then, by the Nuclear Safety Commission.
+
+##### 2.1.1.2. General design features of the HTTR
+
+The reactor core is designed to keep all  specific safety  features within the graphite blocks. The intermediate heat exchanger (IHX) is equipped to supply high temperature clean helium for process heat  application systems, and  the instrumentation and control system is designed to allow operations that simulate accidents and anticipated operational occurrences (AOOs). As the HTTR is the first HTGR in Japan and a test reactor with various purposes, it incorporates specific aspects regarding the  safety design. JAERI established the following safety design principles  for the HTTR in reference to the  “Guidelines for Safety Design of LWR Power Plants”, but taking into account the significant safety  characteristics of the HTGR and the corresponding design requirements as a test reactor:
+
+•  Coated fuel particles shall not fail during normal operation and AOOs. To satisfy this principle, the maximum fuel temperature, including systematic and random uncertainties, shall not exceed 1600°C for any AOO. •  The reactor shall be shut down safely and reliably during operation using the control rod system. Furthermore,  a reserved shutdown system (RSS) which is independent of the control rod system shall be provided. •  A severe accident resulting from control rod ejection must be avoided. •  The residual heat after  reactor shutdown shall  be removed safely  and  reliably  for  any AOO or accident. •  A containment vessel (C/V) shall be provided to prevent  fission product release and excessive air ingress into the core in case of a depressurization accident. •  The pressure in the pressurized water cooling system (PWCS) shall be controlled so as to be lower than that of the primary helium gas to prevent a large water ingress into the core in case of rupture of a heat transfer tube in the primary pressurized water cooler (PPWC). •  The helium gas pressure in the secondary helium cooling system (SHCS) shall be controlled to be slightly higher than that of the primary helium gas to prevent fission product leakage from the primary cooling system (PCS) to the secondary due to a crack in a heat transfer tube in the IHX. •  The pressure and heat resisting functions of the structures, where the high pressure and high temperature  coolant is contained, are  separated to reduce mechanical loads on the high temperature metal structures [2-7].
+
+Safe and reliable shutdown of the reactor from any operational condition is achieved with the control  rod system. Furthermore, a reserved shutdown system  composed of  B4C/C
+
+4
+
+pellets is provided. The power  control and normal reactor shutdown of the HTTR are achieved with 16 pairs of control rods or 15 pairs when the center column of the core is used for an irradiation test. The control rod system can achieve subcriticality from any operational condition and maintain  subcriticality under  cold core conditions including the postulated event of  a pair of control rods stuck in the operational position. The major design specifications of the HTTR are shown in Table 2.1. The reactor outlet coolant temperature at the full power is set at both 850° and 950°C. The reactor operational mode at 850°C is defined as "rated operation"  and at 950°C is "high temperature test operation" because operation of the HTTR is not allowed at 950°C for  full  life  of the initial core. Tests such as the safety demonstration tests and  irradiation tests are allowed only in the rated operation mode. The high temperature nuclear process heat utilization system will be operated at the high temperature test operational mode. The design life of permanent structural components in the HTTR plant is based on 20 years with a load factor of 60 % of full power operation.
+
+The HTGR has  excellent safety  capabilities with respect to the accidental release of fission products. Nevertheless, the HTTR is required to have a containment vessel to meet Japanese safety design guidelines for the light water nuclear power plants.
+
+##### 2.1.1.3.  HTTR plant layout and cooling system
+
+The HTTR is located  on JAERI’s  Oarai Research Establishment site which is approximately 100 kilometers north of the Tokyo metropolitan area  and is near the Pacific Ocean. The plant  area is 200 m x 300 m in size. The shortest distance between the  HTTR reactor core and site boundary is about 280 m in the southwest direction. As illustrated in Figure 2.1, the HTTR  plant arrangement is comprised of the reactor building, spent fuel storage building, a machinery building, cooling towers, exhaust stack, a high temperature process heat utilization system and other auxiliary facilities. The reactor building of 48 m x 50 m in size is situated in the central area of the plant. The exhaust stack of 80 m in height is north of the reactor building for the air ventilated from the reactor building to be released to the atmosphere. The heat utilization system will be constructed south of the reactor building [2-8]. FIG. 2.1. HTTR plant arrangement. 5
+
+The reactor building includes five levels with three floors underground (Figure  2.2). A steel reactor containment vessel of 18.5 m in diameter and 30 m in height is installed in the center of the reactor building. A refueling hatch is attached to the C/V above the reactor pressure vessel (RPV). Functions of the C/V are to:
+
+1)  Contain fission products (FPs) as one of the  multiple barriers against FP release into the atmosphere, and 2) Limit the amount of air ingress into the core in a primary pipe rupture accident.
+
+The reactor pressure  vessel (RPV) is formed as a vertical cylinder, with a hemispherical top and bottom head closures and 31 standpipes. The top head closure is bolted to a flange of the vessel cylinder. The standpipes include "control rod  (CR) stand-pipes", “irradiation stand-pipes", and standpipes for instrumentation. The irradiation standpipes are utilized to introduce specimens and experimental equipment into the core. A thermal shield is attached to the inner surface of the top head closure to prevent the closure from overheating in a depressurization accident such as a primary helium pipe rupture. The RPV is of 2-1/4Cr1Mo steel normalized and tempered. FIG. 2.2. HTTR reactor building.
+
+The double containment concept (RPV + C/V) was applied to the HTTR, because the safety features of the HTGR have not been developed in Japan. The  HTTR has multiple barriers to fission product release, namely, the fuel coatings, the RPV boundary, the C/V and the reactor building. Most HTGRs being designed in other countries  also include these barriers except the C/V. Some compartments surrounding the C/V in the reactor building serve as  confinement, or service  area. The service area is maintained at  a slightly negative pressure to atmosphere by  a ventilation and  an air conditioning system during normal operation and accident conditions. The barriers of the C/V and the service area significantly reduce the off-site radiation dose in an accident condition such as a primary  helium pipe rupture. Major components such as primary  cooling system components as well as the RPV (Figure 2.3) are contained within the C/V.
+
+6 FIG.2.3. HTTR pressure vessel and internals.
+
+FIG. 2.4. HTTR cooling system.
+
+The flow diagram of the reactor cooling system is shown in Figure 2.4. This system is composed of a main cooling system (MCS), an auxiliary  cooling system (ACS) and two reactor vessel  cooling systems (VCSs). The MCS removes the heat energy from the reactor core during the normal  operation, while the ACS and VCSs are functioned as  engineered safety features and remove the residual heat energy after a reactor scram. As the core restraint mechanism requires protection against thermal damage from reactor heat during normal operation and anticipated operational occurrences, the ACS functions as protection by forced cooling the restraint mechanism. 7
+
+During a reactor scram, gas circulators of the MCS are shut to protect the heat transfer tubes of the two pressurized water coolers  against overheating.  In an  AOO and accident condition when forced  cooling of the core is  available, the ACS automatically starts in response to the reactor scram signal. The VCS functions as a residual heat removal system when forced circulation in the primary cooling system is no longer available due to a rupture of its piping system.  It  also operates during normal operation to  cool the reactor shielding concrete wall.
+
+The MCS consists of an IHX, a primary pressurized water cooler (PPWC), a secondary pressurized water cooler (SPWC) and pressurized water/air cooler. The MCS has two operational modes; “single loaded operation”, and “parallel loaded operation”. The PPWC functions to remove the reactor heat of 30 MW during the single loaded operation, while during parallel load operation the IHX removes 10MW and the PPWC removes 20MW. The SPWC serves the  function of removing the heat from the  IHX. The heat removed by the PPWC and the  SPWC is transported through the pressurized water at 3.5MPa. The pressurized water is then cooled down by the air cooler. In the HTTR reactor plant, the reactor heat of 30 MW is eventually transferred to the atmosphere by the pressurized water and the air cooler. During normal operation, the pressure of the secondary  helium is controlled to always be 0.1 MPa higher than that of the primary  helium at the  IHX heat transfer tubes in order to  reduce the pressure load on the tubes and to protect for accidental leakage of radioactive materials into the secondary helium. The water pressure is controlled so that a large amount of water can not ingress into the core with a PPWC tube rupture accident.
+
+The auxiliary helium transfers a small fraction of the reactor heat to pressurized water. Eventually, the reactor heat is dissipated to the atmosphere at the auxiliary water/air cooler. The ACS consists of an auxiliary heat exchanger (AHX), two auxiliary helium circulators and an air cooler. At the AHX, the auxiliary helium is cooled by water. During normal operation, a small flow of auxiliary helium (~ 200 kg/h) passes through the AHX to the primary helium purification system so as to remove impurities contained in the reactor coolant. With a reactor scram, while the reactor coolant pressure boundary remains intact, the auxiliary helium cooling system automatically starts and transfers the residual heat from the core to the auxiliary air cooler. The AHX has heat transfer capacity of approximately 3.5MW.
+
+Two vessel cooling systems are provided as protection of the reactor core and the RPV against thermal damage by residual heat after a reactor scram when the ACS cannot, or fails to, cool the core. Each of these systems is capable of controlling temperatures of the core and RPV within safe limits  and consists of water-cooled panels surrounding the RPV with two cooling water systems. Cooling tubes with fins form the panels and are arranged so that adjacent tubes do not belong to the same system and a tube failure will not danger the RPV and core. The heat removal rate from the RPV to the panels is designed as 0.6 MW so as to effectively  remove heat to meet the requirement for the maximum allowable normal fuel temperature of 1495°C and also 0.3 MW or more with an accident condition where the reactor core is not cooled by the ACS. The VCS is also an engineered safety feature equipped with two independent complete sets which are backed up with an emergency  power supply.  It is operated even during normal operation in order to cool the biological shielding concrete wall.
+
+The  IHX is  a helically coiled  counter flow type heat exchanger. To minimize constraints of axial and radial thermal expansion of the helically coiled heat transfer tubes, a floating hot header with a combination of a  central hot  gas duct passes  through the central space inside the helix bundle. An assembled tube support allows free thermal expansion of a
+
+8
+
+helix in the radial direction. The primary helium enters the IHX through the inner pipe of the primary concentric hot  gas duct attached to the  bottom of the  IHX.  It flows up outside the tubes thereby transferring nuclear heat of 10 MW to the secondary helium and flows back to the annular space between the inner and outer shells, The secondary helium flows down inside the heat transfer tubes and flows up through the center as hot gas. A double-walled shell with thermal insulation attached to the inside surface of the inner shell provides reliable separation of the heat resisting and pressure retaining  functions. Cold helium flowing through the annulus brings uniform temperature distribution throughout the outer shell which serves the function of being the pressure retaining member.
+
+##### 2.1.1.4. HTTR core configuration
+
+The annular core is one of the promising core types for future HTGRs because of high inherent safety characteristics for loss of  coolant accidents [2-2, 2-3, 2-4]. The decay heat removal is enhanced by introduction of the annular core because the heat transfer pass will be shortened due to thinning of the fuel region. As a  result, the fuel temperature on a loss of coolant accident can be maintained less than the fuel temperature limit of 1600°C by the vessel cooling system (VCS) surrounding the reactor pressure vessel. The decay heat will be transferred radially through the fuel regions, side reflector blocks and reactor pressure vessel to the cooling panel of the VCS by heat conduction, radiation and convection without any active cooling system.
+
+Table 2-1.  Specification of the HTTR
+
+Thermal power                                                 30 MW Outlet coolant temperature                 950°C Inlet coolant temperature          395°C Primary coolant pressure           4 MPa Core structure                      Graphite Equivalent core diameter           2.3 m Effective core height               2.9 m Average power density             2.5 W/cm 3
+
+Fuel                                   UO2 Uranium enrichment             3 to 10 wt% Type of fuel                   Pin-in-block Burn-up period (efpd)              660 days Coolant material                 Helium gas Flow direction in core                Downward Reflector thickness Top       1.16 m Side       0.99 m Bottom       1.16 m Number of fuel assemblies              150 Number of fuel columns              30 Number of pairs of control rods In core                7 In reflector              9 9
+
+FIG.2.5. Vertical view of the HTTR.
+
+10 Three different types of cores were  formed during  fuel loading for start-up  core physics experiments; thin and thick annular  cores were  achieved at 18 and 24 fuel column loaded cores, respectively, and the fully-loaded core consists of 30 fuel columns. These three core types were proposed for benchmark problems within this CRP. The effective diameter and height of the HTTR are 230 and 290 cm, respectively. The core  size of the HTTR corresponds to about one half of that of the future HTGRs [2-2, 2-3, 2-4]. Moreover, the high excess reactivity of the HTTR is similar to that of the future HTGRs because the large excess reactivity is necessary to compensate for  power operation effects of temperature, xenon, burnup, etc.. Therefore, the benchmark problems of the  HTTR‘s start-up core physics experiments are useful for verification of design codes of the future HTGRs.
+
+The major specifications of the HTTR are  given in Table 2-1 [2-1].  The reactor consists of core components and reactor internals. They are arranged in the reactor pressure vessel (RPV), which is 13.2m in height and 5.5m in diameter. Figure 2.5 shows the vertical cross section of the core and reactor internals structure. The core consists of core components which are prismatic hexagonal blocks 580mm in height and 360mm in width across the flats. These include fuel assembly blocks, control rod guide blocks,  replaceable reflector blocks, and irradiation blocks. The core components are piled up cylindrically to form the core. The reactor internals consist of graphite and metallic core support structures and shielding blocks. They support and arrange the core components within the RPV.
+
+The active core, 290cm in height and 230cm in effective diameter,  consists of 30 columns and 7 control rod guide columns. Horizontal cross sections of the HTTR are shown in Figures 2.6 and 2.7. An additional 9 control rod columns are arranged among the adjacent reflector graphite columns. The replaceable  reflector region adjacent to the active core consists of 9 control rod columns, 12 replaceable reflector columns, and 3 irradiation columns, which are surrounded by permanent reflector blocks. Each fuel column consists of 2 top reflector blocks, 5 fuel assemblies, and 2 bottom reflector blocks.
+
+FIG. 2.6. Fuel column loading order and horizontal view of HTTR core. 11
+
+FIG. 2.7. HTTR fuel column name and zone number.
+
+Figure 2.8 shows the structure of the pin-in-block type fuel. A fuel rod consists of a graphite sleeve  containing 14 fuel compacts. The fuel rods  are inserted into the coolant channels of the fuel graphite blocks. Each fuel compact contains about 13,000 coated fuel particles (CFPs) embedded in the graphite matrix. The number of uranium enrichments is 12. The highest and lowest enrichments are 9.9 and 3.4 wt%, respectively. Fuels of higherenriched uranium are placed in the upper and outer core regions to reduce the maximum fuel temperature. Burnable poisons (BPs) made of boron carbide and carbon are inserted into two of three holes below the dowel pins in  the fuel graphite block. The coolant gas flow is downward through annular channels formed by the graphite block and the fuel rod.
+
+12 FIG. 2.8: Structure of fuel assembly.
+
+The top of the control rod guide columns and irradiation columns are 100mm lower than that of the  fuel  columns because the 9 th layer block of these  columns are 480mm in height. Each horizontal gap width between two columns is 2mm in average.
+
+Reactivity is controlled by 16 pairs of control rods. A pair of control rods is individually moved by a control rod drive mechanism located in stand-pipes connected to the hemispherical top head closure of the RPV. The control rods are inserted into two channels of the control rod guide columns in the active core and in the replaceable reflector regions. 13
+
+Fuel loading scheme
+
+Before fuel loading, the  whole fuel region in the core is filled with  graphite dummy blocks. There are two types of dummy blocks: graphite blocks with three large holes and those with three small holes. The graphite blocks with three large holes were actually used as control rod guide columns for out-pile seismic  tests of the core structure. The others with three small holes were newly produced as dummy fuel blocks. The primary coolant system is filled with helium at normal atmospheric pressure and is not in operation during fuel loading. The core is at room temperature. Fuel loading is carried out by replacing the dummy blocks with the fuel assemblies, column by column. The fuel loading scheme is shown in Figure 2.6. The fuel blocks are loaded from the periphery to the center, and thin and thick annular cores are made at 18 and 24 fuel-column-loaded core, respectively.
+
+The approach to criticality  was observed by monitoring the inverse of the neutron multiplication fraction. The core is regarded as critical when the neutron density is maintained constant after removing the temporary neutron source. After the first criticality, the increment in reactivity was measured by the inverse kinetic method. The excess  reactivity of the core was obtained by adding all increments of the reactivity from the first criticality to the fullyloaded core.
+
+Configuration and composition of components
+
+For the calculations, the detailed data of  the active core, the adjacent replaceable reflector region  and the permanent  reflector region were necessary. Configuration of the components in the above mentioned regions is described as follows: The position of blocks in the core is noted by vertical position number and column number. The vertical number is 1, 2, . . . , 9 as from the top blocks in the 1 st layer to the bottom blocks in the 9 th layer, with the column number named according to Figure 2.9. For example, “4C05“ means that the block is placed at the 4 th block from the top, the 2nd ring from the core center, and the 5 th block from the north in clockwise direction. In all, 30 fuel columns are grouped concentrically into 4 fuel zones as shown in Figure 2.9.
+
+Fuel assembly
+
+A fuel assembly  consists of fuel rods, two burnable poison (BP) rods and a fuel graphite block. Each fuel rod consists of a  graphite sleeve and 14 fuel compacts containing coated fuel particles (CFPs). The fuel rods are inserted into vertical holes of 41mm diameter in the fuel  graphite block and  form annular  coolant channels between the vertical holes and the fuel rods. Figure 2.8 shows the structure of  fuel assembly. There are two types of fuel graphite blocks having 31 or 33 fuel rods. The number of different uranium enrichments are 12 in the core. The uranium enrichment of all compacts in a fuel assembly is not changed. The fuel assembly is classified by the uranium enrichment, the number of fuel rods and the type of BPs. The fuel assembly arrangement in the core is shown in Figure 2.9.
+
+A CFP consists of a spherical fuel kernel of low enriched UO2 with TRISO coating. The TRISO coating consists of a low-density, porous pyrolytic carbon (PyC) buffer layer adjacent to the fuel kernel, followed by  high density isotropic PyC layer, a SiC layer and  a final outer PyC layer. The CFPs are embedded in graphite matrix of the fuel compact. The CFPs are classified into 12 sorts by their uranium enrichments. The form of the CFPs is given in Figure 2.10.
+
+14 FIG. 2.9. Fuel assembly arrangement in the HTTR core. 15
+
+FIG. 2.10. Coated fuel particle, fuel compact and burnable poison pellet.
+
+The fuel compact consists of CFPs and graphite matrix. The form is a hollow cylinder of 10mm in inner diameter, 26mm in outer diameter and 39mm in height.
+
+The fuel rod  consists of a graphite sleeve  containing 14 fuel  compacts.  It  is inserted into the coolant channel of the fuel graphite block. The form of the fuel rod is given in Figure 2.11. The fuel graphite block is a prismatic hexagonal block 580mm in height and 360mm in width across the flats. The block has 33 fuel holes in the fuel zones 1 and 2, and 31 fuel holes in the fuel zone 3 and 4. The fuel zone numbers are defined in Fig. 2.7. The form of the block is given in Figure 2.12 and Figure 2.13.
+
+FIG. 2.11. Fuel rod.
+
+16 17
+
+FIG. 2.12. Fuel block for 33 pin fuel assembly.
+
+18 FIG. 2.13. Fuel graphite block for 31.pin fuel assembly. 19
+
+FIG. 2.14. Control rod guide block in layers 1 through 5.
+
+20 Burnable poison (BP) rods are inserted into two of three BP insertion holes of a fuel graphite block as shown in Fig. 2.8. The BP insertion holes are under the 3 dowel pins of the fuel graphite block and are 15mm in inner diameter and 500mm in length. One hole without the BP rod is empty. Figure 2.6 shows positions of holes which are filled with BPs. The diameter of BP rod is 14mm. The BP rod consists of BP pellets and graphite disks as shown in Table 2.2. The  graphite  disks are put between the BP pellets. The compositions of the BP pellets are B4C and C. There are two types of BP pellets: H-I with 2.22wt% of natural boron concentration and H-II with 2.74wt%. The form of the BP pellets and graphite disks is given in Figure 2.10.
+
+Control rod, reflector and dummy fuel blocks
+
+There are 16 control rod guide columns each consisting of 9 control rod guide blocks. The control rod  guide blocks have three holes. Two of them are  control rod insertion holes. The third hole is a reserve shutdown system (RSS) hole which is used for emergency. Figure 2-6 shows the position of the control  rod insertion holes and RSS holes in the core and the replaceable  reflector region. Top and bottom replaceable reflector blocks are placed  above and below the fuel  assemblies. The arrangement of coolant  channels  (with 23mm in inner diameter) in the top replaceable reflector blocks corresponds to that of coolant channels (with 41mm in inner diameter) in the  fuel  assemblies  within the same  column. The upper bottom replaceable reflector block (the 8 th layer) has the same arrangement of coolant channels as the top replaceable reflector block. The lower  bottom replaceable reflector block (the 9 th layer) has 6 large coolant channels.
+
+FIG. 2.15. Permanent reflector region. 21
+
+FIG. 2.16. Schematic of control rod.
+
+22 FIG. 2.17. Axial control rod position.
+
+Dummy fuel blocks are placed in the active core before fuel loading as substitution for fuel assemblies. The external form of the dummy  fuel block is the same as that of a fuel graphite block. The dummy fuel blocks contain higher impurity than the fuel graphite blocks. All dummy fuel blocks are replaced by fuel assemblies. All blocks except the bottom block of the control  rod  guide column and the irradiation column are 58 cm in height  and 36 cm in width of across flats. The bottom blocks of the control rod guide and irradiation columns are 48 cm in height and 36 cm in width across the flats. A typical form of the control rod guide blocks for layers 1 through 5 is shown in Figure 2-14. Boron pins are installed into the lower parts of blocks in the 9th layer  for neutron shielding. For benchmark problems, the neutron shielding pin region is considered as a black absorber or vacuum in calculation models.
+
+Core components are horizontally surrounded by 12 permanent reflector blocks whose form is a large polygonal graphite block. The width across the flats of the core, including permanent reflector blocks, is 4250 mm as shown in Figure 2.15. The permanent reflector blocks have holes for irradiation tests and neutron detectors. The void fraction is 0.7 % due to the holes. Around the permanent reflector blocks, there  are side shielding blocks consisting of B4C/C. The structures outside of the permanent reflector region were neglected in the calculation models.
+
+Control Rods
+
+There  are 16 pairs of  control rods, 7 in the active core and 9 in the  replaceable reflector region. A pair of control rods is inserted into holes of a control rod guide column. 23
+
+Each  control rod  consists of 10 neutron absorber sections connected with metallic spines and support rings. Each section contains 5 sintered compacts of B4C and C as neutron absorber in the annular space. The schematics of  the control  rod are shown in Figure 2. 16. The axial positions of the control rods are divided into three types as shown in Figure 2.17. When the control rods are fully inserted, the lower ends of all control rods are on the same plane with the bottom face of the 7th layer of a fuel column. In the first approach to criticality three pairs of control rods at columns E01, E09 and E17 in Figure 2.7 are fully withdrawn. These are not used to  operate the reactor. The rest of 13 pairs of  control rods are the withdrawn during the approach to criticality. At the critical condition, all control rod pairs except those of columns E01, E09, and E17 are adjusted so that their insertion depth will be the same. This insertion level is evaluated in the benchmark test HTTR-CR. When the control rods are fully withdrawn, their upper limit is the upper face of the 1 st replaceable reflector block (over the fuel region) with the exception of those  control rods (R2) at  columns E03, E07, E11, E15, E19, and E23 in Figure 2.7. The control rods of these six columns have upper limits at 725mm below the top of the 1st block.
+
+Further detailed data of  the core, fuel assemblies and core internal components have been provided in [2-5].
+
+Nuclear Instrumentation
+
+Temporary neutron instrumentation consisting of three BF3 counters, three fission counters (FC), two  gamma-ray-compensated ionization chambers (CIC) was used for the startup core physics tests. Positions of detectors were not  arbitrarily  chosen like liquid (water)-moderated reactors. Only the  existing holes were  available  for the solid (graphite)moderated reactor like the HTTR. However, the holes for control rods  (CRs) and reserve shutdown systems could not be used due to safety-related restrictions. Thus the detectors are located in three irradiation columns as shown in Figure 2.18.
+
+1 2 3 4 5 6 7 8 9 10 11
+
+13 12 14
+
+15 16 17 18 19
+
+20
+
+21 22
+
+24 28 25
+
+27 23 26 30 29 Temporary detectors of Ch. 1(NS,BF3,FC)
+
+Temporary detectors of Ch. 2(BF3,FC,CIC)
+
+Temporary detectors of Ch. 3(BF3,FC,CIC)
+
+Fuel (Loading order)
+
+Control rod Guide column
+
+Irradiation column NS : Temporary neutron source
+
+Replaceable reflector
+
+Permanent reflector
+
+FIG. 2.18. Cross section of the HTTR and fuel loading order.
+
+24 The BF3 is used for monitoring increase in the  neutron density.  The inverse of the multiplication factor was evaluated from the change in neutron density. The FC was used for measurement of the axial neutron flux distribution.  The CIC was used for reactivity measurement by the  Inverse Kinetic (IK) method.  A temporary neutron source (Am-Be, 1.48×10 4Bq) was inserted in irradiation test column. The vertical position of each detector is shown in Figure 2.19. The BF3 in Ch.1 is installed about 2 m apart from the neutron source to avoid the effect of direct-flying neutrons from the source. BF3 and FC in the same channel are located at the same vertical position in order to have redundancy for 1/M monitoring. FCs were movable in the vertical direction to measure the axial neutron flux distribution.  The CICs were fixed in the core.  The temporary neutron source was withdrawn from the  core to exclude the neutron source effect on the measurement.
+
+FIG. 2.19. Vertical location of temporary neutron detector system.
+
+#### 2.1.2. Benchmark Problem Descriptions
+
+The benchmark problems addressed within this CRP include HTTR related start-up core physics tests and thermal hydraulics. General descriptions of these problems are included below. Details of the methodologies utilized and the results obtained for each problem by the individual CSIs are presented herein by each Member State.
+
+##### 2.1.2.1. Initial Criticality – [HTTR-FC] (Phase 1)
+
+The number of fuel columns are evaluated for the first criticality, with the fuel columns charged from the outer region of the core. They are loaded clockwise, one by one. A small excess reactivity at the first criticality is also evaluated. 25
+
+##### 2.1.2.2. Initial Criticality – [HTTR-FC] (Phase 2)
+
+The following  effects  are  considered in the Phase 2 to improve the benchmark problem calculation accuracy:
+
+1) Air in void of graphite 2) Revised impurity contents in dummy block 3) Aluminum in the temporary neutron detector holders.
+
+##### 2.1.2.3. Control Rod Position at Criticality – (HTTR-CR)
+
+The control rod insertion depths are evaluated at the critical condition for the following three cases. All control rod insertion levels are adjusted on the same level except three pairs of control rods in the most outer region in the side reflectors. These three pairs of control rods should be fully withdrawn for the calculation.
+
+1) 18 columns (thin annular core) 2) 24 columns (thick annular core) 3) 30 columns (fully-loaded core)
+
+##### 2.1.2.4. Excess Reactivity – (HTTR-EX)
+
+The excess reactivity is evaluated for the three cases mentioned above. The room temperature of 300K is to be assumed as the moderator and fuel temperatures  for the benchmark problem. One atmospheric pressure of helium is to be used as the primary coolant condition.
+
+##### 2.1.2.5. Scram Reactivity – (HTTR-SC)
+
+The Scram reactivity is to be evaluated for the following two cases:
+
+1) All reflector CRs are inserted at the critical condition 2) All CRs in reflector and core are inserted at the critical condition
+
+The core condition for this benchmark problem is as follows:
+
+-Fully-loaded core (30 column fuel core) -Fresh fuel core
+
+##### 2.1.2.6. Isothermal Temperature Coefficient (HTTR-TC)
+
+Isothermal temperature coefficients for the fully-loaded core are to be evaluated from the effective multiplication. The  critical control  rod positions are changed with temperature elevation in the real reactor operation. However, the control rod position is not to be changed in the calculation to obtain the reactivity difference. Critical control rod positions are to be evaluated at temperature of 480K.
+
+26
+
+### 2.2. REACTOR PHYSICS BENCHMARK ANALYSIS AND RESULTS
+
+#### 2.2.1. Japan
+
+##### 2.2.1.1 Analysis methodology and model description
+
+Diffusion calculation [2-9, 2-10]
+
+The calculations for the benchmark problems were  carried out using a nuclear characteristics  evaluation code system  which was developed from  an HTTR nuclear design code system [2-11]. The code system consists of the DELIGHT [2-12], TWOTRAN-II [2-13] and CITATION-1000VP [2-14] codes. An outline of the  calculation  codes and model is summarized in Table 2-3. The program structure of the system is shown in Figure 2.20.
+
+Table 2-3. Codes, models and nuclear data library for diffusion calculation
+
+Name of country  Japan Items  Name of Institute  JAERI Nucl. Data file  ENDF/B-III, IV Fuel cell code   DELIGHT
+
+Theory Collision probability
+
+Model Pin cell
+
+Cut off energy  2.38eV
+
+No. of groups  40
+
+BP cell code  TWOTRAN-II
+
+Theory Transport
+
+Model 2-D(r-Z) No. of groups  6 Control rod cell code   TWOTRAN-II
+
+Theory Transport
+
+Model 2-D (x-y)
+
+No. of groups  6
+
+Core cal. Code  CITATION
+
+Model 3-D (Triangle)
+
+No. of groups, (Fast +Thermal)  6, (3+3)
+
+DELIGHT is an one-dimensional lattice burnup cell calculation code that has been developed in JAERI. TWOTRAN-II is a transport code that was used  to provide average group  constants of burnable absorber  (BP) in fuel blocks and graphite blocks where control rods (CRs) are inserted. CITATION-1000VP is a  reactor  core  analysis code. This code was developed from CITATION [2-15] so that nuclear characteristic analyses could be carried out with a three-dimensional whole core model of the HTTR in a short calculation time. 27
+
+FIG. 2.20. Program structure of the HTTR nuclear characteristics evaluation code system.
+
+DELIGHT was used to provide group constants of fuel and  graphite blocks for succeeding  core calculations. Resonance, neutron spectrum, neutron flux distribution, criticality, and burn-up  calculations were done  sequentially. Nuclear data were based on ENDF/B-IV except burn-up chain data that were extracted from ENDF/B-III. In the resonance range, the code employs intermediate resonance approximation and can consider the effect of a double heterogeneity caused by coated fuel particles (CFPs) and assembled fuel rods. The average  group constants  of the  whole  fuel block  were obtained by a fuel  cell calculation as follows; The group  constants of the fuel rods were calculated by using  a one-dimensional cylindrical fuel cell model as shown in Figure 2.21. The fuel rods in a block are located in the inner position of the fuel block, and the outer region of a fuel block is graphite rich region. To simulate the harder neutron spectrum, the area of cross section of the fuel cell was determined by the pitch of fuel rods. The pitch of fuel rods is 5.15cm. Therefore, the outer radius of fuel cell is about 2.7cm.
+
+28 FIG. 2.21. Fuel cell model for DELIGHT code.
+
+The group constants for BP and CR were calculated by TWOTRAN-II code.
+
+BP cell model
+
+The BP of the HTTR is a zebra type configuration. The average group constants of the zebra type BP was calculated by two-dimensional r-Z model of TWOTRAN-II code. The BP cell model is shown in Figure 2.22. The BP cell model corresponds to a quarter of a fuel block which contains half of the BP rod.  BP rod consists of BP pellets and graphite pellets which are surrounded by  graphite, the outer  region contains homogenized fuel.  Macroscopic cross section sets for the calculation were provided by the DELIGHT code.
+
+In order to obtain the effective microscopic cross section, a homogenized region is determined to have the same cross section as the BP region in the core calculation model. Three kinds of σa for 10B in the BP rod are evaluated for core calculations. The first one was for the fuel block with 7.9% enrichment of  235U, 33 fuel pins and 2.0wt% of boron concentration in the BP rods. This σa-set was used for all BPs in the first layer of fuel blocks. The second one was for the fuel block with 6.3% enrichment of 235U, 33 fuel pins and 2.5wt% of boron  concentration in the  BP rods which was used  for  all BPs with 2.5wt% of boron concentration. The third one was for the fuel block with 3.9% enrichment of 235U, 33 fuel pins and 2.0wt% of boron concentration in the BP rods. This kind of σa was used for all BPs in the 4th and 5th layer of fuel blocks.
+
+CR cell model
+
+The average group constants of a pair of CRs and of the corresponding graphite block were obtained with the flux-weighting method. The neutron fluxes were calculated with a two-dimensional x-y model. The model is based on half of the graphite block where one CR is inserted. 29
+
+FIG. 2.22. BP cell model by TWOTRAN-II
+
+The average  group constant of CRs was obtained by  smearing  group  constants in a region. For core calculations, two kinds of CR  models were developed  which are called as “CR-block model” and “CR-hex model”. The smearing regions to obtain average  group constants for CRs are different in the two models. The schematics for each model is shown in Figure 2.23. The CR-block model was used for all benchmark problems. The CR-hex model was used for HTTR-SC to check the effect of model.
+
+30 The average group constants of CRs were homogenized in a CR guide block region. In the core calculation for the model, CR guide block was modeled as one region. This model is the same with the model used in the previous benchmark problem.
+
+ii) CR-hex model
+
+In the model, one CR rod is modeled as hexagonal shape which contains CR and surrounding graphite. The average group constant of CRs was obtained by smearing a narrow area in a CR guide block. In the core calculation for the model, the CR guide block is divided into three regions. One for CRs, one for a reserved shut down system pellet insertion hole, and one for graphite region. It is possible to consider the position of CRs in a control rod guide block at core calculations using the model.
+
+In the benchmark problems, CR-block model was used as standard model. The effects of CR-block model and CR-hex model were evaluated in the benchmark of HTTR-SC.
+
+The CITATION-1000VP is a reactor core analysis code based on the diffusion theory. This code was improved to enable a full core model calculation of the HTTR by extending the number of zones and meshes in the original CITATION code and enhancing the calculation speed by the vectorization of the code. This code was used for the  analysis of the effective multiplication factor. The neutron energy group consists of 3 fast and 3 thermal groups.
+
+FIG. 2.23. Comparsion of CR model concrpt. 31
+
+i) CR-block model
+
+FIG. 2.24. Configuration of regions in block for core calculation mode
+
+32 A fuel block is divided into 24 triangular meshes horizontally and into 4 meshes vertically for the three-dimensional whole core calculation to simulate the position of the BP rods in a fuel block. In the horizontal plane, a fuel block was divided into BP region and fuel region as shown in Figure 2.24.  10B and  11B in a BP rod were distributed only in the BP region. Nuclides of the fuel, such as  235U,  238U, Si, were distributed only in the fuel region. Graphite is distributed homogeneously in the fuel and BP region. For the CR-block model, a CR guide block was modeled as one region.
+
+Monte Carlo calculation
+
+The whole core is presented with hexagonal lattices consisting of  graphite reflector blocks and fuel blocks. The fuel block is also presented with hexagonal lattices consisting of fuel rods and BP  rods. The fuel rod and BP rod are modeled with cylindrical body descriptions in hexagonal cells. Effective multiplication factors keff of different cores in fuel loading were calculated with MVP [2-16, 2-17] using the nuclear data of JENDL-3.2 [2-18]. The thermal neutron treatment for  graphite in the JENDL-3.2 is based on S(α,β)  of ENDF/III.  The core temperature of 300K is assumed. The most probable value of keff was evaluated from track length,  collision and analog  estimators with the method of maximum likelihood.  Number of histories per batch was 20,000 for all cases.  Number of batches was 150. The first 5 batches were neglected for the statistical treatments. Although large number of scattering reactions must  be calculated in one  history for HTGR due to the low slowing down power of graphite, the CPU time is still reasonably small for the whole core  analysis. The computation was carried out on the FACOM VPP-500.
+
+In the  geometry description, the hexagonal multiple lattice capability  was used for periodical arrays of fuel rods in a fuel block and of hexagonal blocks in the core. The cross-sectional model of the 18 column, 24 column and whole core is given in Figures 2.15, 2.26, 2.28 and 2.27, respectively. The outer form of the permanent reflector blocks is modeled with a cylinder.  The cross-sectional model of fuel block is shown in Figure 2-28. The cylindrical  geometry  of fuel rods  and burnable poison rods  were precisely modeled with body descriptions in hexagonal cells. The voids in control rod  guide blocks and dummy  fuel blocks increase neutron leakage because of the neutron streaming through them. They  are also modeled with body descriptions in hexagonal cells.  The CFPs in the compact are treated with the following three models:
+
+(1) Homogeneous Model: All substances in CFPs are smeared with the graphite matrix in the compact. (2) Corrected-homogeneous Model: Heterogeneity effect of CFPs, evaluated with collision probability theory [2-19], is added to the result of (1) (3) Heterogeneous Model: Heterogeneity effect of CFPs is directory evaluated with Monte Carlo calculation using statistical geometry model based on MURATA's idea [220]. 33
+
+FIG. 2.25. Horizontal cross-section of 18 column core model.
+
+FIG. 2.26. Horizontal cross-section of 24 column core model.
+
+34 FIG.2.27.  Horizontal cross-section of 30 column core model (fully-loaded core).
+
+FIG: 2.28.  Magnification of analytical model. 35
+
+FIG. 2.29. Vertical cross-section of 30 column core model (fully loaded core).
+
+Total amounts of material such as uranium, oxygen and carbon are conserved in the compact for each model. About 13,000 CFPs are distributed randomly in a fuel compact. The keff - calculations for fuel  loading steps were carried out in the condition where CRs were fully  withdrawn from the core and  reflectors. The vertical  cross-sectional model of core is shown in Figure 2.29.
+
+The vertical length of each component is precisely modeled. The BP is separated in upper and lower parts in a fuel block. Graphite disks are inserted between upper and lower parts of BPs. The lengths of BP part and Graphite disk part are 40 and 10 cm, respectively.
+
+36
+
+##### 2.2.1.2. Results of HTTR-FC calculation
+
+The number of fuel columns are evaluated for  the first criticality, when the fuels columns are charged  from the outer  region of the core. They are loaded  clockwise, one by one. A small excess reactivity at the first criticality is also evaluated. For phase 2, the HTTRFC is re-calculated considering the following effects: 1) Air in void of graphite 2) Revised impurity contents in dummy block 3) Aluminum in the temporary neutron detector holders.
+
+The change in the effective multiplication factor at fuel loading was calculated. The R2 CRs remain in the top region of the core. The CR model was CR-block model. Fourteen kinds of microscopic cross section set of fuel were used for the calculations considering the kinds of 235U enrichment and boron concentration in the burnable absorber rod.
+
+HTTR-FC by diffusion calculation
+
+The change in effective multiplication factor at fuel loading is shown in Table 2-4 and Figure 2.30. The number of fuel column at the first criticality is 17 columns and the excess reactivity at the first criticality is about 0.05%∆k/k.
+
+Table 2-4. Calculation results of HTTR-FC
+
+No. of fuel column  keff [-] Excess reactivity [%∆k/k]
+
+16 0.9921520 -0.79
+
+17 1.0005451  0.05
+
+FIG. 2.30. Change in keff at fuel loading. 37
+
+HTTR-FC by Monte Carlo
+
+The change in effective multiplication factors and excess reactivitys are given in Figure 2.31 and Table 2-5. The CFP's heterogeneity effect evaluated with the collision probability theory was 0.012 ∆k for the HTTR fuel. This effect was added to the calculated keff - values for the corrected-homo. Model. The heterogeneity effect of CFP was evaluated also from difference in  keff of the  Homo- and  Hetero- models. The results are  given in Table 2-6. Six pairs of  control rods in side reflector can not be withdrawn form the top reflector perfectly, because a sufficient negative  reactivity  addition rate must be supplied for reactor scrams. The CR insertion was simulated in the calculation. The fuel number for the first criticality is estimated for 18 fuel columns (Hetero. model).
+
+Table 2-5.  Calculated keff and excess reactivity to loaded fuel columns
+
+Heterogeneous model  Homogeneous model Fuel columns keff* ex** keff ex
+
+12 0.959596 ± 0.00051  -4.21  ––
+
+14 0.97429 ± 0.00056  -2.64  ––
+
+16 0.98461 ± 0.00055  -1.56  0.98052 ± 0.00054  -1.99
+
+17 0.99506 ± 0.00052  -0.50  ––
+
+18 1.00609± 0.00047  0.61 1.00266 ± 0.00050  0.27
+
+19 1.01626 ± 0.00046  1.60 ––
+
+21 1.04827 ± 0.00047  4.60 ––
+
+24 1.09968 ± 0.00047  9.06 1.09350 ± 0.00039  8.55
+
+27 1.13399 ± 0.00044  11.82 ––
+
+30 1.14278 ± 0.00039  12.49 1.13258 ± 0.00045  11.71
+
+*: keff is Effective multiplication factor. The variation shows the statistical error. **:ex is Excess reactivity in %∆k/k.
+
+Table 2-6.  Heterogeneity effects of CFP
+
+Fuel columns  ex(heterogeneous)-ex(homogeneous)
+
+(%∆k/k)
+
+16
+
+18
+
+24
+
+30 0.43
+
+0.34
+
+0.51
+
+0.78
+
+38 FIG.2.31. Change in excess reactivity with fuel loading.
+
+The experimental results for HTTR-FC were as follows: The fuel loading was started from the core periphery to core center so that the annular core will be constructed on the way to the full core, to obtain the nuclear characteristics. Fuel blocks are loaded clockwise in the core periphery as shown in Figure 2.25. The fuel loading was carried out by replacing dummy blocks with fuel blocks. The annular  core was  made when the  core was loaded with fuel columns from 18 to 24. Inverse multiplication factors (1/M) were evaluated at 0, 6, 9, 12, 15, 16, 17 and 18 fuel column-loaded cores to predict the first criticality. The first criticality was achieved at the 19 fuel-column-loaded core.
+
+##### 2.2.1.3. HTTR-CR
+
+The control rod insertion depths are evaluated at the critical condition for the following three cases:
+
+1)  18 columns (thin annular core) 2)  24 columns (thick annular core) 3)  30 columns (fully loaded core) 39
+
+All control rod insertion levels are  adjusted on the same level  except three pairs of control rods in the most outer region in the side reflectors. These three pairs of control rods are fully withdrawn for the calculation. (The fully withdrawn position of CRs (C, R1, R3) are over the top of the replaceable reflector. The “fully withdrawn” position of the six control rods of R2 is 725 mm below the top of the 1 st replaceable reflector block.)
+
+HTTR-CR by diffusion calculation
+
+The control rod position at criticality for 18-columns loaded core, 24 columns-loaded core and fully loaded core are shown in Table 2-7.
+
+Table 2-7. Calculation results of HTTR-CR
+
+No. of fuel column  Control rod position  at criticality [mm] 18  3035 24 2055 30 1665
+
+HTTR-CR by Monte Carlo calculation
+
+The analytical method for HTTR-CR is as same as that for HTTR-FC. The results are as follows: Model and column number  CR position (mm)
+
+18 (Corrected  homo. model)          2810
+
+24 (Corrected  homo model)          2080
+
+30 (Hetero model)          1800
+
+The experimental results for HTTR-CR were  as follows:  The reactor was made critical in every fuel loading step after the first criticality to the full core. The steps were 21, 24, 27 and 30 columns. The CR position at every critical condition was measured to evaluate calculation accuracy. The CRs are inserted from top to bottom. The tops of C-, R1- and R2CRs were kept the same level at critical conditions. The R3-CRs were fully withdrawn. The CR position is defined as distance from the boundary between the fuel region and the bottom reflector. The change in the critical CR position is given in the following Table 2-8:
+
+Table 2-8. Measured critical control rod positions
+
+Fuel column  21 24  27 30 Rod position(mm)*  2646±5 2215±5  1899±5 1775±5 *Distance from the boundary between fuel region and the bottom reflector. Sinking of CR driving mechanism (14mm) was considered.
+
+40
+
+##### 2.2.1.4. HTTR-EX
+
+The excess reactivity is evaluated for the three cases mentioned in HTTR-CR. The room temperature of 300K is assumed as the moderator  and fuel temperatures  for the benchmark problem. One atmospheric pressure  of helium is used as the primary coolant condition.
+
+HTTR-EX by diffusion calculation
+
+The excess  reactivity  at 18-columns loaded  core, 24  columns-loaded core  and fully loaded core are shown in Table 2-9.
+
+Table 2-9. Calculation results of HTTR-EX
+
+No. of fuel column  keff [-]  Excess reactivity [%k/k] 18  1.0126343   1.2 24  1.1014290   9.2 30 1.1442246   12.6
+
+HTTR-EX by Monte Carlo calculation
+
+The analytical method for HTTR-EX is as same as that for HTTR-FC. The results are as follows: Model and column number  Excess reactivity (%∆k/k)
+
+18 (Hetero.  model)          0.61
+
+24 (Hetero.  model)          9.06
+
+30 (Hetero  model)          12.5
+
+The experimental results are as follows: Fuel addition method was applied for the excess reactivity measurement. The increment  in excess reactivity  was measured by  IK method at 21, 24, 27, and 30 column-loaded  core. The measurement  was affected by the negative shadowing effect. The measured increments in excess  reactivity  were revised with following relation to correct the shadowing effect. The excess reactivity for each  core  are given in Table 2-10.
+
+ex :Excess reactivity (%∆k/k) ∆ex :Increment in excess reactivity (%∆k/k)
+
+ikcal
+
+excal ikmex exex
+
+R R
+
+ρ ρ ρρ ρρ ∆ ∆ = ⋅∆=∆ ∆= ∑ 41
+
+∆ikm :Increment in excess reactivity measured with IK method (%∆k/k) ∆excal: Increment in excess reactivity calculated after definition. All control rods are fully withdrawn from the critical rod position (%∆k/k) ∆ikcal: Increment in excess reactivity calculated after IK measurement procedure (%∆k/k) R: Revising factor
+
+Table 2-10. Excess reactivity
+
+Fuel columns  ρikm  (%∆k/k)  ∆ikm  (%∆k/k)  R ∆ ex (%∆k/k)  ρex  (%∆k/k) 21 2.3 ±0 .23  2.3 ± 0.23 1.69 ± 0.12 4.0 ± 1.1 4.0 ± 1.1 24 5.0 ± 0.50 2.7 ± 0.27 1.40 ± 0.11 3.7 ± 1.0 7.7 ± 2.1 27 7.4 ± 0.74 2.4 ± 0.24 1.26 ± 0.15 3.0 ± 0.9 10.7 ± 3.0 30 8.5 ± 0.85 1.1 ± 0.11 1.19 ± 0.04 1.3 ± 0.3 12.0 ± 3.3 (eff=0.0065)
+
+##### 2.2.1.5. HTTR-SC
+
+The core condition is as follows:
+
+-Fully-loaded core (30 column fuel core) -Fresh fuel core
+
+The following two cases are investigated the HTTR-SC:
+
+1)  Scram reactivity of reflector CRs (R2 and R3)
+
+The Scram reactivity of the reflector CRs is evaluated for the fully-loaded core as follows.
+
+Where: R:   Scram reactivity of reflector CRs (k/k) kCrit.:  Effective multiplication factor at critical CR position kRCR-in:  Effective multiplication factor at CR position after scram
+
+The effective multiplication factors is calculated at the critical CR positions and the CR positions after scram. The CR positions are given in Table 2-11.  The reflector CRs are fully inserted after scram. The positions of the in-core  CRs are not  changed. The temperature for core and reflector is 300K.
+
+Table 2-11.  Control rod position before and after scram of reflector CRs*
+
+CR Group  Critical position (mm)  Position after scram (mm)     Remark
+
+C 1775  1775  Not changed R1  1775  1775  Not changed R2 1775  -55** R3 Full out  -55 *:Case (T4-3005),  No neutron source **:Control rods are inserted slightly into the top of the bottom reflector
+
+⋅ ⋅ − = −
+
+−
+
+inRCRCrit inRCRCrit R kk kk .
+
+.ρ
+
+42 2)  Scram reactivity of all control rods (C, R1,R2 and R3):
+
+The scram reactivity of all CRs is evaluated from the effective multiplication factors as follows:
+
+Where: A: Scram reactivity of all CRs (k/k) kCrit.:  Effective multiplication factor at critical CR position kACR-in:  Effective multiplication factor at CR position after scram
+
+The effective multiplication factors is calculated at the critical CR positions and the CR positions after scram. The CR positions are  given in Table 2-12.  The all CRs are fully inserted after scram.  The temperature for core and reflector is 300K.
+
+Table 2-12. Control rod positions before and after scram of reflector and in-core CRs*
+
+CR Group  Critical positions (mm)  Positions after scram (mm)     Remark
+
+C 1775  -55** R1 1775  -55 R2 1775  -55 R3 Full out  -55 *:Case (T4-3005),  No neutron source **:Control rods are inserted slightly into the top of the bottom reflector . The measured scram reactivity was 0.46k/k
+
+HTTR-SC by diffusion calculation
+
+The scram reactivity should be calculated  from the criticality  condition with CR position at 1789mm. In the calculation model, it is difficult to set the CR position at 1789mm because the vertical mesh division is 145mm. The scram reactivity was  evaluated by interpolating the results of 1740mm and 2030mm.
+
+The calculated results of HTTR-SC by the CR-block model and the CR-hex model are shown in Table 2-13. The results of CR-block  model was smaller than that of the  CR-hex model. In the CR-hex model, reflector CRs are nearer to the core than in the CR-block model. Therefore, scram reactivity becomes larger.
+
+The comparison of measured and calculated value of the scram reactivity are shown in Table 2-14.  For the results of all CRs, the error of CR-block model and  CR-hex model are about –7% and –4%, respectively. The difference of both models is small. Both model show good agreement with measured results.
+
+For the results of reflector CRs, the error of CR-block model and CR-hex model are about –31% and –26%, respectively. The CR-hex model shows less error than CR-block mode, but still shows  more than 20% of  error. The calculation model should be  further revision. ⋅ ⋅ − = −
+
+−
+
+inACRCrit inACRCrit A kk kk .
+
+.ρ 43
+
+Table 2-13. Calculated results of HTTR-SC
+
+(1)Scram reactivity of reflector CRs(R2 and R3) CR model  CR-block model  CR-hex model CR position before scram [mm]  1740  2030  1740  2030 Before scram  1.0093164  1.0418115 1.0084132 1.0409116 keff R2, R3 full in (0mm)  0.9311435  0.9599020  0.9247989  0.9534538 Scram reactivity [%k/k]  8.32  8.19 8.97 8.81 Scram reactivity  from 1789 mm [%k/k]  8.30 8.94
+
+(2) Scram reactivity of all CRs CR model  CR-block model  CR-hex model CR position before scram [mm]  1740  2030  1740  2030 Before scram  1.0093164  1.0418115 1.0084132 1.0409116 keff All CRs full in (0mm)  0.7069916 0.6980522
+
+Scram reactivity [%k/k]  42.37  45.46 44.09 47.19 Scram reactivity  from 1789 mm [%k/k]  42.9 44.6
+
+Table 2-14. Comparison to the measured value
+
+(1) CR-block model Scram reactivity [%k/k] Measured (E)  Calculated (C)  Error [%] C/E-1 Reflector CRs  12.1 8.30 -31.4 All CRs  46.3 42.9 -7.3
+
+(2) CR-hex model Scram reactivity [%k/k] Measured (E)  Calculated (C)  Error [%] C/E-1 Reflector CRs  12.1 8.94 -26.1. All CRs  46.3 44.6 -3.7
+
+HTTR-SC by Monte Carlo Calculation
+
+The analytical method for HTTR-SC is the same as that for HTTR-FC. The results are given in Table 2-15:
+
+A two-step scram will be performed in the HTTR to prohibit the high temperature exposure of the in-core CRs in full power operation. The in-core CRs are inserted when the core temperature becomes less than 750°C or 2400 seconds passes after insertion of reflector CRs. The simulation of  the two-steps scram was conducted in startup core physics. The incore CRs were inserted in the time delay of 20 seconds after insertion of the reflector CRs. The time delay was determined so that the neutron density signal  from the CIC did not become too small for reactivity measurement. The reactivity was measured continuously by the IK method. Digital computer was used to evaluate the reactivity from change in neutron density signal.
+
+44 Table 2-15.  Scram reactivity of control rods
+
+Items Scram Reactivity
+
+1)  Scram reactivity of reflector CRs
+
+kcrit
+
+kRCR-in
+
+R(∆k/k)
+
+2)  Scram reactivity of all CRs
+
+kcrit
+
+kACR-in
+
+A(∆k/k) 0.99908 ± 0.00045
+
+0.91222 ± 0.00058
+
+0.0953 ± 0.0007
+
+0.99908 ±0.00045
+
+0.68873 ± 0.00064
+
+0.4510 ± 0.0008
+
+Table 2-16. CR position at two step scram*
+
+CR position [mm]
+
+R B efore scram F irst step scram S econd step scram 1 775±5 1 775±5 55±5**
+
+1 1 775±5 1 775±5 55±5**
+
+2 1 775±5 55±5** 55±5**
+
+## 3 F
+
+ull out  55±5** 55±5** *:Sinking of CR driving mechanism was considered **: Control rods are inserted slightly below 0 mm at scram.
+
+Table 2-17. Scram reactivity at two-step scram
+
+Scram  Measured scram reactivity [∆k/k] Error C/E1 (%) Reflector CRs 0.12±0.012 -17
+
+All CRs  0.46±0.046  10 (eff=0.007) 45
+
+##### 2.2.1.6. HTTR-TC
+
+Isothermal temperature coefficients for fully-loaded core are evaluated from the effective multiplication factors by the following relation:
+
+Where: n:    Temperature coefficient between Tn and Tn+1  (k/k/K) Tn:  Core temperature at n th measurement (K) Tn+1:  Core temperature at n+1 th measurement (K) kn:   Effective multiplication factor at Tn kn+1:  Effective multiplication factor at Tn+1
+
+The critical control rod  positions are changed  with temperature elevation in the real reactor operation. However, the control rod position should not be changed in calculation to obtain the reactivity difference. The critical positions given in Table 2-18 as CR position are to be used for calculation of effective multiplication factors. The effective multiplication factors are calculated for the following temperatures:
+
+280,   300,  340,  380,  420,  460,   480 (K)
+
+Temperature coefficient  for following temperatures are evaluated from the effective temperature coefficients with the above relation.
+
+290    320  360  400  440   470    (K)
+
+Additionally, the  critical control rod positions are evaluated at temperature of 480K. The insertion depths of C, R1 and R2 are at the same level. All of R3 is fully withdrawn.
+
+Table 2-18.  Control rod position for temperature coefficient evaluation
+
+CR Group  Critical positions* (mm) C 1777 R1 1777 R2 1777 R3 Full out *These values are obtained from the critical positions (T4-3005) by correcting with lifting effect of CR driving mechanism (about -14mm) and temperature effect from 25  to 27  (about 2mm).
+
+HTTR-TC by diffusion calculation
+
+The isothermal temperature coefficients were evaluated using the CR-block model. It was impossible to calculate isothermal temperature coefficients directly due to mesh division of the core calculation model. Therefore, the isothermal temperature coefficients at 1776mm were evaluated by interpolating the results at 1740mm and 2030mm. In the calculation, four kinds of microscopic cross section set were  used. Each layer of fuel block use same microscopic cross section set. Air in void of graphite and Al of temporary neutron detector holders were not considered. )( 1
+
+11
+
+1 nnnn nn n TTkk kk − ⋅ ⋅ − = ++
+
++ρ
+
+46 47
+
+Table 2-20. Criticality CR position at 480K
+
+CR position [mm] C, R1, R2  1825 R3 4060
+
+HTTR-TC by Monte Carlo Calculation
+
+The analytical method for HTTR-TC is as same as that for HTTR-FC. The results are given in Table 2-21:
+
+Table 2-21. Temperature coefficients of HTTR core
+
+Items Temperature coefficients
+
+Effective multiplication factor for
+
+different temperatures
+
+k300
+
+k340
+
+k380
+
+k420
+
+k460
+
+k480
+
+Temperature coefficients (k/k/K)
+
+320
+
+360
+
+400
+
+440
+
+470
+
+Critical control rod position at 480K
+
+C, R1, and R2 (mm)
+
+R3 0.99762 ± 0.00054
+
+0.99273 ± 0.00051
+
+0.98621 ± 0.00050
+
+0.97990 ± 0.00050
+
+0.97393 ± 0.00057
+
+0.97221 ± 0.00051
+
+-1.23 × 10-4
+
+-1.66 × 10-4
+
+-1.63 × 10-4
+
+-1.56 × 10-4
+
+-0.91 × 10-4
+
+1789
+
+Full out
+
+The control rod positions at critical condition were measured for three different core temperatures (T). The core temperature was obtained by averaging core-inlet and -outlet coolant temperatures. The control rod positions  and core temperatures are summarized in Table 2-22:
+
+48 Table 2-22.   Control rod positions and core temperature
+
+CR position (mm) CR group  T=22.7    T=122.0   T=144.9  C 1751*±5  1873±5  1903±5 R1 1751*±5  1873±5  1903±5 R2 1751*±5  1873±5  1903±5 R3  Full out  Full out  Full out *:Sinking of CR driving mechanism (14mm) was considered. **After taking out temporary detectors from core
+
+The temperature effect was evaluated from CR positions, using calculated control rod worth curve. The isothermal temperature coefficients are given in the following Table:
+
+Table 2-23. Isothermal temperature coefficient
+
+Temperature range ( )  Iso.temp.coeff. (k/k/T) 22.7~122.0  -1.34E-4* 122.0~144.9  -1.42E-4* 49
+
+#### 2.2.2. France
+
+##### 2.2.2.1 General analysis method and model description
+
+Codes and calculation scheme
+
+The French reactor physics  code  system  SAPHYR has been used in the following HTTR calculations. SAPHYR gathers several codes developed at CEA like APOLLO2 [2-23] (transport) based on a database produced with THEMIS/NJOY, CRONOS2 [2-24] (diffusiontransport), FLICA4 (3D- thermal hydraulics), ..., which are interconnected. This code system, initially dedicated to PWR calculations and research  &  development purposes, seems to be well adapted for the assessment of the HTGR  performances and characteristics. Finally, the Monte-Carlo code TRIPOLI4 [2-25] has also been used throughout the study.
+
+All the HTTR problems proposed in reference [2-21] have  been  treated  considering two  calculation  methods:  one  based  on a Transport – Diffusion calculation scheme and a second one based on a Transport – Monte-Carlo calculation scheme. Figure 2.33 illustrates the general procedure. The standard 172-groups or point-wise cross sections library issued mainly from JEF-2.2 are used for the calculations.
+
+JEFF2.2
+
+## 172 group-fuel compact cross sections
+
+N group-fuel and control block cross sections Pointwise cross sections
+
+TRIPOLI4
+
+Monte Carlo core calculation
+
+CRONOS2
+
+N groups diffusion core calculation
+
+APOLLO2
+
+Fuel and control blocks transport calculations
+
+## 172 groups - Pij method - general geometry
+
+APOLLO2
+
+1D cylindrical cell transport calculation
+
+## 172 groups - Pij method - Double heterogeneity
+
+Core keffectif Core keffectif
+
+FIG. 2.33. Description of both calculation schemes.
+
+It is noteworthy that as far as the Transport-Diffusion calculations are concerned, two different approaches have been used in terms of core modelling. The first one, a rough model with strong hypotheses (homogenised fuel block, no streaming effect, …) led to preliminary predictions  of  the HTTR-FC, EX and CR problems (first results). Then, enhancements to
+
+50
+
+improve the modelisation have been identified, assessed and finally implemented in course of revised calculations using new benchmark data proposed in [2-27]. This has been done for all the HTTR benchmarks (FC, EX, CR, SC and TC) and constitutes the second prediction (final results).
+
+Cylindrical calculation of the fuel compact
+
+Knowing that the stochastic geometries calculations (coated fuel particles -  CFP  randomly distributed in the fuel compact) is not available in the Monte-Carlo code TRIPOLI4, a 1D-cell calculation has been performed as a first step. It takes into account  a  precise spherical description of the particles with all their coatings which themselves fill the annular part of the cylindrical geometry of the fuel compact (Figure 3.34) with a packing density around 30 %. The self-shielding of the uranium is calculated during this calculation stage. A collision probability method is used to solve the transport equation with 172 energy groups. The critical buckling search allows taking into account the neutron leakage by the addition of a homogeneous leakage term in the form of DB 2Φ. The extra region of the cylindrical cell is representative of the other fuel cells disposed around with the triangular pitch of the fuel rods in the assembly. FIG. 2.34.  Cylindrical Fuel Cell Model.
+
+This first stage  provides  fuel compact-homogenized 172-group cross sections for Monte-Carlo core calculations (TRIPOLI4). Therefore, in the core calculations performed by TRIPOLI4, point-wise cross sections are used everywhere in the core except in the fuel rod region where the multigroup cross sections have been generated with APOLLO2.
+
+Although that the CFP might be directly considered in the 2D fuel element calculations, as for TRIPOLI4 the same  fuel compact averaged 172-group cross  sections have been used in the 2D transport model described hereafter. This avoids calculating the selfshielding in the 2D configuration and results in a large saving of CPU time without making severe assumption. 51
+
+Fuel block 2D-calculations
+
+This stage must lead to an averaged flux weighted library of the different fuel blocks existing in the core. This library of n-group-constants is directly read during  the  core  diffusion calculations. The energy structures (n = 2 to 20) are given in annexe. A 172 group-collision probability method is used in the 2D-fuel block geometry (Figure 2.35). The  fuel  handling hole zone is modelled by a lower graphite density. As  far  as  the  burnable  poisons  (BP)  are concerned, the B4C and graphite pellets are axially homogenised with the graphite matrix in order to reduce the number of calculations from 32 to 16 and to simplify the core calculations. The impact of this axial homogenisation is important and has been evaluated hereafter.
+
+FIG. 2.35. 2D-fuel block geometry.
+
+These  2D  calculations were performed in  infinite medium with a critical buckling search. A B1 homogeneous neutron leakage model has been retained as a first step. This led to isotropic diffusion coefficients and did not allow taking into account the streaming effect. The Pij model gives a flux evaluation in each region depicted in Figure 2.35. An example of the power distribution in a fuel block is given in Figure 2.36 (the map is normalised to 100).
+
+FIG. 2.36. Power Distribution in the f343320 fuel block.
+
+52 The 2D-results of the fuel blocks in fundamental mode are gathered in the Table 2-24 below  and  an  example  of  the average neutron flux obtained for the lower and the higher enriched fuel blocks are given in Figure 2.37.
+
+Table 2-24.  2D-Transport Calculations on the Fuel Blocks
+
+Fuel Block  Enrichment [% masse]  Multiplication factor  Migration Area [cm 2] f343320 3,4  1,10650  491,05 f393320 3,9  1,14991  487,14 f433120 4,3  1,18391  486,43 f483120 4,8  1,21366  481,82 f433325 4,3  1,15656  476,90 f523325 5,2  1,20380  470,53 f593125 5,9  1,24481  469,50 f633125 6,3  1,25798  468,43 f633325 6,3  1,24962  465,50 f723125 7,2  1,28937  463,70 f793125 7,9  1,30862  457,99 f673320 4,6  1,28423  467,60 f793320 7,9  1,31733  459,52 f943120 9,4  1,36335  458,81 f993120 9,9  1,37213  455,45
+
+FIG. 2.37.  Neutron Spectrum in the fuel block
+
+Control blocks 2D-calculations
+
+From the previous calculations, the average fluxes of the fuel blocks were used as a 172 group-neutron source placed at the periphery  of  the  control  blocks  to  generate  the averaged weighted library needed for core diffusion  calculation.  A  similar  collision probability method has been used in the 2D-geometry shown in Figure 2.38 for the control blocks with and without the control rods inserted. 53
+
+As for the fuel blocks, the n-group-constants have  been  created  by  spatial homogenisation on the overall control block geometry. Indeed, among the  finite  element meshes available in the CRONOS2 diffusion code, it was first impossible to take into account the position and the orientation of the fuel and control blocks by an heterogeneous geometric description of these elements. Moreover, no transport-diffusion equivalence factors have been considered for the control blocks when the control rods are inserted. The averaged  neutron fluxes obtained in the control blocks are given in Figure 2.39.
+
+FIG. 2.38.  2D-Control Rod Blocks Geometry.
+
+FIG. 2.39.  Neutron Spectrum in the Control Rod Blocks.
+
+54
+
+Reflector cross section generation
+
+In the diffusion calculations, the n-group-cross sections of  the  replaceable  reflector have been evaluated with similar methods to those described in the previous section where a neutron source is placed at the periphery of the  blocks.  As far as the permanent reflector region is concerned, the cross sections come from a 1D-cylindrical core transport calculation (in its fully loaded configuration) performed with the Sn method.
+
+Core diffusion calculations
+
+An  hexagonal  3D-geometry  has  been  used for the core description. Each fuel and control block is represented  by  a  hexagon with a homogeneous composition. On this hexagonal mesh, the  finite element  method provides several polynomial approximations. In this  case, a second order exact integration (standard parabolic Lagrange) has been adopted horizontally and leads to 19 flux values per mesh (equivalent to a 24 homogeneous meshes in finite difference method).
+
+FIG. 2.40.  Core Axial Description for CRONOS2 code.
+
+Axially, a linear Lagrange method using Gauss Formula has been applied. Each fuel section (14 fuel compact stack) was divided into 6 meshes and the inter-space between fuel sections (3.4 cm of graphite) has been described explicitly per Fig. 2.40.
+
+Transport-Monte Carlo core calculations
+
+In spite of the homogenised fuel compacts, the core  model  developed  here  is  a  very detailed  3D-model of the HTTR with all components modelled explicitly. For these components, point-wise cross sections based on the JEF2.2 evaluation were used.  The  fuel compact was represented by a set of 172-group-constants coming from the previous transport calculation.  It is noteworthy that in this case the burnable poison had the exact axial description in opposition to the homogeneous axial description used in the core  diffusion calculations. 55
+
+FIG. 2.41.  Cross Section of Fully Loaded Core for TRIPOLI4 code.
+
+Only  the  core configurations with 18 and 30 columns have been considered here. Figures 2.41 and 2.42 show a cross section view of the fully loaded core and detailed axial and radial cross section views of the control rod and fuel blocks.
+
+FIG. 2.42.  Details of the Geometry used in the TRIPOLI4 code.
+
+Synthesis of the assumption of the initial diffusion calculation scheme
+
+The key factors in modelling the HTTR with  the  transport-diffusion calculation scheme are the following: •  the BP are axially homogenized •  the streaming effect is not taken into account everywhere in the core •  homogenised hexagons are considered without equivalent factor in order to respect the absorption  rates  of the BP and the control rod (CR) between both transport and diffusion calculation stages •  flux-weighted cross sections are used for the reflector •  CR insertion on the top reflector not taken into account
+
+56 The  following  section provides the results taking into account these assumptions. Then, their impacts on the results have been assessed. They have been reconsidered in course of the revised calculations according to the results of these assessments.
+
+##### 2.2.2.2  First Results
+
+HTTR-FC and EX
+
+The calculations performed with the two different methods are gathered in Table 2-25. It is important to note that all the keff-values of the Table 2-25 are corrected with a  ∆k of 0.004 in order to take into account the presence of the control not fully withdrawn to the top of the reflector and not considered in the core models.
+
+All the preliminary calculations underestimated the number of fuel columns needed to achieve the first criticality (Diffusion calculations: 10 columns; Monte-Carlo calculations: 17 fuel columns). As it can be seen in Table 2-25, the discrepancy between the calculations and the experiment at least ranges from ∆k = 0.017 to 0.058 at 18 fuel columns loading and from ∆k = 0.01 to 0.033 at full core.
+
+It is noteworthy that the observed discrepancies decrease with increasing  number  of  fuel columns in the core. Due to the large experimental uncertainty at 30 fuel columns loading, the differences between the calculations and the experiment are within the error bar, whereas at the  thin  annular  core  assembly  the discrepancies are significant. Two reasons for the latter circumstance can be proposed. The first would be that the two steps transport-diffusion calculation based on the fundamental mode assumption would be less and less appropriate as one  goes toward the annular core configuration. The second would concern the level of the actual boron impurity in the dummy fuel blocks and of the residual air (instead of helium) in the graphite pores. As far as the latter is concerned, the impurities of some dummy fuel blocks have been re-measured by JAERI and revised  data [2-27] have  been  recommended  for  the recalculation of the first criticality (HTTR-FC2).
+
+Table 2-25.  Experimental, Monte-Carlo and First Diffusion Results
+
+CRONOS2 3D - (first model) • diffusion 8 gr • homog. Fuel block • no streaming • axially homog. BP ∆k [%∆k/k] TRIPOLI4 3D Monte-Carlo
+
+## 172 gr & pointwise
+
+∆k [%∆k/k] EXPERIMENT
+
+30 col  1.1698 14.5 %  1.14630 ± 0.0009  12.8 %  1.13630 ± (> 3.6%) 28 1.1691  14.5 % 26 1.1596  13.8 % 24 1.1399 12.3 % 22 1.1158  10.4 % 20 1.0886  8.14 % 19 1.0745  6.93 %
+
+## 18 col  1.0580 5.48 %  1.01710 ± 0.0009  1.68 %  subcritical
+
+16 1.0383  3.69 % 14 1.0284  2.76 % 12 1.0184  1.81 % 10 1.0044  0.44 % 9  .9970  - 0.3 % 57
+
+In  the  course  of the studies, the following reasons for the above mentioned discrepancies (especially  for  the simplified Transport – Diffusion calculation scheme) have been identified and quantified:
+
+•  A non-adequate treatment of the axial self-shielding in the BP rods, •  An underestimation of the neutron streaming (due to large channels of the CR blocks), •  The neglect of the detailed structure of the HTTR fuel block in the core calculations.
+
+These main physical effects and their impacts on the core reactivity are briefly depicted in  Figure  2.43 for the case of the annular core configuration. Similar tendencies can be observed for the full core configuration. Nevertheless, different absolute values (into bracket Figure  2.43)  are  obtained  for  the quantified physical effects due to the harder neutron spectrum in the fully loaded core. Indeed, the observed weight of the boron absorption in the BP is different in this case. ~ 4 % (2.5 %)
+
+~ 1.8 % (1.3 %) ~ 1.5 % (2.2 %)
+
+Referen calculation
+
+Reference
+
+calculation
+
+Case 1 = reference + BP
+
+Case 1 = Reference + BP homogenised axially
+
+Case 2 = case 1 +Case 2 = case 1 + without streaming effect
+
+Case 3 = case 2 +Case 3 = case 2 + homogenised fuel blocks Increasing reactivity
+
+(Monte Carlo method
+
+FIG. 2.43.  Key factors in modelling and their impact on the reactivity for the 18 fuel columns core configuration (and full core).
+
+For the thin annular core, starting from a best estimate calculation and neglecting the fact that the burnable poison was axially a succession of boron and graphite pellets leads to a predicted reactivity 1.5 % lower than considering  the  actual  heterogeneous  composition  of these burnable poisons (3D Monte Carlo estimation). On the opposite, a core calculation that does not take into account the streaming effect will result in an increase of the reactivity of about 1.8 %. At this stage, it is interesting  to  note  that  by  making  two  strong  physical hypotheses a result not far from the best  estimate calculation can be obtained. Finally, a discrepancy on the order of 4 % can be achieved if an insufficient description of the fuel block is used to model the high level of radial heterogeneity (2D Monte Carlo estimation).
+
+Therefore, the HTTR-FC2 benchmark has been a  good  opportunity  to  implement  the new enhanced methods coming from this analysis and to evaluate the progress considering the new data.
+
+58
+
+HTTR-CR
+
+Transport-diffusion calculations
+
+The control rod insertion depths have also been evaluated to achieve criticality in the three configurations  recommended  by  the  benchmark problem HTTR-CR (thin and thick annular core and fully loaded core). The results corresponding to the transport-diffusion method are given in the following Table 2-26 with the calculational approach illustrated in Figure 2.44.
+
+Table 2-26.  Critical Insertion Depths of the Control Rod
+
+Configuration: Number of fuel columns  Control rod critical positions from the bottom of the active core (thin annular core) 18  251 cm (thick annular core) 24  181 cm (fully loaded core) 30  151 cm
+
+FIG. 2.44.  Effective multiplication factor as a function of the control rod position.
+
+It should be noted that the core model used here does not allow taking into account the orientation of the control rods in the homogeneous block description, as it is also the case for the position of the burnable poison in the fuel element.
+
+Transport-Monte Carlo Core Calculations
+
+As  far  as  the second method is concerned (transport-Monte Carlo) it is noteworthy that, as recommended by the benchmark problem, the structural materials of the control rod have not been taken into account. Conversely, a detailed axial description of the control rods has been done as depicted in Figure 2.45. 59
+
+FIG. 2.45.  Axial Cross Section View of the Inserted Control Rods.
+
+The calculations aimed to tentatively evaluate the critical insertion depth of the control rod  in  the fully loaded core configuration have been performed. Two control rod insertion depths have been considered. The first one -178.7 cm-  is  the experimental value and the second one -170 cm- comes from an estimation of the control rod efficiency obtained in the diffusion calculations. The results are given in the Table 2-27 below:
+
+Table 2-27.  Reactivity for Two Control Rod Positions (Full Core)
+
+Configuration: Number of fuel columns  Control  rod position from the bottom of the active core  keff
+
+(fully loaded core) 30  178.7 cm  1.00850±0.0009 (fully loaded core) 30  170.0 cm  0.99840±0.0009
+
+From  the  results  above,  the  critical rod position can be evaluated to  171 cm. As a conclusion, one can note that, compared with the Monte Carlo, the  control  rod  worth  is overestimated with the diffusion method (without utilizing equivalence factor).
+
+##### 2.2.2.3 Modification to Model and Assessment of Improvements
+
+New finite elements in the core diffusion model
+
+New finite elements recently implemented in CRONOS-2 have been used. They allow taking into account the exact position of the burnable poison in the fuel blocks and the fuel element orientation in the core. Indeed, from the 2D transport calculations illustrated on the Figure 2.34, the  fuel element was initially homogenised in one hexagonal finite element. Then, with the help of the new available finite elements, two different meshes were considered to describe the fuel elements with 24 radial meshes: 24 equilateral triangles (type I) or the cutting out depicted in Figure 2.46 (type II). Only the last one has been kept in the final model because of the fact that it  is  the  only  one that allows homogenising the  poison with its associated graphite without homogenising partially the fuel compacts. Therefore, the fuel element structure is described by using  three different mediums and the flux is calculated for each point described in Figure 2.46 (61 points for the hexagonal element).
+
+60 Fuel element description in transport calculations (APOLLO2)
+
+Fuel element geometry Fuel element description in diffusion calculations (CRONOS2)
+
+FIG. 2.46.  Fuel element modelling in the improved Transport – Diffusion calculation scheme.
+
+When such a heterogeneous fuel block geometry is used in the diffusion calculations, the impact have been evaluated for the three core configurations with 18, 24 and 30 columns, on the basis of a 2D simplified core with no  axial  leakage and with an average uranium enrichment. The diffusion calculations  are  compared to the Monte Carlo one. The results obtained for the first configuration are presented in Figure 2.47.
+
+FIG. 2.47.  2D calculation comparison for different energy group structure in the diffusion calculation - 18 columns core 61
+
+As previously mentioned, the most important impact is obtained for the  18  columns core loading. As far as the full core is concerned, the diffusion-Monte Carlo 2D-discrepancies become  quite acceptable with the use of the new finite elements. Moreover, the use of equivalence factors has been implemented in  order to respect the global absorption rate between the APOLLO-2 transport calculations (172 groups) and the  CRONOS-2  diffusion calculations with few groups. This option has not been considered afterwards  because  of  it small impact (Figure 2.47) on the finite element of type II.
+
+As a conclusion, a detailed description of the fuel block improves largely the results by giving a higher weight to the BP absorption in the fuel blocks.  It  allows  getting  quite acceptable values comparing to the reference TRIPOLI4 2D-calculation for the full core but a remaining  discrepancy  of about 1% can be observed for the annular core. This could be attributed to the cross section generation stage where the environment of the BP would not be representative  of  the one existing in the annular core configuration. Indeed, in this configuration the BP is surrounded by much more graphite (reflector) that thus increases the absorption flux-weighted cross-section. Besides, it would appear that there is actually no specific trend concerning the energy structure to be retained in the CRONOS-2 calculations.
+
+Streaming modelling in the transport calculations
+
+For improving the Transport – Diffusion calculation scheme, the streaming effect has been taken into account by using anisotropic diffusion coefficients in the core calculations. These diffusion coefficients have been evaluated in the fuel element transport  calculation performed by APOLLO2. The Benoist method [2-29] available in APOLLO2 (called TIBERE model)  is  based on the B1 heterogeneous neutron leakage model. However, it might not be applicable in the large HTTR channels of the control rod graphite blocks (three large channels per block). Therefore, another analytical model (Benoist [2-30]) has also been tested on one control rod block alone and compared  to  the  TIBERE model. With this formulation, the corrected diffusion coefficient is given by:  
+
+  
+
+ ++= k mt
+
+c
+
+m
+
+k Q c V VD λλ 11
+
+3 1        (1)
+
+where:
+
+• ∆−= 11rQ cBQ ZZ 4 3
+
+## 2 π
+
+−= k = r, z  (radial or axial)
+
+• c  is the channel radius,  mλ  is the mean free path of the moderator (graphite)
+
+• 2cVc π= is the channel volume,  tV  is the cell volume,  ZB  is the axial buckling
+
+and: t
+
+c V V b
+
+b
+
+'1 '2 1 − −+ =∆ γ γ , 1 2 1
+
+' +
+
++ = γ
+
+γ b , m
+
+c λ γ =
+
+In order to validate  these  models  (TIBERE and analytical model), Monte-Carlo and diffusion calculations have been performed on the simplified geometry: the control rod block is surrounded by fuel elements and the axial structure of the geometry is the same as HTTR’s core. The results are gathered in Table 2-28.
+
+62 TABLE 2-28.  Streaming Effect Calculated on the Simplified Core
+
+TRIPOLI4 CRONOS2 keffectif ± 3σ 2 gr.  8 gr.
+
+Homogeneous control block  1,27958 ± 0,00090 1,26320 1.27397
+
+Heterogeneous control block
+
+TIBERE  1,27247 ± 0,00100 1,26040 1,27057
+
+Analytical formulation    1,25657  1,26672
+
+Streaming effect [pcm]
+
+TIBERE   222  267
+
+Analytical formulation  560 ± 135  526 570
+
+The  streaming effect calculated by CRONOS2 is underestimated when the anisotropic diffusion coefficients are evaluated by  the  TIBERE model. The underestimation of the streaming effect is the consequence of a  non-adequate calculation of the axial diffusion coefficient (underestimation of − 20 to − 25 % on Dz calculation). On the other hand, the use of an analytical model for the axial diffusion coefficient allows obtaining results in good agreement with the reference (Monte-Carlo method).
+
+##### 2.2.2.4 New Results
+
+New available data
+
+The new data benchmark (HTTR-FC2) has been defined by JAERI [2-27]. It has been a  good  opportunity  to  implement  the new enhanced methods coming from the previous analyses. Besides, the impact of these new data on the reactivity  has  been  evaluated  on  the basis of the Monte Carlo calculations and of the improved core diffusion calculations. These effects are listed in Table 2-29.
+
+Table 2-29.  Analysis of the Benchmark Data Impact on the Results
+
+Number of fuel columns 18  30 Residual air in the graphite porosity and reevaluated impurities in the dummy fuel blocks  − 0.82 % (1) − 0.3 % (1)
+
+Worth of the CR insertion to the top of the reflector (R2 group)  − 0.22 % (1)
+
+− 0.32 % (2) − 0.25 % (2)
+
+Temporary neutron detector  non evaluated  non evaluated
+
+(1) Evaluated with the Transport – Monte-Carlo calculation scheme (2) Evaluated with the Transport - Diffusion calculation scheme
+
+The  overall  effect  can  exceed  1 % according to the core configuration. One can note that the impact of the residual air in porosities and the  impurities  in  graphite  are much more higher in the thin annular core configuration. This could explain the decrease of the discrepancies between the experiment and the first calculation results, correlated to the number of dummy fuel blocks (graphite) discharged during the criticality approach. 63
+
+Diffusion calculation results
+
+As far as the diffusion calculations are concerned,  new  developments  carried  out  in APOLLO2 and CRONOS2 take into account:
+
+•  the exact position of the BP in the fuel block, by using new finite elements mesh in the core model
+
+•  the streaming effect, by generating anisotropic diffusion coefficients from both 2D-Pij calculations and analytical formulation.
+
+The use of the HTTR-FC2 data associated with a complete description of  the  axial heterogeneity of the BP poison led to new core diffusion calculation results. This was done for several energy structures in CRONOS2 without observing a main trend which would allow to select a reference as energy mesh.
+
+The final results are partially gathered in Figures 2.48 and 2.49. Figure 2.48 illustrates, with 8 energy groups, the impact of the different model  assumptions  on  the  reactivity  as  a function of the number of fuel columns loaded into the core. Figure 2.49 shows a streaming effect  ranging  from  2.25 %  in  the  18 columns core configuration to 1.8 % in the full core configuration. These results highlight also the importance  of  the  used  leakage  model  for evaluating the neutron streaming in the control rods graphite blocks. Indeed, the first model (TIBERE model) gave some values varying from 1.8 to 1.5 %.
+
+FIG. 2.48.  keff values obtained with different core models.  FIG. 2.49.  Neutron streaming and fuel block homogenisation effect.
+
+It is noticeable that the number of fuel columns needed to achieve criticality increases by about 7 in comparison with the first results (Table 2-25) when considering the presence of the detectors and the CR inserted in the  upper  reflector.  However,  at  first  criticality,  a discrepancy remains between the diffusion and the Monte-Carlo calculations (0.9 % < ∆k/k < 1.7 %). This underscores the limits of a method based on a cross section homogenisation from a fundamental mode calculation (infinite medium) that is barely pertinent for the 18 columns core configuration. The actual environment (reflector blocks) should be considered and should take place instead of the white boundary condition in the  2D  APOLLO2  transport calculations, before homogenising and collapsing locally the cross sections inside  the  fuel element.
+
+64
+
+Final results of the HTTR-FC2 problem
+
+All  the  final  results  are  gathered in Table 2-30. In the case of the Monte Carlo code TRIPOLI4, the discrepancy between the measurement and the calculation for the  18  fuel columns configuration is reduced to  ∆k/k ~ 0.8 %, when considering the revised data of  the HTTR benchmark.
+
+As far as diffusion calculations are concerned, the discrepancy is  now  reduced  to ∆k/k ~ 2.7 or 1.7 %  (depending  on  the  number of energy groups), when taking into account the improved models and the revised data. After all, it must be stressed that all the calculation results obtained for the fully loaded core configuration fit the  experiment,  especially  if  one consider the experimental uncertainties.
+
+Table 2-30.  Experimental, Monte-Carlo and Final Diffusion Results
+
+TRIPOLI41)
+
+3D Monte Carlo
+
+## 172 gr & pointwise
+
+CRONOS2 1)
+
+(Final model) • 3D Diffusion • 4 groups - 8 groups EXPERIMENT
+
+30 col.  1.13833 ± 0.00090  1.1362 - 1.1451  1.1363 ± (> 3.6 %)
+
+## 24 col.  * 1.1000 - 1.1096  1.0834 ± (> 2 %)
+
+## 19 col.  1.02692 ± 0.00043  1.0351 - 1.0432  1.0152 ± ?
+
+## 18 col.  1.00855 ± 0.00090  1.0178 - 1.0275  subcritical
+
+1) detector impact included (∆k = 0.002) but not modelised
+
+Excess reactivity HTTR-EX
+
+All the excess reactivity are gathered below according to the previous values and the definition of the excess reactivity given in [2-22].
+
+Table 2-31.  Excess Reactivity for Different Core Configurations
+
+Excess Reactivity 1) Number of loaded fuel columns
+
+(keff – 1)/keff [%]  18 19 24  30
+
+Diffusion  1.7 < ∆k/k < 2.7 3.4 < ∆k/k < 4.1 9.1 < ∆k/k < 9,9 12,0 < ∆k/k < 12,7
+
+Monte-Carlo  + 0.85  + 2.6  Non evaluated  + 12,15
+
+1) detector impact included (∆k = 0.002) but not modelised
+
+Control rod position for criticality: HTTR-CR
+
+The results presented in Table 2-32 correspond to the fully loaded core configuration. The control rod positions for obtaining criticality with all the inserted CR are: 178.7 cm with the diffusion calculations and 177.9 cm with Monte-Carlo code. 65
+
+Table 2-32:  kEFF for Different CR Insertion Depths. Full Core
+
+Control Rod Insertion Depth [cm]  APOLLO2 – TRIPOLI4  APOLLO2 – CRONOS2  Exp.
+
+178,9 1,00117 ± 0,00024  1,00020 critical
+
+177,6 0,99972 ± 0,00038  0,99840 *
+
+It is noteworthy that the CR insertion depth is well evaluated with the diffusion core calculation despite of the discrepancies with  the Monte Carlo results observed in this configuration without the inserted CR. This remark underscores the fact that the CR worth is overestimated with the diffusion method especially in this case where no equivalence factors have  been  used  in  order to respect either the flux or the absorption rates between the multigroup transport calculations and the broad group diffusion core calculations.
+
+Scram reactivity: HTTR-SC
+
+In this section, the CR worth has been evaluated (Table 2-33) in the fully loaded core configuration and according to: INRodsControlcrit INRodsControlcrit kk kk ×
+
+− = .
+
+.ρ
+
+As  far as the CR insertion in the reflector is concerned, an unexplained result has been observed with the Monte Carlo calculation, whilst a good agreement can be observed for the overall CR worth inserted in the core. Once again, these results highlight the overestimation of the absorbant in the diffusion calculation when one compares  the  CRONOS2  results  to those of TRIPOLI4.
+
+Table 2-33.  Control Rod Worth
+
+TRIPOLI4 (Monte Carlo) CRONOS2 (diffusion) Exp.
+
+CR inserted in the reflector
+
+kcritique 1,00117 ± 0,00024  1,00020 *
+
+kRCR 0,92215 ± 0,00040  0,90245 *
+
+ρRCR [%]  8,56 10,83  12,0 ± 1,2
+
+All the CR inserted in the core
+
+kcritique 1,00117 ± 0,00024  1,00020
+
+kRCR 0,68396 ± 0,00030  0,63982
+
+ρRCR [%]  46,32 56,31  46,0 ± 4,6
+
+66
+
+Isothermal temperature coefficient in the core : HTTR-TC
+
+The temperature coefficients have been evaluated from the following expression:
+
+()21 12 1 .
+
+21
+
+## 21 TTkk
+
+kk TT TT −×
+
+− =ρ
+
+They  have  been estimated only from keff of the core diffusion calculations performed at different temperature (Table 2-34).
+
+Table 2-34.  KEFF  as Function of the Temperature
+
+Temperature [K]  APOLLO2 – CRONOS2 300 1,00395 340 0,99724 380 0,99088 420 0,98455 460 0,97823 480 0,97525
+
+According  to  the  results  gathered in Table 2-35, the temperature coefficients range from - 15 to - 16 pcm/°K between 300 to 420 K.
+
+Table 2-35. Isothermal Temperature Coefficients
+
+Temperature coefficients [pcm/°K]  APOLLO2 – CRONOS2 ρ320 − 16,75 ρ360 − 16,09 ρ400 − 16,22 ρ440 − 16,40 ρ470 − 15,62
+
+##### 2.2.2.5 Concluding Remarks
+
+The HTTR’s core physics benchmarks have been treated with two different calculation scheme:  a  transport-diffusion method and a transport-Monte Carlo one. These benchmarks constitute the first opportunity in reactor physics to model and benchmark the codes and methods in thin  annular core geometry. This important point led to the limitations of the classical two-steps core modeling based on a transport-diffusion chained calculations in order to take accurately into account the  core/reflector interface. Moreover, one of the other characteristics of the HTTR core in its annular configuration was the presence of  a  large number of uncommon big channels offering the possibility for the neutrons to leak from the active zone (streaming effect). In addition to that, the  important axial and radial heterogeneities in the core (burnable poison, many different enrichments) make the HTTR a real challenge in reactor physics.
+
+Quite acceptable results are obtained in  the  fully loaded core configuration. Besides, some  discrepancies  between  the calculations and the experiment appear for intermediate core configuration (thin annular core) close to criticality. Parts  of  these
+
+67
+
+discrepancies were reduced to  ∆k/k ~ 0.85 % with the Monte-Carlo  calculations  taking  into account the new benchmark data (air in porosity and impurities  in  graphite).  As  far  as  the deterministic approach is concerned, the discrepancies were analysed and tackled by different treatments. However, a difference of at least  1 % remains between the diffusion and the Monte Carlo calculations in the annular core configuration when considering revised data.
+
+##### 2.2.2.6 Addendum
+
+Several energy structure have been tested in course of this study for the core diffusion calculations (see Table 2-36): the 2, 4, 8 and 20 group meshes, currently applied in the PWR studies and the 6 and 13 groups which have  already  been  used  in  the  GT-MHR  related analyses. Table 2-36. Group Structures for Core Diffusion Calculations
+
+## 13 gr  6 gr  Limite inférieure en
+
+énergie [Mev] 1 1  1,8315,10-1
+
+2 1,0104,10-3
+
+3 2 1,6745,10-5
+
+4 4,1293,10-6
+
+5 3 2,13,10-6
+
+6 1,305,10-6
+
+7 7,90,10-7
+
+8 4 6,2501,10-7
+
+9 3,91,10-7
+
+10 3,145,10-7
+
+11 5 1,15,10-7
+
+12 5,9,10-10
+
+13 6 1,1,10-10
+
+The 6 and 13 group structures
+
+## 8 gr  4 gr  2 gr  Limite inférieure en
+
+énergie [Mev] 1 1  9,0718,10-1
+
+2 2,7324,10-3
+
+3 2 5,0045,10-3
+
+4 2,7679,10-6
+
+5 1,67,10-6
+
+6 3 1 6,2501,10-7
+
+7 1,6,10-7
+
+8 4 2  1,1,10-10
+
+The 2, 4 and 8 group structures
+
+## 20 gr  Limite inférieure en
+
+énergie [Mev]  20 gr  Limite inférieure en énergie [Mev] 1 4,493  11  5,560.10-5
+
+2 2,231  12  4,000.10-6
+
+3 1,353  13  6,250.10-7
+
+4 4,979.10-1 14  3,500.10-7
+
+5 1,832.10-1 15  2,200.10-7
+
+6 6,738.10-2 16  1,340.10-7
+
+7 2,479.10-2 17  7,700.10-8
+
+8 9,119.10-3 18  3,000.10-8
+
+9 2,035.10-3 19  1,000.10-8
+
+10 4,540.10-4 20  1,1.10-10
+
+The 20 group structure
+
+68
+
+#### 2.2.3. Germany [2-44]
+
+##### 2.2.3.1.  Introduction
+
+The calculations described in this report were performed within the framework of the IAEA Co-ordinated Research Programme (CRP) on "Evaluation of the High Temperature Gas Cooled Reactor Performance". The benchmark problems of the HTTR's start-up core physics experiments have been  defined by the Oarai Research Establishment, JAERI. The  ISR of Research Centre Jülich joined this CRP with the aim of testing its reactor code system. The intention is to use the HTTR's start-up core experiments in order to find validation criteria for the calculational methods hitherto used and the scope within which they can be applied. Pretest and post-test results have been obtained for the benchmark problems HTTR-FC  and HTTR-EX described in detail in [2-34]: the number of fuel columns has been evaluated for the approach to first criticality when the fuel columns are charged from the core periphery, and the excess reactivities for 18, 24, and 30 fuel columns have been determined.
+
+##### 2.2.3.2.  Computational Methods and Nuclear Data
+
+An overview of the code system used in the criticality calculations is given in Figure 2.50. All calculations performed are based on  a  123-group cross section  library  which was generated from the JEF-2.2 nuclear data files [2-35]. The NITAWL module of the AMPX-77 system [2-36] was used to calculate shielded cross sections in the resonance region where the Nordheim integral treatment is employed. The  double heterogeneity of the fuel due to the coated particles (cp)  and the fuel rod assembly was taken into account by  Dancoff factors which were calculated by the ZUT code [2-37] and supplied as input data for NITAWL. The 1-d cell calculations were performed by the  TOTMOS code [2-38], a one-dimensional transport-corrected integral spectrum code for  eigenvalue calculations and the generation of homogenized broad  group constants.  In order to evaluate the effect of  the inhomogeneous distribution of the burnable poison (BP) in the axial direction, additional cell calculations in two-dimensional r-z geometry were performed by the discrete ordinates transport code DORT [2-39]. The eigenvalues  and flux distributions of the whole reactor were calculated by the diffusion code CITATION [2-40] in 3-d triangular-z  geometry. The OCTAGN module  was used to transform the  cell-weighted broad  group cross section data into a format such that they can be used in the CITATION code. To take into account the effect of increased neutron streaming in the coolant channels and in the large holes of the core  and the reflector, anisotropic diffusion coefficients were used. These were calculated by the MARCOPOLO code on the basis of the multigroup integral transport theory [2-41]. In order to estimate the influence of this effect the calculations for the whole reactor were performed with and without streaming corrections.
+
+The  geometric dimensions of the fuel  and core components and the atom number densities of the materials given in Ref. [2-34] were used in the pre-test calculations.  In the post-test calculations residual air in the pores of the graphite,  aluminium in the temporary neutron detector holders and a revised boron impurity in some dummy fuel blocks were taken into account [2-42].
+
+Dancoff Factors
+
+The NITAWL  code  considers the double heterogeneity of  a system  by Dancoff factors. The Dancoff factor  is defined as the probability  that a neutron emitted from the surface of the fuel region of the fuel element under consideration will have its next collision
+
+69
+
+in the fuel region of any other fuel element. Applying this definition to a fuel rod lattice filled with fuel in the form of coated particles the ZUT code calculates the Dancoff factor as a sum of the single rod Dancoff factor and the probability that a neutron leaving the first rod will reach another fuel rod and be absorbed there. The Dancoff factors were calculated for all the different types of compacts and are listed in Table 1 together with the  corresponding U 238
+
+resonance integrals. The Dancoff factors  remain nearly constant because they are only dependent on the slightly varying geometric dimensions of the fuel compacts and rods, and on the density of the graphite matrix. In pre-test and post-test prediction the Dancoff factors are the same. FIG. 2.50. Programme Structure of HTTR Calculations.
+
+Table 2-37. Dancoff Factors and  U
+
+## 238  Resonance  Integrals for  the Different  Uranium
+
+Enrichments
+
+Enrichment (wt.%)  Packing Frac. Vol. of Fuel Comp. (cm3) Boron Imp. (ppm) Dancoff Factor  U 238
+
+Res.Int.
+
+3.301 3.864 4.290 4.794 5.162 5.914 6.254 6.681 7.189 7.820 9.358 9.810 29.6 30.4 30.5 30.3 30.5 30.3 29.9 30.3 30.8 28.8 29.8 29.3 17.63 17.69 17.70 17.72 17.65 17.70 17.69 17.65 17.69 17.67 17.72 17.71 0.95 0.91 0.90 0.88 0.90 0.51 0.54 0.50 0.85 0.87 0.89 0.90 0.7225 0.7283 0.7284 0.7296 0.7300 0.7280 0.7270 0.7280 0.7258 0.7214 0.7223 0.7245 43.82 44.12 44.17 44.20 44.36 44.67 44.85 44.91 45.09 44.97 45.91 45.89
+
+70
+
+##### 2.2.3.3.  Pre-Test Calculations
+
+1-d Cell Calculations
+
+For the 15 types of  BP-fuel combinations  given in Appendix B of [2-34], onedimensional cell calculations were performed by  the TOTMOS code using the  following scheme:
+
+1.  123 cell-weighted  group constants of the cp-cell-model were calculated  in spherical geometry using a 123 group cross section library. The cell model consists of 3 zones: the kernel, the  coatings, and the corresponding matrix zone. A white boundary condition was used at the outer surface of the cell.
+
+2. Subsequently, 123 cell-weighted  group constants of the  fuel rod cell were calculated in cylindrical geometry and with the same group structure as used for the cp cell. The zones of the cylindrical fuel  rod  cell were: the central hole, the  fuel  compact, the graphite sleeve, the coolant channel, and the  corresponding  graphite block. The fuel rod cell is shown in Figure 2.51. The group constants of the materials in the fuel zone were the cell-weighted cross sections resulting from the cp cell calculation. The cross section of the fuel cell was equivalent to the cross section of the fuel block divided by the number of fuel rods. A white boundary condition was used at the outer surface of the cell.
+
+3.  In a subsequent third cell calculation, the cylindrical cell model shown in Figure 2.52 consists of a BP rod surrounded by  a second zone representing the remaining fuel block. The group constants of the materials in this second zone were the cell-averaged 123 group constants resulting from the fuel rod cell calculation. The cross section of the BP cell was the same as the cross section of the fuel block divided by the number of BP  rods. Again a  white boundary  condition was used  at the outer  cell  surface.  In this last step of the cell calculations, cell-weighted condensation was performed to four broad  energy  groups used in the calculations of the whole reactor.  The energy group structure of the four groups is given in Table 2-38.
+
+The k∞-values of the cp-, fuel- and BP-cell calculations are given in Table 2-39 for all 15 types of BP-fuel combinations.
+
+FIG. 2.51. Pre-Test 1-d Cylindrical Model of the Fuel Rod Cell for TOTMOS. 71
+
+FIG. 2.52. Pre-Test 1-d Cylindrical Model of the BP Cell for TOTMOS
+
+Table 2-38. Group Structure in the Diffusion Calculation
+
+## 4 Group Set (Pre-Test)  26 Group Set (Post-Test)
+
+Group Upper Energy Boundaries (eV) Group Upper Energy Boundaries (eV)
+
+1 1.492∗107 1 2 3 4 1.492∗10 7
+
+7.408∗106
+
+3.679∗106
+
+6.721∗105
+
+2 1.111∗105 5 6 7 8 9 10 11 12 1.111∗10 5
+
+1.931∗104
+
+3.355∗103
+
+1.585∗103
+
+7.485∗102
+
+2.754∗102
+
+1.301∗102
+
+6.144∗101
+
+3 29.0  13 14 15 16 29.0 13.7 8.32 5.04
+
+4 1.86 17
+
+18 19 20 21 22 23 24 25 26 2.38
+
+1.29 0.65 0.35 0.20 0.12 0.08 0.05 0.02 0.01
+
+72
+
+Table 2-39. Pre-Test Results of the TOTMOS Cell Calculations; No BP Adjustment
+
+k ∞-Values of the ID. No. Enr. (wt.%) Cp Cell  Fuel Cell  BP Cell
+
+343320 393320 673320 793320
+
+433120 483120 943120 993120
+
+433325 523325 633325
+
+593125 633125 723125 793125 3.4 3.9 6.7 7.9
+
+4.3 4.8 9.4 9.9
+
+4.3 5.2 6.3
+
+5.9 6.3 7.2 7.9 0.6282 0.6562 0.7782 0.8208
+
+0.6771 0.6995 0.8713 0.8854
+
+0.6771 0.7163 0.7619
+
+0.7484 0.7619 0.7969 0.8208 1.4285 1.4604 1.5457 1.5610
+
+1.4957 1.5142 1.5996 1.6021
+
+1.4790 1.5095 1.5376
+
+1.5476 1.5559 1.5726 1.5802 1.1309 1.1819 1.3355 1.3716
+
+1.2167 1.2514 1.4161 1.4254
+
+1.1887 1.2437 1.2955
+
+1.2855 1.3002 1.3351 1.3565
+
+2-d cell calculations and BP adjustment
+
+In the 1-d TOTMOS cell calculations, the  axial heterogeneity of the BP is not explicitly taken into account. Thus, the efficiency of the BP is overestimated since the axial self-shielding of the BP cannot be considered. In order to find out the influence of the axial heterogeneity  of the  BP, 2-d cell  calculations were performed by the discrete ordinates transport code DORT. For this purpose two series of 2-d cell calculations were performed:
+
+1.  In a first series of DORT calculations, the BP region is homogenized as in the 1-d cell. The results are  given in Table 2-40  and  compared with the corresponding  results obtained by the TOTMOS code. It is seen that there is quite good agreement between the two computational methods.
+
+2.  In  a second series of  calculations the axial heterogeneity of the  BP is explicitly considered in the 2-d DORT calculations. The  geometric model is shown in Figure 2.53 and the results are presented in Table 2-40. It can be seen that the heterogeneity has quite a large influence on the infinite multiplication constant of the  BP cell  and considerably reduces the efficiency of the  BP in comparison to the 1-d cell calculations. 73
+
+In order to transfer this information into the 1-d cell calculation the B
+
+## 10 concentration
+
+was reduced in such a  way that the resulting  ∆k was the same as that  obtained in the two series of DORT calculations.  In all BP-fuel combinations, the B
+
+## 10 concentration had to be
+
+reduced by 22% to 30 %.
+
+Table 2-40. Pre-Test Infinite Multiplication Factors of the BP Cell Obtained by Different
+
+## Methods
+
+k ∞-Values of the BP Cell
+
+Case  TOTMOS Homog.  DORT Homog.  ∆k (TOTM.-DORT)  DORT Heterog.  ∆k (DORTHet.DORTHom.)
+
+343320 393320 673320 793320
+
+433120 483120 943120 993120
+
+433325 523325 633325
+
+593125 633125 723125 793125 1.1309 1.1819 1.3355 1.3716
+
+1.2167 1.2514 1.4161 1.4254
+
+1.1887 1.2437 1.2955
+
+1.2855 1.3002 1.3351 1.3565 1.1347 1.1855 1.3376 1.3737
+
+1.2204 1.2548 1.4181 1.4274
+
+1.1929 1.2475 1.2988
+
+1.2892 1.3037 1.3383 1.3594 0.0038 0.0036 0.0023 0.0021
+
+0.0037 0.0034 0.0020 0.0019
+
+0.0041 0.0037 0.0033
+
+0.0037 0.0036 0.0032 0.0029 1.1741 1.2225 1.3654 1.3981
+
+1.2575 1.2896 1.4417 1.4499
+
+1.2343 1.2852 1.3329
+
+1.3264 1.3401 1.3719 1.3908 0.0394 0.0370 0.0275 0.0244
+
+0.0371 0.0348 0.0236 0.0225
+
+0.0414 0.0378 0.0342
+
+0.0373 0.0363 0.0335 0.0313
+
+74 FIG. 2.53. Pre-Test 2-d Cylindrical Model of the BP Cell for DORT.
+
+Streaming correction
+
+The presence of the insertion holes in the control rod guide blocks and of the coolant channels in the fuel and reflector blocks leads to an increased neutron streaming in the axial direction. A possibility of treating this effect within  the diffusion theory is the use of anisotropic diffusion coefficients. These  are determined by the MARCOPOLO code which calculates anisotropic multigroup diffusion coefficients from the leakages of a heterogeneous lattice cell. For all types of blocks with insertion holes or coolant channels, 1-d cylindrical cells are defined which, in most situations, consist of a central hole representative of the block and surrounded by an  associated material zone. As typical examples, the cell models of the dummy fuel block MB-2 and of the control rod guide block CB-1 are shown in Figures 2.54 and 2.55. The MARCOPOLO code allows the calculation of the buckling-independent diffusion constants D g k (k=r,z) in these cells taking into account linear anisotropic scattering. The group constants used in the MARCOPOLO calculations were provided by the TOTMOS code. For the control rod guide blocks CB-1 and CB-2 and the reflector block RB-1, the ratio of the anisotropic diffusion coefficients to the homogeneous diffusion coefficients are given in Table 2-41. The resulting values for all block types of interest are input into the CITATION code in the form of these streaming correction factors. 75
+
+FIG. 2.54. 1-d Cylindrical Model of the Simplified Dummy Fuel Block B (MB-2).
+
+FIG. 2.55. 1-d Cylindrical Model of the Control Rod Guide Block CB-1.
+
+Table 2-41. Pre-Test Streaming Correction Factors Obtained by the MARCOPOLO Code
+
+Streaming Correction Factors
+
+CR Guide Block CB-1  CR Guide Block CB-3  Repl.Refl.Block RB-1 Group Dr/Dhom Dz/Dhom Dr/Dhom Dz/Dhom Dr/Dhom Dz/Dhom
+
+1 2 3 4 1.1403 1.1761 1.1812 1.1877 1.5740 1.9333 1.9497 2.0243 1.1562 1.1963 1.2016 1.2090 1.6317 2.0358 2.0537 2.1369 1.0199 1.0246 1.0286 1.0307 1.0513 1.0786 1.0836 1.0908
+
+76
+
+Whole reactor calculations
+
+Using the 4-group cross sections from the NITAWL-TOTMOS cell calculations the whole HTTR  reactor was modelled with the  CITATION diffusion  code. A 3-dimensional triangular-z model was  chosen. Each block was divided horizontally into 6 meshes and vertically into 4 meshes. The  assembly was modelled by dividing the volume into spectral zones related to the material compositions. There are 45 different material zones.
+
+Six pairs of control rods in the side reflector of the HTTR cannot be fully withdrawn to the top of the reflector. The effect of this CR insertion on reactivity is given as ∆k= 0.004 in Ref. [2-34] and is subtracted from the calculated keff-values. Fuel columns are loaded clockwise from the periphery to the centre according to the loading order given in Ref. [2-34]. A thin annular core is formed at 18 fuel column loading, and a thick annular core is achieved when 24  fuel columns  are loaded. A  full core contains 30 fuel  columns. According to this loading scheme four series of diffusion calculations were performed for 9 up to 30 fuel columns in the core:
+
+•  without streaming correction of the diffusion constant and without BP adjustment, •  with streaming correction, but without BP adjustment, •  with BP adjustment, but without streaming correction, •  with both corrections.
+
+The keff-values of these  four series are shown in Figures 2.56 and 2.57,  respectively. As can be seen, the influence of the streaming  correction is nearly independent of the  BP adjustment. With and without BP adjustment the streaming correction causes a difference in keff from ∆k= 0.02 at a loading with 9 fuel columns down to ∆k=0.015 for the case of a fully loaded core. This decrease in  ∆k can be explained by the  fact that dummy  fuel blocks with large holes and a great neutron streaming effect are subsequently replaced by  fuel blocks which exhibit nearly no streaming effect. Moreover, it is found that the neutron streaming in the coolant channels of the top and bottom replaceable reflector can be neglected, because the decrease in keff caused by this effect was only ∆k= 0.08 %.
+
+On the other hand, the effective multiplication constants are increased by the BP adjustment: the "boron adjusted" keff-values are greater than the uncorrected ones, and the difference in keff increases with the increasing number of fuel rods. But it is evident that the increase of the effective multiplication constant due to the BP adjustment is not compensated by the effect of neutron streaming.
+
+When taking into account the neutron streaming in the channels and holes of core and reflector, the neutron shielding in the BP rods, and when the reactivity of the CR insertion is subtracted, the  first criticality will be achieved at 16 fuel columns loading. The excess reactivity amounts  to  ∆k/k=0.42 %. The excess reactivity of the thin, thick, and the fully loaded core is 2.48 %, 10.27 %, and 13.85 %, respectively. All results are shown in Tables 242 and 2-43.
+
+These results agree very well with the average results of the deterministic calculations of all CRP-5 participants presented at the 1st Research Coordination Meeting [2-22]. 77
+
+Table 2-42. Pre-Test Effective Multiplication Factor and Excess Reactivity at the First Criticality No. of Fuel Columns  keff ρ [%∆k/k]
+
+15 16 0.9991 1.0042 -0.90 +0.42
+
+FIG. 2.56. Pre-Test Effective Multiplication Factor as a Function of the Number of Fuel Columns.
+
+Table 2-43. Pre-Test Effective Multiplication Factor and Excess Reactivity at 18, 24, and 30 Fuel Columns Loading
+
+No. of Fuel Columns  keff ρ [%∆k/k]
+
+18 24 30 1.0254 1.1145 1.1607 2.48 10.27 13.85
+
+78
+
+FIG. 2.57. Pre-Test Effective Multiplication Factor as a Function of the Number of Fuel Columns.
+
+Discussion of the pre-test results
+
+In the pre-test diffusion calculation the first criticality of the HTTR was achieved with 16 fuel columns in the case of fuel columns loading from the core periphery. This corresponds to a critical mass of 29.6 kg U 235. It turned out that the burnable poison in the fuel blocks and the neutron streaming in the holes of the CR  guide columns had a  great influence on the neutronic characteristics of the HTTR and that an  accurate treatment  of these effects is required.
+
+The experiment showed that the  HTTR  got  critical with 19  fuel  columns with an excess reactivity of about  ∆k/k=1.5%. The discrepancy between measurement and the FZJ pre-test calculation amounted to  ∆k=0.0287 at the first criticality for a 4 group diffusion calculation with no leakage iteration; at 30 fuel columns in the core this difference was with ∆k=0.0261 of the same order as can be seen on Table 2-44. Only at 27 and 30 fuel columns loading the calculated excess reactivities were in the experimental  error intervals, showing some error compensating effects in the calculations. Six possible  reasons for these discrepancies are given in the following:
+
+•  a non-adequate modelling of the fuel and BP unit cells, •  the neglect of the detailed structure of the HTTR fuel block in  the  whole core calculations, •  the use of few  group  homogenized  cross sections in the whole core diffusion calculation without leakage iteration, 79
+
+•  the consideration of another than the actual boron impurity in some dummy  fuel blocks and of helium instead of air in the graphite pores, •  a not yet adequate treatment of the self-shielding in the BP rods, •  and an underestimation of the neutron streaming.
+
+Table 2-44. Results of the Pre-Test Diffusion Calculations together with the Experimental
+
+## Results
+
+No. of Fuel Columns keff Calc.  keff Exper.  ∆k Calc.-Exp. ρ [% ∆k/k] Calc. ρ [% ∆k/k] Exper.
+
+9 12 15 16 17 18
+
+19 21 24
+
+27 30 0.9596 0.9827 0.9991 1.0042 1.0129 1.0254
+
+1.0439 1.0731 1.1145
+
+1.1469 1.1607 0.9282 0.9481 0.9652 0.9701 0.9785 0.9913
+
+1.0152 1.0417 1.0834
+
+1.1198 1.1346 0.0314 0.0346 0.0339 0.0341 0.0344 0.0341
+
+0.0287 0.0314 0.0311
+
+0.0271 0.0261 -4.21 -1.76 -0.09 0.42 1.27 2.48
+
+4.21 6.81 10.27
+
+12.81 13.85 -7.7 a
+
+-5.5 a
+
+-3.6 a
+
+-3.1 a
+
+-2.2 a
+
+-1.0 a
+
+1.5 4.0±1.1b
+
+7.7±2.1b
+
+10.7±3.0b
+
+12.0±3.3b
+
+(CR Insertion considered ∆k=0.004) a from 1/M Measurement [2-43] b from IK Method
+
+##### 2.2.3.4.  Post-Test Calculations
+
+Assessment of differences
+
+The first four possible reasons of the differencies between pre-test prediction and experiment were analysed in  more detail using simplified (1-d  and 2-d) models of a thin annular core with 18 fuel columns:
+
+•  improved modelling of the fuel and burnable poison (BP) unit cells, •  consideration of the exact position of the BP rods in the fuel blocks, •  use of many  group homogenized  cross sections  or accurate leakage iteration in the whole core diffusion calculation, •  and consideration of the revised boron impurity  in some dummy  fuel blocks and of residual air in the pores of the graphite, as proposed by JAERI [2-42].
+
+80 In the course of these studies it turned out that the change in the unit cell models, the increase of the boron impurity in some dummy fuel blocks and the replacement of the helium in the pores of the graphite blocks by air reduced the multiplication constant of the simplified core models. However, this reduction was more than compensated by the increase of keff in a 26 groups diffusion calculation or a 4 groups diffusion calculation with leakage feedback used to describe the core/reflector coupling accurately.
+
+In  all pre-test calculations, the HTTR fuel blocks were homogenized with only six triangular meshes per fuel block and the exact position of the BP rods in the fuel blocks as mentioned in the 2 nd item was not considered.  When taking into account the detailed  BP positions in the whole core diffusion calculations with 24 horizontal meshes per fuel block the multiplication constant decreased significantly, as can be seen on Table 2-45. Furthermore, it can be seen that the increase of the  group number from 26 up to 52 in the  whole  core diffusion calculation has only a small influence on the keff-values. Thus, a group structure of 26 energy groups seems to be sufficient to get reliable results. The 26 energy group structures is given in Table 2-38.
+
+Table 2-45. Effective Multiplication Constants and ∆k Values for a Simplified 2-d, Triangular HTTR Core Model (18 Fuel Columns) Using Different Unit Cell Models and Group Structures (No Streaming Correction and BP Adjustment; Helium in Graphite Pores and Old Boron Impurity) keff  ∆k
+
+Old Unit Cells
+
+## 24 Mesh Hom. Model  New Unit Cells
+
+## 24 Mesh Het. Model  New-Old Model
+
+## 4 Groups  1.0484 0.9857 -0.0637
+
+## 26 Groups  1.0840 1.0419 -0.0421
+
+∆k 26-4 Groups  +0.0355 +0.0563 _
+
+## 52 Groups  1.0842 1.0430 -0.0412
+
+∆k 52-26 Groups  +0.0004 +0.0011 _ 81
+
+Concerning item 5 of  the possible reasons for the discrepancies, the axial selfshielding in the BP rod was considered by a B
+
+## 10 adjustment in the 1-d cell calculations of the
+
+pre-test prediction. Now, an improved treatment of the axially heterogeneous distribution of the BP was performed by 2-d calculations.
+
+As to item 6 of the possible reasons, the comparison with the Japanese Monte Carlo calculations shows, that the neutron streaming has been underestimated in the previous calculations. Therefore, modified diffusion constants for treating this effect were determined on the basis of the Japanese results.
+
+Heterogeneity of the HTTR fuel block
+
+In order to consider the exact position of  the BP rods in the whole core diffusion calculation 24 horizontal meshes per fuel block have to be chosen and each fuel block has to be divided into three different regions:
+
+•  one fuel region, corresponding to 18/24 of the whole block, •  two BP regions, each corresponding to 2/24 of the whole block, •  one "empty BP" region, according to 2/24 of the whole block.
+
+FIG. 2.58. HTTR Fuel Block and Post-Test Model Used in the Diffusion Calculation with 24 Horizontal Meshes per Block.
+
+82 The fuel block with 33 fuel pins is shown in Figure 2.58 together with the modelling of the different regions in the whole core diffusion calculation with 24 horizontal meshes per block. Basing on this subdivision of the fuel  block it is necessary to create new unit cell models adapted to this situation.
+
+New 1-d fuel cell model
+
+The new fuel cell presented in Fig 2.59 together with the basic geometry has an outer radius of 2.70 cm corresponding to the pitch  of the fuel rod lattice  in the fuel block. Explicitely modelled  are: the inner helium channel, the compact, the sleeve,  and the outer helium gap. The cell-weighted 26 group cross sections generated on the basis of this new fuel cell model are used in the fuel region of  each fuel block in the whole core diffusion calculation. Dimension of the Fuel Lattice Used as Basis in the New Fuel Cell Model
+
+FIG. 2.59. Post-Test 1-d Cylinder Model of the Fuel Cell.
+
+New 2-d BP Cell Model
+
+In the pre-test prediction, the axial self-shielding of the  BP was taken  into account by a reduction of the B 10 concentration in the 1-d TOTMOS cell calculations. Now, in the post-test calculations the axial self-shielding  was considered by  another method: it was provided that the absorption rate in the BP-regions of the whole core diffusion calculation is the same as in the detailed 2-d DORT-cell calculation for these regions. p = 5.15 83
+
+Thus, the axial self-shielding of the BP  was taken into account by a more accurate method compared to the method of reducing the B
+
+## 10 concentration. This reduction
+
+overestimated the efficiency of the BP compared to the use of group constants obtained in a 2d DORT-cell calculation by about ∆k≈0.0065-0.0077.
+
+The revised 2-d cell model used in the DORT calculations is shown in Fig 2.60. This BP unit cell consists of three radial zones: the BP rod, surrounded by  a  graphite zone, corresponding to the area of 2/24 block, and a third radial zone representing the remaining fuel block. The group constants in this third radial zone are the cell-averaged group constants resulting from the fuel cell calculation. The first radial zone, the BP rod, is divided axially into five zones, representing the BP pellets, the graphite disks, and the upper and lower plugs of the graphite block. In the 2-d cell calculation the group constants are homogenized over the two inner radial zones and over the five axial zones of the BP rod and condensed to 26 energy groups. These 26 zone-weighted group constants obtained by the 2-d DORT cell calculation are used in the two BP-regions of each fuel block in the whole core diffusion computation.
+
+The cross section of this BP cell corresponds to the cross section of the fuel block divided by the number of BP rods.
+
+FIG. 2.60. Post-Test 2-d Cyl. Model of the BP Cell for DORT
+
+84
+
+New graphite cell model
+
+The 26 group constants used in the third region of the HTTR fuel block are the zoneweighted cross sections  supplied by the 1-d "empty"  BP unit cell calculation. This "empty BP" cell has the same area as the cross section of the fuel block. It consists of three zones: the inner hole filled with helium instead of BP, surrounded by a graphite zone, corresponding to the area of 2/24 block, and a third zone, in which the cross sections of the homogenized fuel cell and of the homogenized replaceable reflector cell RB-2 are taken into account, because all empty  BP holes in the 18  fuel  columns assembly are situated at the  outer surface of the annular core. Thus, the  neutron spectrum in this "empty  BP" unit cell is determined by the outer reflector and the corresponding fuel block.
+
+In the "empty" BP cell calculation, the group constants are homogenized over the two inner zones and condensed to 26 energy groups. The k∞-values obtained by the three different cell calculations are given on Table 2-46.
+
+Table 2-46. Post-Test Results of the three Different Cell Calculations
+
+k∞-Values of the Case  Enr. (wt.%)  New Fuel Cell 1-d TOTMOS New BP Cell 2-d DORT Empty BP Cell 1-d TOTMOS
+
+343320 393320 673320 793320
+
+433120 483120 943120 993120
+
+433325 523325 633325
+
+593125 633125 723125 793125 3.4 3.9 6.7 7.9
+
+4.3 4.8 9.4 9.9
+
+4.3 5.2 6.3
+
+5.9 6.3 7.2 7.9 1.2808 1.3075 1.3814 1.3943
+
+1.3230 1.3374 1.4140 1.4157
+
+1.3230 1.3490 1.3742
+
+1.3665 1.3742 1.3893 1.3943 1.1598 1.2068 1.3464 1.3782
+
+1.2415 1.2728 1.4216 1.4297
+
+1.2181 1.2677 1.3143
+
+1.3083 1.3217 1.3529 1.3712 1.4955 1.5419 1.6900 1.6983
+
+1.5693 1.5987 1.7288 1.7356
+
+1.5707 1.6164 1.6581
+
+1.6477 1.6594 1.6808 1.7011
+
+Modified streaming correction
+
+In the course of the pre-test calculations, it turned out: the streaming effect calculated by the CITATION code using anisotropic diffusion coefficients  determined by the MARCOPOLO code [2-41] was about 33% smaller than the effect calculated by the Monte
+
+85
+
+Carlo code MVP of JAERI [2-22], in the case of 18 fuel columns in the core. In the case of the fully loaded core, the streaming effect was smaller and the difference between the diffusion and Monte Carlo calculation was reduced to about 15%, as can be seen on Table 247.
+
+Table 2-47. Streaming Effects in Pre-Test and Post-Test Calculations
+
+Streaming Effect [% ∆k/k]
+
+Monte Carlo Code MVPa
+
+for: Pre-Test Diffusion Code with Stream. Corr. for: Post-Test Diffusion Code with Modified Stream. Corr. for: Pre-Test Diffusion Code with Stream. Corr. for: Post-Test Diffusion Code with Modified Stream. Corr. for:
+
+No. of Fuel Col. CR Guide Columns Irrad. Columns  all Coolant Channels and Holes of Core and Reflector
+
+18 24 30 2.30  1.30 1.53 1.27 1.10 2.32 1.92 1.68 1.69 1.38 1.18 2.46 2.02 1.75
+
+a Results of JAERI-HTTR, presented at the 1st RCM of the CRP-5.
+
+One possibility of  getting more accurate diffusion constants is to compare the corresponding streaming effects obtained by diffusion and by Monte Carlo calculations and to adapt the anisotropic diffusion coefficients to the results of the Monte Carlo calculations.
+
+Therefore, the neutron streaming coefficients calculated with the MARCOPOLO code had to be modified. When increasing the neutron streaming correction factors of the CR-guide and irradiation columns by about 20% (in r- and in z-direction) the streaming effect calculated by the diffusion code was the same as the reactivity effect resulting from the Monte Carlo calculation, as can be seen on Table 2-47.
+
+For the control rod  guide blocks CB-1  and CB-2, and the irradiation block  IB-1 the ratios of the anisotropic diffusion coefficients to the homogeneous diffusion coefficients are given in Table 2-48 together with the modified streaming correction factors. They are listed in the 4 group structure. But in the core calculation 26 group constants were used, which were interpolated from the 4 group values.
+
+Thus, in the  recalculation of the first  criticality  and of the  excess reactivities, these modified anisotropic diffusion coefficients for  all CR-guide and irradiation columns were used. The anisotropic diffusion constants of the upper and lower  replacable reflector, of the fuel and the dummy fuel blocks remained unchanged because there was no comparable Monte Carlo calculation.
+
+86
+
+Table 2-48. Streaming Correction Factors Obtained by the MARCOPOLO Code together with the Modified Factors Deduced from MVP Monte Carlo Calculations
+
+CR Guide Block CB-1  CR Guide Block CB-3  Irrad. Block IB-1 Dr/Dhom Dz/Dhom Dr/Dhom Dz/Dhom Dr/Dhom Dz/Dhom Group Streaming Correction Factors (Pre-Test)
+
+1 2 3 4 1.140 1.176 1.181 1.188 1.574 1.933 1.950 2.024 1.156 1.196 1.202 1.209 1.632 2.036 2.054 2.137 1.139 1.175 1.180 1.186 1.567 1.923 1.939 2.013
+
+Modified Streaming Correction Factors (Post-Test)
+
+1 2 3 4 1.368 1.411 1.417 1.424 1.889 2.320 2.340 2.429 1.387 1.435 1.442 1.451 1.958 2.443 2.465 2.564 1.367 1.410 1.416 1.423 1.880 2.308 2.327 2.416
+
+Table 2-49. Streaming Effects in the Pre-Test and Post-Test Detailed Core Calculations
+
+No. of Fuel Columns Pre-Test Benoist Stream.Correction ∆keff Post-Test Modified Stream.Correction ∆keff
+
+9 12 15 16 17 18
+
+19 24
+
+27 30 -0.0203 -0.0194 -0.0187 -0.0185 -0.0181 -0.0176
+
+-0.0175 -0.0166
+
+-0.0159 -0.0153 -0.0301 -0.0284 -0.0275 -0.0264 -0.0257 -0.0253
+
+-0.0249 -0.0245
+
+-0.0237 -0.0229 87
+
+The use of the modified anisotropic diffusion constants decreased the keff-values in the whole core diffusion calculations by about ∆k≈0.01-0.007 compared to the pre-test results, as can be seen on the Table 2-49.
+
+Whole reactor calculations
+
+In the post-test calculations the whole core was modelled with the CITATION diffusion code using the 26 group cross sections from the cell calculations. A 3-dimensional triangular-z model  was  chosen,  as in the pre-test-prediction, but  each  block was divided vertically into 4 meshes and horizontally into 24 meshes, in order to arrange the BP rods and the empty BP-hole at their exact positions in the fuel block.
+
+As in the pre-test calculations, four series of diffusion calculations were performed in order to show the influence  of the modified  streaming  correction and of the axial BP heterogeneity on the keff-values. Both  effects are augmented compared to the pre-test prediction, as can be noticed on Tables 2-49  and 2-50. The modified streaming correction reduces the multiplication constants by about ∆k=0.03 at 9 fuel columns loading to ∆k=0.023 at 30 fuel columns in the core. On the other hand, the more accurate treatment of the axial heterogeneity of the BP increases the multiplication factor by about  ∆k=0.024 at 9 fuel columns in the core and by about ∆k=0.034  at fully loaded  core. This stronger  effect of the BP when using the more accurate treatment of the axial heterogeneity is mainly due to the fact, that the  Σabs-values obtained by  the 2-d  cell calculation are significantly smaller in the thermal energy range than those macroscopic  absorption cross sections obtained by the 1-d cell calculation with B 10 reduction, as can be seen from Fig 2.61.
+
+FIG. 2.61. Comparison of Macroscopic Absorption Cross Sections Obtained by Different Methods.
+
+88 Table 2-50. Axial Self-Shielding Effect of the BP in the Detailed Core Calculations Obtained by Different Methods
+
+No. of Fuel Columns Pre-Test B10-Reduction ∆keff Post-Test 2-d BP Cell Calculation ∆keff
+
+9 12 15 16 17 18
+
+19 24
+
+27 30 +0.0189 +0.0196 +0.0200 +0.0201 +0.0203 +0.0207
+
++0.0213 +0.0242
+
++0.0252 +0.0263 +0.0245 +0.0255 +0.0257 +0.0265 +0.0269 +0.0273
+
++0.0281 +0.0314
+
++0.0333 +0.0336
+
+Table 2-51. Results of the Post-Test Diffusion Calculations together with the Experimental
+
+## Results
+
+No. of Fuel Columns keff Calc.  keff Exper. ∆k Calc.-Exp.  ρ [% ∆k/k] Calc. ρ [% ∆k/k] Exper.
+
+9 12 15 16 17 18
+
+19 21 24
+
+27 30 0.9408 0.9642 0.9811 0.9866 0.9959 1.0080
+
+1.0263 1.0556 1.0944
+
+1.1261 1.1336 0.9282 0.9481 0.9652 0.9701 0.9785 0.9913
+
+1.0152 1.0417 1.0834
+
+1.1198 1.1346 0.0126 0.0161 0.0159 0.0165 0.0174 0.0167
+
+0.0111 0.0139 0.0110
+
+0.0063 −0.0010 -6.30 -3.70 -1.90 -1.40 -0.41 0.79
+
+2.60 5.30 8.60
+
+11.20 11.80 -7.7a
+
+-5.5a
+
+-3.6a
+
+-3.1a
+
+-2.2a
+
+-1.0a
+
+1.5 4.0±1.1b
+
+7.7±2.1b
+
+10.7±3.0b
+
+12.0±3.3b
+
+(CR Insertion and Al in the Neutron Detector Holders considered: ∆k=0.004+0.002) a from 1/M Measurement [2-43] b from IK Method 89
+
+Table 2-52. Post-Test Effective Multiplication Factor and Excess Reactivity at the First Criticality
+
+No. of Fuel Columns  keff ρ [%∆k/k]
+
+17 18 0.9959 1.0080 -0.41 +0.79
+
+Table 2-53. Post-Test Effective Multiplication Factor and Excess Reactivity at 18, 24, and 30 Fuel Columns Loading
+
+No. of Fuel Columns  keff ρ [%∆k/k]
+
+18 24 30 1.0080 1.0944 1.1336 0.79 8.60 11.80
+
+eff-Values of the Diffusion Calculations in Comparison with the Experimental Results.
+
+90
+
+FIG. 2.62. New and Old k
+
+When taking into account the modified neutron streaming in the big holes of the core, the neutron  axial self-shielding in the BP rods by  the more  accurate method, and when not only the reactivity of the CR insertion of ∆k=0.0040, but also the reactivity of the aluminium in the temporary neutron detector holders of ∆k=0.0020 is subtracted, the first criticality will now be achieved at 18 fuel columns loading. The excess reactivity amounts to ∆k/k=0.79%. The excess reactivity of the thin, thick, and the fully loaded core is 0.79%, 8.63%, and 11.80%, respectively. The results of the post-test calculations are given on Tables 2-51 to 253. In Figure 2.62 the new and the old keff-values of the diffusion calculations are presented together with the experimental results.
+
+Discussion of the post-test results
+
+When summing up all post-test studies, the intermediate calculations using simplified whole core models and  the final calculations for the detailed  core, the  analysis  yields the following effects at 18/19 fuel columns in the core compared to the pre-test results:
+
+•  when considering the detailed structure of  the  HTTR fuel block in the whole core calculation, the multiplication factor decreases by about ∆k≈ 0.043, •  the description of the detailed energy-dependence of the neutron flux adequately by a fine energy group structure increases the keff-value by about ∆k≈ 0.035, •  when taking into account the residual air in the graphite pores, the higher boron impurity in some dummy fuel blocks, and the reactivity effect of the aluminium in the neutron detector holders, the multiplication factor is reduced by about ∆k≈ 0.009, •  when considering the axial heterogeneity of the BP by 2-d cell calculations, keff of the whole core calculation increases by about ∆k≈ 0.0068, •  and when treating the neutron streaming effect by modified diffusion constants on the basis of the Japanese Monte Carlo results, keff is reduced by about ∆k≈ 0.0075.
+
+The number of  fuel columns to achieve first criticality increases by  about 2 fuel columns in comparison to the pre-test results  presented at the 1.RCM [2-22]. Now, the discrepancy between measurement and FZJ diffusion calculation amounts to ∆k=0.0111 at the first criticality (i.e. at 19 fuel columns), as can be seen on Table 2-51.
+
+##### 2.2.3.5. Conclusion
+
+Altogether it turns out that the following procedures seem to be necessary for a better approach to the experimental results:
+
+•  detailed heterogeneity of the BP- and fuel-region in the whole core calculation, •  use of fine  group constants or of broad  group  constants including detailed leakage information in the diffusion calculations of  the  whole core in order to  describe the core/reflector coupling accurately, •  treatment of the axial self-shielding in the BP rods by 2-d cell calculations, •  consideration of an enhanced neutron streaming, brought about here by an adaption of the diffusion constants to results of Monte Carlo calculations.
+
+When applying these improvements and regarding the actual boron impurity in some dummy fuel blocks together with air in the graphite pores the first criticality was recalculated for 18 fuel columns in the case of fuel loading from the core periphery. This corresponds to a
+
+91
+
+critical mass of 33.1 kg U 235. Moreover, it turned out that a 26 energy group structure in the whole core diffusion calculation seems already to be sufficient to get reliable results when no detailed leakage information is used in generating the group constants for the whole core diffusion calculations.
+
+##### 2.2.3.6. Acknowledgement
+
+The authors  would like to thank Dr. W. Scherer  for very useful discussions and comments, and Ms. A. Kuhr for supporting all the plots.
+
+92
+
+#### 2.2.4. Indonesia [2-45]
+
+Initial fuel loading and  first criticality of the HTTR was accomplished in an annular core configuration. This core type was chosen because of high inherent safety characteristics for loss of coolant accidents [2-46].  The vessel cooling system (VCS) surrounding the reactor pressure vessel is designed to maintain the fuel temperature at less than the limit of 1600°C in a loss of coolant accident.  The decay heat will be transferred radially through the regions of fuel, side removable and permanent reflector blocks and reactor pressure vessel to the cooling panel of the VCS through heat conduction, radiation and convection without any necessity for active cooling.  Introduction of the annular core type is expected to enhance the heat removal mechanism, because the heat transfer pass is shortened by thinning of the fuel region.
+
+In the  fuel loading  for the start up core physics experiment, three different types of core were considered; a thin and thick annular core with 18 and 24 fuel columns, respectively, and a fully loaded core that consists of 30 fuel columns.   The core size of the HTTR is about half the size of a commercial HTGR.  The high excess reactivity in HTTR is similar to that of HTGR, which is needed to compensate for the effects of temperature, xenon, burn up, etc. during power operations.
+
+Data for the core physics calculation is applied by JAERI [2-47]. The data include specifications for core  and its internal components, such as fuel, replaceable reflectors, permanent reflectors, control rods and dummy fuel elements.  Also provided are HTTR details (see Section 2.1.1) including specifications of the fuel rods, fuel compacts and coated fuel particles. Generation of cell cross-sections in this study was performed using CELL Module of the SRAC-EWS  Code system [2-48], while  the whole core calculation was performed using CITATION Module of the SRAC-EWS.
+
+The purpose of this study was to examine when the first criticality can be achieved by using annular thin core loading mechanism.  In this loading type, fuel columns are loaded in the outermost fuel region (18 columns, i.e. annular thin core).  Upon completion of the initial 18 columns, fuel loading continued with another 6 fuel columns in the inner fuel region (24 columns, i.e. thick annular core).  Finally, loading continued with another 6 fuel columns in the innermost fuel region, so that the full core of 30 fuel columns was achieved.
+
+##### 2.2.4.1. Calculation Model and Procedures
+
+Calculation for the start  up benchmark test was  developed and  all calculations were performed for a core temperature of 300K and helium pressure of 1 atm. Figure 2.63 depicts the flow diagram of the benchmark calculation.
+
+The SRAC-EWS Code system [2-48] was applied throughout the calculations, and the nuclear data in 107 groups were obtained mainly from JENDL-2 and ENDF/B-V.  The ULIBMAKE module of  SRAC-EWS was applied to generate the user library files from the public library, and to collapse these files into 54 energy groups.  The CELL module was then applied to further condense these into 6 groups (i.e. 3 groups in the fast region and 3 groups in the thermal region), and to perform the cell  calculation in collision probability method.   In order to save computing time, the  cell calculations were performed by using the equivalent cylindrical  geometry (i.e. Wigner-Seitz’s approximation) with white boundary conditions, rather than the more exact hexagonal  geometry, because the effect on  k∞ was minimal, as pointed out by Jeong et  al.[2-49].  The CITATION module was  applied for the  whole core diffusion calculations. 93
+
+FIG.  2.63.  Flow diagram of cell and core calculation for the HTTR benchmark test.
+
+Cell Module was used to generate  group constants of fuel and graphite blocks for succeeding core calculations.  In the fuel region, the double-heterogeneity effects originating from the structure of fuel rods, in which the coated fuel particles are dispersed within fuel compacts, is considered by the use of collision probability method.  The outer radius R for 33 pin block was 3.249 cm, and for 31 pin fuel block was 3.352 cm.
+
+For the control rod guide tube with three large holes, the collision probability method was also utilized.  Radial and  axial directional  diffusion coefficients  for the unit cell were calculated by Benoist's formula.  Similar to a coolant channel in fuel block, the content of the holes was helium  gas  at 1 atm at 300K.  An isotropic (white) reflection  boundary condition
+
+94
+
+was applied in the outer boundary of the unit cell.  The unit cell in the control rod  guide consists of a void region and a graphite region.  The inner and outer radius of this region was 6.15 and 10.91 cm, respectively.
+
+Average group constants of the fuel rods were calculated by using a one-dimensional cylindrical fuel cell model as depicted in Figure 2.64.  The neutron flux was calculated by the collision probability method, which was used to average the  group constants in the fuel cell geometry.  The  average  group constants of the  fuel block with  BPs were also calculated in one-dimensional cylindrical BP cell model shown in Figure 2.64.  The outer radius of the BP region was 0.7 cm, while the homogenized fuel region outer radius was 13.44 cm.  Variation in axial composition of material was taken into consideration by averaging the number density in the axial region, taking into account their volume ratio.  Table 2-54 shows the infinite multiplication factor (k ∞) for each fuel cell and its corresponding BP cell.
+
+The whole core calculation was performed using CITATION Module of SRAC-EWS in θ-R-Z  geometry.  The angular distribution was made such that there  were nine angulardivisions in one-sixth of the horizontal cross-section of the core.
+
+FIG. 2.64.  Fuel and BP Cell model for the SRAC code calculation (all units in cm.). 95
+
+Table 2-54. Calculated infinite multiplication factors (k∞) for Fuel Cell and BP Cells Infinite mult. factor (k∞) Fuel Layer  Fuel block ID  Fuel Cell  BP Cell
+
+f673320 1.5446  1.3519
+
+f793320 1.5594  1.3872
+
+f943120 1.5996  1.4309
+
+1st layer f993120 1.6013  1.4397
+
+f523325 1.5082  1.2566
+
+f633325 1.5375  1.3092
+
+f723125 1.5721  1.3469
+
+2nd layer f793125 1.5782  1.3674
+
+f433325 1.4786  1.2012
+
+f523325 1.5082  1.2566
+
+f593125 1.5470  1.2966
+
+3rd layer f633125 1.5553  1.3116
+
+f343320 1.4259  1.1491
+
+f393320 1.4593  1.1979
+
+f433120 1.4932  1.2340
+
+4th and 5 th layer f483120 1.5129  1.2653
+
+##### 2.2.4.2. Results of HTTR-FC Calculations
+
+Multiplication factors (keff) and excess reactivity ρ for first criticality where all control rods are assumed to be fully withdrawn, are provided in Table 2-55.  It indicates that the first criticality is to be achieved when 18 columns  of fuel  are inserted.  The excess reactivity  at first criticality was determined be 0.577 % ∆k/k.  At 17 columns, the keff was determined to be exactly one with zero excess reactivity, therefore the first criticality was estimated at 18 th
+
+column.
+
+96 Table 2-55.  Effective multiplication factor and excess reactivity at first criticality.
+
+Number of fuel column  Effective mult. factor [keff] ρ [% ∆k/k]
+
+16  0.9979  -0.002
+
+17  1.0000  0.000
+
+18  1.0058  0.577
+
+##### 2.2.4.3. Results of HTTR-EX Calculation
+
+Multiplication factors (keff) and excess reactivity ρ for 30 column, 24 column and 18 columns of fuel loaded into the core are shown in Table 2-56.  The control rods were assumed to be in the fully withdrawn condition for all calculations.
+
+Table 2-56. Effective multiplication factor and excess reactivity at 18, 24 and 30 column loaded in the core.
+
+Number of fuel column  Effective mult. factor [keff] ρ [% ∆k/k]
+
+18  1.0058  0.577
+
+24  1.0692  6.472
+
+30  1.0931  8.517 97
+
+#### 2.2.5. Netherlands
+
+Both NRG  and  IRI  are taking part in the benchmark of start-up  core physics of the HTTR. To compare the performance of the SCALE based IRI code package with that of the WIMS/PANTHER code package of NRG, a calculational intercomparison has been performed. This report first describes the NRG and IRI efforts in the first Benchmark (Phase 1) using the Monte Carlo code KENO Va  (3-D) and the diffusion theory codes BOLD VENTURE (2-D) and PANTER (3-D).  In the second phase of the  Benchmark, only KENO calculations are performed, for the scram reactivities of the core and reflector control rods and the isothermal temperature coefficients are  given for phase 2. NRG/IRI  also participated in the start-up measurement of reactivity and reactor noise measurements.
+
+##### 2.2.5.1. Computational Methods and Associated Data
+
+The computational tools used at IRI for the cross section generation have been described previously [2-51].  In short it contains, as a branch, the SCALE-4 code system  with master libraries produced by NJOY from the JEF-2.2 basic nuclear data files. The used reactor codes for this study are: KENO-Va and BOLD VENTURE. At ECN, the WIMS-7B code system has been used  for this study  which has libraries also  based on JEF-2.2. The  reactor code used  at ECN is PANTHER-5.0.
+
+Cross sections for use in KENO [2-50]
+
+In KENO, only the coated fuel particles (CFP’s) in the fuel compacts are homogenised with the  graphite matrix of the  fuel compacts; all other  reactor  components can  be modelled explicitly. As the fuel also contains the only two resonant nuclides ( 235U and 238U) present in the core model, the only problem is the  generation of cross sections for the homogenised fuel compacts. The general CFP and compact data are given in Table 2-57.
+
+Table 2-57. General CFP and Compact Data
+
+radius (µm) density (g/cm 3) material fuel kernel  298.5  10.79  UO2 1st coating  358.5  1.14  PyC (low dens.)* 2nd coating  389.5  1.89  PyC 3rd coating  418.5  3.20  SiC 4th coating  464.5  1.87  PyC *PyC: Pyrolitic graphite Compact dimensions: i/o diameter = 1.00/2.60 cm, height = 3.91 cm.
+
+Since the problem is similar to the generation of cross sections for the fuel pebbles of a pebble-bed type HTR, the following scheme  was adopted  from the  analysis work for HTRPROTEUS [2-51]:
+
+1.  First only the  coated fuel particles inside a  fuel  rod are considered. An infinite closepacked hexagonal CFP lattice is calculated by  BONAMI, NITAWL and  XSDRNPM. XSDRNPM is run in spherical  geometry  for  a white boundary elementary  cell of the CFP lattice. This elementary cell contains two regions: a sphere of 0.0597 cm diameter which contains the fuel kernel of UO2 surrounded by the homogenised mixture of the
+
+98 coating layers and  graphite matrix in the fuel compact. The matrix graphite contains some natural boron to represent impurities in the graphite. A  cell-averaged weighted library, WGH(1), is produced which takes the self-shielding of the fuel in the Caps into account.
+
+2. An infinite fuel-rod lattice is treated by  BONAMI  and  NITAWL to obtain working library WRK(1). The unit cell with cylinder geometry has three regions. The innermost region is a channel filled with helium (0.5 cm radius). This region is surrounded by a cylinder of  1.3 cm  radius with the fuel. The outermost  region surrounding the fuel contains fuel block graphite (r = 3.29 cm). A triangular lattice is assumed with a pitch of 6.2668 cm, consistent with 1/33rd block for the 33-rods fuel block. This step is required because it provides the unweighted data for the materials outside the fuel region. The overall Dancoff  factor for the core has been deduced  from the Dancoff factors for a lattice of CFP’s in a fuel compact and for a lattice of fuel rods in a fuel block [2-51].
+
+3. The library WRK(1) cannot be used for the fuel-rod lattice cell calculation as it would not take into  account the self-shielding in the CFP’s. Therefore the  WGH(1) and WRK(1) libraries are merged.  All  fuel-region materials  are taken  from the weighted library WGH(1), the other materials  from WRK(1). The resulting library is  called WRK(2).
+
+4. XSDRNPM is run with working library WRK(2) for the unit cell of the infinite fuel-rod lattice. This  unit cell of  cylindrical  geometry  has five  radial zones: 1. Channel with helium (r ≤ 0.5 cm). 2. Fuel zone (r ≤ 1.3 cm). 3. Graphite sleeve of fuel rod (r ≤ 1.7 cm). 4. Fuel hole in fuel block filled with helium (r ≤ 2.05 cm). 5. Fuel block graphite with reduced  density  to take the  fuel handling hole into  account. The radius is of this zone is 3.2903 cm (1/33rd fuel block). If no axial dimensions are used, this run yields the k ∞ of the fuel rod lattice. XSDRNPM is run with a buckling search option to get a critical system (by the addition of a leakage term in the form of DB 2φ). The weighted library WGH(2) with zone-averaged cross sections is produced.
+
+5.  In order to obtain a working library for KENO, WGH(2) and WRK(1) are merged. The cross sections for the nuclides inside the fuel compact are taken from WGH(2), and the cross sections for all nuclides in the other components (He, C,  10B, and  11B) are taken from WRK(1). The resulting library is denoted as WRK(3).
+
+No group collapsing is done in any of these steps. All libraries contain cross section data for 172 energy groups! A simpler scheme would have been possible if no comparison had to be made for two-groups cross sections.
+
+Two-group cross sections
+
+In total,  five two-group cross-section libraries  have been  generated  for comparison purposes:
+
+## 1. GRLAT2GR: XSDRNPM output of step 1 but with condensation
+
+2. RODLAT_K: output of XSDRNPM k-calculation using WRK(1) as input (step 2) 3. HTTR_K: output of step 4 XSDRNPM, k-calculation and using WRK(2) as input 4. HTTR_B2: output of step 4 XSDRNPM, buckling search using WRK(2) as input 99
+
+5. RODLAT_B2: output of XSDRNPM, buckling search and using WRK(1) as input (step 2)
+
+The order of the numbers in Tables 2-58 and 2-59 correspond to this order. These five sets enable the assessment of the effects of step 1, the separate treatment for the coated particles, and of the spectrum used for weighing (buckling search versus k-calculation). Table 2-58 lists the microscopic total (MT = 1), absorption (MT = 27), and transport (MT = 1000) cross section for the nuclides in the fuel  compact.  For the uranium isotopes  235U and  238U also the total number of fission neutrons (MT = 452), and the fission (MT  = 18) and capture (MT  = 101) cross-section are specified in Table 2-59.
+
+Table 2-58. Two-group cross sections for nuclides in the fuel compact (5.2 w% enrichment)
+
+σtot (b)  σabs (b)  σtr (b) nuclide  group 1  group 2  group 1  group 2  group 1  group 2 10B 26.86 47.49 49.40 45.26 44.19 1132.4 2147.2 2157.8 2095.3 2096.0 24.49 45.16 47.07 42.92 41.85 1130.3 2145.0 2155.6 2093.2 2093.8 39.62 34.45 29.67 34.56 34.59 1446.0 3074.8 3080.0 2214.5 2246.6 11B 4.239 4.267 4.274 4.223 4.225 4.871 4.941 4.945 4.941 4.937
+
+### 6.414 E-5
+
+### 8.961 E-5
+
+### 9.209 E-5
+
+### 8.706 E-5
+
+### 8.562 E-5
+
+### 1.620 E-3
+
+### 3.073 E-3
+
+### 3.088 E-3
+
+### 2.999 E-3
+
+### 3.000 E-3
+
+2.796 2.686 2.608 3.441 3.436 3.970 4.757 4.762 4.666 4.666 C 4.128 4.157 4.164 4.114 4.116 4.752 4.805 4.808 4.805 4.803
+
+### 1.295 E-4
+
+### 1.567 E-4
+
+### 1.576 E-4
+
+### 1.673 E-4
+
+### 1.647 E-4
+
+### 1.000 E-3
+
+### 1.891 E-3
+
+### 1.900 E-3
+
+### 1.845 E-3
+
+### 1.846 E-3
+
+2.808 2.693 2.617 3.373 3.369 3.988 4.857 4.862 4.727 4.729 O 3.754 3.752 3.751 3.736 3.740 3.889 3.943 3.912 3.910 2.941
+
+### 1.231 E-3
+
+### 1.293 E-3
+
+### 1.295 E-3
+
+### 1.437 E-3
+
+### 1.407 E-3
+
+### 5.561 E-5
+
+### 1.062 E-4
+
+### 1.054 E-4
+
+### 1.023 E-4
+
+### 1.036 E-4
+
+7.760 2.701 2.654 3.189 3.185 9.647 3.840 3.794 3.757 3.790 Si 2.669 2.612 2.605 2.652 2.651 2.113 2.176 2.178 2.174 2.173
+
+### 2.644 E-3
+
+### 3.548 E-3
+
+### 3.621 E-3
+
+### 3.570 E-3
+
+### 3.511 E-3
+
+### 5.057 E-2
+
+### 9.593 E-2
+
+### 9.640 E-2
+
+### 9.361 E-2
+
+### 9.363 E-2
+
+2.050 2.382 2.399 2.356 2.353 1.807 2.187 2.190 2.133 2.134 235U 22.93 28.80 29.00 27.53 27.60 177.5 366.3 363.6 352.2 356.8 12.52 18.20 18.39 17.08 17.12 163.2 351.5 349.0 337.6 342.1 88.03 22.22 19.18 21.45 21.96 733.5 543.2 534.0 374.3 385.8 238U 14.77 17.71 15.86 15.47 17.27 10.08 10.87 10.79 10.75 10.84 1.775 3.779 2.879 2.670 3.541 0.853 1.545 1.534 1.492 1.510 64.94 22.11 14.31 12.65 15.24 26.97 11.52 11.38 10.79 10.92
+
+100
+
+Table 2-59. Total fission neutrons and fission and capture cross section of uranium isotopes
+
+νσfis (b)  σcapt (b) nuclide  group 1  group 2  group 1  group 2  group 1  group 2 235U 2.440 2.437 2.437 2.438 2.438 2.439 2.438 2.438 2.438 2.438 8.457 11.82 11.92 11.12 11.16 137.8 299.9 297.7 288.0 291.8 4.066 6.378 6.462 5.962 5.967 25.42 51.63 51.25 49.67 50.31 238U 2.736 2.740 2.741 2.742 2.741 2.489 2.489 2.489 2.489 2.489
+
+### 4.581 E-2
+
+### 4.628 E-2
+
+### 4.610 E-2
+
+### 5.093 E-2
+
+### 5.023 E-2
+
+### 3.577 E-6
+
+### 6.640 E-6
+
+### 6.591 E-6
+
+### 6.407 E-6
+
+### 6.486 E-6
+
+1.729 3.732 2.833 2.619 3.491 0.853 1.545 1.534 1.492 1.510
+
+FIG. 2.65. Neutron spectrum in the centre of the compact 101
+
+The spectrum in the grain lattice is much harder than in the fuel-rod lattice, which explains the lower values of the cross sections. The extra leakage term in the buckling search is seen to slightly reduce the cross sections, because of the greater leakage of low energy neutrons compared to high energy neutrons. Figure 2.65 shows the spectrum in the centre of the fuel-rod lattice, as calculated with step 4 of the cross-section generation procedure.
+
+Cross sections for BOLD-VENTURE [2-50]
+
+In BOLD VENTURE the core region is represented by five rings, containing the A, B, C, D, and E labelled  columns, respectively.  The material in each ring is completely homogenised. In order to maintain the reaction rates, the cross-section generation procedure for KENO was extended.
+
+The first three steps are identical to the procedure for KENO. The fourth step is similar, but now a cell weighting is performed instead of a zone weighting. Subsequent steps are new.
+
+4.  XSDRNPM is run with working library WRK(2) for the unit cell of the infinite fuel-rod lattice. This  unit cell of  cylindrical  geometry  has five  radial zones: 1. Channel with helium (r ≤ 0.5 cm). 2. Fuel zone (r ≤ 1.3 cm). 3. Graphite sleeve of fuel rod (r ≤ 1.7 cm). 4. Fuel hole in fuel block filled with helium (r ≤ 2.05 cm). 5. Fuel block graphite with reduced density to take the fuel handling hole into account. The burnable poison rods are not taken into account. The radius of this zone is 3.2903 cm (1/33rd fuel block). XSDRNPM is run with a buckling search option to get a critical system (by the addition of a leakage term in the from of  DB 2φ). The  weighted library WGH(2) with  cellaveraged cross sections is produced. 5.  Unweighted  cross sections for the materials outside the  fuel blocks  (i.e. inside the control rod guide blocks and reflector) have to be added to WGH(2). These unweighted cross sections of C,  10B, and  11B, were taken from WRK(1). The  resulting library is called WRK(3). 6.  XSDRNPM is run with library WRK(3) for a 1D-model of the reactor.  This model contains six radial zones. The first five represent the five rings of the core region, the outermost zone represents the permanent reflector. The radii of the zones were calculated to be 19.0064 cm, 50.2861 cm, 82.8468 cm, 115.6112 cm, 148.4444 cm, and 214.9814 cm. With these radii, the area of the rings is identical to the true area of the columns (the pitch in the core region is taken to be 18.1 cm, hence the space between the blocks is taken into account).  The material within each zone is completely homogenised. The atomic densities in the homogenised zones can be found in the appendix. Note that the burnable poison rods are not taken into account. XSDRNPM is run with a buckling search option and with zone weighting, producing weighted library WGH(3). For the homogenised KENO model the 172 groups were not condensed, for BOLD VENTURE the  groups  were condensed  to 13 broad  groups, like for HTRPROTEUS [2-52].
+
+Two-group cross sections
+
+Two-group cross section data is obtained by condensing the 172 fine groups to 2 broad groups in step 6 of the procedure in section 2.2.1. The results  are summarised in Tables 2-60 thru 2-63.
+
+102
+
+Table 2-60. Two-group  cross sections  for the uranium isotopes in the fuel compact (5.2  w% enrichment) in the radial zones B, C, and D.
+
+σtot (b)  σabs (b)  σtr (b) nuclide  group 1  group 2  group 1  group 2  group 1  group 2 235U    B C D 27.79 29.13 27.34 368.3 378.6 380.8 17.18 18.39 16.78 354.2 364.5 366.7 21.30 23.47 21.04 372.4 372.8 385.3 238U    B C D 15.71 16.08 15.59 10.47 10.50 10.50 2.716 2.929 2.651 1.544 1.581 1.589 12.34 12.11 12.26 10.45 10.45 10.48
+
+Table 2-61. Two-group cross sections for the uranium isotopes in the fuel compact (5.2 w% enrichment) in the radial zones B, C, and D.
+
+νσfis (b)  σcapt (b) nuclide  group 1  group 2  group 1  group 2  group 1  group 2 235U    B C D 2.438 2.438 2.439 2.438 2.438 2.438 11.18 11.92 10.93 302.3 311.1 313.0 6.000 6.469 5.846 51.94 53.44 53.72 238U    B C D 2.742 2.741 2.742 2.489 2.489 2.489
+
+### 5.486 E-2
+
+### 4.884 E-2
+
+### 5.667 E-2
+
+### 6.640 E-6
+
+### 6.805 E-6
+
+### 6.841 E-6
+
+2.661 2.880 2.595 1.544 1.581 1.589
+
+Table 2-62. Two-group cross sections for the non-fissionable nuclides in the fuel compact (5.2 w% enrichment) in radial zones B, C, and D.
+
+σtot (b)  σabs (b)  σfis (b) nuclide  group 1  group 2  group 1  group 2  group 1  group 2 O        B C D 3.807 3.814 3.805 3.775 3.773 3.773
+
+### 1.543 E-3
+
+### 1.371 E-3
+
+### 1.590 E-3
+
+### 1.063 E-4
+
+### 1.090 E-4
+
+### 1.096 E-4
+
+3.350 3.394 3.351 3.620 3.620 3.619 Si        B C D 2.730 2.672 2.749 2.106 2.108 2.108
+
+### 3.694 E-3
+
+### 3.707 E-3
+
+### 3.683 E-3
+
+### 9.728 E-2
+
+### 9.978 E-2
+
+### 1.003 E-1
+
+2.500 2.455 2.501 2.059 2.059 2.061 C        B C D 4.177 4.220 4.163 4.639 4.636 4.635
+
+### 1.779 E-4
+
+### 1.647 E-4
+
+### 1.813 E-4
+
+### 1.917 E-3
+
+### 1.966 E-3
+
+### 1.977 E-3
+
+3.515 3.609 3.510 4.566 4.568 4.564 10B      B C D 45.86 49.71 44.63 2177.5 2233.4 2245.6 43.47 47.33 42.23 2175.3 2231.3 2243.5 34.01 39.40 33.07 2199.1 2201.1 2266.9 11B      B C D 4.287 4.332 4.273 4.778 4.778 4.778
+
+### 8.849 E-5
+
+### 9.315 E-5
+
+### 8.700 E-5
+
+### 3.116 E-3
+
+### 3.197 E-3
+
+### 3.214 E-3
+
+3.593 3.690 3.589 4.498 4.497 4.501 103
+
+Table 2-63. Two-group cross sections for the nuclides in the graphite of the blocks in all radial zones
+
+σtot (b)  σabs (b)  σfis (b) nuclide  group 1  group 2  group 1  group 2  group 1  group 2 C        A B C D E reflector 4.290 4.130 4.183 4.113 4.347 4.524 4.810 4.844 4.846 4.847 4.815 4.818
+
+### 1.178 E-4
+
+### 1.440 E-4
+
+### 1.351 E-4
+
+### 1.463 E-4
+
+### 1.161 E-4
+
+### 1.274 E-4
+
+### 2.185 E-3
+
+### 2.039 E-3
+
+### 2.095 E-3
+
+### 2.106 E-3
+
+### 2.580 E-3
+
+### 2.858 E-3
+
+3.442 3.418 3.528 3.412 3.500 3.971 4.772 4.774 4.776 4.779 4.786 4.838 10B      A B C D E reflector 57,31 46.77 50.72 45.50 65.21 97.35 2483.0 2316.6 2380.7 2393.3 2933.7 3251.3 54.99 44.43 48.40 43.16 62.91 95.12 2480.7 2314.4 2378.5 2391.1 2931.5 3249.1 38.79 34.60 40.15 33.63 38.77 79.34 2600.2 2344.3 2345.5 2424.5 2788.0 3168.6 11B      A B C D E reflector 4.404 4.239 4.294 4.221 4.462 4.640 4.976 4.995 5.003 5.004 5.020 5.052
+
+### 1.017 E-4
+
+### 8.824 E-5
+
+### 9.325 E-5
+
+### 8.666 E-5
+
+### 1.116 E-4
+
+### 1.519 E-4
+
+### 3.554 E-3
+
+### 3.316 E-3
+
+### 3.407 E-3
+
+### 3.425 E-3
+
+### 4.199 E-3
+
+### 4.654 E-3
+
+3.515 3.495 3.609 3.490 3.583 4.066 4.701 4.705 4.705 4.718 4.721 4.755
+
+Cross sections for PANTHER
+
+Cross sections for the reactor code PANTHER have been  generated by  means of the code suite WIMS-7B. Apart from service modules for  group condensing  and material homogenisation, two collision probability modules  were used to  calculate the  flux weighted cross sections of the fuel cell (PROCOL)  and for  the fuel blocks or assemblies, control  guide blocks and reflector blocks (PIJ).
+
+In order to avoid much extra work, densities, impurities and sizes of graphites, CFPs and coatings, weighted means of these parameters where appropriate, have been derived to be used all over the reactor. This leads to the following standardised parameters for the CFPs (Table 264).
+
+Table 2-64. Parameters for CFPs
+
+radius (µm)  density (g/cm 3) material fuel kernel  297.95 10.774 UO2 1st coating  358.80  1.127  PyC (low density) 2nd coating  389.45  1.896  PyC 3rd coating  418.35  3.225  SiC 4th coating  464.20  1.866  PyC Compact dimensions: i/o diameter = 1.00/2.60 cm, height = 3.91 cm.
+
+104
+
+Table 2-65. Parameters for Graphites
+
+density (g/cm 3) impurity  (ppm Bnat) matrix 1.690  0.82 sleeve 1.770  0.37 fuel / control block  1.770  0.40 repl. reflector  1.760  0.37 perm. reflector  1.732  1.91
+
+PROCOL [2-50]
+
+In the WIMS-suite a  cell module PROCOL, based on collision probabilities, exists to calculate fluxes in systems with spherical grains packed in a matrix with an annular geometry.
+
+A cell radius of 3.29 cm has been used, consistent with a lattice of a 1/33rd part of a fuel block or assembly, in  which  explicitly modelled: the inner  gas channel  (r  = 0.50  cm), the compact (r =  1.30 cm),  the gas gap (r  = 1.3125  cm),  sleeve (r =  1.70 cm)  and  the fuel  hole drilling in the fuel block (r  = 2.05 cm). Using this model,  flux weighted cross sections  are obtained for homogenised CFP’s + matrix + gas gap, to form the compact material with cross sections in the 69 neutron energy groups structure of the library.
+
+The spectrum in the centre of the inner  gas channel in the  compact with 5.2 w% enrichment is shown in Figure 2.65. Comparison with the spectrum as obtained with the KENO cross sections is very good. Differences are only due to the resolution of the spectrum with the number of energy groups used in the calculations (KENO: 172 vs. WIMS: 69).
+
+Accordingly obtained  cross sections were condensed to 16 neutron  energy  groups  for subsequent use in the WIMS assembly module PIJ, which  calculates collision probabilities in multi-pin assembly systems.
+
+For  comparison purposes microscopic cross sections for the nuclei present in the compacts were condensed to two group cross sections. In WIMS only microscopic absorption and fission cross sections are  easily available, but  for some elements transport and total cross sections  could  be deduced from macroscopic cross sections. Values for  an enrichment  of  5.2 w% are  given in the Tables 2-66 and 2-67 and  can be  compared with those values  given in Tables 2-58  and 2-59. Agreement is in  general rather  good which can be confirmed by the spectrum comparison of  Figure 2.65  and the  calculated neutron multiplication factors: kinf = 1.499 for the ‘KENO’-cell and kinf = 1.493 for the ‘PROCOL’-cell.
+
+Table 2-66. Comparative two group cross-sections (5.2 w% enrichment) σtot(b) σabs(b) σtr(b) nuclide  group 1  group 2  group 1  group 2  group 1  group 2 10B     42.20  2095 C  4.086  4.805  1.882E-4 1.856E-3 3.348  4.702 O      1.527E-3 1.029E-4 Si      3.623E-3 9.397E-2 235U      1.692E+1 3.397E+2 238U      2.747 1.499 105
+
+FIG. 2.66. Axial composition of the fuel block in PIJ.
+
+106
+
+Table 2-67. Uranium isotope fission neutrons and fission and capture cross-sections (5.2 w% enrichment)
+
+νσfis(b)  σcapt(b) group 1  group 2  group 1  group 2  group 1  group 2 235U  2.438  2.438  1.096E+1 2.897E+2 5.968  49.91 238U  2.742  2.489  5.768E-2 6.437E-6 2.689  1.499
+
+PIJ [2-50]
+
+For modelling in PIJ the fuel assembly has been adapted in the following way:
+
+1.  The stack of compacts has been moved to the top such that the upper rim of the upper compact is flush with the fuel block, 2.  The upper graphite plug and buffer plate has been moved to the bottom, 3.  The stack with the burnable  poison  (BP) pellets and  graphite  disks has  been moved to the top as in 1, while the length of the upper section of the BP stack has been changed from 20 cm to 15 cm and the lower section to 25 cm 4.  The  fuel handling hole has been simplified by  taking an effective diameter of 4.017 cm and a length of 25.0 cm.
+
+This way four layers in the assembly can be created (See Figure 2.66):
+
+1.  First layer of 15 cm height with compacts, fuel handling hole (FHH) and BP pellets, 2.  Second layer of 10 cm with compacts, FHH and graphite disks, 3.  Third layer of 25 cm with compacts, graphite for FHH and with BP pellets, 4.  Fourth layer of remaining 8 cm with a mix of 4.75 cm of compact, 2.35 cm of graphite and 0.9 cm of void at the fuel positions and graphite at the FHH and BP positions.
+
+The void has been modelled in the empty BP insertion leg.
+
+For each layer a model of the fuel assembly has been laid out in which the hexagonal perimeter has been replaced by an equivalent circle (radius 19.01 cm). Within this circle the fuel positions (comprising: inner  gas space,  compact,  sleeve and outer  gas space), FHH and  BP insertion holes are modelled at the exact positions and filled with the materials in conformance. This circle in turn is surrounded by another circle (radius 38.01 cm), divided into 12 segments, to accommodate the matching surrounding materials for the fuel assembly under study (Figure 2.67). It makes a total of 206 material regions per assembly layer. The coolant bearing reflector blocks in the 1st, 2nd and 8th reactor layer are modelled in the same way but with empty fuel holes and of reduced diameter.
+
+To reduce the number of materials, the PIJ model is finally divided into seven regions: one central region comprising the FHH position and the six inner fuel positions, and the six surrounding segments (Figure 2.67). Materials within a region are homogenised or smeared to one material. Finally the seven materials for the four layers are smeared, according to their height, to seven  final materials  for  one assembly  having flux weighted  cross sections in  16 neutron energy groups. 107
+
+FIG. 2.67. Radial composition of the fuel and control guide block in PIJ.
+
+The procedure for the control guide blocks (Figure 2.67) and reflector blocks is similar; also divided into seven regions but with only two layers, with and without FHH.
+
+The advantage of the sub-division in seven regions is that the anomalies in a block, like BP stacks,  absent fuel pins, control  guide holes, control rods, etc. are confined to only  one region a piece and are not smeared over the entire block. This allows for more pronounced local absorption and/or streaming, which form major  problems for modelling this kind of reactor cores.
+
+108 For  all 48 different block configurations (enrichments, block types, surroundings, etc.) two runs with PIJ were done; first a run without control rods (unrodded) and a second run with control rod material modelled in the control guide holes and using rodded material in that sector of the surrounding where present (rodded). Afterward all cross sections were condensed to two energy groups (Eth = 2.1 eV) and organised in such a way that it can be used in the reactor code PANTHER, leading to 336 different materials in as well a rodded state as an unrodded state.
+
+By making use of the modules PROCOL  and PIJ the  double heterogeneity formed  by the CFP’s and the fuel rods has been modelled explicitly and therefore no Dancoff factor has to be introduced.
+
+##### 2.2.5.2. Results of HTTR first criticality (Phase 1) [2-53]
+
+The KENO model is a  very detailed model  of  the HTTR in which practically  all components are modelled explicitly, with the following exceptions:
+
+1  As mentioned before, the coated fuel particles were homogenised with the  graphite matrix of the fuel compacts. 2  It is not possible to model hexagonal blocks in  KENO-Va. Therefore, the permanent reflector was approximated by  a cylinder of 214.98 cm radius which preserves the volume of the actual reflector. Furthermore, the hexagonal blocks in the core and in the replaceable reflector were represented by  cylinders of 36 cm diameter (the distance between the parallel faces of the blocks). These cylinders (which contain all fuel rods and the two burnable poison rods or all coolant channels) were placed in a large cylinder of graphite with a radius of 162.9 cm (Figure 2.68).
+
+In the BOLD VENTURE model the HTTR is represented by an R-Z model. It contains six zones in the radial direction, and nine in the axial direction, one for each layer. The six radial zones are the:
+
+## 1.  Central control rod guide column (column A)
+
+## 2.  First fuel zone (the six B columns)
+
+3.  Second fuel zone (the 12 C columns: 6 fuel columns and 6 control rod columns)
+
+## 4.  Third and fourth fuel zone (the 18 D columns)
+
+## 5.  Replaceable reflector (the 24 E columns)
+
+## 6. Permanent reflector
+
+The height of each layer is 58 cm, except layer 9 (42.9 cm). The radii of the zones are: 19.01, 50.29, 82.85, 115.61, 148.44 and 214.98 cm. Calculations were performed with a 2 cm mesh, both in axial as radial direction and the BP rods were simulated by adding boron to the radial zones B, C and D to such an extend that a reactivity change, as determined by auxilary KENO calculations, was reached.
+
+For PANTHER a 3-D model has been developed in a hexagonal representation, taking a cluster of seven sub  hexes (size: 13.68 cm flat-to-flat) per hexagonal reactor assembly position in the radial direction and 5 layers per assembly in the axial direction. This leads to 937 radial reactor channels with an equivalent radius of 220  cm and 45  axial layers of 11.6 cm.  Control rods, those left partially inserted  in the  E-column ring, reached  only till the bottom level of the upper block (464 cm level). 109
+
+FIG. 2.68. Fuel assembly (upper left), the KENO model for the critical reactor (upper right, and the KENO model for scram with all control rods (C, R1, R2 and R3) (lower).
+
+110 Materials defined and prepared in the WIMS data generation phase has been laid down according to proper  compositions and orientations of the reactor assembly blocks in the reactor. For the simple core all enrichments were set at 5.2 w%.
+
+In PANTHER the assemblies which carry control rods are represented by two sets of nuclear data: one set for the part where is no control rod inserted (unrodded) and a set for the rodded part. The control rod insertion depth for a certain control rod bank determines whether PANTHER uses the set for the rodded material or for the unrodded material in a particular mesh, thus enabling to drive a control rod.
+
+The results of the calculations by the different  codes are presented in Table 2-68. Good agreement  can be found between the KENO and PANTHER results, the higher keff values for BOLD VENTURE can be attributed to neutron streaming in the control rod guiding holes . Table 2-68. Comparison of the results
+
+KENO  BOLDVENTURE  PANTHER Measured
+
+keff simple core  1.1278 ± 0.0005  1.1592 1.1251 keff fully loaded core - rods withdrawn  1.1584 ± 0.0005  1.1974 1.1595 - rods inserted  0.6983 ± 0.0005   0.7510  0.685 ±0.010 critical insertion - above bottom core  170.5 cm    161.5 cm  178.9 cm
+
+##### 2.2.5.3. Results HTTR-CR and HTTR-TC for Phase 2 [2-53]
+
+The second benchmark of the HTTR  core physics  (Phase 2), defined by JAERI (Yamashita et.al.,1999b), were  also calculated by  using the Monte-Carlo code KENO-Va (V4.3) for  a fully loaded core  with 30 fuel elements and are presented in the Working Material of the IAEA meeting (CRP-5, 1999 and Türkcan et.al.,1999).
+
+In Phase 2 the following answers were requested by the organisers:
+
+- Scram reactivities (control rod worth) for the control rods at  critical  position and after a scram of the reflector control rods (HTTR-SR) and after a scram with all the control rods (HTTR-SA), both at a temperature of 300K. - Isothermal temperature coefficients for a fully loaded core from 280K to 480K in six temperature steps (HTTR-TC). Where the control rod settings (C, R1 and R2) have slightly different settings due to a temperature elevation and the critical  insertion of the control rods C, R1 and R2, (R3 stays fully out) at 480K.
+
+For the new benchmark calculations, new  cross-sections were prepared for seven different temperatures  using the aforementioned procedure. The resulting cross section libraries contain data for 172 neutron energy groups. The geometry input for KENO is revised to be able to calculate the questions of the benchmark. The KENO model for a critical reactor and with all control-rods inserted is shown in Figure 2.69. The results of the benchmark-phase 2 will be summarised. 111
+
+The scram reactivity of control rods (∆k/k) is defined by:
+
+.
+
+Crit RCR in R Crit RCR in
+
+kk kk ρ −
+
+−
+
+− =
+
+With: kCrit. .   :  Effective multiplication factor at critical CR position and   kRCR-in:  Effective multiplication factor at CR position after scram.
+
+Table 2-69 provides the scram reactivity  for two different scram  conditions. Also given are the calculated and measured scram reactivities (Fujimoto et.al.,1999).
+
+Table 2-69. Scram Reactivities (Using KENO)
+
+CR Group  Critical position (mm) HTTR-Crit  Position after scram (mm) HTTR-SR  Position after scram (mm) HTTR-SA C 1789  1789  -41 R1 1789  1789  -41 R2 1789  -41  -41 R3  Full out   -41  -41 keff (average)     1.0093 ± 0.000  0.9178 ± 0.0005  0.6809 ± 0.0005
+
+ρcalc  0.0988 ± 0.0007  0.4778 ± 0.0007 ρmeas  0.120 ± 0.012  0.46 ± 0.04
+
+The results using PANTHER calculations include the following:
+
+Keff at critical position = 1.0088;  Keff after scram HTTR-SA = 0.7317;   = 0.375
+
+This scram reactivity is too low but can be explained by neutron streaming in the control rod holes and is to be recalculated by means of anisotropic cross section
+
+In the second question of the benchmark, the isothermal temperature coefficients (HTTR-TC) for  a fully loaded core between temperatures 280K to 480K (in six steps) were asked, where the control rods C, R1, and R2 have slightly different settings due to temperature elevation (13 mm).
+
+The effective multiplication factors should be calculated for the following temperatures: 280, 300, 340, 380, 420, 460 and 480 Kelvin and the isothermal temperature coefficients should be calculated at:  290, 320, 360, 400, 440 and 470 Kelvin. The insertion depth of C, R1, R2 is the same at level =1776 mm and R3 again is fully withdrawn. Also the critical position for those control rods  at 480K, with R3 fully  out, is requested for the benchmark.
+
+The following relation should evaluate the isothermal temperature coefficients for  a fully loaded core from the effective multiplication factors:
+
+1 11
+
+1 . .( )
+
+nn n nn n n
+
+kk kk T T ρ + ++
+
+− = −
+
+nρ   :  Temperature coefficient between Tn and Tn+1 ( ∆ k/k/K) Tn   :   Core temperature at n th measurement (K) Tn+1 :  Core temperature at n+1 th measurement (K) kn    :   Effective multiplication factor at Tn kn+1 :   Effective multiplication factor at Tn+1.
+
+112 Results of the calculations are shown in Figure 2-69. The calculated isothermal temperature coefficient  (average between 320K and 440K) is  –14.7 (pcm/ oC), while the measured value equals  –14.2 (pcm/oC) on the  average. The  calculated critical  control rod position at 480K is 1879 mm, while for the measurements at T= 395K; 1873 mm and at T= 418K; 1903 mm are found.
+
+The PANTHER value for  iso  = –15.2 (pcm/K), and the control rod position at 480K is calculated as 1934 mm.
+
+k-eff for different temperatures
+
+0.980
+
+0.985
+
+0.990
+
+0.995
+
+1.000
+
+1.005
+
+1.010
+
+1.015 250 300 350 400 450 500 Temperature (K)k-eff Isothermal Temperature Coefficient
+
+-20
+
+-15
+
+-10
+
+-5
+
+0 250 300 350 400 450 500 Temperature (K)Isothermal TemperatureCoefficient (pcm/K) calculated interpreted y = 14.78
+
+k-eff for different conrol rod settings
+
+0.970
+
+0.975
+
+0.980
+
+0.985
+
+0.990
+
+0.995
+
+1.000
+
+1.005
+
+1700 1750 1800 1850 1900 1950 C, R1, R2 (mm)k-eff T = 480 K 1.18
+
+1.20
+
+1.22
+
+1.24
+
+1.26
+
+1.28
+
+1.30
+
+1.32 250 300 350 400 450 500 temperature (K)neutron generation time (ms) Figure 2-69. The  effective multiplication factor  (upper left) and isothermal temperature coefficient at different core temperatures, the multiplication factor  for the different control rod settings of C, R1, R2 while R3 fully out  (lower left) and the neutron generation time versus core temperatures (lower right).
+
+2.2.5.4. Reactivity and reactor noise measurements of the HTTR during the start-up Cores [2-53]
+
+During the start-up phase of the HTTR at different core configurations, reactivity and the reactor noise measurements were carried out in parallel with measurements of the HTTR Physics  group.  For these measurements two temporary compensated ionization chambers CIC-A and B were used. Figure 2.70 shows the horizontal cross-section of the core and the positions of the detectors. Measurements were  carried out by using the signal processing system DSA-2 (Türkcan, 1993) in real-time. During the on-line reactivity  experiments, the measured DC signals were digitised and the reactivity is calculated by using the  Inverse Kinetics Method (IK).
+
+During the first critical approach after the loading of the 19th fuel assembly, the source  criticality  at very low power is  achieved. For  criticality, first the neutron source is removed and then by moving the central control rod (C) to compensate for the reactivity until the first criticality of the reactor is reached on Nov. 10 1998. Figure 2.71 shows the result of reactivity measurements during this approach to criticality. 113
+
+FIG. 2.70. HTTR horizontal neutron detector positions.
+
+FIG. 2.71. Approach to criticality.
+
+After  each new  few fuel loading, the reactivity  value of the control rods were measured successively  with the  IK-method by the HTTR physics  group and by DSA-2 system. As an illustration the experimental result is given in Figure 2.72 for full core with 30 fuel assemblies. By the move of a control rod with a small step, the neutron flux is increased while the reactor power is kept in the same power range by compensating the reactivity effect by another control rod. For each action where the reactivity is constant over about 80 seconds the calculated reactivity is averaged. This way the average reactivity worth of the control rod is determined for this stepwise change.
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5 0 250 500 750 1000 1250
+
+Time (s)F. Ch 1&2 (V) -0.2
+
+-0.1
+
+0
+
+0.1
+
+0.2R.Ch 1&2 ($) FCh. 1 F Ch. 2 R Ch. 1 R Ch. 2
+
+Fig. 2.72.  Measured reactivity at HTTR full core. Two measured signals of Ch1 (A) and Ch2 (B) and the computed reactivity (blocks match each other, scale on right).
+
+114 For the reactor noise measurements, the same neutron detector signals were used and the reactor  at very low  power is kept as stable  as possible especially  for this measurement. Signals were conditioned for the noise measurements by using high- and low-pass filters with a gain amplifier.
+
+Inherent to this type of reactor, the neutron generation time is long and was calculated to be: 1.173±0.001 ms. The prompt neutron decay constant is quite close to the decay of the fastest delayed neutrons, therefore no intermediate plateau can be recognized in the measured spectral functions such as the Normalized Auto and Cross Power Spectral Density  (NAPSD and CPSD).
+
+Figure 2.73 is an example of the measurements on the 21 fuel element critical core at very low power. Our investigations indicated a shortcoming of the bandwidth of the used current  amplifiers due to the large  cable  capacity of about 100-m of  cable between the detectors  and the amplifiers. This situation  was not possible to change during the measurements.
+
+FIG. 2.73. The NAPSD(f) and the NCPSD(f) functions measured 21 st fuel loading. The cross spectra do not give clear break frequency.
+
+FIG. 2.74. Calculated Transfer functions for 18 and 30 fuel elements loading. 115
+
+The measured coherence between the two neutron detector signals was 0.8 at 0.1 Hz and  gradually  decreased to 0.2 at 1 Hz and the phase between them practically zero. The calculation of the zero-power transfer function (Figure 2.74) for different number of fuel loading, the transfer function shape did not changed considerably.
+
+##### 2.2.5.5. Summary of results [2-53]
+
+On the level of cell calculations a good agreement has been obtained between the cross sections and the spectra as prepared by the SCALE-system and as prepared by WIMS. Calculations with detailed geometry converged to very good agreement between the results of PANTER and the results of KENO with  an exact  geometrical model.  In the second phase, KENO results  gave very  well the measured values of the scram reactivities as well as the estimation of the isothermal temperature coefficient within the requested temperature interval. Therefore, we can conclude that the Benchmark calculations of the start-up physics calculations were successful and that the results of the reactivity measurements and the reactor noise analysis done at the HTTR, using the DSA-2 system, resulted with a good agreement with the results of the HTTR Physics Group.
+
+116
+
+#### 2.2.6 Russian Federation
+
+##### 2.2.6.1. General analysis method and model description
+
+For benchmark  calculations in the diffusion approximation, the computer codes WIMS-D/4 and JAR [2-54, 2-55] were used. MCU [2-56] and MCNP [2-57] codes, implementing the Monte Carlo method were used as reference.
+
+WIMS-D/4 code [2-54] has been used for computation of few-group constants for fuel and the reflector blocks. The code is provided by  69  groups system of nuclear constants in neutrons retardation and thermalization range  on the basis of estimated nuclear data in ENDF/B6 format. The characteristic feature of WIMS is a two-stage approach to solution of a task on spatial-energy neutron distribution in  a reactor cell.  In the first place, a detailed spectrum in 69 groups for every zone, typical for the cell is calculated: fuel, shell, coolant and moderator. Then cross-sections are convoluted to a specified few-group approximation, where detailed distribution of neutrons in geometric zones of the unit cell is  calculated. The S4method was used in the first and second stages of the calculation.  In  calculations of spatial resonance screening the equivalence theorem is employed, with the  help of which the heterogeneous problem  comes to an  effective homogeneous. Detailed matrices of scattering cross-sections for main moderators are employed in the neutron thermalization calculations.
+
+For calculating of fuel cells with double heterogeneity of fuel  allocation at the fuel particles and fuel compacts level in the cell, containing burnable poison rods, Segev algorithm [2-57] was used to calculate macro-sections for a cell, associated with a fuel compact. When using the Segev formalism to calculate parameters of  fuel  compact cell containing  fuel particles, it is necessary  to carry  out calculation of three cell variants in  cluster PIJ or PIJPERSEUS option:
+
+a) a cell associated with fuel particle is calculated, whereby a kernel is represented as a rod with radius rc= 9/16 rsph, on which matrix  moderator  and shells , related to one kernel is “spread”. Radii of the rod and cell are chosen so that collision probability for neutron, born in fuel, would be the same in  cylindrical of module and spherical geometry. At cell calculation by WIMS at the given stage a value of Dankoff factor for inner region of the cell (γ) is found;
+
+b) a cell associated with annular fuel compact, in which the fuel and the compact matrix graphite  are homogenized, is calculated.  Panniculus equivalent of serves the shell from graphite, taking into account of gas, related to one compact, serves a layer of external moderator. At this stage, a value of Dankoff factor for outer region of the cell (Γ) is determined;
+
+c) then γinput is calculated:   γinput 1/1/1 /1 )1/1(1 1 −Γ+ +Σ⋅ Σ⋅ ⋅−+ = A L mVm mVm γ  (1)
+
+where Vm- volumetric fraction; Σm- moderator scattering cross-section; L=M 1/3.lcell;          (2) M - number of fuel particles; lcell - mean chord; A - Bell factor. 117
+
+The value of  γinput is set in WIMS and calculation  as per point “b”  is repeated. Resulting from the last calculation macroscopic cross sections and multiplication factor for a fuel compact cell with double heterogeneity are acquired. It is worth noting that value of γinput weakly depends on fuel temperature and isotopic content in  case of fixed geometrical parameters of a cell.
+
+Basic results of diffusion calculations were obtained in two-group approximation with thermal and epithermal  neutrons cut-off energy  of 0.625 eV, selected from the condition of obtaining values of cross-sections for transition to higher energy close to zero, that is defined by the calculation model of scattering in the reactor code, that takes  account of energy transitions only in direction with energy decrease.
+
+In the case of the cell with burnable poison rods calculation, the same option of WIMS code was used, but poison rods in the cell was surrounded by effective fuel composition accounting shielding factors.
+
+The macro-constants received at WIMS calculation stage were then accepted as input data for reactor calculations by JAR code. The JAR code [2-55] is based on the nodalization method and makes it possible to carry out three-dimensional analysis of reactor in few-group diffusion approximation. The reactor  core and the reflectors in a calculations model are represented as hexagonal prisms, broken down on triangles and divided into axial zones.
+
+For the diffusion calculations the effect of nonuniformity of poison in burnable rods through its height was not accounted. Burnable pellets and graphite pellets were homogenized in the vertical direction. The construction of control rods absorber through its height is considered as uninterrupted.
+
+The MCU code [2-56] based on Monte-Carlo methodology employs a combination of DLC/MCUDAT-1 data libraries. MCU is used to compute a continuous spectrum of neutrons moderation within energy  range 10-5 eV to 20 MeV,  and to solve the neutron transport problem with an external source or criticality problems. To describe cross-sections in the field of unresolved resonance the subgroup dividing method is used, while for resolved resonance range the detailed description of cross-sections is possible on  the basis of special data libraries.
+
+MCNP code (Version 4A) [2-57] has been used to check results of the diffusion calculations. Nowadays the MCNP code is one of the most efficient computer codes, which employ the Monte Carlo methodology for analysis of high temperature gas-cooled nuclear reactors. Possibility of  the MCNP code application for analysis of HTGRs with double heterogeneity  of fuel allocation on the basis of  comparison with other codes, was studied before.  The heterogeneous model by MCNP was described so that  each  coated fuel particle was located in unit lattice by lattice geometry in fuel compact (not randomly).
+
+Among essential features of MCNP, a capability to compute continuous spectrum of neutrons moderation within energy interval 0 to 20 MeV in approximation of point-by-point representation of nuclear data, should be pointed out. Point cross sections of neutrons interaction with nucleus were prepared by using of NJOY code in  ENDF /B6 format. In criticality analysis  a  multiplication  factor  keff was estimated by three ways for larger reliability: viz.: estimation on collisions (col), estimation on absorption (abs), estimation on free track length (trk).  Moreover, a combined  estimation of keff based on the first three estimates was made.
+
+118 For the Monte-Carlo calculations the detailed geometry was taken into account, but the presence of spacers on the fuel rod surface was not into account. Beside in the MCNP-4A code version the location of coated particles in  graphite matrix is described in the  form of cubic lattice.
+
+Design model of the reactor (Figure 2.75) consists of nine layers of hexagonal fuel blocks and  graphite blocks of reflector, divided into four subzones each. The reactor core includes reactivity compensation rods viz.: control rods and channels for the reserve shutdown system.  It is supposed in the analysis, that the poison in the reactivity compensation rods is distributed axially without gaps, which actually are available in the rods and are about 6.45 % from the overall length of rod.
+
+To calculate  few-group cross sections and multiplication factor, the fuel block is modeled by an annular cell, area of which corresponds to 1/3 area of a fuel block; a burnable poison rod, a hole for it or a graphite disk are set in the center  and surrounded by fuel, medium content of which corresponds to 1/3 of the block. The fuel content of the surrounding zone is homogenized taking into account a double heterogeneity of fuel arrangement and from condition to preserve  multiplication factor value and migration parameters in the zone compared with a cell of the annular fuel compact (Figure 2.76).
+
+Macro-cross sections of graphite reflector cells, including absorber rods or gas cavities for their location, were also calculated using the WIMS code. A calculation model of the cell is the following: in the center of the cell a cavity or an absorber rod (with detailed description of its geometry) is set, which is surrounded by a graphite ring with outer of radius, determined from the condition of surrounding  graphite  volume conservation. A layer, containing homogenized fuel content is used as an outer layer of the cell (for shaping spectrum).
+
+Information about the codes, calculation models  and nuclear data are summarized in Tables 2-70, 2-71 and 2-72.
+
+Table 2-70. Codes, model and library of nuclear data for Diffusion calculations Name of Country  Russia Items  Name of Institute  B Nuc. data file  ENDF/B6 Fuel cell code
+
+## Theory
+
+Model Cut - off energy No. of groups WIMS-D/4 S4 Cylindrical cell 0,625 eV 69 BP cell code
+
+## Theory
+
+Model No. of groups WIMS-D/4 S4 Cylindrical cell 69 Control rod cell cal. The theory Model Number of groups WIMS-D/4 S4 Cylindrical cell with the central absorbing zone 69 Core cal. Code Model No. of groups (Fast + Thermal) JAR-3D Triangular lattice (6 points / blocks) 1+1 119a) reactor in plan      b) fuel column along height FIG. 2.75. Reactor calculation model. Cavity for reserve shutdown system Control rods Fuel block with burnable poison rods Bottom reflector blockFuel blocks with different enrichment on uranium-235 120) plan view   b) axial view Fuel particle    Fuel compact        Fuel cell with burnable poison rod  FIG. 2.76. Fuel cell calculation mode. Fuel kernel (UO2)Multilayer coating Fuel matrix graphite related to one fuel particle Annular fuel compact Graphite sleeve Gas gap and graphite spacing ribs Fuel block graphite related to a fuel compact Burnable poison rod Homogenized fuel Graphite disks BP pellets 121
+
+Table 2-71. Codes, models and nuclear data library for Monte-Carlo calculations
+
+Name of Country: Russia  Name of Country: Russia Items  Name of Institute: RRC KI  Name of Institute: IBRAE Code Nuc. data file
+
+Energy structure MCU DLC/MCUDAT-1.0
+
+Continuous MCNP 4A ENDF/B6 NJOY Continuous Coated fuel particles History Batches Skipped batches Fuel kernels are not smeared 200 5000 1 Detailed account 2000 (up to 16000) 1000 10
+
+Table 2-72. Methodical errors Taking into account Items Calculation refining  Monte-Carlo calculation (MCNP) Diffusion calculation
+
+Forms and dimensions Detailed description of spacer of sleeve  homogenized homogenized 1 Graphite sleeve Detailed description of gaps between sleeve and fuel compact  + +
+
+## 2 Graphite block  Detailed description of coolant
+
+holes, gaps between dowel pin and dowel socket, chamfering and spot facing + homogenized
+
+## 3 Handling hole of graphite
+
+block  Detailed description of handling hole in all types of blocks  + -
+
+## 4 Position of burnable
+
+absorber  Horizontal locations of burnable absorbers are displaced on 3 mm to outside in fuel blocks + +
+
+## 5 Shock absorber of
+
+control rod (CR)  Detailed description of shock absorber  + -
+
+## 6 Heterogeneity of coated
+
+fuel particle (CFP)  Statistical treatment of CFP location in fuel compact  cubic cell  determined location Composition and density
+
+## 7 Fuel compact  Fuel compact load drift from
+
+nominal   - -
+
+8 Air in graphite block  Residual air in graphite block  -  -
+
+## 9 Impurity in dummy block  Impurity revising from 2,5ppm
+
+to 3,lppm   + +
+
+## 10 Partial insertion of R2-CR  Partial insertion of R2-CR  +  +
+
+## 11 Composition of graphite
+
+block  Different composition of a part of permanent reflector and dummy block + +
+
+122
+
+##### 2.2.6.2. First Criticality [HTTR-FC]
+
+Analysis of keff dependence on sequence of fuel columns loading was conducted, the results of which are depicted in Figure 2.77. In connection with this a consecutive loading, considered accordingly the specification JAERI-memo 10-005  and symmetrical loading, is illustrated in Figures 2.78, 2.79 and 2.80. First  results of HTTR-FC  calculations were presented at  IAEA Research Coordination Meeting [2-59]. The results on phase 2 of Benchmark Problems of HTTR were presented at  IAEA CRP-5 meeting in China, October 18-22, 1999 [2-60, 2-61]. Value Characteristic  Diffusion calculations  Monte Carlo calculations Organization OKBM  IBRAE  RRC KI Number of fuel columns   16  16  17 keff 1.005  1.006±0.0016  1.004±0.0012 Reactivity excess, %∆k/k 0.498 0.596  0.398
+
+In the annular reactor core of small diameter  with high neutron leakage value of multiplication factor is very sensitive to disposition of fuel columns,  and to ensure a power distribution symmetry,  while control rods in upper most position it makes sense to load the fuel columns symmetrically throughout the core.
+
+FIG. 2.77. keff versus number and arrangement of fuel columns.
+
+6 8 10 12 14 16 18 20 22 24 26 28 30 Number of fuel columns
+
+0.75
+
+0.80
+
+0.85
+
+0.90
+
+0.95
+
+1.00
+
+1.05
+
+1.10
+
+1.15Keff thin core, loading as per specification document thin core, symmetric load (fig.4a) thin core, symmetric load (fig.4b) thick core, symmetric load (fig.5)
+
+## 30 collumn core, symmetric load (fig.6)
+
+MCNP-code 123
+
+keff = 0.758
+
+keff = 0.938
+
+keff = 1.028
+
+a) keff = 0.770
+
+keff = 0.944
+
+keff = 1.028
+
+b)
+
+FIG. 2.78. keff versus fuel columns arrangement  (thin annular core – 18 fuel columns).
+
+124 keff = 0.945
+
+keff = 1.038
+
+keff = 1.079 keff = 1.035
+
+keff = 1.108
+
+FIG. 2.79. keff versus fuel columns arrangement (thick annular core – 24 fuel columns).
+
+125
+
+keff = 0.924
+
+keff = 1.039
+
+keff = 1.125
+
+FIG. 2.80. keff versus fuel columns arrangement (completely loaded core – 30 fuel columns).
+
+126 The Diffusion and Monte-Carlo calculations for  the benchmarks HTTR-CR, HTTREX, HTTR-SC and HTTR-TC are provided in Tables 2-73, 2-74, 2-75 and 2-76, respectively.
+
+##### 2.2.6.3. Control Rod Position at Criticality [HTTR-CR]
+
+Table 2-73. Results of Diffusion and Monte-Carlo Calculations for the HTTR-CR Benchmark Problem Value Characteristic  Diffusion calculations Monte Carlo calculations Organization OKBM  IBRAE  RRC KI Depth of control rods insertion, cm
+
+## 18 columns  271  259  306
+
+## 24 columns  196  195  201
+
+## 30 columns  166  170  154
+
+##### 2.2.6.4. Excess Reactivity [HTTR-EX]
+
+Table 2-74. Results of Diffusion and Monte-Carlo Calculations for the HTTR-EX Benchmark Problem Value Characteristic  Diffusion calculations Monte Carlo calculations Organization OKBM  IBRAE  RRC KI Reactivity excess, %∆k/k
+
+## 18 columns  2.68  2.70  1.70
+
+## 24 columns  9.73  10.83  9.80
+
+## 30 columns  11.14  13.55  13.40
+
+##### 2.2.6.5. Scram Reactivity [HTTR-SC]
+
+Table 2-75. Results of Diffusion and Monte-Carlo Calculations for the HTTR-SC Benchmark Problem Value Characteristic  Diffusion calculations Monte Carlo calculations Organization OKBM  IBRAE  RRC KI b)
+
+Worth of reflector rods keff krit    a)
+
+keff after drop
+
+ρ (∆k/k) Worth of all rods keff krit
+
+keff after drop
+
+ρ (∆k/k) 1.0023 0.9242 0.0843
+
+1.0023 0.6573 0.5237 1.0098±0.0015 0.9205±0.0017 0.0961±0.0020
+
+1.0098±0.0015 0.7172±0.0015 0.4040±0.0019 1.0265±0.0010 0.9349±0.0010 0,0955±0.0014
+
+1.0265±0.0010 0.6746±0.0010 0.5081±0.0014 a Calculated value at critical position of rods obtained by experiment. b Results were obtained accordingly the JAERI-memo 10-005 including graphite impurity data. 127
+
+##### 2.6.6.6. Isothermal Temperature Coefficient [HTTR-TC]
+
+Table 2-76. Results of Diffusion and Monte-Carlo Calculations for the HTTR-TC Benchmark Problem Value Characteristic  Diffusion calculations Monte Carlo calculations Organization OKBM  IBRAE  RRC KI Multiplication factor of reactor for design temperatures k280 k300 k340 k380 k420 k460 k480 1.0023 0.9930 0.9844 0.9768 0.9699 0.9665 1.0032±0.0002 0.9954±0.0002 0.9886±0.0002 0.9822±0.0002 0.9754±0.0004 0.9726±0.0002 1.0279±0.0010 1.0232±0.0010 1.0160±0.0010 1.0124±0.0010 1.0052±0.0010 1.0026±0.0010 Temperature coefficients (∆k/k/K) ρ290 ρ320 ρ360 ρ400 ρ440 ρ470 - (2.33⋅10 -4) - (2.19⋅10 -4) - (1.97⋅10 -4) - (1.82⋅10 -4) - (1.81⋅10 -4) - (1.95±0.10)⋅10 -4
+
+- (1.73±0.10) ⋅10 -4
+
+- (1.65±0.10) ⋅10 -4
+
+- (1.77±0.16) ⋅10 -4
+
+- (1.48±0.32) ⋅10 -4 -(1.1±0,4)10-4
+
+-(1.7±0,4)10-4
+
+-(0.9±0,4)10-4
+
+-(1.8±0,4)10-4
+
+-(1.3±0,7)10-4
+
+##### 2.6.6.7 Accuracy analysis
+
+The accuracy analysis of obtained results is presented as follows:
+
+Table 2-77. Excess reactivity [HTTR-EX]
+
+## 18 columns  24 columns  30 columns
+
+Diffusion calculations Average value (in accordance with RCM4 results), %∆k/k  1.6 8.8  12.4
+
+Average calculated value / experimental value, % a)  + 14  + 3.3
+
+WIMS-JAR value / average calculated value, %  + 67  + 10  - 10 WIMS-JAR value / experimental value, %  a)  + 26  - 7 Monte - Carlo calculations Average value (in accordance with RCM4 results), %∆k/k  1.87 10.1  13.0
+
+Average calculated value / experimental value, % a)  + 31  + 8.3
+
+MCNP value / average calculated value, %  + 44  + 7  + 4.2 MCU value / average calculated value, %  - 9  - 3  + 3 MCNP value / experimental value, %  a)  + 40  + 13 MCU value / experimental value, %  a)  - 27  + 12 a) Experimental result is absent.
+
+128
+
+Table 2-78.  Control rods worth [HTTR-SC]
+
+Reflector control rods  All control rods Diffusion calculations
+
+Average value (in accordance with RCM4 results), %∆k/k  9.2 48.0
+
+Average calculated value / experimental value, % - 23  + 4.3
+
+WIMS-JAR value / average calculated value, %  - 8  + 9 WIMS-JAR value / experimental value, %  - 30  + 14 Monte - Carlo calculations
+
+Average value (in accordance with RCM4 results), %∆k/k  9.2 44.8
+
+Average calculated value / experimental value, % - 23  -2.6
+
+MCNP value / average calculated value, %  + 4.4  - 10 MCU value / average calculated value, %  + 3.8  + 13 MCNP value / experimental value, %  - 20  - 12 MCU value / experimental value, %  - 20  + 10
+
+Table 2-79. Isothermal Temperature Coefficient at the temperature range 345 – 407 K [HTTR-TC] Diffusion calculations
+
+Average value (in accordance with RCM4 results), %∆k/k⋅K - 1.63⋅10 -4
+
+Average calculated value / experimental value, %  + 21 WIMS-JAR value / average calculated value, %  + 28 WIMS-JAR value / experimental value, %  + 54 Monte - Carlo calculations
+
+Average value (in accordance with RCM4 results), %∆k/k⋅K - 1.32⋅10 -4
+
+Average calculated value / experimental value, %  - 2 MCNP value / average calculated value, %  + 28 MCU value / average calculated value, %  - 4 MCNP value / experimental value, %  + 25 MCU value / experimental value, %  - 4
+
+Calculated accuracy analysis, presented above, demonstrates that 2-groups diffusion approximation gives significant error  at the excess  reactivity calculation for annular core with one ring of fuel assemblies. Multigroups approximation is necessary for calculation of this type core.
+
+Large spread in excess reactivity values, obtained by MCNP and MCU, from average calculated and experimental values demonstrates the necessity to revise calculational initial data (it may be moisture content in graphite), on the one side, and also to verify nuclei data library, on the other side. 129
+
+Errors  analysis of control rods worth estimation shows the necessity to use multigroups diffusion approximation for calculations of the side reflector control rods worth that is estimated with the most errors. Deviation of Monte-Carlo calculated control rods worth from experimental one in the range about 20 % should be also referred to the effect of initial data because deviation in calculated values is not large.
+
+To estimate reactivity temperature coefficients, it is necessary additional analysis characterized by accurate modeling of geometry and fuel particle distribution, detail modeling of burnable poison position by Monte-Carlo method, and for diffusion calculations it is necessary to model axial distribution of burnable poison, neutrons streaming for  adequate accounting of leakage and to use multigroups approximation.
+
+Significant dependence  of the results versus  chosen nuclei data libraries and its compiled programs defines the necessity to  choice basic library  for  HTGRs calculation especially for description of thermalization effects.
+
+130
+
+#### 2.2.7 Turkey [2-63]
+
+##### 2.2.7.1 Introduction
+
+This study was performed by the Nuclear Engineering Department of Haceettepe University as a contribution to the IAEA CRP on Evaluation of HTGR Performance. MCNP4B has been utilized throughout this study. This is a multi-purpose Monte Carlo n-particle (neutron, photon, and electron) transport code. This code also performs criticality analysis.
+
+Reactor configuration
+
+The HTTR core  consists of vertically  arranged prismatic hexagonal blocks with a height of 580 mm and  a width of 360 mm accross flats. Active core height  and effective diameter are 390 cm and 230 cm, respectively. Reactor core is made of 30 fuel colums and 7 control rod guide columns. The core is enveloped by 24 prismatic hexagonal reflector blocks. Among them,  there are  9 control rod guide columns, 12 replaceable reflector columns, and 3 irradiation colums. The whole structure is surrounded by a permanent graphite  side reflector.
+
+Each fuel column consists of 2 top reflector blocks, 5 fuel assemblies, and 2 bottom reflector blocks. There are two types of fuel assemblies; containing 31 and 33 fuel rods. Each fuel block contains three burnable poison (BP) insertion holes, but only  two of them are filled with B4C-C BP materials (containing 2.22 or 2.74 wt. %.natural boron).  Fuel rods contain 14 annular fuel compacts. These compacts are manufactured with inner and outer diameters of are 10 and 26 mm, respectively,  and a height of 39 mm. UO2 coated particles are embedded into graphite matrix to form the fuel compact.
+
+Each assembly  contains only one type of fuel.  However, there are 12 different fuel types with enrichments between 3 to10 wt. % of U-235.
+
+Control rods are made of B4C pellets sorrounded by  a 3.5 mm thick sleeve of  Alloy 800H. The total height of control rods is 3094 mm. Inner and outer diameters are 65 mm and 113 mm, respectively. The detailed geometry and composition of all components are provided by a JAERI report [2-5].
+
+MCNP-4B model and simulations
+
+MCNP-4B is a very versatile computer code for particle transport simulation purposes [2-62]. It has extended features in geometrical modeling in three dimensional space. Every single geometrical detail is defined to generate full HTTR core model. The complexity of the reactor core structure makes this detailed modeling necessary. Horizontal cross sectional views of the HTTR core model with MCNP-4B are given in Figures 2.81 and 2.82.
+
+The primitive element of the model is a coated particle.  It is generated with five concentric spherical volumes. Then, these coated particles are uniformly  distributed into a hexagonal prismatic lattice which is enclosed by an annular cylindirical graphite. Thus, a fuel compact model containing 13 000 CFP’s is obtained. 14 fuel compacts are then stacked into a structre made of graphite. Hence, a fuel assembly is constructed by placing this structure in a hexagonal lattice.  Two types of fuel assemblies with 31 and 33 fuel rods are generated in the model as mentioned earlier. 131
+
+Figure 2.81. Top cross sectional view of HHTR core in MCNP model.
+
+Figure 2.82. Cross sectional view of HTTR core in MCNP model with fuel and control assemblies.
+
+Control rod guide colums are also modeled by  leaving  appropriate space for two control rod locations  and a  location for reserve shut down rod system.
+
+MCNP provides a facility to visualize the geometry described in the model. Hence, the model is geometrically  verified by  taking views from different vertical  and horizontal cross sections. Criticality calculations are performed  with 5 000 source particles  generated in each cycle. 150 cycles  are  considered in each  run. ENDF/B-VI cross section library with continuous energy  is utilized throughout the calculations. Cross sections are evaluated  at respective temperatures as necessary for  graphite provided by thermal neutron libraries TMCCS.
+
+132
+
+Figure 2.83. MCNP model for Coated Fuel Particles and their arrangement in fuel compact.
+
+##### 2.2.7.2. Results of benchmark problems
+
+In this work, all benchmark problems expect HTTR-FC (Phase 2) are studied.
+
+Benchmark  Problem I:   HTTR-FC (Phase 1)
+
+The number of fuel columns necessary to make the reactor critical is calculated in this problem. Results of criticality calculations with different number of fuel colums are shown in Table 2-80. The reactor is estimated to be critical with 15 fuel colums.
+
+Table 2-80. Variation of effective multiplication factor with loaded fuel colums
+
+Fuel Colums k-eff Error 12 0.98703  0.00102 13 0.99252  0.00102 14 0.99923  0,00103 15 1.00503  0.00108 16 1.01226  0.00103 17 1.02079  0.00105 18 1.03073  0.00097 19 1.04698  0.00091
+
+Benchmark Problem 2:   HTTR-CR
+
+Control rod insertion depths for three different core loading configurations are evaluated for criticality condition. Control rod positıons are evaluated from the top of the 8th layer (the top of the bottom reflector). 133
+
+Table 2-81. Control rod depths for criticality and calculated k-eff
+
+Fuel Columns  Control Rod Depth (cm) k-eff  Error 18 285  0.99859 0.0016 24 210  1.00864 0.0013 30 164  0.99901 0.00152
+
+Benchmark Problem 3:  HTTR-EX
+
+Excess reactivities are  calculated  for three different cases mentioned in  Benchmark Problem 2 assuming 300K for moderator and fuel temperatures.
+
+Table 2-82. Excess reactivities for three different fuel l oading conditions
+
+Benchmark Problem 4:  HTTR-SC
+
+There are two cases defined in this problem for evaluating scram reactivity. The first one is specified with all reflector control rods  are inserted when the reactor is critical. The second one is evaluaeted with all control rods, reflector and core, are inserted again with the critical configuration for fully loaded core.
+
+Table 2-83. Scram reactivities with two different cases
+
+Scram Reactivity (%) All reflector CRs in  -7.75 All reflector & core CRs in -37.96
+
+Benchmark Problem 5:  HTTR-TC
+
+Isothermal temperature coefficients are calculated for fully loaded core at the critical condition. Critical control position is  also evaluated at a temperature of 480K to be 190 cm..
+
+Table 2-84. Critical control rod position at 480K and corresponding k-eff
+
+CR Position (cm)  k-eff  Error 190 0.99838  0.00220
+
+134 As mentioned earlier cross sections for graphite at different temperatures are evaluated by means of thermal neutron libraries TMCCS. There are only 4 sets of data at temperatures of 300K, 600K, 800K, and 1200K available in our institution. Therefore, k-eff evaluations are performed for these temperatures and the results are shown in Figure 2.84. As it can be seen from the figure, the slope of the curve change with temperature. Therefore, it is rather difficult to make an accurate prediction of isothermal temperature coefficient. However, it is estimated for the first two datum points to be 1.20 10 -4  1/K around the midpoint of 450K.
+
+Figure 2.84. Effective multiplication factor as a function of temperature.
+
+##### 2.2.7.3 Conclusions
+
+Results of  HTTR start-up core physics benchmark problems are presented.  Calculations are performed by MCNP-4B code and with continuous energy cross sections. Phase 2 of the first problem (HTTR-FC) is not taken into consideration. Therefore, all problems are performed with the original data. Geometrical modeling is done such a way that geometrical details are considered as much as possible. Isothermal reactivity calculation presented in this study is not very reliable due to the lack of relevant cross section data at rather close temperatures. 135
+
+#### 2.2.8. United States of America
+
+##### 2.2.8.1. Computational Methodology [2-64]
+
+The Monte Carlo code  MCNP4a was used because the  geometry of the coated fuel particles, fuel compacts, burnable poisons, fuel element and reflector blocks, and the control rods and guide blocks can be modeled explicitly without any approximations.
+
+MCNP4a uses nuclear data from the ENDF/IBV Version 0 cross-section library. The thermal neutron scattering matrix for the graphite is based on S(,) of ENDF/BV. A core temperature of 300 K is assumed. MCNP4a uses track length, collision and analog estimators in determining the most probable value of keff. The number of histories per batch is 10,000. The number of batches is 30 with the first 5 batches being discarded for statistical reasons.
+
+The core is modeled with hexagonal lattices  consisting of control rod  guide blocks, fuel blocks, and permanent reflector blocks. The fuel rods and the burnable poison rods are modeled using  cylindrical body descriptions. The fuel block  consists  of several smaller hexagonal lattices containing one fuel rod or burnable poison rod. This is shown in Figure 2.85. In the geometry description, all hexagonal lattices were assigned to a universe number. The universe numbers were then input into an array to describe the location of the hexagonal blocks in the reactor core. The cross sectional model of the 30 column reactor core is shown in Figure 2.86. The outer boundary of the permanent reflector was modeled as a cylinder.
+
+The fuel compacts are modeled with cylinders and the coated fuel particles (CFPS) are modeled with spherical body descriptions. In the control rod insertion heterogeneous excess reactivity calculations all five layers of  the CFP are modeled. There  are about 13,000 fuel particles defined for each fuel compact corresponding to a packing density of 30 percent with each fuel rod containing 14 fuel compacts. Therefore, for plotting simplicity the fuel particles are not shown in the cross sectional view of the fuel hexagonal lattice. The fuel particle representation is smeared in the homogeneous excess reactivity calculation.
+
+The burnable poison rods are modeled as two different types. The geometry does not change but the material composition of the burnable poison changes. There are graphite disks that separate the upper and lower parts of the burnable poison rods. There are only two of the three burnable poison rod positions filled for  each fuel hexagonal lattice. The third hole contains helium coolant. The  configurations of the burnable poison  rods change throughout the reactor core and are shown in Figure 2.86.
+
+There are three pairs of control rods in the outer ring that are not used in the approach to criticality. All other control rod insertion depths change as one bank.  The control  rods in the outer ring  can only  be removed to 72.5 cm from the top of the active core because a sufficient negative reactivity addition rate must be available for reactor scrams. The control rods in the inner rings can be fully withdrawn. Therefore, in the excess reactivity model, the control rod holes contain coolant in the inner rings.
+
+136 FIG. 2.85. Cross section of fuel assembly.
+
+FIG. 2.86. Cross section of fully loaded core. 137
+
+##### 2.2.8.2. Results [2-65]
+
+Monte Carlo methodology was used by the  US in the  initial HTTR criticality benchmark problem (MCNP-4a), and the calculations were limited to the case of the full core (30 elements loaded). The calculations made  for the initial problem consisted of k-effective calculations vs. control rod (C/R) position in cm from the bottom of the active core, evaluated at two different uniform core temperatures (300K and 800K),  and  are shown in Figure 2.87 and detailed in Table 2.85.
+
+FIG. 2.87: HTTR K-eff at 300 and 800K.
+
+Table 2-85. MCNP4a Summary of results
+
+Core Temperature, K Critical Rod Position (cm)*  K-eff, (Rods Full In)  K-eff, (Rods Full Out)  Homogeneous Model, K-eff, (Rods Full Out) 300 159  0.6899 (0.005)  1.1400 (0.004)  1.1336 (0.005) 800  194  0.6525 (0.006)  1.1118 (0.005)  1.10598 (0.004) * Distance withdrawn (from bottom of the active core)
+
+As specified in  JAERI’s initial benchmark problem description, the outer ring of reflector C/Rs were modeled as  fully  withdrawn, and all other rods were moved in tandem, and their position with respect to the bottom of the active core denoted as “C/R position.”
+
+There were no additional MCNP calculations done for Part 2 of the benchmark; hence only simplified and  approximate versions of the  new benchmark problem calculations were done using the original MCNP results.  Hence for the scram reactivity estimates, “scram from critical” results are for the case of all but the outer ring reflector rods inserting, rather than the configurations specified in the new benchmark. The calculations of temperature coefficient of reactivity also use just the original k-effective calculations at 300K and 800K rather than the more detailed calculations specified in the new benchmark.
+
+138
+
+HTTR-SC
+
+For the HTTR-SC benchmark problem, the scram  reactivity  from  critical was calculated from the expression noted in the benchmark definition (difference between keffective at critical [1.0] and k-effective with rods fully inserted divided by the product of the two k-effective values).  The results are shown in Figure 2.88 as  a function of core temperature (curve labeled “Scram from Critical.”).  Hence the scram reactivity for the core temperature specified in the benchmark  (300K)  is 0.45.  The scram reactivity for the  case where all rods drop would be somewhat greater.  Note that at higher temperatures, the scram reactivity would be greater, as expected.  Figure 2.88 shows a scram reactivity of 0.53 for a uniform core temperature of 800K.  Also shown in Figure 2.88 is the reactivity worth of the rods (again excluding those rods in the outermost outer reflector ring) for full travel.
+
+FIG. 2.88. Scram reactivity
+
+FIG. 2.89. Temperature coefficient of reactivity vs. k-eff 139
+
+HTTR-TC
+
+The calculated temperature coefficient of reactivity (for uniform core temperatures) is plotted vs. average k-effective in Figure 2.89.  The point at which the curve intersects k-eff = 1.0 is taken as the value of interest.  That value is –7.5E-5 dk/k per degree C, evaluated at the average of the two temperatures at which k-eff was calculated (300K and 800K), i.e. 550K.  It is interesting to note that Figure 2.89 shows that the coefficient becomes considerably more negative at smaller values of k-eff.  One interpretation of this result would suggest that if the shutdown reactivity is calculated using the conventional estimated temperature coefficient of reactivity (at k-eff = 1.0), a non-conservative (low) value of shutdown reactivity would result.
+
+140 REFERENCES TO CHAPTER 2
+
+[2.1.]  JAPAN ATOMIC ENERGY RESEARCH INSTITUTE, “Present Status of HTGR Research and Development”, JAERI, Oarai, Japan, 1996. [2.2.]  YAMASHITA, K., “A  new HTR concept concerning a modular system with blocktype fuel elements and its comparison with  a pebble-bed-type HTR”, Jül-1842, Kernforschungsanlage Jülich GmbH, 1983, (in German). [2.3.]  KUNITOMI, K., et. al., “Development of New Type of HTGR”, (Proc. 73rd  JSME Fall Annual Meeting), JSME, Japan, 1995. [2.4.]  NEYLAN, A.J., SILADY, F.A.,  and BAXTER,  A.M., “Gas Turbine Module Helium Reactor (GT-MHR): A Multipurpose Passively  Safe Next Generation Reactor”, Proceedings of The  ASME/JASME 3 rd  International Conference on Nuclear Engineering, ASME, 1995. [2.5.]  JAPAN ATOMIC ENERGY RESEARCH  INSTITUTE,  “Benchmark Problem’s Data for The HTTR’s Start-up Core Physics Experiments” JAERI-memo 10-005, Oarai, Japan, 1998. [2.6.]  BREY, H.L.,  (Ed),  “Current Status and  Future Development of Modular High Temperature Gas Cooled Reactor Technology”, IAEA-TECDOC-1198, Vienna, 2001 [2.7.]  WEISBRODT,  I.A., “Status of Gas-Cooled Reactor Technology”, Private communication, Vienna, March 1997. [2.8.]  INTERNATIONAL ATOMIC ENERGY AGENCY,  “Design and  Evaluation  of  Heat Utilization Systems for the High Temperature Engineering Test Reactor”,  IAEATECDOC-1236, Vienna, August 2001. [2.9.]  FUJIMOTO, N., YAMASHITA, K., ”JAERI’s Benchmark Calculation of HTTR Core Physics-Phase 2”, JAERI, (Proc. Second RCM of CRP on Evaluation of HTGR Performance, held at Beijing), IAEA, Vienna, 1999 [2.10.] FUJIMOTO, N.,  et. al.,  “JAERI’s  Benchmark Calculation of Start-up Core Physics with HTTR Nuclear Characteristics Evaluation  Code System”, JAERI  memo 11-030, Oarai, Japan, pp. 80-106, 1999. [2.11.] YAMASHITA, K., et. al., “Nuclear design of the High-Temperature Engineering Test Reactor (HTTR)”, Nucl. Sci. Eng. pp.122, 212-228, 1996. [2.12.] SHINDO, R., YAMASHITA, K. and MUARTA, I., “DELIGHT-7; One-dimensional fuel cell burnup analysis code for High Temperature Gas-cooled Reactors (HTGRs)”, JAERI-M 90-048, 1990, (in Japanese). [2.13.] LATHROP, K. D. and BRINKLEY, F. W., “TWOTRAN-II: and interfaced exportable version of the TWOTRAN code for two-dimensional transport”,  LA-4848-MS,  Los Alamos, USA, 1973. [2.14.] HARADA, H. and  YAMASHITA, K.,  “The reactor  core analysis code CITATION1000VP for High Temperature Engineering Test Reactor”, JAERI-M 89-135, 1989, (in Japanese). [2.15.] FOWLER, T. B., VONDY, D. R. and CUNNINGHAM, G. W., “Nuclear reactor core analysis code, CITATION”, ORNL-TM-2496, Oak Ridge, USA, 1971. [2.16.]  MORI, T. and NAKAGAWA, M., "MVP/GMVP:General Purpose  Monte Carlo Codes for Neutron and Photon Transport Calculations based on Continuous Energy and Multi-Group Methods", JAERI-Data/Code 94-007, 1994. [2.17.] MORI, T., NAKAGAWA, M. and   SASAKI, M., "Vectorization of  Continuous Energy Monte Carlo  Method for  Neutron Transport Calculation" , J. Nucl. Sci. Technol., 29 [4], pp. 325, 1992. 141
+
+[2.18.] SHIBATA, K.,  et al.: Japanese Evaluated  Nuclear Data  Library, Version-3, JAERI-1319, 1990. [2.19.]  OKUMURA, K., et al., SRAC95; "General Purpose Neutronics Code System," JAERI-Data/Code 96-015, Japan Atomic Energy Research Institute, 1996. [2.20.] MURATA,  I., MORI, T. and NAKAGAWA, M., "Continuous Energy Monte Carlo Calculations of Randomly Distributed Spherical fuels in High-Temperature GasCooled Reactors Based on a Statistical Geometry Model", NSE, 123, pp. 96-109, 1996. [2.21.]  N. NOJIRI, M. NAKANO, N. FUJIMOTO,  K. YAMASHITA, M. TATEUCHI, S.FUJISAKI, S. YOSHIMUTA, K. SAWA, M. SATO, M. ISHIHARA, T. IYOKU, H. SAWAHATA, “Benchmark problem’s data for the HTTR’s start-up core physics experiments”, JAERI, Oarai, Japan, January, 1998 [2.22.] K. YAMASHITA, N. FUJIMOTO, M. NAKANO, U. OHLIG, “IAEA Benchmark calculation results of the HTTR’s start-up  core  physics tests”, Japan Atomic Energy Research Institute memo 11-030, 1999 [2.23.] R. SANCHEZ, A. HEBERT, Z. STANKOVSKI, M. COSTE, S. LOUBIERE, C VAN DER GUCHT and  I. ZMIJAREVIC,  “APOLLO2 Twelve Years  Later”, Mathematics and Computation, Reactor Physics and  Environmental Analysis in Nuclear Applications, Madrid, September, 1999 [2.24.] J.J. LAUTARD, S. LOUBIERE, C. MAGNAUD, “CRONOS, A Modular Computational System  for Neutronic Core Calculations”, (Proc.  IAEA Specialists Meeting), France, September, 1990 [2.25.] J.P. BOTH, Y. PENELIAU, “The Monte Carlo code TRIPOLI4 and its first benchmark interpretations”,  International Conference PHYSOR 96, Mito,  Ibaraki, Japan, September, 1996 [2.26.] INTERNATIONAL ATOMIC ENERGY AGENCY, “Report of Second RCM of CRP on Evaluation of HTGR Performance” (held in Beijing, October 18-22, 1999), IAEA, Vienna, 1999 [2.27.] N. FUJIMOTO,  “Data for re-calculation of  HTTR-FC”, Japan  Atomic Energy Research Institute, November, 2000 [2.28.] F. MOREAU, R. SANCHEZ, S. SANTANDREA, “Contribution to the NEA C5G7 MOX benchmark”,  International Conference PHYSOR 2002, Seoul,  South Korea, October, 2002 [2.29.] PETROVIC, P.  BENOIST, “BN Theory: Advances and  New Models for Neutron Leakage Calculation”,  Advances in Nuclear  Science and Technology, Plenum Publishing Corporation, New York, vol. 24, 1996 [2.30.] P. BENOIST, J. MONDOT,  I. PETROVIC,  “Calculational and experimental investigations of void effect. A new model  for leakage treatment of heterogeneous assemblies”, Nuclear Science and Engineering, 118, 197, 1994. [2.31.] N. NOJIRI, N. FUJIMOTO, K. YAMASHITA, “HTTR’s Benchmark Calculation of Start-up Core Physics Tests”, JAERI, Japan, 1998. [2.32.] N. FUJIMOTO, K. YAMASHITA, M. NAKANO, M. TATEUCHI, S.FUJISAKI, “Experimental Results of HTTR’s Start-up Core Physics Tests”, JAERI, (Proc. Second RCM of CRP on Evaluation of HTGR Performance,  Beijing, October 2000),  IAEA, Vienna, 2000. [2.33.] N. FUJIMOTO et al., “Control Rod Position and Temperature Coefficients in HTTR Power-Rise Test”, JAERI Tech 2000-091 (2000). [2.34.] NOJIRI, N., et al., Private Communication, JAERI, Japan, (Jan. 1998) [2.35.] PHILIPPEN, P., Private Communication, (1994)
+
+142
+
+[2.36.] GREENE, N.M., et al., AMPX-77: A Modular Code System for Generating Coupled Multigroup Neutron-Gamma Cross-Section  Libraries from ENDF/B-IV  and/or ENDF/B-V, Oak Ridge National Laboratory, ORNL/CSD/TM-283, (Oct. 1992) [2.37.] TEUCHERT, E., HAAS, K.A., ZUT-DGL-V.S.O.P.:Programmzyklus für die Resonanzabsorption in heterogenen Anordnungen, FZ-Jülich, Interner Bericht IRE-701, (1970) [2.38.] BROCKMANN, H., „TOTMOS: An  Integral Transport Code for Spectrum Calculations,“ FZ-Jülich, ISR, Germany, (Dec. 1995) [2.39.] RHOADES, W.A., et. al., „DORT-TORT,  Two- and Three-Dimensional Discrete Ordinates Transport Code, „ Version 5.13.14, ORNL CCC-543, Oak Ridge, USA, (Jan. 1992) [2.40.] FOWLER, T.B., et al., „Nuclear Reactor Core Analysis Code: CITATION“, ORNLTM-2496, Oak Ridge, USA, Rev.2, (July 1971) [2.41.] YANG, CH.,  BENOIST, P., „Scattering  anisotropy  and neutron leakage in reactor lattices“, Nucl. Sci. Eng., 86, pp. 47-62, (1984) [2.42.] FUJIMOTO, N., Private Communication, JAERI, Japan,(Nov. 2000) [2.43.] FUJIMOTO, N., Private Communication, JAERI, Japan, (March 2001) [2.44.] BROCKMANN, H., OHLIG, U., „Calculational Results for the Benchmark Problems of the HTTR Start-up Core Physics  Experiments“,  ISR,  FZJ Research Centre-Jülich, Germany, October 15, 2001. [2.45.] AZIA, F., LASMAN, A. N., and BAKRI, A., “Results of Benchmark Calculation on Start-up Core Physics of High Temperature Engineering Test Reactor”, (Presented at the First RCM of CRP on Evaluation of HTGR Performance, Vienna,  August 1998), BATAN, Indonesia, 1998. [2.46.] RONEN, Y., LEIBSON, M. J., Nuclear Technology, 80, pp. 216-224, 1988. [2.47.] NOJIRI, N., et al., “Benchmark Problems Data for the HTTR Start-up Core Physics Experiments”, JAERI Memo 10-005, 1998. [2.48.] KUGO, T., TSUCHIHASHI, K., TAKANO, H. and AKIE, H., “An EWS Version of SRAC-Code: SRAC-EWS”, JAERI, 1994. [2.49.] JEONG, C. J., OKUMURA, K., ISHIGURO, Y. and TANAKA, K., “Accuracy of Cell Calculation Methods Used for Analysis  of High Conversion  Light  Water Reactor Lattice” Journal Nuclear Science & Technology, 27, pp. 515-523, 1990. [2.50.] DE HAAS, J.B.M., WALLERBOS, E.J.M., “Analysis of the HTTR with Monte-Carlo and Diffusion Theory, An IRI, ECN Intercomparison”, ECN-I-98-056, the Netherlands, September 1998. [2.51.] WALLERBOS, E.J.M., HOOGENBOOM, J.E., “IRI Results for the benchmark problems of start-up core physics of the high  temperature engineering test reactor (HTTR)”, IRI-131-98-007, Interfaculty Reactor Institute, Delft, 1998. [2.52.] WALLERBOS, E.J.M., HOOGENBOOM, J.E., and VAN DAM, H., “IRI results for LEU HTR-PROTEUS cores 5, 7, 9 and 10”,  IRI-131-97-005,  Interfaculty Reactor Institute, Delft, 1997 [2.53.] DE HAAS, J.B.M, TURKCAN, E., “HTTR Criticality, Physical Parameters Calculations and Experimental Results”, NRG/IRI, the Netherlands, Presented at the ICENES-2000 Meeting, 2000. [2.54.] ASKEW,  J.R., et.al.,  WIMS-D/4, A  general description of the lattice code WIMS code for unit cell  calculation and preparation  of few energy  group macrosections. ENDF/B6 nuclear cross sections library is used. JBWES, pp. 564, Oct. 1966. [2.55.] ZIZIN, M., SHISHKOV,  L., YAROSLAVTSEVA,  L., JAR, Test neutron-physics calculations of nuclear reactors. - code for 3D reactor calculation in few energy group approximation , Moscow, Atomizdat, pp. 9, 1980. 143
+
+[2.56.] LIMAN, G., MAYOROV, L., YUDKEVICH, M., MCU, Code package for solution of radiation problems in reactors by Monte Carlo method. Collected volume: Questions of Atomic Science and Technique, Series: Physics and Technique of Nuclear Reactors, Iss.7, p.27, 1985 - code for unit cell and 3D reactor calculations in multi energy group approximation. The original cross section data library collection is used: ABAGIAN, L., ALEKSEEV, N., BRYZGALOV, V., et al., MCU-PFFI A Software with DLC/MCUDAT-1.0  Nuclear Data  Library. Certificate number of PC 61 of Russian Federal Agency for Supervisions and Radiation Safety, Moscow, 1996 [2.57.] MCNP, A General Monte Carlo Code for Neutron and Photon Transport, LA-7396-M, 1981 - code for 3D reactor calculations. Point by  point interactions of isotopes with neutrons required by MCNP were prepared with the help of  NJOY program package: JOY – Nuclear Data Processing System, LA-9303-M, 1982 - on the basis of ENDF/B6 format. MCNP- 4A option was used, Los Alamos, USA, 1981. [2.58.] SEGEV, M., “An Equivalence Relation for Doubly Heterogeneous Lattice”, Nucl. Sci. Eng. 81, pp.151-160, 1982. [2.59.] KUZAVKOV, N., MAROVA, E., SUKHAREV, YU., (OKBM),  MITENKOVA, E., NOVIKOV, N., (IBRAE), BRYZGALOV, V., GLUSHKOV, E., GOMIN, E., (RRC KI), HTTR’s Start-up  Core Benchmark Physics Calculation,  JAERI-memo 11-030, March 1999 [2.60.] GLUSHKOV,  E.,  GOMIN,  E., BRYZGALOV, V., LOBYNTSEV, V., (RRC  KI), “Benchmark Problems  of HTTR Core Physics (Phase 2). Monte-Carlo Calculation Results”, (Proc. Second RCM of CRP on Evaluation of HTGR Performance, Beijing, 1999), IAEA, Vienna, 1999. [2.61.] KUZAVKOV, N., MAROVA, E., SUKHAREV, YU., (OKBM),  MITENKOVA, E., NOVIKOV, N., (IBRAE), “Benchmark Problems of HTTR and HTR-10 Core PhysicsPhase 2”, (Proc. Second RCM of CRP on Evaluation of HTGR Performance, Beijing, 1999), IAEA, Vienna, 1999 [2.62.] LOS ALAMOS NATIONAL  LIBRARY,  “MCNP- A General Monte Carlo Particle Transport Code”, LA-1265-M, Los Alamos, USA, 1997. [2.63.] SEKER, V., COLAK, U., KADIROGLU, O.K., “Results of HTTR  Start-up Core Physics Benchmark Problems”, Hacettepe University, Ankara, Turkey, 2001 [2.64.] BENTZINGER, D. and  BALL, S., “ORNL’s  Benchmark Calculation of  the HTTR’s Startup-Core Physics with Continuous Energy  Monte Carlo Code MCNP4a”, JAERI, Memo 11-030, ORNL, USA, March 1999 [2.65.] BENTZINGER, D.  and BALL, S., “HTTR Benchmark – Part 2, Temperature Coefficient of Reactivity and Scram Reactivity Calculations”, ORNL, USA, November, 1999.
+
+144 Chapter 3
+
+HIGH TEMPERATURE ENGINEERING TEST REACTOR THERMAL HYDRAULIC BENCHMARKS
+
+### 3.1. THERMAL HYDRAULIC BENCHMARK INFORMATION
+
+This chapter includes a review of Member State investigation into the HTTR related thermal hydraulic benchmark problems of vessel cooling (VC)  at 30 MW and the transient behaviour of loss of off-site electric power (LP) at 15 and 30 MW.
+
+3.1.1. Description of HTTR Systems Related to Vessel Cooling and Loss of Power
+
+Included in this section are specific descriptions of the HTTR systems associated with the vessel cooling and loss of off-site electric power benchmark problems. A description of the general HTTR facility has been provided herein as Section 2.1.1.
+
+##### 3.1.1.1 HTTR Vessel Cooling [3-1]
+
+This benchmark problem includes predicting the heat  removal capacity  of the vessel cooling system (VCS) at 30 MW power operation and the temperature profile on the surface of the side panel.  These predictions are to  be compared with the actual measured heat removal capacity of the VCS and the associated temperature profile.     Table 3-1 shows reference operation conditions at 30MW power operation.
+
+Table 3-1. 30MW operating conditions of the HTTR
+
+Coolant temperature at reactor inlet/outlet  395°C/850°C Mass flow rate  12.4kg/s Thermal power  30MW Primary coolant pressure  4MPa Water inlet temperature of VCS  25°C
+
+Vessel cooling system description
+
+The reactor and VCS are installed in the  reactor cavity surrounded by the primary radiation shielding.  The VCS consists of upper, side and lower panels.  It has two completely independent sets of cooling systems to assure minimum heat removal to keep fuel and RPV integrity during depressurization accident.  They  are  designated as  “A” and “B” systems. Cooling panels are located on the inner surface of the reactor cavity as shown in Figure 3.1. Figures 3.2 and 3.3 represent the heat transfer schematic  and expected  cooling panel  flow path, respectively. Table 3-2 includes VCS specifications. 145
+
+FIG. 3.1. HTTR cooling panel schematic.
+
+Table 3-2. Major Specifications of the VCS
+
+Number of set   2 set (A & B systems) Minimum requirement for heat removal  0.3MW Nominal water flow rate Total  86 ton/hour/each set Lower panel  6.5 ton/hour/each set Side panel  72 ton/hour/each set Bottom panel  6.5 ton/hour/each set Allowable temperature for components  90 
+
+The upper panel is on the lower surface of  the upper radiation shielding  as shown in Figure 3.1.  It consists of 96 cooling tubes in a steel casing.  Each system has 48 cooling tubes. Water is distributed to  six  inlet headers from  the inlet ring header and flows to the outlet ring header through cooling tubes and outlet headers.  As an example, the flow diagram is depicted in Figure 3.2.   Flow rate of the upper panel is 6.5 t/h and  average flow rate per cooling tube is 3.76e-2 kg/s as shown in Table 3-3.   There are  31 penetrations for  the standpipes in the upper panel.
+
+146 FIG. 3.2: Schematic of heat transfer from RPV to side panel
+
+Table 3-3. Water flow rate for each independent cooling system
+
+Flow rate (Total)   Number of tubes  Outer diameter Thickness  Flow rate (Each tube) Side panel  72 t/h  108  25.4mm
+
+### 3.5 mm  1.85e-1 kg/s
+
+Lower panel (side)  6.5 t/h  96  25.4mm
+
+### 3.5 mm  3.76e-2 kg/s
+
+Upper panel  6.5 t/h  48  15.9mm
+
+### 3.2 mm  3.76e-2 kg/s
+
+Lower panel (bottom) 6.5 t/h  8 or 3  25.4mm
+
+### 3.2 mm  (See Table 4)
+
+The side panel consists of twelve units. Water flows into each unit through a ring header, removes heat and goes out through another ring header.  A reference unit of the side panel has a total of 18 cooling tubes, 9 for the “A” system and 9 for the “B” system.  Flow rate for the side panel is 72 t/h and average flow rate for each tube is 1.85e-1kg/s.  A steel plate connects adjacent two tubes.  There are two thermal reflector plates between EL.17.35M and EL.30.99M in the side panel (Table 3-4).  They are stainless steel and carbon steel plates.  Two more carbon steel plates exist between EL.19.025M and  EL.27.175M.    There are nine  horizontal  gaps  to  absorb  axial thermal expansion of the thermal  reflector plates. These provide flow passages for air natural circulation in the side panel.  The skirt panel on the RPV skirt removes heat from the RPV skirt directly to prevent concrete heat up under the RPV skirt. 147
+
+The lower panel is on the bottom and side surface of a space under the RPV as shown in Figure 3.1.  Water flows through the lower panel (bottom) and lower panel (side) in turn and returns to the water cooler. The bottom part is similar to the upper panel and its cooling tubes are installed between two plates.  It has four headers and that are connected with 3 or 8 cooling tubes. In the “A” system, water comes from the water cooler flows through cooling tubes from header 1 to header 4 and goes out to the inlet ring header of the lower panel (side).  Average flow rates are shown in Table 3-4.  In the “B” system, water flows from the header 4 to header 1. The lower panel (side)  is similar to the side panel and  consists of twelve units.  Each unit has 16 cooling tubes, 8 for the “A” system and 8 for the “B” system.  Water is distributed to each unit from the inlet ring header.  The water then goes upward through 4 cooling tubes, and returns to the outlet ring header through the other 4 cooling tubes. Average flow rates are shown in Table 3-4.
+
+FIG. 3.3. Assumed flow passage in side panel
+
+Table 3-4. Number of cooling tubes of lower cooling panel (bottom)
+
+Total  A system  B system  Average flow rate of one tube Between Header 1 and Header 2  16  8  8  2.25e-1 kg/s Between Header 2 and Header 3  6  3 3  6.02e-1 kg/s Between Header 3 and Header 4  16  8  8  2.25e-1 kg/s
+
+148
+
+Table 3-5. Thermal radiation reflector plate
+
+Panel Numbers  Elevation Side panel  3 (Carbon steel) 1(Stainless steel)   From EL.19.025M to EL.27.175M
+
+1 (Carbon steel) 1 (Stainless steel)   From EL.17.35M to EL.19.025M From EL.27.175M to EL.30.99M Lower panel (side)  1 (Carbon steel) 1 (Stainless steel)   From EL.13.40M to EL.16.71M
+
+There are  four ring  plates of  6 mm thickness  in reactor  cavity.  Their elevations are EL.27.6M, EL.25.45M, EL.22.2M  and EL.19.0M.   They separate the reactor  cavity into five spaces.  A ring plate is also in the space under the RPV.  Its elevation is 15.15M.
+
+The material properties, thermal conductivity and emissivity  of components, the correlation of heat transfer coefficient of helium and power distribution in the core are as follows:
+
+(1) 2.25Cr-1Mo steel (RPV, standpipe, core support gird, core support plate)
+
+Thermal conductivity  T < 282.22(C)     32.0(kcal/mhC) 282.22(C) < T < 676.67(C)  -7.861e-3T + 36.245 (kcal/mhC) 676.67 (C) < T   -1.459e-2T + 44.652 (kcal/mhC) Emissivity   0.8
+
+(2) Stainless steel (Casing of shielding block, thermal shield, thermal reflector)
+
+Thermal conductivity      0.0107T + 9.888 (kcal/mhC)
+
+Emissivity   0.48
+
+(3) Carbon steel (Thermal reflector, ring plate)
+
+Table 3-6. Thermal conductivity of Carbon Steel
+
+Temperature (C) Thermal conductivity (kcal/mhC) 0 44.6 100 43.6 200 41.4 300 42.8 400 36.0 149
+
+Emissivity 0.8
+
+(4) PGX blocks (Permanent reflector, hot plenum, lower plenum, bottom)
+
+Table 3-7. Thermal conductivity of PGX graphite
+
+Temperature (C) Thermal Conductivity (kcal/mhC) Radial Axial 100 100.74  74.52 200 92.28  67.54 300 84.62  61.34 400 77.71  55.87 500 71.54  51.05 600 66.01  46.87 700 61.18  43.31 800 56.89  40.25 900 53.22  37.66 1000 50.06  35.5 1100 47.39  33.73 1200 45.14  32.33 1300 43.37  31.18 1400 41.95  30.28 1500 40.82  29.59 1600 40.04  29.02
+
+Emissivity   0.8
+
+(5) IG-110 (Core components)
+
+Table 3-8. Thermal conductivity of IG-110 graphite
+
+Temperature (C) Thermal conductivity (kcal/mhC) 400 68.15 600 56.1 800 47.75 1000 42.15 1200 38.35 1400 35.75
+
+Emissivity   0.8
+
+150
+
+(6) ASR-0RB (Carbon block)
+
+Table 3-9. Thermal conductivity of Carbon block
+
+Temperature (C)  Thermal Conductivity (kcal/mhC) 100 7.452 200 7.884 300 8.244 400 8.532 500 8.82 600 9.036 700 9.216 800 9.36 900 9.468 1000 9.54 1100 9.612
+
+(7) B4C/C (Neutron absorber)
+
+Thermal conductivity    16.2 (kcal/mhC)
+
+(8) Correlation of heat transfer coefficient in the annual flow passage in the reactor
+
+Nu = 0.023 Re
+
+### 0.8 Pr
+
+0.4 (Di/Do) –0.16 (Tw/Tb) –0.5
+
+Where;  Nu  Nusselt number Re  Reynolds number Pr  Prandtl number Di  Inner diameter of annual flow passage Do  Outer diameter of annual flow passage Tw  Wall temperature Tb  Bulk temperature
+
+(9) Power distribution in the core
+
+Table 3-10.  Power distribution
+
+Fuel zone number Axial fuel layer  1  2  3+4 1 0.031944  0.033058  0.096679 2 0.060489  0.062328  0.170170 3 0.060698  0.057048  0.158590 4 0.033081  0.034271  0.095860 5 0.021392  0.022164  0.062224 151
+
+##### 3.1.1.2 HTTR loss of off-site power event description [3-3]
+
+The benchmark  problems concerning  loss of off-site electric  power simulation  are designated as HTTR-LP (15MW, 30MW). During normal HTTR operation (referred as parallel loaded operation), the intermediate heat exchanger, primary and secondary pressurized water coolers are operated simultaneously.  In  HTTR-LP (15MW), analytical simulation of transient behavior of the reactor and plant during the loss of off-site electric power from normal operation under 15MW thermal power is evaluated. Similar evaluation of transient behavior of the reactor and plant during the loss of off-site  electric  power  from the normal  operation under  30MW thermal power is conducted as HTTR-LP (30MW). In both simulation cases, estimation items are as follows; transition of (1) hot plenum block temperature, (2) reactor inlet coolant temperature, (3) reactor outlet coolant temperature, (4) primary  coolant pressure, (5) reactor power, (6) heat removal of auxiliary heat exchanger. Estimation duration is for 10hr. from the beginning of the loss of off-site electric power.
+
+__________________________________________________________
+
+(1)  Loss of off-site electric power of HTTR caused by failure of
+
+power transmission line or HTTR electrical equipment
+
+(2) Coast down of all primary and secondary helium circulators as well as water pump
+
+for pressurized water cooling system
+
+(3) Decrease of flow rate of primary and secondary helium as well as water
+
+5s after (1)
+
+(4) Decrease to 92% of total primary helium flow rate of intermediate heat exchanger
+
+3.2s after (4)
+
+(5) Reactor scram by reactor protection system
+
+1s after (5)
+
+(6) Initiation of breaking stop of all primary and secondary helium circulators
+
+50s after (1)
+
+(7) Startup of auxiliary cooling system by supplying electricity through emergency power feeder
+
+40min after (7)
+
+(8) Coast down of one of two auxiliary helium circulators
+
+Fig. 3.4. Event scenario for the analyzed transient of loss of off-site electric power from 30MW.
+
+152 The loss of off-site electric power is caused by failure of the power transmission line or the HTTR electrical equipment. All primary and secondary helium circulators as well  as the water pump for the pressurized water cooling system coast down immediately after the loss of off-site electric power. Accordingly, flow rates of primary and secondary helium as well as water reduce.
+
+Figure 3.4 depicts the event scenario for the analyzed transient during the loss of off-site electric power from 30MW. The flow rate of primary helium, which is deflected at a hot header and discharged around the heat transfer tubes of the intermediate heat exchanger, decreases to 92% of normal flow rate in 5s after the loss of off-site electric power. In 3.2s after 92% flow rate is reached, the reactor is scrammed by the reactor protection system. In 1s after the reactor scram, breaking stop of  all the primary and  secondary  helium circulators  is  initiated. The auxiliary cooling system starts up in 50s after  the loss  of off-site electric power  by electricity supplied through the  emergency power feeder. The  auxiliary cooling system  mainly consists of  an auxiliary heat  exchanger, two auxiliary helium  circulators, air  cooler  and two water pumps. Helium flow rate of the auxiliary cooling system reaches about 1.2kg/s in 20s after the startup of the auxiliary  cooling system. One  of the two auxiliary  helium circulators is coasted down in 40min after the startup of the auxiliary cooling system to prevent the graphite blocks, composing the reactor core,  from overcooling. Then helium  flow rate of the  auxiliary cooling  system decreases to about 0.8kg/s.
+
+HTTR plant conditions at 15MW and 30MW
+
+Initial conditions at 15MW and 30MW power before startup of auxiliary cooling system are shown in Table 3-11. These include the reactor core (thermal power, reactor inlet and outlet temperatures, primary coolant pressure and flow rate as well as hot plenum block temperature). Tables 3-12, 3-13, 3-14 and 3-15 show the major process conditions (temperature, pressure and flow rate) of the intermediate heat exchanger, primary and secondary pressurized water coolers as well as the air cooler for the pressurized water cooling system, respectively.  Helium and water flow rates  of the  auxiliary  cooling system in standby  are fixed to  0.036kg/s and  5.5kg/s, respectively, to prevent the auxiliary heat exchanger from the thermal shock. During the standby of the auxiliary cooling system, the two auxiliary helium circulators are not operated and one of the two water pumps for the auxiliary cooling system is driven. Tables 3-16 and 3-17 show the major process conditions (temperature, pressure  and flow rate) of the auxiliary heat exchanger and air cooler for the auxiliary cooling system, respectively.
+
+Table 3-11. Major process conditions of reactor core
+
+Items HTTR-LP (15MW)  HTTR-LP (30MW) Thermal power  15MW  30MW Reactor inlet coolant temperature  About 241°C 395°C Reactor outlet coolant temperature  About 470°C 850°C Primary coolant pressure  About 3MPa(abs)  4MPa(abs) Primary coolant flow rate  12.4kg/s  12.4kg/s Hot plenum block temperature  About 490°C About 890°C 153
+
+Table 3-12. Process conditions of intermediate heat exchanger
+
+Items HTTR-LP (15MW)  HTTR-LP (30MW) Primary helium inlet temperature  About 468°C 850°C Primary helium outlet temperature  About 238°C 395°C Primary helium pressure  About 3MPa(abs)  4MPa(abs) Primary helium flow rate  4.1kg/s  4.1kg/s Secondary helium inlet temperature  About 154°C About 241°C Secondary helium outlet temperature  About 431°C About 783°C
+
+Secondary helium pressure  About 3.1MPa(abs)  4.1MPa(abs) Secondary helium flow rate  3.6kg/s  3.6kg/s
+
+Table 3-13. Process conditions of primary pressurized water cooler
+
+Items HTTR-LP (15MW)  HTTR-LP (30MW) Helium inlet temperature  About 468°C 850°C Helium outlet temperature  About 242°C 395°C Helium pressure  About 3MPa(abs)  4MPa(abs) Helium flow rate  8.3kg/s  8.3kg/s Water inlet temperature  About 89°C About 135°C Water outlet temperature  About 110°C About 175°C Water pressure  About 2.6MPa(abs)  3.5MPa(abs) Water flow rate  115kg/s  115kg/s
+
+Table 3-14. Process conditions of secondary pressurized water cooler
+
+Items HTTR-LP (15MW)  HTTR-LP (30MW) Helium inlet temperature  About 430°C About 782°C Helium outlet temperature  About 154°C About 240°C Helium pressure  About 3.1MPa(abs)  4.1MPa(abs) Helium flow rate  3.6kg/s  3.6kg/s Water inlet temperature  About 89°C About 135°C Water outlet temperature  About 110°C About 175°C Water pressure  About 2.5MPa(abs)  3.4MPa(abs) Water flow rate  60kg/s  60kg/s
+
+154 Table 3-15. Process conditions of air cooler for pressurized water cooling system
+
+Items HTTR-LP (15MW)  HTTR-LP (30MW) Water inlet temperature  About 110°C About 175°C Water outlet temperature  About 58°C About 80°C Water pressure  About 2MPa(abs)  3MPa(abs) Water flow rate  70kg/s  70kg/s Air inlet temperature  About 33°C About 33°C Air outlet temperature  About 58°C About 81°C Air pressure  0.1MPa(abs)  0.1 MPa(abs) Air flow rate  605kg/s  605kg/s
+
+Table 3-16. Process conditions of auxiliary heat exchanger
+
+Items HTTR-LP (15MW)  HTTR-LP (30MW) Helium inlet temperature  About 452°C About 812°C Helium outlet temperature  About 50°C About 62°C Helium pressure  About 3MPa(abs)  4MPa(abs) Helium flow rate  0.036kg/s  0.036kg/s Water inlet temperature  About 35°C About 36°C Water outlet temperature  About 39°C About 45°C Water pressure  About 2MPa(abs)  About 3MPa(abs) Water flow rate  5.5kg/s  5.5kg/s
+
+Table 3-17. Process conditions of air cooler for auxiliary cooling system
+
+Items HTTR-LP (15MW)  HTTR-LP (30MW) Water inlet temperature  About 39°C About 45°C Water outlet temperature  About 35°C About 36°C Water pressure  About 1MPa(abs)  About 2MPa(abs) Water flow rate  5.5kg/s  5.5kg/s Air inlet temperature  About 33°C About 33°C Air outlet temperature  About 34°C About 42°C Air pressure  0.1MPa(abs)  0.1 MPa(abs) Air flow rate  106.5kg/s  106.5kg/s 155
+
+Conditions after startup of auxiliary cooling system include helium flow rate of the auxiliary cooling system reaches about 1.2kg/s in 20s after the startup of the auxiliary cooling system. Helium flow rate of the auxiliary cooling system decreases to about 0.8kg/s in 40min after the startup of the auxiliary cooling system. Water flow rate of the auxiliary cooling system is fixed to about 18.3kg/s all the time after the startup of the auxiliary cooling system.
+
+#### 3.1.2. HTTR Thermal Hydraulic Benchmark Problem Descriptions
+
+Two sets of thermal hydraulic benchmark problems associated with the HTTR are investigated in this section. These include:
+
+•  The prediction of the amount of heat removed by the Vessel Cooling System (VCS) at 30 MW power and the associated temperature profile on the surface of the side panel, and
+
+•  The analytical simulation on transient behavior of the reactor and plant during the loss of off-site electric power for HTTR operation at 15 and 30 MW.
+
+The calculations formulated by the participating Member States will then be compared with actual experimental values achieved during testing on the HTTR.
+
+156
+
+### 3.2 THERMAL HYDRAULIC BENCHMARK ANALYSIS/RESULTS
+
+#### 3.2.1. Japan
+
+##### 3.2.1.1. HTTR-VC Test and analytical results of heat removal capability [3-1]
+
+Heat removal of the  Vessel Cooling System (VCS) was calculated using the SSPHEAT code which  was developed to analyze the temperature distribution in the in-core structure test section (T2) of HENDEL with complicated passages of helium flow [3-2]. The helium flow was simulated by a thermal-flow element, which is a uniaxial element in threedimensional space with the ability to conduct heat and transmit fluid between its nodal points. The element has two parameters, temperature  and pressure, at each nodal point.  In the computer code, the model is solved by the finite element method (FEM).
+
+Analytical conditions for full power operation  are shown in Table 2-18.  Reactor power, reactor inlet temperature and flow rate are 30MW, 395°C and 12.4kg/s, respectively. Heat removal of 0.3MW is minimum requirement for the VCS to keep fuel and RPV integrity at the accident conditions.
+
+Table 3-18.  Analytical conditions and result at full power
+
+Reactor power  30 MW
+
+Reactor inlet temperature  395 degree C
+
+Coolant flow rate in reactor  12.4kg/s
+
+Cooling water temperature of VCS  25 degree C
+
+Reactor outlet temperature  850 degree C
+
+VCS heat removal  0.77MW
+
+The calculated VCS heat removal at full power of 30MW is 0.77MW.  The analysis shows the VCS satisfies this requirement.  The calculated VCS heat removal is larger than the maximum design value  of 0.6MW.   It is because air natural  circulation  occurs in the side panel and the  air transfers heat to cooling tubes  through thermal  reflector plates  which  are provided to reduce radiant heat from the reactor.
+
+Figure 3.5 shows the temperature profile for  the HTTR-VC analysis and actual measurements at 9MW power.  In a comparison of test and analytical results at 9 MW operation of HTTR the VCS heat removal at steady state was ~ 0.22MW.  Table 3-19 shows the test and analytical conditions.  Table 3-20 and Figure 3.5 show the comparison of test and analytical results at 9MW power. 157
+
+Table 3-19.  Test and analytical condition at 9MW operation
+
+Reactor power  9 MW
+
+Reactor inlet temperature  175 degree C
+
+Coolant flow rate in reactor  12.4kg/s
+
+Cooling water temperature of VCS    28.5 degree C
+
+Reactor outlet temperature    312 degree C
+
+Calculated heat removal with no air circulation  in the side panel was 0.13MW and calculated temperatures  on the side panel do not agree with the measured temperatures. Calculated heat removal increases to 0.2MW  when taking into  consideration the air circulation in the side  panel and temperature distributions agree  well with the measured temperatures as shown in Figure 3.5.
+
+Table 3-20. Comparison of test and analytical results at 9MW operation
+
+Test 0.22 MW
+
+Calculation (No air circulation in side panel)  0.13 MW
+
+Calculation (Air circulation in side panel)  0.20 MW
+
+Table 3-21 shows the test condition and result at 30MW operation.  Reactor inlet and outlet temperatures and coolant flow rate are 392°C, 844°C and 12.3kg/s, respectively.  The VCS heat removal reached about 0.81MW which compares favorably with the analytical estimate of 0.77MW.  Figure 3.6 shows the temperature profile on the RPV and side panel. Test results showed that RPV temperatures at EL.19-27m are 340~360°C and about 20°C lower than the analytical results.  Side panel temperatures also showed that test results are lower than analytical results.
+
+Table 3-21.  Test condition and result at 30MW operation
+
+Reactor power  30MW
+
+Reactor inlet temperature  392°C
+
+Reactor outlet temperature  844°C
+
+Coolant flow rate  12.3kg/s
+
+Cooling water temperature of VCS  33.2°C
+
+Test 0.81 MW
+
+158FIG 3.5. Temperature profile for the HTTR-VC analysis and actual measurements at 9MWpower. 159
+
+FIG. 3.6. Temperature Profiles on the RPV and Side Panel at 30 MW.
+
+##### 3.2.1.2. HTTR-LP Test Results
+
+Pre-estimation results by the “ACCORD” code [3-4]
+
+The pre-estimation results of the benchmark problems concerning the loss of off-site electric power simulation of the HTTR by the ‘ACCORD’ code include the transition of the hot plenum block temperature, reactor inlet and outlet coolant temperatures, primary coolant pressure, reactor power  and heat removal of the auxiliary heat  exchanger. The estimation duration is for 3600s from the beginning of the loss of off-site electric power.
+
+The analyzed transient  of loss of off-site power from 30MW has been described previously in Section 3.1.1.2. The maximum heat removal of the auxiliary heat exchanger during the operation of the two auxiliary helium circulators under the loss of off-site electric power from 15 and 30MW will be approximately 1.5 and 3MW, respectively.
+
+Results of loss of off-site electric power tests from 15 and 30 MW operations [3-4]
+
+The transient experienced upon tests of the loss of off-site electric power from 15 and 30 MW operations are shown in  Figures 3.7 and 3.8,  respectively. All of the primary and secondary helium circulators as well as the water pumps for the pressurized water, and the auxiliary and the vessel cooling systems coasted down immediately after the loss of off-site electric power. In 1.6 s after the loss of off-site  electric power, the  reactor  scrammed by  the
+
+160 161
+
+At the test from 15 MW operation, all the control rods were inserted simultaneously into the reactor core by gravity within the design criterion of 12 s. At the test from 30 MW operation, the outer nine pairs of the control rods were inserted into the replaceable reflector region of the core within  12 s at first,  and 40  min later the  other inner seven pairs fell into  the fuel region within 12 s.
+
+In about 2 s after the reactor scram, braking of all the primary and secondary helium circulators was initiated by  flowing electric current from their associated batteries. The braking stop times, when the rotations of the helium circulators became to zero, were 10 s or less after the open of the reactor scram breaker.
+
+In about 50 s after the loss of off-site electric power, the auxiliary cooling system and the vessel cooling system started up by supplying  electricity  from two emergency power feeders. In 40 min after the startup of the auxiliary cooling system, one of the two auxiliary helium circulators stopped by design to reduce thermal stresses of the core  graphite components.
+
+Table 3-22 shows the thermal power, the  reactor inlet  and outlet coolant temperatures, the primary  coolant pressure and flow rate as  well as the hot plenum block temperature before the loss of off-site electric power tests from 15 and  30 MW operations. Temperatures of the hot plenum blocks are measured at representative three points. Because no significant temperature difference among  the hot plenum blocks appeared, mean temperature among the hot plenum blocks was used.
+
+Tables 3-23, 3-24, 3-25 and 3-26 show the temperature, pressure and flow rate of the intermediate heat exchanger (IHX), the primary  and secondary pressurized water  coolers  as well as the  air cooler for the pressurized water cooling system before  the loss of off-site electric power tests from 15 and 30 MW operations, respectively.
+
+Table 3-22.  Conditions of reactor before LP tests
+
+Items  HTTR-LP (15MW)  HTTR-LP (30MW) Thermal power  15MW  30MW Reactor inlet coolant temperature  242°C 392°C Reactor outlet coolant temperature  468°C 828°C Primary coolant pressure  2.9MPa(abs)  4.0MPa(abs) Primary coolant flow rate  12.4kg/s  12.4kg/s Hot plenum block temperature  391°C 677°C
+
+Table 3-23. Conditions of IHX before LP tests
+
+Items  HTTR-LP (15MW)  HTTR-LP (30MW) Primary helium inlet temperature  468°C 828°C Primary helium outlet temperature  235°C 383°C Primary helium pressure  2.8MPa(abs)  4.0MPa(abs) Primary helium flow rate  4.1kg/s  4.1kg/s Secondary helium inlet temperature  158°C 248°C Secondary helium outlet temperature  420°C 751°C Secondary helium pressure  2.9MPa(abs)  4.0MPa(abs) Secondary helium flow rate  3.6kg/s  3.6kg/s
+
+162
+
+Table 3-24. Conditions of primary pressurized water cooler before LP tests
+
+Items  HTTR-LP (15MW)  HTTR-LP (30MW) Helium inlet temperature  468°C 828°C Helium outlet temperature  235°C 390°C Helium pressure  2.8MPa(abs)  4.0MPa(abs) Helium flow rate  8.2kg/s  8.2kg/s Water inlet temperature  79°C 120°C Water outlet temperature  100°C 160°C Water pressure  2.3MPa(abs)  3.5MPa(abs) Water flow rate  111kg/s  113kg/s
+
+Table 3-25. Conditions of secondary pressurized water cooler before LP tests
+
+Items  HTTR-LP (15MW)  HTTR-LP (30MW) Helium inlet temperature  420°C 751°C Helium outlet temperature  152°C 243°C Helium pressure  2.9MPa(abs)  4.0MPa(abs) Helium flow rate  3.6kg/s  3.6kg/s Water inlet temperature  79°C 120°C Water outlet temperature  100°C 158°C Water pressure  2.3MPa(abs)  3.5MPa(abs) Water flow rate  57kg/s  59kg/s
+
+Table 3-26. Air cooler conditions for pressurized water cooling system before LP tests
+
+Items  HTTR-LP (15MW)  HTTR-LP (30MW) Water inlet temperature  100°C 160°C Water outlet temperature  45°C 66°C Water pressure  2.2MPa(abs)  3.3MPa(abs) Water flow rate  65kg/s  76kg/s Air inlet temperature  7°C 8°C Air outlet temperature  62°C 88°C Air pressure  0.1MPa(abs)  0.1MPa(abs) Air flow rate  270kg/s  370kg/s
+
+Tables 3-27 and 3-28 show the temperature, pressure and flow rate of the auxiliary heat exchanger and the air cooler for the auxiliary cooling system before the loss of off-site electric power tests from 15 and 30 MW operations, respectively. The auxiliary cooling system is in standby during the normal operation. During the standby, the two auxiliary helium circulators were not operated, however, a small amount of helium of 0.031 kg/s from the primary helium purification system was provided into the auxiliary cooling system to keep the auxiliary heat exchanger from thermal shock at the startup of the auxiliary cooling system. Furthermore, water pressure of the  auxiliary  cooling system was regulated through its controlling system,  and  one of the two water pumps for the  auxiliary  cooling system was driven. The water flow rate in standby was fixed at 5.6 kg/s. 163
+
+Table 3-27. Conditions of auxiliary heat exchanger before LP tests
+
+Items  HTTR-LP (15MW)  HTTR-LP (30MW) Helium inlet temperature  426°C 754°C Helium outlet temperature  74°C 97°C Helium pressure  2.8MPa(abs)  4.0MPa(abs) Helium flow rate  0.031kg/s  0.031kg/s Water inlet temperature  59°C 63°C Water outlet temperature  62°C 71°C Water pressure  1.3MPa(abs)  2.3MPa(abs) Water flow rate  5.6kg/s  5.6kg/s
+
+Table 3-28. Conditions of air cooler for auxiliary cooling system before LP tests
+
+Items  HTTR-LP (15MW)  HTTR-LP (30MW) Water inlet temperature  62°C 71°C Water outlet temperature  59°C 63°C Water pressure  0.5MPa(abs)  1.5MPa(abs) Water flow rate  5.6kg/s  5.7kg/s Air inlet temperature  7°C 8°C Air outlet temperature  8°C 9°C Air pressure  0.1MPa(abs)  0.1MPa(abs) Air flow rate  41kg/s  118kg/s
+
+Figures 3.9 and 3.10 show transient behaviors of the rotation and the flow rate of the auxiliary helium circulators during the loss of off-site electric power tests from 15 and 30 MW operations, respectively. In about 1 s after the startup of the auxiliary cooling system, the rotations of the two auxiliary helium circulators reached about 3000 min -1. This rotation was kept for  about 2 s. After that, the rotation of the  two auxiliary helium circulators rose up to about 8500 min -1 at the constant rate by the automatic frequency control. In about 14 s after the startup of the auxiliary  cooling system, helium flow rates of the auxiliary  helium circulators  (A)  and (B)  reached about 0.73 kg/s  and about 0.75 kg/s respectively at the test from 15 MW operation, while they achieved about 0.85 kg/s and about 0.89 kg/s at the test from 30 MW operation.  In 40 min after the startup of the auxiliary  cooling system, helium flow rates of the auxiliary helium circulator decreased to about 0.78 and about 0.87 kg/s at the tests from 15 and 30 MW operations, respectively. On the contrary, all the time after startup of the auxiliary cooling system, water flow rate was fixed at about 20.0 kg/s by operating the two water pumps. Estimation items on  the benchmark problems are as follows; transition  of (1) hot plenum block temperature, (2) reactor inlet coolant temperature, (3) reactor outlet coolant temperature, (4) primary coolant pressure, (5) reactor power, (6) heat removal of  auxiliary heat exchanger. Estimation duration is for 10 hr from the beginning of the loss of off-site electric power.
+
+Figures 3.11 and 3.12 show transient behaviors of the temperatures of the hot plenum block, the reactor inlet and outlet coolant during the loss of off-site electric power tests from 15 and 30 MW operations, respectively. The hot plenum block temperature decreased continuously  after the startup of the  auxiliary  cooling system. The reactor inlet coolant
+
+164FIG.3.9.  Transient behaviors of rotation and flow rate of auxiliary helium circulators during loss of off-site electric power test from 15 MW operation. 165FIG. 3.10.  Transient behaviors of rotation and flow rate of auxiliary helium circulators during loss of off-site electric power test from 30 MW operation. 166
+
+temperature reduced rapidly by the startup of the auxiliary cooling system in about 50 s after the loss of off-site  electric power. The reactor inlet coolant temperature  decreased suddenly by the stop of one of the two  auxiliary helium  circulators in 40 min after the startup of the auxiliary cooling system, and since then it  dropped gradually. The reactor outlet coolant temperature reduced  continuously due to the insertion of the control  rods and the startup of the auxiliary cooling system.
+
+Figures 3.13 and 3.14 show transient behaviors of the primary coolant pressure and the reactor power during the loss of off-site electric power tests from 15 and 30 MW operations, respectively. The primary coolant pressure decreased gradually with reduction of the coolant temperature. The reactor power dropped drastically by the insertion of the control rods, and then the subcriticality of the reactor was maintained.
+
+Figures 3.15a and 3.15b show transient behaviors of the heat removal of the auxiliary heat exchanger during the loss of off-site electric power tests from 15 and 30 MW operations, respectively. In about 50 s after the loss of off-site electric power the auxiliary cooling system started up, and subsequently  about 10 min later flow rates and temperatures of helium and water became steady.  Then the heat  removal of the auxiliary heat exchanger  was approximately 1.8 MW at the test from 15 MW, while it was approximately 4.0 MW at the test from 30 MW operation. The heat removal decreased suddenly by the stop of one of the two auxiliary helium circulators in 40 min after the startup of the auxiliary cooling system, and since then it dropped gradually.
+
+FIG. 3.11.  Transient behaviors of temperatures of hot plenum block, reactor inlet and outlet coolant during loss of off-site electric power test from 15 MW operation. 167
+
+FIG. 3.12.  Transient behaviors of temperatures of hot plenum block, reactor inlet and outlet coolant during loss of off-site electric power test from 30 MW operation.
+
+FIG. 3.13.  Transient behaviors of primary coolant pressure and reactor power during loss of off-site electric power test from 15 MW operation.
+
+168
+
+FIG. 3.14.  Transient behaviors of primary coolant pressure and reactor power during loss of off-site electric power test from 30 MW operation.
+
+FIG. 3.15a. Transient behavior of heat removal of auxiliary heat exchanger during loss of offsite electric power test from 15 MW operation. 169
+
+FIG. 3.15b. Transient behavior of heat removal of auxiliary heat exchanger during loss of offsite electric power test from 30 MW operation.
+
+The following major results were determined from the loss of off-site electric power tests.
+
+(1) Because helium circulators and water pumps coasted down immediately after the loss of off-site electric power, flow rates of helium and water decreased to the scram points.  In about 50 s after the loss of off-site electric power, the auxiliary cooling system  and the vessel  cooling system started up by  supplying electricity  from two emergency power feeders.
+
+(2) At the test from 15 MW operation, all the control rods were inserted simultaneously into the reactor core by gravity. At the test from 30 MW operation, the outer nine pairs of the control rods were inserted into the replaceable reflector region of the core  at first, and 40 min later the other inner seven pairs fell into the fuel region. The reactor power dropped drastically by the insertion of the control rods, and then the subcriticality of the reactor was kept.
+
+(3) In about 10 min  after the startup of the  auxiliary cooling system,  flow rates and temperatures of helium and water of the auxiliary heat exchanger became steady. Then the heat removal of the auxiliary heat exchanger was approximately 1.8 MW at the test from 15 MW operation, while it was approximately 4.0 MW at the test from 30 MW operation.  In 40 min  after the startup of the auxiliary  cooling system,  one of two auxiliary helium circulators stopped. Temperature of hot plenum block decreased continuously after the startup of the auxiliary cooling system.
+
+170
+
+#### 3.2.2. Russian Federation
+
+##### 3.2.2.1. HTTR Vessel Cooling (HTTR-VC) [3-6]
+
+Description of the codes
+
+SM-1, GTAS-M and DUPT codes were used for computation of  power transferred from the reactor vessel to the reactor cavity  cooling system  and temperature distribution on the side panel. The SM-1 code is intended for computation of transient temperatures in structures with arbitrary  geometry  and based on solution of the heat conduction equation by heat balance method.
+
+Thermal conductivity,  gas convection and radiation are taken into account while determining  effective conductivity factor in gas  gaps. The code doesn’t  include solution of fluid motion and energy equations.
+
+The GTAS-M code is intended to analyze transient temperature of HTGR cores and structures. The code allows the capability to obtain 3-D temperature distribution for a given geometry at designed “regime parameters - time" relations. The code is based on solution of the energy  equation  for  solids in 3-D approximation. The three dimensions are  restricted by steady  geometry in any section along the height. The fluid motion equation is solved in stationary approximation. Cooling of a region to be calculated is allowed by several groups of flow rates which are united by  collectors. Distribution of the coolant between channels of each  group is performed an a  condition of equal pressure difference between high and low pressure collectors. The code doesn't allow calculation of connective coolant flow in 2-D and 3-D approximations.
+
+DUPT code is intended for computation of coolant connective flow in 2-D geometry. The code solves Navier-Stokes equations in Buossinesq approximation.
+
+More detailed description of the codes is presented in [3-5].
+
+## Methodology
+
+A simplified methodology was developed for the benchmark taking into account complex conditions for heat transfer between the reactor vessel and the reactor cavity cooling system and lack of a code to solve the problem  as a whole. The space between the reactor vessel and the cavity is divided on three sections:
+
+-  upper (EL.27.22 m and EL/31/44.3 m); - side (EL.19.65 m and EL.27.22 m); -  lower (EL.16.75 m and EL.19.65 m).
+
+The schematic diagram for the benchmark problem is shown on Figure 3.16. 171
+
+FIG. 3.16.  Computing range diagram.
+
+172 The GTAS-M code is used for estimation of heat removal from the reactor vessel only for its cylindrical section. The collector model of the code does not allow taking into consideration the real geometry of the upper and lower sections.
+
+Heat transfer  from the reactor vessel for the upper and lower sections is performed with using SM1 and DUPT codes. The temperature of the in-vessel structures and water inlet temperature of the reactor cavity cooling system was adopted as boundary  conditions. Preliminary calculations to estimate the temperature of the in-vessel structures and sensitivity study showed that its value may be taken equal to 425 °C.
+
+Use of SM1 code for the upper and lower sections enables to account for the head and bottom shape in calculations of heat transport by radiation. The heat transfer factor of the air in the cavity was derived from velocity profiles in the upper that were calculated by DUPT code. The air temperature was assumed to be  equal to the air temperature at outlet of the middle section. Heat  removal by  the standpipes was taken for increase of surface of heat transport by convection. ISI plates were not taken into consideration in the analysis.
+
+## Results
+
+The results of analyses are presented in Figures 3.17 and 3.18 and in Tables 3-28 and 3-29. Figure 3.17 presents temperature distribution over the reactor vessel height and side panel surface of the vessel cooling system during the reactor operation at 9 MW power. Figure 3.18 depicts the temperature distribution during reactor operation at 30 MW power.
+
+Table 3-28. Computed values of heat removal during the reactor operation at 9 MW power
+
+Computing range  Amount of removed heat, kW Upper part  3.19 Middle part  119 Lower part  11.3 Total 133.5
+
+The analysis results demonstrated that  during the reactor operation  at  9 MW power 133.5 kW of heat is removed to the reactor vessel cooling system panels, 77 % of them in the middle part of the computing range. The portion of heat transferred by radiation amounts to 55 %.
+
+Table 3-29. Computed values of heat removal during the reactor operation at 30 MW power
+
+Computing range  Amount of removed heat, kW Upper part  16.5 Middle part  419 Lower part  58.7 Total 494.1
+
+In accordance with performed analyses, during the reactor operation at 30 MW power about 494 kW of heat is removed to the reactor vessel cooling system panels. 74.2 % of this is removed in the middle part of the computing range. This portion of heat being transferred by radiation amounts to 64 %. 173
+
+FIG. 3.17. Distribution of reactor vessel and side panel temperatures over height during the reactor operation at 9 MW power.
+
+##### 3.2.2.2. HTTR Loss of Electric Power (HTTR-LP) [3-10]
+
+Description of the VGM code
+
+The VGM-code is intended for calculating normal and emergency transients in nuclear power plants cooled by water or helium. Simulating regimes include:
+
+- normal operation, - urgent drop in power due to failure of equipment, - emergency  regimes (inadvertent withdrawal of control rods, loss of load, loss of power, etc.).
+
+Circuit and system simulation includes main equipment having an effect on the transients. The mathematical simulation comprises neutronic process, thermal-hydraulic process in the primary,  secondary  circuits and emergency  decay heat removal system, heat transfer in fuel elements, a model of reactivity control system.
+
+174
+
+FIG. 3.18. Distribution of reactor vessel and side panel temperatures over height during the reactor operation at 30 MW power.
+
+Reactor power is determined by the point kinetics method in approximation of six groups of delayed neutron sources. Reactivity dependence on coolant temperature and density,  fuel  and moderator temperatures is taken into account  at calculation of feedback reactivity  effects. The feedback effects are  described taking into consideration their nonlinearity and non-uniformity of multiplying characteristics in the core space.
+
+The thermal-hydraulic process is simulated in the frame of 1-D model with account of natural convection of the coolant and possibility  to change a direction of the circulation. Mixing of flow rates with different temperatures is assumed to be ideal. The core thermal model allows computation of coolant and moderator temperatures in axial and radial directions versus core inlet temperature, flow rate distribution and power. 175
+
+FIG. 3.19. HTTR plant calculation diagram.
+
+The mathematical model of reactor control and protection system simulates operation of automatic regulator on relay principle, account of possible time delay during formation of shutdown signals, acceleration time of absorber rods and balls. The VGM code provides the capability to calculate core power density, temperature distribution in fuel elements, coolant temperatures and flow-rates in primary, secondary and emergency cooling circuits.
+
+The text of the code is written on the following:
+
+FORTRAN-77 Operational system-MS DOS 6.22 Type of language translator-MICROSOFT FORTRAN VERSION 5.00
+
+A more detailed description of the code is presented in [3-7].
+
+176 0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time(sec)
+
+0
+
+4
+
+8
+
+12
+
+16Reactor power (MW) FIG. 3.20. Transient behavior of reactor power during loss of off-site electric power test (15 MW). 0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time (sec)
+
+0
+
+200
+
+400
+
+600Temperature () Temperatures:
+
+core inlet (VGM)
+
+core outlet (VGM)
+
+core inlet (experiment)
+
+core outlet (experiment)
+
+FIG. 3.21.  Transient behavior of temperatures during loss of off-site electric power test (15 MW)). 177
+
+0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time (sec)
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5Pressure (MPa) VGM
+
+experiment
+
+FIG. 3.22.  Transient behavior of   pressure during loss of off-site electric power test (15 MW)). 0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time (sec)
+
+0
+
+1
+
+2
+
+3Heat removal (MW) VGM
+
+experiment
+
+FIG. 3.23. Transient behavior of heat removal  during loss of off-site electric power test (15 MW).
+
+178 0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time(sec)
+
+0
+
+10
+
+20
+
+30Reactor power (MW) FIG. 3.24. Transient behavior of reactor power  during loss of off-site electric power test (30 MW). 0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time (sec)
+
+0
+
+200
+
+400
+
+600
+
+800
+
+1000Temperature () Temperatures:
+
+core inlet (VGM)
+
+core outlet (VGM)
+
+core inlet (experiment)
+
+core outlet (experiment)
+
+FIG. 3.25. Transient behavior of temperatures during loss of off-site electric power test (30 MW). 179
+
+0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time (sec)
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5Pressure (MPa) VGM experiment FIG. 3.26. Transient behavior of   pressure during loss of off-site electric power test (30 MW). 0 3600 7200 10800 14400 18000 21600 25200 28800 32400 36000 Time (sec)
+
+0
+
+1
+
+2
+
+3
+
+4Heatremoval (MW) VGM
+
+experiment FIG. 3.27. Transient behavior of heat removal  during loss of off-site electric power test (30 MW).
+
+180
+
+## Methodology
+
+The HTTR calculational model was developed  (Figure 3.19) on the basis of data presented in [3-8, 3-9]. The number of breakdown sections that were adopted included the following:
+
+- core height     42 - IHX and PPWC length    10 - heat exchange tube thickness  4 - gas spaces     2.
+
+For a description of the transient heat transfer in the core, two types of cells with average and peak power are chosen. Every cell includes a fuel rod, a gap with cooling helium and equivalent mass of graphite in one block per one cell. The heat transfer in the axial direction by conductivity is not taken into account.
+
+The heat exchange  equipment is simulated  as a single equivalent tube. Axial heat transfer is ignored.
+
+## Results
+
+Results of the calculation of HTTR behavior during the loss of power  are shown on Figures 3.20, 3.21, 3.22 and 3.23 for 15 MW thermal power and on Figures 3.24, 3.25, 3.26 and 3.27 for 30 MW thermal power.
+
+Flow rates of coolant through the primary gas circulators are reduced to zero in 10 s after the “loss of off-site electric power” signal.
+
+Emergency  protection actuates in 1.6 s after loss of off-site electric power. Neutron power decreases down to close to decay heat for 7 s.
+
+The comparison of the calculated and experimental data shows the following.
+
+In the beginning of the transient (0-2 hr) one  can see a  good agreement between calculated  and experimental values of coolant temperatures. Ratios of experimental and calculated heating of the coolant are more than 1.1 and 1.3 for 15 and 30 MW tests, respectively. Further, the discrepancy increases up to 2 for 15 MW and 1.5 for 30 MW at the transient end-point (10 hrs).
+
+The calculated values of heat  removal  for 15 MW are in  a  good  agreement with the experimental data during first five hours of the transient. Further, the experimental values are well higher than calculated ones. Their ratio is 1.75 for the transient end-point (10 hrs).
+
+For 30 MW an acceptable agreement between calculated and experimental results is only during first hour of the transient. The further transient behavior is also characterized by excess of the experimental heat removal as against the experimental one which reaches ~ 1.7 for the end-point.
+
+The discrepancies can be explained by the following reasons:
+
+1) The decay heat error  has a strong effect on the calculated  results of temperatures and heat removal, since the decay heat several times more than accumulated in the core and
+
+181
+
+reflectors. This specially affects on the discrepancies in the interval of 5-10 hrs. Increase of decay heat leads to reduction of discrepancies. For example, decay heat 1.5 as large gives full agreement between calculated and experimental results.
+
+2) Another reason may  be connected with influence of the finite break-down of the core in axial and radial directions on the results. Further analysis is needed to be carried out for this case.
+
+182
+
+#### 3.2.3 South Africa [3-11]
+
+This report details the benchmarking of the Flownet Nuclear simulation package as used by Pebble Bed Modular Reactor in South Africa.  The benchmark is of a loss of off-site power event that was tested at the HTTR facility.  The event involves the electric power supply to the circulators being  cut off,  reactor SCRAM and the activation of the Auxiliary Cooling system to remove decay heat.
+
+##### 3.2.3.1 System Overview
+
+The HTTR system was modelled and analysed with Flownet Nuclear and is comprised of a graphite-moderated prismatic block reactor, a primary cooling circuit, a secondary cooling circuit and an auxiliary cooling circuit.  Helium is used as the working fluid.  During normal operation the helium is heated in the reactor and is then circulated via concentric ducts to two parallel heat exchangers.  The first is the Primary Pressurised Water Cooler (PPWC) that is a shell-and-tube water-cooled exchanger.  The second is the  Intermediate  Heat Exchanger (IHX) that is a spirally wound shell and tube type.  Its function is to transfer heat to the secondary helium circuit.  Both heat  exchangers’ exits are connected to helium circulators providing the mass flow rate needed in the circuit.  The HTTR system can either be operated using only the PPWC as cooler or both the PPWC and the secondary circuit (the latter is called parallel cooling operation). A schematic of the HTTR cycle is shown in Figure 3.28. Secondary cooling circuit
+
+Reactor
+
+AHX IHX
+
+PPWC SPWC
+
+Primary cooling circuitAuxiliary cooling circuit
+
+FIG. 3.28. Schematic diagram of the High Temperature engineering Test Reactor. 183
+
+In the secondary helium circuit a helium circulator is used to circulate flow between the IHX  and the Secondary Pressurised Water Cooler (SPWC), the latter being of similar but smaller design to the PPWC.  Both water coolers’ watersides are on  water circuits that exchange heat with the atmosphere via water-to-air heat exchangers.
+
+During an accident condition such as the loss of off-site electrical power the Auxiliary cooling circuit is used.   This circuit uses two gas circulators to force a low mass flow rate of helium between the reactor and the Auxiliary Heat Exchanger (AHX).  The AHX is a water cooler of similar but smaller design to the PPWC.  The function of this system is to remove decay heat from the reactor core after a reactor shutdown or SCRAM has been initiated.
+
+##### 3.2.3.2 Flownet Nuclear
+
+Flownet Nuclear is a pipe-network simulation code used for solving thermodynamic and fluidic problems in pipe networks  and  energy  systems.   M-Tech  Industrial in collaboration with the School for Mechanical  and Materials  Engineering at Potchefstroom University in South Africa has developed the code over the past ten years.  Initially the code was used for large  gas pipe networks but has since been  extended to handle most types of thermalhydraulic systems.  The following points highlight the capabilities of the program:
+
+•  The ability to deal with compressible as well as incompressible fluids. •  Full heat transfer by means of conduction, convection and radiation. •  High solution speed. The typical solution time of a 200-element network is less than 30 seconds on a standard PC. •  Various types of network components are available in the program
+
+Constant and variable area pipes and ducts Restrictors with loss or discharge coefficients. Cooling orifices for which NASA empirical correlations are used to calculate the discharge coefficient. Non-circular ducts with area changes. With this element the user has the option of taking the effect of the injected momentum and variations in total temperature on the change in total pressure into account. Various types of heat exchangers. Compressible flow through long pipes. Compressors and turbines Pebble-bed and solid fuel HTGR reactors as special models. Heat transfer paths The ability to specify a fixed mass source or  a sink in junctions and  volumes between flow elements Variable fluid properties. Ability to automatically subdivide long pipes into smaller increments. Gravitational effects in compressible flows
+
+Flownet Nuclear has  also been  extensively benchmarked and it was found that results are in close agreement with experimental data  and analytical calculations.  An example is a test involving compressible gas flow through a long pipe.  At time zero a valve is suddenly closed at the end of the pipe.  The inertia of the fluid causes auto-compression at the end of the pipe that in turn results in a pressure  wave  travelling back through  the pipe.  Flownet Nuclear data is benchmarked against data obtained using the Lax-Wendroff method.  Figure 3.29 shows a plot of total pressure in the middle of the pipe verses time.
+
+184 0
+
+1000
+
+2000
+
+3000
+
+4000
+
+5000
+
+6000
+
+7000
+
+8000
+
+9000
+
+10000 0 5 10 15 20 25 30 35 40 45 50 55 60
+
+Time [s]Total Pressure [kPa] Bench Flownet
+
+FIG. 3.29. Total pressure versus time for the sudden closure of a valve at the end of the pipe.
+
+Applications of the code include:
+
+•  Ventilation systems. •  Compressed air systems of mines and factories. •  Air distribution system of a conveyor belt system that uses an air cushion to suspend the belt. •  Water reticulation systems. •  Heat recovery systems. •  Flow through the combustion chamber of an aircraft engine. •  Flow through the re-heater of an aircraft engine. •  City gas pipe networks. •  Brayton power cycle as in the PBMR. •  Complete aircraft air-conditioning system.
+
+The detail concerning the theory behind Flownet Nuclear falls beyond the scope of this
+
+document.
+
+##### 3.2.3.3 Modeling of the HTTR in Flownet
+
+Cycle description
+
+Flownet uses elements and nodes to represent system components.  An element refers to the actual components such as pipes, turbo-machines or heat exchangers.  Nodes are junction points for elements but  can also represent regions of large volume and  low flow velocity – tanks and reservoirs. 185
+
+Figure 3.30 is a diagram of the HTTR system as implemented in terms of Flownet elements and nodes.  Elements are shown as numbered circles while the numbered squares are nodes. The diagram shows the use of pipe  elements  (DW and DG), compressors (CM), heat exchangers (HX and RX) and conductive heat transfer paths (CHT). Only the main, auxiliary and  secondary cooling systems are  modelled  for simplicity.   Cooling water flows are modelled as constant-mass flow cold-water streams.  The vessel cooling system is not modelled in this investigation.
+
+1120 2 2 4 8332
+
+4 29 5
+
+5
+
+6
+
+6
+
+7
+
+7
+
+30
+
+8 28
+
+11
+
+9
+
+27
+
+PH 10 H
+
+HX 11 49
+
+12
+
+25
+
+1313
+
+914 15
+
+33
+
+16
+
+3
+
+17
+
+34 18
+
+16 19
+
+12
+
+20
+
+21
+
+22
+
+21
+
+23
+
+22
+
+24 25
+
+24
+
+HX 27
+
+14
+
+AHX 28 29
+
+18 30 31
+
+31
+
+3233 34 15
+
+35 36 17
+
+19 37 26 38 35 39
+
+36
+
+40
+
+37
+
+41
+
+38
+
+42
+
+394340444541
+
+46
+
+42
+
+43
+
+47
+
+44 48
+
+45
+
+49
+
+46 50
+
+51
+
+47
+
+52
+
+48
+
+53 24 24
+
+24AHC Reactor PPWC IHX
+
+PHC SPWC SHC
+
+FIG. 3.30. HTTR Flownet Network
+
+The descriptions of the elements used in the network are shown in Table 3-30.
+
+Table 3-30. Elements used in Flownet network
+
+Element no. Description Type
+
+## 1  Annular duct to top of reactor   Gas duct
+
+## 2  Reactor to T-junction   Gas duct
+
+## 3  Contraction to gas duct   Gas duct
+
+## 4  Contraction from T-junction   Gas duct
+
+Element no. Description Type
+
+## 5  Intermediate heat exchanger  Heat exchanger
+
+## 6  IHX to PHC   Gas duct
+
+## 7  SPWC circulator  Helium circulator
+
+## 8  PPWC circulator B  Helium circulator
+
+## 9  PPWC to PHC   Gas duct
+
+## 10  Primary Pressurized Water Cooler  Heat exchanger
+
+186
+
+## 11  PPWC circulator C  Helium circulator
+
+## 12  IHX secondary side  Heat exchanger
+
+## 13  PPWC to T-junction   Gas duct
+
+## 14  T-junction to reactor   Gas duct
+
+## 15  PPWC circulator A  Helium circulator
+
+16  9th reflector layer   Gas duct
+
+## 17  Hot plenum block   Gas duct
+
+## 18  T-junction to PPWC   Gas duct
+
+## 19  Secondary IHX to T-junction A   Gas duct
+
+## 20  Annulus around PPWC   Gas duct
+
+## 22  Upper reflector and shield layers   Gas duct
+
+## 23  Fuel assembly (Reactor core)  HTTR
+
+## 24  Lower reflector layer   Gas duct
+
+## 25  PPWC water side  Heat exchanger
+
+## 26 HTTR  HTTR
+
+## 27  Secondary IHX to T-junction B   Gas duct
+
+## 28  Distribution plate   Gas duct
+
+## 29  PHC to PPWC   Gas duct
+
+## 30  Contraction to IHX   Gas duct
+
+## 31  PHC to IHX   Gas duct
+
+## 32  Annulus around IHX   Gas duct
+
+## 33  IHX to T-junction   Gas duct
+
+## 34  Distribution plate   Gas duct
+
+## 35  Hot plenum outlet channel   Gas duct
+
+## 36  Secondary Pressurized Water Cooler  Heat exchanger
+
+## 37  SPWC water side  Heat exchanger
+
+## 38  SPWC to SHC   Gas duct
+
+## 39  Secondary Helium Circulator  Helium circulator
+
+## 40  SHC to SPWC   Gas duct
+
+## 41  Annulus around SPWC   Gas duct
+
+## 42  SPWC to T-junction   Gas duct
+
+## 43  T-junction to tube header feed pipes   Gas duct
+
+## 44  Header feed pipes   Gas duct
+
+## 45  Reactor to AHX   Gas duct
+
+## 46  Auxiliary Heat Exchanger  Heat exchanger
+
+## 47  AHX water side  Heat exchanger
+
+## 48  AHX to AHC   Gas duct
+
+## 49  Auxiliary Helium Circulator A  Helium circulator
+
+## 50  Auxiliary Helium Circulator B  Helium circulator
+
+## 51  AHC to AHX   Gas duct
+
+## 52  Annulus around AHX   Gas duct
+
+## 53  AHX to Reactor   Gas duct
+
+The detailed modelling falls beyond the scope of this document, however some comments can be made on the modelling of generic components
+
+Piping and duct elements
+
+Most of the piping in the HTTR plant consists of double-walled pipes  with hot flow from the reactor in the inner pipe and cooled return gas in the outer annulus of the pipe. Figure 3.31 shows a lateral cross-section through the primary cooling circuit piping. The
+
+187
+
+diagram clearly shows the double-walled piping and the lagging material surrounding the pipe for insulation. Flow from the reactor goes via the inner pipe to a T-junction where the flow is split up to a ratio of 3:1 between the PPWC and the  IHX. Upon returning to the reactor the helium flows through the outer annular pipe.
+
+The pipes are modelled as Darcy-Weisbach  (DW) elements in Flownet. These pipe elements use the  following formula to calculate the pressure drop through a pipe  for compressible flow. 2 2 0
+
+0 0
+
+## 0 Mp
+
+T T D fL p γ  
+
+  
+
+ ∆ +=∆                                                                                (1)
+
+where f – friction factor
+
+L – Pipe length    [m]
+
+D – Pipe diameter    [m]
+
+T0 – Total temperature   [K]
+
+p0 – Total pressure    [Pa]
+
+γ  − ratio of specific heats of the gas
+
+M – Mach number
+
+The friction factor is calculated using a correlation fitted to the Moody diagram with the transition between laminar and turbulent flow  beginning at Reynolds numbers  greater than 2300. FIG. 3.31. Primary circuit piping.
+
+188 In the case of the annular flows the cross-sectional flow area and wetted perimeter are inputs to Flownet that will then calculate a hydraulic diameter for use in (1).  The flow area is used along with mass flow rate to calculate the velocity component of (1).  All the other terms are inputs in the pipe element model.
+
+Heat exchanger elements
+
+Shell-and-tube heat exchangers
+
+The PPWC, SPWC and AHX  are three shell-and-tube heat  exchangers of similar design.  Figure 3.32 shows a bird’s eye view of the inside of the HTTR’s PPWC.  The tubes used are un-finned. There are 5  gas passes  and 2 tube passes in the  heat exchanger. A distribution plate is placed at the inlet to spread the gas flow evenly through the first stage.
+
+Flownet Nuclear has a Shell-and-Tube Heat exchanger or STX type element specifically catering for this type of heat exchanger.  In all Flownet’s heat exchanger models provision is made for both steady-state heat transfer parameters and parameters  describing the heat exchanger’s thermal inertia.  Thermal inertia is very important when one wants simulating transient changes in the heat exchanger’s inlet and outlet conditions.
+
+In  Flownet’s STX model the tube and baffle layout  and dimensions are required  as inputs along with parameters such as total heat transfer area, primary/secondary area ratio and tube conduction coefficients.  For transient simulations the mass capacitance and gas volume are inputs.  The heat transfer coefficient and friction factor  on the tube  side are calculated using the Dittus-Boelter equation and the standard Darcy-Weisbach pipe model, respectively. On the shell side the Reynolds number is calculated and a corresponding Colburn j factor and friction factor is read off an input graph.  These two graphs are specifically set-up for the tube layout used in the heat exchanger.  The two values are then used to calculate the heat transfer and pressure drop through the heat exchanger using standard correlations.
+
+FIG. 3.32. Bird’s eye view of the PPWC. 189
+
+Intermediate Heat Exchanger
+
+This heat exchanger functions as an energy interface between the primary and secondary  cooling  circuits. The  IHX is a helically coiled shell-and-tube gas-to-gas heat exchanger. Figure 3.33 shows a diagram of the actual IHX heat exchanger. Hot gas from the reactor enters from below and flows up over the helical tube bundles to a manifold volume at the top of the heat exchanger.  From there it goes to a circulator  and back again through the outer annulus of the heat exchanger pressure vessel.
+
+The tubes contain cool  gas  from the secondary  cooling circuit. This gas flows down from the top of the heat exchanger making the configuration counter flow.
+
+The gas-to-gas type heat exchanger is modelled as a recuperator heat exchanger (RX) in Flownet. This type of element requires the hydraulic diameter, total free flow area and flow length of both the hot and cold sides. It calculates the heat transfer and friction losses by means of Nusselt number and friction factor correlations respectively. The thermal inertia is accounted for by means of a mass-capacitance or MC value.
+
+FIG. 3.33. Bird’s eye view and sections of the Intermediate Heat Exchanger.
+
+190 The RX model is mostly suited to simple plate-fin recuperators where the hot and cold side are of similar length and cross-section.  As such the helical-coil configuration of the IHX, that has a much longer flow path on the secondary side, had to be tuned to get correct heat transfer in steady-state operation.  This was done by  altering the Nusselt and friction drop factors that are inputs in the RX model.
+
+Helium circulators
+
+The helium circulators used in the gas circuits are single-stage centrifugal compressors. Helium from the associated cooler enters the circulator inlet and goes through a filter before being compressed. A variable speed motor is used to control the helium flow rate delivered by the circulator.
+
+In Flownet turbines, blowers and compressors are modelled by means of characteristic curve data. The pressure ratio verses corrected mass flow  ( ) 00 /PTm    and efficiency verses corrected mass flow characteristic curves for different corrected shaft speeds  ( ) 0/ TN  are used. An input shaft speed is used along with the inlet gas conditions to find the operating point on the curves.
+
+The graphs of pressure ratio versus invariant mass flow rate and invariant power versus invariant mass flow rate were  supplied by JAERI. Graphs were supplied for the primary, secondary and auxiliary circuit machines. These graphs had to be converted into the Flownet compressor curve file format before it could be used in the circuit.
+
+Conversion of invariant mass flow to corrected mass flow:
+
+3600/ invcor mm    =                                                                                                        (2)
+
+01 01 T
+
+pm m cor =                                                                                                              (3)
+
+Since Flownet requires a graph of efficiency  versus corrected mass flow rate the invariant power data had to be modified to obtain efficiency. This was done as follows:
+
+0101 TpPP Inv=                                                                                                          (4)
+
+1000/)1( 01
+
+/)1( mTcpP Pratiofluidic  −= − γγ                                                                                (5)
+
+PP fluidic /=η                                                                                                             (6)
+
+Where P – Power input to the compressor Pfluidic – Power delivered to fluid pratio – pressure ratio (JAERI) η - compressor efficiency T01 – Inlet temperature p01 – Inlet pressure 191
+
+The characteristic maps for the primary and secondary circulators are the same and are shown in Figure 3.34 and 3.35. The primary circulator runs at a speed of 9400 rpm while the secondary machine is slightly faster at 9900rpm at 30MW. For 15MW they operate at 8900 rpm and 9500 rpm respectively.
+
+FIG. 3.34. Primary and Secondary circuit Pressure ratio map.
+
+FIG. 3.35. Primary and Secondary circuit Efficiency map.
+
+192
+
+HTTR Reactor
+
+The reactor is modeled  by means of a specially  developed HTTR element in Flownet Nuclear.  This model encompasses all the core internals starting from the channel entry at the upper reflector through to the hot plenum beneath the core.  The core nuclear dynamics are modeled with a point kinetics model that uses the core dynamics parameters as prescribed by JAERI.  During the transient event the decay heat production of the core is input by means of the prescribed decay heat equation given by JAERI.
+
+##### 3.2.3.4 Steady State Results
+
+Steady-state results comparison – 15MW operation
+
+This section discusses the results for the 15MW loss of power benchmark.  The results tables contain three columns: the first column tabulates the predicted HTTR data as sent out in JAERI’s first document on the benchmark [3-12], the second column contains the test data as obtained in the 15MW loss of power experiment while the last column  gives the Flownet Nuclear data.
+
+The data shows that the Flownet Nuclear results are closer to the experiment than to the predicted values.  This is possibly because, for the experiment, the speeds of the circulators were greatly reduced from predicted values.  It was found that if the predicted speeds are used in the simulation the mass flow becomes much higher than what is needed for 15MW power delivery in the reactor.  It is assumed that JAERI was conservative in their calculation of the system resistance and hence the circulators were over sized.
+
+Table 3-31. Reactor core results comparison
+
+Parameter HTTR Estimate  HTTR Experimental  Flownet Nuclear
+
+Thermal power [MW]  15 15  15
+
+Helium inlet temp. [°C]  241 (About)  242  240.5
+
+Helium outlet temp. [°C]  470 (About)  468  472.7
+
+Helium pressure [kPa]  3000 (About)  2900  2795
+
+Helium mass flow rate [kg/s]  12.4 12.4  12.44
+
+Hot plenum block temp. [°C]  490 (About)  391  193
+
+Table 3-32. Intermediate Heat Exchanger results comparison
+
+Parameter  HTTR Estimate  HTTR Experimental  Flownet Nuclear
+
+Primary helium inlet temp. [°C]  468 (About)  468  472.7
+
+Primary helium outlet temp. [°C]  238 (About)  235  240.77
+
+Primary helium pressure [kPa]  3000 (About)  2800  2784
+
+Primary helium mass flow rate [kg/s]  4.1 4.1  4.078
+
+Secondary helium inlet temp. [°C]  154 (About)  158  160.6
+
+Secondary helium outlet temp. [°C]  431 (About)  420  423.7
+
+Circulator speed [rpm]  9500 8770  8770
+
+Secondary helium pressure [kPa]  3100 (About)  2900  2900
+
+Secondary helium mass flow rate [kg/s]  3.6 3.6  3.59
+
+Otherwise, there are small differences in  pressure and temperatures but until  more detailed data becomes  available on pressure drops through the HTTR these differences are considered negligible.  Tables 3-31, 3-32, 3-33 and 3-34 provide a comparison of the Flownet results against the computed results supplied by JAERI for the various  parts of the  HTTR system.
+
+Steady-state results comparison – 30MW operation
+
+This section gives the results for the 30MW simulations. Tables 3-35, 3-36, 3-37 and 338 each contain the following: HTTR predicted results, Flownet Nuclear results using the prescribed shaft speeds and lastly Flownet results based on the same shaft speeds as used in the 15MW test.  As can be seen the first column of Flownet results contains large differences to the predicted HTTR results.  After careful analysis of the 15MW experimental data it was found that the system resistance was overestimated and so the 15MW shaft speeds were reduced.
+
+194
+
+Table 3-33. Primary Pressurized Water Cooler results comparison
+
+Parameter  HTTR Estimate  HTTR Experimental  Flownet Nuclear
+
+Helium inlet temp. [°C]  468 (About)  468  472.7
+
+Helium outlet temp. [°C]  242 (About)  235  240.77
+
+Helium pressure [kPa]  3000 (About)  2800  2784
+
+Helium mass flow rate [kg/s]  8.3 8.2  8.308
+
+Circulator Speed [rpm]  8900 8000  8000
+
+Water inlet temp. [°C]  89 (About)  79  79
+
+Parameter  HTTR Estimate  HTTR Experimental  Flownet Nuclear
+
+Water outlet temp. [°C]  110 (About)  100  101.29
+
+Water pressure [kPa]  2600 (About)  2300  2300
+
+Water mass flow rate [kg/s]  115 111  111
+
+For the 30MW case the mass flow required is the same as for 15MW, the difference in power is due to differences in inlet and outlet temperatures of the core.  However, the mass flow requirement is dominant in sizing the circulators’ rotational speeds  and since the mass flow is the same as  for  15MW the rotational speeds should be  roughly  the same.  Column three clearly shows much better correlation between the Flownet simulation and the HTTR predicted data.  These conclusions will only be  clarified once experimental data is received for the 30MW case.
+
+##### 3.2.3.5 Transient Results
+
+This section presents the transient results of the loss of power benchmark for both the 30MW and 15MW cases.
+
+Simulation setup
+
+This transient involves a coasting down of the main loop circulators of the HTTR.  A reactor SCRAM and loss of heat exchanger cooling mass flow are also included in  the transient.   Later in the  analysis the auxiliary  circulators are started and the cooling of the reactor’s decay heat is commenced. 195
+
+Table 3-34. Secondary Pressurized Water Cooler results comparison
+
+Parameter HTTR Estimate  HTTR Experimental  Flownet Nuclear
+
+Helium inlet temp. [°C]  430 (About)  420  423.6
+
+Helium outlet temp. [°C]  154 (About)  152  155.86
+
+Helium pressure [kPa]  3100 (About)  2900  2861
+
+Helium mass flow rate [kg/s]  3.6 3.6  3.59
+
+Circulator speed [rpm]  8100 8130  8130
+
+Water inlet temp. [°C]  89 (About)  79 79
+
+Water outlet temp. [°C]  110 (About)  100  99.9
+
+Water pressure [kPa]  2500 (About)  2300  2300
+
+Water mass flow rate [kg/s]  60 57  57
+
+Table 3-35. Reactor core results comparison
+
+Parameter  HTTR Estimate Flownet Nuclear – Pre-scribed Shaft speeds Flownet Nuclear – 15 MW Shaft speeds
+
+Thermal power [MW]  30  30  30
+
+Helium inlet temp. [°C]  395  412  402.7
+
+Helium outlet temp. [°C]  850  789.2  858.9
+
+Helium pressure [kPa]  4000  3993  3995.7
+
+Helium mass flow rate [kg/s]  12.4 15.31  12.66
+
+Hot plenum block temp. [°C]  890 789.2  858.9
+
+196 Table 3-36. Intermediate Heat Exchanger results comparison
+
+Parameter  HTTR Estimate Flownet Nuclear – Pre-scribed Shaft speeds Flownet Nuclear – 15 MW Shaft speeds
+
+Circulator speed [rpm]  9900  9900  8770
+
+Primary helium inlet temp. [°C]  850 789.2  858.9
+
+Primary helium outlet temp. [°C]  395 419.53  421
+
+Parameter  HTTR Estimate Flownet Nuclear – Pre-scribed Shaft speeds Flownet Nuclear – 15 MW Shaft speeds
+
+Primary helium pressure [kPa]  4000 3977.4  3983.67
+
+Primary helium mass flow rate [kg/s]  4.1 4.8  4.08
+
+Secondary helium inlet temp. [°C]  241 260.7  262.74
+
+Secondary helium outlet temp. [°C]  783 724.4  721.1
+
+Secondary helium pressure [kPa]  4100 4092.5  4092
+
+Secondary helium mass flow rate [kg/s]  3.6 3.87  3.86
+
+The loss of power benchmark is modelled as a transient in Flownet.  The code requires a transient events file that contains the user-defined transient events that happen at specified times in the transient.  The transient event editor allows the user to change time step at any time during the simulation.  For the first part of the transient (to ~15s) a time step of 0.1 seconds is used from then to where the auxiliary cooling system starts a time step of 1 second is used and then 0.1s is again used for the auxiliary cooling.  Table 3-39 includes the transient events as modelled in Flownet Nuclear. 197
+
+Table 3-37. Primary Pressurized Water Cooler results comparison
+
+Parameter  HTTR Estimate Flownet Nuclear – Pre-scribed Shaft speeds Flownet Nuclear – 15 MW Shaft speeds
+
+Circulator speed [rpm]  9400  9400  8000
+
+Helium inlet temp. [°C]  850  789.2  856.8
+
+Helium outlet temp. [°C]  395  401  388.4
+
+Helium pressure [kPa]  4000  3977  3984
+
+Helium mass flow rate [kg/s]  8.3 10.45  8.54
+
+Water inlet temp. [°C]  135  135  135
+
+Water outlet temp. [°C]  175  177  177
+
+Water pressure [kPa]  3500  3500  3500
+
+Water mass flow rate [kg/s]  115  115  115
+
+Table 3-38. Secondary Pressurized Water Cooler results comparison
+
+Parameter  HTTR Estimate Flownet Nuclear – Pre-scribed Shaft speeds Flownet Nuclear – 15 MW Shaft speeds
+
+Circulator speed [rpm]  8100  8100  8130
+
+Helium inlet temp. [°C]  782  719.9  723.4
+
+Helium outlet temp. [°C]  240  256  256
+
+Helium pressure [kPa]  4100  4054.7  4054
+
+Helium mass flow rate [kg/s]  3.6 3.87  3.88
+
+Water inlet temp. [°C]  135  135  135
+
+Water outlet temp. [°C]  175  171  171
+
+Water pressure [kPa]  3400  3400  3400
+
+Water mass flow rate [kg/s]  60  60  60
+
+198
+
+Table 3-39. Transient events as modeled in Flownet Nuclear Time [s] Simulated event
+
+## 15 MW  30 MW
+
+Coast down of the five main loop circulators commences.  The speed of the circulators is hard-coded to be the same as the speed decrease prescribed by JAERI. 0 0
+
+Water flow in the PPWC and SPWC is stepped down to 5 kg/s  0 0
+
+The circulator models become unstable in Flownet due to operation far out of the circulator map’s range.  The circulators are replaced by mass flow sources that decrease at the same rate as the circulator mass flows did before 3.4 seconds 3.4 3.4
+
+Reactor SCRAM is initiated.  The decay heat curve is read as input into the reactor model.  8.2 8.2
+
+The IHX circulator flow has reached 0 kg/s  12 10.8
+
+The PPWC circulators have reached 0 kg/s  13.4 14.5
+
+The SPWC mass flow has reached 0 kg/s  15 18
+
+The auxiliary cooling system is activated  52 52
+
+## 15 MW Loss of power transient results
+
+Flownet Nuclear models circulators and other turbo-machinery by means of their characteristic curves or “maps”.  Hence, in a situation such as the loss of power benchmark where the performance of the circulators determines the behavior of the rest of the system it is very important that the maps used are correct.  In this case the speeds of the circulators are specified as input to the circulator models and an appropriate operating point is found on the maps.  Figure 3.36 shows the speed of three of the circuit’s circulators over the first part of the transient.  Figure 3.37 shows a locus plot of the movement of the operating point of the PPWC circulator on its  map.   It is clear that during normal operation at 15MW power the operating point is already off the map.  As speed is reduced the operating point moves toward the origin.  It is for this reason that the circulator models become unstable after 3.4 seconds – the models cannot extrapolate far enough to simulate the performance of the machine. 199
+
+0
+
+20
+
+40
+
+60
+
+80
+
+100
+
+120
+
+140
+
+160 02 4 6 8 10 12
+
+Time [s]Shaft speed [rps] PPWC (A) SPWC IHX
+
+FIG. 3.36. Circulator shaft rotational speed – JAERI result used as input to Flownet Nuclear.
+
+FIG. 3.37. Locus plot of circulator coast down on a Pressure ratio vs. corrected mass flow rate map.
+
+200 The fact that the circulator is operating of the map has an effect on the mass flow that is produced.  Figure 3.38 shows the simulation mass flows plotted against the test results.  The figure shows that the simulation predicts a much faster decline in mass  flow rate than  what happens in reality.  It is assumed that the form of the map in the inner quadrant is different to the actual map and as such actual coasting down cannot be accurately simulated.
+
+0.0
+
+0.5
+
+1.0
+
+1.5
+
+2.0
+
+2.5
+
+3.0
+
+3.5
+
+4.0
+
+4.5 0 5 10 15 20 25 30
+
+Time [s]Mass flow rate [kg/s] FN IHX FN SPWC FN PPWC tot JAERI PPWC JAERI SPWC JAERI IHX
+
+FIG. 3.38. Circulator mass flow rates of Flownet Nuclear compared to JAERI test results
+
+The transient performance of the reactor is shown in Figure 3.39.  Note the sudden drop in reactor power at 8 seconds due to the SCRAM.  The remaining decay  heat curve is  as prescribed by JAERI.  Figure 3.40 shows the transient fluctuation in system pressure.   It is expected that once the  system is not running the pressure will be close to the operating pressure due to the lack of a high system pressure ratio and large volumes of helium.
+
+0
+
+2000
+
+4000
+
+6000
+
+8000
+
+10000
+
+12000
+
+14000
+
+16000 0 1020 3040 5060 7080 90 100
+
+Time [s]Reactor Thermal Power [kW] 450
+
+455
+
+460
+
+465
+
+470
+
+475
+
+480
+
+485
+
+490
+
+495
+
+500Reactor Outlet Temperature [°C] Thermal power Reactor outlet T
+
+FIG. 3.39. HTTR Reactor thermal power and outlet temperature. 201
+
+2750
+
+2760
+
+2770
+
+2780
+
+2790
+
+2800
+
+2810
+
+2820
+
+2830
+
+2840
+
+2850 0 50 100 150 200 250 300
+
+Time [s]System pressure [kPa] FIG. 3.40. HTTR system pressure (at PPWC circulator outlet).
+
+In Figure 3.41, the mass flow rates are plotted for the whole transient from coast down to when the auxiliary  cooling system is activated. Figure 3.42 provides the HTTR inlet and outlet temperatures while Figure 3.43 is a plot  of the heat removed by the auxiliary heat exchanger throughout the loss of power transient from 15MW.
+
+-2
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10
+
+12
+
+14 0 1020 3040 50 6070 80
+
+Time [s]Massflow [kg/s] Reactor Auxilliary circuit
+
+FIG. 3.41. Reactor and auxiliary mass flow rates.
+
+202 0
+
+100
+
+200
+
+300
+
+400
+
+500
+
+600 0 5000 10000 15000 20000 25000 30000 35000
+
+Time [s]Temperature [°C] Outlet Inlet
+
+FIG. 3.42. Inlet and outlet temperatures of the HTTR core for the 15 MW loss of power transient. 0
+
+500
+
+1000
+
+1500
+
+2000
+
+2500 0 5000 10000 15000 20000 25000 30000 35000
+
+Time [s]Heat removed [kW] FIG. 3.43. Heat removed by Auxiliary heat exchanger for the 15 MW loss of power transient.
+
+203
+
+The assumptions described in this section are based on simulation judgment and as such the actual cause of discrepancies may be due to  totally different reasons.  The only way to really verify these assumptions is to get more experimental data from JAERI, specifically temperatures and pressures through the system as measured during the experiment.
+
+## 30 MW Loss of power transient results
+
+At the time of documenting these results no 30MW experimental data  was available from JAERI.  Therefore the 30MW simulation results are unverified but are still presented in this section.  Figure 3.44 and 3.45 show the system mass flows during the coast-down and entire periods of the transient respectively.  As with 15MW it is expected that the actual mass flow rate decrease will slower than in the simulation.
+
+0.0
+
+0.5
+
+1.0
+
+1.5
+
+2.0
+
+2.5
+
+3.0
+
+3.5
+
+4.0
+
+4.5 0 2 4 6 8 10 12 14 16 18 20
+
+Time [s]Mass flow rate [kg/s] IHX SPWC PPWC
+
+FIG. 3.44. Circulator mass flow rates in coast-down phase.
+
+-2
+
+0
+
+2
+
+4
+
+6
+
+8
+
+10
+
+12
+
+14 0 102030 4050 60 708090 100
+
+Time [s]Massflow [kg/s] IHX PPWC  Reactor Auxilliary circuit
+
+FIG. 3.45. Reactor and auxiliary mass flow rates.
+
+204 The reactor performance is shown in Figure 3.46 while the change in system pressure is given in Figure 3.47.
+
+0
+
+5000
+
+10000
+
+15000
+
+20000
+
+25000
+
+30000
+
+35000 0 20 406080 100 120
+
+Time [s]Thermal Power [kW] 800
+
+810
+
+820
+
+830
+
+840
+
+850
+
+860
+
+870
+
+880
+
+890
+
+900Temperature [°C] Thermal power Reactor outlet T
+
+FIG. 3.46. HTTR Reactor thermal power and outlet temperature.
+
+3750
+
+3800
+
+3850
+
+3900
+
+3950
+
+4000
+
+4050
+
+4100
+
+4150
+
+4200
+
+4250 0 10 20 3040 5060 7080 90 100
+
+Time [s]Pressure [kPa] FIG. 3.47. HTTR system pressure (at PPWC circulator outlet).
+
+Figures 3.48 and 3.49 provide HTTR inlet and outlet temperatures and the heat removed by the auxiliary heat  exchanger throughout the loss of power transient from 30MW, respectively.  Figure 3.50 shows a locus plot  of the PPWC circulators’ operating point movement on the map.  Due to the same steady-state speed being used as for 15MW the starting point is off the map.  Hence the same conclusions can be drawn as for 15MW. 205
+
+0
+
+100
+
+200
+
+300
+
+400
+
+500
+
+600
+
+700
+
+800
+
+900
+
+1000 0 5000 10000 15000 20000 25000 30000 35000
+
+Time [s]Temperature [°C] Outlet Inlet
+
+FIG. 3.48. Inlet and outlet temperatures of the HTTR core for the 30 MW loss of power transient. 0
+
+500
+
+1000
+
+1500
+
+2000
+
+2500
+
+3000
+
+3500
+
+4000
+
+4500
+
+5000 0 5000 10000 15000 20000 25000 30000 35000
+
+Time [s]Heat removed [kW] FIG.3.49. Heat removed by Auxiliary heat exchanger for the 30 MW loss of power transient.
+
+206
+
+FIG. 3.50. Locus plot of circulator coast down on a Pressure ratio vs. corrected mass flow rate map.
+
+As for 15MW, the assumptions made in the 30MW transient can only really be verified with more detailed transient data from JAERI.
+
+##### 3.2.3.6 Conclusions
+
+The steady-state  results obtained from Flownet Nuclear  for the 15MW case showed good correlation to the  experimental data when the circulator speeds were lowered to the actual values.   It appears that original speed estimates provided by JAERI were based on over-conservative system resistance predictions.  This resulted in the circulators being oversized for the required operating point.  The working points are just off the circulator map ranges  and as such the accuracy of the analyzed working point is dependent on the extrapolation routines in the simulation code.  This accuracy becomes more evident in the loss of power event where the working point moves further away from the map.  The effect can be seen in the mass flow plots where the experimental flow rates take longer to decrease than the simulated results.
+
+However, other factors cannot be ruled out as temperature and pressure effects can also play a role in the discrepancies.  The only way to verify that they are not the cause is to get more detailed pressure and temperature data of the HTTR system for the loss of off-site power experiments.
+
+In general, the steady state simulation results and those obtained from the actual plant are in fair agreement.  The transient results show greater deviations but the trends simulated are still the same as the actual performance. 207
+
+#### 3.2.4. United States of America [3-14]
+
+##### 3.2.4.1. Analysis methodology and code description
+
+The ORNL Graphite Reactor Severe Accident Code (GRSAC) was used for the IAEA CRP-5 HTTR-VC and HTTR-LP benchmark problems, utilizing both steady state and dynamic code features.  These calculations relate to the HTTR initial rise to power sequence and safety demonstration tests.  An existing HTTR model in GRSAC [3-15] was upgraded to provide more detail in certain critical areas.
+
+The GRSAC (Graphite Reactor Severe Accident Code) software is a general-purpose program developed  at Oak Ridge National  Laboratory (ORNL).    It is based on the ORNL MORECA code for simulating accident scenarios for selected  gas-cooled reactor (GCR) design types [3-13]. The MORECA code and its predecessors were originally developed  at ORNL under the sponsorship of the U.S. Nuclear Regulatory Commission (NRC) to perform confirmatory licensing-related studies of a variety of High-Temperature Gas-Cooled Reactor (HTGR) designs, including the Fort St. Vrain HTGR and subsequently the 350-MW(t) steamcycle Modular HTGR (MHTGR).  MORECA was later developed - under U.S. Department of Energy (DOE) sponsorship - to simulate the MHTGR design for the 600 MW(t) direct cycle gas turbine modular helium reactor (GT-MHR).
+
+Since MORECA is a  "hard-wired" code, configured only for a particular reactor design, the conversion of MORECA to GRSAC was motivated by the need to generate the connectivities necessary to assemble, verify,  and run simulations for a wide variety  of graphite-moderated GCR designs.
+
+Since GRSAC was developed to study a wide  variety of core transient and heatup accident scenarios, it includes a detailed 3-D  thermal-hydraulic model for the core, plus models for the reactor vessel, shutdown cooling  system (SCS), and shield or reactor cavity cooling systems.   There is an option to include neutronics  (point kinetics) with xenon and samarium poisoning to study Anticipated Transients Without Scram (ATWS) transients.
+
+The 3-D, hexagonal  geometry  core model  allows for detailed investigations of azimuthal temperature  asymmetries in  addition to axial and radial profiles.  Variable  core thermal properties are computed functions of temperature and  are dependent on orientation and radiation damage.  An annealing model for graphite accounts for the increase in thermal conductivity that occurs during heatup accidents.
+
+The primary  coolant  flow models cover the full ranges  expected in  both normal operation and accidents, including pressurized and depressurized accidents (and in between), for forced and natural circulation, for up-flow and down-flow, and for turbulent, laminar, and transition flow regimes.  The primary loop pressure calculation can consider variable inventory  (due to depressurization actions) and loop temperature changes  and may use a simplified model for balance-of-plant temperatures. The models for the reactor pressure vessel and the shield or cavity cooling system  are different for each of the various basic reactor models.  Models are  also included  for oxidation of graphite  (including  carbon deposits), cladding, and fuel.  Time-at-temperature failure models for  TRISO fuel, fission product release models for metal fuel, and Wigner stored energy release models are also available.
+
+208 Other GRSAC features of interest are:  fast-running (typically >2000 times faster than real time on a SUN SparcStation-20 workstation), interactive user interface with on-line and off-line plotting options, automated sensitivity study capabilities, and on-line documentation and help screens.  The basic designs that can be simulated using GRSAC, which the user may modify via the interface to a large (but limited) extent, include the British and French Magnox types (including the Calder Hall, G-2/3, and Bugey-2), Windscale (U.K.), G1 (France), and the HTTR (Japan).  Adaptations and analyses are planned for pebble-bed reactor designs, and the GT-MHR Plutonium burner (U.S.-Russia).   More details on GRSAC are summarized below, and [3-15] is a complete users manual.
+
+GRSAC code features
+
+Reactor Design Setup
+
+Specific design features for a chosen reactor type can be input by the user via design screen selections in the  following  categories: fuel element, nuclear parameters, core layout design, primary cooling system, vessel design, reactor cavity, fission product release, and oxidation parameters. Program setup screens allow the user to activate or deactivate oxidation,  Wigner  energy, or ATWS features, and to select the  coolant gas, core  flow direction and computation time parameters.   In some cases, such as for the radial and axial power peaking  factor inputs and flow coast-down curves,  graphical displays and automated consistency  check features are included. Pop-up HELP windows and a choice of metric or English unit entries are available for all user input screens in GRSAC. The user can also select a "run with validation" option, which is a smart front-end check of the entire set of inputs for data inconsistencies.
+
+Initial Condition Runs
+
+GRSAC accident sequence analyses require a large set of initial condition values which are created automatically via the  Initial Condition (IC) mode.  The user can change operational inputs such as power level, flow, pressure, etc., and observe the resulting detailed temperature and flow distributions attain steady state conditions.  At any point in the run, one can store initial condition values in a RUN file.
+
+Interactive and Programmed Inputs
+
+The interactive input screen  for  accident simulations allows for user inputs (scram, depressurization, changes in emergency and/or cavity cooling, etc.) at any time during a run. Such inputs can also be pre-programmed, however, via a programmed input screen that is available to the user during the run setup procedure.
+
+Accident Sequence Runs
+
+Long-term  Loss Of  Forced Convection (LOFC)  accidents begin with a programmed flow coastdown transient.  LOFC transients  in  GCRs are generally  characterized by slow heatups due to low power densities and large heat capacities associated with the core.  They may be simulated both with and without total or partial depressurization of the primary coolant and with or without scram.  Optionally, both the active or passive shutdown cooling systems can be made to be either unavailable or available only intermittently in degraded states.  For helium or CO2-cooled cores, there is an option to allow air ingress following a
+
+209
+
+depressurization, and subsequently to initiate oxidation models for graphite (and clad and metal fuel, if applicable).
+
+Sensitivity Study Option
+
+Many  variations of transient and  LOFC accident scenarios have been studied to observe the sensitivities of the predictions to parametric model and operational assumptions. These provide  guidance in design studies for determining plant operating parameters (including design power level) and in identifying which physical properties and correlations are most crucial to the outcome of postulated accidents.
+
+In the GRSAC automated sensitivity study feature, the rationale is to seek out a set of parameters within user-specified uncertainty bands that result in the worst (or best)  case accident consequences  using  a  gradient search algorithm.  Sets of 13 model or design parameters (such as heat transfer correlations, etc.) and 12 operational/run parameters (such as time of scram) have been set up to be available for automatic variation (from run to run).  The program allows the user to select up to 10 from this set for any  given study.  To study the effects of a single parameter variation in more detail, a single-parameter option can be used. That parameter is varied uniformly within the uncertainty band (reference run plus 4 others). A report generator creates a summary of the sensitivity run results.
+
+GRSAC model of the HTTR
+
+The ORNL  GRSAC code has a number of  general-purpose features that allow modification of design  attributes and operational sequence options via a variety of user interface screens.  However, to accommodate  HTTR calculations for previous  IAEA CRP-3 benchmark calculations and for activities during a JAERI Foreign  Researcher  Inviting Program [3-16], special models were  added for  HTTR-specific features not readily changed via the input screens.  These included a special model for the vessel cooling system (VCS or Reactor Cavity Cooling System - RCCS), modeling of the core inlet flow path up the annulus between the core and reactor vessel, accommodation of the smaller core/larger side reflector design than is standard in GRSAC, and inclusion of an annealing model to account for thermal conductivity changes in the higher  grade  graphite  (GRSAC reference  case is for Magnox reactor type cores).
+
+The RCCS (VCS) model used by ORNL previously for the HTTR-RCCS experiment IAEA benchmark calculations (with success)  was adapted to the actual HTTR VCS. Preliminary calculations showed somewhat higher than expected heat removal rates. Sensitivity studies (also  preliminary) showed the predicted rates to be very sensitive to the assumed emissivity values for the  radiation shields, as would be expected.  Also, it was not clear how to estimate convection heat transfer (if any) between the radiation shields and the cooling panel itself.   The GRSAC model used for convection heat transfer  (Keyhani) predicted  an increase in  effective h due to the addition of separation baffles in the vessel-to VCS annulus, which were installed to break up the convective flow path and reduce the heat transfer coefficient value.
+
+A significant improvement in the GRSAC model for the HTTR VCS was made for the CRP-5 benchmarks on the basis of a study done by Akio Saikusa while at ORNL (1998-9) as a visiting JAERI Research Fellow.   Using the PATRAN P/Thermal code system, he created a very detailed model of  the upper vessel  region, including the individual control rod drive standpipes, and the upper portion of the VCS.   The objective was to  derive an accurate
+
+210
+
+“effective view factor” for this complex geometry  that  could be used in  the GRSAC VCSvessel model.  This effort was successful, and the results were incorporated.
+
+##### 3.2.4.2. Results of HTTR-VC
+
+Previous V&V calculations of HTTR vessel cooling (VC) performance
+
+The ORNL GRSAC code was used previously to predict steady state core and VC heat removal conditions for initial power levels of 10%, 30%, 50%, 75%, and 100%.  The GRSAC calculations were benchmarked  against the JAERI  code  ACCORD [3-16] with the results generally in very  good  agreement.  For this exercise, the axial peaking factor  curve was modified from the IAEA case to correspond to the no-burnup profile that would apply to the initial rise to power.  The 100% reference case core flow distribution was also modified so that 9.8% of the total flow of 12.51 kg/s would bypass the active core.
+
+The model of the fuel pin accounts  for the outer  sleeve,  gap, and hollow-center  fuel geometry.  The  gap model was revised to  give  a reference case 0.25 mm gap with helium, where the helium conductivity is included as a function of temperature, along with radiant heat transfer also across the gap.
+
+The GRSAC special model of the HTTR  core consists of 61 radial regions (representing the HTTR’s 954  channels).  The balance of GRSAC’s  205 radial regions represent the removable and permanent side reflectors.  There are 14 axial core nodes, where the middle 10 represent the active core.  The 10  axial peaking factors (inlet to outlet) are: .5373  .6545  .8043  .9313  1.241  1.286  1.471  1.293  1.136  .6447
+
+These values are very close to those derived from the CRP-5 VC and LP benchmark descriptions, and are used in those calculations as well.  The core model was also modified so that the control rod channels are accounted for explicitly.  Hence the axial flow modeling in the 61 representative (GRSAC) active core model regions are no longer assumed to have equal orificing characteristics.  The 61 regions represent 37 assemblies (30 fuel elements and 7 control rod drive [CRD] elements), so some of the 61 regions partially represent the CRDs. The center radial node in GRSAC is ”100% CRD channel,” but the next 3 rings of radial nodes contain a mixture of CRD and fuel channel elements.  The fourth ring consists of only fuel element channels.  To estimate the maximum temperatures in rings 2-4, the hot-channel option in GRSAC is used, which allows one node in each of these rings to have an increased peaking factor to represent a typical region in this ring where there is no CRD element.
+
+Reference case V&V results - calculations
+
+In Table 3-40 below, for each power level case, the predicted core mean coolant outlet temperatures (one for the active core only, and the other with side reflector coolant mixed in – w/SR) are  given,  along  with the maximum gas  outlet (T-o max) and fuel temperatures (T-f max).  The maximum predicted fuel temperatures do not occur in the center radial region, as they would in a homogeneous core representation.  The peak fuel temperature for the 100% power case appears in the outlet axial region for the active core (AR#12); for all other cases, it is in AR#8 (just below mid-core).   The maximum vessel temperature (T-v max) and rate of heat removal from the vessel cooling system (P-vcs, in kW) are also shown (all temperatures in degree C). 211
+
+Table 3-40: VC Reference Case Calculations as a Function of % Power
+
+%P T-o active, w/SR  T-o max. T-f max [J]  T-v max.  P-vcs 10 184-180 186 207 [179]  120  100 30  328-315 334  387 [375]  159 180 50  488-468 498  570 [560]  210 280 75  687-658 701  785 [788]  273 460 100  884-848 900  993 [1017]  336 650
+
+The corresponding JAERI values (using the ACCORD code) for maximum fuel temperatures for these cases are shown in the T-f max column in brackets [ ].  Considering the differences in codes and many modeling assumptions, the result are in very good agreement, the GRSAC temperature estimates being slightly lower for the full power case.
+
+Sensitivity study
+
+Several variations in parameters and  assumptions were made to determine the sensitivity of the predicted results to uncertainties.  Since the effects would be most pronounced at 100% power, they were run for that case.  Two factors that could affect the flow redistribution in the active core are the friction factor and pressure drop of the “orificing.”   A 50% increase in the  assumed friction factor had  no effect on flow redistribution or resulting predicted temperatures.  A 100% increase in the assumed core pressure drop (from 0.12 kg/cm 2 to 0.24 kg/cm2) also had a negligible effect on gas and fuel temperatures.
+
+An assumed 25% increase in the effective core heat transfer coefficient had some effect on maximum fuel temperatures  (the lower boundary of the  given  h-correlation curve was used in the reference case).  For this case, the maximum fuel temperature in axial region 12 was ~ 6°C lower.
+
+The nominal value of gap resistance was increased by 50%, increasing the maximum fuel temperature in axial region 12 by ~ 25°C.
+
+A significant effect in predicted active core temperatures was seen for changes in the assumed core bypass  flow percentage (vs. the reference 9.8%).   For a bypass of 5.3%, the mean outlet  gas temperature  was 864 with a  maximum of 873, and  the maximum fuel temperature (region 12) was ~ 27°C less.  For a bypass of 12.3%, the mean active core outlet gas temperature was 897°C with a maximum of 914°C, and the maximum fuel was ~ 15°C more than for the reference case.
+
+HTTR-VC V&V results – experimental
+
+Table 3-41 provides a comparison of steady state VCS measurements during the 1997 heat-up tests (circulator power was the heat source) with the reference model predictions:
+
+Table 3-41: Measured vs. Predicted VC Results in kW
+
+Run Time  Measured kW  Predicted kW (GRSAC) 1997/9/10 9:00  99  93 1997/9/11 13:00  85  98 1997/9/15 12:00  130  98
+
+212 In the second case, the  vessel temperatures  are  higher than those in the first, so the model predicts a higher heat transfer rate. In the third case, the adjustment panel flow is “on” and additional heat is removed. The model prediction does not include adjustment panel cooling (39 kW measured).
+
+There was a large uncertainty in the active core bypass flow in Fort St.  Vrain, with estimates up to about 15%.  One reason for the large uncertainty was the variability due to the positioning of the orifices controlling flow in each of the refueling  regions (not a consideration for HTTR). However, some uncertainty should be accounted for in the HTTR.
+
+The cooler bypass gas exiting the side reflector and CRD channels mixes with the hot gas  from the active  core fuel regions - and the differences in these  are larger for the higher bypass flow assumption cases. It may be possible to infer bypass flow percentages from outlet temperature readings, and perhaps detect hot plenum mixing characteristics from fluctuations in mixed (average) gas outlet temperature readings.
+
+Steady-state benchmark calculations (HTTR-VC) for evaluation of vessel system performance
+
+The GRSAC code was run in the initial condition (steady-state) mode to determine VCS heat removal rates and  resulting vessel temperatures.   For the 100% (30 MW) power case, the predicted VCS heat removal rate was 0.670 MW.  In this case the maximum vessel temperature was 333°C, and the average temperature of the vessel top head was estimated at 203°C. GRSAC was also run at 50% power  (15 MW), giving a VCS power of  0.285 MW, maximum vessel temperature of 209°C, and a peak top head temperature of 128°C.  For this case, the reactor inlet temperature was assumed to be 241.4°C.
+
+##### 3.2.4.3. Results of HTTR-LP
+
+Transient benchmark calculations for loss of  off-site power (HTTR-LP) with scram and post-trip cooling via the auxiliary cooling system
+
+The GRSAC HTTR model was run in the  accident mode for the  LP  benchmark, representing a loss of off-site power (LOSP) event. The  LP benchmark problem involves a main circulator trip and flow coastdown, with a reactor trip (scram) and startup of the Auxiliary Cooling System (ACS) shortly thereafter.  The performance of the ACS for the LP benchmark is approximated by running GRSAC’s simplified Shutdown Cooling System (SCS) model with the prescribed helium cooling flow-rates (1.2 kg/s for the first 40 minutes and 0.8 kg/s thereafter).  An SCS cooling water flow of 18.3 kg/s is maintained throughout. Primary pressure calculations are very approximate, since the HTTR balance of plant (BOP) is not modeled explicitly.   However, the  results of the temperature predictions are not very sensitive to pressure, and the GRSAC estimates of pressure changes were fairly close to those shown in the JAERI results.
+
+The results of the LOSP from 100% power are shown in Figures 3.51 and 3.52.  They show a gradual decline in core temperatures, with the rate of decline slowing somewhat after the decrease in coolant flow after 40 minutes,  as expected.   In the  GRSAC figures, the Auxiliary Cooler heat removal rate (requested in the benchmark) is approximated by the core heat removal rate (curve labeled “Primary”) in the figure. 213
+
+FIG. 3.51. HTTR-LC Benchmark: LOSP from 100% Power (1 hr).
+
+FIG. 3.52. HTTR-LC Benchmark: LOSP from 100% Power (10 hr).
+
+214 FIG. 3.53. HTTR-LC Benchmark: LOSP from 50% Power (1 hr).
+
+FIG. 3.54. HTTR-LC Benchmark: LOSP from 50% Power (10 hr). 215
+
+FIG. 3.55. HTTR LOSP with no auxiliary cooling flow (pressurized).
+
+FIG. 3.56. HTTR LOSP with no auxiliary cooling flow (depressurized).
+
+216 The results of the LOSP from 50% power are shown in Figure 3.53 and 3.54.  They also show a gradual decline in core temperatures, at a slower rate than the first case since the Auxiliary Cooler is removing less heat.  Both sets of results appear to be in good agreement with the JAERI results published in the benchmark problem descriptions.
+
+Figures 3.55 and 3.56 provide the results of HTTR loss of electric power even with no auxiliary cooling flow in the pressurized and depressurized condition, respectively.
+
+It can be seen that no temperature excursions are expected, and the cool-downs proceed in an orderly fashion according to both GRSAC and JAERI (ACCORD) predictions.
+
+217
+
+#### 3.2.5. France
+
+A model of the High Temperature Engineering  Test Reactor was developed for the benchmark  concerning the evaluation of the Performance of Vessel Cooling System during normal operation. The CAST3M code [3-17] has been used to model the HTTR. CAST3M is a multi-purpose  finite element code developed at CEA, which allows 3D, 2D and R-Z axisymmetric  calculations. Domains of applications are structural  mechanics, fluids mechanics heat transfer and hydro-magnetics. As far as heat transfer is concern, the code is able to take into account radiation phenomenon.
+
+##### 3.2.5.1. Relevant Hypothesis and Limits of the Model
+
+The geometry
+
+Considering on the one hand the design geometry and its symmetry and on the other hand, the boundary conditions, a R-Z model has been chosen to describe the problem as shown on Figure 3.57. The heat transfers in the core and the coolant channels are supposed to be approximately 2D axisymmetric.
+
+FIG. 3.57.  2D-reactor mesh.
+
+Main correlations used for the reactor modelling
+
+Helium hydraulics and heat transfer in the reactor core as well as in the reflectors, the bottom replaceable reflector block and the hot  plenum, are modelled using an equivalent porous media formulation  comprising a solid  phase and a gaseous phase (Figure 3.58). Indeed, the number of helium channels per blocks as well as the number of fuel holes disables to use a complete description of the geometry that would be required for solving the convection equation in the coolant holes and the conduction and radiation equations in the graphite and in the gas.
+
+218 In the porous medium, the relation between the  pressure drop and the mass flow is computed from the Blasius equation used for turbulent fully developed flow in a smooth pipe. The heat exchange coefficient between the helium in convection inside the fuel element is computed from the  correlation  given in [3-18]. It is nevertheless  weighted by the channels related specific surface. Moreover, the Dittus-Boelter equation is used for the heat transfer in the reflector and in the plenum.
+
+FIG. 3.58.  Solid, helium and air related meshes.
+
+As far as the bottom replaceable reflector is concern, the  characteristics (hydraulic diameter, porosity, specific surface) correspond to the average characteristics of the hot plenum.  It is assumed that this assumption won’t influence strongly the benchmark results (external temperature of the vessel, panel temperatures and power  evacuated by the Vessel Cooling System).
+
+Concerning the solid phase of the porous medium in  the core, the equivalent horizontal thermal conductivities have been determined, as function of the temperature.  In order to evaluate these  equivalent conductivities, a simplified model of the fuel block has been used taken into account the radiation heat transfer across the channels.
+
+Finally, neither the standpipe nor the thermal shield of the upper cavity, have been considered in the model. The helium is modelling as  an incompressible fluid. Although the mass density  variation is important, the  Boussinesq’s approximation is used.  Besides, the thermal conductivity as well as the viscosity is function of the temperature. In all the pressure vessel cavities the radiation heat transfer is taken into account, the helium being transparent for this kind of transfer. The reactor cavity
+
+Four ring plates are located in the reactor cavity (50 mm from the pressure vessel and 100 mm from the external panels). There is also a ring plate in the lower part of the reactor (under the pressure vessel). As depicted in Figure 3.59, additional plates have been added at the extremity of the ring plates [3-21]. Therefore, it is assumed that these ring plates share the lower part of the reactor cavity in two independent hydraulic zones and the side reactor cavity
+
+219
+
+in five others hydraulic zones. In these zones, the air is considered as an incompressible fluid and transparent for the radiative heat transfer. The Boussinesq’s approximation is also used. The thermal conductivity  and the  viscosity have been  assumed  constant and considered  at 60°C. FIG. 3.59.  Ring plate between the reactor and the panel.
+
+The side and bottom panels
+
+For the reactor cavity cooling system (VCS), the water temperature distribution is supposed constant along the tubes. Calculations show that the axial flow is fully turbulent in the tubes of the side panel (Re number about 10 4). Then, the Mc Adams correlation allows evaluating the Nusselt number from which  a local exchange coefficient  has been deduced. Considering the R-Z model an average  exchange  coefficient has been  used for the whole panel. FIG. 3.60. Thermal reflector plates along the VCS.
+
+In front of the tubes, there are some vertical thermal reflector plates (2 or 5). These plates have gaps to manage the axial thermal expansion of the whole reflector. Nevertheless, they enhance air circulation between the panels.  As it is difficult to take into account the presence of these gaps in the whole reactor model, some preliminary calculations have been carried out on the thermal reflector zone.
+
+A simplified model has been developed where all the reflector plates have been described. In order to simulate the radiative heat transfer between the pressure vessel and the
+
+Thermal Reflector Water Cooling Panel
+
+VCS panel surface gap 10 mm
+
+gap 10 mm
+
+RPV Additional l ISI plate  VCS
+
+220
+
+thermal reflector, a part of the pressure vessel at constant temperature (300°C) radiating to the reflector is assumed as a boundary condition.  In this simplified model, the emissivities corresponding to those of the global model. On the side panel, the heat exchange is represented by  similar  parameters than those  used in the  global reactor model. Three calculations have been performed: the first taking into account radiation between the reflector plates but without air circulation, the two last considering air circulation with and without the gaps. The results are presented in Table 3-42.
+
+Table 3-42. Refined Calculations on the Thermal Reflector
+
+Configurations Radiative Power Without air circulation    116  kW With air circulation and without gaps   124  kW With air circulation and with gaps    131  kW
+
+The air circulation observed inside the thermal reflector corresponds to an upward flow in the  front  cavities (reactor side)  and a downward flow in the cavity along the VCS panel (cooling tubes side). The  calculations show a more  equilibrated flow in the central cavities. By taking into  account the  gaps, the  air velocities are  enhanced and this leads to lower temperature on the reactor side part of the thermal reflector. The extracted power is therefore higher in this case. Finally, according to these preliminary results, the air circulation has been considered in the final model without describing the gaps.
+
+##### 3.2.5.2. Results for the global model
+
+Algorithm and finite element
+
+The finite elements are linear quadrangle for the heat transfer, quadrangles isoQ2 and isoP1 for respectively velocity  and discontinuous pressure [3-19, 3-20]. A finite element isoQ2 comprises 4 linear elements. The global model has 11580 elements for the solid parts, 2808 elements in the helium and 1513 in the air (Figure 3.58). Hydraulics and energy transport equation are treated by an implicit scheme and simultaneously solved in order to get a stable solution for the fluid-structure heat transfer. Two calculations have been performed corresponding respectively to core power 9 MW and 30 MW (Table 3-43).
+
+Table 3-43. Reactor Characteristics Used in the Calculations
+
+Reactor Power     9  MW    30  MW Helium Inlet Temperature    175 °C    395 °C Flow Rate    12.4  kg/s    12.4  kg/s Cooling Water Temperature of VCS    28.5  °C    25  °C Helium Outlet Temperature    312  °C    850  °C
+
+Benchmark Results
+
+The surface temperature of the thermal reflector (reactor cavity side) is also given for both envisaged power level. The outlet temperature of the helium ranges from 321 °C at 9 MW to 863 °C at nominal power. Moreover, the temperature distributions in the helium, the air and the solid are provided in Figure 3.61 for the whole reactor. Finally, the Table 3-44 gathered the main results of the total power extract by the Vessel Cooling System in steady state. 221
+
+FIG. 3.61. Solid and gas temperature distributions for 9 MW.
+
+Table 3-44. VCS Performance in Steady State
+
+Power level    9 MW    30 MW
+
+Upper panel   20  kW   60  kW Side panel   150  kW   480  kW Lower panel    8 kW    15 kW Total extracted power    178 kW    555  kW PRV Temp. (19-27 m)    168 °C 340-353  °C
+
+##### 3.2.5.3. Concluding remarks
+
+The results obtained in the upper part of the cavity could be better. Indeed the:
+
+•  Thermal reflector located to the top head dome (reactor pressure vessel) has not been taken into account and lead to an overestimation of vessel temperature. •  Standpipes were also not considered. They certainly slow down the air circulation and modify the radiative exchanges between the divers walls. •  Heat exchange in the upper part of the VCS tubes is assumed to be uniform
+
+222 The additional plates to the ring plates  constitute a  thermal continuity between  the reactor pressure vessel and the thermal reflector of the VCS. The impact of this assumption on the temperatures remains to be tackled.
+
+Finally, the concrete, beyond the VCS tubes, has not been considered. Therefore, a part of radiation heat coming from the vessel (directly  or through the support panel of the  VCS tubes) must induce  a temperature  gradient in the concrete.  These thermal leakages are not taken into account in the present model. 223
+
+REFERENCES TO CHAPTER 3
+
+[3.1.]  SAIKUSA, A., TACHIBANA, Y., and KUNITOMI, K., “Benchmark Problems for Riseto-power Test  of High  Temperature Engineering Test Reactor in  IAEA Coordinated Research Program,  (Part II. Evaluation of  Performance  of Vessel  Cooling  System)”, JAERI, Oarai, Japan, 2000 [3.2.]  IOKA, I. et al.: JAERI-M88-032 (1998) (in Japanese) [3.3.]  TAKEDA,  T., NAKAGAWA, S., TACHIBANA, Y., TAKADA, E., and  KUNITOMI, K., “Analytical Evaluation on  Loss of Off-site  Electric Power Simulation of  the High Temperature Engineering Test Reactor”, JAERI, (Proc. 3rd RCM of CRP on Evaluation of HTGR Performance, held at  Oarai, March 2001), IAEA, Vienna, 2001, (CD-ROM) [3.4.]  TAKEDA, T., NAKAGAWA, S., FUJIMOTO, N., TACHIBANA, Y. and  IYOKU, T., “Data on loss of  off-site electric power  simulation tests  of  the High Temperature Engineering Test Reactor”, JAERI-Data/Code 2002-015, July 2002. [3.5.]  INTERNATIONAL  ATOMIC  ENERGY AGENCY, “Heat transport and  after heat removal for  gas cooled  reactors under accident  conditions”,  IAEA - TECDOC - 1163, Vienna,  Jan. 2001. [3.6.]  KUZAVKOV, N., SHEPELYEV,  S,  AFANASYEV, V.  and NIKANOROV, O.,"Benchmark Problem on the VCS Heat  Removal (HTTRVC)",  (Presented at Third RCM of CRP on Evaluation of HTGR Performance, held at Oarai, March 2001). OKBM, Russia, 2001 [3.7.]  INTERNATIONAL ATOMIC  ENERGY  AGENCY, “Heat Transport and After Heat Removal for Gas Cooled Reactors under Accident Conditions,”  IAEA-TECDOC-1163, Vienna, January 2001. [3.8.]  JAPAN ATOMIC ENERGY RESEARCH INSTITUTE, “Analytical evaluations on loss of off-site electric power simulation of high temperature engineering test reactor”, JAERI 2000-16, March 2000 [3.9.]  JAPAN ATOMIC ENERGY RESEARCH INSTITUTE, “Information on the benchmark problem from JAERI”, Japan, April 20, 2000 and July 25, 2000. [3.10.]  GORBUNOV, V., GORBOV, A., KUZAVKOV, N., "Loss of Off-site Electric Power of the HTTR", OKBM, (Proc. 3 rd RCM of  CRP on Evaluation of  HTGR Performance at Oarai Japan, March 2001) IAEA, Vienna, 2001 (CD-ROM). [3.11.]  EMSLIE, F.,  “Flownet  Nuclear  Analysis of HTTR Thermo-hydraulics Benchmarks,” PBMR (Pty.) Ltd., South Africa, 2002 [3.12.]  TAKEDA, T., et al., “Analytical Evaluation on loss of off-site electric power simulation of the High Temperature Engineering  Test  Reactor”, JAERI 2000-016,  Oarai, Japan, 2000. [3.13.]  BALL, S.J., “MORECA: A Computer Code for Simulating Modular HTGR Core Heatup Accidents”, NUREG/CR-5712, ORNL/TM-11823, ORNL, USA, October 1991. [3.14.]  BALL, S.J., “HTTR Vessel Cooling (VC) and Loss-Of-Offsite-Power (LP) Benchmark Solutions”, ORNL, (Proc. Third RCM of CRP on Evaluation of HTGR Performance, held at Oarai, March 2001), IAEA, Vienna, 2001, (CD-ROM) [3.15.]  BALL, S.  J.  and NYPAVER, D.J.,  “GRSAC Users  Manual,” Oak  Ridge  National Laboratory, ORNL/TM-13697, Feb. 1999
+
+224
+
+[3.16.] BALL, S.  J.,  NAKAGAWA,  S., SAIKUSA, A., TACHIBANA,  Y., TAKEDA, T., HONTANI, K., OUCHI, K., and KUNITOMI, K., “Independent Analysis:  HTTR Riseto-Power and Test Analysis,” Japan Atomic Energy Research Institute, JAERI-memo-09258, Dec. 1997 [3.17.]  PAILLERE, H.  and MAGNAUD, J.P., “A finite element elliptic flow solver for low Mach number compressible flows”,  (Proc. Tenth  International Conference  on  Finite Elements in Fluids,  held in  Tuscon, Arizona, January,  1998), M. Hafez/J.C. Heinrich, 1998. [3.18.]  SAIKUSA, A., TACHIBANA, Y. and  KUNITOMI,  K., “Benchmark Problem for Riseto-Power Test of HTTR, Evaluation of the Performance of VCS,” JAERI, Oarai, Japan, 1990 [3.19.]  BOLAND, J. and  NICOLAIDES, R.A., “Stability of finite  elements under divergence constraint”, SIAM Jour. Num. Ana. 20, pp.722-730, 1983 [3.20.]  GUNZBURGER, D., “Finite elements methods for viscous incompressible flows: a guide to theory, practice and algorithms”, Academic Press, pp. 28-31, 1989 [3.21.]  SAIKUSA, A., Personal communication, JAERI, Japan, Feb.13, 2002. 225

@@ -19,6 +19,7 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
+use crate::mesh::ami::AmiCoupling;
 use crate::mesh::error::MeshError;
 use crate::primitives::Vector3;
 
@@ -37,17 +38,59 @@ pub struct BoundaryPatch {
     pub size: usize,
     /// Topological type of the patch (wall, symmetry, empty, …).
     pub kind: PatchKind,
+    /// For a [`PatchKind::Cyclic`] patch, the **patch index** of its matching
+    /// partner (the other half of the periodic pair); `None` for every
+    /// non-cyclic patch, and `None` for a cyclic patch whose partner has not yet
+    /// been resolved (e.g. one read from a `polyMesh` whose `neighbourPatch`
+    /// ordering is not parsed yet).
+    ///
+    /// Mirrors `Foam::cyclicPolyPatch::neighbPatchID()`
+    /// (`src/meshTools/.../cyclic/cyclicPolyPatch.H`). Local face `i` of this
+    /// patch corresponds to local face `i` of the partner patch (OpenFOAM
+    /// half0/half1 ordering), so the two halves must have equal `size`.
+    pub cyclic_partner: Option<usize>,
 }
 
 impl BoundaryPatch {
     /// Construct a patch spanning faces `[start, start + size)` of the global
     /// face array, with the given name and [`PatchKind`].
+    ///
+    /// The [`cyclic_partner`](Self::cyclic_partner) is left `None`; for a
+    /// periodic pair use [`new_cyclic`](Self::new_cyclic) instead so the two
+    /// halves know each other.
     pub fn new(name: impl Into<String>, start: usize, size: usize, kind: PatchKind) -> Self {
         Self {
             name: name.into(),
             start,
             size,
             kind,
+            cyclic_partner: None,
+        }
+    }
+
+    /// Construct a [`PatchKind::Cyclic`] (periodic) patch spanning faces
+    /// `[start, start + size)` whose matching partner is patch index
+    /// `partner_patch`.
+    ///
+    /// Local face `i` of this patch is paired with local face `i` of the partner
+    /// (OpenFOAM half0/half1 ordering); the partner patch must have the same
+    /// `size` and must name this patch back as *its* partner. The
+    /// [`FvMeshBuilder`] validates that symmetry and derives the across-seam
+    /// cell couplings ([`CyclicCoupling`]) at build time.
+    ///
+    /// OpenFOAM: `cyclicPolyPatch` (`src/meshTools/.../cyclic/cyclicPolyPatch.H`).
+    pub fn new_cyclic(
+        name: impl Into<String>,
+        start: usize,
+        size: usize,
+        partner_patch: usize,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            start,
+            size,
+            kind: PatchKind::Cyclic,
+            cyclic_partner: Some(partner_patch),
         }
     }
 
@@ -75,10 +118,54 @@ pub enum PatchKind {
     Empty,
     /// Axisymmetric wedge.
     Wedge,
-    /// Periodic / matching pair.
+    /// Periodic / matching pair (conformal — faces line up one-to-one).
     Cyclic,
+    /// Non-conformal periodic pair — arbitrary mesh interface (AMI). The two
+    /// halves' faces do not match one-to-one; each target face couples to a
+    /// weighted set of source faces (see [`AmiCoupling`]).
+    /// Mirrors OpenFOAM `cyclicAMIPolyPatch`.
+    CyclicAmi,
     /// Inter-processor decomposition seam.
     Processor,
+}
+
+/// One across-the-seam cell coupling introduced by a [`PatchKind::Cyclic`]
+/// (periodic) patch pair.
+///
+/// A cyclic patch pair makes the domain periodic: a boundary face on one half
+/// of the pair is physically the *same* interface as the matching face on the
+/// other half. This struct records, for one such matched face pair, the two
+/// cells it joins so the FV operators can couple them **exactly like an internal
+/// face** — the owner cell of the half0 face (`owner`) is coupled to the owner
+/// cell of the half1 face (`neighbour`), contributing an off-diagonal matrix
+/// entry across the periodic seam.
+///
+/// The couplings are appended to the LDU face addressing *after* the internal
+/// faces (see [`FvMatrix::new`](crate::ldu_matrix::FvMatrix::new)), so coupling
+/// index `i` in [`FvMesh::cyclic_couplings`] occupies LDU face
+/// `n_internal_faces + i`.
+///
+/// Mirrors the coupled-interface contribution of `Foam::cyclicFvPatchField`
+/// (`src/finiteVolume/.../cyclic/cyclicFvPatchField.H`), whose
+/// `patchNeighbourField()` supplies the value from the partner cell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CyclicCoupling {
+    /// Owner cell of the half0 (lower-patch-index) face — the "owner" side of
+    /// the coupling.
+    pub owner: usize,
+    /// Owner cell of the matched half1 face — the "neighbour" across the seam.
+    pub neighbour: usize,
+    /// Global face index of the half0 face (on `patch_a`).
+    pub face_a: usize,
+    /// Global face index of the matched half1 face (on `patch_b`).
+    pub face_b: usize,
+    /// Patch index of half0 (the lower of the pair's two indices).
+    pub patch_a: usize,
+    /// Patch index of half1 (the partner of `patch_a`).
+    pub patch_b: usize,
+    /// Local face index within each half (`face_a - patches[patch_a].start ==
+    /// face_b - patches[patch_b].start`).
+    pub local: usize,
 }
 
 /// Finite-volume mesh — topology and geometry in a flat data structure.
@@ -94,6 +181,35 @@ pub enum PatchKind {
 /// ```
 /// The `neighbour` array has length `n_internal_faces`; boundary faces have no
 /// entry in `neighbour`.
+///
+/// ## Getting one
+///
+/// This was a documented friction point in an API dogfood run (gh #58): the
+/// prelude exports `FvMesh`, but nothing told the reader *how to obtain one*,
+/// and they ended up reading the test suite to find out. The ready-made
+/// constructors are listed here so that is not necessary:
+///
+/// - [`FvMesh::periodic_1d`] — a 1-D periodic column of `n` cells. The usual
+///   choice for verifying an operator against an analytic solution, since
+///   periodicity removes boundary treatment from the comparison.
+/// - [`FvMesh::periodic_ring_ami`](crate::mesh::ami) — a periodic ring with a
+///   non-conformal AMI interface, for exercising the AMI paths.
+/// - [`FvMeshBuilder`] — build one face by face when neither fits.
+///
+/// Meshes are shared by the field types via `Arc`, so wrap it once:
+///
+/// ```
+/// use outram_foam_basic_lib::prelude::*;
+/// use std::sync::Arc;
+///
+/// // 16 cells over a unit length, unit cross-sectional area.
+/// let mesh = Arc::new(FvMesh::periodic_1d(16, 1.0, 1.0));
+/// assert_eq!(mesh.n_cells, 16);   // a public field, not a method
+///
+/// // A field is then built on that mesh.
+/// let phi = VolScalarField::uniform("phi", mesh.clone(), 0.0);
+/// assert_eq!(phi.internal.len(), 16);
+/// ```
 #[derive(Debug, Clone)]
 pub struct FvMesh {
     // ── Topology ──────────────────────────────────────────────────────────────
@@ -113,17 +229,35 @@ pub struct FvMesh {
     /// Boundary patch descriptors (one per patch, in face-index order).
     pub patches: Vec<BoundaryPatch>,
 
+    /// Across-seam cell couplings from [`PatchKind::Cyclic`] (periodic) patch
+    /// pairs, one entry per matched boundary-face pair. Empty for a mesh with no
+    /// (resolved) cyclic pairs. Each entry is treated by the FV operators and
+    /// the LDU matrix exactly like an internal face joining
+    /// [`CyclicCoupling::owner`] and [`CyclicCoupling::neighbour`], appended to
+    /// the LDU face addressing after the `n_internal_faces` internal faces.
+    pub cyclic_couplings: Vec<CyclicCoupling>,
+
+    /// Across-seam couplings from [`PatchKind::CyclicAmi`] (non-conformal
+    /// periodic) patch pairs, one entry per **target** seam face. Empty for a
+    /// mesh with no AMI pairs. Each entry couples its target cell to a weighted
+    /// set of source cells (the geometric face overlaps); the FV operators and
+    /// the LDU matrix append one LDU face per [`AmiWeight`](crate::mesh::AmiWeight)
+    /// after the internal faces and the [`cyclic_couplings`](Self::cyclic_couplings)
+    /// (see [`ami_ldu_start`](Self::ami_ldu_start)). Mirrors OpenFOAM
+    /// `cyclicAMIFvPatchField`.
+    pub ami_couplings: Vec<AmiCoupling>,
+
     // ── Geometry ──────────────────────────────────────────────────────────────
-    /// Cell volumes `V[c]` [m³].
+    /// Cell volumes `V[c]` `[m³]`.
     pub cell_volumes: Vec<f64>,
-    /// Cell centres `C[c]` [m].
+    /// Cell centres `C[c]` `[m]`.
     pub cell_centres: Vec<Vector3>,
-    /// Face area vectors `Sf[f]` [m²], pointing from owner toward neighbour
+    /// Face area vectors `Sf[f]` `[m²]`, pointing from owner toward neighbour
     /// (or outward for boundary faces).
     pub face_area_vectors: Vec<Vector3>,
-    /// Face area magnitudes `|Sf[f]|` [m²].
+    /// Face area magnitudes `|Sf[f]|` `[m²]`.
     pub face_areas: Vec<f64>,
-    /// Face centres `Cf[f]` [m].
+    /// Face centres `Cf[f]` `[m]`.
     pub face_centres: Vec<Vector3>,
 }
 
@@ -156,6 +290,124 @@ impl FvMesh {
             }
         }
         None
+    }
+
+    /// Number of across-seam cyclic couplings (length of
+    /// [`cyclic_couplings`](Self::cyclic_couplings)).
+    pub fn n_cyclic_couplings(&self) -> usize {
+        self.cyclic_couplings.len()
+    }
+
+    /// LDU face index of cyclic coupling `i`.
+    ///
+    /// Cyclic couplings live *after* the internal faces in the LDU addressing,
+    /// so coupling `i` occupies face `n_internal_faces + i`. The FV operators
+    /// use this to write the off-diagonal coefficient of a periodic seam into
+    /// the matrix.
+    pub fn cyclic_coupling_face(&self, i: usize) -> usize {
+        self.n_internal_faces + i
+    }
+
+    /// Given a global boundary face index on a resolved [`PatchKind::Cyclic`]
+    /// patch, return the global face index of its matching partner face across
+    /// the periodic seam.
+    ///
+    /// Returns `None` for internal faces, for non-cyclic boundary faces, and for
+    /// cyclic faces whose partner patch is unresolved. Local face `i` of a
+    /// cyclic patch maps to local face `i` of its partner (OpenFOAM half0/half1
+    /// ordering).
+    pub fn cyclic_partner_face(&self, global_face: usize) -> Option<usize> {
+        let (pi, local) = self.patch_for_face(global_face)?;
+        let patch = &self.patches[pi];
+        if patch.kind != PatchKind::Cyclic {
+            return None;
+        }
+        let pj = patch.cyclic_partner?;
+        let partner = self.patches.get(pj)?;
+        if local >= partner.size {
+            return None;
+        }
+        Some(partner.start + local)
+    }
+
+    /// Build a uniform 1-D **periodic** (cyclic) mesh: `n` equal cells along the
+    /// x-axis over `[0, length]`, with the two ends joined by a cyclic patch
+    /// pair so the domain wraps around.
+    ///
+    /// This is the programmatic constructor for a periodic seam (the first-pass
+    /// path — the `polyMesh` parser does not yet read cyclic `neighbourPatch`
+    /// ordering). The resulting mesh has:
+    ///
+    /// - `n` cells of width `h = length / n`, centres at `(i + 0.5)·h`, volume
+    ///   `h·area` `[m³]`;
+    /// - `n − 1` internal faces (area vector `+x·area` `[m²]`);
+    /// - two 1-face cyclic patches — `"left"` at `x = 0` (patch 0, outward
+    ///   normal `−x`) and `"right"` at `x = length` (patch 1, outward normal
+    ///   `+x`) — that are each other's partners.
+    ///
+    /// The derived [`CyclicCoupling`] joins cell `0` (left owner) to cell `n − 1`
+    /// (right owner) with the same cell-to-cell distance `h` as an interior
+    /// face, so a periodic problem discretised on this mesh reproduces the
+    /// equivalent all-internal ring mesh (see the crate's cyclic V&V tests).
+    ///
+    /// # Parameters
+    /// - `n` — number of cells (must be ≥ 2 for a meaningful periodic loop);
+    /// - `length` — domain length `[m]`;
+    /// - `area` — uniform cross-sectional face area `[m²]`.
+    ///
+    /// # Panics
+    /// Panics if `n < 2` (a periodic loop needs at least two cells) or if
+    /// `length`/`area` are not positive.
+    ///
+    /// OpenFOAM analogue: a `blockMesh` block with a `cyclic` patch pair on its
+    /// two x-normal faces.
+    pub fn periodic_1d(n: usize, length: f64, area: f64) -> FvMesh {
+        assert!(n >= 2, "periodic_1d needs at least 2 cells, got {n}");
+        assert!(length > 0.0, "length must be positive, got {length}");
+        assert!(area > 0.0, "area must be positive, got {area}");
+        let h = length / n as f64;
+        let n_int = n - 1;
+
+        // owner: internal faces couple cell f ↔ cell f+1; then the two boundary
+        // faces (left owner = cell 0, right owner = cell n-1).
+        let mut owner: Vec<usize> = (0..n_int).collect();
+        owner.push(0); // left boundary face (patch 0)
+        owner.push(n - 1); // right boundary face (patch 1)
+        let neighbour: Vec<usize> = (1..n).collect();
+
+        let cell_volumes = vec![h * area; n];
+        let cell_centres = (0..n)
+            .map(|i| Vector3::new((i as f64 + 0.5) * h, 0.0, 0.0))
+            .collect();
+
+        // Internal face centres at (f+1)*h; then left face at x=0, right at
+        // x=length.
+        let face_centres: Vec<Vector3> = (0..n_int)
+            .map(|f| Vector3::new((f as f64 + 1.0) * h, 0.0, 0.0))
+            .chain([Vector3::new(0.0, 0.0, 0.0), Vector3::new(length, 0.0, 0.0)])
+            .collect();
+        // Internal Sf = +x·area (owner→neighbour); left boundary outward = −x,
+        // right boundary outward = +x.
+        let face_area_vectors: Vec<Vector3> = (0..n_int)
+            .map(|_| Vector3::new(area, 0.0, 0.0))
+            .chain([Vector3::new(-area, 0.0, 0.0), Vector3::new(area, 0.0, 0.0)])
+            .collect();
+
+        FvMeshBuilder::new()
+            .n_cells(n)
+            .n_internal_faces(n_int)
+            .owner(owner)
+            .neighbour(neighbour)
+            .patches(vec![
+                BoundaryPatch::new_cyclic("left", n_int, 1, 1),
+                BoundaryPatch::new_cyclic("right", n_int + 1, 1, 0),
+            ])
+            .cell_volumes(cell_volumes)
+            .cell_centres(cell_centres)
+            .face_area_vectors(face_area_vectors)
+            .face_centres(face_centres)
+            .build()
+            .expect("periodic_1d builds a consistent mesh")
     }
 
     /// Validate basic mesh consistency.  Returns `Err` on the first problem found.
@@ -201,18 +453,67 @@ impl FvMesh {
                 n_faces: self.n_faces,
             });
         }
+
+        // Cyclic patch pairs must be mutually symmetric and equally sized.
+        for (pi, patch) in self.patches.iter().enumerate() {
+            let Some(pj) = patch.cyclic_partner else {
+                continue;
+            };
+            let partner = self.patches.get(pj).ok_or(MeshError::CyclicPairMismatch {
+                name: patch.name.clone(),
+                reason: "partner patch index out of range",
+            })?;
+            if partner.cyclic_partner != Some(pi) {
+                return Err(MeshError::CyclicPairMismatch {
+                    name: patch.name.clone(),
+                    reason: "partner patch does not name this patch back",
+                });
+            }
+            if partner.size != patch.size {
+                return Err(MeshError::CyclicPairMismatch {
+                    name: patch.name.clone(),
+                    reason: "cyclic pair halves have different face counts",
+                });
+            }
+        }
+
+        // AMI couplings: every target/source cell index must be in range, and
+        // every target must have at least one weighted source.
+        for cc in &self.ami_couplings {
+            if cc.target_cell >= self.n_cells || cc.target_face >= self.n_faces {
+                return Err(MeshError::AmiCouplingInvalid {
+                    target_face: cc.target_face,
+                    reason: "target cell/face index out of range",
+                });
+            }
+            if cc.weights.is_empty() {
+                return Err(MeshError::AmiCouplingInvalid {
+                    target_face: cc.target_face,
+                    reason: "AMI target face has no overlapping source faces",
+                });
+            }
+            for w in &cc.weights {
+                if w.source_cell >= self.n_cells || w.source_face >= self.n_faces {
+                    return Err(MeshError::AmiCouplingInvalid {
+                        target_face: cc.target_face,
+                        reason: "source cell/face index out of range",
+                    });
+                }
+            }
+        }
         Ok(())
     }
 }
 
 /// Builder for `FvMesh` — lets tests and I/O code assemble a mesh incrementally.
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct FvMeshBuilder {
     n_cells: usize,
     n_internal_faces: usize,
     owner: Vec<usize>,
     neighbour: Vec<usize>,
     patches: Vec<BoundaryPatch>,
+    ami_couplings: Vec<AmiCoupling>,
     cell_volumes: Vec<f64>,
     cell_centres: Vec<Vector3>,
     face_area_vectors: Vec<Vector3>,
@@ -252,28 +553,35 @@ impl FvMeshBuilder {
         self.patches = v;
         self
     }
-    /// Set the cell volumes `V[c]` [m³] (length == `n_cells`).
+    /// Set the non-conformal-periodic (AMI) seam couplings (one entry per target
+    /// seam face). Left empty by default; set by AMI mesh constructors such as
+    /// [`FvMesh::periodic_ring_ami`].
+    pub fn ami_couplings(mut self, v: Vec<AmiCoupling>) -> Self {
+        self.ami_couplings = v;
+        self
+    }
+    /// Set the cell volumes `V[c]` `[m³]` (length == `n_cells`).
     pub fn cell_volumes(mut self, v: Vec<f64>) -> Self {
         self.cell_volumes = v;
         self
     }
-    /// Set the cell centres `C[c]` [m] (length == `n_cells`).
+    /// Set the cell centres `C[c]` `[m]` (length == `n_cells`).
     pub fn cell_centres(mut self, v: Vec<Vector3>) -> Self {
         self.cell_centres = v;
         self
     }
-    /// Set the face area vectors `Sf[f]` [m²] (length == `n_faces`).
+    /// Set the face area vectors `Sf[f]` `[m²]` (length == `n_faces`).
     pub fn face_area_vectors(mut self, v: Vec<Vector3>) -> Self {
         self.face_area_vectors = v;
         self
     }
-    /// Set the face area magnitudes `|Sf[f]|` [m²]. If left unset, they are
+    /// Set the face area magnitudes `|Sf[f]|` `[m²]`. If left unset, they are
     /// derived from `face_area_vectors` at build time.
     pub fn face_areas(mut self, v: Vec<f64>) -> Self {
         self.face_areas = v;
         self
     }
-    /// Set the face centres `Cf[f]` [m] (length == `n_faces`).
+    /// Set the face centres `Cf[f]` `[m]` (length == `n_faces`).
     pub fn face_centres(mut self, v: Vec<Vector3>) -> Self {
         self.face_centres = v;
         self
@@ -286,12 +594,20 @@ impl FvMeshBuilder {
         }
     }
 
-    /// Finalise the mesh: derive `face_areas` if needed, assemble the [`FvMesh`],
+    /// Finalise the mesh: derive `face_areas` if needed, resolve any cyclic
+    /// (periodic) patch pairs into [`CyclicCoupling`]s, assemble the [`FvMesh`],
     /// and run [`FvMesh::validate`]. Returns `Err` on the first consistency
     /// problem found.
+    ///
+    /// Cyclic couplings are derived from every [`PatchKind::Cyclic`] patch whose
+    /// [`BoundaryPatch::cyclic_partner`] is set: each matched local face pair
+    /// (half0 local `i` ↔ half1 local `i`) becomes one coupling joining the two
+    /// faces' owner cells. Each pair is processed once (from the lower patch
+    /// index).
     pub fn build(mut self) -> Result<FvMesh, MeshError> {
         self.ensure_face_areas();
         let n_faces = self.owner.len();
+        let cyclic_couplings = Self::derive_cyclic_couplings(&self.patches, &self.owner);
         let mesh = FvMesh {
             n_cells: self.n_cells,
             n_internal_faces: self.n_internal_faces,
@@ -299,6 +615,8 @@ impl FvMeshBuilder {
             owner: self.owner,
             neighbour: self.neighbour,
             patches: self.patches,
+            cyclic_couplings,
+            ami_couplings: self.ami_couplings,
             cell_volumes: self.cell_volumes,
             cell_centres: self.cell_centres,
             face_area_vectors: self.face_area_vectors,
@@ -307,6 +625,50 @@ impl FvMeshBuilder {
         };
         mesh.validate()?;
         Ok(mesh)
+    }
+
+    /// Build the across-seam couplings for every resolved cyclic patch pair.
+    ///
+    /// A pair `(pi, pj)` with `pi < pj` yields one [`CyclicCoupling`] per local
+    /// face: `owner = owner[patches[pi].start + i]`, `neighbour =
+    /// owner[patches[pj].start + i]`. Malformed pairs (missing/asymmetric
+    /// partner, mismatched size) are skipped here and caught by
+    /// [`FvMesh::validate`], which returns a descriptive error.
+    fn derive_cyclic_couplings(patches: &[BoundaryPatch], owner: &[usize]) -> Vec<CyclicCoupling> {
+        let mut couplings = Vec::new();
+        for (pi, patch) in patches.iter().enumerate() {
+            if patch.kind != PatchKind::Cyclic {
+                continue;
+            }
+            let Some(pj) = patch.cyclic_partner else {
+                continue;
+            };
+            // Process each pair once, from the lower index; skip malformed pairs
+            // (validate() reports them).
+            if pj <= pi {
+                continue;
+            }
+            let Some(partner) = patches.get(pj) else {
+                continue;
+            };
+            if partner.cyclic_partner != Some(pi) || partner.size != patch.size {
+                continue;
+            }
+            for local in 0..patch.size {
+                let face_a = patch.start + local;
+                let face_b = partner.start + local;
+                couplings.push(CyclicCoupling {
+                    owner: owner[face_a],
+                    neighbour: owner[face_b],
+                    face_a,
+                    face_b,
+                    patch_a: pi,
+                    patch_b: pj,
+                    local,
+                });
+            }
+        }
+        couplings
     }
 }
 
@@ -384,5 +746,68 @@ mod tests {
     fn face_areas_derived() {
         let m = two_cell_mesh();
         assert!((m.face_areas[0] - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn periodic_1d_topology() {
+        // 4-cell periodic ring, length 1, area 1.
+        let m = FvMesh::periodic_1d(4, 1.0, 1.0);
+        assert_eq!(m.n_cells, 4);
+        assert_eq!(m.n_internal_faces, 3);
+        assert_eq!(m.n_faces, 5); // 3 internal + 2 boundary
+        assert_eq!(m.patches.len(), 2);
+        assert_eq!(m.patches[0].kind, PatchKind::Cyclic);
+        assert_eq!(m.patches[0].cyclic_partner, Some(1));
+        assert_eq!(m.patches[1].cyclic_partner, Some(0));
+        // One cyclic coupling: cell 0 (left owner) ↔ cell 3 (right owner).
+        assert_eq!(m.n_cyclic_couplings(), 1);
+        let cc = m.cyclic_couplings[0];
+        assert_eq!(cc.owner, 0);
+        assert_eq!(cc.neighbour, 3);
+        assert_eq!(cc.patch_a, 0);
+        assert_eq!(cc.patch_b, 1);
+        // LDU coupling face sits right after the internal faces.
+        assert_eq!(m.cyclic_coupling_face(0), 3);
+    }
+
+    #[test]
+    fn cyclic_partner_face_maps_across_seam() {
+        let m = FvMesh::periodic_1d(4, 1.0, 1.0);
+        // Left boundary face is global index 3; its partner is the right face 4.
+        assert_eq!(m.cyclic_partner_face(3), Some(4));
+        assert_eq!(m.cyclic_partner_face(4), Some(3));
+        // Internal faces have no cyclic partner.
+        assert_eq!(m.cyclic_partner_face(0), None);
+    }
+
+    #[test]
+    fn cyclic_pair_validation_rejects_asymmetric_partner() {
+        // Patch 0 claims patch 1 as partner, but patch 1 is a plain wall.
+        let err = FvMeshBuilder::new()
+            .n_cells(2)
+            .n_internal_faces(1)
+            .owner(vec![0, 0, 1])
+            .neighbour(vec![1])
+            .patches(vec![
+                BoundaryPatch::new_cyclic("left", 1, 1, 1),
+                BoundaryPatch::new("right", 2, 1, PatchKind::Wall),
+            ])
+            .cell_volumes(vec![1.0, 1.0])
+            .cell_centres(vec![
+                Vector3::new(0.25, 0.0, 0.0),
+                Vector3::new(0.75, 0.0, 0.0),
+            ])
+            .face_area_vectors(vec![
+                Vector3::new(1.0, 0.0, 0.0),
+                Vector3::new(-1.0, 0.0, 0.0),
+                Vector3::new(1.0, 0.0, 0.0),
+            ])
+            .face_centres(vec![
+                Vector3::new(0.5, 0.0, 0.0),
+                Vector3::new(0.0, 0.0, 0.0),
+                Vector3::new(1.0, 0.0, 0.0),
+            ])
+            .build();
+        assert!(matches!(err, Err(MeshError::CyclicPairMismatch { .. })));
     }
 }

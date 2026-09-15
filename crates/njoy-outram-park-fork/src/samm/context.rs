@@ -287,7 +287,9 @@ pub fn compute_channel_kinematics(
     // pair 1 is always the eliminated capture pair and pair 2 is always the
     // entrance (elastic) pair.
     let entrance = pairs.get(1).ok_or_else(|| {
-        NjoyError::EndfParse("samm: fxradi requires at least 2 particle pairs (eliminated + entrance)".to_string())
+        NjoyError::EndfParse(
+            "samm: fxradi requires at least 2 particle pairs (eliminated + entrance)".to_string(),
+        )
     })?;
     let factor0 = entrance.mass_b + entrance.mass_a;
     let alabcm = entrance.mass_b / factor0;

@@ -1,7 +1,6 @@
 use super::{delta_3, tau_3, REGION_3_COEFFS};
 use uom::si::f64::*;
 
-
 /// Returns the region-3 phi_delta
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa

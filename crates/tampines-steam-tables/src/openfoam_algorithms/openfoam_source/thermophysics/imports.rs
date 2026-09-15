@@ -19,24 +19,32 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-/// Common uom re-exports for thermophysics implementation files.
-///
-/// Every EOS / thermo / transport source file starts with
-/// `use crate::thermophysics::imports::*;` instead of repeating the full
-/// type/unit import block.  From outside the crate the same symbols are
-/// reachable as:
-///
-/// ```rust
-/// use tampines_steam_tables::openfoam_algorithms::openfoam_source::*;
-/// let p = Pressure::new::<pascal>(101325.0);
-/// assert!(p.get::<pascal>() > 0.0);
-/// ```
+//! Common `uom` re-exports for thermophysics implementation files.
+//!
+//! Every EOS / thermo / transport source file starts with
+//! `use crate::openfoam_algorithms::openfoam_source::imports::*;` (the names are
+//! re-exported up to `openfoam_source` by `thermophysics/mod.rs`) instead of
+//! repeating the full type/unit import block.
+//!
+//! **This module is crate-internal.** `openfoam_algorithms::openfoam_source` is
+//! `pub(crate)`, so none of the names below are reachable from outside
+//! `tampines-steam-tables`.  They are plain `uom` re-exports carrying no local
+//! behaviour, so an external caller imports the same types straight from `uom`:
+//!
+//! ```rust
+//! use uom::si::f64::Pressure;
+//! use uom::si::pressure::pascal;
+//!
+//! let p = Pressure::new::<pascal>(101325.0);
+//! assert!(p.get::<pascal>() > 0.0);
+//! ```
+//!
+//! The one exception is [`Compressibility`], which is a crate-local type.
 
 // ── quantity types ────────────────────────────────────────────────────────────
 pub use uom::si::f64::{
-    AvailableEnergy, DynamicViscosity, MassDensity, MolarMass,
-    Pressure, Ratio, SpecificHeatCapacity, ThermalConductivity,
-    ThermodynamicTemperature,
+    AvailableEnergy, DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
+    SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature,
 };
 
 // ── unit markers (used in ::new::<unit>() and .get::<unit>()) ────────────────

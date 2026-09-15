@@ -53,11 +53,21 @@ fn every_fluid_evaluates_at_its_midrange_state() {
         let x = 0.5 * (data.x_range.0 + data.x_range.1);
         let name = f.name();
 
-        let rho = f.density(t, 0.0, x).unwrap_or_else(|e| panic!("{name}: density failed: {e:?}"));
-        assert!(rho.is_finite() && rho > 0.0, "{name}: non-physical density {rho} kg/m3");
+        let rho = f
+            .density(t, 0.0, x)
+            .unwrap_or_else(|e| panic!("{name}: density failed: {e:?}"));
+        assert!(
+            rho.is_finite() && rho > 0.0,
+            "{name}: non-physical density {rho} kg/m3"
+        );
 
-        let cp = f.heat_capacity(t, 0.0, x).unwrap_or_else(|e| panic!("{name}: heat_capacity failed: {e:?}"));
-        assert!(cp.is_finite() && cp > 0.0, "{name}: non-physical c_p {cp} J/(kg.K)");
+        let cp = f
+            .heat_capacity(t, 0.0, x)
+            .unwrap_or_else(|e| panic!("{name}: heat_capacity failed: {e:?}"));
+        assert!(
+            cp.is_finite() && cp > 0.0,
+            "{name}: non-physical c_p {cp} J/(kg.K)"
+        );
 
         if expect_optional(name, "lambda", f.conductivity(t, 0.0, x)) {
             with_conductivity += 1;
@@ -66,14 +76,24 @@ fn every_fluid_evaluates_at_its_midrange_state() {
             with_viscosity += 1;
         }
 
-        let h = f.enthalpy(t, 0.0, x).unwrap_or_else(|e| panic!("{name}: enthalpy failed: {e:?}"));
+        let h = f
+            .enthalpy(t, 0.0, x)
+            .unwrap_or_else(|e| panic!("{name}: enthalpy failed: {e:?}"));
         assert!(h.is_finite(), "{name}: non-finite enthalpy {h}");
-        let t_back = f.temperature_from_enthalpy(h, 0.0, x).unwrap_or_else(|e| panic!("{name}: T(h) failed: {e:?}"));
-        assert!((t_back - t).abs() < 1e-6, "{name}: T(h) round-trip {t} -> h={h} -> T={t_back}");
+        let t_back = f
+            .temperature_from_enthalpy(h, 0.0, x)
+            .unwrap_or_else(|e| panic!("{name}: T(h) failed: {e:?}"));
+        assert!(
+            (t_back - t).abs() < 1e-6,
+            "{name}: T(h) round-trip {t} -> h={h} -> T={t_back}"
+        );
 
         checked += 1;
     }
     assert_eq!(checked, Incompressible::ALL.len());
-    assert!(checked >= 126, "expected all incompressible fluids wired, only {checked} checked");
+    assert!(
+        checked >= 126,
+        "expected all incompressible fluids wired, only {checked} checked"
+    );
     println!("{checked} fluids checked, {with_conductivity} with conductivity, {with_viscosity} with viscosity");
 }

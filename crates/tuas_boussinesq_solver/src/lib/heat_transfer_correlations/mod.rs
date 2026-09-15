@@ -31,10 +31,9 @@ pub mod thermal_resistance;
 /// view factor functions for radiative heat transfer
 pub mod view_factors;
 
-
-/// calculations for parallel piped heat exchangers 
+/// calculations for parallel piped heat exchangers
 pub mod parallel_heat_exchangers;
 
-/// heat transfer interactions between different shapes 
+/// heat transfer interactions between different shapes
 /// of control volumes are calculated here
 pub mod heat_transfer_interactions;

@@ -88,8 +88,8 @@ fn grad_u(mesh: &FvMesh, u: &VolVectorField) -> Vec<Tensor> {
     for (pi, patch) in mesh.patches.iter().enumerate() {
         for fi in 0..patch.size {
             let gf = patch.start + fi;
-            g[mesh.owner[gf]] = g[mesh.owner[gf]]
-                + outer(u_f.boundary[pi].values[fi], mesh.face_area_vectors[gf]);
+            g[mesh.owner[gf]] =
+                g[mesh.owner[gf]] + outer(u_f.boundary[pi].values[fi], mesh.face_area_vectors[gf]);
         }
     }
     for c in 0..mesh.n_cells {

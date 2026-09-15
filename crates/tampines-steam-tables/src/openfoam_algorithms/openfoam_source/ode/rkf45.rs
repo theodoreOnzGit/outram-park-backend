@@ -19,9 +19,9 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::{
-    adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem,
-};
+use petir::mathf::RealMath;
+
+use super::{adaptive_step, integrate_interval, normalize_error, OdeError, OdeSolverConfig, OdeSystem};
 
 // Butcher tableau coefficients — Runge-Kutta-Fehlberg 4(5)
 // Source: Foam::RKF45 constants
@@ -243,7 +243,7 @@ mod tests {
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
         solver.integrate(&ode, 0.0, 1.0, &mut y, &mut dx).unwrap();
-        let expected = (-1.0_f64).exp();
+        let expected = (-1.0_f64).r_exp();
         assert!(
             (y[0] - expected).abs() < 1e-6,
             "y={:.10}, expected={:.10}",
@@ -260,7 +260,7 @@ mod tests {
         let mut y = vec![1.0_f64];
         let mut dx = 0.1;
         solver.integrate(&ode, 0.0, 5.0, &mut y, &mut dx).unwrap();
-        let expected = (-5.0_f64).exp();
+        let expected = (-5.0_f64).r_exp();
         assert!(
             (y[0] - expected).abs() < 1e-7,
             "y={:.12}, expected={:.12}",
@@ -288,7 +288,7 @@ mod tests {
         // This RKF45 propagates with the 5th-order (B) solution (Dormand-Prince convention).
         // Force fixed-step by setting abs_tol=1 >> expected error so every step is accepted,
         // then manually supply dx_try = h at each iteration.
-        let exact = (-1.0_f64).exp();
+        let exact = (-1.0_f64).r_exp();
 
         let run = |n: usize| -> f64 {
             let ode = DecayOde;

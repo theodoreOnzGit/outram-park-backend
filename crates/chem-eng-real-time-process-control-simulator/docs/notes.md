@@ -1,7 +1,9 @@
 # chem-eng-real-time-process-control-simulator — migration notes (read on demand)
 
 Reference material: the 2026-06 OUTRAM PARK consolidation log for this crate
-(workspace dependency inheritance, profile moves, Apache-2.0 license retention).
+(workspace dependency inheritance, profile moves, Apache-2.0 license retention —
+since superseded: the crate was relicensed to GPL-3.0-only on 2026-08-11, see
+the crate `NOTICE`).
 Consulted on demand — not per-turn guidance. The crate's purpose, layout, and
 build commands live in CLAUDE.md.
 
@@ -20,7 +22,10 @@ Done while moving this crate into the workspace and bumping to latest deps:
   the workspace root. The `dev.package."*"` optimization was re-added at the
   root; the `release` opt-level override was intentionally dropped so the
   numerical solvers build at the default `-O3`.
-- License kept as **Apache-2.0** (explicit, not inherited).
+- License kept as **Apache-2.0** (explicit, not inherited) at the time of this
+  migration. **Superseded 2026-08-11**: relicensed to **GPL-3.0-only**
+  (`license.workspace = true`); published 0.1.x versions remain Apache-2.0 —
+  see the crate `NOTICE`.
 
 The library and its tests compile cleanly on the bumped dependencies; no source
 changes were required here.

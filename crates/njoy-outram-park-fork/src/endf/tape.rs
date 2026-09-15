@@ -49,6 +49,12 @@ pub struct Tape {
     sections: Vec<Section>,
     /// Fast lookup by key.
     index: HashMap<EndfKey, usize>,
+    /// The raw text (columns 1-66) of every MF=32 data row, one entry per
+    /// row of the parsed section — the INTG records of a compact
+    /// (`LCOMP=2`) covariance are `2i5,1x,18i3`-style integer lines that
+    /// the six-float row parser cannot represent. Only MF=32 is kept so
+    /// the tape's memory footprint does not double.
+    raw_mf32: HashMap<EndfKey, Vec<String>>,
 }
 
 impl Tape {
@@ -56,6 +62,36 @@ impl Tape {
     ///
     /// Line length must be 80 characters (padded with spaces if shorter is fine).
     /// Binary (blocked-binary) tapes are not supported in this version.
+    /// Parse an ENDF ASCII tape from a file on disk.
+    ///
+    /// [`Tape::read`] is generic over [`Read`], which is right for Rust and
+    /// unreachable from a binding generator that cannot monomorphise a type
+    /// parameter. This is the same parse behind a concrete signature, so
+    /// `Tape::read_file("n-094_Pu_239.endf")` works from Rust and from Python
+    /// alike -- the ordinary case, without the caller opening the file first.
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError::Io`] if the file cannot be opened or read, or any parse
+    /// error [`Tape::read`] reports.
+    /// ```no_run
+    /// use njoy_outram_park_fork::endf::tape::Tape;
+    /// use std::path::Path;
+    ///
+    /// let tape = Tape::read_file(Path::new("n-092_U_238.endf"))?;
+    /// let mat = tape.materials()[0];          // the tape knows its own MAT
+    /// let mf3_total = tape.section(mat, 3, 1); // MF=3, MT=1: total cross section
+    /// # Ok::<(), njoy_outram_park_fork::NjoyError>(())
+    /// ```
+    ///
+    /// Prefer this over `File::open` + [`Tape::read`] for a file on disk. The
+    /// generic [`Tape::read`] is for the cases this cannot serve — a socket, a
+    /// decompressor, an in-memory buffer.
+    pub fn read_file(path: &std::path::Path) -> Result<Self, NjoyError> {
+        let file = std::fs::File::open(path).map_err(NjoyError::Io)?;
+        Self::read(file)
+    }
+
     pub fn read<R: Read>(reader: R) -> Result<Self, NjoyError> {
         let mut lines = BufReader::new(reader).lines();
         let mut tpid = String::new();
@@ -71,6 +107,8 @@ impl Tape {
 
         let mut current_key: Option<EndfKey> = None;
         let mut current_rows: Vec<[f64; 6]> = Vec::new();
+        let mut current_raw: Vec<String> = Vec::new();
+        let mut raw_mf32: HashMap<EndfKey, Vec<String>> = HashMap::new();
 
         for line_res in lines {
             let line = line_res.map_err(NjoyError::Io)?;
@@ -83,35 +121,68 @@ impl Tape {
                 // Flush any open section
                 if let Some(key) = current_key.take() {
                     let idx = sections.len();
-                    sections.push(Section { key, rows: std::mem::take(&mut current_rows) });
+                    sections.push(Section {
+                        key,
+                        rows: std::mem::take(&mut current_rows),
+                    });
                     index.entry(key).or_insert(idx);
+                    if key.mf == 32 {
+                        raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+                    }
+                    current_raw.clear();
                 }
                 continue;
             }
 
-            let key = EndfKey { mat: rl.mat, mf: rl.mf, mt: rl.mt };
+            let key = EndfKey {
+                mat: rl.mat,
+                mf: rl.mf,
+                mt: rl.mt,
+            };
 
             // Start a new section when the key changes
             if current_key != Some(key) {
                 if let Some(prev_key) = current_key.take() {
                     let idx = sections.len();
-                    sections.push(Section { key: prev_key, rows: std::mem::take(&mut current_rows) });
+                    sections.push(Section {
+                        key: prev_key,
+                        rows: std::mem::take(&mut current_rows),
+                    });
                     index.entry(prev_key).or_insert(idx);
+                    if prev_key.mf == 32 {
+                        raw_mf32.entry(prev_key).or_insert(std::mem::take(&mut current_raw));
+                    }
+                    current_raw.clear();
                 }
                 current_key = Some(key);
             }
 
             current_rows.push(rl.fields);
+            if key.mf == 32 {
+                let n = line.len().min(66);
+                current_raw.push(line[..n].to_string());
+            }
         }
 
         // Flush the last open section (if the tape lacked a TEND)
         if let Some(key) = current_key.take() {
             let idx = sections.len();
-            sections.push(Section { key, rows: std::mem::take(&mut current_rows) });
+            sections.push(Section {
+                key,
+                rows: std::mem::take(&mut current_rows),
+            });
             index.entry(key).or_insert(idx);
+            if key.mf == 32 {
+                raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+            }
         }
 
-        Ok(Tape { tpid, sections, index })
+        Ok(Tape {
+            tpid,
+            sections,
+            index,
+            raw_mf32,
+        })
     }
 
     /// Look up a section by `(mat, mf, mt)`, returning `None` if absent.
@@ -121,6 +192,20 @@ impl Tape {
     }
 
     /// Iterate over all sections in file order.
+    /// Every ENDF material number on this tape, ascending and deduplicated.
+    ///
+    /// A tape carries its own MAT numbers, so a caller should never have to
+    /// look one up in a table to use the file they already hold. Most
+    /// evaluations contain exactly one material, which makes
+    /// `tape.materials()[0]` the common case.
+    #[must_use]
+    pub fn materials(&self) -> Vec<i32> {
+        let mut mats: Vec<i32> = self.sections.iter().map(|s| s.key.mat).collect();
+        mats.sort_unstable();
+        mats.dedup();
+        mats
+    }
+
     pub fn sections(&self) -> &[Section] {
         &self.sections
     }
@@ -143,7 +228,90 @@ impl Tape {
         for (i, sec) in sections.iter().enumerate() {
             index.entry(sec.key).or_insert(i);
         }
-        Tape { tpid, sections, index }
+        Tape {
+            tpid,
+            sections,
+            index,
+            raw_mf32: HashMap::new(),
+        }
+    }
+
+    /// Carry another tape's raw MF=32 text over (a tape rebuilt with
+    /// [`Tape::from_sections`] from `other`'s sections — `errorr::covadd`).
+    pub fn copy_raw_mf32_from(&mut self, other: &Tape) {
+        for (k, v) in &other.raw_mf32 {
+            self.raw_mf32.entry(*k).or_insert_with(|| v.clone());
+        }
+    }
+
+    /// The raw text (columns 1-66) of an MF=32 section's data rows, one
+    /// string per row of [`Section::rows`] — `None` for a tape not read
+    /// from text, or a section that is not MF=32.
+    pub fn raw_mf32_lines(&self, mat: i32, mt: i32) -> Option<&[String]> {
+        self.raw_mf32
+            .get(&EndfKey { mat, mf: 32, mt })
+            .map(|v| v.as_slice())
+    }
+
+    /// Assemble a minimal **PENDF** tape for one material from pointwise
+    /// lin-lin MF=3 cross sections — the in-memory counterpart of what
+    /// RECONR/BROADR write, sufficient for the modules that *read* a PENDF
+    /// (GROUPR's `getsig`, ERRORR's `grpav`).
+    ///
+    /// Layout written:
+    /// - MF=1/MT=451: HEAD `(za, awr, 0, 0, 0, 0)`; for `iverf >= 5` the
+    ///   `(elis, sta, lis, liso, 0, nfor)` CONT; for `iverf >= 6` the
+    ///   `(awi, emax, lrel, 0, nsub, nver)` CONT; then the `hdatio` head
+    ///   `(temp_k, 0, 1, 0, 0, 0)` — the record NJOY reads the material
+    ///   temperature from (`groupr.f90`/`errorr.f90` `hdatio` + `c1h`).
+    /// - MF=3/MT for each `(mt, pairs)`: HEAD `(za, awr, 0, 0, 0, 0)` + a
+    ///   one-region lin-lin TAB1 `(0, 0, 0, 0, 1, np) / (np, 2) / pairs`.
+    ///
+    /// No MF=2 is written (no resonance range record), so a consumer that
+    /// needs `thnmax`/URR tables must not rely on this tape for them.
+    pub fn pendf_from_pointwise<'a>(
+        mat: i32,
+        iverf: i32,
+        za: f64,
+        awr: f64,
+        temp_k: f64,
+        sections: impl IntoIterator<Item = (i32, &'a [(f64, f64)])>,
+    ) -> Self {
+        let key = |mf: i32, mt: i32| EndfKey { mat, mf, mt };
+        let mut out = Vec::new();
+        let mut rows = vec![[za, awr, 0.0, 0.0, 0.0, 0.0]];
+        if iverf >= 5 {
+            rows.push([0.0, 0.0, 0.0, 0.0, 0.0, f64::from(iverf.min(6))]);
+        }
+        if iverf >= 6 {
+            rows.push([1.0, 2.0e7, 0.0, 0.0, 10.0, 8.0]);
+        }
+        rows.push([temp_k, 0.0, 1.0, 0.0, 0.0, 0.0]);
+        out.push(Section {
+            key: key(1, 451),
+            rows,
+        });
+        for (mt, pairs) in sections {
+            let np = pairs.len() as f64;
+            let mut rows = vec![
+                [za, awr, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, np],
+                [np, 2.0, 0.0, 0.0, 0.0, 0.0],
+            ];
+            for chunk in pairs.chunks(3) {
+                let mut row = [0.0f64; 6];
+                for (i, &(x, y)) in chunk.iter().enumerate() {
+                    row[2 * i] = x;
+                    row[2 * i + 1] = y;
+                }
+                rows.push(row);
+            }
+            out.push(Section {
+                key: key(3, mt),
+                rows,
+            });
+        }
+        Tape::from_sections(String::new(), out)
     }
 
     /// Write this tape back out in ENDF ASCII (formatted) mode — the write
@@ -181,14 +349,22 @@ impl Tape {
         let mut iter = self.sections.iter().peekable();
         while let Some(sec) = iter.next() {
             for row in &sec.rows {
-                writeln!(w, "{}", format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq))
-                    .map_err(NjoyError::Io)?;
+                writeln!(
+                    w,
+                    "{}",
+                    format_line(row, sec.key.mat, sec.key.mf, sec.key.mt, seq)
+                )
+                .map_err(NjoyError::Io)?;
                 seq += 1;
             }
 
             // SEND — end of section (always follows a section's data rows).
-            writeln!(w, "{}", format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq))
-                .map_err(NjoyError::Io)?;
+            writeln!(
+                w,
+                "{}",
+                format_line(&[0.0; 6], sec.key.mat, sec.key.mf, 0, seq)
+            )
+            .map_err(NjoyError::Io)?;
             seq += 1;
 
             let next_key = iter.peek().map(|s| s.key);

@@ -77,8 +77,8 @@
 //! ## Interface expected from `genfoam::common` (ported in parallel)
 //!
 //! This module currently needs nothing from `genfoam::common` at compile time.
-//! The deferred mesh solve and the multi-region coupling will need, from
-//! `common` / the wider port:
+//! The mesh solve ([`mesh_solve`]) and the multi-region coupling will need,
+//! from `common` / the wider port:
 //!
 //! - a material-zone map (cell → [`ElasticMaterial`]) built from the
 //!   `thermoMechanicalProperties`/`materials` dictionary (upstream reads it via
@@ -116,8 +116,7 @@ use uom::si::f64::{Length, TemperatureInterval};
 /// This bundles the constitutive law and feedback relations of [`stress`] and
 /// [`feedback`] against one material, so a caller supplies only kinematic /
 /// thermal state (strain, temperature rise, geometry) at each query. It is the
-/// per-zone constitutive kernel the deferred mesh solve will evaluate cell-by-
-/// cell.
+/// per-zone constitutive kernel that [`mesh_solve`] evaluates cell-by-cell.
 ///
 /// # Example
 ///

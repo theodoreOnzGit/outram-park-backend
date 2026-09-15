@@ -160,6 +160,9 @@ mod tests {
         let t2 = ThermodynamicTemperature::new::<kelvin>(310.0);
         let rho1 = w.rho(p, t1).get::<kilogram_per_cubic_meter>();
         let rho2 = w.rho(p, t2).get::<kilogram_per_cubic_meter>();
-        assert!(rho1 > rho2, "rho should decrease with T for positive slope poly");
+        assert!(
+            rho1 > rho2,
+            "rho should decrease with T for positive slope poly"
+        );
     }
 }

@@ -74,7 +74,9 @@ where
                     if s.starts_with('-')
                         && !s.starts_with("--")
                         && s.len() > 2
-                        && s[1..].chars().all(|c| c.is_ascii_alphanumeric() || c == '-') =>
+                        && s[1..]
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || c == '-') =>
                 {
                     OsString::from(format!("-{s}"))
                 }

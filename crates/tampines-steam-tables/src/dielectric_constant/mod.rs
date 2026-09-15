@@ -3,9 +3,9 @@
 //! function of density (`MassDensity`, kg/m^3) and temperature
 //! (`ThermodynamicTemperature`, K).
 
-use uom::si::{
-    f64::*, molar_mass::kilogram_per_mole, ratio::ratio, thermodynamic_temperature::kelvin,
-};
+use petir::mathf::RealMath;
+
+use uom::si::{f64::*, molar_mass::kilogram_per_mole, ratio::ratio, thermodynamic_temperature::kelvin};
 
 use crate::constants::{
     avogadro_number_na, boltzmann_constant_k, molecular_dipole_moment_mu,
@@ -77,7 +77,7 @@ fn captial_a(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
     // seems the term 2 was OUTSIDE the summation
     //
     // thank you Jesus and EJT
-    let term_2 = n12 * delta * (t_c_by_228_k * tau.recip() - 1.0).powf(-1.2);
+    let term_2 = n12 * delta * (t_c_by_228_k * tau.recip() - 1.0).r_powf(-1.2);
     g_bar += term_2;
     for coeffs in G_BAR_COEFFS_DIELECTRIC_CONST {
         let ii = coeffs[0];
@@ -85,7 +85,7 @@ fn captial_a(rho: MassDensity, t: ThermodynamicTemperature) -> f64 {
         let ni = coeffs[2];
 
         // wow, even just term 1 by itself gets u pretty close!
-        let term_1 = ni * delta.powf(ii) * tau.powf(ji);
+        let term_1 = ni * delta.r_powf(ii) * tau.r_powf(ji);
 
         g_bar += term_1;
     }

@@ -1,0 +1,66 @@
+Content:
+    vtb:
+        root_dir: ${ROOT_DIR}/doc/content
+    moose:
+        root_dir: ${MOOSE_DIR}/framework/doc/content
+        content:
+            - js/*
+            - css/*
+            - contrib/**
+            - media/**
+
+Renderer:
+    type: MooseDocs.base.MaterializeRenderer
+
+Extensions:
+    MooseDocs.extensions.navigation:
+        name: VTB
+        repo: https://github.com/idaholab/virtual_test_bed
+        menu:
+            Documentation:
+                Registration: vtb_pages/registration.md
+                Getting Started: vtb_pages/getting_started.md
+                Codes: vtb_pages/codes.md
+                Running Models: vtb_pages/running_models.md
+                Tutorials: vtb_tutorials/index.md
+                Updating the VTB: vtb_pages/updating.md
+                Contributing: vtb_pages/contributing.md
+                Citing: vtb_pages/citing.md
+            Models:
+                By Filter: https://mooseframework.inl.gov/virtual_test_bed/resources/filter/index.html
+                By Index: vtb_pages/manual_indexing.md
+            Support:
+                FAQ and Forum: https://github.com/idaholab/virtual_test_bed/discussions
+                Contact Us: vtb_pages/contact.md
+    MooseDocs.extensions.appsyntax:
+        active: false
+    MooseDocs.extensions.ifelse:
+        active: false
+    MooseDocs.extensions.acronym:
+        acronyms:
+            moose: !include ${MOOSE_DIR}/framework/doc/acronyms.yml
+            vtb: !include ${ROOT_DIR}/doc/acronyms.yml
+    MooseDocs.extensions.analytics:
+        active: True
+        google_measurement_id: G-QD13S6Z119
+    MooseDocs.extensions.tagging:
+        active: True
+        js_file: index-6fae072b.js
+        csv_file: summary.csv
+        allowed_keys:
+            - tutorials
+            - cross_sections
+            - reactor_type
+            - reactor
+            - geometry
+            - simulation_type
+            - input_features
+            - transient
+            - codes_used
+            - open_source
+            - computing_needs
+            - gpu_enabled
+            - fiscal_year
+            - sponsor
+            - institution
+            - V_and_V

@@ -33,7 +33,7 @@
 //!
 //! Cross sections are in **barns**, energies in **eV**, temperature in **kelvin**.
 
-use crate::dtfr::input::NeutronTables;
+use crate::dtfr::input::{EditSpec, NeutronTables};
 use crate::dtfr::table::{dtf_group, DtfTable};
 use crate::endf::records::SectionCursor;
 use crate::endf::tape::Tape;
@@ -108,9 +108,9 @@ impl GendfGroupRecord {
 /// Returns [`NjoyError::EndfParse`] if the material has no MF=1/451 section or the
 /// header LIST is truncated.
 pub fn read_header(tape: &Tape, mat: i32) -> Result<GendfHeader, NjoyError> {
-    let sec = tape
-        .section(mat, 1, 451)
-        .ok_or(NjoyError::EndfParse("dtfr::gendf: MF=1/451 header missing".into()))?;
+    let sec = tape.section(mat, 1, 451).ok_or(NjoyError::EndfParse(
+        "dtfr::gendf: MF=1/451 header missing".into(),
+    ))?;
     let mut cur = SectionCursor::new(&sec.rows);
     let head = cur.read_cont()?; // HEAD: nsigz = l2 (a(4)), ntw = n2 (a(6)).
     let nsigz = head.l2;
@@ -125,7 +125,9 @@ pub fn read_header(tape: &Tape, mat: i32) -> Result<GendfHeader, NjoyError> {
     let get = |data: &[f64], start: usize, n: usize| -> Result<Vec<f64>, NjoyError> {
         data.get(start..start + n)
             .map(|s| s.to_vec())
-            .ok_or(NjoyError::EndfParse("dtfr::gendf: header LIST truncated".into()))
+            .ok_or(NjoyError::EndfParse(
+                "dtfr::gendf: header LIST truncated".into(),
+            ))
     };
     let sigz = get(&list.data, off, nsigz as usize)?;
     off += nsigz as usize;
@@ -133,7 +135,16 @@ pub fn read_header(tape: &Tape, mat: i32) -> Result<GendfHeader, NjoyError> {
     off += (ngn + 1) as usize;
     let egg = get(&list.data, off, (ngg + 1) as usize).unwrap_or_default();
 
-    Ok(GendfHeader { temp, nsigz, ntw, ngn, ngg, sigz, egn, egg })
+    Ok(GendfHeader {
+        temp,
+        nsigz,
+        ntw,
+        ngn,
+        ngg,
+        sigz,
+        egn,
+        egg,
+    })
 }
 
 /// Read every initial-group LIST record of a GENDF reaction section
@@ -149,7 +160,9 @@ pub fn read_section_records(
     mf: i32,
     mt: i32,
 ) -> Result<Vec<GendfGroupRecord>, NjoyError> {
-    let Some(sec) = tape.section(mat, mf, mt) else { return Ok(Vec::new()) };
+    let Some(sec) = tape.section(mat, mf, mt) else {
+        return Ok(Vec::new());
+    };
     let mut cur = SectionCursor::new(&sec.rows);
     let head = cur.read_cont()?; // HEAD: nl = l1 (a(3)), nz = l2 (a(4)).
     let nl = head.l1;
@@ -195,6 +208,7 @@ pub fn build_neutron_table(
     tape: &Tape,
     mat: i32,
     neutron: &NeutronTables,
+    edits: &[EditSpec],
     jz: i32,
 ) -> Result<DtfTable, NjoyError> {
     let header = read_header(tape, mat)?;
@@ -218,6 +232,31 @@ pub fn build_neutron_table(
         table.set(iptotl, jg, total);
         // absorption seed: sig(iptotl-2) += total (dtfr.f90:348-349).
         table.add(iptotl - 2, jg, total);
+    }
+
+    // Edit cross sections (dtfr.f90:365-382): at il = 1, every MF=3 record
+    // adds `mult * sigma(mt)` to the edit's position, and an `mt = 300` edit
+    // takes the MT=1 record's flux word (`a(lz+il+nl*(jz-1))`, i.e. k = 1).
+    let mf3_mts: Vec<i32> = tape
+        .sections()
+        .iter()
+        .filter(|s| s.key.mat == mat && s.key.mf == 3)
+        .map(|s| s.key.mt)
+        .collect();
+    for mt in mf3_mts {
+        for rec in read_section_records(tape, mat, 3, mt)? {
+            let jg = dtf_group(rec.ig, ng);
+            if jg < 1 || jg > ng {
+                continue;
+            }
+            for e in edits {
+                if mt == 1 && e.mt == 300 {
+                    table.add(e.jpos, jg, rec.value(1, jz, 1) * f64::from(e.mult));
+                } else if mt == e.mt {
+                    table.add(e.jpos, jg, rec.cross_section(1, jz) * f64::from(e.mult));
+                }
+            }
+        }
     }
 
     // MF=6 MT=2 elastic transfer matrix (dtfr.f90:409-427).
@@ -267,7 +306,14 @@ mod tests {
         let list_head = [temp, 0.0, ng as f64, 0.0, nw as f64, 0.0];
         let mut rows = vec![head, list_head];
         rows.extend(pack(&data));
-        Section { key: EndfKey { mat, mf: 1, mt: 451 }, rows }
+        Section {
+            key: EndfKey {
+                mat,
+                mf: 1,
+                mt: 451,
+            },
+            rows,
+        }
     }
 
     /// Build a GENDF reaction section: HEAD (nl, nz) then one LIST per group.
@@ -289,7 +335,10 @@ mod tests {
             rows.push(list_head);
             rows.extend(pack(data));
         }
-        Section { key: EndfKey { mat, mf, mt }, rows }
+        Section {
+            key: EndfKey { mat, mf, mt },
+            rows,
+        }
     }
 
     /// The header reader recovers temp, group counts, sigma-zeros, and bounds.
@@ -325,7 +374,14 @@ mod tests {
     /// `cross_section(1,1)=4.5`.
     #[test]
     fn group_record_value_indexing() {
-        let rec = GendfGroupRecord { nl: 1, nz: 1, ng2: 2, ig2lo: 3, ig: 3, data: vec![0.9, 4.5] };
+        let rec = GendfGroupRecord {
+            nl: 1,
+            nz: 1,
+            ng2: 2,
+            ig2lo: 3,
+            ig: 3,
+            data: vec![0.9, 4.5],
+        };
         assert_eq!(rec.value(1, 1, 1), 0.9);
         assert_eq!(rec.cross_section(1, 1), 4.5);
     }
@@ -384,7 +440,7 @@ mod tests {
             vec![header_section(9237, 293.6, ng, &[1.0e10], &egn), mf3, mf6],
         );
 
-        let table = build_neutron_table(&tape, 9237, neutron, 1).unwrap();
+        let table = build_neutron_table(&tape, 9237, neutron, &[], 1).unwrap();
         assert_eq!(table.get(neutron.iptotl, 1), 5.0);
         assert_eq!(table.get(neutron.iptotl, 2), 3.0);
         assert_eq!(table.get(neutron.iptotl, 3), 2.0);
@@ -417,13 +473,17 @@ mod tests {
             1,
             1,
             1,
-            &[(3, 3, 2, vec![1.0, 5.0]), (2, 2, 2, vec![1.0, 3.0]), (1, 1, 2, vec![1.0, 2.0])],
+            &[
+                (3, 3, 2, vec![1.0, 5.0]),
+                (2, 2, 2, vec![1.0, 3.0]),
+                (1, 1, 2, vec![1.0, 2.0]),
+            ],
         );
         let tape = Tape::from_sections(
             " gendf".into(),
             vec![header_section(9237, 293.6, ng, &[1.0e10], &egn), mf3],
         );
-        let table = build_neutron_table(&tape, 9237, neutron, 1).unwrap();
+        let table = build_neutron_table(&tape, 9237, neutron, &[], 1).unwrap();
         let totals = column(&table.sig, neutron.iptotl, neutron.itabl, ng);
         assert_eq!(totals, vec![5.0, 3.0, 2.0]);
         let body = format0_body(&totals);

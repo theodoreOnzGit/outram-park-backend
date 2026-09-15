@@ -2,20 +2,29 @@ use uom::si::f64::*;
 
 use crate::constants::specific_gas_constant_of_water;
 
-use super::{gamma_2_ideal, gamma_2_res, gamma_pi_2_ideal, gamma_pi_2_res, gamma_pi_pi_2_res, gamma_pi_tau_2_res, gamma_tau_2_ideal, gamma_tau_2_res, gamma_tau_tau_2_ideal, gamma_tau_tau_2_res, pi_2, tau_2, InversePressure};
+use super::{
+    gamma_2_ideal, gamma_2_res, gamma_pi_2_ideal, gamma_pi_2_res, gamma_pi_pi_2_res,
+    gamma_pi_tau_2_res, gamma_tau_2_ideal, gamma_tau_2_res, gamma_tau_tau_2_ideal,
+    gamma_tau_tau_2_res, pi_2, tau_2, InversePressure,
+};
 
 /// Returns the region-2 specific volume
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn v_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificVolume {
-    ((specific_gas_constant_of_water() ) * t / p) * pi_2(p) * (gamma_pi_2_ideal(t, p) + gamma_pi_2_res(t, p))
+    ((specific_gas_constant_of_water()) * t / p)
+        * pi_2(p)
+        * (gamma_pi_2_ideal(t, p) + gamma_pi_2_res(t, p))
 }
 
 /// Returns the region-2 enthalpy
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn h_tp_2(t: ThermodynamicTemperature, p: Pressure) -> AvailableEnergy {
-    specific_gas_constant_of_water() * t * tau_2(t) * (gamma_tau_2_ideal(t, p) + gamma_tau_2_res(t, p))
+    specific_gas_constant_of_water()
+        * t
+        * tau_2(t)
+        * (gamma_tau_2_ideal(t, p) + gamma_tau_2_res(t, p))
 }
 
 /// Returns the region-2 internal energy
@@ -44,7 +53,9 @@ pub fn s_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity 
 /// Pressure is assumed to be in Pa
 pub fn cp_tp_2(t: ThermodynamicTemperature, p: Pressure) -> SpecificHeatCapacity {
     let tau = tau_2(t);
-    -specific_gas_constant_of_water() * tau.powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p))
+    -specific_gas_constant_of_water()
+        * tau.powi(2)
+        * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p))
 }
 
 /// Returns the region-2 isochoric specific heat
@@ -68,7 +79,7 @@ pub fn w_tp_2(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let subnum = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).powi(2);
     let subden = tau.powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p));
     let den = 1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p) + subnum / subden;
-    ((specific_gas_constant_of_water()  * t) * num / den).sqrt()
+    ((specific_gas_constant_of_water() * t) * num / den).sqrt()
 }
 
 /// Returns the region-2 isentropic exponent
@@ -78,26 +89,23 @@ pub fn kappa_tp_2(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
     let num = 1.0 + 2.0 * pi * gamma_pi_2_res(t, p) + pi.powi(2) * gamma_pi_2_res(t, p).powi(2);
     let subnum = (1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p)).powi(2);
     let subden = tau.powi(2) * (gamma_tau_tau_2_ideal(t, p) + gamma_tau_tau_2_res(t, p));
-    let den = (1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p) 
-        + subnum / subden) * pi * (gamma_pi_2_ideal(t, p) + gamma_pi_2_res(t, p));
+    let den = (1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p) + subnum / subden)
+        * pi
+        * (gamma_pi_2_ideal(t, p) + gamma_pi_2_res(t, p));
 
-    return (num/den).into();
+    return (num / den).into();
 }
-
 
 /// Returns the region-2 isobaric cubic expansion coeff
 pub fn alpha_v_tp_2(t: ThermodynamicTemperature, p: Pressure) -> TemperatureCoefficient {
     let tau = tau_2(t);
     let pi = pi_2(p);
-    let one_over_t: TemperatureCoefficient = 
-        t.recip();
+    let one_over_t: TemperatureCoefficient = t.recip();
     let num = 1.0 + pi * gamma_pi_2_res(t, p) - tau * pi * gamma_pi_tau_2_res(t, p);
     let den = 1.0 + pi * gamma_pi_2_res(t, p);
 
-    return one_over_t * num/den;
-
+    return one_over_t * num / den;
 }
-
 
 /// Returns the region-2 isobaric isothermal compressibility
 pub fn kappa_t_tp_2(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
@@ -105,6 +113,5 @@ pub fn kappa_t_tp_2(t: ThermodynamicTemperature, p: Pressure) -> InversePressure
     let num = 1.0 - pi.powi(2) * gamma_pi_pi_2_res(t, p);
     let den = 1.0 + pi * gamma_pi_2_res(t, p);
 
-    return (num/den)/p;
-
+    return (num / den) / p;
 }

@@ -120,8 +120,16 @@ mod tests {
             let gi = decomp.global_index(i);
             let has_w = gi > 0;
             let has_e = gi + 1 < decomp.n_global;
-            let uw = if i > 0 { u[i - 1] } else { halo.left.unwrap_or(0.0) };
-            let ue = if i + 1 < l { u[i + 1] } else { halo.right.unwrap_or(0.0) };
+            let uw = if i > 0 {
+                u[i - 1]
+            } else {
+                halo.left.unwrap_or(0.0)
+            };
+            let ue = if i + 1 < l {
+                u[i + 1]
+            } else {
+                halo.right.unwrap_or(0.0)
+            };
             let mut fi = SHIFT * u[i] + u[i] * u[i] * u[i] - b[i];
             if has_w {
                 fi += D * (u[i] - uw);
@@ -134,10 +142,7 @@ mod tests {
         Ok(f)
     }
 
-    fn distributed_jac(
-        decomp: &Decomposition1D,
-        u: &[f64],
-    ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    fn distributed_jac(decomp: &Decomposition1D, u: &[f64]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
         let l = u.len();
         let (mut diag, mut west, mut east) = (vec![0.0; l], vec![0.0; l], vec![0.0; l]);
         for i in 0..l {
@@ -245,7 +250,10 @@ mod tests {
                 u.iter().zip(expected).all(|(a, e)| (a - e).abs() < 1e-7)
             })
             .unwrap();
-            assert!(ok.iter().all(|&b| b), "distributed Newton != serial for p={p}");
+            assert!(
+                ok.iter().all(|&b| b),
+                "distributed Newton != serial for p={p}"
+            );
         }
     }
 

@@ -27,15 +27,16 @@ use njoy_outram_park_fork::{
 };
 
 fn fixture(name: &str) -> std::path::PathBuf {
-    let mut p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    p.push("tests/resources");
-    p.push(name);
-    p
+    njoy_outram_park_fork::reference_data::reference_endf_dir().join(name)
 }
 
 fn build(name: &str, mat: i32) -> AceTable {
     let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
-    let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let res = reconr(&tape, &cfg).unwrap();
     AceTable::from_reconr(&res, 0.0, 0)
 }
@@ -43,7 +44,11 @@ fn build(name: &str, mat: i32) -> AceTable {
 /// Build with the elastic angular distribution included (parses MF=4/MT=2).
 fn build_with_angular(name: &str, mat: i32) -> AceTable {
     let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
-    let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let res = reconr(&tape, &cfg).unwrap();
     let sec = tape.section(mat, 4, 2).expect("MF=4/MT=2 present");
     let ang = parse_elastic_angular(sec).unwrap();
@@ -54,30 +59,49 @@ fn build_with_angular(name: &str, mat: i32) -> AceTable {
 /// distributions (TYR / LDLW / DLW).
 fn build_full(name: &str, mat: i32) -> AceTable {
     let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
-    let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let res = reconr(&tape, &cfg).unwrap();
-    let partials: Vec<(i32, f64)> =
-        res.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
+    let partials: Vec<(i32, f64)> = res
+        .sections
+        .iter()
+        .map(|s| (i32::from(s.mt), s.qi))
+        .collect();
     let emissions = build_emissions(&tape, mat, res.material.awr, &partials);
-    let ang = tape.section(mat, 4, 2).map(|s| parse_elastic_angular(s).unwrap());
+    let ang = tape
+        .section(mat, 4, 2)
+        .map(|s| parse_elastic_angular(s).unwrap());
     AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, None)
 }
 
 /// Build the full table **with the HEATR heating column** (ESZ column 5).
 fn build_heated(name: &str, mat: i32) -> AceTable {
     let tape = Tape::read(File::open(fixture(name)).unwrap()).unwrap();
-    let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let res = reconr(&tape, &cfg).unwrap();
-    let partials: Vec<(i32, f64)> =
-        res.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
+    let partials: Vec<(i32, f64)> = res
+        .sections
+        .iter()
+        .map(|s| (i32::from(s.mt), s.qi))
+        .collect();
     let emissions = build_emissions(&tape, mat, res.material.awr, &partials);
-    let ang = tape.section(mat, 4, 2).map(|s| parse_elastic_angular(s).unwrap());
+    let ang = tape
+        .section(mat, 4, 2)
+        .map(|s| parse_elastic_angular(s).unwrap());
     let nu = NuBar::from_endf(&tape, mat).unwrap().unwrap_or_default();
-    let chi = FissionSpectrum::from_endf_mf5(&tape, mat).unwrap().unwrap_or_default();
+    let chi = FissionSpectrum::from_endf_mf5(&tape, mat)
+        .unwrap()
+        .unwrap_or_default();
     let emission = build_emission_spectra(&tape, mat);
     let photons = PhotonProduction::from_endf(&tape, mat, &res);
-    let kerma =
-        Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
+    let kerma = Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
     AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma))
 }
 
@@ -124,7 +148,10 @@ fn u235_ace_header_and_dimensions() {
     assert_eq!(ace.nxs[nxs::A], 235, "A");
     assert!(ace.zaid.starts_with("92235.00c") || ace.zaid.trim() == "92235.00c");
     assert!(ace.nxs[nxs::NES] > 1000, "U-235 union grid should be large");
-    assert!(ace.nxs[nxs::NTR] >= 2, "at least fission + capture partials");
+    assert!(
+        ace.nxs[nxs::NTR] >= 2,
+        "at least fission + capture partials"
+    );
 
     // XSS length self-consistency.
     assert_eq!(ace.nxs[nxs::LEN_XSS] as usize, ace.xss.len());
@@ -146,10 +173,16 @@ fn esz_total_equals_elastic_plus_partials() {
     let elastic = &ace.xss[3 * nes..4 * nes];
 
     // Grid is ascending and expressed in MeV (top below the 20 MeV ceiling).
-    assert!(energy.windows(2).all(|w| w[1] >= w[0]), "energy grid ascending");
+    assert!(
+        energy.windows(2).all(|w| w[1] >= w[0]),
+        "energy grid ascending"
+    );
     // In MeV the top is ~20–30; in eV it would be ~2–3e7. The loose bound just
     // confirms the unit conversion happened.
-    assert!(*energy.last().unwrap() < 1000.0, "energies are in MeV, not eV");
+    assert!(
+        *energy.last().unwrap() < 1000.0,
+        "energies are in MeV, not eV"
+    );
     assert!(energy[0] > 0.0);
 
     // Re-sum the SIG partials at each grid point and compare to the ESZ total.
@@ -193,7 +226,11 @@ fn type1_file_roundtrips() {
     // exactly since they were written as i20).
     assert_eq!(parsed.xss.len(), ace.xss.len(), "XSS length round-trip");
     for (i, (&got, &want)) in parsed.xss.iter().zip(ace.xss.iter()).enumerate() {
-        let tol = if ace.xss_is_int[i] { 0.0 } else { 1e-9 * want.abs().max(1.0) };
+        let tol = if ace.xss_is_int[i] {
+            0.0
+        } else {
+            1e-9 * want.abs().max(1.0)
+        };
         assert!(
             (got - want).abs() <= tol,
             "xss[{i}] round-trip: got {got}, want {want}"
@@ -229,7 +266,10 @@ fn check_elastic_and_block(ace: &AceTable) -> usize {
     let e = &ace.xss[and0 + 1..and0 + 1 + ne]; // incident energies [MeV]
     let locs = &ace.xss[and0 + 1 + ne..and0 + 1 + 2 * ne]; // per-energy locators
 
-    assert!(e.windows(2).all(|w| w[1] >= w[0]), "incident energies ascending");
+    assert!(
+        e.windows(2).all(|w| w[1] >= w[0]),
+        "incident energies ascending"
+    );
 
     let mut anisotropic = 0;
     for (j, &lf) in locs.iter().enumerate() {
@@ -237,7 +277,10 @@ fn check_elastic_and_block(ace: &AceTable) -> usize {
         if l == 0 {
             continue; // isotropic at this energy
         }
-        assert!(l < 0, "tabulated distributions use negative locators (newfor=1)");
+        assert!(
+            l < 0,
+            "tabulated distributions use negative locators (newfor=1)"
+        );
         anisotropic += 1;
 
         // Data lives at AND + |l| - 1: [JJ, NP, μ(NP), pdf(NP), cdf(NP)].
@@ -252,7 +295,10 @@ fn check_elastic_and_block(ace: &AceTable) -> usize {
         let cdf = &ace.xss[base + 2 + 2 * np..base + 2 + 3 * np];
 
         // Cosines span and stay within [−1, 1], ascending.
-        assert!(cos.windows(2).all(|w| w[1] > w[0]), "cosines strictly ascending");
+        assert!(
+            cos.windows(2).all(|w| w[1] > w[0]),
+            "cosines strictly ascending"
+        );
         assert!(cos[0] >= -1.0 - 1e-9 && *cos.last().unwrap() <= 1.0 + 1e-9);
         // pdf non-negative; cdf monotone from 0 to 1.
         assert!(pdf.iter().all(|&p| p >= -1e-12), "pdf non-negative");
@@ -271,7 +317,10 @@ fn u235_elastic_angular_block_is_valid() {
     assert_eq!(ace.jxs[jxs::END] as usize, ace.xss.len());
     assert_eq!(ace.nxs[nxs::LEN_XSS] as usize, ace.xss.len());
     let n = check_elastic_and_block(&ace);
-    assert!(n > 10, "U-235 elastic is anisotropic at many energies, got {n}");
+    assert!(
+        n > 10,
+        "U-235 elastic is anisotropic at many energies, got {n}"
+    );
 }
 
 #[test]
@@ -317,7 +366,10 @@ fn check_dlw_block(ace: &AceTable) -> (usize, usize) {
             n_law3 += 1;
             // Law 3: [ldat1, ldat2]; slope (A/(A+1))² ∈ (0,1).
             let ldat2 = ace.xss[d + 1];
-            assert!(ldat2 > 0.0 && ldat2 < 1.0, "Law 3 slope in (0,1), got {ldat2}");
+            assert!(
+                ldat2 > 0.0 && ldat2 < 1.0,
+                "Law 3 slope in (0,1), got {ldat2}"
+            );
         } else {
             n_law4 += 1;
             // Law 4: [NR, NE, E_in(NE), L(NE), dists…]. NR=0 here (lin-lin).
@@ -361,7 +413,11 @@ fn u235_full_table_mixes_law3_and_law4() {
     // U-235: discrete inelastic levels (MT51-90) → Law 3; continuum / (n,xn)
     // (MT16/17/91/5) → Law 4 from MF=6. Fission (MT18) is excluded (needs ν̄).
     let ace = build_full("n-092_U_235-ENDF8.0.endf", 9228);
-    assert!(ace.nxs[nxs::NR] > 10, "many producers, got {}", ace.nxs[nxs::NR]);
+    assert!(
+        ace.nxs[nxs::NR] > 10,
+        "many producers, got {}",
+        ace.nxs[nxs::NR]
+    );
     let (n3, n4) = check_dlw_block(&ace);
     assert!(n3 > 5, "several discrete-level Law 3 producers, got {n3}");
     assert!(n4 >= 1, "at least one Law 4 producer, got {n4}");
@@ -369,8 +425,15 @@ fn u235_full_table_mixes_law3_and_law4() {
     // TYR must be non-zero for exactly the NR producers.
     let tyr0 = (ace.jxs[jxs::TYR] - 1) as usize;
     let ntr = ace.nxs[nxs::NTR] as usize;
-    let nonzero = ace.xss[tyr0..tyr0 + ntr].iter().filter(|&&t| t != 0.0).count();
-    assert_eq!(nonzero, ace.nxs[nxs::NR] as usize, "TYR non-zero ⇔ producer");
+    let nonzero = ace.xss[tyr0..tyr0 + ntr]
+        .iter()
+        .filter(|&&t| t != 0.0)
+        .count();
+    assert_eq!(
+        nonzero,
+        ace.nxs[nxs::NR] as usize,
+        "TYR non-zero ⇔ producer"
+    );
 }
 
 #[test]
@@ -388,7 +451,10 @@ fn u235_discrete_levels_carry_mf4_angular() {
         "discrete levels should carry MF=4 angular, got {anisotropic} anisotropic producers"
     );
     // Every LAND locator is a valid AND-relative index or 0/isotropic.
-    assert!(producer_land.iter().all(|&l| l >= 0.0), "no negative producer LAND");
+    assert!(
+        producer_land.iter().all(|&l| l >= 0.0),
+        "no negative producer LAND"
+    );
 }
 
 #[test]
@@ -402,8 +468,15 @@ fn full_table_roundtrips_through_file() {
     assert_eq!(parsed.jxs, ace.jxs.to_vec());
     assert_eq!(parsed.xss.len(), ace.xss.len());
     for (i, (&got, &want)) in parsed.xss.iter().zip(ace.xss.iter()).enumerate() {
-        let tol = if ace.xss_is_int[i] { 0.0 } else { 1e-9 * want.abs().max(1.0) };
-        assert!((got - want).abs() <= tol, "xss[{i}]: got {got}, want {want}");
+        let tol = if ace.xss_is_int[i] {
+            0.0
+        } else {
+            1e-9 * want.abs().max(1.0)
+        };
+        assert!(
+            (got - want).abs() <= tol,
+            "xss[{i}]: got {got}, want {want}"
+        );
     }
 }
 
@@ -419,8 +492,15 @@ fn angular_table_roundtrips_through_file() {
     assert_eq!(parsed.jxs, ace.jxs.to_vec());
     assert_eq!(parsed.xss.len(), ace.xss.len());
     for (i, (&got, &want)) in parsed.xss.iter().zip(ace.xss.iter()).enumerate() {
-        let tol = if ace.xss_is_int[i] { 0.0 } else { 1e-9 * want.abs().max(1.0) };
-        assert!((got - want).abs() <= tol, "xss[{i}]: got {got}, want {want}");
+        let tol = if ace.xss_is_int[i] {
+            0.0
+        } else {
+            1e-9 * want.abs().max(1.0)
+        };
+        assert!(
+            (got - want).abs() <= tol,
+            "xss[{i}]: got {got}, want {want}"
+        );
     }
 }
 
@@ -453,10 +533,19 @@ fn esz_heating_column_is_physical() {
     let hmax = heat.iter().copied().fold(0.0_f64, f64::max);
 
     // (a) not the all-zero placeholder.
-    assert!(n_positive > 100, "heating column should be populated, got {n_positive} > 0");
+    assert!(
+        n_positive > 100,
+        "heating column should be populated, got {n_positive} > 0"
+    );
     // (b) physically bounded: no negatives, nothing above the ~200 MeV ceiling.
-    assert!(heat.iter().all(|&h| h >= 0.0), "heating numbers must be ≥ 0");
-    assert!(heat.iter().all(|&h| h < 200.0), "heating numbers must be < 200 MeV");
+    assert!(
+        heat.iter().all(|&h| h >= 0.0),
+        "heating numbers must be ≥ 0"
+    );
+    assert!(
+        heat.iter().all(|&h| h < 200.0),
+        "heating numbers must be < 200 MeV"
+    );
     // (c) fission-dominated peak, ~150–200 MeV/collision for U-235.
     assert!(
         (150.0..200.0).contains(&hmax),

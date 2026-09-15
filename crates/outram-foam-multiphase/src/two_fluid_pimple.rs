@@ -294,7 +294,11 @@ impl TwoFluidPimple {
         let uc_old = self.system.continuous.u().clone();
 
         let mesh = self.mesh.clone();
-        let rho_d = self.system.dispersed.rho().get::<kilogram_per_cubic_meter>();
+        let rho_d = self
+            .system
+            .dispersed
+            .rho()
+            .get::<kilogram_per_cubic_meter>();
         let rho_c = self
             .system
             .continuous
@@ -767,8 +771,15 @@ mod tests {
     /// Air-in-water two-fluid system: air (ρ=1.2, μ=1.8e-5, d=1mm) dispersed in
     /// water (ρ=1000, μ=1e-3). `alpha_d0` uniform dispersed fraction.
     fn air_water(mesh: Arc<FvMesh>, alpha_d0: f64) -> TwoFluidSystem {
-        let disp = Phase::new(mesh.clone(), "air", rho(1.2), mu(1.8e-5), dia(1e-3), alpha_d0)
-            .unwrap();
+        let disp = Phase::new(
+            mesh.clone(),
+            "air",
+            rho(1.2),
+            mu(1.8e-5),
+            dia(1e-3),
+            alpha_d0,
+        )
+        .unwrap();
         let cont =
             Phase::new(mesh.clone(), "water", rho(1000.0), mu(1e-3), dia(1e-3), 0.0).unwrap();
         TwoFluidSystem::new(disp, cont).unwrap()
@@ -813,7 +824,10 @@ mod tests {
                     u.x.is_finite() && u.y.is_finite() && u.z.is_finite(),
                     "U_{label} non-finite in cell {c}: {u:?}"
                 );
-                assert!(u.mag() < 1.0, "U_{label} unexpectedly large in cell {c}: {u:?}");
+                assert!(
+                    u.mag() < 1.0,
+                    "U_{label} unexpectedly large in cell {c}: {u:?}"
+                );
             }
             assert!(sim.p.internal[c].is_finite(), "p non-finite in cell {c}");
             let ad = sim.system.dispersed.alpha().internal[c];
@@ -936,9 +950,19 @@ mod tests {
         for c in 0..mesh.n_cells {
             let ad = sim.system.dispersed.alpha().internal[c];
             let ac = sim.system.continuous.alpha().internal[c];
-            assert!(ad.is_finite() && (0.0..=1.0).contains(&ad), "α_d cell {c}: {ad}");
-            assert!(ac.is_finite() && (0.0..=1.0).contains(&ac), "α_c cell {c}: {ac}");
-            assert!((ad + ac - 1.0).abs() < 1e-12, "α_d+α_c≠1 cell {c}: {}", ad + ac);
+            assert!(
+                ad.is_finite() && (0.0..=1.0).contains(&ad),
+                "α_d cell {c}: {ad}"
+            );
+            assert!(
+                ac.is_finite() && (0.0..=1.0).contains(&ac),
+                "α_c cell {c}: {ac}"
+            );
+            assert!(
+                (ad + ac - 1.0).abs() < 1e-12,
+                "α_d+α_c≠1 cell {c}: {}",
+                ad + ac
+            );
         }
     }
 
@@ -972,12 +996,17 @@ mod tests {
         let rel_mean = |s: &TwoFluidPimple| -> f64 {
             let n = s.mesh.n_cells;
             (0..n)
-                .map(|c| (s.system.dispersed.u().internal[c] - s.system.continuous.u().internal[c]).mag())
+                .map(|c| {
+                    (s.system.dispersed.u().internal[c] - s.system.continuous.u().internal[c]).mag()
+                })
                 .sum::<f64>()
                 / n as f64
         };
         let before = rel_mean(&sim);
-        assert!((before - 1.0).abs() < 1e-9, "initial relative speed {before}");
+        assert!(
+            (before - 1.0).abs() < 1e-9,
+            "initial relative speed {before}"
+        );
         for _ in 0..3 {
             sim.solve_timestep(1e-3).unwrap();
         }

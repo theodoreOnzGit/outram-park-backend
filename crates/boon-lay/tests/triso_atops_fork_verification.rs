@@ -189,7 +189,11 @@ fn activity_units_ci_bq_and_lambda_n() {
     let lam = find_nuclide("Cs-137").unwrap().decay_constant();
     let act = activity_from_atom_count(1.0e18, lam);
     assert_relative_eq!(act.get::<hertz>(), 7.302_186_793e8, max_relative = 1e-9);
-    assert_relative_eq!(atom_count_from_activity(act, lam), 1.0e18, max_relative = 1e-12);
+    assert_relative_eq!(
+        atom_count_from_activity(act, lam),
+        1.0e18,
+        max_relative = 1e-12
+    );
 }
 
 /// End-to-end normal-operation node for I-131 (halogen, HPS on), via prelude.
@@ -235,6 +239,14 @@ fn normal_operation_node_i131_via_prelude() {
     )
     .to_curies(i131.decay_constant());
     assert_eq!(out.graphite_activity, 0.0);
-    assert_relative_eq!(out.plate_out_activity, 2.699_034_134_630_28e-5, max_relative = 1e-6);
-    assert_relative_eq!(out.clean_up_activity, 3.156_070_581_427_675e-6, max_relative = 1e-6);
+    assert_relative_eq!(
+        out.plate_out_activity,
+        2.699_034_134_630_28e-5,
+        max_relative = 1e-6
+    );
+    assert_relative_eq!(
+        out.clean_up_activity,
+        3.156_070_581_427_675e-6,
+        max_relative = 1e-6
+    );
 }

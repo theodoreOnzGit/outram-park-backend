@@ -115,11 +115,15 @@ into this convention — not all 13 will on day one):
   its API key provisioned to the workflow securely (repo secret, OIDC to a
   model provider, etc.)?
 - Where does the "tracking issue" from step 4 get filed — a GitHub issue, or
-  a `bd` bead (per this workspace's beads convention in the root
-  `CLAUDE.md`)? Likely a bead, for consistency with how the rest of the
-  workspace tracks follow-up work — but beads syncs via `refs/dolt/data` on
-  the git remote, which needs confirming works cleanly from a CI runner
-  before committing to it here.
+  a `bn` (kopi-beans) issue (per this workspace's tracker convention in the
+  root `CLAUDE.md`)? Likely the tracker, for consistency with how the rest of
+  the workspace tracks follow-up work — but as of 2026-08-07 `bn` can't read
+  this repo's store at all (see `CLAUDE.md` → "Issue tracking & roadmap —
+  kopi-beans", [kopitiam#16](https://github.com/theodoreOnzGit/kopitiam/issues/16)),
+  and even once unblocked, its sync (via `refs/heads/beads/store` on the git
+  remote — not `refs/dolt/data`, which is stale from the pre-2026-07-20 Go/Dolt
+  era) needs confirming works cleanly from a CI runner before committing to it
+  here.
 - Should the workflow run per-crate in a matrix (parallel, isolated
   failures) or sequentially in one job? A matrix is probably right once more
   than 2-3 crates opt in, to keep one crate's `latexmk` failure from blocking

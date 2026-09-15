@@ -46,6 +46,7 @@
 use crate::gpu::xs_interp::interp_xs_cpu;
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
+use crate::mathf::RealMath;
 
 /// A material's macroscopic total cross section Sigma_t(E) \[cm^-1\] tabulated
 /// on a dense log-spaced energy grid, ready for batched lookup.
@@ -114,19 +115,23 @@ impl UnionTotalXs {
     ) -> Self {
         // Guard: a log-spaced grid needs at least two endpoints to span [e_min, e_max].
         let n = n_points.max(2);
-        let log_lo = e_min_ev.log10();
-        let log_hi = e_max_ev.log10();
+        let log_lo = e_min_ev.r_log10();
+        let log_hi = e_max_ev.r_log10();
 
         let mut grid = Vec::with_capacity(n);
         let mut sigma_total = Vec::with_capacity(n);
         for i in 0..n {
             let t = i as f64 / (n - 1) as f64;
-            let e = 10f64.powf(log_lo + t * (log_hi - log_lo));
+            let e = 10f64.r_powf(log_lo + t * (log_hi - log_lo));
             grid.push(e);
             sigma_total.push(material.macro_xs_total(e, nuclides));
         }
 
-        Self { grid, sigma_total, temperature_k: material.temperature }
+        Self {
+            grid,
+            sigma_total,
+            temperature_k: material.temperature,
+        }
     }
 
     /// Tabulate the material's macroscopic total Sigma_t \[cm^-1\] on the
@@ -204,11 +209,11 @@ impl UnionTotalXs {
         // 2. Merge a log-spaced backbone floor so the union is never coarser than
         //    the equal-`backbone_points` dense-log `tabulate` grid.
         let n_back = backbone_points.max(2);
-        let log_lo = e_min_ev.log10();
-        let log_hi = e_max_ev.log10();
+        let log_lo = e_min_ev.r_log10();
+        let log_hi = e_max_ev.r_log10();
         for i in 0..n_back {
             let t = i as f64 / (n_back - 1) as f64;
-            nodes.push(10f64.powf(log_lo + t * (log_hi - log_lo)));
+            nodes.push(10f64.r_powf(log_lo + t * (log_hi - log_lo)));
         }
 
         // 3. Pin the endpoints, sort ascending, and dedup to strictly increasing.
@@ -228,10 +233,16 @@ impl UnionTotalXs {
         }
 
         // 4. Evaluate the macroscopic total Sigma_t at every union node.
-        let sigma_total: Vec<f64> =
-            grid.iter().map(|&e| material.macro_xs_total(e, nuclides)).collect();
+        let sigma_total: Vec<f64> = grid
+            .iter()
+            .map(|&e| material.macro_xs_total(e, nuclides))
+            .collect();
 
-        Self { grid, sigma_total, temperature_k: material.temperature }
+        Self {
+            grid,
+            sigma_total,
+            temperature_k: material.temperature,
+        }
     }
 
     /// Batched **CPU reference** lookup: the macroscopic total Sigma_t \[cm^-1\]
@@ -292,9 +303,18 @@ mod tests {
             id: 1,
             name: "Godiva HEU".to_string(),
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
             temperature: 293.6,
         };
@@ -336,11 +356,18 @@ mod tests {
         let out = table.lookup_cpu(&table.grid);
         assert_eq!(out.len(), table.sigma_total.len());
         for (i, (&got, &want)) in out.iter().zip(table.sigma_total.iter()).enumerate() {
-            assert_eq!(got, want, "grid point {i} (E={} eV): {got} != {want}", table.grid[i]);
+            assert_eq!(
+                got, want,
+                "grid point {i} (E={} eV): {got} != {want}",
+                table.grid[i]
+            );
         }
         // Sanity: the tabulated Sigma_t is physical (finite, positive) everywhere.
         for (i, &s) in table.sigma_total.iter().enumerate() {
-            assert!(s.is_finite() && s > 0.0, "Sigma_t[{i}] = {s} not finite/positive");
+            assert!(
+                s.is_finite() && s > 0.0,
+                "Sigma_t[{i}] = {s} not finite/positive"
+            );
         }
     }
 
@@ -392,13 +419,13 @@ mod tests {
 
         // 8192 log-spaced query energies spanning the grid, plus a few exact
         // grid-point queries (f == 0 path).
-        let log_lo = e_lo.log10();
-        let log_hi = e_hi.log10();
+        let log_lo = e_lo.r_log10();
+        let log_hi = e_hi.r_log10();
         let n_query = 8192usize;
         let mut queries: Vec<f64> = (0..n_query)
             .map(|i| {
                 let t = i as f64 / (n_query - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo))
+                10f64.r_powf(log_lo + t * (log_hi - log_lo))
             })
             .collect();
         queries.push(table.grid[0]);
@@ -482,7 +509,12 @@ mod tests {
 
         // Structural: strictly ascending.
         for w in table.grid.windows(2) {
-            assert!(w[1] > w[0], "grid not strictly ascending: {} !< {}", w[0], w[1]);
+            assert!(
+                w[1] > w[0],
+                "grid not strictly ascending: {} !< {}",
+                w[0],
+                w[1]
+            );
         }
         // Backbone floor + native breakpoints genuinely added nodes.
         assert!(
@@ -498,22 +530,29 @@ mod tests {
         // Endpoints pinned exactly.
         assert_eq!(table.grid[0], e_lo, "first node must be e_min");
         assert_eq!(*table.grid.last().unwrap(), e_hi, "last node must be e_max");
-        assert_eq!(table.sigma_total.len(), table.grid.len(), "sigma/grid length mismatch");
+        assert_eq!(
+            table.sigma_total.len(),
+            table.grid.len(),
+            "sigma/grid length mismatch"
+        );
         assert_eq!(table.temperature_k, 293.6, "temperature carried through");
         // Physical: finite, positive Sigma_t everywhere.
         for (i, &s) in table.sigma_total.iter().enumerate() {
-            assert!(s.is_finite() && s > 0.0, "Sigma_t[{i}] = {s} not finite/positive");
+            assert!(
+                s.is_finite() && s > 0.0,
+                "Sigma_t[{i}] = {s} not finite/positive"
+            );
         }
 
         // Accuracy: ~2000 log-spaced probes vs the DIRECT macro_xs_total reference.
         let dense = UnionTotalXs::tabulate(&material, &nuclides, e_lo, e_hi, backbone);
-        let log_lo = e_lo.log10();
-        let log_hi = e_hi.log10();
+        let log_lo = e_lo.r_log10();
+        let log_hi = e_hi.r_log10();
         let n_probe = 2000usize;
         let probes: Vec<f64> = (0..n_probe)
             .map(|i| {
                 let t = i as f64 / (n_probe - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo))
+                10f64.r_powf(log_lo + t * (log_hi - log_lo))
             })
             .collect();
 
@@ -583,13 +622,13 @@ mod tests {
         let e_hi = 2e7f64;
         let table = UnionTotalXs::tabulate_native(&material, &nuclides, e_lo, e_hi, 4096);
 
-        let log_lo = e_lo.log10();
-        let log_hi = e_hi.log10();
+        let log_lo = e_lo.r_log10();
+        let log_hi = e_hi.r_log10();
         let n_query = 8192usize;
         let mut queries: Vec<f64> = (0..n_query)
             .map(|i| {
                 let t = i as f64 / (n_query - 1) as f64;
-                10f64.powf(log_lo + t * (log_hi - log_lo))
+                10f64.r_powf(log_lo + t * (log_hi - log_lo))
             })
             .collect();
         queries.push(table.grid[0]);

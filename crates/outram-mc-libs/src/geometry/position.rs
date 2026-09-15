@@ -5,7 +5,6 @@
 /// Units: OpenMC uses **centimetres (cm)** throughout. All `Position` values
 /// are in cm; this is not enforced by the type system (raw f64) because the
 /// particle tracking inner loop is performance-critical.
-
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Cartesian position in cm.  Maps to `openmc::Position`.
@@ -26,10 +25,16 @@ pub struct Direction {
 }
 
 impl Position {
-    pub const ZERO: Self = Self { x: 0.0, y: 0.0, z: 0.0 };
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
 
     #[inline]
-    pub fn new(x: f64, y: f64, z: f64) -> Self { Self { x, y, z } }
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Self { x, y, z }
+    }
 
     #[inline]
     pub fn dot(self, other: Self) -> f64 {
@@ -37,25 +42,37 @@ impl Position {
     }
 
     #[inline]
-    pub fn norm_sqr(self) -> f64 { self.dot(self) }
+    pub fn norm_sqr(self) -> f64 {
+        self.dot(self)
+    }
 
     #[inline]
-    pub fn norm(self) -> f64 { self.norm_sqr().sqrt() }
+    pub fn norm(self) -> f64 {
+        self.norm_sqr().sqrt()
+    }
 
     /// Distance to another position.
     #[inline]
-    pub fn distance(self, other: Self) -> f64 { (other - self).norm() }
+    pub fn distance(self, other: Self) -> f64 {
+        (other - self).norm()
+    }
 }
 
 impl Direction {
     /// Construct a Direction from raw components — caller must ensure |d| ≈ 1.
     #[inline]
-    pub fn new(u: f64, v: f64, w: f64) -> Self { Self { u, v, w } }
+    pub fn new(u: f64, v: f64, w: f64) -> Self {
+        Self { u, v, w }
+    }
 
     /// Normalise an arbitrary vector to obtain a unit direction.
     pub fn from_unnormalised(x: f64, y: f64, z: f64) -> Self {
         let s = (x * x + y * y + z * z).sqrt();
-        Self { u: x / s, v: y / s, w: z / s }
+        Self {
+            u: x / s,
+            v: y / s,
+            w: z / s,
+        }
     }
 
     /// Dot product with a `Position` (used for projecting displacement onto direction).
@@ -69,39 +86,69 @@ impl Direction {
 
 impl Neg for Position {
     type Output = Self;
-    #[inline] fn neg(self) -> Self { Self::new(-self.x, -self.y, -self.z) }
+    #[inline]
+    fn neg(self) -> Self {
+        Self::new(-self.x, -self.y, -self.z)
+    }
 }
 impl Add for Position {
     type Output = Self;
-    #[inline] fn add(self, r: Self) -> Self { Self::new(self.x+r.x, self.y+r.y, self.z+r.z) }
+    #[inline]
+    fn add(self, r: Self) -> Self {
+        Self::new(self.x + r.x, self.y + r.y, self.z + r.z)
+    }
 }
 impl Sub for Position {
     type Output = Self;
-    #[inline] fn sub(self, r: Self) -> Self { Self::new(self.x-r.x, self.y-r.y, self.z-r.z) }
+    #[inline]
+    fn sub(self, r: Self) -> Self {
+        Self::new(self.x - r.x, self.y - r.y, self.z - r.z)
+    }
 }
 impl Mul<f64> for Position {
     type Output = Self;
-    #[inline] fn mul(self, s: f64) -> Self { Self::new(self.x*s, self.y*s, self.z*s) }
+    #[inline]
+    fn mul(self, s: f64) -> Self {
+        Self::new(self.x * s, self.y * s, self.z * s)
+    }
 }
 impl Mul<Position> for f64 {
     type Output = Position;
-    #[inline] fn mul(self, p: Position) -> Position { p * self }
+    #[inline]
+    fn mul(self, p: Position) -> Position {
+        p * self
+    }
 }
 impl Div<f64> for Position {
     type Output = Self;
-    #[inline] fn div(self, s: f64) -> Self { Self::new(self.x/s, self.y/s, self.z/s) }
+    #[inline]
+    fn div(self, s: f64) -> Self {
+        Self::new(self.x / s, self.y / s, self.z / s)
+    }
 }
 impl AddAssign for Position {
-    #[inline] fn add_assign(&mut self, r: Self) { *self = *self + r; }
+    #[inline]
+    fn add_assign(&mut self, r: Self) {
+        *self = *self + r;
+    }
 }
 impl SubAssign for Position {
-    #[inline] fn sub_assign(&mut self, r: Self) { *self = *self - r; }
+    #[inline]
+    fn sub_assign(&mut self, r: Self) {
+        *self = *self - r;
+    }
 }
 impl MulAssign<f64> for Position {
-    #[inline] fn mul_assign(&mut self, s: f64) { *self = *self * s; }
+    #[inline]
+    fn mul_assign(&mut self, s: f64) {
+        *self = *self * s;
+    }
 }
 impl DivAssign<f64> for Position {
-    #[inline] fn div_assign(&mut self, s: f64) { *self = *self / s; }
+    #[inline]
+    fn div_assign(&mut self, s: f64) {
+        *self = *self / s;
+    }
 }
 
 /// Advance a position by `distance` along `direction`.

@@ -627,7 +627,10 @@ mod tests {
     fn well_index_increases_with_permeability() {
         let lo = PeacemanWell::well_index(10.0, 10.0, 5.0, 1.0e-13, 0.1, 0.0).unwrap();
         let hi = PeacemanWell::well_index(10.0, 10.0, 5.0, 1.0e-12, 0.1, 0.0).unwrap();
-        assert!(hi > lo, "higher k should give larger WI: hi = {hi}, lo = {lo}");
+        assert!(
+            hi > lo,
+            "higher k should give larger WI: hi = {hi}, lo = {lo}"
+        );
         // WI is linear in k: 10x permeability -> 10x WI.
         assert!((hi / lo - 10.0).abs() < 1e-9);
     }
@@ -648,38 +651,35 @@ mod tests {
         let p_cell = 1.0e6;
 
         // Injection: p_bh > p_cell -> positive rate.
-        let inj = PeacemanWell::new(
-            vec![0],
-            0.1,
-            0.0,
-            WellControl::BottomHolePressure(2.0e6),
-        )
-        .unwrap();
+        let inj =
+            PeacemanWell::new(vec![0], 0.1, 0.0, WellControl::BottomHolePressure(2.0e6)).unwrap();
         let r_inj = inj.cell_rates(&g, 1.0e-12, 1.0e-3, &[p_cell]).unwrap();
         assert_eq!(r_inj.len(), 1);
-        assert!(r_inj[0] > 0.0, "injection should be positive, got {}", r_inj[0]);
+        assert!(
+            r_inj[0] > 0.0,
+            "injection should be positive, got {}",
+            r_inj[0]
+        );
 
         // Production: p_bh < p_cell -> negative rate.
-        let prod = PeacemanWell::new(
-            vec![0],
-            0.1,
-            0.0,
-            WellControl::BottomHolePressure(0.5e6),
-        )
-        .unwrap();
+        let prod =
+            PeacemanWell::new(vec![0], 0.1, 0.0, WellControl::BottomHolePressure(0.5e6)).unwrap();
         let r_prod = prod.cell_rates(&g, 1.0e-12, 1.0e-3, &[p_cell]).unwrap();
-        assert!(r_prod[0] < 0.0, "production should be negative, got {}", r_prod[0]);
+        assert!(
+            r_prod[0] < 0.0,
+            "production should be negative, got {}",
+            r_prod[0]
+        );
 
         // Balanced: p_bh == p_cell -> zero rate.
-        let bal = PeacemanWell::new(
-            vec![0],
-            0.1,
-            0.0,
-            WellControl::BottomHolePressure(p_cell),
-        )
-        .unwrap();
+        let bal =
+            PeacemanWell::new(vec![0], 0.1, 0.0, WellControl::BottomHolePressure(p_cell)).unwrap();
         let r_bal = bal.cell_rates(&g, 1.0e-12, 1.0e-3, &[p_cell]).unwrap();
-        assert!(r_bal[0].abs() < EPS, "balanced rate should be ~0, got {}", r_bal[0]);
+        assert!(
+            r_bal[0].abs() < EPS,
+            "balanced rate should be ~0, got {}",
+            r_bal[0]
+        );
     }
 
     #[test]
@@ -689,14 +689,11 @@ mod tests {
         assert_eq!(g.n_cells(), 2);
 
         let q_total = -3.0e-4; // production
-        let well = PeacemanWell::new(
-            vec![0, 1],
-            0.1,
-            0.0,
-            WellControl::VolumetricRate(q_total),
-        )
-        .unwrap();
-        let rates = well.cell_rates(&g, 1.0e-12, 1.0e-3, &[1.0e6, 1.0e6]).unwrap();
+        let well =
+            PeacemanWell::new(vec![0, 1], 0.1, 0.0, WellControl::VolumetricRate(q_total)).unwrap();
+        let rates = well
+            .cell_rates(&g, 1.0e-12, 1.0e-3, &[1.0e6, 1.0e6])
+            .unwrap();
 
         // Sum equals the target total.
         assert!((rates[0] + rates[1] - q_total).abs() < 1e-12);
@@ -707,13 +704,8 @@ mod tests {
     #[test]
     fn rate_controlled_is_mobility_independent() {
         let g = grid(vec![10.0], vec![10.0], vec![5.0]);
-        let well = PeacemanWell::new(
-            vec![0],
-            0.1,
-            0.0,
-            WellControl::VolumetricRate(2.5e-4),
-        )
-        .unwrap();
+        let well =
+            PeacemanWell::new(vec![0], 0.1, 0.0, WellControl::VolumetricRate(2.5e-4)).unwrap();
         let a = well.cell_rates(&g, 1.0e-12, 1.0e-3, &[1.0e6]).unwrap();
         let b = well.cell_rates(&g, 1.0e-12, 9.9e-1, &[1.0e6]).unwrap();
         assert!((a[0] - b[0]).abs() < 1e-15);
@@ -723,17 +715,15 @@ mod tests {
     #[test]
     fn cell_rates_validates_pressure_length_and_indices() {
         let g = grid(vec![10.0], vec![10.0], vec![5.0]);
-        let well = PeacemanWell::new(
-            vec![0],
-            0.1,
-            0.0,
-            WellControl::BottomHolePressure(2.0e6),
-        )
-        .unwrap();
+        let well =
+            PeacemanWell::new(vec![0], 0.1, 0.0, WellControl::BottomHolePressure(2.0e6)).unwrap();
         // Wrong pressure-array length.
-        assert!(well.cell_rates(&g, 1.0e-12, 1.0e-3, &[1.0e6, 2.0e6]).is_err());
+        assert!(well
+            .cell_rates(&g, 1.0e-12, 1.0e-3, &[1.0e6, 2.0e6])
+            .is_err());
         // Out-of-range perforated cell.
-        let bad = PeacemanWell::new(vec![5], 0.1, 0.0, WellControl::BottomHolePressure(2.0e6)).unwrap();
+        let bad =
+            PeacemanWell::new(vec![5], 0.1, 0.0, WellControl::BottomHolePressure(2.0e6)).unwrap();
         assert!(bad.cell_rates(&g, 1.0e-12, 1.0e-3, &[1.0e6]).is_err());
         // Negative mobility.
         assert!(well.cell_rates(&g, 1.0e-12, -1.0, &[1.0e6]).is_err());
@@ -742,10 +732,15 @@ mod tests {
     #[test]
     fn constructor_validation() {
         assert!(PeacemanWell::new(vec![], 0.1, 0.0, WellControl::BottomHolePressure(1.0)).is_err());
-        assert!(PeacemanWell::new(vec![0], 0.0, 0.0, WellControl::BottomHolePressure(1.0)).is_err());
-        assert!(PeacemanWell::new(vec![0], -0.1, 0.0, WellControl::BottomHolePressure(1.0)).is_err());
         assert!(
-            PeacemanWell::new(vec![0], 0.1, f64::NAN, WellControl::BottomHolePressure(1.0)).is_err()
+            PeacemanWell::new(vec![0], 0.0, 0.0, WellControl::BottomHolePressure(1.0)).is_err()
+        );
+        assert!(
+            PeacemanWell::new(vec![0], -0.1, 0.0, WellControl::BottomHolePressure(1.0)).is_err()
+        );
+        assert!(
+            PeacemanWell::new(vec![0], 0.1, f64::NAN, WellControl::BottomHolePressure(1.0))
+                .is_err()
         );
         assert!(PeacemanWell::new(vec![0], 0.1, 0.0, WellControl::VolumetricRate(1.0)).is_ok());
     }
@@ -764,7 +759,10 @@ mod tests {
         assert!((p_top - 1.0e5).abs() < EPS);
         // p increases by rho*g*dz over 10 m of depth.
         let expected = 1.0e5 + 1000.0 * 9.81 * 10.0;
-        assert!((p_deep - expected).abs() < 1e-6, "p_deep = {p_deep}, expected = {expected}");
+        assert!(
+            (p_deep - expected).abs() < 1e-6,
+            "p_deep = {p_deep}, expected = {expected}"
+        );
         assert!(p_deep > p_top);
     }
 
@@ -807,7 +805,10 @@ mod tests {
 
     #[test]
     fn source_sink_mass_to_volumetric() {
-        let vol = SourceSink::Volumetric { cell: 3, rate: 2.0e-4 };
+        let vol = SourceSink::Volumetric {
+            cell: 3,
+            rate: 2.0e-4,
+        };
         assert_eq!(vol.cell(), 3);
         assert!((vol.volumetric_rate(1000.0).unwrap() - 2.0e-4).abs() < EPS);
 

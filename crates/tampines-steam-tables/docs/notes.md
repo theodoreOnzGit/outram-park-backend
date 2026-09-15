@@ -5,6 +5,68 @@ status, the v0.2.0 status table and roadmap, and OUTRAM PARK workspace/migration
 notes. Consulted on demand, not per turn. Mandatory conventions/guardrails and
 the crate overview live in CLAUDE.md.
 
+## Testing notes — read before running the suite
+
+**Suite status, measured 2026-08-11** (`cargo test --release -p
+tampines-steam-tables --lib`): **924 passed, 0 failed, 14 ignored**, out of 938
+library test functions.
+
+**A TIMEOUT MUST NOT BE REPORTED AS A FAILURE.** A killed run is a killed run:
+say so, say how far it got, and re-run it with more time. Do not turn it into a
+failure count, do not conclude the suite is broken, and never loosen a tolerance
+because a long test was inconvenient.
+
+The reason full-suite runs hit timeouts is a single integration test:
+**`tests/edwards_blowdown.rs::edwards_obrien_pipe_blowdown_600ms`**. It
+integrates the Edwards–O'Brien 600 ms pipe blowdown on a 24-cell mesh at
+`dt = 30 µs` — 20 000 PIMPLE steps, each performing real IAPWS-IF97 `(p, h)`
+two-phase flashes on every cell. **Measured 2026-08-11, release mode: 384.75 s
+(≈ 6.5 min) for that test on its own**:
+
+```text
+$ cargo test --release -p tampines-steam-tables \
+    --test edwards_blowdown edwards_obrien_pipe_blowdown_600ms
+test edwards_obrien_pipe_blowdown_600ms has been running for over 60 seconds
+test edwards_obrien_pipe_blowdown_600ms ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out;
+finished in 384.75s
+```
+
+Its sibling `edwards_hybrid_damps_ringing_vs_pimple` runs a shorter 0.15 s window
+in two solver modes. Cargo runs the two tests in **parallel**, so the whole
+target costs about as much as its longest test rather than the sum — measured
+the same day at **393.58 s** (`2 passed; 0 failed; finished in 393.58s`; 404 s
+of shell wall clock including the build). Everything else in the crate — all 938
+library tests — finishes in seconds.
+
+**Two caveats on any timing, including the ones above.** They are hardware- and
+load-dependent: the `//!` header of `tests/edwards_blowdown.rs` still quotes
+"~180 s wall" from 2026-07-16, and a figure of ~897 s (≈ 15 min) has also been
+reported for this test; neither reproduced here on 2026-08-11. And the wall
+clock of a `cargo test` **command** is not the test's runtime — it also covers
+compilation and any wait on the cargo build-directory lock. While taking these
+measurements one invocation sat on `Blocking waiting for file lock on build
+directory` for over ten minutes, with another workspace build in progress,
+before the test started at all. **Quote the harness's `finished in <N>s` line,
+not the shell's elapsed time** — otherwise a lock wait gets recorded as test
+cost.
+
+Practical guidance (mirrors the workspace `CLAUDE.md` rule for the TUAS CIET
+natural-circulation tests, which are slow for the same reason):
+
+- **Split the run.** `cargo test --release --lib` for the fast path; add
+  `--test edwards_blowdown` as a separate, generously-timed invocation.
+- **Budget real wall-clock time.** A default 120 s command timeout kills the
+  Edwards test mid-run. Give it a long timeout or run it in the background.
+- **Run the targeted subset while iterating**
+  (`cargo test --release -p tampines-steam-tables <substring>`), and the
+  integration test only when finishing.
+- **Report what you measured.** Never write a pass/fail count you did not
+  actually obtain from a completed run.
+
+In short: measure, don't quote.
+
 ## Choked flow (current focus)
 
 > **⚠️ SUPERSEDED (2026-07, v0.2.1) — read this first.** Much of the
@@ -16,8 +78,10 @@ the crate overview live in CLAUDE.md.
 > (x_t ≈ 0) now **passes** and is no longer `#[ignore]`d; likewise all
 > `generic_multiphase_stagnation::quality_*` and the
 > `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` tests are **active
-> and pass** (only `isobar_pref_0_25` remains `#[ignore]`d, for a documented
-> isentrope-vs-Bernoulli divergence at p_bubble/p₀ ≈ 0.02). The solvers are now
+> and pass**. `isobar_pref_0_25` is **not** `#[ignore]`d either — it runs
+> in-dome-only (`validate_moody_isobar_in_dome_only`) and skips its sole
+> deeply-subcooled point, which shows a documented isentrope-vs-Bernoulli
+> divergence at p_bubble/p₀ ≈ 0.02. The solvers are now
 > fronted by a single unified dispatcher
 > `get_critical_pressure_and_mass_flux_multiphase_ph` (routing a stagnation
 > `(p0, h0)` by `ph_flash_region`), plus a `dome_crossing_interior_choke`
@@ -45,14 +109,33 @@ Verification tests are under `.../tests/`, validated against:
 - Zaloudek HEM reference curves — `zaloudek_*`. **These are NOT experimental
   measurements.** They are HEM-computed curves published by Zaloudek and
   graph-read (digitised) from Figure 2 of Saha (1978) NUREG/CR-0417. Keep
-  mass-flux (G) tolerances loose; the bubble-point edge (x_t ≈ 0) is a known
-  HEM physics limitation, not a validation target.
-- Marviken critical flow tests — `marviken_tests.rs`.
+  mass-flux (G) tolerances loose. The bubble-point edge (x_t ≈ 0) **is** a
+  validation target and is met: because the Zaloudek reference is itself an
+  HEM curve, HEM must be able to reproduce it, and after the v0.2.1 choke-finder
+  fix it does (see the resolution note below). The older claim that x_t ≈ 0 was
+  a fundamental HEM physics limitation was wrong.
+- Marviken critical flow tests — `marviken_tests.rs`. **Gated 2026-08-11 with a
+  split outcome** (bead `op-21g.16`): 6 active tests, none ignored, ~1.4 s.
+  Against NUREG/CR-2671 Fig. 8:24 (500 mm / L/D = 0.3 nozzle) the HEM dispatcher
+  **validates on test 23** (3 K subcooling — mean deviation 12.6 %, worst
+  23.1 %, inside a justified ±25 % experimental band) and **is NOT validated on
+  test 24** (33 K subcooling — mean −48.5 %, worst −70.2 %). Do not describe the
+  crate as Marviken-validated for subcooled stagnation states. The bare HEM
+  maximum-mass-flux criterion reproduces *both* tests to a mean of 9–10 %, so
+  the test-24 deficit is a branch-selection defect in
+  `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` (the ≈0.03-quality
+  bubble-point sonic kink being taken instead of the energy-balance maximum,
+  with `DEEP_SUBCOOLING_RATIO = 5.0` not reached at 33 K), **not** an HEM
+  physics limitation. Full methodology, error budget and lessons in the module
+  doc of `marviken_tests.rs`.
 
-### Current effort: near-bubble-point HEM artifact
+### Resolved (v0.2.1): the near-bubble-point HEM artifact
 
-We are trying to solve the **near-bubble-point HEM artifact** that breaks the
-Zaloudek VLE critical-pressure / mass-flux tests.
+> **Historical.** This section records the effort that *was* under way to solve
+> the **near-bubble-point HEM artifact** breaking the Zaloudek VLE
+> critical-pressure / mass-flux tests. It is **fixed** — see the resolution note
+> at the end of this section. The present-tense wording below is kept for the
+> debugging trail.
 
 The original combined canary
 `zaloudek_*::generic_multiphase_stagnation::quality_0_05_stagnation` is now
@@ -100,14 +183,44 @@ x_t = 1e-4). A `marviken_tests.rs` stub exists under the same tests directory
 but is `#[ignore]`d and ends with `todo!()` — data is read in but the
 assertion block is not written yet.
 
-The **active failing test** is
+**Resolved — `quality_bubble_point_subcooled` was fixed, not ignored
+(re-verified 2026-08-11).** This paragraph used to call
 `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
-(x_t = 1e-4, throats essentially on the saturated-liquid line). The `#[ignore]`
-has been removed — this is the current work item. The detailed three-failure-mode
-writeup lives in the comment block directly above that test; in short, HEM cannot
-reproduce the x≈0 choking line in both mass flux and pressure (mass-flux artifact
-at 5/10 psia, 11–21% choke-pressure error at 15–200 psia, in both solver
-branches) and a non-equilibrium / relaxation model is required.
+(x_t = 1e-4, throats essentially on the saturated-liquid line) "the active
+failing test" and claimed a non-equilibrium / relaxation model was required.
+That is wrong on both counts and is corrected here.
+
+- **It is an active, passing test — not one of the crate's ignored tests.**
+  There is no `#[ignore]` on it (`grep -rnE '^\s*#\[ignore' src/` does not list
+  it; the only `#[ignore]` in that file is on the neighbouring
+  `diagnose_bubble_point_artifact` diagnostic).
+- **Verified by running it**, 2026-08-11:
+
+  ```text
+  $ cargo test --release -p tampines-steam-tables quality_bubble_point_subcooled
+  test steam_turbine_equations::converging_diverging_nozzles::tests::\
+  zaloudek_mass_flux_hom_eqm::outside_dome_stagnation_subcooled::\
+  quality_bubble_point_subcooled ... ok
+
+  test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 937 filtered out
+  ```
+
+- **What actually happened.** The failure was numerical, in the forward choke
+  finder, not an HEM physics limit. The energy-balance objective
+  `G_energy(p) = ρ·√(2(h0−h))` is blind to the discontinuity in the HEM sound
+  speed at the bubble point, so on the saturated-liquid line its maximum either
+  overshoots `ρ_f·c` (5, 10, 300, 500 psia) or walks off to a deeper stationary
+  point the flow never reaches at M = 1 (15–200 psia, choke pressure 11–21 %
+  low). `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` now routes on
+  the two-phase **quality at the energy-max choke**: below ~0.03 the throat is
+  effectively saturated liquid, so it takes the bubble-point kink choke with the
+  mass flux read from a precomputed sonic map along the saturated-liquid line;
+  otherwise it keeps the validated golden-section energy max. All x_t = 0.0 …
+  1.00 Zaloudek curves then pass. The full write-up is the comment block
+  directly above the test.
+
+The old three-failure-mode analysis that used to sit here is superseded; it
+described the symptoms of the choke-finder bug, not a property of HEM.
 
 The older combined canary swept x_t = 0.05 over a pressure range; first and last
 reference points:
@@ -144,15 +257,20 @@ Diagnosis so far:
   is easy to break.
 - HEM has documented limitations near the saturation line (see in-code comments
   and `docs/derivation/`); metastable / non-equilibrium effects are not modelled.
-- **HRM is required at the dome boundaries.** HEM assumes instantaneous phase
-  equilibrium, which breaks down where nucleation or droplet-formation lags behind
-  the local pressure drop:
-  - x_t ≈ 0 (bubble point / saturated liquid): flashing lags → HEM overpredicts G
-    and underpredicts choke pressure in the 5–200 psia range (see failing canary).
-  - x_t ≈ 1 (dew point / saturated vapour): droplet condensation lags → HEM is
-    similarly unreliable near the right-hand dome boundary.
-  For interior qualities (0.05 ≤ x_t ≤ 0.95) the equilibrium assumption holds
-  well and HEM is sufficient.
+- **An HRM is *not* required to pass the Zaloudek dome-boundary curves.** An
+  earlier version of this note asserted that a Homogeneous Relaxation Model was
+  needed at x_t ≈ 0 and x_t ≈ 1 because HEM "overpredicts G and underpredicts
+  choke pressure" there. That was a misdiagnosis of the choke-finder bug fixed in
+  v0.2.1 — both boundary curves now pass against the Zaloudek reference, which is
+  itself an HEM curve, so no relaxation term is involved.
+- **What is still open is a *physical* question, not a test failure.** The
+  Zaloudek and Moody references are equilibrium (HEM) curves, so passing them
+  says nothing about how well HEM matches *real* flashing flow where nucleation
+  or droplet formation lags the local pressure drop. Validating against genuinely
+  experimental critical-flow data — Marviken (`marviken_tests.rs`, still
+  unfinished) is the nearest such case — is what would show whether a relaxation
+  model is needed near the dome boundaries. Do not cite the passing Zaloudek
+  boundary curves as evidence that it is not.
 
 ---
 
@@ -173,7 +291,7 @@ contributors:
 | Function | Status |
 |---|---|
 | `get_critical_pressure_and_mass_flux_ph_vle_dome` | ✅ Validated — all 21 Zaloudek in-dome quality curves pass (x_t = 0.0 … 1.0; boundary quality curves skipped by region filter) |
-| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated for interior curves — 20 genuinely-subcooled Zaloudek curves (x_t = 0.05 … 1.00) pass; x_t ≈ 0 bubble-point is the one failing fringe case |
+| `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` | ✅ Validated for interior curves — 20 genuinely-subcooled Zaloudek curves (x_t = 0.05 … 1.00) pass; x_t ≈ 0 bubble-point is the one failing fringe case. **Out of date (v0.2.0 snapshot): x_t ≈ 0 passes too as of v0.2.1, so all subcooled curves x_t = 0.0 … 1.00 are validated** |
 | `get_critical_pressure_and_mass_flux_superheated_vapour_ph` | ✅ Validated — vapour-side mirror of the subcooled solver (dew point replaces bubble point). Zaloudek high-quality curves (x_t = 0.90/0.95/1.00) pass the tight 3% pressure / 5% log-G tolerance across the **full supercritical range** (x_t = 1.00 covers stagnation up to p₀ ≈ 29.5 MPa, choke pressure matched <0.01% at 3000 psia). x_t = 0.80 passes at a looser 5% pressure tolerance — its only vapour-side point that fails the 3% bound is the near-critical 3000-psia case (throat ≈ 0.94·p_crit, under the dome apex) where IF97 Region-3 backward equations lose digits |
 | `get_critical_pressure_and_mass_flux_with_stagnation_props` | ❌ Superseded — old combined dispatcher with +25% artifact; retain for reference only |
 
@@ -194,23 +312,38 @@ without a non-equilibrium relaxation term. The mirror x_t ≈ 1 dew-point edge i
 better behaved here (the x_t = 1.00 vapour curve passes), with only the
 near-critical-point corner needing a relaxed tolerance.
 
-**Near-bubble-point HEM artifact (x_t ≈ 0):**
+> **Correction (v0.2.1):** the two sentences above about x_t ≈ 0 are wrong. It
+> was a code bug (the energy-balance choke finder), not a physics limitation, and
+> no relaxation term was needed — the x_t ≈ 0 curve passes.
+
+**Near-bubble-point HEM artifact (x_t ≈ 0) — the v0.2.0 diagnosis, since
+disproved:**
 The test `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled`
-has its `#[ignore]` removed and is actively failing. Root cause is fundamental:
-HEM assumes instantaneous equilibrium flashing at the bubble point, which
-overpredicts mass flux by 3–7× at 5–10 psia and places the choke point 11–21%
-below the measured throat at 15–200 psia. An HRM (Homogeneous Relaxation Model)
-is required to reproduce the x ≈ 0 Zaloudek curve. See the long comment block
-above that test for the full three-failure-mode analysis.
+had its `#[ignore]` removed and was, at v0.2.0, failing. The v0.2.0 diagnosis
+recorded here was that the root cause is fundamental: that HEM assumes
+instantaneous equilibrium flashing at the bubble point, overpredicting mass flux
+by 3–7× at 5–10 psia and placing the choke point 11–21% below the measured
+throat at 15–200 psia, so an HRM (Homogeneous Relaxation Model) would be
+required. **That diagnosis was wrong.** `diagnose_bubble_point_artifact` showed
+HEM evaluated directly at the Zaloudek throat reproduces the curve to ±0.04 in
+log10 G at every point; the discrepancy lived entirely in the forward choke
+finder. See the resolution note earlier in this file and the comment block above
+the test.
 
-**Actively failing tests:**
-- `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` — x_t ≈ 0 bubble-point; HEM fundamental limitation at the saturated-liquid-line boundary
+**Actively failing tests (v0.2.0 snapshot — none of these still fail):**
+- `outside_dome_stagnation_subcooled::quality_bubble_point_subcooled` — x_t ≈ 0 bubble-point. **Fixed in v0.2.1 and passing as of 2026-08-11** (run output above); the diagnosis of a "HEM fundamental limitation" was wrong.
 
-**Ignored tests:**
+**Ignored tests (v0.2.0 snapshot — both entries are out of date):**
 - `moody_critical_mass_flux_homogeneous_eqm::isobar_pref_*` — moody isobar
-  tests (pre-existing `#[ignore]`)
+  tests (pre-existing `#[ignore]`). **No longer ignored**: all 13 Moody tests are
+  active, and the file contains no `#[ignore]` at all.
 - `generic_multiphase_stagnation::quality_*` — old combined-canary suite,
-  superseded by the split in-dome / subcooled test files
+  superseded by the split in-dome / subcooled test files. **No longer ignored**:
+  all 21 tests in that file are active and drive the unified dispatcher.
+
+For the current ignored-test list, do not trust this snapshot — read it out of
+the binary with `cargo test --release -p tampines-steam-tables --lib --
+--ignored --list` (14 tests, 2026-08-11).
 
 ### Roadmap
 
@@ -219,15 +352,14 @@ above that test for the full three-failure-mode analysis.
   with data loaded but assertions missing. The next step is to write the assertion
   block (comparing HEM mass flux to measured Marviken CFT-23/24 curves) and
   un-ignore the test.
-- **HRM at the saturated-liquid line** — HEM is validated for the interior of the
-  two-phase dome (x_t = 0.05 … 0.95), the high-pressure subcooled tail, and the
-  superheated-vapour / supercritical region, but breaks down near the saturated-
-  liquid line (x_t ≈ 0) where thermal non-equilibrium governs the choke. An
-  HRM-style relaxation model (e.g. Feburie, or Henry–Fauske) is required for that
-  boundary curve. `quality_bubble_point_subcooled` is the primary canary. (The
-  mirror x_t ≈ 1 dew-point edge turned out to be better behaved — the x_t = 1.00
-  vapour curve passes with the energy-balance max-G solver — so only the
-  near-critical-point corner of the vapour side still wants a relaxation term.)
+- ~~**HRM at the saturated-liquid line**~~ — **dropped (2026-08-11).** This item
+  existed because `quality_bubble_point_subcooled` was believed to fail on
+  physics grounds. It does not fail; the v0.2.1 choke-finder fix made all
+  x_t = 0.0 … 1.00 Zaloudek curves pass with plain HEM, and the Zaloudek
+  reference is itself an HEM curve, so it could never have needed a relaxation
+  term. Whether an HRM is warranted for *real* flashing flow is an open physics
+  question that only experimental data (Marviken, above) can settle — it is not
+  a v0.3.0 code deliverable and there is no failing test motivating it.
 
 **Nice-to-have:** WASM build of the egui GUI for browser demos; full two-phase
 property surface (currently only saturation + quality interpolation).
@@ -242,21 +374,25 @@ property surface (currently only saturation + quality interpolation).
 > from the root `[workspace.dependencies]` — **do not** pin versions here
 > (`uom.workspace = true`, etc.).
 
-### Planned: remove vestigial `ndarray-linalg` dep
+### Done: vestigial `ndarray-linalg` dep removed
 
-`ndarray-linalg` is listed in all three `[target.*.dependencies]` blocks in
-`Cargo.toml` but is **never imported anywhere in the source tree**. The
-`.solve()` calls under `src/openfoam_algorithms/` are all commented out. This
-is a vestigial entry — no code changes are needed to remove it.
+**Status: complete (verified against `Cargo.toml`, 2026-08-11).** This was
+recorded here as a planned clean-up: `ndarray-linalg` used to be listed in three
+`[target.*.dependencies]` blocks (`cfg(windows)`, `cfg(macos)`, `cfg(unix)`)
+despite never being imported anywhere in the source tree — the `.solve()` calls
+under `src/openfoam_algorithms/` are all commented out.
 
-**To clean up:** delete the three `[target.*.dependencies]` `ndarray-linalg`
-lines from `Cargo.toml` (`cfg(windows)`, `cfg(macos)`, `cfg(unix)`). Run
-`cargo check -p tampines-steam-tables --lib` to confirm nothing breaks.
+The three lines are gone. This crate's `[dependencies]` are now exactly
+`approx`, `ndarray`, `thiserror`, `uom`; `grep -n ndarray-linalg Cargo.toml`
+matches only a prose comment. Nothing in `src/` or `examples/` references
+`ndarray_linalg`.
 
-Note: `tuas_boussinesq_solver` (a runtime dep of tampines) used to pull in
-`ndarray-linalg` transitively, which is likely why this was listed explicitly.
-Since TUAS v0.1.2 no longer uses `ndarray-linalg`, the transitive need is also
-gone.
+**Consequence: this crate needs no system BLAS.** Do not tell users to install
+OpenBLAS/`libopenblas-dev` to build or test it. `tuas_boussinesq_solver` (a
+dev-dependency here, used only by the FHR-simulator examples) also dropped
+`ndarray-linalg` at TUAS v0.1.2 and uses pure-Rust `peroxide` + `ndarray`, so
+the transitive need is gone too. Workspace-wide, `outram-foam-basic-lib` is the
+only remaining declarer, and only as a target-gated dev-dependency.
 
 ### Migration notes (2026-06)
 

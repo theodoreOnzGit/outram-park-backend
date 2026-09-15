@@ -139,7 +139,7 @@ x_over_L,rho_over_rho0,u_over_u0,P_over_P0,e_over_e0,Gamma_plus
 With the OpenFOAM SI unit case, this data is redimensionalised 
 
 ```csv
-x_m,rho_kg_per_m3,u_m_per_s,P_Pa,e_J_per_m3,Gamma_plus_m_per_s,t_s,tau_sod
+x_m,rho_kg_per_m3,u_m_per_s,P_Pa,e_J_per_kg,Gamma_plus_m_per_s,t_s,tau_sod
 -4.0,1.000,0.000,1.0000e+05,2.5000e+05,935.4,6.3246e-03,0.2
 -3.0,1.000,0.000,1.0000e+05,2.5000e+05,935.4,6.3246e-03,0.2
 -2.0,0.869,51.86,8.2200e+04,2.3630e+05,935.4,6.3246e-03,0.2
@@ -152,7 +152,13 @@ x_m,rho_kg_per_m3,u_m_per_s,P_Pa,e_J_per_m3,Gamma_plus_m_per_s,t_s,tau_sod
 ```
 
 $\Gamma_+ = c/(\gamma-1) + u/2$ is the right-going Riemann invariant (conservation check).
-$e$ is **total** energy per unit volume: $e = P/(\gamma-1) + \tfrac{1}{2}\rho u^2$.
+$e$ is **specific internal** energy: $e = P/((\gamma-1)\rho)$, in J/kg.
+(It was previously documented here as total energy per unit volume,
+$P/(\gamma-1) + \frac{1}{2}\rho u^2$. That is wrong for the column tabulated
+above: at the star state $P^* = 0.30313$, $\rho^*_L = 0.42632$, the table reads
+1.778, which is $P/((\gamma-1)\rho)$; total energy per volume would be 0.941.
+Corrected 2026-08-07.)
+
 ---
 
 ## 5. Exact Riemann solution — Sod Appendix (eqs. 46-62, Fig. 16)

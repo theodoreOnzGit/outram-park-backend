@@ -1,3 +1,4 @@
+use petir::mathf::RealMath;
 
 const SUBREGION_2A_BACK_COEFFS_PS: [[f64; 3]; 46] = [
     [-1.5, -24.0, -0.392_359_838_619_84e6],
@@ -48,14 +49,17 @@ const SUBREGION_2A_BACK_COEFFS_PS: [[f64; 3]; 46] = [
     [1.5, 18.0, -0.821_981_026_520_18e-5],
 ];
 
-use uom::si::{f64::*, pressure::megapascal, ratio::ratio, specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin};
-pub(crate) fn t_ps_2a(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature{
+use uom::si::{
+    f64::*, pressure::megapascal, ratio::ratio,
+    specific_heat_capacity::kilojoule_per_kilogram_kelvin, thermodynamic_temperature::kelvin,
+};
+pub(crate) fn t_ps_2a(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemperature {
     let p_ref = Pressure::new::<megapascal>(1.0);
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(2.0);
     let t_ref = ThermodynamicTemperature::new::<kelvin>(1.0);
 
-    let pi: f64 = (p/p_ref).get::<ratio>();
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let pi: f64 = (p / p_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut theta: f64 = 0.0;
 
@@ -64,9 +68,8 @@ pub(crate) fn t_ps_2a(p: Pressure, s: SpecificHeatCapacity) -> ThermodynamicTemp
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        theta += ni * pi.powf(ii) * (sigma - 2.0).powf(ji);
-    };
+        theta += ni * pi.r_powf(ii) * (sigma - 2.0).r_powf(ji);
+    }
 
     return theta * t_ref;
-
 }

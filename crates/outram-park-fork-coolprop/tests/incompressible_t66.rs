@@ -59,13 +59,27 @@ fn t66_enthalpy_matches_heat_capacity_integral() {
     assert!(rel(h, -304_884.786110) < 1e-6, "h = {h}");
 
     // Round-trip: temperature_from_enthalpy should invert enthalpy.
-    let t_back = Incompressible::T66.temperature_from_enthalpy(h, P, 0.0).unwrap();
-    assert!((t_back - T).abs() < 1e-6, "round-trip T: {T} -> h={h} -> T={t_back}");
+    let t_back = Incompressible::T66
+        .temperature_from_enthalpy(h, P, 0.0)
+        .unwrap();
+    assert!(
+        (t_back - T).abs() < 1e-6,
+        "round-trip T: {T} -> h={h} -> T={t_back}"
+    );
 }
 
 #[test]
 fn t66_rejects_out_of_range_temperature_and_nonzero_composition() {
-    assert!(Incompressible::T66.density(200.0, P, 0.0).is_err(), "below Tmin should error");
-    assert!(Incompressible::T66.density(700.0, P, 0.0).is_err(), "above Tmax should error");
-    assert!(Incompressible::T66.density(T, P, 0.5).is_err(), "nonzero x on a pure fluid should error");
+    assert!(
+        Incompressible::T66.density(200.0, P, 0.0).is_err(),
+        "below Tmin should error"
+    );
+    assert!(
+        Incompressible::T66.density(700.0, P, 0.0).is_err(),
+        "above Tmax should error"
+    );
+    assert!(
+        Incompressible::T66.density(T, P, 0.5).is_err(),
+        "nonzero x on a pure fluid should error"
+    );
 }

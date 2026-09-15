@@ -38,10 +38,10 @@ use super::traits::FluidThermo;
 pub struct PsiThermo<M: TransportModel> {
     /// Per-species transport/thermo/EOS kernel (mesh-independent).
     pub species: M,
-    pub p:   VolScalarField,
-    pub t:   VolScalarField,
+    pub p: VolScalarField,
+    pub t: VolScalarField,
     /// Sensible enthalpy `hs` [J/kg].
-    pub he:  VolScalarField,
+    pub he: VolScalarField,
     pub rho: VolScalarField,
     pub psi: VolScalarField,
 }
@@ -57,12 +57,12 @@ impl<M: TransportModel> PsiThermo<M> {
 
         let hs = species.hs(p_val, t_val).get::<joule_per_kilogram>();
         let rho = species.rho(p_val, t_val).get::<kilogram_per_cubic_meter>();
-        let psi = rho / p_init;  // ψ = ρ/p  [s²/m²]
+        let psi = rho / p_init; // ψ = ρ/p  [s²/m²]
 
         Self {
-            p:   VolScalarField::uniform("p",   mesh.clone(), p_init),
-            t:   VolScalarField::uniform("T",   mesh.clone(), t_init),
-            he:  VolScalarField::uniform("he",  mesh.clone(), hs),
+            p: VolScalarField::uniform("p", mesh.clone(), p_init),
+            t: VolScalarField::uniform("T", mesh.clone(), t_init),
+            he: VolScalarField::uniform("he", mesh.clone(), hs),
             rho: VolScalarField::uniform("rho", mesh.clone(), rho),
             psi: VolScalarField::uniform("psi", mesh.clone(), psi),
             species,
@@ -72,7 +72,7 @@ impl<M: TransportModel> PsiThermo<M> {
     fn correct_internal(&mut self) {
         let n = self.p.mesh.n_cells;
         for c in 0..n {
-            let p_c  = Pressure::new::<pascal>(self.p.internal[c]);
+            let p_c = Pressure::new::<pascal>(self.p.internal[c]);
             let t_old = ThermodynamicTemperature::new::<kelvin>(self.t.internal[c]);
             let he_c = AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[c]);
 
@@ -91,9 +91,9 @@ impl<M: TransportModel> PsiThermo<M> {
             for fi in 0..patch.size {
                 let owner = mesh.owner[patch.start + fi];
                 // Zero-gradient propagation: boundary ≈ owner cell
-                self.t.boundary[pi].values[fi]   = self.t.internal[owner];
-                self.rho.boundary[pi].values[fi]  = self.rho.internal[owner];
-                self.psi.boundary[pi].values[fi]  = self.psi.internal[owner];
+                self.t.boundary[pi].values[fi] = self.t.internal[owner];
+                self.rho.boundary[pi].values[fi] = self.rho.internal[owner];
+                self.psi.boundary[pi].values[fi] = self.psi.internal[owner];
                 // Update he boundary from T boundary
                 let p_f = self.p.boundary[pi].values[fi];
                 let t_f = self.t.boundary[pi].values[fi];
@@ -107,14 +107,30 @@ impl<M: TransportModel> PsiThermo<M> {
 }
 
 impl<M: TransportModel> FluidThermo for PsiThermo<M> {
-    fn mesh(&self) -> &Arc<FvMesh> { &self.p.mesh }
-    fn p(&self)   -> &VolScalarField { &self.p }
-    fn p_mut(&mut self) -> &mut VolScalarField { &mut self.p }
-    fn t(&self)   -> &VolScalarField { &self.t }
-    fn rho(&self) -> &VolScalarField { &self.rho }
-    fn he(&self)  -> &VolScalarField { &self.he }
-    fn he_mut(&mut self) -> &mut VolScalarField { &mut self.he }
-    fn psi(&self) -> &VolScalarField { &self.psi }
+    fn mesh(&self) -> &Arc<FvMesh> {
+        &self.p.mesh
+    }
+    fn p(&self) -> &VolScalarField {
+        &self.p
+    }
+    fn p_mut(&mut self) -> &mut VolScalarField {
+        &mut self.p
+    }
+    fn t(&self) -> &VolScalarField {
+        &self.t
+    }
+    fn rho(&self) -> &VolScalarField {
+        &self.rho
+    }
+    fn he(&self) -> &VolScalarField {
+        &self.he
+    }
+    fn he_mut(&mut self) -> &mut VolScalarField {
+        &mut self.he
+    }
+    fn psi(&self) -> &VolScalarField {
+        &self.psi
+    }
 
     fn mu(&self) -> VolScalarField {
         let mesh = self.p.mesh.clone();
@@ -199,7 +215,9 @@ impl<M: TransportModel> FluidThermo for PsiThermo<M> {
 mod tests {
     use super::*;
     use crate::openfoam_algorithms::openfoam_source::Vector3;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        FvMeshBuilder, BoundaryPatch, PatchKind,
+    };
     use crate::openfoam_algorithms::openfoam_source::eos::PerfectGas;
     use crate::openfoam_algorithms::openfoam_source::thermo::HConstThermo;
     use crate::openfoam_algorithms::openfoam_source::transport::ConstTransport;
@@ -214,30 +232,42 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(298.15),
             AvailableEnergy::new::<joule_per_kilogram>(0.0),
         );
-        ConstTransport::new(thermo, DynamicViscosity::new::<pascal_second>(1.81e-5), Ratio::new::<ratio>(0.71))
+        ConstTransport::new(
+            thermo,
+            DynamicViscosity::new::<pascal_second>(1.81e-5),
+            Ratio::new::<ratio>(0.71),
+        )
     }
 
     fn tiny_mesh() -> Arc<FvMesh> {
-        Arc::new(FvMeshBuilder::new()
-            .n_cells(2).n_internal_faces(1)
-            .owner(vec![0, 1, 0]).neighbour(vec![1])
-            .patches(vec![
-                BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
-            ])
-            .cell_volumes(vec![1.0, 1.0])
-            .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
-            .face_area_vectors(vec![
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(-1.0, 0.0, 0.0),
-            ])
-            .face_centres(vec![
-                Vector3::new(0.5, 0.0, 0.0),
-                Vector3::new(1.0, 0.0, 0.0),
-                Vector3::new(0.0, 0.0, 0.0),
-            ])
-            .build().unwrap())
+        Arc::new(
+            FvMeshBuilder::new()
+                .n_cells(2)
+                .n_internal_faces(1)
+                .owner(vec![0, 1, 0])
+                .neighbour(vec![1])
+                .patches(vec![
+                    BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
+                ])
+                .cell_volumes(vec![1.0, 1.0])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
+                .face_area_vectors(vec![
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(-1.0, 0.0, 0.0),
+                ])
+                .face_centres(vec![
+                    Vector3::new(0.5, 0.0, 0.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                    Vector3::new(0.0, 0.0, 0.0),
+                ])
+                .build()
+                .unwrap(),
+        )
     }
 
     #[test]
@@ -245,7 +275,11 @@ mod tests {
         let m = tiny_mesh();
         let thermo = PsiThermo::new(air_thermo(), m, 101325.0, 300.0);
         // ρ ≈ 1.176 kg/m³, psi = rho/p
-        assert_relative_eq!(thermo.rho.internal[0], 101325.0 / (287.05 * 300.0), epsilon = 1.0);
+        assert_relative_eq!(
+            thermo.rho.internal[0],
+            101325.0 / (287.05 * 300.0),
+            epsilon = 1.0
+        );
         let psi_expected = thermo.rho.internal[0] / 101325.0;
         assert_relative_eq!(thermo.psi.internal[0], psi_expected, epsilon = 1e-10);
     }

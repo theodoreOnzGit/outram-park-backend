@@ -21,10 +21,10 @@
 
 //! Dense square-matrix linear algebra.
 //!
-//! Provides [`SquareMatrix`], a row-major `n×n` matrix of `f64` with in-place
+//! Provides [`SquareMatrix`](crate::matrix::square_matrix::SquareMatrix), a row-major `n×n` matrix of `f64` with in-place
 //! LU decomposition (Crout, scaled partial pivoting) and back-substitution — the
 //! direct linear solver used by the stiff ODE solver and other kernels. Failure
-//! to solve is reported through [`MatrixError`]. Entries are bare `f64`; the
+//! to solve is reported through [`MatrixError`](crate::matrix::square_matrix::MatrixError). Entries are bare `f64`; the
 //! matrix carries no unit information.
 
 pub mod square_matrix;

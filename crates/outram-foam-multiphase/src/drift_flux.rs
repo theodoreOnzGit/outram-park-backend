@@ -743,8 +743,12 @@ mod tests {
     #[test]
     fn constructor_rejects_bad_inputs() {
         let m = one_cell_mesh();
-        assert!(DriftFluxMixture::new(m.clone(), rho(0.0), rho(1.0), mu(0.0), mu(0.0), 0.0).is_err());
-        assert!(DriftFluxMixture::new(m.clone(), rho(1.0), rho(1.0), mu(0.0), mu(0.0), 1.5).is_err());
+        assert!(
+            DriftFluxMixture::new(m.clone(), rho(0.0), rho(1.0), mu(0.0), mu(0.0), 0.0).is_err()
+        );
+        assert!(
+            DriftFluxMixture::new(m.clone(), rho(1.0), rho(1.0), mu(0.0), mu(0.0), 1.5).is_err()
+        );
     }
 
     // ── Slip-model drift velocities vs hand computation ──────────────────────
@@ -817,9 +821,8 @@ mod tests {
     #[test]
     fn alpha_unchanged_with_no_flow_no_drift() {
         let m = line_mesh_4();
-        let mix =
-            DriftFluxMixture::new(m.clone(), rho(1.2), rho(1000.0), mu(1e-5), mu(1e-3), 0.3)
-                .unwrap();
+        let mix = DriftFluxMixture::new(m.clone(), rho(1.2), rho(1000.0), mu(1e-5), mu(1e-3), 0.3)
+            .unwrap();
         let mut df = DriftFlux::new(mix, SlipModel::UserDefined(vec![Vector3::ZERO; 4]));
         // phi already zero from DriftFlux::new; dt arbitrary.
         df.dt = 0.5;
@@ -872,9 +875,8 @@ mod tests {
     #[test]
     fn alpha_clamped_under_extreme_drift() {
         let m = line_mesh_4();
-        let mix =
-            DriftFluxMixture::new(m.clone(), rho(1.2), rho(1000.0), mu(1e-5), mu(1e-3), 0.5)
-                .unwrap();
+        let mix = DriftFluxMixture::new(m.clone(), rho(1.2), rho(1000.0), mu(1e-5), mu(1e-3), 0.5)
+            .unwrap();
         let big = vec![vx(100.0); 4];
         let mut df = DriftFlux::new(mix, SlipModel::UserDefined(big));
         df.u_m = VolVectorField::uniform("U", m.clone(), vx(1.0));

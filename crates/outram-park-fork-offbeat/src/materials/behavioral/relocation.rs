@@ -199,7 +199,7 @@ pub enum RelocationModel {
     ///
     /// # Why the geometry and the power live on the variant
     ///
-    /// [`MaterialState`](crate::materials::MaterialState) carries the local
+    /// [`MaterialState`] carries the local
     /// thermodynamic and irradiation state, not rod geometry or rod power.
     /// Relocation needs all three, so the cold gap, the cold pellet diameter
     /// and the linear power sit on this variant. The first two are fixed for a

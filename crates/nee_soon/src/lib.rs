@@ -61,9 +61,7 @@ pub mod xin_wang_sp3_workflow;
 pub use teh_o_prke::nordheim_fuchs::NordheimFuchsExactTimestepper;
 pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
 
-use uom::si::f64::{
-    HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time,
-};
+use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 
 /// Object-oriented facade for the OUTRAM PARK neutronics + kinetics suite.
 ///

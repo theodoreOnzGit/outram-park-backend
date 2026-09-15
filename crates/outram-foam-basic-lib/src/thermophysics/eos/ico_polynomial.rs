@@ -38,7 +38,7 @@ pub struct IcoPolynomial<const N: usize> {
 }
 
 impl<const N: usize> IcoPolynomial<N> {
-    /// `poly` coefficients give specific volume [m³/kg] as a polynomial in T [K].
+    /// `poly` coefficients give specific volume `[m³/kg]` as a polynomial in T `[K]`.
     pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self {
         Self { mol_weight, poly }
     }

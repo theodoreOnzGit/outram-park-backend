@@ -102,14 +102,26 @@ built and verified independently.
 
 ## Scope note (honesty)
 
-Only step 1 (point-kinetics core ODE) is translated this run. Everything below it
-is planned, not implemented. The full `pointKineticNeutronics` class in GeN-Foam
-additionally couples to fvMesh feedback fields (fuel/clad/coolant/structure
-temperatures, densities), GEM and control-rod-driveline reactivity, an external
-neutron source with power-monitoring modulation, FMU inputs, and a liquid-fuel
-precursor-advection variant — all of which need the mesh/TH/multiRegion layers
-above and are **deferred**. The verified slice is the reactivity-driven 0-D ODE,
-which is the physics core those layers feed.
+> **Status updated 2026-08-07.** The paragraph that used to sit here said only
+> step 1 was translated. That is long out of date: steps 1-9 have all landed.
+> The list below is the *remaining* gap, not the remaining plan.
+
+The neutronics slice is substantially ported: point kinetics (0-D), the
+`nuclearData` cross-section containers, multigroup diffusion (eigenvalue +
+transient), SP3 (eigenvalue + transient) and S_N (**eigenvalue only** — no
+transient), plus mesh materialisation of the cross sections.
+
+Still **deferred** in neutronics:
+
+- The full `pointKineticNeutronics` couplings — fvMesh feedback fields
+  (fuel/clad/coolant/structure temperatures and densities), GEM and
+  control-rod-driveline reactivity, an external neutron source with
+  power-monitoring modulation, FMU inputs, and the liquid-fuel
+  precursor-advection variant.
+- `adjointDiffusion` and `albedoSP3`.
+- Reading GeN-Foam `nuclearData` dictionary files from disk (the containers
+  exist; the parser is not wired through `io`).
+- Discontinuity-factor flux adjustment.
 
 ---
 
@@ -213,10 +225,29 @@ becomes one enum with one variant per correlation.
 
 ## Scope note (honesty)
 
-This run delivers: this plan, the bead breakdown (op-p6p.7.1–.14), a compiling
-scaffold of the module tree, and **one fully ported + V&V'd slice**:
-`closures::fs_drag` (the fluid-structure wall-friction factor family). Everything
-else in the table is scaffold-only (`// TODO(genfoam)`), i.e. **~63k of the ~65k
-LOC remains**. The fs_drag slice was chosen because it is pure algebra with a
-closed-form analytical check and published reference values, requiring none of
-the phase/structure/mesh machinery above it.
+> **Status updated 2026-08-07.** The paragraph that used to sit here described a
+> single ported slice (`closures::fs_drag`) with "~63k of the ~65k LOC
+> remaining". That is no longer true and the module headers that repeated it
+> have been corrected.
+
+Ported, each with its own unit tests: all six `closures` families (`fs_drag`,
+`ff_drag`, `heat_transfer`, `phase_change`, `interfacial`, `turbulence`), the
+`phase` and `structure` field state, the `solver::one_phase` porous
+UEqn/pEqn/EEqn driver, the `boundary_conditions` (`blackbody_radiation`,
+`velocity_rundown`, `time_field_table`), the `function_objects` diagnostics, and
+the bespoke dissociating-hydrogen `thermophysical` package.
+
+Still **deferred** in thermal-hydraulics:
+
+- The **two-phase (MULES) solver** and `onePhaseLegacy`.
+- Wiring `thermophysical` in as `solver::one_phase`'s fluid package — the
+  driver still runs on constant properties (`he = Cp·T`).
+- `NusseltThermalBaffle1D` (`boundary_conditions::nusselt_baffle`) — every
+  method is `unimplemented!()`.
+- In `closures::turbulence`, the k/ε transport equations and `correctNut`
+  field-level orchestration (the closure algebra itself is ported).
+
+**Caveat that has not changed:** the correlation leaves are *unit-tested against
+published values*, not validated as a coupled system inside a converged
+multiphysics run. The great majority of upstream `thermalHydraulics` remains
+unported.

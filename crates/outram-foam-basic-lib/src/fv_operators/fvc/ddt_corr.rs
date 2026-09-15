@@ -50,6 +50,35 @@ use crate::fields::vol_field::VolVectorField;
 /// boundary flux via `constrainHbyA`/`adjustPhi` regardless — so this returns a
 /// zero boundary field.
 ///
+/// # Euler only — INCONSISTENT with a BDF2 (`Backward`) ddt scheme
+///
+/// **This function hardcodes the first-order implicit-Euler correction
+/// `phiCorr/Δt`.** It takes no ddt-scheme argument and there is no
+/// `Backward`/BDF2 counterpart in this crate, so a caller that selects a
+/// second-order backward ddt scheme gets a *mismatched* pair of terms:
+///
+/// * A BDF2 ddt, `∂U/∂t ≈ (3U^n − 4U^{n−1} + U^{n−2})/(2Δt)`, puts **`1.5·V/Δt`**
+///   on the momentum diagonal, so the `rAU = V/A` that a PISO loop multiplies
+///   this correction by shrinks by a factor tending to `1/1.5` as `Δt → 0`.
+/// * This function still divides by `Δt`, not `1.5·Δt`.
+///
+/// The two therefore disagree by a ratio tending to **1.5** as `Δt → 0` — an
+/// inconsistency that does *not* vanish under time-step refinement, unlike a
+/// truncation error. Downstream evidence: `outram-foam-appbuilder-lib`'s
+/// `tests/fv_scheme_selection.rs` (2026-08-07) reports Euler-vs-`Backward`
+/// lid-driven-cavity steady states differing by 1.0e-2 to 2.9e-2 m/s (1–3 % of
+/// `U_lid`), with the gap *growing* as `Δt` is refined.
+///
+/// **Consequence for callers:** treat this correction as valid only alongside an
+/// Euler ddt. With a BDF2 ddt scheme the solver may still converge and may even
+/// score acceptably against a benchmark, but its time integration is **not**
+/// verified second order. Closing the gap needs OpenFOAM's
+/// `backwardDdtScheme<Type>::fvcDdtPhiCorr`, which belongs in this crate and is
+/// not yet ported. This is a known open defect, recorded here so the limitation
+/// is visible at the point of use; the code is deliberately left unchanged.
+///
+/// # Upstream reference
+///
 /// OpenFOAM signature: `fvc::ddtCorr(U, phi)` (Euler; Δt from `runTime`). Here
 /// `dt` is passed explicitly. Mirrors
 /// `EulerDdtScheme<Type>::fvcDdtPhiCorr` + `ddtScheme<Type>::fvcDdtPhiCoeff`

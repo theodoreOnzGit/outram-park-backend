@@ -6,8 +6,13 @@
 //! specific Gibbs free energy, split into an ideal-gas part
 //! ([`gamma_ideal_gas_plus_derivatives`]) and a residual part
 //! ([`gamma_residual_plus_derivatives`]) with their `pi`/`tau` derivatives.
-//! Only forward `(p,T)` equations exist for Region 5 — there are no backward
-//! equations.
+//! IAPWS-IF97 publishes only forward `(p,T)` equations for Region 5 — there
+//! are no official backward equations. This crate carries experimental,
+//! non-IAPWS `T(p,h)` and `T(p,s)` correlations fitted against the forward
+//! equations below, in
+//! [`crate::backward_eqn_chebyshev_experimental::region_5_t_ph_ps`]; they are
+//! an accelerator for what would otherwise be an iterative solve, not IAPWS
+//! values.
 
 /// IAPWS-IF97 Region 5 Table 39 coefficients (I_i, J_i, n_i) for the residual
 /// part of the dimensionless Gibbs free energy, `gamma_5_res(pi, tau)`.

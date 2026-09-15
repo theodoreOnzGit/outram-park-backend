@@ -68,13 +68,11 @@
 //! [`LatentHeat`] below. There is also a *second*, sibling
 //! `thermal_hydraulics::thermophysical::units` module in this crate with
 //! overlapping candidates ([`MassDensity`](uom::si::f64::MassDensity),
-//! [`ThermalConductivity`](uom::si::f64::ThermalConductivity), …), but as of
-//! this port it is not yet wired into `thermophysical/mod.rs` (`pub mod
-//! units;` is absent — it is mid-flight scaffolding from a concurrently
-//! edited part of the fleet), so importing from it would not compile. Per the
-//! task brief, the two aliases below are defined **locally** instead; both are
-//! reasonable candidates to fold into `thermal_hydraulics::units` once that
-//! module stabilises (noted in the port report).
+//! [`ThermalConductivity`](uom::si::f64::ThermalConductivity), …). That
+//! sibling module is now wired in (`thermophysical::units` exists and exports
+//! its own `PrandtlNumber`), so the two aliases below are a genuine
+//! duplication rather than a workaround; folding them — and the sibling's —
+//! into `thermal_hydraulics::units` is an open follow-up.
 //!
 //! All other quantities used across this family (temperatures, pressures,
 //! lengths, densities, …) are `uom`'s own already-named `f64` quantity types

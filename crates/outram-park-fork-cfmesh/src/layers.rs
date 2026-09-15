@@ -1,3 +1,38 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] OpenFOAM snappyHexMesh `addLayers` — shrink the wall points inward by
+//       the total layer thickness and fill the vacated shell with a geometric
+//       stack of prisms.
+//       src/mesh/snappyHexMesh/snappyHexMeshDriver/snappyLayerDriver.C
+//       Copyright (C) 2011-2016 OpenFOAM Foundation
+//       Copyright (C) 2016-2023 OpenCFD Ltd. Licence: GPL-3.0-only.
+//
+//   [2] cfMesh boundary-layer generation — meshLibrary/utilities/boundaryLayers
+//       (`boundaryLayers`, `refineBoundaryLayers`).
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//
+//   [3] The smoothed-normal / thickness-limited advancing-layer variant follows
+//       the published advancing-layer idea (D. J. Mavriplis; the VMTK and
+//       Netgen implementations), from the literature, not from their code.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Prism **boundary layers** — insert graded near-wall inflation layers at a
 //! wall patch.
 //!
@@ -123,7 +158,11 @@ pub fn add_boundary_layers(
     // Cells: the (shrunk) interior cells, then the prism cells.
     let mut cells: Vec<Vec<Vec<usize>>> = Vec::new();
     for cf in cells_faces(mesh) {
-        cells.push(cf.iter().map(|ring| ring.iter().map(|&p| remap(p)).collect()).collect());
+        cells.push(
+            cf.iter()
+                .map(|ring| ring.iter().map(|&p| remap(p)).collect())
+                .collect(),
+        );
     }
     for &f in &wall_faces {
         let w = &mesh.faces[f];
@@ -137,7 +176,12 @@ pub fn add_boundary_layers(
             for e in 0..k {
                 let p = w[e];
                 let q = w[(e + 1) % k];
-                faces.push(vec![column[&p][i], column[&q][i], column[&q][i + 1], column[&p][i + 1]]);
+                faces.push(vec![
+                    column[&p][i],
+                    column[&q][i],
+                    column[&q][i + 1],
+                    column[&p][i + 1],
+                ]);
             }
             cells.push(faces);
         }
@@ -270,14 +314,24 @@ pub fn add_boundary_layers_adaptive(
 
     // Per-point total-thickness cap: a fraction of the local wall spacing.
     const BETA: f64 = 0.5;
-    let cap: HashMap<usize, f64> =
-        wall_pts.iter().map(|&wp| (wp, total_req.min(BETA * min_edge[&wp]))).collect();
+    let cap: HashMap<usize, f64> = wall_pts
+        .iter()
+        .map(|&wp| (wp, total_req.min(BETA * min_edge[&wp])))
+        .collect();
 
     // Global validity back-off: keep the thickest layers that stay valid.
     let mut scale = 1.0;
     for _try in 0..10 {
         let per_point: HashMap<usize, f64> = cap.iter().map(|(&wp, &c)| (wp, c * scale)).collect();
-        let candidate = build_layered(mesh, &wall_faces, &wall_pts, &inward, &profile, &per_point, n_layers);
+        let candidate = build_layered(
+            mesh,
+            &wall_faces,
+            &wall_pts,
+            &inward,
+            &profile,
+            &per_point,
+            n_layers,
+        );
         if candidate.validate().is_ok() {
             return candidate;
         }
@@ -327,7 +381,11 @@ fn build_layered(
     };
     let mut cells: Vec<Vec<Vec<usize>>> = Vec::new();
     for cf in cells_faces(mesh) {
-        cells.push(cf.iter().map(|ring| ring.iter().map(|&p| remap(p)).collect()).collect());
+        cells.push(
+            cf.iter()
+                .map(|ring| ring.iter().map(|&p| remap(p)).collect())
+                .collect(),
+        );
     }
     for &f in wall_faces {
         let w = &mesh.faces[f];
@@ -339,7 +397,12 @@ fn build_layered(
             for e in 0..k {
                 let p = w[e];
                 let q = w[(e + 1) % k];
-                faces.push(vec![column[&p][i], column[&q][i], column[&q][i + 1], column[&p][i + 1]]);
+                faces.push(vec![
+                    column[&p][i],
+                    column[&q][i],
+                    column[&q][i + 1],
+                    column[&p][i + 1],
+                ]);
             }
             cells.push(faces);
         }
@@ -367,9 +430,17 @@ mod tests {
         let wall_faces = base.n_boundary_faces(); // 6 * 9 = 54
         let layered = add_boundary_layers(&base, "walls", 3, 0.02, 1.3);
 
-        assert!((layered.total_volume() - 1.0).abs() < 1e-9, "volume preserved: {}", layered.total_volume());
+        assert!(
+            (layered.total_volume() - 1.0).abs() < 1e-9,
+            "volume preserved: {}",
+            layered.total_volume()
+        );
         layered.validate().expect("layered mesh is closed");
-        assert_eq!(layered.cell_count(), base.cell_count() + 3 * wall_faces, "n_layers × wall faces added");
+        assert_eq!(
+            layered.cell_count(),
+            base.cell_count() + 3 * wall_faces,
+            "n_layers × wall faces added"
+        );
 
         // The outer wall still bounds the original unit box.
         let (mut lo, mut hi) = (layered.points[0], layered.points[0]);
@@ -377,7 +448,10 @@ mod tests {
             lo = Vec3::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
             hi = Vec3::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
         }
-        assert!(lo.length() < 1e-9 && hi.sub(Vec3::new(1.0, 1.0, 1.0)).length() < 1e-9, "outer wall at the box");
+        assert!(
+            lo.length() < 1e-9 && hi.sub(Vec3::new(1.0, 1.0, 1.0)).length() < 1e-9,
+            "outer wall at the box"
+        );
     }
 
     /// V&V — a single layer is the minimal case, and the first-layer thickness
@@ -394,8 +468,15 @@ mod tests {
         // The inner shell is inset by ~0.05 on flat faces; the −X wall's
         // face-centre point (0, 0.5, 0.5) has a pure +X inward normal, so it
         // moves to exactly x = 0.05.
-        let near = layered.points.iter().filter(|p| (p.x - 0.05).abs() < 1e-6).count();
-        assert!(near > 0, "wall points moved inward by the first-layer thickness");
+        let near = layered
+            .points
+            .iter()
+            .filter(|p| (p.x - 0.05).abs() < 1e-6)
+            .count();
+        assert!(
+            near > 0,
+            "wall points moved inward by the first-layer thickness"
+        );
     }
 
     /// V&V — **curved-wall** layers (the headline for the adaptive variant).
@@ -426,12 +507,25 @@ mod tests {
         let vol0 = poly.total_volume();
 
         let layered = add_boundary_layers_adaptive(&poly, "walls", 3, 0.04, 1.3);
-        layered.validate().expect("curved-wall layered mesh is closed");
-        assert!(layered.cell_count() > poly.cell_count(), "prism layers added");
-        assert!((layered.total_volume() - vol0).abs() < 1e-6, "volume conserved: {} vs {vol0}", layered.total_volume());
+        layered
+            .validate()
+            .expect("curved-wall layered mesh is closed");
+        assert!(
+            layered.cell_count() > poly.cell_count(),
+            "prism layers added"
+        );
+        assert!(
+            (layered.total_volume() - vol0).abs() < 1e-6,
+            "volume conserved: {} vs {vol0}",
+            layered.total_volume()
+        );
         let q = check_quality(&layered);
         assert_eq!(q.n_negative_volume_cells, 0, "no inverted cells");
-        assert!(q.max_non_orthogonality_deg < 85.0, "non-orthogonality within BL limit: {}", q.max_non_orthogonality_deg);
+        assert!(
+            q.max_non_orthogonality_deg < 85.0,
+            "non-orthogonality within BL limit: {}",
+            q.max_non_orthogonality_deg
+        );
     }
 
     /// V&V — the adaptive variant also handles a cylinder (mixed flat caps +
@@ -450,8 +544,14 @@ mod tests {
 
         let layered = add_boundary_layers_adaptive(&poly, "walls", 3, 0.04, 1.3);
         layered.validate().expect("cylinder layered mesh is closed");
-        assert!(layered.cell_count() > poly.cell_count(), "prism layers added");
-        assert!((layered.total_volume() - vol0).abs() < 1e-6, "volume conserved");
+        assert!(
+            layered.cell_count() > poly.cell_count(),
+            "prism layers added"
+        );
+        assert!(
+            (layered.total_volume() - vol0).abs() < 1e-6,
+            "volume conserved"
+        );
     }
 
     /// V&V — the adaptive variant matches the exact one on a **flat box** wall
@@ -466,9 +566,16 @@ mod tests {
         let base = carve_box(&p, &t, 1.0 / 3.0);
         let wall_faces = base.n_boundary_faces();
         let layered = add_boundary_layers_adaptive(&base, "walls", 3, 0.02, 1.3);
-        assert!((layered.total_volume() - 1.0).abs() < 1e-9, "volume conserved on box");
+        assert!(
+            (layered.total_volume() - 1.0).abs() < 1e-9,
+            "volume conserved on box"
+        );
         layered.validate().expect("box layered mesh is closed");
-        assert_eq!(layered.cell_count(), base.cell_count() + 3 * wall_faces, "prism cells added");
+        assert_eq!(
+            layered.cell_count(),
+            base.cell_count() + 3 * wall_faces,
+            "prism cells added"
+        );
     }
 
     /// V&V — `n_layers = 0` is a faithful rebuild (no change in volume or cells).

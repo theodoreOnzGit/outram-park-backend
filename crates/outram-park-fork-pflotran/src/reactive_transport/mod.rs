@@ -502,7 +502,11 @@ impl ReactiveTransport {
                 }
                 let guess = &last_primary[i];
                 let use_guess = guess.iter().all(|g| g.is_finite() && *g > 0.0);
-                let init = if use_guess { Some(guess.as_slice()) } else { None };
+                let init = if use_guess {
+                    Some(guess.as_slice())
+                } else {
+                    None
+                };
                 match net.speciate(cell_totals, init) {
                     Ok(sp) => sp.primary,
                     Err(_) => last_primary[i].clone(),
@@ -556,7 +560,11 @@ impl ReactiveTransport {
         );
         let guess = &self.last_primary[cell];
         let use_guess = guess.iter().all(|g| g.is_finite() && *g > 0.0);
-        let init = if use_guess { Some(guess.as_slice()) } else { None };
+        let init = if use_guess {
+            Some(guess.as_slice())
+        } else {
+            None
+        };
         self.network.speciate(&self.totals[cell], init)
     }
 
@@ -578,7 +586,8 @@ impl ReactiveTransport {
         );
         let mut mass = 0.0;
         for i in 0..self.grid.n_cells() {
-            mass += self.grid.cell_volume(i) * self.flow.water_content[i] * self.totals[i][component];
+            mass +=
+                self.grid.cell_volume(i) * self.flow.water_content[i] * self.totals[i][component];
         }
         mass
     }
@@ -785,10 +794,7 @@ mod tests {
             for k in 0..react.n_components() {
                 let mass = react.component_mass(k);
                 let rel = (mass - mass0[k]).abs() / mass0[k].abs();
-                assert!(
-                    rel < 1e-9,
-                    "component {k} mass drift {rel} exceeds 1e-9"
-                );
+                assert!(rel < 1e-9, "component {k} mass drift {rel} exceeds 1e-9");
             }
         }
     }
@@ -880,7 +886,8 @@ mod tests {
     fn constructor_validates_inputs() {
         let n = 4;
         let grid = grid_1d(n, 1.0);
-        let net = || ReactionNetwork::new(vec!["A".into(), "B".into()], vec![], vec![], vec![]).unwrap();
+        let net =
+            || ReactionNetwork::new(vec!["A".into(), "B".into()], vec![], vec![], vec![]).unwrap();
         let good_initial = || vec![vec![1.0, 1.0]; n];
 
         // Wrong water_content length.

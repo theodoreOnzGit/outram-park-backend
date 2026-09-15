@@ -112,7 +112,10 @@ pub fn format_perf_report(
 ) -> String {
     let mut s = String::new();
     s.push_str(&format!("# {title}\n\n"));
-    s.push_str(&format!("**Performance on your system:** {}\n\n", hw.summary_line()));
+    s.push_str(&format!(
+        "**Performance on your system:** {}\n\n",
+        hw.summary_line()
+    ));
     s.push_str(
         "> This report was generated on **your** machine. GPU/CPU timings differ \
          per machine, so these numbers are local to this computer and are not \
@@ -134,9 +137,11 @@ pub fn format_perf_report(
 
     // Verdict: first crossover (speedup > 1) and the peak speedup.
     let crossover = rows.iter().find(|r| r.speedup > 1.0);
-    let peak = rows
-        .iter()
-        .max_by(|a, b| a.speedup.partial_cmp(&b.speedup).unwrap_or(std::cmp::Ordering::Equal));
+    let peak = rows.iter().max_by(|a, b| {
+        a.speedup
+            .partial_cmp(&b.speedup)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     match (crossover, peak) {
         (Some(c), Some(p)) => s.push_str(&format!(
             "**Verdict:** GPU overtakes CPU (speedup > 1) at N = {}; peak speedup {:.3}x at N = {}.\n",
@@ -191,9 +196,27 @@ mod tests {
             os: "linux".to_string(),
         };
         let rows = [
-            PerfRow { n_energy: 1_000, cpu_ms: 0.5, gpu_ms: 1.6, speedup: 0.31, max_rel_err: 2.7e-3 },
-            PerfRow { n_energy: 10_000, cpu_ms: 5.0, gpu_ms: 1.7, speedup: 2.94, max_rel_err: 4.6e-3 },
-            PerfRow { n_energy: 100_000, cpu_ms: 50.0, gpu_ms: 2.2, speedup: 22.7, max_rel_err: 9.0e-3 },
+            PerfRow {
+                n_energy: 1_000,
+                cpu_ms: 0.5,
+                gpu_ms: 1.6,
+                speedup: 0.31,
+                max_rel_err: 2.7e-3,
+            },
+            PerfRow {
+                n_energy: 10_000,
+                cpu_ms: 5.0,
+                gpu_ms: 1.7,
+                speedup: 2.94,
+                max_rel_err: 4.6e-3,
+            },
+            PerfRow {
+                n_energy: 100_000,
+                cpu_ms: 50.0,
+                gpu_ms: 2.2,
+                speedup: 22.7,
+                max_rel_err: 9.0e-3,
+            },
         ];
         let md = format_perf_report("Test report", "Some methodology.", &hw, &rows);
         assert!(md.contains("Test GPU / Vulkan, 8 cores, linux"));

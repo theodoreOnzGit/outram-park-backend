@@ -1,9 +1,10 @@
 [package]
 name = "kovan-discovery"
 description = "KOVAN file discovery + deterministic text search using the fd (ignore) and ripgrep (grep) engines."
-version = "0.0.0"
+version = "0.0.1"
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [dependencies]
 kovan-common.workspace = true

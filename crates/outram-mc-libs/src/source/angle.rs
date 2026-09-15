@@ -1,7 +1,6 @@
 /// Angular source distributions.
 ///
 /// C++ source: `src/distribution_angle.cpp`, `include/openmc/distribution_angle.h`.
-
 use crate::geometry::position::Direction;
 
 /// Trait for angular distributions.
@@ -22,7 +21,11 @@ impl AngleDist for IsotropicAngle {
 }
 
 /// Monodirectional — all particles in the same direction.
-pub struct MonodirectionalAngle { pub d: Direction }
+pub struct MonodirectionalAngle {
+    pub d: Direction,
+}
 impl AngleDist for MonodirectionalAngle {
-    fn sample(&self, _seed: &mut u64, _e: f64) -> Direction { self.d }
+    fn sample(&self, _seed: &mut u64, _e: f64) -> Direction {
+        self.d
+    }
 }

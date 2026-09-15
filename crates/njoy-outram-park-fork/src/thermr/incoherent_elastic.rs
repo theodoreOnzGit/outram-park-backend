@@ -86,7 +86,9 @@ impl IncoherentElastic {
         let n = nbin as f64;
         if c2 <= 0.0 || nbin == 0 {
             // Flat distribution ⇒ uniform cosines at the bin midpoints.
-            return (0..nbin).map(|k| -1.0 + 2.0 * (k as f64 + 0.5) / n).collect();
+            return (0..nbin)
+                .map(|k| -1.0 + 2.0 * (k as f64 + 0.5) / n)
+                .collect();
         }
         let rc2 = 1.0 / c2;
         let x1 = (-2.0 * c2).exp(); // CDF normalisation: ∫ over [−1,1] ∝ (1 − x1)
@@ -146,7 +148,10 @@ mod tests {
         assert!(hi < lo, "σ decreases as E rises: lo={lo}, hi={hi}");
         // Low-energy limit: (1−e^{−4EW'})/(2EW') → 2, so σ → σ_b/N (bound xs).
         let bound = ie.sb / 1.0; // natom = 1
-        assert!((lo - bound).abs() / bound < 0.05, "σ(E→0) → σ_b/N: {lo} vs {bound}");
+        assert!(
+            (lo - bound).abs() / bound < 0.05,
+            "σ(E→0) → σ_b/N: {lo} vs {bound}"
+        );
     }
 
     #[test]
@@ -155,7 +160,10 @@ mod tests {
         let mus = ie.equiprobable_cosines(1.0, 296.0, 8);
         assert_eq!(mus.len(), 8);
         assert!(mus.iter().all(|&m| (-1.0..=1.0).contains(&m)), "μ ∈ [−1,1]");
-        assert!(mus.windows(2).all(|w| w[1] >= w[0]), "cosines ascending by bin");
+        assert!(
+            mus.windows(2).all(|w| w[1] >= w[0]),
+            "cosines ascending by bin"
+        );
         // The distribution is forward-peaked, so the mean cosine is > 0.
         let mean: f64 = mus.iter().sum::<f64>() / mus.len() as f64;
         assert!(mean > 0.0, "forward-peaked ⇒ ⟨μ⟩ > 0, got {mean}");

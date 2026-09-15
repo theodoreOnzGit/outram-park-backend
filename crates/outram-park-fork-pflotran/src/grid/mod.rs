@@ -192,11 +192,7 @@ impl CartesianGrid {
     ///
     /// Returns [`PflotranError::InvalidInput`] if any array is empty (a zero
     /// dimension) or any spacing entry is non-positive (`<= 0`) or non-finite.
-    pub fn rectilinear(
-        dx: Vec<f64>,
-        dy: Vec<f64>,
-        dz: Vec<f64>,
-    ) -> Result<Self, PflotranError> {
+    pub fn rectilinear(dx: Vec<f64>, dy: Vec<f64>, dz: Vec<f64>) -> Result<Self, PflotranError> {
         validate_axis(&dx, "x")?;
         validate_axis(&dy, "y")?;
         validate_axis(&dz, "z")?;
@@ -245,7 +241,10 @@ impl CartesianGrid {
     /// Panics in debug builds (via `debug_assert!`) if any index is out of range
     /// for its axis.
     pub fn cell_index(&self, i: usize, j: usize, k: usize) -> usize {
-        debug_assert!(i < self.nx && j < self.ny && k < self.nz, "cell index out of range");
+        debug_assert!(
+            i < self.nx && j < self.ny && k < self.nz,
+            "cell index out of range"
+        );
         i + self.nx * (j + self.ny * k)
     }
 
@@ -514,12 +513,7 @@ mod tests {
     #[test]
     fn volume_and_center_correctness() {
         // Rectilinear so widths differ, exercising cumulative centres.
-        let g = CartesianGrid::rectilinear(
-            vec![2.0, 4.0],
-            vec![1.0, 3.0],
-            vec![5.0],
-        )
-        .unwrap();
+        let g = CartesianGrid::rectilinear(vec![2.0, 4.0], vec![1.0, 3.0], vec![5.0]).unwrap();
         // cell (0,0,0): vol = 2*1*5 = 10, centre = (1, 0.5, 2.5)
         let c0 = g.cell_index(0, 0, 0);
         assert!((g.cell_volume(c0) - 10.0).abs() < 1e-12);

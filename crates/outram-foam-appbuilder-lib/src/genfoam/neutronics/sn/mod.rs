@@ -113,9 +113,7 @@ mod tests;
 
 use std::sync::Arc;
 
-use outram_foam_basic_lib::prelude::{
-    BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField,
-};
+use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMesh, SolverSettings, VolScalarField};
 
 use crate::genfoam::neutronics::diffusion::DiffusionXsFields;
 use crate::genfoam::neutronics::state::NeutronicsState;

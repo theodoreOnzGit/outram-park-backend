@@ -53,7 +53,11 @@ use crate::NjoyError;
 /// radius). Returns `(V_l, φ_l)` (`unresl` always calls `uunfac` with its
 /// `amun` argument fixed at `1.0` — `unresl:1021` — and applies the real
 /// `AMUN`-derived scaling separately when it forms `Γn(E)`; this port keeps
-/// that same separation, so `penetrability_factor` takes no `amun` argument).
+/// that same separation, so `penetrability_factor` takes no `amun` argument.
+/// **PURR's `unresx` does NOT do this**: it passes the real `amun` to
+/// `unfac2`, which folds it into `vl` — see
+/// [`crate::purr::infinite_dilution_reference`] for the resulting extra
+/// factor that port must apply).
 pub fn penetrability_factor(l: i32, rho: f64, rho_c: f64) -> (f64, f64) {
     let r2 = rho * rho;
     match l {
@@ -71,10 +75,21 @@ pub fn penetrability_factor(l: i32, rho: f64, rho_c: f64) -> (f64, f64) {
 /// `unresl` always forces linear-linear interpolation here (`intl=2`,
 /// `unresl:1051`) regardless of what ENDF's own `INT` field for this range
 /// says; ported as the same hard-coded override, not a "fix".
-pub(crate) fn interp_case_b_fission_width(e: f64, energies: &[f64], widths: &[f64]) -> Result<f64, NjoyError> {
+pub(crate) fn interp_case_b_fission_width(
+    e: f64,
+    energies: &[f64],
+    widths: &[f64],
+) -> Result<f64, NjoyError> {
     for i in 1..energies.len() {
         if e >= energies[i - 1] && e <= energies[i] {
-            return terp1(energies[i - 1], widths[i - 1], energies[i], widths[i], e, IntLaw::LinLin);
+            return terp1(
+                energies[i - 1],
+                widths[i - 1],
+                energies[i],
+                widths[i],
+                e,
+                IntLaw::LinLin,
+            );
         }
     }
     Ok(*widths.last().unwrap_or(&0.0))
@@ -118,15 +133,28 @@ pub(crate) fn interp_case_c(
 }
 
 /// Channel radius `a` \[10⁻¹² cm\] per the `NAPS` convention — ported from
-/// `unresl:995-1005`. Reuses [`crate::reconr::slbw::channel_radius`] for the
-/// `NAPS=0`/`NAPS=1` cases (the identical formula); `NAPS=2` (energy-dependent
-/// scattering radius via `NRO=1`) is rejected earlier, in
-/// [`mf2::parse_lru2_ranges`], so it never reaches here.
-pub(crate) fn channel_radius_urr(awri: f64, naps: i32, ap: f64) -> Result<f64, NjoyError> {
+/// `unresl:976-977, 995-1005` (`unresx:1353, 1373-1381` is identical).
+/// `ap` is `ay`, the scattering radius at the working energy (the `NRO=1`
+/// table value, else the header scalar); `ap_cont` is `aaa`, the header
+/// scalar itself. Reuses [`crate::reconr::slbw::channel_radius`] for
+/// `NAPS=0` (mass-derived) and `NAPS=1` (`a = ay`); `NAPS=2` is legal only
+/// with `NRO=1` and then takes the header scalar (`aa=aaa`), any other
+/// combination being upstream's `'illegal naps'` fatal error.
+pub(crate) fn channel_radius_urr(
+    awri: f64,
+    naps: i32,
+    nro: i32,
+    ap: f64,
+    ap_cont: f64,
+) -> Result<f64, NjoyError> {
     if naps == 0 || naps == 1 {
         Ok(channel_radius(awri, naps, ap))
+    } else if naps == 2 && nro == 1 {
+        Ok(ap_cont)
     } else {
-        Err(NjoyError::EndfParse(format!("unresr: unsupported naps={naps}")))
+        Err(NjoyError::EndfParse(format!(
+            "unresr: illegal naps={naps} (nro={nro})"
+        )))
     }
 }
 
@@ -147,8 +175,14 @@ pub(crate) struct SequenceParams {
     pub(crate) gx: f64,
     pub(crate) amux: f64,
     pub(crate) awri: f64,
+    /// `ay` — the scattering radius at the working energy: `AP(E)` from the
+    /// `NRO=1` table, else the header scalar (`unresl:966-975`).
     pub(crate) ap: f64,
+    /// `aaa` — the header scalar `AP`, the channel radius when `NAPS=2`
+    /// (`unresl:977`).
+    pub(crate) ap_cont: f64,
     pub(crate) naps: i32,
+    pub(crate) nro: i32,
     pub(crate) spi: f64,
 }
 
@@ -159,10 +193,23 @@ pub(crate) struct SequenceParams {
 /// (`unresl:954-1149`); walking the tree once here (rather than twice, as
 /// two separate closures previously attempted) keeps the accumulation code
 /// below a plain, borrow-checker-friendly loop over an owned `Vec`.
-pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<SequenceParams> {
+///
+/// The scattering radius `ay` is evaluated once per range here
+/// ([`mf2::UnresolvedRange::scattering_radius`] — the `NRO=1` `terpa` call of
+/// `unresl:966-971`), which is the only fallible step.
+pub(crate) fn range_sequences(
+    range: &mf2::UnresolvedRange,
+    e: f64,
+) -> Result<Vec<SequenceParams>, NjoyError> {
+    let ay = range.scattering_radius(e)?;
     let mut out = Vec::new();
     match &range.case_ {
-        UnresolvedCase::CaseA { awri, ap, spi, l_states } => {
+        UnresolvedCase::CaseA {
+            awri,
+            ap,
+            spi,
+            l_states,
+        } => {
             for ls in l_states {
                 for j in &ls.j_states {
                     out.push(SequenceParams {
@@ -178,14 +225,22 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
                         gx: 0.0,
                         amux: 0.0,
                         awri: *awri,
-                        ap: *ap,
+                        ap: ay,
+                        ap_cont: *ap,
                         naps: range.naps,
+                        nro: range.nro,
                         spi: *spi,
                     });
                 }
             }
         }
-        UnresolvedCase::CaseB { awri, ap, spi, fission_energies, l_states } => {
+        UnresolvedCase::CaseB {
+            awri,
+            ap,
+            spi,
+            fission_energies,
+            l_states,
+        } => {
             for ls in l_states {
                 for j in &ls.j_states {
                     let gf = interp_case_b_fission_width(e, fission_energies, &j.gf).unwrap_or(0.0);
@@ -202,14 +257,21 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
                         gx: 0.0,
                         amux: 0.0,
                         awri: *awri,
-                        ap: *ap,
+                        ap: ay,
+                        ap_cont: *ap,
                         naps: range.naps,
+                        nro: range.nro,
                         spi: *spi,
                     });
                 }
             }
         }
-        UnresolvedCase::CaseC { awri, ap, spi, l_states } => {
+        UnresolvedCase::CaseC {
+            awri,
+            ap,
+            spi,
+            l_states,
+        } => {
             for ls in l_states {
                 for j in &ls.j_states {
                     if let Ok((d, gx, gno, gg, gf)) = interp_case_c(e, &j.points) {
@@ -226,8 +288,10 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
                             gx,
                             amux: j.amux,
                             awri: *awri,
-                            ap: *ap,
+                            ap: ay,
+                            ap_cont: *ap,
                             naps: range.naps,
+                            nro: range.nro,
                             spi: *spi,
                         });
                     }
@@ -235,7 +299,7 @@ pub(crate) fn range_sequences(range: &mf2::UnresolvedRange, e: f64) -> Vec<Seque
             }
         }
     }
-    out
+    Ok(out)
 }
 
 /// Number of quadrature points for a width distribution with `mu` degrees of
@@ -290,7 +354,7 @@ pub fn unresolved_cross_sections(
         if e < range.el || e > range.eh {
             continue;
         }
-        sequences.extend(range_sequences(range, e));
+        sequences.extend(range_sequences(range, e)?);
     }
 
     // --- Pass 1: potential scattering + interference correction ------------
@@ -302,7 +366,7 @@ pub fn unresolved_cross_sections(
     {
         let mut last_l: Option<i32> = None;
         for seq in &sequences {
-            let aa = channel_radius_urr(seq.awri, seq.naps, seq.ap)?;
+            let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
             let rat = seq.awri / (seq.awri + 1.0);
             let k = WAVE_K * rat * e2;
             let ab = 4.0 * PI / (k * k);
@@ -327,7 +391,9 @@ pub fn unresolved_cross_sections(
     let sigm: Vec<f64> = sig0.iter().map(|s0| sigbt + s0).collect();
     for &s in &sigm {
         if s < 0.0 {
-            log::warn!("unresr: negative background xs in urr may cause issues — check the evaluation");
+            log::warn!(
+                "unresr: negative background xs in urr may cause issues — check the evaluation"
+            );
         }
     }
 
@@ -342,7 +408,7 @@ pub fn unresolved_cross_sections(
     let mut tk = vec![vec![0.0f64; nsig0]; ns];
 
     for (ks, seq) in sequences.iter().enumerate() {
-        let aa = channel_radius_urr(seq.awri, seq.naps, seq.ap)?;
+        let aa = channel_radius_urr(seq.awri, seq.naps, seq.nro, seq.ap, seq.ap_cont)?;
         let rat = seq.awri / (seq.awri + 1.0);
         let k = WAVE_K * rat * e2;
         let ab = 4.0 * PI / (k * k);
@@ -354,17 +420,41 @@ pub fn unresolved_cross_sections(
         let gj = (2.0 * seq.aj + 1.0) / (4.0 * seq.spi + 2.0);
         let gnx = seq.gno * vl * e2 * seq.amun;
 
-        let mu_f = if seq.gf.abs() <= 1e-8 { 0 } else { seq.amuf.round() as i32 };
+        let mu_f = if seq.gf.abs() <= 1e-8 {
+            0
+        } else {
+            seq.amuf.round() as i32
+        };
         let mu_n = seq.amun.round() as i32;
-        let mu_x = if seq.gx.abs() < 1e-8 { 0 } else { seq.amux.round() as i32 };
-        let (nqf, nqn, nqx) = (quadrature_points(mu_f), quadrature_points(mu_n), quadrature_points(mu_x));
+        let mu_x = if seq.gx.abs() < 1e-8 {
+            0
+        } else {
+            seq.amux.round() as i32
+        };
+        let (nqf, nqn, nqx) = (
+            quadrature_points(mu_f),
+            quadrature_points(mu_n),
+            quadrature_points(mu_x),
+        );
 
         for kf in 0..nqf {
-            let gf_node = if mu_f == 0 { seq.gf } else { qp_node(kf, mu_f) * seq.gf };
+            let gf_node = if mu_f == 0 {
+                seq.gf
+            } else {
+                qp_node(kf, mu_f) * seq.gf
+            };
             for kn in 0..nqn {
-                let gn_node = if mu_n == 0 { gnx } else { qp_node(kn, mu_n) * gnx };
+                let gn_node = if mu_n == 0 {
+                    gnx
+                } else {
+                    qp_node(kn, mu_n) * gnx
+                };
                 for kl in 0..nqx {
-                    let gx_node = if mu_x == 0 { seq.gx } else { qp_node(kl, mu_x) * seq.gx };
+                    let gx_node = if mu_x == 0 {
+                        seq.gx
+                    } else {
+                        qp_node(kl, mu_x) * seq.gx
+                    };
                     let gg = [gf_node, seq.gg, gn_node, gx_node];
                     let g_total = gg[0] + gg[1] + gg[2] + gg[3];
                     if g_total <= 0.0 {
@@ -458,5 +548,7 @@ pub fn unresolved_cross_sections(
 /// [`unresolved_cross_sections`]; the PENDF MT=152 output-tape bookkeeping is
 /// not ported (see the module docs and `README.md`).
 pub fn run() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("unresr driver (physics: crate::unresr::unresolved_cross_sections)"))
+    Err(NjoyError::NotPorted(
+        "unresr driver (physics: crate::unresr::unresolved_cross_sections)",
+    ))
 }

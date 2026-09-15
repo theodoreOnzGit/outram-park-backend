@@ -160,10 +160,7 @@ mod tests {
     #[test]
     fn each_rank_sees_its_rank_and_size() {
         let out = run(5, |c| (c.rank(), c.size())).unwrap();
-        assert_eq!(
-            out,
-            vec![(0, 5), (1, 5), (2, 5), (3, 5), (4, 5)]
-        );
+        assert_eq!(out, vec![(0, 5), (1, 5), (2, 5), (3, 5), (4, 5)]);
     }
 
     #[test]
@@ -282,7 +279,10 @@ mod tests {
             (sum, max)
         })
         .unwrap();
-        assert_eq!(out[0].0, Some(vec![0 + 1 + 2 + 3 + 4, 10 + 11 + 12 + 13 + 14]));
+        assert_eq!(
+            out[0].0,
+            Some(vec![0 + 1 + 2 + 3 + 4, 10 + 11 + 12 + 13 + 14])
+        );
         assert_eq!(out[0].1, Some(vec![4, 14]));
         // Non-root ranks get None.
         assert_eq!(out[3].0, None);
@@ -393,7 +393,10 @@ mod tests {
         // 6 ranks split by parity: evens {0,2,4} -> new ranks 0,1,2; odds similarly.
         let out = run(6, |c| {
             let color = c.rank() % 2;
-            let sub = c.split(color, c.rank()).unwrap().expect("everyone has a color");
+            let sub = c
+                .split(color, c.rank())
+                .unwrap()
+                .expect("everyone has a color");
             // In each subgroup, do an all_reduce sum of the ORIGINAL world ranks.
             let world = c.rank();
             let s = sub.all_reduce(&[world], ReduceOp::Sum).unwrap();
@@ -425,7 +428,11 @@ mod tests {
     fn split_undefined_color_yields_no_communicator() {
         let out = run(4, |c| {
             // Only even ranks form a group; odd ranks opt out.
-            let color = if c.rank() % 2 == 0 { 0 } else { Communicator::UNDEFINED };
+            let color = if c.rank() % 2 == 0 {
+                0
+            } else {
+                Communicator::UNDEFINED
+            };
             let sub = c.split(color, c.rank()).unwrap();
             sub.map(|s| (s.rank(), s.size()))
         })

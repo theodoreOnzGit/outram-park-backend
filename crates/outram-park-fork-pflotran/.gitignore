@@ -1,0 +1,11 @@
+# Vendored upstream sources — present for development / porting reference only,
+# NEVER committed (workspace vendor rule; see upstream_source/README.md).
+# GPLv3-compatible upstreams only.
+#
+# PFLOTRAN (LGPL-3.0, verified 2026-09-10 against the upstream LICENSE and
+# COPYRIGHT files) — primary port target: massively-parallel subsurface flow
+# and reactive transport (Fortran 2003+ on PETSc/MPI). LGPL-3.0 is GPLv3 plus
+# additional permissions, so distributing derived work under GPL-3.0-only is
+# permitted by GPLv3 section 7.
+#   git clone --depth 1 https://bitbucket.org/pflotran/pflotran.git upstream_source/PFLOTRAN
+/upstream_source/PFLOTRAN/

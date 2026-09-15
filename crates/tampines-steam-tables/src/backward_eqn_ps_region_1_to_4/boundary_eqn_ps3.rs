@@ -1,6 +1,4 @@
-use uom::si::{
-    f64::*, pressure::megapascal, specific_heat_capacity::kilojoule_per_kilogram_kelvin,
-};
+use uom::si::{f64::*, pressure::megapascal, specific_heat_capacity::kilojoule_per_kilogram_kelvin};
 
 /// based on table 2.29
 const P_S3_S_COEFFS: [[f64; 3]; 10] = [

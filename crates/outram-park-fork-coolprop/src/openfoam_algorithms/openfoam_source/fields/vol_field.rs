@@ -59,11 +59,22 @@ impl<T: Clone + Default> VolField<T> {
         internal: Field<T>,
         boundary: Vec<PatchField<T>>,
     ) -> Self {
-        debug_assert_eq!(internal.len(), mesh.n_cells,
-            "VolField internal field length must equal n_cells");
-        debug_assert_eq!(boundary.len(), mesh.patches.len(),
-            "VolField boundary length must equal number of patches");
-        Self { name: name.into(), mesh, internal, boundary }
+        debug_assert_eq!(
+            internal.len(),
+            mesh.n_cells,
+            "VolField internal field length must equal n_cells"
+        );
+        debug_assert_eq!(
+            boundary.len(),
+            mesh.patches.len(),
+            "VolField boundary length must equal number of patches"
+        );
+        Self {
+            name: name.into(),
+            mesh,
+            internal,
+            boundary,
+        }
     }
 }
 
@@ -71,7 +82,9 @@ impl VolScalarField {
     /// Uniform scalar field over the entire domain.
     pub fn uniform(name: impl Into<String>, mesh: Arc<FvMesh>, value: f64) -> Self {
         let n_cells = mesh.n_cells;
-        let boundary = mesh.patches.iter()
+        let boundary = mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient(p.size))
             .collect();
         Self::new(name, mesh, Field::uniform(n_cells, value), boundary)
@@ -86,7 +99,9 @@ impl VolVectorField {
     /// Uniform vector field over the entire domain.
     pub fn uniform(name: impl Into<String>, mesh: Arc<FvMesh>, value: Vector3) -> Self {
         let n_cells = mesh.n_cells;
-        let boundary = mesh.patches.iter()
+        let boundary = mesh
+            .patches
+            .iter()
             .map(|p| PatchField::zero_gradient_vec(p.size))
             .collect();
         Self::new(name, mesh, Field::uniform(n_cells, value), boundary)
@@ -101,7 +116,7 @@ impl VolVectorField {
 
 impl<T> Add for VolField<T>
 where
-    T: Add<Output=T> + Clone + Default,
+    T: Add<Output = T> + Clone + Default,
 {
     type Output = VolField<T>;
     fn add(mut self, rhs: Self) -> Self::Output {
@@ -121,7 +136,7 @@ where
 
 impl<T> Sub for VolField<T>
 where
-    T: Sub<Output=T> + Clone + Default,
+    T: Sub<Output = T> + Clone + Default,
 {
     type Output = VolField<T>;
     fn sub(mut self, rhs: Self) -> Self::Output {
@@ -136,7 +151,7 @@ where
 
 impl<T> Neg for VolField<T>
 where
-    T: Neg<Output=T> + Clone,
+    T: Neg<Output = T> + Clone,
 {
     type Output = VolField<T>;
     fn neg(mut self) -> Self::Output {
@@ -151,7 +166,7 @@ where
 
 impl<T> Mul<f64> for VolField<T>
 where
-    T: Mul<f64, Output=T> + Clone,
+    T: Mul<f64, Output = T> + Clone,
 {
     type Output = VolField<T>;
     fn mul(mut self, s: f64) -> Self::Output {
@@ -165,7 +180,7 @@ where
 
 impl<T> Div<f64> for VolField<T>
 where
-    T: Mul<f64, Output=T> + Clone,
+    T: Mul<f64, Output = T> + Clone,
 {
     type Output = VolField<T>;
     fn div(self, s: f64) -> Self::Output {
@@ -198,7 +213,7 @@ impl Mul<VolVectorField> for VolScalarField {
 }
 
 // f64 * VolField<T>
-impl<T: Mul<f64, Output=T> + Clone> Mul<VolField<T>> for f64 {
+impl<T: Mul<f64, Output = T> + Clone> Mul<VolField<T>> for f64 {
     type Output = VolField<T>;
     fn mul(self, mut rhs: VolField<T>) -> VolField<T> {
         rhs.internal = rhs.internal * self;
@@ -214,7 +229,9 @@ impl<T: Mul<f64, Output=T> + Clone> Mul<VolField<T>> for f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{FvMeshBuilder, BoundaryPatch, PatchKind};
+    use crate::openfoam_algorithms::openfoam_source::fv_mesh::{
+        FvMeshBuilder, BoundaryPatch, PatchKind,
+    };
 
     fn unit_mesh() -> Arc<FvMesh> {
         Arc::new(
@@ -225,10 +242,13 @@ mod tests {
                 .neighbour(vec![1])
                 .patches(vec![
                     BoundaryPatch::new("right", 1, 1, PatchKind::Wall),
-                    BoundaryPatch::new("left",  2, 1, PatchKind::Wall),
+                    BoundaryPatch::new("left", 2, 1, PatchKind::Wall),
                 ])
                 .cell_volumes(vec![1.0, 1.0])
-                .cell_centres(vec![Vector3::new(0.25, 0.0, 0.0), Vector3::new(0.75, 0.0, 0.0)])
+                .cell_centres(vec![
+                    Vector3::new(0.25, 0.0, 0.0),
+                    Vector3::new(0.75, 0.0, 0.0),
+                ])
                 .face_area_vectors(vec![
                     Vector3::new(1.0, 0.0, 0.0),
                     Vector3::new(1.0, 0.0, 0.0),
@@ -240,7 +260,7 @@ mod tests {
                     Vector3::new(0.0, 0.0, 0.0),
                 ])
                 .build()
-                .unwrap()
+                .unwrap(),
         )
     }
 

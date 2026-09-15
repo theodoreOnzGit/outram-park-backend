@@ -84,7 +84,9 @@
 //!   `mixU` on face-interpolated `surfaceScalarField`s, the final
 //!   `kl = Cc2*km` / `kg = Ct2*kl` back-substitution) — all mesh/field state.
 //!
-//! Scaffold status: tracked by bead op-p6p.7.9; see `docs/genfoam-port-plan.md`.
+//! Port status: the closure algebra above is implemented and unit-tested under
+//! bead op-p6p.7.9; the solver-integration items listed immediately above
+//! remain deferred. See `docs/genfoam-port-plan.md`.
 
 pub mod lahey_k_epsilon;
 pub mod mixture_k_epsilon;

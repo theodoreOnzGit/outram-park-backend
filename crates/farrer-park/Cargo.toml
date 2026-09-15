@@ -1,0 +1,29 @@
+[package]
+name = "farrer-park"
+version = "0.0.0"
+edition.workspace = true
+# GPL-3.0-only. All three upstreams (MOOSE, PRISMS-Plasticity, PRISMS-Fatigue)
+# are LGPL-2.1, and LGPL-2.1 section 3 lets a licensee relicense under the
+# ordinary GPL (v2 or later) — so this crate is distributed as GPL-3.0-only,
+# consistent with the rest of the suite. The flow is ONE-WAY: code cannot go
+# back upstream under LGPL. Verified 2026-09-11 against each repo's own LICENSE
+# file; provenance and the per-file attribution rule live in NOTICE.
+license.workspace = true
+description = "FARRER PARK — Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And Risk. Pure-Rust FEM structural mechanics (small-strain elasticity and J2 plasticity) on the OUTRAM-FOAM shared numerical backend. Independent fork/translation, not affiliated with MOOSE/INL or the PRISMS Center. AI-assisted draft: verification only, NO human V&V — not for RPV or piping life assessment."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+exclude = ["docs"]
+
+[dependencies]
+# Pure-Rust, Android-safe deps only (no BLAS, no C/Fortran toolchain).
+# `uom` types the physical-quantity API boundary; `thiserror` the error enum.
+uom.workspace = true
+thiserror.workspace = true
+# The shared numerical backend. Farrer Park depends on outram-foam-basic-lib for
+# Krylov solvers, preconditioners and multigrid ONLY — never for its spatial
+# discretisation. FEM stays FEM (GitHub issue #175); LduMatrix remains the
+# FVM-optimised representation while this crate supplies an FEM-appropriate CSR
+# matrix implementing the same `LinearOperator` contract.
+outram-foam-basic-lib = { path = "../outram-foam-basic-lib" }

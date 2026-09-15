@@ -1,8 +1,9 @@
 use uom::si::f64::*;
 
-use super::{density, specific_heat_capacity, thermal_conductivity, LiquidMaterial, Material, SolidMaterial};
+use super::{
+    density, specific_heat_capacity, thermal_conductivity, LiquidMaterial, Material, SolidMaterial,
+};
 use crate::tuas_lib_error::TuasLibError;
-
 
 /// calculates thermal diffusivity of a material
 /// ```rust
@@ -35,42 +36,30 @@ use crate::tuas_lib_error::TuasLibError;
 /// epsilon = 0.001);
 ///
 /// // conductivity is approx 15.62 W/(m K)
-/// let steel_thermal_cond: ThermalConductivity = 
+/// let steel_thermal_cond: ThermalConductivity =
 /// try_get_kappa_thermal_conductivity(steel, temperature, pressure).unwrap();
-/// 
+///
 /// approx::assert_relative_eq!(
 /// steel_thermal_cond.value,
 /// 15.62,
 /// max_relative = 0.035);
 /// ```
 #[inline]
-pub fn try_get_alpha_thermal_diffusivity(material: Material, 
+pub fn try_get_alpha_thermal_diffusivity(
+    material: Material,
     temperature: ThermodynamicTemperature,
-    pressure: Pressure) -> Result<DiffusionCoefficient,TuasLibError> {
+    pressure: Pressure,
+) -> Result<DiffusionCoefficient, TuasLibError> {
+    let material_thermal_conductivity: ThermalConductivity =
+        thermal_conductivity::try_get_kappa_thermal_conductivity(material, temperature, pressure)?;
 
-    let material_thermal_conductivity: ThermalConductivity = 
-    thermal_conductivity::try_get_kappa_thermal_conductivity(
-        material, 
-        temperature, 
-        pressure)?;
-    
-    
-    let material_density: MassDensity = 
-    density::try_get_rho(
-        material, 
-        temperature, 
-        pressure)?;
-    
-    let material_specific_heat_capacity: SpecificHeatCapacity = 
-    specific_heat_capacity::try_get_cp(
-        material, 
-        temperature, 
-        pressure)?;
+    let material_density: MassDensity = density::try_get_rho(material, temperature, pressure)?;
 
-    let alpha: DiffusionCoefficient = 
-    material_thermal_conductivity/ 
-    material_density/ 
-    material_specific_heat_capacity;
+    let material_specific_heat_capacity: SpecificHeatCapacity =
+        specific_heat_capacity::try_get_cp(material, temperature, pressure)?;
+
+    let alpha: DiffusionCoefficient =
+        material_thermal_conductivity / material_density / material_specific_heat_capacity;
 
     return Ok(alpha);
 }
@@ -80,34 +69,24 @@ impl LiquidMaterial {
     /// (alpha = k / (rho * cp)), in m^2/s, wrapped in a `Result`.
     /// Valid over the liquid's coded correlation temperature range.
     #[inline]
-    pub fn try_get_alpha_thermal_diffusivity(&self,
+    pub fn try_get_alpha_thermal_diffusivity(
+        &self,
         fluid_temp: ThermodynamicTemperature,
-        pressure: Pressure) 
-        -> Result<DiffusionCoefficient, TuasLibError>{
-
-            try_get_alpha_thermal_diffusivity(
-                self.clone().into(),
-                fluid_temp,
-                pressure)
-        }
-
-
+        pressure: Pressure,
+    ) -> Result<DiffusionCoefficient, TuasLibError> {
+        try_get_alpha_thermal_diffusivity(self.clone().into(), fluid_temp, pressure)
+    }
 }
 impl SolidMaterial {
     /// returns the solid material's thermal diffusivity
     /// (alpha = k / (rho * cp)), in m^2/s, wrapped in a `Result`.
     /// Valid over the solid's coded correlation temperature range.
     #[inline]
-    pub fn try_get_alpha_thermal_diffusivity(&self,
+    pub fn try_get_alpha_thermal_diffusivity(
+        &self,
         solid_temp: ThermodynamicTemperature,
-        pressure: Pressure) 
-        -> Result<DiffusionCoefficient, TuasLibError>{
-
-            try_get_alpha_thermal_diffusivity(
-                self.clone().into(),
-                solid_temp,
-                pressure)
-        }
-
-
+        pressure: Pressure,
+    ) -> Result<DiffusionCoefficient, TuasLibError> {
+        try_get_alpha_thermal_diffusivity(self.clone().into(), solid_temp, pressure)
+    }
 }

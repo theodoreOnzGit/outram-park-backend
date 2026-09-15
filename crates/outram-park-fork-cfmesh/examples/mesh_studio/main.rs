@@ -6,8 +6,8 @@
 //! solvable polyhedral-with-layers mesh:
 //!
 //! ```text
-//! shapes  →  carve_box  →  snap_to_surface  →  polyhedral_dual  →  add_boundary_layers  →  write_polymesh
-//! (surface)  (hex bg)      (body-fit)          (polyhedral cells)   (prism wall layers)     (OpenFOAM)
+//! shapes  →  carve_box  →  snap_to_surface  →  polyhedral_dual  →  add_boundary_layers_adaptive  →  write_polymesh
+//! (surface)  (hex bg)      (body-fit)          (polyhedral cells)   (prism wall layers)             (OpenFOAM)
 //! ```
 //!
 //! Each stage is a toggle so you can inspect the mesh at any point; the default
@@ -103,6 +103,10 @@ mod app {
         p: Params,
         yaw: f32,
         pitch: f32,
+        /// Directory the `polyMesh` is written to, as typed in the export box.
+        /// Defaults to `<temp>/mesh_studio/polyMesh`, where `<temp>` is
+        /// [`std::env::temp_dir`] — so it follows `$TMPDIR` rather than
+        /// hardcoding `/tmp`, which does not exist on Android/Termux.
         export_dir: String,
         export_msg: String,
         slot: Arc<RwLock<Slot>>,
@@ -127,7 +131,11 @@ mod app {
                 },
                 yaw: 0.6,
                 pitch: 0.5,
-                export_dir: "/tmp/mesh_studio/polyMesh".into(),
+                export_dir: std::env::temp_dir()
+                    .join("mesh_studio")
+                    .join("polyMesh")
+                    .to_string_lossy()
+                    .into_owned(),
                 export_msg: String::new(),
                 slot: Arc::new(RwLock::new(Slot::default())),
                 current: None,
@@ -149,11 +157,17 @@ mod app {
     /// **Graceful degradation:** each optional stage (snap / dual / layers) is
     /// applied only if it keeps the mesh valid (closed, per `validate`);
     /// otherwise it is skipped and noted. So the result is always a valid,
-    /// exportable mesh, and the caller is told the truth about what ran. In
-    /// practice the polyhedral dual is robust on curved geometry, but prism
-    /// **boundary layers are currently reliable only on flat-walled (box)
-    /// geometry** — on a curved wall they can invalidate the mesh and are then
-    /// skipped (see the `notes`). Curved-wall prism layers are WIP (bead).
+    /// exportable mesh, and the caller is told the truth about what ran.
+    ///
+    /// In practice the polyhedral dual is robust on curved geometry, and the
+    /// layer stage uses [`add_boundary_layers_adaptive`] (smoothed normals +
+    /// per-point thickness limiting + validity back-off), which the crate's
+    /// tests exercise on snapped **spheres and cylinders** as well as flat
+    /// boxes. On a curved wall the achieved thickness may therefore be **less
+    /// than requested** rather than the stage being skipped outright; if even
+    /// the backed-off march would invalidate the mesh, the stage is skipped and
+    /// a line is added to `notes`. Read `notes` rather than assuming the full
+    /// requested layer stack was inserted.
     fn build(p: &Params) -> Result<Built, String> {
         let (pts, tris) = surface(p);
         let cs = p.cell_size.max(1e-3);
@@ -168,7 +182,9 @@ mod app {
             if next.validate().is_ok() {
                 next
             } else {
-                notes.push(format!("{name} skipped — it would invalidate the mesh on this geometry"));
+                notes.push(format!(
+                    "{name} skipped — it would invalidate the mesh on this geometry"
+                ));
                 m
             }
         };
@@ -178,15 +194,25 @@ mod app {
             m = stage(m, snapped, "snap-to-surface");
         }
         if p.dual {
-            let dual = if p.dual_min_faces { polyhedral_dual_min_faces(&m) } else { polyhedral_dual(&m) };
+            let dual = if p.dual_min_faces {
+                polyhedral_dual_min_faces(&m)
+            } else {
+                polyhedral_dual(&m)
+            };
             m = stage(m, dual, "polyhedral dual");
         }
         if p.n_layers > 0 {
             // Adaptive layers: smoothed normals + validity back-off, so curved
             // (sphere/cylinder) and polyhedral walls take layers too (the
             // thickness may be reduced from the request to stay valid).
-            let layered = add_boundary_layers_adaptive(&m, "walls", p.n_layers, p.first_thickness.max(1e-4), p.expansion.max(1.0));
-            m = stage(m, layered, "boundary layers could not be inserted on this geometry");
+            let layered = add_boundary_layers_adaptive(
+                &m,
+                "walls",
+                p.n_layers,
+                p.first_thickness.max(1e-4),
+                p.expansion.max(1.0),
+            );
+            m = stage(m, layered, "boundary layers");
         }
         if let Err(e) = m.validate() {
             return Err(format!("generated mesh is not closed: {e}"));
@@ -232,7 +258,7 @@ mod app {
             self.poll();
             let running = self.slot.read().unwrap().running;
 
-            egui::Panel::top("ms_top").show_inside(ui, |ui| {
+            egui::Panel::top("ms_top").show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading("Mesh Studio");
                     ui.label("· surface → polyhedral volume mesh + prism layers → OpenFOAM/outram-foam polyMesh");
@@ -241,11 +267,13 @@ mod app {
                 ui.separator();
             });
 
-            egui::Panel::right("ms_controls").min_size(340.0).show_inside(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| self.controls_ui(ui, running));
-            });
+            egui::Panel::right("ms_controls")
+                .min_size(340.0)
+                .show(ui, |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| self.controls_ui(ui, running));
+                });
 
-            egui::CentralPanel::default().show_inside(ui, |ui| self.center_ui(ui, running));
+            egui::CentralPanel::default().show(ui, |ui| self.center_ui(ui, running));
 
             if running {
                 ui.ctx().request_repaint();
@@ -271,7 +299,9 @@ mod app {
 
             ui.separator();
             ui.heading("Meshing pipeline");
-            ui.add(egui::Slider::new(&mut self.p.cell_size, 0.1..=2.0).text("background cell size"));
+            ui.add(
+                egui::Slider::new(&mut self.p.cell_size, 0.1..=2.0).text("background cell size"),
+            );
             ui.checkbox(&mut self.p.snap, "snap to surface (body-fit)");
             ui.checkbox(&mut self.p.dual, "polyhedral dual");
             ui.add_enabled_ui(self.p.dual, |ui| {
@@ -282,13 +312,19 @@ mod app {
             ui.heading("Boundary layers");
             ui.add(egui::Slider::new(&mut self.p.n_layers, 0..=8).text("layers"));
             ui.add_enabled_ui(self.p.n_layers > 0, |ui| {
-                ui.add(egui::Slider::new(&mut self.p.first_thickness, 0.005..=0.3).text("first thickness"));
+                ui.add(
+                    egui::Slider::new(&mut self.p.first_thickness, 0.005..=0.3)
+                        .text("first thickness"),
+                );
                 ui.add(egui::Slider::new(&mut self.p.expansion, 1.0..=2.0).text("expansion ratio"));
             });
 
             ui.separator();
             ui.add_enabled_ui(!running, |ui| {
-                if ui.add(egui::Button::new("⚙  Generate mesh").min_size(egui::vec2(150.0, 32.0))).clicked() {
+                if ui
+                    .add(egui::Button::new("⚙  Generate mesh").min_size(egui::vec2(150.0, 32.0)))
+                    .clicked()
+                {
                     self.launch_build();
                 }
             });
@@ -323,7 +359,8 @@ mod app {
         fn center_ui(&mut self, ui: &mut egui::Ui, running: bool) {
             let avail = ui.available_size();
             let view_h = (avail.y * 0.6).max(240.0);
-            let (rect, response) = ui.allocate_exact_size(egui::vec2(avail.x, view_h), egui::Sense::drag());
+            let (rect, response) =
+                ui.allocate_exact_size(egui::vec2(avail.x, view_h), egui::Sense::drag());
             if response.dragged() {
                 let d = response.drag_delta();
                 self.yaw += d.x * 0.01;
@@ -342,34 +379,50 @@ mod app {
                     }
                 }
                 Some(Err(e)) => {
-                    ui.colored_label(egui::Color32::from_rgb(220, 80, 80), format!("Mesh generation failed: {e}"));
+                    ui.colored_label(
+                        egui::Color32::from_rgb(220, 80, 80),
+                        format!("Mesh generation failed: {e}"),
+                    );
                 }
                 Some(Ok(b)) => {
                     let m = &b.mesh;
                     ui.heading(format!("{} cells", m.cell_count()));
-                    egui::Grid::new("stats").num_columns(2).striped(true).show(ui, |ui| {
-                        ui.label("faces (internal / boundary)");
-                        ui.label(format!("{} ({} / {})", m.face_count(), m.n_internal_faces(), m.n_boundary_faces()));
-                        ui.end_row();
-                        ui.label("total volume");
-                        ui.label(format!("{:.4}", m.total_volume()));
-                        ui.end_row();
-                        ui.label("max non-orthogonality");
-                        ui.label(format!("{:.1}°", b.q.max_non_orthogonality_deg));
-                        ui.end_row();
-                        ui.label("max skewness");
-                        ui.label(format!("{:.3}", b.q.max_skewness));
-                        ui.end_row();
-                        ui.label("max aspect ratio");
-                        ui.label(format!("{:.2}", b.q.max_aspect_ratio));
-                        ui.end_row();
-                        ui.label("negative-volume cells");
-                        ui.label(format!("{}", b.q.n_negative_volume_cells));
-                        ui.end_row();
-                    });
+                    egui::Grid::new("stats")
+                        .num_columns(2)
+                        .striped(true)
+                        .show(ui, |ui| {
+                            ui.label("faces (internal / boundary)");
+                            ui.label(format!(
+                                "{} ({} / {})",
+                                m.face_count(),
+                                m.n_internal_faces(),
+                                m.n_boundary_faces()
+                            ));
+                            ui.end_row();
+                            ui.label("total volume");
+                            ui.label(format!("{:.4}", m.total_volume()));
+                            ui.end_row();
+                            ui.label("max non-orthogonality");
+                            ui.label(format!("{:.1}°", b.q.max_non_orthogonality_deg));
+                            ui.end_row();
+                            ui.label("max skewness");
+                            ui.label(format!("{:.3}", b.q.max_skewness));
+                            ui.end_row();
+                            ui.label("max aspect ratio");
+                            ui.label(format!("{:.2}", b.q.max_aspect_ratio));
+                            ui.end_row();
+                            ui.label("negative-volume cells");
+                            ui.label(format!("{}", b.q.n_negative_volume_cells));
+                            ui.end_row();
+                        });
                     if b.q.is_solvable() {
-                        ui.colored_label(egui::Color32::from_rgb(90, 200, 120), "✔ solvable (checkMesh thresholds)");
-                    } else if b.q.n_negative_volume_cells == 0 && b.q.max_non_orthogonality_deg < 85.0 {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(90, 200, 120),
+                            "✔ solvable (checkMesh thresholds)",
+                        );
+                    } else if b.q.n_negative_volume_cells == 0
+                        && b.q.max_non_orthogonality_deg < 85.0
+                    {
                         // Near-wall prism layers are intrinsically non-orthogonal;
                         // exceeding checkMesh's 70° warning is expected and is
                         // handled by a solver's non-orthogonal correctors.
@@ -378,7 +431,10 @@ mod app {
                             "✔ closed, no inverted cells · high near-wall non-orthogonality (normal for boundary layers — use non-orthogonal correctors)",
                         );
                     } else {
-                        ui.colored_label(egui::Color32::from_rgb(230, 170, 60), "⚠ quality below checkMesh thresholds");
+                        ui.colored_label(
+                            egui::Color32::from_rgb(230, 170, 60),
+                            "⚠ quality below checkMesh thresholds",
+                        );
                     }
                     for n in &b.notes {
                         ui.colored_label(egui::Color32::from_rgb(230, 170, 60), format!("• {n}"));
@@ -404,10 +460,12 @@ mod app {
             }
             let span = (hi - lo).max(egui::vec2(1e-3, 1e-3));
             let margin = 24.0;
-            let scale = ((rect.width() - 2.0 * margin) / span.x).min((rect.height() - 2.0 * margin) / span.y);
+            let scale = ((rect.width() - 2.0 * margin) / span.x)
+                .min((rect.height() - 2.0 * margin) / span.y);
             let center = rect.center();
             let mid = (lo + hi) * 0.5;
-            let to_screen = |v: egui::Vec2| center + egui::vec2((v.x - mid.x) * scale, -(v.y - mid.y) * scale);
+            let to_screen =
+                |v: egui::Vec2| center + egui::vec2((v.x - mid.x) * scale, -(v.y - mid.y) * scale);
             let stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(120, 200, 160));
             // Only boundary faces (neighbour == None) — the visible surface.
             for f in 0..m.face_count() {

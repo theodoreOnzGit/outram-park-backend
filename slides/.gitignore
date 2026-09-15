@@ -1,0 +1,10 @@
+# LaTeX build artefacts. The .bbl IS committed so the deck rebuilds with
+# pdflatex alone, without re-running bibtex.
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.blg
+*.synctex.gz

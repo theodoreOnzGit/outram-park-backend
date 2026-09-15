@@ -1,5 +1,16 @@
 # GPU batched-flight transport — timing V&V (op-u6s.7)
 
+<!-- op-jis-supersede-banner -->
+> ⚠️ **Superseded in part — `op-jis` PCG output permutation (2026-08-06).**
+> `rng::lcg::prn` gained OpenMC's PCG-RXS-M-XS output permutation (bead
+> `op-jis`). The LCG **state recurrence is unchanged**, so the integer-state
+> facts in this note (notably the `gpu_lcg_state_matches_cpu` bit-exactness
+> result) still hold verbatim, and the wall-clock timing table is a
+> machine-specific performance record rather than a sampled statistic. The
+> **k-eigenvalue agreement table**, however, is derived from sampled uniforms and
+> has moved; it is marked **PENDING A RE-RUN** below rather than replaced with a
+> guessed value.
+
 > **Follow-up (op-u6s.8, 2026-07-17): collision physics moved onto the GPU.**
 > The "no crossover, GPU loses" verdict below was for the path that kept the
 > *collision* on the CPU (a CPU↔GPU round-trip per event). op-u6s.8 ports the
@@ -71,6 +82,15 @@ The GPU LCG **state** emulation is verified bit-exact on the RTX 3050
 `future_seed(1, seed)`). The `CpuSingleThread` `f64` path remains the trusted,
 bit-reproducible reference; the GPU is an `f32` acceleration path only.
 
+> **Unaffected by `op-jis` (2026-08-06) — stated explicitly.** The 1024/1024
+> result above is an **integer-state** fact about the LCG *recurrence*, which the
+> PCG-RXS-M-XS change did **not** touch — `op-jis` only permutes the *output* of
+> a state into a uniform. The GPU/CPU state mirror is therefore still bit-exact
+> and this figure needs no re-measurement. Note that the uniform *derived* from
+> that state does change on the CPU side (top-52 state bits → PCG-RXS-M-XS),
+> which is separate from, and additional to, the pre-existing f32 divergence
+> noted above.
+
 ## Timing sweep — methodology
 
 Godiva LOW-tier material (U-234/235/238, ICSBEP atom densities, T = 293.6 K,
@@ -110,7 +130,17 @@ regenerate with the command above. Wall-clock seconds for a 10-generation run
 | 100 000   | 2.281 | 0.843 | 4.530 |
 | 1 000 000 | (n/a) | 7.172 | 34.014 |
 
-k-eigenvalue agreement (all within combined 1-sigma of the CPU reference):
+k-eigenvalue agreement (all within combined 1-sigma of the CPU reference) —
+**SUPERSEDED BY `op-jis`, PENDING A RE-RUN:**
+
+> ⚠️ The four rows below were measured on 2026-07-17 with the **pre-`op-jis`
+> output function** (raw top-52 state bits). Every one is a statistic of sampled
+> uniforms, so all of them moved when `op-jis` landed on 2026-08-06. This sweep
+> is an `--ignored` timing test and was **not** re-run in the `op-jis` pass, so
+> **no post-`op-jis` replacement values exist** — none have been invented here.
+> The old numbers are left visible as the historical record; **do not cite them
+> as current**. Retire this note by re-running
+> `cargo test -p outram-mc-libs --lib --release gpu_batched_timing_sweep -- --ignored --nocapture`.
 
 | Histories/gen | k single | k multi | k gpu |
 |---|---|---|---|
@@ -118,6 +148,12 @@ k-eigenvalue agreement (all within combined 1-sigma of the CPU reference):
 | 10 000    | 1.0020 $\pm$ 0.0063 | 1.0061 $\pm$ 0.0050 | 1.0078 $\pm$ 0.0016 |
 | 100 000   | 1.0096 $\pm$ 0.0025 | 1.0086 $\pm$ 0.0033 | 1.0094 $\pm$ 0.0028 |
 | 1 000 000 | (n/a) | 1.0080 $\pm$ 0.0029 | 1.0085 $\pm$ 0.0029 |
+
+The *qualitative* conclusion — the three backends agree within combined
+uncertainty — is a property of the transport physics, not of a particular RNG
+stream, and is independently re-confirmed post-`op-jis` by the in-suite
+`three_compute_modes_agree_on_godiva` gate (see
+`../../docs/gpu_collision_dev_log.md`, re-measured 2026-08-06).
 
 ## Verdict — no crossover; GPU still loses to CpuMultiThread
 
@@ -158,3 +194,9 @@ grid — i.e. at least as accurate as, and here ~2.7x better than, the equal-siz
 log grid, because window/group edges land on real feature boundaries the log grid
 steps over. GPU vs CPU on the native grid agrees to max |diff| = 3.9e-4 cm^-1.
 This is an accuracy improvement independent of the timing result.
+
+**Unaffected by `op-jis`, and re-confirmed 2026-08-06.** The native-union
+GPU-vs-CPU probe energies are RNG-free, so this gate does not depend on `prn`.
+Re-measured on 2026-08-06 (NVIDIA RTX A5000 / NVK GA102): **max |diff| =
+3.866e-4 cm^-1, mean |diff| = 3.521e-6 cm^-1** — consistent with the 3.9e-4
+cm^-1 recorded above, now stated to full precision and with the mean added.

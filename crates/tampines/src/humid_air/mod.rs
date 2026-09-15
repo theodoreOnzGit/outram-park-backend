@@ -12,7 +12,8 @@
 use outram_park_fork_coolprop::humid_air::{ha_props, HaInput, HumidAirParam};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::f64::{
-    AvailableEnergy, Pressure, Ratio, SpecificHeatCapacity, SpecificVolume, ThermodynamicTemperature,
+    AvailableEnergy, Pressure, Ratio, SpecificHeatCapacity, SpecificVolume,
+    ThermodynamicTemperature,
 };
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;

@@ -33,7 +33,6 @@ pub mod eos;
 pub mod thermo;
 pub mod transport;
 
-
 pub use constants::*;
 pub use error::*;
 pub use quantities::*;

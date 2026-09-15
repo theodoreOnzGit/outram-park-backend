@@ -36,7 +36,20 @@ structure.
 
 ## Existing content in this folder
 
-This folder already has `notes.md` (hand-maintained) and `derivation/` — a full, **not** bite-sized, `ucbthesis`-class LaTeX derivation predating this convention.
+Refreshed 2026-08-11 (the earlier version of this list named only `notes.md` and
+`derivation/`, and had fallen behind):
+
+| File | Kind |
+|---|---|
+| `notes.md` | Hand-maintained. Testing notes, choked-flow status/history, workspace migration log |
+| `derivation/` | A full, **not** bite-sized, `ucbthesis`-class LaTeX derivation predating this convention |
+| `api.md` | **Generated** rustdoc mirror (`kovan api-docs tampines-steam-tables`). Never hand-edit it — regenerate. It currently reports `Version: 0.2.2` while `Cargo.toml` is at 0.2.5, so it is stale and due a regeneration |
+| `edwards_blowdown_solver_debugging.md` | Hand-maintained development-history / debugging write-up for the Edwards–O'Brien blowdown on `TampinesSteamArray` |
+| `validation-scope-turbine-and-pipe.md` | Hand-maintained V&V scoping document: what is validated today, and the candidate benchmark cases |
+
+Note that the crate also keeps hand-maintained markdown outside this folder:
+`../debug_markdowns/` (choked-flow debugging trails) and
+`../verification_and_validation/` (durable V&V records).
 
 **Exception, confirmed 2026-07-10:** `derivation/` is left as-is, not retrofitted into the 4-part bite-sized structure — it is a self-contained thesis-style document with its own internal chapter structure, and splitting it would lose that structure for no benefit. Any genuinely *new* topic written under this crate's `docs/` going forward should use the bite-sized `latex/` convention (see `outram-park-fork-coolprop/docs/`); `derivation/` itself is not touched.
 

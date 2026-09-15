@@ -1,9 +1,9 @@
 /// Spatial source distributions.
 ///
 /// C++ source: `src/distribution_spatial.cpp`, `include/openmc/distribution_spatial.h`.
-
 use crate::geometry::position::Position;
 use crate::rng::lcg::prn;
+use crate::mathf::RealMath;
 
 /// Trait for spatial distributions.
 pub trait SpatialDist: Send + Sync {
@@ -11,13 +11,20 @@ pub trait SpatialDist: Send + Sync {
 }
 
 /// Point source — all particles start at the same location.
-pub struct PointSource { pub r: Position }
+pub struct PointSource {
+    pub r: Position,
+}
 impl SpatialDist for PointSource {
-    fn sample(&self, _seed: &mut u64) -> Position { self.r }
+    fn sample(&self, _seed: &mut u64) -> Position {
+        self.r
+    }
 }
 
 /// Uniform box source.
-pub struct BoxSource { pub lower_left: Position, pub upper_right: Position }
+pub struct BoxSource {
+    pub lower_left: Position,
+    pub upper_right: Position,
+}
 impl SpatialDist for BoxSource {
     fn sample(&self, seed: &mut u64) -> Position {
         Position::new(
@@ -42,7 +49,7 @@ impl SpatialDist for SphericalSource {
         // A degenerate shell (r_inner == r_outer) yields that exact radius.
         let ri3 = self.r_inner.powi(3);
         let ro3 = self.r_outer.powi(3);
-        let r = (ri3 + prn(seed) * (ro3 - ri3)).cbrt();
+        let r = (ri3 + prn(seed) * (ro3 - ri3)).r_cbrt();
         // Isotropic point on the sphere of that radius.
         let (dx, dy, dz) = crate::rng::distributions::isotropic_direction(seed);
         Position::new(

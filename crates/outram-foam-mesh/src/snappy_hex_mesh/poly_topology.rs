@@ -74,7 +74,7 @@ use crate::MeshError;
 /// face-winding convention this type requires.
 #[derive(Debug, Clone)]
 pub struct PolyPatchMesh {
-    /// Mesh point coordinates [m]. Moving snapping/layer motion edits this.
+    /// Mesh point coordinates `[m]`. Moving snapping/layer motion edits this.
     pub points: Vec<Vector3>,
     /// Per-face ordered point indices into [`points`](Self::points). Internal
     /// faces first (`[0, n_internal_faces)`), then boundary faces by patch.
@@ -96,7 +96,7 @@ pub struct PolyPatchMesh {
 /// layer addition on (a subset of `meshQualityControls`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MeshQuality {
-    /// Worst internal-face non-orthogonality [degrees] — the angle between the
+    /// Worst internal-face non-orthogonality `[degrees]` — the angle between the
     /// face area vector and the owner→neighbour centre-to-centre vector. `0` is
     /// perfectly orthogonal; OpenFOAM's default reject threshold is `65°`.
     pub max_non_ortho_deg: f64,
@@ -104,7 +104,7 @@ pub struct MeshQuality {
     /// offset of the face centre from the owner–neighbour line. OpenFOAM's
     /// default reject threshold is `4.0`.
     pub max_skewness: f64,
-    /// Smallest cell volume [m³]. Non-positive means an inverted / degenerate
+    /// Smallest cell volume `[m³]`. Non-positive means an inverted / degenerate
     /// cell (fatal).
     pub min_cell_volume: f64,
     /// Number of cells whose volume is `<= 0` (negative-volume / inverted).
@@ -117,11 +117,11 @@ pub struct MeshQuality {
 /// phases enforce. A candidate mesh passes iff every metric is within limits.
 #[derive(Debug, Clone, Copy)]
 pub struct QualityLimits {
-    /// Maximum allowed non-orthogonality [degrees] (OpenFOAM default `65`).
+    /// Maximum allowed non-orthogonality `[degrees]` (OpenFOAM default `65`).
     pub max_non_ortho_deg: f64,
     /// Maximum allowed skewness (OpenFOAM default `4.0`).
     pub max_skewness: f64,
-    /// Minimum allowed cell volume [m³] (OpenFOAM default `1e-13`).
+    /// Minimum allowed cell volume `[m³]` (OpenFOAM default `1e-13`).
     pub min_vol: f64,
 }
 
@@ -145,7 +145,7 @@ impl QualityLimits {
     }
 }
 
-/// Area vector [m²] and centre [m] of one polygonal face, by fan triangulation
+/// Area vector `[m²]` and centre `[m]` of one polygonal face, by fan triangulation
 /// about the point average (OpenFOAM `makeFaceCentresAndAreas`).
 ///
 /// The returned area vector obeys the right-hand rule over the point order; a
@@ -201,7 +201,7 @@ impl PolyPatchMesh {
         self.faces.len() - self.n_internal_faces
     }
 
-    /// Face area vectors [m²] and centres [m] for every face, in face order.
+    /// Face area vectors `[m²]` and centres `[m]` for every face, in face order.
     pub fn face_geometry(&self) -> (Vec<Vector3>, Vec<Vector3>) {
         let mut areas = Vec::with_capacity(self.faces.len());
         let mut centres = Vec::with_capacity(self.faces.len());
@@ -213,7 +213,7 @@ impl PolyPatchMesh {
         (areas, centres)
     }
 
-    /// Cell centres [m] and volumes [m³] from the face geometry, by the
+    /// Cell centres `[m]` and volumes `[m³]` from the face geometry, by the
     /// face-pyramid decomposition of OpenFOAM `makeCellCentresAndVols`.
     ///
     /// `face_areas`/`face_centres` must be the arrays returned by
@@ -395,6 +395,46 @@ impl PolyPatchMesh {
             }
         }
         sv_mag / fd
+    }
+
+    /// Convert to the writable `outram-foam-basic-lib`
+    /// [`PolyMesh`](outram_foam_basic_lib::io::PolyMesh) — the on-disk
+    /// `constant/polyMesh` representation.
+    ///
+    /// This is a pure re-packing: points, face vertex loops, owner/neighbour
+    /// and patches are carried across unchanged (both types use the same
+    /// internal-faces-first ordering and the same winding convention), with
+    /// each face's `neighbour` becoming `Some(..)` for the first
+    /// [`n_internal_faces`](Self::n_internal_faces) faces and `None` after.
+    /// No geometry is recomputed.
+    ///
+    /// Use it to write a snapped mesh to an OpenFOAM case
+    /// ([`PolyMesh::write`](outram_foam_basic_lib::io::PolyMesh::write)) or to
+    /// grade it with
+    /// [`assess_quality`](crate::mesh_quality::assess_quality).
+    pub fn to_foam_poly_mesh(&self) -> outram_foam_basic_lib::io::PolyMesh {
+        use outram_foam_basic_lib::io::{MeshFace, PolyMesh};
+        let faces = self
+            .faces
+            .iter()
+            .enumerate()
+            .map(|(f, verts)| MeshFace {
+                verts: verts.clone(),
+                owner: self.owner[f],
+                neighbour: if f < self.n_internal_faces {
+                    Some(self.neighbour[f])
+                } else {
+                    None
+                },
+            })
+            .collect();
+        PolyMesh {
+            points: self.points.clone(),
+            faces,
+            n_internal_faces: self.n_internal_faces,
+            n_cells: self.n_cells,
+            patches: self.patches.clone(),
+        }
     }
 
     /// Global face indices belonging to boundary patch `patch_index`.

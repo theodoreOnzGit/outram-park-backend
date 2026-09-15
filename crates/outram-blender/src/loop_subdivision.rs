@@ -1,3 +1,29 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: C. T. Loop, "Smooth Subdivision Surfaces Based on Triangles",
+// M.Sc. thesis, Department of Mathematics, University of Utah, 1987; with the
+// simplified vertex weight of J. Warren and H. Weimer, "Subdivision Methods for
+// Geometric Design", Morgan Kaufmann, 2001.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the Subdivision-Surface modifier,
+// triangle path.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **Loop subdivision** — a smooth subdivision surface for **triangle** meshes.
 //!
 //! Blender analogue: the Subdivision-Surface modifier in its triangle path
@@ -89,7 +115,9 @@ fn subdivide_once(mesh: &TriMesh) -> TriMesh {
     for (&(u, w), opp) in &edge_opp {
         let p = if opp.len() >= 2 {
             // Interior: 3/8 (a+b) + 1/8 (c+d).
-            positions[u].add(positions[w]).scale(3.0 / 8.0)
+            positions[u]
+                .add(positions[w])
+                .scale(3.0 / 8.0)
                 .add(positions[opp[0]].add(positions[opp[1]]).scale(1.0 / 8.0))
         } else {
             // Boundary: midpoint.
@@ -105,7 +133,8 @@ fn subdivide_once(mesh: &TriMesh) -> TriMesh {
             // 3/4 v + 1/8 (b1 + b2). Fall back to v if the boundary is malformed.
             if boundary_nbrs[v].len() == 2 {
                 let (b1, b2) = (boundary_nbrs[v][0], boundary_nbrs[v][1]);
-                positions[v].scale(0.75)
+                positions[v]
+                    .scale(0.75)
                     .add(positions[b1].add(positions[b2]).scale(1.0 / 8.0))
             } else {
                 positions[v]
@@ -116,12 +145,18 @@ fn subdivide_once(mesh: &TriMesh) -> TriMesh {
             if deg == 0 {
                 positions[v]
             } else {
-                let beta = if deg == 3 { 3.0 / 16.0 } else { 3.0 / (8.0 * deg as f64) };
+                let beta = if deg == 3 {
+                    3.0 / 16.0
+                } else {
+                    3.0 / (8.0 * deg as f64)
+                };
                 let mut sum = Vec3::ZERO;
                 for &k in nbrs {
                     sum = sum.add(positions[k]);
                 }
-                positions[v].scale(1.0 - deg as f64 * beta).add(sum.scale(beta))
+                positions[v]
+                    .scale(1.0 - deg as f64 * beta)
+                    .add(sum.scale(beta))
             }
         };
     }
@@ -138,7 +173,10 @@ fn subdivide_once(mesh: &TriMesh) -> TriMesh {
         new_tris.push([e_ab, e_bc, e_ca]);
     }
 
-    TriMesh { positions: new_positions, tris: new_tris }
+    TriMesh {
+        positions: new_positions,
+        tris: new_tris,
+    }
 }
 
 /// A plain triangle mesh (positions + index triples), the working form here.
@@ -197,8 +235,14 @@ mod tests {
             Vec3::new(0.0, 0.0, -1.0),
         ];
         let faces = vec![
-            vec![0, 2, 4], vec![2, 1, 4], vec![1, 3, 4], vec![3, 0, 4],
-            vec![2, 0, 5], vec![1, 2, 5], vec![3, 1, 5], vec![0, 3, 5],
+            vec![0, 2, 4],
+            vec![2, 1, 4],
+            vec![1, 3, 4],
+            vec![3, 0, 4],
+            vec![2, 0, 5],
+            vec![1, 2, 5],
+            vec![3, 1, 5],
+            vec![0, 3, 5],
         ];
         Mesh::from_polygons(&positions, &faces)
     }
@@ -209,7 +253,9 @@ mod tests {
         for face in m.polygons() {
             let n = face.len();
             for i in 0..n {
-                *use_count.entry(key(face[i].0, face[(i + 1) % n].0)).or_insert(0) += 1;
+                *use_count
+                    .entry(key(face[i].0, face[(i + 1) % n].0))
+                    .or_insert(0) += 1;
             }
         }
         use_count.values().all(|&c| c == 2)
@@ -244,8 +290,12 @@ mod tests {
         );
         // And the mesh genuinely rounded (mean radius grew toward the inscribed
         // region, i.e. strictly less than the corner radius 1 on average).
-        let mean_r = two.positions().iter().map(|p| p.length()).sum::<f64>() / two.vertex_count() as f64;
-        assert!(mean_r < 1.0, "corners smoothed inward, mean radius {mean_r} < 1");
+        let mean_r =
+            two.positions().iter().map(|p| p.length()).sum::<f64>() / two.vertex_count() as f64;
+        assert!(
+            mean_r < 1.0,
+            "corners smoothed inward, mean radius {mean_r} < 1"
+        );
     }
 
     /// Methodology: **boundary preserved, patch stays planar.** Subdividing a
@@ -261,12 +311,24 @@ mod tests {
         let grid = primitives::grid(3, 3, 1.0);
         let tri_faces = 3 * 3 * 2; // fan-triangulated quads
         let out = loop_subdivide(&grid, 1);
-        assert_eq!(out.face_count(), tri_faces * 4, "F' = 4F of the triangulated grid");
+        assert_eq!(
+            out.face_count(),
+            tri_faces * 4,
+            "F' = 4F of the triangulated grid"
+        );
         assert_eq!(out.euler_characteristic(), 1, "stays a disc (chi=1)");
         for p in out.positions() {
             assert!(p.z.abs() < 1e-12, "left the z=0 plane: {}", p.z);
-            assert!(p.x >= -0.5 - 1e-12 && p.x <= 0.5 + 1e-12, "x out of footprint: {}", p.x);
-            assert!(p.y >= -0.5 - 1e-12 && p.y <= 0.5 + 1e-12, "y out of footprint: {}", p.y);
+            assert!(
+                p.x >= -0.5 - 1e-12 && p.x <= 0.5 + 1e-12,
+                "x out of footprint: {}",
+                p.x
+            );
+            assert!(
+                p.y >= -0.5 - 1e-12 && p.y <= 0.5 + 1e-12,
+                "y out of footprint: {}",
+                p.y
+            );
         }
     }
 

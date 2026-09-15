@@ -35,9 +35,7 @@ use super::chf::{
 use super::ff_htc::FfForcedConvectionHtc;
 use super::fs_htc::{FsForcedConvectionHtc, PoolBoilingHtc};
 use super::{LatentHeat, PrandtlNumber};
-use crate::genfoam::thermal_hydraulics::units::{
-    reynolds_number, HeatFlux, HeatTransferCoefficient,
-};
+use crate::genfoam::thermal_hydraulics::units::{reynolds_number, HeatFlux, HeatTransferCoefficient};
 use approx::assert_relative_eq;
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::dynamic_viscosity::pascal_second;

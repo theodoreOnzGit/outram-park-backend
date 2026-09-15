@@ -77,9 +77,12 @@
 //! onto an `fvMesh` (filling one `volScalarField` per group by looping over the
 //! cells of each `cellZone`), and handles control-rod driveline motion and
 //! discontinuity-factor flux adjustment — all of which need the mesh /
-//! multi-region layers. Those are **deferred** to the field-materialisation
-//! slice (tracked in beads under the `neutronics` epic) and are not implemented
-//! here. The evaluation methods below are exactly the per-cell `.get(...)` call
+//! multi-region layers and so are not implemented *in this module*. Mesh
+//! materialisation has since landed next door, in
+//! [`DiffusionXsFields`](crate::genfoam::neutronics::diffusion::DiffusionXsFields)
+//! and its SP3 counterpart. **Control-rod driveline motion and
+//! discontinuity-factor adjustment remain deferred** (tracked in beads under
+//! the `neutronics` epic). The evaluation methods below are exactly the per-cell `.get(...)` call
 //! GeN-Foam performs in `setNeutronicsVariables.H`, lifted out of the cell loop.
 //!
 //! ## Dependency on `genfoam::common`

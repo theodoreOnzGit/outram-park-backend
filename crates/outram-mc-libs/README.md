@@ -27,8 +27,15 @@
 
 Pure-Rust port of selected [OpenMC](https://openmc.org) Monte Carlo
 neutron-transport kernels — RNG, geometry/CSG, particle tracking,
-k-eigenvalue, and delta (Woodcock) tracking for doubly heterogeneous media
+k-eigenvalue (criticality) and fixed-source (external-source / shielding)
+drivers, and delta (Woodcock) tracking for doubly heterogeneous media
 (e.g. pebble-bed cores).
+
+Both canonical Monte Carlo modes are available: the **k-eigenvalue** driver
+(`run_keff` / `run_keff_csg`) for criticality, and the **fixed-source** driver
+(`run_fixed_source`) for an external neutron source (point or box) driving a
+sub-critical or non-multiplying system — the shielding / detector-response
+case, scoring track-length tallies with no power iteration.
 
 Data-free: all cross sections come from `njoy-outram-park-fork`'s
 `XsProvider` surface, not from any data bundled in this crate. See

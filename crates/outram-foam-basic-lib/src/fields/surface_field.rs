@@ -53,7 +53,7 @@ pub struct SurfaceField<T: Clone> {
 
 // ── Type aliases ──────────────────────────────────────────────────────────────
 
-/// Scalar surface field: one `f64` per face (e.g. face flux `phi` [m³/s]).
+/// Scalar surface field: one `f64` per face (e.g. face flux `phi` `[m³/s]`).
 pub type SurfaceScalarField = SurfaceField<f64>;
 /// Vector surface field: one `Vector3` per face.
 pub type SurfaceVectorField = SurfaceField<Vector3>;

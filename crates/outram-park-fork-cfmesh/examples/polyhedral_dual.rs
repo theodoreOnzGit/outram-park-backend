@@ -45,14 +45,25 @@ fn main() {
     let avg_faces = faces_per_cell.iter().sum::<usize>() as f64 / faces_per_cell.len() as f64;
     println!("\nPolyhedral dual (one cell per primal vertex):");
     println!("  cells              = {}", dual.cell_count());
-    println!("  faces              = {} ({} internal, {} boundary)", dual.face_count(), dual.n_internal_faces(), dual.n_boundary_faces());
+    println!(
+        "  faces              = {} ({} internal, {} boundary)",
+        dual.face_count(),
+        dual.n_internal_faces(),
+        dual.n_boundary_faces()
+    );
     println!("  faces/cell         = {avg_faces:.1} avg, {max_faces} max (polyhedral)");
-    println!("  volume             = {:.4}  (repartition — preserved)", dual.total_volume());
+    println!(
+        "  volume             = {:.4}  (repartition — preserved)",
+        dual.total_volume()
+    );
 
     // ---- Quality: is the polyhedral mesh solvable? --------------------------
     let q = check_quality(&dual);
     println!("\nQuality (checkMesh-style):");
-    println!("  max non-orthogonality = {:.2} deg", q.max_non_orthogonality_deg);
+    println!(
+        "  max non-orthogonality = {:.2} deg",
+        q.max_non_orthogonality_deg
+    );
     println!("  max skewness          = {:.3}", q.max_skewness);
     println!("  max aspect ratio      = {:.3}", q.max_aspect_ratio);
     println!("  min cell volume       = {:.3e}", q.min_cell_volume);

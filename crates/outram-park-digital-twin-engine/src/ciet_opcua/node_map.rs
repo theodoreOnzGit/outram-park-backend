@@ -47,8 +47,7 @@
 //! safety-critical infrastructure, or institutional production systems.
 
 use super::state::{
-    CietState, CTAH_PUMP_PRESSURE_LIMIT_PASCALS, HEATER_POWER_LIMIT_KILOWATTS,
-    MAX_TIMESTEP_SECONDS,
+    CietState, CTAH_PUMP_PRESSURE_LIMIT_PASCALS, HEATER_POWER_LIMIT_KILOWATTS, MAX_TIMESTEP_SECONDS,
 };
 
 /// Namespace URI for every CIET v2 variable.
@@ -242,9 +241,9 @@ impl CietSignal {
             | Self::Bt66TchxOutletDegC
             | Self::TopMixingNodeDegC
             | Self::BottomMixingNodeDegC => "degC",
-            Self::Fm40CtahBranchKgPerS
-            | Self::Fm20DhxBranchKgPerS
-            | Self::Fm60DracsKgPerS => "kg/s",
+            Self::Fm40CtahBranchKgPerS | Self::Fm20DhxBranchKgPerS | Self::Fm60DracsKgPerS => {
+                "kg/s"
+            }
             Self::CtahHtcWattPerM2K | Self::TchxHtcWattPerM2K => "W/(m^2 K)",
             Self::SimulationTimeSeconds | Self::ElapsedTimeSeconds => "s",
             Self::CalcTimeMs => "ms",
@@ -274,9 +273,7 @@ impl CietSignal {
             Self::CtahHtcWattPerM2K => state.ctah_htc_watt_per_m2_kelvin,
             Self::TchxHtcWattPerM2K => state.tchx_htc_watt_per_m2_kelvin,
             Self::TopMixingNodeDegC => state.top_mixing_node_5a_5b_4_temp_degc as f64,
-            Self::BottomMixingNodeDegC => {
-                state.bottom_mixing_node_17a_17b_18_temp_degc as f64
-            }
+            Self::BottomMixingNodeDegC => state.bottom_mixing_node_17a_17b_18_temp_degc as f64,
             Self::SimulationTimeSeconds => state.simulation_time_seconds,
             Self::ElapsedTimeSeconds => state.elapsed_time_seconds,
             Self::CalcTimeMs => state.calc_time_ms,
@@ -345,9 +342,7 @@ impl CietControl {
             Self::Bt41CtahOutletSetPointDegC => "CIET.Control.Bt41CtahOutletSetPointDegC",
             Self::Bt66TchxOutletSetPointDegC => "CIET.Control.Bt66TchxOutletSetPointDegC",
             Self::HeaterSteadyStatePowerKw => "CIET.Control.HeaterSteadyStatePowerKw",
-            Self::FrequencyResponseAmplitudeKw => {
-                "CIET.Control.FrequencyResponseAmplitudeKw"
-            }
+            Self::FrequencyResponseAmplitudeKw => "CIET.Control.FrequencyResponseAmplitudeKw",
             Self::FrequencyResponseAngularVelocityRadPerS => {
                 "CIET.Control.FrequencyResponseAngularVelocityRadPerS"
             }
@@ -373,9 +368,7 @@ impl CietControl {
             Self::Bt66TchxOutletSetPointDegC => "TCHX outlet set point (BT-66)",
             Self::HeaterSteadyStatePowerKw => "Heater steady-state power",
             Self::FrequencyResponseAmplitudeKw => "Frequency-response amplitude",
-            Self::FrequencyResponseAngularVelocityRadPerS => {
-                "Frequency-response angular velocity"
-            }
+            Self::FrequencyResponseAngularVelocityRadPerS => "Frequency-response angular velocity",
             Self::TimestepSeconds => "Solver timestep",
         }
     }
@@ -408,9 +401,7 @@ impl CietControl {
                 -CTAH_PUMP_PRESSURE_LIMIT_PASCALS,
                 CTAH_PUMP_PRESSURE_LIMIT_PASCALS,
             ),
-            Self::Bt41CtahOutletSetPointDegC | Self::Bt66TchxOutletSetPointDegC => {
-                (15.0, 120.0)
-            }
+            Self::Bt41CtahOutletSetPointDegC | Self::Bt66TchxOutletSetPointDegC => (15.0, 120.0),
             Self::FrequencyResponseAmplitudeKw => (0.0, 4.0),
             Self::FrequencyResponseAngularVelocityRadPerS => (0.0, 10.0),
             Self::TimestepSeconds => (0.001, MAX_TIMESTEP_SECONDS),
@@ -450,18 +441,10 @@ impl CietControl {
         match self {
             Self::HeaterPowerKw => state.set_heater_power_kilowatts(clamped),
             Self::CtahPumpPressurePascals => state.set_ctah_pump_pressure_pascals(clamped),
-            Self::Bt41CtahOutletSetPointDegC => {
-                state.bt_41_ctah_outlet_set_pt_deg_c = clamped
-            }
-            Self::Bt66TchxOutletSetPointDegC => {
-                state.bt_66_tchx_outlet_set_pt_deg_c = clamped
-            }
-            Self::HeaterSteadyStatePowerKw => {
-                state.heater_control.steady_state_power_kw = clamped
-            }
-            Self::FrequencyResponseAmplitudeKw => {
-                state.heater_control.total_amplitude_kw = clamped
-            }
+            Self::Bt41CtahOutletSetPointDegC => state.bt_41_ctah_outlet_set_pt_deg_c = clamped,
+            Self::Bt66TchxOutletSetPointDegC => state.bt_66_tchx_outlet_set_pt_deg_c = clamped,
+            Self::HeaterSteadyStatePowerKw => state.heater_control.steady_state_power_kw = clamped,
+            Self::FrequencyResponseAmplitudeKw => state.heater_control.total_amplitude_kw = clamped,
             Self::FrequencyResponseAngularVelocityRadPerS => {
                 state.heater_control.angular_velocity_rad_per_s = clamped
             }

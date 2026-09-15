@@ -24,6 +24,43 @@
 
 use crate::NjoyError;
 
+/// The energy-dependent scattering radius `AP(E)` \[10⁻¹² cm\] of an `NRO=1`
+/// range — the ENDF `TAB1` record that immediately follows the range's
+/// `[EL, EH, LRU, LRF, NRO, NAPS]` CONT (`rdunf2`, `unresr.f90:515-528`;
+/// `rdf2un`, `purr.f90:804-817`). Upstream stores it verbatim in the scratch
+/// array and interpolates it at every working energy with `terpa`
+/// (`unresl`, `unresr.f90:966-971`; `unresx`, `purr.f90:1342-1347`).
+#[derive(Debug, Clone)]
+pub struct ScatteringRadiusTable {
+    /// Interpolation regions `(NBT, INT)` in ENDF order.
+    pub interp: Vec<(u32, u32)>,
+    /// `(E, AP)` pairs in ascending energy.
+    pub xy: Vec<(f64, f64)>,
+}
+
+impl ScatteringRadiusTable {
+    /// `AP(E)` at energy `e` — the port of `terpa` (`endf.f90:1729-1818`) as
+    /// `unresl`/`unresx` call it (`ip=2, ir=1` reset every call, so the
+    /// search-position memory is irrelevant here). `terpa`'s conventions:
+    /// zero **below** the first tabulated energy; the last tabulated value
+    /// for `x` within a `1.00001` shade **above** the last energy; zero
+    /// further above. Inside the table the range's own `INT` law applies
+    /// (U-238's table is `INT=5`, log-log). Both modules only reach this for
+    /// `EL ≤ e ≤ EH`, and every evaluation seen tabulates `AP` on exactly
+    /// `[EL, EH]`, so the out-of-table arms are reproduced for fidelity, not
+    /// because they are expected to fire.
+    pub fn at(&self, e: f64) -> Result<f64, NjoyError> {
+        const SHADE: f64 = 1.000_01;
+        let Some(&(x_last, y_last)) = self.xy.last() else {
+            return Ok(0.0);
+        };
+        if e > x_last {
+            return Ok(if e < SHADE * x_last { y_last } else { 0.0 });
+        }
+        crate::endf::interp::eval_tab1(e, &self.interp, &self.xy)
+    }
+}
+
 /// One J-state (spin sequence) under Case A (`LFW=0`, energy-independent).
 /// Ported from `rdunf2:542-567`'s `i=1..5` capture.
 #[derive(Debug, Clone, Copy)]
@@ -93,6 +130,18 @@ pub struct JStateC {
     pub amun: f64,
     /// Degrees of freedom for the fission-width distribution (`AMUF`).
     pub amuf: f64,
+    /// ENDF `INT`, the interpolation law for this J-state's own parameter
+    /// table (`l1h` of its LIST header, ENDF-102 section 2.3.2).
+    ///
+    /// Carried because RECONR records it in MF=2/MT=152: `rdf2u2` assigns
+    /// `intunr=l1h` (`reconr.f90:1487`) and `genunr` stores it as `sunr(6)`
+    /// (`:1656`), where `sigunr` reads it back to interpolate the stored table
+    /// (`:1749`). Case A and Case B have no `INT` of their own and keep
+    /// `rdfil2`'s default of 5 (`:809`).
+    ///
+    /// Typical values: 2 (lin-lin, ENDF/B-VIII.0 U-234) and 5 (log-log,
+    /// ENDF/B-VIII.0 U-238).
+    pub int_: i32,
     /// Energy-dependent parameter table (`D`, `GX`, `GNO`, `GG`, `GF` vs
     /// `E`), interpolated between points by [`crate::unresr::interp_case_c`].
     pub points: Vec<UnresolvedPointC>,
@@ -162,10 +211,11 @@ pub struct UnresolvedRange {
     /// `unresl`'s `naps` handling, ported alongside [`crate::unresr`]).
     pub naps: i32,
     /// `NRO` flag: whether an energy-dependent scattering-radius `TAB1`
-    /// precedes the parameters (`rdunf2:517-528`). **Not yet ported** — see
-    /// the crate-level README caveats; ranges with `nro=1` are rejected by
-    /// [`parse_lru2_ranges`] rather than silently parsed wrong.
+    /// precedes the parameters (`rdunf2:517-528`). When `1`, [`Self::ap_table`]
+    /// holds it and [`Self::scattering_radius`] interpolates it.
     pub nro: i32,
+    /// The `NRO=1` scattering-radius table `AP(E)`; `None` when `NRO=0`.
+    pub ap_table: Option<ScatteringRadiusTable>,
     /// `LSSF` flag: if nonzero, the evaluator supplies already-self-shielded
     /// cross sections directly (skip the File-3 background read and the
     /// fluctuation-integral calculation — see `unresr.f90:172`).
@@ -173,6 +223,34 @@ pub struct UnresolvedRange {
     /// Which of the three ENDF-102 representations this range uses, and its
     /// parameters.
     pub case_: UnresolvedCase,
+}
+
+impl UnresolvedCase {
+    /// The scalar scattering radius `AP` \[10⁻¹² cm\] from the range's
+    /// `SPI/AP/LSSF` CONT (or LIST, Case B) header — `arry(inow+1)` after the
+    /// optional `TAB1` in `unresl:967-977`. Zero on evaluations that put the
+    /// whole radius into the `NRO=1` table (U-238 ENDF/B-VIII.0 writes
+    /// `AP=0.0` here).
+    pub fn ap(&self) -> f64 {
+        match self {
+            UnresolvedCase::CaseA { ap, .. }
+            | UnresolvedCase::CaseB { ap, .. }
+            | UnresolvedCase::CaseC { ap, .. } => *ap,
+        }
+    }
+}
+
+impl UnresolvedRange {
+    /// The scattering radius `ay` \[10⁻¹² cm\] upstream uses at energy `e` for
+    /// the phase shift (`rhoc = k·ay`) and, when `NAPS=1`, the channel
+    /// radius — `unresl:966-975` / `unresx:1342-1351`: the interpolated
+    /// [`Self::ap_table`] value when `NRO=1`, otherwise the header scalar.
+    pub fn scattering_radius(&self, e: f64) -> Result<f64, NjoyError> {
+        match &self.ap_table {
+            Some(t) => t.at(e),
+            None => Ok(self.case_.ap()),
+        }
+    }
 }
 
 /// Insert `e` into the sorted, duplicate-free list `list` in ascending order
@@ -226,7 +304,14 @@ impl<'a> Cursor<'a> {
     /// Read one CONT record (one row, interpreted as `C1,C2,L1,L2,N1,N2`).
     pub fn cont(&mut self) -> Result<Cont, NjoyError> {
         let r = self.next_row()?;
-        Ok(Cont { c1: r[0], c2: r[1], l1: r[2] as i32, l2: r[3] as i32, n1: r[4] as i32, n2: r[5] as i32 })
+        Ok(Cont {
+            c1: r[0],
+            c2: r[1],
+            l1: r[2] as i32,
+            l2: r[3] as i32,
+            n1: r[4] as i32,
+            n2: r[5] as i32,
+        })
     }
 
     /// Read one LIST record: the CONT header plus `N1` (`NPL`) body values
@@ -243,6 +328,31 @@ impl<'a> Cursor<'a> {
         body.truncate(npl);
         Ok((head, body))
     }
+
+    /// Read one TAB1 record: the CONT header (`N1=NR`, `N2=NP`), then `NR`
+    /// `(NBT, INT)` integer pairs (three per row) and `NP` `(x, y)` pairs
+    /// (three per row), each block spread over as many rows as it needs
+    /// (`tab1io` + `moreio`). Returns the header, the interpolation regions
+    /// and the points.
+    pub fn tab1(&mut self) -> Result<(Cont, Vec<(u32, u32)>, Vec<(f64, f64)>), NjoyError> {
+        let head = self.cont()?;
+        let nr = head.n1.max(0) as usize;
+        let np = head.n2.max(0) as usize;
+        let mut flat = Vec::with_capacity(2 * nr);
+        while flat.len() < 2 * nr {
+            flat.extend_from_slice(&self.next_row()?);
+        }
+        let interp: Vec<(u32, u32)> = flat[..2 * nr]
+            .chunks_exact(2)
+            .map(|p| (p[0].round() as u32, p[1].round() as u32))
+            .collect();
+        let mut flat = Vec::with_capacity(2 * np);
+        while flat.len() < 2 * np {
+            flat.extend_from_slice(&self.next_row()?);
+        }
+        let xy: Vec<(f64, f64)> = flat[..2 * np].chunks_exact(2).map(|p| (p[0], p[1])).collect();
+        Ok((head, interp, xy))
+    }
 }
 
 /// Parse every LRU=2 range on this material's MF=2 sections, skipping (but
@@ -258,11 +368,13 @@ impl<'a> Cursor<'a> {
 /// parameters, per [`crate::reconr::mf2`]); an `LRU=2` range is parsed in
 /// full via [`UnresolvedCase`].
 ///
+/// An `NRO=1` range's scattering-radius `TAB1` is read right after the
+/// range CONT, before the representation-specific header, exactly where
+/// `rdunf2:515-528` reads it (into [`UnresolvedRange::ap_table`]).
+///
 /// # Errors
 ///
-/// Returns [`NjoyError::EndfParse`] if a section is malformed, or if a range
-/// has `NRO=1` (energy-dependent scattering radius) — not yet ported (see
-/// [`UnresolvedRange::nro`]).
+/// Returns [`NjoyError::EndfParse`] if a section is malformed.
 pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRange>, NjoyError> {
     let mut cur = Cursor::new(section_rows);
     let mut ranges = Vec::new();
@@ -286,11 +398,14 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
             skip_resolved_range(&mut cur, lrf)?;
             continue;
         }
-        if nro == 1 {
-            return Err(NjoyError::EndfParse(
-                "unresr: NRO=1 (energy-dependent scattering radius) in LRU=2 range not yet ported".to_string(),
-            ));
-        }
+        // rdunf2:515-528 — the energy-dependent scattering-radius TAB1 sits
+        // between the range CONT and the SPI/AP/LSSF header.
+        let ap_table = if nro == 1 {
+            let (_, interp, xy) = cur.tab1()?;
+            Some(ScatteringRadiusTable { interp, xy })
+        } else {
+            None
+        };
 
         let (case_, lssf) = if lrf == 2 {
             parse_case_c(&mut cur)?
@@ -300,7 +415,16 @@ pub fn parse_lru2_ranges(section_rows: &[[f64; 6]]) -> Result<Vec<UnresolvedRang
             parse_case_a(&mut cur)?
         };
 
-        ranges.push(UnresolvedRange { el, eh, abn, naps, nro, lssf, case_ });
+        ranges.push(UnresolvedRange {
+            el,
+            eh,
+            abn,
+            naps,
+            nro,
+            ap_table,
+            lssf,
+            case_,
+        });
     }
 
     Ok(ranges)
@@ -368,12 +492,26 @@ fn parse_case_a(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
         for j in 0..njs {
             let base = j * 6;
             let get = |k: usize| body.get(base + k).copied().unwrap_or(0.0);
-            j_states.push(JStateA { d: get(0), aj: get(1), amun: get(2), gno: get(3), gg: get(4) });
+            j_states.push(JStateA {
+                d: get(0),
+                aj: get(1),
+                amun: get(2),
+                gno: get(3),
+                gg: get(4),
+            });
         }
         l_states.push(LState { l: ll, j_states });
     }
 
-    Ok((UnresolvedCase::CaseA { awri, ap, spi, l_states }, lssf))
+    Ok((
+        UnresolvedCase::CaseA {
+            awri,
+            ap,
+            spi,
+            l_states,
+        },
+        lssf,
+    ))
 }
 
 /// Case B (`LFW=1`, `LRF≠2`): `rdunf2:573-629`. Returns `(case, lssf)`.
@@ -387,7 +525,9 @@ fn parse_case_b(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
 
     // rdunf2:585-594 — the shared fission-width energy grid, 7-sigfig
     // rounded exactly as the range boundaries are.
-    let fission_energies: Vec<f64> = (0..ne).map(|i| sigfig7(body.get(i).copied().unwrap_or(0.0))).collect();
+    let fission_energies: Vec<f64> = (0..ne)
+        .map(|i| sigfig7(body.get(i).copied().unwrap_or(0.0)))
+        .collect();
 
     let mut awri = 0.0;
     let mut l_states = Vec::with_capacity(nls.max(0) as usize);
@@ -411,13 +551,32 @@ fn parse_case_b(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
             let amun = jbody.get(2).copied().unwrap_or(0.0);
             let gno = jbody.get(3).copied().unwrap_or(0.0);
             let gg = jbody.get(4).copied().unwrap_or(0.0);
-            let gf: Vec<f64> = (0..ne_j).map(|k| jbody.get(6 + k).copied().unwrap_or(0.0)).collect();
-            j_states.push(JStateB { amuf, d, aj, amun, gno, gg, gf });
+            let gf: Vec<f64> = (0..ne_j)
+                .map(|k| jbody.get(6 + k).copied().unwrap_or(0.0))
+                .collect();
+            j_states.push(JStateB {
+                amuf,
+                d,
+                aj,
+                amun,
+                gno,
+                gg,
+                gf,
+            });
         }
         l_states.push(LState { l: ll, j_states });
     }
 
-    Ok((UnresolvedCase::CaseB { awri, ap, spi, fission_energies, l_states }, lssf))
+    Ok((
+        UnresolvedCase::CaseB {
+            awri,
+            ap,
+            spi,
+            fission_energies,
+            l_states,
+        },
+        lssf,
+    ))
 }
 
 /// Case C (`LRF=2`): `rdunf2:632-690`. Returns `(case, lssf)`.
@@ -442,11 +601,12 @@ fn parse_case_c(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
         for _ in 0..njs {
             let (jh, jbody) = cur.list()?;
             // rdunf2:659-667: AJ/INT/NE come from THIS J's own CONT header
-            // (c1h/l1h/n2h — `jh.c1`/`jh.l1`(discarded)/`jh.n2`), not the
+            // (c1h/l1h/n2h — `jh.c1`/`jh.l1`/`jh.n2`), not the
             // LIST body; the body (`jbody`, i.e. `scr(7..)`) only supplies
             // AMUX/AMUN/[unused]/AMUF at `scr(9..12)` == `jbody[2..5]`
             // (`do k=3,6: arry(k+inow)=scr(k+6)`).
             let aj = jh.c1;
+            let int_ = jh.l1;
             let ne = jh.n2.max(0) as usize;
             let amux = jbody.get(2).copied().unwrap_or(0.0);
             let amun = jbody.get(3).copied().unwrap_or(0.0);
@@ -479,12 +639,27 @@ fn parse_case_c(cur: &mut Cursor<'_>) -> Result<(UnresolvedCase, i32), NjoyError
                     gf: get(5),
                 });
             }
-            j_states.push(JStateC { aj, amux, amun, amuf, points });
+            j_states.push(JStateC {
+                aj,
+                amux,
+                amun,
+                amuf,
+                int_,
+                points,
+            });
         }
         l_states.push(LState { l: ll, j_states });
     }
 
-    Ok((UnresolvedCase::CaseC { awri, ap, spi, l_states }, lssf))
+    Ok((
+        UnresolvedCase::CaseC {
+            awri,
+            ap,
+            spi,
+            l_states,
+        },
+        lssf,
+    ))
 }
 
 /// Read File-3 background cross sections (`MT=1,2,18,102`; `MT=19` shares
@@ -515,7 +690,9 @@ pub fn background_cross_sections(
 
     let mut out = vec![[0.0f64; 4]; eunr.len()];
     for (kx, &mt) in mts.iter().enumerate() {
-        let Some((_, interp, xy)) = find(mt) else { continue };
+        let Some((_, interp, xy)) = find(mt) else {
+            continue;
+        };
         for (ie, &e_signed) in eunr.iter().enumerate() {
             let mut e = e_signed.abs();
             if ie == 0 {

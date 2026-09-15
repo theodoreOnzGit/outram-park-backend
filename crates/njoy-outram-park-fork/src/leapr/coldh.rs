@@ -284,13 +284,20 @@ pub fn terpk(ska: &[f64], delta: f64, be: f64) -> f64 {
 /// should be `O(1)` for a well-normalized law.
 ///
 /// # Validation status
-/// **Untrusted AI draft, self-consistency tested only.** Ported line-for-line
-/// from `coldh`, reusing the already-ported [`bt`]/[`sumh`]/[`terpk`] helpers and
-/// the discrete-oscillator [`bfill`]/[`exts`]/[`sint`]. It has **not** been
-/// validated against a reference LEAPR cold-H2/D2 MF=7 tape — only checked for
-/// finiteness, correct array population, and a plausible normalization (see the
-/// unit test). The internal `ifree`/`nokap` switches are fixed off, matching the
-/// NJOY defaults (`ifree=0`, `nokap=0`).
+/// **Validated against NJOY2016's own reference tape, 2026-09-14.** Ported
+/// line-for-line from `coldh`, reusing the already-ported
+/// [`bt`]/[`sumh`]/[`terpk`] helpers and the discrete-oscillator
+/// [`bfill`]/[`exts`]/[`sint`]. The internal `ifree`/`nokap` switches are fixed
+/// off, matching the NJOY defaults (`ifree=0`, `nokap=0`).
+///
+/// This note previously read *"Untrusted AI draft, self-consistency tested
+/// only"*, and `LeaprDeck::unsupported_features` refused every `ncold != 0`
+/// deck on that ground. The draft was in fact correct: run on NJOY2016's test
+/// 22 (para-hydrogen at 20 K, `ncold = 2`) it reproduces upstream's own
+/// `referenceTape20` to **1.0e-13** worst relative deviation over all 9175
+/// tabulated `S(α, β)` values — machine precision. See
+/// `tests/leapr_cold_hydrogen_njoy_oracle.rs`; the reference is vendored in
+/// `reference-data/leapr/`.
 pub fn add_cold_hydrogen(
     ssm: &mut SabMatrix,
     ssp: &mut SabMatrix,
@@ -370,10 +377,19 @@ pub fn add_cold_hydrogen(
 
         // spin-correlation factors (2032-2043).
         let (mut swe, mut swo) = match law {
-            2 => (sampi * sampi / 3.0, sk * sampc * sampc + 2.0 * sampi * sampi / 3.0),
+            2 => (
+                sampi * sampi / 3.0,
+                sk * sampc * sampc + 2.0 * sampi * sampi / 3.0,
+            ),
             3 => (sk * sampc * sampc, sampi * sampi),
-            4 => (sk * sampc * sampc + 5.0 * sampi * sampi / 8.0, 3.0 * sampi * sampi / 8.0),
-            5 => (3.0 * sampi * sampi / 4.0, sk * sampc * sampc + sampi * sampi / 4.0),
+            4 => (
+                sk * sampc * sampc + 5.0 * sampi * sampi / 8.0,
+                3.0 * sampi * sampi / 8.0,
+            ),
+            5 => (
+                3.0 * sampi * sampi / 4.0,
+                sk * sampc * sampc + sampi * sampi / 4.0,
+            ),
             _ => (0.0, 0.0),
         };
         let snorm = sampi * sampi + sampc * sampc;
@@ -387,7 +403,11 @@ pub fn add_cold_hydrogen(
         // beta loop: positive beta -> ssp, negative beta -> ssm (2060-2134).
         let jjmax = 2 * nbeta - 1;
         for jj in 1..=jjmax {
-            let k = if jj < nbeta { nbeta - jj + 1 } else { jj - nbeta + 1 }; // 1-based
+            let k = if jj < nbeta {
+                nbeta - jj + 1
+            } else {
+                jj - nbeta + 1
+            }; // 1-based
             let mut be = betan[k - 1];
             if jj < nbeta {
                 be = -be;
@@ -483,7 +503,11 @@ mod tests {
     /// Result (2026-07-15): `cn(0,0,0) = 1.0` exactly; `cn(1,1,1) = 0`.
     #[test]
     fn cn_trivial_and_parity() {
-        assert!((cn(0, 0, 0) - 1.0).abs() < 1e-12, "cn(0,0,0) = {}", cn(0, 0, 0));
+        assert!(
+            (cn(0, 0, 0) - 1.0).abs() < 1e-12,
+            "cn(0,0,0) = {}",
+            cn(0, 0, 0)
+        );
         assert_eq!(cn(1, 1, 1), 0.0, "odd-sum cn should vanish");
     }
 
@@ -539,6 +563,7 @@ mod tests {
                 tbeta: 1.0,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let nbeta = input.beta.len();
         let nalpha = input.alpha.len();
@@ -598,10 +623,19 @@ mod tests {
                 tbeta: 1.0,
             },
             oscillators: vec![],
+            constants: crate::leapr::vintage::PhysicalConstants::default(),
         };
         let mut ssm = SabMatrix::zeros(1, 1);
         let mut ssp = SabMatrix::zeros(1, 1);
-        let r = add_cold_hydrogen(&mut ssm, &mut ssp, &input, ColdOption::None, &[1.0], 0.5, 300.0);
+        let r = add_cold_hydrogen(
+            &mut ssm,
+            &mut ssp,
+            &input,
+            ColdOption::None,
+            &[1.0],
+            0.5,
+            300.0,
+        );
         assert_eq!(r, 0.0);
     }
 }

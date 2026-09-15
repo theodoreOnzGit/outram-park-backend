@@ -28,9 +28,15 @@ pub fn interpolate_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 {
     let n = xs.len();
     assert_eq!(n, ys.len(), "xs and ys must have the same length");
 
-    if n == 0 { return 0.0; }
-    if n == 1 || x <= xs[0] { return ys[0]; }
-    if x >= xs[n - 1] { return ys[n - 1]; }
+    if n == 0 {
+        return 0.0;
+    }
+    if n == 1 || x <= xs[0] {
+        return ys[0];
+    }
+    if x >= xs[n - 1] {
+        return ys[n - 1];
+    }
 
     // Binary search: hi = first index where xs[hi] >= x
     let hi = xs.partition_point(|&v| v < x);

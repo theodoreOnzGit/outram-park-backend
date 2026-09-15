@@ -21,17 +21,29 @@ fn main() {
     let height = 4.0;
     let vessel = cylinder_surface(Vec3::new(1.5, 1.5, 0.0), 3.0, height, 48); // outer
     let channels = pin_lattice([2, 2], 3.0, 0.6, height, 24); // internal channels
-    println!("MSR vessel: cylinder r 3 h {height}, {} internal channels", channels.len());
+    println!(
+        "MSR vessel: cylinder r 3 h {height}, {} internal channels",
+        channels.len()
+    );
 
     // carve_around takes the cylindrical vessel as the outer surface.
     let cell_size = 0.2;
     let carved = carve_around(&vessel, &channels, cell_size);
     println!("\nCarve (cell size {cell_size}):");
     println!("  cells             = {}", carved.cell_count());
-    println!("  boundary patches  = {} (walls + one per channel)", carved.patches.len());
+    println!(
+        "  boundary patches  = {} (walls + one per channel)",
+        carved.patches.len()
+    );
     let vessel_vol = surface_volume(&vessel.0, &vessel.1);
     let chan_vol: f64 = channels.iter().map(|(p, t)| surface_volume(p, t)).sum();
-    println!("  salt volume       = {:.3}  (vessel {:.3} − channels {:.3} = {:.3})", carved.total_volume(), vessel_vol, chan_vol, vessel_vol - chan_vol);
+    println!(
+        "  salt volume       = {:.3}  (vessel {:.3} − channels {:.3} = {:.3})",
+        carved.total_volume(),
+        vessel_vol,
+        chan_vol,
+        vessel_vol - chan_vol
+    );
 
     // ---- Snap + quality. ----------------------------------------------------
     let mut all_pts = vessel.0.clone();
@@ -45,12 +57,18 @@ fn main() {
     let q = check_quality(&snapped);
     println!("\nSnapped + checked:");
     println!("  volume            = {:.3}", snapped.total_volume());
-    println!("  max non-orth      = {:.1} deg", q.max_non_orthogonality_deg);
+    println!(
+        "  max non-orth      = {:.1} deg",
+        q.max_non_orthogonality_deg
+    );
     println!("  negative cells    = {}", q.n_negative_volume_cells);
     println!("  solvable          = {}", q.is_solvable());
     match snapped.validate() {
         Ok(()) => println!("  validate()        = OK (all cells closed)"),
         Err(e) => println!("  validate()        = {e}"),
     }
-    println!("\nPipeline ran: cylindrical vessel + {} channels -> carve_around -> snap -> quality.", channels.len());
+    println!(
+        "\nPipeline ran: cylindrical vessel + {} channels -> carve_around -> snap -> quality.",
+        channels.len()
+    );
 }

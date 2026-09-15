@@ -52,8 +52,8 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
 
 impl<E: EquationOfState, const N: usize> HPolynomialThermo<E, N> {
     /// Construct a polynomial-Cp thermo model wrapping `eos`, with the Cp(T)
-    /// polynomial `cps` [J/(kg·K), T in K], heat of formation `hf` [J/kg], and
-    /// reference specific entropy `sf` [J/(kg·K)] at T_std = 298.15 K.
+    /// polynomial `cps` `[J/(kg·K), T in K]`, heat of formation `hf` `[J/kg]`, and
+    /// reference specific entropy `sf` `[J/(kg·K)]` at T_std = 298.15 K.
     pub fn new(eos: E, cps: Polynomial<N>, hf: AvailableEnergy, sf: SpecificHeatCapacity) -> Self {
         Self {
             eos,
@@ -152,7 +152,7 @@ mod tests {
         )
     }
 
-    /// Linear Cp polynomial for air: Cp ≈ 1000 + 0.1·T  [J/(kg·K)]
+    /// Linear Cp polynomial for air: Cp ≈ 1000 + 0.1·T  `[J/(kg·K)]`
     fn air_linear_poly() -> HPolynomialThermo<PerfectGas, 2> {
         HPolynomialThermo::new(
             PerfectGas::new(MolarMass::new::<gram_per_mole>(28.97)),

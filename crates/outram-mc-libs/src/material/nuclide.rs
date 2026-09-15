@@ -16,19 +16,21 @@
 /// This "CE particle, MG data above the ceiling" seam is described in
 /// `docs/keff-doppler-roadmap.md`. The transport kernel only ever calls
 /// [`Nuclide::xs_at_energy`]; it never touches WMP, ENDF, or HDF5.
-
 use crate::material::thermal::ThermalScattering;
 use crate::rng::distributions::{maxwell, watt};
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
-use njoy_outram_park_fork::nuclear_data::secondary::{ChiEout, ChiTabular, FissionSpectrum, NuBar};
+use njoy_outram_park_fork::nuclear_data::secondary::{
+    ChiEout, ChiTabular, ContinuumEmission, FissionSpectrum, NuBar,
+};
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::reconr::ReconrResult;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
 use njoy_outram_park_fork::MtReaction;
 use njoy_outram_park_fork::NjoyError;
+use crate::mathf::RealMath;
 
 /// Microscopic cross sections at a given energy (barn = 1e-24 cm²).
 ///
@@ -79,8 +81,15 @@ pub enum Inelastic {
         q: f64,
     },
     /// The continuum inelastic channel (MT=91): a broad secondary-energy
-    /// distribution modelled by a Weisskopf evaporation spectrum.
-    Continuum,
+    /// distribution modelled by a Weisskopf evaporation spectrum, bounded by the
+    /// channel's own Q-value.
+    Continuum {
+        /// Reaction Q-value \[eV\] (≤ 0) — MT=91's `QI`, minus the energy of the
+        /// lowest continuum state. Caps the outgoing energy at what two-body
+        /// energy balance allows; `0.0` when the channel carries no Q (the LOW
+        /// tier, or the MT=4 lumped fallback).
+        q: f64,
+    },
 }
 
 /// One inelastic scattering channel in the HIGH-tier level structure — the
@@ -99,6 +108,7 @@ struct InelasticLevel {
     continuum: bool,
 }
 
+#[derive(Debug, Clone)]
 /// The cross-section representation backing a [`Nuclide`] — the LOW/HIGH-fidelity
 /// fork.
 ///
@@ -143,6 +153,7 @@ enum XsSource {
     },
 }
 
+#[derive(Debug, Clone)]
 /// One isotope's cross-section data, pulled from `njoy-outram-park-fork`.
 ///
 /// Two constructors give the two fidelity tiers, both feeding the *same*
@@ -171,6 +182,27 @@ pub struct Nuclide {
     /// below its thermal cutoff — see [`Nuclide::xs_at_energy`] and
     /// [`Nuclide::sample_thermal`]. `None` ⇒ pure free-gas / CE, as before.
     thermal: Option<ThermalScattering>,
+    /// Evaluated continuum emission laws (ENDF MF=6 LAW=1) for the reactions
+    /// whose outgoing energy is a distribution rather than a fixed `Q`.
+    ///
+    /// HIGH tier only, and only when the evaluation carries MF=6 for that MT.
+    /// Absent ⇒ the transport layer keeps its Weisskopf evaporation stand-in,
+    /// which is what every case used before 2026-09-13.
+    continuum: ContinuumLaws,
+}
+
+/// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
+///
+/// Two reactions need one: **MT=91** (continuum inelastic) and **MT=16**
+/// ((n,2n)). Both were modelled by a Weisskopf evaporation stand-in until the
+/// evaluated law was wired in; `None` here means that stand-in is still in use
+/// for that channel on that nuclide.
+#[derive(Debug, Clone, Default)]
+struct ContinuumLaws {
+    /// MT=91, continuum inelastic.
+    mt91: Option<ContinuumEmission>,
+    /// MT=16, (n,2n).
+    mt16: Option<ContinuumEmission>,
 }
 
 impl Nuclide {
@@ -202,16 +234,20 @@ impl Nuclide {
             chi,
             xs: XsSource::Core { e_max, wmp, fast },
             thermal: None,
+            // LOW tier reads no tape, so there is no MF=6 to carry.
+            continuum: ContinuumLaws::default(),
         })
     }
 
     /// Attach a bound-atom S(α,β) [`ThermalScattering`] treatment to this nuclide
     /// (builder style, consumes and returns `self`).
     ///
-    /// Use it on the moderator nuclide of a *thermal* problem — e.g. the H-1 in
-    /// light water gets the H-in-H₂O `tsl` table. Below the table's thermal cutoff
-    /// (~4 eV) the neutron then scatters off the bound-atom S(α,β) law instead of
-    /// the free-gas elastic kernel: the bound cross section is used in
+    /// Use it on the moderator nuclide of a *thermal* problem — the H-1 in light
+    /// water gets the H-in-H₂O `tsl` table; the C-12/C-13 of an HTR-10 pebble
+    /// gets `tsl-crystalline-graphite`. Below the table's thermal cutoff (~4 eV)
+    /// the neutron then scatters off the bound-atom law instead of the free-gas
+    /// elastic kernel: the bound cross section (inelastic **plus** the
+    /// scatterer's elastic channel, if it has one) is used in
     /// [`Nuclide::xs_at_energy`] and the secondary energy/angle are drawn by
     /// [`Nuclide::sample_thermal`], giving the up-scatter that thermalizes the
     /// spectrum. Above the cutoff nothing changes.
@@ -248,7 +284,12 @@ impl Nuclide {
     /// # Errors
     /// [`NjoyError`] if `name` is not in the built-in MAT table, the download or
     /// unzip fails, or the evaluation uses a resonance format RECONR does not yet
-    /// reconstruct (e.g. ENDF/B-VIII.0 U's LRF=7 — use ENDF/B-VII.1 for U/Pu).
+    /// reconstruct. Reich-Moore (LRF=3) — the format ENDF/B-VIII.0 uses for
+    /// U-235 and U-238 — reconstructs and reproduces the Godiva benchmark (see
+    /// `examples/endf_to_keff.rs`). The general R-matrix-limited format (LRF=7,
+    /// used by some Pu evaluations) goes through the `samm` port, which is wired
+    /// but not yet verified against a real evaluation
+    /// (`njoy-outram-park-fork/src/reconr/mod.rs`).
     #[cfg(feature = "net-fetch")]
     pub fn from_endf(
         library: njoy_outram_park_fork::acquire::EndfLibrary,
@@ -272,22 +313,104 @@ impl Nuclide {
         let cache = EndfCache::new()?;
         let tape = cache.download_tape(library, mat, z, a, sym)?;
 
+        Self::from_tape(&tape, mat, name, temp_k, tolerance)
+    }
+
+    /// Build a nuclide from an ENDF file **on disk** — the ordinary case.
+    ///
+    /// Supply the evaluation yourself, point at it, get a transport-ready
+    /// nuclide. No network, no feature gate, no MAT table lookup: the material
+    /// number is read from the tape.
+    ///
+    /// ```no_run
+    /// use outram_mc_libs::material::nuclide::Nuclide;
+    /// use std::path::Path;
+    ///
+    /// let u235 = Nuclide::from_endf_file(
+    ///     Path::new("reference-data/endf/n-092_U_235-ENDF8.0.endf"),
+    ///     "U235",
+    ///     293.6,   // K
+    ///     1e-3,    // RECONR tolerance
+    /// )?;
+    /// # Ok::<(), outram_mc_libs::NjoyError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError`] if the file cannot be read or parsed, if it holds no
+    /// material, or for any reason [`Self::from_tape`] reports.
+    pub fn from_endf_file(
+        path: &std::path::Path,
+        name: &str,
+        temp_k: f64,
+        tolerance: f64,
+    ) -> Result<Self, NjoyError> {
+        let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(path)?;
+        // The tape knows its own MAT; making the caller supply one they would
+        // have to look up is the kind of avoidable step that turns a two-line
+        // task into a search through the source.
+        let mat = tape.materials().first().copied().ok_or_else(|| {
+            NjoyError::Download(format!("{} contains no ENDF material", path.display()))
+        })?;
+        Self::from_tape(&tape, mat, name, temp_k, tolerance)
+    }
+
+    /// Build a nuclide from an ENDF tape **already in hand** — no network, no
+    /// feature gate.
+    ///
+    /// This is the local half of [`Self::from_endf`]: RECONR to pointwise
+    /// σ(E), Doppler-broaden to `temp_k`, then pull ν̄, χ, the inelastic level
+    /// structure and the elastic angular distribution off the same tape.
+    /// `from_endf` is this function with a download bolted to the front.
+    ///
+    /// `mat` is the ENDF material number, `tolerance` the RECONR
+    /// reconstruction tolerance (1e-3 is a reasonable default), and `temp_k`
+    /// the temperature to broaden to \[K\].
+    ///
+    /// Most callers want [`Self::from_endf_file`] instead, which reads the
+    /// file and finds `mat` for you. Reach for this one when you already hold
+    /// a [`Tape`](njoy_outram_park_fork::endf::tape::Tape) — several nuclides
+    /// off one tape, or a tape that did not come from a file.
+    ///
+    /// # Errors
+    ///
+    /// [`NjoyError`] if the tape lacks the sections RECONR needs, or the
+    /// evaluation uses a resonance format RECONR does not reconstruct.
+    pub fn from_tape(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+        name: &str,
+        temp_k: f64,
+        tolerance: f64,
+    ) -> Result<Self, NjoyError> {
+        use njoy_outram_park_fork::broadr::broaden_result;
+        use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+
         // 2. RECONR at 0 K.
-        let recon0 = reconr(&tape, &ReconrConfig { mat, tolerance, temperature: 0.0 })?;
+        let recon0 = reconr(
+            tape,
+            &ReconrConfig {
+                mat,
+                tolerance,
+                temperature: 0.0,
+            },
+        )?;
         let awr = recon0.material.awr;
 
-        // 3. BROADR to the material temperature (in place of the 0 K grid).
-        let sections = doppler_broaden(&recon0.sections, awr, temp_k);
-        let recon = ReconrResult { material: recon0.material, sections };
+        // 3. BROADR to the material temperature (in place of the 0 K grid),
+        //    bounded at upstream's `thnmax` (top of the resolved region) so
+        //    SIGMA1 never runs across the resolved/unresolved seam or over the
+        //    energy-averaged data above it (njoy `op-sdbk`).
+        let recon = broaden_result(&recon0, temp_k);
 
         // 4. Real energy-dependent ν̄ from MF=1/452 (falls back to ν̄≡0 for a
         //    non-fissionable nuclide, which has no MF=1/452 section).
-        let nu = NuBar::from_endf(&tape, mat)?.unwrap_or_else(|| nubar_for(name, false));
+        let nu = NuBar::from_endf(tape, mat)?.unwrap_or_else(|| nubar_for(name, false));
 
         // 4b. Energy-dependent fission spectrum χ(E→E') from MF=5/MT=18 (LF=1). A
         //     non-fissionable nuclide (no MF=5) or an unsupported LF falls back to
         //     the thermal-Watt stand-in — harmless, since such nuclides never fission.
-        let chi = FissionSpectrum::from_endf_mf5(&tape, mat)?.unwrap_or_default();
+        let chi = FissionSpectrum::from_endf_mf5(tape, mat)?.unwrap_or_default();
 
         // 5. Extract the inelastic level structure (MT=51…91) once, for
         //    energy-loss scattering in transport.
@@ -301,13 +424,30 @@ impl Nuclide {
             .transpose()?
             .unwrap_or_default();
 
+        // 7. Evaluated continuum emission laws from MF=6 LAW=1 (MT=91 and
+        //    MT=16). RECONR gives MF=3 magnitudes but no secondary-energy law,
+        //    so without these the transport layer falls back to a Weisskopf
+        //    evaporation stand-in whose mean is ~33 % too hard at 2 MeV on
+        //    U-238 (njoy `tests/mf6_continuum_emission_vs_tape.rs`). An
+        //    evaluation with no MF=6 for a reaction, or one using a law this
+        //    port does not read, yields `None` and keeps the stand-in.
+        let continuum = ContinuumLaws {
+            mt91: ContinuumEmission::from_endf_mf6(tape, mat, 91)?,
+            mt16: ContinuumEmission::from_endf_mf6(tape, mat, 16)?,
+        };
+
         Ok(Self {
             name: name.to_string(),
             awr,
             nu,
             chi,
-            xs: XsSource::Pointwise { recon, inel, elastic_angular },
+            xs: XsSource::Pointwise {
+                recon,
+                inel,
+                elastic_angular,
+            },
             thermal: None,
+            continuum,
         })
     }
 
@@ -325,14 +465,45 @@ impl Nuclide {
     /// `absorption`; `elastic` is reported for completeness but the kernel treats
     /// `total − absorption` as the scattering channel (lumping inelastic and
     /// (n,xn) into elastic-like events — see the keff module fidelity note).
+    /// The evaluated ENDF **MF=6 LAW=1** emission law for reaction `mt`, if this
+    /// nuclide carries one.
+    ///
+    /// `mt` is 91 (continuum inelastic) or 16 ((n,2n)); anything else returns
+    /// `None`, as does the LOW tier and any evaluation whose MF=6 this port does
+    /// not read. A `None` here is the signal to keep the Weisskopf evaporation
+    /// stand-in — see
+    /// [`continuum_inelastic_scatter`](crate::physics::scatter::continuum_inelastic_scatter).
+    pub fn continuum_law(&self, mt: i32) -> Option<&ContinuumEmission> {
+        match mt {
+            91 => self.continuum.mt91.as_ref(),
+            16 => self.continuum.mt16.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Whether this nuclide's MT=91 continuum inelastic uses the **evaluated**
+    /// MF=6 law rather than the Weisskopf stand-in — a diagnostic for V&V
+    /// programs that price one against the other.
+    pub fn has_evaluated_continuum(&self) -> bool {
+        self.continuum.mt91.is_some()
+    }
+
     pub fn xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         let base = self.base_xs_at_energy(e, temp_k);
         // Below the S(α,β) cutoff, the bound-atom thermal law replaces the
-        // free-gas elastic channel entirely (light water has no thermal elastic).
+        // free-gas elastic channel entirely. The replacement is the *sum* of
+        // both bound channels — σ_inel(E) + σ_el(E) — not σ_inel alone: for a
+        // crystalline moderator such as graphite the coherent-elastic (Bragg)
+        // channel is ~90 % of thermal scattering at 0.0253 eV, so substituting
+        // only the inelastic part would drop the dominant channel and leave the
+        // nuclide with less scattering than the free gas it replaced (bead
+        // `op-nhoa`). For light water σ_el ≡ 0 and this reduces exactly to the
+        // previous behaviour.
+        //
         // Keep absorption/fission/inelastic/(n,2n) from the base evaluation and
-        // swap the scattering cross section for σ_inel(E), then rebuild the total.
+        // swap the scattering cross section, then rebuild the total.
         if let Some(th) = &self.thermal {
-            let sab = th.inelastic_xs(e);
+            let sab = th.total_xs(e);
             if sab > 0.0 {
                 let mut x = base;
                 x.elastic = sab;
@@ -347,6 +518,8 @@ impl Nuclide {
     /// raw free-gas / CE evaluation from the underlying [`XsSource`]. Split out so
     /// [`xs_at_energy`](Self::xs_at_energy) can layer the bound-atom thermal
     /// treatment on top without duplicating the two data-tier arms.
+    //
+    // (helper below the impl: `absorption_mt27`)
     fn base_xs_at_energy(&self, e: f64, temp_k: f64) -> MicroXS {
         match &self.xs {
             XsSource::Core { e_max, wmp, fast } => {
@@ -396,7 +569,6 @@ impl Nuclide {
                 let total = recon.eval_mt(MtReaction::Mt1Total, e);
                 let elastic = recon.eval_mt(MtReaction::Mt2Elastic, e);
                 let fission = recon.eval_mt(MtReaction::Mt18Fission, e);
-                let capture = recon.eval_mt(MtReaction::Mt102Capture, e);
                 let inelastic: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
                 // (n,2n) from the reconstructed MF=3 background (threshold reaction,
                 // no resonance contribution). Carried separately so the transport
@@ -407,7 +579,7 @@ impl Nuclide {
                     total,
                     elastic,
                     fission,
-                    absorption: fission + capture,
+                    absorption: absorption_mt27(recon, fission, e),
                     inelastic,
                     n2n,
                     nu_fission: fission * self.nu.at(e),
@@ -430,11 +602,11 @@ impl Nuclide {
     /// call likewise defaults to `Continuum`.
     pub fn sample_inelastic(&self, e: f64, seed: &mut u64) -> Inelastic {
         let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
-            return Inelastic::Continuum;
+            return Inelastic::Continuum { q: 0.0 };
         };
         let total: f64 = inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum();
         if !(total > 0.0) {
-            return Inelastic::Continuum;
+            return Inelastic::Continuum { q: 0.0 };
         }
         let xi = prn(seed) * total;
         let mut cum = 0.0;
@@ -442,13 +614,13 @@ impl Nuclide {
             cum += recon.eval_mt(l.mt, e);
             if xi < cum {
                 return if l.continuum {
-                    Inelastic::Continuum
+                    Inelastic::Continuum { q: l.q }
                 } else {
                     Inelastic::Level { q: l.q }
                 };
             }
         }
-        Inelastic::Continuum
+        Inelastic::Continuum { q: 0.0 }
     }
 
     /// Sample an elastic scattering cosine in the **centre-of-mass frame** at
@@ -473,7 +645,9 @@ impl Nuclide {
     /// [`crate::physics::scatter::two_body_scatter_with_mu`].
     pub fn sample_elastic_mu_cm(&self, e: f64, seed: &mut u64) -> Option<f64> {
         let elastic_angular = match &self.xs {
-            XsSource::Pointwise { elastic_angular, .. } => elastic_angular,
+            XsSource::Pointwise {
+                elastic_angular, ..
+            } => elastic_angular,
             // LOW tier: forward-scatter off the group mean cosine above `e_max`.
             XsSource::Core { e_max, fast, .. } => {
                 if e <= *e_max {
@@ -505,7 +679,11 @@ impl Nuclide {
                 i += 1;
             }
             let (e0, e1) = (dists[i].e_mev, dists[i + 1].e_mev);
-            let r = if e1 > e0 { (e_mev - e0) / (e1 - e0) } else { 0.0 };
+            let r = if e1 > e0 {
+                (e_mev - e0) / (e1 - e0)
+            } else {
+                0.0
+            };
             if r > prn(seed) {
                 &dists[i + 1]
             } else {
@@ -517,7 +695,12 @@ impl Nuclide {
         if chosen.cosines.is_empty() {
             return Some(2.0 * prn(seed) - 1.0);
         }
-        Some(sample_tabular_mu(&chosen.cosines, &chosen.pdf, &chosen.cdf, prn(seed)))
+        Some(sample_tabular_mu(
+            &chosen.cosines,
+            &chosen.pdf,
+            &chosen.cdf,
+            prn(seed),
+        ))
     }
 
     /// Sample a bound-atom S(α,β) thermal scatter at incident energy `e` \[eV\],
@@ -532,6 +715,11 @@ impl Nuclide {
     /// whose cosine is in the CM frame. The outgoing energy may exceed the
     /// incident energy (thermal up-scatter), which is exactly what drives the
     /// spectrum to a Maxwellian.
+    ///
+    /// For a scatterer with a thermal **elastic** channel (graphite, ZrH) the
+    /// draw first chooses elastic vs inelastic in proportion to their cross
+    /// sections; an elastic scatter returns `e_out == e` and only redirects the
+    /// neutron. See [`ThermalScattering::sample`].
     pub fn sample_thermal(&self, e: f64, seed: &mut u64) -> Option<(f64, f64)> {
         self.thermal.as_ref().and_then(|th| th.sample(e, seed))
     }
@@ -565,6 +753,164 @@ impl Nuclide {
             }
             XsSource::Pointwise { .. } => 0.0, // GPU path: isotropic-CM for pointwise elastic
         }
+    }
+
+    /// The **ENDF MF=4 mean elastic cosine** in the CM frame at incident energy
+    /// `e` \[eV\], read straight off the tabulated distribution by quadrature —
+    /// `0.0` when the nuclide has no MF=4 data (genuinely isotropic) or is on the
+    /// LOW tier.
+    ///
+    /// This is **not** [`elastic_mubar`](Self::elastic_mubar), which reports the
+    /// per-group mu-bar of the LOW-tier fast MGXS and deliberately returns `0.0`
+    /// for a pointwise nuclide because the GPU kernel treats pointwise elastic as
+    /// isotropic-CM (GitHub #189). This one answers a different question: what
+    /// does the CPU transport path's own angular data say?
+    ///
+    /// It exists so [`sample_elastic_mu_cm`](Self::sample_elastic_mu_cm) has an
+    /// independent oracle. The sampler locates an incident-energy bin, picks a
+    /// table by statistical interpolation and inverts a cosine CDF; this
+    /// integrates the same tabulated distribution directly. They must agree, and
+    /// if they do not, the sampler is wrong — a check no comparison against an
+    /// external library can make, because both sides here come from one tape.
+    ///
+    /// A second, cruder use: a non-zero value proves the MF=4 data was parsed at
+    /// all. That matters when *pricing* anisotropy by switching it off, where a
+    /// null result has to be distinguished from a switch that did nothing.
+    pub fn elastic_mubar_cm(&self, e: f64) -> f64 {
+        match &self.xs {
+            XsSource::Pointwise {
+                elastic_angular, ..
+            } => elastic_angular.mean_cosine(e),
+            XsSource::Core { .. } => 0.0,
+        }
+    }
+
+    /// **Diagnostic**: the inelastic channel table this nuclide samples from —
+    /// `(MT number, Q-value [eV], is-continuum)` per channel, in tape order.
+    ///
+    /// Exposed so a test can reconstruct what the transport kernel does with an
+    /// inelastic collision and check it against two-body energy balance. Empty on
+    /// the LOW tier.
+    pub fn inelastic_levels_table(&self) -> Vec<(u32, f64, bool)> {
+        match &self.xs {
+            XsSource::Pointwise { inel, .. } => inel
+                .iter()
+                .map(|l| (l.mt.number() as u32, l.q, l.continuum))
+                .collect(),
+            XsSource::Core { .. } => Vec::new(),
+        }
+    }
+
+    /// **Diagnostic**: the tape's own lumped **MT=4** total-inelastic cross
+    /// section \[barn\] at incident energy `e` \[eV\], and the number of resolved
+    /// levels the transport path sums instead.
+    ///
+    /// ENDF requires `MT=4 = Σ MT=51…91` exactly — MT=4 is a *redundant* section,
+    /// the evaluator's own sum of the partials. So this pair is an oracle for the
+    /// inelastic channel that needs no second code: whatever
+    /// [`xs_at_energy`](Self::xs_at_energy) reports as `MicroXS::inelastic` (the
+    /// sum over the resolved levels) must equal the MT=4 value on the same tape at
+    /// the same energy.
+    ///
+    /// The failure mode it is aimed at is the one this crate has already hit once,
+    /// in [`absorption_mt27`]: the RECONR path linearises every MF=3 section as it
+    /// appears on the tape and does **not** mark the redundant aggregates the way
+    /// an ACE reader does, so a partial summed on top of a sum — or a section
+    /// appearing twice — is silently double counting.
+    ///
+    /// Returns `(mt4_barns, n_levels)`; `(0.0, 0)` on the LOW tier, which carries
+    /// no level structure.
+    pub fn inelastic_mt4_and_levels(&self, e: f64) -> (f64, usize) {
+        match &self.xs {
+            XsSource::Pointwise { recon, inel, .. } => {
+                (recon.eval_mt(MtReaction::Mt4Inelastic, e), inel.len())
+            }
+            XsSource::Core { .. } => (0.0, 0),
+        }
+    }
+
+    /// **Diagnostic**: a copy of this nuclide with its resolved inelastic levels
+    /// removed, so an inelastic collision scatters **elastically** instead.
+    ///
+    /// # What it actually changes
+    ///
+    /// Only the reaction *partition*, never the total. The transport kernel
+    /// splits a collision on `absorption | inelastic | (n,2n) | elastic` shares of
+    /// `MicroXS::total`; with no levels, `MicroXS::inelastic` is zero and that
+    /// share falls through to the elastic branch. So the collision rate, the
+    /// absorption and the fission are all untouched, and what is removed is the
+    /// **excitation energy loss** — the neutron keeps the energy it would have
+    /// left behind in the residual nucleus.
+    ///
+    /// That is the right knob for pricing inelastic scattering against a
+    /// slowing-down residual: inelastic scattering's entire contribution to
+    /// moderation is the energy it removes per collision, and this removes exactly
+    /// that while holding everything else fixed.
+    ///
+    /// A LOW-tier (`Core`) nuclide is unchanged — its inelastic cross section is
+    /// the group remainder rather than a level list, so there is nothing to drop.
+    ///
+    /// Deliberately the **wrong physics**; a measurement tool, not a model option.
+    pub fn without_inelastic(mut self) -> Self {
+        if let XsSource::Pointwise { inel, .. } = &mut self.xs {
+            inel.clear();
+        }
+        self
+    }
+
+    /// **Diagnostic**: a copy of this nuclide with its evaluated MF=6 LAW=1
+    /// continuum emission laws discarded, so MT=91 and MT=16 fall back to the
+    /// Weisskopf evaporation stand-in.
+    ///
+    /// # Why this exists
+    ///
+    /// An accuracy statement about the evaluated law ("it is the evaluation's
+    /// own spectrum") bounds nothing. Running the same case twice with the law
+    /// switched off bounds what it is *worth* — which is the only way to say
+    /// whether reading MF=6 mattered. Used by
+    /// `examples/godiva_mf6_continuum_ensemble.rs`.
+    pub fn without_evaluated_continuum(mut self) -> Self {
+        self.continuum = ContinuumLaws::default();
+        self
+    }
+
+    /// **Diagnostic**: a copy of this nuclide whose elastic scattering is
+    /// isotropic in the centre of mass, by discarding the ENDF MF=4 angular
+    /// distribution.
+    ///
+    /// # Why this exists
+    ///
+    /// It prices anisotropic elastic scattering. A code-to-code residual can only
+    /// be attributed to a mechanism that is *worth* enough to carry it, and an
+    /// accuracy statement about a mechanism ("mu-bar is within 1 % of NJOY") says
+    /// nothing about its worth. Running a case twice, once with the mechanism
+    /// removed, does: the difference bounds everything that mechanism can be
+    /// worth, every defect in it, known and unknown, together.
+    ///
+    /// Anisotropy is the mechanism most likely to be mispriced by this crate's
+    /// existing checks, because the slowing-down verification that covers it
+    /// (`xi/xi_0 = 1.000` on eight nuclides) spans 4 eV to 10 keV, and elastic
+    /// scattering is isotropic in CM throughout that band. The anisotropy that
+    /// matters is at MeV energies, where it is not checked.
+    ///
+    /// # What it does NOT do
+    ///
+    /// Nothing to the cross sections — only the angular law changes, so the
+    /// collision *rate* is untouched and the two runs differ in exactly one
+    /// thing. On a LOW-tier (`Core`) nuclide it is a no-op, because that tier
+    /// carries only a per-group mean cosine and there is no tabulated
+    /// distribution to drop.
+    ///
+    /// This is deliberately the **wrong physics**. It is a measurement tool, not
+    /// a model option.
+    pub fn with_isotropic_elastic(mut self) -> Self {
+        if let XsSource::Pointwise {
+            elastic_angular, ..
+        } = &mut self.xs
+        {
+            *elastic_angular = Default::default();
+        }
+        self
     }
 
     /// The upper energy \[eV\] of this nuclide's continuous-energy (WMP) range —
@@ -686,6 +1032,66 @@ impl Nuclide {
     }
 }
 
+/// Total absorption σ_a(E) \[barn\] — the ENDF **MT=27** quantity: every
+/// reaction that removes the incident neutron with no neutron in the exit
+/// channel (radiative capture + charged-particle emission) **plus fission**.
+///
+/// This is the OpenMC `Nuclide::create_derived` sum
+/// (`src/nuclide.cpp:409-417`): every non-redundant reaction with
+/// `is_disappearance(mt)` (`src/endf.cpp:59` — MT 101–117, …) plus fission.
+///
+/// # Redundant-section handling
+///
+/// [`crate::material::nuclide::Nuclide::from_endf_file`]'s RECONR path linearises
+/// every MF=3 section as it appears on the tape, without stripping the aggregate
+/// (\"redundant\") sums the way OpenMC's ACE reader marks `redundant_`. So this
+/// takes the **most aggregated** section available and never adds a partial on
+/// top of a sum that already contains it:
+///
+/// 1. MF=3 **MT=27** present ⇒ use it directly (already includes fission).
+/// 2. else MF=3 **MT=101** (neutron-disappearance total, excludes fission)
+///    present ⇒ `fission + MT101`.
+/// 3. else ⇒ `fission + MT102 (n,γ) + Σ MT103…117` (the individual
+///    charged-particle-emission partials that are present).
+///
+/// Was previously `fission + MT102` only, which classified e.g. the ~940 b
+/// Li-6(n,t)α (MT=105) as *scattering* (GitHub #169).
+fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
+    use njoy_outram_park_fork::MtReaction as Mt;
+
+    let mt27 = recon.eval_mt(Mt::Mt27Absorption, e);
+    if mt27 > 0.0 {
+        return mt27;
+    }
+    let mt101 = recon.eval_mt(Mt::Mt101AbsorptionTotal, e);
+    if mt101 > 0.0 {
+        return fission + mt101;
+    }
+    // MT 102 (n,γ) plus every charged-particle disappearance partial present.
+    const DISAPPEARANCE: [Mt; 15] = [
+        Mt::Mt102Capture,
+        Mt::Mt103Np,
+        Mt::Mt104Nd,
+        Mt::Mt105Nt,
+        Mt::Mt106NHe3,
+        Mt::Mt107NAlpha,
+        Mt::Mt108N2Alpha,
+        Mt::Mt109N3Alpha,
+        Mt::Mt111N2Proton,
+        Mt::Mt112NProtonAlpha,
+        Mt::Mt113NT2Alpha,
+        Mt::Mt114ND2Alpha,
+        Mt::Mt115NProtonD,
+        Mt::Mt116NProtonT,
+        Mt::Mt117NDAlpha,
+    ];
+    fission
+        + DISAPPEARANCE
+            .iter()
+            .map(|&mt| recon.eval_mt(mt, e))
+            .sum::<f64>()
+}
+
 /// Sample a fission-neutron birth energy \[eV\] from χ at incident energy `e_in`
 /// \[eV\] — dispatches over every [`FissionSpectrum`] law this port reconstructs:
 ///
@@ -708,14 +1114,10 @@ fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
     match chi {
         FissionSpectrum::ContinuousTabular(t) => sample_continuous_tabular(t, e_in, seed),
         FissionSpectrum::Watt { a, b } => watt(seed, *a, *b),
-        FissionSpectrum::Tabulated { e_out, pdf } => {
-            sample_tabulated_energy(e_out, pdf, prn(seed))
-        }
+        FissionSpectrum::Tabulated { e_out, pdf } => sample_tabulated_energy(e_out, pdf, prn(seed)),
         FissionSpectrum::Maxwell { theta, u } => sample_maxwell_lf7(theta, *u, e_in, seed),
         FissionSpectrum::Evaporation { theta, u } => sample_evaporation_lf9(theta, *u, e_in, seed),
-        FissionSpectrum::WattEnergyDependent { a, b, u } => {
-            sample_watt_lf11(a, b, *u, e_in, seed)
-        }
+        FissionSpectrum::WattEnergyDependent { a, b, u } => sample_watt_lf11(a, b, *u, e_in, seed),
         FissionSpectrum::Mixture(parts) => {
             let weights: Vec<f64> = parts
                 .iter()
@@ -765,10 +1167,10 @@ fn sample_evaporation_lf9(theta: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
         return 0.0;
     }
     let y = (e_in - u) / t;
-    let v = 1.0 - (-y).exp();
+    let v = 1.0 - (-y).r_exp();
     let mut x;
     loop {
-        x = -((1.0 - v * prn(seed)) * (1.0 - v * prn(seed))).ln();
+        x = -((1.0 - v * prn(seed)) * (1.0 - v * prn(seed))).r_ln();
         if x <= y {
             break;
         }
@@ -804,7 +1206,7 @@ fn sample_watt_lf11(a: &Tab1, b: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
 /// 3. invert the chosen table's outgoing-energy CDF ([`sample_ct_table`]); then
 /// 4. scale the sampled E' between the `i` and `i+1` tables' \[E₁, E_K\] envelopes so
 ///    the outgoing energy tracks the incident-energy interpolation.
-fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
+pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
     let energy = &chi.incident;
     let n = energy.len();
     if n == 0 {
@@ -1019,7 +1421,7 @@ fn sample_exponential_mu(mubar: f64, xi: f64) -> f64 {
     if lambda.abs() < 1.0e-6 {
         return (2.0 * xi - 1.0).clamp(-1.0, 1.0);
     }
-    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).exp()).ln() / lambda;
+    let mu = 1.0 + (xi + (1.0 - xi) * (-2.0 * lambda).r_exp()).r_ln() / lambda;
     mu.clamp(-1.0, 1.0)
 }
 
@@ -1041,7 +1443,7 @@ fn langevin_inverse(mu_bar: f64) -> f64 {
     };
     for _ in 0..30 {
         // coth λ − 1/λ − x, with a stable coth via 1/tanh.
-        let coth = 1.0 / lambda.tanh();
+        let coth = 1.0 / lambda.r_tanh();
         let f = coth - 1.0 / lambda - x;
         // L'(λ) = 1/λ² − csch²λ = 1/λ² − (coth²λ − 1).
         let d = 1.0 / (lambda * lambda) - (coth * coth - 1.0);
@@ -1071,7 +1473,8 @@ fn langevin_inverse(mu_bar: f64) -> f64 {
 /// kinematics); MT=91 is the continuum. If only the *lumped* total inelastic
 /// (MT=4) is present with no resolved levels, it is used as a single continuum
 /// channel so the down-scatter is still modelled.
-#[cfg(feature = "net-fetch")]
+// Used by `Nuclide::from_tape`, which is not feature-gated: the inelastic
+// level structure comes off any tape, downloaded or supplied.
 fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
     let mut levels: Vec<InelasticLevel> = recon
         .sections
@@ -1079,9 +1482,17 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
         .filter_map(|s| {
             let n = s.mt.number();
             if (51..=90).contains(&n) {
-                Some(InelasticLevel { mt: s.mt, q: s.qi, continuum: false })
+                Some(InelasticLevel {
+                    mt: s.mt,
+                    q: s.qi,
+                    continuum: false,
+                })
             } else if n == 91 {
-                Some(InelasticLevel { mt: s.mt, q: s.qi, continuum: true })
+                Some(InelasticLevel {
+                    mt: s.mt,
+                    q: s.qi,
+                    continuum: true,
+                })
             } else {
                 None
             }
@@ -1092,7 +1503,11 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
     // levels) — treat it as one continuum channel rather than dropping it.
     if levels.is_empty() {
         if let Some(s) = recon.sections.iter().find(|s| s.mt.number() == 4) {
-            levels.push(InelasticLevel { mt: s.mt, q: s.qi, continuum: true });
+            levels.push(InelasticLevel {
+                mt: s.mt,
+                q: s.qi,
+                continuum: true,
+            });
         }
     }
     levels
@@ -1109,7 +1524,10 @@ fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
 /// Values are total (prompt + delayed) ν̄ near threshold, from ENDF/B evaluations.
 fn nubar_for(name: &str, fissionable: bool) -> NuBar {
     if !fissionable {
-        return NuBar { energy: vec![1.0e-3, 2.0e7], nu_total: vec![0.0, 0.0] };
+        return NuBar {
+            energy: vec![1.0e-3, 2.0e7],
+            nu_total: vec![0.0, 0.0],
+        };
     }
     let nu = match name {
         "U233" => 2.49,
@@ -1120,7 +1538,10 @@ fn nubar_for(name: &str, fissionable: bool) -> NuBar {
         "Th232" => 2.45,
         _ => 2.50,
     };
-    NuBar { energy: vec![1.0e-3, 2.0e7], nu_total: vec![nu, nu] }
+    NuBar {
+        energy: vec![1.0e-3, 2.0e7],
+        nu_total: vec![nu, nu],
+    }
 }
 
 #[cfg(test)]
@@ -1185,7 +1606,10 @@ mod tests {
         for i in 0..n {
             let r1 = (i as f64 + 0.5) / n as f64;
             let e = sample_ct_table(&t, r1);
-            assert!((0.0..=2.0e6).contains(&e), "E' {e} outside tabulated support");
+            assert!(
+                (0.0..=2.0e6).contains(&e),
+                "E' {e} outside tabulated support"
+            );
             sum += e;
         }
         let mean = sum / n as f64;
@@ -1211,17 +1635,28 @@ mod tests {
             cdf: vec![0.0, 0.5, 1.0],
             linlin: false,
         };
-        let chi = ChiTabular { incident: vec![1.0e5, 2.0e7], tables: vec![low, high] };
+        let chi = ChiTabular {
+            incident: vec![1.0e5, 2.0e7],
+            tables: vec![low, high],
+        };
         let mean_at = |e_in: f64| -> f64 {
             let mut seed = 12345u64;
             let n = 200_000usize;
-            (0..n).map(|_| sample_continuous_tabular(&chi, e_in, &mut seed)).sum::<f64>()
+            (0..n)
+                .map(|_| sample_continuous_tabular(&chi, e_in, &mut seed))
+                .sum::<f64>()
                 / n as f64
         };
         let m_lo = mean_at(1.0e5);
         let m_hi = mean_at(2.0e7);
-        assert!((m_lo - 1.0e6).abs() < 2.0e4, "low-incident mean {m_lo} ≈ 1 MeV");
-        assert!((m_hi - 2.0e6).abs() < 2.0e4, "high-incident mean {m_hi} ≈ 2 MeV");
+        assert!(
+            (m_lo - 1.0e6).abs() < 2.0e4,
+            "low-incident mean {m_lo} ≈ 1 MeV"
+        );
+        assert!(
+            (m_hi - 2.0e6).abs() < 2.0e4,
+            "high-incident mean {m_hi} ≈ 2 MeV"
+        );
         assert!(m_hi > 1.5 * m_lo, "χ must harden: {m_lo} → {m_hi}");
     }
 
@@ -1231,7 +1666,14 @@ mod tests {
     /// a table's range, so the span must cover every incident energy queried.
     fn flat_tab1(y: f64) -> Tab1 {
         Tab1 {
-            head: njoy_outram_park_fork::endf::Cont { c1: 0.0, c2: 0.0, l1: 0, l2: 0, n1: 1, n2: 2 },
+            head: njoy_outram_park_fork::endf::Cont {
+                c1: 0.0,
+                c2: 0.0,
+                l1: 0,
+                l2: 0,
+                n1: 1,
+                n2: 2,
+            },
             interp: vec![(2, 2)],
             pairs: vec![(1.0e-5, y), (1.0e9, y)],
         }
@@ -1250,11 +1692,18 @@ mod tests {
         let mut sum = 0.0;
         for _ in 0..n {
             let e = sample_maxwell_lf7(&theta, u, e_in, &mut seed);
-            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            assert!(
+                e <= e_in - u,
+                "E'={e} exceeds restriction e_in-u={}",
+                e_in - u
+            );
             sum += e;
         }
         let mean = sum / n as f64;
-        assert!((mean - 1.5e6).abs() < 3.0e4, "Maxwell mean {mean} ≈ 1.5θ = 1.5 MeV");
+        assert!(
+            (mean - 1.5e6).abs() < 3.0e4,
+            "Maxwell mean {mean} ≈ 1.5θ = 1.5 MeV"
+        );
     }
 
     /// **LF=9 (evaporation).** Unrestricted, the evaporation pdf `E'e^{-E'/θ}` is a
@@ -1269,11 +1718,18 @@ mod tests {
         let mut sum = 0.0;
         for _ in 0..n {
             let e = sample_evaporation_lf9(&theta, u, e_in, &mut seed);
-            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            assert!(
+                e <= e_in - u,
+                "E'={e} exceeds restriction e_in-u={}",
+                e_in - u
+            );
             sum += e;
         }
         let mean = sum / n as f64;
-        assert!((mean - 2.0e6).abs() < 4.0e4, "evaporation mean {mean} ≈ 2θ = 2 MeV");
+        assert!(
+            (mean - 2.0e6).abs() < 4.0e4,
+            "evaporation mean {mean} ≈ 2θ = 2 MeV"
+        );
     }
 
     /// **LF=9, restricted.** With `u` chosen so `e_in − u` sits well inside the
@@ -1286,7 +1742,11 @@ mod tests {
         let mut seed = 99u64;
         for _ in 0..10_000 {
             let e = sample_evaporation_lf9(&theta, u, e_in, &mut seed);
-            assert!(e <= e_in - u + 1.0, "E'={e} exceeds tight restriction {}", e_in - u);
+            assert!(
+                e <= e_in - u + 1.0,
+                "E'={e} exceeds tight restriction {}",
+                e_in - u
+            );
         }
     }
 
@@ -1305,12 +1765,19 @@ mod tests {
         let mut sum = 0.0;
         for _ in 0..n {
             let e = sample_watt_lf11(&a, &b, u, e_in, &mut seed);
-            assert!(e <= e_in - u, "E'={e} exceeds restriction e_in-u={}", e_in - u);
+            assert!(
+                e <= e_in - u,
+                "E'={e} exceeds restriction e_in-u={}",
+                e_in - u
+            );
             sum += e;
         }
         let mean = sum / n as f64;
         let expected = 1.5e6 + 0.25 * 1.0e6 * 1.0e6 * 2.249e-6;
-        assert!((mean - expected).abs() < 5.0e4, "Watt mean {mean} ≈ {expected}");
+        assert!(
+            (mean - expected).abs() < 5.0e4,
+            "Watt mean {mean} ≈ {expected}"
+        );
     }
 
     /// **Mixture (NK>1).** Two Maxwell partitions with very different θ, mixed by
@@ -1327,8 +1794,14 @@ mod tests {
     fn mixture_dispatches_by_partition_weight() {
         let p1 = flat_tab1(0.8);
         let p2 = flat_tab1(0.2);
-        let law1 = FissionSpectrum::Maxwell { theta: flat_tab1(1.0e5), u: 0.0 };
-        let law2 = FissionSpectrum::Maxwell { theta: flat_tab1(1.0e7), u: 0.0 };
+        let law1 = FissionSpectrum::Maxwell {
+            theta: flat_tab1(1.0e5),
+            u: 0.0,
+        };
+        let law2 = FissionSpectrum::Maxwell {
+            theta: flat_tab1(1.0e7),
+            u: 0.0,
+        };
         let chi = FissionSpectrum::Mixture(vec![(p1, law1), (p2, law2)]);
 
         let mut seed = 55u64;
@@ -1337,7 +1810,10 @@ mod tests {
         let sum: f64 = (0..n).map(|_| sample_chi(&chi, e_in, &mut seed)).sum();
         let mean = sum / n as f64;
         let expected = 0.8 * 1.5e5 + 0.2 * 1.5e7;
-        assert!((mean - expected).abs() < 8.0e4, "mixture mean {mean} ≈ {expected}");
+        assert!(
+            (mean - expected).abs() < 8.0e4,
+            "mixture mean {mean} ≈ {expected}"
+        );
     }
 
     /// **V&V — native union-grid breakpoints.**
@@ -1366,14 +1842,30 @@ mod tests {
         let (e_min, e_max) = (1.0e-3_f64, 2.0e7_f64);
         let grid = nuc.native_energy_grid(e_min, e_max);
 
-        assert!(grid.len() >= 3, "expected window edges beyond the two endpoints, got {}", grid.len());
+        assert!(
+            grid.len() >= 3,
+            "expected window edges beyond the two endpoints, got {}",
+            grid.len()
+        );
         assert_eq!(grid[0], e_min, "grid must start exactly at e_min");
-        assert_eq!(grid[grid.len() - 1], e_max, "grid must end exactly at e_max");
+        assert_eq!(
+            grid[grid.len() - 1],
+            e_max,
+            "grid must end exactly at e_max"
+        );
         for w in grid.windows(2) {
-            assert!(w[1] > w[0], "grid must be strictly ascending: {} !> {}", w[1], w[0]);
+            assert!(
+                w[1] > w[0],
+                "grid must be strictly ascending: {} !> {}",
+                w[1],
+                w[0]
+            );
         }
         for &e in &grid {
-            assert!((e_min..=e_max).contains(&e), "node {e} outside [{e_min}, {e_max}]");
+            assert!(
+                (e_min..=e_max).contains(&e),
+                "node {e} outside [{e_min}, {e_max}]"
+            );
         }
     }
 
@@ -1382,7 +1874,7 @@ mod tests {
     fn langevin_inverse_round_trips() {
         for &mu in &[-0.85_f64, -0.3, 0.05, 0.333, 0.6, 0.9] {
             let lambda = langevin_inverse(mu);
-            let l = 1.0 / lambda.tanh() - 1.0 / lambda;
+            let l = 1.0 / lambda.r_tanh() - 1.0 / lambda;
             assert!((l - mu).abs() < 1.0e-6, "L(L⁻¹({mu})) = {l}");
         }
     }

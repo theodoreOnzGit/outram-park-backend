@@ -59,14 +59,36 @@ impl WRecurrence {
         const C1: f64 = 1.1283792;
         let rv = 2.0 * (r2 - ai2);
         let ak = 4.0 * rez * aimz;
-        (Self { a: 0.0, b: 0.0, g: 1.0, h: 0.0, c: -C1 * aimz, d: C1 * rez, am: rv - 1.0, el: ak }, ak, rv)
+        (
+            Self {
+                a: 0.0,
+                b: 0.0,
+                g: 1.0,
+                h: 0.0,
+                c: -C1 * aimz,
+                d: C1 * rez,
+                am: rv - 1.0,
+                el: ak,
+            },
+            ak,
+            rv,
+        )
     }
 
     /// Build the recurrence state for the Taylor-series branch's initial
     /// values (`unresr.f90:1586-1595`, label 420). See
     /// [`Self::init_asymptotic`] for why this is exposed `pub(crate)`.
     pub(crate) fn init_taylor() -> Self {
-        Self { a: 1.0, b: 0.0, g: 0.0, h: 0.0, c: 0.0, d: 0.0, am: 1.0, el: 0.0 }
+        Self {
+            a: 1.0,
+            b: 0.0,
+            g: 0.0,
+            h: 0.0,
+            c: 0.0,
+            d: 0.0,
+            am: 1.0,
+            el: 0.0,
+        }
     }
 
     /// One continued-fraction step (`unresr.f90:1625-1658`): given the
@@ -162,7 +184,16 @@ fn w_taylor(rez: f64, aimz: f64, r2: f64, ai2: f64) -> (f64, f64) {
     let aj0 = -(r2 - ai2) / temp2;
     let ak = 2.0 * rez * aimz / temp2;
 
-    let mut state = WRecurrence { a: 1.0, b: 0.0, g: 0.0, h: 0.0, c: 0.0, d: 0.0, am: 1.0, el: 0.0 };
+    let mut state = WRecurrence {
+        a: 1.0,
+        b: 0.0,
+        g: 0.0,
+        h: 0.0,
+        c: 0.0,
+        d: 0.0,
+        am: 1.0,
+        el: 0.0,
+    };
 
     let expon = (temp2 * aj0).exp();
     let expc = expon * (temp2 * ak).cos();
@@ -229,7 +260,21 @@ pub fn uw(rez: f64, aim1: f64) -> (f64, f64) {
     const BRK8: f64 = 5.76;
     const BRK9: f64 = 1.5;
 
-    // unresr.f90:1532-1536 — region selection (kw=1 asymptotic, kw=2 taylor).
+    // unresr.f90:1532-1536 — region selection (kw=1 asymptotic, kw=2 taylor):
+    //   if (abrez+brk1*aimz-brk2.gt.zero) go to 350   ! asymptotic
+    //   if (abrez+brk3*aimz-brk4.gt.zero) go to 350   ! asymptotic
+    //   if (r2+brk5*ai2-brk6.lt.zero)     go to 340   ! taylor
+    //   if (r2+brk7*ai2-brk8.ge.zero)     go to 340   ! taylor
+    //   if (aimz-brk9.ge.zero)            go to 350   ! asymptotic
+    //   340 continue                                  ! FALL-THROUGH: taylor
+    // The last line matters: a *false* final test falls through into label
+    // 340 (Taylor), so inside the annulus 2.89 ≤ r²+1.71y² and r²+1.18y² <
+    // 5.76 it is `y ≥ 1.5` that selects the asymptotic series. Until
+    // 2026-09-10 this port had that arm inverted (`aimz - BRK9 >= 0.0` as
+    // `use_taylor`), which fed the asymptotic series points near the real
+    // axis where it does not converge — w(2.13+0.001i) came out 37× low
+    // (2.9e-4 vs the Fortran's 1.09e-2). Found by the gfortran `uw2` oracle
+    // test in `crate::purr::wfun`.
     let use_taylor = if abrez + BRK1 * aimz - BRK2 > 0.0 {
         false
     } else if abrez + BRK3 * aimz - BRK4 > 0.0 {
@@ -239,7 +284,7 @@ pub fn uw(rez: f64, aim1: f64) -> (f64, f64) {
     } else if r2 + BRK7 * ai2 - BRK8 >= 0.0 {
         true
     } else {
-        aimz - BRK9 >= 0.0
+        aimz - BRK9 < 0.0
     };
 
     if use_taylor {
@@ -372,7 +417,11 @@ impl WTable {
             let d1 = C3 / (a4 * a4 + a3);
             let d2 = C4 / (a5 * a5 + a3);
             let rew = d1 * (a2 * ax - a4 * y) + d2 * (a2 * ax - a5 * y);
-            let aimw = if ki { (d1 * (a4 * ax + a2 * y) + d2 * (a5 * ax + a2 * y)) * aki } else { 0.0 };
+            let aimw = if ki {
+                (d1 * (a4 * ax + a2 * y) + d2 * (a5 * ax + a2 * y)) * aki
+            } else {
+                0.0
+            };
             (rew, aimw)
         } else if test < BREAK3 {
             let a1 = (ax * ax - y * y) * 2.0;
@@ -380,7 +429,11 @@ impl WTable {
             let a4 = a1 - 1.0;
             let d1 = C5 / (a4 * a4 + a2 * a2);
             let rew = d1 * (a2 * ax - a4 * y);
-            let aimw = if ki { d1 * (a4 * ax + a2 * y) * aki } else { 0.0 };
+            let aimw = if ki {
+                d1 * (a4 * ax + a2 * y) * aki
+            } else {
+                0.0
+            };
             (rew, aimw)
         } else {
             let a1 = 1.0 / (rpi * test);
@@ -442,12 +495,28 @@ pub fn qw_weight(k: usize, mu: i32) -> f64 {
 
 /// Gauss-Legendre 8-point nodes on `[-1,1]` used by [`ajk`] (`xg`,
 /// `unresr.f90:1389-1391`).
-const GAUSS8_X: [f64; 8] =
-    [0.095_012_51, 0.281_603_55, 0.458_016_78, 0.617_876_24, 0.755_404_41, 0.865_631_2, 0.944_575_02, 0.989_400_93];
+const GAUSS8_X: [f64; 8] = [
+    0.095_012_51,
+    0.281_603_55,
+    0.458_016_78,
+    0.617_876_24,
+    0.755_404_41,
+    0.865_631_2,
+    0.944_575_02,
+    0.989_400_93,
+];
 /// Gauss-Legendre 8-point weights matching [`GAUSS8_X`] (`wg`,
 /// `unresr.f90:1392-1394`).
-const GAUSS8_W: [f64; 8] =
-    [0.189_450_61, 0.182_603_42, 0.169_156_52, 0.149_596_00, 0.124_628_97, 0.095_158_51, 0.062_253_52, 0.027_152_46];
+const GAUSS8_W: [f64; 8] = [
+    0.189_450_61,
+    0.182_603_42,
+    0.169_156_52,
+    0.149_596_00,
+    0.124_628_97,
+    0.095_158_51,
+    0.062_253_52,
+    0.027_152_46,
+];
 
 /// The `J` and `K` width-fluctuation integrals (Bondarenko/ETOX method),
 /// `J(β, θ) = (π/2)·∫₀^∞ (1/(1+β/χ_a(x)))·φ(x) dx` in the standard notation
@@ -468,7 +537,11 @@ pub fn ajk(table: &WTable, b: f64, st: f64) -> (f64, f64) {
     let sqpi = PI.sqrt();
 
     // unresr.f90:1400-1405 — small-θ / small-β early-out via the "ep" test.
-    let term = if -st / 2.0 < f64::MIN_POSITIVE.ln() { 0.0 } else { (-st / 2.0).exp() };
+    let term = if -st / 2.0 < f64::MIN_POSITIVE.ln() {
+        0.0
+    } else {
+        (-st / 2.0).exp()
+    };
     let ep = (1.0 - term) / EPS_AJK - b;
 
     if ep <= 0.0 {
@@ -518,4 +591,61 @@ pub fn ajk(table: &WTable, b: f64, st: f64) -> (f64, f64) {
     let aj = 5.0 * (z + 9.0 * y) / y1 + remj;
     let ak = aj + 5.0 * b1 * (zk + 9.0 * yk) / y1 + remk;
     (aj, ak)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uw_matches_gfortran_uw2_oracle_off_the_imaginary_axis() {
+        // `uw` and PURR's `uw2` are the same series with the same break
+        // lines; the only difference is uw2's Im w = 0 shortcut on the
+        // imaginary axis. So the verbatim-Fortran uw2 oracle (see
+        // `crate::purr::wfun::tests::UW2_ORACLE`, gfortran 13.3.0, 2026-09-10)
+        // is an oracle for `uw` too at every point with x ≠ 0 — including
+        // (2, 1) and the small-y annulus points that exposed the inverted
+        // break-line arm.
+        let pts: [(f64, f64, f64, f64); 8] = [
+            (2.0, 1.0, 1.4023958109725965e-01, 2.2221344043570285e-01),
+            (2.13, 0.001, 1.0906997393434889e-02, 3.1190675446644167e-01),
+            (2.0, 0.0, 1.8315638888734179e-02, 3.4002621683944945e-01),
+            (1.5, 0.001, 1.0572015870304070e-01, 4.8291113391472923e-01),
+            (2.13, 0.5, 8.8182548574752828e-02, 2.7014741016363825e-01),
+            (1.5, 1.6, 1.9780568184586350e-01, 1.5377336487430945e-01),
+            (3.0, 0.4, 3.0278754967723216e-02, 1.9573208858501706e-01),
+            (-2.0, 1.2, 1.4654080316187895e-01, -1.9990385817383455e-01),
+        ];
+        for &(x, y, re, im) in &pts {
+            let (r, i) = uw(x, y);
+            assert!((r - re).abs() <= 1e-12 * re.abs(), "Re w({x},{y}): {r:e} vs {re:e}");
+            assert!((i - im).abs() <= 1e-12 * im.abs(), "Im w({x},{y}): {i:e} vs {im:e}");
+        }
+    }
+
+    #[test]
+    fn wtable_is_exact_at_its_nodes_and_close_between_them() {
+        let t = WTable::new();
+        for &(x, y) in &[(0.0, 0.0), (0.5, 0.3), (2.0, 0.1), (2.1, 0.0), (3.7, 4.4), (5.9, 0.2)] {
+            let (r, i) = t.lookup(x, y, true);
+            let (re, im) = uw(x, y);
+            assert!((r - re).abs() <= 1e-9 * re.abs().max(1e-12), "node ({x},{y}): {r:e} vs {re:e}");
+            assert!((i - im).abs() <= 1e-9 * im.abs().max(1e-12), "node ({x},{y}): {i:e} vs {im:e}");
+        }
+        let mut worst: f64 = 0.0;
+        for ix in 0..58 {
+            for iy in 0..58 {
+                let (x, y) = (0.1 * ix as f64 + 0.043, 0.1 * iy as f64 + 0.037);
+                if x * x + y * y >= 36.0 {
+                    continue;
+                }
+                let (r, i) = t.lookup(x, y, true);
+                let (re, im) = uw(x, y);
+                let e = ((r - re) / re).abs().max(((i - im) / im.abs().max(1e-3 * re)).abs());
+                worst = worst.max(e);
+            }
+        }
+        // Measured 2026-09-10: 1.7e-3 on this 0.1-step grid.
+        assert!(worst < 5e-3, "worst rel err {worst:e}");
+    }
 }

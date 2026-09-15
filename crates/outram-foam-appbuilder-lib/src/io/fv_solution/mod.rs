@@ -85,6 +85,15 @@ pub struct PimpleControl {
 }
 
 impl FvSolution {
+    /// Parse a `system/fvSolution` file from disk.
+    ///
+    /// **Not yet implemented — calling this panics (`todo!`).** No OpenFOAM
+    /// dictionary parsing exists in this crate; see the sibling
+    /// [`crate::io::control_dict::ControlDict::read`] and
+    /// [`crate::io::fv_schemes::FvSchemes::read`], which are in the same state.
+    ///
+    /// Build the struct in Rust instead: `FvSolution::default()` plus field
+    /// assignment on the [`PimpleControl`] and [`LinearSolverConfig`] members.
     pub fn read(path: &Path) -> Result<Self, AppBuilderError> {
         let _ = path;
         todo!("FvSolution::read — parse system/fvSolution")

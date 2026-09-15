@@ -150,11 +150,7 @@ impl Communicator {
     /// # Errors
     /// [`MpiError::InvalidRank`] for a bad `root`; [`MpiError::InvalidArgument`]
     /// if `root` passed `None` or a non-root passed `Some`.
-    pub fn broadcast<T: MpiPrimitive>(
-        &self,
-        data: Option<&[T]>,
-        root: i32,
-    ) -> MpiResult<Vec<T>> {
+    pub fn broadcast<T: MpiPrimitive>(&self, data: Option<&[T]>, root: i32) -> MpiResult<Vec<T>> {
         self.check_root(root)?;
         let ctx = self.coll_ctx();
         let size = self.size();
@@ -324,11 +320,7 @@ impl Communicator {
     /// # Errors
     /// [`MpiError::InvalidRank`] for a bad `root`; [`MpiError::InvalidArgument`]
     /// if a contributed chunk length differs from root's own.
-    pub fn gather<T: MpiPrimitive>(
-        &self,
-        sendbuf: &[T],
-        root: i32,
-    ) -> MpiResult<Option<Vec<T>>> {
+    pub fn gather<T: MpiPrimitive>(&self, sendbuf: &[T], root: i32) -> MpiResult<Option<Vec<T>>> {
         self.check_root(root)?;
         let ctx = self.coll_ctx();
         let size = self.size();

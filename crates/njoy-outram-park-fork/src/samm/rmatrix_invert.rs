@@ -95,7 +95,10 @@ pub fn twoch(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
     const K21: i64 = 2;
     const K22: i64 = 3;
 
-    let mut rmat = PackedComplexMatrix { re: rmat_in.re.clone(), im: rmat_in.im.clone() };
+    let mut rmat = PackedComplexMatrix {
+        re: rmat_in.re.clone(),
+        im: rmat_in.im.clone(),
+    };
     let mut rinv = PackedComplexMatrix::zeros(2);
 
     if g(&rmat.re, K11) != 0.0 || g(&rmat.re, K21) != 0.0 || g(&rmat.re, K22) != 0.0 {
@@ -125,7 +128,9 @@ pub fn twoch(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
             }
         }
 
-        let bbr = g(&rmat.re, K11) * g(&rmat.re, K22) - g(&rmat.im, K11) * g(&rmat.im, K22) - g(&rmat.re, K21).powi(2)
+        let bbr = g(&rmat.re, K11) * g(&rmat.re, K22)
+            - g(&rmat.im, K11) * g(&rmat.im, K22)
+            - g(&rmat.re, K21).powi(2)
             + g(&rmat.im, K21).powi(2);
         let bbi = g(&rmat.re, K11) * g(&rmat.im, K22) + g(&rmat.im, K11) * g(&rmat.re, K22)
             - 2.0 * g(&rmat.re, K21) * g(&rmat.im, K21);
@@ -145,12 +150,36 @@ pub fn twoch(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
             aai = -1.0 / bbi;
         }
 
-        s(&mut rinv.re, K11, aar * g(&rmat.re, K22) - aai * g(&rmat.im, K22));
-        s(&mut rinv.im, K11, aar * g(&rmat.im, K22) + aai * g(&rmat.re, K22));
-        s(&mut rinv.re, K21, -aar * g(&rmat.re, K21) + aai * g(&rmat.im, K21));
-        s(&mut rinv.im, K21, -aar * g(&rmat.im, K21) - aai * g(&rmat.re, K21));
-        s(&mut rinv.re, K22, aar * g(&rmat.re, K11) - aai * g(&rmat.im, K11));
-        s(&mut rinv.im, K22, aar * g(&rmat.im, K11) + aai * g(&rmat.re, K11));
+        s(
+            &mut rinv.re,
+            K11,
+            aar * g(&rmat.re, K22) - aai * g(&rmat.im, K22),
+        );
+        s(
+            &mut rinv.im,
+            K11,
+            aar * g(&rmat.im, K22) + aai * g(&rmat.re, K22),
+        );
+        s(
+            &mut rinv.re,
+            K21,
+            -aar * g(&rmat.re, K21) + aai * g(&rmat.im, K21),
+        );
+        s(
+            &mut rinv.im,
+            K21,
+            -aar * g(&rmat.im, K21) - aai * g(&rmat.re, K21),
+        );
+        s(
+            &mut rinv.re,
+            K22,
+            aar * g(&rmat.re, K11) - aai * g(&rmat.im, K11),
+        );
+        s(
+            &mut rinv.im,
+            K22,
+            aar * g(&rmat.im, K11) + aai * g(&rmat.re, K11),
+        );
 
         if a != 0.0 {
             if k == 2 {
@@ -225,7 +254,13 @@ fn scale3(rmat: &mut PackedComplexMatrix) -> (f64, f64, f64) {
 
 /// Undo [`scale3`]'s scaling on both `rmat` and its inverse `rinv` — ported
 /// from `unscale3` (`samm.f90:5386-5447`).
-fn unscale3(a1: f64, a2: f64, a3: f64, rmat: &mut PackedComplexMatrix, rinv: &mut PackedComplexMatrix) {
+fn unscale3(
+    a1: f64,
+    a2: f64,
+    a3: f64,
+    rmat: &mut PackedComplexMatrix,
+    rinv: &mut PackedComplexMatrix,
+) {
     if a1 > 0.0 {
         let bb = a1 * a1;
         scale_at(&mut rmat.re, 1, bb);
@@ -284,7 +319,10 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
     const K32: i64 = 5;
     const K33: i64 = 6;
 
-    let mut rmat = PackedComplexMatrix { re: rmat_in.re.clone(), im: rmat_in.im.clone() };
+    let mut rmat = PackedComplexMatrix {
+        re: rmat_in.re.clone(),
+        im: rmat_in.im.clone(),
+    };
     let (a1, a2, a3) = scale3(&mut rmat);
     let mut rinv = PackedComplexMatrix::zeros(3);
 
@@ -305,20 +343,25 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(&mut rinv.im, 6, -1.0 / g(&rmat.im, 6));
     } else {
         let (rr, ri) = (&rmat.re, &rmat.im);
-        let fc1r = g(rr, K22) * g(rr, K33) - g(ri, K22) * g(ri, K33) - g(rr, K32).powi(2) + g(ri, K32).powi(2);
-        let fc1i = g(ri, K22) * g(rr, K33) + g(rr, K22) * g(ri, K33) - 2.0 * g(rr, K32) * g(ri, K32);
-        let fc2r =
-            g(rr, K21) * g(rr, K33) - g(ri, K21) * g(ri, K33) - g(rr, K31) * g(rr, K32) + g(ri, K31) * g(ri, K32);
-        let fc2i =
-            g(ri, K21) * g(rr, K33) + g(rr, K21) * g(ri, K33) - g(rr, K31) * g(ri, K32) - g(ri, K31) * g(rr, K32);
-        let fc3r =
-            g(rr, K21) * g(rr, K32) - g(ri, K21) * g(ri, K32) - g(rr, K31) * g(rr, K22) + g(ri, K31) * g(ri, K22);
-        let fc3i =
-            g(ri, K21) * g(rr, K32) + g(rr, K21) * g(ri, K32) - g(ri, K31) * g(rr, K22) - g(rr, K31) * g(ri, K22);
+        let fc1r = g(rr, K22) * g(rr, K33) - g(ri, K22) * g(ri, K33) - g(rr, K32).powi(2)
+            + g(ri, K32).powi(2);
+        let fc1i =
+            g(ri, K22) * g(rr, K33) + g(rr, K22) * g(ri, K33) - 2.0 * g(rr, K32) * g(ri, K32);
+        let fc2r = g(rr, K21) * g(rr, K33) - g(ri, K21) * g(ri, K33) - g(rr, K31) * g(rr, K32)
+            + g(ri, K31) * g(ri, K32);
+        let fc2i = g(ri, K21) * g(rr, K33) + g(rr, K21) * g(ri, K33)
+            - g(rr, K31) * g(ri, K32)
+            - g(ri, K31) * g(rr, K32);
+        let fc3r = g(rr, K21) * g(rr, K32) - g(ri, K21) * g(ri, K32) - g(rr, K31) * g(rr, K22)
+            + g(ri, K31) * g(ri, K22);
+        let fc3i = g(ri, K21) * g(rr, K32) + g(rr, K21) * g(ri, K32)
+            - g(ri, K31) * g(rr, K22)
+            - g(rr, K31) * g(ri, K22);
 
         let aar = g(rr, K11) * fc1r - g(rr, K21) * fc2r + g(rr, K31) * fc3r
             - (g(ri, K11) * fc1i - g(ri, K21) * fc2i + g(ri, K31) * fc3i);
-        let aai = g(rr, K11) * fc1i - g(rr, K21) * fc2i + g(rr, K31) * fc3i
+        let aai = g(rr, K11) * fc1i - g(rr, K21) * fc2i
+            + g(rr, K31) * fc3i
             + (g(ri, K11) * fc1r - g(ri, K21) * fc2r + g(ri, K31) * fc3r);
 
         let (dcr, dci);
@@ -343,44 +386,64 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
         s(
             &mut rinv.re,
             K22,
-            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33) + g(ri, K31).powi(2)) * dcr
-                - (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31) + g(rr, K11) * g(ri, K33)) * dci,
+            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33)
+                + g(ri, K31).powi(2))
+                * dcr
+                - (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31)
+                    + g(rr, K11) * g(ri, K33))
+                    * dci,
         );
         s(
             &mut rinv.im,
             K22,
-            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33) + g(ri, K31).powi(2)) * dci
-                + (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31) + g(rr, K11) * g(ri, K33)) * dcr,
+            (g(rr, K11) * g(rr, K33) - g(rr, K31).powi(2) - g(ri, K11) * g(ri, K33)
+                + g(ri, K31).powi(2))
+                * dci
+                + (g(ri, K11) * g(rr, K33) - 2.0 * g(rr, K31) * g(ri, K31)
+                    + g(rr, K11) * g(ri, K33))
+                    * dcr,
         );
         s(&mut rinv.re, K31, fc3r * dcr - fc3i * dci);
         s(&mut rinv.im, K31, fc3r * dci + fc3i * dcr);
         s(
             &mut rinv.re,
             K32,
-            -(g(rr, K11) * g(rr, K32) - g(rr, K21) * g(rr, K31) - g(ri, K11) * g(ri, K32) + g(ri, K21) * g(ri, K31))
+            -(g(rr, K11) * g(rr, K32) - g(rr, K21) * g(rr, K31) - g(ri, K11) * g(ri, K32)
+                + g(ri, K21) * g(ri, K31))
                 * dcr
-                + (g(rr, K11) * g(ri, K32) - g(rr, K21) * g(ri, K31) + g(ri, K11) * g(rr, K32) - g(ri, K21) * g(rr, K31))
+                + (g(rr, K11) * g(ri, K32) - g(rr, K21) * g(ri, K31) + g(ri, K11) * g(rr, K32)
+                    - g(ri, K21) * g(rr, K31))
                     * dci,
         );
         s(
             &mut rinv.im,
             K32,
-            -(g(rr, K11) * g(rr, K32) - g(rr, K21) * g(rr, K31) - g(ri, K11) * g(ri, K32) + g(ri, K21) * g(ri, K31))
+            -(g(rr, K11) * g(rr, K32) - g(rr, K21) * g(rr, K31) - g(ri, K11) * g(ri, K32)
+                + g(ri, K21) * g(ri, K31))
                 * dci
-                - (g(rr, K11) * g(ri, K32) - g(rr, K21) * g(ri, K31) + g(ri, K11) * g(rr, K32) - g(ri, K21) * g(rr, K31))
+                - (g(rr, K11) * g(ri, K32) - g(rr, K21) * g(ri, K31) + g(ri, K11) * g(rr, K32)
+                    - g(ri, K21) * g(rr, K31))
                     * dcr,
         );
         s(
             &mut rinv.re,
             K33,
-            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22) + g(ri, K21).powi(2)) * dcr
-                - (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21) + g(rr, K11) * g(ri, K22)) * dci,
+            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22)
+                + g(ri, K21).powi(2))
+                * dcr
+                - (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21)
+                    + g(rr, K11) * g(ri, K22))
+                    * dci,
         );
         s(
             &mut rinv.im,
             K33,
-            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22) + g(ri, K21).powi(2)) * dci
-                + (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21) + g(rr, K11) * g(ri, K22)) * dcr,
+            (g(rr, K11) * g(rr, K22) - g(rr, K21).powi(2) - g(ri, K11) * g(ri, K22)
+                + g(ri, K21).powi(2))
+                * dci
+                + (g(ri, K11) * g(rr, K22) - 2.0 * g(rr, K21) * g(ri, K21)
+                    + g(rr, K11) * g(ri, K22))
+                    * dcr,
         );
 
         unscale3(a1, a2, a3, &mut rmat, &mut rinv);
@@ -394,7 +457,10 @@ pub fn threech(rmat_in: &PackedComplexMatrix) -> PackedComplexMatrix {
 /// [`xspfa`], then solve for each unit column via [`xspsl`] to build up
 /// the inverse column by column.
 pub fn yfour(rmat: &PackedComplexMatrix, n: i64) -> PackedComplexMatrix {
-    let mut a = PackedComplexMatrix { re: rmat.re.clone(), im: rmat.im.clone() };
+    let mut a = PackedComplexMatrix {
+        re: rmat.re.clone(),
+        im: rmat.im.clone(),
+    };
     let (kpvt, info) = xspfa(&mut a, n);
     if info != 0 {
         log::error!("samm yfour: xspfa reported a singular pivot block (info={info})");

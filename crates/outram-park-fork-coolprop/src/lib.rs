@@ -157,4 +157,6 @@ pub use openfoam_algorithms::rhoPimpleFoam::{OPCPFluidArray, OPCPFluidArrayError
 pub use props::{state_trho, pressure_trho, FluidState};
 pub use single_cv::OPCPFluidSingleCV;
 pub use transport::{conductivity, viscosity, FluidTransport};
-pub use vle::{phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh, SaturationState};
+pub use vle::{
+    phase_at_ph, saturation_at_temperature, saturation_temperature, PhaseAtPh, SaturationState,
+};

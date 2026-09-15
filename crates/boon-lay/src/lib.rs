@@ -30,10 +30,17 @@ pub mod lagrangian_decay_simulator;
 pub mod lagrangian_transmutation_and_fission_simulator;
 
 /// Optional wgpu GPU acceleration for large Walk-on-Spheres ensembles. Compiled
-/// only off Android (the workspace GPU/Android rule); the CPU rayon path in
-/// `lagrangian_diffusion::first_passage::ensemble` is always available and is the
-/// trusted reference. See the module docs for the CPU-fallback contract.
-#[cfg(not(target_os = "android"))]
+/// only off Android (the workspace GPU/Android rule) **and off wasm**; the CPU
+/// path in `lagrangian_diffusion::first_passage::ensemble` is always available
+/// and is the trusted reference. See the module docs for the CPU-fallback
+/// contract.
+///
+/// The wasm exclusion is not a policy choice but a type-system one: wgpu's
+/// WebGPU backend holds `Rc<Cell<u32>>` internally, so `GpuContext` is `!Send`
+/// there and the `static OnceLock<Option<GpuContext>>` this module caches it in
+/// cannot compile. Reaching WebGPU from wasm needs a `thread_local!` cache
+/// instead — a real change, not a gate — and is tracked separately.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 pub mod gpu;
 
 /// Eulerian / continuum-diffusion TRISO fission-product release — a Rust fork of
@@ -43,3 +50,8 @@ pub mod gpu;
 /// breakthrough, graphite-attenuation models) to predict per-nuclide release
 /// fractions. See `docs/triso-atops-fork.md` and the module-level docs.
 pub mod triso_atops_fork;
+
+/// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
+/// `rayon` does not build. See the module docs.
+#[cfg(target_arch = "wasm32")]
+mod wasm_par;

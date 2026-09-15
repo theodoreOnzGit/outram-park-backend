@@ -165,7 +165,11 @@ impl PhotonProductionSpectrum {
     /// The un-normalised integral `integral g(E_gamma) dE_gamma` over the full
     /// tabulated range \[same units as `p * E`\].
     pub fn integral(&self) -> f64 {
-        integrate_tab(&self.points, self.points[0].0, self.points[self.points.len() - 1].0)
+        integrate_tab(
+            &self.points,
+            self.points[0].0,
+            self.points[self.points.len() - 1].0,
+        )
     }
 
     /// The fraction of the (normalised) photon spectrum falling in each photon
@@ -437,8 +441,7 @@ pub fn photon_production_matrix(
     for g in 0..n_neutron {
         let e_lo = neutron_bounds[g];
         let e_hi = neutron_bounds[g + 1];
-        let (group_flux, prod_int) =
-            integrate_production_panel(sigma, &yield_xs, flux, e_lo, e_hi);
+        let (group_flux, prod_int) = integrate_production_panel(sigma, &yield_xs, flux, e_lo, e_hi);
         if group_flux == 0.0 || prod_int == 0.0 {
             continue; // empty / below-threshold incident group
         }
@@ -773,14 +776,12 @@ mod tests {
             crate::groupr::weights::AnalyticWeight::OneOverE,
             0.0,
         );
-        let m =
-            photon_production_matrix(&neutron, &photon, &sigma, &flux, &feed).unwrap();
+        let m = photon_production_matrix(&neutron, &photon, &sigma, &flux, &feed).unwrap();
         let row = m.row(1).expect("row");
         let row_sum = row.total_production();
 
         // Independent flux-weighted production over the same group.
-        let (den, prod_int) =
-            integrate_production_panel(&sigma, &yield_xs, &flux, 1.0e5, 1.0e6);
+        let (den, prod_int) = integrate_production_panel(&sigma, &yield_xs, &flux, 1.0e5, 1.0e6);
         let expected = prod_int / den;
         assert!(
             (row_sum - expected).abs() < 1e-9,
@@ -862,7 +863,10 @@ mod tests {
         let frac = feed.photon_group_fractions(&photon);
         // epair in [5.0e5, 6.0e5) -> group index 1 (0-based).
         assert_eq!(frac.len(), 4);
-        assert!((frac[1] - 1.0).abs() < 1e-15, "delta group fraction {frac:?}");
+        assert!(
+            (frac[1] - 1.0).abs() < 1e-15,
+            "delta group fraction {frac:?}"
+        );
         let others: f64 = frac
             .iter()
             .enumerate()
@@ -881,7 +885,10 @@ mod tests {
         )
         .unwrap();
         let row = m.row(1).expect("row");
-        assert_eq!(row.ig2lo, 2, "sink group is the 0.511 MeV group (1-based 2)");
+        assert_eq!(
+            row.ig2lo, 2,
+            "sink group is the 0.511 MeV group (1-based 2)"
+        );
         assert!(
             (row.total_production() - 10.0).abs() < 1e-9,
             "pair production 2*5 = 10 barn, got {}",
@@ -922,17 +929,13 @@ mod tests {
         // Too few points.
         assert!(PhotonProductionSpectrum::new(Arc::new(vec![(1.0e5, 1.0)])).is_err());
         // Descending energies.
-        assert!(
-            PhotonProductionSpectrum::new(Arc::new(vec![(2.0e6, 1.0), (1.0e5, 1.0)])).is_err()
-        );
+        assert!(PhotonProductionSpectrum::new(Arc::new(vec![(2.0e6, 1.0), (1.0e5, 1.0)])).is_err());
         // Negative probability.
         assert!(
             PhotonProductionSpectrum::new(Arc::new(vec![(1.0e5, -1.0), (2.0e6, 1.0)])).is_err()
         );
         // Zero integral (all-zero probabilities).
-        assert!(
-            PhotonProductionSpectrum::new(Arc::new(vec![(1.0e5, 0.0), (2.0e6, 0.0)])).is_err()
-        );
+        assert!(PhotonProductionSpectrum::new(Arc::new(vec![(1.0e5, 0.0), (2.0e6, 0.0)])).is_err());
     }
 
     /// The `NO_NEXT_BREAK_EV` sentinel (reused from [`crate::groupr::panel`]) is

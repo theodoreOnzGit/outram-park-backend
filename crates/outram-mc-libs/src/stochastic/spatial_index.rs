@@ -167,7 +167,12 @@ impl KdTreeIndex {
         let mut idx: Vec<u32> = (0..histories.len() as u32).collect();
         let mut nodes: Vec<KdNode> = Vec::with_capacity(histories.len());
         let root = build_subtree(&histories, &mut idx, &mut nodes, 0);
-        Self { histories, nodes, root, max_radius }
+        Self {
+            histories,
+            nodes,
+            root,
+            max_radius,
+        }
     }
 
     /// How many inclusions are indexed.
@@ -241,7 +246,11 @@ impl KdTreeIndex {
         }
         let delta = Self::coord(p, n.axis) - Self::coord(center, n.axis);
         // Near side first, then the far side only if the plane is within `radius`.
-        let (near, far) = if delta < 0.0 { (n.left, n.right) } else { (n.right, n.left) };
+        let (near, far) = if delta < 0.0 {
+            (n.left, n.right)
+        } else {
+            (n.right, n.left)
+        };
         if self.range_visit(near, p, radius, visit) {
             return true;
         }
@@ -274,7 +283,12 @@ fn build_subtree(
     let hist = idx[mid];
     // Reserve this node's slot before recursing so child indices are stable.
     let node_index = nodes.len() as u32;
-    nodes.push(KdNode { hist, axis, left: NIL, right: NIL });
+    nodes.push(KdNode {
+        hist,
+        axis,
+        left: NIL,
+        right: NIL,
+    });
     let (left_idx, right_slice) = idx.split_at_mut(mid);
     let right_idx = &mut right_slice[1..]; // skip the median
     let left = build_subtree(histories, left_idx, nodes, depth + 1);
@@ -434,7 +448,11 @@ mod tests {
             for j in 0..6 {
                 let x = i as f64 * 0.3 + (j as f64) * 0.01;
                 let y = j as f64 * 0.3 - (i as f64) * 0.01;
-                hs.push(ParticleHistory::new(Position::new(x, y, 0.0), 0.1, MaterialId(1)));
+                hs.push(ParticleHistory::new(
+                    Position::new(x, y, 0.0),
+                    0.1,
+                    MaterialId(1),
+                ));
             }
         }
         let bf = BruteForceIndex::from_histories(hs.clone());

@@ -1,0 +1,51 @@
+[Tests]
+  # Steady state
+  # Griffin tests
+  [xs_generation]
+    type = 'XMLDiff'
+    input = 'xs_generation.i'
+    xmldiff = 'mcc3xs.xml'
+    executable_pattern = 'griffin*|blue_crab*'
+    min_parallel = 4
+    hpc_mem_per_cpu = 48G
+    rel_err = 1e-3
+    abs_zero = 1e-8
+    capabilities = 'method=opt'
+    ignored_attributes = '@TimeCreated'
+    max_time = 2000
+  []
+  [full_core_solve]
+    type = 'CSVDiff'
+    input = 'abtr_het_mesh.i core_hom_macro.i'
+    executable_pattern = 'griffin*|blue_crab*'
+    cli_args = "max_axial_mesh_size=10
+                Mesh/eqv_core/quad_center_elements=true
+                Mesh/eqv_core_coarse_mesh/type=CoarseMeshExtraElementIDGenerator
+                Mesh/eqv_core_coarse_mesh/input=block_numbering
+                Mesh/eqv_core_coarse_mesh/coarse_mesh=block_numbering
+                Mesh/eqv_core_coarse_mesh/extra_element_id_name=coarse_element_id
+                Mesh/uniform_refine=1
+                TransportSystems/ReflectingBoundary=''
+                TransportSystems/VacuumBoundary='outer_core top bottom'
+                TransportSystems/dfem_sn/NAzmthl=4
+                TransportSystems/dfem_sn/NPolar=3
+                Executioner/coarse_element_id=coarse_element_id
+                Executioner/cmfd_eigen_solver_type=krylovshur
+                Outputs/csv=true
+                Outputs/checkpoint=false"
+    # NOTE: I turned off the checkpoints to see if this solves the timeouts
+    # If you see this time out, please add a note here
+    prereq = 'xs_generation'
+    csvdiff = 'core_hom_macro_out.csv'
+    min_parallel = 64
+    # Tried increasing from 10 to 14G in case that caused timeouts
+    hpc_mem_per_cpu = 14G
+    capabilities = 'method=opt'
+    # 3000s ended after 6 iterations with 16 cpus
+    # 3000s ended after 11 iterations with 32 cpus
+    # 1500s finished 12 iterations with 64 cpus
+    # Tried 3000 -> 3600
+    max_time = 3600
+    ignore_columns = 'power_scaling'
+  []
+[]

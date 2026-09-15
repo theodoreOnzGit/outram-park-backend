@@ -1,0 +1,143 @@
+ leapr
+ 20
+ 'h in zrh '/
+ 8 1/
+ 7 1007./
+ .99917 20.478 1 -1/
+ 0/
+ 48 200 1/
+ 5.04060e-1 1.00812e+0 1.51218e+0 2.01624e+0 2.52030e+0 3.02436e+0
+ 3.52842e+0 4.03248e+0 4.53654e+0 5.04060e+0 5.60867e+0 6.24893e+0
+ 6.97044e+0 7.78359e+0 8.69997e+0 9.73279e+0 1.08968e+1 1.22083e+1
+ 1.36872e+1 1.53526e+1 1.72308e+1 1.93468e+1 2.17320e+1 2.44197e+1
+ 2.74491e+1 3.08636e+1 3.47106e+1 3.90465e+1 4.39338e+1 4.94412e+1
+ 5.56482e+1 6.26425e+1 7.05260e+1 7.94105e+1 8.94242e+1 1.00708e+2
+ 1.13423e+2 1.27759e+2 1.43909e+2 1.62116e+2
+ 170. 180. 190. 200. 210. 220. 230. 240./
+ 0.00000e+0 7.90678e-2 1.58134e-1 2.37200e-1 3.16277e-1 3.95344e-1
+ 4.74411e-1 5.13939e-1 5.53478e-1 5.93016e-1 6.32545e-1 6.72083e-1
+ 7.11611e-1 7.51150e-1 7.90678e-1 8.30217e-1 8.69755e-1 9.48822e-1
+ 1.02788e+0 1.10691e+0 1.18605e+0 1.26509e+0 1.34412e+0 1.46278e+0
+ 1.58134e+0 1.69999e+0 1.81855e+0 1.93720e+0 2.05576e+0 2.17441e+0 
+ 2.29297e+0 2.41162e+0 2.53018e+0 2.88594e+0 3.20229e+0 3.51854e+0
+ 3.87430e+0 4.15103e+0 4.46738e+0 4.58594e+0 4.66507e+0 4.74411e+0
+ 4.82314e+0 4.90218e+0 4.98132e+0 5.06035e+0 5.13939e+0 5.21853e+0
+ 5.29757e+0 5.33708e+0 5.37660e+0 5.41612e+0 5.45574e+0 5.53478e+0
+ 5.61381e+0 5.69295e+0 5.77199e+0 5.81150e+0 5.85102e+0 5.89054e+0
+ 5.93016e+0 5.96968e+0 6.00920e+0 6.08823e+0 6.16727e+0 6.24641e+0
+ 6.32545e+0 6.91842e+0 7.51150e+0 8.10447e+0 9.09283e+0 9.40908e+0
+ 9.72543e+0 1.00417e+1 1.03584e+1 1.06740e+1 1.07536e+1 1.08322e+1
+ 1.09119e+1 1.10691e+1 1.12274e+1 1.13857e+1 1.15440e+1 1.16226e+1
+ 1.17023e+1 1.17809e+1 1.18605e+1 1.19392e+1 1.20188e+1 1.23343e+1
+ 1.26509e+1 1.30461e+1 1.36388e+1 1.42326e+1 1.48254e+1 1.54182e+1
+ 1.57740e+1 1.60110e+1 1.62489e+1 1.64858e+1 1.67227e+1 1.69606e+1
+ 1.71975e+1 1.74344e+1 1.76713e+1 1.79092e+1 1.81855e+1 1.85020e+1
+ 1.89768e+1 1.97672e+1 2.05576e+1 2.09527e+1 2.13479e+1 2.17441e+1
+ 2.21393e+1 2.25345e+1 2.29297e+1 2.33248e+1 2.37200e+1 2.45114e+1
+ 2.53018e+1 2.56970e+1 2.60921e+1 2.64883e+1 2.68835e+1 2.72787e+1
+ 2.76739e+1 2.80691e+1 2.84642e+1 2.88594e+1 2.92556e+1 2.96508e+1
+ 3.02436e+1 3.08363e+1 3.12315e+1 3.16277e+1 3.20229e+1 3.24181e+1
+ 3.28133e+1 3.32085e+1 3.36036e+1 3.39988e+1 3.43950e+1 3.47902e+1
+ 3.55806e+1 3.63709e+1 3.71623e+1 3.79527e+1 3.87430e+1 3.95344e+1
+ 40.25 41.0 41.75 42.5 43.25 44.0 44.75 45.5 46.25 47.0 47.75 48.5
+ 49.25 50.0 51.75 52.5 53.25 54.0 54.75 55.5 56.25 57.0 57.75 58.5
+ 59.25 60.0 60.75 61.5 62.25 63.0 63.75 64.5 65.25 66.0 66.75 67.5
+ 68.25 69.0 69.75 70.5 71.25 72.0 72.75 73.5 74.25 75.0 75.75 76.5
+ 77.25 78.0 /
+ 293.6/
+ .001 161/
+  0. .000875 .0035 .008 .015 .0235 .0340
+  .046 .061 .078 .094 .116 .144
+  .1606 .1969 .2606 .3479 .3559 .3500
+  .3322 .3328 .2911 .1617 .1431 .1248
+  .09738 .06067 .1221 .1495 .07219 .01443
+  .0001
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+  0. 0.
+ .0499 2.010 3.560
+  4.790 5.995 7.250 8.550 9.640 11.91
+  13.52 16.04 19.79 26.10 29.39 30.82
+  32.21 31.75 33.14 35.65 33.34 36.27
+  38.18 38.75 39.48 28.99 23.29 25.18
+  26.59 27.86 27.89 29.44 25.86 23.33
+  24.66 27.51 37.94 60.77 26.66 18.54
+  14.51 11.48 9.53 7.53 5.449 3.838
+  8.497 0./
+ 0. 0. 1. 0./
+ 0/
+ -400./ 
+ -500./
+ -600./
+ -700./
+ -800./
+ -1000./
+ -1200./
+ ' h(zrh)    lanl       eval-may05 macfarlane'/
+ ' ref. 3               dist-'/
+ ' ---- endf/b-6        material 7'/
+ ' ----- thermal neutron scattering data'/
+ ' ------ endf-6'/
+ ' '/
+ ' temperatures = 293.6 400 500 600 700 800 1000 1200 deg k.'/
+ ' '/
+ ' history'/
+ ' -------'/
+ ' '/
+ ' temperatures changed may 2005'/
+ ' '/
+ ' this evaluation was produced at los alamos in 1993 using'/
+ ' the same model as the ga evaluation of 1968 (ref 1).  the'/
+ ' leapr module of njoy was used for the calculation, and'/
+ ' the alpha and beta grids were extended slightly.  constants'/
+ ' that match the endf/b-vi values were used.'/
+ ' '/
+ ' theory'/
+ ' ------'/
+ ' the lattice dynamics of zrh were computed from a central'/
+ ' force model.  the slightly tetragonal lattice of zrh_2 was'/
+ ' approximated by a face-centered-cubic lattice.  four force'/
+ ' constants (mu, gamma, nu, and delta) were introduced describing'/
+ ' respectively the interaction of a zirconium atoms with its'/
+ ' nearest neighbors ( 8 h atoms) and its next nearest neighbors'/
+ ' (12 zr atoms), and the interaction of a hydrogen atom with'/
+ ' its next nearest neighbors (6 h atoms) and its third nearest'/
+ ' atoms (12 h atoms).  eigenvalues and eigenvectos of the'/
+ ' dynamical matrix were calculated, and a phonon frequency'/
+ ' spectrum was obtained by means of a root sampling technique.'/
+ ' weighted frequency spectra for hydrogen in zrh were then'/
+ ' obtained by appropriate use of the dynamical matrix'/
+ ' eigenvectors (ref. 2).'/
+ ' '/
+ ' the final values of the four force constants were obtained'/
+ ' by fitting both specific heat and neutron data.  the'/
+ ' position of an optical peak observed by neutron scattering'/
+ ' techniques to be centered roughly around 0.14 ev determines'/
+ ' the constant mu, while the overall width and shape of this'/
+ ' peak determine nu and delta respectively.  existing neutron'/
+ ' data are not sufficiently precise to confirm the structure'/
+ ' predicted in the optical peak by the central force model.'/
+ ' specific heat data were used to determine the force'/
+ ' constant gamma, which primarily determines the upper'/
+ ' limit on the phonon energies associated with acoustic modes.'/
+ ' '/
+ ' references'/
+ ' ----------'/
+ ' 1. j.u.koppel and d.h.houston, reference manual for endf thermal'/
+ '    neutron scattering data, general atomic report ga-8774'/
+ '    revised and reissued as endf-269 by the national nuclear'/
+ '    data center, july 1978.'/
+ ' 2. e.l.slaggie, "central force lattice dynamical model for'/
+ '    zirconium hydride", ga-8132 (1967).'/
+ ' 3. r.e.macfarlane, new thermal neutron scattering files for '/
+ '    endf/b-vi release 2, los alamos national laboratory report '/
+ '    la-12639-ms (march 1994). '/
+ ' '/
+ /
+ stop

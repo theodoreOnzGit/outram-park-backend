@@ -31,19 +31,45 @@
 //!
 //! ## Sub-module map
 //!
-//! - [`units`] — named `uom` aliases (`ReynoldsNumber`, `DarcyFrictionFactor`,
-//!   `HeatTransferCoefficient`, `HeatFlux`). **Implemented.**
-//! - [`closures`] — the `physicsModels/` correlation leaves. Of these,
-//!   [`closures::fs_drag`] (fluid-structure wall friction) is **implemented and
-//!   verified**; the rest are scaffolded.
-//! - [`phase`], [`structure`] — fluid-phase and solid-structure field state
-//!   (scaffold).
-//! - [`solver`] — the porous single-/two-phase solver drivers (scaffold).
-//! - [`boundary_conditions`], [`function_objects`], [`thermophysical`] — TH
-//!   boundary conditions, diagnostics, and bespoke fluid properties (scaffold).
+//! Every sub-module below is ported and carries unit tests against published
+//! correlation values or closed-form results. What remains unported is listed
+//! under "Known gaps".
 //!
-//! Only [`units`] and [`closures::fs_drag`] carry real physics so far; every
-//! other sub-module is a documented `// TODO(genfoam)` stub with a tracking bead.
+//! - [`units`] — named `uom` aliases (`ReynoldsNumber`, `DarcyFrictionFactor`,
+//!   `HeatTransferCoefficient`, `HeatFlux`). Implemented.
+//! - [`closures`] — the `physicsModels/` correlation leaves: `fs_drag`,
+//!   `ff_drag`, `heat_transfer`, `phase_change`, `interfacial` and
+//!   `turbulence`. All six families are implemented with their own `tests`
+//!   modules; [`closures::fs_drag`] additionally carries an analytic
+//!   verification (laminar `f·Re → 64`).
+//! - [`phase`] / [`structure`] — fluid-phase and solid-structure field state,
+//!   including the power/heat-exchanger/pump structure models. Implemented.
+//! - [`solver`] — the porous solver drivers. [`solver::one_phase`] (UEqn/pEqn/
+//!   EEqn) is implemented; see "Known gaps" for its property limitation.
+//! - [`boundary_conditions`] — `blackbody_radiation`, `velocity_rundown` and
+//!   `time_field_table` implemented.
+//! - [`function_objects`] — post-processing diagnostics (mass flow, pressure
+//!   drop, bulk temperature, field diffs). Implemented.
+//! - [`thermophysical`] — the bespoke dissociating-hydrogen (H/H₂) property
+//!   package: EOS, thermodynamics, viscosity, conductivity. Implemented.
+//!
+//! ## Known gaps
+//!
+//! - **The two-phase (MULES) solver is not implemented**, nor is
+//!   `onePhaseLegacy`. Only [`solver::one_phase`] exists.
+//! - [`solver::one_phase`] runs on **constant fluid properties** (`he = Cp·T`,
+//!   fixed-surface-temperature structure coupling): [`thermophysical`] is
+//!   ported but not yet wired in as the driver's fluid package.
+//! - `boundary_conditions::nusselt_baffle` is a **stub** — every method is
+//!   `unimplemented!()` (cross-patch implicit coupling is not supported).
+//! - [`closures::turbulence`] ports the closure *algebra* only; the k/ε
+//!   transport equations and `correctNut` orchestration are deferred (the
+//!   generic single-phase machinery lives in `outram-foam-turbulence-lib`).
+//! - The correlation leaves are **unit-tested, not system-validated** — they
+//!   have not been exercised inside a converged multiphysics run.
+//! - The great majority of upstream `thermalHydraulics` (~65k LOC) is still
+//!   unported; what exists here is the closure/field/one-phase-driver
+//!   foundation.
 
 pub mod boundary_conditions;
 pub mod closures;

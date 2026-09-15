@@ -541,11 +541,14 @@ use crate::openfoam_algorithms::openfoam_source::*;
 //// ************************************************************************* //
 use std::sync::Arc;
 use uom::si::f64::{
-    Angle, Area, Length, MassRate, Power, Pressure, Ratio, ThermalConductance,
+    Angle, Area, AvailableEnergy, Length, MassRate, Power, Pressure, Ratio, ThermalConductance,
     ThermodynamicTemperature, Time,
 };
 use uom::si::ratio::ratio;
 use uom::si::time::second;
+
+/// Mesh patch index of the inlet ("left", x = 0) -- see `create_one_d_mesh`.
+pub(super) const INLET_PATCH: usize = 1;
 
 mod lateral_coupling;
 pub use lateral_coupling::TampinesSteamArrayError;
@@ -576,6 +579,142 @@ use central_upwind::{
 /// the rarefied-tail density taper on the KNP dissipation — see
 /// [`TampinesSteamArray::assemble_hybrid_dissipation`]. The default
 /// [`SolverMode::Pimple`] remains bit-for-bit the historical validated path.
+/// How often `psi = d(rho)/dp|_h` is rebuilt inside the PIMPLE loop.
+///
+/// `psi` is the compressibility that forms the pressure equation's diagonal.
+/// It is a **linearisation coefficient**, not a state variable: PIMPLE iterates
+/// to a fixed point, so `psi` affects the path taken to convergence, not the
+/// converged answer -- provided it still converges.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PsiRefresh {
+    /// Rebuild `psi` on every corrector, inner and outer. The historical path,
+    /// bit-identical to what this solver did before the option existed.
+    #[default]
+    EveryCorrector,
+    /// Rebuild `psi` once per **outer** corrector and hold it across the inner
+    /// PISO correctors.
+    ///
+    /// # Why this is defensible
+    ///
+    /// Within a pressure-correction inner iteration `he` is **frozen** -- it is
+    /// only updated by the energy equation after the inner loop, which this
+    /// module documents at [`TampinesSteamArray::correct_thermo`]. So across
+    /// the inner correctors `psi = d(rho)/dp|_h` moves only through `p`, and it
+    /// is being rebuilt from scratch each time to track a second-order effect
+    /// on a coefficient that is already an approximation.
+    ///
+    /// # Why it is worth doing
+    ///
+    /// `psi` is the single most expensive quantity in `correct_thermo`. It is
+    /// computed by a central finite difference, so it costs **two full `(p,h)`
+    /// flashes per cell**, against five for everything else combined
+    /// (`t`, `v`, `mu`, `lambda`, `cp`). At the Edwards settings of 4 outer and
+    /// 4 inner correctors, holding it across the inner loop removes 6 of every
+    /// 8 psi flashes -- about 21 % of all thermodynamic work in the solver.
+    ///
+    /// # What is NOT claimed
+    ///
+    /// # MEASURED: no wall-clock saving, but a real accuracy gain
+    ///
+    /// Edwards blowdown, 0-50 ms, 24 cells, dt = 30 us (2026-09-14):
+    ///
+    /// | refresh | wall | flashing plateau | GS-1 RMSE | break peak |
+    /// |---|---|---|---|---|
+    /// | `EveryCorrector` | 24.0 s | 392.4 psia | 109.0 psia | 125.5 lbm/s |
+    /// | `OncePerOuterCorrector` | 29.3 s | 360.7 psia | 80.6 psia | 98.5 lbm/s |
+    ///
+    /// **Slower, despite doing ~21 %% fewer flashes.** Holding `psi` changes the
+    /// path the PIMPLE loop takes, so the pressure solves converge differently
+    /// and the saved thermodynamic work is more than repaid in linear-solver
+    /// iterations. The two runs are not the same trajectory, so the timings are
+    /// not a like-for-like comparison of the same work.
+    ///
+    /// **But markedly more accurate.** The flashing plateau moves from 392.4 to
+    /// 360.7 psia, squarely into the experimental 350-367 psia band, and GS-1
+    /// RMSE falls 26 %%. That is a larger effect than a linearisation
+    /// coefficient has any business having if the loop were fully converged,
+    /// which suggests it is **not** converged at 4 outer x 4 inner correctors,
+    /// and that rebuilding `psi` against a just-updated `p` while `he` is held
+    /// fixed is inconsistent with the PISO splitting rather than merely
+    /// wasteful. Not chased here; recorded so the next person starts from the
+    /// measurement.
+    ///
+    /// Left default-off regardless: it changes the validated trajectory, and
+    /// that is the maintainer's call, not an agent's.
+    ///
+    /// OpenFOAM's own `rhoPimpleFoam` updates `psi` through `thermo.correct()`,
+    /// and whether that sits in its outer or inner loop was **not verified** --
+    /// the OpenFOAM sources are not vendored in this workspace, and this
+    /// workspace's rule is to read upstream rather than recall it. The
+    /// justification above rests on this module's own frozen-`he` invariant and
+    /// on measurement, not on an upstream claim.
+    OncePerOuterCorrector,
+}
+
+/// How the KNP face state gets its pressure and sound speed.
+///
+/// The MUSCL reconstruction limits `rho`, `he` and `p` to the face
+/// **independently**, each with its own limiter action, so the resulting
+/// triple is not in general a thermodynamic state -- and KNP builds its wave
+/// speeds `a = u +/- c` out of exactly that `p` and `c`. This enum selects
+/// whether to accept that or to close the face state through the equation of
+/// state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum KnpFaceClosure {
+    /// Take the face pressure and sound speed from their own MUSCL
+    /// reconstructions. The historical, validated path.
+    #[default]
+    ReconstructedPressure,
+    /// Recover the face pressure from the reconstructed `(rho, he)` with
+    /// `p_rho_h_eqm`, and the sound speed from that pressure.
+    ///
+    /// This is where a `(rho,h)` inversion genuinely earns its cost. At a face
+    /// the reconstructed quantities are the **conserved** ones -- density and
+    /// enthalpy -- and the pressure that belongs with them is not an
+    /// independently-limited interpolation of the cell-centre pressures. Here
+    /// there is no pressure equation to borrow an answer from: the consistent
+    /// pressure has to be computed, which is the one situation the inversion is
+    /// the right tool for.
+    ///
+    /// It is also cheap to evaluate, because it runs only on faces that survive
+    /// the Mach blend and the rarefied-tail taper -- the dense near-sonic
+    /// flashing front -- rather than on every face or every cell.
+    ///
+    /// # MEASURED AND REFUTED -- do not enable this expecting an improvement
+    ///
+    /// The reasoning above is sound and the result is still worse. Edwards
+    /// blowdown, HybridAllMach, 0-50 ms, 24 cells, dt = 30 us (2026-09-14):
+    ///
+    /// | closure | wall | ringing gate |
+    /// |---|---|---|
+    /// | `ReconstructedPressure` | 46.2 s | passes; hybrid damps ringing |
+    /// | `EosConsistentPressure` | 50.9 s | **fails**: `sum_h` 1367.58 vs `sum_p` 1330.25 |
+    ///
+    /// Slower, and the hybrid stopped damping ringing and began adding it.
+    ///
+    /// The cause is a property the EOS closure destroys. The reconstructed `p`
+    /// is **limited**, hence TVD by construction. Recovering `p` from two
+    /// independently limited quantities passes it through a nonlinear map, and
+    /// the result is no longer TVD -- it can overshoot where neither input
+    /// did. For a shock-capturing scheme the monotonicity of the face pressure
+    /// turns out to be worth more than its thermodynamic consistency.
+    ///
+    /// Kept, default-off, because the negative result is worth more than the
+    /// absence of the code: the hypothesis is an obvious one to have again.
+    ///
+    /// # Prior art NOT searched
+    ///
+    /// The underlying question -- which variables a high-resolution scheme
+    /// should reconstruct, and what is lost when others are derived from them
+    /// through a nonlinear equation of state -- is a standard topic in the
+    /// shock-capturing literature, and it is likely someone has measured this
+    /// exact trade for a two-phase KNP scheme. **No literature search was
+    /// done**, and no citation is given here rather than give one that has not
+    /// been read and catalogued. Filed as a follow-up: if a prior result
+    /// exists it belongs in `kovan-literature` next to this finding.
+    EosConsistentPressure,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum SolverMode {
     /// Pressure-based compressible **HEM-closed PIMPLE** — the historical,
@@ -589,6 +728,121 @@ pub enum SolverMode {
     /// (rarefied-tail density taper, bug `op-21g.15.7`). The default
     /// [`SolverMode::Pimple`] is the bit-identical historical path.
     HybridAllMach,
+}
+
+/// Which thermodynamic closure `correct_thermo` uses to obtain the cell state.
+///
+/// Exists so the two can be **measured against each other** on the same case;
+/// [`ThermoClosure::PressureEnthalpy`] is the validated default and the one the
+/// Edwards V&V numbers were produced with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ThermoClosure {
+    /// Pressure-based: take `p` from the pressure equation and `h` from the
+    /// energy equation, and derive density as `rho = 1/v(p,h)`.
+    ///
+    /// This is what a segregated PIMPLE algorithm naturally wants, since `p` is
+    /// already a primary variable. One explicit `(p,h)` flash per property.
+    #[default]
+    PressureEnthalpy,
+    /// Density-based **in cells whose mass is changing**, either way.
+    ///
+    /// This is the closure that makes physical sense. Mass crossing a control
+    /// volume boundary carries enthalpy with it, and it changes the cell's
+    /// density -- so density and enthalpy are both genuinely new information
+    /// and the pressure that goes with them is what has to be recovered. That
+    /// argument does not care about the sign: a draining cell has just as
+    /// surely had its density changed as a filling one.
+    ///
+    /// A cell with no net mass flux has neither, and its pressure is already
+    /// the pressure equation's answer -- re-deriving it there buys nothing and
+    /// costs a root find.
+    ///
+    /// The test is the cell's own mass balance, `div(phi) != 0`, taken from the
+    /// same face flux the continuity density is built from, so the criterion
+    /// and the physics cannot drift apart. "Non-zero" is judged against the
+    /// field's own scale rather than against zero, so floating-point dust in a
+    /// quiescent cell does not trigger the expensive path.
+    DensityEnthalpyOnMassFlow,
+    /// Density-based **only in cells that are gaining mass** (`div(phi) < 0`).
+    ///
+    /// The narrower half of the criterion above, and on the Edwards blowdown it
+    /// is the better trade. Measured over the 0-50 ms window (24 cells,
+    /// dt = 30 us, 2026-09-14):
+    ///
+    /// | closure | wall | flashing plateau | GS-1 RMSE vs data |
+    /// |---|---|---|---|
+    /// | `PressureEnthalpy` | 23.9 s | 392.4 psia | 109.0 psia |
+    /// | `DensityEnthalpyOnMassInflow` | 67.7 s | 376.7 psia | 96.2 psia |
+    /// | `DensityEnthalpyOnMassFlow` | 149.3 s | 368.6 psia | 93.2 psia |
+    /// | `DensityEnthalpyEverywhere` | 156.0 s | 367.4 psia | 93.2 psia |
+    ///
+    /// The experimental plateau is roughly 350-367 psia, so every density-based
+    /// variant moves toward the data and the pressure-based one is the outlier.
+    /// But in a blowdown almost every cell is flowing, so
+    /// `DensityEnthalpyOnMassFlow` selects nearly all of them and lands within
+    /// noise of doing it everywhere -- 2.2x the cost of inflow-only to buy a
+    /// further 3 psia of RMSE. Restricting it to cells actually **taking in**
+    /// mass keeps about nine tenths of the accuracy gain for under half the
+    /// cost, which is why both variants are kept rather than one.
+    DensityEnthalpyOnMassInflow,
+    /// Density-based in **every** cell, every corrector iteration.
+    ///
+    /// Kept only as the measurement baseline that shows why the selective
+    /// variant above exists. Recovering a pressure the algorithm already holds
+    /// cannot be cheaper than not recovering it -- the inversion is a bracketed
+    /// root find built out of the same `(p,h)` flashes it replaces -- so this
+    /// is expected to be slower everywhere it is not needed. Do not reach for
+    /// it in a solver.
+    DensityEnthalpyEverywhere,
+}
+
+/// The thermodynamic state available at one **advection terminal** (one end
+/// patch) of the pipe, used to pick the upwind state for the energy equation.
+///
+/// ## Why a terminal and not a patch
+///
+/// [`TampinesSteamArray`] is a **1-D flow component in a network**, so its two
+/// ends are **junctions** to other components, not patches on a standalone CFD
+/// domain. The convention this enum serves is therefore TUAS's upwind advection
+/// terminal, not OpenFOAM's `zeroGradient` / `fixedValue` patch semantics — see
+/// `docs/boundary-conditions-convention.md` and
+/// [`TampinesSteamArray::correct_advection_terminals`].
+///
+/// Ported from `tuas_boussinesq_solver`'s
+/// `single_control_vol/boundary_condition_interactions/advection_to_bcs.rs`,
+/// whose two pairs of methods map onto the two variants below one-for-one:
+///
+/// | TUAS method pair | Variant here |
+/// |---|---|
+/// | `calculate_*_advection_non_set_temperature` (BC state = zero-gradient extrapolation of the control volume) | [`Self::ZeroGradientExtrapolated`] |
+/// | `calculate_*_advection_set_temperature` (BC state prescribed by the caller) | [`Self::Junction`] |
+///
+/// In **both** TUAS pairs the enthalpy *and* the density actually used are
+/// selected by the sign of the mass flow, never defaulted — which is what makes
+/// the historical "zero-gradient at both ends" failure structurally impossible.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum AdvectionTerminalState {
+    /// No junction state is prescribed at this terminal, so the only upstream
+    /// information available on **inflow** is the adjacent cell itself: the
+    /// upwind enthalpy degenerates to the zero-gradient extrapolation
+    /// `h_face = h_cell`, and the upwind density to the cell density.
+    ///
+    /// This is TUAS's `*_non_set_temperature` path, and it is the default —
+    /// an array nobody has connected to anything advects in its own state,
+    /// which is the honest answer when there is no other.
+    #[default]
+    ZeroGradientExtrapolated,
+    /// A junction specific enthalpy \[J/kg\] supplied by whatever component is
+    /// connected at this terminal (an upstream pipe, a plenum, a reservoir).
+    ///
+    /// Used as the upstream state **only while the flow at this terminal is
+    /// into the domain**; on outflow the control-volume state is upwind and
+    /// this value is ignored. TUAS's `*_set_temperature` path.
+    ///
+    /// Valid range is whatever the IAPWS-IF97 `(p, h)` flash accepts at the
+    /// terminal's pressure; a junction enthalpy that flashes out of range is
+    /// ignored for the density selection rather than propagating a NaN.
+    Junction(AvailableEnergy),
 }
 
 /// Per-`step` hybrid KNP dissipation for the continuity and momentum equations.
@@ -701,7 +955,11 @@ fn correct_bcs_vec(field: &mut VolVectorField, bcs: &[BoundaryCondition<Vector3>
 ///   method's doc comment for the exact per-cell property list.
 ///
 /// C++ reference: `applications/solvers/compressible/rhoPimpleFoam/`.
-#[derive(Clone)]
+// Debug matches the sibling OPCPFluidArray (`outram-park-fork-coolprop`), which
+// is the same rhoPimpleFoam port over a different equation of state and derives
+// `Clone, Debug`. Needed so containers holding this array (e.g.
+// `tampines::components::PipeBackend`) can derive Debug too.
+#[derive(Clone, Debug)]
 pub struct TampinesSteamArray {
     /// 1-D finite-volume mesh (built by [`create_one_d_mesh`]).
     pub mesh: Arc<FvMesh>,
@@ -739,6 +997,42 @@ pub struct TampinesSteamArray {
     pub p_max: Pressure,
 
     // ── All-Mach hybrid (opt-in) ─────────────────────────────────────────────
+    /// How often `psi` is rebuilt inside the PIMPLE loop (default
+    /// [`PsiRefresh::EveryCorrector`], the historical path).
+    pub psi_refresh: PsiRefresh,
+    /// Set false at the top of each outer corrector; set true once `psi` has
+    /// been rebuilt within it. Only consulted under
+    /// [`PsiRefresh::OncePerOuterCorrector`].
+    psi_rebuilt_this_outer: bool,
+    /// TEMPORARY (bn:op-bgg0, log A4): one-shot latch so the pressure-bound
+    /// diagnostic reports the FIRST occurrence rather than every step.
+    p_bound_reported: bool,
+    /// One-shot latch so the drained-cell hold warns on its FIRST engagement
+    /// rather than on every step.
+    hold_reported: bool,
+    /// Number of cell-updates on which the pressure solve produced a value
+    /// outside `[p_min, p_max]` and was clamped by the bounding step.
+    ///
+    /// **A nonzero count means the solution is wrong, not that it was saved.**
+    /// See [`Self::pressure_bound_events`].
+    p_bound_events: usize,
+    /// Largest amount \[Pa\] by which the solve undershot `p_min` (0.0 if it
+    /// never did). See [`Self::pressure_bound_worst_undershoot`].
+    p_bound_worst_undershoot: f64,
+    /// Largest amount \[Pa\] by which the solve overshot `p_max` (0.0 if it
+    /// never did).
+    p_bound_worst_overshoot: f64,
+    /// Number of cell-updates on which the drained-cell enthalpy hold engaged
+    /// (the continuity density reached its floor, so `he` was held instead of
+    /// solved). See [`Self::drained_hold_events`].
+    drained_hold_events: usize,
+    /// How the KNP face state gets its pressure and sound speed (default
+    /// [`KnpFaceClosure::ReconstructedPressure`], the validated path). Only
+    /// consulted in [`SolverMode::HybridAllMach`].
+    pub knp_face_closure: KnpFaceClosure,
+    /// Thermodynamic closure used by `correct_thermo` (default
+    /// [`ThermoClosure::PressureEnthalpy`], the validated path).
+    pub thermo_closure: ThermoClosure,
     /// Flux-discretisation mode (default [`SolverMode::Pimple`], bit-identical
     /// to the historical path). See [`Self::set_solver_mode`].
     pub mode: SolverMode,
@@ -791,7 +1085,45 @@ pub struct TampinesSteamArray {
     pub incline_angle: Angle,
     /// Bulk mass flowrate \[kg/s\] (plain storage -- `step()` does not read
     /// this; it is bookkeeping for a caller, same as `OPCPFluidArray`'s field).
+    ///
+    /// **This is NOT a boundary condition.** To actually drive the array at a
+    /// known mass flow, use [`Self::set_inlet_mass_flowrate`], which imposes it
+    /// on the inlet patch.
     pub mass_flowrate: MassRate,
+    /// Prescribed **inlet mass flowrate** \[kg/s\], or `None` for no
+    /// mass-flow inlet.
+    ///
+    /// When set, each pressure corrector re-derives the inlet velocity
+    /// `u_in = m_dot / (rho_in A_in)` from the *same* interpolated inlet-face
+    /// density that then multiplies it to form the boundary mass flux, so the
+    /// imposed flux is exactly `m_dot` by construction rather than by a
+    /// caller's density guess. This is OpenFOAM's `flowRateInletVelocity`.
+    ///
+    /// Positive is **into** the domain (+x). Set with
+    /// [`Self::set_inlet_mass_flowrate`], clear with
+    /// [`Self::clear_inlet_mass_flowrate`] or by calling
+    /// [`Self::set_inlet_velocity`] (which prescribes a velocity instead and so
+    /// clears this).
+    pub inlet_mass_flowrate: Option<MassRate>,
+    /// Upwind advection state at the **inlet terminal** — the `"left"` patch
+    /// at x = 0 (`INLET_PATCH`).
+    ///
+    /// Defaults to [`AdvectionTerminalState::ZeroGradientExtrapolated`]. Set a
+    /// junction enthalpy with [`Self::set_inlet_enthalpy`], clear it with
+    /// [`Self::clear_inlet_enthalpy`]. Used **only when the flow at this
+    /// terminal is into the domain**; on outflow the control-volume state is
+    /// upwind. See [`Self::correct_advection_terminals`].
+    pub inlet_terminal: AdvectionTerminalState,
+    /// Upwind advection state at the **outlet terminal** — the `"right"` patch
+    /// at x = length.
+    ///
+    /// The outlet needs this for exactly the same reason the inlet does: when
+    /// the flow reverses, the "outlet" is an inlet, and without a junction
+    /// state the domain advects its own enthalpy back in. Defaults to
+    /// [`AdvectionTerminalState::ZeroGradientExtrapolated`]; set with
+    /// [`Self::set_outlet_enthalpy`], clear with
+    /// [`Self::clear_outlet_enthalpy`].
+    pub outlet_terminal: AdvectionTerminalState,
     /// Pressure loss \[Pa\] (plain storage, independent of `mass_flowrate`).
     pub pressure_loss: Pressure,
     /// Internal pressure source \[Pa\] (e.g. a simulated pump; plain storage).
@@ -902,6 +1234,16 @@ impl TampinesSteamArray {
             p_max: Pressure::new::<uom::si::pressure::megapascal>(100.0),
             // Default: pure PIMPLE ⇒ the hybrid dissipation is never assembled,
             // so every existing constructor/test runs the unchanged code path.
+            psi_refresh: PsiRefresh::EveryCorrector,
+            psi_rebuilt_this_outer: false,
+            p_bound_reported: false,
+            hold_reported: false,
+            p_bound_events: 0,
+            p_bound_worst_undershoot: 0.0,
+            p_bound_worst_overshoot: 0.0,
+            drained_hold_events: 0,
+            knp_face_closure: KnpFaceClosure::ReconstructedPressure,
+            thermo_closure: ThermoClosure::PressureEnthalpy,
             mode: SolverMode::Pimple,
             ma_blend_lo: Ratio::new::<ratio>(0.3),
             ma_blend_hi: Ratio::new::<ratio>(1.0),
@@ -918,6 +1260,13 @@ impl TampinesSteamArray {
             wetted_perimeter: Length::new::<uom::si::length::meter>(0.0),
             incline_angle: Angle::new::<uom::si::angle::radian>(0.0),
             mass_flowrate: MassRate::new::<uom::si::mass_rate::kilogram_per_second>(0.0),
+            inlet_mass_flowrate: None,
+            // Both terminals start with no junction state: an array nobody has
+            // connected to anything advects in its own state on inflow. This is
+            // what keeps the Edwards blowdown benchmark (which prescribes no
+            // enthalpy at either end) bit-for-bit on the historical path.
+            inlet_terminal: AdvectionTerminalState::ZeroGradientExtrapolated,
+            outlet_terminal: AdvectionTerminalState::ZeroGradientExtrapolated,
             pressure_loss: Pressure::new::<uom::si::pressure::pascal>(0.0),
             internal_pressure_source: Pressure::new::<uom::si::pressure::pascal>(0.0),
             lateral_adjacent_array_temperature_vector: Vec::new(),
@@ -965,9 +1314,83 @@ impl TampinesSteamArray {
         use uom::si::specific_volume::cubic_meter_per_kilogram;
         use uom::si::thermodynamic_temperature::kelvin;
 
+        // Whether psi is rebuilt on this call. See [`PsiRefresh`]: it is a
+        // linearisation coefficient, and `he` is frozen across the inner
+        // correctors, so rebuilding it on every one of them is optional work.
+        let rebuild_psi = match self.psi_refresh {
+            PsiRefresh::EveryCorrector => true,
+            PsiRefresh::OncePerOuterCorrector => !self.psi_rebuilt_this_outer,
+        };
+
+        // Per-cell mass balance, evaluated once. Negative divergence means the
+        // cell is gaining mass this step, which is the only circumstance in
+        // which recovering pressure from (rho,h) is worth its cost -- see
+        // [`ThermoClosure::DensityEnthalpyOnMassInflow`].
+        let div_phi = match self.thermo_closure {
+            ThermoClosure::PressureEnthalpy => None,
+            _ => Some(fvc::div_flux(&self.phi)),
+        };
+
+        // Scale the "is there mass flow" test against the largest imbalance on
+        // the mesh, so it means the same thing at 70 bar and at 1 bar. Testing
+        // against literal zero would fire on rounding dust in a cell that is
+        // not actually flowing.
+        let mass_flow_threshold = div_phi
+            .as_ref()
+            .map(|d| {
+                let peak = d.internal.iter().fold(0.0_f64, |acc, v| acc.max(v.abs()));
+                peak * 1.0e-10
+            })
+            .unwrap_or(0.0);
+
         for c in 0..self.mesh.n_cells {
-            let p_c = Pressure::new::<pascal>(self.p.internal[c]);
             let h_c = uom::si::f64::AvailableEnergy::new::<joule_per_kilogram>(self.he.internal[c]);
+
+            let recover_pressure_from_density = match self.thermo_closure {
+                ThermoClosure::PressureEnthalpy => false,
+                ThermoClosure::DensityEnthalpyEverywhere => true,
+                ThermoClosure::DensityEnthalpyOnMassFlow => div_phi
+                    .as_ref()
+                    .map(|d| d.internal[c].abs() > mass_flow_threshold)
+                    .unwrap_or(false),
+                ThermoClosure::DensityEnthalpyOnMassInflow => div_phi
+                    .as_ref()
+                    .map(|d| d.internal[c] < -mass_flow_threshold)
+                    .unwrap_or(false),
+            };
+
+            // The closure decides where the pressure comes from. In the default
+            // pressure-based path it is already a primary variable and is used
+            // as-is; in the density-based path it is recovered from the state
+            // the array carries, by inverting the same backward equations the
+            // flashes below use.
+            let p_c = if !recover_pressure_from_density {
+                Pressure::new::<pascal>(self.p.internal[c])
+            } else {
+                {
+                    use crate::interfaces::functional_programming::rho_h_flash_eqm::{
+                        p_rho_h_eqm, rho_h_is_within_validity_range,
+                    };
+                    use uom::si::mass_density::kilogram_per_cubic_meter;
+
+                    let rho_c = uom::si::f64::MassDensity::new::<kilogram_per_cubic_meter>(
+                        self.rho.internal[c],
+                    );
+                    // Fall back to the carried pressure when the (rho,h) pair
+                    // is not a state IF97 can represent. That happens in this
+                    // case once a cell drains to the density floor (bead
+                    // op-s2dc), and it is not something the inversion can
+                    // repair -- it would be handed a density and an enthalpy
+                    // that are both outside the domain.
+                    if rho_h_is_within_validity_range(rho_c, h_c) {
+                        let p_new = p_rho_h_eqm(rho_c, h_c);
+                        self.p.internal[c] = p_new.get::<pascal>();
+                        p_new
+                    } else {
+                        Pressure::new::<pascal>(self.p.internal[c])
+                    }
+                }
+            };
 
             let t = t_ph_eqm(p_c, h_c);
             let v = v_ph_eqm(p_c, h_c);
@@ -1003,26 +1426,146 @@ impl TampinesSteamArray {
             let dp = (p_pa * 1.0e-3).max(50.0);
             let p_hi = (p_pa + dp).min(p_max_pa);
             let p_lo = (p_pa - dp).max(p_min_pa);
-            let psi_fd = if p_hi > p_lo {
-                let rho_hi = 1.0
-                    / v_ph_eqm(Pressure::new::<pascal>(p_hi), h_c)
-                        .get::<cubic_meter_per_kilogram>();
-                let rho_lo = 1.0
-                    / v_ph_eqm(Pressure::new::<pascal>(p_lo), h_c)
-                        .get::<cubic_meter_per_kilogram>();
-                (rho_hi - rho_lo) / (p_hi - p_lo)
-            } else {
-                // Degenerate (both bounds clamped together): fall back to the
-                // isothermal value so ψ stays defined at the EOS-range edges.
-                rho * kappa_t_ph_eqm(p_c, h_c).value
-            };
+            // These two flashes are the single most expensive thing in this
+            // function: t/v/mu/lambda/cp cost five between them, and this one
+            // central difference costs two on its own. Under
+            // `PsiRefresh::OncePerOuterCorrector` they are skipped on the inner
+            // correctors, which is the whole of the saving.
+            //
+            // The original unconditional form, kept here for reference because
+            // `EveryCorrector` must stay bit-identical to it:
+            //
+            // ```ignore
+            // let psi_fd = if p_hi > p_lo {
+            //     let rho_hi = 1.0 / v_ph_eqm(p_hi, h_c);
+            //     let rho_lo = 1.0 / v_ph_eqm(p_lo, h_c);
+            //     (rho_hi - rho_lo) / (p_hi - p_lo)
+            // } else {
+            //     rho * kappa_t_ph_eqm(p_c, h_c).value
+            // };
+            // self.psi.internal[c] = psi_fd.max(1e-12);
+            // ```
+            if rebuild_psi {
+                let psi_fd = if p_hi > p_lo {
+                    let rho_hi = 1.0
+                        / v_ph_eqm(Pressure::new::<pascal>(p_hi), h_c)
+                            .get::<cubic_meter_per_kilogram>();
+                    let rho_lo = 1.0
+                        / v_ph_eqm(Pressure::new::<pascal>(p_lo), h_c)
+                            .get::<cubic_meter_per_kilogram>();
+                    (rho_hi - rho_lo) / (p_hi - p_lo)
+                } else {
+                    // Degenerate (both bounds clamped together): fall back to
+                    // the isothermal value so psi stays defined at the
+                    // EOS-range edges.
+                    rho * kappa_t_ph_eqm(p_c, h_c).value
+                };
+                self.psi.internal[c] = psi_fd.max(1e-12);
+            }
 
             self.rho.internal[c] = rho.max(1e-4);
             self.t.internal[c] = t.get::<kelvin>();
-            self.psi.internal[c] = psi_fd.max(1e-12);
             self.mu.internal[c] = mu.value;
             self.alpha_h.internal[c] = lambda.value / cp.value;
         }
+
+        if rebuild_psi {
+            self.psi_rebuilt_this_outer = true;
+        }
+    }
+
+    /// Per-cell **axial Péclet number** `Pe = ρ|u|Δx / (λ/c_p)` \[dimensionless\]
+    /// — the ratio of axial enthalpy *convection* to axial enthalpy *conduction*
+    /// on this mesh.
+    ///
+    /// ## What it is for
+    ///
+    /// The energy equation carries a genuine axial conduction term
+    /// `−∇·(α_h ∇h)` with `α_h = λ/c_p` \[kg/(m·s)\] read from the real
+    /// IAPWS-IF97 conductivity and specific heat every
+    /// [`Self::correct_thermo`] — never a constant, never a switch. This number
+    /// is what tells a reader **when that term matters**, instead of the
+    /// modelling boundary being silent:
+    ///
+    /// - `Pe ≫ 1` — forced flow. Convection dominates and the conduction term is
+    ///   a rounding error on the energy balance. **Measured 2026-08-12** at the
+    ///   crate's single-phase design point (4 MPa water, 400 K, 3.2 kg/s through
+    ///   0.02 m², Δx = 0.5 m, u = 0.17169 m/s): **Pe = 4.96e5 to 4.99e5** across
+    ///   the eight cells, with `α_h = λ/c_p = 1.6062e-4 kg/(m·s)`. The peak axial
+    ///   conduction rate there is **60.0 mW against a 200 kW duty — 3.00e-7 of
+    ///   it**, three and a half orders of magnitude below the maintainer's
+    ///   HTR-10 pebble-bed comparison of 11.74 kW against 10 MW (0.117 %).
+    /// - `Pe ≈ 1` — the crossover. **Measured** at that geometry when the
+    ///   velocity falls to **3.447e-7 m/s**, a mass flow of **6.425e-6 kg/s** —
+    ///   two millionths (2.008e-6) of the design flow.
+    /// - `Pe → 0` — stagnation, loss of forced cooling, natural-circulation
+    ///   onset. Convection vanishes and conduction becomes the **entire** heat
+    ///   path. This is precisely the regime a "conduction is negligible"
+    ///   assumption inverts in, which is why the term is present and small
+    ///   rather than absent.
+    ///
+    /// ## Definition
+    ///
+    /// `Δx` is taken as `cell_volume / xs_area`, exact for the uniform 1-D mesh
+    /// [`create_one_d_mesh`] builds. `|u|` is the magnitude of the cell velocity.
+    /// A cell whose `α_h` is not positive and finite yields `Pe = 0`, so a
+    /// diverged property flash reports "conduction-dominated" rather than a NaN.
+    ///
+    /// **Measured 2026-08-12** — see
+    /// `lateral_coupling::tests::axial_conduction_is_negligible_at_power_and_total_at_stagnation`
+    /// for the methodology and the full result table.
+    pub fn axial_peclet_numbers(&self) -> Vec<Ratio> {
+        let a = self.xs_area.get::<uom::si::area::square_meter>();
+        (0..self.mesh.n_cells)
+            .map(|c| {
+                let dx = if a > 0.0 {
+                    self.mesh.cell_volumes[c] / a
+                } else {
+                    0.0
+                };
+                let gamma = self.alpha_h.internal[c];
+                let pe = if gamma.is_finite() && gamma > 0.0 {
+                    self.rho.internal[c] * self.u.internal[c].mag() * dx / gamma
+                } else {
+                    0.0
+                };
+                Ratio::new::<ratio>(pe)
+            })
+            .collect()
+    }
+
+    /// Largest **axial conduction heat rate** across any internal face \[W\].
+    ///
+    /// `max_f |α_h,f · |S_f| · (h_N − h_P) / d|` with `α_h = λ/c_p`, i.e. the
+    /// same face flux the energy equation's `fvm::laplacian(α_h, he)` term
+    /// assembles. Because `α_h ∇h = (λ/c_p)·c_p ∇T = λ ∇T` for a single-phase
+    /// fluid, this is Fourier conduction in the axial direction, in watts.
+    ///
+    /// Report it against the component's duty to justify the term's size — the
+    /// workspace's HTR-10 pebble-bed figure of 11.74 kW against a 10 MW duty
+    /// (0.117 %, Zehner-Bauer-Schluender, 2026-08-12) is the same comparison
+    /// made for a different component.
+    ///
+    /// Returns zero power for a single-cell array (no internal faces).
+    pub fn peak_axial_conduction_rate(&self) -> Power {
+        let alpha_h_f = fvc::interpolate(&self.alpha_h);
+        let mut peak = 0.0_f64;
+        for f in 0..self.mesh.n_internal_faces {
+            let o = self.mesh.owner[f];
+            let n = self.mesh.neighbour[f];
+            let d = (self.mesh.cell_centres[n] - self.mesh.cell_centres[o]).mag();
+            if d < 1e-300 {
+                continue;
+            }
+            let q = alpha_h_f.internal[f]
+                * self.mesh.face_areas[f]
+                * (self.he.internal[n] - self.he.internal[o])
+                / d;
+            if q.is_finite() {
+                peak = peak.max(q.abs());
+            }
+        }
+        Power::new::<uom::si::power::watt>(peak)
     }
 
     /// Advance one time step with the compressible PIMPLE algorithm.
@@ -1054,6 +1597,59 @@ impl TampinesSteamArray {
     /// arithmetic and linear solves rebuild fields with zero-gradient boundaries,
     /// so the prescribed inlet-velocity / outlet-pressure BC types must be
     /// re-stamped — see [`correct_bcs`] / [`correct_bcs_vec`]).
+    ///
+    /// **The enthalpy is the exception, and deliberately so.** Its two ends are
+    /// **advection terminals**, not patches: which of the two candidate upstream
+    /// states is upwind depends on the sign of the boundary mass flux, so `he`'s
+    /// boundary is *derived* from `phi` by [`Self::correct_advection_terminals`]
+    /// rather than replayed from a captured template, and the matching upwind
+    /// density is applied by [`Self::apply_junction_densities`] inside the
+    /// pressure loop. See [`AdvectionTerminalState`] and
+    /// `docs/boundary-conditions-convention.md`.
+
+    /// Advance the solution by one timestep of length `timestep`.
+    ///
+    /// This is the interface to prefer, and it matches TUAS's
+    /// `FluidArray::advance_timestep`: the caller owns the clock and states
+    /// the step each time, so a driver stepping several different components
+    /// keeps them on one timeline.
+    ///
+    /// Contrast [`Self::step`], which advances by whatever `delta_t` the array
+    /// was built with. That is fine for a fixed-step study, but if the caller's
+    /// clock ever differs the two silently diverge — the array advances by its
+    /// own stored value while the caller believes it advanced by theirs.
+    ///
+    /// Sets [`Self::delta_t`] to `timestep` before solving, so the stored value
+    /// always reflects the step actually taken.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TampinesSteamArrayError::InvalidTimestep`] if `timestep` is not
+    /// positive and finite. It is not clamped or substituted: a bad timestep
+    /// means the caller's clock is wrong, and quietly advancing by something
+    /// else yields a plausible-looking result for a step that never ran.
+    ///
+    /// # Stability
+    ///
+    /// Choosing a stable step is the caller's responsibility. This is an
+    /// explicit-in-time PIMPLE solve, so too large a step relative to the cell
+    /// size and flow speed will diverge; nothing here checks a CFL condition.
+    pub fn advance_timestep(&mut self, timestep: Time) -> Result<(), TampinesSteamArrayError> {
+        let seconds = timestep.get::<second>();
+        if !seconds.is_finite() || seconds <= 0.0 {
+            return Err(TampinesSteamArrayError::InvalidTimestep { seconds });
+        }
+        self.delta_t = timestep;
+        self.step();
+        Ok(())
+    }
+
+    /// Advance the solution by the array's stored [`Self::delta_t`].
+    ///
+    /// Prefer [`Self::advance_timestep`] unless the step is genuinely
+    /// fixed for the life of the array: this form cannot tell the caller
+    /// what step it took, so a driver with its own clock can drift from it
+    /// without either side noticing.
     pub fn step(&mut self) {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
@@ -1070,9 +1666,19 @@ impl TampinesSteamArray {
         let p_old = self.p.clone();
         let he_old = self.he.clone();
         let rho_old = self.rho.clone();
+        // Old-time face flux, for the transient Rhie-Chow correction below.
+        let phi_old = self.phi.clone();
 
-        let u_bcs = capture_bcs(&self.u.boundary);
+        let mut u_bcs = capture_bcs(&self.u.boundary);
         let p_bcs = capture_bcs(&self.p.boundary);
+        // NOTE: `he` deliberately has NO captured BC template. Velocity and
+        // pressure are *patch* quantities whose prescribed type is fixed for
+        // the step, so a static snapshot is the right thing to re-stamp. The
+        // enthalpy terminal is not: which of the two candidate upstream states
+        // is upwind depends on the sign of the boundary mass flux, which is
+        // only known once `self.phi` is final. So `he`'s boundary is rebuilt
+        // from the flux by `correct_advection_terminals` after the EEqn solve,
+        // rather than replayed from a template. See that method.
 
         // Hybrid-mode only: deferred KNP momentum dissipation, carried from one
         // outer corrector into the next outer corrector's UEqn source (a
@@ -1081,6 +1687,10 @@ impl TampinesSteamArray {
         let mut hybrid_mom_src = vec![Vector3::ZERO; n];
 
         for _ in 0..n_outer {
+            // A fresh outer corrector re-linearises, so psi is due a rebuild
+            // regardless of the refresh policy.
+            self.psi_rebuilt_this_outer = false;
+
             // ── rhoEqn: explicit continuity ρ = ρ_old − dt·∇·φ ──────────────
             let div_phi = fvc::div_flux(&self.phi);
             self.rho = rho_old.clone() + (-dt) * div_phi;
@@ -1167,10 +1777,68 @@ impl TampinesSteamArray {
                     )
                 };
 
-                let rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+                let mut rho_f = fvc::interpolate(&self.rho); // ρ_f [kg/m³]
+
+                // Upwind DENSITY at the two advection terminals, the density
+                // half of the TUAS convention (`advection_to_bcs.rs` selects
+                // `density_bc` vs `density_cv` on `mass_flow > MassRate::zero()`).
+                // Must run BEFORE `apply_flow_rate_inlet`, which reads this very
+                // field to derive the inlet velocity. No-op at a terminal with
+                // no junction state, which is what keeps Edwards untouched.
+                self.apply_junction_densities(&mut rho_f);
+
+                // Prescribed mass-flow inlet (OpenFOAM `flowRateInletVelocity`).
+                // Re-derived HERE, inside the corrector, from the very same
+                // `rho_f` that multiplies it below to build the boundary mass
+                // flux -- so the imposed flux is exactly `m_dot`, not
+                // `rho_solved/rho_assumed * m_dot`. Both `self.u.boundary` and
+                // the captured `u_bcs` template are updated, so the momentum
+                // predictor and the post-solve `correct_bcs_vec` re-stamp agree
+                // with it.
+                self.apply_flow_rate_inlet(&rho_f, &mut u_bcs);
+
                 let rho_rauf = rho_f.clone() * rauf.clone(); // [s]
                                                              // φ_HbyA = ρ_f · flux(HbyA): mass flux [kg/s]
-                let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya);
+                                                             // phi_HbyA = rho_f * flux(HbyA) + rho_rAU_f * ddtCorr(U_old, phi_old)
+                                                             //
+                                                             // The second term is the TRANSIENT half of Rhie-Chow, and it
+                                                             // was missing from this port. Upstream rhoPimpleFoam:
+                                                             //
+                                                             // ```cpp
+                                                             // surfaceScalarField phiHbyA
+                                                             // (
+                                                             //     "phiHbyA",
+                                                             //     fvc::interpolate(rho)*fvc::flux(HbyA)
+                                                             //   + rhorAUf*fvc::ddtCorr(rho, U, phi)
+                                                             // );
+                                                             // ```
+                                                             //
+                                                             // `fvc::ddt_corr` was ported in full -- with OpenFOAM's
+                                                             // `fvcDdtPhiCoeff` limiter -- and then never called from
+                                                             // anywhere (see docs/rhopimplefoam-port-omissions.md row 1,
+                                                             // bn:op-e1zz). Its own doc comment states that re-injecting it
+                                                             // here "is what suppresses pressure-velocity (checkerboard)
+                                                             // decoupling".
+                                                             //
+                                                             // WHY IT MATTERS HERE, measured 2026-09-14 (bn:op-bgg0, log
+                                                             // A4). Without it the Edwards pressure field develops an
+                                                             // odd-even oscillation -- 2.10, 2.86, 2.49, 3.74, 0.32,
+                                                             // 2.66 MPa across six adjacent cells -- and the cell that
+                                                             // fails first is the DENSE SUBCOOLED LIQUID one next to the
+                                                             // flashing front. That is the stiff-at-the-boundary case: its
+                                                             // `psi = drho/dp|_h` is legitimately tiny (1.02e-6, matching
+                                                             // rho*kappa_T for liquid), so its pressure-equation diagonal
+                                                             // is ~4e-5 and there is almost nothing to damp the
+                                                             // oscillation. It solved to -27.2 kPa -- negative absolute
+                                                             // pressure -- and was silently clamped to 611.8 Pa.
+                                                             //
+                                                             // The flux carries the pressure-driven part of the velocity;
+                                                             // interpolating the cell velocity alone throws that away, and
+                                                             // `phiCorr = phi_old - interpolate(U_old).Sf` is exactly the
+                                                             // discrepancy. Re-injecting it keeps the face flux coupled to
+                                                             // its own history.
+                let mut phi_hbya = rho_f.clone() * fvc::flux(&hbya)
+                    + rho_rauf.clone() * fvc::ddt_corr(&u_old, &phi_old, dt);
 
                 // Pressure source = ψ·V/dt·p_old − (net φ_HbyA outflow) [kg/s].
                 let psi_sl = self.psi.internal.as_slice();
@@ -1310,6 +1978,67 @@ impl TampinesSteamArray {
                 // the flash rather than being silently pinned to a bound.
                 let p_min_pa = self.p_min.get::<uom::si::pressure::pascal>();
                 let p_max_pa = self.p_max.get::<uom::si::pressure::pascal>();
+
+                // ── LOUD band-aid: the pressure bound ──────────────────────
+                //
+                // The clamp below keeps a run alive when the pressure equation
+                // asks for a state the equation of state cannot represent. It
+                // is deliberately KEPT: a solver that panics mid-transient is
+                // useless to a user, and a bounded result is a usable one so
+                // long as nobody mistakes it for a correct one. So it must
+                // never be silent.
+                //
+                // A cell clamped UP from a negative absolute pressure is
+                // otherwise indistinguishable downstream from a cell that
+                // legitimately reached the floor, and that is exactly how the
+                // Edwards defect went undiagnosed (bn:op-bgg0, log A4: cell 21
+                // solved to -27.2 kPa and was clamped to 611.8 Pa -- a 6000x
+                // jump -- with nothing said).
+                //
+                // Warned ONCE per array, with the numbers a reader needs to
+                // start debugging. Running totals are on
+                // `pressure_bound_events` / `pressure_bound_worst_undershoot`.
+                if !self.p_bound_reported {
+                    if let Some(b) = (0..n)
+                        .find(|&c| p_new.internal[c] < p_min_pa || p_new.internal[c] > p_max_pa)
+                    {
+                        self.p_bound_reported = true;
+                        eprintln!(
+                            "WARNING [TampinesSteamArray]: pressure bounding engaged -- \
+                             the pressure solve left the EOS range and the value was CLAMPED. \
+                             Results from here on are NOT trustworthy. First occurrence: \
+                             cell {b}, solved p = {:.6e} Pa, clamped into [{:.6e}, {:.6e}] Pa \
+                             (psi = {:.6e}, rho = {:.6e} kg/m3). This is a defect signal, not \
+                             a safety net -- see pressure_bound_events() for the running count, \
+                             and bn:op-bgg0.",
+                            p_new.internal[b],
+                            p_min_pa,
+                            p_max_pa,
+                            self.psi.internal[b],
+                            self.rho.internal[b],
+                        );
+                    }
+                }
+
+                // Record every bounding event BEFORE clamping. The clamp is
+                // a band-aid, not a safety net: a cell clamped UP from a
+                // negative absolute pressure is indistinguishable downstream
+                // from one that legitimately landed on the floor, which is
+                // exactly how the Edwards defect stayed hidden (bn:op-bgg0,
+                // log A4 -- cell 21 solved to -27.2 kPa and was silently
+                // clamped to 611.8 Pa, a 6000x jump). Counting it makes the
+                // band-aid honest; see [`Self::pressure_bound_events`].
+                for pv in p_new.internal.iter() {
+                    if *pv < p_min_pa {
+                        self.p_bound_events += 1;
+                        self.p_bound_worst_undershoot =
+                            self.p_bound_worst_undershoot.max(p_min_pa - *pv);
+                    } else if *pv > p_max_pa {
+                        self.p_bound_events += 1;
+                        self.p_bound_worst_overshoot =
+                            self.p_bound_worst_overshoot.max(*pv - p_max_pa);
+                    }
+                }
                 for pv in p_new.internal.iter_mut() {
                     *pv = pv.clamp(p_min_pa, p_max_pa);
                 }
@@ -1393,11 +2122,24 @@ impl TampinesSteamArray {
             //     (small enthalpy change) that keeps the state on the
             //     saturation dome as p falls — the flashing plateau.
             //     See `fvm::ddt_coeff_old`.
+            let div_phi_final = fvc::div_flux(&self.phi);
+            // The UNCLAMPED continuity density, kept for the diagnostic below
+            // and for the drained-cell test: `rho_old - dt*div(phi)` is the
+            // mass the cell would hold if the flux this step were taken at
+            // face value. It can go NEGATIVE -- the flux can ask for more mass
+            // than the cell contains -- and that, not the smallness of the
+            // clamp, is the real signal. See `drained` below.
+            let mut rc_unclamped = vec![0.0_f64; n];
+            // Cells whose continuity density hit the floor: they hold no
+            // meaningful mass this step, so no specific enthalpy is solved for
+            // them. See the block after the energy matrix is assembled.
+            let mut drained = vec![false; n];
             let rho_cont = {
-                let div_phi_final = fvc::div_flux(&self.phi);
-                let mut rc = rho_old.clone() + (-dt) * div_phi_final;
+                let mut rc = rho_old.clone() + (-dt) * div_phi_final.clone();
                 for c in 0..n {
+                    rc_unclamped[c] = rc.internal[c];
                     if rc.internal[c] < 1e-4 {
+                        drained[c] = true;
                         rc.internal[c] = 1e-4;
                     }
                 }
@@ -1428,10 +2170,356 @@ impl TampinesSteamArray {
                     e_eqn.source[c] += self.cell_heat_source_power(c).get::<uom::si::power::watt>();
                 }
             }
+            // ── Drained-cell enthalpy hold (bn:op-bgg0) ─────────────────────
+            //
+            // A cell whose continuity density `rho_old - dt*div(phi)` has
+            // fallen to (or below) the floor holds no meaningful mass, and a
+            // massless cell has no meaningful SPECIFIC enthalpy. Solving for
+            // one is not merely inaccurate, it is arithmetically catastrophic,
+            // and the reason is precise:
+            //
+            // `rho_cont` exists so that discrete continuity
+            // `(rho_cont - rho_old)/dt = -div(phi)` holds EXACTLY, which is
+            // what makes `h_old*(rho_cont - rho_old)/dt` cancel the
+            // `h*div(phi)` part of `div(phi*h)` term for term (see the long
+            // comment above its construction). **The floor clamp breaks that
+            // identity.** Once it fires, an uncancelled `h*div(phi)` of
+            // perfectly ordinary size is left in the source and is divided by
+            // a diagonal pinned at `1e-4 * V/dt`.
+            //
+            // Measured on the Edwards break cell, 2026-09-14, at the step
+            // before the failure (`bn:op-bgg0`, log A2):
+            //
+            //     cell 22: rho_old = 1.45700e0,  div_phi = 1.03346e5,
+            //              rho_old - dt*div_phi = -1.64339e0   <-- NEGATIVE
+            //              diag = 2.38410e-3,  he = -1.71218e10 J/kg
+            //
+            // The flux asked to remove 3.1 kg/m3 from a cell holding 1.46 in a
+            // single 30 us step. So the clamp is not conservative rounding; it
+            // is papering over a mass over-drain, and the enthalpy that comes
+            // out is off by four orders of magnitude.
+            //
+            // Here we stop the second half of that -- the division -- by giving
+            // the cell an identity row: `he` is held at `he_old` rather than
+            // solved. The LDU convention is that `upper[f]` sits in row
+            // `owner[f]` and `lower[f]` in row `neighbour[f]` (see
+            // `gauss_seidel`), so zeroing the row means zeroing `upper` on
+            // faces this cell owns and `lower` on faces where it is the
+            // neighbour. The column is deliberately left intact: neighbours
+            // still see the held value, which is what "hold" should mean.
+            // `he` is solved by Gauss-Seidel, not CG, so the resulting
+            // asymmetry is fine.
+            //
+            // THIS DOES NOT FIX THE OVER-DRAIN, and must not be described as
+            // if it did. Mass is still being created by the clamp. What it
+            // fixes is that a massless cell can no longer emit a
+            // -1.7e10 J/kg enthalpy into the (p,h) flash.
+            for c in 0..n {
+                if drained[c] {
+                    self.drained_hold_events += 1;
+                    // Loud on first engagement. The hold is KEPT because a
+                    // solver that panics on a drained cell is useless to a
+                    // user -- but it masks a mass over-drain, so a run that
+                    // engages it has a mass-conservation error in it and the
+                    // user must be told rather than handed a plausible-looking
+                    // answer. Running total: `drained_hold_events()`.
+                    if !self.hold_reported {
+                        self.hold_reported = true;
+                        eprintln!(
+                            "WARNING [TampinesSteamArray]: drained-cell enthalpy hold engaged -- \
+                             cell {c}'s continuity density reached its floor, so its specific \
+                             enthalpy was HELD rather than solved. MASS IS NOT CONSERVED in that \
+                             cell: the flux asked to remove more mass than it contained \
+                             (rho_old = {:.6e} kg/m3, unclamped rho_old - dt*div(phi) = {:.6e}). \
+                             The run continues and its results are NOT trustworthy. See \
+                             drained_hold_events() for the running count, and bn:op-bgg0.",
+                            rho_old.internal[c], rc_unclamped[c],
+                        );
+                    }
+                    e_eqn.ldu.diag[c] = 1.0;
+                    e_eqn.source[c] = he_old.internal[c];
+                    for f in 0..e_eqn.ldu.n_internal_faces {
+                        if e_eqn.ldu.owner[f] == c {
+                            e_eqn.ldu.upper[f] = 0.0;
+                        }
+                        if e_eqn.ldu.neighbour[f] == c {
+                            e_eqn.ldu.lower[f] = 0.0;
+                        }
+                    }
+                }
+            }
+
             let (he_new, _) = e_eqn.solve("he", settings);
             self.he = he_new;
+
+            // Rebuild the enthalpy terminals by the UPWIND ADVECTION convention
+            // (TUAS), from the mass flux that this corrector just settled on.
+            //
+            // This is where `u`/`p` get their `correct_bcs` re-stamp, and it is
+            // deliberately the same place: `FvMatrix::solve` returns a field
+            // with all boundaries reset to zero-gradient, so every field needs
+            // its boundary put back here. The difference is that `he`'s
+            // boundary is *derived* rather than replayed -- see
+            // [`Self::correct_advection_terminals`] for why a pipe's ends are
+            // junctions and not patches.
+            //
+            // HISTORY (this line's ancestor, fixed 2026-08-12, bead `op-289n`).
+            // `FvMatrix::solve` rebuilds its output field with **all boundaries
+            // reset to zero-gradient** -- the module's own "Boundary-condition
+            // helpers" block says so. `u` and `p` were both put back with
+            // `correct_bcs`/`correct_bcs_vec` after their solves; `he` was
+            // simply omitted. So a `FixedValue` inlet enthalpy set by
+            // [`Self::set_inlet_enthalpy`] survived only the FIRST outer
+            // corrector of a step and was destroyed for every corrector after
+            // it. Since the LAST corrector wins, and it ran with the boundary
+            // erased, the prescribed inlet enthalpy had **no effect on the
+            // solution at all**: an array started from a uniform field never
+            // moved toward its inlet BC, in either direction, at any timestep.
+            //
+            // Measured before the fix: 8 cells, uniform 523.15 K (he =
+            // 1085.7 kJ/kg), inlet BC 168.7 kJ/kg, 30 000 steps -- `he` was
+            // bit-identical at every cell. Same with the BC set ABOVE the field
+            // (3000.0 kJ/kg). Swept dt from 1e-4 to 1.25e-2 s: identical no-op.
+            //
+            // That fix restored the prescribed *value*, but left the
+            // *formulation* wrong: an unconditional Dirichlet inlet is still a
+            // patch condition, and it clamps the face even when the flow is
+            // leaving through it. The upwind selection below is the formulation
+            // fix; the value fix is subsumed by it.
+            //
+            // Regression tests:
+            // `lateral_coupling::tests::inlet_enthalpy_bc_actually_drives_the_field`
+            // (value) and
+            // `lateral_coupling::tests::flow_reversal_keeps_enthalpy_bounded_between_terminals`
+            // (formulation -- a forward-flow-only test passes identically with a
+            // wrong outlet terminal, so only the reversal proves this).
+            self.correct_advection_terminals();
         }
         self.clear_vectors();
+    }
+
+    /// Rebuild both enthalpy **advection terminals** by the upwind convention,
+    /// from the boundary mass flux the just-finished corrector settled on.
+    ///
+    /// This is the energy equation's boundary treatment, and it is TUAS's, not
+    /// OpenFOAM's. See `docs/boundary-conditions-convention.md` for the
+    /// maintainer's decision and [`AdvectionTerminalState`] for the mapping
+    /// onto `tuas_boussinesq_solver`'s
+    /// `single_control_vol/boundary_condition_interactions/advection_to_bcs.rs`.
+    ///
+    /// ## The rule
+    ///
+    /// At each terminal, hold **both** candidate upstream states — the junction
+    /// state and the control-volume state — and select on the **sign of the mass
+    /// flow** there. The mesh's boundary face-area vectors point *out* of the
+    /// domain, so the stored `phi.boundary` is outward-positive and
+    ///
+    /// - `phi_b < 0` — flow **into** the domain. The junction is upstream:
+    ///   face enthalpy = the prescribed [`AdvectionTerminalState::Junction`]
+    ///   value if there is one, else (nothing else being known) the adjacent
+    ///   cell's own enthalpy.
+    /// - `phi_b > 0` — flow **out of** the domain. The control volume is
+    ///   upstream: face enthalpy = the adjacent cell's enthalpy, i.e.
+    ///   zero-gradient, which is right here because the downstream state is
+    ///   genuinely unknown.
+    ///
+    /// Because the upstream value is *chosen by direction* rather than
+    /// defaulted, the historical "zero-gradient at both ends" failure — in which
+    /// the domain advects in its own enthalpy and no boundary exists through
+    /// which energy can enter or leave — is structurally impossible.
+    ///
+    /// ## One deliberate deviation from TUAS, and why
+    ///
+    /// TUAS breaks the tie at exactly zero mass flow toward the control volume
+    /// (`if mass_flow_from_bc_to_cv > MassRate::zero()`). This method breaks it
+    /// toward the **junction** (`phi_b <= 0.0`). At zero flux the advective
+    /// term is identically zero either way, so the choice cannot change the
+    /// advected energy; what it does change is that a prescribed junction state
+    /// stays effective at start-up (when `phi` is still zero everywhere) and
+    /// under **stagnation**, where it becomes the Dirichlet end condition of the
+    /// axial conduction term — which at stagnation is the entire heat path (see
+    /// [`Self::axial_peclet_numbers`]). Breaking the tie the other way would
+    /// switch the pipe's only remaining heat path off exactly when it matters.
+    ///
+    /// ## Timing
+    ///
+    /// Called after the energy solve, once per outer corrector, so the selection
+    /// uses the flux of the timestep just computed and the stamped terminal is
+    /// read by the *next* corrector's `fvc::div(phi, he)` and
+    /// `fvm::laplacian(alpha_h, he)`. That is the "from the previous timestep's
+    /// thermodynamic state" the convention calls for.
+    ///
+    /// ## Mesh assumption
+    ///
+    /// [`create_one_d_mesh`] gives each end patch exactly one face, so the
+    /// selection is made once per patch from the patch's net flux. A patch with
+    /// several faces would need the choice per face, which the single-BC-per-
+    /// patch field layout cannot express; that case does not arise for a 1-D
+    /// pipe and is not silently approximated — it simply cannot be constructed
+    /// here.
+    fn correct_advection_terminals(&mut self) {
+        let mesh = self.mesh.clone();
+        for pi in 0..mesh.patches.len() {
+            let patch = &mesh.patches[pi];
+            if patch.size == 0 || matches!(self.he.boundary[pi].bc, BoundaryCondition::Empty) {
+                continue;
+            }
+            // Outward-positive net mass flux through this terminal [kg/s].
+            let phi_b: f64 = (0..patch.size)
+                .map(|fi| self.phi.boundary[pi].values[fi])
+                .sum();
+            // A NaN flux fails `<= 0.0`, so a diverged solution falls through to
+            // the zero-gradient branch rather than pinning a junction Dirichlet
+            // onto a field that is already broken.
+            let inflowing = phi_b <= 0.0;
+
+            match self.terminal_state(pi) {
+                AdvectionTerminalState::Junction(h_j) if inflowing => {
+                    // Junction is upstream: it carries its own enthalpy in.
+                    let h = h_j.get::<uom::si::available_energy::joule_per_kilogram>();
+                    self.he.boundary[pi] = PatchField::fixed_value(patch.size, h);
+                }
+                _ => {
+                    // Control volume is upstream (or nothing else is known):
+                    // zero-gradient. `interpolate`/`laplacian` read the cell
+                    // value directly for this BC, so `values` is bookkeeping —
+                    // filled anyway so a reader of `he.boundary` sees the face
+                    // state actually in force.
+                    let mut pf = PatchField::zero_gradient(patch.size);
+                    for fi in 0..patch.size {
+                        pf.values[fi] = self.he.internal[mesh.owner[patch.start + fi]];
+                    }
+                    self.he.boundary[pi] = pf;
+                }
+            }
+        }
+    }
+
+    /// The [`AdvectionTerminalState`] belonging to mesh patch `pi`.
+    ///
+    /// Patch 1 is the inlet (`"left"`, x = 0, [`INLET_PATCH`]); every other
+    /// patch of a 1-D pipe is the outlet (`"right"`, x = length).
+    fn terminal_state(&self, pi: usize) -> AdvectionTerminalState {
+        if pi == INLET_PATCH {
+            self.inlet_terminal
+        } else {
+            self.outlet_terminal
+        }
+    }
+
+    /// Overwrite the interpolated face densities at any **inflowing** terminal
+    /// that has a junction state, with the density of that junction state.
+    ///
+    /// The density half of the same upwind rule
+    /// ([`Self::correct_advection_terminals`] is the enthalpy half). TUAS's
+    /// `advection_to_bcs.rs` selects `density_bc` on inflow and `density_cv` on
+    /// outflow; `fvc::interpolate` cannot do that, because `rho`'s own boundary
+    /// is zero-gradient and so always yields the control-volume density.
+    ///
+    /// It matters physically: with a velocity-prescribed inlet the entering mass
+    /// flux is `rho_junction * u * A`, and using the cell's density instead
+    /// imports fluid at the wrong rate whenever the junction is at a different
+    /// state from the first cell — which is the entire point of connecting two
+    /// components. With [`Self::set_inlet_mass_flowrate`] it is exactly
+    /// neutral, because [`Self::apply_flow_rate_inlet`] divides by the very same
+    /// face density it then multiplies by.
+    ///
+    /// The junction density is `1/v(p_cell, h_junction)` from the real
+    /// IAPWS-IF97 `(p, h)` flash, taking the pressure from the adjacent cell —
+    /// a junction is at the pipe's pressure, and this mirrors TUAS's use of
+    /// `control_vol_pressure` for the BC-side property call.
+    ///
+    /// A no-op at a terminal with no junction state, at an outflowing terminal,
+    /// and whenever the flash returns something unusable (non-finite or
+    /// non-positive) — never a wrong number.
+    fn apply_junction_densities(&self, rho_f: &mut SurfaceScalarField) {
+        use crate::interfaces::functional_programming::ph_flash_eqm::v_ph_eqm;
+        use uom::si::specific_volume::cubic_meter_per_kilogram;
+
+        for pi in 0..self.mesh.patches.len() {
+            let AdvectionTerminalState::Junction(h_j) = self.terminal_state(pi) else {
+                continue;
+            };
+            let patch = &self.mesh.patches[pi];
+            if patch.size == 0 {
+                continue;
+            }
+            let phi_b: f64 = (0..patch.size)
+                .map(|fi| self.phi.boundary[pi].values[fi])
+                .sum();
+            // Same tie-break as `correct_advection_terminals`, and the same NaN
+            // behaviour: a diverged flux is not `<= 0.0`, so it falls through to
+            // the control-volume density rather than flashing a junction state
+            // onto a broken solution.
+            let inflowing = phi_b <= 0.0;
+            if !inflowing {
+                continue; // the control volume is upstream
+            }
+            for fi in 0..patch.size {
+                let owner = self.mesh.owner[patch.start + fi];
+                let p_b = Pressure::new::<uom::si::pressure::pascal>(self.p.internal[owner]);
+                let rho_j = 1.0 / v_ph_eqm(p_b, h_j).get::<cubic_meter_per_kilogram>();
+                if rho_j.is_finite() && rho_j > 0.0 {
+                    rho_f.boundary[pi].values[fi] = rho_j;
+                }
+            }
+        }
+    }
+
+    /// Impose the prescribed inlet mass flowrate as a velocity boundary
+    /// condition, OpenFOAM's `flowRateInletVelocity`.
+    ///
+    /// `u_in = m_dot / (rho_in A_in)`, with `rho_in` the **area-weighted mean
+    /// inlet-face density taken from `rho_f`** -- the same interpolated field
+    /// that multiplies this velocity a few lines later to build the boundary
+    /// mass flux. Deriving it from that field rather than from a caller's
+    /// assumed density is the whole point: the imposed flux is then exactly
+    /// `m_dot` by construction, instead of
+    /// `rho_solved/rho_assumed * m_dot`, which drifts as the solution moves.
+    ///
+    /// Updates both `self.u.boundary[INLET_PATCH]` and the caller's captured
+    /// velocity-BC template `u_bcs`, in lockstep, so the post-solve
+    /// `correct_bcs_vec` re-stamps this velocity and not a stale one.
+    ///
+    /// A no-op when no mass flowrate is prescribed, when the inlet patch has no
+    /// faces, or when the inlet area or density is not usable (non-finite or
+    /// non-positive) -- never a wrong number, mirroring [`Self::correct_thermo`]'s
+    /// non-convergence handling.
+    fn apply_flow_rate_inlet(
+        &mut self,
+        rho_f: &SurfaceScalarField,
+        u_bcs: &mut [BoundaryCondition<Vector3>],
+    ) {
+        let Some(mdot) = self.inlet_mass_flowrate else {
+            return;
+        };
+        let mdot = mdot.get::<uom::si::mass_rate::kilogram_per_second>();
+        let patch = &self.mesh.patches[INLET_PATCH];
+        if patch.size == 0 {
+            return;
+        }
+
+        // Area-weighted mean inlet-face density, and the total inlet area.
+        let mut area = 0.0_f64;
+        let mut rho_area = 0.0_f64;
+        for fi in 0..patch.size {
+            let a = self.mesh.face_areas[patch.start + fi];
+            area += a;
+            rho_area += a * rho_f.boundary[INLET_PATCH].values[fi];
+        }
+        // NaN fails `is_finite`, so a diverged density/area returns here rather
+        // than prescribing a NaN velocity.
+        if !area.is_finite() || area <= 0.0 {
+            return;
+        }
+        let rho_in = rho_area / area;
+        if !rho_in.is_finite() || rho_in <= 0.0 {
+            return;
+        }
+
+        let v = Vector3::new(mdot / (rho_in * area), 0.0, 0.0);
+        self.u.boundary[INLET_PATCH] = PatchField::fixed_value_vec(patch.size, v);
+        u_bcs[INLET_PATCH] = BoundaryCondition::FixedValue(v);
     }
 
     /// Advance `n_steps` time steps of size `delta_t`.
@@ -1557,6 +2645,61 @@ impl TampinesSteamArray {
         self.p_max = p_max;
     }
 
+    /// How many times the pressure solve produced a value outside
+    /// `[p_min, p_max]` and had to be clamped, counted per cell-update over
+    /// the life of this array.
+    ///
+    /// **Treat a nonzero value as a defect signal.** The bounding step
+    /// (OpenFOAM's `pressureControl::limit`) reshapes a pressure the equation
+    /// of state could not have evaluated, so it keeps the run alive -- but a
+    /// converged, well-posed pressure equation should never ask for a pressure
+    /// outside the EOS range in the first place. Upstream carries the same
+    /// limiter for robust start-up, not as something to rely on every step.
+    ///
+    /// This counter exists because the clamp is otherwise **silent**: a cell
+    /// clamped up from -27.2 kPa to 611.8 Pa looks, to everything downstream,
+    /// exactly like a cell that legitimately reached the floor. That is how
+    /// the Edwards blowdown defect went undiagnosed (`bn:op-bgg0`).
+    ///
+    /// Pair it with [`Self::pressure_bound_worst_undershoot`] to see how far
+    /// out the solve actually went.
+    pub fn pressure_bound_events(&self) -> usize {
+        self.p_bound_events
+    }
+
+    /// The largest amount by which the pressure solve undershot `p_min` before
+    /// clamping, over the life of this array (zero if it never did).
+    ///
+    /// A large undershoot means the pressure equation is not merely grazing
+    /// the EOS floor but producing a physically impossible state -- negative
+    /// absolute pressure, in the Edwards case.
+    pub fn pressure_bound_worst_undershoot(&self) -> Pressure {
+        Pressure::new::<uom::si::pressure::pascal>(self.p_bound_worst_undershoot)
+    }
+
+    /// The largest amount by which the pressure solve overshot `p_max` before
+    /// clamping, over the life of this array (zero if it never did).
+    pub fn pressure_bound_worst_overshoot(&self) -> Pressure {
+        Pressure::new::<uom::si::pressure::pascal>(self.p_bound_worst_overshoot)
+    }
+
+    /// How many times the drained-cell enthalpy hold engaged, counted per
+    /// cell-update over the life of this array.
+    ///
+    /// The hold is a **band-aid**: it stops a cell whose continuity density has
+    /// reached the floor from having a meaningless *specific* enthalpy solved
+    /// for it (see the block in `step` that sets the identity row). It does not
+    /// fix the mass over-drain that puts the cell there.
+    ///
+    /// **A zero count is the goal.** If a configuration runs to completion
+    /// without ever engaging the hold, the underlying defect is not occurring
+    /// in that configuration and the band-aid is inert -- which is the evidence
+    /// needed to decide whether it should be removed rather than carried
+    /// indefinitely. See `docs/rhopimplefoam-port-omissions.md`.
+    pub fn drained_hold_events(&self) -> usize {
+        self.drained_hold_events
+    }
+
     /// The current flux-discretisation mode (see [`SolverMode`]).
     pub fn get_solver_mode(&self) -> SolverMode {
         self.mode
@@ -1611,6 +2754,57 @@ impl TampinesSteamArray {
     /// per-cell source. There is no separate energy source — the enthalpy
     /// shock-capturing rides on the continuity flux through the EEqn's `∇·(φh)`
     /// (see [`HybridDissipation`]).
+    /// Pressure and sound speed for one side of a KNP face.
+    ///
+    /// Returns the reconstructed pair unchanged under
+    /// [`KnpFaceClosure::ReconstructedPressure`]. Under
+    /// [`KnpFaceClosure::EosConsistentPressure`] it recovers the pressure from
+    /// the reconstructed `(rho, he)` instead, and takes the sound speed at that
+    /// pressure, so the face state KNP builds its wave speeds from is an
+    /// actual thermodynamic state.
+    ///
+    /// **Falls back to the reconstructed pair whenever the `(rho, he)` face
+    /// state is not one IF97 can represent.** MUSCL limiting is not
+    /// EOS-aware, so a steep front can reconstruct a `(rho, he)` combination
+    /// that lies outside the flash domain even though both neighbouring cells
+    /// are inside it. That is a reconstruction artefact, not a physical state,
+    /// and the right response is to use the interpolated pressure rather than
+    /// to panic or to invent one.
+    fn close_knp_face(
+        &self,
+        rho_si: f64,
+        he_si: f64,
+        p_reconstructed: f64,
+        c_reconstructed: f64,
+    ) -> (f64, f64) {
+        let c_fallback = c_reconstructed.max(C_MIN_MPS);
+        match self.knp_face_closure {
+            KnpFaceClosure::ReconstructedPressure => (p_reconstructed, c_fallback),
+            KnpFaceClosure::EosConsistentPressure => {
+                use crate::interfaces::functional_programming::rho_h_flash_eqm::{
+                    p_rho_h_eqm, rho_h_is_within_validity_range,
+                };
+                use uom::si::available_energy::joule_per_kilogram;
+                use uom::si::mass_density::kilogram_per_cubic_meter;
+
+                let rho_q = uom::si::f64::MassDensity::new::<kilogram_per_cubic_meter>(rho_si);
+                let h_q = uom::si::f64::AvailableEnergy::new::<joule_per_kilogram>(he_si);
+
+                if !rho_h_is_within_validity_range(rho_q, h_q) {
+                    return (p_reconstructed, c_fallback);
+                }
+
+                let p_eos = p_rho_h_eqm(rho_q, h_q).get::<uom::si::pressure::pascal>();
+                if !p_eos.is_finite() || p_eos <= 0.0 {
+                    return (p_reconstructed, c_fallback);
+                }
+
+                let c_eos = hem_sound_speed_ph(p_eos, he_si, C_MIN_MPS);
+                (p_eos, c_eos.max(C_MIN_MPS))
+            }
+        }
+    }
+
     fn assemble_hybrid_dissipation(&self) -> HybridDissipation {
         let mesh = self.mesh.clone();
         let n = mesh.n_cells;
@@ -1747,19 +2941,39 @@ impl TampinesSteamArray {
             let sf = mesh.face_area_vectors[f];
             let n_f = Vector3::new(sf.x / area, sf.y / area, sf.z / area);
 
+            // Close the face state's pressure and sound speed.
+            //
+            // Reached only past the Mach blend and the rarefied-tail taper, so
+            // this runs on the dense near-sonic flashing faces and nowhere
+            // else -- which is what makes the EOS-consistent option affordable.
+            let rho_l = rho_pos.internal[f].max(1e-10);
+            let rho_r = rho_neg.internal[f].max(1e-10);
+            let (p_l, c_l) = self.close_knp_face(
+                rho_l,
+                he_pos.internal[f],
+                p_pos.internal[f],
+                c_pos.internal[f],
+            );
+            let (p_r, c_r) = self.close_knp_face(
+                rho_r,
+                he_neg.internal[f],
+                p_neg.internal[f],
+                c_neg.internal[f],
+            );
+
             let l = FaceState {
-                rho: rho_pos.internal[f].max(1e-10),
+                rho: rho_l,
                 u: Vector3::new(ux_pos.internal[f], uy_pos.internal[f], uz_pos.internal[f]),
                 he: he_pos.internal[f],
-                p: p_pos.internal[f],
-                c: c_pos.internal[f].max(C_MIN_MPS),
+                p: p_l,
+                c: c_l,
             };
             let r = FaceState {
-                rho: rho_neg.internal[f].max(1e-10),
+                rho: rho_r,
                 u: Vector3::new(ux_neg.internal[f], uy_neg.internal[f], uz_neg.internal[f]),
                 he: he_neg.internal[f],
-                p: p_neg.internal[f],
-                c: c_neg.internal[f].max(C_MIN_MPS),
+                p: p_r,
+                c: c_r,
             };
 
             let knp = knp_face_flux(&l, &r, n_f);
@@ -1901,9 +3115,7 @@ mod tests {
     /// `thermal_conductivity::lambda_2_crit_enhancement_term_tp_two_phase_estimate`).
     #[test]
     fn correct_thermo_survives_two_phase_boiling_cell() {
-        use crate::interfaces::functional_programming::ph_flash_eqm::{
-            ph_flash_region, x_ph_flash,
-        };
+        use crate::interfaces::functional_programming::ph_flash_eqm::{ph_flash_region, x_ph_flash};
         use crate::interfaces::functional_programming::pt_flash_eqm::FwdEqnRegion;
 
         let mut array = TampinesSteamArray::new(

@@ -8,6 +8,8 @@
 // to read
 // IAPWS-IF97 Table 34 coefficients (n_1..n_10) for the Region 4 saturation
 // pressure/temperature correlation.
+use petir::mathf::RealMath;
+
 const REGION_4_COEFFS: [f64; 10] = [
     0.116_705_214_527_67e4,
     -0.724_213_167_032_06e6,
@@ -46,7 +48,7 @@ pub fn beta_dimensionless_pressure_4(p: Pressure) -> f64 {
 
     let pressure_ratio: f64 = (p / ref_p).into();
 
-    return pressure_ratio.powf(0.25);
+    return pressure_ratio.r_powf(0.25);
 }
 
 /// returns dimensionless temp for region 4

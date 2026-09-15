@@ -280,8 +280,7 @@ impl CharacteristicCurveModel for VanGenuchten {
         let inner = 1.0 - sm; // in (0,1)
         let g = 1.0 - inner.powf(self.m);
         let term1 = 0.5 * se.powf(-0.5) * g * g;
-        let term2 =
-            se.sqrt() * 2.0 * g * inner.powf(self.m - 1.0) * se.powf(1.0 / self.m - 1.0);
+        let term2 = se.sqrt() * 2.0 * g * inner.powf(self.m - 1.0) * se.powf(1.0 / self.m - 1.0);
         term1 + term2
     }
 
@@ -474,7 +473,15 @@ impl Haverkamp {
         theta_r: f64,
         theta_s: f64,
     ) -> Result<Self, PflotranError> {
-        Self::with_conversion(alpha, beta, a, gamma, theta_r, theta_s, Self::WATER_CM_PER_PA)
+        Self::with_conversion(
+            alpha,
+            beta,
+            a,
+            gamma,
+            theta_r,
+            theta_s,
+            Self::WATER_CM_PER_PA,
+        )
     }
 
     /// As [`Self::new`] but with an explicit head-per-pressure factor `cm_per_pa`
@@ -503,7 +510,15 @@ impl Haverkamp {
                 "Haverkamp: cm_per_pa must be positive and finite".into(),
             ));
         }
-        Ok(Self { alpha, beta, a, gamma, theta_r, theta_s, cm_per_pa })
+        Ok(Self {
+            alpha,
+            beta,
+            a,
+            gamma,
+            theta_r,
+            theta_s,
+            cm_per_pa,
+        })
     }
 
     /// The standard Haverkamp (1977) sand of the Celia et al. (1990) benchmark
@@ -647,7 +662,10 @@ mod tests {
             for k in 0..=100 {
                 let se = k as f64 / 100.0;
                 let kr = kr_val(&c, se);
-                assert!((0.0..=1.0).contains(&kr), "kr out of [0,1]: {kr} at Se={se}");
+                assert!(
+                    (0.0..=1.0).contains(&kr),
+                    "kr out of [0,1]: {kr} at Se={se}"
+                );
                 assert!(kr >= prev - 1e-12, "kr not non-decreasing at Se={se}");
                 prev = kr;
             }
@@ -713,7 +731,10 @@ mod tests {
     fn bc_air_entry_saturated_below_bubbling_pressure() {
         // alpha = 1e-4 => air-entry pressure = 1/alpha = 1e4 Pa.
         let c = bc();
-        assert!((se_val(&c, 9.9e3) - 1.0).abs() < 1e-15, "should be saturated below air entry");
+        assert!(
+            (se_val(&c, 9.9e3) - 1.0).abs() < 1e-15,
+            "should be saturated below air entry"
+        );
         assert!(se_val(&c, 1.1e4) < 1.0, "should desaturate above air entry");
     }
 
@@ -753,7 +774,10 @@ mod tests {
     #[test]
     fn haverkamp_se_bounds_and_monotone() {
         let c = hv();
-        assert!((se_val(&c, -10.0) - 1.0).abs() < 1e-15, "saturated at pc<=0");
+        assert!(
+            (se_val(&c, -10.0) - 1.0).abs() < 1e-15,
+            "saturated at pc<=0"
+        );
         let mut prev = 1.0;
         // Sweep capillary pressure (Pa) across the unsaturated range.
         for k in 0..40 {
@@ -819,6 +843,8 @@ mod tests {
     fn haverkamp_rejects_bad_inputs() {
         assert!(Haverkamp::new(0.0, 3.96, 1.175e6, 4.74, 0.075, 0.287).is_err());
         assert!(Haverkamp::new(1.611e6, 3.96, 1.175e6, 4.74, 0.3, 0.287).is_err()); // theta_r >= theta_s
-        assert!(Haverkamp::with_conversion(1.611e6, 3.96, 1.175e6, 4.74, 0.075, 0.287, -1.0).is_err());
+        assert!(
+            Haverkamp::with_conversion(1.611e6, 3.96, 1.175e6, 4.74, 0.075, 0.287, -1.0).is_err()
+        );
     }
 }

@@ -23,7 +23,7 @@
 //!
 //! Ports the OpenFOAM `primitives/polynomialEqns` layer: the linear, quadratic,
 //! and cubic root finders (`LinearEqn`, `QuadraticEqn`, `CubicEqn`) that return a
-//! tagged [`Roots`] container distinguishing real, complex, infinite, and NaN
+//! tagged [`Roots`](crate::polynomial::roots::Roots) container distinguishing real, complex, infinite, and NaN
 //! roots, plus the general [`Polynomial<N>`](polynomial::Polynomial) value /
 //! derivative / integral type. All coefficients and results are bare `f64` in SI
 //! (dimensionless) form — these are numerical building blocks, not dimensioned

@@ -43,9 +43,7 @@
 //!   and Condensation*, 3rd ed., pp. 155-158, Oxford University Press, 1994.
 
 use super::PrandtlNumber;
-use crate::genfoam::thermal_hydraulics::units::{
-    HeatFlux, HeatTransferCoefficient, ReynoldsNumber,
-};
+use crate::genfoam::thermal_hydraulics::units::{HeatFlux, HeatTransferCoefficient, ReynoldsNumber};
 use uom::si::f64::{
     Length, Pressure, TemperatureInterval, ThermalConductivity, ThermodynamicTemperature,
 };

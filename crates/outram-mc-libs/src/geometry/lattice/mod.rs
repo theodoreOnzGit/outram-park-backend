@@ -12,11 +12,16 @@
 //! descends into it exactly as it would a nested universe.
 
 use super::position::{Direction, Position};
+use crate::mathf::RealMath;
 
 /// Lattice type tag. Maps to `openmc::LatticeType`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LatticeType { Rect, Hex }
+pub enum LatticeType {
+    Rect,
+    Hex,
+}
 
+#[derive(Debug, Clone)]
 /// A rectangular lattice. Maps to `openmc::RectLattice`.
 pub struct RectLattice {
     /// User-facing lattice id.
@@ -38,7 +43,9 @@ pub struct RectLattice {
 impl RectLattice {
     /// Whether this lattice has a third (z) dimension.
     #[inline]
-    fn is_3d(&self) -> bool { self.n[2] > 1 }
+    fn is_3d(&self) -> bool {
+        self.n[2] > 1
+    }
 
     /// Map a position to a (possibly out-of-range, signed) lattice index triplet.
     ///
@@ -52,14 +59,22 @@ impl RectLattice {
             let f = num / pitch;
             let close = f.round();
             if (f - close).abs() < 1.0e-12 {
-                if dir > 0.0 { close as i32 } else { close as i32 - 1 }
+                if dir > 0.0 {
+                    close as i32
+                } else {
+                    close as i32 - 1
+                }
             } else {
                 f.floor() as i32
             }
         };
         let ix = idx(r.x - self.lower_left.x, self.pitch[0], u.u);
         let iy = idx(r.y - self.lower_left.y, self.pitch[1], u.v);
-        let iz = if self.is_3d() { idx(r.z - self.lower_left.z, self.pitch[2], u.w) } else { 0 };
+        let iz = if self.is_3d() {
+            idx(r.z - self.lower_left.z, self.pitch[2], u.w)
+        } else {
+            0
+        };
         [ix, iy, iz]
     }
 
@@ -67,18 +82,20 @@ impl RectLattice {
     /// Ported from `RectLattice::are_valid_indices` (`src/lattice.cpp:243`).
     #[inline]
     pub fn are_valid_indices(&self, i: [i32; 3]) -> bool {
-        i[0] >= 0 && (i[0] as usize) < self.n[0]
-            && i[1] >= 0 && (i[1] as usize) < self.n[1]
-            && i[2] >= 0 && (i[2] as usize) < self.n[2]
+        i[0] >= 0
+            && (i[0] as usize) < self.n[0]
+            && i[1] >= 0
+            && (i[1] as usize) < self.n[1]
+            && i[2] >= 0
+            && (i[2] as usize) < self.n[2]
     }
 
     /// The universe index at tile `i` — the tile's universe if in range, else the
     /// `outer` universe if defined, else `None` (lost).
     pub fn universe_at(&self, i: [i32; 3]) -> Option<usize> {
         if self.are_valid_indices(i) {
-            let flat = self.n[0] * self.n[1] * i[2] as usize
-                + self.n[0] * i[1] as usize
-                + i[0] as usize;
+            let flat =
+                self.n[0] * self.n[1] * i[2] as usize + self.n[0] * i[1] as usize + i[0] as usize;
             self.universes.get(flat).copied()
         } else {
             self.outer
@@ -110,16 +127,26 @@ impl RectLattice {
         let x0 = (0.5 * self.pitch[0]).copysign(u.u);
         let y0 = (0.5 * self.pitch[1]).copysign(u.v);
         let mut d = f64::INFINITY;
-        if u.u != 0.0 { d = d.min((x0 - r.x) / u.u); }
-        if u.v != 0.0 { d = d.min((y0 - r.y) / u.v); }
+        if u.u != 0.0 {
+            d = d.min((x0 - r.x) / u.u);
+        }
+        if u.v != 0.0 {
+            d = d.min((y0 - r.y) / u.v);
+        }
         let mut z0 = 0.0;
         if self.is_3d() {
             z0 = (0.5 * self.pitch[2]).copysign(u.w);
-            if u.w != 0.0 { d = d.min((z0 - r.z) / u.w); }
+            if u.w != 0.0 {
+                d = d.min((z0 - r.z) / u.w);
+            }
         }
         let mut trans = [0i32; 3];
-        if u.u != 0.0 && (r.x + u.u * d - x0).abs() < FP { trans[0] = 1_f64.copysign(u.u) as i32; }
-        if u.v != 0.0 && (r.y + u.v * d - y0).abs() < FP { trans[1] = 1_f64.copysign(u.v) as i32; }
+        if u.u != 0.0 && (r.x + u.u * d - x0).abs() < FP {
+            trans[0] = 1_f64.copysign(u.u) as i32;
+        }
+        if u.v != 0.0 && (r.y + u.v * d - y0).abs() < FP {
+            trans[1] = 1_f64.copysign(u.v) as i32;
+        }
         if self.is_3d() && u.w != 0.0 && (r.z + u.w * d - z0).abs() < FP {
             trans[2] = 1_f64.copysign(u.w) as i32;
         }
@@ -162,6 +189,7 @@ fn coincident(d1: f64, d2: f64) -> bool {
     (d1 - d2).abs() < FP_COINCIDENT
 }
 
+#[derive(Debug, Clone)]
 /// A hexagonal lattice. Maps to `openmc::HexLattice`.
 ///
 /// C++ source: `src/lattice.cpp:456` (constructor) and the `HexLattice::*`
@@ -313,7 +341,11 @@ impl HexLattice {
         let p = self.pitch[0];
 
         // Offset by the lattice centre.
-        let mut r_o = Position { x: r.x - self.center.x, y: r.y - self.center.y, z: r.z };
+        let mut r_o = Position {
+            x: r.x - self.center.x,
+            y: r.y - self.center.y,
+            z: r.z,
+        };
         if self.is_3d() {
             r_o.z -= self.center.z;
         }
@@ -324,7 +356,11 @@ impl HexLattice {
             let iz_ = r_o.z / self.pitch[1] + 0.5 * self.n_axial as f64;
             let iz_close = iz_.round();
             iz = if coincident(iz_, iz_close) {
-                if u.w > 0.0 { iz_close as i32 } else { iz_close as i32 - 1 }
+                if u.w > 0.0 {
+                    iz_close as i32
+                } else {
+                    iz_close as i32 - 1
+                }
             } else {
                 iz_.floor() as i32
             };
@@ -397,7 +433,11 @@ impl HexLattice {
         let r = Position {
             x: r_local.x + off.x,
             y: r_local.y + off.y,
-            z: if self.is_3d() { r_local.z + off.z } else { r_local.z },
+            z: if self.is_3d() {
+                r_local.z + off.z
+            } else {
+                r_local.z
+            },
         };
 
         let s3 = 3.0_f64.sqrt();
@@ -423,7 +463,11 @@ impl HexLattice {
         };
         if (beta - edge).abs() > FP_PRECISION && beta_dir != 0.0 {
             d = (edge - beta) / beta_dir;
-            trans = if beta_dir > 0.0 { [1, 0, 0] } else { [-1, 0, 0] };
+            trans = if beta_dir > 0.0 {
+                [1, 0, 0]
+            } else {
+                [-1, 0, 0]
+            };
         }
 
         // gamma direction.
@@ -441,7 +485,11 @@ impl HexLattice {
         if (gamma - edge).abs() > FP_PRECISION && gamma_dir != 0.0 {
             let this_d = (edge - gamma) / gamma_dir;
             if this_d < d {
-                trans = if gamma_dir > 0.0 { [1, -1, 0] } else { [-1, 1, 0] };
+                trans = if gamma_dir > 0.0 {
+                    [1, -1, 0]
+                } else {
+                    [-1, 1, 0]
+                };
                 d = this_d;
             }
         }
@@ -461,7 +509,11 @@ impl HexLattice {
         if (delta - edge).abs() > FP_PRECISION && delta_dir != 0.0 {
             let this_d = (edge - delta) / delta_dir;
             if this_d < d {
-                trans = if delta_dir > 0.0 { [0, 1, 0] } else { [0, -1, 0] };
+                trans = if delta_dir > 0.0 {
+                    [0, 1, 0]
+                } else {
+                    [0, -1, 0]
+                };
                 d = this_d;
             }
         }
@@ -508,7 +560,11 @@ impl HexLattice {
         assert!(n_rings >= 1, "a hex lattice needs at least one ring");
         // Validate ring sizes: outer→inner is 6(n-1), 6(n-2), …, 1.
         for (k, ring) in rings.iter().enumerate() {
-            let expected = if k == n_rings - 1 { 1 } else { 6 * (n_rings - 1 - k) };
+            let expected = if k == n_rings - 1 {
+                1
+            } else {
+                6 * (n_rings - 1 - k)
+            };
             assert_eq!(
                 ring.len(),
                 expected,
@@ -592,7 +648,11 @@ impl HexLattice {
             );
             // Validate ring sizes: outer→inner is 6(n-1), 6(n-2), …, 1.
             for (k, ring) in rings.iter().enumerate() {
-                let expected = if k == n_rings - 1 { 1 } else { 6 * (n_rings - 1 - k) };
+                let expected = if k == n_rings - 1 {
+                    1
+                } else {
+                    6 * (n_rings - 1 - k)
+                };
                 assert_eq!(
                     ring.len(),
                     expected,
@@ -665,7 +725,7 @@ fn ring_slots(n_rings: usize, k: usize, orientation: HexOrientation) -> Vec<usiz
                 continue;
             }
             let (x, y) = tile_xy(a, b, orientation);
-            let mut ang = y.atan2(x);
+            let mut ang = y.r_atan2(x);
             if ang < 0.0 {
                 ang += std::f64::consts::TAU;
             }
@@ -805,6 +865,7 @@ fn fill_lattice_x(n_rings: usize, univ: &[i32], out: &mut [i32]) {
     }
 }
 
+#[derive(Debug, Clone)]
 /// A lattice fill — dispatched by enum, not a trait object (per the workspace
 /// "enums over `dyn`" rule). [`crate::geometry::geometry::Geometry`] holds a
 /// `Vec<Lattice>` and matches on the variant during descent.

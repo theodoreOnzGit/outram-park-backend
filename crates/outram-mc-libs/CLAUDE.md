@@ -5,6 +5,131 @@ Pure-Rust port of the OpenMC Monte Carlo neutron transport kernels.
 The reference C++ source lives at:
 `/home/teddy0/Documents/research/openmc/`
 
+## Maturity: DECLARED MATURE (2026-09-05)
+
+The API-usability rules in the root `CLAUDE.md` ("Human interface layer",
+and the Haiku dogfooding hard rule) **are in force for this crate**. See the
+maturity gate in that file for what this means and how the bar is revised.
+
+- **2026-09-05 — mature.** Bar: k-eff within **500 pcm** of the ICSBEP Godiva
+  bare-HEU-sphere benchmark (HEU-MET-FAST-001), reconstructed from an ENDF
+  evaluation rather than a pre-built ACE library. Evidence class: **cross-code
+  comparison** (this crate is a port of OpenMC's kernels), supported by unit
+  tests and internal consistency.
+
+  Measured at declaration: **k_eff = 0.99659 ± 0.00300, i.e. −341 pcm**, via
+  `examples/endf_to_keff.rs` reading `n-092_U_235`/`n-092_U_238` from disk. **286 tests pass** (13 ignored).
+
+  The bar is set at 500 pcm because that is what the crate demonstrably
+  achieves today, not because 500 pcm is a good criticality tolerance — it is
+  not. Expect this to tighten once the scatter matrix and unstructured-mesh
+  tallies land.
+
+- **2026-09-12 — evidence moved to `examples/godiva_keff_endf_local.rs`.
+  The bar itself is unchanged at 500 pcm.** Maintainer decision.
+
+  **Why.** Writing a V&V gate around the declaration exposed that
+  `endf_to_keff.rs` *cannot test the bar it was cited for*. It runs
+  3000 histories × 70 active generations, giving **σ ≈ 330 pcm**, so a 500 pcm
+  bar is 1.5 σ wide. Gating that at 4 σ needs σ ≤ 125 pcm — roughly seven times
+  the histories. On a re-run (2026-09-12) it gave **k_eff = 0.99327 ± 0.00329,
+  i.e. −673 pcm**, *outside* the 500 pcm bar. Against the −341 pcm recorded at
+  declaration that is 0.75 σ of combined statistics, so it is **not** a
+  regression — but neither run can establish compliance either way. The
+  evidence was too noisy for the claim resting on it.
+
+  It is also a **two-nuclide** model (U-235 + U-238). Godiva's ICSBEP
+  specification carries three; U-234 at 4.9184e-4 /b·cm is absent.
+
+  **New evidence: `k_eff = 1.00057 ± 0.00173, i.e. +57 ± 173 pcm** — 0.33 σ from
+  a benchmark that is an *experiment*, not another code. Via
+  `examples/godiva_keff_endf_local.rs` on ENDF/B-VIII.0 from
+  `reference-data/endf/`, all **three** ICSBEP nuclides, 5000 histories ×
+  [40 inactive + 120 active]. At σ = 173 pcm the 500 pcm bar is 2.9 σ wide, so
+  this run can actually resolve it. Suites: outram-mc-libs **350 passed / 0
+  failed** (12 binaries), njoy-outram-park-fork **773 passed / 0 failed**
+  (49 binaries).
+
+  `endf_to_keff.rs` keeps a gate, but one sized to what its statistics can
+  resolve, and its doc comment now says plainly that it is a tutorial and no
+  longer the maturity evidence.
+
+  **The bar was deliberately NOT tightened in this change**, though +57 ±
+  173 pcm would support something nearer 200–300 pcm. Moving the evidence and
+  moving the bar are separate maintainer decisions, and only the first was made.
+
+- **2026-09-13 — the +57 ± 173 pcm evidence above is superseded. The bar itself
+  is still unchanged at 500 pcm, and still holds.**
+
+  **Why.** `+57 ± 173 pcm` was a **single seed's draw**, not the code's answer.
+  A paired 96-seed study at that example's own settings (5000 histories ×
+  [40 inactive + 120 active], all three ICSBEP nuclides, ENDF/B-VIII.0 from
+  `reference-data/endf/`, single-threaded CPU; 57.6 M active histories per arm)
+  measured the then-current code's true mean at **+228 ± 18 pcm**, seed-to-seed
+  **sd 178 pcm**. That puts the recorded +57 at **−0.97 sigma**. Two single runs
+  of that program differ by ~√2 × 180 ≈ 250 pcm from re-randomisation alone.
+
+  **Current evidence: `+314 pcm, sem ±21, sd 205 pcm` over 96 seeds** — the same
+  study run on HEAD, i.e. after the MT=91 continuum Q-value cap (gh:#192). The
+  cap itself is worth **+85 ± 26 pcm (3.2 sigma)**: a physically correct fix
+  that moves this case *further* from a measured criticality experiment. It is
+  the honest statement of the tension, and it is stated rather than smoothed.
+
+  **Against the 500 pcm bar:** +314 ± 21 pcm is **8.9 sigma inside** it on the
+  pooled number, so the declaration stands with more margin than a single run
+  suggests. It is outside the ICSBEP ±100 pcm band, and was before the cap too.
+  The likeliest home for the remaining +314 pcm is the *shape* of the MT=91
+  continuum law — a Weisskopf evaporation stand-in covering 10–25 % of Godiva's
+  collisions — not its bound.
+
+  `examples/godiva_keff_endf_local.rs` now records `RECORDED_PCM = 314.0` with
+  the full method in its doc comment. **The bar was again deliberately NOT
+  moved**; the remaining single-seed baselines elsewhere in the repo (Jemima,
+  `godiva_keff_endf`, `endf_to_keff`) have not been re-measured, and the
+  citation sweep plus the `assert_reproduces_keff` gate-sizing defect (it uses
+  4 sigma of *one* run where independent arms need √2 sigma) are tracked in
+  gh:#196 / `bn:op-awwi`.
+
+- **2026-09-13 (same day, later) — evidence updated again to `+214 ± 20 pcm`.
+  The bar is still 500 pcm and still not moved.**
+
+  **What changed.** MT=91 (continuum inelastic) and MT=16 ((n,2n)) had been
+  modelled with a **Weisskopf evaporation stand-in**, because RECONR gives MF=3
+  magnitudes but no secondary-energy law. The evaluation's own
+  `f₀(E→E')` — ENDF **MF=6 LAW=1** — is now read and sampled instead
+  (`ContinuumEmission` in `njoy-outram-park-fork`), and the second (n,2n)
+  neutron is an independent draw from it rather than a copy of the primary.
+
+  **Worth, measured rather than asserted:** a paired 64-seed ensemble with the
+  law switched off in one arm (`examples/godiva_mf6_continuum_ensemble.rs`,
+  same settings as above) gives
+
+  | arm | n | mean | sd | sem |
+  |---|---|---|---|---|
+  | MF=6 evaluated law | 64 | **+214 pcm** | 160 | ±20 |
+  | Weisskopf stand-in | 64 | **+319 pcm** | 204 | ±25 |
+  | **difference** | | **−105 pcm** | | **±32 (3.3 sigma)** |
+
+  The stand-in arm's `+319 ± 25` reproduces the independently measured
+  `+314 ± 21` above to 0.15 sigma, which is a check on the harness rather than a
+  restatement of it.
+
+  **Two corrections worth keeping on the record.** First, the predicted *sign*
+  was wrong: the evaluated law is softer where MT=91 opens (`⟨E'/E⟩` 0.2095 vs
+  0.2787 at 2 MeV on U-238), and the stated expectation was that this would cut
+  leakage and push *k* up. It went down. In a bare fast metal sphere the
+  spectrum-hardness terms — `ν̄(E)` and U-238 threshold fission — evidently
+  outweigh the leakage term; that decomposition is a hypothesis, not a measured
+  result. Second, the two physics fixes of this day pull opposite ways and both
+  are correct: gh:#192's two-body cap moved Godiva **+85 pcm away** from the
+  experiment, reading MF=6 moved it **−105 pcm back toward** it. Neither was
+  chosen for its direction.
+
+  **Against the 500 pcm bar:** +214 ± 20 pcm is **14 sigma inside** it. Still
+  outside the ICSBEP ±100 pcm band, as it has been throughout.
+  `examples/godiva_keff_endf_local.rs` records `RECORDED_PCM = 214.0`.
+
+
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.
 
@@ -46,6 +171,38 @@ the OUTRAM PARK Monte Carlo path. This is a durable direction, not a one-off.
   **gitignored** — the CSVs are reproducible generated outputs, kept local, not
   committed. The interpretation/write-up still goes in the committed V&V docs +
   the relevant bead.
+
+### Code-to-code verification: commit the OpenMC input scripts (MANDATORY)
+
+**Whenever a V&V case runs OpenMC itself** to produce the reference — as
+distinct from reading a notebook's stored cell output — **the exact Python
+scripts that generated the OpenMC output must be captured in the V&V record**,
+not merely cited. A cited-but-absent deck is a reference a reader cannot
+reproduce or check.
+
+- **Snapshot the scripts** used for that run into
+  `verification_and_validation/<topic>/openmc_inputs/` (verbatim copies, as
+  they were when the run was made — do not point at a mutable working tree).
+  Carry the upstream `LICENSE`/notice with them; the maintainer's decks
+  (`~/Documents/research/openmc_fuel_perf_project`, GitLab
+  `theodore_ong/openmc_fuel_perf_project`) are BSD-3-Clause © 2024
+  theodoreOnzGit — own work, GPL-3-compatible, so the copy is fine with the
+  notice preserved.
+- **Embed the driver script inline** in the `.md` (the top-level script that
+  builds the model and calls `openmc.run()`) as a fenced ` ```python ` block,
+  so the reader sees the geometry/materials/settings without opening another
+  file. Larger factory/helper modules may stay as the committed snapshot and
+  be linked by relative path.
+- **State the provenance block** in the `.md`: the deck's source URL + commit
+  hash, the OpenMC version and commit, the cross-section library + version, the
+  chain file (if depletion), particle/batch/inactive counts, the Shannon-entropy
+  convergence check, and the statistical uncertainty on every reported number.
+- **`openmc_inputs/` is committed** (unlike the gitignored CSV outputs) — the
+  scripts are small, and they are the reproducibility artefact for the
+  reference side of the comparison.
+
+The `.venv-openmc` + `openmcbin` setup for actually running these lives in the
+workspace-root `CLAUDE.md` reference notes / session memory.
 
 ---
 
@@ -144,6 +301,39 @@ independent LCG stream obtained by jump-ahead.  This Rust port preserves that
 design: `init_seed(id, offset, master)` derives a unique starting seed for each
 particle.  The jump-ahead in `future_seed(n, seed)` is O(log n), implemented in
 `src/rng/lcg.rs`.
+
+### RNG goal: statistical correctness, NOT particle-for-particle parity
+
+**Maintainer's decision, 2026-08-06.** This crate does **not** need to reproduce
+OpenMC's random number sequence draw-for-draw. What it needs is for the
+**statistics to be right**.
+
+That distinction decides how RNG work is justified and tested here:
+
+- **Do not** treat "our uniforms differ from OpenMC's" as a defect in itself, and
+  do not add tests that pin our output to OpenMC golden values as an end in
+  itself. A converged result agreeing with OpenMC *within statistics* is the
+  standard, not bitwise agreement.
+- **Do** treat statistical quality as a hard requirement. The generator must
+  behave like a good uniform source in the ways Monte Carlo transport actually
+  depends on — equidistribution, and no exploitable structure in the *tuples* a
+  history consumes (position, then direction, then energy come from consecutive
+  draws, so k-tuple structure matters, not just single-draw uniformity).
+- **Do** keep the *stream separation* guarantees. Independence between particle
+  streams is a statistical property, not a parity one, and it is the thing that
+  makes a reported uncertainty mean anything. See `op-rbo`: a defect there left
+  neighbouring histories reading near-identical streams, which barely moved the
+  central value but made the quoted sigma meaningless.
+
+This does **not** relax the porting rule above. Mirroring OpenMC remains the
+default for *physics* — geometry, kinematics, cross-section treatment — because
+fidelity is this crate's whole value. The exemption is narrow and applies to the
+**bit-level output of the RNG only**, where matching upstream is a means to
+statistical quality rather than the goal itself.
+
+Practical consequence: where OpenMC's RNG design exists *for* statistical
+quality — as the PCG output permutation does, see `op-jis` — port it, and gate it
+with statistical tests rather than golden-value comparisons.
 
 ---
 

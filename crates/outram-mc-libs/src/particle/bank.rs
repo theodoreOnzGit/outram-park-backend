@@ -5,7 +5,6 @@
 /// The bank accumulates fission neutron sites during a generation.  At the
 /// start of the next generation, particles are sampled (with replacement)
 /// from the bank to form the next source.
-
 use crate::geometry::position::{Direction, Position};
 
 /// A single entry in the fission site bank.  Maps to `openmc::SourceSite`.
@@ -25,13 +24,25 @@ pub struct Bank {
 }
 
 impl Bank {
-    pub fn new() -> Self { Self { sites: Vec::new() } }
+    pub fn new() -> Self {
+        Self { sites: Vec::new() }
+    }
 
-    pub fn push(&mut self, site: BankSite) { self.sites.push(site); }
+    pub fn push(&mut self, site: BankSite) {
+        self.sites.push(site);
+    }
 
-    pub fn len(&self) -> usize { self.sites.len() }
+    pub fn len(&self) -> usize {
+        self.sites.len()
+    }
 
-    pub fn clear(&mut self) { self.sites.clear(); }
+    pub fn clear(&mut self) {
+        self.sites.clear();
+    }
 }
 
-impl Default for Bank { fn default() -> Self { Self::new() } }
+impl Default for Bank {
+    fn default() -> Self {
+        Self::new()
+    }
+}

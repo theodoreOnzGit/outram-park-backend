@@ -101,7 +101,7 @@ const SMALL: f64 = 1.0e-15;
 /// `points`, `faces`, owner/neighbour and boundary patches (in `fv_mesh`).
 #[derive(Debug, Clone)]
 pub struct UnvPolyMesh {
-    /// Mesh points [m] — node coordinates, indexed by point id (0-based).
+    /// Mesh points `[m]` — node coordinates, indexed by point id (0-based).
     pub points: Vec<Vector3>,
     /// Global face list: each face is an ordered loop of point indices.
     /// Length equals `fv_mesh.n_faces`; internal faces first, then boundary
@@ -117,7 +117,7 @@ pub struct UnvPolyMesh {
 }
 
 impl UnvPolyMesh {
-    /// Total mesh volume [m³] — the sum of all cell volumes. A convenience for
+    /// Total mesh volume `[m³]` — the sum of all cell volumes. A convenience for
     /// V&V sanity checks.
     pub fn total_volume(&self) -> f64 {
         self.fv_mesh.cell_volumes.iter().sum()
@@ -309,7 +309,11 @@ fn parse_nodes(content: &[&str], data: &mut UnvData) -> Result<(), MeshError> {
                 "2411: node {label} has fewer than 3 coordinates"
             )));
         }
-        match (parse_f64(coords[0]), parse_f64(coords[1]), parse_f64(coords[2])) {
+        match (
+            parse_f64(coords[0]),
+            parse_f64(coords[1]),
+            parse_f64(coords[2]),
+        ) {
             (Some(x), Some(y), Some(z)) => {
                 let idx = data.points.len();
                 data.points.push(Vector3::new(x, y, z));
@@ -455,7 +459,7 @@ fn parse_groups(content: &[&str], data: &mut UnvData) -> Result<(), MeshError> {
 
 // ── Geometry helpers ────────────────────────────────────────────────────────
 
-/// Face centre [m] and area vector [m²] of a planar polygon given its vertex
+/// Face centre `[m]` and area vector `[m²]` of a planar polygon given its vertex
 /// loop, using the OpenFOAM `primitiveMesh` face decomposition (fan from the
 /// vertex average, area-weighted centroid).
 fn face_centre_area(pts: &[Vector3]) -> (Vector3, Vector3) {
@@ -492,7 +496,7 @@ fn face_centre_area(pts: &[Vector3]) -> (Vector3, Vector3) {
     (centre, sum_n * 0.5)
 }
 
-/// Cell centre [m] and volume [m³] from the cell's outward-oriented faces,
+/// Cell centre `[m]` and volume `[m³]` from the cell's outward-oriented faces,
 /// using the OpenFOAM pyramid decomposition about an estimated centre.
 fn cell_centre_volume(faces: &[(Vector3, Vector3)]) -> (Vector3, f64) {
     let mut c_est = Vector3::ZERO;
@@ -509,7 +513,11 @@ fn cell_centre_volume(faces: &[(Vector3, Vector3)]) -> (Vector3, f64) {
         ctr += pyr3 * pc;
         vol3 += pyr3;
     }
-    let centre = if vol3.abs() > SMALL { ctr / vol3 } else { c_est };
+    let centre = if vol3.abs() > SMALL {
+        ctr / vol3
+    } else {
+        c_est
+    };
     (centre, vol3 / 3.0)
 }
 
@@ -565,7 +573,9 @@ fn assemble(data: UnvData, scale: f64) -> Result<UnvPolyMesh, MeshError> {
         if let Some(labels) = data.groups.get(name) {
             for l in labels {
                 if let Some(key) = surface_key.get(l) {
-                    key_to_patch.entry(key.clone()).or_insert_with(|| name.clone());
+                    key_to_patch
+                        .entry(key.clone())
+                        .or_insert_with(|| name.clone());
                 }
             }
         }
@@ -712,7 +722,12 @@ fn assemble(data: UnvData, scale: f64) -> Result<UnvPolyMesh, MeshError> {
             faces.push(loop_pts.clone());
             owner.push(*own);
         }
-        patches.push(BoundaryPatch::new(name.clone(), start, size, PatchKind::Patch));
+        patches.push(BoundaryPatch::new(
+            name.clone(),
+            start,
+            size,
+            PatchKind::Patch,
+        ));
         start += size;
     }
 

@@ -342,7 +342,8 @@ impl ReactionNetwork {
             }
 
             // Convergence test on the scaled residual.
-            let converged = (0..nc).all(|j| f[j].abs() <= RESIDUAL_TOL * (totals[j].abs() + ABS_FLOOR));
+            let converged =
+                (0..nc).all(|j| f[j].abs() <= RESIDUAL_TOL * (totals[j].abs() + ABS_FLOOR));
             if converged {
                 return Ok(Speciation {
                     primary: c_prim,
@@ -407,13 +408,8 @@ mod tests {
     /// unchanged, since mass balance reduces to `C_prim[j] = T[j]`.
     #[test]
     fn no_secondary_returns_totals() {
-        let net = ReactionNetwork::new(
-            vec!["A".into(), "B".into()],
-            vec![],
-            vec![],
-            vec![],
-        )
-        .unwrap();
+        let net =
+            ReactionNetwork::new(vec!["A".into(), "B".into()], vec![], vec![], vec![]).unwrap();
         assert_eq!(net.n_primary(), 2);
         assert_eq!(net.n_secondary(), 0);
 

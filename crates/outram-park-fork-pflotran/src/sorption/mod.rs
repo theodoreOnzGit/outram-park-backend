@@ -608,7 +608,10 @@ mod tests {
         for &c in &[0.2, 1.0, 3.0, 10.0] {
             let fd = fd_dsdc(&iso, c, 1e-6 * c);
             let an = iso.d_sorbed_d_c(c);
-            assert!((fd - an).abs() < 1e-5 * an.max(1.0), "c={c} fd={fd} an={an}");
+            assert!(
+                (fd - an).abs() < 1e-5 * an.max(1.0),
+                "c={c} fd={fd} an={an}"
+            );
         }
         // n < 1 => slope diverges at c = 0.
         assert!(iso.d_sorbed_d_c(0.0).is_infinite());
@@ -674,7 +677,12 @@ mod tests {
         let a = [0.03, 0.01];
         let beta = ix.exchange_fractions(&a).unwrap();
         let expect0 = a[0] / (a[0] + a[1]);
-        assert!((beta[0] - expect0).abs() < 1e-10, "beta0={} exp={}", beta[0], expect0);
+        assert!(
+            (beta[0] - expect0).abs() < 1e-10,
+            "beta0={} exp={}",
+            beta[0],
+            expect0
+        );
         assert!((beta[1] - (1.0 - expect0)).abs() < 1e-10);
     }
 

@@ -38,13 +38,28 @@
 //! evaporation law; elastic is forward-scattered by a maximum-entropy exponential
 //! angular law that reproduces μ̄ (valid even where μ̄ ≫ 1/3, unlike a P1 law).
 //!
-//! **Results (2026-07, ENDF/B-VIII.0 group data) — adding scatter physics to the
-//! embedded tier.**
+//! **Results (re-measured 2026-08-06, ENDF/B-VIII.0 group data) — adding scatter
+//! physics to the embedded tier.**
 //!
 //! | LOW-tier model | k_eff | Δk vs benchmark |
 //! |---|---|---|
-//! | elastic-only, isotropic-CM (before) | 1.12852 ± 0.00174 | +12 852 pcm |
-//! | + inelastic (evaporation) + **forward elastic (μ̄)** | **1.01022 ± 0.00177** | **+1 022 pcm** |
+//! | elastic-only, isotropic-CM (before) | 1.12852 ± 0.00174 † | +12 852 pcm † |
+//! | + inelastic (evaporation) + **forward elastic (μ̄)** | **1.01042 ± 0.00174** | **+1 042 pcm** |
+//!
+//! ICSBEP benchmark reference: 1.0000 ± 0.0010 (external, unchanged).
+//!
+//! **Supersedes** the 2026-07 figure **1.01022 ± 0.00177 (+1 022 pcm)** for the
+//! second row, measured with the pre-`op-jis` `prn` output function (raw top-52
+//! LCG state bits). Bead `op-jis` replaced that with OpenMC's PCG-RXS-M-XS
+//! output permutation on 2026-08-06, which changes every uniform the run draws.
+//! The central value moved by +0.00020, i.e. **0.11 of a single sigma** — a
+//! re-seeding-scale fluctuation, exactly what a statistically equivalent
+//! generator should produce, and not a physics change.
+//!
+//! † The elastic-only row is a *historical* configuration that this example no
+//! longer builds, so it could not be re-run on 2026-08-06. It is retained for
+//! the comparison it makes but is **superseded and pending a re-run**; do not
+//! cite its digits as current.
 //!
 //! **Interpretation.** The two scatter mechanisms remove ~11 800 pcm and bring the
 //! offline/embedded tier essentially to the benchmark — the same two levers that
@@ -56,6 +71,7 @@
 //! individually exact.
 
 use outram_mc_libs::material::material::{Material, NuclideComponent};
+use outram_mc_libs::vv::assert_reproduces_keff;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
 
@@ -73,9 +89,18 @@ fn main() {
         name: "Godiva HEU".into(),
         temperature: 293.6, // K
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 }, // U-234
-            NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 }, // U-235
-            NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 }, // U-238
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.9184e-4,
+            }, // U-234
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 4.4994e-2,
+            }, // U-235
+            NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 2.4984e-3,
+            }, // U-238
         ],
     };
 
@@ -100,4 +125,49 @@ fn main() {
     println!("  ICSBEP benchmark = 1.0000 ± 0.0010");
     let pcm = (result.k_mean - 1.0) * 1.0e5;
     println!("  Δk from benchmark = {pcm:+.0} pcm");
+
+    // ── V&V gate ──────────────────────────────────────────────────────────────
+    //
+    // This is a CHARACTERISATION gate on the LOW tier, not an agreement claim.
+    // See LOW_TIER_BAND.
+    println!("\n=== V&V gate: ICSBEP HEU-MET-FAST-001 on the embedded LOW tier ===");
+    assert_reproduces_keff(
+        "HEU-MET-FAST-001 (Godiva), LOW tier (WMP + 10-group fast MGXS)",
+        result.k_mean,
+        result.k_std,
+        1.0000,
+        LOW_TIER_BAND,
+        Some(LOW_TIER_RECORDED_PCM),
+    );
 }
+
+/// The envelope this example is judged inside — **not** the ICSBEP band.
+///
+/// ICSBEP states 0.0010 on HEU-MET-FAST-001, and the HIGH tier is held to it
+/// (`examples/godiva_keff_endf_local.rs`). The LOW tier cannot be: it is
+/// infinite-dilution 10-group fast data with no self-shielding, one mean cosine
+/// instead of the full MF=4 angular shape, and Weisskopf evaporation standing in
+/// for resolved inelastic levels. It lands about +1000 pcm high **by
+/// construction**, and asserting the ICSBEP band here would be asserting that
+/// those approximations are not approximations.
+///
+/// 0.015 is therefore the LOW tier's own accepted envelope. The claim that
+/// actually has teeth on this example is the reproduction one below.
+const LOW_TIER_BAND: f64 = 0.015;
+
+/// The offset this example last produced, in pcm.
+///
+/// **+1042 pcm** (`k_eff = 1.01042 ± 0.00174`), re-measured 2026-08-06 on
+/// ENDF/B-VIII.0 group data, as recorded in this file's V&V note.
+///
+/// This is the claim worth having here: within a 1500 pcm band the central value
+/// could wander freely and nothing would notice, and the LOW tier's two scatter
+/// mechanisms (inelastic evaporation, forward-peaked elastic from a per-group
+/// mean cosine) between them move k by ~11 800 pcm. A regression in either
+/// would be invisible to the band and obvious to this.
+///
+/// It supersedes a 2026-07 figure of +1022 pcm, measured before `op-jis`
+/// replaced the RNG output function with OpenMC's PCG-RXS-M-XS permutation. That
+/// change redraws every uniform in the run and moved the central value by 0.11
+/// of one sigma — a re-seeding-scale fluctuation, not a physics change.
+const LOW_TIER_RECORDED_PCM: f64 = 1042.0;

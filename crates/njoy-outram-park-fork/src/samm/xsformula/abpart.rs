@@ -33,7 +33,11 @@ pub struct AlphaTerms {
 /// output for this same group (one entry per `resonances` entry, same
 /// order) — only its `gbetpr` field (the eliminated-channel amplitude) is
 /// used here.
-pub fn abpart(resonances: &[RmlResonance], amplitudes: &[ResonanceAmplitudes], energy: f64) -> Vec<AlphaTerms> {
+pub fn abpart(
+    resonances: &[RmlResonance],
+    amplitudes: &[ResonanceAmplitudes],
+    energy: f64,
+) -> Vec<AlphaTerms> {
     resonances
         .iter()
         .zip(amplitudes)
@@ -43,7 +47,12 @@ pub fn abpart(resonances: &[RmlResonance], amplitudes: &[ResonanceAmplitudes], e
             let xden = 1.0 / aa;
             let alphar = difen * xden;
             let alphai = amp.gbetpr[1] * xden; // gbetpr[1] = |Gamma_gamma/2|
-            AlphaTerms { difen, xden, alphar, alphai }
+            AlphaTerms {
+                difen,
+                xden,
+                alphar,
+                alphai,
+            }
         })
         .collect()
 }

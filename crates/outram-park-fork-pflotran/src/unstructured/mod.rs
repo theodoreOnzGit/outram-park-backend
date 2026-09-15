@@ -339,8 +339,7 @@ impl UnstructuredGrid {
         let dx = length / n as f64;
         let volume = area * dx;
 
-        let centroids: Vec<[f64; 3]> =
-            (0..n).map(|i| [(i as f64 + 0.5) * dx, 0.0, 0.0]).collect();
+        let centroids: Vec<[f64; 3]> = (0..n).map(|i| [(i as f64 + 0.5) * dx, 0.0, 0.0]).collect();
         let volumes = vec![volume; n];
 
         let mut faces: Vec<(usize, Option<usize>, f64, [f64; 3], [f64; 3])> = Vec::new();
@@ -653,11 +652,7 @@ mod tests {
 
     #[test]
     fn invalid_negative_area_or_volume() {
-        let neg_vol = UnstructuredGrid::from_faces(
-            vec![[0.0, 0.0, 0.0]],
-            vec![-1.0],
-            vec![],
-        );
+        let neg_vol = UnstructuredGrid::from_faces(vec![[0.0, 0.0, 0.0]], vec![-1.0], vec![]);
         assert!(matches!(neg_vol, Err(PflotranError::InvalidInput(_))));
 
         let neg_area = UnstructuredGrid::from_faces(

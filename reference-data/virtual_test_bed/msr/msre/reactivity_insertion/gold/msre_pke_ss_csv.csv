@@ -1,0 +1,3 @@
+time,External_Reactivity,Power,Power_Delta,Power_Normalized,Total_Reactivity,Total_Reactivity_Dollars,Total_Reactivity_Feedback,ch2_Coolant_Density_Reactivity,dnp_den,fml1_diff_flux,fml2_diff_flux,fml3_diff_flux,fml4_diff_flux,fml5_diff_flux,fml6_diff_flux,mdot,moderator_moderator_Reactivity
+-2000,0,5000000,0,1,0,0,0,0,0,0,0,0,0,0,0,933.79876594258,0
+0,0,5000000,0,1,0,0,0,0,23.338889155234,0.18802039908303,0.63261639381847,0.37504479611462,0.15228866458057,0.0029740858919968,0.00073849000015367,170.94369265703,0

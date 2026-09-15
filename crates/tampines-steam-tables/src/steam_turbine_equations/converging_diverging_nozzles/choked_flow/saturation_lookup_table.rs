@@ -403,7 +403,11 @@ pub(crate) fn bubble_point_bracket(s0: SpecificHeatCapacity) -> (Pressure, Press
     let mut hi = SAT_TABLE.len() - 1;
     while hi - lo > 1 {
         let mid = (lo + hi) / 2;
-        if SAT_TABLE[mid][1] < target { lo = mid; } else { hi = mid; }
+        if SAT_TABLE[mid][1] < target {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
     (
         Pressure::new::<pascal>(SAT_TABLE[lo][0]),
@@ -422,7 +426,11 @@ pub(crate) fn dew_point_bracket(s0: SpecificHeatCapacity) -> (Pressure, Pressure
     while hi - lo > 1 {
         let mid = (lo + hi) / 2;
         // s_g decreasing: if s_g[mid] > target the root is at higher pressure
-        if SAT_TABLE[mid][2] > target { lo = mid; } else { hi = mid; }
+        if SAT_TABLE[mid][2] > target {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
     }
     (
         Pressure::new::<pascal>(SAT_TABLE[lo][0]),

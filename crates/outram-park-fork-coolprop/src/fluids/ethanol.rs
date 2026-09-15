@@ -6,7 +6,10 @@
 
 use crate::eos::{FluidEos, IdealTerm, ResidualTerm};
 use crate::ancillaries::{FluidAncillaries, SatAncillary};
-use crate::transport::{FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial, ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity};
+use crate::transport::{
+    FluidTransport, ViscosityModel, ViscosityDilute, ViscosityHigherOrder, ViscosityInitial,
+    ConductivityModel, ConductivityDilute, ConductivityResidual, CriticalConductivity,
+};
 
 /// Ethanol Helmholtz equation of state (from CoolProp).
 pub static ETHANOL: FluidEos = FluidEos {
@@ -23,29 +26,216 @@ pub static ETHANOL: FluidEos = FluidEos {
     p_max: 280000000.0,
     acentric: 0.644,
     residual: &[
-    ResidualTerm::Power { n: &[0.058200796, 0.94391227, -0.80941908, 0.55359038, -1.4269032, 0.13448717, 0.42671978, -1.1700261, -0.92405872, 0.34891808, -0.9132772, 0.022629481, -0.15513423, 0.21055146, -0.2199769, -0.0065857238], t: &[1.0, 1.04, 2.72, 1.174, 1.329, 0.195, 2.43, 1.274, 4.16, 3.3, 4.177, 2.5, 0.81, 2.02, 1.606, 0.86], d: &[4.0, 1.0, 1.0, 2.0, 2.0, 3.0, 1.0, 1.0, 1.0, 3.0, 3.0, 2.0, 2.0, 6.0, 6.0, 8.0], l: &[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0] },
-    ResidualTerm::Gaussian { n: &[0.75564749, 0.1069411, -0.069533844, -0.24947395, 0.027177891, -0.0009053953, -0.12310953, -0.08977971, -0.39512601], t: &[2.5, 3.72, 1.19, 3.25, 3.0, 2.0, 2.0, 1.0, 1.0], d: &[1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 2.0, 2.0, 1.0], eta: &[1.075, 0.463, 0.876, 1.108, 0.741, 4.032, 2.453, 2.3, 3.143], epsilon: &[0.779, 0.805, 1.869, 0.694, 1.312, 2.054, 0.441, 0.793, 0.313], beta: &[1.207, 0.0895, 0.581, 0.947, 2.356, 27.01, 4.542, 1.287, 3.09], gamma: &[1.194, 1.986, 1.583, 0.756, 0.495, 1.002, 1.077, 1.493, 1.542] },
+        ResidualTerm::Power {
+            n: &[
+                0.058200796,
+                0.94391227,
+                -0.80941908,
+                0.55359038,
+                -1.4269032,
+                0.13448717,
+                0.42671978,
+                -1.1700261,
+                -0.92405872,
+                0.34891808,
+                -0.9132772,
+                0.022629481,
+                -0.15513423,
+                0.21055146,
+                -0.2199769,
+                -0.0065857238,
+            ],
+            t: &[
+                1.0, 1.04, 2.72, 1.174, 1.329, 0.195, 2.43, 1.274, 4.16, 3.3, 4.177, 2.5, 0.81,
+                2.02, 1.606, 0.86,
+            ],
+            d: &[
+                4.0, 1.0, 1.0, 2.0, 2.0, 3.0, 1.0, 1.0, 1.0, 3.0, 3.0, 2.0, 2.0, 6.0, 6.0, 8.0,
+            ],
+            l: &[
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0,
+            ],
+        },
+        ResidualTerm::Gaussian {
+            n: &[
+                0.75564749,
+                0.1069411,
+                -0.069533844,
+                -0.24947395,
+                0.027177891,
+                -0.0009053953,
+                -0.12310953,
+                -0.08977971,
+                -0.39512601,
+            ],
+            t: &[2.5, 3.72, 1.19, 3.25, 3.0, 2.0, 2.0, 1.0, 1.0],
+            d: &[1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 2.0, 2.0, 1.0],
+            eta: &[1.075, 0.463, 0.876, 1.108, 0.741, 4.032, 2.453, 2.3, 3.143],
+            epsilon: &[
+                0.779, 0.805, 1.869, 0.694, 1.312, 2.054, 0.441, 0.793, 0.313,
+            ],
+            beta: &[
+                1.207, 0.0895, 0.581, 0.947, 2.356, 27.01, 4.542, 1.287, 3.09,
+            ],
+            gamma: &[
+                1.194, 1.986, 1.583, 0.756, 0.495, 1.002, 1.077, 1.493, 1.542,
+            ],
+        },
     ],
     ideal: &[
-    IdealTerm::Lead { a1: -12.7531, a2: 9.39094 },
-    IdealTerm::LogTau { a: 3.43069 },
-    IdealTerm::PlanckEinstein { n: &[2.14326, 5.09206, 6.60138, 5.70777], t: &[0.816771, 2.59175, 3.80408, 8.58736] },
-    IdealTerm::EnthalpyEntropyOffset { a1: 9.10869959576363, a2: -4.32013218872146 },
+        IdealTerm::Lead {
+            a1: -12.7531,
+            a2: 9.39094,
+        },
+        IdealTerm::LogTau { a: 3.43069 },
+        IdealTerm::PlanckEinstein {
+            n: &[2.14326, 5.09206, 6.60138, 5.70777],
+            t: &[0.816771, 2.59175, 3.80408, 8.58736],
+        },
+        IdealTerm::EnthalpyEntropyOffset {
+            a1: 9.10869959576363,
+            a2: -4.32013218872146,
+        },
     ],
 };
 
 /// Saturation ancillaries (CoolProp): fast p_sat/rho' /rho'' fits, used
 /// as the VLE initial guess and for standalone saturation lookups.
 pub static ETHANOL_ANCILLARIES: FluidAncillaries = FluidAncillaries {
-    p_sat: SatAncillary { reducing_value: 6268000.0, t_r: 514.71, using_tau_r: true, exponential: true, n: &[-7.689152382102059, -6.126637668761524, 6.6239961045380715, -7.827481023390803, 3.1386332149218172, -6.712235308208619], t: &[0.971, 2.322, 3.072, 3.934, 4.465, 19.972] },
-    rho_l: SatAncillary { reducing_value: 5930.0, t_r: 514.71, using_tau_r: false, exponential: false, n: &[7.824518623386008, -338.93732001583646, 368.3422016038343, -90.14206962630433, 80.35347134933373, -26.00710239571597], t: &[0.596, 1.495, 1.561, 2.737, 3.606, 4.943] },
-    rho_v: SatAncillary { reducing_value: 5930.0, t_r: 514.71, using_tau_r: true, exponential: true, n: &[-4.698337259111072, -10.953380258011986, 12.92351305172882, -1017.0017776259273, 1604.552160868234, -1439.9265562459323], t: &[0.443, 2.304, 4.146, 11.027, 12.113, 17.485] },
+    p_sat: SatAncillary {
+        reducing_value: 6268000.0,
+        t_r: 514.71,
+        using_tau_r: true,
+        exponential: true,
+        n: &[
+            -7.689152382102059,
+            -6.126637668761524,
+            6.6239961045380715,
+            -7.827481023390803,
+            3.1386332149218172,
+            -6.712235308208619,
+        ],
+        t: &[0.971, 2.322, 3.072, 3.934, 4.465, 19.972],
+    },
+    rho_l: SatAncillary {
+        reducing_value: 5930.0,
+        t_r: 514.71,
+        using_tau_r: false,
+        exponential: false,
+        n: &[
+            7.824518623386008,
+            -338.93732001583646,
+            368.3422016038343,
+            -90.14206962630433,
+            80.35347134933373,
+            -26.00710239571597,
+        ],
+        t: &[0.596, 1.495, 1.561, 2.737, 3.606, 4.943],
+    },
+    rho_v: SatAncillary {
+        reducing_value: 5930.0,
+        t_r: 514.71,
+        using_tau_r: true,
+        exponential: true,
+        n: &[
+            -4.698337259111072,
+            -10.953380258011986,
+            12.92351305172882,
+            -1017.0017776259273,
+            1604.552160868234,
+            -1439.9265562459323,
+        ],
+        t: &[0.443, 2.304, 4.146, 11.027, 12.113, 17.485],
+    },
 };
 
 /// Transport models (CoolProp): dynamic viscosity and/or thermal
 /// conductivity (dilute + residual + near-critical; see `crate::transport`).
 pub static ETHANOL_TRANSPORT: FluidTransport = FluidTransport {
-    viscosity: Some(ViscosityModel::Correlation { dilute: ViscosityDilute::PowersOfT { a: &[-1.03116e-06, 3.48379e-08, -6.50264e-12], t: &[0.0, 1.0, 2.0] }, initial: Some(ViscosityInitial::RainwaterFriend { b: &[-19.572881, 219.73999, -1015.3226, 2471.01251, -3375.1717, 2491.6597, -787.26086, 14.085455, -0.34664158], t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5], epsilon_over_k: 362.6, sigma_eta: 4.53e-10 }), higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand { t_reduce: 513.9, rhomolar_reduce: 5991.0, a: &[0.000131194057, -0.000382240694, -8.05700894e-05, 0.000153811778, -0.000110578307], d1: &[2.0, 2.0, 3.0, 3.0, 3.0], t1: &[0.0, 1.0, 0.0, 1.0, 2.0], gamma: &[0.0, 0.0, 0.0, 0.0, 0.0], l: &[1.0, 1.0, 1.0, 1.0, 1.0], f: &[0.0237222995], d2: &[1.0], t2: &[0.0], g: &[-3.38264465, 12.7568864], h: &[0.0, -0.5], p: &[1.0], q: &[0.0] } }),
-    conductivity: Some(ConductivityModel::Correlation { dilute: ConductivityDilute::RatioPolynomials { t_reducing: 514.71, a: &[-0.00209575, 0.0199045, -0.053964, 0.0821223, -0.00198864, -0.000495513], n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], b: &[0.17223, -0.078273, 1.0], m: &[0.0, 1.0, 2.0] }, residual: ConductivityResidual::Polynomial { t_reducing: 514.71, rhomass_reducing: 273.186, b: &[0.0267222, 0.0177166, 0.148279, -0.0893088, -0.130429, 0.0684664, 0.0346232, -0.0145702, -0.00244293, 0.000809189], t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0], d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0] }, critical: Some(CriticalConductivity::SimplifiedOlchowySengers { r0: 1.03, gamma: 1.239, big_gamma: 0.05885, zeta0: 1.64296e-10, qd: 1880000000.0, t_ref: -1.0 }) }),
+    viscosity: Some(ViscosityModel::Correlation {
+        dilute: ViscosityDilute::PowersOfT {
+            a: &[-1.03116e-06, 3.48379e-08, -6.50264e-12],
+            t: &[0.0, 1.0, 2.0],
+        },
+        initial: Some(ViscosityInitial::RainwaterFriend {
+            b: &[
+                -19.572881,
+                219.73999,
+                -1015.3226,
+                2471.01251,
+                -3375.1717,
+                2491.6597,
+                -787.26086,
+                14.085455,
+                -0.34664158,
+            ],
+            t: &[0.0, -0.25, -0.5, -0.75, -1.0, -1.25, -1.5, -2.5, -5.5],
+            epsilon_over_k: 362.6,
+            sigma_eta: 4.53e-10,
+        }),
+        higher_order: ViscosityHigherOrder::ModifiedBatschinskiHildebrand {
+            t_reduce: 513.9,
+            rhomolar_reduce: 5991.0,
+            a: &[
+                0.000131194057,
+                -0.000382240694,
+                -8.05700894e-05,
+                0.000153811778,
+                -0.000110578307,
+            ],
+            d1: &[2.0, 2.0, 3.0, 3.0, 3.0],
+            t1: &[0.0, 1.0, 0.0, 1.0, 2.0],
+            gamma: &[0.0, 0.0, 0.0, 0.0, 0.0],
+            l: &[1.0, 1.0, 1.0, 1.0, 1.0],
+            f: &[0.0237222995],
+            d2: &[1.0],
+            t2: &[0.0],
+            g: &[-3.38264465, 12.7568864],
+            h: &[0.0, -0.5],
+            p: &[1.0],
+            q: &[0.0],
+        },
+    }),
+    conductivity: Some(ConductivityModel::Correlation {
+        dilute: ConductivityDilute::RatioPolynomials {
+            t_reducing: 514.71,
+            a: &[
+                -0.00209575,
+                0.0199045,
+                -0.053964,
+                0.0821223,
+                -0.00198864,
+                -0.000495513,
+            ],
+            n: &[0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+            b: &[0.17223, -0.078273, 1.0],
+            m: &[0.0, 1.0, 2.0],
+        },
+        residual: ConductivityResidual::Polynomial {
+            t_reducing: 514.71,
+            rhomass_reducing: 273.186,
+            b: &[
+                0.0267222,
+                0.0177166,
+                0.148279,
+                -0.0893088,
+                -0.130429,
+                0.0684664,
+                0.0346232,
+                -0.0145702,
+                -0.00244293,
+                0.000809189,
+            ],
+            t: &[0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0],
+            d: &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 5.0, 5.0],
+        },
+        critical: Some(CriticalConductivity::SimplifiedOlchowySengers {
+            r0: 1.03,
+            gamma: 1.239,
+            big_gamma: 0.05885,
+            zeta0: 1.64296e-10,
+            qd: 1880000000.0,
+            t_ref: -1.0,
+        }),
+    }),
 };
-

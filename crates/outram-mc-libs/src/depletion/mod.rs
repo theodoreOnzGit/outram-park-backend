@@ -112,7 +112,10 @@ pub struct ReactionRates {
 impl ReactionRates {
     /// An empty rate set at zero flux (pure-decay depletion — no transmutation).
     pub fn zero() -> Self {
-        Self { flux: 0.0, micro_rates: HashMap::new() }
+        Self {
+            flux: 0.0,
+            micro_rates: HashMap::new(),
+        }
     }
 
     /// The reaction rates for `nuclide`, or the all-zero [`MicroRate`] if the

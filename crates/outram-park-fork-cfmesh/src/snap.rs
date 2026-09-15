@@ -1,3 +1,35 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Algorithm references (re-implemented in Rust, not transcribed):
+//
+//   [1] cfMesh — https://github.com/wyldckat/cfMesh
+//       meshLibrary/cartesianMesh + meshLibrary/utilities/surfaceTools (the
+//       snap phase: project the castellated boundary onto the input surface).
+//       Copyright (C) 2014-2017 Creative Fields, Ltd. Licence: GPL-3.0-only.
+//       Same phase in OpenFOAM snappyHexMesh (`snappySnapDriver`):
+//       Copyright (C) 2011-2016 OpenFOAM Foundation, GPL-3.0-only.
+//
+//   [2] Closest point on a triangle (vertex / edge / face Voronoi regions).
+//       Christer Ericson, "Real-Time Collision Detection", Morgan Kaufmann,
+//       2005, section 5.1.5. Implemented from the book's description of the
+//       method; the book's sample code is not reproduced here.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! Boundary **snapping** — pull the carved staircase boundary onto the surface.
 //!
 //! [`crate::carve::carve_box`] produces a voxelised *staircase* boundary. This
@@ -75,7 +107,12 @@ pub fn snap_to_surface(mesh: &VolumeMesh, points: &[Vec3], tris: &[[usize; 3]]) 
 }
 
 /// Closest point on the whole surface (any triangle) to `p`.
-fn closest_point_on_surface(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> Vec3 {
+///
+/// Crate-internal: [`crate::octree`]'s distance-band refinement criterion and
+/// [`crate::patches`]'s nearest-region patch classification both need the same
+/// exact point-to-surface distance the snapper uses, and must agree with it.
+/// `O(triangles)` per query — brute force, no spatial index yet.
+pub(crate) fn closest_point_on_surface(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> Vec3 {
     let mut best = p;
     let mut best_d2 = f64::MAX;
     for t in tris {
@@ -152,7 +189,14 @@ mod tests {
         ];
         let q = |a: usize, b: usize, c: usize, d: usize| vec![[a, b, c], [a, c, d]];
         let mut t = Vec::new();
-        for f in [q(0, 3, 2, 1), q(4, 5, 6, 7), q(0, 1, 5, 4), q(2, 3, 7, 6), q(1, 2, 6, 5), q(0, 4, 7, 3)] {
+        for f in [
+            q(0, 3, 2, 1),
+            q(4, 5, 6, 7),
+            q(0, 1, 5, 4),
+            q(2, 3, 7, 6),
+            q(1, 2, 6, 5),
+            q(0, 4, 7, 3),
+        ] {
             t.extend(f);
         }
         (v, t)
@@ -168,8 +212,14 @@ mod tests {
             Vec3::new(0.0, 0.0, -r),
         ];
         let t = vec![
-            [0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4],
-            [0, 5, 2], [2, 5, 1], [1, 5, 3], [3, 5, 0],
+            [0, 2, 4],
+            [2, 1, 4],
+            [1, 3, 4],
+            [3, 0, 4],
+            [0, 5, 2],
+            [2, 5, 1],
+            [1, 5, 3],
+            [3, 5, 0],
         ];
         (v, t)
     }
@@ -187,7 +237,10 @@ mod tests {
         let (p, t) = box_surface(Vec3::ZERO, Vec3::new(2.0, 2.0, 2.0));
         let carved = carve_box(&p, &t, 0.5);
         let snapped = snap_to_surface(&carved, &p, &t);
-        assert!((snapped.total_volume() - 8.0).abs() < 1e-9, "box volume preserved");
+        assert!(
+            (snapped.total_volume() - 8.0).abs() < 1e-9,
+            "box volume preserved"
+        );
         for (a, b) in carved.points.iter().zip(snapped.points.iter()) {
             assert!(a.sub(*b).length() < 1e-12, "no boundary point moves");
         }
@@ -220,12 +273,19 @@ mod tests {
             }
         }
         for &v in &boundary {
-            assert!(dist_to_surface(snapped.points[v], &p, &t) < 1e-9, "boundary point on surface");
+            assert!(
+                dist_to_surface(snapped.points[v], &p, &t) < 1e-9,
+                "boundary point on surface"
+            );
         }
         // Still a valid closed mesh, with a body-fitted volume near analytic.
         snapped.validate().expect("snapped cells stay closed");
         let rel = (snapped.total_volume() - exact).abs() / exact;
-        assert!(rel < 0.05, "snapped volume {} within 5% of {exact} (rel {rel})", snapped.total_volume());
+        assert!(
+            rel < 0.05,
+            "snapped volume {} within 5% of {exact} (rel {rel})",
+            snapped.total_volume()
+        );
     }
 
     /// V&V — closest-point-on-triangle hits each Voronoi region correctly on a

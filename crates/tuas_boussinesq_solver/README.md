@@ -63,7 +63,7 @@ exception are engineering judgments that require a human reviewer. An automated
 agent can *measure* and *report*, but the accept/reject decision is a human's.
 
 The concrete worked example is the **coupled DRACS natural-circulation loop**
-(`src/lib/pre_built_components/ciet_steady_state_natural_circulation_test_components/coupled_dracs_loop_tests/`,
+(`src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/`,
 V&V record `verification_and_validation/coupled_dracs_pipe38_K17p8_vs_ciet_experiment.md`):
 
 - The DRACS cold-leg pipe-38 form loss was recalibrated from the RELAP value

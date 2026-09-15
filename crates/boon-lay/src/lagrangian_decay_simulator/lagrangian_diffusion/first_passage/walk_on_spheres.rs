@@ -287,7 +287,8 @@ impl WoSWalker {
             }
         } else {
             let inner_radius = inner.expect("inner interface implies an inner radius");
-            let d_next = self.diffusion_at(triso_cell, self.point_at_radius(inner_radius - reinsert));
+            let d_next =
+                self.diffusion_at(triso_cell, self.point_at_radius(inner_radius - reinsert));
             if does_transmit(&mut self.rng.0, d_current, d_next, params.partition_k) {
                 self.set_radius_to(inner_radius - reinsert);
             } else {
@@ -421,7 +422,11 @@ pub fn nearest_interface_distance(triso_cell: &TrisoCell, position: [Length; 3])
     let rho = radial_distance(position);
     let dist_out = outer - rho;
     match inner.map(|r_in| rho - r_in) {
-        Some(dist_in) => Some(if dist_in < dist_out { dist_in } else { dist_out }),
+        Some(dist_in) => Some(if dist_in < dist_out {
+            dist_in
+        } else {
+            dist_out
+        }),
         None => Some(dist_out),
     }
 }
@@ -465,18 +470,14 @@ pub fn shell_bounds(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
+        use crate::lagrangian_decay_simulator::lagrangian_diffusion::single_particle_simulator::release_fraction_analytical_solution::calculate_analytical_fraction_released;
     use approx::assert_relative_eq;
     use uom::si::diffusion_coefficient::square_meter_per_second;
     use uom::si::length::micrometer;
     use uom::si::time::second;
 
     fn at(x_um: f64) -> [Length; 3] {
-        [
-            Length::new::<micrometer>(x_um),
-            Length::ZERO,
-            Length::ZERO,
-        ]
+        [Length::new::<micrometer>(x_um), Length::ZERO, Length::ZERO]
     }
 
     #[test]
@@ -595,11 +596,8 @@ mod tests {
             let rho = radial_distance(pos);
             let in_inner = rho < a;
             let d_here = if in_inner { d_in } else { d_out };
-            let (inner_r, outer_r): (Option<Length>, Length) = if in_inner {
-                (None, a)
-            } else {
-                (Some(a), b)
-            };
+            let (inner_r, outer_r): (Option<Length>, Length) =
+                if in_inner { (None, a) } else { (Some(a), b) };
             let dist_out = outer_r - rho;
             let dist_in = inner_r.map(|r| rho - r);
             let hop_radius = match dist_in {
@@ -671,8 +669,7 @@ mod tests {
             partition_k: 1.0,
             max_steps: 500_000,
         };
-        let mut walker =
-            WoSWalker::new_at_center(Nuclide::Cs137, OoRng64::from_u64(0x2024));
+        let mut walker = WoSWalker::new_at_center(Nuclide::Cs137, OoRng64::from_u64(0x2024));
         let fuel_radius = cell.get_fuel_radius();
         let mut left_kernel = false;
         let mut saw_interface = false;
@@ -690,6 +687,9 @@ mod tests {
             }
         }
         assert!(saw_interface, "walker never reached an interface");
-        assert!(left_kernel, "walker never transmitted out of the fuel kernel");
+        assert!(
+            left_kernel,
+            "walker never transmitted out of the fuel kernel"
+        );
     }
 }

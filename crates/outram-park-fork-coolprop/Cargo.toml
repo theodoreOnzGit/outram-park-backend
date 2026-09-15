@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-fork-coolprop"
-version = "0.1.1"
+version = "0.1.2"
 authors.workspace = true
 edition.workspace = true
 # GPL-3.0-only: although CoolProp itself is MIT, this crate ships GPL-3.0-only
@@ -29,6 +29,9 @@ exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/CoolPro
 # C / ndarray, and no `outram-foam-basic-lib` dependency — the primitives are
 # copied in as source), so the crate still builds on Android.
 [dependencies]
+# erf / erfc / tgamma / lgamma in pure Rust, replacing the `extern "C"` calls
+# into the system C libm (bn:op-chyp.6). PETIR is no_std with only `libm`.
+petir.workspace = true
 uom.workspace = true
 
 [dev-dependencies]

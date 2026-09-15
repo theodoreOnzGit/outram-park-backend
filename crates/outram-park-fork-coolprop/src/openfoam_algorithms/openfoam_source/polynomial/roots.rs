@@ -23,11 +23,11 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u64)]
 pub enum RootType {
-    Real    = 0,
+    Real = 0,
     Complex = 1,
-    PosInf  = 2,
-    NegInf  = 3,
-    Nan     = 4,
+    PosInf = 2,
+    NegInf = 3,
+    Nan = 4,
 }
 
 /// Tagged root container for N roots.
@@ -85,7 +85,10 @@ impl Roots<1> {
     /// Single root with the given type and value.
     #[inline]
     pub fn new(t: RootType, x: f64) -> Self {
-        Self { values: [x], types: t as u64 }
+        Self {
+            values: [x],
+            types: t as u64,
+        }
     }
 }
 

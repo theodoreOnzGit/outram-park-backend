@@ -12,7 +12,6 @@ pub fn tau_2(t: ThermodynamicTemperature) -> f64 {
 /// Returns the region-2 pi (dimensionless pressure)
 /// Temperature is assumed to be in K
 pub fn pi_2(p: Pressure) -> f64 {
-
     let p_megapascals = p.get::<megapascal>();
     // Pressure is assumed to be in Pa
     p_megapascals / (1.0)

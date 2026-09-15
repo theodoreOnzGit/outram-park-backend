@@ -42,8 +42,16 @@ END
 /// cell pressures (Pa) at the final time. Regenerate with the `print_baseline`
 /// helper if an intended numerics change moves them.
 const BASELINE_PRESSURE: [f64; 10] = [
-    100932.772672, 100083.701405, 99073.351019, 97841.903275, 96328.093064, 94528.632507,
-    92645.522856, 91161.814984, 90393.149689, 90136.692839,
+    100932.772672,
+    100083.701405,
+    99073.351019,
+    97841.903275,
+    96328.093064,
+    94528.632507,
+    92645.522856,
+    91161.814984,
+    90393.149689,
+    90136.692839,
 ];
 /// Frozen liquid saturations at the final time (same run).
 const BASELINE_SATURATION: [f64; 10] = [

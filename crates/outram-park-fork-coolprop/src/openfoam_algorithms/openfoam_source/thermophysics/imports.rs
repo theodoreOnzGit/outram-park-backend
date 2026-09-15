@@ -31,12 +31,10 @@
 /// let p = Pressure::new::<pascal>(101325.0);
 /// assert!(p.get::<pascal>() > 0.0);
 /// ```
-
 // ── quantity types ────────────────────────────────────────────────────────────
 pub use uom::si::f64::{
-    AvailableEnergy, DynamicViscosity, MassDensity, MolarMass,
-    Pressure, Ratio, SpecificHeatCapacity, ThermalConductivity,
-    ThermodynamicTemperature,
+    AvailableEnergy, DynamicViscosity, MassDensity, MolarMass, Pressure, Ratio,
+    SpecificHeatCapacity, ThermalConductivity, ThermodynamicTemperature,
 };
 
 // ── unit markers (used in ::new::<unit>() and .get::<unit>()) ────────────────

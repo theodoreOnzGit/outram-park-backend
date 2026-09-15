@@ -36,7 +36,10 @@ structure.
 
 ## Existing content in this folder
 
-This folder already has `port-scope.md` (hand-maintained porting-scope notes) — untouched by this convention.
+This folder already has `port-scope.md` (hand-maintained porting-scope notes),
+`chemistry-model-survey.md` (per-model port-status survey vs. the DWSIM
+upstream), and `api.md` (the generated rustdoc → markdown API mirror) — all
+untouched by this convention.
 
 ## What's *not* here (yet)
 

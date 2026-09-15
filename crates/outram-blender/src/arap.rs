@@ -1,3 +1,28 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+//
+// Implements: O. Sorkine and M. Alexa, "As-Rigid-As-Possible Surface Modeling",
+// Eurographics Symposium on Geometry Processing (SGP), 2007, pp. 109-116.
+// Cotangent weights: U. Pinkall and K. Polthier, "Computing discrete minimal
+// surfaces and their conjugates", Experimental Mathematics 2(1), 1993, 15-36.
+// Written from the published formulation; no upstream source was copied.
+// Blender analogue (architecture only): the Laplacian-deform / ARAP mesh tools.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
 //! **As-Rigid-As-Possible (ARAP) surface deformation** (Sorkine & Alexa, 2007).
 //!
 //! Blender analogue: the Laplacian-deform / "As Rigid As Possible" mesh tools.
@@ -16,7 +41,7 @@
 //! - **Local step** (fix `p'`, solve each `R_i`): form the `3×3` covariance
 //!   `S_i = Σ_j w_ij (p'_i − p'_j)(p_i − p_j)ᵀ` (deformed ⊗ rest) and take the
 //!   closest rotation `R_i = U Vᵀ` (the orthogonal Procrustes solution, with a
-//!   determinant sign-fix) from the SVD `S_i = U Σ Vᵀ` ([`closest_rotation`]) —
+//!   determinant sign-fix) from the SVD `S_i = U Σ Vᵀ` (`closest_rotation`) —
 //!   the rotation that best maps the rest one-ring onto the deformed one.
 //! - **Global step** (fix `{R_i}`, solve `p'`): solve `L p' = b` with
 //!   `b_i = Σ_j (w_ij/2)(R_i + R_j)(p_i − p_j)`, where `L` is the cotangent
@@ -167,11 +192,15 @@ pub fn arap_deform(
     }
     let a = SparseColMat::<usize, f64>::try_new_from_triplets(nfree, nfree, &trips)
         .map_err(|_| ArapError::Assembly)?;
-    let llt = a.sp_cholesky(Side::Lower).map_err(|_| ArapError::NotPositiveDefinite)?;
+    let llt = a
+        .sp_cholesky(Side::Lower)
+        .map_err(|_| ArapError::NotPositiveDefinite)?;
 
     for _ in 0..iterations {
         // LOCAL: per-vertex optimal rotation from the current positions.
-        let rotations: Vec<M3> = (0..n).map(|i| optimal_rotation(i, &adj, &rest, &cur)).collect();
+        let rotations: Vec<M3> = (0..n)
+            .map(|i| optimal_rotation(i, &adj, &rest, &cur))
+            .collect();
 
         // GLOBAL: b_i = Σ_j (w_ij/2)(R_i + R_j)(p_i − p_j), plus the constant
         // handle-elimination term; solve L_ff x = rhs.
@@ -238,7 +267,7 @@ pub fn arap_energy(rest: &Mesh, deformed: &[Vec3]) -> f64 {
 /// `p`, deformed `d`) and return its closest rotation.
 fn optimal_rotation(i: usize, adj: &[Vec<(usize, f64)>], rest: &[Vec3], def: &[Vec3]) -> M3 {
     // Covariance S_i = Σ w (d_i − d_j)(p_i − p_j)ᵀ (deformed ⊗ rest). Its
-    // Procrustes rotation ([`closest_rotation`], R = U Vᵀ) is the rotation that
+    // Procrustes rotation (`closest_rotation`, R = U Vᵀ) is the rotation that
     // best maps the rest one-ring onto the deformed one.
     let mut s = [[0.0f64; 3]; 3];
     for &(j, w) in &adj[i] {
@@ -396,17 +425,25 @@ mod tests {
             .collect();
 
         let max_err = |it: u32| {
-            let op = arap_deform(&grid, &handles, it).expect("arap solves").positions();
+            let op = arap_deform(&grid, &handles, it)
+                .expect("arap solves")
+                .positions();
             (0..grid.vertex_count())
                 .map(|i| op[i].sub(rigid(grid.positions()[i], theta, t)).length())
                 .fold(0.0f64, f64::max)
         };
         let (e5, e60) = (max_err(5), max_err(60));
         assert!(e60 < e5, "error must shrink with iterations: {e5} -> {e60}");
-        assert!(e60 < 2e-3, "rigid reproduction converges (maxerr at 60 iters = {e60})");
+        assert!(
+            e60 < 2e-3,
+            "rigid reproduction converges (maxerr at 60 iters = {e60})"
+        );
 
         let op60 = arap_deform(&grid, &handles, 60).expect("arap").positions();
-        assert!(arap_energy(&grid, &op60) < 1e-5, "rigid motion drives ARAP energy to ~0");
+        assert!(
+            arap_energy(&grid, &op60) < 1e-5,
+            "rigid motion drives ARAP energy to ~0"
+        );
     }
 
     /// Methodology: **bends without stretching + monotone energy.** A thin bar
@@ -430,7 +467,8 @@ mod tests {
             if (ps[i].x + half).abs() < 1e-9 {
                 handles.push((VertexId(i), ps[i])); // fixed end
             } else if (ps[i].x - half).abs() < 1e-9 {
-                handles.push((VertexId(i), Vec3::new(ps[i].x, ps[i].y, ps[i].z + 1.5))); // lifted end
+                handles.push((VertexId(i), Vec3::new(ps[i].x, ps[i].y, ps[i].z + 1.5)));
+                // lifted end
             }
         }
 
@@ -461,11 +499,21 @@ mod tests {
         let many = arap_deform(&bar, &handles, 30).expect("arap");
         let stretch_1 = max_rel_stretch(&one);
         let stretch_30 = max_rel_stretch(&many);
-        assert!(stretch_30 < stretch_1, "iterations must reduce stretch: {stretch_1} -> {stretch_30}");
-        assert!(stretch_30 < 0.08, "bent bar should barely stretch, got {stretch_30}");
+        assert!(
+            stretch_30 < stretch_1,
+            "iterations must reduce stretch: {stretch_1} -> {stretch_30}"
+        );
+        assert!(
+            stretch_30 < 0.08,
+            "bent bar should barely stretch, got {stretch_30}"
+        );
 
         // Interior actually moved.
-        let moved = many.positions().iter().zip(ps.iter()).any(|(a, b)| a.sub(*b).length() > 0.1);
+        let moved = many
+            .positions()
+            .iter()
+            .zip(ps.iter())
+            .any(|(a, b)| a.sub(*b).length() > 0.1);
         assert!(moved, "the bar must actually deform");
 
         // Energy is non-increasing across iterations.
@@ -488,13 +536,20 @@ mod tests {
         let r = closest_rotation(rot);
         for i in 0..3 {
             for j in 0..3 {
-                assert!((r[i][j] - rot[i][j]).abs() < 1e-9, "did not recover the rotation");
+                assert!(
+                    (r[i][j] - rot[i][j]).abs() < 1e-9,
+                    "did not recover the rotation"
+                );
             }
         }
         // A reflection (det < 0) must map to a proper rotation.
         let refl: M3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]];
         let rr = closest_rotation(refl);
-        assert!((det3(rr) - 1.0).abs() < 1e-9, "must be a proper rotation, det={}", det3(rr));
+        assert!(
+            (det3(rr) - 1.0).abs() < 1e-9,
+            "must be a proper rotation, det={}",
+            det3(rr)
+        );
         // Orthonormal: Rᵀ R = I.
         let rtr = matmul3(transpose3(rr), rr);
         for i in 0..3 {
@@ -510,6 +565,9 @@ mod tests {
     #[test]
     fn arap_without_handles_errors() {
         let grid = primitives::grid(4, 4, 1.0);
-        assert!(matches!(arap_deform(&grid, &[], 3), Err(ArapError::NoConstraints)));
+        assert!(matches!(
+            arap_deform(&grid, &[], 3),
+            Err(ArapError::NoConstraints)
+        ));
     }
 }

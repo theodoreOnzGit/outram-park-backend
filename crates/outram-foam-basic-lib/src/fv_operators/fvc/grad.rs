@@ -59,7 +59,7 @@ pub fn grad(vol: &VolScalarField) -> VolVectorField {
         .collect();
 
     VolVectorField::new(
-        format!("grad({})", vol.name),
+        crate::fv_operators::naming::derived_name("grad", &vol.name),
         vol.mesh.clone(),
         Field::from_fn(mesh.n_cells, |c| g[c] * (1.0 / mesh.cell_volumes[c])),
         boundary,

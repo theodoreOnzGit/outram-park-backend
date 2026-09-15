@@ -33,19 +33,19 @@ use crate::thermophysics::imports::*;
 /// Implementors must provide `cp`, `ha`, `hs`, `hc`, `s`.
 /// `cv`, `t_from_ha`, `t_from_hs`, and `t_from_e` have default implementations.
 pub trait ThermoModel: EquationOfState {
-    /// Specific heat at constant pressure Cp  [J/(kg·K)].
+    /// Specific heat at constant pressure Cp  `[J/(kg·K)]`.
     fn cp(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
 
-    /// Absolute specific enthalpy (sensible + formation + EOS departure)  [J/kg].
+    /// Absolute specific enthalpy (sensible + formation + EOS departure)  `[J/kg]`.
     fn ha(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy;
 
-    /// Sensible specific enthalpy: `ha − hc`  [J/kg].
+    /// Sensible specific enthalpy: `ha − hc`  `[J/kg]`.
     fn hs(&self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy;
 
-    /// Heat of formation (= chemical enthalpy at reference T)  [J/kg].
+    /// Heat of formation (= chemical enthalpy at reference T)  `[J/kg]`.
     fn hc(&self) -> AvailableEnergy;
 
-    /// Specific entropy  [J/(kg·K)].
+    /// Specific entropy  `[J/(kg·K)]`.
     fn s(&self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity;
 
     /// Specific heat at constant volume: Cv = Cp − cp_m_cv.

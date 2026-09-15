@@ -19,12 +19,9 @@ use uom::si::{f64::*, volume_rate::cubic_meter_per_second};
 pub fn get_fluid_courant_number_one_dimension(
     fluid_velocity: Velocity,
     timestep: Time,
-    cell_length_scale: Length
-    ) -> Result<f64,f64> {
-
-    let courant_number: Ratio = fluid_velocity
-        *timestep/
-        cell_length_scale;
+    cell_length_scale: Length,
+) -> Result<f64, f64> {
+    let courant_number: Ratio = fluid_velocity * timestep / cell_length_scale;
 
     // if courant number greater than 1, return an error value
     // otherwise return an ok
@@ -34,7 +31,6 @@ pub fn get_fluid_courant_number_one_dimension(
     }
 
     return Ok(courant_number.value);
-
 }
 
 /// courant number 3D
@@ -48,7 +44,7 @@ pub fn get_fluid_courant_number_one_dimension(
 ///
 /// Co =  0.5 * timestep / volume *  
 /// (summation (dot product of U and normal vector).abs()*Area_magnitude)
-/// 
+///
 /// this takes in three vectors, the volume of the control volume
 /// and a timestep
 ///
@@ -61,7 +57,7 @@ pub fn get_fluid_courant_number_one_dimension(
 /// the second vector specifies the angle to the normal that these
 /// velocities make with the area normals
 /// we can define area normals as pointing inwards towards the
-/// center of the cell, 
+/// center of the cell,
 ///
 /// but it doesn't really matter, we need to take the absolute value of
 /// the dot product of the velocities with the normals anyhow
@@ -218,22 +214,21 @@ pub fn get_fluid_courant_number_one_dimension(
 pub fn courant_number_3d_openfoam_algorithm_velocity(
     // pardon the naming convention,
     // control_volume_volume
-    // 
+    //
     // means how much volume the control volume occupies
     control_volume_volume: Volume,
     timestep: Time,
     face_area_vector: Vec<Area>,
     velocity_vector: Vec<Velocity>,
     angle_between_area_normals_and_velocity_vector: Vec<Angle>,
-    ) -> Result<f64,f64> {
-
+) -> Result<f64, f64> {
     // first we need to check if the length of each vector is the same
 
     if velocity_vector.len() != face_area_vector.len() {
         return Err(f64::NAN);
     }
 
-    if velocity_vector.len() !=  angle_between_area_normals_and_velocity_vector.len() {
+    if velocity_vector.len() != angle_between_area_normals_and_velocity_vector.len() {
         return Err(f64::NAN);
     }
 
@@ -243,7 +238,6 @@ pub fn courant_number_3d_openfoam_algorithm_velocity(
     let mut cosine_angle_vector: Vec<f64> = vec![];
 
     for angle in angle_between_area_normals_and_velocity_vector.iter() {
-
         // first get angle in radians
         let angle_value_radians: f64 = angle.value;
 
@@ -256,11 +250,9 @@ pub fn courant_number_3d_openfoam_algorithm_velocity(
 
     // then let's calculate the dot product
     // it has units of volumetric flowrate
-    let mut dot_product: VolumeRate
-        = VolumeRate::new::<cubic_meter_per_second>(0.0);
+    let mut dot_product: VolumeRate = VolumeRate::new::<cubic_meter_per_second>(0.0);
 
     for (index, velocity_pointer) in velocity_vector.iter().enumerate() {
-
         // we get the velocity
         // multiplied by the cosine and area
         // then take absolute value
@@ -270,26 +262,16 @@ pub fn courant_number_3d_openfoam_algorithm_velocity(
         let face_area = face_area_vector[index];
 
         // note that i ha
-        let volumetric_flow_rate: VolumeRate = 
-            face_area 
-            * (*velocity_pointer)
-            * angle_cosine;
-        
-        let abs_volumetric_flowrate = 
-            volumetric_flow_rate.abs();
+        let volumetric_flow_rate: VolumeRate = face_area * (*velocity_pointer) * angle_cosine;
 
-        
+        let abs_volumetric_flowrate = volumetric_flow_rate.abs();
+
         dot_product += abs_volumetric_flowrate;
-
     }
 
-    // Co =  0.5 * timestep / volume *  
+    // Co =  0.5 * timestep / volume *
     // (summation (dot product of U and normal vector).abs()*Area_magnitude)
-    let courant_number: Ratio = 
-        0.5 
-        * timestep
-        / control_volume_volume
-        * dot_product;
+    let courant_number: Ratio = 0.5 * timestep / control_volume_volume * dot_product;
 
     // i'll return an error value if the courant number is below zero
     if courant_number.value > 1_f64 {
@@ -297,39 +279,31 @@ pub fn courant_number_3d_openfoam_algorithm_velocity(
     }
 
     return Ok(courant_number.value);
-
 }
 
 /// similar algorithm based on volumetric flowrates in and out
 pub fn courant_number_3d_openfoam_algorithm_vol_flowrate(
     // pardon the naming convention,
     // control_volume_volume
-    // 
+    //
     // means how much volume the control volume occupies
     control_volume_volume: Volume,
     timestep: Time,
-    volume_flowrate_vector: Vec<VolumeRate>
-    ) -> Result<f64,f64> {
-
-
+    volume_flowrate_vector: Vec<VolumeRate>,
+) -> Result<f64, f64> {
     // then let's calculate the dot product
     // it has units of volumetric flowrate
-    let mut absolute_sum_of_volumetric_flowrate: VolumeRate
-        = VolumeRate::new::<cubic_meter_per_second>(0.0);
+    let mut absolute_sum_of_volumetric_flowrate: VolumeRate =
+        VolumeRate::new::<cubic_meter_per_second>(0.0);
 
     for vol_flowrate_ptr in volume_flowrate_vector.iter() {
-
         absolute_sum_of_volumetric_flowrate += vol_flowrate_ptr.abs();
-
     }
 
-    // Co =  0.5 * timestep / volume *  
+    // Co =  0.5 * timestep / volume *
     // (summation (dot product of U and normal vector).abs()*Area_magnitude)
-    let courant_number: Ratio = 
-        0.5 
-        * timestep
-        / control_volume_volume
-        * absolute_sum_of_volumetric_flowrate;
+    let courant_number: Ratio =
+        0.5 * timestep / control_volume_volume * absolute_sum_of_volumetric_flowrate;
 
     // i'll return an error value if the courant number is below zero
     if courant_number.value > 1_f64 {
@@ -337,7 +311,6 @@ pub fn courant_number_3d_openfoam_algorithm_vol_flowrate(
     }
 
     return Ok(courant_number.value);
-
 }
 // courant number for energy?
 //
@@ -353,13 +326,13 @@ pub fn courant_number_3d_openfoam_algorithm_vol_flowrate(
 // courant number expression for conduction
 // and then derive from there
 //
-// 
+//
 //
 /// Courant number equivalent for conduction heat transfer
 ///
 /// For conduction based heat transfer,
 /// Courant number is just the fourier number
-/// but the characteristic length is 
+/// but the characteristic length is
 /// the mesh length
 ///
 /// Co = Fo
@@ -370,20 +343,15 @@ pub fn courant_number_3d_openfoam_algorithm_vol_flowrate(
 pub fn fourier_number_heat_conduction(
     alpha_thermal_diffusivity: DiffusionCoefficient,
     timestep: Time,
-    mesh_length: Length) -> Result<f64, f64>{
-
-    let courant_number = alpha_thermal_diffusivity *
-        timestep
-        / mesh_length
-        / mesh_length;
-
+    mesh_length: Length,
+) -> Result<f64, f64> {
+    let courant_number = alpha_thermal_diffusivity * timestep / mesh_length / mesh_length;
 
     if courant_number.value > 0.25_f64 {
         return Err(courant_number.value);
     }
 
     return Ok(courant_number.value);
-
 }
 
 /// Courant number equivalent for convection heat transfer
@@ -397,25 +365,22 @@ pub fn fourier_number_heat_convection(
     volume_cv_to_surface_area_cv_ratio: Length,
     alpha_thermal_diffusivity: DiffusionCoefficient,
     timestep: Time,
-    ) -> Result<f64,f64>{
-
+) -> Result<f64, f64> {
     let biot_number: Ratio = heat_transfer_coeffcient_for_external_fluid
-        *volume_cv_to_surface_area_cv_ratio
-        /control_volume_thermal_conductivity;
+        * volume_cv_to_surface_area_cv_ratio
+        / control_volume_thermal_conductivity;
 
-    let fourier_number: Ratio = alpha_thermal_diffusivity 
-        *timestep
-        /volume_cv_to_surface_area_cv_ratio
-        /volume_cv_to_surface_area_cv_ratio;
+    let fourier_number: Ratio = alpha_thermal_diffusivity * timestep
+        / volume_cv_to_surface_area_cv_ratio
+        / volume_cv_to_surface_area_cv_ratio;
 
-    let courant_number:Ratio = biot_number*fourier_number;
+    let courant_number: Ratio = biot_number * fourier_number;
 
     if courant_number.value > 0.25_f64 {
         return Err(courant_number.value);
     }
 
     return Ok(courant_number.value);
-
 }
 
 /// Courant number for heat transport (ie mass flowrate)
@@ -425,11 +390,9 @@ pub fn fourier_number_heat_convection(
 pub fn single_face_courant_number_enthalpy_flow(
     mass_flowrate: MassRate,
     control_volume_mass: Mass,
-    timestep: Time,) -> Result<f64,f64> {
-
-    let courant_number: Ratio = 0.5 * mass_flowrate.abs() 
-        * timestep
-        / control_volume_mass;
+    timestep: Time,
+) -> Result<f64, f64> {
+    let courant_number: Ratio = 0.5 * mass_flowrate.abs() * timestep / control_volume_mass;
 
     if courant_number.value > 0.25_f64 {
         return Err(courant_number.value);
@@ -437,4 +400,3 @@ pub fn single_face_courant_number_enthalpy_flow(
 
     return Ok(courant_number.value);
 }
-

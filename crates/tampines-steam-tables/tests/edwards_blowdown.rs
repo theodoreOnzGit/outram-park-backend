@@ -27,7 +27,8 @@
 //! - **Break boundary**: a choked (critical) outlet. Each step the last cell's
 //!   `(p0,h0)` is fed to the crate's existing HEM critical-flow dispatcher
 //!   [`get_critical_pressure_and_mass_flux_multiphase_ph`] (the same machinery
-//!   validated against Moody / Zaloudek / Marviken), giving the throat mass
+//!   validated against Moody / Zaloudek; Marviken data is digitised but its
+//!   test is `#[ignore]`d and not yet gated), giving the throat mass
 //!   flux `G*` and throat pressure. The break mass flow is
 //!   `m_dot = G* * A_break(t)` and the equivalent full-face outlet velocity
 //!   `U = m_dot / (rho * A)` is imposed via `set_outlet_velocity`. The closed
@@ -46,7 +47,11 @@
 //! ## Results (measured 2026-07-16, IAPWS-IF97 tables, 24 cells, dt = 30 us,
 //! PIMPLE 4 outer / 4 inner PISO correctors, alpha_p = alpha_u = 1.0)
 //!
-//! The full 600 ms transient completes (20 000 steps, ~180 s wall) with no NaN
+//! The full 600 ms transient completes (20 000 steps) with no NaN
+//! (wall time varies with hardware/load: ~180 s measured 2026-07-16; the whole
+//! 2-test `--test edwards_blowdown` target measured 371.87 s release wall on
+//! 2026-08-11 — budget for it, and never report a harness timeout as a test
+//! failure)
 //! and all void fractions in [0, 1]. Headline numbers (printed with
 //! `--nocapture`):
 //!
@@ -122,7 +127,7 @@
 //! break/GS-1 trace to stderr). Smaller `EDW_DT_US` (e.g. 10) reduces the
 //! acoustic-CFL overshoot at the initial rarefaction.
 
-use tampines_steam_tables::{SolverMode, TampinesSteamArray};
+use tampines_steam_tables::{KnpFaceClosure, PsiRefresh, SolverMode, TampinesSteamArray, ThermoClosure};
 
 use tampines_steam_tables::interfaces::functional_programming::ph_flash_eqm::{
     ph_flash_region, x_ph_flash,
@@ -135,9 +140,7 @@ use tampines_steam_tables::steam_turbine_equations::converging_diverging_nozzles
 
 use uom::si::area::square_meter;
 use uom::si::available_energy::joule_per_kilogram;
-use uom::si::f64::{
-    Area, AvailableEnergy, Length, Pressure, ThermodynamicTemperature, Time, Velocity,
-};
+use uom::si::f64::{Area, AvailableEnergy, Length, Pressure, ThermodynamicTemperature, Time, Velocity};
 use uom::si::length::meter;
 use uom::si::mass_flux::kilogram_per_square_meter_second;
 use uom::si::pressure::pascal;
@@ -339,11 +342,33 @@ fn edwards_obrien_pipe_blowdown_600ms() {
     // flashing plateau (~17 -> ~36 psia); the plateau is recovered instead by
     // the two solver-physics fixes documented in the module header (conservative
     // energy ddt + fixed-enthalpy compressibility), not by the relaxation knob.
+    // Ablation knobs (bn:op-bgg0). Defaults are unchanged -- 4 outer, 4 inner,
+    // alpha_p = alpha_u = 1.0 -- so an unset environment reproduces the
+    // documented configuration exactly. They exist so the corrector count and
+    // the under-relaxation can be swept without editing and rebuilding the test
+    // body, which keeps each ablation point recorded as a command rather than
+    // as a diff. See docs/edwards_post_petir_ablation_log.md.
+    let n_outer: usize = std::env::var("EDW_NOUTER")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(4);
+    let n_inner: usize = std::env::var("EDW_NINNER")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(4);
+    let alpha_p: f64 = std::env::var("EDW_ALPHA_P")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
+    let alpha_u: f64 = std::env::var("EDW_ALPHA_U")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
     array.set_pimple_algorithm(
-        4,
-        4,
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
-        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
+        n_outer,
+        n_inner,
+        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_p),
+        uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(alpha_u),
     );
 
     // Opt-in all-Mach hybrid mode for figure regeneration (EDW_HYBRID=1). The
@@ -352,6 +377,35 @@ fn edwards_obrien_pipe_blowdown_600ms() {
     // dedicated `edwards_hybrid_damps_ringing_vs_pimple` test below.
     if std::env::var("EDW_HYBRID").is_ok() {
         array.set_solver_mode(SolverMode::HybridAllMach);
+    }
+
+    // See `run_gauge_pressures` for what this selects.
+    if std::env::var("EDW_KNP_EOS").is_ok() {
+        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
+    }
+
+    // `EDW_PSI_OUTER=1` holds psi across the inner PISO correctors instead of
+    // rebuilding it on each, saving two (p,h) flashes per cell per inner
+    // corrector. See `PsiRefresh`.
+    if std::env::var("EDW_PSI_OUTER").is_ok() {
+        array.psi_refresh = PsiRefresh::OncePerOuterCorrector;
+    }
+
+    // `EDW_RHOH=1` swaps the thermodynamic closure from the validated
+    // pressure-based path to the density-based one, which recovers pressure by
+    // inverting the IF97 backward equations instead of taking it from the
+    // pressure equation. Present so the two can be TIMED against each other on
+    // the same case; the default remains the validated path.
+    match std::env::var("EDW_RHOH").as_deref() {
+        // `EDW_RHOH=all` is the naive baseline: recover pressure from (rho,h)
+        // in every cell. Kept only to show what the selective policy is worth.
+        Ok("all") => array.thermo_closure = ThermoClosure::DensityEnthalpyEverywhere,
+        // `EDW_RHOH=inflow` restricts it further, to cells taking IN mass.
+        Ok("inflow") => array.thermo_closure = ThermoClosure::DensityEnthalpyOnMassInflow,
+        // `EDW_RHOH=1` (or anything else) is the policy that makes physical
+        // sense: (rho,h) only where mass is flowing into the cell.
+        Ok(_) => array.thermo_closure = ThermoClosure::DensityEnthalpyOnMassFlow,
+        Err(_) => {}
     }
 
     let n = array.mesh.n_cells;
@@ -590,6 +644,33 @@ fn edwards_obrien_pipe_blowdown_600ms() {
         tail_end_p[0], tail_end_p[1], tail_end_p[2]
     );
     println!("GS-1 tail p rebound      : {rebound:+.1} psia (tail max − p@0.42s)");
+    // Pressure-bounding report. The clamp is a band-aid, not a safety net: a
+    // nonzero count means the pressure equation asked for a state the EOS
+    // cannot represent, and the run survived only because the clamp reshaped
+    // it. Reported rather than asserted FOR NOW -- see bn:op-bgg0. Once the
+    // stiff-at-the-boundary defect is fixed this should become a hard gate,
+    // because a converged, well-posed pressure equation should never trip it.
+    let bound_events = array.pressure_bound_events();
+    let worst_under = array
+        .pressure_bound_worst_undershoot()
+        .get::<uom::si::pressure::pascal>();
+    let worst_over = array
+        .pressure_bound_worst_overshoot()
+        .get::<uom::si::pressure::pascal>();
+    println!(
+        "pressure-bound events    : {bound_events} (worst undershoot {worst_under:.4e} Pa, \
+         worst overshoot {worst_over:.4e} Pa)"
+    );
+    println!(
+        "drained-cell holds       : {} (energy-hold band-aid engagements)",
+        array.drained_hold_events()
+    );
+    if bound_events > 0 {
+        println!(
+            "  ^^ NONZERO: the pressure solve left the EOS range and was clamped. \
+             This is a DEFECT SIGNAL, not a safety net -- see bn:op-bgg0."
+        );
+    }
     println!("=============================================================================\n");
 
     // Sanity: the artificial-cooling artefact would drive T toward ~274 K
@@ -699,6 +780,13 @@ fn run_gauge_pressures(mode: SolverMode, t_end_s: f64, dt_us: f64) -> (Vec<f64>,
         uom::si::f64::Ratio::new::<uom::si::ratio::ratio>(1.0),
     );
     array.set_solver_mode(mode);
+
+    // `EDW_KNP_EOS=1` closes the KNP face state through the equation of state
+    // -- pressure from the reconstructed (rho, he) rather than from its own
+    // MUSCL reconstruction. Only has any effect in HybridAllMach.
+    if std::env::var("EDW_KNP_EOS").is_ok() {
+        array.knp_face_closure = KnpFaceClosure::EosConsistentPressure;
+    }
 
     let n = array.mesh.n_cells;
     for c in 0..n {
