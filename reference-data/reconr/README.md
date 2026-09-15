@@ -141,7 +141,7 @@ They exist because the U-234 oracle beside them reaches only Case C with
 - **U-238** carries Case C with `LSSF = 1` and `L <= 2`, which isolates the
   `LSSF = 1` early return from the Case A grid change.
 
-Consumed by `tests/reconr_mt152_case_a_and_lssf1_vs_njoy2016.rs`. U-238 agrees
+Consumed by `tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs`. U-238 agrees
 to **1e-13** on all 336 stored values.
 
 **Fe-58's stored cross sections are wrong, and are committed deliberately as
@@ -161,3 +161,26 @@ by UNRESR/PURR only as the denominator of self-shielding ratios.
 Data policy: derived products of open ENDF/B-VIII.0 data processed with the
 BSD-licensed NJOY2016. Fe-58 is the ENDF/B-VIII.0 Beta4 release; see
 `../endf/README.md` for both tapes' provenance.
+
+## `synthetic-caseb-lfw1-0K-err0.001.mt152.pendf` — the Case B MT=152 oracle
+
+Added 2026-09-15. NJOY2016 upstream `ac5adf5f` (2016.79), gfortran 13.3.0,
+built and run in-session, from `../endf/synthetic-caseb-lfw1.endf` (MAT 9998),
+deck beside it as `synthetic-caseb-lfw1-0K-err0.001.njoy-input`. Reduced to the
+MF=2/MT=152 section like the Fe-58 and U-238 oracles above.
+
+The input tape is **synthetic and not an evaluation** — Case B (`LRU=2, LRF=1,
+LFW=1`) appears in none of the tapes in `../endf/`, so there was no oracle for
+that branch of `rdf2u1` until one was constructed. See
+`../endf/README.md` for what the tape contains and why, and
+`../endf/synthetic-caseb-lfw1.generator.py` for how to regenerate it.
+
+NJOY stores 16 energies: the four fission-grid energies, the `egridu` fill
+across the two gaps wider than `wide = 1.26`, and the two shaded range bounds.
+This crate reproduces that grid exactly, with `LSSF = 0` and `intunr = 5`
+(Case B has no `INT` of its own, so `rdfil2:809`'s default stands), and agrees
+on all 64 stored cross sections to **4.22e-7** — the seven-figure floor
+`genunr`'s own `sigfig(...,7,0)` imposes once the MF=3 background is added.
+
+Data policy: derived product of a synthetic input containing no evaluated,
+proprietary, or restricted data, processed with the BSD-licensed NJOY2016.

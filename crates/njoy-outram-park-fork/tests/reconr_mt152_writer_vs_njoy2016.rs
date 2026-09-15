@@ -35,11 +35,10 @@
 //! (`nsig0 = 1`), and Case C (`LRF=2`) only.
 //!
 //! The other paths are covered next door in
-//! `reconr_mt152_case_a_and_lssf1_vs_njoy2016.rs` (added 2026-09-15), which
+//! `reconr_mt152_all_unresolved_cases_vs_njoy2016.rs` (added 2026-09-15), which
 //! takes the `LSSF = 1` early return at `:1694` on U-238 — agreeing to 1e-13
-//! — and the Case A (`LRF=1`, `LFW=0`) energy grid on Fe-58. Case B
-//! (`LFW=1`, `LRF≠2`) remains unexercised for want of an evaluation; that is
-//! the last piece open on `bn:op-12lu`.
+//! — the Case A (`LRF=1`, `LFW=0`) grid on Fe-58, and the Case B (`LFW=1`)
+//! grid on a synthetic tape, no evaluation held here using that format.
 //!
 //! Verification against NJOY2016, not validation.
 

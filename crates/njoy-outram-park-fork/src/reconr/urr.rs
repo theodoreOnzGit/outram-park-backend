@@ -110,7 +110,7 @@
 //! Measured on Fe-58 (ENDF/B-VIII.0 Beta4, `NLS = 4`): NJOY stores
 //! `1.42e4 b` at 350 keV rising to `6.62e5 b` at 3 MeV, against this port's
 //! `4.57 b` and `4.76 b`, which track the evaluation's own MF=3.
-//! `tests/reconr_mt152_case_a_and_lssf1_vs_njoy2016.rs` reproduces NJOY's
+//! `tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs` reproduces NJOY's
 //! numbers from the defective recurrence to 2.7e-7, so this is a diagnosis
 //! rather than a difference of opinion. It affects `LSSF = 1` materials only
 //! in the self-shielding *ratios* UNRESR/PURR take, where the scale cancels.
@@ -151,8 +151,9 @@ const INFINITE_DILUTION: f64 = 1.0e10;
 ///   fallback and filled 40 log-spaced points. `rdf2u0` does nothing of the
 ///   kind — it walks [`EGRIDU`] from `el` to `eh`. On Fe-58 the two differ in
 ///   *count* (13 against 42) as well as in position, so the section produced
-///   was not the one NJOY writes. See
-///   `tests/reconr_mt152_case_a_vs_njoy2016.rs`.
+///   was not the one NJOY writes. All three cases are now gated against NJOY
+///   in `tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs` — Case B on a
+///   synthetic tape, no evaluation held here using that format.
 /// - **The gap-fill step is 1 % for A and B but 0.1 % for C.** Upstream really
 ///   does write `ener+ener/100` in `rdf2u0`/`rdf2u1` and `ener+ener/1000` in
 ///   `rdf2u2`.

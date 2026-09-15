@@ -1,5 +1,6 @@
-//! **V&V: MF=2/MT=152 for the two paths `reconr_mt152_writer_vs_njoy2016.rs`
-//! could not reach — the Case A energy grid, and the `LSSF = 1` early return.**
+//! **V&V: MF=2/MT=152 on every path `reconr_mt152_writer_vs_njoy2016.rs`
+//! could not reach — the Case A and Case B energy grids, and the `LSSF = 1`
+//! early return.**
 //!
 //! # What this closes
 //!
@@ -42,6 +43,7 @@
 //! | material | case | L values | `LSSF` | `intunr` | energies | worst value deviation |
 //! |---|---|---|---|---|---|---|
 //! | U-238 (MAT 9237) | C (`LRF=2`) | 0,1,2 | 1 | 5 | 84, exact | **1.00e-13** |
+//! | synthetic (MAT 9998) | B (`LRF=1`, `LFW=1`) | 0,1 | 0 | 5 | 16, exact | **4.22e-7** |
 //! | Fe-58 (MAT 2637) | A (`LRF=1`, `LFW=0`) | 0,1,2,**3** | 1 | 5 | 13, exact | 3113x … 139210x — **upstream defect, see below** |
 //!
 //! U-238 agrees with NJOY on all 84 energies and all 336 stored values to
@@ -84,16 +86,28 @@
 //! through. Filed as `bn:op-12lu`'s child; upstream is not patched from here
 //! (`upstream_source/` is read-only).
 //!
+//! # Case B has no evaluation, so the tape is synthetic
+//!
+//! Screening every held tape finds exactly one `LRU=2/LRF=1` range (Fe-58),
+//! and it is `LFW=0`. Rather than leave Case B untested,
+//! `reference-data/endf/synthetic-caseb-lfw1.generator.py` builds a minimal
+//! format-legal tape that NJOY2016 processes cleanly, so RECONR's own output
+//! is still the oracle — the same technique as
+//! `reference-data/endf/photoat-synthetic-Z6.endf`. Its parameters are
+//! invented and carry no physical claim; what they are chosen for is branch
+//! coverage. One gap in the fission grid (`1.1e4 -> 3.0e4 eV`) exceeds
+//! `wide = 1.26` so the `egridu` fill must fire, and one (`1.0e4 -> 1.1e4`)
+//! does not so it must not; the grid comes out at NJOY's 16 energies exactly,
+//! which is what tells us both branches went the right way.
+//!
+//! It is also the only `LSSF = 0` material here, so it exercises the MF=3
+//! background addition on a Case B range.
+//!
 //! # Scope
 //!
-//! Two materials, both `LSSF = 1`, 0 K, infinite dilution only. **Case B
-//! (`LFW=1`, `LRF≠2`) is still unexercised** — the screen over every held tape
-//! finds Fe-58 as the only `LRU=2/LRF=1` range at all, and it is `LFW=0`.
-//! Case B's path is ported from `rdf2u1` and shares its seeding loop with the
-//! verified Case C path, differing only in which energies seed it; that is an
-//! argument for plausibility, not a measurement, and it stays open on
-//! `bn:op-12lu`. Verification against NJOY2016, not validation: nothing here
-//! is compared to measurement.
+//! Three materials, 0 K, infinite dilution only (`nsig0 = 1`). Verification
+//! against NJOY2016, not validation: nothing here is compared to measurement,
+//! and the synthetic material does not exist.
 
 use njoy_outram_park_fork::common::phys::{AMASSN_AMU, PI};
 use njoy_outram_park_fork::endf::mt::MtReaction;
@@ -128,6 +142,25 @@ const U238: Case = Case {
     lssf: 1,
     intunr: 5,
     n_energies: 84,
+};
+
+/// Case B has no evaluation anywhere in `reference-data/endf/` — screening
+/// every held tape finds exactly one `LRU=2/LRF=1` range (Fe-58) and it is
+/// `LFW=0`. This is a synthetic tape built to exercise the path, with
+/// NJOY2016's own RECONR output as the oracle; see
+/// `reference-data/endf/synthetic-caseb-lfw1.generator.py` for what it
+/// contains and why each choice was made. `LSSF = 0` here, so unlike the two
+/// real materials it also exercises the MF=3 background addition.
+const CASEB: Case = Case {
+    label: "synthetic (Case B, LRF=1, LFW=1, LSSF=0, L<=1)",
+    mat: 9998,
+    evaluation: "synthetic-caseb-lfw1.endf",
+    oracle: "synthetic-caseb-lfw1-0K-err0.001.mt152.pendf",
+    lssf: 0,
+    // Case B has no INT of its own, so `rdfil2:809`'s default stands -- the
+    // same value Case A takes, reached by a different route.
+    intunr: 5,
+    n_energies: 16,
 };
 
 const FE58: Case = Case {
@@ -191,7 +224,7 @@ fn load(case: &Case) -> Option<Loaded> {
 /// match NJOY exactly for **both** materials, whatever the stored values do.
 #[test]
 fn case_a_and_lssf1_grid_and_flags_match_njoys_own() {
-    for case in [&U238, &FE58] {
+    for case in [&U238, &CASEB, &FE58] {
         println!("\n=== {} ===", case.label);
         let Some(l) = load(case) else { continue };
 
@@ -292,9 +325,26 @@ fn case_a_and_lssf1_grid_and_flags_match_njoys_own() {
 /// differing in the last bit. Measured worst: **1.00e-13** over 336 values.
 #[test]
 fn u238_lssf1_stored_values_match_njoys_own_exactly() {
-    let Some(l) = load(&U238) else { return };
+    compare_stored_values(&U238, 1.0e-12);
+}
+
+/// Case B's stored values, against NJOY's on the synthetic tape.
+///
+/// A looser gate than U-238's on purpose: this material is `LSSF = 0`, so
+/// `genunr` adds the MF=3 background and re-quantises with
+/// `sigfig(...,7,0)` (`:1719`), which puts the floor at NJOY's seven printed
+/// figures rather than at the last bit. Same reason the U-234 gate next door
+/// sits at 9.00e-7. Measured worst: **4.22e-7** over 64 values.
+#[test]
+fn case_b_stored_values_match_njoys_own() {
+    compare_stored_values(&CASEB, 1.0e-5);
+}
+
+/// Compare every stored cross section for `case` against NJOY's.
+fn compare_stored_values(case: &Case, gate: f64) {
+    let Some(l) = load(case) else { return };
     let mine = read_urr_table(&l.rows, 0.0).expect("round-trips");
-    let theirs = read_urr_from_tape(Some(&l.njoy_tape), U238.mat, 1, 0.0)
+    let theirs = read_urr_from_tape(Some(&l.njoy_tape), case.mat, 1, 0.0)
         .expect("parses")
         .expect("present");
 
@@ -325,16 +375,20 @@ fn u238_lssf1_stored_values_match_njoys_own_exactly() {
             }
         }
     }
-    println!("  compared {compared} stored values; worst deviation {worst:.2e} {worst_at}");
-    assert!(
-        compared >= 4 * U238.n_energies,
-        "only {compared} values compared -- the comparison is not covering the table"
+    println!(
+        "  {}: compared {compared} stored values; worst deviation {worst:.2e} {worst_at}",
+        case.label
     );
     assert!(
-        worst < 1.0e-12,
-        "U-238 LSSF=1 should agree to NJOY's own printed precision (no MF=3 \
-         background is added, so each stored value is one sigfig(kernel,7,0)); \
-         worst {worst:.2e} at {worst_at}"
+        compared >= 4 * case.n_energies,
+        "{}: only {compared} values compared -- the comparison is not covering \
+         the table",
+        case.label
+    );
+    assert!(
+        worst < gate,
+        "{}: worst stored-value deviation {worst:.2e} exceeds {gate:.0e} at {worst_at}",
+        case.label
     );
 }
 
