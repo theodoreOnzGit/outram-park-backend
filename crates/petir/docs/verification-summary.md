@@ -74,6 +74,11 @@ the evaluation.
 | the 19 verbatim lifts | `outram-foam-basic-lib` (OpenFOAM), `chem-eng` (GNU Octave) | byte-identical after documented `std`→`core` substitutions, 0 allowed deviations on 17 of 19 | `verbatim_provenance.rs` |
 | `specfunc::inc_gamma` vs `gamma_inc` | two independent lineages within PETIR | agree to 4.82e-10 | `incomplete_gamma_cross_check.rs` |
 | `poly::quartic` | the `roots` crate 0.0.8 (Mikhail Vorotilov, BSD-2-Clause) | upstream's own assertions replayed and passing; worst scaled residual **3.655e-18** over 7 quartics | `poly::quartic::tests` |
+| `poly::companion` | the `roots` crate 0.0.8 **compiled and run** | **100 % bit-identical** — all 71 real roots, worst difference exactly 0 | `roots_companion_code_to_code.rs` |
+| `poly::dense` orthogonal families | published coefficient tables | **exact** for Legendre, Chebyshev T/U, Hermite, Bessel through degree 4 | `poly::dense::tests` |
+| `poly::dense` Legendre orthogonality | the analytical result `int P_i P_j = 2 delta_ij/(2n+1)` | off-diagonal **2.220e-16**; diagonal 0 at `n<=2` rising to **1.455e-11** at `n=10` | `poly::dense::tests` |
+| `poly::dense::lagrange` vs `poly::eval::DividedDifference` | two independent interpolations, `peroxide` and GSL | agree to **8.882e-16** | `poly::dense::tests` |
+| `legendre` roots vs `poly::companion` | two ports of two unrelated upstreams composed | Gauss-Legendre nodes to **1.110e-16** | `poly::dense::tests` |
 | `poly::quartic::roots_cubic` vs `poly::cubic_eqn` | two independent closed-form cubics, from `roots` and from OpenFOAM | agree to **1.554e-15** over 5 cubics | `poly::quartic::tests` |
 
 ## Deviations from upstream, deliberate and pinned
@@ -112,6 +117,19 @@ the argument for doing them.
   therefore upstream's own test assertions, a residual check, and cross-code
   agreement between the two independent cubics PETIR now carries — not the
   compiled-binary comparison the GSL surfaces above have.
+
+- **`poly::companion` is bit-identical to upstream, which is not the same as
+  being accurate.** The comparison establishes a faithful port, nothing more.
+  Its own root errors grow from 3.9e-14 at degree 4 to 2.1e-9 at degree 10 —
+  companion-matrix conditioning — and a double root is located only to about
+  `sqrt(eps)`. Prefer `poly::quartic` wherever the degree allows.
+
+- **`poly::dense`'s orthogonal families have no reference-code comparison
+  either**, and their high-degree coefficients are not trustworthy. The
+  Legendre orthogonality diagonal loses about one digit per two degrees
+  (table above), which is inherent to holding coefficients that grow as `4^n`
+  in `f64`. The exact agreement with published tables covers degree 4 and
+  below only.
 
 - **No published-benchmark comparison.** Nothing here is validation.
 - **Six modules are ported from GSL but exercise only part of its surface** —

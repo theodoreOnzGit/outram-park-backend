@@ -61,7 +61,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 | `linalg` | lifted + ported | Dense `n×n` Crout LU with scaled partial pivoting, determinant, log-determinant, explicit inverse, level-1 BLAS, symmetric tridiagonal solve, and rectangular Householder **QR with least-squares solve** |
 | `min` | ported | One-dimensional minimisation over a bracketing triple: golden section and Brent |
 | `ode` | ported | Initial-value ODE integration: RK4, embedded RKF45, and an adaptive driver |
-| `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders (OpenFOAM), and a closed-form **quartic** and biquadratic (the `roots` crate — see Prior art) |
+| `poly` | lifted + ported | Horner evaluation and derivatives, Newton divided differences, exact linear / quadratic / cubic root finders (OpenFOAM); closed-form **quartic** and biquadratic, and **all roots of any degree** by companion-matrix eigenvalues (the `roots` crate); polynomial **algebra** — multiply, long-divide, translate — with Lagrange interpolation and the **Legendre / Chebyshev / Hermite / Bessel** families (`peroxide`). See Prior art |
 | `roots` | ported | Bracketing (bisection, false position, Brent) and derivative-based (Newton, secant, Steffenson) root finders, with GSL's three convergence tests |
 | `specfunc`, `expint`, `gamma_inc` | ported + lifted + delegated | Error-function family including the scaled `erfcx`, gamma family with GSL's Padé branches at the zeros, incomplete gamma and its inverse, exponential integral `E_1` |
 | `transfer_fn` | ported | Continuous and discrete SISO transfer functions, `c2d` / `d2c`, and the O(1) fixed-state recurrence blocks |
@@ -245,32 +245,47 @@ path and the Chebyshev machinery are ground peroxide had already covered.
 Arriving at the same place later by a different route is not discovery, and
 both crates were early to this in Rust when the ecosystem was still thin.
 
-### One module is genuinely derived from `roots`
+### Three modules are genuinely derived from them
 
-`src/poly/quartic.rs` **is a port of `roots` 0.0.8**, done on 2026-09-15 —
-`find_roots_quartic` and the `quartic_depressed`, `biquadratic`,
-`cubic_normalized`, `quadratic`, `linear` and `Roots` files it recurses
-through. Mikhail Vorotilov's copyright and the full BSD-2-Clause notice are in
-that file's header, where source redistribution requires them. BSD-2-Clause
-into GPL-3.0-only is **one-way**: that code cannot flow back to `roots` under
-its original licence without its author's agreement.
+| module | from | licence |
+|---|---|---|
+| `src/poly/quartic.rs` | `roots` 0.0.8 — closed-form quartic and biquadratic | BSD-2-Clause |
+| `src/poly/companion.rs` | `roots` 0.0.8 — companion-matrix eigenvalue root finder | BSD-2-Clause |
+| `src/poly/dense.rs` | `peroxide` 0.41.2 — polynomial algebra, Legendre/Chebyshev/Hermite/Bessel | MIT (of MIT OR Apache-2.0) |
 
-Outside that one file, **no code in PETIR is copied from, translated from, or
-derived from either crate.** Every other routine traces to the upstream in its
-own file header, and `tests/verbatim_provenance.rs` plus the code-to-code
+All three were ported on 2026-09-15, with the full upstream notice and
+copyright kept in each file's header where source redistribution requires them.
+Both **BSD-2-Clause into GPL-3.0-only and MIT into GPL-3.0-only are one-way**:
+this code cannot flow back to either crate under its original licence without
+its author's agreement.
+
+`companion.rs` carries the longest chain in the crate, and every link in it
+asked to be named — Martin and Wilkinson's 1971 Algol `hqr2`, EISPACK, JAMA's
+public-domain Java, **Stepan Yakovenko**, whose hand-transpilation header asks
+*"hopefully someone will appreciate my one day of manual code conversion
+nightmare and mention me in the source code"*, and **Mikhail Vorotilov**, who
+added it to `roots` at his request. All five are named in the file.
+
+Outside those three files, **no code in PETIR is copied from, translated from,
+or derived from either crate.** Every other routine traces to the upstream in
+its own file header, and `tests/verbatim_provenance.rs` plus the code-to-code
 reference sets hold that claim to account. Neither crate is a *dependency* —
-the quartic was ported, not linked.
+all three modules were ported, not linked.
 
-**Why only the quartic, when the overlap is far wider.** peroxide is ruled out
-by its dependencies rather than its licence: it pulls `blas`, `lapack`,
-`netcdf`, `arrow` and more across its feature set, and PETIR's rules forbid
-anything bringing system BLAS/LAPACK, a C or Fortran toolchain, `std` or
-threads. `roots` is dependency-free and could be ported further — but PETIR's
-maturity rests on **bit-identity with GSL 2.8 compiled and run**, and `roots`'
-Brent is not GSL's Brent, so re-porting the routines PETIR already has would
-break every one of those comparisons by construction for no capability gain.
-The quartic is the one place where a port is additive: it fills a documented
-gap and replaces nothing that is verified.
+**Every port is additive, and that is the rule.** Each fills a gap GSL does
+not cover: no closed form exists past the quartic; GSL's general-degree solver
+is four files over a complex layer this crate does not have; and GSL has no
+polynomial algebra at all. None of them replaces anything verified — PETIR's
+maturity rests on **bit-identity with GSL 2.8 compiled and run**, and
+re-porting a GSL-verified routine from either crate would break those
+comparisons by construction for no capability gain.
+
+Two things were deliberately **not** taken. `roots`' `find_roots_sturm` is
+broken — measured against upstream compiled and run, it never returns more
+than three roots at any degree and reports no error when it drops the rest;
+a test pins that so a future upstream fix gets noticed. And `peroxide` remains
+impossible as a *dependency* (it pulls `blas`, `lapack`, `netcdf`, `arrow`),
+which has no bearing on porting a pure-Rust routine out of it.
 
 PETIR otherwise exists alongside them because it is `no_std` unconditionally
 and carries provenance to a specific upstream commit for every routine —

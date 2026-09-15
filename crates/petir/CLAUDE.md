@@ -35,31 +35,48 @@ When you do port, the doc comment names the **upstream file and line**, and the
 NOTICE names the copyright holder for that module — GSL's holders differ per
 file, so re-read each header rather than copying one across.
 
-### One non-GSL port exists, and it was a maintainer-approved exception
+### Three non-GSL ports exist, and they were maintainer-directed
 
-`src/poly/quartic.rs` is ported from the **`roots` crate 0.0.8**
-(Mikhail Vorotilov, BSD-2-Clause), not from GSL — added 2026-09-15 at the
-maintainer's direction ("port from them and make it official, put their names
-and contributions in the source"). GSL has no closed-form quartic to port:
-`poly/` stops at `solve_cubic.c`.
+Added 2026-09-15 at the maintainer's direction — "port select code from roots
+and peroxide to complement petir's capabilities, credit the author's
+upstream":
 
-Two things about it bind future work:
+| module | upstream | licence |
+|---|---|---|
+| `src/poly/quartic.rs` | `roots` 0.0.8 (Mikhail Vorotilov) | BSD-2-Clause |
+| `src/poly/companion.rs` | `roots` 0.0.8, and through it JAMA / EISPACK | BSD-2-Clause |
+| `src/poly/dense.rs` | `peroxide` 0.41.2 (Tae Geun Kim) | MIT (of MIT OR Apache-2.0) |
 
-- **BSD-2-Clause into GPL-3.0-only is one-way.** That file carries the full
-  upstream notice and Vorotilov's copyright in its header, as source
-  redistribution requires. Do not strip either, and do not contribute anything
-  derived from it back to `roots` without its author's agreement.
-- **Do not widen this into the GSL-verified modules.** `roots` also has
-  bracketing and polishing solvers that overlap `crate::roots`, but this
-  crate's maturity rests on bit-identity with compiled GSL — five of seven
-  numerics surfaces agree exactly, every iterate. `roots`' Brent is not GSL's
-  Brent, so re-porting would break those comparisons by construction for no
-  capability gain. The quartic was additive; a second port of an already-
-  verified routine would not be, and needs the maintainer, not an agent.
+Four things about them bind future work:
 
-`peroxide` is separately ruled out, on dependencies rather than licence: it
-pulls `blas`/`lapack`/`netcdf`/`arrow` across its feature set, which the
-"Dependencies" section below forbids outright. Do not revisit that one.
+- **Both flows are one-way.** BSD-2-Clause and MIT into GPL-3.0-only. Each
+  file carries the full upstream notice and copyright in its header, as source
+  redistribution requires. Do not strip them, do not "tidy" them into the
+  NOTICE only, and do not contribute anything derived from them back upstream
+  without the author's agreement.
+- **`companion.rs` names five people, on purpose.** Stepan Yakovenko's own
+  header asks to be mentioned in the source code. That request is honoured;
+  do not remove it in a refactor.
+- **Do not widen this into the GSL-verified modules.** Both upstreams have
+  routines overlapping `crate::roots`, `crate::min`, `crate::integration` and
+  `crate::interp`, but this crate's maturity rests on bit-identity with
+  compiled GSL — five of seven numerics surfaces agree exactly, every
+  iterate. `roots`' Brent is not GSL's Brent, so re-porting would break those
+  comparisons by construction for no capability gain. Every port above is
+  ADDITIVE, filling a gap GSL does not cover. A port that replaces a verified
+  routine needs the maintainer, not an agent.
+- **Do not port `roots`' `find_roots_sturm`.** It is broken, and this was
+  measured, not assumed: against upstream compiled and run it never returns
+  more than three roots at any degree (3, 3, 3, 1, 3, 1, 1 for degrees 4 to
+  10) and reports no error when it drops the rest. `tests/roots_companion_code_to_code.rs`
+  pins the measurement. If that test ever fails because upstream fixed it,
+  reconsider — do not simply loosen it.
+
+**`peroxide` as a DEPENDENCY remains ruled out** (it pulls
+`blas`/`lapack`/`netcdf`/`arrow`, which the "Dependencies" section below
+forbids). That is a separate question from porting a pure-Rust routine out of
+it, which is fine and is what `dense.rs` did — do not conflate the two, as an
+earlier session did.
 
 ### The three lineages, and saying which one you are in
 

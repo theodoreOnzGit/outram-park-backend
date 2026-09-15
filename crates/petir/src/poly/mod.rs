@@ -95,6 +95,11 @@ pub mod quartic;
 /// the one that goes past the quartic, and the only one that returns complex
 /// roots.
 pub mod companion;
+/// A heap-allocated polynomial with **algebra** — multiplication, long
+/// division, translation — and the classical orthogonal families built from
+/// it (Legendre, Chebyshev, Hermite, Bessel). Ported from the `peroxide`
+/// crate. This is the only module here that can multiply two polynomials.
+pub mod dense;
 /// Tagged root container, `Foam::Roots`. [`RootType`] distinguishes `Real`,
 /// `Complex`, `PosInf`, `NegInf` and `Nan` roots so that a caller can tell a
 /// genuine root from a degenerate one instead of inspecting the value.
@@ -107,6 +112,7 @@ pub use linear_eqn::LinearEqn;
 pub use polynomial::Polynomial;
 pub use quadratic_eqn::QuadraticEqn;
 pub use roots::{RootType, Roots};
+pub use dense::{bessel, chebyshev, hermite, legendre, ChebyshevKind, DensePoly};
 pub use companion::{
     real_roots_companion, roots_companion, roots_companion_monic_ascending, ComplexRoot,
 };
