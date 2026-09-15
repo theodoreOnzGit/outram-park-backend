@@ -22,7 +22,7 @@ Singapore MRT station names identify **domains**, not crates.
 | **NEE SOON** | **Neutronics and nuclear data** — the integration crate for that domain, and only that domain | `nee_soon`, composing `njoy-outram-park-fork`, `outram-mc-libs`, `teh-o-prke` |
 | **BEDOK** | **Multiphysics coupling at system level** — TH and neutronics coupled, above 1-D neutronics fidelity but **below CFD fidelity** (CFD-level coupling stays with GeN-Foam in `outram-foam-appbuilder-lib`) | *new* |
 | **SEMBAWANG** | Severe accident progression — melt behaviour, relocation, vessel failure, MCCI, hydrogen, aerosols, source term. *"What gets released?"* | *new* — scoped in `docs/melcor-scoping.md` |
-| **CHANGI** | Atmospheric dispersion, plume transport, deposition, ground contamination. *"What happens after release?"* | *new* — depends on a FLEXPART port |
+| **CHANGI** | Atmospheric dispersion, plume transport, deposition, ground contamination. *"What happens after release?"* | `changi` — FLEXPART v10.4 port begun 2026-09-15; surface-layer + deposition kernels verified code-to-code, the rest not yet ported |
 | **REDHILL** | Groundwater and geological transport, subsurface radionuclide migration, porous-media flow. *"What happens after deposition?"* | *new* — depends on `outram-park-fork-pflotran` |
 
 Neutronics, fuel performance, CFD, meshing, KOVAN and the remaining crates are

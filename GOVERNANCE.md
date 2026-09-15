@@ -182,7 +182,7 @@ planned scope, not places to send code yet.
 | **BEDOK** | System-level multiphysics coupling — TH and neutronics coupled above 1-D neutronics fidelity but below CFD fidelity; reactor transient simulation, reduced-order multiphysics | Exists (`bedok`) |
 | **OUTRAM-FOAM** | OpenFOAM-derived workflows, CFD, high-fidelity multiphysics, GeN-Foam-derived capability | Exists (`outram-foam-*`) |
 | **SEMBAWANG** | Severe accident progression — melt behaviour, relocation, vessel failure, MCCI, hydrogen, aerosols, source term. *"What gets released?"* | Reserved name |
-| **CHANGI** | Atmospheric dispersion, plume transport, deposition, ground contamination, dose assessment. *"What happens after release?"* | Reserved name |
+| **CHANGI** | Atmospheric dispersion, plume transport, deposition, ground contamination, dose assessment. *"What happens after release?"* | Exists (`changi`) — first FLEXPART slice ported |
 | **REDHILL** | Groundwater and geological transport, subsurface radionuclide migration, porous-media flow. *"What happens after deposition?"* | Reserved name |
 
 **TUAS does not own** compressible flow, multiphase flow, general steam tables,

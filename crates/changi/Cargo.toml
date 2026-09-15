@@ -1,0 +1,22 @@
+[package]
+name = "changi"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+description = "CHANGI — atmospheric dispersion, plume transport, deposition and ground contamination. Pure-Rust port of FLEXPART. Research, education and V&V only."
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+# The upstream FLEXPART clone is reference-only and gitignored; it is never
+# compiled into the crate and never packaged.
+exclude = ["upstream_source/*", "dev/*"]
+
+[dependencies]
+uom   = { workspace = true }
+# petir supplies the numerics. Its erf/erfc are GSL-derived and carry their own
+# test suite, so `part0` uses them rather than porting FLEXPART's erf.f90 --
+# the workspace "reuse before porting, port before writing" rule.
+petir = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }

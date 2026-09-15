@@ -92,6 +92,11 @@ members = [
     # outram-foam-basic-lib and the Octave-derived transfer functions from
     # chem-eng. `no_std` + `alloc`, libm-backed, no_std `uom` (epic op-petir).
     "crates/petir",
+    # changi — atmospheric dispersion, plume transport, deposition and ground
+    # contamination ("what happens after release?"). Rust port of FLEXPART v10.4
+    # (GPL-3.0). Research/education/V&V only -- never emergency response or dose
+    # assessment for real populations (docs/ecosystem-naming.md decision 3).
+    "crates/changi",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
@@ -330,6 +335,7 @@ tampines-steam-tables = { path = "crates/tampines-steam-tables", version = "0.2.
 outram-foam-basic-lib        = { path = "crates/outram-foam-basic-lib",        version = "0.1.3" }
 raffles                      = { path = "crates/raffles",                      version = "0.0.0" }
 petir                        = { path = "crates/petir",                        version = "0.0.0" }
+changi                       = { path = "crates/changi",                       version = "0.0.0" }
 outram-foam-turbulence-lib   = { path = "crates/outram-foam-turbulence-lib",   version = "0.1.2" }
 outram-foam-appbuilder-lib   = { path = "crates/outram-foam-appbuilder-lib",   version = "0.1.3" }
 outram-foam-multiphase       = { path = "crates/outram-foam-multiphase",       version = "0.0.2" }
