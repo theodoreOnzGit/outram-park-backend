@@ -70,6 +70,26 @@
 //! creeping progress if it merely gets small. Bracketing methods have the same
 //! trouble for a different reason — `f` does not change sign at a double root,
 //! so there is nothing to bracket.
+//!
+//! # A DELIBERATE DEVIATION FROM GSL: iterating past convergence
+//!
+//! Once an iterate lands on the root exactly, the secant update's denominator
+//! `f(x_n) - f(x_{n-1})` is zero. **GSL divides anyway**, and the iterate
+//! repeats unchanged for as long as you keep asking — `roots/test.c` never
+//! reaches this because it stops on a convergence test first.
+//!
+//! PETIR returns [`PetirError::ZeroDivide`] instead. That is the more useful
+//! answer: a caller looping to a tolerance learns no further progress is
+//! possible, where against GSL they would spin to their iteration cap and
+//! report a failure that never happened.
+//!
+//! It is a real divergence from upstream, so it is pinned rather than left to
+//! be rediscovered. `tests/gsl_numerics_code_to_code.rs` replays GSL's own
+//! iterate sequence and asserts that every iterate PETIR produces matches it
+//! bit for bit, and that PETIR only stops **after** reaching the converged
+//! value — measured 2026-09-15 on `x^2 - 5` from `x = 5`: 33 of 33 iterates
+//! bit-identical across Newton, secant and Steffenson, with secant stopping at
+//! iterate 9, two past the root.
 
 // Under a std-linked build (`cargo test`) f64's inherent abs shadows this
 // trait, leaving the import formally unused. See crate::real.

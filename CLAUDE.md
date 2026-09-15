@@ -1090,7 +1090,7 @@ later needs to know not just today's bar but that it moved, or it will
 misread older results as failures against a standard that did not exist when
 they were produced.
 
-**Declared mature as of 2026-09-06** (9 of 36 crates). The bar and its
+**Declared mature as of 2026-09-15** (10 of 37 crates). The bar and its
 evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
 the authority:
 
@@ -1105,15 +1105,35 @@ the authority:
 | `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
 | `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
 | `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **granular physics NOT validated** | analytical / MMS |
+| `petir` | agrees with GSL 2.8 compiled and run — 5 of 7 numerics surfaces bit-identical throughout, the rest 75-97 % with worst relative difference 1.1e-15; ARM `exp`/`log`/`pow` bit-identical | cross-code |
 
 Every other crate is **not** declared, and the dogfooding rule does not apply
-to it. Three honest notes on this roster: `teh-o-prke` is the thinnest of the
+to it.
+
+**`petir` was declared on 2026-09-15**, by the maintainer, on the stated
+condition "if it agrees with GSL". It does, and by the strongest mechanism on
+this roster: GSL 2.8 was **built from the vendored tree and executed**, and its
+output committed under `reference-data/gsl/` so the comparison regenerates
+rather than being trusted.
+
+One qualification belonged with the declaration and was closed the same day.
+At the moment of declaration the compiled comparison covered `cheb`,
+`expint`, `gamma_inc` and the `linalg` QR only; `roots`, `min`, `deriv`,
+`interp`, `integration` and `ode` had GSL-derived tests but no compiled
+reference. Those six were given one, and five of the seven surfaces came back
+**bit-identical throughout**. The consolidated table — every surface, its
+upstream, its measured agreement, and what is NOT covered — is
+`crates/petir/docs/verification-summary.md`.
+
+Four honest notes on this roster: `teh-o-prke` is the thinnest of the
 eight and lacks analytical transient validation (its own file says so, and
 says what would fix it); `outram-mc-libs`' 500 pcm is set at what it achieves
-today rather than at what criticality work should eventually demand; and the
+today rather than at what criticality work should eventually demand; the
 Scilab half of the process-control crate's evidence lives in the maintainer's
 dissertation rather than in this repository, so its recorded bar is written
-against the analytical tests that *are* reproducible here.
+against the analytical tests that *are* reproducible here; and `petir`'s bar
+is cross-code agreement **alone** — nothing in it has been compared against a
+published benchmark, and both of its bookkeeping axes remain unsigned.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**

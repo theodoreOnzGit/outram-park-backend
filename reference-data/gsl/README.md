@@ -17,6 +17,43 @@ git-tracked but never part of a published crate tarball.
 - **Driver:** `cheb_reference_driver.c` in this directory, committed so the file
   can be regenerated rather than trusted.
 
+## `numerics-gsl-2.8-reference.txt` — roots, min, deriv, interp, integration, ode
+
+- **Built:** 2026-09-15, same static GSL as the others.
+- **Driver:** `numerics_reference_driver.c` in this directory.
+- **Why:** these six petir modules were ported from GSL and tested against
+  GSL's own assertions and analytical results, but had no compiled reference
+  when petir was declared mature. This makes the maturity bar mean one thing
+  across the crate.
+
+### Iterate sequences, not converged answers
+
+For the iterative routines the driver emits **every iterate**. Any correct
+bisection converges to the same root and so does any correct Brent, so
+comparing final answers would pass against a port of a different algorithm.
+The trajectory identifies what is actually implemented. The ODE cases compare
+the per-step error estimate alongside the state for the same reason.
+
+### What the comparison found (2026-09-15)
+
+| surface | values | bit-identical | worst rel. diff |
+|---|---|---|---|
+| roots, bracketing | 270 | 270 (100.0%) | 0 |
+| roots, polishing | 33 | 33 (100.0%) | 0 |
+| min | 150 | 150 (100.0%) | 0 |
+| interp | 244 | 244 (100.0%) | 0 |
+| ode (RKF45) | 120 | 120 (100.0%) | 0 |
+| deriv | 78 | 76 (97.4%) | 3.27e-16 |
+| integration | 28 | 27 (96.4%) | 1.82e-16 |
+
+Two deviations surfaced here rather than by reading: the secant solver returns
+`ZeroDivide` where GSL divides by zero and repeats the iterate, and GSL's
+public RK4 stepper **step-doubles** so it is not comparable to petir's single
+classical step (measured gap 1.27e-7 at h = 0.05, the expected O(h^5)). Both
+are documented in the replaying test and in the crate source.
+
+Replayed by `crates/petir/tests/gsl_numerics_code_to_code.rs`.
+
 ## `cheb-mode-gsl-2.8-reference.txt` — `gsl_cheb_eval_mode`
 
 - **Built:** 2026-09-15, same static GSL as the QR reference below.

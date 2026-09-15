@@ -21,7 +21,9 @@
 // GPL-3.0-or-later (verified from the per-file headers; see NOTICE).
 //
 //   ode-initval2/rkf45.c  the Runge-Kutta-Fehlberg 4(5) tableau and step
-//   ode-initval2/rk4.c    the classical fixed-step RK4
+//   ode-initval2/rk4.c    the classical fixed-step RK4 -- specifically the
+//                         PRIVATE `rk4_step` helper, NOT the public
+//                         `rk4_apply`, which step-doubles (see rk4_step's docs)
 //   ode-initval2/control_standard.c  the step-size controller's form
 
 //! Ordinary differential equations — GSL's `ode-initval2/`.
@@ -144,6 +146,21 @@ const EC: [f64; 7] = [
 /// simulation that must produce output on an exact grid). For anything where
 /// accuracy matters, an adaptive method costs little more and tells you how
 /// well it did.
+///
+/// # This is NOT `gsl_odeiv2_step_rk4`, and the difference is not small
+///
+/// GSL's public RK4 stepper does **step-doubling**: `rk4_apply`
+/// (`ode-initval2/rk4.c:247`) takes one full step, then two half-steps,
+/// reports the half-step result and their difference as an error estimate.
+/// This function ports the private `rk4_step` helper that sits underneath it —
+/// one plain classical step, which is what "classical RK4" means and what a
+/// reader expects from the name.
+///
+/// They are different quantities, not a port and its original. Measured on
+/// `dy/dt = y` over 20 steps at `h = 0.05`, they differ by up to **1.27e-7**,
+/// which is the `O(h^5)` local error separating a full step from two half
+/// ones. If you want GSL's behaviour, use [`rkf45_step`], which gets an error
+/// estimate for six evaluations rather than eleven.
 ///
 /// # Example
 ///
