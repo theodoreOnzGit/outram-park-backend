@@ -489,6 +489,10 @@ pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
         material: result.material.clone(),
         sections: doppler_broaden_below(&result.sections, result.material.awr, temp_k, thnmax),
         resonance_upper_limit: result.resonance_upper_limit,
+        // BROADR does not touch MF=2, so the 0 K unresolved table rides
+        // through unchanged -- matching upstream, where UNRESR/PURR are what
+        // replace it with a temperature-dependent one.
+        unresolved_table: result.unresolved_table.clone(),
     }
 }
 
@@ -804,6 +808,7 @@ mod tests {
             material: material(1, 3.0e7),
             sections: vec![],
             resonance_upper_limit: Some(2.0e4),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 2.0e4);
         // Cap at e6pt5 (broadr.f90:423-425).
@@ -811,6 +816,7 @@ mod tests {
             material: material(1, 3.0e7),
             sections: vec![],
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
         // Never above the evaluation's emax (broadr.f90:441).
@@ -818,6 +824,7 @@ mod tests {
             material: material(1, 1.5e6),
             sections: vec![],
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 1.5e6);
         // No MF=2 at all: eresh = thnmax = 0 → e6pt5 fallback (broadr.f90:562).
@@ -825,6 +832,7 @@ mod tests {
             material: material(0, 2.0e7),
             sections: vec![],
             resonance_upper_limit: None,
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
     }
@@ -844,6 +852,7 @@ mod tests {
             material: material(0, 2.0e7),
             sections: secs.clone(),
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 0.99999 * 4.5e4);
         // Same sections but lrp = 1: thresholds are not consulted at all.
@@ -851,6 +860,7 @@ mod tests {
             material: material(1, 2.0e7),
             sections: secs,
             resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
         };
         assert_eq!(broadening_limit(&r), 6.5e6);
     }

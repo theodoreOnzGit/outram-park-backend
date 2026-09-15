@@ -393,6 +393,7 @@ mod tests {
                 pairs: vec![(1.0e6, 10.0)],
             }],
             resonance_upper_limit: None,
+            unresolved_table: None,
         };
         let pp = PhotonProduction::default();
         assert!(pp.is_empty());

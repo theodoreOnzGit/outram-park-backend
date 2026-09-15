@@ -360,6 +360,7 @@ mod tests {
             material,
             sections,
             resonance_upper_limit: None,
+            unresolved_table: None,
         }
     }
 

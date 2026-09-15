@@ -135,6 +135,21 @@ pub struct ReconrResult {
     /// (`broadr.f90:107-124`), and neither does
     /// [`crate::broadr::doppler_broaden_below`].
     pub resonance_upper_limit: Option<f64>,
+    /// The **MF=2/MT=152** unresolved table, as ENDF rows ready to write to a
+    /// PENDF — `genunr`'s output (`reconr.f90:1628-1735`). `None` when the
+    /// material has no `LRU = 2` range.
+    ///
+    /// This is the infinitely-dilute unresolved cross section on `eunr`, the
+    /// grid RECONR evaluates on; GROUPR reads it back through
+    /// [`crate::groupr::urr_pendf::read_urr_from_tape`]. It is **0 K** — RECONR
+    /// writes it before any broadening, and UNRESR/PURR later write their own
+    /// temperature-dependent MT=152 in its place.
+    ///
+    /// Carried through [`crate::broadr::broaden_result`] unchanged, because
+    /// BROADR does not touch MF=2 (`broadr.f90` copies it through). A broadened
+    /// result therefore still carries the 0 K table, which is what upstream
+    /// produces — not an oversight.
+    pub unresolved_table: Option<Vec<[f64; 6]>>,
 }
 
 impl ReconrResult {
@@ -274,23 +289,44 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     sections.sort_by_key(|s| i32::from(s.mt));
 
+    // The LRU=2 ranges, parsed once for both phases below.
+    let urr_ranges = match tape.section(mat, 2, 151) {
+        Some(sec) if sec.rows.len() > 1 => {
+            crate::unresr::mf2::parse_lru2_ranges(&sec.rows[1..])?
+        }
+        _ => Vec::new(),
+    };
+
+    // Phase 2a-bis: MF=2/MT=152 -- `genunr` (reconr.f90:1628-1735).
+    //
+    // BUILT BEFORE ANY RESONANCE CONTRIBUTION IS ADDED, and the ordering is
+    // load-bearing. `genunr` reads the evaluation's own MF=3 off the input tape
+    // (`:1698`, `call findf(mata,3,0,nin)`) -- the background, with nothing
+    // reconstructed into it. Building from `sections` after Phase 2b instead
+    // feeds it the resolved-range reconstruction as though it were background,
+    // which on U-234 overstates the stored total and elastic by 32 % and 36 %
+    // at 1.5e3 eV, the energy the resolved and unresolved ranges share.
+    let unresolved_table = if urr_ranges.is_empty() {
+        None
+    } else {
+        urr::build_mt152(material.za, material.awr, &urr_ranges, &sections, 0.0, eps)?
+    };
+
     // Phase 2b: add SLBW/MLBW resonance contributions
     add_resonance_contributions(&mut sections, &res_info, eps);
 
     // Phase 2c: add the infinitely-dilute unresolved (LRU=2) contribution for
-    // LSSF=0 ranges -- `genunr` (reconr.f90:1628-1735). Without this those
-    // ranges come back at ZERO cross section; see `urr`'s module doc.
-    if let Some(mf2_sec) = tape.section(mat, 2, 151) {
-        if mf2_sec.rows.len() > 1 {
-            let urr_ranges = crate::unresr::mf2::parse_lru2_ranges(&mf2_sec.rows[1..])?;
-            urr::add_unresolved_ranges(&mut sections, &urr_ranges, eps)?;
-        }
+    // LSSF=0 ranges. Without this those ranges come back at ZERO cross
+    // section; see `urr`'s module doc.
+    if !urr_ranges.is_empty() {
+        urr::add_unresolved_ranges(&mut sections, &urr_ranges, eps)?;
     }
 
     Ok(ReconrResult {
         material,
         sections,
         resonance_upper_limit: res_info.pendf_resonance_upper_limit(),
+        unresolved_table,
     })
 }
 
@@ -407,6 +443,9 @@ pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<Reconr
         material,
         sections,
         resonance_upper_limit,
+        // Background-only: no resonance reconstruction ran, so there is no
+        // unresolved table to store either.
+        unresolved_table: None,
     })
 }
 
