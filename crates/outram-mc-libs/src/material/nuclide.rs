@@ -79,6 +79,11 @@ pub enum Inelastic {
     Level {
         /// Reaction Q-value \[eV\] (< 0), i.e. −(level excitation energy).
         q: f64,
+        /// The ENDF MT of the level that was sampled (51…90), so the collision
+        /// site can look up this level's own MF=4 angular distribution via
+        /// [`Nuclide::sample_inelastic_mu_cm`]. Levels differ in anisotropy, so
+        /// one lumped distribution would not do.
+        mt: i32,
     },
     /// The continuum inelastic channel (MT=91): a broad secondary-energy
     /// distribution modelled by a Weisskopf evaporation spectrum, bounded by the
@@ -150,6 +155,17 @@ enum XsSource {
         /// cosine/pdf/cdf per incident energy. Empty / all-isotropic ⇒ the elastic
         /// scatter falls back to isotropic-CM. Drives [`Nuclide::sample_elastic_mu_cm`].
         elastic_angular: ElasticAngular,
+        /// Discrete-level inelastic angular distributions (ENDF MF=4/MT=51…90),
+        /// one entry per level that has one, ascending in MT. Same CM-frame
+        /// tabulated form as `elastic_angular` — MF=4 has a single record
+        /// structure whatever the reaction — and `LCT = 2` on every actinide
+        /// evaluation read here, so the cosines feed `two_body_scatter_with_mu`
+        /// directly. A level absent from this list scatters isotropically in CM.
+        /// Drives [`Nuclide::sample_inelastic_mu_cm`].
+        ///
+        /// MT=91 and (n,2n) are deliberately **not** here: their angular law is
+        /// in MF=6 beside the secondary-energy law, not in MF=4.
+        inelastic_angular: Vec<(u32, ElasticAngular)>,
     },
 }
 
@@ -298,6 +314,32 @@ impl Nuclide {
         } = &mut self.xs
         {
             *elastic_angular = ElasticAngular::default();
+        }
+        self
+    }
+
+    /// Return this nuclide with its **discrete inelastic** (MT=51…90) angular
+    /// distributions discarded, so every inelastic collision scatters
+    /// isotropically in the centre of mass.
+    ///
+    /// The ablation control for bead `op-tm9f`: it restores exactly the
+    /// behaviour this crate had before the level MF=4 data was wired in, so the
+    /// two arms of a paired-seed ensemble differ in *only* that one physics
+    /// choice and the difference between them is what the anisotropy is worth.
+    /// Cross sections are untouched — only the angular law changes — which is
+    /// the property the ablation's control test asserts.
+    ///
+    /// A no-op on the LOW (`Core`) tier, which carries no per-level data.
+    ///
+    /// Independent of
+    /// [`with_isotropic_elastic_scattering`](Self::with_isotropic_elastic_scattering);
+    /// the two ablate different channels and may be combined.
+    pub fn with_isotropic_inelastic_scattering(mut self) -> Self {
+        if let XsSource::Pointwise {
+            inelastic_angular, ..
+        } = &mut self.xs
+        {
+            inelastic_angular.clear();
         }
         self
     }
@@ -463,9 +505,28 @@ impl Nuclide {
         //    unparseable ⇒ isotropic-CM elastic (default empty distribution).
         let elastic_angular = tape
             .section(mat, 4, 2)
-            .map(njoy_outram_park_fork::acer::angular::parse_elastic_angular)
+            .map(njoy_outram_park_fork::acer::angular::parse_mf4_angular)
             .transpose()?
             .unwrap_or_default();
+
+        // 6b. Discrete-level inelastic angular distributions, MF=4/MT=51…90 —
+        //     the same parser, because MF=4 has one record structure whatever
+        //     the reaction. Levels the evaluation leaves out, or that parse to
+        //     an all-isotropic distribution, are dropped here rather than
+        //     stored: `sample_inelastic_mu_cm` returning `None` and an
+        //     all-isotropic table give the same physics, and not storing them
+        //     keeps the lookup small. Ascending in MT, which
+        //     `sample_inelastic_mu_cm`'s binary search relies on.
+        let mut inelastic_angular: Vec<(u32, ElasticAngular)> = Vec::new();
+        for mt in 51..=90u32 {
+            let Some(sec) = tape.section(mat, 4, mt as i32) else {
+                continue;
+            };
+            let ang = njoy_outram_park_fork::acer::angular::parse_mf4_angular(sec)?;
+            if !ang.is_all_isotropic() {
+                inelastic_angular.push((mt, ang));
+            }
+        }
 
         // 7. Evaluated continuum emission laws from MF=6 LAW=1 (MT=91 and
         //    MT=16). RECONR gives MF=3 magnitudes but no secondary-energy law,
@@ -488,6 +549,7 @@ impl Nuclide {
                 recon,
                 inel,
                 elastic_angular,
+                inelastic_angular,
             },
             thermal: None,
             continuum,
@@ -659,7 +721,10 @@ impl Nuclide {
                 return if l.continuum {
                     Inelastic::Continuum { q: l.q }
                 } else {
-                    Inelastic::Level { q: l.q }
+                    Inelastic::Level {
+                        q: l.q,
+                        mt: l.mt.number(),
+                    }
                 };
             }
         }
@@ -703,47 +768,45 @@ impl Nuclide {
                 return Some(sample_exponential_mu(mubar, prn(seed)));
             }
         };
-        let dists = &elastic_angular.energies;
-        if dists.is_empty() {
+        sample_mf4_mu_cm(elastic_angular, e, seed)
+    }
+
+    /// Sample a **discrete inelastic** (MT=51…90) scattering cosine in the
+    /// **centre-of-mass frame** at incident energy `e` \[eV\], returning
+    /// `Some(mu_cm)` when this nuclide carries an MF=4 distribution for that
+    /// level, or `None` when it does not — the caller then falls back to
+    /// isotropic-CM, which is what this crate did for *every* inelastic
+    /// collision before bead `op-tm9f`.
+    ///
+    /// # Why this matters
+    ///
+    /// Sampling inelastic isotropically makes `⟨μ⟩` too small, so the transport
+    /// cross section `Σ_tr = Σ_t(1 − ⟨μ⟩)` comes out too large, the diffusion
+    /// coefficient too small, leakage too low and `k` too high. On Godiva —
+    /// 55.8 % leakage — inelastic is 14.8 % of all scattering with a measured
+    /// `⟨μ_lab⟩ = 0.0254`, and treating it as isotropic was priced at roughly
+    /// **+181 pcm** against OpenMC on identical data.
+    ///
+    /// # Frame
+    ///
+    /// The cosine is in the **CM frame** (ENDF `LCT = 2`, which is what U-235
+    /// and U-238 carry for every level in ENDF/B-VIII.0), so it goes straight to
+    /// [`two_body_scatter_with_mu`](crate::physics::scatter::two_body_scatter_with_mu)
+    /// alongside the level's `Q`.
+    ///
+    /// Returns `None` on the LOW (`Core`) tier, which carries no per-level data.
+    pub fn sample_inelastic_mu_cm(&self, mt: i32, e: f64, seed: &mut u64) -> Option<f64> {
+        let XsSource::Pointwise {
+            inelastic_angular, ..
+        } = &self.xs
+        else {
             return None;
-        }
-
-        // Locate the bracketing incident-energy distributions (energies ascending
-        // in MeV) and the interpolation factor, then pick one statistically.
-        let e_mev = e * 1.0e-6;
-        let n = dists.len();
-        let chosen = if e_mev <= dists[0].e_mev {
-            &dists[0]
-        } else if e_mev >= dists[n - 1].e_mev {
-            &dists[n - 1]
-        } else {
-            let mut i = 0;
-            while i + 1 < n && dists[i + 1].e_mev <= e_mev {
-                i += 1;
-            }
-            let (e0, e1) = (dists[i].e_mev, dists[i + 1].e_mev);
-            let r = if e1 > e0 {
-                (e_mev - e0) / (e1 - e0)
-            } else {
-                0.0
-            };
-            if r > prn(seed) {
-                &dists[i + 1]
-            } else {
-                &dists[i]
-            }
         };
-
-        // Isotropic at this energy (ENDF locator 0 ⇒ no stored cosines).
-        if chosen.cosines.is_empty() {
-            return Some(2.0 * prn(seed) - 1.0);
-        }
-        Some(sample_tabular_mu(
-            &chosen.cosines,
-            &chosen.pdf,
-            &chosen.cdf,
-            prn(seed),
-        ))
+        let mt = u32::try_from(mt).ok()?;
+        let i = inelastic_angular
+            .binary_search_by_key(&mt, |(m, _)| *m)
+            .ok()?;
+        sample_mf4_mu_cm(&inelastic_angular[i].1, e, seed)
     }
 
     /// Sample a bound-atom S(α,β) thermal scatter at incident energy `e` \[eV\],
@@ -1518,6 +1581,64 @@ fn langevin_inverse(mu_bar: f64) -> f64 {
 /// channel so the down-scatter is still modelled.
 // Used by `Nuclide::from_tape`, which is not feature-gated: the inelastic
 // level structure comes off any tape, downloaded or supplied.
+/// Draw a scattering cosine from a parsed ENDF MF=4 distribution at incident
+/// energy `e` \[eV\], in the frame the distribution is tabulated in (CM for
+/// every reaction this crate reads).
+///
+/// Ported from OpenMC `AngleDistribution::sample` (`src/distribution_angle.cpp`):
+/// bracket the incident energy among the tabulated distributions, pick the lower
+/// or upper table **statistically** with probability `r` rather than
+/// interpolating the tables themselves, then invert that table's CDF. Drawing one
+/// of the two with probability `r` has the linear interpolation as its
+/// *expectation*, which is why reading a reference implementation's table at the
+/// **nearest** incident energy disagrees with it — a trap this crate's V&V record
+/// hit three times.
+///
+/// Returns `None` when the distribution carries no tabulated energies at all (the
+/// caller falls back to isotropic), and an isotropic draw when the bracketed
+/// energy is itself isotropic (ENDF locator 0, no stored cosines).
+fn sample_mf4_mu_cm(dist: &ElasticAngular, e: f64, seed: &mut u64) -> Option<f64> {
+    let dists = &dist.energies;
+    if dists.is_empty() {
+        return None;
+    }
+
+    let e_mev = e * 1.0e-6;
+    let n = dists.len();
+    let chosen = if e_mev <= dists[0].e_mev {
+        &dists[0]
+    } else if e_mev >= dists[n - 1].e_mev {
+        &dists[n - 1]
+    } else {
+        let mut i = 0;
+        while i + 1 < n && dists[i + 1].e_mev <= e_mev {
+            i += 1;
+        }
+        let (e0, e1) = (dists[i].e_mev, dists[i + 1].e_mev);
+        let r = if e1 > e0 {
+            (e_mev - e0) / (e1 - e0)
+        } else {
+            0.0
+        };
+        if r > prn(seed) {
+            &dists[i + 1]
+        } else {
+            &dists[i]
+        }
+    };
+
+    // Isotropic at this energy (ENDF locator 0 ⇒ no stored cosines).
+    if chosen.cosines.is_empty() {
+        return Some(2.0 * prn(seed) - 1.0);
+    }
+    Some(sample_tabular_mu(
+        &chosen.cosines,
+        &chosen.pdf,
+        &chosen.cdf,
+        prn(seed),
+    ))
+}
+
 fn build_inelastic_levels(recon: &ReconrResult) -> Vec<InelasticLevel> {
     let mut levels: Vec<InelasticLevel> = recon
         .sections

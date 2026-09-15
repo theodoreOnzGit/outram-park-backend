@@ -3,11 +3,14 @@
 //! C++ source: `src/physics_common.cpp`, `src/physics.cpp`.
 //!
 //! The channels differ in both their outgoing *energy* law and their angular law.
-//! Elastic scatter can use an anisotropic centre-of-mass distribution (ENDF MF=4,
-//! sampled by the caller and passed as `mu_cm`) — the dominant reactivity lever for
-//! a bare fast-metal sphere, where forward-peaked elastic off heavy nuclei sets the
-//! transport cross section and hence the leakage. The inelastic channels remain
-//! isotropic-CM in angle for now. By outgoing-energy law:
+//! **Elastic and the discrete inelastic levels both use the evaluation's
+//! anisotropic centre-of-mass distribution** (ENDF MF=4, sampled by the caller
+//! and passed as `mu_cm` to [`two_body_scatter_with_mu`]) — the dominant
+//! reactivity lever for a bare fast-metal sphere, where forward-peaked scatter
+//! off heavy nuclei sets the transport cross section and hence the leakage. Only
+//! the **continuum** channels are still isotropic in the frame their law names,
+//! because their angular correlation lives in MF=6 rather than MF=4 (see
+//! [`continuum_inelastic_scatter_evaluated`]). By outgoing-energy law:
 //!
 //! - **Elastic** (MT=2) — [`elastic_scatter`]: two-body kinematics with `Q = 0`;
 //!   off a heavy actinide the neutron loses almost no energy per collision
@@ -20,22 +23,30 @@
 //!   the defect recorded as bead `op-50vu`. A nuclide carrying an S(α,β) table
 //!   uses that law instead below its cutoff and this one in the band between the
 //!   cutoff and `400·kT`.
-//! - **Discrete-level inelastic** (MT=51…90) — [`two_body_scatter`] with the
-//!   level's `Q < 0`: the neutron gives up the level excitation energy, a *large*
-//!   per-collision energy loss (tens of keV to MeV) that softens the fast
-//!   spectrum. This is the dominant fast-spectrum energy-loss mechanism for heavy
-//!   nuclei, and its absence (inelastic lumped into elastic) was the leading bias
-//!   in the first Godiva Keff — see `docs/development-history.md`.
+//! - **Discrete-level inelastic** (MT=51…90) — [`two_body_scatter_with_mu`] with
+//!   the level's `Q < 0` and the level's own MF=4 CM cosine: the neutron gives up
+//!   the level excitation energy, a *large* per-collision energy loss (tens of
+//!   keV to MeV) that softens the fast spectrum. This is the dominant
+//!   fast-spectrum energy-loss mechanism for heavy nuclei, and its absence
+//!   (inelastic lumped into elastic) was the leading bias in the first Godiva
+//!   Keff — see `docs/development-history.md`. Its *angular* law was isotropic
+//!   until bead `op-tm9f`; U-238's levels are forward-peaked (`⟨μ_cm⟩` +0.03 at
+//!   1 MeV to +0.51 at 14 MeV) and sampling them isotropically suppressed leakage
+//!   on Godiva. A level the evaluation leaves isotropic (U-235's MT=51/52/54 are
+//!   genuinely so) falls back to [`two_body_scatter`].
 //! - **Continuum inelastic** (MT=91) — [`continuum_inelastic_scatter`]: the
 //!   outgoing energy is a distribution, not fixed by a single `Q`. RECONR does not
 //!   reconstruct the ENDF MF=5 continuum law, so this uses a **Weisskopf
 //!   evaporation** model with a nuclear temperature θ = √(E/a), level-density
 //!   parameter a ≈ A/11 MeV⁻¹ (actinide) — an approximation, documented as such.
 //!
-//! Anisotropic elastic uses the full ENDF MF=4 tabulated cosine distribution
-//! (sampled in `material::nuclide`, ported from OpenMC), passed here as a CM cosine
-//! via [`two_body_scatter_with_mu`]. Anisotropic *inelastic* angular laws (coupled
-//! to the MF=5/MF=6 energy distributions) remain future work.
+//! Both anisotropic paths use the full ENDF MF=4 tabulated cosine distribution
+//! (sampled in `material::nuclide`, ported from OpenMC), passed here as a CM
+//! cosine via [`two_body_scatter_with_mu`] — elastic from MT=2, each discrete
+//! level from its own MT. What remains future work is the **continuum** angular
+//! correlation carried in MF=6 (the `f₁…f_NA` Legendre terms for LANG=1, Kalbach
+//! `r`/`a` for LANG=2), tracked as bead `op-og56`; the continuum energy law
+//! itself *is* read.
 
 use crate::geometry::position::Direction;
 use crate::material::nuclide::sample_continuous_tabular;

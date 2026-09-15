@@ -1,11 +1,18 @@
-//! Parse ENDF MF=4 elastic angular distributions and convert them to the ACE
+//! Parse ENDF MF=4 angular distributions and convert them to the ACE
 //! tabulated-cosine form used by the AND block.
 //!
 //! Ports the angular-distribution path of NJOY2016 `acefc.f90` (`topfil` +
-//! `ptleg`/`pttab` for the `newfor=1` "new format") for **elastic scattering
-//! (MT=2)** only — the one angular distribution OpenMC needs before it can track
-//! a single collision. Inelastic-level and continuum angular distributions
-//! (which couple with the MF=5/MF=6 energy distributions) are a later increment.
+//! `ptleg`/`pttab` for the `newfor=1` "new format"). The conversion is
+//! **MT-agnostic** — MF=4 has one record structure whatever reaction it
+//! describes — so the same routine serves **elastic (MT=2)** and the
+//! **discrete inelastic levels (MT=51…90)**. Use [`parse_mf4_angular`] for any
+//! MT; [`parse_elastic_angular`] is the original elastic-named entry point,
+//! kept because it is published API.
+//!
+//! **Continuum angular data is NOT here.** MT=91 and (n,2n) carry their angular
+//! law coupled to the secondary-energy distribution in MF=6, not MF=4; see
+//! [`crate::nuclear_data::secondary::ContinuumEmission`], which reads the energy
+//! law and documents the angular correlation it still drops.
 //!
 //! ## ENDF MF=4 → ACE conversion
 //!
@@ -135,12 +142,42 @@ impl ElasticAngular {
 
 /// Parse an MF=4/MT=2 section into ACE elastic angular distributions.
 ///
-/// Handles LTT = 1 (Legendre), 2 (tabulated), and 3 (both), and the LI=1 /
-/// LTT=0 fully-isotropic case (returns an empty distribution).
+/// Thin delegate to [`parse_mf4_angular`], which does the work and handles any
+/// MT. Kept under its original name because it is published API; prefer
+/// [`parse_mf4_angular`] in new code, and use it for the inelastic levels.
 ///
 /// # Errors
 /// Returns [`NjoyError::EndfParse`] if the record structure is malformed.
 pub fn parse_elastic_angular(section: &Section) -> Result<ElasticAngular, NjoyError> {
+    parse_mf4_angular(section)
+}
+
+/// Parse an MF=4 section — **any MT** — into ACE tabulated-cosine angular
+/// distributions.
+///
+/// Handles LTT = 1 (Legendre), 2 (tabulated), and 3 (both), and the LI=1 /
+/// LTT=0 fully-isotropic case (returns an empty distribution).
+///
+/// # Which reactions this covers
+///
+/// Elastic (MT=2) and the discrete inelastic levels (MT=51…90). MF=4 stores one
+/// record structure regardless of reaction, so no per-MT branching is needed.
+/// The continuum channels (MT=91, MT=16) do **not** appear in MF=4 at all —
+/// their angular law lives in MF=6 beside the secondary-energy law.
+///
+/// # Frame
+///
+/// Cosines come back in the frame the evaluation names in its `LCT` flag, which
+/// is `LCT = 2` (centre of mass) for elastic and for the discrete inelastic
+/// levels of every actinide evaluation checked here (ENDF/B-VIII.0 U-235 and
+/// U-238, MT=51…89). **The flag is not stored**, so a caller that meets an
+/// `LCT = 1` (laboratory) MF=4 section would silently treat its cosines as CM.
+/// That is a real latent gap rather than a safe assumption; it is left as-is
+/// only because no evaluation this port reads exercises it.
+///
+/// # Errors
+/// Returns [`NjoyError::EndfParse`] if the record structure is malformed.
+pub fn parse_mf4_angular(section: &Section) -> Result<ElasticAngular, NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?; // ZA, AWR, 0, LTT, 0, 0
     let ltt = head.l2;

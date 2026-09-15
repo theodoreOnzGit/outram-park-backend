@@ -60,8 +60,8 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated, rotate_direction,
-    two_body_scatter,
+    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated,
+    rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
@@ -800,15 +800,27 @@ pub(crate) fn transport_history(
                     break 'history; // capture
                 } else if xi < x.absorption + x.inelastic {
                     let (e2, u2) = match nuc.sample_inelastic(e, seed) {
-                        Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed),
+                        // Discrete level: the CM angular law is the level's own ENDF
+                        // MF=4 (op-tm9f). Isotropic-CM only when the evaluation
+                        // carries none for this level -- sampling every inelastic
+                        // collision isotropically understates <mu>, inflating
+                        // Sigma_tr, suppressing leakage and raising k.
+                        Inelastic::Level { q, mt } => {
+                            match nuc.sample_inelastic_mu_cm(mt, e, seed) {
+                                Some(mu_cm) => {
+                                    two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed)
+                                }
+                                None => two_body_scatter(e, u, nuc.awr, q, seed),
+                            }
+                        }
                         Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                    e,
-                    u,
-                    nuc.awr,
-                    q,
-                    nuc.continuum_law(91),
-                    seed,
-                ),
+                            e,
+                            u,
+                            nuc.awr,
+                            q,
+                            nuc.continuum_law(91),
+                            seed,
+                        ),
                     };
                     e = e2;
                     u = u2;

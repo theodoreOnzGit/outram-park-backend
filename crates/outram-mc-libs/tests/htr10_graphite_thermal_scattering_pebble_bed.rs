@@ -674,8 +674,19 @@ fn diagnose_thermal_spectrum_reach() {
                 break; // fission or capture — history over
             } else if xi < x.absorption + x.inelastic {
                 let (e2, u2) = match nuc.sample_inelastic(e, &mut seed) {
-                    Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, &mut seed),
-                    Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, &mut seed),
+                    // Mirror the kernel: the level's own MF=4 CM cosine when the
+                    // evaluation carries one, isotropic-CM otherwise (op-tm9f).
+                    Inelastic::Level { q, mt } => {
+                        match nuc.sample_inelastic_mu_cm(mt, e, &mut seed) {
+                            Some(mu_cm) => {
+                                two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, &mut seed)
+                            }
+                            None => two_body_scatter(e, u, nuc.awr, q, &mut seed),
+                        }
+                    }
+                    Inelastic::Continuum { q } => {
+                        continuum_inelastic_scatter(e, u, nuc.awr, q, &mut seed)
+                    }
                 };
                 e = e2;
                 u = u2;
