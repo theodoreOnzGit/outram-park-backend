@@ -26,6 +26,7 @@ fn recon(awr: f64, sections: Vec<ReconrSection>) -> ReconrResult {
         material: material(awr),
         sections,
         resonance_upper_limit: None,
+        unresolved_table: None,
     }
 }
 

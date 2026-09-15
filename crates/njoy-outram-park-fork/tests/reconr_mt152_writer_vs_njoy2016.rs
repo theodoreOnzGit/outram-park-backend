@@ -195,3 +195,112 @@ fn the_fifth_column_repeats_the_total() {
     }
     println!("  column 5 repeats the total at all {} points", table.n_points());
 }
+
+/// `reconr()` itself emits the section — not merely that [`build_mt152`] can.
+///
+/// The table is built from the **background**, before the unresolved
+/// contribution is folded into MF=3. `genunr` adds the evaluation's own MF=3 to
+/// its stored values (`reconr.f90:1694-1727`), so building it from sections
+/// that already carry the unresolved term would count that term twice. This
+/// asserts the wiring got that order right, by requiring the emitted section to
+/// match NJOY's — double-counting would show up immediately as roughly twice
+/// the unresolved contribution.
+#[test]
+fn reconr_emits_the_section_and_it_still_matches_njoy() {
+    use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+
+    let (Some(pendf), Some(ep)) = (
+        reference_file("reconr", "u234-ENDF8.0-0K-err0.001.pendf"),
+        reference_file("endf", "n-092_U_234-ENDF8.0.endf"),
+    ) else {
+        eprintln!("skipping: reference data absent");
+        return;
+    };
+    let eval_tape = Tape::read_file(&ep).expect("evaluation parses");
+    let result = reconr(
+        &eval_tape,
+        &ReconrConfig {
+            mat: MAT,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
+    )
+    .expect("reconstruction runs");
+
+    let rows = result
+        .unresolved_table
+        .as_ref()
+        .expect("U-234 has an LRU=2 range, so reconr() must emit MF=2/MT=152");
+    let mine = read_urr_table(rows, 0.0).expect("emitted section round-trips");
+    let theirs = read_urr_from_tape(
+        Some(&Tape::read_file(&pendf).expect("PENDF parses")),
+        MAT,
+        1,
+        0.0,
+    )
+    .expect("NJOY MT=152 parses")
+    .expect("present");
+
+    assert_eq!(mine.n_points(), theirs.n_points(), "energy-grid size differs");
+    let mut worst = 0.0_f64;
+    for (a, b) in mine.points().iter().zip(theirs.points()) {
+        for col in 0..4 {
+            let (Some(x), Some(y)) = (
+                a.xs.get(col).and_then(|c| c.first()).copied(),
+                b.xs.get(col).and_then(|c| c.first()).copied(),
+            ) else {
+                continue;
+            };
+            if y != 0.0 {
+                worst = worst.max((x - y).abs() / y.abs());
+            }
+        }
+    }
+    for col in 0..4 {
+        let (mut cw, mut at) = (0.0f64, String::new());
+        for (a, b) in mine.points().iter().zip(theirs.points()) {
+            let (Some(x), Some(y)) = (a.xs.get(col).and_then(|c| c.first()).copied(),
+                                      b.xs.get(col).and_then(|c| c.first()).copied()) else { continue };
+            if y == 0.0 { continue }
+            let d = (x-y).abs()/y.abs();
+            if d > cw { cw = d; at = format!("E={:.5e} ours {x:.6e} njoy {y:.6e}", a.energy_ev); }
+        }
+        println!("  col {col}: worst {cw:.2e}  {at}");
+    }
+    println!("  reconr()-emitted MT=152: {} points, worst {worst:.2e}", mine.n_points());
+    assert!(
+        worst <= GATE,
+        "the section reconr() emits deviates from NJOY's by {worst:.2e}. If this \
+         is roughly a factor of two on the unresolved part, the table is being \
+         built from sections that already carry the unresolved contribution -- \
+         see this test's doc."
+    );
+}
+
+/// A material with no unresolved range gets no section, matching upstream's
+/// `if (lrp.eq.3) call genunr` gate (`reconr.f90:352`).
+#[test]
+fn a_material_without_an_unresolved_range_emits_no_section() {
+    use njoy_outram_park_fork::reconr::{reconr, ReconrConfig};
+
+    // Si-30 is resolved-only (LRF=3, no LRU=2 range).
+    let Some(ep) = reference_file("endf", "n-014_Si_030-ENDF8.0.endf") else {
+        eprintln!("skipping: Si-30 evaluation absent");
+        return;
+    };
+    let tape = Tape::read_file(&ep).expect("evaluation parses");
+    let result = reconr(
+        &tape,
+        &ReconrConfig {
+            mat: 1431,
+            tolerance: 0.001,
+            temperature: 0.0,
+        },
+    )
+    .expect("reconstruction runs");
+    assert!(
+        result.unresolved_table.is_none(),
+        "Si-30 has no LRU=2 range, so no MF=2/MT=152 section should be emitted"
+    );
+    println!("  Si-30: no MT=152 section, as expected");
+}
