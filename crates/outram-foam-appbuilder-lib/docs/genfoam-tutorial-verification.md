@@ -23,194 +23,117 @@ git clone --depth 1 https://gitlab.com/foam-for-nuclear/GeN-Foam.git /workspace/
 Every test below **skips** rather than fails when it is absent. Override the
 location with `GENFOAM_UPSTREAM`.
 
-## The four cases
+## Upstream is built and run here
 
-| case | upstream reference | reference is | status |
-|---|---|---|---|
-| `reactorCases/3D_SmallESFR_NewSolverVerification` | `expectedKeff = 0.936827` | `k_eff` | **verified** |
-| `reactorCases/2D_MSFR` | `expectedKeff = 0.960283`, power 20 MW | `k_eff` | **posed identically**; +2002 pcm residual = feedback state |
-| `reactorCases/3D_gFHR` | `Tfmax` avg/min/max = 981.808 / 900.664 / 1062.87 K | fuel temperature | **power model ported**; rise fits upstream's numbers, surface temp needs TH |
-| `featureCases/1D_PSBT_SC` | `alpha.vapour = 0.123835`, `T = 620.178 K` | exit void + temperature | **blocked** — two-phase solver missing |
-
-Upstream's tolerance is 0.001 relative for the two `k_eff` cases and 0.01 for
-gFHR and PSBT.
-
-## What runs today
+`develop.openfoam.com` is egress-blocked, but OpenCFD's source is mirrored on
+GitHub: [`ZhangYanTJU/OpenFOAM-ESI`](https://github.com/ZhangYanTJU/OpenFOAM-ESI)
+carries `refs/tags/OpenFOAM-v2506`, the version GeN-Foam targets. Built with
+`SYSTEMOPENMPI` and system scotch, no ThirdParty — 127 libraries, 267 binaries.
+GeN-Foam `652b3da` builds on top.
 
 ```bash
-# Neutronics: ESFR and MSFR.
-cargo test --release -p outram-foam-appbuilder-lib --test genfoam_tutorial_keff -- --nocapture
-
-# gFHR pebble conduction consistency.
-cargo test --release -p tampines --test genfoam_gfhr_pebble_conduction -- --nocapture
+git clone --depth 1 --branch OpenFOAM-v2506 \
+    https://github.com/ZhangYanTJU/OpenFOAM-ESI.git /workspace/OpenFOAM-v2506
 ```
+
+**Three obstacles, all in GeN-Foam's offbeat submodule:** `.gitmodules` names the
+branch `ffn/Gen-Foam2` where it is actually `ffn/GeN-Foam2`; the pinned commit
+`9845e449` was force-pushed away; and offbeat introduced `offbeatTime` in
+2025-08 while GeN-Foam still calls `timeHandling(const fvMesh&, Time&)`, so no
+surviving offbeat satisfies both GeN-Foam and v2506. Resolved by taking the
+v2506-compatible tip and excluding the two files needing the lost API —
+GeN-Foam's `extendedThermoMechanics` and offbeat's `fuelBehaviour` (stubbed so
+`liboffbeatMain` still links). Only ESFR's `newSolver` is affected; its
+`legacySolver` sibling is checked against the **same** `expectedKeff`.
+
+**Every tutorial reproduces its own published reference**, which is what makes
+them usable as reference runs:
+
+| case | run here | `Alltest` expects | difference |
+|---|---|---|---|
+| ESFR | 0.936873 | 0.936827 | +49 pcm |
+| MSFR | 0.96031 | 0.960283 | +2.8 pcm |
+| gFHR | 981.812 / 900.664 / 1062.96 | 981.808 / 900.664 / 1062.87 | min **exact** |
+| PSBT | 0.123835 / 620.178 | 0.123835 / 620.178 | **exact** |
+
+## The four cases: port vs upstream
+
+| case | what is compared | result |
+|---|---|---|
+| **ESFR** | `k_eff` at upstream's converged state | **+60.7 pcm** — inside upstream's own 0.001 tolerance |
+| **MSFR** | `k_eff`, per-cell cross sections | **+787.8 pcm** — residual is precursor drift |
+| **gFHR** | every stage of the pebble model, cell by cell | **≤ 7.2e-06** |
+| **PSBT** | the `ReynoldsPower` wall-friction closure, cell by cell | **6.15e-06** |
 
 ### ESFR — verified
 
-Port, reference state: `k_eff = 0.944987`. Upstream: `0.936827`. **+871 pcm.**
-
-Upstream's number comes from a fully coupled run (`fluidRegion onePhase` +
-`diffusionNeutronics` + `extendedThermoMechanics`) read at the converged steady
-state, so its cross sections sit at fed-back temperatures and densities. Every
-SFR feedback is negative at power, so the coupled value must fall **below** the
-reference-state one — and it does. That is a consistency argument about sign and
-magnitude, not a measurement of the feedback. Running the perturbed states
-through the parametrisation and comparing the reactivity coefficients themselves
-is what would upgrade it.
-
-### MSFR — posed identically, residual is feedback state
-
-Upstream's `albedoSP3` boundary condition is now ported (`op-3fer`), so the
-spatial neutronics is posed exactly as upstream poses it: same mesh, cross
-sections, zone map, diffusion operator, boundary conditions and power iteration.
-Upstream's per-patch spec is `topwall`/`bottomwall`/`reflector` at `gamma 0.1`
-and **`hx` at `gamma 0.5`** — assuming one gamma for the whole boundary is the
-obvious mistake, and this test made it before the dictionary was read in full.
-
-| | `k_eff` |
-|---|---|
-| port, reference state, upstream's boundaries | **0.979508** |
-| upstream coupled `expectedKeff` | 0.960283 |
-| difference | **+2002 pcm** |
-| (previously, blanket `fixedValue 0`) | 0.958444 |
-
-So the albedo condition is worth **+2106 pcm** — about as much as the whole
-remaining discrepancy.
-
-**The residual is the cross-section state, and it is measured, not guessed.**
-Upstream's number comes from its coupled `steadyStateEN` stage, where the salt
-has heated under 20 MW against a heat exchanger held at 900 K; this test
-evaluates at the nominal reference state, because the port has no coupled TH
-driver. Running the case's **own** perturbed states through the port's
-parametrisation gives
-
-| state | `k_eff` | coefficient |
+| | `k_eff` | vs upstream |
 |---|---|---|
-| `TFuel` 900 → 1500 K | 0.960741 | **−3.3238 pcm/K** |
-| `rhoCool` 4125 → 3419 kg/m³ | 0.944979 | **+5.2838 pcm per kg/m³** |
-| both | 0.923777 | — |
+| port @ nominal reference | 0.944987 | +866.1 pcm |
+| **port @ upstream's converged state** | **0.937442** | **+60.7 pcm** |
 
-`+2002 pcm` is therefore a core running some 600 K above the 900 K cold leg, or
-a smaller rise with the density drop that accompanies it. The test asserts only
-what is rigorous and unfitted — the sign (feedback is negative, so upstream must
-sit below the reference state) and that upstream's value lies inside the span the
-case's own perturbed states allow. **It does not claim to reproduce 0.960283.**
+Inside upstream's own 0.001 relative tolerance, asserted. `TFuel`/`TClad` are
+zero in the non-fuelled zones, so the state is averaged over the **6540 fuelled
+cells** of 23322 — a plain mean over the whole mesh is the obvious trap and is
+meaningless.
 
-Closing it needs the coupled TH solve (pump, buoyancy, turbulence, the
-`fixedTemperature` heat exchanger) plus circulating-fuel precursor drift — filed
-separately. Note `beta_total` here is `2.853e-3`, so drift is worth at most
-~285 pcm and is *not* the main term.
+### MSFR — residual is precursor drift
 
-**A wrong answer this found.** Posed with `fixedValue 0` on *every* patch —
-including the two `wedge` planes of the axisymmetric mesh — the same solve
-returns `k_eff = 0.153242`, −84 042 pcm. A wedge plane is a geometric artefact,
-not a surface. Patch *kind* decides the boundary.
+| | `k_eff` | vs upstream |
+|---|---|---|
+| port @ nominal reference | 0.979508 | +1999.1 pcm |
+| port @ upstream's mean state | 0.969113 | +916.7 pcm |
+| **port @ upstream's per-cell state** | **0.967875** | **+787.8 pcm** |
 
-### gFHR — power model ported, rise fits upstream's own numbers
+Upstream's `albedoSP3` boundary is ported (worth +2106 pcm on its own), and
+cross sections are now evaluated per cell as upstream does.
 
-`nuclearSteadyStatePebble` is now ported
-(`genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble`,
-`op-5eoa`). Upstream's model is a **closed-form chain**, not an iteration, so the
-port is an exact transcription. Two things a from-physics derivation gets wrong
-and reading upstream fixes:
+The remaining 788 pcm is **circulating-fuel precursor drift**: MSFR's delayed
+neutron precursors are advected out of the core and decay in the heat exchanger,
+which upstream models and the port does not — it collapses the delayed source to
+`chi_eff = chi_p(1−β) + chi_d·β`, assuming precursors decay where born, which
+overestimates `k`. Correct sign; magnitude bounded by `beta_total = 285 pcm`, so
+it is not the whole story. Filed.
 
-1. The fuelled annulus goes outer-face-to-**volume-average**, not to its centre —
-   the average is what the dispersed particles sit at.
-2. The matrix conductivity comes from a **Maxwell** mixture rule over the TRISO
-   packing, not from bare graphite.
+### gFHR — verified, whole model
 
-Together those moved the total rise from 71.56 K (my earlier hand-derived stack)
-to **61.67 K**.
+`nuclearSteadyStatePebble` is ported and every stage checked against upstream's
+own fields over all 292 500 cells, with upstream's own pebble surface
+temperature as the input:
 
-| term | rise (K) |
+| stage | worst relative difference |
 |---|---|
-| surface → matrix outer | 11.634 |
-| matrix outer → volume average | 12.527 |
-| TRISO coatings | 30.626 |
-| kernel surface → centre | 6.883 |
-| **total** | **61.670** |
+| `keffmatrix` (Maxwell mixture) | 9.44e-07 |
+| `Tmout` | 3.82e-06 |
+| `Tmav` | 5.07e-06 |
+| `TfS` | 7.21e-06 |
+| `Tfav` | 4.50e-06 |
+| `Tfmax` | 5.10e-06 |
 
-**An independent confirmation.** The ported Maxwell rule gives
-`k_eff = 29.5870 W/(m·K)`. Upstream's own `lumped_structure.py` hardcodes
-`k_matrix = 29`, commenting "taking from python effective calculation" — two
-independent upstream artefacts agreeing with the port.
+~5 ppm is the fields' own 6-significant-figure ASCII write precision. Two details
+a from-physics derivation gets wrong, and reading upstream fixes: the annulus
+integral goes to its **volume average**, not its centre, and the matrix
+conductivity is a **Maxwell mixture**, not bare graphite.
 
-**Why this is checkable without the coupled TH.** `powerDensityNeutronics` is a
-uniform *scalar*, `alpha` is uniform, and the chain is linear in power with no
-other spatial dependence — so the rise is the same constant in every cell. That
-turns upstream's published statistics into a real constraint:
+### PSBT — closure verified
 
-```text
-dT <= Tfmax_min - T_coolant_inlet = 900.664 - 823.15 = 77.514 K
-```
+The port has no two-phase Euler-Euler solver, so it cannot compute the exit void
+fraction, and nothing here pretends otherwise. What it has are the closures.
+Upstream assembles `Kd = 0.5/Dh·(1−α_s)·ρ·max(|U|,minMagU)·f(Re)`, so evaluating
+the **port's** friction factor against **upstream's** drag must reproduce the
+hydraulic diameter — and the case declares exactly three, one per subchannel
+zone:
 
-Measured slack **15.844 K**, an ordinary pebble-bed convective film drop. Implied
-bed-average pebble surface **920.14 K**, between the 823.15 K inlet and the
-~923 K outlet. Uniform power also predicts the `Tfmax` spread (162.206 K) is
-surface-temperature spread only. Both bounds are upstream's own numbers; nothing
-is fitted.
+| | |
+|---|---|
+| cells compared | 836 of 1170 (`alpha.vapour == 0`) |
+| Reynolds range | 2.01e5 to 6.12e5 |
+| worst deviation from a declared `Dh` | **6.15e-06** |
 
-Still missing for a direct `Tfmax` reproduction: the convective coupling that
-produces the surface temperature, i.e. the porous TH driver. `lumpedNuclearStructure`
-(the case's second model) is also not ported.
-
-### PSBT — blocked
-
-Needs `regionSolvers { fluidRegion twoPhase; }`, the Euler-Euler porous
-two-phase solve. The port's `genfoam::thermal_hydraulics::solver` has
-`one_phase` only. The structures the case uses (`fixedPower`) *are* ported, so
-the fluid solver is the sole blocker.
-
-No approximation is attempted, and none should be: `alpha.vapour = 0.123835` is
-GeN-Foam's **own computed** exit void fraction, not the PSBT experimental value,
-so reproducing it needs GeN-Foam's specific interfacial and wall-boiling
-closures. A drift-flux estimate would produce a number that means nothing
-against it. Note `crates/outram-foam-multiphase` already carries ~7.2k lines of
-drift-flux, wall-boiling, two-fluid and CHF work — whether to build on that
-rather than port afresh is the first design question.
-
-## What had to be built to get here
-
-The neutronics solvers and the cross-section layer already existed; the gap was
-entirely I/O.
-
-- `outram_foam_basic_lib::io::dict` — `FoamValue::Dict`, so a dictionary
-  appearing as a **list element** parses. `states ( name { … } … )`, `cellZones`
-  and `boundary` are all that shape; the braces previously tokenised into stray
-  words and the entry flattened into nonsense. Plus
-  `FoamFile::read_with_includes`, since the ESFR case keeps each state's cross
-  sections in separate `#include`d `XS…` files.
-- `outram_foam_appbuilder_lib::io::nuclear_data` — the `nuclearData` reader.
-- `outram_foam_appbuilder_lib::io::poly_mesh` — `parse_cell_zones`,
-  `read_cell_zones`, `zone_of_cell`.
-
-## Routes that were checked and ruled out
-
-Recorded so they are not re-searched.
-
-- **Running upstream.** The definitive route, and it is barred: `dl.openfoam.com`
-  and `develop.openfoam.com` both return 403 on CONNECT under this session's
-  egress policy. Ubuntu `universe` carries only OpenFOAM v1912, seven years of
-  API drift from the v2506 GeN-Foam builds against, so the distro package is not
-  a substitute.
-- **Upstream's own `tests/` directory.** Contains only
-  `hydrogenThermophysicalProperties` and `radialBasisFunctions` build tests. No
-  reference values.
-- **A one-phase water-cooled substitute for PSBT.** Every `featureCases` entry
-  that ships reference values and uses water is two-phase (`1D_PSBT_SC` ×4,
-  `1D_CHF`, `1D_boiling`). `2D_fullCoupling` and
-  `2D_onePhaseAndPointKineticsCoupling` are one-phase but carry no reference
-  values and are generic coupling demos, not reactor cases. `2D_KNS37-L22` is
-  sodium.
-- **Reducing gFHR's convective coupling to closed form.** The case's own mesh
-  (r = 1.2 m, h = 3.0947 m) and power density give 279.5 MW, independently
-  confirming the 280 MW in upstream's `lumped_structure.py`; with
-  `mdot = 1173 kg/s` and `cp = 2265.75 J/(kg·K)` the mean coolant rise is
-  105.2 K. But upstream's `Tfmax` spread is **162.2 K**, half again larger, and
-  the film drop implied by `Tfmax_min` (15.8 K) disagrees with the one implied by
-  `Tfmax_avg` (44.4 K). That gap is three-dimensional flow maldistribution
-  through the bed, so no one-dimensional reduction recovers the statistics. The
-  porous flow solve is genuinely required.
+**With a control:** the 334 two-phase cells must *not* satisfy the relation,
+because PSBT applies a `LockhartMartinelli` multiplier there. They don't — worst
+deviation 0.53, five orders larger. Without that, the 6 ppm agreement would not
+distinguish a correct closure from a relation loose enough to admit anything.
 
 ## Scope
 
