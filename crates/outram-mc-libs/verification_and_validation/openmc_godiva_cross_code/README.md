@@ -55,14 +55,23 @@ dilution. OpenMC has them, so leaving them on would not be a like-for-like
 comparison. `godiva.py` therefore takes `--ptables`, and the run above is done
 both ways from one dataset.
 
-That also prices the gap. **Measured: +79 ± 40 pcm (2.0 sigma)** — turning URR
-self-shielding on **raises** k.
+That also prices the gap. **Measured over 16 seeds per arm: +43 ± 38 pcm —
+1.1 sigma, consistent with ZERO.**
 
-The sign was predicted in advance, and it is the unwelcome direction: adding
-probability tables to this crate would move it from `+250` to roughly `+330`
-pcm against OpenMC, i.e. **further from the benchmark, not closer**. It remains
-worth implementing for correctness; it is not a route to better Godiva
-agreement, and anyone reaching for it as one should know that first.
+**A superseded number, kept on the record.** An earlier 8/12-seed read gave
+`+79 ± 40 pcm (2.0 sigma)` and was written up here as confirming a predicted
+positive sign. With 16 seeds per arm it is `+43 ± 38` and the sign is **not
+established**. Do not quote the +79. Pairing the arms by seed does not rescue
+it either: OpenMC's RNG stream diverges as soon as the physics differs, so
+same-seed runs are uncorrelated — the paired difference has sd 170 pcm, *larger*
+than either arm's. Resolving a ~43 pcm effect at 3 sigma from here would need
+roughly 50 seeds per arm, or ~290x the histories per run; it was not judged
+worth the hours.
+
+The honest statement is that **URR self-shielding is a small term on Godiva,
+bounded below about ±80 pcm**, which is physically unsurprising: a bare fast
+metal sphere has little flux in the unresolved range. It remains worth
+implementing for correctness, but it is not the explanation for anything here.
 
 **A caution on how this number was reached.** At 3 seeds per arm the `ON` mean
 read *below* `OFF`, which would have reversed the conclusion. The 4th seed
@@ -203,9 +212,60 @@ sign and magnitude.
   is secondary-energy or reaction sampling, not geometry. The Weisskopf
   evaporation stand-in that `scatter.rs` documents for continuum outgoing
   energies is the obvious next suspect.
-- Note both of these push the *same* way as URR probability tables would (+79
-  pcm). Fixing the anisotropy moves k down; adding probability tables moves it
-  up. They are independent defects and should be priced independently.
+- URR probability tables are a **separate** gap, and a small one: measured at
+  `+43 ± 38 pcm`, consistent with zero (see the ablation section below). Fixing
+  the anisotropy moves k down; probability tables, if they move it at all, move
+  it up. Independent defects — price them independently, never net them.
+
+## Ablation: pricing the physics directly
+
+Two knobs, ablated and measured, with the tests kept for regression.
+
+### Elastic angular anisotropy — +10511 pcm
+
+[`Nuclide::with_isotropic_elastic_scattering`] empties the MF=4 table, so
+elastic scatters isotropically in CM. **The transport kernel is not modified**:
+`sample_elastic_mu_cm` already returns `None` for a nuclide with no anisotropic
+data and every driver already falls back to isotropic, so the ablation runs the
+production code path and the two arms differ in exactly one input.
+
+| arm | evaluated | ablated | worth |
+|---|---|---|---|
+| surface | 1.00273 ± 50 pcm | 1.10785 ± 44 pcm | **+10511 ± 67 pcm** |
+| delta | 1.00283 ± 52 pcm | 1.10812 ± 72 pcm | **+10528 ± 89 pcm** |
+
+Removing anisotropy raises k by 10 %, in the predicted direction, and the two
+independent collision loops price it to within 17 ± 111 pcm of each other.
+
+**This calibrates the diagnosis.** Elastic carries `0.852 × 0.2758 = 0.23498` of
+the `⟨μ⟩` budget; inelastic carries `0.148 × 0.0254 = 0.00376`, a ratio of
+0.0160. Scaling gives the missing inelastic anisotropy as **+168 pcm** — against
+**+181 pcm** measured from the `k_eff`/`k_inf` split and **+219 pcm** from
+one-group diffusion. Three independent routes, agreeing to ~25 %. Linear scaling
+across a 10 000 pcm ablation is crude, so this is corroboration rather than
+precision, but it is a third line of evidence for the same mechanism.
+
+`examples/godiva_anisotropy_ablation.rs` carries three gates: the worth must be
+a significant *increase*, both tracking methods must price it the same, and the
+value must reproduce the recorded +10511 within 4 sigma.
+
+### URR self-shielding — not resolved
+
+This crate has no probability tables to ablate, so it was done on the OpenMC
+side (`godiva.py --ptables`). **+43 ± 38 pcm over 16 seeds per arm, consistent
+with zero** — see the correction recorded above.
+
+### Regression coverage
+
+| test | cost | guards |
+|---|---|---|
+| `tests/anisotropy_ablation_control.rs` | ~3 s | that the ablation *ablates*, that the evaluated data is genuinely anisotropic, and that cross sections are bit-identical across it |
+| `examples/godiva_anisotropy_ablation.rs` | ~35 min | the three gates above |
+| `godiva.py --ptables` | ~1 h | the URR arm, re-runnable |
+
+The unit test exists because a silently no-op control is the worst failure mode
+an ablation study has: it reports "no difference" and reads as "this physics
+does not matter".
 
 ## Scope, and what this is not
 

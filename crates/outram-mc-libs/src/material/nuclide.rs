@@ -259,6 +259,49 @@ impl Nuclide {
         self
     }
 
+    /// **Ablation control for V&V: discard the evaluated elastic angular
+    /// distribution, making elastic scattering isotropic in the centre of mass.**
+    ///
+    /// This is deliberately *not* a fidelity knob and not an optimisation. It
+    /// exists so a study can **price** the physics: run a case twice, once with
+    /// the evaluated ENDF MF=4 cosine and once without, and difference the two.
+    /// The gap is what the anisotropy is worth, measured rather than argued.
+    ///
+    /// # Why it is expressed here and not in the transport kernel
+    ///
+    /// [`Self::sample_elastic_mu_cm`] already returns `None` when a nuclide has
+    /// no anisotropic data, and every transport driver already falls back to
+    /// `2*xi - 1` (isotropic CM) on that `None`. Emptying the table therefore
+    /// ablates the physics **through the production code path**, with no branch
+    /// added to the kernel and no risk that the ablation arm and the real arm
+    /// diverge in some other way. The two arms differ in exactly one input.
+    ///
+    /// # What it is for
+    ///
+    /// `outram-mc-libs` sits above OpenMC on Godiva, and
+    /// `verification_and_validation/openmc_godiva_cross_code/` attributes most
+    /// of that to **inelastic** angular distributions, which this crate does not
+    /// yet sample (they are isotropic-CM today). That diagnosis predicts a sign
+    /// and a rough magnitude for anisotropy generally; ablating the *elastic*
+    /// anisotropy — which this crate does sample, and which is ~85 % of
+    /// scattering — tests the prediction on the part that is already
+    /// implemented. See `examples/godiva_anisotropy_ablation.rs`.
+    ///
+    /// # LOW tier
+    ///
+    /// A `Core`-tier nuclide carries no MF=4 table to discard; its anisotropy
+    /// comes from a group mean cosine. This is a no-op there, and the example
+    /// that uses it runs the HIGH tier.
+    pub fn with_isotropic_elastic_scattering(mut self) -> Self {
+        if let XsSource::Pointwise {
+            elastic_angular, ..
+        } = &mut self.xs
+        {
+            *elastic_angular = ElasticAngular::default();
+        }
+        self
+    }
+
     /// **HIGH fidelity.** Build a nuclide from a raw ENDF tape downloaded from a
     /// pinned upstream, reconstructed and Doppler-broadened on device.
     ///
