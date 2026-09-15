@@ -112,7 +112,11 @@ fn load(name: &str) -> Option<Vec<Vec<f64>>> {
         text.lines()
             .skip(1)
             .filter(|l| !l.trim().is_empty())
-            .map(|l| l.split(',').map(|v| v.parse().expect("numeric csv")).collect())
+            .map(|l| {
+                l.split(',')
+                    .map(|v| v.parse().expect("numeric csv"))
+                    .collect()
+            })
             .collect(),
     )
 }
@@ -129,8 +133,8 @@ fn replay_pair(
         sphere(Vec3::new(-0.0060, 0.0, 0.0), v_a),
         sphere(Vec3::new(0.0060, 0.0, 0.0), v_b),
     ];
-    let mut sys = GranularSystem::new(particles, vec![], model, Vec3::zero(), 1.0e-6)
-        .expect("valid system");
+    let mut sys =
+        GranularSystem::new(particles, vec![], model, Vec3::zero(), 1.0e-6).expect("valid system");
 
     let (mut dx, mut dv, mut dw) = (0.0_f64, 0.0_f64, 0.0_f64);
     let mut last = 0_usize;

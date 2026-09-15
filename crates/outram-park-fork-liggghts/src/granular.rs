@@ -298,7 +298,12 @@ impl ContactKinematics {
     ///
     /// Returns `None` for a non-positive overlap.
     #[must_use]
-    pub fn wall(i: &Particle, wall_normal: Vec3, delta_n: f64, wall_velocity: Vec3) -> Option<Self> {
+    pub fn wall(
+        i: &Particle,
+        wall_normal: Vec3,
+        delta_n: f64,
+        wall_velocity: Vec3,
+    ) -> Option<Self> {
         if delta_n <= 0.0 {
             return None;
         }
@@ -324,7 +329,7 @@ impl ContactKinematics {
             crj: 0.0,
             r_eff: i.radius,
             m_eff: i.mass,
-            })
+        })
     }
 }
 
@@ -676,7 +681,10 @@ impl GranularContactModel {
     /// Upstream's default pairing: `pair_style gran model hertz tangential history`.
     #[must_use]
     pub fn hertz_history(material: GranularMaterial) -> Self {
-        Self::new(GranularNormalModel::hertz(material), TangentialModel::History)
+        Self::new(
+            GranularNormalModel::hertz(material),
+            TangentialModel::History,
+        )
     }
 
     /// Resolve one contact, advancing its shear history by `dt` `[s]`.
@@ -865,8 +873,7 @@ mod tests {
         let sqrtval = (k.r_eff * k.delta_n).sqrt();
         let kn_hand = 4.0 / 3.0 * m.y_eff() * sqrtval;
         let sn_hand = 2.0 * m.y_eff() * sqrtval;
-        let gamman_hand =
-            -2.0 * SQRT_FIVE_OVER_SIX * m.beta_eff() * (sn_hand * k.m_eff).sqrt();
+        let gamman_hand = -2.0 * SQRT_FIVE_OVER_SIX * m.beta_eff() * (sn_hand * k.m_eff).sqrt();
         assert_abs_diff_eq!(out.kn, kn_hand, epsilon = kn_hand * 1e-12);
         assert_abs_diff_eq!(out.gamman, gamman_hand, epsilon = gamman_hand.abs() * 1e-12);
         assert_abs_diff_eq!(
@@ -1146,7 +1153,8 @@ mod tests {
     #[test]
     fn wall_contact_uses_particle_radius_and_mass() {
         let p = sphere(0.0, -1.0);
-        let k = ContactKinematics::wall(&p, Vec3::new(0.0, 0.0, 1.0), 2.0e-4, Vec3::zero()).unwrap();
+        let k =
+            ContactKinematics::wall(&p, Vec3::new(0.0, 0.0, 1.0), 2.0e-4, Vec3::zero()).unwrap();
         assert_abs_diff_eq!(k.r_eff, 0.005, epsilon = 1e-15);
         assert_abs_diff_eq!(k.m_eff, p.mass, epsilon = 1e-18);
         assert_abs_diff_eq!(k.crj, 0.0, epsilon = 1e-18);

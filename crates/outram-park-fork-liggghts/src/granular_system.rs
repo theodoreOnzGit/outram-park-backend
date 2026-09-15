@@ -220,9 +220,9 @@ impl GranularSystem {
             let a = self.particles[i];
             let b = self.particles[j];
             if let Some(k) = ContactKinematics::pair(&a, &b) {
-                let gf =
-                    self.model
-                        .resolve(ContactKey::pair(i, j), &k, &mut self.history, self.dt);
+                let gf = self
+                    .model
+                    .resolve(ContactKey::pair(i, j), &k, &mut self.history, self.dt);
                 self.forces[i] = self.forces[i].add(gf.force_i);
                 self.forces[j] = self.forces[j].add(gf.force_j);
                 self.torques[i] = self.torques[i].add(gf.torque_i);
@@ -237,8 +237,7 @@ impl GranularSystem {
                 if let Some(c) = boundary.particle_overlap(&p) {
                     // `Contact::normal` is the inward normal (wall -> particle),
                     // which is exactly upstream's `en` for a wall contact.
-                    if let Some(k) =
-                        ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
+                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
                     {
                         let gf = self.model.resolve(
                             ContactKey::wall(i, w),
@@ -358,8 +357,7 @@ mod tests {
             sphere(Vec3::new(-0.0060, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             sphere(Vec3::new(0.0060, 0.0, 0.0), Vec3::new(-1.0, 0.0, 0.0)),
         ];
-        let mut sys =
-            GranularSystem::new(ps, vec![], model, Vec3::zero(), 1.0e-6).unwrap();
+        let mut sys = GranularSystem::new(ps, vec![], model, Vec3::zero(), 1.0e-6).unwrap();
         for _ in 0..2500 {
             sys.step();
             let p: Vec3 = sys
@@ -390,8 +388,7 @@ mod tests {
                 sphere(Vec3::new(-0.0060, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
                 sphere(Vec3::new(0.0060, 0.0, 0.0), Vec3::new(-1.0, 0.0, 0.0)),
             ];
-            let mut sys =
-                GranularSystem::new(ps, vec![], model, Vec3::zero(), 1.0e-6).unwrap();
+            let mut sys = GranularSystem::new(ps, vec![], model, Vec3::zero(), 1.0e-6).unwrap();
             sys.run(2500);
             let e_meas = sys.particles()[0].velocity.x.abs();
             assert_abs_diff_eq!(e_meas, e_req, epsilon = 4e-4);
@@ -472,14 +469,9 @@ mod tests {
             sphere(Vec3::new(0.0, 0.0, 5.0 * r), Vec3::zero()),
         ];
         let z_top0 = ps[2].position.z;
-        let mut sys = GranularSystem::new(
-            ps,
-            vec![floor],
-            model,
-            Vec3::new(0.0, 0.0, -9.81),
-            1.0e-6,
-        )
-        .unwrap();
+        let mut sys =
+            GranularSystem::new(ps, vec![floor], model, Vec3::new(0.0, 0.0, -9.81), 1.0e-6)
+                .unwrap();
         sys.run(500_000);
         let ke = sys.kinetic_energy();
         assert!(ke < 1e-9, "column must come to rest, got KE = {ke:e} J");
@@ -515,8 +507,7 @@ mod tests {
         sys.run(300_000);
         let overlap = r - sys.particles()[0].position.z;
         // F = (4/3) E* sqrt(R*) delta^{3/2} = m g
-        let expected =
-            (3.0 * mass * 9.81 / (4.0 * m.y_eff() * r.sqrt())).powf(2.0 / 3.0);
+        let expected = (3.0 * mass * 9.81 / (4.0 * m.y_eff() * r.sqrt())).powf(2.0 / 3.0);
         assert!(
             (overlap - expected).abs() / expected < 0.01,
             "settled overlap {overlap:e} m vs Hertz static {expected:e} m"
@@ -584,8 +575,7 @@ mod tests {
                 sphere(Vec3::new(-0.0060, 0.0, 0.0), Vec3::new(1.0, 0.5, 0.0)),
                 sphere(Vec3::new(0.0060, 0.0, 0.0), Vec3::new(-1.0, -0.5, 0.0)),
             ];
-            let mut sys =
-                GranularSystem::new(ps, vec![], model, Vec3::zero(), 1.0e-6).unwrap();
+            let mut sys = GranularSystem::new(ps, vec![], model, Vec3::zero(), 1.0e-6).unwrap();
             sys.run(2500);
             spins.push(sys.particles()[0].angular_velocity.z);
         }

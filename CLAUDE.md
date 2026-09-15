@@ -1104,7 +1104,7 @@ the authority:
 | `njoy-outram-park-fork` | agrees with NJOY2016 to 7 significant figures | cross-code |
 | `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
 | `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
-| `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **granular physics NOT validated** | analytical / MMS |
+| `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **plus** agrees with upstream LIGGGHTS-PUBLIC `3d5c00f2` compiled and run — 3 of 4 deterministic cases bit-identical throughout, the oblique friction/history case to 1-3 ulp, bulk bed packing fraction within 0.20 %; **granular physics still NOT validated (no experimental comparison)** | analytical / MMS + cross-code |
 | `farrer-park` | MMS L2 order within 0.15 of theory per element; patch test 1e-12; Lamé **displacement** within 1%, **stress** on observed order (1 ± 0.2 linear, 2 ± 0.2 quadratic); **shear locking uncured, no benchmark validation** | analytical / MMS |
 | `outram-park-fork-dwsim-libs` | agrees with upstream DWSIM `1abf72d1` to 4 sig figs; **PR EOS matches to 6 s.f. (measured 2026-09-13)**; flash-layer comparison still open | cross-code |
 | `petir` | agrees with GSL 2.8 compiled and run — 5 of 7 numerics surfaces bit-identical throughout, the rest 75-97 % with worst relative difference 1.1e-15; ARM `exp`/`log`/`pow` bit-identical | cross-code |
@@ -1147,7 +1147,15 @@ also names is still open, and 0 of the 107 rows in its port-coverage matrix are
 `PORTED + VALIDATED`. Read that crate's file before citing it as validated.
 Finally, `petir`'s bar is cross-code agreement **alone** — nothing in it has
 been compared against a published benchmark, and both of its bookkeeping axes
-remain unsigned.
+remain unsigned. The same caveat now applies to
+`outram-park-fork-liggghts`, which gained a cross-code leg on 2026-09-15
+(upstream LIGGGHTS built and run, `reference-data/liggghts/`): it reproduces
+LIGGGHTS essentially exactly, but that says nothing about whether LIGGGHTS'
+granular physics is right for an HTR-10 bed — there is still **no
+experimental comparison**, and the settled voidage both codes produce
+(`ε ≈ 0.442`) sits 2.2 percentage points above the Dixon (1988) correlation
+for `D/d = 6`. Read that crate's `docs/verification-and-validation.md`
+before citing it as validated.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**

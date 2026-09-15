@@ -161,12 +161,7 @@ impl VelocityVerlet {
     /// and evaluated at the *current* state. Entries beyond `particles.len()`
     /// are ignored; missing entries are treated as zero, so a shorter slice
     /// simply leaves those particles unforced.
-    pub fn initial_integrate(
-        &self,
-        particles: &mut [Particle],
-        forces: &[Vec3],
-        torques: &[Vec3],
-    ) {
+    pub fn initial_integrate(&self, particles: &mut [Particle], forces: &[Vec3], torques: &[Vec3]) {
         let half = 0.5 * self.dt;
         for (i, p) in particles.iter_mut().enumerate() {
             let f = forces.get(i).copied().unwrap_or_else(Vec3::zero);
@@ -273,7 +268,11 @@ mod tests {
             vv.initial_integrate(&mut ps, &f, &t);
             vv.final_integrate(&mut ps, &f, &t);
         }
-        assert_abs_diff_eq!(ps[0].angular_velocity.z, tau / inertia * 0.1, epsilon = 1e-12);
+        assert_abs_diff_eq!(
+            ps[0].angular_velocity.z,
+            tau / inertia * 0.1,
+            epsilon = 1e-12
+        );
     }
 
     /// **Methodology — the defect this module fixes.** Integrate a 1-D harmonic
@@ -361,7 +360,11 @@ mod tests {
         };
 
         for (name, f, expected) in [
-            ("velocity-Verlet", &step_vv as &dyn Fn(f64, f64) -> (f64, f64), 1.0),
+            (
+                "velocity-Verlet",
+                &step_vv as &dyn Fn(f64, f64) -> (f64, f64),
+                1.0,
+            ),
             ("single-shot", &step_single, 1.0 + 0.5 * dt * dt),
         ] {
             let (xa, va) = f(h, 0.0);
