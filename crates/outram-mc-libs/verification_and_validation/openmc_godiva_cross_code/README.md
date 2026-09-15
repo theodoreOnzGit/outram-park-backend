@@ -252,15 +252,41 @@ order-of-magnitude check on whether the mechanism is big enough — not a precis
 prediction. It is big enough, and it is the only candidate found with the right
 sign and magnitude.
 
+### 5. The fission spectrum is cleared too
+
+The largest spectral candidate, checked the same way
+(`tests/fission_spectrum_vs_openmc.rs`) — mean outgoing energy of U-235's
+fission neutrons against OpenMC's, on the same evaluation:
+
+| incident E (eV) | this crate | OpenMC | relative |
+|---|---|---|---|
+| 1.0e3 | 1.99946e6 | 1.99982e6 | −0.018 % |
+| 1.0e6 | 2.02443e6 | 2.02459e6 | −0.008 % |
+| 2.0e6 | 2.05370e6 | 2.05387e6 | −0.008 % |
+
+> **The same nearest-point trap, a third time.** Read against OpenMC's *nearest*
+> tabulated incident energy, χ looks 0.5 % soft at 1 keV. That grid is coarse —
+> 22 points over `1e-5 … 3e7 eV`, the first step jumping straight from `1e-5` to
+> `5e5` — so the nearest point is far away. Interpolated, the difference is
+> 0.018 %. The artefact was in the oracle both times, and in the `⟨μ⟩` table
+> above as well.
+
 ### What this leaves
 
 - **Implement anisotropic inelastic angular distributions.** Expected to remove
   most of the ~181 pcm leakage share, moving Godiva *down* toward OpenMC.
   Tracked in beads.
-- **The ~69 pcm spectral share is still unattributed.** It is in `k_inf`, so it
-  is secondary-energy or reaction sampling, not geometry. The Weisskopf
-  evaporation stand-in that `scatter.rs` documents for continuum outgoing
-  energies is the obvious next suspect.
+- **The ~69 pcm spectral share is still unattributed, but now by elimination
+  rather than by ignorance.** It is in `k_inf`, so it is secondary-energy or
+  reaction sampling, not geometry — and cross sections (≤0.06 %), ν̄ (0.0002 %)
+  and now χ (≤0.018 %) are all excluded. What remains untested is the
+  **inelastic** secondary energy: level selection, and the continuum law that
+  `scatter.rs` documents as a Weisskopf evaporation stand-in. Note that this
+  lands on the *same* reaction class as the leakage share, which is suggestive
+  but not evidence.
+
+  A flux-vs-energy tally comparison in both codes is the natural next
+  measurement; an eigenvalue cannot localise a spectral shift, a spectrum can.
 - URR probability tables are a **separate** gap, and a small one: measured at
   `+43 ± 38 pcm`, consistent with zero (see the ablation section below). Fixing
   the anisotropy moves k down; probability tables, if they move it at all, move
@@ -315,6 +341,18 @@ with zero** — see the correction recorded above.
 The unit test exists because a silently no-op control is the worst failure mode
 an ablation study has: it reports "no difference" and reads as "this physics
 does not matter".
+
+### Summary: what is cleared, and what is convicted
+
+| quantity | agreement with OpenMC | verdict |
+|---|---|---|
+| cross sections, all channels | ≤ 0.06 % flux-weighted | cleared |
+| ν̄σ_f | 0.0002 % | cleared |
+| reaction-partition catch-all | 0.0000 % of Σ_t | cleared |
+| elastic ⟨μ⟩ | ≤ 5.6e-4 absolute | cleared |
+| fission spectrum ⟨E_out⟩ | ≤ 0.018 % | cleared |
+| **inelastic angular** | **not sampled at all** | **convicted: ~181 pcm leakage** |
+| inelastic secondary energy | not compared | open: ~69 pcm spectral |
 
 ## Scope, and what this is not
 
