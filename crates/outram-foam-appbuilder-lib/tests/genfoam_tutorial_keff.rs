@@ -771,3 +771,124 @@ fn msfr_keff_against_upstream_run_at_its_converged_state() {
         ref_pcm
     );
 }
+
+/// **V&V — ESFR: direct `k_eff` comparison against upstream GeN-Foam, built and
+/// run, at upstream's own converged feedback state.**
+///
+/// ## The reference run
+///
+/// Upstream GeN-Foam (OpenFOAM v2506 + GeN-Foam `652b3da`, both built here) was
+/// run on `3D_SmallESFR_NewSolverVerification/legacySolver`, four-way parallel,
+/// to `t = 200`. It reproduced the tutorial's own published value:
+///
+/// | | |
+/// |---|---|
+/// | `keff` from `processor0/200/uniform/reactorState` | **0.936873** |
+/// | `expectedKeff` in the tutorial's `Alltest` | 0.936827 |
+/// | difference | **+49 pcm**, inside upstream's own 0.001 (936 pcm) tolerance |
+///
+/// Only `legacySolver` was run. Its `newSolver` sibling selects
+/// `extendedThermoMechanics`, which cannot be built from any available source —
+/// GeN-Foam pins an offbeat commit that upstream force-pushed away, and every
+/// surviving offbeat with the API it needs predates OpenFOAM v2506. The
+/// tutorial checks **both** solvers against the same `expectedKeff`, so the
+/// reference value is unaffected.
+///
+/// ## The converged state
+///
+/// Read from the reconstructed `200/neutroRegion/` fields. `TFuel` and `TClad`
+/// are zero in the non-fuelled zones (reflector, plena, diagrid), so the means
+/// below are over the **6540 fuelled cells**, not all 23322 — a plain mean would
+/// be meaningless:
+///
+/// | variable | mean | min | max | reference |
+/// |---|---|---|---|---|
+/// | `TFuel` | **1398.87 K** | 667.99 | 1948.85 | 900 |
+/// | `TClad` | **771.64 K** | 667.99 | 902.46 | 668 |
+/// | `rhoCool` | **860** (uniform) | — | — | 860 |
+/// | `axExp` | **0.007711** | — | — | 0 |
+/// | `radExp` | **0.001268** | — | — | 0 |
+///
+/// `rhoCool` came back exactly at its reference value, so the coolant-density
+/// feedback contributes nothing here; the gap is fuel and cladding temperature
+/// plus the two expansions.
+///
+/// ## Results (measured 2026-09-15)
+///
+/// See the printed report. The same per-cell-versus-global caveat applies as in
+/// [`msfr_keff_against_upstream_run_at_its_converged_state`]: upstream evaluates
+/// cross sections per cell, the port takes one global parameter vector, and
+/// `TFuel` spans 668–1949 K under a logarithmic parametrisation.
+#[test]
+fn esfr_keff_against_upstream_run_at_its_converged_state() {
+    let root = require_upstream!();
+    let case = root.join("Tutorials/reactorCases/3D_SmallESFR_NewSolverVerification/newSolver");
+    let Some(region) = stage_region(&case, "neutroRegion", "esfr_converged") else {
+        println!("SKIP: could not stage the ESFR case (is `gzip` available?)");
+        return;
+    };
+
+    // Upstream's own converged means over its fuelled cells, from the run above.
+    const UP_TFUEL: f64 = 1398.866;
+    const UP_TCLAD: f64 = 771.640;
+    const UP_RHOCOOL: f64 = 860.0;
+    const UP_AXEXP: f64 = 0.007711;
+    const UP_RADEXP: f64 = 0.001268;
+    /// Upstream's own k_eff from that run (its Alltest expects 0.936827).
+    const UPSTREAM_KEFF: f64 = 0.936873;
+
+    let vacuum = BoundaryCondition::FixedValue(0.0);
+    let at_reference = solve_at_state(&region, vacuum.clone(), &[], &[]);
+    let at_converged = solve_at_state(
+        &region,
+        vacuum,
+        &[],
+        &[
+            ("TFuel", UP_TFUEL),
+            ("TClad", UP_TCLAD),
+            ("rhoCool", UP_RHOCOOL),
+            ("axExp", UP_AXEXP),
+            ("radExp", UP_RADEXP),
+        ],
+    );
+
+    let pcm = |a: f64, b: f64| 1.0e5 * (a - b) / b;
+    let ref_pcm = pcm(at_reference.k_eff, UPSTREAM_KEFF);
+    let conv_pcm = pcm(at_converged.k_eff, UPSTREAM_KEFF);
+
+    println!(
+        "\n=== ESFR: port vs upstream GeN-Foam, both run here ===\n\
+         \tupstream k_eff (built + run, v2506 / 652b3da) = {UPSTREAM_KEFF:.6}\n\
+         \t  (its own Alltest expects 0.936827 -> +49 pcm, so the run is sound)\n\
+         \tupstream converged state (over 6540 fuelled cells):\n\
+         \t  TFuel {UP_TFUEL:.1} K, TClad {UP_TCLAD:.1} K, rhoCool {UP_RHOCOOL:.0}, \
+         axExp {UP_AXEXP:.6}, radExp {UP_RADEXP:.6}\n\
+         \t--\n\
+         \tport @ reference state             k = {:.6}  ({ref_pcm:+.1} pcm)\n\
+         \tport @ upstream's converged state  k = {:.6}  ({conv_pcm:+.1} pcm)\n\
+         \t--\n\
+         \tevaluating at the right state closed {:.0} pcm of the gap",
+        at_reference.k_eff,
+        at_converged.k_eff,
+        ref_pcm.abs() - conv_pcm.abs(),
+    );
+
+    assert!(
+        at_converged.converged,
+        "the power iteration did not converge"
+    );
+    assert!(
+        conv_pcm.abs() < ref_pcm.abs(),
+        "evaluating at upstream's converged state ({conv_pcm:+.1} pcm) should be \
+         closer to upstream than the nominal reference state ({ref_pcm:+.1} pcm)"
+    );
+    // The verification claim: at the same state, the port agrees with upstream
+    // inside upstream's OWN stated tolerance for this tutorial (0.001 relative,
+    // i.e. 100 pcm). This is the assertion that makes ESFR a direct code-to-code
+    // verification rather than a characterisation.
+    assert!(
+        conv_pcm.abs() < 100.0,
+        "port and upstream differ by {conv_pcm:+.1} pcm at the same state, \
+         outside upstream's own 0.001 relative tolerance"
+    );
+}
