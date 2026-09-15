@@ -71,10 +71,13 @@ impl<const N: usize> Polynomial<N> {
 
     /// Evaluate the polynomial at `x` (Horner-like accumulation, matching C++).
     pub fn value(&self, x: f64) -> f64 {
-        let mut val = self.coeffs[0];
+        // `coeffs[0]` then `coeffs[1..]`, walked rather than subscripted, so
+        // a zero-length polynomial evaluates to its log term alone instead of
+        // panicking. The accumulation order is unchanged.
+        let mut val = self.coeffs.first().copied().unwrap_or(0.0);
         let mut pow_x = x;
-        for i in 1..N {
-            val += self.coeffs[i] * pow_x;
+        for &c_i in self.coeffs.iter().skip(1) {
+            val += c_i * pow_x;
             pow_x *= x;
         }
         if self.log_active {
@@ -86,11 +89,14 @@ impl<const N: usize> Polynomial<N> {
     /// Derivative of the polynomial at `x`.
     pub fn derivative(&self, x: f64) -> f64 {
         let mut deriv = 0.0;
-        if N > 1 {
-            deriv = self.coeffs[1];
+        // `coeffs[1]` and `coeffs[2..]`; both absent when N <= 1, which is
+        // exactly upstream's `if N > 1` guard, now enforced by the type rather
+        // than restated.
+        if let Some((&c1, tail)) = self.coeffs.split_first().and_then(|(_, r)| r.split_first()) {
+            deriv = c1;
             let mut pow_x = x;
-            for i in 2..N {
-                deriv += (i as f64) * self.coeffs[i] * pow_x;
+            for (i, &c_i) in (2..).zip(tail.iter()) {
+                deriv += (i as f64) * c_i * pow_x;
                 pow_x *= x;
             }
         }
@@ -106,11 +112,11 @@ impl<const N: usize> Polynomial<N> {
     pub fn integral(&self, x1: f64, x2: f64) -> f64 {
         let mut pow_x1 = x1;
         let mut pow_x2 = x2;
-        let mut integ = self.coeffs[0] * (x2 - x1);
-        for i in 1..N {
+        let mut integ = self.coeffs.first().copied().unwrap_or(0.0) * (x2 - x1);
+        for (i, &c_i) in (1..).zip(self.coeffs.iter().skip(1)) {
             pow_x1 *= x1;
             pow_x2 *= x2;
-            integ += self.coeffs[i] / (i as f64 + 1.0) * (pow_x2 - pow_x1);
+            integ += c_i / (i as f64 + 1.0) * (pow_x2 - pow_x1);
         }
         if self.log_active {
             integ += self.log_coeff * ((x2 * x2.ln() - x2) - (x1 * x1.ln() - x1));
@@ -127,11 +133,18 @@ impl<const N: usize> Polynomial<N> {
     /// Maps to C++ `Polynomial<N>::integralMinus1()`.
     pub fn integral_minus1(&self, int_constant: f64) -> Self {
         let mut new_coeffs = [0.0f64; N];
-        new_coeffs[0] = int_constant;
-        for i in 1..N {
-            new_coeffs[i] = self.coeffs[i] / (i as f64);
+        if let Some(slot) = new_coeffs.first_mut() {
+            *slot = int_constant;
         }
-        let log_coeff = self.coeffs[0];
+        for (i, (slot, &c_i)) in (1..).zip(
+            new_coeffs
+                .iter_mut()
+                .skip(1)
+                .zip(self.coeffs.iter().skip(1)),
+        ) {
+            *slot = c_i / (i as f64);
+        }
+        let log_coeff = self.coeffs.first().copied().unwrap_or(0.0);
         let log_active = log_coeff.abs() > VSMALL;
         Self {
             coeffs: new_coeffs,

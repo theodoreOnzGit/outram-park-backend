@@ -61,19 +61,71 @@ impl SquareMatrix {
         self.n
     }
 
+    ///
+    /// # Out of range reads `NaN`, and never panics
+    ///
+    /// `i >= n` or `j >= n` is a caller bug either way. Returning `NaN` rather
+    /// than panicking is what lets this type be lifted verbatim into `petir`,
+    /// which targets bare metal -- there a panic is not a stack trace and a
+    /// non-zero exit, it is the end of the program. `NaN` propagates through
+    /// every later operation and compares unequal to everything, so the bug
+    /// still surfaces, just downstream rather than at the read.
     #[inline]
     pub fn get(&self, i: usize, j: usize) -> f64 {
-        self.data[i * self.n + j]
+        match self.data.get(self.offset(i, j)) {
+            Some(&v) => v,
+            None => f64::NAN,
+        }
     }
 
+    /// Row-major offset of `(i, j)`, saturating rather than wrapping.
+    ///
+    /// Saturation matters: `i * n` can overflow `usize` for an absurd `i`, and
+    /// an overflow panics under `debug_assertions`. Saturating sends it past
+    /// the end of `data` instead, where the bounds check turns it into the
+    /// documented out-of-range behaviour.
+    #[inline]
+    fn offset(&self, i: usize, j: usize) -> usize {
+        i.saturating_mul(self.n).saturating_add(j)
+    }
+
+    ///
+    /// # Out of range is ignored, and never panics
+    ///
+    /// See [`get`](Self::get) for why this does not panic. A write with
+    /// `i >= n` or `j >= n` is discarded; the matrix is left unchanged.
     #[inline]
     pub fn set(&mut self, i: usize, j: usize, v: f64) {
-        self.data[i * self.n + j] = v;
+        let idx = self.offset(i, j);
+        if let Some(slot) = self.data.get_mut(idx) {
+            *slot = v;
+        }
     }
 
+    ///
+    /// # Out of range is ignored, and never panics
+    ///
+    /// See [`get`](Self::get). An accumulation with `i >= n` or `j >= n` is
+    /// discarded.
     #[inline]
     pub fn add(&mut self, i: usize, j: usize, v: f64) {
-        self.data[i * self.n + j] += v;
+        let idx = self.offset(i, j);
+        if let Some(slot) = self.data.get_mut(idx) {
+            *slot += v;
+        }
+    }
+
+    /// Exchange two entries, ignoring the request if either is out of range.
+    ///
+    /// Used by the row swap in [`lu_decompose`](Self::lu_decompose), where
+    /// `Vec::swap` would panic on a bad index.
+    #[inline]
+    fn swap_entries(&mut self, i1: usize, j1: usize, i2: usize, j2: usize) {
+        let a = self.offset(i1, j1);
+        let b = self.offset(i2, j2);
+        if a < self.data.len() && b < self.data.len() {
+            self.data.swap(a, b);
+        }
     }
 
     pub fn fill_zero(&mut self) {
@@ -86,15 +138,19 @@ impl SquareMatrix {
     /// triangular, upper including diagonal). Returns the pivot-row indices.
     pub fn lu_decompose(&mut self) -> Vec<usize> {
         let n = self.n;
-        let mut pivot = vec![0usize; n];
+        // Grown by `push` inside the j-loop below, which visits j = 0..n in
+        // order, so `pivot[j] = i_max` needs no subscript.
+        let mut pivot: Vec<usize> = Vec::with_capacity(n);
 
-        // Row scaling factors: 1 / max(|row|)
-        let mut vv: Vec<f64> = (0..n)
-            .map(|i| {
-                let mx = self.data[i * n..(i + 1) * n]
-                    .iter()
-                    .map(|x| x.abs())
-                    .fold(0.0_f64, f64::max);
+        // Row scaling factors: 1 / max(|row|). `chunks_exact` walks the rows
+        // without a range subscript; its argument must be non-zero, and for
+        // n == 0 the `take` yields nothing either way.
+        let mut vv: Vec<f64> = self
+            .data
+            .chunks_exact(n.max(1))
+            .take(n)
+            .map(|row| {
+                let mx = row.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
                 if mx > 0.0 {
                     1.0 / mx
                 } else {
@@ -106,23 +162,25 @@ impl SquareMatrix {
         for j in 0..n {
             // Update upper triangle elements above diagonal (rows i < j)
             for i in 0..j {
-                let mut sum = self.data[i * n + j];
+                let mut sum = self.get(i, j);
                 for k in 0..i {
-                    sum -= self.data[i * n + k] * self.data[k * n + j];
+                    sum -= self.get(i, k) * self.get(k, j);
                 }
-                self.data[i * n + j] = sum;
+                self.set(i, j, sum);
             }
 
             // Update diagonal and lower: find pivot simultaneously
             let mut i_max = j;
             let mut largest = 0.0_f64;
             for i in j..n {
-                let mut sum = self.data[i * n + j];
+                let mut sum = self.get(i, j);
                 for k in 0..j {
-                    sum -= self.data[i * n + k] * self.data[k * n + j];
+                    sum -= self.get(i, k) * self.get(k, j);
                 }
-                self.data[i * n + j] = sum;
-                let tmp = vv[i] * sum.abs();
+                self.set(i, j, sum);
+                // `i < n == vv.len()`, so the fallback never fires; 0.0 would
+                // simply mean "this row cannot win the pivot".
+                let tmp = vv.get(i).copied().unwrap_or(0.0) * sum.abs();
                 if tmp >= largest {
                     largest = tmp;
                     i_max = i;
@@ -130,24 +188,31 @@ impl SquareMatrix {
             }
 
             // Swap rows j ↔ i_max
-            pivot[j] = i_max;
+            pivot.push(i_max);
             if j != i_max {
                 for k in 0..n {
-                    self.data.swap(j * n + k, i_max * n + k);
+                    self.swap_entries(j, k, i_max, k);
                 }
-                vv[i_max] = vv[j];
+                if let Some(scale_j) = vv.get(j).copied() {
+                    if let Some(slot) = vv.get_mut(i_max) {
+                        *slot = scale_j;
+                    }
+                }
             }
 
             // Guard against exact singularity
-            if self.data[j * n + j] == 0.0 {
-                self.data[j * n + j] = f64::EPSILON;
+            if self.get(j, j) == 0.0 {
+                self.set(j, j, f64::EPSILON);
             }
 
-            // Scale column below diagonal (store L multipliers)
-            if j < n - 1 {
-                let r = 1.0 / self.data[j * n + j];
+            // Scale column below diagonal (store L multipliers).
+            // `j + 1 < n` rather than `j < n - 1`: the same condition, without
+            // the subtraction that would wrap for n == 0.
+            if j + 1 < n {
+                let r = 1.0 / self.get(j, j);
                 for i in (j + 1)..n {
-                    self.data[i * n + j] *= r;
+                    let scaled = self.get(i, j) * r;
+                    self.set(i, j, scaled);
                 }
             }
         }
@@ -157,6 +222,11 @@ impl SquareMatrix {
 
     /// Solve `LU·x = b` in-place (`b` is overwritten with the solution).
     ///
+    /// `pivot` must hold `n` entries and `b` must hold `n` values. A shorter
+    /// one used to panic; it now returns early with `b` partly updated, so
+    /// that this type can be lifted into `petir`, which targets bare metal
+    /// where a panic ends the program. See [`get`](Self::get).
+    ///
     /// Must be called after `lu_decompose`. Matches
     /// `Foam::LUBacksubstitute(scalarSquareMatrix&, labelList&, List<scalar>&)`.
     pub fn lu_back_substitute(&self, pivot: &[usize], b: &mut Vec<f64>) {
@@ -165,26 +235,42 @@ impl SquareMatrix {
         // Forward substitution with pivoting (lazy first-nonzero optimisation)
         let mut first_nz: Option<usize> = None;
         for i in 0..n {
-            let ip = pivot[i];
-            let mut sum = b[ip];
-            b[ip] = b[i];
+            // A `pivot` or `b` shorter than `n` is a broken call, and used to
+            // panic here. It now stops instead, leaving `b` partly updated --
+            // see this method's doc comment.
+            let (Some(&ip), Some(b_i)) = (pivot.get(i), b.get(i).copied()) else {
+                return;
+            };
+            let Some(mut sum) = b.get(ip).copied() else {
+                return;
+            };
+            if let Some(slot) = b.get_mut(ip) {
+                *slot = b_i;
+            }
             if let Some(start) = first_nz {
                 for j in start..i {
-                    sum -= self.data[i * n + j] * b[j];
+                    sum -= self.get(i, j) * b.get(j).copied().unwrap_or(0.0);
                 }
             } else if sum != 0.0 {
                 first_nz = Some(i);
             }
-            b[i] = sum;
+            if let Some(slot) = b.get_mut(i) {
+                *slot = sum;
+            }
         }
 
         // Back substitution
         for i in (0..n).rev() {
-            let mut sum = b[i];
+            let Some(mut sum) = b.get(i).copied() else {
+                return;
+            };
             for j in (i + 1)..n {
-                sum -= self.data[i * n + j] * b[j];
+                sum -= self.get(i, j) * b.get(j).copied().unwrap_or(0.0);
             }
-            b[i] = sum / self.data[i * n + i];
+            let diagonal = self.get(i, i);
+            if let Some(slot) = b.get_mut(i) {
+                *slot = sum / diagonal;
+            }
         }
     }
 
@@ -200,7 +286,7 @@ impl SquareMatrix {
         // lu_decompose writes exactly f64::EPSILON to the diagonal when the
         // pivot column was entirely zero — detect that sentinel here.
         for i in 0..self.n {
-            if a.data[i * self.n + i] == f64::EPSILON {
+            if a.get(i, i) == f64::EPSILON {
                 return Err(MatrixError::Singular { col: i });
             }
         }

@@ -68,9 +68,12 @@ pub(crate) fn mul(a: &[f64], b: &[f64]) -> Vec<f64> {
         return Vec::new();
     }
     let mut out = vec![0.0; a.len() + b.len() - 1];
+    // `out[i + j] += ai * bj`, written as a zip so no subscript can go out of
+    // range. `skip(i)` aligns `out[i + j]` with `b[j]`; the accumulation order
+    // (i outer, j inner) is unchanged, so the rounding is too.
     for (i, &ai) in a.iter().enumerate() {
-        for (j, &bj) in b.iter().enumerate() {
-            out[i + j] += ai * bj;
+        for (slot, &bj) in out.iter_mut().skip(i).zip(b.iter()) {
+            *slot += ai * bj;
         }
     }
     out
@@ -80,11 +83,11 @@ pub(crate) fn mul(a: &[f64], b: &[f64]) -> Vec<f64> {
 pub(crate) fn add(a: &[f64], b: &[f64]) -> Vec<f64> {
     let n = a.len().max(b.len());
     let mut out = vec![0.0; n];
-    for (i, &ai) in a.iter().enumerate() {
-        out[i] += ai;
+    for (slot, &ai) in out.iter_mut().zip(a.iter()) {
+        *slot += ai;
     }
-    for (i, &bi) in b.iter().enumerate() {
-        out[i] += bi;
+    for (slot, &bi) in out.iter_mut().zip(b.iter()) {
+        *slot += bi;
     }
     out
 }
@@ -127,15 +130,17 @@ pub(crate) fn eval(p: &[f64], x: Cplx) -> Cplx {
 /// Returns `None` if the degree exceeds 2 — the caller converts that into
 /// [`super::ZDomainError::UnsupportedOrder`].
 pub(crate) fn roots_deg_le_2(p: &[f64]) -> Option<Vec<Cplx>> {
-    match p.len() {
-        0 | 1 => Some(Vec::new()),
-        2 => {
+    // Matched on the slice itself rather than on `p.len()`: the shape that
+    // selects the arm is the same shape that binds the coefficients, so there
+    // is no subscript to go out of range and no way for the two to disagree.
+    match *p {
+        [] | [_] => Some(Vec::new()),
+        [p0, p1] => {
             // p0 + p1 x = 0
-            Some(vec![Cplx::real(-p[0] / p[1])])
+            Some(vec![Cplx::real(-p0 / p1)])
         }
-        3 => {
+        [c, b, a] => {
             // p0 + p1 x + p2 x^2 = 0 -> x = (-b +- sqrt(b^2 - 4ac)) / (2a)
-            let (c, b, a) = (p[0], p[1], p[2]);
             let disc = b * b - 4.0 * a * c;
             let sqrt_disc = Cplx::real(disc).sqrt();
             let two_a = Cplx::real(2.0 * a);
@@ -161,9 +166,19 @@ pub(crate) fn from_roots(roots: &[Cplx], k: f64) -> Vec<f64> {
     for &r in roots {
         // multiply acc by (x - r)
         let mut next = vec![Cplx::real(0.0); acc.len() + 1];
-        for (i, &c) in acc.iter().enumerate() {
-            next[i] = next[i] + c * (-r); // constant term contribution
-            next[i + 1] = next[i + 1] + c; // x * c
+        // The two contributions, split into two zipped passes so neither
+        // `next[i]` nor `next[i + 1]` needs a subscript.
+        //
+        // Splitting them is safe for the arithmetic as well as the bounds:
+        // `next` starts at zero and each slot receives at most these two
+        // terms, so the interleaved form computed `(0 + x) + y` where this
+        // computes `(0 + y) + x`. IEEE-754 addition is commutative (it is
+        // only associativity that fails), so the two are bit-identical.
+        for (slot, &c) in next.iter_mut().zip(acc.iter()) {
+            *slot = *slot + c * (-r); // constant term contribution
+        }
+        for (slot, &c) in next.iter_mut().skip(1).zip(acc.iter()) {
+            *slot = *slot + c; // x * c
         }
         acc = next;
     }

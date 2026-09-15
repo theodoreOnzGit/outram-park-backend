@@ -128,10 +128,9 @@ impl DiscreteTransferFn {
         // trim them (this cannot change a0).
         let num = polynomial::trim(num);
         let den = polynomial::trim(den);
-        if den.is_empty() {
+        let Some(&a0) = den.first() else {
             return Err(ZDomainError::ZeroDenominator);
-        }
-        let a0 = den[0];
+        };
         if a0 == 0.0 {
             return Err(ZDomainError::AcausalSystem);
         }
@@ -181,13 +180,16 @@ impl DiscreteTransferFn {
         }
         // Divide both by z^deg_den: coefficient of z^k becomes coefficient
         // of z^-(deg_den - k). In z^-1-ascending form, index j = deg_den - k.
+        // Index `deg_den - k` counts down from the end, which is what
+        // `iter_mut().rev()` walks -- no subscript, and no `deg_den - k` that
+        // could wrap if the ascending list were ever longer than the vector.
         let mut num_zinv = vec![0.0; deg_den + 1];
-        for (k, &c) in num_asc.iter().enumerate() {
-            num_zinv[deg_den - k] = c;
+        for (slot, &c) in num_zinv.iter_mut().rev().zip(num_asc.iter()) {
+            *slot = c;
         }
         let mut den_zinv = vec![0.0; deg_den + 1];
-        for (k, &c) in den_asc.iter().enumerate() {
-            den_zinv[deg_den - k] = c;
+        for (slot, &c) in den_zinv.iter_mut().rev().zip(den_asc.iter()) {
+            *slot = c;
         }
         Self::from_z_inverse_coefficients(num_zinv, den_zinv, sample_time)
     }
@@ -201,16 +203,30 @@ impl DiscreteTransferFn {
     /// stored (bead `op-fm5` discipline).
     pub fn advance_one_sample(&mut self, input: Ratio) -> Ratio {
         let u = input.get::<ratio>();
-        let b0 = self.num.first().copied().unwrap_or(0.0);
-        let y = b0 * u + self.state.first().copied().unwrap_or(0.0);
+        // Destructured so `num`/`den` stay readable while `state` is borrowed
+        // mutably below; they are separate fields, so the borrows are disjoint.
+        let Self {
+            num, den, state, ..
+        } = self;
+        let b0 = num.first().copied().unwrap_or(0.0);
+        let y = b0 * u + state.first().copied().unwrap_or(0.0);
 
         // state[i] <- b_{i+1} u + state[i+1] - a_{i+1} y
-        let n = self.state.len();
-        for i in 0..n {
-            let b_next = self.num.get(i + 1).copied().unwrap_or(0.0);
-            let a_next = self.den.get(i + 1).copied().unwrap_or(0.0);
-            let carry = if i + 1 < n { self.state[i + 1] } else { 0.0 };
-            self.state[i] = b_next * u + carry - a_next * y;
+        //
+        // The update ascends and reads one slot AHEAD, which is the slot it
+        // has not written yet. `split_first_mut` gives both without a
+        // subscript: `slot` is state[i] and `tail.first()` is state[i+1], or
+        // `None` at the end -- exactly upstream's `if i + 1 < n { .. } else
+        // { 0.0 }`.
+        let mut rest: &mut [f64] = state.as_mut_slice();
+        let mut i = 0usize;
+        while let Some((slot, tail)) = rest.split_first_mut() {
+            let b_next = num.get(i + 1).copied().unwrap_or(0.0);
+            let a_next = den.get(i + 1).copied().unwrap_or(0.0);
+            let carry = tail.first().copied().unwrap_or(0.0);
+            *slot = b_next * u + carry - a_next * y;
+            rest = tail;
+            i += 1;
         }
         Ratio::new::<ratio>(y)
     }

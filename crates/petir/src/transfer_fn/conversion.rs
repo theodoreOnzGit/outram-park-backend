@@ -338,16 +338,22 @@ fn c2d_zoh(
     }
 
     // Monic denominator: divide num and den by the leading den coefficient.
-    let lead = den[deg_den];
+    // `deg_den` is `den.len() - 1`, so the leading coefficient is the last.
+    let Some(&lead) = den.last() else {
+        return Err(ZDomainError::UnsupportedOrder { order: deg_den });
+    };
     let den_m = polynomial::scale(den, 1.0 / lead);
     let mut num_m = polynomial::scale(num, 1.0 / lead);
     num_m.resize(deg_den + 1, 0.0); // pad with zeros up to b_{deg_den}
 
     if order == 1 {
         // G(s) = (b1 s + b0)/(s + a0) = b1 + (b0 - b1 a0)/(s + a0)
-        let a0 = den_m[0];
-        let b0 = num_m[0];
-        let b1 = num_m[1];
+        // `den_m` and `num_m` both hold `deg_den + 1 == 2` coefficients here
+        // (`num_m` was resized to that length above), so these patterns always
+        // bind; the `else` arm reports rather than panics.
+        let (&[a0, ..], &[b0, b1, ..]) = (den_m.as_slice(), num_m.as_slice()) else {
+            return Err(ZDomainError::UnsupportedOrder { order });
+        };
         let lambda = -a0;
         let phi = (lambda * t_s).exp();
         let gamma = phi1_real(lambda, t_s);
@@ -362,10 +368,11 @@ fn c2d_zoh(
     // order == 2: companion form
     //   A = [[0, 1], [-a0, -a1]],  B = [0, 1]^T,
     //   C = [b0 - b2 a0, b1 - b2 a1],  D = b2
-    let a0 = den_m[0];
-    let a1 = den_m[1];
-    let b2 = num_m[2];
-    let c_vec = [num_m[0] - b2 * a0, num_m[1] - b2 * a1];
+    // Three coefficients each at order 2, by the resize above.
+    let (&[a0, a1, ..], &[n0, n1, b2, ..]) = (den_m.as_slice(), num_m.as_slice()) else {
+        return Err(ZDomainError::UnsupportedOrder { order });
+    };
+    let c_vec = [n0 - b2 * a0, n1 - b2 * a1];
     let d = b2;
     let a_mat = [[0.0, 1.0], [-a0, -a1]];
 
@@ -379,7 +386,12 @@ fn c2d_zoh(
     // panic is fatal. See petir/tests/no_panic_gate.rs.
     let roots = polynomial::roots_deg_le_2(&[a0, a1, 1.0])
         .ok_or(ZDomainError::UnsupportedOrder { order: 2 })?;
-    let (l1, l2) = (roots[0], roots[1]);
+    // A degree-2 polynomial has exactly two roots, so this pattern always
+    // binds -- but by the same reasoning as the comment above, "always" is
+    // asserted here by the match rather than by a subscript.
+    let &[l1, l2] = roots.as_slice() else {
+        return Err(ZDomainError::UnsupportedOrder { order: 2 });
+    };
 
     // Distinct vs (near-)repeated eigenvalues. Near-repeated pairs are
     // collapsed to their mean to avoid catastrophic cancellation in the
@@ -397,12 +409,16 @@ fn c2d_zoh(
     //   C (zI - Phi)^{-1} Gamma
     //     = [ (C.Gamma) z + c1 (p12 g2 - p22 g1) + c2 (p21 g1 - p11 g2) ]
     //       / den_d(z)
-    let (p11, p12, p21, p22) = (phi_mat[0][0], phi_mat[0][1], phi_mat[1][0], phi_mat[1][1]);
-    let (g1, g2) = (gamma_col[0], gamma_col[1]);
+    // Destructured rather than subscripted. Both are compile-time checked on
+    // a fixed-size array, but the pattern also names the entries once, which
+    // is what the formula above is written in terms of.
+    let [[p11, p12], [p21, p22]] = phi_mat;
+    let [g1, g2] = gamma_col;
+    let [c1, c2] = c_vec;
     let tr = p11 + p22;
     let det = p11 * p22 - p12 * p21;
-    let cg = c_vec[0] * g1 + c_vec[1] * g2;
-    let q = c_vec[0] * (p12 * g2 - p22 * g1) + c_vec[1] * (p21 * g1 - p11 * g2);
+    let cg = c1 * g1 + c2 * g2;
+    let q = c1 * (p12 * g2 - p22 * g1) + c2 * (p21 * g1 - p11 * g2);
     let num_desc = vec![d, cg - d * tr, q + d * det];
     let den_desc = vec![1.0, -tr, det];
     DiscreteTransferFn::from_z_descending_coefficients(num_desc, den_desc, sample_time)
@@ -450,11 +466,12 @@ fn psi_real(lambda: f64, t_s: f64) -> f64 {
 /// for conjugate pairs and are discarded.
 fn zoh_distinct(a: [[f64; 2]; 2], l1: Cplx, l2: Cplx, t_s: f64) -> ([[f64; 2]; 2], [f64; 2]) {
     let dl = l1 - l2;
+    let [[a00, a01], [a10, a11]] = a;
     // entry-wise: m1 = A - l2 I, m2 = A - l1 I (complex 2x2)
     let m = |lam: Cplx| -> [[Cplx; 2]; 2] {
         [
-            [Cplx::real(a[0][0]) - lam, Cplx::real(a[0][1])],
-            [Cplx::real(a[1][0]), Cplx::real(a[1][1]) - lam],
+            [Cplx::real(a00) - lam, Cplx::real(a01)],
+            [Cplx::real(a10), Cplx::real(a11) - lam],
         ]
     };
     let m1 = m(l2);
@@ -466,14 +483,30 @@ fn zoh_distinct(a: [[f64; 2]; 2], l1: Cplx, l2: Cplx, t_s: f64) -> ([[f64; 2]; 2
 
     let mut phi = [[0.0; 2]; 2];
     let mut gamma_mat = [[0.0; 2]; 2];
-    for i in 0..2 {
-        for j in 0..2 {
-            phi[i][j] = ((e1 * m1[i][j] - e2 * m2[i][j]) / dl).re;
-            gamma_mat[i][j] = ((f1 * m1[i][j] - f2 * m2[i][j]) / dl).re;
+    // Zipped rather than indexed by `i`/`j`: a 2x2 array indexed by a variable
+    // is not checked by the compiler the way a literal index is, so the
+    // subscripts could panic even though `0..2` obviously cannot exceed 2.
+    for (((phi_row, gam_row), m1_row), m2_row) in phi
+        .iter_mut()
+        .zip(gamma_mat.iter_mut())
+        .zip(m1.iter())
+        .zip(m2.iter())
+    {
+        for (((p_ij, g_ij), &m1_ij), &m2_ij) in phi_row
+            .iter_mut()
+            .zip(gam_row.iter_mut())
+            .zip(m1_row.iter())
+            .zip(m2_row.iter())
+        {
+            *p_ij = ((e1 * m1_ij - e2 * m2_ij) / dl).re;
+            *g_ij = ((f1 * m1_ij - f2 * m2_ij) / dl).re;
         }
     }
     // Gamma = gamma_mat * B with B = [0, 1]^T -> second column
-    (phi, [gamma_mat[0][1], gamma_mat[1][1]])
+    // Gamma is the second column of gamma_mat, named by pattern rather than
+    // reached for by subscript.
+    let [[_, g1], [_, g2]] = gamma_mat;
+    (phi, [g1, g2])
 }
 
 /// [`zoh_distinct`] for a repeated real eigenvalue `lambda`:
@@ -482,20 +515,36 @@ fn zoh_distinct(a: [[f64; 2]; 2], l1: Cplx, l2: Cplx, t_s: f64) -> ([[f64; 2]; 2
 fn zoh_repeated(a: [[f64; 2]; 2], lambda: Cplx, t_s: f64) -> ([[f64; 2]; 2], [f64; 2]) {
     // a repeated root of a real quadratic is real
     let l = lambda.re;
-    let n = [[a[0][0] - l, a[0][1]], [a[1][0], a[1][1] - l]]; // A - lambda I
+    let [[a00, a01], [a10, a11]] = a;
+    let n = [[a00 - l, a01], [a10, a11 - l]]; // A - lambda I
     let e = (l * t_s).exp();
     let f = phi1_real(l, t_s);
     let p = psi_real(l, t_s);
     let mut phi = [[0.0; 2]; 2];
     let mut gamma_mat = [[0.0; 2]; 2];
-    for i in 0..2 {
-        for j in 0..2 {
+    // As in `zoh_distinct`, zipped rather than indexed; `i` and `j` are still
+    // carried because the identity matrix needs to know when they are equal.
+    for (i, ((phi_row, gam_row), n_row)) in phi
+        .iter_mut()
+        .zip(gamma_mat.iter_mut())
+        .zip(n.iter())
+        .enumerate()
+    {
+        for (j, ((p_ij, g_ij), &n_ij)) in phi_row
+            .iter_mut()
+            .zip(gam_row.iter_mut())
+            .zip(n_row.iter())
+            .enumerate()
+        {
             let ident = if i == j { 1.0 } else { 0.0 };
-            phi[i][j] = e * (ident + t_s * n[i][j]);
-            gamma_mat[i][j] = f * ident + p * n[i][j];
+            *p_ij = e * (ident + t_s * n_ij);
+            *g_ij = f * ident + p * n_ij;
         }
     }
-    (phi, [gamma_mat[0][1], gamma_mat[1][1]])
+    // Gamma is the second column of gamma_mat, named by pattern rather than
+    // reached for by subscript.
+    let [[_, g1], [_, g2]] = gamma_mat;
+    (phi, [g1, g2])
 }
 
 // ---------------------------------------------------------------------------

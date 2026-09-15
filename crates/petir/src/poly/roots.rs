@@ -42,9 +42,20 @@ pub struct Roots<const N: usize> {
 
 impl<const N: usize> Roots<N> {
     /// Value stored at slot `i`.
+    ///
+    /// # Out of range reads `NaN`, and never panics
+    ///
+    /// `i >= N` is a caller bug either way. Returning `NaN` rather than
+    /// panicking is what lets this type be lifted verbatim into `petir`, which
+    /// targets bare metal -- there a panic is not a stack trace and a non-zero
+    /// exit, it is the end of the program. `NaN` still surfaces the bug, just
+    /// downstream of the read.
     #[inline]
     pub fn get(&self, i: usize) -> f64 {
-        self.values[i]
+        match self.values.get(i) {
+            Some(&v) => v,
+            None => f64::NAN,
+        }
     }
 
     /// Root type at slot `i`.
@@ -71,7 +82,15 @@ impl<const N: usize> core::ops::Index<usize> for Roots<N> {
     type Output = f64;
     #[inline]
     fn index(&self, i: usize) -> &f64 {
-        &self.values[i]
+        // `Index` must hand back a reference, so an out-of-range slot borrows
+        // a shared NaN rather than panicking -- matching `get` above. Using
+        // the operator where a slot may be absent is still a caller bug; this
+        // only changes how it is reported.
+        static OUT_OF_RANGE: f64 = f64::NAN;
+        match self.values.get(i) {
+            Some(v) => v,
+            None => &OUT_OF_RANGE,
+        }
     }
 }
 
@@ -96,8 +115,12 @@ impl Roots<2> {
     /// Concatenate two single roots.  C++ `Roots<2>(Roots<1>, Roots<1>)`.
     #[inline]
     pub fn from_pair(a: Roots<1>, b: Roots<1>) -> Self {
+        // Destructured rather than subscripted. `Roots<1>::values` is
+        // `[f64; 1]`, so rustc checks `[a0]` exhaustively; the pattern also
+        // states the arity the concatenation depends on.
+        let ([a0], [b0]) = (a.values, b.values);
         Self {
-            values: [a.values[0], b.values[0]],
+            values: [a0, b0],
             types: a.types | (b.types << 3),
         }
     }
@@ -106,8 +129,9 @@ impl Roots<2> {
     /// C++ `Roots<2>(Roots<1>, type, x)`.
     #[inline]
     pub fn with_tail(head: Roots<1>, t: RootType, x: f64) -> Self {
+        let [h0] = head.values;
         Self {
-            values: [head.values[0], x],
+            values: [h0, x],
             types: head.types | ((t as u64) << 3),
         }
     }
@@ -136,8 +160,9 @@ impl Roots<3> {
     /// C++ `Roots<3>(Roots<1>, Roots<2>)`.
     #[inline]
     pub fn concat_1_2(a: Roots<1>, b: Roots<2>) -> Self {
+        let ([a0], [b0, b1]) = (a.values, b.values);
         Self {
-            values: [a.values[0], b.values[0], b.values[1]],
+            values: [a0, b0, b1],
             types: a.types | (b.types << 3),
         }
     }
@@ -146,8 +171,9 @@ impl Roots<3> {
     /// C++ `Roots<3>(Roots<2>, Roots<1>)`.
     #[inline]
     pub fn concat_2_1(a: Roots<2>, b: Roots<1>) -> Self {
+        let ([a0, a1], [b0]) = (a.values, b.values);
         Self {
-            values: [a.values[0], a.values[1], b.values[0]],
+            values: [a0, a1, b0],
             types: a.types | (b.types << 6),
         }
     }

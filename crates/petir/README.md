@@ -83,21 +83,25 @@ things:
 
 1. **No explicit panicking construct** in library code — no `panic!`,
    `unwrap()`, `expect(..)`, `unreachable!`, `todo!` or `assert*!`.
-2. **No variable slice indexing** in any module PETIR ported or wrote. An index
-   must be an integer literal, which rustc's deny-by-default
-   `unconditional_panic` lint checks against a fixed-size array at compile
-   time. Everything else goes through `get` / `first` / `last` /
-   `split_first` / `split_last`, or a `zip` — which is what the crate-internal
-   `zip_flat!` exists for, so a five-way parallel-array loop does not have to
-   bind `((((a, b), c), d), e)`.
+2. **No subscript that can fail at run time**, anywhere in the crate — the
+   verbatim lifts included. The only form allowed is a literal index into a
+   `const` array whose length is also a literal, which rustc's deny-by-default
+   `unconditional_panic` lint checks at compile time; the test parses those
+   declarations itself and compares the index against the length, rather than
+   trusting that a literal looks safe. Everything else goes through `get` /
+   `first` / `last` / `split_first` / `split_last`, a slice pattern, or a
+   `zip` — which is what the crate-internal `zip_flat!` exists for, so a
+   five-way parallel-array loop does not have to bind `((((a, b), c), d), e)`.
 
 Why it is worth the trouble: on `thumbv7em-none-eabihf` a panic is not a stack
 trace and a non-zero exit, it is the end of the program in a device that may be
 controlling something.
 
-The **19 verbatim lifts are exempt from the second gate only**, because
-rewriting a subscript in one would destroy the byte-identical property it
-exists for. The fix for those is upstream, then a re-lift.
+The lifts needed no exemption in the end, but only because the subscripts they
+carried were fixed **upstream** — in `outram-foam-basic-lib` and
+`chem-eng-real-time-process-control-simulator` — and then re-lifted. That is
+the route any future one has to take: editing a lift here would break the
+byte-identical property it exists for.
 
 Neither gate covers allocation failure (`Vec` aborts; `alloc` has no stable
 fallible API) or `usize` overflow under `debug_assertions`. Saying so is the
