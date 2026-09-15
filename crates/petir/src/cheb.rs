@@ -65,15 +65,59 @@ use crate::zip::zip_flat;
 /// spelled out so the port reads against upstream.
 const GSL_DBL_EPSILON: f64 = 2.2204460492503131e-16;
 
+/// Evaluation precision — ports `gsl_mode_t`'s `GSL_MODE_PREC` (`gsl_mode.h`).
+///
+/// An enum rather than the bit-masked `unsigned int` upstream uses, per the
+/// workspace rule that a closed set of choices is dispatched by enum: the
+/// compiler then forces every `match` to handle a new variant, where a stray
+/// bit pattern in `gsl_mode_t` silently falls through to the `else`.
+///
+/// # What the reduced modes actually do
+///
+/// [`Single`](Precision::Single) and [`Approx`](Precision::Approx) both select
+/// [`ChebSeries::order_sp`], which upstream leaves equal to the full order.
+/// So unless you set it, **all three modes give the same answer** — that is
+/// upstream's behaviour, faithfully, and it is documented here rather than
+/// papered over with an invented reduction rule.
+///
+/// Upstream distinguishes `GSL_PREC_SINGLE` from `GSL_PREC_APPROX` elsewhere
+/// (in `specfunc`, where different series are selected); `cheb/eval.c` tests
+/// only `== GSL_PREC_DOUBLE`, so the two behave identically here and this port
+/// keeps both variants rather than collapsing them, so a caller porting GSL
+/// code can pass what their source passed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Precision {
+    /// `GSL_PREC_DOUBLE` — the full series order.
+    Double,
+    /// `GSL_PREC_SINGLE` — [`ChebSeries::order_sp`].
+    Single,
+    /// `GSL_PREC_APPROX` — [`ChebSeries::order_sp`], as `Single`.
+    Approx,
+}
+
+impl Precision {
+    /// The order `cheb/eval.c:163-166` selects for this mode.
+    fn eval_order(self, cs: &ChebSeries) -> usize {
+        match self {
+            Precision::Double => cs.order(),
+            Precision::Single | Precision::Approx => cs.order_sp(),
+        }
+    }
+}
+
 /// A Chebyshev series approximating a function on `[a, b]`.
 ///
-/// Ports `gsl_cheb_series` (`cheb/gsl_chebyshev.h`). Upstream's `order_sp`
-/// (a single-precision order used by `gsl_cheb_eval_mode`) and `f` workspace
-/// are omitted — see the module docs.
+/// Ports `gsl_cheb_series` (`cheb/gsl_chebyshev.h`). Upstream's `f` workspace
+/// is omitted (it is scratch for `gsl_cheb_init`, not state); `order_sp` is
+/// carried — see [`order_sp`](Self::order_sp).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChebSeries {
     /// Coefficients `c[0..=order]`.
     c: Vec<f64>,
+    /// Upstream's `order_sp`: the order [`eval_mode`](Self::eval_mode) uses at
+    /// reduced precision. Defaults to the full order, as upstream's
+    /// `gsl_cheb_alloc` does.
+    order_sp: usize,
     /// Lower interval bound.
     a: f64,
     /// Upper interval bound.
@@ -131,7 +175,7 @@ impl ChebSeries {
             *cj = fac * sum;
         }
 
-        Ok(ChebSeries { c, a, b })
+        Ok(ChebSeries::with_default_order_sp(c, a, b))
     }
 
     /// Build directly from known coefficients on `[a, b]`.
@@ -152,7 +196,7 @@ impl ChebSeries {
         if c.is_empty() {
             return Err(PetirError::Invalid);
         }
-        Ok(ChebSeries { c, a, b })
+        Ok(ChebSeries::with_default_order_sp(c, a, b))
     }
 
     /// Build from coefficients in the **plain** convention, where the
@@ -183,6 +227,67 @@ impl ChebSeries {
             *c0 *= 2.0;
         }
         Self::from_coefficients(c, a, b)
+    }
+
+    /// Build with `order_sp` at the full order, which is what
+    /// `gsl_cheb_alloc` (`cheb/init.c:39`) does.
+    fn with_default_order_sp(c: Vec<f64>, a: f64, b: f64) -> Self {
+        let order_sp = c.len().saturating_sub(1);
+        ChebSeries { c, order_sp, a, b }
+    }
+
+    /// The reduced order [`eval_mode`](Self::eval_mode) uses at
+    /// [`Precision::Single`] or [`Precision::Approx`].
+    ///
+    /// # Upstream computes nothing here, and says so
+    ///
+    /// `gsl_cheb_alloc` sets `order_sp = order` (`cheb/init.c:39`) and never
+    /// changes it, so `gsl_cheb_eval_mode` at single precision is identical to
+    /// `gsl_cheb_eval` unless the caller sets the field themselves. GSL's own
+    /// header is explicit about why:
+    ///
+    /// > Users can use it if they like, but only they know how to calculate
+    /// > it, since it is specific to the approximated function.
+    ///
+    /// That is upstream declining to supply a degree-selection rule, not an
+    /// oversight — and it is independent confirmation that there is nothing in
+    /// GSL to port for adaptive degree selection (`bn:op-0sl9`).
+    ///
+    /// # How to choose one
+    ///
+    /// [`eval_n_err`](Self::eval_n_err) reports upstream's error estimate at
+    /// any order, so the smallest order meeting a tolerance you name can be
+    /// found by asking it:
+    ///
+    /// ```
+    /// use petir::ChebSeries;
+    /// let cs = ChebSeries::new(40, -1.0, 1.0, |x: f64| x.exp()).unwrap();
+    /// // The smallest order whose error estimate is within 1e-10, judged at
+    /// // the worst of a few sample points.
+    /// let chosen = (0..=cs.order())
+    ///     .find(|&n| {
+    ///         [-0.9_f64, -0.3, 0.4, 0.95]
+    ///             .iter()
+    ///             .all(|&x| cs.eval_n_err(n, x).1 <= 1e-10)
+    ///     })
+    ///     .unwrap_or(cs.order());
+    /// assert!(chosen < cs.order(), "exp needs far fewer than 40 terms");
+    /// ```
+    ///
+    /// This is a search over upstream's own error estimate, **not** a
+    /// tail-chopping rule: it has no plateau or envelope analysis and it needs
+    /// a tolerance from you, where Chebfun's `standardChop` infers one. It
+    /// does not close `bn:op-0sl9`.
+    pub fn order_sp(&self) -> usize {
+        self.order_sp
+    }
+
+    /// Set the reduced order used at [`Precision::Single`].
+    ///
+    /// Clamped to the series order — upstream does no such check, and a
+    /// larger value there would read past the coefficient array.
+    pub fn set_order_sp(&mut self, order_sp: usize) {
+        self.order_sp = order_sp.min(self.order());
     }
 
     /// The series order (`gsl_cheb_order`, `cheb/init.c:98`) — one less than
@@ -285,6 +390,43 @@ impl ChebSeries {
         (result, abserr)
     }
 
+    /// Evaluate at a precision (`gsl_cheb_eval_mode`, `cheb/eval.c:190`).
+    ///
+    /// [`Precision::Double`] uses the full order;
+    /// [`Single`](Precision::Single) and [`Approx`](Precision::Approx) use
+    /// [`order_sp`](Self::order_sp), which defaults to the full order — see
+    /// [`Precision`] for why all three therefore agree unless you have set it.
+    ///
+    /// Upstream calls these "not meant for casual use"; [`eval`](Self::eval)
+    /// and [`eval_n`](Self::eval_n) are the direct ways to say the same thing.
+    /// This exists so that code being ported from GSL can be transcribed
+    /// rather than reinterpreted.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use petir::{ChebSeries, Precision};
+    /// let mut cs = ChebSeries::new(24, -1.0, 1.0, |x: f64| x.exp()).unwrap();
+    /// // Untouched, every mode agrees -- upstream's default.
+    /// assert_eq!(cs.eval_mode(0.3, Precision::Single), cs.eval(0.3));
+    /// // Set a reduced order and the cheaper mode truncates.
+    /// cs.set_order_sp(6);
+    /// assert_eq!(cs.eval_mode(0.3, Precision::Single), cs.eval_n(6, 0.3));
+    /// assert_eq!(cs.eval_mode(0.3, Precision::Double), cs.eval(0.3));
+    /// ```
+    pub fn eval_mode(&self, x: f64, mode: Precision) -> f64 {
+        self.eval_n_unchecked(mode.eval_order(self).min(self.order()), x)
+    }
+
+    /// As [`eval_mode`](Self::eval_mode), with an error estimate
+    /// (`gsl_cheb_eval_mode_e`, `cheb/eval.c:148`).
+    ///
+    /// Returns `(result, abserr)`, the same pair and the same estimate as
+    /// [`eval_n_err`](Self::eval_n_err).
+    pub fn eval_mode_err(&self, x: f64, mode: Precision) -> (f64, f64) {
+        self.eval_n_err_unchecked(mode.eval_order(self).min(self.order()), x)
+    }
+
     /// The series of the derivative (`gsl_cheb_calc_deriv`, `cheb/deriv.c:26-59`).
     ///
     /// Returns a new series of the **same order** on the same interval, as
@@ -293,11 +435,7 @@ impl ChebSeries {
     pub fn deriv(&self) -> Self {
         let n = self.size();
         let con = 2.0 / (self.b - self.a);
-        let flat = |c| ChebSeries {
-            c,
-            a: self.a,
-            b: self.b,
-        };
+        let flat = |c| ChebSeries::with_default_order_sp(c, self.a, self.b);
         // Upstream sets d[n-1] = 0 and stops; a one-coefficient series is a
         // constant, whose derivative is zero.
         let Some(&c_last) = self.c.last() else {
@@ -349,11 +487,7 @@ impl ChebSeries {
     pub fn integ(&self) -> Self {
         let n = self.size();
         let con = 0.25 * (self.b - self.a);
-        let flat = |c| ChebSeries {
-            c,
-            a: self.a,
-            b: self.b,
-        };
+        let flat = |c| ChebSeries::with_default_order_sp(c, self.a, self.b);
         let Some(&c0) = self.c.first() else {
             return flat(vec![0.0; n]);
         };

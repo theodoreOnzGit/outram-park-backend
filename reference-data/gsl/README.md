@@ -17,6 +17,42 @@ git-tracked but never part of a published crate tarball.
 - **Driver:** `cheb_reference_driver.c` in this directory, committed so the file
   can be regenerated rather than trusted.
 
+## `cheb-mode-gsl-2.8-reference.txt` — `gsl_cheb_eval_mode`
+
+- **Built:** 2026-09-15, same static GSL as the QR reference below.
+- **Driver:** `cheb_mode_reference_driver.c` in this directory.
+- **Routines:** `gsl_cheb_eval_mode` and `gsl_cheb_eval_mode_e` — the two
+  entry points of `gsl_chebyshev.h` that petir did not cover until then.
+
+### The point of the second half of each case
+
+`gsl_cheb_alloc` sets `order_sp = order` and nothing in GSL ever changes it,
+so on any series GSL itself builds, `GSL_PREC_SINGLE` is indistinguishable
+from `GSL_PREC_DOUBLE`. A reference recording only that would be satisfied by
+a port that ignored `order_sp` entirely.
+
+So the driver **sets `cs->order_sp` by hand** — which the GSL header
+explicitly invites ("Users can use it if they like, but only they know how to
+calculate it, since it is specific to the approximated function") — and
+records both paths. Three cases: `exp` at order 24 reduced to 6, the Runge
+function at order 30 reduced to 11, and `exp` on `[-2, 3]` at order 5 reduced
+to 0, i.e. the constant term alone.
+
+### What the comparison found (2026-09-15)
+
+Default path: 615 values, 461 bit-identical (75.0 %); worst relative
+difference 1.06e-15 on results and 1.05e-2 on error estimates. The estimate is
+looser because it is dominated by `|c[order]|`, the coefficient whose true
+value is nearest zero and so the most exposed to rounding in the transform
+that produced it — the same effect `cheb-gsl-2.8-reference.txt` already
+records as 77 % pipeline bit-identity.
+
+Reduced path: 369 values, 357 bit-identical (96.7 %), largest gap between the
+truncated and full answers 14.6 — which is the evidence that the reduced
+branch was actually taken.
+
+Replayed by `crates/petir/tests/gsl_cheb_mode_code_to_code.rs`.
+
 ## `qr-gsl-2.8-reference.txt` — Householder QR and least squares
 
 - **Built:** 2026-09-15, `gcc -O2`, glibc on x86_64-unknown-linux-gnu, against

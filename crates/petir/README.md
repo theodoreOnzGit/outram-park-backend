@@ -54,7 +54,7 @@ that drifts from its origin fails the build rather than rotting quietly.
 
 | Module | Lineage | Covers |
 |---|---|---|
-| `cheb`, `cheb_slice` | ported | Chebyshev interpolation at the Gauss nodes **and least-squares fitting at arbitrary points**, Clenshaw evaluation with an error estimate, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
+| `cheb`, `cheb_slice` | ported | **The whole of GSL's `cheb/`** — interpolation at the Gauss nodes, least-squares fitting at arbitrary points, Clenshaw evaluation with an error estimate, precision-mode evaluation, series derivative and integral, and borrowed-slice evaluators for both coefficient conventions |
 | `deriv` | ported | Numerical differentiation: central, forward and backward rules with automatic step refinement and an error estimate |
 | `integration` | ported | Adaptive Gauss-Kronrod quadrature (QUADPACK): six rules and the `qag` adaptive driver |
 | `interp` | ported | Interpolation of tabulated data: linear and natural cubic spline, with derivatives |
@@ -111,6 +111,23 @@ Given `order + 1` samples taken exactly at the Chebyshev nodes the two paths
 must agree, and they do — to 2.13e-14 pointwise at order 12 on `exp(x)sin(3x)`
 over `[-2, 3]`. They share no code below the basis recurrence, so that
 agreement cross-checks both.
+
+### GSL's `cheb/` is covered completely
+
+All fourteen public entry points of `gsl_chebyshev.h` are accounted for, and
+`the_gsl_chebyshev_header_has_no_entry_point_petir_lacks` reads the vendored
+header on every run so the claim cannot rot. `gsl_cheb_alloc` and
+`gsl_cheb_free` are the only two without an equivalent: a `ChebSeries` owns its
+coefficients and the compiler drops it, so there is nothing for them to do.
+
+`gsl_cheb_eval_mode` / `_mode_e` are ported as `eval_mode` / `eval_mode_err`,
+with `gsl_mode_t` becoming the `Precision` enum. A caveat worth stating,
+because the API implies more than it delivers: **`gsl_cheb_alloc` sets
+`order_sp = order` and nothing in GSL ever changes it**, so the reduced
+precision modes are identical to full evaluation unless you call
+`set_order_sp` yourself. That is upstream's behaviour reproduced faithfully,
+not a gap in the port — GSL's own header says the reduced order is
+"specific to the approximated function" and leaves it to the caller.
 
 ## Errors are returned, and no routine panics on an index
 

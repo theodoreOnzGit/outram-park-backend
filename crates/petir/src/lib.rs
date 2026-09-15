@@ -113,7 +113,7 @@
 //!
 //! | Module | Lineage | Covers |
 //! |---|---|---|
-//! | [`cheb`] | ported | Chebyshev series fitting at Chebyshev nodes, evaluation with error estimate, exact derivative and integral |
+//! | [`cheb`] | ported | The whole of GSL's `cheb/`: interpolation at the Chebyshev nodes, least-squares fitting at arbitrary points, evaluation with error estimate and by precision mode, exact derivative and integral |
 //! | [`cheb_slice`] | ported | Adapter between GSL's and `tampines`' Chebyshev coefficient conventions, plus 2-D tensor-product evaluators |
 //! | [`expint`] | ported | Exponential integral `E_1` and its scaled form |
 //! | [`gamma_inc`] | ported | Regularised lower incomplete gamma, GSL's branch structure (see also the OpenFOAM-lifted `specfunc::inc_gamma`) |
@@ -204,7 +204,7 @@ pub mod specfunc;
 #[cfg(feature = "transfer-fn")]
 pub mod transfer_fn;
 
-pub use cheb::{ChebFit, ChebSeries};
+pub use cheb::{ChebFit, ChebSeries, Precision};
 pub use cheb_slice::{
     basis, basis_into, eval2_dense, eval2_sparse, eval_gsl, eval_plain, scale, try_eval2_sparse,
 };
