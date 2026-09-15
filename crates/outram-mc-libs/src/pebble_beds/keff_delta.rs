@@ -175,6 +175,31 @@ pub enum DeltaDomain {
     Cube { half: f64 },
     /// Reflective sphere of radius `radius` \[cm\], centred on the origin.
     Sphere { radius: f64 },
+    /// **Vacuum** (leakage) sphere of radius `radius` \[cm\], centred on the
+    /// origin — a *bare* body, not an infinite-lattice cell.
+    ///
+    /// Added 2026-09-15. Every other variant here reflects, because this module
+    /// was written for pebble-bed `k_inf`, where a reflective cell IS the model.
+    /// A bare critical assembly is the opposite problem: leakage is most of the
+    /// physics, and reflecting it computes a different eigenvalue entirely. With
+    /// no vacuum variant, delta tracking simply could not run Godiva, which is
+    /// why the surface-tracking driver had no delta-tracked counterpart to be
+    /// checked against.
+    ///
+    /// # Why a landing point outside the sphere means the history escaped
+    ///
+    /// Woodcock tracking samples a flight from the *majorant*, which bounds
+    /// `Sigma_t` inside the body; outside is void, where `Sigma_t = 0` and no
+    /// collision can occur. A sphere is **convex**, so a ray that leaves it
+    /// never re-enters: if `r + s*u` lands outside, the particle crossed the
+    /// boundary somewhere along `s` and is gone. The flight therefore does not
+    /// reflect, and the caller's [`MaterialQuery`] returns `None` outside the
+    /// body, which [`delta_flight`]'s `?` already treats as leakage.
+    ///
+    /// **This reasoning is convexity-dependent.** Do not copy this variant's
+    /// straight-line advance to a non-convex vacuum boundary without handling
+    /// re-entry.
+    SphereVacuum { radius: f64 },
 }
 
 impl DeltaDomain {
@@ -183,7 +208,7 @@ impl DeltaDomain {
     pub fn contains(&self, p: Position) -> bool {
         match *self {
             Self::Cube { half } => p.x.abs() <= half && p.y.abs() <= half && p.z.abs() <= half,
-            Self::Sphere { radius } => p.norm() <= radius,
+            Self::Sphere { radius } | Self::SphereVacuum { radius } => p.norm() <= radius,
         }
     }
 
@@ -193,7 +218,7 @@ impl DeltaDomain {
     pub fn bounding_half(&self) -> f64 {
         match *self {
             Self::Cube { half } => half,
-            Self::Sphere { radius } => radius,
+            Self::Sphere { radius } | Self::SphereVacuum { radius } => radius,
         }
     }
 
@@ -211,7 +236,7 @@ impl DeltaDomain {
                 -half + 2.0 * half * prn(seed),
                 -half + 2.0 * half * prn(seed),
             ),
-            Self::Sphere { radius } => loop {
+            Self::Sphere { radius } | Self::SphereVacuum { radius } => loop {
                 let p = Position::new(
                     -radius + 2.0 * radius * prn(seed),
                     -radius + 2.0 * radius * prn(seed),
@@ -224,22 +249,30 @@ impl DeltaDomain {
         }
     }
 
-    /// Advance a ray by `distance` \[cm\], reflecting specularly off the
-    /// boundary as many times as the flight requires, and return the landing
-    /// position and the (possibly reflected) direction.
+    /// Advance a ray by `distance` \[cm\] and return the landing position and
+    /// direction. **What happens at the boundary is the variant's choice**, so
+    /// read which one you have:
     ///
-    /// The landing point is guaranteed to lie inside the closed domain within
-    /// floating-point slack, so a subsequent material lookup is always defined.
+    /// - [`Self::Cube`] and [`Self::Sphere`] **reflect** specularly, as many
+    ///   times as the flight requires. The landing point is guaranteed to lie
+    ///   inside the closed domain within floating-point slack, so a subsequent
+    ///   material lookup is always defined, and the direction may have changed.
+    /// - [`Self::SphereVacuum`] does **not** reflect. The ray travels in a
+    ///   straight line and the direction is returned unchanged, so the landing
+    ///   point may be outside the domain — which is the signal that the history
+    ///   escaped (see that variant's docs for why convexity makes this sound).
+    ///
+    /// Renamed from `advance_reflective` on 2026-09-15, when the vacuum variant
+    /// made that name false for one of the three.
     #[inline]
-    pub fn advance_reflective(
-        &self,
-        r: Position,
-        u: Direction,
-        distance: f64,
-    ) -> (Position, Direction) {
+    pub fn advance(&self, r: Position, u: Direction, distance: f64) -> (Position, Direction) {
         match *self {
             Self::Cube { half } => advance_reflective_cube(r, u, distance, half),
             Self::Sphere { radius } => advance_reflective_sphere(r, u, distance, radius),
+            Self::SphereVacuum { .. } => (
+                Position::new(r.x + u.u * distance, r.y + u.v * distance, r.z + u.w * distance),
+                u,
+            ),
         }
     }
 }
@@ -436,7 +469,7 @@ where
     let mut u = direction;
     for _ in 0..max_virtual {
         let s = sample_delta_distance(maj, seed);
-        let (r_next, u_next) = domain.advance_reflective(r, u, s);
+        let (r_next, u_next) = domain.advance(r, u, s);
         r = r_next;
         u = u_next;
         let m = material_at.material_at(r)?;
@@ -1168,6 +1201,55 @@ mod tests {
         );
     }
 
+    /// [`DeltaDomain::SphereVacuum`] must NOT reflect — it is a bare body, and
+    /// a flight that leaves it has leaked.
+    ///
+    /// This is the property the whole variant exists for, and it is the exact
+    /// opposite of `reflective_advance_stays_in_sphere` directly below. Getting
+    /// it wrong is silent: a reflecting "vacuum" boundary computes a reflected
+    /// eigenvalue that still looks like a plausible number, which is how a bare
+    /// sphere would quietly be turned into an infinite lattice.
+    #[test]
+    fn vacuum_advance_leaves_the_sphere_without_reflecting() {
+        let radius = 8.7407_f64; // Godiva
+        let domain = DeltaDomain::SphereVacuum { radius };
+        let start = Position::new(0.0, 0.0, 0.0);
+        let dir = Direction::new(0.0, 0.0, 1.0);
+
+        // A flight longer than the radius must land outside, on the straight
+        // line, with the direction untouched.
+        let (end, u) = domain.advance(start, dir, 3.0 * radius);
+        assert!(
+            end.norm() > radius,
+            "a vacuum flight of 3R from the centre landed at |r| = {:.4} cm,              inside R = {radius} cm -- it reflected when it must not",
+            end.norm()
+        );
+        assert!((end.z - 3.0 * radius).abs() < 1e-9, "flight was not a straight line");
+        assert_eq!(
+            (u.u, u.v, u.w),
+            (dir.u, dir.v, dir.w),
+            "vacuum advance must not change the direction"
+        );
+
+        // A flight that stays inside behaves exactly like free flight.
+        let (inside, _) = domain.advance(start, dir, 0.5 * radius);
+        assert!(inside.norm() <= radius);
+        assert!((inside.z - 0.5 * radius).abs() < 1e-12);
+
+        // `contains` still describes the closed body, so the caller's
+        // MaterialQuery can use it as the fuel boundary.
+        assert!(domain.contains(Position::new(0.0, 0.0, radius - 1e-9)));
+        assert!(!domain.contains(Position::new(0.0, 0.0, radius + 1e-6)));
+
+        // And the reflective sphere of the same radius must differ, or the two
+        // variants are not actually doing different things.
+        let (refl_end, _) = DeltaDomain::Sphere { radius }.advance(start, dir, 3.0 * radius);
+        assert!(
+            refl_end.norm() <= radius + 1e-9,
+            "the reflective sphere let a flight escape"
+        );
+    }
+
     /// The spherical arm of [`DeltaDomain`] must keep a ray inside the sphere for
     /// *any* start, direction and flight length — including the two cases that
     /// break a naive implementation: a start already on the surface, and a very
@@ -1189,7 +1271,7 @@ mod tests {
             let (dx, dy, dz) = isotropic_direction(&mut seed);
             let dir = Direction::new(dx, dy, dz);
             let distance = 40.0 * prn(&mut seed);
-            let (end, u) = domain.advance_reflective(start, dir, distance);
+            let (end, u) = domain.advance(start, dir, distance);
             assert!(
                 end.norm() <= radius + 1e-9,
                 "case {case}: landed at |r| = {} outside R = {radius}",
@@ -1206,14 +1288,14 @@ mod tests {
         // reflect rather than escape.
         let on_surface = Position::new(radius, 0.0, 0.0);
         let outward = Direction::new(1.0, 0.0, 0.0);
-        let (end, u) = domain.advance_reflective(on_surface, outward, 1.0);
+        let (end, u) = domain.advance(on_surface, outward, 1.0);
         assert!(end.norm() <= radius + 1e-9, "|r| = {}", end.norm());
         assert!(u.u < 0.0, "outward ray must have reversed, u.u = {}", u.u);
 
         // Near-tangent ray: t_surf is ~0 every step, the reflection cap must hold.
         let tangent_start = Position::new(radius - 1e-12, 0.0, 0.0);
         let tangent_dir = Direction::from_unnormalised(1e-9, 1.0, 0.0);
-        let (end, _u) = domain.advance_reflective(tangent_start, tangent_dir, 50.0);
+        let (end, _u) = domain.advance(tangent_start, tangent_dir, 50.0);
         assert!(end.norm() <= radius + 1e-9, "|r| = {}", end.norm());
     }
 
