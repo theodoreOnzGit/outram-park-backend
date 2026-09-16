@@ -813,3 +813,117 @@ pub fn parse_mf6_law7_lab_angle_energy(section: &Section) -> Result<Mf6LabAngleE
         "MF=6 section carries no ZAP=1 LAW=7 (lab angle-energy) neutron subsection",
     ))
 }
+
+#[cfg(test)]
+mod incident_interp_survey {
+    use super::*;
+    use crate::endf::tape::Tape;
+    use crate::reference_data::reference_data_dir;
+
+    /// **Which incident-energy interpolation laws do real evaluations actually
+    /// use on MF=6 LAW=1?**
+    ///
+    /// This matters because `ChiTabular` — the transport-side structure the
+    /// Monte Carlo sampler consumes — carries the *outgoing* energy
+    /// interpolation (`LEP`, as `ChiEout::linlin`) but, until 2026-09-16,
+    /// dropped the **incident**-energy law (`e_in_interp`, the TAB2's own
+    /// `INT`). The sampler therefore applied unit-base *linear* interpolation
+    /// between incident rows unconditionally.
+    ///
+    /// For `INT = 2` (lin-lin) that is correct. For `INT = 1` (histogram) it is
+    /// not: the evaluation is saying "use the lower row, do not interpolate".
+    ///
+    /// This test measures rather than assumes, over every neutron-sublibrary
+    /// tape in `reference-data/endf/`, and **prints the tally**. It is
+    /// deliberately not a pass/fail gate on the laws found — it is the evidence
+    /// for how far the drop actually matters, and it will surface the day a
+    /// tape with a histogram law is added.
+    #[test]
+    fn survey_incident_energy_interpolation_laws() {
+        let dir = reference_data_dir("endf");
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            println!("no reference-data/endf; skipping");
+            return;
+        };
+        let mut files: Vec<_> = rd
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| {
+                p.extension().is_some_and(|x| x == "endf")
+                    && p.file_name()
+                        .is_some_and(|n| n.to_string_lossy().starts_with("n-"))
+            })
+            .collect();
+        files.sort();
+        if files.is_empty() {
+            println!("no neutron tapes; skipping");
+            return;
+        }
+
+        let mut counts: std::collections::BTreeMap<i32, usize> = Default::default();
+        let mut non_linlin = Vec::new();
+        // Skips are COUNTED, not silent. A survey that quietly drops what it
+        // cannot parse reports a clean answer about a fraction of the data --
+        // the same failure mode as a skipped test reading as a pass.
+        let (mut n_sec, mut n_parse_err, mut n_no_section) = (0usize, 0usize, 0usize);
+        for f in &files {
+            let Ok(tape) = Tape::read_file(f) else { continue };
+            let Some(&mat) = tape.materials().first() else {
+                continue;
+            };
+            for mt in [16i32, 17, 91] {
+                let Some(sec) = tape.section(mat, 6, mt) else {
+                    n_no_section += 1;
+                    continue;
+                };
+                n_sec += 1;
+                let subs = match parse_mf6_law1_neutrons(&sec) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        n_parse_err += 1;
+                        println!(
+                            "   parse skipped: {} MT={mt}: {e}",
+                            f.file_name().unwrap().to_string_lossy()
+                        );
+                        continue;
+                    }
+                };
+                for s in &subs {
+                    for &(_, int) in &s.law4.e_in_interp {
+                        *counts.entry(int as i32).or_insert(0) += 1;
+                    }
+                    if s.law4.e_in_interp.iter().any(|&(_, i)| i != 2) {
+                        non_linlin.push(format!(
+                            "{} MT={mt} {:?}",
+                            f.file_name().unwrap().to_string_lossy(),
+                            s.law4.e_in_interp
+                        ));
+                    }
+                }
+            }
+        }
+
+        println!(
+            "MF=6 LAW=1 incident-energy interpolation across {} neutron tapes (MT=16/17/91):\n\
+             \x20  sections found {n_sec}, parse-skipped {n_parse_err}, absent {n_no_section}",
+            files.len()
+        );
+        let name = |i: i32| match i {
+            1 => "histogram",
+            2 => "lin-lin",
+            3 => "lin-log",
+            4 => "log-lin",
+            5 => "log-log",
+            11..=15 => "CORRESPONDING-POINT",
+            21..=25 => "UNIT-BASE",
+            _ => "?",
+        };
+        for (k, v) in &counts {
+            println!("   INT={k} ({}) -> {v} interpolation range(s)", name(*k));
+        }
+        assert!(
+            n_sec > 0,
+            "no MF=6 MT=16/17/91 sections found at all; the survey measured nothing."
+        );
+    }
+}

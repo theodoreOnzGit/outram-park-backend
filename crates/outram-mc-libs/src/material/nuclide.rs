@@ -2660,6 +2660,8 @@ mod tests {
         let chi = ChiTabular {
             incident: vec![1.0e5, 2.0e7],
             tables: vec![low, high],
+            // Synthetic fixture: no evaluation TAB2 behind it.
+            incident_interp: Vec::new(),
         };
         let mean_at = |e_in: f64| -> f64 {
             let mut seed = 12345u64;

@@ -49,7 +49,7 @@ marked `env` and count as a gap, not as coverage.
 | CSG geometry / surface tracking | ✅ | analytic intersections; lattice overlap | n/a | n/a |
 | RNG stream independence | ✅ | seed-to-seed `sd` gate (`op-rbo`) | n/a | ✅ |
 | **URR probability tables** | ✅ (2026-09-16) | **NJOY2016 PURR: Bondarenko elastic 4.2e-7, capture 3.0e-7** | ✅ `without_urr_probability_tables` | ✅ ×3 |
-| `EnergyAngular` interpolation flag | ❌ **dropped** | — | ❌ | ❌ |
+| MF=6 incident-energy interpolation flag | 🟡 **carried, not honoured** (2026-09-16) | measured: 17 ranges INT=22 unit-base, **9 ranges INT=12 corresponding-point** | n/a | ✅ survey gate |
 | MF=6 `LANG = 11…15` (tabulated cosines) | ❌ retained, unsampled | — | n/a | n/a |
 
 ## `njoy-outram-park-fork` — the data path
@@ -353,8 +353,34 @@ not need — `outram-mc-libs` never reads a PENDF, it reads ENDF and builds a
   thermal or epithermal case. That is the same gap recorded below as the
   project's largest, and DBRC is now a second reason to close it.
 
-Still open: the `EnergyAngular` interpolation flag, MF=6 `LANG = 11…15`, MF=5
-LF=5. These are gaps but not defects — each is recorded where a reader meets
+**The MF=6 incident-energy interpolation flag — measured 2026-09-16, and the
+finding is not what the survey assumed.** It was recorded as "dropped", which
+was true: the parser read the TAB2's `INT` and `ChiTabular` threw it away, so
+no consumer could see what the evaluation asked for. It is now **carried**.
+
+What it says is more interesting than expected. ENDF File 6 uses the extended
+codes — `11..=15` is *corresponding-point* interpolation, `21..=25` is
+*unit-base* — not the plain `1`/`2` a reader would assume. Across this
+workspace's 27 neutron tapes on MT=16/17/91: **17 ranges are INT=22 (unit-base)
+and 9 are INT=12 (corresponding-point)**. Our samplers apply unit-base to all
+of them, so roughly a third get the wrong rule *relative to the evaluation*.
+
+**It is not a discrepancy against our reference implementation**, which is what
+makes this a maintainer decision rather than a fix. NJOY's ACER preserves the
+flag into the ACE Law-4 header, OpenMC applies unit-base regardless, and this
+port's sampled spectra reproduce OpenMC's construction to 0.02 %
+(`mt91_transfer_vs_openmc.rs`). Honouring corresponding-point would make this
+crate deviate from the code it is a port of. Carried, measured, documented —
+deliberately not acted on unilaterally.
+
+The survey that produced those counts is a permanent in-crate gate
+(`acer::energy::mf6`'s `survey_incident_energy_interpolation_laws`) and counts
+its own skips, so it cannot report a clean answer about a fraction of the data.
+It found two: H-2 and Be-9 MT=16 use **LAW=6/LAW=7**, not LAW=1 — a separate,
+previously unrecorded gap in the continuum path.
+
+Still open: MF=6 `LANG = 11…15`, MF=5 LF=5, and MF=6 LAW=6/LAW=7 on light
+nuclides. These are gaps but not defects — each is recorded where a reader meets
 it.
 
 ---

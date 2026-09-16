@@ -194,6 +194,36 @@ pub struct ChiTabular {
     /// Outgoing-energy distribution at each incident energy (`tables.len() ==
     /// incident.len()`).
     pub tables: Vec<ChiEout>,
+    /// The evaluation's own **incident-energy** interpolation law, as ENDF
+    /// `(NBT, INT)` ranges from the MF=6 LAW=1 / MF=5 LF=1 TAB2.
+    ///
+    /// # Why this is carried, and what is actually honoured
+    ///
+    /// Until 2026-09-16 this was **dropped at conversion** — the parser read it
+    /// and the transport-side structure threw it away, so no consumer could
+    /// even see what the evaluation asked for. It is carried now so the
+    /// information is not silently lost.
+    ///
+    /// **What the samplers do is still unit-base interpolation in every case.**
+    /// ENDF File 6 uses the extended codes here: `11..=15` is
+    /// *corresponding-point* interpolation (scheme `INT − 10`) and `21..=25` is
+    /// *unit-base* (scheme `INT − 20`). Measured across this workspace's 27
+    /// neutron tapes on MT=16/17/91 (`acer::energy::mf6`'s
+    /// `survey_incident_energy_interpolation_laws`): **17 ranges are INT=22
+    /// (unit-base) and 9 are INT=12 (corresponding-point)**.
+    ///
+    /// So roughly a third of the ranges specify corresponding-point and get
+    /// unit-base. That is a real discrepancy against the *evaluation* — but it
+    /// is **not** a discrepancy against this crate's reference implementation:
+    /// NJOY's ACER preserves the flag into the ACE Law-4 header, OpenMC applies
+    /// unit-base regardless, and this port's sampled spectra reproduce OpenMC's
+    /// construction to 0.02 % (`outram-mc-libs`'s
+    /// `mt91_transfer_vs_openmc.rs`). Diverging from OpenMC here is a
+    /// maintainer decision, not something to do silently — hence: carried,
+    /// measured, documented, not yet acted on.
+    ///
+    /// Empty when the source carried no TAB2 interpolation record.
+    pub incident_interp: Vec<(u32, u32)>,
 }
 
 impl Default for FissionSpectrum {
@@ -967,7 +997,13 @@ impl ContinuumEmission {
             }
             let angular = build_continuum_angular(&neutron);
             branches.push(ContinuumBranch {
-                spectrum: ChiTabular { incident, tables },
+                spectrum: ChiTabular {
+                    incident,
+                    tables,
+                    // The evaluation's own incident-energy law, carried rather
+                    // than dropped -- see `ChiTabular::incident_interp`.
+                    incident_interp: neutron.law4.e_in_interp.clone(),
+                },
                 yield_pairs: neutron.yield_pairs,
                 angular,
             });
@@ -1211,6 +1247,8 @@ fn parse_lf1_tabular(
     cur: &mut crate::endf::records::SectionCursor<'_>,
 ) -> Result<ChiTabular, crate::NjoyError> {
     let tab2 = cur.read_tab2()?;
+    // Carried, not dropped -- see `ChiTabular::incident_interp`.
+    let tab2_interp: Vec<(u32, u32)> = tab2.interp.clone();
     let ne = tab2.head.n2.max(0) as usize;
     let mut incident = Vec::with_capacity(ne);
     let mut tables = Vec::with_capacity(ne);
@@ -1230,7 +1268,12 @@ fn parse_lf1_tabular(
             linlin,
         });
     }
-    Ok(ChiTabular { incident, tables })
+    Ok(ChiTabular {
+        incident,
+        tables,
+        // MF=5 LF=1's TAB2 interpolation, carried for the same reason as MF=6's.
+        incident_interp: tab2_interp,
+    })
 }
 
 /// Mean of a tabulated (possibly unnormalized) density: `∫x·y(x)dx / ∫y(x)dx`,
