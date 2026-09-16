@@ -104,3 +104,9 @@ docs/token-usage.md
 # crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/)
 ours_spectrum.csv
 openmc_spectrum.csv
+
+# OpenMC cross-code work products: ACE (260 MB) and HDF5 regenerated from the
+# repo's own ENDF tapes by make_ace.sh + build_data.py. Reproducible, large,
+# and never committed -- see verification_and_validation/README.md.
+crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/ace/
+crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/work/
