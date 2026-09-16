@@ -86,6 +86,46 @@
 //! | `graphite boron only` | tests whether the kernel's 4 ppm matters |
 //! | `ppm read as elemental B-10` | the 5.43x over-absorption mistake |
 //!
+//! ## Results (measured 2026-09-16)
+//!
+//! ENDF/B-VIII.0 + crystalline-graphite S(alpha,beta) at 300.15 K, 6000
+//! histories x [20 inactive + 60 active], delta tracking over the explicit
+//! packing:
+//!
+//! | arm | `k_inf` | sigma | vs natural |
+//! |---|---|---|---|
+//! | natural B (as specified) | **1.68515** | 0.00178 | (reference) |
+//! | no boron at all | 1.70002 | 0.00175 | **+1487 pcm (6.0 sigma)** |
+//! | graphite boron only | 1.68297 | 0.00175 | -218 pcm (0.9 sigma) |
+//! | ppm read as elemental B-10 | 1.62804 | 0.00191 | **-5711 pcm (21.9 sigma)** |
+//!
+//! ### What the arms say
+//!
+//! **The prediction was recorded before the run and it held.** A 2200 m/s hand
+//! estimate said the kernel's 4 ppm was ~0.06 % of local absorption and the
+//! graphite's 1.3 ppm ~24 %, so dropping the kernel's boron should be
+//! *invisible*. It is: the `graphite boron only` arm sits **0.9 sigma** from
+//! natural, and its sign is even negative — removing an absorber cannot lower
+//! `k`, so that is noise, which is what an unresolved null looks like.
+//!
+//! Since the kernel contributes nothing measurable, essentially the whole
+//! **+1487 pcm** of the `no boron` arm is the graphite's 1.3 ppm. A row that
+//! reads like a trace impurity is worth about 1500 pcm, because graphite is weak
+//! enough as an absorber (sigma_a ~ 0.0035 b) that 1.3 ppm of a 3840 b absorber
+//! competes with it.
+//!
+//! And **misreading that same row as elemental B-10 costs 5711 pcm** — nearly
+//! four times the impurity's entire worth, because it multiplies the absorber by
+//! 5.43x. Nothing in Table 2's wording prevents it.
+//!
+//! ### Agreement between runs
+//!
+//! An earlier 2000-history run gave `k_inf = 1.68532 +/- 0.00308` for the
+//! natural arm — **17 pcm** from the 6000-history value — with +1093 pcm
+//! (2.7 sigma), -536 pcm (1.2 sigma) and -5974 pcm (14.3 sigma) on the other
+//! three. Every arm agrees within statistics, and the two unresolved nulls stay
+//! unresolved as the statistics improve rather than resolving into something.
+//!
 //! ## This is verification input, not a validated result
 //!
 //! The eigenvalue printed is a **bare pebble k-infinity**, reflective at the
