@@ -8,11 +8,15 @@ risk-analysis core of [RAVEN](https://github.com/idaholab/raven), the
 probabilistic risk-analysis, UQ and model-reduction framework developed by
 Idaho National Laboratory.
 
-> **⚠️ SCAFFOLD ONLY — nothing is implemented.** This crate currently contains
-> module boundaries, licensing and provenance, and nothing else. No
-> distribution, no sampler, no sensitivity estimator, no surrogate. There has
-> been no human V&V. Do not describe any part of it as working, verified or
-> validated.
+> **⚠️ IMPLEMENTED IN PART, WITH NO HUMAN V&V.** Distributions, samplers,
+> sensitivity measures, Bayesian model updating, statistical distances,
+> Approximate Bayesian Computation, imprecise probability, model selection,
+> graph neural networks and surrogate models all carry working, tested code.
+> Every one of them is **AI-assisted draft material** under the workspace
+> `RESPONSIBLE_USE.md` rules until the maintainer and the crate owner have
+> reviewed it. Read "verified" throughout this crate as "checked against a
+> reference by an automated test", which is what it is — and do not describe
+> any part of it as validated.
 
 > **Intended use:** education, research, capability building and V&V only.
 > Despite the name, RAFFLES is **not** for nuclear facility operation, reactor
@@ -34,7 +38,13 @@ maker: propose changes of direction to them rather than making them.
 | `distributions` | Probability distributions — densities, CDFs, inverse CDFs, analytic moments; continuous and discrete, truncated variants, multivariate |
 | `samplers` | Sampling strategies — Monte Carlo, Latin hypercube (RAVEN calls it `Stratified`), grid / full-factorial |
 | `sensitivity` | Importance measures from an evaluated sample — Sobol first-order and total indices, Pearson / Spearman / partial correlation |
-| `surrogate` | Reduced-order models — polynomial chaos, Gaussian process, regression. **Placeholder; no work scheduled** |
+| `bayesian` | Bayesian model updating — independent priors, Metropolis–Hastings and affine-invariant ensemble moves, TMCMC and TEMCMC with the log-evidence as a by-product, and both published tempering criteria |
+| `distance` | Statistical distances between two sample sets — Euclidean on summaries, Bhattacharyya, Hellinger, Jensen–Shannon, Bray–Curtis, 1-Wasserstein (the area metric) |
+| `abc` | Approximate Bayesian Computation — three kernels, rejection ABC, and an approximate log-likelihood the transitional samplers consume directly |
+| `imprecise` | Imprecise probability — intervals, probability boxes, Clopper–Pearson confidence boxes, coherent-system reliability with or without a dependence assumption |
+| `model_selection` | Comparing models by evidence — Bayes factors, posterior model probabilities, the Kass–Raftery scale |
+| `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
+| `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
 
 **Out of scope:** physics of any kind, simulation drivers, job scheduling,
 input-file/XML parsing, databases, plotting. RAVEN is a whole workflow
@@ -96,6 +106,30 @@ This is an independent fork. RAFFLES is not the RAVEN project, is not a release
 of RAVEN, and is not endorsed by or affiliated with RAVEN, Idaho National
 Laboratory, Battelle Energy Alliance, LLC, or the U.S. Department of Energy.
 See the workspace `TRADEMARKS.md`.
+
+## Provenance beyond RAVEN
+
+RAFFLES started as a RAVEN port and has since taken in work from two other
+directions. The licensing is not uniform, and the difference decides what could
+be done:
+
+| Source | Licence | What that allowed |
+|---|---|---|
+| [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this GPL-3.0 crate, one-way, with the attribution header in `CLAUDE.md` |
+| [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | Same licence as this workspace, so `gnn::mpnn` **is** a port and carries its attribution header |
+| Adolphus Lye's `Bayesian-Model-Updating-Tutorials` | GPL-3.0 | Portable, same as above |
+| Adolphus Lye's six other repositories (workspace issue #158) | **none** | All rights reserved. **No code was taken from them.** The algorithms here are independent implementations from the published papers, each cited with its DOI |
+
+That last row is the important one. A repository with no licence file is not
+"open by default": copying, translating or adapting its code into a GPL-3.0
+work needs the author's permission. The Bayesian, distance, ABC and imprecise
+modules were therefore written from the papers — which is unaffected, since
+algorithms are not copyrightable — and none of them carries a "ported from"
+header, because nothing was taken.
+
+**If those repositories gain a GPL-compatible licence, a code-level port
+becomes possible** and the attribution convention in `CLAUDE.md` applies from
+that point on. Until then, the papers are the specification.
 
 ## Design rules
 

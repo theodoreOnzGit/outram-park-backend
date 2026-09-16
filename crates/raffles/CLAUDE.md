@@ -10,9 +10,12 @@ uncertainty-quantification and risk-analysis core of
 [RAVEN](https://github.com/idaholab/raven) (Idaho National Laboratory,
 Apache-2.0).
 
-**Current state: scaffold.** Module boundaries, licensing and provenance only.
-No distribution, sampler, estimator or surrogate exists. Do not describe any
-part of this crate as working, verified or validated.
+**Current state: implemented in part, with no human V&V.** Distributions,
+samplers, sensitivity, Bayesian model updating, distances, ABC, imprecise
+probability, model selection, GNNs and surrogates all carry working, tested
+code. All of it is AI-assisted draft material until the maintainer and the
+crate owner have reviewed it, so do not describe any part of it as validated,
+and read "verified" as "checked against a reference by an automated test".
 
 ---
 
