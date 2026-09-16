@@ -116,11 +116,27 @@ not used. Sample values are plain `f64` in whatever units the caller's model
 uses; RAFFLES never interprets them physically. Probabilities and Sobol indices
 lie in `[0, 1]`; correlation coefficients lie in `[-1, 1]`.
 
+## Optional features
+
+| Feature | Default | What it adds |
+|---|---|---|
+| `burn` | off | Neural-network surrogates backed by [burn](https://github.com/tracel-ai/burn), this workspace's replacement for PyTorch. Pulls `burn` in `no_std` + `alloc` mode with the pure-Rust, libm-backed `ndarray` backend — no system BLAS and no GPU, so the Android and wasm builds stay clean. |
+
+```bash
+cargo build -p raffles --release --features burn
+```
+
+Nothing in `src/surrogate.rs` consumes `burn` yet; the feature wires the
+dependency up so that work can start behind a flag. GPU backends (`wgpu`,
+`vulkan`, `metal`, `webgpu`) are deliberately out of scope for this first pass.
+
 ## Android / Termux
 
-The crate is **Android-clean by construction** and must stay that way. Its only
-dependency is `thiserror`. There is no `ndarray-linalg`, no BLAS/LAPACK, no C
-or Fortran toolchain, no GUI.
+The crate is **Android-clean by construction** and must stay that way. Its
+dependencies are `thiserror`, `outram-mc-libs` (the RNG), and — only when the
+optional `burn` feature is turned on — `burn` with its `ndarray` backend. Every
+one of them is pure Rust: there is no `ndarray-linalg`, no BLAS/LAPACK, no C or
+Fortran toolchain, no GUI.
 
 If linear algebra becomes necessary — surrogate fitting, correlated
 multivariate sampling — reach first for the pure-Rust `faer` already in the

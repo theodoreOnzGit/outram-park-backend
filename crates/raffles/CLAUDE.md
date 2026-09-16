@@ -265,8 +265,10 @@ enough?") is a separate question and is not answered by any of the above.
 ## Android / Termux
 
 The crate is Android-clean, and stays that way. Its dependencies are
-`thiserror` and `outram-mc-libs` (the RNG — see below); both build for
-`aarch64-linux-android`.
+`thiserror`, `outram-mc-libs` (the RNG — see below), and the optional `burn`
+(see "Machine learning" below); all three build for `aarch64-linux-android` —
+`cargo check -p raffles --all-targets --features burn --target
+aarch64-linux-android` was clean on 2026-09-16 (burn 0.21.0, rustc 1.94.1).
 
 - **Never** add `ndarray-linalg`, or anything needing system BLAS/LAPACK, a C
   or Fortran toolchain, or windowing GUI, as an unconditional dependency.
@@ -335,6 +337,58 @@ The authoritative check is a native build inside Termux.
 
 ---
 
+## Machine learning — `burn` replaces PyTorch, and is optional here
+
+Upstream RAVEN backs its machine-learning surrogates with **PyTorch**. The
+Rust replacement for PyTorch in this workspace is **`burn`** (tracel-ai,
+MIT OR Apache-2.0 — permissive into GPL-3.0, one-way, like RAVEN itself), per
+maintainer direction on 2026-09-16: reach for `burn` wherever the upstream
+reaches for PyTorch, as far as `burn` will go. Do not add a second ML
+framework, and do not hand-roll a tensor/autodiff layer alongside it — the same
+reasoning as the RNG rule above.
+
+**It is optional and off by default.** `burn` is declared once in the root
+`[workspace.dependencies]` with `default-features = false`, and RAFFLES takes
+it as `burn = { workspace = true, optional = true }` behind its own `burn`
+feature:
+
+```bash
+cargo build -p raffles --release --features burn
+```
+
+- **`no_std` + `alloc`.** That is what `default-features = false` buys, and it
+  is deliberate: `burn` runs on `core` + `alloc`, which is all a tensor library
+  needs, and it keeps the Android/Termux and wasm builds clean. `alloc` is
+  implicit in that mode (`burn` declares `extern crate alloc` itself — there is
+  no `alloc` feature to name). A `std` binary links a `no_std` `burn` happily,
+  so do not turn the defaults back on for convenience; the `std` feature is
+  where `burn`'s dataset/network/train/sqlite machinery lives.
+- **Backend: `ndarray` only, for now.** The crate's `burn` feature enables
+  `burn/ndarray` — the one backend that is pure Rust and libm-backed, with no
+  system BLAS and no C/Fortran toolchain. Never swap it for `tch`, `candle`,
+  `cuda`, `rocm` or any `blas-*` feature: every one of those violates the
+  Android rule above.
+- **GPU is out of scope for this first pass** (maintainer direction,
+  2026-09-16). When `wgpu`/`vulkan`/`metal`/`webgpu` is wanted, it goes behind
+  its own feature under `cfg(not(target_os = "android"))`, following
+  `outram-mc-libs`'s gating convention — not into the default build.
+- **Nothing consumes it yet.** `src/surrogate.rs` is still the scaffold; the
+  feature exists so the `burn`-backed surrogate work can start behind a flag.
+  Whichever surrogates get built on it are subject to the same verification
+  requirement as everything else here — a fitted network that reproduces its
+  training data is not a verified surrogate.
+
+Verified clean on 2026-09-16 with `burn` 0.21.0 and rustc 1.94.1 (warnings in
+the output came from `outram-mc-libs`/`njoy-outram-park-fork` and predate this):
+
+```bash
+cargo check -p raffles --lib         --features burn
+cargo check -p raffles --all-targets --features burn --target aarch64-linux-android
+cargo check -p raffles --lib         --features burn --target wasm32-unknown-unknown
+```
+
+---
+
 ## Scope boundaries (do not widen without the owner's say-so)
 
 **In scope:** probability distributions, sampling strategies, sensitivity
@@ -360,6 +414,14 @@ cargo test  -p raffles --lib --tests --release
 ```
 
 Always `--release` for builds and tests, per the workspace rule.
+
+The optional `burn` feature is **not** in the default build, so add it
+explicitly when the work touches the surrogate path:
+
+```bash
+cargo check -p raffles --lib --features burn
+cargo test  -p raffles --lib --tests --release --features burn
+```
 
 ---
 

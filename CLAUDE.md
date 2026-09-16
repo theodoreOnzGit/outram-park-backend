@@ -1660,6 +1660,37 @@ AGPL question that comes with it) by accident. See `crates/kovan/NOTICE`.
 
 See `docs/workspace-maintenance.md` for the rationale and history.
 
+### `burn` is this workspace's PyTorch (maintainer direction, 2026-09-16)
+
+Several of the codes this suite ports from reach for **PyTorch** for their
+machine-learning parts — RAVEN's surrogates are the first case to land. The
+Rust replacement is **`burn`** (tracel-ai, MIT OR Apache-2.0, so permissive
+into GPL-3.0 and one-way like the rest): **reach for `burn` wherever the
+upstream reaches for PyTorch, as far as `burn` will go.** Do not introduce a
+second ML framework, and do not hand-roll a tensor/autodiff layer beside it.
+
+- Declared once in the root `[workspace.dependencies]` as
+  `burn = { version = "0.21.0", default-features = false }` — i.e. **`no_std`**,
+  which is deliberate: `burn` runs on `core` + `alloc` (`alloc` is implicit,
+  there is no feature to name), and that is what keeps it inside the Android
+  and wasm rules below. `default-features = false` also drops `burn`'s
+  std-only dataset/network/train/sqlite stack. A `std` binary links a `no_std`
+  `burn` without complaint, so do not turn defaults back on for convenience.
+- **The backend is the consumer's choice, and the safe one is `ndarray`** —
+  pure Rust, libm-backed, no system BLAS. `accelerate`, `blas-netlib`,
+  `openblas`, `openblas-system`, `tch`, `candle`, `cuda` and `rocm` all want a
+  system BLAS/LAPACK or a C/C++ toolchain and must never appear in an
+  unconditional library build.
+- **GPU is out of scope for the first pass.** `burn`'s
+  `wgpu`/`vulkan`/`metal`/`webgpu` backends inherit the `wgpu` rule: behind a
+  feature, example or optional bin under `cfg(not(target_os = "android"))`.
+- **MSRV:** `burn` 0.21 declares `rust-version = "1.92"` and `edition = "2024"`,
+  so any crate that actually enables it raises its own toolchain floor to 1.92.
+  Upstream has deprecated `burn-ndarray` in the 0.22 pre-releases in favour of
+  `burn-flex`/`burn-cpu`; check that crate's `no_std` story before bumping.
+- First consumer: `raffles`, optionally, behind its own `burn` feature (off by
+  default) — see `crates/raffles/CLAUDE.md` "Machine learning".
+
 ## Android / Termux portability (HARD RULE for non-GUI code)
 
 **Hard rule (not a default): every crate's non-GUI library code MUST compile on
