@@ -51,3 +51,25 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # hard-coding an absolute path (which would not survive a fresh clone), this
 # walks up from cwd until it finds scripts/wasi-run.mjs.
 runner = ["bash", "-c", "d=$PWD; while [ ! -f \"$d/scripts/wasi-run.mjs\" ] && [ \"$d\" != / ]; do d=$(dirname \"$d\"); done; exec node --no-warnings \"$d/scripts/wasi-run.mjs\" \"$@\"", "--"]
+
+# ── long tests: on by default, one flag to turn off ──────────────────────────
+#
+# Any individual test over 5 minutes is gated behind each crate's `long-tests`
+# feature, which is in that crate's `default` set — so a plain `cargo test`
+# runs the full suite, and nothing is silently skipped in a normal run. The
+# gate uses `#[cfg_attr(not(feature = "long-tests"), ignore = "...")]`, so a
+# disabled long test is reported as `ignored` rather than vanishing.
+#
+# Cargo has no "disable one default feature" flag, so turning them off means
+# `--no-default-features`. Only two crates carry any other default feature
+# (`kovan`'s `gui`, `petir`'s `transfer-fn`); both build and test without it,
+# and dropping `gui` is desirable in a headless session anyway.
+#
+#   cargo quick-test                  # whole workspace, long tests skipped
+#   cargo quick-test -p <crate>       # one crate, long tests skipped
+#   cargo test --release --workspace --lib --tests   # everything, incl. long
+#
+# `quick-test` is for iteration only. Work is not done until the full suite
+# has been run -- see the "Long-running tests" HARD RULE in CLAUDE.md.
+[alias]
+quick-test = ["test", "--release", "--lib", "--tests", "--no-default-features"]

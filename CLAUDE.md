@@ -1956,6 +1956,119 @@ Practical consequences for an agent or a CI step:
 - **A timeout is not a failure.** Do not report a killed run as a failing test,
   and never loosen a tolerance because a long test was inconvenient.
 
+### Any test over 5 minutes is gated behind `long-tests` (HARD RULE)
+
+**Every individual test whose runtime exceeds 5 minutes MUST be gated behind
+its crate's `long-tests` feature, and that feature MUST be in the crate's
+`default` set.** Both halves bind: the gate is mandatory so a fast run is
+possible at all, and the default-on is mandatory so the slow tests still run
+unless someone deliberately turns them off.
+
+**The threshold is per test, not per suite.** A test binary that takes 12
+minutes across 40 tests running in parallel contains no long test; a single
+test that takes 6 minutes does. Measure the test, not the `cargo test`
+invocation.
+
+**Three tiers, and this rule only creates the middle one.** The workspace
+already had the other two; do not collapse them together.
+
+| runtime | treatment | in a default `cargo test`? |
+|---|---|---|
+| under 5 min | nothing — a plain `#[test]` | yes |
+| 5 min to ~30 min | `#[cfg_attr(not(feature = "long-tests"), ignore = "...")]` | **yes**, skipped only under `--no-default-features` |
+| hours | plain unconditional `#[ignore = "..."]` | no — opt in with `--ignored` |
+
+**Do NOT promote an hours-long test into the middle tier.** Several already
+exist — TUAS's `dracs_mesh_refinement/mesh_refinement_{10,20}_times.rs` carry
+`#[ignore = "regression test takes several hours"]` across 18 tests. Putting
+those behind `long-tests` would make the ordinary suite take a day, which
+defeats the purpose of having a suite that anyone runs. They stay
+unconditionally ignored and opt-in.
+
+**Do NOT demote a mid-tier test into the bottom one either.** An
+unconditional `#[ignore]` on a 6-minute test is how a V&V claim ends up
+protected by nothing: `outram-park-fork-liggghts`'s bulk-packing and
+angle-of-repose cases each back a number quoted in this file's maturity
+roster, and neither had ever run in a normal suite. If a test is the evidence
+for a claim, it belongs in the default run.
+
+**This rule is about RUNTIME ONLY. It says nothing about why else a test may
+be ignored, and it un-ignores nothing on its own.** An `#[ignore]` that exists
+for any other reason keeps it, at any runtime:
+
+- **Measurements and diagnostics that assert nothing** — `ldu_matrix`'s
+  `"measurement, ~31 s"` benchmarks, `keff.rs`'s hardware-dependent timing
+  runs, `reactor_physics.rs`'s `"a spectrum-direction diagnostic, not a
+  gate"`. A test that cannot fail is not protecting anything, so putting it in
+  the default suite buys nothing and costs wall clock.
+- **Unimplemented or won't-port work** — most of
+  `outram-mc-libs/tests/openmc_notebooks/`, each carrying its bead id.
+- **Deliberately on hold** by maintainer decision.
+
+Before converting any `#[ignore]` to the feature gate, read its message. If it
+does not say the test is slow, leave it alone.
+
+**How to gate one:**
+
+```rust
+#[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (~9 min); runs by default, skipped under --no-default-features"
+)]
+fn coupled_dracs_loop_reaches_steady_state() { /* ... */ }
+```
+
+and in that crate's `Cargo.toml`:
+
+```toml
+[features]
+default = ["long-tests"]
+long-tests = []
+```
+
+**Use `#[cfg_attr(..., ignore)]`, never `#![cfg(feature = ...)]`.** The
+`ignore` form keeps the test compiled and reports it as `ignored` when
+switched off, so a skipped long test is visible in the output. Blanking it
+out with `cfg` makes it disappear silently, and a test that can silently
+vanish is a test that rots. The state a reader wants — "this ran", "this was
+deliberately skipped", "this does not exist" — must stay distinguishable.
+
+**Turning them off, for iteration only:**
+
+```bash
+cargo quick-test                 # whole workspace, long tests skipped
+cargo quick-test -p <crate>      # one crate
+```
+
+The alias lives in `.cargo/config.toml` and expands to `cargo test --release
+--lib --tests --no-default-features`. Cargo has no flag to disable a single
+default feature, so `--no-default-features` is the only mechanism; it also
+drops `kovan`'s `gui` and `petir`'s `transfer-fn`, both of which build and
+test fine without, and dropping `gui` is desirable headless anyway.
+
+**Work is NOT done on a `quick-test` run.** `cargo quick-test` is for the
+edit-compile-check loop. Before reporting work complete, before committing,
+and before any hand-off, run the real thing:
+
+```bash
+cargo test --workspace --lib --tests --release
+```
+
+Reporting a green `quick-test` as if it were a green suite is the failure
+mode this rule creates, so it is called out explicitly: **say which of the
+two you ran.** "Tests pass (quick-test; long tests not run)" is an honest
+report. "Tests pass" after a `quick-test` is not.
+
+**When you write a test that crosses the threshold, gate it in the same
+change** — add the feature to the crate's `Cargo.toml` if it has none, and
+state the measured runtime in the `ignore` message so the next reader knows
+what they are skipping. Do not guess the number; measure it.
+
+**This does not change the TUAS rule above.** Those tests are long *and* must
+run in parallel; gating them does not license `--test-threads=1`, and a
+timeout is still not a failure.
+
 ## Reference material (read on demand, not per turn)
 
 These live in `docs/` so they don't load on every turn — consult them only when

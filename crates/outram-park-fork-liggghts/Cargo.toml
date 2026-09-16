@@ -16,6 +16,14 @@ readme = "README.md"
 categories.workspace = true
 exclude = ["docs"]
 
+[features]
+# Tests over 5 minutes are gated on this and it is default-on, so a plain
+# `cargo test` runs them. See the "Any test over 5 minutes" HARD RULE in the
+# workspace CLAUDE.md; turn them off with `cargo quick-test -p
+# outram-park-fork-liggghts`.
+default = ["long-tests"]
+long-tests = []
+
 [dependencies]
 # Pure-Rust, Android-safe deps only (no BLAS / C). `uom` types the physical
 # API boundary (mass, radius, temperature, ...); `thiserror` the error enum.

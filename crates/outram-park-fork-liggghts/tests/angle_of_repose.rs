@@ -100,10 +100,13 @@
 //!
 //! ## Runtime
 //!
-//! Long (~10 min); `#[ignore]`d by default.
+//! Long (~10 min), so it is gated on the default-on `long-tests` feature: a
+//! plain `cargo test` runs it, and it is reported as `ignored` only when that
+//! feature is switched off for fast iteration.
 //!
 //! ```bash
-//! cargo test --release -p outram-park-fork-liggghts --test angle_of_repose -- --ignored --nocapture
+//! cargo test --release -p outram-park-fork-liggghts --test angle_of_repose -- --nocapture
+//! cargo quick-test -p outram-park-fork-liggghts   # skips it
 //! ```
 
 use outram_park_fork_liggghts::boundary::Boundary;
@@ -195,7 +198,10 @@ fn repose_angle(centres: &[Vec3], min_count: usize) -> Option<(f64, f64, f64)> {
 /// See the module docs for methodology, the faithfulness argument, and the
 /// mesh-contact caveat that bounds the achievable agreement.
 #[test]
-#[ignore = "long-running (~10 min); run with --ignored"]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (~10 min); runs by default, skipped under --no-default-features"
+)]
 fn lifting_cylinder_heap_matches_liggghts() {
     let (Some(init), Some(heap)) = (load_state("lift_init.csv"), load_state("lift_heap.csv"))
     else {
