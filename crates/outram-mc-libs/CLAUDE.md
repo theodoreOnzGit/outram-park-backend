@@ -210,6 +210,25 @@ maturity gate in that file for what this means and how the bar is revised.
      predicts. `k_inf` against OpenMC is `+82 ± 55 pcm` after this
      change against `+69 ± 23 pcm` before — the same number within statistics,
      i.e. untouched. Tracked as `op-os8x`. **Two offsetting errors land on the
+
+
+     **Re-measured again 2026-09-16 on HEAD, and LOCALISED.** Both codes were
+     rebuilt in-session (NJOY2016 `ac5adf5f` → ACE → HDF5 → OpenMC 0.15.3
+     `27e38e89`) and run 8 seeds a side: mean `E` **+0.42 %** (4.6 sigma), mean
+     `ln E` **+0.05 %** (8.9 sigma), flux below 300 keV **−1.22 %** (6.0
+     sigma). So `op-os8x` survives `op-og56` intact, as that change's own
+     spectral ablation predicted it would.
+
+     The per-bin comparison now says **where**: we carry **+0.88 % too much
+     flux at 1.9–3.0 MeV** (4.7 sigma, 13.8 % of the flux) and **1.4–1.9 % too
+     little at 67–174 keV**. That is a deficit of down-scatter out of the MeV
+     window, and the only channel that moves a 2 MeV neutron to ~100 keV in one
+     collision is **inelastic** — elastic off U-238 loses at most 1.7 % per
+     collision. It is *not* the angular law (both `op-tm9f` and `op-og56` are
+     in) and *not* the cross sections (≤ 0.06 % flux-weighted). Leading
+     suspect: the MT=91 continuum `f₀(E→E')` shape. Full record and the
+     measurement that would discriminate the candidates:
+     `verification_and_validation/openmc_godiva_cross_code/README.md`.
      right `k` too**; what rules that out *here* is the `k_inf` check above, not
      the size of the residual.
   3. **The continuum angular correlation is still dropped** (MF=6 LANG=1/2,
