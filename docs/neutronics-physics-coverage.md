@@ -190,9 +190,47 @@ Measured on HEAD 2026-09-16 against OpenMC on identical data: mean `E`
 Only inelastic scattering moves a 2 MeV neutron to ~100 keV in one collision.
 Excluded by measurement: the angular laws (both in, and the continuum one's
 ablation shows it does not move the spectrum), the cross sections (≤0.06 %
-flux-weighted), and `k`. **Leading suspect: the MT=91 continuum `f₀(E→E')`
-shape.** The discriminating measurement is a per-MT collision tally in the
-1.9–3.0 MeV band on both sides.
+flux-weighted), and `k`.
+
+### The leading suspect is now EXCLUDED too (2026-09-16)
+
+**The MT=91 continuum `f₀(E→E')` shape was the leading suspect. It is not the
+cause.** `tests/mt91_transfer_vs_openmc.rs` compares our law against OpenMC's
+own, extracted from the HDF5 built in-session off the same ENDF/B-VIII.0 tape,
+across all **18** incident rows in 1.5–3.5 MeV. Mean outgoing energy, median and
+`P(E' < 300 keV)` agree on **every row to the 7 significant figures printed** —
+worst deviation `0.0000 %`, signed bias `−0.0000 %`. The two are the same table.
+
+**A correction to the method recorded on this gap.** The measurement previously
+named here was "a per-MT collision tally in the 1.9–3.0 MeV band on both sides".
+Working it through, **that measurement cannot discriminate**: a collision rate is
+flux × σ, the cross sections already agree to ≤0.06 % flux-weighted, so a rate
+comparison would largely restate the flux difference it is meant to explain.
+What discriminates is the **transfer** — where an MT=91 collision at 2–3 MeV puts
+the neutron — and that needs no transport, no seeds and no statistics at all.
+
+### What that leaves
+
+Cross sections, angular laws, `k`, and now the transfer table itself are all
+excluded. The residual has to live in something *between* the tabulated data and
+the sampled outcome. Candidates, in the order they seem worth testing:
+
+1. **The CM→lab transform on the continuum law.** Both codes store this law in
+   the centre-of-mass frame (`LCT=2`; OpenMC reports `center_of_mass == True`)
+   and each transforms at sampling time. The transform couples the sampled
+   `μ_cm` to `E'`, so a difference here moves the spectrum while leaving every
+   table identical — exactly the signature left.
+2. **Inter-row (unit-base) interpolation.** Read and compared structurally
+   against OpenMC's `CorrelatedAngleEnergy::sample`: bin + interpolation factor,
+   statistically pick the lower or upper table, invert its CDF, then scale
+   between the two rows' envelopes. Ours does all four steps in that order
+   (`sample_continuous_tabular_indexed`). **Structurally matching, not
+   measured** — a sampled-spectrum comparison at energies *between* tabulated
+   rows would settle it, and is the cheaper of the two to run.
+3. **The competing-channel branching at 2–3 MeV** — which MT a collision is
+   assigned to, as distinct from the cross sections themselves.
+
+**None of these has been measured.** They are where to look next, not findings.
 
 ### 6. Two public names for one ablation (the (n,2n) half is now closed)
 

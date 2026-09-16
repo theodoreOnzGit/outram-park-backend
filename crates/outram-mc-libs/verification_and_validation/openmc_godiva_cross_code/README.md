@@ -789,6 +789,69 @@ file's docstring. This is the same concern the crate's `CLAUDE.md` raises about
 cited-but-absent decks, in its worse form — a deck that is present but broken
 looks reproducible, so nobody checks it.
 
+## The MT=91 transfer law is EXCLUDED as the cause of `op-os8x` (2026-09-16)
+
+The per-bin localisation recorded above named the **MT=91 continuum
+`f₀(E→E')` shape** as the leading suspect, on the grounds that only inelastic
+scattering moves a 2 MeV neutron to ~100 keV in one collision, and that the
+angular laws and cross sections were already excluded by measurement.
+
+**It is not the cause.** `crates/outram-mc-libs/tests/mt91_transfer_vs_openmc.rs`
+compares the two laws directly:
+
+| | |
+|---|---|
+| rows compared | **18**, every incident-energy point of OpenMC's law in 1.5–3.5 MeV |
+| worst mean-`⟨E'⟩` deviation | **0.0000 %** |
+| worst median deviation | **0.0000 %** |
+| worst `P(E' < 300 keV)` deviation | **0.000000** absolute |
+| signed mean deviation (a bias would show here) | **−0.0000 %** |
+
+Agreement on every row to the 7 significant figures printed: the two are the
+same table. `P(E' < 300 keV)` is included because 300 keV is the boundary of the
+flux deficit the residual localises to, making it the functional most directly
+tied to `op-os8x`.
+
+**Provenance, and why this is sharp.** Ours reads
+`reference-data/endf/n-092_U_238.endf` MF=6/MT=91 directly. OpenMC's comes from
+the same tape through NJOY2016 (`ac5adf5f`) → ACE → HDF5 → OpenMC 0.15.3, built
+and run in-session — a completely separate code path. Because both derive from
+one evaluation, any difference would have been a **port defect, not a data
+difference**. Both store the law in the centre-of-mass frame (`LCT=2`; OpenMC
+reports `reaction.center_of_mass == True`), so no transform is applied on either
+side and the comparison is frame-consistent. The oracle is regenerable:
+`python3 mt91_transfer_oracle.py`.
+
+### A correction to this record's own stated method
+
+This README previously named "a per-MT collision tally in the 1.9–3.0 MeV band
+on both sides" as the discriminating measurement. **That measurement cannot
+discriminate.** A collision rate is flux × σ, and the cross sections already
+agree to ≤0.06 % flux-weighted, so comparing rates would largely restate the
+flux difference it was meant to explain. The transfer comparison above is what
+separates the hypotheses, and it needs no transport, no seeds and no statistics.
+
+### What is left, and what is not yet measured
+
+Cross sections, angular laws, `k`, and now the transfer table are all excluded.
+The residual must live between the tabulated data and the sampled outcome:
+
+1. **The CM→lab transform on the continuum law.** It couples the sampled `μ_cm`
+   to `E'`, so a difference there moves the spectrum while leaving every table
+   identical — exactly the signature that remains.
+2. **Inter-row (unit-base) interpolation.** Our
+   `sample_continuous_tabular_indexed` was read against OpenMC's
+   `CorrelatedAngleEnergy::sample` and performs the same four steps in the same
+   order (bin + factor, statistically pick lower/upper table, invert its CDF,
+   scale between the two envelopes). **Structurally matching, not measured.** A
+   sampled-spectrum comparison at energies *between* tabulated rows would settle
+   it and is the cheaper of the two.
+3. **Competing-channel branching at 2–3 MeV** — which MT a collision is assigned
+   to, as distinct from the cross sections.
+
+**None of the three has been measured.** They are where to look next, not
+findings.
+
 ## Scope, and what this is not
 
 **Verification, not validation.** Everything here compares codes to each other
