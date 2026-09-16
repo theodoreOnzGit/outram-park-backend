@@ -48,6 +48,13 @@
 //!   process-wide environment variable in one example. Worth **−2242 pcm** on
 //!   the FHR pebble, the positive control that says that pricing table's
 //!   instrument can register a large effect.
+//! - **[`Nuclide::with_frozen_nubar`]** and
+//!   **[`Nuclide::with_frozen_fission_spectrum`]** — the two factors of the
+//!   fission source, `ν̄ × χ`. Both were verified against the tape and against
+//!   OpenMC, so their *data* was sound; neither could be **priced**, and ν̄'s
+//!   slope is a direct reactivity lever on any fast system. Added 2026-09-16
+//!   as gap 4 of the coverage survey. Note these *freeze* rather than remove:
+//!   a zero ν̄ is not an ablation, it is a subcritical block of metal.
 //!
 //! # Results (2026-09-16, ENDF/B-VIII.0 U-238 at 293.6 K, `cargo test --release`)
 //!
@@ -66,6 +73,30 @@
 //!   cross sections bit-identical. Above the `1.0120e1` eV free-gas threshold
 //!   it is a **no-op to the bit**: 2048/2048 paired draws at 2 MeV identical,
 //!   RNG streams in lockstep.
+//! - **`with_frozen_nubar`** (U-235) — ν̄ `2.42985` at 0.0253 eV against
+//!   `2.64574` at 2 MeV, a rise of `0.21589`. Frozen at thermal it reads
+//!   `2.42985` at every energy and `nu_fission` at 2 MeV falls
+//!   `3.40904 -> 3.13086 b`, **−8.16 %**, with cross sections bit-identical.
+//! - **`with_frozen_fission_spectrum`** (U-235) — LF=1 on **22 incident rows**,
+//!   1.000e-5 … 3.000e7 eV. Integrating the tape's own pdfs: mean birth energy
+//!   `1.99980e6` eV at 1e-5, `2.01746e6` eV at 14 MeV (**+0.883 %**),
+//!   `2.30184e6` eV at 30 MeV (**+15.103 %**). The sampler reproduces both
+//!   endpoint rows within 1 %.
+//!
+//! # A prediction these two measurements license, recorded before measuring it
+//!
+//! The two factors of the fission source are **very** unequal levers on a fast
+//! system. ν̄'s slope is worth −8.16 % of `nu_fission` at 2 MeV if frozen at
+//! thermal — enormous, thousands of pcm. χ's incident-energy dependence is
+//! worth **+0.883 % in mean birth energy over the whole span from thermal to
+//! 14 MeV**, and a fission spectrum puts almost nothing above that, so freezing
+//! χ should move `k` by **very little — well under 100 pcm on Godiva**. A
+//! larger χ reading would mean the wiring, not the physics.
+//!
+//! Note the sharp top-end hardening (+15.1 % by 30 MeV, where third-chance
+//! fission and pre-equilibrium emission set in) does **not** weaken that: no
+//! reactor spectrum reaches there. It is recorded because it is what makes the
+//! first number believable rather than suspicious.
 //!
 //! **Verification, not validation.** These assert that a switch switches. What
 //! the mechanism is *worth* is a separate paired-seed measurement.
@@ -524,4 +555,356 @@ fn the_target_motion_hook_is_a_no_op_above_the_free_gas_threshold() {
         "with_target_at_rest above the {threshold:.4e} eV threshold: {n}/{n} draws \
          bit-identical at {PROBE_EV:.1e} eV, RNG streams in lockstep"
     );
+}
+
+// ──────────────────── the fission source: nu-bar and chi ────────────────────
+//
+// Gap 4 of `docs/neutronics-physics-coverage.md`, closed 2026-09-16. Both are
+// verified against the tape and against OpenMC, so their *data* is sound —
+// neither could be *priced*. For a bare fast sphere nu-bar's slope is a direct
+// reactivity lever, and it was the one mechanism in the fast kernel with no way
+// to ask "what is it worth".
+
+/// U-235: the fissile nuclide whose nu-bar slope and MF=5 chi actually drive a
+/// fast system's eigenvalue. U-238 is the wrong probe here — it is a threshold
+/// fissioner, so a control written on it would be testing a channel that
+/// carries almost none of Godiva's fissions.
+fn u235() -> Option<Nuclide> {
+    let tape = reference_file_or_skip(
+        "endf",
+        "n-092_U_235-ENDF8.0.endf",
+        "U-235 evaluation (fission-source ablation controls)",
+    )?;
+    Some(Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs"))
+}
+
+/// Thermal end of the nu-bar table, used as the frozen reference so the
+/// ablation removes the *whole* rise rather than part of it.
+const NU_FREEZE_EV: f64 = 0.0253;
+
+/// `with_frozen_nubar` removes nu-bar's energy dependence, removes only it, and
+/// had a dependence to remove.
+///
+/// The first assertion is the load-bearing one: if U-235's nu-bar were flat to
+/// begin with, this hook would be a no-op and any `Delta-k` measured through it
+/// would be an artefact of nothing. It is not flat, and the test prints by how
+/// much.
+#[test]
+fn the_nubar_hook_freezes_exactly_the_yield_curve() {
+    let Some(evaluated) = u235() else { return };
+
+    // 1: there was something to remove. nu-bar must genuinely vary across the
+    // band a fast system samples.
+    let nu_thermal = evaluated.nu_bar(NU_FREEZE_EV);
+    let nu_fast = evaluated.nu_bar(PROBE_EV);
+    assert!(
+        nu_thermal > 0.0 && nu_fast > 0.0,
+        "U-235 reports nu-bar 0 somewhere in [{NU_FREEZE_EV}, {PROBE_EV:.1e}] eV \
+         ({nu_thermal} / {nu_fast}); the MF=1/452 table is not being read."
+    );
+    let rise = nu_fast - nu_thermal;
+    assert!(
+        rise > 0.05,
+        "U-235 nu-bar rises only {rise:.5} from {NU_FREEZE_EV} eV to {PROBE_EV:.1e} eV \
+         ({nu_thermal:.5} -> {nu_fast:.5}). The evaluation's rise over this band is ~0.2; a \
+         much smaller one means the table is being read wrongly, and freezing a curve that is \
+         already flat would price nothing while reporting a number."
+    );
+
+    let ablated = evaluated.clone().with_frozen_nubar(NU_FREEZE_EV);
+
+    // 2: it is gone — nu-bar is now the same number at every energy, including
+    // energies far outside the frozen point.
+    assert_eq!(ablated.frozen_nubar_energy(), Some(NU_FREEZE_EV));
+    for &e in &[1.0e-3_f64, NU_FREEZE_EV, 1.0e3, 1.0e5, PROBE_EV, 1.4e7] {
+        assert_eq!(
+            ablated.nu_bar(e).to_bits(),
+            nu_thermal.to_bits(),
+            "after freezing at {NU_FREEZE_EV} eV, nu-bar at {e:.3e} eV is {} rather than \
+             {nu_thermal}. The hook is not reaching every lookup, so the two arms of a study \
+             would differ in more than the frozen curve.",
+            ablated.nu_bar(e)
+        );
+    }
+
+    // 3: nothing else moved. The fission cross section in particular — the hook
+    // changes the yield per fission, not the fission rate, and a Delta-k that
+    // mixed the two would be uninterpretable.
+    assert_cross_sections_unchanged(&evaluated, &ablated, "with_frozen_nubar");
+
+    // 4: `nu_fission` — the product the eigenvalue is actually built from —
+    // moved in exactly the way the frozen yield predicts, and by the fission
+    // cross section alone. This is what catches a hook that reaches `nu_bar`
+    // but not the cross-section assembly.
+    let x_before = evaluated.xs_at_energy(PROBE_EV, TEMP_K);
+    let x_after = ablated.xs_at_energy(PROBE_EV, TEMP_K);
+    let expected = x_before.fission * nu_thermal;
+    assert!(
+        (x_after.nu_fission - expected).abs() <= 1.0e-12 * expected.max(1.0),
+        "nu_fission after freezing is {} at {PROBE_EV:.1e} eV; sigma_f * nu-bar(frozen) is \
+         {expected}. The frozen yield is not reaching MicroXS.",
+        x_after.nu_fission
+    );
+    let drop_pct = 100.0 * (x_after.nu_fission / x_before.nu_fission - 1.0);
+    println!(
+        "with_frozen_nubar: U-235 nu-bar {nu_thermal:.5} @ {NU_FREEZE_EV} eV vs {nu_fast:.5} @ \
+         {PROBE_EV:.1e} eV (rise {rise:.5}); frozen at thermal it is {nu_thermal:.5} at every \
+         energy, nu_fission at {PROBE_EV:.1e} eV {:.5} -> {:.5} b ({drop_pct:+.2} %), cross \
+         sections bit-identical",
+        x_before.nu_fission, x_after.nu_fission
+    );
+}
+
+/// `with_frozen_fission_spectrum` removes chi's incident-energy dependence,
+/// removes only it, and had a dependence to remove.
+///
+/// The "had something to remove" assertion matters more here than anywhere
+/// else in this file: [`FissionSpectrum::Watt`] with fixed parameters — the
+/// LOW-tier default, and the fallback for any tape whose MF=5 this port does
+/// not reconstruct — is **static by construction**. A control written without
+/// this check would pass on a nuclide where the hook can do nothing, and
+/// certify a knob that prices nothing.
+///
+/// # The threshold is taken from the evaluation, not chosen
+///
+/// A first draft of this test asserted "the sampled mean must move more than
+/// 1 % between a thermal-induced and a 14 MeV-induced fission" and **failed**,
+/// measuring `+0.904 %`. The arbitrary number was the defect, not the sampler.
+/// ENDF/B-VIII.0's U-235 MF=5/MT=18 is an LF=1 law on **22 incident-energy rows
+/// from 1e-5 to 3e7 eV**, and integrating those rows' own tabulated pdfs shows
+/// why both numbers are right: chi is **nearly independent of incident energy
+/// through the whole fission-spectrum range**, then hardens sharply at the top
+/// — `+0.9 %` by 14 MeV but `+15.1 %` by 30 MeV, where third-chance fission and
+/// pre-equilibrium emission set in. A threshold picked from intuition would
+/// have been wrong in one direction or the other depending only on which probe
+/// energy it happened to use.
+///
+/// So the test now measures the tape's rows directly and asserts (a) that they
+/// differ at all — the "something to remove" condition, grounded in the data
+/// rather than in an expectation — and (b) that the **sampler reproduces each
+/// row's own mean**, which is a real cross-check of the sampling path against
+/// the distribution it claims to sample, and a far stronger statement than any
+/// threshold on the difference would have been.
+#[test]
+fn the_fission_spectrum_hook_freezes_exactly_the_incident_energy() {
+    use njoy_outram_park_fork::endf::tape::Tape;
+    use njoy_outram_park_fork::nuclear_data::secondary::FissionSpectrum;
+
+    let Some(path) = reference_file_or_skip(
+        "endf",
+        "n-092_U_235-ENDF8.0.endf",
+        "U-235 evaluation (chi ablation control)",
+    ) else {
+        return;
+    };
+    let tape = Tape::read_file(&path).expect("U-235 tape parses");
+    let mat = tape.materials()[0];
+    let evaluated = Nuclide::from_endf_file(&path, "U235", TEMP_K, 1.0e-3).expect("U-235");
+
+    /// Trapezoidal mean `∫E' g(E') dE'` of one tabulated outgoing-energy row —
+    /// the distribution's own first moment, read straight off the tape and
+    /// owing nothing to the sampler under test.
+    fn row_mean(e_out: &[f64], pdf: &[f64]) -> f64 {
+        let mut num = 0.0;
+        let mut den = 0.0;
+        for w in 0..e_out.len().saturating_sub(1) {
+            let (x0, x1) = (e_out[w], e_out[w + 1]);
+            let (p0, p1) = (pdf[w], pdf[w + 1]);
+            let dx = x1 - x0;
+            num += 0.5 * dx * (x0 * p0 + x1 * p1);
+            den += 0.5 * dx * (p0 + p1);
+        }
+        if den > 0.0 {
+            num / den
+        } else {
+            0.0
+        }
+    }
+
+    /// Mean birth energy \[eV\] over `n` draws at incident energy `e_in`.
+    fn mean_birth(nuc: &Nuclide, e_in: f64, n: usize, seed: &mut u64) -> f64 {
+        (0..n)
+            .map(|_| nuc.sample_fission_energy(e_in, seed))
+            .sum::<f64>()
+            / n as f64
+    }
+
+    // 1: there was something to remove -- asserted against the tape, not an
+    // expectation. The law must genuinely be a function of incident energy.
+    let chi = FissionSpectrum::from_endf_mf5(&tape, mat)
+        .expect("MF=5 parses")
+        .expect("U-235 has an MF=5/MT=18 section");
+    let FissionSpectrum::ContinuousTabular(table) = &chi else {
+        panic!(
+            "U-235's chi came back as {chi:?}, not the energy-dependent LF=1 law. A static \
+             spectrum has no incident-energy dependence to freeze, so this hook would price \
+             nothing while reporting a number -- which is the exact failure this file exists \
+             to catch."
+        );
+    };
+    assert!(
+        table.incident.len() >= 2,
+        "U-235's LF=1 law carries {} incident-energy row(s); with fewer than two there is \
+         nothing for the freeze to collapse.",
+        table.incident.len()
+    );
+    let (lo_i, hi_i) = (0usize, table.incident.len() - 1);
+    let (e_lo, e_hi) = (table.incident[lo_i], table.incident[hi_i]);
+    let tape_lo = row_mean(&table.tables[lo_i].e_out, &table.tables[lo_i].pdf);
+    let tape_hi = row_mean(&table.tables[hi_i].e_out, &table.tables[hi_i].pdf);
+    let tape_spread_pct = 100.0 * (tape_hi / tape_lo - 1.0);
+    assert!(
+        (tape_hi - tape_lo).abs() > 0.0,
+        "the tape's own first and last chi rows have identical means ({tape_lo:.6e} eV), so \
+         the law is flat in incident energy and freezing it removes nothing."
+    );
+
+    // 2: the SAMPLER follows the tape. This is the cross-check that makes the
+    // rest meaningful -- a hook that freezes a law nobody samples is moot.
+    const N: usize = 400_000;
+    for (label, e_in, reference) in [("first row", e_lo, tape_lo), ("last row", e_hi, tape_hi)] {
+        let mut seed = 0xC41D0001u64;
+        let sampled = mean_birth(&evaluated, e_in, N, &mut seed);
+        // 1 % covers the sampling error on N draws off a distribution whose
+        // own spread is of order its mean, plus the trapezoid's discretisation.
+        let rel = (sampled / reference - 1.0).abs();
+        assert!(
+            rel < 0.01,
+            "{label} (incident {e_in:.3e} eV): the sampler's mean birth energy is \
+             {sampled:.5e} eV over {N} draws, against {reference:.5e} eV integrated from the \
+             tape's own pdf -- {:.3} % apart. The sampling path is not following the law it \
+             reports carrying.",
+            100.0 * rel
+        );
+    }
+
+    let ablated = evaluated.clone().with_frozen_fission_spectrum(NU_FREEZE_EV);
+    assert_eq!(ablated.frozen_fission_spectrum_energy(), Some(NU_FREEZE_EV));
+
+    // 3: it is gone. Two very different incident energies must now give the
+    // SAME spectrum -- and because the frozen argument makes the sampler's
+    // input identical, the draws are bit-identical on a shared seed, not
+    // merely close.
+    let mut seed_a = 0xC41D0002u64;
+    let mut seed_b = 0xC41D0002u64;
+    for i in 0..4096 {
+        let a = ablated.sample_fission_energy(NU_FREEZE_EV, &mut seed_a);
+        let b = ablated.sample_fission_energy(1.4e7, &mut seed_b);
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "draw {i}: after freezing chi at {NU_FREEZE_EV} eV, a fission induced at 1.4e7 eV \
+             still emitted differently ({a} vs {b}). The frozen incident energy is not reaching \
+             the sampler."
+        );
+    }
+
+    // 4: the frozen arm reproduces the unablated arm AT the frozen energy.
+    // This is the direction that catches a hook pinned somewhere other than
+    // where it says -- it must be a no-op exactly at its own reference.
+    let mut seed_a = 0xC41D0003u64;
+    let mut seed_b = 0xC41D0003u64;
+    for i in 0..4096 {
+        let a = evaluated.sample_fission_energy(NU_FREEZE_EV, &mut seed_a);
+        let b = ablated.sample_fission_energy(NU_FREEZE_EV, &mut seed_b);
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "draw {i}: at the frozen energy itself the hook changed the sampled birth energy \
+             ({a} vs {b}); it is pinned somewhere other than where it says."
+        );
+    }
+
+    // 5: nothing else moved.
+    assert_cross_sections_unchanged(&evaluated, &ablated, "with_frozen_fission_spectrum");
+    assert_eq!(
+        evaluated.nu_bar(PROBE_EV).to_bits(),
+        ablated.nu_bar(PROBE_EV).to_bits(),
+        "the chi ablation moved nu-bar; the two factors of the fission source must stay separable"
+    );
+
+    let mut seed = 0xC41D0004u64;
+    let sampled_fast = mean_birth(&evaluated, PROBE_EV, N, &mut seed);
+    let mut seed = 0xC41D0004u64;
+    let ablated_fast = mean_birth(&ablated, PROBE_EV, N, &mut seed);
+
+    // The 14 MeV row, reported alongside the endpoints because the two
+    // together are what show WHERE chi's incident-energy dependence lives:
+    // almost nothing through the fission-spectrum range, then a sharp rise.
+    let mid_i = table
+        .incident
+        .iter()
+        .enumerate()
+        .min_by(|a, b| {
+            (a.1 - 1.4e7)
+                .abs()
+                .partial_cmp(&(b.1 - 1.4e7).abs())
+                .unwrap()
+        })
+        .map(|(i, _)| i)
+        .unwrap();
+    let tape_mid = row_mean(&table.tables[mid_i].e_out, &table.tables[mid_i].pdf);
+    println!(
+        "with_frozen_fission_spectrum: U-235 LF=1 on {} incident rows, {e_lo:.3e}..{e_hi:.3e} eV; \
+         tape row means {tape_lo:.5e} eV @ {e_lo:.3e} -> {tape_mid:.5e} eV @ {:.3e} \
+         ({:+.3} %) -> {tape_hi:.5e} eV @ {e_hi:.3e} ({tape_spread_pct:+.3} %), i.e. chi barely \
+         moves through the fission-spectrum range and hardens only at the top; sampler \
+         reproduces both endpoint rows within 1 %; at {PROBE_EV:.1e} eV incident the mean birth \
+         energy goes {sampled_fast:.5e} -> {ablated_fast:.5e} eV when frozen at {NU_FREEZE_EV} \
+         eV, and 1.4e7 eV draws become bit-identical to thermal ones; nu-bar and cross \
+         sections untouched",
+        table.incident.len(),
+        table.incident[mid_i],
+        100.0 * (tape_mid / tape_lo - 1.0)
+    );
+}
+
+/// The two fission-source hooks are **independent** — each leaves the other's
+/// factor alone, so a study may price `nu-bar` and `chi` separately or together
+/// without confounding them.
+#[test]
+fn the_fission_source_hooks_do_not_interfere() {
+    let Some(evaluated) = u235() else { return };
+
+    let nu_off = evaluated.clone().with_frozen_nubar(NU_FREEZE_EV);
+    let chi_off = evaluated.clone().with_frozen_fission_spectrum(NU_FREEZE_EV);
+
+    // Freezing nu-bar must not touch chi.
+    let (mut sa, mut sb) = (0xF1551053u64, 0xF1551053u64);
+    for i in 0..2048 {
+        let a = evaluated.sample_fission_energy(PROBE_EV, &mut sa);
+        let b = nu_off.sample_fission_energy(PROBE_EV, &mut sb);
+        assert_eq!(a.to_bits(), b.to_bits(), "draw {i}: the nu-bar freeze moved chi");
+    }
+    // Freezing chi must not touch nu-bar (asserted at both ends of the table).
+    for &e in &[NU_FREEZE_EV, PROBE_EV, 1.4e7] {
+        assert_eq!(
+            evaluated.nu_bar(e).to_bits(),
+            chi_off.nu_bar(e).to_bits(),
+            "the chi freeze moved nu-bar at {e:.3e} eV"
+        );
+    }
+
+    // Combined, both are in effect and neither has undone the other.
+    let both = evaluated
+        .clone()
+        .with_frozen_nubar(NU_FREEZE_EV)
+        .with_frozen_fission_spectrum(NU_FREEZE_EV);
+    assert_eq!(both.frozen_nubar_energy(), Some(NU_FREEZE_EV));
+    assert_eq!(both.frozen_fission_spectrum_energy(), Some(NU_FREEZE_EV));
+    assert_eq!(
+        both.nu_bar(PROBE_EV).to_bits(),
+        evaluated.nu_bar(NU_FREEZE_EV).to_bits(),
+        "combining the two hooks lost the nu-bar freeze"
+    );
+    assert_cross_sections_unchanged(&evaluated, &both, "both fission-source hooks combined");
+
+    // And they are independent of the *scattering* hooks, which is what lets
+    // one paired-seed study vary several mechanisms at once.
+    let with_scatter = both.clone().with_target_at_rest().with_isotropic_continuum_scattering();
+    assert_eq!(with_scatter.frozen_nubar_energy(), Some(NU_FREEZE_EV));
+    assert_eq!(with_scatter.frozen_fission_spectrum_energy(), Some(NU_FREEZE_EV));
+    assert!(with_scatter.is_target_at_rest());
+
+    println!("the nu-bar and chi hooks compose with each other and with the scattering hooks");
 }

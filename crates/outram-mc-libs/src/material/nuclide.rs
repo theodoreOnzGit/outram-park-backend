@@ -211,6 +211,17 @@ pub struct Nuclide {
     /// [`Nuclide::with_target_at_rest`] and [`Nuclide::free_gas_kt`]. `false`
     /// (the default, and what every constructor produces) is the physics.
     target_at_rest: bool,
+    /// **Ablation flag, not a model option.** When `Some(e_ref)`, ν̄ is read at
+    /// `e_ref` \[eV\] whatever the incident energy, removing ν̄'s energy
+    /// dependence while keeping its magnitude — see
+    /// [`Nuclide::with_frozen_nubar`]. `None` (the default) is the physics.
+    nu_frozen_at: Option<f64>,
+    /// **Ablation flag, not a model option.** When `Some(e_ref)`, the fission
+    /// spectrum χ is sampled as if the inducing neutron had energy `e_ref`
+    /// \[eV\], removing χ's incident-energy dependence — see
+    /// [`Nuclide::with_frozen_fission_spectrum`]. `None` (the default) is the
+    /// physics.
+    chi_frozen_at: Option<f64>,
 }
 
 /// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
@@ -259,6 +270,8 @@ impl Nuclide {
             // LOW tier reads no tape, so there is no MF=6 to carry.
             continuum: ContinuumLaws::default(),
             target_at_rest: false,
+            nu_frozen_at: None,
+            chi_frozen_at: None,
         })
     }
 
@@ -519,6 +532,145 @@ impl Nuclide {
         }
     }
 
+    /// Average neutrons per fission ν̄ at incident energy `e` \[eV\].
+    ///
+    /// The ENDF **MF=1/MT=452** total (prompt + delayed), lin-lin interpolated
+    /// and clamped at the table ends. This is the quantity multiplying the
+    /// fission cross section in [`MicroXS::nu_fission`], and therefore the
+    /// numerator of every `k` this crate reports.
+    ///
+    /// Returns `0.0` for a non-fissile nuclide, which carries no MF=1/452
+    /// section.
+    ///
+    /// Honours [`with_frozen_nubar`](Self::with_frozen_nubar): on an ablated
+    /// nuclide the table is read at the frozen reference energy instead of `e`.
+    /// Every site that needs ν̄ goes through here, so the ablation cannot reach
+    /// one cross-section branch and miss another.
+    pub fn nu_bar(&self, e: f64) -> f64 {
+        self.nu.at(self.nu_frozen_at.unwrap_or(e))
+    }
+
+    /// The incident energy \[eV\] the fission spectrum χ should be evaluated at,
+    /// given that the inducing neutron actually had energy `e_in`.
+    ///
+    /// Normally `e_in`. Returns the frozen reference energy when
+    /// [`with_frozen_fission_spectrum`](Self::with_frozen_fission_spectrum) has
+    /// been applied — the same "substitute the input, keep the algorithm" shape
+    /// as [`free_gas_kt`](Self::free_gas_kt), so the ablation runs through the
+    /// production sampling path rather than a parallel one.
+    fn chi_incident_energy(&self, e_in: f64) -> f64 {
+        self.chi_frozen_at.unwrap_or(e_in)
+    }
+
+    /// **Ablation control for V&V: freeze ν̄ at incident energy `e_ref_ev`,
+    /// removing ν̄'s energy dependence while keeping its magnitude.**
+    ///
+    /// Deliberately the **wrong physics**; a measurement tool, not a model
+    /// option.
+    ///
+    /// # Why *freeze*, and not *remove*
+    ///
+    /// ν̄ cannot be switched off — a zero ν̄ is not an ablation, it is a
+    /// subcritical block of metal, and the difference between the two arms
+    /// would be the entire eigenvalue rather than one mechanism's worth. What
+    /// is worth pricing is the **slope**: U-235's ν̄ climbs from about 2.44 at
+    /// thermal to 2.65 at 2 MeV, so how hard a fast system leans on that rise
+    /// is a real question, and it is the one mechanism in this crate's fast
+    /// kernel that had no way to be asked it before 2026-09-16.
+    ///
+    /// Pick `e_ref_ev` deliberately and say so in the study. Freezing at
+    /// thermal answers "what if ν̄ never rose"; freezing at the spectrum-average
+    /// incident energy answers the narrower "what does the *shape* cost, at
+    /// fixed mean yield" and is the better-conditioned of the two, because it
+    /// holds the magnitude roughly where the unablated case sits instead of
+    /// moving both magnitude and shape at once.
+    ///
+    /// # What changes, and what does not
+    ///
+    /// Only the ν̄ lookup. Every cross section is untouched, so the collision
+    /// and fission *rates* are identical and only the neutron yield per fission
+    /// moves. It does not touch χ — use
+    /// [`with_frozen_fission_spectrum`](Self::with_frozen_fission_spectrum) for
+    /// that — and the two may be combined.
+    ///
+    /// **It preserves the RNG stream.** ν̄ is read, not sampled, so the two arms
+    /// consume identical variates and stay in lockstep history by history,
+    /// unlike [`with_target_at_rest`](Self::with_target_at_rest). A paired-seed
+    /// difference is attributable per history.
+    ///
+    /// # A real limitation, stated because it is silent
+    ///
+    /// On the **LOW (`Core`) tier above the WMP `e_max`**, `nu_fission` comes
+    /// from the fast MGXS group data with ν̄ already **baked into the group
+    /// constant**. There is no separate ν̄ factor to freeze up there, so this
+    /// hook is a partial no-op on that tier and band. It is complete on the
+    /// HIGH (`Pointwise`) tier, which every case that would ask this question
+    /// runs on.
+    pub fn with_frozen_nubar(mut self, e_ref_ev: f64) -> Self {
+        self.nu_frozen_at = Some(e_ref_ev);
+        self
+    }
+
+    /// The incident energy \[eV\] ν̄ is frozen at, or `None` when ν̄ is
+    /// energy-dependent as the evaluation gives it.
+    ///
+    /// The assertion an ablation control needs: a hook that silently failed to
+    /// take effect reports "no difference", which reads as "this physics does
+    /// not matter".
+    pub fn frozen_nubar_energy(&self) -> Option<f64> {
+        self.nu_frozen_at
+    }
+
+    /// **Ablation control for V&V: sample the fission spectrum χ as if every
+    /// fission had been induced at incident energy `e_ref_ev`**, removing
+    /// χ's incident-energy dependence.
+    ///
+    /// Deliberately the **wrong physics**; a measurement tool, not a model
+    /// option.
+    ///
+    /// # What this prices
+    ///
+    /// The ENDF **MF=5** laws this crate samples — LF=1 (`ContinuousTabular`),
+    /// and the LF=7/9/11 forms whose `θ(E)`/`a(E)`/`b(E)` are TAB1 functions of
+    /// the incident energy — all make the birth spectrum depend on the energy
+    /// of the neutron that caused the fission. Freezing that argument collapses
+    /// χ(E→E') to a single χ(E') and measures what the dependence is worth. It
+    /// is the natural companion to the ν̄ hook: together they cover the two
+    /// halves of the fission source, `ν̄ × χ`.
+    ///
+    /// A no-op on a nuclide whose χ has no incident-energy dependence to begin
+    /// with — [`FissionSpectrum::Watt`] with fixed parameters (the LOW-tier
+    /// default) and `Tabulated` are static by construction. That is exactly why
+    /// a control test must assert the *unablated* spectrum actually varies with
+    /// incident energy before trusting a null result from this.
+    ///
+    /// # What changes, and what does not
+    ///
+    /// Only the incident energy handed to the χ sampler. Cross sections, ν̄ and
+    /// the scattering laws are untouched, and the sampling algorithm is the
+    /// production one — this substitutes an input, it does not take a different
+    /// path.
+    ///
+    /// **It does not generally preserve the RNG stream.** The MF=5 laws are
+    /// rejection- and table-sampled, so the number of variates a birth draw
+    /// consumes can depend on the incident energy; the two arms may diverge
+    /// after the first fission. Treat a paired-seed `Δk` as attributable over
+    /// an ensemble of seeds, not history by history.
+    ///
+    /// Independent of [`with_frozen_nubar`](Self::with_frozen_nubar); the two
+    /// ablate the two factors of the fission source and may be combined.
+    pub fn with_frozen_fission_spectrum(mut self, e_ref_ev: f64) -> Self {
+        self.chi_frozen_at = Some(e_ref_ev);
+        self
+    }
+
+    /// The incident energy \[eV\] the fission spectrum χ is frozen at, or `None`
+    /// when χ is sampled at the true incident energy as the evaluation gives
+    /// it.
+    pub fn frozen_fission_spectrum_energy(&self) -> Option<f64> {
+        self.chi_frozen_at
+    }
+
     /// **HIGH fidelity.** Build a nuclide from a raw ENDF tape downloaded from a
     /// pinned upstream, reconstructed and Doppler-broadened on device.
     ///
@@ -729,6 +881,8 @@ impl Nuclide {
             thermal: None,
             continuum,
             target_at_rest: false,
+            nu_frozen_at: None,
+            chi_frozen_at: None,
         })
     }
 
@@ -813,7 +967,7 @@ impl Nuclide {
                         absorption: x.absorption,
                         inelastic: 0.0, // LOW tier lumps inelastic into elastic
                         n2n: 0.0,       // LOW tier lumps (n,2n) into elastic (no group column yet)
-                        nu_fission: x.fission * self.nu.at(e),
+                        nu_fission: x.fission * self.nu_bar(e),
                     }
                 } else if let Some(mg) = fast {
                     let m = mg.micro(e);
@@ -842,7 +996,7 @@ impl Nuclide {
                         absorption: x.absorption,
                         inelastic: 0.0,
                         n2n: 0.0,
-                        nu_fission: x.fission * self.nu.at(e),
+                        nu_fission: x.fission * self.nu_bar(e),
                     }
                 }
             }
@@ -863,7 +1017,7 @@ impl Nuclide {
                     absorption: absorption_mt27(recon, fission, e),
                     inelastic,
                     n2n,
-                    nu_fission: fission * self.nu.at(e),
+                    nu_fission: fission * self.nu_bar(e),
                 }
             }
         }
@@ -1283,7 +1437,7 @@ impl Nuclide {
     ///
     /// This is the fission-source birth spectrum the k-eigenvalue driver banks with.
     pub fn sample_fission_energy(&self, e_in: f64, seed: &mut u64) -> f64 {
-        sample_chi(&self.chi, e_in, seed)
+        sample_chi(&self.chi, self.chi_incident_energy(e_in), seed)
     }
 
     /// The native energy breakpoints \[eV\] this nuclide's cross-section data

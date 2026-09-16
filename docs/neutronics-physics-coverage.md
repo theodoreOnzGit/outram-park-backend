@@ -38,9 +38,9 @@ marked `env` and count as a gap, not as coverage.
 | **Continuum inelastic energy** (MF=6 LAW=1 `f₀`) | ✅ | NJOY/ENDF tape; `⟨E'/E⟩` | ✅ `without_evaluated_continuum` | ✅ ×1 |
 | **Continuum inelastic angular** (MF=6 `LANG=1`) | ✅ | tape's own `a₁` (2.2e-4) | ✅ `with_isotropic_continuum_scattering` | ✅ (closed 2026-09-16) |
 | **Continuum inelastic angular** (MF=6 `LANG=2` Kalbach) | ✅ | closed form `r·(coth a − 1/a)` | ✅ (same hook) | ✅ (same) |
-| (n,2n) MT=16 multiplicity | ✅ | ENDF yield, per-subsection sum | ⚠️ via `without_inelastic` (lumped) | ❌ none |
-| ν̄(E) energy dependence | ✅ | MF=1/452 tape | ❌ **no hook** | ❌ none |
-| χ(E→E') fission spectrum (MF=5) | ✅ | MF=5 tape; `⟨E_out⟩` vs OpenMC (0.018 %) | ❌ **no hook** | ❌ none |
+| (n,2n) MT=16 multiplicity | ✅ | ENDF yield, per-subsection sum | ⚠️ via `without_inelastic` (lumped) | ❌ none — see gap 6 |
+| ν̄(E) energy dependence | ✅ | MF=1/452 tape | ✅ `with_frozen_nubar` (closed 2026-09-16) | ✅ ×2 |
+| χ(E→E') fission spectrum (MF=5) | ✅ | MF=5 tape; `⟨E_out⟩` vs OpenMC (0.018 %); **sampler vs the tape's own row means, ≤1 %** | ✅ `with_frozen_fission_spectrum` (closed 2026-09-16) | ✅ ×2 |
 | Threshold behaviour (σ = 0 below threshold) | ✅ | ENDF redundancy relation; gh:#193 gate | n/a | n/a |
 | Delta (Woodcock) tracking | ✅ | vs surface-tracked CSG (18 pcm) | ✅ (method choice) | ✅ |
 | CSG geometry / surface tracking | ✅ | analytic intersections; lattice overlap | n/a | n/a |
@@ -127,12 +127,58 @@ lockstep history by history; this one is attributable **statistically over an
 ensemble of seeds only**. A single paired run measures nothing here, and the
 doc comment says so.
 
-### 4. ν̄(E) and χ(E→E') cannot be ablated at all
+### ~~4. ν̄(E) and χ(E→E') cannot be ablated at all~~ — CLOSED 2026-09-16
 
-Both are verified against the tape and against OpenMC, so their *data* is
-sound. Neither can be priced. For a bare fast sphere ν̄(E)'s slope is a direct
-reactivity lever, and it is the one mechanism in the fast kernel with no way to
+Both are verified against the tape and against OpenMC, so their *data* was
+sound. Neither could be priced. For a bare fast sphere ν̄(E)'s slope is a direct
+reactivity lever, and it was the one mechanism in the fast kernel with no way to
 ask "what is it worth".
+
+**Closed by `Nuclide::with_frozen_nubar(e_ref)` and
+`Nuclide::with_frozen_fission_spectrum(e_ref)`**, routed through `nu_bar(e)` and
+a private `chi_incident_energy(e_in)` the way the free-gas hook is routed
+through `free_gas_kt`. Both *freeze* rather than remove: a zero ν̄ is not an
+ablation, it is a subcritical block of metal, and the arms would differ by the
+whole eigenvalue instead of one mechanism's worth. What is worth pricing is the
+**slope**.
+
+Controls in `tests/ablation_hook_controls.rs` (3 tests), measured on
+ENDF/B-VIII.0 U-235 at 293.6 K:
+
+- **ν̄** — `2.42985` at 0.0253 eV against `2.64574` at 2 MeV, a rise of
+  `0.21589`. Frozen at thermal it reads `2.42985` at every energy and
+  `nu_fission` at 2 MeV falls `3.40904 -> 3.13086 b`, **−8.16 %**, with cross
+  sections bit-identical.
+- **χ** — LF=1 on **22 incident rows**, 1.000e-5 … 3.000e7 eV. The tape's own
+  pdfs integrate to mean birth energy `1.99980e6` eV at 1e-5, `2.01746e6` eV at
+  14 MeV (**+0.883 %**), `2.30184e6` eV at 30 MeV (**+15.103 %**), and the
+  **sampler reproduces both endpoint rows to within 1 %**.
+- **They compose** with each other and with the scattering hooks, so one
+  paired-seed study can vary several mechanisms without confounding them.
+
+**A prediction this licenses, recorded before measuring it.** The two factors of
+the fission source are very unequal levers on a fast system: freezing ν̄ costs
+8.16 % of `nu_fission` at 2 MeV — thousands of pcm — while χ's dependence is
+worth 0.883 % in mean birth energy across the entire range a fission spectrum
+occupies, so freezing χ should move `k` by **well under 100 pcm on Godiva**. A
+larger χ reading means the wiring, not the physics.
+
+**A methodological correction worth keeping.** The χ control first asserted "the
+sampled mean must move more than 1 % from thermal to 14 MeV" and **failed at
++0.904 %**. The arbitrary threshold was the defect, not the sampler — reading
+the tape showed χ barely moves through the fission-spectrum range and hardens
+only above ~15 MeV, where third-chance fission sets in. The test now takes its
+"there was something to remove" condition from the evaluation's own rows and
+additionally cross-checks the sampler against them, which is a stronger claim
+than any threshold on the difference would have been. Same lesson as the
+`without_inelastic` partition assumption two commits earlier: state what the
+data says, then assert it — do not assert what it ought to say.
+
+**Known partial no-op, stated because it is silent.** On the LOW (`Core`) tier
+*above* the WMP `e_max`, `nu_fission` comes from fast MGXS group data with ν̄
+already baked into the group constant, so there is no separate ν̄ factor for
+`with_frozen_nubar` to freeze up there. It is complete on the HIGH
+(`Pointwise`) tier, which every case that would ask this question runs on.
 
 ### 5. `op-os8x` — the open physics question, now localised
 
@@ -148,7 +194,33 @@ flux-weighted), and `k`. **Leading suspect: the MT=91 continuum `f₀(E→E')`
 shape.** The discriminating measurement is a per-MT collision tally in the
 1.9–3.0 MeV band on both sides.
 
-### 6. Known-absent physics, correctly documented
+### 6. Two public names for one ablation, and one hook with no control
+
+Found while closing gaps 3 and 4, and recorded rather than silently changed —
+renaming a public method on a crate the maintainer has declared mature is their
+decision, not an agent's.
+
+- **`Nuclide::with_isotropic_elastic_scattering` and
+  `Nuclide::with_isotropic_elastic` are the same hook.** Both clear
+  `elastic_angular` to its default and nothing else; the bodies are identical
+  up to `ElasticAngular::default()` versus `Default::default()`. Both are in
+  use — the first from two call sites, the second from
+  `tests/elastic_anisotropy_vs_endf_mf4.rs`. Two names for one behaviour is
+  precisely the discoverability failure the root `CLAUDE.md` "Human interface
+  layer" section is about: a reader hovering one has no way to learn the other
+  exists, and a study that cites "the elastic ablation" is ambiguous about
+  which it ran even though the answer is the same. Proposed fix: keep
+  `with_isotropic_elastic_scattering` (the longer name matches its three
+  siblings, `with_isotropic_inelastic_scattering` and
+  `with_isotropic_continuum_scattering`), migrate the one test, and delete the
+  short one.
+- **(n,2n) MT=16 multiplicity still has no dedicated control.** It is ablatable
+  only lumped in with everything else via `without_inelastic`, so its own worth
+  cannot be separated from the discrete levels' and the continuum's. The
+  emission *law* on MT=16 is covered (`without_evaluated_continuum`,
+  `with_isotropic_continuum_scattering`); the **yield of 2** is not.
+
+### 7. Known-absent physics, correctly documented
 
 URR probability tables (absent; priced on the OpenMC side at +43 ± 38 pcm,
 consistent with zero), the `EnergyAngular` interpolation flag, MF=6
