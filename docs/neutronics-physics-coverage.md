@@ -211,26 +211,51 @@ the neutron — and that needs no transport, no seeds and no statistics at all.
 
 ### What that leaves
 
-Cross sections, angular laws, `k`, and now the transfer table itself are all
-excluded. The residual has to live in something *between* the tabulated data and
-the sampled outcome. Candidates, in the order they seem worth testing:
+Cross sections, angular laws, `k`, the transfer table, the within-row CDF
+inversion and the inter-row unit-base rule are **all excluded by measurement**.
+`op-os8x` remains unexplained. What is left:
 
 1. **The CM→lab transform on the continuum law.** Both codes store this law in
    the centre-of-mass frame (`LCT=2`; OpenMC reports `center_of_mass == True`)
    and each transforms at sampling time. The transform couples the sampled
    `μ_cm` to `E'`, so a difference here moves the spectrum while leaving every
    table identical — exactly the signature left.
-2. **Inter-row (unit-base) interpolation.** Read and compared structurally
-   against OpenMC's `CorrelatedAngleEnergy::sample`: bin + interpolation factor,
-   statistically pick the lower or upper table, invert its CDF, then scale
-   between the two rows' envelopes. Ours does all four steps in that order
-   (`sample_continuous_tabular_indexed`). **Structurally matching, not
-   measured** — a sampled-spectrum comparison at energies *between* tabulated
-   rows would settle it, and is the cheaper of the two to run.
+2. ~~**Inter-row (unit-base) interpolation.**~~ **MEASURED AND EXCLUDED
+   2026-09-16.** Our sampled `⟨E'⟩` at 8 incident energies deliberately
+   *between* tabulated rows agrees with the closed-form mean of OpenMC's
+   unit-base construction to a worst `0.0228 %` and a flat signed `−0.0205 %`,
+   with no energy dependence. The within-row CDF inversion goes with it: on-grid
+   `r = 0` makes the rescale the identity, and the sampled mean sits the same
+   flat `−0.05 %` from the exact row mean there.
+
+   **This one nearly became a false positive, and the near-miss is the point.**
+   The first run reported a systematic `+0.60 %` bias growing to `+1.76 %` with
+   energy — precisely the `op-os8x` signature — and it was written up as a
+   probable cause. The defect was in the **reference**: the mean was computed as
+   `∫E·p dE / ∫p dE` by the trapezoid rule on both sides. The denominator is
+   exact (`p` is linear between points); the numerator is not (`E·p(E)` is
+   quadratic), and its error `−h³m/6` grows with bin width and pdf slope, hence
+   with incident energy. Against the exact lin-lin integral the sampler is a
+   flat `−0.05 %` at 1.945, 2.4 and 3.0 MeV, where the trapezoid error ran
+   `+0.089 %`, `−0.259 %`, `−1.632 %`.
+
+   **Fifth reference-side error in this study.** The four "nearest-point trap"
+   instances in the crate's `CLAUDE.md` were about reading a table at the wrong
+   index; this one is about integrating it with the wrong rule. The general
+   form is the same: *a reference is not right merely for being external, or for
+   being the obvious formula.*
+
+   It also qualifies the row-by-row result above. That comparison applied the
+   *same* inexact rule to the *same* tables, so its exact agreement was partly
+   guaranteed. It still establishes what it claims — the tables are identical —
+   but it was never evidence that either side's moment was right. Both the test
+   and the oracle scripts now integrate the first moment in closed form.
 3. **The competing-channel branching at 2–3 MeV** — which MT a collision is
    assigned to, as distinct from the cross sections themselves.
 
-**None of these has been measured.** They are where to look next, not findings.
+Of the three, only the CM→lab transform and the channel branching are still
+open — item 2 was measured and excluded (above). **Neither of the remaining two
+has been measured.** They are where to look next, not findings.
 
 ### 6. Two public names for one ablation (the (n,2n) half is now closed)
 

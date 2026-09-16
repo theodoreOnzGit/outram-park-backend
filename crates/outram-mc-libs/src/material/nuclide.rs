@@ -1808,6 +1808,39 @@ pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut 
 /// in the same order and returns the same `E'`. That matters for a paired
 /// ablation: switching the angular law off must not re-randomise the energy
 /// sampling, or the measured difference includes a change of random stream.
+/// Sample one outgoing energy \[eV\] from a tabulated continuum law `chi` at
+/// incident energy `e_in` \[eV\].
+///
+/// The public entry point to the same sampling the transport kernel uses for an
+/// ENDF **MF=6 LAW=1** continuum emission (`ContinuumBranch::spectrum`) and for
+/// an **MF=5 LF=1** fission spectrum — the two share this representation and
+/// therefore this code path.
+///
+/// # The inter-row rule this implements
+///
+/// Between two tabulated incident-energy rows the outcome is built by
+/// **unit-base interpolation**, mirroring OpenMC's
+/// `CorrelatedAngleEnergy::sample`: locate the bracketing rows and the
+/// interpolation factor `r`; draw from the upper row with probability `r` and
+/// the lower otherwise; invert that row's outgoing-energy CDF; then rescale the
+/// result from its own row's `[E_1, E_k]` envelope onto the interpolated
+/// envelope. Sampling the row's CDF alone, without the rescale, would be a
+/// different distribution — that is the step this function exists to make
+/// testable from outside the crate.
+///
+/// # Why it is public
+///
+/// `tests/mt91_transfer_vs_openmc.rs` compares the *sampled* off-grid spectrum
+/// against the closed-form mean of OpenMC's construction. A row-by-row
+/// comparison of the underlying tables is structurally blind to a defect in the
+/// inter-row rule, so the rule has to be reachable on its own.
+///
+/// Units are eV throughout. `seed` is advanced as the transport RNG would
+/// advance it.
+pub fn sample_continuum_outgoing_energy(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
+    sample_continuous_tabular_indexed(chi, e_in, seed).0
+}
+
 pub(crate) fn sample_continuous_tabular_indexed(
     chi: &ChiTabular,
     e_in: f64,

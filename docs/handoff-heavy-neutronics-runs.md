@@ -23,7 +23,7 @@ jobs 4-6 below.
 | 3 — LCT-008 after the thermal fix | no | no |
 | 4 — free-gas target motion, in-process | no | **yes** |
 | 5 — the fission source (ν̄ and χ) | no | **yes** |
-| 6 — `op-os8x` per-MT collision tally | **yes, both sides** | **yes** |
+| 6 — ~~`op-os8x` per-MT tally~~ **withdrawn; see the job** | — | — |
 | 7 — (n,2n) yield multiplicity | no | **yes** |
 
 Jobs 4-7 need a driver because the hooks are new and no example calls them yet.
@@ -290,34 +290,49 @@ tier *above* the WMP `e_max`, `nu_fission` comes from fast MGXS group data with
 ν̄ already baked into the group constant, so `with_frozen_nubar` cannot reach it
 there. Every Godiva case runs the HIGH (`Pointwise`) tier, where it is complete.
 
-## Job 6 — the discriminating measurement for `op-os8x` (NEW, needs OpenMC)
+## Job 6 — ~~the per-MT collision tally~~ **WITHDRAWN, and partly already done**
 
-**Status: the residual is localised in energy; the cause is not identified.**
+**Do not run the job that used to be here.** It asked for a per-MT collision
+tally in the 1.9–3.0 MeV band on both codes. That measurement **cannot
+discriminate**: a collision rate is flux × σ, the cross sections already agree
+to ≤0.06 % flux-weighted, so it would largely restate the flux difference it was
+meant to explain. Withdrawn 2026-09-16 rather than left for someone to spend
+CPU on.
 
-This is the only job here that needs OpenMC on both sides, and it is the most
-valuable if you have it.
+**What was run instead, in-session, and what it settled.** The measurement that
+*does* discriminate is the **transfer** — where an MT=91 collision at 2–3 MeV
+puts the neutron — and it needs no transport, no seeds and no statistics.
+`crates/outram-mc-libs/tests/mt91_transfer_vs_openmc.rs` compares our
+`f₀(E→E')` against OpenMC's across all **18** incident rows in 1.5–3.5 MeV:
+worst mean-`⟨E'⟩` deviation **0.0000 %**, worst `P(E' < 300 keV)` deviation
+**0.000000** absolute, signed bias **−0.0000 %**. The two are the same table.
 
-Re-measured 2026-09-16 on HEAD against OpenMC 0.15.3 (`27e38e89`) on identical
-data, 8 seeds a side: mean `E` **+0.42 %** (4.6σ), flux below 300 keV
-**−1.22 %** (6.0σ), while `k` agrees to `−32 ± 34 pcm`. Localised per-bin to
-**+0.88 % excess flux at 1.9–3.0 MeV** (4.7σ, 13.8 % of the flux) against
-**1.4–1.9 % deficits at 67–174 keV**.
+**So `op-os8x`'s leading suspect is excluded.** Cross sections, both angular
+laws, `k` and now the transfer table are all ruled out.
 
-That is a deficit of down-scatter out of the MeV window. The only channel that
-moves a 2 MeV neutron to ~100 keV in one collision is **inelastic** — elastic
-off U-238 loses at most 1.7 % per collision. **Excluded by measurement:** the
-angular laws (both `op-tm9f` and `op-og56` are in, and the continuum one's
-ablation does not move the spectrum), the cross sections (≤0.06 % flux-weighted),
-and `k` itself. **Leading suspect: the MT=91 continuum `f₀(E→E')` shape.**
+### What is actually worth a bigger machine now
 
-**The measurement that discriminates: a per-MT collision tally in the
-1.9–3.0 MeV band, on both codes.** If we have fewer MT=91 collisions there than
-OpenMC, the cross section or the branching is wrong; if we have the same number
-but they land at the wrong outgoing energy, the `f₀` shape is. Those two have
-different fixes and the current evidence does not separate them.
+Three leads remain, **none measured**. The first two are cheap and need no
+ensemble; the third is the only one that wants CPU.
 
-Full record and the provenance for both sides:
-`crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/README.md`.
+1. **Inter-row (unit-base) interpolation.** Our
+   `sample_continuous_tabular_indexed` was read against OpenMC's
+   `CorrelatedAngleEnergy::sample` and performs the same four steps in the same
+   order. **Structurally matching, not measured.** Sample our law at incident
+   energies *between* tabulated rows (e.g. 2.05, 2.3, 2.9 MeV — deliberately off
+   the grid listed in `mt91_transfer_oracle.csv`), histogram the outgoing
+   energies, and compare against the same construction driven from OpenMC's
+   HDF5. A row-by-row comparison cannot see a defect here, which is exactly why
+   it is the next thing to check.
+2. **The CM→lab transform on the continuum law.** It couples the sampled `μ_cm`
+   to `E'`, so a difference moves the spectrum while leaving every table
+   identical — precisely the signature that survives. Checkable against the
+   closed-form two-body relation rather than against OpenMC, so it is an
+   analytical check, not a cross-code one.
+3. **Competing-channel branching at 2–3 MeV** — which MT a collision is assigned
+   to, as distinct from the cross sections. This one does want a transport run.
+
+Full record: `crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/README.md`.
 
 ## Job 7 — price the (n,2n) yield multiplicity (NEW, needs a driver)
 
@@ -357,9 +372,9 @@ is the check; it must stay at 10 passed.
 
 ## Environment notes
 
-- ENDF tapes: `reference-data/endf/`, 44 files. Jobs 1-5 and 7 need only these;
-  job 6 additionally needs OpenMC and NJOY2016 built (see that job's V&V README
-  for the exact commits and the deck).
+- ENDF tapes: `reference-data/endf/`, 44 files — every job here needs only
+  these. (Job 6's OpenMC dependency went away with the job; its successor leads
+  are described in place.)
   Override the directory with `OUTRAM_PARK_ENDF_DIR` if they live elsewhere.
 - The `endf-pebble-cases` feature is required for every job here.
 - `WORKERS` is hard-coded at 4 in every ablation example, including any you

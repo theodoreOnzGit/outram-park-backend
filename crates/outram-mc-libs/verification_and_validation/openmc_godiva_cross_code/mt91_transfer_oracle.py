@@ -26,7 +26,9 @@ OpenMC's own law in [1.5, 3.5] MeV:
 
     e_in_ev, mean_eout_ev, median_eout_ev, frac_below_300kev, n_points
 
-`mean` is the first moment of the tabulated pdf; `frac_below_300kev` is the
+`mean` is the first moment of the tabulated pdf, integrated EXACTLY for a
+lin-lin table (see `_exact_mean` -- the trapezoid rule is wrong here and nearly
+cost this study a false defect); `frac_below_300kev` is the
 fraction of emitted neutrons landing under 300 keV, chosen because the 67-174
 keV deficit is where op-os8x's missing flux went.
 """
@@ -39,13 +41,44 @@ BAND = (1.5e6, 3.5e6)
 OUT = "mt91_transfer_oracle.csv"
 
 
+
+def _exact_mean(x, p):
+    """Exact mean of a lin-lin tabulated pdf.
+
+    CORRECTION, 2026-09-16. This was `np.trapezoid(x*p, x) / np.trapezoid(p, x)`.
+    The denominator is fine -- `p` is linear between points, so the trapezoid
+    rule integrates it EXACTLY. The numerator is not: `x*p(x)` is QUADRATIC on
+    each bin, and the trapezoid rule is exact only for linear integrands. The
+    error per bin is -h^3 * m / 6 with `m` the pdf slope, so it grows with bin
+    width and with how steeply the pdf falls -- which on this law means it grows
+    with incident energy.
+
+    Measured on U-238 MT=91: the trapezoid mean is +0.089 % off at 1.945 MeV,
+    -0.259 % at 2.4 MeV and -1.632 % at 3.0 MeV. Using it as a reference made a
+    CORRECT sampler look like it carried a growing bias, and very nearly put a
+    false defect on the op-os8x record. The sampler agrees with the exact mean
+    to a flat -0.05 % at every energy.
+    """
+    x = np.asarray(x, float)
+    p = np.asarray(p, float)
+    a, b = x[:-1], x[1:]
+    pa, pb = p[:-1], p[1:]
+    h = b - a
+    ok = h > 0
+    a, b, pa, pb, h = a[ok], b[ok], pa[ok], pb[ok], h[ok]
+    m = (pb - pa) / h
+    num = np.sum(pa * (b**2 - a**2) / 2.0
+                 + m * ((b**3 - a**3) / 3.0 - a * (b**2 - a**2) / 2.0))
+    den = np.sum(0.5 * h * (pa + pb))        # exact for a linear p
+    return float(num / den)
+
 def moments(dist):
     x = np.asarray(dist.x, dtype=float)
     p = np.asarray(dist.p, dtype=float)
     norm = np.trapezoid(p, x)
     if norm <= 0:
         return None
-    mean = np.trapezoid(x * p, x) / norm
+    mean = _exact_mean(x, p)
     cdf = np.concatenate([[0.0], np.cumsum(0.5 * np.diff(x) * (p[1:] + p[:-1]))]) / norm
     median = float(np.interp(0.5, cdf, x))
     below = float(np.interp(3.0e5, x, cdf))

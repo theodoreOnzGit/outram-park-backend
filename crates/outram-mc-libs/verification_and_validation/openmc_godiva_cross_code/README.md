@@ -839,18 +839,36 @@ The residual must live between the tabulated data and the sampled outcome:
 1. **The CM→lab transform on the continuum law.** It couples the sampled `μ_cm`
    to `E'`, so a difference there moves the spectrum while leaving every table
    identical — exactly the signature that remains.
-2. **Inter-row (unit-base) interpolation.** Our
-   `sample_continuous_tabular_indexed` was read against OpenMC's
-   `CorrelatedAngleEnergy::sample` and performs the same four steps in the same
-   order (bin + factor, statistically pick lower/upper table, invert its CDF,
-   scale between the two envelopes). **Structurally matching, not measured.** A
-   sampled-spectrum comparison at energies *between* tabulated rows would settle
-   it and is the cheaper of the two.
+2. ~~**Inter-row (unit-base) interpolation.**~~ **MEASURED AND EXCLUDED
+   2026-09-16**, together with the within-row CDF inversion. Sampled `⟨E'⟩` at 8
+   incident energies deliberately *between* tabulated rows matches the
+   closed-form mean of OpenMC's unit-base construction to a worst `0.0228 %`,
+   flat signed `−0.0205 %`, no energy dependence. On-grid (`r = 0`, rescale is
+   the identity) the sampler sits the same flat `−0.05 %` from the exact row
+   mean, which isolates the inversion from the inter-row rule.
+
+   **A correction belongs with this result.** The first run of that test
+   reported a `+0.60 %` bias growing to `+1.76 %` with energy — the `op-os8x`
+   signature — and it was nearly recorded here as the cause. The error was in
+   the **reference**: both sides computed `⟨E'⟩ = ∫E·p dE / ∫p dE` by the
+   trapezoid rule, which is exact for the denominator (`p` linear) but not the
+   numerator (`E·p` quadratic), with per-bin error `−h³m/6` that grows with bin
+   width and pdf slope and therefore with incident energy. Trapezoid against the
+   exact lin-lin integral on U-238 MT=91: `+0.089 %` at 1.945 MeV, `−0.259 %` at
+   2.4 MeV, `−1.632 %` at 3.0 MeV. The sampler was correct throughout.
+
+   This also qualifies the transfer-table comparison above: both sides applied
+   the same inexact rule to the same tables, so its exact agreement was partly
+   guaranteed. It still establishes that the **tables are identical**, which is
+   the claim it is used for, but it was never evidence that either side's moment
+   was right. Both `mt91_transfer_oracle.py` and `mt91_interrow_oracle.py` now
+   integrate the first moment in closed form, as does the Rust test.
 3. **Competing-channel branching at 2–3 MeV** — which MT a collision is assigned
    to, as distinct from the cross sections.
 
-**None of the three has been measured.** They are where to look next, not
-findings.
+Item 2 is now measured and excluded. **Neither of the remaining two has been
+measured.** They are where to look next, not findings — and `op-os8x` itself
+remains unexplained.
 
 ## Scope, and what this is not
 

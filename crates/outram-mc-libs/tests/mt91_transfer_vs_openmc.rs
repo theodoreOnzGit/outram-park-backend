@@ -61,6 +61,47 @@
 //!   deficit `op-os8x` localises, so it is the functional most directly tied to
 //!   the residual.
 //!
+//! # A CORRECTION TO THIS FILE'S OWN METHOD, and it nearly cost a false defect
+//!
+//! The first version of the off-grid test below **failed**, reporting a
+//! systematic `+0.60 %` bias growing to `+1.76 %` with incident energy — our
+//! law apparently leaving neutrons higher in energy than OpenMC's, which is
+//! exactly the `op-os8x` signature. It was written up as a probable cause.
+//!
+//! **It was wrong, and the defect was in the reference.** Both this file and the
+//! Python oracle computed the mean as `∫E·p dE / ∫p dE` by the **trapezoid
+//! rule**. The denominator is fine — `p` is linear between tabulated points, so
+//! the trapezoid rule integrates it exactly. The numerator is not: `E·p(E)` is
+//! **quadratic** on each bin, and the trapezoid rule is exact only for linear
+//! integrands. Its error per bin is `−h³m/6` with `m` the pdf slope, so it grows
+//! with bin width and with how steeply the pdf falls — which on this law means
+//! it grows with incident energy, producing a *fake* energy-dependent bias.
+//!
+//! Measured on U-238 MT=91, trapezoid against the exact lin-lin integral:
+//!
+//! | `E_in` | trapezoid error | our sampler vs the **exact** mean |
+//! |---|---|---|
+//! | 1.945 MeV | `+0.089 %` | `−0.048 %` |
+//! | 2.400 MeV | `−0.259 %` | `−0.050 %` |
+//! | 3.000 MeV | `−1.632 %` | `−0.051 %` |
+//!
+//! The sampler sits a **flat `−0.05 %`** from the exact mean at every energy —
+//! consistent with the Monte Carlo error of the check itself, and with no energy
+//! dependence at all. It was correct throughout; the yardstick was bent.
+//!
+//! Both this file and the oracle scripts now integrate the first moment in
+//! closed form. **This is the fifth reference-side error in this study** — the
+//! crate's `CLAUDE.md` already records four appearances of the "nearest-point
+//! trap", three in external references and one in our own script. The general
+//! lesson is the same and worth restating: *a reference is not right merely for
+//! being external, or for being the obvious formula.* Here the obvious formula
+//! was quietly inexact for one of its two integrals and not the other.
+//!
+//! It also explains why the row-by-row comparison below agreed so exactly: both
+//! sides applied the *same* inexact rule to the *same* tables. That agreement
+//! still establishes what it claims — the tables are identical — but it was
+//! never evidence that either side's moment was right.
+//!
 //! # Results — see the test's own output for the measured numbers
 //!
 //! Recorded in this file's assertions and printed on every run.
@@ -73,24 +114,24 @@ const TEMP_K: f64 = 293.6;
 /// OpenMC's law, extracted by `mt91_transfer_oracle.py`. Columns:
 /// `e_in_ev, mean_eout_ev, median_eout_ev, frac_below_300kev`.
 const OPENMC_MT91: &[(f64, f64, f64, f64)] = &[
-    (1.500000e6, 1.333520e5, 1.355220e5, 0.988766),
-    (1.540000e6, 1.579531e5, 1.622010e5, 0.990431),
-    (1.600000e6, 1.941962e5, 2.003856e5, 0.952021),
-    (1.640000e6, 2.174933e5, 2.259463e5, 0.794565),
-    (1.700000e6, 2.468090e5, 2.560282e5, 0.647259),
-    (1.800000e6, 3.031514e5, 3.124222e5, 0.469568),
-    (1.900000e6, 3.514001e5, 3.601625e5, 0.381126),
-    (1.945000e6, 3.732413e5, 3.805995e5, 0.352115),
-    (2.100000e6, 4.399006e5, 4.428208e5, 0.285614),
-    (2.170000e6, 4.701146e5, 4.693651e5, 0.264602),
-    (2.240000e6, 4.980344e5, 4.936324e5, 0.247352),
-    (2.400000e6, 5.551641e5, 5.401300e5, 0.219791),
-    (2.500000e6, 5.848456e5, 5.642812e5, 0.207762),
-    (2.575000e6, 6.078981e5, 5.816885e5, 0.200266),
-    (2.760000e6, 6.505933e5, 6.168931e5, 0.185640),
-    (3.000000e6, 7.095720e5, 6.581210e5, 0.169033),
-    (3.100000e6, 7.288561e5, 6.792109e5, 0.165530),
-    (3.400000e6, 7.880623e5, 7.119718e5, 0.155181),
+    (1.500000e6, 1.332240e5, 1.355220e5, 0.988766),
+    (1.540000e6, 1.575129e5, 1.622010e5, 0.990431),
+    (1.600000e6, 1.936125e5, 2.003856e5, 0.952021),
+    (1.640000e6, 2.169767e5, 2.259463e5, 0.794565),
+    (1.700000e6, 2.461034e5, 2.560282e5, 0.647259),
+    (1.800000e6, 3.024077e5, 3.124222e5, 0.469568),
+    (1.900000e6, 3.508892e5, 3.601625e5, 0.381126),
+    (1.945000e6, 3.729099e5, 3.805995e5, 0.352115),
+    (2.100000e6, 4.405479e5, 4.428208e5, 0.285614),
+    (2.170000e6, 4.705629e5, 4.693651e5, 0.264602),
+    (2.240000e6, 4.990497e5, 4.936324e5, 0.247352),
+    (2.400000e6, 5.566064e5, 5.401300e5, 0.219791),
+    (2.500000e6, 5.873875e5, 5.642812e5, 0.207762),
+    (2.575000e6, 6.112284e5, 5.816885e5, 0.200266),
+    (2.760000e6, 6.615592e5, 6.168931e5, 0.185640),
+    (3.000000e6, 7.213435e5, 6.581210e5, 0.169033),
+    (3.100000e6, 7.427245e5, 6.792109e5, 0.165530),
+    (3.400000e6, 8.000375e5, 7.119718e5, 0.155181),
 ];
 
 /// Trapezoidal mean, median and `P(E' < 300 keV)` of one tabulated outgoing-energy
@@ -103,10 +144,20 @@ fn moments(e_out: &[f64], pdf: &[f64]) -> Option<(f64, f64, f64)> {
     let mut first = 0.0;
     let mut cum = vec![0.0f64; e_out.len()];
     for w in 0..e_out.len() - 1 {
-        let dx = e_out[w + 1] - e_out[w];
-        let seg = 0.5 * dx * (pdf[w] + pdf[w + 1]);
-        norm += seg;
-        first += 0.5 * dx * (e_out[w] * pdf[w] + e_out[w + 1] * pdf[w + 1]);
+        let (a, b) = (e_out[w], e_out[w + 1]);
+        let (pa, pb) = (pdf[w], pdf[w + 1]);
+        let dx = b - a;
+        // Normalisation: `p` is linear between points, so the trapezoid rule
+        // integrates it EXACTLY.
+        norm += 0.5 * dx * (pa + pb);
+        // First moment: `E*p(E)` is QUADRATIC on each bin, so the trapezoid
+        // rule is NOT exact for it -- see this file's correction note. Integrate
+        // it in closed form instead.
+        if dx > 0.0 {
+            let m = (pb - pa) / dx;
+            first += pa * (b * b - a * a) / 2.0
+                + m * ((b * b * b - a * a * a) / 3.0 - a * (b * b - a * a) / 2.0);
+        }
         cum[w + 1] = norm;
     }
     if !(norm > 0.0) {
@@ -260,6 +311,209 @@ fn mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band() {
         bias.abs() < 0.5,
         "the signed mean deviation is {bias:+.4} %, a systematic bias rather than scatter. Our \
          law is moving neutrons {} far on average than OpenMC's.",
+        if bias > 0.0 { "less" } else { "more" }
+    );
+}
+
+
+// ─────────────────── off-grid: the inter-row (unit-base) rule ───────────────────
+
+/// Closed-form expected `⟨E'⟩` of OpenMC's unit-base construction at incident
+/// energies **between** tabulated rows, from
+/// `verification_and_validation/openmc_godiva_cross_code/mt91_interrow_oracle.py`.
+/// Columns: `e_in_ev, expected_mean_eout_ev, r`.
+const OPENMC_MT91_OFFGRID: &[(f64, f64, f64)] = &[
+    (1.970000e6, 3.834406e5, 0.161290),
+    (2.050000e6, 4.181176e5, 0.677419),
+    (2.150000e6, 4.618863e5, 0.714286),
+    (2.300000e6, 5.202911e5, 0.375000),
+    (2.450000e6, 5.719211e5, 0.500000),
+    (2.620000e6, 6.233918e5, 0.243243),
+    (2.900000e6, 6.963895e5, 0.583333),
+    (3.050000e6, 7.320555e5, 0.500000),
+];
+
+/// **The inter-row rule, which the row-by-row comparison above is structurally
+/// blind to.**
+///
+/// # Why this is a separate test and not a stronger version of the first
+///
+/// The test above shows our `f₀` matches OpenMC's on every *tabulated* row to
+/// 7 significant figures. Godiva's neutrons almost never arrive at a tabulated
+/// row. Between rows the spectrum is built by **unit-base interpolation**, and
+/// a defect there — wrong branch probability, wrong envelope, wrong bin lookup
+/// — leaves every row identical while moving the sampled spectrum. That is
+/// exactly the signature `op-os8x` still has after the transfer table was
+/// excluded, which is why this is lead 1.
+///
+/// # What is compared, and why nothing is re-implemented
+///
+/// The unit-base scaling is affine in the sampled value, so the expectation
+/// passes through it and the mean has a closed form in each row's own mean and
+/// endpoints (derived in the oracle script). The reference is therefore
+/// **OpenMC's own tabulated rows put through the published algorithm in closed
+/// form** — no sampler is written on the reference side, and this test's job is
+/// to check that *our sampler* reproduces it.
+///
+/// A disagreement localises `op-os8x` to the inter-row construction. Agreement
+/// excludes it and leaves the CM→lab transform and channel branching.
+///
+/// # Results (2026-09-16, ENDF/B-VIII.0 U-238)
+///
+/// Worst `|Δ|` **0.0228 %**, signed mean **−0.0205 %** over 8 off-grid probes
+/// spanning 1.97–3.05 MeV. The deviation is **flat in energy** — 0.0187 % to
+/// 0.0228 % across a band where the fake trapezoid bias had run 0.06 % to
+/// 1.76 % — and is consistent with the Monte Carlo error of the check at 4e6
+/// draws. **The inter-row unit-base construction is therefore excluded as a
+/// cause of `op-os8x`**, as is the within-row CDF inversion: at an on-grid
+/// energy `r = 0` and the rescale is the identity, and the sampled mean sits
+/// the same flat −0.05 % from the exact row mean there.
+#[test]
+fn mt91_offgrid_sampling_reproduces_openmcs_unit_base_construction() {
+    use outram_mc_libs::material::nuclide::sample_continuum_outgoing_energy as sample_e_out;
+
+    let Some(tape_path) = reference_file_or_skip(
+        "endf",
+        "n-092_U_238.endf",
+        "U-238 evaluation (MT=91 off-grid unit-base check)",
+    ) else {
+        return;
+    };
+    let nuc = Nuclide::from_endf_file(&tape_path, "U238", TEMP_K, 1.0e-3).expect("U-238");
+    let law = nuc.continuum_law(91).expect("U-238 MT=91 law");
+    let chi = &law.branches[0].spectrum;
+
+    // 4e6 draws puts the standard error on the mean near 0.03 % for a
+    // distribution whose spread is of order its mean -- well inside the gate.
+    const N: usize = 4_000_000;
+
+    // Envelope dump. The row-by-row test compares MOMENTS, which are blind to a
+    // trailing zero-density point: it contributes nothing to the mean but sets
+    // `E_k`, and `E_k` is what the unit-base rescale divides by.
+    println!("our MT=91 row envelopes (E_out first/last), for the brackets in play:");
+    for &target in &[1.945e6f64, 2.1e6, 2.17e6, 2.24e6, 2.4e6, 2.5e6, 2.575e6, 2.76e6, 3.0e6, 3.1e6]
+    {
+        let i = chi
+            .incident
+            .iter()
+            .enumerate()
+            .min_by(|a, b| {
+                (a.1 - target)
+                    .abs()
+                    .partial_cmp(&(b.1 - target).abs())
+                    .unwrap()
+            })
+            .map(|(i, _)| i)
+            .unwrap();
+        let t = &chi.tables[i];
+        println!(
+            "  E_in {:.4e}  E_out[0]={:.6e}  E_out[-1]={:.6e}  n={}  p[-1]={:.3e}",
+            chi.incident[i],
+            t.e_out[0],
+            t.e_out[t.e_out.len() - 1],
+            t.e_out.len(),
+            t.pdf[t.pdf.len() - 1]
+        );
+    }
+
+    // ON-GRID first. At a tabulated incident energy r = 0, so the sampler takes
+    // the lower row and the unit-base rescale is the identity: the sampled mean
+    // must then equal the trapezoid mean of that row's own tabulated pdf. This
+    // isolates the CDF INVERSION from the INTER-ROW rule -- if on-grid already
+    // disagrees, the inter-row rule is not the defect.
+    println!("on-grid control (r = 0, no interpolation): sampled mean vs the row's own pdf mean");
+    for &(e_row, mean_ref, _, _) in OPENMC_MT91 {
+        let Some(i) = chi
+            .incident
+            .iter()
+            .position(|&x| (x - e_row).abs() <= 1.0e-3 * e_row)
+        else {
+            continue;
+        };
+        let mut seed = 0x0A11_6817u64;
+        let mut sum = 0.0f64;
+        const M: usize = 1_000_000;
+        for _ in 0..M {
+            sum += sample_e_out(chi, chi.incident[i], &mut seed);
+        }
+        let mean = sum / M as f64;
+        println!(
+            "  E_in {:.6e}  sampled {:.6e}  pdf-mean {mean_ref:.6e}  d {:+7.4} %",
+            chi.incident[i],
+            mean,
+            100.0 * (mean / mean_ref - 1.0)
+        );
+    }
+
+    println!(
+        "U-238 MT=91 sampled <E'> at OFF-GRID incident energies, ours vs the closed-form mean \
+         of OpenMC's unit-base construction ({N} draws each):"
+    );
+    println!("   E_in [eV]      r        <E'> ours      <E'> expected    d%");
+
+    let mut worst = 0.0f64;
+    let mut signed = 0.0f64;
+    for &(e_in, expected, r) in OPENMC_MT91_OFFGRID {
+        // Confirm the probe really is off-grid on OUR incident grid too -- if
+        // it landed on a row, this test would silently become the previous one.
+        assert!(
+            !chi.incident.iter().any(|&x| (x - e_in).abs() <= 1.0e-6 * e_in),
+            "probe {e_in:.6e} eV coincides with one of our tabulated incident rows; this test \
+             must sample strictly between rows or it checks nothing new."
+        );
+
+        // Report OUR bracket beside the oracle's `r`. If the two grids differ,
+        // the brackets differ and the comparison is not the one intended --
+        // which a row-by-row match cannot rule out, since that test searches
+        // our grid for OpenMC's energies and would not notice extra rows.
+        let j = chi
+            .incident
+            .iter()
+            .rposition(|&x| x <= e_in)
+            .unwrap_or(0)
+            .min(chi.incident.len() - 2);
+        let r_ours = (e_in - chi.incident[j]) / (chi.incident[j + 1] - chi.incident[j]);
+        println!(
+            "      our bracket [{:.6e}, {:.6e}] r={r_ours:.6} | oracle r={r:.6}",
+            chi.incident[j],
+            chi.incident[j + 1]
+        );
+
+        let mut seed = 0x0FF6_01D0u64;
+        let mut sum = 0.0f64;
+        for _ in 0..N {
+            sum += sample_e_out(chi, e_in, &mut seed);
+        }
+        let mean = sum / N as f64;
+        let d = 100.0 * (mean / expected - 1.0);
+        println!("   {e_in:.6e}  {r:.6}  {mean:.6e}  {expected:.6e}  {d:+7.4}");
+        worst = worst.max(d.abs());
+        signed += d;
+    }
+    let bias = signed / OPENMC_MT91_OFFGRID.len() as f64;
+    println!(
+        "\n  worst |d| = {worst:.4} %, signed mean = {bias:+.4} % over \
+         {} off-grid probes.",
+        OPENMC_MT91_OFFGRID.len()
+    );
+
+    // Gates sized to the Monte Carlo error of the check itself (~0.03 % on the
+    // mean at 4e6 draws), not to the accuracy hoped for. A systematic bias is
+    // what a defective inter-row rule produces, so `bias` is gated tighter than
+    // the worst single probe.
+    assert!(
+        worst < 0.1,
+        "worst off-grid mean-outgoing-energy disagreement is {worst:.4} %, above the 0.1 % gate \
+         (sized to the 0.0228 % observed 2026-09-16, with headroom for the Monte Carlo error of \
+         the check itself). \
+         Our unit-base inter-row construction differs from OpenMC's, which WOULD be a cause of \
+         op-os8x -- the row-by-row comparison cannot see this."
+    );
+    assert!(
+        bias.abs() < 0.06,
+        "the signed mean deviation over the off-grid probes is {bias:+.4} %, a systematic bias \
+         rather than scatter. Our inter-row rule is moving neutrons {} far on average than \
+         OpenMC's unit-base construction.",
         if bias > 0.0 { "less" } else { "more" }
     );
 }
