@@ -208,6 +208,67 @@
 //! recorded +679 ± 86, and **+481 ± 164** (2→8) against +558 ± 86. Boron is still
 //! worth too little here, by about the same amount.
 //!
+//! # RESOLVED 2026-09-16 — the residual is gone, and the prediction that said
+//! # it would be is GitHub #188's own
+//!
+//! GitHub #188 ("H-in-H2O incoherent-inelastic kernel transfers 2-5.5 % too
+//! little energy") was closed on 2026-09-14 by replacing `equiprobable_emission`
+//! with the ported `aceth.f90::acesix`. Its closing text named the direct test
+//! and stated the criterion in advance:
+//!
+//! > re-run LEU-COMP-THERM-008 cases 1, 2 and 8, and the three `Δk` values must
+//! > collapse together and toward zero
+//!
+//! **That test had never been run.** It was run on 2026-09-16, at the same
+//! 4000 × [120 + 250] as the 2026-09-13 column, and both halves of the
+//! criterion are met:
+//!
+//! | case | 2026-09-13 | **2026-09-16** | move |
+//! |---|---|---|---|
+//! | 1 | +2665 ± 128 pcm | **+157 ± 119 pcm** | −2508 |
+//! | 2 | +2086 ± 118 pcm | **+1 ± 126 pcm** | −2085 |
+//! | 8 | +1605 ± 114 pcm | **+124 ± 124 pcm** | −1481 |
+//!
+//! **Toward zero:** every case is now within **1.3 σ** of a measured critical
+//! experiment, mean `|Δk|` = 94 pcm, against 20 σ before.
+//!
+//! **Together:** the spread across the three collapsed from **1060 pcm to
+//! 156 pcm**.
+//!
+//! And the statement that owes nothing to any estimate of absorption shares —
+//! the pairwise differences, which are *truly* zero because every case is
+//! independently critical:
+//!
+//! | difference | before | **after** |
+//! |---|---|---|
+//! | 1 → 2 | +579 ± 174 pcm (3.3 σ) | **−156 ± 173 pcm (0.9 σ)** |
+//! | 2 → 8 | +481 ± 164 pcm (2.9 σ) | **+123 ± 177 pcm (0.7 σ)** |
+//!
+//! **"Its boron is worth too little" is resolved.** That was this case's
+//! load-bearing finding — the one conclusion that survived every earlier fix
+//! and that no absorption-share argument could explain away. Both pairwise
+//! differences are now consistent with zero.
+//!
+//! ## What this does and does not establish
+//!
+//! **Does:** the thermal path's largest known defect is closed, measured
+//! against a *measured critical experiment* rather than another code, on the
+//! one benchmark here whose fuel is both thermal and strongly self-shielded in
+//! the U-238 resolved resonances.
+//!
+//! **Does not:** it does not retroactively justify the attribution history
+//! above. The residual was attributed to U-238 resonance escape, that
+//! attribution was **refuted** by the case scan, and the real cause was a
+//! thermal scattering kernel. A quantitative prediction agreeing to 8 % (the
+//! `+3200` against `+2950`) turned out to be coincidence. That sequence is
+//! recorded because it is how a wrong attribution comes to feel settled, and it
+//! is worth more than the number that finally came out right.
+//!
+//! **Does not:** say anything about DBRC or URR probability tables, both landed
+//! 2026-09-16 and both **opt-in and not enabled here**. This run uses neither.
+//! Pricing them on this case is the obvious next measurement now that it has
+//! headroom — at ±120 pcm it can resolve an effect of a few hundred pcm.
+//!
 //! # Re-run 2026-09-13 against the last two changes, and why it was worth doing
 //!
 //! The fourth column is this case re-measured after the MT=91/MT=16 continuum

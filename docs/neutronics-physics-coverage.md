@@ -385,6 +385,32 @@ it.
 
 ---
 
+## The thermal validation gap — CLOSED 2026-09-16
+
+This document's standing caution was that the project targets **thermal**
+reactors while nearly all its validation was a bare fast sphere, and that
+LCT-008 — the one thermal benchmark — had not been re-run since GitHub #188's
+thermal-kernel fix. It has now been run, and #188's own stated criterion ("the
+three `Δk` must collapse together and toward zero") is met on both counts:
+
+| case | 2026-09-13 | **2026-09-16** |
+|---|---|---|
+| 1 | +2665 ± 128 pcm | **+157 ± 119 pcm** |
+| 2 | +2086 ± 118 pcm | **+1 ± 126 pcm** |
+| 8 | +1605 ± 114 pcm | **+124 ± 124 pcm** |
+
+Spread across the three: **1060 → 156 pcm**. Mean `|Δk|`: **94 pcm**, every case
+within 1.3 σ of a measured critical experiment. The pairwise differences — which
+are truly zero, since every case is independently critical — went from
+**+579 ± 174 (3.3 σ)** and **+481 ± 164 (2.9 σ)** to **−156 ± 173 (0.9 σ)** and
+**+123 ± 177 (0.7 σ)**. *"Its boron is worth too little"*, this case's
+load-bearing finding for weeks, is resolved.
+
+**DBRC and URR probability tables were NOT enabled in that run** — both are
+opt-in and neither is switched on by `lct008_keff`. So this result prices
+neither, and the case now has the headroom (±120 pcm) to price both. That is
+the obvious next measurement.
+
 ## What "correctly represented" would mean
 
 Every row of the first table having ✅ in all four columns, or an explicit
