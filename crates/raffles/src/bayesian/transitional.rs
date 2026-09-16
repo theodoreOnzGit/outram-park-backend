@@ -107,6 +107,142 @@ impl TransitionKernel {
     }
 }
 
+/// The rule that decides how far each tempering stage may step.
+///
+/// # Why there is a choice here at all
+///
+/// The tempering schedule is the part of TMCMC that makes it robust, and the
+/// rule that sets it is a modelling decision rather than a constant. Both
+/// variants below answer the same question — "how far can `beta` move before
+/// the importance weights degenerate?" — with different measures of
+/// degeneration.
+///
+/// # The two are the same rule in different clothes
+///
+/// Worth knowing before choosing between them. For weights with mean `m` and
+/// population variance `v`, the Kish effective sample size satisfies
+///
+/// ```text
+/// ESS = (sum w)^2 / sum w^2 = n / (1 + CoV^2)
+/// ```
+///
+/// exactly — so the two criteria are reparametrisations of each other under
+/// `fraction = 1 / (1 + target^2)`, and **at their published defaults
+/// (`target = 1`, `fraction = 0.5`) they are the identical rule**. The
+/// comparison test in this module finds identical schedules for that reason,
+/// and a separate test checks the identity numerically (agreement to 4e-15).
+///
+/// That does not make the alternative pointless: `fraction` is the more
+/// interpretable dial, since "half my samples are still doing work" says
+/// something a practitioner can act on and "the coefficient of variation of the
+/// weights is 1" does not. It does mean that switching between them at the
+/// published defaults will not change an answer, and anyone reporting a
+/// difference between the two should look for it elsewhere.
+///
+/// One convention to note: [`weight_cov`] divides by `n`, not `n - 1`. A
+/// definition using the unbiased denominator differs by `n / (n - 1)` inside
+/// the square — negligible at usable population sizes, but stated rather than
+/// assumed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TemperingCriterion {
+    /// Ching and Chen's original rule: step until the **coefficient of
+    /// variation** of the stage weights reaches `target`, conventionally 1.0.
+    ///
+    /// Cheap and well-tested. Its weakness is that the coefficient of variation
+    /// is a moment of the weights, so a handful of enormous weights and a
+    /// broadly healthy population can produce the same value.
+    WeightCoefficientOfVariation {
+        /// Target coefficient of variation, strictly positive. Ching and Chen
+        /// use 1.0. Smaller means more, smaller stages: more robust and more
+        /// expensive.
+        target: f64,
+    },
+    /// The TMCMC-II rule of Lye and Marino (2023): step until the **effective
+    /// sample size** falls to `fraction` of the population, conventionally
+    /// one half.
+    ///
+    /// The effective sample size `(sum w)^2 / sum w^2` measures directly how
+    /// many of the `N` samples are actually doing work, which is the quantity
+    /// a practitioner cares about, and it is bounded in `(0, N]` rather than
+    /// unbounded above. The published motivation for preferring it is that it
+    /// gives a more interpretable and better-behaved schedule than a moment
+    /// ratio.
+    ///
+    /// Reference: A. Lye and L. Marino (2023). An investigation into an
+    /// alternative transition criterion of the Transitional Markov Chain Monte
+    /// Carlo method for Bayesian model updating. *Proceedings of the 33rd
+    /// European Safety and Reliability Conference*. doi:
+    /// [10.3850/978-981-18-8071-1_P331-cd](https://doi.org/10.3850/978-981-18-8071-1_P331-cd)
+    EffectiveSampleSize {
+        /// Fraction of the population the effective sample size may fall to,
+        /// in `(0, 1)`. Lye and Marino use 0.5.
+        fraction: f64,
+    },
+}
+
+impl TemperingCriterion {
+    /// Ching and Chen's original criterion at the published target of 1.0.
+    pub fn weight_cov() -> Self {
+        Self::WeightCoefficientOfVariation { target: 1.0 }
+    }
+
+    /// The TMCMC-II criterion at the published half-population target.
+    pub fn effective_sample_size() -> Self {
+        Self::EffectiveSampleSize { fraction: 0.5 }
+    }
+
+    /// Checks the criterion's own parameter.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if the target coefficient of
+    /// variation is not strictly positive, or the effective-sample-size
+    /// fraction is not strictly inside `(0, 1)` — at 1 no step is ever
+    /// permitted and the schedule cannot start.
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::WeightCoefficientOfVariation { target } => {
+                if !(*target > 0.0) {
+                    return Err(RafflesError::InvalidParameter {
+                        parameter: "target".to_string(),
+                        value: *target,
+                        reason: "the target coefficient of variation must be strictly positive"
+                            .to_string(),
+                    });
+                }
+            }
+            Self::EffectiveSampleSize { fraction } => {
+                if !(*fraction > 0.0 && *fraction < 1.0) {
+                    return Err(RafflesError::InvalidParameter {
+                        parameter: "fraction".to_string(),
+                        value: *fraction,
+                        reason: "the effective-sample-size fraction must lie strictly between \
+                                 0 and 1"
+                            .to_string(),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether a tempering step of `d_beta` would degenerate the weights past
+    /// what this criterion allows.
+    ///
+    /// Both measures are monotone in `d_beta` — the coefficient of variation
+    /// rises and the effective sample size falls as the step grows — which is
+    /// what makes the bisection in [`solve_delta_beta`] both valid and
+    /// sufficient.
+    pub fn is_step_too_large(&self, ln_l: &[f64], d_beta: f64) -> bool {
+        match self {
+            Self::WeightCoefficientOfVariation { target } => weight_cov(ln_l, d_beta) > *target,
+            Self::EffectiveSampleSize { fraction } => {
+                weight_ess(ln_l, d_beta) < *fraction * ln_l.len() as f64
+            }
+        }
+    }
+}
+
 /// Configuration shared by both transitional samplers.
 ///
 /// Defaults are the published ones where a paper gives a value, and are stated
@@ -122,11 +258,12 @@ pub struct TransitionalConfig {
     /// moves. For the ensemble kernel it is also the walker count, and must be
     /// at least `2 * d + 2`.
     pub population: usize,
-    /// Target coefficient of variation of the stage weights, used to solve for
-    /// the next tempering exponent. Ching and Chen use 1.0.
+    /// How far each tempering stage is allowed to step — the rule that decides
+    /// `beta_{j+1}`.
     ///
-    /// Smaller means more, smaller stages: more robust and more expensive.
-    pub cov_target: f64,
+    /// See [`TemperingCriterion`]; the two variants are the original TMCMC rule
+    /// and the TMCMC-II rule.
+    pub criterion: TemperingCriterion,
     /// Number of MCMC moves applied per sample per stage.
     ///
     /// 1 is the classical TMCMC choice — resampling plus one move per sample,
@@ -153,13 +290,13 @@ impl TransitionalConfig {
     ///
     /// # Errors
     ///
-    /// [`RafflesError::InvalidParameter`] if `population` is zero,
-    /// `cov_target` is not strictly positive, `chain_length` is zero,
+    /// [`RafflesError::InvalidParameter`] if `population` is zero, if the
+    /// criterion's own parameter is out of range, `chain_length` is zero,
     /// `max_stages` is zero, or the kernel's own parameter is out of range
     /// (`scale > 0`, `a > 1`).
     pub fn new(
         population: usize,
-        cov_target: f64,
+        criterion: TemperingCriterion,
         chain_length: usize,
         max_stages: usize,
         seed: i64,
@@ -172,13 +309,7 @@ impl TransitionalConfig {
                 reason: "a transitional sampler needs at least one sample".to_string(),
             });
         }
-        if !(cov_target > 0.0) {
-            return Err(RafflesError::InvalidParameter {
-                parameter: "cov_target".to_string(),
-                value: cov_target,
-                reason: "the target coefficient of variation must be strictly positive".to_string(),
-            });
-        }
+        criterion.validate()?;
         if chain_length == 0 {
             return Err(RafflesError::InvalidParameter {
                 parameter: "chain_length".to_string(),
@@ -213,7 +344,7 @@ impl TransitionalConfig {
         }
         Ok(Self {
             population,
-            cov_target,
+            criterion,
             chain_length,
             max_stages,
             seed,
@@ -227,7 +358,7 @@ impl TransitionalConfig {
     pub fn tmcmc_defaults(population: usize, seed: i64) -> Result<Self> {
         Self::new(
             population,
-            1.0,
+            TemperingCriterion::weight_cov(),
             1,
             200,
             seed,
@@ -239,7 +370,23 @@ impl TransitionalConfig {
     pub fn temcmc_defaults(population: usize, seed: i64) -> Result<Self> {
         Self::new(
             population,
-            1.0,
+            TemperingCriterion::weight_cov(),
+            1,
+            200,
+            seed,
+            TransitionKernel::affine_invariant_ensemble(),
+        )
+    }
+
+    /// TMCMC-II defaults: the effective-sample-size criterion at half the
+    /// population, with the affine-invariant ensemble kernel.
+    ///
+    /// Reference: Lye and Marino (2023) — see
+    /// [`TemperingCriterion::EffectiveSampleSize`].
+    pub fn tmcmc_ii_defaults(population: usize, seed: i64) -> Result<Self> {
+        Self::new(
+            population,
+            TemperingCriterion::effective_sample_size(),
             1,
             200,
             seed,
@@ -458,7 +605,7 @@ where
     let mut stages: Vec<StageReport> = Vec::new();
 
     for stage in 0..config.max_stages {
-        let d_beta = solve_delta_beta(&ln_l, beta, config.cov_target);
+        let d_beta = solve_delta_beta(&ln_l, beta, config.criterion);
         let next_beta = (beta + d_beta).min(1.0);
 
         // Importance weights for the step from beta to next_beta, in log
@@ -604,8 +751,7 @@ where
     })
 }
 
-/// Solves for the tempering increment that puts the weights' coefficient of
-/// variation at `cov_target`.
+/// Solves for the largest tempering increment the criterion still permits.
 ///
 /// The CoV of `w_i = L_i^(d_beta)` increases monotonically with `d_beta` — at
 /// `d_beta = 0` every weight is 1 and the CoV is 0; as `d_beta` grows the
@@ -614,12 +760,12 @@ where
 ///
 /// Returns `1 - beta` directly when even the full remaining step keeps the CoV
 /// below target, which is how the schedule finishes.
-fn solve_delta_beta(ln_l: &[f64], beta: f64, cov_target: f64) -> f64 {
+fn solve_delta_beta(ln_l: &[f64], beta: f64, criterion: TemperingCriterion) -> f64 {
     let remaining = 1.0 - beta;
     if remaining <= 0.0 {
         return 0.0;
     }
-    if weight_cov(ln_l, remaining) <= cov_target {
+    if !criterion.is_step_too_large(ln_l, remaining) {
         return remaining;
     }
 
@@ -630,7 +776,7 @@ fn solve_delta_beta(ln_l: &[f64], beta: f64, cov_target: f64) -> f64 {
     // that a pathological likelihood cannot spin here.
     for _ in 0..60 {
         let mid = 0.5 * (lo + hi);
-        if weight_cov(ln_l, mid) > cov_target {
+        if criterion.is_step_too_large(ln_l, mid) {
             hi = mid;
         } else {
             lo = mid;
@@ -668,6 +814,38 @@ fn weight_cov(ln_l: &[f64], d_beta: f64) -> f64 {
     }
     let var = w.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / n;
     var.sqrt() / mean
+}
+
+/// Kish effective sample size of the importance weights for a tempering step of
+/// `d_beta`, computed in log space.
+///
+/// `(sum w)^2 / sum w^2`, which lies in `(0, n]`: `n` when every weight is
+/// equal, and 1 when one sample carries all the mass. The log-space shift by
+/// the maximum cancels between numerator and denominator, so the result is
+/// independent of it — which is what makes this safe for a sharply-peaked
+/// likelihood where the raw weights would underflow.
+fn weight_ess(ln_l: &[f64], d_beta: f64) -> f64 {
+    let ln_w: Vec<f64> = ln_l
+        .iter()
+        .map(|l| {
+            if l.is_finite() {
+                d_beta * l
+            } else {
+                f64::NEG_INFINITY
+            }
+        })
+        .collect();
+    let ln_w_max = ln_w.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    if !ln_w_max.is_finite() {
+        return 0.0;
+    }
+    let w: Vec<f64> = ln_w.iter().map(|lw| (lw - ln_w_max).exp()).collect();
+    let sum: f64 = w.iter().sum();
+    let sum_squares: f64 = w.iter().map(|v| v * v).sum();
+    if !(sum_squares > 0.0) {
+        return 0.0;
+    }
+    sum * sum / sum_squares
 }
 
 /// Systematic resampling of `n` indices from normalised weights.
@@ -1139,5 +1317,168 @@ mod tests {
         let l = cholesky_scaled(&singular, 0.2, &mut diagnostics);
         assert!(l[0][0] > 0.0 && l[1][1] > 0.0);
         assert!(diagnostics.covariance_regularisations > 0);
+    }
+
+    /// **Methodology — the TMCMC-II criterion against the original.** Lye and
+    /// Marino's alternative rule stops each stage when the effective sample
+    /// size falls to half the population, rather than when the weights'
+    /// coefficient of variation reaches 1. Both must reach the same posterior;
+    /// what differs is the schedule. Run on the conjugate Normal-Normal
+    /// problem, 2 000 samples, same seed, ensemble kernel in both cases, and
+    /// compared on posterior mean, posterior sd, log-evidence, stage count, and
+    /// the effective sample size actually achieved per stage.
+    ///
+    /// **Result** (2026-09-16, `--release`, seed 20260916): the two schedules
+    /// are IDENTICAL — mean 2.497856, sd 0.295145, ln Z -15.753896, 4 stages,
+    /// smallest stage ESS 1000.0 under both. That is not a coincidence: see
+    /// the identity documented on `TemperingCriterion`. Both are checked
+    /// against the same closed forms, so this verifies the new rule rather
+    /// than merely comparing two unverified numbers.
+    #[test]
+    fn the_two_tempering_criteria_reach_the_same_posterior() {
+        let (y, sigma, mu_0, tau, prior) = conjugate_setup();
+        let (ref_mean, ref_sd, ref_ln_evidence) = conjugate_reference(&y, sigma, mu_0, tau);
+
+        let classic = TransitionalConfig::temcmc_defaults(2_000, 20_260_916).unwrap();
+        let tmcmc_ii = TransitionalConfig::tmcmc_ii_defaults(2_000, 20_260_916).unwrap();
+
+        for (name, config) in [("CoV = 1 (Ching & Chen)", classic), ("ESS = N/2 (TMCMC-II)", tmcmc_ii)]
+        {
+            let result =
+                run_transitional(&prior, conjugate_ln_likelihood(y.clone(), sigma), &config)
+                    .unwrap();
+            let mean = result.posterior_mean()[0];
+            let sd = result.posterior_std_dev()[0];
+            let min_ess = result
+                .stages
+                .iter()
+                .map(|s| s.effective_sample_size)
+                .fold(f64::INFINITY, f64::min);
+            println!(
+                "{name}: mean {mean:.6} (ref {ref_mean:.6}), sd {sd:.6} (ref {ref_sd:.6}), \
+                 ln Z {:.6} (ref {ref_ln_evidence:.6}), {} stages, smallest stage ESS {min_ess:.1}",
+                result.ln_evidence,
+                result.stages.len()
+            );
+
+            assert!((mean - ref_mean).abs() < 0.05, "{name}: mean {mean}");
+            assert!((sd - ref_sd).abs() < 0.15 * ref_sd, "{name}: sd {sd}");
+            assert!(
+                (result.ln_evidence - ref_ln_evidence).abs() < 0.5,
+                "{name}: ln evidence {}",
+                result.ln_evidence
+            );
+        }
+    }
+
+    /// **Methodology.** The TMCMC-II criterion's defining property is that no
+    /// stage is allowed to drop the effective sample size below the configured
+    /// fraction of the population. Checked directly on every stage of a run
+    /// with `fraction = 0.5` and 2 000 samples: each stage's reported effective
+    /// sample size must be at least 1 000, up to the resolution of the
+    /// bisection.
+    ///
+    /// **Result** (2026-09-16, `--release`, seed 4242): per-stage effective
+    /// sample sizes 1000.0, 1000.0, 1101.2 against a population of 2 000 —
+    /// the criterion binds exactly at N/2 on the stages where it is active,
+    /// and the final stage lands above it because beta reached 1 first.
+    #[test]
+    fn the_effective_sample_size_criterion_holds_at_every_stage() {
+        let (y, sigma, _, _, prior) = conjugate_setup();
+        let config = TransitionalConfig::tmcmc_ii_defaults(2_000, 4_242).unwrap();
+        let result = run_transitional(&prior, conjugate_ln_likelihood(y, sigma), &config).unwrap();
+
+        let per_stage: Vec<f64> = result
+            .stages
+            .iter()
+            .map(|s| (s.effective_sample_size * 10.0).round() / 10.0)
+            .collect();
+        println!("TMCMC-II per-stage effective sample size (N = 2000): {per_stage:?}");
+        for (index, stage) in result.stages.iter().enumerate() {
+            assert!(
+                stage.effective_sample_size >= 990.0,
+                "stage {index} dropped to ESS {}",
+                stage.effective_sample_size
+            );
+        }
+    }
+
+    /// **Methodology.** A criterion with an out-of-range parameter must be
+    /// refused at construction: a non-positive coefficient of variation, and an
+    /// effective-sample-size fraction at or beyond the ends of `(0, 1)` — at 1
+    /// no step is ever permitted and the schedule cannot start at all.
+    ///
+    /// **Result.** All three rejected (2026-09-16).
+    #[test]
+    fn a_malformed_tempering_criterion_is_refused() {
+        assert!(TemperingCriterion::WeightCoefficientOfVariation { target: 0.0 }
+            .validate()
+            .is_err());
+        assert!(TemperingCriterion::EffectiveSampleSize { fraction: 0.0 }
+            .validate()
+            .is_err());
+        assert!(TemperingCriterion::EffectiveSampleSize { fraction: 1.0 }
+            .validate()
+            .is_err());
+    }
+
+    /// **Methodology — an identity that makes the two criteria the same rule.**
+    /// For weights with mean `m` and population variance `v`, the Kish
+    /// effective sample size is
+    ///
+    /// ```text
+    /// ESS = (sum w)^2 / sum w^2
+    ///     = n^2 m^2 / (n (v + m^2))
+    ///     = n / (1 + v/m^2)
+    ///     = n / (1 + CoV^2)
+    /// ```
+    ///
+    /// so the two criteria in this module are reparametrisations of each other
+    /// under `fraction = 1 / (1 + target^2)`. At their published defaults —
+    /// `target = 1` and `fraction = 0.5` — they are the SAME rule, which is why
+    /// the comparison test above finds the two schedules identical rather than
+    /// merely similar. Checked numerically over a spread of tempering steps on
+    /// a real log-likelihood population.
+    ///
+    /// Note the normalisation this depends on: `weight_cov` divides by `n`, not
+    /// `n - 1`. A paper defining the coefficient of variation with the unbiased
+    /// denominator would differ from this by a factor of `n / (n - 1)` inside
+    /// the square — negligible at the population sizes used here, but the
+    /// reason to state the convention rather than assume it.
+    ///
+    /// **Result** (2026-09-16, `--release`): agreement to between 1.1e-16 and
+    /// 5.0e-15 relative across tempering steps from 1e-4 to 1.0, i.e. to
+    /// floating-point resolution. The two published defaults agree on every
+    /// step tested.
+    #[test]
+    fn effective_sample_size_and_weight_cov_are_the_same_criterion() {
+        // A spread of log-likelihoods with real structure, not a flat set.
+        let ln_l: Vec<f64> = (0..500).map(|i| -0.01 * (i as f64 - 250.0).powi(2)).collect();
+        let n = ln_l.len() as f64;
+
+        let mut worst = 0.0_f64;
+        for d_beta in [1.0e-4, 1.0e-3, 0.01, 0.05, 0.2, 0.5, 1.0] {
+            let cov = weight_cov(&ln_l, d_beta);
+            let ess = weight_ess(&ln_l, d_beta);
+            let predicted = n / (1.0 + cov * cov);
+            let relative = ((ess - predicted) / predicted).abs();
+            worst = worst.max(relative);
+            println!(
+                "d_beta {d_beta}: CoV {cov:.6}, ESS {ess:.4}, n/(1+CoV^2) {predicted:.4}, \
+                 relative difference {relative:.2e}"
+            );
+        }
+        assert!(worst < 1.0e-9, "worst relative difference {worst}");
+
+        // And therefore: CoV target 1 is exactly ESS = N/2.
+        let target_one = TemperingCriterion::WeightCoefficientOfVariation { target: 1.0 };
+        let half_population = TemperingCriterion::EffectiveSampleSize { fraction: 0.5 };
+        for d_beta in [1.0e-3, 0.01, 0.1, 0.5, 1.0] {
+            assert_eq!(
+                target_one.is_step_too_large(&ln_l, d_beta),
+                half_population.is_step_too_large(&ln_l, d_beta),
+                "the two published defaults disagreed at d_beta = {d_beta}"
+            );
+        }
     }
 }

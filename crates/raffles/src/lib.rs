@@ -38,6 +38,8 @@
 //! - **[`distance`]** — statistical distances between two sample sets:
 //!   Euclidean on summaries, Bhattacharyya, Hellinger, Jensen-Shannon,
 //!   Bray-Curtis and the 1-Wasserstein area metric.
+//! - **[`model_selection`]** — comparing competing models by their evidence:
+//!   Bayes factors, posterior model probabilities, the Kass-Raftery scale.
 //! - **[`imprecise`]** — imprecise probability: intervals, probability boxes,
 //!   Clopper-Pearson confidence boxes, and coherent-system reliability with or
 //!   without a dependence assumption.
@@ -132,6 +134,7 @@ pub mod distance;
 pub mod distributions;
 pub mod gnn;
 pub mod imprecise;
+pub mod model_selection;
 pub mod samplers;
 pub mod sensitivity;
 pub mod surrogate;

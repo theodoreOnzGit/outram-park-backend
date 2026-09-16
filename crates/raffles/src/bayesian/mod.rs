@@ -101,7 +101,8 @@ use crate::{RafflesError, Result};
 
 pub use mcmc::{EnsembleMove, MetropolisHastings};
 pub use transitional::{
-    temcmc, tmcmc, TransitionKernel, TransitionalConfig, TransitionalResult, StageReport,
+    temcmc, tmcmc, StageReport, TemperingCriterion, TransitionKernel, TransitionalConfig,
+    TransitionalResult,
 };
 
 /// A prior over `d` parameters whose marginals are mutually independent.
