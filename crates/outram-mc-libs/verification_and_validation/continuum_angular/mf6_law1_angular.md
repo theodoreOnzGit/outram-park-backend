@@ -147,9 +147,6 @@ RNG stream, not on the energy.
 
 ## Results — the worth on Godiva
 
-**Not yet measured.** `examples/godiva_continuum_anisotropy_ablation.rs` is the
-instrument and has not been run at a seed count that can resolve the prediction.
-
 **Prediction, recorded before the measurement** (the workspace rule, and the
 lesson of `op-mzvp.2.12`): **`k` down, by well under 50 pcm, plausibly under
 20.** Direction: forward-peaked emission raises `⟨μ⟩`, lowers
@@ -159,6 +156,41 @@ shows this law is flat through the bulk of a fission spectrum. A result near
 −200 pcm would mean the law is being applied at the wrong incident energy —
 importing 14 MeV cosines into 2 MeV flux — and the wiring should be suspected
 before the physics.
+
+**Measured 2026-09-16**, 32 seeds per arm, 5000 histories × [40 inactive + 120
+active], three ICSBEP nuclides, ENDF/B-VIII.0:
+
+| arm | n | mean vs ICSBEP | sd | sem |
+|---|---|---|---|---|
+| **ANISO** (evaluated MF=6 LANG=1) | 32 | **+4 pcm** | 159 | ±28 |
+| **ISO** (pre-`op-og56`) | 32 | **+45 pcm** | 182 | ±32 |
+| **difference** | | **−41 pcm** | | **±43 (1.0 σ)** |
+
+**The prediction held on direction and magnitude, and the result is a BOUND, not
+a measurement.** `−41 ± 43 pcm` is 1.0 σ from zero, so this run cannot
+distinguish the effect from nothing. What it does do is kill the alternative: an
+effect the size of `op-tm9f`'s `−198 pcm` would sit **3.7 σ** from what was
+observed. The continuum angular law is not a second `op-tm9f`.
+
+**Do not quote −41 pcm as the worth of this law.** Quote it as *consistent with
+zero, bounded well below 130 pcm at 3 σ, and negative in central value as
+predicted*.
+
+**A harness check that passes.** The ISO arm reproduces the behaviour this crate
+had before `op-og56`, whose independently pooled value is `+16 ± 11 pcm` over
+256 seeds. Measured here at `+45 ± 32` — a difference of `+29 ± 34 pcm`, 0.85 σ.
+An ablation arm landing back on a number pooled by a different program is a
+check on the instrument rather than a restatement of it.
+
+**The seeds do not pair**, and the run reports it: paired `sd` 220 exceeds either
+arm's 182, so the unpaired figure is the one quoted. Worth noting because unlike
+the discrete-level ablation, these two arms *do* consume identical RNG variates
+per collision, so pairing might have been expected to help. It does not — the
+histories diverge in where they go, not in how many draws they take.
+
+**What would resolve it.** `sigma_diff ≈ 14` is needed to put `−41` at 3 σ,
+i.e. roughly **290 seeds per arm**, about nine times this run. Nothing in this
+crate currently depends on the number being resolved rather than bounded.
 
 ## The tension this creates, stated rather than smoothed
 

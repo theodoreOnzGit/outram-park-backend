@@ -86,13 +86,43 @@
 //! Correctness is not chosen for its direction, and the tension is stated rather
 //! than smoothed.
 //!
-//! # Results
+//! # Results (2026-09-16, 32 seeds per arm, ENDF/B-VIII.0)
 //!
-//! **Not yet measured.** This example is the instrument; running it is the
-//! measurement. When it has been run at a seed count that can resolve the
-//! prediction above, record the table here with the date, the seed count, and
-//! whether the prediction held — and if it did not, say so plainly rather than
-//! revising the prediction after the fact.
+//! | arm | n | mean vs ICSBEP | sd | sem |
+//! |---|---|---|---|---|
+//! | **ANISO** (evaluated MF=6 LANG=1) | 32 | **+4 pcm** | 159 | ±28 |
+//! | **ISO** (pre-`op-og56`) | 32 | **+45 pcm** | 182 | ±32 |
+//! | **difference** | | **−41 pcm** | | **±43 (1.0 sigma)** |
+//!
+//! **The prediction held on direction and on magnitude, and the result is a
+//! BOUND rather than a measurement.** `−41 ± 43 pcm` is 1.0 sigma from zero, so
+//! this run cannot distinguish the effect from nothing. What it *can* do is
+//! exclude the alternative: an effect the size of `op-tm9f`'s `−198 pcm` would
+//! sit **3.7 sigma** away from what was observed. So the continuum angular law
+//! is not a second `op-tm9f`, which was the falsifiable half of the prediction.
+//!
+//! Do not quote `−41 pcm` as the worth of this law. Quote it as
+//! *"consistent with zero; bounded well below 130 pcm at 3 sigma"*.
+//!
+//! **A harness check that passes.** The ISO arm reproduces the behaviour this
+//! crate had before `op-og56`, whose recorded value is `+16 ± 11 pcm` over 256
+//! seeds (`examples/godiva_keff_ensemble.rs`). Measured here at `+45 ± 32`, a
+//! difference of `+29 ± 34 pcm` — 0.85 sigma. That the ablation arm lands back
+//! on an independently pooled number is a check on the instrument, not a
+//! restatement of it.
+//!
+//! **The seeds do not pair**, and the run says so: paired `sd` 220 exceeds
+//! either arm's 182. Quote the unpaired figure. That is measured rather than
+//! assumed — which matters here, because unlike the discrete-level ablation the
+//! two arms *do* consume identical RNG variates per collision, so pairing might
+//! have been expected to help. It does not: the histories diverge in where they
+//! go, not in how many draws they take.
+//!
+//! **What would resolve it.** Getting `−41` to 3 sigma needs `sigma_diff ≈ 14`,
+//! i.e. roughly **290 seeds per arm** — about nine times this run. Whether that
+//! is worth ~5 CPU-hours to turn a bound into a measurement is a judgement about
+//! what the number would be used for; nothing in this crate currently depends on
+//! it being resolved.
 //!
 //! ```text
 //! OUTRAM_GODIVA_SEEDS=32 cargo run --release -p outram-mc-libs \

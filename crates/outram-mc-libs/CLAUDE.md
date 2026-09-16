@@ -230,10 +230,20 @@ maturity gate in that file for what this means and how the bar is revised.
      isotropic below 1.2 MeV** and only reaches `⟨μ_cm⟩ = +0.073` at 8.5 MeV
      and `+0.272` at 14 MeV — so unlike `op-tm9f`'s discrete levels this is a
      *high-energy* correction and the predicted worth on Godiva is small
-     (recorded before measuring: down, well under 50 pcm). **The worth has not
-     been measured yet**; `examples/godiva_continuum_anisotropy_ablation.rs` is
-     the instrument, and `RECORDED_PCM = 16.0` elsewhere in this file predates
-     it.
+     (recorded before measuring: down, well under 50 pcm).
+
+     **Priced 2026-09-16 at `−41 ± 43 pcm`** (32 seeds per arm,
+     `examples/godiva_continuum_anisotropy_ablation.rs`): ANISO `+4 ± 28`
+     against ISO `+45 ± 32`. The prediction held on direction and magnitude,
+     **but at 1.0 σ this is a bound, not a measurement** — it is consistent with
+     zero, and excludes an `op-tm9f`-sized effect at 3.7 σ. Do not quote `−41`
+     as the worth; quote it as *bounded well below 130 pcm at 3 σ*. Resolving
+     it to 3 σ needs ~290 seeds per arm.
+
+     The ISO arm independently reproduces the pre-`op-og56` `+16 ± 11 pcm` to
+     0.85 σ, which checks the instrument. **`RECORDED_PCM = 16.0` therefore
+     still stands within statistics** and has not been re-measured at 256 seeds
+     on the post-`op-og56` code.
 
      Note the sign tension with qualification 2: for a CM law `⟨E'_lab⟩` rises
      with `⟨μ_cm⟩`, so this **hardens** the spectrum and moves `op-os8x` the
