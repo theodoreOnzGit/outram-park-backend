@@ -92,6 +92,11 @@ members = [
     # outram-foam-basic-lib and the Octave-derived transfer functions from
     # chem-eng. `no_std` + `alloc`, libm-backed, no_std `uom` (epic op-petir).
     "crates/petir",
+    # outram-park-fork-cyclus — no_std pure-Rust translation of CYCLUS (fuel-cycle
+    # simulation kernel + dynamic resource exchange) and CYCAMORE (its facility
+    # agent library). Both BSD-3-Clause upstream. Numerics come from petir.
+    # SCAFFOLD (epic op-r830); naming provisional per maintainer.
+    "crates/outram-park-fork-cyclus",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are

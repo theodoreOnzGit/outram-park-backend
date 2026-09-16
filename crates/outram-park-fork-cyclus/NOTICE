@@ -1,0 +1,57 @@
+outram-park-fork-cyclus
+=======================
+
+Copyright (C) 2026 Theodore Ong and the outram-park contributors.
+
+This crate is distributed under the **GNU General Public License, version 3
+only (GPL-3.0-only)**, the OUTRAM PARK workspace default.
+
+Derived works
+-------------
+
+This crate is an independent Rust translation of:
+
+1. **CYCLUS** — <https://github.com/cyclus/cyclus>, commit
+   `d4faab7ce0566ccb8febfcf50915cdeedee59db0`.
+   Copyright (c) 2010-2016, University of Wisconsin Computational Nuclear
+   Engineering Research Group. All rights reserved.
+   Licensed **BSD-3-Clause**.
+
+2. **CYCAMORE** — <https://github.com/cyclus/cycamore>, commit
+   `fee8c80190e0b91dafccae6b1a3129dc544441e8`.
+   Copyright (c) 2010-2016, University of Wisconsin Computational Nuclear
+   Engineering Research Group. All rights reserved.
+   Licensed **BSD-3-Clause**.
+
+3. **PyNE** — vendored inside Cyclus as `src/pyne.{h,cc}`. Only the
+   `nucname` nuclide-identifier arithmetic is translated (see
+   `src/nuclide.rs`). Copyright the PyNE developers. Licensed
+   **BSD-2-Clause**.
+
+BSD-3-Clause and BSD-2-Clause are both GPLv3-compatible, so this translation
+may be distributed under GPL-3.0-only. **The compatibility is ONE-WAY**: code
+written in this crate cannot be contributed back to Cyclus, Cycamore or PyNE
+under their original licences without the copyright holder's agreement.
+
+The BSD-3-Clause third clause is observed: neither the name of the University
+of Wisconsin Computational Nuclear Engineering Research Group nor the names of
+its contributors are used to endorse or promote this crate. **This is an
+independent fork and is not affiliated with, endorsed by, or supported by the
+Cyclus project, CNERG, or the University of Wisconsin.**
+
+Dependencies
+------------
+
+The only dependency is **`petir`** (GPL-3.0-only), this workspace's `no_std`
+numerics library, itself derived from the GNU Scientific Library. It supplies
+every numerical kernel this crate uses: the matrix algebra behind decay, and
+the transcendental functions behind the enrichment value function and the
+geodesic distance. No `std`, no BLAS, no FFI.
+
+Provenance headers
+------------------
+
+Every ported source file opens with a `PROVENANCE` comment block naming the
+upstream project, the specific upstream file, the commit, the upstream licence
+and the upstream copyright. Those blocks are required by the workspace
+provenance rule and **must not be removed or reworded during refactoring**.

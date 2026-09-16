@@ -6377,6 +6377,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "outram-park-fork-cyclus"
+version = "0.0.0"
+dependencies = [
+ "petir",
+]
+
+[[package]]
 name = "outram-park-fork-dwsim-libs"
 version = "0.0.3"
 dependencies = [
