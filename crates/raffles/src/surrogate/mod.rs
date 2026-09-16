@@ -1,11 +1,21 @@
 //! Surrogate models — cheap reduced-order stand-ins for an expensive model.
 //!
-//! **UNIMPLEMENTED, AND NO WORK IS SCHEDULED.** This module is a placeholder
-//! for a planned capability. It is here so the crate's intended shape is
-//! visible, not because anything is in progress. Nothing is exported from it,
-//! so there is no public path a caller can reach.
+//! ## What is implemented
 //!
-//! ## Scope — what would belong here
+//! - **[`polynomial`]** — multivariate polynomial regression by least squares,
+//!   with automatic input rescaling and optional ridge regularisation. Start
+//!   here: it fits in closed form, it reproduces a polynomial exactly, and its
+//!   coefficients mean something.
+//! - **[`neural`]** — a `burn`-trained neural-network regressor, behind the
+//!   crate's `burn` feature. For responses a bounded-degree polynomial cannot
+//!   express.
+//!
+//! Gaussian process regression / kriging and the sparse-grid polynomial chaos
+//! route are **not** implemented. Neither is the cross-validation machinery;
+//! the fitted models report `r_squared` and `rmse` on whatever data they are
+//! given, and the tests here demonstrate why that must be held-out data.
+//!
+//! ## Scope — what belongs here
 //!
 //! Models fitted to a sample set (inputs and the model outputs at those
 //! inputs) and then evaluated in place of re-running the expensive simulation
@@ -52,3 +62,13 @@
 //! file carries the attribution header shown in the crate `CLAUDE.md`, naming
 //! the upstream file under `ravenframework/SupervisedLearning/`, the commit,
 //! the copyright holder and the licence.
+
+pub mod polynomial;
+
+#[cfg(feature = "burn")]
+pub mod neural;
+
+pub use polynomial::PolynomialSurrogate;
+
+#[cfg(feature = "burn")]
+pub use neural::{NeuralSurrogate, TrainingConfig, TrainingReport};

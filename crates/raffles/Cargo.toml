@@ -91,4 +91,4 @@ default = []
 # Neural-network surrogates via burn (no_std + alloc, ndarray backend). Nothing
 # in src/surrogate.rs consumes it yet — this wires the dependency up so the
 # burn-backed surrogate work can start behind a flag.
-burn = ["dep:burn", "burn/ndarray"]
+burn = ["dep:burn", "burn/ndarray", "burn/autodiff"]

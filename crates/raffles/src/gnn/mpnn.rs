@@ -65,10 +65,11 @@
 
 
 
-use burn::module::Module;
+use burn::module::{Module, Param};
 use burn::nn::{LayerNorm, LayerNormConfig, Linear, LinearConfig, Relu};
 use burn::prelude::Backend;
-use burn::tensor::{Int, IndexingUpdateOp, Tensor, TensorData};
+use burn::tensor::{IndexingUpdateOp, Int, Tensor, TensorData};
+use outram_mc_libs::rng::lcg::prn;
 
 use super::graph::Graph;
 
@@ -117,6 +118,58 @@ impl<B: Backend> Mlp<B> {
             },
             activation: Relu::new(),
         }
+    }
+
+    /// Builds an MLP whose weights come from an explicit, caller-owned random
+    /// stream rather than from `burn`'s backend RNG.
+    ///
+    /// # Why this exists
+    ///
+    /// `burn`'s NdArray backend seeds a **process-global** generator, so
+    /// `Backend::seed` does not make a model reproducible when anything else in
+    /// the process draws from it concurrently. That is not hypothetical: the
+    /// first version of the neural-surrogate reproducibility test failed
+    /// exactly this way, two identical training calls producing initial losses
+    /// of 1.2769 and 0.9423 because `cargo test`'s other threads were drawing
+    /// from the same global stream in between.
+    ///
+    /// This constructor takes `seed` as an ordinary mutable LCG state, in the
+    /// same style as the rest of this crate, so the weights depend on nothing
+    /// but that state. Two calls with the same starting state produce
+    /// bit-identical weights whatever else the process is doing.
+    ///
+    /// The distribution is the one `burn`'s default initialiser uses for a
+    /// linear layer — uniform on `[-k, k]` with `k = 1 / sqrt(fan_in)` — so
+    /// this is a determinism change, not a change of initialisation scheme.
+    pub fn new_seeded(
+        input: usize,
+        hidden: usize,
+        output: usize,
+        layers: usize,
+        layer_norm: bool,
+        seed: &mut u64,
+        device: &B::Device,
+    ) -> Self {
+        let mut mlp = Self::new(input, hidden, output, layers, layer_norm, device);
+        for layer in mlp.layers.iter_mut() {
+            let [fan_in, fan_out] = layer.weight.val().dims();
+            let k = 1.0 / (fan_in as f64).sqrt();
+            let weights: Vec<f32> = (0..fan_in * fan_out)
+                .map(|_| ((prn(seed) * 2.0 - 1.0) * k) as f32)
+                .collect();
+            layer.weight = Param::from_data(
+                TensorData::new(weights, [fan_in, fan_out]),
+                device,
+            );
+            if let Some(bias) = layer.bias.as_mut() {
+                let n = bias.val().dims()[0];
+                let values: Vec<f32> = (0..n)
+                    .map(|_| ((prn(seed) * 2.0 - 1.0) * k) as f32)
+                    .collect();
+                *bias = Param::from_data(TensorData::new(values, [n]), device);
+            }
+        }
+        mlp
     }
 
     /// Applies the MLP to a `[nodes, features]` tensor.
