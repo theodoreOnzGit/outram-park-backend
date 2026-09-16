@@ -163,6 +163,7 @@ use std::collections::HashMap;
 
 use crate::boundary::{Boundary, Contact};
 use crate::contact::ContactModel;
+use crate::integrator::VelocityVerlet;
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 
@@ -198,6 +199,12 @@ pub struct DemSimulation {
     gravity: Vec3,
     dt: f64,
     time: f64,
+    /// `F(t)` and `τ(t)` carried between steps so the velocity-Verlet
+    /// half-kicks can straddle the force evaluation (see
+    /// [`DemSimulation::step`]).
+    forces: Vec<Vec3>,
+    torques: Vec<Vec3>,
+    integrator: VelocityVerlet,
 }
 
 impl DemSimulation {
@@ -241,14 +248,23 @@ impl DemSimulation {
                 "time step dt must be strictly positive, got {dt} s"
             )));
         }
-        Ok(Self {
+        let integrator = VelocityVerlet::new(dt)?;
+        let n = particles.len();
+        let mut sim = Self {
             particles,
             boundaries,
             contact_model,
             gravity,
             dt,
             time: 0.0,
-        })
+            forces: vec![Vec3::zero(); n],
+            torques: vec![Vec3::zero(); n],
+            integrator,
+        };
+        // Evaluate F(0) so the first half-kick is correct, as LIGGGHTS'
+        // `setup()` does.
+        sim.accumulate_forces();
+        Ok(sim)
     }
 
     /// The particle ensemble, as an immutable slice `[m]`/`[m/s]`/… (see
@@ -327,57 +343,81 @@ impl DemSimulation {
             .fold(Vec3::zero(), |acc, p| acc.add(p.velocity.scale(p.mass)))
     }
 
-    /// Advance the whole system by one velocity-Verlet step of size `dt` `[s]`.
+    /// Advance the whole system by one **velocity-Verlet** step of size `dt`
+    /// `[s]`.
     ///
-    /// Performs the full soft-sphere DEM cycle documented at the module level:
-    /// rebuild the neighbour cells, zero the force/torque accumulators,
-    /// accumulate pairwise contact forces (equal and opposite), accumulate
-    /// particle–wall forces via the immovable image partner, add gravity, then
-    /// integrate every particle one step. Advances [`DemSimulation::time`] by
-    /// `dt`.
+    /// Performs the full soft-sphere DEM cycle documented at the module level,
+    /// in LIGGGHTS' `fix nve/sphere` order: half-kick with the forces carried
+    /// from the previous step, drift, rebuild the neighbour cells and
+    /// re-accumulate all forces at the new positions, then half-kick again.
+    /// Advances [`DemSimulation::time`] by `dt`.
+    ///
+    /// **Changed 2026-09-16.** This used to call
+    /// [`Particle::integrate`](crate::particle::Particle::integrate), which
+    /// applies `a(t)` to both the position and the velocity update and is
+    /// therefore **not** symplectic — it gains energy geometrically on every
+    /// contact spring (measured: an elastic collision rebounded with
+    /// restitution `1.0031` at `dt = 1 µs`). It now uses
+    /// [`crate::integrator::VelocityVerlet`], a translation of upstream's
+    /// `fix_nve_sphere.cpp`, for which an elastic collision returns
+    /// `e = 1.000000`.
     pub fn step(&mut self) {
+        // Velocity-Verlet, in LIGGGHTS' `fix nve/sphere` order: half-kick with
+        // F(t) and drift, recompute forces at the drifted positions, half-kick
+        // with F(t+dt). See `crate::integrator` for why the single-shot
+        // `Particle::integrate` is NOT used here (it is not symplectic and
+        // gains energy on every contact).
+        let (f, t) = (self.forces.clone(), self.torques.clone());
+        self.integrator
+            .initial_integrate(&mut self.particles, &f, &t);
+        self.accumulate_forces();
+        let (f2, t2) = (self.forces.clone(), self.torques.clone());
+        self.integrator
+            .final_integrate(&mut self.particles, &f2, &t2);
+        self.time += self.dt;
+    }
+
+    /// Recompute `self.forces` / `self.torques` at the current configuration.
+    ///
+    /// Pairwise contacts, then particle–wall contacts via the immovable image
+    /// partner, then the gravity body force — the order documented at the
+    /// module level.
+    fn accumulate_forces(&mut self) {
         let n = self.particles.len();
-        let mut forces = vec![Vec3::zero(); n];
-        let mut torques = vec![Vec3::zero(); n];
+        self.forces.clear();
+        self.forces.resize(n, Vec3::zero());
+        self.torques.clear();
+        self.torques.resize(n, Vec3::zero());
         let model = self.contact_model;
 
-        // (a)+(c) Pairwise particle–particle contacts. Each near pair is visited
-        // once; forces/torques are equal-and-opposite (Newton's third law).
         for (i, j) in self.candidate_pairs() {
-            // Particle is Copy, so snapshotting both sides avoids aliasing the
-            // Vec while calling the (immutable) contact law.
             let a = self.particles[i];
             let b = self.particles[j];
             if let Some(cf) = model.contact_force(&a, &b) {
-                forces[i] = forces[i].add(cf.force_on_a);
-                forces[j] = forces[j].add(cf.force_on_b);
-                torques[i] = torques[i].add(cf.torque_on_a);
-                torques[j] = torques[j].add(cf.torque_on_b);
+                self.forces[i] = self.forces[i].add(cf.force_on_a);
+                self.forces[j] = self.forces[j].add(cf.force_on_b);
+                self.torques[i] = self.torques[i].add(cf.torque_on_a);
+                self.torques[j] = self.torques[j].add(cf.torque_on_b);
             }
         }
 
-        // (d) Particle–wall contacts via the immovable image partner.
         for i in 0..n {
             let p = self.particles[i];
             for boundary in &self.boundaries {
                 if let Some(contact) = boundary.particle_overlap(&p) {
                     let image = Self::wall_image_partner(&p, &contact);
                     if let Some(cf) = model.contact_force(&p, &image) {
-                        forces[i] = forces[i].add(cf.force_on_a);
-                        torques[i] = torques[i].add(cf.torque_on_a);
+                        self.forces[i] = self.forces[i].add(cf.force_on_a);
+                        self.torques[i] = self.torques[i].add(cf.torque_on_a);
                     }
                 }
             }
         }
 
-        // (e) Gravity body force, then (f) velocity-Verlet integrate.
         for i in 0..n {
             let m = self.particles[i].mass;
-            let total_force = forces[i].add(self.gravity.scale(m));
-            self.particles[i].integrate(total_force, torques[i], self.dt);
+            self.forces[i] = self.forces[i].add(self.gravity.scale(m));
         }
-
-        self.time += self.dt;
     }
 
     /// Run [`DemSimulation::step`] `n_steps` times, advancing the system by

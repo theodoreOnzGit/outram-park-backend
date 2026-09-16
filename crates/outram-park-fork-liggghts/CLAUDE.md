@@ -66,20 +66,30 @@ are different claims and this entry keeps them apart.
   | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
   | rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
   | oblique + friction (shear history, slip, torque) | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp) |
+  | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s` |
   | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
 
-  Measured at this entry: **107 tests pass** (102 unit + 5 cross-code), plus one
+  Measured at this entry: **109 tests pass** (103 unit + 6 cross-code), plus one
   `#[ignore]`d 210 s bulk test. Full methodology and results:
   [`docs/verification-and-validation.md`](docs/verification-and-validation.md).
 
-  **Three defects were found in the process** (all documented in that file):
+  **Defects found — and, as of 2026-09-16, FIXED rather than merely
+  documented** (full detail in that file's § 4):
   `Particle::integrate` is not symplectic despite its doc comment claiming it
-  was — an elastic collision rebounds with restitution `1.0031` at `dt = 1 µs`,
-  i.e. it manufactures energy — and `contact.rs` diverges from upstream on the
-  contact-radius lever arm and the tangential-damping branch, on top of having
-  no shear history at all; and `rolling.rs`'s constant-torque model uses the
-  damped `|F_n|` where upstream CDT uses the elastic `k_n·δ_n` (21 % apart in
-  the unit-test configuration) and keeps the torsion component upstream drops.
+  was (an elastic collision rebounded with restitution `1.0031` at
+  `dt = 1 µs` — it manufactured energy); `contact.rs` used the particle radii
+  where upstream uses the contact radii `c_r = r − δ_n/2`; and `rolling.rs`'s
+  CDT used the damped `|F_n|` where upstream uses the elastic `k_n·δ_n`
+  (21 % apart) and kept the torsion component upstream drops. All three are now
+  upstream's, both engines run `integrator::VelocityVerlet`, and the stateless
+  path is itself cross-code verified against `tangential no_history`.
+
+  One divergence recorded on 2026-09-15 turned out **not to be real**: the
+  claim that `contact.rs` mishandles the tangential-damping branch came from
+  comparing it against upstream's *history* model. Against
+  `tangential_model_no_history.h`, which is what it implements, upstream caps
+  the damping coefficient exactly as `contact.rs` does. Nothing was changed
+  there and the claim is retracted in the V&V document.
 
   **What this still does NOT establish.** It shows this crate reproduces
   LIGGGHTS. It does **not** show LIGGGHTS' granular physics is right for an

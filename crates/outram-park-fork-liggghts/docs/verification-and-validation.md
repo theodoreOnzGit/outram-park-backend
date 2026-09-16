@@ -50,8 +50,12 @@ Every **sampled frame** is compared, not just the endpoint.
 | wall bounce + gravity | primitive wall branch (`R* = r`, `m* = m`), contact make/break over 400 000 steps | 2001 | `0` | `0` | — |
 | rolling, counter-spinning pair | **CDT rolling resistance** (`µ_r = 0.1`) | 201 | `0` | `0` | `0` |
 | oblique + friction | **tangential shear-history spring**, Coulomb slip, contact torque / spin-up | 251 | `0` | `1.11e-16` | `5.68e-14` |
+| oblique, **no-history** (stateless path) | `contact` + `simulation` vs `tangential no_history` | 251 | `0` | `1.11e-16` | `1.42e-14` |
 
-**Four of the five are bit-identical to upstream over the whole trajectory.**
+**Four of the six are bit-identical to upstream over the whole trajectory**;
+the two oblique cases agree to round-off (1–3 ulp). The last row verifies the
+*other* engine — the stateless `contact` + `simulation` path — against the
+upstream model it actually implements; see § 4.2.
 
 The oblique case — the one that exercises everything the stateless
 [`contact`](../src/contact.rs) module cannot do — agrees to round-off:
@@ -167,38 +171,77 @@ kick) with a corrected doc comment. Contact dynamics now use
 LIGGGHTS' `fix_nve_sphere.cpp` kick–drift–kick, for which `det M = 1` to
 `1e-10`.
 
-### 4.2 `contact.rs` diverges from upstream in three ways
+### 4.2 `contact.rs`: one real divergence, fixed — and one claim of mine that was wrong
 
-Documented rather than silently changed, because that module has its own tests
-and callers; [`granular.rs`](../src/granular.rs) implements upstream's version.
+**Status: fixed and verified 2026-09-16.**
 
-1. **No tangential history.** `ξ_t = 0` is hard-coded, so there is no shear
-   *spring* — only a Coulomb-capped dashpot. A static assembly built on it
-   cannot carry shear, so a heap has **zero angle of repose** and a pebble bed
-   will not stand up. This is the single reason `granular.rs` exists.
-2. **Lever arm.** Uses `r_i` where upstream uses the contact radius
-   `c_r = r_i − δ_n/2`, biasing both the slip velocity and the spin-up torque
-   by `O(δ_n)` (2 % at `δ_n = 2e-4 m` on `r = 5e-3 m`).
-3. **Damping branch.** Adds tangential damping unconditionally and then caps
-   the sum; upstream adds damping **only while sticking**, and on slip rescales
-   the elastic force alone *and writes the rescaled displacement back* to the
-   history.
+The stateless path is now checked against the upstream model it actually
+implements — `pair_style gran model hertz **tangential no_history**` — in
+`tests/legacy_path_cross_code.rs`. Measured over 251 frames: positions exact,
+`max|Δv| = 1.11e-16 m/s` (1 ulp), `max|Δω| = 1.42e-14 rad/s` (≈3 ulp at
+`ω_z ≈ 41.6`). Round-off agreement.
 
-### 4.3 `rolling.rs`'s constant-torque model diverges from upstream CDT
+What was actually wrong, and what was not:
 
-Also documented rather than changed in place; `granular::RollingModel::Cdt` is
-the faithful version, verified bit-identical above.
+1. **Contact-radius lever arm — a real defect, fixed.** `contact.rs` used the
+   particle radii `r_i`, `r_j` for the surface-velocity moment and the torque
+   arm where upstream uses the contact radii `c_r = r − δ_n/2`
+   (`surface_model_default.h`). It now uses `c_r`. The error was `O(δ_n)`, 2 %
+   at `δ_n = 2e-4 m` on `r = 5e-3 m`.
+2. **Integrator — a real defect, fixed.** [`DemSimulation`] now runs
+   `integrator::VelocityVerlet` instead of the non-symplectic single-shot
+   update. See § 4.1.
+3. **"Damping branch" — NOT a defect. This was my error.** The 2026-09-15
+   version of this document claimed `contact.rs` "adds tangential damping
+   unconditionally and then caps the sum, where upstream adds it only while
+   sticking". That was written by comparing `contact.rs` against upstream's
+   **history** model, which is a different model. Against
+   `tangential_model_no_history.h` — the one it implements — upstream computes
+   `γ = min(γ_t, µ|F_n| / v_rel)` and applies `F_t = −γ v_tr`, i.e. it caps the
+   damping at the Coulomb limit, which is exactly what `contact.rs` does. There
+   was never a divergence here, and nothing was changed.
 
-1. **Normal force.** Scales the torque by the **total** `|F_n|`, including the
+**The remaining, deliberate difference** is that `contact.rs` has no shear
+history at all (`ξ_t ≡ 0`), so it is upstream's *no-history* model and not its
+*history* model. That is a scope choice, not a defect — a stateless
+force-from-a-snapshot API has nowhere to keep `ξ_t`. Use
+[`crate::granular`] when history is needed, which for a packed bed is always.
+
+### 4.3 `rolling.rs`'s CDT diverged from upstream in three ways — fixed
+
+**Status: fixed and verified 2026-09-16.**
+
+1. **Normal force.** Scaled the torque by the **total** `|F_n|`, including the
    viscous damping term; upstream CDT uses the **elastic** part only,
-   `k_n·δ_n`. In the unit-test configuration the two differ by 21 %.
-2. **Torsion.** Does not remove the component of the resisting torque along the
+   `k_n·δ_n`. Measured 21 % apart in the equivalence-test configuration.
+2. **Torsion.** Did not remove the component of the resisting torque along the
    contact normal. Upstream removes it unless `torsionTorque` is explicitly
    enabled, and it defaults **off**.
-3. **Wall branch.** Uses `ω_i − ω_j`; upstream uses the contact-point rolling
-   velocity `w_r = c_r ω_i / r`.
+3. **Wall branch.** The caller passed `ω_i − ω_j`; upstream uses the
+   contact-point rolling velocity `w_r = c_r ω_i / r` for a wall.
 
----
+All three are now upstream's. `RollingModel::rolling_torque` takes the elastic
+normal force and the contact normal, and carries upstream's `torsion_torque`
+switch (default off).
+
+**Verified by transitivity.** `granular::RollingModel::Cdt` is bit-identical to
+upstream over a 201-frame trajectory, so `rolling.rs`'s CDT is checked against
+*that* rather than against a second reference dataset
+(`rolling.rs::cdt_agrees_with_the_cross_code_verified_granular_implementation`,
+agreement `< 1e-18 N·m` componentwise).
+
+`RollingModel::ViscousRolling` is **not an upstream model** — LIGGGHTS ships
+`cdt`, `epsd`, `epsd2`, `epsd3` and `luding`, and a pure linear rolling dashpot
+is not among them. It is a clean-room addition and is labelled as such; it is
+**not** covered by any cross-code verification.
+
+### 4.4 The `Particle::integrate` call site is gone
+
+`Particle::integrate` itself is kept — it is exact for a constant force and
+that is a legitimate thing to want — but **nothing in the crate integrates
+contacts with it any more**. Both engines (`DemSimulation` and
+`GranularSystem`) run `integrator::VelocityVerlet`. Its doc comment carries the
+measured evidence so the next reader cannot mistake it for velocity-Verlet.
 
 ## 4.5 Angle of repose — attempted, NOT established
 
