@@ -57,6 +57,10 @@
 //! - [`transitional`] — Transitional MCMC (TMCMC) and Transitional Ensemble
 //!   MCMC (TEMCMC): tempered sequential samplers that walk the posterior in
 //!   stages and return the log-evidence as a by-product.
+//! - [`case_studies`] — small problems with exactly known answers, ported from
+//!   the one repository in that set that carries a licence. Includes a bimodal
+//!   posterior whose two modes are computable in closed form, which is the
+//!   failure a moment-based check cannot see.
 //!
 //! # Conventions used throughout
 //!
@@ -93,6 +97,7 @@
 //! under the workspace `RESPONSIBLE_USE.md` rules until the maintainer and the
 //! crate owner review it.
 
+pub mod case_studies;
 pub mod mcmc;
 pub mod transitional;
 
