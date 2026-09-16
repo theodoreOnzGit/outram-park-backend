@@ -929,6 +929,125 @@ pub struct ContinuumEmission {
     pub cm_frame: bool,
 }
 
+/// Convert an ENDF **MF=6 LAW=6** (`n`-body phase space) emission into the
+/// tabulated [`ChiTabular`] form the transport samplers already consume.
+///
+/// # Why convert rather than add a law
+///
+/// LAW=6's distribution is a *shape in the scaled variable* `x = E'/E'_max(E)`
+/// that does not depend on the incident energy — only the upper limit moves.
+/// `crate::acer::energy::parse_mf6_law6_phase_space` already builds that
+/// universal `(x, pdf, cdf)` table. Evaluating `E'_max(E)` on an incident grid
+/// therefore turns the law into exactly the incident-energy-indexed tabulated
+/// form every sampler in this workspace already handles, with **no new sampling
+/// path, no kernel change and no second implementation to drift**.
+///
+/// Phase-space emission is isotropic in the centre of mass by construction, so
+/// the angular half is [`ContinuumAngular::EvaluatedIsotropic`] — genuinely
+/// isotropic per the evaluation, which is a different fact from "unported", and
+/// the enum keeps them apart.
+///
+/// # `E'_max`, ported from upstream
+///
+/// `groupr.f90:12658-12666` (`f6psp`):
+///
+/// ```text
+/// f1     = (APSX - AWP) / APSX          AWP = emitted particle mass (1 for a neutron)
+/// f2     = AWR / (AWR + 1)
+/// E'_max = f1 * (f2 * E + Q)
+/// ```
+///
+/// Upstream supports **3, 4 or 5 particles only** (`f6psp` errors otherwise);
+/// this returns `Ok(None)` for any other `NPSX` rather than inventing a shape,
+/// so the caller keeps its documented fallback.
+///
+/// `Q` is read from MF=3's `QM` for the same MT — the reaction Q-value the
+/// formula wants, and the same one upstream's `q` argument carries.
+fn phase_space_emission(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    mt: i32,
+) -> Result<Option<ContinuumEmission>, crate::NjoyError> {
+    use crate::endf::records::SectionCursor;
+
+    let Some(sec) = tape.section(mat, 6, mt) else {
+        return Ok(None);
+    };
+    let ps = match crate::acer::energy::parse_mf6_law6_phase_space(sec) {
+        Ok(p) => p,
+        // LAW=7 and anything else stay unported -- fall back, do not fail.
+        Err(crate::NjoyError::NotPorted(_)) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    if !(3..=5).contains(&ps.npsx) || ps.x_frac.len() < 2 {
+        return Ok(None);
+    }
+
+    // Q and the threshold from MF=3.
+    let Some(mf3) = tape.section(mat, 3, mt) else {
+        return Ok(None);
+    };
+    let mut cur = SectionCursor::new(&mf3.rows);
+    let head = cur.read_cont()?;
+    let awr = head.c2;
+    let qm_row = cur.read_tab1()?;
+    let q = qm_row.head.c1; // QM
+    let (e_first, e_last) = match (qm_row.pairs.first(), qm_row.pairs.last()) {
+        (Some(&(a, _)), Some(&(b, _))) if b > a => (a, b),
+        _ => return Ok(None),
+    };
+
+    // AWP: the emitted particle is a neutron, so 1 neutron mass.
+    const AWP: f64 = 1.0;
+    let f1 = (ps.apsx - AWP) / ps.apsx;
+    let f2 = awr / (awr + 1.0);
+    let e_max_at = |e: f64| f1 * (f2 * e + q);
+
+    // A log-spaced incident grid over the reaction's own MF=3 range. The law's
+    // shape is incident-independent, so the grid only has to resolve
+    // `E'_max(E)`, which is linear in `E` -- 80 points is ample and keeps the
+    // table small.
+    const N_IN: usize = 80;
+    let lo = e_first.max(1.0e-5);
+    let hi = e_last;
+    let mut incident = Vec::with_capacity(N_IN);
+    let mut tables = Vec::with_capacity(N_IN);
+    for i in 0..N_IN {
+        let e = lo * (hi / lo).powf(i as f64 / (N_IN - 1) as f64);
+        let emax = e_max_at(e);
+        if !(emax > 0.0) {
+            continue; // below threshold: no phase space to share
+        }
+        let e_out: Vec<f64> = ps.x_frac.iter().map(|&x| x * emax).collect();
+        // `pdf` is a density in x; rescaling the variable by `emax` divides it.
+        let pdf: Vec<f64> = ps.pdf.iter().map(|&p| p / emax).collect();
+        incident.push(e);
+        tables.push(ChiEout {
+            e_out,
+            pdf,
+            cdf: ps.cdf.clone(),
+            linlin: true,
+        });
+    }
+    if incident.len() < 2 {
+        return Ok(None);
+    }
+
+    Ok(Some(ContinuumEmission {
+        branches: vec![ContinuumBranch {
+            spectrum: ChiTabular {
+                incident,
+                tables,
+                // Synthesised grid: the law carries no TAB2 of its own.
+                incident_interp: Vec::new(),
+            },
+            yield_pairs: ps.yield_pairs.clone(),
+            angular: ContinuumAngular::EvaluatedIsotropic,
+        }],
+        cm_frame: ps.lct >= 2,
+    }))
+}
+
 impl ContinuumEmission {
     /// Read the MF=6 LAW=1 neutron emission of reaction `mt` for material `mat`.
     ///
@@ -949,8 +1068,11 @@ impl ContinuumEmission {
         };
         let neutrons = match crate::acer::energy::parse_mf6_law1_neutrons(sec) {
             Ok(n) => n,
-            // An unported law is a reason to fall back, not to fail the load.
-            Err(crate::NjoyError::NotPorted(_)) => return Ok(None),
+            // LAW=6 (phase space) is a different representation, not an
+            // unreadable one -- convert it rather than falling back.
+            Err(crate::NjoyError::NotPorted(_)) => {
+                return phase_space_emission(tape, mat, mt);
+            }
             Err(e) => return Err(e),
         };
 

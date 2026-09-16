@@ -379,8 +379,22 @@ its own skips, so it cannot report a clean answer about a fraction of the data.
 It found two: H-2 and Be-9 MT=16 use **LAW=6/LAW=7**, not LAW=1 — a separate,
 previously unrecorded gap in the continuum path.
 
-Still open: MF=6 `LANG = 11…15`, MF=5 LF=5, and MF=6 LAW=6/LAW=7 on light
-nuclides. These are gaps but not defects — each is recorded where a reader meets
+**MF=6 LAW=6 (phase space) — CLOSED 2026-09-16.** H-2's MT=16 was falling back
+to the Weisskopf stand-in with nothing recording it. `from_endf_mf6` now
+converts LAW=6 into the tabulated form the samplers already consume: the law's
+shape is incident-independent in `x = E'/E'_max`, so evaluating
+`E'_max(E) = ((APSX−AWP)/APSX)·(AWR/(AWR+1)·E + Q)` (upstream `f6psp`,
+`groupr.f90:12658`) on an incident grid reuses the entire existing sampler —
+**no new sampling path, no kernel change, no second implementation to drift**.
+Angular is `EvaluatedIsotropic`, which phase space is by construction.
+Verified against upstream's closed form: **worst relative shape difference
+0.0000** over 7 incident rows, `E'_max` 7.3042e4 → 6.5133e7 eV.
+
+**MF=6 LAW=7 (Be-9 MT=16) is still unported**, and a test now *asserts* that it
+returns no law — so the day it is implemented the test fails and gets updated,
+rather than the gap persisting behind a fallback nobody rechecks.
+
+Still open: MF=6 `LANG = 11…15`, MF=5 LF=5, MF=6 LAW=7. These are gaps but not defects — each is recorded where a reader meets
 it.
 
 ---
