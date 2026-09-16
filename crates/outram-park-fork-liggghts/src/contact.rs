@@ -237,12 +237,22 @@ pub trait ContactLaw {
 
         // --- Tangential force ----------------------------------------------
         // Surface relative velocity of a w.r.t. b at the contact point:
-        //   v_surf = (v_a - v_b) + (r_a ω_a + r_b ω_b) × n̂
+        //   v_surf = (v_a - v_b) + (c_ra ω_a + c_rb ω_b) × n̂
         // (the angular terms are ⟂ n̂ so they do not affect the normal part).
+        //
+        // The moment arms are the CONTACT RADII c_r = r − δ_n/2, not the
+        // particle radii: upstream LIGGGHTS evaluates the surface velocity and
+        // the torque at the contact plane, which for overlapping spheres sits
+        // half an overlap inside each surface
+        // (`surface_model_default.h::surfacesIntersect`). Using `r` instead
+        // biases both the slip velocity and the spin-up torque by O(δ_n) — 2 %
+        // at δ_n = 2e-4 m on r = 5e-3 m. Fixed 2026-09-16.
+        let cra = a.radius - 0.5 * delta_n;
+        let crb = b.radius - 0.5 * delta_n;
         let omega_term = a
             .angular_velocity
-            .scale(a.radius)
-            .add(b.angular_velocity.scale(b.radius));
+            .scale(cra)
+            .add(b.angular_velocity.scale(crb));
         let v_surf = v_rel.add(omega_term.cross(n));
         let v_t_vec = v_surf.sub(n.scale(v_surf.dot(n)));
         let v_t = v_t_vec.norm();
@@ -264,12 +274,13 @@ pub trait ContactLaw {
         let force_on_a = normal_on_a.add(tangential_on_a);
         let force_on_b = force_on_a.scale(-1.0);
 
-        // Contact point is at r_a·n̂ from a's centre and −r_b·n̂ from b's.
-        // Normal force is collinear with n̂ → zero moment; only friction spins.
-        let torque_on_a = n.scale(a.radius).cross(tangential_on_a);
-        // b's tangential force is −tangential_on_a at lever −r_b·n̂:
-        //   τ_b = (−r_b n̂) × (−tangential_on_a) = (r_b n̂) × tangential_on_a.
-        let torque_on_b = n.scale(b.radius).cross(tangential_on_a);
+        // Contact point is at c_ra·n̂ from a's centre and −c_rb·n̂ from b's
+        // (contact radii, as above). Normal force is collinear with n̂ → zero
+        // moment; only friction spins.
+        let torque_on_a = n.scale(cra).cross(tangential_on_a);
+        // b's tangential force is −tangential_on_a at lever −c_rb·n̂:
+        //   τ_b = (−c_rb n̂) × (−tangential_on_a) = (c_rb n̂) × tangential_on_a.
+        let torque_on_b = n.scale(crb).cross(tangential_on_a);
 
         Some(ContactForce {
             force_on_a,

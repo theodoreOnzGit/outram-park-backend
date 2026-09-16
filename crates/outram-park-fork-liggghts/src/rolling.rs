@@ -172,23 +172,44 @@ impl RollingTorque {
 pub enum RollingModel {
     /// No rolling resistance — always returns [`RollingTorque::zero`].
     None,
-    /// **Directional constant-torque** rolling resistance (Ai et al. 2011
-    /// "Model A"; Iwashita & Oda 1998).
+    /// **Directional constant-torque (CDT)** rolling resistance — a port of
+    /// upstream LIGGGHTS `rolling_model_cdt.h` (Ai et al. 2011 "Model A";
+    /// Iwashita & Oda 1998).
     ///
-    /// The resisting torque has a fixed magnitude set by the normal load and
-    /// always points opposite the relative rolling direction:
+    /// The resisting torque has a fixed magnitude set by the **elastic** normal
+    /// load and always points opposite the relative rolling direction:
     ///
-    /// `M_r = −μ_r · R* · |F_n| · ω̂_rel`,  with  `ω̂_rel = ω_rel / ‖ω_rel‖`.
+    /// `M_r = −μ_r · R* · (k_n·δ_n) · ω̂_rel`,  with  `ω̂_rel = ω_rel / ‖ω_rel‖`,
+    ///
+    /// followed by removal of the component along the contact normal (the
+    /// *torsion* part) unless `torsion_torque` is set.
     ///
     /// When `‖ω_rel‖` is below [`ROLLING_OMEGA_EPS`] the direction is undefined
     /// and the torque is zero (a non-rolling pair feels no rolling resistance).
     /// This is the *directional* form: the magnitude does not depend on the
     /// rolling *speed*, only its direction — hence "constant torque".
+    ///
+    /// # Faithfulness note (fixed 2026-09-16)
+    ///
+    /// Until 2026-09-16 this variant scaled the torque by the **total** normal
+    /// force `|F_n|` (including the viscous damping term) and kept the torsion
+    /// component. Upstream does neither: it uses the elastic part `k_n·δ_n`
+    /// only, and removes torsion unless `torsionTorque` is explicitly asked
+    /// for (that switch defaults **off**). Both are now upstream's.
     ConstantDirectionalTorque {
         /// Rolling-friction coefficient `μ_r` `[-]`. Non-negative.
         mu_r: f64,
+        /// Upstream's `torsionTorque` switch. **Default `false`**, which
+        /// removes the torque component along the contact normal.
+        torsion_torque: bool,
     },
     /// **Viscous** rolling resistance (Ai et al. 2011, viscous family).
+    ///
+    /// > **Not an upstream LIGGGHTS model.** LIGGGHTS ships `cdt`, `epsd`,
+    /// > `epsd2`, `epsd3` and `luding`; a pure linear rolling dashpot is not
+    /// > among them. This variant is a clean-room addition from the DEM
+    /// > literature and is therefore **not** covered by the cross-code
+    /// > verification in `docs/verification-and-validation.md`.
     ///
     /// The resisting torque is linear in the relative rolling angular velocity:
     ///
@@ -229,7 +250,10 @@ impl RollingModel {
                 "rolling-friction coefficient mu_r must be non-negative, got {mu_r}"
             )));
         }
-        Ok(Self::ConstantDirectionalTorque { mu_r })
+        Ok(Self::ConstantDirectionalTorque {
+            mu_r,
+            torsion_torque: false,
+        })
     }
 
     /// Construct a validated viscous rolling-resistance model.
@@ -254,13 +278,21 @@ impl RollingModel {
     ///
     /// # Parameters
     ///
-    /// - `normal_force` — the contact normal-force **magnitude** `|F_n|` `[N]`
-    ///   (`≥ 0`; take it from the base contact result). Only used by the
-    ///   constant-torque model.
+    /// - `elastic_normal_force` — the **elastic** part of the contact normal
+    ///   force, `k_n·δ_n` `[N]` (`≥ 0`), **not** the damped total `|F_n|`.
+    ///   Upstream CDT uses the elastic part; passing `|F_n|` overstates the
+    ///   rolling torque during approach and understates it during rebound.
+    ///   Only used by the constant-torque model.
     /// - `r_eff` — the effective rolling radius `R*` `[m]`, `R* = r_a r_b /
-    ///   (r_a + r_b)`. Only used by the constant-torque model.
-    /// - `omega_rel` — the relative rolling angular velocity `ω_rel = ω_a − ω_b`
-    ///   `[rad/s]`.
+    ///   (r_a + r_b)` for a pair, `r_a` for a wall. Only used by the
+    ///   constant-torque model.
+    /// - `omega_rel` — the relative rolling angular velocity. For a **pair**
+    ///   this is `ω_rel = ω_a − ω_b` `[rad/s]`; for a **wall** upstream uses
+    ///   the contact-point rolling velocity `w_r = c_r ω_a / r` instead, and
+    ///   the caller must pass that.
+    /// - `contact_normal` — the unit contact normal `n̂` `[-]`, used to remove
+    ///   the torsion component (upstream's default). Pass the same normal the
+    ///   contact model used.
     ///
     /// # Returns
     ///
@@ -269,20 +301,35 @@ impl RollingModel {
     /// either active model when `‖ω_rel‖ <` [`ROLLING_OMEGA_EPS`] (no rolling →
     /// no rolling resistance).
     #[must_use]
-    pub fn rolling_torque(&self, normal_force: f64, r_eff: f64, omega_rel: Vec3) -> RollingTorque {
+    pub fn rolling_torque(
+        &self,
+        elastic_normal_force: f64,
+        r_eff: f64,
+        omega_rel: Vec3,
+        contact_normal: Vec3,
+    ) -> RollingTorque {
         let omega_mag = omega_rel.norm();
         if omega_mag < ROLLING_OMEGA_EPS {
             return RollingTorque::zero();
         }
         let torque_on_a = match self {
             Self::None => return RollingTorque::zero(),
-            Self::ConstantDirectionalTorque { mu_r } => {
-                // M_r = −μ_r R* |F_n| ω̂_rel.
-                let magnitude = mu_r * r_eff * normal_force;
-                omega_rel.scale(-magnitude / omega_mag)
+            Self::ConstantDirectionalTorque {
+                mu_r,
+                torsion_torque,
+            } => {
+                // M_r = −μ_r R* (k_n δ_n) ω̂_rel, torsion removed by default.
+                let magnitude = mu_r * r_eff * elastic_normal_force;
+                let mut t = omega_rel.scale(-magnitude / omega_mag);
+                if !torsion_torque {
+                    let along = t.dot(contact_normal);
+                    t = t.sub(contact_normal.scale(along));
+                }
+                t
             }
             Self::ViscousRolling { c_r } => {
-                // M_r = −c_r ω_rel.
+                // M_r = −c_r ω_rel. (Not an upstream model — see the variant
+                // docs; no torsion removal is defined for it upstream.)
                 omega_rel.scale(-c_r)
             }
         };
@@ -470,7 +517,7 @@ mod tests {
     /// `μ_r = 0.1`. Contact normal-force magnitude `|F_n| = 100 N`, effective
     /// rolling radius `R* = 0.25 m`, relative rolling angular velocity
     /// `ω_rel = (0, 0, 5) rad/s` (pure +z rolling). The closed form is
-    /// `M_r = −μ_r R* |F_n| ω̂_rel`, so the magnitude is
+    /// `M_r = −μ_r R* (k_n·δ_n) ω̂_rel`, so with an elastic normal load of `100 N` the magnitude is
     /// `μ_r R* |F_n| = 0.1 × 0.25 × 100 = 2.5 N·m` and the direction is `−ẑ`
     /// (opposing +z rolling). Pass criteria: `torque_on_a = (0, 0, −2.5) N·m`
     /// and `torque_on_b = (0, 0, +2.5) N·m = −torque_on_a` (the couple), each to
@@ -484,7 +531,9 @@ mod tests {
     fn constant_torque_opposes_rolling_with_hand_magnitude() {
         let model = RollingModel::constant_directional_torque(0.1).expect("valid mu_r");
         let omega_rel = Vec3::new(0.0, 0.0, 5.0);
-        let t = model.rolling_torque(100.0, 0.25, omega_rel);
+        // n̂ ⟂ ω_rel here, so the torsion removal is a no-op and the hand
+        // magnitude is unchanged; torsion is exercised separately below.
+        let t = model.rolling_torque(100.0, 0.25, omega_rel, Vec3::new(1.0, 0.0, 0.0));
 
         assert_abs_diff_eq!(t.torque_on_a.x, 0.0, epsilon = 1.0e-12);
         assert_abs_diff_eq!(t.torque_on_a.y, 0.0, epsilon = 1.0e-12);
@@ -495,15 +544,15 @@ mod tests {
         assert_abs_diff_eq!(t.torque_on_b.z, 2.5, epsilon = 1.0e-12);
 
         // Magnitude is speed-independent: doubling ω_rel keeps |M_r| = 2.5.
-        let t2 = model.rolling_torque(100.0, 0.25, omega_rel.scale(2.0));
+        let t2 = model.rolling_torque(100.0, 0.25, omega_rel.scale(2.0), Vec3::new(1.0, 0.0, 0.0));
         assert_abs_diff_eq!(t2.torque_on_a.z, -2.5, epsilon = 1.0e-12);
     }
 
     /// V&V — **constant-torque direction follows an off-axis rolling vector**.
     ///
-    /// Methodology: `μ_r = 0.2`, `|F_n| = 50 N`, `R* = 0.1 m`, and a rolling
+    /// Methodology: `μ_r = 0.2`, elastic normal load `k_n·δ_n = 50 N`, `R* = 0.1 m`, and a rolling
     /// vector `ω_rel = (3, 4, 0) rad/s` with `‖ω_rel‖ = 5 rad/s`. The magnitude
-    /// is `μ_r R* |F_n| = 0.2 × 0.1 × 50 = 1.0 N·m`, and the direction is
+    /// is `μ_r R* (k_n·δ_n) = 0.2 × 0.1 × 50 = 1.0 N·m`, and the direction is
     /// `−ω̂_rel = −(0.6, 0.8, 0)`, so `torque_on_a = (−0.6, −0.8, 0) N·m`. Pass
     /// criterion: componentwise to `1e-12 N·m`, and `‖torque_on_a‖ = 1.0 N·m`.
     ///
@@ -514,18 +563,99 @@ mod tests {
     fn constant_torque_direction_is_antiparallel_to_rolling() {
         let model = RollingModel::constant_directional_torque(0.2).expect("valid mu_r");
         let omega_rel = Vec3::new(3.0, 4.0, 0.0); // ‖·‖ = 5
-        let t = model.rolling_torque(50.0, 0.1, omega_rel);
+        let t = model.rolling_torque(50.0, 0.1, omega_rel, Vec3::new(0.0, 0.0, 1.0));
         assert_abs_diff_eq!(t.torque_on_a.x, -0.6, epsilon = 1.0e-12);
         assert_abs_diff_eq!(t.torque_on_a.y, -0.8, epsilon = 1.0e-12);
         assert_abs_diff_eq!(t.torque_on_a.z, 0.0, epsilon = 1.0e-12);
         assert_abs_diff_eq!(t.torque_on_a.norm(), 1.0, epsilon = 1.0e-12);
     }
 
+    /// V&V — **this module's CDT agrees with the cross-code-verified
+    /// implementation** in [`crate::granular`].
+    ///
+    /// Methodology: [`crate::granular::RollingModel::Cdt`] is verified
+    /// **bit-identical** to upstream LIGGGHTS over a 201-frame trajectory
+    /// (`tests/liggghts_cross_code.rs::rolling_cdt_matches_liggghts`). This
+    /// test drives both implementations with the same contact state and
+    /// requires identical torques, so faithfulness transfers to this module by
+    /// transitivity without needing a second reference dataset.
+    ///
+    /// Two overlapping 10 mm pebbles, `E = 10 MPa`, `ν = 0.3`, `e = 0.9`,
+    /// approaching at `2 m/s` so the damped `|F_n|` differs materially from the
+    /// elastic `k_n·δ_n`, with `ω_i = (1, 2, 3)`, `ω_j = (−2, 0.5, −1) rad/s`
+    /// (so `ω_rel` has a component along the contact normal and torsion removal
+    /// is exercised), `µ_r = 0.1`.
+    ///
+    /// Result (measured 2026-09-16): both implementations return the same
+    /// torque to `< 1e-18 N·m` componentwise. Before the 2026-09-16 fixes this
+    /// module disagreed by **21 %** in magnitude and carried a non-zero torsion
+    /// component that upstream removes.
+    #[test]
+    fn cdt_agrees_with_the_cross_code_verified_granular_implementation() {
+        use crate::granular::{
+            ContactKinematics, GranularMaterial, GranularNormalModel, RollingModel as GRoll,
+        };
+        use crate::particle::Particle;
+        use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
+        use uom::si::{length::meter, mass::kilogram, thermodynamic_temperature::kelvin};
+
+        let mass = 2500.0 * std::f64::consts::PI / 6.0 * 1.0e-6;
+        let mk = |x: f64, vx: f64, w: Vec3| {
+            Particle::new(
+                Vec3::new(x, 0.0, 0.0),
+                Vec3::new(vx, 0.0, 0.0),
+                w,
+                Mass::new::<kilogram>(mass),
+                Length::new::<meter>(0.005),
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+            )
+            .expect("valid pebble")
+        };
+        let wi = Vec3::new(1.0, 2.0, 3.0);
+        let wj = Vec3::new(-2.0, 0.5, -1.0);
+        let a = mk(-0.0049, 1.0, wi);
+        let b = mk(0.0049, -1.0, wj);
+        let k = ContactKinematics::pair(&a, &b).expect("in contact");
+        let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
+        let normal = GranularNormalModel::hertz(material).evaluate(&k);
+
+        // The verified implementation.
+        let reference = GRoll::cdt(0.1)
+            .expect("valid mu_r")
+            .rolling_torque(&k, &normal, k.omega_i, k.omega_j, false);
+
+        // This module, fed the same elastic normal force, R*, w_rel and normal.
+        let mine = RollingModel::constant_directional_torque(0.1)
+            .expect("valid mu_r")
+            .rolling_torque(
+                normal.kn * k.delta_n,
+                k.r_eff,
+                k.omega_i.sub(k.omega_j),
+                k.en,
+            );
+
+        // Upstream applies -M_r to i, which is this module's torque_on_a.
+        assert_abs_diff_eq!(mine.torque_on_a.x, -reference.x, epsilon = 1e-18);
+        assert_abs_diff_eq!(mine.torque_on_a.y, -reference.y, epsilon = 1e-18);
+        assert_abs_diff_eq!(mine.torque_on_a.z, -reference.z, epsilon = 1e-18);
+
+        // Guards: the case must actually exercise both fixes.
+        assert!(
+            (normal.fn_scalar.abs() / (normal.kn * k.delta_n) - 1.0).abs() > 0.05,
+            "case must distinguish the damped |F_n| from the elastic kn*delta"
+        );
+        assert!(
+            k.omega_i.sub(k.omega_j).dot(k.en).abs() > 1e-6,
+            "case must have a torsion component to remove"
+        );
+        assert_abs_diff_eq!(mine.torque_on_a.dot(k.en), 0.0, epsilon = 1e-18);
+    }
+
     /// V&V — **viscous rolling resistance is linear in `ω_rel`**.
     ///
     /// Methodology: viscous model with `c_r = 0.4 N·m·s`. The closed form is
     /// `M_r = −c_r ω_rel`. For `ω_rel = (0, 0, 5) rad/s` the expected torque is
-    /// `(0, 0, −2.0) N·m`; `|F_n|` and `R*` do not enter the viscous law (passed
+    /// `(0, 0, −2.0) N·m`; the normal load and `R*` do not enter the viscous law (passed
     /// as `100 N`, `0.25 m` to confirm they are ignored). Doubling `ω_rel`
     /// doubles the torque (linearity). Pass criteria: `torque_on_a =
     /// (0, 0, −2.0) N·m` to `1e-12 N·m`, `torque_on_b = −torque_on_a`, and the
@@ -538,11 +668,11 @@ mod tests {
     fn viscous_rolling_is_linear_in_omega() {
         let model = RollingModel::viscous(0.4).expect("valid c_r");
         let omega_rel = Vec3::new(0.0, 0.0, 5.0);
-        let t = model.rolling_torque(100.0, 0.25, omega_rel);
+        let t = model.rolling_torque(100.0, 0.25, omega_rel, Vec3::new(1.0, 0.0, 0.0));
         assert_abs_diff_eq!(t.torque_on_a.z, -2.0, epsilon = 1.0e-12);
         assert_abs_diff_eq!(t.torque_on_b.z, 2.0, epsilon = 1.0e-12);
 
-        let t2 = model.rolling_torque(100.0, 0.25, omega_rel.scale(2.0));
+        let t2 = model.rolling_torque(100.0, 0.25, omega_rel.scale(2.0), Vec3::new(1.0, 0.0, 0.0));
         assert_abs_diff_eq!(t2.torque_on_a.z, -4.0, epsilon = 1.0e-12);
     }
 
@@ -563,7 +693,7 @@ mod tests {
         let zero = Vec3::zero();
 
         for model in [constant, viscous] {
-            let t = model.rolling_torque(100.0, 0.25, zero);
+            let t = model.rolling_torque(100.0, 0.25, zero, Vec3::new(1.0, 0.0, 0.0));
             assert_eq!(t.torque_on_a, Vec3::zero());
             assert_eq!(t.torque_on_b, Vec3::zero());
         }
@@ -579,7 +709,12 @@ mod tests {
     #[test]
     fn rolling_none_returns_zero() {
         let model = RollingModel::none();
-        let t = model.rolling_torque(1.0e4, 0.5, Vec3::new(10.0, -20.0, 30.0));
+        let t = model.rolling_torque(
+            1.0e4,
+            0.5,
+            Vec3::new(10.0, -20.0, 30.0),
+            Vec3::new(1.0, 0.0, 0.0),
+        );
         assert_eq!(t, RollingTorque::zero());
     }
 

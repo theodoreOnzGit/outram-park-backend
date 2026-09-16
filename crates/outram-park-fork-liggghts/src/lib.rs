@@ -61,6 +61,28 @@
 //! Phases 2-4 are **clean-room, unit-tested foundations, not benchmark-validated**
 //! (that is a later human step) — see each module's "Honest scope".
 //!
+//! ## LIGGGHTS-faithful path (translated from upstream, cross-code verified)
+//!
+//! Added 2026-09-15. These modules are a **direct translation of
+//! LIGGGHTS-PUBLIC** (commit `3d5c00f2`), each carrying its upstream provenance
+//! header, and are verified against an upstream run committed under
+//! `reference-data/liggghts/` — see `docs/verification-and-validation.md`.
+//!
+//! - [`granular`] — the contact chain (`surface_model_default` →
+//!   `normal_model_hertz`/`hooke` → `tangential_model_history`/`no_history`),
+//!   **including the per-contact tangential shear history** that [`contact`]
+//!   omits.
+//! - [`granular_system`] — the history-aware driver, in LIGGGHTS' step order.
+//! - [`integrator`] — `fix nve/sphere` kick–drift–kick velocity-Verlet.
+//! - [`timestep`] — `fix check/timestep/gran` Rayleigh and Hertz criteria.
+//!
+//! **Use these for any packed-bed or settling problem.** [`contact`] hard-codes
+//! the tangential displacement to zero, so it has no shear *spring*: a static
+//! assembly built on it cannot carry shear, and a heap has zero angle of
+//! repose. [`particle::Particle::integrate`] is likewise not symplectic (its
+//! own doc comment explains the measured consequences) and should not drive
+//! contact dynamics.
+//!
 //! ## Extensions (clean-room, unit-tested)
 //!
 //! - [`simulation`] — multi-particle DEM engine: linked-cell neighbor search +
@@ -80,12 +102,16 @@ pub mod bonded;
 pub mod boundary;
 pub mod contact;
 pub mod coupling;
+pub mod granular;
+pub mod granular_system;
+pub mod integrator;
 pub mod mesh_wall;
 pub mod particle;
 pub mod rolling;
 pub mod simulation;
 pub mod thermal;
 pub mod thermal_radiation;
+pub mod timestep;
 
 /// Errors produced by the DEM library in this crate.
 #[derive(Debug, thiserror::Error)]

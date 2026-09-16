@@ -46,6 +46,65 @@ are different claims and this entry keeps them apart.
   cross-code run against LIGGGHTS proper or a published granular benchmark,
   and neither exists yet.
 
+- **2026-09-15 — cross-code leg added; the 2026-09-06 entry above stands as
+  what was accepted before.** The "no cross-code comparison against upstream
+  LIGGGHTS" gap it records is now **closed**; the "no experimental comparison"
+  gap is **not**. Upstream LIGGGHTS-PUBLIC (commit `3d5c00f2`) was **built from
+  source and run**; its trajectories are committed under
+  `reference-data/liggghts/` (same standard as `reference-data/gsl/` in
+  `petir`). Evidence class: **cross-code comparison**, on top of the
+  analytical/MMS leg above.
+
+  Bar: reproduce upstream LIGGGHTS to floating-point round-off on the
+  deterministic contact cases, and to better than 2 % bulk packing fraction on
+  a settled bed. Measured — every sampled frame compared, not just endpoints:
+
+  | Case | Frames | agreement |
+  |---|---|---|
+  | head-on, Hertz | 251 | **bit-identical** |
+  | head-on, Hooke | 251 | **bit-identical** |
+  | wall bounce + gravity (400 000 steps) | 2001 | **bit-identical** |
+  | rolling resistance, CDT (`µ_r = 0.1`) | 201 | **bit-identical** |
+  | oblique + friction (shear history, slip, torque) | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp) |
+  | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s` |
+  | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
+  | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | `12.78°` vs `15.43°` — 2.65° (mesh-contact difference, see below) |
+
+  Measured at this entry: **114 tests pass** (108 unit + 6 cross-code), plus two
+  `#[ignore]`d long cases (210 s bulk packing, 25 min angle of repose). Full methodology and results:
+  [`docs/verification-and-validation.md`](docs/verification-and-validation.md).
+
+  **Defects found — and, as of 2026-09-16, FIXED rather than merely
+  documented** (full detail in that file's § 4):
+  `Particle::integrate` is not symplectic despite its doc comment claiming it
+  was (an elastic collision rebounded with restitution `1.0031` at
+  `dt = 1 µs` — it manufactured energy); `contact.rs` used the particle radii
+  where upstream uses the contact radii `c_r = r − δ_n/2`; and `rolling.rs`'s
+  CDT used the damped `|F_n|` where upstream uses the elastic `k_n·δ_n`
+  (21 % apart) and kept the torsion component upstream drops. All three are now
+  upstream's, both engines run `integrator::VelocityVerlet`, and the stateless
+  path is itself cross-code verified against `tangential no_history`.
+
+  One divergence recorded on 2026-09-15 turned out **not to be real**: the
+  claim that `contact.rs` mishandles the tangential-damping branch came from
+  comparing it against upstream's *history* model. Against
+  `tangential_model_no_history.h`, which is what it implements, upstream caps
+  the damping coefficient exactly as `contact.rs` does. Nothing was changed
+  there and the claim is retracted in the V&V document.
+
+  **What this still does NOT establish.** It shows this crate reproduces
+  LIGGGHTS. It does **not** show LIGGGHTS' granular physics is right for an
+  HTR-10 bed: there is still **no experimental comparison** anywhere in this
+  repository. An **angle-of-repose** case — the canonical granular validation,
+  and the most valuable single addition this crate could get — was attempted
+  on 2026-09-15 and **abandoned unresolved**; the three setups tried and why
+  each was invalid are recorded in the V&V document § 4.5, so the next attempt
+  does not repeat them. **Do not quote an angle-of-repose number from this
+  work.** For reference, the settled voidage both codes produce
+  (`ε ≈ 0.442`) sits 2.2 percentage points above the Dixon (1988) correlation
+  for `D/d = 6` (`ε = 0.4198`) — an observation, not a validation, and no
+  calibration of `µ`/`e`/`E` against bed data has been attempted.
+
   Sphere packing does **not** live in this crate — it is in
   `outram-mc-libs/src/pebble_beds/crp_packing.rs` (Jodrey-Tory CRP). Whether it
   belongs here instead is an open architectural question (gh #65); DEM-settled
@@ -59,8 +118,28 @@ are different claims and this entry keeps them apart.
 
 ## Scope
 
-Modules: `bonded`, `boundary`, `contact`, `coupling`, `mesh_wall`, `particle`,
-`rolling`, `simulation`, `thermal`, `thermal_radiation`.
+Modules: `bonded`, `boundary`, `contact`, `coupling`, `granular`,
+`granular_system`, `integrator`, `mesh_wall`, `particle`, `rolling`,
+`simulation`, `thermal`, `thermal_radiation`, `timestep`.
+
+**Which engine to use.** There are two, deliberately:
+
+- **`granular` + `granular_system`** — the LIGGGHTS-faithful path: shear
+  history, upstream contact kinematics, kick-drift-kick velocity-Verlet. **Use
+  this for anything that must settle, pack, or hold a static assembly**, i.e.
+  every pebble-bed case. It is the path verified against upstream.
+- **`contact` + `simulation`** — the original stateless path. No tangential
+  spring (`ξ_t = 0` hard-coded), so a static assembly cannot carry shear and a
+  heap has zero angle of repose. Kept for the instantaneous-force queries and
+  constant-force cases it was written and tested for.
+
+`integrator::VelocityVerlet` is a translation of `fix_nve_sphere.cpp` and is
+what `granular_system` runs; `Particle::integrate` is **not** velocity-Verlet
+(see its doc comment and the V&V document) and should not drive contacts.
+
+`timestep` ports `fix check/timestep/gran` — use `TimestepEstimate::
+recommended_dt` to pick `dt` rather than guessing; an over-long explicit step
+does not merely lose accuracy, it ejects particles.
 
 ## Licensing
 

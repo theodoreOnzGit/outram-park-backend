@@ -1,0 +1,33 @@
+# Pebble-bed settling: cylindrical container, monodisperse pebbles, gravity.
+# Bulk-granular reference for packing-fraction validation.
+atom_style	granular
+atom_modify	map array
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+region		reg block -0.035 0.035 -0.035 0.035 -0.005 0.35 units box
+create_box	1 reg
+neighbor	0.003 bin
+neigh_modify	delay 0
+fix 		m1 all property/global youngsModulus peratomtype 5.0e6
+fix 		m2 all property/global poissonsRatio peratomtype 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.3
+pair_style	gran model hertz tangential history
+pair_coeff	* *
+timestep	5e-6
+fix		cyl all wall/gran model hertz tangential history primitive type 1 zcylinder 0.030 0. 0.
+fix		zwall all wall/gran model hertz tangential history primitive type 1 zplane 0.0
+region		ins cylinder z 0. 0. 0.028 0.05 0.32 units box
+fix		pts all particletemplate/sphere 15485863 atom_type 1 density constant 2500 radius constant 0.005
+fix		pdd all particledistribution/discrete 15485867 1 pts 1.0
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd &
+		insert_every once overlapcheck yes all_in yes vel constant 0. 0. -0.1 region ins particles_in_region 900
+fix		grav all gravity 9.81 vector 0 0 -1
+fix		integr all nve/sphere
+thermo_style	custom step atoms ke
+thermo		20000
+thermo_modify	lost ignore norm no
+run		400000
+write_dump	all custom dump.pebble_bed id x y z vx vy vz modify sort id
