@@ -118,8 +118,63 @@ the version/commit it was taken from, the copyright holder, and the licence.
 Do not strip these headers during refactors. A worked example header — copy it
 verbatim and edit the fields — is in this crate's `CLAUDE.md`.
 
-No RAVEN source has been ported into this crate yet. It is a documented
-scaffold: module boundaries, licensing and provenance only.
+No RAVEN source has been ported into this crate yet. The RAVEN-facing modules
+are still module boundaries, licensing and provenance only. Other parts of the
+crate are implemented; see the two upstreams recorded below.
+
+
+OTHER UPSTREAMS — GPL-3.0, NOT COVERED BY THE APACHE-2.0 GRANT ABOVE
+====================================================================
+
+RAFFLES has taken in work from two upstreams besides RAVEN. Both are GPL-3.0,
+the same licence as this crate, so neither carries the one-way restriction the
+Apache-2.0 grant above does. The Apache-2.0 licence text in
+LICENSE-APACHE-RAVEN does NOT apply to either — check which upstream a file
+comes from before writing its attribution header.
+
+1. Physics-guided-MPNN
+   ------------------------------------------------------------------------
+   Upstream repo:    https://github.com/mikelunizar/Physics-guided-MPNN
+   Licence:          GPL-3.0 (LICENSE file present in the repository)
+   Ported into:      src/gnn/mpnn.rs, src/gnn/dataset.rs
+   Those files carry their own per-file attribution headers naming the
+   upstream file and commit. Files in src/gnn/ that are NOT ports —
+   graph.rs, bound.rs, mc_geometry.rs — deliberately carry no such header.
+
+2. Adolphus Lye's UQ repositories (seven; workspace GitHub issue #158)
+   ------------------------------------------------------------------------
+   Copyright holder: Adolphus Lye, who is also the owner of this crate.
+   Licence:          GPL-3.0.
+
+   `Bayesian-Model-Updating-Tutorials` carries a GPL-3.0 LICENSE file in the
+   repository. The other six —
+
+       Transitional_Ensemble_MCMC
+       Approximate_Bayesian_Computation
+       stochastic-model-updating
+       Computing-with-Confidence
+       Lecture_Resources
+       Project_PROMAP
+
+   — carry NO LICENSE file as of 2026-09-16. For those six the grant is a
+   DIRECT GRANT FROM THE COPYRIGHT HOLDER, communicated verbally to the
+   workspace maintainer on 2026-09-09 (Apache-2.0 or GPL-3.0 offered; GPL-3.0
+   taken) and reaffirmed on 2026-09-16. It is recorded here because a reader
+   of this repository cannot otherwise verify it from the upstream sources.
+
+   This is a provenance-checkability gap, not a legal one, and the fix is one
+   commit per repository adding a LICENSE file — the author's to make.
+   Tracked as `op-dwqw.1`; see docs/adolphus-uq-port-scoping.md.
+
+   PORTED SO FAR: src/bayesian/case_studies.rs, from
+   `Bayesian-Model-Updating-Tutorials`, with a per-file attribution header.
+
+   NOT PORTED: the rest of src/bayesian/, src/distance.rs, src/abc.rs,
+   src/imprecise.rs and src/model_selection.rs were written from the published
+   papers rather than from the upstream MATLAB/R. They cite those papers by
+   DOI and carry no "ported from" header, because nothing was taken from the
+   repositories. Do not add one retroactively — an attribution header is a
+   statement about where a file came from, not a courtesy.
 
 
 INDEPENDENCE / TRADEMARK

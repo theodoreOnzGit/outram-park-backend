@@ -117,19 +117,30 @@ be done:
 |---|---|---|
 | [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this GPL-3.0 crate, one-way, with the attribution header in `CLAUDE.md` |
 | [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | Same licence as this workspace, so `gnn::mpnn` **is** a port and carries its attribution header |
-| Adolphus Lye's `Bayesian-Model-Updating-Tutorials` | GPL-3.0 | Portable, same as above |
-| Adolphus Lye's six other repositories (workspace issue #158) | **none** | All rights reserved. **No code was taken from them.** The algorithms here are independent implementations from the published papers, each cited with its DOI |
+| Adolphus Lye's `Bayesian-Model-Updating-Tutorials` | GPL-3.0 (LICENSE file) | Portable, same as above; `bayesian::case_studies` **is** a port and carries its header |
+| Adolphus Lye's six other repositories (workspace issue #158) | GPL-3.0 **by direct grant** from the author, who is the copyright holder and this crate's owner — stated to the maintainer 2026-09-09, reaffirmed 2026-09-16. No `LICENSE` file in the repositories as of 2026-09-16 | Portable. Nothing has been taken from them so far: the Bayesian, distance, ABC and imprecise modules were written from the published papers, each cited with its DOI |
 
-That last row is the important one. A repository with no licence file is not
-"open by default": copying, translating or adapting its code into a GPL-3.0
-work needs the author's permission. The Bayesian, distance, ABC and imprecise
-modules were therefore written from the papers — which is unaffected, since
-algorithms are not copyrightable — and none of them carries a "ported from"
-header, because nothing was taken.
+Two things about that last row, kept apart because they are different claims.
 
-**If those repositories gain a GPL-compatible licence, a code-level port
-becomes possible** and the attribution convention in `CLAUDE.md` applies from
-that point on. Until then, the papers are the specification.
+**The licence is settled.** Adolphus Lye owns the copyright in all seven
+repositories and has granted GPL-3.0 — the same licence as this crate — so
+there is no compatibility question and no one-way constraint of the kind that
+applies to the RAVEN port. A code-level port from any of the seven is
+permitted, with the attribution header in `CLAUDE.md`.
+
+**The checkability is not.** Six of the seven carry no `LICENSE` file, so a
+reader of this repository cannot confirm the grant from the upstream sources
+themselves — they have to take this record on trust.
+`RESEARCH_INTEGRITY_AND_PROVENANCE.md` expects better than that. The grant is
+therefore recorded in `NOTICE` with its date and how it was communicated, and
+the real fix — one commit per repository adding a `LICENSE` — is the author's
+to make. Tracked as `op-dwqw.1`; full detail in
+[`docs/adolphus-uq-port-scoping.md`](../../docs/adolphus-uq-port-scoping.md).
+
+Note the distinction the modules keep: a file **written from a paper** cites
+the DOI and carries no "ported from" header, because nothing was ported. A
+file **derived from upstream source** carries the header. Do not attach one to
+work that did not come from there.
 
 ## Design rules
 

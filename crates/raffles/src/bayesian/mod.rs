@@ -16,36 +16,45 @@
 //! models be compared, so a sampler that produces it is worth more here than
 //! one that only produces posterior samples.
 //!
-//! # Provenance — INDEPENDENT IMPLEMENTATIONS FROM THE PUBLISHED PAPERS
+//! # Provenance — written from the published papers, under a GPL-3.0 grant
 //!
 //! **Read this before adding anything to this module.**
 //!
-//! The algorithms here were requested by way of Adolphus Lye's MATLAB
-//! repositories (workspace issue #158). Of the seven repositories listed
-//! there, exactly one — `Bayesian-Model-Updating-Tutorials` — carries a
-//! licence (GPL-3.0). The other six carry **no licence file and no licence
-//! statement**, which under copyright law means all rights reserved: their
-//! code may not be copied, translated or adapted into this GPL-3.0 repository
-//! without the author's permission.
+//! The algorithms here were requested by way of Adolphus Lye's MATLAB and R
+//! repositories (workspace issue #158). **Adolphus Lye is the copyright
+//! holder of all seven of them and has granted GPL-3.0**, stated directly to
+//! the workspace maintainer on 2026-09-09 and reaffirmed on 2026-09-16. That
+//! is the same licence as this crate, so there is no compatibility question
+//! and no one-way constraint of the kind that applies to the RAVEN port — a
+//! code-level port from any of the seven is permitted.
 //!
-//! Everything in this module is therefore written **from the published
-//! papers**, not from that MATLAB. Algorithms and mathematics are not
-//! copyrightable; a specific expression of them in source code is. The rule
-//! this module follows, which is the same one `crates/raffles/CLAUDE.md`
-//! already states for RAVEN:
+//! One provenance gap remains, and it is recorded rather than glossed: six of
+//! the seven repositories carry **no `LICENSE` file**, so a third party
+//! reading this repository cannot confirm the grant from the sources
+//! themselves. That is a checkability gap, not a legal one. It is tracked as
+//! `op-dwqw.1`, the grant is recorded in this crate's `NOTICE`, and the fix is
+//! one commit per repository by the author.
 //!
-//! - **Cite the paper** that defines the algorithm, in the item's doc comment,
-//!   with a DOI.
-//! - **Do not** carry a "ported from" attribution header pointing at an
-//!   unlicensed repository — there is nothing to attribute, because nothing
-//!   was taken.
-//! - **Do not** transcribe an unlicensed file line by line, even with renamed
-//!   variables.
+//! **What is in this module was nonetheless written from the published
+//! papers, not from that MATLAB**, and that is the honest provenance of these
+//! particular files — the grant arrived first, but the papers were the
+//! specification actually used. Every item therefore cites the paper that
+//! defines its algorithm, with a DOI, and **carries no "ported from"
+//! attribution header, because nothing was taken**. [`case_studies`] is the
+//! exception: it *is* a port, from `Bayesian-Model-Updating-Tutorials`, and
+//! carries the header accordingly.
 //!
-//! If Adolphus adds a GPL-compatible licence to those repositories, a
-//! code-level port becomes possible and the attribution-header convention in
-//! `CLAUDE.md` applies from that point on. Until then, the papers are the
-//! specification.
+//! The rule for anything added from here on:
+//!
+//! - **A file genuinely derived from one of the seven repositories carries the
+//!   attribution header** in `crates/raffles/CLAUDE.md` — upstream repo, file,
+//!   commit, copyright holder, licence — naming GPL-3.0 and this grant.
+//! - **A file written from a paper does not**, and cites the DOI instead.
+//!   Do not attach a "ported from" header to work that was not ported.
+//! - Reading the upstream MATLAB/R to **cross-check** an existing independent
+//!   implementation is now open, and is the more valuable use of it: a
+//!   disagreement between the Rust and the author's own code is a finding,
+//!   and neither being able to look was a real limitation on the V&V here.
 //!
 //! # What is here
 //!

@@ -15,7 +15,7 @@ license.workspace = true
 # theirs. `authors` is inherited from [workspace.package]; whether to add an
 # explicit per-crate author entry is the maintainer's and owner's call, not an
 # assistant's — see README.md and CLAUDE.md.
-description = "RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation. Independent pure-Rust port of the uncertainty-quantification / risk-analysis core of RAVEN (Apache-2.0, Idaho National Laboratory): probability distributions, Monte Carlo / Latin-hypercube / grid samplers, Sobol and correlation sensitivity measures, surrogate models. SCAFFOLD ONLY: no distribution, sampler or estimator is implemented, and there is no human V&V. Not affiliated with the RAVEN project."
+description = "RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation. Independent pure-Rust port of the uncertainty-quantification / risk-analysis core of RAVEN (Apache-2.0, Idaho National Laboratory): probability distributions, Monte Carlo / Latin-hypercube / grid samplers, Sobol and correlation sensitivity measures, surrogate models. Also Bayesian model updating (TMCMC / TEMCMC), statistical distances, Approximate Bayesian Computation, imprecise probability and message-passing graph networks. IMPLEMENTED IN PART, with no human V&V — treat every result as untrusted draft material. Not affiliated with the RAVEN project."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -88,7 +88,10 @@ burn = { workspace = true, optional = true }
 
 [features]
 default = []
-# Neural-network surrogates via burn (no_std + alloc, ndarray backend). Nothing
-# in src/surrogate.rs consumes it yet — this wires the dependency up so the
-# burn-backed surrogate work can start behind a flag.
+# Neural-network surrogates and graph neural networks via burn (no_std + alloc,
+# ndarray backend + autodiff). Consumed by `surrogate::neural`, `gnn::mpnn` and
+# `gnn::training`; everything else in the crate builds without it, which is why
+# it is off by default. `autodiff` is not optional here — training needs
+# gradients, and a burn feature that could only do a forward pass would be a
+# trap rather than a saving.
 burn = ["dep:burn", "burn/ndarray", "burn/autodiff"]
