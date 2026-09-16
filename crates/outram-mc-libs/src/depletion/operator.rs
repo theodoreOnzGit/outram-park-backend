@@ -51,6 +51,7 @@ use super::{MicroRate, ReactionRates};
 use crate::material::material::{Material, NuclideComponent};
 use crate::material::nuclide::Nuclide;
 use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
+use njoy_outram_park_fork::groupr::{AnalyticWeight, ThermalFissionParams};
 
 /// 1 barn expressed in cm² (`sigma[cm^2] = sigma[barn] * BARN_CM2`).
 const BARN_CM2: f64 = 1.0e-24;
@@ -89,9 +90,74 @@ pub struct BurnupSettings {
     pub n_steps: usize,
     /// Data/lookup temperature \[K\] for the cross-section evaluation.
     pub temperature_k: f64,
-    /// One-group energy \[eV\] at which cross sections are evaluated
+    /// One-group energy \[eV\] at which cross sections are evaluated when
+    /// [`Self::weighting`] is [`OneGroupWeighting::SingleEnergy`]
     /// (0.0253 eV = 2200 m/s thermal point by default).
     pub one_group_energy_ev: f64,
+    /// How the one-group cross sections are formed — see
+    /// [`OneGroupWeighting`]. Defaults to
+    /// [`OneGroupWeighting::SingleEnergy`], which is what this module did
+    /// unconditionally before 2026-09-16.
+    pub weighting: OneGroupWeighting,
+}
+
+/// How [`BurnupSettings`] forms its one-group cross sections.
+///
+/// # Why this exists
+///
+/// Depletion needs `σ` averaged over the flux the fuel actually sees. Until
+/// 2026-09-16 this module evaluated every cross section at a **single energy**
+/// (0.0253 eV by default) and called the result one-group. For a purely
+/// thermal spectrum that is defensible; for anything else it is not, and it
+/// misses **resonance absorption entirely** — U-238's capture cross section is
+/// ~2.7 b at 0.0253 eV, while its flux-weighted value in a real lattice is
+/// several times that, because the resonance integral dominates.
+///
+/// The survey in `docs/neutronics-physics-coverage.md` recorded this as a
+/// coupling gap rather than a fidelity knob, and it is: a burnup calculation
+/// whose one-group data is wrong depletes the wrong nuclides.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OneGroupWeighting {
+    /// Evaluate at [`BurnupSettings::one_group_energy_ev`] and nowhere else.
+    ///
+    /// The historical behaviour, kept as the default so existing results
+    /// reproduce **bit-identically**. Correct only for a spectrum concentrated
+    /// at that one energy.
+    SingleEnergy,
+    /// Collapse `σ_g = ∫σ(E)φ(E)dE / ∫φ(E)dE` against NJOY's **`iwt = 4`**
+    /// analytic weighting spectrum: a Maxwellian thermal peak, a `1/E` slowing-
+    /// down region, and a fission-spectrum fast tail.
+    ///
+    /// Reuses [`AnalyticWeight::ThermalFission`] from `njoy-outram-park-fork`'s
+    /// GROUPR port rather than re-deriving the shape — it is the same weight
+    /// NJOY uses to collapse multigroup libraries, already ported and tested.
+    ///
+    /// The integral is a log-spaced trapezoid over `[e_min_ev, e_max_ev]` with
+    /// `n_points` nodes. It is **not** a transport-calculated flux: it is a
+    /// representative spectrum, which is a large improvement on a single point
+    /// and still an approximation. Collapsing against the *actual* flux from a
+    /// transport solve is the remaining step.
+    ThermalFissionSpectrum {
+        /// Lower integration bound \[eV\].
+        e_min_ev: f64,
+        /// Upper integration bound \[eV\].
+        e_max_ev: f64,
+        /// Number of log-spaced quadrature nodes.
+        n_points: usize,
+    },
+}
+
+impl OneGroupWeighting {
+    /// NJOY's standard `iwt = 4` breakpoints: thermal Maxwellian below
+    /// 0.1 eV at `kT = 0.025` eV, `1/E` up to 820.3 keV, then a fission
+    /// Maxwellian at `T = 1.4` MeV (`groupr.f90`'s documented defaults).
+    pub fn thermal_fission_default() -> Self {
+        Self::ThermalFissionSpectrum {
+            e_min_ev: 1.0e-5,
+            e_max_ev: 2.0e7,
+            n_points: 2000,
+        }
+    }
 }
 
 impl Default for BurnupSettings {
@@ -105,6 +171,8 @@ impl Default for BurnupSettings {
             n_steps: 6,
             temperature_k: 293.6,
             one_group_energy_ev: 0.0253,
+            // Unchanged default: existing results reproduce bit-identically.
+            weighting: OneGroupWeighting::SingleEnergy,
         }
     }
 }
@@ -194,19 +262,86 @@ fn one_group_cross_sections(chain: &DepletionChain, settings: &BurnupSettings) -
         .nuclide_names()
         .iter()
         .map(|name| match Nuclide::from_core(name) {
-            Ok(nuc) => {
-                let xs = nuc.xs_at_energy(settings.one_group_energy_ev, settings.temperature_k);
-                let gamma = (xs.absorption - xs.fission).max(0.0);
-                OneGroupXs {
-                    fission: xs.fission,
-                    gamma,
-                    nu_fission: xs.nu_fission,
-                    absorption: xs.absorption,
-                }
-            }
+            Ok(nuc) => collapse_one_group(&nuc, settings),
             Err(_) => OneGroupXs::default(),
         })
         .collect()
+}
+
+/// Form one nuclide's one-group cross sections under `settings.weighting`.
+///
+/// For [`OneGroupWeighting::SingleEnergy`] this is a single
+/// [`Nuclide::xs_at_energy`] call — bit-identical to what this module did
+/// before the weighting option existed.
+///
+/// For [`OneGroupWeighting::ThermalFissionSpectrum`] it is
+/// `σ_g = ∫σ(E)φ(E)dE / ∫φ(E)dE` by log-spaced trapezoid, with `φ` the
+/// GROUPR `iwt = 4` analytic spectrum. Integrating in `ln E` is deliberate:
+/// the `1/E` region is flat in lethargy, so a log grid resolves the whole
+/// range with a tractable node count where a linear grid would waste every
+/// node above 1 keV.
+fn collapse_one_group(nuc: &Nuclide, settings: &BurnupSettings) -> OneGroupXs {
+    let t = settings.temperature_k;
+    match settings.weighting {
+        OneGroupWeighting::SingleEnergy => {
+            let xs = nuc.xs_at_energy(settings.one_group_energy_ev, t);
+            OneGroupXs {
+                fission: xs.fission,
+                gamma: (xs.absorption - xs.fission).max(0.0),
+                nu_fission: xs.nu_fission,
+                absorption: xs.absorption,
+            }
+        }
+        OneGroupWeighting::ThermalFissionSpectrum {
+            e_min_ev,
+            e_max_ev,
+            n_points,
+        } => {
+            let weight = AnalyticWeight::ThermalFission(ThermalFissionParams {
+                thermal_break_ev: 0.1,
+                thermal_temp_ev: 0.025,
+                fission_break_ev: 8.203e5,
+                fission_temp_ev: 1.4e6,
+            });
+            let n = n_points.max(2);
+            let ln_lo = e_min_ev.max(1.0e-11).ln();
+            let ln_hi = e_max_ev.ln();
+            let (mut num, mut den) = ([0.0f64; 4], 0.0f64);
+            let (mut prev_e, mut prev_w, mut prev_x) = (0.0f64, 0.0f64, [0.0f64; 4]);
+            for i in 0..n {
+                let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / (n - 1) as f64).exp();
+                let xs = nuc.xs_at_energy(e, t);
+                let x = [
+                    xs.fission,
+                    (xs.absorption - xs.fission).max(0.0),
+                    xs.nu_fission,
+                    xs.absorption,
+                ];
+                // phi(E) dE = phi(E) * E * d(ln E): the Jacobian of the log grid.
+                let w = weight.evaluate(e, t) * e;
+                if i > 0 {
+                    let dlog = e.ln() - prev_e.ln();
+                    den += 0.5 * dlog * (w + prev_w);
+                    for k in 0..4 {
+                        num[k] += 0.5 * dlog * (w * x[k] + prev_w * prev_x[k]);
+                    }
+                }
+                prev_e = e;
+                prev_w = w;
+                prev_x = x;
+            }
+            if den > 0.0 {
+                OneGroupXs {
+                    fission: num[0] / den,
+                    gamma: num[1] / den,
+                    nu_fission: num[2] / den,
+                    absorption: num[3] / den,
+                }
+            } else {
+                OneGroupXs::default()
+            }
+        }
+    }
 }
 
 /// The flux \[neutrons/(cm²·s)\] that makes the fission power in `fuel_volume_cm3`
