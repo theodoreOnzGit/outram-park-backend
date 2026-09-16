@@ -130,6 +130,62 @@ maturity gate in that file for what this means and how the bar is revised.
   `examples/godiva_keff_endf_local.rs` records `RECORDED_PCM = 214.0`.
 
 
+- **2026-09-15 — `+214` superseded by `+16 ± 11 pcm`. The bar stays at 500 pcm;
+  moving it is a maintainer decision and has not been made.**
+
+  **What changed.** Every inelastic collision drew `mu_cm = 2*prn − 1` —
+  isotropic in the centre of mass — while elastic correctly used the
+  evaluation's ENDF MF=4 tabulated cosine. The discrete levels are not
+  isotropic (U-238 MT=51 has CM `⟨μ⟩` from `+0.033` at 1 MeV to `+0.510` at
+  14 MeV; 39 of 40 levels carry anisotropic data on each of U-235 and U-238).
+  Sampling them isotropically understates `⟨μ⟩`, inflates
+  `Σ_tr = Σ_t(1 − ⟨μ⟩)`, suppresses leakage and raises `k`. Godiva is 55.8 %
+  leakage. Wiring in MF=4/MT=51…90 is bead `op-tm9f`.
+
+  **Current evidence: `+16 pcm, sem ±11, sd 173` over 256 seeds**, via the new
+  `examples/godiva_keff_ensemble.rs` at the same settings as before (5000
+  histories × [40 inactive + 120 active], all three ICSBEP nuclides,
+  ENDF/B-VIII.0 from `reference-data/endf/`). That is a **−198 pcm** move from
+  `+214`, against **−168 / −181 / −219 pcm predicted three independent ways
+  before the work** — from the elastic ablation scaled by the `⟨μ⟩` budget,
+  from the `k_eff`/`k_inf` leakage split, and from one-group diffusion on the
+  measured `P_NL`. A prediction of sign and magnitude made in advance and then
+  met is the reason to believe this, more than the size of what is left.
+
+  **Against the 500 pcm bar:** `+16 ± 11 pcm` is 44 sigma inside it. **For the
+  first time this case is also inside the ICSBEP ±100 pcm band**, which it had
+  been outside of throughout its history.
+
+  **Four qualifications, none of which the number above should be read past.**
+
+  1. **±11 pcm is our sampling uncertainty, not the comparison's.** ICSBEP
+     quotes `1.0000 ± 0.0010`. Nothing on our side sees past a ±100 pcm band on
+     the reference, so `+16` is agreement but is **not meaningfully better than
+     `+80`**. Do not quote this as "16 pcm accuracy".
+  2. **The physics underneath is not cleared.** The `~69 pcm` spectral residual
+     found by the OpenMC cross-code study lives in `k_inf`, has no leakage
+     component, and is untouched by this — our flux spectrum is still 0.45 %
+     harder than OpenMC's in mean `E` (3.5 sigma), with 1.31 % less flux below
+     300 keV (5.2 sigma). Tracked as `op-os8x`. **Two offsetting errors land on
+     the right `k` too.**
+  3. **The continuum angular correlation is still dropped** (MF=6 LANG=1/2,
+     `op-og56`), as is the `EnergyAngular` interpolation flag. This fixed the
+     *discrete* levels only.
+  4. **One benchmark.** A bare fast HEU metal sphere, one geometry, one
+     temperature. Says nothing about thermal systems or the crate's other cases.
+
+  **`RECORDED_PCM` now lives in `examples/godiva_keff_ensemble.rs`** and is
+  `16.0`. That example is new and closes a real gap: the previous `+214` and
+  `+314` rested on pooled studies run ad hoc that **nothing in the repository
+  could reproduce**. Its gates are sized off what a run can resolve rather than
+  off the accuracy achieved — a `|mean| ≤ 30 pcm` gate would fail a correct
+  build about a third of the time at the default 32 seeds.
+
+  `examples/godiva_keff_endf_local.rs` still records `RECORDED_PCM = 214.0` and
+  is **stale**; it is a single-seed tutorial whose own docs say it cannot
+  resolve the bar, and re-pointing it is follow-up work rather than part of this
+  change.
+
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.
 

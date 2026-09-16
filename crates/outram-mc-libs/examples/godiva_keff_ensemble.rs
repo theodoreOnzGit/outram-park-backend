@@ -43,10 +43,41 @@
 //! | 128 | ±17 pcm |
 //! | 256 | ±12 pcm |
 //!
-//! # Results
+//! # Results (2026-09-15, 256 seeds, ENDF/B-VIII.0)
 //!
-//! See [`RECORDED_PCM`] for the measured value, when it was taken and what
-//! changed to produce it. The V&V write-up is in
+//! ```text
+//!   seeds         256
+//!   mean          +16 pcm
+//!   seed-to-seed  sd  173 pcm   (what ONE run scatters by)
+//!   uncertainty   sem ±11 pcm   (on this pooled mean)
+//!   distance from benchmark: 1.5 sem
+//! ```
+//!
+//! **`+16 ± 11 pcm` from the ICSBEP benchmark**, inside its `±100 pcm`
+//! experimental band, and `−198 pcm` from the `+214` recorded before the
+//! discrete-inelastic angular distributions were sampled (bead `op-tm9f`). The
+//! prediction on that bead, recorded *before* the work, was `−168 / −181 /
+//! −219 pcm` priced three independent ways.
+//!
+//! Three things this does **not** say, worth stating because a number this
+//! close invites over-reading:
+//!
+//! - **It is not more accurate than the experiment.** ICSBEP quotes
+//!   `1.0000 ± 0.0010`. A `±11 pcm` statistical uncertainty on our side does
+//!   not see past a `±100 pcm` band on the reference — anything inside that
+//!   band is agreement, and `+16` is not meaningfully better than `+80` would
+//!   be. The tight sem describes our *sampling*, not the comparison.
+//! - **It is one benchmark.** A bare fast HEU metal sphere, one geometry, one
+//!   temperature. It says nothing about thermal systems or about the crate's
+//!   other cases.
+//! - **It is not a clean bill for the physics underneath.** The cross-code
+//!   study against OpenMC found a `~69 pcm` *spectral* residual that lives in
+//!   `k_inf` and is untouched by this (bead `op-os8x`); our spectrum is still
+//!   0.45 % harder than OpenMC's. Two offsetting errors can land on the right
+//!   `k`, which is why the spectral residual is tracked separately rather than
+//!   declared closed by this agreement.
+//!
+//! The V&V write-up is in
 //! `verification_and_validation/openmc_godiva_cross_code/README.md`.
 //!
 //! ```text
@@ -179,18 +210,110 @@ mod desktop {
             "  Move from that baseline: {:+.0} pcm.",
             mean - RECORDED_PCM
         );
+
+        gate(mean, sem, sd, pcm.len());
+    }
+
+    /// The regression gates. Separated from [`run`] so the criteria are read as
+    /// criteria rather than as print statements.
+    ///
+    /// # How these are sized, and why not at the target
+    ///
+    /// The tempting gate is `|mean| <= 30 pcm`, the accuracy this case now
+    /// achieves. That gate would be **wrong**, and would fire on a correct
+    /// build: at the default 32 seeds a run's own `sem` is ~31 pcm, so a true
+    /// mean of `+16` produces observed means outside `±30` about a third of the
+    /// time. A regression gate that cries wolf gets muted, and a muted gate
+    /// guards nothing.
+    ///
+    /// So each gate is sized off **what the run in hand can resolve**:
+    ///
+    /// 1. **Resolving power.** Warn (do not fail) when `N` is too small for the
+    ///    run to say anything useful. Failing here would punish a quick check.
+    /// 2. **No regression from the recorded mean.** `|mean − RECORDED_PCM|`
+    ///    within `4 sigma` of the *difference of two independent ensembles*,
+    ///    `sigma_diff = sqrt(sem_run^2 + sem_recorded^2)` — not `4 × sem_run`,
+    ///    which would treat the recorded value as exact and make the gate too
+    ///    tight by `√2`. That error is on record in this crate
+    ///    (`assert_reproduces_keff`, gh:#196), so it is spelled out here.
+    /// 3. **Agreement with the experiment.** The claim being guarded is that
+    ///    Godiva lands on the benchmark, so `|mean|` must be inside the
+    ///    **experiment's own ±100 pcm band**, or within `4 sigma` of zero when
+    ///    the run is too noisy for that to mean anything. Note this gate is
+    ///    *weaker* than gate 2 by construction: it is the physics claim, while
+    ///    gate 2 is what actually catches a code change.
+    fn gate(mean: f64, sem: f64, sd: f64, n: usize) {
+        /// `sem` on [`RECORDED_PCM`]: 173/sqrt(256).
+        const RECORDED_SEM: f64 = 11.0;
+        /// Sigma multiplier. 4 rather than 2 so a correct build essentially
+        /// never trips it; a real regression here is hundreds of pcm, not tens.
+        const K_SIGMA: f64 = 4.0;
+        /// The ICSBEP experimental uncertainty on HEU-MET-FAST-001 \[pcm\].
+        const BENCHMARK_BAND_PCM: f64 = 100.0;
+
+        println!();
+        if sem > 50.0 {
+            println!(
+                "  NOTE: {n} seeds give sem ±{sem:.0} pcm, too coarse to resolve this case's                  ~16 pcm offset. The gates below still run, but they are wide. Use                  OUTRAM_GODIVA_SEEDS=256 (sem ±11) for a number worth quoting."
+            );
+        }
+
+        // 2. No regression from the recorded mean.
+        let sigma_diff = (sem * sem + RECORDED_SEM * RECORDED_SEM).sqrt();
+        let moved = (mean - RECORDED_PCM).abs();
+        assert!(
+            moved <= K_SIGMA * sigma_diff,
+            "Godiva moved to {mean:+.0} pcm from the recorded {RECORDED_PCM:+.0} pcm --              {moved:.0} pcm, which is {:.1} sigma of the {sigma_diff:.0} pcm expected from              re-randomisation alone ({n} seeds, sem ±{sem:.0}; recorded sem ±{RECORDED_SEM:.0}).              Something changed the physics. If the change was deliberate, re-measure at 256              seeds and update RECORDED_PCM with the date and what moved it -- do NOT widen              this gate.",
+            moved / sigma_diff
+        );
+
+        // 3. Agreement with the experiment.
+        let benchmark_tol = BENCHMARK_BAND_PCM.max(K_SIGMA * sem);
+        assert!(
+            mean.abs() <= benchmark_tol,
+            "Godiva sits {mean:+.0} pcm from ICSBEP HEU-MET-FAST-001, outside the tolerance of              {benchmark_tol:.0} pcm (the experiment's own ±{BENCHMARK_BAND_PCM:.0} pcm band, or              {K_SIGMA:.0} sigma of this run's ±{sem:.0} pcm, whichever is larger). This crate              agreed with the benchmark when the discrete inelastic angular distributions landed              (op-tm9f); it no longer does."
+        );
+
+        // A sanity check on the ensemble itself: a collapsed sd means the seeds
+        // are not independent, which would make every uncertainty above a
+        // fiction. See op-rbo, where exactly that defect once made the quoted
+        // sigma meaningless while barely moving the central value.
+        assert!(
+            sd > 50.0,
+            "seed-to-seed sd is {sd:.0} pcm, against ~{RECORDED_SD:.0} expected. That is too              small for {n} independent 5000-history runs: the per-particle RNG streams are              probably no longer independent, which would make every uncertainty reported here              meaningless -- including the agreement asserted above."
+        );
+
+        println!("  GATES PASSED:");
+        println!(
+            "    no regression: {mean:+.0} vs recorded {RECORDED_PCM:+.0} pcm              ({:.1} sigma of {sigma_diff:.0})",
+            moved / sigma_diff
+        );
+        println!("    benchmark:     |{mean:+.0}| <= {benchmark_tol:.0} pcm");
+        println!("    seeds independent: sd {sd:.0} pcm");
     }
 
     /// The pooled Godiva offset from ICSBEP HEU-MET-FAST-001, in pcm, as last
-    /// measured by this example.
+    /// measured by this example: **`+16 pcm`, 256 seeds, `sem ±11`,
+    /// seed-to-seed `sd 173`, 2026-09-15**.
     ///
-    /// **`+214 pcm` (64-seed paired ensemble, 2026-09-13)** was the value before
-    /// the discrete-inelastic angular distributions were wired in; it is kept
-    /// here as the baseline the current number is compared against, and is
-    /// superseded by whatever this example's own run reports. See
-    /// `examples/godiva_keff_endf_local.rs` for the history of how this number
-    /// moved: `+341` → `+57` (single draws, both unresolvable) → `+314`
-    /// (96 seeds, after the MT=91 Q-value cap) → `+214` (after reading the
-    /// evaluated MF=6 continuum law).
-    pub const RECORDED_PCM: f64 = 214.0;
+    /// History, so a reader can see which numbers were resolvable and which
+    /// were single draws read as answers:
+    ///
+    /// | value | basis | what changed |
+    /// |---|---|---|
+    /// | `−341` | 1 seed | first two-nuclide Godiva |
+    /// | `+57 ± 173` | 1 seed | three nuclides; unresolvable |
+    /// | `+314 ± 21` | 96 seeds | after the MT=91 Q-value cap (gh:#192) |
+    /// | `+214 ± 20` | 64 seeds | after reading the evaluated MF=6 continuum law |
+    /// | **`+16 ± 11`** | **256 seeds** | **after sampling the MF=4 discrete inelastic angular laws (`op-tm9f`)** |
+    ///
+    /// Note the two single-draw rows: both were superseded by pooled runs that
+    /// moved them by more than their own quoted uncertainty. That is why this
+    /// example exists and why the gate below is sized off `sem`, not off one
+    /// run.
+    pub const RECORDED_PCM: f64 = 16.0;
+
+    /// Seed-to-seed standard deviation of a single run \[pcm\], measured at
+    /// 256 seeds. Quoted so a reader can size their own run: `sem = SD / √N`.
+    pub const RECORDED_SD: f64 = 173.0;
 }

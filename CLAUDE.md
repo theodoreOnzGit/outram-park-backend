@@ -1129,8 +1129,14 @@ upstream, its measured agreement, and what is NOT covered — is
 
 Six honest notes on this roster: `teh-o-prke` is the thinnest of the
 twelve and lacks analytical transient validation (its own file says so, and
-says what would fix it); `outram-mc-libs`' 500 pcm is set at what it achieves
-today rather than at what criticality work should eventually demand; the
+says what would fix it); `outram-mc-libs`' 500 pcm is now far looser
+than what it achieves — as of 2026-09-15 Godiva sits at **+16 ± 11 pcm over 256
+seeds**, 44 sigma inside the bar and inside ICSBEP's own ±100 pcm band, after
+the discrete inelastic angular distributions were wired in (`op-tm9f`). The bar
+was deliberately **not** tightened with that result; doing so is a maintainer
+decision. Note also that agreeing on `k` is not the same as agreeing on the
+physics: a ~69 pcm *spectral* residual against OpenMC is still open
+(`op-os8x`), and the crate's own `CLAUDE.md` records it beside the result; the
 Scilab half of the process-control crate's evidence lives in the maintainer's
 dissertation rather than in this repository, so its recorded bar is written
 against the analytical tests that *are* reproducible here; `farrer-park`

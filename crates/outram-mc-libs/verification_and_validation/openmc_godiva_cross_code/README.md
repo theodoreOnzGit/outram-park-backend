@@ -25,6 +25,24 @@ So the `+247 pcm` measured against the experiment is **not** the evaluation
 being off and **not** RECONR/BROADR: it is the difference between this crate's
 transport and OpenMC's. That is a real, localisable target of about 250 pcm.
 
+> ## Outcome
+>
+> **That target was localised, fixed, and re-measured.** The `~181 pcm` leakage
+> share was the discrete inelastic angular distributions, never sampled at all;
+> wiring in the evaluation's own ENDF MF=4 for MT=51…90 (`op-tm9f`) moved Godiva
+> **from `+214` to `+16 ± 11 pcm` over 256 seeds** — a `−198 pcm` move against
+> `−168 / −181 / −219 pcm` predicted three ways *before* the work. The
+> remaining offset is inside the ICSBEP experiment's own ±100 pcm band.
+>
+> **The study is not finished.** The `~69 pcm` spectral share lives in `k_inf`,
+> is untouched by that fix, and our spectrum is still 0.45 % harder than
+> OpenMC's (`op-os8x`). Agreement on `k` is not agreement on the physics — two
+> offsetting errors land on the right `k` too. What makes this one credible is
+> that the predicted mechanism moved `k` by the predicted amount in the
+> predicted direction, not that the final number is small.
+>
+> Details in *Discrete inelastic angular anisotropy* below.
+
 ## What "the same data" means here, and why it matters
 
 Both codes read the **same three ENDF/B-VIII.0 tapes** from
@@ -370,9 +388,11 @@ residual is something else" — no more than that.
 
 ### What this leaves
 
-- **Implement anisotropic inelastic angular distributions.** Expected to remove
-  most of the ~181 pcm leakage share, moving Godiva *down* toward OpenMC.
-  Tracked in beads.
+- ~~**Implement anisotropic inelastic angular distributions.**~~ **Done**
+  (`op-tm9f`, 2026-09-15). It removed the leakage share as predicted: Godiva
+  moved `−198 pcm`, from `+214` to `+16 ± 11 pcm` at 256 seeds. See *Discrete
+  inelastic angular anisotropy* below for the prediction-versus-outcome and the
+  regression gates.
 - **The ~69 pcm spectral share is still unattributed, but now by elimination
   rather than by ignorance.** It is in `k_inf`, so it is secondary-energy or
   reaction sampling, not geometry — and cross sections (≤0.06 %), ν̄ (0.0002 %)
@@ -395,7 +415,7 @@ residual is something else" — no more than that.
 
 ## Ablation: pricing the physics directly
 
-Two knobs, ablated and measured, with the tests kept for regression.
+Three knobs, ablated and measured, with the tests kept for regression.
 
 ### Elastic angular anisotropy — +10511 pcm
 
@@ -425,6 +445,88 @@ precision, but it is a third line of evidence for the same mechanism.
 a significant *increase*, both tracking methods must price it the same, and the
 value must reproduce the recorded +10511 within 4 sigma.
 
+### Discrete inelastic angular anisotropy — the leakage share, closed
+
+**This is the fix the whole study was pointing at**, and it is the one place
+where a prediction made *before* the work can be checked against what happened.
+
+Until bead `op-tm9f`, every inelastic collision drew `mu_cm = 2*prn − 1`,
+isotropic in the centre of mass, while elastic used the evaluation's full MF=4
+cosine. The discrete levels are not isotropic: ENDF/B-VIII.0 gives U-238's MT=51
+a CM `⟨μ⟩` of `+0.033` at 1 MeV rising to `+0.510` at 14 MeV, and **39 of the 40
+levels MT=51…90 carry anisotropic data on each of U-235 and U-238**, all with
+`LCT = 2` so no frame conversion is needed. (U-235's MT=51/52/54 read as
+isotropic; that is a real property of that evaluation, not a parse defect — they
+carry 9-point distributions with `a₁ ≈ 0` at all 124 tabulated energies.)
+
+**The prediction, from this study and recorded before the code was written:**
+Godiva moves **down by ~180 pcm**, priced three independent ways at −168
+(scaled from the elastic ablation above), −181 (the leakage share of the
+`k_eff`/`k_inf` split) and −219 pcm (one-group diffusion from the measured
+`P_NL`). Stated with it: *if it moves up, or moves far more than ~220, the
+diagnosis is wrong and should be revisited rather than tuned around.*
+
+**What happened**, `examples/godiva_keff_ensemble.rs`, **256 seeds**:
+
+| | mean vs ICSBEP | sd | sem |
+|---|---|---|---|
+| before (`RECORDED_PCM`, 64 seeds) | +214 pcm | 160 | ±20 |
+| **after, 256 seeds** | **+16 pcm** | 173 | **±11** |
+| **move** | **−198 pcm** | | |
+
+−198 pcm against −168/−181/−219 predicted. The remaining offset is **+16 ± 11
+pcm**, 1.5 sem from the benchmark and well inside its own ±100 pcm band.
+
+#### What this does and does not establish
+
+It is worth being precise here, because a number this close invites over-reading
+and this investigation has already had three small-sample results reverse.
+
+- **The ±11 pcm is our sampling uncertainty, not the comparison's.** ICSBEP
+  quotes `1.0000 ± 0.0010`. Nothing on our side can see past a ±100 pcm band on
+  the reference, so `+16` is agreement but is **not meaningfully better than
+  `+80` would be**. Quoting it as "16 pcm accuracy" would claim a resolution the
+  experiment does not have.
+- **It does not clear the physics underneath.** The `~69 pcm` spectral residual
+  measured in section 6 lives in `k_inf`, has no leakage component, and is
+  untouched by this — our spectrum is still 0.45 % harder than OpenMC's
+  (`op-os8x`). Two offsetting errors can land on the right `k`. That the
+  *predicted* mechanism moved `k` by the *predicted* amount in the *predicted*
+  direction is the reason to believe this one is real, not the closeness of the
+  final number.
+- **One benchmark, one geometry, one temperature.** A bare fast HEU metal
+  sphere. It says nothing about thermal systems or about this crate's other
+  cases.
+
+#### Regression
+
+`examples/godiva_keff_ensemble.rs` carries three gates, each sized off **what
+the run in hand can resolve** rather than off the accuracy achieved:
+
+1. **No regression** from `RECORDED_PCM`, within `4σ` of
+   `√(sem_run² + sem_recorded²)` — the difference of two *independent*
+   ensembles, not `4 × sem_run`, which would treat the recorded value as exact
+   and be too tight by `√2`. That exact sizing error is on this crate's record
+   (gh:#196), so the reasoning is written into the code.
+2. **Agreement with the experiment**: `|mean|` inside the ±100 pcm band, or
+   `4σ` of the run, whichever is wider.
+3. **The seeds are independent** (`sd` has not collapsed) — because `op-rbo` is
+   a case where correlated streams left the central value nearly unchanged while
+   making every quoted uncertainty a fiction.
+
+A gate at the achieved accuracy — `|mean| ≤ 30 pcm` — was deliberately **not**
+written: at the default 32 seeds a run's own `sem` is ±31 pcm, so a correct
+build would fail it about a third of the time, and a gate that cries wolf gets
+muted.
+
+The fast guard that runs in the ordinary suite is
+`tests/inelastic_anisotropy_ablation_control.rs` (2 tests, 285 s): a regression
+that silently dropped the MF=4 inelastic tables would put Godiva back at
++214 pcm with **nothing else in the suite failing**, so it asserts a cosine
+comes back at all, that it is forward-peaked, that `⟨μ⟩` rises monotonically
+with energy (catching a mis-indexed incident-energy lookup), and that cross
+sections are bit-identical across the ablation.
+
 ### URR self-shielding — not resolved
 
 This crate has no probability tables to ablate, so it was done on the OpenMC
@@ -435,8 +537,12 @@ with zero** — see the correction recorded above.
 
 | test | cost | guards |
 |---|---|---|
-| `tests/anisotropy_ablation_control.rs` | ~3 s | that the ablation *ablates*, that the evaluated data is genuinely anisotropic, and that cross sections are bit-identical across it |
-| `examples/godiva_anisotropy_ablation.rs` | ~35 min | the three gates above |
+| `tests/anisotropy_ablation_control.rs` | ~3 s | that the **elastic** ablation *ablates*, that the evaluated data is genuinely anisotropic, and that cross sections are bit-identical across it |
+| `tests/inelastic_anisotropy_ablation_control.rs` | ~285 s | that the **inelastic** MF=4 tables are read at all, are forward-peaked, that `⟨μ⟩` rises monotonically with energy, that the ablation ablates, and that the two ablations are independent |
+| `examples/godiva_keff_ensemble.rs` | ~80 min (256 seeds) | no regression from `RECORDED_PCM`, agreement with the benchmark, and that the seeds stayed independent |
+| `examples/godiva_anisotropy_ablation.rs` | ~35 min | the three elastic gates above |
+| `examples/godiva_inelastic_anisotropy_ablation.rs` | ~25 min | the inelastic price, paired by seed |
+| `examples/godiva_spectrum_vs_openmc.rs` + `compare_spectrum.py` | ~20 min | the spectral shape against OpenMC |
 | `godiva.py --ptables` | ~1 h | the URR arm, re-runnable |
 
 The unit test exists because a silently no-op control is the worst failure mode
@@ -452,7 +558,7 @@ does not matter".
 | reaction-partition catch-all | 0.0000 % of Σ_t | cleared |
 | elastic ⟨μ⟩ | ≤ 5.6e-4 absolute | cleared |
 | fission spectrum ⟨E_out⟩ | ≤ 0.018 % | cleared |
-| **inelastic angular** | **not sampled at all** | **convicted: ~181 pcm leakage** |
+| **inelastic angular** | **was not sampled at all; now read from MF=4/MT=51…90** | **convicted and FIXED: −198 pcm measured, −181 predicted** |
 | inelastic secondary energy | spectrum **+0.45 % harder** in mean `E` (3.5 sigma); −1.31 % of the flux below 300 keV (5.2 sigma) | **implicated: ~69 pcm spectral** — sign and location match, reaction not yet isolated |
 
 ## Scope, and what this is not
