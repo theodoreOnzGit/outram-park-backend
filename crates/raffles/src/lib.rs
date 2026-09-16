@@ -13,7 +13,7 @@
 //! ## Status — PARTLY IMPLEMENTED, NO HUMAN V&V
 //!
 //! This crate is no longer the empty scaffold its first commits described.
-//! [`distributions`], [`samplers`], [`sensitivity`], [`bayesian`], [`distance`] and [`abc`] carry
+//! [`distributions`], [`samplers`], [`sensitivity`], [`bayesian`], [`distance`], [`abc`] and [`imprecise`] carry
 //! working, unit-tested implementations whose verification methodology and
 //! measured results are recorded in the doc comments of the tests themselves.
 //! [`surrogate`] is still a placeholder.
@@ -38,6 +38,9 @@
 //! - **[`distance`]** — statistical distances between two sample sets:
 //!   Euclidean on summaries, Bhattacharyya, Hellinger, Jensen-Shannon,
 //!   Bray-Curtis and the 1-Wasserstein area metric.
+//! - **[`imprecise`]** — imprecise probability: intervals, probability boxes,
+//!   Clopper-Pearson confidence boxes, and coherent-system reliability with or
+//!   without a dependence assumption.
 //! - **[`abc`]** — Approximate Bayesian Computation: inference when the model
 //!   can be run but no likelihood can be written down.
 //! - **[`bayesian`]** — Bayesian model updating: priors, likelihoods, MCMC
@@ -124,6 +127,7 @@ pub mod abc;
 pub mod bayesian;
 pub mod distance;
 pub mod distributions;
+pub mod imprecise;
 pub mod samplers;
 pub mod sensitivity;
 pub mod surrogate;
