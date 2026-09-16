@@ -93,7 +93,7 @@ impl TrisoSpec {
     ///
     /// Table 2 gives no packing fraction. It gives 8335 particles in a fuel zone
     /// of radius 2.5 cm (a 3 cm ball less its 0.5 cm fuel-free shell), and
-    /// `8335 * (4/3)pi(0.0455)^3 / ((4/3)pi(2.5)^3)` = **0.050247**, which is
+    /// `8335 * (4/3)pi(0.0455)^3 / ((4/3)pi(2.5)^3)` = **0.050248114**, which is
     /// the figure below. The same table closes independently on mass: those
     /// 8335 kernels at 10.4 g/cm3 carry 4.9999 g of heavy metal at 17 %
     /// enrichment, against the 5 g the table states — four significant figures
@@ -116,7 +116,7 @@ impl TrisoSpec {
         ipyc: 0.0380,
         sic: 0.0415,
         opyc: 0.0455,
-        packing_fraction: 0.050_247,
+        packing_fraction: 0.050_248_114,
     };
 
     /// Whether the radii are strictly increasing and the packing fraction is in

@@ -98,28 +98,14 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use outram_mc_libs::dh_universe::{DhTreatment, DhUniverse, PebbleParams};
-use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
+use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
 use outram_mc_libs::physics::keff::KeffSettings;
 
 /// All materials at 27 C, per the paper: *"All materials are specified to be
 /// 27 C."* 300.15 K.
 const TEMP_K: f64 = 300.15;
-
-// Nuclide indices into `nuclides()`.
-const U235: usize = 0;
-const U238: usize = 1;
-const O16: usize = 2;
-const C_FREE: usize = 3; // free-gas carbon: SiC
-const C_GRAPHITE: usize = 4; // graphite-bound carbon: buffer, PyC, matrix, shell
-const SI28: usize = 5;
-const B10: usize = 6;
-
-/// Natural boron: 19.9 at% B-10 / 80.1 at% B-11, so 18.43 **weight** percent
-/// B-10. B-11 is omitted — its absorption cross section is ~0.005 b against
-/// B-10's 3840 b, and at 1.3 ppm its scattering contributes nothing.
-const B10_WEIGHT_FRACTION_OF_NATURAL_B: f64 = 0.184_3;
 
 fn reference_endf(file: &str) -> Option<PathBuf> {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -160,157 +146,16 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     ])
 }
 
-/// How the two "ppm" rows of Table 2 are interpreted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Boron {
-    /// Table 2 read as written: ppm by weight of **natural** boron, so only
-    /// 18.43 wt% of it is the absorbing B-10.
-    Natural,
-    /// The impurity rows dropped entirely.
-    None,
-    /// Graphite's 1.3 ppm kept, the kernel's 4 ppm dropped.
-    GraphiteOnly,
-    /// The mistake: ppm read as **elemental B-10**, over-absorbing by 1/0.1843
-    /// = 5.43x.
-    AsElementalB10,
-}
-
-impl Boron {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Natural => "natural B (as specified)",
-            Self::None => "no boron at all",
-            Self::GraphiteOnly => "graphite boron only",
-            Self::AsElementalB10 => "ppm read as elemental B-10",
-        }
-    }
-    /// B-10 weight fraction applied to the stated ppm.
-    fn b10_fraction(self) -> f64 {
-        match self {
-            Self::Natural | Self::GraphiteOnly => B10_WEIGHT_FRACTION_OF_NATURAL_B,
-            Self::None => 0.0,
-            Self::AsElementalB10 => 1.0,
-        }
-    }
-    fn kernel_ppm(self) -> f64 {
-        match self {
-            Self::None | Self::GraphiteOnly => 0.0,
-            _ => 4.0,
-        }
-    }
-    fn graphite_ppm(self) -> f64 {
-        match self {
-            Self::None => 0.0,
-            _ => 1.3,
-        }
-    }
-}
-
-const NA: f64 = 6.022_140_76e23;
-const M_U235: f64 = 235.043_930;
-const M_U238: f64 = 238.050_788;
-const M_O16: f64 = 15.994_914_6;
-const M_C: f64 = 12.011;
-const M_SI: f64 = 28.0855;
-const M_B10: f64 = 10.0129;
-
-/// Atom density \[atoms/b-cm\] from a mass density \[g/cm3\] and molar mass.
-fn nd(rho: f64, molar: f64) -> f64 {
-    rho * NA / molar * 1.0e-24
-}
-
-/// The seven-material table, in the order [`DhUniverse::pebble`] requires:
-/// five TRISO shells outward, then the fuel-zone matrix, then the outer shell.
-fn materials(boron: Boron) -> Vec<Material> {
-    // 17 % enrichment read as WEIGHT percent -> atom fraction.
-    let w5 = 0.17;
-    let x5 = (w5 / M_U235) / ((w5 / M_U235) + ((1.0 - w5) / M_U238));
-    let m_u = x5 * M_U235 + (1.0 - x5) * M_U238;
-
-    let rho_kernel = 10.4;
-    let m_uo2 = m_u + 2.0 * M_O16;
-    let n_uo2 = nd(rho_kernel, m_uo2);
-    // Kernel boron is quoted "of uranium", so it rides on the U mass density,
-    // not the UO2 density.
-    let rho_u = rho_kernel * m_u / m_uo2;
-    let n_b10_kernel = nd(
-        rho_u * boron.kernel_ppm() * 1.0e-6 * boron.b10_fraction(),
-        M_B10,
-    );
-
-    let graphite_b10 = |rho: f64| {
-        nd(
-            rho * boron.graphite_ppm() * 1.0e-6 * boron.b10_fraction(),
-            M_B10,
-        )
-    };
-
-    let mat = |id: i32, name: &str, comps: &[(usize, f64)]| Material {
-        id,
-        name: name.into(),
-        temperature: TEMP_K,
-        components: comps
-            .iter()
-            .filter(|&&(_, n)| n > 0.0)
-            .map(|&(nuclide_idx, atom_density)| NuclideComponent {
-                nuclide_idx,
-                atom_density,
-            })
-            .collect(),
-    };
-
-    // Table 2 gives no density for the fuel ball's own graphite; the moderator
-    // ball's 1.73 g/cm3 is used for both matrix and shell. See the module docs.
-    let rho_matrix = 1.73;
-    let rho_shell = 1.73;
-    let m_sic = M_SI + M_C;
-    let n_sic = nd(3.18, m_sic);
-
-    vec![
-        mat(
-            0,
-            "UO2 kernel (17 wt%)",
-            &[
-                (U235, x5 * n_uo2),
-                (U238, (1.0 - x5) * n_uo2),
-                (O16, 2.0 * n_uo2),
-                (B10, n_b10_kernel),
-            ],
-        ),
-        mat(
-            1,
-            "buffer PyC",
-            &[(C_GRAPHITE, nd(1.1, M_C)), (B10, graphite_b10(1.1))],
-        ),
-        mat(
-            2,
-            "IPyC",
-            &[(C_GRAPHITE, nd(1.9, M_C)), (B10, graphite_b10(1.9))],
-        ),
-        mat(3, "SiC", &[(SI28, n_sic), (C_FREE, n_sic)]),
-        mat(
-            4,
-            "OPyC",
-            &[(C_GRAPHITE, nd(1.9, M_C)), (B10, graphite_b10(1.9))],
-        ),
-        mat(
-            5,
-            "matrix graphite",
-            &[
-                (C_GRAPHITE, nd(rho_matrix, M_C)),
-                (B10, graphite_b10(rho_matrix)),
-            ],
-        ),
-        mat(
-            6,
-            "shell graphite",
-            &[
-                (C_GRAPHITE, nd(rho_shell, M_C)),
-                (B10, graphite_b10(rho_shell)),
-            ],
-        ),
-    ]
-}
+/// Where each nuclide sits in the slice handed to [`DhUniverse::keff`].
+const NUCLIDES: Htr10Nuclides = Htr10Nuclides {
+    u235: 0,
+    u238: 1,
+    o16: 2,
+    c_free: 3,     // SiC only
+    c_graphite: 4, // buffer / PyC / matrix / shell, with S(alpha,beta)
+    si28: 5,
+    b10: 6,
+};
 
 fn main() {
     let n_particles: usize = std::env::var("OUTRAM_HTR10_HISTORIES")
@@ -353,13 +198,9 @@ fn main() {
     println!("{}", "-".repeat(75));
 
     let mut baseline: Option<(f64, f64)> = None;
-    for arm in [
-        Boron::Natural,
-        Boron::None,
-        Boron::GraphiteOnly,
-        Boron::AsElementalB10,
-    ] {
-        let params = PebbleParams::htr10_li2014().with_materials(materials(arm));
+    for arm in BoronReading::all() {
+        let params = PebbleParams::htr10_li2014()
+            .with_materials(fuel_pebble_materials(NUCLIDES, arm, TEMP_K));
         let universe = match DhUniverse::pebble(params, DhTreatment::DeltaTracking) {
             Ok(u) => u,
             Err(e) => {
