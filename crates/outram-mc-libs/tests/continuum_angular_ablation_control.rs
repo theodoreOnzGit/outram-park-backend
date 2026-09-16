@@ -60,14 +60,42 @@
 //! all. If a measurement comes back much larger, the hypothesis is wrong and the
 //! wiring should be suspected before the physics.
 //!
-//! There is a **second, opposing effect worth stating rather than smoothing
-//! over**. For a centre-of-mass law (`LCT = 2`, which both uranium isotopes use)
-//! the lab energy is `E' = E_cm + E_trans + 2μ_cm√(E_cm·E_trans)`, so a
-//! forward-peaked cosine also *raises* `⟨E'_lab⟩` and **hardens** the spectrum.
-//! This crate's spectrum is already 0.45 % too hard against OpenMC
-//! (`op-os8x`), so this change moves that residual the **wrong way**. That is
-//! the same shape as gh:#192's Q-value cap, which was correct and moved Godiva
-//! further from the experiment. Correctness is not chosen for its direction.
+//! # The spectral side effect: PREDICTED HARDER, MEASURED (weakly) SOFTER
+//!
+//! For a centre-of-mass law the lab energy is
+//! `E' = E_cm + E_trans + 2·μ_cm·√(E_cm·E_trans)`, so a forward-peaked cosine
+//! raises `⟨E'_lab⟩` per collision. That argument was recorded here as
+//! "this hardens the spectrum and moves `op-os8x` the wrong way".
+//!
+//! **Measured 2026-09-16** (`examples/godiva_continuum_spectrum_ablation.rs`,
+//! 8 seeds per arm), ANISO against ISO:
+//!
+//! | measure | relative change | |
+//! |---|---|---|
+//! | mean `E` | **−0.076 % ± 0.109** | 0.7 σ |
+//! | mean `ln E` | **−0.008 % ± 0.008** | 1.0 σ |
+//! | flux fraction below 300 keV | **+0.157 % ± 0.226** | 0.7 σ |
+//!
+//! **Nothing is resolved at 2 σ, and all three central values point the other
+//! way** — softer, not harder. The prediction is therefore *not supported*; it
+//! is also not refuted, and the honest statement is a bound: the spectral
+//! effect of this law is smaller than about `0.22 %` in mean `E`, against the
+//! `+0.45 %` residual `op-os8x` is about. **It cannot be the explanation for
+//! `op-os8x`, in either direction.**
+//!
+//! Note the three measures are *not* three independent votes — they are taken
+//! from the same tallied spectrum in the same runs and are strongly correlated.
+//! Their agreeing in sign is close to one observation, not three.
+//!
+//! An after-the-fact hypothesis, labelled as such because it was formed after
+//! seeing the numbers and has not been tested: in a 55.8 %-leakage bare sphere,
+//! raising the transport mean free path preferentially removes the *fast*
+//! neutrons most likely to escape, which softens the surviving in-core flux.
+//! That would oppose the per-collision hardening and is tied to the same
+//! leakage that produced the reactivity effect. **The measurement that would
+//! separate them is the same spectrum comparison run with a reflective
+//! boundary** (`k_inf`, no leakage), where only the per-collision term
+//! survives — the same decomposition `op-tm9f` used.
 //!
 //! # Methodology
 //!

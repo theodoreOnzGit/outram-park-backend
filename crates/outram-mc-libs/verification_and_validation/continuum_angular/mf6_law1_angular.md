@@ -214,51 +214,97 @@ shows this law is flat through the bulk of a fission spectrum. A result near
 importing 14 MeV cosines into 2 MeV flux — and the wiring should be suspected
 before the physics.
 
-**Measured 2026-09-16**, 32 seeds per arm, 5000 histories × [40 inactive + 120
+**Measured 2026-09-16**, 128 seeds per arm, 5000 histories × [40 inactive + 120
 active], three ICSBEP nuclides, ENDF/B-VIII.0:
 
 | arm | n | mean vs ICSBEP | sd | sem |
 |---|---|---|---|---|
-| **ANISO** (evaluated MF=6 LANG=1) | 32 | **+4 pcm** | 159 | ±28 |
-| **ISO** (pre-`op-og56`) | 32 | **+45 pcm** | 182 | ±32 |
-| **difference** | | **−41 pcm** | | **±43 (1.0 σ)** |
+| **ANISO** (evaluated MF=6 LANG=1) | 128 | **−26 pcm** | 197 | ±17 |
+| **ISO** (pre-`op-og56`) | 128 | **+11 pcm** | 166 | ±15 |
+| **difference** | | **−38 pcm** | | **±23 (1.6 σ)** |
 
-**The prediction held on direction and magnitude, and the result is a BOUND, not
-a measurement.** `−41 ± 43 pcm` is 1.0 σ from zero, so this run cannot
-distinguish the effect from nothing. What it does do is kill the alternative: an
-effect the size of `op-tm9f`'s `−198 pcm` would sit **3.7 σ** from what was
-observed. The continuum angular law is not a second `op-tm9f`.
+**The prediction held on direction and magnitude, and the result is a BOUND,
+not a measurement.** At 1.6 σ it is consistent with zero. What it kills is the
+alternative: an effect the size of `op-tm9f`'s `−198 pcm` would sit **7 σ** from
+what was observed. The continuum angular law is not a second `op-tm9f`.
 
-**Do not quote −41 pcm as the worth of this law.** Quote it as *consistent with
-zero, bounded well below 130 pcm at 3 σ, and negative in central value as
-predicted*.
+**Do not quote −38 pcm as the worth of this law.** Quote it as *consistent with
+zero, bounded below 70 pcm at 3 σ, central value negative as predicted*.
 
-**A harness check that passes.** The ISO arm reproduces the behaviour this crate
-had before `op-og56`, whose independently pooled value is `+16 ± 11 pcm` over
-256 seeds. Measured here at `+45 ± 32` — a difference of `+29 ± 34 pcm`, 0.85 σ.
-An ablation arm landing back on a number pooled by a different program is a
-check on the instrument rather than a restatement of it.
+**This supersedes an earlier 32-seed run** (`−41 ± 43 pcm`) rather than
+confirming it: that run used seeds 1…32 and this one 1…128, so the earlier
+sample is a **subset**. The stability across them is reassuring; it is not a
+second measurement, and pooling would double-count.
 
-**The seeds do not pair**, and the run reports it: paired `sd` 220 exceeds either
-arm's 182, so the unpaired figure is the one quoted. Worth noting because unlike
-the discrete-level ablation, these two arms *do* consume identical RNG variates
-per collision, so pairing might have been expected to help. It does not — the
-histories diverge in where they go, not in how many draws they take.
+**A harness check that passes.** The ISO arm reproduces the pre-`op-og56`
+behaviour, independently pooled at `+16 ± 11 pcm` over 256 seeds. Measured here
+at `+11 ± 15` — a difference of `−5 ± 19 pcm`, **0.3 σ**. An ablation arm
+landing on a number pooled by a different program checks the instrument rather
+than restating it.
 
-**What would resolve it.** `sigma_diff ≈ 14` is needed to put `−41` at 3 σ,
-i.e. roughly **290 seeds per arm**, about nine times this run. Nothing in this
-crate currently depends on the number being resolved rather than bounded.
+**Consequence for `RECORDED_PCM = 16.0`**, which was measured pre-`op-og56`:
+the post-`op-og56` mean is lower by `38 ± 23 pcm`, i.e. near `−22`. It has
+**not** been re-measured at 256 seeds and is **not** changed on a 1.6 σ shift.
+The drift gate built on it is `4·√(σ_run² + 11²) ≈ 693 pcm` for a single run,
+so nothing is currently mis-gated.
 
-## The tension this creates, stated rather than smoothed
+**The seeds do not pair** (paired `sd` 246 exceeds either arm's 197), so the
+unpaired figure is quoted. Worth recording because these two arms consume
+identical RNG variates per collision, unlike the discrete-level ablation, so
+pairing might have been expected to help. It does not — the histories diverge
+in where they go, not in how many draws they take.
 
-For a CM law `⟨E'_lab⟩` **rises** with `⟨μ_cm⟩`, so this change **hardens** the
-spectrum. This crate's flux is already 0.45 % too hard in mean `E` against
-OpenMC (3.5 σ), with 1.03 % less flux below 300 keV — bead `op-os8x`, still
-open. So a correct fix moves that residual the **wrong way**.
+**What would resolve it:** `σ_diff ≈ 13`, i.e. roughly **400 seeds per arm**.
+Nothing here depends on the number being resolved rather than bounded.
 
-That is the same shape as gh:#192's MT=91 Q-value cap, which was correct and
-moved Godiva 85 pcm *further* from a measured criticality experiment. Neither
-was chosen for its direction.
+## Results — the spectral side effect: predicted harder, measured softer
+
+For a CM law `⟨E'_lab⟩` rises with `⟨μ_cm⟩` per collision, so this section
+originally asserted that the change **hardens** the spectrum and moves
+`op-os8x` — this crate's flux being 0.45 % too hard in mean `E` against OpenMC
+(3.5 σ), with 1.03 % less flux below 300 keV — the **wrong way**.
+
+That was a prediction, and it is now measured
+(`examples/godiva_continuum_spectrum_ablation.rs`, 8 seeds per arm,
+2026-09-16), ANISO against ISO on the same 50-bin log grid the cross-code study
+uses:
+
+| measure | ANISO | ISO | relative change | |
+|---|---|---|---|---|
+| mean `E` \[eV\] | 1.47409e6 | 1.47521e6 | **−0.076 % ± 0.109** | 0.7 σ |
+| mean `ln E` | 13.6835 | 13.6846 | **−0.008 % ± 0.008** | 1.0 σ |
+| flux fraction < 300 keV | 0.155354 | 0.155109 | **+0.157 % ± 0.226** | 0.7 σ |
+
+**Nothing is resolved at 2 σ, and all three central values point the opposite
+way to the prediction** — softer, not harder. So the sign argument is **not
+supported**. It is not refuted either, and the honest statement is a bound:
+the spectral effect of this law is below about `0.22 %` in mean `E` at 2 σ,
+against the `+0.45 %` residual `op-os8x` is about.
+
+**Either way, this law is not the explanation for `op-os8x`.** If it hardens,
+it does so too little; if it softens, it points away from the residual
+entirely. That is a useful exclusion and it is what this measurement bought.
+
+A caution about reading the table: the three measures are **not three
+independent votes**. They are taken from the same tallied spectrum in the same
+runs and are strongly correlated, so their agreeing in sign is close to one
+observation, not three.
+
+**An after-the-fact hypothesis, labelled as such** because it was formed after
+seeing the numbers and has not been tested: in a 55.8 %-leakage bare sphere,
+raising the transport mean free path preferentially removes the *fast* neutrons
+most likely to escape, softening the surviving in-core flux. That would oppose
+the per-collision hardening and is tied to the same leakage that produced the
+reactivity effect. **The discriminating measurement is the same spectrum
+comparison under a reflective boundary** (`k_inf`, no leakage), where only the
+per-collision term survives — the decomposition `op-tm9f` used to show its own
+fix was leakage-only. Not done.
+
+The original framing also invoked gh:#192's MT=91 Q-value cap as "the same
+shape" — a correct fix that moved Godiva 85 pcm *further* from a measured
+experiment. That parallel no longer holds here, since the effect this section
+predicted is not the one measured. It is left recorded because the general
+point stands: correctness is not chosen for its direction.
 
 ## What is NOT covered
 

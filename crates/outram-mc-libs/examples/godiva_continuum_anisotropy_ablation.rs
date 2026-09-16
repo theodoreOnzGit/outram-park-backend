@@ -75,54 +75,91 @@
 //! applied at the wrong incident energy, which would import the 14 MeV cosines
 //! into the 2 MeV flux.
 //!
-//! # A second effect, recorded because it pulls the other way
+//! # A second effect: PREDICTED HARDER, MEASURED (weakly) SOFTER
 //!
-//! For a centre-of-mass law (`LCT = 2`, which both uranium isotopes use) the lab
-//! energy is `E' = E_cm + E_trans + 2·μ_cm·√(E_cm·E_trans)`, so a forward-peaked
-//! cosine also **raises** `⟨E'_lab⟩` and hardens the spectrum. This crate's
-//! spectrum is already 0.45 % too hard against OpenMC (`op-os8x`), so this
-//! change moves that residual the **wrong way**. Same shape as gh:#192's
-//! Q-value cap, which was correct and moved Godiva further from the experiment.
-//! Correctness is not chosen for its direction, and the tension is stated rather
-//! than smoothed.
+//! For a centre-of-mass law the lab energy is
+//! `E' = E_cm + E_trans + 2·μ_cm·√(E_cm·E_trans)`, so a forward-peaked cosine
+//! raises `⟨E'_lab⟩` per collision. That argument was recorded here as
+//! "this hardens the spectrum and moves `op-os8x` the wrong way".
 //!
-//! # Results (2026-09-16, 32 seeds per arm, ENDF/B-VIII.0)
+//! **Measured 2026-09-16** (`examples/godiva_continuum_spectrum_ablation.rs`,
+//! 8 seeds per arm), ANISO against ISO:
+//!
+//! | measure | relative change | |
+//! |---|---|---|
+//! | mean `E` | **−0.076 % ± 0.109** | 0.7 σ |
+//! | mean `ln E` | **−0.008 % ± 0.008** | 1.0 σ |
+//! | flux fraction below 300 keV | **+0.157 % ± 0.226** | 0.7 σ |
+//!
+//! **Nothing is resolved at 2 σ, and all three central values point the other
+//! way** — softer, not harder. The prediction is therefore *not supported*; it
+//! is also not refuted, and the honest statement is a bound: the spectral
+//! effect of this law is smaller than about `0.22 %` in mean `E`, against the
+//! `+0.45 %` residual `op-os8x` is about. **It cannot be the explanation for
+//! `op-os8x`, in either direction.**
+//!
+//! Note the three measures are *not* three independent votes — they are taken
+//! from the same tallied spectrum in the same runs and are strongly correlated.
+//! Their agreeing in sign is close to one observation, not three.
+//!
+//! An after-the-fact hypothesis, labelled as such because it was formed after
+//! seeing the numbers and has not been tested: in a 55.8 %-leakage bare sphere,
+//! raising the transport mean free path preferentially removes the *fast*
+//! neutrons most likely to escape, which softens the surviving in-core flux.
+//! That would oppose the per-collision hardening and is tied to the same
+//! leakage that produced the reactivity effect. **The measurement that would
+//! separate them is the same spectrum comparison run with a reflective
+//! boundary** (`k_inf`, no leakage), where only the per-collision term
+//! survives — the same decomposition `op-tm9f` used.
+//!
+//! # Results (2026-09-16, 128 seeds per arm, ENDF/B-VIII.0)
 //!
 //! | arm | n | mean vs ICSBEP | sd | sem |
 //! |---|---|---|---|---|
-//! | **ANISO** (evaluated MF=6 LANG=1) | 32 | **+4 pcm** | 159 | ±28 |
-//! | **ISO** (pre-`op-og56`) | 32 | **+45 pcm** | 182 | ±32 |
-//! | **difference** | | **−41 pcm** | | **±43 (1.0 sigma)** |
+//! | **ANISO** (evaluated MF=6 LANG=1) | 128 | **−26 pcm** | 197 | ±17 |
+//! | **ISO** (pre-`op-og56`) | 128 | **+11 pcm** | 166 | ±15 |
+//! | **difference** | | **−38 pcm** | | **±23 (1.6 sigma)** |
 //!
-//! **The prediction held on direction and on magnitude, and the result is a
-//! BOUND rather than a measurement.** `−41 ± 43 pcm` is 1.0 sigma from zero, so
-//! this run cannot distinguish the effect from nothing. What it *can* do is
-//! exclude the alternative: an effect the size of `op-tm9f`'s `−198 pcm` would
-//! sit **3.7 sigma** away from what was observed. So the continuum angular law
-//! is not a second `op-tm9f`, which was the falsifiable half of the prediction.
+//! **The prediction held on direction and on magnitude, and the result is still
+//! a BOUND rather than a measurement.** At 1.6 sigma it is consistent with
+//! zero. What it excludes is the alternative: an effect the size of `op-tm9f`'s
+//! `−198 pcm` would sit **7 sigma** away. The continuum angular law is not a
+//! second `op-tm9f`, which was the falsifiable half of the prediction.
 //!
-//! Do not quote `−41 pcm` as the worth of this law. Quote it as
-//! *"consistent with zero; bounded well below 130 pcm at 3 sigma"*.
+//! Do not quote `−38 pcm` as the worth of this law. Quote it as *"consistent
+//! with zero; bounded below 70 pcm at 3 sigma; central value negative, as
+//! predicted"*.
+//!
+//! **Superseding, not confirming, an earlier 32-seed run** which gave
+//! `−41 ± 43 pcm`. That run used seeds 1…32 and this one seeds 1…128, so the
+//! earlier sample is a **subset** of this one and the two are not independent.
+//! The agreement is reassuring about stability but is not a second measurement,
+//! and pooling them would double-count.
 //!
 //! **A harness check that passes.** The ISO arm reproduces the behaviour this
-//! crate had before `op-og56`, whose recorded value is `+16 ± 11 pcm` over 256
-//! seeds (`examples/godiva_keff_ensemble.rs`). Measured here at `+45 ± 32`, a
-//! difference of `+29 ± 34 pcm` — 0.85 sigma. That the ablation arm lands back
-//! on an independently pooled number is a check on the instrument, not a
-//! restatement of it.
+//! crate had before `op-og56`, whose independently pooled value is
+//! `+16 ± 11 pcm` over 256 seeds (`examples/godiva_keff_ensemble.rs`). Measured
+//! here at `+11 ± 15`, a difference of `−5 ± 19 pcm` — **0.3 sigma**. An
+//! ablation arm landing back on a number pooled by a different program checks
+//! the instrument rather than restating it.
 //!
-//! **The seeds do not pair**, and the run says so: paired `sd` 220 exceeds
-//! either arm's 182. Quote the unpaired figure. That is measured rather than
+//! **A consequence for `RECORDED_PCM`.** That constant is `16.0`, measured
+//! pre-`op-og56`. This says the post-`op-og56` mean is lower by `38 ± 23 pcm`,
+//! i.e. near `−22`. It has **not** been re-measured at 256 seeds and the
+//! constant is **not** changed on a 1.6 sigma shift. The drift gate that uses it
+//! is `4·√(σ_run² + 11²) ≈ 693 pcm` for a single run, so a 38 pcm move is
+//! nowhere near tripping it and nothing is currently mis-gated.
+//!
+//! **The seeds do not pair**, and the run says so: paired `sd` 246 exceeds
+//! either arm's 197. Quote the unpaired figure. That is measured rather than
 //! assumed — which matters here, because unlike the discrete-level ablation the
 //! two arms *do* consume identical RNG variates per collision, so pairing might
 //! have been expected to help. It does not: the histories diverge in where they
 //! go, not in how many draws they take.
 //!
-//! **What would resolve it.** Getting `−41` to 3 sigma needs `sigma_diff ≈ 14`,
-//! i.e. roughly **290 seeds per arm** — about nine times this run. Whether that
-//! is worth ~5 CPU-hours to turn a bound into a measurement is a judgement about
-//! what the number would be used for; nothing in this crate currently depends on
-//! it being resolved.
+//! **What would resolve it.** Getting `−38` to 3 sigma needs `sigma_diff ≈ 13`,
+//! i.e. roughly **400 seeds per arm**. Nothing in this crate currently depends
+//! on the number being resolved rather than bounded.
 //!
 //! ```text
 //! OUTRAM_GODIVA_SEEDS=32 cargo run --release -p outram-mc-libs \

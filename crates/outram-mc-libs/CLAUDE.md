@@ -232,22 +232,32 @@ maturity gate in that file for what this means and how the bar is revised.
      *high-energy* correction and the predicted worth on Godiva is small
      (recorded before measuring: down, well under 50 pcm).
 
-     **Priced 2026-09-16 at `−41 ± 43 pcm`** (32 seeds per arm,
-     `examples/godiva_continuum_anisotropy_ablation.rs`): ANISO `+4 ± 28`
-     against ISO `+45 ± 32`. The prediction held on direction and magnitude,
-     **but at 1.0 σ this is a bound, not a measurement** — it is consistent with
-     zero, and excludes an `op-tm9f`-sized effect at 3.7 σ. Do not quote `−41`
-     as the worth; quote it as *bounded well below 130 pcm at 3 σ*. Resolving
-     it to 3 σ needs ~290 seeds per arm.
+     **Priced 2026-09-16 at `−38 ± 23 pcm`** (128 seeds per arm,
+     `examples/godiva_continuum_anisotropy_ablation.rs`): ANISO `−26 ± 17`
+     against ISO `+11 ± 15`. The prediction held on direction and magnitude,
+     **but at 1.6 σ this is a bound, not a measurement** — consistent with zero,
+     and excluding an `op-tm9f`-sized effect at 7 σ. Do not quote `−38` as the
+     worth; quote it as *bounded below 70 pcm at 3 σ*. Resolving it to 3 σ needs
+     ~400 seeds per arm. (An earlier 32-seed run gave `−41 ± 43`; its seeds are
+     a **subset** of these, so it is superseded, not confirmatory.)
 
      The ISO arm independently reproduces the pre-`op-og56` `+16 ± 11 pcm` to
-     0.85 σ, which checks the instrument. **`RECORDED_PCM = 16.0` therefore
-     still stands within statistics** and has not been re-measured at 256 seeds
-     on the post-`op-og56` code.
+     **0.3 σ**, which checks the instrument. `RECORDED_PCM = 16.0` predates
+     `op-og56` and this says the current mean is near `−22`; it is **not**
+     changed on a 1.6 σ shift, and the drift gate built on it (~693 pcm for a
+     single run) is nowhere near tripping.
 
-     Note the sign tension with qualification 2: for a CM law `⟨E'_lab⟩` rises
-     with `⟨μ_cm⟩`, so this **hardens** the spectrum and moves `op-os8x` the
-     wrong way. Same shape as gh:#192's Q-value cap.
+     **A predicted sign that did not survive measurement.** This was recorded
+     as hardening the spectrum (for a CM law `⟨E'_lab⟩` rises with `⟨μ_cm⟩`) and
+     therefore moving `op-os8x` the wrong way. Measured 2026-09-16
+     (`examples/godiva_continuum_spectrum_ablation.rs`, 8 seeds per arm): mean
+     `E` **−0.076 % ± 0.109**, mean `ln E` **−0.008 % ± 0.008**, flux below
+     300 keV **+0.157 % ± 0.226** — nothing resolved at 2 σ and every central
+     value pointing the *other* way. The prediction is **not supported**, and
+     the honest statement is a bound: below ~0.22 % in mean `E`, against
+     `op-os8x`'s +0.45 %. **This law is not the explanation for `op-os8x` in
+     either direction.** The discriminating follow-up is the same comparison
+     under a reflective boundary, where only the per-collision term survives.
 
      **`LANG = 2` (Kalbach-Mann) landed the same day**, reusing
      `groupr::kinematics::bach` (already in the crate as an NJOY port) for the

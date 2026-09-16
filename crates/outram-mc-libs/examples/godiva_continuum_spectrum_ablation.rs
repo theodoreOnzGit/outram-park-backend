@@ -77,10 +77,44 @@
 //! collisions and a change in *where* neutrons scatter can move the spectrum
 //! independently of the per-collision energy transfer.
 //!
-//! # Results
+//! # Results (2026-09-16, 8 seeds per arm, ENDF/B-VIII.0)
 //!
-//! **Not yet measured.** Record the table here with the date and seed count when
-//! it has been run, and say plainly whether the prediction held.
+//! | measure | ANISO | ISO | relative change | |
+//! |---|---|---|---|---|
+//! | mean `E` \[eV\] | 1.47409e6 | 1.47521e6 | **−0.076 % ± 0.109** | 0.7 σ |
+//! | mean `ln E` | 13.6835 | 13.6846 | **−0.008 % ± 0.008** | 1.0 σ |
+//! | flux fraction < 300 keV | 0.155354 | 0.155109 | **+0.157 % ± 0.226** | 0.7 σ |
+//!
+//! **THE PREDICTION WAS NOT SUPPORTED.** It said harder; all three central
+//! values say softer. Nothing is resolved at 2 σ, so it is not refuted either,
+//! and the honest reading is a **bound**: the spectral effect of this law is
+//! below about `0.22 %` in mean `E` at 2 σ, against the `+0.45 %` residual
+//! `op-os8x` is about.
+//!
+//! **The useful conclusion is an exclusion.** Whichever way the sign really
+//! goes, this law is **not** the explanation for `op-os8x` — too small to
+//! account for it if it hardens, and pointing away from it if it softens. That
+//! is what this measurement bought, and it is worth more than the sign would
+//! have been.
+//!
+//! **Do not read the three rows as three independent votes.** They come from
+//! the same tallied spectrum in the same runs and are strongly correlated;
+//! their agreeing in sign is close to one observation, not three.
+//!
+//! **After-the-fact hypothesis, labelled as such** — formed after seeing these
+//! numbers, untested: in a 55.8 %-leakage bare sphere, raising the transport
+//! mean free path preferentially removes the *fast* neutrons most likely to
+//! escape, which softens the surviving in-core flux. That opposes the
+//! per-collision hardening and is tied to the same leakage that produced the
+//! `−41 ± 43 pcm` reactivity effect. It is the weak point named in the
+//! prediction above, arriving from a direction the prediction did not consider.
+//!
+//! **The discriminating measurement, not done:** run this same comparison under
+//! a **reflective** boundary (`k_inf`, no leakage), where the leakage-selection
+//! term vanishes and only the per-collision term survives. If the spectrum
+//! hardens there, both effects are real and they compete; if it does not, the
+//! per-collision argument is simply wrong. That is the decomposition `op-tm9f`
+//! used to show its own fix was leakage-only, applied here.
 //!
 //! ```text
 //! OUTRAM_GODIVA_SEEDS=8 cargo run --release -p outram-mc-libs \
