@@ -269,6 +269,38 @@
 //! Pricing them on this case is the obvious next measurement now that it has
 //! headroom — at ±120 pcm it can resolve an effect of a few hundred pcm.
 //!
+//! # DBRC and URR probability tables priced here, 2026-09-16 — both BOUNDED,
+//! # neither resolved
+//!
+//! With the residual gone this case finally had the headroom to price the two
+//! resonance treatments that landed the same day, and which a bare fast sphere
+//! cannot see at all. Both are opt-in (`--dbrc`, `--urr`) and both default off,
+//! so the no-flag arm reproduces the baseline above and the difference is
+//! attributable to the flag alone.
+//!
+//! | arm | `Δk` | worth against the baseline |
+//! |---|---|---|
+//! | neither (baseline) | +157 ± 119 pcm | — |
+//! | `--dbrc` | +197 ± 129 pcm | **+40 ± 176 (0.2 σ)** |
+//! | `--urr` | +60 ± 132 pcm | **−97 ± 178 (0.5 σ)** |
+//! | both | +210 ± 129 pcm | **+53 ± 176 (0.3 σ)** |
+//!
+//! **Every one is consistent with zero, and none of them is a measurement.**
+//! A single paired run here has `σ_diff ≈ 176 pcm`, so it can only resolve an
+//! effect above **~350 pcm at 2 σ**. The published DBRC value for an LWR pin
+//! cell is 100–200 pcm — *below* this run's resolution. So this result **does
+//! not contradict the literature**; it simply cannot see an effect that size,
+//! and saying "DBRC is worth nothing here" would be reading an unresolved
+//! central value as a measurement. The honest statement is: **bounded below
+//! ~350 pcm at 2 σ, consistent with zero.** Resolving either needs a
+//! paired-seed ensemble, which is ordinary CPU rather than new physics.
+//!
+//! One thing the run *does* establish beyond the bound: the URR wiring
+//! generalises past the nuclide it was verified on. Tables built for **all
+//! three actinides** — U-234 over `[1.500e3, 1.000e5]` eV, U-235 over
+//! `[2.250e3, 2.500e4]`, U-238 over `[2.000e4, 1.490e5]` — in about 5 s total
+//! at `nladr = 16`. The control test could only show U-238.
+//!
 //! # Re-run 2026-09-13 against the last two changes, and why it was worth doing
 //!
 //! The fourth column is this case re-measured after the MT=91/MT=16 continuum
@@ -375,6 +407,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example lct008_keff -- [--clad-omission-bound] [--particles N]
+//!                              [--dbrc] [--urr]
 //! ```
 
 use njoy_outram_park_fork::reference_data::reference_endf;
@@ -489,7 +522,18 @@ fn main() {
     eprintln!("  case {case}");
 
     let spec = parse_materials(materials_xml());
-    let (nuclides, slots, omitted) = load_nuclides(&spec);
+    let res_opts = ResonanceOptions {
+        dbrc: args.iter().any(|a| a == "--dbrc"),
+        urr: args.iter().any(|a| a == "--urr"),
+    };
+    if res_opts.dbrc || res_opts.urr {
+        eprintln!(
+            "Resonance treatments requested: dbrc={} urr={} (both default OFF; a run without \
+             them reproduces the recorded baseline)",
+            res_opts.dbrc, res_opts.urr
+        );
+    }
+    let (nuclides, slots, omitted) = load_nuclides(&spec, res_opts);
     let (materials, clad_idx) = build_materials(&spec, &slots, &omitted, false);
     report_omissions(&spec, &omitted);
     // `check_geometry`'s hand-written predicate resolves materials by the model's
@@ -767,8 +811,24 @@ fn parse_materials(xml: &str) -> Vec<MaterialSpec> {
 
 /// Reconstruct every nuclide the model asks for that this environment has a
 /// tape for. Returns the nuclide array, name → slot, and the omitted set.
+/// Which optional resonance-treatment physics to switch on, for pricing it.
+///
+/// Both default to **off**, matching every result recorded for this case
+/// before 2026-09-16 — so a run without flags reproduces the baseline and the
+/// difference is attributable to the flag alone.
+#[derive(Debug, Clone, Copy, Default)]
+struct ResonanceOptions {
+    /// `--dbrc` — resonance elastic scattering (`Nuclide::with_dbrc`) on the
+    /// actinides, below 1 keV (OpenMC's default limit).
+    dbrc: bool,
+    /// `--urr` — unresolved-resonance probability tables
+    /// (`Nuclide::with_urr_probability_tables`) on the actinides.
+    urr: bool,
+}
+
 fn load_nuclides(
     spec: &[MaterialSpec],
+    opts: ResonanceOptions,
 ) -> (Vec<Nuclide>, BTreeMap<String, usize>, BTreeMap<String, f64>) {
     let mut wanted: Vec<&str> = Vec::new();
     let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
@@ -807,6 +867,34 @@ fn load_nuclides(
     for name in wanted {
         let file = TAPES.iter().find(|(n, _)| *n == name).expect("tape").1;
         let mut n = load(name, file);
+        // Resonance treatments, on the actinides only -- they are where the
+        // resolved and unresolved resonances that matter live, and building
+        // URR tables is expensive enough not to attempt on nuclides with no
+        // unresolved range.
+        if name.starts_with('U') || name.starts_with("Pu") {
+            if opts.dbrc {
+                n = n.with_dbrc(1.0e3);
+                if n.has_dbrc() {
+                    eprintln!("    {name} carries DBRC below 1 keV");
+                }
+            }
+            if opts.urr {
+                let p = reference_endf(file).expect("tape");
+                let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+                let mat = tape.materials()[0];
+                let t0 = Instant::now();
+                n = n
+                    .with_urr_probability_tables(&tape, mat, TEMP_K, 20, 16, 2000)
+                    .expect("PURR");
+                if let Some((lo, hi)) = n.urr_range_ev() {
+                    eprintln!(
+                        "    {name} carries URR probability tables over [{lo:.3e}, {hi:.3e}] eV \
+                         ({:.1?})",
+                        t0.elapsed()
+                    );
+                }
+            }
+        }
         if name == "H1" {
             if let Some(s) = sab.take() {
                 n = n.with_thermal_scattering(s);

@@ -406,10 +406,26 @@ are truly zero, since every case is independently critical — went from
 **+123 ± 177 (0.7 σ)**. *"Its boron is worth too little"*, this case's
 load-bearing finding for weeks, is resolved.
 
-**DBRC and URR probability tables were NOT enabled in that run** — both are
-opt-in and neither is switched on by `lct008_keff`. So this result prices
-neither, and the case now has the headroom (±120 pcm) to price both. That is
-the obvious next measurement.
+**DBRC and URR were then priced on this case, and both are BOUNDED rather than
+resolved** (`--dbrc` / `--urr`, added to `lct008_keff`; both default off so the
+no-flag arm reproduces the baseline):
+
+| arm | `Δk` | worth |
+|---|---|---|
+| neither | +157 ± 119 pcm | — |
+| `--dbrc` | +197 ± 129 | **+40 ± 176 (0.2 σ)** |
+| `--urr` | +60 ± 132 | **−97 ± 178 (0.5 σ)** |
+| both | +210 ± 129 | **+53 ± 176 (0.3 σ)** |
+
+All consistent with zero. **None is a measurement**: `σ_diff ≈ 176 pcm` here, so
+a single paired run resolves only effects above **~350 pcm at 2 σ**, and the
+published DBRC value for an LWR pin cell (100–200 pcm) sits *below* that. This
+does not contradict the literature — it cannot see an effect that size.
+Resolving either needs a paired-seed ensemble, which is CPU rather than physics.
+
+The run did establish one thing beyond the bound: **the URR wiring generalises**
+past U-238, building tables for all three actinides (U-234, U-235, U-238) in
+~5 s total. The control test could only show U-238.
 
 ## What "correctly represented" would mean
 
