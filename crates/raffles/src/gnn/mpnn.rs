@@ -24,9 +24,12 @@
 // rules forbid the trait objects one would need to build it. The upstream's
 // `shared_mp` option (reuse one processor across all steps) is kept.
 // The training loop and the autoregressive rollout ARE ported, in
-// `super::training`. The PyTorch Lightning wrapper, the Weights & Biases
-// sweep, the `.pt` dataset loader and the plotting suite are NOT: those are
-// experiment harness rather than model behaviour.
+// `super::training`, and the `.pt` dataset format IS readable, in
+// `super::dataset`. What is NOT ported: the PyTorch Lightning wrapper, the
+// Weights & Biases hyperparameter sweep, and the matplotlib plotting suite —
+// a training-run supervisor, a cloud experiment tracker and a figure generator
+// respectively, none of which is model behaviour or has a Rust counterpart
+// worth inventing.
 // ---------------------------------------------------------------------------
 
 //! The message-passing network itself, in `burn`.
@@ -60,10 +63,10 @@
 //! # Scope
 //!
 //! The model: construction and the forward pass. **Training and rollout are in
-//! [`super::training`]**, which is where the upstream's training loop and
-//! rollout driver landed. What was deliberately left behind is the harness
-//! around them — the Lightning wrapper, the hyperparameter sweep, the `.pt`
-//! dataset loader and the plotting.
+//! [`super::training`]** and the upstream's **`.pt` data files are readable
+//! via [`super::dataset`]**. What was deliberately left behind is the harness
+//! around them — the Lightning training supervisor, the Weights & Biases
+//! sweep, and the matplotlib plotting.
 
 
 

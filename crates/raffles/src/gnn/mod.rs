@@ -30,6 +30,9 @@
 //!
 //! [`mpnn`] is the network itself and [`training`] is its training loop and
 //! autoregressive rollout; both are behind the crate's `burn` feature.
+//! [`dataset`] reads the upstream's own `.pt` trajectory files and needs no
+//! `burn` at all, so a caller can measure a published dataset's mesh and its
+//! reach requirement without building a tensor library.
 //!
 //! # Provenance
 //!
@@ -61,9 +64,13 @@
 //! exact solutions. That experiment demonstrates the penalty for under-reaching
 //! badly; it does NOT resolve whether reaching the bound exactly matters, and
 //! the test says so with its measurements. Nothing here has been trained on or
-//! validated against a published PDE dataset.
+//! validated against a published PDE dataset — though [`dataset`] now reads
+//! those datasets, and the measurements it takes from all five of the
+//! upstream's are recorded in its tests, including one place where the bound
+//! computed here differs from the number the upstream's README states.
 
 pub mod bound;
+pub mod dataset;
 pub mod graph;
 pub mod mc_geometry;
 
@@ -74,6 +81,7 @@ pub mod mpnn;
 pub mod training;
 
 pub use bound::{physics_guided_lower_bound, IterationBound, PdeClass};
+pub use dataset::TorchArchive;
 pub use graph::Graph;
 pub use mc_geometry::cell_adjacency_graph;
 
