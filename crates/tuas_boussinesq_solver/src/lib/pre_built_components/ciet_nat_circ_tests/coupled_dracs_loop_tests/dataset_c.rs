@@ -25,6 +25,10 @@
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 664 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c1() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -151,6 +155,10 @@ pub fn ciet_coupled_nat_circ_set_c1() {
 /// C8,62.8,105.15,52.36,40,0.0361,0.0456,2682.8141819325,2.72
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 605 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c2() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -264,6 +272,10 @@ pub fn ciet_coupled_nat_circ_set_c2() {
 /// C8,62.8,105.15,52.36,40,0.0361,0.0456,2682.8141819325,2.72
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 595 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c3() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -377,6 +389,10 @@ pub fn ciet_coupled_nat_circ_set_c3() {
 /// C8,62.8,105.15,52.36,40,0.0361,0.0456,2682.8141819325,2.72
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 605 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c4() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -491,6 +507,10 @@ pub fn ciet_coupled_nat_circ_set_c4() {
 /// C8,62.8,105.15,52.36,40,0.0361,0.0456,2682.8141819325,2.72
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 583 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c5() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -604,6 +624,10 @@ pub fn ciet_coupled_nat_circ_set_c5() {
 /// C8,62.8,105.15,52.36,40,0.0361,0.0456,2682.8141819325,2.72
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 572 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c6() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -718,6 +742,10 @@ pub fn ciet_coupled_nat_circ_set_c6() {
 /// C8,62.8,105.15,52.36,40,0.0361,0.0456,2682.8141819325,2.72
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 572 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c7() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -831,6 +859,10 @@ pub fn ciet_coupled_nat_circ_set_c7() {
 /// C7,60.54,101.47,51.54,40,0.035,0.0442,2501.854169955,2.54
 /// C9,63.81,106.77,52.73,40,0.0365,0.0462,2757.426251112,2.8
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 717 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c8() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;
@@ -944,6 +976,10 @@ pub fn ciet_coupled_nat_circ_set_c8() {
 /// C7,60.54,101.47,51.54,40,0.035,0.0442,2501.854169955,2.54
 /// C8,62.8,105.15,52.36,40,0.0361,0.0456,2682.8141819325,2.72
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 821 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn ciet_coupled_nat_circ_set_c9() {
     let max_simulation_time_seconds: f64 = 3000.0;
     let pri_loop_relative_tolerance = 0.042;

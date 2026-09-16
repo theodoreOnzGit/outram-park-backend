@@ -1320,6 +1320,10 @@ fn marviken_test_23_drift_flux_critical_mass_flux() {
 /// this file: fitting `tau` to the Marviken knee would be fitting the model to
 /// its own validation set.
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 570 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 fn marviken_test_24_drift_flux_critical_mass_flux() {
     let started = std::time::Instant::now();
     let case = MarvikenCase::default();

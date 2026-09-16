@@ -35,6 +35,10 @@ pub fn quick_test_uncalibrated_dracs_loop() {
 /// loop to over-predict flow by roughly 10%.
 #[cfg(test)]
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 383 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn long_test_uncalibrated_dracs_loop() {
     use validate_dracs_loop_v1::*;
     let max_simulation_time_seconds: f64 = 4000.0;
@@ -62,6 +66,10 @@ pub fn long_test_uncalibrated_dracs_loop() {
 /// for 3000 s simulated).
 #[cfg(test)]
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 356 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 pub fn regression_long_test_uncalibrated_dracs_loop_set_c() {
     // running this
     // took about 210s for the simulations

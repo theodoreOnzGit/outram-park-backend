@@ -17,6 +17,14 @@ homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
 
+[features]
+# `long-tests` gates the individual tests that measure over 5 minutes, and is
+# default-on, so a plain `cargo test` runs them. See the "Any test over 5
+# minutes" HARD RULE in the workspace CLAUDE.md. Turn them off while
+# iterating with `cargo quick-test -p tampines`.
+default = ["long-tests"]
+long-tests = []
+
 [dependencies]
 # Backend thermal-hydraulic / thermophysical-property crates this framework
 # composes. Wired now even though not every one has a consumer yet -- the

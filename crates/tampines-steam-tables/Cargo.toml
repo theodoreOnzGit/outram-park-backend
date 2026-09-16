@@ -39,7 +39,12 @@ thiserror.workspace = true
 uom.workspace = true
 
 [features]
-default = []
+# `long-tests` gates the individual tests that measure over 5 minutes, and is
+# default-on, so a plain `cargo test` runs them. See the "Any test over 5
+# minutes" HARD RULE in the workspace CLAUDE.md. Turn them off while
+# iterating with `cargo quick-test -p tampines-steam-tables`.
+default = ["long-tests"]
+long-tests = []
 # Pass-through to `petir/platform-libm`: routes this crate's 173 swept
 # transcendental call sites back to the host's libm instead of PETIR's ARM
 # optimized-routines ports.

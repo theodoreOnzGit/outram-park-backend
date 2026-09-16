@@ -15,6 +15,14 @@ exclude = ["*.csv"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+# `long-tests` gates the individual tests that measure over 5 minutes, and is
+# default-on, so a plain `cargo test` runs them. See the "Any test over 5
+# minutes" HARD RULE in the workspace CLAUDE.md. Turn them off while
+# iterating with `cargo quick-test -p tuas_boussinesq_solver`.
+default = ["long-tests"]
+long-tests = []
+
 [dependencies]
 approx.workspace = true
 csv.workspace = true

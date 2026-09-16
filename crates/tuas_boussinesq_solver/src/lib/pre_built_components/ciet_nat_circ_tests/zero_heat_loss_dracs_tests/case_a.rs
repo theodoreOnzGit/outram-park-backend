@@ -35,6 +35,10 @@
 ///
 ///
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 413 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 //#[ignore = "comment out for debugging"]
 pub fn case_a_tchx_out_319_kelvin_46_celsius() {
     use uom::si::{f64::*, mass_rate::kilogram_per_second, power::watt};

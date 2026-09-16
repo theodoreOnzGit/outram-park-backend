@@ -312,6 +312,10 @@ fn choked_break(p0_pa: f64, h0_jkg: f64, rho0: f64, t: f64) -> (BreakSample, f64
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 621 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 fn edwards_obrien_pipe_blowdown_600ms() {
     // ── Case parameters (kept tight for a release-mode test) ────────────────
     let n_cells: i64 = 24; // one uniform cell per RELAP volume
@@ -956,6 +960,10 @@ fn excess_total_variation(times: &[f64], series: &[f64], t0: f64, t1: f64) -> f6
 /// T ≈ 372 K). The `EDW_HYBRID=1` full-run figures are in
 /// `collaboration/edwards_tampines_regen/figures_hybrid_stable/`.
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 299 s, 2026-09-16); runs by default, skipped under --no-default-features"
+)]
 fn edwards_hybrid_damps_ringing_vs_pimple() {
     let t_end = std::env::var("EDW_CMP_TEND")
         .ok()
