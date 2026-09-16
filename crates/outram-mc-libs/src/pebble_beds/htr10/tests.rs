@@ -17,7 +17,7 @@
 //!
 //! | check | tolerance | measured |
 //! |---|---|---|
-//! | heavy metal per ball vs the stated 5 g | 1 mg | **4.9999 g** |
+//! | heavy metal per ball vs the stated 5 g | 1 mg | **5.00007 g** |
 //! | packing fraction vs the stored constant | 1e-6 | agrees |
 //! | elemental-B-10 misreading vs natural | — | **5.43x** more B-10 |
 //!

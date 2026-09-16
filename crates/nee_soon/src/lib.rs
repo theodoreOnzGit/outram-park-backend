@@ -63,6 +63,8 @@ pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
 
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 
+pub mod htr10_rmc;
+
 /// Object-oriented facade for the OUTRAM PARK neutronics + kinetics suite.
 ///
 /// `NeeSoon` is the single entry point of the crate (the "one big struct"): a
