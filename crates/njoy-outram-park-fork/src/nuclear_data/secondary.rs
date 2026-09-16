@@ -462,7 +462,18 @@ fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate
                 let b = cur.read_tab1()?;
                 Some(FissionSpectrum::WattEnergyDependent { a, b, u })
             }
-            _ => None, // LF=5 (unsupported upstream), LF=12 (Madland-Nix), other
+            // LF=5 (general evaporation) and LF=12 (Madland-Nix) are not read
+            // here. **NJOY DOES support LF=5** — `groupr.f90:12355`, "law 5.
+            // general evaporation spectrum", and `acefc.f90:2251/2477/6889`
+            // handle it too. An earlier comment here called it "unsupported
+            // upstream", which was wrong and is the kind of error that stops
+            // someone porting something. LF=5 is a tabulated `g(x)` with
+            // `x = E'/θ(E)` — the same "universal shape, incident-dependent
+            // scale" form as MF=6 LAW=6, so it would convert the same way.
+            // Not yet ported because no evaluation in `reference-data/endf/`
+            // uses it; `mf5_lf_survey` asserts that and will fail if one is
+            // added.
+            _ => None,
         };
         match law {
             Some(l) => partitions.push((p_tab, l)),
@@ -1733,6 +1744,107 @@ mod kalbach_tests {
             mu_lo < -0.5 && mu_hi > 0.5,
             "r = 0, a = 3 quartiles came back at {mu_lo:+.4} / {mu_hi:+.4}; a cosh-peaked \
              density must push them outside the uniform law's -0.5 / +0.5"
+        );
+    }
+}
+
+#[cfg(test)]
+mod mf5_lf_survey {
+    use crate::endf::records::SectionCursor;
+    use crate::endf::tape::Tape;
+    use crate::reference_data::reference_data_dir;
+
+    /// **Which MF=5 secondary-energy laws (`LF`) do the held evaluations use?**
+    ///
+    /// [`super::FissionSpectrum::from_endf_mf5_mt`] ports LF=1/7/9/11 and
+    /// returns `None` for anything else, which makes the *whole* MF=5 fall back
+    /// to the thermal-Watt stand-in. That is a silent degradation, so this
+    /// measures which codes actually appear rather than leaving it to a comment.
+    ///
+    /// It also **asserts that no held evaluation uses an unported LF**, so a
+    /// tape that does fails loudly instead of quietly losing its fission
+    /// spectrum.
+    ///
+    /// Counts its own skips, for the same reason the MF=6 survey does.
+    #[test]
+    fn survey_mf5_lf_codes() {
+        let dir = reference_data_dir("endf");
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            println!("no reference-data/endf; skipping");
+            return;
+        };
+        let mut files: Vec<_> = rd
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| {
+                p.extension().is_some_and(|x| x == "endf")
+                    && p.file_name()
+                        .is_some_and(|n| n.to_string_lossy().starts_with("n-"))
+            })
+            .collect();
+        files.sort();
+
+        let mut seen: std::collections::BTreeMap<i32, usize> = Default::default();
+        let mut unported: Vec<String> = Vec::new();
+        let (mut n_sec, mut n_err) = (0usize, 0usize);
+        for f in &files {
+            let Ok(tape) = Tape::read_file(f) else { continue };
+            let Some(&mat) = tape.materials().first() else {
+                continue;
+            };
+            for mt in [18i32, 16, 91, 5] {
+                let Some(sec) = tape.section(mat, 5, mt) else {
+                    continue;
+                };
+                n_sec += 1;
+                let mut cur = SectionCursor::new(&sec.rows);
+                let Ok(head) = cur.read_cont() else {
+                    n_err += 1;
+                    continue;
+                };
+                let nk = head.n1.max(0);
+                for _ in 0..nk {
+                    let Ok(p_tab) = cur.read_tab1() else {
+                        n_err += 1;
+                        break;
+                    };
+                    let lf = p_tab.head.l2;
+                    *seen.entry(lf).or_insert(0) += 1;
+                    if !matches!(lf, 1 | 7 | 9 | 11) {
+                        unported.push(format!(
+                            "{} MF=5 MT={mt} LF={lf}",
+                            f.file_name().unwrap().to_string_lossy()
+                        ));
+                    }
+                    // Only the first subsection's records are walked reliably
+                    // without dispatching on LF; stop after one per section.
+                    break;
+                }
+            }
+        }
+
+        let name = |lf: i32| match lf {
+            1 => "arbitrary tabulated",
+            5 => "GENERAL EVAPORATION (unported)",
+            7 => "simple Maxwellian fission",
+            9 => "evaporation",
+            11 => "energy-dependent Watt",
+            12 => "Madland-Nix (unported)",
+            _ => "?",
+        };
+        println!(
+            "MF=5 LF codes across {} neutron tapes ({n_sec} sections, {n_err} read errors):",
+            files.len()
+        );
+        for (lf, n) in &seen {
+            println!("   LF={lf} ({}) -> {n} subsection(s)", name(*lf));
+        }
+        assert!(
+            unported.is_empty(),
+            "held evaluations use an MF=5 law this port does not read, so their whole fission \
+             spectrum silently falls back to the thermal-Watt stand-in: {unported:?}. NOTE: \
+             NJOY DOES support LF=5 (groupr.f90:12355, 'law 5. general evaporation spectrum') \
+             -- a comment in this file claiming otherwise was wrong and has been corrected."
         );
     }
 }

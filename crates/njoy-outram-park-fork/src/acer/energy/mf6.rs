@@ -866,6 +866,10 @@ mod incident_interp_survey {
         // cannot parse reports a clean answer about a fraction of the data --
         // the same failure mode as a skipped test reading as a pass.
         let (mut n_sec, mut n_parse_err, mut n_no_section) = (0usize, 0usize, 0usize);
+        // LANG: which angular representations appear. 11..15 (tabulated
+        // cosines) are RETAINED but not sampled, so an evaluation using one
+        // would silently fall back to isotropic -- this makes that loud.
+        let mut lang_seen: std::collections::BTreeSet<String> = Default::default();
         for f in &files {
             let Ok(tape) = Tape::read_file(f) else { continue };
             let Some(&mat) = tape.materials().first() else {
@@ -889,6 +893,7 @@ mod incident_interp_survey {
                     }
                 };
                 for s in &subs {
+                    lang_seen.insert(format!("{:?}", s.lang));
                     for &(_, int) in &s.law4.e_in_interp {
                         *counts.entry(int as i32).or_insert(0) += 1;
                     }
@@ -907,6 +912,13 @@ mod incident_interp_survey {
             "MF=6 LAW=1 incident-energy interpolation across {} neutron tapes (MT=16/17/91):\n\
              \x20  sections found {n_sec}, parse-skipped {n_parse_err}, absent {n_no_section}",
             files.len()
+        );
+        println!("   angular representations (LANG) seen: {lang_seen:?}");
+        assert!(
+            !lang_seen.iter().any(|l| l.starts_with("Tabulated")),
+            "an evaluation in reference-data/endf uses MF=6 LANG = 11..15 (tabulated cosines), \
+             which this port RETAINS but does not sample -- it would silently fall back to \
+             isotropic. Seen: {lang_seen:?}. Implement it or record the affected nuclide."
         );
         let name = |i: i32| match i {
             1 => "histogram",

@@ -394,7 +394,27 @@ Verified against upstream's closed form: **worst relative shape difference
 returns no law — so the day it is implemented the test fails and gets updated,
 rather than the gap persisting behind a fallback nobody rechecks.
 
-Still open: MF=6 `LANG = 11…15`, MF=5 LF=5, MF=6 LAW=7. These are gaps but not defects — each is recorded where a reader meets
+**MF=6 `LANG = 11…15` and MF=5 LF=5 — measured 2026-09-16, and both turn out to
+be unused by any held evaluation.** They are now *enforced* absences rather than
+documented ones: two survey gates assert it, so a tape using either fails loudly
+instead of silently degrading.
+
+- **`LANG = 11…15`** (tabulated cosines): across 27 tapes only `Legendre` and
+  `KalbachMann` appear, both implemented. A tape using 11…15 would have fallen
+  back to isotropic without a word.
+- **MF=5 `LF`**: only **LF=1** (12 subsections) and **LF=9** (1) appear, both
+  ported. An unported LF makes the *whole* MF=5 fall back to the thermal-Watt
+  stand-in, so the gate matters more than the count suggests.
+
+**A wrong comment corrected while doing it.** The code said LF=5 was
+"unsupported upstream". **NJOY supports it** — `groupr.f90:12355` is literally
+"law 5. general evaporation spectrum", with `acefc.f90` handling it in three
+more places. That is the kind of error that stops someone porting something,
+and the comment now records both the correction and the fact that LF=5 is a
+tabulated `g(x)` with `x = E'/θ(E)` — the same "universal shape, moving scale"
+form as LAW=6, so it would convert the same way if a tape ever needs it.
+
+Still open: MF=6 LAW=7 (Be-9 MT=16). These are gaps but not defects — each is recorded where a reader meets
 it.
 
 ---
