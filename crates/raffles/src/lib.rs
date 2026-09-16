@@ -13,7 +13,7 @@
 //! ## Status — PARTLY IMPLEMENTED, NO HUMAN V&V
 //!
 //! This crate is no longer the empty scaffold its first commits described.
-//! [`distributions`], [`samplers`], [`sensitivity`] and [`bayesian`] carry
+//! [`distributions`], [`samplers`], [`sensitivity`], [`bayesian`], [`distance`] and [`abc`] carry
 //! working, unit-tested implementations whose verification methodology and
 //! measured results are recorded in the doc comments of the tests themselves.
 //! [`surrogate`] is still a placeholder.
@@ -35,6 +35,11 @@
 //!   of sample points: Monte Carlo, Latin hypercube, grid / stratified.
 //! - **[`sensitivity`]** — importance measures computed from an existing
 //!   sample set: Sobol variance decomposition, correlation coefficients.
+//! - **[`distance`]** — statistical distances between two sample sets:
+//!   Euclidean on summaries, Bhattacharyya, Hellinger, Jensen-Shannon,
+//!   Bray-Curtis and the 1-Wasserstein area metric.
+//! - **[`abc`]** — Approximate Bayesian Computation: inference when the model
+//!   can be run but no likelihood can be written down.
 //! - **[`bayesian`]** — Bayesian model updating: priors, likelihoods, MCMC
 //!   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
 //!   posterior sample and the evidence.
@@ -115,7 +120,9 @@
 //! what order — is written up in `docs/raven-port-scoping.md` at the workspace
 //! root.
 
+pub mod abc;
 pub mod bayesian;
+pub mod distance;
 pub mod distributions;
 pub mod samplers;
 pub mod sensitivity;
