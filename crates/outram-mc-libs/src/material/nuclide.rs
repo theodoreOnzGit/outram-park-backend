@@ -63,6 +63,16 @@ pub struct MicroXS {
     /// (n,2n) scattering σ (MT=16) \[barn\]; HIGH tier only, else 0. Emits 2
     /// neutrons — the multiplicity the transport kernel restores.
     pub n2n: f64,
+    /// (n,3n) scattering σ (MT=17) \[barn\]; HIGH tier only, else 0. Emits **3**
+    /// neutrons.
+    ///
+    /// Carried separately from [`Self::n2n`] because the multiplicity differs.
+    /// Before 2026-09-16 this channel had no branch at all: MT=17 is inside
+    /// MT=1, so the collision still happened, but it fell through to the
+    /// *elastic* arm and the two extra neutrons were silently lost. U-238's
+    /// threshold is ~11.3 MeV, so a fission spectrum barely reaches it — but a
+    /// 14 MeV source is squarely above it.
+    pub n3n: f64,
     /// Fission production ν̄·σ_f \[barn\].
     pub nu_fission: f64,
 }
@@ -247,6 +257,8 @@ struct ContinuumLaws {
     mt91: Option<ContinuumEmission>,
     /// MT=16, (n,2n).
     mt16: Option<ContinuumEmission>,
+    /// MT=17, (n,3n).
+    mt17: Option<ContinuumEmission>,
 }
 
 impl Nuclide {
@@ -425,6 +437,9 @@ impl Nuclide {
         }
         if let Some(law) = self.continuum.mt16.take() {
             self.continuum.mt16 = Some(law.with_isotropic_angle());
+        }
+        if let Some(law) = self.continuum.mt17.take() {
+            self.continuum.mt17 = Some(law.with_isotropic_angle());
         }
         self
     }
@@ -684,8 +699,14 @@ impl Nuclide {
         self.chi_frozen_at
     }
 
-    /// **Ablation control for V&V: cut the (n,2n) yield from 2 to 1**, so an
-    /// MT=16 collision emits only the primary neutron.
+    /// **Ablation control for V&V: cut every multiplying channel's yield to
+    /// 1**, so an MT=16 `(n,2n)` or MT=17 `(n,3n)` collision emits only the
+    /// primary neutron.
+    ///
+    /// **Scope widened 2026-09-16** when `(n,3n)` was given a branch: the flag
+    /// now gates MT=17's two extras as well as MT=16's one. It is one knob over
+    /// both multiplying channels, not two, because pricing them separately has
+    /// never been asked for and a second flag would need its own control.
     ///
     /// Deliberately the **wrong physics**; a measurement tool, not a model
     /// option.
@@ -1112,6 +1133,7 @@ impl Nuclide {
         let continuum = ContinuumLaws {
             mt91: ContinuumEmission::from_endf_mf6(tape, mat, 91)?,
             mt16: ContinuumEmission::from_endf_mf6(tape, mat, 16)?,
+            mt17: ContinuumEmission::from_endf_mf6(tape, mat, 17)?,
         };
 
         Ok(Self {
@@ -1161,6 +1183,7 @@ impl Nuclide {
         match mt {
             91 => self.continuum.mt91.as_ref(),
             16 => self.continuum.mt16.as_ref(),
+            17 => self.continuum.mt17.as_ref(),
             _ => None,
         }
     }
@@ -1216,6 +1239,7 @@ impl Nuclide {
                         absorption: x.absorption,
                         inelastic: 0.0, // LOW tier lumps inelastic into elastic
                         n2n: 0.0,       // LOW tier lumps (n,2n) into elastic (no group column yet)
+                        n3n: 0.0,       // ditto (n,3n)
                         nu_fission: x.fission * self.nu_bar(e),
                     }
                 } else if let Some(mg) = fast {
@@ -1233,6 +1257,7 @@ impl Nuclide {
                         absorption: m.capture + m.fission,
                         inelastic,
                         n2n: 0.0, // LOW tier: (n,2n) still lumped in the group total
+                        n3n: 0.0,
                         nu_fission: m.nu_fission,
                     }
                 } else {
@@ -1245,6 +1270,7 @@ impl Nuclide {
                         absorption: x.absorption,
                         inelastic: 0.0,
                         n2n: 0.0,
+                        n3n: 0.0,
                         nu_fission: x.fission * self.nu_bar(e),
                     }
                 }
@@ -1259,6 +1285,9 @@ impl Nuclide {
                 // kernel can give it its yield-2 multiplicity. 0.0 below threshold
                 // or if the evaluation has no MT=16 section.
                 let n2n = recon.eval_mt(MtReaction::Mt16N2n, e);
+                // (n,3n). Inside MT=1 like (n,2n), so branching on it
+                // re-partitions the collision rather than adding to it.
+                let n3n = recon.eval_mt(MtReaction::Mt17N3n, e);
                 MicroXS {
                     total,
                     elastic,
@@ -1266,6 +1295,7 @@ impl Nuclide {
                     absorption: absorption_mt27(recon, fission, e),
                     inelastic,
                     n2n,
+                    n3n,
                     nu_fission: fission * self.nu_bar(e),
                 }
             }

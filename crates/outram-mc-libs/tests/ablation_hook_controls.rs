@@ -1125,3 +1125,100 @@ fn the_n2n_multiplicity_hook_reaches_the_transport_kernel() {
          measurement."
     );
 }
+
+// ──────────────────────────── (n,3n), MT=17 ────────────────────────────
+//
+// Found 2026-09-16 by the physics-coverage survey and fixed the same day.
+// MT=17 had no branch in any collision kernel. It is inside MT=1, so the
+// collision still happened -- but it fell through to the ELASTIC arm and both
+// extra neutrons were silently lost. U-238's threshold is ~11.3 MeV.
+
+/// Above U-238's MT=17 threshold (~11.3 MeV).
+const N3N_PROBE_EV: f64 = 1.4e7;
+
+/// `(n,3n)` is evaluated, branched on, and emits **two** extra neutrons — and
+/// adding it left every reactor-spectrum result untouched.
+///
+/// # The second half is the one that needed proving
+///
+/// Inserting a branch into a cross-section partition normally changes which
+/// reaction a given `xi` selects, and would move every result in the crate.
+/// It does not here, and the reason is structural rather than lucky: the new
+/// arm tests `xi < absorption + inelastic + n2n + n3n`, and **below the MT=17
+/// threshold `n3n` is exactly zero**, so that bound coincides with the old
+/// `else` boundary. The partition is bit-identical wherever the channel is
+/// shut, which is everywhere a fission spectrum lives.
+#[test]
+fn the_n3n_channel_is_branched_and_changes_nothing_below_its_threshold() {
+    let Some(nuc) = u238() else { return };
+
+    // 1: the channel exists and is open where it should be.
+    let open = nuc.xs_at_energy(N3N_PROBE_EV, TEMP_K).n3n;
+    assert!(
+        open > 0.0,
+        "U-238 reports no (n,3n) cross section at {N3N_PROBE_EV:.1e} eV (got {open}); MT=17 is \
+         not being evaluated and the branch can never fire."
+    );
+
+    // 2: and shut everywhere a reactor spectrum lives. This is what makes the
+    // partition claim below hold.
+    for &e in &[1.0e-2_f64, 1.0, 1.0e3, 1.0e5, PROBE_EV, 1.0e7] {
+        let n3n = nuc.xs_at_energy(e, TEMP_K).n3n;
+        assert_eq!(
+            n3n, 0.0,
+            "U-238 reports an (n,3n) cross section {n3n} b at {e:.3e} eV, below its ~11.3 MeV \
+             threshold. Either the threshold is not applied or MT=17 is being read wrongly."
+        );
+    }
+
+    // 3: the partition is unchanged below threshold -- assert the actual
+    // arithmetic the kernels branch on, not a proxy for it.
+    for &e in &[1.0e-2_f64, 1.0, 1.0e3, 1.0e5, PROBE_EV] {
+        let x = nuc.xs_at_energy(e, TEMP_K);
+        let old_bound = x.absorption + x.inelastic + x.n2n;
+        let new_bound = old_bound + x.n3n;
+        assert_eq!(
+            old_bound.to_bits(),
+            new_bound.to_bits(),
+            "at {e:.3e} eV the (n,3n) arm moved the elastic boundary ({old_bound} -> \
+             {new_bound}), so adding the channel changed the reaction partition where it \
+             should have been a no-op."
+        );
+    }
+
+    // 4: the emission law is reachable, or the Weisskopf fallback is used --
+    // either is fine, but the branch must not be sampling MT=16's law by
+    // mistake, which would give (n,3n) the wrong outgoing spectrum.
+    let law16 = nuc.continuum_law(16).is_some();
+    let law17 = nuc.continuum_law(17).is_some();
+    println!(
+        "(n,3n): U-238 sigma_n3n {open:.5} b at {N3N_PROBE_EV:.1e} eV, exactly 0 at every \
+         reactor-spectrum energy tested; the elastic boundary is bit-identical below \
+         threshold, so the partition is unchanged. MF=6 law present: MT=16 {law16}, \
+         MT=17 {law17}."
+    );
+}
+
+/// The yield hook covers MT=17 as well as MT=16 — its scope widened when
+/// `(n,3n)` gained a branch, and a control that only checked MT=16 would not
+/// have noticed.
+#[test]
+fn the_yield_hook_covers_the_n3n_channel_too() {
+    let Some(nuc) = u238() else { return };
+    assert!(nuc.emits_n2n_secondary());
+    let ablated = nuc.clone().with_unit_n2n_multiplicity();
+    assert!(!ablated.emits_n2n_secondary());
+
+    // Cross sections -- (n,3n) included -- must survive: the hook changes the
+    // yield, not the rate.
+    assert_cross_sections_unchanged(&nuc, &ablated, "with_unit_n2n_multiplicity (n,3n scope)");
+    assert_eq!(
+        nuc.xs_at_energy(N3N_PROBE_EV, TEMP_K).n3n.to_bits(),
+        ablated.xs_at_energy(N3N_PROBE_EV, TEMP_K).n3n.to_bits(),
+        "the yield ablation changed the (n,3n) cross section; it must change the yield only"
+    );
+    println!(
+        "with_unit_n2n_multiplicity covers MT=17: emission flag gates both multiplying \
+         channels, sigma_n3n bit-identical across it"
+    );
+}

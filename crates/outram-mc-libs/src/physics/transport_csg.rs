@@ -865,6 +865,34 @@ pub(crate) fn transport_history(
                     }
                     e = e2;
                     u = u2;
+                } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                    // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                    // are emitted. Before 2026-09-16 there was no branch here at all:
+                    // MT=17 is inside MT=1, so the collision still happened but fell
+                    // through to the ELASTIC arm and both extras were silently lost.
+                    //
+                    // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                    // coincides with the old `else` boundary and the partition is
+                    // bit-identical to before -- which is why adding it does not move any
+                    // reactor-spectrum result.
+                    let law17 = nuc.continuum_law(17);
+                    let (e2, u2) =
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed);
+                    // Two independent draws from the same evaluated law, for the same
+                    // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                    // `f0` per emitted neutron.
+                    for _ in 0..2 {
+                        let (se, su) = if law17.is_some() {
+                            continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed)
+                        } else {
+                            (e2, u2)
+                        };
+                        if nuc.emits_n2n_secondary() {
+                            stack.push(Site { r, u: su, e: se });
+                        }
+                    }
+                    e = e2;
+                    u = u2;
                 } else {
                     // Scattering. Below its cutoff a moderator nuclide carrying an
                     // S(α,β) table thermalizes via the bound-atom law (lab-frame

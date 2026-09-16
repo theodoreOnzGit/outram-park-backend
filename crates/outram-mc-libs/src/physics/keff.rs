@@ -908,11 +908,11 @@ pub fn run_keff_gpu_batched(
                                     seed,
                                 });
                             }
-                            CollisionResult::ScatterWithSecondary {
+                            CollisionResult::ScatterWithSecondaries {
                                 e: e2,
                                 u: u2,
-                                sec_e,
-                                sec_u,
+                                sec,
+                                n_sec,
                             } => {
                                 survivors.push(LiveNeutron {
                                     r,
@@ -920,15 +920,21 @@ pub fn run_keff_gpu_batched(
                                     e: e2,
                                     seed,
                                 });
-                                // The (n,2n) extra neutron gets its own sub-stream
-                                // (jump-ahead off the parent's post-collision seed).
-                                let sec_seed = future_seed(BATCH_SECONDARY_STRIDE, seed);
-                                survivors.push(LiveNeutron {
-                                    r,
-                                    u: sec_u,
-                                    e: sec_e,
-                                    seed: sec_seed,
-                                });
+                                // Each extra neutron gets its own sub-stream
+                                // (jump-ahead off the parent's post-collision
+                                // seed). The multiplier `j + 1` keeps the two
+                                // (n,3n) extras on distinct streams rather than
+                                // an identical one.
+                                for (j, &(sec_e, sec_u)) in sec.iter().take(n_sec).enumerate() {
+                                    let sec_seed =
+                                        future_seed(BATCH_SECONDARY_STRIDE * (j as u64 + 1), seed);
+                                    survivors.push(LiveNeutron {
+                                        r,
+                                        u: sec_u,
+                                        e: sec_e,
+                                        seed: sec_seed,
+                                    });
+                                }
                             }
                         }
                     }
@@ -1242,13 +1248,18 @@ enum CollisionResult {
     Dead,
     /// Scattered (elastic or inelastic) → stays live with new energy/direction.
     Scatter { e: f64, u: Direction },
-    /// Scattered **and** emitted one extra same-generation neutron (`(n,2n)`,
-    /// yield 2) → both the down-scattered primary and the secondary stay live.
-    ScatterWithSecondary {
+    /// Scattered **and** emitted extra same-generation neutrons — `(n,2n)`
+    /// (yield 2, one extra) or `(n,3n)` (yield 3, two extra). The
+    /// down-scattered primary and every extra stay live.
+    ///
+    /// The extras are a fixed-size array rather than a `Vec` because this is
+    /// the hot loop and the count is at most two; `n_sec` says how many of
+    /// `sec` are live.
+    ScatterWithSecondaries {
         e: f64,
         u: Direction,
-        sec_e: f64,
-        sec_u: Direction,
+        sec: [(f64, Direction); 2],
+        n_sec: usize,
     },
 }
 
@@ -1355,11 +1366,38 @@ fn collide_batched(
         if nuc.emits_n2n_secondary() {
             (
                 0.0,
-                CollisionResult::ScatterWithSecondary {
+                CollisionResult::ScatterWithSecondaries {
                     e: e2,
                     u: u2,
-                    sec_e: sec_e2,
-                    sec_u: sec_u2,
+                    sec: [(sec_e2, sec_u2), (sec_e2, sec_u2)],
+                    n_sec: 1,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+        // (n,3n): yield 3. Kept in lockstep with `transport_history`'s arm --
+        // the two differ only in that this one RETURNS the extras instead of
+        // pushing them onto a local stack. Below the MT=17 threshold `x.n3n` is
+        // exactly 0, so this condition coincides with the old `else` boundary
+        // and the partition is unchanged for any reactor spectrum.
+        let law17 = nuc.continuum_law(17);
+        let (e2, u2) = continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed);
+        let mut sec = [(e2, u2); 2];
+        for slot in sec.iter_mut() {
+            if law17.is_some() {
+                *slot = continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed);
+            }
+        }
+        if nuc.emits_n2n_secondary() {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec,
+                    n_sec: 2,
                 },
             )
         } else {
@@ -1544,6 +1582,34 @@ fn transport_history(
                 }
                 e = e2;
                 u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                // are emitted. Before 2026-09-16 there was no branch here at all:
+                // MT=17 is inside MT=1, so the collision still happened but fell
+                // through to the ELASTIC arm and both extras were silently lost.
+                //
+                // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                // coincides with the old `else` boundary and the partition is
+                // bit-identical to before -- which is why adding it does not move any
+                // reactor-spectrum result.
+                let law17 = nuc.continuum_law(17);
+                let (e2, u2) =
+                    continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed);
+                // Two independent draws from the same evaluated law, for the same
+                // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                // `f0` per emitted neutron.
+                for _ in 0..2 {
+                    let (se, su) = if law17.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site { r, u: su, e: se });
+                    }
+                }
+                e = e2;
+                u = u2;
             } else {
                 // Scattering. A moderator nuclide carrying an S(alpha, beta)
                 // table thermalizes via the bound-atom law below its cutoff
@@ -1724,6 +1790,34 @@ fn transport_history_tabulated(
                         u: sec_u2,
                         e: sec_e2,
                     });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                // are emitted. Before 2026-09-16 there was no branch here at all:
+                // MT=17 is inside MT=1, so the collision still happened but fell
+                // through to the ELASTIC arm and both extras were silently lost.
+                //
+                // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                // coincides with the old `else` boundary and the partition is
+                // bit-identical to before -- which is why adding it does not move any
+                // reactor-spectrum result.
+                let law17 = nuc.continuum_law(17);
+                let (e2, u2) =
+                    continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed);
+                // Two independent draws from the same evaluated law, for the same
+                // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                // `f0` per emitted neutron.
+                for _ in 0..2 {
+                    let (se, su) = if law17.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site { r, u: su, e: se });
+                    }
                 }
                 e = e2;
                 u = u2;

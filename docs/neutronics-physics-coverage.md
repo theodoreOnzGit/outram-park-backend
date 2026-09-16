@@ -39,6 +39,9 @@ marked `env` and count as a gap, not as coverage.
 | **Continuum inelastic angular** (MF=6 `LANG=1`) | ✅ | tape's own `a₁` (2.2e-4) | ✅ `with_isotropic_continuum_scattering` | ✅ (closed 2026-09-16) |
 | **Continuum inelastic angular** (MF=6 `LANG=2` Kalbach) | ✅ | closed form `r·(coth a − 1/a)` | ✅ (same hook) | ✅ (same) |
 | (n,2n) MT=16 multiplicity | ✅ | ENDF yield, per-subsection sum | ✅ `with_unit_n2n_multiplicity` (closed 2026-09-16) | ✅ ×2 (incl. a **kernel-level** one) |
+| **(n,3n) MT=17 multiplicity** | ✅ (2026-09-16) | ENDF MT=17 σ + MF=6 MT=17 law; threshold invariant | ✅ same hook (scope widened) | ✅ ×2 |
+| Tabulated **source** energy distribution | ✅ (2026-09-16) | uniform-CDF inversion; degenerate-table bounds | n/a | ✅ ×2 |
+| **DBRC / resonance elastic upscatter** | ❌ **absent** | — | ❌ | ❌ |
 | ν̄(E) energy dependence | ✅ | MF=1/452 tape | ✅ `with_frozen_nubar` (closed 2026-09-16) | ✅ ×2 |
 | χ(E→E') fission spectrum (MF=5) | ✅ | MF=5 tape; `⟨E_out⟩` vs OpenMC (0.018 %); **sampler vs the tape's own row means, ≤1 %** | ✅ `with_frozen_fission_spectrum` (closed 2026-09-16) | ✅ ×2 |
 | Threshold behaviour (σ = 0 below threshold) | ✅ | ENDF redundancy relation; gh:#193 gate | n/a | n/a |
@@ -315,6 +318,28 @@ against NJOY2016 and wired into transport; see the row above and
 remains unported is the **PENDF MT=152/153 tape writer**, which transport does
 not need — `outram-mc-libs` never reads a PENDF, it reads ENDF and builds a
 `Nuclide` — so the writer matters only for NJOY interoperability.
+
+**Three more found by re-surveying on 2026-09-16, two already fixed:**
+
+- ~~**(n,3n) MT=17 had no branch in any kernel.**~~ **FIXED.** MT=17 is inside
+  MT=1, so the collision happened but fell through to the *elastic* arm and both
+  extra neutrons were silently lost. Now evaluated, branched on in all five
+  kernels, and emitting two extras from the MF=6 MT=17 law. Measured: U-238
+  `σ_n3n = 0.43176 b` at 14 MeV and **exactly 0** at every reactor-spectrum
+  energy — so the new arm's bound coincides with the old `else` boundary there
+  and the partition is bit-identical, which the control asserts directly.
+- ~~**`TabulatedEnergy::sample` was `todo!()`.**~~ **FIXED.** A constructible
+  source distribution that aborted the run if anything drew from it. Nothing in
+  the crate constructed one, which is exactly how a latent panic survives a test
+  suite. Now a piecewise-linear CDF inversion with two tests, including
+  degenerate tables.
+- **DBRC (Doppler Broadening Rejection Correction) is absent** — free-gas
+  elastic uses the constant-cross-section approximation and does not resample σ
+  at the relative energy inside a resonance. It was noted in a code comment in
+  `physics/scatter.rs` and had never reached this matrix. **This one matters for
+  the reactors this project targets**: it is a thermal/epithermal effect on
+  U-238's resolved resonances, and every validation case here is a bare fast
+  sphere.
 
 Still open: the `EnergyAngular` interpolation flag, MF=6 `LANG = 11…15`, MF=5
 LF=5. These are gaps but not defects — each is recorded where a reader meets
