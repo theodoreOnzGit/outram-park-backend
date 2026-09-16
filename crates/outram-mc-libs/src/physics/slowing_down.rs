@@ -872,8 +872,13 @@ impl LumpCellMc {
                     pos = advance(pos, dir, d_bound.distance);
                     match d_bound.crossing {
                         Crossing::Surface(i_surf) => {
-                            let crossed =
-                                geom.cross_surface_in_frame(i_surf, &path, d_bound.coord_level, pos, dir);
+                            let crossed = geom.cross_surface_in_frame(
+                                i_surf,
+                                &path,
+                                d_bound.coord_level,
+                                pos,
+                                dir,
+                            );
                             if !crossed.alive {
                                 if self.boundary == CellBoundary::White {
                                     // Re-enter at a RANDOM point with a cosine

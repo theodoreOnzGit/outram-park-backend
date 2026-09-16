@@ -500,7 +500,7 @@ fn transport_history(
             match d_bound.crossing {
                 Crossing::Surface(i_surf) => {
                     let crossed =
-                            geom.cross_surface_in_frame(i_surf, &path, d_bound.coord_level, r, u);
+                        geom.cross_surface_in_frame(i_surf, &path, d_bound.coord_level, r, u);
                     if !crossed.alive {
                         break 'history; // vacuum leak
                     }

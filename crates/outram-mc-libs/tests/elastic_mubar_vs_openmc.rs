@@ -107,7 +107,10 @@ fn elastic_mean_cosine_matches_openmc() {
     };
     let nuc = Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs");
 
-    println!("{:>12} {:>12} {:>12} {:>12}", "E (eV)", "ours", "OpenMC", "diff");
+    println!(
+        "{:>12} {:>12} {:>12} {:>12}",
+        "E (eV)", "ours", "OpenMC", "diff"
+    );
     let mut worst = 0.0_f64;
     for &(e, theirs) in OPENMC_MUBAR {
         let ours = nuc.elastic_mubar_cm(e);
@@ -137,7 +140,10 @@ fn elastic_mean_cosine_matches_openmc() {
             n += 1;
         }
     }
-    assert!(n > 0, "the sampler returned no anisotropic cosines at 2 MeV");
+    assert!(
+        n > 0,
+        "the sampler returned no anisotropic cosines at 2 MeV"
+    );
     let sampled = acc / n as f64;
     let analytic = nuc.elastic_mubar_cm(2.0e6);
     println!("  sampled <mu> at 2 MeV over {n} draws = {sampled:+.5} (analytic {analytic:+.5})");

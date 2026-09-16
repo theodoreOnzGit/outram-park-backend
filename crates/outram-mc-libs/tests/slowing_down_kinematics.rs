@@ -96,7 +96,9 @@ fn isotropic_elastic_kinematics_match_the_closed_form() {
     let mut seed = 4_242_424_242_u64;
     let mut tested = 0usize;
     for &(name, file) in NUCLIDES {
-        let Some(nuc) = load(name, file) else { continue };
+        let Some(nuc) = load(name, file) else {
+            continue;
+        };
         let a = nuc.awr;
         let alpha = ((a - 1.0) / (a + 1.0)).powi(2);
         let mean_ratio_exact = (a * a + 1.0) / (a + 1.0).powi(2);
@@ -118,14 +120,19 @@ fn isotropic_elastic_kinematics_match_the_closed_form() {
             }
             let (m, xi) = (sum_r / N as f64, sum_xi / N as f64);
             assert_eq!(
-                violations, 0,
+                violations,
+                0,
                 "{name} at {e} eV: {violations} of {N} elastic scatters fell below the \
                  kinematic floor alpha*E = {:.6e} eV. That bound is exact for a target \
                  at rest at every angle",
                 alpha * e
             );
             let rel_m = m / mean_ratio_exact - 1.0;
-            let rel_xi = if xi_exact.abs() > 1.0e-9 { xi / xi_exact - 1.0 } else { 0.0 };
+            let rel_xi = if xi_exact.abs() > 1.0e-9 {
+                xi / xi_exact - 1.0
+            } else {
+                0.0
+            };
             println!(
                 "  {name:<5} {e:>8.1e}  alpha {alpha:.5}  <E'/E> {m:.6} (exact \
                  {mean_ratio_exact:.6}, {:+.3} %)  xi {xi:.6} (exact {xi_exact:.6}, {:+.3} %)",
@@ -145,7 +152,10 @@ fn isotropic_elastic_kinematics_match_the_closed_form() {
             tested += 1;
         }
     }
-    assert!(tested >= 8, "only {tested} nuclide-energy pairs ran; tapes missing?");
+    assert!(
+        tested >= 8,
+        "only {tested} nuclide-energy pairs ran; tapes missing?"
+    );
 }
 
 /// **The sampled outgoing energy is consistent with the sampled CM angle, at
@@ -216,7 +226,9 @@ fn sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle() {
     let mut tested = 0usize;
 
     for &(name, file) in NUCLIDES {
-        let Some(nuc) = load(name, file) else { continue };
+        let Some(nuc) = load(name, file) else {
+            continue;
+        };
         let a = nuc.awr;
         for &e in FAST_EV {
             let (mut sum_mu, mut sum_r) = (0.0, 0.0);
@@ -267,7 +279,10 @@ fn sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle() {
             tested += 1;
         }
     }
-    assert!(tested >= 10, "only {tested} nuclide-energy pairs ran; tapes missing?");
+    assert!(
+        tested >= 10,
+        "only {tested} nuclide-energy pairs ran; tapes missing?"
+    );
     println!("  largest |sampled mubar_cm|: {worst_sampled_mubar:.4}");
     assert!(
         worst_sampled_mubar > 0.5,

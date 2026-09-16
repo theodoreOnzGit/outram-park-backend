@@ -56,11 +56,8 @@ const DRAWS: usize = 400_000;
 
 /// `(incident energy [eV], OpenMC ⟨E_out⟩ [eV])`, interpolated in incident
 /// energy — see "Methodology" for why interpolated and not nearest.
-const OPENMC_MEAN_EOUT: &[(f64, f64)] = &[
-    (1.0e3, 1.99982e6),
-    (1.0e6, 2.02459e6),
-    (2.0e6, 2.05387e6),
-];
+const OPENMC_MEAN_EOUT: &[(f64, f64)] =
+    &[(1.0e3, 1.99982e6), (1.0e6, 2.02459e6), (2.0e6, 2.05387e6)];
 
 /// Relative tolerance on `⟨E_out⟩`. The Monte Carlo error on 400 000 draws of a
 /// Watt-like spectrum is ~0.1 %, so this is set by the sampling, not by any
@@ -78,7 +75,10 @@ fn fission_spectrum_mean_energy_matches_openmc() {
     };
     let nuc = Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs");
 
-    println!("{:>12} {:>14} {:>14} {:>11}", "Ein (eV)", "ours", "OpenMC", "rel diff");
+    println!(
+        "{:>12} {:>14} {:>14} {:>11}",
+        "Ein (eV)", "ours", "OpenMC", "rel diff"
+    );
     for &(ein, theirs) in OPENMC_MEAN_EOUT {
         let mut seed = 7u64;
         let mut acc = 0.0_f64;
@@ -99,5 +99,8 @@ fn fission_spectrum_mean_energy_matches_openmc() {
             rel * 100.0
         );
     }
-    println!("  chi agrees with OpenMC to better than {:.1}% at every point", TOL * 100.0);
+    println!(
+        "  chi agrees with OpenMC to better than {:.1}% at every point",
+        TOL * 100.0
+    );
 }

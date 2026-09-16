@@ -696,7 +696,11 @@ fn interpolated_sigma_inel_stays_inside_its_bracket() {
         return;
     };
     // (T_lo tabulated, T_requested strictly between, T_hi tabulated)
-    let brackets = [(296.0, 393.15, 400.0), (400.0, 450.0, 500.0), (500.0, 523.15, 600.0)];
+    let brackets = [
+        (296.0, 393.15, 400.0),
+        (400.0, 450.0, 500.0),
+        (500.0, 523.15, 600.0),
+    ];
     let energies = [0.0253, 0.1, 1.0, 2.0, 3.9];
 
     for (t_lo, t_mid, t_hi) in brackets {

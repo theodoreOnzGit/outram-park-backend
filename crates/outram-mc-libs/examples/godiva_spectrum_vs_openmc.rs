@@ -177,7 +177,10 @@ mod desktop {
                     .unwrap_or_else(|e| panic!("from_endf_file: {e}"))
             })
             .collect();
-        println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        println!(
+            "Nuclear data ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         let materials = vec![Material {
             id: 1,
@@ -209,7 +212,10 @@ mod desktop {
             n_inactive: INACTIVE,
             n_active: ACTIVE,
             temperature_k: TEMP_K,
-            seed: std::env::var("OURS_SEED").ok().and_then(|v| v.parse().ok()).unwrap_or(1),
+            seed: std::env::var("OURS_SEED")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1),
             ..KeffSettings::default()
         };
         let src = SourceBox {
@@ -217,7 +223,9 @@ mod desktop {
             upper: Position::new(RADIUS_CM, RADIUS_CM, RADIUS_CM),
         };
 
-        println!("{HISTORIES} histories x [{INACTIVE} + {ACTIVE}], tallying flux in {N_BINS} log bins…");
+        println!(
+            "{HISTORIES} histories x [{INACTIVE} + {ACTIVE}], tallying flux in {N_BINS} log bins…"
+        );
         let t = Instant::now();
         let k = run_keff_csg(
             &godiva_geometry(),
@@ -240,8 +248,8 @@ mod desktop {
             total > 0.0,
             "the flux tally is empty -- nothing was scored, so the comparison would be vacuous"
         );
-        let path = std::env::var("OURS_SPECTRUM")
-            .unwrap_or_else(|_| "ours_spectrum.csv".to_string());
+        let path =
+            std::env::var("OURS_SPECTRUM").unwrap_or_else(|_| "ours_spectrum.csv".to_string());
         let mut out = String::from("e_lo,e_hi,flux_norm\n");
         for (i, b) in tally.bins.iter().enumerate() {
             out.push_str(&format!(

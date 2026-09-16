@@ -166,9 +166,7 @@ use std::time::Instant;
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::pebble_beds::fhr_pebble::TrisoSpec;
-use outram_mc_libs::pebble_beds::sphere_packing::{
-    PackedSpheres, PackingConfig, PackingMethod, Sphere,
-};
+use outram_mc_libs::pebble_beds::sphere_packing::{PackedSpheres, PackingConfig, PackingMethod, Sphere};
 use outram_mc_libs::stochastic::cls::ClsMedium;
 use outram_mc_libs::stochastic::medium::{MaterialId, RsaMedium, StochasticMedium};
 use outram_mc_libs::stochastic::scls::SclsMedium;
@@ -201,7 +199,9 @@ const SEED: u64 = 0x5EED_1234_ABCD_0001;
 /// call overhead — every arm pays exactly this same cost.
 #[inline]
 fn rand_unit(seed: &mut u64) -> f64 {
-    *seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+    *seed = seed
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1_442_695_040_888_963_407);
     ((*seed >> 11) as f64) / ((1u64 << 53) as f64)
 }
 
@@ -270,7 +270,11 @@ impl SurfaceGrid {
             v.sort_unstable();
             v.dedup();
         }
-        Self { cells, spheres, cell }
+        Self {
+            cells,
+            spheres,
+            cell,
+        }
     }
 
     /// Distance \[cm\] along `d` from `p` to the nearest sphere surface, if any
@@ -292,11 +296,7 @@ impl SurfaceGrid {
             if t > limit {
                 break;
             }
-            let k = (
-                key(p.x + d.0 * t),
-                key(p.y + d.1 * t),
-                key(p.z + d.2 * t),
-            );
+            let k = (key(p.x + d.0 * t), key(p.y + d.1 * t), key(p.z + d.2 * t));
             if seen == Some(k) {
                 continue;
             }
@@ -535,7 +535,10 @@ fn run_cls_family(name: &'static str, mut medium: StochasticMedium, mut seed: u6
             collisions += 1;
         }
     }
-    assert_eq!(failed, 0, "{name}: medium returned NotImplemented — the arm is not measurable");
+    assert_eq!(
+        failed, 0,
+        "{name}: medium returned NotImplemented — the arm is not measurable"
+    );
     ArmResult {
         name,
         secs: t0.elapsed().as_secs_f64(),
@@ -619,7 +622,10 @@ fn main() {
 
     let t_grid = Instant::now();
     let grid = SurfaceGrid::build(&packing);
-    println!("  surface grid built        : {:.2} s\n", t_grid.elapsed().as_secs_f64());
+    println!(
+        "  surface grid built        : {:.2} s\n",
+        t_grid.elapsed().as_secs_f64()
+    );
 
     let cls_medium = ClsMedium::new(r_particle, PACKING_FRACTION, INCLUSION, MATRIX);
     // Transport mfp for the SCLS Dynamic Inclusion Sphere: the matrix mfp.
@@ -644,7 +650,10 @@ fn main() {
     let baseline = results[0].secs;
     let base_abs = results[0].absorbed;
 
-    println!("{:<32} {:>10} {:>12} {:>11} {:>10}", "arm", "time [s]", "us/history", "speedup", "P(abs)");
+    println!(
+        "{:<32} {:>10} {:>12} {:>11} {:>10}",
+        "arm", "time [s]", "us/history", "speedup", "P(abs)"
+    );
     println!("{}", "-".repeat(80));
     for r in &results {
         let us = r.secs / HISTORIES as f64 * 1.0e6;
@@ -652,7 +661,13 @@ fn main() {
         let mark = if r.exact { " " } else { "*" };
         println!(
             "{:<32} {:>10.3} {:>12.2} {:>10.1}x {:>9.4}{} +/-{:.4}",
-            r.name, r.secs, us, speedup, r.absorbed, mark, r.sem()
+            r.name,
+            r.secs,
+            us,
+            speedup,
+            r.absorbed,
+            mark,
+            r.sem()
         );
     }
     println!("{}", "-".repeat(80));
@@ -665,7 +680,11 @@ fn main() {
         let d = r.absorbed - base_abs;
         let sigma = (base_sem * base_sem + r.sem() * r.sem()).sqrt();
         let n_sigma = d / sigma;
-        let verdict = if n_sigma.abs() < 2.0 { "NOT resolved" } else { "resolved" };
+        let verdict = if n_sigma.abs() < 2.0 {
+            "NOT resolved"
+        } else {
+            "resolved"
+        };
         println!(
             "    {:<32} {:+.4} +/- {:.4}  ({:+.1} sigma, {})",
             r.name, d, sigma, n_sigma, verdict

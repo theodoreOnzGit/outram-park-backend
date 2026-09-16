@@ -129,10 +129,8 @@ mod desktop {
         let mut out = vec![0.0; seeds.len()];
         let chunk = seeds.len().div_ceil(WORKERS);
         std::thread::scope(|s| {
-            for (wi, (sd_chunk, out_chunk)) in seeds
-                .chunks(chunk)
-                .zip(out.chunks_mut(chunk))
-                .enumerate()
+            for (wi, (sd_chunk, out_chunk)) in
+                seeds.chunks(chunk).zip(out.chunks_mut(chunk)).enumerate()
             {
                 let nuclides = Arc::clone(nuclides);
                 s.spawn(move || {
@@ -166,7 +164,9 @@ mod desktop {
         let mut with_mf6 = Vec::new();
         for &(file, name, _) in NUCLIDES {
             let Some(p) = reference_endf(file) else {
-                println!("  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping.");
+                println!(
+                    "  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping."
+                );
                 return;
             };
             let n = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
@@ -186,7 +186,10 @@ mod desktop {
             .cloned()
             .map(Nuclide::without_evaluated_continuum)
             .collect();
-        println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        println!(
+            "Nuclear data ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         let material = Material {
             id: 1,
@@ -212,7 +215,10 @@ mod desktop {
         println!("  MF6 arm done in {:.1} s", t.elapsed().as_secs_f64());
         let t = Instant::now();
         let b = run_arm(&without_mf6, &material, &seeds);
-        println!("  WEISSKOPF arm done in {:.1} s\n", t.elapsed().as_secs_f64());
+        println!(
+            "  WEISSKOPF arm done in {:.1} s\n",
+            t.elapsed().as_secs_f64()
+        );
 
         let (ma, sa, ea) = stats(&a);
         let (mb, sb, eb) = stats(&b);
@@ -221,8 +227,20 @@ mod desktop {
 
         println!("Δk from ICSBEP HEU-MET-FAST-001 = 1.0000, pcm");
         println!("  arm         n     mean      sd     sem");
-        println!("  MF6       {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", a.len(), ma, sa, ea);
-        println!("  WEISSKOPF {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", b.len(), mb, sb, eb);
+        println!(
+            "  MF6       {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            a.len(),
+            ma,
+            sa,
+            ea
+        );
+        println!(
+            "  WEISSKOPF {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            b.len(),
+            mb,
+            sb,
+            eb
+        );
         println!(
             "  difference (MF6 − WEISSKOPF) = {:+.0} ± {:.0} pcm  ({:.1} sigma)",
             diff,

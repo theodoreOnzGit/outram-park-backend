@@ -131,7 +131,10 @@ mod desktop {
                     .unwrap_or_else(|e| panic!("from_endf_file: {e}"))
             })
             .collect();
-        println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        println!(
+            "Nuclear data ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         let material = Material {
             id: 1,
@@ -155,7 +158,9 @@ mod desktop {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(8);
-        println!("{n_seeds} seeds, {HISTORIES} histories x [{INACTIVE} + {ACTIVE}], reflective sphere…");
+        println!(
+            "{n_seeds} seeds, {HISTORIES} histories x [{INACTIVE} + {ACTIVE}], reflective sphere…"
+        );
 
         let mut ks = Vec::new();
         for seed in 1..=n_seeds as u64 {
@@ -185,8 +190,12 @@ mod desktop {
             ks.push(k.k_mean);
         }
         let (m, sd, sem) = stats(&ks);
-        println!("\n  outram-mc-libs k_inf = {m:.5}  (sd {:.0} pcm, sem {:.0} pcm, n={})",
-                 sd * 1e5, sem * 1e5, ks.len());
+        println!(
+            "\n  outram-mc-libs k_inf = {m:.5}  (sd {:.0} pcm, sem {:.0} pcm, n={})",
+            sd * 1e5,
+            sem * 1e5,
+            ks.len()
+        );
         println!("  Compare against: python3 godiva.py --kinf   in");
         println!("  verification_and_validation/openmc_godiva_cross_code/");
     }
