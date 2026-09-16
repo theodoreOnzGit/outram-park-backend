@@ -466,7 +466,30 @@ fn main() {
     );
 
     let t = Instant::now();
-    let result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    // Seed ensemble (OUTRAM_BENCH_SEEDS, default 1 -- unchanged single-seed
+    // behaviour). One run of this case scatters by far more than the effects
+    // being argued about, so a single draw cannot resolve a 100-200 pcm change;
+    // see outram_mc_libs::vv::pooled. `run_keff_csg` is already internally
+    // multi-threaded, so seeds run sequentially and each uses every core.
+    let n_seeds = outram_mc_libs::vv::bench_seeds();
+    let mut ens: Vec<f64> = Vec::with_capacity(n_seeds);
+    let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
+    ens.push((result.k_mean - 1.0) * 1.0e5);
+    for seed in 2..=n_seeds as u64 {
+        let s = KeffSettings { seed, ..settings.clone() };
+        let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
+        eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
+        ens.push((r.k_mean - 1.0) * 1.0e5);
+        result = r;
+    }
+    if n_seeds > 1 {
+        let (mean, sd, sem) = outram_mc_libs::vv::pooled(&ens);
+        println!("\n  ENSEMBLE LEU-COMP-THERM-008 case 1: {n_seeds} seeds");
+        println!("    pooled dk    = {mean:+.0} pcm");
+        println!("    seed-to-seed sd  = {sd:.0} pcm   (what ONE run scatters by)");
+        println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
+        println!("    distance from benchmark = {:.1} sem", (mean / sem).abs());
+    }
     eprintln!("  transport: {:.1} s", t.elapsed().as_secs_f64());
 
     let k = &result.k_by_generation;
