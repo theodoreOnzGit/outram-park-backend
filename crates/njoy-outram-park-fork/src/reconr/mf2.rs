@@ -42,20 +42,37 @@ pub enum ResonanceFormalism {
     /// LRF=7: R-Matrix Limited. **Parsed** via
     /// `crate::samm::mf2::parse_rml_section` (Reich-Moore-limited, `KRM=3`/
     /// `IFG=0` only, matching what `samm.f90` itself supports — see
-    /// `crate::samm`'s module doc).
+    /// `crate::samm`'s module doc) **and reconstructed** via
+    /// `crate::reconr::rml::add_rml_range`.
     ///
-    /// **Reconstruction is DEFECTIVE and this doc used to claim otherwise.**
-    /// Measured 2026-09-14 on Sr-88 (MAT 3837, the only LRF=7 evaluation in
-    /// `reference-data/endf/`) against NJOY2016 2016.79 on NJOY's own
-    /// 44,441-point grid: the elastic cross section comes back as the bare
-    /// potential term `4 pi a^2 = 4.969 b` — constant across the bottom of the
-    /// resolved range where NJOY varies (8.843 b at 1e-5 eV) — so the R-matrix
-    /// resonance contribution is absent, not merely inaccurate. Worst relative
-    /// error MT=1 1.03e1 and MT=2 1.04e1 (both at 7.4368e5 eV), MT=102 1.38e0.
-    /// Consistent with `crate::samm::run` still returning
-    /// [`crate::NjoyError::NotPorted`]. Tracked as gh:#202 / `bn:op-hb9l`; no
-    /// fix attempted, and the comparison above is the gate a fix is measured
-    /// against. **Do not cite an LRF=7 reconstruction as verified.**
+    /// # Verified against NJOY2016 (2026-09-14, gh:#202)
+    ///
+    /// Sr-88 (MAT 3837, the only LRF=7 evaluation in `reference-data/endf/`)
+    /// reproduces NJOY2016 2016.79 to within the reconstruction tolerance over
+    /// **all 44,326 points of NJOY's own grid** inside the resolved range:
+    /// worst relative deviation MT=1 `9.80e-3` and, at `err = 0.0001`,
+    /// `2.39e-3`. Full record:
+    /// `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
+    /// `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
+    ///
+    /// # The defect that made this look unwired, and the wrong inference to avoid
+    ///
+    /// This path did once return the bare potential term (`4 pi a^2 = 4.969 b`
+    /// on Sr-88, flat where NJOY varies). **The cause was a discarded background
+    /// R-matrix** (`KBK > 0`): the parser stepped its cursor past those records
+    /// and threw the contents away under a comment calling them "a secondary,
+    /// rarer LRF=7 feature". They are not secondary here — all 7 of Sr-88's spin
+    /// groups carry `KBK = 1` with `LCH = 2`, `LBK = 2`, and all 443 of its
+    /// resonances sit at or above 12.41 keV, so below that the background term
+    /// carries essentially the whole elastic cross section beyond hard-sphere
+    /// scattering.
+    ///
+    /// **`crate::samm::run` returning [`crate::NjoyError::NotPorted`] is not
+    /// evidence about this path and must not be read as such.** It is vestigial
+    /// and nothing calls it; RECONR goes `reconr/mod.rs → rml::add_rml_range →
+    /// samm::setup + cssammy`, which ran end to end the whole time. gh:#202
+    /// drew exactly that inference and following it would have cost a wasted
+    /// port of a module that was already there.
     RMatrixLimited,
 }
 
