@@ -41,7 +41,7 @@ marked `env` and count as a gap, not as coverage.
 | (n,2n) MT=16 multiplicity | ✅ | ENDF yield, per-subsection sum | ✅ `with_unit_n2n_multiplicity` (closed 2026-09-16) | ✅ ×2 (incl. a **kernel-level** one) |
 | **(n,3n) MT=17 multiplicity** | ✅ (2026-09-16) | ENDF MT=17 σ + MF=6 MT=17 law; threshold invariant | ✅ same hook (scope widened) | ✅ ×2 |
 | Tabulated **source** energy distribution | ✅ (2026-09-16) | uniform-CDF inversion; degenerate-table bounds | n/a | ✅ ×2 |
-| **DBRC / resonance elastic upscatter** | ❌ **absent** | — | ❌ | ❌ |
+| **DBRC / resonance elastic upscatter** | ✅ (2026-09-16) | 0 K elastic structure (175× across U-238's 6.67 eV resonance); inert above its limit; `None` path bit-identical | ✅ `without_dbrc` | ✅ ×3 |
 | ν̄(E) energy dependence | ✅ | MF=1/452 tape | ✅ `with_frozen_nubar` (closed 2026-09-16) | ✅ ×2 |
 | χ(E→E') fission spectrum (MF=5) | ✅ | MF=5 tape; `⟨E_out⟩` vs OpenMC (0.018 %); **sampler vs the tape's own row means, ≤1 %** | ✅ `with_frozen_fission_spectrum` (closed 2026-09-16) | ✅ ×2 |
 | Threshold behaviour (σ = 0 below threshold) | ✅ | ENDF redundancy relation; gh:#193 gate | n/a | n/a |
@@ -333,13 +333,25 @@ not need — `outram-mc-libs` never reads a PENDF, it reads ENDF and builds a
   the crate constructed one, which is exactly how a latent panic survives a test
   suite. Now a piecewise-linear CDF inversion with two tests, including
   degenerate tables.
-- **DBRC (Doppler Broadening Rejection Correction) is absent** — free-gas
-  elastic uses the constant-cross-section approximation and does not resample σ
-  at the relative energy inside a resonance. It was noted in a code comment in
-  `physics/scatter.rs` and had never reached this matrix. **This one matters for
-  the reactors this project targets**: it is a thermal/epithermal effect on
-  U-238's resolved resonances, and every validation case here is a bare fast
-  sphere.
+- ~~**DBRC (Doppler Broadening Rejection Correction) is absent.**~~
+  **IMPLEMENTED 2026-09-16.** Free-gas elastic used the constant-cross-section
+  approximation and never resampled σ at the relative energy inside a resonance.
+  Now a second rejection on `σ_s^{0K}(E_rel)/σ_max`, layered on upstream's own
+  relative-speed rejection as two independent accept tests (which is what makes
+  the product of the weights right, and is what OpenMC does).
+
+  The 0 K elastic grid is retained at construction — up to `DBRC_GRID_MAX_EV`
+  = 25 keV, clearing U-238's 20 keV resolved range — because the target motion
+  is modelled explicitly and a *broadened* σ would count Doppler broadening
+  twice. Measured: 34 916 points below 1 keV, and the 6.67 eV resonance towers
+  **175×** over the potential scattering at 3 eV. Opt-in via `with_dbrc(e_max)`;
+  1 keV is OpenMC's default.
+
+  **Not priced.** The literature puts DBRC at order 100–200 pcm in an LWR pin
+  cell. This crate cannot see that on Godiva — a bare fast sphere has
+  essentially no flux in U-238's resolved resonances — so measuring it needs a
+  thermal or epithermal case. That is the same gap recorded below as the
+  project's largest, and DBRC is now a second reason to close it.
 
 Still open: the `EnergyAngular` interpolation flag, MF=6 `LANG = 11…15`, MF=5
 LF=5. These are gaps but not defects — each is recorded where a reader meets

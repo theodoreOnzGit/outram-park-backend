@@ -27,6 +27,7 @@ use njoy_outram_park_fork::nuclear_data::secondary::{
 };
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::purr::{UrrProbabilityTables, UrrSample};
+use crate::physics::scatter::DbrcTable;
 use njoy_outram_park_fork::reconr::ReconrResult;
 use njoy_outram_park_fork::wmp::{WindowedMultipole, WmpLibrary};
 use njoy_outram_park_fork::MtReaction;
@@ -243,7 +244,26 @@ pub struct Nuclide {
     /// default — means the unresolved range is treated as infinitely dilute,
     /// which is what this crate did unconditionally before 2026-09-16.
     urr: Option<UrrProbabilityTables>,
+    /// 0 K elastic cross section for the **DBRC** resonance-elastic correction,
+    /// when the caller asked for it with [`Nuclide::with_dbrc`]. `None` — the
+    /// default — is the constant-cross-section approximation this crate used
+    /// unconditionally before 2026-09-16.
+    dbrc: Option<DbrcTable>,
+    /// The 0 K elastic `(E [eV], σ [b])` grid retained at construction, capped
+    /// at [`DBRC_GRID_MAX_EV`], from which [`Nuclide::with_dbrc`] builds its
+    /// table. Empty on the LOW tier and for any nuclide whose evaluation has no
+    /// MT=2 below the cap.
+    elastic_0k: Vec<(f64, f64)>,
 }
+
+/// Upper energy \[eV\] of the 0 K elastic grid retained for DBRC.
+///
+/// DBRC is a **resolved-resonance** correction, so it is pointless above the
+/// resolved region and expensive to carry there. 25 keV clears U-238's resolved
+/// range (which ends at 20 keV) with headroom, while keeping the retained table
+/// small. A caller can still choose a lower working limit per nuclide via
+/// [`Nuclide::with_dbrc`]; this is only the cap on what is *kept*.
+pub const DBRC_GRID_MAX_EV: f64 = 2.5e4;
 
 /// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
 ///
@@ -297,6 +317,9 @@ impl Nuclide {
             chi_frozen_at: None,
             n2n_yield_one: false,
             urr: None,
+            dbrc: None,
+            // LOW tier has no pointwise reconstruction, so no 0 K grid for DBRC.
+            elastic_0k: Vec::new(),
         })
     }
 
@@ -894,6 +917,72 @@ impl Nuclide {
         self.urr.as_ref().is_some_and(|t| t.covers(e))
     }
 
+    /// Enable the **DBRC** resonance-elastic correction below `e_max_ev` \[eV\].
+    ///
+    /// # What it fixes
+    ///
+    /// Free-gas elastic scattering samples the target velocity under the
+    /// **constant cross-section** approximation — it assumes `σ_s` does not vary
+    /// across the relative energies a thermal target reaches. Near a resolved
+    /// resonance that is badly wrong: U-238's 6.67 eV resonance moves `σ_s` by
+    /// orders of magnitude across exactly that window. DBRC adds the missing
+    /// `σ_s^{0K}(E_rel)` weighting by rejection. See
+    /// [`DbrcTable`](crate::physics::scatter::DbrcTable).
+    ///
+    /// # Choosing `e_max_ev`
+    ///
+    /// DBRC is a resolved-resonance correction and costs a rejection loop per
+    /// collision below the limit, so the limit should sit above the resonances
+    /// that matter and no higher. **1 keV is OpenMC's default** and covers
+    /// U-238's large low-lying resonances; values above
+    /// [`DBRC_GRID_MAX_EV`] are clamped, since nothing above that was retained.
+    ///
+    /// # Returns
+    ///
+    /// `self` unchanged when the nuclide has no retained 0 K elastic grid — the
+    /// LOW (`Core`) tier, or an evaluation with no MT=2 below the cap — so this
+    /// can be called unconditionally over a material's nuclide list.
+    ///
+    /// # Not yet measured here
+    ///
+    /// The published literature puts DBRC at order 100-200 pcm in an LWR pin
+    /// cell. **This crate has not measured it**, and would not see it on its
+    /// current validation case: Godiva is a bare fast sphere with essentially no
+    /// flux in U-238's resolved resonances. Pricing it needs a thermal or
+    /// epithermal case — which is the same gap `docs/neutronics-physics-coverage.md`
+    /// records as the project's largest.
+    pub fn with_dbrc(mut self, e_max_ev: f64) -> Self {
+        let cap = e_max_ev.min(DBRC_GRID_MAX_EV);
+        self.dbrc = DbrcTable::from_pairs(&self.elastic_0k, cap);
+        self
+    }
+
+    /// **Ablation control for V&V: remove the DBRC correction**, returning the
+    /// nuclide to the constant-cross-section free-gas kernel.
+    ///
+    /// The arm that prices resonance-elastic scattering. Only the correction
+    /// goes — every cross section, angular law and emission law is untouched.
+    pub fn without_dbrc(mut self) -> Self {
+        self.dbrc = None;
+        self
+    }
+
+    /// Whether the DBRC correction is enabled on this nuclide.
+    ///
+    /// The assertion an ablation control needs on the unablated arm.
+    pub fn has_dbrc(&self) -> bool {
+        self.dbrc.is_some()
+    }
+
+    /// This nuclide's DBRC table, for the transport kernels to hand to
+    /// [`free_gas_elastic_scatter_dbrc`](crate::physics::scatter::free_gas_elastic_scatter_dbrc).
+    ///
+    /// `None` — the default — makes that call bit-identical to the
+    /// uncorrected kernel, draw count included.
+    pub fn dbrc_table(&self) -> Option<&DbrcTable> {
+        self.dbrc.as_ref()
+    }
+
     /// This nuclide's microscopic cross sections at `e` \[eV\] and `temp_k`
     /// \[K\], **with unresolved-resonance self-shielding applied** from the
     /// sampled band `xi`.
@@ -1077,6 +1166,25 @@ impl Nuclide {
         )?;
         let awr = recon0.material.awr;
 
+        // 3a. Keep the 0 K ELASTIC grid before broadening replaces it. DBRC
+        //     needs the unbroadened cross section -- the target motion is
+        //     modelled explicitly there, so using a broadened sigma would count
+        //     Doppler broadening twice. Only MT=2 is retained, and only up to
+        //     `DBRC_GRID_MAX_EV`, so this costs a small table rather than a
+        //     second full reconstruction.
+        let elastic_0k: Vec<(f64, f64)> = recon0
+            .sections
+            .iter()
+            .find(|sec| sec.mt == MtReaction::Mt2Elastic)
+            .map(|sec| {
+                sec.pairs
+                    .iter()
+                    .copied()
+                    .filter(|(e, _)| *e <= DBRC_GRID_MAX_EV)
+                    .collect()
+            })
+            .unwrap_or_default();
+
         // 3. BROADR to the material temperature (in place of the 0 K grid),
         //    bounded at upstream's `thnmax` (top of the resolved region) so
         //    SIGMA1 never runs across the resolved/unresolved seam or over the
@@ -1154,6 +1262,8 @@ impl Nuclide {
             chi_frozen_at: None,
             n2n_yield_one: false,
             urr: None,
+            dbrc: None,
+            elastic_0k,
         })
     }
 

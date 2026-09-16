@@ -105,7 +105,7 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 pub use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, continuum_inelastic_scatter_evaluated,
+    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated,
     rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NONE};
@@ -1418,7 +1418,7 @@ fn collide_batched(
                 let mu_cm = nuc
                     .sample_elastic_mu_cm(e, seed)
                     .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
             }
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
@@ -1631,7 +1631,7 @@ fn transport_history(
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                        free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
                     }
                 };
                 e = e2;
@@ -1837,7 +1837,7 @@ fn transport_history_tabulated(
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                        free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
                     }
                 };
                 e = e2;

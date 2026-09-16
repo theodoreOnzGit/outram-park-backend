@@ -1024,15 +1024,27 @@ fn the_n2n_multiplicity_hook_ablates_exactly_the_second_neutron() {
 /// eigenvalues came out bit-identical because the S(α,β) wiring never reached
 /// the sampler, and the symptom was two numbers agreeing.
 ///
-/// # Why a single paired run is legitimate here, when it is not for free-gas
+/// # This became an ensemble, and why is a correction worth keeping
 ///
-/// The secondary is **drawn unconditionally and only its emission is gated**,
-/// so the two arms consume identical RNG streams. The difference between them
-/// is therefore *deterministic* — the same seed gives the same two numbers
-/// every time — rather than a sample from a distribution. That is what lets one
-/// paired run at a fixed seed serve as a regression assertion.
-/// [`Nuclide::with_target_at_rest`] cannot do this: its ablated arm skips a
-/// target-velocity draw, so its arms diverge and it needs an ensemble.
+/// It was originally ONE paired seed, justified by "the secondary is drawn
+/// unconditionally and only its emission is gated, so the two arms consume
+/// identical RNG streams and the difference is deterministic". **That
+/// justification was wrong.** The streams stay in lockstep only up to the first
+/// multiplying collision — after which the yield-2 arm has an extra neutron on
+/// its stack, that neutron draws from the same stream, and the two histories
+/// diverge completely. The difference was always a *sample*, never a
+/// deterministic value.
+///
+/// It passed anyway while `(n,2n)` was the only multiplying channel, because
+/// that channel is common enough around 10–12 MeV for the sign to be robust at
+/// one seed. Adding `(n,3n)` — which on U-235 opens only above ~13 MeV, where a
+/// fission spectrum has almost no flux — contributed a rare, high-variance term
+/// and the single-seed sign flipped: `+32.5 pcm` against the `−95.8 pcm`
+/// recorded before. **The physics was fine; the measurement was never robust.**
+///
+/// So it now averages 8 paired seeds and asserts the sign of the **mean**,
+/// reporting `sd` and `sem` beside it. A single-seed sign assertion on a rare
+/// channel is exactly the kind of gate that passes until it doesn't.
 ///
 /// **This is a harness check, not physics V&V.** It asserts the switch reaches
 /// the kernel and moves `k` the only direction it physically can. What (n,2n)
@@ -1080,49 +1092,64 @@ fn the_n2n_multiplicity_hook_reaches_the_transport_kernel() {
         run_keff(8.7407, &material, &nuclides, &settings).k_mean
     };
 
-    const SEED: u64 = 20_260_916;
-    let k_yield2 = sphere(vec![evaluated.clone()], SEED);
-    let k_yield1 = sphere(vec![evaluated.clone().with_unit_n2n_multiplicity()], SEED);
-    let delta_pcm = (k_yield1 - k_yield2) * 1.0e5;
+    // An ENSEMBLE, not one seed -- see the note in this test's doc comment.
+    const SEEDS: [u64; 8] = [
+        20_260_916, 20_260_917, 20_260_918, 20_260_919,
+        20_260_920, 20_260_921, 20_260_922, 20_260_923,
+    ];
+    let mut diffs = Vec::new();
+    let mut n_differ = 0usize;
+    for &seed in &SEEDS {
+        let k2 = sphere(vec![evaluated.clone()], seed);
+        let k1 = sphere(vec![evaluated.clone().with_unit_n2n_multiplicity()], seed);
+        if k2.to_bits() != k1.to_bits() {
+            n_differ += 1;
+        }
+        diffs.push((k1 - k2) * 1.0e5);
+    }
+    let n = diffs.len() as f64;
+    let mean = diffs.iter().sum::<f64>() / n;
+    let sd = (diffs.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+    let sem = sd / n.sqrt();
 
-    // 1: the kernel noticed. If these are equal, no kernel is reading the flag.
-    assert_ne!(
-        k_yield2.to_bits(),
-        k_yield1.to_bits(),
-        "the two arms gave bit-identical k ({k_yield2}). Either no collision kernel consults \
-         `Nuclide::emits_n2n_secondary`, or no (n,2n) collision occurred in {} histories. \
-         Both make every (n,2n) measurement through this hook meaningless -- this is the \
-         op-50vu failure mode.",
-        4000 * 80
+    // 1: the kernel noticed, on EVERY seed. A bit-identical pair means no
+    // kernel is reading the flag on that history -- the op-50vu failure mode.
+    assert_eq!(
+        n_differ,
+        SEEDS.len(),
+        "only {n_differ}/{} seeds gave a different k across the ablation; the rest were \
+         bit-identical. Either no collision kernel consults \
+         `Nuclide::emits_n2n_secondary`, or no multiplying collision occurred in those \
+         histories.",
+        SEEDS.len()
     );
 
-    // 2: it moved the only direction it physically can. (n,2n) is a neutron
-    // MULTIPLIER; deleting the extra neutron removes a source and can only
-    // lower k. A positive delta means the gate is inverted somewhere.
+    // 2: it moves the only direction it physically can. (n,2n) and (n,3n) are
+    // neutron MULTIPLIERS, so deleting the extras removes a source and can only
+    // lower k -- ON AVERAGE. Asserted on the ensemble mean, because at one seed
+    // this is a noisy quantity (see the doc comment).
     assert!(
-        delta_pcm < 0.0,
-        "cutting the (n,2n) yield from 2 to 1 RAISED k by {delta_pcm:+.1} pcm \
-         ({k_yield2:.6} -> {k_yield1:.6}). Removing a neutron source cannot raise the \
-         eigenvalue; the emission gate is inverted at one or more of the four kernel sites."
+        mean < 0.0,
+        "cutting the multiplying channels' yield to 1 RAISED k by {mean:+.1} pcm \
+         (sd {sd:.1}, sem {sem:.1}) over {} seeds. Removing a neutron source cannot raise the \
+         eigenvalue on average; suspect an inverted emission gate.",
+        SEEDS.len()
     );
 
-    // 3: the magnitude is physically plausible. (n,2n) is a threshold reaction
-    // with a small cross section and a fission spectrum puts ~1 % of its flux
-    // above it, so this is a small effect. A huge one means the gate is
-    // catching something other than the (n,2n) secondary.
+    // 3: the magnitude is physically plausible -- threshold reactions carrying
+    // ~1 % of a fission spectrum's flux cannot be worth thousands of pcm.
     assert!(
-        delta_pcm > -3000.0,
-        "cutting the (n,2n) yield moved k by {delta_pcm:+.1} pcm, far more than a threshold \
-         reaction carrying ~1 % of the flux can be worth. The emission gate is probably \
-         suppressing more than the (n,2n) secondary."
+        mean > -3000.0,
+        "cutting the yield moved k by {mean:+.1} pcm, far more than these threshold channels \
+         can be worth. The gate is probably suppressing more than the extra neutrons."
     );
 
     println!(
-        "with_unit_n2n_multiplicity reaches the kernel: bare U-235 sphere, seed {SEED}, \
-         4000 x [20 inactive + 60 active] -- k {k_yield2:.6} (yield 2) -> {k_yield1:.6} \
-         (yield 1), {delta_pcm:+.1} pcm. Deterministic on a shared seed because the secondary \
-         is drawn either way and only its emission is gated. Harness check, not a worth \
-         measurement."
+        "with_unit_n2n_multiplicity reaches the kernel: bare U-235 sphere, {} seeds x 4000 x \
+         [20 inactive + 60 active] -- mean Delta k {mean:+.1} pcm (sd {sd:.1}, sem {sem:.1}); \
+         all {} pairs differ. Harness check, not a worth measurement.",
+        SEEDS.len(),
+        SEEDS.len()
     );
 }
 

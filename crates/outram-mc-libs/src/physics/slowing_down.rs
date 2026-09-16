@@ -139,7 +139,7 @@ use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, two_body_scatter_with_mu,
+    free_gas_elastic_scatter_dbrc, two_body_scatter_with_mu,
 };
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
@@ -629,13 +629,14 @@ impl InfiniteMediumMc {
                             let mu_cm = nuc
                                 .sample_elastic_mu_cm(e, &mut seed)
                                 .unwrap_or_else(|| 2.0 * prn(&mut seed) - 1.0);
-                            free_gas_elastic_scatter(
+                            free_gas_elastic_scatter_dbrc(
                                 e,
                                 dir,
                                 nuc.awr,
                                 nuc.free_gas_kt(temp_k),
                                 mu_cm,
                                 &mut seed,
+                                nuc.dbrc_table(),
                             )
                         }
                     }
@@ -961,7 +962,7 @@ impl LumpCellMc {
                     let mu_cm = nuc
                         .sample_elastic_mu_cm(e, seed)
                         .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                    free_gas_elastic_scatter(e, dir, nuc.awr, nuc.free_gas_kt(temp_k), mu_cm, seed)
+                    free_gas_elastic_scatter_dbrc(e, dir, nuc.awr, nuc.free_gas_kt(temp_k), mu_cm, seed, nuc.dbrc_table())
                 }
             }
         }

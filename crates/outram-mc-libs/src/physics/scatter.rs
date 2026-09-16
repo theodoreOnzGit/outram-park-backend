@@ -230,6 +230,28 @@ pub fn free_gas_elastic_scatter(
     mu_cm: f64,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    free_gas_elastic_scatter_dbrc(e, u, awr, kt_ev, mu_cm, seed, None)
+}
+
+/// [`free_gas_elastic_scatter`] with an optional **DBRC** correction.
+///
+/// With `dbrc = None` this is bit-identical to `free_gas_elastic_scatter`,
+/// including its RNG draw count — so a nuclide without a table is unaffected,
+/// and every result recorded before DBRC existed still reproduces.
+///
+/// With `Some(table)` and an incident energy inside the table's window, the
+/// sampled target velocity is additionally accepted with probability
+/// `σ_s^{0K}(E_rel) / σ_max`, which is the weighting the constant-cross-section
+/// approximation drops. See [`DbrcTable`] for why that matters and where.
+pub fn free_gas_elastic_scatter_dbrc(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    kt_ev: f64,
+    mu_cm: f64,
+    seed: &mut u64,
+    dbrc: Option<&DbrcTable>,
+) -> (f64, Direction) {
     // Same gate as OpenMC: heavy target, energy well above thermal ⇒ at rest.
     // A non-positive kT (a caller with no temperature) also falls through here,
     // preserving the previous behaviour rather than sampling a degenerate gas.
@@ -240,7 +262,7 @@ pub fn free_gas_elastic_scatter(
     // Velocities in units where |v| = √E, so E = v·v throughout.
     let vel = e.sqrt();
     let v_n = [vel * u.u, vel * u.v, vel * u.w];
-    let v_t = sample_target_velocity(e, u, awr, kt_ev, seed);
+    let v_t = sample_target_velocity_dbrc(e, u, awr, kt_ev, seed, dbrc);
 
     let ap1 = awr + 1.0;
     let v_cm = [
@@ -275,6 +297,134 @@ pub fn free_gas_elastic_scatter(
     )
 }
 
+/// A nuclide's **0 K elastic scattering cross section** over the energy window
+/// where resonance structure makes the constant-cross-section approximation
+/// wrong — the data DBRC needs.
+///
+/// # What DBRC corrects
+///
+/// [`free_gas_elastic_scatter`] samples the target velocity from a Maxwellian
+/// weighted only by the relative speed. That is the **constant cross-section
+/// (CXS)** approximation: it assumes `σ_s` does not vary over the range of
+/// relative energies a thermal target can reach. Near a resolved resonance in a
+/// heavy nuclide that is badly wrong — U-238's 6.67 eV resonance changes `σ_s`
+/// by orders of magnitude across a window the target's own motion spans — and
+/// the correct kernel weights the target velocity by `σ_s(E_rel)` as well.
+///
+/// **Doppler Broadening Rejection Correction** does that by rejection: sample a
+/// target velocity as usual, compute the relative energy, and accept with
+/// probability `σ_s^{0K}(E_rel) / σ_max` over the neighbourhood. The 0 K cross
+/// section is the right one because the target motion is being modelled
+/// explicitly — using a broadened `σ` here would count Doppler broadening twice.
+///
+/// # Why it matters here specifically
+///
+/// It is an **epithermal** effect on resolved resonances, so it is invisible on
+/// a bare fast metal sphere and material in a thermal or epithermal lattice —
+/// exactly the reactors this project targets (HTR-10, MSRE, the FHR pebble),
+/// and exactly where this crate has the least validation evidence. It raises
+/// U-238's effective resonance absorption and is worth of order 100-200 pcm in
+/// an LWR pin cell in the published literature; it has **not** been measured
+/// here (see `Nuclide::with_dbrc`).
+///
+/// Ported from OpenMC `sample_target_velocity` / `ResScatMethod::DBRC`
+/// (`src/physics.cpp`, `src/nuclide.cpp`).
+#[derive(Debug, Clone)]
+pub struct DbrcTable {
+    /// Ascending energy grid \[eV\].
+    energy: Vec<f64>,
+    /// 0 K elastic cross section \[b\] aligned with `energy`.
+    xs: Vec<f64>,
+    /// Upper energy \[eV\] above which DBRC is not applied.
+    e_max: f64,
+}
+
+impl DbrcTable {
+    /// Build from an ascending 0 K `(energy [eV], σ_elastic [b])` grid,
+    /// restricted to `e <= e_max_ev`.
+    ///
+    /// Returns `None` when fewer than two points survive the restriction —
+    /// a nuclide with no resolved resonance structure in the window has
+    /// nothing for DBRC to correct.
+    pub fn from_pairs(pairs: &[(f64, f64)], e_max_ev: f64) -> Option<Self> {
+        let mut energy = Vec::new();
+        let mut xs = Vec::new();
+        for &(e, s) in pairs {
+            if e <= e_max_ev {
+                energy.push(e);
+                xs.push(s);
+            }
+        }
+        if energy.len() < 2 {
+            return None;
+        }
+        Some(DbrcTable {
+            energy,
+            xs,
+            e_max: e_max_ev,
+        })
+    }
+
+    /// Upper energy \[eV\] DBRC is applied below.
+    pub fn e_max_ev(&self) -> f64 {
+        self.e_max
+    }
+
+    /// Number of tabulated points.
+    pub fn len(&self) -> usize {
+        self.energy.len()
+    }
+
+    /// Whether the table is empty (never true for a [`Self::from_pairs`] result).
+    pub fn is_empty(&self) -> bool {
+        self.energy.is_empty()
+    }
+
+    /// 0 K elastic cross section \[b\] at `e` \[eV\], lin-lin interpolated and
+    /// clamped at the ends.
+    pub fn xs_at(&self, e: f64) -> f64 {
+        let n = self.energy.len();
+        if e <= self.energy[0] {
+            return self.xs[0];
+        }
+        if e >= self.energy[n - 1] {
+            return self.xs[n - 1];
+        }
+        let hi = self.energy.partition_point(|&x| x < e).max(1).min(n - 1);
+        let (x0, x1) = (self.energy[hi - 1], self.energy[hi]);
+        let (y0, y1) = (self.xs[hi - 1], self.xs[hi]);
+        if x1 > x0 {
+            y0 + (y1 - y0) * (e - x0) / (x1 - x0)
+        } else {
+            y0
+        }
+    }
+
+    /// The maximum 0 K elastic cross section \[b\] over `[lo, hi]` eV — the
+    /// rejection envelope.
+    ///
+    /// Scans the tabulated points in the window as well as its endpoints, so a
+    /// resonance peak between grid nodes cannot be missed in a way that would
+    /// make the acceptance probability exceed 1 (which would silently bias the
+    /// sampling rather than error).
+    pub fn xs_max_over(&self, lo: f64, hi: f64) -> f64 {
+        let mut m = self.xs_at(lo).max(self.xs_at(hi));
+        let start = self.energy.partition_point(|&x| x < lo);
+        for k in start..self.energy.len() {
+            if self.energy[k] > hi {
+                break;
+            }
+            m = m.max(self.xs[k]);
+        }
+        m
+    }
+
+    /// Whether DBRC applies to a neutron of energy `e` \[eV\].
+    pub fn applies(&self, e: f64) -> bool {
+        e <= self.e_max
+    }
+}
+
 /// Sample the target nucleus velocity for a free-gas elastic collision, in the
 /// same `|v| = √E` units as the neutron.
 ///
@@ -288,6 +438,31 @@ pub fn free_gas_elastic_scatter(
 /// The returned velocity is isotropic in azimuth about `u` and makes cosine `mu`
 /// with it, `mu` being sampled jointly with the speed by the same rejection.
 fn sample_target_velocity(e: f64, u: Direction, awr: f64, kt_ev: f64, seed: &mut u64) -> [f64; 3] {
+    sample_target_velocity_dbrc(e, u, awr, kt_ev, seed, None)
+}
+
+/// [`sample_target_velocity`] with the optional DBRC rejection layered on top.
+///
+/// # The two rejections are separate, and the order matters
+///
+/// Upstream's own rejection (accept with `|v_n − v_t| / (v_n + v_t)`) makes the
+/// sampled speed proportional to the relative speed. DBRC adds a **second**
+/// rejection on `σ_s^{0K}(E_rel) / σ_max`. Applying them as two independent
+/// accept tests on the same candidate is what makes the product of the two
+/// weights come out right; folding them into one acceptance probability would
+/// need the envelope of the product and is not what OpenMC does.
+///
+/// With `dbrc = None` the added loop never runs and the draw sequence is
+/// identical to the pre-DBRC sampler — the property that keeps every existing
+/// result reproducible.
+fn sample_target_velocity_dbrc(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    kt_ev: f64,
+    seed: &mut u64,
+    dbrc: Option<&DbrcTable>,
+) -> [f64; 3] {
     // β·v_n = √(A·E / kT) — the neutron speed in units of the target's thermal one.
     let beta_vn = (awr * e / kt_ev).sqrt();
     let alpha = 1.0 / (1.0 + PI.sqrt() * beta_vn / 2.0);
@@ -318,6 +493,34 @@ fn sample_target_velocity(e: f64, u: Direction, awr: f64, kt_ev: f64, seed: &mut
             1.0
         };
         if prn(seed) < accept {
+            // DBRC: a SECOND, independent rejection weighting the candidate by
+            // the 0 K elastic cross section at the relative energy. Skipped
+            // entirely (no draw consumed) when there is no table or the
+            // incident energy is above its window, which is what keeps the
+            // no-DBRC path bit-identical.
+            if let Some(t) = dbrc {
+                if t.applies(e) {
+                    // Relative energy in the same |v| = sqrt(E) units:
+                    // E_rel = (v_n - v_t)^2, expanded via the sampled cosine.
+                    let beta_vt = beta_vt_sq.sqrt();
+                    let e_rel = (beta_vn * beta_vn + beta_vt_sq
+                        - 2.0 * beta_vn * beta_vt * mu)
+                        .max(0.0)
+                        * kt_ev
+                        / awr;
+                    // Envelope over the window this target's motion can reach.
+                    let spread = 4.0 * (kt_ev * e / awr).sqrt();
+                    let lo = (e - spread).max(0.0);
+                    let hi = e + spread;
+                    let s_max = t.xs_max_over(lo, hi);
+                    if s_max > 0.0 {
+                        let ratio = (t.xs_at(e_rel) / s_max).clamp(0.0, 1.0);
+                        if prn(seed) >= ratio {
+                            continue; // reject; draw another target velocity
+                        }
+                    }
+                }
+            }
             break;
         }
     }
