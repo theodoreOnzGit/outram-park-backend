@@ -65,6 +65,7 @@ use std::collections::HashMap;
 use crate::boundary::Boundary;
 use crate::granular::{ContactKey, ContactKinematics, GranularContactModel, ShearHistory};
 use crate::integrator::VelocityVerlet;
+use crate::mesh_wall::MovingBoundary;
 use crate::particle::{Particle, Vec3};
 use crate::DemError;
 
@@ -85,6 +86,10 @@ use crate::DemError;
 pub struct GranularSystem {
     particles: Vec<Particle>,
     boundaries: Vec<Boundary>,
+    /// Kinematically-prescribed moving walls (upstream `fix move/mesh`), each
+    /// wrapping an analytic primitive or a triangulated mesh. Advanced once per
+    /// step, in the drift half of the velocity-Verlet cycle.
+    moving_walls: Vec<MovingBoundary>,
     model: GranularContactModel,
     history: ShearHistory,
     integrator: VelocityVerlet,
@@ -126,6 +131,7 @@ impl GranularSystem {
         let mut s = Self {
             particles,
             boundaries,
+            moving_walls: Vec::new(),
             model,
             history: ShearHistory::new(),
             integrator,
@@ -137,6 +143,42 @@ impl GranularSystem {
         };
         s.compute_forces();
         Ok(s)
+    }
+
+    /// Attach kinematically-prescribed **moving walls** (upstream
+    /// `fix move/mesh`), returning the updated system.
+    ///
+    /// Each [`MovingBoundary`] wraps either an analytic primitive or a
+    /// triangulated [`crate::mesh_wall::MeshWall`], and carries a translational
+    /// and angular velocity. They are advanced once per step and their surface
+    /// velocity enters the contact law, so a moving wall drags particles
+    /// through friction exactly as a static one resists them.
+    ///
+    /// Forces are recomputed on attachment so the first half-kick sees them.
+    #[must_use]
+    pub fn with_moving_walls(mut self, walls: Vec<MovingBoundary>) -> Self {
+        self.moving_walls = walls;
+        self.compute_forces();
+        self
+    }
+
+    /// The attached moving walls, in their current pose.
+    #[must_use]
+    pub fn moving_walls(&self) -> &[MovingBoundary] {
+        &self.moving_walls
+    }
+
+    /// Mutable access to the moving walls, for **changing their prescribed
+    /// motion mid-run** — the equivalent of upstream `unfix`-ing a
+    /// `fix move/mesh` and installing a different one.
+    ///
+    /// The angle-of-repose case uses this to stop the lift once the cylinder is
+    /// clear of the heap. Changing a wall's *pose* through this handle is also
+    /// possible but is not a rigid-body move and will not be seen by the shear
+    /// history as such — prefer setting velocities and letting
+    /// [`GranularSystem::step`] advance the pose.
+    pub fn moving_walls_mut(&mut self) -> &mut [MovingBoundary] {
+        &mut self.moving_walls
     }
 
     /// The particle ensemble `[m]`/`[m/s]`/… (see [`Particle`]).
@@ -186,6 +228,11 @@ impl GranularSystem {
         let (f, t) = (self.forces.clone(), self.torques.clone());
         self.integrator
             .initial_integrate(&mut self.particles, &f, &t);
+        // Walls drift with the particles (upstream advances mesh nodes in the
+        // same half-step as the particle positions).
+        for w in &mut self.moving_walls {
+            w.advance(self.dt);
+        }
         self.compute_forces();
         let (f2, t2) = (self.forces.clone(), self.torques.clone());
         self.integrator
@@ -241,6 +288,28 @@ impl GranularSystem {
                     {
                         let gf = self.model.resolve(
                             ContactKey::wall(i, w),
+                            &k,
+                            &mut self.history,
+                            self.dt,
+                        );
+                        self.forces[i] = self.forces[i].add(gf.force_i);
+                        self.torques[i] = self.torques[i].add(gf.torque_i);
+                    }
+                }
+            }
+        }
+
+        // --- particle-moving-wall ---
+        for i in 0..n {
+            let p = self.particles[i];
+            for (w, wall) in self.moving_walls.iter().enumerate() {
+                if let Some(c) = wall.particle_overlap(&p) {
+                    let v_wall = wall.surface_velocity(c.point);
+                    if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, v_wall) {
+                        let gf = self.model.resolve(
+                            // Wall ids are offset past the static boundaries so
+                            // the two families cannot collide in the history map.
+                            ContactKey::wall(i, self.boundaries.len() + w),
                             &k,
                             &mut self.history,
                             self.dt,
@@ -443,6 +512,86 @@ mod tests {
                  measured restitution {e}"
             );
         }
+    }
+
+    /// **Methodology — a moving wall must drag its contacts.** A pebble rests
+    /// on a floor under gravity; the floor is then given a horizontal surface
+    /// velocity of `0.1 m/s` (a [`MovingBoundary`] wrapping a plane — upstream's
+    /// `fix move/mesh` applied to a flat wall). Friction must accelerate and
+    /// spin the pebble until it **rolls without slipping on the belt**, i.e.
+    /// until the material velocity of its contact point, `v_x − ω_y·r`, equals
+    /// the wall velocity, at which point the tangential force vanishes and the
+    /// state is steady. That invariant — not the centre-of-mass speed — is what
+    /// this asserts, because a rolling sphere's centre moves *slower* than the
+    /// belt carrying it.
+    ///
+    /// **Result (2026-09-16).** Steady from `t = 0.2 s` onward and unchanged
+    /// through `t = 2.0 s` to within `3.9e-14 m/s` of round-off drift:
+    /// `v_x = 0.028610 m/s`, `ω_y = −14.290121 rad/s`, and
+    /// contact-point velocity `v_x − ω_y·r = 0.100060745 m/s` against the wall's
+    /// `0.100000000` — agreement to **0.061 %**, the residual being the `O(δ_n)`
+    /// difference between the particle radius `r` and the contact radius
+    /// `c_r = r − δ_n/2` at the Hertz static overlap. A control run with a
+    /// static floor leaves the pebble at `v_x = 0` exactly.
+    ///
+    /// This is what verifies the wall's surface velocity actually reaches the
+    /// contact law — the plumbing the angle-of-repose case depends on.
+    #[test]
+    fn a_moving_wall_drags_its_contacts() {
+        use crate::mesh_wall::{MovingBoundary, WallGeometry};
+        let m = mat(0.5);
+        let model = GranularContactModel::hertz_history(m);
+        let r = 0.005;
+        let build = |wall_speed: f64| {
+            let floor =
+                Boundary::wall(Vec3::zero(), Vec3::new(0.0, 0.0, 1.0)).expect("valid floor");
+            let moving = MovingBoundary::new(
+                WallGeometry::Analytic(floor),
+                Vec3::new(wall_speed, 0.0, 0.0),
+                Vec3::zero(),
+                Vec3::zero(),
+            );
+            GranularSystem::new(
+                vec![sphere(Vec3::new(0.0, 0.0, r), Vec3::zero())],
+                vec![],
+                model,
+                Vec3::new(0.0, 0.0, -9.81),
+                1.0e-6,
+            )
+            .expect("valid system")
+            .with_moving_walls(vec![moving])
+        };
+
+        let wall_speed = 0.1;
+        let mut driven = build(wall_speed);
+        driven.run(400_000);
+        let p = driven.particles()[0];
+        let contact_velocity = p.velocity.x - p.angular_velocity.y * r;
+        assert!(
+            (contact_velocity - wall_speed).abs() / wall_speed < 5.0e-3,
+            "the contact point must roll with the wall: {contact_velocity} vs {wall_speed}"
+        );
+        assert!(
+            p.velocity.x > 0.0 && p.angular_velocity.y < 0.0,
+            "the pebble must be dragged forwards and spun up, got v_x = {}, w_y = {}",
+            p.velocity.x,
+            p.angular_velocity.y
+        );
+
+        // Steady: another 1.2 s changes nothing but round-off (friction has
+        // gone to zero). Measured drift over 1.2e6 steps: 3.9e-14 m/s.
+        let before = driven.particles()[0].velocity.x;
+        driven.run(1_200_000);
+        assert_abs_diff_eq!(driven.particles()[0].velocity.x, before, epsilon = 1e-11);
+
+        // Control: a static floor drags nothing.
+        let mut static_control = build(0.0);
+        static_control.run(400_000);
+        assert_abs_diff_eq!(
+            static_control.particles()[0].velocity.x,
+            0.0,
+            epsilon = 1e-12
+        );
     }
 
     /// **Methodology.** The pebble-bed acceptance property: a static column of

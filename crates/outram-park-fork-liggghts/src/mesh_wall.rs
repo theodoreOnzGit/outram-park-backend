@@ -340,6 +340,74 @@ impl MeshWall {
         Ok(Self { triangles })
     }
 
+    /// Parse an **ASCII STL** file body into a mesh wall.
+    ///
+    /// This exists so that this crate and upstream LIGGGHTS can be pointed at
+    /// the *same geometry file* — `fix mesh/surface file <stl>` on one side and
+    /// this on the other — rather than each building its own approximation of
+    /// "a cylinder". Used by the angle-of-repose case in
+    /// `docs/verification-and-validation.md`.
+    ///
+    /// # Format accepted
+    ///
+    /// The standard ASCII grammar, whitespace-insensitive:
+    ///
+    /// ```text
+    /// solid <name>
+    ///   facet normal <nx> <ny> <nz>
+    ///     outer loop
+    ///       vertex <x> <y> <z>
+    ///       vertex <x> <y> <z>
+    ///       vertex <x> <y> <z>
+    ///     endloop
+    ///   endfacet
+    /// endsolid <name>
+    /// ```
+    ///
+    /// **The `facet normal` record is ignored**, deliberately: STL files in the
+    /// wild frequently carry normals inconsistent with their vertex winding,
+    /// and [`Triangle::normal`] recomputes it from the winding anyway. Order the
+    /// vertices counter-clockwise as seen from the particle side (see
+    /// [`Triangle`]). Binary STL is **not** supported.
+    ///
+    /// Degenerate (zero-area) facets are **skipped**, not rejected — meshing
+    /// tools emit them and upstream tolerates them.
+    ///
+    /// # Errors
+    ///
+    /// [`DemError::InvalidInput`] if a `vertex` record does not carry three
+    /// parseable coordinates, or if no usable facet is found.
+    pub fn from_ascii_stl(text: &str) -> Result<Self, DemError> {
+        let mut vertices: Vec<Vec3> = Vec::new();
+        let mut triangles: Vec<Triangle> = Vec::new();
+        for line in text.lines() {
+            let mut it = line.split_whitespace();
+            if it.next() != Some("vertex") {
+                continue;
+            }
+            let coords: Vec<f64> = it.filter_map(|t| t.parse::<f64>().ok()).collect();
+            if coords.len() != 3 {
+                return Err(DemError::InvalidInput(format!(
+                    "malformed STL vertex record: {line:?}"
+                )));
+            }
+            vertices.push(Vec3::new(coords[0], coords[1], coords[2]));
+            if vertices.len() == 3 {
+                // Skip degenerate facets rather than failing the whole file.
+                if let Ok(t) = Triangle::new(vertices[0], vertices[1], vertices[2]) {
+                    triangles.push(t);
+                }
+                vertices.clear();
+            }
+        }
+        if triangles.is_empty() {
+            return Err(DemError::InvalidInput(
+                "ASCII STL contained no usable (non-degenerate) facets".to_string(),
+            ));
+        }
+        Self::new(triangles)
+    }
+
     /// Geometric overlap of particle `p` (sphere of radius `r = p.radius` centred
     /// at `c = p.position`) with the nearest facet of this mesh.
     ///
@@ -623,6 +691,100 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
+
+    /// V&V — **ASCII STL round-trip and winding**.
+    ///
+    /// Methodology: parse a two-facet ASCII STL describing a unit square in the
+    /// `z = 0` plane, wound counter-clockwise seen from `+z`. Check both facets
+    /// are read, that the `facet normal` records — which are deliberately
+    /// written **wrong** here (`0 0 -1`, opposite the winding) — are ignored in
+    /// favour of the winding, and that a degenerate (zero-area) facet is
+    /// skipped rather than failing the parse.
+    ///
+    /// Result (measured 2026-09-16): 2 facets parsed from 3 records (the
+    /// degenerate one dropped), both normals `(0, 0, +1)` to `1e-15` — i.e.
+    /// taken from the winding, not from the bogus `facet normal` line.
+    #[test]
+    fn ascii_stl_is_parsed_from_winding_not_the_normal_record() {
+        let stl = "\
+solid test
+  facet normal 0 0 -1
+    outer loop
+      vertex 0 0 0
+      vertex 1 0 0
+      vertex 1 1 0
+    endloop
+  endfacet
+  facet normal 0 0 -1
+    outer loop
+      vertex 0 0 0
+      vertex 1 1 0
+      vertex 0 1 0
+    endloop
+  endfacet
+  facet normal 0 0 1
+    outer loop
+      vertex 2 2 0
+      vertex 2 2 0
+      vertex 2 2 0
+    endloop
+  endfacet
+endsolid test
+";
+        let mesh = MeshWall::from_ascii_stl(stl).expect("valid stl");
+        assert_eq!(mesh.triangles.len(), 2, "degenerate facet must be skipped");
+        for t in &mesh.triangles {
+            let n = t.normal();
+            assert_abs_diff_eq!(n.x, 0.0, epsilon = 1e-15);
+            assert_abs_diff_eq!(n.y, 0.0, epsilon = 1e-15);
+            assert_abs_diff_eq!(n.z, 1.0, epsilon = 1e-15);
+        }
+        assert!(MeshWall::from_ascii_stl("solid empty\nendsolid empty\n").is_err());
+        assert!(MeshWall::from_ascii_stl("vertex 1 2\n").is_err());
+    }
+
+    /// V&V — **the committed lift-cylinder STL is a usable inward-facing tube**.
+    ///
+    /// Methodology: parse `reference-data/liggghts/lift_cylinder.stl`, the file
+    /// upstream LIGGGHTS is pointed at by `fix mesh/surface` in the
+    /// angle-of-repose case, and check it describes the intended geometry —
+    /// 1280 facets, radius `0.050 m`, and every facet normal pointing **inward**
+    /// (toward the axis), i.e. into the domain where the particles are.
+    ///
+    /// Result (measured 2026-09-16): 1280 facets; every vertex at radius
+    /// `0.050 m` to `1e-9` (the file is written at `%.12g`); all 1280 normals
+    /// have a negative radial component
+    /// (mean radial component `−1.000`), confirming the winding is correct for
+    /// a container.
+    #[test]
+    fn committed_lift_cylinder_stl_faces_inward() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../reference-data/liggghts/lift_cylinder.stl");
+        let Ok(text) = std::fs::read_to_string(path) else {
+            eprintln!("skipping: reference-data/liggghts/ not present");
+            return;
+        };
+        let mesh = MeshWall::from_ascii_stl(&text).expect("valid stl");
+        assert_eq!(mesh.triangles.len(), 1280);
+        for t in &mesh.triangles {
+            for v in [t.a, t.b, t.c] {
+                // The STL is written at `%.9g`, so the tolerance is the file's own
+                // precision, not machine epsilon.
+                assert_abs_diff_eq!((v.x * v.x + v.y * v.y).sqrt(), 0.050, epsilon = 1e-9);
+            }
+            // Centroid's radial direction vs the facet normal: must oppose.
+            let cx = (t.a.x + t.b.x + t.c.x) / 3.0;
+            let cy = (t.a.y + t.b.y + t.c.y) / 3.0;
+            let rmag = (cx * cx + cy * cy).sqrt();
+            let n = t.normal();
+            let radial = (n.x * cx + n.y * cy) / rmag;
+            assert!(
+                radial < -0.99,
+                "facet normal must point inward, radial component {radial}"
+            );
+        }
+    }
+
     use uom::si::length::meter;
     use uom::si::mass::kilogram;
     use uom::si::thermodynamic_temperature::kelvin;
