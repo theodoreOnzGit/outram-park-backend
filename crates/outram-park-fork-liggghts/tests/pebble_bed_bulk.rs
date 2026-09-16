@@ -57,12 +57,15 @@
 //!
 //! ## Runtime
 //!
-//! ~210 s in release mode. That is under the workspace's 5-minute threshold,
-//! so it is not gated and runs in an ordinary suite -- which is what keeps the
-//! packing-fraction figure quoted in the maturity roster honest.
+//! Measured **317 s** in release mode on 2026-09-16 (an earlier note said
+//! ~210 s; that figure was not reproduced). That is over the workspace's
+//! 5-minute threshold, so it is gated on the default-on `long-tests` feature:
+//! a plain `cargo test` runs it, and it reports as `ignored` only when the
+//! feature is switched off.
 //!
 //! ```bash
 //! cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk
+//! cargo quick-test -p outram-park-fork-liggghts   # skips it
 //! ```
 
 use outram_park_fork_liggghts::boundary::Boundary;
@@ -146,6 +149,10 @@ fn coordination(ps: &[Particle]) -> f64 {
 ///
 /// See the module docs for methodology and the 2026-09-15 measured results.
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (measured 317 s); runs by default, skipped under --no-default-features"
+)]
 fn bulk_packing_matches_liggghts() {
     let (Some(init), Some(settled)) = (
         load_state("pebble_bed_init.csv"),

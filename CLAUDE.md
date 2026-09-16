@@ -1975,8 +1975,20 @@ already had the other two; do not collapse them together.
 | runtime | treatment | in a default `cargo test`? |
 |---|---|---|
 | under 5 min | nothing — a plain `#[test]` | yes |
-| 5 min to ~30 min | `#[cfg_attr(not(feature = "long-tests"), ignore = "...")]` | **yes**, skipped only under `--no-default-features` |
-| hours | plain unconditional `#[ignore = "..."]` | no — opt in with `--ignored` |
+| 5 min to about an hour | `#[cfg_attr(not(feature = "long-tests"), ignore = "...")]` | **yes**, skipped only under `--no-default-features` |
+| multiple hours | plain unconditional `#[ignore = "..."]` | no — opt in with `--ignored` |
+
+**Measure, never inherit a number.** Runtimes in this workspace's own comments
+have been wrong by a factor of four. On 2026-09-16 the two
+`outram-park-fork-liggghts` cases were timed for the first time:
+`bulk_packing_matches_liggghts` was documented at ~210 s and measured **317 s**
+— which moved it across the threshold and changed how it had to be gated —
+and `lifting_cylinder_heap_matches_liggghts` was documented at ~10 min in the
+test and 25 min in the crate's `CLAUDE.md`, and measured **2313 s (38.5 min)**.
+Runtime is also machine-dependent, so record the number **with its date**, and
+re-measure rather than trusting a figure written by a previous session on
+different hardware. A test sitting just under the threshold on one machine is
+over it on another; when it is close, gate it.
 
 **Do NOT promote an hours-long test into the middle tier.** Several already
 exist — TUAS's `dracs_mesh_refinement/mesh_refinement_{10,20}_times.rs` carry

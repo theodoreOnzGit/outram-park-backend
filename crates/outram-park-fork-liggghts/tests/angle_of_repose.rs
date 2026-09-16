@@ -100,7 +100,9 @@
 //!
 //! ## Runtime
 //!
-//! Long (~10 min), so it is gated on the default-on `long-tests` feature: a
+//! Measured **2313 s (38.5 min)** in release mode on 2026-09-16; earlier notes
+//! saying ~10 min and 25 min were both wrong. It is gated on the default-on
+//! `long-tests` feature: a
 //! plain `cargo test` runs it, and it is reported as `ignored` only when that
 //! feature is switched off for fast iteration.
 //!
@@ -200,7 +202,7 @@ fn repose_angle(centres: &[Vec3], min_count: usize) -> Option<(f64, f64, f64)> {
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
-    ignore = "long test (~10 min); runs by default, skipped under --no-default-features"
+    ignore = "long test (measured 2313 s / 38.5 min); runs by default, skipped under --no-default-features"
 )]
 fn lifting_cylinder_heap_matches_liggghts() {
     let (Some(init), Some(heap)) = (load_state("lift_init.csv"), load_state("lift_heap.csv"))

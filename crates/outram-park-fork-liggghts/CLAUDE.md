@@ -71,13 +71,15 @@ are different claims and this entry keeps them apart.
   | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | `12.78°` vs `15.43°` — 2.65° (mesh-contact difference, see below) |
 
   Measured at this entry: **114 tests pass** (108 unit + 6 cross-code), plus two
-  slow cases that were `#[ignore]`d at the time (210 s bulk packing, 25 min
-  angle of repose). **Both now run in an ordinary suite** (2026-09-16): the
-  bulk-packing case is under the workspace's 5-minute threshold so it is
-  ungated, and the angle-of-repose case is gated on the default-on
-  `long-tests` feature — see the "Any test over 5 minutes" HARD RULE in the
-  workspace `CLAUDE.md`. Neither number in the table above was protected by
-  the default suite before this. Full methodology and results:
+  slow cases that were `#[ignore]`d at the time. **Both now run in an ordinary
+  suite** (2026-09-16), gated on the default-on `long-tests` feature — see the
+  "Any test over 5 minutes" HARD RULE in the workspace `CLAUDE.md`. Neither
+  number in the table above was protected by the default suite before this,
+  and both had to be timed for the first time to gate them: bulk packing
+  **317 s** (documented as ~210 s) and angle of repose **2313 s / 38.5 min**
+  (documented as ~10 min here and 25 min in this file). Both passed. A default
+  `cargo test` for this crate therefore now costs about 45 minutes; use
+  `cargo quick-test -p outram-park-fork-liggghts` while iterating. Full methodology and results:
   [`docs/verification-and-validation.md`](docs/verification-and-validation.md).
 
   **Defects found — and, as of 2026-09-16, FIXED rather than merely
