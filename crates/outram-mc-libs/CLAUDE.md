@@ -215,6 +215,35 @@ maturity gate in that file for what this means and how the bar is revised.
   3. **The continuum angular correlation is still dropped** (MF=6 LANG=1/2,
      `op-og56`), as is the `EnergyAngular` interpolation flag. This fixed the
      *discrete* levels only.
+
+     **Partly resolved 2026-09-16 — `LANG = 1` (Legendre) is now read and
+     sampled; `LANG = 2` (Kalbach-Mann) is not.** The MF=6 parser was
+     discarding `f₁ … f_NA` at parse time and never reading `LANG`, so every
+     MT=91 and MT=16 neutron left isotropically. It now carries the
+     coefficients, linearises them through the same routine MF=4 uses, and
+     samples the cosine correlated with the outgoing-energy row actually drawn.
+     `ContinuumAngular` distinguishes *evaluated-isotropic* from *unported*
+     from *ablated*, which the old `0.0` could not.
+
+     Measured on ENDF/B-VIII.0: 8652 of U-238's 8654 MT=91 rows carry
+     `NA > 0`. But weighted by each row's own `f₀` the law is **exactly
+     isotropic below 1.2 MeV** and only reaches `⟨μ_cm⟩ = +0.073` at 8.5 MeV
+     and `+0.272` at 14 MeV — so unlike `op-tm9f`'s discrete levels this is a
+     *high-energy* correction and the predicted worth on Godiva is small
+     (recorded before measuring: down, well under 50 pcm). **The worth has not
+     been measured yet**; `examples/godiva_continuum_anisotropy_ablation.rs` is
+     the instrument, and `RECORDED_PCM = 16.0` elsewhere in this file predates
+     it.
+
+     Note the sign tension with qualification 2: for a CM law `⟨E'_lab⟩` rises
+     with `⟨μ_cm⟩`, so this **hardens** the spectrum and moves `op-os8x` the
+     wrong way. Same shape as gh:#192's Q-value cap.
+
+     Still open: `LANG = 2` (Kalbach-Mann), used by ENDF/B-VIII.0's O-16 and
+     Al-27 on both MT=16 and MT=91 — it needs the Kalbach systematics for the
+     slope `a`, since the evaluations store only `r`. Those laws report
+     themselves as `ContinuumAngular::Unported` rather than passing silently as
+     isotropic. The `EnergyAngular` interpolation flag is also still dropped.
   4. **One benchmark.** A bare fast HEU metal sphere, one geometry, one
      temperature. Says nothing about thermal systems or the crate's other cases.
 

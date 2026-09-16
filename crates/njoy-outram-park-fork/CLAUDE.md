@@ -208,3 +208,54 @@ Keep every port **line-traceable to the Fortran** so the Opus verification pass
 can localise a discrepancy to a specific subroutine. Per-module theory,
 implementation notes, testing status, and caveats live in each module's
 `README.md` (co-located with its Rust source under `src/`).
+
+## MF=6 LAW=1 carries its angular half (2026-09-16, `op-og56`)
+
+`acer/energy/mf6.rs` used to read ENDF `NA` only to compute a row's stride,
+keep the energy density `f₀`, and discard `f₁ … f_NA`; `LANG` was never read
+off the TAB2 at all. Its own doc comment said so — *"the angular dependence
+present in the ENDF data … is **not** carried here … (isotropic emission)"* —
+and `outram-mc-libs` consequently emitted every MT=91 continuum and MT=16
+(n,2n) neutron isotropically.
+
+**What changed.** `Mf6Neutron` now carries `lang: Mf6AngularLaw` and
+`angular: Vec<Mf6AngularTable>`, parallel to `law4.incident`. `f₀` is retained
+**unnormalised** beside the coefficients, because `LANG = 1`'s Legendre terms
+are on `f₀`'s own scale and `build_outgoing` renormalises the pdf it builds —
+dividing by the stored pdf would be wrong.
+
+**ACE output is unchanged.** Law 4 is an energy-only law by definition, so the
+DLW serialisation does not see any of this and the golden ACE comparisons are
+untouched. The angular half exists for a transport consumer, not for the ACE
+writer; turning it into ACE Law 61/44 remains separate work.
+
+**`acer::angular::legendre_cosine_law` is now public** so the continuum path
+reuses the MF=4 linearisation rather than growing a second one that drifts from
+it. Same argument the `vv` module makes about oracle values, applied to code.
+
+**Measured on the evaluations** (`tests/mf6_continuum_angular_vs_endf.rs`,
+which re-derives the table on every run):
+
+| nuclide | MT | LANG | rows | rows with `NA>0` | peak `|⟨μ⟩|` |
+|---|---|---|---|---|---|
+| U-238 | 91 | Legendre | 8654 | 8652 | 0.5573 |
+| U-235 | 91 | Legendre | 5296 | 5294 | 0.5751 |
+| F-19 | 91 | Legendre | 175 | **0** | 0.0000 |
+| O-16 | 91 | **Kalbach-Mann** | 1751 | 1751 | n/a |
+| Al-27 | 91 | **Kalbach-Mann** | 642 | 642 | n/a |
+
+`NA` runs as high as **26** on U-238's MT=91, so a closed-form inversion of the
+`NA = 1` linear density is not sufficient — the series has to be linearised.
+That was measured before choosing the implementation rather than assumed.
+
+**Not done: `LANG = 2` (Kalbach-Mann).** O-16 and Al-27 use it on MT=16 and
+MT=91, storing only `r` (`NA = 1`), so sampling it needs the Kalbach
+systematics for the slope `a`. Those subsections are retained and reported as
+`ContinuumAngular::Unported`, which is deliberately distinct from an evaluation
+that is genuinely isotropic — the distinction the old code could not make.
+
+**Reading a peak coefficient is not reading the physics.** The 0.557 above is
+the largest `a₁` anywhere in the table and badly overstates what a neutron
+experiences: weighted by each row's own `f₀`, U-238's MT=91 law is *exactly*
+isotropic below 1.2 MeV and only reaches `+0.272` at 14 MeV. Anyone pricing
+this law should weight by `f₀` first.
