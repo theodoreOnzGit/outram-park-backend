@@ -78,9 +78,25 @@
 //! comparison, and it is not expected to be bit-identical the way the
 //! primitive-wall cases are.
 //!
-//! ## Results
+//! ## Results (2026-09-16)
 //!
-//! Filled in from the measured run — see `docs/verification-and-validation.md`.
+//! | Quantity | this crate | LIGGGHTS | difference |
+//! |---|---|---|---|
+//! | angle of repose | **12.78 deg** | **15.43 deg** | 2.65 deg |
+//! | heap apex | 0.0347 m | 0.0370 m | 6.2 % |
+//! | residual `KE` | `2.8e-10 J` (settled) | `9.0e-11 J` (settled) | — |
+//! | particles | 656 (none lost) | 656 (none lost) | — |
+//!
+//! A heap forms in both codes and both come to rest. The `2.65 deg` gap is the
+//! mesh-contact difference flagged above, not a physics difference; the `3 deg`
+//! bound this test asserts is a regression catch that the measurement **only
+//! just clears**, so tightening it needs upstream's multi-facet resolution
+//! first.
+//!
+//! Note both codes give `13-15 deg`, well below the `25-35 deg` typical of real
+//! granular materials — a known consequence of perfectly spherical DEM
+//! particles with modest rolling friction. **No repose angle from this work
+//! should be quoted as a validated material property.**
 //!
 //! ## Runtime
 //!

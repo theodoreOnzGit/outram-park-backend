@@ -67,16 +67,29 @@ All cases: monodisperse spheres, `d = 10 mm`, `ρ = 2500 kg/m³`, `E = 10 MPa`,
 | `headon_hooke.csv` | `in.headon_hooke` | Hooke normal, `v_char = 2 m/s` | `1 µs` | 2500 | every 10 |
 | `oblique_hertz.csv` | `in.oblique_hertz` | tangential **history** spring, Coulomb slip `µ = 0.5`, contact torque / spin-up | `1 µs` | 2500 | every 10 |
 | `wall_bounce.csv` | `in.wall_bounce` | primitive `zplane` wall contact + gravity, repeated bounces | `1 µs` | 400 000 | every 200 |
-| *(no CSV)* | `in.pebble_bed` | bulk settling in a cylinder, 354 pebbles, packing fraction | `5 µs` | 400 000 | final state only |
+| `rolling_pair.csv` | `in.rolling_pair` | **CDT rolling resistance** (`µ_r = 0.1`), counter-spinning pair | `1 µs` | 2000 | every 10 |
+| `oblique_nohist.csv` | `in.oblique_nohist` | `tangential **no_history**` — the model the stateless `contact`+`simulation` path implements | `1 µs` | 2500 | every 10 |
+| `pebble_bed_init.csv`, `pebble_bed_settled.csv` | `in.pebble_bed` | bulk settling in a cylinder, 354 pebbles, packing fraction | `5 µs` | 400 000 | first + final state |
+| `lift_init.csv`, `lift_heap.csv` | `in.repose_lift` | **angle of repose** by the lifting-cylinder method, 656 pebbles | `5 µs` | 1 700 000 | post-settle + final |
+| `lift_cylinder.stl` | — | the cylinder geometry **both codes read**: `R = 0.050 m`, 1280 facets, inward normals | — | — | — |
 
 Column layout of the CSVs: `step`, then per atom id in ascending order,
 `x y z vx vy vz omegax omegay omegaz` (SI). Header row names every column.
 
-`in.pebble_bed` has no committed trajectory because its initial condition comes
-from LIGGGHTS' own random `fix insert/pack` (seeded, but reproducing the RNG
-stream is not the point); it is kept so the bulk result below can be
-regenerated. Its settled result is quoted in
-`crates/outram-park-fork-liggghts/docs/verification-and-validation.md`.
+The two bulk cases (`in.pebble_bed`, `in.repose_lift`) commit a **start and an
+end state** rather than a trajectory: their initial condition comes from
+LIGGGHTS' own random `fix insert/pack`, and reproducing that RNG stream is not
+the point. The Rust side starts from the committed LIGGGHTS state so both codes
+integrate the identical configuration, and the comparison is statistical (see
+`crates/outram-park-fork-liggghts/docs/verification-and-validation.md`).
+
+`in.repose_lift` is the one case that needs a **mesh** wall. A LIGGGHTS
+*primitive* wall cannot move — `fix_wall_gran`'s `shear` imposes a tangential
+surface velocity without translating the geometry — so the lifting cylinder is
+a triangulated surface driven by `fix move/mesh`, following
+`examples/LIGGGHTS/Tutorials_public/movingMeshGran`. `lift_cylinder.stl` is
+read by **both** codes: LIGGGHTS via `fix mesh/surface file`, this crate via
+`MeshWall::from_ascii_stl`.
 
 ## Regenerating
 

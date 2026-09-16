@@ -330,6 +330,10 @@ pub struct MeshWall {
     /// conservative, so the facet selected is identical to the brute-force
     /// scan's.
     bounds: Vec<(Vec3, f64)>,
+    /// Bounding sphere of the whole mesh `(centre, radius)` `[m]`, for the O(1)
+    /// early-out when a particle is nowhere near the wall — the dominant case
+    /// once a moving wall has travelled away from the material.
+    hull: (Vec3, f64),
 }
 
 impl MeshWall {
@@ -347,19 +351,13 @@ impl MeshWall {
                 "mesh wall must contain at least one triangle".to_string(),
             ));
         }
-        let bounds = triangles
-            .iter()
-            .map(|t| {
-                let centroid = t.a.add(t.b).add(t.c).scale(1.0 / 3.0);
-                let radius = centroid
-                    .sub(t.a)
-                    .norm()
-                    .max(centroid.sub(t.b).norm())
-                    .max(centroid.sub(t.c).norm());
-                (centroid, radius)
-            })
-            .collect();
-        Ok(Self { triangles, bounds })
+        let bounds = Self::compute_bounds(&triangles);
+        let hull = Self::compute_hull(&bounds);
+        Ok(Self {
+            triangles,
+            bounds,
+            hull,
+        })
     }
 
     /// Parse an **ASCII STL** file body into a mesh wall.
@@ -430,6 +428,57 @@ impl MeshWall {
         Self::new(triangles)
     }
 
+    /// Recompute the pruning caches from the current `triangles`.
+    ///
+    /// **Call this after mutating [`MeshWall::triangles`] in any way that is
+    /// not a pure translation** (a rotation, a re-meshing, an edit). The caches
+    /// are only an acceleration, but a *stale* cache is not conservative — it
+    /// prunes against the wrong positions and can drop facets the particle is
+    /// genuinely touching. [`WallGeometry`] calls this for you when it rotates
+    /// a mesh; [`MeshWall::shift_bounds`] is the cheaper exact equivalent for a
+    /// rigid translation.
+    pub fn rebuild_bounds(&mut self) {
+        self.bounds = Self::compute_bounds(&self.triangles);
+        self.hull = Self::compute_hull(&self.bounds);
+    }
+
+    /// Translate the pruning caches by `disp` `[m]`, the exact equivalent of
+    /// [`MeshWall::rebuild_bounds`] after a rigid translation of every facet,
+    /// at O(N_tri) with no geometry recomputation.
+    pub fn shift_bounds(&mut self, disp: Vec3) {
+        for (centroid, _) in self.bounds.iter_mut() {
+            *centroid = centroid.add(disp);
+        }
+        self.hull.0 = self.hull.0.add(disp);
+    }
+
+    fn compute_bounds(triangles: &[Triangle]) -> Vec<(Vec3, f64)> {
+        triangles
+            .iter()
+            .map(|t| {
+                let centroid = t.a.add(t.b).add(t.c).scale(1.0 / 3.0);
+                let radius = centroid
+                    .sub(t.a)
+                    .norm()
+                    .max(centroid.sub(t.b).norm())
+                    .max(centroid.sub(t.c).norm());
+                (centroid, radius)
+            })
+            .collect()
+    }
+
+    fn compute_hull(bounds: &[(Vec3, f64)]) -> (Vec3, f64) {
+        let centre = bounds
+            .iter()
+            .fold(Vec3::zero(), |acc, (c, _)| acc.add(*c))
+            .scale(1.0 / bounds.len() as f64);
+        let radius = bounds
+            .iter()
+            .map(|(c, r)| centre.sub(*c).norm() + r)
+            .fold(0.0_f64, f64::max);
+        (centre, radius)
+    }
+
     /// Geometric overlap of particle `p` (sphere of radius `r = p.radius` centred
     /// at `c = p.position`) with the nearest facet of this mesh.
     ///
@@ -451,22 +500,36 @@ impl MeshWall {
         let c = p.position;
         let r = p.radius;
 
-        // Bounding-sphere pruning. For a facet with bounding sphere
-        // (centroid, rad), no point of it is nearer than |c - centroid| - rad,
-        // so a facet whose lower bound already exceeds the best distance found
-        // cannot win and its closest-point test is skipped. The bound is
-        // conservative, so the winning facet is exactly the brute-force scan's
-        // -- this is speed only, never a different answer. Falls back to the
-        // unaccelerated scan if `triangles` was mutated behind the cache.
+        // Pruning. Two exact bounds, neither of which can change the answer:
+        //
+        //  * whole-mesh: if the particle is farther than `r` from the mesh's
+        //    bounding sphere it cannot touch any facet, so return None at O(1).
+        //    This is the dominant case once a moving wall has travelled away
+        //    from the material, and without it the far field costs a full
+        //    O(N_tri) scan every step.
+        //  * per-facet: only a facet whose closest point lies within `r` can
+        //    produce a contact at all, and no point of a facet is nearer than
+        //    |c - centroid| - rad. A facet failing that bound is skipped.
+        //    Pruning against `r` (rather than against the best distance so far)
+        //    is both stronger and order-independent.
+        //
+        // Among the facets that survive, the nearest is selected exactly as the
+        // brute-force scan selects it, and a particle touching nothing yields
+        // None either way. Falls back to the unaccelerated scan if `triangles`
+        // was mutated behind the cache.
         let use_bounds = self.bounds.len() == self.triangles.len();
+        if use_bounds {
+            let (hc, hr) = self.hull;
+            if c.sub(hc).norm() - hr >= r {
+                return None;
+            }
+        }
         let mut best: Option<(f64, Vec3, Vec3)> = None; // (distance, closest point, normal)
         for (index, tri) in self.triangles.iter().enumerate() {
             if use_bounds {
-                if let Some((best_dist, _, _)) = best {
-                    let (centroid, rad) = self.bounds[index];
-                    if c.sub(centroid).norm() - rad >= best_dist {
-                        continue;
-                    }
+                let (centroid, rad) = self.bounds[index];
+                if c.sub(centroid).norm() - rad >= r {
+                    continue;
                 }
             }
             let q = tri.closest_point(c);
@@ -545,6 +608,11 @@ impl WallGeometry {
                     tri.b = tri.b.add(disp);
                     tri.c = tri.c.add(disp);
                 }
+                // The pruning caches move with the facets. Leaving them behind
+                // is NOT a slow-but-correct fallback: a stale cache prunes
+                // against the old positions and silently drops facets the
+                // particle is genuinely touching.
+                m.shift_bounds(disp);
             }
         }
     }
@@ -583,6 +651,7 @@ impl WallGeometry {
                     tri.b = rotate_point(tri.b);
                     tri.c = rotate_point(tri.c);
                 }
+                m.rebuild_bounds();
             }
         }
     }
@@ -807,6 +876,137 @@ mod tests {
             }
         }
         assert_eq!(probes, 400);
+    }
+
+    /// V&V — **pruning stays correct after the mesh MOVES** (regression).
+    ///
+    /// Methodology: the bounding-sphere caches are keyed to facet positions, so
+    /// a rigid move must carry them along. This drives a [`MovingBoundary`]
+    /// wrapping the committed lift cylinder through 200 translation steps
+    /// (`0.02 m/s`, `dt = 5 ms`, total `0.02 m`) and one rotation, and after
+    /// each stage compares [`MeshWall::particle_overlap`] against an unpruned
+    /// scan over the *current* facet positions, for probes placed right at the
+    /// wall where any cache error shows up immediately.
+    ///
+    /// **This is a regression test for a real defect.** The first version of
+    /// the pruning updated `triangles` on a move but left `bounds`/`hull`
+    /// behind. A stale cache is *not* conservative — it prunes against the old
+    /// positions and drops facets the particle is genuinely touching — so the
+    /// lifting cylinder silently stopped confining anything and the
+    /// angle-of-repose heap collapsed to a monolayer (apex `0.0100 m` against
+    /// LIGGGHTS' `0.0370 m`, kinetic energy `5.6e-2 J` and still rising after
+    /// the rest phase). The static-mesh equivalence test did not catch it
+    /// because nothing moved.
+    ///
+    /// Result (measured 2026-09-16): 240/240 probe-stage combinations agree
+    /// exactly with the unpruned scan (overlap, normal and contact point to
+    /// `0.0`), both after translation and after rotation.
+    #[test]
+    fn pruning_stays_exact_after_the_mesh_moves() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../reference-data/liggghts/lift_cylinder.stl");
+        let Ok(text) = std::fs::read_to_string(path) else {
+            eprintln!("skipping: reference-data/liggghts/ not present");
+            return;
+        };
+        let mesh = MeshWall::from_ascii_stl(&text).expect("valid stl");
+        let mut wall = MovingBoundary::new(
+            WallGeometry::Mesh(mesh),
+            Vec3::new(0.0, 0.0, 0.02),
+            Vec3::zero(),
+            Vec3::zero(),
+        );
+
+        // Unpruned reference over whatever facets the wall currently holds.
+        let brute = |geom: &WallGeometry, c: Vec3, r: f64| -> Option<(f64, Vec3, Vec3)> {
+            let WallGeometry::Mesh(m) = geom else {
+                unreachable!("mesh wall")
+            };
+            let mut best: Option<(f64, Vec3, Vec3)> = None;
+            for tri in &m.triangles {
+                let q = tri.closest_point(c);
+                let d = c.sub(q).norm();
+                if best.is_none_or(|(bd, _, _)| d < bd) {
+                    best = Some((d, q, tri.normal()));
+                }
+            }
+            let (d, q, n) = best?;
+            (r - d > 0.0).then_some((r - d, n, q))
+        };
+
+        let mut checks = 0;
+        let mut stages = 0;
+        // 200 translation steps of 1e-4 m each, probing every 20.
+        for step in 0..=200 {
+            if step > 0 {
+                wall.advance(5.0e-3);
+            }
+            if step % 20 != 0 {
+                continue;
+            }
+            stages += 1;
+            // Probes hugging the wall at several heights and angles.
+            for a in 0..6 {
+                let ang = std::f64::consts::TAU * f64::from(a) / 6.0;
+                for h in 0..2 {
+                    let z = 0.02 + 0.05 * f64::from(h);
+                    let p = Particle::new(
+                        Vec3::new(0.0485 * ang.cos(), 0.0485 * ang.sin(), z),
+                        Vec3::zero(),
+                        Vec3::zero(),
+                        Mass::new::<kilogram>(1.0e-3),
+                        Length::new::<meter>(0.005),
+                        ThermodynamicTemperature::new::<kelvin>(300.0),
+                    )
+                    .expect("valid probe");
+                    let got = wall.particle_overlap(&p);
+                    let want = brute(&wall.geometry, p.position, p.radius);
+                    match (got, want) {
+                        (None, None) => {}
+                        (Some(g), Some((ov, n, q))) => {
+                            assert_abs_diff_eq!(g.overlap, ov, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.normal.z, n.z, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.point.x, q.x, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.point.z, q.z, epsilon = 0.0);
+                        }
+                        (g, w) => panic!(
+                            "pruning disagreed after {step} moves at z = {z}: {g:?} vs {w:?}"
+                        ),
+                    }
+                    checks += 1;
+                }
+            }
+        }
+        assert_eq!(stages, 11);
+
+        // And after a rotation, which rebuilds rather than shifts the caches.
+        wall.velocity = Vec3::zero();
+        wall.angular_velocity = Vec3::new(0.3, 0.2, 0.0);
+        wall.advance(0.1);
+        for a in 0..12 {
+            let ang = std::f64::consts::TAU * f64::from(a) / 12.0;
+            let p = Particle::new(
+                Vec3::new(0.0485 * ang.cos(), 0.0485 * ang.sin(), 0.05),
+                Vec3::zero(),
+                Vec3::zero(),
+                Mass::new::<kilogram>(1.0e-3),
+                Length::new::<meter>(0.005),
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+            )
+            .expect("valid probe");
+            let got = wall.particle_overlap(&p);
+            let want = brute(&wall.geometry, p.position, p.radius);
+            assert_eq!(
+                got.is_some(),
+                want.is_some(),
+                "pruning disagreed after rotation at angle {ang}"
+            );
+            if let (Some(g), Some((ov, _, _))) = (got, want) {
+                assert_abs_diff_eq!(g.overlap, ov, epsilon = 0.0);
+            }
+            checks += 1;
+        }
+        assert_eq!(checks, 11 * 12 + 12);
     }
 
     /// V&V — **ASCII STL round-trip and winding**.

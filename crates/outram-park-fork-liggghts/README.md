@@ -48,12 +48,14 @@ than being trusted. Measured 2026-09-15, every sampled frame compared:
 | oblique + friction (shear history, slip, torque) | 251 | round-off (1-3 ulp) |
 | oblique, no-history — the stateless `contact`+`simulation` path | 251 | round-off (1-3 ulp) |
 | bulk bed, 354 pebbles, `D/d = 6` | settled | packing fraction within **0.20 %** |
+| angle of repose, 656 pebbles, lifting cylinder | settled heap | `12.78°` vs `15.43°` |
 
 ```bash
-cargo test --release -p outram-park-fork-liggghts --lib                     # 103 unit tests
+cargo test --release -p outram-park-fork-liggghts --lib                     # 108 unit tests
 cargo test --release -p outram-park-fork-liggghts --test liggghts_cross_code # 5 cross-code
 cargo test --release -p outram-park-fork-liggghts --test legacy_path_cross_code # stateless path
 cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk -- --ignored
+cargo test --release -p outram-park-fork-liggghts --test angle_of_repose -- --ignored
 ```
 
 **This is verification, not validation.** It shows this crate reproduces

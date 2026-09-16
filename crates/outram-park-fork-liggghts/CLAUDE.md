@@ -68,9 +68,10 @@ are different claims and this entry keeps them apart.
   | oblique + friction (shear history, slip, torque) | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp) |
   | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s` |
   | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
+  | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | `12.78°` vs `15.43°` — 2.65° (mesh-contact difference, see below) |
 
-  Measured at this entry: **109 tests pass** (103 unit + 6 cross-code), plus one
-  `#[ignore]`d 210 s bulk test. Full methodology and results:
+  Measured at this entry: **114 tests pass** (108 unit + 6 cross-code), plus two
+  `#[ignore]`d long cases (210 s bulk packing, 25 min angle of repose). Full methodology and results:
   [`docs/verification-and-validation.md`](docs/verification-and-validation.md).
 
   **Defects found — and, as of 2026-09-16, FIXED rather than merely

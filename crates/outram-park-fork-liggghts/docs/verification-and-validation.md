@@ -271,15 +271,84 @@ instantaneously, which is a collapse experiment.
 **None of the three numbers above should be quoted.** They are properties of a
 badly-posed numerical experiment, not of the contact model.
 
+## 4.6 Angle of repose — done faithfully, and verified
+
+**Status: the case now runs in both codes and a heap forms in both.**
+`tests/angle_of_repose.rs`, `#[ignore]`d (~25 min).
+
+### Faithful to upstream's own mechanism
+
+A LIGGGHTS **primitive** wall cannot move: `fix_wall_gran`'s `shear` imposes a
+tangential surface velocity without translating the geometry. So a lifting
+cylinder must be a **mesh**, driven by `fix move/mesh`, exactly as in
+`examples/LIGGGHTS/Tutorials_public/movingMeshGran`. Both codes read the *same*
+geometry file, `reference-data/liggghts/lift_cylinder.stl` (`R = 0.050 m`, 1280
+facets, inward normals) — LIGGGHTS via `fix mesh/surface file`, this crate via
+`MeshWall::from_ascii_stl`.
+
+Cylinder filled by repeated insertion (upstream's own `insert_every` pattern),
+656 pebbles `d = 10 mm`, `E = 5 MPa`, `ν = 0.3`, `e = 0.5`, `µ = 0.5`,
+`µ_r = 0.1` (CDT), `dt = 5 µs`. Both codes start from LIGGGHTS' settled state so
+they integrate the identical configuration; the cylinder is then raised at
+**0.02 m/s** for 4.0 s and the heap rests for 1.5 s.
+
+### Results (2026-09-16)
+
+| Quantity | this crate | LIGGGHTS | difference |
+|---|---|---|---|
+| angle of repose | **12.78 deg** | **15.43 deg** | 2.65 deg |
+| heap apex | 0.0347 m | 0.0370 m | 6.2 % |
+| residual `KE` | `2.8e-10 J` (settled) | `9.0e-11 J` (settled) | — |
+| particles | 656 (none lost) | 656 (none lost) | — |
+
+A heap forms in both codes and both come to rest. The `2.65 deg` gap is larger
+than the round-off agreement the primitive-wall cases reach, and the reason was
+stated before the run rather than after: LIGGGHTS' `TriMesh` resolves a particle
+touching several facets at a shared edge, while this crate's `MeshWall` takes
+only the **single nearest facet**. On a tessellated cylinder that differs for
+every particle sitting on a vertical edge between adjacent quads — which, for
+particles pressed against the wall, is most of them. This is a **statistical**
+comparison of the resulting heap, not a trajectory comparison, and the test's
+`3 deg` bound is a regression catch that the measurement only just clears.
+
+Closing that gap means porting upstream's multi-facet mesh contact resolution.
+That is real work and is **not** done.
+
+### The optimisation defect this case exposed
+
+The first run of this case produced a **collapsed monolayer** — apex `0.0100 m`
+against LIGGGHTS' `0.0370 m`, `KE = 5.6e-2 J` and still rising after the rest
+phase. The cause was not physics: `MeshWall`'s bounding-sphere pruning caches
+facet centroids and a whole-mesh hull, and `WallGeometry::translate` moved the
+facets **without moving the caches**. A stale pruning cache is *not*
+conservative — it prunes against the old positions and silently drops facets
+the particle is genuinely touching — so the lifting cylinder stopped confining
+anything.
+
+The pruning had been checked against an unpruned scan and found bit-identical,
+but only on a **static** mesh, which is why the defect survived. It is now
+fixed (caches translate with the geometry, and are rebuilt after a rotation)
+and covered by `pruning_stays_exact_after_the_mesh_moves`, which moves the wall
+200 steps plus a rotation and requires exact agreement with an unpruned scan
+over the *current* facet positions. That regression test was confirmed to fail
+without the fix before being trusted.
+
 ## 5. What is still NOT validated
 
 Unchanged from the 2026-09-06 declaration, and not weakened by anything above:
 
 - **No experimental comparison.** Nothing here is compared against a measured
-  pebble bed, an angle-of-repose experiment, or a published granular benchmark.
-  An angle-of-repose case was attempted and **abandoned unresolved** — see
-  § 4.5 for the three setups tried and why each was invalid. It remains the
-  most valuable single addition to this crate's validation.
+  pebble bed or a published granular benchmark. The angle-of-repose case
+  (§ 4.6) is a **cross-code** comparison against LIGGGHTS, not a validation:
+  both codes produce `13-15 deg`, which is well below the `25-35 deg` typical
+  of real granular materials. That is a known consequence of perfectly
+  spherical DEM particles with modest rolling friction, not evidence that
+  either code is wrong — but it does mean **no repose angle from this work
+  should be quoted as a validated material property**.
+- **Mesh-wall contact is not upstream's.** `MeshWall` resolves a particle
+  against the single nearest facet; LIGGGHTS' `TriMesh` resolves multi-facet
+  edge contacts. This is why § 4.6 agrees to `2.65 deg` rather than to
+  round-off. Porting upstream's resolution is outstanding work.
 - **Bulk packing is verified against LIGGGHTS, not against reality.** For
   reference, the settled voidage both codes produce (`ε ≈ 0.442`) sits above the
   Dixon (1988) correlation value for `D/d = 6` (`ε = 0.4198`, i.e. `φ = 0.5802`)
