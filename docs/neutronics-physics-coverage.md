@@ -45,7 +45,7 @@ marked `env` and count as a gap, not as coverage.
 | Delta (Woodcock) tracking | ✅ | vs surface-tracked CSG (18 pcm) | ✅ (method choice) | ✅ |
 | CSG geometry / surface tracking | ✅ | analytic intersections; lattice overlap | n/a | n/a |
 | RNG stream independence | ✅ | seed-to-seed `sd` gate (`op-rbo`) | n/a | ✅ |
-| **URR probability tables** | ❌ **absent** | — (ablated on the *OpenMC* side: +43 ± 38 pcm) | n/a | n/a |
+| **URR probability tables** | ✅ (2026-09-16) | **NJOY2016 PURR: Bondarenko elastic 4.2e-7, capture 3.0e-7** | ✅ `without_urr_probability_tables` | ✅ ×3 |
 | `EnergyAngular` interpolation flag | ❌ **dropped** | — | ❌ | ❌ |
 | MF=6 `LANG = 11…15` (tabulated cosines) | ❌ retained, unsampled | — | n/a | n/a |
 
@@ -57,7 +57,7 @@ marked `env` and count as a gap, not as coverage.
 | RECONR LRF=4 (Adler-Adler) | ✅ | ⚠️ **no LRF=4 evaluation held** (gh:#172) |
 | RECONR LRF=7 (R-matrix limited) | ✅ | NJOY2016, 44 326 pts, worst 9.8e-3 |
 | BROADR | ✅ | NJOY2016; `thnmax` bound (`op-sdbk`) |
-| UNRESR / PURR | 🟡 kernel ported, MT=152/153 output partial | ⚠️ PURR **never run** |
+| UNRESR / PURR | ✅ kernel + transport-facing tables; PENDF MT=152/153 *writer* still unported | ✅ NJOY2016, converged Bondarenko moments to 4.2e-7 (elastic) / 3.0e-7 (capture) |
 | THERMR | ✅ | NJOY2016 MF=6, 7 s.f. after gh:#188 |
 | ACER | ✅ | NJOY2016 ACE, 5.3e-11 |
 | GROUPR / GAMINR / COVR / ERRORR / LEAPR | ✅ | NJOY2016 |
@@ -309,10 +309,16 @@ decision, not an agent's.
 
 ### 7. Known-absent physics, correctly documented
 
-URR probability tables (absent; priced on the OpenMC side at +43 ± 38 pcm,
-consistent with zero), the `EnergyAngular` interpolation flag, MF=6
-`LANG = 11…15`, MF=5 LF=5. These are gaps but not defects — each is recorded
-where a reader meets it.
+~~URR probability tables~~ **— CLOSED 2026-09-16.** PURR is now verified
+against NJOY2016 and wired into transport; see the row above and
+`crates/njoy-outram-park-fork/tests/purr_u238_ptables_vs_njoy.rs`. What
+remains unported is the **PENDF MT=152/153 tape writer**, which transport does
+not need — `outram-mc-libs` never reads a PENDF, it reads ENDF and builds a
+`Nuclide` — so the writer matters only for NJOY interoperability.
+
+Still open: the `EnergyAngular` interpolation flag, MF=6 `LANG = 11…15`, MF=5
+LF=5. These are gaps but not defects — each is recorded where a reader meets
+it.
 
 ---
 

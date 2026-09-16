@@ -1281,7 +1281,16 @@ fn collide_batched(
 ) -> (f64, CollisionResult) {
     let ci = material.sample_nuclide(e, seed, nuclides);
     let nuc = &nuclides[material.components[ci].nuclide_idx];
-    let x = nuc.xs_at_energy(e, temp);
+    let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. The
+                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                // bit-identical to one from before they existed -- an
+                // unconditional draw would shift every RNG stream in the crate
+                // for no physical reason.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
     let xi = prn(seed) * x.total;
     if xi < x.fission {
@@ -1423,7 +1432,16 @@ fn transport_history(
             r = stream(r, u, d_col);
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
-            let x = nuc.xs_at_energy(e, temp);
+            let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. The
+                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                // bit-identical to one from before they existed -- an
+                // unconditional draw would shift every RNG stream in the crate
+                // for no physical reason.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
             // Reaction partition on the *total*:
             //   fission | capture | inelastic | (n,2n) | elastic.
@@ -1622,7 +1640,16 @@ fn transport_history_tabulated(
             r = stream(r, u, d_col);
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
-            let x = nuc.xs_at_energy(e, temp);
+            let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. The
+                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                // bit-identical to one from before they existed -- an
+                // unconditional draw would shift every RNG stream in the crate
+                // for no physical reason.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
             // Reaction partition — VERBATIM from `transport_history`; only the
             // Sigma_t *source* above differs, never the RNG draws below.

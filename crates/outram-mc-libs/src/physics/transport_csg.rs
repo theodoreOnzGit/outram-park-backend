@@ -777,7 +777,16 @@ pub(crate) fn transport_history(
                 // Analog reaction partition (mirrors keff.rs transport_history).
                 let ci = material.sample_nuclide(e, seed, nuclides);
                 let nuc = &nuclides[material.components[ci].nuclide_idx];
-                let x = nuc.xs_at_energy(e, temp);
+                let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. The
+                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                // bit-identical to one from before they existed -- an
+                // unconditional draw would shift every RNG stream in the crate
+                // for no physical reason.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
                 let xi = prn(seed) * x.total;
                 if xi < x.fission {
                     let nu_bar = if x.fission > 0.0 {
