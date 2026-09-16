@@ -46,6 +46,9 @@
 //! - **[`bayesian`]** — Bayesian model updating: priors, likelihoods, MCMC
 //!   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
 //!   posterior sample and the evidence.
+//! - **[`gnn`]** — graph neural networks for physics: message-passing
+//!   topology, the physics-guided bound on message-passing iterations, and
+//!   (behind the `burn` feature) the network itself.
 //! - **[`surrogate`]** — reduced-order models fitted to a sample set and
 //!   evaluated in place of the expensive simulation.
 //!
@@ -127,6 +130,7 @@ pub mod abc;
 pub mod bayesian;
 pub mod distance;
 pub mod distributions;
+pub mod gnn;
 pub mod imprecise;
 pub mod samplers;
 pub mod sensitivity;
