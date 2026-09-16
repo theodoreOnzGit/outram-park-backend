@@ -156,8 +156,15 @@ maturity gate in that file for what this means and how the bar is revised.
   first time this case is also inside the ICSBEP ±100 pcm band**, which it had
   been outside of throughout its history.
 
-  **The diagnosis was checked, not only the answer.** Two confirmations, both
-  specified on `op-tm9f` before the work:
+  **Re-measured 2026-09-16 at 16 seeds: `+46 ± 44 pcm`**, 0.7 sigma from the
+  256-seed `+16 ± 11` and 1.0 sigma from the benchmark. Both gates in
+  `examples/godiva_keff_ensemble.rs` pass. Quote the 256-seed number; this one
+  exists to show the result reproduces at a seed count someone will actually
+  run.
+
+  **The diagnosis was checked, not only the answer.** Four confirmations, the
+  first two specified on `op-tm9f` before the work and the last two added when
+  "is the physics right" was asked directly:
 
   - **`k_inf` must not move.** It uses a reflective boundary, so it has no
     leakage; a leakage fix has to leave it alone. Measured `2.26558 → 2.26587`,
@@ -168,6 +175,25 @@ maturity gate in that file for what this means and how the bar is revised.
     32 seeds per arm: ANISO `+45 ± 32`, ISO `+269 ± 30`, difference
     **`−224 ± 44 pcm` (5.1 sigma)**. The ISO arm reproduces the old `+214 ± 20`
     to 1.5 sigma, which checks the harness.
+  - **Per-level `⟨μ_cm⟩` against OpenMC's ACE**
+    (`tests/inelastic_mubar_vs_openmc.rs`): worst **3.1e-3** over 32 points,
+    differences random in sign. Both codes independently agree that U-235's
+    MT=51/52/54/55 are near-isotropic while its MT=53/56 and all of U-238's low
+    levels are not — the structural fact a naive parse would flatten.
+  - **Aggregate `⟨μ⟩` and `Σ_tr`** (`tests/ablation_suite.rs`): `⟨μ_elastic⟩`
+    0.2631 vs 0.2645, `⟨μ_inelastic⟩` 0.0236 vs 0.0245, and the **MT=91
+    continuum share 0.3135 vs 0.3140** — the last being the one that makes the
+    `⟨μ⟩` comparison meaningful at all, since the continuum scores `μ = 0` on
+    both sides and dilutes the mean directly.
+
+  **A correction to this study's own reference values, found by that check.**
+  `transport_decomposition.py` read OpenMC's angular tables at the bracketing
+  index rather than interpolating, which biased `⟨μ_el⟩` to 0.2740 (true 0.2645)
+  and `⟨μ_inel⟩` to 0.0254 (true 0.0245), and `Σ_tr` to 0.37141 (true 0.37457).
+  This is the **fourth** appearance of the nearest-point trap in this study and
+  the first in our own script. The one-group diffusion price moves +219 → +209
+  pcm against −198 measured, so the conclusion is robust — but a reference is
+  not right merely for being external.
 
   **Four qualifications, none of which the number above should be read past.**
 
@@ -179,7 +205,9 @@ maturity gate in that file for what this means and how the bar is revised.
      found by the OpenMC cross-code study lives in `k_inf`, has no leakage
      component, and is untouched by this — our flux spectrum is still 0.45 %
      harder than OpenMC's in mean `E` (3.5 sigma), with 1.31 % less flux below
-     300 keV (5.2 sigma), and `k_inf` against OpenMC is `+82 ± 55 pcm` after this
+     300 keV (5.2 sigma) — **re-measured after the fix and unchanged**: mean `E`
+     still +0.45 %, mean `ln E` still +0.05 %, exactly as a leakage-only fix
+     predicts. `k_inf` against OpenMC is `+82 ± 55 pcm` after this
      change against `+69 ± 23 pcm` before — the same number within statistics,
      i.e. untouched. Tracked as `op-os8x`. **Two offsetting errors land on the
      right `k` too**; what rules that out *here* is the `k_inf` check above, not

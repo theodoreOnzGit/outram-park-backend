@@ -891,6 +891,47 @@ impl Nuclide {
         }
     }
 
+    /// Mean **centre-of-mass** scattering cosine `⟨μ⟩` of one discrete inelastic
+    /// level (ENDF MT=51…90) at incident energy `e` \[eV\], linearly
+    /// interpolated between the evaluation's tabulated incident energies.
+    ///
+    /// The analytic counterpart of
+    /// [`sample_inelastic_mu_cm`](Self::sample_inelastic_mu_cm): that draws from
+    /// the table, this integrates it. Returns `0.0` — the `⟨μ⟩` of an isotropic
+    /// distribution — for a level with no MF=4 data, for an MT outside 51…90,
+    /// and on the LOW (`Core`) tier.
+    ///
+    /// # Why this exists
+    ///
+    /// `⟨μ⟩` is the number a leakage error lives in: `Σ_tr = Σ_t(1 − ⟨μ⟩)`, so
+    /// the diffusion coefficient and hence leakage from a bare assembly are set
+    /// by it. Exposing it separately from the sampler lets the parse be checked
+    /// against an external code's read of the same evaluation
+    /// (`tests/inelastic_mubar_vs_openmc.rs`) without going through a sampler,
+    /// and lets a transport-corrected group model take the P1 moment directly.
+    ///
+    /// **Linear interpolation is the correct comparison against OpenMC**, not a
+    /// convenience: `AngleDistribution::sample` picks table `i` or `i+1` with
+    /// probability `r`, so the expectation of its draw *is* the linear
+    /// interpolation. Comparing against the nearest tabulated point instead
+    /// shows differences that are an artefact of the comparison — a trap this
+    /// crate's V&V record hit three times.
+    pub fn inelastic_mubar_cm(&self, mt: i32, e: f64) -> f64 {
+        let XsSource::Pointwise {
+            inelastic_angular, ..
+        } = &self.xs
+        else {
+            return 0.0;
+        };
+        let Ok(mt) = u32::try_from(mt) else {
+            return 0.0;
+        };
+        match inelastic_angular.binary_search_by_key(&mt, |(m, _)| *m) {
+            Ok(i) => inelastic_angular[i].1.mean_cosine(e),
+            Err(_) => 0.0,
+        }
+    }
+
     /// **Diagnostic**: the inelastic channel table this nuclide samples from —
     /// `(MT number, Q-value [eV], is-continuum)` per channel, in tape order.
     ///

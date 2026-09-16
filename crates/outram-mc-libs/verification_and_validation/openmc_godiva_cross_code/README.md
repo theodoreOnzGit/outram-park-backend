@@ -583,6 +583,81 @@ comes back at all, that it is forward-peaked, that `⟨μ⟩` rises monotonicall
 with energy (catching a mis-indexed incident-energy lookup), and that cross
 sections are bit-identical across the ablation.
 
+### Verifying the fix independently of `k` — and a fourth nearest-point trap
+
+**An eigenvalue landing on a benchmark is weak evidence about physics.** Two
+offsetting errors land there too, and this study's own record contains a
+physically *correct* fix that moved `k` **away** from the experiment (the MT=91
+Q-value cap, gh:#192, `+85 ± 26 pcm`, kept because it was right). So after
+`op-tm9f` the fix was checked against quantities that do not involve a transport
+run at all.
+
+**Per-level `⟨μ_cm⟩` against OpenMC's ACE**
+(`tests/inelastic_mubar_vs_openmc.rs`, 32 compared points across U-235 and
+U-238 at 1/2/5/14 MeV): **worst difference 3.1e-3**, `≤1.3e-3` across the
+1–5 MeV band that carries most inelastic collisions. Differences are random in
+sign — the signature of two independent linearisations of the same Legendre
+coefficients, not of a misreading.
+
+Worth more than the numbers: **both codes independently agree that U-235's
+MT=51/52/54/55 are near-isotropic while its MT=53/56 and all of U-238's low
+levels are strongly forward-peaked.** That asymmetry is a real property of the
+evaluation and is exactly what a naive parse would flatten.
+
+**Aggregate transport quantities** (`tests/ablation_suite.rs`):
+
+| quantity | ours | OpenMC | apart |
+|---|---|---|---|
+| `⟨μ_elastic⟩` | 0.2631 | 0.2645 | 0.5 % |
+| `⟨μ_inelastic⟩` | 0.0236 | 0.0245 | 3.7 % |
+| `⟨μ_inelastic⟩`, discrete only | 0.0344 | 0.0357 | 3.6 % |
+| **MT=91 share of inelastic** | **0.3135** | **0.3140** | **0.2 %** |
+| `Σ_tr` shift on ablating inelastic anisotropy | +0.36 % | +0.38 % | — |
+
+The **MT=91 share** is the quiet one. The continuum scores `μ = 0` on both
+sides, so it dilutes the inelastic mean cosine directly — two codes could agree
+on every angular distribution and still disagree on `⟨μ_inel⟩` if they split
+inelastic differently. They agree to 0.2 %.
+
+#### The reference values in this study were biased, and by more than our disagreement with them
+
+`transport_decomposition.py` read OpenMC's angular tables with
+`np.searchsorted` — the table at the energy **above** `e`, not interpolated.
+`⟨μ⟩` grows with energy, so the reference came out high:
+
+| | as published here | corrected (interpolated) |
+|---|---|---|
+| `⟨μ_elastic⟩` | 0.2740 | **0.2645** |
+| `⟨μ_inelastic⟩` | 0.0254 | **0.0245** |
+| `Σ_tr` | 0.37141 | **0.37457** |
+| one-group diffusion price | +219 pcm | **+209 pcm** |
+
+**This is the fourth appearance of the nearest-point trap in this study** — the
+first three are recorded in sections 3 and 5 above — and the first *inside our
+own reference script* rather than in a comparison against someone else's. It was
+found only because an independent Rust computation of the same aggregate
+disagreed by 30 % and the disagreement was chased rather than absorbed into a
+tolerance.
+
+The conclusion survives it: the price moves +219 → +209 pcm, against −198 pcm
+measured. That robustness is the reassuring part, but the lesson is that a
+reference is not automatically right for being external.
+
+#### The spectral residual is unchanged, as predicted
+
+`op-tm9f` is a *leakage* fix, so the spectrum should be untouched. Re-measured
+after it, 4 seeds a side on the same 50-bin grid:
+
+| quantity | before `op-tm9f` | after | sigma |
+|---|---|---|---|
+| mean `E` | +0.45 % | **+0.45 %** | 4.0 |
+| mean `ln E` | +0.05 % | **+0.05 %** | 4.9 |
+| flux fraction below 300 keV | −1.31 % | −1.03 % | 4.3 |
+| flux fraction above 4.8 MeV | +1.21 % | +0.43 % | 0.9 |
+
+The two integral measures of hardness are **identical**. `op-os8x` is exactly
+where it was, and the leakage/spectrum decomposition holds.
+
 ### URR self-shielding — not resolved
 
 This crate has no probability tables to ablate, so it was done on the OpenMC
@@ -595,6 +670,8 @@ with zero** — see the correction recorded above.
 |---|---|---|
 | `tests/anisotropy_ablation_control.rs` | ~3 s | that the **elastic** ablation *ablates*, that the evaluated data is genuinely anisotropic, and that cross sections are bit-identical across it |
 | `tests/inelastic_anisotropy_ablation_control.rs` | ~285 s | that the **inelastic** MF=4 tables are read at all, are forward-peaked, that `⟨μ⟩` rises monotonically with energy, that the ablation ablates, and that the two ablations are independent |
+| `tests/inelastic_mubar_vs_openmc.rs` | ~230 s | per-level `⟨μ_cm⟩` against OpenMC's ACE, and the U-235/U-238 anisotropy asymmetry |
+| `tests/ablation_suite.rs` | ~530 s | each mechanism priced on `⟨μ⟩`/`Σ_tr` instead of `k`, the MT=91 partition, and grid convergence of the aggregates |
 | `examples/godiva_keff_ensemble.rs` | ~80 min (256 seeds) | no regression from `RECORDED_PCM`, agreement with the benchmark, and that the seeds stayed independent |
 | `examples/godiva_anisotropy_ablation.rs` | ~35 min | the three elastic gates above |
 | `examples/godiva_inelastic_anisotropy_ablation.rs` | ~40 min | the inelastic price (−224 ± 44 pcm, 32 seeds/arm) |
