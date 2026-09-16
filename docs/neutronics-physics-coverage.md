@@ -31,7 +31,7 @@ marked `env` and count as a gap, not as coverage.
 |---|---|---|---|---|
 | Elastic energy (two-body, target at rest) | ✅ | analytic two-body closed form | n/a (not removable) | n/a |
 | **Elastic angular** (MF=4/MT=2) | ✅ | quadrature vs CDF inversion, 8 nuclides × 5 energies | ✅ `with_isotropic_elastic_scattering` | ✅ ×3 |
-| **Free-gas target motion** | ✅ | analytic Doppler integral (≤0.09 % on H-1); Maxwellian fixed point | ⚠️ **`env` only** (`OUTRAM_RINGRPT_TARGET_AT_REST`, one driver) | ⚠️ none |
+| **Free-gas target motion** | ✅ | analytic Doppler integral (≤0.09 % on H-1); Maxwellian fixed point | ✅ `with_target_at_rest` (closed 2026-09-16) | ✅ ×2 |
 | **S(α,β) bound thermal** | ✅ | NJOY THERMR; detailed-balance fixed point | ⚠️ **`env` only** (`OUTRAM_RINGRPT_FREE_GAS_GRAPHITE`) | ✅ (6 files touch `with_thermal_scattering`) |
 | Discrete inelastic energy (MT=51…90) | ✅ | ENDF level table; threshold invariant | ✅ `without_inelastic` | ✅ (closed 2026-09-16) |
 | **Discrete inelastic angular** (MF=4/MT=51…90) | ✅ | per-level `⟨μ_cm⟩` vs OpenMC ACE (3.1e-3) | ✅ `with_isotropic_inelastic_scattering` | ✅ ×2 |
@@ -85,13 +85,47 @@ It removes the largest single reactivity mechanism this crate has measured
 (−4190 pcm on the FHR pebble, the row that localised gh:#193 to F-19). A silent
 failure here would have derailed that investigation.
 
-### 3. Free-gas target motion is not ablatable in-process
+### ~~3. Free-gas target motion is not ablatable in-process~~ — CLOSED 2026-09-16
 
 Worth **−2242 pcm** on the FHR pebble — the positive control in gh:#193's
-pricing table and the single biggest effect in it. Today it is reachable only
-by zeroing the transport temperature through one example's environment
-variable, so it cannot take part in a paired-seed study alongside the other
+pricing table and the single biggest effect in it. It was reachable only by
+zeroing the transport temperature through one example's environment variable,
+so it could not take part in a paired-seed study alongside the other
 mechanisms.
+
+**Closed by `Nuclide::with_target_at_rest`**, a per-nuclide flag consulted
+through `Nuclide::free_gas_kt(temp_k)`. Every transport driver now takes its
+elastic-kinematics temperature from that one call rather than multiplying
+`K_BOLTZMANN_EV_PER_K` itself (5 sites in `keff.rs`/`transport_csg.rs`/
+`keff_delta.rs`, 2 in `slowing_down.rs`), so the hook cannot be reachable from
+one driver and not another — the constant is no longer imported by any of them.
+The ablation is expressed *through* the production path: a zero `kT` makes
+`free_gas_elastic_scatter` take its own target-at-rest branch, so no branch was
+added to the transport kernel.
+
+Controls in `tests/ablation_hook_controls.rs` (2 tests, both passing):
+
+- **It ablates, and had something to ablate.** Measured on ENDF/B-VIII.0 U-238
+  at 293.6 K: `kT 2.530049e-2 -> 0` eV, and up-scatter — the signature of target
+  motion, since a target at rest can only take energy away — goes
+  **4207/8192 -> 0/8192** at 0.0253 eV. The ablated arm's outcomes are confined
+  to `[2.487485e-2, 2.529998e-2]` eV, inside `[α·E, E]` with `α = 0.98319`, and
+  cross sections are bit-identical across the hook.
+- **It is a bit-for-bit no-op above `400·kT`.** 2048/2048 paired draws at 2 MeV
+  give identical outgoing energy *and* leave the RNG streams in lockstep
+  (threshold `1.0120e1` eV). This is
+  what makes the recorded prediction — ~zero worth on a bare fast metal sphere,
+  whose flux is almost all above the 10.12 eV threshold — a prediction rather
+  than a hope: a non-zero Godiva reading would mean the wiring, not the physics.
+
+**One thing this hook does NOT have, stated because the others do.** It breaks
+RNG-stream invariance. The free-gas kernel draws a target velocity (a rejection
+loop plus a rotation) that the target-at-rest kernel never draws, so the two
+arms diverge at the first thermal collision. The angular ablations swap one
+sampled quantity for another drawn from the same number of variates and stay in
+lockstep history by history; this one is attributable **statistically over an
+ensemble of seeds only**. A single paired run measures nothing here, and the
+doc comment says so.
 
 ### 4. ν̄(E) and χ(E→E') cannot be ablated at all
 

@@ -43,13 +43,29 @@
 //!   mechanism this crate has measured (−4190 pcm on the FHR pebble, the row
 //!   that localised GitHub #193 to F-19's inelastic channel). A silent failure
 //!   there would have derailed that investigation.
+//! - **[`Nuclide::with_target_at_rest`]** — added the same day the survey found
+//!   free-gas target motion had **no in-process hook at all**, only a
+//!   process-wide environment variable in one example. Worth **−2242 pcm** on
+//!   the FHR pebble, the positive control that says that pricing table's
+//!   instrument can register a large effect.
 //!
-//! # Results (2026-09-16, ENDF/B-VIII.0 U-238, `cargo test --release`)
+//! # Results (2026-09-16, ENDF/B-VIII.0 U-238 at 293.6 K, `cargo test --release`)
 //!
-//! Printed by each test. U-238 carries a continuum angular law on MT=91 and
-//! MT=16 before ablation and neither after; it carries a non-zero inelastic
-//! cross section at 2 MeV before `without_inelastic` and exactly zero after,
-//! with total/elastic/fission cross sections bit-identical across both hooks.
+//! Printed by each test; 5 passed, 0 failed.
+//!
+//! - **`with_isotropic_continuum_scattering`** — U-238 carries a continuum
+//!   angular law on MT=91 and MT=16 before ablation and neither after, with the
+//!   MT=91/16 *energy* laws intact and cross sections bit-identical.
+//! - **`without_inelastic`** — inelastic `3.14977 b -> 0` at 2.0e6 eV while the
+//!   **total is held at 7.28152 b**: the hook changes the reaction *partition*,
+//!   not the collision rate, exactly as its doc says. No sampled outcome falls
+//!   below the elastic floor `α·E = 1.9664e6 eV` afterwards.
+//! - **`with_target_at_rest`** — `kT 2.530049e-2 -> 0` eV; up-scatter
+//!   **4207/8192 -> 0/8192** at 0.0253 eV; ablated outcomes confined to
+//!   `[2.487485e-2, 2.529998e-2]` eV, inside `[α·E, E]` with `α = 0.98319`;
+//!   cross sections bit-identical. Above the `1.0120e1` eV free-gas threshold
+//!   it is a **no-op to the bit**: 2048/2048 paired draws at 2 MeV identical,
+//!   RNG streams in lockstep.
 //!
 //! **Verification, not validation.** These assert that a switch switches. What
 //! the mechanism is *worth* is a separate paired-seed measurement.
@@ -307,4 +323,205 @@ fn the_two_hooks_do_not_interfere() {
         "with_isotropic_continuum_scattering applied after without_inelastic",
     );
     println!("the two hooks compose without interfering");
+}
+
+// ───────────────────────── free-gas target motion ─────────────────────────
+//
+// Gap 3 of `docs/neutronics-physics-coverage.md`, closed 2026-09-16. Before
+// this the mechanism was reachable only by zeroing one example's transport
+// temperature through `OUTRAM_RINGRPT_TARGET_AT_REST`, a process-wide switch
+// that cannot put two arms in one paired-seed study.
+
+/// Thermal probe: `0.0253 eV` is **below** `FREE_GAS_THRESHOLD * kT`
+/// (`400 * 0.0253 = 10.12 eV` at 293.6 K), so the free-gas kernel is live here
+/// on every nuclide regardless of mass. Choosing a probe above that threshold
+/// would have made the whole test vacuous — the production path already holds a
+/// heavy target at rest up there, which is the separate assertion below.
+const THERMAL_PROBE_EV: f64 = 0.0253;
+
+/// Draw `n` free-gas elastic outcomes off `nuc` at energy `e`, through the same
+/// call the transport drivers make, and return how many came out **above** the
+/// incident energy.
+///
+/// Up-scatter is the signature of target motion and nothing else: a target at
+/// rest can only take energy away, so `n_up > 0` on one arm and `n_up == 0` on
+/// the other is the mechanism appearing and disappearing.
+fn count_upscatter(nuc: &Nuclide, e: f64, n: usize, seed: &mut u64) -> usize {
+    use outram_mc_libs::geometry::position::Direction;
+    use outram_mc_libs::physics::scatter::free_gas_elastic_scatter;
+    let u = Direction::new(0.0, 0.0, 1.0);
+    let kt = nuc.free_gas_kt(TEMP_K);
+    (0..n)
+        .filter(|_| {
+            let mu_cm = nuc
+                .sample_elastic_mu_cm(e, seed)
+                .unwrap_or_else(|| 2.0 * outram_mc_libs::rng::lcg::prn(seed) - 1.0);
+            free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed).0 > e
+        })
+        .count()
+}
+
+/// `with_target_at_rest` removes free-gas target motion, removes only it, and
+/// had something to remove.
+///
+/// The positive control in GitHub #193's pricing table — **−2242 pcm** on the
+/// FHR pebble, the largest single effect in it, and the row that says the
+/// harness can see a large effect at all. A table of null results is only worth
+/// reading if the instrument that produced it can produce a non-null one, so
+/// this switch working is load-bearing for every *other* row in that table.
+#[test]
+fn the_target_motion_hook_ablates_exactly_the_target_velocity() {
+    let Some(evaluated) = u238() else { return };
+
+    // 1: there was something to remove, asserted two ways.
+    //
+    // (a) The bookkeeping: the kinematics temperature is the material's.
+    let kt_expected = 8.617_333_262e-5 * TEMP_K;
+    assert!(
+        (evaluated.free_gas_kt(TEMP_K) - kt_expected).abs() < 1.0e-18,
+        "unablated free_gas_kt({TEMP_K}) = {} eV, expected {kt_expected} eV. The hook's whole \
+         mechanism is this value, so a wrong one here makes the ablation measure something else.",
+        evaluated.free_gas_kt(TEMP_K)
+    );
+    assert!(!evaluated.is_target_at_rest());
+
+    // (b) The behaviour, which is what a wiring failure would break silently:
+    // up-scatter must actually be reachable before ablation. Bead `op-50vu` is
+    // exactly this assertion going unmade — the S(alpha,beta) wiring was not
+    // reaching the sampler, and the symptom was two eigenvalues agreeing.
+    let mut seed = 0x7A46E7u64;
+    let up_before = count_upscatter(&evaluated, THERMAL_PROBE_EV, 8192, &mut seed);
+    assert!(
+        up_before > 0,
+        "no up-scatter in 8192 free-gas collisions at {THERMAL_PROBE_EV} eV before ablation. \
+         Either the free-gas kernel is not being reached or the threshold gate changed -- and \
+         ablating target motion would then be removing nothing while reporting a number."
+    );
+
+    let ablated = evaluated.clone().with_target_at_rest();
+
+    // 2: it is gone. Both the flag and the behaviour.
+    assert!(ablated.is_target_at_rest());
+    assert_eq!(
+        ablated.free_gas_kt(TEMP_K).to_bits(),
+        0.0_f64.to_bits(),
+        "with_target_at_rest left a non-zero kinematics temperature, so free_gas_elastic_scatter \
+         will still sample a target velocity and the ablation is a no-op."
+    );
+    let mut seed = 0x7A46E7u64;
+    let up_after = count_upscatter(&ablated, THERMAL_PROBE_EV, 8192, &mut seed);
+    assert_eq!(
+        up_after, 0,
+        "{up_after}/8192 collisions gained energy after with_target_at_rest. A target held at \
+         rest can only take energy away; any up-scatter means target motion survived the hook."
+    );
+
+    // 3: nothing else moved. On the HIGH tier the cross sections were
+    // Doppler-broadened at construction and do not depend on the transport
+    // temperature at all, so this hook is kinematics-only by construction --
+    // but that is the claim the measured Delta-k rests on, so it is asserted
+    // rather than argued.
+    assert_cross_sections_unchanged(&evaluated, &ablated, "with_target_at_rest");
+
+    // 4: the ablated arm obeys the target-at-rest energy bounds exactly.
+    // alpha = ((A-1)/(A+1))^2 = 0.9832 for U-238.
+    use outram_mc_libs::geometry::position::Direction;
+    use outram_mc_libs::physics::scatter::free_gas_elastic_scatter;
+    let alpha = ((ablated.awr - 1.0) / (ablated.awr + 1.0)).powi(2);
+    let (mut lo, mut hi) = (f64::INFINITY, 0.0_f64);
+    let mut seed = 0x5EED_0001u64;
+    for _ in 0..8192 {
+        let mu_cm = ablated
+            .sample_elastic_mu_cm(THERMAL_PROBE_EV, &mut seed)
+            .unwrap_or_else(|| 2.0 * outram_mc_libs::rng::lcg::prn(&mut seed) - 1.0);
+        let e_out = free_gas_elastic_scatter(
+            THERMAL_PROBE_EV,
+            Direction::new(0.0, 0.0, 1.0),
+            ablated.awr,
+            ablated.free_gas_kt(TEMP_K),
+            mu_cm,
+            &mut seed,
+        )
+        .0;
+        lo = lo.min(e_out);
+        hi = hi.max(e_out);
+    }
+    assert!(
+        lo >= alpha * THERMAL_PROBE_EV * (1.0 - 1.0e-12) && hi <= THERMAL_PROBE_EV * (1.0 + 1.0e-12),
+        "ablated outcomes spanned [{lo:.6e}, {hi:.6e}] eV, outside the target-at-rest window \
+         [{:.6e}, {THERMAL_PROBE_EV:.6e}] eV (alpha = {alpha:.5}).",
+        alpha * THERMAL_PROBE_EV
+    );
+
+    println!(
+        "with_target_at_rest: U-238 kT {kt_expected:.6e} -> 0 eV; up-scatter {up_before}/8192 \
+         -> {up_after}/8192 at {THERMAL_PROBE_EV} eV; ablated outcomes confined to \
+         [{lo:.6e}, {hi:.6e}] eV within [alpha*E, E] (alpha = {alpha:.5}); cross sections \
+         bit-identical"
+    );
+}
+
+/// Above `FREE_GAS_THRESHOLD * kT` the hook is a **bit-for-bit no-op**, because
+/// the production path already holds a heavy target at rest there.
+///
+/// This is not a nicety — it is what makes the hook's recorded prediction a
+/// prediction. `with_target_at_rest` is expected to be worth ~nothing on a bare
+/// fast metal sphere such as Godiva, whose flux is almost entirely above
+/// `400 * kT` (10.12 eV at 293.6 K). That expectation is only sound if the two
+/// arms are *identical* up there rather than merely similar, so a future Godiva
+/// ablation reading non-zero means the wiring, not the physics.
+#[test]
+fn the_target_motion_hook_is_a_no_op_above_the_free_gas_threshold() {
+    use outram_mc_libs::geometry::position::Direction;
+    use outram_mc_libs::physics::scatter::{free_gas_elastic_scatter, FREE_GAS_THRESHOLD};
+    let Some(evaluated) = u238() else { return };
+    let ablated = evaluated.clone().with_target_at_rest();
+
+    let kt = evaluated.free_gas_kt(TEMP_K);
+    let threshold = FREE_GAS_THRESHOLD * kt;
+    assert!(
+        PROBE_EV > threshold,
+        "probe {PROBE_EV:.3e} eV is not above the free-gas threshold {threshold:.3e} eV; \
+         this test would be asserting the wrong branch."
+    );
+
+    // Paired seeds: identical stream in, identical stream out. Bit-identical,
+    // not "close" -- above the threshold the two arms take the same branch of
+    // `free_gas_elastic_scatter` and consume the same variates.
+    let u = Direction::new(0.0, 0.0, 1.0);
+    let mut n = 0usize;
+    for i in 0..2048u64 {
+        let seed0 = 0xF7EE_6A50u64.wrapping_add(i.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+        let (mut sa, mut sb) = (seed0, seed0);
+        let mu_a = evaluated
+            .sample_elastic_mu_cm(PROBE_EV, &mut sa)
+            .unwrap_or_else(|| 2.0 * outram_mc_libs::rng::lcg::prn(&mut sa) - 1.0);
+        let mu_b = ablated
+            .sample_elastic_mu_cm(PROBE_EV, &mut sb)
+            .unwrap_or_else(|| 2.0 * outram_mc_libs::rng::lcg::prn(&mut sb) - 1.0);
+        let a = free_gas_elastic_scatter(PROBE_EV, u, evaluated.awr, kt, mu_a, &mut sa);
+        let b = free_gas_elastic_scatter(
+            PROBE_EV,
+            u,
+            ablated.awr,
+            ablated.free_gas_kt(TEMP_K),
+            mu_b,
+            &mut sb,
+        );
+        assert_eq!(
+            a.0.to_bits(),
+            b.0.to_bits(),
+            "draw {i}: outgoing energy differed above the free-gas threshold ({} vs {}). The \
+             hook is documented as a no-op here; if it is not, its predicted ~zero worth on a \
+             fast spectrum is unfounded.",
+            a.0,
+            b.0
+        );
+        assert_eq!(sa, sb, "draw {i}: the RNG streams diverged above the threshold");
+        n += 1;
+    }
+    println!(
+        "with_target_at_rest above the {threshold:.4e} eV threshold: {n}/{n} draws \
+         bit-identical at {PROBE_EV:.1e} eV, RNG streams in lockstep"
+    );
 }

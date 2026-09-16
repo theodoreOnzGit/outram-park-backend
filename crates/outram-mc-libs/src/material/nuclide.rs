@@ -205,6 +205,12 @@ pub struct Nuclide {
     /// Absent ⇒ the transport layer keeps its Weisskopf evaporation stand-in,
     /// which is what every case used before 2026-09-13.
     continuum: ContinuumLaws,
+    /// **Ablation flag, not a model option.** When `true`, every transport
+    /// driver holds this nuclide's nucleus at rest in an elastic collision
+    /// regardless of the material temperature — see
+    /// [`Nuclide::with_target_at_rest`] and [`Nuclide::free_gas_kt`]. `false`
+    /// (the default, and what every constructor produces) is the physics.
+    target_at_rest: bool,
 }
 
 /// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
@@ -252,6 +258,7 @@ impl Nuclide {
             thermal: None,
             // LOW tier reads no tape, so there is no MF=6 to carry.
             continuum: ContinuumLaws::default(),
+            target_at_rest: false,
         })
     }
 
@@ -412,6 +419,104 @@ impl Nuclide {
                 .mt16
                 .as_ref()
                 .is_some_and(|l| l.is_anisotropic())
+    }
+
+    /// **Ablation control for V&V: hold this nuclide's nucleus at rest in an
+    /// elastic collision, removing free-gas target motion.**
+    ///
+    /// Deliberately the **wrong physics**, and a measurement tool rather than a
+    /// model option. A target held at rest can only take energy away, so a
+    /// neutron population scattering off it has no Maxwellian fixed point and
+    /// cools without bound — the defect bead `op-50vu` recorded, reproduced on
+    /// purpose so its worth can be priced.
+    ///
+    /// # What changes, and what does not
+    ///
+    /// **Kinematics only.** Cross sections are looked up by temperature
+    /// independently of this flag — on the HIGH (`Pointwise`) tier they were
+    /// Doppler-broadened at construction and do not depend on the transport
+    /// temperature at all — so the *collision rate* is untouched and the two
+    /// arms of a paired run differ in exactly one input. What goes away is the
+    /// target's own velocity in [`free_gas_elastic_scatter`], which is what
+    /// supplies up-scatter below `400·kT`.
+    ///
+    /// Above `FREE_GAS_THRESHOLD·kT` (`400 kT`, ~2.07 eV at 600 K) the
+    /// production path already holds a heavy target at rest, so this is a no-op
+    /// for a purely fast problem. It bites in the thermal and epithermal range.
+    ///
+    /// # Why this exists as a `Nuclide` hook and not only as a temperature
+    ///
+    /// Zeroing the transport temperature, which is how this was reached before
+    /// (`OUTRAM_RINGRPT_TARGET_AT_REST` in `examples/fhr_ring_rpt_endf.rs`),
+    /// works but is a **process-wide, whole-material** switch: both arms cannot
+    /// exist at once, so it cannot take part in a paired-seed study alongside
+    /// the other ablations, and it cannot be aimed at one nuclide. This can.
+    ///
+    /// # It does NOT preserve the RNG stream — unlike the angular ablations
+    ///
+    /// [`with_isotropic_elastic_scattering`](Self::with_isotropic_elastic_scattering)
+    /// and its siblings replace one sampled quantity with another drawn from the
+    /// same number of variates, so the two arms stay in lockstep history by
+    /// history. This one does not: the free-gas kernel draws a target velocity
+    /// (a rejection loop plus a rotation) that the target-at-rest kernel never
+    /// draws, so the streams diverge at the first thermal collision. A measured
+    /// `Δk` is therefore attributable **statistically, over an ensemble of
+    /// seeds**, not history by history. Size the ensemble accordingly; a single
+    /// paired run measures nothing here.
+    ///
+    /// # What it is worth, on the one case where it has been measured
+    ///
+    /// **−2242 pcm** on the FHR pebble (gh:#193's pricing table, via the
+    /// environment variable this replaces) — the largest single effect in that
+    /// table, and the positive control that says the pricing harness can see a
+    /// large effect at all. A table of null results is only worth reading if the
+    /// instrument that produced it can produce a non-null one.
+    ///
+    /// Expect it to be **near zero on a bare fast metal sphere** such as Godiva,
+    /// whose flux is almost entirely above `400·kT`. Recorded before measuring:
+    /// a Godiva-sized effect here would mean the flag is reaching a path it
+    /// should not, and the wiring should be suspected before the physics.
+    ///
+    /// Applies to both fidelity tiers, since the flag is consulted by the
+    /// transport driver rather than by the cross-section representation.
+    pub fn with_target_at_rest(mut self) -> Self {
+        self.target_at_rest = true;
+        self
+    }
+
+    /// Whether [`with_target_at_rest`](Self::with_target_at_rest) has been
+    /// applied to this nuclide — i.e. whether its elastic kinematics are
+    /// deliberately ablated.
+    ///
+    /// The assertion an ablation control needs: a hook that silently failed to
+    /// take effect reports "no difference" and reads as "this physics does not
+    /// matter", which is the worst failure mode an ablation study has.
+    pub fn is_target_at_rest(&self) -> bool {
+        self.target_at_rest
+    }
+
+    /// The `k_B·T` \[eV\] this nuclide's **elastic kinematics** should use at
+    /// material temperature `temp_k` \[K\].
+    ///
+    /// Normally `K_BOLTZMANN_EV_PER_K * temp_k`. Returns `0.0` when
+    /// [`with_target_at_rest`](Self::with_target_at_rest) has been applied,
+    /// which makes [`free_gas_elastic_scatter`] fall through to its
+    /// target-at-rest branch — the ablation is expressed **through the
+    /// production code path**, with no branch added to the transport kernel.
+    ///
+    /// Every transport driver calls this rather than multiplying the
+    /// temperature itself, so the ablation cannot be reachable from one driver
+    /// and not another.
+    ///
+    /// This is the elastic *kinematics* temperature only. It is not the
+    /// temperature cross sections are looked up at ([`Nuclide::xs_at_energy`]
+    /// takes that separately) and not the S(α,β) table temperature.
+    pub fn free_gas_kt(&self, temp_k: f64) -> f64 {
+        if self.target_at_rest {
+            0.0
+        } else {
+            crate::physics::scatter::K_BOLTZMANN_EV_PER_K * temp_k
+        }
     }
 
     /// **HIGH fidelity.** Build a nuclide from a raw ENDF tape downloaded from a
@@ -623,6 +728,7 @@ impl Nuclide {
             },
             thermal: None,
             continuum,
+            target_at_rest: false,
         })
     }
 

@@ -66,7 +66,7 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated,
+    free_gas_elastic_scatter, continuum_inelastic_scatter_evaluated,
     rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::rng::distributions::{isotropic_direction, watt};
@@ -999,7 +999,7 @@ where
                         // is sampled, so the neutron can gain energy and the
                         // population has a Maxwellian fixed point (bead op-50vu).
                         // Above it this is the old target-at-rest kinematics.
-                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let kt = nuc.free_gas_kt(temp);
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);

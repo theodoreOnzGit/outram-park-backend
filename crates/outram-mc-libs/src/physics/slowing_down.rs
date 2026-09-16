@@ -139,7 +139,7 @@ use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, two_body_scatter_with_mu, K_BOLTZMANN_EV_PER_K,
+    free_gas_elastic_scatter, two_body_scatter_with_mu,
 };
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
@@ -554,7 +554,6 @@ impl InfiniteMediumMc {
         let mut absorbed_by = vec![0.0_f64; n_mix];
         let mut escaped = 0.0_f64;
         let mut seed = self.seed;
-        let kt = K_BOLTZMANN_EV_PER_K * temp_k;
 
         for _ in 0..self.histories {
             let mut e = band.e_top;
@@ -630,7 +629,14 @@ impl InfiniteMediumMc {
                             let mu_cm = nuc
                                 .sample_elastic_mu_cm(e, &mut seed)
                                 .unwrap_or_else(|| 2.0 * prn(&mut seed) - 1.0);
-                            free_gas_elastic_scatter(e, dir, nuc.awr, kt, mu_cm, &mut seed)
+                            free_gas_elastic_scatter(
+                                e,
+                                dir,
+                                nuc.awr,
+                                nuc.free_gas_kt(temp_k),
+                                mu_cm,
+                                &mut seed,
+                            )
                         }
                     }
                 };
@@ -803,7 +809,6 @@ impl LumpCellMc {
         let mut absorbed_by = vec![0.0_f64; materials.len()];
         let (mut escaped, mut lost) = (0.0_f64, 0.0_f64);
         let mut seed = self.seed;
-        let kt = K_BOLTZMANN_EV_PER_K * temp_k;
         const NUDGE: f64 = 1.0e-9;
 
         for _ in 0..self.histories {
@@ -861,7 +866,7 @@ impl LumpCellMc {
                         "an inelastic or (n,2n) channel opened at {e} eV — the band \
                          reaches a threshold and the comparison is not valid there"
                     );
-                    let (e2, d2) = self.scatter(nuc, e, dir, kt, &mut seed);
+                    let (e2, d2) = self.scatter(nuc, e, dir, temp_k, &mut seed);
                     e = e2;
                     dir = d2;
                     if e < band.e_bot {
@@ -922,12 +927,17 @@ impl LumpCellMc {
         }
     }
 
+    /// One scatter off `nuc` at lab energy `e` \[eV\] in the kernel this driver
+    /// was configured with. `temp_k` is the material temperature \[K\]; the
+    /// free-gas kinematics temperature is taken from the nuclide via
+    /// [`Nuclide::free_gas_kt`], so a nuclide carrying the target-at-rest
+    /// ablation is honoured here exactly as it is in the k-eigenvalue drivers.
     fn scatter(
         &self,
         nuc: &Nuclide,
         e: f64,
         dir: Direction,
-        kt: f64,
+        temp_k: f64,
         seed: &mut u64,
     ) -> (f64, Direction) {
         match self.kernel {
@@ -951,7 +961,7 @@ impl LumpCellMc {
                     let mu_cm = nuc
                         .sample_elastic_mu_cm(e, seed)
                         .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                    free_gas_elastic_scatter(e, dir, nuc.awr, kt, mu_cm, seed)
+                    free_gas_elastic_scatter(e, dir, nuc.awr, nuc.free_gas_kt(temp_k), mu_cm, seed)
                 }
             }
         }
