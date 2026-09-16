@@ -100,6 +100,8 @@ fn mf6_mean_energy_exact_flat_pdf() {
             e_in_interp: vec![],
             incident: vec![table],
         },
+        lang: Mf6AngularLaw::Legendre,
+        angular: vec![],
     };
     // Single table ⇒ same mean at any incident energy.
     assert!(
@@ -128,6 +130,8 @@ fn mf6_mean_energy_interpolates_in_incident() {
             e_in_interp: vec![],
             incident: vec![t(1.0, 2.0), t(3.0, 4.0)],
         },
+        lang: Mf6AngularLaw::Legendre,
+        angular: vec![],
     };
     // mean(1 MeV)=1.0, mean(3 MeV)=2.0 ⇒ mean(2 MeV)=1.5 MeV.
     assert!(

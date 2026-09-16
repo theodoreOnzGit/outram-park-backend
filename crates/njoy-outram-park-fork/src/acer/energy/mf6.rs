@@ -31,15 +31,152 @@ use super::core::{
     OutgoingEnergy, EMEV,
 };
 
+/// The ENDF **MF=6 LAW=1 angular representation** (`LANG`, the `L1` field of the
+/// law's TAB2), retained so a transport code can sample the emission angle that
+/// the evaluation actually correlates with `E'` instead of assuming isotropy.
+///
+/// `LANG` describes what the `NA` numbers following `f₀` on each
+/// `[E'_out, f₀, f₁ … f_NA]` row *mean*; it does not vary within a subsection.
+/// Reading it is what distinguishes "this evaluation says the emission is
+/// isotropic" (`NA = 0` on every row) from "this port did not read the angular
+/// data" — two situations that are indistinguishable once the coefficients are
+/// dropped, and which were indistinguishable here until this type existed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mf6AngularLaw {
+    /// `LANG = 1` — Legendre coefficients `f₁ … f_NA` in the section's own frame
+    /// (`LCT`), on the same scale as `f₀`. The normalised coefficients a Legendre
+    /// density wants are `a_l = f_l / f₀`, with `a₀ ≡ 1`; see
+    /// [`Mf6AngularRow::legendre_coefficients`].
+    Legendre,
+    /// `LANG = 2` — Kalbach-Mann systematics. `NA = 1` carries the pre-compound
+    /// fraction `r`; `NA = 2` carries `r` and the slope `a`. These are
+    /// dimensionless parameters and are **not** divided by `f₀`.
+    KalbachMann,
+    /// `LANG = 11 … 15` — a tabulated `(μ, f)` law; the `NA` numbers are
+    /// `μ₁, f₁, μ₂, f₂ …` and the ENDF interpolation scheme is `LANG − 10`.
+    Tabulated {
+        /// ENDF interpolation law for the tabulated cosines (`LANG − 10`).
+        interp: u32,
+    },
+    /// Any other `LANG`, kept verbatim so a consumer can refuse it explicitly
+    /// rather than mistake an unread law for a genuinely isotropic one.
+    Other(i32),
+}
+
+impl Mf6AngularLaw {
+    /// Decode the raw ENDF `LANG` value.
+    pub fn from_lang(lang: i32) -> Self {
+        match lang {
+            1 => Mf6AngularLaw::Legendre,
+            2 => Mf6AngularLaw::KalbachMann,
+            11..=15 => Mf6AngularLaw::Tabulated {
+                interp: (lang - 10) as u32,
+            },
+            other => Mf6AngularLaw::Other(other),
+        }
+    }
+}
+
+/// The angular coefficients of one incident-energy LIST record, aligned
+/// row-for-row with the matching [`OutgoingEnergy`] table.
+///
+/// Row `i` of this table describes the emission angle **conditional on** the
+/// outgoing energy `e_out_mev[i]` of the same index in that table — MF=6 LAW=1
+/// is a correlated energy-angle law, which is the whole reason the coefficients
+/// cannot simply be averaged away.
+#[derive(Debug, Clone)]
+pub struct Mf6AngularTable {
+    /// Incident neutron energy \[MeV\] — matches [`OutgoingEnergy::e_in_mev`].
+    pub e_in_mev: f64,
+    /// Number of angular numbers per outgoing-energy row (ENDF `NA`). `0` means
+    /// the evaluation itself declares this incident energy isotropic.
+    pub na: u32,
+    /// The energy density `f₀` of each outgoing-energy row, **as it appears on
+    /// the tape** (not renormalised the way [`OutgoingEnergy::pdf`] is). Kept
+    /// because `LANG = 1`'s Legendre coefficients are on `f₀`'s scale and must be
+    /// divided by *this* `f₀`, not by the normalised pdf.
+    pub f0: Vec<f64>,
+    /// The `na` angular numbers of every row, row-major: row `i` occupies
+    /// `coeffs[i*na .. (i+1)*na]`. Empty when `na == 0`.
+    pub coeffs: Vec<f64>,
+}
+
+impl Mf6AngularTable {
+    /// Number of outgoing-energy rows.
+    pub fn len(&self) -> usize {
+        self.f0.len()
+    }
+
+    /// Whether this table has no rows at all.
+    pub fn is_empty(&self) -> bool {
+        self.f0.is_empty()
+    }
+
+    /// The raw angular numbers of row `i`, or an empty slice when `na == 0` or
+    /// `i` is out of range.
+    pub fn row(&self, i: usize) -> &[f64] {
+        let na = self.na as usize;
+        if na == 0 || i >= self.len() {
+            return &[];
+        }
+        &self.coeffs[i * na..(i + 1) * na]
+    }
+
+    /// The **normalised** Legendre coefficients `a_l = f_l / f₀` of row `i`, the
+    /// form [`crate::acer::angular`]'s Legendre density expects (`a₀ ≡ 1`,
+    /// `f(μ) = Σ_l ((2l+1)/2)·a_l·P_l(μ)`).
+    ///
+    /// Only meaningful when the subsection's law is
+    /// [`Mf6AngularLaw::Legendre`] — the caller must check. Returns an empty
+    /// vector when the row is isotropic (`na == 0`) or carries no density
+    /// (`f₀ ≤ 0`, where the conditional angular law is unreachable and any value
+    /// would do).
+    pub fn legendre_coefficients(&self, i: usize) -> Vec<f64> {
+        let row = self.row(i);
+        if row.is_empty() {
+            return Vec::new();
+        }
+        let f0 = self.f0.get(i).copied().unwrap_or(0.0);
+        if f0 <= 0.0 {
+            return Vec::new();
+        }
+        row.iter().map(|&f| f / f0).collect()
+    }
+
+    /// The mean cosine `⟨μ⟩` of row `i` under a Legendre law, which is exactly
+    /// `a₁ = f₁/f₀` — every higher term integrates to zero against `μ`.
+    ///
+    /// Returns `0.0` for an isotropic row. As with
+    /// [`Self::legendre_coefficients`], this assumes
+    /// [`Mf6AngularLaw::Legendre`].
+    pub fn legendre_mubar(&self, i: usize) -> f64 {
+        let row = self.row(i);
+        if row.is_empty() {
+            return 0.0;
+        }
+        let f0 = self.f0.get(i).copied().unwrap_or(0.0);
+        if f0 <= 0.0 {
+            0.0
+        } else {
+            row[0] / f0
+        }
+    }
+}
+
 /// The neutron emission of an MF=6 LAW=1 reaction, reduced to an ACE Law 4
 /// energy distribution.
 ///
 /// Built by [`parse_mf6_law1_neutron`]. Carries the multiplicity (yield) and
 /// reference frame so the caller can fill the ACE TYR entry, plus the energy
-/// distribution [`law4`](Self::law4). The **angular** dependence present in the
-/// ENDF data (Legendre coefficients when LANG=1, Kalbach `r`/`a` when LANG=2) is
-/// **not** carried here — extracting it into ACE Law 61/44 is the follow-up; this
-/// captures the energy spectrum (`f₀`) as Law 4 (isotropic emission).
+/// distribution [`law4`](Self::law4).
+///
+/// **The angular half of the law is carried too**, in [`lang`](Self::lang) and
+/// [`angular`](Self::angular), and is *not* folded into `law4`: ACE Law 4 is an
+/// energy-only law by definition, so writing an ACE file still uses `law4` alone
+/// and its serialisation is unchanged. A transport code that wants the
+/// correlated emission angle reads `angular` instead of assuming isotropy — the
+/// assumption this port made until the coefficients were retained (bead
+/// `op-og56`).
 #[derive(Debug, Clone)]
 pub struct Mf6Neutron {
     /// Reference frame of the distribution: `1` = laboratory, `2` = centre-of-mass
@@ -50,6 +187,41 @@ pub struct Mf6Neutron {
     pub yield_pairs: Vec<(f64, f64)>,
     /// The outgoing-energy distribution as an ACE Law 4.
     pub law4: Law4,
+    /// What the angular numbers on each row mean (ENDF `LANG`).
+    pub lang: Mf6AngularLaw,
+    /// The angular coefficients, one table per incident energy, in the **same
+    /// order and of the same length** as `law4.incident`.
+    pub angular: Vec<Mf6AngularTable>,
+}
+
+impl Mf6Neutron {
+    /// Whether this emission is isotropic *according to the evaluation* — i.e.
+    /// every incident-energy table declares `NA = 0`.
+    ///
+    /// This is the distinction that matters when auditing the port: a `true`
+    /// here means the tape itself carries no angular structure, whereas an
+    /// absent [`angular`](Self::angular) would only mean nobody read it.
+    pub fn is_angular_isotropic(&self) -> bool {
+        self.angular.iter().all(|t| t.na == 0)
+    }
+
+    /// The largest `|⟨μ⟩|` any outgoing-energy row of any incident energy
+    /// carries, under a Legendre (`LANG = 1`) reading. `0.0` for a law that is
+    /// isotropic or not Legendre.
+    ///
+    /// Intended as a cheap "is there anything here worth sampling" probe and as
+    /// the assertion an ablation control needs: a control that switches off an
+    /// angular law which was flat to begin with reports "no difference" and
+    /// reads as "this physics does not matter".
+    pub fn peak_legendre_mubar(&self) -> f64 {
+        if self.lang != Mf6AngularLaw::Legendre {
+            return 0.0;
+        }
+        self.angular
+            .iter()
+            .flat_map(|t| (0..t.len()).map(move |i| t.legendre_mubar(i).abs()))
+            .fold(0.0, f64::max)
+    }
 }
 
 impl Mf6Neutron {
@@ -318,27 +490,45 @@ fn parse_law1_neutron_body(
     ymult: Tab1,
 ) -> Result<Mf6Neutron, NjoyError> {
     let tab2 = cur.read_tab2()?;
+    let lang = tab2.head.l1; // angular representation, shared by every row
     let lep = tab2.head.l2; // secondary-energy interpolation
     let ne = tab2.head.n2;
     let intt = if lep >= 2 { 2 } else { 1 };
     let e_in_interp = collapse_interp(&tab2.interp);
 
     let mut incident = Vec::with_capacity(ne as usize);
+    let mut angular = Vec::with_capacity(ne as usize);
     for _ in 0..ne {
         let list = cur.read_list()?;
         let e_in_ev = list.head.c2;
         let nd = list.head.l1.max(0) as usize; // number of discrete lines
-        let na = list.head.l2; // number of angular coefficients per E_out
+        let na = list.head.l2.max(0); // number of angular coefficients per E_out
         let nep = list.head.n2 as usize; // number of secondary-energy points
-                                          // Each row is [E'_out, f0, f1 … f_NA]; stride = NA + 2. Extract (E', f0).
+                                          // Each row is [E'_out, f0, f1 … f_NA]; stride = NA + 2. The energy law
+                                          // takes (E', f0); the `na` numbers after f0 are the angular half and
+                                          // are kept in `angular` rather than discarded (bead `op-og56`).
         let stride = (na + 2) as usize;
+        let na_usize = na as usize;
         let mut pairs: Vec<(f64, f64)> = Vec::with_capacity(nep);
+        let mut f0_raw: Vec<f64> = Vec::with_capacity(nep);
+        let mut coeffs: Vec<f64> = Vec::with_capacity(nep * na_usize);
         for r in 0..nep {
             let base = r * stride;
             let e_out = list.data[base];
             let f0 = list.data[base + 1];
             pairs.push((e_out, f0));
+            f0_raw.push(f0);
+            // `f₀` is retained unnormalised beside the coefficients: LANG=1's
+            // `f_l` are on `f₀`'s own scale, and `build_outgoing` renormalises
+            // the pdf it builds, so dividing by the stored pdf would be wrong.
+            coeffs.extend_from_slice(&list.data[base + 2..base + 2 + na_usize]);
         }
+        angular.push(Mf6AngularTable {
+            e_in_mev: e_in_ev / EMEV,
+            na: na as u32,
+            f0: f0_raw,
+            coeffs,
+        });
         incident.push(if nd == 0 {
             build_outgoing(e_in_ev, intt, &pairs)
         } else {
@@ -355,6 +545,8 @@ fn parse_law1_neutron_body(
             e_in_interp,
             incident,
         },
+        lang: Mf6AngularLaw::from_lang(lang),
+        angular,
     })
 }
 

@@ -344,6 +344,72 @@ impl Nuclide {
         self
     }
 
+    /// Return this nuclide with its **continuum** (MT=91) and **(n,2n)**
+    /// (MT=16) angular laws switched off, so continuum emission is isotropic in
+    /// the frame the evaluation names.
+    ///
+    /// The ablation control for bead `op-og56`: it restores exactly the
+    /// behaviour this crate had before the ENDF MF=6 LAW=1 `f₁ … f_NA`
+    /// coefficients were read, so the two arms of a paired-seed ensemble differ
+    /// in *only* that one physics choice.
+    ///
+    /// **Only the angle changes.** The outgoing-energy law `f₀(E→E')`, the
+    /// branch yields and every cross section are untouched, which is what makes
+    /// a measured `Δk` attributable. The ablated law reports itself as
+    /// [`ContinuumAngular::Ablated`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Ablated),
+    /// distinct from an evaluation that is genuinely isotropic — so an ablation
+    /// that silently failed to take effect is visible in the data and not only
+    /// in a suspiciously small `Δk`.
+    ///
+    /// # What this is expected to be worth, stated before measuring
+    ///
+    /// Small on a fission-spectrum system. U-238's MT=91 law is *exactly*
+    /// isotropic at threshold and only turns on above a few MeV — pdf-weighted
+    /// `⟨μ_cm⟩` is `0.000` below 1.2 MeV, `+0.073` at 8.5 MeV and `+0.272` at
+    /// 14 MeV (measured 2026-09-16; see
+    /// `tests/continuum_angular_ablation_control.rs`). A fission spectrum puts
+    /// only a percent or two of its flux up there, so unlike the discrete levels
+    /// of `op-tm9f` — anisotropic from ~1 MeV and worth −198 pcm on Godiva —
+    /// this should move `k` **down, by well under 50 pcm**. A much larger
+    /// measurement means the hypothesis is wrong and the wiring should be
+    /// suspected before the physics.
+    ///
+    /// A no-op on the LOW (`Core`) tier, which carries no MF=6 law at all, and
+    /// on any nuclide whose evaluation is already isotropic (F-19's MT=91).
+    ///
+    /// Independent of
+    /// [`with_isotropic_elastic_scattering`](Self::with_isotropic_elastic_scattering)
+    /// and
+    /// [`with_isotropic_inelastic_scattering`](Self::with_isotropic_inelastic_scattering);
+    /// the three ablate different channels and may be combined.
+    pub fn with_isotropic_continuum_scattering(mut self) -> Self {
+        if let Some(law) = self.continuum.mt91.take() {
+            self.continuum.mt91 = Some(law.with_isotropic_angle());
+        }
+        if let Some(law) = self.continuum.mt16.take() {
+            self.continuum.mt16 = Some(law.with_isotropic_angle());
+        }
+        self
+    }
+
+    /// Whether this nuclide carries a samplable **continuum** angular law on
+    /// MT=91 or MT=16.
+    ///
+    /// The assertion an ablation control needs on the unablated arm: a control
+    /// that switches off a law which was already flat reports "no difference"
+    /// and reads as "this physics does not matter".
+    pub fn has_continuum_anisotropy(&self) -> bool {
+        self.continuum
+            .mt91
+            .as_ref()
+            .is_some_and(|l| l.is_anisotropic())
+            || self
+                .continuum
+                .mt16
+                .as_ref()
+                .is_some_and(|l| l.is_anisotropic())
+    }
+
     /// **HIGH fidelity.** Build a nuclide from a raw ENDF tape downloaded from a
     /// pinned upstream, reconstructed and Doppler-broadened on device.
     ///
@@ -837,18 +903,37 @@ impl Nuclide {
     /// this single moment via the maximum-entropy exponential-μ law, exactly like
     /// [`sample_elastic_mu_cm`](Self::sample_elastic_mu_cm)'s LOW-tier arm).
     ///
-    /// Returns `0.0` (⇒ the caller treats elastic as isotropic-CM) whenever the
-    /// CPU sampler would be isotropic at `e`:
-    /// - **LOW (`Core`) below `e_max`** — the WMP resonance range, isotropic-CM;
-    /// - **HIGH (`Pointwise`)** — the CPU uses the full tabulated MF=4 distribution,
-    ///   which does not reduce to a single μ̄, so the GPU path falls back to
-    ///   isotropic-CM here (a documented GPU-only approximation; the trusted CPU
-    ///   backends keep the full distribution).
+    /// Per tier:
     ///
-    /// **LOW (`Core`) above `e_max`** returns the fast-group mean cosine
-    /// `fast.micro(e).mubar` — the same value [`sample_elastic_mu_cm`] feeds to
-    /// [`sample_exponential_mu`]. This is the forward-elastic lever that sets a bare
-    /// fast sphere's leakage, so the GPU path must reproduce it.
+    /// - **LOW (`Core`) below `e_max`** — the WMP resonance range is
+    ///   isotropic-CM, so this is `0.0`, which is the `⟨μ⟩` of a flat
+    ///   distribution and therefore the right answer rather than a fallback.
+    /// - **LOW (`Core`) above `e_max`** — the fast-group mean cosine
+    ///   `fast.micro(e).mubar`, the same value [`sample_elastic_mu_cm`] feeds to
+    ///   [`sample_exponential_mu`].
+    /// - **HIGH (`Pointwise`)** — the **evaluation's own** MF=4 mean cosine, by
+    ///   quadrature over the tabulated distribution (i.e. exactly
+    ///   [`elastic_mubar_cm`](Self::elastic_mubar_cm)).
+    ///
+    /// This is the forward-elastic lever that sets a bare fast sphere's leakage,
+    /// so the GPU path must reproduce it.
+    ///
+    /// # It used to return `0.0` on the HIGH tier, and that was GitHub #189
+    ///
+    /// The `Pointwise` arm returned a hard `0.0` at every energy, on **the tier
+    /// every V&V case in this workspace runs**, while `sample_elastic_mu_cm` read
+    /// the same nuclide's same MF=4 law and gave up to `+0.91` (U-238 at
+    /// 14 MeV). CPU transport was unaffected — it calls the sampler, not this —
+    /// but it meant **the GPU and CPU paths modelled different elastic physics**,
+    /// and the discrepancy was invisible from the API: `0.0` and `0.91` are the
+    /// same type, and the caveat lived in a comment on the match arm.
+    ///
+    /// The single-moment reduction the GPU kernel makes is still an
+    /// approximation — a maximum-entropy exponential-μ law cannot reproduce a
+    /// tabulated MF=4 distribution in full — but it now reproduces its **first
+    /// moment**, which is the moment `Σ_tr = Σ_t(1 − ⟨μ⟩)` and hence leakage
+    /// depends on. Feeding it zero instead did not approximate the distribution;
+    /// it discarded the term.
     pub fn elastic_mubar(&self, e: f64) -> f64 {
         match &self.xs {
             XsSource::Core { e_max, fast, .. } => {
@@ -857,7 +942,9 @@ impl Nuclide {
                 }
                 fast.as_ref().map(|mg| mg.micro(e).mubar).unwrap_or(0.0)
             }
-            XsSource::Pointwise { .. } => 0.0, // GPU path: isotropic-CM for pointwise elastic
+            XsSource::Pointwise {
+                elastic_angular, ..
+            } => elastic_angular.mean_cosine(e),
         }
     }
 
@@ -1350,17 +1437,51 @@ fn sample_watt_lf11(a: &Tab1, b: &Tab1, u: f64, e_in: f64, seed: &mut u64) -> f6
 ///
 /// 1. locate the incident-energy bin `i` and interpolation factor `r`;
 /// 2. statistically pick the lower/upper table `l` (`r > ξ ? i+1 : i`);
-/// 3. invert the chosen table's outgoing-energy CDF ([`sample_ct_table`]); then
+/// 3. invert the chosen table's outgoing-energy CDF ([`sample_ct_table_indexed`]); then
 /// 4. scale the sampled E' between the `i` and `i+1` tables' \[E₁, E_K\] envelopes so
 ///    the outgoing energy tracks the incident-energy interpolation.
 pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut u64) -> f64 {
+    sample_continuous_tabular_indexed(chi, e_in, seed).0
+}
+
+/// [`sample_continuous_tabular`], additionally reporting **which** tabulated
+/// distribution the draw came from: `(E', table index l, outgoing row k)`.
+///
+/// # Why the indices are part of the answer
+///
+/// ENDF MF=6 LAW=1 is a *correlated* energy-angle law — the emission cosine is
+/// conditional on the outgoing energy — so sampling `E'` is only half of a
+/// sample. `(l, k)` is exactly the key
+/// [`ContinuumAngular::row`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::row)
+/// is indexed by, and returning it from the same CDF search that produced `E'`
+/// is what guarantees the angle belongs to the energy actually drawn. Locating
+/// the row a second time from the sampled `E'` would disagree at a bin edge and
+/// would be wrong wherever the envelope scaling in step (4) has moved `E'` off
+/// table `l`'s own grid.
+///
+/// **`l` is the table whose CDF was inverted**, not the lower bracket `i`. Those
+/// differ whenever the statistical pick in step (2) chooses the upper table, and
+/// the angular law must follow the table that was actually sampled.
+///
+/// # RNG draws
+///
+/// Identical to [`sample_continuous_tabular`] — this consumes the same variates
+/// in the same order and returns the same `E'`. That matters for a paired
+/// ablation: switching the angular law off must not re-randomise the energy
+/// sampling, or the measured difference includes a change of random stream.
+pub(crate) fn sample_continuous_tabular_indexed(
+    chi: &ChiTabular,
+    e_in: f64,
+    seed: &mut u64,
+) -> (f64, usize, usize) {
     let energy = &chi.incident;
     let n = energy.len();
     if n == 0 {
-        return 0.0;
+        return (0.0, 0, 0);
     }
     if n == 1 {
-        return sample_ct_table(&chi.tables[0], prn(seed));
+        let (e_out, k) = sample_ct_table_indexed(&chi.tables[0], prn(seed));
+        return (e_out, 0, k);
     }
 
     // (1) incident-energy bin + interpolation factor (clamp outside the grid).
@@ -1381,7 +1502,7 @@ pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut 
     let l = if r > prn(seed) { i + 1 } else { i };
 
     // (3) invert table l's outgoing-energy CDF.
-    let e_out = sample_ct_table(&chi.tables[l], prn(seed));
+    let (e_out, k) = sample_ct_table_indexed(&chi.tables[l], prn(seed));
 
     // (4) interpolate the outgoing energy between the i and i+1 table envelopes.
     let ti = &chi.tables[i];
@@ -1390,7 +1511,7 @@ pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut 
     let (e_i1_1, e_i1_k) = (ti1.e_out[0], ti1.e_out[ti1.e_out.len() - 1]);
     let e_1 = e_i_1 + r * (e_i1_1 - e_i_1);
     let e_k = e_i_k + r * (e_i1_k - e_i_k);
-    if l == i {
+    let scaled = if l == i {
         if e_i_k > e_i_1 {
             e_1 + (e_out - e_i_1) * (e_k - e_1) / (e_i_k - e_i_1)
         } else {
@@ -1400,19 +1521,28 @@ pub(crate) fn sample_continuous_tabular(chi: &ChiTabular, e_in: f64, seed: &mut 
         e_1 + (e_out - e_i1_1) * (e_k - e_1) / (e_i1_k - e_i1_1)
     } else {
         e_out
-    }
+    };
+    (scaled, l, k)
 }
 
 /// Invert one outgoing-energy table's CDF at a uniform draw `r1 ∈ [0, 1)`,
-/// returning the sampled E' \[eV\]. The inner CDF search + interpolation of OpenMC
-/// `ContinuousTabular::sample`: walk the CDF to the bin `k` with `c[k] ≤ r1 <
-/// c[k+1]`, then invert the density over that bin — the quadratic lin-lin inverse
-/// `E' = E_k + (√(p_k² + 2 f (r1 − c_k)) − p_k)/f` (with `f` the density slope), or
-/// the linear histogram inverse `E' = E_k + (r1 − c_k)/p_k`.
-fn sample_ct_table(t: &ChiEout, r1: f64) -> f64 {
+/// returning the sampled `(E' \[eV\], row index k)`. The inner CDF search +
+/// interpolation of OpenMC `ContinuousTabular::sample`: walk the CDF to the bin
+/// `k` with `c[k] ≤ r1 < c[k+1]`, then invert the density over that bin — the
+/// quadratic lin-lin inverse
+/// `E' = E_k + (√(p_k² + 2 f (r1 − c_k)) − p_k)/f` (with `f` the density slope),
+/// or the linear histogram inverse `E' = E_k + (r1 − c_k)/p_k`.
+///
+/// **The row index is not a diagnostic** — it is the second half of the sample.
+/// An ENDF MF=6 LAW=1 law is *correlated*: the emission cosine is conditional on
+/// the outgoing energy, so a caller that wants the angle must know which row
+/// `E'` came from. Returning it from the same search that produced `E'` is what
+/// keeps the two consistent; locating the row again from the sampled energy
+/// would disagree at a bin edge.
+fn sample_ct_table_indexed(t: &ChiEout, r1: f64) -> (f64, usize) {
     let n = t.e_out.len();
     if n == 1 {
-        return t.e_out[0];
+        return (t.e_out[0], 0);
     }
     // Continuous-portion CDF search (n_discrete = 0), mirroring the C++ loop:
     // leaves k as the lower edge with c[k] ≤ r1 < c[k+1] (k clamped to n−2).
@@ -1431,11 +1561,11 @@ fn sample_ct_table(t: &ChiEout, r1: f64) -> f64 {
 
     let e_l_k = t.e_out[k];
     let p_l_k = t.pdf[k];
-    if t.linlin {
+    let e_out = if t.linlin {
         let e_l_k1 = t.e_out[k + 1];
         let p_l_k1 = t.pdf[k + 1];
         if e_l_k == e_l_k1 {
-            return e_l_k;
+            return (e_l_k, k);
         }
         let frac = (p_l_k1 - p_l_k) / (e_l_k1 - e_l_k);
         if frac == 0.0 {
@@ -1454,13 +1584,14 @@ fn sample_ct_table(t: &ChiEout, r1: f64) -> f64 {
         } else {
             e_l_k
         }
-    }
+    };
+    (e_out, k)
 }
 
 /// Sample an energy \[eV\] from a static (energy-independent) tabulated χ pdf by
 /// CDF inversion — the [`FissionSpectrum::Tabulated`] arm. Builds the lin-lin CDF
 /// on the fly (this variant carries no precomputed CDF) and inverts it with the
-/// same quadratic form as [`sample_ct_table`].
+/// same quadratic form as [`sample_ct_table_indexed`].
 fn sample_tabulated_energy(e_out: &[f64], pdf: &[f64], r1: f64) -> f64 {
     let n = e_out.len();
     if n == 0 {
@@ -1793,7 +1924,7 @@ mod tests {
         assert!(mean(0.0).abs() < 5.0e-3, "isotropic mean ≈ 0");
     }
 
-    /// The MF=5 outgoing-energy CDF inversion ([`sample_ct_table`]) reproduces the
+    /// The MF=5 outgoing-energy CDF inversion ([`sample_ct_table_indexed`]) reproduces the
     /// distribution it was built from. A uniform outgoing spectrum on [0, 2 MeV]
     /// (histogram pdf, CDF = [0, ½, 1]) must sample uniformly, so a deterministic
     /// low-discrepancy sweep of ξ recovers the analytic mean of 1 MeV and every
@@ -1810,7 +1941,7 @@ mod tests {
         let mut sum = 0.0;
         for i in 0..n {
             let r1 = (i as f64 + 0.5) / n as f64;
-            let e = sample_ct_table(&t, r1);
+            let e = sample_ct_table_indexed(&t, r1).0;
             assert!(
                 (0.0..=2.0e6).contains(&e),
                 "E' {e} outside tabulated support"

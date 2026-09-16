@@ -3,14 +3,21 @@
 //! C++ source: `src/physics_common.cpp`, `src/physics.cpp`.
 //!
 //! The channels differ in both their outgoing *energy* law and their angular law.
-//! **Elastic and the discrete inelastic levels both use the evaluation's
-//! anisotropic centre-of-mass distribution** (ENDF MF=4, sampled by the caller
-//! and passed as `mu_cm` to [`two_body_scatter_with_mu`]) — the dominant
-//! reactivity lever for a bare fast-metal sphere, where forward-peaked scatter
-//! off heavy nuclei sets the transport cross section and hence the leakage. Only
-//! the **continuum** channels are still isotropic in the frame their law names,
-//! because their angular correlation lives in MF=6 rather than MF=4 (see
-//! [`continuum_inelastic_scatter_evaluated`]). By outgoing-energy law:
+//! **Every channel now samples the evaluation's own angular distribution** where
+//! the evaluation carries one: elastic and the discrete inelastic levels from
+//! ENDF MF=4 (sampled by the caller and passed as `mu_cm` to
+//! [`two_body_scatter_with_mu`]), and the continuum channels from the `f₁ … f_NA`
+//! columns of MF=6 LAW=1 (bead `op-og56`, see
+//! [`continuum_inelastic_scatter_evaluated`]). Angle is the dominant reactivity
+//! lever for a bare fast-metal sphere, where forward-peaked scatter off heavy
+//! nuclei sets the transport cross section and hence the leakage.
+//!
+//! The one remaining angular gap is `LANG = 2` (Kalbach-Mann), used by
+//! ENDF/B-VIII.0's O-16 and Al-27 on MT=16/MT=91; those fall back to isotropic
+//! and say so through
+//! [`ContinuumAngular::Unported`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Unported)
+//! rather than being indistinguishable from an evaluation that is genuinely
+//! flat. By outgoing-energy law:
 //!
 //! - **Elastic** (MT=2) — [`elastic_scatter`]: two-body kinematics with `Q = 0`;
 //!   off a heavy actinide the neutron loses almost no energy per collision
@@ -34,22 +41,25 @@
 //!   1 MeV to +0.51 at 14 MeV) and sampling them isotropically suppressed leakage
 //!   on Godiva. A level the evaluation leaves isotropic (U-235's MT=51/52/54 are
 //!   genuinely so) falls back to [`two_body_scatter`].
-//! - **Continuum inelastic** (MT=91) — [`continuum_inelastic_scatter`]: the
-//!   outgoing energy is a distribution, not fixed by a single `Q`. RECONR does not
-//!   reconstruct the ENDF MF=5 continuum law, so this uses a **Weisskopf
-//!   evaporation** model with a nuclear temperature θ = √(E/a), level-density
-//!   parameter a ≈ A/11 MeV⁻¹ (actinide) — an approximation, documented as such.
+//! - **Continuum inelastic** (MT=91) and **(n,2n)** (MT=16) —
+//!   [`continuum_inelastic_scatter_evaluated`]: the outgoing energy is a
+//!   distribution, not fixed by a single `Q`, and the emission angle is
+//!   *correlated with it*. Both halves come from the evaluation's own ENDF MF=6
+//!   LAW=1 law. [`continuum_inelastic_scatter`] remains as the fallback for a
+//!   nuclide carrying no MF=6 section: a **Weisskopf evaporation** model with
+//!   nuclear temperature θ = √(E/a) and level-density parameter a ≈ A/11 MeV⁻¹
+//!   (actinide), isotropic in the CM — an approximation, documented as such, and
+//!   measurably too hard (U-238 at 2 MeV: `⟨E'/E⟩ = 0.2787` against the
+//!   evaluation's 0.2095).
 //!
-//! Both anisotropic paths use the full ENDF MF=4 tabulated cosine distribution
-//! (sampled in `material::nuclide`, ported from OpenMC), passed here as a CM
-//! cosine via [`two_body_scatter_with_mu`] — elastic from MT=2, each discrete
-//! level from its own MT. What remains future work is the **continuum** angular
-//! correlation carried in MF=6 (the `f₁…f_NA` Legendre terms for LANG=1, Kalbach
-//! `r`/`a` for LANG=2), tracked as bead `op-og56`; the continuum energy law
-//! itself *is* read.
+//! The MF=4 paths use the full tabulated cosine distribution (sampled in
+//! `material::nuclide`, ported from OpenMC), passed here as a CM cosine via
+//! [`two_body_scatter_with_mu`] — elastic from MT=2, each discrete level from its
+//! own MT. The MF=6 path linearises each row's Legendre coefficients once at load
+//! time and inverts the resulting cosine CDF per collision.
 
 use crate::geometry::position::Direction;
-use crate::material::nuclide::sample_continuous_tabular;
+use crate::material::nuclide::sample_continuous_tabular_indexed;
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use std::f64::consts::PI;
@@ -426,15 +436,40 @@ pub fn continuum_inelastic_scatter(
 ///    isotropic in the lab. Assuming one frame for both is wrong by the full
 ///    CM-motion term, which is why the flag is carried rather than inferred.
 ///
-/// # What it still approximates
+/// # The angular correlation
 ///
-/// The **angular correlation** in MF=6 (the `f₁…f_NA` Legendre terms for LANG=1,
-/// Kalbach `r`/`a` for LANG=2) is not used: emission is isotropic in the frame
-/// the evaluation names. That is the same reduction ACE Law 4 makes, and it is a
-/// smaller approximation than the energy *shape* this replaces — U-238's MT=91
-/// anisotropy is `f₁/f₀ ~ 1e-8` near threshold, though it grows with energy
-/// (`NA` runs 0 at threshold to 26 at 30 MeV). Correlated emission is the
-/// follow-up.
+/// MF=6 LAW=1 is a **correlated** energy-angle law: each `[E', f₀, f₁ … f_NA]`
+/// row carries an emission cosine distribution *conditional on that outgoing
+/// energy*. Those `f₁ … f_NA` are now read and sampled for `LANG = 1`
+/// (Legendre), which is what ENDF/B-VIII.0's U-234/U-235/U-238, F-19 and Si-28
+/// use — see [`ContinuumAngular`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular). Until bead `op-og56` they were discarded at
+/// parse time and every continuum neutron left isotropically; the evaluations
+/// say otherwise on essentially every row (U-238's MT=91: 8652 of 8654 rows
+/// anisotropic, `⟨μ⟩` reaching 0.56).
+///
+/// Three cases, and they are deliberately distinguishable rather than all
+/// arriving as "isotropic":
+///
+/// - [`ContinuumAngular::Legendre`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Legendre) — the row's tabulated cosine CDF is
+///   inverted. This is the evaluated law.
+/// - [`ContinuumAngular::EvaluatedIsotropic`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::EvaluatedIsotropic) — the evaluation declares
+///   `NA = 0` throughout (F-19's MT=91), so `μ = 2ξ − 1` is **correct**.
+/// - [`ContinuumAngular::Unported`] — `LANG = 2` (Kalbach-Mann), which
+///   ENDF/B-VIII.0's O-16 and Al-27 use on MT=16 and MT=91. Emission falls back
+///   to isotropic. **This is a known port gap**, not the evaluation's
+///   statement, and it needs the Kalbach systematics for the slope `a` (the
+///   evaluations store only `r`).
+///
+/// # Ablation
+///
+/// Setting `OUTRAM_MC_ISOTROPIC_CONTINUUM=1` forces the isotropic draw on every
+/// path, so the law's worth can be **priced** by running the same case twice
+/// rather than argued from the size of `⟨μ⟩`. It consumes the identical RNG
+/// variate either way — one draw, whether it indexes a CDF or is mapped
+/// linearly — so a paired run differs by the physics and not by a re-randomised
+/// stream. See `tests/continuum_angular_ablation_control.rs`, which asserts the
+/// switch actually changes the sampled cosines: a control that silently fails to
+/// ablate reports "no difference" and reads as "this physics does not matter".
 pub fn continuum_inelastic_scatter_evaluated(
     e: f64,
     u: Direction,
@@ -443,12 +478,70 @@ pub fn continuum_inelastic_scatter_evaluated(
     law: Option<&ContinuumEmission>,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    continuum_inelastic_scatter_evaluated_with(
+        e,
+        u,
+        awr,
+        q,
+        law,
+        continuum_angular_mode_from_env(),
+        seed,
+    )
+}
+
+/// Whether the evaluated continuum angular law is sampled, or ablated away.
+///
+/// The ablation arm of a paired worth measurement. Separating it from the
+/// environment lookup is deliberate: a test can drive both arms in one process
+/// with no global state and no ordering hazard, which a cached `static` flag
+/// cannot support.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContinuumAngularMode {
+    /// Sample the evaluation's correlated cosine law wherever it carries one.
+    /// The physical arm.
+    Evaluated,
+    /// Force isotropic emission in the law's own frame, whatever the evaluation
+    /// says. The ablation arm — this is how the law's reactivity worth gets
+    /// *priced* rather than argued from the size of `⟨μ⟩`.
+    IsotropicAblation,
+}
+
+/// [`continuum_inelastic_scatter_evaluated`] with the angular treatment chosen
+/// explicitly rather than read from the environment.
+///
+/// Both modes consume the **same RNG variates in the same order**, and the
+/// outgoing *energy* is identical between them — one draw is spent either
+/// inverting the row's cosine CDF or mapping linearly to `2ξ − 1`. A paired run
+/// therefore differs by the angular physics alone and not by a re-randomised
+/// stream, which is what makes the difference attributable. That property is
+/// asserted, not assumed: see
+/// `tests/continuum_angular_ablation_control.rs`.
+pub fn continuum_inelastic_scatter_evaluated_with(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    law: Option<&ContinuumEmission>,
+    mode: ContinuumAngularMode,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let Some(law) = law else {
         return continuum_inelastic_scatter(e, u, awr, q, seed);
     };
 
     let branch = law.branch_for(e, prn(seed));
-    let sampled = sample_continuous_tabular(&branch.spectrum, e, seed);
+    let (sampled, table, row) = sample_continuous_tabular_indexed(&branch.spectrum, e, seed);
+
+    // One variate, spent either on inverting the row's cosine CDF or on the flat
+    // map — so the ablation does not shift the RNG stream.
+    let xi = prn(seed);
+    let mu = match mode {
+        ContinuumAngularMode::IsotropicAblation => 2.0 * xi - 1.0,
+        ContinuumAngularMode::Evaluated => match branch.angular.row(table, row) {
+            Some(r) => r.sample_mu(xi),
+            None => 2.0 * xi - 1.0,
+        },
+    };
 
     if law.cm_frame {
         // The evaluation's grids already stop at the two-body bound, but the
@@ -458,14 +551,49 @@ pub fn continuum_inelastic_scatter_evaluated(
         let ap1 = awr + 1.0;
         let cap = (e * (awr / ap1).powi(2) + q * awr / ap1).max(0.0);
         let e_cm_out = sampled.min(cap);
-        let mu_cm = 2.0 * prn(seed) - 1.0;
-        let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, awr);
+        // `mu` is a CM cosine here (ENDF LCT=2), so it goes through the same
+        // frame transform as the energy.
+        let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu, awr);
         (e_out, rotate_direction(u, mu_lab, seed))
     } else {
-        // Laboratory-frame law: the sampled energy is the outgoing lab energy
-        // and the emission is isotropic in the lab.
-        let mu_lab = 2.0 * prn(seed) - 1.0;
-        (sampled, rotate_direction(u, mu_lab, seed))
+        // Laboratory-frame law (LCT=1): the sampled energy is already the
+        // outgoing lab energy and `mu` is already a lab cosine.
+        (sampled, rotate_direction(u, mu, seed))
+    }
+}
+
+/// The continuum angular mode for this process, from
+/// `OUTRAM_MC_ISOTROPIC_CONTINUUM`.
+///
+/// Set the variable to `1` (or anything other than `0`/empty) to run the
+/// ablation arm. It is read once and cached, so the inner transport loop pays an
+/// atomic load rather than an environment lookup per collision — which also
+/// means changing it mid-process has no effect. A test that needs both arms
+/// calls [`continuum_inelastic_scatter_evaluated_with`] directly instead of
+/// fighting this cache.
+///
+/// The switch exists so the law's reactivity worth is **measured**, not
+/// asserted — the standing lesson of GitHub #193, where pricing a mechanism by
+/// switching it off found in one run what days of accuracy comparisons had
+/// missed. The same shape as the `OUTRAM_RINGRPT_*` ablations.
+pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let on = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let on = match std::env::var("OUTRAM_MC_ISOTROPIC_CONTINUUM") {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if on {
+        ContinuumAngularMode::IsotropicAblation
+    } else {
+        ContinuumAngularMode::Evaluated
     }
 }
 

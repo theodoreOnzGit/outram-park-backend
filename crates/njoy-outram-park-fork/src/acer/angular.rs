@@ -215,6 +215,38 @@ pub fn parse_mf4_angular(section: &Section) -> Result<ElasticAngular, NjoyError>
     Ok(ElasticAngular { energies })
 }
 
+/// Linearise a normalised Legendre angular density into a samplable
+/// tabulated-cosine law, returning `(cosines, pdf, cdf)`.
+///
+/// `coeffs` are the normalised coefficients `a₁ … a_NL` with `a₀ ≡ 1`, so the
+/// density is `f(μ) = Σ_{l≥0} ((2l+1)/2)·a_l·P_l(μ)` over `μ ∈ [−1, 1]`. The
+/// grid is bisected adaptively until lin-lin interpolation reproduces `f`
+/// within [`ANGLE_TOL`], then clamped non-negative and renormalised to unit
+/// integral — a truncated Legendre series is not guaranteed non-negative, and
+/// a density that dips below zero cannot be sampled.
+///
+/// Returns `None` when every coefficient is zero, i.e. the law is isotropic and
+/// there is nothing to tabulate. The caller samples `μ = 2ξ − 1` in that case.
+///
+/// # Why this is public
+///
+/// ENDF stores an angular law as harmonics in two different places —
+/// MF=4 (elastic and the discrete inelastic levels) and the `f₁ … f_NA` columns
+/// of an MF=6 LAW=1 continuum row — and both need the same conversion to
+/// something a Monte Carlo code can invert. Exposing the one implementation
+/// keeps the continuum path from growing a second linearisation that drifts
+/// from this one.
+pub fn legendre_cosine_law(coeffs: &[f64]) -> Option<(Vec<f64>, Vec<f64>, Vec<f64>)> {
+    if coeffs.is_empty() || coeffs.iter().all(|&a| a == 0.0) {
+        return None;
+    }
+    let ea = from_legendre(0.0, coeffs);
+    if ea.cosines.is_empty() {
+        return None;
+    }
+    Some((ea.cosines, ea.pdf, ea.cdf))
+}
+
 /// Convert one Legendre incident-energy point to ACE tabulated-cosine form.
 ///
 /// `coeffs` are `a_1 … a_NL` (the `a_0 ≡ 1` term is implicit). All-zero

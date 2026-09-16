@@ -462,6 +462,181 @@ pub struct ContinuumBranch {
     pub spectrum: ChiTabular,
     /// This subsection's neutron multiplicity `y(E)` as `(E \[eV\], y)` pairs.
     pub yield_pairs: Vec<(f64, f64)>,
+    /// The **angular** half of the law, correlated with the outgoing energy.
+    ///
+    /// MF=6 LAW=1 is a correlated energy-angle law: the emission cosine depends
+    /// on which outgoing energy was drawn, so this is indexed by the same
+    /// `(incident table, outgoing row)` pair that `spectrum` was sampled at.
+    /// See [`ContinuumAngular`] for what each variant means — in particular, it
+    /// distinguishes "the evaluation says isotropic" from "this port cannot
+    /// sample this representation yet", which are the same number and very
+    /// different facts.
+    pub angular: ContinuumAngular,
+}
+
+/// The angular half of an MF=6 LAW=1 continuum emission law, in the form a
+/// Monte Carlo code samples.
+///
+/// # The distinction this type exists to make
+///
+/// Sampling a continuum neutron isotropically can be right or wrong, and the
+/// outgoing direction alone cannot tell you which. This enum records *why* a
+/// given law is isotropic, so a reader — and an ablation study — can tell a
+/// faithful reading of the evaluation from an unported representation. Until
+/// bead `op-og56` the coefficients were dropped at parse time and every
+/// continuum emission was [`EvaluatedIsotropic`](Self::EvaluatedIsotropic) by
+/// construction, with nothing in the data structures to say otherwise.
+#[derive(Debug, Clone)]
+pub enum ContinuumAngular {
+    /// The evaluation itself declares isotropic emission — ENDF `NA = 0` on
+    /// every outgoing-energy row of every incident energy. Sampling
+    /// `μ = 2ξ − 1` is then **correct**, not a fallback.
+    ///
+    /// ENDF/B-VIII.0's F-19 MT=91 is the reference example.
+    EvaluatedIsotropic,
+    /// `LANG = 1`: the evaluation's Legendre coefficients, linearised into a
+    /// per-row tabulated cosine CDF by
+    /// [`crate::acer::angular::legendre_cosine_law`].
+    ///
+    /// `tables[i]` corresponds to `spectrum.tables[i]`, and `tables[i].rows[k]`
+    /// to that table's outgoing-energy point `k`.
+    Legendre(Vec<ContinuumAngularTable>),
+    /// A representation this port retains but does not yet sample — currently
+    /// `LANG = 2` (Kalbach-Mann), which needs the Kalbach systematics for the
+    /// slope `a` when the evaluation stores only `r` (`NA = 1`), as
+    /// ENDF/B-VIII.0's O-16 and Al-27 do on both MT=16 and MT=91.
+    ///
+    /// Emission falls back to isotropic. **That fallback is a port gap, not the
+    /// evaluation's statement**, and this variant is what makes the difference
+    /// visible to a caller instead of leaving it in a source comment.
+    Unported(crate::acer::energy::Mf6AngularLaw),
+    /// The law was read and then **deliberately switched off**, by
+    /// [`ContinuumEmission::with_isotropic_angle`]. The ablation arm of a paired
+    /// worth measurement.
+    ///
+    /// A third distinct reason to emit isotropically, kept distinct on purpose:
+    /// an ablated nuclide is self-describing, so a run cannot quietly report an
+    /// ablation arm's number as the physical one, and an ablation that failed to
+    /// take effect is visible in the data rather than only in a `Δk` that came
+    /// back suspiciously small.
+    Ablated,
+}
+
+/// One incident energy's worth of correlated angular laws, one entry per
+/// outgoing-energy row of the matching [`ChiEout`].
+#[derive(Debug, Clone)]
+pub struct ContinuumAngularTable {
+    /// Per-outgoing-energy angular laws, aligned with `ChiEout::e_out`.
+    pub rows: Vec<ContinuumAngularRow>,
+}
+
+/// The emission cosine law conditional on one `(incident energy, outgoing
+/// energy)` pair, as a tabulated CDF ready to invert.
+///
+/// Cosines are in the frame the MF=6 section names (`LCT`), which is the centre
+/// of mass for every actinide MT=91 in ENDF/B-VIII.0 — the transport layer must
+/// transform to the laboratory frame along with the energy.
+#[derive(Debug, Clone)]
+pub struct ContinuumAngularRow {
+    /// Ascending cosine grid on `[−1, 1]`. Empty ⇒ this row is isotropic.
+    pub cosines: Vec<f64>,
+    /// Cumulative distribution on `cosines` (`cdf[0] = 0`, `cdf[last] = 1`).
+    pub cdf: Vec<f64>,
+    /// The row's mean cosine `⟨μ⟩`, equal to the normalised `a₁ = f₁/f₀`.
+    /// Retained because it is the single number a transport-corrected model
+    /// needs, and because it is what an ablation control asserts is non-zero.
+    pub mubar: f64,
+}
+
+impl ContinuumAngularRow {
+    /// An isotropic row — no tabulated data, `⟨μ⟩ = 0`.
+    pub fn isotropic() -> Self {
+        ContinuumAngularRow {
+            cosines: Vec::new(),
+            cdf: Vec::new(),
+            mubar: 0.0,
+        }
+    }
+
+    /// Whether this row carries no angular structure.
+    pub fn is_isotropic(&self) -> bool {
+        self.cosines.is_empty()
+    }
+
+    /// Invert this row's cosine CDF at a uniform variate `xi ∈ [0, 1)`.
+    ///
+    /// Returns `μ` in the law's own frame. An isotropic row gives the flat
+    /// inverse `2ξ − 1`, so a caller never needs to branch on
+    /// [`is_isotropic`](Self::is_isotropic) for correctness.
+    pub fn sample_mu(&self, xi: f64) -> f64 {
+        let xi = xi.clamp(0.0, 1.0);
+        let n = self.cosines.len();
+        if n < 2 {
+            return 2.0 * xi - 1.0;
+        }
+        // Locate the CDF bin, then interpolate linearly within it. The stored
+        // pdf is lin-lin, so a strictly correct inverse is the quadratic one;
+        // linear interpolation of the CDF is used instead because the grid is
+        // already bisected to ANGLE_TOL, which bounds the difference well below
+        // the tolerance the tabulation itself carries.
+        let mut k = 0usize;
+        while k + 2 < n && self.cdf[k + 1] <= xi {
+            k += 1;
+        }
+        let (c0, c1) = (self.cdf[k], self.cdf[k + 1]);
+        let (m0, m1) = (self.cosines[k], self.cosines[k + 1]);
+        if c1 > c0 {
+            (m0 + (xi - c0) / (c1 - c0) * (m1 - m0)).clamp(-1.0, 1.0)
+        } else {
+            m0
+        }
+    }
+}
+
+impl ContinuumAngular {
+    /// The angular law for outgoing-energy row `row` of incident table
+    /// `table`, or `None` when this representation is not sampled.
+    ///
+    /// `None` and an isotropic row are deliberately different returns: the
+    /// first means "no angular information is available here", the second means
+    /// "the evaluation says the emission is flat".
+    pub fn row(&self, table: usize, row: usize) -> Option<&ContinuumAngularRow> {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => None,
+            ContinuumAngular::Legendre(tables) => tables.get(table)?.rows.get(row),
+        }
+    }
+
+    /// Whether any row of this law carries angular structure.
+    ///
+    /// The assertion an ablation control needs: switching off a law that was
+    /// already flat produces no difference and reads as "this physics does not
+    /// matter".
+    pub fn is_anisotropic(&self) -> bool {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => false,
+            ContinuumAngular::Legendre(tables) => tables
+                .iter()
+                .any(|t| t.rows.iter().any(|r| !r.is_isotropic())),
+        }
+    }
+
+    /// The largest `|⟨μ⟩|` anywhere in this law; `0.0` when it carries none.
+    pub fn peak_mubar(&self) -> f64 {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => 0.0,
+            ContinuumAngular::Legendre(tables) => tables
+                .iter()
+                .flat_map(|t| t.rows.iter().map(|r| r.mubar.abs()))
+                .fold(0.0, f64::max),
+        }
+    }
 }
 
 impl ContinuumBranch {
@@ -600,9 +775,11 @@ impl ContinuumEmission {
             if incident.is_empty() {
                 continue;
             }
+            let angular = build_continuum_angular(&neutron);
             branches.push(ContinuumBranch {
                 spectrum: ChiTabular { incident, tables },
                 yield_pairs: neutron.yield_pairs,
+                angular,
             });
         }
         if branches.is_empty() {
@@ -623,6 +800,37 @@ impl ContinuumEmission {
     /// branches of yield 1).
     pub fn total_yield_at(&self, e_in: f64) -> f64 {
         self.branches.iter().map(|b| b.yield_at(e_in)).sum()
+    }
+
+    /// This emission with its angular law **switched off** — every branch's
+    /// [`ContinuumAngular`] replaced by [`ContinuumAngular::Ablated`], so
+    /// emission is isotropic in the frame the law names.
+    ///
+    /// The ablation arm of a paired worth measurement, and the counterpart of
+    /// `outram_mc_libs::material::nuclide::Nuclide::with_isotropic_inelastic_scattering`
+    /// one channel over. **The energy law is untouched** — only the angle
+    /// changes, which is what makes a measured `Δk` attributable to the angular
+    /// physics rather than to a second thing moving at the same time.
+    ///
+    /// Returning a new value rather than mutating in place is deliberate: both
+    /// arms of an ablation must be able to exist at once, in one process, over
+    /// the same seeds. An ablation driven by a global flag cannot do that, and
+    /// an ablation run in two processes re-randomises everything it did not mean
+    /// to change.
+    pub fn with_isotropic_angle(mut self) -> Self {
+        for b in &mut self.branches {
+            b.angular = ContinuumAngular::Ablated;
+        }
+        self
+    }
+
+    /// Whether any branch of this emission carries a samplable angular law.
+    ///
+    /// The assertion an ablation control needs on the *unablated* arm: switching
+    /// off a law that was already flat produces no difference and reads as "this
+    /// physics does not matter".
+    pub fn is_anisotropic(&self) -> bool {
+        self.branches.iter().any(|b| b.angular.is_anisotropic())
     }
 
     /// The branch an emitted neutron is drawn from, chosen in proportion to the
@@ -647,6 +855,71 @@ impl ContinuumEmission {
             }
         }
         &self.branches[self.branches.len() - 1]
+    }
+}
+
+/// Turn one MF=6 LAW=1 subsection's retained angular coefficients into the
+/// samplable [`ContinuumAngular`] form.
+///
+/// Legendre (`LANG = 1`) rows are linearised once, at load time, through
+/// [`crate::acer::angular::legendre_cosine_law`] — the same routine that
+/// converts MF=4, so the continuum and the discrete levels cannot drift apart
+/// in how a harmonic law becomes a samplable one. Rows the evaluation declares
+/// isotropic (`NA = 0`), and rows whose coefficients all vanish, are stored as
+/// [`ContinuumAngularRow::isotropic`] rather than as a degenerate table.
+///
+/// Anything that is not `LANG = 1` becomes [`ContinuumAngular::Unported`],
+/// carrying the law it actually was. That is deliberate: falling back to
+/// isotropic silently is what this whole change exists to stop.
+///
+/// # Cost
+///
+/// The linearisation is adaptive and runs once per anisotropic row. Measured on
+/// ENDF/B-VIII.0 (2026-09-16), U-238 carries 8652 anisotropic MT=91 rows and
+/// 2066 MT=16 rows, U-235 5294 and 2459 — so a Godiva-style three-actinide load
+/// linearises of order 20 000 rows. This is load-time work, not per-collision
+/// work; the sampling path is a CDF inversion.
+fn build_continuum_angular(neutron: &crate::acer::energy::Mf6Neutron) -> ContinuumAngular {
+    use crate::acer::energy::Mf6AngularLaw;
+
+    if neutron.lang != Mf6AngularLaw::Legendre {
+        return ContinuumAngular::Unported(neutron.lang);
+    }
+    if neutron.is_angular_isotropic() {
+        return ContinuumAngular::EvaluatedIsotropic;
+    }
+
+    let mut tables = Vec::with_capacity(neutron.angular.len());
+    let mut any = false;
+    for t in &neutron.angular {
+        let mut rows = Vec::with_capacity(t.len());
+        for r in 0..t.len() {
+            let coeffs = t.legendre_coefficients(r);
+            match crate::acer::angular::legendre_cosine_law(&coeffs) {
+                Some((cosines, _pdf, cdf)) => {
+                    any = true;
+                    rows.push(ContinuumAngularRow {
+                        cosines,
+                        cdf,
+                        // `a₁` straight from the tape, not re-integrated off the
+                        // linearised grid: it is exact, and comparing the two is
+                        // how a linearisation defect would show up.
+                        mubar: t.legendre_mubar(r),
+                    });
+                }
+                None => rows.push(ContinuumAngularRow::isotropic()),
+            }
+        }
+        tables.push(ContinuumAngularTable { rows });
+    }
+
+    if any {
+        ContinuumAngular::Legendre(tables)
+    } else {
+        // Every row's coefficients vanished, so the law is flat in fact even
+        // though `NA > 0` was declared. Reporting it as evaluated-isotropic is
+        // the honest reading and costs the sampler nothing.
+        ContinuumAngular::EvaluatedIsotropic
     }
 }
 
