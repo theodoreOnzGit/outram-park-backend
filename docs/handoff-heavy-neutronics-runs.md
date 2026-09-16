@@ -24,8 +24,9 @@ jobs 4-6 below.
 | 4 — free-gas target motion, in-process | no | **yes** |
 | 5 — the fission source (ν̄ and χ) | no | **yes** |
 | 6 — `op-os8x` per-MT collision tally | **yes, both sides** | **yes** |
+| 7 — (n,2n) yield multiplicity | no | **yes** |
 
-Jobs 4-6 need a driver because the hooks are new and no example calls them yet.
+Jobs 4-7 need a driver because the hooks are new and no example calls them yet.
 The pattern to copy is `examples/godiva_continuum_anisotropy_ablation.rs`,
 which is a paired-seed two-arm harness whose entire ablation is **one line**
 (`.map(Nuclide::with_isotropic_continuum_scattering)` at line 280). Swapping
@@ -35,6 +36,9 @@ pooling and the σ arithmetic — is already right and should not be re-derived.
 **Do not invent a different harness.** The statistics in that file were got
 wrong twice before they were got right (gh:#196), and the corrections are
 recorded in it.
+
+Five hooks, not four, as of commit `fc2c234` — the (n,2n) yield landed after
+the first revision and is job 7.
 
 ## Ground rules that are not negotiable
 
@@ -315,15 +319,51 @@ different fixes and the current evidence does not separate them.
 Full record and the provenance for both sides:
 `crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/README.md`.
 
+## Job 7 — price the (n,2n) yield multiplicity (NEW, needs a driver)
+
+**Status: the hook exists and is controlled at both data and kernel level; it
+has never been priced on a real case.**
+
+`Nuclide::with_unit_n2n_multiplicity` (landed `fc2c234`) cuts MT=16's yield from
+2 to 1. (n,2n) is a genuine **neutron multiplier** — one in, two out above
+threshold — so this removes a source rather than rearranging one.
+
+**This is the best-conditioned ablation in the set, and it is worth knowing
+why.** The secondary is drawn either way and only its *emission* is gated, so
+the two arms consume identical RNG streams and stay in exact lockstep history by
+history. The paired difference is therefore **deterministic on a shared seed**,
+and the variance across seeds is far lower than for two independent runs. You
+will resolve this to 3σ with **far fewer seeds than job 1 needed** — start at 32
+per arm and check whether σ is already small enough rather than assuming 400.
+
+**Prediction on record, made before any measurement:** down, and small — of order
+**tens of pcm**, because MT=16 opens near 5.3 MeV (U-235) / 6 MeV (U-238) and a
+fission spectrum puts roughly 1 % of its flux above that. The sign is not merely
+expected but forced: deleting a neutron source cannot raise `k`.
+
+**What has already been measured, and what it is not.** The kernel control gives
+`k` **0.973390 → 0.972432, −95.8 pcm** on a *bare U-235 sphere* at one seed,
+4000 × [20 inactive + 60 active]. That is a **harness check**, not a worth: one
+seed, one material, and not Godiva. Do not quote it as the answer — reproduce it
+on Godiva with an ensemble, and say whether the prediction held.
+
+**A caution that applies to this job specifically.** The kernel-level control
+here **failed on its first run** with the two arms bit-identical, because the
+hook had reached four of five emission sites and missed the one `run_keff`
+actually uses. If your Godiva ensemble comes back consistent with **exactly**
+zero — not small, but identical arms — suspect the wiring before the physics and
+say so. `cargo test --release -p outram-mc-libs --test ablation_hook_controls`
+is the check; it must stay at 10 passed.
+
 ## Environment notes
 
-- ENDF tapes: `reference-data/endf/`, 44 files. Jobs 1-5 need only these;
+- ENDF tapes: `reference-data/endf/`, 44 files. Jobs 1-5 and 7 need only these;
   job 6 additionally needs OpenMC and NJOY2016 built (see that job's V&V README
   for the exact commits and the deck).
   Override the directory with `OUTRAM_PARK_ENDF_DIR` if they live elsewhere.
 - The `endf-pebble-cases` feature is required for every job here.
 - `WORKERS` is hard-coded at 4 in every ablation example, including any you
-  copy for jobs 4-6. **Raise it to the machine's core count** — it is the only
+  copy for jobs 4-7. **Raise it to the machine's core count** — it is the only
   change those files need to scale.
 - Nuclear-data reconstruction (RECONR + BROADR on three actinides) costs
   ~145 s once per run, before any transport. That is not a hang.
@@ -334,12 +374,12 @@ Full record and the provenance for both sides:
 ## What to send back
 
 For each job: the printed output verbatim, the machine's core count and the
-wall-clock time, and — for **jobs 1, 2, 4 and 5**, every one of which carries a
-recorded prediction — **an explicit statement of whether that prediction held,
+wall-clock time, and — for **jobs 1, 2, 4, 5 and 7**, every one of which carries
+a recorded prediction — **an explicit statement of whether that prediction held,
 failed, or is still unresolved**. A failed prediction is a result, not a
 problem; this study's record is built on several of them, and two of the
 predictions in this very file have already failed once.
 
-If you wrote a driver for jobs 4-6, send the driver too, not just its output. A
+If you wrote a driver for jobs 4-7, send the driver too, not just its output. A
 number produced by a program nobody else has is not reproducible, and the point
 of these hooks is that the next person can re-run them.
