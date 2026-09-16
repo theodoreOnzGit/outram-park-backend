@@ -23,6 +23,11 @@ exclude = ["docs"]
 # outram-park-fork-liggghts`.
 default = ["long-tests"]
 long-tests = []
+# Contact-graph and message-passing-reach bridge to `raffles::gnn`
+# (src/gnn_bridge.rs). Off by default. Enabling it does NOT pull in `burn`:
+# the graph and the reach bound are plain combinatorics, and `raffles`'s own
+# `burn` feature stays off unless a caller asks for it.
+gnn = ["dep:raffles"]
 
 [dependencies]
 # Pure-Rust, Android-safe deps only (no BLAS / C). `uom` types the physical
@@ -31,6 +36,11 @@ long-tests = []
 # Phase II separation principle) — CFD-DEM coupling is a future explicit seam.
 uom.workspace = true
 thiserror.workspace = true
+# RAFFLES's graph-neural-network layer, for the `gnn` feature below. OPTIONAL
+# and off by default: a DEM user who is not building a surrogate should not
+# compile a tensor library. The dependency is one-way — `raffles` does not
+# depend on this crate, and must not, or the two become uncompilable.
+raffles = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true

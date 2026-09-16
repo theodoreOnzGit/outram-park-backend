@@ -23,8 +23,10 @@
 // `burn` has no heterogeneous sequential container and the workspace design
 // rules forbid the trait objects one would need to build it. The upstream's
 // `shared_mp` option (reuse one processor across all steps) is kept.
-// Training loops, dataset loading, rollout and plotting are NOT ported: they
-// are the experiment harness, not the model.
+// The training loop and the autoregressive rollout ARE ported, in
+// `super::training`. The PyTorch Lightning wrapper, the Weights & Biases
+// sweep, the `.pt` dataset loader and the plotting suite are NOT: those are
+// experiment harness rather than model behaviour.
 // ---------------------------------------------------------------------------
 
 //! The message-passing network itself, in `burn`.
@@ -57,11 +59,11 @@
 //!
 //! # Scope
 //!
-//! Inference and the forward pass, which is what a physics code wants from a
-//! trained surrogate. Training is `burn`'s own business (`burn::optim`,
-//! autodiff backend) and is not wrapped here; the upstream's training loop,
-//! dataset loader, rollout driver and plotting are experiment harness rather
-//! than model, and are not ported.
+//! The model: construction and the forward pass. **Training and rollout are in
+//! [`super::training`]**, which is where the upstream's training loop and
+//! rollout driver landed. What was deliberately left behind is the harness
+//! around them — the Lightning wrapper, the hyperparameter sweep, the `.pt`
+//! dataset loader and the plotting.
 
 
 
@@ -192,7 +194,7 @@ impl<B: Backend> Mlp<B> {
 /// One message-passing step: gather, sum, concatenate, transform, add.
 #[derive(Module, Debug)]
 pub struct Processor<B: Backend> {
-    mlp: Mlp<B>,
+    pub(crate) mlp: Mlp<B>,
 }
 
 impl<B: Backend> Processor<B> {
@@ -279,6 +281,35 @@ impl<B: Backend> MessagePassingNet<B> {
             // No layer norm on the decoder: the output is a physical quantity
             // and normalising it would destroy its scale.
             decoder: Mlp::new(hidden, hidden, output, layers, false, device),
+        }
+    }
+
+    /// Builds the network with weights from an explicit, caller-owned random
+    /// stream.
+    ///
+    /// Same arguments as [`new`](Self::new) plus the stream state. Use this
+    /// whenever a run has to be reproducible — see [`Mlp::new_seeded`] for why
+    /// `Backend::seed` is not sufficient on its own.
+    pub fn new_seeded(
+        input: usize,
+        output: usize,
+        hidden: usize,
+        message_passing_steps: usize,
+        layers: usize,
+        seed: &mut u64,
+        device: &B::Device,
+    ) -> Self {
+        let encoder = Mlp::new_seeded(input, hidden, hidden, layers, true, seed, device);
+        let processors = (0..message_passing_steps.max(1))
+            .map(|_| Processor {
+                mlp: Mlp::new_seeded(2 * hidden, hidden, hidden, layers, true, seed, device),
+            })
+            .collect();
+        let decoder = Mlp::new_seeded(hidden, hidden, output, layers, false, seed, device);
+        Self {
+            encoder,
+            processors,
+            decoder,
         }
     }
 

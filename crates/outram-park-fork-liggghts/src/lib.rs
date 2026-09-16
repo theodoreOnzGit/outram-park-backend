@@ -102,6 +102,8 @@ pub mod bonded;
 pub mod boundary;
 pub mod contact;
 pub mod coupling;
+#[cfg(feature = "gnn")]
+pub mod gnn_bridge;
 pub mod granular;
 pub mod granular_system;
 pub mod integrator;

@@ -287,6 +287,128 @@ impl Graph {
         self.eccentricity(furthest).unwrap_or(0)
     }
 
+    /// A **contact graph** over spheres: two spheres are connected when the gap
+    /// between their surfaces is at most `skin`.
+    ///
+    /// The difference from [`radius_graph`](Self::radius_graph) is that each
+    /// sphere carries its own radius, so the connection test is
+    /// `|x_i - x_j| <= r_i + r_j + skin` rather than a single global distance.
+    /// That is the right test for a polydisperse packing — a bed of 1 mm and
+    /// 3 mm pebbles has no single radius that is correct for both — and it is
+    /// the graph a granular DEM code's force network actually lives on.
+    ///
+    /// `skin` is the usual neighbour-list margin: zero connects only spheres
+    /// that are already touching or overlapping, and a positive value includes
+    /// pairs that are close enough to come into contact within the next few
+    /// steps. Passing zero to analyse a static packing is correct; passing zero
+    /// to build a graph that will be reused across timesteps is not.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::DimensionMismatch`] if `centres` and `radii` differ in
+    /// length or the centre rows are ragged.
+    /// [`RafflesError::InvalidParameter`] if there are no spheres, if a value
+    /// is not finite, if a radius is not strictly positive, or if `skin` is
+    /// negative.
+    pub fn contact_graph(centres: &[Vec<f64>], radii: &[f64], skin: f64) -> Result<Self> {
+        if centres.is_empty() {
+            return Err(RafflesError::InvalidParameter {
+                parameter: "centres".to_string(),
+                value: 0.0,
+                reason: "a contact graph needs at least one sphere".to_string(),
+            });
+        }
+        if centres.len() != radii.len() {
+            return Err(RafflesError::DimensionMismatch {
+                expected: centres.len(),
+                found: radii.len(),
+            });
+        }
+        if skin < 0.0 || !skin.is_finite() {
+            return Err(RafflesError::InvalidParameter {
+                parameter: "skin".to_string(),
+                value: skin,
+                reason: "the neighbour-list skin must be finite and non-negative".to_string(),
+            });
+        }
+        let d = centres[0].len();
+        for (row, radius) in centres.iter().zip(radii.iter()) {
+            if row.len() != d {
+                return Err(RafflesError::DimensionMismatch {
+                    expected: d,
+                    found: row.len(),
+                });
+            }
+            if !(*radius > 0.0) || !radius.is_finite() {
+                return Err(RafflesError::InvalidParameter {
+                    parameter: "radius".to_string(),
+                    value: *radius,
+                    reason: "a sphere radius must be finite and strictly positive".to_string(),
+                });
+            }
+            for value in row {
+                if !value.is_finite() {
+                    return Err(RafflesError::InvalidParameter {
+                        parameter: "centre coordinate".to_string(),
+                        value: *value,
+                        reason: "coordinates must be finite".to_string(),
+                    });
+                }
+            }
+        }
+
+        let mut edges = Vec::new();
+        for i in 0..centres.len() {
+            for j in (i + 1)..centres.len() {
+                let mut distance_squared = 0.0;
+                for k in 0..d {
+                    let delta = centres[i][k] - centres[j][k];
+                    distance_squared += delta * delta;
+                }
+                let reach = radii[i] + radii[j] + skin;
+                if distance_squared <= reach * reach {
+                    edges.push((i, j));
+                }
+            }
+        }
+        Self::from_undirected_edges(centres.len(), &edges)
+    }
+
+    /// `copies` disjoint copies of this graph, as one graph.
+    ///
+    /// The standard way to train a graph network on a batch of samples that
+    /// share a topology: the copies never exchange messages, because no edge
+    /// crosses between them, so one forward pass over the union is exactly
+    /// `copies` independent forward passes — and is far faster than running
+    /// them one at a time.
+    ///
+    /// Node `i` of copy `c` is node `c * node_count + i` in the result, which
+    /// is the layout [`crate::gnn::training`] relies on when it stacks sample
+    /// features.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if `copies` is zero.
+    pub fn repeat(&self, copies: usize) -> Result<Self> {
+        if copies == 0 {
+            return Err(RafflesError::InvalidParameter {
+                parameter: "copies".to_string(),
+                value: 0.0,
+                reason: "a batched graph needs at least one copy".to_string(),
+            });
+        }
+        let mut senders = Vec::with_capacity(self.senders.len() * copies);
+        let mut receivers = Vec::with_capacity(self.receivers.len() * copies);
+        for copy in 0..copies {
+            let offset = copy * self.node_count;
+            for (s, r) in self.senders.iter().zip(self.receivers.iter()) {
+                senders.push(s + offset);
+                receivers.push(r + offset);
+            }
+        }
+        Self::new(self.node_count * copies, senders, receivers)
+    }
+
     /// The **receptive field** of a node after `iterations` message-passing
     /// steps: the set of nodes whose information can have reached it.
     ///
