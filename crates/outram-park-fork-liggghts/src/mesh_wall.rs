@@ -319,7 +319,17 @@ pub struct MeshWall {
     /// The triangular facets `[m]`. Assumed consistently wound (outward normals
     /// point into the domain) and to form a sensible surface; see the module
     /// "Honest scope" for what is *not* checked.
+    ///
+    /// **If you mutate this directly**, the bounding-sphere cache below is
+    /// invalidated; [`MeshWall::particle_overlap`] detects the length mismatch
+    /// and falls back to the unaccelerated scan, so results stay correct but
+    /// slow. Rebuild with [`MeshWall::new`] to restore the acceleration.
     pub triangles: Vec<Triangle>,
+    /// Per-facet bounding sphere `(centroid, radius)` `[m]`, used only to prune
+    /// the nearest-facet search. Pure acceleration: the pruning bound is
+    /// conservative, so the facet selected is identical to the brute-force
+    /// scan's.
+    bounds: Vec<(Vec3, f64)>,
 }
 
 impl MeshWall {
@@ -337,7 +347,19 @@ impl MeshWall {
                 "mesh wall must contain at least one triangle".to_string(),
             ));
         }
-        Ok(Self { triangles })
+        let bounds = triangles
+            .iter()
+            .map(|t| {
+                let centroid = t.a.add(t.b).add(t.c).scale(1.0 / 3.0);
+                let radius = centroid
+                    .sub(t.a)
+                    .norm()
+                    .max(centroid.sub(t.b).norm())
+                    .max(centroid.sub(t.c).norm());
+                (centroid, radius)
+            })
+            .collect();
+        Ok(Self { triangles, bounds })
     }
 
     /// Parse an **ASCII STL** file body into a mesh wall.
@@ -429,8 +451,24 @@ impl MeshWall {
         let c = p.position;
         let r = p.radius;
 
+        // Bounding-sphere pruning. For a facet with bounding sphere
+        // (centroid, rad), no point of it is nearer than |c - centroid| - rad,
+        // so a facet whose lower bound already exceeds the best distance found
+        // cannot win and its closest-point test is skipped. The bound is
+        // conservative, so the winning facet is exactly the brute-force scan's
+        // -- this is speed only, never a different answer. Falls back to the
+        // unaccelerated scan if `triangles` was mutated behind the cache.
+        let use_bounds = self.bounds.len() == self.triangles.len();
         let mut best: Option<(f64, Vec3, Vec3)> = None; // (distance, closest point, normal)
-        for tri in &self.triangles {
+        for (index, tri) in self.triangles.iter().enumerate() {
+            if use_bounds {
+                if let Some((best_dist, _, _)) = best {
+                    let (centroid, rad) = self.bounds[index];
+                    if c.sub(centroid).norm() - rad >= best_dist {
+                        continue;
+                    }
+                }
+            }
             let q = tri.closest_point(c);
             let dist = c.sub(q).norm();
             let closer = match best {
@@ -691,6 +729,85 @@ mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
     use uom::si::f64::{Length, Mass, ThermodynamicTemperature};
+
+    /// V&V — **bounding-sphere pruning returns exactly the brute-force answer**.
+    ///
+    /// Methodology: the nearest-facet search skips facets whose bounding sphere
+    /// cannot beat the best distance so far. That bound is conservative, so the
+    /// result must be *identical* — not merely close — to an unpruned scan.
+    /// This drives the committed 1280-facet lift cylinder with 400 probe
+    /// particles on a lattice spanning the tube interior and its mouth, and
+    /// compares the accelerated [`MeshWall::particle_overlap`] against a
+    /// reference scan that tests every facet.
+    ///
+    /// Result (measured 2026-09-16): 400/400 probes agree exactly — same
+    /// `Some`/`None`, and where in contact, overlap, normal and contact point
+    /// bit-identical (`0.0` difference). Pruning is speed only.
+    #[test]
+    fn bounding_sphere_pruning_matches_brute_force_exactly() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../reference-data/liggghts/lift_cylinder.stl");
+        let Ok(text) = std::fs::read_to_string(path) else {
+            eprintln!("skipping: reference-data/liggghts/ not present");
+            return;
+        };
+        let mesh = MeshWall::from_ascii_stl(&text).expect("valid stl");
+
+        // Reference: unpruned nearest-facet scan.
+        let brute = |c: Vec3, r: f64| -> Option<(f64, Vec3, Vec3)> {
+            let mut best: Option<(f64, Vec3, Vec3)> = None;
+            for tri in &mesh.triangles {
+                let q = tri.closest_point(c);
+                let d = c.sub(q).norm();
+                if best.is_none_or(|(bd, _, _)| d < bd) {
+                    best = Some((d, q, tri.normal()));
+                }
+            }
+            let (d, q, n) = best?;
+            if r - d > 0.0 {
+                Some((r - d, n, q))
+            } else {
+                None
+            }
+        };
+
+        let mut probes = 0;
+        for i in 0..10 {
+            for j in 0..10 {
+                for k in 0..4 {
+                    let x = -0.055 + 0.011 * f64::from(i);
+                    let y = -0.055 + 0.011 * f64::from(j);
+                    let z = -0.005 + 0.045 * f64::from(k);
+                    let p = Particle::new(
+                        Vec3::new(x, y, z),
+                        Vec3::zero(),
+                        Vec3::zero(),
+                        Mass::new::<kilogram>(1.0e-3),
+                        Length::new::<meter>(0.005),
+                        ThermodynamicTemperature::new::<kelvin>(300.0),
+                    )
+                    .expect("valid probe");
+                    let got = mesh.particle_overlap(&p);
+                    let want = brute(p.position, p.radius);
+                    match (got, want) {
+                        (None, None) => {}
+                        (Some(g), Some((ov, n, q))) => {
+                            assert_abs_diff_eq!(g.overlap, ov, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.normal.x, n.x, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.normal.y, n.y, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.normal.z, n.z, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.point.x, q.x, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.point.y, q.y, epsilon = 0.0);
+                            assert_abs_diff_eq!(g.point.z, q.z, epsilon = 0.0);
+                        }
+                        (g, w) => panic!("pruning disagreed at ({x},{y},{z}): {g:?} vs {w:?}"),
+                    }
+                    probes += 1;
+                }
+            }
+        }
+        assert_eq!(probes, 400);
+    }
 
     /// V&V — **ASCII STL round-trip and winding**.
     ///

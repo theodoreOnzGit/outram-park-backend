@@ -76,6 +76,27 @@
 //! biases both the slip velocity and the spin-up torque. This module uses
 //! upstream's.
 //!
+//! ## Unit system: SI only, and why the port drops two conversion factors
+//!
+//! Upstream divides its stiffnesses by `force->nktv2p` and scales its force-to-
+//! velocity step by `force->ftm2v`:
+//!
+//! ```text
+//!   kn /= force->nktv2p;   kt /= force->nktv2p;      // normal models
+//!   dtf = 0.5 * dt * force->ftm2v;                   // fix_nve_sphere
+//! ```
+//!
+//! Both constants are **exactly `1.0` for `units si`** (`update.cpp`, the `si`
+//! branch), which is the unit system every case in this crate uses and the only
+//! one its `uom`-typed API admits. The port therefore omits both
+//! multiplications rather than carrying a factor that is identically one.
+//!
+//! This is a deliberate simplification, recorded here because it is the one
+//! place the translation is not literal: **it is exact for SI and wrong for any
+//! other LIGGGHTS unit style** (`lj`, `real`, `metal`, `cgs`, … have
+//! `nktv2p` = 1.0, 68568.415, 1.6021765e6, 2.94210108e13 respectively). If this
+//! crate ever grows a non-SI path, both factors must come back.
+//!
 //! ## Honest scope
 //!
 //! - **Implemented:** default surface model; Hertz and Hooke normal models;

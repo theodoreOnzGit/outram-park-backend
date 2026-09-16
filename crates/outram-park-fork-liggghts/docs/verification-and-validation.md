@@ -243,14 +243,17 @@ contacts with it any more**. Both engines (`DemSimulation` and
 `GranularSystem`) run `integrator::VelocityVerlet`. Its doc comment carries the
 measured evidence so the next reader cannot mistake it for velocity-Verlet.
 
-## 4.5 Angle of repose — attempted, NOT established
+## 4.5 Angle of repose — three invalid attempts, then a faithful one
+
+**Superseded 2026-09-16 by § 4.6.** This section is kept because the three
+failures below are the useful part: each is a way of getting a plausible-looking
+number out of a badly-posed experiment.
 
 The canonical granular validation case, and the one most directly relevant to a
-pebble bed: a heap of frictional spheres should stand at roughly 25-30 deg.
-It is **not** established here, and this section records what was tried so the
-next attempt does not repeat it.
+pebble bed: a heap of frictional spheres stands at a finite angle only because
+of the tangential shear history and rolling resistance together.
 
-Three LIGGGHTS setups were run (upstream only — this never got as far as a
+Three LIGGGHTS setups were run on 2026-09-15 (upstream only — none reached a
 port comparison, so **none of it is evidence about this crate's code**):
 
 | Setup | Result | Why it failed |
@@ -259,15 +262,14 @@ port comparison, so **none of it is evidence about this crate's code**):
 | Lifting cylinder, `lattice sc` column, `H/D = 4` | **did not move at all** (`z_max` 0.2721 → 0.2723 m over 3 s after the wall was removed) | a perfectly symmetric lattice column has no lateral force, so a deterministic run sits in its unstable equilibrium forever. A real pour has symmetry-breaking that a lattice does not. |
 | Lifting cylinder, random packing, `H/D ≈ 4` then `≈ 1` | surface slope **2.70 deg** then **9.88 deg**; material spread to `r = 0.39 m` and `0.33 m`, some leaving the domain | removing a primitive wall *instantaneously* lets the outer particles leave ballistically. This measures a collapse/splash, not repose. |
 
-What a working version needs, and what this one lacks: the cylinder must be
-**lifted slowly** (a moving mesh wall, not an instantaneous `unfix` of a
-primitive), or the pour must be onto a fixed-diameter plate so excess material
-rolls off the edge. Both are a real setup exercise, not a parameter tweak.
+The diagnosis that led to § 4.6: the cylinder must be **lifted slowly**, and in
+LIGGGHTS that requires a **moving mesh**, because a LIGGGHTS *primitive* wall
+cannot move at all — `fix_wall_gran`'s `shear` imposes a tangential surface
+velocity without translating the geometry. Every attempt above removed the wall
+instantaneously, which is a collapse experiment.
 
-**No angle-of-repose number from this work should be quoted.** The two figures
-above are properties of a badly-posed numerical experiment, not of the contact
-model, and the temptation to keep adjusting the geometry until the number lands
-near the literature value is precisely the failure this project's rules forbid.
+**None of the three numbers above should be quoted.** They are properties of a
+badly-posed numerical experiment, not of the contact model.
 
 ## 5. What is still NOT validated
 

@@ -78,6 +78,15 @@
 //! because it is still the right thing for a single constant-force kick; every
 //! *contact* integration should use [`VelocityVerlet`].
 //!
+//! ## Unit system: SI only
+//!
+//! Upstream forms its half-step as `dtf = 0.5 * dt * force->ftm2v`. `ftm2v` is
+//! **exactly `1.0` for `units si`** (`update.cpp`), which is the only unit
+//! system this crate's `uom`-typed API admits, so the factor is omitted rather
+//! than carried as an identity. Exact for SI; it would be wrong for LIGGGHTS'
+//! `lj`/`real`/`metal`/`cgs` styles. See the same note in
+//! [`crate::granular`].
+//!
 //! ## Honest scope
 //!
 //! Translation of the integrator only. Orientation (quaternions) is not
