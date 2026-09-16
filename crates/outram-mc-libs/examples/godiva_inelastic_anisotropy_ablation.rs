@@ -50,9 +50,47 @@
 //! An independent check comes free: `k_inf` has no leakage, so it should be
 //! **largely unchanged** by this. That is `examples/godiva_kinf_vs_openmc.rs`.
 //!
-//! # Results
+//! # Results (2026-09-15, 32 seeds per arm)
 //!
-//! Filled in from a real run — see the V&V README in
+//! | arm | n | mean vs ICSBEP | sd | sem |
+//! |---|---|---|---|---|
+//! | **ANISO** (evaluated MF=4) | 32 | **+45 pcm** | 182 | ±32 |
+//! | **ISO** (pre-`op-tm9f`) | 32 | **+269 pcm** | 172 | ±30 |
+//! | **difference** | | **−224 pcm** | | **±44 (5.1 sigma)** |
+//!
+//! Against the `−180 pcm` predicted on `op-tm9f` before this existed
+//! (`−168 / −181 / −219` three ways). The ISO arm's `+269 ± 30` also
+//! independently reproduces the `+214 ± 20` recorded before the fix, to
+//! 1.5 sigma — a check on the harness rather than a restatement of it.
+//!
+//! **The seeds do not pair**, and the run says so: paired `sd` 258 exceeds
+//! either arm's 182, because the two arms' RNG streams diverge at the first
+//! inelastic collision (the ablation changes how many draws a history
+//! consumes). So the **unpaired** figure is the one to quote, and pairing buys
+//! nothing here. That is measured, not assumed — hence both being printed.
+//!
+//! # The independent check: `k_inf` should NOT move
+//!
+//! `op-tm9f` specified it in advance: `k_inf` has no leakage, so if this really
+//! is a leakage effect it must be *largely unchanged*. Measured with
+//! `examples/godiva_kinf_vs_openmc.rs`, 8 seeds each side:
+//!
+//! | | `k_inf` | sd | sem |
+//! |---|---|---|---|
+//! | before | 2.26558 | 140 | ±49 |
+//! | after | 2.26587 | 148 | ±52 |
+//! | **change** | **+13 pcm** | | **±71 — 0.2 sigma** |
+//!
+//! `k_eff` moved `−198 pcm`; `k_inf` moved `+13 ± 71 pcm`, consistent with
+//! zero. **The fix went where the diagnosis said it would.** Had `k_inf` moved
+//! materially, the agreement on `k_eff` would be two errors cancelling rather
+//! than one error removed.
+//!
+//! The spectral residual against OpenMC is correspondingly untouched:
+//! `+82 ± 55 pcm` relative, against `+69 ± 23 pcm` measured before this change.
+//! That is bead `op-os8x`, and it stays open.
+//!
+//! Full write-up: the V&V README in
 //! `verification_and_validation/openmc_godiva_cross_code/`.
 //!
 //! ```text

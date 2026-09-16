@@ -156,6 +156,19 @@ maturity gate in that file for what this means and how the bar is revised.
   first time this case is also inside the ICSBEP ±100 pcm band**, which it had
   been outside of throughout its history.
 
+  **The diagnosis was checked, not only the answer.** Two confirmations, both
+  specified on `op-tm9f` before the work:
+
+  - **`k_inf` must not move.** It uses a reflective boundary, so it has no
+    leakage; a leakage fix has to leave it alone. Measured `2.26558 → 2.26587`,
+    i.e. **`+13 ± 71 pcm`, 0.2 sigma** — consistent with zero while `k_eff`
+    moved `−198 pcm`. Had `k_inf` moved materially, the `k_eff` agreement would
+    be two errors cancelling rather than one removed.
+  - **Direct ablation.** `examples/godiva_inelastic_anisotropy_ablation.rs`,
+    32 seeds per arm: ANISO `+45 ± 32`, ISO `+269 ± 30`, difference
+    **`−224 ± 44 pcm` (5.1 sigma)**. The ISO arm reproduces the old `+214 ± 20`
+    to 1.5 sigma, which checks the harness.
+
   **Four qualifications, none of which the number above should be read past.**
 
   1. **±11 pcm is our sampling uncertainty, not the comparison's.** ICSBEP
@@ -166,8 +179,11 @@ maturity gate in that file for what this means and how the bar is revised.
      found by the OpenMC cross-code study lives in `k_inf`, has no leakage
      component, and is untouched by this — our flux spectrum is still 0.45 %
      harder than OpenMC's in mean `E` (3.5 sigma), with 1.31 % less flux below
-     300 keV (5.2 sigma). Tracked as `op-os8x`. **Two offsetting errors land on
-     the right `k` too.**
+     300 keV (5.2 sigma), and `k_inf` against OpenMC is `+82 ± 55 pcm` after this
+     change against `+69 ± 23 pcm` before — the same number within statistics,
+     i.e. untouched. Tracked as `op-os8x`. **Two offsetting errors land on the
+     right `k` too**; what rules that out *here* is the `k_inf` check above, not
+     the size of the residual.
   3. **The continuum angular correlation is still dropped** (MF=6 LANG=1/2,
      `op-og56`), as is the `EnergyAngular` interpolation flag. This fixed the
      *discrete* levels only.

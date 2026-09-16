@@ -41,6 +41,12 @@ transport and OpenMC's. That is a real, localisable target of about 250 pcm.
 > that the predicted mechanism moved `k` by the predicted amount in the
 > predicted direction, not that the final number is small.
 >
+> **The diagnosis was checked, not just the answer.** `k_inf` has no leakage, so
+> a leakage fix must leave it alone — it moved `+13 ± 71 pcm` (0.2 sigma) while
+> `k_eff` moved `−198`. And a direct ablation prices the anisotropy at
+> `−224 ± 44 pcm` (5.1 sigma), with its control arm independently reproducing
+> the old `+214`.
+>
 > Details in *Discrete inelastic angular anisotropy* below.
 
 ## What "the same data" means here, and why it matters
@@ -477,6 +483,56 @@ diagnosis is wrong and should be revisited rather than tuned around.*
 −198 pcm against −168/−181/−219 predicted. The remaining offset is **+16 ± 11
 pcm**, 1.5 sem from the benchmark and well inside its own ±100 pcm band.
 
+#### The price, ablated directly
+
+`examples/godiva_inelastic_anisotropy_ablation.rs` runs the case twice against
+[`Nuclide::with_isotropic_inelastic_scattering`], which restores exactly the
+pre-`op-tm9f` behaviour. **The transport kernel is not modified**:
+`sample_inelastic_mu_cm` already returns `None` for a level with no data and
+every driver already falls back to isotropic-CM, so both arms run the production
+path and differ in one input.
+
+| arm | n | mean vs ICSBEP | sd | sem |
+|---|---|---|---|---|
+| **ANISO** (evaluated MF=4) | 32 | **+45 pcm** | 182 | ±32 |
+| **ISO** (pre-`op-tm9f`) | 32 | **+269 pcm** | 172 | ±30 |
+| **difference** | | **−224 pcm** | | **±44 (5.1 sigma)** |
+
+The ISO arm's `+269 ± 30` independently reproduces the `+214 ± 20` recorded
+before the fix, to 1.5 sigma — a check on the harness, not a restatement of it.
+
+**The seeds do not pair here, and the run says so rather than assuming either
+way.** Paired `sd` is 258 against either arm's 182, because the two arms' RNG
+streams diverge at the first inelastic collision — the ablation changes how many
+draws a history consumes. So the unpaired figure is the one quoted. (The same
+thing defeated pairing in the URR study; it is a property of ablating *physics*
+rather than of this particular ablation.)
+
+#### The independent check: `k_inf` must NOT move
+
+This was specified on `op-tm9f` in advance, and it is the part that separates
+"the fix is right" from "the fix happens to land on the right number".
+`k_inf` uses a reflective boundary, so it has **no leakage**. If the missing
+anisotropy really was a leakage error, `k_inf` must be largely unchanged by
+removing it.
+
+| | `k_inf` | sd | sem |
+|---|---|---|---|
+| before | 2.26558 | 140 | ±49 |
+| after | 2.26587 | 148 | ±52 |
+| **change** | **+13 pcm** | | **±71 — 0.2 sigma** |
+
+`k_eff` moved **−198 pcm**. `k_inf` moved **+13 ± 71 pcm**, consistent with
+zero. The effect is entirely in the leakage term, exactly as diagnosed.
+
+Had `k_inf` moved materially, the `k_eff` agreement would be two errors
+cancelling rather than one error removed — and the right response would have
+been to distrust the result, not to bank it.
+
+Correspondingly, the **spectral residual is untouched**: `k_inf` against OpenMC
+is now `+82 ± 55 pcm` relative, against `+69 ± 23 pcm` measured before this
+change — the same number within statistics. Bead `op-os8x` stays open.
+
 #### What this does and does not establish
 
 It is worth being precise here, because a number this close invites over-reading
@@ -541,7 +597,8 @@ with zero** — see the correction recorded above.
 | `tests/inelastic_anisotropy_ablation_control.rs` | ~285 s | that the **inelastic** MF=4 tables are read at all, are forward-peaked, that `⟨μ⟩` rises monotonically with energy, that the ablation ablates, and that the two ablations are independent |
 | `examples/godiva_keff_ensemble.rs` | ~80 min (256 seeds) | no regression from `RECORDED_PCM`, agreement with the benchmark, and that the seeds stayed independent |
 | `examples/godiva_anisotropy_ablation.rs` | ~35 min | the three elastic gates above |
-| `examples/godiva_inelastic_anisotropy_ablation.rs` | ~25 min | the inelastic price, paired by seed |
+| `examples/godiva_inelastic_anisotropy_ablation.rs` | ~40 min | the inelastic price (−224 ± 44 pcm, 32 seeds/arm) |
+| `examples/godiva_kinf_vs_openmc.rs` | ~20 min | that `k_inf` did NOT move (+13 ± 71 pcm), i.e. the fix is in the leakage term |
 | `examples/godiva_spectrum_vs_openmc.rs` + `compare_spectrum.py` | ~20 min | the spectral shape against OpenMC |
 | `godiva.py --ptables` | ~1 h | the URR arm, re-runnable |
 
@@ -559,7 +616,7 @@ does not matter".
 | elastic ⟨μ⟩ | ≤ 5.6e-4 absolute | cleared |
 | fission spectrum ⟨E_out⟩ | ≤ 0.018 % | cleared |
 | **inelastic angular** | **was not sampled at all; now read from MF=4/MT=51…90** | **convicted and FIXED: −198 pcm measured, −181 predicted** |
-| inelastic secondary energy | spectrum **+0.45 % harder** in mean `E` (3.5 sigma); −1.31 % of the flux below 300 keV (5.2 sigma) | **implicated: ~69 pcm spectral** — sign and location match, reaction not yet isolated |
+| inelastic secondary energy | spectrum **+0.45 % harder** in mean `E` (3.5 sigma); −1.31 % of the flux below 300 keV (5.2 sigma); `k_inf` vs OpenMC `+82 ± 55 pcm` after the angular fix, against `+69 ± 23` before | **still implicated and still open (`op-os8x`)** — unchanged by the angular fix, as expected |
 
 ## Scope, and what this is not
 
