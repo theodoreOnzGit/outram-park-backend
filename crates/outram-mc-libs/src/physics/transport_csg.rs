@@ -843,11 +843,17 @@ pub(crate) fn transport_history(
                     } else {
                         (e2, u2)
                     };
-                    stack.push(Site {
-                        r,
-                        u: sec_u2,
-                        e: sec_e2,
-                    });
+                    // The secondary is drawn above unconditionally and only its
+                    // EMISSION is gated, so the yield-2 ablation
+                    // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms'
+                    // RNG streams in exact lockstep.
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site {
+                            r,
+                            u: sec_u2,
+                            e: sec_e2,
+                        });
+                    }
                     e = e2;
                     u = u2;
                 } else {

@@ -1339,15 +1339,23 @@ fn collide_batched(
         } else {
             (e2, u2)
         };
-        (
-            0.0,
-            CollisionResult::ScatterWithSecondary {
-                e: e2,
-                u: u2,
-                sec_e: sec_e2,
-                sec_u: sec_u2,
-            },
-        )
+        // The secondary is drawn above unconditionally and only its EMISSION
+        // is gated, so the yield-2 ablation
+        // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms' RNG streams
+        // in exact lockstep.
+        if nuc.emits_n2n_secondary() {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondary {
+                    e: e2,
+                    u: u2,
+                    sec_e: sec_e2,
+                    sec_u: sec_u2,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
         // see the equivalent branch in [`transport_history`].
@@ -1505,12 +1513,17 @@ fn transport_history(
                 } else {
                     (e2, u2)
                 };
-                // yield − 1 = 1 secondary
-                stack.push(Site {
-                    r,
-                    u: sec_u2,
-                    e: sec_e2,
-                });
+                // yield − 1 = 1 secondary. The secondary is drawn above
+                // unconditionally and only its EMISSION is gated, so the
+                // yield-2 ablation (`Nuclide::with_unit_n2n_multiplicity`)
+                // leaves both arms' RNG streams in exact lockstep.
+                if nuc.emits_n2n_secondary() {
+                    stack.push(Site {
+                        r,
+                        u: sec_u2,
+                        e: sec_e2,
+                    });
+                }
                 e = e2;
                 u = u2;
             } else {
@@ -1674,11 +1687,17 @@ fn transport_history_tabulated(
                 } else {
                     (e2, u2)
                 };
-                stack.push(Site {
-                    r,
-                    u: sec_u2,
-                    e: sec_e2,
-                });
+                // The secondary is drawn above unconditionally and only its
+                // EMISSION is gated, so the yield-2 ablation
+                // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms'
+                // RNG streams in exact lockstep.
+                if nuc.emits_n2n_secondary() {
+                    stack.push(Site {
+                        r,
+                        u: sec_u2,
+                        e: sec_e2,
+                    });
+                }
                 e = e2;
                 u = u2;
             } else {

@@ -222,6 +222,11 @@ pub struct Nuclide {
     /// [`Nuclide::with_frozen_fission_spectrum`]. `None` (the default) is the
     /// physics.
     chi_frozen_at: Option<f64>,
+    /// **Ablation flag, not a model option.** When `true`, an (n,2n) collision
+    /// on this nuclide emits only the primary — the yield-2 multiplicity is
+    /// cut to 1 — see [`Nuclide::with_unit_n2n_multiplicity`]. `false` (the
+    /// default) is the physics.
+    n2n_yield_one: bool,
 }
 
 /// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
@@ -272,6 +277,7 @@ impl Nuclide {
             target_at_rest: false,
             nu_frozen_at: None,
             chi_frozen_at: None,
+            n2n_yield_one: false,
         })
     }
 
@@ -671,6 +677,74 @@ impl Nuclide {
         self.chi_frozen_at
     }
 
+    /// **Ablation control for V&V: cut the (n,2n) yield from 2 to 1**, so an
+    /// MT=16 collision emits only the primary neutron.
+    ///
+    /// Deliberately the **wrong physics**; a measurement tool, not a model
+    /// option.
+    ///
+    /// # What this prices, and why it needed its own hook
+    ///
+    /// (n,2n) is a **neutron multiplier**: above its threshold one neutron in
+    /// gives two out, which on a fast system is a genuine reactivity source
+    /// rather than a rearrangement. Until 2026-09-16 it could be ablated only
+    /// lumped together with the discrete levels and the continuum, via
+    /// [`without_inelastic`](Self::without_inelastic) — so its own worth could
+    /// not be separated from theirs.
+    ///
+    /// Note what was *already* covered and what was not. The MT=16 **emission
+    /// law** has two hooks
+    /// ([`without_evaluated_continuum`](Self::without_evaluated_continuum) for
+    /// its energy, [`with_isotropic_continuum_scattering`](Self::with_isotropic_continuum_scattering)
+    /// for its angle); the **yield of 2** had none. This is that gap.
+    ///
+    /// # What changes, and what does not
+    ///
+    /// Only whether the second neutron is *emitted*. The MT=16 cross section is
+    /// untouched, so the collision rate is identical; the primary still
+    /// down-scatters through the same law; and the second neutron **is still
+    /// drawn** — it is drawn and then discarded.
+    ///
+    /// **Drawing and discarding is deliberate, and it is what makes this hook
+    /// better-conditioned than the free-gas one.** Skipping the draw would save
+    /// a few variates and desynchronise the two arms' RNG streams at the first
+    /// (n,2n) collision. Drawing it keeps them in **exact lockstep history by
+    /// history**, so a paired-seed `Δk` is attributable per history rather than
+    /// only over an ensemble — the same property
+    /// [`with_isotropic_elastic_scattering`](Self::with_isotropic_elastic_scattering)
+    /// has, and for the same reason.
+    ///
+    /// # What it is expected to be worth, stated before measuring
+    ///
+    /// **Down, and small on a fission-spectrum system — of order tens of pcm on
+    /// Godiva.** (n,2n) is a threshold reaction: U-238's MT=16 opens near
+    /// 6 MeV and U-235's near 5.3 MeV, and a fission spectrum puts only a
+    /// percent or so of its flux above that. Removing a neutron source can only
+    /// lower `k`, so a *positive* reading, or one of `op-tm9f` size (≈200 pcm),
+    /// means the wiring should be suspected before the physics.
+    ///
+    /// A no-op on the LOW (`Core`) tier, which lumps (n,2n) into the group
+    /// total and never reports an `n2n` channel to branch on.
+    ///
+    /// Independent of every other hook here and may be combined with them.
+    pub fn with_unit_n2n_multiplicity(mut self) -> Self {
+        self.n2n_yield_one = true;
+        self
+    }
+
+    /// Whether an (n,2n) collision on this nuclide emits its second neutron —
+    /// `true` for the evaluated yield of 2, `false` when
+    /// [`with_unit_n2n_multiplicity`](Self::with_unit_n2n_multiplicity) has
+    /// ablated it.
+    ///
+    /// Every transport driver consults this at the point of *emission*, after
+    /// the secondary has already been sampled, so the two arms consume
+    /// identical RNG streams. A driver that instead skipped the draw would be
+    /// measuring the desynchronisation as well as the physics.
+    pub fn emits_n2n_secondary(&self) -> bool {
+        !self.n2n_yield_one
+    }
+
     /// **HIGH fidelity.** Build a nuclide from a raw ENDF tape downloaded from a
     /// pinned upstream, reconstructed and Doppler-broadened on device.
     ///
@@ -883,6 +957,7 @@ impl Nuclide {
             target_at_rest: false,
             nu_frozen_at: None,
             chi_frozen_at: None,
+            n2n_yield_one: false,
         })
     }
 

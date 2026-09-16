@@ -15,6 +15,15 @@
 //! reaching the sampler at all — a whole scattering law absent, and the symptom
 //! was two numbers agreeing.
 //!
+//! **And this file has now caught the same thing live.** On its first run
+//! `the_n2n_multiplicity_hook_reaches_the_transport_kernel` failed with the two
+//! arms bit-identical: the `(n,2n)` yield hook had been wired into four of the
+//! **five** emission sites, and the one missed was in `physics::keff`'s
+//! `transport_history` — the path `run_keff` actually takes. A data-level
+//! control alone would have passed, and the hook would have shipped reporting
+//! that `(n,2n)` multiplicity is worth nothing. That is the whole argument for
+//! testing the *kernel* and not only the flag.
+//!
 //! So each hook needs three assertions, and the first is the one usually
 //! skipped:
 //!
@@ -48,6 +57,12 @@
 //!   process-wide environment variable in one example. Worth **−2242 pcm** on
 //!   the FHR pebble, the positive control that says that pricing table's
 //!   instrument can register a large effect.
+//! - **[`Nuclide::with_unit_n2n_multiplicity`]** — the `(n,2n)` **yield of 2**,
+//!   a genuine neutron multiplier. Its *emission law* already had two hooks
+//!   (`without_evaluated_continuum` for the energy,
+//!   `with_isotropic_continuum_scattering` for the angle); the yield had none,
+//!   and was ablatable only lumped in with everything else via
+//!   `without_inelastic`.
 //! - **[`Nuclide::with_frozen_nubar`]** and
 //!   **[`Nuclide::with_frozen_fission_spectrum`]** — the two factors of the
 //!   fission source, `ν̄ × χ`. Both were verified against the tape and against
@@ -77,6 +92,12 @@
 //!   `2.64574` at 2 MeV, a rise of `0.21589`. Frozen at thermal it reads
 //!   `2.42985` at every energy and `nu_fission` at 2 MeV falls
 //!   `3.40904 -> 3.13086 b`, **−8.16 %**, with cross sections bit-identical.
+//! - **`with_unit_n2n_multiplicity`** — U-238 `σ_n2n = 1.45833 b` at 12 MeV
+//!   and exactly 0 below threshold at 2 MeV; emission flag `true -> false`;
+//!   cross sections (σ_n2n included) bit-identical and the MT=16 energy law
+//!   intact. **At the kernel:** a bare U-235 sphere on one shared seed,
+//!   4000 × [20 inactive + 60 active], gives `k` **0.973390 -> 0.972432**,
+//!   **−95.8 pcm**.
 //! - **`with_frozen_fission_spectrum`** (U-235) — LF=1 on **22 incident rows**,
 //!   1.000e-5 … 3.000e7 eV. Integrating the tape's own pdfs: mean birth energy
 //!   `1.99980e6` eV at 1e-5, `2.01746e6` eV at 14 MeV (**+0.883 %**),
@@ -907,4 +928,200 @@ fn the_fission_source_hooks_do_not_interfere() {
     assert!(with_scatter.is_target_at_rest());
 
     println!("the nu-bar and chi hooks compose with each other and with the scattering hooks");
+}
+
+// ───────────────────────── (n,2n) yield multiplicity ─────────────────────────
+//
+// Gap 6 of `docs/neutronics-physics-coverage.md`, closed 2026-09-16. The MT=16
+// *emission law* already had two hooks — `without_evaluated_continuum` for its
+// energy and `with_isotropic_continuum_scattering` for its angle. The **yield
+// of 2** had none: it was ablatable only lumped in with the discrete levels and
+// the continuum via `without_inelastic`, so its own worth could not be
+// separated from theirs.
+
+/// Above U-238's MT=16 threshold (~6 MeV) and U-235's (~5.3 MeV), so the (n,2n)
+/// channel is genuinely open. `PROBE_EV = 2 MeV` is **below** both and would
+/// make every assertion here vacuous — the reason this constant exists.
+const N2N_PROBE_EV: f64 = 1.2e7;
+
+/// `with_unit_n2n_multiplicity` cuts the (n,2n) yield from 2 to 1, cuts only
+/// that, and had a second neutron to cut.
+///
+/// Data-level half of the control; the kernel-level half is the paired-run test
+/// below, which is the one that would have caught `op-50vu`.
+#[test]
+fn the_n2n_multiplicity_hook_ablates_exactly_the_second_neutron() {
+    let Some(evaluated) = u238() else { return };
+
+    // 1: there was something to remove. The channel must actually be open at
+    // the probe, and shut below its threshold -- both, because a hook on a
+    // channel that never fires prices nothing, and a "cross section" that is
+    // non-zero everywhere would mean the threshold is not being applied.
+    let open = evaluated.xs_at_energy(N2N_PROBE_EV, TEMP_K).n2n;
+    let shut = evaluated.xs_at_energy(PROBE_EV, TEMP_K).n2n;
+    assert!(
+        open > 0.0,
+        "U-238 has no (n,2n) cross section at {N2N_PROBE_EV:.1e} eV (got {open}), so the yield-2 \
+         branch is never reached and this ablation prices nothing."
+    );
+    assert_eq!(
+        shut, 0.0,
+        "U-238 reports an (n,2n) cross section {shut} b at {PROBE_EV:.1e} eV, below the ~6 MeV \
+         threshold. Either MT=16's threshold is not applied or the probe energies are wrong."
+    );
+    assert!(
+        evaluated.emits_n2n_secondary(),
+        "an unablated nuclide reports that it does not emit the (n,2n) secondary"
+    );
+
+    let ablated = evaluated.clone().with_unit_n2n_multiplicity();
+
+    // 2: it is gone.
+    assert!(
+        !ablated.emits_n2n_secondary(),
+        "with_unit_n2n_multiplicity left the yield-2 emission in place"
+    );
+
+    // 3: nothing else moved -- and the (n,2n) CROSS SECTION in particular must
+    // survive. This hook changes the yield, not the rate: if sigma_n2n moved,
+    // a measured Delta-k would be mixing a rate change into a yield change.
+    assert_cross_sections_unchanged(&evaluated, &ablated, "with_unit_n2n_multiplicity");
+    assert_eq!(
+        evaluated.xs_at_energy(N2N_PROBE_EV, TEMP_K).n2n.to_bits(),
+        ablated.xs_at_energy(N2N_PROBE_EV, TEMP_K).n2n.to_bits(),
+        "with_unit_n2n_multiplicity changed the (n,2n) cross section; it must change the yield \
+         only, so the collision rate is identical across the two arms"
+    );
+
+    // 4: the MT=16 emission law is untouched. The yield and the law are
+    // separate mechanisms with separate hooks, and a study may want to price
+    // them independently.
+    assert_eq!(
+        evaluated.continuum_law(16).is_some(),
+        ablated.continuum_law(16).is_some(),
+        "the yield ablation took the MT=16 emission law with it; `without_evaluated_continuum` \
+         is the hook for the law"
+    );
+
+    println!(
+        "with_unit_n2n_multiplicity: U-238 sigma_n2n {open:.5} b at {N2N_PROBE_EV:.1e} eV and \
+         0 below threshold at {PROBE_EV:.1e} eV; emission flag true -> false; cross sections \
+         (sigma_n2n included) bit-identical and the MT=16 energy law intact"
+    );
+}
+
+/// **The kernel honours the yield ablation, and honours it without
+/// desynchronising the RNG.** A paired k-eigenvalue run on a bare U-235 sphere,
+/// same seed both arms.
+///
+/// # Why this test exists and the data-level one is not enough
+///
+/// The hook is a flag on `Nuclide`; the thing it has to change lives in four
+/// separate collision kernels (`physics::keff` twice, `physics::transport_csg`,
+/// `pebble_beds::keff_delta`). A flag that flips while no kernel reads it
+/// reports "no difference", which reads as "(n,2n) multiplicity does not
+/// matter". That is exactly bead `op-50vu` — free-gas and bound-thermal
+/// eigenvalues came out bit-identical because the S(α,β) wiring never reached
+/// the sampler, and the symptom was two numbers agreeing.
+///
+/// # Why a single paired run is legitimate here, when it is not for free-gas
+///
+/// The secondary is **drawn unconditionally and only its emission is gated**,
+/// so the two arms consume identical RNG streams. The difference between them
+/// is therefore *deterministic* — the same seed gives the same two numbers
+/// every time — rather than a sample from a distribution. That is what lets one
+/// paired run at a fixed seed serve as a regression assertion.
+/// [`Nuclide::with_target_at_rest`] cannot do this: its ablated arm skips a
+/// target-velocity draw, so its arms diverge and it needs an ensemble.
+///
+/// **This is a harness check, not physics V&V.** It asserts the switch reaches
+/// the kernel and moves `k` the only direction it physically can. What (n,2n)
+/// multiplicity is *worth* is a paired-seed ensemble measurement on a real
+/// case, and is job 5's neighbour in `docs/handoff-heavy-neutronics-runs.md`.
+#[test]
+fn the_n2n_multiplicity_hook_reaches_the_transport_kernel() {
+    use outram_mc_libs::material::material::{Material, NuclideComponent};
+    use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
+
+    let Some(path) = reference_file_or_skip(
+        "endf",
+        "n-092_U_235-ENDF8.0.endf",
+        "U-235 evaluation ((n,2n) multiplicity kernel control)",
+    ) else {
+        return;
+    };
+    let evaluated = Nuclide::from_endf_file(&path, "U235", TEMP_K, 1.0e-3).expect("U-235");
+    assert!(
+        evaluated.xs_at_energy(N2N_PROBE_EV, TEMP_K).n2n > 0.0,
+        "U-235 has no (n,2n) channel at {N2N_PROBE_EV:.1e} eV; this test would be vacuous."
+    );
+
+    // A bare U-235 metal sphere at roughly Godiva's dimensions. It does not
+    // need to be a benchmark -- it needs a fission spectrum with enough flux
+    // above the ~5.3 MeV (n,2n) threshold for the channel to fire.
+    let sphere = |nuclides: Vec<Nuclide>, seed: u64| {
+        let material = Material {
+            id: 1,
+            name: "bare U-235".into(),
+            temperature: TEMP_K,
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.4994e-2,
+            }],
+        };
+        let settings = KeffSettings {
+            n_particles: 4000,
+            n_inactive: 20,
+            n_active: 60,
+            temperature_k: TEMP_K,
+            seed,
+            ..KeffSettings::default()
+        };
+        run_keff(8.7407, &material, &nuclides, &settings).k_mean
+    };
+
+    const SEED: u64 = 20_260_916;
+    let k_yield2 = sphere(vec![evaluated.clone()], SEED);
+    let k_yield1 = sphere(vec![evaluated.clone().with_unit_n2n_multiplicity()], SEED);
+    let delta_pcm = (k_yield1 - k_yield2) * 1.0e5;
+
+    // 1: the kernel noticed. If these are equal, no kernel is reading the flag.
+    assert_ne!(
+        k_yield2.to_bits(),
+        k_yield1.to_bits(),
+        "the two arms gave bit-identical k ({k_yield2}). Either no collision kernel consults \
+         `Nuclide::emits_n2n_secondary`, or no (n,2n) collision occurred in {} histories. \
+         Both make every (n,2n) measurement through this hook meaningless -- this is the \
+         op-50vu failure mode.",
+        4000 * 80
+    );
+
+    // 2: it moved the only direction it physically can. (n,2n) is a neutron
+    // MULTIPLIER; deleting the extra neutron removes a source and can only
+    // lower k. A positive delta means the gate is inverted somewhere.
+    assert!(
+        delta_pcm < 0.0,
+        "cutting the (n,2n) yield from 2 to 1 RAISED k by {delta_pcm:+.1} pcm \
+         ({k_yield2:.6} -> {k_yield1:.6}). Removing a neutron source cannot raise the \
+         eigenvalue; the emission gate is inverted at one or more of the four kernel sites."
+    );
+
+    // 3: the magnitude is physically plausible. (n,2n) is a threshold reaction
+    // with a small cross section and a fission spectrum puts ~1 % of its flux
+    // above it, so this is a small effect. A huge one means the gate is
+    // catching something other than the (n,2n) secondary.
+    assert!(
+        delta_pcm > -3000.0,
+        "cutting the (n,2n) yield moved k by {delta_pcm:+.1} pcm, far more than a threshold \
+         reaction carrying ~1 % of the flux can be worth. The emission gate is probably \
+         suppressing more than the (n,2n) secondary."
+    );
+
+    println!(
+        "with_unit_n2n_multiplicity reaches the kernel: bare U-235 sphere, seed {SEED}, \
+         4000 x [20 inactive + 60 active] -- k {k_yield2:.6} (yield 2) -> {k_yield1:.6} \
+         (yield 1), {delta_pcm:+.1} pcm. Deterministic on a shared seed because the secondary \
+         is drawn either way and only its emission is gated. Harness check, not a worth \
+         measurement."
+    );
 }

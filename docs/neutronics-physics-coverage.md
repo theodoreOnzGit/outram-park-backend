@@ -38,7 +38,7 @@ marked `env` and count as a gap, not as coverage.
 | **Continuum inelastic energy** (MF=6 LAW=1 `f₀`) | ✅ | NJOY/ENDF tape; `⟨E'/E⟩` | ✅ `without_evaluated_continuum` | ✅ ×1 |
 | **Continuum inelastic angular** (MF=6 `LANG=1`) | ✅ | tape's own `a₁` (2.2e-4) | ✅ `with_isotropic_continuum_scattering` | ✅ (closed 2026-09-16) |
 | **Continuum inelastic angular** (MF=6 `LANG=2` Kalbach) | ✅ | closed form `r·(coth a − 1/a)` | ✅ (same hook) | ✅ (same) |
-| (n,2n) MT=16 multiplicity | ✅ | ENDF yield, per-subsection sum | ⚠️ via `without_inelastic` (lumped) | ❌ none — see gap 6 |
+| (n,2n) MT=16 multiplicity | ✅ | ENDF yield, per-subsection sum | ✅ `with_unit_n2n_multiplicity` (closed 2026-09-16) | ✅ ×2 (incl. a **kernel-level** one) |
 | ν̄(E) energy dependence | ✅ | MF=1/452 tape | ✅ `with_frozen_nubar` (closed 2026-09-16) | ✅ ×2 |
 | χ(E→E') fission spectrum (MF=5) | ✅ | MF=5 tape; `⟨E_out⟩` vs OpenMC (0.018 %); **sampler vs the tape's own row means, ≤1 %** | ✅ `with_frozen_fission_spectrum` (closed 2026-09-16) | ✅ ×2 |
 | Threshold behaviour (σ = 0 below threshold) | ✅ | ENDF redundancy relation; gh:#193 gate | n/a | n/a |
@@ -194,7 +194,7 @@ flux-weighted), and `k`. **Leading suspect: the MT=91 continuum `f₀(E→E')`
 shape.** The discriminating measurement is a per-MT collision tally in the
 1.9–3.0 MeV band on both sides.
 
-### 6. Two public names for one ablation, and one hook with no control
+### 6. Two public names for one ablation (the (n,2n) half is now closed)
 
 Found while closing gaps 3 and 4, and recorded rather than silently changed —
 renaming a public method on a crate the maintainer has declared mature is their
@@ -214,11 +214,35 @@ decision, not an agent's.
   siblings, `with_isotropic_inelastic_scattering` and
   `with_isotropic_continuum_scattering`), migrate the one test, and delete the
   short one.
-- **(n,2n) MT=16 multiplicity still has no dedicated control.** It is ablatable
-  only lumped in with everything else via `without_inelastic`, so its own worth
-  cannot be separated from the discrete levels' and the continuum's. The
-  emission *law* on MT=16 is covered (`without_evaluated_continuum`,
-  `with_isotropic_continuum_scattering`); the **yield of 2** is not.
+- ~~**(n,2n) MT=16 multiplicity still has no dedicated control.**~~ **CLOSED
+  2026-09-16** by `Nuclide::with_unit_n2n_multiplicity`, which cuts the yield
+  from 2 to 1. The emission *law* on MT=16 was already covered
+  (`without_evaluated_continuum`, `with_isotropic_continuum_scattering`); the
+  **yield** was not, and was ablatable only lumped in with everything else via
+  `without_inelastic`.
+
+  **The secondary is drawn either way and only its *emission* is gated.**
+  Skipping the draw would have saved a few variates and desynchronised the two
+  arms; drawing it keeps them in exact lockstep, so the paired difference is
+  deterministic on a shared seed. That is a strictly better-conditioned
+  ablation than `with_target_at_rest`, which cannot have this property.
+
+  Measured: U-238 `σ_n2n = 1.45833 b` at 12 MeV and exactly 0 below threshold
+  at 2 MeV; cross sections (σ_n2n included) bit-identical across the hook and
+  the MT=16 energy law intact. At the kernel, a bare U-235 sphere on one shared
+  seed gives `k` **0.973390 → 0.972432, −95.8 pcm** — negative, as it must be,
+  since deleting a neutron source cannot raise the eigenvalue. That is **one
+  paired sample on one seed and one material, not the Godiva worth**; pricing it
+  is ensemble work for a bigger machine.
+
+  **This closure found a real defect, and it is the reason the kernel-level test
+  exists.** On its first run the two arms came out bit-identical: the hook had
+  been wired into four of the **five** emission sites, and the one missed was in
+  `physics::keff`'s `transport_history` — the path `run_keff` actually takes. A
+  data-level control would have passed and the hook would have shipped reporting
+  that (n,2n) multiplicity is worth nothing, which is precisely `op-50vu`
+  recurring. Every new ablation hook whose mechanism lives in the transport
+  kernel should get a kernel-level control, not only a data-level one.
 
 ### 7. Known-absent physics, correctly documented
 
