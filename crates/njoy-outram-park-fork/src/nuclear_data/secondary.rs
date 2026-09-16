@@ -501,14 +501,27 @@ pub enum ContinuumAngular {
     /// `tables[i]` corresponds to `spectrum.tables[i]`, and `tables[i].rows[k]`
     /// to that table's outgoing-energy point `k`.
     Legendre(Vec<ContinuumAngularTable>),
-    /// A representation this port retains but does not yet sample — currently
-    /// `LANG = 2` (Kalbach-Mann), which needs the Kalbach systematics for the
-    /// slope `a` when the evaluation stores only `r` (`NA = 1`), as
-    /// ENDF/B-VIII.0's O-16 and Al-27 do on both MT=16 and MT=91.
+    /// `LANG = 2`: Kalbach-Mann, as `(r, a)` per outgoing-energy row.
+    ///
+    /// `r` is the pre-compound fraction the evaluation tabulates. `a` is the
+    /// slope: tabulated too when `NA = 2`, and otherwise computed from the
+    /// Kalbach-86 systematics by [`crate::groupr::kinematics::bach`] — which is
+    /// a function of the projectile, ejectile and target masses, hence of the
+    /// nuclide rather than of the emission law alone.
+    ///
+    /// ENDF/B-VIII.0's O-16 and Al-27 use this on both MT=16 and MT=91, with
+    /// `NA = 1` throughout, so the systematics path is the live one.
+    KalbachMann(Vec<ContinuumKalbachTable>),
+    /// A representation this port retains but does not sample — `LANG = 11…15`
+    /// (tabulated cosines), or any `LANG` value ENDF adds later.
     ///
     /// Emission falls back to isotropic. **That fallback is a port gap, not the
     /// evaluation's statement**, and this variant is what makes the difference
     /// visible to a caller instead of leaving it in a source comment.
+    ///
+    /// `LANG = 2` (Kalbach-Mann) used to land here and no longer does — it is
+    /// sampled via [`ContinuumAngular::KalbachMann`]. No evaluation in
+    /// `reference-data/endf/` currently reaches this variant.
     Unported(crate::acer::energy::Mf6AngularLaw),
     /// The law was read and then **deliberately switched off**, by
     /// [`ContinuumEmission::with_isotropic_angle`]. The ablation arm of a paired
@@ -528,6 +541,131 @@ pub enum ContinuumAngular {
 pub struct ContinuumAngularTable {
     /// Per-outgoing-energy angular laws, aligned with `ChiEout::e_out`.
     pub rows: Vec<ContinuumAngularRow>,
+}
+
+/// One incident energy's worth of Kalbach-Mann parameters, one entry per
+/// outgoing-energy row of the matching [`ChiEout`].
+#[derive(Debug, Clone)]
+pub struct ContinuumKalbachTable {
+    /// Per-outgoing-energy `(r, a)` pairs, aligned with `ChiEout::e_out`.
+    pub rows: Vec<ContinuumKalbachRow>,
+}
+
+/// The Kalbach-Mann emission-cosine law conditional on one `(incident energy,
+/// outgoing energy)` pair.
+///
+/// The density is
+///
+/// ```text
+/// f(mu) = a [cosh(a mu) + r sinh(a mu)] / (2 sinh a),   mu in [-1, 1]
+/// ```
+///
+/// which integrates to 1 over `[-1, 1]` for any `a > 0` and any `r` (the `sinh`
+/// term is odd and contributes nothing to the norm). `r` is the **pre-compound
+/// fraction**, a number in `[0, 1]`; `a` is the **slope**, which grows with
+/// incident energy and makes the distribution forward-peaked.
+///
+/// Cosines are in the frame the MF=6 section names (`LCT`).
+#[derive(Debug, Clone, Copy)]
+pub struct ContinuumKalbachRow {
+    /// Pre-compound fraction `r`, tabulated by the evaluation. In `[0, 1]`.
+    pub r: f64,
+    /// Slope `a`. Tabulated when `NA = 2`, otherwise from the Kalbach-86
+    /// systematics.
+    pub a: f64,
+}
+
+impl ContinuumKalbachRow {
+    /// An isotropic row — `a → 0` is the isotropic limit of the Kalbach form,
+    /// and is represented exactly rather than approached.
+    pub fn isotropic() -> Self {
+        ContinuumKalbachRow { r: 0.0, a: 0.0 }
+    }
+
+    /// Whether this row carries no angular structure.
+    ///
+    /// True when the slope has collapsed (`a ≈ 0`, the isotropic limit) — note
+    /// `r = 0` alone does **not** make the law isotropic, because the `cosh`
+    /// term is still peaked at both ends. That asymmetry is why this is a
+    /// method and not a field comparison at the call site.
+    pub fn is_isotropic(&self) -> bool {
+        self.a.abs() < 1.0e-12
+    }
+
+    /// The exact mean cosine of this row's density,
+    /// `⟨μ⟩ = r · (coth a − 1/a)`.
+    ///
+    /// The bracket is the Langevin function `L(a)`, which runs from `0` at
+    /// `a = 0` to `1` as `a → ∞`. Every `cosh` term integrates to zero against
+    /// `μ`, so the mean is carried entirely by `r`.
+    ///
+    /// This is a closed form, not a quadrature, which makes it a genuine oracle
+    /// for [`sample_mu`](Self::sample_mu) — the sampler inverts the CDF and this
+    /// integrates the density, so agreement between them tests both.
+    pub fn mubar(&self) -> f64 {
+        if self.is_isotropic() {
+            return 0.0;
+        }
+        let a = self.a;
+        // coth(a) - 1/a, guarded at small a where both terms blow up: the
+        // series is a/3 - a^3/45 + ...
+        let langevin = if a.abs() < 1.0e-4 {
+            a / 3.0
+        } else {
+            1.0 / a.tanh() - 1.0 / a
+        };
+        self.r * langevin
+    }
+
+    /// Invert this row's cosine CDF at a uniform variate `xi ∈ [0, 1)`.
+    ///
+    /// # The closed form, and why it is one variate and not two
+    ///
+    /// The CDF integrates in elementary functions:
+    ///
+    /// ```text
+    /// F(mu) = [sinh(a mu) + sinh(a) + r (cosh(a mu) - cosh(a))] / (2 sinh a)
+    /// ```
+    ///
+    /// and `sinh(a mu) + r cosh(a mu)` collapses to a single hyperbolic sine,
+    /// `sqrt(1 - r^2) sinh(a mu + phi)` with `phi = atanh(r)`, so `F` inverts
+    /// directly:
+    ///
+    /// ```text
+    /// mu = [ asinh( ((2 xi - 1) sinh a + r cosh a) / sqrt(1 - r^2) ) - phi ] / a
+    /// ```
+    ///
+    /// **One variate matters here.** The usual implementation splits on `r` and
+    /// spends two: one to pick the `cosh` or `sinh` branch, one to invert it.
+    /// That would consume a different number of draws from the isotropic
+    /// fallback, so an ablation of this law would shift the random stream and a
+    /// measured `Δk` would mix physics with re-randomisation. The single-variate
+    /// inverse keeps the ablation attributable — the property
+    /// `outram-mc-libs`' `tests/continuum_angular_ablation_control.rs` asserts.
+    ///
+    /// Degenerate cases return the isotropic inverse `2ξ − 1`: `a ≈ 0` (the
+    /// isotropic limit of the form itself) and `|r| ≥ 1` (which would make
+    /// `atanh` diverge; `r` is a probability and should never reach 1, so this
+    /// is a guard rather than a path).
+    pub fn sample_mu(&self, xi: f64) -> f64 {
+        let xi = xi.clamp(0.0, 1.0);
+        let (r, a) = (self.r, self.a);
+        if self.is_isotropic() || r.abs() >= 1.0 || !a.is_finite() || !r.is_finite() {
+            return 2.0 * xi - 1.0;
+        }
+        let root = (1.0 - r * r).sqrt();
+        if root <= 0.0 {
+            return 2.0 * xi - 1.0;
+        }
+        let phi = r.atanh();
+        let s = ((2.0 * xi - 1.0) * a.sinh() + r * a.cosh()) / root;
+        let mu = (s.asinh() - phi) / a;
+        if mu.is_finite() {
+            mu.clamp(-1.0, 1.0)
+        } else {
+            2.0 * xi - 1.0
+        }
+    }
 }
 
 /// The emission cosine law conditional on one `(incident energy, outgoing
@@ -604,8 +742,53 @@ impl ContinuumAngular {
         match self {
             ContinuumAngular::EvaluatedIsotropic
             | ContinuumAngular::Unported(_)
-            | ContinuumAngular::Ablated => None,
+            | ContinuumAngular::Ablated
+            | ContinuumAngular::KalbachMann(_) => None,
             ContinuumAngular::Legendre(tables) => tables.get(table)?.rows.get(row),
+        }
+    }
+
+    /// Sample the emission cosine for outgoing-energy row `row` of incident
+    /// table `table`, given one uniform variate `xi ∈ [0, 1)`.
+    ///
+    /// This is the interface transport should use: it dispatches over the
+    /// representation so a caller never has to know whether the evaluation
+    /// stored Legendre coefficients or Kalbach-Mann parameters.
+    ///
+    /// Returns `None` when no angular information is available — a law that is
+    /// evaluated-isotropic, unported, or ablated — which is deliberately
+    /// distinct from returning `0.0`. **Every arm consumes exactly one
+    /// variate**, including the `None` case at the call site, so switching
+    /// between them does not shift the random stream.
+    pub fn sample_mu(&self, table: usize, row: usize, xi: f64) -> Option<f64> {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => None,
+            ContinuumAngular::Legendre(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.sample_mu(xi))
+            }
+            ContinuumAngular::KalbachMann(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.sample_mu(xi))
+            }
+        }
+    }
+
+    /// The exact mean cosine of row `row` of table `table`, or `None` where no
+    /// angular law is available.
+    ///
+    /// Closed form in both representations — `a₁` for Legendre, `r·L(a)` for
+    /// Kalbach-Mann — so this is an oracle for
+    /// [`sample_mu`](Self::sample_mu) rather than a second estimate of it.
+    pub fn mubar(&self, table: usize, row: usize) -> Option<f64> {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => None,
+            ContinuumAngular::Legendre(tables) => Some(tables.get(table)?.rows.get(row)?.mubar),
+            ContinuumAngular::KalbachMann(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.mubar())
+            }
         }
     }
 
@@ -622,6 +805,9 @@ impl ContinuumAngular {
             ContinuumAngular::Legendre(tables) => tables
                 .iter()
                 .any(|t| t.rows.iter().any(|r| !r.is_isotropic())),
+            ContinuumAngular::KalbachMann(tables) => tables
+                .iter()
+                .any(|t| t.rows.iter().any(|r| !r.is_isotropic())),
         }
     }
 
@@ -634,6 +820,10 @@ impl ContinuumAngular {
             ContinuumAngular::Legendre(tables) => tables
                 .iter()
                 .flat_map(|t| t.rows.iter().map(|r| r.mubar.abs()))
+                .fold(0.0, f64::max),
+            ContinuumAngular::KalbachMann(tables) => tables
+                .iter()
+                .flat_map(|t| t.rows.iter().map(|r| r.mubar().abs()))
                 .fold(0.0, f64::max),
         }
     }
@@ -882,11 +1072,14 @@ impl ContinuumEmission {
 fn build_continuum_angular(neutron: &crate::acer::energy::Mf6Neutron) -> ContinuumAngular {
     use crate::acer::energy::Mf6AngularLaw;
 
-    if neutron.lang != Mf6AngularLaw::Legendre {
-        return ContinuumAngular::Unported(neutron.lang);
-    }
     if neutron.is_angular_isotropic() {
         return ContinuumAngular::EvaluatedIsotropic;
+    }
+    if neutron.lang == Mf6AngularLaw::KalbachMann {
+        return build_kalbach_angular(neutron);
+    }
+    if neutron.lang != Mf6AngularLaw::Legendre {
+        return ContinuumAngular::Unported(neutron.lang);
     }
 
     let mut tables = Vec::with_capacity(neutron.angular.len());
@@ -919,6 +1112,94 @@ fn build_continuum_angular(neutron: &crate::acer::energy::Mf6Neutron) -> Continu
         // Every row's coefficients vanished, so the law is flat in fact even
         // though `NA > 0` was declared. Reporting it as evaluated-isotropic is
         // the honest reading and costs the sampler nothing.
+        ContinuumAngular::EvaluatedIsotropic
+    }
+}
+
+/// Build the `LANG = 2` (Kalbach-Mann) angular law of one MF=6 LAW=1
+/// subsection.
+///
+/// Each row carries `r` directly. The slope `a` is the row's third number when
+/// the evaluation tabulates it (`NA = 2`), and otherwise comes from the
+/// **Kalbach-86 systematics**, [`crate::groupr::kinematics::bach`] — a faithful
+/// port of NJOY2016's `groupr.f90:8812-8932` that already existed in this crate
+/// for the GROUPR path. Reusing it rather than writing a second copy is the
+/// point: two implementations of the same systematics would drift, and this one
+/// is already tested.
+///
+/// `bach` is called with `za_projectile = 1` (incident neutron),
+/// `za_emitted = 1` (the ZAP=1 subsection is a neutron by construction) and the
+/// section's own target `ZA`, at the incident energy of the table and the
+/// outgoing energy of the row — both in eV, which is what `bach` takes.
+///
+/// A row whose `bach` call fails (an unknown dominant isotope for a natural
+/// element) falls back to isotropic for that row rather than failing the whole
+/// emission: the caller's documented behaviour on a missing law is to keep its
+/// own fallback, and losing one row's anisotropy is a smaller error than losing
+/// the entire energy law with it.
+fn build_kalbach_angular(neutron: &crate::acer::energy::Mf6Neutron) -> ContinuumAngular {
+    const EMEV: f64 = 1.0e6;
+    /// ENDF `ZA` of a neutron — both the projectile and the emitted particle
+    /// here, since this is the `ZAP = 1` subsection.
+    const ZA_NEUTRON: i32 = 1;
+
+    let mut tables = Vec::with_capacity(neutron.angular.len());
+    let mut any = false;
+    for t in &neutron.angular {
+        let e_in_ev = t.e_in_mev * EMEV;
+        let mut rows = Vec::with_capacity(t.len());
+        for k in 0..t.len() {
+            let raw = t.row(k);
+            if raw.is_empty() {
+                rows.push(ContinuumKalbachRow::isotropic());
+                continue;
+            }
+            let r = raw[0];
+            // `NA = 2` tabulates the slope; otherwise the systematics supply it.
+            let a = if raw.len() >= 2 {
+                raw[1]
+            } else {
+                // The outgoing energy this row belongs to, in eV.
+                let e_out_ev = neutron
+                    .law4
+                    .incident
+                    .iter()
+                    .find(|d| (d.e_in_mev - t.e_in_mev).abs() <= f64::EPSILON * t.e_in_mev.max(1.0))
+                    .and_then(|d| d.e_out_mev.get(k).copied())
+                    .unwrap_or(0.0)
+                    * EMEV;
+                if e_out_ev <= 0.0 || e_in_ev <= 0.0 {
+                    rows.push(ContinuumKalbachRow::isotropic());
+                    continue;
+                }
+                match crate::groupr::kinematics::bach(
+                    ZA_NEUTRON,
+                    ZA_NEUTRON,
+                    neutron.za_target,
+                    e_in_ev,
+                    e_out_ev,
+                ) {
+                    Ok(a) => a,
+                    Err(_) => {
+                        rows.push(ContinuumKalbachRow::isotropic());
+                        continue;
+                    }
+                }
+            };
+            let row = ContinuumKalbachRow { r, a };
+            if !row.is_isotropic() {
+                any = true;
+            }
+            rows.push(row);
+        }
+        tables.push(ContinuumKalbachTable { rows });
+    }
+
+    if any {
+        ContinuumAngular::KalbachMann(tables)
+    } else {
+        // Every slope collapsed, so the law is flat in fact. Same reasoning as
+        // the Legendre arm: report what it is, not how it was declared.
         ContinuumAngular::EvaluatedIsotropic
     }
 }
@@ -1179,5 +1460,114 @@ mod tests {
         rows.extend(tab1_rows(0.0, 0, 2, 2, 0.0, 0.0, 1.0, 1.0)); // g(x)
 
         assert!(parse_mf5_section(&rows).unwrap().is_none());
+    }
+}
+
+#[cfg(test)]
+mod kalbach_tests {
+    use super::ContinuumKalbachRow;
+
+    /// Sample mean of `n` stratified draws through the row's CDF inverse.
+    ///
+    /// Stratified rather than pseudo-random so the comparison against the
+    /// closed form is limited by the quadrature and not by Monte Carlo noise —
+    /// this is testing an inverse function, not a random number generator.
+    fn sampled_mean(row: &ContinuumKalbachRow, n: usize) -> f64 {
+        (0..n)
+            .map(|i| row.sample_mu((i as f64 + 0.5) / n as f64))
+            .sum::<f64>()
+            / n as f64
+    }
+
+    /// The single-variate CDF inverse reproduces the density's **closed-form**
+    /// mean `⟨μ⟩ = r·(coth a − 1/a)` across the parameter range Kalbach-Mann
+    /// actually spans.
+    ///
+    /// This is a real oracle, not a self-consistency check: `mubar()` integrates
+    /// the density analytically while `sample_mu()` inverts its cumulative, so
+    /// they share no code. An algebra slip in either shows up here.
+    #[test]
+    fn the_inverse_reproduces_the_closed_form_mean() {
+        const N: usize = 200_000;
+        // r spans the pre-compound fraction's full range; a spans from nearly
+        // isotropic to strongly forward-peaked, which is what the systematics
+        // produce between threshold and 20 MeV.
+        for &r in &[0.0, 0.1, 0.35, 0.7, 0.95] {
+            for &a in &[0.05, 0.3, 1.0, 3.0, 8.0] {
+                let row = ContinuumKalbachRow { r, a };
+                let exact = row.mubar();
+                let got = sampled_mean(&row, N);
+                assert!(
+                    (got - exact).abs() < 2.0e-3,
+                    "r = {r}, a = {a}: sampled <mu> = {got:+.6} against the closed form \
+                     r*(coth a - 1/a) = {exact:+.6}. These share no code -- one integrates the \
+                     density, the other inverts its cumulative -- so a disagreement is an \
+                     algebra error in one of them."
+                );
+            }
+        }
+    }
+
+    /// Every sampled cosine is physical, at the extremes of the parameter range
+    /// where the hyperbolic functions overflow most readily.
+    #[test]
+    fn sampled_cosines_stay_in_range() {
+        for &r in &[0.0, 0.5, 0.999] {
+            for &a in &[1.0e-9, 1.0e-3, 1.0, 20.0, 200.0] {
+                let row = ContinuumKalbachRow { r, a };
+                for i in 0..=1000 {
+                    let mu = row.sample_mu(i as f64 / 1000.0);
+                    assert!(
+                        (-1.0..=1.0).contains(&mu) && mu.is_finite(),
+                        "r = {r}, a = {a}, xi = {}: mu = {mu} is not a physical cosine",
+                        i as f64 / 1000.0
+                    );
+                }
+            }
+        }
+    }
+
+    /// The endpoints of the inverse land exactly on the support, which is what
+    /// says the CDF was inverted rather than approximated.
+    #[test]
+    fn the_inverse_maps_the_unit_interval_onto_the_support() {
+        for &(r, a) in &[(0.0, 1.0), (0.3, 2.0), (0.8, 5.0)] {
+            let row = ContinuumKalbachRow { r, a };
+            assert!(
+                (row.sample_mu(0.0) + 1.0).abs() < 1.0e-9,
+                "r = {r}, a = {a}: F^-1(0) = {} , expected -1",
+                row.sample_mu(0.0)
+            );
+            assert!(
+                (row.sample_mu(1.0) - 1.0).abs() < 1.0e-9,
+                "r = {r}, a = {a}: F^-1(1) = {}, expected +1",
+                row.sample_mu(1.0)
+            );
+        }
+    }
+
+    /// `a → 0` is the isotropic limit of the Kalbach form, and `r = 0` is NOT.
+    ///
+    /// Worth pinning because the two look symmetric in the formula and are not:
+    /// with `r = 0` the density is `a cosh(a mu) / (2 sinh a)`, which is peaked
+    /// at *both* ends and has zero mean but is not flat. A predicate that
+    /// treated `r = 0` as isotropic would silently drop that structure.
+    #[test]
+    fn only_the_slope_makes_the_law_isotropic() {
+        assert!(ContinuumKalbachRow { r: 0.5, a: 0.0 }.is_isotropic());
+        assert!(!ContinuumKalbachRow { r: 0.0, a: 3.0 }.is_isotropic());
+
+        // r = 0, a = 3: mean zero, but the distribution is not uniform.
+        let peaked = ContinuumKalbachRow { r: 0.0, a: 3.0 };
+        assert!(peaked.mubar().abs() < 1.0e-12, "r = 0 must give zero mean");
+        let mu_lo = peaked.sample_mu(0.25);
+        let mu_hi = peaked.sample_mu(0.75);
+        // A uniform law would give -0.5 and +0.5; a cosh-peaked one pushes both
+        // quartiles outward.
+        assert!(
+            mu_lo < -0.5 && mu_hi > 0.5,
+            "r = 0, a = 3 quartiles came back at {mu_lo:+.4} / {mu_hi:+.4}; a cosh-peaked \
+             density must push them outside the uniform law's -0.5 / +0.5"
+        );
     }
 }

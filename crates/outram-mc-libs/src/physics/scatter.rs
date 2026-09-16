@@ -12,12 +12,14 @@
 //! lever for a bare fast-metal sphere, where forward-peaked scatter off heavy
 //! nuclei sets the transport cross section and hence the leakage.
 //!
-//! The one remaining angular gap is `LANG = 2` (Kalbach-Mann), used by
-//! ENDF/B-VIII.0's O-16 and Al-27 on MT=16/MT=91; those fall back to isotropic
-//! and say so through
+//! Both MF=6 representations this workspace's evaluations use are sampled:
+//! `LANG = 1` (Legendre) and `LANG = 2` (Kalbach-Mann, via the Kalbach-86 slope
+//! systematics). A representation that is retained but not sampled reports
+//! itself as
 //! [`ContinuumAngular::Unported`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Unported)
 //! rather than being indistinguishable from an evaluation that is genuinely
-//! flat. By outgoing-energy law:
+//! flat; nothing in `reference-data/endf/` currently reaches it. By
+//! outgoing-energy law:
 //!
 //! - **Elastic** (MT=2) — [`elastic_scatter`]: two-body kinematics with `Q = 0`;
 //!   off a heavy actinide the neutron loses almost no energy per collision
@@ -55,8 +57,10 @@
 //! The MF=4 paths use the full tabulated cosine distribution (sampled in
 //! `material::nuclide`, ported from OpenMC), passed here as a CM cosine via
 //! [`two_body_scatter_with_mu`] — elastic from MT=2, each discrete level from its
-//! own MT. The MF=6 path linearises each row's Legendre coefficients once at load
-//! time and inverts the resulting cosine CDF per collision.
+//! own MT. The MF=6 path costs one variate per collision either way: `LANG = 1`
+//! linearises each row's Legendre coefficients once at load time and inverts the
+//! resulting cosine CDF, and `LANG = 2` inverts the Kalbach-Mann cumulative in
+//! closed form.
 
 use crate::geometry::position::Direction;
 use crate::material::nuclide::sample_continuous_tabular_indexed;
@@ -454,11 +458,12 @@ pub fn continuum_inelastic_scatter(
 ///   inverted. This is the evaluated law.
 /// - [`ContinuumAngular::EvaluatedIsotropic`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::EvaluatedIsotropic) — the evaluation declares
 ///   `NA = 0` throughout (F-19's MT=91), so `μ = 2ξ − 1` is **correct**.
-/// - [`ContinuumAngular::Unported`] — `LANG = 2` (Kalbach-Mann), which
-///   ENDF/B-VIII.0's O-16 and Al-27 use on MT=16 and MT=91. Emission falls back
-///   to isotropic. **This is a known port gap**, not the evaluation's
-///   statement, and it needs the Kalbach systematics for the slope `a` (the
-///   evaluations store only `r`).
+/// - `ContinuumAngular::KalbachMann` — `LANG = 2`, which ENDF/B-VIII.0's O-16
+///   and Al-27 use on MT=16 and MT=91. The slope `a` comes from the Kalbach-86
+///   systematics where the evaluation stores only `r`.
+/// - [`ContinuumAngular::Unported`] — a representation this port retains but
+///   does not sample. Emission falls back to isotropic and says so. **No
+///   evaluation in `reference-data/endf/` currently reaches it.**
 ///
 /// # Ablation
 ///
@@ -537,10 +542,14 @@ pub fn continuum_inelastic_scatter_evaluated_with(
     let xi = prn(seed);
     let mu = match mode {
         ContinuumAngularMode::IsotropicAblation => 2.0 * xi - 1.0,
-        ContinuumAngularMode::Evaluated => match branch.angular.row(table, row) {
-            Some(r) => r.sample_mu(xi),
-            None => 2.0 * xi - 1.0,
-        },
+        // `sample_mu` dispatches over the representation — Legendre or
+        // Kalbach-Mann — and returns `None` only where no angular law exists,
+        // which is where isotropic is the right answer anyway. Every arm spends
+        // exactly this one variate.
+        ContinuumAngularMode::Evaluated => branch
+            .angular
+            .sample_mu(table, row, xi)
+            .unwrap_or(2.0 * xi - 1.0),
     };
 
     if law.cm_frame {

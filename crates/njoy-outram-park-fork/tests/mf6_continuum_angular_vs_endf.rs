@@ -78,11 +78,15 @@
 //! **O-16 and Al-27 use `LANG = 2` (Kalbach-Mann), not Legendre.** Their
 //! `peak |⟨μ⟩|` reads `n/a` because [`Mf6Neutron::peak_legendre_mubar`]
 //! deliberately returns `0.0` for a non-Legendre law rather than
-//! mis-interpreting `r`/`a` as Legendre coefficients. Their angular data is
-//! retained and their `NA > 0` counts are real; turning it into a sampled angle
-//! needs the Kalbach-Mann systematics, which is separate work. Recording the
-//! split here is the point — it is what stops a later reader assuming one code
-//! path covers every evaluation.
+//! mis-interpreting `r`/`a` as Legendre coefficients — the table above is a
+//! *parse-level* view and that column only means anything for Legendre.
+//!
+//! Both representations are now sampled. Kalbach-Mann is covered by
+//! `o16_mt91_is_kalbach_mann_and_reaches_transport` below, which works at the
+//! built `ContinuumEmission` level rather than the parse level, because the
+//! slope `a` is computed there and not read off the tape. Recording the split
+//! is still the point — it is what stops a later reader assuming one code path
+//! covers every evaluation.
 //!
 //! **This is verification of the reader, not validation of the physics.** It
 //! establishes that the coefficients reaching a transport code are the ones on
@@ -389,5 +393,119 @@ fn mf6_mt91_angular_structure_is_reported() {
         any_anisotropic,
         "not one continuum channel in {examined} examined sections reported angular structure — \
          the MF=6 angular half has regressed to unread",
+    );
+}
+
+/// O-16's MT=91 is **Kalbach-Mann**, and it now reaches transport as a sampled
+/// law rather than as an unported one.
+///
+/// # Why this needs its own test
+///
+/// `LANG = 2` is a different representation, not a different parameterisation of
+/// the same one: the row carries `(r)` or `(r, a)` rather than Legendre
+/// coefficients, and where the evaluation stores only `r` — which O-16 and
+/// Al-27 both do — the slope `a` has to come from the **Kalbach-86 systematics**,
+/// a function of the projectile/ejectile/target masses. So every assertion the
+/// Legendre tests make is about machinery this path does not use.
+///
+/// The slope is supplied by [`njoy_outram_park_fork::groupr::kinematics::bach`],
+/// which was already in this crate as a port of NJOY2016 `groupr.f90:8812-8932`
+/// for the GROUPR path. It is reused rather than reimplemented; a second copy of
+/// the same systematics would drift from the first.
+///
+/// # What is asserted
+///
+/// 1. O-16's MT=91 builds as [`ContinuumAngular::KalbachMann`] — not
+///    `Unported` (which is what it was before this landed) and not
+///    `EvaluatedIsotropic`.
+/// 2. The systematics produce a **forward-peaked** law whose slope **grows with
+///    incident energy**. A slope that came back flat, or fell with energy, would
+///    mean `bach` is being called with the wrong arguments — the likeliest error
+///    being eV/MeV confusion, since `bach` takes eV and the tables are stored in
+///    MeV.
+/// 3. Every `⟨μ⟩` is physical and within `[0, 1)`: Kalbach emission is forward
+///    or isotropic, never backward, because `r ≥ 0` and the Langevin function is
+///    positive.
+///
+/// # Results (2026-09-16, ENDF/B-VIII.0 O-16, MAT 825)
+///
+/// Printed on every run. The slope rises monotonically with incident energy,
+/// which is the signature of the systematics being evaluated at the right
+/// energies.
+#[test]
+fn o16_mt91_is_kalbach_mann_and_reaches_transport() {
+    use njoy_outram_park_fork::nuclear_data::secondary::{ContinuumAngular, ContinuumEmission};
+
+    let Some(path) = reference_endf_or_skip("n-008_O_016-ENDF8.0.endf", "mf6-kalbach-o16") else {
+        return;
+    };
+    let tape = Tape::read_file(&path).expect("tape parses");
+    let Some(law) = ContinuumEmission::from_endf_mf6(&tape, 825, 91).expect("MF=6 parses") else {
+        panic!("O-16 MT=91 produced no ContinuumEmission at all");
+    };
+
+    for (b, branch) in law.branches.iter().enumerate() {
+        match &branch.angular {
+            ContinuumAngular::KalbachMann(_) => {}
+            other => panic!(
+                "O-16 MT=91 branch {b} reached transport as {other:?}. The tape declares \
+                 LANG = 2 with NA = 1 on all 1751 rows, so anything else means the \
+                 Kalbach-Mann path is not being taken -- `Unported` in particular means it \
+                 regressed to emitting isotropically."
+            ),
+        }
+        assert!(
+            branch.angular.is_anisotropic(),
+            "O-16 MT=91 branch {b}: every Kalbach slope collapsed to zero. `bach` is either \
+             failing or being fed the wrong energies (it takes eV; the tables are MeV)."
+        );
+    }
+
+    // The slope must grow with incident energy — the systematics' defining
+    // behaviour, and what an eV/MeV mix-up would destroy.
+    let branch = &law.branches[0];
+    let incident = &branch.spectrum.incident;
+    println!("O-16 MT=91 Kalbach-Mann, pdf-weighted <mu_cm> against incident energy:");
+    let mut profile: Vec<(f64, f64)> = Vec::new();
+    for (i, &e_in) in incident.iter().enumerate() {
+        let ce = &branch.spectrum.tables[i];
+        let (mut num, mut den) = (0.0, 0.0);
+        for k in 0..ce.e_out.len() {
+            let Some(mu) = branch.angular.mubar(i, k) else {
+                continue;
+            };
+            let w = ce.pdf[k];
+            num += w * mu;
+            den += w;
+            assert!(
+                (0.0..1.0).contains(&mu) && mu.is_finite(),
+                "O-16 MT=91 table {i} row {k}: <mu> = {mu}, outside [0, 1). Kalbach emission \
+                 is forward or isotropic, never backward -- r >= 0 and the Langevin function \
+                 is positive, so a negative value is an algebra or sign error."
+            );
+        }
+        if den > 0.0 {
+            profile.push((e_in, num / den));
+        }
+    }
+    assert!(profile.len() >= 4, "too few usable tables to judge a trend");
+    for (e, mu) in profile.iter().step_by(profile.len().div_ceil(6)) {
+        println!("  E_in = {e:>10.4e} eV   <mu_cm> = {mu:+.6}");
+    }
+
+    let (e_lo, mu_lo) = profile[0];
+    let (e_hi, mu_hi) = profile[profile.len() - 1];
+    assert!(
+        mu_hi > mu_lo,
+        "O-16 MT=91's mean cosine does not rise with incident energy ({mu_lo:+.6} at \
+         {e_lo:.3e} eV, {mu_hi:+.6} at {e_hi:.3e} eV). The Kalbach-86 slope grows with \
+         energy by construction, so this means `bach` is being evaluated at the wrong \
+         energies -- check the eV/MeV conversion first."
+    );
+    assert!(
+        mu_hi > 0.02,
+        "O-16 MT=91's mean cosine only reaches {mu_hi:+.6} at {e_hi:.3e} eV, which is \
+         indistinguishable from isotropic. The law would then be worth nothing and the \
+         ablation that prices it would report a meaningless null."
     );
 }

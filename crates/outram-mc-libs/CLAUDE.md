@@ -249,11 +249,17 @@ maturity gate in that file for what this means and how the bar is revised.
      with `⟨μ_cm⟩`, so this **hardens** the spectrum and moves `op-os8x` the
      wrong way. Same shape as gh:#192's Q-value cap.
 
-     Still open: `LANG = 2` (Kalbach-Mann), used by ENDF/B-VIII.0's O-16 and
-     Al-27 on both MT=16 and MT=91 — it needs the Kalbach systematics for the
-     slope `a`, since the evaluations store only `r`. Those laws report
-     themselves as `ContinuumAngular::Unported` rather than passing silently as
-     isotropic. The `EnergyAngular` interpolation flag is also still dropped.
+     **`LANG = 2` (Kalbach-Mann) landed the same day**, reusing
+     `groupr::kinematics::bach` (already in the crate as an NJOY port) for the
+     slope and inverting the Kalbach cumulative in closed form, one variate, so
+     the ablation's RNG-stream invariant still holds. Verified against the
+     density's own closed-form mean `⟨μ⟩ = r(coth a − 1/a)`. O-16's MT=91
+     threshold is ~10 MeV, far above a fission spectrum, so this changes
+     nothing for the reactor cases here — it closes the representation gap.
+
+     Still dropped: the `EnergyAngular` interpolation flag, and `LANG = 11…15`
+     (tabulated cosines), which no evaluation in `reference-data/endf/` uses on
+     a neutron subsection.
   4. **One benchmark.** A bare fast HEU metal sphere, one geometry, one
      temperature. Says nothing about thermal systems or the crate's other cases.
 

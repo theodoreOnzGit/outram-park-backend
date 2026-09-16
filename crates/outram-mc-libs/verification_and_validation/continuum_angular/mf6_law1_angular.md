@@ -30,17 +30,74 @@ apart, because the parsed form no longer contains the difference. That is why
 the defect survived a crate declared mature on a cross-code bar.
 
 The fix is therefore as much a *type* change as a physics one.
-`ContinuumAngular` now has four variants that were previously one number:
+`ContinuumAngular` now has five variants that were previously one number:
 
 | variant | meaning | emission |
 |---|---|---|
 | `EvaluatedIsotropic` | the tape says `NA = 0` everywhere | isotropic — **correct** |
 | `Legendre(…)` | `LANG = 1`, coefficients read and linearised | the evaluated law |
-| `Unported(law)` | `LANG = 2` (Kalbach-Mann) — a real port gap | isotropic — **a known approximation** |
+| `KalbachMann(…)` | `LANG = 2`, `(r, a)` per row | the evaluated law |
+| `Unported(law)` | a representation this port does not sample | isotropic — **a known approximation** |
 | `Ablated` | deliberately switched off for a measurement | isotropic — **an experiment** |
 
 An ablated nuclide is self-describing, so an ablation that silently failed to
 take effect is visible in the data rather than only in a suspiciously small Δk.
+No evaluation in `reference-data/endf/` currently reaches `Unported`.
+
+## Results — Kalbach-Mann (`LANG = 2`)
+
+O-16 and Al-27 use `LANG = 2` on both MT=16 and MT=91, with `NA = 1` throughout
+— so they tabulate the pre-compound fraction `r` and leave the slope `a` to the
+**Kalbach-86 systematics**. That systematics was already in this workspace:
+`groupr::kinematics::bach`, a port of NJOY2016 `groupr.f90:8812-8932` written
+for the GROUPR path. It is reused rather than reimplemented; two copies of one
+systematics drift.
+
+**The sampler is a closed-form, single-variate inverse.** The density
+
+```text
+f(mu) = a [cosh(a mu) + r sinh(a mu)] / (2 sinh a)
+```
+
+has `sinh(a mu) + r cosh(a mu) = sqrt(1 - r^2) sinh(a mu + phi)` with
+`phi = atanh(r)`, so its cumulative inverts directly:
+
+```text
+mu = [ asinh( ((2 xi - 1) sinh a + r cosh a) / sqrt(1 - r^2) ) - phi ] / a
+```
+
+**One variate is a requirement, not an optimisation.** The usual implementation
+splits on `r` and spends two draws — one to choose the `cosh` or `sinh` branch,
+one to invert it. That would consume a different number of variates from the
+isotropic fallback, so an ablation of this law would shift the random stream and
+a measured Δk would mix physics with re-randomisation. The single-variate form
+preserves the invariant the ablation control asserts.
+
+**Verified against the density's own closed-form mean**,
+`⟨μ⟩ = r·(coth a − 1/a)` — the Langevin function scaled by `r`. Over 25 `(r, a)`
+combinations spanning `r ∈ [0, 0.95]` and `a ∈ [0.05, 8]`, 200 000 stratified
+draws each, the sampled mean matches to better than `2e-3`. The two share no
+code: one integrates the density analytically, the other inverts its cumulative.
+
+**O-16 MT=91, pdf-weighted `⟨μ_cm⟩`** (measured 2026-09-16):
+
+| `E_in` | `⟨μ_cm⟩` |
+|---|---|
+| 10.19 MeV (threshold) | 0.000000 |
+| 12.5 MeV | +0.125488 |
+| 19.0 MeV | +0.212117 |
+| 25.0 MeV | +0.310159 |
+
+**This changes nothing for the reactor cases in this workspace.** O-16's MT=91
+threshold is ~10 MeV, far above where a fission spectrum has flux. The value of
+closing it is that the *representation* gap is closed — an evaluation reaching
+`Unported` now means something genuinely unhandled, rather than one of the two
+laws everything actually uses.
+
+One property worth pinning, and pinned: `a → 0` is the isotropic limit of the
+Kalbach form and **`r = 0` is not**. With `r = 0` the density is
+`a cosh(a mu)/(2 sinh a)`, which has zero mean but is peaked at *both* ends. A
+predicate treating `r = 0` as isotropic would silently discard that structure.
 
 ## Methodology
 
@@ -205,10 +262,6 @@ was chosen for its direction.
 
 ## What is NOT covered
 
-- **`LANG = 2` (Kalbach-Mann) is unported.** O-16 and Al-27 use it on both MT=16
-  and MT=91 in ENDF/B-VIII.0, storing only `r` (`NA = 1`), so sampling it needs
-  the Kalbach systematics for the slope `a`. Those laws report themselves as
-  `ContinuumAngular::Unported` rather than passing as isotropic.
 - **The `EnergyAngular` interpolation flag is still dropped.**
 - **`LANG = 11…15`** (tabulated cosines) is retained but not sampled; no
   evaluation held here uses it on a neutron subsection.

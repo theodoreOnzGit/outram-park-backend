@@ -377,6 +377,10 @@ impl Nuclide {
     /// A no-op on the LOW (`Core`) tier, which carries no MF=6 law at all, and
     /// on any nuclide whose evaluation is already isotropic (F-19's MT=91).
     ///
+    /// Ablates **both** MF=6 representations — `LANG = 1` (Legendre) and
+    /// `LANG = 2` (Kalbach-Mann) — since it replaces the law wholesale rather
+    /// than clearing a particular parameterisation.
+    ///
     /// Independent of
     /// [`with_isotropic_elastic_scattering`](Self::with_isotropic_elastic_scattering)
     /// and

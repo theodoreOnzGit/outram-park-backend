@@ -192,6 +192,14 @@ pub struct Mf6Neutron {
     /// The angular coefficients, one table per incident energy, in the **same
     /// order and of the same length** as `law4.incident`.
     pub angular: Vec<Mf6AngularTable>,
+    /// The target's `ZA = 1000·Z + A`, from the MF=6 HEAD record.
+    ///
+    /// Carried because the Kalbach-Mann slope systematics need it: an
+    /// evaluation storing only `r` (`NA = 1`) leaves `a` to be computed from
+    /// the projectile/ejectile/target masses by
+    /// [`crate::groupr::kinematics::bach`], which is a function of the nuclide
+    /// and not of the emission law alone.
+    pub za_target: i32,
 }
 
 impl Mf6Neutron {
@@ -413,6 +421,9 @@ pub fn parse_mf6_law1_neutrons(section: &Section) -> Result<Vec<Mf6Neutron>, Njo
     let head = cur.read_cont()?; // ZA, AWR, JP, LCT, NK, 0
     let lct = head.l2;
     let nk = head.n1.max(0);
+    // The material ZA, needed by the Kalbach-Mann slope systematics when an
+    // evaluation stores only `r`.
+    let za_target = head.c1.round() as i32;
 
     let mut out: Vec<Mf6Neutron> = Vec::new();
     let mut saw_other_law: Option<i32> = None;
@@ -460,7 +471,7 @@ pub fn parse_mf6_law1_neutrons(section: &Section) -> Result<Vec<Mf6Neutron>, Njo
             ));
         }
 
-        match parse_law1_neutron_body(&mut cur, lct, ymult) {
+        match parse_law1_neutron_body(&mut cur, lct, za_target, ymult) {
             Ok(n) => out.push(n),
             Err(e) => {
                 if out.is_empty() {
@@ -487,6 +498,7 @@ pub fn parse_mf6_law1_neutrons(section: &Section) -> Result<Vec<Mf6Neutron>, Njo
 fn parse_law1_neutron_body(
     cur: &mut SectionCursor<'_>,
     lct: i32,
+    za_target: i32,
     ymult: Tab1,
 ) -> Result<Mf6Neutron, NjoyError> {
     let tab2 = cur.read_tab2()?;
@@ -547,6 +559,7 @@ fn parse_law1_neutron_body(
         },
         lang: Mf6AngularLaw::from_lang(lang),
         angular,
+        za_target,
     })
 }
 

@@ -248,11 +248,26 @@ which re-derives the table on every run):
 `NA = 1` linear density is not sufficient — the series has to be linearised.
 That was measured before choosing the implementation rather than assumed.
 
-**Not done: `LANG = 2` (Kalbach-Mann).** O-16 and Al-27 use it on MT=16 and
-MT=91, storing only `r` (`NA = 1`), so sampling it needs the Kalbach
-systematics for the slope `a`. Those subsections are retained and reported as
-`ContinuumAngular::Unported`, which is deliberately distinct from an evaluation
-that is genuinely isotropic — the distinction the old code could not make.
+**`LANG = 2` (Kalbach-Mann) landed the same day.** O-16 and Al-27 use it on
+MT=16 and MT=91, storing only `r` (`NA = 1`), so the slope `a` comes from the
+Kalbach-86 systematics — **`groupr::kinematics::bach`, which this crate already
+had** as a port of `groupr.f90:8812-8932` for the GROUPR path. Reused rather
+than reimplemented; two copies of one systematics would drift.
+
+The sampler inverts the Kalbach cumulative in **closed form and one variate**:
+`sinh(a mu) + r cosh(a mu)` collapses to `sqrt(1-r^2) sinh(a mu + atanh r)`, so
+`mu = [asinh(((2xi-1) sinh a + r cosh a)/sqrt(1-r^2)) - atanh r] / a`. One
+variate matters — the usual two-draw branch-then-invert form would consume a
+different number of draws from the isotropic fallback and shift the random
+stream under an ablation. Verified against the density's own closed-form mean
+`<mu> = r (coth a - 1/a)` over 25 `(r, a)` combinations.
+
+**Note O-16's MT=91 threshold is ~10 MeV**, far above any fission spectrum, so
+this changes nothing for the reactor cases in this workspace. It matters for
+high-energy applications, and it closes the representation gap.
+
+What is left unsampled is `LANG = 11…15` (tabulated cosines), which no
+evaluation in `reference-data/endf/` uses on a neutron subsection.
 
 **Reading a peak coefficient is not reading the physics.** The 0.557 above is
 the largest `a₁` anywhere in the table and badly overstates what a neutron
