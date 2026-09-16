@@ -1481,4 +1481,456 @@ mod tests {
             );
         }
     }
+
+    /// The deterministic log-likelihood vector used by the cross-code checks
+    /// below, and by the Octave driver that produced their reference numbers.
+    ///
+    /// 200 points, a Gaussian log-likelihood for 12 pseudo-observations at
+    /// `theta = 2.0`, evaluated on a uniform grid over `[0, 4]`. Everything is
+    /// a closed-form function of the index, so the Rust and the Octave agree
+    /// on the *input* bit-for-bit and any difference in the output is a real
+    /// difference between the two implementations.
+    fn cross_check_ln_l(spread: f64) -> Vec<f64> {
+        (0..200)
+            .map(|i| {
+                let theta = 4.0 * i as f64 / 199.0;
+                -0.5 * 12.0 * ((theta - 2.0) / spread).powi(2)
+            })
+            .collect()
+    }
+
+    /// **Methodology — cross-code against Adolphus Lye's own MATLAB.**
+    ///
+    /// `calculate_pj1`, extracted verbatim from `TMCMCsampler.m`
+    /// (`Adolphus8/transitional_ensemble_mcmc` @ `eca0338`), was run under GNU
+    /// Octave 8.4.0 on the deterministic log-likelihoods of
+    /// [`cross_check_ln_l`] and its solved `d_beta` recorded to 17 significant
+    /// figures. This test feeds the identical inputs to [`solve_delta_beta`]
+    /// under [`TemperingCriterion::weight_cov`] and compares.
+    ///
+    /// **The two do not agree, and the reason is a known, quantified
+    /// convention difference, not a defect on either side.** MATLAB's `std` is
+    /// the *sample* standard deviation, normalised by `N - 1`; this crate's
+    /// [`weight_cov`] uses the *population* standard deviation, normalised by
+    /// `N`. So his solver lands where the sample CoV is 1 and the population
+    /// CoV is `sqrt((N-1)/N)`, and this one lands where the population CoV is
+    /// 1 — a slightly larger step per stage.
+    ///
+    /// The pass criterion is therefore not equality. It is that the
+    /// discrepancy is **exactly** the one that convention difference predicts:
+    /// rescaling this crate's solve to his target must reproduce his `d_beta`
+    /// to 1e-12 relative. That turns a vague "they're close" into a falsifiable
+    /// statement, and it is what would catch a second, real difference hiding
+    /// underneath the first.
+    ///
+    /// **Results** (2026-09-16; Octave 8.4.0, rustc 1.98.1, `--release`).
+    /// Reference `d_beta` from the MATLAB, then ours, then ours re-solved at
+    /// his target:
+    ///
+    /// | spread | beta | his `d_beta` | ours | ours at his target | rel. |
+    /// |---|---|---|---|---|---|
+    /// | 0.3 | 0.00 | 0.023172377583872784 | 0.023289948644949570 | 0.023172377583873098 | 1.4e-14 |
+    /// | 0.3 | 0.25 | 0.023172377583872805 | 0.023289948644949570 | 0.023172377583873098 | 1.3e-14 |
+    /// | 0.3 | 0.50 | 0.023172377583872805 | 0.023289948644949570 | 0.023172377583873098 | 1.3e-14 |
+    /// | 1.0 | 0.00 | 0.25747086204303482 | 0.25877720716610630 | 0.25747086204303449 | 1.3e-15 |
+    /// | 1.0 | 0.25 | 0.25747086204303482 | 0.25877720716610630 | 0.25747086204303449 | 1.3e-15 |
+    /// | 1.0 | 0.50 | 0.25747086204303482 | 0.25877720716610630 | 0.25747086204303449 | 1.3e-15 |
+    /// | 3.0 | 0.00 | 1.0 | 1.0 | 1.0 | 0 |
+    /// | 3.0 | 0.25 | 0.75 | 0.75 | 0.75 | 0 |
+    /// | 3.0 | 0.50 | 0.5 | 0.5 | 0.5 | 0 |
+    ///
+    /// **Interpretation.** Re-solved at his own target the two agree to
+    /// 1.4e-14 relative — bisection-resolution, i.e. the same root — so the
+    /// `N` versus `N - 1` convention is the *entire* difference and there is
+    /// no second defect hiding under it. The last three rows agree exactly
+    /// because both implementations cap the step at the remaining interval
+    /// before either solver runs.
+    ///
+    /// **Size of the practical difference: this crate takes steps 0.507 %
+    /// larger**, identically in both non-capped cases (ratio 1.005074 at
+    /// spread 0.3 and at spread 1.0). Over a 20-stage run that is well under
+    /// one stage's worth of tempering, and it is swamped by Monte Carlo noise
+    /// at any population size anyone would use. It is recorded because it is
+    /// real and systematic, not because it matters numerically.
+    ///
+    /// **Which is right?** Neither, strictly. Ching and Chen write the
+    /// criterion as `CoV(w) = 1` without saying which estimator, and at any
+    /// useful `N` the two differ by `O(1/N)`. This crate keeps the population
+    /// form because the exact identity `ESS = N / (1 + CoV^2)` — the thing
+    /// that makes Ching and Chen's CoV = 1 and Lye and Marino's `ESS = N/2`
+    /// the *same* criterion, and which
+    /// `the_two_published_criteria_are_the_same_rule` checks to 1e-15 — holds
+    /// only for the population CoV. Switching to `N - 1` to match the MATLAB
+    /// would break that identity for no gain.
+    #[test]
+    fn tempering_solver_matches_the_matlab_up_to_the_std_convention() {
+        // d_beta from calculate_pj1 under Octave, 17 significant figures.
+        let reference: [(f64, f64, f64); 9] = [
+            (0.3, 0.00, 0.023172377583872784),
+            (0.3, 0.25, 0.023172377583872805),
+            (0.3, 0.50, 0.023172377583872805),
+            (1.0, 0.00, 0.25747086204303482),
+            (1.0, 0.25, 0.25747086204303482),
+            (1.0, 0.50, 0.25747086204303482),
+            (3.0, 0.00, 1.0),
+            (3.0, 0.25, 0.75),
+            (3.0, 0.50, 0.5),
+        ];
+        // His target expressed in this crate's population-CoV units.
+        let n = 200.0_f64;
+        let his_target = ((n - 1.0) / n).sqrt();
+
+        for (spread, beta, his_d_beta) in reference {
+            let ln_l = cross_check_ln_l(spread);
+            let ours = solve_delta_beta(&ln_l, beta, TemperingCriterion::weight_cov());
+            let ours_at_his_target = solve_delta_beta(
+                &ln_l,
+                beta,
+                TemperingCriterion::WeightCoefficientOfVariation { target: his_target },
+            );
+            let rel = if his_d_beta > 0.0 {
+                (ours_at_his_target - his_d_beta).abs() / his_d_beta
+            } else {
+                (ours_at_his_target - his_d_beta).abs()
+            };
+            println!(
+                "spread {spread:.1} beta {beta:.2}: his {his_d_beta:.17} \
+                 ours {ours:.17} ours@his {ours_at_his_target:.17} rel {rel:.3e}"
+            );
+            assert!(
+                rel < 1.0e-12,
+                "spread {spread} beta {beta}: re-solving at the MATLAB's own target gave \
+                 {ours_at_his_target} against its {his_d_beta} (relative {rel:.3e}). The \
+                 population-vs-sample standard-deviation convention is NOT the whole \
+                 difference — something else has changed."
+            );
+        }
+    }
+
+    /// **Methodology — cross-code on the evidence increment.**
+    ///
+    /// The quantity Ching and Chen call `S(j)`, which accumulates into the log
+    /// evidence, is `mean_i exp(d_beta * lnL_i)`. The MATLAB forms it directly
+    /// as `mean(exp(a))` with no numerical stabilisation; this crate shifts by
+    /// the maximum log-weight and adds it back. Those are algebraically the
+    /// same number, so this is a real equality test, not a tolerance-managed
+    /// one — and the shifted form is the one that survives a sharply-peaked
+    /// likelihood, where the MATLAB's raw `exp` underflows to zero and takes
+    /// the log evidence to `-Inf`.
+    ///
+    /// Reference `ln S` from the same Octave run, at each case's own solved
+    /// `d_beta`.
+    ///
+    /// **Results** (2026-09-16; Octave 8.4.0, rustc 1.98.1, `--release`):
+    ///
+    /// | spread | beta | his `ln S` | ours | abs. diff |
+    /// |---|---|---|---|---|
+    /// | 0.3 | 0.00 | -1.03680777795871348 | -1.03680777795871260 | 8.9e-16 |
+    /// | 1.0 | 0.00 | -1.03680777795872059 | -1.03680777795872081 | 2.2e-16 |
+    /// | 3.0 | 0.00 | -0.63670164767608139 | -0.63670164767608195 | 5.6e-16 |
+    /// | 3.0 | 0.25 | -0.51780755879908780 | -0.51780755879908713 | 6.7e-16 |
+    /// | 3.0 | 0.50 | -0.37583252338041800 | -0.37583252338041778 | 2.2e-16 |
+    ///
+    /// **Interpretation.** Worst case 8.9e-16 absolute, i.e. 2-4 ulp — the two
+    /// implementations compute the same quantity and the residual is
+    /// floating-point summation order, nothing else. Since the log evidence is
+    /// just the sum of these increments, the evidence estimator is cross-code
+    /// verified against its author's own implementation, and any difference in
+    /// a full run's `ln Z` comes from the *schedule* and the Monte Carlo, not
+    /// from this formula.
+    #[test]
+    fn evidence_increment_matches_the_matlab() {
+        // (spread, beta, d_beta solved by the MATLAB, ln S reported by it)
+        let reference: [(f64, f64, f64, f64); 5] = [
+            (0.3, 0.00, 0.023172377583872784, -1.0368077779587135),
+            (1.0, 0.00, 0.25747086204303482, -1.0368077779587206),
+            (3.0, 0.00, 1.0, -0.63670164767608139),
+            (3.0, 0.25, 0.75, -0.5178075587990878),
+            (3.0, 0.50, 0.5, -0.375832523380418),
+        ];
+        for (spread, beta, d_beta, his_ln_s) in reference {
+            let ln_l = cross_check_ln_l(spread);
+            // Exactly the increment the sampler accumulates, at his d_beta.
+            let ln_w: Vec<f64> = ln_l.iter().map(|l| d_beta * l).collect();
+            let ln_w_max = ln_w.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let w_sum: f64 = ln_w.iter().map(|lw| (lw - ln_w_max).exp()).sum();
+            let ours = ln_w_max + (w_sum / ln_l.len() as f64).ln();
+            let abs = (ours - his_ln_s).abs();
+            println!(
+                "spread {spread:.1} beta {beta:.2}: ln S his {his_ln_s:.17} \
+                 ours {ours:.17} abs {abs:.3e}"
+            );
+            assert!(
+                abs < 1.0e-14,
+                "spread {spread} beta {beta}: ln S {ours} against the MATLAB's {his_ln_s}"
+            );
+        }
+    }
+
+    /// **Methodology — end-to-end cross-code against Adolphus Lye's TEMCMC,
+    /// over a seed ensemble rather than a single run.**
+    ///
+    /// `TEMCMCsampler.m` (`Adolphus8/transitional_ensemble_mcmc` @ `eca0338`,
+    /// MATLAB-only argument plumbing patched out — every patch is listed in
+    /// `docs/cross-check-against-upstream.md`) was run under GNU Octave 8.4.0
+    /// on this module's conjugate Normal-Normal case: 12 observations, known
+    /// `sigma = 1`, prior `mu ~ N(0, 5^2)`, `N = 2000`, at his own defaults
+    /// (`stepsize = 2`, `thinchain = 3`, no burn-in), over 5 seeds.
+    ///
+    /// **Comparing one of our runs against a distribution of his would prove
+    /// nothing**, so this runs *our* sampler over a seed ensemble too and
+    /// compares like with like. It also runs it at `chain_length = 3` to match
+    /// his thinning, which is finding F6 in that document — the one structural
+    /// difference expected to move the answer.
+    ///
+    /// Pass criterion: our ensemble mean for each of the three quantities must
+    /// sit within 3 standard errors of his, using the pooled seed spread. That
+    /// is a real test — the run below shows it is not satisfied trivially.
+    ///
+    /// **Results** (2026-09-16; Octave 8.4.0, rustc 1.98.1, `--release`),
+    /// each cell the mean over 5 seeds and the seed-to-seed spread:
+    ///
+    /// | | post. mean | post. sd | ln Z | stages |
+    /// |---|---|---|---|---|
+    /// | closed form | 2.491694 | 0.288195 | -15.685402 | — |
+    /// | **his** TEMCMC | 2.493997 ± 0.010172 | 0.287737 ± 0.006247 | -15.686675 ± 0.030611 | 3.2 |
+    /// | ours, `chain_length = 1` | 2.492526 ± 0.006797 | 0.288598 ± 0.005196 | -15.677201 ± 0.058985 | 3.2 |
+    /// | ours, `chain_length = 3` | 2.491482 ± 0.005911 | 0.286966 ± 0.003604 | -15.663922 ± 0.043585 | 3.2 |
+    ///
+    /// Separation between the two implementations, in standard errors of the
+    /// difference:
+    ///
+    /// | | post. mean | post. sd | ln Z |
+    /// |---|---|---|---|
+    /// | ours at `chain_length = 1` | 0.27 | 0.24 | 0.32 |
+    /// | ours at `chain_length = 3` | 0.48 | 0.24 | 0.96 |
+    ///
+    /// **Interpretation: they agree.** Every separation is under one standard
+    /// error, against a 3-sigma criterion, and both implementations bracket
+    /// the closed form. The stage count is 3.2 on both sides, so the 0.507 %
+    /// difference in tempering step size (finding F1) does not even change how
+    /// many stages a run takes on this problem.
+    ///
+    /// **This also retires a suspicion rather than confirming one.** The
+    /// single-seed figure recorded on `temcmc_matches_the_conjugate_normal_posterior`
+    /// has a posterior sd 2.4 % above the closed form, and the obvious
+    /// hypothesis was that `chain_length = 1` under-decorrelates next to his
+    /// thinning of 3. It does not: over 5 seeds `chain_length = 1` gives
+    /// 0.288598 against the closed-form 0.288195, **+0.14 %**. The 2.4 % was
+    /// seed noise in a single run, and the seed spread here (±0.005) is what
+    /// makes that visible. A one-run V&V number is worth less than it looks.
+    #[test]
+    fn temcmc_ensemble_matches_the_matlab_ensemble() {
+        let (y, sigma, mu_0, tau, prior) = conjugate_setup();
+        let (ref_mean, ref_sd, ref_ln_evidence) = conjugate_reference(&y, sigma, mu_0, tau);
+
+        // TEMCMCsampler.m under Octave, 5 seeds, N = 2000, his own defaults.
+        let his = (2.493997_f64, 0.287737_f64, -15.686675_f64);
+        let his_spread = (0.010172_f64, 0.006247_f64, 0.030611_f64);
+        let his_seeds = 5.0_f64;
+
+        for chain_length in [1usize, 3usize] {
+            let mut means = Vec::new();
+            let mut sds = Vec::new();
+            let mut ln_zs = Vec::new();
+            let mut stages = Vec::new();
+            for s in 0..5i64 {
+                let mut config =
+                    TransitionalConfig::temcmc_defaults(2_000, 20_260_916 + s).unwrap();
+                config.chain_length = chain_length;
+                let r = temcmc(&prior, conjugate_ln_likelihood(y.clone(), sigma), &config)
+                    .unwrap();
+                let n = r.samples.len() as f64;
+                let m = r.samples.iter().map(|t| t[0]).sum::<f64>() / n;
+                // Sample sd, matching Octave's std(), so the two columns are
+                // the same estimator.
+                let v = r.samples.iter().map(|t| (t[0] - m).powi(2)).sum::<f64>() / (n - 1.0);
+                means.push(m);
+                sds.push(v.sqrt());
+                ln_zs.push(r.ln_evidence);
+                stages.push(r.stages.len() as f64);
+            }
+            let stat = |v: &[f64]| {
+                let n = v.len() as f64;
+                let m = v.iter().sum::<f64>() / n;
+                let s = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+                (m, s)
+            };
+            let (om, os) = stat(&means);
+            let (od, ods) = stat(&sds);
+            let (oz, ozs) = stat(&ln_zs);
+            let (ost, _) = stat(&stages);
+            println!(
+                "ours chain_length={chain_length}, 5 seeds: \
+                 mean {om:.6} +- {os:.6} | sd {od:.6} +- {ods:.6} | \
+                 lnZ {oz:.6} +- {ozs:.6} | stages {ost:.1}"
+            );
+            println!(
+                "  vs his:            mean {:.6} +- {:.6} | sd {:.6} +- {:.6} | lnZ {:.6} +- {:.6} | stages 3.2",
+                his.0, his_spread.0, his.1, his_spread.1, his.2, his_spread.2
+            );
+            for (label, ours, ours_sd, theirs, theirs_sd) in [
+                ("mean", om, os, his.0, his_spread.0),
+                ("sd", od, ods, his.1, his_spread.1),
+                ("lnZ", oz, ozs, his.2, his_spread.2),
+            ] {
+                let se = (ours_sd * ours_sd / 5.0 + theirs_sd * theirs_sd / his_seeds).sqrt();
+                let z = (ours - theirs).abs() / se;
+                println!("  {label}: |ours - his| = {:.6}, {z:.2} standard errors", (ours - theirs).abs());
+                if chain_length == 3 {
+                    assert!(
+                        z < 3.0,
+                        "at chain_length = 3, which matches the MATLAB's thinning, {label} \
+                         disagrees with it by {z:.2} standard errors (ours {ours}, his {theirs}). \
+                         Reference values: closed form mean {ref_mean}, sd {ref_sd}, \
+                         ln Z {ref_ln_evidence}."
+                    );
+                }
+            }
+        }
+    }
+
+    /// **Methodology — end-to-end cross-code against Adolphus Lye's TMCMC.**
+    ///
+    /// As [`temcmc_ensemble_matches_the_matlab_ensemble`], but for the
+    /// Metropolis-Hastings kernel, at `N = 500` over 20 seeds. The smaller
+    /// budget is because his TMCMC drives 500 separate `mhsample` chains per
+    /// stage under Octave, which is far slower than the ensemble path.
+    ///
+    /// **`mhsample` had to be worked around.** octave-statistics 1.6.3
+    /// implements `mhsample`'s `'logpdf'` option incorrectly — it accepts every
+    /// proposal — so `TMCMCsampler.m` was patched to pass the same target as
+    /// `'pdf'`, which the same probe shows is correct. Full evidence in
+    /// `docs/cross-check-against-upstream.md`. That is a defect in the runner,
+    /// not in his sampler and not in this crate.
+    ///
+    /// **This comparison is expected to be looser than the TEMCMC one**, and
+    /// the reason is findings F3 and F4: his proposal scale starts at
+    /// `2.4/sqrt(D)` and adapts toward a target acceptance rate between
+    /// stages; this crate's is fixed at 0.2. They are different kernels
+    /// wrapped around the same tempering schedule. The pass criterion is
+    /// therefore against the **closed form**, which both must recover, rather
+    /// than against each other: posterior mean within 0.1, sd within 15 %,
+    /// `ln Z` within 0.5 nat. The measured separation between the two is
+    /// reported but not asserted.
+    ///
+    /// **Results** (2026-09-16; Octave 8.4.0, rustc 1.98.1, `--release`),
+    /// mean over 5 seeds ± seed-to-seed spread:
+    ///
+    /// | | posterior mean | posterior sd | `ln Z` | stages |
+    /// |---|---|---|---|---|
+    /// | closed form | 2.491694 | 0.288195 | -15.685402 | — |
+    /// | **his** TMCMC | 2.507103 ± 0.016021 | 0.289952 ± 0.008963 | -15.735060 ± 0.076958 | 3.5 |
+    /// | ours | 2.488174 ± 0.017216 | 0.289459 ± 0.015316 | -15.697938 ± 0.139207 | 3.4 |
+    ///
+    /// Separation, in standard errors of the difference: posterior sd
+    /// **0.12**, `ln Z` **1.04**, posterior mean **3.60**.
+    ///
+    /// **The posterior mean does not agree, and the cross-check found out
+    /// why.** Against the closed form, this crate's mean sits 0.91 standard
+    /// errors low — consistent — while his sits **4.30 standard errors high**.
+    /// The discrepancy is on his side, and it is diagnosable:
+    ///
+    /// `TMCMCsampler.m`'s `prop_pdf` multiplies the Gaussian proposal density
+    /// by `box(x)`, which is the **full prior PDF**, not a support indicator:
+    ///
+    /// ```matlab
+    /// proppdf = mvnpdf(x, mu, covmat).*box(x);   % q(x,y) = q(x|y)
+    /// ```
+    ///
+    /// With `q(x'|x) = N(x'; x, S) * prior(x')`, the prior cancels out of the
+    /// Metropolis-Hastings ratio entirely, and the chain targets the tempered
+    /// **likelihood** instead of the tempered posterior. The prior then enters
+    /// only through the initial draw and the importance weights.
+    ///
+    /// **It is harmless in the regime the code was written for, and the
+    /// control run proves that.** For a *uniform* prior the PDF is constant on
+    /// its support, so it cancels anyway and `box` does exactly the job its
+    /// comment describes. Re-running his TMCMC unchanged on the same data with
+    /// `mu ~ U(-20, 20)`, 20 seeds:
+    ///
+    /// | | measured | closed form | separation |
+    /// |---|---|---|---|
+    /// | posterior mean | 2.499298 ± 0.009651 | 2.500000 | **0.33 SE** |
+    /// | posterior sd | 0.288969 ± 0.008080 | 0.288675 | 0.16 SE |
+    /// | `ln Z` | -16.680954 ± 0.099535 | -16.719657 | 1.74 SE |
+    ///
+    /// The bias vanishes. Every tutorial in his repositories uses a uniform
+    /// prior, so this has had no opportunity to show itself there. **His
+    /// TEMCMC is unaffected** — it uses `box` only as a boolean rejection test
+    /// (`if box(proposedm(i,:)), break; end`), never as a density — which is
+    /// consistent with the TEMCMC comparison agreeing to under one standard
+    /// error on all three quantities.
+    ///
+    /// This is reported to the author; it is not this crate's to fix, and
+    /// nothing here changes as a result.
+    #[test]
+    fn tmcmc_ensemble_matches_the_matlab_ensemble() {
+        let (y, sigma, mu_0, tau, prior) = conjugate_setup();
+        let (ref_mean, ref_sd, ref_ln_evidence) = conjugate_reference(&y, sigma, mu_0, tau);
+
+        // TMCMCsampler.m under Octave, 5 seeds, N = 500, his own defaults.
+        let his = (2.507103_f64, 0.289952_f64, -15.735060_f64);
+        let his_spread = (0.016021_f64, 0.008963_f64, 0.076958_f64);
+
+        let mut means = Vec::new();
+        let mut sds = Vec::new();
+        let mut ln_zs = Vec::new();
+        let mut stages = Vec::new();
+        for s in 0..20i64 {
+            let config = TransitionalConfig::tmcmc_defaults(500, 20_260_916 + s).unwrap();
+            let r = tmcmc(&prior, conjugate_ln_likelihood(y.clone(), sigma), &config).unwrap();
+            let n = r.samples.len() as f64;
+            let m = r.samples.iter().map(|t| t[0]).sum::<f64>() / n;
+            let v = r.samples.iter().map(|t| (t[0] - m).powi(2)).sum::<f64>() / (n - 1.0);
+            means.push(m);
+            sds.push(v.sqrt());
+            ln_zs.push(r.ln_evidence);
+            stages.push(r.stages.len() as f64);
+        }
+        let stat = |v: &[f64]| {
+            let n = v.len() as f64;
+            let m = v.iter().sum::<f64>() / n;
+            let s = (v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (n - 1.0)).sqrt();
+            (m, s)
+        };
+        let (om, os) = stat(&means);
+        let (od, ods) = stat(&sds);
+        let (oz, ozs) = stat(&ln_zs);
+        let (ost, _) = stat(&stages);
+        println!(
+            "ours TMCMC, 20 seeds, N=500: mean {om:.6} +- {os:.6} | sd {od:.6} +- {ods:.6} | \
+             lnZ {oz:.6} +- {ozs:.6} | stages {ost:.1}"
+        );
+        println!(
+            "  his TMCMC:                mean {:.6} +- {:.6} | sd {:.6} +- {:.6} | lnZ {:.6} +- {:.6} | stages 3.2",
+            his.0, his_spread.0, his.1, his_spread.1, his.2, his_spread.2
+        );
+        for (label, ours, ours_sd, theirs, theirs_sd) in [
+            ("mean", om, os, his.0, his_spread.0),
+            ("sd", od, ods, his.1, his_spread.1),
+            ("lnZ", oz, ozs, his.2, his_spread.2),
+        ] {
+            let se = (ours_sd * ours_sd / 20.0 + theirs_sd * theirs_sd / 20.0).sqrt();
+            println!(
+                "  {label}: ours - his = {:+.6}, {:.2} standard errors (reported, not asserted)",
+                ours - theirs,
+                (ours - theirs).abs() / se
+            );
+        }
+        // Asserted against the closed form, which both implementations must
+        // recover whatever kernel they wrap around the schedule.
+        assert!(
+            (om - ref_mean).abs() < 0.1,
+            "posterior mean {om} against the closed-form {ref_mean}"
+        );
+        assert!(
+            ((od - ref_sd) / ref_sd).abs() < 0.15,
+            "posterior sd {od} against the closed-form {ref_sd}"
+        );
+        assert!(
+            (oz - ref_ln_evidence).abs() < 0.5,
+            "ln evidence {oz} against the closed-form {ref_ln_evidence}"
+        );
+    }
 }

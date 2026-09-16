@@ -375,11 +375,14 @@ cargo build -p raffles --release --features burn
   2026-09-16). When `wgpu`/`vulkan`/`metal`/`webgpu` is wanted, it goes behind
   its own feature under `cfg(not(target_os = "android"))`, following
   `outram-mc-libs`'s gating convention — not into the default build.
-- **Nothing consumes it yet.** `src/surrogate.rs` is still the scaffold; the
-  feature exists so the `burn`-backed surrogate work can start behind a flag.
-  Whichever surrogates get built on it are subject to the same verification
-  requirement as everything else here — a fitted network that reproduces its
-  training data is not a verified surrogate.
+- **Three modules consume it:** `surrogate::neural` (a feed-forward regressor),
+  `gnn::mpnn` (the message-passing network) and `gnn::training`. Everything
+  else in the crate builds without it, which is why it stays off by default.
+  `autodiff` is not separable from `ndarray` here — training needs gradients,
+  and a `burn` feature that could only run a forward pass would be a trap.
+  These are subject to the same verification requirement as everything else —
+  a fitted network that reproduces its training data is not a verified
+  surrogate.
 
 Verified clean on 2026-09-16 with `burn` 0.21.0 and rustc 1.94.1 (warnings in
 the output came from `outram-mc-libs`/`njoy-outram-park-fork` and predate this):

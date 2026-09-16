@@ -56,6 +56,30 @@
 //!   disagreement between the Rust and the author's own code is a finding,
 //!   and neither being able to look was a real limitation on the V&V here.
 //!
+//! # That cross-check has been done — read it before changing this module
+//!
+//! `TEMCMCsampler.m`, `TMCMCsampler.m` and `EMCMCsampler.m` were run under GNU
+//! Octave and compared against this module on problems with closed-form
+//! answers. Eleven differences were found, four of them checked by tests in
+//! [`transitional`]. Full methodology, every patch made to the upstream to get
+//! it running, and all measured numbers:
+//! **`crates/raffles/docs/cross-check-against-upstream.md`**.
+//!
+//! The three results that should change how you read this module:
+//!
+//! - **TEMCMC agrees** with his to under one standard error on the posterior
+//!   mean, posterior standard deviation and log evidence, over 5 seeds each.
+//!   The evidence increment agrees to 8.9e-16.
+//! - **This crate has no adaptive proposal scaling and his does** (finding
+//!   F3). That is a real gap, and whether to close it is the crate owner's
+//!   decision, not an implementer's — it would change sampler behaviour and
+//!   invalidate every recorded V&V number here.
+//! - **A single-seed V&V number is worth much less than it looks.** The
+//!   posterior standard deviation recorded on
+//!   `temcmc_matches_the_conjugate_normal_posterior` is 2.4 % above the closed
+//!   form; over 5 seeds the same configuration gives +0.14 %. The rest of this
+//!   module's single-run numbers deserve the same scepticism.
+//!
 //! # What is here
 //!
 //! - [`IndependentPrior`] — a prior over several parameters, each with its own
