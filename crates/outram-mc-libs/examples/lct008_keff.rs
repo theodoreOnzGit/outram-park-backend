@@ -480,11 +480,15 @@ fn main() {
         let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
         eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
         ens.push((r.k_mean - 1.0) * 1.0e5);
-        result = r;
+        // Deliberately NOT `result = r`. Everything downstream -- the
+        // convergence trace, the printed k_eff, the V&V gate and the
+        // bounded-geometry cross-check -- is sized against SEED 1, which is
+        // also what the single-seed default runs. Reassigning here silently
+        // repoints all of them at the last seed of the ensemble.
     }
     if n_seeds > 1 {
         let (mean, sd, sem) = outram_mc_libs::vv::pooled(&ens);
-        println!("\n  ENSEMBLE LEU-COMP-THERM-008 case 1: {n_seeds} seeds");
+        println!("\n  ENSEMBLE LEU-COMP-THERM-008 case {case}: {n_seeds} seeds");
         println!("    pooled dk    = {mean:+.0} pcm");
         println!("    seed-to-seed sd  = {sd:.0} pcm   (what ONE run scatters by)");
         println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");

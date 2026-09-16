@@ -256,7 +256,11 @@ fn main() {
         let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
         eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
         ens.push((r.k_mean - 1.0) * 1.0e5);
-        result = r;
+        // Deliberately NOT `result = r`. Everything downstream -- the
+        // convergence trace, the printed k_eff, the V&V gate and the
+        // bounded-geometry cross-check -- is sized against SEED 1, which is
+        // also what the single-seed default runs. Reassigning here silently
+        // repoints all of them at the last seed of the ensemble.
     }
     if n_seeds > 1 {
         let (mean, sd, sem) = outram_mc_libs::vv::pooled(&ens);
