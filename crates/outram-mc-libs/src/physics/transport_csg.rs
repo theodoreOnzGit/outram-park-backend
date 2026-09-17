@@ -154,10 +154,59 @@ const GEN_STRIDE: u64 = 1 << 40;
 ///   `log::debug!` line. It never errors on the selection. Wiring a genuine GPU
 ///   Sigma_t lookup into CSG/delta transport is tracked as follow-up work
 ///   (bead op-fla).
+/// **Hybrid k-eigenvalue: delta tracking where a region asks for it, surface
+/// tracking everywhere else** (`bn:op-867c`, gh #214).
+///
+/// Identical to [`run_keff_csg`] except that it takes a majorant table.
+/// A cell declares `Cell::delta_tracked(i)` to be transported by delta
+/// (Woodcock) tracking against `majorants[i]`, and everything else -- including
+/// regions nested inside it that declare `surface_tracked()` -- uses ordinary
+/// surface tracking.
+///
+/// # The majorant must bound its region, or the answer is silently wrong
+///
+/// Build each entry with [`Majorant::over_indices`] over **every** material the
+/// region's geometry can present. An under-bound majorant does not crash: delta
+/// tracking rejects collisions it should have accepted and returns a biased `k`.
+/// Over-bounding only costs time, and [`KeffResult::virtual_collisions`]
+/// reports how much.
+///
+/// # Why scope it at all
+///
+/// Measured 2026-09-17 (`examples/majorant_absorber_price.rs`): adding one B4C
+/// control rod to a globally-bounded material set costs **26.3x** in tracking
+/// steps at the thermal peak, and it costs that in reflector graphite metres
+/// from the rod as much as inside it. Above ~1 keV it costs nothing.
+///
+/// Passing an empty table makes this exactly [`run_keff_csg`].
+pub fn run_keff_csg_hybrid(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> KeffResult {
+    run_keff_csg_inner(geom, materials, nuclides, majorants, source_box, settings, tally)
+}
+
 pub fn run_keff_csg(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
+    source_box: SourceBox,
+    settings: &KeffSettings,
+    tally: Option<&mut Tally>,
+) -> KeffResult {
+    run_keff_csg_inner(geom, materials, nuclides, &[], source_box, settings, tally)
+}
+
+fn run_keff_csg_inner(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    majorants: &[Majorant],
     source_box: SourceBox,
     settings: &KeffSettings,
     tally: Option<&mut Tally>,
@@ -167,7 +216,7 @@ pub fn run_keff_csg(
             geom,
             materials,
             nuclides,
-            &[],
+            majorants,
             source_box,
             settings,
             tally,
@@ -178,7 +227,7 @@ pub fn run_keff_csg(
             geom,
             materials,
             nuclides,
-            &[],
+            majorants,
             source_box,
             settings,
             tally,
@@ -196,7 +245,7 @@ pub fn run_keff_csg(
                 geom,
                 materials,
                 nuclides,
-                &[],
+                majorants,
                 source_box,
                 settings,
                 tally,
