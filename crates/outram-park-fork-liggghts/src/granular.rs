@@ -556,22 +556,40 @@ pub enum TangentialModel {
 
 /// Key identifying one persistent contact in the [`ShearHistory`] store.
 ///
-/// Particle–particle pairs are keyed by their **ordered** index pair
-/// `(min, max)` so the entry is found regardless of which way round the pair is
-/// visited. Particle–wall contacts are keyed by the particle index and a
-/// caller-chosen wall id.
+/// Particle–particle pairs are keyed by their **ordered** pair `(min, max)` so
+/// the entry is found regardless of which way round the pair is visited.
+/// Particle–wall contacts are keyed by the particle and a caller-chosen wall id.
+///
+/// # The identifier is a STABLE TAG, not a position in the particle array
+///
+/// This matters, and getting it wrong is silent. Upstream stores a contact's
+/// partner as `partner_[i][m] = tag[j]` — LAMMPS' global **atom tag** — in
+/// `fix_contact_history.cpp:393`, not the local index. That is precisely what
+/// lets LAMMPS delete an atom by copying the last atom into the hole without
+/// corrupting anybody's shear history.
+///
+/// [`GranularSystem`](crate::granular_system::GranularSystem) follows upstream
+/// and passes its own per-particle tags here. **Do not pass array indices from
+/// a system whose particle set can change**: after a removal every index
+/// shifts, and each stored tangential spring silently re-attaches to a
+/// different pair — plausible-looking forces that are entirely wrong.
+///
+/// ~~Particle–particle pairs are keyed by their ordered **index** pair~~
+/// **CORRECTED 2026-09-17** — the store was index-keyed, which was safe only
+/// while the particle set was fixed. It is tag-keyed now, matching upstream,
+/// so insertion and removal are possible at all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ContactKey {
     /// Contact between two particles, stored with `lo < hi`.
     Pair {
-        /// Lower particle index.
+        /// Lower particle tag.
         lo: usize,
-        /// Higher particle index.
+        /// Higher particle tag.
         hi: usize,
     },
     /// Contact between a particle and a wall.
     Wall {
-        /// Particle index.
+        /// Particle tag.
         particle: usize,
         /// Caller-assigned wall identifier.
         wall: usize,
@@ -579,8 +597,11 @@ pub enum ContactKey {
 }
 
 impl ContactKey {
-    /// Key for the particle pair `(i, j)`, normalised so that `(i, j)` and
-    /// `(j, i)` map to the same entry.
+    /// Key for the particle pair with tags `(i, j)`, normalised so that
+    /// `(i, j)` and `(j, i)` map to the same entry.
+    ///
+    /// `i` and `j` are **stable tags**, not array indices — see the type-level
+    /// documentation for why the distinction is load-bearing.
     #[must_use]
     pub fn pair(i: usize, j: usize) -> Self {
         Self::Pair {

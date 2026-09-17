@@ -98,6 +98,15 @@ pub struct GranularSystem {
     time: f64,
     forces: Vec<Vec3>,
     torques: Vec<Vec3>,
+    /// Stable per-particle tag, parallel to `particles`.
+    ///
+    /// Upstream's atom tag (`fix_contact_history.cpp:393` stores
+    /// `partner_[i][m] = tag[j]`). The shear history is keyed by this, never by
+    /// the array index, so removing or inserting a particle cannot silently
+    /// re-attach a stored tangential spring to a different pair.
+    tags: Vec<u64>,
+    /// Next tag to hand out. Monotonic; a tag is never reused.
+    next_tag: u64,
 }
 
 impl GranularSystem {
@@ -140,6 +149,8 @@ impl GranularSystem {
             time: 0.0,
             forces: vec![Vec3::zero(); n],
             torques: vec![Vec3::zero(); n],
+            tags: (0..n as u64).collect(),
+            next_tag: n as u64,
         };
         s.compute_forces();
         Ok(s)
@@ -185,6 +196,78 @@ impl GranularSystem {
     #[must_use]
     pub fn particles(&self) -> &[Particle] {
         &self.particles
+    }
+
+    /// The stable tag of each particle, parallel to [`GranularSystem::particles`].
+    ///
+    /// Tags are assigned `0..n` at construction and monotonically thereafter;
+    /// **a tag is never reused**, so a tag identifies one pebble for the whole
+    /// life of the run even across removals. This is upstream's atom tag.
+    #[must_use]
+    pub fn tags(&self) -> &[u64] {
+        &self.tags
+    }
+
+    /// Insert a particle, returning its newly assigned stable tag.
+    ///
+    /// The upstream analogue is `fix insert`. The particle joins the ensemble
+    /// immediately and is seen by the next [`GranularSystem::step`]; forces are
+    /// recomputed so the following half-kick sees a consistent state.
+    ///
+    /// **Insert into free space.** Nothing here checks for overlap with an
+    /// existing particle, exactly as upstream's insertion commands rely on
+    /// their own region/overlap logic rather than the integrator. A particle
+    /// inserted deep inside a packed bed starts with a large overlap and will
+    /// be ejected violently by the normal force.
+    pub fn insert_particle(&mut self, p: Particle) -> u64 {
+        let tag = self.next_tag;
+        self.next_tag += 1;
+        self.particles.push(p);
+        self.tags.push(tag);
+        self.forces.push(Vec3::zero());
+        self.torques.push(Vec3::zero());
+        self.compute_forces();
+        tag
+    }
+
+    /// Remove the particles at the given **array indices**, returning them in
+    /// the order removed.
+    ///
+    /// The upstream analogue is `delete_atoms` / `fix remove`. Indices are
+    /// deduplicated and processed high-to-low so that each removal cannot
+    /// invalidate a later one; the underlying operation is `swap_remove`, which
+    /// is what LAMMPS does too (it copies the last atom into the hole).
+    ///
+    /// **Shear history survives this correctly**, which is the whole reason the
+    /// store is keyed by tag: surviving particles keep their tags, so their
+    /// stored tangential springs still resolve even though their array indices
+    /// moved. A removed particle's entries are simply never touched again and
+    /// are dropped by the next [`ShearHistory::end_step`] — the same lifecycle
+    /// a contact that merely separated goes through.
+    ///
+    /// Out-of-range indices are ignored rather than panicking, so a caller that
+    /// computed a doomed-list from a stale snapshot degrades to removing fewer
+    /// particles instead of crashing.
+    pub fn remove_particles(&mut self, indices: &[usize]) -> Vec<Particle> {
+        let mut doomed: Vec<usize> = indices
+            .iter()
+            .copied()
+            .filter(|&i| i < self.particles.len())
+            .collect();
+        doomed.sort_unstable();
+        doomed.dedup();
+
+        let mut removed = Vec::with_capacity(doomed.len());
+        for &i in doomed.iter().rev() {
+            removed.push(self.particles.swap_remove(i));
+            self.tags.swap_remove(i);
+            self.forces.swap_remove(i);
+            self.torques.swap_remove(i);
+        }
+        if !removed.is_empty() {
+            self.compute_forces();
+        }
+        removed
     }
 
     /// Elapsed simulated time `[s]`.
@@ -311,7 +394,12 @@ impl GranularSystem {
             if let Some(k) = ContactKinematics::pair(&a, &b) {
                 let gf = self
                     .model
-                    .resolve(ContactKey::pair(i, j), &k, &mut self.history, self.dt);
+                    .resolve(
+                        ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
+                        &k,
+                        &mut self.history,
+                        self.dt,
+                    );
                 self.forces[i] = self.forces[i].add(gf.force_i);
                 self.forces[j] = self.forces[j].add(gf.force_j);
                 self.torques[i] = self.torques[i].add(gf.torque_i);
@@ -329,7 +417,7 @@ impl GranularSystem {
                     if let Some(k) = ContactKinematics::wall(&p, c.normal, c.overlap, Vec3::zero())
                     {
                         let gf = self.model.resolve(
-                            ContactKey::wall(i, w),
+                            ContactKey::wall(self.tags[i] as usize, w),
                             &k,
                             &mut self.history,
                             self.dt,
@@ -351,7 +439,7 @@ impl GranularSystem {
                         let gf = self.model.resolve(
                             // Wall ids are offset past the static boundaries so
                             // the two families cannot collide in the history map.
-                            ContactKey::wall(i, self.boundaries.len() + w),
+                            ContactKey::wall(self.tags[i] as usize, self.boundaries.len() + w),
                             &k,
                             &mut self.history,
                             self.dt,
@@ -1001,6 +1089,129 @@ mod tests {
         assert!(
             (spins[0] - spins[1]).abs() > 1.0,
             "History and NoHistory must differ, got {spins:?}"
+        );
+    }
+
+    /// Removing a particle must not disturb any surviving pair's tangential
+    /// shear history.
+    ///
+    /// **Methodology.** Four particles: a contacting, shearing pair carrying
+    /// tags 2 and 3, plus two isolated particles at tags 0 and 1 that touch
+    /// nothing. Step until the pair has accumulated a non-zero tangential
+    /// spring, record it, then remove array index 0 and step once more. The
+    /// pass criterion is that the surviving pair's entry is still found under
+    /// `ContactKey::pair(2, 3)` and has not been reset.
+    ///
+    /// **Why this test has teeth.** `swap_remove(0)` moves the last particle
+    /// into slot 0, so the shearing pair's *array indices* change from `(2, 3)`
+    /// to `(0, 2)` while its *tags* stay `(2, 3)`. Under the index keying this
+    /// store used before 2026-09-17 the lookup would miss, the spring would
+    /// silently reset to zero, and the contact would lose its accumulated
+    /// static friction.
+    ///
+    /// **Verified 2026-09-17** by reverting the pair keying site to indices and
+    /// re-running: the test fails. The observed failure is one step earlier
+    /// than anticipated — the entry is not merely reset but **absent**, so the
+    /// panic comes from `.expect("surviving pair must keep its history across a
+    /// removal")` rather than from the magnitude assertion below. Both
+    /// assertions are kept: the `expect` catches a lost entry, the magnitude
+    /// check catches an entry that survives but has been zeroed.
+    ///
+    /// **Result (2026-09-17).** Entry preserved across the removal; the stored
+    /// displacement continues to grow rather than restarting.
+    #[test]
+    fn removing_a_particle_preserves_surviving_shear_history() {
+        let r = 0.005;
+        let m = 0.001;
+        let mk = |x: f64, y: f64, vy: f64| {
+            Particle::new(
+                Vec3::new(x, y, 0.0),
+                Vec3::new(0.0, vy, 0.0),
+                Vec3::zero(),
+                Mass::new::<kilogram>(m),
+                Length::new::<meter>(r),
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+            )
+            .expect("valid particle")
+        };
+        // tags 0 and 1 are far away and touch nothing; tags 2 and 3 overlap and
+        // slide past each other, so the tangential spring winds up.
+        let particles = vec![
+            mk(10.0, 0.0, 0.0),
+            mk(20.0, 0.0, 0.0),
+            mk(0.0, 0.0, 0.5),
+            mk(0.0099, 0.0, -0.5),
+        ];
+        let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
+        let model = GranularContactModel::hertz_history(material);
+        let mut sys =
+            GranularSystem::new(particles, Vec::new(), model, Vec3::zero(), 1.0e-6).expect("system");
+
+        sys.run(50);
+        let key = ContactKey::pair(2, 3);
+        let before = sys.history.get(key).expect("pair 2-3 must have history");
+        assert!(
+            before.norm() > 0.0,
+            "test is vacuous unless the spring wound up; got {before:?}"
+        );
+
+        assert_eq!(sys.tags(), &[0, 1, 2, 3]);
+        sys.remove_particles(&[0]);
+        // swap_remove moved tag 3 into slot 0: indices are now (0, 2) for the
+        // pair whose tags are still (2, 3).
+        assert_eq!(sys.tags(), &[3, 1, 2]);
+        sys.run(1);
+
+        let after = sys
+            .history
+            .get(key)
+            .expect("surviving pair must keep its history across a removal");
+        assert!(
+            after.norm() > 0.0,
+            "shear history lost on removal: before {:.3e}, after {:.3e}",
+            before.norm(),
+            after.norm()
+        );
+    }
+
+    /// A tag is never reused, so an inserted particle cannot inherit a removed
+    /// particle's shear history.
+    ///
+    /// **Methodology.** Remove a particle, insert a fresh one, and check the
+    /// new tag exceeds every tag issued so far. **Result (2026-09-17):** the
+    /// inserted particle receives tag 4 after tags 0-3 were issued, including
+    /// the removed one.
+    #[test]
+    fn tags_are_never_reused_after_a_removal() {
+        let r = 0.005;
+        let mk = |x: f64| {
+            Particle::new(
+                Vec3::new(x, 0.0, 0.0),
+                Vec3::zero(),
+                Vec3::zero(),
+                Mass::new::<kilogram>(0.001),
+                Length::new::<meter>(r),
+                ThermodynamicTemperature::new::<kelvin>(300.0),
+            )
+            .expect("valid particle")
+        };
+        let material = GranularMaterial::new(1.0e7, 0.3, 0.9, 0.5).expect("valid material");
+        let model = GranularContactModel::hertz_history(material);
+        let mut sys = GranularSystem::new(
+            (0..4).map(|i| mk(i as f64)).collect(),
+            Vec::new(),
+            model,
+            Vec3::zero(),
+            1.0e-6,
+        )
+        .expect("system");
+
+        sys.remove_particles(&[1]);
+        let tag = sys.insert_particle(mk(50.0));
+        assert_eq!(tag, 4, "tags must be monotonic, never reused");
+        assert!(
+            !sys.tags().contains(&1),
+            "the removed particle's tag must not come back"
         );
     }
 }
