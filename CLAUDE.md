@@ -716,8 +716,10 @@ Two facts that stay true regardless of version churn:
 
 - **`kopitiam check`/`kopitiam test` have no `--release` flag** and run the
   `dev` profile. Use them for fast iteration, but still run the mandated
-  `cargo check --workspace --lib --tests` / `cargo test --release` before
+  `cargo check --release --workspace --lib --tests` / `cargo test --release` before
   calling work done — do not let kopitiam's default profile substitute for it.
+  Note that running them also materialises the `target/debug` tree that the
+  release-check note under "Build & test" exists to avoid.
 - **`bn setup claude --project` is verified safe** — it writes only the
   gitignored `.claude/settings.local.json` and leaves the hand-maintained
   `.claude/settings.json` untouched. The **unflagged/global form was never
@@ -2111,12 +2113,34 @@ sudo apt install libopenblas-dev
 
 ```bash
 cargo build --workspace --release                  # all libraries
-cargo check --workspace --lib --tests              # type-check (mode-independent)
+cargo check --release --workspace --lib --tests     # type-check (see note below)
 cargo test  --workspace --lib --tests --release    # run the test suites
 ```
 
 Note: a bare `cargo test --workspace` also compiles the **examples**. Use
 `--lib --tests` to skip them.
+
+**Type-check in RELEASE too — `--release` on `cargo check` as well (maintainer
+direction, 2026-09-17).** The check line above used to omit `--release` and was
+annotated "mode-independent". It is mode-independent in what it *reports* — the
+same type errors either way — but not in what it *costs*: without `--release`
+cargo builds a second, complete `target/debug` tree beside the release one, so a
+40+ crate workspace pays for two full sets of artifacts.
+
+Measured on this workspace, 2026-09-17: `target/debug` had grown to **3.7 GB**
+beside a 13 GB `target/release`, on a container whose writable allowance is
+roughly 38 GB — of which ~11 GB is the base image and toolchain before any build
+starts. Deleting `target/debug` was pointless while the mandated check command
+rebuilt it: it was back to 3.7 GB within two runs. Re-run as `cargo check
+--release --workspace --lib --tests`, it finished in **85 s against the existing
+release tree, exit 0, with `target/release` unchanged at 13 GB** and no debug
+tree created at all.
+
+So: **pass `--release` to `cargo check` as well**, and keep a single build tree.
+This is the same reasoning as the release-mode rule under "Workflow rules" — it
+simply extends it to the type-check, which had been the one command still
+pulling in the dev profile. `cargo quick-test` (`.cargo/config.toml`) already
+expands to a `--release` invocation and is unaffected.
 
 ### TUAS natural-circulation tests are VERY long running — run them in parallel
 
