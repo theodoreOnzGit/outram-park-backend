@@ -870,6 +870,56 @@ Item 2 is now measured and excluded. **Neither of the remaining two has been
 measured.** They are where to look next, not findings — and `op-os8x` itself
 remains unexplained.
 
+### Update, 2026-09-17: item 2's exclusion had a nuclide-shaped hole, now closed
+
+The transfer-table comparison above ran on **U-238 only**, while **Godiva is
+93.7 % U-235 by atom density**. Every other oracle in this directory already
+covered both nuclides — `band_xs_oracle.py` iterates `[("U235", …), ("U238",
+…)]`, `chi_shape_oracle.py` loads both — but the one measuring *where an
+inelastic collision actually puts the neutron*, the leading suspect, did not.
+So "the MT=91 transfer is excluded" was a statement about the minority nuclide.
+
+That is the **fifth** time in this study an exclusion turned out to be only as
+wide as the window it was measured in, and the first where the missing axis was
+the **nuclide** rather than the energy band. The substitution was never safe:
+the two laws are genuinely unalike — at 2 MeV U-235 puts **18.4 %** of its
+emission below 300 keV against U-238's **~30 %**, and its `⟨E'⟩` is 643 keV
+against U-238's 385 keV.
+
+`mt91_transfer_oracle.py` is now parameterised over the nuclide and
+`tests/mt91_transfer_vs_openmc.rs` runs both:
+
+| nuclide | rows | worst `⟨E'⟩` | worst median | worst `P(E' < 300 keV)` | signed bias |
+|---|---|---|---|---|---|
+| U-238 | 37 | **0.0000 %** | 0.0000 % | 0.000000 | −0.0000 % |
+| U-235 | 25 | **0.0000 %** | 0.0000 % | 0.000000 | +0.0000 % |
+
+over 1.5–10 MeV, with the first moment integrated in closed form on both sides
+(the trapezoid correction above). **The MT=91 `f₀(E→E')` shape is excluded on
+both nuclides** — exactly equal, not merely consistent.
+
+**So the leading suspect is gone, and the suspect list is now:**
+
+1. **Competing-channel branching at 2–5 MeV** — which MT a collision is assigned
+   to, as distinct from the cross sections. Still unmeasured on U-235.
+2. **U-234.** The third ICSBEP nuclide (4.9184e-4 /b·cm) has never appeared in
+   *any* oracle in this directory. Small, but unexamined is unexamined.
+3. **The discrete-level path.** `op-tm9f` wired in the MF=4 angular
+   distributions and `cm_to_lab` is verified to 1e-14, but the level Q-values
+   and the level-selection probabilities have not been compared against
+   OpenMC's ACE `LQR`/partial cross sections. Note that no U-238 or U-235
+   discrete level has `|Q|` in 1.75–2.95 MeV (checked 2026-09-17, 39 levels on
+   each, MT=51–89, MT=90 absent from both evaluations), so **no discrete level
+   can move a 2.5 MeV neutron to ~100 keV in one collision** — which is what
+   made MT=91 the leading suspect in the first place, and is why its exclusion
+   leaves the mechanism genuinely open rather than merely narrowed.
+4. **MT=16/17/5 secondary spectra** above ~6 MeV, which bear on the 3.0–4.8 MeV
+   excess that the reflective-boundary run re-localised to. MT=5 gained a
+   transport branch only on 2026-09-17 and MT=17 on 2026-09-16.
+
+`op-os8x` remains **unexplained**, and is now unexplained with its best
+hypothesis measured and rejected rather than untested.
+
 ## Scope, and what this is not
 
 **Verification, not validation.** Everything here compares codes to each other

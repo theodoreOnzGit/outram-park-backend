@@ -32,6 +32,29 @@
 //! must change. Either way it is a data-level comparison needing no transport,
 //! no seeds and no statistics.
 //!
+//! # The answer (2026-09-17): the laws agree exactly, on BOTH nuclides
+//!
+//! | nuclide | rows | worst `⟨E'⟩` | worst median | worst `P(E' < 300 keV)` | signed bias |
+//! |---|---|---|---|---|---|
+//! | U-238 | 37 | **0.0000 %** | 0.0000 % | 0.000000 | −0.0000 % |
+//! | U-235 | 25 | **0.0000 %** | 0.0000 % | 0.000000 | +0.0000 % |
+//!
+//! over 1.5–10 MeV. **The MT=91 `f₀(E→E')` shape is excluded as the cause of
+//! `op-os8x`** — not "consistent with", exactly equal to every digit the oracle
+//! carries. The suspect list must change.
+//!
+//! **U-235 was added on 2026-09-17 and is the point of this revision.** Until
+//! then this comparison ran on U-238 alone, while **Godiva is 93.7 % U-235 by
+//! atom density** — so the standing claim "the MT=91 transfer is excluded" was
+//! a statement about the *minority* nuclide. Every other `op-os8x` oracle in
+//! `verification_and_validation/openmc_godiva_cross_code/` already covered
+//! both. This is the fifth time in this study that an exclusion turned out to
+//! be only as wide as the window it was measured in, and the first where the
+//! window's missing axis was the **nuclide** rather than the energy band. The
+//! two laws are genuinely unalike — at 2 MeV U-235 puts 18.4 % of its emission
+//! below 300 keV against U-238's ~30 % — so the substitution was never safe,
+//! and it happens to have been harmless only because both are right.
+//!
 //! # Provenance — both sides trace to one evaluation
 //!
 //! - **Ours:** `reference-data/endf/n-092_U_238.endf`, MF=6/MT=91, read by
@@ -168,6 +191,77 @@ const OPENMC_MT91: &[(f64, f64, f64, f64)] = &[
 
 /// Trapezoidal mean, median and `P(E' < 300 keV)` of one tabulated outgoing-energy
 /// row — the same three functionals, computed the same way, as the Python oracle.
+/// The same law for **U-235**, added 2026-09-17. Columns as above.
+///
+/// # Why this was missing, and why it matters most
+///
+/// Every other `op-os8x` oracle in
+/// `verification_and_validation/openmc_godiva_cross_code/` covers both
+/// nuclides (`band_xs_oracle.py` iterates `[("U235", …), ("U238", …)]`;
+/// `chi_shape_oracle.py` loads both). The one that measures *where an inelastic
+/// collision actually puts the neutron* — the leading suspect — ran on **U-238
+/// only**, while **Godiva is 93.7 % U-235 by atom density**.
+///
+/// So "the MT=91 transfer is excluded" was a statement about the minority
+/// nuclide. That is the same shape of gap as the 1.5–3.5 MeV band described
+/// above, one axis over: **an exclusion is only as wide as the window it was
+/// measured in**, and the window has a nuclide axis as well as an energy one.
+///
+/// The two laws are not alike, which is why the substitution was never safe:
+/// at 2 MeV U-235 puts **18.4 %** of its emission below 300 keV against
+/// U-238's **~30 %**, and its `⟨E'⟩` is 643 keV against U-238's 385 keV.
+const OPENMC_MT91_U235: &[(f64, f64, f64, f64)] = &[
+    (1.555e6, 4.719317e5, 4.625502e5, 0.264249),
+    (1.727e6, 5.391136e5, 5.220811e5, 0.222175),
+    (2.000e6, 6.427320e5, 6.245720e5, 0.183508),
+    (2.171e6, 6.976118e5, 6.848496e5, 0.168325),
+    (2.370e6, 7.548124e5, 7.144997e5, 0.156986),
+    (2.600e6, 8.119853e5, 7.594616e5, 0.147352),
+    (2.927e6, 8.783601e5, 8.377460e5, 0.135243),
+    (3.344e6, 9.491878e5, 8.766601e5, 0.126396),
+    (3.927e6, 1.041300e6, 9.397689e5, 0.113293),
+    (4.400e6, 1.122726e6, 9.753941e5, 0.103658),
+    (4.897e6, 1.214676e6, 1.030472e6, 0.096331),
+    (5.382e6, 1.312350e6, 1.073451e6, 0.087627),
+    (5.500e6, 1.343836e6, 1.088234e6, 0.081289),
+    (5.600e6, 1.378837e6, 1.111680e6, 0.069607),
+    (5.700e6, 1.427410e6, 1.147394e6, 0.053676),
+    (5.850e6, 1.520951e6, 1.218529e6, 0.033018),
+    (6.000e6, 1.632179e6, 1.300736e6, 0.019331),
+    (6.400e6, 2.005629e6, 1.617538e6, 0.007486),
+    (7.000e6, 2.717188e6, 2.222941e6, 0.005642),
+    (7.400e6, 3.275239e6, 2.859784e6, 0.004906),
+    (7.760e6, 3.785798e6, 3.529541e6, 0.004346),
+    (8.400e6, 4.640075e6, 4.637270e6, 0.003285),
+    (9.000e6, 5.367814e6, 5.468270e6, 0.002447),
+    (9.370e6, 5.788770e6, 5.908467e6, 0.002079),
+    (1.000e7, 6.470521e6, 6.594237e6, 0.001632),
+];
+
+/// One nuclide's comparison: our tape, our label, OpenMC's extracted law, and
+/// how many rows must match for the comparison to mean anything.
+struct Mt91Case {
+    label: &'static str,
+    endf: &'static str,
+    oracle: &'static [(f64, f64, f64, f64)],
+    min_rows: usize,
+}
+
+const MT91_CASES: &[Mt91Case] = &[
+    Mt91Case {
+        label: "U238",
+        endf: "n-092_U_238.endf",
+        oracle: OPENMC_MT91,
+        min_rows: 15,
+    },
+    Mt91Case {
+        label: "U235",
+        endf: "n-092_U_235-ENDF8.0.endf",
+        oracle: OPENMC_MT91_U235,
+        min_rows: 15,
+    },
+];
+
 fn moments(e_out: &[f64], pdf: &[f64]) -> Option<(f64, f64, f64)> {
     if e_out.len() < 2 {
         return None;
@@ -239,17 +333,29 @@ fn moments(e_out: &[f64], pdf: &[f64]) -> Option<(f64, f64, f64)> {
 /// failure messages. A regression that moves either side will trip them.
 #[test]
 fn mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band() {
+    for case in MT91_CASES {
+        check_mt91_transfer(case);
+    }
+}
+
+fn check_mt91_transfer(case: &Mt91Case) {
+    let Mt91Case {
+        label,
+        endf,
+        oracle,
+        min_rows,
+    } = *case;
     let Some(tape_path) = reference_file_or_skip(
         "endf",
-        "n-092_U_238.endf",
-        "U-238 evaluation (MT=91 transfer vs OpenMC)",
+        endf,
+        &format!("{label} evaluation (MT=91 transfer vs OpenMC)"),
     ) else {
         return;
     };
-    let nuc = Nuclide::from_endf_file(&tape_path, "U238", TEMP_K, 1.0e-3).expect("U-238");
+    let nuc = Nuclide::from_endf_file(&tape_path, label, TEMP_K, 1.0e-3).expect("evaluation");
     let law = nuc
         .continuum_law(91)
-        .expect("U-238 carries an MF=6 LAW=1 MT=91 emission law");
+        .unwrap_or_else(|| panic!("{label} carries an MF=6 LAW=1 MT=91 emission law"));
     assert!(
         law.cm_frame,
         "our MT=91 law reports LAB frame; OpenMC reports centre-of-mass for this reaction, so \
@@ -258,7 +364,7 @@ fn mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band() {
     assert_eq!(
         law.branches.len(),
         1,
-        "U-238 MT=91 has {} neutron subsections; this comparison assumes the single-branch \
+        "{label} MT=91 has {} neutron subsections; this comparison assumes the single-branch \
          layout OpenMC collapses to.",
         law.branches.len()
     );
@@ -278,7 +384,7 @@ fn mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band() {
     let mut compared = 0usize;
     let mut signed_mean_sum = 0.0f64;
 
-    for &(e_ref, mean_ref, med_ref, below_ref) in OPENMC_MT91 {
+    for &(e_ref, mean_ref, med_ref, below_ref) in oracle {
         // Match on incident energy; both grids come from the same MF=6, so an
         // exact-to-rounding match is expected. A row we cannot match is
         // reported, not silently skipped -- a silent skip could empty the test.
@@ -310,16 +416,16 @@ fn mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band() {
     }
 
     assert!(
-        compared >= 15,
-        "only {compared} of {} OpenMC rows matched an incident row on our side. The two grids \
-         should coincide -- both come from the same MF=6 section -- so this means one side's \
-         incident grid is being rebuilt, and the comparison is not the one intended.",
-        OPENMC_MT91.len()
+        compared >= min_rows,
+        "[{label}] only {compared} of {} OpenMC rows matched an incident row on our side. The \
+         two grids should coincide -- both come from the same MF=6 section -- so this means \
+         one side's incident grid is being rebuilt, and the comparison is not the one intended.",
+        oracle.len()
     );
 
     let bias = signed_mean_sum / compared as f64;
     println!(
-        "\n  {compared} rows compared. Worst |d| : mean {worst_mean:.4} %, median \
+        "\n  [{label}] {compared} rows compared. Worst |d| : mean {worst_mean:.4} %, median \
          {worst_med:.4} %, P(E'<300keV) {worst_below:.6} absolute. Mean-of-signed-deviation \
          (a systematic bias would show here, a scatter would not): {bias:+.4} %."
     );
@@ -330,18 +436,18 @@ fn mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band() {
     // of order the residual (~1 %).
     assert!(
         worst_mean < 1.0,
-        "worst mean-outgoing-energy disagreement is {worst_mean:.4} %, above the 1 % gate. Our \
+        "[{label}] worst mean-outgoing-energy disagreement is {worst_mean:.4} %, above the 1 % gate. Our \
          MT=91 transfer law differs from OpenMC's on the same evaluation -- which would make it \
          the cause of op-os8x rather than merely its leading suspect."
     );
     assert!(
         worst_below < 0.01,
-        "worst P(E' < 300 keV) disagreement is {worst_below:.6} absolute, above the 0.01 gate. \
+        "[{label}] worst P(E' < 300 keV) disagreement is {worst_below:.6} absolute, above the 0.01 gate. \
          300 keV is where op-os8x's missing flux went, so a disagreement here is the residual."
     );
     assert!(
         bias.abs() < 0.5,
-        "the signed mean deviation is {bias:+.4} %, a systematic bias rather than scatter. Our \
+        "[{label}] the signed mean deviation is {bias:+.4} %, a systematic bias rather than scatter. Our \
          law is moving neutrons {} far on average than OpenMC's.",
         if bias > 0.0 { "less" } else { "more" }
     );

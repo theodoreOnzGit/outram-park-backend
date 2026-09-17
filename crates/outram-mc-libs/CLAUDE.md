@@ -225,9 +225,29 @@ maturity gate in that file for what this means and how the bar is revised.
      window, and the only channel that moves a 2 MeV neutron to ~100 keV in one
      collision is **inelastic** — elastic off U-238 loses at most 1.7 % per
      collision. It is *not* the angular law (both `op-tm9f` and `op-og56` are
-     in) and *not* the cross sections (≤ 0.06 % flux-weighted). Leading
-     suspect: the MT=91 continuum `f₀(E→E')` shape. Full record and the
-     measurement that would discriminate the candidates:
+     in) and *not* the cross sections (≤ 0.06 % flux-weighted). The leading
+     suspect was the MT=91 continuum `f₀(E→E')` shape.
+
+     **That suspect is now measured and REJECTED (2026-09-17).** The transfer
+     comparison had run on **U-238 only**, while Godiva is **93.7 % U-235**;
+     `tests/mt91_transfer_vs_openmc.rs` now runs both, and over 1.5–10 MeV both
+     agree with OpenMC to **0.0000 %** in `⟨E'⟩`, median and `P(E' < 300 keV)`
+     — 37 rows on U-238, 25 on U-235. Exactly equal, not merely consistent. It
+     is the fifth time in this study that an exclusion proved only as wide as
+     the window it was measured in, and the first where the missing axis was
+     the **nuclide**; the two laws are genuinely unalike (at 2 MeV U-235 puts
+     18.4 % below 300 keV against U-238's ~30 %), so the substitution was never
+     safe.
+
+     Also checked and worth having: **no U-235 or U-238 discrete level has
+     `|Q|` in 1.75–2.95 MeV** (39 levels each, MT=51–89; MT=90 is absent from
+     both evaluations), so no discrete level can move a 2.5 MeV neutron to
+     ~100 keV in one collision. That is what made MT=91 the leading suspect,
+     and is why rejecting it leaves the **mechanism genuinely open** rather
+     than merely narrowed. The suspect list is now competing-channel branching
+     on U-235, **U-234** (which has never appeared in any oracle), the discrete
+     levels' `Q` and selection probabilities, and the MT=16/17/5 spectra above
+     ~6 MeV. Full record:
      `verification_and_validation/openmc_godiva_cross_code/README.md`.
      right `k` too**; what rules that out *here* is the `k_inf` check above, not
      the size of the residual.
