@@ -369,3 +369,113 @@ Be-9 is in none of this workspace's criticality cases, so none of this moves a
 
 Gates: `njoy-outram-park-fork`'s `tests/mf6_law7_conversion.rs` and
 `outram-mc-libs`'s `tests/law7_lab_angle_energy_transport.rs`.
+
+## MF=4 + MF=5 emission wired in, and a V&V reference found wrong (2026-09-16)
+
+### The gap, and how it was found
+
+A coverage survey (`tests/continuum_law_coverage_survey.rs`) asked a question
+nobody had asked directly: **where does the Weisskopf evaporation stand-in still
+fire?** It classifies every `(tape, MT)` a transport run reaches into
+"evaluated", "MF=4/5", "nothing anywhere" and "MF=6 present but no law".
+
+Its first version counted 11 sections as benign — "the evaluation carries no
+MF=6, so the stand-in is all there is". **That was wrong, and checking rather
+than assuming showed it**: all 11 carry both MF=4 and MF=5.
+
+| tape | MTs | MF=4 `LTT` | MF=5 `LF` |
+|---|---|---|---|
+| Li-7 ENDF/B-VIII.0 | 16 | 2 (tabulated) | 1 |
+| C-12 ENDF/B-VIII.0 | 91 | 0 (isotropic) | 9 (evaporation) |
+| Sr-88 ENDF/B-VIII.1 | 16, 17, 91 | 1 | 1 |
+| U-238 JENDL-3.3 | 16, 17, 91 | 2 / 1 | 1 |
+| Pu-239 JENDL-3.3 | 16, 17, 91 | 2 / 1 | 1 |
+
+Ten of eleven are `LF=1`, one is `LF=9`; **all eleven are `LCT = 1`
+(laboratory)**. Every `LF` and `LTT` involved was already ported. The gap was
+the reading, not the representation — the same shape as LAW=6 and LAW=7.
+
+Coverage now: **42 sections from MF=6, 11 from MF=4/5, 0 on the stand-in.**
+
+### The frame question, settled upstream rather than argued
+
+ENDF-102 puts MF=5 secondary energies in the laboratory system while MF=4 carries
+its own `LCT`, so one frame flag looked unable to express the pair. Reading NJOY
+settled it in one look: `acefc.f90:5825-5869` takes `lct` from **MF=4's** own
+CONT record and sets the ACE `TY` sign from it — one flag per reaction, from
+MF=4. `UncorrelatedEmission::from_endf` refuses `LCT >= 2` rather than shipping
+an untested frame transform; no held evaluation exercises it.
+
+### Reuse, not conversion — and why this one is the exception
+
+Every other law here converts into `ChiTabular` to reuse the continuum sampler.
+This one deliberately does not: `sample_chi` already samples every ported MF=5
+`LF` (including the analytic ones) and `sample_mf4_mu_cm` already implements
+OpenMC's statistical-neighbour convention on MF=4's own grid. Converting would
+have replaced two exact samplers with one tabulated approximation and forced MF=4
+onto MF=5's unrelated energy grid. `Nuclide::sample_inelastic_emission` is now
+the single place the MF=6 / MF=4+5 / stand-in choice is made.
+
+Measured (`outram-mc-libs`'s `tests/mf45_uncorrelated_emission.rs`), JENDL-3.3
+U-238 MT=91 at 13 MeV, 200 000 collisions:
+
+| quantity | sampled | evaluation | |
+|---|---|---|---|
+| `<E'>` | 8.171914e6 eV ± 3.3e3 | 8.177120e6 eV | 1.58 sigma |
+| `<mu>` | +0.339126 ± 0.001208 | +0.339994 | 0.72 sigma |
+
+### The defect this uncovered: `mean_cosine` used the wrong quadrature
+
+`EnergyAngular::mean_cosine` integrated `mu*f(mu)` by the **trapezoid rule**,
+under a comment asserting that was exact because `f` is lin-lin. `f` linear makes
+`mu*f(mu)` **quadratic**, and trapezoid is exact only for a linear integrand.
+
+The truth needs no quadrature: for MF=4 `LTT=1` the mean cosine is **exactly
+`a_1`**, the first normalised Legendre coefficient, straight off the tape.
+U-235 MT=2:
+
+| E (eV) | grid pts | `a_1` (exact) | closed form | trapezoid |
+|---|---|---|---|---|
+| 1.0e3 | 9 | +0.001195 | **+0.001195** | +0.001232 |
+| 1.0e5 | 9 | +0.126123 | **+0.126091** | +0.130067 |
+| 2.0e6 | 92 | +0.621682 | **+0.622143** | +0.622697 |
+
+At 1.0e5 eV the trapezoid rule is **123 times** further from the truth.
+
+**It had propagated into a V&V reference.** `elastic_mubar_vs_openmc.rs`'s
+oracle is, by its own provenance note, *"the trapezoidal integral of
+`mu*p(mu)`"* — and its committed `0.13007` reproduces **our trapezoid** to 3e-6
+while the true value is `0.12612`. That test was passing on **two matching
+errors**, the failure mode it exists to prevent. It surfaced only because fixing
+the library made it fail.
+
+Resolution, with nothing loosened:
+
+- `mean_cosine` integrates in closed form.
+- New exact gate, `tests/mf4_mean_cosine_vs_legendre_a1.rs`: 1857 Legendre rows
+  across U-235 and U-238, worst **1.20e-3 below 6 MeV** (gate 2e-3, which the
+  trapezoid's 3.9e-3 fails), 6.21e-3 over the full range to 30 MeV.
+- Both OpenMC mu-bar tests reproduce the oracle's own quadrature locally, clearly
+  labelled, so they compare like with like at their original tolerances —
+  elastic back to **5.58e-4** (recorded 5.6e-4), inelastic to **3.13e-3**
+  (recorded 3.1e-3). They still check the *parse* against an independent code;
+  the *integral* is now checked far more sharply by `a_1`.
+
+**A hypothesis checked and killed.** The residual above 6 MeV was first blamed on
+`legendre_cosine_law`'s positivity clamp, which would legitimately move the mean
+away from `a_1`. The test evaluates the raw series at every grid point itself:
+**zero rows are clamped.** It is the lineariser's `ANGLE_TOL = 5e-3` (stated on
+`f`, leaving a residual in a *moment* of `f`) — U-238 MT=59 at 13 MeV has 129
+grid points and still differs by 6.2e-3, so it is not a coarse grid.
+
+**Flagged, not fixed:** tightening `ANGLE_TOL` would reduce that at the cost of
+larger tables. The whole effect sits above 6 MeV, and changing a lineariser
+tolerance moves every angular table in the workspace — that deserves its own
+paired measurement, not a drive-by.
+
+### Scope
+
+None of this workspace's criticality cases is affected by the MF=4/5 wiring:
+Godiva and the thermal cases run on ENDF/B-VIII.0 evaluations that all carry
+MF=6. The `mean_cosine` fix does reach the fast-tier MGXS `mu-bar` column and
+anything reading `elastic_mubar_cm` / `inelastic_mubar_cm`.

@@ -23,7 +23,7 @@ use njoy_outram_park_fork::acer::angular::ElasticAngular;
 use njoy_outram_park_fork::endf::interp::eval_tab1;
 use njoy_outram_park_fork::endf::Tab1;
 use njoy_outram_park_fork::nuclear_data::secondary::{
-    ChiEout, ChiTabular, ContinuumEmission, FissionSpectrum, NuBar,
+    ChiEout, ChiTabular, ContinuumEmission, FissionSpectrum, NuBar, UncorrelatedEmission,
 };
 use njoy_outram_park_fork::nuclear_data::{Mgxs, MgxsLibrary};
 use njoy_outram_park_fork::purr::{UrrProbabilityTables, UrrSample};
@@ -279,6 +279,18 @@ struct ContinuumLaws {
     mt16: Option<ContinuumEmission>,
     /// MT=17, (n,3n).
     mt17: Option<ContinuumEmission>,
+    /// The **pre-ENDF-6** law for the same three reactions: MF=5 energy + MF=4
+    /// cosine, uncorrelated. Populated only where the evaluation has no MF=6 for
+    /// that MT, so a nuclide never carries both for one reaction.
+    ///
+    /// Added 2026-09-16. A coverage survey over `reference-data/endf/` found 11
+    /// sections (Li-7 MT=16, C-12 MT=91, Sr-88 and the JENDL-3.3 U-238 and
+    /// Pu-239 MT=16/17/91) where the evaluation supplies a full emission law
+    /// this way and transport was substituting a Weisskopf evaporation shape
+    /// anyway. None of them appears in this workspace's criticality cases, so no
+    /// reported `k` changes — it was a silent substitution over data that was
+    /// present, which is the thing worth not doing.
+    uncorrelated: [(i32, Option<UncorrelatedEmission>); 3],
 }
 
 impl Nuclide {
@@ -849,8 +861,7 @@ impl Nuclide {
         nladr: usize,
         nsamp: usize,
     ) -> Result<Self, NjoyError> {
-        self.urr =
-            UrrProbabilityTables::from_endf(tape, mat, temperature_k, nbin, nladr, nsamp)?;
+        self.urr = UrrProbabilityTables::from_endf(tape, mat, temperature_k, nbin, nladr, nsamp)?;
         Ok(self)
     }
 
@@ -1236,12 +1247,36 @@ impl Nuclide {
         //    so without these the transport layer falls back to a Weisskopf
         //    evaporation stand-in whose mean is ~33 % too hard at 2 MeV on
         //    U-238 (njoy `tests/mf6_continuum_emission_vs_tape.rs`). An
-        //    evaluation with no MF=6 for a reaction, or one using a law this
-        //    port does not read, yields `None` and keeps the stand-in.
+        //    evaluation with no MF=6 for a reaction falls through to step 7b.
+        let mt91 = ContinuumEmission::from_endf_mf6(tape, mat, 91)?;
+        let mt16 = ContinuumEmission::from_endf_mf6(tape, mat, 16)?;
+        let mt17 = ContinuumEmission::from_endf_mf6(tape, mat, 17)?;
+
+        // 7b. The pre-ENDF-6 form of the same physics, for the reactions where
+        //     step 7 found nothing: MF=5 outgoing energy + MF=4 cosine,
+        //     uncorrelated. MF=6 wins wherever it exists, which is what ACER
+        //     does, so this is tried only on a `None` above and a nuclide never
+        //     carries both for one MT.
+        //
+        //     Added 2026-09-16 after a coverage survey measured 11 sections in
+        //     `reference-data/endf/` whose evaluated law was present in MF=4/5
+        //     and being replaced by the Weisskopf stand-in anyway. Both halves
+        //     had exact samplers here already; only the reading was missing.
+        let uncorr = |mt: i32, have_mf6: bool| -> Result<Option<UncorrelatedEmission>, NjoyError> {
+            if have_mf6 {
+                return Ok(None);
+            }
+            UncorrelatedEmission::from_endf(tape, mat, mt)
+        };
         let continuum = ContinuumLaws {
-            mt91: ContinuumEmission::from_endf_mf6(tape, mat, 91)?,
-            mt16: ContinuumEmission::from_endf_mf6(tape, mat, 16)?,
-            mt17: ContinuumEmission::from_endf_mf6(tape, mat, 17)?,
+            uncorrelated: [
+                (91, uncorr(91, mt91.is_some())?),
+                (16, uncorr(16, mt16.is_some())?),
+                (17, uncorr(17, mt17.is_some())?),
+            ],
+            mt91,
+            mt16,
+            mt17,
         };
 
         Ok(Self {
@@ -1296,6 +1331,87 @@ impl Nuclide {
             17 => self.continuum.mt17.as_ref(),
             _ => None,
         }
+    }
+
+    /// Sample the outgoing state of an inelastic or multiplying collision on
+    /// reaction `mt` (91, 16 or 17) at incident energy `e` \[eV\] and direction
+    /// `u`, using **whichever emission law the evaluation actually supplies**.
+    ///
+    /// This is the single place the three-way choice is made, so a call site
+    /// cannot accidentally consult one representation and miss the other:
+    ///
+    /// 1. **MF=6** ([`continuum_law`](Self::continuum_law)) — the correlated
+    ///    energy-angle law of a modern evaluation. Preferred wherever present,
+    ///    which is what ACER does.
+    /// 2. **MF=4 + MF=5** ([`uncorrelated_law`](Self::uncorrelated_law)) — the
+    ///    older, uncorrelated form. Reached only when there is no MF=6 for this
+    ///    MT.
+    /// 3. **Weisskopf evaporation stand-in** — only when the evaluation supplies
+    ///    no secondary-energy law at all. Since 2026-09-16 this genuinely means
+    ///    "the evaluation has nothing", where before it also covered "this port
+    ///    did not look at MF=4/5".
+    ///
+    /// `q` is used by the stand-in and by the MF=6 path's two-body energy cap;
+    /// the MF=4/5 path does not need it, because MF=5 tabulates laboratory
+    /// outgoing energies directly and carries its own upper limit.
+    ///
+    /// # Frame
+    ///
+    /// Returns a **laboratory** energy and direction in every branch. The MF=6
+    /// path applies the CM→lab transform when the section says `LCT >= 2`; the
+    /// MF=4/5 path never needs one, because
+    /// [`UncorrelatedEmission::from_endf`] refuses a centre-of-mass MF=4 rather
+    /// than guessing at a transform it has no evaluation to check against.
+    pub fn sample_inelastic_emission(
+        &self,
+        mt: i32,
+        e: f64,
+        u: crate::geometry::position::Direction,
+        q: f64,
+        seed: &mut u64,
+    ) -> (f64, crate::geometry::position::Direction) {
+        use crate::physics::scatter::{
+            continuum_inelastic_scatter, continuum_inelastic_scatter_evaluated, rotate_direction,
+        };
+        if let Some(law) = self.continuum_law(mt) {
+            return continuum_inelastic_scatter_evaluated(e, u, self.awr, q, Some(law), seed);
+        }
+        if let Some(law) = self.uncorrelated_law(mt) {
+            let (e_out, mu) = sample_uncorrelated_emission(law, e, seed);
+            // `lct == 1` is guaranteed by `UncorrelatedEmission::from_endf`, so
+            // both halves are already laboratory-frame and only the rotation
+            // about the incident direction is needed.
+            return (e_out, rotate_direction(u, mu, seed));
+        }
+        continuum_inelastic_scatter(e, u, self.awr, q, seed)
+    }
+
+    /// Whether the evaluation supplies a real emission law for `mt`, in either
+    /// representation — i.e. whether
+    /// [`sample_inelastic_emission`](Self::sample_inelastic_emission) will draw
+    /// from the evaluation rather than from the Weisskopf stand-in.
+    ///
+    /// The multiplying reactions use this to decide whether a second or third
+    /// emitted neutron gets an **independent draw** (what a real law means) or a
+    /// copy of the primary's state (all the stand-in can offer).
+    pub fn has_evaluated_emission(&self, mt: i32) -> bool {
+        self.continuum_law(mt).is_some() || self.uncorrelated_law(mt).is_some()
+    }
+
+    /// The **uncorrelated MF=4 + MF=5** emission law for `mt` (91, 16 or 17),
+    /// present only on evaluations that carry no MF=6 for that reaction.
+    ///
+    /// A nuclide never has both this and [`continuum_law`](Self::continuum_law)
+    /// for one MT — MF=6 is preferred wherever it exists, which is what ACER
+    /// does. `None` from *both* is the signal to keep the Weisskopf evaporation
+    /// stand-in, and now genuinely means the evaluation supplies no law at all
+    /// rather than "this port did not look".
+    pub fn uncorrelated_law(&self, mt: i32) -> Option<&UncorrelatedEmission> {
+        self.continuum
+            .uncorrelated
+            .iter()
+            .find(|(m, _)| *m == mt)
+            .and_then(|(_, l)| l.as_ref())
     }
 
     /// Whether this nuclide's MT=91 continuum inelastic uses the **evaluated**
@@ -1997,6 +2113,51 @@ fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
 ///
 /// All four energy-dependent laws (LF=7/9/11 plus the ContinuousTabular envelope
 /// scaling) are ported from `src/distribution_energy.cpp`.
+/// Sample an **uncorrelated MF=4 + MF=5 emission** at incident energy `e_in`
+/// \[eV\], returning `(E' \[eV\], mu)` in the frame the law names.
+///
+/// # What this is
+///
+/// The pre-ENDF-6 representation of a continuum or multiplying reaction: the
+/// outgoing energy comes from MF=5 and the cosine from MF=4, **drawn
+/// independently** because the evaluation states no correlation between them.
+/// Ten of the eleven such sections in `reference-data/endf/` use MF=5 `LF=1`
+/// (tabulated) and one uses `LF=9` (evaporation); all eleven are `LCT = 1`
+/// (laboratory).
+///
+/// # Why this reuses rather than converts
+///
+/// Both halves already have exact samplers here — [`sample_chi`] covers every
+/// ported `LF` including the analytic ones, and [`sample_mf4_mu_cm`] implements
+/// OpenMC's statistical-neighbour convention for the AND block on MF=4's own
+/// incident grid. Converting the law into `ChiTabular` to reuse the *continuum*
+/// path would have replaced two exact samplers with one tabulated
+/// approximation, and would have had to resample MF=4 onto MF=5's unrelated
+/// energy grid. Reuse here means calling them, not rebuilding them.
+///
+/// # Variate count is deliberately not fixed
+///
+/// Unlike [`crate::physics::scatter::continuum_inelastic_scatter_evaluated_with`],
+/// this consumes a variable number of variates — `sample_mf4_mu_cm` spends one
+/// on its statistical neighbour pick only when the incident energy falls inside
+/// the tabulated grid. That is correct for this law and is why it is a separate
+/// entry point: the continuum path's ablation control depends on a fixed
+/// one-variate cosine draw, and folding this in would have broken that
+/// invariant silently.
+///
+/// Returns an isotropic cosine when the evaluation declares the reaction
+/// isotropic (`LTT = 0` or `LI = 1`, as C-12's MT=91 does) — a statement by the
+/// evaluator, not a gap in this port.
+pub fn sample_uncorrelated_emission(
+    law: &UncorrelatedEmission,
+    e_in: f64,
+    seed: &mut u64,
+) -> (f64, f64) {
+    let e_out = sample_chi(&law.energy, e_in, seed);
+    let mu = sample_mf4_mu_cm(&law.angular, e_in, seed).unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
+    (e_out, mu)
+}
+
 fn sample_chi(chi: &FissionSpectrum, e_in: f64, seed: &mut u64) -> f64 {
     match chi {
         FissionSpectrum::ContinuousTabular(t) => sample_continuous_tabular(t, e_in, seed),

@@ -34,6 +34,45 @@
 //! directly. Comparing against the nearest tabulated point instead would show
 //! spurious differences of ~4e-3 that are an artefact of the comparison.
 //!
+//! # A correction to this test (2026-09-16): it was passing on two matching
+//! errors
+//!
+//! The oracle numbers below are, per the provenance note, *"the trapezoidal
+//! integral of `mu*p(mu)` over the stored cosine grid"*, and this crate's
+//! `EnergyAngular::mean_cosine` used the same rule — under a comment asserting
+//! it was exact because `p` is lin-lin. **`p` linear makes `mu*p(mu)` quadratic,
+//! and trapezoid is exact only for a linear integrand.** Both sides carried the
+//! same bias, so they agreed.
+//!
+//! The truth is available with no quadrature at all: for an MF=4 `LTT=1` section
+//! the mean cosine is **exactly `a_1`**, the first normalised Legendre
+//! coefficient, straight off the tape. Measured on U-235 MT=2:
+//!
+//! | E (eV) | pts | `a_1` (exact) | closed form | trapezoid | oracle below |
+//! |---|---|---|---|---|---|
+//! | 1.0e3 | 9 | +0.001195 | **+0.001195** | +0.001232 | 0.00179 |
+//! | 1.0e5 | 9 | +0.126123 | **+0.126091** | +0.130067 | 0.13007 |
+//! | 2.0e6 | 92 | +0.621682 | **+0.622143** | +0.622697 | 0.62245 |
+//!
+//! At 1.0e5 eV the trapezoid rule is **123 times** further from the truth than
+//! the closed form, and the committed oracle reproduces *our trapezoid* to 3e-6.
+//! `mean_cosine` is now the closed form, and the exact `a_1` comparison is its
+//! own gate: `njoy-outram-park-fork`'s `tests/mf4_mean_cosine_vs_legendre_a1.rs`.
+//!
+//! **What this test does now.** The oracle cannot be recomputed here — only the
+//! five numbers were committed, not OpenMC's tables — so the cross-code
+//! comparison is made **like for like**: this file reproduces the oracle's own
+//! trapezoidal quadrature locally, clearly labelled, and compares that against
+//! the published numbers at the original tolerance. Nothing is loosened. It
+//! still does exactly what it was written for — checking our MF=4 *parse*
+//! against an independent code's read of the same tape — and it no longer
+//! compares two different quantities. The quadrature itself is now checked, far
+//! more sharply, by the `a_1` gate.
+//!
+//! Regenerating the oracle with the exact integral is follow-up work: it needs
+//! OpenMC rebuilt and re-run, and the `a_1` gate already covers what it would
+//! show.
+//!
 //! # Oracle provenance
 //!
 //! OpenMC 0.15.3 (commit `27e38e89`), reading `U235.h5` converted from
@@ -44,9 +83,9 @@
 //! trapezoidal quadrature is the right integral for both sides. Regenerate with
 //! `verification_and_validation/openmc_godiva_cross_code/`.
 //!
-//! # Results (2026-09-15)
+//! # Results (2026-09-15, unchanged — this is the like-for-like comparison)
 //!
-//! | E (eV) | this crate | OpenMC | difference |
+//! | E (eV) | this crate (trapezoid, as the oracle) | OpenMC | difference |
 //! |---|---|---|---|
 //! | 1.0e3 | +0.00123 | +0.00179 | −5.6e-4 |
 //! | 1.0e5 | +0.13007 | +0.13007 | 0.0 |
@@ -55,7 +94,9 @@
 //! | 5.0e6 | +0.85160 | +0.85135 | +2.5e-4 |
 //!
 //! Worst **5.6e-4**, at 1 keV where `⟨μ⟩ ≈ 0` and Godiva has negligible flux;
-//! across the MeV range that carries the flux it is ≤ 2.5e-4.
+//! across the MeV range that carries the flux it is ≤ 2.5e-4. **The parse is
+//! therefore confirmed against an independent code.** What these numbers do
+//! *not* establish is the accuracy of `⟨μ⟩` itself — see the correction above.
 //!
 //! **Elastic scattering is therefore cleared.** The Godiva leakage discrepancy
 //! is not here, which leaves the *inelastic* angular distributions this crate
@@ -77,8 +118,60 @@
 //! would be mis-sampled silently. Filed rather than fixed, because fixing it
 //! blind, with no evaluation here that exercises it, would be untested code.
 
+use njoy_outram_park_fork::acer::angular::{parse_mf4_angular, EnergyAngular};
+use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 use outram_mc_libs::material::nuclide::Nuclide;
+
+/// `<mu>` of one tabulated cosine law by the **trapezoid rule** — the oracle's
+/// own quadrature, reproduced here so the cross-code comparison is like for
+/// like.
+///
+/// This is deliberately NOT what the library computes. `EnergyAngular::mean_cosine`
+/// integrates in closed form, because `mu*p(mu)` is quadratic on a lin-lin
+/// segment and the trapezoid rule is not exact for it. Keeping the wrong rule
+/// out of the library and inside this one comparison is the point: the oracle
+/// was built with it, so matching it here measures the *parse*, while the `a_1`
+/// gate measures the *integral*.
+fn mubar_trapezoid(d: &EnergyAngular) -> f64 {
+    if d.cosines.len() < 2 {
+        return 0.0;
+    }
+    (1..d.cosines.len())
+        .map(|i| {
+            0.5 * (d.cosines[i - 1] * d.pdf[i - 1] + d.cosines[i] * d.pdf[i])
+                * (d.cosines[i] - d.cosines[i - 1])
+        })
+        .sum()
+}
+
+/// The oracle's `<mu>(E)`: trapezoidal per table, then **linearly interpolated**
+/// in incident energy — which is the expectation of OpenMC's statistical
+/// neighbour pick, as the module docs explain.
+fn mubar_trapezoid_at(dists: &[EnergyAngular], e_ev: f64) -> f64 {
+    if dists.is_empty() {
+        return 0.0;
+    }
+    let e_mev = e_ev * 1.0e-6;
+    let n = dists.len();
+    if e_mev <= dists[0].e_mev {
+        return mubar_trapezoid(&dists[0]);
+    }
+    if e_mev >= dists[n - 1].e_mev {
+        return mubar_trapezoid(&dists[n - 1]);
+    }
+    let mut i = 0;
+    while i + 1 < n && dists[i + 1].e_mev <= e_mev {
+        i += 1;
+    }
+    let (e0, e1) = (dists[i].e_mev, dists[i + 1].e_mev);
+    let r = if e1 > e0 {
+        (e_mev - e0) / (e1 - e0)
+    } else {
+        0.0
+    };
+    (1.0 - r) * mubar_trapezoid(&dists[i]) + r * mubar_trapezoid(&dists[i + 1])
+}
 
 const TEMP_K: f64 = 293.6;
 
@@ -107,13 +200,26 @@ fn elastic_mean_cosine_matches_openmc() {
     };
     let nuc = Nuclide::from_endf_file(&tape, "U235", TEMP_K, 1.0e-3).expect("U-235 reconstructs");
 
-    println!("{:>12} {:>12} {:>12} {:>12}", "E (eV)", "ours", "OpenMC", "diff");
+    // The same MF=4 section the nuclide was built from, so the like-for-like
+    // quadrature below runs on identical data.
+    let parsed = Tape::read_file(&tape).expect("U-235 tape parses");
+    let mat = parsed.materials()[0];
+    let mf4 = parse_mf4_angular(parsed.section(mat, 4, 2).expect("U-235 has MF=4 MT=2"))
+        .expect("MF=4 parses");
+
+    println!(
+        "{:>12} {:>12} {:>12} {:>12} {:>12}",
+        "E (eV)", "ours(trap)", "OpenMC", "diff", "ours(exact)"
+    );
     let mut worst = 0.0_f64;
     for &(e, theirs) in OPENMC_MUBAR {
-        let ours = nuc.elastic_mubar_cm(e);
+        // Like for like: the oracle's quadrature on our parse.
+        let ours = mubar_trapezoid_at(&mf4.energies, e);
+        // What the library actually uses, for the record.
+        let exact = nuc.elastic_mubar_cm(e);
         let d = ours - theirs;
         worst = worst.max(d.abs());
-        println!("{e:12.3e} {ours:+12.5} {theirs:+12.5} {d:+12.2e}");
+        println!("{e:12.3e} {ours:+12.5} {theirs:+12.5} {d:+12.2e} {exact:+12.5}");
         assert!(
             d.abs() <= MUBAR_TOL,
             "elastic <mu> at {e:.3e} eV is {ours:+.5} here against OpenMC's {theirs:+.5} \
@@ -121,7 +227,10 @@ fn elastic_mean_cosine_matches_openmc() {
              <mu> sets Sigma_tr = Sigma_t(1 - <mu>) and therefore leakage, so a real \
              disagreement here would mean the MF=4 parse is wrong -- which would make the \
              Godiva leakage attribution in verification_and_validation/\
-             openmc_godiva_cross_code/ wrong too. Do not widen this tolerance to make it pass."
+             openmc_godiva_cross_code/ wrong too. Do not widen this tolerance to make it pass.\n\
+             NOTE both sides here use the TRAPEZOID rule deliberately, because that is how the \
+             oracle was computed; the accuracy of <mu> itself is gated exactly against a1 by \
+             njoy-outram-park-fork's tests/mf4_mean_cosine_vs_legendre_a1.rs."
         );
     }
     println!("  worst |difference| = {worst:.2e}");
@@ -137,8 +246,17 @@ fn elastic_mean_cosine_matches_openmc() {
             n += 1;
         }
     }
-    assert!(n > 0, "the sampler returned no anisotropic cosines at 2 MeV");
+    assert!(
+        n > 0,
+        "the sampler returned no anisotropic cosines at 2 MeV"
+    );
     let sampled = acc / n as f64;
+    // The sampler draws from the tabulated density, so its mean is that
+    // density's EXACT mean -- the closed form, not the trapezoid. Before
+    // 2026-09-16 this compared against the trapezoid and passed only because the
+    // 5e-3 tolerance is wider than the 5.5e-4 difference between the two at
+    // 2 MeV. At 1.0e5 eV, where the grid is 9 points, the same comparison would
+    // have been 4e-3 out.
     let analytic = nuc.elastic_mubar_cm(2.0e6);
     println!("  sampled <mu> at 2 MeV over {n} draws = {sampled:+.5} (analytic {analytic:+.5})");
     assert!(

@@ -957,6 +957,132 @@ pub struct ContinuumEmission {
     pub cm_frame: bool,
 }
 
+/// A **pre-ENDF-6 uncorrelated** neutron emission law: the outgoing energy from
+/// **MF=5** and the emission cosine from **MF=4**, drawn independently.
+///
+/// # When this is the law
+///
+/// A modern evaluation writes a continuum or multiplying reaction as MF=6, whose
+/// energy and angle are *correlated* — [`ContinuumEmission`]. An older one puts
+/// the energy spectrum in MF=5 and the angular distribution in MF=4, with no
+/// correlation between them. Both say what a neutron does; they are different
+/// representations, not different fidelities of the same one.
+///
+/// # Why a separate type rather than a conversion
+///
+/// Every other law in this module converts into [`ChiTabular`] so it can reuse
+/// the existing samplers (see [`ContinuumEmission::from_endf_mf6`]'s LAW=6 and
+/// LAW=7 paths). This one deliberately does not, for three reasons:
+///
+/// 1. **Both halves already have exact samplers.** `outram-mc-libs` samples every
+///    MF=5 `LF` law — including the analytic LF=7/9/11 — through `sample_chi`,
+///    and MF=4 through `sample_mf4_mu_cm`, which implements OpenMC's
+///    statistical-neighbour convention for the AND block. Converting would
+///    replace two exact paths with one tabulated approximation, which is
+///    backwards.
+/// 2. **The angular grid is its own.** MF=4's incident-energy grid is unrelated
+///    to MF=5's. Forcing the cosine law onto the energy law's grid would either
+///    resample it or index it wrongly; keeping the section intact avoids the
+///    question.
+/// 3. **Uncorrelated is a physical statement worth keeping visible.** Folding it
+///    into a correlated structure by repeating one cosine law across every
+///    outgoing row would say the same thing while hiding it.
+///
+/// # Frame
+///
+/// [`lct`](Self::lct) comes from **MF=4**, which is how NJOY decides it too:
+/// `acefc.f90:5825-5869` reads `lct` from MF=4's second CONT record and makes the
+/// ACE `TY` negative when `lct >= 2`. MF=5 carries no frame flag — ENDF-102
+/// defines its secondary energies as laboratory always.
+///
+/// Measured across `reference-data/endf/`: **all 11** MF=4/MT=16/17/91 sections
+/// are `LCT = 1` (laboratory), so no held evaluation exercises the CM branch.
+/// [`from_endf`](Self::from_endf) therefore refuses `LCT >= 2` rather than
+/// guessing at a transform it has no case to check against — an honest `None`
+/// that leaves the caller's documented fallback, not a silent approximation.
+#[derive(Debug, Clone)]
+pub struct UncorrelatedEmission {
+    /// Outgoing-energy law from MF=5. Despite the type's name this is not
+    /// necessarily fission — [`FissionSpectrum`] is simply this crate's
+    /// representation of an MF=5 section, and MF=5 is the same format wherever
+    /// it appears.
+    pub energy: FissionSpectrum,
+    /// Emission-cosine law from MF=4, on its own incident-energy grid. Empty
+    /// [`energies`](crate::acer::angular::ElasticAngular::energies) means the
+    /// evaluation declares the reaction isotropic (`LTT = 0` or `LI = 1`), which
+    /// is a statement, not an absence — C-12's MT=91 is exactly this.
+    pub angular: crate::acer::angular::ElasticAngular,
+    /// Reference frame from MF=4's `LCT`: `1` laboratory, `2` centre of mass.
+    /// Always `1` for every section in `reference-data/endf/`; see the type docs.
+    pub lct: i32,
+    /// Neutron multiplicity for this reaction — `2` for MT=16, `3` for MT=17,
+    /// `1` for MT=91. Taken from the MT, as ACER does
+    /// (`acefc.f90:5857-5866` sets `n` per MT), because MF=4/MF=5 evaluations
+    /// carry no yield record of their own.
+    pub yield_n: u32,
+}
+
+impl UncorrelatedEmission {
+    /// Read the MF=4 + MF=5 emission law for reaction `mt`, or `Ok(None)` when
+    /// this representation does not apply or cannot be read honestly.
+    ///
+    /// # Returns `Ok(None)` when
+    ///
+    /// - there is no MF=5 section for `mt` — nothing to read;
+    /// - MF=5 uses an `LF` this crate has not ported (`parse_mf5_section`
+    ///   returns `None`), rather than a partially-read mixture;
+    /// - MF=4 declares `LCT >= 2`. No evaluation in `reference-data/endf/` does,
+    ///   so a centre-of-mass branch here would be untested code deciding a frame
+    ///   transform. Refusing is the failure direction that shows up as a
+    ///   stand-in rather than as a wrong answer.
+    ///
+    /// **This is not a fallback path for MF=6.** Callers should try
+    /// [`ContinuumEmission::from_endf_mf6`] first; an evaluation carrying both
+    /// is answering the same question twice, and MF=6 is the answer ACER uses.
+    pub fn from_endf(
+        tape: &crate::endf::tape::Tape,
+        mat: i32,
+        mt: i32,
+    ) -> Result<Option<UncorrelatedEmission>, crate::NjoyError> {
+        let Some(energy) = FissionSpectrum::from_endf_mf5_mt(tape, mat, mt)? else {
+            return Ok(None);
+        };
+        // MF=4 may legitimately be absent; ENDF then means isotropic emission.
+        let angular = match tape.section(mat, 4, mt) {
+            Some(sec) => crate::acer::angular::parse_mf4_angular(sec)?,
+            None => crate::acer::angular::ElasticAngular {
+                energies: Vec::new(),
+                lct: 1,
+            },
+        };
+        if angular.lct >= 2 {
+            return Ok(None);
+        }
+        let yield_n = match mt {
+            16 => 2,
+            17 => 3,
+            37 => 4,
+            _ => 1,
+        };
+        let lct = angular.lct;
+        Ok(Some(UncorrelatedEmission {
+            energy,
+            angular,
+            lct,
+            yield_n,
+        }))
+    }
+
+    /// Whether the emission cosine carries any structure at all.
+    ///
+    /// `false` means the evaluation itself declares isotropic emission (`LTT = 0`
+    /// or `LI = 1`), which is a different fact from "this port cannot read it" —
+    /// the same distinction [`ContinuumAngular`] draws.
+    pub fn is_anisotropic(&self) -> bool {
+        !self.angular.is_all_isotropic()
+    }
+}
+
 /// Convert an ENDF **MF=6 LAW=7** (lab-frame angle-then-energy) emission into
 /// the [`ChiTabular`] + per-row cosine-CDF form the transport samplers already
 /// consume.

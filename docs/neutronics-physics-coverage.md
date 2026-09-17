@@ -503,6 +503,91 @@ would need them.
 
 ---
 
+## Where the Weisskopf stand-in still fires — asked directly, and the answer was "11 places it shouldn't"
+
+The survey above looks at MF=6. A second one
+(`njoy-outram-park-fork`'s `tests/continuum_law_coverage_survey.rs`) asks the
+question from the other end: **for every `(tape, MT)` a transport run reaches,
+does it sample the evaluation's law or a Weisskopf evaporation shape?**
+
+Its first version counted 11 sections as benign — *"the evaluation carries no
+MF=6, so the stand-in is all there is"*. Checking rather than assuming showed
+otherwise: **all 11 carry both MF=4 and MF=5**, the pre-ENDF-6 way of writing the
+same physics. Li-7 MT=16, C-12 MT=91, Sr-88 and the JENDL-3.3 U-238 and Pu-239
+MT=16/17/91. Ten use `LF=1`, one `LF=9`, and **all eleven are `LCT = 1`
+(laboratory)** — every format involved already ported. The gap was the reading.
+
+**Closed 2026-09-16.** `UncorrelatedEmission` + `Nuclide::sample_inelastic_emission`.
+Coverage is now **42 sections from MF=6, 11 from MF=4/5, 0 on the stand-in.**
+
+This one is deliberately *not* converted into `ChiTabular` the way LAW=6 and
+LAW=7 were: `sample_chi` already samples every ported MF=5 `LF` and
+`sample_mf4_mu_cm` already implements OpenMC's statistical-neighbour convention
+on MF=4's own grid, so converting would have swapped two exact samplers for one
+tabulated approximation. Measured on JENDL-3.3 U-238 MT=91 at 13 MeV over
+200 000 collisions: `⟨E'⟩` 1.58 σ and `⟨μ⟩` 0.72 σ from the evaluation's own
+values.
+
+**Scope:** no criticality case here is affected — Godiva and the thermal cases
+run on ENDF/B-VIII.0 evaluations that all carry MF=6.
+
+---
+
+## A V&V reference that was wrong, and the library defect it was hiding
+
+Found while doing the above, and the more important of the two.
+
+`EnergyAngular::mean_cosine` integrated `μ·f(μ)` by the **trapezoid rule**, under
+a comment asserting that was exact because `f` is lin-lin. **`f` linear makes
+`μ·f(μ)` quadratic**, and trapezoid is exact only for a linear integrand.
+
+The truth needs no quadrature at all: for an MF=4 `LTT=1` section the mean cosine
+is **exactly `a₁`**, the first normalised Legendre coefficient, read straight off
+the tape. On U-235 MT=2:
+
+| E (eV) | grid pts | `a₁` (exact) | closed form | trapezoid |
+|---|---|---|---|---|
+| 1.0e3 | 9 | +0.001195 | **+0.001195** | +0.001232 |
+| 1.0e5 | 9 | +0.126123 | **+0.126091** | +0.130067 |
+| 2.0e6 | 92 | +0.621682 | **+0.622143** | +0.622697 |
+
+At 1.0e5 eV the trapezoid rule is **123 times** further from the truth.
+
+**And it had propagated into a V&V reference.**
+`outram-mc-libs`'s `tests/elastic_mubar_vs_openmc.rs` compares against OpenMC
+`⟨μ⟩` values that its own provenance note describes as *"the trapezoidal integral
+of `μ·p(μ)` over the stored cosine grid"*. Its committed `0.13007` at 1.0e5 eV
+reproduces **our trapezoid** to 3e-6, while the true value is `0.12612`. That
+test was passing on **two matching errors** — precisely the failure mode a
+cross-code check exists to prevent — and it surfaced only because fixing the
+library made it fail.
+
+Resolved with nothing loosened:
+
+- `mean_cosine` integrates in closed form.
+- A new **exact** gate, `tests/mf4_mean_cosine_vs_legendre_a1.rs`: 1857 Legendre
+  rows over U-235 and U-238, worst **1.20e-3 below 6 MeV** (gated at 2e-3, which
+  the trapezoid's 3.9e-3 fails), 6.21e-3 over the full range to 30 MeV.
+- Both OpenMC μ̄ tests now reproduce the oracle's *own* quadrature locally,
+  clearly labelled, so they compare like with like at their original tolerances:
+  elastic back to **5.58e-4** (recorded 5.6e-4), inelastic **3.13e-3** (recorded
+  3.1e-3). They still check the **parse** against an independent code; the
+  **integral** is now checked far more sharply by `a₁`.
+
+**A hypothesis checked and killed.** The residual above 6 MeV was first blamed on
+`legendre_cosine_law`'s positivity clamp, which would legitimately move the mean
+off `a₁`. The test evaluates the raw Legendre series at every grid point itself:
+**zero rows are clamped.** It is the lineariser's `ANGLE_TOL = 5e-3`, stated on
+`f` and leaving a residual in a *moment* of `f` — U-238 MT=59 at 13 MeV has 129
+grid points and still differs by 6.2e-3, so it is not a coarse grid.
+
+**Flagged, not fixed:** tightening `ANGLE_TOL` would shrink it at the cost of
+larger tables. The whole effect sits above 6 MeV, and changing that tolerance
+moves every angular table in the workspace — its own paired measurement, not a
+drive-by.
+
+---
+
 ## The thermal validation gap — CLOSED 2026-09-16
 
 This document's standing caution was that the project targets **thermal**

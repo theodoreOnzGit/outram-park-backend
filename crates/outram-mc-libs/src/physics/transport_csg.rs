@@ -60,8 +60,7 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated,
-    rotate_direction, two_body_scatter, two_body_scatter_with_mu,
+    free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
@@ -778,15 +777,15 @@ pub(crate) fn transport_history(
                 let ci = material.sample_nuclide(e, seed, nuclides);
                 let nuc = &nuclides[material.components[ci].nuclide_idx];
                 let x = if nuc.needs_urr_draw(e) {
-                // Unresolved-resonance self-shielding: draw one band. The
-                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
-                // bit-identical to one from before they existed -- an
-                // unconditional draw would shift every RNG stream in the crate
-                // for no physical reason.
-                nuc.xs_at_energy_urr(e, temp, prn(seed))
-            } else {
-                nuc.xs_at_energy(e, temp)
-            };
+                    // Unresolved-resonance self-shielding: draw one band. The
+                    // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                    // bit-identical to one from before they existed -- an
+                    // unconditional draw would shift every RNG stream in the crate
+                    // for no physical reason.
+                    nuc.xs_at_energy_urr(e, temp, prn(seed))
+                } else {
+                    nuc.xs_at_energy(e, temp)
+                };
                 let xi = prn(seed) * x.total;
                 if xi < x.fission {
                     let nu_bar = if x.fission > 0.0 {
@@ -822,14 +821,9 @@ pub(crate) fn transport_history(
                                 None => two_body_scatter(e, u, nuc.awr, q, seed),
                             }
                         }
-                        Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                            e,
-                            u,
-                            nuc.awr,
-                            q,
-                            nuc.continuum_law(91),
-                            seed,
-                        ),
+                        Inelastic::Continuum { q } => {
+                            nuc.sample_inelastic_emission(91, e, u, q, seed)
+                        }
                     };
                     e = e2;
                     u = u2;
@@ -837,9 +831,8 @@ pub(crate) fn transport_history(
                     // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                     // elastic CM energy as before. Sharing the available energy between
                     // the two emitted neutrons is a separate gap (GitHub #192).
-                    let law16 = nuc.continuum_law(16);
-                    let (e2, u2) =
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                    let has16 = nuc.has_evaluated_emission(16);
+                    let (e2, u2) = nuc.sample_inelastic_emission(16, e, u, 0.0, seed);
                     // Second neutron: an **independent draw** from the same
                     // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
                     // neutron, so two independent draws is what the evaluation
@@ -847,8 +840,8 @@ pub(crate) fn transport_history(
                     // did before, and what it still does with no MF=6 law to
                     // read) correlates the pair perfectly and is GitHub #192's
                     // second open item.
-                    let (sec_e2, sec_u2) = if law16.is_some() {
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                    let (sec_e2, sec_u2) = if has16 {
+                        nuc.sample_inelastic_emission(16, e, u, 0.0, seed)
                     } else {
                         (e2, u2)
                     };
@@ -875,15 +868,14 @@ pub(crate) fn transport_history(
                     // coincides with the old `else` boundary and the partition is
                     // bit-identical to before -- which is why adding it does not move any
                     // reactor-spectrum result.
-                    let law17 = nuc.continuum_law(17);
-                    let (e2, u2) =
-                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed);
+                    let has17 = nuc.has_evaluated_emission(17);
+                    let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
                     // Two independent draws from the same evaluated law, for the same
                     // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
                     // `f0` per emitted neutron.
                     for _ in 0..2 {
-                        let (se, su) = if law17.is_some() {
-                            continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed)
+                        let (se, su) = if has17 {
+                            nuc.sample_inelastic_emission(17, e, u, 0.0, seed)
                         } else {
                             (e2, u2)
                         };
@@ -910,7 +902,15 @@ pub(crate) fn transport_history(
                             let mu_cm = nuc
                                 .sample_elastic_mu_cm(e, seed)
                                 .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                            free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
+                            free_gas_elastic_scatter_dbrc(
+                                e,
+                                u,
+                                nuc.awr,
+                                kt,
+                                mu_cm,
+                                seed,
+                                nuc.dbrc_table(),
+                            )
                         }
                     };
                     e = e2;

@@ -201,13 +201,7 @@ impl BackgroundRMatrix {
                 Ok((real, 0.0))
             }
             // samm.f90:3286-3292.
-            Self::Frohner {
-                ed,
-                eu,
-                r0,
-                r1,
-                r2,
-            } => {
+            Self::Frohner { ed, eu, r0, r1, r2 } => {
                 let esum = ed + eu;
                 let ediff = eu - ed;
                 let x = (2.0 * e - esum) / ediff;
@@ -389,7 +383,11 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
                         .to_string(),
                 ));
             }
-            let slot = if lch >= 2 { (lch - 2) as usize } else { usize::MAX };
+            let slot = if lch >= 2 {
+                (lch - 2) as usize
+            } else {
+                usize::MAX
+            };
             if lbk == 1 {
                 // samm.f90:1221-1233 — two TAB1s, real part then imaginary.
                 let re = cur.read_tab1()?;
@@ -419,13 +417,7 @@ pub fn parse_rml_section(cur: &mut SectionCursor<'_>) -> Result<RmlSection, Njoy
                             s1: body(4),
                         }
                     } else {
-                        BackgroundRMatrix::Frohner {
-                            ed,
-                            eu,
-                            r0,
-                            r1,
-                            r2,
-                        }
+                        BackgroundRMatrix::Frohner { ed, eu, r0, r1, r2 }
                     });
                 }
             }
