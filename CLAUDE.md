@@ -264,6 +264,69 @@ specifically, not just human contributors:
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
+## Get the PROCESS right first; the answer comes second (HARD RULE)
+
+**Maintainer direction, 2026-09-18.** This is the governing rule of how work is
+done in this workspace, and every other rule below is downstream of it.
+
+**Never reason backwards from a target number.** Fix the inputs, the physics,
+the instrument and the assumptions on their own merits — from literature, from
+upstream, from first principles — and then report whatever answer that
+produces. A right answer obtained by a wrong process is worth **less than
+nothing**, because it looks like evidence while carrying none: it cannot fail,
+so it cannot inform, and the next person inherits a number with no provenance.
+
+### What this forbids
+
+- **Tuning an input until a comparison passes.** The benchmark is the check; the
+  moment it becomes an input, the check is gone. (This is the same rule the
+  "Model hierarchy" section states for calibration — here it is general.)
+- **Moving a threshold to make a test pass.** If a gate fails, the first
+  hypothesis is that the *thing being gated* is wrong, not the gate.
+- **Choosing the instrument after seeing the result.** Pick the measure the
+  physics calls for, state why, and keep it even when it is unflattering.
+- **Quietly repairing a number you already published.** Correct it in place, say
+  what it was, say what changed it.
+
+### What it requires
+
+1. **Justify every input from outside the comparison.** A material property
+   comes from the literature or from the upstream code, with a citation — never
+   from what makes the answer come out right.
+2. **Fix the protocol, not the criterion.** When a bound is breached, change the
+   procedure until it is genuinely satisfied.
+3. **Match the instrument to the physics**, and say why it is the right one.
+4. **Test the assumption the result rests on**, especially when it is load-
+   bearing and convenient. An assumption that has never been able to fail is
+   not evidence.
+5. **Report the disagreement when there is one.** An honestly-derived miss is
+   worth more than a fitted hit.
+6. **Say which numbers to quote** when several exist, and why the others do not
+   count.
+
+### Worked examples — all from the HTR-10 pebble-bed work (GitHub issue #216)
+
+The published filling fraction of **0.61** had been missed by −8.7 % and the
+gap was recorded as unexplained. It was closed to **−0.9 %** — and the process
+is why the result is worth anything:
+
+| decision | the shortcut | what was done instead |
+|---|---|---|
+| friction `µ` | tune `µ` down until `φ` hits 0.61 | ran a **2×2 ablation** over the *literature* graphite range (graphite is a solid lubricant, `µ ≈ 0.1–0.2`); reported all four cells, including the two that miss by 3–6 % |
+| quasi-static bound breached at `1.57e-2` vs `1e-2` | relax the threshold | **fixed the protocol** — 4× the settle window, giving `~2e-4`; the bound is the only reason the case can claim to measure creep |
+| does the result survive? | assume rate-independence, since the theory says so | **ran the control**; it revised two of my own numbers, halving one magnitude and exposing another as an artefact |
+| bed height | keep `max z`, it was already written | `max z` is a single-pebble statistic that jumps a full diameter on one placement — switched to the **99th percentile** |
+| per-particle agreement through a chaotic rearrangement | loosen the tolerance until it passes | recognised it as **Lyapunov divergence** — asserted tightly at early time where the contact path is verifiable, loosely at late time, and documented why |
+
+And the rule cuts the other way too: **the process being right is what surfaces
+defects nobody was looking for.** Questioning whether a run was reproducible —
+an assumption no test had ever challenged — exposed a P0 defect in which the
+HTR-10 bed gave a *different answer every run*, because the neighbour grid
+iterated a randomly-seeded `HashMap`.
+
+> **The point is not that 0.61 was reached. It is that the run which reached it
+> was capable of missing.**
+
 ## Search the workspace before building anything (HARD RULE)
 
 **Before attempting a solution — and before briefing an agent on one — scan this
