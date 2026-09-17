@@ -830,3 +830,74 @@ the study has ever had, and it points away from per-collision physics
 altogether. The candidates it leaves are ones nobody has written down yet; the
 honest next move is to look at what differs *between* collisions rather than
 within one.
+
+
+---
+
+## `op-os8x`: the cross sections excluded properly, and the residual shown robust (2026-09-17)
+
+### The "excluded" verdict on the cross sections rested on a mean
+
+`compare_xs.py` excluded them on two numbers: the **flux-weighted** difference
+over the whole range (≤0.06 %) and the worst **pointwise** difference. Neither
+can exclude a band-local difference. A flux-weighted average is a **mean**, and
+a mean cannot see a redistribution — the same blind spot that hid χ's shape
+behind χ's mean. The worst pointwise number is dominated by grid alignment
+inside resonances, which the study deliberately does not chase.
+
+What sets the flux in a band is the **band-averaged** cross section: a 1 %
+difference across 67–174 keV produces roughly a 1 % flux difference there, which
+is the size of the residual.
+
+Measured (`tests/band_averaged_xs_vs_openmc.rs`, oracle `band_xs_oracle.py`) as
+a lethargy average `∫σ dE/E ÷ ∫dE/E` — a weight that needs **no flux**, so the
+comparison cannot be contaminated by the difference it is meant to explain:
+
+| nuclide | band-summed σ, 67–174 keV | 1.9–3.0 MeV |
+|---|---|---|
+| U-235 | **+0.0000 %** | **+0.0000 %** |
+| U-238 | **−0.0000 %** | **+0.0000 %** |
+
+Worst band-summed difference across both nuclides and all six bands:
+**0.0000 %** (1e-6 relative). **The cross sections are now excluded band by
+band, not on a mean.**
+
+*A skip that read as a pass, caught:* the first run named U-238's tape
+`n-092_U_238-ENDF8.0.endf`, which does not exist — it is `n-092_U_238.endf` — so
+half the comparison vanished and the test still passed. U-238 is the half that
+matters here, carrying the resonances in the deficit band. The test now fails
+rather than skips if either nuclide is missing.
+
+### Is the residual itself real? Yes — measured, not assumed
+
+When every component of a difference agrees and the difference does not, the
+next thing to doubt is the difference. `compare_spectrum.py` uses seed-to-seed
+spread as its uncertainty, which is the right construction, but with **8 seeds**
+the sample standard deviation carries ~25 % uncertainty of its own — enough that
+a "4.6 σ" could really be nearer 3.5.
+
+`residual_robustness.py` reads the committed statepoints directly (no transport
+needed) and measures the OpenMC side's own scatter:
+
+| band | share | rel. sem, 8 seeds | residual | σ from this side alone |
+|---|---|---|---|---|
+| 67–174 keV | 0.074951 | **0.232 %** | −1.2 to −1.9 % | 5–8 |
+| 1.9–3.0 MeV | 0.230661 | **0.078 %** | +0.42 % | 5.4 |
+
+**The small-ensemble explanation is not supported.** The residual is a real
+difference between two codes whose every measured component agrees to 1e-6.
+
+### What this leaves, and the environmental limit
+
+Measured and excluded: the cross sections (band-averaged **and** flux-weighted),
+both angular laws, the MT=91 transfer table, the within-row CDF inversion, the
+inter-row unit-base rule, the CM→lab transform, channel branching, χ's mean,
+χ's shape, and the residual's own statistical robustness.
+
+**Further progress needs OpenMC runs that this container cannot do.** Only
+OpenMC's *Python API* is installed here — the `openmc` executable is absent, so
+new transport runs are impossible; the eight committed statepoints are all the
+reference data there is. The discriminating experiments that remain (a reflective
+`k_inf` spectrum comparison isolating the per-collision term, and per-MT
+collision tallies on both sides) all require it. A session with `openmc` built
+can run them; this one measured everything that could be measured without it.
