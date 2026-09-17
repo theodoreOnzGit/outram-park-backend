@@ -399,6 +399,7 @@ mod tests {
             k_mean: k,
             k_std: 0.0,
             k_by_generation: vec![k],
+            virtual_collisions: 0,
         }
     }
 

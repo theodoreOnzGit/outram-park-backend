@@ -192,6 +192,21 @@ pub struct KeffResult {
     pub k_std: f64,
     /// Per-generation eigenvalue estimates, all generations (inactive first).
     pub k_by_generation: Vec<f64>,
+    /// **Virtual collisions rejected inside delta-tracked regions** over the
+    /// whole run — the measured price of the majorant (`bn:op-867c.5`).
+    ///
+    /// `0` for a purely surface-tracked model, which is every model predating
+    /// `bn:op-867c`. A large value relative to the history count means the
+    /// majorant is badly over-bounding the region: measured 2026-09-17, adding
+    /// one B4C control rod to a globally-bounded set costs **26.3x** at the
+    /// thermal peak (`examples/majorant_absorber_price.rs`). Scoping the
+    /// majorant to its region is what recovers that, and this field is how you
+    /// see whether it did.
+    ///
+    /// Reported rather than discarded: `keff_delta.rs`'s `delta_flight` throws
+    /// the count away, so no HTR-10 run in this crate has ever had a measured
+    /// rejection rate.
+    pub virtual_collisions: u64,
 }
 
 /// A fission-source neutron awaiting transport in the next generation.
@@ -331,6 +346,7 @@ pub fn run_keff_cpu_single(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 
@@ -519,6 +535,7 @@ pub fn run_keff_cpu_multi(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 
@@ -683,6 +700,7 @@ pub fn run_keff_gpu_inner(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 
@@ -960,6 +978,7 @@ pub fn run_keff_gpu_batched(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 
@@ -1233,6 +1252,7 @@ fn run_event_power_iteration(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 

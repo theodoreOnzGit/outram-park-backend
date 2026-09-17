@@ -362,6 +362,9 @@ pub fn run_keff_csg_seq(
         Vec::new()
     };
 
+    // Run-level total; the per-generation count is folded in below.
+    let mut virtual_run_total: u64 = 0;
+
     for gen in 0..n_gen {
         let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
         let mut production = 0.0_f64;
@@ -379,7 +382,7 @@ pub fn run_keff_csg_seq(
                 &[]
             };
             for site in &source {
-                production += transport_history(
+                let outcome = transport_history(
                     *site,
                     geom,
                     materials,
@@ -394,6 +397,8 @@ pub fn run_keff_csg_seq(
                     leak_edges_gen,
                     &mut leak_batch,
                 );
+                production += outcome.production;
+                virtual_run_total += outcome.virtual_collisions;
             }
         }
         // Close the batch: flush this generation's track-length totals into the
@@ -425,6 +430,7 @@ pub fn run_keff_csg_seq(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: virtual_run_total,
     }
 }
 
@@ -536,7 +542,11 @@ pub fn run_keff_csg_par(
 
     // Run the whole generation loop inside the dedicated pool so every
     // `into_par_iter()` dispatches onto exactly `n_threads` workers.
+    // Run-level total for the parallel driver. Declared OUTSIDE pool.install so
+    // the result built after it can read it; rayon's closure borrows it mutably.
+    let mut virtual_run_total: u64 = 0;
     pool.install(|| {
+
         for gen in 0..n_gen {
             let active = gen >= settings.n_inactive;
             // Base seed for this generation's per-history sub-streams.
@@ -548,7 +558,7 @@ pub fn run_keff_csg_par(
             // immutable view scoped to this block so the mutable flush below is free
             // to borrow `tally` again.
             let leak_this_gen = active && leak_enabled;
-            let results: Vec<(f64, Vec<Site>, Vec<f64>, Vec<f64>)> = {
+            let results: Vec<(HistoryOutcome, Vec<Site>, Vec<f64>, Vec<f64>)> = {
                 let tally_def: Option<&Tally> = if active { tally.as_deref() } else { None };
                 let leak_edges_gen: &[f64] = if leak_this_gen { leak_edges } else { &[] };
                 (0..source.len())
@@ -569,7 +579,7 @@ pub fn run_keff_csg_par(
                         } else {
                             Vec::new()
                         };
-                        let production = transport_history(
+                        let outcome = transport_history(
                             source[hist_idx],
                             geom,
                             materials,
@@ -584,7 +594,7 @@ pub fn run_keff_csg_par(
                             leak_edges_gen,
                             &mut local_leak,
                         );
-                        (production, local_bank, local_batch, local_leak)
+                        (outcome, local_bank, local_batch, local_leak)
                     })
                     .collect()
             };
@@ -593,7 +603,7 @@ pub fn run_keff_csg_par(
             // banks and sum per-history tally / leakage batches in history-index
             // order.
             let mut production = 0.0_f64;
-            let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+                let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
             let mut batch: Vec<f64> = if active && n_bins > 0 {
                 vec![0.0; n_bins]
             } else {
@@ -604,8 +614,9 @@ pub fn run_keff_csg_par(
             } else {
                 Vec::new()
             };
-            for (prod, bank, local_batch, local_leak) in results {
-                production += prod;
+            for (outcome, bank, local_batch, local_leak) in results {
+                production += outcome.production;
+                virtual_run_total += outcome.virtual_collisions;
                 next_bank.extend(bank);
                 if !local_batch.is_empty() {
                     for (b, v) in batch.iter_mut().zip(local_batch) {
@@ -651,6 +662,7 @@ pub fn run_keff_csg_par(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: virtual_run_total,
     }
 }
 
@@ -696,6 +708,24 @@ fn score_leak(leak: &mut [f64], edges: &[f64], e: f64, w: f64) {
 /// flushed once per active generation by the caller. Pass an empty `leak_edges`
 /// (and any `leak_batch`, e.g. `&mut []`) to disable leakage accounting.
 #[allow(clippy::too_many_arguments)]
+/// What one history produced.
+///
+/// `production` is the fission neutron yield, as before. `virtual_collisions`
+/// is the count rejected inside delta-tracked regions -- the **price of the
+/// majorant**, which `keff_delta.rs`'s `delta_flight` discards entirely
+/// (`bn:op-867c.5`). Returning it rather than accumulating through a `&mut`
+/// is what lets the rayon driver reduce it: a shared mutable cannot be
+/// captured by the `Fn` closure that path uses.
+///
+/// Zero on a purely surface-tracked model.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct HistoryOutcome {
+    /// Fission neutron production from this history.
+    pub production: f64,
+    /// Virtual collisions rejected inside delta regions.
+    pub virtual_collisions: u64,
+}
+
 pub(crate) fn transport_history(
     site: Site,
     geom: &Geometry,
@@ -713,7 +743,10 @@ pub(crate) fn transport_history(
     batch: &mut [f64],
     leak_edges: &[f64],
     leak_batch: &mut [f64],
-) -> f64 {
+) -> HistoryOutcome {
+    // Virtual collisions rejected inside delta regions (bn:op-867c.5).
+    // Stays zero on a purely surface-tracked model.
+    let mut virtual_collisions: u64 = 0;
     const NUDGE: f64 = 1.0e-9;
     let mut production = 0.0;
     let mut stack: Vec<Site> = vec![site];
@@ -808,7 +841,13 @@ pub(crate) fn transport_history(
                         seed,
                     );
                     match step {
-                        DeltaStep::Collision { position, material, .. } => {
+                        DeltaStep::Collision {
+                            position,
+                            material,
+                            virtual_collisions: v,
+                            ..
+                        } => {
+                            virtual_collisions += u64::from(v);
                             let d = (position.x - r.x) * u.u
                                 + (position.y - r.y) * u.v
                                 + (position.z - r.z) * u.w;
@@ -817,8 +856,15 @@ pub(crate) fn transport_history(
                         // Left the delta region: stream to its edge and let the
                         // enclosing method take over on the next `locate`.
                         // `d_col = INFINITY` sends it down the crossing arm.
-                        DeltaStep::Exit { .. } => (f64::INFINITY, path.material),
-                        DeltaStep::Exhausted { .. } => {
+                        DeltaStep::Exit {
+                            virtual_collisions: v,
+                            ..
+                        } => {
+                            virtual_collisions += u64::from(v);
+                            (f64::INFINITY, path.material)
+                        }
+                        DeltaStep::Exhausted { virtual_collisions: v } => {
+                            virtual_collisions += u64::from(v);
                             score_leak(leak_batch, leak_edges, e, 1.0);
                             break 'history;
                         }
@@ -859,7 +905,13 @@ pub(crate) fn transport_history(
                 // ── Collision ──────────────────────────────────────────────
                 r = stream(r, u, d_col);
                 on_surface = SurfaceToken::NONE;
-                let m = path.material.expect("collision requires a material");
+                // The material the DISPATCH resolved, not the one `locate`
+                // reported at the start of the flight. Identical under surface
+                // tracking; under delta tracking a flight crosses materials
+                // virtually and ends wherever the real collision happened, so
+                // reading `path.material` here would collide in the material the
+                // particle STARTED in (bn:op-867c.4).
+                let m = col_material.expect("collision requires a material");
                 let material = &materials[m];
 
                 // Analog reaction partition (mirrors keff.rs transport_history).
@@ -1069,7 +1121,10 @@ pub(crate) fn transport_history(
             }
         }
     }
-    production
+    HistoryOutcome {
+        production,
+        virtual_collisions,
+    }
 }
 
 /// Resample `n` sites uniformly with replacement — crude fixed-size population

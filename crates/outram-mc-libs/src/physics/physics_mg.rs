@@ -412,6 +412,7 @@ pub fn run_keff_mg(
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 

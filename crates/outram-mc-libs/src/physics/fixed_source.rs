@@ -215,7 +215,7 @@ pub fn run_fixed_source(
                     &[],
                     &mut [],
                 );
-                production_sum += prod;
+                production_sum += prod.production;
                 for s in next {
                     if secondaries < settings.max_secondaries {
                         bank.push(s);

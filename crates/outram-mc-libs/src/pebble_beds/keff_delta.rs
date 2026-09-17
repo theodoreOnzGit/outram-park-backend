@@ -200,6 +200,32 @@ pub enum DeltaDomain {
     /// straight-line advance to a non-convex vacuum boundary without handling
     /// re-entry.
     SphereVacuum { radius: f64 },
+    /// **Vacuum (leakage) finite cylinder**, radius `radius` and half-height
+    /// `half_height` \[cm\], axis along z, centred on the origin.
+    ///
+    /// Added 2026-09-17 for the HTR-10 core (`bn:op-867c.6`, gh #214), whose
+    /// pebble bed is a cylinder with a reflector around it. Every earlier
+    /// variant is a cube or a sphere, so a bed could only be delta-tracked by
+    /// bounding it with something the wrong shape.
+    ///
+    /// # Why the straight-line advance is valid here
+    ///
+    /// The same convexity argument [`Self::SphereVacuum`] documents: a finite
+    /// cylinder is **convex**, so a ray that leaves it never re-enters, and a
+    /// landing point outside means the particle crossed the boundary somewhere
+    /// along the flight and is gone. Do NOT copy this to a non-convex boundary
+    /// -- an annulus, or a cylinder with a re-entrant channel -- without
+    /// handling re-entry.
+    ///
+    /// Note this is the VACUUM form only. A reflective cylinder is a different
+    /// thing (it would need specular reflection off the curved wall and the two
+    /// end caps) and is deliberately absent until something needs it.
+    CylinderVacuum {
+        /// Radius in the x-y plane \[cm\].
+        radius: f64,
+        /// Half-height along z \[cm\].
+        half_height: f64,
+    },
 }
 
 impl DeltaDomain {
@@ -209,6 +235,10 @@ impl DeltaDomain {
         match *self {
             Self::Cube { half } => p.x.abs() <= half && p.y.abs() <= half && p.z.abs() <= half,
             Self::Sphere { radius } | Self::SphereVacuum { radius } => p.norm() <= radius,
+            Self::CylinderVacuum {
+                radius,
+                half_height,
+            } => (p.x * p.x + p.y * p.y).sqrt() <= radius && p.z.abs() <= half_height,
         }
     }
 
@@ -219,6 +249,10 @@ impl DeltaDomain {
         match *self {
             Self::Cube { half } => half,
             Self::Sphere { radius } | Self::SphereVacuum { radius } => radius,
+            Self::CylinderVacuum {
+                radius,
+                half_height,
+            } => radius.max(half_height),
         }
     }
 
@@ -246,6 +280,22 @@ impl DeltaDomain {
                     return p;
                 }
             },
+            // Uniform over a disc via r = R*sqrt(xi) -- exact, one sqrt, and no
+            // rejection. (The sphere arm cannot use the analogous r = R*xi^(1/3)
+            // without a direction draw whose bias it documents avoiding; a disc
+            // has no such coupling because the angle is sampled independently.)
+            Self::CylinderVacuum {
+                radius,
+                half_height,
+            } => {
+                let r = radius * prn(seed).sqrt();
+                let theta = 2.0 * core::f64::consts::PI * prn(seed);
+                Position::new(
+                    r * theta.cos(),
+                    r * theta.sin(),
+                    -half_height + 2.0 * half_height * prn(seed),
+                )
+            }
         }
     }
 
@@ -257,7 +307,8 @@ impl DeltaDomain {
     ///   times as the flight requires. The landing point is guaranteed to lie
     ///   inside the closed domain within floating-point slack, so a subsequent
     ///   material lookup is always defined, and the direction may have changed.
-    /// - [`Self::SphereVacuum`] does **not** reflect. The ray travels in a
+    /// - [`Self::SphereVacuum`] and [`Self::CylinderVacuum`] do **not**
+    ///   reflect. The ray travels in a
     ///   straight line and the direction is returned unchanged, so the landing
     ///   point may be outside the domain — which is the signal that the history
     ///   escaped (see that variant's docs for why convexity makes this sound).
@@ -269,7 +320,12 @@ impl DeltaDomain {
         match *self {
             Self::Cube { half } => advance_reflective_cube(r, u, distance, half),
             Self::Sphere { radius } => advance_reflective_sphere(r, u, distance, radius),
-            Self::SphereVacuum { .. } => (
+            // Both vacuum variants advance in a straight line and leave the
+            // direction alone; a landing point outside means the history
+            // escaped. Sound because both shapes are CONVEX -- see
+            // `SphereVacuum`'s docs, and do not extend this arm to a shape that
+            // is not.
+            Self::SphereVacuum { .. } | Self::CylinderVacuum { .. } => (
                 Position::new(
                     r.x + u.u * distance,
                     r.y + u.v * distance,
@@ -688,6 +744,7 @@ where
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 
@@ -840,6 +897,7 @@ where
         k_mean,
         k_std,
         k_by_generation,
+        virtual_collisions: 0,
     }
 }
 
