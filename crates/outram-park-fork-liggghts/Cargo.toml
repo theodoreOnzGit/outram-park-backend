@@ -21,12 +21,14 @@ exclude = ["docs"]
 # `cargo test` runs them. See the "Any test over 5 minutes" HARD RULE in the
 # workspace CLAUDE.md; turn them off with `cargo quick-test -p
 # outram-park-fork-liggghts`.
-default = ["long-tests"]
+default = ["long-tests", "gnn"]
 long-tests = []
 # Contact-graph and message-passing-reach bridge to `raffles::gnn`
-# (src/gnn_bridge.rs). Off by default. Enabling it does NOT pull in `burn`:
-# the graph and the reach bound are plain combinatorics, and `raffles`'s own
-# `burn` feature stays off unless a caller asks for it.
+# (src/gnn_bridge.rs). **ON by default** (maintainer direction, 2026-09-17).
+# This does NOT pull in `burn`: the graph and the reach bound are plain
+# combinatorics, and `raffles`'s own `burn` feature stays off unless a caller
+# asks for it — so the default build gains `raffles` but no tensor library.
+# Turn it off with `--no-default-features` (plus whatever else you want back).
 gnn = ["dep:raffles"]
 
 [dependencies]
@@ -36,10 +38,12 @@ gnn = ["dep:raffles"]
 # Phase II separation principle) — CFD-DEM coupling is a future explicit seam.
 uom.workspace = true
 thiserror.workspace = true
-# RAFFLES's graph-neural-network layer, for the `gnn` feature below. OPTIONAL
-# and off by default: a DEM user who is not building a surrogate should not
-# compile a tensor library. The dependency is one-way — `raffles` does not
-# depend on this crate, and must not, or the two become uncompilable.
+# RAFFLES's graph-neural-network layer, for the `gnn` feature below. Optional
+# in Cargo terms but **enabled by the default feature set** (maintainer
+# direction, 2026-09-17). It carries no tensor library: `raffles`'s own `burn`
+# feature stays off unless a caller asks for it. The dependency is one-way —
+# `raffles` does not depend on this crate, and must not, or the two become
+# uncompilable.
 raffles = { workspace = true, optional = true }
 
 [dev-dependencies]

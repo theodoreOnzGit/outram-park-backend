@@ -142,7 +142,10 @@ fn solid(centres: &[Vec3], x: f64, y: f64, z: f64) -> bool {
 /// pebble diameters at each end.
 fn axial_window(centres: &[Vec3]) -> (f64, f64) {
     let zmin = centres.iter().map(|c| c.z).fold(f64::INFINITY, f64::min);
-    let zmax = centres.iter().map(|c| c.z).fold(f64::NEG_INFINITY, f64::max);
+    let zmax = centres
+        .iter()
+        .map(|c| c.z)
+        .fold(f64::NEG_INFINITY, f64::max);
     (zmin + 2.0 * D_P, zmax - 2.0 * D_P)
 }
 
@@ -182,7 +185,10 @@ fn radial_porosity(centres: &[Vec3]) -> Vec<(f64, f64)> {
 
 /// Axial porosity profile: `(height above the floor [m], porosity [-])`.
 fn axial_porosity(centres: &[Vec3]) -> Vec<(f64, f64)> {
-    let zmax = centres.iter().map(|c| c.z).fold(f64::NEG_INFINITY, f64::max);
+    let zmax = centres
+        .iter()
+        .map(|c| c.z)
+        .fold(f64::NEG_INFINITY, f64::max);
     let top = zmax + R_P;
     let n_bins = (top / BIN).ceil() as usize;
     let (n_r, n_th, n_z) = (24usize, 48usize, 4usize);
@@ -467,7 +473,11 @@ fn radial_porosity_is_the_oscillatory_near_wall_profile() {
         "first maximum at {:.2} d from the wall, expected near 1.0 d",
         y2 / D_P
     );
-    assert!(e2 > e1 + 0.15, "oscillation amplitude {:.4} too small", e2 - e1);
+    assert!(
+        e2 > e1 + 0.15,
+        "oscillation amplitude {:.4} too small",
+        e2 - e1
+    );
 
     // Period: successive minima about one diameter apart.
     let period = (profile[minima[1]].0 - profile[minima[0]].0) / D_P;
@@ -541,7 +551,10 @@ fn axial_porosity_has_floor_layering_a_bulk_and_a_free_surface() {
         .map(|(_, e)| *e)
         .collect();
     let mean = interior.iter().sum::<f64>() / interior.len() as f64;
-    println!("interior mean porosity {mean:.6} over {} bins", interior.len());
+    println!(
+        "interior mean porosity {mean:.6} over {} bins",
+        interior.len()
+    );
     assert!(
         (0.40..0.48).contains(&mean),
         "interior mean porosity {mean:.4} is outside the range for a settled \
@@ -596,7 +609,10 @@ fn porosity_map_matches_the_committed_profile() {
              fixture {e_ref:.6}"
         );
     }
-    println!("radial: worst deviation {worst:.2e} over {} bins", radial.len());
+    println!(
+        "radial: worst deviation {worst:.2e} over {} bins",
+        radial.len()
+    );
 
     let axial = axial_porosity(&centres);
     assert_eq!(axial.len(), AXIAL_REFERENCE.len(), "axial bin count");
@@ -614,7 +630,10 @@ fn porosity_map_matches_the_committed_profile() {
              fixture {e_ref:.6}"
         );
     }
-    println!("axial: worst deviation {worst_a:.2e} over {} bins", axial.len());
+    println!(
+        "axial: worst deviation {worst_a:.2e} over {} bins",
+        axial.len()
+    );
 }
 
 /// **Methodology — the recorded disagreement with `tampines`' placeholder.**
