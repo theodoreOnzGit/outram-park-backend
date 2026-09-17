@@ -5,11 +5,22 @@ workspace `CLAUDE.md` rule that a V&V document must state both.
 
 Summary of what changed on this date: the crate gained a **cross-code
 verification leg against upstream LIGGGHTS-PUBLIC**, which its 2026-09-06
-maturity declaration explicitly recorded as missing. Three of four deterministic
-cases are **bit-identical** to upstream; the fourth agrees to floating-point
-round-off. A bulk pebble-bed settling case agrees on packing fraction to
-**0.2 %**. Two defects in the pre-existing code were found and are documented
-below.
+maturity declaration explicitly recorded as missing. **Four of six**
+deterministic cases are **bit-identical** to upstream; the two oblique cases
+agree to floating-point round-off (1-3 ulp). A bulk pebble-bed settling case
+agrees on packing fraction to **0.2 %**. **Three** defects in the pre-existing
+code were found and are documented below.
+
+~~Three of four deterministic cases ... Two defects~~ **CORRECTED 2026-09-17** —
+this paragraph contradicted section 2's own table, which lists six cases and
+four bit-identical, and section 4, which documents three defects
+(`integrator.rs`, `contact.rs`, `rolling.rs`). The counts grew as cases and
+defects were added and this summary was not updated with them.
+
+**A consolidated single-table view of every case** -- deterministic and bulk,
+with the upstream file each is judged against -- is
+[`cross-code-summary.md`](./cross-code-summary.md). This document holds the
+narrative and the defect histories.
 
 **This is verification, not validation.** It shows this crate reproduces
 LIGGGHTS. It does not show that LIGGGHTS' granular physics is right for an
@@ -34,8 +45,15 @@ to `%.17g`; it changes printed digits only and is documented in the
 reference-data README. Without it the comparison saturates at ~`1e-6` relative
 and cannot distinguish the port from upstream's `printf`.
 
-All cases: monodisperse spheres `d = 10 mm`, `ρ = 2500 kg/m³`, `E = 10 MPa`,
-`ν = 0.3`, SI units, `fix nve/sphere`, `pair_style gran`.
+The deterministic cases in § 2 use monodisperse spheres `d = 10 mm`,
+`ρ = 2500 kg/m³`, `E = 10 MPa`, `ν = 0.3`. The bulk cases do **not** — the
+HTR-10 case (§ 4.7) runs the published design point, `d = 60 mm`,
+`ρ = 1730 kg/m³`, `E = 5e8 Pa`, `ν = 0.2`; each input deck states its own.
+Common to all: SI units, `fix nve/sphere`, `pair_style gran`.
+
+~~All cases: monodisperse spheres `d = 10 mm` ...~~ **CORRECTED 2026-09-17** —
+false since the HTR-10 case landed. The same wording was corrected in the
+reference-data README in the same change.
 
 ---
 
