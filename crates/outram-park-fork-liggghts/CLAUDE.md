@@ -119,6 +119,35 @@ are different claims and this entry keeps them apart.
   beds and CRP-generated beds are different things carrying different validity
   claims.
 
+- **2026-09-17 — porosity map added as a regression; no change to the bar.**
+  `tests/pebble_bed_porosity.rs` maps the **radial and axial porosity profile**
+  of LIGGGHTS' own settled bed and commits all 30 radial + 128 axial bins as a
+  fixture. This adds *structure* to what was previously a single bulk number,
+  and it is the quantity wall channelling depends on. Section 3.1 of
+  `docs/verification-and-validation.md` has the full methodology and results.
+
+  Headline: the profile is **oscillatory**, `eps = 0.8753` in the wall bin,
+  first minimum **0.2631 at `y/d = 0.55`**, first maximum **0.5533 at
+  `y/d = 1.05`**, period `0.90 d`, amplitude damping `0.2902 -> 0.1519`. The
+  estimator is deterministic, and its area-weighted radial mean (`0.442993`)
+  and axial interior mean (`0.440089`) both reproduce the independently
+  recorded bulk voidage `0.4429` to within 0.3 %.
+
+  **Two things this deliberately does not claim.** It is not validated against
+  a published radial-voidage correlation — Mueller (1992), de Klerk (2003),
+  Benenati and Brosilow (1962) are the obvious gates and **none is catalogued
+  in `crates/kovan-literature`**, so the test asserts structural properties and
+  a self-regression only. And the reference bed is `D/d = 6`, too narrow to
+  watch the oscillation damp to bulk; HTR-10 is `D/d = 30`.
+
+  **It also records a structural contradiction with `tampines`.**
+  `tampines::pebble_bed::zbs::ZbsBed::wall_region_porosity` is a monotonic
+  exponential and can never dip below `eps_bulk`; the measured profile reaches
+  0.263, and the sign of the error flips between the first minimum and the
+  first maximum. That placeholder cannot be repaired by refitting — it has the
+  wrong shape. Changing `tampines` is a separate change with its own V&V and
+  was **not** made on the strength of this.
+
   Version is `0.0.0` and the crate has **no prelude** at declaration time. Both
   tracked in gh #64. Absent prelude was the single most predictive defect
   across the seven crates dogfooded in gh #58 — the two worst failures there

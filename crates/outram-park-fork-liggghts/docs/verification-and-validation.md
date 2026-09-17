@@ -117,6 +117,145 @@ understood in full.
 
 ---
 
+## 3.1 Radial and axial porosity map — the structure the bulk number hides
+
+Section 3 checks **one** number, the bulk solid fraction. That number is an
+average, and for reactor work the average is the least interesting thing about
+a packed bed. A bed of equal spheres is not homogeneous near a wall: no sphere
+centre can approach closer than one radius, so the centres order into layers
+and the local void fraction **oscillates** — `ε = 1` at the wall, a minimum
+about half a diameter in, a maximum about a diameter in, damping to the bulk
+value over several diameters.
+
+This matters because coolant follows the path of least resistance. The
+high-porosity annulus at the wall carries disproportionate flow — **wall
+channelling** — in a core whose power is generated in the interior. A bed model
+carrying only a bulk porosity cannot represent it.
+
+**Methodology.** The map is taken from **LIGGGHTS' own settled state**
+(`reference-data/liggghts/pebble_bed_settled.csv`), not from a Rust run, so it
+is anchored to the cross-code reference and a regression here is a regression
+in the analysis rather than a re-test of the solver. Porosity is estimated by
+deterministic point sampling on a stratified cylindrical grid — no RNG, so the
+map is bit-reproducible and usable as a fixture. Bins are `d/10`. The radial
+profile samples only the axial bulk window (`z_min + 2d` to `z_max − 2d`) so
+the radial structure is not contaminated by the axial one.
+
+**Results (2026-09-16).** Radial, distance `y` from the wall:
+
+| `y/d` | `ε` | |
+|---|---|---|
+| 0.05 | 0.8753 | wall bin, heading for 1 |
+| **0.55** | **0.2631** | **first minimum** — first layer of equators |
+| **1.05** | **0.5533** | **first maximum** — gap between layers |
+| 1.45 | 0.3209 | second minimum |
+| 1.85 | 0.4728 | second maximum |
+| 2.35 | 0.3213 | third minimum |
+
+Oscillation period `0.90 d`, i.e. one pebble diameter to within the `0.1 d` bin
+width. Peak-to-trough amplitude damps from `0.2902` to `0.1519`.
+
+Axial, height `z` above the floor:
+
+| `z/d` | `ε` | |
+|---|---|---|
+| 0.05 | 0.8724 | floor bin |
+| 0.55 | 0.3592 | first minimum |
+| 0.95 | 0.5892 | first maximum |
+| 4.0–11.0 | **0.440089** mean (0.367–0.500) | interior |
+| 12.75 | 0.9991 | free surface |
+
+**Internal consistency, and it is the reason to trust the map.** The
+area-weighted radial mean is `0.442993` and the axial interior mean
+`0.440089`. Section 3's bulk voidage for this same bed — computed by an
+entirely different route, exact sphere-cap integration with no sampling — is
+`0.4429`. Three independent estimators agreeing to within 0.3 % is what
+promotes this from a plot to a fixture.
+
+**Regression.** All 30 radial and 128 axial bins are committed in
+`tests/pebble_bed_porosity.rs` and compared bin by bin at `2e-3` absolute.
+Measured worst deviation on re-run: `4.4e-7` radial, `5.0e-7` axial — the
+half-ulp of the fixtures' 6-decimal rounding. The tolerance is not absorbing
+drift.
+
+### This contradicts `tampines`' near-wall model, and the shape is why
+
+`tampines::pebble_bed::zbs::ZbsBed::wall_region_porosity` models the near-wall
+region as `ε(y) = ε_bulk · (1 + 1.36 exp(−5y/d))`. Its own doc comment already
+flags the coefficients as provisional and "not for quantitative wall-region
+V&V". The measurement shows the problem is worse than provisional coefficients:
+
+| `y/d` | measured | ZBS placeholder |
+|---|---|---|
+| 0.05 | 0.8753 | 0.9120 |
+| 0.55 | **0.2631** | 0.4814 |
+| 1.05 | 0.5533 | 0.4461 |
+| 1.45 | 0.3209 | 0.4433 |
+
+The **sign of the error flips** between `y/d = 0.55` and `1.05` — too high at
+the minimum, too low at the maximum. A positive decaying exponential times
+`ε_bulk` can never dip below `ε_bulk`, and the measured profile reaches 0.263.
+**The disagreement is the shape, not the coefficients, so it cannot be fixed by
+refitting.** A DEM bed is the natural source of the right profile. Recorded
+here; changing `tampines` is a separate change with its own V&V and is not made
+on the strength of this.
+
+### Corroboration at HTR-10 geometry (`D/d = 30`) — shape only
+
+The `D/d = 6` reference bed is three pebble diameters in radius, so it cannot
+show the oscillation damping out. A second bed was settled at **HTR-10
+geometry** to check that it does: 27 000 pebbles of `d = 60 mm`, `ρ = 1760
+kg/m³` (A3-3 graphite), `R = 0.9 m`, softened `E = 10 MPa`, `dt = 200 µs`,
+settled to `KE = 0.61 J` over 7 000 steps in **892 s** on one core. Settled bed
+height 2.01 m against HTR-10's published 1.97 m.
+
+| `y/d` | `ε` | |
+|---|---|---|
+| 0.05 | 0.8612 | wall bin |
+| 0.65 | 0.3013 | first minimum |
+| 0.95 | 0.4890 | first maximum |
+| 1.35 | 0.2814 | second minimum |
+| 1.85 | 0.4043 | second maximum |
+| 2.25 | 0.3347 | third minimum |
+| 2.75 | 0.3858 | third maximum |
+
+Peak-to-trough amplitude `0.188 → 0.123 → 0.051`: **the oscillation damps into
+the bulk within about three diameters**, which is the behaviour `D/d = 6` was
+too narrow to exhibit. That is what this run was for.
+
+**Its bulk porosity is NOT quotable, and the reason is worth recording.** The
+clean radial window `4 < y/d < 10` gives `ε = 0.3747` and the axial interior
+`5 < z/d < 28` gives `0.3691` — mutually consistent, but `ε ≈ 0.37` is
+`φ ≈ 0.63`, essentially the random-close-packing limit and denser than this
+crate's own `D/d = 6` result (0.4429) or HTR-10's design voidage. The residual
+radial swing of **0.090** at four-to-ten diameters from the wall is the tell: a
+genuinely random packing is flat there. **The initial condition was an ordered
+lattice, and the bed has retained part of that order rather than randomising.**
+
+So this run corroborates the near-wall *shape* and nothing else. A quotable
+bulk porosity needs a randomised initial condition — poured insertion, as
+`in.pebble_bed` does for the `D/d = 6` case — and that has not been run at this
+scale. The map is therefore **not** committed as a fixture; only the `D/d = 6`
+map is.
+
+### What this does NOT establish
+
+- **No published radial-voidage correlation is in `crates/kovan-literature`.**
+  Mueller (1992), de Klerk (2003), Benenati and Brosilow (1962) and the rest
+  are the obvious quantitative gate and none of them is catalogued, so the test
+  asserts structural properties and a self-regression only. Quoting
+  coefficients from memory would be fabrication. **Cataloguing one of those
+  papers and adding a quantitative gate is the single highest-value follow-up
+  to this section.**
+- **`D/d = 6`.** The bed radius spans three pebble diameters, enough to resolve
+  the wall peak and two oscillations, **not** enough to watch the profile damp
+  to bulk. HTR-10 is `D/d = 30`.
+- The rise in the innermost two bins (`y/d = 2.85, 2.95`) is the cylinder axis,
+  a special site at this `D/d` with a tiny sampling annulus. Not asserted, not
+  physics to quote.
+
+---
+
 ## 4. Defects found and corrected
 
 ### 4.1 `Particle::integrate` is not symplectic (its docs said it was)
