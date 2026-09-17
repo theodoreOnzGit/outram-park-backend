@@ -553,6 +553,19 @@ pub enum ContinuumAngular {
     /// ENDF/B-VIII.0's O-16 and Al-27 use this on both MT=16 and MT=91, with
     /// `NA = 1` throughout, so the systematics path is the live one.
     KalbachMann(Vec<ContinuumKalbachTable>),
+    /// **MF=6 LAW=7** (lab-frame angle-then-energy): a tabulated cosine CDF per
+    /// outgoing-energy row, exactly as [`Legendre`](Self::Legendre) stores one,
+    /// but built from the evaluation's own per-cosine spectra rather than from
+    /// Legendre coefficients.
+    ///
+    /// Kept as its own variant rather than folded into `Legendre` for two
+    /// reasons. It is a **different representation** — LAW=7 tabulates
+    /// `f(mu, E')` directly and the cosine law is obtained by slicing it at
+    /// fixed `E'`, not by linearising a series — and it is **laboratory-frame by
+    /// construction** (ENDF-102: LAW=7 data is in the lab regardless of `LCT`),
+    /// so it must not acquire a CM→lab transform if one is ever added to the
+    /// `Legendre` path. A caller inspecting the enum can tell which it has.
+    LabTabulated(Vec<ContinuumAngularTable>),
     /// A representation this port retains but does not sample — `LANG = 11…15`
     /// (tabulated cosines), or any `LANG` value ENDF adds later.
     ///
@@ -785,7 +798,9 @@ impl ContinuumAngular {
             | ContinuumAngular::Unported(_)
             | ContinuumAngular::Ablated
             | ContinuumAngular::KalbachMann(_) => None,
-            ContinuumAngular::Legendre(tables) => tables.get(table)?.rows.get(row),
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => {
+                tables.get(table)?.rows.get(row)
+            }
         }
     }
 
@@ -806,7 +821,7 @@ impl ContinuumAngular {
             ContinuumAngular::EvaluatedIsotropic
             | ContinuumAngular::Unported(_)
             | ContinuumAngular::Ablated => None,
-            ContinuumAngular::Legendre(tables) => {
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => {
                 Some(tables.get(table)?.rows.get(row)?.sample_mu(xi))
             }
             ContinuumAngular::KalbachMann(tables) => {
@@ -826,7 +841,9 @@ impl ContinuumAngular {
             ContinuumAngular::EvaluatedIsotropic
             | ContinuumAngular::Unported(_)
             | ContinuumAngular::Ablated => None,
-            ContinuumAngular::Legendre(tables) => Some(tables.get(table)?.rows.get(row)?.mubar),
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.mubar)
+            }
             ContinuumAngular::KalbachMann(tables) => {
                 Some(tables.get(table)?.rows.get(row)?.mubar())
             }
@@ -843,7 +860,7 @@ impl ContinuumAngular {
             ContinuumAngular::EvaluatedIsotropic
             | ContinuumAngular::Unported(_)
             | ContinuumAngular::Ablated => false,
-            ContinuumAngular::Legendre(tables) => tables
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => tables
                 .iter()
                 .any(|t| t.rows.iter().any(|r| !r.is_isotropic())),
             ContinuumAngular::KalbachMann(tables) => tables
@@ -858,7 +875,7 @@ impl ContinuumAngular {
             ContinuumAngular::EvaluatedIsotropic
             | ContinuumAngular::Unported(_)
             | ContinuumAngular::Ablated => 0.0,
-            ContinuumAngular::Legendre(tables) => tables
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => tables
                 .iter()
                 .flat_map(|t| t.rows.iter().map(|r| r.mubar.abs()))
                 .fold(0.0, f64::max),
@@ -938,6 +955,245 @@ pub struct ContinuumEmission {
     /// `LCT` is a property of the whole MF=6 section, so it is shared by every
     /// branch.
     pub cm_frame: bool,
+}
+
+/// Convert an ENDF **MF=6 LAW=7** (lab-frame angle-then-energy) emission into
+/// the [`ChiTabular`] + per-row cosine-CDF form the transport samplers already
+/// consume.
+///
+/// # The representation, and why it converts exactly
+///
+/// LAW=7 tabulates the joint density `f(mu, E')` directly: at each incident
+/// energy a cosine grid, and at each cosine a `(E', f)` spectrum. What the
+/// samplers want instead is the marginal `f(E')` plus the conditional
+/// `P(mu | E')`. Both come out of the same table:
+///
+/// ```text
+/// f(mu_j, E')  =  w_j * p_j(E')          w_j = the cosine's retained weight
+/// f(E')        =  integral over mu of f(mu, E')      (marginal)
+/// P(mu | E')  propto  f(mu, E')  at fixed E'         (conditional)
+/// ```
+///
+/// where `p_j` is cosine `j`'s unit-area table and `w_j` its `Law7MuTable::weight`
+/// — the integral the parser used to discard (see that field's documentation).
+///
+/// The one construction step is a **merged outgoing-energy grid**: the union of
+/// every cosine's own `E'` knots at that incident energy. That is exact rather
+/// than approximate, and it is the reason this needs no new sampling path —
+/// evaluating a piecewise-linear density on a *superset* of its own knots
+/// reproduces it identically, so nothing is resampled or smoothed. The
+/// integration over `mu` is the trapezoid rule, which is precisely ENDF
+/// `INTMU = 2` (lin-lin); a section declaring `INTMU = 1` (histogram) would need
+/// the other rule, so that case returns `Ok(None)` and keeps the caller's
+/// documented fallback rather than silently applying the wrong one.
+///
+/// # Frame
+///
+/// **Laboratory, by construction.** ENDF-102 defines LAW=7 data in the lab frame
+/// regardless of the section's `LCT`, so the emission is built with
+/// `cm_frame = false` and the transport layer applies no CM→lab transform — it
+/// already has the branch for this
+/// (`outram_mc_libs::physics::scatter::continuum_inelastic_scatter_evaluated_with`).
+/// Putting a lab spectrum through the CM transform is the failure mode this
+/// paragraph exists to prevent.
+///
+/// # Angular variant
+///
+/// [`ContinuumAngular::LabTabulated`], not `Legendre` — same row type, different
+/// provenance and a different frame guarantee. See that variant's docs.
+///
+/// # Returns
+///
+/// `Ok(None)` — never a fabricated law — when the section carries no `ZAP=1,
+/// LAW=7` neutron subsection, when `INTMU` is not lin-lin, or when a table is
+/// too short to integrate. The caller then keeps its existing fallback.
+fn lab_angle_energy_emission(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    mt: i32,
+) -> Result<Option<ContinuumEmission>, crate::NjoyError> {
+    let Some(sec) = tape.section(mat, 6, mt) else {
+        return Ok(None);
+    };
+    let law7 = match crate::acer::energy::parse_mf6_law7_lab_angle_energy(sec) {
+        Ok(l) => l,
+        Err(crate::NjoyError::NotPorted(_)) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    if law7.incident.len() < 2 {
+        return Ok(None);
+    }
+
+    const EMEV: f64 = 1.0e6;
+    let mut incident = Vec::with_capacity(law7.incident.len());
+    let mut tables = Vec::with_capacity(law7.incident.len());
+    let mut ang_tables = Vec::with_capacity(law7.incident.len());
+
+    for inc in &law7.incident {
+        // Only lin-lin over mu; see the note above on INTMU = 1.
+        if inc.mu_interp != 2 || inc.mu.len() < 2 || inc.mu.len() != inc.tables.len() {
+            return Ok(None);
+        }
+
+        // Merged E' grid [MeV]: the union of every cosine's own knots.
+        let mut grid: Vec<f64> = inc
+            .tables
+            .iter()
+            .flat_map(|t| t.e_out_mev.iter().copied())
+            .collect();
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid.dedup_by(|a, b| (*a - *b).abs() <= 0.0);
+        if grid.len() < 2 {
+            return Ok(None);
+        }
+
+        // f(mu_j, E'_k) on the merged grid, cosine-major.
+        let joint: Vec<Vec<f64>> = inc
+            .tables
+            .iter()
+            .map(|t| {
+                grid.iter()
+                    .map(|&e| t.weight * lin_interp_zero_outside(&t.e_out_mev, &t.pdf, e))
+                    .collect()
+            })
+            .collect();
+
+        // Marginal f(E') = integral over mu, trapezoid (= INTMU 2).
+        let mut pdf = vec![0.0f64; grid.len()];
+        for k in 0..grid.len() {
+            let mut acc = 0.0;
+            for j in 1..inc.mu.len() {
+                acc += 0.5 * (joint[j][k] + joint[j - 1][k]) * (inc.mu[j] - inc.mu[j - 1]);
+            }
+            pdf[k] = acc.max(0.0);
+        }
+
+        // Conditional P(mu | E') at each merged grid point.
+        let mut rows = Vec::with_capacity(grid.len());
+        for k in 0..grid.len() {
+            let slice: Vec<f64> = (0..inc.mu.len()).map(|j| joint[j][k]).collect();
+            rows.push(cosine_row_from_slice(&inc.mu, &slice));
+        }
+
+        // The outgoing-energy CDF, in eV, normalised.
+        let e_out: Vec<f64> = grid.iter().map(|&e| e * EMEV).collect();
+        let pdf_ev: Vec<f64> = pdf.iter().map(|&p| p / EMEV).collect();
+        let mut cdf = vec![0.0f64; e_out.len()];
+        for i in 1..e_out.len() {
+            cdf[i] = cdf[i - 1] + 0.5 * (pdf_ev[i] + pdf_ev[i - 1]) * (e_out[i] - e_out[i - 1]);
+        }
+        let total = *cdf.last().unwrap_or(&0.0);
+        let (pdf_ev, cdf) = if total > 0.0 {
+            (
+                pdf_ev.iter().map(|&p| p / total).collect::<Vec<_>>(),
+                cdf.iter().map(|&c| c / total).collect::<Vec<_>>(),
+            )
+        } else {
+            // A genuinely empty row -- the reaction threshold, where every
+            // spectrum is zero. Keep the grid, leave the density flat-zero, and
+            // let the sampler's own bracketing handle it; do NOT invent a shape.
+            (pdf_ev, cdf)
+        };
+
+        incident.push(inc.e_in_mev * EMEV);
+        tables.push(ChiEout {
+            e_out,
+            pdf: pdf_ev,
+            cdf,
+            linlin: true,
+        });
+        ang_tables.push(ContinuumAngularTable { rows });
+    }
+
+    let branch = ContinuumBranch {
+        spectrum: ChiTabular {
+            incident,
+            tables,
+            incident_interp: collapse_law7_incident_interp(&law7.e_in_interp),
+        },
+        yield_pairs: law7.yield_pairs,
+        angular: ContinuumAngular::LabTabulated(ang_tables),
+    };
+    Ok(Some(ContinuumEmission {
+        branches: vec![branch],
+        // LAW=7 is laboratory-frame by definition -- see the frame note above.
+        cm_frame: false,
+    }))
+}
+
+/// `y(x)` from an ascending lin-lin table, **zero outside** its own range.
+///
+/// Zero rather than clamped-to-endpoint on purpose: outside its own `E'` range a
+/// LAW=7 cosine's spectrum contributes nothing to the joint density, and
+/// clamping would invent probability where the evaluation put none.
+fn lin_interp_zero_outside(xs: &[f64], ys: &[f64], x: f64) -> f64 {
+    let n = xs.len().min(ys.len());
+    if n == 0 || x < xs[0] || x > xs[n - 1] {
+        return 0.0;
+    }
+    let mut hi = 1usize;
+    while hi < n && xs[hi] < x {
+        hi += 1;
+    }
+    if hi >= n {
+        return ys[n - 1];
+    }
+    let (x0, x1) = (xs[hi - 1], xs[hi]);
+    if x1 <= x0 {
+        return ys[hi];
+    }
+    let f = (x - x0) / (x1 - x0);
+    ys[hi - 1] + f * (ys[hi] - ys[hi - 1])
+}
+
+/// Build one [`ContinuumAngularRow`] from an unnormalised `f(mu)` slice on a
+/// cosine grid: trapezoid CDF, normalised, plus the exact `<mu>` of the same
+/// piecewise-linear density.
+///
+/// `mubar` is computed from the density rather than estimated from samples, so
+/// it is an oracle for [`ContinuumAngularRow::sample_mu`] and not a second
+/// estimate of it — the same standard the Legendre and Kalbach-Mann rows are
+/// held to.
+fn cosine_row_from_slice(mu: &[f64], f: &[f64]) -> ContinuumAngularRow {
+    let n = mu.len().min(f.len());
+    if n < 2 {
+        return ContinuumAngularRow::isotropic();
+    }
+    let mut cdf = vec![0.0f64; n];
+    let mut num = 0.0f64; // integral of mu * f dmu
+    for i in 1..n {
+        let (m0, m1) = (mu[i - 1], mu[i]);
+        let (f0, f1) = (f[i - 1].max(0.0), f[i].max(0.0));
+        let h = m1 - m0;
+        cdf[i] = cdf[i - 1] + 0.5 * (f0 + f1) * h;
+        // Exact for a linear f on [m0, m1]: integral of mu*f = h*(m0*(2f0+f1) +
+        // m1*(f0+2f1))/6. The trapezoid rule is exact for f but NOT for mu*f,
+        // which is quadratic -- the same trap that produced a false +0.60 %
+        // "bias" earlier in this port's history, so it is done in closed form.
+        num += h * (m0 * (2.0 * f0 + f1) + m1 * (f0 + 2.0 * f1)) / 6.0;
+    }
+    let total = cdf[n - 1];
+    if !(total > 0.0) {
+        return ContinuumAngularRow::isotropic();
+    }
+    for c in &mut cdf {
+        *c /= total;
+    }
+    ContinuumAngularRow {
+        cosines: mu.to_vec(),
+        cdf,
+        mubar: (num / total).clamp(-1.0, 1.0),
+    }
+}
+
+/// LAW=7's incident-energy interpolation ranges, in the same `(NBT, INT)` form
+/// [`ChiTabular::incident_interp`] carries for LAW=1.
+///
+/// Passed through unchanged — it is recorded so a consumer can see what the
+/// evaluation asked for, exactly as the LAW=1 path records it, and with the same
+/// caveat that the samplers apply unit-base regardless.
+fn collapse_law7_incident_interp(interp: &[(u32, u32)]) -> Vec<(u32, u32)> {
+    interp.to_vec()
 }
 
 /// Convert an ENDF **MF=6 LAW=6** (`n`-body phase space) emission into the
@@ -1082,7 +1338,14 @@ impl ContinuumEmission {
             // LAW=6 (phase space) is a different representation, not an
             // unreadable one -- convert it rather than falling back.
             Err(crate::NjoyError::NotPorted(_)) => {
-                return phase_space_emission(tape, mat, mt);
+                // LAW=6 (phase space) and LAW=7 (lab angle-energy) are different
+                // representations, not unreadable ones -- convert whichever is
+                // present. Both return Ok(None) if they are not, which keeps the
+                // documented fallback rather than inventing a law.
+                if let Some(em) = phase_space_emission(tape, mat, mt)? {
+                    return Ok(Some(em));
+                }
+                return lab_angle_energy_emission(tape, mat, mt);
             }
             Err(e) => return Err(e),
         };
@@ -1145,10 +1408,7 @@ impl ContinuumEmission {
             return Ok(None);
         }
 
-        Ok(Some(ContinuumEmission {
-            branches,
-            cm_frame,
-        }))
+        Ok(Some(ContinuumEmission { branches, cm_frame }))
     }
 
     /// Total neutron multiplicity at incident energy `e_in` \[eV\] — the sum
@@ -1788,7 +2048,9 @@ mod mf5_lf_survey {
         let mut unported: Vec<String> = Vec::new();
         let (mut n_sec, mut n_err) = (0usize, 0usize);
         for f in &files {
-            let Ok(tape) = Tape::read_file(f) else { continue };
+            let Ok(tape) = Tape::read_file(f) else {
+                continue;
+            };
             let Some(&mat) = tape.materials().first() else {
                 continue;
             };

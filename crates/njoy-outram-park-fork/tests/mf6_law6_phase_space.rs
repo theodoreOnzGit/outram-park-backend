@@ -5,8 +5,11 @@
 //! Be-9 MT=16 use MF=6 LAW=6/LAW=7, not LAW=1**. Both had been falling back to
 //! the Weisskopf evaporation stand-in with nothing recording that they were.
 //!
-//! H-2 is the LAW=6 case. This test covers it; **LAW=7 (Be-9) remains
-//! unported** and is recorded as such rather than quietly approximated.
+//! H-2 is the LAW=6 case and this test covers it. **LAW=7 (Be-9) was unported
+//! when this file was written and was converted on 2026-09-16** — the case at
+//! the bottom, which used to assert the gap, now asserts the law is there. The
+//! substantive LAW=7 comparisons live in `tests/mf6_law7_conversion.rs` and
+//! `outram-mc-libs`'s `tests/law7_lab_angle_energy_transport.rs`.
 //!
 //! # What is compared
 //!
@@ -93,9 +96,7 @@ fn h2_mt16_phase_space_matches_upstreams_closed_form() {
         }
         // Normalise both to unit integral before comparing shapes.
         let norm_ours: f64 = (0..row.e_out.len() - 1)
-            .map(|i| {
-                0.5 * (row.e_out[i + 1] - row.e_out[i]) * (row.pdf[i] + row.pdf[i + 1])
-            })
+            .map(|i| 0.5 * (row.e_out[i + 1] - row.e_out[i]) * (row.pdf[i] + row.pdf[i + 1]))
             .sum();
         let norm_ref: f64 = (0..row.e_out.len() - 1)
             .map(|i| {
@@ -144,25 +145,48 @@ fn h2_mt16_phase_space_matches_upstreams_closed_form() {
     );
 }
 
-/// **Be-9 MT=16 is LAW=7 and remains unported** — asserted, so the day it is
-/// implemented this test fails and gets updated rather than the gap quietly
-/// persisting behind a Weisskopf fallback nobody rechecks.
+/// **Be-9 MT=16's LAW=7 is no longer a fallback.**
+///
+/// This case used to assert the opposite — that `from_endf_mf6` returned `None`
+/// for LAW=7 — precisely so that implementing it would break a test rather than
+/// let the gap persist behind a Weisskopf fallback nobody rechecks. It broke, on
+/// 2026-09-16, and its own failure message said what to do: *"replaced by a real
+/// comparison rather than deleted"*. The real comparisons are
+/// `tests/mf6_law7_conversion.rs` (converted moments against the raw tables,
+/// agreeing to 9e-16) and `outram-mc-libs`'s
+/// `tests/law7_lab_angle_energy_transport.rs` (sampled `<mu>` against the law's
+/// closed form, 0.21 sigma).
+///
+/// What remains here is the thin end of that: the law exists, it is
+/// laboratory-frame, and it is not isotropic. Keeping it beside the LAW=6 case
+/// means a reader meeting one of these two representations meets the other.
 #[test]
-fn be9_mt16_law7_is_still_unported_and_says_so() {
+fn be9_mt16_law7_is_converted_not_faked() {
     let Some(p) = reference_endf_or_skip("n-004_Be_009-ENDF8.0.endf", "Be-9 (MF=6 LAW=7)") else {
         return;
     };
     let tape = Tape::read_file(&p).expect("Be-9 tape parses");
     let mat = tape.materials()[0];
-    let law = ContinuumEmission::from_endf_mf6(&tape, mat, 16).expect("MF=6 read does not fail");
+    let law = ContinuumEmission::from_endf_mf6(&tape, mat, 16)
+        .expect("MF=6 read does not fail")
+        .expect(
+            "Be-9 MT=16 yields no continuum law. Its MF=6 is LAW=7 (lab angle-energy), which \
+             has been converted since 2026-09-16 -- a None here means it has regressed to the \
+             Weisskopf stand-in.",
+        );
     assert!(
-        law.is_none(),
-        "Be-9 MT=16 now yields a continuum law. Its MF=6 is LAW=7 (lab angle-energy), which \
-         this port does not sample -- if that changed, this test should be replaced by a real \
-         comparison rather than deleted."
+        !law.cm_frame,
+        "LAW=7 is laboratory-frame by definition (ENDF-102) regardless of the section's LCT. \
+         A true cm_frame here would send a lab spectrum through the CM->lab transform."
+    );
+    assert!(
+        law.branches[0].angular.is_anisotropic(),
+        "Be-9's LAW=7 came back isotropic. The evaluation's per-cosine weights span a factor \
+         of several (see mf6_law7_mu_weights.rs); flat means they are not reaching the \
+         conditional."
     );
     println!(
-        "Be-9 MT=16 is MF=6 LAW=7: still unported, still falling back to the Weisskopf \
-         stand-in, and now recorded rather than silent"
+        "Be-9 MT=16 is MF=6 LAW=7: converted, laboratory-frame, peak |<mu>| = {:.4}",
+        law.branches[0].angular.peak_mubar()
     );
 }

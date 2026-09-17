@@ -27,8 +27,8 @@ use crate::endf::{
 use crate::NjoyError;
 
 use super::core::{
-    build_outgoing, build_outgoing_with_discrete, collapse_interp, normalize_pdf_cdf, Law4,
-    OutgoingEnergy, EMEV,
+    build_outgoing, build_outgoing_with_discrete, collapse_interp, normalize_pdf_cdf_weighted,
+    Law4, OutgoingEnergy, EMEV,
 };
 
 /// The ENDF **MF=6 LAW=1 angular representation** (`LANG`, the `L1` field of the
@@ -516,9 +516,9 @@ fn parse_law1_neutron_body(
         let nd = list.head.l1.max(0) as usize; // number of discrete lines
         let na = list.head.l2.max(0); // number of angular coefficients per E_out
         let nep = list.head.n2 as usize; // number of secondary-energy points
-                                          // Each row is [E'_out, f0, f1 … f_NA]; stride = NA + 2. The energy law
-                                          // takes (E', f0); the `na` numbers after f0 are the angular half and
-                                          // are kept in `angular` rather than discarded (bead `op-og56`).
+                                         // Each row is [E'_out, f0, f1 … f_NA]; stride = NA + 2. The energy law
+                                         // takes (E', f0); the `na` numbers after f0 are the angular half and
+                                         // are kept in `angular` rather than discarded (bead `op-og56`).
         let stride = (na + 2) as usize;
         let na_usize = na as usize;
         let mut pairs: Vec<(f64, f64)> = Vec::with_capacity(nep);
@@ -689,6 +689,23 @@ pub fn parse_mf6_law6_phase_space(section: &Section) -> Result<Mf6PhaseSpace, Nj
 /// energy of a [`Mf6LabAngleEnergy`].
 #[derive(Debug, Clone)]
 pub struct Law7MuTable {
+    /// **The relative weight of this cosine**, i.e. the integral of the
+    /// evaluation's own `f(μ, E')` over `E'` at this `μ`, *before* the table
+    /// was renormalised to unit area \[per MeV\].
+    ///
+    /// # Why this exists
+    ///
+    /// [`normalize_pdf_cdf`] scales each cosine's table to integrate to 1, and
+    /// until 2026-09-16 that normalisation was simply thrown away — which
+    /// discards the **entire angular distribution**, since the relative size of
+    /// the per-`μ` integrals *is* `f(μ)`. A consumer building an emission law
+    /// from the normalised tables alone would sample `μ` uniformly and have no
+    /// way to know it was wrong.
+    ///
+    /// Same class of defect as `op-og56` (MF=6 `LANG` coefficients dropped at
+    /// parse time): data read, silently discarded, leaving a law that samples
+    /// plausibly and incorrectly.
+    pub weight: f64,
     /// Outgoing-energy interpolation (`1` histogram, `2` lin-lin).
     pub intt: u32,
     /// Outgoing-energy grid \[MeV\], ascending.
@@ -732,12 +749,35 @@ pub struct Mf6LabAngleEnergy {
 }
 
 /// The LAW=7 body of one neutron subsection: an outer TAB2 over incident
-/// energies, then per incident energy one TAB1 (header-only: `INTMU`, `NMU`,
-/// `E_in`; its own data pairs are discarded, matching `acelf6`'s `moreio`
-/// pass that never reads them into a used variable) followed by `NMU` TAB1s,
-/// each a `(E'_out, f)` spectrum at one lab cosine (its header `C2` = that
-/// cosine). Faithful to acefc.f90's "law 7, angle-energy format" branch
-/// (~7802–7846).
+/// energies, then **per incident energy a second TAB2** over the lab-cosine
+/// grid (`C2` = `E_in`, `N2` = `NMU`, its own interpolation list = `INTMU`),
+/// followed by `NMU` TAB1s, each a `(E'_out, f)` spectrum at one lab cosine
+/// (its header `C2` = that cosine).
+///
+/// Ported from **`groupr.f90`'s `getmf6`** (`law.eq.7` branch, ~7876-7911),
+/// which is NJOY's reader for a *genuine ENDF-6 tape* -- `tab2io` for the
+/// per-incident record, `nmu = tmp(l+5)`, i.e. `N2`.
+///
+/// # Do not port `acefc.f90`'s LAW=7 reader here (2026-09-16)
+///
+/// `acelf6` (acefc.f90 ~7880-7935) reads this record with `tab1io` and takes
+/// `intmu = l1h`, `nmu = l2h`. That is correct **there and only there**: ACER
+/// runs on NJOY's own intermediate File 6, and `skip6a`'s header comment says
+/// so outright -- *"Special version of skip6 for special version of File 6
+/// used in ACER. Law=7 has a TAB1 containing the angular distribution instead
+/// of the normal TAB2 for each incident energy."*
+///
+/// This port reads evaluation tapes directly, so it needs the normal TAB2.
+/// Until 2026-09-16 it followed `acelf6` instead, and on Be-9 MT=16 -- the only
+/// LAW=7 neutron subsection in `reference-data/endf/` -- that read `L1 = L2 = 0`
+/// and so built **zero cosine tables**, while mis-consuming the real data as the
+/// TAB1's own pairs. The lesson is the standing one: read the upstream routine
+/// that owns *this* input format, not the one whose name matches.
+///
+/// [`skip_mf6_subsection`] above had this right the whole time, and its doc
+/// comment states the same split (and names Be-9 MT=16). Knowing the rule in one
+/// function did not carry it to the next; the gates in
+/// `tests/mf6_law7_mu_weights.rs` are what actually hold it.
 fn parse_law7_lab_angle_energy_body(
     cur: &mut SectionCursor<'_>,
     lct: i32,
@@ -749,9 +789,10 @@ fn parse_law7_lab_angle_energy_body(
 
     let mut incident = Vec::with_capacity(ne as usize);
     for _ in 0..ne {
-        let outer = cur.read_tab1()?; // header only: L1=INTMU, L2=NMU, C2=E_in [eV]
-        let mu_interp = outer.head.l1.max(0) as u32;
-        let nmu = outer.head.l2.max(0);
+        // TAB2 over the cosine grid: C2 = E_in [eV], N2 = NMU, interp = INTMU.
+        let outer = cur.read_tab2()?;
+        let mu_interp = outer.interp.first().map(|&(_, i)| i).unwrap_or(2);
+        let nmu = outer.head.n2.max(0);
         let e_in_mev = outer.head.c2 / EMEV;
 
         let mut mu = Vec::with_capacity(nmu as usize);
@@ -761,9 +802,10 @@ fn parse_law7_lab_angle_energy_body(
             let mu_val = t.head.c2;
             let raw_intep = t.interp.first().map(|&(_, i)| i).unwrap_or(2);
             let intt = if raw_intep >= 2 { 2 } else { 1 };
-            let (e_out_mev, pdf, cdf) = normalize_pdf_cdf(intt, &t.pairs);
+            let (e_out_mev, pdf, cdf, weight) = normalize_pdf_cdf_weighted(intt, &t.pairs);
             mu.push(mu_val);
             tables.push(Law7MuTable {
+                weight,
                 intt,
                 e_out_mev,
                 pdf,
@@ -866,12 +908,18 @@ mod incident_interp_survey {
         // cannot parse reports a clean answer about a fraction of the data --
         // the same failure mode as a skipped test reading as a pass.
         let (mut n_sec, mut n_parse_err, mut n_no_section) = (0usize, 0usize, 0usize);
+        // Sections that are neither LAW=1 nor any law this crate converts. Each
+        // one is a neutron emission silently falling back to the Weisskopf
+        // stand-in, which is the exact failure this survey exists to surface.
+        let mut unexplained: Vec<String> = Vec::new();
         // LANG: which angular representations appear. 11..15 (tabulated
         // cosines) are RETAINED but not sampled, so an evaluation using one
         // would silently fall back to isotropic -- this makes that loud.
         let mut lang_seen: std::collections::BTreeSet<String> = Default::default();
         for f in &files {
-            let Ok(tape) = Tape::read_file(f) else { continue };
+            let Ok(tape) = Tape::read_file(f) else {
+                continue;
+            };
             let Some(&mat) = tape.materials().first() else {
                 continue;
             };
@@ -885,10 +933,25 @@ mod incident_interp_survey {
                     Ok(v) => v,
                     Err(e) => {
                         n_parse_err += 1;
-                        println!(
-                            "   parse skipped: {} MT={mt}: {e}",
-                            f.file_name().unwrap().to_string_lossy()
-                        );
+                        // A LAW=1 parse failure is only acceptable if the
+                        // section carries a law this crate DOES handle. Counting
+                        // the skip made the survey honest; naming the reason is
+                        // what stops "not LAW=1" from quietly covering a law
+                        // nobody has ported. Both alternatives are implemented
+                        // as of 2026-09-16 (LAW=6 phase space, LAW=7 lab
+                        // angle-energy), so an unexplained skip is a real gap.
+                        let alt = if parse_mf6_law6_phase_space(&sec).is_ok() {
+                            "LAW=6 (phase space) -- converted"
+                        } else if parse_mf6_law7_lab_angle_energy(&sec).is_ok() {
+                            "LAW=7 (lab angle-energy) -- converted"
+                        } else {
+                            "NO SUPPORTED LAW"
+                        };
+                        let name = f.file_name().unwrap().to_string_lossy().into_owned();
+                        println!("   not LAW=1: {name} MT={mt}: {e} -> {alt}");
+                        if alt == "NO SUPPORTED LAW" {
+                            unexplained.push(format!("{name} MT={mt}: {e}"));
+                        }
                         continue;
                     }
                 };
@@ -936,6 +999,15 @@ mod incident_interp_survey {
         assert!(
             n_sec > 0,
             "no MF=6 MT=16/17/91 sections found at all; the survey measured nothing."
+        );
+        assert!(
+            unexplained.is_empty(),
+            "{} MF=6 section(s) carry a neutron emission law this crate neither parses as \
+             LAW=1 nor converts (LAW=6 / LAW=7). Each one falls back to the Weisskopf \
+             evaporation stand-in with nothing recording it -- the same silent gap Be-9 and \
+             H-2 sat in until 2026-09-16. Sections: {:?}",
+            unexplained.len(),
+            unexplained
         );
     }
 }

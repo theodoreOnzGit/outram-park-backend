@@ -274,3 +274,98 @@ the largest `a₁` anywhere in the table and badly overstates what a neutron
 experiences: weighted by each row's own `f₀`, U-238's MT=91 law is *exactly*
 isotropic below 1.2 MeV and only reaches `+0.272` at 14 MeV. Anyone pricing
 this law should weight by `f₀` first.
+
+## MF=6 LAW=7 is parsed correctly now — and the sampler is still unported (2026-09-16)
+
+`acer/energy/mf6.rs`'s `parse_law7_lab_angle_energy_body` had two defects. The
+second was found only by writing a test for the first.
+
+**1. The angular distribution was discarded at parse time.** LAW=7 stores, per
+incident energy, a lab-cosine grid and — at each cosine — a tabulated outgoing
+energy spectrum. The *relative* integrals of those per-cosine tables **are**
+`f(mu)`; LAW=7 carries no separate angular record. Every table was pushed
+through `normalize_pdf_cdf`, which renormalises to unit area, and the divisor
+was dropped. A consumer would have sampled `mu` uniformly with nothing saying
+so. `Law7MuTable::weight` retains it now, via `normalize_pdf_cdf_weighted`.
+Same class as `op-og56`.
+
+**2. It was reading the wrong record type, so it had never parsed anything.**
+The reader followed `acefc.f90`'s `acelf6`, which takes the per-incident-energy
+record as a `TAB1` with `INTMU = L1`, `NMU = L2`.
+
+> **Two NJOY routines read LAW=7 and they disagree — correctly.** `acelf6` is
+> right *for ACER*, which runs on NJOY's own intermediate File 6; `skip6a`'s
+> header comment says so in as many words: *"Special version of skip6 for
+> special version of File 6 used in ACER. Law=7 has a TAB1 containing the
+> angular distribution instead of the normal TAB2 for each incident energy."*
+> A genuine ENDF-6 tape has the normal `TAB2`, with `NMU` in `N2`.
+
+This port reads evaluation tapes, so it needs `groupr.f90`'s `getmf6`
+(`law.eq.7`, ~7876-7911), which it now follows. On Be-9 MT=16 the old code read
+`L1 = L2 = 0`, built **zero** cosine tables, and mis-consumed the real data as
+the TAB1's own pairs.
+
+**The general lesson, worth more than the fix:** "read upstream first" means the
+upstream routine that owns *this input format*, not the one whose name matches
+the task. Matching on the name picked the ACER reader for ENDF input.
+
+**And a sharper one: the correct rule was already written in this file, thirty
+lines above the defect.** `skip_mf6_subsection`'s doc comment spells out the
+`skip6`/`skip6a` split at length, quotes `skip6a`'s header, states that LAW=7's
+per-incident record is *"**one TAB2** whose `N2` is `NMU`"*, and even names
+*"ENDF/B-VIII.0's Be-9 MF=6/MT=16 ... exercises exactly this"* as the case. The
+skipper was right; the parser beside it was wrong. A documented rule does not
+propagate itself to the next function that needs it — which is an argument for
+gates over prose, and the reason the two cases in
+`tests/mf6_law7_mu_weights.rs` exist rather than another paragraph.
+
+**Verification uses the evaluation's own normalisation, not ours.** ENDF-102
+normalises LAW=7 so the double integral of `f(mu, E')` over both variables is 1;
+each retained weight is the inner integral, so the weights must integrate to 1
+across the cosine grid. Measured on Be-9 MT=16 (the only LAW=7 neutron
+subsection in `reference-data/endf/`) at all 24 incident energies:
+**1.000000-1.000001**, i.e. within `1e-6`. Worst per-cosine weight spread
+`(max-min)/mean = 3.67`, so what was being discarded was a strongly anisotropic
+distribution. Gates: `tests/mf6_law7_mu_weights.rs`.
+
+**LAW=7 sampling landed the same day.** The conversion reuses the existing
+machinery rather than adding a law, exactly as LAW=6 did. LAW=7 tabulates the
+joint `f(mu, E')`; the samplers want the marginal `f(E')` and the conditional
+`P(mu|E')`, and both fall out of `f(mu_j, E') = w_j * p_j(E')` with `w_j` the
+retained per-cosine weight. The one construction step is a **merged outgoing-
+energy grid** — the union of every cosine's own knots — which is exact rather
+than approximate, since evaluating a piecewise-linear density on a superset of
+its own knots reproduces it identically. The angular half becomes
+`ContinuumAngular::LabTabulated`, kept distinct from `Legendre` because it is a
+different representation **and** laboratory-frame by construction (ENDF-102:
+LAW=7 is in the lab regardless of `LCT`), so it must never acquire a CM->lab
+transform. `INTMU = 1` (histogram over cosine) returns `Ok(None)` and keeps the
+caller's fallback rather than silently applying the lin-lin rule; Be-9 uses
+`INTMU = 2`.
+
+Two measurements, both against oracles rather than assertions:
+
+| check | result |
+|---|---|
+| converted `<E'>` and `<mu>` vs the raw LAW=7 tables, 24 incident energies | **7e-16 / 9e-16** worst relative |
+| sampled `<mu>` through the transport kernel at 14 MeV vs the law's closed form | **+0.254104 +- 0.001210** against **+0.253844**, 0.21 sigma |
+| isotropic-ablation arm (control) | **+0.001801 +- 0.001290**, identical final RNG seed |
+
+So Be-9 (n,2n) was emitting isotropically a law whose laboratory `<mu>` is
+`+0.25` to `+0.58`. Both moment integrals are done in **closed form on each
+linear segment**, never by trapezoid: trapezoid is exact for `int f` but not for
+`int x f`, the error that produced a false "+0.60 % bias" earlier in this port.
+
+**A correction from that work, worth more than the result.** The transport test's
+first oracle weighted `mubar` by `pdf[k]`, copying the older Legendre control,
+and read **3.30 sigma** — close enough to pass its 4 sigma gate and wrong. The
+sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
+`sample_ct_table_indexed` returns the lower edge of the CDF bin. Weighting it the
+way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
+gate would have buried the distinction rather than exposing it.
+
+Be-9 is in none of this workspace's criticality cases, so none of this moves a
+`k_eff`. What it closes is a silent fallback.
+
+Gates: `njoy-outram-park-fork`'s `tests/mf6_law7_conversion.rs` and
+`outram-mc-libs`'s `tests/law7_lab_angle_energy_transport.rs`.

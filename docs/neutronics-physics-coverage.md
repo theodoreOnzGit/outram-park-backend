@@ -390,9 +390,91 @@ Angular is `EvaluatedIsotropic`, which phase space is by construction.
 Verified against upstream's closed form: **worst relative shape difference
 0.0000** over 7 incident rows, `E'_max` 7.3042e4 → 6.5133e7 eV.
 
-**MF=6 LAW=7 (Be-9 MT=16) is still unported**, and a test now *asserts* that it
-returns no law — so the day it is implemented the test fails and gets updated,
-rather than the gap persisting behind a fallback nobody rechecks.
+**MF=6 LAW=7 (Be-9 MT=16) — the parser is FIXED 2026-09-16; the *sampler* is
+still unported.** Two defects sat behind the "unported" label, and looking for
+one found the other.
+
+1. **The per-cosine normalisation was discarded at parse time.** LAW=7 stores a
+   lab-cosine grid and, per cosine, an outgoing-energy table; the *relative
+   sizes* of those tables **are** `f(mu)` — there is no separate angular record.
+   Each table was pushed through `normalize_pdf_cdf`, which scales it to unit
+   area, and the divisor was thrown away. Anything built on the parsed structure
+   would have sampled `mu` uniformly. Same class as `op-og56` (MF=6 `LANG`
+   coefficients dropped at parse time): data read, silently discarded, leaving a
+   law that samples plausibly and incorrectly. `Law7MuTable::weight` now retains
+   it. Measured on Be-9: worst per-cosine spread `(max−min)/mean = 3.67`, so the
+   discarded quantity was a strongly anisotropic distribution, not a constant.
+
+2. **The reader was reading the wrong record type, and had never parsed
+   anything.** It followed `acefc.f90`'s `acelf6`, which reads the
+   per-incident-energy record as a `TAB1` with `INTMU = L1`, `NMU = L2`. That is
+   right **for ACER only** — ACER runs on NJOY's own intermediate File 6, and
+   `skip6a`'s header comment says so outright. A genuine ENDF-6 tape puts that
+   record as a `TAB2` with `NMU` in `N2`. On Be-9 the old code read `L1 = L2 =
+   0`, built **zero cosine tables**, and consumed the real data as the TAB1's own
+   pairs. It now follows `groupr.f90`'s `getmf6`, NJOY's reader for real
+   evaluation tapes.
+
+   This is the "read upstream first" rule with a twist worth keeping: the right
+   upstream routine is the one that owns *this input format*, not the one whose
+   name matches the task. Two NJOY routines read LAW=7 and they disagree,
+   correctly, because they are fed different files.
+
+   **The sharpest part: that rule was already written thirty lines above the
+   defect.** `skip_mf6_subsection`'s doc comment sets out the `skip6`/`skip6a`
+   split in full, quotes `skip6a`'s header, states LAW=7's per-incident record is
+   "**one TAB2** whose `N2` is `NMU`", and names Be-9 MF=6/MT=16 as the case that
+   exercises it. The skipper obeyed it; the parser next to it did not. Written
+   guidance does not propagate itself to the next function that needs it — which
+   is the argument for gates over prose, and why this landed as two tests rather
+   than a third paragraph.
+
+**Verification — the evaluation's own normalisation, not ours.** ENDF-102
+normalises LAW=7 so the double integral of `f(mu, E')` is 1, so integrating the
+retained weights over the cosine grid must give 1. Measured at all 24 of Be-9's
+incident energies: **1.000000–1.000001**, within `1e-6`. That is independent
+evidence both that the TAB2 records are read at the right offsets and that
+`weight` is `f(mu)` itself rather than something proportional to it.
+`tests/mf6_law7_mu_weights.rs`.
+
+**LAW=7 sampling landed the same day.** The conversion reuses the existing
+machinery rather than adding a law, exactly as LAW=6 did. LAW=7 tabulates the
+joint `f(mu, E')`; the samplers want the marginal `f(E')` and the conditional
+`P(mu|E')`, and both fall out of `f(mu_j, E') = w_j * p_j(E')` with `w_j` the
+retained per-cosine weight. The one construction step is a **merged outgoing-
+energy grid** — the union of every cosine's own knots — which is exact rather
+than approximate, since evaluating a piecewise-linear density on a superset of
+its own knots reproduces it identically. The angular half becomes
+`ContinuumAngular::LabTabulated`, kept distinct from `Legendre` because it is a
+different representation **and** laboratory-frame by construction (ENDF-102:
+LAW=7 is in the lab regardless of `LCT`), so it must never acquire a CM->lab
+transform. `INTMU = 1` (histogram over cosine) returns `Ok(None)` and keeps the
+caller's fallback rather than silently applying the lin-lin rule; Be-9 uses
+`INTMU = 2`.
+
+Two measurements, both against oracles rather than assertions:
+
+| check | result |
+|---|---|
+| converted `<E'>` and `<mu>` vs the raw LAW=7 tables, 24 incident energies | **7e-16 / 9e-16** worst relative |
+| sampled `<mu>` through the transport kernel at 14 MeV vs the law's closed form | **+0.254104 +- 0.001210** against **+0.253844**, 0.21 sigma |
+| isotropic-ablation arm (control) | **+0.001801 +- 0.001290**, identical final RNG seed |
+
+So Be-9 (n,2n) was emitting isotropically a law whose laboratory `<mu>` is
+`+0.25` to `+0.58`. Both moment integrals are done in **closed form on each
+linear segment**, never by trapezoid: trapezoid is exact for `int f` but not for
+`int x f`, the error that produced a false "+0.60 % bias" earlier in this port.
+
+**A correction from that work, worth more than the result.** The transport test's
+first oracle weighted `mubar` by `pdf[k]`, copying the older Legendre control,
+and read **3.30 sigma** — close enough to pass its 4 sigma gate and wrong. The
+sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
+`sample_ct_table_indexed` returns the lower edge of the CDF bin. Weighting it the
+way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
+gate would have buried the distinction rather than exposing it.
+
+Be-9 is in none of this workspace's criticality cases, so none of this moves a
+`k_eff`. What it closes is a silent fallback.
 
 **MF=6 `LANG = 11…15` and MF=5 LF=5 — measured 2026-09-16, and both turn out to
 be unused by any held evaluation.** They are now *enforced* absences rather than
@@ -414,8 +496,10 @@ and the comment now records both the correction and the fact that LF=5 is a
 tabulated `g(x)` with `x = E'/θ(E)` — the same "universal shape, moving scale"
 form as LAW=6, so it would convert the same way if a tape ever needs it.
 
-Still open: MF=6 LAW=7 (Be-9 MT=16). These are gaps but not defects — each is recorded where a reader meets
-it.
+Nothing from this survey is left open: LAW=6, LAW=7 (parser **and** sampler),
+`LANG = 1`, `LANG = 2`, the `LANG = 11…15` absence and the MF=5 `LF` absence are
+all either implemented or *enforced* by a gate that fails loudly on a tape that
+would need them.
 
 ---
 
