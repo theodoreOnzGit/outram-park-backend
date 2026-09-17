@@ -229,8 +229,19 @@ pub fn assemble_explicit_triso(
     // Universe 3 -- one TRISO particle: five shells then matrix.
     let cells = vec![
         // 0: the bed (delta-tracked)
-        Cell::fill(1, vec![ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection],
-                   CellFill::Lattice(0), Position::ZERO).delta_tracked(majorant_index),
+        {
+            let bed = Cell::fill(
+                1,
+                vec![ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection],
+                CellFill::Lattice(0),
+                Position::ZERO,
+            );
+            // `usize::MAX` means "surface-track the bed too", so the SAME
+            // geometry can be run both ways. That is the discriminator for the
+            // k = 0 failure: if surface tracking gives a sensible k on this
+            // model, the delta path is at fault; if it does not, the model is.
+            if majorant_index == usize::MAX { bed } else { bed.delta_tracked(majorant_index) }
+        },
         // 1: reflector
         Cell::material(2, vec![ins(10), out(11), RegionToken::Intersection, ins(12), RegionToken::Intersection,
                                ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection,

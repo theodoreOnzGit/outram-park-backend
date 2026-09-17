@@ -30,7 +30,22 @@ wall clock   = 80.0 s
    the ~25x this crate measured independently for an undiluted kernel. That is
    expensive, not fatal, and it is exactly the effect the region-local majorant
    was built to bound.
-2. **k = 0 is a distinct bug, PARTLY isolated — the geometry is ruled out.**
+2. **k = 0 is a distinct bug, and BOTH the geometry and the tracker are now
+   ruled out.**
+
+   Running the **identical geometry with surface tracking only**
+   (`OUTRAM_HTR10_SURFACE=1`) also gives `k = 0.000000`, with **zero** virtual
+   collisions, in 1.8 s instead of 80 s. So the delta path is not at fault — it
+   was doing exactly what it should (22x rejection, as predicted) on a model
+   that produces no fission either way. The 2.8e9 virtual collisions were a
+   symptom of the expensive path being taken, not the cause.
+
+   That elimination is only possible *because* the hybrid tracker had already
+   been proven equivalent to surface tracking at 0.62 sigma (`op-867c.7`): a
+   disagreement here would have implicated the tracker, and the agreement
+   implicates the model.
+
+   **The remaining candidate is the MODEL.** The geometry is also ruled out:
    `nee_soon/examples/htr10_locate_probe.rs` puts 20,000 uniform probes through
    the assembled core: **0 lost**, all eight materials reached, `Delta` reported
    inside the bed and `Surface` in the reflector, four-level descent where it

@@ -138,7 +138,10 @@ fn main() {
     });
     assert_eq!(mats.len(), mat::REFLECTOR + 1);
 
-    let core = assemble_explicit_triso(rings, layers, 0);
+    // OUTRAM_HTR10_SURFACE=1 runs the SAME geometry with surface tracking only.
+    let surface_only = std::env::var("OUTRAM_HTR10_SURFACE").is_ok();
+    let core = assemble_explicit_triso(rings, layers, if surface_only { usize::MAX } else { 0 });
+    println!("  tracking: {}", if surface_only { "SURFACE ONLY" } else { "hybrid (delta bed)" });
     println!("  geometry: {} tiles, {} cells, {} universes",
              core.tiles, core.cells, core.universes);
 
@@ -174,7 +177,9 @@ fn main() {
              settings.n_inactive, settings.n_active);
     let t = Instant::now();
     let res = run_keff_csg_hybrid(
-        &core.geometry, &mats, &nucs, &[maj], Some(&entropy_mesh), src, &settings, None,
+        &core.geometry, &mats, &nucs,
+        if surface_only { &[] } else { std::slice::from_ref(&maj) },
+        Some(&entropy_mesh), src, &settings, None,
     );
     let secs = t.elapsed().as_secs_f64();
 
