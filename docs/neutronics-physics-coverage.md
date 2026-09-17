@@ -901,3 +901,74 @@ reference data there is. The discriminating experiments that remain (a reflectiv
 `k_inf` spectrum comparison isolating the per-collision term, and per-MT
 collision tallies on both sides) all require it. A session with `openmc` built
 can run them; this one measured everything that could be measured without it.
+
+
+---
+
+## `op-os8x`: the discriminating experiment finally run (2026-09-17)
+
+### First, a correction: it was never blocked
+
+The previous entry said further progress needed OpenMC runs "this container
+cannot do", on the strength of `which openmc` returning nothing. **That was
+wrong.** The executable is at `/home/user/openmc-install/bin/openmc` — OpenMC
+0.15.3, commit `27e38e89`, the exact build the study used — simply not on
+`PATH`. A run takes **4 seconds**.
+
+This is the failure mode the workspace's own rules name: *"Check before you claim
+a tool is absent. Run the check. Do not infer it from a failure."* An absence was
+inferred from one negative probe, and a cheap experiment was written off as
+impossible.
+
+### The residual is PER-COLLISION: it survives zero leakage
+
+The experiment the study had wanted and never run: the same spectrum comparison
+under a **reflective** boundary, where leakage is removed entirely (OpenMC
+confirms `Leakage Fraction = 0.00000`) and only per-collision terms survive.
+8 seeds a side, `godiva.py --kinf --spectrum` against the new `OURS_KINF=1` arm
+of `examples/godiva_spectrum_vs_openmc.rs`.
+
+| quantity | vacuum (recorded) | **reflective, zero leakage** |
+|---|---|---|
+| mean `E` | +0.42 % (4.6 σ) | **+0.37 % (3.6 σ)** |
+| mean `ln E` | +0.05 % (8.9 σ) | **+0.04 % (5.6 σ)** |
+| flux below 300 keV | −1.22 % (6.0 σ) | **−0.63 % (3.8 σ)** |
+
+**Essentially unchanged.** `op-os8x` is not leakage- or geometry-coupled; it is
+in the collision physics.
+
+### And it re-localises — which exposed a hole in an earlier exclusion
+
+With leakage gone the strongest bin moves:
+
+| band | difference | σ | share of flux |
+|---|---|---|---|
+| 67–108 keV | −1.07 % | 3.1 | 3.2 % |
+| 108–174 keV | −0.75 % | 3.2 | 6.4 % |
+| **3.0–4.8 MeV** | **+0.95 %** | **4.5** | 6.6 % |
+
+The strongest bin is now **3.0–4.8 MeV** — and the MT=91 transfer comparison, the
+one previously reported as excluding that law, **stopped at 3.4 MeV**. Its oracle
+carried `BAND = (1.5e6, 3.5e6)`, the band the residual sat in *at the time*:
+reasonable then, and it meant "the MT=91 transfer table is excluded" was a
+statement about **18 of the law's 96 incident rows**, with nothing above
+3.4 MeV.
+
+**Extended to 10 MeV and re-run: it still agrees**, worst `+0.05 %` on-grid
+across 37 rows. So the exclusion is now real over the band that matters rather
+than over the band that used to matter.
+
+### State
+
+Measured and excluded: cross sections (band-averaged **and** flux-weighted),
+both angular laws, the MT=91 transfer table **to 10 MeV**, the within-row CDF
+inversion, the inter-row unit-base rule, the CM→lab transform, channel
+branching, χ's mean, χ's shape, the residual's statistical robustness, and now
+**leakage and geometry**.
+
+`op-os8x` remains unexplained, but it is a much sharper object than it was: a
+per-collision effect, strongest at 3.0–4.8 MeV, with every law feeding that
+region agreeing to ≤0.05 %. The lesson that keeps repeating — and that produced
+two of this session's findings — is that **an exclusion is only as wide as the
+window it was measured in**: χ's mean hid χ's shape, the flux-weighted σ hid the
+band-averaged σ, and the 1.5–3.5 MeV oracle band hid everything above it.

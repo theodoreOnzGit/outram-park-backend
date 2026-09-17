@@ -113,6 +113,19 @@ const TEMP_K: f64 = 293.6;
 
 /// OpenMC's law, extracted by `mt91_transfer_oracle.py`. Columns:
 /// `e_in_ev, mean_eout_ev, median_eout_ev, frac_below_300kev`.
+///
+/// # Extended above 3.4 MeV on 2026-09-17, and why that matters
+///
+/// This table used to stop at **3.4 MeV** — 18 of the law's **96** incident
+/// rows — because the oracle script carried `BAND = (1.5e6, 3.5e6)`, the band
+/// the `op-os8x` residual was localised to *at the time*. Reasonable then, and
+/// too narrow now: the **reflective, zero-leakage** spectrum comparison run on
+/// 2026-09-17 re-localised the strongest excess to **3.0–4.8 MeV**
+/// (`+0.95 %`, 4.5 sigma), almost entirely outside the window.
+///
+/// So "the MT=91 transfer table is excluded" was, until this change, a statement
+/// about **19 % of the law** and nothing above 3.4 MeV. The oracle band is now
+/// `(1.5e6, 1.0e7)` and this table carries 37 rows.
 const OPENMC_MT91: &[(f64, f64, f64, f64)] = &[
     (1.500000e6, 1.332240e5, 1.355220e5, 0.988766),
     (1.540000e6, 1.575129e5, 1.622010e5, 0.990431),
@@ -132,6 +145,25 @@ const OPENMC_MT91: &[(f64, f64, f64, f64)] = &[
     (3.000000e6, 7.213435e5, 6.581210e5, 0.169033),
     (3.100000e6, 7.427245e5, 6.792109e5, 0.165530),
     (3.400000e6, 8.000375e5, 7.119718e5, 0.155181),
+    (3.600000e6, 8.345472e5, 7.349701e5, 0.148390),
+    (4.000000e6, 8.987229e5, 7.852663e5, 0.138260),
+    (4.250000e6, 9.372021e5, 7.993626e5, 0.132466),
+    (4.500000e6, 9.761598e5, 8.411447e5, 0.126803),
+    (4.700000e6, 1.007707e6, 8.388850e5, 0.123375),
+    (5.000000e6, 1.053830e6, 8.921144e5, 0.119088),
+    (5.500000e6, 1.135627e6, 8.946542e5, 0.112166),
+    (5.700000e6, 1.170034e6, 9.233960e5, 0.106907),
+    (6.000000e6, 1.239567e6, 9.694310e5, 0.093264),
+    (6.300000e6, 1.350154e6, 1.032454e6, 0.068987),
+    (6.400000e6, 1.400200e6, 1.089996e6, 0.061733),
+    (6.500000e6, 1.462345e6, 1.125740e6, 0.046967),
+    (7.000000e6, 1.924762e6, 1.487628e6, 0.007699),
+    (7.500000e6, 2.555363e6, 2.041325e6, 0.005485),
+    (8.000000e6, 3.279207e6, 2.677900e6, 0.004980),
+    (8.500000e6, 4.032473e6, 3.629550e6, 0.004477),
+    (9.000000e6, 4.765503e6, 4.762881e6, 0.003652),
+    (9.600000e6, 5.579447e6, 5.776860e6, 0.002633),
+    (1.000000e7, 6.084090e6, 6.326328e6, 0.002097),
 ];
 
 /// Trapezoidal mean, median and `P(E' < 300 keV)` of one tabulated outgoing-energy
@@ -315,7 +347,6 @@ fn mt91_transfer_law_agrees_with_openmc_in_the_op_os8x_band() {
     );
 }
 
-
 // ─────────────────── off-grid: the inter-row (unit-base) rule ───────────────────
 
 /// Closed-form expected `⟨E'⟩` of OpenMC's unit-base construction at incident
@@ -391,8 +422,9 @@ fn mt91_offgrid_sampling_reproduces_openmcs_unit_base_construction() {
     // trailing zero-density point: it contributes nothing to the mean but sets
     // `E_k`, and `E_k` is what the unit-base rescale divides by.
     println!("our MT=91 row envelopes (E_out first/last), for the brackets in play:");
-    for &target in &[1.945e6f64, 2.1e6, 2.17e6, 2.24e6, 2.4e6, 2.5e6, 2.575e6, 2.76e6, 3.0e6, 3.1e6]
-    {
+    for &target in &[
+        1.945e6f64, 2.1e6, 2.17e6, 2.24e6, 2.4e6, 2.5e6, 2.575e6, 2.76e6, 3.0e6, 3.1e6,
+    ] {
         let i = chi
             .incident
             .iter()
@@ -457,7 +489,9 @@ fn mt91_offgrid_sampling_reproduces_openmcs_unit_base_construction() {
         // Confirm the probe really is off-grid on OUR incident grid too -- if
         // it landed on a row, this test would silently become the previous one.
         assert!(
-            !chi.incident.iter().any(|&x| (x - e_in).abs() <= 1.0e-6 * e_in),
+            !chi.incident
+                .iter()
+                .any(|&x| (x - e_in).abs() <= 1.0e-6 * e_in),
             "probe {e_in:.6e} eV coincides with one of our tabulated incident rows; this test \
              must sample strictly between rows or it checks nothing new."
         );

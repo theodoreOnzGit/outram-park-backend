@@ -37,7 +37,14 @@ import numpy as np
 import openmc.data
 
 HDF5 = "work/U238.h5"
-BAND = (1.5e6, 3.5e6)
+# Widened 2026-09-17 from (1.5e6, 3.5e6). The original window was the band the
+# residual was localised to AT THE TIME (1.9-3.0 MeV, plus margin), which was
+# reasonable then and is now too narrow: the reflective (zero-leakage) spectrum
+# comparison re-localised the strongest excess to 3.0-4.8 MeV, almost entirely
+# outside it. The old window covered 18 of this law's 96 incident rows and
+# stopped at 3.4 MeV, so "the MT=91 transfer table is excluded" was a statement
+# about 19 % of the law.
+BAND = (1.5e6, 1.0e7)
 OUT = "mt91_transfer_oracle.csv"
 
 

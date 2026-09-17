@@ -133,7 +133,8 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
-    use njoy_outram_park_fork::reference_data::reference_endf;
+use outram_mc_libs::tally::filter::FilterKind;
+use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::geometry::Geometry;
     use outram_mc_libs::geometry::position::Position;
@@ -252,7 +253,7 @@ mod desktop {
             let mut tally = Tally {
                 id: 1,
                 name: "godiva flux spectrum".into(),
-                filters: vec![Box::new(EnergyFilter {
+                filters: vec![FilterKind::Energy(EnergyFilter {
                     bins: edges.to_vec(),
                 })],
                 scores: vec![ScoreType::Flux],
