@@ -84,6 +84,7 @@
 use outram_mc_libs::prelude::TrisoSpec;
 
 pub mod bed;
+pub mod reflector;
 
 /// The paper's single RMC `k_eff` curve against fuel-loading height, Tables 3
 /// and 4 (`(height_cm, k_eff)`).
