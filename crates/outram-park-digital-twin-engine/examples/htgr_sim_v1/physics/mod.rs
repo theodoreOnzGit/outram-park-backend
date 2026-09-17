@@ -220,28 +220,59 @@ use turbine_generator::TurbineGeneratorShaft;
 /// **Control-rod bank insertion the simulator opens at**, 0.6035 (fraction,
 /// dimensionless).
 ///
-/// Very nearly the bank position at which this core is critical with no
-/// external reactivity. Withdrawing the bank by even ten percent from here is a
-/// prompt excursion, so the GUI's opening state,
-/// [`PlantCommands::default`] and the whole-plant tests must all start from the
-/// same number -- they read this one constant rather than each carrying a
-/// literal.
+/// The bank position the simulator opens at: **0.780927**, the insertion that
+/// holds the plant at the HTR-10 safety-demonstration test's **3 MWth** initial
+/// condition when the circulator runs at 30 % of rated flow.
 ///
-/// **"Very nearly", measured.** [`control_rods::critical_insertion_fraction`]
-/// puts critical at **0.604535** at the illustrative `beta = 0.0065`, so this
-/// literal sits 1.03e-3 of bank travel out and commands **+0.0435 $
-/// (+28.3 pcm)** of external reactivity -- slightly *supercritical*, not
-/// critical. That is far below prompt critical and well inside the plant's own
-/// negative temperature feedback, and it is pre-existing behaviour; whether to
-/// move the literal onto the bisection's answer is a maintainer decision,
-/// because it would shift every V&V number recorded against the opening state.
-/// See [`tests::the_opening_rod_position_is_the_critical_one`], which measures
-/// it rather than asserting the constant is exact.
+/// # This is a PART-LOAD opening state, not the critical position
 ///
-/// It is written as a literal rather than computed because
-/// [`control_rods::critical_insertion_fraction`] is a bisection returning an
-/// `Option`, and a `const` cannot call it.
-pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.6035;
+/// ~~"Very nearly the bank position at which this core is critical with no
+/// external reactivity. Withdrawing the bank by even ten percent from here is
+/// a prompt excursion."~~ **CHANGED 2026-09-17** at the maintainer's request,
+/// so the simulator opens where the 15 Oct 2003 loss-of-forced-cooling ATWS
+/// test began rather than at rated power.
+///
+/// Cold-clean critical is **0.604535**; this sits far deeper, commanding
+/// **-5.5186 $** of external reactivity. The reactor is held at 3 MWth by the
+/// bank, not by feedback, and the plant is *sub*critical in the cold-clean
+/// sense -- which is the point, because the LOFC demonstration starts from
+/// part load.
+///
+/// # Measured, not chosen
+///
+/// Found by bisecting settled power against insertion, at 1.290 kg/s helium
+/// (30 % of the published 4.3 kg/s) with a 1200 s settle, xenon off:
+///
+/// | Quantity | Value |
+/// |---|---|
+/// | insertion | **0.780927** |
+/// | settled power | **3.0428 MW** (target 3.0000) |
+/// | external reactivity | **-5.5186 $** |
+/// | helium flow | 1.290 kg/s |
+///
+/// Reproduce with `tests::report_the_rod_position_that_holds_three_megawatts`
+/// (about 34 minutes -- it settles the plant 15 times).
+///
+/// # The dollar figures here are ambiguous, and that is a real defect
+///
+/// The bisection reported `beta_eff = 0.006500`, because
+/// `HtgrKinetics::delayed_neutron_fraction()` reads the **delayed** layer,
+/// which is `DelayedNeutronLayer::u235_five_group()` at bare U-235's 0.0065 --
+/// while the **prompt** layer uses HTR-10's published
+/// [`kinetics::HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION`] of 7.26e-3.
+/// One physical quantity, two values, 11.7 % apart. Every dollar figure above
+/// depends on which one is used; the pcm figures do not. Not fixed here.
+pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.780927;
+
+/// Fraction of rated helium flow the simulator opens at: **0.30**.
+///
+/// The HTR-10 loss-of-forced-cooling test began from part load, and
+/// [`GUI_INITIAL_ROD_INSERTION`] was bisected against settled power AT this
+/// flow. The two are a matched pair and must be changed together: at rated
+/// flow the same bank position settles at a different power entirely, because
+/// the bed temperature -- and therefore the feedback the bank is offsetting --
+/// is different.
+pub const GUI_INITIAL_HELIUM_FLOW_KG_PER_S: f64 = 0.30;
 
 /// **Every operator input the plant accepts, in one value.**
 ///
@@ -352,14 +383,17 @@ impl Default for PlantCommands {
     /// at the published 440 degC steam temperature and the condenser at its
     /// design 7 kPa.
     ///
-    /// The rod position is [`GUI_INITIAL_ROD_INSERTION`], the critical
-    /// insertion the simulator opens at, so a plant stepped with
-    /// `PlantCommands::default()` starts near steady state rather than on a
-    /// prompt excursion.
+    /// The rod position is [`GUI_INITIAL_ROD_INSERTION`] and the flow is 30 %
+    /// of rated, the pair that holds the plant at the HTR-10 test's **3 MWth**
+    /// initial condition. They are a PAIR: the insertion was bisected at that
+    /// flow, so changing one without the other lands somewhere else.
     fn default() -> Self {
         Self {
             control_rod_insertion_fraction: GUI_INITIAL_ROD_INSERTION,
-            helium_flow_setpoint: nominal_helium_flow(),
+            // 30 % of the published 4.3 kg/s. The rod position above was
+            // bisected AT this flow, so the two must move together -- at rated
+            // flow the same bank position settles somewhere else entirely.
+            helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
             scenario: Scenario::Normal,
         }
@@ -3137,4 +3171,127 @@ mod tests {
             "the reactor did not shut itself down at the published test condition"
         );
     }
+
+    /// **Where the bank must sit for the plant to settle at the HTR-10 LOFC
+    /// test's 3 MWth initial condition**, measured headlessly.
+    ///
+    /// # Methodology
+    ///
+    /// Three positions are reported and they are NOT the same quantity:
+    ///
+    /// 1. **Cold clean critical** -- `control_rods::critical_insertion_fraction`,
+    ///    a bisection on the Lamarsh S-curve against the published bank worth
+    ///    (15.24 %dk/k, B31) and unrodded `k = 1.119747` (B21). No feedback, no
+    ///    temperature, no xenon.
+    /// 2. **The simulator's opening position**, `PlantCommands::default()`.
+    /// 3. **The 3 MW operating position**, bisected on settled power at 30 %
+    ///    helium flow. It differs from (1) because at 3 MW the bed sits far
+    ///    from the design-point temperature, so the feedback the bank must
+    ///    offset is different.
+    ///
+    /// Reference: the HTR-10 loss-of-forced-cooling ATWS safety demonstration
+    /// of 15 Oct 2003 began near 3 MWth, about 30 % of the 10 MWth rating.
+    ///
+    /// **Caveat carried from `control_rods`:** the worth MAGNITUDE is published
+    /// HTR-10 data, but the worth SHAPE is the generic Lamarsh cosine-flux
+    /// S-curve, and HTR-10's rods sit in the side reflector rather than the
+    /// core. The published B31 spread is 13.06-16.56 %dk/k across codes, so no
+    /// position here is meaningful to better than roughly a quarter.
+    #[test]
+    fn report_the_rod_position_that_holds_three_megawatts() {
+        use uom::si::ratio::ratio as ratio_unit;
+
+        let beta = HtgrKinetics::new_htr10_published(nominal_thermal_power())
+            .delayed_neutron_fraction()
+            .get::<ratio_unit>();
+
+        let cold_clean = control_rods::critical_insertion_fraction(beta)
+            .expect("the bank must be able to hold down the cold clean excess");
+        let opening = PlantCommands::default().control_rod_insertion_fraction;
+
+        let flow_30pct = 0.30 * nominal_helium_flow().get::<kilogram_per_second>();
+        let settle_s = 1200.0;
+
+        let rod_3mw = rod_position_for(3.0, flow_30pct, settle_s, false);
+        let got = settled_power_mw(rod_3mw, flow_30pct, settle_s, false);
+
+        println!("\n=== HTR-10 3 MWth initial condition: where the bank sits ===");
+        println!("beta_eff                      : {beta:.6}");
+        println!("cold clean critical insertion : {cold_clean:.6}  (S-curve vs published bank worth)");
+        println!("simulator opening position    : {opening:.6}");
+        println!("insertion holding 3 MWth      : {rod_3mw:.6}  at {flow_30pct:.3} kg/s helium");
+        println!("  -> settled power            : {got:.4} MW   (target 3.0000 MW)");
+        println!(
+            "  -> external reactivity      : {:.4} $  (opening position: {:.4} $)",
+            control_rods::external_reactivity_dollars(rod_3mw, beta),
+            control_rods::external_reactivity_dollars(opening, beta),
+        );
+
+        assert!(
+            (got - 3.0).abs() < 0.15,
+            "the bisection must land within 0.15 MW of 3 MWth, got {got:.4} MW at \
+             insertion {rod_3mw:.6}"
+        );
+        assert!((0.0..=1.0).contains(&rod_3mw), "insertion must be physical, got {rod_3mw}");
+    }
+
+
+    /// Settle the plant at a rod position and flow, then report the state it
+    /// reaches -- power AND the two temperatures -- sampled along the way so a
+    /// reader can see whether it actually converged or is still ringing.
+    ///
+    /// Returns `(power_mw, bed_k, fuel_k)` at the end of the settle.
+    fn settled_state(rod_insertion: f64, flow_kg_s: f64, settle_s: f64) -> (f64, f64, f64) {
+        use uom::si::mass_rate::kilogram_per_second;
+        use uom::si::thermodynamic_temperature::kelvin as kelvin_unit;
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut plant = HtgrPlant::new();
+        plant.protection.set_enabled(false);
+        let mut c = PlantCommands::default();
+        c.control_rod_insertion_fraction = rod_insertion;
+        c.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(flow_kg_s);
+        c.secondary.feedwater = scaled_feedwater(flow_kg_s);
+        let steps = (settle_s / PLANT_TIMESTEP_S).round() as usize;
+        let mark = steps / 8;
+        for i in 0..steps {
+            plant.step(dt, c.clone());
+            if mark > 0 && i % mark == 0 {
+                println!(
+                    "    t = {:7.1} s   P = {:9.4} MW   bed = {:8.3} K   fuel = {:8.3} K",
+                    (i as f64) * PLANT_TIMESTEP_S,
+                    plant.kinetics.total_power().get::<megawatt>(),
+                    plant.core.temperature().get::<kelvin_unit>(),
+                    plant.kinetics.fuel_temperature().get::<kelvin_unit>(),
+                );
+            }
+        }
+        (
+            plant.kinetics.total_power().get::<megawatt>(),
+            plant.core.temperature().get::<kelvin_unit>(),
+            plant.kinetics.fuel_temperature().get::<kelvin_unit>(),
+        )
+    }
+
+    /// **The steady bed temperature at the 3 MWth opening state**, which is the
+    /// number the bed must be SEEDED at.
+    ///
+    /// The simulator opens its bed at the rated-power design point (949.95 K),
+    /// but [`GUI_INITIAL_ROD_INSERTION`] holds 3 MWth at 30 % flow, which sits
+    /// far cooler. Starting 300 K too hot makes the temperature feedback shut
+    /// the reactor down outright -- a headless run on 2026-09-17 fell to
+    /// 7e-9 MW by 900 s, then rang between 0.58 and 5.93 MW for the next
+    /// 900 s. That is the model relaxing an initial condition nobody chose,
+    /// not plant behaviour.
+    #[test]
+    fn report_the_steady_state_bed_temperature_at_the_opening_condition() {
+        let flow = GUI_INITIAL_HELIUM_FLOW_KG_PER_S
+            * nominal_helium_flow().get::<kilogram_per_second>();
+        println!("\n=== settling at insertion {GUI_INITIAL_ROD_INSERTION}, flow {flow:.3} kg/s ===");
+        let (p, bed, fuel) = settled_state(GUI_INITIAL_ROD_INSERTION, flow, 6000.0);
+        println!("\nSTEADY STATE after 6000 s:");
+        println!("  power {p:.4} MW   bed {bed:.4} K   fuel {fuel:.4} K");
+        println!("  (seed the bed at {bed:.4} K)");
+        assert!(p.is_finite() && bed.is_finite());
+    }
+
 }
