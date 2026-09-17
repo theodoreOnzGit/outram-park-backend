@@ -100,16 +100,22 @@ impl TrisoSpec {
     /// on a quantity the geometry never sees, which is why this is treated as a
     /// faithful transcription of the benchmark rather than a rounded citation.
     ///
-    /// # This differs from [`TrisoRadii::HTR10`](crate::geometry::TrisoRadii::HTR10)
+    /// # This now AGREES with [`TrisoRadii::HTR10`](crate::geometry::TrisoRadii::HTR10)
     ///
-    /// That preset carries a **95 µm** buffer, so a 460 µm particle and a
-    /// 5.19 % packing fraction — a 3.3 % larger particle volume. Its own
-    /// documentation calls it "typical / reference values … NOT an
-    /// authoritative specification", and it predates this table. The two are
-    /// **not interchangeable** and neither has yet been adjudicated against
-    /// IAEA-TECDOC-1382, which is the actual HTR-10 benchmark authority.
-    /// Until that is done, this constant carries a citation and that one
-    /// carries a disclaimer; do not silently swap one for the other.
+    /// ~~"That preset carries a 95 µm buffer … The two are **not
+    /// interchangeable** and neither has yet been adjudicated against
+    /// IAEA-TECDOC-1382 … do not silently swap one for the other."~~
+    /// **ADJUDICATED 2026-09-17** (`bn:op-867c.12`), in this table's favour.
+    ///
+    /// IAEA-TECDOC-1382 part 2 states the coating thicknesses **twice, in two
+    /// different units, and they agree**: `0.09/0.04/0.035/0.04` mm and
+    /// `0.009/0.004/0.0035/0.004` cm — a **90 µm** buffer, giving the 0.0340 cm
+    /// outer radius this table already carried. `TrisoRadii::HTR10`'s 95 µm was
+    /// the "typical reference value" its own disclaimer warned about, and has
+    /// been corrected to match. The two are now the same geometry.
+    ///
+    /// **Do not take these from Choo (2023)**: its Table 1 gives them 10x too
+    /// large (kernel "0.25 cm" for TECDOC's 0.25 **mm**).
     pub const HTR10_LI2014: Self = Self {
         kernel: 0.0250,
         buffer: 0.0340,

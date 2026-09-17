@@ -26,7 +26,7 @@
 //!
 //! # Reference dimensions (typical HTR-10 / reference TRISO — NOT an authoritative spec)
 //!
-//! The [`TrisoRadii::HTR10`] preset uses the widely cited HTR-10 pebble-bed TRISO
+//! The [`TrisoRadii::HTR10`] preset uses IAEA-TECDOC-1382's HTR-10 pebble-bed TRISO
 //! geometry (UO2 kernel + the standard four coatings). These are **typical /
 //! reference** values drawn from open pebble-bed-HTGR literature, provided as a
 //! convenience default — they are not a controlled design specification and must
@@ -35,10 +35,10 @@
 //! | Region | Layer size | Cumulative outer radius |
 //! |---|---|---|
 //! | UO2 kernel   | 250 µm radius   | 0.0250 cm |
-//! | buffer (PyC) | 95 µm thick     | 0.0345 cm |
-//! | IPyC         | 40 µm thick     | 0.0385 cm |
-//! | SiC          | 35 µm thick     | 0.0420 cm |
-//! | OPyC         | 40 µm thick     | 0.0460 cm |
+//! | buffer (PyC) | 90 µm thick     | 0.0340 cm |
+//! | IPyC         | 40 µm thick     | 0.0380 cm |
+//! | SiC          | 35 µm thick     | 0.0415 cm |
+//! | OPyC         | 40 µm thick     | 0.0455 cm |
 //!
 //! (1 µm = 1e-4 cm; the kernel figure is a *radius*, the four coatings are
 //! *thicknesses* accumulated onto it.) The builder itself is fully general — it
@@ -104,16 +104,39 @@ pub struct TrisoRadii {
 }
 
 impl TrisoRadii {
-    /// Typical HTR-10 / reference-TRISO cumulative outer radii \[cm\]: 250 µm UO2
-    /// kernel radius, then 95 / 40 / 35 / 40 µm buffer / IPyC / SiC / OPyC
-    /// thicknesses (see the module-level table). **Reference values, not an
-    /// authoritative specification.**
+    /// HTR-10 cumulative outer radii \[cm\]: 250 µm UO2 kernel radius, then
+    /// **90** / 40 / 35 / 40 µm buffer / IPyC / SiC / OPyC thicknesses.
+    ///
+    /// # Source, and a correction
+    ///
+    /// ~~"95 / 40 / 35 / 40 µm ... Reference values, not an authoritative
+    /// specification."~~ **CORRECTED 2026-09-17** (`bn:op-867c.12`). The buffer
+    /// is **90 µm**, not 95, and it IS authoritative: IAEA-TECDOC-1382 part 2
+    /// states the coating thicknesses **twice, in two different units, and they
+    /// agree** —
+    ///
+    /// ```text
+    /// Coating layer thickness (mm)   0.09 / 0.04  / 0.035  / 0.04
+    /// Coating layer thickness (cm)   0.009/ 0.004 / 0.0035 / 0.004
+    /// ```
+    ///
+    /// giving a buffer outer radius of `0.025 + 0.009 = 0.034 cm`. That agrees
+    /// with Li, Yu & Wei (2014) Table 2 and therefore with
+    /// [`crate::pebble_beds::fhr_pebble::TrisoSpec::HTR10_LI2014`], which had
+    /// carried 0.0340 while this constant carried 0.0345 — a **+3.33 %
+    /// particle-volume** disagreement left deliberately unadjudicated as
+    /// `op-0pqu`, with an explicit "do not silently swap one for the other"
+    /// warning. They are now the same geometry and may be used interchangeably.
+    ///
+    /// **Do not take HTR-10 TRISO dimensions from Choo (2023)**: its Table 1
+    /// gives them 10x too large (kernel "0.25 cm" for what TECDOC states as
+    /// 0.25 **mm**). TECDOC-1382, Li (2014) and this constant all agree.
     pub const HTR10: Self = Self {
         kernel: 0.0250,
-        buffer: 0.0345,
-        ipyc: 0.0385,
-        sic: 0.0420,
-        opyc: 0.0460,
+        buffer: 0.0340,
+        ipyc: 0.0380,
+        sic: 0.0415,
+        opyc: 0.0455,
     };
 
     /// The five outer radii as an array, kernel-first (outermost = index 4).
