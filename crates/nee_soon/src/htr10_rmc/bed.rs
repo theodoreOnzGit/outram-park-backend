@@ -209,8 +209,13 @@ pub fn bed_tile_levels(
     let mut out = Vec::with_capacity(n_axial);
     for _ in 0..n_axial {
         let mut level = Vec::with_capacity(n_rings);
-        for ring in 0..n_rings {
-            // Ring 0 is the single central tile; ring r has 6r tiles.
+        // OUTER-FIRST. `HexLattice::from_rings_3d` hard-asserts this ordering:
+        // for an n-ring lattice, `levels[z][0]` is the OUTERMOST ring with
+        // 6*(n-1) tiles and the last entry is the single central tile. Emitting
+        // centre-first panics with "ring 0 (outer-first) has 1 elements,
+        // expected 6" -- which is how this was found.
+        for ring in (0..n_rings).rev() {
+            // The central ring holds one tile; ring r holds 6r.
             let count = if ring == 0 { 1 } else { 6 * ring };
             let mut elems = Vec::with_capacity(count);
             for _ in 0..count {
@@ -310,9 +315,11 @@ mod hex_lattice_tests {
         assert_eq!(levels.len(), 3, "three axial levels");
         for lvl in &levels {
             assert_eq!(lvl.len(), 6, "six rings");
-            for (r, ring) in lvl.iter().enumerate() {
+            // Outer-first: entry i is ring (n_rings - 1 - i).
+            for (i, ring) in lvl.iter().enumerate() {
+                let r = lvl.len() - 1 - i;
                 let want = if r == 0 { 1 } else { 6 * r };
-                assert_eq!(ring.len(), want, "ring {r} must hold {want} tiles");
+                assert_eq!(ring.len(), want, "entry {i} is ring {r}, must hold {want} tiles");
             }
         }
     }
