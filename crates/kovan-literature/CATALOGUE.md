@@ -486,6 +486,25 @@ covering letter bound in front as an addendum.
 
 ## Librarian history
 
+- **2026-09-17** — `li2014htr10rmc` catalogued (**proprietary**, no licence
+  statement anywhere in the document). Li, Yu & Wei, *Research on Benchmark
+  Calculation and Analysis of HTR-10 with RMC Code*, HTR 2014 Weihai, paper
+  HTR2014-51207. It is the benchmark target for `bn:op-867c` / gh #214, so it
+  is a dependency of the code and belongs in the archive rather than on a
+  desktop.
+
+  The extractor mis-read **three** fields, the same failure modes already on
+  record: the title came out as the Word template furniture
+  `"HTR 2010 Templage"`, the author as `"MF"`, and the document type as
+  `Other`. All corrected by hand from the title page; `kovan lit bibtex`
+  round-trips cleanly, which is the acceptance check.
+
+  Tier decision: **proprietary**, because the HTR-2014 proceedings carry no
+  copyright or licence statement on the paper's own pages. Per `DATA_POLICY.md`
+  unsure means proprietary — that direction is recoverable and the other is a
+  licence violation in a public repository. No TDM/AI-training reservation was
+  found. Body and metadata are both gitignored; only this entry is committed.
+
 - **2026-08-22** — `1991finnemann-neacrp-l-335` catalogued (proprietary,
   no licence statement in the document). Imported to settle `bedok` defect
   K9; five of six extracted metadata fields were wrong and were corrected
