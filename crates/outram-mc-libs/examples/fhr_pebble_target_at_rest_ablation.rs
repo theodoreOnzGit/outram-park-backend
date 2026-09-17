@@ -694,13 +694,55 @@ mod desktop {
                 (gap / qerr).abs()
             );
             println!(
-                "    failure: the per-nuclide hook is reaching a different set of nuclides than"
+                "    failure. But it is NOT the hand-off's stated explanation -- that the \
+                 per-nuclide"
             );
             println!(
-                "    zeroing the temperature did -- most plausibly the S(alpha,beta) moderators,"
+                "    hook reaches a different set of nuclides than zeroing the temperature did, \
+                 the"
             );
             println!(
-                "    whose bound-atom law is a different code path from the free-gas kernel."
+                "    S(alpha,beta) moderators in particular. Reading the code refutes that \
+                 mechanism:"
+            );
+            println!(
+                "      - XsSource::Pointwise never passes temp_k to recon.eval_mt, and every \
+                 nuclide"
+            );
+            println!(
+                "        on this case is HIGH tier, so zeroing the temperature moves no cross \
+                 section;"
+            );
+            println!(
+                "      - Nuclide::sample_thermal takes NO temperature argument at all -- the \
+                 S(alpha,beta)"
+            );
+            println!(
+                "        tables are fixed at construction, so the env var cannot reach the \
+                 bound-atom law;"
+            );
+            println!(
+                "      - free_gas_kt(temp) is the ONLY consumer of the run temperature in the \
+                 collision"
+            );
+            println!(
+                "        kernel, and with_target_at_rest makes that same function return 0.0."
+            );
+            println!(
+                "    The two routes are therefore mechanically identical on this case, and the \
+                 gap is"
+            );
+            println!(
+                "    CRATE DRIFT: the reference predates gh:#193's F-19 inelastic fix and \
+                 op-tm9f /"
+            );
+            println!(
+                "    op-og56. Check the unablated arm against the recorded k_eff 1.40546 and \
+                 against"
+            );
+            println!(
+                "    OpenMC's p 0.4842 / eps 1.5043 before reading the difference as a hook \
+                 defect."
             );
             println!(
                 "    Note also that the {REFERENCE_PCM:+.0} pcm reference carries a ONE-SEED \
