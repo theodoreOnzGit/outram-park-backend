@@ -6239,6 +6239,7 @@ dependencies = [
  "approx",
  "ndarray",
  "outram-foam-basic-lib",
+ "outram-foam-mesh",
  "outram-foam-multiphase",
  "outram-foam-turbulence-lib",
  "serde",

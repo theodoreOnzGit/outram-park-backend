@@ -92,6 +92,7 @@ use outram_foam_appbuilder_lib::io::poly_mesh::read_poly_mesh;
 use outram_foam_appbuilder_lib::solvers::pimple_foam::{PimpleFoam, PressureSolver};
 use outram_foam_basic_lib::prelude::{Vector3, VolScalarField};
 use std::path::Path;
+use std::sync::Arc;
 
 const CASE_DIR: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -685,5 +686,295 @@ fn cavity_pressure_solver_comparison_fine_mesh() {
         max_diff / U_LID < 1e-3,
         "GAMG velocity field differs from PCG by {:.2e}",
         max_diff / U_LID
+    );
+}
+
+// ── Grid-convergence study: 20 → 40 → 80, constant refinement ratio r = 2 ─────
+
+/// The shipped `system/blockMeshDict` with only the cell count changed, so an
+/// `n`×`n`×1 cavity is geometrically identical to the tutorial case (0.1 m
+/// square, 0.01 m deep, `movingWall` / `fixedWalls` / `frontAndBack`) in every
+/// respect except resolution.
+///
+/// Substituting into the real dict rather than emitting a fresh one is
+/// deliberate: it makes it impossible for the refined meshes to drift from the
+/// shipped one in scale, vertex order, patch naming or patch type, any of which
+/// would silently contaminate a convergence study.
+fn cavity_block_mesh_dict(n: usize) -> String {
+    let path = case_dir().join("system").join("blockMeshDict");
+    let src = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("read {} failed: {e}", path.display()));
+    assert!(
+        src.contains("(20 20 1)"),
+        "blockMeshDict no longer declares `(20 20 1)`; the grid-convergence \
+         substitution in cavity_block_mesh_dict is stale"
+    );
+    src.replace("(20 20 1)", &format!("({n} {n} 1)"))
+}
+
+/// Build a cavity solver on an `n`×`n` mesh generated in-process by this
+/// project's own `blockMesh` (`outram_foam_mesh::block_mesh`), rather than from
+/// a committed `polyMesh` directory. The `0/U` and `0/p` fields are uniform
+/// with patch-based boundary conditions, so the same field files apply at any
+/// resolution — the reader sizes the boundary fields from the mesh's patches.
+fn build_cavity_solver_grid(n: usize, nu: f64, end_time: f64, dt: f64) -> PimpleFoam {
+    let poly = outram_foam_mesh::block_mesh::block_mesh(&cavity_block_mesh_dict(n))
+        .unwrap_or_else(|e| panic!("blockMesh failed for {n}×{n}: {e}"));
+    let mesh = Arc::new(
+        poly.to_fv_mesh()
+            .unwrap_or_else(|e| panic!("to_fv_mesh failed for {n}×{n}: {e}")),
+    );
+    assert_eq!(
+        mesh.n_cells,
+        n * n,
+        "generated {n}×{n} mesh has {} cells, expected {}",
+        mesh.n_cells,
+        n * n
+    );
+
+    let control = ControlDict {
+        start: StartControl::StartTime(0.0),
+        stop: StopControl::EndTime(end_time),
+        delta_t: dt,
+        ..ControlDict::default()
+    };
+    let schemes = FvSchemes::default();
+    let mut solution = FvSolution::default();
+    solution.pimple.n_outer_correctors = 1; // pure PISO ≡ icoFoam
+    solution.pimple.n_correctors = 2;
+
+    let mut solver = PimpleFoam::new(mesh.clone(), control, schemes, solution);
+    solver.u = read_vol_vector_field_full(&case_dir().join("0").join("U"), &mesh)
+        .expect("read 0/U failed");
+    solver.p = read_vol_scalar_field_full(&case_dir().join("0").join("p"), &mesh)
+        .expect("read 0/p failed");
+    solver.nu = VolScalarField::uniform("nu", mesh, nu);
+    solver
+}
+
+/// Run the Re = 100 cavity to steady state on an `n`×`n` mesh and return
+/// `(centreline profile, max|err| vs Ghia, RMS err vs Ghia)`.
+///
+/// `dt` is set per grid to hold the Courant number at `CO_TARGET`, so the
+/// temporal resolution refines with the spatial one and the measured order is
+/// not polluted by a fixed time step becoming relatively coarser.
+fn run_cavity_grid(n: usize) -> (Vec<(f64, f64)>, f64, f64) {
+    const NU_RE100: f64 = 1e-3; // Re = U_LID·L/ν = 1·0.1/1e-3 = 100
+    const END_TIME: f64 = 12.0; // ≈120 lid transits — well into steady state
+    const CO_TARGET: f64 = 0.8;
+
+    let dx = L / n as f64;
+    let dt = CO_TARGET * dx / U_LID;
+    let mut solver = build_cavity_solver_grid(n, NU_RE100, END_TIME, dt);
+    solver.run().unwrap_or_else(|e| panic!("{n}×{n} run failed: {e}"));
+
+    let n_nonfinite = solver
+        .u
+        .internal
+        .as_slice()
+        .iter()
+        .filter(|v| !(v.x.is_finite() && v.y.is_finite() && v.z.is_finite()))
+        .count();
+    assert_eq!(
+        n_nonfinite, 0,
+        "{n}×{n} solver produced {n_nonfinite} non-finite cells (diverged)"
+    );
+
+    let profile = centreline_ux_profile_n(&solver.mesh.cell_centres, solver.u.internal.as_slice(), n);
+
+    let mut max_abs_err = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    let mut csv = String::from("y_over_L,ghia_ux,rust_ux,abs_err\n");
+    for (y, ux_ref) in GHIA_Y.iter().zip(GHIA_UX.iter()) {
+        let ux = interp_ux(&profile, *y);
+        let err = (ux - ux_ref).abs();
+        max_abs_err = max_abs_err.max(err);
+        sum_sq += err * err;
+        csv.push_str(&format!("{y:.4},{ux_ref:+.5},{ux:+.5},{err:.5}\n"));
+    }
+    let rms_err = (sum_sq / GHIA_UX.len() as f64).sqrt();
+    write_vandv_csv(
+        &format!("cavity_ghia_re100_grid_{n:03}.csv"),
+        &csv,
+    );
+    (profile, max_abs_err, rms_err)
+}
+
+/// Grid-convergence (Richardson / Roache GCI) study of the cavity at Re = 100.
+///
+/// ## Why this exists
+///
+/// [`cavity_ghia_benchmark_re100`] and [`cavity_ghia_benchmark_re100_fine_mesh`]
+/// show the error against Ghia shrinking on a finer mesh. Two grids show that
+/// the error *got smaller*; they cannot establish an **observed order of
+/// accuracy**, and they cannot show the solution is in the asymptotic range.
+/// That needs three grids at a constant refinement ratio, which is what this
+/// test provides.
+///
+/// ## Methodology
+///
+/// - **Grids:** 20×20, 40×40, 80×80, generated in-process from the shipped
+///   `blockMeshDict` (see [`cavity_block_mesh_dict`]). Constant refinement
+///   ratio `r = 2`. All three have an **even** cell count, so
+///   [`centreline_ux_profile_n`] samples all three by the same two-column
+///   averaging path — a mixed-parity sequence (e.g. the 41×41 mesh, which is
+///   sampled by an exact centre column instead) would put a different sampling
+///   error on different members of the sequence and corrupt the order estimate.
+/// - **Physics:** ν = 1e-3, L = 0.1 m, U_lid = 1 m/s → Re = 100. Advanced to
+///   t = 12 s (≈120 lid transits). `dt` is chosen per grid to hold Co ≈ 0.8, so
+///   the time step refines with the mesh.
+/// - **Discretisation:** [`FvSchemes::default`], i.e. **first-order upwind
+///   convection** (`DivScheme::GaussUpwind`) with a second-order Laplacian.
+///   The formal spatial order of this configuration is therefore **1**, not 2.
+/// - **Functional for Richardson:** U_x/U_lid interpolated at the fixed station
+///   y/L = 0.4531 — Ghia's tabulated point nearest the recirculation peak, and
+///   the location of the largest coarse-grid error. A fixed station is used
+///   rather than the per-grid minimum so that the same quantity is compared on
+///   every mesh.
+/// - **Observed order** from the three solution values,
+///   `p = ln(|f1 − f2| / |f2 − f3|) / ln(r)`; Richardson extrapolation
+///   `f_h→0 ≈ f3 + (f3 − f2)/(r^p − 1)`; and the fine-grid convergence index
+///   `GCI_23 = 1.25 · |(f3 − f2)/f3| / (r^p − 1)`.
+/// - **Order from the benchmark errors** is reported alongside, as
+///   `log2(e_coarse/e_fine)` on successive pairs. This is a *validation* trend,
+///   not a verification order — it contains Ghia's own discretisation error —
+///   and is reported for the paper's table rather than asserted.
+///
+/// ## Pass criterion
+///
+/// Monotone convergence (`|f1−f2| > |f2−f3|`, and the benchmark error strictly
+/// decreasing), an observed order in `0.5 < p < 2.5`, and a finest-grid RMS
+/// below 0.02. The order band is deliberately wide: it is a regression guard
+/// against the convergence *collapsing*, not an assertion of a particular
+/// theoretical rate.
+///
+/// ## Results
+///
+/// Measured 2026-09-17, release build, Linux x86-64; runtime 129 s for all
+/// three grids (under the 5-minute `long-tests` threshold, so this is a plain
+/// `#[test]`).
+///
+/// | grid | `dx` [m] | U_x/U_lid at y/L = 0.4531 | max\|err\| vs Ghia | RMS vs Ghia |
+/// |------|----------|---------------------------|--------------------|-------------|
+/// | 20×20 | 5.00e-3 | −0.165103 | 0.06342 | 0.03630 |
+/// | 40×40 | 2.50e-3 | −0.190580 | 0.02032 | 0.01197 |
+/// | 80×80 | 1.25e-3 | −0.202290 | 0.00868 | 0.00455 |
+///
+/// - **Observed order of accuracy `p` = 1.121.** This is the verification
+///   result, and it sits essentially on the formal first order of
+///   `DivScheme::GaussUpwind`. It is *not* the same quantity as the trend in
+///   the benchmark error, which measures 1.600 (20→40) and 1.396 (40→80):
+///   those contain Ghia's own discretisation error and are steeper than the
+///   true order. Quoting the benchmark-error trend as an order of accuracy
+///   overstates the convergence rate by roughly 0.3–0.5.
+/// - **Richardson extrapolation** `U_x(h→0) = −0.21225` against Ghia's
+///   tabulated −0.21090 at the same station — a **0.64 %** difference. The
+///   discretisation therefore converges to the benchmark value, not merely to
+///   *some* value, which is the substantive verification claim.
+/// - **GCI₂₃ = 6.16 %** (Fs = 1.25) on the 40→80 pair.
+/// - Convergence is monotone on both the functional and the benchmark error,
+///   so Richardson extrapolation is applicable.
+///
+/// **Interpretation.** The gap to Ghia on the coarse mesh is first-order
+/// numerical diffusion, not an implementation defect: it falls at the rate the
+/// scheme predicts, and extrapolates to the benchmark. Reaching benchmark
+/// accuracy on a practical mesh is a *scheme* change (`GaussLinear` or a
+/// limited second-order div scheme), not a bug fix.
+#[test]
+fn cavity_ghia_grid_convergence_re100() {
+    const GRIDS: [usize; 3] = [20, 40, 80];
+    const R: f64 = 2.0; // refinement ratio, constant by construction
+    const STATION: f64 = 0.4531; // Ghia station nearest the recirculation peak
+
+    let mut f = [0.0_f64; 3]; // functional per grid
+    let mut e_max = [0.0_f64; 3];
+    let mut e_rms = [0.0_f64; 3];
+
+    for (i, &n) in GRIDS.iter().enumerate() {
+        let (profile, max_err, rms_err) = run_cavity_grid(n);
+        f[i] = interp_ux(&profile, STATION);
+        e_max[i] = max_err;
+        e_rms[i] = rms_err;
+        println!(
+            "grid {n:>3}×{n:<3}  U_x(y/L={STATION}) = {:+.6}   max|err| = {max_err:.5}   RMS = {rms_err:.5}",
+            f[i]
+        );
+    }
+
+    // Monotone convergence is a precondition for Richardson extrapolation to
+    // mean anything — check it before computing an order from it.
+    let d12 = (f[0] - f[1]).abs();
+    let d23 = (f[1] - f[2]).abs();
+    assert!(
+        d23 > 0.0,
+        "the 40×40 and 80×80 solutions are identical at y/L={STATION}; \
+         the refinement is doing nothing"
+    );
+    assert!(
+        d12 > d23,
+        "non-monotone convergence at y/L={STATION}: |f1−f2| = {d12:.3e} is not \
+         greater than |f2−f3| = {d23:.3e}; Richardson extrapolation does not apply"
+    );
+
+    let p = (d12 / d23).ln() / R.ln();
+    let f_extrap = f[2] + (f[2] - f[1]) / (R.powf(p) - 1.0);
+    let gci_23 = 1.25 * ((f[2] - f[1]) / f[2]).abs() / (R.powf(p) - 1.0);
+
+    let p_err_rms_12 = (e_rms[0] / e_rms[1]).log2();
+    let p_err_rms_23 = (e_rms[1] / e_rms[2]).log2();
+
+    println!("\n── Grid convergence, cavity Re = 100, U_x/U_lid at y/L = {STATION} ──");
+    println!("  f(20)  = {:+.6}", f[0]);
+    println!("  f(40)  = {:+.6}", f[1]);
+    println!("  f(80)  = {:+.6}", f[2]);
+    println!("  observed order p        = {p:.4}");
+    println!("  Richardson f(h→0)       = {f_extrap:+.6}");
+    println!("  GCI_23 (Fs = 1.25)      = {:.4} %", gci_23 * 100.0);
+    println!("  order from RMS vs Ghia  = {p_err_rms_12:.4} (20→40), {p_err_rms_23:.4} (40→80)");
+    println!(
+        "  RMS vs Ghia             = {:.5} → {:.5} → {:.5}",
+        e_rms[0], e_rms[1], e_rms[2]
+    );
+
+    let mut csv = String::from("n,dx,u_x_at_station,max_abs_err,rms_err\n");
+    for (i, &n) in GRIDS.iter().enumerate() {
+        csv.push_str(&format!(
+            "{n},{:.6e},{:+.6},{:.5},{:.5}\n",
+            L / n as f64,
+            f[i],
+            e_max[i],
+            e_rms[i]
+        ));
+    }
+    csv.push_str(&format!(
+        "\n# station_y_over_L,{STATION}\n# refinement_ratio,{R}\n\
+         # observed_order_p,{p:.6}\n# richardson_extrapolated,{f_extrap:+.6}\n\
+         # gci_23_percent,{:.6}\n# order_from_rms_20_40,{p_err_rms_12:.6}\n\
+         # order_from_rms_40_80,{p_err_rms_23:.6}\n\
+         # div_scheme,GaussUpwind (formal spatial order 1)\n",
+        gci_23 * 100.0
+    ));
+    write_vandv_csv("cavity_ghia_re100_grid_convergence.csv", &csv);
+
+    // The benchmark error must actually shrink on every refinement.
+    assert!(
+        e_rms[0] > e_rms[1] && e_rms[1] > e_rms[2],
+        "RMS error vs Ghia is not monotonically decreasing: \
+         {:.5} → {:.5} → {:.5}",
+        e_rms[0],
+        e_rms[1],
+        e_rms[2]
+    );
+    // Wide band: a regression guard against convergence collapsing, not a
+    // claim about the theoretical rate. See the pass criterion above.
+    assert!(
+        (0.5..2.5).contains(&p),
+        "observed order p = {p:.4} is outside the sane band 0.5–2.5; \
+         the discretisation or the mesh sequence has regressed"
+    );
+    assert!(
+        e_rms[2] < 0.02,
+        "finest-grid (80×80) RMS error vs Ghia {:.5} exceeds 0.02",
+        e_rms[2]
     );
 }

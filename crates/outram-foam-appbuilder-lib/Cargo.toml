@@ -32,6 +32,10 @@ outram-foam-multiphase.workspace = true
 
 [dev-dependencies]
 approx.workspace = true
+# Used only by the cavity grid-convergence tutorial, which generates its
+# 20/40/80 meshes in-process from a blockMeshDict string rather than shipping
+# three more polyMesh directories. Dev-only: no library code depends on it.
+outram-foam-mesh.workspace = true
 
 [lib]
 name = "outram_foam_appbuilder_lib"
