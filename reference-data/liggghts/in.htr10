@@ -16,8 +16,11 @@
 #    larger overlaps; the run reports the measured maximum so the assumption is
 #    checkable rather than asserted. The first attempt used 1e8 Pa (a 90x
 #    softening) and measured 3.80 % of the pebble radius -- too soft under a 2 m
-#    bed load -- so E was raised to 3e8 and the timestep halved to keep the
-#    Rayleigh criterion.
+#    bed load -- so E was raised, twice, against the measurement: 1e8 gave
+#    3.80 % of the pebble radius, 3e8 gave 2.13 %, and 5e8 is the setting here.
+#    dt = 3.5e-5 s is 11.7 % of the Rayleigh time at 5e8, and the step counts
+#    are raised so the physical insertion time still exceeds the ~1.07 s a
+#    pebble needs to fall the height of the fill zone.
 #  * Hertz-Mindlin normal + tangential HISTORY spring + CDT rolling friction --
 #    the standard pebble-bed contact set. Without the history spring a bed
 #    cannot carry static shear; without rolling friction monodisperse spheres
@@ -32,14 +35,14 @@ region		reg block -1.0 1.0 -1.0 1.0 -0.05 6.00 units box
 create_box	1 reg
 neighbor	0.018 bin
 neigh_modify	delay 0
-fix 		m1 all property/global youngsModulus peratomtype 3.0e8
+fix 		m1 all property/global youngsModulus peratomtype 5.0e8
 fix 		m2 all property/global poissonsRatio peratomtype 0.2
 fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.5
 fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.4
 fix 		m5 all property/global coefficientRollingFriction peratomtypepair 1 0.1
 pair_style	gran model hertz tangential history rolling_friction cdt
 pair_coeff	* *
-timestep	5.0e-5
+timestep	3.5e-5
 fix		cyl all wall/gran model hertz tangential history rolling_friction cdt primitive type 1 zcylinder 0.90 0. 0.
 fix		zwall all wall/gran model hertz tangential history rolling_friction cdt primitive type 1 zplane 0.0
 region		fillzone cylinder z 0. 0. 0.90 0.03 5.60 units box
@@ -53,12 +56,12 @@ fix		integr all nve/sphere
 thermo_style	custom step atoms ke
 thermo		5000
 thermo_modify	lost ignore norm no
-run		30000
+run		60000
 unfix		ins
 write_dump	all custom dump.htr10_init id x y z vx vy vz modify sort id
 variable	n1 equal count(all)
 print		"INSERTED ${n1}"
-run		40000
+run		50000
 write_dump	all custom dump.htr10_settled id x y z vx vy vz modify sort id
 variable	ke2 equal ke
 print		"FINAL_KE ${ke2}"
