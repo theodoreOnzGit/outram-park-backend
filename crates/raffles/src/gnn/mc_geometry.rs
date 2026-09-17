@@ -139,8 +139,8 @@ mod tests {
             fill: CellFill::Void,
             temperature: 300.0,
             translation: Default::default(),
+            tracking: None,
         }
-        tracking: None,
     }
 
     /// **Methodology.** Nested shells — the classic pin-cell or TRISO layout —
