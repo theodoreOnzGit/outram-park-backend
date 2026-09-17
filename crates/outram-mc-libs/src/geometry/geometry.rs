@@ -42,6 +42,21 @@ pub struct Coord {
     /// Lattice tile index `[ix, iy, iz]` for this level (only meaningful if
     /// `lattice` is `Some`).
     pub lattice_index: [i32; 3],
+    /// **Exact global -> local frame offset for this level**: `r` here equals
+    /// the global position minus this, and a direction needs no transformation
+    /// because every nested frame in this crate is a pure translation.
+    ///
+    /// Accumulated on the way down (`parent.offset + cell.translation`, plus the
+    /// lattice tile centre for a lattice level) rather than recovered afterwards
+    /// as `levels[0].r - levels[k].r`. That subtraction is catastrophic
+    /// cancellation — with a probe at `y = -9` and a translation of `0.2` it
+    /// returns `0.19999999999999929` — and the ~1e-16 error it leaves in the
+    /// local coordinate is enough to put a crossing point exactly on
+    /// `dot == 0.0` in `nudge_across`, flipping that branch and displacing the
+    /// particle by `1e-9`, a 10^6 amplification. Carrying the offset removes the
+    /// cancellation entirely. Found by `tests/cell_translation.rs`; it affects
+    /// lattice tile centres too, not only non-zero cell translations.
+    pub offset: Position,
 }
 
 /// A fully located particle: its coordinate-level chain plus the leaf material.
@@ -181,6 +196,7 @@ impl Geometry {
             u,
             lattice: None,
             lattice_index: [0; 3],
+            offset: Position::ZERO,
         };
 
         loop {
@@ -219,6 +235,7 @@ impl Geometry {
                         u: level.u,
                         lattice: None,
                         lattice_index: [0; 3],
+                        offset: level.offset + cell.translation,
                     };
                     levels.push(level);
                     level = child;
@@ -236,6 +253,7 @@ impl Geometry {
                         u: level.u,
                         lattice: Some(l_idx),
                         lattice_index: idx,
+                        offset: level.offset + cell.translation + lat.tile_center(idx),
                     };
                     levels.push(level);
                     level = child;
@@ -351,7 +369,7 @@ impl Geometry {
     /// tracker (OpenMC does not nudge): it is taken along the surface **normal**
     /// so `evaluate` changes sign no matter how tangent `u_out` is, plus a step
     /// along `u_out` so a grazing particle makes tangential progress and does not
-    /// re-hit the same point. See [`nudge_across`].
+    /// re-hit the same point. See `nudge_across`.
     ///
     /// Mirrors the boundary-condition dispatch in `Particle::cross_surface`
     /// (`src/particle.cpp:659`), reduced to the vacuum/reflective/transmissive
@@ -422,10 +440,16 @@ impl Geometry {
     /// # How the conversion is exact
     ///
     /// Nested frames in this crate are **pure translations** (no rotation), as
-    /// [`Self::distance_to_boundary`] already relies on. So the offset between
-    /// the global frame and level `coord_level` is the constant
-    /// `levels[0].r - levels[coord_level].r`, taken from the located path, and
-    /// a direction needs no transformation at all.
+    /// [`Self::distance_to_boundary`] already relies on. So the global frame
+    /// and level `coord_level` differ by a constant offset and a direction
+    /// needs no transformation at all.
+    ///
+    /// That offset is read from [`Coord::offset`], which `locate` accumulates
+    /// on the way down. It is **not** recovered as
+    /// `levels[0].r - levels[coord_level].r`: that subtraction is catastrophic
+    /// cancellation, and the ~1e-16 error it leaves is amplified to `1e-9` by
+    /// the `dot == 0.0` branch in `nudge_across` — see [`Coord::offset`] and
+    /// `tests/cell_translation.rs`.
     ///
     /// `r_global` is the crossing point in global coordinates — i.e. after
     /// streaming to the boundary, not the position the path was located at.
@@ -441,7 +465,11 @@ impl Geometry {
         if coord_level == 0 || coord_level >= path.levels.len() {
             return self.cross_surface(i_surf, r_global, u);
         }
-        let offset = path.levels[0].r - path.levels[coord_level].r;
+        // The exact offset carried down by `locate`, NOT `levels[0].r -
+        // levels[coord_level].r`. The subtraction form is catastrophic
+        // cancellation and its ~1e-16 error is amplified to 1e-9 by the
+        // `dot == 0.0` branch in `nudge_across` — see [`Coord::offset`].
+        let offset = path.levels[coord_level].offset;
         let crossed = self.cross_surface(i_surf, r_global - offset, u);
         SurfaceCrossing {
             r: crossed.r + offset,

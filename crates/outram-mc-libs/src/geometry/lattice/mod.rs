@@ -115,6 +115,30 @@ impl RectLattice {
         out
     }
 
+    /// **Exactly what [`Self::get_local_position`] subtracts** — the centre of
+    /// tile `i` in this lattice's own frame, with `0.0` on any axis that
+    /// `get_local_position` leaves untouched (`z` for a 2-D lattice).
+    ///
+    /// Returned so the global -> local frame offset can be **accumulated** as a
+    /// particle descends, rather than reconstructed afterwards by subtracting
+    /// two stored positions. That subtraction is catastrophic cancellation: for
+    /// a tile centre of `0.2` under a probe at `y = -9` it returns
+    /// `0.19999999999999929`, and the resulting ~1e-16 error in the local
+    /// coordinate is enough to land a crossing point exactly on `dot == 0.0` in
+    /// `nudge_across`, flipping that branch and moving the particle by `1e-9`.
+    /// See `tests/cell_translation.rs`.
+    pub fn tile_center(&self, i: [i32; 3]) -> Position {
+        Position {
+            x: self.lower_left.x + (i[0] as f64 + 0.5) * self.pitch[0],
+            y: self.lower_left.y + (i[1] as f64 + 0.5) * self.pitch[1],
+            z: if self.is_3d() {
+                self.lower_left.z + (i[2] as f64 + 0.5) * self.pitch[2]
+            } else {
+                0.0
+            },
+        }
+    }
+
     /// Distance \[cm\] to the next lattice-tile boundary along `(r, u)`, with `r`
     /// expressed in the current tile's local frame (tile centre at origin).
     ///
@@ -326,6 +350,18 @@ impl HexLattice {
             x: r.x - off.x,
             y: r.y - off.y,
             z: if self.is_3d() { r.z - off.z } else { r.z },
+        }
+    }
+
+    /// **Exactly what [`Self::get_local_position`] subtracts** — see
+    /// [`RectLattice::tile_center`] for why this is exposed rather than
+    /// recovered by subtraction.
+    pub fn tile_center(&self, i: [i32; 3]) -> Position {
+        let off = self.center_offset(i);
+        Position {
+            x: off.x,
+            y: off.y,
+            z: if self.is_3d() { off.z } else { 0.0 },
         }
     }
 
@@ -906,6 +942,15 @@ impl Lattice {
         match self {
             Lattice::Rect(l) => l.get_local_position(r, i),
             Lattice::Hex(l) => l.get_local_position(r, i),
+        }
+    }
+
+    /// The centre of tile `i`, exactly as [`Self::get_local_position`]
+    /// subtracts it. See [`RectLattice::tile_center`].
+    pub fn tile_center(&self, i: [i32; 3]) -> Position {
+        match self {
+            Lattice::Rect(l) => l.tile_center(i),
+            Lattice::Hex(l) => l.tile_center(i),
         }
     }
 
