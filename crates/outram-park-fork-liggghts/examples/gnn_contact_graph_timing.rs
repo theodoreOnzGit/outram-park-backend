@@ -16,7 +16,12 @@
 //! and the graph it produces is worth cross-checking against the contact set the
 //! force loop actually uses.
 //!
-//! # Measured 2026-09-17 (x86-64, release, 27 564 pebbles)
+//! # Measured 2026-09-17
+//!
+//! Machine: Intel Xeon @ 2.80 GHz, **4 cores**, 15 GB RAM; `--release`;
+//! single-threaded (neither path is parallelised). 27 564 pebbles. Runtimes in
+//! this workspace are machine-dependent by rule — re-measure rather than
+//! trusting these on different hardware.
 //!
 //! | call | time | result |
 //! |---|---|---|

@@ -48,8 +48,8 @@
 //!
 //! ## Standard simplifications, and why each is defensible
 //!
-//! **Stiffness.** Nuclear graphite has `E ≈ 9 GPa`. This runs at `E = 1e8 Pa`,
-//! a reduction of ~90x. That is the usual pebble-bed DEM softening: settling is
+//! **Stiffness.** Nuclear graphite has `E ≈ 9 GPa`. This runs at `E = 3e8 Pa`,
+//! a reduction of ~30x. That is the usual pebble-bed DEM softening: settling is
 //! quasi-static, so packing structure is set by geometry and friction rather
 //! than by stiffness, while the stable timestep scales as `sqrt(m/k)` — at the
 //! true modulus the Rayleigh criterion would demand `dt ≈ 1.4e-5 s` and the run
@@ -57,7 +57,17 @@
 //!
 //! The price is larger contact overlaps, and the assumption is only safe while
 //! they stay small against the pebble radius. **The test measures the maximum
-//! overlap and asserts it**, rather than assuming — see the results below.
+//! overlap and asserts it against 2 % of the radius**, rather than assuming.
+//!
+//! That guard has already earned its place. The first run of this case used
+//! `E = 1e8 Pa` (a 90x softening) on a hand estimate of ~1.07 % overlap. The
+//! measurement came back at **3.80 %** — out by 3.5x, because the estimate used
+//! a single pebble's weight where the real load is the ~2 m column above it —
+//! and the assertion failed. `E` was raised to `3e8 Pa` and `dt` halved to keep
+//! the Rayleigh criterion. Note the cross-code comparison was *unaffected*
+//! either way (LIGGGHTS runs the same soft material and agreed to 0.02 %); what
+//! the too-soft modulus threatened was whether the bed is a fair stand-in for a
+//! real one.
 //!
 //! **Contacts.** Hertz–Mindlin normal, tangential **history** spring, and CDT
 //! rolling friction — the standard pebble-bed set, and the one verified
@@ -67,12 +77,12 @@
 //!
 //! | Parameter | Value | Note |
 //! |---|---|---|
-//! | `E` | `1e8 Pa` | reduced from ~9 GPa (above) |
+//! | `E` | `3e8 Pa` | reduced from ~9 GPa (above) |
 //! | `ν` | 0.2 | nuclear graphite |
 //! | `e` | 0.5 | dissipative; speeds settling, packing weakly sensitive |
 //! | `µ` | 0.4 | graphite-on-graphite sliding |
 //! | `µ_r` | 0.1 | CDT rolling |
-//! | `dt` | `1e-4 s` | 15 % of the Rayleigh time at this `E` |
+//! | `dt` | `5e-5 s` | ~13 % of the Rayleigh time at this `E` |
 //!
 //! ## Methodology
 //!
@@ -128,9 +138,9 @@ const PUBLISHED_PEBBLE_COUNT: usize = 27_000;
 const PUBLISHED_BED_HEIGHT: f64 = 1.97;
 
 /// Reduced Young's modulus `[Pa]` — see "Standard simplifications".
-const YOUNGS_MODULUS: f64 = 1.0e8;
+const YOUNGS_MODULUS: f64 = 3.0e8;
 /// Integration step `[s]`.
-const DT: f64 = 1.0e-4;
+const DT: f64 = 5.0e-5;
 /// Settling steps after the LIGGGHTS post-insertion state.
 const SETTLE_STEPS: usize = 40_000;
 

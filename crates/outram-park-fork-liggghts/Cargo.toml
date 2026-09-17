@@ -30,6 +30,13 @@ long-tests = []
 # asks for it — so the default build gains `raffles` but no tensor library.
 # Turn it off with `--no-default-features` (plus whatever else you want back).
 gnn = ["dep:raffles"]
+# The TRAINABLE surrogate: `raffles`'s message-passing network and its training
+# loop, which are behind `raffles/burn`. **OFF by default, deliberately**, and
+# unlike `gnn` this one really does pull a tensor stack (burn + its ndarray
+# backend). Keeping it opt-in is what preserves the property that a default
+# build of this crate contains no tensor library. Used by
+# `examples/gnn_vs_dem_surrogate.rs`.
+gnn-burn = ["gnn", "raffles/burn", "dep:burn"]
 
 [dependencies]
 # Pure-Rust, Android-safe deps only (no BLAS / C). `uom` types the physical
@@ -45,6 +52,10 @@ thiserror.workspace = true
 # `raffles` does not depend on this crate, and must not, or the two become
 # uncompilable.
 raffles = { workspace = true, optional = true }
+# Only for `gnn-burn` (off by default): the example needs to name a backend
+# type, and `raffles` does not re-export `burn`. Version is inherited from the
+# root workspace table like every other dependency.
+burn = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true
