@@ -77,6 +77,7 @@
 //!   has been measured; 1.39802 ± 0.00652 must be regarded as stale until the
 //!   S(α,β) data file is available and the test is re-run.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -356,7 +357,7 @@ fn pincell_heterogeneous_csg_with_cell_flux_tally() {
     let mut tally = Tally {
         id: 1,
         name: "cell flux".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::NuFission],
         bins: vec![TallyBin::default(); 4], // 2 cells × 2 scores
     };

@@ -208,3 +208,274 @@ Keep every port **line-traceable to the Fortran** so the Opus verification pass
 can localise a discrepancy to a specific subroutine. Per-module theory,
 implementation notes, testing status, and caveats live in each module's
 `README.md` (co-located with its Rust source under `src/`).
+
+## MF=6 LAW=1 carries its angular half (2026-09-16, `op-og56`)
+
+`acer/energy/mf6.rs` used to read ENDF `NA` only to compute a row's stride,
+keep the energy density `f₀`, and discard `f₁ … f_NA`; `LANG` was never read
+off the TAB2 at all. Its own doc comment said so — *"the angular dependence
+present in the ENDF data … is **not** carried here … (isotropic emission)"* —
+and `outram-mc-libs` consequently emitted every MT=91 continuum and MT=16
+(n,2n) neutron isotropically.
+
+**What changed.** `Mf6Neutron` now carries `lang: Mf6AngularLaw` and
+`angular: Vec<Mf6AngularTable>`, parallel to `law4.incident`. `f₀` is retained
+**unnormalised** beside the coefficients, because `LANG = 1`'s Legendre terms
+are on `f₀`'s own scale and `build_outgoing` renormalises the pdf it builds —
+dividing by the stored pdf would be wrong.
+
+**ACE output is unchanged.** Law 4 is an energy-only law by definition, so the
+DLW serialisation does not see any of this and the golden ACE comparisons are
+untouched. The angular half exists for a transport consumer, not for the ACE
+writer; turning it into ACE Law 61/44 remains separate work.
+
+**`acer::angular::legendre_cosine_law` is now public** so the continuum path
+reuses the MF=4 linearisation rather than growing a second one that drifts from
+it. Same argument the `vv` module makes about oracle values, applied to code.
+
+**Measured on the evaluations** (`tests/mf6_continuum_angular_vs_endf.rs`,
+which re-derives the table on every run):
+
+| nuclide | MT | LANG | rows | rows with `NA>0` | peak `|⟨μ⟩|` |
+|---|---|---|---|---|---|
+| U-238 | 91 | Legendre | 8654 | 8652 | 0.5573 |
+| U-235 | 91 | Legendre | 5296 | 5294 | 0.5751 |
+| F-19 | 91 | Legendre | 175 | **0** | 0.0000 |
+| O-16 | 91 | **Kalbach-Mann** | 1751 | 1751 | n/a |
+| Al-27 | 91 | **Kalbach-Mann** | 642 | 642 | n/a |
+
+`NA` runs as high as **26** on U-238's MT=91, so a closed-form inversion of the
+`NA = 1` linear density is not sufficient — the series has to be linearised.
+That was measured before choosing the implementation rather than assumed.
+
+**`LANG = 2` (Kalbach-Mann) landed the same day.** O-16 and Al-27 use it on
+MT=16 and MT=91, storing only `r` (`NA = 1`), so the slope `a` comes from the
+Kalbach-86 systematics — **`groupr::kinematics::bach`, which this crate already
+had** as a port of `groupr.f90:8812-8932` for the GROUPR path. Reused rather
+than reimplemented; two copies of one systematics would drift.
+
+The sampler inverts the Kalbach cumulative in **closed form and one variate**:
+`sinh(a mu) + r cosh(a mu)` collapses to `sqrt(1-r^2) sinh(a mu + atanh r)`, so
+`mu = [asinh(((2xi-1) sinh a + r cosh a)/sqrt(1-r^2)) - atanh r] / a`. One
+variate matters — the usual two-draw branch-then-invert form would consume a
+different number of draws from the isotropic fallback and shift the random
+stream under an ablation. Verified against the density's own closed-form mean
+`<mu> = r (coth a - 1/a)` over 25 `(r, a)` combinations.
+
+**Note O-16's MT=91 threshold is ~10 MeV**, far above any fission spectrum, so
+this changes nothing for the reactor cases in this workspace. It matters for
+high-energy applications, and it closes the representation gap.
+
+What is left unsampled is `LANG = 11…15` (tabulated cosines), which no
+evaluation in `reference-data/endf/` uses on a neutron subsection.
+
+**Reading a peak coefficient is not reading the physics.** The 0.557 above is
+the largest `a₁` anywhere in the table and badly overstates what a neutron
+experiences: weighted by each row's own `f₀`, U-238's MT=91 law is *exactly*
+isotropic below 1.2 MeV and only reaches `+0.272` at 14 MeV. Anyone pricing
+this law should weight by `f₀` first.
+
+## MF=6 LAW=7 is parsed correctly now — and the sampler is still unported (2026-09-16)
+
+`acer/energy/mf6.rs`'s `parse_law7_lab_angle_energy_body` had two defects. The
+second was found only by writing a test for the first.
+
+**1. The angular distribution was discarded at parse time.** LAW=7 stores, per
+incident energy, a lab-cosine grid and — at each cosine — a tabulated outgoing
+energy spectrum. The *relative* integrals of those per-cosine tables **are**
+`f(mu)`; LAW=7 carries no separate angular record. Every table was pushed
+through `normalize_pdf_cdf`, which renormalises to unit area, and the divisor
+was dropped. A consumer would have sampled `mu` uniformly with nothing saying
+so. `Law7MuTable::weight` retains it now, via `normalize_pdf_cdf_weighted`.
+Same class as `op-og56`.
+
+**2. It was reading the wrong record type, so it had never parsed anything.**
+The reader followed `acefc.f90`'s `acelf6`, which takes the per-incident-energy
+record as a `TAB1` with `INTMU = L1`, `NMU = L2`.
+
+> **Two NJOY routines read LAW=7 and they disagree — correctly.** `acelf6` is
+> right *for ACER*, which runs on NJOY's own intermediate File 6; `skip6a`'s
+> header comment says so in as many words: *"Special version of skip6 for
+> special version of File 6 used in ACER. Law=7 has a TAB1 containing the
+> angular distribution instead of the normal TAB2 for each incident energy."*
+> A genuine ENDF-6 tape has the normal `TAB2`, with `NMU` in `N2`.
+
+This port reads evaluation tapes, so it needs `groupr.f90`'s `getmf6`
+(`law.eq.7`, ~7876-7911), which it now follows. On Be-9 MT=16 the old code read
+`L1 = L2 = 0`, built **zero** cosine tables, and mis-consumed the real data as
+the TAB1's own pairs.
+
+**The general lesson, worth more than the fix:** "read upstream first" means the
+upstream routine that owns *this input format*, not the one whose name matches
+the task. Matching on the name picked the ACER reader for ENDF input.
+
+**And a sharper one: the correct rule was already written in this file, thirty
+lines above the defect.** `skip_mf6_subsection`'s doc comment spells out the
+`skip6`/`skip6a` split at length, quotes `skip6a`'s header, states that LAW=7's
+per-incident record is *"**one TAB2** whose `N2` is `NMU`"*, and even names
+*"ENDF/B-VIII.0's Be-9 MF=6/MT=16 ... exercises exactly this"* as the case. The
+skipper was right; the parser beside it was wrong. A documented rule does not
+propagate itself to the next function that needs it — which is an argument for
+gates over prose, and the reason the two cases in
+`tests/mf6_law7_mu_weights.rs` exist rather than another paragraph.
+
+**Verification uses the evaluation's own normalisation, not ours.** ENDF-102
+normalises LAW=7 so the double integral of `f(mu, E')` over both variables is 1;
+each retained weight is the inner integral, so the weights must integrate to 1
+across the cosine grid. Measured on Be-9 MT=16 (the only LAW=7 neutron
+subsection in `reference-data/endf/`) at all 24 incident energies:
+**1.000000-1.000001**, i.e. within `1e-6`. Worst per-cosine weight spread
+`(max-min)/mean = 3.67`, so what was being discarded was a strongly anisotropic
+distribution. Gates: `tests/mf6_law7_mu_weights.rs`.
+
+**LAW=7 sampling landed the same day.** The conversion reuses the existing
+machinery rather than adding a law, exactly as LAW=6 did. LAW=7 tabulates the
+joint `f(mu, E')`; the samplers want the marginal `f(E')` and the conditional
+`P(mu|E')`, and both fall out of `f(mu_j, E') = w_j * p_j(E')` with `w_j` the
+retained per-cosine weight. The one construction step is a **merged outgoing-
+energy grid** — the union of every cosine's own knots — which is exact rather
+than approximate, since evaluating a piecewise-linear density on a superset of
+its own knots reproduces it identically. The angular half becomes
+`ContinuumAngular::LabTabulated`, kept distinct from `Legendre` because it is a
+different representation **and** laboratory-frame by construction (ENDF-102:
+LAW=7 is in the lab regardless of `LCT`), so it must never acquire a CM->lab
+transform. `INTMU = 1` (histogram over cosine) returns `Ok(None)` and keeps the
+caller's fallback rather than silently applying the lin-lin rule; Be-9 uses
+`INTMU = 2`.
+
+Two measurements, both against oracles rather than assertions:
+
+| check | result |
+|---|---|
+| converted `<E'>` and `<mu>` vs the raw LAW=7 tables, 24 incident energies | **7e-16 / 9e-16** worst relative |
+| sampled `<mu>` through the transport kernel at 14 MeV vs the law's closed form | **+0.254104 +- 0.001210** against **+0.253844**, 0.21 sigma |
+| isotropic-ablation arm (control) | **+0.001801 +- 0.001290**, identical final RNG seed |
+
+So Be-9 (n,2n) was emitting isotropically a law whose laboratory `<mu>` is
+`+0.25` to `+0.58`. Both moment integrals are done in **closed form on each
+linear segment**, never by trapezoid: trapezoid is exact for `int f` but not for
+`int x f`, the error that produced a false "+0.60 % bias" earlier in this port.
+
+**A correction from that work, worth more than the result.** The transport test's
+first oracle weighted `mubar` by `pdf[k]`, copying the older Legendre control,
+and read **3.30 sigma** — close enough to pass its 4 sigma gate and wrong. The
+sampler selects row `k` with probability `cdf[k+1] - cdf[k]`, because
+`sample_ct_table_indexed` returns the lower edge of the CDF bin. Weighting it the
+way the code behaves gives 0.21 sigma. The defect was in the oracle; a looser
+gate would have buried the distinction rather than exposing it.
+
+Be-9 is in none of this workspace's criticality cases, so none of this moves a
+`k_eff`. What it closes is a silent fallback.
+
+Gates: `njoy-outram-park-fork`'s `tests/mf6_law7_conversion.rs` and
+`outram-mc-libs`'s `tests/law7_lab_angle_energy_transport.rs`.
+
+## MF=4 + MF=5 emission wired in, and a V&V reference found wrong (2026-09-16)
+
+### The gap, and how it was found
+
+A coverage survey (`tests/continuum_law_coverage_survey.rs`) asked a question
+nobody had asked directly: **where does the Weisskopf evaporation stand-in still
+fire?** It classifies every `(tape, MT)` a transport run reaches into
+"evaluated", "MF=4/5", "nothing anywhere" and "MF=6 present but no law".
+
+Its first version counted 11 sections as benign — "the evaluation carries no
+MF=6, so the stand-in is all there is". **That was wrong, and checking rather
+than assuming showed it**: all 11 carry both MF=4 and MF=5.
+
+| tape | MTs | MF=4 `LTT` | MF=5 `LF` |
+|---|---|---|---|
+| Li-7 ENDF/B-VIII.0 | 16 | 2 (tabulated) | 1 |
+| C-12 ENDF/B-VIII.0 | 91 | 0 (isotropic) | 9 (evaporation) |
+| Sr-88 ENDF/B-VIII.1 | 16, 17, 91 | 1 | 1 |
+| U-238 JENDL-3.3 | 16, 17, 91 | 2 / 1 | 1 |
+| Pu-239 JENDL-3.3 | 16, 17, 91 | 2 / 1 | 1 |
+
+Ten of eleven are `LF=1`, one is `LF=9`; **all eleven are `LCT = 1`
+(laboratory)**. Every `LF` and `LTT` involved was already ported. The gap was
+the reading, not the representation — the same shape as LAW=6 and LAW=7.
+
+Coverage now: **42 sections from MF=6, 11 from MF=4/5, 0 on the stand-in.**
+
+### The frame question, settled upstream rather than argued
+
+ENDF-102 puts MF=5 secondary energies in the laboratory system while MF=4 carries
+its own `LCT`, so one frame flag looked unable to express the pair. Reading NJOY
+settled it in one look: `acefc.f90:5825-5869` takes `lct` from **MF=4's** own
+CONT record and sets the ACE `TY` sign from it — one flag per reaction, from
+MF=4. `UncorrelatedEmission::from_endf` refuses `LCT >= 2` rather than shipping
+an untested frame transform; no held evaluation exercises it.
+
+### Reuse, not conversion — and why this one is the exception
+
+Every other law here converts into `ChiTabular` to reuse the continuum sampler.
+This one deliberately does not: `sample_chi` already samples every ported MF=5
+`LF` (including the analytic ones) and `sample_mf4_mu_cm` already implements
+OpenMC's statistical-neighbour convention on MF=4's own grid. Converting would
+have replaced two exact samplers with one tabulated approximation and forced MF=4
+onto MF=5's unrelated energy grid. `Nuclide::sample_inelastic_emission` is now
+the single place the MF=6 / MF=4+5 / stand-in choice is made.
+
+Measured (`outram-mc-libs`'s `tests/mf45_uncorrelated_emission.rs`), JENDL-3.3
+U-238 MT=91 at 13 MeV, 200 000 collisions:
+
+| quantity | sampled | evaluation | |
+|---|---|---|---|
+| `<E'>` | 8.171914e6 eV ± 3.3e3 | 8.177120e6 eV | 1.58 sigma |
+| `<mu>` | +0.339126 ± 0.001208 | +0.339994 | 0.72 sigma |
+
+### The defect this uncovered: `mean_cosine` used the wrong quadrature
+
+`EnergyAngular::mean_cosine` integrated `mu*f(mu)` by the **trapezoid rule**,
+under a comment asserting that was exact because `f` is lin-lin. `f` linear makes
+`mu*f(mu)` **quadratic**, and trapezoid is exact only for a linear integrand.
+
+The truth needs no quadrature: for MF=4 `LTT=1` the mean cosine is **exactly
+`a_1`**, the first normalised Legendre coefficient, straight off the tape.
+U-235 MT=2:
+
+| E (eV) | grid pts | `a_1` (exact) | closed form | trapezoid |
+|---|---|---|---|---|
+| 1.0e3 | 9 | +0.001195 | **+0.001195** | +0.001232 |
+| 1.0e5 | 9 | +0.126123 | **+0.126091** | +0.130067 |
+| 2.0e6 | 92 | +0.621682 | **+0.622143** | +0.622697 |
+
+At 1.0e5 eV the trapezoid rule is **123 times** further from the truth.
+
+**It had propagated into a V&V reference.** `elastic_mubar_vs_openmc.rs`'s
+oracle is, by its own provenance note, *"the trapezoidal integral of
+`mu*p(mu)`"* — and its committed `0.13007` reproduces **our trapezoid** to 3e-6
+while the true value is `0.12612`. That test was passing on **two matching
+errors**, the failure mode it exists to prevent. It surfaced only because fixing
+the library made it fail.
+
+Resolution, with nothing loosened:
+
+- `mean_cosine` integrates in closed form.
+- New exact gate, `tests/mf4_mean_cosine_vs_legendre_a1.rs`: 1857 Legendre rows
+  across U-235 and U-238, worst **1.20e-3 below 6 MeV** (gate 2e-3, which the
+  trapezoid's 3.9e-3 fails), 6.21e-3 over the full range to 30 MeV.
+- Both OpenMC mu-bar tests reproduce the oracle's own quadrature locally, clearly
+  labelled, so they compare like with like at their original tolerances —
+  elastic back to **5.58e-4** (recorded 5.6e-4), inelastic to **3.13e-3**
+  (recorded 3.1e-3). They still check the *parse* against an independent code;
+  the *integral* is now checked far more sharply by `a_1`.
+
+**A hypothesis checked and killed.** The residual above 6 MeV was first blamed on
+`legendre_cosine_law`'s positivity clamp, which would legitimately move the mean
+away from `a_1`. The test evaluates the raw series at every grid point itself:
+**zero rows are clamped.** It is the lineariser's `ANGLE_TOL = 5e-3` (stated on
+`f`, leaving a residual in a *moment* of `f`) — U-238 MT=59 at 13 MeV has 129
+grid points and still differs by 6.2e-3, so it is not a coarse grid.
+
+**Flagged, not fixed:** tightening `ANGLE_TOL` would reduce that at the cost of
+larger tables. The whole effect sits above 6 MeV, and changing a lineariser
+tolerance moves every angular table in the workspace — that deserves its own
+paired measurement, not a drive-by.
+
+### Scope
+
+None of this workspace's criticality cases is affected by the MF=4/5 wiring:
+Godiva and the thermal cases run on ENDF/B-VIII.0 evaluations that all carry
+MF=6. The `mean_cosine` fix does reach the fast-tier MGXS `mu-bar` column and
+anything reading `elastic_mubar_cm` / `inelastic_mubar_cm`.

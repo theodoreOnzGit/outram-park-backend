@@ -75,6 +75,7 @@
 //! the 174 W round-trip is exact by construction — neither moved**, and no
 //! tolerance changed.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use std::io::Write;
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
@@ -250,7 +251,7 @@ fn tally_power_normalization() {
     let mut tally = Tally {
         id: 1,
         name: "fuel power".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::Fission, ScoreType::KappaFission],
         bins: vec![TallyBin::default(); 3],
     };

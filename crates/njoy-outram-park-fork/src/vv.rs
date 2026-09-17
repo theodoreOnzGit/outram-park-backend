@@ -233,6 +233,73 @@ pub fn assert_table_relative(
     worst
 }
 
+/// A previously recorded `k_eff` offset, **with the uncertainty it was measured
+/// at** — the second half a drift gate needs and used not to have.
+///
+/// # Why the recorded σ has to be carried
+///
+/// A drift gate compares this run's offset against a number someone wrote into
+/// a doc comment. That number is itself a measurement with its own error, so
+/// the difference of the two has variance `σ_run² + σ_recorded²`. Treating the
+/// recorded value as exact and gating at `4 σ_run` is too tight by up to `√2`,
+/// which turns a ~6e-5 false-failure rate into ~5e-3 — a hundredfold increase
+/// in flakiness, on a gate whose whole job is to be believed when it fires.
+/// That was GitHub #196 / bead `op-awwi`, and
+/// `examples/godiva_keff_ensemble.rs` had already worked around it locally
+/// before this type existed.
+///
+/// The distinction is not academic in this crate: some recorded values are
+/// single draws (`σ` of a few hundred pcm) and some are pooled seed ensembles
+/// (`sem` of ~11 pcm). One constant cannot serve both.
+#[derive(Debug, Clone, Copy)]
+pub struct RecordedKeff {
+    /// The recorded offset from the benchmark \[pcm\].
+    pub pcm: f64,
+    /// The **1 σ uncertainty on that recorded number** \[pcm\] — the `sem` of
+    /// the ensemble it was pooled over, or the statistical `σ` of the single run
+    /// it came from.
+    pub sigma_pcm: f64,
+}
+
+impl RecordedKeff {
+    /// A value pooled over a seed ensemble, carrying that ensemble's standard
+    /// error of the mean \[pcm\].
+    ///
+    /// This is the form to prefer. A pooled number is reproducible; a single
+    /// draw is not, and a drift gate built on one mostly measures
+    /// re-randomisation.
+    pub fn pooled(pcm: f64, sem_pcm: f64) -> Self {
+        RecordedKeff {
+            pcm,
+            sigma_pcm: sem_pcm,
+        }
+    }
+
+    /// A value recorded from a **single run whose statistics resemble this
+    /// one's**, so its uncertainty is taken to equal the current run's `σ`.
+    ///
+    /// The drift gate then widens by exactly `√2`, which is the correct factor
+    /// for the difference of two independent runs of the same program at the
+    /// same settings. Use this for a legacy recorded number whose own `σ` was
+    /// not written down — it is the honest reading of "measured once, like
+    /// this".
+    pub fn from_comparable_run(pcm: f64) -> Self {
+        RecordedKeff {
+            pcm,
+            sigma_pcm: f64::NAN, // resolved against the run's own sigma
+        }
+    }
+
+    /// The uncertainty to combine with this run's `σ_run` \[pcm\].
+    fn sigma_against(&self, sigma_run_pcm: f64) -> f64 {
+        if self.sigma_pcm.is_finite() {
+            self.sigma_pcm
+        } else {
+            sigma_run_pcm
+        }
+    }
+}
+
 /// Assert a Monte Carlo `k_eff` reproduces a benchmark value.
 ///
 /// The gate is `band + 4 σ`, where `band` is the benchmark's own stated
@@ -240,22 +307,28 @@ pub fn assert_table_relative(
 /// reported statistical error of *this* run. Four sigma, not one: a V&V gate
 /// that fires on ordinary statistical fluctuation trains people to ignore it.
 ///
-/// `recorded_pcm` is the offset measured when this case was last looked at by
-/// a human and written into the example's doc comment. It is checked as a
+/// `recorded` is the offset measured when this case was last looked at by
+/// a human and written into the example's doc comment, together with the
+/// uncertainty it was measured at ([`RecordedKeff`]). It is checked as a
 /// *separate* claim from agreement with the benchmark — see the module docs.
 /// Pass `None` for a case that has never been recorded.
+///
+/// The drift gate is `4 · √(σ_run² + σ_recorded²)`, the spread of the
+/// *difference of two independent measurements*. Using `4 · σ_run` instead
+/// treats the recorded number as exact and makes the gate too tight by up to
+/// `√2` — GitHub #196 / bead `op-awwi`.
 ///
 /// # Panics
 ///
 /// If the run misses the benchmark by more than `band + 4 σ`, or if it has
-/// drifted from `recorded_pcm` by more than `4 σ`.
+/// drifted from `recorded.pcm` by more than `4 · √(σ_run² + σ_recorded²)`.
 pub fn assert_reproduces_keff(
     label: &str,
     k_mean: f64,
     k_std: f64,
     benchmark_k: f64,
     band: f64,
-    recorded_pcm: Option<f64>,
+    recorded: Option<RecordedKeff>,
 ) {
     let pcm = (k_mean - benchmark_k) * 1.0e5;
     let sigma_pcm = k_std * 1.0e5;
@@ -271,26 +344,36 @@ pub fn assert_reproduces_keff(
         },
     );
 
-    if let Some(recorded) = recorded_pcm {
-        let drift = pcm - recorded;
-        let drift_gate = 4.0 * sigma_pcm;
+    if let Some(recorded) = recorded {
+        let drift = pcm - recorded.pcm;
+        // The difference of two independent measurements, not of one
+        // measurement and a constant: sigma_diff = sqrt(sigma_run^2 +
+        // sigma_recorded^2). Gating at 4*sigma_run instead would treat the
+        // recorded number as exact and be too tight by up to sqrt(2) —
+        // GitHub #196 / bead op-awwi.
+        let sigma_recorded = recorded.sigma_against(sigma_pcm);
+        let sigma_diff = (sigma_pcm * sigma_pcm + sigma_recorded * sigma_recorded).sqrt();
+        let drift_gate = 4.0 * sigma_diff;
         println!(
-            "  [{}] {label}: reproduces the recorded {recorded:+.0} pcm \
-             (drift {drift:+.0} pcm, gate ±{drift_gate:.0} pcm)",
+            "  [{}] {label}: reproduces the recorded {:+.0} ± {sigma_recorded:.0} pcm \
+             (drift {drift:+.0} pcm, gate ±{drift_gate:.0} pcm = 4·√(σ_run² + σ_rec²))",
             if drift.abs() <= drift_gate {
                 "PASS"
             } else {
                 "FAIL"
             },
+            recorded.pcm,
         );
         assert!(
             drift.abs() <= drift_gate,
-            "{label}: this run gives {pcm:+.0} pcm but the doc comment records \
-             {recorded:+.0} pcm — a drift of {drift:+.0} pcm, more than 4 σ \
+            "{label}: this run gives {pcm:+.0} ± {sigma_pcm:.0} pcm but the doc \
+             comment records {:+.0} ± {sigma_recorded:.0} pcm — a drift of \
+             {drift:+.0} pcm, more than 4 σ of the difference \
              ({drift_gate:.0} pcm).\n\
              Something changed since that number was recorded. Either the \
              physics moved (find out what) or the recorded value is stale (say \
              so in the doc comment, with the date and the reason).",
+            recorded.pcm,
         );
     }
 
@@ -399,4 +482,115 @@ pub fn assert_monotone(label: &str, values: &[f64], increasing: bool, slack: f64
             "non-increasing"
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The k \[pcm\] a benchmark gate is judged at, and a σ typical of a single
+    /// 5000-history Godiva run.
+    const SIGMA_RUN_PCM: f64 = 173.0;
+    /// A pooled 256-seed `sem`, as `examples/godiva_keff_ensemble.rs` reports.
+    const SIGMA_POOLED_PCM: f64 = 11.0;
+
+    /// Drive `assert_reproduces_keff` with a drift and report whether it passed.
+    ///
+    /// The benchmark arm is made unreachable (a huge band) so only the **drift**
+    /// gate can fire — otherwise a failure here would be ambiguous between the
+    /// two claims the function checks.
+    fn drift_passes(drift_pcm: f64, sigma_run_pcm: f64, recorded: RecordedKeff) -> bool {
+        let k_mean = 1.0 + (recorded.pcm + drift_pcm) * 1.0e-5;
+        std::panic::catch_unwind(|| {
+            assert_reproduces_keff(
+                "gate-sizing unit test",
+                k_mean,
+                sigma_run_pcm * 1.0e-5,
+                1.0,
+                1.0, // benchmark band of 1.0 in k: the benchmark gate cannot fire
+                Some(recorded),
+            );
+        })
+        .is_ok()
+    }
+
+    /// The drift gate must be `4·√(σ_run² + σ_recorded²)` — the spread of the
+    /// **difference of two independent measurements** — not `4·σ_run`.
+    ///
+    /// This is the GitHub #196 / `op-awwi` defect, tested rather than asserted.
+    /// Treating the recorded number as exact makes the gate too tight by up to
+    /// `√2`, which raises the false-failure rate of a 4 σ gate from ~6e-5 to
+    /// ~5e-3 — a hundredfold increase in flakiness on a gate whose whole value
+    /// is being believed when it fires.
+    #[test]
+    fn the_drift_gate_combines_both_uncertainties() {
+        let recorded = RecordedKeff::pooled(16.0, SIGMA_POOLED_PCM);
+        let expected =
+            4.0 * (SIGMA_RUN_PCM * SIGMA_RUN_PCM + SIGMA_POOLED_PCM * SIGMA_POOLED_PCM).sqrt();
+
+        assert!(
+            drift_passes(expected * 0.99, SIGMA_RUN_PCM, recorded),
+            "a drift just inside 4·√(σ_run² + σ_rec²) = {expected:.1} pcm must pass"
+        );
+        assert!(
+            !drift_passes(expected * 1.01, SIGMA_RUN_PCM, recorded),
+            "a drift just outside 4·√(σ_run² + σ_rec²) = {expected:.1} pcm must fail"
+        );
+
+        // And it is genuinely wider than the old `4·σ_run` rule wherever the
+        // recorded value carries any uncertainty at all. With a pooled sem of 11
+        // against a run sigma of 173 the widening is small (0.2 %) — which is
+        // the point: the correction matters where the recorded value is itself
+        // noisy, not where it is well pooled.
+        let old_gate = 4.0 * SIGMA_RUN_PCM;
+        assert!(
+            expected > old_gate,
+            "the corrected gate {expected:.1} must be at least as wide as the old {old_gate:.1}"
+        );
+    }
+
+    /// A value recorded from a run with comparable statistics widens the gate by
+    /// exactly `√2`, which is the correct factor for the difference of two
+    /// independent runs of one program at one setting.
+    #[test]
+    fn a_comparable_run_widens_the_gate_by_root_two() {
+        let recorded = RecordedKeff::from_comparable_run(1042.0);
+        let root_two_gate = 4.0 * SIGMA_RUN_PCM * std::f64::consts::SQRT_2;
+
+        assert!(
+            drift_passes(root_two_gate * 0.99, SIGMA_RUN_PCM, recorded),
+            "a drift just inside 4·√2·σ_run = {root_two_gate:.1} pcm must pass"
+        );
+        assert!(
+            !drift_passes(root_two_gate * 1.01, SIGMA_RUN_PCM, recorded),
+            "a drift just outside 4·√2·σ_run = {root_two_gate:.1} pcm must fail"
+        );
+
+        // The old behaviour — treating the recorded value as exact — would have
+        // FAILED a drift of 1.2·σ_run·4, which is a perfectly ordinary outcome
+        // for two independent runs. Pinning that here is what stops the fix
+        // being quietly reverted.
+        let ordinary = 4.0 * SIGMA_RUN_PCM * 1.2;
+        assert!(
+            ordinary > 4.0 * SIGMA_RUN_PCM,
+            "test setup: the probe drift must exceed the old gate"
+        );
+        assert!(
+            drift_passes(ordinary, SIGMA_RUN_PCM, recorded),
+            "a drift of {ordinary:.1} pcm is 1.2 × the OLD 4·σ_run gate but only 0.85 × the \
+             correct one; it must pass. If it fails, the gate has reverted to treating the \
+             recorded value as exact (gh:#196)."
+        );
+    }
+
+    /// A `None` recorded value checks the benchmark claim only, and must not
+    /// panic on the drift path at all.
+    #[test]
+    fn no_recorded_value_means_no_drift_gate() {
+        let ok = std::panic::catch_unwind(|| {
+            assert_reproduces_keff("no recorded value", 1.0, 1.0e-3, 1.0, 1.0e-3, None);
+        })
+        .is_ok();
+        assert!(ok, "a run sitting on the benchmark with no recorded value must pass");
+    }
 }

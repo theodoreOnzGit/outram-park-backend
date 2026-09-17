@@ -73,6 +73,7 @@
 //! asserted identities are exact algebra over whatever the tally holds and are
 //! therefore data-independent — they did not move**, and no tolerance changed.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use std::io::Write;
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
@@ -257,7 +258,7 @@ fn tally_arithmetic_derived() {
     let mut tally = Tally {
         id: 1,
         name: "flux+fission spectrum".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Energy(filter)],
         scores: vec![ScoreType::Flux, ScoreType::Fission],
         bins: vec![TallyBin::default(); n_groups * 2],
     };

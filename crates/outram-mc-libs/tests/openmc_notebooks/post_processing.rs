@@ -90,6 +90,7 @@
 //! the fuel-overlapping centre, so the asserted structure and symmetry properties
 //! are unaffected.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -308,7 +309,7 @@ fn post_processing_statepoint() {
     let mut tally = Tally {
         id: 1,
         name: "mesh flux".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Mesh(filter)],
         scores: vec![ScoreType::Flux],
         bins: vec![TallyBin::default(); n_cells],
     };

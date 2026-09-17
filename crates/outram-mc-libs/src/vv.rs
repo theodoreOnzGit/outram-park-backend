@@ -16,7 +16,7 @@ pub mod njoy_golden;
 
 pub use njoy_outram_park_fork::vv::{
     assert_absolute, assert_monotone, assert_relative, assert_reproduces_keff,
-    assert_reproduces_recorded, assert_table_relative, WorstDeviation,
+    assert_reproduces_recorded, assert_table_relative, RecordedKeff, WorstDeviation,
 };
 
 /// Pooled statistics of a seed ensemble: `(mean, sample sd, standard error)`.

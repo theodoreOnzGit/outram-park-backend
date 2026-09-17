@@ -105,8 +105,7 @@ use crate::material::nuclide::{Inelastic, Nuclide};
 pub use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated,
-    rotate_direction, two_body_scatter, two_body_scatter_with_mu,
+    free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::gpu::batched_event::{EventBatch, EventSphere, EventTablesF32, FISS_NONE};
 use crate::gpu::collision_grid::CollisionTables;
@@ -908,11 +907,11 @@ pub fn run_keff_gpu_batched(
                                     seed,
                                 });
                             }
-                            CollisionResult::ScatterWithSecondary {
+                            CollisionResult::ScatterWithSecondaries {
                                 e: e2,
                                 u: u2,
-                                sec_e,
-                                sec_u,
+                                sec,
+                                n_sec,
                             } => {
                                 survivors.push(LiveNeutron {
                                     r,
@@ -920,15 +919,21 @@ pub fn run_keff_gpu_batched(
                                     e: e2,
                                     seed,
                                 });
-                                // The (n,2n) extra neutron gets its own sub-stream
-                                // (jump-ahead off the parent's post-collision seed).
-                                let sec_seed = future_seed(BATCH_SECONDARY_STRIDE, seed);
-                                survivors.push(LiveNeutron {
-                                    r,
-                                    u: sec_u,
-                                    e: sec_e,
-                                    seed: sec_seed,
-                                });
+                                // Each extra neutron gets its own sub-stream
+                                // (jump-ahead off the parent's post-collision
+                                // seed). The multiplier `j + 1` keeps the two
+                                // (n,3n) extras on distinct streams rather than
+                                // an identical one.
+                                for (j, &(sec_e, sec_u)) in sec.iter().take(n_sec).enumerate() {
+                                    let sec_seed =
+                                        future_seed(BATCH_SECONDARY_STRIDE * (j as u64 + 1), seed);
+                                    survivors.push(LiveNeutron {
+                                        r,
+                                        u: sec_u,
+                                        e: sec_e,
+                                        seed: sec_seed,
+                                    });
+                                }
                             }
                         }
                     }
@@ -1242,13 +1247,18 @@ enum CollisionResult {
     Dead,
     /// Scattered (elastic or inelastic) → stays live with new energy/direction.
     Scatter { e: f64, u: Direction },
-    /// Scattered **and** emitted one extra same-generation neutron (`(n,2n)`,
-    /// yield 2) → both the down-scattered primary and the secondary stay live.
-    ScatterWithSecondary {
+    /// Scattered **and** emitted extra same-generation neutrons — `(n,2n)`
+    /// (yield 2, one extra) or `(n,3n)` (yield 3, two extra). The
+    /// down-scattered primary and every extra stay live.
+    ///
+    /// The extras are a fixed-size array rather than a `Vec` because this is
+    /// the hot loop and the count is at most two; `n_sec` says how many of
+    /// `sec` are live.
+    ScatterWithSecondaries {
         e: f64,
         u: Direction,
-        sec_e: f64,
-        sec_u: Direction,
+        sec: [(f64, Direction); 2],
+        n_sec: usize,
     },
 }
 
@@ -1281,7 +1291,16 @@ fn collide_batched(
 ) -> (f64, CollisionResult) {
     let ci = material.sample_nuclide(e, seed, nuclides);
     let nuc = &nuclides[material.components[ci].nuclide_idx];
-    let x = nuc.xs_at_energy(e, temp);
+    let x = if nuc.needs_urr_draw(e) {
+        // Unresolved-resonance self-shielding: draw one band. The
+        // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+        // bit-identical to one from before they existed -- an
+        // unconditional draw would shift every RNG stream in the crate
+        // for no physical reason.
+        nuc.xs_at_energy_urr(e, temp, prn(seed))
+    } else {
+        nuc.xs_at_energy(e, temp)
+    };
 
     let xi = prn(seed) * x.total;
     if xi < x.fission {
@@ -1313,9 +1332,7 @@ fn collide_batched(
                 Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
                 None => two_body_scatter(e, u, nuc.awr, q, seed),
             },
-            Inelastic::Continuum { q } => {
-                continuum_inelastic_scatter_evaluated(e, u, nuc.awr, q, nuc.continuum_law(91), seed)
-            }
+            Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
     } else if xi < x.absorption + x.inelastic + x.n2n {
@@ -1325,8 +1342,8 @@ fn collide_batched(
         // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
         // elastic CM energy as before. Sharing the available energy between
         // the two emitted neutrons is a separate gap (GitHub #192).
-        let law16 = nuc.continuum_law(16);
-        let (e2, u2) = continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+        let has16 = nuc.has_evaluated_emission(16);
+        let (e2, u2) = nuc.sample_inelastic_emission(16, e, u, 0.0, seed);
         // Second neutron: an **independent draw** from the same
         // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
         // neutron, so two independent draws is what the evaluation
@@ -1334,20 +1351,100 @@ fn collide_batched(
         // did before, and what it still does with no MF=6 law to
         // read) correlates the pair perfectly and is GitHub #192's
         // second open item.
-        let (sec_e2, sec_u2) = if law16.is_some() {
-            continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+        let (sec_e2, sec_u2) = if has16 {
+            nuc.sample_inelastic_emission(16, e, u, 0.0, seed)
         } else {
             (e2, u2)
         };
-        (
-            0.0,
-            CollisionResult::ScatterWithSecondary {
-                e: e2,
-                u: u2,
-                sec_e: sec_e2,
-                sec_u: sec_u2,
-            },
-        )
+        // The secondary is drawn above unconditionally and only its EMISSION
+        // is gated, so the yield-2 ablation
+        // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms' RNG streams
+        // in exact lockstep.
+        if nuc.emits_n2n_secondary() {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec: [(sec_e2, sec_u2), (sec_e2, sec_u2)],
+                    n_sec: 1,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+        // (n,3n): yield 3. Kept in lockstep with `transport_history`'s arm --
+        // the two differ only in that this one RETURNS the extras instead of
+        // pushing them onto a local stack. Below the MT=17 threshold `x.n3n` is
+        // exactly 0, so this condition coincides with the old `else` boundary
+        // and the partition is unchanged for any reactor spectrum.
+        let has17 = nuc.has_evaluated_emission(17);
+        let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+        let mut sec = [(e2, u2); 2];
+        for slot in sec.iter_mut() {
+            if has17 {
+                *slot = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+            }
+        }
+        if nuc.emits_n2n_secondary() {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec,
+                    n_sec: 2,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+        // MT=5, "(n,anything)": the lumped high-energy channels. Unlike (n,2n)
+        // and (n,3n) its multiplicity is a TABULATED y(E), so the integer count
+        // is drawn from it (`sample_mt5_multiplicity`) rather than fixed.
+        //
+        // Wired 2026-09-17. Before that MT=5 had no arm at all: it is inside
+        // MT=1, so the collision happened and then fell through to the elastic
+        // branch below, which both mis-scattered it and dropped its extra
+        // neutrons. It is exactly zero below ~5 MeV, so this condition coincides
+        // with the previous boundary for any fission spectrum and no reactor
+        // result moves; at 14 MeV it is 0.27 % of all collisions.
+        let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+        let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+        // Every extra neutron is an independent draw from the same law, as for
+        // (n,2n)/(n,3n). Drawn unconditionally so the count, not the draw
+        // sequence, is what varies -- keeping the RNG stream aligned between
+        // multiplicities.
+        let mut sec = [(e2, u2); 2];
+        for slot in sec.iter_mut() {
+            *slot = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+        }
+        // `y(E) = 0` is a real state, not an edge case: ENDF/B-VIII.0's U-235
+        // MT=5 emits NO neutron below ~100 keV (it is exothermic, QM = +11.1 MeV,
+        // and is lumping charged-particle channels there), and even at 20 MeV
+        // `y = 0.47`, so more than half of those collisions emit nothing. A
+        // sampled multiplicity of zero must therefore KILL the neutron. Scattering
+        // it instead -- which the first version of this arm did -- would create
+        // neutrons the evaluation says do not exist.
+        if n_emit == 0 {
+            return (0.0, CollisionResult::Dead);
+        }
+        let n_sec = n_emit.saturating_sub(1).min(2);
+        if n_sec > 0 {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec,
+                    n_sec,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
         // see the equivalent branch in [`transport_history`].
@@ -1359,11 +1456,11 @@ fn collide_batched(
                 // sampled, so the neutron can gain energy and the population has
                 // a Maxwellian fixed point (bead op-50vu). Above it this is the
                 // old target-at-rest kinematics.
-                let kt = K_BOLTZMANN_EV_PER_K * temp;
+                let kt = nuc.free_gas_kt(temp);
                 let mu_cm = nuc
                     .sample_elastic_mu_cm(e, seed)
                     .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
             }
         };
         (0.0, CollisionResult::Scatter { e: e2, u: u2 })
@@ -1415,7 +1512,16 @@ fn transport_history(
             r = stream(r, u, d_col);
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
-            let x = nuc.xs_at_energy(e, temp);
+            let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. The
+                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                // bit-identical to one from before they existed -- an
+                // unconditional draw would shift every RNG stream in the crate
+                // for no physical reason.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
             // Reaction partition on the *total*:
             //   fission | capture | inelastic | (n,2n) | elastic.
@@ -1461,14 +1567,7 @@ fn transport_history(
                         Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
                         None => two_body_scatter(e, u, nuc.awr, q, seed),
                     },
-                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                        e,
-                        u,
-                        nuc.awr,
-                        q,
-                        nuc.continuum_law(91),
-                        seed,
-                    ),
+                    Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
                 };
                 e = e2;
                 u = u2;
@@ -1490,9 +1589,8 @@ fn transport_history(
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                 // elastic CM energy as before. Sharing the available energy between
                 // the two emitted neutrons is a separate gap (GitHub #192).
-                let law16 = nuc.continuum_law(16);
-                let (e2, u2) =
-                    continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                let has16 = nuc.has_evaluated_emission(16);
+                let (e2, u2) = nuc.sample_inelastic_emission(16, e, u, 0.0, seed);
                 // Second neutron: an **independent draw** from the same
                 // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
                 // neutron, so two independent draws is what the evaluation
@@ -1500,17 +1598,79 @@ fn transport_history(
                 // did before, and what it still does with no MF=6 law to
                 // read) correlates the pair perfectly and is GitHub #192's
                 // second open item.
-                let (sec_e2, sec_u2) = if law16.is_some() {
-                    continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                let (sec_e2, sec_u2) = if has16 {
+                    nuc.sample_inelastic_emission(16, e, u, 0.0, seed)
                 } else {
                     (e2, u2)
                 };
-                // yield − 1 = 1 secondary
-                stack.push(Site {
-                    r,
-                    u: sec_u2,
-                    e: sec_e2,
-                });
+                // yield − 1 = 1 secondary. The secondary is drawn above
+                // unconditionally and only its EMISSION is gated, so the
+                // yield-2 ablation (`Nuclide::with_unit_n2n_multiplicity`)
+                // leaves both arms' RNG streams in exact lockstep.
+                if nuc.emits_n2n_secondary() {
+                    stack.push(Site {
+                        r,
+                        u: sec_u2,
+                        e: sec_e2,
+                    });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                // are emitted. Before 2026-09-16 there was no branch here at all:
+                // MT=17 is inside MT=1, so the collision still happened but fell
+                // through to the ELASTIC arm and both extras were silently lost.
+                //
+                // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                // coincides with the old `else` boundary and the partition is
+                // bit-identical to before -- which is why adding it does not move any
+                // reactor-spectrum result.
+                let has17 = nuc.has_evaluated_emission(17);
+                let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+                // Two independent draws from the same evaluated law, for the same
+                // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                // `f0` per emitted neutron.
+                for _ in 0..2 {
+                    let (se, su) = if has17 {
+                        nuc.sample_inelastic_emission(17, e, u, 0.0, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site { r, u: su, e: se });
+                    }
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
+                // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
+                // inside MT=1, so before this the collision happened and fell
+                // through to the ELASTIC arm, mis-scattering it and dropping its
+                // extra neutrons. Its multiplicity is a TABULATED y(E), not a
+                // fixed integer, so the count is drawn from it.
+                //
+                // `x.mt5` is exactly 0 below ~5 MeV, so this condition coincides
+                // with the previous boundary for any fission spectrum and the
+                // partition is bit-identical there.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                // Draw both possible extras unconditionally so the RNG stream
+                // depends on the law and not on the sampled multiplicity, then
+                // emit only as many as were drawn.
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                // `y(E) = 0` kills the neutron -- see the equivalent arm in
+                // `collide`. Below ~100 keV U-235's MT=5 emits nothing at all.
+                if n_emit == 0 {
+                    break;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
                 e = e2;
                 u = u2;
             } else {
@@ -1530,11 +1690,19 @@ fn transport_history(
                         // is sampled, so the neutron can gain energy and the
                         // population has a Maxwellian fixed point (bead op-50vu).
                         // Above it this is the old target-at-rest kinematics.
-                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let kt = nuc.free_gas_kt(temp);
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                        free_gas_elastic_scatter_dbrc(
+                            e,
+                            u,
+                            nuc.awr,
+                            kt,
+                            mu_cm,
+                            seed,
+                            nuc.dbrc_table(),
+                        )
                     }
                 };
                 e = e2;
@@ -1609,7 +1777,16 @@ fn transport_history_tabulated(
             r = stream(r, u, d_col);
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
-            let x = nuc.xs_at_energy(e, temp);
+            let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. The
+                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                // bit-identical to one from before they existed -- an
+                // unconditional draw would shift every RNG stream in the crate
+                // for no physical reason.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
             // Reaction partition — VERBATIM from `transport_history`; only the
             // Sigma_t *source* above differs, never the RNG draws below.
@@ -1644,14 +1821,7 @@ fn transport_history_tabulated(
                         Some(mu_cm) => two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed),
                         None => two_body_scatter(e, u, nuc.awr, q, seed),
                     },
-                    Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                        e,
-                        u,
-                        nuc.awr,
-                        q,
-                        nuc.continuum_law(91),
-                        seed,
-                    ),
+                    Inelastic::Continuum { q } => nuc.sample_inelastic_emission(91, e, u, q, seed),
                 };
                 e = e2;
                 u = u2;
@@ -1659,9 +1829,8 @@ fn transport_history_tabulated(
                 // (n,2n): the MT=16 Q is not carried here, so the cap stays at the
                 // elastic CM energy as before. Sharing the available energy between
                 // the two emitted neutrons is a separate gap (GitHub #192).
-                let law16 = nuc.continuum_law(16);
-                let (e2, u2) =
-                    continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed);
+                let has16 = nuc.has_evaluated_emission(16);
+                let (e2, u2) = nuc.sample_inelastic_emission(16, e, u, 0.0, seed);
                 // Second neutron: an **independent draw** from the same
                 // evaluated law. ENDF MF=6 tabulates `f₀` per emitted
                 // neutron, so two independent draws is what the evaluation
@@ -1669,16 +1838,79 @@ fn transport_history_tabulated(
                 // did before, and what it still does with no MF=6 law to
                 // read) correlates the pair perfectly and is GitHub #192's
                 // second open item.
-                let (sec_e2, sec_u2) = if law16.is_some() {
-                    continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law16, seed)
+                let (sec_e2, sec_u2) = if has16 {
+                    nuc.sample_inelastic_emission(16, e, u, 0.0, seed)
                 } else {
                     (e2, u2)
                 };
-                stack.push(Site {
-                    r,
-                    u: sec_u2,
-                    e: sec_e2,
-                });
+                // The secondary is drawn above unconditionally and only its
+                // EMISSION is gated, so the yield-2 ablation
+                // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms'
+                // RNG streams in exact lockstep.
+                if nuc.emits_n2n_secondary() {
+                    stack.push(Site {
+                        r,
+                        u: sec_u2,
+                        e: sec_e2,
+                    });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                // are emitted. Before 2026-09-16 there was no branch here at all:
+                // MT=17 is inside MT=1, so the collision still happened but fell
+                // through to the ELASTIC arm and both extras were silently lost.
+                //
+                // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                // coincides with the old `else` boundary and the partition is
+                // bit-identical to before -- which is why adding it does not move any
+                // reactor-spectrum result.
+                let has17 = nuc.has_evaluated_emission(17);
+                let (e2, u2) = nuc.sample_inelastic_emission(17, e, u, 0.0, seed);
+                // Two independent draws from the same evaluated law, for the same
+                // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                // `f0` per emitted neutron.
+                for _ in 0..2 {
+                    let (se, su) = if has17 {
+                        nuc.sample_inelastic_emission(17, e, u, 0.0, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site { r, u: su, e: se });
+                    }
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
+                // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
+                // inside MT=1, so before this the collision happened and fell
+                // through to the ELASTIC arm, mis-scattering it and dropping its
+                // extra neutrons. Its multiplicity is a TABULATED y(E), not a
+                // fixed integer, so the count is drawn from it.
+                //
+                // `x.mt5` is exactly 0 below ~5 MeV, so this condition coincides
+                // with the previous boundary for any fission spectrum and the
+                // partition is bit-identical there.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                // Draw both possible extras unconditionally so the RNG stream
+                // depends on the law and not on the sampled multiplicity, then
+                // emit only as many as were drawn.
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                // `y(E) = 0` kills the neutron -- see the equivalent arm in
+                // `collide`. Below ~100 keV U-235's MT=5 emits nothing at all.
+                if n_emit == 0 {
+                    break;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
+                }
                 e = e2;
                 u = u2;
             } else {
@@ -1693,11 +1925,19 @@ fn transport_history_tabulated(
                         // is sampled, so the neutron can gain energy and the
                         // population has a Maxwellian fixed point (bead op-50vu).
                         // Above it this is the old target-at-rest kinematics.
-                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let kt = nuc.free_gas_kt(temp);
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                        free_gas_elastic_scatter_dbrc(
+                            e,
+                            u,
+                            nuc.awr,
+                            kt,
+                            mu_cm,
+                            seed,
+                            nuc.dbrc_table(),
+                        )
                     }
                 };
                 e = e2;

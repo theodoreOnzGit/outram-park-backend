@@ -695,6 +695,181 @@ does not matter".
 | **inelastic angular** | **was not sampled at all; now read from MF=4/MT=51…90** | **convicted and FIXED: −198 pcm measured, −181 predicted** |
 | inelastic secondary energy | spectrum **+0.45 % harder** in mean `E` (3.5 sigma); −1.31 % of the flux below 300 keV (5.2 sigma); `k_inf` vs OpenMC `+82 ± 55 pcm` after the angular fix, against `+69 ± 23` before | **still implicated and still open (`op-os8x`)** — unchanged by the angular fix, as expected |
 
+## 2026-09-16 — `op-os8x` re-measured on HEAD, and LOCALISED in energy
+
+**The spectral residual reproduces unchanged after the MF=6 angular work
+(`op-og56`), and the per-bin comparison now names where in energy it lives.**
+
+Both codes rebuilt in-session and run on the repo's own tapes: NJOY2016
+`ac5adf5f` (2016.79, gfortran 13.3.0) → ACE → HDF5 → OpenMC 0.15.3
+`27e38e89`, the exact commits this document cites throughout. 8 seeds per side,
+5000 particles × [40 inactive + 120 active], the same 50 log bins.
+
+### Aggregate hardness
+
+| quantity | ours | OpenMC | difference | sigma | previously recorded |
+|---|---|---|---|---|---|
+| mean `E` \[eV\] | 1.47409e6 | 1.46789e6 | **+0.42 %** | 4.6 | +0.45 % (3.5 σ) |
+| mean `ln E` | 13.6835 | 13.6765 | **+0.05 %** | 8.9 | +0.05 % |
+| fraction below 300 keV | 0.155354 | 0.157276 | **−1.22 %** | 6.0 | −1.03 % (5.2 σ) |
+| fraction above 4.8 MeV | 0.039993 | 0.039821 | +0.43 % | 0.8 | +0.43 % |
+
+**`op-os8x` is confirmed on current code and is unmoved by `op-og56`.** That is
+the expected result and it is worth stating as a passed prediction: the
+continuum angular ablation independently bounded the spectral effect of that
+change below `0.22 %` in mean `E`, so a residual of `+0.42 %` surviving intact
+is consistent rather than surprising.
+
+Total absolute shape difference is `0.0053`, i.e. **~0.27 % of the spectrum
+sits in different bins** between the two codes.
+
+### Where it lives — the new information
+
+Bins carrying ≥ 0.5 % of the flux and differing by ≥ 3 σ:
+
+| band | difference | sigma | share of flux |
+|---|---|---|---|
+| 67.4 – 108.3 keV | **−1.90 %** | 3.1 | 2.18 % |
+| 108.3 – 174.1 keV | **−1.41 %** | 4.1 | 4.33 % |
+| **1.866 – 2.999 MeV** | **+0.88 %** | **4.7** | **13.82 %** |
+
+**We carry too much flux at 1.9–3.0 MeV and too little at 67–174 keV.** The
+sign pattern is a single coherent statement: not enough neutrons are being
+moved *out* of the MeV window and *into* the hundred-keV window.
+
+The 1.9–3.0 MeV bin is the one that matters most — it is 4.7 σ and carries
+**13.8 % of the whole flux**, where the two deficit bins together carry 6.5 %.
+
+### What that implicates, and what it does not
+
+The channel that takes a ~2 MeV neutron to ~100 keV **in one collision** is
+**inelastic scattering**: U-238's discrete levels (MT=51…90) span tens of keV
+to over 1 MeV of excitation, and MT=91 opens at 435.6 keV. Elastic off a heavy
+actinide cannot do it — `α = ((A−1)/(A+1))² ≈ 0.983` for U-238, so the maximum
+loss per elastic collision is 1.7 %, and a 2 MeV neutron would need well over a
+hundred collisions to reach 100 keV.
+
+So this points at the inelastic **energy** treatment. Note what it does *not*
+point at:
+
+- **Not the inelastic angular law.** `op-tm9f` (discrete MF=4) and `op-og56`
+  (continuum MF=6) are both in, and the latter was independently shown not to
+  move the spectrum at this precision.
+- **Not the cross sections.** This study already establishes ≤ 0.06 %
+  flux-weighted agreement on every channel.
+- **Not `k`.** On the same runs, our `k` and OpenMC's differ by
+  `−32 ± 34 pcm` (0.9 σ) — the eigenvalue agrees while the spectrum does not,
+  which is exactly the situation `op-os8x` was opened to describe.
+
+**Candidates, in the order the evidence supports them** — none tested, all
+stated as hypotheses:
+
+1. **The MT=91 continuum secondary-energy law's shape.** Already the leading
+   suspect on record. It covers 10–25 % of Godiva's collisions and its
+   `f₀(E→E')` sets exactly how far down a continuum collision throws a neutron.
+2. **The discrete-level branching** — which level is chosen at a given incident
+   energy, i.e. the MT=51…90 cross-section partition rather than any one
+   level's kinematics.
+3. **The inelastic/elastic partition itself** near 2 MeV.
+
+**The measurement that would separate 1 from 2** is a per-MT collision tally in
+the 1.9–3.0 MeV band on both sides: if the continuum share differs, it is (1);
+if the share matches but the outgoing-energy distribution differs, it is the
+law's shape; if the discrete levels are picked in different proportions, it
+is (2).
+
+### Provenance and one correction to this document's own tooling
+
+`build_data.py` **could not have run as committed** — its nuclide paths were
+literal `"$ACE_DIR//U234/tape24"` strings, which Python does not expand, and
+the `ACE` binding above them was unused. It failed on the first nuclide. The
+numbers recorded here before 2026-09-16 were therefore produced by a local copy
+that never reached the repository. Fixed and verified end to end; see that
+file's docstring. This is the same concern the crate's `CLAUDE.md` raises about
+cited-but-absent decks, in its worse form — a deck that is present but broken
+looks reproducible, so nobody checks it.
+
+## The MT=91 transfer law is EXCLUDED as the cause of `op-os8x` (2026-09-16)
+
+The per-bin localisation recorded above named the **MT=91 continuum
+`f₀(E→E')` shape** as the leading suspect, on the grounds that only inelastic
+scattering moves a 2 MeV neutron to ~100 keV in one collision, and that the
+angular laws and cross sections were already excluded by measurement.
+
+**It is not the cause.** `crates/outram-mc-libs/tests/mt91_transfer_vs_openmc.rs`
+compares the two laws directly:
+
+| | |
+|---|---|
+| rows compared | **18**, every incident-energy point of OpenMC's law in 1.5–3.5 MeV |
+| worst mean-`⟨E'⟩` deviation | **0.0000 %** |
+| worst median deviation | **0.0000 %** |
+| worst `P(E' < 300 keV)` deviation | **0.000000** absolute |
+| signed mean deviation (a bias would show here) | **−0.0000 %** |
+
+Agreement on every row to the 7 significant figures printed: the two are the
+same table. `P(E' < 300 keV)` is included because 300 keV is the boundary of the
+flux deficit the residual localises to, making it the functional most directly
+tied to `op-os8x`.
+
+**Provenance, and why this is sharp.** Ours reads
+`reference-data/endf/n-092_U_238.endf` MF=6/MT=91 directly. OpenMC's comes from
+the same tape through NJOY2016 (`ac5adf5f`) → ACE → HDF5 → OpenMC 0.15.3, built
+and run in-session — a completely separate code path. Because both derive from
+one evaluation, any difference would have been a **port defect, not a data
+difference**. Both store the law in the centre-of-mass frame (`LCT=2`; OpenMC
+reports `reaction.center_of_mass == True`), so no transform is applied on either
+side and the comparison is frame-consistent. The oracle is regenerable:
+`python3 mt91_transfer_oracle.py`.
+
+### A correction to this record's own stated method
+
+This README previously named "a per-MT collision tally in the 1.9–3.0 MeV band
+on both sides" as the discriminating measurement. **That measurement cannot
+discriminate.** A collision rate is flux × σ, and the cross sections already
+agree to ≤0.06 % flux-weighted, so comparing rates would largely restate the
+flux difference it was meant to explain. The transfer comparison above is what
+separates the hypotheses, and it needs no transport, no seeds and no statistics.
+
+### What is left, and what is not yet measured
+
+Cross sections, angular laws, `k`, and now the transfer table are all excluded.
+The residual must live between the tabulated data and the sampled outcome:
+
+1. **The CM→lab transform on the continuum law.** It couples the sampled `μ_cm`
+   to `E'`, so a difference there moves the spectrum while leaving every table
+   identical — exactly the signature that remains.
+2. ~~**Inter-row (unit-base) interpolation.**~~ **MEASURED AND EXCLUDED
+   2026-09-16**, together with the within-row CDF inversion. Sampled `⟨E'⟩` at 8
+   incident energies deliberately *between* tabulated rows matches the
+   closed-form mean of OpenMC's unit-base construction to a worst `0.0228 %`,
+   flat signed `−0.0205 %`, no energy dependence. On-grid (`r = 0`, rescale is
+   the identity) the sampler sits the same flat `−0.05 %` from the exact row
+   mean, which isolates the inversion from the inter-row rule.
+
+   **A correction belongs with this result.** The first run of that test
+   reported a `+0.60 %` bias growing to `+1.76 %` with energy — the `op-os8x`
+   signature — and it was nearly recorded here as the cause. The error was in
+   the **reference**: both sides computed `⟨E'⟩ = ∫E·p dE / ∫p dE` by the
+   trapezoid rule, which is exact for the denominator (`p` linear) but not the
+   numerator (`E·p` quadratic), with per-bin error `−h³m/6` that grows with bin
+   width and pdf slope and therefore with incident energy. Trapezoid against the
+   exact lin-lin integral on U-238 MT=91: `+0.089 %` at 1.945 MeV, `−0.259 %` at
+   2.4 MeV, `−1.632 %` at 3.0 MeV. The sampler was correct throughout.
+
+   This also qualifies the transfer-table comparison above: both sides applied
+   the same inexact rule to the same tables, so its exact agreement was partly
+   guaranteed. It still establishes that the **tables are identical**, which is
+   the claim it is used for, but it was never evidence that either side's moment
+   was right. Both `mt91_transfer_oracle.py` and `mt91_interrow_oracle.py` now
+   integrate the first moment in closed form, as does the Rust test.
+3. **Competing-channel branching at 2–3 MeV** — which MT a collision is assigned
+   to, as distinct from the cross sections.
+
+Item 2 is now measured and excluded. **Neither of the remaining two has been
+measured.** They are where to look next, not findings — and `op-os8x` itself
+remains unexplained.
+
 ## Scope, and what this is not
 
 **Verification, not validation.** Everything here compares codes to each other

@@ -3,14 +3,23 @@
 //! C++ source: `src/physics_common.cpp`, `src/physics.cpp`.
 //!
 //! The channels differ in both their outgoing *energy* law and their angular law.
-//! **Elastic and the discrete inelastic levels both use the evaluation's
-//! anisotropic centre-of-mass distribution** (ENDF MF=4, sampled by the caller
-//! and passed as `mu_cm` to [`two_body_scatter_with_mu`]) — the dominant
-//! reactivity lever for a bare fast-metal sphere, where forward-peaked scatter
-//! off heavy nuclei sets the transport cross section and hence the leakage. Only
-//! the **continuum** channels are still isotropic in the frame their law names,
-//! because their angular correlation lives in MF=6 rather than MF=4 (see
-//! [`continuum_inelastic_scatter_evaluated`]). By outgoing-energy law:
+//! **Every channel now samples the evaluation's own angular distribution** where
+//! the evaluation carries one: elastic and the discrete inelastic levels from
+//! ENDF MF=4 (sampled by the caller and passed as `mu_cm` to
+//! [`two_body_scatter_with_mu`]), and the continuum channels from the `f₁ … f_NA`
+//! columns of MF=6 LAW=1 (bead `op-og56`, see
+//! [`continuum_inelastic_scatter_evaluated`]). Angle is the dominant reactivity
+//! lever for a bare fast-metal sphere, where forward-peaked scatter off heavy
+//! nuclei sets the transport cross section and hence the leakage.
+//!
+//! Both MF=6 representations this workspace's evaluations use are sampled:
+//! `LANG = 1` (Legendre) and `LANG = 2` (Kalbach-Mann, via the Kalbach-86 slope
+//! systematics). A representation that is retained but not sampled reports
+//! itself as
+//! [`ContinuumAngular::Unported`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Unported)
+//! rather than being indistinguishable from an evaluation that is genuinely
+//! flat; nothing in `reference-data/endf/` currently reaches it. By
+//! outgoing-energy law:
 //!
 //! - **Elastic** (MT=2) — [`elastic_scatter`]: two-body kinematics with `Q = 0`;
 //!   off a heavy actinide the neutron loses almost no energy per collision
@@ -34,22 +43,27 @@
 //!   1 MeV to +0.51 at 14 MeV) and sampling them isotropically suppressed leakage
 //!   on Godiva. A level the evaluation leaves isotropic (U-235's MT=51/52/54 are
 //!   genuinely so) falls back to [`two_body_scatter`].
-//! - **Continuum inelastic** (MT=91) — [`continuum_inelastic_scatter`]: the
-//!   outgoing energy is a distribution, not fixed by a single `Q`. RECONR does not
-//!   reconstruct the ENDF MF=5 continuum law, so this uses a **Weisskopf
-//!   evaporation** model with a nuclear temperature θ = √(E/a), level-density
-//!   parameter a ≈ A/11 MeV⁻¹ (actinide) — an approximation, documented as such.
+//! - **Continuum inelastic** (MT=91) and **(n,2n)** (MT=16) —
+//!   [`continuum_inelastic_scatter_evaluated`]: the outgoing energy is a
+//!   distribution, not fixed by a single `Q`, and the emission angle is
+//!   *correlated with it*. Both halves come from the evaluation's own ENDF MF=6
+//!   LAW=1 law. [`continuum_inelastic_scatter`] remains as the fallback for a
+//!   nuclide carrying no MF=6 section: a **Weisskopf evaporation** model with
+//!   nuclear temperature θ = √(E/a) and level-density parameter a ≈ A/11 MeV⁻¹
+//!   (actinide), isotropic in the CM — an approximation, documented as such, and
+//!   measurably too hard (U-238 at 2 MeV: `⟨E'/E⟩ = 0.2787` against the
+//!   evaluation's 0.2095).
 //!
-//! Both anisotropic paths use the full ENDF MF=4 tabulated cosine distribution
-//! (sampled in `material::nuclide`, ported from OpenMC), passed here as a CM
-//! cosine via [`two_body_scatter_with_mu`] — elastic from MT=2, each discrete
-//! level from its own MT. What remains future work is the **continuum** angular
-//! correlation carried in MF=6 (the `f₁…f_NA` Legendre terms for LANG=1, Kalbach
-//! `r`/`a` for LANG=2), tracked as bead `op-og56`; the continuum energy law
-//! itself *is* read.
+//! The MF=4 paths use the full tabulated cosine distribution (sampled in
+//! `material::nuclide`, ported from OpenMC), passed here as a CM cosine via
+//! [`two_body_scatter_with_mu`] — elastic from MT=2, each discrete level from its
+//! own MT. The MF=6 path costs one variate per collision either way: `LANG = 1`
+//! linearises each row's Legendre coefficients once at load time and inverts the
+//! resulting cosine CDF, and `LANG = 2` inverts the Kalbach-Mann cumulative in
+//! closed form.
 
 use crate::geometry::position::Direction;
-use crate::material::nuclide::sample_continuous_tabular;
+use crate::material::nuclide::sample_continuous_tabular_indexed;
 use crate::rng::lcg::prn;
 use njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission;
 use std::f64::consts::PI;
@@ -98,7 +112,18 @@ pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
 ///
 /// With `e_cm_out = E·(A/(A+1))²` (elastic) this reduces to the familiar
 /// `E' = E·(A² + 2Aμ + 1)/(A+1)²`.
-fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
+///
+/// # Why this is public
+///
+/// It is one of the two unmeasured leads left on `op-os8x` — the Godiva
+/// spectral residual against OpenMC — because it is the step that couples the
+/// sampled `μ_cm` to `E'`, so an error here moves the spectrum while leaving
+/// every tabulated law identical, which is the signature that remains once
+/// cross sections, angular laws, `k`, and the MT=91 transfer table have all been
+/// excluded. Exposing it lets
+/// `outram-mc-libs`'s `tests/cm_to_lab_vs_kinematics.rs` check it against
+/// first-principles velocity addition rather than only through a sampler.
+pub fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
     let ap1 = awr + 1.0;
     let e_trans = e / (ap1 * ap1); // unit-mass energy at the CM velocity
     let cross = 2.0 * mu_cm * (e_cm_out * e_trans).sqrt();
@@ -216,6 +241,28 @@ pub fn free_gas_elastic_scatter(
     mu_cm: f64,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    free_gas_elastic_scatter_dbrc(e, u, awr, kt_ev, mu_cm, seed, None)
+}
+
+/// [`free_gas_elastic_scatter`] with an optional **DBRC** correction.
+///
+/// With `dbrc = None` this is bit-identical to `free_gas_elastic_scatter`,
+/// including its RNG draw count — so a nuclide without a table is unaffected,
+/// and every result recorded before DBRC existed still reproduces.
+///
+/// With `Some(table)` and an incident energy inside the table's window, the
+/// sampled target velocity is additionally accepted with probability
+/// `σ_s^{0K}(E_rel) / σ_max`, which is the weighting the constant-cross-section
+/// approximation drops. See [`DbrcTable`] for why that matters and where.
+pub fn free_gas_elastic_scatter_dbrc(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    kt_ev: f64,
+    mu_cm: f64,
+    seed: &mut u64,
+    dbrc: Option<&DbrcTable>,
+) -> (f64, Direction) {
     // Same gate as OpenMC: heavy target, energy well above thermal ⇒ at rest.
     // A non-positive kT (a caller with no temperature) also falls through here,
     // preserving the previous behaviour rather than sampling a degenerate gas.
@@ -226,7 +273,7 @@ pub fn free_gas_elastic_scatter(
     // Velocities in units where |v| = √E, so E = v·v throughout.
     let vel = e.sqrt();
     let v_n = [vel * u.u, vel * u.v, vel * u.w];
-    let v_t = sample_target_velocity(e, u, awr, kt_ev, seed);
+    let v_t = sample_target_velocity_dbrc(e, u, awr, kt_ev, seed, dbrc);
 
     let ap1 = awr + 1.0;
     let v_cm = [
@@ -261,6 +308,134 @@ pub fn free_gas_elastic_scatter(
     )
 }
 
+/// A nuclide's **0 K elastic scattering cross section** over the energy window
+/// where resonance structure makes the constant-cross-section approximation
+/// wrong — the data DBRC needs.
+///
+/// # What DBRC corrects
+///
+/// [`free_gas_elastic_scatter`] samples the target velocity from a Maxwellian
+/// weighted only by the relative speed. That is the **constant cross-section
+/// (CXS)** approximation: it assumes `σ_s` does not vary over the range of
+/// relative energies a thermal target can reach. Near a resolved resonance in a
+/// heavy nuclide that is badly wrong — U-238's 6.67 eV resonance changes `σ_s`
+/// by orders of magnitude across a window the target's own motion spans — and
+/// the correct kernel weights the target velocity by `σ_s(E_rel)` as well.
+///
+/// **Doppler Broadening Rejection Correction** does that by rejection: sample a
+/// target velocity as usual, compute the relative energy, and accept with
+/// probability `σ_s^{0K}(E_rel) / σ_max` over the neighbourhood. The 0 K cross
+/// section is the right one because the target motion is being modelled
+/// explicitly — using a broadened `σ` here would count Doppler broadening twice.
+///
+/// # Why it matters here specifically
+///
+/// It is an **epithermal** effect on resolved resonances, so it is invisible on
+/// a bare fast metal sphere and material in a thermal or epithermal lattice —
+/// exactly the reactors this project targets (HTR-10, MSRE, the FHR pebble),
+/// and exactly where this crate has the least validation evidence. It raises
+/// U-238's effective resonance absorption and is worth of order 100-200 pcm in
+/// an LWR pin cell in the published literature; it has **not** been measured
+/// here (see `Nuclide::with_dbrc`).
+///
+/// Ported from OpenMC `sample_target_velocity` / `ResScatMethod::DBRC`
+/// (`src/physics.cpp`, `src/nuclide.cpp`).
+#[derive(Debug, Clone)]
+pub struct DbrcTable {
+    /// Ascending energy grid \[eV\].
+    energy: Vec<f64>,
+    /// 0 K elastic cross section \[b\] aligned with `energy`.
+    xs: Vec<f64>,
+    /// Upper energy \[eV\] above which DBRC is not applied.
+    e_max: f64,
+}
+
+impl DbrcTable {
+    /// Build from an ascending 0 K `(energy [eV], σ_elastic [b])` grid,
+    /// restricted to `e <= e_max_ev`.
+    ///
+    /// Returns `None` when fewer than two points survive the restriction —
+    /// a nuclide with no resolved resonance structure in the window has
+    /// nothing for DBRC to correct.
+    pub fn from_pairs(pairs: &[(f64, f64)], e_max_ev: f64) -> Option<Self> {
+        let mut energy = Vec::new();
+        let mut xs = Vec::new();
+        for &(e, s) in pairs {
+            if e <= e_max_ev {
+                energy.push(e);
+                xs.push(s);
+            }
+        }
+        if energy.len() < 2 {
+            return None;
+        }
+        Some(DbrcTable {
+            energy,
+            xs,
+            e_max: e_max_ev,
+        })
+    }
+
+    /// Upper energy \[eV\] DBRC is applied below.
+    pub fn e_max_ev(&self) -> f64 {
+        self.e_max
+    }
+
+    /// Number of tabulated points.
+    pub fn len(&self) -> usize {
+        self.energy.len()
+    }
+
+    /// Whether the table is empty (never true for a [`Self::from_pairs`] result).
+    pub fn is_empty(&self) -> bool {
+        self.energy.is_empty()
+    }
+
+    /// 0 K elastic cross section \[b\] at `e` \[eV\], lin-lin interpolated and
+    /// clamped at the ends.
+    pub fn xs_at(&self, e: f64) -> f64 {
+        let n = self.energy.len();
+        if e <= self.energy[0] {
+            return self.xs[0];
+        }
+        if e >= self.energy[n - 1] {
+            return self.xs[n - 1];
+        }
+        let hi = self.energy.partition_point(|&x| x < e).max(1).min(n - 1);
+        let (x0, x1) = (self.energy[hi - 1], self.energy[hi]);
+        let (y0, y1) = (self.xs[hi - 1], self.xs[hi]);
+        if x1 > x0 {
+            y0 + (y1 - y0) * (e - x0) / (x1 - x0)
+        } else {
+            y0
+        }
+    }
+
+    /// The maximum 0 K elastic cross section \[b\] over `[lo, hi]` eV — the
+    /// rejection envelope.
+    ///
+    /// Scans the tabulated points in the window as well as its endpoints, so a
+    /// resonance peak between grid nodes cannot be missed in a way that would
+    /// make the acceptance probability exceed 1 (which would silently bias the
+    /// sampling rather than error).
+    pub fn xs_max_over(&self, lo: f64, hi: f64) -> f64 {
+        let mut m = self.xs_at(lo).max(self.xs_at(hi));
+        let start = self.energy.partition_point(|&x| x < lo);
+        for k in start..self.energy.len() {
+            if self.energy[k] > hi {
+                break;
+            }
+            m = m.max(self.xs[k]);
+        }
+        m
+    }
+
+    /// Whether DBRC applies to a neutron of energy `e` \[eV\].
+    pub fn applies(&self, e: f64) -> bool {
+        e <= self.e_max
+    }
+}
+
 /// Sample the target nucleus velocity for a free-gas elastic collision, in the
 /// same `|v| = √E` units as the neutron.
 ///
@@ -274,6 +449,31 @@ pub fn free_gas_elastic_scatter(
 /// The returned velocity is isotropic in azimuth about `u` and makes cosine `mu`
 /// with it, `mu` being sampled jointly with the speed by the same rejection.
 fn sample_target_velocity(e: f64, u: Direction, awr: f64, kt_ev: f64, seed: &mut u64) -> [f64; 3] {
+    sample_target_velocity_dbrc(e, u, awr, kt_ev, seed, None)
+}
+
+/// [`sample_target_velocity`] with the optional DBRC rejection layered on top.
+///
+/// # The two rejections are separate, and the order matters
+///
+/// Upstream's own rejection (accept with `|v_n − v_t| / (v_n + v_t)`) makes the
+/// sampled speed proportional to the relative speed. DBRC adds a **second**
+/// rejection on `σ_s^{0K}(E_rel) / σ_max`. Applying them as two independent
+/// accept tests on the same candidate is what makes the product of the two
+/// weights come out right; folding them into one acceptance probability would
+/// need the envelope of the product and is not what OpenMC does.
+///
+/// With `dbrc = None` the added loop never runs and the draw sequence is
+/// identical to the pre-DBRC sampler — the property that keeps every existing
+/// result reproducible.
+fn sample_target_velocity_dbrc(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    kt_ev: f64,
+    seed: &mut u64,
+    dbrc: Option<&DbrcTable>,
+) -> [f64; 3] {
     // β·v_n = √(A·E / kT) — the neutron speed in units of the target's thermal one.
     let beta_vn = (awr * e / kt_ev).sqrt();
     let alpha = 1.0 / (1.0 + PI.sqrt() * beta_vn / 2.0);
@@ -304,6 +504,33 @@ fn sample_target_velocity(e: f64, u: Direction, awr: f64, kt_ev: f64, seed: &mut
             1.0
         };
         if prn(seed) < accept {
+            // DBRC: a SECOND, independent rejection weighting the candidate by
+            // the 0 K elastic cross section at the relative energy. Skipped
+            // entirely (no draw consumed) when there is no table or the
+            // incident energy is above its window, which is what keeps the
+            // no-DBRC path bit-identical.
+            if let Some(t) = dbrc {
+                if t.applies(e) {
+                    // Relative energy in the same |v| = sqrt(E) units:
+                    // E_rel = (v_n - v_t)^2, expanded via the sampled cosine.
+                    let beta_vt = beta_vt_sq.sqrt();
+                    let e_rel = (beta_vn * beta_vn + beta_vt_sq - 2.0 * beta_vn * beta_vt * mu)
+                        .max(0.0)
+                        * kt_ev
+                        / awr;
+                    // Envelope over the window this target's motion can reach.
+                    let spread = 4.0 * (kt_ev * e / awr).sqrt();
+                    let lo = (e - spread).max(0.0);
+                    let hi = e + spread;
+                    let s_max = t.xs_max_over(lo, hi);
+                    if s_max > 0.0 {
+                        let ratio = (t.xs_at(e_rel) / s_max).clamp(0.0, 1.0);
+                        if prn(seed) >= ratio {
+                            continue; // reject; draw another target velocity
+                        }
+                    }
+                }
+            }
             break;
         }
     }
@@ -426,15 +653,41 @@ pub fn continuum_inelastic_scatter(
 ///    isotropic in the lab. Assuming one frame for both is wrong by the full
 ///    CM-motion term, which is why the flag is carried rather than inferred.
 ///
-/// # What it still approximates
+/// # The angular correlation
 ///
-/// The **angular correlation** in MF=6 (the `f₁…f_NA` Legendre terms for LANG=1,
-/// Kalbach `r`/`a` for LANG=2) is not used: emission is isotropic in the frame
-/// the evaluation names. That is the same reduction ACE Law 4 makes, and it is a
-/// smaller approximation than the energy *shape* this replaces — U-238's MT=91
-/// anisotropy is `f₁/f₀ ~ 1e-8` near threshold, though it grows with energy
-/// (`NA` runs 0 at threshold to 26 at 30 MeV). Correlated emission is the
-/// follow-up.
+/// MF=6 LAW=1 is a **correlated** energy-angle law: each `[E', f₀, f₁ … f_NA]`
+/// row carries an emission cosine distribution *conditional on that outgoing
+/// energy*. Those `f₁ … f_NA` are now read and sampled for `LANG = 1`
+/// (Legendre), which is what ENDF/B-VIII.0's U-234/U-235/U-238, F-19 and Si-28
+/// use — see [`ContinuumAngular`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular). Until bead `op-og56` they were discarded at
+/// parse time and every continuum neutron left isotropically; the evaluations
+/// say otherwise on essentially every row (U-238's MT=91: 8652 of 8654 rows
+/// anisotropic, `⟨μ⟩` reaching 0.56).
+///
+/// Three cases, and they are deliberately distinguishable rather than all
+/// arriving as "isotropic":
+///
+/// - [`ContinuumAngular::Legendre`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Legendre) — the row's tabulated cosine CDF is
+///   inverted. This is the evaluated law.
+/// - [`ContinuumAngular::EvaluatedIsotropic`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::EvaluatedIsotropic) — the evaluation declares
+///   `NA = 0` throughout (F-19's MT=91), so `μ = 2ξ − 1` is **correct**.
+/// - `ContinuumAngular::KalbachMann` — `LANG = 2`, which ENDF/B-VIII.0's O-16
+///   and Al-27 use on MT=16 and MT=91. The slope `a` comes from the Kalbach-86
+///   systematics where the evaluation stores only `r`.
+/// - [`ContinuumAngular::Unported`] — a representation this port retains but
+///   does not sample. Emission falls back to isotropic and says so. **No
+///   evaluation in `reference-data/endf/` currently reaches it.**
+///
+/// # Ablation
+///
+/// Setting `OUTRAM_MC_ISOTROPIC_CONTINUUM=1` forces the isotropic draw on every
+/// path, so the law's worth can be **priced** by running the same case twice
+/// rather than argued from the size of `⟨μ⟩`. It consumes the identical RNG
+/// variate either way — one draw, whether it indexes a CDF or is mapped
+/// linearly — so a paired run differs by the physics and not by a re-randomised
+/// stream. See `tests/continuum_angular_ablation_control.rs`, which asserts the
+/// switch actually changes the sampled cosines: a control that silently fails to
+/// ablate reports "no difference" and reads as "this physics does not matter".
 pub fn continuum_inelastic_scatter_evaluated(
     e: f64,
     u: Direction,
@@ -443,12 +696,74 @@ pub fn continuum_inelastic_scatter_evaluated(
     law: Option<&ContinuumEmission>,
     seed: &mut u64,
 ) -> (f64, Direction) {
+    continuum_inelastic_scatter_evaluated_with(
+        e,
+        u,
+        awr,
+        q,
+        law,
+        continuum_angular_mode_from_env(),
+        seed,
+    )
+}
+
+/// Whether the evaluated continuum angular law is sampled, or ablated away.
+///
+/// The ablation arm of a paired worth measurement. Separating it from the
+/// environment lookup is deliberate: a test can drive both arms in one process
+/// with no global state and no ordering hazard, which a cached `static` flag
+/// cannot support.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContinuumAngularMode {
+    /// Sample the evaluation's correlated cosine law wherever it carries one.
+    /// The physical arm.
+    Evaluated,
+    /// Force isotropic emission in the law's own frame, whatever the evaluation
+    /// says. The ablation arm — this is how the law's reactivity worth gets
+    /// *priced* rather than argued from the size of `⟨μ⟩`.
+    IsotropicAblation,
+}
+
+/// [`continuum_inelastic_scatter_evaluated`] with the angular treatment chosen
+/// explicitly rather than read from the environment.
+///
+/// Both modes consume the **same RNG variates in the same order**, and the
+/// outgoing *energy* is identical between them — one draw is spent either
+/// inverting the row's cosine CDF or mapping linearly to `2ξ − 1`. A paired run
+/// therefore differs by the angular physics alone and not by a re-randomised
+/// stream, which is what makes the difference attributable. That property is
+/// asserted, not assumed: see
+/// `tests/continuum_angular_ablation_control.rs`.
+pub fn continuum_inelastic_scatter_evaluated_with(
+    e: f64,
+    u: Direction,
+    awr: f64,
+    q: f64,
+    law: Option<&ContinuumEmission>,
+    mode: ContinuumAngularMode,
+    seed: &mut u64,
+) -> (f64, Direction) {
     let Some(law) = law else {
         return continuum_inelastic_scatter(e, u, awr, q, seed);
     };
 
     let branch = law.branch_for(e, prn(seed));
-    let sampled = sample_continuous_tabular(&branch.spectrum, e, seed);
+    let (sampled, table, row) = sample_continuous_tabular_indexed(&branch.spectrum, e, seed);
+
+    // One variate, spent either on inverting the row's cosine CDF or on the flat
+    // map — so the ablation does not shift the RNG stream.
+    let xi = prn(seed);
+    let mu = match mode {
+        ContinuumAngularMode::IsotropicAblation => 2.0 * xi - 1.0,
+        // `sample_mu` dispatches over the representation — Legendre or
+        // Kalbach-Mann — and returns `None` only where no angular law exists,
+        // which is where isotropic is the right answer anyway. Every arm spends
+        // exactly this one variate.
+        ContinuumAngularMode::Evaluated => branch
+            .angular
+            .sample_mu(table, row, xi)
+            .unwrap_or(2.0 * xi - 1.0),
+    };
 
     if law.cm_frame {
         // The evaluation's grids already stop at the two-body bound, but the
@@ -458,14 +773,49 @@ pub fn continuum_inelastic_scatter_evaluated(
         let ap1 = awr + 1.0;
         let cap = (e * (awr / ap1).powi(2) + q * awr / ap1).max(0.0);
         let e_cm_out = sampled.min(cap);
-        let mu_cm = 2.0 * prn(seed) - 1.0;
-        let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu_cm, awr);
+        // `mu` is a CM cosine here (ENDF LCT=2), so it goes through the same
+        // frame transform as the energy.
+        let (e_out, mu_lab) = cm_to_lab(e, e_cm_out, mu, awr);
         (e_out, rotate_direction(u, mu_lab, seed))
     } else {
-        // Laboratory-frame law: the sampled energy is the outgoing lab energy
-        // and the emission is isotropic in the lab.
-        let mu_lab = 2.0 * prn(seed) - 1.0;
-        (sampled, rotate_direction(u, mu_lab, seed))
+        // Laboratory-frame law (LCT=1): the sampled energy is already the
+        // outgoing lab energy and `mu` is already a lab cosine.
+        (sampled, rotate_direction(u, mu, seed))
+    }
+}
+
+/// The continuum angular mode for this process, from
+/// `OUTRAM_MC_ISOTROPIC_CONTINUUM`.
+///
+/// Set the variable to `1` (or anything other than `0`/empty) to run the
+/// ablation arm. It is read once and cached, so the inner transport loop pays an
+/// atomic load rather than an environment lookup per collision — which also
+/// means changing it mid-process has no effect. A test that needs both arms
+/// calls [`continuum_inelastic_scatter_evaluated_with`] directly instead of
+/// fighting this cache.
+///
+/// The switch exists so the law's reactivity worth is **measured**, not
+/// asserted — the standing lesson of GitHub #193, where pricing a mechanism by
+/// switching it off found in one run what days of accuracy comparisons had
+/// missed. The same shape as the `OUTRAM_RINGRPT_*` ablations.
+pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    static FLAG: AtomicU8 = AtomicU8::new(u8::MAX);
+    let cached = FLAG.load(Ordering::Relaxed);
+    let on = if cached != u8::MAX {
+        cached == 1
+    } else {
+        let on = match std::env::var("OUTRAM_MC_ISOTROPIC_CONTINUUM") {
+            Ok(v) => !v.is_empty() && v != "0",
+            Err(_) => false,
+        };
+        FLAG.store(on as u8, Ordering::Relaxed);
+        on
+    };
+    if on {
+        ContinuumAngularMode::IsotropicAblation
+    } else {
+        ContinuumAngularMode::Evaluated
     }
 }
 

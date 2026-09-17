@@ -7,7 +7,7 @@
 ///
 /// Score types: flux, total reaction rate, fission, absorption, current, etc.
 /// Multiple scores can be accumulated per tally.
-use super::filter::Filter;
+use super::filter::FilterKind;
 
 /// Score type.  Maps to `openmc::TallyScore`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +74,10 @@ impl TallyBin {
 pub struct Tally {
     pub id: i32,
     pub name: String,
-    pub filters: Vec<Box<dyn Filter>>,
+    /// The filters this tally is conditioned on, as a closed enum rather than
+    /// trait objects — see [`super::filter::FilterKind`] for why (workspace
+    /// design rules: traits for the contract, enums for dispatch).
+    pub filters: Vec<FilterKind>,
     pub scores: Vec<ScoreType>,
     /// Accumulated bins, indexed `[filter_bin * n_scores + score_idx]`.
     pub bins: Vec<TallyBin>,

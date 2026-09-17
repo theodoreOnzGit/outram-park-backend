@@ -208,6 +208,99 @@
 //! recorded +679 ± 86, and **+481 ± 164** (2→8) against +558 ± 86. Boron is still
 //! worth too little here, by about the same amount.
 //!
+//! # RESOLVED 2026-09-16 — the residual is gone, and the prediction that said
+//! # it would be is GitHub #188's own
+//!
+//! GitHub #188 ("H-in-H2O incoherent-inelastic kernel transfers 2-5.5 % too
+//! little energy") was closed on 2026-09-14 by replacing `equiprobable_emission`
+//! with the ported `aceth.f90::acesix`. Its closing text named the direct test
+//! and stated the criterion in advance:
+//!
+//! > re-run LEU-COMP-THERM-008 cases 1, 2 and 8, and the three `Δk` values must
+//! > collapse together and toward zero
+//!
+//! **That test had never been run.** It was run on 2026-09-16, at the same
+//! 4000 × [120 + 250] as the 2026-09-13 column, and both halves of the
+//! criterion are met:
+//!
+//! | case | 2026-09-13 | **2026-09-16** | move |
+//! |---|---|---|---|
+//! | 1 | +2665 ± 128 pcm | **+157 ± 119 pcm** | −2508 |
+//! | 2 | +2086 ± 118 pcm | **+1 ± 126 pcm** | −2085 |
+//! | 8 | +1605 ± 114 pcm | **+124 ± 124 pcm** | −1481 |
+//!
+//! **Toward zero:** every case is now within **1.3 σ** of a measured critical
+//! experiment, mean `|Δk|` = 94 pcm, against 20 σ before.
+//!
+//! **Together:** the spread across the three collapsed from **1060 pcm to
+//! 156 pcm**.
+//!
+//! And the statement that owes nothing to any estimate of absorption shares —
+//! the pairwise differences, which are *truly* zero because every case is
+//! independently critical:
+//!
+//! | difference | before | **after** |
+//! |---|---|---|
+//! | 1 → 2 | +579 ± 174 pcm (3.3 σ) | **−156 ± 173 pcm (0.9 σ)** |
+//! | 2 → 8 | +481 ± 164 pcm (2.9 σ) | **+123 ± 177 pcm (0.7 σ)** |
+//!
+//! **"Its boron is worth too little" is resolved.** That was this case's
+//! load-bearing finding — the one conclusion that survived every earlier fix
+//! and that no absorption-share argument could explain away. Both pairwise
+//! differences are now consistent with zero.
+//!
+//! ## What this does and does not establish
+//!
+//! **Does:** the thermal path's largest known defect is closed, measured
+//! against a *measured critical experiment* rather than another code, on the
+//! one benchmark here whose fuel is both thermal and strongly self-shielded in
+//! the U-238 resolved resonances.
+//!
+//! **Does not:** it does not retroactively justify the attribution history
+//! above. The residual was attributed to U-238 resonance escape, that
+//! attribution was **refuted** by the case scan, and the real cause was a
+//! thermal scattering kernel. A quantitative prediction agreeing to 8 % (the
+//! `+3200` against `+2950`) turned out to be coincidence. That sequence is
+//! recorded because it is how a wrong attribution comes to feel settled, and it
+//! is worth more than the number that finally came out right.
+//!
+//! **Does not:** say anything about DBRC or URR probability tables, both landed
+//! 2026-09-16 and both **opt-in and not enabled here**. This run uses neither.
+//! Pricing them on this case is the obvious next measurement now that it has
+//! headroom — at ±120 pcm it can resolve an effect of a few hundred pcm.
+//!
+//! # DBRC and URR probability tables priced here, 2026-09-16 — both BOUNDED,
+//! # neither resolved
+//!
+//! With the residual gone this case finally had the headroom to price the two
+//! resonance treatments that landed the same day, and which a bare fast sphere
+//! cannot see at all. Both are opt-in (`--dbrc`, `--urr`) and both default off,
+//! so the no-flag arm reproduces the baseline above and the difference is
+//! attributable to the flag alone.
+//!
+//! | arm | `Δk` | worth against the baseline |
+//! |---|---|---|
+//! | neither (baseline) | +157 ± 119 pcm | — |
+//! | `--dbrc` | +197 ± 129 pcm | **+40 ± 176 (0.2 σ)** |
+//! | `--urr` | +60 ± 132 pcm | **−97 ± 178 (0.5 σ)** |
+//! | both | +210 ± 129 pcm | **+53 ± 176 (0.3 σ)** |
+//!
+//! **Every one is consistent with zero, and none of them is a measurement.**
+//! A single paired run here has `σ_diff ≈ 176 pcm`, so it can only resolve an
+//! effect above **~350 pcm at 2 σ**. The published DBRC value for an LWR pin
+//! cell is 100–200 pcm — *below* this run's resolution. So this result **does
+//! not contradict the literature**; it simply cannot see an effect that size,
+//! and saying "DBRC is worth nothing here" would be reading an unresolved
+//! central value as a measurement. The honest statement is: **bounded below
+//! ~350 pcm at 2 σ, consistent with zero.** Resolving either needs a
+//! paired-seed ensemble, which is ordinary CPU rather than new physics.
+//!
+//! One thing the run *does* establish beyond the bound: the URR wiring
+//! generalises past the nuclide it was verified on. Tables built for **all
+//! three actinides** — U-234 over `[1.500e3, 1.000e5]` eV, U-235 over
+//! `[2.250e3, 2.500e4]`, U-238 over `[2.000e4, 1.490e5]` — in about 5 s total
+//! at `nladr = 16`. The control test could only show U-238.
+//!
 //! # Re-run 2026-09-13 against the last two changes, and why it was worth doing
 //!
 //! The fourth column is this case re-measured after the MT=91/MT=16 continuum
@@ -314,6 +407,7 @@
 //! ```text
 //! cargo run --release -p outram-mc-libs --features endf-pebble-cases \
 //!     --example lct008_keff -- [--clad-omission-bound] [--particles N]
+//!                              [--dbrc] [--urr]
 //! ```
 
 use njoy_outram_park_fork::reference_data::reference_endf;
@@ -428,7 +522,18 @@ fn main() {
     eprintln!("  case {case}");
 
     let spec = parse_materials(materials_xml());
-    let (nuclides, slots, omitted) = load_nuclides(&spec);
+    let res_opts = ResonanceOptions {
+        dbrc: args.iter().any(|a| a == "--dbrc"),
+        urr: args.iter().any(|a| a == "--urr"),
+    };
+    if res_opts.dbrc || res_opts.urr {
+        eprintln!(
+            "Resonance treatments requested: dbrc={} urr={} (both default OFF; a run without \
+             them reproduces the recorded baseline)",
+            res_opts.dbrc, res_opts.urr
+        );
+    }
+    let (nuclides, slots, omitted) = load_nuclides(&spec, res_opts);
     let (materials, clad_idx) = build_materials(&spec, &slots, &omitted, false);
     report_omissions(&spec, &omitted);
     // `check_geometry`'s hand-written predicate resolves materials by the model's
@@ -706,8 +811,24 @@ fn parse_materials(xml: &str) -> Vec<MaterialSpec> {
 
 /// Reconstruct every nuclide the model asks for that this environment has a
 /// tape for. Returns the nuclide array, name → slot, and the omitted set.
+/// Which optional resonance-treatment physics to switch on, for pricing it.
+///
+/// Both default to **off**, matching every result recorded for this case
+/// before 2026-09-16 — so a run without flags reproduces the baseline and the
+/// difference is attributable to the flag alone.
+#[derive(Debug, Clone, Copy, Default)]
+struct ResonanceOptions {
+    /// `--dbrc` — resonance elastic scattering (`Nuclide::with_dbrc`) on the
+    /// actinides, below 1 keV (OpenMC's default limit).
+    dbrc: bool,
+    /// `--urr` — unresolved-resonance probability tables
+    /// (`Nuclide::with_urr_probability_tables`) on the actinides.
+    urr: bool,
+}
+
 fn load_nuclides(
     spec: &[MaterialSpec],
+    opts: ResonanceOptions,
 ) -> (Vec<Nuclide>, BTreeMap<String, usize>, BTreeMap<String, f64>) {
     let mut wanted: Vec<&str> = Vec::new();
     let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
@@ -746,6 +867,34 @@ fn load_nuclides(
     for name in wanted {
         let file = TAPES.iter().find(|(n, _)| *n == name).expect("tape").1;
         let mut n = load(name, file);
+        // Resonance treatments, on the actinides only -- they are where the
+        // resolved and unresolved resonances that matter live, and building
+        // URR tables is expensive enough not to attempt on nuclides with no
+        // unresolved range.
+        if name.starts_with('U') || name.starts_with("Pu") {
+            if opts.dbrc {
+                n = n.with_dbrc(1.0e3);
+                if n.has_dbrc() {
+                    eprintln!("    {name} carries DBRC below 1 keV");
+                }
+            }
+            if opts.urr {
+                let p = reference_endf(file).expect("tape");
+                let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+                let mat = tape.materials()[0];
+                let t0 = Instant::now();
+                n = n
+                    .with_urr_probability_tables(&tape, mat, TEMP_K, 20, 16, 2000)
+                    .expect("PURR");
+                if let Some((lo, hi)) = n.urr_range_ev() {
+                    eprintln!(
+                        "    {name} carries URR probability tables over [{lo:.3e}, {hi:.3e}] eV \
+                         ({:.1?})",
+                        t0.elapsed()
+                    );
+                }
+            }
+        }
         if name == "H1" {
             if let Some(s) = sab.take() {
                 n = n.with_thermal_scattering(s);

@@ -66,7 +66,7 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    free_gas_elastic_scatter, K_BOLTZMANN_EV_PER_K, continuum_inelastic_scatter_evaluated,
+    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated,
     rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::rng::distributions::{isotropic_direction, watt};
@@ -906,7 +906,16 @@ where
             let material = &materials[m];
             let ci = material.sample_nuclide(e, seed, nuclides);
             let nuc = &nuclides[material.components[ci].nuclide_idx];
-            let x = nuc.xs_at_energy(e, temp);
+            let x = if nuc.needs_urr_draw(e) {
+                // Unresolved-resonance self-shielding: draw one band. The
+                // `needs_urr_draw` gate is what keeps a run WITHOUT tables
+                // bit-identical to one from before they existed -- an
+                // unconditional draw would shift every RNG stream in the crate
+                // for no physical reason.
+                nuc.xs_at_energy_urr(e, temp, prn(seed))
+            } else {
+                nuc.xs_at_energy(e, temp)
+            };
 
             // Reaction partition on the total: fission | capture | inelastic |
             // (n,2n) | elastic — identical to keff.rs / transport_csg.rs.
@@ -971,12 +980,45 @@ where
                 } else {
                     (e2, u2)
                 };
-                // yield − 1 = 1 secondary
-                stack.push(Site {
-                    r,
-                    u: sec_u2,
-                    e: sec_e2,
-                });
+                // yield − 1 = 1 secondary. The secondary is drawn above
+                // unconditionally and only its EMISSION is gated, so the
+                // yield-2 ablation (`Nuclide::with_unit_n2n_multiplicity`)
+                // leaves both arms' RNG streams in exact lockstep.
+                if nuc.emits_n2n_secondary() {
+                    stack.push(Site {
+                        r,
+                        u: sec_u2,
+                        e: sec_e2,
+                    });
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
+                // (n,3n): yield 3 -- the primary down-scatters and TWO extra neutrons
+                // are emitted. Before 2026-09-16 there was no branch here at all:
+                // MT=17 is inside MT=1, so the collision still happened but fell
+                // through to the ELASTIC arm and both extras were silently lost.
+                //
+                // Below the MT=17 threshold `x.n3n` is exactly 0, so this condition
+                // coincides with the old `else` boundary and the partition is
+                // bit-identical to before -- which is why adding it does not move any
+                // reactor-spectrum result.
+                let law17 = nuc.continuum_law(17);
+                let (e2, u2) =
+                    continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed);
+                // Two independent draws from the same evaluated law, for the same
+                // reason the (n,2n) pair is drawn independently: ENDF MF=6 tabulates
+                // `f0` per emitted neutron.
+                for _ in 0..2 {
+                    let (se, su) = if law17.is_some() {
+                        continuum_inelastic_scatter_evaluated(e, u, nuc.awr, 0.0, law17, seed)
+                    } else {
+                        (e2, u2)
+                    };
+                    if nuc.emits_n2n_secondary() {
+                        stack.push(Site { r, u: su, e: se });
+                    }
+                }
                 e = e2;
                 u = u2;
             } else {
@@ -999,11 +1041,11 @@ where
                         // is sampled, so the neutron can gain energy and the
                         // population has a Maxwellian fixed point (bead op-50vu).
                         // Above it this is the old target-at-rest kinematics.
-                        let kt = K_BOLTZMANN_EV_PER_K * temp;
+                        let kt = nuc.free_gas_kt(temp);
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter(e, u, nuc.awr, kt, mu_cm, seed)
+                        free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
                     }
                 };
                 e = e2;

@@ -89,6 +89,6 @@ pub use core::{
 pub use mf5::{parse_mf5_law4, parse_mf5_section, Applicability, Mf5Law, Mf5Subsection, TabFn};
 pub use mf6::{
     parse_mf6_law1_neutron, parse_mf6_law1_neutrons, parse_mf6_law6_phase_space,
-    parse_mf6_law7_lab_angle_energy, Law7Incident, Law7MuTable, Mf6LabAngleEnergy, Mf6Neutron,
-    Mf6PhaseSpace,
+    parse_mf6_law7_lab_angle_energy, Law7Incident, Law7MuTable, Mf6AngularLaw, Mf6AngularTable,
+    Mf6LabAngleEnergy, Mf6Neutron, Mf6PhaseSpace,
 };

@@ -29,3 +29,22 @@ impl AngleDist for MonodirectionalAngle {
         self.d
     }
 }
+
+/// Every source angular distribution, as a closed enum. See
+/// [`super::spatial::SpatialKind`] for why this is an enum and not a trait
+/// object.
+pub enum AngleKind {
+    /// [`IsotropicAngle`].
+    Isotropic(IsotropicAngle),
+    /// [`MonodirectionalAngle`].
+    Monodirectional(MonodirectionalAngle),
+}
+
+impl AngleDist for AngleKind {
+    fn sample(&self, seed: &mut u64, e: f64) -> Direction {
+        match self {
+            AngleKind::Isotropic(d) => d.sample(seed, e),
+            AngleKind::Monodirectional(d) => d.sample(seed, e),
+        }
+    }
+}

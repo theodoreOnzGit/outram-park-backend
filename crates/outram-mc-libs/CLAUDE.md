@@ -210,11 +210,85 @@ maturity gate in that file for what this means and how the bar is revised.
      predicts. `k_inf` against OpenMC is `+82 ± 55 pcm` after this
      change against `+69 ± 23 pcm` before — the same number within statistics,
      i.e. untouched. Tracked as `op-os8x`. **Two offsetting errors land on the
+
+
+     **Re-measured again 2026-09-16 on HEAD, and LOCALISED.** Both codes were
+     rebuilt in-session (NJOY2016 `ac5adf5f` → ACE → HDF5 → OpenMC 0.15.3
+     `27e38e89`) and run 8 seeds a side: mean `E` **+0.42 %** (4.6 sigma), mean
+     `ln E` **+0.05 %** (8.9 sigma), flux below 300 keV **−1.22 %** (6.0
+     sigma). So `op-os8x` survives `op-og56` intact, as that change's own
+     spectral ablation predicted it would.
+
+     The per-bin comparison now says **where**: we carry **+0.88 % too much
+     flux at 1.9–3.0 MeV** (4.7 sigma, 13.8 % of the flux) and **1.4–1.9 % too
+     little at 67–174 keV**. That is a deficit of down-scatter out of the MeV
+     window, and the only channel that moves a 2 MeV neutron to ~100 keV in one
+     collision is **inelastic** — elastic off U-238 loses at most 1.7 % per
+     collision. It is *not* the angular law (both `op-tm9f` and `op-og56` are
+     in) and *not* the cross sections (≤ 0.06 % flux-weighted). Leading
+     suspect: the MT=91 continuum `f₀(E→E')` shape. Full record and the
+     measurement that would discriminate the candidates:
+     `verification_and_validation/openmc_godiva_cross_code/README.md`.
      right `k` too**; what rules that out *here* is the `k_inf` check above, not
      the size of the residual.
   3. **The continuum angular correlation is still dropped** (MF=6 LANG=1/2,
      `op-og56`), as is the `EnergyAngular` interpolation flag. This fixed the
      *discrete* levels only.
+
+     **Partly resolved 2026-09-16 — `LANG = 1` (Legendre) is now read and
+     sampled; `LANG = 2` (Kalbach-Mann) is not.** The MF=6 parser was
+     discarding `f₁ … f_NA` at parse time and never reading `LANG`, so every
+     MT=91 and MT=16 neutron left isotropically. It now carries the
+     coefficients, linearises them through the same routine MF=4 uses, and
+     samples the cosine correlated with the outgoing-energy row actually drawn.
+     `ContinuumAngular` distinguishes *evaluated-isotropic* from *unported*
+     from *ablated*, which the old `0.0` could not.
+
+     Measured on ENDF/B-VIII.0: 8652 of U-238's 8654 MT=91 rows carry
+     `NA > 0`. But weighted by each row's own `f₀` the law is **exactly
+     isotropic below 1.2 MeV** and only reaches `⟨μ_cm⟩ = +0.073` at 8.5 MeV
+     and `+0.272` at 14 MeV — so unlike `op-tm9f`'s discrete levels this is a
+     *high-energy* correction and the predicted worth on Godiva is small
+     (recorded before measuring: down, well under 50 pcm).
+
+     **Priced 2026-09-16 at `−38 ± 23 pcm`** (128 seeds per arm,
+     `examples/godiva_continuum_anisotropy_ablation.rs`): ANISO `−26 ± 17`
+     against ISO `+11 ± 15`. The prediction held on direction and magnitude,
+     **but at 1.6 σ this is a bound, not a measurement** — consistent with zero,
+     and excluding an `op-tm9f`-sized effect at 7 σ. Do not quote `−38` as the
+     worth; quote it as *bounded below 70 pcm at 3 σ*. Resolving it to 3 σ needs
+     ~400 seeds per arm. (An earlier 32-seed run gave `−41 ± 43`; its seeds are
+     a **subset** of these, so it is superseded, not confirmatory.)
+
+     The ISO arm independently reproduces the pre-`op-og56` `+16 ± 11 pcm` to
+     **0.3 σ**, which checks the instrument. `RECORDED_PCM = 16.0` predates
+     `op-og56` and this says the current mean is near `−22`; it is **not**
+     changed on a 1.6 σ shift, and the drift gate built on it (~693 pcm for a
+     single run) is nowhere near tripping.
+
+     **A predicted sign that did not survive measurement.** This was recorded
+     as hardening the spectrum (for a CM law `⟨E'_lab⟩` rises with `⟨μ_cm⟩`) and
+     therefore moving `op-os8x` the wrong way. Measured 2026-09-16
+     (`examples/godiva_continuum_spectrum_ablation.rs`, 8 seeds per arm): mean
+     `E` **−0.076 % ± 0.109**, mean `ln E` **−0.008 % ± 0.008**, flux below
+     300 keV **+0.157 % ± 0.226** — nothing resolved at 2 σ and every central
+     value pointing the *other* way. The prediction is **not supported**, and
+     the honest statement is a bound: below ~0.22 % in mean `E`, against
+     `op-os8x`'s +0.45 %. **This law is not the explanation for `op-os8x` in
+     either direction.** The discriminating follow-up is the same comparison
+     under a reflective boundary, where only the per-collision term survives.
+
+     **`LANG = 2` (Kalbach-Mann) landed the same day**, reusing
+     `groupr::kinematics::bach` (already in the crate as an NJOY port) for the
+     slope and inverting the Kalbach cumulative in closed form, one variate, so
+     the ablation's RNG-stream invariant still holds. Verified against the
+     density's own closed-form mean `⟨μ⟩ = r(coth a − 1/a)`. O-16's MT=91
+     threshold is ~10 MeV, far above a fission spectrum, so this changes
+     nothing for the reactor cases here — it closes the representation gap.
+
+     Still dropped: the `EnergyAngular` interpolation flag, and `LANG = 11…15`
+     (tabulated cosines), which no evaluation in `reference-data/endf/` uses on
+     a neutron subsection.
   4. **One benchmark.** A bare fast HEU metal sphere, one geometry, one
      temperature. Says nothing about thermal systems or the crate's other cases.
 

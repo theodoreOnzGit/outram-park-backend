@@ -51,6 +51,7 @@ use super::{MicroRate, ReactionRates};
 use crate::material::material::{Material, NuclideComponent};
 use crate::material::nuclide::Nuclide;
 use crate::physics::keff::{run_keff, KeffResult, KeffSettings};
+use njoy_outram_park_fork::groupr::{AnalyticWeight, ThermalFissionParams};
 
 /// 1 barn expressed in cm² (`sigma[cm^2] = sigma[barn] * BARN_CM2`).
 const BARN_CM2: f64 = 1.0e-24;
@@ -77,7 +78,7 @@ fn fission_q_ev(name: &str) -> f64 {
 ///
 /// Defaults mirror the `depletion.ipynb` notebook case: a 4.25%-enriched UO₂ pin
 /// at 174 W (unit height), six 30-day steps.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct BurnupSettings {
     /// Total thermal fission power in the modelled fuel volume \[W\].
     pub power_watts: f64,
@@ -89,9 +90,106 @@ pub struct BurnupSettings {
     pub n_steps: usize,
     /// Data/lookup temperature \[K\] for the cross-section evaluation.
     pub temperature_k: f64,
-    /// One-group energy \[eV\] at which cross sections are evaluated
+    /// One-group energy \[eV\] at which cross sections are evaluated when
+    /// [`Self::weighting`] is [`OneGroupWeighting::SingleEnergy`]
     /// (0.0253 eV = 2200 m/s thermal point by default).
     pub one_group_energy_ev: f64,
+    /// How the one-group cross sections are formed — see
+    /// [`OneGroupWeighting`]. Defaults to
+    /// [`OneGroupWeighting::SingleEnergy`], which is what this module did
+    /// unconditionally before 2026-09-16.
+    pub weighting: OneGroupWeighting,
+}
+
+/// How [`BurnupSettings`] forms its one-group cross sections.
+///
+/// # Why this exists
+///
+/// Depletion needs `σ` averaged over the flux the fuel actually sees. Until
+/// 2026-09-16 this module evaluated every cross section at a **single energy**
+/// (0.0253 eV by default) and called the result one-group. For a purely
+/// thermal spectrum that is defensible; for anything else it is not, and it
+/// misses **resonance absorption entirely** — U-238's capture cross section is
+/// ~2.7 b at 0.0253 eV, while its flux-weighted value in a real lattice is
+/// several times that, because the resonance integral dominates.
+///
+/// The survey in `docs/neutronics-physics-coverage.md` recorded this as a
+/// coupling gap rather than a fidelity knob, and it is: a burnup calculation
+/// whose one-group data is wrong depletes the wrong nuclides.
+#[derive(Debug, Clone, PartialEq)]
+pub enum OneGroupWeighting {
+    /// Evaluate at [`BurnupSettings::one_group_energy_ev`] and nowhere else.
+    ///
+    /// The historical behaviour, kept as the default so existing results
+    /// reproduce **bit-identically**. Correct only for a spectrum concentrated
+    /// at that one energy.
+    SingleEnergy,
+    /// Collapse `σ_g = ∫σ(E)φ(E)dE / ∫φ(E)dE` against NJOY's **`iwt = 4`**
+    /// analytic weighting spectrum: a Maxwellian thermal peak, a `1/E` slowing-
+    /// down region, and a fission-spectrum fast tail.
+    ///
+    /// Reuses [`AnalyticWeight::ThermalFission`] from `njoy-outram-park-fork`'s
+    /// GROUPR port rather than re-deriving the shape — it is the same weight
+    /// NJOY uses to collapse multigroup libraries, already ported and tested.
+    ///
+    /// The integral is a log-spaced trapezoid over `[e_min_ev, e_max_ev]` with
+    /// `n_points` nodes. It is **not** a transport-calculated flux: it is a
+    /// representative spectrum, which is a large improvement on a single point
+    /// and still an approximation. Collapsing against the *actual* flux from a
+    /// transport solve is the remaining step.
+    ThermalFissionSpectrum {
+        /// Lower integration bound \[eV\].
+        e_min_ev: f64,
+        /// Upper integration bound \[eV\].
+        e_max_ev: f64,
+        /// Number of log-spaced quadrature nodes.
+        n_points: usize,
+    },
+    /// Collapse against a **flux spectrum the caller measured**, typically
+    /// tallied from a transport solve of the actual geometry.
+    ///
+    /// This is the variant the other two are approximations of. The analytic
+    /// `iwt = 4` shape is a *representative* spectrum — it knows nothing about
+    /// this geometry's moderation, leakage, or self-shielding — and
+    /// `SingleEnergy` knows nothing at all. A tallied spectrum carries the
+    /// resonance dips that make U-238's effective capture several times its
+    /// 0.0253 eV value, which is the whole reason the one-group data matters.
+    ///
+    /// # Fields
+    ///
+    /// - `e_grid_ev` — ascending group **boundaries** \[eV\], length `n + 1`.
+    /// - `phi` — the flux in each group, length `n`. Units are arbitrary and
+    ///   cancel; only the *shape* is used.
+    ///
+    /// # How the collapse treats a group
+    ///
+    /// `sigma_g = sum_g phi_g * sigma_bar_g / sum_g phi_g`, with `sigma_bar_g`
+    /// the cross section averaged across the group on a log-spaced sub-grid.
+    /// Averaging within the group rather than evaluating at its midpoint
+    /// matters wherever a resonance sits inside one — which, on any practical
+    /// group structure, is most of the resolved range.
+    TabulatedFlux {
+        /// Ascending group boundaries \[eV\]; length is `phi.len() + 1`.
+        e_grid_ev: Vec<f64>,
+        /// Flux per group (arbitrary units — only the shape is used).
+        phi: Vec<f64>,
+        /// Sub-samples per group used to average `sigma` inside it. `1` reduces
+        /// to evaluating at the group's geometric midpoint.
+        sub_points: usize,
+    },
+}
+
+impl OneGroupWeighting {
+    /// NJOY's standard `iwt = 4` breakpoints: thermal Maxwellian below
+    /// 0.1 eV at `kT = 0.025` eV, `1/E` up to 820.3 keV, then a fission
+    /// Maxwellian at `T = 1.4` MeV (`groupr.f90`'s documented defaults).
+    pub fn thermal_fission_default() -> Self {
+        Self::ThermalFissionSpectrum {
+            e_min_ev: 1.0e-5,
+            e_max_ev: 2.0e7,
+            n_points: 2000,
+        }
+    }
 }
 
 impl Default for BurnupSettings {
@@ -105,6 +203,8 @@ impl Default for BurnupSettings {
             n_steps: 6,
             temperature_k: 293.6,
             one_group_energy_ev: 0.0253,
+            // Unchanged default: existing results reproduce bit-identically.
+            weighting: OneGroupWeighting::SingleEnergy,
         }
     }
 }
@@ -194,19 +294,138 @@ fn one_group_cross_sections(chain: &DepletionChain, settings: &BurnupSettings) -
         .nuclide_names()
         .iter()
         .map(|name| match Nuclide::from_core(name) {
-            Ok(nuc) => {
-                let xs = nuc.xs_at_energy(settings.one_group_energy_ev, settings.temperature_k);
-                let gamma = (xs.absorption - xs.fission).max(0.0);
-                OneGroupXs {
-                    fission: xs.fission,
-                    gamma,
-                    nu_fission: xs.nu_fission,
-                    absorption: xs.absorption,
-                }
-            }
+            Ok(nuc) => collapse_one_group(&nuc, settings),
             Err(_) => OneGroupXs::default(),
         })
         .collect()
+}
+
+/// Form one nuclide's one-group cross sections under `settings.weighting`.
+///
+/// For [`OneGroupWeighting::SingleEnergy`] this is a single
+/// [`Nuclide::xs_at_energy`] call — bit-identical to what this module did
+/// before the weighting option existed.
+///
+/// For [`OneGroupWeighting::ThermalFissionSpectrum`] it is
+/// `σ_g = ∫σ(E)φ(E)dE / ∫φ(E)dE` by log-spaced trapezoid, with `φ` the
+/// GROUPR `iwt = 4` analytic spectrum. Integrating in `ln E` is deliberate:
+/// the `1/E` region is flat in lethargy, so a log grid resolves the whole
+/// range with a tractable node count where a linear grid would waste every
+/// node above 1 keV.
+fn collapse_one_group(nuc: &Nuclide, settings: &BurnupSettings) -> OneGroupXs {
+    let t = settings.temperature_k;
+    match &settings.weighting {
+        OneGroupWeighting::SingleEnergy => {
+            let xs = nuc.xs_at_energy(settings.one_group_energy_ev, t);
+            OneGroupXs {
+                fission: xs.fission,
+                gamma: (xs.absorption - xs.fission).max(0.0),
+                nu_fission: xs.nu_fission,
+                absorption: xs.absorption,
+            }
+        }
+        OneGroupWeighting::ThermalFissionSpectrum {
+            e_min_ev,
+            e_max_ev,
+            n_points,
+        } => {
+            let (e_min_ev, e_max_ev, n_points) = (*e_min_ev, *e_max_ev, *n_points);
+            let weight = AnalyticWeight::ThermalFission(ThermalFissionParams {
+                thermal_break_ev: 0.1,
+                thermal_temp_ev: 0.025,
+                fission_break_ev: 8.203e5,
+                fission_temp_ev: 1.4e6,
+            });
+            let n = n_points.max(2);
+            let ln_lo = e_min_ev.max(1.0e-11).ln();
+            let ln_hi = e_max_ev.ln();
+            let (mut num, mut den) = ([0.0f64; 4], 0.0f64);
+            let (mut prev_e, mut prev_w, mut prev_x) = (0.0f64, 0.0f64, [0.0f64; 4]);
+            for i in 0..n {
+                let e = (ln_lo + (ln_hi - ln_lo) * i as f64 / (n - 1) as f64).exp();
+                let xs = nuc.xs_at_energy(e, t);
+                let x = [
+                    xs.fission,
+                    (xs.absorption - xs.fission).max(0.0),
+                    xs.nu_fission,
+                    xs.absorption,
+                ];
+                // phi(E) dE = phi(E) * E * d(ln E): the Jacobian of the log grid.
+                let w = weight.evaluate(e, t) * e;
+                if i > 0 {
+                    let dlog = e.ln() - prev_e.ln();
+                    den += 0.5 * dlog * (w + prev_w);
+                    for k in 0..4 {
+                        num[k] += 0.5 * dlog * (w * x[k] + prev_w * prev_x[k]);
+                    }
+                }
+                prev_e = e;
+                prev_w = w;
+                prev_x = x;
+            }
+            if den > 0.0 {
+                OneGroupXs {
+                    fission: num[0] / den,
+                    gamma: num[1] / den,
+                    nu_fission: num[2] / den,
+                    absorption: num[3] / den,
+                }
+            } else {
+                OneGroupXs::default()
+            }
+        }
+        OneGroupWeighting::TabulatedFlux {
+            e_grid_ev,
+            phi,
+            sub_points,
+        } => {
+            // A malformed spectrum collapses to nothing rather than to a
+            // plausible wrong number: `phi` must have exactly one entry per
+            // group, and there must be at least one group.
+            if e_grid_ev.len() < 2 || phi.len() + 1 != e_grid_ev.len() {
+                return OneGroupXs::default();
+            }
+            let sub = (*sub_points).max(1);
+            let (mut num, mut den) = ([0.0f64; 4], 0.0f64);
+            for (g, &w) in phi.iter().enumerate() {
+                if !(w > 0.0) {
+                    continue;
+                }
+                let (lo, hi) = (e_grid_ev[g], e_grid_ev[g + 1]);
+                if !(hi > lo) || lo <= 0.0 {
+                    continue;
+                }
+                // Average sigma across the group on a log grid -- the same
+                // reasoning as the analytic path: the 1/E region is flat in
+                // lethargy, so log sub-sampling resolves a group evenly.
+                let (ln_lo, ln_hi) = (lo.ln(), hi.ln());
+                let mut acc = [0.0f64; 4];
+                for i in 0..sub {
+                    let f = (i as f64 + 0.5) / sub as f64;
+                    let e = (ln_lo + (ln_hi - ln_lo) * f).exp();
+                    let xs = nuc.xs_at_energy(e, t);
+                    acc[0] += xs.fission;
+                    acc[1] += (xs.absorption - xs.fission).max(0.0);
+                    acc[2] += xs.nu_fission;
+                    acc[3] += xs.absorption;
+                }
+                den += w;
+                for k in 0..4 {
+                    num[k] += w * acc[k] / sub as f64;
+                }
+            }
+            if den > 0.0 {
+                OneGroupXs {
+                    fission: num[0] / den,
+                    gamma: num[1] / den,
+                    nu_fission: num[2] / den,
+                    absorption: num[3] / den,
+                }
+            } else {
+                OneGroupXs::default()
+            }
+        }
+    }
 }
 
 /// The flux \[neutrons/(cm²·s)\] that makes the fission power in `fuel_volume_cm3`
@@ -271,6 +490,146 @@ fn reaction_rates(names: &[&str], flux: f64, xs: &[OneGroupXs]) -> ReactionRates
     }
     rates
 }
+
+/// Run a burnup calculation in which the **flux spectrum is recomputed at every
+/// step** from the current inventory, rather than frozen at beginning of life.
+///
+/// # Why this exists
+///
+/// [`deplete_predictor`] computes the one-group cross sections **once**, before
+/// the loop. That is correct only if the spectrum does not move — and the whole
+/// point of depletion is that it does: fissile material burns out, fission
+/// products with large thermal absorption build in, and the spectrum hardens.
+/// Cross sections collapsed against a beginning-of-life spectrum therefore drift
+/// further from the truth at every step, and the error compounds because the
+/// inventory they produce is the input to the next step.
+///
+/// `spectrum` is called before each step with the current inventory as
+/// `(nuclide, atom density \[atoms/(barn*cm)\])` pairs, and returns
+/// `(group boundaries \[eV\], flux per group)` — exactly what an
+/// [`crate::tally::filter::EnergyFilter`] tally produces from a transport solve.
+/// Returning `None` keeps the previous step's spectrum, which is what a caller
+/// should do when a solve fails rather than silently substituting a different
+/// weighting.
+///
+/// # The coupling this does and does not do
+///
+/// This is an **operator-splitting** (predictor) coupling: transport is solved
+/// on the inventory at the start of a step, the resulting one-group data is held
+/// constant across that step, and the inventory is advanced with CRAM. It is
+/// **not** a predictor-corrector scheme — there is no second transport solve at
+/// the end of the step and no averaging of the two — so it carries the usual
+/// first-order splitting error in the step length. Shortening `step_days` is
+/// what controls that, and a caller who needs more should say so rather than
+/// assume this is second order.
+///
+/// `settings.weighting` is **overridden** for each step by the returned
+/// spectrum; whatever it holds on entry is used only if `spectrum` returns
+/// `None` on the very first call.
+///
+/// # Call count: `n_steps`, not `n_steps + 1`
+///
+/// `spectrum` is called once at beginning of life and then once before each of
+/// steps `2..=n_steps` — `n_steps` calls in total. Step 1 reuses the
+/// beginning-of-life spectrum because it starts from the **same inventory**, so
+/// re-solving would repeat an identical calculation at the cost of a full
+/// transport run. The arithmetic looks off by one until that is spelled out,
+/// which is why it is.
+///
+/// # Generic, not a trait object
+///
+/// `spectrum` is an `impl FnMut` — a monomorphised parameter, not a
+/// `Box<dyn Fn>` — per the workspace's Rust design rules, the same way
+/// `physics::search` takes its predicate.
+pub fn deplete_coupled(
+    chain: &DepletionChain,
+    initial: &[(String, f64)],
+    settings: &BurnupSettings,
+    mut spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>,
+) -> BurnupResult {
+    let names: Vec<&str> = chain.nuclide_names();
+
+    let mut densities = vec![0.0_f64; names.len()];
+    for (name, dens) in initial {
+        if let Some(idx) = chain.index_of(name) {
+            densities[idx] = *dens;
+        }
+    }
+    let inventory = |d: &[f64]| -> Vec<(String, f64)> {
+        names
+            .iter()
+            .zip(d)
+            .map(|(n, x)| (n.to_string(), *x))
+            .collect()
+    };
+
+    let mut step_settings = settings.clone();
+    let mut xs = one_group_cross_sections(chain, &step_settings);
+
+    let record =
+        |step: usize, time_days: f64, flux: f64, d: &[f64], xs: &[OneGroupXs]| BurnupStep {
+            step,
+            time_days,
+            flux,
+            k_inf: k_inf(d, xs),
+            densities: names
+                .iter()
+                .zip(d)
+                .map(|(n, x)| (n.to_string(), *x))
+                .collect(),
+        };
+
+    let mut steps = Vec::with_capacity(settings.n_steps + 1);
+    // Beginning of life uses the spectrum of the INITIAL inventory, so the
+    // recorded k_inf at step 0 is the one the transport solve actually saw.
+    if let Some((e_grid_ev, phi)) = spectrum(&inventory(&densities)) {
+        step_settings.weighting = OneGroupWeighting::TabulatedFlux {
+            e_grid_ev,
+            phi,
+            sub_points: DEFAULT_GROUP_SUB_POINTS,
+        };
+        xs = one_group_cross_sections(chain, &step_settings);
+    }
+    steps.push(record(0, 0.0, 0.0, &densities, &xs));
+
+    let dt_seconds = settings.step_days * SECONDS_PER_DAY;
+    for step in 1..=settings.n_steps {
+        // Re-solve the spectrum on the inventory entering this step. This is the
+        // line that makes the coupling real; `deplete_predictor` has no analogue
+        // of it.
+        if step > 1 {
+            if let Some((e_grid_ev, phi)) = spectrum(&inventory(&densities)) {
+                step_settings.weighting = OneGroupWeighting::TabulatedFlux {
+                    e_grid_ev,
+                    phi,
+                    sub_points: DEFAULT_GROUP_SUB_POINTS,
+                };
+                xs = one_group_cross_sections(chain, &step_settings);
+            }
+        }
+        let flux = flux_for_power(&names, &densities, &xs, settings);
+        let rates = reaction_rates(&names, flux, &xs);
+        let matrix = chain.build_matrix(&rates);
+        densities = cram16(&matrix, &densities, dt_seconds);
+        for d in &mut densities {
+            if *d < 0.0 {
+                *d = 0.0;
+            }
+        }
+        let time_days = step as f64 * settings.step_days;
+        steps.push(record(step, time_days, flux, &densities, &xs));
+    }
+
+    BurnupResult { steps }
+}
+
+/// Sub-samples per energy group used when collapsing against a tallied flux.
+///
+/// Eight is enough that a group spanning a decade is sampled every ~0.29
+/// lethargy units, which resolves the slowly varying part of `sigma` without
+/// pretending to resolve individual resonances — a group structure that puts a
+/// resonance inside a group has already made that decision.
+const DEFAULT_GROUP_SUB_POINTS: usize = 8;
 
 /// Run a predictor (forward-Euler) burnup calculation on `chain`, starting from
 /// the inventory `initial` (`(nuclide_name, atom_density)` in atoms/(barn·cm)).

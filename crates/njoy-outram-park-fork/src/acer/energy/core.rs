@@ -301,6 +301,21 @@ pub(super) fn build_outgoing(e_in_ev: f64, intt: u32, pairs: &[(f64, f64)]) -> O
 /// tables ([`super::mf6::Law7MuTable`]): eV→MeV, pdf scaled to /MeV, CDF built
 /// per `intt` (`1` histogram, `2` lin-lin), then renormalised to integrate to 1.
 pub(super) fn normalize_pdf_cdf(intt: u32, pairs: &[(f64, f64)]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let (e, p, c, _w) = normalize_pdf_cdf_weighted(intt, pairs);
+    (e, p, c)
+}
+
+/// [`normalize_pdf_cdf`], additionally returning the **integral it divided
+/// out** — the table's own area before renormalisation.
+///
+/// For a distribution that is one slice of a larger one (MF=6 LAW=7's per-cosine
+/// tables), that integral is the slice's relative weight and is the only place
+/// the outer variable's distribution is recorded. Discarding it silently
+/// flattens that outer distribution to uniform.
+pub(super) fn normalize_pdf_cdf_weighted(
+    intt: u32,
+    pairs: &[(f64, f64)],
+) -> (Vec<f64>, Vec<f64>, Vec<f64>, f64) {
     let n = pairs.len();
     let e_out_mev: Vec<f64> = pairs.iter().map(|&(e, _)| e / EMEV).collect();
     // ENDF f is per eV; ACE wants per MeV → ×1e6.
@@ -317,6 +332,7 @@ pub(super) fn normalize_pdf_cdf(intt: u32, pairs: &[(f64, f64)]) -> (Vec<f64>, V
                 0.5 * (pdf[i] + pdf[i - 1]) * de
             };
     }
+    let area = cdf.last().copied().unwrap_or(0.0);
     // Renormalise so the distribution integrates to 1.
     if let Some(&total) = cdf.last() {
         if total > 0.0 {
@@ -328,7 +344,7 @@ pub(super) fn normalize_pdf_cdf(intt: u32, pairs: &[(f64, f64)]) -> (Vec<f64>, V
             }
         }
     }
-    (e_out_mev, pdf, cdf)
+    (e_out_mev, pdf, cdf, area)
 }
 
 /// Build one outgoing-energy row that mixes `nd` leading **discrete lines**

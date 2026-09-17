@@ -72,8 +72,40 @@ pub mod xsformula;
 
 use crate::NjoyError;
 
-/// Evaluate an RML/Reich–Moore resonance section. Placeholder until ported;
-/// RECONR (`crate::reconr`) currently handles SLBW/MLBW + Reich–Moore only.
+/// **Dead entry point. The R-matrix-limited physics in this module IS ported and
+/// IS live — do not read this function's error as evidence otherwise.**
+///
+/// This mirrors `samm.f90`'s standalone NJOY-module entry, which nothing in this
+/// port calls. RECONR reaches the same physics directly:
+/// `reconr/mod.rs` → [`crate::reconr::rml::add_rml_range`] → [`setup`] +
+/// [`xsformula::cssammy`], and that path has run end to end throughout.
+///
+/// # Why the wording is this emphatic
+///
+/// The old message — a bare `NotPorted("samm (R-matrix limited)")` under a
+/// docstring reading *"Placeholder until ported"* — was taken at face value in
+/// gh:#202 as proof that LRF=7 was unimplemented. It is not, and following that
+/// inference would have cost a wasted re-port of a module that was already
+/// there. A `NotPorted` marker on a function nobody calls is worse than no
+/// marker: it is a false negative that reads like a finding.
+///
+/// LRF=7 is verified against NJOY2016 2016.79 on Sr-88 (MAT 3837, the only LRF=7
+/// evaluation in `reference-data/endf/`) across all 44,326 points of NJOY's own
+/// grid inside the resolved range — worst relative deviation MT=1 `9.80e-3`, and
+/// `2.39e-3` at `err = 0.0001`. Record:
+/// `verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; gate:
+/// `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`.
+///
+/// What is genuinely absent is the **card-deck driver**, exactly as for
+/// [`crate::reconr::run`]. Use the typed API.
+///
+/// # Errors
+///
+/// Always [`NjoyError::NotPorted`], naming the card-deck driver specifically so
+/// the message cannot be mistaken for a statement about the physics.
 pub fn run() -> Result<(), NjoyError> {
-    Err(NjoyError::NotPorted("samm (R-matrix limited)"))
+    Err(NjoyError::NotPorted(
+        "samm card-deck driver (R-matrix-limited PHYSICS is ported and live via \
+         reconr::rml::add_rml_range -- use the typed API)",
+    ))
 }

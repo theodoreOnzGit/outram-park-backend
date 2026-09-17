@@ -81,11 +81,25 @@
 use outram_mc_libs::geometry::position::Direction;
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::scatter::{
-    continuum_inelastic_scatter, free_gas_elastic_scatter, two_body_scatter, K_BOLTZMANN_EV_PER_K,
+    continuum_inelastic_scatter_evaluated, free_gas_elastic_scatter, two_body_scatter,
+    two_body_scatter_with_mu, K_BOLTZMANN_EV_PER_K,
 };
 use outram_mc_libs::material::nuclide::Inelastic;
 use outram_mc_libs::rng::lcg::prn;
 use outram_mc_libs::vv::{assert_absolute, assert_monotone};
+
+/// ENDF MT of the continuum inelastic channel, whose evaluated MF=6 emission
+/// law the collision kernel below looks up.
+///
+/// Note this channel is **unreachable at this example's source energy**: U-238's
+/// MT=91 threshold is 435.6 keV and [`E_SOURCE`] is 100 keV. The arm is wired
+/// correctly anyway so the kernel matches transport's if the source is ever
+/// raised, rather than being a stale branch nobody notices.
+const MT_CONTINUUM_INELASTIC: i32 = 91;
+
+/// ENDF MT of the (n,2n) channel, likewise unreachable here (U-238's threshold
+/// is ~6 MeV) and likewise wired to the evaluated law rather than left stale.
+const MT_N2N: i32 = 16;
 
 const TEMP: f64 = 600.0;
 /// Source energy — above the whole resolved range, so nothing is captured
@@ -294,13 +308,48 @@ fn slow_down(
                     }
                     break;
                 } else if xi < x.absorption + x.inelastic {
+                    // Both arms use the same kernels transport uses. This
+                    // example exists to probe how transport assembles the data,
+                    // so a simplified collision here would be probing something
+                    // else: the discrete levels take their own MF=4 CM cosine
+                    // (bead `op-tm9f`) and the continuum takes the evaluated
+                    // MF=6 law (`op-og56`), falling back exactly as transport
+                    // does when the evaluation carries neither.
                     e = match nuc.sample_inelastic(e, seed) {
-                        Inelastic::Level { q } => two_body_scatter(e, u, nuc.awr, q, seed).0,
-                        Inelastic::Continuum { q } => continuum_inelastic_scatter(e, u, nuc.awr, q, seed).0,
+                        Inelastic::Level { q, mt } => match nuc.sample_inelastic_mu_cm(mt, e, seed)
+                        {
+                            Some(mu_cm) => {
+                                two_body_scatter_with_mu(e, u, nuc.awr, q, mu_cm, seed).0
+                            }
+                            None => two_body_scatter(e, u, nuc.awr, q, seed).0,
+                        },
+                        Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
+                            e,
+                            u,
+                            nuc.awr,
+                            q,
+                            nuc.continuum_law(MT_CONTINUUM_INELASTIC),
+                            seed,
+                        )
+                        .0,
                     };
                 } else if xi < x.absorption + x.inelastic + x.n2n {
-                    // (n,2n): MT=16's Q is not carried here (GitHub #192).
-                    let e2 = continuum_inelastic_scatter(e, u, nuc.awr, 0.0, seed).0;
+                    // (n,2n) takes its own evaluated MF=6 law, like transport.
+                    // The `0.0` Q is the one thing still approximated here:
+                    // MT=16's QI is not carried on this path (GitHub #192), and
+                    // it only bounds the outgoing energy, which the evaluated
+                    // law already respects. Unreachable at this example's source
+                    // energy in any case -- U-238's (n,2n) threshold is ~6 MeV
+                    // against E_SOURCE = 100 keV.
+                    let e2 = continuum_inelastic_scatter_evaluated(
+                        e,
+                        u,
+                        nuc.awr,
+                        0.0,
+                        nuc.continuum_law(MT_N2N),
+                        seed,
+                    )
+                    .0;
                     stack.push(e2); // yield - 1 = 1 secondary
                     e = e2;
                 } else {

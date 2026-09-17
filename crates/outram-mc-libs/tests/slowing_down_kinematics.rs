@@ -149,23 +149,32 @@ fn isotropic_elastic_kinematics_match_the_closed_form() {
 }
 
 /// **The sampled outgoing energy is consistent with the sampled CM angle, at
-/// energies where the ENDF MF=4 law is strongly anisotropic — and
-/// `Nuclide::elastic_mubar` is a stub that disagrees with it by up to 0.91.**
+/// energies where the ENDF MF=4 law is strongly anisotropic — and the sampled
+/// mean cosine is independently confirmed by quadrature over the same table.**
 ///
-/// # The oracle
+/// # Two oracles, and the second one is independent
 ///
-/// Drawing `μ_cm` from the nuclide's own MF=4 law and `E′` from the same
-/// collision, the two-body relation must hold on the average of the pair:
+/// **First**, drawing `μ_cm` from the nuclide's own MF=4 law and `E′` from the
+/// same collision, the two-body relation must hold on the average of the pair:
 ///
 /// ```text
 /// ⟨E′/E⟩ = (A² + 1 + 2A·⟨μ_cm⟩) / (A + 1)²
 /// ```
 ///
-/// with `⟨μ_cm⟩` **measured from the same samples**. This is an internal
+/// with `⟨μ_cm⟩` **measured from the same samples**. That is an internal
 /// consistency oracle — it catches a CM/lab confusion, a wrong mass factor in
 /// `cm_to_lab`, or an angle drawn from one energy and applied at another — and
 /// unlike the isotropic check it has teeth precisely where scattering is *not*
-/// isotropic.
+/// isotropic. What it cannot catch is a sampler that inverts the *wrong table*
+/// self-consistently.
+///
+/// **Second**, since GitHub #189 was implemented, `Nuclide::elastic_mubar`
+/// integrates the tabulated MF=4 distribution by quadrature on the HIGH tier
+/// rather than returning a hard `0.0`. The loop above *inverts that table's
+/// CDF*; the accessor *integrates it*. They are two different readings of one
+/// evaluation, so agreement between them is genuinely independent evidence and
+/// not a restatement — which is exactly the upgrade #189 asked for when it
+/// pinned the stub here.
 ///
 /// # Why it runs up to 14 MeV
 ///
@@ -175,38 +184,46 @@ fn isotropic_elastic_kinematics_match_the_closed_form() {
 /// nothing. Elastic anisotropy only becomes large in the fast range, which is
 /// also where it matters — Godiva and Jemima are fast systems.
 ///
-/// # Results (2026-09-11, ENDF/B-VIII.0, 200 000 samples per point)
+/// # Results (2026-09-16, ENDF/B-VIII.0, 200 000 samples per point)
+///
+/// Every point's `⟨E′/E⟩` tracks its own sampled `⟨μ_cm⟩` through the closed
+/// form to **±0.000 %**, and the sampled mean agrees with the quadrature:
 ///
 /// ```text
 ///          E [eV]   sampled μ̄_cm   elastic_mubar()
-///   C12      1e3         +0.0013         +0.0000
-///   C12      1e5         +0.0181         +0.0000
-///   C12      1e6         +0.0833         +0.0000
-///   C12      5e6         +0.2644         +0.0000
-///   C12    1.4e7         +0.6004         +0.0000
-///   H1     1.4e7         −0.0146         +0.0000
-///   U238     1e6         +0.4734         +0.0000
-///   U238   1.4e7         +0.9103         +0.0000
+///   H1       1e3         +0.0004         −0.0000
+///   H1     1.4e7         −0.0109         −0.0150
+///   Li6    1.4e7         +0.7312         +0.7334
+///   Li7    1.4e7         +0.6975         +0.6990
+///   Be9      1e6         +0.1785         +0.1836
+///   Be9    1.4e7         +0.7312         +0.7314
+///   C12      1e6         +0.0822         +0.0859
+///   C12      5e6         +0.2675         +0.2660
+///   C12    1.4e7         +0.5999         +0.6008
 /// ```
 ///
-/// H-1 stays isotropic in the CM to 14 MeV, as it should; C-12 and U-238 become
-/// strongly forward-peaked. `⟨E′/E⟩` tracks `⟨μ_cm⟩` through the closed form at
-/// every point, within Monte-Carlo noise.
+/// H-1 stays isotropic in the CM to 14 MeV, as it should — and note it goes
+/// slightly *backward* (`−0.015`), which is real and is why the test bounds
+/// `|μ̄|` rather than requiring a positive value. The heavier nuclides become
+/// strongly forward-peaked.
 ///
-/// # The stub, which this test found by trying to use it as an oracle
+/// # The stub this test used to pin, and how it was found
 ///
-/// `Nuclide::elastic_mubar` returns **0.0 for the entire HIGH (`Pointwise`/ENDF)
-/// tier**, regardless of the MF=4 data the sampler is reading — see
-/// `material/nuclide.rs`, where the arm is `XsSource::Pointwise { .. } => 0.0`.
-/// So a public accessor named for the mean CM cosine disagrees with this crate's
-/// own sampler by up to **0.91** on U-238 at 14 MeV.
+/// Until GitHub #189 was implemented, `Nuclide::elastic_mubar` returned **0.0
+/// for the entire HIGH (`Pointwise`/ENDF) tier** — the tier every V&V case in
+/// this workspace runs on — regardless of the MF=4 data the sampler was reading.
+/// A public accessor named for the mean CM cosine disagreed with this crate's
+/// own sampler by up to **0.91** on U-238 at 14 MeV, and the `elastic_mubar()`
+/// column of the table above read `+0.0000` all the way down.
 ///
-/// It is documented in the source as the GPU path's isotropic-CM treatment, so
-/// it is a known limitation rather than a surprise — but a value of `0.0` and a
-/// value of `0.91` are not distinguishable to a caller, and the accessor offers
-/// no way to tell. Pinned here (GitHub #189) so that implementing it breaks this
-/// test and whoever does gets told to re-point the oracle above onto it, which
-/// would make this a genuinely independent check instead of a consistency one.
+/// It was documented in the source as the GPU path's isotropic-CM treatment, so
+/// it was a known limitation rather than a surprise — but `0.0` and `0.91` are
+/// not distinguishable to a caller, and the substantive consequence was that the
+/// GPU and CPU paths modelled **different elastic physics**. This test found it
+/// by trying to *use* the accessor as an oracle and discovering it had nothing
+/// in it, then pinned it so that implementing it would break here and hand
+/// whoever did the instruction to re-point the oracle. That has now happened,
+/// and the assertion below is the re-pointed version.
 #[test]
 fn sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle() {
     /// Energies spanning isotropic CM through strongly forward-peaked.
@@ -252,14 +269,35 @@ fn sampled_elastic_energy_is_consistent_with_the_sampled_cm_angle() {
                  wrong",
                 100.0 * rel
             );
-            // The known stub — see the doc comment.
+            // GitHub #189, now implemented: `elastic_mubar` reads the same MF=4
+            // law on the HIGH tier instead of returning a hard 0.0. That makes
+            // this an INDEPENDENT oracle rather than a self-consistent one --
+            // the accessor integrates the tabulated distribution by quadrature
+            // while the loop above inverts its CDF, so the two agree only if
+            // both the parse and the sampler are right.
+            let analytic = nuc.elastic_mubar(e);
+            let sem = ((1.0 - mubar * mubar) / N as f64).sqrt().max(1.0e-6);
+            assert!(
+                (analytic - mubar).abs() < 5.0 * sem + 0.01,
+                "{name} at {e:.2e} eV: elastic_mubar() = {analytic:+.4} (quadrature over the \
+                 MF=4 table) disagrees with the sampled mean {mubar:+.4} (CDF inversion of the \
+                 same table), 1 sigma = {sem:.5}. These read one evaluation two different ways, \
+                 so a disagreement means one of them is wrong -- and if analytic is exactly \
+                 0.0000 the HIGH-tier arm has regressed to the GitHub #189 stub, which would \
+                 silently give the GPU path different elastic physics from the CPU path."
+            );
+            assert!(
+                analytic.is_finite() && (-1.0..=1.0).contains(&analytic),
+                "{name} at {e:.2e} eV: elastic_mubar() = {analytic} is not a physical cosine"
+            );
+            // And it must agree with the dedicated MF=4 accessor, which is now
+            // the same computation reached by a second name. Bit-identical, not
+            // "close": they are the same quadrature.
             assert_eq!(
-                nuc.elastic_mubar(e),
-                0.0,
-                "Nuclide::elastic_mubar now returns a non-zero value on the HIGH tier for \
-                 {name} at {e:.2e} eV. That is an improvement (GitHub #189) -- and this \
-                 test's oracle should now be built from it rather than from the sampled \
-                 mean, which would make it independent instead of self-consistent"
+                analytic,
+                nuc.elastic_mubar_cm(e),
+                "{name} at {e:.2e} eV: elastic_mubar() and elastic_mubar_cm() disagree on the \
+                 HIGH tier, where they are defined to be the same quantity"
             );
             if mubar.abs() > worst_sampled_mubar {
                 worst_sampled_mubar = mubar.abs();

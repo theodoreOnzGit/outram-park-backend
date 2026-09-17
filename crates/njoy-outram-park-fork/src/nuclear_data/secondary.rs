@@ -194,6 +194,36 @@ pub struct ChiTabular {
     /// Outgoing-energy distribution at each incident energy (`tables.len() ==
     /// incident.len()`).
     pub tables: Vec<ChiEout>,
+    /// The evaluation's own **incident-energy** interpolation law, as ENDF
+    /// `(NBT, INT)` ranges from the MF=6 LAW=1 / MF=5 LF=1 TAB2.
+    ///
+    /// # Why this is carried, and what is actually honoured
+    ///
+    /// Until 2026-09-16 this was **dropped at conversion** — the parser read it
+    /// and the transport-side structure threw it away, so no consumer could
+    /// even see what the evaluation asked for. It is carried now so the
+    /// information is not silently lost.
+    ///
+    /// **What the samplers do is still unit-base interpolation in every case.**
+    /// ENDF File 6 uses the extended codes here: `11..=15` is
+    /// *corresponding-point* interpolation (scheme `INT − 10`) and `21..=25` is
+    /// *unit-base* (scheme `INT − 20`). Measured across this workspace's 27
+    /// neutron tapes on MT=16/17/91 (`acer::energy::mf6`'s
+    /// `survey_incident_energy_interpolation_laws`): **17 ranges are INT=22
+    /// (unit-base) and 9 are INT=12 (corresponding-point)**.
+    ///
+    /// So roughly a third of the ranges specify corresponding-point and get
+    /// unit-base. That is a real discrepancy against the *evaluation* — but it
+    /// is **not** a discrepancy against this crate's reference implementation:
+    /// NJOY's ACER preserves the flag into the ACE Law-4 header, OpenMC applies
+    /// unit-base regardless, and this port's sampled spectra reproduce OpenMC's
+    /// construction to 0.02 % (`outram-mc-libs`'s
+    /// `mt91_transfer_vs_openmc.rs`). Diverging from OpenMC here is a
+    /// maintainer decision, not something to do silently — hence: carried,
+    /// measured, documented, not yet acted on.
+    ///
+    /// Empty when the source carried no TAB2 interpolation record.
+    pub incident_interp: Vec<(u32, u32)>,
 }
 
 impl Default for FissionSpectrum {
@@ -432,7 +462,18 @@ fn parse_mf5_section(rows: &[[f64; 6]]) -> Result<Option<FissionSpectrum>, crate
                 let b = cur.read_tab1()?;
                 Some(FissionSpectrum::WattEnergyDependent { a, b, u })
             }
-            _ => None, // LF=5 (unsupported upstream), LF=12 (Madland-Nix), other
+            // LF=5 (general evaporation) and LF=12 (Madland-Nix) are not read
+            // here. **NJOY DOES support LF=5** — `groupr.f90:12355`, "law 5.
+            // general evaporation spectrum", and `acefc.f90:2251/2477/6889`
+            // handle it too. An earlier comment here called it "unsupported
+            // upstream", which was wrong and is the kind of error that stops
+            // someone porting something. LF=5 is a tabulated `g(x)` with
+            // `x = E'/θ(E)` — the same "universal shape, incident-dependent
+            // scale" form as MF=6 LAW=6, so it would convert the same way.
+            // Not yet ported because no evaluation in `reference-data/endf/`
+            // uses it; `mf5_lf_survey` asserts that and will fail if one is
+            // added.
+            _ => None,
         };
         match law {
             Some(l) => partitions.push((p_tab, l)),
@@ -462,6 +503,388 @@ pub struct ContinuumBranch {
     pub spectrum: ChiTabular,
     /// This subsection's neutron multiplicity `y(E)` as `(E \[eV\], y)` pairs.
     pub yield_pairs: Vec<(f64, f64)>,
+    /// The **angular** half of the law, correlated with the outgoing energy.
+    ///
+    /// MF=6 LAW=1 is a correlated energy-angle law: the emission cosine depends
+    /// on which outgoing energy was drawn, so this is indexed by the same
+    /// `(incident table, outgoing row)` pair that `spectrum` was sampled at.
+    /// See [`ContinuumAngular`] for what each variant means — in particular, it
+    /// distinguishes "the evaluation says isotropic" from "this port cannot
+    /// sample this representation yet", which are the same number and very
+    /// different facts.
+    pub angular: ContinuumAngular,
+}
+
+/// The angular half of an MF=6 LAW=1 continuum emission law, in the form a
+/// Monte Carlo code samples.
+///
+/// # The distinction this type exists to make
+///
+/// Sampling a continuum neutron isotropically can be right or wrong, and the
+/// outgoing direction alone cannot tell you which. This enum records *why* a
+/// given law is isotropic, so a reader — and an ablation study — can tell a
+/// faithful reading of the evaluation from an unported representation. Until
+/// bead `op-og56` the coefficients were dropped at parse time and every
+/// continuum emission was [`EvaluatedIsotropic`](Self::EvaluatedIsotropic) by
+/// construction, with nothing in the data structures to say otherwise.
+#[derive(Debug, Clone)]
+pub enum ContinuumAngular {
+    /// The evaluation itself declares isotropic emission — ENDF `NA = 0` on
+    /// every outgoing-energy row of every incident energy. Sampling
+    /// `μ = 2ξ − 1` is then **correct**, not a fallback.
+    ///
+    /// ENDF/B-VIII.0's F-19 MT=91 is the reference example.
+    EvaluatedIsotropic,
+    /// `LANG = 1`: the evaluation's Legendre coefficients, linearised into a
+    /// per-row tabulated cosine CDF by
+    /// [`crate::acer::angular::legendre_cosine_law`].
+    ///
+    /// `tables[i]` corresponds to `spectrum.tables[i]`, and `tables[i].rows[k]`
+    /// to that table's outgoing-energy point `k`.
+    Legendre(Vec<ContinuumAngularTable>),
+    /// `LANG = 2`: Kalbach-Mann, as `(r, a)` per outgoing-energy row.
+    ///
+    /// `r` is the pre-compound fraction the evaluation tabulates. `a` is the
+    /// slope: tabulated too when `NA = 2`, and otherwise computed from the
+    /// Kalbach-86 systematics by [`crate::groupr::kinematics::bach`] — which is
+    /// a function of the projectile, ejectile and target masses, hence of the
+    /// nuclide rather than of the emission law alone.
+    ///
+    /// ENDF/B-VIII.0's O-16 and Al-27 use this on both MT=16 and MT=91, with
+    /// `NA = 1` throughout, so the systematics path is the live one.
+    KalbachMann(Vec<ContinuumKalbachTable>),
+    /// **MF=6 LAW=7** (lab-frame angle-then-energy): a tabulated cosine CDF per
+    /// outgoing-energy row, exactly as [`Legendre`](Self::Legendre) stores one,
+    /// but built from the evaluation's own per-cosine spectra rather than from
+    /// Legendre coefficients.
+    ///
+    /// Kept as its own variant rather than folded into `Legendre` for two
+    /// reasons. It is a **different representation** — LAW=7 tabulates
+    /// `f(mu, E')` directly and the cosine law is obtained by slicing it at
+    /// fixed `E'`, not by linearising a series — and it is **laboratory-frame by
+    /// construction** (ENDF-102: LAW=7 data is in the lab regardless of `LCT`),
+    /// so it must not acquire a CM→lab transform if one is ever added to the
+    /// `Legendre` path. A caller inspecting the enum can tell which it has.
+    LabTabulated(Vec<ContinuumAngularTable>),
+    /// A representation this port retains but does not sample — `LANG = 11…15`
+    /// (tabulated cosines), or any `LANG` value ENDF adds later.
+    ///
+    /// Emission falls back to isotropic. **That fallback is a port gap, not the
+    /// evaluation's statement**, and this variant is what makes the difference
+    /// visible to a caller instead of leaving it in a source comment.
+    ///
+    /// `LANG = 2` (Kalbach-Mann) used to land here and no longer does — it is
+    /// sampled via [`ContinuumAngular::KalbachMann`]. No evaluation in
+    /// `reference-data/endf/` currently reaches this variant.
+    Unported(crate::acer::energy::Mf6AngularLaw),
+    /// The law was read and then **deliberately switched off**, by
+    /// [`ContinuumEmission::with_isotropic_angle`]. The ablation arm of a paired
+    /// worth measurement.
+    ///
+    /// A third distinct reason to emit isotropically, kept distinct on purpose:
+    /// an ablated nuclide is self-describing, so a run cannot quietly report an
+    /// ablation arm's number as the physical one, and an ablation that failed to
+    /// take effect is visible in the data rather than only in a `Δk` that came
+    /// back suspiciously small.
+    Ablated,
+}
+
+/// One incident energy's worth of correlated angular laws, one entry per
+/// outgoing-energy row of the matching [`ChiEout`].
+#[derive(Debug, Clone)]
+pub struct ContinuumAngularTable {
+    /// Per-outgoing-energy angular laws, aligned with `ChiEout::e_out`.
+    pub rows: Vec<ContinuumAngularRow>,
+}
+
+/// One incident energy's worth of Kalbach-Mann parameters, one entry per
+/// outgoing-energy row of the matching [`ChiEout`].
+#[derive(Debug, Clone)]
+pub struct ContinuumKalbachTable {
+    /// Per-outgoing-energy `(r, a)` pairs, aligned with `ChiEout::e_out`.
+    pub rows: Vec<ContinuumKalbachRow>,
+}
+
+/// The Kalbach-Mann emission-cosine law conditional on one `(incident energy,
+/// outgoing energy)` pair.
+///
+/// The density is
+///
+/// ```text
+/// f(mu) = a [cosh(a mu) + r sinh(a mu)] / (2 sinh a),   mu in [-1, 1]
+/// ```
+///
+/// which integrates to 1 over `[-1, 1]` for any `a > 0` and any `r` (the `sinh`
+/// term is odd and contributes nothing to the norm). `r` is the **pre-compound
+/// fraction**, a number in `[0, 1]`; `a` is the **slope**, which grows with
+/// incident energy and makes the distribution forward-peaked.
+///
+/// Cosines are in the frame the MF=6 section names (`LCT`).
+#[derive(Debug, Clone, Copy)]
+pub struct ContinuumKalbachRow {
+    /// Pre-compound fraction `r`, tabulated by the evaluation. In `[0, 1]`.
+    pub r: f64,
+    /// Slope `a`. Tabulated when `NA = 2`, otherwise from the Kalbach-86
+    /// systematics.
+    pub a: f64,
+}
+
+impl ContinuumKalbachRow {
+    /// An isotropic row — `a → 0` is the isotropic limit of the Kalbach form,
+    /// and is represented exactly rather than approached.
+    pub fn isotropic() -> Self {
+        ContinuumKalbachRow { r: 0.0, a: 0.0 }
+    }
+
+    /// Whether this row carries no angular structure.
+    ///
+    /// True when the slope has collapsed (`a ≈ 0`, the isotropic limit) — note
+    /// `r = 0` alone does **not** make the law isotropic, because the `cosh`
+    /// term is still peaked at both ends. That asymmetry is why this is a
+    /// method and not a field comparison at the call site.
+    pub fn is_isotropic(&self) -> bool {
+        self.a.abs() < 1.0e-12
+    }
+
+    /// The exact mean cosine of this row's density,
+    /// `⟨μ⟩ = r · (coth a − 1/a)`.
+    ///
+    /// The bracket is the Langevin function `L(a)`, which runs from `0` at
+    /// `a = 0` to `1` as `a → ∞`. Every `cosh` term integrates to zero against
+    /// `μ`, so the mean is carried entirely by `r`.
+    ///
+    /// This is a closed form, not a quadrature, which makes it a genuine oracle
+    /// for [`sample_mu`](Self::sample_mu) — the sampler inverts the CDF and this
+    /// integrates the density, so agreement between them tests both.
+    pub fn mubar(&self) -> f64 {
+        if self.is_isotropic() {
+            return 0.0;
+        }
+        let a = self.a;
+        // coth(a) - 1/a, guarded at small a where both terms blow up: the
+        // series is a/3 - a^3/45 + ...
+        let langevin = if a.abs() < 1.0e-4 {
+            a / 3.0
+        } else {
+            1.0 / a.tanh() - 1.0 / a
+        };
+        self.r * langevin
+    }
+
+    /// Invert this row's cosine CDF at a uniform variate `xi ∈ [0, 1)`.
+    ///
+    /// # The closed form, and why it is one variate and not two
+    ///
+    /// The CDF integrates in elementary functions:
+    ///
+    /// ```text
+    /// F(mu) = [sinh(a mu) + sinh(a) + r (cosh(a mu) - cosh(a))] / (2 sinh a)
+    /// ```
+    ///
+    /// and `sinh(a mu) + r cosh(a mu)` collapses to a single hyperbolic sine,
+    /// `sqrt(1 - r^2) sinh(a mu + phi)` with `phi = atanh(r)`, so `F` inverts
+    /// directly:
+    ///
+    /// ```text
+    /// mu = [ asinh( ((2 xi - 1) sinh a + r cosh a) / sqrt(1 - r^2) ) - phi ] / a
+    /// ```
+    ///
+    /// **One variate matters here.** The usual implementation splits on `r` and
+    /// spends two: one to pick the `cosh` or `sinh` branch, one to invert it.
+    /// That would consume a different number of draws from the isotropic
+    /// fallback, so an ablation of this law would shift the random stream and a
+    /// measured `Δk` would mix physics with re-randomisation. The single-variate
+    /// inverse keeps the ablation attributable — the property
+    /// `outram-mc-libs`' `tests/continuum_angular_ablation_control.rs` asserts.
+    ///
+    /// Degenerate cases return the isotropic inverse `2ξ − 1`: `a ≈ 0` (the
+    /// isotropic limit of the form itself) and `|r| ≥ 1` (which would make
+    /// `atanh` diverge; `r` is a probability and should never reach 1, so this
+    /// is a guard rather than a path).
+    pub fn sample_mu(&self, xi: f64) -> f64 {
+        let xi = xi.clamp(0.0, 1.0);
+        let (r, a) = (self.r, self.a);
+        if self.is_isotropic() || r.abs() >= 1.0 || !a.is_finite() || !r.is_finite() {
+            return 2.0 * xi - 1.0;
+        }
+        let root = (1.0 - r * r).sqrt();
+        if root <= 0.0 {
+            return 2.0 * xi - 1.0;
+        }
+        let phi = r.atanh();
+        let s = ((2.0 * xi - 1.0) * a.sinh() + r * a.cosh()) / root;
+        let mu = (s.asinh() - phi) / a;
+        if mu.is_finite() {
+            mu.clamp(-1.0, 1.0)
+        } else {
+            2.0 * xi - 1.0
+        }
+    }
+}
+
+/// The emission cosine law conditional on one `(incident energy, outgoing
+/// energy)` pair, as a tabulated CDF ready to invert.
+///
+/// Cosines are in the frame the MF=6 section names (`LCT`), which is the centre
+/// of mass for every actinide MT=91 in ENDF/B-VIII.0 — the transport layer must
+/// transform to the laboratory frame along with the energy.
+#[derive(Debug, Clone)]
+pub struct ContinuumAngularRow {
+    /// Ascending cosine grid on `[−1, 1]`. Empty ⇒ this row is isotropic.
+    pub cosines: Vec<f64>,
+    /// Cumulative distribution on `cosines` (`cdf[0] = 0`, `cdf[last] = 1`).
+    pub cdf: Vec<f64>,
+    /// The row's mean cosine `⟨μ⟩`, equal to the normalised `a₁ = f₁/f₀`.
+    /// Retained because it is the single number a transport-corrected model
+    /// needs, and because it is what an ablation control asserts is non-zero.
+    pub mubar: f64,
+}
+
+impl ContinuumAngularRow {
+    /// An isotropic row — no tabulated data, `⟨μ⟩ = 0`.
+    pub fn isotropic() -> Self {
+        ContinuumAngularRow {
+            cosines: Vec::new(),
+            cdf: Vec::new(),
+            mubar: 0.0,
+        }
+    }
+
+    /// Whether this row carries no angular structure.
+    pub fn is_isotropic(&self) -> bool {
+        self.cosines.is_empty()
+    }
+
+    /// Invert this row's cosine CDF at a uniform variate `xi ∈ [0, 1)`.
+    ///
+    /// Returns `μ` in the law's own frame. An isotropic row gives the flat
+    /// inverse `2ξ − 1`, so a caller never needs to branch on
+    /// [`is_isotropic`](Self::is_isotropic) for correctness.
+    pub fn sample_mu(&self, xi: f64) -> f64 {
+        let xi = xi.clamp(0.0, 1.0);
+        let n = self.cosines.len();
+        if n < 2 {
+            return 2.0 * xi - 1.0;
+        }
+        // Locate the CDF bin, then interpolate linearly within it. The stored
+        // pdf is lin-lin, so a strictly correct inverse is the quadratic one;
+        // linear interpolation of the CDF is used instead because the grid is
+        // already bisected to ANGLE_TOL, which bounds the difference well below
+        // the tolerance the tabulation itself carries.
+        let mut k = 0usize;
+        while k + 2 < n && self.cdf[k + 1] <= xi {
+            k += 1;
+        }
+        let (c0, c1) = (self.cdf[k], self.cdf[k + 1]);
+        let (m0, m1) = (self.cosines[k], self.cosines[k + 1]);
+        if c1 > c0 {
+            (m0 + (xi - c0) / (c1 - c0) * (m1 - m0)).clamp(-1.0, 1.0)
+        } else {
+            m0
+        }
+    }
+}
+
+impl ContinuumAngular {
+    /// The angular law for outgoing-energy row `row` of incident table
+    /// `table`, or `None` when this representation is not sampled.
+    ///
+    /// `None` and an isotropic row are deliberately different returns: the
+    /// first means "no angular information is available here", the second means
+    /// "the evaluation says the emission is flat".
+    pub fn row(&self, table: usize, row: usize) -> Option<&ContinuumAngularRow> {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated
+            | ContinuumAngular::KalbachMann(_) => None,
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => {
+                tables.get(table)?.rows.get(row)
+            }
+        }
+    }
+
+    /// Sample the emission cosine for outgoing-energy row `row` of incident
+    /// table `table`, given one uniform variate `xi ∈ [0, 1)`.
+    ///
+    /// This is the interface transport should use: it dispatches over the
+    /// representation so a caller never has to know whether the evaluation
+    /// stored Legendre coefficients or Kalbach-Mann parameters.
+    ///
+    /// Returns `None` when no angular information is available — a law that is
+    /// evaluated-isotropic, unported, or ablated — which is deliberately
+    /// distinct from returning `0.0`. **Every arm consumes exactly one
+    /// variate**, including the `None` case at the call site, so switching
+    /// between them does not shift the random stream.
+    pub fn sample_mu(&self, table: usize, row: usize, xi: f64) -> Option<f64> {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => None,
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.sample_mu(xi))
+            }
+            ContinuumAngular::KalbachMann(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.sample_mu(xi))
+            }
+        }
+    }
+
+    /// The exact mean cosine of row `row` of table `table`, or `None` where no
+    /// angular law is available.
+    ///
+    /// Closed form in both representations — `a₁` for Legendre, `r·L(a)` for
+    /// Kalbach-Mann — so this is an oracle for
+    /// [`sample_mu`](Self::sample_mu) rather than a second estimate of it.
+    pub fn mubar(&self, table: usize, row: usize) -> Option<f64> {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => None,
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.mubar)
+            }
+            ContinuumAngular::KalbachMann(tables) => {
+                Some(tables.get(table)?.rows.get(row)?.mubar())
+            }
+        }
+    }
+
+    /// Whether any row of this law carries angular structure.
+    ///
+    /// The assertion an ablation control needs: switching off a law that was
+    /// already flat produces no difference and reads as "this physics does not
+    /// matter".
+    pub fn is_anisotropic(&self) -> bool {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => false,
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => tables
+                .iter()
+                .any(|t| t.rows.iter().any(|r| !r.is_isotropic())),
+            ContinuumAngular::KalbachMann(tables) => tables
+                .iter()
+                .any(|t| t.rows.iter().any(|r| !r.is_isotropic())),
+        }
+    }
+
+    /// The largest `|⟨μ⟩|` anywhere in this law; `0.0` when it carries none.
+    pub fn peak_mubar(&self) -> f64 {
+        match self {
+            ContinuumAngular::EvaluatedIsotropic
+            | ContinuumAngular::Unported(_)
+            | ContinuumAngular::Ablated => 0.0,
+            ContinuumAngular::Legendre(tables) | ContinuumAngular::LabTabulated(tables) => tables
+                .iter()
+                .flat_map(|t| t.rows.iter().map(|r| r.mubar.abs()))
+                .fold(0.0, f64::max),
+            ContinuumAngular::KalbachMann(tables) => tables
+                .iter()
+                .flat_map(|t| t.rows.iter().map(|r| r.mubar().abs()))
+                .fold(0.0, f64::max),
+        }
+    }
 }
 
 impl ContinuumBranch {
@@ -534,6 +957,490 @@ pub struct ContinuumEmission {
     pub cm_frame: bool,
 }
 
+/// A **pre-ENDF-6 uncorrelated** neutron emission law: the outgoing energy from
+/// **MF=5** and the emission cosine from **MF=4**, drawn independently.
+///
+/// # When this is the law
+///
+/// A modern evaluation writes a continuum or multiplying reaction as MF=6, whose
+/// energy and angle are *correlated* — [`ContinuumEmission`]. An older one puts
+/// the energy spectrum in MF=5 and the angular distribution in MF=4, with no
+/// correlation between them. Both say what a neutron does; they are different
+/// representations, not different fidelities of the same one.
+///
+/// # Why a separate type rather than a conversion
+///
+/// Every other law in this module converts into [`ChiTabular`] so it can reuse
+/// the existing samplers (see [`ContinuumEmission::from_endf_mf6`]'s LAW=6 and
+/// LAW=7 paths). This one deliberately does not, for three reasons:
+///
+/// 1. **Both halves already have exact samplers.** `outram-mc-libs` samples every
+///    MF=5 `LF` law — including the analytic LF=7/9/11 — through `sample_chi`,
+///    and MF=4 through `sample_mf4_mu_cm`, which implements OpenMC's
+///    statistical-neighbour convention for the AND block. Converting would
+///    replace two exact paths with one tabulated approximation, which is
+///    backwards.
+/// 2. **The angular grid is its own.** MF=4's incident-energy grid is unrelated
+///    to MF=5's. Forcing the cosine law onto the energy law's grid would either
+///    resample it or index it wrongly; keeping the section intact avoids the
+///    question.
+/// 3. **Uncorrelated is a physical statement worth keeping visible.** Folding it
+///    into a correlated structure by repeating one cosine law across every
+///    outgoing row would say the same thing while hiding it.
+///
+/// # Frame
+///
+/// [`lct`](Self::lct) comes from **MF=4**, which is how NJOY decides it too:
+/// `acefc.f90:5825-5869` reads `lct` from MF=4's second CONT record and makes the
+/// ACE `TY` negative when `lct >= 2`. MF=5 carries no frame flag — ENDF-102
+/// defines its secondary energies as laboratory always.
+///
+/// Measured across `reference-data/endf/`: **all 11** MF=4/MT=16/17/91 sections
+/// are `LCT = 1` (laboratory), so no held evaluation exercises the CM branch.
+/// [`from_endf`](Self::from_endf) therefore refuses `LCT >= 2` rather than
+/// guessing at a transform it has no case to check against — an honest `None`
+/// that leaves the caller's documented fallback, not a silent approximation.
+#[derive(Debug, Clone)]
+pub struct UncorrelatedEmission {
+    /// Outgoing-energy law from MF=5. Despite the type's name this is not
+    /// necessarily fission — [`FissionSpectrum`] is simply this crate's
+    /// representation of an MF=5 section, and MF=5 is the same format wherever
+    /// it appears.
+    pub energy: FissionSpectrum,
+    /// Emission-cosine law from MF=4, on its own incident-energy grid. Empty
+    /// [`energies`](crate::acer::angular::ElasticAngular::energies) means the
+    /// evaluation declares the reaction isotropic (`LTT = 0` or `LI = 1`), which
+    /// is a statement, not an absence — C-12's MT=91 is exactly this.
+    pub angular: crate::acer::angular::ElasticAngular,
+    /// Reference frame from MF=4's `LCT`: `1` laboratory, `2` centre of mass.
+    /// Always `1` for every section in `reference-data/endf/`; see the type docs.
+    pub lct: i32,
+    /// Neutron multiplicity for this reaction — `2` for MT=16, `3` for MT=17,
+    /// `1` for MT=91. Taken from the MT, as ACER does
+    /// (`acefc.f90:5857-5866` sets `n` per MT), because MF=4/MF=5 evaluations
+    /// carry no yield record of their own.
+    pub yield_n: u32,
+}
+
+impl UncorrelatedEmission {
+    /// Read the MF=4 + MF=5 emission law for reaction `mt`, or `Ok(None)` when
+    /// this representation does not apply or cannot be read honestly.
+    ///
+    /// # Returns `Ok(None)` when
+    ///
+    /// - there is no MF=5 section for `mt` — nothing to read;
+    /// - MF=5 uses an `LF` this crate has not ported (`parse_mf5_section`
+    ///   returns `None`), rather than a partially-read mixture;
+    /// - MF=4 declares `LCT >= 2`. No evaluation in `reference-data/endf/` does,
+    ///   so a centre-of-mass branch here would be untested code deciding a frame
+    ///   transform. Refusing is the failure direction that shows up as a
+    ///   stand-in rather than as a wrong answer.
+    ///
+    /// **This is not a fallback path for MF=6.** Callers should try
+    /// [`ContinuumEmission::from_endf_mf6`] first; an evaluation carrying both
+    /// is answering the same question twice, and MF=6 is the answer ACER uses.
+    pub fn from_endf(
+        tape: &crate::endf::tape::Tape,
+        mat: i32,
+        mt: i32,
+    ) -> Result<Option<UncorrelatedEmission>, crate::NjoyError> {
+        let Some(energy) = FissionSpectrum::from_endf_mf5_mt(tape, mat, mt)? else {
+            return Ok(None);
+        };
+        // MF=4 may legitimately be absent; ENDF then means isotropic emission.
+        let angular = match tape.section(mat, 4, mt) {
+            Some(sec) => crate::acer::angular::parse_mf4_angular(sec)?,
+            None => crate::acer::angular::ElasticAngular {
+                energies: Vec::new(),
+                lct: 1,
+            },
+        };
+        if angular.lct >= 2 {
+            return Ok(None);
+        }
+        let yield_n = match mt {
+            16 => 2,
+            17 => 3,
+            37 => 4,
+            _ => 1,
+        };
+        let lct = angular.lct;
+        Ok(Some(UncorrelatedEmission {
+            energy,
+            angular,
+            lct,
+            yield_n,
+        }))
+    }
+
+    /// Whether the emission cosine carries any structure at all.
+    ///
+    /// `false` means the evaluation itself declares isotropic emission (`LTT = 0`
+    /// or `LI = 1`), which is a different fact from "this port cannot read it" —
+    /// the same distinction [`ContinuumAngular`] draws.
+    pub fn is_anisotropic(&self) -> bool {
+        !self.angular.is_all_isotropic()
+    }
+}
+
+/// Convert an ENDF **MF=6 LAW=7** (lab-frame angle-then-energy) emission into
+/// the [`ChiTabular`] + per-row cosine-CDF form the transport samplers already
+/// consume.
+///
+/// # The representation, and why it converts exactly
+///
+/// LAW=7 tabulates the joint density `f(mu, E')` directly: at each incident
+/// energy a cosine grid, and at each cosine a `(E', f)` spectrum. What the
+/// samplers want instead is the marginal `f(E')` plus the conditional
+/// `P(mu | E')`. Both come out of the same table:
+///
+/// ```text
+/// f(mu_j, E')  =  w_j * p_j(E')          w_j = the cosine's retained weight
+/// f(E')        =  integral over mu of f(mu, E')      (marginal)
+/// P(mu | E')  propto  f(mu, E')  at fixed E'         (conditional)
+/// ```
+///
+/// where `p_j` is cosine `j`'s unit-area table and `w_j` its `Law7MuTable::weight`
+/// — the integral the parser used to discard (see that field's documentation).
+///
+/// The one construction step is a **merged outgoing-energy grid**: the union of
+/// every cosine's own `E'` knots at that incident energy. That is exact rather
+/// than approximate, and it is the reason this needs no new sampling path —
+/// evaluating a piecewise-linear density on a *superset* of its own knots
+/// reproduces it identically, so nothing is resampled or smoothed. The
+/// integration over `mu` is the trapezoid rule, which is precisely ENDF
+/// `INTMU = 2` (lin-lin); a section declaring `INTMU = 1` (histogram) would need
+/// the other rule, so that case returns `Ok(None)` and keeps the caller's
+/// documented fallback rather than silently applying the wrong one.
+///
+/// # Frame
+///
+/// **Laboratory, by construction.** ENDF-102 defines LAW=7 data in the lab frame
+/// regardless of the section's `LCT`, so the emission is built with
+/// `cm_frame = false` and the transport layer applies no CM→lab transform — it
+/// already has the branch for this
+/// (`outram_mc_libs::physics::scatter::continuum_inelastic_scatter_evaluated_with`).
+/// Putting a lab spectrum through the CM transform is the failure mode this
+/// paragraph exists to prevent.
+///
+/// # Angular variant
+///
+/// [`ContinuumAngular::LabTabulated`], not `Legendre` — same row type, different
+/// provenance and a different frame guarantee. See that variant's docs.
+///
+/// # Returns
+///
+/// `Ok(None)` — never a fabricated law — when the section carries no `ZAP=1,
+/// LAW=7` neutron subsection, when `INTMU` is not lin-lin, or when a table is
+/// too short to integrate. The caller then keeps its existing fallback.
+fn lab_angle_energy_emission(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    mt: i32,
+) -> Result<Option<ContinuumEmission>, crate::NjoyError> {
+    let Some(sec) = tape.section(mat, 6, mt) else {
+        return Ok(None);
+    };
+    let law7 = match crate::acer::energy::parse_mf6_law7_lab_angle_energy(sec) {
+        Ok(l) => l,
+        Err(crate::NjoyError::NotPorted(_)) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    if law7.incident.len() < 2 {
+        return Ok(None);
+    }
+
+    const EMEV: f64 = 1.0e6;
+    let mut incident = Vec::with_capacity(law7.incident.len());
+    let mut tables = Vec::with_capacity(law7.incident.len());
+    let mut ang_tables = Vec::with_capacity(law7.incident.len());
+
+    for inc in &law7.incident {
+        // Only lin-lin over mu; see the note above on INTMU = 1.
+        if inc.mu_interp != 2 || inc.mu.len() < 2 || inc.mu.len() != inc.tables.len() {
+            return Ok(None);
+        }
+
+        // Merged E' grid [MeV]: the union of every cosine's own knots.
+        let mut grid: Vec<f64> = inc
+            .tables
+            .iter()
+            .flat_map(|t| t.e_out_mev.iter().copied())
+            .collect();
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        grid.dedup_by(|a, b| (*a - *b).abs() <= 0.0);
+        if grid.len() < 2 {
+            return Ok(None);
+        }
+
+        // f(mu_j, E'_k) on the merged grid, cosine-major.
+        let joint: Vec<Vec<f64>> = inc
+            .tables
+            .iter()
+            .map(|t| {
+                grid.iter()
+                    .map(|&e| t.weight * lin_interp_zero_outside(&t.e_out_mev, &t.pdf, e))
+                    .collect()
+            })
+            .collect();
+
+        // Marginal f(E') = integral over mu, trapezoid (= INTMU 2).
+        let mut pdf = vec![0.0f64; grid.len()];
+        for k in 0..grid.len() {
+            let mut acc = 0.0;
+            for j in 1..inc.mu.len() {
+                acc += 0.5 * (joint[j][k] + joint[j - 1][k]) * (inc.mu[j] - inc.mu[j - 1]);
+            }
+            pdf[k] = acc.max(0.0);
+        }
+
+        // Conditional P(mu | E') at each merged grid point.
+        let mut rows = Vec::with_capacity(grid.len());
+        for k in 0..grid.len() {
+            let slice: Vec<f64> = (0..inc.mu.len()).map(|j| joint[j][k]).collect();
+            rows.push(cosine_row_from_slice(&inc.mu, &slice));
+        }
+
+        // The outgoing-energy CDF, in eV, normalised.
+        let e_out: Vec<f64> = grid.iter().map(|&e| e * EMEV).collect();
+        let pdf_ev: Vec<f64> = pdf.iter().map(|&p| p / EMEV).collect();
+        let mut cdf = vec![0.0f64; e_out.len()];
+        for i in 1..e_out.len() {
+            cdf[i] = cdf[i - 1] + 0.5 * (pdf_ev[i] + pdf_ev[i - 1]) * (e_out[i] - e_out[i - 1]);
+        }
+        let total = *cdf.last().unwrap_or(&0.0);
+        let (pdf_ev, cdf) = if total > 0.0 {
+            (
+                pdf_ev.iter().map(|&p| p / total).collect::<Vec<_>>(),
+                cdf.iter().map(|&c| c / total).collect::<Vec<_>>(),
+            )
+        } else {
+            // A genuinely empty row -- the reaction threshold, where every
+            // spectrum is zero. Keep the grid, leave the density flat-zero, and
+            // let the sampler's own bracketing handle it; do NOT invent a shape.
+            (pdf_ev, cdf)
+        };
+
+        incident.push(inc.e_in_mev * EMEV);
+        tables.push(ChiEout {
+            e_out,
+            pdf: pdf_ev,
+            cdf,
+            linlin: true,
+        });
+        ang_tables.push(ContinuumAngularTable { rows });
+    }
+
+    let branch = ContinuumBranch {
+        spectrum: ChiTabular {
+            incident,
+            tables,
+            incident_interp: collapse_law7_incident_interp(&law7.e_in_interp),
+        },
+        yield_pairs: law7.yield_pairs,
+        angular: ContinuumAngular::LabTabulated(ang_tables),
+    };
+    Ok(Some(ContinuumEmission {
+        branches: vec![branch],
+        // LAW=7 is laboratory-frame by definition -- see the frame note above.
+        cm_frame: false,
+    }))
+}
+
+/// `y(x)` from an ascending lin-lin table, **zero outside** its own range.
+///
+/// Zero rather than clamped-to-endpoint on purpose: outside its own `E'` range a
+/// LAW=7 cosine's spectrum contributes nothing to the joint density, and
+/// clamping would invent probability where the evaluation put none.
+fn lin_interp_zero_outside(xs: &[f64], ys: &[f64], x: f64) -> f64 {
+    let n = xs.len().min(ys.len());
+    if n == 0 || x < xs[0] || x > xs[n - 1] {
+        return 0.0;
+    }
+    let mut hi = 1usize;
+    while hi < n && xs[hi] < x {
+        hi += 1;
+    }
+    if hi >= n {
+        return ys[n - 1];
+    }
+    let (x0, x1) = (xs[hi - 1], xs[hi]);
+    if x1 <= x0 {
+        return ys[hi];
+    }
+    let f = (x - x0) / (x1 - x0);
+    ys[hi - 1] + f * (ys[hi] - ys[hi - 1])
+}
+
+/// Build one [`ContinuumAngularRow`] from an unnormalised `f(mu)` slice on a
+/// cosine grid: trapezoid CDF, normalised, plus the exact `<mu>` of the same
+/// piecewise-linear density.
+///
+/// `mubar` is computed from the density rather than estimated from samples, so
+/// it is an oracle for [`ContinuumAngularRow::sample_mu`] and not a second
+/// estimate of it — the same standard the Legendre and Kalbach-Mann rows are
+/// held to.
+fn cosine_row_from_slice(mu: &[f64], f: &[f64]) -> ContinuumAngularRow {
+    let n = mu.len().min(f.len());
+    if n < 2 {
+        return ContinuumAngularRow::isotropic();
+    }
+    let mut cdf = vec![0.0f64; n];
+    let mut num = 0.0f64; // integral of mu * f dmu
+    for i in 1..n {
+        let (m0, m1) = (mu[i - 1], mu[i]);
+        let (f0, f1) = (f[i - 1].max(0.0), f[i].max(0.0));
+        let h = m1 - m0;
+        cdf[i] = cdf[i - 1] + 0.5 * (f0 + f1) * h;
+        // Exact for a linear f on [m0, m1]: integral of mu*f = h*(m0*(2f0+f1) +
+        // m1*(f0+2f1))/6. The trapezoid rule is exact for f but NOT for mu*f,
+        // which is quadratic -- the same trap that produced a false +0.60 %
+        // "bias" earlier in this port's history, so it is done in closed form.
+        num += h * (m0 * (2.0 * f0 + f1) + m1 * (f0 + 2.0 * f1)) / 6.0;
+    }
+    let total = cdf[n - 1];
+    if !(total > 0.0) {
+        return ContinuumAngularRow::isotropic();
+    }
+    for c in &mut cdf {
+        *c /= total;
+    }
+    ContinuumAngularRow {
+        cosines: mu.to_vec(),
+        cdf,
+        mubar: (num / total).clamp(-1.0, 1.0),
+    }
+}
+
+/// LAW=7's incident-energy interpolation ranges, in the same `(NBT, INT)` form
+/// [`ChiTabular::incident_interp`] carries for LAW=1.
+///
+/// Passed through unchanged — it is recorded so a consumer can see what the
+/// evaluation asked for, exactly as the LAW=1 path records it, and with the same
+/// caveat that the samplers apply unit-base regardless.
+fn collapse_law7_incident_interp(interp: &[(u32, u32)]) -> Vec<(u32, u32)> {
+    interp.to_vec()
+}
+
+/// Convert an ENDF **MF=6 LAW=6** (`n`-body phase space) emission into the
+/// tabulated [`ChiTabular`] form the transport samplers already consume.
+///
+/// # Why convert rather than add a law
+///
+/// LAW=6's distribution is a *shape in the scaled variable* `x = E'/E'_max(E)`
+/// that does not depend on the incident energy — only the upper limit moves.
+/// `crate::acer::energy::parse_mf6_law6_phase_space` already builds that
+/// universal `(x, pdf, cdf)` table. Evaluating `E'_max(E)` on an incident grid
+/// therefore turns the law into exactly the incident-energy-indexed tabulated
+/// form every sampler in this workspace already handles, with **no new sampling
+/// path, no kernel change and no second implementation to drift**.
+///
+/// Phase-space emission is isotropic in the centre of mass by construction, so
+/// the angular half is [`ContinuumAngular::EvaluatedIsotropic`] — genuinely
+/// isotropic per the evaluation, which is a different fact from "unported", and
+/// the enum keeps them apart.
+///
+/// # `E'_max`, ported from upstream
+///
+/// `groupr.f90:12658-12666` (`f6psp`):
+///
+/// ```text
+/// f1     = (APSX - AWP) / APSX          AWP = emitted particle mass (1 for a neutron)
+/// f2     = AWR / (AWR + 1)
+/// E'_max = f1 * (f2 * E + Q)
+/// ```
+///
+/// Upstream supports **3, 4 or 5 particles only** (`f6psp` errors otherwise);
+/// this returns `Ok(None)` for any other `NPSX` rather than inventing a shape,
+/// so the caller keeps its documented fallback.
+///
+/// `Q` is read from MF=3's `QM` for the same MT — the reaction Q-value the
+/// formula wants, and the same one upstream's `q` argument carries.
+fn phase_space_emission(
+    tape: &crate::endf::tape::Tape,
+    mat: i32,
+    mt: i32,
+) -> Result<Option<ContinuumEmission>, crate::NjoyError> {
+    use crate::endf::records::SectionCursor;
+
+    let Some(sec) = tape.section(mat, 6, mt) else {
+        return Ok(None);
+    };
+    let ps = match crate::acer::energy::parse_mf6_law6_phase_space(sec) {
+        Ok(p) => p,
+        // LAW=7 and anything else stay unported -- fall back, do not fail.
+        Err(crate::NjoyError::NotPorted(_)) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    if !(3..=5).contains(&ps.npsx) || ps.x_frac.len() < 2 {
+        return Ok(None);
+    }
+
+    // Q and the threshold from MF=3.
+    let Some(mf3) = tape.section(mat, 3, mt) else {
+        return Ok(None);
+    };
+    let mut cur = SectionCursor::new(&mf3.rows);
+    let head = cur.read_cont()?;
+    let awr = head.c2;
+    let qm_row = cur.read_tab1()?;
+    let q = qm_row.head.c1; // QM
+    let (e_first, e_last) = match (qm_row.pairs.first(), qm_row.pairs.last()) {
+        (Some(&(a, _)), Some(&(b, _))) if b > a => (a, b),
+        _ => return Ok(None),
+    };
+
+    // AWP: the emitted particle is a neutron, so 1 neutron mass.
+    const AWP: f64 = 1.0;
+    let f1 = (ps.apsx - AWP) / ps.apsx;
+    let f2 = awr / (awr + 1.0);
+    let e_max_at = |e: f64| f1 * (f2 * e + q);
+
+    // A log-spaced incident grid over the reaction's own MF=3 range. The law's
+    // shape is incident-independent, so the grid only has to resolve
+    // `E'_max(E)`, which is linear in `E` -- 80 points is ample and keeps the
+    // table small.
+    const N_IN: usize = 80;
+    let lo = e_first.max(1.0e-5);
+    let hi = e_last;
+    let mut incident = Vec::with_capacity(N_IN);
+    let mut tables = Vec::with_capacity(N_IN);
+    for i in 0..N_IN {
+        let e = lo * (hi / lo).powf(i as f64 / (N_IN - 1) as f64);
+        let emax = e_max_at(e);
+        if !(emax > 0.0) {
+            continue; // below threshold: no phase space to share
+        }
+        let e_out: Vec<f64> = ps.x_frac.iter().map(|&x| x * emax).collect();
+        // `pdf` is a density in x; rescaling the variable by `emax` divides it.
+        let pdf: Vec<f64> = ps.pdf.iter().map(|&p| p / emax).collect();
+        incident.push(e);
+        tables.push(ChiEout {
+            e_out,
+            pdf,
+            cdf: ps.cdf.clone(),
+            linlin: true,
+        });
+    }
+    if incident.len() < 2 {
+        return Ok(None);
+    }
+
+    Ok(Some(ContinuumEmission {
+        branches: vec![ContinuumBranch {
+            spectrum: ChiTabular {
+                incident,
+                tables,
+                // Synthesised grid: the law carries no TAB2 of its own.
+                incident_interp: Vec::new(),
+            },
+            yield_pairs: ps.yield_pairs.clone(),
+            angular: ContinuumAngular::EvaluatedIsotropic,
+        }],
+        cm_frame: ps.lct >= 2,
+    }))
+}
+
 impl ContinuumEmission {
     /// Read the MF=6 LAW=1 neutron emission of reaction `mt` for material `mat`.
     ///
@@ -554,8 +1461,18 @@ impl ContinuumEmission {
         };
         let neutrons = match crate::acer::energy::parse_mf6_law1_neutrons(sec) {
             Ok(n) => n,
-            // An unported law is a reason to fall back, not to fail the load.
-            Err(crate::NjoyError::NotPorted(_)) => return Ok(None),
+            // LAW=6 (phase space) is a different representation, not an
+            // unreadable one -- convert it rather than falling back.
+            Err(crate::NjoyError::NotPorted(_)) => {
+                // LAW=6 (phase space) and LAW=7 (lab angle-energy) are different
+                // representations, not unreadable ones -- convert whichever is
+                // present. Both return Ok(None) if they are not, which keeps the
+                // documented fallback rather than inventing a law.
+                if let Some(em) = phase_space_emission(tape, mat, mt)? {
+                    return Ok(Some(em));
+                }
+                return lab_angle_energy_emission(tape, mat, mt);
+            }
             Err(e) => return Err(e),
         };
 
@@ -600,19 +1517,24 @@ impl ContinuumEmission {
             if incident.is_empty() {
                 continue;
             }
+            let angular = build_continuum_angular(&neutron);
             branches.push(ContinuumBranch {
-                spectrum: ChiTabular { incident, tables },
+                spectrum: ChiTabular {
+                    incident,
+                    tables,
+                    // The evaluation's own incident-energy law, carried rather
+                    // than dropped -- see `ChiTabular::incident_interp`.
+                    incident_interp: neutron.law4.e_in_interp.clone(),
+                },
                 yield_pairs: neutron.yield_pairs,
+                angular,
             });
         }
         if branches.is_empty() {
             return Ok(None);
         }
 
-        Ok(Some(ContinuumEmission {
-            branches,
-            cm_frame,
-        }))
+        Ok(Some(ContinuumEmission { branches, cm_frame }))
     }
 
     /// Total neutron multiplicity at incident energy `e_in` \[eV\] — the sum
@@ -623,6 +1545,37 @@ impl ContinuumEmission {
     /// branches of yield 1).
     pub fn total_yield_at(&self, e_in: f64) -> f64 {
         self.branches.iter().map(|b| b.yield_at(e_in)).sum()
+    }
+
+    /// This emission with its angular law **switched off** — every branch's
+    /// [`ContinuumAngular`] replaced by [`ContinuumAngular::Ablated`], so
+    /// emission is isotropic in the frame the law names.
+    ///
+    /// The ablation arm of a paired worth measurement, and the counterpart of
+    /// `outram_mc_libs::material::nuclide::Nuclide::with_isotropic_inelastic_scattering`
+    /// one channel over. **The energy law is untouched** — only the angle
+    /// changes, which is what makes a measured `Δk` attributable to the angular
+    /// physics rather than to a second thing moving at the same time.
+    ///
+    /// Returning a new value rather than mutating in place is deliberate: both
+    /// arms of an ablation must be able to exist at once, in one process, over
+    /// the same seeds. An ablation driven by a global flag cannot do that, and
+    /// an ablation run in two processes re-randomises everything it did not mean
+    /// to change.
+    pub fn with_isotropic_angle(mut self) -> Self {
+        for b in &mut self.branches {
+            b.angular = ContinuumAngular::Ablated;
+        }
+        self
+    }
+
+    /// Whether any branch of this emission carries a samplable angular law.
+    ///
+    /// The assertion an ablation control needs on the *unablated* arm: switching
+    /// off a law that was already flat produces no difference and reads as "this
+    /// physics does not matter".
+    pub fn is_anisotropic(&self) -> bool {
+        self.branches.iter().any(|b| b.angular.is_anisotropic())
     }
 
     /// The branch an emitted neutron is drawn from, chosen in proportion to the
@@ -650,6 +1603,162 @@ impl ContinuumEmission {
     }
 }
 
+/// Turn one MF=6 LAW=1 subsection's retained angular coefficients into the
+/// samplable [`ContinuumAngular`] form.
+///
+/// Legendre (`LANG = 1`) rows are linearised once, at load time, through
+/// [`crate::acer::angular::legendre_cosine_law`] — the same routine that
+/// converts MF=4, so the continuum and the discrete levels cannot drift apart
+/// in how a harmonic law becomes a samplable one. Rows the evaluation declares
+/// isotropic (`NA = 0`), and rows whose coefficients all vanish, are stored as
+/// [`ContinuumAngularRow::isotropic`] rather than as a degenerate table.
+///
+/// Anything that is not `LANG = 1` becomes [`ContinuumAngular::Unported`],
+/// carrying the law it actually was. That is deliberate: falling back to
+/// isotropic silently is what this whole change exists to stop.
+///
+/// # Cost
+///
+/// The linearisation is adaptive and runs once per anisotropic row. Measured on
+/// ENDF/B-VIII.0 (2026-09-16), U-238 carries 8652 anisotropic MT=91 rows and
+/// 2066 MT=16 rows, U-235 5294 and 2459 — so a Godiva-style three-actinide load
+/// linearises of order 20 000 rows. This is load-time work, not per-collision
+/// work; the sampling path is a CDF inversion.
+fn build_continuum_angular(neutron: &crate::acer::energy::Mf6Neutron) -> ContinuumAngular {
+    use crate::acer::energy::Mf6AngularLaw;
+
+    if neutron.is_angular_isotropic() {
+        return ContinuumAngular::EvaluatedIsotropic;
+    }
+    if neutron.lang == Mf6AngularLaw::KalbachMann {
+        return build_kalbach_angular(neutron);
+    }
+    if neutron.lang != Mf6AngularLaw::Legendre {
+        return ContinuumAngular::Unported(neutron.lang);
+    }
+
+    let mut tables = Vec::with_capacity(neutron.angular.len());
+    let mut any = false;
+    for t in &neutron.angular {
+        let mut rows = Vec::with_capacity(t.len());
+        for r in 0..t.len() {
+            let coeffs = t.legendre_coefficients(r);
+            match crate::acer::angular::legendre_cosine_law(&coeffs) {
+                Some((cosines, _pdf, cdf)) => {
+                    any = true;
+                    rows.push(ContinuumAngularRow {
+                        cosines,
+                        cdf,
+                        // `a₁` straight from the tape, not re-integrated off the
+                        // linearised grid: it is exact, and comparing the two is
+                        // how a linearisation defect would show up.
+                        mubar: t.legendre_mubar(r),
+                    });
+                }
+                None => rows.push(ContinuumAngularRow::isotropic()),
+            }
+        }
+        tables.push(ContinuumAngularTable { rows });
+    }
+
+    if any {
+        ContinuumAngular::Legendre(tables)
+    } else {
+        // Every row's coefficients vanished, so the law is flat in fact even
+        // though `NA > 0` was declared. Reporting it as evaluated-isotropic is
+        // the honest reading and costs the sampler nothing.
+        ContinuumAngular::EvaluatedIsotropic
+    }
+}
+
+/// Build the `LANG = 2` (Kalbach-Mann) angular law of one MF=6 LAW=1
+/// subsection.
+///
+/// Each row carries `r` directly. The slope `a` is the row's third number when
+/// the evaluation tabulates it (`NA = 2`), and otherwise comes from the
+/// **Kalbach-86 systematics**, [`crate::groupr::kinematics::bach`] — a faithful
+/// port of NJOY2016's `groupr.f90:8812-8932` that already existed in this crate
+/// for the GROUPR path. Reusing it rather than writing a second copy is the
+/// point: two implementations of the same systematics would drift, and this one
+/// is already tested.
+///
+/// `bach` is called with `za_projectile = 1` (incident neutron),
+/// `za_emitted = 1` (the ZAP=1 subsection is a neutron by construction) and the
+/// section's own target `ZA`, at the incident energy of the table and the
+/// outgoing energy of the row — both in eV, which is what `bach` takes.
+///
+/// A row whose `bach` call fails (an unknown dominant isotope for a natural
+/// element) falls back to isotropic for that row rather than failing the whole
+/// emission: the caller's documented behaviour on a missing law is to keep its
+/// own fallback, and losing one row's anisotropy is a smaller error than losing
+/// the entire energy law with it.
+fn build_kalbach_angular(neutron: &crate::acer::energy::Mf6Neutron) -> ContinuumAngular {
+    const EMEV: f64 = 1.0e6;
+    /// ENDF `ZA` of a neutron — both the projectile and the emitted particle
+    /// here, since this is the `ZAP = 1` subsection.
+    const ZA_NEUTRON: i32 = 1;
+
+    let mut tables = Vec::with_capacity(neutron.angular.len());
+    let mut any = false;
+    for t in &neutron.angular {
+        let e_in_ev = t.e_in_mev * EMEV;
+        let mut rows = Vec::with_capacity(t.len());
+        for k in 0..t.len() {
+            let raw = t.row(k);
+            if raw.is_empty() {
+                rows.push(ContinuumKalbachRow::isotropic());
+                continue;
+            }
+            let r = raw[0];
+            // `NA = 2` tabulates the slope; otherwise the systematics supply it.
+            let a = if raw.len() >= 2 {
+                raw[1]
+            } else {
+                // The outgoing energy this row belongs to, in eV.
+                let e_out_ev = neutron
+                    .law4
+                    .incident
+                    .iter()
+                    .find(|d| (d.e_in_mev - t.e_in_mev).abs() <= f64::EPSILON * t.e_in_mev.max(1.0))
+                    .and_then(|d| d.e_out_mev.get(k).copied())
+                    .unwrap_or(0.0)
+                    * EMEV;
+                if e_out_ev <= 0.0 || e_in_ev <= 0.0 {
+                    rows.push(ContinuumKalbachRow::isotropic());
+                    continue;
+                }
+                match crate::groupr::kinematics::bach(
+                    ZA_NEUTRON,
+                    ZA_NEUTRON,
+                    neutron.za_target,
+                    e_in_ev,
+                    e_out_ev,
+                ) {
+                    Ok(a) => a,
+                    Err(_) => {
+                        rows.push(ContinuumKalbachRow::isotropic());
+                        continue;
+                    }
+                }
+            };
+            let row = ContinuumKalbachRow { r, a };
+            if !row.is_isotropic() {
+                any = true;
+            }
+            rows.push(row);
+        }
+        tables.push(ContinuumKalbachTable { rows });
+    }
+
+    if any {
+        ContinuumAngular::KalbachMann(tables)
+    } else {
+        // Every slope collapsed, so the law is flat in fact. Same reasoning as
+        // the Legendre arm: report what it is, not how it was declared.
+        ContinuumAngular::EvaluatedIsotropic
+    }
+}
+
 /// Parse the **LF=1** body (arbitrary tabulated secondary energy distribution):
 /// a TAB2 over NE incident energies, each an inner TAB1 g(E→E'). Shared by every
 /// partition of [`FissionSpectrum::from_endf_mf5`] that uses LF=1.
@@ -657,6 +1766,8 @@ fn parse_lf1_tabular(
     cur: &mut crate::endf::records::SectionCursor<'_>,
 ) -> Result<ChiTabular, crate::NjoyError> {
     let tab2 = cur.read_tab2()?;
+    // Carried, not dropped -- see `ChiTabular::incident_interp`.
+    let tab2_interp: Vec<(u32, u32)> = tab2.interp.clone();
     let ne = tab2.head.n2.max(0) as usize;
     let mut incident = Vec::with_capacity(ne);
     let mut tables = Vec::with_capacity(ne);
@@ -676,7 +1787,12 @@ fn parse_lf1_tabular(
             linlin,
         });
     }
-    Ok(ChiTabular { incident, tables })
+    Ok(ChiTabular {
+        incident,
+        tables,
+        // MF=5 LF=1's TAB2 interpolation, carried for the same reason as MF=6's.
+        incident_interp: tab2_interp,
+    })
 }
 
 /// Mean of a tabulated (possibly unnormalized) density: `∫x·y(x)dx / ∫y(x)dx`,
@@ -906,5 +2022,217 @@ mod tests {
         rows.extend(tab1_rows(0.0, 0, 2, 2, 0.0, 0.0, 1.0, 1.0)); // g(x)
 
         assert!(parse_mf5_section(&rows).unwrap().is_none());
+    }
+}
+
+#[cfg(test)]
+mod kalbach_tests {
+    use super::ContinuumKalbachRow;
+
+    /// Sample mean of `n` stratified draws through the row's CDF inverse.
+    ///
+    /// Stratified rather than pseudo-random so the comparison against the
+    /// closed form is limited by the quadrature and not by Monte Carlo noise —
+    /// this is testing an inverse function, not a random number generator.
+    fn sampled_mean(row: &ContinuumKalbachRow, n: usize) -> f64 {
+        (0..n)
+            .map(|i| row.sample_mu((i as f64 + 0.5) / n as f64))
+            .sum::<f64>()
+            / n as f64
+    }
+
+    /// The single-variate CDF inverse reproduces the density's **closed-form**
+    /// mean `⟨μ⟩ = r·(coth a − 1/a)` across the parameter range Kalbach-Mann
+    /// actually spans.
+    ///
+    /// This is a real oracle, not a self-consistency check: `mubar()` integrates
+    /// the density analytically while `sample_mu()` inverts its cumulative, so
+    /// they share no code. An algebra slip in either shows up here.
+    #[test]
+    fn the_inverse_reproduces_the_closed_form_mean() {
+        const N: usize = 200_000;
+        // r spans the pre-compound fraction's full range; a spans from nearly
+        // isotropic to strongly forward-peaked, which is what the systematics
+        // produce between threshold and 20 MeV.
+        for &r in &[0.0, 0.1, 0.35, 0.7, 0.95] {
+            for &a in &[0.05, 0.3, 1.0, 3.0, 8.0] {
+                let row = ContinuumKalbachRow { r, a };
+                let exact = row.mubar();
+                let got = sampled_mean(&row, N);
+                assert!(
+                    (got - exact).abs() < 2.0e-3,
+                    "r = {r}, a = {a}: sampled <mu> = {got:+.6} against the closed form \
+                     r*(coth a - 1/a) = {exact:+.6}. These share no code -- one integrates the \
+                     density, the other inverts its cumulative -- so a disagreement is an \
+                     algebra error in one of them."
+                );
+            }
+        }
+    }
+
+    /// Every sampled cosine is physical, at the extremes of the parameter range
+    /// where the hyperbolic functions overflow most readily.
+    #[test]
+    fn sampled_cosines_stay_in_range() {
+        for &r in &[0.0, 0.5, 0.999] {
+            for &a in &[1.0e-9, 1.0e-3, 1.0, 20.0, 200.0] {
+                let row = ContinuumKalbachRow { r, a };
+                for i in 0..=1000 {
+                    let mu = row.sample_mu(i as f64 / 1000.0);
+                    assert!(
+                        (-1.0..=1.0).contains(&mu) && mu.is_finite(),
+                        "r = {r}, a = {a}, xi = {}: mu = {mu} is not a physical cosine",
+                        i as f64 / 1000.0
+                    );
+                }
+            }
+        }
+    }
+
+    /// The endpoints of the inverse land exactly on the support, which is what
+    /// says the CDF was inverted rather than approximated.
+    #[test]
+    fn the_inverse_maps_the_unit_interval_onto_the_support() {
+        for &(r, a) in &[(0.0, 1.0), (0.3, 2.0), (0.8, 5.0)] {
+            let row = ContinuumKalbachRow { r, a };
+            assert!(
+                (row.sample_mu(0.0) + 1.0).abs() < 1.0e-9,
+                "r = {r}, a = {a}: F^-1(0) = {} , expected -1",
+                row.sample_mu(0.0)
+            );
+            assert!(
+                (row.sample_mu(1.0) - 1.0).abs() < 1.0e-9,
+                "r = {r}, a = {a}: F^-1(1) = {}, expected +1",
+                row.sample_mu(1.0)
+            );
+        }
+    }
+
+    /// `a → 0` is the isotropic limit of the Kalbach form, and `r = 0` is NOT.
+    ///
+    /// Worth pinning because the two look symmetric in the formula and are not:
+    /// with `r = 0` the density is `a cosh(a mu) / (2 sinh a)`, which is peaked
+    /// at *both* ends and has zero mean but is not flat. A predicate that
+    /// treated `r = 0` as isotropic would silently drop that structure.
+    #[test]
+    fn only_the_slope_makes_the_law_isotropic() {
+        assert!(ContinuumKalbachRow { r: 0.5, a: 0.0 }.is_isotropic());
+        assert!(!ContinuumKalbachRow { r: 0.0, a: 3.0 }.is_isotropic());
+
+        // r = 0, a = 3: mean zero, but the distribution is not uniform.
+        let peaked = ContinuumKalbachRow { r: 0.0, a: 3.0 };
+        assert!(peaked.mubar().abs() < 1.0e-12, "r = 0 must give zero mean");
+        let mu_lo = peaked.sample_mu(0.25);
+        let mu_hi = peaked.sample_mu(0.75);
+        // A uniform law would give -0.5 and +0.5; a cosh-peaked one pushes both
+        // quartiles outward.
+        assert!(
+            mu_lo < -0.5 && mu_hi > 0.5,
+            "r = 0, a = 3 quartiles came back at {mu_lo:+.4} / {mu_hi:+.4}; a cosh-peaked \
+             density must push them outside the uniform law's -0.5 / +0.5"
+        );
+    }
+}
+
+#[cfg(test)]
+mod mf5_lf_survey {
+    use crate::endf::records::SectionCursor;
+    use crate::endf::tape::Tape;
+    use crate::reference_data::reference_data_dir;
+
+    /// **Which MF=5 secondary-energy laws (`LF`) do the held evaluations use?**
+    ///
+    /// [`super::FissionSpectrum::from_endf_mf5_mt`] ports LF=1/7/9/11 and
+    /// returns `None` for anything else, which makes the *whole* MF=5 fall back
+    /// to the thermal-Watt stand-in. That is a silent degradation, so this
+    /// measures which codes actually appear rather than leaving it to a comment.
+    ///
+    /// It also **asserts that no held evaluation uses an unported LF**, so a
+    /// tape that does fails loudly instead of quietly losing its fission
+    /// spectrum.
+    ///
+    /// Counts its own skips, for the same reason the MF=6 survey does.
+    #[test]
+    fn survey_mf5_lf_codes() {
+        let dir = reference_data_dir("endf");
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            println!("no reference-data/endf; skipping");
+            return;
+        };
+        let mut files: Vec<_> = rd
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| {
+                p.extension().is_some_and(|x| x == "endf")
+                    && p.file_name()
+                        .is_some_and(|n| n.to_string_lossy().starts_with("n-"))
+            })
+            .collect();
+        files.sort();
+
+        let mut seen: std::collections::BTreeMap<i32, usize> = Default::default();
+        let mut unported: Vec<String> = Vec::new();
+        let (mut n_sec, mut n_err) = (0usize, 0usize);
+        for f in &files {
+            let Ok(tape) = Tape::read_file(f) else {
+                continue;
+            };
+            let Some(&mat) = tape.materials().first() else {
+                continue;
+            };
+            for mt in [18i32, 16, 91, 5] {
+                let Some(sec) = tape.section(mat, 5, mt) else {
+                    continue;
+                };
+                n_sec += 1;
+                let mut cur = SectionCursor::new(&sec.rows);
+                let Ok(head) = cur.read_cont() else {
+                    n_err += 1;
+                    continue;
+                };
+                let nk = head.n1.max(0);
+                for _ in 0..nk {
+                    let Ok(p_tab) = cur.read_tab1() else {
+                        n_err += 1;
+                        break;
+                    };
+                    let lf = p_tab.head.l2;
+                    *seen.entry(lf).or_insert(0) += 1;
+                    if !matches!(lf, 1 | 7 | 9 | 11) {
+                        unported.push(format!(
+                            "{} MF=5 MT={mt} LF={lf}",
+                            f.file_name().unwrap().to_string_lossy()
+                        ));
+                    }
+                    // Only the first subsection's records are walked reliably
+                    // without dispatching on LF; stop after one per section.
+                    break;
+                }
+            }
+        }
+
+        let name = |lf: i32| match lf {
+            1 => "arbitrary tabulated",
+            5 => "GENERAL EVAPORATION (unported)",
+            7 => "simple Maxwellian fission",
+            9 => "evaporation",
+            11 => "energy-dependent Watt",
+            12 => "Madland-Nix (unported)",
+            _ => "?",
+        };
+        println!(
+            "MF=5 LF codes across {} neutron tapes ({n_sec} sections, {n_err} read errors):",
+            files.len()
+        );
+        for (lf, n) in &seen {
+            println!("   LF={lf} ({}) -> {n} subsection(s)", name(*lf));
+        }
+        assert!(
+            unported.is_empty(),
+            "held evaluations use an MF=5 law this port does not read, so their whole fission \
+             spectrum silently falls back to the thermal-Watt stand-in: {unported:?}. NOTE: \
+             NJOY DOES support LF=5 (groupr.f90:12355, 'law 5. general evaporation spectrum') \
+             -- a comment in this file claiming otherwise was wrong and has been corrected."
+        );
     }
 }

@@ -45,7 +45,11 @@ impl ParamEnergyTerms {
 /// `pii = bi·upi`. `alpha[g][ires]` is [`crate::samm::xsformula::abpart::abpart`]'s
 /// output for every group at this energy.
 #[allow(clippy::needless_range_loop)]
-pub fn abpart_derivs(ds: &DerivSetup, nchan: &[usize], alpha: &[Vec<AlphaTerms>]) -> ParamEnergyTerms {
+pub fn abpart_derivs(
+    ds: &DerivSetup,
+    nchan: &[usize],
+    alpha: &[Vec<AlphaTerms>],
+) -> ParamEnergyTerms {
     let stride = ds.mchan * (ds.mchan + 1) / 2;
     let mut pr = vec![0.0f64; ds.npar * stride];
     let mut pi = vec![0.0f64; ds.npar * stride];

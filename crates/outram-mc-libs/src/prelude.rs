@@ -26,8 +26,10 @@ pub use crate::material::thermal::{
 };
 pub use crate::tally::tally::{ScoreType, Tally, TallyBin};
 pub use crate::tally::filter::{
-    CellFilter, EnergyFilter, Filter, LegendreAxis, MaterialFilter, MeshFilter,
-    SpatialLegendreFilter, UniverseFilter,
+    CellFilter, DelayedGroupFilter, EnergyFilter, Filter, FilterEvent, FilterKind, LegendreAxis,
+    MaterialFilter, MeshFilter, MuFilter, ParticleFilter, PolarAzimuthalFilter,
+    SpatialLegendreFilter, SphericalHarmonicsFilter, SurfaceFilter, TimeFilter, UniverseFilter,
+    ZernikeFilter,
 };
 pub use crate::tally::mesh::RegularMesh;
 pub use crate::tally::scoring::Q_FISSION_J;

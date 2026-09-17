@@ -60,7 +60,7 @@ use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::transport_csg::{run_keff_csg_reactor_physics, SourceBox};
-use crate::tally::filter::{EnergyFilter, MaterialFilter};
+use crate::tally::filter::{EnergyFilter, FilterKind, MaterialFilter};
 use crate::tally::tally::{ScoreType, Tally, TallyBin};
 use crate::mathf::RealMath;
 
@@ -134,7 +134,10 @@ impl Estimate {
     /// thermal group of an unmoderated system).
     fn ratio(num: Estimate, den: Estimate) -> Estimate {
         if den.mean == 0.0 {
-            return Estimate { mean: 0.0, std: 0.0 };
+            return Estimate {
+                mean: 0.0,
+                std: 0.0,
+            };
         }
         let mean = num.mean / den.mean;
         let rel = (num.rel().powi(2) + den.rel().powi(2)).sqrt();
@@ -302,10 +305,26 @@ impl SixFactors {
         let p_total = prod[0] + prod[1] + prod[2];
         let a_fuel_thermal = self.thermal_absorption_fuel.mean;
 
-        let eta = if a_fuel_thermal > 0.0 { p_thermal / a_fuel_thermal } else { 0.0 };
-        let f = if a_thermal > 0.0 { a_fuel_thermal / a_thermal } else { 0.0 };
-        let p = if a_total > 0.0 { a_thermal / a_total } else { 0.0 };
-        let epsilon = if p_thermal > 0.0 { p_total / p_thermal } else { 0.0 };
+        let eta = if a_fuel_thermal > 0.0 {
+            p_thermal / a_fuel_thermal
+        } else {
+            0.0
+        };
+        let f = if a_thermal > 0.0 {
+            a_fuel_thermal / a_thermal
+        } else {
+            0.0
+        };
+        let p = if a_total > 0.0 {
+            a_thermal / a_total
+        } else {
+            0.0
+        };
+        let epsilon = if p_thermal > 0.0 {
+            p_total / p_thermal
+        } else {
+            0.0
+        };
         (eta, f, p, epsilon)
     }
 }
@@ -508,7 +527,10 @@ fn assemble_six_factors(
 fn bin_estimate(bin: &TallyBin, n: u64, per_source: f64) -> Estimate {
     let mean = bin.mean(n) / per_source;
     if mean == 0.0 {
-        return Estimate { mean: 0.0, std: 0.0 };
+        return Estimate {
+            mean: 0.0,
+            std: 0.0,
+        };
     }
     let rsd = bin.rel_std_dev(n);
     let rsd = if rsd.is_finite() { rsd } else { 0.0 };
@@ -566,10 +588,10 @@ pub fn run_keff_reactor_physics(
         id: 0,
         name: "reactor_physics".into(),
         filters: vec![
-            Box::new(EnergyFilter {
+            FilterKind::Energy(EnergyFilter {
                 bins: edges.clone(),
             }),
-            Box::new(MaterialFilter {
+            FilterKind::Material(MaterialFilter {
                 material_indices: all_mats,
             }),
         ],
@@ -667,7 +689,10 @@ pub fn run_keff_reactor_physics(
         .map(|e| {
             let du = (edges[e + 1] / edges[e]).r_ln();
             if du <= 0.0 || total_flux <= 0.0 || flux_raw[e] == 0.0 {
-                return Estimate { mean: 0.0, std: 0.0 };
+                return Estimate {
+                    mean: 0.0,
+                    std: 0.0,
+                };
             }
             let psi = flux_raw[e] / (du * total_flux);
             // du and the common normalisation S are treated as exact for the
@@ -703,8 +728,9 @@ pub fn run_keff_reactor_physics(
     } else {
         f64::NAN
     };
-    let consistent =
-        consistency_gap.is_finite() && consistency_gap > CONSISTENCY_BAND.0 && consistency_gap < CONSISTENCY_BAND.1;
+    let consistent = consistency_gap.is_finite()
+        && consistency_gap > CONSISTENCY_BAND.0
+        && consistency_gap < CONSISTENCY_BAND.1;
 
     Ok(ReactorPhysicsReport {
         keff,
@@ -735,9 +761,18 @@ mod tests {
             name: "Godiva HEU".into(),
             temperature: 293.6,
             components: vec![
-                NuclideComponent { nuclide_idx: 0, atom_density: 4.9184e-4 },
-                NuclideComponent { nuclide_idx: 1, atom_density: 4.4994e-2 },
-                NuclideComponent { nuclide_idx: 2, atom_density: 2.4984e-3 },
+                NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.9184e-4,
+                },
+                NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 4.4994e-2,
+                },
+                NuclideComponent {
+                    nuclide_idx: 2,
+                    atom_density: 2.4984e-3,
+                },
             ],
         }
     }
@@ -759,7 +794,12 @@ mod tests {
     /// (thick moderator) softens the spectrum toward thermal.
     fn pincell_sized(bc: BoundaryType, r_fuel: f64, half: f64) -> Geometry {
         let surfaces = vec![
-            SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: r_fuel, bc: BoundaryType::Transmissive }),
+            SurfaceKind::ZCylinder(ZCylinder {
+                x0: 0.0,
+                y0: 0.0,
+                r: r_fuel,
+                bc: BoundaryType::Transmissive,
+            }),
             SurfaceKind::XPlane(XPlane { x0: -half, bc }),
             SurfaceKind::XPlane(XPlane { x0: half, bc }),
             SurfaceKind::YPlane(YPlane { y0: -half, bc }),
@@ -767,21 +807,39 @@ mod tests {
         ];
         let fuel = Cell::material(
             1,
-            vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+            vec![RegionToken::HalfSpace {
+                surface_idx: 0,
+                sense: HalfSpaceSense::Inside,
+            }],
             0,
             293.6,
         );
         let moder = Cell::material(
             2,
             vec![
-                RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Outside },
-                RegionToken::HalfSpace { surface_idx: 1, sense: HalfSpaceSense::Outside },
+                RegionToken::HalfSpace {
+                    surface_idx: 0,
+                    sense: HalfSpaceSense::Outside,
+                },
+                RegionToken::HalfSpace {
+                    surface_idx: 1,
+                    sense: HalfSpaceSense::Outside,
+                },
                 RegionToken::Intersection,
-                RegionToken::HalfSpace { surface_idx: 2, sense: HalfSpaceSense::Inside },
+                RegionToken::HalfSpace {
+                    surface_idx: 2,
+                    sense: HalfSpaceSense::Inside,
+                },
                 RegionToken::Intersection,
-                RegionToken::HalfSpace { surface_idx: 3, sense: HalfSpaceSense::Outside },
+                RegionToken::HalfSpace {
+                    surface_idx: 3,
+                    sense: HalfSpaceSense::Outside,
+                },
                 RegionToken::Intersection,
-                RegionToken::HalfSpace { surface_idx: 4, sense: HalfSpaceSense::Inside },
+                RegionToken::HalfSpace {
+                    surface_idx: 4,
+                    sense: HalfSpaceSense::Inside,
+                },
                 RegionToken::Intersection,
             ],
             1,
@@ -790,7 +848,10 @@ mod tests {
         Geometry {
             surfaces,
             cells: vec![fuel, moder],
-            universes: vec![Universe { id: 0, cell_indices: vec![0, 1] }],
+            universes: vec![Universe {
+                id: 0,
+                cell_indices: vec![0, 1],
+            }],
             lattices: vec![],
             root_universe: 0,
         }
@@ -808,7 +869,10 @@ mod tests {
                 id: 2,
                 name: "H moderator".into(),
                 temperature: 293.6,
-                components: vec![NuclideComponent { nuclide_idx: 3, atom_density: 6.6e-2 }],
+                components: vec![NuclideComponent {
+                    nuclide_idx: 3,
+                    atom_density: 6.6e-2,
+                }],
             },
         ]
     }
@@ -884,15 +948,27 @@ mod tests {
                 run_keff_reactor_physics(&pincell(bc), &materials(), &nuclides(), &config_for(0.4))
                     .expect("Ok");
             log_report(
-                if bc == BoundaryType::Reflective { "fast/refl" } else { "fast/vac" },
+                if bc == BoundaryType::Reflective {
+                    "fast/refl"
+                } else {
+                    "fast/vac"
+                },
                 &report,
             );
             let sf = &report.six_factors;
 
             for v in [
-                sf.eta.mean, sf.f.mean, sf.p.mean, sf.epsilon.mean, sf.p_fnl.mean, sf.p_tnl.mean,
+                sf.eta.mean,
+                sf.f.mean,
+                sf.p.mean,
+                sf.epsilon.mean,
+                sf.p_fnl.mean,
+                sf.p_tnl.mean,
             ] {
-                assert!(v.is_finite() && v >= 0.0, "factor {v} not finite/non-negative ({bc:?})");
+                assert!(
+                    v.is_finite() && v >= 0.0,
+                    "factor {v} not finite/non-negative ({bc:?})"
+                );
             }
 
             let a_tot: f64 = sf.absorption_by_group.iter().map(|e| e.mean).sum();
@@ -920,10 +996,17 @@ mod tests {
             let edges = &sp.energy_edges_ev;
             let mut integral = 0.0;
             for (i, psi) in sp.flux_per_lethargy.iter().enumerate() {
-                assert!(psi.mean >= 0.0 && psi.mean.is_finite(), "psi[{i}] = {}", psi.mean);
+                assert!(
+                    psi.mean >= 0.0 && psi.mean.is_finite(),
+                    "psi[{i}] = {}",
+                    psi.mean
+                );
                 integral += psi.mean * (edges[i + 1] / edges[i]).r_ln();
             }
-            assert!((integral - 1.0).abs() < 1e-9, "lethargy integral {integral} ({bc:?})");
+            assert!(
+                (integral - 1.0).abs() < 1e-9,
+                "lethargy integral {integral} ({bc:?})"
+            );
 
             match bc {
                 BoundaryType::Reflective => {
@@ -962,9 +1045,13 @@ mod tests {
     #[test]
     #[ignore = "slow: thick free-gas-H moderator; a spectrum-direction diagnostic, not a gate"]
     fn thicker_moderator_softens_spectrum() {
-        let tight =
-            run_keff_reactor_physics(&pincell(BoundaryType::Reflective), &materials(), &nuclides(), &config_for(0.4))
-                .expect("Ok");
+        let tight = run_keff_reactor_physics(
+            &pincell(BoundaryType::Reflective),
+            &materials(),
+            &nuclides(),
+            &config_for(0.4),
+        )
+        .expect("Ok");
         let wide = run_keff_reactor_physics(
             &pincell_sized(BoundaryType::Reflective, 0.4, 1.4),
             &materials(),
@@ -995,12 +1082,15 @@ mod tests {
             id: 1,
             name: "graphite".into(),
             temperature: 293.6,
-            components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 8.0e-2 }],
+            components: vec![NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 8.0e-2,
+            }],
         };
         let nucs = vec![Nuclide::from_core("C0").unwrap()];
         let geom = pincell(BoundaryType::Reflective);
-        let err = run_keff_reactor_physics(&geom, &[moderator], &nucs, &config_for(0.4))
-            .unwrap_err();
+        let err =
+            run_keff_reactor_physics(&geom, &[moderator], &nucs, &config_for(0.4)).unwrap_err();
         assert_eq!(err, ReactorPhysicsError::NoFuelMaterial);
     }
 
@@ -1017,8 +1107,16 @@ mod tests {
 
         // Non-leaking.
         let sf = assemble_six_factors(a, a_tf, p, [e(0.0); 3], (0.625, 1.0e5));
-        assert!((sf.p_fnl.mean - 1.0).abs() < 1e-12, "P_FNL {}", sf.p_fnl.mean);
-        assert!((sf.p_tnl.mean - 1.0).abs() < 1e-12, "P_TNL {}", sf.p_tnl.mean);
+        assert!(
+            (sf.p_fnl.mean - 1.0).abs() < 1e-12,
+            "P_FNL {}",
+            sf.p_fnl.mean
+        );
+        assert!(
+            (sf.p_tnl.mean - 1.0).abs() < 1e-12,
+            "P_TNL {}",
+            sf.p_tnl.mean
+        );
         let a_tot = 0.60 + 0.10 + 0.05;
         let p_tot = 0.55 + 0.15 + 0.05;
         assert!(

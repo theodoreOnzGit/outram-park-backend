@@ -53,11 +53,18 @@
 //! of the Weisskopf evaporation stand-in, then moved it again — **−105 ± 32 pcm
 //! (3.3 sigma)**, this time *toward* the benchmark, leaving
 //! **+214 ± 20 pcm** (64 seeds per arm,
-//! `examples/godiva_mf6_continuum_ensemble.rs`). See [`RECORDED_PCM`].
+//! `examples/godiva_mf6_continuum_ensemble.rs`).
 //!
-//! The 500 pcm bar still holds, with more margin than a single run suggests
-//! (+214 ± 20 pcm is 14 sigma inside 500 pcm) and less than the ICSBEP band
-//! would want (±100 pcm, which this case has missed throughout).
+//! Wiring in the **discrete inelastic MF=4 angular distributions** (`op-tm9f`,
+//! 2026-09-15) moved it a further **−198 pcm**, to **+16 ± 11 pcm over 256
+//! seeds** — inside the ICSBEP ±100 pcm band for the first time in this case's
+//! history. That is the value [`RECORDED_PCM`] now holds, and
+//! `examples/godiva_keff_ensemble.rs` is where it is measured and gated.
+//!
+//! The 500 pcm bar holds with 44 sigma of margin on the pooled number. **This
+//! program cannot establish any of that**: it takes one draw, with a sigma of
+//! ~173 pcm, so it is checked *against* the pooled value at the resolution one
+//! draw has — see [`RECORDED_PCM`] for how that gate is sized (gh:#196).
 //!
 //! It took that role over from `examples/endf_to_keff.rs`, which could not
 //! support it: sigma ~ 330 pcm there makes 500 pcm a 1.5 sigma envelope, so a
@@ -80,7 +87,7 @@ use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::physics::keff::{run_keff, KeffSettings};
-use outram_mc_libs::vv::assert_reproduces_keff;
+use outram_mc_libs::vv::{assert_reproduces_keff, RecordedKeff};
 use std::time::Instant;
 
 /// Godiva material temperature \[K\] (room temperature; the benchmark is a metal
@@ -182,7 +189,7 @@ fn main() {
         result.k_std,
         ICSBEP_HMF001_K,
         ICSBEP_HMF001_BAND,
-        Some(RECORDED_PCM),
+        Some(RecordedKeff::pooled(RECORDED_PCM, RECORDED_SEM_PCM)),
     );
 }
 
@@ -201,30 +208,49 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 
 /// The offset from [`ICSBEP_HMF001_K`] this case produces, in pcm.
 ///
-/// **+214 pcm, sem ±20, seed-to-seed sd 160 pcm** on the HIGH tier against
-/// ENDF/B-VIII.0 — the pooled mean of **64 independent seeds** at this
+/// **+16 pcm, sem ±11, seed-to-seed sd 173 pcm** on the HIGH tier against
+/// ENDF/B-VIII.0 — the pooled mean of **256 independent seeds** at this
 /// program's own settings (5000 histories × [40 inactive + 120 active], all
-/// three ICSBEP nuclides, single-threaded CPU). Measured 2026-09-13 by
-/// `examples/godiva_mf6_continuum_ensemble.rs`, which carries the method.
+/// three ICSBEP nuclides, single-threaded CPU). Measured 2026-09-15 by
+/// `examples/godiva_keff_ensemble.rs`, which carries the method and the gates.
 ///
-/// # How this number got here (2026-09-13)
+/// # How this number got here
 ///
 /// | recorded | what it was | how it moved |
 /// |---|---|---|
 /// | `+57 ± 173` | **one seed's draw**, −0.97 sigma of a `+228 ± 18 pcm` distribution | superseded, gh:#196 |
 /// | `+228 ± 18` | the pre-gh:#192 code's true mean, 96 seeds | MT=91 Q-value cap: **+85 ± 26 pcm** |
 /// | `+314 ± 21` | after the cap, 96 seeds | evaluated MF=6 law: **−105 ± 32 pcm** |
-/// | `+214 ± 20` | **now**, 64 seeds | — |
+/// | `+214 ± 20` | 64 seeds, 2026-09-13 | discrete inelastic MF=4 angles (`op-tm9f`): **−198 pcm** |
+/// | `+16 ± 11` | **now**, 256 seeds, 2026-09-15 | — |
 ///
-/// Two single runs of this program differ by ~√2 × 180 ≈ 250 pcm from
+/// Two single runs of this program differ by ~√2 × 173 ≈ 245 pcm from
 /// re-randomisation alone, whatever the physics does, which is why every entry
-/// above is a pooled mean and none is a single run.
+/// above is a pooled mean and none is a single run — **and why this program,
+/// which takes exactly one draw, cannot itself establish any of them.** It is
+/// checked *against* the pooled value, at the resolution one draw has.
 ///
-/// The two physics changes pull opposite ways, and both are right. Capping the
-/// MT=91 outgoing energy at the two-body bound (gh:#192) moved this case 85 pcm
-/// **further** from a measured criticality experiment. Replacing the Weisskopf
-/// evaporation stand-in with the evaluation's own `f₀(E→E')` (ENDF MF=6 LAW=1)
-/// moved it 105 pcm **back toward** it. Neither was chosen for its direction.
+/// # Why this constant now carries an uncertainty (gh:#196, 2026-09-16)
+///
+/// It is passed as [`RecordedKeff::pooled(16.0, 11.0)`](RecordedKeff::pooled),
+/// not as a bare number. The drift gate is the spread of the **difference of two
+/// independent measurements**, `4·√(σ_run² + σ_recorded²)` — here
+/// `4·√(173² + 11²) ≈ 693 pcm`, essentially set by this single run's own noise,
+/// which is the honest resolution of a one-seed check. The previous helper
+/// gated at `4·σ_run` and treated the recorded value as exact, too tight by up
+/// to `√2`.
+///
+/// The `+214` this constant used to hold was **stale**: it predates `op-tm9f`,
+/// which moved the case −198 pcm. A single run of this program would have had to
+/// be ~1.2 σ low to notice, so the staleness was inside the old gate's noise —
+/// exactly the failure mode a drift gate exists to catch, and did not.
+///
+/// The two physics changes of 2026-09-13 pull opposite ways, and both are right.
+/// Capping the MT=91 outgoing energy at the two-body bound (gh:#192) moved this
+/// case 85 pcm **further** from a measured criticality experiment. Replacing the
+/// Weisskopf evaporation stand-in with the evaluation's own `f₀(E→E')` (ENDF
+/// MF=6 LAW=1) moved it 105 pcm **back toward** it. Neither was chosen for its
+/// direction.
 ///
 /// This is checked as a **separate claim** from agreement with the benchmark.
 /// A result can sit comfortably inside the ICSBEP band and still drift steadily
@@ -232,10 +258,12 @@ const ICSBEP_HMF001_BAND: f64 = 0.0010;
 /// physics moved — find out what — or this number is stale, in which case
 /// update it here with the date and the reason rather than deleting the check.
 ///
-/// Other sites in this repo still quote the superseded +57 ± 173 in their own
+/// Other sites in this repo still quote superseded values in their own
 /// arguments (`jemima_keff.rs`, `hst009_keff.rs`, `lct008_keff.rs`,
 /// `endf_to_keff.rs`, `verification_and_validation/ring_rpt/`, and the Part II
-/// paper dataset). Sweeping them is tracked in gh:#196 / `bn:op-awwi`, and
-/// wants a pooled re-measurement of each of those cases rather than a
+/// paper dataset). Sweeping them is the remainder of gh:#196 / `bn:op-awwi`,
+/// and wants a pooled re-measurement of each of those cases rather than a
 /// find-and-replace of this number.
-const RECORDED_PCM: f64 = 214.0;
+const RECORDED_PCM: f64 = 16.0;
+/// The `sem` on [`RECORDED_PCM`]: `173/√256`, from the 256-seed ensemble.
+const RECORDED_SEM_PCM: f64 = 11.0;
