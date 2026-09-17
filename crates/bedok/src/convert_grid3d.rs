@@ -8,7 +8,7 @@
 //! - **Source file:** `convert_grid3d.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use crate::handle3dcoords::handle3dcoords;
@@ -71,7 +71,7 @@ use crate::types::Params;
 /// any `Nc > 1`.
 ///
 /// Translated as written, per the no-silent-repairs rule in
-/// `docs/bedok-port-scoping.md` §1.0. A fix belongs in stage 2 with
+/// the crate README, "Translation policy". A fix belongs in stage 2 with
 /// before/after numbers, not here.
 pub fn convert_grid3d(
     params: &Params,

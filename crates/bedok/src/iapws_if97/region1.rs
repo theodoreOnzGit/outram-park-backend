@@ -23,7 +23,7 @@ const TSTAR: f64 = 1386.0;
 /// The reference re-declares this identical table inside each of the five
 /// functions below. It is hoisted here because it is the same data — no
 /// arithmetic is reordered by sharing it, so the no-optimisation rule in
-/// `docs/bedok-port-scoping.md` §1 is not engaged.
+/// the crate README's "Translation policy" is not engaged.
 const I: [f64; NTERMS] = [
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0,
     3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 5.0, 8.0, 8.0, 21.0, 23.0, 29.0, 30.0, 31.0, 32.0,

@@ -70,7 +70,7 @@
 //! the item that carries it and a test that pins the wrong behaviour so a later
 //! fix is a visible, deliberate change. Repairs belong in a separate stage with
 //! before/after numbers, never mixed into translation. The reasoning is in
-//! `docs/bedok-port-scoping.md` §1.0: a translation carrying well-meant fixes
+//! the crate README, "Translation policy": a translation carrying well-meant fixes
 //! cannot be debugged against a benchmark, because a disagreement can no longer
 //! be attributed.
 //!
@@ -133,29 +133,90 @@
 //!   [`error::BedokError::IterativeSolveNotTranslated`] instead, which names
 //!   the threshold.
 //!
-//! # Status — INCOMPLETE, but building and tested
+//! # Status — translation complete; verification partial
 //!
-//! This is a rewrite in progress. **27 of 48 `.m` files are translated** — the
-//! utility and indexing layer, plus **all fourteen SANM nodal files**
-//! ([`calc_abefghxyz`], [`calc_bucklingxyz`], [`makesigmadfxyz`],
-//! [`fiss_src_extrapolatexyz`] and the complete leakage trio
-//! [`calc_transleakagexyz`], [`calc_1sttransleakagexyz`],
-//! [`calc_2ndtransleakagexyz`], plus [`calc_a1_expansionxyz`], its driver
-//! [`calc_a1234_expansionxyz`], [`makegrad_dxyz`], [`calc_sanodalxyz`],
-//! [`sigmavalupd3d`], and now the two flux solvers themselves,
-//! [`diffusion_solverxyz`] and [`sanodaldiffusion_solverxyz`]) — and
-//! [`iapws_if97`] is partially done (regions 1, 2 and 4 plus the enthalpy
-//! entry points, of nine parts; it is large enough to be tracked separately).
-//! The **thermal-hydraulics layer is in progress** — [`w3chf`] is the first of
-//! its nine files. The coupling, benchmark-case and driver layers are not yet
-//! started.
+//! **All 50 `.m` files are translated**: the
+//! utility and indexing layer, all fourteen SANM nodal files, both flux
+//! solvers, the whole thermal-hydraulics layer, **both** coupling drivers
+//! (steady and transient), and five benchmark cases ([`iaea3ds`],
+//! [`neacrpd1`], [`neacrpd1t`], [`neacrpa2`], [`neacrpa2t`] and
+//! [`neacrpa1t`]), the critical-boron search, and the 2-D legacy case. [`iapws_if97`] is partially done — regions
+//! 1, 2 and 4 with the backward and transport entry points, but **not region
+//! 3**, which caps everything at 16.5292 MPa.
 //!
-//! **The nodal-diffusion layer is therefore complete and runs end to end.**
-//! Given a geometry, a set of cross sections and a material map, either solver
-//! now assembles its operator, factorises it and iterates a flux and eigenvalue
-//! to convergence. What is still missing above it is everything that would
-//! *feed* it a real reactor: the benchmark case files, the T-H coupling and the
-//! drivers.
+//! **Three of the fifty do not land as modules**, and each says why in its own
+//! header:
+//!
+//! - `main_exec_diff3d.m` and `run_neacrpd1t.m` are **scripts**, not functions.
+//!   They become `examples/`, which is also the entry point the workspace's
+//!   human-interface rule asks for.
+//! - `plotreactor3dcolour.m` is half data preparation and half MATLAB figure
+//!   emission. The first half is [`plotreactor3dcolour`]; the rendering is not
+//!   translated, on the same reasoning as the CSV policy.
+//!
+//! One more is translated but **cannot be run**: [`geom2dxycase1`] builds a 2-D
+//! case, and every solver in the snapshot is 3-D. Its own call site in
+//! `main_exec_diff3d.m` is commented out.
+//!
+//! # Verified against the running MATLAB
+//!
+//! Both steady NEACRP cases reproduce the reference **exactly** — A2 at
+//! `k_eff = 1.0139476080` and D1 at `0.9752848326`, with fuel temperature,
+//! coolant temperature, heat flux and power identical to every printed digit.
+//! Getting to that found two defects: **Z1**, a silently rounded axial mesh,
+//! and **N1**, an unstable default nodal-update interval that makes A2's
+//! coupled loop chaotic.
+//!
+//! **The transient path reproduces it too**, on all three cases — including the
+//! super-prompt HZP ejection (2.1e-7 through a 67-fold excursion) and D1t over
+//! its **full 20 s window** (261 steps, 2.9e-11). [`iaea3ds`] matches the
+//! MATLAB as well as its published values, and [`criticalboron_xyz`] **fails
+//! where the reference fails**, aborting at the same boron concentration.
+//!
+//! What remains outside the comparison: the T-H modules individually (they are
+//! covered only transitively), `w3chf` (whose output the reference discards,
+//! so there is nothing to compare), the ejection transients beyond 0.15 s, and
+//! IAPWS region 3, which is not translated. See
+//! `docs/bedok-reference-defects.md`.
+//!
+//! # Corrections are on by default — this crate is no longer bit-faithful
+//!
+//! With every runnable case verified against the MATLAB, **stage 2 opened on
+//! 2026-08-21** and three groups of reference defects are now **corrected by
+//! default**. On the cases they touch, this crate deliberately no longer
+//! reproduces the MATLAB's numbers.
+//!
+//! | Defects | What | Switch |
+//! |---|---|---|
+//! | G1, G2, G3 | The diffusion face coupling and `gradterms` | [`types::Params::gradd_form`] |
+//! | T5, T6 | The W-3 `K4` subcooling enthalpy | [`types::Params::w3_form`] |
+//! | C2, T4 | `highy = ix` in the hottest-channel search | [`types::Params::hot_channel_search`] |
+//! | T9, T13 | `fueltempavg` aliased to the Doppler temperature | [`types::Params::fueltemp_average`] |
+//!
+//! **To reproduce the reference, build from
+//! [`types::Params::reference_faithful`]**, which turns every correction off.
+//! That is what the MATLAB-parity tests do.
+//!
+//! What each is worth, measured: the operator correction moves NEACRP A2's
+//! critical boron from 1138.8 to **1152.5 ppm** against a published 1160.6, and
+//! A1's from 551.4 to **561.0** against 567.7 — closing 63% and 59% of the two
+//! gaps. The CHF corrections cut A2's reported thermal margin by **18.2%**
+//! (DNBR 2.55 to 2.08), both defects having overstated it. The fuel-average
+//! correction moves only a reported number — D1's average fuel temperature
+//! rises up to 240 K — while the Doppler temperature that drives the feedback
+//! is bit-identical and `k_eff` does not move.
+//!
+//! Everything else in `docs/bedok-reference-defects.md` is still translated
+//! as-is and pinned by a test asserting the wrong behaviour.
+//!
+//! **Both the steady and the transient paths now run end to end on real
+//! benchmark cases.** [`iaea3ds`] matches a published `k_eff` to -1.1 pcm;
+//! [`neacrpd1`] drives the coupled loop to a joint fixed point in 12 outer
+//! passes; [`neacrpd1t`] marches the case-D cold-water injection through
+//! [`thdiffusion_solvertimexyz`] with six delayed-neutron families. **No
+//! transient result has been compared to a published curve** — the NEACRP
+//! specification is not in the literature archive, so the transient tests
+//! assert structure and cross-scheme agreement only.
 //!
 //! [`iapws_if97`] is the one module that is **not** Than Yan Ren's code: it
 //! translates a third-party BSD-2-Clause implementation by Mark Mikofski, whose
@@ -185,25 +246,36 @@
 //! assembly, the factorisation and the iteration hang together and produce a
 //! physically-signed answer.
 //!
-//! **It is not a benchmark comparison.** No published `k_eff` is involved,
-//! because the case files that would supply one are not translated yet, so
-//! nothing here has been run against a reactor benchmark. Per
-//! `RESPONSIBLE_USE.md` this remains AI-assisted draft material pending human
-//! review — "the tests pass" is not the same claim as "the physics is right",
-//! and a self-consistent solver converging on a hand-made cube is verification,
-//! not validation.
+//! **The one benchmark comparison is [`iaea3ds`].** The IAEA 3-D PWR
+//! benchmark — 17x17x19 quarter core, two groups — gives `k_eff = 1.029084`
+//! against 1.029096 (PARCS) and 1.029082 (ADPRES), so **-1.1 pcm and +0.2
+//! pcm**, closer than the two reference codes are to each other. Measured
+//! 2026-08-18; see that module and the README for the full statement, and
+//! `src/data/PROVENANCE.md` for where the two reference numbers come from.
+//!
+//! That is the crate's **only** validation evidence, and its scope is narrow:
+//! pure neutronics, no thermal-hydraulics, no coupling, no transient, and no
+//! comparison against the benchmark's published assembly powers. The coupled
+//! driver [`thdiffusion_solverxyz`] is **not** shown to converge on any case —
+//! read its "Verification status" before using it. Per `RESPONSIBLE_USE.md`
+//! everything here remains AI-assisted draft material pending human review;
+//! "the tests pass" is not the same claim as "the physics is right".
 //!
 //! # Provenance
 //!
 //! - **Original author:** Than Yan Ren, Singapore Nuclear Research and Safety
 //!   Institute (SNRSI).
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK, with institutional approval; see `docs/bedok-port-scoping.md` §6.
+//!   PARK, with institutional approval; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 // --- support layer (no `.m` counterpart) ---------------------------------
+pub mod driftflux6_solverstatic1d;
 pub mod error;
 pub mod matlab;
+pub mod thdiffusion_solverxyz;
+pub mod th_solvertimexyz;
+pub mod th_solverxyz;
 pub mod types;
 
 // --- translated `.m` files -----------------------------------------------
@@ -221,21 +293,36 @@ pub mod convert_grid3d;
 pub mod convertindexc2d;
 pub mod convertsparseformat2d;
 pub mod convertsparsekey3d;
+pub mod criticalboron_xyz;
 pub mod diffusion_solverxyz;
 pub mod fiss_src_extrapolatexyz;
 pub mod fuelrodheat_1dcylnd;
+pub mod fuelrodheattime_1dcylnd;
 pub mod fixinfnan;
 pub mod fixnegativematrix;
+pub mod geom2dxycase1;
 pub mod geometry_ends3d;
 pub mod iapws_if97;
+pub mod iaea3ds;
 pub mod handle2dcoords;
 pub mod handle3dcoords;
 pub mod makegrad_dxyz;
 pub mod makeheatlaplacian_1dcylnd;
 pub mod makesigmadfxyz;
+pub mod thdiffusion_solvertimexyz;
+pub mod neacrpa1t;
+pub mod neacrpa2;
+pub mod neacrpa2t;
+pub mod neacrpd1;
+pub mod neacrpd1t;
 pub mod pauseonnan;
+pub mod plotreactor3dcolour;
 pub mod sanodaldiffusion_solverxyz;
 pub mod sigmavalupd3d;
+pub mod sigmavalupd3d_handler;
+pub mod singleflow1devap;
+pub mod singleflow1devaptime;
 pub mod w3chf;
+pub mod w3chfhottest;
 
 pub use error::{BedokError, Result};

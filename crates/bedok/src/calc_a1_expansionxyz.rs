@@ -7,7 +7,7 @@
 //! - **Source file:** `calc_a1_expansionxyz.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use std::collections::HashMap;
@@ -154,7 +154,7 @@ struct Line {
 /// `vacuum` and `zeroflux` branches use `- Aa*Leakone`, so the high-face
 /// `zeroflux` line is the odd one out. Verified against the source rather than
 /// inferred, and translated as written per the no-silent-repairs rule in
-/// `docs/bedok-port-scoping.md` §1.0. Whether it is deliberate or a slip is a
+/// the crate README, "Translation policy". Whether it is deliberate or a slip is a
 /// physics question this translation does not attempt to settle.
 ///
 /// # `zeroflux` is not grouped with `vacuum` here

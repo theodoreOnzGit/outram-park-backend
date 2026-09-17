@@ -8,7 +8,7 @@
 //! - **Source file:** `convertindexc2d.m`, `main_exec_diff3d_standalone`
 //!   snapshot.
 //! - **Permission:** given by the author for open-source release under OUTRAM
-//!   PARK; see `docs/bedok-port-scoping.md` §6.
+//!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
 use crate::types::Params;
@@ -99,7 +99,7 @@ pub enum IndexMode {
 /// make the same error, so the two do not compose to the identity.
 ///
 /// Translated as written, per the no-silent-repairs rule in
-/// `docs/bedok-port-scoping.md` §1.0. The test below pins the wrong behaviour
+/// the crate README, "Translation policy". The test below pins the wrong behaviour
 /// so that correcting it is a visible, deliberate change with before/after
 /// numbers.
 ///
