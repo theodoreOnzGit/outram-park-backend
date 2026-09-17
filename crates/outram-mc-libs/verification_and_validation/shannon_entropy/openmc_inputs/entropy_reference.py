@@ -113,6 +113,38 @@ out = {
 }
 with open("entropy_reference.json", "w") as f:
     json.dump(out, f)
+
+# The Rust test reads CSV, not JSON: this crate has no serde_json dependency
+# and the workspace keeps outram-mc-libs lean. Oracles live one level up,
+# beside the topic, because openmc_inputs/ is excluded from the published
+# tarball while the oracle must ship with the test that consumes it.
+import csv, pathlib
+topic = pathlib.Path("..")
+with open(topic / "entropy_source_bank.csv", "w", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["x_cm", "y_cm", "z_cm", "wgt"])
+    for p_, wt in zip(r, wgt):
+        w.writerow([repr(float(p_[0])), repr(float(p_[1])),
+                    repr(float(p_[2])), repr(float(wt))])
+with open(topic / "entropy_oracle.csv", "w", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["key", "value"])
+    for k, v in [
+        ("openmc_version", openmc.__version__), ("seed", s.seed),
+        ("particles", s.particles), ("batches", s.batches),
+        ("inactive", s.inactive),
+        ("k_mean", repr(k_mean)), ("k_std", repr(k_std)),
+        ("ll_x", repr(LL[0])), ("ll_y", repr(LL[1])), ("ll_z", repr(LL[2])),
+        ("ur_x", repr(UR[0])), ("ur_y", repr(UR[1])), ("ur_z", repr(UR[2])),
+        ("dim_x", DIM[0]), ("dim_y", DIM[1]), ("dim_z", DIM[2]),
+        ("n_sites", int(len(wgt))),
+        ("any_site_outside_mesh", int(outside)),
+        ("transcribed_entropy_on_final_source_bank", repr(H_ref)),
+        ("openmc_entropy_last_generation", repr(float(entropy[-1]))),
+        ("max_possible_entropy_log2_nbins", repr(math.log2(len(counts)))),
+    ]:
+        w.writerow([k, v])
+print("wrote entropy_source_bank.csv and entropy_oracle.csv")
 print(f"k = {k_mean:.6f} +/- {k_std:.6f}")
 print(f"generations of entropy: {len(entropy)}  last = {entropy[-1]:.10f}")
 print(f"transcribed H on final source bank = {H_ref:.15f}")

@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<settings>
+  <run_mode>eigenvalue</run_mode>
+  <particles>5000</particles>
+  <batches>40</batches>
+  <inactive>10</inactive>
+  <source type="independent" strength="1.0" particle="neutron">
+    <space type="point">
+      <parameters>0.0 0.0 0.0</parameters>
+    </space>
+  </source>
+  <seed>20260917</seed>
+  <entropy_mesh>1</entropy_mesh>
+  <mesh id="1">
+    <dimension>5 5 5</dimension>
+    <lower_left>-8.7407 -8.7407 -8.7407</lower_left>
+    <upper_right>8.7407 8.7407 8.7407</upper_right>
+  </mesh>
+</settings>
