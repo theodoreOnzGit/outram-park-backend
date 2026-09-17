@@ -23,7 +23,7 @@
 //!
 //! Each step runs five phases in a fixed order, and the order is the whole
 //! protocol between agents. [`Phase`] names them; the loop that drives them is
-//! [`Timer::step`].
+//! [`Simulation::step`](crate::agents::Simulation::step).
 //!
 //! 1. [`Phase::Build`] — agents scheduled to be built enter the simulation.
 //! 2. [`Phase::Tick`] — every agent updates its own state and decides what it

@@ -48,7 +48,7 @@ use alloc::vec::Vec;
 /// use outram_park_fork_cyclus::arithmetic::kahan_sum;
 ///
 /// // A large value followed by many small ones: naive summation loses them.
-/// let mut v = alloc::vec![1.0e16];
+/// let mut v = vec![1.0e16];
 /// v.extend(core::iter::repeat(1.0).take(10));
 /// assert_eq!(kahan_sum(&v), 1.0e16 + 10.0);
 /// ```
@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn recovers_small_addends_a_naive_sum_would_lose() {
         let mut v = vec![1.0e16];
-        v.extend(core::iter::repeat(1.0).take(10));
+        v.extend(core::iter::repeat_n(1.0, 10));
 
         // The naive sum in source order loses every 1.0.
         let naive: f64 = v.iter().sum();

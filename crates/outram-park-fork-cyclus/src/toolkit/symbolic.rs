@@ -106,7 +106,7 @@ impl PiecewisePiece {
 /// that trap — see its docs.
 ///
 /// Below the first piece's `x_offset`, and for an empty function, the value is
-/// `0.0`. That is upstream's documented "f(x) for all x in [lhs,rhs], 0
+/// `0.0`. That is upstream's documented "f(x) for all x in `[lhs,rhs]`, 0
 /// otherwise".
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PiecewiseFunction {
@@ -344,7 +344,9 @@ mod tests {
         let f = SymFunction::exponential(50.0, -0.1, 5.0);
         close(f.value(0.0), 55.0);
         close(f.value(10.0), 50.0 * exp(-1.0) + 5.0);
-        assert!(f.value(1000.0) > 5.0);
+        // exp(-100) is 3.7e-44, which is below the ulp of 5.0, so the value
+        // has settled onto the asymptote exactly.
+        assert!(f.value(1000.0) >= 5.0);
         assert!(f.value(1000.0) - 5.0 < 1e-9);
     }
 

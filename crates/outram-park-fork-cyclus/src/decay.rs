@@ -13,6 +13,48 @@
 
 //! Radioactive decay: the Bateman equations, solved by matrix exponential.
 //!
+//! # ⚠️ This is upstream's DEPRECATED solver, not its live one
+//!
+//! Read this before comparing anything here against a Cyclus run.
+//!
+//! This module translates `cyclus/src/uniform_taylor.cc` faithfully. But
+//! upstream calls `UniformTaylor::MatrixExpSolver` from exactly one site —
+//! `decayer.cc:159` — and `Decayer` is marked DEPRECATED in its own header and
+//! **is never instantiated anywhere in Cyclus**. (`decayer.h` is `#include`d
+//! by `composition.cc` and `material.cc`, which is what makes it look live.)
+//!
+//! Upstream's **actual** decay path is CRAM: `Composition::NewDecay` builds a
+//! sparse decay matrix from `pyne_cram_transmute_info` and calls
+//! `pyne_cram_expm_multiply14`, a 14th-order Chebyshev Rational
+//! Approximation.
+//!
+//! So **this module will not reproduce a modern Cyclus decay result.** It is a
+//! correct matrix-exponential solver — verified against the closed-form
+//! two-species Bateman solution to 7.7e-11 at tight tolerance — but it is a
+//! different algorithm from the one upstream actually runs.
+//!
+//! Two further consequences, both measured:
+//!
+//! * **The truncation error is one-signed, so it accumulates.** Every
+//!   discarded term of the truncated Poisson series is non-negative. At
+//!   upstream's default `tol = 1e-3` that is a **0.095 % atom loss over one
+//!   year** of the Sr-90 chain, and an isobaric chain that conserves mass by
+//!   construction **loses 0.093 % of it**. Tightening to `1e-12` brings the
+//!   residual to ~1e-13 for 172 series terms against 127, since the term count
+//!   grows only logarithmically in the tolerance. Prefer the
+//!   `*_with_tol` variants for anything whose mass balance matters; upstream
+//!   exposes no way to ask for this.
+//! * **`Decayer::BuildDecayMatrix` carries a real defect** which this port
+//!   deliberately does not reproduce — see [`build_decay_matrix`]. In short, a
+//!   "gross heuristic for mostly stable nuclides" in fact freezes every
+//!   nuclide with a half-life under ~31.3 days as stable.
+//!
+//! **Adding a CRAM backend is tracked as `op-i68k`**, and
+//! `crates/outram-park-fork-onix/src/cram.rs` already has `cram16()` — reuse
+//! it rather than writing a third matrix-exponential routine. Uniform Taylor
+//! should stay alongside as an independent check.
+//!
+//!
 //! # The physics in one paragraph
 //!
 //! A decay chain is a linear, constant-coefficient system. Write `n(t)` for
@@ -114,7 +156,10 @@
 //!    `N2(t) = N1(0) lambda_1 / (lambda_2 - lambda_1) (exp(-lambda_1 t) - exp(-lambda_2 t))`.
 //!    Chain Sr-90 -> Y-90 -> Zr-90 (stable). This is the test that catches a
 //!    transposed decay matrix, and it does: with the matrix transposed the
-//!    daughter comes out at roughly `1e-4` of its true amount.
+//!    daughter is fed by nothing and comes out at **exactly zero** (measured
+//!    0.000e0 of its true amount). `transposed_decay_matrix_fails_bateman`
+//!    pins that, so the sign convention cannot be "fixed" the wrong way and
+//!    still leave the suite green.
 //! 3. *Diagonal matrix against elementwise `exp`.* Exercises
 //!    [`UniformTaylor::solve`] on its own with `alpha t = 2`.
 //!

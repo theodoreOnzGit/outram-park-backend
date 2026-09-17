@@ -168,3 +168,39 @@ maps, and the whole suite runs in well under a second. The workspace's
 `long-tests` gating rule therefore has nothing to gate here. If a future
 cross-code comparison against a built Cyclus crosses five minutes, gate it
 then, on a measured time and not a guessed one.
+
+## Regenerating the API mirror on this container
+
+`docs/outram-park-fork-cyclus-api.md` is the committed markdown mirror of the
+public API. The workspace's normal command is:
+
+```bash
+kovan-cli api-docs outram-park-fork-cyclus
+```
+
+**That does not work in the Claude-Code-on-the-web container as of
+2026-09-17, for a reason that has nothing to do with this crate.** The
+container ships rustc 1.94.1; the workspace's `egui`/`eframe` 0.36.1 require
+rustc 1.95, so `kovan` cannot be built here at all — with or without
+`--no-default-features`, because cargo resolves the workspace lockfile's MSRV
+either way. The same mismatch makes a bare `cargo check --workspace` fail;
+excluding `outram-park-digital-twin-engine` and `kovan` makes it pass.
+
+Both prerequisites the workspace rule names **are** installed (checked, not
+assumed: `which rustdoc-md` and `rustup toolchain list`), so the mirror is
+generated through the two commands `kovan-cli api-docs` wraps:
+
+```bash
+RUSTDOCFLAGS="-Z unstable-options --output-format json" \
+  cargo +nightly doc -p outram-park-fork-cyclus --no-deps --lib
+rustdoc-md --path target/doc/outram_park_fork_cyclus.json \
+  --output crates/outram-park-fork-cyclus/docs/outram-park-fork-cyclus-api.md
+```
+
+Prefer `kovan-cli api-docs` wherever it builds. Use the above only as the
+fallback, and regenerate the mirror whenever a public doc comment changes.
+
+**Keep the intra-doc links resolving.** The rustdoc run above must report zero
+`unresolved link` warnings. The workspace's human-interface rule is that a
+developer can navigate this API with rust-analyzer alone, and a broken
+`[`Type`]` link is exactly that promise failing.

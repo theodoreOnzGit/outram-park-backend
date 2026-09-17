@@ -70,6 +70,7 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
+use crate::agent::AgentId;
 use crate::error::{CyclusError, Result};
 use crate::exchange::request::DEFAULT_PREF;
 use crate::limits::{abs, float_distance, FLOAT_ULP_EQ, UNLIMITED};
@@ -154,10 +155,18 @@ pub struct ExchangeNode {
     /// [preconditioner](crate::exchange::preconditioner) to look up a weight.
     pub commod: String,
 
-    /// The id of the agent this node belongs to. Upstream's default is `-1`,
-    /// meaning "unset"; it is used only to break preference ties, so that the
-    /// ordering is total and therefore reproducible.
-    pub agent_id: i32,
+    /// The agent this node belongs to, or `None` if it is unattached.
+    ///
+    /// Used only to break preference ties, so that the ordering is total and
+    /// therefore reproducible.
+    ///
+    /// **Divergence from upstream:** upstream holds an `int` with `-1` meaning
+    /// unset; here it is an `Option<AgentId>` with `None` for that case. An
+    /// in-band sentinel in an integer is the shape this crate hardens away
+    /// wherever it appears, and it matters for the tie-break specifically:
+    /// `Option`'s ordering puts `None` below every `Some`, which is exactly
+    /// where `-1` sorted, so the translated comparison is unchanged.
+    pub agent_id: Option<AgentId>,
 
     /// The maximum quantity that may be assigned to this node — the requested
     /// amount for a request node, the offered amount for a bid node. Units are
@@ -167,7 +176,8 @@ pub struct ExchangeNode {
 
 impl Default for ExchangeNode {
     /// An unconstrained node: quantity [`UNLIMITED`], not exclusive, no
-    /// commodity, agent `-1`. Upstream's no-argument `ExchangeNode()`.
+    /// commodity, no agent. Upstream's no-argument `ExchangeNode()`, whose
+    /// agent id is `-1`.
     fn default() -> Self {
         Self {
             group: None,
@@ -175,7 +185,7 @@ impl Default for ExchangeNode {
             prefs: BTreeMap::new(),
             exclusive: false,
             commod: String::new(),
-            agent_id: -1,
+            agent_id: None,
             qty: UNLIMITED,
         }
     }
@@ -213,10 +223,10 @@ impl ExchangeNode {
         self
     }
 
-    /// Sets the owning agent's id.
+    /// Sets the owning agent.
     #[must_use]
-    pub fn agent(mut self, agent_id: i32) -> Self {
-        self.agent_id = agent_id;
+    pub fn agent(mut self, agent_id: AgentId) -> Self {
+        self.agent_id = Some(agent_id);
         self
     }
 
@@ -858,7 +868,7 @@ mod tests {
     fn a_default_node_is_unlimited_and_a_missing_preference_reads_as_zero() {
         let n = ExchangeNode::default();
         assert_eq!(n.qty, UNLIMITED);
-        assert_eq!(n.agent_id, -1);
+        assert_eq!(n.agent_id, None);
         assert!(!n.exclusive);
         assert_eq!(n.pref(ArcId(0)), 0.0);
     }

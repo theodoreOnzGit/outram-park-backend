@@ -16,6 +16,7 @@
 //! reasoning is written out in the
 //! [`request`](crate::exchange::request) module doc.
 
+use crate::agent::AgentId;
 use crate::error::{CyclusError, Result};
 use crate::exchange::request::RequestId;
 use crate::resource::Resource;
@@ -40,7 +41,7 @@ pub struct BidId {
 pub struct Bid {
     request: RequestId,
     offer: Resource,
-    bidder: i32,
+    bidder: AgentId,
     exclusive: bool,
     preference: Option<f64>,
     shared_offer: Option<u32>,
@@ -53,7 +54,9 @@ impl Bid {
     ///   strictly positive and need not equal the request's; the solver will
     ///   match the smaller of the two (or nothing, if either side is
     ///   exclusive and they disagree).
-    /// * `bidder` — the bidding agent's id.
+    /// * `bidder` — the bidding agent. Upstream holds a `Trader*`; see
+    ///   [`Request::new`](crate::exchange::request::Request::new) for why an
+    ///   [`AgentId`] replaces it.
     /// * `exclusive` — if `true` the offer must be taken whole or not at all.
     ///
     /// The bid's preference is left unset, meaning the arc inherits the
@@ -65,7 +68,12 @@ impl Bid {
     /// [`CyclusError::Value`] if the offered quantity is not strictly
     /// positive — the same check upstream's `BidPortfolio::AddBid` makes,
     /// moved to the constructor so a bad bid cannot exist at all.
-    pub fn new(request: RequestId, offer: Resource, bidder: i32, exclusive: bool) -> Result<Self> {
+    pub fn new(
+        request: RequestId,
+        offer: Resource,
+        bidder: AgentId,
+        exclusive: bool,
+    ) -> Result<Self> {
         if !(offer.quantity() > 0.0) {
             return Err(CyclusError::Value(
                 "a bid must offer a strictly positive quantity",
@@ -146,9 +154,10 @@ impl Bid {
         self.offer.quantity()
     }
 
-    /// The bidding agent's id.
+    /// The bidding agent. Mandatory, for the same reason
+    /// [`Request::requester`](crate::exchange::request::Request::requester) is.
     #[must_use]
-    pub fn bidder(&self) -> i32 {
+    pub fn bidder(&self) -> AgentId {
         self.bidder
     }
 
@@ -189,10 +198,10 @@ mod tests {
 
     #[test]
     fn a_bid_defaults_to_inheriting_the_requesters_preference() {
-        let b = Bid::new(req(), product(5.0), 3, false).unwrap();
+        let b = Bid::new(req(), product(5.0), AgentId(3), false).unwrap();
         assert_eq!(b.preference(), None);
         assert_eq!(b.quantity(), 5.0);
-        assert_eq!(b.bidder(), 3);
+        assert_eq!(b.bidder(), AgentId(3));
         assert_eq!(b.request(), req());
         assert_eq!(b.shared_offer(), None);
     }
@@ -200,14 +209,14 @@ mod tests {
     #[test]
     fn a_zero_or_negative_offer_is_rejected() {
         assert_eq!(
-            Bid::new(req(), product(0.0), 1, false).unwrap_err(),
+            Bid::new(req(), product(0.0), AgentId(1), false).unwrap_err(),
             CyclusError::Value("a bid must offer a strictly positive quantity")
         );
     }
 
     #[test]
     fn an_overridden_preference_must_be_positive_and_finite() {
-        let b = Bid::new(req(), product(1.0), 1, false).unwrap();
+        let b = Bid::new(req(), product(1.0), AgentId(1), false).unwrap();
         assert_eq!(b.clone().with_preference(2.5).unwrap().preference(), Some(2.5));
         assert!(b.clone().with_preference(0.0).is_err());
         assert!(b.with_preference(f64::NAN).is_err());
@@ -215,7 +224,7 @@ mod tests {
 
     #[test]
     fn a_shared_offer_tag_is_recorded() {
-        let b = Bid::new(req(), product(1.0), 1, true)
+        let b = Bid::new(req(), product(1.0), AgentId(1), true)
             .unwrap()
             .with_shared_offer(42);
         assert_eq!(b.shared_offer(), Some(42));

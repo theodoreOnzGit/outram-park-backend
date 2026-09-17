@@ -126,6 +126,22 @@ cargo build --release -p outram-park-fork-cyclus --target thumbv7em-none-eabihf
 cargo build --release -p outram-park-fork-cyclus --target wasm32-unknown-unknown
 ```
 
+## What is implemented
+
+| Layer | State |
+|---|---|
+| Kernel: nuclides, compositions, materials, products, resources | complete |
+| Resource exchange: graph, portfolios, constraints, translator, greedy solver + preconditioner | complete |
+| Toolkit: material queries, enrichment, resource buffers, commodities, symbolic functions, geodesic positions, inventory tracking | complete |
+| Decay: Uniform Taylor matrix exponential over a caller-supplied chain | complete — but see the fidelity note below |
+| Simulation: clock, six-phase loop, agent hierarchy, recipes, build/decommission scheduling | complete |
+| CYCAMORE archetypes: `Source`, `Sink` | complete |
+| CYCAMORE archetypes: `Storage`, `Enrichment`, `Reactor`, `Separations`, `FuelFab`, `Mixer`, `DeployInst`, `ManagerInst`, `GrowthRegion` | **not yet ported** |
+
+The unported archetypes are **absent rather than stubbed**. A stub that
+silently trades nothing would let a simulation run and produce a plausible,
+wrong answer; a missing enum variant is a compile error.
+
 ## Verification & validation status
 
 **Nothing in this crate is validated.** What exists is verification against
@@ -136,6 +152,16 @@ closed-form results, and it is recorded in the doc comment of each test:
 - Enrichment is checked against the closed-form separative-work expression.
 - The exchange solver is checked against hand-worked matching cases.
 - Resource operations are checked for exact mass conservation.
+
+**Decay is a known fidelity gap, not merely unvalidated.** This crate ports
+upstream's `UniformTaylor` solver, but that solver is only reachable from
+`Decayer`, which is deprecated upstream and never instantiated. Upstream's live
+decay path is CRAM (`pyne_cram_expm_multiply14`). Decay results here will
+therefore **not** reproduce a modern Cyclus run, and the Uniform Taylor
+truncation error is one-signed, costing 0.095 % of the atom inventory per year
+at upstream's default tolerance. Use the `_with_tol` variants where a mass
+balance matters. Full detail and the reuse path — `outram-park-fork-onix`
+already has CRAM — are in `docs/port-notes.md`.
 
 There is **no comparison against a Cyclus run**, and that is the single most
 valuable thing that could be added. Building upstream Cyclus and diffing a

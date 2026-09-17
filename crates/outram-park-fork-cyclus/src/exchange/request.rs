@@ -34,6 +34,7 @@
 
 use alloc::string::{String, ToString};
 
+use crate::agent::AgentId;
 use crate::error::{CyclusError, Result};
 use crate::resource::Resource;
 
@@ -67,7 +68,7 @@ pub struct RequestId {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Request {
     target: Resource,
-    requester: i32,
+    requester: AgentId,
     commodity: String,
     preference: f64,
     exclusive: bool,
@@ -80,10 +81,11 @@ impl Request {
     ///   [`quantity`](crate::resource::Resource::quantity) is how much is
     ///   wanted (kg for a material); for a material its composition is the
     ///   *desired* composition, which bidders may use to decide what to offer.
-    /// * `requester` — the requesting agent's id. Upstream holds a `Trader*`;
-    ///   an id is enough for everything the exchange itself does (grouping,
-    ///   tie-breaking, reporting the trade back), and it keeps the exchange
-    ///   free of agent pointers.
+    /// * `requester` — the requesting agent. Upstream holds a `Trader*`; an
+    ///   [`AgentId`] is enough for everything the exchange itself does
+    ///   (grouping, tie-breaking, reporting the trade back), and it keeps the
+    ///   exchange free of agent pointers and of the raw `int` ids upstream
+    ///   uses alongside them.
     /// * `commodity` — the commodity name bids are matched on, and the key the
     ///   [preconditioner](crate::exchange::preconditioner) weights by.
     /// * `preference` — strictly positive, dimensionless; larger is more
@@ -100,7 +102,7 @@ impl Request {
     /// was made.
     pub fn new(
         target: Resource,
-        requester: i32,
+        requester: AgentId,
         commodity: &str,
         preference: f64,
         exclusive: bool,
@@ -126,7 +128,7 @@ impl Request {
     /// Never, in practice — [`DEFAULT_PREF`] is valid. The signature keeps the
     /// `Result` so that tightening the constructor later is not a breaking
     /// change.
-    pub fn simple(target: Resource, requester: i32, commodity: &str) -> Result<Self> {
+    pub fn simple(target: Resource, requester: AgentId, commodity: &str) -> Result<Self> {
         Self::new(target, requester, commodity, DEFAULT_PREF, false)
     }
 
@@ -142,9 +144,14 @@ impl Request {
         self.target.quantity()
     }
 
-    /// The requesting agent's id.
+    /// The requesting agent.
+    ///
+    /// Not optional: a request without a requester cannot be constructed,
+    /// which is why this is an [`AgentId`] and not an `Option<AgentId>` the
+    /// way [`ExchangeNode::agent_id`](crate::exchange::graph::ExchangeNode::agent_id)
+    /// is. Upstream's unset case exists only on the translated graph node.
     #[must_use]
-    pub fn requester(&self) -> i32 {
+    pub fn requester(&self) -> AgentId {
         self.requester
     }
 
@@ -178,10 +185,10 @@ mod tests {
 
     #[test]
     fn a_simple_request_takes_the_default_preference() {
-        let r = Request::simple(product(10.0), 7, "power").unwrap();
+        let r = Request::simple(product(10.0), AgentId(7), "power").unwrap();
         assert_eq!(r.preference(), DEFAULT_PREF);
         assert_eq!(r.quantity(), 10.0);
-        assert_eq!(r.requester(), 7);
+        assert_eq!(r.requester(), AgentId(7));
         assert_eq!(r.commodity(), "power");
         assert!(!r.exclusive());
     }
@@ -190,7 +197,7 @@ mod tests {
     fn a_non_positive_preference_is_rejected_at_construction() {
         for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
             assert_eq!(
-                Request::new(product(1.0), 1, "power", bad, false).unwrap_err(),
+                Request::new(product(1.0), AgentId(1), "power", bad, false).unwrap_err(),
                 CyclusError::Value(
                     "a request preference must be finite and strictly positive"
                 )
@@ -209,8 +216,8 @@ mod tests {
         let c = Composition::from_mass(map, &AtomicMasses::MassNumber).unwrap();
         let m = Resource::from(Material::new(2.5, c).unwrap());
 
-        let rm = Request::simple(m, 1, "fuel").unwrap();
-        let rp = Request::simple(product(3.0), 1, "power").unwrap();
+        let rm = Request::simple(m, AgentId(1), "fuel").unwrap();
+        let rp = Request::simple(product(3.0), AgentId(1), "power").unwrap();
         assert_eq!(rm.quantity(), 2.5);
         assert_eq!(rp.quantity(), 3.0);
     }

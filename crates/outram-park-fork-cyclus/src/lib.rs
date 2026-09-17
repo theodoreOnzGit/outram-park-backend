@@ -6,6 +6,15 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
+// Validation guards in this crate are written `if !(x > 0.0)`, never
+// `if x <= 0.0`. The two differ on NaN: `!(NaN > 0.0)` is `true`, so the
+// guard rejects NaN, while `NaN <= 0.0` is `false`, so the rewrite clippy
+// suggests would let a NaN quantity, preference or capacity through into the
+// exchange solver. A NaN there does not fail loudly -- it propagates into a
+// capacity comparison, makes every match test false, and the trade silently
+// does not happen. Rejecting it at construction is the whole point, so the
+// lint is off crate-wide rather than argued with five times.
+#![allow(clippy::neg_cmp_op_on_partial_ord)]
 
 //! An independent, `no_std` Rust translation of **CYCLUS**, the agent-based
 //! nuclear fuel-cycle simulator, and **CYCAMORE**, its library of fuel-cycle
@@ -68,7 +77,7 @@
 //! | `hdf5_back`, `sqlite_back`, `recorder` | Output persistence. Both are C library bindings; neither can be `no_std`. |
 //! | `xml_file_loader`, `xml_parser`, `infile_tree` | Input decks, via libxml2. Same reason. |
 //! | `prog_solver`, `prog_translator`, `OsiCbcSolverInterface` | The mixed-integer LP exchange solver, via Coin-OR/Cbc. A C++ dependency an order of magnitude larger than this crate. The [greedy solver](exchange::greedy) *is* ported, and is upstream's default. |
-//! | `dynamic_module`, `discovery` | Loading agent archetypes from shared libraries at run time. Rust resolves the equivalent at compile time, through the [`AgentKind`](agent::AgentKind) enum. |
+//! | `dynamic_module`, `discovery` | Loading agent archetypes from shared libraries at run time. Rust resolves the equivalent at compile time, through the [`AgentKind`](agents::AgentKind) enum. |
 //! | `pyhooks`, `pymodule`, `pyinfile`, the Cython layer | Python bindings. |
 //! | `Decayer` and its bundled chain data | Deprecated upstream in favour of PyNE's decay. More importantly, the workspace rule is that nuclear data belongs in `njoy-outram-park-fork`, so [`decay`] takes a caller-supplied [`DecayChain`](decay::DecayChain) and ships no data of its own. |
 //!
@@ -84,7 +93,7 @@
 //!
 //! | Upstream C++ | Here |
 //! |---|---|
-//! | `virtual` dispatch over `Agent*` | [`AgentKind`](agent::AgentKind), an enum matched at each call |
+//! | `virtual` dispatch over `Agent*` | [`AgentKind`](agents::AgentKind), an enum matched at each call |
 //! | `boost::shared_ptr<ExchangeNode>` | [`NodeId`](exchange::graph::NodeId), an index into an arena |
 //! | `Resource::Ptr` | [`Resource`](resource::Resource), an owned enum |
 //! | `std::map<Nuc, double>` | [`CompMap`](comp_math::CompMap), a `BTreeMap` — ordered, so results reproduce |

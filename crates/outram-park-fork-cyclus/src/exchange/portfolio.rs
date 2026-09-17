@@ -26,12 +26,13 @@
 //! destructor, while the portfolio itself is a `shared_ptr` with
 //! `enable_shared_from_this` so each request can hold a `weak_ptr` back to it.
 //! Here the portfolio owns its requests by value in a `Vec`, and the back
-//! reference is the index — a [`RequestId`] or [`BidId`] naming (portfolio,
+//! reference is the index — a [`RequestId`] or [`BidId`](crate::exchange::bid::BidId) naming (portfolio,
 //! index). Nothing is shared, nothing is freed twice, and the cycle that
 //! forced the `weak_ptr` never forms.
 
 use alloc::vec::Vec;
 
+use crate::agent::AgentId;
 use crate::error::{CyclusError, Result};
 use crate::exchange::bid::Bid;
 use crate::exchange::constraint::{CapacityConstraint, Converter};
@@ -47,7 +48,7 @@ pub struct RequestPortfolio {
     mass_coeffs: Vec<f64>,
     constraints: Vec<CapacityConstraint>,
     qty: f64,
-    requester: Option<i32>,
+    requester: Option<AgentId>,
 }
 
 impl RequestPortfolio {
@@ -90,7 +91,7 @@ impl RequestPortfolio {
     pub fn request(
         &mut self,
         target: Resource,
-        requester: i32,
+        requester: AgentId,
         commodity: &str,
         preference: f64,
         exclusive: bool,
@@ -103,11 +104,31 @@ impl RequestPortfolio {
     /// the same demand.
     ///
     /// Upstream `AddMutualReqs`. The portfolio's total quantity becomes the
-    /// *average* of their quantities rather than the sum, and each gets a mass
-    /// coefficient of `its quantity / that average`, so that a full order of
-    /// any one of them registers as the demand being met. Upstream's worked
-    /// example: 10 kg of MOX or 9 kg of UOX meeting one demand gives a total
-    /// of 9.5 and coefficients `9.5/10` and `9.5/9`.
+    /// *average* of their quantities rather than the sum, and each request
+    /// gets a mass coefficient of `its quantity / that average`, which the
+    /// automatic mass constraint then uses as its unit capacity.
+    ///
+    /// # Upstream's code and upstream's comment disagree, and the code wins
+    ///
+    /// `request_portfolio.h`'s class comment says, of 10 kg of MOX and 9 kg of
+    /// UOX meeting one demand: "the total demand is 9.5, the MOX order is
+    /// given a coefficient of 9.5 / 10, and the UOX order is given a
+    /// coefficient of 9.5 / 9". The implementation two screens below computes
+    /// the **reciprocal** — `mass_coeffs_[r] = r->target()->quantity() /
+    /// avg_qty`, i.e. `10/9.5` and `9/9.5`.
+    ///
+    /// The difference is observable. The constraint's capacity is the average,
+    /// 9.5, and the flow it permits is `capacity / coefficient`; with the
+    /// comment's coefficient that is exactly 10 kg of MOX (a full order, as
+    /// the comment promises), and with the code's it is 9.025 kg (a full order
+    /// minus 10 %). No upstream test covers either — `request_portfolio_tests.cc`
+    /// does not exercise `AddMutualReqs` at all.
+    ///
+    /// **The code is translated, not the comment**, because it is what every
+    /// published Cyclus result was produced with, and quietly "correcting" a
+    /// mass balance to match a doc comment is not a translation. Anyone
+    /// relying on mutual requests should know the mechanism under-fills
+    /// relative to its stated design.
     ///
     /// # Errors
     ///
@@ -153,9 +174,14 @@ impl RequestPortfolio {
         self.constraints.push(constraint);
     }
 
-    /// The requesting agent's id, or `None` if no request has been added.
+    /// The requesting agent, or `None` if no request has been added yet.
+    ///
+    /// The `Option` here is the portfolio's own "not yet determined" state —
+    /// upstream's `Trader* requester_ == NULL` — and not the unset-agent
+    /// sentinel that [`ExchangeNode::agent_id`](crate::exchange::graph::ExchangeNode::agent_id)
+    /// carries. A [`Request`] itself always names its requester.
     #[must_use]
-    pub fn requester(&self) -> Option<i32> {
+    pub fn requester(&self) -> Option<AgentId> {
         self.requester
     }
 
@@ -217,7 +243,7 @@ impl RequestPortfolio {
 pub struct BidPortfolio {
     bids: Vec<Bid>,
     constraints: Vec<CapacityConstraint>,
-    bidder: Option<i32>,
+    bidder: Option<AgentId>,
 }
 
 impl BidPortfolio {
@@ -257,7 +283,7 @@ impl BidPortfolio {
         &mut self,
         request: RequestId,
         offer: Resource,
-        bidder: i32,
+        bidder: AgentId,
         exclusive: bool,
     ) -> Result<usize> {
         let b = Bid::new(request, offer, bidder, exclusive)?;
@@ -273,9 +299,10 @@ impl BidPortfolio {
         self.constraints.push(constraint);
     }
 
-    /// The bidding agent's id, or `None` if no bid has been added.
+    /// The bidding agent, or `None` if no bid has been added yet. Same
+    /// "not yet determined" sense as [`RequestPortfolio::requester`].
     #[must_use]
-    pub fn bidder(&self) -> Option<i32> {
+    pub fn bidder(&self) -> Option<AgentId> {
         self.bidder
     }
 
@@ -300,6 +327,7 @@ impl BidPortfolio {
 mod tests {
     use super::*;
     use crate::exchange::request::DEFAULT_PREF;
+    use crate::limits::almost_eq;
     use crate::product::Product;
 
     fn product(qty: f64) -> Resource {
@@ -316,22 +344,22 @@ mod tests {
     #[test]
     fn a_request_portfolio_sums_quantities_and_adopts_one_requester() {
         let mut p = RequestPortfolio::new();
-        p.request(product(4.0), 1, "power", DEFAULT_PREF, false)
+        p.request(product(4.0), AgentId(1), "power", DEFAULT_PREF, false)
             .unwrap();
-        p.request(product(6.0), 1, "power", DEFAULT_PREF, false)
+        p.request(product(6.0), AgentId(1), "power", DEFAULT_PREF, false)
             .unwrap();
         assert_eq!(p.qty(), 10.0);
-        assert_eq!(p.requester(), Some(1));
+        assert_eq!(p.requester(), Some(AgentId(1)));
         assert_eq!(p.requests().len(), 2);
     }
 
     #[test]
     fn a_second_requester_is_rejected() {
         let mut p = RequestPortfolio::new();
-        p.request(product(4.0), 1, "power", DEFAULT_PREF, false)
+        p.request(product(4.0), AgentId(1), "power", DEFAULT_PREF, false)
             .unwrap();
         assert_eq!(
-            p.request(product(4.0), 2, "power", DEFAULT_PREF, false)
+            p.request(product(4.0), AgentId(2), "power", DEFAULT_PREF, false)
                 .unwrap_err(),
             CyclusError::Key("insertion error: requesters do not match")
         );
@@ -342,29 +370,36 @@ mod tests {
         // Upstream's own worked example: 10 kg of MOX or 9 kg of UOX.
         let mut p = RequestPortfolio::new();
         let mox = p
-            .request(product(10.0), 1, "mox", DEFAULT_PREF, false)
+            .request(product(10.0), AgentId(1), "mox", DEFAULT_PREF, false)
             .unwrap();
         let uox = p
-            .request(product(9.0), 1, "uox", DEFAULT_PREF, false)
+            .request(product(9.0), AgentId(1), "uox", DEFAULT_PREF, false)
             .unwrap();
         assert_eq!(p.qty(), 19.0);
 
         p.add_mutual_reqs(&[mox, uox]).unwrap();
+        // The demand becomes the average, not the sum.
         assert_eq!(p.qty(), 9.5);
-        assert_eq!(p.mass_coeff(mox), 9.5 / 10.0);
-        assert_eq!(p.mass_coeff(uox), 9.5 / 9.0);
+        // The coefficients are `qty / avg`, as upstream's CODE computes them.
+        // Its class comment states the reciprocals; see `add_mutual_reqs`.
+        assert_eq!(p.mass_coeff(mox), 10.0 / 9.5);
+        assert_eq!(p.mass_coeff(uox), 9.0 / 9.5);
+        assert!(p.mass_coeff(mox) > p.mass_coeff(uox));
 
-        // A full order of either registers as the whole demand being met.
         let c = p.qty_constraint().unwrap();
         assert_eq!(c.capacity(), 9.5);
-        assert_eq!(c.convert(&product(10.0), p.mass_coeff(mox)), 9.5);
-        assert_eq!(c.convert(&product(9.0), p.mass_coeff(uox)), 9.5);
+        // A full order consumes more than the whole capacity -- which is the
+        // observable consequence of the code/comment discrepancy, pinned here
+        // so that a future change to either is deliberate.
+        assert!(c.convert(&product(10.0), p.mass_coeff(mox)) > 9.5);
+        let permitted = c.capacity() / p.mass_coeff(mox);
+        assert!(almost_eq(permitted, 9.025));
     }
 
     #[test]
     fn an_empty_or_unknown_mutual_set_is_an_error_rather_than_a_nan() {
         let mut p = RequestPortfolio::new();
-        p.request(product(1.0), 1, "power", DEFAULT_PREF, false)
+        p.request(product(1.0), AgentId(1), "power", DEFAULT_PREF, false)
             .unwrap();
         assert!(p.add_mutual_reqs(&[]).is_err());
         assert!(p.add_mutual_reqs(&[7]).is_err());
@@ -373,15 +408,15 @@ mod tests {
     #[test]
     fn a_bid_portfolio_adopts_one_bidder_and_keeps_insertion_order() {
         let mut p = BidPortfolio::new();
-        let i = p.bid(req_id(), product(3.0), 9, false).unwrap();
-        let j = p.bid(req_id(), product(4.0), 9, true).unwrap();
+        let i = p.bid(req_id(), product(3.0), AgentId(9), false).unwrap();
+        let j = p.bid(req_id(), product(4.0), AgentId(9), true).unwrap();
         assert_eq!((i, j), (0, 1));
-        assert_eq!(p.bidder(), Some(9));
+        assert_eq!(p.bidder(), Some(AgentId(9)));
         assert_eq!(p.bids()[0].quantity(), 3.0);
         assert_eq!(p.bids()[1].quantity(), 4.0);
 
         assert_eq!(
-            p.bid(req_id(), product(1.0), 10, false).unwrap_err(),
+            p.bid(req_id(), product(1.0), AgentId(10), false).unwrap_err(),
             CyclusError::Key("insertion error: bidders do not match")
         );
     }

@@ -69,15 +69,15 @@
 //!
 //! | Quantity | Measured |
 //! |---|---|
-//! | feed | `9.219088937093184` kg |
-//! | tails | `8.219088937093184` kg |
-//! | SWU | `6.861941102009186` SWU |
-//! | `V(0.045)` | `2.780093882697295` |
-//! | `V(0.0025)` | `5.959016223121849` |
-//! | `V(0.00711)` | `4.869878588219283` |
+//! | feed | `9.219088937093275` kg |
+//! | tails | `8.219088937093277` kg |
+//! | SWU | `6.871112989320217` SWU |
+//! | `V(0.045)` | `2.7800944541464734` |
+//! | `V(0.0025)` | `5.959016609805414` |
+//! | `V(0.00711)` | `4.868883385844146` |
 //!
 //! These are consistent with the standard published figure of roughly
-//! 6.9 SWU/kg-SWU for 4.5 % product at 0.25 % tails. **Interpretation:** the
+//! 6.9 SWU per kilogram of 4.5 % product at 0.25 % tails. **Interpretation:** the
 //! implementation reproduces the closed-form two-isotope cascade arithmetic;
 //! it is *not* validated against a plant, and says nothing about real cascade
 //! efficiency, hold-up, or U-234 carry-over.
@@ -310,7 +310,7 @@ pub fn value_func(frac: f64) -> Result<f64> {
 /// # Worked value
 ///
 /// 0.711 % feed, 4.5 % product, 0.25 % tails, 1 kg product:
-/// **6.861941102009186 SWU** from **9.219088937093184 kg** of feed (measured
+/// **6.871112989320217 SWU** from **9.219088937093275 kg** of feed (measured
 /// 2026-09-16 — see the [module docs](self)).
 pub fn swu_required(product_qty: f64, assays: &Assays) -> Result<f64> {
     let feed = feed_qty(product_qty, assays);
@@ -433,10 +433,10 @@ mod tests {
     ///   V(0.0025)  = (1 - 0.005)    ln(1/0.0025  - 1) = 0.995    ln(399)
     ///   V(0.00711) = (1 - 0.01422)  ln(1/0.00711 - 1) = 0.98578  ln(139.64698...)
     ///
-    /// MEASURED 2026-09-16 (this crate, release): SWU = 6.861941102009186
-    /// for 1 kg of product, from 9.219088937093184 kg of feed. That is
-    /// consistent with the standard published ~6.9 SWU/kg for 4.5 % product
-    /// at 0.25 % tails.
+    /// MEASURED 2026-09-16 (this crate, release): SWU = 6.871112989320217
+    /// for 1 kg of product, from 9.219088937093275 kg of feed, leaving
+    /// 8.219088937093277 kg of tails. That is consistent with the standard
+    /// published ~6.9 SWU/kg for 4.5 % product at 0.25 % tails.
     #[test]
     fn swu_for_the_textbook_case_matches_the_closed_form() {
         let a = Assays::new(0.00711, 0.045, 0.0025);
@@ -455,11 +455,11 @@ mod tests {
 
         // The recorded number, to the precision stated in the doc comment.
         assert!(
-            abs(got - 6.861_941_102_009_186) < 1e-12,
+            abs(got - 6.871_112_989_320_217) < 1e-12,
             "swu drifted from the recorded value: {got}"
         );
         assert!(
-            abs(feed_qty(p, &a) - 9.219_088_937_093_184) < 1e-12,
+            abs(feed_qty(p, &a) - 9.219_088_937_093_275) < 1e-12,
             "feed drifted from the recorded value: {}",
             feed_qty(p, &a)
         );
@@ -585,3 +585,4 @@ mod tests {
         assert!(abs(m_in - m_out) < 1e-12, "{m_in} in, {m_out} out");
     }
 }
+
