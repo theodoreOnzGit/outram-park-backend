@@ -73,13 +73,8 @@ default = ["transfer-fn"]
 # in no_std `uom` for sample times and signal ratios. Turn it off for a
 # units-free, uom-free numerics core.
 transfer-fn = ["dep:uom"]
-# Opt in to std only for downstream convenience (e.g. std::error::Error).
-# The library itself must keep compiling and passing without it.
-std = []
-# Route `RealMath`'s three methods to the PLATFORM libm instead of PETIR's ARM
-# optimized-routines ports. NOT additive -- it changes results in the last ulp
-# and therefore gives up the cross-platform determinism that is PETIR's whole
-# point. It exists for one reason: to rebuild a golden reference that was
-# recorded before the ports were adopted. See `mathf`'s module docs for the
-# full rules, and never enable it in a workspace-wide build.
-platform-libm = ["std"]
+# ~~std / platform-libm~~ REMOVED 2026-09-17 (bn:op-7kwt). The `platform-libm`
+# escape hatch could not compile in any configuration -- it declared `std` while
+# lib.rs was `#![no_std]` unconditionally with `extern crate std` gated on
+# `cfg(test)` alone. See `src/mathf.rs`'s module docs for the full record and
+# for why gating it on `cfg(test)` was rejected rather than adopted.

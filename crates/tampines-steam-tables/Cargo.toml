@@ -45,22 +45,16 @@ uom.workspace = true
 # iterating with `cargo quick-test -p tampines-steam-tables`.
 default = ["long-tests"]
 long-tests = []
-# Pass-through to `petir/platform-libm`: routes this crate's 173 swept
-# transcendental call sites back to the host's libm instead of PETIR's ARM
-# optimized-routines ports.
+# ~~platform-libm~~ REMOVED 2026-09-17 (bn:op-7kwt), together with the petir
+# feature it passed through to. That hatch could not compile in ANY
+# configuration, so the sanctioned invocation recorded here never ran as
+# written; see `petir::mathf`'s module docs for the full record.
 #
-# NOT a normal feature -- it is NOT additive, it forfeits cross-platform
-# determinism, and it must never be enabled workspace-wide or by default. Its
-# one sanctioned use is rebuilding the pre-adoption Edwards-O'Brien golden
-# reference recorded under
-# `verification_and_validation/edwards_blowdown_platform_libm_golden.md`:
-#
-#   cargo test --release -p tampines-steam-tables --features platform-libm \
-#       --test edwards_blowdown edwards_obrien_pipe_blowdown_600ms -- --nocapture
-#
-# See `petir::mathf`'s module docs for the full rules and the reason the hatch
-# exists at all (bn:op-ppmk, bn:op-s2dc).
-platform-libm = ["petir/platform-libm"]
+# Consequence: the pre-adoption Edwards-O'Brien golden reference under
+# `verification_and_validation/edwards_blowdown_platform_libm_golden.md` can no
+# longer be regenerated from this tree, and regenerating it needs a pre-no_std
+# petir. It was already unregenerable in practice -- this makes that explicit
+# instead of leaving a route that only appeared to exist.
 
 
 # All dev-dependencies below are used ONLY by the FHR-simulator / Rankine-cycle
