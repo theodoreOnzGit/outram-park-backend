@@ -23,7 +23,7 @@ compiled from source, run, and its output committed here so the comparison
 | Licence | GNU GPL, **version 2 or later** — used here under the "or later" option as GPL-3.0 |
 | Build | `make stubs` then `make serial` (g++ 15.2.1, `-O2 -fPIC`, MPI stubs, no VTK) |
 | Date generated | 2026-09-15 |
-| Host | x86-64 Linux, 8 cores |
+| Host | x86-64 Linux, Intel Xeon @ 2.80 GHz, **4 cores** (`nproc`, 2026-09-17) |
 
 LIGGGHTS® and CFDEM® are registered trademarks of DCS Computing GmbH. This
 project is an independent fork and is not affiliated with or endorsed by DCS
@@ -58,8 +58,13 @@ patch.
 
 ## Cases
 
-All cases: monodisperse spheres, `d = 10 mm`, `ρ = 2500 kg/m³`, `E = 10 MPa`,
-`ν = 0.3`, SI units, `fix nve/sphere`, `pair_style gran`.
+The small deterministic cases (`headon_*`, `oblique_*`, `wall_bounce`,
+`rolling_pair`) all use monodisperse spheres, `d = 10 mm`, `ρ = 2500 kg/m³`,
+`E = 10 MPa`, `ν = 0.3`. The three bulk cases do not — `pebble_bed` and
+`repose_lift` use `d = 10 mm` at their own stiffness, and `htr10` uses the
+HTR-10 design point (`d = 60 mm`, `ρ = 1730 kg/m³`, `E = 5e8 Pa`, `ν = 0.2`);
+each input file states its own. Common to all: SI units, `fix nve/sphere`,
+`pair_style gran`.
 
 | File | Input | Physics exercised | `dt` | Steps | Sample |
 |---|---|---|---|---|---|
@@ -72,11 +77,19 @@ All cases: monodisperse spheres, `d = 10 mm`, `ρ = 2500 kg/m³`, `E = 10 MPa`,
 | `pebble_bed_init.csv`, `pebble_bed_settled.csv` | `in.pebble_bed` | bulk settling in a cylinder, 354 pebbles, packing fraction | `5 µs` | 400 000 | first + final state |
 | `lift_init.csv`, `lift_heap.csv` | `in.repose_lift` | **angle of repose** by the lifting-cylinder method, 656 pebbles | `5 µs` | 1 700 000 | post-settle + final |
 | `lift_cylinder.stl` | — | the cylinder geometry **both codes read**: `R = 0.050 m`, 1280 facets, inward normals | — | — | — |
+| `htr10_init.csv`, `htr10_settled.csv` | `in.htr10` | **HTR-10 full core**: 27 000 pebbles at the published reactor geometry (`D/d = 30`), Hertz + history + CDT rolling | `35 µs` | 60 000 insert + 50 000 settle | post-insertion + final |
+| `htr10_settled_ours.csv` | — | **this port's own settled state**, not LIGGGHTS' — written by `tests/htr10_pebble_bed.rs` so the two beds can be diffed without re-running either code | — | — | final |
 
-Column layout of the CSVs: `step`, then per atom id in ascending order,
-`x y z vx vy vz omegax omegay omegaz` (SI). Header row names every column.
+**Two column layouts, by case type.** The deterministic trajectory cases
+(`headon_*`, `oblique_*`, `wall_bounce`, `rolling_pair`) are one row per
+sampled step, laid out wide: `step`, then per atom id in ascending order,
+`x y z vx vy vz omegax omegay omegaz` (SI). The snapshot cases
+(`pebble_bed_*`, `lift_*`, `htr10_*`) are one row per particle:
+`id,x,y,z,vx,vy,vz` (SI, no spin — the settled beds are compared
+statistically, not orientation by orientation). Header row names every column
+in both.
 
-The two bulk cases (`in.pebble_bed`, `in.repose_lift`) commit a **start and an
+The three bulk cases (`in.pebble_bed`, `in.repose_lift`, `in.htr10`) commit a **start and an
 end state** rather than a trajectory: their initial condition comes from
 LIGGGHTS' own random `fix insert/pack`, and reproducing that RNG stream is not
 the point. The Rust side starts from the committed LIGGGHTS state so both codes

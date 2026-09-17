@@ -210,6 +210,36 @@ fn max_overlap(ps: &[Particle], pairs: &[(usize, usize)]) -> f64 {
     worst
 }
 
+
+/// Write this port's own settled state to `reference-data/liggghts/` in the
+/// same CSV layout as the LIGGGHTS dumps (`id,x,y,z,vx,vy,vz`, `%.17g`), so a
+/// reader can diff the two codes' beds without paying for a 40-minute run.
+///
+/// Best-effort: a failure to write warns and does not fail the test, because
+/// the comparison this test asserts does not depend on the file existing.
+fn write_our_state(name: &str, ps: &[Particle]) {
+    use std::fmt::Write as _;
+    let mut out = String::with_capacity(ps.len() * 96);
+    out.push_str("id,x,y,z,vx,vy,vz\n");
+    for (i, p) in ps.iter().enumerate() {
+        let (x, v) = (p.position, p.velocity);
+        let _ = writeln!(
+            out,
+            "{},{:.17e},{:.17e},{:.17e},{:.17e},{:.17e},{:.17e}",
+            i + 1,
+            x.x,
+            x.y,
+            x.z,
+            v.x,
+            v.y,
+            v.z
+        );
+    }
+    match std::fs::write(data_path(name), out) {
+        Ok(()) => eprintln!("wrote our settled state to reference-data/liggghts/{name}"),
+        Err(e) => eprintln!("warning: could not write {name}: {e}"),
+    }
+}
 /// The published design point, restated so a drift against
 /// `Htr10DesignPoint::iaea_benchmark()` is visible in one place.
 ///
@@ -253,7 +283,7 @@ fn htr10_geometry_matches_the_published_design_point() {
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
-    ignore = "full-scale HTR-10 DEM: 27 000 pebbles x 40 000 steps; gated behind \
+    ignore = "full-scale HTR-10 DEM: 27 000 pebbles x 50 000 steps; gated behind \
               `long-tests` (default-on) per the workspace 5-minute rule"
 )]
 fn htr10_full_core_settles_and_matches_liggghts() {
@@ -298,6 +328,7 @@ fn htr10_full_core_settles_and_matches_liggghts() {
     sys.run(SETTLE_STEPS);
     let elapsed = started.elapsed().as_secs_f64();
 
+    write_our_state("htr10_settled_ours.csv", sys.particles());
     let ours: Vec<Vec3> = sys.particles().iter().map(|p| p.position).collect();
     let theirs: Vec<Vec3> = settled.iter().map(|(x, _)| *x).collect();
     let (phi_ours, z_ours) = bulk_solid_fraction(&ours);

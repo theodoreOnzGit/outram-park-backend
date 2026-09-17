@@ -581,15 +581,25 @@ Unchanged from the 2026-09-06 declaration, and not weakened by anything above:
 ## 6. Reproducing
 
 ```bash
-# unit tests (102)
+# unit tests (115)
 cargo test --release -p outram-park-fork-liggghts --lib
 
-# cross-code tests against the committed LIGGGHTS reference data (5)
+# cross-code tests against the committed LIGGGHTS reference data (5 + 1 legacy path)
 cargo test --release -p outram-park-fork-liggghts --test liggghts_cross_code
+cargo test --release -p outram-park-fork-liggghts --test legacy_path_cross_code
 
-# bulk pebble-bed settling (long: ~210 s)
-cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk -- --ignored
+# the three long cases. All are gated behind the crate's `long-tests` feature,
+# which is ON by default -- so they run in an ordinary `cargo test` and are
+# skipped only under `--no-default-features` (or `cargo quick-test`). They do
+# NOT need `-- --ignored`.
+cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk      # 317 s
+cargo test --release -p outram-park-fork-liggghts --test angle_of_repose      # 2313 s
+cargo test --release -p outram-park-fork-liggghts --test htr10_pebble_bed     # see 4.7
 ```
+
+Runtimes are measured on this repository's reference host (x86-64 Linux, Intel
+Xeon @ 2.80 GHz, 4 cores), dated where they are quoted. They are
+machine-dependent -- re-measure rather than trusting the numbers here.
 
 Regenerating the reference data from upstream is described in
 `reference-data/liggghts/README.md`.
