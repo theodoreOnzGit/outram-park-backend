@@ -30,7 +30,13 @@ wall clock   = 80.0 s
    the ~25x this crate measured independently for an undiluted kernel. That is
    expensive, not fatal, and it is exactly the effect the region-local majorant
    was built to bound.
-2. **k = 0 is a distinct bug, not yet isolated.** Zero fission sites and zero
+2. **k = 0 is a distinct bug, PARTLY isolated — the geometry is ruled out.**
+   `nee_soon/examples/htr10_locate_probe.rs` puts 20,000 uniform probes through
+   the assembled core: **0 lost**, all eight materials reached, `Delta` reported
+   inside the bed and `Surface` in the reflector, four-level descent where it
+   should occur, and the kernel's 0.025 % probe share matching its ~1 %
+   by-volume estimate. So `locate` and the delta path's `material_at` both work.
+   The failure is in the flight, not the assembly. Still Zero fission sites and zero
    entropy mean nothing was produced at all, which 22x rejection does not
    explain. Candidates not yet discriminated: the source box may not intersect
    the bed; helium is modelled as an empty material so a flight through it can
