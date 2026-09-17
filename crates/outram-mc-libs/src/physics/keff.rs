@@ -224,6 +224,41 @@ pub struct KeffResult {
     /// the count away, so no HTR-10 run in this crate has ever had a measured
     /// rejection rate.
     pub virtual_collisions: u64,
+    /// **Real collisions over the whole run.** Divided by the history count
+    /// this is the mean collisions per neutron, which separates a model that
+    /// absorbs its neutrons from one that loses them before they interact.
+    pub collisions: u64,
+    /// Histories ended by a failed `Geometry::locate`. Scored as leaks in the
+    /// neutron balance, so `k` alone cannot reveal them.
+    pub lost_locate: u64,
+    /// Histories ended by exhausting the per-history event budget.
+    pub stuck_events: u64,
+    /// Total path \[cm\] travelled by stuck histories — near zero means they
+    /// were oscillating on a surface, large means real tile traversal.
+    pub stuck_path_cm: f64,
+    /// Last-known energy \[eV\] of a stuck history.
+    pub stuck_last_e: f64,
+    /// Times `distance_to_boundary` returned a negative distance — a geometry
+    /// defect that makes the neutron step backwards and oscillate.
+    pub neg_dist: u64,
+    /// Coordinate (nesting) level of the most recent negative distance.
+    pub neg_level: u64,
+    /// Most negative distance \[cm\] observed.
+    pub neg_worst: f64,
+    /// Negative distances coming from a lattice tile crossing.
+    pub neg_from_lattice: u64,
+    /// Negative distances coming from a CSG surface.
+    pub neg_from_surface: u64,
+    /// Histories leaking across a genuine vacuum boundary.
+    pub leak_vacuum: u64,
+    /// Histories that streamed to infinity with no surface ahead — a geometry
+    /// defect, not physics, whenever the model is closed.
+    pub leak_infinity: u64,
+    /// **Histories actually transported.** The denominator for every counter
+    /// above. It is NOT `n_particles x n_generations` when a run dies early,
+    /// and using the planned figure understates every rate — which is exactly
+    /// how a 68 % stuck-history rate first read as 2.7 %.
+    pub histories: u64,
 }
 
 /// A fission-source neutron awaiting transport in the next generation.
@@ -360,6 +395,20 @@ pub fn run_keff_cpu_single(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
@@ -550,6 +599,20 @@ pub fn run_keff_cpu_multi(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
@@ -716,6 +779,20 @@ pub fn run_keff_gpu_inner(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
@@ -995,6 +1072,20 @@ pub fn run_keff_gpu_batched(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,
@@ -1270,6 +1361,20 @@ fn run_event_power_iteration(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,

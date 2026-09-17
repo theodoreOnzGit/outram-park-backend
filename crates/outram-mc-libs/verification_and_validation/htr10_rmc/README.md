@@ -3,72 +3,186 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
-**Status as of 2026-09-17: the infrastructure is built and gated; the
-eigenvalue comparison has been ATTEMPTED AND FAILED.** Read that sentence before
-quoting anything below. `bn:op-867c`, gh #214.
+**Status as of 2026-09-17: the core now runs and produces an eigenvalue. It is
+NOT yet in agreement with the benchmark.** `bn:op-867c`, gh #214.
 
-## The attempt, and why it failed
-
-`nee_soon/examples/htr10_rmc_keff.rs` assembles an explicit-TRISO core (four
-coordinate levels: root -> bed hex lattice -> pebble -> TRISO rect lattice ->
-particle) with a region-local majorant and hybrid tracking. First run,
-8 rings x 12 layers, 1500 histories x [30 inactive + 70 active]:
+Measured 2026-09-17, 14 rings x 25 layers (13,675 tiles, a 93.6 cm-radius by
+122.5 cm bed against the benchmark's 123.576 cm critical height), 2000 histories
+x [30 inactive + 70 active], surface tracking, ENDF/B-VIII.0:
 
 ```text
-k_eff        = 0.000000 +/- 0.000000
-virtual coll = 2820163146          (18,801 per history)
-entropy      = 0.0000 -> 0.0000
-wall clock   = 80.0 s
+k_eff        = 0.857140 +/- 0.003028     (RMC 1.004288, difference -14715 pcm)
+collisions   = 458.09 per history
+lost locate  = 0     stuck events = 0     negative distances = 0
+leak vacuum  = 7.965 %
 ```
 
-**Two separate findings.**
+**-14,715 pcm is far outside the 500-1000 pcm gate.** This is reported as a
+failure to agree, not as a result. What changed today is that the model now
+transports neutrons correctly, so the residual is attributable to the MODEL
+rather than to the tracker or the geometry engine.
 
-1. **The majorant cost is as predicted and is NOT the failure.** Measured in
-   `examples/htr10_majorant_diagnosis.rs`: the bound is the UO2 kernel at
-   4.18 cm^-1 while the volume-weighted local total is ~0.18, giving
-   `p_accept ~ 0.0432` — about **22 rejections per real collision**, matching
-   the ~25x this crate measured independently for an undiluted kernel. That is
-   expensive, not fatal, and it is exactly the effect the region-local majorant
-   was built to bound.
-2. **k = 0 is a distinct bug, and BOTH the geometry and the tracker are now
-   ruled out.**
+### How it got here, measured at each step
 
-   Running the **identical geometry with surface tracking only**
-   (`OUTRAM_HTR10_SURFACE=1`) also gives `k = 0.000000`, with **zero** virtual
-   collisions, in 1.8 s instead of 80 s. So the delta path is not at fault — it
-   was doing exactly what it should (22x rejection, as predicted) on a model
-   that produces no fission either way. The 2.8e9 virtual collisions were a
-   symptom of the expensive path being taken, not the cause.
+| configuration | `k_eff` | change |
+|---|---|---|
+| before the lattice fix | **0.000000** | — |
+| 12 rings x 20 layers (98.0 cm bed) | 0.707506 +/- 0.006010 | first nonzero |
+| 13 rings x 25 layers (critical height) | 0.803706 +/- 0.003286 | +9,620 pcm |
+| packing corrected 0.5811 -> 0.610 | **0.857140 +/- 0.003028** | +5,343 pcm |
 
-   That elimination is only possible *because* the hybrid tracker had already
-   been proven equivalent to surface tracking at 0.62 sigma (`op-867c.7`): a
-   disagreement here would have implicated the tracker, and the agreement
-   implicates the model.
+### Ablations that bound the residual
 
-   **Three eliminations, and the materials are ruled out too.**
-   `nee_soon/examples/htr10_material_check.rs` evaluates
-   `fuel_pebble_materials` directly: the UO2 kernel carries
-   **nu-fission = 5.691 cm^-1 at thermal** (fission 2.342), and every
-   non-fuel layer is correctly zero. So the fuel is real and strongly
-   multiplying.
+| ablation | `k` | reads as |
+|---|---|---|
+| reflective outer boundary (no leakage) | 0.806182 +/- 0.002811 | leakage is worth only ~250 pcm -- the 100 cm reflector already returns nearly everything, so the deficit is in the BED, not the boundary |
+| all fuel, no dummy balls | 0.915527 +/- 0.003962 | the 57:43 graphite dilution costs **~11,000 pcm**, which is what dummy balls are for |
+| all boron removed | **0.943105 +/- 0.003170** | boron is worth **8,597 pcm** on the core (`-6,118 pcm` from RMC) |
 
-   The geometry is also ruled out:
-   `nee_soon/examples/htr10_locate_probe.rs` puts 20,000 uniform probes through
-   the assembled core: **0 lost**, all eight materials reached, `Delta` reported
-   inside the bed and `Surface` in the reflector, four-level descent where it
-   should occur, and the kernel's 0.025 % probe share matching its ~1 %
-   by-volume estimate. So `locate` and the delta path's `material_at` both work.
-   The failure is in the flight, not the assembly. Still Zero fission sites and zero
-   entropy mean nothing was produced at all, which 22x rejection does not
-   explain. Candidates not yet discriminated: the source box may not intersect
-   the bed; helium is modelled as an empty material so a flight through it can
-   only reject; or `material_at` returns `None` inside the delta region, making
-   every flight report `Exhausted`.
+The first two are at the pre-packing-fix geometry, so they bound components
+rather than adding to the current number. The boron arm is at the current
+geometry and is directly comparable to the 0.857140 above.
 
-What the attempt DOES establish: the geometry assembles at four levels, the
-hybrid dispatch engages, and the instrumentation reports — the virtual-collision
-counter and the entropy trace both did their job, and it is *because* they
-report that the failure is diagnosable at all rather than silent.
+### The boron reading now dominates, and it is an INPUT question
+
+Boron is worth **8,597 pcm here against 1,487 pcm on a bare pebble** -- roughly
+six times -- because the core surrounds the fuel with 100 cm of reflector
+graphite and 43 % graphite dummy balls, and a thermal neutron spends most of its
+life in graphite where a 3840 b absorber at a few ppm competes directly with
+carbon's own 0.0035 b. The bare-pebble sensitivity study therefore **understates
+this term badly**, and citing its 1,487 pcm as the scale of the boron
+uncertainty for a whole core would be wrong.
+
+This matters because the reading is genuinely ambiguous, as
+`examples/htr10_pebble_delta_tracking.rs` already records: Table 2's "ppm" has
+no stated basis, and is taken here as *natural* boron *by weight*. The
+reflector's boron comes from a different source again -- TECDOC Table 4-3's
+`natural_boron` column, 4.738e-7 against carbon 8.824e-2, i.e. 5.4 ppm atomic --
+and is multiplied by 0.199 to get B-10. **If that column is already an
+absorbing-species ("boron equivalent") density rather than elemental natural
+boron, the 0.199 must not be applied and the model is currently UNDER-absorbing
+in the reflector** -- which would make the disagreement worse, not better.
+
+**Removing the boron is not a fix and must not be read as one.** Real nuclear
+graphite carries it, and the 0.943105 arm is unphysical. What the ablation
+establishes is that ~8,600 pcm of this model's answer rests on an input reading
+that the source documents do not state unambiguously, and that resolving that
+reading against TECDOC-1382 is worth more than any further transport work.
+
+### What is NOT yet explained
+
+~14,700 pcm. The bed's own `k_inf` is ~0.86 where a core critical at this height
+needs ~1.1. Ruled out so far: leakage (~250 pcm), the tracker (surface and delta
+agree), the geometry engine (0 lost / 0 stuck / 0 negative), the TRISO loading
+(1.006 of intended), the materials (cross sections printed and checked per
+material), and the packing (now 0.610 by construction).
+
+**One comparison that looked like a contradiction and is not.** The recorded
+single-pebble `k_inf = 1.68515 +/- 0.00178` is a **bare pebble** -- reflective at
+r = 3.0 cm, i.e. pure pebble material at packing 1.0 with no interstitial void.
+The bed is 39 % void between pebbles, so the two are not the same problem and
+the difference is not by itself evidence of a defect. A like-for-like comparison
+needs an infinite medium of pebbles at 0.61 packing, which the
+`OUTRAM_HTR10_NOREFL` knob does not yet deliver (a zero-thickness reflector
+makes the bed envelope and the outer boundary coincident, and 99.3 % of
+histories are then lost at the seam). That is the next measurement.
+
+**The reflector is ruled out as the cause, and is in fact optimistic.** The
+model uses TECDOC Table 4-3 zone 22 for the whole 100 cm reflector. Zone 22 is
+the **cleanest graphite in the table** -- carbon 8.824e-2, the highest listed,
+with natural boron 4.738e-7, near the lowest. The boronated zones (17, 19, 27,
+46, 64, carrying ~3.4e-3 natural boron, i.e. 7,000x more) are **omitted
+entirely**. Both simplifications push `k` UP, so the real 83-zone reflector
+would give a lower answer, not a higher one. Whatever the missing reactivity
+is, the reflector is not it -- and the current number benefits from that
+optimism, which is why it is stated here rather than left implicit.
+
+Leading remaining candidates, none yet measured: boron treatment (independently
+worth ~1,487 pcm on a bare pebble); spectral effects of ballistic streaming
+through the interstitial void, which a bare-pebble model cannot exhibit; and
+the double-heterogeneity resonance treatment in the explicit TRISO lattice.
+
+Checked and NOT the cause: the kernel's thermal `nu-Sigma_f / Sigma_a` is
+2.038, against 2.07 for pure U-235 and ~2.03 expected for 17 %-enriched UO2 --
+so the enrichment and the kernel's thermal behaviour are right, and any fuel
+problem lives in the resonance range rather than at thermal.
+
+## The k = 0 failure and its root cause — RESOLVED 2026-09-17
+
+~~The eigenvalue comparison has been ATTEMPTED AND FAILED; k = 0.000000.~~
+**CORRECTED 2026-09-17** — the cause was a **port defect in
+`HexLattice::distance`**, not the model, the tracker, or the fuel loading.
+
+`HexLattice::distance` reconstructs a lattice-frame position from the caller's
+tile-local one. It reconstructed **all three** components; the axial test at the
+end of that function compares `z` against `+/- 0.5 * pitch[1]`, which is a
+**tile-local** half-height. The comparison was therefore wrong by the tile's own
+`z` offset and returned a **negative** distance-to-boundary.
+
+OpenMC builds the hybrid -- x,y lattice-frame, z tile-local -- at the *call*
+site (`src/geometry.cpp:459-467`) and guards the result with
+`if (d_lat < 0) p.mark_as_lost(...)`. This port had neither.
+
+**Why it survived.** The error cancels **exactly** when the tile z-offset is
+zero, i.e. `n_axial == 1`, and `from_rings_3d` had unit tests only -- no
+integration test and no example. Every existing test sat on the one
+configuration that hides it.
+
+**Why it was invisible in `k`.** A negative distance steps the neutron
+backwards, so it re-crosses the same boundary until the per-history event budget
+kills it -- and a budget-exhausted history is **scored as a leak**, so the
+neutron balance closes and nothing in the output points at geometry.
+
+**Measured, on this model:**
+
+| `n_axial` | negative distances before | after |
+|---|---|---|
+| 1 | 0 | 0 |
+| 2 | 8,199,697 | 0 |
+| 20 | 17,498,719 (worst -7.7e3 cm) | 0 |
+
+and the history-termination histogram, 12 rings x 20 layers:
+
+| end | before | after |
+|---|---|---|
+| stuck on the event budget | **68.5 %** | 0 % |
+| lost in `locate` | 14.5 % | 0 % |
+| genuine vacuum leak | 5.4 % | — |
+| collisions per history | 4.2 (denominator-corrected 105.6) | 498.9 |
+| `k_eff` | 0.000000 | **0.707506 +/- 0.006010** |
+
+Gated by `tests/hex_lattice_axial_frame.rs`. Filed as a P0 bug.
+
+### How it was found — the instrumentation is the finding
+
+`k` alone could not distinguish "absorbed" from "lost", because both leak arms
+scored identically. Five counters were added to the CSG driver and are now part
+of `KeffResult`: `histories`, `collisions`, `lost_locate`, `stuck_events`,
+`leak_vacuum`, `leak_infinity`, plus `neg_dist`/`neg_from_lattice`/
+`neg_from_surface`. Each step below eliminated a hypothesis:
+
+1. **Reflective outer boundary changed `k` bit-for-bit not at all** -> no
+   history was reaching the boundary; this is not leakage.
+2. **Macroscopic cross sections printed per material** -> every material is
+   correct (graphite absorption/total 1.0e-3 thermal, 3.3e-6 at 1 MeV; the
+   kernel's nu-fission 5.69 against absorption 2.79). Not the materials.
+3. **The history denominator was wrong** -- rates were being divided by the
+   *planned* history count while the run died after 4 generations. Correcting it
+   turned "2.7 % stuck, 4.2 collisions/history" into "68.5 % stuck, 105.6
+   collisions/history", which is what made the defect visible at all.
+4. **Negative distances split by source** -> 100 % from the lattice, 0 % from
+   any CSG surface.
+5. **Swept `n_axial`** -> 1 layer gives exactly zero negatives, more gives
+   millions. That named the axial branch.
+6. **Read OpenMC's caller before patching** (workspace rule) -> found the
+   hybrid position it builds, which is the fix.
+
+**Two of my own hypotheses were wrong and were measured down rather than
+assumed away**, and both are recorded because a discarded hypothesis is
+evidence: a degenerate ball-tangent-to-prism geometry (it was real, and fixing
+it changed nothing), and the TRISO lattice failing to cover its fuel zone (also
+real, also not this). A third -- clipping the tile universes with explicit
+planes -- was implemented, made things worse, and was reverted.
 
 ## The target
 
@@ -132,9 +246,24 @@ suspicious."*
   open (`op-os8x`, gh #206).
 - **No control rods or absorber balls** are modelled.
 
-## The fuel deficit, half of it found exactly
+## The fuel deficit — real, but NOT the cause of `k = 0`
 
-`k = 0` traces to the model carrying far too little fuel:
+~~`k = 0` traces to the model carrying far too little fuel.~~
+**CORRECTED 2026-09-17** — it does not. The cause was the `HexLattice::distance`
+axial-frame defect recorded above; `k = 0` persisted through every fuel-loading
+fix in this section and vanished the moment the lattice defect was fixed, with
+the fuel loading unchanged. The packing finding below is nonetheless **real and
+was fixed**, so it is kept — as a loading correction, not as a diagnosis.
+
+The reasoning that went wrong is worth keeping too: a ~5x fuel deficit was
+measured, `k = 0` was attributed to it, and the attribution was never tested
+against the alternative that neutrons were being *destroyed*. They were. The
+lesson is the one the instrumentation section states — `k` alone could not
+distinguish a model that under-produces from one that loses its histories, and
+no amount of reasoning about fuel fractions could substitute for counting how
+each history actually ended.
+
+The deficit as originally measured:
 
 | quantity | value |
 |---|---|
@@ -163,14 +292,27 @@ it predicts 27,038 balls against a stated 27,000 — but it was never reconciled
 with the lattice that consumes it, and nothing checked that the geometry
 realised the packing the arithmetic assumed.
 
-**Residual: 2.31x**, most likely the per-tile TRISO count. The assembly keeps a
-particle where the tile *centre* lies inside `r_zone - r_particle`, which is
-cruder than `cubic_array_in_ball`'s whole-particle rule and was never
-cross-checked against the 8340 that function returns.
+~~**Residual: 2.31x**, most likely the per-tile TRISO count.~~
+**CORRECTED 2026-09-17 — the TRISO count is right.** Measured directly
+(`nee_soon/examples/htr10_triso_count.rs`): the assembly builds **8,385**
+particles for a realised packing of **0.050550** against the `TrisoSpec`
+intended **0.050248** — a ratio of **1.006**, i.e. 0.6 % high, not 2.31x low.
+The tile-centre keep rule and `cubic_array_in_ball`'s whole-particle rule agree
+to within one part in 170 at this pitch.
 
-Neither is yet confirmed as *the* cause of `k = 0`. What is established is that
-the model carries ~5x too little fuel, and that a core this subcritical banking
-zero fission neutrons at 800 histories is arithmetic, not a transport defect.
+**The packing fix, and a false start inside it.** The two-balls-per-tile factor
+was closed by keeping the paper's pitch (6.6106 cm) and halving its height
+(9.79796 -> 4.899 cm), so one ball per tile reproduces 0.610 exactly with the
+ball clipped axially. An earlier attempt set the pitch to the **ball diameter**
+(6.0 cm) instead; that also gives ~0.61, but makes the ball exactly tangent to
+all six prism faces. That degeneracy is a genuine defect and was measured --
+but fixing it changed the negative-distance count not at all, which is how it
+was ruled out as the cause.
+
+**What is established now:** the loading is right to ~1 %, the transport is
+clean (0 lost, 0 stuck, 0 negative), and the remaining -29,678 pcm is a
+MODEL-completeness question -- starting with the fact that the run above is a
+98.0 cm bed against the benchmark's 123.576 cm critical height.
 
 ## Reproducing what exists
 

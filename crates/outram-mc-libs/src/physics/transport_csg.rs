@@ -426,6 +426,19 @@ pub fn run_keff_csg_seq(
 
     // Run-level total; the per-generation count is folded in below.
     let mut virtual_run_total: u64 = 0;
+    let mut collisions_run_total: u64 = 0;
+    let mut lost_locate_run_total: u64 = 0;
+    let mut stuck_events_run_total: u64 = 0;
+    let mut stuck_path_run_total = 0.0_f64;
+    let mut neg_dist_run: u64 = 0;
+    let mut neg_level_run: u64 = 0;
+    let mut neg_worst_run = 0.0_f64;
+    let mut neg_lat_run: u64 = 0;
+    let mut neg_surf_run: u64 = 0;
+    let mut stuck_e_run = 0.0_f64;
+    let mut leak_vacuum_run_total: u64 = 0;
+    let mut leak_infinity_run_total: u64 = 0;
+    let mut histories_run_total: u64 = 0;
     let mut entropy: Vec<f64> = Vec::new();
 
     for gen in 0..n_gen {
@@ -462,6 +475,19 @@ pub fn run_keff_csg_seq(
                 );
                 production += outcome.production;
                 virtual_run_total += outcome.virtual_collisions;
+                collisions_run_total += outcome.collisions;
+                lost_locate_run_total += outcome.lost_locate;
+                stuck_events_run_total += outcome.stuck_events;
+                stuck_path_run_total += outcome.stuck_path_cm;
+                neg_dist_run += outcome.neg_dist;
+                neg_lat_run += outcome.neg_from_lattice;
+                neg_surf_run += outcome.neg_from_surface;
+                if outcome.neg_dist > 0 { neg_level_run = outcome.neg_level; }
+                neg_worst_run = neg_worst_run.min(outcome.neg_worst);
+                if outcome.stuck_last_e > 0.0 { stuck_e_run = outcome.stuck_last_e; }
+                leak_vacuum_run_total += outcome.leak_vacuum;
+                leak_infinity_run_total += outcome.leak_infinity;
+                histories_run_total += 1;
             }
         }
         // Close the batch: flush this generation's track-length totals into the
@@ -514,6 +540,19 @@ pub fn run_keff_csg_seq(
         k_by_generation,
         entropy,
         virtual_collisions: virtual_run_total,
+        collisions: collisions_run_total,
+        lost_locate: lost_locate_run_total,
+        stuck_events: stuck_events_run_total,
+        stuck_path_cm: stuck_path_run_total,
+        neg_dist: neg_dist_run,
+        neg_level: neg_level_run,
+        neg_worst: neg_worst_run,
+        neg_from_lattice: neg_lat_run,
+        neg_from_surface: neg_surf_run,
+        stuck_last_e: stuck_e_run,
+        leak_vacuum: leak_vacuum_run_total,
+        leak_infinity: leak_infinity_run_total,
+        histories: histories_run_total,
     }
 }
 
@@ -631,6 +670,19 @@ pub fn run_keff_csg_par(
     // Run-level total for the parallel driver. Declared OUTSIDE pool.install so
     // the result built after it can read it; rayon's closure borrows it mutably.
     let mut virtual_run_total: u64 = 0;
+    let mut collisions_run_total: u64 = 0;
+    let mut lost_locate_run_total: u64 = 0;
+    let mut stuck_events_run_total: u64 = 0;
+    let mut stuck_path_run_total = 0.0_f64;
+    let mut neg_dist_run: u64 = 0;
+    let mut neg_level_run: u64 = 0;
+    let mut neg_worst_run = 0.0_f64;
+    let mut neg_lat_run: u64 = 0;
+    let mut neg_surf_run: u64 = 0;
+    let mut stuck_e_run = 0.0_f64;
+    let mut leak_vacuum_run_total: u64 = 0;
+    let mut leak_infinity_run_total: u64 = 0;
+    let mut histories_run_total: u64 = 0;
     let mut entropy: Vec<f64> = Vec::new();
     pool.install(|| {
 
@@ -704,6 +756,19 @@ pub fn run_keff_csg_par(
             for (outcome, bank, local_batch, local_leak) in results {
                 production += outcome.production;
                 virtual_run_total += outcome.virtual_collisions;
+                collisions_run_total += outcome.collisions;
+                lost_locate_run_total += outcome.lost_locate;
+                stuck_events_run_total += outcome.stuck_events;
+                stuck_path_run_total += outcome.stuck_path_cm;
+                neg_dist_run += outcome.neg_dist;
+                neg_lat_run += outcome.neg_from_lattice;
+                neg_surf_run += outcome.neg_from_surface;
+                if outcome.neg_dist > 0 { neg_level_run = outcome.neg_level; }
+                neg_worst_run = neg_worst_run.min(outcome.neg_worst);
+                if outcome.stuck_last_e > 0.0 { stuck_e_run = outcome.stuck_last_e; }
+                leak_vacuum_run_total += outcome.leak_vacuum;
+                leak_infinity_run_total += outcome.leak_infinity;
+                histories_run_total += 1;
                 next_bank.extend(bank);
                 if !local_batch.is_empty() {
                     for (b, v) in batch.iter_mut().zip(local_batch) {
@@ -770,6 +835,19 @@ pub fn run_keff_csg_par(
         k_by_generation,
         entropy,
         virtual_collisions: virtual_run_total,
+        collisions: collisions_run_total,
+        lost_locate: lost_locate_run_total,
+        stuck_events: stuck_events_run_total,
+        stuck_path_cm: stuck_path_run_total,
+        neg_dist: neg_dist_run,
+        neg_level: neg_level_run,
+        neg_worst: neg_worst_run,
+        neg_from_lattice: neg_lat_run,
+        neg_from_surface: neg_surf_run,
+        stuck_last_e: stuck_e_run,
+        leak_vacuum: leak_vacuum_run_total,
+        leak_infinity: leak_infinity_run_total,
+        histories: histories_run_total,
     }
 }
 
@@ -831,6 +909,35 @@ pub(crate) struct HistoryOutcome {
     pub production: f64,
     /// Virtual collisions rejected inside delta regions.
     pub virtual_collisions: u64,
+    /// **Real** collisions this history underwent. A model where this is near
+    /// zero is not absorbing neutrons, it is losing them before they interact.
+    pub collisions: u64,
+    /// Histories ended because `Geometry::locate` returned `None`. These are
+    /// scored as leaks so the balance closes, which makes them INVISIBLE in
+    /// `k` alone -- hence the separate count.
+    pub lost_locate: u64,
+    /// Histories ended by exhausting `MAX_EVENTS`, likewise scored as leaks.
+    pub stuck_events: u64,
+    /// Total path length \[cm\] travelled by those stuck histories.
+    pub stuck_path_cm: f64,
+    /// Last-known energy \[eV\] of the most recent stuck history.
+    pub stuck_last_e: f64,
+    /// Times `distance_to_boundary` returned a NEGATIVE distance.
+    pub neg_dist: u64,
+    /// Coordinate level of the most recent negative distance.
+    pub neg_level: u64,
+    /// Most negative distance \[cm\] seen.
+    pub neg_worst: f64,
+    /// Negative distances whose winning candidate was a LATTICE tile crossing.
+    pub neg_from_lattice: u64,
+    /// Negative distances whose winning candidate was a CSG surface.
+    pub neg_from_surface: u64,
+    /// Histories that crossed a surface carrying a vacuum boundary condition —
+    /// the only GENUINE leak of the five ends recorded here.
+    pub leak_vacuum: u64,
+    /// Histories where `distance_to_boundary` found no surface ahead and the
+    /// neutron streamed to infinity. In a closed model this should be zero.
+    pub leak_infinity: u64,
 }
 
 pub(crate) fn transport_history(
@@ -854,6 +961,23 @@ pub(crate) fn transport_history(
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
     let mut virtual_collisions: u64 = 0;
+    let mut collisions: u64 = 0;
+    let mut lost_locate: u64 = 0;
+    let mut stuck_events: u64 = 0;
+    let mut leak_vacuum: u64 = 0;
+    let mut leak_infinity: u64 = 0;
+    // Path length accumulated by histories that hit the event budget. A stuck
+    // history that has travelled ~0 cm is OSCILLATING on a surface; one that has
+    // travelled far is legitimately crossing a great many tiles. The two need
+    // opposite fixes, so they are distinguished rather than guessed at.
+    let mut stuck_path_cm = 0.0_f64;
+    let mut stuck_last_e = 0.0_f64;
+    let mut path_cm = 0.0_f64;
+    let mut neg_dist: u64 = 0;
+    let mut neg_level: u64 = 0;
+    let mut neg_worst = 0.0_f64;
+    let mut neg_from_lattice: u64 = 0;
+    let mut neg_from_surface: u64 = 0;
     const NUDGE: f64 = 1.0e-9;
     let mut production = 0.0;
     let mut stack: Vec<Site> = vec![site];
@@ -876,11 +1000,15 @@ pub(crate) fn transport_history(
                 // Stuck history (should be vanishingly rare) — count it as a
                 // leak at its last-known energy so the neutron balance still
                 // closes. A small mis-binned population if it ever fires.
+                stuck_events += 1;
+                stuck_path_cm += path_cm;
+                stuck_last_e = e;
                 score_leak(leak_batch, leak_edges, e, 1.0);
                 break 'history;
             }
             // Locate: which cell/material are we in?
             let Some(path) = geom.locate(r, u, on_surface) else {
+                lost_locate += 1;
                 // Lost the particle (numerical edge case) — treat as a leak at
                 // last-known energy, same reasoning as the MAX_EVENTS arm.
                 score_leak(leak_batch, leak_edges, e, 1.0);
@@ -895,6 +1023,20 @@ pub(crate) fn transport_history(
             };
 
             let d_bound = geom.distance_to_boundary(&path);
+            if d_bound.distance < 0.0 {
+                // A NEGATIVE distance-to-boundary steps the neutron backwards,
+                // so it re-crosses the same surface forever until the event
+                // budget kills it. Record where it came from rather than
+                // silently absorbing it into the stuck count.
+                neg_dist += 1;
+                neg_level = d_bound.coord_level as u64;
+                match d_bound.crossing {
+                    Crossing::Lattice => neg_from_lattice += 1,
+                    Crossing::Surface(_) => neg_from_surface += 1,
+                    Crossing::None => {}
+                }
+                neg_worst = neg_worst.min(d_bound.distance);
+            }
 
             // ── How far to the next REAL collision, and in what material ───
             //
@@ -1009,6 +1151,7 @@ pub(crate) fn transport_history(
             }
 
             if d_col < d_bound.distance {
+                collisions += 1;
                 // ── Collision ──────────────────────────────────────────────
                 r = stream(r, u, d_col);
                 on_surface = SurfaceToken::NONE;
@@ -1197,6 +1340,7 @@ pub(crate) fn transport_history(
                 }
             } else {
                 // ── Boundary crossing ──────────────────────────────────────
+                path_cm += d_bound.distance;
                 r = stream(r, u, d_bound.distance);
                 match d_bound.crossing {
                     Crossing::Surface(i_surf) => {
@@ -1205,6 +1349,7 @@ pub(crate) fn transport_history(
                         if !crossed.alive {
                             // Vacuum leak — `e` is the true escape energy
                             // (unchanged since the last collision).
+                            leak_vacuum += 1;
                             score_leak(leak_batch, leak_edges, e, 1.0);
                             break 'history;
                         }
@@ -1221,6 +1366,7 @@ pub(crate) fn transport_history(
                     }
                     Crossing::None => {
                         // Streamed to infinity — a leak at the true escape energy.
+                        leak_infinity += 1;
                         score_leak(leak_batch, leak_edges, e, 1.0);
                         break 'history;
                     }
@@ -1231,6 +1377,18 @@ pub(crate) fn transport_history(
     HistoryOutcome {
         production,
         virtual_collisions,
+        collisions,
+        lost_locate,
+        stuck_events,
+        stuck_path_cm,
+        stuck_last_e,
+        neg_dist,
+        neg_level,
+        neg_worst,
+        neg_from_lattice,
+        neg_from_surface,
+        leak_vacuum,
+        leak_infinity,
     }
 }
 

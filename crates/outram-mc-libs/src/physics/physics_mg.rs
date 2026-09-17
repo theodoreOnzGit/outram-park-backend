@@ -409,6 +409,20 @@ pub fn run_keff_mg(
 
     let (k_mean, k_std) = mean_and_stderr(&active_k);
     KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
         k_mean,
         k_std,
         k_by_generation,

@@ -466,14 +466,33 @@ impl HexLattice {
     pub fn distance(&self, r_local: Position, u: Direction, i_xyz: [i32; 3]) -> (f64, [i32; 3]) {
         // Reconstruct the lattice-frame position (inverse of get_local_position).
         let off = self.center_offset(i_xyz);
+        // x and y are reconstructed into the LATTICE frame, because the
+        // beta/gamma/delta tests below run `get_local_position` against
+        // NEIGHBOUR tile centres and so need a lattice-frame position.
+        //
+        // z is deliberately left TILE-LOCAL. The axial test at the end of this
+        // function compares z against `+/- 0.5 * pitch[1]`, which is a
+        // tile-local half-height; feeding it a lattice-frame z makes the
+        // comparison wrong by the tile's own z offset, so every tile except the
+        // one sitting at offset zero returns a NEGATIVE distance and the
+        // neutron steps backwards. That is why the defect was invisible at
+        // `n_axial == 1` (offset zero) and grew with the layer count.
+        //
+        // This mirrors OpenMC, which builds exactly this hybrid at the CALL
+        // site rather than inside the function (`src/geometry.cpp:459-467`):
+        //
+        //     Position r_hex {p.coord(i - 1).r()};   // parent: lattice frame
+        //     r_hex -= cell_above->translation_;
+        //     r_hex.z = coord.r().z;                 // current: tile-local z
+        //     lattice_distance = lat.distance(r_hex, u, coord.lattice_index());
+        //
+        // Doing it here keeps this crate's single tile-local calling convention
+        // (see this function's doc comment) instead of pushing the special case
+        // into `Geometry::distance_to_boundary`.
         let r = Position {
             x: r_local.x + off.x,
             y: r_local.y + off.y,
-            z: if self.is_3d() {
-                r_local.z + off.z
-            } else {
-                r_local.z
-            },
+            z: r_local.z,
         };
 
         let s3 = 3.0_f64.sqrt();

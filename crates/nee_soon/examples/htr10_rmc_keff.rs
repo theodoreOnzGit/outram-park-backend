@@ -121,7 +121,15 @@ fn main() {
     };
 
     // Pebble materials, slots 0..5 in DhUniverse::pebble order.
-    let mut mats = fuel_pebble_materials(NUC, BoronReading::Natural, TEMP_K);
+    // OUTRAM_HTR10_NOBORON=1 drops the Table 2 boron impurity rows. Not
+    // physical -- real nuclear graphite carries it -- but it bounds how much of
+    // the k deficit the boron treatment could possibly account for.
+    let boron = if std::env::var("OUTRAM_HTR10_NOBORON").is_ok() {
+        BoronReading::None
+    } else {
+        BoronReading::Natural
+    };
+    let mut mats = fuel_pebble_materials(NUC, boron, TEMP_K);
     mats.truncate(6);
     // 6: helium -- deliberately near-void, as the paper's own model omits it.
     mats.push(Material { id: 70, name: "helium".into(), components: vec![], temperature: TEMP_K });
@@ -132,7 +140,14 @@ fn main() {
         name: "reflector graphite (TECDOC zone 22)".into(),
         components: vec![
             NuclideComponent { nuclide_idx: NUC.c_graphite, atom_density: z.carbon },
-            NuclideComponent { nuclide_idx: NUC.b10, atom_density: z.natural_boron * B10_OF_NATURAL },
+            NuclideComponent {
+                nuclide_idx: NUC.b10,
+                atom_density: if matches!(boron, BoronReading::None) {
+                    0.0
+                } else {
+                    z.natural_boron * B10_OF_NATURAL
+                },
+            },
         ],
         temperature: TEMP_K,
     });
@@ -200,6 +215,22 @@ fn main() {
     println!("  RMC          = {RMC_KEFF:.6}");
     println!("  difference   = {pcm:+.0} pcm   (our sigma {sigma:.0} pcm)");
     println!("  virtual coll = {}", res.virtual_collisions);
+    // Histories transported = n_particles x every generation, active or not.
+    let n_hist = res.histories.max(1) as f64;
+    println!("  histories    = {} (planned {})", res.histories,
+             settings.n_particles * (settings.n_inactive + settings.n_active));
+    println!("  collisions   = {} ({:.2} per history)", res.collisions, res.collisions as f64 / n_hist);
+    println!("  lost locate  = {} ({:.3} %)", res.lost_locate, 100.0 * res.lost_locate as f64 / n_hist);
+    println!("  stuck events = {} ({:.3} %)", res.stuck_events, 100.0 * res.stuck_events as f64 / n_hist);
+    if res.stuck_events > 0 {
+        println!("  stuck path   = {:.4} cm mean, last E = {:.4e} eV",
+                 res.stuck_path_cm / res.stuck_events as f64, res.stuck_last_e);
+    }
+    println!("  neg distance = {} (worst {:.4e} cm, level {})",
+             res.neg_dist, res.neg_worst, res.neg_level);
+    println!("      from lattice = {}, from surface = {}", res.neg_from_lattice, res.neg_from_surface);
+    println!("  leak vacuum  = {} ({:.3} %)", res.leak_vacuum, 100.0 * res.leak_vacuum as f64 / n_hist);
+    println!("  leak infinity= {} ({:.3} %)", res.leak_infinity, 100.0 * res.leak_infinity as f64 / n_hist);
     println!("  wall clock   = {secs:.1} s");
     println!("  generations reported: {}", res.k_by_generation.len());
     let nz = res.k_by_generation.iter().filter(|k| **k > 0.0).count();

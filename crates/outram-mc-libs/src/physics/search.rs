@@ -396,6 +396,20 @@ mod tests {
     /// root-finding logic can be unit-tested without a transport solve.
     fn synthetic(k: f64) -> KeffResult {
         KeffResult {
+        // Not instrumented in this driver (bn:op-867c.5 wired the CSG path only).
+        collisions: 0,
+        lost_locate: 0,
+        stuck_events: 0,
+        stuck_path_cm: 0.0,
+        stuck_last_e: 0.0,
+        neg_dist: 0,
+        neg_level: 0,
+        neg_worst: 0.0,
+        neg_from_lattice: 0,
+        neg_from_surface: 0,
+        leak_vacuum: 0,
+        leak_infinity: 0,
+        histories: 0,
             k_mean: k,
             k_std: 0.0,
             k_by_generation: vec![k],
