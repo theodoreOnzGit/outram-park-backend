@@ -2122,6 +2122,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dhoby-ghaut"
+version = "0.0.1"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_plot",
+ "env_logger",
+ "outram-blender",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

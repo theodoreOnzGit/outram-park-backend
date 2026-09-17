@@ -104,16 +104,16 @@ env_logger = { workspace = true }
 
 # The Monte Carlo authoring GUI. Needs `mc-export` (the outram-mc-libs bridge +
 # the `sim` backend it drives), so it only builds with that feature:
-#   cargo run -p outram-blender --example mc_studio --features mc-export --release
-[[example]]
-name = "mc_studio"
-path = "examples/mc_studio/main.rs"
-required-features = ["mc-export"]
+# ~~mc_studio~~ MOVED 2026-09-17 to `crates/dhoby-ghaut` (DHOBY GHAUT), which is
+# the designated home for windowed studios. This crate is an AUTHORING frontend
+# and should not carry a windowing stack; keeping the GUI here is what forced
+# eframe into its dev-dependencies and kept the Monte Carlo bridge behind an
+# optional feature that nothing routinely compiled (bn:op-sb2t).
+#
+#   cargo run -p dhoby-ghaut --example mc_studio --release
 
-# The volume-meshing GUI. Needs `foam-mesh` (the outram-park-fork-cfmesh bridge +
-# its polyMesh writer), so it only builds with that feature:
-#   cargo run -p outram-blender --example mesh_studio --features foam-mesh --release
-[[example]]
-name = "mesh_studio"
-path = "examples/mesh_studio/main.rs"
-required-features = ["foam-mesh"]
+# ~~mesh_studio~~ MOVED 2026-09-17 to `crates/dhoby-ghaut`, alongside mc_studio.
+# The `foam_mesh` LIBRARY bridge stays here behind the `foam-mesh` feature --
+# only the windowed GUI moved, so this crate keeps no windowing stack.
+#
+#   cargo run -p dhoby-ghaut --example mesh_studio --release

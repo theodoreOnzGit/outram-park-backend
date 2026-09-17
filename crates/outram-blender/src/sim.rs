@@ -324,10 +324,14 @@ pub fn csg_from_mesh(mesh: &Mesh, material_idx: usize) -> Result<SimGeometry, Si
 /// (score 0 = flux, 1 = ν-fission). After the run, read a bin with
 /// [`tally_value`].
 pub fn cell_flux_tally(cell_indices: Vec<usize>) -> Tally {
-    use outram_mc_libs::prelude::{CellFilter, Filter, ScoreType, TallyBin};
+    use outram_mc_libs::prelude::{CellFilter, ScoreType, TallyBin};
+    use outram_mc_libs::tally::filter::FilterKind;
     let scores = vec![ScoreType::Flux, ScoreType::NuFission];
     let n_bins = cell_indices.len() * scores.len();
-    let filter: Box<dyn Filter> = Box::new(CellFilter { cell_indices });
+    // `Tally::filters` is `Vec<FilterKind>`, not `Vec<Box<dyn Filter>>`: outram-mc
+    // moved filters to enum dispatch, per the workspace rule against trait
+    // objects. Boxing here compiled until that landed (bn:op-sb2t).
+    let filter = FilterKind::Cell(CellFilter { cell_indices });
     Tally {
         id: 1,
         name: "cell flux".into(),

@@ -97,6 +97,12 @@ members = [
     # (GPL-3.0). Research/education/V&V only -- never emergency response or dose
     # assessment for real populations (docs/ecosystem-naming.md decision 3).
     "crates/changi",
+    # dhoby-ghaut — DHOBY GHAUT, the GUI home for the meshing toolbox and MC
+    # Studio. PLACEHOLDER (2026-09-17): no GUI implemented, no dependencies.
+    # Exists so the egui/eframe stack has somewhere to live that is NOT
+    # nee_soon (the CLI/headless integration layer, which must stay
+    # Android-buildable) and NOT outram-blender (authoring, no solver deps).
+    "crates/dhoby-ghaut",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
