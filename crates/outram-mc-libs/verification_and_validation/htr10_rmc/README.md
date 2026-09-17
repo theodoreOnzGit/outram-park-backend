@@ -4,8 +4,43 @@
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
 **Status as of 2026-09-17: the infrastructure is built and gated; the
-eigenvalue comparison has NOT been run.** Read that sentence before quoting
-anything below. `bn:op-867c`, gh #214.
+eigenvalue comparison has been ATTEMPTED AND FAILED.** Read that sentence before
+quoting anything below. `bn:op-867c`, gh #214.
+
+## The attempt, and why it failed
+
+`nee_soon/examples/htr10_rmc_keff.rs` assembles an explicit-TRISO core (four
+coordinate levels: root -> bed hex lattice -> pebble -> TRISO rect lattice ->
+particle) with a region-local majorant and hybrid tracking. First run,
+8 rings x 12 layers, 1500 histories x [30 inactive + 70 active]:
+
+```text
+k_eff        = 0.000000 +/- 0.000000
+virtual coll = 2820163146          (18,801 per history)
+entropy      = 0.0000 -> 0.0000
+wall clock   = 80.0 s
+```
+
+**Two separate findings.**
+
+1. **The majorant cost is as predicted and is NOT the failure.** Measured in
+   `examples/htr10_majorant_diagnosis.rs`: the bound is the UO2 kernel at
+   4.18 cm^-1 while the volume-weighted local total is ~0.18, giving
+   `p_accept ~ 0.0432` — about **22 rejections per real collision**, matching
+   the ~25x this crate measured independently for an undiluted kernel. That is
+   expensive, not fatal, and it is exactly the effect the region-local majorant
+   was built to bound.
+2. **k = 0 is a distinct bug, not yet isolated.** Zero fission sites and zero
+   entropy mean nothing was produced at all, which 22x rejection does not
+   explain. Candidates not yet discriminated: the source box may not intersect
+   the bed; helium is modelled as an empty material so a flight through it can
+   only reject; or `material_at` returns `None` inside the delta region, making
+   every flight report `Exhausted`.
+
+What the attempt DOES establish: the geometry assembles at four levels, the
+hybrid dispatch engages, and the instrumentation reports — the virtual-collision
+counter and the entropy trace both did their job, and it is *because* they
+report that the failure is diagnosable at all rather than silent.
 
 ## The target
 

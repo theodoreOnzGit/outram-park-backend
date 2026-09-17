@@ -39,15 +39,28 @@ use outram_mc_libs::geometry::universe::Universe;
 use super::bed::{bed_tile_levels, HexBedCell};
 
 /// Material slots the assembled geometry expects, in order.
+///
+/// The first five mirror `DhUniverse::pebble`'s TRISO layer order so
+/// `pebble_beds::htr10::fuel_pebble_materials` can be used directly.
 pub mod mat {
-    /// Fuelled pebble (homogenised fuel zone).
-    pub const FUEL: usize = 0;
-    /// Pebble graphite shell / dummy pebble.
-    pub const GRAPHITE: usize = 1;
+    /// TRISO UO2 kernel.
+    pub const KERNEL: usize = 0;
+    /// Buffer PyC.
+    pub const BUFFER: usize = 1;
+    /// Inner PyC.
+    pub const IPYC: usize = 2;
+    /// SiC.
+    pub const SIC: usize = 3;
+    /// Outer PyC.
+    pub const OPYC: usize = 4;
+    /// Matrix graphite inside the fuel zone, and the pebble shell.
+    pub const GRAPHITE: usize = 5;
     /// Helium between pebbles.
-    pub const HELIUM: usize = 2;
-    /// Reflector graphite.
-    pub const REFLECTOR: usize = 3;
+    pub const HELIUM: usize = 6;
+    /// Reflector graphite (TECDOC Table 4-3).
+    pub const REFLECTOR: usize = 7;
+    /// Homogenised fuel zone, used only by [`super::assemble`].
+    pub const FUEL: usize = KERNEL;
 }
 
 /// A built core and the sizes that describe it.
@@ -147,4 +160,130 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     };
     let (cells, universes) = (geometry.cells.len(), geometry.universes.len());
     AssembledCore { geometry, tiles, cells, universes }
+}
+
+/// **Assemble the core with an EXPLICIT TRISO lattice in each fuelled pebble** —
+/// the double-heterogeneous model the benchmark actually specifies.
+///
+/// Four coordinate levels: root → bed hex lattice → pebble universe → TRISO
+/// rect lattice → TRISO particle universe. Depth-3 descent was gated in
+/// `outram-mc-libs` `tests/nested_lattice_depth3.rs`; this is depth 4.
+///
+/// # The TRISO lattice
+///
+/// A cubic array clipped to the fuel zone, keeping only whole particles, per
+/// `cubic_array_in_ball`. Expressed as a `RectLattice` whose tiles hold either a
+/// particle universe or matrix graphite, with `outer` = matrix so anything
+/// beyond the array's extent is graphite.
+///
+/// The realised particle count is **8340**, not the paper's stated 8335 — see
+/// `cubic_array_in_ball`'s docs for why 8335 is unattainable (the count moves in
+/// symmetry shells). That is +0.060 % in fuel volume.
+pub fn assemble_explicit_triso(
+    n_rings: usize,
+    n_axial: usize,
+    majorant_index: usize,
+) -> AssembledCore {
+    use outram_mc_libs::geometry::lattice::RectLattice;
+    use outram_mc_libs::pebble_beds::sphere_packing::cubic_pitch_for_count;
+
+    let cell = HexBedCell::from_paper();
+    let r_pebble = cell.ball_diameter * 0.5;
+    let r_fuel_zone = 2.5;
+    // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer.
+    let tr = [0.0250_f64, 0.0340, 0.0380, 0.0415, 0.0455];
+    let r_part = tr[4];
+    let (pitch_triso, _n_particles) = cubic_pitch_for_count(r_part, r_fuel_zone, 8335, [0.5, 0.5, 0.0]);
+    // A cubic lattice spanning the fuel zone; tiles outside it fall through to
+    // `outer` = matrix graphite, which is exactly the "not occupied is filled
+    // with graphite" the paper specifies.
+    let n_triso = ((2.0 * r_fuel_zone / pitch_triso).ceil() as usize).max(1);
+
+    let bed_radius = cell.pitch * (n_rings as f64 + 0.5);
+    let bed_half_height = 0.5 * cell.height * n_axial as f64;
+    let refl_radius = bed_radius + 100.0;
+    let refl_half_height = bed_half_height + 100.0;
+
+    // Surfaces 0..4 are the TRISO shells, in PARTICLE-local coordinates.
+    let mut surfaces: Vec<SurfaceKind> = tr
+        .iter()
+        .map(|&r| SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r, bc: BoundaryType::Transmissive }))
+        .collect();
+    // 5: fuel zone, 6: pebble -- in TILE-local coordinates.
+    surfaces.push(SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: r_fuel_zone, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: r_pebble, bc: BoundaryType::Transmissive }));
+    // 7..9 bed envelope, 10..12 reflector vacuum boundary.
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: bed_radius, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: -bed_half_height, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: bed_half_height, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: refl_radius, bc: BoundaryType::Vacuum }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: -refl_half_height, bc: BoundaryType::Vacuum }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: refl_half_height, bc: BoundaryType::Vacuum }));
+
+    let ins = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
+    let out = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+    let shell = |inner: usize, outer: usize, m: usize, id: i32| {
+        Cell::material(id, vec![out(inner), ins(outer), RegionToken::Intersection], m, 293.6)
+    };
+
+    // Universe 3 -- one TRISO particle: five shells then matrix.
+    let cells = vec![
+        // 0: the bed (delta-tracked)
+        Cell::fill(1, vec![ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection],
+                   CellFill::Lattice(0), Position::ZERO).delta_tracked(majorant_index),
+        // 1: reflector
+        Cell::material(2, vec![ins(10), out(11), RegionToken::Intersection, ins(12), RegionToken::Intersection,
+                               ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection,
+                               RegionToken::Complement, RegionToken::Intersection],
+                       mat::REFLECTOR, 293.6),
+        // 2: fuelled pebble -- fuel zone holds the TRISO lattice
+        Cell::fill(3, vec![ins(5)], CellFill::Lattice(1), Position::ZERO),
+        // 3: pebble shell, 4: helium around the fuelled pebble
+        shell(5, 6, mat::GRAPHITE, 4),
+        Cell::material(5, vec![out(6)], mat::HELIUM, 293.6),
+        // 5,6: dummy pebble and its helium
+        Cell::material(6, vec![ins(6)], mat::GRAPHITE, 293.6),
+        Cell::material(7, vec![out(6)], mat::HELIUM, 293.6),
+        // 7..12: the TRISO particle's shells, then matrix beyond it
+        Cell::material(8, vec![ins(0)], mat::KERNEL, 293.6),
+        shell(0, 1, mat::BUFFER, 9),
+        shell(1, 2, mat::IPYC, 10),
+        shell(2, 3, mat::SIC, 11),
+        shell(3, 4, mat::OPYC, 12),
+        Cell::material(13, vec![out(4)], mat::GRAPHITE, 293.6),
+        // 13: pure matrix, the TRISO lattice's `outer`
+        Cell::material(14, vec![out(4)], mat::GRAPHITE, 293.6),
+    ];
+
+    let levels = bed_tile_levels(n_rings, n_axial, 1, 2);
+    let tiles: usize = levels.iter().flatten().map(|r| r.len()).sum();
+    let bed_lattice = HexLattice::from_rings_3d(
+        0, HexOrientation::Y,
+        Position::new(0.0, 0.0, -bed_half_height + 0.5 * cell.height),
+        cell.pitch, cell.height, &levels, Some(2),
+    );
+    let triso_lattice = RectLattice {
+        id: 1,
+        n: [n_triso, n_triso, n_triso],
+        lower_left: Position::new(-r_fuel_zone, -r_fuel_zone, -r_fuel_zone),
+        pitch: [pitch_triso; 3],
+        universes: vec![3; n_triso * n_triso * n_triso],
+        outer: Some(4),
+    };
+
+    let geometry = Geometry {
+        surfaces,
+        cells,
+        universes: vec![
+            Universe { id: 0, cell_indices: vec![0, 1] },          // root
+            Universe { id: 1, cell_indices: vec![2, 3, 4] },        // fuelled pebble
+            Universe { id: 2, cell_indices: vec![5, 6] },           // dummy pebble
+            Universe { id: 3, cell_indices: vec![7, 8, 9, 10, 11, 12] }, // TRISO particle
+            Universe { id: 4, cell_indices: vec![13] },             // matrix (lattice outer)
+        ],
+        lattices: vec![Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)],
+        root_universe: 0,
+    };
+    let (c, u) = (geometry.cells.len(), geometry.universes.len());
+    AssembledCore { geometry, tiles, cells: c, universes: u }
 }
