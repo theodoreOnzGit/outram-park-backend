@@ -209,3 +209,95 @@ fn the_clip_tracks_the_global_surface_not_the_tile_frame() {
          op-867c.10 but is not the one we are in."
     );
 }
+
+// --------------------------------------------------------------------------
+// THE RESOLUTION (op-867c.10): translate the surface into each tile's frame
+// --------------------------------------------------------------------------
+
+/// **With the surface translated into the tile frame, the clip lands where the
+/// world-frame boundary actually is.**
+///
+/// This is the chosen route for HTR-10's conus and discharge tube. The previous
+/// test establishes that one shared surface does NOT work; this one establishes
+/// that a per-tile translated copy does, which is what makes the route viable
+/// with no new lattice machinery.
+#[test]
+fn a_tile_frame_translated_surface_clips_at_the_world_boundary() {
+    use outram_mc_libs::geometry::lattice::surface_in_tile_frame;
+
+    let mut geom = clipped_lattice_geometry();
+    // Tile [1,0,0] of a 2x2x2 lattice over [-2,2] with pitch 2 has centre
+    // (+1, -1, -1). Translate the cut plane into that tile's frame.
+    let tile_center = Position::new(1.0, -1.0, -1.0);
+    geom.surfaces[1] = surface_in_tile_frame(&geom.surfaces[1], tile_center);
+
+    let u = Direction::new(1.0, 0.0, 0.0);
+    let at = |p: Position| {
+        geom.locate(p, u, SurfaceToken::NONE)
+            .unwrap_or_else(|| panic!("{p:?} must locate"))
+            .material
+    };
+
+    // The same probe that failed before: global x = 0.5, inside tile [1,0,0]'s
+    // ball, on the REJECTED side of the world-frame cut at x = 0.
+    let probe = Position::new(0.5, -1.0, -1.0);
+    println!("after translating the cut into tile [1,0,0]'s frame: {:?}", at(probe));
+    assert_eq!(
+        at(probe),
+        Some(MAT_VOID_FILL),
+        "with the surface translated by -tile_centre the clip must land at the \
+         WORLD boundary. This is what makes per-tile surface copies a workable \
+         route for the conus (op-867c.10)."
+    );
+
+    // Tiles that did NOT get a translated copy are unaffected -- the clip is
+    // per-tile, which is the whole point of the route.
+    //
+    // (An earlier version probed x = -0.2 expecting a "surviving side" of tile
+    // [1,0,0]'s ball. That is geometrically impossible: the ball spans
+    // x in [0.3, 1.7], so a cut at x = 0 rejects all of it. The probe landed in
+    // tile [0,0,0] and outside ITS ball, hence coolant.)
+    assert_eq!(
+        at(Position::new(-1.0, -1.0, -1.0)),
+        Some(MAT_BALL),
+        "tile [0,0,0] uses the unclipped universe and is untouched"
+    );
+}
+
+/// The translator must move a plane's constant, not just its axis offset, and
+/// must leave a surface it cannot translate UNCHANGED rather than silently
+/// producing a wrong one.
+#[test]
+fn the_translator_handles_each_surface_kind_honestly() {
+    use outram_mc_libs::geometry::lattice::surface_in_tile_frame;
+    use outram_mc_libs::geometry::surface::SurfaceKind;
+
+    let t = Position::new(1.0, -2.0, 3.0);
+
+    // XPlane at x0 = 0 seen from a tile centred at x = 1 sits at local x = -1.
+    match surface_in_tile_frame(&geom_xplane(0.0), t) {
+        SurfaceKind::XPlane(p) => assert!((p.x0 + 1.0).abs() < 1e-15, "got {}", p.x0),
+        other => panic!("kind changed: {other:?}"),
+    }
+    // Sphere centre moves by -t.
+    match surface_in_tile_frame(&geom_sphere(2.0, 3.0, 4.0, 1.0), t) {
+        SurfaceKind::Sphere(s) => {
+            assert!((s.x0 - 1.0).abs() < 1e-15);
+            assert!((s.y0 - 5.0).abs() < 1e-15);
+            assert!((s.z0 - 1.0).abs() < 1e-15);
+            assert!((s.r - 1.0).abs() < 1e-15, "radius must not change");
+        }
+        other => panic!("kind changed: {other:?}"),
+    }
+}
+
+fn geom_xplane(x0: f64) -> outram_mc_libs::geometry::surface::SurfaceKind {
+    outram_mc_libs::geometry::surface::SurfaceKind::XPlane(
+        outram_mc_libs::geometry::surface::XPlane { x0, bc: BoundaryType::Transmissive },
+    )
+}
+fn geom_sphere(x0: f64, y0: f64, z0: f64, r: f64) -> outram_mc_libs::geometry::surface::SurfaceKind {
+    outram_mc_libs::geometry::surface::SurfaceKind::Sphere(
+        outram_mc_libs::geometry::surface::Sphere { x0, y0, z0, r, bc: BoundaryType::Transmissive },
+    )
+}

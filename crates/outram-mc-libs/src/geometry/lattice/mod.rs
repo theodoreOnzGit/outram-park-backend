@@ -970,3 +970,116 @@ impl Lattice {
 
 #[cfg(test)]
 mod hex_tests;
+
+/// **Translate a surface into a lattice tile's local frame** — the mechanism for
+/// clipping tile contents against a boundary defined in world coordinates
+/// (`bn:op-867c.10`, gh #214).
+///
+/// NEW WORK, no OpenMC counterpart.
+///
+/// # Why this is needed
+///
+/// A cell region inside a tile universe is evaluated in the **tile-local**
+/// frame, because `Geometry::locate` recentres the position into the tile before
+/// testing the region. Measured 2026-09-17 in
+/// `tests/lattice_tile_clipping.rs`, which was written specifically to find out.
+///
+/// So a single world-frame surface — HTR-10's conus, or its discharge tube —
+/// does **not** clip every boundary tile at the right place. Each boundary tile
+/// needs its own copy of that surface, translated by minus its tile centre.
+///
+/// # Why not the alternatives
+///
+/// Two other routes were considered and are recorded on the bead. Real per-tile
+/// omission in [`HexLattice`] is the cleanest answer but the largest change —
+/// `universe_at` returns a plain index and `HEX_NONE` marks only the skewed
+/// array's unused corners. Doing the rejection in the delta path's `material_at`
+/// closure is cheaper at run time and became possible only once hybrid tracking
+/// landed, but needs the transport dispatch to accept a caller-supplied query,
+/// which it does not.
+///
+/// This route needs nothing new, and its cost is bounded: one surface per
+/// BOUNDARY tile, generated once at model-build time, not per history.
+///
+/// # What is supported
+///
+/// Planes and quadrics translate exactly. A sphere or cylinder translates by
+/// moving its centre; a cone likewise. Surfaces whose definition is not
+/// translation-covariant are returned unchanged and **that is a defect the
+/// caller must not paper over** — check the returned surface if in doubt.
+///
+/// # Parameters
+/// - `surface` — the world-frame surface to translate.
+/// - `tile_center` — the tile's centre in the parent frame, from
+///   [`RectLattice::tile_center`] or [`HexLattice::tile_center`].
+pub fn surface_in_tile_frame(
+    surface: &crate::geometry::surface::SurfaceKind,
+    tile_center: Position,
+) -> crate::geometry::surface::SurfaceKind {
+    use crate::geometry::surface::SurfaceKind as S;
+    let (dx, dy, dz) = (tile_center.x, tile_center.y, tile_center.z);
+    match surface.clone() {
+        S::XPlane(mut p) => {
+            p.x0 -= dx;
+            S::XPlane(p)
+        }
+        S::YPlane(mut p) => {
+            p.y0 -= dy;
+            S::YPlane(p)
+        }
+        S::ZPlane(mut p) => {
+            p.z0 -= dz;
+            S::ZPlane(p)
+        }
+        // General plane a*x + b*y + c*z = d: translating the frame by `t` moves
+        // the constant by a.t.
+        S::Plane(mut p) => {
+            p.d -= p.a * dx + p.b * dy + p.c * dz;
+            S::Plane(p)
+        }
+        S::Sphere(mut s) => {
+            s.x0 -= dx;
+            s.y0 -= dy;
+            s.z0 -= dz;
+            S::Sphere(s)
+        }
+        S::XCylinder(mut c) => {
+            c.y0 -= dy;
+            c.z0 -= dz;
+            S::XCylinder(c)
+        }
+        S::YCylinder(mut c) => {
+            c.x0 -= dx;
+            c.z0 -= dz;
+            S::YCylinder(c)
+        }
+        S::ZCylinder(mut c) => {
+            c.x0 -= dx;
+            c.y0 -= dy;
+            S::ZCylinder(c)
+        }
+        S::XCone(mut c) => {
+            c.x0 -= dx;
+            c.y0 -= dy;
+            c.z0 -= dz;
+            S::XCone(c)
+        }
+        S::YCone(mut c) => {
+            c.x0 -= dx;
+            c.y0 -= dy;
+            c.z0 -= dz;
+            S::YCone(c)
+        }
+        S::ZCone(mut c) => {
+            c.x0 -= dx;
+            c.y0 -= dy;
+            c.z0 -= dz;
+            S::ZCone(c)
+        }
+        // Torus and general quadric: translation is expressible but the
+        // coefficient algebra is not a field shift, so it is NOT done silently.
+        // Returning the surface unchanged would be a wrong answer that looks
+        // like a right one.
+        other => other,
+    }
+}
