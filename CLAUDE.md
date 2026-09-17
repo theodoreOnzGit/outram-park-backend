@@ -1297,6 +1297,59 @@ errors that name their constructors, did-you-mean on a wrong attribute,
 constructors that return the general type rather than swallowing the run —
 should be measured against it, not asserted.
 
+## Model hierarchy: correct physics first, surrogates uncalibrated before calibrated (HARD RULE)
+
+**Maintainer direction, 2026-09-17.** This governs *what kind of model* to
+reach for, and in what order. It applies to every crate in this workspace.
+
+### High-fidelity crates: the correct physical model is the top priority
+
+**Implement the governing physics. Nothing outranks it** — not ergonomics, not
+runtime, not a number that matches a reference. Where a high-fidelity crate
+cannot yet carry the real model, say so plainly rather than substituting
+something cheaper that reads as if it does.
+
+### Low-fidelity crates: hierarchical surrogates, in this order
+
+**A hierarchical (physics-derived, reduced-order) surrogate is preferred to a
+data-driven one, and preferred to a calibrated one.** A model whose structure
+comes from the physics degrades gracefully outside the range it was built in;
+a fit does not, and a fit *looks* right precisely where it was fitted.
+
+The order is mandatory:
+
+1. **Build the hierarchical surrogate and run it UNCALIBRATED.** Derive every
+   coefficient from geometry, material properties and the governing equation.
+   Then compare against data and **record the disagreement**. This is the step
+   that is usually skipped, and it is the only one that produces evidence: an
+   honestly-derived 14 % error is worth more than an exact match obtained by
+   tuning, because only the first one was capable of failing.
+2. **Only then calibrate**, against data, and validate. State which parameters
+   were adjusted, over what range, against which dataset, and what the
+   uncalibrated value was.
+3. **Calibration must be accompanied by ABLATION TESTING.** Turn each
+   calibrated parameter off — or back to its derived value — one at a time,
+   and report how much of the agreement it was carrying. A calibration whose
+   contribution has not been measured is indistinguishable from curve-fitting,
+   and the ablation is what tells a reader which parts of the model are
+   physics and which are fitting.
+
+**Never calibrate a free parameter until a comparison passes.** That converts
+the reference into an input and destroys the check. If a derived model
+disagrees, the finding is the disagreement — investigate the geometry, the
+material data, or whether the reference describes the same quantity at all.
+
+**Worked example, 2026-09-17** — `htgr_sim_v1`'s HTR-10 passive decay-heat
+path. The original two-leg chain had its conductance split *fitted* so the
+series value reproduced Hu et al.'s published 206 kW, and carried **no
+radiation term on either leg**. Rebuilt as five legs derived from the R-Z zone
+map, published vessel dimensions, ZBS `k_eff(T)` and Stefan-Boltzmann on the
+two radiative legs, it gives **234.5 kW — +13.9 % against the published
+figure, derived and not fitted**. Calibrating an effective axial length until
+it matched exactly was considered and rejected by the maintainer. The +13.9 %
+is now a real gate that can fail; the previous exact agreement could not.
+See `crates/outram-park-digital-twin-engine/CLAUDE.md`.
+
 ## Bookkeeping pass (maintainer command)
 
 When the maintainer asks for a **"bookkeeping pass"** (or "bookkeeping", "book

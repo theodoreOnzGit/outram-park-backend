@@ -32,17 +32,17 @@
 //!
 //! ## Nodalisation of the whole plant
 //!
-//! Every subsystem here is **one control volume**. Nothing in this plant model
-//! is spatially discretised:
+//! Every subsystem here is **one control volume**, apart from the steam
+//! generator. Nothing else in this plant model is spatially discretised:
 //!
 //! | Subsystem | Nodes | Consequence |
 //! |---|---|---|
-//! | Pebble bed | **1** | no axial or radial temperature profile, no peak fuel temperature |
+//! | Pebble bed | **1** volume, **2** temperatures (solid + helium, LTNE) | no axial or radial temperature profile, no peak fuel temperature |
 //! | Helium circuit | **1** (two boundary temperatures) | no gradient through the bed, no natural circulation |
 //! | Steam generator | **8 x 3** (helium / tube metal / water, counter-flow) | resolved zones and a real metal lag; 8 nodes is coarse |
 //! | Secondary water/steam, outside the SG | **1** | fixed steam pressure, no drum or inventory dynamics |
 //! | Neutronics | **1** (point kinetics) | no spatial flux shape, no rod-position-dependent worth |
-//! | Reflector, barrel, cavity | **0** | the HTR-10 passive decay-heat path is absent entirely |
+//! | Reflector, barrel, cavity | **2** (reflector, RPV) | ~~the HTR-10 passive decay-heat path is absent entirely~~ **CORRECTED 2026-09-17** -- a lumped bed -> reflector -> RPV -> RCCS chain now exists ([`decay_heat_removal`]) and is stepped every plant step; barrel, carbon brick and cavity are folded into those two nodes, and the `UA` values are placeholders |
 //!
 //! **The steam generator is the exception, as of 2026-08-12**, and it is the
 //! only part of this plant that is not one control volume. See
@@ -175,6 +175,7 @@
 //! composes).
 
 pub mod control_rods;
+pub mod decay_heat_removal;
 pub mod kinetics;
 pub mod primary_loop;
 pub mod protection;
@@ -291,7 +292,60 @@ pub struct PlantCommands {
     /// Everything the operator commands on the **secondary** side: the
     /// feedwater mode and demand, and the condenser back-pressure.
     pub secondary: SecondaryCommands,
+    /// Which accident scenario, if any, the plant is running.
+    pub scenario: Scenario,
 }
+
+/// The accident scenario the plant is running.
+///
+/// **An enum rather than a pair of booleans, deliberately.** A circulator trip
+/// and a secondary isolation are not independent switches an operator flips in
+/// any combination -- they are stages of one event, and representing them
+/// separately makes states expressible that the plant cannot be in (secondary
+/// isolated while the blower runs at rated flow, say). Matching exhaustively
+/// also means adding a scenario later is a compile error at every site that
+/// must handle it, which is the whole point of this workspace's
+/// enum-dispatch rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Scenario {
+    /// Normal operation. The circulator follows its commanded setpoint and the
+    /// secondary circuit is connected.
+    #[default]
+    Normal,
+    /// **Loss of forced cooling.** The helium circulator has tripped; the
+    /// primary stays pressurised. The protection system isolates the secondary
+    /// circuit [`SECONDARY_ISOLATION_DELAY_S`] after the trip, as it did in the
+    /// HTR-10 test of 15 October 2003 (Hu et al. 2006 section 3).
+    ///
+    /// **Whether the rods move is NOT part of this scenario.** Leave the bank
+    /// where it is and you have the ATWS the safety demonstration tested;
+    /// arm the protection system and you have LOFC with scram. Keeping them
+    /// separate is the point -- folding a scram into the scenario would make
+    /// the inherent-shutdown case unrepresentable.
+    Lofc,
+}
+
+/// Delay from a circulator trip to the protection system isolating the
+/// secondary circuit \[s\].
+///
+/// **12 s, measured.** In the HTR-10 loss-of-forced-cooling ATWS test the
+/// reactor protection system isolated the secondary circuit and closed the
+/// blower baffle 12 s after initiation (Hu et al. 2006 section 3), after which
+/// the primary flow was "almost zero".
+///
+/// This is not cosmetic: leaving the secondary connected during a LOFC keeps
+/// feedwater pulling heat through a steam generator that has no helium-side
+/// source, which drives the tube metal below the SS304L correlation's lower
+/// bound. See [`primary_loop::HeliumPrimaryLoop::advance_steam_generator`].
+pub const SECONDARY_ISOLATION_DELAY_S: f64 = 12.0;
+
+/// Lowest helium flow the circulator can actually regulate at \[kg/s\].
+///
+/// The published blower turns down to about 30 %; below that it cannot hold a
+/// setpoint, so a commanded flow under this floor is read as a STOPPED
+/// machine rather than as a very small commanded flow. Mirrors
+/// `primary_loop`'s own commanded-flow floor.
+pub const CIRCULATOR_REGULATING_FLOOR_KG_PER_S: f64 = 0.3;
 
 impl Default for PlantCommands {
     /// The published HTR-10 operating point, with the feedwater station in AUTO
@@ -307,6 +361,7 @@ impl Default for PlantCommands {
             control_rod_insertion_fraction: GUI_INITIAL_ROD_INSERTION,
             helium_flow_setpoint: nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
+            scenario: Scenario::Normal,
         }
     }
 }
@@ -665,6 +720,12 @@ pub struct HtgrPlant {
     pub protection: ReactorProtectionSystem,
     /// Accumulated simulation time.
     pub sim_time: Time,
+    /// Passive decay-heat path out to the RCCS. See [`decay_heat_removal`].
+    pub decay_heat_path: decay_heat_removal::CoreToRccsPath,
+    /// Sim time at which the current scenario was first commanded, `None`
+    /// under [`Scenario::Normal`]. Drives the protection system's
+    /// secondary-isolation delay.
+    scenario_started_at: Option<Time>,
     /// Heat rate crossing the pebble surface into the helium on the most recent
     /// step -- the core's *thermal* output, which lags the fission power by the
     /// graphite time constant.
@@ -683,6 +744,8 @@ impl HtgrPlant {
             shaft: TurbineGeneratorShaft::new(),
             protection: ReactorProtectionSystem::new(),
             sim_time: Time::new::<second>(0.0),
+            decay_heat_path: decay_heat_removal::CoreToRccsPath::placeholder(),
+            scenario_started_at: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
         }
     }
@@ -777,7 +840,44 @@ impl HtgrPlant {
             control_rod_insertion_fraction,
             helium_flow_setpoint,
             secondary: secondary_commands,
+            scenario,
         } = commands;
+
+        // Apply the scenario BEFORE the sim clock advances, so `scenario_time`
+        // below is measured from the step on which the trip was first
+        // commanded rather than one step late.
+        let scenario_started_at = match (scenario, self.scenario_started_at) {
+            (Scenario::Lofc, None) => {
+                // First step of the trip. The circulator stops following its
+                // setpoint; the secondary stays connected for now.
+                self.primary.trip_circulator(true);
+                Some(self.sim_time)
+            }
+            (Scenario::Lofc, Some(t0)) => Some(t0),
+            (Scenario::Normal, _) => {
+                // Scenario cleared: put the plant back to normal operation.
+                self.primary.trip_circulator(false);
+                self.primary.isolate_secondary(false);
+                None
+            }
+        };
+        self.scenario_started_at = scenario_started_at;
+
+        // The protection system isolates the secondary a fixed delay after the
+        // trip. This is the PLANT acting, not the operator, which is why it
+        // lives here rather than in a scenario script.
+        if let Some(t0) = scenario_started_at {
+            let elapsed = (self.sim_time - t0).get::<second>();
+            if elapsed >= SECONDARY_ISOLATION_DELAY_S {
+                self.primary.isolate_secondary(true);
+            }
+        }
+
+        // A tripped circulator does not follow the operator's setpoint.
+        let helium_flow_setpoint = match scenario {
+            Scenario::Normal => helium_flow_setpoint,
+            Scenario::Lofc => MassRate::new::<kilogram_per_second>(0.0),
+        };
 
         self.sim_time += dt;
 
@@ -887,9 +987,27 @@ impl HtgrPlant {
             //    makes this the least sensitive of the couplings either way.
             mark_component("pebble-bed core (graphite pebbles)");
             let reactor_power = self.kinetics.core_thermal_power();
+
+            // 2a. Passive decay-heat path out through the reflector and vessel
+            //     to the RCCS. Advanced BEFORE the bed so the heat it removes
+            //     is subtracted from this step's source rather than the next
+            //     one's, which keeps the energy balance on a single step
+            //     rather than spreading it across two.
+            //
+            //     Under forced flow this is a small correction -- a few hundred
+            //     kW against a multi-MW convective duty. Under loss of forced
+            //     cooling it is the ONLY path out of the core, and without it
+            //     the core cannot cool, the temperature feedback can never
+            //     relax, and the reactor cannot go recritical as the real
+            //     HTR-10 does. See [`decay_heat_removal`].
+            let passive_heat_loss = self
+                .decay_heat_path
+                .advance(dt, self.core.temperature());
+            let net_core_source = reactor_power - passive_heat_loss;
+
             self.core_heat_to_helium =
                 self.core
-                    .step(dt, reactor_power, core_inlet, self.primary.mass_flow());
+                    .step(dt, net_core_source, core_inlet, self.primary.mass_flow());
 
             // 3a. Primary hot leg: helium properties and the core-outlet
             //     temperature. Cheap (one CoolProp flash), so it is inside the
@@ -1085,6 +1203,7 @@ mod tests {
             control_rod_insertion_fraction: HTGR_GUI_INITIAL_ROD_INSERTION,
             helium_flow_setpoint: nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
+            scenario: Scenario::Normal,
         }
     }
 
@@ -2500,12 +2619,21 @@ mod tests {
 
     /// Settle the plant at a given rod position and flow, and report the power
     /// it lands on. Used to search for the test's initial condition.
-    fn settled_power_mw(rod_insertion: f64, flow_kg_s: f64, settle_s: f64) -> f64 {
+    fn settled_power_mw(rod_insertion: f64, flow_kg_s: f64, settle_s: f64, xenon_on: bool) -> f64 {
         use uom::si::mass_rate::kilogram_per_second;
         let dt = Time::new::<second>(PLANT_TIMESTEP_S);
         let mut plant = HtgrPlant::new();
         plant.protection.set_enabled(false);
         let mut c = PlantCommands::default();
+        // Xenon must be present during the SEARCH, not added afterwards.
+        // Seeding it after settling adds a dollar of negative reactivity the
+        // rods never balanced, so the transient would start subcritical and
+        // the two arms would not be comparable.
+        if xenon_on {
+            plant
+                .kinetics
+                .enable_xenon_at_equilibrium(plant.kinetics.total_power());
+        }
         c.control_rod_insertion_fraction = rod_insertion;
         c.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(flow_kg_s);
         c.secondary.feedwater = scaled_feedwater(flow_kg_s);
@@ -2522,7 +2650,7 @@ mod tests {
     /// Deeper insertion means more negative external reactivity and therefore
     /// less power, so settled power is monotonically decreasing in insertion
     /// and bisection is well posed.
-    fn rod_position_for(target_mw: f64, flow_kg_s: f64, settle_s: f64) -> f64 {
+    fn rod_position_for(target_mw: f64, flow_kg_s: f64, settle_s: f64, xenon_on: bool) -> f64 {
         // Bracket DEEPER than the simulator's opening position only.
         //
         // The opening insertion is already near critical at full flow and
@@ -2537,7 +2665,7 @@ mod tests {
         let (mut lo, mut hi) = (shallowest, 0.95_f64); // lo = shallower = more power
         for _ in 0..14 {
             let mid = 0.5 * (lo + hi);
-            if settled_power_mw(mid, flow_kg_s, settle_s) > target_mw {
+            if settled_power_mw(mid, flow_kg_s, settle_s, xenon_on) > target_mw {
                 lo = mid; // still too hot: insert deeper
             } else {
                 hi = mid;
@@ -2548,6 +2676,235 @@ mod tests {
 
     fn run_lofc_atws(duration_s: f64, settle_s: f64) -> Vec<LofcSample> {
         run_lofc_atws_at(duration_s, settle_s, None)
+    }
+
+    /// As [`run_lofc_atws_at`], with the Xe-135 channel switched on or off.
+    ///
+    /// Xenon is seeded at equilibrium for the settled power, because the real
+    /// test was run on a core that had been operating and therefore had a
+    /// saturated xenon inventory when the circulator tripped.
+    fn run_lofc_atws_xenon(
+        duration_s: f64,
+        settle_s: f64,
+        initial_condition: Option<(f64, f64)>,
+        xenon_on: bool,
+    ) -> Vec<LofcSample> {
+        use uom::si::mass_rate::kilogram_per_second;
+
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut plant = HtgrPlant::new();
+        plant.protection.set_enabled(false);
+
+        let mut steady = PlantCommands::default();
+        if let Some((rod, flow)) = initial_condition {
+            steady.control_rod_insertion_fraction = rod;
+            steady.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(flow);
+            steady.secondary.feedwater = scaled_feedwater(flow);
+        }
+        if xenon_on {
+            plant
+                .kinetics
+                .enable_xenon_at_equilibrium(plant.kinetics.total_power());
+        }
+        let settle_steps = (settle_s / PLANT_TIMESTEP_S).round() as usize;
+        for _ in 0..settle_steps {
+            plant.step(dt, steady.clone());
+        }
+
+        // Xenon is seeded BEFORE settling (below), so by here the plant has
+        // already reached a critical steady state WITH it present.
+        let _ = xenon_on;
+
+        let rod_position = steady.control_rod_insertion_fraction;
+        let initial_fission = plant.kinetics.total_power().get::<watt>();
+
+        plant.primary.trip_circulator(true);
+        let mut tripped = steady.clone();
+        tripped.control_rod_insertion_fraction = rod_position;
+        tripped.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(0.0);
+
+        const SECONDARY_ISOLATION_TIME_S: f64 = 12.0;
+        let isolation_step = (SECONDARY_ISOLATION_TIME_S / PLANT_TIMESTEP_S).round() as usize;
+
+        let steps = (duration_s / PLANT_TIMESTEP_S).round() as usize;
+        let sample_every = (1.0 / PLANT_TIMESTEP_S).round() as usize;
+        let mut trace = Vec::with_capacity(steps / sample_every + 1);
+        trace.push(LofcSample {
+            time_s: 0.0,
+            fission_power_w: initial_fission,
+            decay_power_w: plant.kinetics.decay.total_decay_heat_power().get::<watt>(),
+            fuel_temperature_k: plant.kinetics.prompt.fuel_temperature.get::<kelvin>(),
+            bed_temperature_k: plant.core.temperature().get::<kelvin>(),
+        });
+
+        for i in 1..=steps {
+            if i == isolation_step {
+                plant.primary.isolate_secondary(true);
+            }
+            plant.step(dt, tripped.clone());
+            if i % sample_every == 0 {
+                trace.push(LofcSample {
+                    time_s: i as f64 * PLANT_TIMESTEP_S,
+                    fission_power_w: plant.kinetics.total_power().get::<watt>(),
+                    decay_power_w: plant.kinetics.decay.total_decay_heat_power().get::<watt>(),
+                    fuel_temperature_k: plant.kinetics.prompt.fuel_temperature.get::<kelvin>(),
+                    bed_temperature_k: plant.core.temperature().get::<kelvin>(),
+                });
+            }
+        }
+        trace
+    }
+
+    /// Reduce a LOFC trace to the CRP-5 benchmark parameters of interest.
+    ///
+    /// Returns `(shutdown_to_1pct_s, recriticality_s, peak_fraction, peak_time_s)`.
+    /// "Recriticality" is taken as the first sample after the power minimum at
+    /// which the fission power has risen by 10 % above that minimum -- a
+    /// threshold crossing rather than a true `k = 1` test, which this model
+    /// cannot evaluate directly.
+    fn lofc_metrics(trace: &[LofcSample]) -> (Option<f64>, Option<f64>, f64, f64) {
+        let p0 = trace[0].fission_power_w;
+        let shutdown = trace
+            .iter()
+            .find(|s| s.fission_power_w <= 0.01 * p0)
+            .map(|s| s.time_s);
+
+        let min_idx = trace
+            .iter()
+            .enumerate()
+            .min_by(|a, b| a.1.fission_power_w.total_cmp(&b.1.fission_power_w))
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+        let p_min = trace[min_idx].fission_power_w;
+
+        let recrit = trace[min_idx..]
+            .iter()
+            .find(|s| s.fission_power_w > 1.10 * p_min.max(f64::MIN_POSITIVE))
+            .map(|s| s.time_s);
+
+        let peak = trace[min_idx..]
+            .iter()
+            .max_by(|a, b| a.fission_power_w.total_cmp(&b.fission_power_w))
+            .copied()
+            .unwrap_or(trace[0]);
+
+        (shutdown, recrit, peak.fission_power_w / p0, peak.time_s)
+    }
+
+    /// **HTR-10 LOFC ATWS, with and without Xe-135 poisoning.**
+    ///
+    /// ## Why this pair exists
+    ///
+    /// Chen et al. (2009) attribute THERMIX's over-prediction of the
+    /// recriticality peak -- **32.6 %** calculated against **24.7 % measured**
+    /// -- to having **omitted xenon feedback**: xenon builds while the reactor
+    /// is subcritical and adds negative reactivity, so leaving it out makes the
+    /// return to power both earlier and stronger. Jun et al. (2009), whose
+    /// GAMMA+ model *does* carry a xenon channel, land on **25 % at 4200 s**
+    /// against the measured 25 % at 4400 s.
+    ///
+    /// So xenon is worth roughly **7 percentage points of peak power** in this
+    /// transient, according to two independent codes. This test runs the same
+    /// scenario twice, differing only in whether the xenon channel is active,
+    /// and reports the four CRP-5 parameters for each.
+    ///
+    /// ## What this does and does not establish
+    ///
+    /// The **sign and the mechanism** are physics: the published I-135/Xe-135
+    /// yields and decay constants set how fast xenon accumulates after
+    /// shutdown, and accumulating a neutron absorber must delay and depress the
+    /// return to power.
+    ///
+    /// The **magnitude is a model input**, set by
+    /// [`kinetics::EQUILIBRIUM_XENON_WORTH_DOLLARS`], because converting a
+    /// xenon inventory to reactivity needs HTR-10 absorption cross sections
+    /// this workspace does not have. Treat the difference between the two runs
+    /// as a **sensitivity study on that constant**, not as a prediction. See
+    /// [`kinetics::XenonChannel`] for the full statement, including that
+    /// omitting xenon burnout biases this channel toward over-stating xenon.
+    ///
+    /// **Results: printed by this test.**
+    #[test]
+    fn lofc_atws_with_and_without_xenon() {
+        let flow_30pct = 0.30 * pebble_bed::nominal_helium_flow_kg_per_s();
+        let settle_s = 200.0;
+        // Search PER ARM. Each case must open critical at the test power in
+        // its own right: with xenon present the rods sit shallower to offset
+        // it. Sharing one rod position would start the xenon arm a dollar
+        // subcritical and the comparison would measure that, not xenon.
+        let rod_no_xe = rod_position_for(3.315, flow_30pct, settle_s, false);
+        let rod_xe = rod_position_for(3.315, flow_30pct, settle_s, true);
+
+        // 3 h, the window over which the test data reports recriticality and
+        // the first power peak.
+        let duration = 10_800.0;
+
+        let without = run_lofc_atws_xenon(duration, settle_s, Some((rod_no_xe, flow_30pct)), false);
+        let with = run_lofc_atws_xenon(duration, settle_s, Some((rod_xe, flow_30pct)), true);
+
+        let (s_no, r_no, pk_no, pkt_no) = lofc_metrics(&without);
+        let (s_yes, r_yes, pk_yes, pkt_yes) = lofc_metrics(&with);
+
+        let fmt = |o: Option<f64>| match o {
+            Some(t) => format!("{t:.0} s"),
+            None => "not reached".to_string(),
+        };
+
+        println!("\n=== HTR-10 LOFC ATWS: Xe-135 on vs off ===");
+        println!("initial power        : {:.4} MW (test: 3.315 MW)", without[0].fission_power_w / 1.0e6);
+        println!("rod insertion        : {rod_no_xe:.6} (no Xe), {rod_xe:.6} (with Xe), helium flow {flow_30pct:.3} kg/s");
+        println!(
+            "equilibrium Xe worth : {} $ (MODEL INPUT, not derived)",
+            kinetics::EQUILIBRIUM_XENON_WORTH_DOLLARS
+        );
+        println!();
+        println!("{:<22} {:>14} {:>14}   {}", "parameter", "without Xe", "with Xe", "measured / published");
+        println!("{:-<80}", "");
+        println!(
+            "{:<22} {:>14} {:>14}   {}",
+            "shutdown to 1 %",
+            fmt(s_no),
+            fmt(s_yes),
+            "330 s [Chen]"
+        );
+        println!(
+            "{:<22} {:>14} {:>14}   {}",
+            "recriticality",
+            fmt(r_no),
+            fmt(r_yes),
+            "~3000 s [Hu], 2900 s [GAMMA+]"
+        );
+        println!(
+            "{:<22} {:>13.2}% {:>13.2}%   {}",
+            "first peak",
+            100.0 * pk_no,
+            100.0 * pk_yes,
+            "24.7 % [Chen test], 32.6 % [THERMIX, no Xe]"
+        );
+        println!(
+            "{:<22} {:>14.0} {:>14.0}   {}",
+            "peak time",
+            pkt_no,
+            pkt_yes,
+            "4400 s test, 4200 s GAMMA+"
+        );
+        println!();
+        println!(
+            "xenon effect on peak : {:+.2} percentage points  (published expectation: about -7)",
+            100.0 * (pk_yes - pk_no)
+        );
+
+        // The mechanism must have the right SIGN: adding a neutron absorber
+        // cannot raise the return to power. The magnitude is not gated, since
+        // it is a function of a model input.
+        assert!(
+            pk_yes <= pk_no + 1.0e-9,
+            "xenon RAISED the recriticality peak ({:.3} % with, {:.3} % without). Xe-135 is a \
+             neutron absorber accumulating while the reactor is subcritical; it can only \
+             depress the return to power. This is a sign error, not a calibration issue.",
+            100.0 * pk_yes,
+            100.0 * pk_no
+        );
     }
 
     /// As [`run_lofc_atws`], optionally starting from a specified
@@ -2708,8 +3065,8 @@ mod tests {
     fn lofc_atws_at_the_published_test_condition() {
         let flow_30pct = 0.30 * pebble_bed::nominal_helium_flow_kg_per_s();
         let settle_s = 200.0;
-        let rod = rod_position_for(3.0, flow_30pct, settle_s);
-        let settled = settled_power_mw(rod, flow_30pct, settle_s);
+        let rod = rod_position_for(3.0, flow_30pct, settle_s, false);
+        let settled = settled_power_mw(rod, flow_30pct, settle_s, false);
 
         println!("\n=== initial condition search ===");
         println!("helium flow (30 % of rated): {flow_30pct:.3} kg/s");

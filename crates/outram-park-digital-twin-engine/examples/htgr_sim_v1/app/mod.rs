@@ -140,6 +140,11 @@ fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
     PlantCommands {
         control_rod_insertion_fraction: s.control_rod_insertion_fraction,
         helium_flow_setpoint: MassRate::new::<kilogram_per_second>(s.helium_flow_setpoint_kg_per_s),
+        scenario: if s.circulator_tripped {
+            crate::physics::Scenario::Lofc
+        } else {
+            crate::physics::Scenario::Normal
+        },
         secondary: SecondaryCommands {
             feedwater: if s.feedwater_manual {
                 FeedwaterCommand::Manual {

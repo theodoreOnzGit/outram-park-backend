@@ -35,6 +35,12 @@ pub struct HtgrSnapshot {
     pub control_rod_insertion_fraction: f64,
     /// User-commanded helium pump mass-flow setpoint \[kg/s\].
     pub helium_flow_setpoint_kg_per_s: f64,
+    /// Operator has manually tripped the helium circulator (LOFC).
+    ///
+    /// Distinct from driving the flow slider to its minimum: the slider is
+    /// bounded by the circulator's 0.3 kg/s regulating floor, so it cannot
+    /// express a stopped blower. See `physics::Scenario`.
+    pub circulator_tripped: bool,
     /// Whether the feedwater station is in **MANUAL** (`true`) or **AUTO**
     /// (`false`).
     ///
@@ -366,6 +372,8 @@ impl Default for HtgrSnapshot {
             // `crate::physics::control_rods`), so the simulator opens close to
             // steady state rather than on a prompt excursion.
             control_rod_insertion_fraction: crate::physics::GUI_INITIAL_ROD_INSERTION,
+            // The blower runs at startup; the operator trips it deliberately.
+            circulator_tripped: false,
             // Feedwater in AUTO at the published 440 degC, and the condenser at
             // its design 7 kPa: the opening state is the plant's design
             // condition, and is exactly `physics::PlantCommands::default()`.

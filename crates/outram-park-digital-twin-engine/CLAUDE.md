@@ -31,6 +31,59 @@ Even there, pull real property data from the workspace libraries
 (`outram-park-fork-coolprop`, `tampines-steam-tables`) rather than hardcoding
 constants.
 
+## PHYSICAL CORRECTNESS IS THE FIRST PRIORITY IN THIS SIMULATOR (HARD RULE)
+
+**Maintainer direction, 2026-09-17, stated in these words: "I want the models
+physically correct in this simulator, this is the most important thing."**
+Where physical correctness conflicts with anything else — a passing test, a
+tidy interface, a convenient constant, a deadline, a number that matches a
+published figure — **correctness wins and the other thing changes.**
+
+This outranks the rest of this file. It does not outrank the workspace
+compliance rules (`RESPONSIBLE_USE.md`, `DATA_POLICY.md`), which are about
+what may be modelled, not how well.
+
+### What this requires, concretely
+
+- **Derive from physics; never calibrate to the answer.** Compute a quantity
+  from geometry, material properties and the governing equation, then compare
+  it to the published value as a **check**. Tuning a free parameter until the
+  model reproduces the reference destroys the only evidence that the model is
+  right — the agreement becomes a restatement of the input. A 13 % or 40 %
+  disagreement that is *honestly derived* is worth more than an exact match
+  that was fitted, because only the first one can be wrong.
+- **Every transfer path carries all of its real mechanisms.** If a leg
+  conducts, radiates and convects, model all three or state in the doc comment
+  which is omitted and why. Radiation is the usual casualty: it goes as `T⁴`,
+  so a constant `UA` fitted at one temperature is silently wrong everywhere
+  else — and a transient exists precisely to leave the design point.
+- **Put transfer terms inside the control volume's own balance**, implicitly,
+  not as an adjustment to its source. A `−UA(T − T_nb)` on the matrix diagonal
+  is self-limiting at any timestep; the same quantity subtracted from `Q`
+  outside the solve can drive the source negative and needs guarding. If a
+  term needs a guard to stay physical, the formulation is wrong — fix the
+  formulation, do not add the guard.
+- **Label every invented or fitted number as such, at its definition.** A
+  placeholder that reads like a measurement will be cited as one. Say what
+  would replace it.
+- **A model that cannot answer the question must say so.** A lumped bed node
+  gives a volume average, so it cannot be compared to a peak-fuel limit. State
+  the limitation where a reader meets the result, not only in a design doc.
+
+### Evidence (2026-09-17)
+
+Three defects in one session, all of which passed their own tests:
+
+| Defect | What was wrong |
+|---|---|
+| Decay-heat loss subtracted from `Q` (`physics/mod.rs`) | Not a CV coupling — could make the fission source negative, and corrupted the LTNE solid/fluid split. Belongs on the matrix diagonal. |
+| `UA` sized against a ~200 K ΔT instead of the ~627 K core-to-RCCS ΔT | 3× too conductive; drained the core and walked the secondary to the triple point. Arithmetic, not structure — good structure did not catch it. |
+| Two of four chain legs had **no radiation term**, only fitted constant `UA`s | The legs with the highest temperatures were the ones missing `T⁴`. Fitted at 950 K, wrong everywhere else. |
+
+A fourth was proposed and rejected by the maintainer in the same session:
+calibrating an effective axial length until the chain reproduced the published
+206 kW. It would have matched exactly and proved nothing.
+
 **Planned future exception (maintainer direction, 2026-08-17, not yet in
 force — see `op-76hu`).** Once a given example's reactor model or widget is
 implemented, tested, AND verified working and physically accurate by a

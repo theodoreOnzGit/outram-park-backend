@@ -157,9 +157,17 @@
 //!   `Illustrative closure constants` block below, so no invented number is
 //!   mixed in with the published geometry above it. Replacing the invented
 //!   figures with sourced ones is tracked as bead `op-szmi.6`.
-//! - **There is no multi-pass pebble flow, no burnup distribution, and no
-//!   reflector, barrel or cavity-cooling path.** The HTR-10's passive
-//!   decay-heat route is not modelled.
+//! - **There is no multi-pass pebble flow and no burnup distribution.**
+//! - **There is no reflector, barrel or cavity-cooling path IN THIS MODULE**,
+//!   and the bed node has no second surface to lose heat through.
+//!   ~~The HTR-10's passive decay-heat route is not modelled.~~
+//!   **CORRECTED 2026-09-17** -- it is now modelled next door, in
+//!   [`super::super::decay_heat_removal`], as a lumped bed -> reflector ->
+//!   RPV -> RCCS chain whose heat rate [`super::super::HtgrPlant::step`]
+//!   subtracts from the source term handed to [`PebbleBedPorousMediaNode::step`]
+//!   before the bed is advanced. So this module sees the passive path only as
+//!   a reduced source, never as a boundary condition of its own, and its `UA`
+//!   values are placeholders.
 //!
 //! It is an offline demonstration model. It is **not** a validated pebble-bed
 //! core model and must not be used for any purpose `RESPONSIBLE_USE.md`

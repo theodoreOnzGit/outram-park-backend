@@ -170,6 +170,15 @@ fn target_steam_enthalpy_at(target_temperature: ThermodynamicTemperature) -> Ava
 /// above this, even transiently.
 const IF97_MAX_TEMPERATURE_K: f64 = 1073.15;
 
+/// Lower temperature bound of the IF97 industrial formulation \[K\].
+///
+/// **273.15 K**, the triple point. Water substance is not tabulated below it,
+/// so `h_tp_eqm_single_phase` aborts rather than extrapolating. Any function
+/// that can be handed a cold temperature must bound against this as well as
+/// [`IF97_MAX_TEMPERATURE_K`] -- bounding only the top is what let the LOFC
+/// transient abort a three-hour run at 273.1376 K.
+const IF97_MIN_TEMPERATURE_K: f64 = 273.15;
+
 /// Greatest duty \[W\] the steam side can absorb without its outlet exceeding
 /// the hot side that is heating it -- i.e. without a temperature cross.
 ///
@@ -217,9 +226,30 @@ fn max_absorbable_duty(
 ) -> f64 {
     use tampines_steam_tables::interfaces::functional_programming::pt_flash_eqm::h_tp_eqm_single_phase;
 
-    let t_cap_k = hot_side_inlet_temperature
-        .get::<kelvin>()
-        .min(IF97_MAX_TEMPERATURE_K);
+    let t_hot_k = hot_side_inlet_temperature.get::<kelvin>();
+
+    // A COLD hot side transfers nothing, and must be answered WITHOUT asking
+    // IF97 for an enthalpy it does not define. The formulation's lower bound is
+    // the triple point, 273.15 K; below that `h_tp_eqm_single_phase` aborts the
+    // run rather than extrapolating -- correctly, since water substance is not
+    // tabulated there.
+    //
+    // The `.max(0.0)` below already expressed the intent "a cold plant
+    // transfers nothing instead of running the steam generator backwards", but
+    // it discarded the answer AFTER computing it, so the flash still happened
+    // out of domain. Checking first is the same contract, evaluated in an order
+    // that is defined.
+    //
+    // ~~"this function can never itself trigger the panic it exists to
+    // prevent"~~ -- **CORRECTED 2026-09-17**: it clamped only the UPPER end, so
+    // a cold hot side walked straight out of the domain. Found by the HTR-10
+    // LOFC transient, where the steam generator is isolated for three hours and
+    // the secondary coasts down with no heat input.
+    if t_hot_k <= IF97_MIN_TEMPERATURE_K {
+        return 0.0;
+    }
+
+    let t_cap_k = t_hot_k.min(IF97_MAX_TEMPERATURE_K);
     let t_cap = ThermodynamicTemperature::new::<kelvin>(t_cap_k);
     let h_at_hot_side = h_tp_eqm_single_phase(t_cap, steam_pressure).get::<joule_per_kilogram>();
 

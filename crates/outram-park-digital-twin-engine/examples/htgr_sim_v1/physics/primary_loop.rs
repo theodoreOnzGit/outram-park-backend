@@ -34,7 +34,7 @@
 //! |---|---|---|
 //! | Helium through the bed | **1** | one `c_p` and one density, both at the bulk mean `(T_in + T_out)/2` |
 //! | Hot gas duct, plenums, SG shell, return leg | **0** | collapsed into one first-order transport lag |
-//! | Steam generator, helium side | **1** (an effectiveness-NTU lump) | one `UA`, one isothermal cold side |
+//! | Steam generator, helium side | **8** (~~an effectiveness-NTU lump~~ **CORRECTED 2026-09-17**) | one `UA_hot` per node against the tube metal; the cold side is a resolved IF97 array, not an isothermal sink -- see [`super::steam_generator`] |
 //! | Reflector cooling channels | **0** | not modelled |
 //!
 //! The core inlet and core outlet temperatures are the **boundary values of
@@ -49,9 +49,17 @@
 //! friction factor is evaluated **once, at the bulk mean**, not integrated down
 //! a bed whose helium actually runs 250 -> 700 degC. There is
 //! no gas momentum equation, so the pressure drop cannot feed back on the flow
-//! and there is **no natural circulation** -- with the circulator stopped this
+//! and there is **no natural circulation**. ~~With the circulator stopped this
 //! model has no decay-heat removal path at all, which is precisely the HTR-10
-//! behaviour a reader might most want and the one it cannot answer. There is no
+//! behaviour a reader might most want and the one it cannot answer.~~
+//! **CORRECTED 2026-09-17** -- decay heat now leaves the core by a *conduction
+//! and radiation* chain that bypasses this loop entirely
+//! ([`super::decay_heat_removal`]: bed -> reflector -> RPV -> RCCS, applied as
+//! a sink on the bed source in [`super::HtgrPlant::step`]). What is still
+//! missing from **this** module is the buoyancy-driven helium loop that runs
+//! alongside it, so the passive path here is conduction/radiation only and
+//! core temperatures under a loss of forced cooling are an upper bound. There
+//! is no
 //! separate reflector-channel leg, so the published cold-helium-rises-in-the-
 //! side-reflector path is documented but not resolved.
 //!
@@ -101,9 +109,16 @@
 //! - **The loop is closed.** The core inlet temperature is *computed* as the
 //!   steam-generator helium-side outlet, relaxed through the return transport
 //!   lag; it is not pinned to a fixed number.
-//! - **The steam generator is pinch-limited** by an effectiveness-NTU model
-//!   against the secondary saturation temperature, so its duty cannot exceed
-//!   what the temperature difference and `UA` support (see [`Self::step`]).
+//! - **The steam generator is pinch-limited node by node.**
+//!   ~~by an effectiveness-NTU model against the secondary saturation
+//!   temperature~~ **CORRECTED 2026-09-17** -- since 2026-08-12 this module
+//!   owns a [`NodalisedCounterFlowSteamGenerator`], and the duty is the sum of
+//!   eight local `UA (T_hot_i - T_metal_i)` terms evaluated at resolved
+//!   temperatures, not a closed-form effectiveness against a saturation sink.
+//!   A local difference that changes sign simply reverses the heat flow, so
+//!   the pinch is structural rather than enforced (see
+//!   [`HeliumPrimaryLoop::advance_steam_generator`] and
+//!   [`super::steam_generator`]).
 //! - **The helium inventory is a real gas mass** `rho V` evaluated from the EOS
 //!   density over the bed void volume derived from the published core geometry,
 //!   plus an illustrative allowance for the rest of the circuit. That inventory
@@ -131,11 +146,16 @@
 //!   is not, and their bed flow is 87.3% of rated against the 86% conservative
 //!   fraction used here. The gap is recorded rather than closed; see the V&V
 //!   test for the full comparison.
-//! - **The steam generator is one effectiveness-NTU lump.** The published unit
-//!   is a once-through helical-tube module; there is no three-zone moving
-//!   boundary, no helical correlation, and no tube geometry here. The `UA` is
-//!   an illustrative value chosen to place the settled loop near the published
-//!   250/700 degC end states.
+//! - **The steam generator's SIZING is a calibration, though its arrangement
+//!   is resolved.** ~~The steam generator is one effectiveness-NTU lump.~~
+//!   **CORRECTED 2026-09-17** -- it is an 8-node counter-flow exchanger with
+//!   its own tube geometry ([`SteamGeneratorGeometry::htr10_illustrative`]),
+//!   so the economiser/evaporator/superheater zones do resolve. What remains
+//!   illustrative is that the published unit is a once-through *helical-tube*
+//!   module and there is no helical-coil correlation here: `UA_hot` and
+//!   `UA_cold` are constructor parameters whose series combination is an
+//!   illustrative value chosen to place the settled loop near the published
+//!   250/700 degC end states, and the tube diameters are invented.
 //! - **Piping and plenum geometry is invented.** See the `ILLUSTRATIVE
 //!   GEOMETRY` block below -- IAEA-TECDOC-1382 is a neutronics benchmark and
 //!   carries no plant piping. Replacing these with sourced figures is tracked

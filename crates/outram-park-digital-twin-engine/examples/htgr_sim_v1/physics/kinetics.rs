@@ -135,6 +135,163 @@ pub struct HtgrKinetics {
     delayed_increment: Power,
     /// Total reactor power `P = P_p + increment` from the most recent step.
     total_power: Power,
+    /// Xe-135 poisoning channel, `None` when disabled. See [`XenonChannel`].
+    xenon: Option<XenonChannel>,
+}
+
+/// Xe-135 poisoning channel for the HTGR core.
+///
+/// ## What is published here and what is a model input
+///
+/// This distinction matters more than usual, so it is stated first.
+///
+/// **Published, and carried by [`teh_o_prke`]:** the I-135 and Xe-135 fission
+/// yields (Lamarsh Table 7.5 -- 0.0639 and 0.00237 for U-235 thermal) and the
+/// decay constants (Lamarsh Table 7.6 -- `lambda_I = 2.87e-5 Hz`,
+/// `lambda_Xe = 2.09e-5 Hz`). Those set the **shape** of the transient: how
+/// fast xenon builds after a shutdown, when it peaks, and how fast it decays.
+/// That shape is the physics this channel exists to represent.
+///
+/// **A model input, NOT derived:** the reactivity **magnitude**. Converting a
+/// xenon number density into reactivity needs the core's absorption cross
+/// sections, and no published set exists for HTR-10 in this workspace. The
+/// route `teh-o-prke` offers ([`Xenon135Poisoning::simplified_poison_concentration_feedback`])
+/// is not usable here either: it hardcodes an enrichment of 0.199 and depends
+/// on constants its own source comments mark as *"AI guestimate"* and
+/// *"tentatively got from AI, but need to cite"*. Importing those would put
+/// unverified numbers underneath a headline result.
+///
+/// So the magnitude is set by [`EQUILIBRIUM_XENON_WORTH_DOLLARS`], an explicit
+/// input scaled so that the equilibrium inventory at the seeding power is worth
+/// exactly that. **Any conclusion about how much xenon changes the peak power
+/// is a conclusion about that input**, and must be reported as such.
+///
+/// ## Why the fission rate needs no invented constant
+///
+/// The chain is driven by a fission-rate density, which follows from published
+/// quantities alone: `P_fission / (E_fission * V_core)`, with the HTR-10 core
+/// volume of 5 m^3 (IAEA-TECDOC-1382, carried in
+/// [`outram_park_digital_twin_engine::htr10::design`]) and the nominal
+/// 200 MeV/fission this crate already uses for the decay-heat split.
+///
+/// ## What is deliberately omitted
+///
+/// **Xenon burnout by neutron absorption.** The true chain loses xenon to
+/// `sigma_a * phi * X` as well as to decay, and that term needs a thermal flux,
+/// which needs a cross section this workspace does not have for HTR-10.
+/// Omitting it makes the modelled xenon build-up after shutdown **slightly
+/// faster and larger** than reality, because burnout is what holds the
+/// equilibrium inventory down while the reactor is at power. The direction of
+/// that error is stated so a reader can bound it: this channel over-states
+/// xenon's negative reactivity, so it under-states the recriticality peak.
+///
+/// At HTR-10's low power density (3.3 MW in 5 m^3) burnout is a modest
+/// correction -- decay dominates -- but it is not nothing, and this is a
+/// scoping model, not a validated one.
+#[derive(Clone, Debug)]
+pub struct XenonChannel {
+    /// Iodine-135 number density \[atoms/cm^3\].
+    iodine_per_cm3: f64,
+    /// Xenon-135 number density \[atoms/cm^3\].
+    xenon_per_cm3: f64,
+    /// Equilibrium xenon inventory at the seeding power \[atoms/cm^3\], used
+    /// to normalise the reactivity so that it equals
+    /// [`EQUILIBRIUM_XENON_WORTH_DOLLARS`] there.
+    equilibrium_per_cm3: f64,
+}
+
+/// Reactivity worth of the **equilibrium** Xe-135 inventory, in dollars.
+///
+/// **This is a model input, not a measurement.** See [`XenonChannel`] for why
+/// it cannot be derived here. A value of 1 dollar means the saturated xenon
+/// inventory is worth one delayed-neutron fraction.
+///
+/// Order-of-magnitude justification, stated so the choice is arguable rather
+/// than arbitrary: equilibrium xenon in a thermal power reactor is commonly
+/// quoted around 2.6-3 % dk/k at high flux, which at
+/// `beta = 7.26e-3` would be 3.6-4.1 dollars. HTR-10 at the test condition runs
+/// at about 0.66 MW/m^3, far below a power reactor, and xenon worth falls with
+/// flux; 1 dollar is a deliberately conservative placeholder in that light.
+///
+/// **Vary this and re-run before quoting any xenon effect.** The paired
+/// with/without comparison this constant supports is a sensitivity study.
+pub const EQUILIBRIUM_XENON_WORTH_DOLLARS: f64 = 1.0;
+
+impl XenonChannel {
+    /// I-135 decay constant \[1/s\]. Lamarsh Table 7.6, via `teh-o-prke`.
+    const LAMBDA_IODINE_PER_S: f64 = 2.87e-5;
+    /// Xe-135 decay constant \[1/s\]. Lamarsh Table 7.6, via `teh-o-prke`.
+    const LAMBDA_XENON_PER_S: f64 = 2.09e-5;
+    /// I-135 yield per U-235 thermal fission. Lamarsh Table 7.5.
+    const YIELD_IODINE: f64 = 0.0639;
+    /// Xe-135 direct yield per U-235 thermal fission. Lamarsh Table 7.5.
+    const YIELD_XENON: f64 = 0.00237;
+    /// Energy per fission \[J\], the same 200 MeV this module's decay-heat
+    /// split uses.
+    const JOULES_PER_FISSION: f64 = 200.0 * 1.602_176_634e-13;
+
+    /// Fission-rate density \[fissions/(cm^3 s)\] for a given fission power.
+    fn fission_rate_per_cm3_s(power: Power) -> f64 {
+        // Published HTR-10 core volume, 5 m^3 (IAEA-TECDOC-1382 via
+        // `Htr10DesignPoint::iaea_benchmark`).
+        let core_volume_cm3 = super::pebble_bed::design()
+            .core_volume
+            .get::<uom::si::volume::cubic_meter>()
+            * 1.0e6;
+        power.get::<watt>() / (Self::JOULES_PER_FISSION * core_volume_cm3)
+    }
+
+    /// Seed the chain at equilibrium for `power`.
+    ///
+    /// At equilibrium, with burnout omitted (see the type docs):
+    /// `I = gamma_I * F / lambda_I` and
+    /// `X = (gamma_I + gamma_X) * F / lambda_X`, the latter because every
+    /// iodine atom eventually becomes a xenon atom.
+    pub fn new_at_equilibrium(power: Power) -> Self {
+        let f = Self::fission_rate_per_cm3_s(power);
+        let iodine = Self::YIELD_IODINE * f / Self::LAMBDA_IODINE_PER_S;
+        let xenon = (Self::YIELD_IODINE + Self::YIELD_XENON) * f / Self::LAMBDA_XENON_PER_S;
+        Self {
+            iodine_per_cm3: iodine,
+            xenon_per_cm3: xenon,
+            // Guard against a zero-power seed making the normaliser singular.
+            equilibrium_per_cm3: if xenon > 0.0 { xenon } else { 1.0 },
+        }
+    }
+
+    /// Advance the I-135 / Xe-135 chain by `dt`, driven by `fission_power`.
+    ///
+    /// Backward Euler on both species, which is unconditionally stable and
+    /// matters here because the plant step (0.1 s) is many orders of magnitude
+    /// shorter than the xenon time constants (about 9.2 h and 13.3 h), so an
+    /// explicit scheme would be wasting its stability margin for nothing.
+    pub fn advance(&mut self, dt: Time, fission_power: Power) {
+        let dt_s = dt.get::<second>();
+        if dt_s <= 0.0 {
+            return;
+        }
+        let f = Self::fission_rate_per_cm3_s(fission_power);
+
+        // I: dI/dt = gamma_I F - lambda_I I
+        self.iodine_per_cm3 = (self.iodine_per_cm3 + dt_s * Self::YIELD_IODINE * f)
+            / (1.0 + dt_s * Self::LAMBDA_IODINE_PER_S);
+
+        // X: dX/dt = gamma_X F + lambda_I I - lambda_X X
+        // Burnout (- sigma_a phi X) is deliberately absent; see the type docs.
+        let source = Self::YIELD_XENON * f + Self::LAMBDA_IODINE_PER_S * self.iodine_per_cm3;
+        self.xenon_per_cm3 =
+            (self.xenon_per_cm3 + dt_s * source) / (1.0 + dt_s * Self::LAMBDA_XENON_PER_S);
+    }
+
+    /// Xenon reactivity in dollars: negative, and proportional to inventory.
+    pub fn reactivity_dollars(&self) -> f64 {
+        -EQUILIBRIUM_XENON_WORTH_DOLLARS * self.xenon_per_cm3 / self.equilibrium_per_cm3
+    }
+
+    /// Current Xe-135 number density \[atoms/cm^3\].
+    pub fn xenon_per_cm3(&self) -> f64 {
+        self.xenon_per_cm3
+    }
 }
 
 impl HtgrKinetics {
@@ -270,6 +427,10 @@ impl HtgrKinetics {
             prompt_power: reference_power,
             delayed_increment: Power::new::<watt>(0.0),
             total_power: reference_power,
+            // Xenon is OFF by default, so this constructor reproduces the
+            // simulator's behaviour before the channel existed. Callers opt
+            // in with `enable_xenon_at_equilibrium`.
+            xenon: None,
         }
     }
 
@@ -397,10 +558,60 @@ impl HtgrKinetics {
         };
         let sub = Time::new::<second>(dt_s / pieces);
         for _ in 0..(pieces as usize) {
-            self.advance_one(sub, external_reactivity_dollars);
+            // The xenon channel is an EXTERNAL reactivity contribution, added
+            // to whatever the rods are worth. It is evaluated from the
+            // concentration carried into this substep, then advanced, so the
+            // kinetics never sees a xenon worth that depends on the power it
+            // is about to produce.
+            let rho_xenon_dollars = self.xenon_reactivity_dollars();
+            self.advance_one(sub, external_reactivity_dollars + rho_xenon_dollars);
             self.apply_decay_heat(sub);
             self.apply_coolant_heat_removal(coolant_heat_removal, sub);
+            self.advance_xenon(sub);
         }
+    }
+
+    /// Reactivity worth of the current Xe-135 inventory, in dollars.
+    ///
+    /// Zero when the xenon channel is disabled, which is the default and
+    /// reproduces this simulator's behaviour before xenon existed.
+    pub fn xenon_reactivity_dollars(&self) -> f64 {
+        let Some(xenon) = self.xenon.as_ref() else {
+            return 0.0;
+        };
+        xenon.reactivity_dollars()
+    }
+
+    /// Advance the iodine/xenon chain over `dt`, driven by the fission power
+    /// produced in this substep.
+    fn advance_xenon(&mut self, dt: Time) {
+        let fission_power = self.total_power;
+        if let Some(xenon) = self.xenon.as_mut() {
+            xenon.advance(dt, fission_power);
+        }
+    }
+
+    /// Enable the Xe-135 channel, seeded at equilibrium for `power`.
+    ///
+    /// Seeding at equilibrium rather than clean is the physically right
+    /// opening state for a reactor that has been at power: the HTR-10 LOFC
+    /// ATWS test was run on a core that had been operating, so its xenon was
+    /// saturated when the circulator tripped.
+    pub fn enable_xenon_at_equilibrium(&mut self, power: Power) {
+        self.xenon = Some(XenonChannel::new_at_equilibrium(power));
+    }
+
+    /// Disable the Xe-135 channel.
+    pub fn disable_xenon(&mut self) {
+        self.xenon = None;
+    }
+
+    /// Current Xe-135 number density, or zero if the channel is disabled.
+    pub fn xenon_number_density_per_cm3(&self) -> f64 {
+        self.xenon
+            .as_ref()
+            .map(|x| x.xenon_per_cm3())
+            .unwrap_or(0.0)
     }
 
     /// Heat this node by the fission-product decay heat generated over `dt`.

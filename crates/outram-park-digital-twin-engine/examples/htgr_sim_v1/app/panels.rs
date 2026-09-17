@@ -267,20 +267,47 @@ pub fn draw_controls(
 
     ui.add_space(8.0);
     ui.label("Helium circulator flow");
-    // Range bracketing the published HTR-10 operating point of 4.3 kg/s: down
-    // to roughly 7% flow at the bottom (below the circulator's regulated 30%
-    // turndown, so a loss-of-flow can be driven) and half again above nominal
-    // at the top. The primary loop clamps to its own circulator ceiling, so
-    // the slider cannot command a flow the machine could not pass.
+    // The slider now reaches ZERO, and that is the loss-of-forced-cooling
+    // control: turn the helium off and the blower has stopped.
+    //
+    // Below the circulator's regulated 30% turndown the machine cannot hold a
+    // setpoint at all, so anything under 0.3 kg/s is read as "stopped" rather
+    // than as a commanded flow. That is what makes the plant enter
+    // `Scenario::Lofc`: the flow floor is lifted (a commanded zero really
+    // reaches zero instead of being raised to 7% of rated) and the protection
+    // system isolates the secondary circuit 12 s later, as it did in the
+    // HTR-10 test of 15 October 2003.
     let flow_changed = ui
-        .add(egui::Slider::new(&mut helium_flow, 0.3..=6.0).text("kg/s"))
+        .add(egui::Slider::new(&mut helium_flow, 0.0..=6.0).text("kg/s"))
         .changed();
+
+    // A stopped blower is not a small commanded flow, so the scenario is
+    // derived here rather than being a second control the operator has to
+    // remember to set consistently with the slider.
+    let tripped = helium_flow < crate::physics::CIRCULATOR_REGULATING_FLOOR_KG_PER_S;
 
     if rho_changed || flow_changed {
         physics.update(|s| {
             s.control_rod_insertion_fraction = rod_insertion;
             s.helium_flow_setpoint_kg_per_s = helium_flow;
+            s.circulator_tripped = tripped;
         });
+    }
+
+    if tripped {
+        ui.colored_label(
+            egui::Color32::from_rgb(220, 120, 40),
+            "Blower stopped. Leave the rods where they are for the ATWS case --\n\
+             the reactor should shut itself down on temperature feedback alone.",
+        );
+        // Say plainly what this model cannot do, next to the control that
+        // provokes it, rather than only in a doc comment nobody opens.
+        ui.colored_label(
+            egui::Color32::from_rgb(160, 160, 160),
+            "No decay-heat removal path is modelled (no reflector, barrel, \
+             cavity or RCCS),\nso the core cannot cool and will NOT go \
+             recritical as the real HTR-10 did.",
+        );
     }
 
     draw_secondary_controls(ui, physics, snapshot, *display_unit);
