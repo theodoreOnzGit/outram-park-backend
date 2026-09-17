@@ -114,9 +114,29 @@ cd src/STUBS && make && cd .. && make -j serial
 ./lmp_serial -in <path-to>/in.headon_hertz      # etc.
 ```
 
-The dumps are converted to the CSV layout above by the loader in
-`crates/outram-park-fork-liggghts/tests/liggghts_cross_code.rs`' sibling
-generator; the conversion is a pure reshape (no rounding).
+The dumps are converted to the two CSV layouts by the two scripts committed
+beside the data:
+
+```bash
+./dump2traj.sh dump.headon_hertz  headon_hertz.csv       # wide trajectory layout
+./dump2csv.sh  dump.htr10_settled htr10_settled.csv      # per-particle snapshot layout
+```
+
+Both are a **pure reshape** — fields are copied exactly as LIGGGHTS printed
+them, with no rounding and no reformatting (the precision patch above already
+makes the dumps full `double`). `dump2traj.sh` additionally drops the force
+columns some dumps carry, which are not compared.
+
+~~The dumps are converted ... by the loader in `tests/liggghts_cross_code.rs`'
+sibling generator~~ **CORRECTED 2026-09-17** — no such generator existed. The
+conversion had been done ad hoc and was not committed anywhere, so the
+"regenerates rather than being trusted" promise at the top of this file did not
+actually hold for the CSV step. The two scripts above close it, and were
+checked by regenerating **11 of the 12 committed CSVs and diffing: every one
+byte-for-byte identical**. The one not re-checked is `htr10_init.csv`, whose
+source dump had already been overwritten by a later run at a different
+stiffness; it comes from `dump2csv.sh`, which is byte-verified on all five
+other snapshot files.
 
 ## Data policy
 
