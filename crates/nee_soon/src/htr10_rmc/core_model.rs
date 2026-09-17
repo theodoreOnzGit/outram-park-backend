@@ -123,8 +123,12 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     let bed_region = vec![
         ins(2), out(3), RegionToken::Intersection, ins(4), RegionToken::Intersection,
     ];
-    let bed = Cell::fill(1, bed_region.clone(), CellFill::Lattice(0), Position::ZERO)
-        .delta_tracked(majorant_index);
+    let bed_cell = Cell::fill(1, bed_region.clone(), CellFill::Lattice(0), Position::ZERO);
+    let bed = if majorant_index == usize::MAX {
+        bed_cell
+    } else {
+        bed_cell.delta_tracked(majorant_index)
+    };
 
     // The reflector: everything else inside the vacuum boundary, SURFACE-tracked.
     let mut refl_region = vec![
