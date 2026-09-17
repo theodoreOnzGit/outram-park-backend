@@ -664,3 +664,120 @@ mod tests {
         assert_eq!(via_config, direct);
     }
 }
+
+// ---------------------------------------------------------------------------
+// CUBIC ARRAY CLIPPED TO A BALL (bn:op-867c.11)
+// ---------------------------------------------------------------------------
+
+/// **A simple-cubic array of particles clipped to a ball, keeping only WHOLE
+/// particles** — the arrangement the HTR-10 RMC benchmark specifies for TRISO
+/// inside a fuel zone.
+///
+/// NEW WORK, not a port. Li, Yu & Wei (2014) describe it as
+///
+/// > a lattice in a **cubic array** in three-dimensional space … embedded into
+/// > a spherical volume such that **only full TRISO particles are permitted**
+/// > inside the sphere; volume not occupied is filled with graphite
+///
+/// This differs from [`pack_spheres`] and from `dh_universe`'s `pack_in_ball`,
+/// which are **random** (RSA) and target a packing *fraction* by iteration. Here
+/// the arrangement is deterministic and the pitch is the free parameter.
+///
+/// # The rejection rule
+///
+/// A particle is kept when `|centre| + particle_radius <= ball_radius`, i.e. it
+/// lies **wholly** inside. That is the same predicate `pack_in_ball` uses; only
+/// the arrangement differs.
+///
+/// # `offset` matters, and 8335 exactly is NOT reachable
+///
+/// `offset` shifts the lattice in units of the pitch, so `[0.0; 3]` puts a
+/// particle at the ball centre and `[0.5; 3]` puts the centre between eight.
+/// It changes the achievable counts, because the count moves in **symmetry
+/// shells** as lattice points cross the boundary together — not one at a time.
+///
+/// Measured 2026-09-17 for HTR-10's fuel zone (ball 2.5 cm, particle 0.0455 cm),
+/// sweeping the pitch finely over +/-3 % around the continuum estimate:
+///
+/// | offset | counts reachable near 8335 |
+/// |---|---|
+/// | `[0, 0, 0]` | 8289, **8385** |
+/// | `[0.5, 0, 0]` | **8330** |
+/// | `[0.5, 0.5, 0]` | **8340** |
+/// | `[0.5, 0.5, 0.5]` | none within 60 |
+/// | `[0.25; 3]` | 8310, 8361 |
+///
+/// **The benchmark's stated 8335 is not attainable by any of them.** The
+/// closest are 8330 and 8340, i.e. **+/-0.060 %** in both particle count and
+/// packing fraction (0.050218 or 0.050278 against the 0.050248 implied by
+/// 8335). That is negligible for `k` but it is a real discrepancy with the
+/// reference, and it is stated rather than rounded away: the paper's
+/// arrangement is evidently not exactly this one, or its zone radius or
+/// particle radius differ in the last digit.
+///
+/// # Parameters
+/// - `particle_radius`, `ball_radius` \[cm\].
+/// - `pitch` \[cm\] — the cubic lattice spacing.
+/// - `offset` — lattice shift in units of `pitch`.
+pub fn cubic_array_in_ball(
+    particle_radius: f64,
+    ball_radius: f64,
+    pitch: f64,
+    offset: [f64; 3],
+) -> Vec<Sphere> {
+    if !(pitch > 0.0) || !(ball_radius > particle_radius) {
+        return Vec::new();
+    }
+    let r_eff = ball_radius - particle_radius;
+    let n = (r_eff / pitch).floor() as i64 + 2;
+    let mut out = Vec::new();
+    for i in -n..=n {
+        let x = (i as f64 + offset[0]) * pitch;
+        if x.abs() > r_eff {
+            continue;
+        }
+        for j in -n..=n {
+            let y = (j as f64 + offset[1]) * pitch;
+            if x * x + y * y > r_eff * r_eff {
+                continue;
+            }
+            for k in -n..=n {
+                let z = (k as f64 + offset[2]) * pitch;
+                if x * x + y * y + z * z <= r_eff * r_eff {
+                    out.push(Sphere {
+                        center: Position::new(x, y, z),
+                        radius: particle_radius,
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Pitch whose [`cubic_array_in_ball`] count is closest to `target`, searched
+/// over `+/-3 %` of the continuum estimate `((4/3) pi r_eff^3 / target)^(1/3)`.
+///
+/// Returns `(pitch, realised_count)`. **Read the count**: the exact target is
+/// often unreachable, for the symmetry-shell reason in
+/// [`cubic_array_in_ball`]'s docs.
+pub fn cubic_pitch_for_count(
+    particle_radius: f64,
+    ball_radius: f64,
+    target: usize,
+    offset: [f64; 3],
+) -> (f64, usize) {
+    let r_eff = ball_radius - particle_radius;
+    let p0 = ((4.0 / 3.0) * core::f64::consts::PI * r_eff.powi(3) / target as f64).cbrt();
+    let mut best = (p0, usize::MAX);
+    for t in 0..3000 {
+        let p = p0 * (0.97 + 0.06 * t as f64 / 2999.0);
+        let c = cubic_array_in_ball(particle_radius, ball_radius, p, offset).len();
+        let better = best.1 == usize::MAX
+            || c.abs_diff(target) < best.1.abs_diff(target);
+        if better {
+            best = (p, c);
+        }
+    }
+    best
+}
