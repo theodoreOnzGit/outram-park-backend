@@ -22,8 +22,8 @@ Singapore MRT station names identify **domains**, not crates.
 | **NEE SOON** | **Neutronics and nuclear data** — the integration crate for that domain, and only that domain | `nee_soon`, composing `njoy-outram-park-fork`, `outram-mc-libs`, `teh-o-prke` |
 | **BEDOK** | **Multiphysics coupling at system level** — TH and neutronics coupled, above 1-D neutronics fidelity but **below CFD fidelity** (CFD-level coupling stays with GeN-Foam in `outram-foam-appbuilder-lib`) | *new* |
 | **SEMBAWANG** | Severe accident progression — melt behaviour, relocation, vessel failure, MCCI, hydrogen, aerosols, source term. *"What gets released?"* | *new* — scoped in `docs/melcor-scoping.md` |
-| **CHANGI** | Atmospheric dispersion, plume transport, deposition, ground contamination. *"What happens after release?"* | *new* — depends on a FLEXPART port |
-| **REDHILL** | Groundwater and geological transport, subsurface radionuclide migration, porous-media flow. *"What happens after deposition?"* | *new* — depends on `outram-park-fork-pflotran` |
+| **CHANGI** — *Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts* | **Now (research/educational):** atmospheric dispersion, plume transport, radionuclide deposition, ground contamination. **Future, not current:** radiological consequence assessment, dose assessment, emergency-planning support, Level 3 PSA support. Input: source terms from SEMBAWANG. *"What happens after release?"* | `changi` — FLEXPART v10.4 port begun 2026-09-15; surface-layer + deposition kernels verified code-to-code, the rest not yet ported |
+| **REDHILL** — *Radionuclide Effluent Dispersion solver for Hydrogeological Infiltration and Leaching through Layers* | Groundwater transport, geological migration, subsurface radionuclide transport, PFLOTRAN-based workflows, porous-media flow, repository assessment, long-term environmental transport. *"What happens after deposition and infiltration?"* | *new* — depends on `outram-park-fork-pflotran` |
 
 Neutronics, fuel performance, CFD, meshing, KOVAN and the remaining crates are
 not yet assigned a domain. That is deliberate: the seven names above cover
@@ -53,6 +53,17 @@ orphaned — they simply have no domain label yet.
    assessment for real populations, or operational Level 3 PSA support —
    `RESPONSIBLE_USE.md` excludes those, and the draft's original wording
    contradicted it. The capability is in scope; that framing is not.
+
+   > **Reaffirmed 2026-09-15.** The maintainer supplied CHANGI's acronym and a
+   > scope list naming radiological consequence assessment, dose assessment,
+   > emergency-planning support and Level 3 PSA support, then confirmed that
+   > **the PSA and consequence use is future work and CHANGI stays research and
+   > educational for now**. Those four are therefore recorded in the crate as a
+   > *future* scope list, explicitly not current capability, and this decision
+   > stands unchanged. Promoting any of them to current scope is a deliberate
+   > edit to `RESPONSIBLE_USE.md`, never something implied by a scope bullet or
+   > by having implemented the physics.
+
 4. **Dependency directions fixed:**
    - **REDHILL depends on `outram-park-fork-pflotran`.**
    - **CHANGI depends on the FLEXPART port** (GPL-3.0; see

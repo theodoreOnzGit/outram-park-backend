@@ -1202,6 +1202,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "changi"
+version = "0.0.0"
+dependencies = [
+ "approx",
+ "petir",
+ "uom 0.38.0",
+]
+
+[[package]]
 name = "chem-eng-real-time-process-control-simulator"
 version = "0.2.1"
 dependencies = [
