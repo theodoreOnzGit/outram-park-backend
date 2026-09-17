@@ -50,8 +50,15 @@ orchestration / facade / cross-crate glue belongs in this crate.
 
 ## Build & test
 
-Always `--release` (workspace rule). System OpenBLAS required (pulled in via
-`outram-mc-libs`).
+Always `--release` (workspace rule). ~~System OpenBLAS required (pulled in via
+`outram-mc-libs`).~~ **CORRECTED 2026-09-17** — false: `outram-mc-libs`'s own
+`Cargo.toml` states it deliberately avoids BLAS/C dependencies to stay
+Android-safe (`Cargo.toml:41`), and `nee_soon`'s own `Cargo.toml` carries no
+BLAS dependency either. Per the workspace root `CLAUDE.md` "Build & test"
+section, the only thing in this workspace that needs a system BLAS is
+`outram-foam-basic-lib`'s `matrix_bench` dev-dependency test — nothing in
+`nee_soon`'s dependency chain needs it. This was one of the "stale BLAS
+claims" named in `docs/real-time-multifidelity-scoping.md` item 9.
 
 ```bash
 cargo build --release -p nee_soon

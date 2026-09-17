@@ -60,9 +60,15 @@ pub mod acesix;
 pub mod angular;
 pub mod build;
 pub mod energy;
-/// Thermal scattering **S(α,β)** ACE table writer — **scaffold only** (Phase 4,
-/// scheduled after the continuous-energy ACE library). See [`thermal`] for the
-/// planned layout and the THERMR/LEAPR prerequisites.
+/// Thermal scattering **S(α,β)** ACE table writer.
+///
+/// ~~scaffold only (Phase 4, scheduled after the continuous-energy ACE
+/// library)~~ **CORRECTED 2026-09-17** — implemented: `thermal.rs` (387
+/// lines) writes the ITIE/ITIX/ITXE inelastic blocks and the ITCE/ITCX
+/// coherent-elastic Bragg blocks from [`crate::thermr`]'s
+/// `IncoherentInelastic`/`CoherentElastic`, and is exercised by `op-1y4y`'s
+/// closing evidence (`thermal_from_mf7` writing ITCE/ITCX from
+/// `s_of_e_at(temp_k)`). See [`thermal`] for the table layout.
 pub mod thermal;
 pub mod write;
 

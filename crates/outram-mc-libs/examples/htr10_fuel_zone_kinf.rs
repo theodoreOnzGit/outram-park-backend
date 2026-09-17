@@ -44,14 +44,28 @@
 //!   absolute k_inf here cannot be compared to the literature. Only the
 //!   heterogeneous-versus-homogeneous *difference* is meaningful, and only
 //!   as a self-comparison.
-//! - **Thermal scattering is FREE GAS.** Graphite bound-atom S(alpha,beta)
-//!   (coherent elastic Bragg plus incoherent elastic) does not reach the
-//!   transport path in this workspace —
-//!   `crates/outram-mc-libs/src/material/thermal.rs:24-26` says so explicitly.
-//!   On a graphite-moderated thermal system that is a first-order error in the
-//!   thermal spectrum. **Every number this program prints is a code-exercise
-//!   result, not a physics result.** Tracked as beads `op-hc2o`, `op-1y4y`,
-//!   `op-6tz.35`.
+//! - **Thermal scattering in THIS EXAMPLE is FREE GAS.**
+//!   ~~Graphite bound-atom S(alpha,beta) (coherent elastic Bragg plus
+//!   incoherent elastic) does not reach the transport path in this
+//!   workspace — `crates/outram-mc-libs/src/material/thermal.rs:24-26` says
+//!   so explicitly.~~ **CORRECTED 2026-09-17** — that claim is false as of
+//!   this date: `src/material/thermal.rs` implements the full bound-atom
+//!   S(alpha,beta) treatment (incoherent inelastic MT=4, coherent elastic
+//!   Bragg and incoherent elastic MT=2), `Nuclide::with_thermal_scattering`
+//!   attaches it to a material (`src/material/nuclide.rs:358-374`), and both
+//!   `pebble_beds/keff_delta.rs` (~:1023-1033) and `physics/transport_csg.rs`
+//!   branch on `nuc.sample_thermal` in the collision kernel, exercised by
+//!   `tests/thermal_graphite_elastic.rs`,
+//!   `tests/htr10_graphite_thermal_scattering_pebble_bed.rs` and others. This
+//!   *specific* example simply does not call
+//!   `with_thermal_scattering` on its graphite `Nuclide`s (verified: no such
+//!   call appears in this file) — free gas here is this example's own
+//!   deliberate simplification, not a workspace-wide gap. Bead `op-hc2o`
+//!   should be re-read/re-scoped rather than cited as "physics missing".
+//!   On a graphite-moderated thermal system, running this example free-gas is
+//!   still a first-order error in the thermal spectrum. **Every number this
+//!   program prints is a code-exercise result, not a physics result.**
+//!   Tracked as beads `op-hc2o`, `op-1y4y`, `op-6tz.35`.
 //! - **The TRISO coatings are not resolved.** The buffer, inner PyC, SiC and
 //!   outer PyC layers are smeared into the matrix graphite; only the fissile
 //!   kernel is an explicit sphere. Tracked as bead `op-6tz.35`.

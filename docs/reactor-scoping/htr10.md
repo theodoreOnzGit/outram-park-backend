@@ -213,9 +213,14 @@ they pass was not re-run** — see the status note at the top.
   over the file returns **zero** hits — the comment the original audit cited no
   longer exists, and `:12` is now an unrelated module-scope doc line.
 
-  **Still true:** it is **not wired into `htgr_sim_v1`** (`git grep -c` for
-  `decay_heat|DecayHeat` under `examples/htgr_sim_v1/` at HEAD returns nothing).
-  It *is* wired into `fhr_sim_v2`, at
+  ~~**Still true:** it is **not wired into `htgr_sim_v1`** (`git grep -c` for
+  `decay_heat|DecayHeat` under `examples/htgr_sim_v1/` at HEAD returns
+  nothing).~~ **CORRECTED 2026-09-17 — no longer true; duplicates the
+  correction already recorded below in this same file.** Verified:
+  `examples/htgr_sim_v1/physics/kinetics.rs` holds `pub decay: DecayHeat`
+  (`:129`), seeds it via `DecayHeat::new_at_equilibrium` (`:421`), and calls
+  `self.apply_decay_heat(sub)` per substep (`:568`, `apply_decay_heat` at
+  `:650`). It *is also* wired into `fhr_sim_v2`, at
   `examples/fhr_sim_v2/app/prke_backend/mod.rs:6`.
 
   **Not re-checked:** whether the model is numerically *right*. It now has a

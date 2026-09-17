@@ -77,13 +77,24 @@ Exponential, Weibull, Gamma, Beta, Truncated, behind a `Distribution` enum),
 `samplers` (MonteCarlo, LatinHypercube, GridSampler, seeded streams),
 `sensitivity`, `surrogate`.
 
-**Absent** — anything Bayesian. A search for `mcmc|bayes|metropolis|likelihood`
+~~**Absent** — anything Bayesian. A search for `mcmc|bayes|metropolis|likelihood`
 across `src/` matches only prose in `lib.rs`. There is no likelihood, no
 prior/posterior, and no MCMC of any kind. So this epic is new capability, not a
-re-wrap.
+re-wrap.~~
 
-> Note: several crate-level docs still describe `raffles` as "scaffold only,
-> nothing implemented". That is stale — see bead **`op-blw`**.
+**CORRECTED 2026-09-17 — no longer absent.** This was a snapshot at
+2026-09-09; the epic below has since landed. Verified: `crates/raffles/src/`
+is now ~17.8k lines including a `bayesian/` directory (3,456 lines across its
+files, 271 hits for `mcmc|bayes|metropolis|likelihood|posterior`) and a
+`gnn/` directory, and the crate's own `CLAUDE.md` states "Bayesian model
+updating, distances, ABC, imprecise probability, model selection, GNNs and
+surrogates all carry working, tested code." The `op-dwqw` ordering below
+describes the plan that produced this; it is not still the open state.
+
+> Note: several crate-level docs still described `raffles` as "scaffold only,
+> nothing implemented" as of 2026-09-09. That was stale then and is stale now
+> for a different reason — see bead **`op-blw`**, and the workspace
+> `CLAUDE.md` Members table, corrected 2026-09-17.
 
 ## Ordering
 

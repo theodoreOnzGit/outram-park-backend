@@ -83,7 +83,7 @@ internals of the transport or data crates. Responsibilities:
 - Include **point reactor kinetics** and other **surrogate models** — depends on
   `teh-o-prke`.
 
-Naming (in progress) — `NEE SOON` (a Singapore locality, matching the OUTRAM
+~~Naming (in progress) — `NEE SOON` (a Singapore locality, matching the OUTRAM
 PARK / BOON LAY / TAMPINES / TEH-O theme). Backronym so far:
 
 | Letter | Word |
@@ -94,7 +94,11 @@ PARK / BOON LAY / TAMPINES / TEH-O theme). Backronym so far:
 | **S** | **S**imulation |
 | **O** | **O**pen-source |
 | **O** | *O-?* (candidates: **O**perator-coupled / **O**bject-oriented) |
-| **N** | *N-?* (candidates: **N**eutronics / **N**umerics) |
+| **N** | *N-?* (candidates: **N**eutronics / **N**umerics) |~~
+
+**CORRECTED 2026-09-17** — the naming is no longer in progress. Verified in
+`crates/nee_soon/CLAUDE.md`: "**NEE_SOON** — **N**eutron **E**nergy-dependent
+**S**imulation using **O**pen-source **O**bject-**O**riented **N**umerics."
 
 ### `outram-foam-appbuilder-lib` — deterministic + TH host (GenFOAM) *(planned)*
 

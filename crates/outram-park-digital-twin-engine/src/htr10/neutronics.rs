@@ -513,12 +513,21 @@ impl FuelPebbleSpec {
 /// The core geometry the sources state **in text**, in the R-Z core-physics
 /// model of the IAEA benchmark (its Figure 4.10).
 ///
-/// **Deliberately incomplete.** The full zone map — conus angle, discharge-tube
-/// radius, individual reflector block boundaries, and the axial coordinates of
-/// the 83 material zones — exists in the source only as a *figure*, and is not
-/// recoverable from the text. Those dimensions are therefore absent here
-/// rather than guessed. See `docs/reactor-scoping/htr10-neutronics.md` for the
-/// routes to obtaining them.
+/// **Deliberately incomplete, in this struct only.** ~~The full zone map —
+/// conus angle, discharge-tube radius, individual reflector block boundaries,
+/// and the axial coordinates of the 83 material zones — exists in the source
+/// only as a *figure*, and is not recoverable from the text. Those dimensions
+/// are therefore absent here rather than guessed. See
+/// `docs/reactor-scoping/htr10-neutronics.md` for the routes to obtaining
+/// them.~~ **CORRECTED 2026-09-17** — that map has since been built: it is a
+/// hand-transcription of the source figure (Terry et al. 2005, Fig. 2), not
+/// text, at
+/// `crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs`
+/// (added 2026-08-17/18; 753 lines, verified present — see that file's own
+/// "Status: NOT VALIDATED" section for its provenance caveats). This struct
+/// itself still holds only the text-recoverable dimensions and is unchanged;
+/// what is corrected is the implication that no fuller zone map exists in the
+/// workspace at all.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Htr10CoreGeometry {
     /// Active pebble-bed diameter: 180 cm.
