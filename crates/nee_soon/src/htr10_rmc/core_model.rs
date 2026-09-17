@@ -201,7 +201,20 @@ pub fn assemble_explicit_triso(
     // A cubic lattice spanning the fuel zone; tiles outside it fall through to
     // `outer` = matrix graphite, which is exactly the "not occupied is filled
     // with graphite" the paper specifies.
-    let n_triso = ((2.0 * r_fuel_zone / pitch_triso).ceil() as usize).max(1);
+    // The lattice spans the fuel-zone DIAMETER, but its tiles are assigned
+    // per-tile: a particle universe where the tile centre lies within the
+    // whole-particle radius, matrix graphite elsewhere. That is how a cube
+    // lattice expresses a sphere-clipped array -- the same technique the bed
+    // uses for its 57:43 split.
+    //
+    // Two earlier attempts were wrong and are recorded because each failed
+    // differently. Sizing the lattice to the zone DIAMETER leaves its corner
+    // tiles poking outside the sphere (26 tiles x 0.194963 = 5.069 cm against
+    // 5.0 cm), which produced a stuck crossing loop -- 90 s for 400 histories.
+    // Inscribing it instead (half = r/sqrt(3)) removed the loop but cut the
+    // fuel from 8340 particles to 2744, making the model too dilute to multiply.
+    let n_triso = ((2.0 * r_fuel_zone / pitch_triso).floor() as usize).max(1);
+    let lattice_half = 0.5 * n_triso as f64 * pitch_triso;
 
     let bed_radius = cell.pitch * (n_rings as f64 + 0.5);
     let bed_half_height = 0.5 * cell.height * n_axial as f64;
@@ -280,9 +293,24 @@ pub fn assemble_explicit_triso(
     let triso_lattice = RectLattice {
         id: 1,
         n: [n_triso, n_triso, n_triso],
-        lower_left: Position::new(-r_fuel_zone, -r_fuel_zone, -r_fuel_zone),
+        lower_left: Position::new(-lattice_half, -lattice_half, -lattice_half),
         pitch: [pitch_triso; 3],
-        universes: vec![3; n_triso * n_triso * n_triso],
+        universes: {
+            // Whole-particle rejection, the benchmark's own rule, applied per
+            // tile: keep a particle only where it lies wholly inside the zone.
+            let r_keep = r_fuel_zone - r_part;
+            let mut v = Vec::with_capacity(n_triso.pow(3));
+            for k in 0..n_triso {
+                for j in 0..n_triso {
+                    for i in 0..n_triso {
+                        let c = |n: usize| -lattice_half + (n as f64 + 0.5) * pitch_triso;
+                        let (x, y, z) = (c(i), c(j), c(k));
+                        v.push(if x * x + y * y + z * z <= r_keep * r_keep { 3 } else { 4 });
+                    }
+                }
+            }
+            v
+        },
         outer: Some(4),
     };
 

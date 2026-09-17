@@ -56,6 +56,24 @@ fn main() {
         }
     }
 
+    // How DEEP does a point inside a TRISO kernel actually sit?
+    println!("\n--- depth at a kernel, if one can be found ---");
+    let mut seed = 1_u64;
+    for _ in 0..4_000_000 {
+        let p = Position::new(
+            -30.0 + 60.0 * outram_mc_libs::rng::lcg::prn(&mut seed),
+            -30.0 + 60.0 * outram_mc_libs::rng::lcg::prn(&mut seed),
+            -30.0 + 60.0 * outram_mc_libs::rng::lcg::prn(&mut seed));
+        if let Some(path) = core.geometry.locate(p, u, SurfaceToken::NONE) {
+            if path.material == Some(0) {
+                let lv: Vec<String> = path.levels.iter()
+                    .map(|c| format!("{:?}", c.lattice)).collect();
+                println!("  kernel at depth {} [{}]", path.levels.len(), lv.join(" -> "));
+                break;
+            }
+        }
+    }
+
     // How many of a uniform sample land in fuel?
     let mut counts = std::collections::BTreeMap::new();
     let mut lost = 0;
