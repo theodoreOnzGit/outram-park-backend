@@ -192,6 +192,23 @@ pub struct KeffResult {
     pub k_std: f64,
     /// Per-generation eigenvalue estimates, all generations (inactive first).
     pub k_by_generation: Vec<f64>,
+    /// **Shannon entropy of the fission source, one value per generation.**
+    ///
+    /// Empty unless an entropy mesh was supplied to
+    /// [`crate::physics::transport_csg::run_keff_csg_hybrid`]. Ported
+    /// diagnostic: `H = -sum p_i log2 p_i` over the fission bank binned on a
+    /// regular mesh (OpenMC `src/eigenvalue.cpp:587`), in **bits**.
+    ///
+    /// # Why it matters more than it looks
+    ///
+    /// `H` rises from a concentrated initial guess and **plateaus once the
+    /// source has converged**, which is how you choose how many inactive
+    /// generations to discard. A `k` quoted without it is a number whose source
+    /// convergence nobody checked — and on a large, loosely-coupled core such
+    /// as a pebble bed, that is exactly where the bias hides. The HTR-10 RMC
+    /// reference used **5** inactive cycles on a 1.8 m core; this field is how
+    /// you avoid copying that.
+    pub entropy: Vec<f64>,
     /// **Virtual collisions rejected inside delta-tracked regions** over the
     /// whole run — the measured price of the majorant (`bn:op-867c.5`).
     ///
@@ -346,6 +363,7 @@ pub fn run_keff_cpu_single(
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }
@@ -535,6 +553,7 @@ pub fn run_keff_cpu_multi(
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }
@@ -700,6 +719,7 @@ pub fn run_keff_gpu_inner(
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }
@@ -978,6 +998,7 @@ pub fn run_keff_gpu_batched(
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }
@@ -1252,6 +1273,7 @@ fn run_event_power_iteration(
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }

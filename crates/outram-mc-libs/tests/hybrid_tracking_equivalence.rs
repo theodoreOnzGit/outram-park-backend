@@ -172,7 +172,7 @@ fn hybrid_and_surface_tracking_agree() {
         &sphere_geometry(false), &mats, &nucs, source(), &settings(1), None,
     );
     let hyb = run_keff_csg_hybrid(
-        &sphere_geometry(true), &mats, &nucs, &[maj], source(), &settings(1), None,
+        &sphere_geometry(true), &mats, &nucs, &[maj], None, source(), &settings(1), None,
     );
 
     let dk = (hyb.k_mean - surf.k_mean) * 1.0e5;
@@ -227,8 +227,8 @@ fn an_absorber_outside_the_region_does_not_raise_its_cost() {
     let global = Majorant::from_materials(&[mats[0].clone(), absorber], &nucs, &grid, 0.3);
 
     let geom = sphere_geometry(true);
-    let a = run_keff_csg_hybrid(&geom, &mats, &nucs, &[local], source(), &settings(2), None);
-    let b = run_keff_csg_hybrid(&geom, &mats, &nucs, &[global], source(), &settings(2), None);
+    let a = run_keff_csg_hybrid(&geom, &mats, &nucs, &[local], None, source(), &settings(2), None);
+    let b = run_keff_csg_hybrid(&geom, &mats, &nucs, &[global], None, source(), &settings(2), None);
 
     println!("region-local majorant : {:>12} virtual collisions", a.virtual_collisions);
     println!("global-style majorant : {:>12} virtual collisions", b.virtual_collisions);

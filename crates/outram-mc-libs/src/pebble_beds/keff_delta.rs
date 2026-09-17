@@ -744,6 +744,7 @@ where
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }
@@ -897,6 +898,7 @@ where
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }

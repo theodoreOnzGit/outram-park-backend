@@ -184,11 +184,14 @@ pub fn run_keff_csg_hybrid(
     materials: &[Material],
     nuclides: &[Nuclide],
     majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
     source_box: SourceBox,
     settings: &KeffSettings,
     tally: Option<&mut Tally>,
 ) -> KeffResult {
-    run_keff_csg_inner(geom, materials, nuclides, majorants, source_box, settings, tally)
+    run_keff_csg_inner(
+        geom, materials, nuclides, majorants, entropy_mesh, source_box, settings, tally,
+    )
 }
 
 pub fn run_keff_csg(
@@ -199,7 +202,7 @@ pub fn run_keff_csg(
     settings: &KeffSettings,
     tally: Option<&mut Tally>,
 ) -> KeffResult {
-    run_keff_csg_inner(geom, materials, nuclides, &[], source_box, settings, tally)
+    run_keff_csg_inner(geom, materials, nuclides, &[], None, source_box, settings, tally)
 }
 
 fn run_keff_csg_inner(
@@ -207,6 +210,7 @@ fn run_keff_csg_inner(
     materials: &[Material],
     nuclides: &[Nuclide],
     majorants: &[Majorant],
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
     source_box: SourceBox,
     settings: &KeffSettings,
     tally: Option<&mut Tally>,
@@ -217,6 +221,7 @@ fn run_keff_csg_inner(
             materials,
             nuclides,
             majorants,
+            entropy_mesh,
             source_box,
             settings,
             tally,
@@ -228,6 +233,7 @@ fn run_keff_csg_inner(
             materials,
             nuclides,
             majorants,
+            entropy_mesh,
             source_box,
             settings,
             tally,
@@ -246,6 +252,7 @@ fn run_keff_csg_inner(
                 materials,
                 nuclides,
                 majorants,
+                entropy_mesh,
                 source_box,
                 settings,
                 tally,
@@ -293,6 +300,7 @@ pub fn run_keff_csg_reactor_physics(
             materials,
             nuclides,
             &[],
+            None,
             source_box,
             settings,
             Some(tally),
@@ -304,6 +312,7 @@ pub fn run_keff_csg_reactor_physics(
             materials,
             nuclides,
             &[],
+            None,
             source_box,
             settings,
             Some(tally),
@@ -321,6 +330,7 @@ pub fn run_keff_csg_reactor_physics(
                 materials,
                 nuclides,
                 &[],
+                None,
                 source_box,
                 settings,
                 Some(tally),
@@ -355,6 +365,9 @@ pub fn run_keff_csg_seq(
     // Majorants indexed by `TrackingMethod::Delta`; `&[]` for a purely
     // surface-tracked model, which is every model predating bn:op-867c.
     majorants: &[Majorant],
+    // Optional mesh for the per-generation Shannon-entropy diagnostic
+    // (bn:op-867c.13). `None` skips it at zero cost.
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
     source_box: SourceBox,
     settings: &KeffSettings,
     mut tally: Option<&mut Tally>,
@@ -413,6 +426,7 @@ pub fn run_keff_csg_seq(
 
     // Run-level total; the per-generation count is folded in below.
     let mut virtual_run_total: u64 = 0;
+    let mut entropy: Vec<f64> = Vec::new();
 
     for gen in 0..n_gen {
         let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
@@ -462,6 +476,25 @@ pub fn run_keff_csg_seq(
         }
 
         let k_gen = production / settings.n_particles as f64;
+        // Shannon entropy of THIS generation's fission source, before the
+        // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
+        // the bank must be the pre-synchronisation one, which is why this sits
+        // here and not after `resample`.
+        if let Some(mesh) = entropy_mesh {
+            let sites: Vec<crate::particle::bank::BankSite> = next_bank
+                .iter()
+                .map(|s| crate::particle::bank::BankSite {
+                    r: s.r,
+                    u: s.u,
+                    e: s.e,
+                    wgt: 1.0,
+                    seed: 0,
+                })
+                .collect();
+            if let Some(h) = mesh.shannon_entropy(&sites) {
+                entropy.push(h);
+            }
+        }
         k_by_generation.push(k_gen);
         k_running = k_gen.max(1.0e-6);
         if active {
@@ -479,6 +512,7 @@ pub fn run_keff_csg_seq(
         k_mean,
         k_std,
         k_by_generation,
+        entropy,
         virtual_collisions: virtual_run_total,
     }
 }
@@ -526,6 +560,9 @@ pub fn run_keff_csg_par(
     // Majorants indexed by `TrackingMethod::Delta`; `&[]` for a purely
     // surface-tracked model, which is every model predating bn:op-867c.
     majorants: &[Majorant],
+    // Optional mesh for the per-generation Shannon-entropy diagnostic
+    // (bn:op-867c.13). `None` skips it at zero cost.
+    entropy_mesh: Option<&crate::tally::mesh::RegularMesh>,
     source_box: SourceBox,
     settings: &KeffSettings,
     mut tally: Option<&mut Tally>,
@@ -594,6 +631,7 @@ pub fn run_keff_csg_par(
     // Run-level total for the parallel driver. Declared OUTSIDE pool.install so
     // the result built after it can read it; rayon's closure borrows it mutably.
     let mut virtual_run_total: u64 = 0;
+    let mut entropy: Vec<f64> = Vec::new();
     pool.install(|| {
 
         for gen in 0..n_gen {
@@ -693,7 +731,26 @@ pub fn run_keff_csg_par(
             }
 
             let k_gen = production / settings.n_particles as f64;
-            k_by_generation.push(k_gen);
+            // Shannon entropy of THIS generation's fission source, before the
+        // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
+        // the bank must be the pre-synchronisation one, which is why this sits
+        // here and not after `resample`.
+        if let Some(mesh) = entropy_mesh {
+            let sites: Vec<crate::particle::bank::BankSite> = next_bank
+                .iter()
+                .map(|s| crate::particle::bank::BankSite {
+                    r: s.r,
+                    u: s.u,
+                    e: s.e,
+                    wgt: 1.0,
+                    seed: 0,
+                })
+                .collect();
+            if let Some(h) = mesh.shannon_entropy(&sites) {
+                entropy.push(h);
+            }
+        }
+        k_by_generation.push(k_gen);
             k_running = k_gen.max(1.0e-6);
             if active {
                 active_k.push(k_gen);
@@ -711,6 +768,7 @@ pub fn run_keff_csg_par(
         k_mean,
         k_std,
         k_by_generation,
+        entropy,
         virtual_collisions: virtual_run_total,
     }
 }

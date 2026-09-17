@@ -412,6 +412,7 @@ pub fn run_keff_mg(
         k_mean,
         k_std,
         k_by_generation,
+        entropy: Vec::new(),
         virtual_collisions: 0,
     }
 }
