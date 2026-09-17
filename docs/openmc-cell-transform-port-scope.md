@@ -118,6 +118,21 @@ therefore assert the opposite direction — a static one on cell membership and 
 transport one requiring the untranslated eigenvalue (`1.038742`) to **differ**
 from the translated one (`1.043880`).
 
+### Regression
+
+`cargo test --release -p outram-mc-libs --lib --tests`, run to completion on
+2026-09-17 after the fix: **456 passed, 0 failed, 14 ignored**, across all 40
+test targets (`cell_translation` 7/7). Carrying the exact offset changes no
+existing result, which is the expected outcome — the reconstruction was only
+inaccurate where a level offset was not exactly representable against the
+probe position, and the existing cases' assertions are looser than the
+~1e-16 involved. It is the `nudge_across` branch flip, not the offset error
+itself, that made the effect reach `1e-9`.
+
+Note this is the crate suite, not `cargo test --workspace` — the change is
+confined to `outram-mc-libs`' geometry module and no other crate depends on
+it.
+
 ### What the translation V&V does not establish
 
 - **Not validation.** No experiment, and no comparison against OpenMC running
