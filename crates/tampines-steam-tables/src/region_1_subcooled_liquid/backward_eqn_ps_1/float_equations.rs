@@ -1,5 +1,7 @@
 use crate::region_1_subcooled_liquid::REGION_1_BACK_COEFFS_PS;
 
+/// Region-1 backward equation `T(p,s)` (Table 8) on bare `f64`s: `p` in Pa,
+/// `s` in kJ/(kg.K); returns temperature in kelvin.
 pub(crate) fn t_ps_1_kelvin(p: f64, s: f64) -> f64 {
     let sig = sigma_1_back_ps(s);
     let pi = pi_1_back_ps(p);
@@ -12,7 +14,6 @@ pub(crate) fn t_ps_1_kelvin(p: f64, s: f64) -> f64 {
     }
     sum
 }
-
 
 /// Returns the region-1 pi for backwards calculations
 /// Pressure is assumed to be in Pa

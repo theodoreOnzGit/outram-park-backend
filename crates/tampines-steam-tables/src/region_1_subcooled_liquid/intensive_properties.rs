@@ -4,14 +4,14 @@ use uom::si::{f64::*, ratio::ratio};
 
 use crate::constants::specific_gas_constant_of_water;
 
-use super::{gamma_1, gamma_pi_1, gamma_pi_pi_1, gamma_pi_tau_1, gamma_tau_1, gamma_tau_tau_1, pi_1, tau_1};
-
+use super::{
+    gamma_1, gamma_pi_1, gamma_pi_pi_1, gamma_pi_tau_1, gamma_tau_1, gamma_tau_tau_1, pi_1, tau_1,
+};
 
 /// Returns the region-1 specific enthalpy
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
-pub fn h_tp_1(t: ThermodynamicTemperature, p: Pressure) -> 
-AvailableEnergy {
+pub fn h_tp_1(t: ThermodynamicTemperature, p: Pressure) -> AvailableEnergy {
     specific_gas_constant_of_water() * t * tau_1(t) * gamma_tau_1(t, p)
 }
 
@@ -19,17 +19,19 @@ AvailableEnergy {
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn v_tp_1(t: ThermodynamicTemperature, p: Pressure) -> SpecificVolume {
-    // in rust_steam 
+    // in rust_steam
     // The multiplication by 1000 is necessary to convert R from kJ/kg.K to J/kg.K
     // but the uom package takes care of that so we are not dealing with this anymore
-    ((specific_gas_constant_of_water() ) * t / p) * pi_1(p) * gamma_pi_1(t, p)
+    ((specific_gas_constant_of_water()) * t / p) * pi_1(p) * gamma_pi_1(t, p)
 }
 
 /// Returns the region-1 specific internal energy
 /// Temperature is assumed to be in K
 /// Pressure is assumed to be in Pa
 pub fn u_tp_1(t: ThermodynamicTemperature, p: Pressure) -> AvailableEnergy {
-    specific_gas_constant_of_water() * t * (tau_1(t) * gamma_tau_1(t, p) - pi_1(p) * gamma_pi_1(t, p))
+    specific_gas_constant_of_water()
+        * t
+        * (tau_1(t) * gamma_tau_1(t, p) - pi_1(p) * gamma_pi_1(t, p))
 }
 
 /// Returns the region-1 specific entropy
@@ -69,13 +71,12 @@ pub fn w_tp_1(t: ThermodynamicTemperature, p: Pressure) -> Velocity {
     let gamma_tau_tau = gamma_tau_tau_1(t, p);
     let term = (gamma_pi - tau * gamma_pi_tau).powi(2) / (tau.powi(2) * gamma_tau_tau);
 
-    // in rust_steam 
+    // in rust_steam
     // The multiplication by 1000 is necessary to convert R from kJ/kg.K to J/kg.K
     // however, the units of measure crate takes care of it
-    let square = (specific_gas_constant_of_water() ) * t * (gamma_pi.powi(2) / (term - gamma_pi_pi));
+    let square = (specific_gas_constant_of_water()) * t * (gamma_pi.powi(2) / (term - gamma_pi_pi));
     square.sqrt()
 }
-
 
 /// Returns the region-1 isentropic exponent
 pub fn kappa_tp_1(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
@@ -85,14 +86,13 @@ pub fn kappa_tp_1(t: ThermodynamicTemperature, p: Pressure) -> Ratio {
     let gamma_pi_tau = gamma_pi_tau_1(t, p);
     let gamma_pi_pi = gamma_pi_pi_1(t, p);
     let gamma_tau_tau = gamma_tau_tau_1(t, p);
-    let denominator = (gamma_pi - tau * gamma_pi_tau).powi(2) / (tau.powi(2) * gamma_tau_tau)*pi - pi * gamma_pi_pi;
+    let denominator = (gamma_pi - tau * gamma_pi_tau).powi(2) / (tau.powi(2) * gamma_tau_tau) * pi
+        - pi * gamma_pi_pi;
 
     let numerator = gamma_pi;
 
-    return (numerator/denominator).into();
-
+    return (numerator / denominator).into();
 }
-
 
 /// Returns the region-1 isobaric cubic expansion coeff
 pub fn alpha_v_tp_1(t: ThermodynamicTemperature, p: Pressure) -> TemperatureCoefficient {
@@ -104,14 +104,12 @@ pub fn alpha_v_tp_1(t: ThermodynamicTemperature, p: Pressure) -> TemperatureCoef
     let t_kelvin = t.get::<kelvin>();
 
     return dimensionless_alpha * TemperatureCoefficient::new::<per_kelvin>(t_kelvin.recip());
-
 }
 
-
-// to make the inverse pressure type 
-// it is m s^2 / kg 
-use uom::si::{ISQ, SI, Quantity};
-use uom::typenum::{Z0, P1, P2, N1};
+// to make the inverse pressure type
+// it is m s^2 / kg
+use uom::si::{Quantity, ISQ, SI};
+use uom::typenum::{N1, P1, P2, Z0};
 
 // quantity is defined
 // ## Generic Parameters
@@ -123,6 +121,8 @@ use uom::typenum::{Z0, P1, P2, N1};
 // * `N`: Amount of substance dimension.
 // * `J`: Luminous intensity dimension.
 // * `K`: Kind.
+/// Reciprocal pressure (units of 1/Pa, i.e. m·s²/kg) — the return type of the
+/// region-1 isothermal compressibility, which `uom` has no named quantity for.
 pub type InversePressure = Quantity<ISQ<P1, N1, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 /// Returns the region-1 isobaric isothermal compressibility
 pub fn kappa_t_tp_1(t: ThermodynamicTemperature, p: Pressure) -> InversePressure {
@@ -130,8 +130,7 @@ pub fn kappa_t_tp_1(t: ThermodynamicTemperature, p: Pressure) -> InversePressure
     let gamma_pi = gamma_pi_1(t, p);
     let gamma_pi_pi = gamma_pi_pi_1(t, p);
 
-    let dimensionless_kappa_t: Ratio = -Ratio::new::<ratio>( pi * gamma_pi_pi / gamma_pi );
+    let dimensionless_kappa_t: Ratio = -Ratio::new::<ratio>(pi * gamma_pi_pi / gamma_pi);
 
-    return dimensionless_kappa_t/p;
-
+    return dimensionless_kappa_t / p;
 }

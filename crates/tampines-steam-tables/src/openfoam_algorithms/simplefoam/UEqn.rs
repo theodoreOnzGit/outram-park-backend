@@ -1,3 +1,8 @@
+//! Reference-only, entirely commented-out C++ source mirroring OpenFOAM
+//! `simpleFoam`'s `UEqn.H` — the momentum predictor: assembles
+//! `fvm::div(phi, U) + MRF.DDt(U) + turbulence->divDevReff(U) == fvOptions(U)`,
+//! relaxes it, and (if enabled) solves `UEqn == -fvc::grad(p)` for velocity.
+//! Not compiled or ported to Rust.
 //
 //    // Momentum predictor
 //

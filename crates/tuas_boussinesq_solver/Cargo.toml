@@ -1,6 +1,7 @@
 [package]
 name = "tuas_boussinesq_solver"
-version = "0.1.1"
+version = "0.1.6"
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Thermo-hydraulic Uniphase Solver for Advection and Convection in Salt Flows (TUAS)"
@@ -14,6 +15,14 @@ exclude = ["*.csv"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+# `long-tests` gates the individual tests that measure over 5 minutes, and is
+# default-on, so a plain `cargo test` runs them. See the "Any test over 5
+# minutes" HARD RULE in the workspace CLAUDE.md. Turn them off while
+# iterating with `cargo quick-test -p tuas_boussinesq_solver`.
+default = ["long-tests"]
+long-tests = []
+
 [dependencies]
 approx.workspace = true
 csv.workspace = true
@@ -22,15 +31,6 @@ peroxide.workspace = true
 roots.workspace = true
 thiserror.workspace = true
 uom.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(macos)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
-
-[target.'cfg(unix)'.dependencies]
-ndarray-linalg = { workspace = true, features = ["openblas-system"] }
 
 [lib]
 name = "tuas_boussinesq_solver"
@@ -44,17 +44,42 @@ name = "ciet_educational_simulator"
 # the natural circulation loop requires a PID controller
 chem-eng-real-time-process-control-simulator.workspace = true
 
-egui.workspace = true
-eframe.workspace = true
 log.workspace = true
 
 # You only need serde if you want app persistence:
 serde.workspace = true
+uom.workspace = true
+
+# GUI-only dev-deps for the `ciet_educational_simulator` example. These are
+# Android-hostile: egui/eframe pull in `ring` (via ureq/rustls), which needs a
+# C compiler that the Android target has no toolchain for here. The example
+# itself is gated off Android with `#![cfg(not(target_os = "android"))]`, so
+# these deps must be absent from the Android dependency graph too.
+# Also off wasm: this block is the egui/eframe (or wgpu) example stack, and
+# wgpu-hal is not Sync on wasm. Dev-dependencies apply to TESTS as well as
+# examples, so without this gate `cargo test --target wasm32-wasip1` cannot
+# build even a test that touches none of it. The --lib compile gate in
+# scripts/check-wasm.sh is blind to this class of problem. Bead op-okqo.7.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
+egui.workspace = true
+eframe.workspace = true
 egui_extras.workspace = true
 egui_plot.workspace = true
 image.workspace = true
-uom.workspace = true
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger.workspace = true
+
+# ── wasm32: name getrandom's entropy backend ─────────────────────────────────
+# getrandom 0.3 will not build for wasm32-unknown-unknown without being told
+# where entropy comes from. The `wasm_js` FEATURE here is half of it; the other
+# half is the matching cfg flag in the workspace `.cargo/config.toml`, and
+# getrandom errors if either is missing.
+#
+# This crate does not want randomness — it arrives via `peroxide`, which pulls
+# `rand` unconditionally with no feature to disable it. Cutting the dependency
+# would mean replacing peroxide's CubicSpline across ~39 sites, which is its own
+# job; satisfying it is the smaller correct change here. Bead op-okqo.3.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }

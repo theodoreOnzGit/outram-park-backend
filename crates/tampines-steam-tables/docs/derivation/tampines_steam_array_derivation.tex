@@ -1,0 +1,639 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{siunitx}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{framed}
+\usepackage{enumitem}
+\geometry{margin=2.5cm}
+
+\newcommand{\Sf}{\mathbf{S}_f}
+\newcommand{\uvec}{\mathbf{U}}
+\newcommand{\dt}{\Delta t}
+\newcommand{\rhocont}{\rho_{\mathrm{cont}}}
+
+\title{From Conservation Laws to the \texttt{TampinesSteamArray} Algorithm\\
+\large A derivation of the 1-D compressible PIMPLE solver, its HEM closure,\\
+and the three fixes that make the Edwards blowdown plateau appear}
+\author{Outram Park / TAMPINES}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{framed}
+\noindent\textbf{AI-generated document.} This derivation was generated with AI
+assistance from the conservation laws and from a reading of the
+\texttt{TampinesSteamArray} source. It is \emph{explanatory background}, not a
+novel contribution: the finite-volume and PIMPLE material is standard textbook
+content (see the references), and is reproduced here only so that the
+project-specific parts at the end rest on a stated foundation.
+
+\noindent It is written to be \emph{re-derivable}. Every non-obvious step states
+\emph{why} it is taken, because a derivation you cannot reconstruct is a
+derivation you do not have.
+
+\noindent Statements about what the code does are tied to
+\texttt{src/openfoam\_algorithms/rhoPimpleFoam/}. Where the implementation
+departs from stock \texttt{rhoPimpleFoam}, this is flagged explicitly in
+\S\ref{sec:deviations} rather than quietly idealised.
+\end{framed}
+
+\tableofcontents
+
+%======================================================================
+\section{The problem and the plan}
+
+We want a 1-D compressible pipe solver for water/steam that can survive a
+violent depressurisation (the Edwards--O'Brien blowdown), in which subcooled
+liquid flashes to a two-phase mixture and chokes at the break.
+
+The chain of reasoning is:
+
+\begin{enumerate}[leftmargin=*]
+  \item Write the conservation laws (\S\ref{sec:governing}).
+  \item Discretise them by the finite-volume method, obtaining one algebraic
+        equation per cell (\S\ref{sec:fv}).
+  \item Observe that pressure has \emph{no equation of its own}, and manufacture
+        one from continuity (\S\ref{sec:pressure}).
+  \item Assemble those pieces into the PIMPLE loop (\S\ref{sec:pimple}).
+  \item Close the system with IAPWS-IF97 steam tables instead of an ideal gas,
+        which is where the difficulty lives (\S\ref{sec:closure}).
+  \item Repair the three failures that the steam-table closure exposes:
+        energy conservation (\S\ref{sec:rhocont}), compressibility
+        (\S\ref{sec:psi}), and shock capturing with its stability taper
+        (\S\ref{sec:knp}).
+\end{enumerate}
+
+%======================================================================
+\section{Governing equations}\label{sec:governing}
+
+For a compressible single-component fluid, with $\rho$ density, $\uvec$
+velocity, $p$ pressure and $h$ specific static enthalpy:
+
+\begin{align}
+  \frac{\partial \rho}{\partial t} + \nabla\!\cdot\!(\rho \uvec) &= 0
+  \label{eq:mass}\\[2pt]
+  \frac{\partial (\rho \uvec)}{\partial t} + \nabla\!\cdot\!(\rho \uvec \uvec)
+    &= -\nabla p + \nabla\!\cdot\!(\mu \nabla \uvec)
+  \label{eq:mom}\\[2pt]
+  \frac{\partial (\rho h)}{\partial t} + \nabla\!\cdot\!(\rho \uvec h)
+    &= \frac{\partial p}{\partial t} + \nabla\!\cdot\!(\alpha_h \nabla h) + Q
+  \label{eq:energy}
+\end{align}
+
+closed by an equation of state. For an ideal gas one writes $\rho = p/RT$; here
+we instead use the IAPWS-IF97 backward flash
+\begin{equation}
+  \rho = \rho(p,h), \qquad T = T(p,h), \qquad \mu = \mu(p,h),
+  \qquad \alpha_h = \lambda(p,h)/c_p(p,h).
+  \label{eq:eos}
+\end{equation}
+
+\paragraph{Unknowns versus equations --- the orphan.} Count them: the unknowns
+are $\uvec$, $p$, $\rho$, $h$. Momentum naturally yields $\uvec$; energy yields
+$h$; the equation of state yields $\rho$. \emph{Nothing yields $p$.} Pressure
+appears in \eqref{eq:mom} only as a gradient, and momentum is already committed
+to producing $\uvec$; one vector equation cannot deliver two fields.
+
+What is left over is continuity, \eqref{eq:mass}. So pressure is determined
+\emph{implicitly}, by the requirement that the velocity field conserve mass.
+This single observation dictates the entire algorithm, and we return to it in
+\S\ref{sec:pressure}.
+
+%======================================================================
+\section{Finite-volume discretisation}\label{sec:fv}
+
+\subsection{Integration and Gauss's theorem}
+
+Integrate each law over a control volume $V_c$ and convert divergences to
+surface integrals:
+\begin{equation}
+  \int_{V_c} \nabla\!\cdot\!\mathbf{F}\, \mathrm{d}V
+  = \oint_{\partial V_c} \mathbf{F}\cdot \mathrm{d}\mathbf{S}
+  \;\approx\; \sum_f \mathbf{F}_f \cdot \Sf ,
+\end{equation}
+where $\Sf$ is the \emph{outward} face-area vector. The outward orientation is
+carried entirely by $\Sf$; it must not be applied a second time when
+approximating gradients.
+
+Continuity \eqref{eq:mass} becomes, with mass flux $\phi_f = (\rho\uvec)_f\cdot\Sf$
+in \si{kg/s},
+\begin{equation}
+  V_c\,\frac{\rho_c - \rho_c^{o}}{\dt} \;+\; \sum_f \phi_f \;=\; 0 .
+  \label{eq:disc-mass}
+\end{equation}
+Both terms are \si{kg/s}; omitting $V_c$ or the dot product with $\Sf$ leaves
+the equation dimensionally inconsistent.
+
+\subsection{The diffusion stencil}
+
+For a diffusive flux the face gradient is a directional derivative in the
+outward direction, i.e.\ ``ahead minus behind'' with the neighbour ahead:
+\begin{equation}
+  (\nabla \psi)_f \approx \frac{\psi_N - \psi_P}{\delta_f},
+  \qquad
+  \sum_f \Gamma_f |\Sf| \frac{\psi_N - \psi_P}{\delta_f}.
+  \label{eq:diffusion}
+\end{equation}
+The sign is fixed by physics, independent of convention: if the neighbour is
+hotter or faster, cell $P$ must \emph{gain}. Expanding \eqref{eq:diffusion}
+gives one term in $\psi_P$ and one in $\psi_N$.
+
+\subsection{The matrix that results}
+
+Every discretised transport equation collapses to one algebraic relation per
+cell, linking the cell to its neighbours:
+\begin{equation}
+  a_P \psi_P + \sum_N a_N \psi_N = b .
+  \label{eq:row}
+\end{equation}
+Two distinctions must be kept apart, and conflating them is the classic error:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{axis} & \textbf{question} \\
+\midrule
+implicit vs.\ explicit & is the value at the new time (unknown) or known? \\
+diagonal vs.\ off-diagonal & is it \emph{this} cell's value or a \emph{neighbour}'s? \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent $a_P$ is the coefficient on the cell's \emph{own} unknown --- the
+matrix diagonal. The $a_N$ are off-diagonal. Both may be implicit. Deleting the
+off-diagonals would leave a purely diagonal matrix, invertible cell-by-cell,
+in which nothing diffuses: \emph{the off-diagonal entries are the physical
+coupling}.
+
+\subsection{The \texorpdfstring{$H$}{H} operator}
+
+Split the matrix $A = D + N$ into diagonal and off-diagonal parts. Then
+\begin{equation}
+  (D+N)\uvec = b
+  \;\Longrightarrow\;
+  D\uvec = b - N\uvec
+  \;\Longrightarrow\;
+  \uvec = D^{-1}(b - N\uvec).
+  \label{eq:splitting}
+\end{equation}
+Writing $a_P \equiv D$ and $H(\uvec) \equiv b - N\uvec$, and separating the
+pressure gradient out of $b$:
+\begin{equation}
+  \boxed{\; a_P \uvec_P = H(\uvec) - \nabla p \;}
+  \label{eq:aph}
+\end{equation}
+So $H$ is not an arbitrary bucket: it is precisely ``the right-hand side after
+moving the off-diagonal action across.'' It contains the neighbours'
+contributions (still unknowns, at the new time) \emph{plus} genuinely known
+sources such as the old-time term. It is written $H(\uvec)$ because it depends
+on the velocity field and must be re-evaluated as the solution updates.
+
+Equation \eqref{eq:splitting} is a Jacobi/Gauss--Seidel splitting: the unknown
+appears on both sides. \emph{That is why the scheme must iterate}, and it is the
+same structural reason the outer corrector loop exists.
+
+\subsection{Convection and its linearisation}
+
+Convection $\nabla\!\cdot\!(\rho\uvec\uvec)$ is nonlinear --- velocity
+transports itself. It is linearised by lagging the mass flux at the previous
+iterate while keeping the transported velocity implicit,
+\begin{equation}
+  \sum_f \underbrace{\phi_f}_{\text{lagged coefficient}} \; \uvec_f^{\,\text{new}},
+\end{equation}
+which is a \emph{Picard} (successive-substitution) linearisation. With
+first-order upwind, the face value is taken from the \emph{upstream} cell:
+\begin{equation}
+  \uvec_f =
+  \begin{cases}
+    \uvec_P, & \phi_f > 0 \quad\text{(outflow)} \;\Rightarrow\; \text{diagonal},\\
+    \uvec_N, & \phi_f < 0 \quad\text{(inflow)} \;\Rightarrow\; \text{off-diagonal}.
+  \end{cases}
+\end{equation}
+Note that the lagged quantity is a \emph{coefficient}, never the unknown: the
+velocity itself remains implicit.
+
+%======================================================================
+\section{Manufacturing the pressure equation}\label{sec:pressure}
+
+Divide \eqref{eq:aph} by $a_P$ and define
+\begin{equation}
+  r_{AU} \equiv \frac{1}{a_P},
+  \qquad
+  \mathrm{HbyA} \equiv \frac{H(\uvec)}{a_P},
+  \qquad\text{so}\qquad
+  \uvec_P = \mathrm{HbyA} - r_{AU}\,\nabla p .
+  \label{eq:hbya}
+\end{equation}
+$\mathrm{HbyA}$ is the velocity a cell would have from its neighbours and its
+own history alone --- everything \emph{except} the pressure force.
+
+Now substitute \eqref{eq:hbya} into discrete continuity \eqref{eq:disc-mass}.
+The only remaining unknown is $p$, and because $\nabla p$ sits inside a
+divergence we obtain a variable-coefficient Laplacian:
+\begin{equation}
+  \sum_f (\rho\, r_{AU})_f (\nabla p)_f \cdot \Sf
+  \;=\;
+  V_c \frac{\rho - \rho^o}{\dt} + \sum_f \rho_f\, \mathrm{HbyA}_f\!\cdot\!\Sf .
+  \label{eq:peqn-generic}
+\end{equation}
+This is a \emph{scalar} equation, matching the scalar unknown $p$. The orphan
+now has a home.
+
+\paragraph{Reading the right-hand side.} The term
+$\sum_f \rho_f \mathrm{HbyA}_f\!\cdot\!\Sf$ is the mass imbalance of the
+pressure-free velocity. The pressure equation is therefore literally: \emph{the
+size of the continuity violation tells you how to correct the pressure.}
+
+\paragraph{Compressibility enters here.} $\rho$ on the right still depends on
+$p$. Linearising with
+\begin{equation}
+  \psi \equiv \left.\frac{\partial \rho}{\partial p}\right|_{h},
+  \qquad
+  \rho \approx \rho^{*} + \psi\,(p - p^{*}),
+\end{equation}
+and moving the resulting term to the left adds a diagonal contribution
+$\psi V_c/\dt$, making the equation Helmholtz-like rather than a pure Laplacian:
+\begin{equation}
+  \boxed{\;
+  \psi_c \frac{V_c (p_c - p_c^{o})}{\dt}
+  + \sum_f s_{c,f}\Big[\phi_{\mathrm{HbyA},f}
+      - (\rho\, r_{AU})_f \,\mathrm{snGrad}(p)_f\,|\Sf|\Big] = 0 \;}
+  \label{eq:peqn}
+\end{equation}
+In the incompressible limit $\psi \to 0$ and the classical pressure Poisson
+equation is recovered. Thus $\psi$ sits \emph{in the diagonal of the pressure
+equation}: it is the knob controlling how strongly pressure resists change.
+This will matter in \S\ref{sec:psi}.
+
+%======================================================================
+\section{The PIMPLE loop}\label{sec:pimple}
+
+Why a loop at all? Because the equations are coupled but we solve them
+\emph{segregated}, one variable at a time. Each solve therefore uses stale
+values from the others, and the only repair is to go round again. A monolithic
+solver --- all unknowns in one matrix --- would need no predictor--corrector at
+all, but pays with one enormous, ill-conditioned system.
+
+Two distinct lags are being repaired simultaneously:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{lag} & \textbf{what is stale} & \textbf{example} \\
+\midrule
+nonlinearity (within an equation) & a coefficient depending on the unknown & lagged $\phi_f$ \\
+coupling (between equations) & a value owned by another equation & $\nabla p$ in momentum \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The canonical ordering is forced, not chosen: momentum must be
+assembled first (it alone supplies the $\uvec$--$p$ relation), then continuity
+manufactures $p$, then velocity is corrected.
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Momentum predictor.} Solve \eqref{eq:aph} with the guessed
+        $p^{*}$; the resulting $\uvec^{*}$ does \emph{not} conserve mass.
+  \item Form $r_{AU}$ and $\mathrm{HbyA}$.
+  \item \textbf{Pressure corrector.} Solve \eqref{eq:peqn}.
+  \item \textbf{Velocity/flux correction} with the new $p$; continuity now holds.
+  \item Repeat 3--4 (PISO inner correctors); refresh and repeat all (PIMPLE outer).
+\end{enumerate}
+
+SIMPLE, PISO and PIMPLE differ only in how many times one goes round and what is
+refreshed. PIMPLE contains both as limits: one outer corrector reduces it to
+PISO; dropping the time derivative and relaxing heavily gives SIMPLE.
+
+%======================================================================
+\section{Closure by steam tables, and why it breaks things}\label{sec:closure}
+
+Replacing the ideal gas by the IAPWS-IF97 flash \eqref{eq:eos} is not a cosmetic
+substitution. Inside the saturation dome:
+
+\begin{itemize}[leftmargin=*]
+  \item $\rho$ responds violently to $p$ (a small pressure drop flashes liquid to
+        vapour), so $\psi$ is orders of magnitude larger than any single-phase value;
+  \item the equilibrium sound speed collapses, so the flow becomes near-sonic at
+        modest velocities;
+  \item the flash has hard validity limits --- a state pushed below
+        \SI{273.15}{\kelvin} or above \SI{1073.15}{\kelvin} does not merely lose
+        accuracy, it \emph{panics}.
+\end{itemize}
+
+Each of the three fixes below is a direct consequence of one of these facts.
+
+%======================================================================
+\section{Fix 1 --- conservative energy and the continuity density}\label{sec:rhocont}
+
+\subsection{Why the naive form leaks}
+
+In continuous calculus the conservative and non-conservative energy forms agree:
+\begin{align}
+  \frac{\partial(\rho h)}{\partial t} + \nabla\!\cdot\!(\rho\uvec h)
+  &= \rho\frac{\partial h}{\partial t} + h\frac{\partial \rho}{\partial t}
+   + \rho\uvec\!\cdot\!\nabla h + h\nabla\!\cdot\!(\rho\uvec) \notag\\
+  &= \rho \frac{Dh}{Dt}
+   + h\underbrace{\Big[\frac{\partial \rho}{\partial t} + \nabla\!\cdot\!(\rho\uvec)\Big]}_{\text{continuity}} .
+  \label{eq:expand}
+\end{align}
+The bracket vanishes \emph{only because continuity holds exactly}. If continuity
+is satisfied to within a residual $r$, the two forms differ by exactly $h\,r$ ---
+a spurious energy source or sink.
+
+Discretely $r$ is generally non-zero, because the thermodynamic density
+$\rho(p,h)$ returned by the flash and the density implied by the discrete mass
+balance are computed by \emph{different parts of the solver} and need not agree.
+During flashing, $\rho$ swings enormously and the leak $h\,r$ becomes large:
+enthalpy is over-drained, the liquid is driven subcooled, and the pressure falls
+straight past $p_{\mathrm{sat}}$ instead of holding the flashing plateau.
+
+\subsection{The continuity-consistent density}
+
+Rearranging discrete continuity \eqref{eq:disc-mass} for the new density defines
+\begin{equation}
+  \boxed{\;\rhocont \;\equiv\; \rho^{o} - \frac{\dt}{V_c}\sum_f \phi_f
+  \;=\; \rho^{o} - \dt\,\nabla\!\cdot\!\phi \;}
+  \label{eq:rhocont}
+\end{equation}
+By construction $(\rhocont - \rho^{o})/\dt = -\nabla\!\cdot\!\phi$ holds
+\emph{exactly}, whatever the equation of state returns. Using $\rhocont$ in the
+storage term therefore makes the cancellation in \eqref{eq:expand} exact,
+term for term, and the energy equation reduces to the material derivative
+$\rho\,Dh/Dt = \partial p/\partial t$. That reversible $\mathrm{d}h \approx
+\mathrm{d}p/\rho$ is what keeps the state on the saturation dome as $p$ falls ---
+i.e.\ \emph{the plateau}.
+
+\paragraph{As implemented.} The energy time derivative is assembled by
+\texttt{fvm::ddt\_coeff\_old}, giving
+\begin{equation}
+  \frac{\rhocont\, h - \rho^{o} h^{o}}{\dt} V_c ,
+\end{equation}
+with two coupled points: the old-time coefficient is the \emph{old} density
+$\rho^o$ (restoring the missing $h^o(\rho-\rho^o)/\dt$ term), and the new-time
+coefficient is $\rhocont$ recomputed from the \emph{final} mass flux --- not the
+EOS density that the thermodynamic update wrote during the inner correctors.
+Using the EOS density instead leaves a residual that spuriously \emph{over-heats}
+cells, flashing them into Region~5.
+
+$\rhocont$ is floored at \SI{1e-4}{kg/m^3}. In a clamped cell the exact
+cancellation formally no longer holds --- a caveat that returns in
+\S\ref{sec:knp}.
+
+%======================================================================
+\section{Fix 2 --- the compressibility \texorpdfstring{$\psi$}{psi}}\label{sec:psi}
+
+With energy conserved, the flash initiates at the correct pressure but
+\emph{overshoots} the plateau. The fault is now in the pressure equation.
+
+A quality-frozen isothermal compressibility $\psi = \rho\,\kappa_T$ omits the
+flashing contribution $(v_g - v_f)\,\mathrm{d}x/\mathrm{d}p$ and is roughly two
+orders of magnitude too small inside the dome. Since $\psi$ occupies the
+diagonal of \eqref{eq:peqn}, too small a $\psi$ makes the solver behave as though
+the fluid were nearly incompressible ($\psi \to 0$ is exactly the incompressible
+limit), so it fails to resist the depressurisation and sails through the plateau.
+
+The remedy is to evaluate the true derivative along the thermodynamically
+relevant path --- constant enthalpy, since $h$ is the transported variable and a
+fast blowdown is approximately adiabatic --- by central difference on the real
+flash:
+\begin{equation}
+  \psi \;=\;
+  \frac{\rho(p+\Delta p,\,h) - \rho(p-\Delta p,\,h)}{2\,\Delta p},
+  \qquad
+  \Delta p = \max\!\big(10^{-3} p,\ \SI{50}{\pascal}\big).
+  \label{eq:psi}
+\end{equation}
+The bounds are clamped to the EOS validity range and the \emph{actual}
+$(p_{\mathrm{hi}} - p_{\mathrm{lo}})$ is used as the denominator, so clamping
+degrades the estimate to a one-sided difference rather than corrupting it. If
+both bounds collapse together the isothermal value is used as a fallback, and
+$\psi$ is floored at $10^{-12}$.
+
+With \eqref{eq:psi} the plateau emerges from the thermodynamics alone --- no
+clamps, no saturation clips.
+
+\paragraph{Cost.} Two extra $(p,h)$ flashes per cell per thermodynamic update,
+and the update runs once per inner corrector: $2\,n_{\text{inner}}
+n_{\text{outer}} n_{\text{cells}}$ extra flashes per timestep.
+
+%======================================================================
+\section{Fix 3 --- all-Mach shock capturing and its taper}\label{sec:knp}
+
+\subsection{Why dissipation is needed}
+
+In this solver the energy convection term is assembled \emph{explicitly with
+central interpolation}. Central differencing of convection is unconditionally
+non-monotone: at the near-sonic flashing front it rings. A pressure-based
+solver has almost no numerical dissipation of its own, so the oscillation is not
+damped.
+
+\subsection{KNP central-upwind flux}
+
+Borrow the Kurganov--Noelle--Petrova central-upwind flux from density-based
+schemes. With one-sided local wave-speed estimates built from the \emph{HEM
+equilibrium} sound speed $c$,
+\begin{equation}
+  a_L = \min\big(u_{n,L}-c_L,\; u_{n,R}-c_R,\; 0\big),
+  \qquad
+  a_R = \max\big(u_{n,L}+c_L,\; u_{n,R}+c_R,\; 0\big),
+\end{equation}
+the flux of a conserved variable $w$ is
+\begin{equation}
+  F = \frac{a_R F_L - a_L F_R + a_L a_R (w_R - w_L)}{a_R - a_L}.
+  \label{eq:knp}
+\end{equation}
+The final term is the dissipation. Subtracting the corresponding central flux
+(the same expression with the jump term removed) isolates it, and it is applied
+as a \emph{deferred correction} added to $\phi$ rather than by rebuilding the
+matrix. Left and right states are MUSCL-reconstructed with a van~Leer limiter.
+
+\subsection{Three non-obvious choices}
+
+\paragraph{(a) Dissipate $\rho h_e$, not $\rho E$.} The conserved energy variable
+is the \emph{static} enthalpy density. Dissipating total energy
+$\rho E = \rho(h_e + \tfrac12|\uvec|^2) - p$ would re-inject the $-\Delta p$
+pressure work; across the strong rarefaction the large $\Delta p$ then over-cools
+the near-break cell through the \SI{273.15}{\kelvin} validity edge.
+
+\paragraph{(b) Gate on $\min(\mathrm{Ma})$, not $\max$.} The blend weight is
+\begin{equation}
+  \beta = \mathrm{clamp}\!\left(\frac{\mathrm{Ma}_f - \mathrm{Ma}_{\mathrm{lo}}}
+  {\mathrm{Ma}_{\mathrm{hi}} - \mathrm{Ma}_{\mathrm{lo}}},\,0,\,1\right),
+  \qquad
+  \mathrm{Ma}_f = \min(\mathrm{Ma}_O,\,\mathrm{Ma}_N),
+\end{equation}
+with defaults $\mathrm{Ma}_{\mathrm{lo}}=0.3$, $\mathrm{Ma}_{\mathrm{hi}}=1.0$.
+At a liquid/two-phase interface the liquid's $\sim\!\SI{1400}{m/s}$ sound speed
+dominates the wave speeds, so the numerical viscosity $a_L a_R/(a_R-a_L)$ is
+enormous --- yet that liquid acoustic wave is genuinely \emph{low Mach} and must
+not be dissipated. Taking the minimum sees the subsonic liquid side and returns
+$\beta = 0$; only where \emph{both} sides are near-sonic does KNP activate.
+
+\paragraph{(c) No separate energy source.} The continuity dissipation is folded
+into $\phi$ \emph{before} the energy equation is assembled, so
+$\nabla\!\cdot\!(\phi h)$ already carries it. Adding a standalone
+$\Delta F_{\mathrm{ener}}$ would double-count.
+
+\subsection{The rarefied-tail taper}
+
+Even so, the full \SI{600}{\milli\second} run failed at $t \approx
+\SI{0.18}{\second}$. As the pipe empties, $\rhocont$ falls to its floor and the
+energy-equation diagonal $\rhocont V_c/\dt$ collapses; the cell becomes
+ill-conditioned, and a fixed explicit correction then produces an unbounded
+enthalpy update that trips the $(p,h)$ validity edge.
+
+Since the minimum dissipated-face density during the physics of interest is
+$\approx \SI{106.5}{kg/m^3}$, a density threshold cleanly separates the runaway
+from the region that matters. The blend weight is tapered:
+\begin{equation}
+  \boxed{\;
+  g(\rho_f) = \mathrm{clamp}\!\left(\frac{\rho_f - 50}{100 - 50},\,0,\,1\right),
+  \qquad \rho_f = \min(\rho_O,\rho_N),
+  \qquad \beta \leftarrow \beta\, g(\rho_f) \;}
+\end{equation}
+Below \SI{50}{kg/m^3} the dissipation is switched off entirely (pure PIMPLE,
+stable); above \SI{100}{kg/m^3} it is at full weight, so the taper is
+\emph{inert} in the validated region and the plateau is unchanged. The physical
+justification is that in the emptying tail there is no flashing shock left to
+capture.
+
+The effective face weight is therefore
+\begin{equation}
+  \beta_f = \mathrm{clamp}\!\Big(\tfrac{\min(\mathrm{Ma}_O,\mathrm{Ma}_N)-0.3}{0.7},0,1\Big)
+  \cdot
+  \mathrm{clamp}\!\Big(\tfrac{\min(\rho_O,\rho_N)-50}{50},0,1\Big),
+\end{equation}
+further gated by a validity guard requiring both cells to lie within
+\SIrange{300}{1050}{\kelvin}.
+
+%======================================================================
+\section{The assembled algorithm}\label{sec:algorithm}
+
+Per timestep, with $u^o,p^o,h^o,\rho^o$ the previous state:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Outer loop}, $n_{\text{outer}}$ times:
+  \begin{enumerate}
+    \item \textbf{Continuity (explicit).}
+          $\rho = \max(\rho^{o} - \dt\,\nabla\!\cdot\!\phi,\ 10^{-4})$.
+    \item \textbf{Assemble momentum}: implicit Euler time term, first-order
+          implicit upwind convection, orthogonal Laplacian diffusion; add the
+          lagged hybrid momentum source if in \texttt{HybridAllMach} mode.
+    \item Cache $A = \mathrm{diag}$ and $r_{AU} = V_c/A$.
+    \item \textbf{Momentum predictor}: add $-V_c\nabla p$ explicitly, solve for
+          $\uvec$, then \emph{remove} it again so that $H(\uvec)$ is
+          pressure-free for the projection.
+    \item \textbf{Inner loop}, $n_{\text{inner}}$ times:
+          form $\mathrm{HbyA}$ and $\phi_{\mathrm{HbyA}}$; assemble and solve
+          \eqref{eq:peqn}; under-relax and bound $p$; correct the internal-face
+          fluxes $\phi = \phi_{\mathrm{HbyA}} - (\rho r_{AU})_f
+          \mathrm{snGrad}(p)|\Sf|$; correct
+          $\uvec = \mathrm{HbyA} - r_{AU}\nabla p$; re-close the thermodynamics
+          via the $(p,h)$ flash (which also refreshes $\psi$ by \eqref{eq:psi}).
+    \item \textbf{Hybrid dissipation} (if enabled): fold $\Delta\phi$ into
+          $\phi$ immediately; store the momentum source for the \emph{next}
+          outer corrector.
+    \item \textbf{Energy}: build $\rhocont$ from the final $\phi$, assemble
+          the conservative $\mathrm{ddt}$ with $(\rhocont,\rho^{o})$, explicit
+          central convection, implicit $\alpha_h$ diffusion, $\partial p/\partial t$
+          source, plus lateral conductance and volumetric heat sources; solve for $h$.
+  \end{enumerate}
+  \item Clear the per-step lateral/heat registrations.
+\end{enumerate}
+
+\paragraph{Boundary conditions.} A closed end is a Dirichlet $\uvec = 0$. The
+break is a \emph{choked-flow outlet}: the critical pressure and mass flux are
+obtained from the HEM critical-flow dispatcher using the last cell's $(p_0,h_0)$,
+converted to an equivalent full-face velocity so that $\dot m$ is conserved
+through the smaller break area, and imposed as a Dirichlet velocity (lagged one
+step). Both pressure patches remain zero-gradient: a blowdown has no Dirichlet
+pressure anywhere --- mass depletion sets $p$.
+
+%======================================================================
+\section{Deviations from stock \texttt{rhoPimpleFoam}}\label{sec:deviations}
+
+These are deliberate or known, and are recorded so the document is not read as
+describing textbook behaviour.
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Equation order.} Stock is
+        \texttt{rhoEqn} $\to$ \texttt{UEqn} $\to$ \texttt{EEqn} $\to$ \texttt{pEqn};
+        here energy is solved \emph{after} the pressure loop, so $h$ lags $p$ by
+        one outer corrector.
+  \item \texttt{rhoEqn} is recomputed every outer corrector, not only on the
+        first iteration.
+  \item \textbf{Energy convection is explicit and central}, not implicit limited
+        upwind. This is the dispersion the KNP hybrid exists to control.
+  \item No \texttt{ddtCorr} (Rhie--Chow transient flux correction) in
+        $\phi_{\mathrm{HbyA}}$.
+  \item No kinetic-energy or gravity-work terms in the energy equation, and no
+        viscous dissipation.
+  \item The \emph{momentum} time derivative is non-conservative
+        ($\rho^{\text{new}}(\uvec-\uvec^{o})/\dt$) while the \emph{energy} time
+        derivative is conservative. Asymmetric by design.
+  \item No residual-based PIMPLE convergence test: corrector counts are fixed and
+        solver performance is discarded. Only the linear-solver tolerances apply.
+  \item Hybrid \emph{momentum} dissipation is lagged one outer corrector, so with
+        $n_{\text{outer}} = 1$ it is computed and then discarded. The Edwards
+        runs use $n_{\text{outer}} = 4$.
+  \item Hybrid dissipation and the flux correction touch internal faces only.
+  \item Numerical floors ($\rho,\rhocont \ge 10^{-4}$, $\psi \ge 10^{-12}$,
+        $c \ge \SI{1}{m/s}$) formally break the exact discrete-continuity
+        cancellation in clamped cells.
+  \item Enthalpy boundary conditions are not re-stamped after a solve, so a
+        Dirichlet enthalpy BC survives one step and then silently degrades to
+        zero-gradient. This does not affect Edwards, which sets no enthalpy BC.
+  \item No turbulence model, wall function, wall friction, mesh motion, LTS, or
+        transonic \texttt{pcEqn} variant.
+\end{enumerate}
+
+%======================================================================
+\section{Summary}
+
+The three project-specific fixes are one idea in three costumes: \emph{keep the
+discrete system self-consistent}.
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{fix} & \textbf{failure it removes} & \textbf{mechanism} \\
+\midrule
+$\rhocont$ + conservative ddt & plateau collapses to \SI{17.4}{psia} & exact discrete-continuity cancellation \\
+$\psi = \partial\rho/\partial p|_h$ & plateau overshoots & correct stiffness in the pEqn diagonal \\
+KNP + $\min(\mathrm{Ma})$ + taper & ringing; tail crash at \SI{0.18}{\second} & selective, gracefully deactivated dissipation \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent None of them is a tuned fudge: each is the consequence of requiring
+that the discrete equations mean what the continuous ones mean.
+
+%======================================================================
+\section*{References}
+
+\begin{itemize}[leftmargin=*]
+  \item H.~Jasak, \emph{Error Analysis and Estimation for the Finite Volume
+        Method with Applications to Fluid Flows}, PhD thesis, Imperial College,
+        London, 1996. (Finite-volume discretisation, deferred correction, the
+        $a_P$/$H$ formulation.)
+  \item H.~Jasak, A.~Jemcov, \v{Z}.~Tukovi\'{c}, ``OpenFOAM: A C++ Library for
+        Complex Physics Simulations,'' \emph{Int.\ Workshop on Coupled Methods in
+        Numerical Dynamics}, Dubrovnik, 2007.
+  \item J.~H.~Ferziger, M.~Peri\'{c}, \emph{Computational Methods for Fluid
+        Dynamics}, Springer.
+  \item A.~Kurganov, S.~Noelle, G.~Petrova, ``Semidiscrete central-upwind schemes
+        for hyperbolic conservation laws and Hamilton--Jacobi equations,''
+        \emph{SIAM J.\ Sci.\ Comput.} \textbf{23}(3), 2001.
+  \item W.~Wagner, H.-J.~Kretzschmar, \emph{International Steam Tables}, Springer.
+  \item P.~Saha, \emph{A Review of Two-Phase Steam-Water Critical Flow Models
+        with Emphasis on Thermal Nonequilibrium}, NUREG/CR-0417, BNL-NUREG-50907,
+        1978.
+\end{itemize}
+
+\end{document}

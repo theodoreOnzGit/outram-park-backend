@@ -1,19 +1,26 @@
 // Copyright [2023] [Theodore Kay Chen Ong, Professor Per F. Peterson,
 // University of California, Berkeley
-// Thermal Hydraulics Lab, Repository Contributors and 
+// Thermal Hydraulics Lab, Repository Contributors and
 // Singapore Nuclear Research and Safety Initiative (SNRSI)]
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+// SPDX-License-Identifier: GPL-3.0-only
 //
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Relicensed from Apache-2.0 to GPL-3.0-only on 2026-08-11 by the sole
+// copyright holder (maintainer-directed) — see the crate NOTICE file.
+// Versions of this crate published to crates.io before the relicense
+// remain available under Apache-2.0.
+//
+// This program is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, version 3 of the License.
+//
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program.  If not, see <https://www.gnu.org/licenses/>.
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -23,7 +30,7 @@ use uom::si::f64::*;
 use uom::si::ratio::ratio;
 use uom::si::time::second;
 
-/// 
+///
 /// This is a simulation of:
 ///
 ///         0.000119 s - 2.201 e-7
@@ -33,19 +40,17 @@ use uom::si::time::second;
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
 /// a2 s^2 + b2 s + c2
 ///
-pub(crate) fn stable_second_order_simulation(){
-
+pub(crate) fn stable_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -53,7 +58,7 @@ pub(crate) fn stable_second_order_simulation(){
     let b1: Time = Time::new::<second>(0.000119);
     let c1: Ratio = -Ratio::new::<ratio>(2.201e-7);
 
-    let a2: TimeSquared =one_second * one_second;
+    let a2: TimeSquared = one_second * one_second;
     let b2: Time = Time::new::<second>(0.0007903);
     let c2: Ratio = Ratio::new::<ratio>(6.667e-7);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -63,7 +68,7 @@ pub(crate) fn stable_second_order_simulation(){
     let mut tf = TransferFnSecondOrder::new(a1, b1, c1, a2, b2, c2).unwrap();
     //
     // if you need to set initial values
-    // because the transfer function only measures deviations from 
+    // because the transfer function only measures deviations from
     // these inputs and outputs
     //
     // // do this before starting up
@@ -76,56 +81,58 @@ pub(crate) fn stable_second_order_simulation(){
 
     // writer creation
 
-    let mut wtr = tf.spawn_writer("one_zero_two_complex_poles_demo_".to_string()).unwrap();
+    let mut wtr = tf
+        .spawn_writer("one_zero_two_complex_poles_demo_".to_string())
+        .unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
+    let stuff_to_do_in_simulation_loop = move || {
         // let _output = tf.set_user_input_and_calc(user_input,time);
         // tf.csv_write_values();
         //
         // probably want to assert something as well
-        // assert approx equal 
+        // assert approx equal
 
         // should be equal within x percent of a suitable scale
         // so lets say 1e-9 times of 1,
-        
-        // step up to 9 if t >= 0 
+
+        // step up to 9 if t >= 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(9.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
         //dbg!(output);
         // assert example
-        assert_abs_diff_eq!(1.0,1.01, epsilon = 0.1);
+        assert_abs_diff_eq!(1.0, 1.01, epsilon = 0.1);
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
         //let current_time_string = current_simulation_time.get::<second>().to_string();
         //let input_string = user_input.get::<ratio>().to_string();
         //let output_string = output.get::<ratio>().to_string();
 
-        
         //wtr.write_record(&[current_time_string,
         //    input_string,
         //    output_string]).unwrap();
         //wtr.flush().unwrap();
-        
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 
-
-/// 
+///
 /// This is a simulation of:
 ///
 ///         2.5
@@ -135,19 +142,17 @@ pub(crate) fn stable_second_order_simulation(){
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
 /// a2 s^2 + b2 s + c2
 ///
-pub(crate) fn no_zeroes_stable_underdamped_second_order_simulation(){
-
+pub(crate) fn no_zeroes_stable_underdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -155,7 +160,7 @@ pub(crate) fn no_zeroes_stable_underdamped_second_order_simulation(){
     let b1: Time = Time::ZERO;
     let c1: Ratio = Ratio::new::<ratio>(2.5);
 
-    let a2: TimeSquared =one_second * one_second* 3.0;
+    let a2: TimeSquared = one_second * one_second * 3.0;
     let b2: Time = Time::new::<second>(4.0);
     let c2: Ratio = Ratio::new::<ratio>(4.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -170,34 +175,35 @@ pub(crate) fn no_zeroes_stable_underdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("demo_no_zeroes_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 
-/// 
+///
 /// This is a simulation of:
 ///
 ///         2.5s
@@ -207,19 +213,17 @@ pub(crate) fn no_zeroes_stable_underdamped_second_order_simulation(){
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
 /// a2 s^2 + b2 s + c2
 ///
-pub(crate) fn decaying_sine_stable_underdamped_second_order_simulation(){
-
+pub(crate) fn decaying_sine_stable_underdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -227,7 +231,7 @@ pub(crate) fn decaying_sine_stable_underdamped_second_order_simulation(){
     let b1: Time = Time::new::<second>(2.5);
     let c1: Ratio = Ratio::new::<ratio>(0.0);
 
-    let a2: TimeSquared =one_second * one_second* 3.0;
+    let a2: TimeSquared = one_second * one_second * 3.0;
     let b2: Time = Time::new::<second>(4.0);
     let c2: Ratio = Ratio::new::<ratio>(4.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -242,31 +246,32 @@ pub(crate) fn decaying_sine_stable_underdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("demo_decay_sine_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 /// This is a simulation of:
 ///
@@ -277,20 +282,18 @@ pub(crate) fn decaying_sine_stable_underdamped_second_order_simulation(){
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
 /// a2 s^2 + b2 s + c2
 ///
 /// Input is 5 units at t=0s
-pub(crate) fn demo_complex_stable_underdamped_second_order_simulation(){
-
+pub(crate) fn demo_complex_stable_underdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -298,7 +301,7 @@ pub(crate) fn demo_complex_stable_underdamped_second_order_simulation(){
     let b1: Time = -Time::new::<second>(0.5);
     let c1: Ratio = Ratio::new::<ratio>(1.0);
 
-    let a2: TimeSquared =one_second * one_second* 3.0;
+    let a2: TimeSquared = one_second * one_second * 3.0;
     let b2: Time = Time::new::<second>(4.0);
     let c2: Ratio = Ratio::new::<ratio>(4.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -311,33 +314,36 @@ pub(crate) fn demo_complex_stable_underdamped_second_order_simulation(){
 
     // writer creation
 
-    let mut wtr = tf.spawn_writer("demo_complex_second_order_".to_string()).unwrap();
+    let mut wtr = tf
+        .spawn_writer("demo_complex_second_order_".to_string())
+        .unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 
 /// This is a simulation of:
@@ -349,7 +355,7 @@ pub(crate) fn demo_complex_stable_underdamped_second_order_simulation(){
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
@@ -357,13 +363,11 @@ pub(crate) fn demo_complex_stable_underdamped_second_order_simulation(){
 ///
 /// Input is 5 units at t=0s
 ///
-pub(crate) fn demo_stable_critdamped_second_order_simulation(){
-
+pub(crate) fn demo_stable_critdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -371,7 +375,7 @@ pub(crate) fn demo_stable_critdamped_second_order_simulation(){
     let b1: Time = -Time::new::<second>(2.0);
     let c1: Ratio = Ratio::new::<ratio>(1.0);
 
-    let a2: TimeSquared =one_second * one_second* 1.0;
+    let a2: TimeSquared = one_second * one_second * 1.0;
     let b2: Time = Time::new::<second>(4.0);
     let c2: Ratio = Ratio::new::<ratio>(4.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -386,31 +390,32 @@ pub(crate) fn demo_stable_critdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("demo_second_order_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 /// This is a simulation of:
 ///
@@ -421,7 +426,7 @@ pub(crate) fn demo_stable_critdamped_second_order_simulation(){
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
@@ -429,13 +434,11 @@ pub(crate) fn demo_stable_critdamped_second_order_simulation(){
 ///
 /// Input is 5 units at t=0s
 ///
-pub(crate) fn _debug2_stable_critdamped_second_order_simulation(){
-
+pub(crate) fn _debug2_stable_critdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -443,7 +446,7 @@ pub(crate) fn _debug2_stable_critdamped_second_order_simulation(){
     let b1: Time = Time::new::<second>(2.0);
     let c1: Ratio = Ratio::new::<ratio>(1.0);
 
-    let a2: TimeSquared =one_second * one_second* 1.0;
+    let a2: TimeSquared = one_second * one_second * 1.0;
     let b2: Time = Time::new::<second>(4.0);
     let c2: Ratio = Ratio::new::<ratio>(4.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -458,31 +461,32 @@ pub(crate) fn _debug2_stable_critdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("debug2_second_order_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 
 /// This is a simulation of:
@@ -494,7 +498,7 @@ pub(crate) fn _debug2_stable_critdamped_second_order_simulation(){
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
@@ -502,13 +506,11 @@ pub(crate) fn _debug2_stable_critdamped_second_order_simulation(){
 ///
 /// Input is 5 units at t=0s
 ///
-pub(crate) fn _debug_stable_critdamped_second_order_simulation(){
-
+pub(crate) fn _debug_stable_critdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -516,7 +518,7 @@ pub(crate) fn _debug_stable_critdamped_second_order_simulation(){
     let b1: Time = Time::new::<second>(0.0);
     let c1: Ratio = Ratio::new::<ratio>(1.0);
 
-    let a2: TimeSquared =one_second * one_second* 1.0;
+    let a2: TimeSquared = one_second * one_second * 1.0;
     let b2: Time = Time::new::<second>(4.0);
     let c2: Ratio = Ratio::new::<ratio>(4.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -531,31 +533,32 @@ pub(crate) fn _debug_stable_critdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("debug_second_order_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 
 /// This is a simulation of:
@@ -564,13 +567,13 @@ pub(crate) fn _debug_stable_critdamped_second_order_simulation(){
 /// G(s) = ---------------------------
 ///         s^2 + 3 s + 2
 ///
-/// The roots of the denominator are at s = -1  and s = -2 
-/// 
+/// The roots of the denominator are at s = -1  and s = -2
+///
 /// Two real roots means this is an overdamped system
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
@@ -578,13 +581,11 @@ pub(crate) fn _debug_stable_critdamped_second_order_simulation(){
 ///
 /// Input is 5 units at t=0s
 ///
-pub(crate) fn demo_stable_overdamped_second_order_simulation(){
-
+pub(crate) fn demo_stable_overdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -592,7 +593,7 @@ pub(crate) fn demo_stable_overdamped_second_order_simulation(){
     let b1: Time = -Time::new::<second>(2.0);
     let c1: Ratio = Ratio::new::<ratio>(1.0);
 
-    let a2: TimeSquared =one_second * one_second* 1.0;
+    let a2: TimeSquared = one_second * one_second * 1.0;
     let b2: Time = Time::new::<second>(3.0);
     let c2: Ratio = Ratio::new::<ratio>(2.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -607,31 +608,32 @@ pub(crate) fn demo_stable_overdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("demo_overdamped_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 
 /// This is a simulation of:
@@ -640,13 +642,13 @@ pub(crate) fn demo_stable_overdamped_second_order_simulation(){
 /// G(s) = ---------------------------
 ///         s^2 + 3 s + 2
 ///
-/// The roots of the denominator are at s = -1  and s = -2 
-/// 
+/// The roots of the denominator are at s = -1  and s = -2
+///
 /// Two real roots means this is an overdamped system
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
@@ -654,13 +656,11 @@ pub(crate) fn demo_stable_overdamped_second_order_simulation(){
 ///
 /// Input is 5 units at t=0s
 ///
-pub(crate) fn _debug2_stable_overdamped_second_order_simulation(){
-
+pub(crate) fn _debug2_stable_overdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -668,7 +668,7 @@ pub(crate) fn _debug2_stable_overdamped_second_order_simulation(){
     let b1: Time = -Time::new::<second>(2.0);
     let c1: Ratio = Ratio::new::<ratio>(1.0);
 
-    let a2: TimeSquared =one_second * one_second* 1.0;
+    let a2: TimeSquared = one_second * one_second * 1.0;
     let b2: Time = Time::new::<second>(3.0);
     let c2: Ratio = Ratio::new::<ratio>(2.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -683,31 +683,32 @@ pub(crate) fn _debug2_stable_overdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("debug2_overdamped_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 /// This is a simulation of:
 ///
@@ -715,13 +716,13 @@ pub(crate) fn _debug2_stable_overdamped_second_order_simulation(){
 /// G(s) = ---------------------------
 ///         s^2 + 3 s + 2
 ///
-/// The roots of the denominator are at s = -1  and s = -2 
-/// 
+/// The roots of the denominator are at s = -1  and s = -2
+///
 /// Two real roots means this is an overdamped system
 ///
 /// Input is in the form:
 ///
-/// G(s) = 
+/// G(s) =
 ///
 /// a1 s^2 + b1 s + c1
 /// ------------------
@@ -729,13 +730,11 @@ pub(crate) fn _debug2_stable_overdamped_second_order_simulation(){
 ///
 /// Input is 5 units at t=0s
 ///
-pub(crate) fn _debug_stable_overdamped_second_order_simulation(){
-
+pub(crate) fn _debug_stable_overdamped_second_order_simulation() {
     use uom::si::{Quantity, ISQ, SI};
     use uom::typenum::*;
     // type alias called TimeSquared
-    type TimeSquared = 
-    Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
+    type TimeSquared = Quantity<ISQ<Z0, Z0, P2, Z0, Z0, Z0, Z0>, SI<f64>, f64>;
 
     let one_second = Time::new::<second>(1.0);
 
@@ -743,7 +742,7 @@ pub(crate) fn _debug_stable_overdamped_second_order_simulation(){
     let b1: Time = -Time::new::<second>(0.0);
     let c1: Ratio = Ratio::new::<ratio>(1.0);
 
-    let a2: TimeSquared =one_second * one_second* 1.0;
+    let a2: TimeSquared = one_second * one_second * 1.0;
     let b2: Time = Time::new::<second>(3.0);
     let c2: Ratio = Ratio::new::<ratio>(2.0);
     let mut current_simulation_time: Time = Time::new::<second>(0.0);
@@ -758,49 +757,49 @@ pub(crate) fn _debug_stable_overdamped_second_order_simulation(){
 
     let mut wtr = tf.spawn_writer("debug_overdamped_".to_string()).unwrap();
 
-    let stuff_to_do_in_simulation_loop = move ||{
-
-        
-        // step up to 5 if t > 0 
+    let stuff_to_do_in_simulation_loop = move || {
+        // step up to 5 if t > 0
         if current_simulation_time >= Time::ZERO {
             user_input = Ratio::new::<ratio>(5.0);
         }
 
-        let output = tf.set_user_input_and_calc(
-            user_input,current_simulation_time).unwrap();
+        let output = tf
+            .set_user_input_and_calc(user_input, current_simulation_time)
+            .unwrap();
 
         let writer_borrow = &mut wtr;
-        tf.csv_write_values(writer_borrow, current_simulation_time, 
-            user_input, output).unwrap();
-        
+        tf.csv_write_values(writer_borrow, current_simulation_time, user_input, output)
+            .unwrap();
+
         current_simulation_time += timestep;
     };
 
     // need to create a pointer for the stuff_to_do_in_simulation_loop
     // this is to enable parallelism
     let user_task_ptr = Arc::new(Mutex::new(stuff_to_do_in_simulation_loop));
-    simulation_template(max_simulation_time, timestep, current_simulation_time,
-        user_task_ptr);
-
-
+    simulation_template(
+        max_simulation_time,
+        timestep,
+        current_simulation_time,
+        user_task_ptr,
+    );
 }
 fn simulation_template(
     max_simulation_time: Time,
     timestep: Time,
     mut current_simulation_time: Time,
-    user_task_ptr: Arc<Mutex<impl FnMut() -> ()
-    + std::marker::Send + 'static>>){
-
+    user_task_ptr: Arc<Mutex<impl FnMut() -> () + std::marker::Send + 'static>>,
+) {
     let user_task_ptr_clone = user_task_ptr.clone();
 
     let task = move || {
         while current_simulation_time.le(&max_simulation_time) {
-
             let mut user_task_ref = user_task_ptr_clone.lock().unwrap();
             user_task_ref();
 
             current_simulation_time += timestep;
-        }};
+        }
+    };
 
     let handle = thread::spawn(task);
     handle.join().unwrap();

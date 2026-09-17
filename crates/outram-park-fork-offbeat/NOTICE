@@ -1,0 +1,61 @@
+outram-park-fork-offbeat
+Part of Outram Park (outram-park-backend).
+
+This crate is an independent fork / Rust translation of OFFBEAT — the OpenFOAM
+Fuel BEhaviour Analysis Tool
+  https://gitlab.com/foam-for-nuclear/offbeat
+  https://foam-for-nuclear.gitlab.io/offbeat/
+OFFBEAT is a multi-dimensional, finite-volume nuclear fuel-performance solver
+built on OpenFOAM, developed under the `foam-for-nuclear` project by the
+Laboratory for Reactor Physics and Systems Behaviour (LRS) at EPFL, the
+Laboratory for Reactor Physics and Thermal-Hydraulics (LRT) at the Paul
+Scherrer Institute, and the MEDAL group at Texas A&M University.
+
+Primary reference:
+  "The OFFBEAT multi-dimensional fuel behavior solver", Nuclear Engineering and
+  Design. Publisher record:
+  https://www.sciencedirect.com/science/article/abs/pii/S0029549319304479
+  (No DOI is recorded here because it was not independently verified; cite the
+  DOI from the publisher record rather than from this file.)
+
+Upstream license: GNU General Public License, version 3 (GPL-3.0). This is the
+same license this crate is distributed under, so no relicensing step applies —
+the LICENSE file in this directory is the GPL-3.0 text. The upstream LICENSE
+file was retrieved from the GitLab repository on 2026-07-29 and read directly;
+this is not an inference from documentation.
+
+Upstream revision this port derives from:
+  commit 80e84450a115b0c411e1bfa5d166379f6bf6c084 (2026-01-05)
+
+Every Rust source file in this crate that derives from OFFBEAT carries a
+provenance header naming the upstream source file(s), the upstream project,
+the upstream commit, the copyright holder, and the license, per the workspace
+attribution rule. As of 2026-07-30 all 44 source files carry such a header.
+
+The upstream tree is NOT vendored into this repository. Porting is done by
+reading a read-only clone kept outside this working tree; no OpenFOAM or
+OFFBEAT C++ source is copied into the repository.
+
+SCIANTIX — not ported here. Upstream OFFBEAT vendors SCIANTIX, a separate
+0-D grain-scale fission-gas code from Politecnico di Milano distributed under
+the MIT license (https://github.com/sciantix/sciantix-official). No SCIANTIX
+source is copied, vendored or translated into this crate. What the `fgr` module
+ports is OFFBEAT's own coupling shim (`fgrSCIANTIX`, `fgrSCIANTIXRIA`), which
+is GPL-3.0 OFFBEAT code. If SCIANTIX itself is ever ported into this crate, the
+ported files MUST carry the MIT copyright notice and permission text, and this
+NOTICE must be updated to record the dual license lineage — MIT-licensed code
+may be combined into a GPL-3.0 work, but its notice may not be dropped.
+
+STATUS — SCAFFOLD / EARLY, NO HUMAN V&V. The mechanics layer is verified
+against closed-form linear-elasticity solutions and the crate's 361 unit tests
+pass, but nothing in it has been validated against OFFBEAT output, against the
+upstream `Cases/Verification` suite, or against fuel-irradiation data, and no
+human has reviewed it. Per RESPONSIBLE_USE.md, AI-assisted output is untrusted
+draft material until a human reviews it. Nothing here may be described as
+validated fuel performance.
+
+This is an independent fork. It is not the OFFBEAT project and is not endorsed
+by or affiliated with OFFBEAT, the foam-for-nuclear project, EPFL, the Paul
+Scherrer Institute, Texas A&M University, or the OpenFOAM Foundation / OpenCFD.
+"OFFBEAT" and "OpenFOAM" are used only to identify the upstream work this crate
+derives from. See the workspace TRADEMARKS.md.

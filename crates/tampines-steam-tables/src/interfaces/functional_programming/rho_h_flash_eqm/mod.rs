@@ -1,0 +1,1514 @@
+//! Density-enthalpy `(rho,h)` flash: pressure, temperature and steam quality
+//! for a state whose independent variables are **density and specific
+//! enthalpy**.
+//!
+//! # Why this module exists
+//!
+//! IAPWS-IF97 publishes backward equations for `(p,h)`, `(p,s)` and `(h,s)`,
+//! but none for `(rho,h)`. A compressible flow solver, however, carries
+//! **density** (from continuity) and **enthalpy** (from the energy equation)
+//! as its conserved variables, and needs pressure back out of them. Without a
+//! `(rho,h)` entry point such a solver has to reach for a two-dimensional
+//! iterative solve over the forward (Gibbs/Helmholtz) equations, which is both
+//! slow and fragile near the saturation line.
+//!
+//! This module closes that gap **using the published backward equations
+//! themselves**. The observation it rests on is that
+//! [`v_ph_eqm`](crate::interfaces::functional_programming::ph_flash_eqm::v_ph_eqm)
+//! is already an *explicit* function: given `(p,h)` it selects a region and
+//! evaluates a backward equation (`T_ph` in Regions 1 and 2, `v_ph_3` directly
+//! in Region 3, a quality-weighted mixture in Region 4) with no inner
+//! iteration. Inverting it therefore collapses from a two-dimensional solve to
+//! a **one-dimensional, bracketed root find in pressure alone**, where every
+//! residual evaluation costs exactly one explicit backward-equation flash.
+//!
+//! # What is IAPWS-traceable here, and what is not
+//!
+//! Every thermodynamic value this module returns comes from the crate's
+//! IAPWS-IF97 equations — it adds no fitted correlation of its own. What it
+//! adds is the **inversion strategy** (bracketing and root finding), which is
+//! numerics, not thermodynamics. That distinction matters: the accuracy of
+//! `p(rho,h)` is the accuracy of IF97's own `v(p,h)` plus a convergence
+//! tolerance that the caller can read off [`P_RHO_H_REL_TOL`].
+//!
+//! Contrast this with
+//! [`backward_eqn_chebyshev_experimental::p_rho_h`](crate::backward_eqn_chebyshev_experimental::p_rho_h),
+//! which is an in-house Chebyshev *fit* to the same surface together with a
+//! statistical region classifier. That module is fast and explicit but carries
+//! fit error and a classifier that misfiles roughly 2.7 % of states (8.4 % in
+//! Region 4). **This module is the accurate path**; the Chebyshev module is the
+//! cheap-and-approximate one. They are complementary, not redundant.
+//!
+//! # Validity
+//!
+//! The same domain as the `(p,h)` flash it inverts: pressure in
+//! `[p_sat(273.15 K), 100 MPa]` and enthalpy between the `273.15 K` and
+//! `1073.15 K` isotherms. Region 5 (above 1073.15 K) has no `(p,h)` backward
+//! equation in this crate and is therefore not reachable from `(rho,h)` either.
+//!
+//! # Measured accuracy, and where this does NOT work
+//!
+//! Verified against the published steam tables in
+//! `interfaces::tests_and_examples::rho_h_flash_steam_table` (2334 single-phase
+//! nodes and 220 saturation rows, measured 2026-09-14). **No node failed**: every
+//! one was recovered either to the right pressure (`|dp/p| < 1e-6`, 2284 nodes)
+//! or to the right density (`|dv/v| < 1e-9`, 50 nodes).
+//!
+//! Worst pressure error by region, inverting this crate's own `v(p,h)`:
+//!
+//! | region | max `\|dp/p\|` | comment |
+//! |---|---|---|
+//! | Region 4 (two-phase) | `3.7e-13` | the blowdown regime; excellent |
+//! | Region 2 (vapour) | `3.0e-5` | well conditioned |
+//! | Region 3 | `4.8e-5` | well conditioned |
+//! | Region 1 (compressed liquid) | `7.9e-1` | **input-error sensitive — see below** |
+//!
+//! **What Region 1 does and does not mean — an earlier version of this file
+//! got this wrong, so it is stated carefully.** The `7.9e-1` above is measured
+//! against *table-rounded* density: the published `v` carries six significant
+//! figures, and in nearly-incompressible liquid that rounding is amplified.
+//! The amplification
+//!
+//! ```text
+//! A = |d ln p / d ln v|_h  ~  1 / (p * kappa_T)
+//! ```
+//!
+//! multiplies whatever error is already in the **input**. It does not mean the
+//! inversion is inaccurate.
+//!
+//! Given an *exact* density the inversion is exact throughout the compressed
+//! liquid. Measured 2026-09-14 on subcooled liquid at 18 degC, feeding density
+//! straight from this crate's own `v(p,h)`
+//! (`diagnose_saturation_fallback_against_the_root_find`):
+//!
+//! | true p | recovered p | `A` |
+//! |---|---|---|
+//! | 0.5 bar | 0.50000 bar | `4.0e4` |
+//! | 1 bar | 1.00000 bar | `2.0e4` |
+//! | 10 bar | 10.00000 bar | `2.0e3` |
+//! | 70 bar | 70.00000 bar | `2.9e2` |
+//! | 99 MPa | 990.00000 bar | `2.3e1` |
+//!
+//! Exact at every one, including where `A = 4.0e4`, because a large `A` acting
+//! on a machine-precision input error is still a machine-precision output
+//! error. **So "the compressed liquid is not recoverable" is false as a
+//! blanket claim** — it is recoverable whenever the caller's density is better
+//! known than the printed tables.
+//!
+//! The one state in that sweep that genuinely fails is **0.1 bar**, which
+//! returns `0.02065 bar` against a true `0.1 bar`. That value is exactly
+//! `p_sat(T(h))`, the bubble point — i.e. the search converged to the bottom
+//! edge of its own bracket, not to the root. **That is a branch-selection
+//! defect in this module, not a physical limit**, and it is filed rather than
+//! papered over.
+//!
+//! [`p_rho_h_conditioning`] reports `A` for a state, which is what a caller
+//! needs to turn its own density uncertainty into a pressure uncertainty. In
+//! the two-phase and vapour regions — where a depressurisation transient
+//! actually spends its time — `A` is order 1.
+//!
+//! # Cost, and where this belongs
+//!
+//! Measured 2026-09-14 over a spread of states
+//! (`diagnose_the_cost_of_the_inversion_relative_to_a_ph_flash`):
+//! `v_ph_eqm` 3.45 us/call, `p_rho_h_eqm` 205 us/call â a factor of **59.5**.
+//!
+//! That ordering is structural, not a tuning failure: this is a bracketed root
+//! find built out of repeated `v(p,h)` evaluations, plus a region scan, so it
+//! cannot be cheaper than the flash it inverts.
+//!
+//! The practical consequence is worth stating plainly, because it is easy to
+//! reach for this function in the wrong place. **A pressure-based solver has
+//! nothing to gain here.** If the algorithm already carries `p` as a primary
+//! variable and derives density from it â which is what
+//! `TampinesSteamArray::correct_thermo` does â then pressure never has to be
+//! recovered, and routing through this module would only add cost. The payoff
+//! is against a *two-dimensional* iterative solve over the forward equations,
+//! i.e. in a density-based algorithm where `rho` and `h` are the conserved
+//! variables and `p` genuinely must be inverted for.
+//!
+//! Most of the cost is the region scan rather than the root find; narrowing it
+//! is tracked as a follow-up rather than done here, since correctness across
+//! the seams was the point.
+//!
+//! # Contents
+//!
+//! - [`p_rho_h_eqm`] / [`p_rho_h_eqm_explicit`] — pressure from `(rho,h)`.
+//! - [`tpx_rho_h_eqm`] — temperature, pressure and steam quality together,
+//!   returned as [`TpxRhoH`].
+//! - [`rho_h_is_within_validity_range`] — a non-panicking domain predicate, for
+//!   callers that must check before committing to a flash.
+
+use uom::si::available_energy::joule_per_kilogram;
+use uom::si::f64::*;
+use uom::si::mass_density::kilogram_per_cubic_meter;
+use uom::si::pressure::{megapascal, pascal};
+use uom::si::specific_volume::cubic_meter_per_kilogram;
+use uom::si::thermodynamic_temperature::kelvin;
+
+use crate::constants::{P_C_MPA, RHO_C_KG_PER_M3, T_C_KELVIN};
+use crate::interfaces::functional_programming::ph_flash_eqm::{
+    kappa_t_ph_eqm, ph_flash_region, v_ph_eqm, x_ph_flash,
+};
+use crate::interfaces::functional_programming::pt_flash_eqm::{h_tp_eqm_single_phase, FwdEqnRegion};
+use crate::region_1_subcooled_liquid::{h_tp_1, v_tp_1};
+use crate::region_2_vapour::backward_eqn_ph_2::t_ph_2;
+use crate::region_1_subcooled_liquid::backward_eqn_ph_1::t_ph_1;
+use crate::region_3_single_phase_plus_supercritical_steam::backward_eqn_ph_3::t_ph_flash::t_ph_3;
+use crate::region_3_single_phase_plus_supercritical_steam::intensive_properties::p_rho_t_3;
+use crate::region_4_vap_liq_equilibrium::{sat_pressure_4, sat_temp_4};
+
+#[cfg(test)]
+mod tests;
+
+/// Lower pressure bound of the `(p,h)` flash domain, in pascal:
+/// `p_sat(273.15 K)`.
+///
+/// Recomputed rather than hard-coded so it can never drift from
+/// [`sat_pressure_4`].
+fn p_lower_limit_pascal() -> f64 {
+    sat_pressure_4(ThermodynamicTemperature::new::<kelvin>(273.15)).get::<pascal>()
+}
+
+/// Upper pressure bound of the `(p,h)` flash domain: 100 MPa, in pascal.
+const P_UPPER_LIMIT_PASCAL: f64 = 100.0e6;
+
+/// Relative convergence tolerance on pressure for [`p_rho_h_eqm`].
+///
+/// The returned pressure satisfies `|p - p_exact| <= P_RHO_H_REL_TOL * p`,
+/// where `p_exact` is the pressure at which this crate's own `v(p,h)` equals
+/// the requested specific volume exactly. It is a *numerical* tolerance on the
+/// inversion and says nothing about IF97's own uncertainty.
+pub const P_RHO_H_REL_TOL: f64 = 1.0e-12;
+
+/// Maximum residual evaluations before [`p_rho_h_eqm`] gives up.
+///
+/// The safeguarded false-position iteration below converges in roughly 8 to 15
+/// evaluations across the steam table; this ceiling exists only so a pathology
+/// fails loudly instead of spinning.
+const MAX_ITERATIONS: usize = 200;
+
+/// Temperature, pressure and steam quality recovered from a `(rho,h)` state.
+///
+/// Returned by [`tpx_rho_h_eqm`]. The quality convention is documented on that
+/// function — in particular, `vapour_quality` is a genuine equilibrium quality
+/// only inside Region 4; elsewhere it is the single-phase convention 0 (liquid)
+/// or 1 (vapour).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TpxRhoH {
+    /// Temperature of the state.
+    pub temperature: ThermodynamicTemperature,
+    /// Pressure of the state.
+    pub pressure: Pressure,
+    /// Steam (vapour) quality, dimensionless, on `[0, 1]`.
+    ///
+    /// Inside Region 4 this is the equilibrium vapour mass fraction. Outside
+    /// it, it is a convention flag rather than a measured fraction — see
+    /// [`tpx_rho_h_eqm`].
+    pub vapour_quality: f64,
+    /// The IF97 region the state was found in.
+    pub region: FwdEqnRegion,
+}
+
+/// Returns `true` when `(p,h)` lies inside the `(p,h)` flash domain, without
+/// panicking.
+///
+/// The crate's `(p,h)` validity checks panic on an out-of-domain point, which
+/// is the right behaviour for a user-facing flash but useless inside a root
+/// find that must probe the domain edges. This is the same test, expressed as
+/// a predicate.
+///
+/// `p` is pressure and `h` specific enthalpy.
+fn ph_is_within_validity_range(p: Pressure, h: AvailableEnergy) -> bool {
+    let p_pascal = p.get::<pascal>();
+
+    if p_pascal < p_lower_limit_pascal() || p_pascal > P_UPPER_LIMIT_PASCAL {
+        return false;
+    }
+
+    // Lower bound: the 273.15 K isotherm. Evaluated with the Region 1 forward
+    // equation directly, for the reason documented in
+    // `ph_flash_eqm::validity_range::is_below_isotherm_t_273_15` — the (T,p)
+    // region router reports Region 4 exactly on the saturation line, and the
+    // Region 4 (T,p) arm is deliberately unsupported.
+    let h_lower = h_tp_1(ThermodynamicTemperature::new::<kelvin>(273.15), p);
+    if h < h_lower {
+        return false;
+    }
+
+    // Upper bound: the 1073.15 K isotherm.
+    let h_upper = h_tp_eqm_single_phase(ThermodynamicTemperature::new::<kelvin>(1073.15), p);
+    if h > h_upper {
+        return false;
+    }
+
+    true
+}
+
+/// Returns `true` when a `(rho,h)` state can be flashed by [`p_rho_h_eqm`].
+///
+/// `rho` is mass density and `h` specific enthalpy. A state is flashable when
+/// some pressure in the `(p,h)` domain reproduces the requested density; this
+/// predicate answers that question without panicking, so a caller carrying
+/// possibly-unphysical solver state can check first.
+pub fn rho_h_is_within_validity_range(rho: MassDensity, h: AvailableEnergy) -> bool {
+    let rho_si = rho.get::<kilogram_per_cubic_meter>();
+    if !rho_si.is_finite() || rho_si <= 0.0 || !h.value.is_finite() {
+        return false;
+    }
+    bracket_pressure(rho_si, h).is_some()
+}
+
+/// Specific volume in m3/kg at `(p,h)`, with `p` given in pascal.
+///
+/// One explicit backward-equation flash; this is the residual kernel the root
+/// find calls.
+#[inline]
+fn v_at_pressure(p_pascal: f64, h: AvailableEnergy) -> f64 {
+    v_ph_eqm(Pressure::new::<pascal>(p_pascal), h).get::<cubic_meter_per_kilogram>()
+}
+
+/// Locates the pressures at which the IF97 region changes along the fixed-`h`
+/// line, between `p_low` and `p_high`.
+///
+/// Writes the interior boundaries in increasing order into `out` and returns
+/// how many were found (at most 4 — along a fixed enthalpy the state passes
+/// through at most Regions 2, 3, 4 and 1).
+///
+/// # Why the dispatcher needs these
+///
+/// `v(p,h)` is smooth and monotone *within* a region, but **not across a region
+/// seam**: IF97's backward equations are only consistent with each other to
+/// about `1e-5`, so the specific volume takes a small step at each boundary.
+/// Those steps are what break a naive root find — see
+/// the measured Region 4 to Region 1 case below,
+/// where the true root becomes a tangential touch and a spurious sign change
+/// appears 1.5 % away. Region 2 to Region 3 does the same thing at, for
+/// example, `h = 2902.88 kJ/kg`.
+///
+/// Splitting the search at every seam makes each sub-interval monotone, so the
+/// spurious crossings cannot be reached from the sub-interval that holds the
+/// real root.
+///
+/// # Method
+///
+/// A coarse logarithmic scan detects label changes, then each change is pinned
+/// by bisection. The scan is logarithmic because the pressure domain spans five
+/// decades and the interesting structure is not uniformly distributed in `p`.
+fn region_boundaries(
+    h: AvailableEnergy,
+    p_low: f64,
+    p_high: f64,
+    out_below: &mut [f64; 4],
+    out_above: &mut [f64; 4],
+) -> usize {
+    const SCAN_POINTS: usize = 14;
+
+    let region_at = |p_pascal: f64| ph_flash_region(Pressure::new::<pascal>(p_pascal), h);
+
+    let ln_lo = p_low.ln();
+    let ln_hi = p_high.ln();
+    let d_ln = (ln_hi - ln_lo) / ((SCAN_POINTS - 1) as f64);
+
+    let mut found = 0_usize;
+    let mut prev_p = p_low;
+    let mut prev_region = region_at(p_low);
+
+    for i in 1..SCAN_POINTS {
+        let p = if i == SCAN_POINTS - 1 {
+            p_high
+        } else {
+            (ln_lo + d_ln * (i as f64)).exp()
+        };
+        let region = region_at(p);
+
+        if region != prev_region {
+            // Pin this boundary. 60 halvings is far past f64 resolution on any
+            // sub-interval of this domain; the relative-width test exits first.
+            let mut lo = prev_p;
+            let mut hi = p;
+            for _ in 0..60 {
+                let mid = 0.5 * (lo + hi);
+                if region_at(mid) == prev_region {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+                if (hi - lo) <= 1.0e-13 * hi {
+                    break;
+                }
+            }
+            // Hand back BOTH sides, not the midpoint. The whole purpose of the
+            // split is that the two branches disagree at the seam, so a single
+            // shared endpoint would be evaluated on whichever side the
+            // bisection happened to land -- and if that is the far side, the
+            // sub-interval holding the true root shows no sign change and the
+            // search falls through to the spurious one. `lo` is the last
+            // pressure still in the lower region and `hi` the first in the
+            // upper, so each sub-interval is evaluated strictly inside itself.
+            if found < out_below.len() {
+                out_below[found] = lo;
+                out_above[found] = hi;
+                found += 1;
+            }
+            prev_region = region;
+        }
+        prev_p = p;
+    }
+
+    found
+}
+
+/// Brackets the pressure root of `v(p,h) = 1/rho`.
+///
+/// Returns `(p_low, p_high, f_low, f_high)` in pascal with the residual
+/// `f(p) = ln v(p,h) - ln(1/rho)` bracketing a sign change, or `None` when the
+/// state lies outside the flash domain.
+///
+/// # Why a log residual
+///
+/// Specific volume spans roughly six decades across the steam table, and the
+/// root find must behave the same on a 1e-3 m3/kg liquid as on a 1e2 m3/kg
+/// rarefied vapour. Working in `ln v` makes the residual's scale uniform, so a
+/// single relative tolerance is meaningful everywhere.
+///
+/// # Why the domain edge is searched, not assumed
+///
+/// For a given enthalpy only a sub-interval of `[p_min, 100 MPa]` is inside the
+/// `(p,h)` domain: the 273.15 K isotherm rises with pressure and the 1073.15 K
+/// isotherm falls, so both bound the *upper* end. The valid set is therefore an
+/// interval anchored at `p_min`, and its upper edge is located by bisection on
+/// the validity predicate.
+fn bracket_pressure(rho_si: f64, h: AvailableEnergy) -> Option<(f64, f64, f64, f64)> {
+    let ln_v_target = (1.0 / rho_si).ln();
+
+    let p_min = p_lower_limit_pascal();
+    let h_pressure_min = Pressure::new::<pascal>(p_min);
+    if !ph_is_within_validity_range(h_pressure_min, h) {
+        // The enthalpy is outside the domain even at the lowest pressure, so no
+        // pressure can host it.
+        return None;
+    }
+
+    // Locate the upper edge of the valid pressure interval.
+    let p_max = if ph_is_within_validity_range(Pressure::new::<pascal>(P_UPPER_LIMIT_PASCAL), h) {
+        P_UPPER_LIMIT_PASCAL
+    } else {
+        let mut lo = p_min;
+        let mut hi = P_UPPER_LIMIT_PASCAL;
+        // 200 halvings of a ~5-decade interval is far beyond what f64 can
+        // resolve; the loop exits on the relative-width test long before.
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            if ph_is_within_validity_range(Pressure::new::<pascal>(mid), h) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+            if (hi - lo) <= 1.0e-12 * hi {
+                break;
+            }
+        }
+        lo
+    };
+
+    if !(p_max > p_min) {
+        return None;
+    }
+
+    // Dispatch on REGION before searching. `v(p,h)` steps discontinuously at
+    // each IF97 region seam, so a search spanning one can converge on a
+    // spurious root while reporting a machine-epsilon residual -- see
+    // `region_boundaries`. Splitting at every seam leaves each sub-interval
+    // monotone.
+    let mut seam_below = [0.0_f64; 4];
+    let mut seam_above = [0.0_f64; 4];
+    let n_boundaries = region_boundaries(h, p_min, p_max, &mut seam_below, &mut seam_above);
+
+    // Walk the sub-intervals from the LOWEST pressure upward and take the first
+    // that brackets a sign change.
+    //
+    // Lowest-first is the tie-break, and it is the physically right one. Where a
+    // seam manufactures a second crossing, the spurious one always lies on the
+    // far side of the seam from the true root -- the volume step displaces the
+    // next region\'s branch, so the extra crossing appears at higher pressure.
+    // Taking the lowest bracketing sub-interval therefore returns the real
+    // state and leaves the artefact unreachable.
+    // Sub-interval i runs from `lower_edge[i]` to `upper_edge[i]`.
+    let mut lower_edge = [0.0_f64; 5];
+    let mut upper_edge = [0.0_f64; 5];
+    lower_edge[0] = p_min;
+    for i in 0..n_boundaries {
+        upper_edge[i] = seam_below[i];
+        lower_edge[i + 1] = seam_above[i];
+    }
+    upper_edge[n_boundaries] = p_max;
+    let n_intervals = n_boundaries + 1;
+
+    for i in 0..n_intervals {
+        let a = lower_edge[i];
+        let b = upper_edge[i];
+        if !(b > a) {
+            continue;
+        }
+
+        let f_low = v_at_pressure(a, h).ln() - ln_v_target;
+        let f_high = v_at_pressure(b, h).ln() - ln_v_target;
+
+        if !f_low.is_finite() || !f_high.is_finite() {
+            continue;
+        }
+
+        // v decreases with p at fixed h, so a bracketed root has
+        // f_low >= 0 >= f_high.
+        if f_low * f_high <= 0.0 {
+            return Some((a, b, f_low, f_high));
+        }
+    }
+
+    // No sub-interval brackets a root: the requested density is unreachable at
+    // this enthalpy anywhere in the domain.
+    None
+}
+
+/// Pressure in pascal from density in kg/m3 and specific enthalpy in J/kg, by
+/// **iteration** — the undimensioned twin of [`p_rho_h_eqm`].
+///
+/// For hot loops that already hold SI scalars and do not want to pay for `uom`
+/// construction. Same algorithm, same tolerance, same panics as
+/// [`p_rho_h_eqm`].
+///
+/// # Renamed 2026-09-15 — read this if you were calling `p_rho_h_eqm_explicit`
+///
+/// This function used to be called `p_rho_h_eqm_explicit`, where "explicit"
+/// meant *explicit SI scalars*. That sat one module away from
+/// [`crate::backward_eqn_chebyshev_experimental::p_rho_h_in_region_explicit`],
+/// where "explicit" means *explicit closed-form equation* — the opposite kind
+/// of thing, since this one iterates and that one does not. The name now means
+/// what the rest of the crate means by it: [`p_rho_h_eqm_explicit`] is the
+/// closed-form correlation, and this is the iterative solve in SI scalars.
+///
+/// # Panics
+///
+/// Panics when `rho_si` is not strictly positive and finite, when `h_si` is not
+/// finite, or when the `(rho,h)` state lies outside the `(p,h)` flash domain
+/// (see [`rho_h_is_within_validity_range`] for a non-panicking check).
+/// Pressure from density and specific enthalpy by a **closed-form correlation**
+/// — no iteration.
+///
+/// This is the fast, approximate route: it evaluates this crate's own fitted
+/// `(rho,h)` backward surfaces (see
+/// [`crate::backward_eqn_chebyshev_experimental::p_rho_h`], GitHub issue #34)
+/// rather than inverting the IF97 backward equations numerically the way
+/// [`p_rho_h_eqm`] does. Where [`p_rho_h_eqm`] costs about 75 forward flashes
+/// per call, this costs one polynomial evaluation.
+///
+/// # THESE ARE NOT IAPWS EQUATIONS, AND THE ERROR IS LARGE IN PLACES
+///
+/// IAPWS-IF97 publishes **no** `(rho,h)` backward equations. These surfaces are
+/// fitted in-house, are **experimental, AI-assisted draft material with no
+/// human V&V sign-off**, and their accuracy varies enormously by region.
+/// Measured against this crate's own forward equations (regenerate with
+/// `cargo test --release -p tampines-steam-tables --lib
+/// backward_eqn_chebyshev_experimental::tests::p_rho_h`):
+///
+/// | region / subset | median | 99th pct | maximum |
+/// |---|---|---|---|
+/// | Region 1 (liquid) | 5.619e-4 | 1.838e0 | **3.185e0** |
+/// | Region 2 | 9.788e-6 | 6.240e-5 | 1.549e-4 |
+/// | Region 3 | 1.082e-4 | 3.407e-4 | 3.688e-4 |
+/// | Region 5 | 2.146e-5 | 1.833e-4 | 1.306e-3 |
+/// | Region 4, interior `0.05 <= x < 0.95` | 2.041e-4 | 2.967e-3 | 4.158e-3 |
+/// | Region 4, bubble point `x < 0.05` | 1.145e-4 | 1.409e-1 | **1.773e-1** |
+///
+/// **Region 1 can be wrong by a factor of four** — the worst recorded state
+/// recovers 0.00419 MPa where the reference is 0.00100 MPa. That is not a fit
+/// defect so much as conditioning: liquid water is nearly incompressible, so
+/// `|d ln p / d ln v|_h` reaches about `4.0e4` at 0.5 bar and any error in the
+/// density is amplified by that factor into the pressure. See
+/// [`p_rho_h_conditioning`], which reports the amplification for a given state
+/// so a caller can decide whether this route is usable there.
+///
+/// # Choosing between this and [`p_rho_h_eqm`]
+///
+/// Reach for this only where **speed matters more than the last few digits and
+/// the state is not in liquid or near the bubble point** — a first guess to
+/// seed an iteration, a plotting heuristic, a classifier. Use
+/// [`p_rho_h_eqm`] (or [`p_rho_h_eqm_si`]) wherever the answer is the product.
+///
+/// A worked example of choosing wrongly, and of a third option beating both:
+/// the steam-tables GUI draws constant-volume lines, which spend their length
+/// in exactly the two regions above that are weakest — the liquid branch and
+/// the bubble point. It uses neither route. Re-parameterising the curve by
+/// temperature makes the dome crossing a closed-form lever rule accurate to
+/// about `1e-14`, because at fixed `T` the saturation pressure is already
+/// known and nothing has to be inverted at all.
+///
+/// # Cost, measured 2026-09-15
+///
+/// The speed advantage is real but **not uniform**, and there is one regime
+/// where this function is slower than the iterative route it exists to replace:
+///
+/// | state | this | [`p_rho_h_eqm_si`] | ratio |
+/// |---|---|---|---|
+/// | vapour, `rho = 4.07`, `h = 3000 kJ/kg` | 1 893 ns | 54 043 ns | 28x faster |
+/// | low-pressure vapour, `rho = 0.84` | 4 316 ns | 184 381 ns | 43x faster |
+/// | liquid, `rho = 982`, `h = 300 kJ/kg` | 3 848 ns | 58 486 ns | 15x faster |
+/// | **near-critical two-phase, `rho = 315.6`** | **242 713 ns** | 225 577 ns | **0.93x — SLOWER** |
+///
+/// The last row is a direct consequence of the near-critical exclusion: such a
+/// state pays for the classifier, the fitted surface and the region flash, then
+/// is handed to the iterative route anyway. It pays twice.
+///
+/// Fixing it means deciding to iterate **before** any of that work, from `rho`
+/// and `h` alone — a proximity test against the critical point rather than a
+/// quality test needing a pressure. Tracked in GH #207; until then a caller in
+/// that regime should call [`p_rho_h_eqm`] directly.
+///
+/// # Panics
+///
+/// Panics when `rho_si` is not strictly positive and finite, or when `h_si` is
+/// not finite. Unlike [`p_rho_h_eqm_si`] it does **not** panic for a state
+/// outside the `(p,h)` flash domain: a fitted surface has no domain check of
+/// its own, and will happily extrapolate. Call
+/// [`rho_h_is_within_validity_range`] first if that matters.
+pub fn p_rho_h_eqm_explicit(rho_si: f64, h_si: f64) -> f64 {
+    use crate::backward_eqn_chebyshev_experimental::{
+        p_rho_h_in_region, rho_h_region_candidate, RhoHRegion,
+    };
+    use uom::si::mass_density::kilogram_per_cubic_meter;
+
+    assert!(
+        rho_si.is_finite() && rho_si > 0.0,
+        "p_rho_h_eqm_explicit: density must be finite and strictly positive, got {rho_si} kg/m3"
+    );
+    assert!(
+        h_si.is_finite(),
+        "p_rho_h_eqm_explicit: specific enthalpy must be finite, got {h_si} J/kg"
+    );
+
+    let rho = MassDensity::new::<kilogram_per_cubic_meter>(rho_si);
+    let h = AvailableEnergy::new::<joule_per_kilogram>(h_si);
+
+    // ── Carve-out: liquid and the bubble point do NOT go through the fit ────
+    //
+    // The Chebyshev surfaces are usable in vapour and in the interior of the
+    // dome, and they are not usable in compressed liquid (max 3.185 relative,
+    // i.e. a factor of four) or within about 5 % quality of the bubble point
+    // (max 1.773e-1). Returning those numbers from a function whose whole
+    // selling point is speed would be the worst kind of trade: silently wrong,
+    // and fast about it.
+    //
+    // Why a polynomial cannot fix this, so nobody re-fits it harder. In nearly
+    // incompressible liquid the surface being fitted is genuinely near-vertical
+    // -- `|d ln p / d ln v|_h` reaches about 4.0e4 at 0.5 bar -- so pressure
+    // swings by decades across a density range a fit can barely resolve. No
+    // amount of Chebyshev degree represents that well in `(rho, h)`; the
+    // conditioning is a property of the coordinates, not of the approximation.
+    // A replacement for this regime has to change variables (anchor on the
+    // saturation line and fit the departure from it, or fit in a stretched
+    // coordinate), which is a different algorithm rather than a better fit.
+    // Tracked as a bead; until it exists, these states take the accurate route.
+    // ── Region selection: correct the classifier with one exact flash ──────
+    //
+    // `rho_h_region_candidate` is a STATISTICAL classifier and it misfiles
+    // states — the module docs put it around 2.7 % overall and 8.4 % in
+    // Region 4. A misfiled state is not a small error: it is evaluated on the
+    // wrong surface entirely, and it also bypasses whichever carve-out its real
+    // region has.
+    //
+    // Measured on the published tables: 355 degC / 175.701 bar at x = 0.1 is
+    // genuinely **Region 4** and the classifier calls it **Region 3**. It
+    // therefore never reached the bubble-point exclusion at all, and came back
+    // 22.1 % out on pressure and 0.12 out on quality.
+    //
+    // The crate already owns an exact region router, `ph_flash_region`, which
+    // needs a pressure. So: take the classifier's answer, get a provisional
+    // pressure from it, then ask the exact router what region that state really
+    // is, and re-evaluate on the corrected surface. One extra flash (~3.3 us)
+    // buys the branch decision out of the classifier's error budget.
+    let classified = rho_h_region_candidate(
+        rho_si,
+        h.get::<uom::si::available_energy::kilojoule_per_kilogram>(),
+    );
+    let region = {
+        // CLAMP the provisional pressure into the flash domain before using it.
+        //
+        // The fitted surface has no domain of its own and can return a pressure
+        // below the triple point. Unclamped, the validity check then fails, the
+        // region correction is skipped, AND the same bad pressure goes on to
+        // seed `t_ph_1` in the Region 1 anchor — so one out-of-domain fit value
+        // poisons both the branch decision and the temperature. Measured: the
+        // published-table node at 35 degC / 0.1 bar came back 96 % low this way,
+        // while the same state on a synthetic grid was fine at 0.97 %.
+        let p_probe = clamp_into_flash_domain(p_rho_h_in_region(classified, rho, h));
+        if ph_is_within_validity_range(p_probe, h) {
+            match ph_flash_region(p_probe, h) {
+                FwdEqnRegion::Region1 => RhoHRegion::Region1,
+                FwdEqnRegion::Region2 => RhoHRegion::Region2,
+                FwdEqnRegion::Region3 => RhoHRegion::Region3,
+                FwdEqnRegion::Region4 => RhoHRegion::Region4,
+                // Region 5 has no `(rho,h)` surface; keep the classifier's view
+                // rather than inventing one.
+                FwdEqnRegion::Region5 => classified,
+            }
+        } else {
+            classified
+        }
+    };
+    if matches!(region, RhoHRegion::Region1) {
+        // Region 1 is split by a SUB-BOUNDARY rather than handled as one
+        // piece. Near the saturation line the density carries no usable
+        // pressure information and the fit is hopeless; away from it the fit is
+        // fine. See [`region_1_saturated_liquid_snap`].
+        let p_fit = clamp_into_flash_domain(p_rho_h_in_region(region, rho, h));
+        if let Some(p_snapped) = region_1_saturated_liquid_snap(rho_si, h, p_fit) {
+            return p_snapped.get::<pascal>();
+        }
+        // Above the sub-boundary the liquid is compressed enough for the fitted
+        // surface to mean something — use it, like every other region.
+        return p_fit.get::<pascal>();
+    }
+
+    let p_pa = p_rho_h_in_region(region, rho, h).get::<pascal>();
+
+    // ── Region 3 uses the EXACT equation, not a fit ────────────────────────
+    //
+    // Region 3's fundamental equation is a Helmholtz free energy explicit in
+    // `(rho, T)`, so `p_rho_t_3` returns pressure directly from the density we
+    // were handed — no polynomial, no iteration, and the density enters
+    // exactly rather than through a fitted surface.
+    //
+    // The only thing needed is `T`, and that is cheap: seed `t_ph_3` with the
+    // fitted pressure. `dT/dp|_h` is modest here, so a fitted pressure good to
+    // a few percent gives a temperature good enough for the fundamental
+    // equation to do the rest.
+    //
+    // Same move as the steam-tables GUI isochore and the Region 1 anchor: where
+    // IF97 publishes an explicit equation along some axis, pose the question
+    // along that axis instead of fitting across it. It also sidesteps the fit's
+    // weakest sample — its own V&V report covers Region 3 with n = 16 and calls
+    // it "the least well supported".
+    if matches!(region, RhoHRegion::Region3) {
+        let p_fit = Pressure::new::<pascal>(p_pa);
+        if ph_is_within_validity_range(p_fit, h) {
+            let t = t_ph_3(p_fit, h);
+            let p_exact = p_rho_t_3(rho, t).get::<pascal>();
+            // VALIDATE that the answer really is Region 3 before trusting it.
+            //
+            // `rho_h_region_candidate` is a statistical classifier and misfiles
+            // some states; the module docs put it at roughly 2.7 % overall. A
+            // misfiled Region 2 state handed to Region 3's fundamental equation
+            // does not degrade gracefully — it returns a confident number from
+            // the wrong equation of state. Measured: routing on the classifier
+            // alone made the worst non-liquid single-phase error WORSE, 3.137e-1
+            // to 3.588e-1 at 510 degC / 400 bar, a state the classifier calls
+            // Region 3 and the flash calls Region 2.
+            //
+            // Re-flashing the recovered `(p, h)` is the cheap, decisive check:
+            // if it does not come back Region 3, fall through to the fit.
+            if p_exact.is_finite() && p_exact > 0.0 {
+                let p_check = Pressure::new::<pascal>(p_exact);
+                if ph_is_within_validity_range(p_check, h)
+                    && matches!(ph_flash_region(p_check, h), FwdEqnRegion::Region3)
+                {
+                    return p_exact;
+                }
+            }
+        }
+    }
+
+    // Inside the dome the bubble-point exclusion needs the quality, which needs
+    // a pressure -- so use the cheap one to decide, then discard it if the state
+    // turns out to be in the excluded band. One extra flash, only in Region 4.
+    if matches!(region, RhoHRegion::Region4) {
+        let p = Pressure::new::<pascal>(p_pa);
+        if ph_is_within_validity_range(p, h) {
+            let x = x_ph_flash(p, h);
+            // The exclusion band WIDENS approaching the critical point.
+            //
+            // A fixed `x < 0.05` is right at low pressure and far too narrow
+            // near critical: as `h_fg -> 0` the lever arm collapses, so a given
+            // enthalpy error maps to a much larger quality error and the fitted
+            // surface degrades well away from the bubble point. Measured on the
+            // published tables: 355 degC / 175.701 bar at **x = 0.1** — outside
+            // the fixed band — came back 22.1 % out on pressure and 0.12 out on
+            // quality.
+            //
+            // The band is therefore scaled by how close `p` is to `p_crit`,
+            // reaching `NEAR_CRITICAL_EXCLUSION_QUALITY` at the critical
+            // pressure. Those states take the iterative route: slower, but the
+            // alternative is a confident wrong answer where the fit has least
+            // to work with.
+            let p_ratio = (p.get::<megapascal>() / P_C_MPA).clamp(0.0, 1.0);
+            let exclusion = BUBBLE_POINT_EXCLUSION_QUALITY
+                + (NEAR_CRITICAL_EXCLUSION_QUALITY - BUBBLE_POINT_EXCLUSION_QUALITY)
+                    * p_ratio.powi(2);
+            if x < exclusion {
+                return p_rho_h_eqm_si(rho_si, h_si);
+            }
+        } else {
+            return p_rho_h_eqm_si(rho_si, h_si);
+        }
+    }
+
+    p_pa
+}
+
+/// Clamps a pressure into the `(p,h)` flash's accepted range.
+///
+/// Used on any pressure that came out of a FITTED surface before it is fed to
+/// an IF97 equation. The fits carry no domain of their own and will extrapolate
+/// past the triple point or past 100 MPa; the equations they then seed are not
+/// so forgiving. Clamping keeps a bad fit value merely bad rather than letting
+/// it disable the region correction and the temperature recovery at once.
+fn clamp_into_flash_domain(p: Pressure) -> Pressure {
+    const P_MAX_PASCAL: f64 = 100.0e6;
+    Pressure::new::<pascal>(
+        p.get::<pascal>()
+            .clamp(P_TRIPLE_POINT_PASCAL_FLOOR, P_MAX_PASCAL),
+    )
+}
+
+/// Triple-point pressure in pascal — the floor of the `(p,h)` flash domain.
+const P_TRIPLE_POINT_PASCAL_FLOOR: f64 = 611.657;
+
+/// The Region 1 sub-boundary: saturated-liquid snap for near-saturated liquid,
+/// returning `Some(p_sat)`, or `None` when the state is compressed enough to
+/// hand to the fitted surface.
+///
+/// # The problem this solves
+///
+/// In nearly incompressible liquid the pressure is recoverable from density
+/// only if the density is known to extraordinary precision — the amplification
+/// `A = |d ln p / d ln v|_h ~ 1 / (p * kappa_T)` reaches about `4.0e4` at
+/// 0.5 bar, so a `1e-6` relative error in `v` becomes a 4 % error in `p`, and a
+/// `1e-4` error becomes 400 %. A fitted surface cannot resolve that, and no
+/// increase in polynomial degree changes it: the surface really is near
+/// vertical there.
+///
+/// # What is and is not determined
+///
+/// Two inputs, two unknowns, but they are not equally informative:
+///
+/// * **Enthalpy determines temperature well.** `h_f(T)` is monotone and `c_p`
+///   is nearly constant, so `h -> T` is well conditioned. Note this is
+///   strictly better than inverting `v -> T`, which is tempting since
+///   `v ~ v_f(T)` but is **double-valued**: `v_f` has a minimum at 4 degC (the
+///   density maximum of water), so that inversion folds. Enthalpy does not.
+/// * **Density determines pressure badly**, per the amplification above.
+///
+/// # The discriminator is COMPRESSION, not density
+///
+/// A fixed density threshold does not separate the two regimes — compressed
+/// liquid at 100 MPa is about 1045 kg/m3 and hot liquid at 300 degC about 712,
+/// yet the first is recoverable and the second less so. What matters is how far
+/// the state sits below the saturated-liquid volume at its own temperature:
+///
+/// ```text
+/// compression = (v_f(T) - v) / v_f(T)
+/// ```
+///
+/// which is `~ kappa_T * (p - p_sat(T))`. When that is below
+/// [`LIQUID_SNAP_COMPRESSION`] the state is indistinguishable from saturated
+/// liquid and `p_sat(T)` is the honest answer; above it, the compression is
+/// resolvable and the fitted surface has something to work with.
+///
+/// This is what makes the snap safe. Deciding from `h` alone would be wrong:
+/// compressed liquid at 100 bar and 45 degC has nearly the same enthalpy as
+/// saturated liquid at 47 degC, so an `h`-only rule would snap it to 0.1 bar
+/// against a true 100 bar. Requiring the *volume* to match `v_f` as well is
+/// what excludes that case.
+///
+/// # What the caller gets, stated plainly
+///
+/// For a snapped state this returns `p_sat(T)`, which is a **lower bound** on
+/// the true pressure, not an estimate of it — the bubble point of liquid at
+/// that enthalpy. The trade against using the density is deliberate:
+///
+/// | route | error character |
+/// |---|---|
+/// | via density | unbounded, either direction |
+/// | snap to `p_sat(T)` | bounded, one-sided, always `<=` the true pressure |
+///
+/// Predictable and one-sided is the better failure mode, but a density-based
+/// solver consuming this must know it is receiving a floor. Tracked in GH #207.
+///
+/// # Why this is still explicit
+///
+/// `T` comes from two evaluations of the published backward equation
+/// [`t_ph_1`], not from a bisection. `T` depends only weakly on pressure in
+/// liquid, so seeding at the triple-point pressure and re-evaluating at
+/// `p_sat` of that first estimate converges immediately — at 45 degC the two
+/// passes agree to well under a millikelvin.
+fn region_1_saturated_liquid_snap(
+    rho_si: f64,
+    h: AvailableEnergy,
+    p_fit: Pressure,
+) -> Option<Pressure> {
+    // Temperature from the published backward equation, seeded with the FITTED
+    // pressure. Each half of this does what it is good at: the fit gives a
+    // pressure good to a few percent, and `t_ph_1` turns `(p, h)` into a
+    // temperature that is barely sensitive to that pressure at all, because
+    // `dT/dp|_h` is tiny in liquid.
+    //
+    // Seeding at the triple-point pressure instead was tried and is badly
+    // wrong: `t_ph_1` is a Region 1 correlation, and Region 1 at 611 Pa reaches
+    // only 0 degC, so feeding it the enthalpy of 340 degC liquid extrapolates
+    // off the end of the fit. The round-trip test caught it as a snap
+    // OVERSHOOTING the true pressure by 4.7x.
+    // `t_ph_1` is only the SEED. Using it as the answer is what capped this
+    // branch: it is a backward correlation with ~25 mK of fit error, and this
+    // expansion multiplies temperature error by `beta / kappa_T` (~9.5e5 Pa/K),
+    // so 25 mK becomes ~24 kPa — larger than the pressure itself below a bar.
+    //
+    // Refining against the FORWARD equation removes that ceiling: `h_f(T)` on
+    // the saturated-liquid line is `h_tp_1(T, p_sat(T))`, IF97-exact to 1e-8
+    // rather than a fit, and monotone in `T` with slope `c_p`.
+    let t = saturated_liquid_temperature_from_enthalpy(t_ph_1(p_fit, h), h, p_fit);
+
+    let t_kelvin = t.get::<kelvin>();
+    if !(T_TRIPLE_POINT_KELVIN..=T_REGION_13_BOUNDARY_KELVIN).contains(&t_kelvin) {
+        return None;
+    }
+
+    let p_sat = sat_pressure_4(t);
+    let v_f = v_tp_1(t, p_sat).get::<cubic_meter_per_kilogram>();
+    if !(v_f.is_finite() && v_f > 0.0) {
+        return None;
+    }
+
+    let mut compression = (v_f - 1.0 / rho_si) / v_f;
+
+    // A state sitting ON the saturation line has a compression of order
+    // +-1e-9, and the recovered `T` carries enough slack to push it slightly
+    // negative. Rejecting on `compression < 0` therefore threw away exactly the
+    // states this branch exists for: the round-trip test measured 368 % error
+    // at 5 degC / 0.009 bar — saturated cold liquid — because that node fell
+    // through to the fit.
+    //
+    // Small negative values are treated as zero (the state IS saturated
+    // liquid). A strongly negative value means the temperature or the region is
+    // wrong, not that the liquid is expanded, so that still declines.
+    if compression < -LIQUID_EXPANSION_REJECT {
+        return None;
+    }
+    compression = compression.max(0.0);
+
+    // Convert the compression into an estimated pressure margin above
+    // saturation, and judge it RELATIVE to the saturation pressure itself.
+    //
+    // An absolute margin does not work, and the round-trip test says so
+    // plainly: a fixed 5e-4 compression is about 10 bar, which is negligible
+    // beside `p_sat` at 300 degC (85.9 bar) and enormous beside it at 5 degC
+    // (0.0087 bar). Snapping cold water sitting 0.5 bar above saturation to its
+    // 0.0087 bar bubble point is a 98 % error. Scaling by `p_sat` bounds the
+    // snap's own error by construction instead.
+    // Evaluate `kappa_T` at the state's OWN pressure, not at `p_sat`.
+    //
+    // At `p_sat` the compressed-liquid enthalpy `h` lands INSIDE the dome —
+    // 5 degC / 100 bar has h = 30.9 kJ/kg, which at `p_sat` = 872 Pa is quality
+    // 0.004 — so `kappa_t_ph_eqm(p_sat, h)` returns a quality-weighted
+    // two-phase compressibility, four orders of magnitude above liquid's. That
+    // made `compression / kappa_T` read 1.06e3 Pa where the true departure is
+    // 1.0e7 Pa, and the state came back as `p_sat`, 99.98 % low.
+    //
+    // `p_fit` is Region 1 by construction here and `kappa_T` varies slowly with
+    // pressure in liquid, so this is both valid and a better average over the
+    // interval the expansion integrates across.
+    // The fitted surface has no domain of its own and can extrapolate outside
+    // the flash's pressure range, where `kappa_t_ph_eqm` panics rather than
+    // declining. Check before calling; a state whose fitted pressure is not
+    // even representable is one this branch should not be guessing about.
+    if !ph_is_within_validity_range(p_fit, h) {
+        return None;
+    }
+    let kappa_t = kappa_t_ph_eqm(p_fit, h).value;
+    if !(kappa_t.is_finite() && kappa_t > 0.0) {
+        return None;
+    }
+    // ── Saturation-anchored first-order expansion ──────────────────────────
+    //
+    // Rather than snapping to `p_sat` and discarding the density, ANCHOR on the
+    // saturation line and add the departure the density implies:
+    //
+    //     p = p_sat(T) + (v_f(T) - v) / (v_f(T) * kappa_T)
+    //
+    // Everything on the right is a published IF97 equation evaluated on the
+    // saturation line, so this is explicit — no fit, no iteration. The snap is
+    // simply its `compression -> 0` limit, which is why there is no longer a
+    // separate snap branch.
+    //
+    // Why this works where a fit in `(rho, h)` cannot: the steepness lives
+    // entirely in the anchor. `p` sweeps decades across a tiny span of `v`, and
+    // that is carried here by the exact `p_sat(T)` plus a division by `kappa_T`
+    // — not by a polynomial asked to represent a near-vertical surface.
+    //
+    // Worked check at 5 degC / 0.5 bar, the state the fit got 368 % wrong:
+    // `p_sat = 872 Pa`, `kappa_T ~ 4.9e-10 /Pa`, so a true `p` of `5.0e4 Pa`
+    // gives `compression = 2.41e-5` and the expansion returns
+    // `872 + 4.91e4 = 5.0e4 Pa`.
+    //
+    // The linearisation degrades once `kappa_T` itself varies appreciably over
+    // the interval, i.e. at large compression — which is the sub-boundary
+    // above which the fitted surface takes over. See
+    // [`LIQUID_LINEAR_COMPRESSION_LIMIT`].
+    if compression > LIQUID_LINEAR_COMPRESSION_LIMIT {
+        return None;
+    }
+    let p_sat_pa = p_sat.get::<pascal>();
+
+    // ── Is the temperature good enough to use the expansion at all? ────────
+    //
+    // The expansion divides by `kappa_T`, so it amplifies every error in the
+    // compression — including the part that comes from not knowing `T`
+    // exactly. `v_f` shifts by `beta * dT`, so the pressure error from a
+    // temperature error is `(beta / kappa_T) * dT`, and `beta / kappa_T` is
+    // about `4.5e5 Pa/K` for cold liquid water.
+    //
+    // `T` here comes from IF97's backward `T(p,h)`, which is itself a fit
+    // accurate to roughly 25 mK in Region 1. That is 11 kPa of irreducible
+    // pressure noise — about 1 % at 10 bar, and about 480 % at 0.023 bar.
+    // Measured: the round-trip test put the expansion 436 % out at
+    // 20 degC / 0.0234 bar, which back-solves to a 22 mK temperature error.
+    //
+    // So where that noise is comparable to `p_sat` itself, NO explicit method
+    // can recover the pressure — not this expansion and not a fitted surface,
+    // because the limit is the temperature, not the approximation. There the
+    // honest answer is the saturation pressure: a bounded, one-sided, physically
+    // meaningful value rather than a confident wrong one.
+    let beta = {
+        // Probe COLDER, not warmer. `v_f` is evaluated at `p_sat(T)`, and at
+        // that pressure anything above `T` is vapour — Region 1's equation
+        // extrapolated past its own domain returns nonsense, which made the
+        // noise gate fire on states it should have solved (5 degC / 100 bar came
+        // back as `p_sat`, 99.98 % low). Going down in temperature at fixed
+        // `p_sat` stays in compressed liquid, where the equation is valid.
+        let t_cold = ThermodynamicTemperature::new::<kelvin>(t.get::<kelvin>() - BETA_PROBE_KELVIN);
+        let v_f_cold = v_tp_1(t_cold, p_sat).get::<cubic_meter_per_kilogram>();
+        (v_f - v_f_cold) / (v_f * BETA_PROBE_KELVIN)
+    };
+    let pressure_noise_pa = (beta / kappa_t).abs() * BACKWARD_TEMPERATURE_UNCERTAINTY_KELVIN;
+    let p_pa = p_sat_pa + compression / kappa_t;
+
+    // Signal against noise, NOT noise against `p_sat`. Comparing to `p_sat`
+    // alone was wrong and the round-trip test said so: 5 degC at 100 bar has a
+    // compression signal worth 98 bar, far above the 11 kPa noise, yet
+    // `p_sat` there is only 0.0087 bar — so a `p_sat`-relative gate threw away
+    // a state the expansion recovers almost exactly, returning a value 99.98 %
+    // low. What matters is whether the recovered pressure is large compared
+    // with the uncertainty in it.
+    if pressure_noise_pa > TEMPERATURE_NOISE_FRACTION * p_pa {
+        return Some(p_sat);
+    }
+
+    (p_pa.is_finite() && p_pa > 0.0).then(|| Pressure::new::<pascal>(p_pa))
+}
+
+/// Temperature step used to measure the isobaric expansivity `beta` for the
+/// noise estimate in [`region_1_saturated_liquid_snap`].
+const BETA_PROBE_KELVIN: f64 = 0.1;
+
+/// Temperature uncertainty assumed for the recovered `T`, in kelvin.
+///
+/// **This tracks how `T` is obtained, and that changed.** It was 0.025 —
+/// IF97's accuracy for the backward `T(p,h)` correlation — back when that
+/// correlation WAS the answer. Measured then: the recovery ranged from 0.3 mK
+/// (5 degC / 100 bar) to 22 mK (20 degC, on the saturation line), so 25 mK was
+/// the right conservative figure.
+///
+/// `T` is now refined by [`saturated_liquid_temperature_from_enthalpy`], two
+/// Newton steps against the EXACT forward `h_f(T)` rather than a fit. Newton is
+/// quadratic and the function is smooth, so a 25 mK seed converges far below a
+/// microkelvin; the residual is set by the 0.05 K slope probe, not by any
+/// correlation. 0.1 mK is a conservative multiple of that.
+///
+/// Why the value matters so much: the expansion amplifies temperature error by
+/// `beta / kappa_T`, about `9.5e5 Pa/K` for cold liquid. At 25 mK that was
+/// ~24 kPa — more than the pressure itself below a bar, which is why that whole
+/// corner fell back to returning `p_sat`. At 0.1 mK it is ~95 Pa.
+const BACKWARD_TEMPERATURE_UNCERTAINTY_KELVIN: f64 = 1.0e-4;
+
+/// How large the temperature-induced pressure noise may be, as a fraction of
+/// the recovered pressure, before the saturation-anchored expansion is
+/// abandoned in favour of returning `p_sat` itself.
+const TEMPERATURE_NOISE_FRACTION: f64 = 0.25;
+
+/// Temperature on the **saturated-liquid line** whose enthalpy is `h`, refined
+/// from `t_seed` against the forward equations.
+///
+/// Solves `h_tp_1(T, p) = h` by Newton with a numerical slope, at the state's
+/// OWN pressure.
+///
+/// **Not** `h_f(T) = h` on the saturation line — that was the first version and
+/// it is biased. `h` is the COMPRESSED-liquid enthalpy, which exceeds `h_f` at
+/// the true temperature by `(p - p_sat) * v * (1 - beta*T)`, so inverting along
+/// the saturation line converges correctly to the wrong `T`: about 40 mK high
+/// at 80 degC / 2.47 bar, which showed up as 21 % pressure error. Both ingredients are exact IF97 equations rather than
+/// backward correlations, so the answer is limited by convergence rather than
+/// by a fit — which is the point. The seed comes from `t_ph_1`, good to about
+/// 25 mK, and `dh_f/dT` is `c_p` (order 4 kJ/kg/K), so two steps are ample.
+///
+/// # Why this matters so much here
+///
+/// [`region_1_saturated_liquid_snap`] divides by `kappa_T`, amplifying any
+/// temperature error by `beta / kappa_T` — about `9.5e5 Pa/K` for cold liquid.
+/// At the seed's 25 mK that is ~24 kPa, which exceeds the pressure being
+/// recovered below about 1 bar and was the reason that whole corner fell back
+/// to returning `p_sat`. Refining here attacks the error at its source rather
+/// than gating around it.
+///
+/// Returns `t_seed` unchanged if the refinement cannot proceed (non-finite
+/// slope, or a step leaving Region 1), so a caller never gets a worse answer
+/// than it started with.
+fn saturated_liquid_temperature_from_enthalpy(
+    t_seed: ThermodynamicTemperature,
+    h: AvailableEnergy,
+    p: Pressure,
+) -> ThermodynamicTemperature {
+    const NEWTON_STEPS: usize = 2;
+    const SLOPE_PROBE_KELVIN: f64 = 0.05;
+
+    let h_target = h.get::<joule_per_kilogram>();
+    let h_f_at = |t_kelvin: f64| -> Option<f64> {
+        if !(T_TRIPLE_POINT_KELVIN..=T_REGION_13_BOUNDARY_KELVIN).contains(&t_kelvin) {
+            return None;
+        }
+        let t = ThermodynamicTemperature::new::<kelvin>(t_kelvin);
+        let value = h_tp_1(t, p).get::<joule_per_kilogram>();
+        value.is_finite().then_some(value)
+    };
+
+    let mut t_kelvin = t_seed.get::<kelvin>();
+    for _ in 0..NEWTON_STEPS {
+        let (Some(h_here), Some(h_probe)) =
+            (h_f_at(t_kelvin), h_f_at(t_kelvin + SLOPE_PROBE_KELVIN))
+        else {
+            return t_seed;
+        };
+        let slope = (h_probe - h_here) / SLOPE_PROBE_KELVIN;
+        if !(slope.is_finite() && slope.abs() > 0.0) {
+            return t_seed;
+        }
+        let next = t_kelvin - (h_here - h_target) / slope;
+        if !next.is_finite()
+            || !(T_TRIPLE_POINT_KELVIN..=T_REGION_13_BOUNDARY_KELVIN).contains(&next)
+        {
+            return t_seed;
+        }
+        t_kelvin = next;
+    }
+    ThermodynamicTemperature::new::<kelvin>(t_kelvin)
+}
+
+/// Compression above which the saturation-anchored linear expansion is
+/// abandoned and the fitted surface takes over — the Region 1 sub-boundary.
+///
+/// The expansion assumes `kappa_T` is constant between `p_sat` and `p`, which
+/// holds only while the compression is small.
+///
+/// Tightened from `5e-3` to `5e-4` (roughly 10 bar above saturation rather than
+/// 100) once the fitted surface became accurate here. Measured driver: at
+/// `5e-3` the worst anchored case was 80 degC / 50.474 bar — a state 50 bar
+/// above its 0.474 bar saturation pressure — at 27.2 % error, purely from
+/// stretching a linear model that far. The fit covers that state to 3.2e-4, so
+/// handing it over is strictly better. The expansion earns its place only very
+/// near the saturation line, which is exactly where the fit does not. Measured behaviour
+/// either side is in `region_1_round_trips_through_the_snap_and_the_fit`.
+const LIQUID_LINEAR_COMPRESSION_LIMIT: f64 = 5.0e-4;
+
+/// Fraction of the saturation pressure by which a Region 1 state may sit above
+/// the saturation line and still be snapped to it.
+///
+/// The criterion is `(p - p_sat) < f * p_sat`, estimated from the measured
+/// compression via `kappa_T`, so the snap's own error is bounded by `f` **by
+/// construction** — the returned `p_sat` is at worst this fraction low.
+///
+/// An absolute compression threshold was tried first and is wrong: a fixed
+/// `5e-4` compression is about 10 bar, which is nothing beside `p_sat` at
+/// 300 degC (85.9 bar) and everything beside it at 5 degC (0.0087 bar). The
+/// round-trip test measured 99.9 % error from that version.
+const LIQUID_SNAP_PRESSURE_FRACTION: f64 = 0.05;
+
+/// Apparent expansion beyond the saturated-liquid volume that
+/// [`region_1_saturated_liquid_snap`] tolerates before declining the state.
+///
+/// Liquid cannot genuinely be less dense than its own saturated volume at the
+/// same temperature, so a negative compression means the recovered temperature
+/// is slightly off — which is expected right on the saturation line. Anything
+/// beyond this is not slack, it is a wrong state.
+const LIQUID_EXPANSION_REJECT: f64 = 1.0e-3;
+
+/// Triple-point temperature in kelvin.
+const T_TRIPLE_POINT_KELVIN: f64 = 273.15;
+
+/// Upper temperature of Region 1 (the Region 1/3 boundary).
+const T_REGION_13_BOUNDARY_KELVIN: f64 = 623.15;
+
+/// Quality below which [`p_rho_h_eqm_explicit`] refuses the fitted surface and
+/// falls back to the iterative route.
+///
+/// Set at the boundary of the measured bubble-point subset (`x < 0.05`), whose
+/// maximum error is `1.773e-1` against `4.158e-3` for the dome interior — a
+/// factor of 43 between the two sides of this line.
+const BUBBLE_POINT_EXCLUSION_QUALITY: f64 = 0.05;
+
+/// Bubble-point exclusion quality at the critical pressure.
+///
+/// The band grows quadratically in `p / p_crit` from
+/// [`BUBBLE_POINT_EXCLUSION_QUALITY`] to this value, because the lever arm
+/// `h_fg` collapses as the critical point is approached and the fitted surface
+/// loses resolution well away from `x = 0`. Measured driver: 355 degC /
+/// 175.701 bar at `x = 0.1`, 22.1 % out on pressure under the fixed band.
+const NEAR_CRITICAL_EXCLUSION_QUALITY: f64 = 0.35;
+
+pub fn p_rho_h_eqm_si(rho_si: f64, h_si: f64) -> f64 {
+    assert!(
+        rho_si.is_finite() && rho_si > 0.0,
+        "p_rho_h_eqm: density must be finite and strictly positive, got {rho_si} kg/m3"
+    );
+    assert!(
+        h_si.is_finite(),
+        "p_rho_h_eqm: specific enthalpy must be finite, got {h_si} J/kg"
+    );
+
+    let h = AvailableEnergy::new::<joule_per_kilogram>(h_si);
+    let ln_v_target = (1.0 / rho_si).ln();
+
+    let (mut a, mut b, mut fa, mut fb) = bracket_pressure(rho_si, h).unwrap_or_else(|| {
+        panic!(
+            "p_rho_h_eqm: (rho = {rho_si} kg/m3, h = {h_si} J/kg) is outside the \
+             IAPWS-IF97 (p,h) flash domain \
+             (p in [p_sat(273.15 K), 100 MPa], 273.15 K <= T <= 1073.15 K)"
+        )
+    });
+
+    if fa == 0.0 {
+        return a;
+    }
+    if fb == 0.0 {
+        return b;
+    }
+
+    // Safeguarded false position (the Illinois variant). Regula falsi keeps the
+    // root bracketed unconditionally, which matters here because the residual
+    // has a kink where the pressure crosses a region boundary and a plateau of
+    // near-zero slope inside the two-phase dome; a plain secant or Newton step
+    // can leave the bracket at both. The Illinois halving of the retained
+    // endpoint's residual removes regula falsi's one weakness — the stagnant
+    // endpoint that makes it degrade to linear convergence on a convex
+    // residual — and restores superlinear convergence.
+    let mut side_low = 0_u8;
+    let mut side_high = 0_u8;
+
+    for _ in 0..MAX_ITERATIONS {
+        if (b - a) <= P_RHO_H_REL_TOL * b {
+            break;
+        }
+
+        let mut p = b - fb * (b - a) / (fb - fa);
+
+        // Keep the trial strictly inside the bracket. A degenerate (fb - fa)
+        // or a rounding excursion falls back to bisection.
+        if !p.is_finite() || p <= a || p >= b {
+            p = 0.5 * (a + b);
+        }
+
+        let f = v_at_pressure(p, h).ln() - ln_v_target;
+        if !f.is_finite() {
+            // Should be unreachable inside a validated bracket; bisect rather
+            // than propagate a NaN.
+            p = 0.5 * (a + b);
+            let f_mid = v_at_pressure(p, h).ln() - ln_v_target;
+            if f_mid * fa < 0.0 {
+                b = p;
+                fb = f_mid;
+            } else {
+                a = p;
+                fa = f_mid;
+            }
+            continue;
+        }
+
+        if f == 0.0 {
+            return p;
+        }
+
+        if f * fa < 0.0 {
+            // Root is in [a, p]; the high endpoint moves.
+            b = p;
+            fb = f;
+            side_high = 0;
+            side_low += 1;
+            if side_low >= 2 {
+                fa *= 0.5;
+                side_low = 0;
+            }
+        } else {
+            // Root is in [p, b]; the low endpoint moves.
+            a = p;
+            fa = f;
+            side_low = 0;
+            side_high += 1;
+            if side_high >= 2 {
+                fb *= 0.5;
+                side_high = 0;
+            }
+        }
+    }
+
+    0.5 * (a + b)
+}
+
+/// Pressure from density and specific enthalpy, by inverting the IAPWS-IF97
+/// `(p,h)` backward equations.
+///
+/// `rho` is mass density and `h` is specific enthalpy. The returned pressure is
+/// the one at which this crate's own `v(p,h)` reproduces `1/rho`, converged to
+/// [`P_RHO_H_REL_TOL`] relative.
+///
+/// # Valid range
+///
+/// The `(p,h)` flash domain: `p_sat(273.15 K) <= p <= 100 MPa` and
+/// `273.15 K <= T <= 1073.15 K`. Region 5 is not reachable. Use
+/// [`rho_h_is_within_validity_range`] to test a state without risking a panic.
+///
+/// # Accuracy
+///
+/// This inverts the published backward equations rather than fitting them, so
+/// the error is IF97's own `v(p,h)` error plus the convergence tolerance. That
+/// makes it the accurate counterpart to the explicit Chebyshev fit in
+/// [`crate::backward_eqn_chebyshev_experimental::p_rho_h`], which is cheaper
+/// but carries fit and classifier error.
+///
+/// # Panics
+///
+/// Panics on a non-finite or non-positive density, a non-finite enthalpy, or a
+/// state outside the flash domain.
+pub fn p_rho_h_eqm(rho: MassDensity, h: AvailableEnergy) -> Pressure {
+    // NOTE: `_si`, not `_explicit`. This is the accurate iterative route, and
+    // `p_rho_h_eqm_explicit` is now the fitted correlation -- a different
+    // algorithm with materially different accuracy. Routing this through the
+    // fit would silently downgrade every caller of the crate's primary
+    // `(rho,h)` entry point, which is exactly what happened for one commit
+    // during the 2026-09-15 rename and is why the suite gates it.
+    let p_pascal = p_rho_h_eqm_si(
+        rho.get::<kilogram_per_cubic_meter>(),
+        h.get::<joule_per_kilogram>(),
+    );
+    Pressure::new::<pascal>(p_pascal)
+}
+
+/// Temperature, pressure and steam quality from density and specific enthalpy.
+///
+/// `rho` is mass density and `h` is specific enthalpy. The pressure comes from
+/// [`p_rho_h_eqm`]; temperature and quality then follow from the `(p,h)`
+/// backward equations at that pressure, so the three returned values are
+/// mutually consistent by construction.
+///
+/// # The steam-quality convention outside Region 4
+///
+/// Quality is only physically meaningful in the two-phase dome. Region 4
+/// therefore returns the genuine equilibrium vapour mass fraction from
+/// `x_ph_flash`. Everywhere else this function reports a **convention flag**,
+/// so that a caller carrying `x` as a field never has to special-case a
+/// missing value:
+///
+/// - **Region 1** (subcooled / compressed liquid): `x = 0`.
+/// - **Regions 2 and 5** (superheated vapour): `x = 1`.
+/// - **Region 3 below the critical pressure**: compared against the saturation
+///   temperature at that pressure — `T < T_sat(p)` gives `x = 0`
+///   (liquid-like), otherwise `x = 1` (vapour-like).
+/// - **At or above the critical pressure** (`p >= 22.064 MPa`): there is no
+///   phase boundary to cross, so the convention is taken from the critical
+///   *temperature* instead — a state to the **left** of the critical point
+///   (`T < 647.096 K`) is reported `x = 0`, and one to the **right**
+///   (`T >= T_c`) is reported `x = 1`.
+///
+/// That last rule is the project convention for supercritical states. It is a
+/// labelling choice, not a physical claim: above the critical pressure the
+/// fluid is a single supercritical phase and no vapour fraction exists. Do not
+/// feed a supercritical `x` into a two-phase correlation and expect meaning
+/// from it.
+///
+/// # Panics
+///
+/// Panics under the same conditions as [`p_rho_h_eqm`], and additionally if the
+/// recovered state classifies as Region 5, for which this crate has no `(p,h)`
+/// backward equation.
+pub fn tpx_rho_h_eqm(rho: MassDensity, h: AvailableEnergy) -> TpxRhoH {
+    let p = p_rho_h_eqm(rho, h);
+    let region = ph_flash_region(p, h);
+
+    let (temperature, vapour_quality) = match region {
+        FwdEqnRegion::Region1 => (t_ph_1(p, h), 0.0),
+        FwdEqnRegion::Region2 => (t_ph_2(p, h), 1.0),
+        FwdEqnRegion::Region4 => (sat_temp_4(p), x_ph_flash(p, h)),
+        FwdEqnRegion::Region3 => {
+            let t = t_ph_3(p, h);
+            let x = quality_convention_single_phase(t, p, rho);
+            (t, x)
+        }
+        FwdEqnRegion::Region5 => panic!(
+            "tpx_rho_h_eqm: the (rho,h) state resolved into Region 5 \
+             (T > 1073.15 K), for which this crate has no (p,h) backward equation"
+        ),
+    };
+
+    TpxRhoH {
+        temperature,
+        pressure: p,
+        vapour_quality,
+        region,
+    }
+}
+
+/// The single-phase steam-quality convention for a state that is not in the
+/// two-phase dome.
+///
+/// See [`tpx_rho_h_eqm`] for the rationale. Returns 0 for a liquid-like state
+/// and 1 for a vapour-like one.
+///
+/// # Why density, not temperature, decides the subcritical case
+///
+/// The obvious rule for a Region 3 state below the critical pressure is to
+/// compare its temperature against `T_sat(p)`. That is correct in the interior
+/// but **degenerate exactly on the saturation line**, which is precisely where
+/// the saturated-liquid and saturated-vapour table entries live: there
+/// `T == T_sat(p)` to within floating point, and the comparison falls through
+/// to whichever branch the `else` happens to be. Measured symptom: the
+/// saturated *liquid* at 373 degC / 218.132 bar came back labelled `x = 1`.
+///
+/// The critical isochore does not have that degeneracy. Below the critical
+/// pressure `v_f < v_c < v_g` holds strictly (the three coincide only at the
+/// critical point itself), so comparing the state volume against `v_c`
+/// separates liquid-like from vapour-like cleanly, and it agrees with the
+/// temperature rule everywhere in the interior.
+fn quality_convention_single_phase(
+    t: ThermodynamicTemperature,
+    p: Pressure,
+    rho: MassDensity,
+) -> f64 {
+    let p_critical = Pressure::new::<megapascal>(P_C_MPA);
+    let t_critical = ThermodynamicTemperature::new::<kelvin>(T_C_KELVIN);
+
+    if p >= p_critical {
+        // Supercritical pressure: there is no phase boundary, so the project
+        // convention splits on the critical TEMPERATURE -- left of the critical
+        // point is labelled liquid-like, right of it vapour-like.
+        if t < t_critical {
+            0.0
+        } else {
+            1.0
+        }
+    } else {
+        // Subcritical Region 3: split on the critical isochore.
+        let rho_si = rho.get::<kilogram_per_cubic_meter>();
+        if rho_si > RHO_C_KG_PER_M3 {
+            0.0
+        } else {
+            1.0
+        }
+    }
+}
+
+/// How well the pressure is determined by the density at this state.
+///
+/// Returns the **amplification factor**
+///
+/// ```text
+/// A = |d ln p / d ln v|_h
+/// ```
+///
+/// which is the factor by which a relative error in specific volume becomes a
+/// relative error in the pressure that [`p_rho_h_eqm`] returns. `A` near 1
+/// means the inversion is well conditioned; `A` of 1e5 means a part-per-million
+/// error in density becomes a 10 % error in pressure.
+///
+/// # Why this is public
+///
+/// Because the limitation it measures is real, and a caller cannot see it
+/// otherwise. In the **low-pressure subcooled liquid** the pressure signal
+/// carried by the density falls *below IF97's own backward-equation noise*:
+/// water at 18 degC has almost exactly the same density at 0.02 bar as at
+/// 0.1 bar, while the `T(p,h)` backward equation's ~25 mK uncertainty moves the
+/// volume by ~5e-6 relative — more than the whole pressure signal across that
+/// range. `p(rho,h)` there returns a pressure that satisfies the density to
+/// machine precision and is still badly wrong, and **no implementation can do
+/// better**: the information is not in the inputs.
+///
+/// Measured 2026-09-14 (`diagnose_the_conditioning_measure_across_regimes`):
+///
+/// | state | `A` |
+/// |---|---|
+/// | superheated vapour, 10 bar | `1.0` |
+/// | two-phase, 1 bar | `1.0` |
+/// | saturated liquid, 8 bar | `5.3e-2` |
+/// | compressed liquid, 99 MPa | `2.1e1` |
+/// | subcooled liquid, 0.5 bar | `4.0e4` |
+/// | subcooled liquid, 0.1 bar | `4.8e6` |
+///
+/// # Cost
+///
+/// Two extra flashes, because it perturbs the density and re-solves rather
+/// than differentiating locally. That is deliberate â the cheap local
+/// derivative is blind in exactly the regime this exists to detect â so treat
+/// it as a diagnostic to call when in doubt, not something for a hot loop.
+///
+/// A solver carrying `(rho,h)` should check this where it might be in the
+/// subcooled liquid, and take its pressure from the momentum/pressure equation
+/// rather than the equation of state when `A` is large. In the two-phase and
+/// vapour regions — where a blowdown actually spends its time — `A` is order 1
+/// and `p(rho,h)` is trustworthy.
+///
+/// # Panics
+///
+/// Panics under the same conditions as [`p_rho_h_eqm`].
+pub fn p_rho_h_conditioning(rho: MassDensity, h: AvailableEnergy) -> f64 {
+    let rho_si = rho.get::<kilogram_per_cubic_meter>();
+    let h_si = h.get::<joule_per_kilogram>();
+
+    let p_at = p_rho_h_eqm_si(rho_si, h_si);
+    if !(p_at > 0.0) {
+        return f64::INFINITY;
+    }
+
+    // Measured as the response of the ANSWER to the INPUT, not as a local
+    // derivative of `v(p,h)`.
+    //
+    // The derivative form is what the definition suggests, and it is wrong in
+    // exactly the case that matters. It has to be evaluated somewhere, and the
+    // only pressure available is the one just returned -- which, precisely when
+    // the state is ill-conditioned, is not the state's real pressure. The
+    // derivative then describes a different state and reports it healthy:
+    // measured at 0.1 bar / 18 degC, a central difference gave `A = 1.2e-3` and
+    // a one-sided pair `A = 25`, for a state the solver cannot place to better
+    // than 79 %.
+    //
+    // Perturbing the density and re-solving has no such blind spot. It asks the
+    // question the caller is actually asking -- "if my density were slightly
+    // off, how far would this pressure move?" -- and it answers it with the
+    // same dispatch and root find that produced the pressure, so a branch that
+    // is about to flip shows up as the large excursion it is.
+    let relative_perturbation = 1.0e-6;
+    let mut worst: f64 = 0.0;
+
+    for sign in [1.0_f64, -1.0] {
+        let rho_probe = rho_si * (1.0 + sign * relative_perturbation);
+        if !(rho_probe > 0.0) {
+            continue;
+        }
+        if !rho_h_is_within_validity_range(
+            MassDensity::new::<kilogram_per_cubic_meter>(rho_probe),
+            h,
+        ) {
+            continue;
+        }
+
+        let p_probe = p_rho_h_eqm_si(rho_probe, h_si);
+        let d_ln_p = ((p_probe - p_at) / p_at).abs();
+        worst = worst.max(d_ln_p / relative_perturbation);
+    }
+
+    worst
+}

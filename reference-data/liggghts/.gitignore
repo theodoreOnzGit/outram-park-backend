@@ -1,0 +1,44 @@
+# Regenerable local artefacts of the HTR-10 study — deliberately NOT committed.
+#
+# Everything here can be rebuilt from files that ARE committed, so tracking it
+# would add tens of megabytes of derived data for no reproducibility gain.
+
+# LAMMPS `read_data` input, regenerated from the committed CSV in one command:
+#   ./csv2data.sh htr10_settled.csv htr10_settled.data 0.06 1730 -0.70 6.00
+*.data
+
+# NOTE on the per-setting settled beds (`htr10_conus_presettled_*.csv`): these
+# are deliberately NOT ignored. They double as the driver's pre-settle cache,
+# which is what they look like, but they are also a RESULT -- the settled conus
+# bed at each friction setting -- and the committed `htr10_rdf.csv` derives its
+# `conus_slump` rows from them. Ignoring them would leave a committed dataset
+# that a fresh clone could not regenerate without a ~10-minute run per setting,
+# which is exactly the "regenerates rather than being trusted" property this
+# directory exists to preserve.
+
+# Intermediate slump checkpoints beyond the two the cross-code test asserts on
+# (t2000 = the early per-particle verification, t20000 = the final state).
+# Regenerate with `./dumpframe.sh dump.htr10_conus <step> <out>`.
+htr10_conus_t6000_liggghts.csv
+htr10_conus_t12000_liggghts.csv
+
+# Smoke-run artefacts.
+htr10_recirc_smoke*.csv
+
+# The regression test's own per-batch output. Not committed: the test is a GATE,
+# not a dataset -- the committed measurements are the sweep's
+# `htr10_recirc_<label>.csv` and the `_s8k` control. Committing this file also
+# risks shipping the output of a run that FAILED its quasi-static assertion,
+# which is what happened at the 2 000-step settle window.
+htr10_recirculation.csv
+
+# The rate-independence control runs (`_s8k`, 8000-step settle window) keep
+# their per-batch history -- that IS the evidence, and it is a few kB -- but
+# not their final beds or their seeded pre-settle copies, which are ~4 MB each
+# of derived data reproducible by re-running the driver.
+htr10_recirc_*_s8k_bed.csv
+htr10_conus_presettled_*_s8k.csv
+
+# Raw LIGGGHTS output; the committed CSVs are the converted form.
+dump.*
+log.liggghts

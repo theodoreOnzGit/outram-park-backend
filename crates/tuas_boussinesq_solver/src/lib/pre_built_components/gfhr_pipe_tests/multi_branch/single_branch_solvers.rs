@@ -1,6 +1,6 @@
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::collection_series_and_parallel_functions::FluidComponentCollectionSeriesAssociatedFunctions;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component::FluidComponent;
-use crate::array_control_vol_and_fluid_component_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
+use crate::array_fluid_collections::fluid_component_collection::collection_series_and_parallel_functions::FluidComponentCollectionSeriesAssociatedFunctions;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component::FluidComponent;
+use crate::array_fluid_collections::fluid_component_collection::fluid_component_collection::FluidComponentCollection;
 use roots::find_root_brent;
 use roots::SimpleConvergency;
 use uom::si::mass_rate::kilogram_per_second;
@@ -11,8 +11,8 @@ use uom::si::f64::*;
 /// any object which implements FluidComponent
 pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_custom(
     pressure_change: Pressure,
-    fluid_component_vector: &Vec<FluidComponent>) -> MassRate {
-
+    fluid_component_vector: &Vec<FluidComponent>,
+) -> MassRate {
     // a few key issues here:
     //
     // the method i'm going to use here is iteration
@@ -23,12 +23,12 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     //
     // How then can I guess it intelligently?
     // without having the user set bounds?
-    // 
+    //
     // First, we can get a baseline pressure change
-    // ie when mass flowrate = 0 
-    // 
+    // ie when mass flowrate = 0
+    //
     // We can then set the mass flowrate > 0  to some amount
-    // and mass flowrate < 0 to some amount and 
+    // and mass flowrate < 0 to some amount and
     // take a look at the trends
     //
     // for newtonian fluid flow, we should infer that
@@ -39,7 +39,7 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     //
     //
     // Hence, Newton Raphson should be quite stable in theory
-    // 
+    //
     //
     // The other method should be bisection, if all else fails
     // I could use mass flowrate = 0 as one bound
@@ -65,18 +65,13 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     // this is usually absolute the manotmeter error
     // This is about 9.8 pascals or 10 pascals
     //
-    // Therefore, my absolute tolerance should be within 
+    // Therefore, my absolute tolerance should be within
     // 7 Pa
-
 
     // first let's find the pressure change at zero, 1 kg/s
     // and -1 kg/s
 
-
-    let zero_mass_flow: MassRate 
-        = MassRate::new::<kilogram_per_second>(0.0);
-
-
+    let zero_mass_flow: MassRate = MassRate::new::<kilogram_per_second>(0.0);
 
     let pressure_change_0kg_per_second: Pressure 
         = <FluidComponentCollection as FluidComponentCollectionSeriesAssociatedFunctions>
@@ -84,30 +79,26 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
             zero_mass_flow, 
             fluid_component_vector);
 
-
     // now we will check if the difference is about 9 Pa
     // from zero flow
     // which is that manometer reading error
     //
     // if that is so, then return mass flowrate = 0
 
-
-    let pressure_loss_pascals = 
-        -(pressure_change - pressure_change_0kg_per_second).value;
+    let pressure_loss_pascals = -(pressure_change - pressure_change_0kg_per_second).value;
 
     if pressure_loss_pascals.abs() < 9_f64 {
         return zero_mass_flow;
     }
 
-
-    // present issue: 
+    // present issue:
     // trait objects can be moved (ie used once)
     // but after using, they are finished...
     //
     // i cannot exactly clone them because this is not object
     // safe. Ie, the cloning process cannot know the size
-    // of the struct at compile time 
-    // traits aren't exactly well suited for 
+    // of the struct at compile time
+    // traits aren't exactly well suited for
     // methods which take in the mutable state
     //
     // nevertheless
@@ -125,7 +116,7 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     // time, or the required properties they contain
     //
     // The solution then is to use mutable borrows of
-    // these objects rather than the actual object itself 
+    // these objects rather than the actual object itself
     // which then becomes deleted
     //
     // So then parallelism with trait objects becomes QUITE
@@ -144,46 +135,35 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     // if pressure loss is negative, we have backflow
     //
 
-
-    // if forward flow is true, then i want to iteratively calculate 
+    // if forward flow is true, then i want to iteratively calculate
     // pressure changes using mass flowrates until the limit is reached
 
-    // i'm going to use the peroxide library 
+    // i'm going to use the peroxide library
     //
 
-
     // this is for use in the roots library
-    let mass_flow_from_pressure_chg_root = 
-        |mass_flow_kg_per_s: f64| -> f64 {
+    let mass_flow_from_pressure_chg_root = |mass_flow_kg_per_s: f64| -> f64 {
+        let mass_flow_kg_per_s_double = mass_flow_kg_per_s;
 
-            let mass_flow_kg_per_s_double = mass_flow_kg_per_s; 
+        let mass_rate = MassRate::new::<kilogram_per_second>(mass_flow_kg_per_s_double);
 
-            let mass_rate = 
-                MassRate::new::<kilogram_per_second>(
-                    mass_flow_kg_per_s_double);
-
-
-            let pressure_change_tested = 
+        let pressure_change_tested = 
                 <FluidComponentCollection as FluidComponentCollectionSeriesAssociatedFunctions>
                 ::calculate_pressure_change_from_mass_flowrate(
                     mass_rate, 
                     fluid_component_vector);
-            // now i've obtained the pressure change, i convert it to f64
+        // now i've obtained the pressure change, i convert it to f64
 
-            let pressure_change_user_stipulated_pascals_f64 = 
-                pressure_change.value;
+        let pressure_change_user_stipulated_pascals_f64 = pressure_change.value;
 
-            // since we are finding root, then we must also
-            // subtract it from our pressure change value
+        // since we are finding root, then we must also
+        // subtract it from our pressure change value
 
+        let pressure_change_error: f64 =
+            pressure_change_user_stipulated_pascals_f64 - pressure_change_tested.value;
 
-            let pressure_change_error: f64 =
-                pressure_change_user_stipulated_pascals_f64 - 
-                pressure_change_tested.value;
-
-            return pressure_change_error;
-
-        };
+        return pressure_change_error;
+    };
 
     // note: this function mutates the value of fluid_component_vector,
     // and is thus incompatible with peroxide libraries...
@@ -192,16 +172,17 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     // But having done so, I want to use the newton raphson method to
     // try and converge this result, hopefully within 30 iterations
 
-    let mut convergency = SimpleConvergency { eps:1e-8f64, max_iter:70 };
+    let mut convergency = SimpleConvergency {
+        eps: 1e-8f64,
+        max_iter: 70,
+    };
 
-
-    let mut mass_flowrate_result 
-        = find_root_brent(
-            10_f64,
-            -10_f64,
-            &mass_flow_from_pressure_chg_root,
-            &mut convergency);
-
+    let mut mass_flowrate_result = find_root_brent(
+        10_f64,
+        -10_f64,
+        &mass_flow_from_pressure_chg_root,
+        &mut convergency,
+    );
 
     // the above results only work for ranges of 15 kg/s and
     // -15 kg/s
@@ -234,8 +215,8 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     //
     // in other words about 200,000,000 kg/s
     //
-    // We never expect man made 
-    // piping systems to have this much flow 
+    // We never expect man made
+    // piping systems to have this much flow
     //
     // But this would be a good upper bound for bisection solver.
     //
@@ -253,43 +234,33 @@ pub fn calculate_mass_flowrate_from_pressure_change_for_single_branch_fhr_sim_cu
     // I'll do 10,000 kg/s in each flow branch first
     // then 200,000,000
 
+    mass_flowrate_result = match mass_flowrate_result {
+        Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
+        Err(_error_msg) => {
+            mass_flowrate_result = find_root_brent(
+                10_000_f64,
+                -10_000_f64,
+                &mass_flow_from_pressure_chg_root,
+                &mut convergency,
+            );
 
-    mass_flowrate_result = 
-        match mass_flowrate_result {
-            Ok(_mass_flowrate) => 
-                return MassRate::new::<kilogram_per_second>(_mass_flowrate),
-            Err(_error_msg) => {
+            mass_flowrate_result
+        }
+    };
 
-                mass_flowrate_result 
-                    = find_root_brent(
-                        10_000_f64,
-                        -10_000_f64,
-                        &mass_flow_from_pressure_chg_root,
-                        &mut convergency);
+    mass_flowrate_result = match mass_flowrate_result {
+        Ok(_mass_flowrate) => return MassRate::new::<kilogram_per_second>(_mass_flowrate),
+        Err(_error_msg) => {
+            mass_flowrate_result = find_root_brent(
+                20_000_000_f64,
+                -20_000_000_f64,
+                &mass_flow_from_pressure_chg_root,
+                &mut convergency,
+            );
 
-                mass_flowrate_result
-            }
-        };
-
-    mass_flowrate_result = 
-        match mass_flowrate_result {
-            Ok(_mass_flowrate) => 
-                return MassRate::new::<kilogram_per_second>(_mass_flowrate),
-            Err(_error_msg) => {
-
-                mass_flowrate_result 
-                    = find_root_brent(
-                        20_000_000_f64,
-                        -20_000_000_f64,
-                        &mass_flow_from_pressure_chg_root,
-                        &mut convergency);
-
-                mass_flowrate_result
-            }
-        };
+            mass_flowrate_result
+        }
+    };
     //return mass_flowrate.unwrap();
     return MassRate::new::<kilogram_per_second>(mass_flowrate_result.unwrap());
 }
-
-
-

@@ -1,0 +1,77 @@
+outram-blender
+Copyright (C) 2026 OUTRAM PARK contributors
+
+This crate is licensed under the GNU General Public License v3.0 only
+(GPL-3.0-only). See the LICENSE file.
+
+================================================================================
+Upstream provenance
+================================================================================
+
+This crate is an independent fork of the mesh-authoring architecture of the
+following upstream project. Its source is vendored under `upstream_source/` for
+development reference only (gitignored, never committed, never packaged).
+
+--------------------------------------------------------------------------------
+Blender  —  ARCHITECTURE THIS CRATE DERIVES FROM
+--------------------------------------------------------------------------------
+  Upstream:   https://github.com/blender/blender
+  Origin:     Blender Foundation / Blender Authors
+  Copyright:  Blender Authors; NaN Holding BV (2001-2002) on the oldest files
+  Vendored:   commit 786af64aad84154047d93ee077e1fdd1d229f32d (2026-08-04)
+  Licence:    GNU General Public License, version 2 or later (GPL-2.0-or-later)
+
+  Verified against the upstream tree on 2026-08-04, not assumed: the root
+  COPYING file states Blender is available under the GNU GPL and no other
+  licence, and points at doc/license/GPL-license.txt, which carries the GPL
+  version 2 text (reproduced here as LICENSE.blender). SPDX identifiers across
+  source/blender are overwhelmingly GPL-2.0-or-later (5981 files), with small
+  numbers of Apache-2.0 (167), MIT (10), BSD-3-Clause (3), Zlib (2),
+  GPL-3.0-or-later (2) and BSL-1.0 (2).
+
+  GPL-2.0-or-later is GPL-3.0-compatible: the "or later" clause permits
+  redistribution under GPL-3.0, so this crate's GPL-3.0-only licence is
+  licence-clean with respect to Blender.
+
+  WHAT IS ACTUALLY DERIVED FROM BLENDER
+
+  1. One file is a literal port of Blender source:
+
+       src/boolean_predicates.rs
+         from:      source/blender/blenlib/BLI_math_boolean.hh
+                    source/blender/blenlib/intern/math_boolean.cc
+         commit:    96294be75080bbf687fa7f108e344a1063713586
+         copyright: SPDX-FileCopyrightText: 2023 Blender Authors
+         licence:   SPDX-License-Identifier: GPL-2.0-or-later
+
+     Only the `double` (floating-point) predicate API is ported; Blender's
+     `mpq_class` (GMP rational) overloads are deliberately not, so this crate
+     stays Android-buildable with no C dependencies. Blender's own `double`
+     predicates are in turn a C++ adaptation of Jonathan Richard Shewchuk's
+     `predicates.c` (Carnegie Mellon University, May 1996), which its author
+     placed in the public domain. The file carries this provenance in its own
+     header block; do not strip it during refactors.
+
+  2. Everything else is an independent reimplementation of Blender's
+     mesh/geometry ARCHITECTURE -- the shape of the BMesh-style non-manifold
+     mesh representation (vert/edge/loop/face) and the modifier/operator model,
+     including its naming. No Blender code is transcribed in those files.
+     Copyright covers expression, not design.
+
+  BECAUSE OF (1), THIS CRATE IS A DERIVATIVE WORK OF GPL-2.0-OR-LATER CODE.
+  Distributing it under GPL-3.0-only is permitted precisely by that "or later"
+  clause, which is why the compatibility finding above matters in practice
+  rather than only in principle.
+
+  Any further file ported from Blender must likewise carry an upstream
+  provenance header block (project, source file, commit, copyright, licence)
+  per the workspace RESEARCH_INTEGRITY_AND_PROVENANCE.md.
+
+================================================================================
+Trademarks and non-affiliation
+================================================================================
+
+This crate is NOT affiliated with, endorsed by, or sanctioned by the Blender
+Foundation. "Blender" identifies only the upstream project this work derives
+from, and the "-blender" suffix credits that lineage. No Blender trademark is
+claimed.

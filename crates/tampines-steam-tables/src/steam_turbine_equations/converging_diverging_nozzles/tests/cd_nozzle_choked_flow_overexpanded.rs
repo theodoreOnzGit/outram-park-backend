@@ -21,7 +21,7 @@ use crate::steam_turbine_equations::calculate_velocity_mass_flowrate_and_state_i
 // NASA CDV Nozzle Reference
 //
 // For moore nozzle B,
-// throat area is 
+// throat area is
 //
 // These are AI generated test cases
 // Test Cases Created
@@ -54,21 +54,17 @@ use crate::steam_turbine_equations::calculate_velocity_mass_flowrate_and_state_i
 //    Checks: Joule-Thomson throttling, entropy increases
 //
 #[test]
-fn dry_steam_test_overexpanded(){
-
+fn dry_steam_test_overexpanded() {
     let ref_vol = Volume::new::<cubic_meter>(1.0);
     let temperature = ThermodynamicTemperature::new::<degree_celsius>(400.0);
     let p1 = Pressure::new::<bar>(20.0);
-    let inlet_state = TampinesSteamTableCV::new_from_tp_quality_1(
-        temperature, p1, ref_vol
-    );
+    let inlet_state = TampinesSteamTableCV::new_from_tp_quality_1(temperature, p1, ref_vol);
     let p2 = Pressure::new::<bar>(8.0);
 
     let h1 = inlet_state.get_specific_enthalpy();
     let v1 = Velocity::new::<meter_per_second>(0.5);
 
-
-    // now I'm going to use moore nozzle heights 
+    // now I'm going to use moore nozzle heights
     // these were given by Google's AI, and Claude Sonnet
     // just need to check later
     let inlet_height = Length::new::<meter>(0.05635);
@@ -80,45 +76,36 @@ fn dry_steam_test_overexpanded(){
     let a2 = width * exit_height;
     let _a1 = width * inlet_height;
 
+    let (v, _mass_rate, outlet_state) =
+        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(p1, h1, v1, a_throat, a2, p2);
 
-
-    let (v, _mass_rate, outlet_state) = 
-        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(
-            p1, 
-            h1, 
-            v1, 
-            a_throat, 
-            a2, 
-            p2
-        );
-
-    // note the 
-    // guess_velocity_and_state_for_diverge_nozzle_from_choked_throat 
+    // note the
+    // guess_velocity_and_state_for_diverge_nozzle_from_choked_throat
     // is the problematic one, will need to test the bisection algorithm
 
-
-    // we are going to check for 
-    // (1) isentropic flow 
-    // (2) mass balance 
-    // (3) energy balance 
+    // we are going to check for
+    // (1) isentropic flow
+    // (2) mass balance
+    // (3) energy balance
     // (4) pressure match
-    
+
     let s2 = outlet_state.get_specific_entropy();
     let s1 = inlet_state.get_specific_entropy();
-    
+
     // we also consider stagnation state
     let h0_ref = h1 + 0.5 * v1 * v1;
     let state_0 = TampinesSteamTableCV::new_from_hs(h0_ref, s1, ref_vol);
     let s0 = state_0.get_specific_entropy();
 
     // For subsonic isentropic flow: s2 = s0 = s1
-    println!("✓ Entropy Increased: s1 = {:.4} kJ/kg·K, s2 = {:.4} kJ/kg·K", 
+    println!(
+        "✓ Entropy Increased: s1 = {:.4} kJ/kg·K, s2 = {:.4} kJ/kg·K",
         s1.get::<kilojoule_per_kilogram_kelvin>(),
         s2.get::<kilojoule_per_kilogram_kelvin>()
     );
     assert!(s2 > s1);
     assert!(s2 > s0);
-    
+
     // ====================================================================
     // Test (2): Mass Balance - ṁ = ρ₂ v₂ A₂
     // ====================================================================
@@ -133,7 +120,7 @@ fn dry_steam_test_overexpanded(){
     //    epsilon = 1e-6
     //);
 
-    //println!("✓ Mass balance: ṁ = {:.6} kg/s", 
+    //println!("✓ Mass balance: ṁ = {:.6} kg/s",
     //    mass_rate.get::<kilogram_per_second>()
     //);
     // ====================================================================
@@ -145,10 +132,11 @@ fn dry_steam_test_overexpanded(){
     approx::assert_relative_eq!(
         h0_ref.get::<kilojoule_per_kilogram>(),
         h0_actual.get::<kilojoule_per_kilogram>(),
-        epsilon = 0.1  // 0.1 kJ/kg tolerance
+        epsilon = 0.1 // 0.1 kJ/kg tolerance
     );
 
-    println!("✓ Energy conserved: h₀ = {:.2} kJ/kg, h₂ + v₂²/2 = {:.2} kJ/kg", 
+    println!(
+        "✓ Energy conserved: h₀ = {:.2} kJ/kg, h₂ + v₂²/2 = {:.2} kJ/kg",
         h0_ref.get::<kilojoule_per_kilogram>(),
         h0_actual.get::<kilojoule_per_kilogram>()
     );
@@ -160,13 +148,10 @@ fn dry_steam_test_overexpanded(){
     approx::assert_relative_eq!(
         p2.get::<pascal>(),
         p2_result.get::<pascal>(),
-        epsilon = 1e-3  // Very tight tolerance for pressure
+        epsilon = 1e-3 // Very tight tolerance for pressure
     );
 
-    println!("✓ Pressure match: p₂ = {:.2} bar", 
-        p2_result.get::<bar>()
-    );
-
+    println!("✓ Pressure match: p₂ = {:.2} bar", p2_result.get::<bar>());
 }
 
 use uom::si::area::square_centimeter;
@@ -220,15 +205,8 @@ fn validate_against_cengel_isentropic_steam_nozzle() {
     // ACT: Call the master function to calculate the outlet state.
     // ====================================================================
 
-    let (v_out, m_dot_out, state_out) = 
-        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(
-            p1, 
-            h1, 
-            v1, 
-            a_throat, 
-            a_exit, 
-            p2
-        );
+    let (v_out, m_dot_out, state_out) =
+        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(p1, h1, v1, a_throat, a_exit, p2);
     dbg!(&(v_out, m_dot_out, state_out));
 
     // ====================================================================
@@ -264,26 +242,21 @@ fn validate_against_cengel_isentropic_steam_nozzle() {
     );
 
     // --- 3. Validate Mach Number ---
-    
+
     let outlet_enthalpy = h1 - 0.5 * expected_velocity * expected_velocity;
 
     let s0 = inlet_state.get_specific_entropy();
-    let expected_outlet_state = TampinesSteamTableCV::new_from_hs(
-        outlet_enthalpy, s0, ref_vol
-    );
+    let expected_outlet_state = TampinesSteamTableCV::new_from_hs(outlet_enthalpy, s0, ref_vol);
 
-    dbg!(&(expected_outlet_state,state_out));
+    dbg!(&(expected_outlet_state, state_out));
 
     dbg!(&(
-            expected_outlet_state.get_speed_of_sound(),
-            state_out.get_speed_of_sound(),
+        expected_outlet_state.get_speed_of_sound(),
+        state_out.get_speed_of_sound(),
     ));
-
 
     let mach_number = state_out.get_mach_number(v_out);
     let expected_mach_number = 0.915;
-
-
 
     println!(
         "Mach Number Check: Calculated = {:.3}, Expected = {:.3}",
@@ -351,40 +324,32 @@ fn validate_against_cengel_choked_flow_nozzle() {
     let s0 = s1;
 
     // now, flow is isentropic,
-    // and we know it is choked 
-    // let's get the throat state 
+    // and we know it is choked
+    // let's get the throat state
     //
     let p_throat = inlet_state.get_critical_pressure_pure_vapour();
     let s_throat = s0;
 
-    let state_throat = TampinesSteamTableCV::new_from_ps(
-        p_throat, s_throat, ref_vol
-    );
+    let state_throat = TampinesSteamTableCV::new_from_ps(p_throat, s_throat, ref_vol);
 
-    // now, mass flowrate is rho * a * v 
+    // now, mass flowrate is rho * a * v
 
     let v_throat = state_throat.get_speed_of_sound();
     let rho_throat = state_throat.get_rho();
-    let a_throat = expected_mass_rate/v_throat/rho_throat;
+    let a_throat = expected_mass_rate / v_throat / rho_throat;
 
-    
     println!("--- Pre-calculation ---");
-    println!("Calculated required throat area: {:.2} cm²", a_throat.get::<square_centimeter>());
-
+    println!(
+        "Calculated required throat area: {:.2} cm²",
+        a_throat.get::<square_centimeter>()
+    );
 
     // ====================================================================
     // ACT: Call the master function with all known parameters.
     // ====================================================================
 
-    let (v_out, m_dot_out, state_out) = 
-        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(
-            p1, 
-            h1, 
-            v1, 
-            a_throat, 
-            a_exit, 
-            p2
-        );
+    let (v_out, m_dot_out, state_out) =
+        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(p1, h1, v1, a_throat, a_exit, p2);
 
     // ====================================================================
     // ASSERT: Compare the calculated results to the known textbook answers.
@@ -419,15 +384,12 @@ fn validate_against_cengel_choked_flow_nozzle() {
 }
 
 #[test]
-#[ignore="temporary skip test"]
-fn wet_steam_test(){
-
+#[ignore = "temporary skip test"]
+fn wet_steam_test() {
     let ref_vol = Volume::new::<cubic_meter>(1.0);
     let p1 = Pressure::new::<bar>(15.0);
     let x: f64 = 0.80;
-    let inlet_state = TampinesSteamTableCV::new_from_sat_pressure_quality(
-        p1, x, ref_vol
-    );
+    let inlet_state = TampinesSteamTableCV::new_from_sat_pressure_quality(p1, x, ref_vol);
 
     let p2 = Pressure::new::<bar>(5.0);
     // critical pressure here is 666 kPa
@@ -435,8 +397,7 @@ fn wet_steam_test(){
     let h1 = inlet_state.get_specific_enthalpy();
     let v1 = Velocity::new::<meter_per_second>(0.5);
 
-
-    // now I'm going to use moore nozzle heights 
+    // now I'm going to use moore nozzle heights
     // these were given by Google's AI, and Claude Sonnet
     // just need to check later
     let inlet_height = Length::new::<meter>(0.05635);
@@ -448,45 +409,36 @@ fn wet_steam_test(){
     let a2 = width * exit_height;
     let _a1 = width * inlet_height;
 
+    let (v, mass_rate, outlet_state) =
+        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(p1, h1, v1, a_throat, a2, p2);
 
-
-    let (v, mass_rate, outlet_state) = 
-        calculate_velocity_mass_flowrate_and_state_in_cd_nozzle(
-            p1, 
-            h1, 
-            v1, 
-            a_throat, 
-            a2, 
-            p2
-        );
-
-    // we are going to check for 
-    // (1) isentropic flow 
-    // (2) mass balance 
-    // (3) energy balance 
+    // we are going to check for
+    // (1) isentropic flow
+    // (2) mass balance
+    // (3) energy balance
     // (4) pressure match
-    
+
     let s2 = outlet_state.get_specific_entropy();
     let s1 = inlet_state.get_specific_entropy();
-    
+
     // we also consider stagnation state
     let h0_ref = h1 + 0.5 * v1 * v1;
     let state_0 = TampinesSteamTableCV::new_from_hs(h0_ref, s1, ref_vol);
     let s0 = state_0.get_specific_entropy();
 
     // For subsonic isentropic flow: s2 = s0 = s1
-    println!("s1 = {:.4} kJ/kg·K, s2 = {:.4} kJ/kg·K", 
+    println!(
+        "s1 = {:.4} kJ/kg·K, s2 = {:.4} kJ/kg·K",
         s1.get::<kilojoule_per_kilogram_kelvin>(),
         s2.get::<kilojoule_per_kilogram_kelvin>()
     );
     assert!(s2 > s1);
     assert!(s2 > s0);
 
-    
     // ====================================================================
     // Test (2): Mass Balance - ṁ = ρ₂ v₂ A₂
     // ====================================================================
-    // mass flowrate is impossible to calculate without the area 
+    // mass flowrate is impossible to calculate without the area
     let rho2 = outlet_state.get_rho();
     let mass_rate_calculated = rho2 * v * a2;
 
@@ -496,7 +448,8 @@ fn wet_steam_test(){
         epsilon = 1e-6
     );
 
-    println!("✓ Mass balance: ṁ = {:.6} kg/s", 
+    println!(
+        "✓ Mass balance: ṁ = {:.6} kg/s",
         mass_rate.get::<kilogram_per_second>()
     );
     // ====================================================================
@@ -508,10 +461,11 @@ fn wet_steam_test(){
     approx::assert_relative_eq!(
         h0_ref.get::<kilojoule_per_kilogram>(),
         h0_actual.get::<kilojoule_per_kilogram>(),
-        epsilon = 0.1  // 0.1 kJ/kg tolerance
+        epsilon = 0.1 // 0.1 kJ/kg tolerance
     );
 
-    println!("✓ Energy conserved: h₀ = {:.2} kJ/kg, h₂ + v₂²/2 = {:.2} kJ/kg", 
+    println!(
+        "✓ Energy conserved: h₀ = {:.2} kJ/kg, h₂ + v₂²/2 = {:.2} kJ/kg",
         h0_ref.get::<kilojoule_per_kilogram>(),
         h0_actual.get::<kilojoule_per_kilogram>()
     );
@@ -523,12 +477,8 @@ fn wet_steam_test(){
     approx::assert_relative_eq!(
         p2.get::<pascal>(),
         p2_result.get::<pascal>(),
-        epsilon = 1e-3  // Very tight tolerance for pressure
+        epsilon = 1e-3 // Very tight tolerance for pressure
     );
 
-    println!("✓ Pressure match: p₂ = {:.2} bar", 
-        p2_result.get::<bar>()
-    );
-
+    println!("✓ Pressure match: p₂ = {:.2} bar", p2_result.get::<bar>());
 }
-

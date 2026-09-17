@@ -1,0 +1,45 @@
+outram-park-fork-cfmesh
+Copyright (C) 2026 OUTRAM PARK contributors
+
+This crate is licensed under the GNU General Public License v3.0 only
+(GPL-3.0-only). See the LICENSE file.
+
+================================================================================
+Upstream provenance
+================================================================================
+
+This crate is a Rust fork/port of, and takes reference from, the following
+upstream projects. Their source is vendored under `upstream_source/` for
+development reference only (gitignored, never committed, never packaged).
+
+--------------------------------------------------------------------------------
+cfMesh  —  PRIMARY PORT TARGET
+--------------------------------------------------------------------------------
+  Upstream:   https://github.com/wyldckat/cfMesh
+  Origin:     Creative Fields, Ltd. (cfMesh)
+  Vendored:   commit 6cf1d211f9cfc8f358e6c8dfccb3fb7503357572 (2014-06-21)
+  Licence:    GNU General Public License v3.0 (GPL-3.0)
+
+  cfMesh is GPL-3.0. Rust ports of its algorithms are distributed here under
+  GPL-3.0-only. Any file ported from cfMesh carries an upstream provenance
+  header block (project, source file, commit, copyright, licence) per the
+  OUTRAM PARK provenance rule; algorithms are re-implemented in Rust, not
+  transcribed verbatim from the C++.
+
+--------------------------------------------------------------------------------
+voro++  —  VORONOI / POLYHEDRAL-DUAL REFERENCE
+--------------------------------------------------------------------------------
+  Upstream:   https://github.com/chr1shr/voro
+  Origin:     The Regents of the University of California, through Lawrence
+              Berkeley National Laboratory (LBNL).
+  Vendored:   commit b0dac575a47af0f90b5b100e6dc199a493c7cb83 (2026-03-04)
+  Licence:    Modified BSD (LBNL). Permissive and GPLv3-compatible.
+
+  voro++ is used as a reference for the 3D Voronoi tessellation underlying the
+  polyhedral-dual mesh construction. Its permissive licence allows both
+  reference and port; the copyright notice is retained on any derived file.
+
+================================================================================
+"cfMesh" and "voro++" identify only the upstream projects this crate derives
+from. This crate is NOT affiliated with, endorsed by, or sanctioned by Creative
+Fields, the cfMesh project, LBNL, or the voro++ authors.

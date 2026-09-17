@@ -1,0 +1,98 @@
+[package]
+name = "outram-park-fork-liggghts"
+version = "0.0.0"
+edition.workspace = true
+# LICENSING NOTE (see NOTICE): LIGGGHTS-PUBLIC's source headers declare "GNU
+# Public License, version 2 OR LATER", which IS compatible with GPL-3.0 (the
+# "or later" option permits use under GPLv3) — so LIGGGHTS-PUBLIC source may be
+# ported into this GPL-3.0-only crate. (Corrects an earlier note that wrongly
+# said GPL-2.0-only/blocked.) Confirm each ported file's "or later" header and
+# keep its provenance; LAMMPS-proper headers are version-unspecified (murkier).
+license.workspace = true
+description = "Pure-Rust granular-DEM library for OUTRAM PARK (particles, contact mechanics, thermal DEM, pebble/packed-bed physics), porting/reimplementing LIGGGHTS/LAMMPS-granular algorithms. LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3 compatible) — see NOTICE. SCAFFOLD: Particle framework only, no human V&V."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+exclude = ["docs"]
+
+[features]
+# Tests over 5 minutes are gated on this and it is default-on, so a plain
+# `cargo test` runs them. See the "Any test over 5 minutes" HARD RULE in the
+# workspace CLAUDE.md; turn them off with `cargo quick-test -p
+# outram-park-fork-liggghts`.
+default = ["long-tests", "gnn"]
+long-tests = []
+# Contact-graph and message-passing-reach bridge to `raffles::gnn`
+# (src/gnn_bridge.rs). **ON by default** (maintainer direction, 2026-09-17).
+# This does NOT pull in `burn`: the graph and the reach bound are plain
+# combinatorics, and `raffles`'s own `burn` feature stays off unless a caller
+# asks for it — so the default build gains `raffles` but no tensor library.
+# Turn it off with `--no-default-features` (plus whatever else you want back).
+gnn = ["dep:raffles"]
+# The TRAINABLE surrogate: `raffles`'s message-passing network and its training
+# loop, which are behind `raffles/burn`. **OFF by default, deliberately**, and
+# unlike `gnn` this one really does pull a tensor stack (burn + its ndarray
+# backend). Keeping it opt-in is what preserves the property that a default
+# build of this crate contains no tensor library. Used by
+# `examples/gnn_vs_dem_surrogate.rs`.
+gnn-burn = ["gnn", "raffles/burn", "dep:burn"]
+
+[dependencies]
+# Pure-Rust, Android-safe deps only (no BLAS / C). `uom` types the physical
+# API boundary (mass, radius, temperature, ...); `thiserror` the error enum.
+# The DEM pillar is kept dependency-independent of the CFD crates (per the
+# Phase II separation principle) — CFD-DEM coupling is a future explicit seam.
+uom.workspace = true
+thiserror.workspace = true
+# RAFFLES's graph-neural-network layer, for the `gnn` feature below. Optional
+# in Cargo terms but **enabled by the default feature set** (maintainer
+# direction, 2026-09-17). It carries no tensor library: `raffles`'s own `burn`
+# feature stays off unless a caller asks for it. The dependency is one-way —
+# `raffles` does not depend on this crate, and must not, or the two become
+# uncompilable.
+raffles = { workspace = true, optional = true }
+# Only for `gnn-burn` (off by default): the example needs to name a backend
+# type, and `raffles` does not re-export `burn`. Version is inherited from the
+# root workspace table like every other dependency.
+burn = { workspace = true, optional = true }
+
+# ── Native + Android only: no wasm32 backend ─────────────────────────────────
+# rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
+# fails with "cannot find module or crate sys".
+#
+# Target-gated off wasm ONLY, not off Android and not behind a feature: rayon is
+# pure Rust and Android-in-scope per the workspace CLAUDE.md, so Termux keeps its
+# multi-core path. Narrowing the gate to wasm is the smallest correct change.
+#
+# On wasm the rayon call sites use `crate::wasm_par`, which runs the same work
+# serially. For this crate that is numerically EXACT, not merely tolerable: the
+# parallel force loop accumulates in the serial contact order, so it is
+# bit-identical to the scalar path at any thread count (see `src/compute.rs`).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+# Optional GPU compute (headless, no window) for the embarrassingly-parallel
+# analysis kernels — see `src/gpu/`. Exactly the gate `outram-mc-libs` uses, for
+# the same reasons: wgpu is target-gated OFF Android (no system Vulkan/Metal
+# loader, no easy toolchain there) and off wasm (wgpu-hal is not Sync there), so
+# the library still builds for `aarch64-linux-android` and `wasm32` via the
+# CPU-only shim. Desktop targets get the real wgpu path; the CPU stays the
+# trusted, deterministic reference — GPU is acceleration only.
+#
+# The DEM TIMESTEP has no GPU path and is not expected to gain one; see
+# `ComputeType`'s docs for why (persistent per-contact shear history). The RDF
+# pair-separation histogram does, because it is stateless and all-pairs.
+#
+# NOTE: no `pollster`/executor dependency — `src/gpu/mod.rs` hand-rolls a tiny
+# pure-std `block_on` to drive the two `request_adapter`/`request_device`
+# futures, keeping this crate's third-party surface unchanged.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
+wgpu = { workspace = true }
+
+[dev-dependencies]
+approx.workspace = true
+
+[lib]
+name = "outram_park_fork_liggghts"
+path = "src/lib.rs"

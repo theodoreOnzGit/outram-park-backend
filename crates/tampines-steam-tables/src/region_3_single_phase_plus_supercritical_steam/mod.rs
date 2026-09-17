@@ -1,4 +1,22 @@
-// Region 3
+//! IAPWS-IF97 Region 3: single-phase liquid/vapour near the critical point,
+//! plus the supercritical region. Unlike regions 1/2, region 3 is
+//! formulated directly on the dimensionless Helmholtz free energy
+//! `phi(delta,tau)` in a `(rho,T)` basis (`delta` = reduced density,
+//! `tau` = inverse reduced temperature, both dimensionless) rather than
+//! `(p,T)`; see `phi_dimensionless_helmholtz_free_energy` and
+//! `phi_deriviatives`. `intensive_properties` derives the forward
+//! `(rho,T) -> {p,u,s,h,cv,cp,w,...}` properties from those derivatives.
+//! `backward_eqn_pt_3`, `backward_eqn_ph_3`, `backward_eqn_ps_3` and
+//! `backward_eqn_hs_3` hold the backward (inverse) equations that recover
+//! `T` and/or `v`/`rho` from `(p,T)`, `(p,h)`, `(p,s)` and `(h,s)`
+//! respectively, several of them split into lettered subregions (3a/3b, or
+//! the 26 subregions a-z near the critical point for `(p,T)`).
+//! `aux_eqn_boundary_region_2_and_region_3` holds the p23/b23 auxiliary
+//! boundary equation that separates region 2 from region 3.
+//!
+//! Accuracy caveat: region-3 backward equations lose precision within
+//! ~0.5 K of the critical point (Tc ~= 647.096 K, pc ~= 22.064 MPa);
+//! prefer the forward `(rho,T)` equations there.
 
 const REGION_3_COEFFS: [[f64; 3]; 40] = [
     [0.0, 0.0, 0.10658070028513e1],
@@ -48,10 +66,14 @@ const REGION_3_COEFFS: [[f64; 3]; 40] = [
 pub mod dimensionless_tau_and_delta;
 pub use dimensionless_tau_and_delta::*;
 
+/// dimensionless Helmholtz free energy phi(delta,tau) and its
+/// polynomial coefficients (`REGION_3_COEFFS`) for region 3
 pub mod phi_dimensionless_helmholtz_free_energy;
 pub use phi_dimensionless_helmholtz_free_energy::*;
 
-
+/// first and second partial derivatives of phi(delta,tau) with
+/// respect to the dimensionless density (delta) and inverse
+/// reduced temperature (tau)
 pub mod phi_deriviatives;
 pub use phi_deriviatives::*;
 
@@ -59,32 +81,29 @@ pub use phi_deriviatives::*;
 pub mod intensive_properties;
 pub use intensive_properties::*;
 
-/// region_2_3_auxiliary_boundary 
+/// region_2_3_auxiliary_boundary
 pub mod aux_eqn_boundary_region_2_and_region_3;
 pub use aux_eqn_boundary_region_2_and_region_3::*;
 
-/// region 3 ph equations 
+/// region 3 ph equations
 pub mod backward_eqn_ph_3;
 pub use backward_eqn_ph_3::*;
 
-
-/// region 3 pt equations for volume 
-/// this enables pt flashing in this region 
+/// region 3 pt equations for volume
+/// this enables pt flashing in this region
 pub mod backward_eqn_pt_3;
 pub use backward_eqn_pt_3::*;
 
 /// region 3 ps equations for volume and temperature
-/// this enables pt flashing in this region 
+/// this enables pt flashing in this region
 pub mod backward_eqn_ps_3;
 pub use backward_eqn_ps_3::*;
 
 /// region 3 hs equations for volume and temperature
-/// this enables pt flashing in this region 
+/// this enables pt flashing in this region
 pub mod backward_eqn_hs_3;
 pub use backward_eqn_hs_3::*;
 
-/// tests 
+/// tests
 #[cfg(test)]
 mod tests;
-
-

@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+// Derived from OpenFOAM (www.openfoam.com)
+// Copyright (C) 2004-2023 OpenFOAM Foundation
+// Copyright (C) 2016-2023 OpenCFD Ltd.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+mod adjust_phi;
+
+/// Bounded names for operator-derived fields.
+///
+/// See [`derived_name`](crate::fv_operators::naming::derived_name) for why this exists; it is the shared guard against
+/// the unbounded-`name` failure documented in this crate's `CLAUDE.md`.
+pub mod naming;
+
+/// Explicit finite-volume operators — return a new field.
+///
+/// Usage mirrors `Foam::fvc::` from `src/finiteVolume/finiteVolume/fvc/`.
+pub mod fvc;
+
+/// Implicit finite-volume operators — assemble into a sparse `FvMatrix`.
+///
+/// Usage mirrors `Foam::fvm::` from `src/finiteVolume/finiteVolume/fvm/`.
+pub mod fvm;
+
+pub use adjust_phi::adjust_phi;

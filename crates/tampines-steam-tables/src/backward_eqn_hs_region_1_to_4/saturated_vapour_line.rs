@@ -1,7 +1,9 @@
-use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
-use uom::si::ratio::ratio;
-use uom::si::f64::*;
+use petir::mathf::RealMath;
+
 use uom::si::available_energy::kilojoule_per_kilogram;
+use uom::si::f64::*;
+use uom::si::ratio::ratio;
+use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 
 /// this is for eq 2.40 on page 80
 const H2AB_DOUBLE_PRIME_S_BOUNDARY_EQN_COEFFS: [[f64; 3]; 30] = [
@@ -57,16 +59,16 @@ const H2C3B_PRIME_S_BOUNDARY_EQN_COEFFS: [[f64; 3]; 16] = [
     [36.0, 20.0, -0.116_994_334_851_995e41],
 ];
 
-/// this function represents the saturated liquid line
-/// for hs flashing between region 2a and 2b
-pub fn h2ab_double_prime_s_boundary_enthalpy(
-    s: SpecificHeatCapacity) -> AvailableEnergy {
-
+/// Saturated-vapour-line boundary enthalpy h''(s): the specific enthalpy
+/// (`AvailableEnergy`, J/kg) on the saturated vapour (dew) line as a function
+/// of specific entropy `s` (`SpecificHeatCapacity` unit, J/(kg*K)) for the
+/// region 2a/2b portion, used by the `(h,s)` region dispatch.
+pub fn h2ab_double_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy {
     let s_ref_1 = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.21);
     let s_ref_2 = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(9.2);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(2800.0);
-    let sigma_1: f64 = (s/s_ref_1).get::<ratio>();
-    let sigma_2: f64 = (s/s_ref_2).get::<ratio>();
+    let sigma_1: f64 = (s / s_ref_1).get::<ratio>();
+    let sigma_2: f64 = (s / s_ref_2).get::<ratio>();
 
     let mut eta: f64 = 0.0;
 
@@ -75,23 +77,21 @@ pub fn h2ab_double_prime_s_boundary_enthalpy(
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma_1.recip() - 0.513).powf(ii) * (sigma_2 - 0.524).powf(ji);
+        eta += ni * (sigma_1.recip() - 0.513).r_powf(ii) * (sigma_2 - 0.524).r_powf(ji);
     }
 
-    return h_ref * eta.exp();
-
+    return h_ref * eta.r_exp();
 }
 
-
-
-/// this function represents the saturated liquid line
-/// for hs flashing between region 2c and 3b
-pub fn h2c3b_prime_s_boundary_enthalpy(
-    s: SpecificHeatCapacity) -> AvailableEnergy {
-
+/// Saturated-vapour-line boundary enthalpy: the specific enthalpy
+/// (`AvailableEnergy`, J/kg) on the saturated vapour (dew) line as a function
+/// of specific entropy `s` (`SpecificHeatCapacity` unit, J/(kg*K)) for the
+/// region 2c/3b portion (near the top of the dome), used by the `(h,s)`
+/// region dispatch.
+pub fn h2c3b_prime_s_boundary_enthalpy(s: SpecificHeatCapacity) -> AvailableEnergy {
     let s_ref = SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(5.9);
     let h_ref = AvailableEnergy::new::<kilojoule_per_kilogram>(2800.0);
-    let sigma: f64 = (s/s_ref).get::<ratio>();
+    let sigma: f64 = (s / s_ref).get::<ratio>();
 
     let mut eta: f64 = 0.0;
 
@@ -100,10 +100,8 @@ pub fn h2c3b_prime_s_boundary_enthalpy(
         let ji = coeffs[1];
         let ni = coeffs[2];
 
-        eta += ni * (sigma - 1.02).powf(ii) * (sigma - 0.726).powf(ji);
+        eta += ni * (sigma - 1.02).r_powf(ii) * (sigma - 0.726).r_powf(ji);
     }
 
     return h_ref * eta.powi(4);
-
 }
-

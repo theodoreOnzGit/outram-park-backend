@@ -1,0 +1,67 @@
+[package]
+name = "outram-foam-basic-lib"
+version = "0.1.3"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OpenFOAM primitive functions translated to Rust -- an independent OUTRAM PARK fork, not the official OpenFOAM software"
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
+# and never shipped in the packaged crate. `docs/` (incl. the generated
+# docs/api.md rustdoc mirror) isn't crate content either. `upstream_source/
+# openfoam` is the reference OpenFOAM C++ clone kept in-repo for provenance
+# only — it is not crate content and must not be packaged (the small
+# `upstream_source/README.md` provenance record stays in the package).
+exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/openfoam"]
+
+# Hybrid execution backend (bead op-yvj.4.1). BOTH features are OFF by default
+# so the default build stays Android-clean and dependency-light: a plain
+# `cargo build` pulls neither rayon nor wgpu, and `ComputeBackend::Serial` --
+# the reference implementation and the oracle every other path is checked
+# against -- is always present regardless of features.
+#
+# `parallel` adds the rayon multi-CPU path. rayon is pure Rust with no system
+# component, so it is Android/Termux clean and is NOT target-gated; it is
+# feature-gated only to keep the default dependency surface small.
+#
+# `gpu` adds the wgpu path. wgpu is additionally target-gated off Android
+# below, since Android has no system Vulkan/Metal loader and the workspace
+# Android rule forbids GPU dependencies in a library build. Enabling `gpu` on
+# an Android target therefore yields a build with no GPU backend rather than a
+# broken one, and dispatch falls back to CpuMulti or Serial.
+[features]
+default = []
+parallel = ["dep:rayon"]
+gpu = ["dep:wgpu"]
+
+[dependencies]
+# erf / erfc / tgamma / lgamma in pure Rust, replacing the `extern "C"` calls
+# into the system C libm (bn:op-chyp.6). PETIR is no_std with only `libm`.
+petir.workspace = true
+thiserror.workspace = true
+uom.workspace = true
+ndarray.workspace = true
+rayon = { workspace = true, optional = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+wgpu = { workspace = true, optional = true }
+
+[dev-dependencies]
+approx.workspace = true
+ndarray.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+ndarray-linalg = { workspace = true, features = ["openblas-system"] }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+
+[lib]
+name = "outram_foam_basic_lib"
+path = "src/lib.rs"

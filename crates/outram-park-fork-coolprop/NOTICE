@@ -1,0 +1,15 @@
+outram-park-fork-coolprop
+Part of Outram Park (outram-park-backend).
+
+This crate is a fork / Rust translation of CoolProp
+  https://github.com/CoolProp/CoolProp
+Copyright (c) CoolProp contributors (Ian H. Bell and the CoolProp developers).
+CoolProp is distributed under the MIT License.
+
+Fluid equation-of-state coefficients hardcoded in src/fluids/ are derived from
+CoolProp's fluid data (dev/fluids/*.json) via dev/gen_fluid.py. The individual
+equations of state are the work of their respective authors (e.g. the IAPWS-95
+formulation for Water: Wagner & Pruss, 2002) as compiled by CoolProp.
+
+This is an independent fork. It is not the CoolProp project and is not endorsed
+by or affiliated with CoolProp or its authors. See TRADEMARKS.md.

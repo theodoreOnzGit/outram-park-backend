@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 OUTRAM PARK contributors
+// Derived from OpenFOAM (www.openfoam.com)
+// Copyright (C) 2004-2023 OpenFOAM Foundation
+// Copyright (C) 2016-2023 OpenCFD Ltd.
+//
+// This file is part of OUTRAM PARK.
+//
+// OUTRAM PARK is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// OUTRAM PARK is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
+
+pub use crate::error::AppBuilderError;
+
+// I/O
+pub use crate::io::control_dict::{ControlDict, StartControl, StopControl, WriteControl, WriteFormat};
+pub use crate::io::fv_schemes::{
+    DdtScheme, DivScheme, FvSchemes, GradScheme, LaplacianScheme, SnGradScheme,
+};
+pub use crate::io::fv_solution::{FvSolution, LinearSolverConfig, LinearSolverType, PimpleControl};
+// NOT re-exported: `crate::io::output::write_scalar_field` and its siblings.
+//
+// They are `todo!()` stubs that panic when called. An API dogfood run (gh #58)
+// hit exactly that: the agent found `write_scalar_field` in the prelude,
+// reasonably assumed a function offered on the discovery surface would work,
+// wrote it into a tutorial, and got a runtime panic.
+//
+// A prelude is a statement about what to reach for. Advertising an
+// unconditional panic there makes the natural path a crash, which is worse than
+// the function being hard to find. The stubs remain public at
+// `io::output::{write_scalar_field, write_vector_field, write_vtk}` for anyone
+// tracking the work, and their own docs say plainly that they panic.
+//
+// Re-export them here once they are implemented.
+
+// Field readers, which ARE implemented. Previously the prelude exported the
+// mesh reader but none of these, so "read a field from disk" dead-ended on the
+// discovery surface while the functions existed one module away.
+pub use crate::io::field_reader::{
+    read_vol_scalar_field, read_vol_scalar_field_full, read_vol_vector_field,
+    read_vol_vector_field_full,
+};
+pub use crate::io::poly_mesh::read_poly_mesh;
+
+// GeN-Foam neutronics — point kinetics (0-D)
+pub use crate::genfoam::neutronics::point_kinetics::{
+    DecayConstant, PointKineticsError, PointKineticsParameters, PointKineticsState,
+    PromptGenerationTime, Reactivity,
+};
+// GeN-Foam neutronics — model dispatch, state, and cross-section data
+pub use crate::genfoam::neutronics::xs::CrossSectionData;
+pub use crate::genfoam::neutronics::{DiffusionNeutronics, NeutronicsModel, NeutronicsState};
+
+// GeN-Foam thermo-mechanics — displacement/thermal-stress solver
+pub use crate::genfoam::thermo_mechanics::{LegacyThermoMechanics, MechanicsMeshSolver};
+
+// GeN-Foam multi-region coupling
+pub use crate::genfoam::multi_region::{MeshHandler, MultiPhysicsSolver};
+
+// GeN-Foam thermal-hydraulics — fluid phase and solid-structure state
+pub use crate::genfoam::thermal_hydraulics::phase::{Fluid, StateOfMatter};
+pub use crate::genfoam::thermal_hydraulics::structure::{HeatExchanger, PowerModel};
+
+// Solvers
+pub use crate::solvers::hrm_foam::{HrmFoam, HrmModelConfig};
+pub use crate::solvers::melt_foam::MeltFoam;
+pub use crate::solvers::pimple_foam::{PimpleFoam, PressureSolver};
+pub use crate::solvers::reacting_two_phase_euler_foam::{
+    build_default as build_reacting_two_phase_euler, InterfacialHeatTransfer,
+    InterfacialMassTransfer, PhaseSelector, PhaseSpecies, PhaseThermo, ReactingTwoPhaseEulerFoam,
+    ReactionMechanism, ReactionSource,
+};
+pub use crate::solvers::rho_central_foam::RhoCentralFoam;
+pub use crate::solvers::rho_pimple_foam::RhoPimpleFoam;
+pub use crate::solvers::sonic_foam::SonicFoam;
+
+// Turbulence-closure selection (Layer-5 adapter over outram-foam-turbulence-lib)
+pub use crate::turbulence::TurbulenceClosure;

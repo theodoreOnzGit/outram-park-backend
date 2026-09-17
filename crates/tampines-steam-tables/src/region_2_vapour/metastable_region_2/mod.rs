@@ -31,7 +31,6 @@ const METASTABLE_REGION_2_COEFFS_RES: [[f64; 3]; 13] = [
     [5.0, 10.0, -0.264_565_014_828_10e-2],
 ];
 
-
 /// metastable ideal gas correlations
 pub mod metastable_ideal_gas_gamma;
 pub use metastable_ideal_gas_gamma::*;
@@ -40,7 +39,6 @@ pub use metastable_ideal_gas_gamma::*;
 pub mod metastable_residual_gamma;
 pub use metastable_residual_gamma::*;
 
-/// intensive properties in metastable region 2 
+/// intensive properties in metastable region 2
 pub mod intensive_properties;
 pub use intensive_properties::*;
-

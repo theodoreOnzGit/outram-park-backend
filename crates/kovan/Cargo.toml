@@ -1,0 +1,227 @@
+[package]
+name = "kovan"
+description = "KOVAN — CLI (agent-facing), TUI and GUI (human-facing) front ends over the KOVAN knowledge layer."
+version = "0.0.0"
+edition.workspace = true
+# AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only) — deliberate,
+# maintainer-directed divergence from the workspace default (2026-08-21) to
+# depend on `kopitiam-pdf` (also AGPL-3.0-only). See NOTICE in this directory
+# for the full relicense record and the workspace-boundary rule it sets: this
+# is the ONLY AGPL-3.0-only crate in OUTRAM PARK, `kopitiam-pdf` is declared
+# here (not in the root `[workspace.dependencies]`) so no other crate can
+# pick it up by accident, and nothing else in the workspace may depend on
+# `kovan` without re-examining that boundary.
+license = "AGPL-3.0-only"
+repository.workspace = true
+
+# Consolidated 2026-08-21 from the former separate `kovan-cli` and
+# `kovan-tui` crates so one crate carries all three interfaces. `kovan` and
+# `kovan-tui` need no extra feature (matching the two original crates, whose
+# clap/ratatui deps were unconditional — nothing else depends on this crate as
+# a library, so there is no "keep the base lean" concern the way there is for
+# kovan-literature).
+#
+# The graph digitiser (`src/digitiser/`, three more binaries below) moved in
+# from `kovan-literature` the same day — see NOTICE for why (in one line:
+# only the digitiser needs `kopitiam-pdf`, which is why this crate alone is
+# AGPL-3.0-only, and kovan-literature must not be dragged into that). Its
+# `frontend`/CLI surface needs no feature gate any more — `clap` is already
+# unconditional here, unlike in kovan-literature, where it was optional. Only
+# the egui GUI stays behind a feature, now named plainly `gui` (was
+# kovan-literature's `digitise-gui`) since this crate owns it outright.
+#
+# `gui` is a DEFAULT feature — desktop builds get the `kovan` GUI binary with
+# a plain `cargo build -p kovan`, no `--features gui` needed — but stays Android-free
+# with no `--no-default-features` needed either: `eframe`/`egui` are declared
+# only under the `[target.'cfg(not(target_os = "android"))'.dependencies]`
+# table below, so on an Android build those deps simply do not exist in that
+# target's dependency graph at all, and `gui`'s `dep:eframe`/`dep:egui`
+# requirement resolves to nothing there rather than erroring. Confirmed
+# 2026-08-21: `cargo tree -p kovan --target aarch64-linux-android -e
+# features` shows zero `eframe`/`egui` — the standard Cargo pattern for a
+# platform-specific default feature, the same shape crates like `winit` use.
+[features]
+default = ["gui"]
+gui = ["dep:eframe", "dep:egui", "dep:egui-file-dialog", "dep:egui_graphs"]
+
+# Exactly three binaries, per the final interface spec on GitHub issue #30
+# (2026-08-21): `kovan` (GUI), `kovan-cli` (agent CLI), `kovan-tui` (terminal
+# UI). Collapsed from the prior five (`kovan`, `kovan-tui`, `kovan-gui`,
+# `kovan-digitise`, `kovan-digitise-tui`) — `kovan-digitise` folded into
+# `kovan-cli digitise`, `kovan-digitise-tui`'s review screen became
+# `kovan-tui`'s Digitiser tab. See NOTICE and `src/tui/digitiser.rs`.
+[[bin]]
+name = "kovan"
+path = "src/bin/kovan.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "kovan-cli"
+path = "src/bin/kovan-cli.rs"
+
+[[bin]]
+name = "kovan-tui"
+path = "src/bin/kovan-tui.rs"
+
+[dependencies]
+kovan-common.workspace = true
+kovan-discovery.workspace = true
+# `src/root.rs`'s library creation (op-9vo6.4, GitHub issue #35 §4): `gix::init`
+# to make a new Kovan library a real git repository, so a non-Git user gets a
+# valid `.git/` without learning Git. Already a workspace dependency —
+# `kovan-discovery` consumes it read-only — so this adds no new crate to the
+# tree, exactly as issue #35's own checklist predicted. NOTE: `gix::init` is
+# ungated (gix `lib.rs:295`), so no feature addition was needed here; the
+# write-feature question (`worktree-mutation`) arises at step 19's "Save
+# Repository" commit path, not at init. Pure Rust, so it stays Android/Termux
+# clean. DO NOT bump to gix 0.86 — its `gix-protocol ^0.64` pulls the fully
+# yanked `bisync ^0.3.0`; 0.87.1 is the safe target if a bump is ever needed.
+gix.workspace = true
+# `src/artifact.rs`'s fenced-TOML artifact parser (op-9vo6.12, GitHub issue
+# #35 §13): finding "a Markdown heading immediately followed by a fenced toml
+# block containing [kovan]" is a Markdown-structure question, and hand-rolling
+# a scanner for it would re-solve what this workspace already uses -- see
+# `kovan-literature/src/markdown.rs`, which reads heading outlines with the
+# same crate. Already a workspace dependency, pure Rust, Android-clean.
+pulldown-cmark.workspace = true
+kovan-literature.workspace = true
+kovan-semantics.workspace = true
+kovan-codegen.workspace = true
+# `tokens` / `historian`: per-commit API-token accounting and the pre-merge
+# report. Replaces docs/historian/*.py so the toolchain needs no Python.
+kovan-metrics.workspace = true
+clap.workspace = true
+# `lit import`/`lit bibtex` round-trip a `KovanDocument` through JSON on disk
+# (kovan-common's canonical serde format). Also used by the TUI Ingest tab.
+serde_json.workspace = true
+# `kovan setup`: PATH-presence check for the curated external-tool list
+# (pure-Rust, Android-fine; the `cargo install` spawn itself is desktop-scope
+# and only runs when a user explicitly invokes `setup`).
+which.workspace = true
+# `digitiser/gui/desktop/home.rs`'s recent-Kovan-roots list (op-9vo6.3, §2):
+# "Recent-roots list is local state -> .kovan/ or the XDG config dir, never
+# tracked" -- it lives here rather than under any one root's `.kovan/` since
+# there is, by definition, no open root yet at the startup screen. Already a
+# workspace dependency (`njoy-outram-park-fork::acquire` uses the same
+# `ProjectDirs::from` pattern for its own cache dir), pure Rust, Android-clean.
+directories.workspace = true
+# Pure-Rust PDF page rasterizer (a from-source port of MuPDF's `fitz` draw
+# device — real vector fills/strokes/images, real TrueType/CFF glyph outlines,
+# not a screenshot pipeline). **This is op-6ez3's PDF-page-rendering-engine
+# DECISION, made and acted on**: `kopitiam_pdf::mupdf::{PdfDocument,
+# rasterize_page, Pixmap}` is what `digitiser::gui::desktop::pdf_reader`
+# (op-95x6, the `kovan` GUI's PDF reader panel) renders pages through.
+# AGPL-3.0-only — see the `license` field above and NOTICE for why this
+# crate, alone in the workspace, is licensed to match. Declared directly
+# here, NOT in the root `[workspace.dependencies]`, so it stays scoped to
+# this one crate. Confirmed pure-Rust / Android-Termux-clean (no `-sys`/
+# C-toolchain crate anywhere in its dependency tree) via `cargo tree -p
+# kovan`, 2026-08-21 — no target gate needed; only its one caller
+# (`pdf_reader`) is desktop/`gui`-feature-scoped.
+#
+# 0.2.7 (bumped 2026-08-25): `rasterize_page` now falls back to the `hayro`
+# rasterizer (Apache-2.0 OR MIT, pure Rust, upstream-pinned `=0.7.1`) for any
+# page where kopitiam's own glyph decoders would otherwise paint an advance
+# box, transparently — no feature gate, no call-site change here. Still
+# pure-Rust/Android-Termux-clean (`hayro` carries no C/C++/Fortran anywhere
+# in its own dependency chain either) and license-compatible with this
+# crate's AGPL-3.0-only. Verified via `cargo tree -p kovan | grep hayro`
+# after the bump.
+
+# 0.3.2 (op-9vo6.11, kopitiam#96): the reusable reader (kopitiam-pdf's own
+# `PdfReader`/`gui_frontend`) is now behind a separate `egui` feature, split
+# from the `kpdf` standalone-shell feature (which additionally pulls
+# eframe/rfd for kpdf's own native file dialog and window chrome -- neither
+# needed here, since kovan already has its own eframe/egui-file-dialog
+# stack and owns its own window). `default-features = false` +
+# `features = ["egui"]` pulls in exactly the reusable pieces, nothing more.
+# Requires the workspace's egui/eframe bump to 0.36 (root Cargo.toml) --
+# kopitiam-pdf 0.3.2 itself pins egui/eframe = "0.36".
+kopitiam-pdf = { version = "0.3.2", default-features = false, features = ["egui"] }
+# `kovan-cli cost`: a real dependency-free BPE token-COST estimate (GitHub
+# issue #32, "wiring the api in directly") -- kopitiam_tokenizer::estimate's
+# per-Unicode-script character-weighted model, materially better than
+# kovan-semantics::agent_docs::estimated_tokens' bytes/4 heuristic (which
+# stays as-is; it only feeds 'agent-docs-gen --budget''s own accounting).
+# AGPL-3.0-only, same crate-local/boundary-exception shape as kopitiam-pdf
+# above -- lightweight deps (kopitiam-core, regex, serde_json), no C/BLAS/GPU,
+# so it stays Android/Termux-clean. Named "cost", not "tokens": that name is
+# already kovan-metrics' per-commit API-usage accounting
+# (src/commands/tokens.rs), an unrelated concept.
+kopitiam-tokenizer = "0.2.5"
+# `kovan-cli def`/`refs`/`sig`: rust-analyzer-backed semantic queries (GitHub
+# issue #32's follow-up, "wire in rust analyzer capability from kopitiam into
+# kovan cli" -- op-l3uz). kopitiam-semantic's RustAnalyzerSession SPAWNS the
+# external `rust-analyzer` binary and talks LSP over stdio -- it does not link
+# any `ra_ap_*` crate, so this dependency is lightweight at compile time
+# (confirmed: its own Cargo.toml pulls only anyhow/cargo_metadata/serde_json/
+# url-class crates, no rust-analyzer internals) even though it *needs*
+# `rust-analyzer` on PATH at runtime to do anything. Same crate-local,
+# AGPL-3.0-only boundary-exception shape as kopitiam-pdf/kopitiam-tokenizer
+# above.
+kopitiam-semantic = "0.2.5"
+# `kovan::digitiser::table_ocr`: the table-digitiser OCR engine (op-hnhp),
+# per op-9bvi's DECISION -- a pure-Rust translation of Tesseract's LSTM
+# recognizer (see that crate's own module docs for the Apache-2.0/BSD-2
+# upstream provenance headers), already used in kopitiam's own production
+# OCR-fallback pipeline with the same mandatory-human-review framing this
+# crate's digitiser already enforces. AGPL-3.0-only, same crate-local
+# boundary-exception shape as kopitiam-pdf/tokenizer/semantic above --
+# licensing call explicitly confirmed by the maintainer (GitHub issue #30,
+# op-9bvi). Dependency chain is lean and Android/Termux-clean (kopitiam-ocr
+# -> kopitiam-tensor -> kopitiam-core only, no C/BLAS/GPU/`-sys` crate),
+# checked in kopitiam's own workspace before adding.
+kopitiam-ocr = "0.1.0"
+# Graph digitiser engine (`src/digitiser/raster.rs` etc.): pure-Rust PNG/JPEG
+# decoding (no C toolchain, builds on Termux/Android) and the codec
+# `kopitiam-pdf` itself pulls in transitively. Moved in from kovan-literature
+# 2026-08-21 with the rest of the digitiser — see NOTICE.
+image.workspace = true
+# `src/project.rs`: the "kovan folder" project format (op-63u0's design,
+# docs/kovan-folder-format.md) -- `kovan.toml` (de)serialisation (op-b1y5).
+# Already a workspace dependency (kovan-common, kovan-literature both use
+# it) -- checked before adding, per the "search before building" hard rule.
+toml.workspace = true
+# `DigitisedDataset` and friends derive `Serialize`/`Deserialize`
+# (`src/digitiser/dataset.rs`), and `raster.rs` SHA-256-hashes the source
+# image for provenance (`DATA_POLICY.md`) — both moved in with the digitiser.
+serde.workspace = true
+sha2.workspace = true
+# ratatui is unconditional (not target-gated off Android), unlike in most of
+# this crate's own history: `kovan-digitise-tui` (moved in from
+# kovan-literature 2026-08-21, see NOTICE) was Android-functional there
+# (kovan-literature declared ratatui unconditionally too), and keeping that
+# working mattered more than the Android build-size saving `kovan-tui` alone
+# would get from gating it off. Once ratatui was unconditional, the
+# `#[cfg(not(target_os = "android"))]` gate on `pub mod tui;` in `src/lib.rs`
+# had no technical reason left either (it existed only because ratatui used
+# to be Android-gated) — it was dropped the same day, so `kovan-tui` is now
+# genuinely Android/Termux-usable end to end, not just Android-buildable.
+# Confirmed 2026-08-21: `cargo check -p kovan --all-targets --target
+# aarch64-linux-android` is clean with the full `tui` module (all seven
+# tabs, including the digitiser) compiled in. This matters directly for
+# GitHub issue #30's final interface spec, whose stated reason for wanting
+# exactly `kovan`/`kovan-cli`/`kovan-tui` was Android usability.
+ratatui.workspace = true
+kopitiam-neovim = "0.2.4"
+
+# The `gui` feature's egui/eframe stack, desktop-only: target-gated off
+# Android on top of being behind the feature, so an Android build of this
+# crate never pulls it even if some future caller enabled `gui` by mistake.
+# `egui-file-dialog` is the native file/directory picker (already dogfooded by
+# `tampines-steam-tables-gui`) — GitHub issue #30's file-picker ask (op-689u),
+# reused rather than hand-rolling a picker.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+eframe = { workspace = true, optional = true }
+egui = { workspace = true, optional = true }
+egui-file-dialog = { workspace = true, optional = true }
+# Mindmap's graph widget (op-jvjc) -- pure egui, no extra native deps beyond
+# what eframe/egui already require, so it stays in this same Android-gated,
+# `gui`-optional table.
+egui_graphs = { workspace = true, optional = true }
+
+[dev-dependencies]
+# `lopdf` builds a small synthetic PDF fixture for the `lit` end-to-end tests
+# (mirrors kovan-literature's private `test_pdf` helper, which isn't exported).
+lopdf.workspace = true
+tempfile.workspace = true

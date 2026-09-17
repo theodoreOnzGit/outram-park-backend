@@ -26,6 +26,10 @@ pub fn fecral_constant_density() -> Result<MassDensity,TuasLibError> {
     return Ok(MassDensity::new::<gram_per_cubic_centimeter>(7.8));
 }
 
+/// Intended to return the surface roughness (as a `uom` `Length`) of FeCrAl.
+///
+/// Unimplemented placeholder — currently panics via `todo!()` (no roughness
+/// data has been coded in yet).
 pub fn fecral_surf_roughness() -> Length {
     todo!()
 }

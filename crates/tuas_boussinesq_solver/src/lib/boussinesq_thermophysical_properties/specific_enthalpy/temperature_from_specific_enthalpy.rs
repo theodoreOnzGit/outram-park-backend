@@ -1,4 +1,5 @@
 use uom::si::f64::*;
+use crate::tuas_lib_error::TuasLibError;
 
 use super::LiquidMaterial;
 use super::Material;
@@ -14,8 +15,10 @@ use crate::boussinesq_thermophysical_properties::liquid_database::yd_325_heat_tr
 use crate::boussinesq_thermophysical_properties::solid_database::copper::copper_spline_temp_attempt_2_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::custom_solid_material;
 use crate::boussinesq_thermophysical_properties::solid_database::fiberglass::fiberglass_spline_temp_attempt_1_from_specific_enthalpy;
+use crate::boussinesq_thermophysical_properties::solid_database::nuclear_graphite::nuclear_graphite_spline_temp_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::pyrogel_hps::pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum;
+use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l_high_temp::steel_304_l_high_temp_temp_from_specific_enthalpy_kim;
 
 // for spline method
 
@@ -23,76 +26,74 @@ use crate::boussinesq_thermophysical_properties::solid_database::ss_304_l::steel
 // should the material happen to be a solid, use this function
 // to extract temperature from enthalpy
 //
-// probably should have a temperature range checker in 
+// probably should have a temperature range checker in
 // future
 //
 // pub(in crate::boussinesq_thermophysical_properties)
-// here only makes it accessible to the 
-// specific_enthalpy/mod.rs 
+// here only makes it accessible to the
+// specific_enthalpy/mod.rs
 // nothing else
-pub(in crate::boussinesq_thermophysical_properties) 
-fn get_solid_temperature_from_specific_enthalpy(material: Material,
-    h_material: AvailableEnergy) -> ThermodynamicTemperature {
-    
+/// Returns the temperature (K) of a solid `Material` from its specific
+/// enthalpy (J/kg) by dispatching on the solid-material enum variant (spline
+/// or root-finding inverse). Panics if passed a liquid material.
+pub(in crate::boussinesq_thermophysical_properties) fn get_solid_temperature_from_specific_enthalpy(
+    material: Material,
+    h_material: AvailableEnergy,
+) -> Result<ThermodynamicTemperature, TuasLibError> {
     // first match the enum
 
     let solid_material: SolidMaterial = match material {
         Material::Solid(SteelSS304L) => SteelSS304L,
+        Material::Solid(SteelSS304LHighTemp) => SteelSS304LHighTemp,
         Material::Solid(Fiberglass) => Fiberglass,
         Material::Solid(PyrogelHPS) => PyrogelHPS,
         Material::Solid(Copper) => Copper,
-        Material::Solid(CustomSolid((low_bound_temp,high_bound_temp),cp,k,rho,roughness)) => {
-            CustomSolid((low_bound_temp,high_bound_temp), cp, k, rho,roughness)
-        },
-        Material::Liquid(_) => panic!("solid_specific_enthalpy, use SolidMaterial enums only")
+        Material::Solid(NuclearGraphiteMatrixA3) => NuclearGraphiteMatrixA3,
+        Material::Solid(NuclearGraphiteIG110) => NuclearGraphiteIG110,
+        Material::Solid(CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)) => {
+            CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
+        }
+        Material::Liquid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
-    let material_temperature: ThermodynamicTemperature = 
-        match solid_material {
-            Fiberglass => 
-            {
-                fiberglass_spline_temp_attempt_1_from_specific_enthalpy(
-                    h_material)
-            },
-            PyrogelHPS => 
-            {
-                pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy(
-                    h_material)
-            },
-            SteelSS304L => 
-            {
-                steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum(
-                    h_material)
-            },
-            Copper => 
-            {
-                copper_spline_temp_attempt_2_from_specific_enthalpy(
-                    h_material)
-            },
-            CustomSolid((low_bound_temp,high_bound_temp),cp_fn,_k,_rho_fn,_roughness) => {
-                custom_solid_material::get_custom_solid_temperature_from_enthalpy(
-                    h_material, 
-                    cp_fn, 
-                    high_bound_temp, 
-                    low_bound_temp).unwrap()
-            },
+    let material_temperature: ThermodynamicTemperature = match solid_material {
+        Fiberglass => fiberglass_spline_temp_attempt_1_from_specific_enthalpy(h_material)?,
+        PyrogelHPS => pyrogel_hps_spline_temp_attempt_1_from_specific_enthalpy(h_material)?,
+        SteelSS304L => {
+            steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum(h_material)?
+        }
+        // exact quadratic-formula inverse, no root finding and no panic path
+        SteelSS304LHighTemp => steel_304_l_high_temp_temp_from_specific_enthalpy_kim(h_material),
+        Copper => copper_spline_temp_attempt_2_from_specific_enthalpy(h_material)?,
+        // both graphite grades share one cp table and hence one
+        // enthalpy curve; see the nuclear_graphite module docs
+        NuclearGraphiteMatrixA3 => nuclear_graphite_spline_temp_from_specific_enthalpy(h_material)?,
+        NuclearGraphiteIG110 => nuclear_graphite_spline_temp_from_specific_enthalpy(h_material)?,
+        CustomSolid((low_bound_temp, high_bound_temp), cp_fn, _k, _rho_fn, _roughness) => {
+            custom_solid_material::get_custom_solid_temperature_from_enthalpy(
+                h_material,
+                cp_fn,
+                high_bound_temp,
+                low_bound_temp,
+            )?
+        }
+    };
 
-        };
-
-    return material_temperature;
-
-
+    Ok(material_temperature)
 }
 
 // should the material happen to be a liquid, use this function
-// pub(in crate::boussinesq_thermophysical_properties) 
-// here only makes it accessible to the 
-// specific_enthalpy/mod.rs 
+// pub(in crate::boussinesq_thermophysical_properties)
+// here only makes it accessible to the
+// specific_enthalpy/mod.rs
 // nothing else
-pub(in crate::boussinesq_thermophysical_properties) 
-fn get_liquid_temperature_from_specific_enthalpy(material: Material, 
-    fluid_enthalpy: AvailableEnergy) -> ThermodynamicTemperature {
-
+/// Returns the temperature (K) of a liquid `Material` from its specific
+/// enthalpy (J/kg) by dispatching on the liquid-material enum variant. Panics
+/// if passed a solid material.
+pub(in crate::boussinesq_thermophysical_properties) fn get_liquid_temperature_from_specific_enthalpy(
+    material: Material,
+    fluid_enthalpy: AvailableEnergy,
+) -> Result<ThermodynamicTemperature, TuasLibError> {
     let liquid_material: LiquidMaterial = match material {
         Material::Liquid(DowthermA) => DowthermA,
         Material::Liquid(TherminolVP1) => TherminolVP1,
@@ -100,35 +101,29 @@ fn get_liquid_temperature_from_specific_enthalpy(material: Material,
         Material::Liquid(YD325) => YD325,
         Material::Liquid(FLiBe) => FLiBe,
         Material::Liquid(FLiNaK) => FLiNaK,
-        Material::Liquid(CustomLiquid((low_bound_temp,high_bound_temp),cp,k,mu,rho)) => {
-            CustomLiquid((low_bound_temp,high_bound_temp), cp, k, mu, rho)
-        },
-        Material::Solid(_) => panic!(
-        "liquid_specific_enthalpy, use LiquidMaterial enums only")
+        Material::Liquid(CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)) => {
+            CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)
+        }
+        Material::Solid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let specific_enthalpy: ThermodynamicTemperature = match liquid_material {
-        DowthermA => dowtherm_a::get_temperature_from_enthalpy(fluid_enthalpy).unwrap(),
-        TherminolVP1 => dowtherm_a::get_temperature_from_enthalpy(fluid_enthalpy).unwrap(),
-        HITEC => hitec_nitrate_salt::get_temperature_from_enthalpy(fluid_enthalpy).unwrap(),
-        YD325 => yd_325_heat_transfer_oil::get_temperature_from_enthalpy(fluid_enthalpy).unwrap(),
-        FLiBe => flibe::get_temperature_from_enthalpy(fluid_enthalpy).unwrap(),
-        FLiNaK => flinak::get_temperature_from_enthalpy(fluid_enthalpy).unwrap(),
-        CustomLiquid((low_bound_temp,high_bound_temp), cp_fn, _k, _mu_fn, _rho_fn) => {
-            liquid_database::custom_liquid_material
-                ::get_custom_fluid_temperature_from_enthalpy(fluid_enthalpy, 
-                    cp_fn, 
-                    high_bound_temp, 
-                    low_bound_temp).unwrap()
-        },
+        DowthermA => dowtherm_a::get_temperature_from_enthalpy(fluid_enthalpy)?,
+        TherminolVP1 => dowtherm_a::get_temperature_from_enthalpy(fluid_enthalpy)?,
+        HITEC => hitec_nitrate_salt::get_temperature_from_enthalpy(fluid_enthalpy)?,
+        YD325 => yd_325_heat_transfer_oil::get_temperature_from_enthalpy(fluid_enthalpy)?,
+        FLiBe => flibe::get_temperature_from_enthalpy(fluid_enthalpy)?,
+        FLiNaK => flinak::get_temperature_from_enthalpy(fluid_enthalpy)?,
+        CustomLiquid((low_bound_temp, high_bound_temp), cp_fn, _k, _mu_fn, _rho_fn) => {
+            liquid_database::custom_liquid_material::get_custom_fluid_temperature_from_enthalpy(
+                fluid_enthalpy,
+                cp_fn,
+                high_bound_temp,
+                low_bound_temp,
+            )
+            ?
+        }
     };
 
-    return specific_enthalpy;
+    Ok(specific_enthalpy)
 }
-
-
-
-
-
-
-

@@ -1,5 +1,31 @@
+//! Pre-built components for the University of Wisconsin-Madison FLiBe
+//! (molten fluoride salt, LiF-BeF2) forced/natural-circulation loop.
+//!
+//! The physical loop and its instrumentation are described in:
+//! Britsch, K., Anderson, M., Brooks, P., & Sridharan, K. (2019).
+//! Natural circulation FLiBe loop overview. International Journal of
+//! Heat and Mass Transfer, 134, 970-983.
+//!
+//! This module is organised as two successive modelling iterations of the
+//! same 13-component loop (all pipes are 1 inch / 2.54 cm outer diameter with
+//! a 3 mm wall, so the inner diameter is 2.54 cm - 2*3 mm; FLiBe is the working
+//! fluid). Component lengths are in metres, incline angles in degrees:
+//!
+//! - [`flibe_loop_iteration_one`] — first-cut loop: adiabatic pipe components,
+//!   parasitic-heat-loss calibration against the reference test tables, and
+//!   the fluid-mechanics / thermal-hydraulics calculation routines that link
+//!   the components into a single circulating branch and advance it in time.
+//! - [`flibe_loop_iteration_two`] — adds an explicit clamshell radiative
+//!   heater sub-component to capture the heat added (and lost) by the loop's
+//!   clamshell radiative heating elements, which iteration one could not
+//!   represent.
+//!
+//! Both iteration modules are currently gated behind `#[cfg(test)]` — they are
+//! used from the loop's verification/simulation tests rather than the public
+//! library surface.
+
 #[cfg(test)]
-/// First iteration of UW madison flibe loop given the following 
+/// First iteration of UW madison flibe loop given the following
 /// best estimate parameters.
 ///
 /// [Component no.],[description],[length (m)],[angle],[Delta x],[Delta y],
@@ -19,25 +45,25 @@
 pub mod flibe_loop_iteration_one;
 
 #[cfg(test)]
-/// Second iteration of UW madison flibe loop 
+/// Second iteration of UW madison flibe loop
 ///
 ///
-/// compared to the first iteration, iteration number two includes 
-/// the use and simulation of radiative heat transfer heaters 
+/// compared to the first iteration, iteration number two includes
+/// the use and simulation of radiative heat transfer heaters
 ///
-/// in component 2, the temperature of the fluid exiting pipe 2 
+/// in component 2, the temperature of the fluid exiting pipe 2
 /// tends to be increased comapred to the entrance temperature.
 ///
 /// This implies that there is heat added in this component.
 /// Why?
 ///
-/// One possible explanation is of radiative heat transfer as the 
-/// heaters of the flibe loop are clamshell radiative heat transfer 
-/// heaters. Therefore, it is inevitable that some of the heat escapes 
-/// into the surrounding. 
+/// One possible explanation is of radiative heat transfer as the
+/// heaters of the flibe loop are clamshell radiative heat transfer
+/// heaters. Therefore, it is inevitable that some of the heat escapes
+/// into the surrounding.
 ///
-/// Britsch, K., Anderson, M., Brooks, P., & Sridharan, K. (2019). 
-/// Natural circulation FLiBe loop overview. International Journal 
+/// Britsch, K., Anderson, M., Brooks, P., & Sridharan, K. (2019).
+/// Natural circulation FLiBe loop overview. International Journal
 /// of Heat and Mass Transfer, 134, 970-983.
 ///
 /// Watlow Cera- mic Fiber Semi-Cylindrical heaters has a hot face length of 61 cm
@@ -47,5 +73,5 @@ pub mod flibe_loop_iteration_one;
 /// on the tube and limit convection losses. The heater exterior is
 /// wrapped in three layers of Pyrogel HPS insulation, which reduces
 /// surface temperatures to fairly constant 300 °C
-/// 
+///
 pub mod flibe_loop_iteration_two;

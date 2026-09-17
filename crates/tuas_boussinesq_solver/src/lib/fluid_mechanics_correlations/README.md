@@ -1,5 +1,9 @@
 # Intro 
 
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+
 For fluid mechanics, TUAS works via solution of simplified 
 momentum and mass balances. We first consider an isothermal case of 
 incompressible flow through parallel branches. This is the simplest 

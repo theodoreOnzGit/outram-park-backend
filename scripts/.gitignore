@@ -1,0 +1,14 @@
+# Measurement outputs written by kloc_accounting.py beside itself. They are
+# regenerable from the repositories, and their canonical copies live in the
+# manuscript sources, so they are not tracked here.
+baseline_repositories.csv
+agentic_crates.csv
+summary.txt
+baseline_table.tex
+rate_table.tex
+agentic_table.tex
+fig_kloc_productivity.png
+
+# Repositories cloned by --from-github / --clone for measurement. Large, and
+# not part of this repository. (It also self-ignores via vendor/.gitignore.)
+vendor/

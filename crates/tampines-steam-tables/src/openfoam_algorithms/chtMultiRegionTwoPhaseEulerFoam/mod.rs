@@ -1,11 +1,16 @@
-
 // note: openfoam uses the PIMPLE algorithm for two phase flow.
 //
 // which is a combination of SIMPLE and PISO algorithms
 //
 // So, I'll need to learn about those.
 
-
+//! Reference-only, entirely commented-out C++ source of OpenFOAM's
+//! `chtMultiRegionTwoPhaseEulerFoam` — a transient conjugate-heat-transfer
+//! solver coupling solid heat conduction with a two-phase Euler-Euler
+//! (averaged two-fluid) model on the fluid region(s). Not compiled or ported
+//! to Rust; kept here as study material (see the module-level note in
+//! `openfoam_algorithms/mod.rs` for why this model was judged too complex
+//! for a first port).
 /*
 /*---------------------------------------------------------------------------*\
   =========                 |

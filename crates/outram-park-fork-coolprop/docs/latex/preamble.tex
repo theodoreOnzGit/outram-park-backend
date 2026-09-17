@@ -1,0 +1,27 @@
+% Shared preamble for the bite-sized LaTeX doc series (docs/latex/*.tex).
+% \input this at the top of each numbered file rather than duplicating the
+% package list -- keeps every file's own content close to (and comfortably
+% under) 10 pages.
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\addbibresource{references.bib}
+
+\lstdefinelanguage{Rust}{
+  keywords={fn,let,mut,pub,struct,enum,impl,match,if,else,for,while,return,use,mod,self,Self,const,static},
+  keywordstyle=\color{blue}\bfseries,
+  comment=[l]{//},
+  commentstyle=\color{gray}\itshape,
+  string=[b]",
+  stringstyle=\color{teal},
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+}
+\lstset{language=Rust}
+
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}

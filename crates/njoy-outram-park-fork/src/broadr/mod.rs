@@ -1,0 +1,946 @@
+//! BROADR — Doppler broadening of pointwise cross sections (SIGMA1 method).
+//!
+//! Ported from `bsigma`, `hunky`, and `funky` in NJOY2016 `broadr.f90`.
+//!
+//! ## SIGMA1 algorithm
+//!
+//! The free-gas Doppler-broadened cross section at energy E is:
+//!
+//! ```text
+//! σ_D(y) = Σ_panels [σ(u_right) · s1 + slope · s2]  (below y)
+//!        + Σ_panels [σ(u_left)  · s1 + slope · s2]  (above y)
+//! ```
+//!
+//! where `y = √(α·E)`, `α = AWR / (k_B·T)`, and the cross section is
+//! interpolated linearly in u² within each panel. The integrals `s1` and `s2`
+//! are expressed via the analytic f-functions:
+//!
+//! ```text
+//! f_n(a) = ∫_a^∞  z^n · exp(-z²) dz / √π
+//! h_n    = f_n(a_old) - f_n(a_new)   (integral over one velocity panel)
+//! s1 = h₂·oy² + 2·h₁·oy + h₀
+//! s2 = ((h₄+(6y²-x²)·h₂)·oy + (4·h₃+(4y²-2x²)·h₁))·oy + (y²-x²)·h₀
+//! ```
+//!
+//! where `oy = ±1/y` (negative for panels below y, positive for above).
+//!
+//! ## Implementation notes
+//!
+//! - `erfc` is implemented in pure Rust to ~1e-13 relative (series below 3,
+//!   continued fraction above), matching the precision of upstream's SLATEC
+//!   `derfc` (`mathm.f90:447`). Until 2026-09-10 it was A&S 7.1.26 (1.2e-7
+//!   *absolute*), which the `1/y²` weights of `s1`/`s2` amplified into a
+//!   1.9 % deficit at `y = 0.03` — H-2 capture 2.3 % low at 1e-5 eV against
+//!   NJOY (bead `op-0xv5`); see `one_over_v_is_preserved_at_low_y`.
+//! - The `hnabb` Taylor-series refinement from the Fortran is not implemented;
+//!   the direct difference `h = f_old - f_new` is used throughout. It only
+//!   engages for panels narrower than ~1e-5 in `a` (upstream `toler`), where
+//!   the cancellation error is ~1e-16/Δa of an already-small contribution.
+//! - Both kernel terms are implemented: the dominant σ₊ (exp(-(x-y)²)) pass and
+//!   the σ₋ (exp(-(x+y)²)) correction. The latter is only evaluated for y ≤ 4
+//!   (it is < 10⁻⁷ above that) and matters mainly near thermal energies, where
+//!   it pulls the broadened value back down toward the physical result.
+
+pub mod broadn;
+pub use broadn::{broadn_section, lab_threshold, BroadnTolerances};
+
+use crate::{
+    common::phys::BK_EV_PER_K,
+    reconr::{ReconrResult, ReconrSection},
+};
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::*;
+
+// ── erfc ──────────────────────────────────────────────────────────────────────
+
+/// `erfc(x)` for `x >= 0` to ~1e-15 relative: the everywhere-positive
+/// series `erf(x) = (2/√π) e^{-x²} Σ 2^n x^{2n+1} / (1·3·…·(2n+1))` below 3
+/// and the continued fraction `erfc(x) = e^{-x²}/(x√π) · 1/(1 + (1/2x²)/(1 +
+/// (2/2x²)/(1 + …)))` above.
+///
+/// Precision matters here beyond what a cross-section tolerance suggests:
+/// `bsigma` combines `h_n = f_n(a) - f_n(b)` with `1/y` and `1/y²` weights,
+/// so at small `y` (thermal energies of a light nuclide, `y = 0.03` for H-2
+/// at 1e-5 eV) an *absolute* `erfc` error of 1e-7 is multiplied by ~1e3.
+/// With A&S 7.1.26 (1.2e-7 absolute) a pure 1/v cross section — which SIGMA1
+/// leaves exactly invariant — came back 1.9 % low at `y = 0.03` and ±4e-4
+/// at `y = 1..2` (bead `op-0xv5`, 2026-09-10); with this `erfc` it is
+/// preserved to ~1e-12.
+fn erfc_nonneg(x: f64) -> f64 {
+    if x >= 27.0 {
+        return 0.0; // exp(-x²) underflows f64 (erfc(27) ~ 5e-319)
+    }
+    let two_over_sqrt_pi = 2.0 / SQRT_PI;
+    if x < 3.0 {
+        // erf(x) = (2/√π) e^{-x²} Σ_{n>=0} 2^n x^{2n+1} / (2n+1)!!
+        let x2 = x * x;
+        let mut term = x;
+        let mut sum = x;
+        let mut n = 0u32;
+        while term.abs() > 1e-17 * sum.abs() {
+            n += 1;
+            term *= 2.0 * x2 / (2 * n + 1) as f64;
+            sum += term;
+            if n > 200 {
+                break;
+            }
+        }
+        1.0 - two_over_sqrt_pi * (-x2).exp() * sum
+    } else {
+        // Continued fraction evaluated bottom-up: erfc(x) = e^{-x²}/(x√π) K,
+        // K = 1/(1 + (1/2)/x² /(1 + (2/2)/x² /(1 + ...))).
+        let inv_2x2 = 1.0 / (2.0 * x * x);
+        let mut k = 1.0f64;
+        for m in (1..=80).rev() {
+            k = 1.0 + (m as f64) * inv_2x2 / k;
+        }
+        (-x * x).exp() / (x * SQRT_PI) / k
+    }
+}
+
+// ── f-functions ───────────────────────────────────────────────────────────────
+
+// f_n(0) values (exact, used to initialise each panel loop)
+const SQRT_PI: f64 = 1.772_453_850_905_516_0;
+const INV2SQRTPI: f64 = 1.0 / (2.0 * SQRT_PI);
+const F_ZERO: [f64; 5] = [0.5, INV2SQRTPI, 0.25, INV2SQRTPI, 0.375];
+
+/// `f_n(a)` for n = 0..4 (0-indexed). Ported from `funky` in `broadr.f90`.
+///
+/// `f_n(a) = ∫_a^∞ z^n · exp(-z²) dz / √π`
+fn f_funcs(a: f64) -> [f64; 5] {
+    if a >= 10.0 {
+        return [0.0; 5];
+    }
+    let asq = a * a;
+    let expo = (-asq).exp() / SQRT_PI; // exp(-a²)/√π
+    let f0 = 0.5 * erfc_nonneg(a);
+    let f1 = 0.5 * expo;
+    let expoa = expo * a; // a·exp(-a²)/√π
+    let f2 = 0.5 * (f0 + expoa);
+    let expoa2 = expoa * a;
+    let f3 = 0.5 * (2.0 * f1 + expoa2);
+    let expoa3 = expoa2 * a;
+    let f4 = 0.5 * (3.0 * f2 + expoa3);
+    [f0, f1, f2, f3, f4]
+}
+
+// ── hunky / s-terms ───────────────────────────────────────────────────────────
+
+/// Compute h = f(a_old) − f(a_new) and the new f values at `a_new`.
+///
+/// Corresponds to `hunky` in `broadr.f90`. The h functions represent:
+/// `h_n = ∫_{a_old}^{a_new} z^n · exp(-z²) dz / √π` (integral over one panel).
+fn h_funcs(f_old: &[f64; 5], a_new: f64) -> ([f64; 5], [f64; 5]) {
+    let f_new = f_funcs(a_new);
+    let mut h = *f_old;
+    for k in 0..5 {
+        h[k] -= f_new[k];
+        const SMALL: f64 = 1e-12;
+        if h[k].abs() <= SMALL * f_new[k].abs() {
+            h[k] = 0.0;
+        }
+    }
+    (h, f_new)
+}
+
+/// Compute `s1` and `s2` from h-functions, oy, yy, xx (from `hunky` in Fortran).
+///
+/// - `oy = ±1/y` (negative for below-y panels, positive for above-y panels)
+/// - `yy = y²`
+/// - `xx = (reference endpoint)²`
+fn s_terms(h: &[f64; 5], oy: f64, yy: f64, xx: f64) -> (f64, f64) {
+    let s1 = (h[2] * oy + 2.0 * h[1]) * oy + h[0];
+    let s2 = ((h[4] + (6.0 * yy - xx) * h[2]) * oy + (4.0 * h[3] + (4.0 * yy - 2.0 * xx) * h[1]))
+        * oy
+        + (yy - xx) * h[0];
+    (s1, s2)
+}
+
+// ── bsigma ────────────────────────────────────────────────────────────────────
+
+/// Compute the Doppler-broadened cross section at one output energy point.
+///
+/// `y = √(α·E_out)` is the query point in velocity space.
+/// `eu` is the energy grid transformed to velocity space: `eu[i] = √(α·E[i])`.
+/// `sigma` is the cross section grid \[b\].
+///
+/// Returns the broadened cross section \[b\] at the query point.
+pub(super) fn bsigma_scalar(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
+    let n = eu.len();
+    if n < 2 {
+        return sigma[0];
+    }
+
+    const ATOP: f64 = 4.0; // Gaussian tail cutoff: exp(-16) ≈ 1e-7
+
+    let yy = y * y;
+    let oy = -1.0 / y; // negative 1/y for below-y panels
+
+    // Locate panel containing y
+    let k = {
+        let pos = eu.partition_point(|&u| u <= y);
+        if pos == 0 {
+            0
+        } else {
+            (pos - 1).min(n - 2)
+        }
+    };
+
+    let mut sbt = 0.0f64;
+
+    // ── Below-y panels (l = k down to 0) ────────────────────────────────────
+    let mut f = F_ZERO;
+
+    let mut l = k + 1;
+    while l > 0 {
+        l -= 1;
+        let x = eu[l];
+        let xp = eu[l + 1];
+        let xx = xp * xp;
+        if xx <= x * x {
+            continue;
+        }
+
+        let aa = y - x;
+        let (h, f_new) = h_funcs(&f, aa);
+        f = f_new;
+
+        let denom = 1.0 / (xx - x * x);
+        let slope = (sigma[l + 1] - sigma[l]) * denom;
+        let (s1, s2) = s_terms(&h, oy, yy, xx);
+        sbt += sigma[l + 1] * s1 + slope * s2;
+
+        if aa > ATOP {
+            break;
+        }
+    }
+
+    // 1/v extension below klow=0: σ(u) = σ_0 · u_0 / u
+    {
+        let aa = y; // distance from y to u=0
+        let (h, _) = h_funcs(&f, aa);
+        // contribution: -σ_0 · u_0 · (oy² · h[1] + oy · h[0])
+        sbt -= sigma[0] * eu[0] * (oy * oy * h[1] + oy * h[0]);
+    }
+
+    // ── Above-y panels (l = k up to n-2) ───────────────────────────────────
+    let oy = -oy; // flip: now positive 1/y for above-y panels
+    let mut f = F_ZERO;
+
+    for l in k..(n - 1) {
+        let x = eu[l + 1]; // right endpoint
+        let xm = eu[l]; // left endpoint
+        let xx = xm * xm;
+        if xx >= x * x {
+            continue;
+        }
+
+        let aa = x - y;
+        let (h, f_new) = h_funcs(&f, aa);
+        f = f_new;
+
+        let denom = 1.0 / (x * x - xx);
+        let slope = (sigma[l + 1] - sigma[l]) * denom;
+        let (s1, s2) = s_terms(&h, oy, yy, xx);
+        sbt += sigma[l] * s1 + slope * s2;
+
+        if aa > ATOP {
+            break;
+        }
+    }
+
+    // Constant extension above khigh (last value)
+    let factor = (f[2] * oy + 2.0 * f[1]) * oy + f[0];
+    sbt += sigma[n - 1] * factor;
+
+    // ── Second pass: σ₋ correction (the exp(-(x+y)²) term) ───────────────────
+    //
+    // The full SIGMA1 kernel is σ₊ − σ₋, where σ₋ integrates against
+    // exp(-(x+y)²). It is negligible once y > ATOP (exp(-16) ≈ 1e-7) but is
+    // significant near thermal (small y), where it pulls the result back down.
+    // Ported from `bsigma` lines 1626–1660 in `broadr.f90` (label 210 onward).
+    //
+    // The (x+y) mapping means a = x + y, so at x = 0 we start at a = y (hence
+    // `f_funcs(y)`, not `F_ZERO`), and a increases as x increases.
+    if y <= ATOP {
+        let oy = -1.0 / y; // Fortran: y=-y; oy=-oy  ⇒  oy = -1/y
+        let mut f = f_funcs(y); // funky initialised at a = y
+
+        // 1/v extension below klow=0: panel x ∈ [0, eu[0]], a ∈ [y, eu[0]+y]
+        let aa0 = eu[0] + y;
+        let (h, f_new) = h_funcs(&f, aa0);
+        f = f_new;
+        sbt -= sigma[0] * eu[0] * (oy * oy * h[1] + oy * h[0]);
+
+        if aa0 <= ATOP {
+            for l in 0..(n - 1) {
+                let x = eu[l + 1]; // right endpoint
+                let xm = eu[l]; // left endpoint
+                let xx = xm * xm;
+                if x * x <= xx {
+                    continue;
+                }
+
+                let aa = x + y;
+                let (h, f_new) = h_funcs(&f, aa);
+                f = f_new;
+
+                let denom = 1.0 / (x * x - xx);
+                let slope = (sigma[l + 1] - sigma[l]) * denom;
+                let (s1, s2) = s_terms(&h, oy, yy, xx);
+                sbt -= sigma[l] * s1 + slope * s2;
+
+                if aa > ATOP {
+                    break;
+                }
+            }
+
+            // Constant extension above khigh
+            let factor = (f[2] * oy + 2.0 * f[1]) * oy + f[0];
+            sbt -= sigma[n - 1] * factor;
+        }
+    }
+
+    sbt.max(0.0)
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/// Upstream's `e6pt5` (`broadr.f90:166`): the default ceiling for broadening
+/// when nothing in the evaluation bounds it lower \[eV\].
+const E6PT5: f64 = 6.5e6;
+
+/// Upstream's `fact` (`broadr.f90:164`): the factor by which the lower of two
+/// points sharing one energy is nudged down so the grid stays strictly
+/// increasing (`broadr.f90:483`), and by which a threshold is shaded to pick
+/// `thnmax` just below it (`broadr.f90:524`).
+const FACT: f64 = 0.99999;
+
+/// Upstream's default `emin` (`broadr.f90:356`) \[eV\]: a reaction whose grid
+/// starts at or below this is always broadened, never treated as a threshold.
+const EMIN_DEFAULT: f64 = 1.0;
+
+/// The default upper energy for Doppler broadening, `thnmax` in `broadr.f90`.
+///
+/// Ported from the `thnmax` determination in `broadr` (`broadr.f90:354-441`
+/// and `:522-524`, `:562`), for the default card input `thnmax = 0`. The
+/// manual's own summary (`broadr.f90:107-124`):
+///
+/// - (i) a resolved resonance region exists: broaden to the top of it;
+/// - (ii) no resolved region but an unresolved one: broaden to the *start* of
+///   the unresolved region;
+/// - (iii) no resonance parameters at all: broaden to the lesser of 6.5 MeV
+///   and the first reaction threshold.
+///
+/// Concretely: start from the PENDF MF=2 upper limit
+/// ([`ReconrResult::resonance_upper_limit`], which is `eresr`/`eresh` as
+/// RECONR wrote it), cap it at 6.5 MeV (`if (eresh.gt.e6pt5) eresh=e6pt5`),
+/// never exceed the evaluation's own `EMAX` (`if (c2h.lt.thnmax) thnmax=c2h`),
+/// and for a non-resonance material (`LRP = 0`) lower it to
+/// `0.99999 × ` the lowest threshold among the reactions that are not
+/// broadened (`if (fact*enext.lt.thnmax) thnmax=fact*enext`). If nothing set
+/// it, fall back to 6.5 MeV (`if (thnmax.eq.zero.and.thnmx.eq.0) thnmax=e6pt5`).
+///
+/// **Why an upper limit at all.** Above the resolved region the evaluation
+/// tabulates energy-*averaged* cross sections (the unresolved region under
+/// `LSSF=1`, and the smooth region above it). SIGMA1 assumes a pointwise
+/// σ(E); running it there is meaningless, and running it *across* the
+/// resolved/unresolved boundary drags resolved resonance structure into the
+/// unresolved side of the seam. That destroyed U-238's 20 keV seam in this
+/// port (`op-sdbk`: MT=102 45 % low at the seam) until this limit was added.
+#[must_use]
+pub fn broadening_limit(result: &ReconrResult) -> f64 {
+    let mut thnmax = result.resonance_upper_limit.unwrap_or(0.0).min(E6PT5);
+    // broadr.f90:441 — never above the input file's own emax.
+    let emax = result.material.emax;
+    if emax > 0.0 && emax < thnmax {
+        thnmax = emax;
+    }
+    // broadr.f90:522-524 — non-resonance nuclide: stop below the first
+    // threshold among the reactions the reaction loop would *not* broaden.
+    if result.material.lrp == 0 {
+        for sec in &result.sections {
+            let mt = i32::from(sec.mt);
+            if !threshold_candidate(mt) {
+                continue;
+            }
+            let Some(&(first_e, _)) = sec.pairs.first() else {
+                continue;
+            };
+            if first_e <= EMIN_DEFAULT {
+                continue; // `if (enext.le.emin) go to 170` — broadened instead
+            }
+            if FACT * first_e < thnmax {
+                thnmax = FACT * first_e;
+            }
+        }
+    }
+    if thnmax <= 0.0 {
+        thnmax = E6PT5;
+    }
+    thnmax
+}
+
+/// Reactions upstream's reaction loop (`broadr.f90:465-530`) considers when
+/// choosing `thnmax` for a non-resonance nuclide — i.e. everything it does
+/// not skip outright (`go to 165`) or always broaden (MT=18, `go to 170`).
+/// MT=1 is the union grid itself and is handled before the loop.
+fn threshold_candidate(mt: i32) -> bool {
+    !matches!(mt, 1 | 3 | 4 | 18 | 19 | 46..=49) && !(201..=599).contains(&mt) && mt <= 850
+}
+
+/// Doppler-broaden RECONR output up to `thnmax` \[eV\], copying everything
+/// above it through untouched — upstream BROADR's actual behaviour.
+///
+/// This is the entry point the RECONR → BROADR pipeline should use; see
+/// [`broaden_result`] for the one-call form that also derives `thnmax` with
+/// [`broadening_limit`]. [`doppler_broaden`] is the same kernel with no bound
+/// and exists for kernel-level tests.
+///
+/// Per section, the output grid is **BROADR's own adaptive grid**
+/// ([`broadn_section`], `broadr.f90` `broadn`): nodes chosen from the input
+/// grid with midpoints inserted until lin-lin interpolation of the
+/// broadened function meets `errthn` (points the walk skips are dropped).
+/// Upstream broadens the node *at* `thnmax` too — `if (et.ge.thnmax) go to
+/// 130` makes it a node, and only `es(1).gt.thnmax` sends the walk to the
+/// copy-through at label 190, `broadr.f90:1348-1353` and `:1467` — and
+/// every point with `E > thnmax` keeps its input value exactly. The SIGMA1
+/// integral for a broadened point still runs over the *whole* input grid —
+/// as upstream's does over all three loaded pages — so a point just below
+/// `thnmax` does see the structure above it, exactly as in `broadr.f90`.
+///
+/// Two consecutive points at one energy (a discontinuity that RECONR did not
+/// shade) are separated as upstream separates them on the union grid
+/// (`broadr.f90:483`): the lower point's energy becomes `0.99999 × E`.
+///
+/// # Parameters
+/// - `sections` — pointwise (energy \[eV\], σ \[b\]) sections from RECONR.
+/// - `awr`      — atomic weight ratio: target mass / neutron mass.
+/// - `temp_k`   — effective temperature \[K\] for broadening.
+/// - `thnmax`   — upper energy for broadening \[eV\]; see [`broadening_limit`].
+#[must_use]
+pub fn doppler_broaden_below(
+    sections: &[ReconrSection],
+    awr: f64,
+    temp_k: f64,
+    thnmax: f64,
+) -> Vec<ReconrSection> {
+    doppler_broaden_below_with(sections, awr, temp_k, thnmax, &BroadnTolerances::default())
+}
+
+/// [`doppler_broaden_below`] with explicit BROADR tolerances (card 3
+/// `errthn errmax errint`); the plain form uses `errthn = 0.001` and the
+/// upstream defaults for the other two.
+#[must_use]
+pub fn doppler_broaden_below_with(
+    sections: &[ReconrSection],
+    awr: f64,
+    temp_k: f64,
+    thnmax: f64,
+    tol: &BroadnTolerances,
+) -> Vec<ReconrSection> {
+    if sections.is_empty() || temp_k <= 0.0 {
+        return sections.to_vec();
+    }
+    let alpha = awr / (BK_EV_PER_K * temp_k);
+
+    sections
+        .par_iter()
+        .map(|sec| {
+            if sec.pairs.len() < 2 {
+                return sec.clone();
+            }
+            let mut pairs = sec.pairs.clone();
+            nudge_duplicate_energies(&mut pairs);
+
+            if pairs.first().is_some_and(|&(e, _)| e > thnmax) {
+                return ReconrSection {
+                    lr: sec.lr,
+                    mt: sec.mt,
+                    qi: sec.qi,
+                    pairs,
+                };
+            }
+
+            // broadr.f90 `broadn`: the output grid is BROADR's own adaptive
+            // node/midpoint grid, not the input grid (see `broadn.rs`).
+            let e: Vec<f64> = pairs.iter().map(|p| p.0).collect();
+            let s: Vec<f64> = pairs.iter().map(|p| p.1).collect();
+            let emtr = lab_threshold(sec.qi, awr);
+            let out = broadn_section(&e, &s, alpha, tol, thnmax, emtr);
+            ReconrSection {
+                lr: sec.lr,
+                mt: sec.mt,
+                qi: sec.qi,
+                pairs: out,
+            }
+        })
+        .collect()
+}
+
+/// Broaden a whole [`ReconrResult`] to `temp_k` \[K\] with the upstream default
+/// upper limit ([`broadening_limit`]). The result carries the same material
+/// header and limit, so it can be broadened again (bootstrap style) if wanted.
+#[must_use]
+pub fn broaden_result(result: &ReconrResult, temp_k: f64) -> ReconrResult {
+    let thnmax = broadening_limit(result);
+    ReconrResult {
+        material: result.material.clone(),
+        sections: doppler_broaden_below(&result.sections, result.material.awr, temp_k, thnmax),
+        resonance_upper_limit: result.resonance_upper_limit,
+        // BROADR does not touch MF=2, so the 0 K unresolved table rides
+        // through unchanged -- matching upstream, where UNRESR/PURR are what
+        // replace it with a temperature-dependent one.
+        unresolved_table: result.unresolved_table.clone(),
+    }
+}
+
+/// Separate consecutive points that share one energy, as upstream does when it
+/// builds the union grid (`broadr.f90:483`,
+/// `if (idnx.gt.0.and.enext*fact.gt.enow) enext=enext*fact`): the lower of
+/// the pair moves to `0.99999 × E`, provided that still lies above the
+/// preceding point.
+fn nudge_duplicate_energies(pairs: &mut [(f64, f64)]) {
+    for i in 0..pairs.len().saturating_sub(1) {
+        let e = pairs[i].0;
+        if pairs[i + 1].0 == e {
+            let nudged = e * FACT;
+            let prev = if i == 0 {
+                f64::NEG_INFINITY
+            } else {
+                pairs[i - 1].0
+            };
+            if nudged > prev {
+                pairs[i].0 = nudged;
+            }
+        }
+    }
+}
+
+/// Doppler-broaden a set of RECONR cross-section sections using the SIGMA1 method,
+/// **with no upper energy bound**.
+///
+/// This is the bare kernel: every point of every section is broadened. That is
+/// *not* what upstream BROADR does — it stops at `thnmax` (the top of the
+/// resolved region by default) and copies everything above through unchanged,
+/// because the evaluation above that energy holds energy-averaged values that
+/// the SIGMA1 kernel must not be run over. Pipelines must use
+/// [`doppler_broaden_below`] / [`broaden_result`]; this unbounded form is kept
+/// for kernel-level tests and for callers that have already restricted the
+/// grid themselves.
+///
+/// All sections must share the same energy grid (as produced by RECONR). The
+/// output has the same energy grid and the same MT numbers as the input, with
+/// cross sections broadened to the free-gas thermal spectrum at `temp_k` \[K\].
+///
+/// # Parameters
+/// - `sections` — pointwise (energy \[eV\], σ \[b\]) sections from RECONR.
+/// - `awr`      — atomic weight ratio: target mass / neutron mass.
+/// - `temp_k`   — effective temperature \[K\] for broadening.
+///
+/// # Physics
+///
+/// The velocity-space scaling factor `α = AWR / (k_B · T)` maps energies to
+/// the dimensionless velocity `u = √(α·E)`. The free-gas kernel becomes a
+/// Gaussian in `u`, enabling analytic panel-by-panel integration.
+pub fn doppler_broaden(sections: &[ReconrSection], awr: f64, temp_k: f64) -> Vec<ReconrSection> {
+    if sections.is_empty() || temp_k <= 0.0 {
+        return sections.to_vec();
+    }
+
+    // α = AWR / (kB · T)  [eV⁻¹]
+    let alpha = awr / (BK_EV_PER_K * temp_k);
+
+    sections
+        .iter()
+        .map(|sec| {
+            if sec.pairs.len() < 2 {
+                return sec.clone();
+            }
+
+            // Each reaction is broadened on its own energy grid: RECONR may give
+            // different reactions slightly different grids, so `eu` and `sigma`
+            // must be built from the *same* section to stay length-consistent.
+            let eu: Vec<f64> = sec
+                .pairs
+                .iter()
+                .map(|&(e, _)| if e > 0.0 { (alpha * e).sqrt() } else { 0.0 })
+                .collect();
+            let sigma: Vec<f64> = sec.pairs.iter().map(|&(_, s)| s.max(0.0)).collect();
+
+            // Broaden at each energy point. Each `bsigma_scalar` call is an
+            // independent, pure function of the (shared, immutable) `eu`/`sigma`
+            // grid, so the points are broadened in parallel — a large win on a
+            // dense grid, where each call walks many panels within the Gaussian
+            // cutoff. Results are identical to the serial order.
+            let pairs: Vec<(f64, f64)> = sec
+                .pairs
+                .par_iter()
+                .enumerate()
+                .map(|(j, &(e, _))| {
+                    if e <= 0.0 {
+                        return (e, 0.0);
+                    }
+                    (e, bsigma_scalar(eu[j], &eu, &sigma))
+                })
+                .collect();
+
+            ReconrSection {
+                lr: sec.lr,
+                mt: sec.mt,
+                qi: sec.qi,
+                pairs,
+            }
+        })
+        .collect()
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MtReaction;
+
+    #[test]
+    fn erfc_at_zero_is_one() {
+        assert!((erfc_nonneg(0.0) - 1.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn erfc_at_one_approx() {
+        // erfc(1.0) ≈ 0.15729921
+        assert!((erfc_nonneg(1.0) - 0.157_299_21).abs() < 1e-6);
+    }
+
+    #[test]
+    fn f_funcs_at_zero_match_fzero() {
+        // f[0] = ½·erfc(0); our erfc rational approx gives 0.99999999… not 1,
+        // so the tolerance reflects the A&S 7.1.26 error bound, not float eps.
+        let f = f_funcs(0.0);
+        for k in 0..5 {
+            let err = (f[k] - F_ZERO[k]).abs();
+            assert!(err < 1e-6, "f[{k}]={} vs F_ZERO[{k}]={}", f[k], F_ZERO[k]);
+        }
+    }
+
+    /// Brute-force reference: the SIGMA1 kernel evaluated by fine trapezoid
+    /// integration, using the same 1/v-below / constant-above extensions that
+    /// `bsigma_scalar` assumes. This is the definition the analytic panel
+    /// formulas must reproduce.
+    fn bsigma_reference(y: f64, eu: &[f64], sigma: &[f64]) -> f64 {
+        let u0 = eu[0];
+        let un = eu[eu.len() - 1];
+        let sig = |x: f64| -> f64 {
+            if x < u0 {
+                sigma[0] * u0 / x // 1/v extension below the grid
+            } else if x >= un {
+                sigma[sigma.len() - 1] // constant extension above the grid
+            } else {
+                // linear in u² (= linear in energy) within the panel
+                let i = eu.partition_point(|&u| u <= x).max(1) - 1;
+                let (xl, xr) = (eu[i], eu[i + 1]);
+                let t = (x * x - xl * xl) / (xr * xr - xl * xl);
+                sigma[i] + t * (sigma[i + 1] - sigma[i])
+            }
+        };
+        // ∫₀^∞ σ(x) x² [exp(-(x-y)²) - exp(-(x+y)²)] dx / (y² √π)
+        let n = 2_000_000;
+        let xmax = y + 8.0;
+        let dx = xmax / n as f64;
+        let mut acc = 0.0;
+        for k in 0..=n {
+            let x = (k as f64 + 0.5) * dx;
+            if x >= xmax {
+                break;
+            }
+            let w = if k == 0 || k == n { 0.5 } else { 1.0 };
+            let kern = (-(x - y).powi(2)).exp() - (-(x + y).powi(2)).exp();
+            acc += w * sig(x) * x * x * kern;
+        }
+        acc * dx / (y * y * SQRT_PI)
+    }
+
+    #[test]
+    fn bsigma_matches_numerical_reference() {
+        // Flat σ broadened at a spread of y values (low → high). The analytic
+        // panel result must track the brute-force kernel integral everywhere.
+        let kb = BK_EV_PER_K;
+        let alpha = 1.0 / (kb * 300.0); // AWR=1, T=300 K
+        let e_grid: Vec<f64> = (0..50).map(|i| (i + 1) as f64 * 0.01).collect();
+        let eu: Vec<f64> = e_grid.iter().map(|&e| (alpha * e).sqrt()).collect();
+        let sigma = vec![100.0; e_grid.len()];
+
+        for &j in &[0usize, 4, 9, 24, 49] {
+            let y = eu[j];
+            let got = bsigma_scalar(y, &eu, &sigma);
+            let want = bsigma_reference(y, &eu, &sigma);
+            let rel = (got - want).abs() / want.abs();
+            assert!(
+                rel < 5e-3,
+                "y={y:.3}: analytic={got:.4} vs numerical={want:.4} (rel {rel:.2e})"
+            );
+        }
+    }
+
+    /// Regression for bead `op-0xv5`: SIGMA1 leaves a pure 1/v cross section
+    /// exactly invariant, so on an H-2-like grid (`u` from 0.03, geometric
+    /// 0.2 % spacing) the broadened value must equal `1/y` at every `y` up to
+    /// the lin-lin chord of `1/u` (~(Δu/u)²/8 = 5e-7).
+    ///
+    /// **Methodology.** Query `y = 0.03 .. 5`; the low end is H-2 at 1e-5 eV
+    /// and 293.6 K.
+    ///
+    /// **Result (2026-09-10).** With A&S 7.1.26 `erfc`: -1.94e-2 at
+    /// `y = 0.03`, -1.68e-2 at 0.04, -9.3e-3 at 0.06, -1.6e-3 at 0.10, and
+    /// ±3-4e-4 even at `y = 1-2` (sign-alternating: the approximation's
+    /// oscillating 1e-7 absolute error times `1/y²`). With the series /
+    /// continued-fraction `erfc`: a flat +2.5e-5 on a 1 % grid and +1.0e-6 on
+    /// this 0.2 % grid (the chord term), with +3.9e-6 / +6.3e-6 at
+    /// `y = 0.03 / 0.04` — three thousand times better than before. Asserted
+    /// below 2e-5.
+    #[test]
+    fn one_over_v_is_preserved_at_low_y() {
+        let mut eu = vec![0.03f64];
+        while *eu.last().unwrap() < 40.0 {
+            let next = eu.last().unwrap() * 1.002;
+            eu.push(next);
+        }
+        let sigma: Vec<f64> = eu.iter().map(|&u| 1.0 / u).collect();
+        let mut worst = 0.0f64;
+        for &y in &[0.03, 0.04, 0.06, 0.1, 0.2, 0.3, 0.5, 1.0, 2.0, 3.0, 5.0] {
+            let got = bsigma_scalar(y, &eu, &sigma);
+            let rel = (got - 1.0 / y) / (1.0 / y);
+            eprintln!("[1/v] y={y:5.2}  rel error {rel:+.3e}");
+            worst = worst.max(rel.abs());
+        }
+        eprintln!("[1/v] worst {worst:.3e}");
+        assert!(worst < 2e-5, "1/v not preserved: worst {worst:.3e}");
+    }
+
+    #[test]
+    fn broadening_preserves_one_over_v() {
+        // SIGMA1 leaves a 1/v cross section invariant: σ(E) = K/√E ∝ 1/u.
+        // The 1/v-below extension is exact, so interior points should recover
+        // the input to high accuracy.
+        let kb = BK_EV_PER_K;
+        let alpha = 1.0 / (kb * 300.0);
+        let e_grid: Vec<f64> = (0..80).map(|i| (i + 1) as f64 * 0.01).collect();
+        let eu: Vec<f64> = e_grid.iter().map(|&e| (alpha * e).sqrt()).collect();
+        let k_const = 50.0;
+        let sigma: Vec<f64> = e_grid.iter().map(|&e| k_const / e.sqrt()).collect();
+
+        // Check interior points (away from the constant-above extension at the top).
+        for j in 5..40 {
+            let y = eu[j];
+            let got = bsigma_scalar(y, &eu, &sigma);
+            let want = sigma[j];
+            let rel = (got - want).abs() / want;
+            // The linear 0.01 eV grid is coarse in `u` at its low end (Δu/u
+            // ~ 9 % at 0.06 eV), so the lin-lin chord of 1/u dominates:
+            // measured 2.85e-3 at 0.06 eV (2026-09-10, precise erfc; the
+            // A&S erfc needed 1e-2 here).
+            assert!(
+                rel < 5e-3,
+                "1/v not preserved at E={:.2}: got {got:.3}, want {want:.3} (rel {rel:.2e})",
+                e_grid[j]
+            );
+        }
+    }
+
+    #[test]
+    fn broadening_flat_xs_stays_flat_at_high_y() {
+        // A flat σ does NOT stay flat at low y (the 1+1/2y² enhancement is real),
+        // but at high y (E ≫ kT/AWR) broadening leaves it essentially unchanged.
+        let kb = BK_EV_PER_K;
+        let alpha = 1.0 / (kb * 300.0);
+        // Energies chosen so the smallest y is large: E from 10 to 60 eV.
+        let e_grid: Vec<f64> = (0..50).map(|i| 10.0 + i as f64 * 1.0).collect();
+        let eu: Vec<f64> = e_grid.iter().map(|&e| (alpha * e).sqrt()).collect();
+        let sigma = vec![100.0; e_grid.len()];
+
+        for j in 5..45 {
+            let y = eu[j];
+            let got = bsigma_scalar(y, &eu, &sigma);
+            assert!(
+                (got - 100.0).abs() < 0.5,
+                "high-y flat XS should stay ≈100, got {got} at E={:.1}",
+                e_grid[j]
+            );
+        }
+    }
+
+    #[test]
+    fn broadening_at_zero_temp_returns_unchanged() {
+        // At T→0, alpha→∞, so all contributions collapse — in practice we bail
+        // early on temp_k ≤ 0.
+        let pairs = vec![(0.01, 10.0), (1.0, 5.0), (10.0, 2.0)];
+        let sec = ReconrSection {
+            lr: 0,
+            mt: MtReaction::Mt2Elastic,
+            qi: 0.0,
+            pairs,
+        };
+        let out = doppler_broaden(&[sec.clone()], 35.0, 0.0);
+        assert_eq!(out[0].pairs, sec.pairs);
+    }
+
+    fn material(lrp: i32, emax: f64) -> crate::reconr::MaterialInfo {
+        crate::reconr::MaterialInfo {
+            za: 92238.0,
+            awr: 236.0058,
+            lrp,
+            lfi: 1,
+            nlib: 0,
+            elis: 0.0,
+            nfor: 6,
+            emax,
+        }
+    }
+
+    fn section(mt: MtReaction, pairs: Vec<(f64, f64)>) -> ReconrSection {
+        ReconrSection {
+            lr: 0,
+            mt,
+            qi: 0.0,
+            pairs,
+        }
+    }
+
+    #[test]
+    fn broadening_limit_is_top_of_resolved_range_capped_at_emax_and_6p5mev() {
+        // (i) resolved range present: thnmax = its top (U-238: 2e4 eV).
+        let r = ReconrResult {
+            material: material(1, 3.0e7),
+            sections: vec![],
+            resonance_upper_limit: Some(2.0e4),
+            unresolved_table: None,
+        };
+        assert_eq!(broadening_limit(&r), 2.0e4);
+        // Cap at e6pt5 (broadr.f90:423-425).
+        let r = ReconrResult {
+            material: material(1, 3.0e7),
+            sections: vec![],
+            resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
+        };
+        assert_eq!(broadening_limit(&r), 6.5e6);
+        // Never above the evaluation's emax (broadr.f90:441).
+        let r = ReconrResult {
+            material: material(1, 1.5e6),
+            sections: vec![],
+            resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
+        };
+        assert_eq!(broadening_limit(&r), 1.5e6);
+        // No MF=2 at all: eresh = thnmax = 0 → e6pt5 fallback (broadr.f90:562).
+        let r = ReconrResult {
+            material: material(0, 2.0e7),
+            sections: vec![],
+            resonance_upper_limit: None,
+            unresolved_table: None,
+        };
+        assert_eq!(broadening_limit(&r), 6.5e6);
+    }
+
+    #[test]
+    fn broadening_limit_stops_below_first_threshold_for_non_resonance_nuclide() {
+        // (iii) lrp = 0 with an LRU=0 range: lowest threshold × 0.99999
+        // (broadr.f90:524), ignoring MT=18 and the sum/derived MTs.
+        let secs = vec![
+            section(MtReaction::from_any(2), vec![(1e-5, 20.0), (2e7, 20.0)]),
+            section(MtReaction::from_any(18), vec![(5e5, 0.0), (2e7, 1.0)]), // always broadened
+            section(MtReaction::from_any(4), vec![(4e4, 0.0), (2e7, 1.0)]),  // skipped (sum)
+            section(MtReaction::from_any(51), vec![(4.5e4, 0.0), (2e7, 1.0)]),
+            section(MtReaction::from_any(16), vec![(6.2e6, 0.0), (2e7, 1.0)]),
+        ];
+        let r = ReconrResult {
+            material: material(0, 2.0e7),
+            sections: secs.clone(),
+            resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
+        };
+        assert_eq!(broadening_limit(&r), 0.99999 * 4.5e4);
+        // Same sections but lrp = 1: thresholds are not consulted at all.
+        let r = ReconrResult {
+            material: material(1, 2.0e7),
+            sections: secs,
+            resonance_upper_limit: Some(2.0e7),
+            unresolved_table: None,
+        };
+        assert_eq!(broadening_limit(&r), 6.5e6);
+    }
+
+    #[test]
+    fn bounded_broadening_copies_points_above_thnmax_verbatim() {
+        // A step at E = 100 eV, shaded RECONR-style into two distinct energies
+        // straddling thnmax = 100. Below: broadened. At and above the upper
+        // side of the step: bit-identical to the input.
+        let kb = BK_EV_PER_K;
+        // 1..=199 so the last plateau point is 99.5 (1..=200 would put 100.0
+        // *before* the shaded 99.99999 and hand BROADR a non-ascending grid).
+        let mut pairs: Vec<(f64, f64)> = (1..=199).map(|i| (i as f64 * 0.5, 10.0)).collect();
+        // last point below 100 is 99.5; insert the shaded pair and a tail
+        pairs.push((99.99999, 10.0));
+        pairs.push((100.00001, 30.0));
+        pairs.push((150.0, 31.0));
+        pairs.push((200.0, 32.0));
+        let sec = section(MtReaction::Mt102Capture, pairs.clone());
+        let awr = 10.0;
+        let temp = 3000.0;
+        let out = doppler_broaden_below(&[sec.clone()], awr, temp, 100.0);
+        let o = &out[0].pairs;
+        // The output grid below thnmax is BROADR's own (`broadn`,
+        // broadr.f90:1256-1508: skipped points are dropped, midpoints added),
+        // so only the tail above thnmax is compared, point for point — label
+        // 190 copies it "to output" verbatim.
+        let split = pairs.partition_point(|&(e, _)| e <= 100.0);
+        let osplit = o.partition_point(|&(e, _)| e <= 100.0);
+        assert_eq!(
+            &o[osplit..],
+            &pairs[split..],
+            "points above thnmax must be untouched"
+        );
+        assert!(o.windows(2).all(|w| w[1].0 > w[0].0), "grid ascending");
+        // The unbounded kernel would smear the step into the upper side.
+        let unb = doppler_broaden(&[sec], awr, temp);
+        assert!(
+            unb[0].pairs[split].1 < 29.0,
+            "unbounded: {}",
+            unb[0].pairs[split].1
+        );
+        // And the lower side of the seam IS broadened (sees the step above it,
+        // as upstream's does): strictly between the two plateau values.
+        let lo = o[osplit - 1].1;
+        assert!(lo > 10.0 && lo < 30.0, "lower side of the seam: {lo}");
+        // Sanity that the temperature is high enough for the step to matter:
+        // Doppler width at 100 eV should exceed the 0.5 eV grid spacing.
+        let width = (4.0 * 100.0 * kb * temp / awr).sqrt();
+        assert!(width > 0.5, "width {width}");
+    }
+
+    #[test]
+    fn duplicate_energies_are_nudged_like_upstream() {
+        let mut p = vec![(1.0, 1.0), (2.0, 1.0), (2.0, 5.0), (3.0, 5.0)];
+        nudge_duplicate_energies(&mut p);
+        assert_eq!(p[1].0, 2.0 * 0.99999);
+        assert_eq!(p[2].0, 2.0);
+        // Grid stays strictly increasing.
+        assert!(p.windows(2).all(|w| w[0].0 < w[1].0));
+    }
+}
+
+/// Run the BROADR card-input driver (NJOY module entry point).
+///
+/// **Status:** this module's processing physics is ported (see its `README.md`
+/// and the typed API above); the NJOY *card-input driver* itself is not yet
+/// ported, so this returns [`crate::NjoyError::NotPorted`]. Use the module's
+/// typed API directly rather than this driver.
+pub fn run() -> Result<(), crate::NjoyError> {
+    Err(crate::NjoyError::NotPorted(
+        "broadr driver (physics ported — use the module API)",
+    ))
+}

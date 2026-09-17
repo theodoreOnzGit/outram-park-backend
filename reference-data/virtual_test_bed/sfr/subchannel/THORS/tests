@@ -1,0 +1,37 @@
+[Tests]
+  issues = '#293'
+  # Syntax Checks for THORS model
+  [channel_syntax]
+    type = RunApp
+    input = FFM-5B.i
+    check_input = True
+    executable_pattern = 'subchannel*|combined*'
+  []
+  [viz_syntax]
+    type = RunApp
+    input = FFM-5B_viz.i
+    check_input = True
+    executable_pattern = 'subchannel*|combined*'
+  []
+  [python_script]
+    type = RunCommand
+    command = "python plot5B.py"
+    required_python_packages = 'numpy matplotlib'
+    prereq = 'FFM-5B'
+  []
+
+  # Regression checks for THORS model
+    [FFM-5B]
+    type = CSVDiff
+    input = 'FFM-5B.i'
+    csvdiff  = 'FFM-5B_out.csv'
+    capabilities = 'method!=dbg'
+    abs_zero = 1e-5
+    valgrind = NONE
+    recover = false
+    max_parallel = 1
+    prereq = 'channel_syntax'
+    executable_pattern = 'subchannel*|combined*'
+    requirement = 'The system will examine the subchannel solver for the FFM-5B low flow case'
+  []
+[]

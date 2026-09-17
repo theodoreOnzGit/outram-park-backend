@@ -1,5 +1,17 @@
 # outram-park-backend
-Backend for Open-source TRAnsient Multi-Phase Advanced Reactor simulator Kit (OUTRAM PARK), a suite for real-time simulators
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+
+Cargo workspace for **OUTRAM PARK** — Open-source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit.
+
+A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.
+
+> *"Best open-source nuclear simulator suite in Singapore, JB — and some say Batam!"* 🇸🇬
+> — with apologies to **Phua Chu Kang**. Said in fun, lah. For the real, sober
+> status, see the ⚠️ banner above: everything here is unverified until validated,
+> and **not** for facility operation.
 
 ## Note on AI-assisted development cost vs. value
 
@@ -57,3 +69,428 @@ oracle, or if AI output is treated as correct-by-default. The $600 buys
 specialist-grade output at a fraction of specialist cost **provided** the expert
 stays in the loop to verify it; the review is what makes the spend safe rather
 than risky.
+
+## Publications & citation
+
+**The project and its agentic-porting methodology** — OpenFOAM → `outram-foam-*`,
+the TAMPINES steam tables and the 1-D HEM choked-flow solver, with their
+preliminary V&V (cavity, Sod shock tube, Moody HEM charts, Edwards blowdown):
+
+> Ong, T. K. C., Wong, E. Y. H., & Xiao, S. (2026). *Agentic Porting,
+> Construction and Initial Verification and Validation of Libraries within the
+> Open Source Unified TRAnsient Multi-Phase Advanced Reactor simulation Kit
+> (Outram Park) Part I: Thermal Hydraulics.* arXiv:2608.17504 [physics.comp-ph].
+> <https://arxiv.org/abs/2608.17504>
+
+```bibtex
+@misc{ong2026outrampark1,
+  title        = {Agentic Porting, Construction and Initial Verification and
+                  Validation of Libraries within the Open Source Unified
+                  TRAnsient Multi-Phase Advanced Reactor simulation Kit
+                  (Outram Park) Part I: Thermal Hydraulics},
+  author       = {Ong, Theodore Kay Chen and Wong, Ethan Yew Hoe and Xiao, Sicong},
+  year         = {2026},
+  eprint       = {2608.17504},
+  archivePrefix= {arXiv},
+  primaryClass = {physics.comp-ph},
+  url          = {https://arxiv.org/abs/2608.17504}
+}
+```
+
+Its central finding is the premise this repository is organised around: with
+agentic porting, **verification and validation by human expertise — not code
+generation — is the bottleneck.** That is why every crate carries a
+`## Bookkeeping status` block gated on maintainer sign-off, why
+`VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md` treat AI output as
+untrusted draft material, and why `docs/human-corrections-to-ai-work.md` exists.
+
+The paper's line-count accounting is reproducible from this repository:
+`kovan-cli kloc` regenerates it, and `docs/kloc-parity-baseline/` holds the
+frozen fixture every published figure is checked against.
+
+**The TUAS solver** (peer-reviewed; V&V against SAM, CIET forced-circulation
+experimental data, and a HITEC-salt/YD-325-oil shell-and-tube heat exchanger):
+
+> Ong, T. K. C., Xiao, S., & Peterson, P. F. (2025). *An open-source
+> Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows
+> (TUAS).* International Journal of Advanced Nuclear Reactor Design and
+> Technology. <https://doi.org/10.1016/j.jandt.2025.03.006>
+
+See [`crates/tuas_boussinesq_solver/README.md`](crates/tuas_boussinesq_solver)
+for the BibTeX entry and the V&V records that reproduce it.
+
+> **Note on the acronym.** Part I's title expands OUTRAM PARK as
+> "Multi-**Phase**". **As of 2026-09-12 the project is "Multi-Physics"** —
+> multiphase flow is one crate of ~37, while the workspace spans neutronics,
+> nuclear data, fuel performance, structural mechanics, DEM and more. The
+> letters `M` and `P` are unchanged, so the acronym still spells out and no
+> citation breaks.
+>
+> Part I stands as published — **cite its title verbatim, do not modernise it.**
+> Part II onward use "Multi-Physics" and state the change where the acronym is
+> first expanded, so a reader meeting both expansions is never left guessing
+> which is a typo. Rationale and wording:
+> [`docs/ecosystem-naming.md`](docs/ecosystem-naming.md).
+
+## Crates
+
+The workspace has 31 member crates, grouped by domain below.
+
+**Thermal-hydraulics, fluid properties & process control**
+
+| Crate | Role | License |
+|---|---|---|
+| [`chem-eng-real-time-process-control-simulator`](crates/chem-eng-real-time-process-control-simulator) | PID / transfer-function process-control library for real-time simulators | GPL-3.0 (published versions <= 0.1.1 on crates.io remain Apache-2.0) |
+| [`tuas_boussinesq_solver`](crates/tuas_boussinesq_solver) | Thermal-hydraulics Boussinesq single-phase solver (TUAS) | GPL-3.0 |
+| [`tampines-steam-tables`](crates/tampines-steam-tables) | IAPWS-IF97 steam/water properties + steam-turbine & choked-flow equations (TAMPINES) | GPL-3.0 |
+| [`tampines`](crates/tampines) | Central thermal-hydraulic framework that composes the TH crates | GPL-3.0 |
+| [`outram-park-fork-coolprop`](crates/outram-park-fork-coolprop) | Pure-Rust fork of CoolProp — Helmholtz-EOS thermophysical properties (independent fork, not official CoolProp) | GPL-3.0 |
+| [`outram-park-fork-offbeat`](crates/outram-park-fork-offbeat) | Pure-Rust fork of OFFBEAT — nuclear fuel performance: mechanics, rheology, gap/contact, material correlations, burnup/FGR, corrosion (independent fork, not official OFFBEAT) | GPL-3.0 |
+| [`farrer-park`](crates/farrer-park) | FEM structural mechanics — small-strain elasticity and J2 plasticity on Lagrange elements, from MOOSE / PRISMS-Plasticity / PRISMS-Fatigue (all LGPL-2.1, one-way into GPL-3.0). Uses `outram-foam-basic-lib` for the shared Krylov backend only, never for its discretisation. Verification only, no human V&V — not a life-assessment tool (independent fork, not affiliated with INL/MOOSE or the PRISMS Center) | GPL-3.0 |
+| [`outram-park-fork-dwsim-libs`](crates/outram-park-fork-dwsim-libs) | Pure-Rust fork of DWSIM process-simulation building blocks (independent fork) | GPL-3.0 |
+
+**CFD (OpenFOAM translations)**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-foam-basic-lib`](crates/outram-foam-basic-lib) | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial/ODE solvers, interpolation, FV operators (`fvm`/`fvc`, MUSCL), thermophysics kernels, fields, mesh (independent fork, not official OpenFOAM) | GPL-3.0 |
+| [`outram-foam-turbulence-lib`](crates/outram-foam-turbulence-lib) | RAS/LES turbulence closures (k-ω SST implemented; others scaffolded) on top of `outram-foam-basic-lib` | GPL-3.0 |
+| [`outram-foam-appbuilder-lib`](crates/outram-foam-appbuilder-lib) | Solver application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress GeN-Foam deterministic-neutronics + TH port | GPL-3.0 |
+| [`outram-foam-cli`](crates/outram-foam-cli) | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries (independent fork, not official OpenFOAM) | GPL-3.0 |
+| [`outram-foam-multiphase`](crates/outram-foam-multiphase) | Phase-II multiphase CFD — drift-flux (Euler-Euler two-fluid, wall boiling, CHF, dryout planned); scaffold, no human V&V (independent fork, not official OpenFOAM) | GPL-3.0 |
+
+**Mesh generation & authoring**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-blender`](crates/outram-blender) | GPL fork of Blender's mesh-authoring architecture — headless surface-mesh frontend with opt-in Monte Carlo (`mc-export`) and OpenFOAM volume-meshing (`foam-mesh`) solver bridges (not affiliated with the Blender Foundation) | GPL-3.0 |
+| [`outram-park-fork-cfmesh`](crates/outram-park-fork-cfmesh) | Pure-Rust fork of cfMesh — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; consumes an `outram-blender` surface and emits an `outram-foam` polyMesh (independent fork, not official cfMesh) | GPL-3.0 |
+| [`outram-foam-mesh`](crates/outram-foam-mesh) | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh) (independent fork, not official OpenFOAM) | GPL-3.0 |
+
+**Neutronics & nuclear data**
+
+| Crate | Role | License |
+|---|---|---|
+| [`teh-o-prke`](crates/teh-o-prke) | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
+| [`njoy-outram-park-fork`](crates/njoy-outram-park-fork) | NJOY2016 ENDF port — all nuclear data (RECONR/BROADR/THERMR/ACER/…, ν̄/χ, windowed multipole); exposes `XsProvider` (independent fork, not official NJOY) | GPL-3.0 |
+| [`outram-mc-libs`](crates/outram-mc-libs) | Monte Carlo transport — CSG geometry, particle tracking, k-eigenvalue, Woodcock/delta tracking, depletion; data-free (pulls cross sections from `njoy-outram-park-fork`) | GPL-3.0 |
+| [`boon-lay`](crates/boon-lay) | TRISO-particle / Lagrangian decay simulator (BOON-LAY); includes the TRISO-ATOPS fork | GPL-3.0 |
+| [`nee_soon`](crates/nee_soon) | Integration / coupling layer — composes MC + deterministic/TH + nuclear data + PRKE | GPL-3.0 |
+| [`outram-park-fork-liggghts`](crates/outram-park-fork-liggghts) | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular; GPL-2-or-later, see NOTICE); scaffold | GPL-3.0 |
+
+**Subsurface & infrastructure**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-park-fork-pflotran`](crates/outram-park-fork-pflotran) | Pure-Rust fork of PFLOTRAN — subsurface flow & reactive transport, no PETSc/MPI/FFI; scaffold, no human V&V (independent fork) | GPL-3.0 |
+| [`outram-park-mpi`](crates/outram-park-mpi) | Pure-Rust MPICH subset — the MPI-3 API surface over a shared-memory threads-as-ranks transport, Android-buildable, no C/FFI; scaffold (not affiliated with MPICH) | GPL-3.0 |
+
+**Digital twin**
+
+| Crate | Role | License |
+|---|---|---|
+| [`outram-park-digital-twin-engine`](crates/outram-park-digital-twin-engine) | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | GPL-3.0 |
+
+**KOVAN knowledge layer** (offline / Android-first)
+
+| Crate | Role | License |
+|---|---|---|
+| [`kovan-common`](crates/kovan-common) | Shared canonical KOVAN types (`KovanDocument`, `KovanSymbol`, …) | GPL-3.0 |
+| [`kovan-discovery`](crates/kovan-discovery) | File discovery + text search (`ignore`/ripgrep) and git-awareness (`gix`) | GPL-3.0 |
+| [`kovan-literature`](crates/kovan-literature) | Literature archive — PDF → Markdown → `KovanDocument` → BibTeX | GPL-3.0 |
+| [`kovan-semantics`](crates/kovan-semantics) | Repo understanding — ripgrep-first, escalating to language servers | GPL-3.0 |
+| [`kovan-codegen`](crates/kovan-codegen) | Deterministic code generation for known numerical methods | GPL-3.0 |
+| [`kovan`](crates/kovan) | CLI (agent-facing, binary `kovan`), TUI (`ratatui`, binary `kovan-tui`, CLI-redirect stub on Android) and GUI (binary `kovan-gui`, reuses `kovan-literature`'s digitiser window) — three front ends over the KOVAN knowledge layer | GPL-3.0 |
+
+## Build
+
+Requires a system BLAS (OpenBLAS on Linux), but only for test:
+
+```bash
+# Arch / EndeavourOS
+sudo pacman -S openblas
+# Debian / Ubuntu
+sudo apt install libopenblas-dev
+```
+
+```bash
+cargo build --workspace
+cargo test  --workspace --lib --tests
+```
+
+## Generated documentation (`kovan`)
+
+Documentation generation and repository accounting run through this workspace's
+own `kovan` binary. There is no Python in either toolchain.
+
+```bash
+cargo build --release -p kovan --bin kovan     # builds target/release/kovan
+```
+
+**Prerequisites, both mandatory** — a nightly toolchain and `rustdoc-md`.
+`rustdoc-md` itself is an ordinary stable binary; the nightly requirement
+belongs to rustdoc's `--output-format json`, which is still unstable. It is
+build tooling only: nothing shipped needs nightly, and the workspace builds,
+tests and publishes on stable.
+
+```bash
+rustup toolchain install nightly
+cargo install rustdoc-md --locked
+```
+
+### Regenerating the API mirrors
+
+Each crate carries `crates/<crate>/docs/<crate>-api.md`, a single-file Markdown
+mirror of its public API generated from the doc comments. To regenerate:
+
+```bash
+kovan api-docs --all                     # refresh every crate that has a mirror
+kovan api-docs --all --include-missing   # also create mirrors for crates with none
+kovan api-docs outram-foam-basic-lib     # just one crate
+kovan api-docs outram-mc-libs --private  # include private items
+```
+
+`--all` reports progress per crate and **does not stop at the first failure** —
+one crate that fails to document says nothing about the other thirty-six. It
+lists what failed at the end and exits non-zero.
+
+Notes, if kovan is not yet on cargo and you are running in this github 
+repo:
+
+```bash
+cargo run --release -p kovan --bin kovan -- api-docs --all --include-missing
+```
+
+### Bundling docs for an external agent
+
+`kovan agent-docs-gen` packs the API docs into a flat, upload-ready set of files
+for a chat agent with a fixed context window (the upload dialogs take files but
+not folders, so nothing is nested).
+
+```bash
+kovan agent-docs-gen --list                       # what exists, and what each costs
+kovan agent-docs-gen --crates tampines-steam-tables,outram-park-fork-coolprop
+```
+
+It writes three tiers, so you upload only what you need: `_INDEX.md` (a ~3 KB
+roster of every crate), `<crate>.index.md` (condensed signatures), and
+`<crate>.api.md` (the full rustdoc). `AGENTS.md` carries the workspace's coding
+rules. The command reports a per-file token estimate against a budget and says
+how many optional files fit in the headroom.
+
+Again, if kovan is not on cargo and you are running on github:
+
+```bash
+cargo run --release -p kovan --bin kovan -- api-docs --all --include-missing
+cargo run --release -p kovan --bin kovan -- agent-docs-gen --out ~/Desktop/agent-docs.
+```
+
+As seen here, u are able to put this on the desktop.
+
+
+
+### Running from anywhere
+
+None of these need to be run from the workspace root. When `--root` is omitted
+the workspace is discovered, in this order:
+
+1. the current directory or any ancestor of it;
+2. `~/outram-park-backend`;
+3. `~/Documents/outram-park-backend`;
+4. `~/Documents/research/outram-park-backend`;
+5. otherwise, pass `--root <path>` — the error names every path it tried.
+
+A directory qualifies only if it holds `crates/` **and** a `Cargo.toml`
+declaring `[workspace]`, so a directory that merely shares the name is not
+mistaken for it. An explicit `--root` always wins, and a wrong one is an error
+rather than being quietly replaced by a search.
+
+Generated output follows the same preference: `--out` if given, otherwise
+`<workspace>/agent-docs` (which `.gitignore` already covers), otherwise
+`~/Documents/agent-docs` or `~/agent-docs`. Every run prints the workspace and
+the output directory it chose, with the reason.
+
+### Ingesting literature (`kovan lit`)
+
+Any document that **informs the code** — a correlation taken from it, a
+benchmark value cited, a number in a doc comment — belongs in
+`crates/kovan-literature`, catalogued with its provenance. Not in `~/Downloads`,
+not loose in `reference-data/`. "Used" is the trigger, not "ingested".
+
+**Decide the access tier before importing, from the document's own copyright
+page.** This is the step that matters and the one that is easy to get wrong:
+
+- **Where you downloaded it grants you nothing.** INIS, gen-4.org, OSTI and a
+  lab's website all host documents they do not license you to redistribute.
+  "Open access" on a record page means freely *readable*, not freely
+  *redistributable*.
+- **No licence statement means proprietary**, not open. Unsure is the same as
+  no. That failure direction is recoverable; the other is a licence violation in
+  a public repository, because `open/` is committed and this repository is
+  public.
+- Check the copyright line for a **text-and-data-mining / AI-training
+  reservation**. Where present, catalogue metadata and factual findings only and
+  do not extract the full text.
+
+```bash
+# 1. Stage the PDF. kovan_import/ is gitignored scratch.
+mkdir -p kovan_import && mv ~/Downloads/paper.pdf kovan_import/
+
+# 2. Read the copyright page and decide the tier BEFORE importing.
+#    open/  -> committed and published.   proprietary/ -> gitignored.
+
+# 3. Import into the tier you decided on.
+kovan lit import kovan_import/paper.pdf \
+  --json-out    crates/kovan-literature/open/papers/author2026topic.json \
+  --markdown-out crates/kovan-literature/generated/markdown/open/author2026topic.md
+
+# 4. Acceptance check: the metadata must round-trip.
+kovan lit bibtex crates/kovan-literature/open/papers/author2026topic.json
+
+# 5. Add an entry to crates/kovan-literature/CATALOGUE.md, then delete the
+#    staged copy.
+rm kovan_import/paper.pdf
+```
+
+`kovan lit outline <pdf>` prints the heading structure without importing, which
+is the cheapest way to see what a document actually contains.
+
+**Check the extracted metadata; it is frequently wrong.** Observed failures
+include the article-type label, a journal running header, the PII string and the
+Word source filename all taken as titles, editors taken as authors, and a scan
+date taken as the publication year. `kovan lit bibtex` round-tripping cleanly is
+the acceptance check — if the BibTeX is wrong, fix the JSON before cataloguing.
+
+### Other `kovan` commands
+
+```bash
+kovan tokens report      # regenerate the local token-usage summary
+kovan tokens query --from 010826 --to 140826
+kovan historian --from 010826 --to 140826   # pre-merge accounting report
+kovan kloc --check       # the paper's productivity accounting
+```
+
+## Publishing (mandatory crate order)
+
+`cargo publish` resolves **all** dependencies — normal *and* dev — against
+crates.io, so each crate can only be packaged once everything it depends on
+(directly or as a dev-dependency) is already live. Publish in this order:
+
+| # | Crate | Must be published after |
+|---|---|---|
+| 1 | `chem-eng-real-time-process-control-simulator` | — (no internal deps) |
+| 1 | `outram-foam-basic-lib` | — (no internal deps) |
+| 1 | `outram-park-fork-coolprop` | — (no internal deps; only `uom`/`approx`) |
+| 2 | `outram-foam-turbulence-lib` | `outram-foam-basic-lib` |
+| 2 | `tuas_boussinesq_solver` | — (only dev-dep `chem-eng…`; the former `outram-foam-basic-lib` dep was removed in 0.1.3) |
+| 3 | `outram-foam-appbuilder-lib` | `outram-foam-basic-lib`, `outram-foam-turbulence-lib` |
+| 3 | `teh-o-prke` | `chem-eng…` (real dep) + dev-deps `tuas…`, `chem-eng…` |
+| 4 | `tampines-steam-tables` | `tuas…` + dev-deps `teh-o-prke`, `chem-eng…` |
+
+> This table covers the core inter-dependent crates. The remaining members
+> (`tampines`, `njoy-outram-park-fork`, `outram-mc-libs`,
+> `outram-park-fork-dwsim-libs`, `boon-lay`, `nee_soon`,
+> `outram-park-digital-twin-engine`, and the `kovan-*` crates) publish per their
+> own dependency edges; not all have been published yet. As of 2026-07-16,
+> `tuas_boussinesq_solver`, `tampines-steam-tables`, `outram-park-fork-coolprop`,
+> `outram-foam-basic-lib`, and `outram-foam-turbulence-lib` are live on crates.io
+> (`outram-foam-appbuilder-lib` publish pending).
+
+Publish each from the workspace root with `cargo publish -p <crate>` (commit
+first; `cargo publish` refuses a dirty tree). Internal deps are
+`{ path = …, version = … }` in the root `[workspace.dependencies]`, so a
+crate's pinned `version` must be bumped here whenever an upstream crate it
+depends on is bumped.
+
+> **Keep this list in sync.** Whenever crate dependencies or versions change,
+> update this table (and the per-crate version pins in the root `Cargo.toml`)
+> so the publish order stays correct.
+
+`cargo publish --dry-run` for crates 2–6 will fail with "failed to select a
+version" until their upstreams are live — that is expected, not a packaging
+error.
+
+## Responsible Use
+
+Outram Park is an open-source nuclear engineering simulation ecosystem for education, research, capability building, and verification and validation.
+
+The project uses only open-source data, public literature data, and properly licensed public benchmark data. It does not use confidential, restricted, proprietary, operational, or unpublished facility data.
+
+AI-assisted development may be used for coding, translation, refactoring, documentation, and test generation. AI-assisted outputs are treated as draft material and must undergo human review, licence provenance checks, testing, verification, and validation where applicable.
+
+Outram Park is not intended for nuclear facility operation, reactor control, licensing decisions, emergency response, safety-critical decision-making, safeguards-sensitive analysis, or security-sensitive analysis.
+
+Digital twin examples are offline education and research demonstrations only. They do not connect to live operational systems, plant systems, safety-critical infrastructure, institutional production systems, or restricted infrastructure.
+
+Simulation results should be interpreted with care. Users are responsible for checking assumptions, numerical limitations, data provenance, validation status, error estimates, and applicability to their intended use.
+
+For details, see [`RESPONSIBLE_USE.md`](RESPONSIBLE_USE.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Changelog
+
+Human-in-the-loop decision log — the maintainer's directions and sign-offs,
+recorded for provenance. AI agents executed these; a human decided them. Code
+remains **unverified until a V&V case demonstrates otherwise** (see the banner
+above).
+
+### 2026-07-15
+
+**Vendoring & forks** (upstreams cloned into each crate's gitignored
+`upstream_source/`, per the workspace vendoring rule):
+
+- **GeN-Foam** (GPL-3.0, `652b3da`) vendored into `outram-foam-appbuilder-lib`;
+  Rust port begun (point-kinetics slice verified against the inhour equation).
+- **OpenFOAM core** (v2606, `481094fd`) vendored into `outram-foam-basic-lib` as
+  the primitive-layer reference.
+- **TRISO-ATOPS** (MIT, Idaho National Laboratory, `de374c8`) forked into
+  `boon-lay` as `triso_atops_fork` — a Eulerian TRISO fission-product-release
+  model complementing boon-lay's Lagrangian one. All non-GUI functionality
+  ported; GUI excluded; MIT attribution preserved. **Decision:** incorporate
+  `uom` into its activity-bookkeeping layer (explicit sign-off overriding the
+  unit-convention guardrail).
+
+**Digital-twin engine:**
+
+- Renamed `outram-park-digital-twin-gui` → **`outram-park-digital-twin-engine`**.
+- Roadmap set: rework/build `fhr_sim_v2`, `htgr_sim_v1`, `ipwr_sim_v1` on the
+  engine's reusable widgets (fhr + htgr are the current priority; ABWR and others
+  are future work). `fhr_sim_v2` migrated into the engine crate as the first
+  consumer.
+
+**Dependency policy:**
+
+- **`ndarray-linalg` removed** from all non-benchmark code — the OpenFOAM-port
+  pure-Rust dense-LU `SquareMatrix` replaces the sole remaining linear solve
+  (`fhr_sim_v2` secondary-loop mass balance). It now survives only in the
+  `outram-foam-basic-lib` matrix benchmark.
+- Approved new pure-Rust, Android-friendly workspace dependencies for KOVAN:
+  `regex`, `pdf-extract`, `lopdf`, `tempfile`.
+
+**KOVAN knowledge layer:**
+
+- Directed a best-effort implementation pass across all seven `kovan-*` crates
+  (per-agent decisions in
+  [`docs/kovan-agent-decisions-for-review.md`](docs/kovan-agent-decisions-for-review.md)).
+- Approved: the `Method::Pde` codegen-catalogue addition; the `kovan-common`
+  shared-type additions requested by downstream crates (`KovanSymbol` location
+  fields, `KovanDocument` asset/page/journal-locator fields + builder,
+  `GeneratedArtifact`); and keeping `kovan-discovery`'s `require_git(false)` fix
+  (honour `.gitignore` outside a `.git` repository).
+
+**TUAS validation:**
+
+- Adopted the SAM-matched CIET coupled-DRACS **pipe-38 form loss K = 17.8**
+  (validated on the isolated loop; shared constructor `new_pipe_38_sam_model`),
+  lowering mean |DRACS error| vs experiment from **3.83 % to 2.76 %** and
+  tightening every mid/high-flow case ~2 pp (matching SAM's NED-2021 Table-4
+  predictions). The ~275 regression references were recomputed at K = 17.8 and
+  **all 25 coupled cases pass**. A single uniform K cannot correct a bias that is
+  over-prediction at high flow and under-prediction at low flow, so the two
+  lowest-flow cases (b1 655 W, c1 841 W) — and, via reduced DHX heat removal, two
+  high-power heater-surface-temperature bounds (b7, b9) — take **per-point,
+  documented tolerance widenings** with in-source justification; **no global
+  benchmark (mass-flow) tolerance was loosened**. The proper velocity-dependent
+  pipe-38 loss model is deferred to bead `op-4wl.5`. Per-case plotting CSVs, plus
+  41 redirected pre-existing test CSV writers, now land in the gitignored
+  `verification_and_validation/` folder. This calibration is documented as a
+  human-in-the-loop V&V decision (see `tuas_boussinesq_solver`'s README).

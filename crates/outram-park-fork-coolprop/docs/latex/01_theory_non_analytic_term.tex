@@ -1,0 +1,115 @@
+\documentclass[11pt]{article}
+\input{preamble}
+
+\title{The Non-Analytic Critical-Region Term \\ \large Part 1: Theory}
+\author{outram-park-fork-coolprop}
+\date{2026-07-10}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A pure fluid's thermodynamic state is fully determined by its reduced
+Helmholtz free energy $\alpha(\delta,\tau) = \alpha_0(\delta,\tau) +
+\alpha_r(\delta,\tau)$, where $\delta = \rho/\rho_r$ is the reduced density
+and $\tau = T_r/T$ the inverse reduced temperature. Near the critical point,
+ordinary polynomial and Gaussian-bell terms in $\alpha_r$ cannot reproduce
+the sharp, non-classical curvature of real fluid behaviour. IAPWS-95 and
+Span--Wagner-style equations of state add a dedicated \emph{non-analytic}
+term for exactly this region. This document derives that term's structure;
+Part 2 covers the numerical subtleties of evaluating it, Part 3 the Rust
+implementation, and Part 4 walks through the verified result.
+\end{abstract}
+
+\section{Why an ordinary polynomial term is not enough}
+
+Away from the critical point, $\alpha_r$ is well approximated by sums of
+\begin{align}
+  \alpha_r^{\text{power}}(\delta,\tau) &= \sum_i n_i\, \delta^{d_i}\, \tau^{t_i}
+    \, e^{-\delta^{l_i}}, \\
+  \alpha_r^{\text{Gaussian}}(\delta,\tau) &= \sum_i n_i\, \delta^{d_i}\, \tau^{t_i}
+    \, e^{-\eta_i(\delta-\varepsilon_i)^2 - \beta_i(\tau-\gamma_i)^2}.
+\end{align}
+Both forms are smooth, analytic functions of $(\delta,\tau)$ everywhere.
+Real fluids, however, exhibit \emph{non-classical critical scaling}: the
+isochoric heat capacity $c_v$ diverges at the critical point with a
+power-law exponent that no finite sum of analytic terms can reproduce
+exactly. IAPWS-95 (and Span--Wagner-style multiparameter EOS more generally)
+address this with a small number of specially-shaped terms concentrated
+tightly around $(\delta,\tau) = (1,1)$ — the reduced critical point — chosen
+so the \emph{overall fit} closely tracks measured near-critical data without
+needing to solve the full non-classical scaling problem exactly
+\cite{wagner2002iapws}.
+
+\section{The non-analytic term's functional form}
+
+Each non-analytic term $i$ contributes
+\begin{equation}
+  \alpha_{r,i} = n_i\, \Delta^{b_i}\, \delta\, \psi
+  \label{eq:nonanalytic-term}
+\end{equation}
+built from three auxiliary functions, each itself a function of $(\delta,\tau)$:
+\begin{align}
+  \theta &= (1-\tau) + A_i\left[(\delta-1)^2\right]^{1/(2\beta_i)},
+  \label{eq:theta} \\
+  \Delta &= \theta^2 + B_i\left[(\delta-1)^2\right]^{a_i},
+  \label{eq:Delta} \\
+  \psi &= \exp\!\left(-C_i(\delta-1)^2 - D_i(\tau-1)^2\right).
+  \label{eq:psi}
+\end{align}
+Reading these three pieces separately clarifies what each is doing:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item $\psi$ (Eq.~\ref{eq:psi}) is an ordinary two-dimensional Gaussian
+    bell centred exactly on the critical point $(\delta,\tau)=(1,1)$, with
+    independent widths $C_i, D_i$ in the density and temperature directions.
+    It is what confines the whole term's influence to a small neighbourhood
+    of the critical point — away from it, $\psi \to 0$ rapidly and
+    $\alpha_{r,i} \to 0$ regardless of the other factors.
+  \item $\theta$ (Eq.~\ref{eq:theta}) measures a kind of ``distance along the
+    critical isotherm,'' combining how far $\tau$ is from $1$ with a
+    density-offset correction raised to the fractional power
+    $1/(2\beta_i)$ — this fractional exponent is precisely the
+    non-analytic ingredient: no integer power of $(\delta-1)$ can produce it.
+  \item $\Delta$ (Eq.~\ref{eq:Delta}) combines $\theta^2$ with a second,
+    purely density-dependent fractional-power term, and is itself raised to
+    a further fractional power $b_i$ in Eq.~\ref{eq:nonanalytic-term}. This
+    double layering of fractional powers is what lets the term reproduce
+    the steep, non-classical curvature of $c_v$ and related derivatives near
+    the critical point that Eqs.~1--2 cannot.
+\end{itemize}
+
+For Water (IAPWS-95), CoolProp's \texttt{Water.json} carries exactly two
+such terms ($i=1,2$), with coefficients $A_i \approx 0.32$,
+$B_i \approx 0.2$, $\beta_i = 0.3$, $a_i = 3.5$, $b_i \in \{0.85, 0.95\}$,
+$C_i \in \{28, 32\}$, $D_i \in \{700, 800\}$ \cite{coolprop}. The large $C_i$,
+$D_i$ values confirm the Gaussian $\psi$ factor is indeed very tightly
+peaked — its half-width in $\delta$ is only $\sim 1/\sqrt{C_i} \approx 0.19$
+reduced-density units.
+
+\section{What this buys, physically}
+
+Without this term, an EOS evaluated \emph{exactly at} the critical point
+$(\delta,\tau)=(1,1)$ is missing a contribution that is small in absolute
+magnitude everywhere except in a narrow band around the critical point —
+but inside that band, it is the difference between a qualitatively wrong
+critical-point pressure and one that reproduces the defining IAPWS-95 value
+to machine precision (Part 4 shows this numerically: $5.2\times10^{-14}$
+relative error once implemented, versus a documented $\sim 10^{-4}$ residual
+before). The same non-analytic shape appears (with different coefficients)
+in Span \& Wagner's CO$_2$ equation of state \cite{span1996wagner} and other
+IAPWS/Span--Wagner-style multiparameter EOS — it is a standard building
+block, not a Water-specific hack.
+
+\section{What Part 2 covers}
+
+Equations~\ref{eq:theta}--\ref{eq:psi} are well-defined mathematically at
+every $(\delta,\tau) \neq (1,1)$, but the term needs first and second
+partial derivatives in $\delta$ and $\tau$ (for pressure, $c_v$, $c_p$, and
+the speed of sound) — several of the intermediate quantities in those
+derivatives are formally $0/0$ or $0^0$ \emph{exactly at} the critical
+point. Part 2 works through the derivative chain and the numerical guard
+needed to evaluate it there.
+
+\printbibliography
+\end{document}

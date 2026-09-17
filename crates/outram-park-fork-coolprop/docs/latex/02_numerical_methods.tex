@@ -1,0 +1,120 @@
+\documentclass[11pt]{article}
+\input{preamble}
+
+\title{The Non-Analytic Critical-Region Term \\ \large Part 2: Numerical Methods}
+\author{outram-park-fork-coolprop}
+\date{2026-07-10}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Part 1 introduced the non-analytic term's three auxiliary functions
+$\theta$, $\Delta$, $\psi$ and their physical role. This document works
+through the first- and second-derivative chain needed for pressure, $c_v$,
+$c_p$, and the speed of sound, and the numerical guard required to evaluate
+those derivatives \emph{at} the critical point itself, where several
+intermediate quantities are formally singular.
+\end{abstract}
+
+\section{What derivatives are actually needed}
+
+Every property this crate computes from the Helmholtz surface — pressure,
+internal energy, entropy, both heat capacities, the speed of sound — is
+built from the five quantities
+\[
+  \alpha,\quad
+  \alpha_\delta = \frac{\partial \alpha}{\partial \delta},\quad
+  \alpha_\tau = \frac{\partial \alpha}{\partial \tau},\quad
+  \alpha_{\delta\delta} = \frac{\partial^2 \alpha}{\partial \delta^2},\quad
+  \alpha_{\tau\tau} = \frac{\partial^2 \alpha}{\partial \tau^2},\quad
+  \alpha_{\delta\tau} = \frac{\partial^2 \alpha}{\partial \delta\, \partial \tau}
+\]
+(the crate's \texttt{HelmholtzDerivs} struct — see Part 3). Every residual
+term type, including the non-analytic one, must supply all six.
+
+\section{The derivative chain}
+
+Differentiating Eq.~(3) from Part 1 term by term is mechanical but long; the
+key structural fact that keeps it tractable is that every derivative can be
+written as $\alpha_{r,i}$ times a \emph{ratio} function, which itself has a
+clean recursive structure:
+\begin{align}
+  \frac{\partial \theta}{\partial \tau} &= -1, &
+  \frac{\partial \theta}{\partial \delta} &= \frac{A_i}{\beta_i}
+    \left[(\delta-1)^2\right]^{\frac{1}{2\beta_i}-1}(\delta - 1), \\
+  \frac{\partial \Delta^{b_i}}{\partial \delta} &=
+    b_i\, \Delta^{b_i - 1}\, \frac{\partial \Delta}{\partial \delta}, &
+  \frac{\partial \Delta^{b_i}}{\partial \tau} &=
+    -2\, b_i\, \theta\, \Delta^{b_i - 1}.
+\end{align}
+The full second-derivative expressions (implemented directly in
+\texttt{eos.rs}, following CoolProp's \texttt{Helmholtz.cpp}) combine these
+with the ordinary product rule applied to
+$\alpha_{r,i} = n_i \delta\, \Delta^{b_i}\, \psi$. The pattern throughout is:
+\emph{every} derivative is some polynomial combination of $\theta$, $\Delta$,
+$\Delta^{b_i-1}$, $\Delta^{b_i-2}$, and the corresponding $\delta$/$\tau$
+derivatives of $\theta$ and $\psi$ — nothing beyond elementary calculus, just
+a long chain of it.
+
+\section{The branch point: why $\delta=1,\ \tau=1$ is singular}
+
+Look again at $\partial\theta/\partial\delta$ above. As $\delta \to 1$,
+$(\delta-1)^2 \to 0$, and the exponent $\frac{1}{2\beta_i}-1$ is applied to
+that vanishing quantity. For IAPWS-95 Water ($\beta_i = 0.3$), this
+particular exponent is $\approx 0.67$ — positive, so this specific
+expression is actually fine at $\delta=1$ (it evaluates to exactly $0$). The
+\emph{second} $\delta$-derivative of $\theta$, needed for
+$\alpha_{\delta\delta}$, instead uses the exponent $\frac{1}{2\beta_i}-2
+\approx -0.33$ — \emph{negative} — so $\left[(\delta-1)^2\right]^{-0.33}$
+diverges as $\delta \to 1$: $0^{-0.33} \to \infty$. A symmetric problem
+appears in the $\Delta^{b_i-2}$ factor used by the second-$\delta$-derivative
+of $\Delta^{b_i}$. In exact arithmetic, these divergences are known to
+cancel against compensating factors elsewhere in the same expression (the
+overall $\alpha_{r,i}$ and its first two derivatives remain finite at the
+critical point) — but evaluating the raw intermediate quantities in floating
+point \emph{at exactly} $\delta=1$ hits a literal
+\texttt{0\textsuperscript{negative}} (effectively infinite) before those
+cancellations can happen.
+
+\section{The guard: offset by a few ULPs}
+
+CoolProp's own resolution (\texttt{Helmholtz.cpp}, ported verbatim into this
+crate's \texttt{accumulate\_non\_analytic}) is not to try to derive the
+closed-form limit of every intermediate quantity — it is simpler and
+numerically robust to just \emph{avoid} evaluating exactly at the branch
+point:
+\begin{lstlisting}[language=Rust]
+let delta = if (delta - 1.0).abs() < 10.0 * f64::EPSILON {
+    1.0 + 10.0 * f64::EPSILON
+} else {
+    delta
+};
+let tau = if (tau - 1.0).abs() < 10.0 * f64::EPSILON {
+    1.0 + 10.0 * f64::EPSILON
+} else {
+    tau
+};
+\end{lstlisting}
+Ten units in the last place ($10 \times$ \texttt{f64::EPSILON} $\approx
+2.22\times10^{-15}$) is far smaller than any physically meaningful state
+resolution, so this offset is invisible to any real calculation — but it is
+large enough that IEEE~754 double-precision division and fractional
+exponentiation near that point behave as ordinary (very large but finite)
+numbers rather than literal infinities or NaNs, and the term's genuine
+\emph{finite} limiting value falls out correctly from the surrounding
+arithmetic.
+
+\section{Why this is trustworthy: verification strategy}
+
+A guard like this is easy to get subtly wrong (e.g.\ offsetting the wrong
+variable, or by the wrong sign), so it is verified two ways, both covered in
+Part 4: first, by evaluating \emph{exactly} at Water's tabulated critical
+point $(T_c, \rho_c)$ — the offset guard fires on \emph{both} $\delta$ and
+$\tau$ simultaneously, the most demanding case — and checking the resulting
+pressure against IAPWS-95's defining value; second, by evaluating one degree
+below $T_c$ on the critical isochore, where the guard does not fire at all,
+as a monotonicity sanity check that the two code paths agree in the limit.
+
+\printbibliography
+\end{document}

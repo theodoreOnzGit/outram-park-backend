@@ -6,6 +6,7 @@ use uom::si::pressure::pascal;
 use uom::si::specific_heat_capacity::kilojoule_per_kilogram_kelvin;
 
 use crate::constants::p_crit_water;
+use crate::constants::s_crit_water;
 use crate::constants::t_crit_water;
 use crate::interfaces::functional_programming::ph_flash_eqm::ph_flash_region;
 use crate::interfaces::functional_programming::ph_flash_eqm::s_ph_eqm;
@@ -27,7 +28,7 @@ use crate::steam_turbine_equations::choked_flow::single_phase_basic_choked_flow:
 
 /// these contain choked flow algorithms for single phase choked flow,
 ///
-/// whether be it finding critical pressure for ideal gas, or for those 
+/// whether be it finding critical pressure for ideal gas, or for those
 /// where the choked flow is in the pure vapour phase
 pub mod single_phase_basic_choked_flow;
 
@@ -49,7 +50,6 @@ pub use stagnation_point_within_vle_ph_dome_multiphase::*;
 /// superheated vapour / supercritical)
 pub mod stagnation_point_outside_vle_ph_dome_multiphase;
 pub use stagnation_point_outside_vle_ph_dome_multiphase::*;
-
 
 /// Gets critical pressure and mass flux for water and steam given stagnation
 /// properties using an older combined solver.
@@ -81,24 +81,24 @@ pub use stagnation_point_outside_vle_ph_dome_multiphase::*;
 pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
     s0: SpecificHeatCapacity,
     h0: AvailableEnergy,
-    p0: Pressure) -> (Pressure, MassFlux) {
-
+    p0: Pressure,
+) -> (Pressure, MassFlux) {
     let debug = true;
 
-    // now before anything, we want to get the region of the scans 
+    // now before anything, we want to get the region of the scans
     let region_stagnation_props = ph_flash_region(p0, h0);
 
-    // for high entropy states (s0 >= 9.2 kJ/kg/K), 
+    // for high entropy states (s0 >= 9.2 kJ/kg/K),
     // isentropic depressurisation stays in single phase vapour
     // so we can use the pure vapour algorithm directly
     if s0 >= SpecificHeatCapacity::new::<kilojoule_per_kilogram_kelvin>(9.2) {
-        if debug { println!("using vapour only algorithm, s0 >= 9.2 kJ/kg/K"); }
+        if debug {
+            println!("using vapour only algorithm, s0 >= 9.2 kJ/kg/K");
+        }
 
         let s0_opt = Some(s0);
-        let critical_pressure_choked_flow 
-            = get_critical_pressure_pure_vapour_ph_stagnation_properties(
-                p0, h0, s0_opt
-            );
+        let critical_pressure_choked_flow =
+            get_critical_pressure_pure_vapour_ph_stagnation_properties(p0, h0, s0_opt);
 
         let c = w_ps_wood_wallis(critical_pressure_choked_flow, s0);
         let rho_throat = v_ps_eqm(critical_pressure_choked_flow, s0).recip();
@@ -123,12 +123,12 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
             let t_sat = sat_temp_4(p0);
             let s_g = s_tp_2(t_sat, p0);
             if s0 >= s_g {
-                if debug { println!("Region 2, s0 >= s_g, using pure vapour algorithm"); }
+                if debug {
+                    println!("Region 2, s0 >= s_g, using pure vapour algorithm");
+                }
                 let s0_opt = Some(s0);
-                let critical_pressure_choked_flow 
-                    = get_critical_pressure_pure_vapour_ph_stagnation_properties(
-                        p0, h0, s0_opt
-                    );
+                let critical_pressure_choked_flow =
+                    get_critical_pressure_pure_vapour_ph_stagnation_properties(p0, h0, s0_opt);
                 let c = w_ps_wood_wallis(critical_pressure_choked_flow, s0);
                 let rho_throat = v_ps_eqm(critical_pressure_choked_flow, s0).recip();
                 let critical_mass_flux = c * rho_throat;
@@ -137,7 +137,9 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
                 }
                 return (critical_pressure_choked_flow, critical_mass_flux);
             }
-            if debug { println!("Region 2, s0 < s_g, using generalised algorithm"); }
+            if debug {
+                println!("Region 2, s0 < s_g, using generalised algorithm");
+            }
         }
     }
 
@@ -146,12 +148,12 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
         let t_crit = t_crit_water();
         let t0 = t_ph_eqm(p0, h0);
         if t0 > t_crit {
-            if debug { println!("Region 3, T > T_crit, using pure vapour algorithm"); }
+            if debug {
+                println!("Region 3, T > T_crit, using pure vapour algorithm");
+            }
             let s0_opt = Some(s0);
-            let critical_pressure_choked_flow 
-                = get_critical_pressure_pure_vapour_ph_stagnation_properties(
-                    p0, h0, s0_opt
-                );
+            let critical_pressure_choked_flow =
+                get_critical_pressure_pure_vapour_ph_stagnation_properties(p0, h0, s0_opt);
             let c = w_ps_wood_wallis(critical_pressure_choked_flow, s0);
             let rho_throat = v_ps_eqm(critical_pressure_choked_flow, s0).recip();
             let critical_mass_flux = c * rho_throat;
@@ -160,7 +162,9 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
             }
             return (critical_pressure_choked_flow, critical_mass_flux);
         }
-        if debug { println!("Region 3, T <= T_crit, using generalised algorithm"); }
+        if debug {
+            println!("Region 3, T <= T_crit, using generalised algorithm");
+        }
     }
 
     // generalised algorithm for:
@@ -262,13 +266,15 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
 
         // regula falsi interpolation:
         // p_new = p_low - f_low * (p_high - p_low) / (f_high - f_low)
-        p_crit = p_low - Pressure::new::<pascal>(
-            f_low * dp.get::<pascal>() / df
-        );
+        p_crit = p_low - Pressure::new::<pascal>(f_low * dp.get::<pascal>() / df);
 
         // clamp to bounds
-        if p_crit < p_low { p_crit = p_low; }
-        if p_crit > p_high { p_crit = p_high; }
+        if p_crit < p_low {
+            p_crit = p_low;
+        }
+        if p_crit > p_high {
+            p_crit = p_high;
+        }
 
         let f_crit = root_fn(p_crit.get::<pascal>());
 
@@ -301,13 +307,210 @@ pub fn get_critical_pressure_and_mass_flux_with_stagnation_props(
 
     (p_crit, g_crit)
 }
+/// Interior two-phase HEM choke for a stagnation isentrope that crosses the
+/// critical-point region into the VLE dome.
+///
+/// When a supercritical (Region 3) stagnation state expands isentropically into
+/// the dome near the apex, the energy-balance mass flux
+/// `G(p) = rho(p,s0)·sqrt(2·(h0 − h(p,s0)))` develops a **spurious kink-peak right
+/// at the supercritical→two-phase phase boundary**. Crossing that boundary
+/// introduces a derivative discontinuity in `G` (the compressibility jumps), and
+/// the `max-G ⇔ M = 1` choke equivalence holds only at *smooth* stationary
+/// points — never at a derivative-discontinuity kink. This is the critical-point
+/// analogue of the documented bubble-point artifact in
+/// [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`].
+///
+/// The genuine choke is the shallow **interior** local maximum of `G` a little
+/// deeper inside the dome (the true two-phase sonic point), not the boundary
+/// kink. This routine coarse-scans `G` over the two-phase (Region 4) stretch of
+/// the isentrope, finds the strongest *interior* local maximum (excluding the
+/// boundary endpoint), and refines it by golden section.
+///
+/// Returns `None` when the isentrope does not re-enter the dome or no interior
+/// maximum exists, so the caller can fall back to the single-phase solver.
 #[inline]
-pub fn isentropic_pressure_scan_of_mass_flux(
-    s0: SpecificHeatCapacity,
-    p0: Pressure) -> () {
+fn dome_crossing_interior_choke(p0: Pressure, h0: AvailableEnergy) -> Option<(Pressure, MassFlux)> {
+    let s0 = s_ph_eqm(p0, h0);
+    let p_min = Pressure::new::<megapascal>(0.000_611_212_677 * 1.01);
 
+    // energy-balance mass flux along s = s0, in kg/(m²·s)
+    let g_of_p = |p_pa: f64| -> f64 {
+        let p = Pressure::new::<pascal>(p_pa);
+        let h = h_ps_eqm(p, s0);
+        let ke = h0 - h;
+        if ke < AvailableEnergy::ZERO {
+            return 0.0;
+        }
+        let rho = v_ps_eqm(p, s0).recip();
+        (rho * (2.0 * ke).sqrt()).get::<kilogram_per_square_meter_second>()
+    };
+
+    let p0_pa = p0.get::<pascal>();
+    let p_min_pa = p_min.get::<pascal>();
+    // ~19 kPa steps: fine enough to isolate the ~20 kPa IF97 glitch spikes to a
+    // single sample so the median filter can excise them cleanly.
+    let n_coarse = 1500;
+    let dp = (p0_pa - p_min_pa) / n_coarse as f64;
+
+    // sample G over the two-phase (Region 4) stretch of the isentrope, in
+    // decreasing-pressure order. samples[0] is the dome-entry boundary.
+    let mut samples: Vec<(f64, f64)> = Vec::new();
+    let mut p = p0_pa;
+    while p >= p_min_pa {
+        if ps_flash_region(Pressure::new::<pascal>(p), s0) == FwdEqnRegion::Region4 {
+            samples.push((p, g_of_p(p)));
+        }
+        p -= dp;
+    }
+    if samples.len() < 5 {
+        return None;
+    }
+
+    // IF97 Region-3/4 backward equations lose digits within ~0.5 K of Tc, which
+    // peppers G near the dome boundary with isolated single-sample glitches (a
+    // spike to ~60 % of its neighbours, plus a small post-spike rebound). Two
+    // passes of a 3-point median filter remove the spike and its rebound without
+    // shifting the genuine flat-band structure, so the peak search below is not
+    // fooled by a glitch masquerading as a peak.
+    for _ in 0..2 {
+        let raw: Vec<f64> = samples.iter().map(|&(_, g)| g).collect();
+        for i in 1..samples.len() - 1 {
+            let (a, b, c) = (raw[i - 1], raw[i], raw[i + 1]);
+            // median of three = max(min(a,b), min(max(a,b), c))
+            samples[i].1 = (a.min(b)).max((a.max(b)).min(c));
+        }
+    }
+
+    // Across the whole two-phase stretch G is nearly flat near the critical point
+    // (it varies < 1 % over a ~1.5 MPa band), so the choke pressure is genuinely
+    // ill-conditioned here. The high-pressure end of the band is contaminated by
+    // the boundary kink + decline (G there is biased high), while the genuine
+    // two-phase sonic choke is the band maximum nearest the *low-pressure* side
+    // (this matches the Zaloudek reference to ~0.3 %).
+    //
+    // First exclude the kink + decline zone — a fixed 0.8 MPa margin below the
+    // dome-entry pressure — which is where G is biased high and the IF97 noise
+    // concentrates. Then, over the genuine flat band below it, walk UP in pressure
+    // from p_min and take the first local maximum within 1 % of the band maximum:
+    // that rules out the deep tail wiggles below the band without being fooled by
+    // the kink-biased high-pressure end.
+    let dome_entry_pa = samples[0].0;
+    let margin_pa = 0.8e6;
+    let start = samples
+        .iter()
+        .position(|&(p, _)| p <= dome_entry_pa - margin_pa)?;
+
+    let g_band_max = samples[start..]
+        .iter()
+        .map(|&(_, g)| g)
+        .fold(0.0_f64, f64::max);
+    let g_floor = 0.99 * g_band_max;
+
+    let n = samples.len();
+    let mut i_peak = None;
+    for k in 1..n - 1 {
+        let i = n - 1 - k; // walk from the low-pressure end upward
+        if i < start {
+            break;
+        }
+        if samples[i].1 >= g_floor
+            && samples[i].1 >= samples[i + 1].1
+            && samples[i].1 >= samples[i - 1].1
+        {
+            i_peak = Some(i);
+            break;
+        }
+    }
+    let p_star_pa = samples[i_peak?].0;
+
+    // Refine the interior peak by golden section over +/- one coarse step, using
+    // the crate's shared search [`golden_section_max_g`]. This used to be an
+    // inline copy of that loop (bead `op-uyi3`).
+    //
+    // The coarse scan above is what makes golden section legitimate here: G is
+    // NOT unimodal over the whole two-phase stretch (that is the entire point of
+    // this function — there is a spurious kink-peak at the phase boundary as
+    // well as the genuine interior one), so the search is only ever handed a
+    // +/- dp bracket already known to contain the basin we want.
+    let (p_crit, g_crit) = golden_section_max_g(
+        |p_pa| MassFlux::new::<kilogram_per_square_meter_second>(g_of_p(p_pa)),
+        p_star_pa - dp,
+        p_star_pa + dp,
+    );
+    Some((p_crit, g_crit))
+}
+
+/// Critical pressure and mass flux for water/steam from stagnation conditions `(p0, h0)`.
+///
+/// Unified forward dispatcher that routes to the correct HEM solver based on the
+/// stagnation region:
+///
+/// | Stagnation state | Solver |
+/// |---|---|
+/// | Region 4 — two-phase, inside VLE dome | [`get_critical_pressure_and_mass_flux_ph_vle_dome`] |
+/// | Region 1 — subcooled liquid | [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`] |
+/// | Region 2 / 5 — superheated / ultra-high-T vapour | [`get_critical_pressure_and_mass_flux_superheated_vapour_ph`] |
+/// | Region 3 — supercritical, isentrope crosses into the dome near the apex | `dome_crossing_interior_choke` |
+/// | Region 3 — supercritical, no dome crossing (`s0 > s_crit`) | [`get_critical_pressure_and_mass_flux_superheated_vapour_ph`] |
+/// | Region 3 — supercritical, no dome crossing (`s0 ≤ s_crit`) | [`get_critical_pressure_and_mass_flux_subcooled_liquid_ph`] |
+///
+/// The near-critical Region 3 case is special: the energy-balance `G(p)` has a
+/// spurious kink-peak at the phase boundary that masks the true interior
+/// two-phase choke (see `dome_crossing_interior_choke`). When the isentrope
+/// re-enters the dome, that interior choke is used; otherwise the state stays
+/// single-phase and the entropy decides which mirror-image single-phase solver
+/// applies.
+///
+/// Validated against Zaloudek (1961) HEM critical mass flux curves for
+/// stagnation states across the full quality range x_t = 0.0–1.00.
+///
+/// # Parameters
+/// - `p0` — stagnation pressure (any valid IAPWS-IF97 pressure)
+/// - `h0` — stagnation specific enthalpy (J/kg via `uom`)
+///
+/// # Returns
+/// `(p_crit, G_crit)`: critical (choke) pressure and HEM mass flux at the throat.
+#[inline]
+pub fn get_critical_pressure_and_mass_flux_multiphase_ph(
+    p0: Pressure,
+    h0: AvailableEnergy,
+) -> (Pressure, MassFlux) {
+    match ph_flash_region(p0, h0) {
+        FwdEqnRegion::Region4 => get_critical_pressure_and_mass_flux_ph_vle_dome(p0, h0),
+        FwdEqnRegion::Region1 => get_critical_pressure_and_mass_flux_subcooled_liquid_ph(p0, h0),
+        FwdEqnRegion::Region2 | FwdEqnRegion::Region5 => {
+            get_critical_pressure_and_mass_flux_superheated_vapour_ph(p0, h0)
+        }
+        FwdEqnRegion::Region3 => {
+            // Near-critical supercritical: if the isentrope re-enters the dome,
+            // the genuine choke is the interior two-phase max, not the spurious
+            // phase-boundary kink the single-phase solvers latch onto.
+            if let Some(res) = dome_crossing_interior_choke(p0, h0) {
+                return res;
+            }
+            // No dome crossing — route by entropy relative to the critical point.
+            // s0 > s_crit → vapour-like (would re-enter across the dew line).
+            // s0 ≤ s_crit → liquid-like (would re-enter across the bubble line).
+            let s0 = s_ph_eqm(p0, h0);
+            if s0 > s_crit_water() {
+                get_critical_pressure_and_mass_flux_superheated_vapour_ph(p0, h0)
+            } else {
+                get_critical_pressure_and_mass_flux_subcooled_liquid_ph(p0, h0)
+            }
+        }
+    }
+}
+
+/// Diagnostic-only helper: scans the HEM mass flux `G` (kg/(m²·s)) along the
+/// isentrope from the stagnation pressure `p0` (Pa) at fixed stagnation entropy
+/// `s0` (J/(kg·K)) down to the steam-table lower pressure limit, printing the
+/// peak via `dbg!`. Returns nothing — for interactive investigation of the
+/// choke, not a production entry point. Use the
+/// `get_critical_pressure_and_mass_flux_multiphase_ph` dispatcher instead.
+#[inline]
+pub fn isentropic_pressure_scan_of_mass_flux(s0: SpecificHeatCapacity, p0: Pressure) -> () {
     let p_min_steam_table = Pressure::new::<megapascal>(0.000_611_212_677 * 1.01);
-    
+
     // number of scan steps
     let n_steps = 1000;
     let dp = (p0 - p_min_steam_table) / n_steps as f64;
@@ -341,12 +544,7 @@ pub fn isentropic_pressure_scan_of_mass_flux(
             dbg!(&("new maximum found!", p_crit, max_g_hem));
         }
     }
-
 }
-
-
-
-
 
 /// Analytical HEM critical mass flux from Saha (1978) NUREG/CR-0417 eq. 10
 ///
@@ -362,19 +560,15 @@ pub fn isentropic_pressure_scan_of_mass_flux(
 ///
 /// This uses region 1 and 2 eqns
 #[inline]
-pub fn g_max_hem_analytical_ps(
-    p: Pressure,
-    s: SpecificHeatCapacity,
-) -> MassFlux {
-
+pub fn g_max_hem_analytical_ps(p: Pressure, s: SpecificHeatCapacity) -> MassFlux {
     let p_min = Pressure::new::<megapascal>(0.000_611_212_677 * 1.01);
     let dp = p * 1e-5_f64;
-    let p_plus  = p + dp;
+    let p_plus = p + dp;
     let p_minus = if p - dp > p_min { p - dp } else { p_min };
     let dp_actual = p_plus - p_minus;
 
-    let t_sat       = sat_temp_4(p);
-    let t_sat_plus  = sat_temp_4(p_plus);
+    let t_sat = sat_temp_4(p);
+    let t_sat_plus = sat_temp_4(p_plus);
     let t_sat_minus = sat_temp_4(p_minus);
 
     // quality at throat
@@ -382,7 +576,7 @@ pub fn g_max_hem_analytical_ps(
 
     // --- term 1: x * (dv_g/dP)_s ---
     // dv_g/dP along saturation curve
-    let v_g_plus  = v_tp_2(t_sat_plus,  p_plus);
+    let v_g_plus = v_tp_2(t_sat_plus, p_plus);
     let v_g_minus = v_tp_2(t_sat_minus, p_minus);
     let dv_g_dp = (v_g_plus - v_g_minus) / dp_actual;
     let term1 = x * dv_g_dp;
@@ -393,20 +587,19 @@ pub fn g_max_hem_analytical_ps(
     // so dx/dP = d/dP [(s - s_f) / (s_g - s_f)]
     //          = [-(ds_f/dP)(s_g - s_f) - (s - s_f)(ds_g/dP - ds_f/dP)]
     //            / (s_g - s_f)²
-    let s_f       = s_tp_1(t_sat,       p);
-    let s_f_plus  = s_tp_1(t_sat_plus,  p_plus);
+    let s_f = s_tp_1(t_sat, p);
+    let s_f_plus = s_tp_1(t_sat_plus, p_plus);
     let s_f_minus = s_tp_1(t_sat_minus, p_minus);
 
-    let s_g       = s_tp_2(t_sat,       p);
-    let s_g_plus  = s_tp_2(t_sat_plus,  p_plus);
+    let s_g = s_tp_2(t_sat, p);
+    let s_g_plus = s_tp_2(t_sat_plus, p_plus);
     let s_g_minus = s_tp_2(t_sat_minus, p_minus);
 
     let ds_f_dp = (s_f_plus - s_f_minus) / dp_actual;
     let ds_g_dp = (s_g_plus - s_g_minus) / dp_actual;
 
     let s_fg = s_g - s_f;
-    let dx_dp = (-ds_f_dp * s_fg - (s - s_f) * (ds_g_dp - ds_f_dp))
-               / (s_fg * s_fg);
+    let dx_dp = (-ds_f_dp * s_fg - (s - s_f) * (ds_g_dp - ds_f_dp)) / (s_fg * s_fg);
 
     let v_g = v_tp_2(t_sat, p);
     let v_f = v_tp_1(t_sat, p);
@@ -414,7 +607,7 @@ pub fn g_max_hem_analytical_ps(
 
     // --- term 3: (1-x) * (dv_f/dP)_s ---
     // dv_f/dP along saturation curve
-    let v_f_plus  = v_tp_1(t_sat_plus,  p_plus);
+    let v_f_plus = v_tp_1(t_sat_plus, p_plus);
     let v_f_minus = v_tp_1(t_sat_minus, p_minus);
     let dv_f_dp = (v_f_plus - v_f_minus) / dp_actual;
     let term3 = (1.0 - x) * dv_f_dp;
@@ -432,10 +625,7 @@ pub fn g_max_hem_analytical_ps(
 /// same as g_max_hem_analytical_ps but takes (p, h) as input
 /// converts h to s internally
 #[inline]
-pub fn g_max_hem_analytical_ph(
-    p: Pressure,
-    h: AvailableEnergy,
-) -> MassFlux {
+pub fn g_max_hem_analytical_ph(p: Pressure, h: AvailableEnergy) -> MassFlux {
     let s = s_ph_eqm(p, h);
     g_max_hem_analytical_ps(p, s)
 }

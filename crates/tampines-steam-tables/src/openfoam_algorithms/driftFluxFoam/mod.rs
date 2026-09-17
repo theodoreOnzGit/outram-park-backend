@@ -1,3 +1,8 @@
+//! Reference-only, entirely commented-out C++ source of OpenFOAM's
+//! `driftFluxFoam` — a two-incompressible-fluid mixture solver using the
+//! drift-flux approximation for relative phase motion (e.g. settling of a
+//! dispersed phase). Not compiled or ported to Rust; kept here as study
+//! material for a simpler two-phase model than `chtMultiRegionTwoPhaseEulerFoam`.
 /*
 /*---------------------------------------------------------------------------*\
   =========                 |

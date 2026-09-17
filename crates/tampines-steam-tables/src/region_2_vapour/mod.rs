@@ -58,10 +58,13 @@ const REGION_2_COEFFS_IDEAL: [[f64; 2]; 9] = [
     [3.0, 0.21268463753307e-1],
 ];
 
+/// Ideal-gas part of the dimensionless Gibbs free energy `gamma_0(pi, tau)`
+/// and its `pi`/`tau` derivatives for Region 2 (dimensionless).
 pub mod gamma_ideal_gas_plus_derivatives;
 pub use gamma_ideal_gas_plus_derivatives::*;
 
-
+/// Residual part of the dimensionless Gibbs free energy `gamma_r(pi, tau)`
+/// and its `pi`/`tau` derivatives for Region 2 (dimensionless).
 pub mod gamma_residual_plus_derivatives;
 pub use gamma_residual_plus_derivatives::*;
 
@@ -69,23 +72,26 @@ pub use gamma_residual_plus_derivatives::*;
 pub mod dimensionless_tau_and_pi;
 pub use dimensionless_tau_and_pi::*;
 
+/// Region 2 intensive properties (specific volume m³/kg, enthalpy J/kg,
+/// entropy and heat capacities J/(kg·K), speed of sound m/s, etc.) assembled
+/// from the Gibbs `gamma` derivatives via `(p,T)` forward equations.
 pub mod intensive_properties;
 pub use intensive_properties::*;
 
-/// section 2.2.3.2 page 34 of 390 on pdf 
+/// section 2.2.3.2 page 34 of 390 on pdf
 /// page 20 according to internal numbering
 pub mod metastable_region_2;
 pub use metastable_region_2::*;
 
-/// backward equations for pressure enthalpy flash 
+/// backward equations for pressure enthalpy flash
 pub mod backward_eqn_ph_2;
 pub use backward_eqn_ph_2::*;
 
-/// backward eqns for pressure entropy flash 
+/// backward eqns for pressure entropy flash
 pub mod backward_eqn_ps_2;
 pub use backward_eqn_ps_2::*;
 
-/// backward eqns for pressure entropy flash 
+/// backward eqns for pressure entropy flash
 pub mod backward_eqn_hs_2;
 pub use backward_eqn_hs_2::*;
 

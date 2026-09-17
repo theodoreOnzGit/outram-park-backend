@@ -1,10 +1,17 @@
+//! Thermal boundary conditions for the solver.
+//!
+//! Defines [`BCType`], the closed set of boundary conditions a control volume
+//! can be attached to: a fixed temperature, a fixed heat flux (per unit area),
+//! or a fixed heat addition (power, where zero power means adiabatic). All
+//! quantities are `uom`-typed.
+
 use uom::num_traits::Zero;
 use uom::si::f64::*;
 
 use crate::tuas_lib_error::TuasLibError;
 
-/// Contains all the types of Boundary Conditions (BCs) you can use 
-#[derive(Debug,Clone,Copy,PartialEq)]
+/// Contains all the types of Boundary Conditions (BCs) you can use
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BCType {
     /// The user specifies a fixed temperature for the BC
     UserSpecifiedTemperature(ThermodynamicTemperature),
@@ -18,45 +25,38 @@ pub enum BCType {
 
 impl BCType {
     /// creates a new constant temperature BC
-    pub fn new_const_temperature(temperature:ThermodynamicTemperature)
-        -> Self {
+    pub fn new_const_temperature(temperature: ThermodynamicTemperature) -> Self {
         BCType::UserSpecifiedTemperature(temperature)
     }
 
     /// creates a new constant heat flux bc
-    pub fn new_const_heat_flux(heat_flux: HeatFluxDensity)
-        -> Self {
+    pub fn new_const_heat_flux(heat_flux: HeatFluxDensity) -> Self {
         BCType::UserSpecifiedHeatFlux(heat_flux)
     }
 
     /// creates a new constant heat addition bc
-    pub fn new_const_heat_addition(heat_addition: Power)
-        -> Self {
+    pub fn new_const_heat_addition(heat_addition: Power) -> Self {
         BCType::UserSpecifiedHeatAddition(heat_addition)
     }
 
-    /// creates a new constant heat addition bc
+    /// creates a new adiabatic BC (a heat-addition BC with zero power)
     pub fn new_adiabatic_bc() -> Self {
-        BCType::UserSpecifiedHeatAddition(
-            Power::zero())
+        BCType::UserSpecifiedHeatAddition(Power::zero())
     }
 
-
-    pub(crate) fn get_temperature_vector(&self) -> 
-    Result<Vec<ThermodynamicTemperature>,TuasLibError>{
-
+    /// Returns the boundary temperature(s) for a fixed-temperature BC;
+    /// unimplemented for the heat-flux and heat-addition variants.
+    pub(crate) fn get_temperature_vector(
+        &self,
+    ) -> Result<Vec<ThermodynamicTemperature>, TuasLibError> {
         match self {
             BCType::UserSpecifiedTemperature(temperature) => {
                 let mut temp_vec = vec![];
                 temp_vec.push(*temperature);
                 return Ok(temp_vec);
-            },
+            }
             BCType::UserSpecifiedHeatFlux(_) => unimplemented!(),
             BCType::UserSpecifiedHeatAddition(_) => unimplemented!(),
         }
     }
-
-
 }
-
-

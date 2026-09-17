@@ -1,0 +1,306 @@
+# SAMM — R-matrix-limited (RML) resonance kernel
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+
+> NJOY2016 port. `samm.f90` has **no standalone manual chapter** — theory is in
+> the NJOY2016 manual §RECONR and the ENDF-102 LRF=7 specification. Upstream
+> Fortran: `samm.f90` (7169 lines — the SAMMY method, ported into NJOY from
+> coding provided by Nancy Larson, ORNL).
+
+## Theory
+
+`samm` is not a driver module — it is the **R-matrix engine** shared by RECONR and
+UNRESR. Where SLBW/MLBW and Reich–Moore (as implemented in `crate::reconr::slbw`)
+approximate the resonance cross section with isolated poles, the **R-matrix-limited
+(RML, ENDF LRF=7)** formalism computes it from the full multichannel R-matrix:
+
+```
+R_{cc'} = Σ_λ  γ_{λc} γ_{λc'} / (E_λ − E)
+```
+
+The scattering matrix U (and hence the cross sections) follows from the channel
+matrix `(I − R L)⁻¹`, where L carries the penetrabilities/shift factors of each
+channel. This handles **overlapping resonances**, multiple particle channels, and
+light-nuclide evaluations (¹⁶O, ¹⁹F, …) correctly, where pole approximations fail.
+
+### Scope, matching what `samm.f90` itself supports
+
+Upstream's own `rdsammy` reader hard-errors on:
+- `IFG≠0` — "reduced resonance widths are not supported"
+- `KRM≠3` — "LRF=7 currently only supports Reich-Moore"
+
+So NJOY **itself** never exercises the fully general R-matrix (KRM=1/2/4,
+requiring an explicit gamma channel in the inversion) or reduced-width
+(IFG=1) cases — only **Reich-Moore-limited** (KRM=3, IFG=0), where the
+radiative-capture channel is eliminated analytically (folded into the level
+matrix as an additive term, never needing its own row/column in the
+inversion). This port matches that restriction rather than attempting scope
+NJOY's own driver never reaches.
+
+**Scope history (superseded, kept for context):** on 2026-07-07 it was
+temporarily decided to defer the derivative routines (`babb`, `abpart`,
+`derres`, `derext`) and angular-distribution routines
+(`angle`/`lmaxxx`/`kclbsch`/`clbsch`/`setleg`) until `ERRORR` existed, since
+`RECONR` — the only caller in this workspace at the time — hardcodes
+`Want_Partial_Derivs=.false.`/`Want_Angular_Dist=.false.`
+(`reconr.f90:149-150`; only `ERRORR` sets them `.true.`,
+`errorr.f90:392-393`). **This was superseded the same day**: the user asked
+to finish every phase of `samm` and then port `errorr.f90` itself, so the
+derivative/angular routines are back in scope and will be built together
+with `ERRORR`, which is now their real, in-workspace caller — not ported
+speculatively ahead of a consumer. See `docs/porting-plan.md` for the
+up-to-date phase status.
+
+## How the port implements it
+
+This is a **large, multi-phase port** (7169 lines — roughly 2× UNRESR+PURR
+combined, before the derivatives/angular scope reduction above). Phased plan,
+each phase independently portable/verifiable:
+
+1. **Data model + ENDF LRF=7 reader** — ✅ done (`mf2.rs`, ported from
+   `rdsammy`'s `mode==7` branch + `s2sammy`'s size-scanning pass). Owned
+   structs (`ParticlePair`, `RmlChannel`, `RmlResonance`, `SpinGroup`,
+   `RmlSection`) replace `samm.f90`'s module-global arrays, reusing the
+   crate's general [`crate::endf::records::SectionCursor`] (CONT/LIST/TAB1)
+   rather than `unresr::mf2`'s more limited cursor.
+2. **Spin/parity/penetrability setup** — ✅ done, including `betset`'s core:
+   - `penetrability.rs` — `pf`/`genpsf`/`pgh`/`sinsix` (hard-sphere
+     penetrability, shift factor, phase shift for uncharged channels;
+     `l=0..4` closed-form plus a recursion for `l>4`). See
+     [`penetrability::genpsf`]'s doc comment for a flagged likely-latent
+     upstream bug (a use-before-set local at the `l=4` recursion seed),
+     ported literally with the variable seeded to `0.0`.
+   - `context.rs` — `ppdefs` → [`context::apply_particle_pair_defaults`],
+     `checkqn` → [`context::check_quantum_numbers`], `fxradi` →
+     [`context::compute_channel_kinematics`].
+   - `betset.rs` — `betset`'s non-derivative core →
+     [`betset::compute_resonance_amplitudes`]: per-resonance reduced-width
+     amplitudes `beta_c`, their triangular products, and the eliminated
+     channel's own amplitude `gbetpr`. The first real consumer of both
+     `penetrability::pgh` (uncharged channels) and `coulomb::pghcou`
+     (charged channels). See its doc comment for a flagged stale-`drho`
+     issue in the (not-yet-ported) derivative term, inherited from upstream.
+   - **Not ported, and not needed for `mode==7`:** `findsp`/`rearrange` (only
+     used by the non-RML resonance-to-spin-group lookup — `mode==7`'s
+     resonances are already read per spin group, see `mf2.rs`, so this
+     bookkeeping is structurally dead code for our scope) and `orders`
+     (generic sort+dedup for the PENDF energy-grid node list — a Phase 6/
+     top-level-orchestration concern, not spin/parity setup).
+   - **Deferred until built alongside `ERRORR`:** `angle`/`lmaxxx`/`kclbsch`/
+     `clbsch` (Legendre/Clebsch-Gordan angular-distribution coefficients) and
+     `betset`'s `Want_Partial_Derivs`/`Want_Partial_U`-gated u-parameter
+     conversion — see the scope-history note above.
+3. **Coulomb wave-function library** — ✅ done (`coulomb/`, split by
+   function per the crate's file-size convention — no file over ~400
+   lines): `coulomb/steed.rs` (`jwkb`, `coulfg` — Steed's method, the CPC
+   "COULFG" algorithm), `coulomb/asymptotic.rs` (`xsigll`, `asymp1`/
+   `asymp2`, `taylor`, `end1`, `getfg`), `coulomb/dispatch.rs` (`bigeta`,
+   `getps`, `coulx`), `coulomb/api.rs` (`pspcou`, `pghcou` — the two entry
+   points other modules call). Self-contained special functions, exercised
+   only for charged-particle exit channels (`zeta != 0` in
+   [`context::ChannelKinematics`]). See `coulomb/mod.rs`'s module doc for
+   the 0-indexed-by-`L` array convention used throughout, checked
+   position-by-position against the Fortran rather than re-derived.
+4. **R-matrix inversion** — ✅ done:
+   - `linpack.rs` — the general complex-symmetric packed solver (`xspfa`
+     Bunch-Kaufman factorization, `xspsl` solve, `xaxpy`/`xdot`/`xswap`/
+     `ixamax` BLAS-1 helpers, stride-1 only — every call site in `samm.f90`
+     passes `incx=incy=1`, verified by grep, so the general-stride branches
+     and 1970s manual loop-unrolling are not ported). Indices are kept
+     numerically identical to the Fortran's 1-indexed flat packed offsets
+     rather than translated to 0-indexed, checked line-by-line against the
+     source — see the module doc for why.
+   - `rmatrix_invert.rs` — `yinvrs`'s dispatcher plus the closed-form
+     `onech`/`twoch`/`threech` inverters (1/2/3-channel cases; `threech`
+     includes its `scale3`/`unscale3` numerical-conditioning helpers) and
+     `yfour` (4+ channels, via `linpack.rs`). `zeror` (trivial all-zero
+     init) is also here, ready for Phase 5's `crosss` to call.
+   - **Not yet ported (belongs with Phase 5's cross-section assembly, not
+     here):** `gcphase`, `setqri`, `settri` — angular-distribution and
+     derivative assembly, deferred to build alongside `ERRORR`.
+5. **Cross-section evaluation** — ✅ done for the non-derivative,
+   non-angular core (`xsformula/`, split by function): `abpart.rs`
+   (Breit-Wigner denominator terms `alphar`/`alphai`), `setr.rs` (R-matrix
+   and level-matrix assembly at one incident energy — the largest file in
+   this phase, at ~300 lines, since it's one tightly-coupled per-channel
+   loop that resists further useful splitting), `assembly.rs` (`setxqx`'s
+   `XQ`/`XXXX` matrices), `sectio.rs` (cross-section pieces from `XXXX` —
+   see its doc comment for a genuine upstream indexing quirk, ported
+   as-is, where `crss[0]`/`crss[1]` are hardcoded to elastic/capture
+   rather than following particle-pair numbering), and `crosss.rs` (the
+   top-level per-energy dispatcher, [`xsformula::cross_sections`], summing
+   every spin group and applying the `4*pi/E` normalization — **the first
+   point in this port where an actual cross section, in barns, comes
+   out**). Wires together every phase so far: [`mf2`] (parsed section),
+   [`context`]/[`betset`] (Phase 2 kinematics/amplitudes),
+   [`rmatrix_invert`] (Phase 4 inversion).
+   - **Not yet ported (deferred to build alongside `ERRORR`):** `babb`
+     (energy-independent derivative setup), `abpart`'s and `setr`'s
+     `Want_Partial_Derivs` branches, `gcphase`/`setqri`/`settri`
+     (angular-distribution and derivative assembly), `derres`/`derext`
+     (derivative propagation) — none of these are reachable from RECONR
+     (the only current caller), which disables both flags.
+6. **Top-level orchestration** — ✅ done for the reachable, non-derivative,
+   non-angular core:
+   - `setup.rs` — [`setup::setup`], `ppsammy`'s non-derivative/non-angular
+     core: runs `checkqn`/`fxradi`/`betset` once per section, tying
+     Phase 1's parsed [`mf2::RmlSection`] into the per-group
+     [`context::ChannelKinematics`]/[`betset::ResonanceAmplitudes`]/
+     [`context::GroupQuantumInfo`] Phase 5 needs.
+   - `xsformula/cssammy.rs` — [`xsformula::cssammy`], the actual
+     RECONR-facing entry point (`samm.f90`'s own `cssammy`): maps
+     [`xsformula::cross_sections`]'s per-particle-pair output into the
+     MT-like reaction slots (total/elastic/fission/capture/other) a
+     resonance-reconstruction driver loop expects.
+   - `allo`/`desammy` have no Rust equivalent — pure Fortran array
+     (de)allocation bookkeeping; `Vec`s grow/shrink and free themselves.
+     `orders` (generic sort+dedup for PENDF energy-grid nodes) belongs to
+     whichever driver eventually builds that grid — not ported, no
+     current caller.
+   - **Not ported — and dead in upstream as shipped:** `angle`, `lmaxxx`,
+     `kclbsch`, `clbsch`, `setleg` (angular-distribution coefficients) and
+     every `Want_Angular_Dist` block. Both callers hard-code the flag off
+     (`reconr.f90:149-150`, `errorr.f90:393`), so no NJOY2016 run ever
+     executes them; per the no-orphaned-dead-code rule they stay
+     unported until a caller exists.
+   - `RECONR` dispatches every `LRF=7` range to [`xsformula::cssammy`]
+     (`reconr::add_rml_range`), and since 2026-09-11 carries the extra
+     particle-pair channels (`MT=600` etc.) into their own MF=3 sections
+     as upstream `emerge` does.
+7. **Resonance-parameter derivatives** (`Want_Partial_Derivs`, the ERRORR
+   `LRF=7` MF=32 path) — ✅ done 2026-09-11 (`derivs/`, bead `op-cjw.4`):
+   - `derivs/mod.rs` — [`derivs::deriv_setup`]: `betset`'s u-parameter
+     block (`uuuu`/`duuu`/`iduu`, `samm.f90:2009-2041`) and `babb`
+     (`br`/`bi`/`par`, l.2817-2921); `betset.rs` now also computes the
+     `dum` term with upstream's stale `dp`/`drho` semantics
+     ([`betset::BetsetCarry`]).
+   - `derivs/energy.rs` — `abpart`'s derivative half (`upr`/`upi` →
+     `pr`/`pii`, l.2950-3006), `setqri` (l.6499-6556), `settri`'s
+     angle-integrated part (l.6558-6674), `derres` (l.6811-6850).
+   - `xsformula/crosss.rs` [`xsformula::cross_sections_with_derivs`] and
+     `xsformula/cssammy.rs` [`xsformula::cssammy_with_derivs`] — the
+     `crosss` driver with `Want_Partial_Derivs` (l.3041-3222, incl. the
+     `4π/E`/`uuuu`/`duuu` normalisation) and `cssammy`'s `sigd` slots
+     (l.152-164); `setup::setup_with_derivs` is `ppsammy` with `babb`.
+   - **Not ported:** `derext` (derivatives with respect to background
+     R-matrix parameters, `nrext > 0`). Note `mf2.rs` *does* now carry the
+     `KBK` terms themselves (2026-09-14) — it is only their **derivatives**
+     that are missing, which matters for ERRORR sensitivities, not for the
+     cross sections.
+
+## Testing
+
+**Verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (MAT 1725), 2026-09-11**
+— the NJOY2016 test-suite `cl35rml` resource, the first `LRF=7`
+evaluation available to this workspace (the committed ENDF/B-VIII.0 O-16
+and F-19 tapes turned out to carry no resonance parameters at all):
+
+- `tests/reconr_cl35_rml_njoy_golden.rs` (bead `op-cjw.2`): the kernel
+  (`setup` → `cssammy`) evaluated at all 10 417 nodes of NJOY's RECONR
+  grid below 1.2 MeV, plus the ENDF MF=3 background, agrees with the
+  oracle tape to **4.9e-7** (elastic), **4.5e-7** (capture) and **4.9e-7**
+  ((n,p), the third particle pair) — the 7-figure printing floor, on the
+  first run. 8 spin groups, 1–3 explicit channels each, a charged (proton)
+  exit channel above its 615 keV threshold, so `pgh`, `pghcou`,
+  `onech`/`twoch`/`threech`, `setxqx`, `sectio` are all exercised. The
+  crate's end-to-end RECONR is within 1.3e-4 / 1.1e-3 / 4.0e-4 of the
+  tape (grid interpolation).
+- `tests/errorr_mf32_cl35_rml_golden.rs` (bead `op-cjw.4`): the
+  derivatives, integrated over 27 groups and folded with the 1088-parameter
+  MF=32 covariance by ERRORR's `rpxsamm`, reproduce every element of
+  NJOY's covariance tape to **4.83e-7** (3174 non-zero elements, six
+  blocks). See `src/errorr/README.md`.
+- Unit tests: `derivs::tests::parameter_layout_and_babb_pattern` (the
+  `ipar` layout, `iduu`, a zero width, `babb`'s triangle pattern),
+  `mf2::tests::reorder_eliminated_*`.
+
+`KBK>0` (background R-matrix) is **covered since 2026-09-14** by Sr-88
+(ENDF/B-VIII.1, MAT 3837) — all seven of its spin groups carry
+`KBK=1`/`LCH=2`/`LBK=2` on the elastic channel. See
+`tests/reconr_sr88_lrf7_kbk_njoy_golden.rs` and
+`verification_and_validation/reconr_sr88_lrf7_kbk_vs_njoy2016.md`; worst
+relative deviation against NJOY2016 across 44,326 of its own grid points is
+1.00e-2 at `err=0.001` and 9.97e-4 at `err=0.0001`, so what remains is
+linearisation rather than physics.
+
+Still open: an evaluation whose eliminated channel is not listed first
+(the `op-cjw.3` reorder; every Cl-35 group lists it first), `KRM≠3`,
+`IFG=1` (all refused, as upstream); the `LBK=1` (tabulated) and `LBK=3`
+(Fröhner) background forms, which are ported but which no held evaluation
+exercises; and a **multi-channel** group carrying a background (all seven
+Sr-88 groups have a single explicit channel).
+
+## Caveats
+
+- **The eliminated-channel reorder step in `mf2.rs` corrects two off-by-one
+  defects in upstream `rdsammy` (bug op-cjw.3, fixed 2026-07-15).** With the
+  provisional width layout the preceding read establishes, the eliminated
+  radiative-capture width `Γγ` sits at `channel_widths[igamma-1]`, but
+  upstream reads `gamma(igamma+1)` (`samm.f90:1186`) — two slots too high, and
+  past the group's valid channel range when the eliminated channel is last.
+  Upstream also shifts with loop bound `igamma` (`samm.f90:1188`) where the
+  correct bound is `igamma-1`, clobbering an already-correct explicit channel.
+  Both are corrected in `reorder_eliminated_channel` (see its doc comment for
+  the full derivation) and pinned by unit tests covering the eliminated
+  channel first / middle / last (`samm::mf2::tests::reorder_eliminated_*`,
+  4 passing as of 2026-07-15). NOTE: this fix is verified against the
+  provisional-layout derivation and unit tests, **not** yet against a real
+  LRF=7 evaluation end-to-end — that end-to-end check (¹⁶O or ¹⁹F, a group
+  with the eliminated channel not first) remains open under bead op-cjw.2.
+  The extract read is still bounds-checked (returns
+  [`crate::NjoyError::EndfParse`] rather than panicking) defensively.
+- **`penetrability::genpsf`'s `l=4` recursion seed reads a local (`dss`)
+  before it is set** — see that function's doc comment. Ported literally
+  with the value seeded to `0.0` (both to make it translatable into safe
+  Rust at all, and because that's the most common real-world Fortran
+  compiler default for an uninitialized local) rather than "fixed" using the
+  pattern `pgh`'s own `l=4` branch suggests. Only affects `l>4` channels,
+  essentially never seen in real resonance-region evaluations.
+- **Background R-matrix elements (`KBK>0` per spin group) ARE parsed and
+  applied** as of 2026-09-14 — `mf2::BackgroundRMatrix` carries all three
+  ENDF forms (`LBK=1` tabulated, `LBK=2` SAMMY, `LBK=3` Fröhner) and
+  `xsformula::setr` adds them to the R-matrix diagonal where
+  `samm.f90:3265-3295` does. **This entry previously said they were
+  discarded as "a secondary, rarer LRF=7 feature"; that judgement was
+  wrong and it cost a real defect** (gh:#202, `bn:op-hb9l`): on Sr-88,
+  whose resonances all sit above 12.41 keV, discarding the background left
+  elastic flat at the bare potential `4πa² = 4.969327 b` against NJOY's
+  8.843210 b at 1e-5 eV — a worst relative error of 1.04e1. Only `LBK=2` is
+  verified against an evaluation; `LBK=1`/`LBK=3` are unit-tested only.
+- **`context::check_quantum_numbers`'s diagnostics are `log::warn!`, not
+  errors** — matching `checkqn`'s own behavior (`write` to the output
+  listing, not `call error`), except for the two conditions upstream itself
+  treats as fatal (invalid group spin, negative channel `l`).
+- **`betset::compute_resonance_amplitudes` inherits a stale-`dp`/`drho`
+  issue from upstream** for a channel that skips the penetrability
+  branch (a resonance exactly on a threshold, or `LPENT <= 0`) — see
+  [`betset::BetsetCarry`]. Only the derivative-side `dum` term sees it
+  (ported with the same semantics, the carry starting at zero); the
+  amplitude is unaffected. Not exercised by Cl-35 (both explicit channels
+  have `LPENT = 1` and no resonance sits on a threshold).
+- **`coulomb/steed.rs`'s `coulfg` has one dead local (`paccq`) intentionally
+  not ported** — write-only in the Fortran (computed, never read again
+  within the subroutine); see [`coulomb::coulfg`]'s doc comment.
+- **`linpack.rs`'s `yfour` (4+ channels) is still untested against a
+  real R-matrix problem** — Cl-35 has at most three explicit channels
+  per spin group, so only `onech`/`twoch`/`threech` are oracle-verified.
+- **`xsformula::sectio`'s `crss` indexing quirk** — positions 0/1 are
+  hardcoded to elastic/capture regardless of particle-pair numbering;
+  ported literally from upstream's own convention. See `sectio.rs`'s doc
+  comment.
+- **Angular distributions are not ported** — dead code in NJOY2016 as
+  shipped (both callers set `Want_Angular_Dist = .false.`); see phase 6.
+- **`cross_sections_with_derivs` costs ~0.16 ms per energy on Cl-35**
+  (1088 parameters, 8 groups), about eight times NJOY's; ERRORR's
+  `rpxsamm` makes 131k such calls. Allocation churn in the per-energy
+  assembly, recorded rather than optimised further.
+- Numerically delicate — channel-matrix conditioning near thresholds needs
+  care (Phase 4).
+
+## References
+
+- NJOY2016 manual §RECONR (LA-UR-17-20093), resonance formalisms
+- `samm.f90` (NJOY2016 2016.79) — SAMMY method coding, N. Larson (ORNL)
+- ENDF-102, File 2 LRF=7 (R-matrix limited); Lane & Thomas, R-matrix theory

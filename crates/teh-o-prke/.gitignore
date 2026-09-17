@@ -28,3 +28,10 @@ Cargo.lock
 
 # ccls cache  
 /.ccls-cache/*
+
+# Upstream reference clones (if ever added here) -- never committed.
+/upstream_source/*/
+
+# V&V raw data -- the .md write-ups in verification_and_validation/ are
+# committed; standalone .csv data files they reference are not.
+/verification_and_validation/*.csv

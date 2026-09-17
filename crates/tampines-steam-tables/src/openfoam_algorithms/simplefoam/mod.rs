@@ -1,3 +1,7 @@
+//! Reference-only, entirely commented-out C++ source of OpenFOAM's
+//! `simpleFoam` — a steady-state SIMPLE-algorithm solver for incompressible,
+//! turbulent flow. Not compiled or ported to Rust; the `pEqn`/`UEqn`
+//! submodules mirror its `pEqn.H`/`UEqn.H` include files, also reference-only.
 // copied straight from openfoam
 //
 //
@@ -134,5 +138,5 @@
 //
 //
 //
-mod pEqn;
 mod UEqn;
+mod pEqn;

@@ -1,0 +1,322 @@
+# HTR-10 vs the RMC benchmark — V&V record
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+**Status as of 2026-09-17: the core reproduces the RMC benchmark to
+`-909 +/- 108 pcm`, inside the 500-1000 pcm gate.** `bn:op-867c`, gh #214.
+
+```text
+k_eff        = 0.995200 +/- 0.001082     (RMC 1.004288, difference -909 pcm)
+14 rings x 25 layers, 20425 tiles, 10000 histories x [40 inactive + 120 active]
+surface tracking, ENDF/B-VIII.0, 348.17 collisions/history
+lost locate = 0     stuck events = 0     negative distances = 0
+leak vacuum = 0.479 %
+```
+
+**Read the qualifications before quoting this.** The reference is a code-to-code
+number with **no stated uncertainty**, the data library differs (VIII.0 here
+against the references' VII.0), and this crate's own thermal accuracy floor is
+~200-400 pcm. Agreement at 909 pcm is the gate being met, not a validated model.
+**The conus is still not modelled** (see below), and it is the one known
+omission that would move `k` UP — so the residual is not a free parameter, it
+has a named candidate.
+
+## How it got there — the ablation chain
+
+Every step below was measured, and each one is a PHYSICAL correction, not a
+tuned parameter. Nothing in this model is fitted to the reference.
+
+| # | change | `k_eff` | worth |
+|---|---|---|---|
+| 0 | `HexLattice` axial-frame port defect | 0.000000 | — |
+| 1 | lattice fix (see below) | 0.707506 | first nonzero |
+| 2 | critical loading height | 0.803706 | +9,620 pcm |
+| 3 | ~~ball-packing target~~ (my error) | ~~0.857140~~ | *spurious* |
+| 4 | bed cylinder inscribed in the tiled hexagon | 0.897875 | +4,074 pcm |
+| 5 | target fuel-zone fraction, not ball packing | 0.877606 | -2,027 pcm, removing #3 |
+| 6 | lattice axial CENTRE corrected | — | see below |
+| 7 | ring count from `(sqrt(3)/2)*pitch` | 1.089253 | **6+7 together +21,165 pcm** |
+| 8 | boronated carbon bricks, 167.793->190 cm | 1.076647 | -1,260 pcm |
+| 9 | cold coolant annulus, 140.6->148.6 cm | 1.075431 | -122 pcm (0.3 sigma) |
+| 10 | **empty core cavity above the bed** | 0.934346 | **-14,108 pcm** |
+| 11 | axial reflector above the cavity | **0.995200** | +6,121 pcm |
+
+### The three geometry defects, and how each was caught
+
+**Steps 6 and 7 were one symptom with two causes**, both found by MEASURING
+coverage rather than deriving it — formulas for how much of a cylinder a hex
+lattice tiles were wrong twice here, so `examples/htr10_fuel_fraction.rs`
+samples the real geometry through `locate` instead.
+
+- **Axial offset (step 6).** The lattice was given
+  `center.z = -bed_half_height + h/2`, but `HexLattice::center_offset` already
+  centres the stack about that point. The whole lattice sat 58.79 cm low: it
+  spanned z = [-120.03, +2.45] against a bed cell of [-61.24, +61.24]. The
+  tell was that the untiled fraction was a flat **0.48 at every radius,
+  including r = 0** — an axial offset, not a radial shortfall.
+- **Ring count (step 7).** A Y-oriented hex lattice steps `(sqrt(3)/2)*pitch`
+  in x, so 15 rings reached ~80 cm where `(n-0.5)*pitch` claimed 95.8 cm.
+- **Both were SILENT.** The untiled region took the lattice's `outer`
+  universe -- dummy graphite pebbles -- so no history was lost, no distance was
+  negative, and the geometry simply contained less fuel than the model said.
+  Measured kernel volume fraction went **0.000690 -> 0.001605** across the two
+  fixes, against a paper-implied 0.0016769 (now 4.3 % low, from 59 % low).
+
+**Step 10 is the largest single term and was a missing VOID, not missing
+material.** Terry (2005) Fig. 2 and TECDOC-1382 put the core cavity at 221.818
+cm with the bed occupying 123.06 cm of it, leaving **98.758 cm of helium above
+the bed**. Modelling that as reflector graphite returned neutrons the real
+reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
+3.1 % to 15.7 %; step 11 then put the real ~130 cm of graphite ABOVE the cavity
+(an unextended `bed_half_height + 100` had left 1.2 cm), bringing leakage to
+0.479 %.
+
+### What is still NOT modelled
+
+- **The conus.** The bed sits on a 36.946 cm conus tapering from r = 90 cm to
+  the 25 cm discharge tube, and it is **full of pebbles**. This model has a
+  flat-bottomed cylinder, so it is MISSING that fuel -- the omission pushes `k`
+  DOWN, i.e. toward the observed -909 pcm. Adding it is the next step and needs
+  conditional tile omission, which the lattice does not have (see the plan).
+- **The bottom is modelled symmetrically** with the top rather than as conus +
+  discharge tube.
+- **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
+  homogenised with their borings.
+- **Control rods themselves** are absent; the benchmark arm is rods-out.
+
+### Ablations that bound the terms
+
+| ablation | `k` | reads as |
+|---|---|---|
+| all fuel, no dummy balls | 0.915527 +/- 0.003962 | 57:43 dilution ~11,000 pcm |
+| all boron removed | 0.943105 +/- 0.003170 | boron 8,597 pcm -- ~6x its bare-pebble worth |
+| reflector all boronated (zone 17) | 0.453025 +/- 0.002857 | the reflector composition brackets [-55,126, +8,496] pcm |
+| 150 inactive generations | 0.852762 +/- 0.002915 | **source convergence ruled out** (1.0 sigma) |
+
+Entropy is flat at ~5.13 bits from generation 0, which is the independent check
+on that last row.
+
+**The boron reading was queried and is CORRECT as modelled.** `reflector.rs`
+already records that TECDOC Table 4-3's column is *natural* boron, so the
+x0.199 to B-10 is right. The 8,597 pcm is physics, not an input error, and
+removing boron is not available as a route to agreement.
+
+## The k = 0 failure and its root cause — RESOLVED 2026-09-17
+
+~~The eigenvalue comparison has been ATTEMPTED AND FAILED; k = 0.000000.~~
+**CORRECTED 2026-09-17** — the cause was a **port defect in
+`HexLattice::distance`**, not the model, the tracker, or the fuel loading.
+
+`HexLattice::distance` reconstructs a lattice-frame position from the caller's
+tile-local one. It reconstructed **all three** components; the axial test at the
+end of that function compares `z` against `+/- 0.5 * pitch[1]`, which is a
+**tile-local** half-height. The comparison was therefore wrong by the tile's own
+`z` offset and returned a **negative** distance-to-boundary.
+
+OpenMC builds the hybrid -- x,y lattice-frame, z tile-local -- at the *call*
+site (`src/geometry.cpp:459-467`) and guards the result with
+`if (d_lat < 0) p.mark_as_lost(...)`. This port had neither.
+
+**Why it survived.** The error cancels **exactly** when the tile z-offset is
+zero, i.e. `n_axial == 1`, and `from_rings_3d` had unit tests only -- no
+integration test and no example. Every existing test sat on the one
+configuration that hides it.
+
+**Why it was invisible in `k`.** A negative distance steps the neutron
+backwards, so it re-crosses the same boundary until the per-history event budget
+kills it -- and a budget-exhausted history is **scored as a leak**, so the
+neutron balance closes and nothing in the output points at geometry.
+
+**Measured, on this model:**
+
+| `n_axial` | negative distances before | after |
+|---|---|---|
+| 1 | 0 | 0 |
+| 2 | 8,199,697 | 0 |
+| 20 | 17,498,719 (worst -7.7e3 cm) | 0 |
+
+and the history-termination histogram, 12 rings x 20 layers:
+
+| end | before | after |
+|---|---|---|
+| stuck on the event budget | **68.5 %** | 0 % |
+| lost in `locate` | 14.5 % | 0 % |
+| genuine vacuum leak | 5.4 % | — |
+| collisions per history | 4.2 (denominator-corrected 105.6) | 498.9 |
+| `k_eff` | 0.000000 | **0.707506 +/- 0.006010** |
+
+Gated by `tests/hex_lattice_axial_frame.rs`. Filed as a P0 bug.
+
+### How it was found — the instrumentation is the finding
+
+`k` alone could not distinguish "absorbed" from "lost", because both leak arms
+scored identically. Five counters were added to the CSG driver and are now part
+of `KeffResult`: `histories`, `collisions`, `lost_locate`, `stuck_events`,
+`leak_vacuum`, `leak_infinity`, plus `neg_dist`/`neg_from_lattice`/
+`neg_from_surface`. Each step below eliminated a hypothesis:
+
+1. **Reflective outer boundary changed `k` bit-for-bit not at all** -> no
+   history was reaching the boundary; this is not leakage.
+2. **Macroscopic cross sections printed per material** -> every material is
+   correct (graphite absorption/total 1.0e-3 thermal, 3.3e-6 at 1 MeV; the
+   kernel's nu-fission 5.69 against absorption 2.79). Not the materials.
+3. **The history denominator was wrong** -- rates were being divided by the
+   *planned* history count while the run died after 4 generations. Correcting it
+   turned "2.7 % stuck, 4.2 collisions/history" into "68.5 % stuck, 105.6
+   collisions/history", which is what made the defect visible at all.
+4. **Negative distances split by source** -> 100 % from the lattice, 0 % from
+   any CSG surface.
+5. **Swept `n_axial`** -> 1 layer gives exactly zero negatives, more gives
+   millions. That named the axial branch.
+6. **Read OpenMC's caller before patching** (workspace rule) -> found the
+   hybrid position it builds, which is the fix.
+
+**Two of my own hypotheses were wrong and were measured down rather than
+assumed away**, and both are recorded because a discarded hypothesis is
+evidence: a degenerate ball-tangent-to-prism geometry (it was real, and fixing
+it changed nothing), and the TRISO lattice failing to cover its fuel zone (also
+real, also not this). A third -- clipping the tile universes with explicit
+planes -- was implemented, made things worse, and was reverted.
+
+## The target
+
+Li, Yu & Wei (2014), *Research on Benchmark Calculation and Analysis of HTR-10
+with RMC Code*, HTR 2014 Weihai, paper HTR2014-51207. Catalogued **proprietary**
+(no licence statement on its pages) as `li2014htr10rmc`.
+
+Critical loading height **123.576 cm**: RMC **k = 1.004288**, MCNP **1.0033**.
+
+**The reference quotes no uncertainty on any of its 12 values.** At its stated
+1.35 M active histories the implied σ is ~60–100 pcm, but it is never printed,
+so "agreement to 100 pcm" against it is not a well-posed claim. The gate is
+**500–1000 pcm** (maintainer decision), which matches the existing bar recorded
+in `nee_soon::htr10_rmc` — *"~500 pcm would be success, 50 pcm would be
+suspicious."*
+
+## What has been built and measured
+
+| Component | Evidence | Measured |
+|---|---|---|
+| Hybrid delta/surface tracking | `tests/hybrid_tracking_equivalence.rs` | hybrid vs surface **−133 ± 215 pcm (0.62 σ)** at 12,000 histories |
+| — absorber isolation | same | region-local vs global majorant **448×** in virtual collisions, `k` unchanged (1.32 σ) |
+| Majorant price of a rod | `examples/majorant_absorber_price.rs` | **26.3×** at the thermal peak, **1.00×** above ~1 keV |
+| Boundary handoff unbiased | `tests/bounded_delta_flight.rs` | one region vs two + handoff, **1.38 σ** on collided fraction |
+| Depth-3 lattice descent | `tests/nested_lattice_depth3.rs` | 3 levels, streaming stops at the **inner** tile edge (0.050000 cm) |
+| Shannon entropy in the driver | `tests/shannon_entropy_in_keff.rs` | plateaus at 5.32 bits below the log2(64) ceiling; `k` bit-identical with/without |
+| TRISO radii adjudicated | `op-867c.12` | TECDOC-1382 states 90 µm twice, in two units; `TrisoRadii::HTR10` corrected from 95 |
+| Cubic TRISO array | `tests/cubic_triso_array.rs` | **8340** particles, **+0.060 %** vs the stated 8335 |
+| Bed 57:43 split | `nee_soon` `htr10_rmc::bed` | 0.569995 at 18,930 tiles, within one tile at **every prefix** |
+| Reflector, 82 zones | `nee_soon` `htr10_rmc::reflector` | densest zone **100.0 %** of solid graphite at the separately-stated 1.76 g/cm³ |
+| Geometry integrity | `nee_soon` `tests/htr10_geometry_integrity.rs` | 27,038 balls vs stated 27,000, **+0.142 %** |
+| Core assembly cost | `nee_soon` `examples/htr10_core_scaling.rs` | **547× tiles → 5 % locate time** |
+
+## Three findings that changed the plan
+
+1. **8,335 TRISO is unattainable.** The count moves in symmetry shells (8336 →
+   8240 in one step of pitch); nearest reachable are 8330 and 8340. The paper's
+   arrangement is therefore *not* exactly the one specified — its zone radius,
+   particle radius or rejection rule must differ in the last digit.
+2. **One shared surface cannot clip the conus.** Region surfaces inside a
+   lattice tile are evaluated in the **tile-local** frame, so each boundary tile
+   needs its own translated copy (`surface_in_tile_frame`).
+3. **Scale is not a runtime risk.** The plan treated the 650× gap to full core
+   as its main threat. Locate cost is flat, because lattice indexing is O(1)
+   arithmetic rather than a search.
+
+## What is NOT done, and must not be implied
+
+- **No eigenvalue has been computed for HTR-10.** The assembled core carries a
+  **homogenised** fuel zone, not an explicit TRISO lattice, so the double
+  heterogeneity is absent and its `k` is not comparable to the reference.
+- **The data library differs from every reference.** RMC, MCNP, Serpent and HCP
+  all used **ENDF/B-VII.0**; this workspace has **VIII.0**. On a
+  graphite-moderated LEU system that is worth hundreds of pcm, so a
+  disagreement could not be attributed to transport.
+- **The reflector densities are homogenised in R-Z.** TECDOC says explicitly
+  that a 3-D model must correct them for the boring geometries; using them
+  unadjusted smears the control-rod and helium-flow channels uniformly.
+- **This crate's thermal accuracy floor is ~200–400 pcm**, not 100 — LCT-008
+  sits at +87 to +237 pcm against ICSBEP with a ~69 pcm spectral residual still
+  open (`op-os8x`, gh #206).
+- **No control rods or absorber balls** are modelled.
+
+## The fuel deficit — real, but NOT the cause of `k = 0`
+
+~~`k = 0` traces to the model carrying far too little fuel.~~
+**CORRECTED 2026-09-17** — it does not. The cause was the `HexLattice::distance`
+axial-frame defect recorded above; `k = 0` persisted through every fuel-loading
+fix in this section and vanished the moment the lattice defect was fixed, with
+the fuel loading unchanged. The packing finding below is nonetheless **real and
+was fixed**, so it is kept — as a loading correction, not as a diagnosis.
+
+The reasoning that went wrong is worth keeping too: a ~5x fuel deficit was
+measured, `k = 0` was attributed to it, and the attribution was never tested
+against the alternative that neutrons were being *destroyed*. They were. The
+lesson is the one the instrumentation section states — `k` alone could not
+distinguish a model that under-produces from one that loses its histories, and
+no amount of reasoning about fuel fractions could substitute for counting how
+each history actually ended.
+
+The deficit as originally measured:
+
+| quantity | value |
+|---|---|
+| expected kernel volume fraction of an HTR-10 bed | **1.676e-3** |
+| measured source acceptance over the box | **3.375e-4** |
+| ratio | **~5x too little fuel** |
+
+**Half of that factor is found exactly.** `HexBedCell::from_paper()` carries
+`balls: 2.0` — the paper's hexagonal prism holds **two** balls, one per
+close-packed layer — but the assembled lattice places **one pebble universe per
+tile**:
+
+| | packing |
+|---|---|
+| one ball per tile (what is built) | **0.3050** |
+| two balls per tile (the paper) | **0.6100** ← the stated 0.61 |
+
+Exactly 2x, reproducing the published filling fraction to four digits. Not an
+approximation — the defect.
+
+The confusion underneath is worth stating because it is easy to repeat: a hex
+**lattice** places one universe at each tile centre, while the paper's **cell**
+is a two-layer prism carrying half-spheres on its faces and full balls between.
+They are not the same object. `HexBedCell`'s arithmetic is correct and gated —
+it predicts 27,038 balls against a stated 27,000 — but it was never reconciled
+with the lattice that consumes it, and nothing checked that the geometry
+realised the packing the arithmetic assumed.
+
+~~**Residual: 2.31x**, most likely the per-tile TRISO count.~~
+**CORRECTED 2026-09-17 — the TRISO count is right.** Measured directly
+(`nee_soon/examples/htr10_triso_count.rs`): the assembly builds **8,385**
+particles for a realised packing of **0.050550** against the `TrisoSpec`
+intended **0.050248** — a ratio of **1.006**, i.e. 0.6 % high, not 2.31x low.
+The tile-centre keep rule and `cubic_array_in_ball`'s whole-particle rule agree
+to within one part in 170 at this pitch.
+
+**The packing fix, and a false start inside it.** The two-balls-per-tile factor
+was closed by keeping the paper's pitch (6.6106 cm) and halving its height
+(9.79796 -> 4.899 cm), so one ball per tile reproduces 0.610 exactly with the
+ball clipped axially. An earlier attempt set the pitch to the **ball diameter**
+(6.0 cm) instead; that also gives ~0.61, but makes the ball exactly tangent to
+all six prism faces. That degeneracy is a genuine defect and was measured --
+but fixing it changed the negative-distance count not at all, which is how it
+was ruled out as the cause.
+
+**What is established now:** the loading is right to ~1 %, the transport is
+clean (0 lost, 0 stuck, 0 negative), and the remaining -29,678 pcm is a
+MODEL-completeness question -- starting with the fact that the run above is a
+98.0 cm bed against the benchmark's 123.576 cm critical height.
+
+## Reproducing what exists
+
+```bash
+cargo test -p outram-mc-libs --release --test hybrid_tracking_equivalence
+cargo test -p outram-mc-libs --release --test bounded_delta_flight
+cargo test -p outram-mc-libs --release --test nested_lattice_depth3
+cargo test -p outram-mc-libs --release --test cubic_triso_array
+cargo test -p nee_soon        --release --test htr10_geometry_integrity
+cargo run  -p nee_soon        --release --example htr10_core_scaling
+cargo run  -p outram-mc-libs  --release --example majorant_absorber_price
+```

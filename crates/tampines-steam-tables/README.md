@@ -1,10 +1,35 @@
 # TAMPINES Steam Tables
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+## Bookkeeping status
+
+> Maintainer sign-off tracker (see the workspace `CLAUDE.md` "Bookkeeping pass" command). A crate is **complete** only once the maintainer has personally signed off on BOTH axes below.
+
+| Axis | Status |
+|---|---|
+| Verification & Validation (V&V) — human-reviewed | ❌ Not yet manually checked |
+| Human / user interface — human-reviewed | ❌ Not yet manually checked |
+
+**Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
+
 In house steam tables for the Thermo-hydraulic Artificial intelligence 
 Multi-Phase INtegrated Emulator System (TAMPINES) solver.
 
 
-This relies heavily upon the [Rust-steam](https://github.com/marciorvneto/rusteam)
-library licensed using the MIT license. 
+**This is an independent OUTRAM PARK implementation, not the original
+rust-steam project** — it draws from (not a 1:1 port of) the
+[Rust-steam](https://github.com/marciorvneto/rusteam) library, `main` branch
+(MIT-licensed; no commit is pinned — the relevant code was incorporated
+directly early in this crate's history rather than via an ongoing
+codegen-from-clone pipeline; see `upstream_source/README.md` for the full
+provenance record).
+
+**The matrix/LDU solvers (`src/openfoam_algorithms/openfoam_source/matrix/`,
+`.../ldu_matrix/`) are separately from OpenFOAM**, not rust-steam — see the
+"OpenFOAM algorithms inside TAMPINES" section below for the full picture of
+what's vendored from where and why.
 
 However, [Rust-steam](https://github.com/marciorvneto/rusteam) is incomplete 
 for now. Moreover, it does not use the units of measure library. This 
@@ -17,13 +42,142 @@ International steam tables. Springer Berlin Heidelberg.
 Significant portions of code will be copied from the rust-steam package.
 Hence, I am putting the rust-steam license here.
 
+## Why TAMPINES over the CoolProp fork (`outram-park-fork-coolprop`)
+
+The workspace also has a pure-Rust CoolProp translation
+(`crates/outram-park-fork-coolprop`), which covers water too (IAPWS-95). For
+plain single-phase property lookups the two are largely interchangeable. Two
+things TAMPINES has that the CoolProp fork does not (as of 2026-07-10):
+
+- **`(h, s)` flash.** TAMPINES has IF97's own closed-form backward `(h,s)`
+  equations (`backward_eqn_hs_*`) — a direct, non-iterative property lookup
+  from specific enthalpy and entropy. The CoolProp fork only has `(p,T)`,
+  `(p,h)`, `(p,s)` flashes (Newton solves on `(T,ρ)`); it has no `(h,s)` input
+  pair at all, and adding one there would need a genuine iterative 2-D solve —
+  IF97 doesn't hand you a backward equation for free the way it does for
+  `(p,h)`/`(p,s)`.
+- **Multiphase critical (choked) flow for steam-water mixtures.** TAMPINES'
+  `steam_turbine_equations::converging_diverging_nozzles::choked_flow` module
+  is a Homogeneous Equilibrium Model (HEM) suite — a unified
+  dispatcher routing a stagnation `(p₀, h₀)` to a dedicated in-dome,
+  subcooled-liquid, or superheated-vapour solver by its position relative to
+  the p-h VLE dome. V&V status (re-read from the test source, 2026-08-11):
+  **verified against Moody (1975) Fig. 1** — 13 active isobar tests
+  (p₀/p_ref = 0.25–30.0) asserting an absolute log10 mass-flux bound of
+  0.06 (0.08 for deeply-subcooled Region-1 points), region-filtered so that
+  points neither in-dome (Region 4) nor deeply subcooled are skipped as a
+  documented HEM limitation — and **against Zaloudek graph-read HEM
+  curves** — 20+ active tests per file across the in-dome / subcooled /
+  superheated / generic-dispatcher / backward-throat files
+  (critical-pressure relative tolerance 0.005–0.05 by curve, mass-flux
+  log10 tolerance 0.05). **Marviken is now gated, with a split result**: the
+  NUREG/CR-2671 test-23/24 data in `marviken_tests.rs` runs as six active
+  tests (no `#[ignore]`, ~1.4 s). Against the 500 mm / `L/D` = 0.3 nozzle,
+  the HEM dispatcher **validates on test 23** (3 K subcooling: mean
+  deviation 12.6 %, worst 23.1 %, inside the justified $\pm 25\%$
+  experimental band) but **fails on test 24** (33 K subcooling: mean
+  $-48.5\%$, worst $-70.2\%$), so it is kept as an honest characterisation
+  and **the crate must not be called Marviken-validated for subcooled
+  stagnation states**. The bare HEM maximum-mass-flux criterion, evaluated
+  in the same file from the public `(p,s)` flashes, reproduces *both* tests
+  to a mean of 9–10 % — so the test-24 deficit is a branch-selection defect
+  in `get_critical_pressure_and_mass_flux_subcooled_liquid_ph`, **not** an
+  HEM physics limitation. Measured 2026-08-11; see the module doc of
+  `marviken_tests.rs` for methodology, error budget and the full lessons
+  note (bead `op-21g.16`). (See the Changelog below for the debugging
+  history, e.g. the near-bubble-point HEM artifact and the
+  Moody-vs-Zaloudek subcooled-regime reconciliation.) The CoolProp fork has
+  no choked-flow / critical-mass-flux model at all — it is a
+  property-lookup library, not a nozzle/turbine equation set.
+
+Everything else — steam-turbine equations, the OpenFOAM finite-volume
+algorithms, the FHR educational simulator — is TAMPINES-specific scope the
+CoolProp fork doesn't attempt to cover either; the two crates solve different
+problems more than they compete on the same one.
+
 ## Note on AI usage
 
 Until last month, AI was hardly used in this project. From this month
 (June 2026) onwards, Claude Code was used in the testing and development of
 the choked flow algorithms in vapour-liquid equilibrium (VLE).
 
+### Why human-in-the-loop is not optional here (a worked example)
+
+On 2026-07-14, an AI assistant (Claude Opus) wired `TampinesSteamArray` into
+the FHR simulator's steam-generator tube. It repeatedly reached for the
+`(T, p)` **single-phase** flashes (`h_tp_eqm_single_phase` and friends), which
+`panic!`/`todo!()` the moment a state is two-phase — and a boiling
+steam-generator tube is two-phase along most of its length. The assistant
+chased the resulting crashes for a long time (misattributing them, adding
+increasingly elaborate guards) and did **not** converge on the root cause on
+its own.
+
+The unlock was a one-line correction from the human maintainer: *"for
+`TampinesSteamArray` and `OPCPFluidArray`, use `(p, h)` flashing by default —
+it already includes the phase data inside."* With that reframing the fixes
+fell out quickly (see `docs/notes.md`, "Correction log", and
+`../tampines/docs/steam_generator_tube_integration.md`).
+
+The lesson, recorded here deliberately as evidence: an AI assistant is a
+capable but fallible collaborator. It produced a great deal of correct,
+well-tested code, yet it also confidently pursued a wrong approach that a
+human with domain knowledge corrected in a single sentence. Physics- and
+numerics-heavy work like this **requires a human in the loop** — not as a
+formality, but because the assistant's blind spots are real and it will not
+reliably find them alone. This matches the project's `RESPONSIBLE_USE.md` /
+`AI_USAGE.md` stance that AI-assisted output is untrusted draft material until
+reviewed by a human.
+
 # FHR Educational Simulator 
+
+**`fhr_sim_v2` moved to the `tampines` crate**
+(`crates/tampines/examples/fhr_sim_v2/`) -- run it from there with
+`cargo run --release -p tampines --example fhr_sim_v2`. It now runs its
+reactor kinetics through `teh-o-prke`'s Nordheim-Fuchs exact timestepper
+(10 ms timestep) instead of the numerical six-group PRKE solver this crate
+used to host. `fhr_sim_v1` remains in this crate (`examples/fhr_sim_v1/`).
+
+## Compiling `tampines-steam-tables-gui` for Windows (cross-compile from Linux)
+
+`tampines-steam-tables-gui` (`examples/tampines-steam-tables-gui/`) is an
+`egui`/`eframe` app. It can be cross-compiled into a native Windows `.exe`
+directly from Linux with [`cargo-xwin`](https://github.com/rust-cross/cargo-xwin),
+which downloads the MSVC CRT/Windows SDK headers needed to link the
+`x86_64-pc-windows-msvc` target — no Wine and no real Windows/MSVC install
+required.
+
+One-time setup:
+
+```bash
+rustup target add x86_64-pc-windows-msvc
+cargo install cargo-xwin
+# clang + lld provide the cross linker/compiler driver cargo-xwin shells out to
+sudo pacman -S clang lld       # Arch / EndeavourOS
+# sudo apt install clang lld   # Debian / Ubuntu / Mint
+```
+
+Then, from the workspace root (`outram-park-backend/`):
+
+```bash
+cargo xwin build --release -p tampines-steam-tables \
+  --example tampines-steam-tables-gui \
+  --target x86_64-pc-windows-msvc
+```
+
+The executable lands at
+`target/x86_64-pc-windows-msvc/release/examples/tampines-steam-tables-gui.exe`.
+
+**Verified 2026-08-21** (cargo-xwin 0.23.0, clang 22.1.8, rustc 1.96.0): a
+clean `--release` cross-build of the GUI example — including its full
+`egui`/`eframe`/`wgpu`/`egui-file-dialog` dependency stack — completes and
+produces a valid `PE32+ executable for MS Windows ... x86-64`. This is the
+same binary shape as the `fhr_sim_v2.exe` release-tag downloads referenced
+below, just cross-compiled locally instead of pulled from a GitHub release.
+
+`x86_64-pc-windows-gnu` (mingw) is also a valid target in principle, but is
+**not** verified on this machine — no `x86_64-w64-mingw32-gcc` is installed
+here, only the `msvc` path above via `cargo-xwin` has actually been built and
+checked.
 
 ## To Run on Windows
 
@@ -36,22 +190,60 @@ a Fluoride Salt Cooled High Temperature Reactor (FHR) educational
 simulator. The secondary loop just runs at steady state (no transient 
 calculations for simplicity.
 ```bash
-cargo run --release --example fhr_sim_v2
+cargo run --release -p tampines --example fhr_sim_v2
 ```
+
+### Running the test suite
+
+Always use `--release`. Split the fast library tests from the one very slow
+integration test:
+
+```bash
+# Fast path — 938 library test functions, finishes in seconds
+cargo test --release -p tampines-steam-tables --lib
+
+# Slow path — the Edwards-O'Brien blowdown transient. Give it 10+ minutes.
+cargo test --release -p tampines-steam-tables --test edwards_blowdown
+```
+
+**Current status, measured 2026-08-11:** `--lib` gives **924 passed, 0 failed,
+14 ignored**. List the ignored ones with
+`cargo test --release -p tampines-steam-tables --lib -- --ignored --list`.
+
+**A timeout is not a test failure.** `tests/edwards_blowdown.rs` integrates a
+600 ms two-phase pipe blowdown at `dt = 30 µs` — 20 000 PIMPLE steps, each doing
+real IAPWS-IF97 `(p, h)` flashes on every cell. Measured 2026-08-11:
+`edwards_obrien_pipe_blowdown_600ms` alone took **384.75 s**, and the full
+`edwards_blowdown` target (both tests, run in parallel by cargo) took
+**393.58 s**. A bare `cargo test` over the whole crate will therefore exceed a
+default command timeout. If that happens, report that the run was killed and how
+far it got — do not record it as a failing test, and never loosen a tolerance
+because a long test was inconvenient.
+
+Treat any written-down timing, including the two above, as indicative only:
+they are hardware- and load-dependent, and the wall-clock time of a `cargo test`
+command also covers compilation and any wait on the cargo build-directory lock
+when something else is building the workspace. The harness's own
+`finished in <N>s` line is the figure to quote.
 
 Note that for windows PCs, sometimes there will be problems where 
 windows defender blocks the fhr_sim_v2 from being run. In those cases,
-it's better to use windows subsystem for linux (WSL). One needs to note 
-to use:
+it's better to use windows subsystem for linux (WSL), then run:
 
 ```bash
-sudo apt install libopenblas-dev
+cargo run --release -p tampines --example fhr_sim_v2
 ```
 
-Before running:
-```bash
-cargo run --release --example fhr_sim_v2
-```
+**No system BLAS is required** (corrected 2026-08-11). This section used to tell
+WSL users to `sudo apt install libopenblas-dev` first. That was needed when
+`tampines-steam-tables` and `tuas_boussinesq_solver` still declared
+`ndarray-linalg`; neither does any more (TUAS dropped it at v0.1.2 in favour of
+pure-Rust `peroxide`, and this crate's vestigial entries were deleted). Verify
+with `grep -n ndarray-linalg crates/tampines-steam-tables/Cargo.toml
+crates/tuas_boussinesq_solver/Cargo.toml` — no dependency declaration matches.
+Workspace-wide, the only remaining OpenBLAS consumer is
+`outram-foam-basic-lib`'s `matrix_bench` dev-dependency, which
+`fhr_sim_v2` never touches.
 
 I used rustup to install rust. So if versions of Rust are outdated 
 (error messages may tell you so), then use:
@@ -67,7 +259,650 @@ Note: If you want to resize, use Ctrl+ and Ctrl- to change the size of the
 simulator.
 
 
+# OpenFOAM algorithms inside TAMPINES (`TampinesSteamArray`)
+
+This crate has two intentions that pull in opposite directions:
+
+1. **OpenFOAM solvers should eventually use TAMPINES for steam properties.**
+   A compressible/multiphase OpenFOAM-in-Rust solver needs an equation of
+   state and enthalpy/transport closures; the IAPWS-IF97 tables here are the
+   natural source. That means *some OpenFOAM crate depends on
+   `tampines-steam-tables`*.
+
+2. **TAMPINES should host an OpenFOAM-style array solver of its own.**
+   `openfoam_algorithms::rhoPimpleFoam::TampinesSteamArray` is a 1-D
+   compressible PIMPLE pipe solver built on the OpenFOAM `FvMesh`,
+   fields, and FV operators (via `create_one_d_mesh`). Those primitives
+   could either come from a dependency on an OpenFOAM crate, or — as
+   actually built, see "Current choice" below — from a copy vendored
+   inside this crate.
+
+Both can be true **without a dependency cycle**, but only if the edges are
+drawn carefully. Cargo forbids cyclic `[dependencies]` between crates, so this
+is a hard constraint, not a style preference.
+
+### The graph as designed (a clean DAG)
+
+The dependency-cycle analysis below was written assuming the edge
+`tampines-steam-tables → outram-foam-basic-lib`:
+
+```
+outram-foam-basic-lib        (Layers 1–4: primitives, fields, mesh, FV operators)
+   ▲        ▲        ▲
+   │        │        └── tuas_boussinesq_solver
+   │        └─────────── outram-foam-turbulence-lib
+   │                          ▲
+   │                          └── outram-foam-appbuilder-lib   (Layer 5: solver loops)
+   └────────────────────────────  tampines-steam-tables     (+ tuas)
+```
+
+Every arrow points **down** to `outram-foam-basic-lib`. **Note (verified
+against `Cargo.toml`, 2026-08-11): that edge was never actually drawn.**
+The OpenFOAM primitives `TampinesSteamArray` needs were instead **vendored
+in-crate** under `src/openfoam_algorithms/openfoam_source/` as
+`pub(crate)` modules (see "Current choice" below), so this crate's
+`[dependencies]` are only `approx`, `ndarray`, `thiserror`, `uom` — no
+`outram-foam-basic-lib`, and nothing depends on `tampines-steam-tables`
+from the OpenFOAM stack yet. The cycle analysis below still documents the
+constraint any future real dependency edge must respect.
+
+### The invariant
+
+> A steam-table **consumer** must sit **above** `tampines-steam-tables` in the
+> layer stack. `tampines-steam-tables` may depend **downward** into
+> `outram-foam-basic-lib` (Layers 1–4 primitives) but must never depend on a
+> Layer-5 solver crate, and **`outram-foam-basic-lib` must never depend on
+> `tampines-steam-tables`.**
+
+The single forbidden edge is `outram-foam-basic-lib → tampines-steam-tables`. It
+would arise if we tried to make Layer-4 `FluidThermo` *inside* `outram-foam-basic-lib`
+call the steam tables directly. Because `outram-foam-basic-lib` uses **enum
+dispatch** for its thermophysics models (`Eos`, `Thermo`; no trait objects —
+see the workspace `CLAUDE.md`), a `SteamTable` variant cannot be added to those
+enums without `outram-foam-basic-lib` depending on this crate — i.e. the cycle.
+So the steam-backed thermophysics model must be assembled **one layer up**.
+
+### Possible solutions
+
+**A. Layered consumer (recommended baseline).**
+Keep `tampines-steam-tables → outram-foam-basic-lib` as is. Wire the steam tables
+into solvers at **Layer 5** — either in `outram-foam-appbuilder-lib` or in a new
+dedicated `openfoam-steam` crate — where a crate is free to depend on *both*
+`outram-foam-basic-lib` and `tampines-steam-tables`. The graph stays a DAG and
+`TampinesSteamArray` stays in this crate.
+
+```
+outram-foam-basic-lib ◄── tampines-steam-tables ◄── openfoam-steam (Layer-5 solver)
+        ▲                                              │
+        └──────────────────────────────────────────────┘
+```
+
+**B. Thermophysics contract in the lower crate, steam variant in the upper.**
+`outram-foam-basic-lib` keeps defining the thermophysics *interface*
+(`EquationOfState` / `ThermoModel` traits + the `Eos`/`Thermo` enums). The
+concrete **steam-backed** thermo model is a *new* enum/struct declared in the
+Layer-5 crate that wraps *either* the `outram-foam-basic-lib` `Thermo` enum *or*
+the TAMPINES `TampinesSteamTableCV`. This respects the enum-dispatch rule while
+keeping the steam dependency above the primitives. Complements A.
+
+**C. Split TAMPINES into two crates.**
+`tampines-steam-tables` becomes a *pure* IAPWS-IF97 property crate with **no**
+OpenFOAM dependency (so any solver can consume it cheaply), and a separate
+`tampines-steam-array` crate depends on **both** `tampines-steam-tables` and
+`outram-foam-basic-lib` to host `TampinesSteamArray` + the Marviken verification.
+Architecturally the cleanest DAG, but it **moves the OpenFOAM algorithms out of
+this crate**, which is explicitly *not* what we want right now — listed for
+completeness and as the escape hatch if the in-crate coupling becomes painful.
+
+**D. Feature-gate the OpenFOAM dependency (compatible with A/B).**
+Put `outram-foam-basic-lib` behind an optional `openfoam-algorithms` Cargo feature.
+Property-only consumers depend on a lean `tampines-steam-tables` (no `FvMesh`
+pulled in); `TampinesSteamArray` and its Marviken tests live behind
+`--features openfoam-algorithms`. This does not change the cycle analysis (the
+edge direction is unchanged) — it just keeps the property-only dependency
+surface minimal for downstream OpenFOAM solvers that only want an EOS.
+
+### Why keep the algorithms here at all (mission creep, acknowledged)
+
+The workspace `CLAUDE.md` says Layer-5 solver-loop logic belongs in solver
+crates, not lower layers — and `TampinesSteamArray` is Layer-5 logic living in a
+property crate. This is a **deliberate, scoped exception**: the goal is to
+**verify the transient array solver against the Marviken blowdown data** that
+already lives here
+(`src/steam_turbine_equations/converging_diverging_nozzles/tests/marviken_tests.rs`,
+NUREG/CR-2671). Co-locating the steam tables, the Marviken reference data, and
+the transient `TampinesSteamArray` lets that validation loop be written and run
+inside one crate before the solver is promoted to a proper Layer-5 home. If/when
+the validation is settled, Solution **C** is the clean path to graduate the
+algorithms out.
+
+### Preferred solution: consume TAMPINES at the `outram-foam-appbuilder-lib` level
+
+Solution **A**, made concrete: **`outram-foam-appbuilder-lib` (Layer 5) depends on
+`tampines-steam-tables`.** appbuilder is where the solver loops live
+(`RhoPimpleFoam`, etc.), so a steam-table consumer is a native Layer-5 concern —
+this isn't even the scoped exception that `TampinesSteamArray`-in-TAMPINES is.
+
+```
+outram-foam-basic-lib ◄── tampines-steam-tables ◄── outram-foam-appbuilder-lib (Layer 5)
+        ▲                       ▲                        │  │
+        │                       └── tuas ────────────────┘  │
+        └───────────────────────────────────────────────────┘
+```
+
+Adding `outram-foam-appbuilder-lib → tampines-steam-tables` gives appbuilder the
+transitive set `{ outram-foam-basic-lib, outram-foam-turbulence-lib,
+tampines-steam-tables, tuas_boussinesq_solver }`. None of those depend back on
+`outram-foam-appbuilder-lib`, so the graph stays a DAG and Cargo is satisfied. The
+only edge that would ever cycle is `outram-foam-basic-lib → tampines`, and this is
+not that.
+
+Because `outram-foam-basic-lib` uses **enum dispatch** for thermophysics
+(`Eos`/`Thermo`, no trait objects), the steam-backed model cannot be a variant
+*inside* those enums — that would force `outram-foam-basic-lib` to depend on this
+crate. So the steam thermo is introduced **at the appbuilder level** (Solution
+**B**), e.g. a new `enum FluidThermoModel { Basic(Thermo), Steam(TampinesSteamTableCV) }`
+declared in appbuilder, or the solver holding the steam table directly where it
+currently evaluates `ρ = ψ·p`.
+
+There is a deliberate symmetry: `TampinesSteamArray` (in TAMPINES) is a simpler
+1-D sibling of appbuilder's `RhoPimpleFoam`. The array is *intended* to be
+validated against Marviken in-crate. **That validation is still outstanding for
+`TampinesSteamArray` itself** — what landed on 2026-08-11 (bead `op-21g.16`) is
+the Marviken comparison for the *steady HEM critical-flow* dispatcher, not for
+the transient array solver. Its outcome is split and is written up in the module
+doc of `marviken_tests.rs`: HEM validates against test 23 (3 K subcooling, mean
+deviation 12.6 %) and **fails** against test 24 (33 K subcooling, mean
+$-48.5\%$), with the deficit traced to a solver branch choice rather than to the
+equilibrium assumption. The full solver in appbuilder then consumes the *same*
+tables one layer up.
+
+**Current choice (what was actually built, verified against `Cargo.toml`
+2026-08-11):** none of A–D exactly. Instead of depending on
+`outram-foam-basic-lib`, the needed Layers 1–4 primitives (fields, mesh, FV
+operators, LDU matrix, interpolation, thermophysics kernels, …) were
+**vendored into this crate** as a copy under
+`src/openfoam_algorithms/openfoam_source/`, kept `pub(crate)` so none of it
+leaks into the public API. This crate's `[dependencies]` are therefore only
+`approx`, `ndarray`, `thiserror`, `uom` — property-only consumers get a lean
+crate with no OpenFOAM dependency (the outcome Solution **D** aimed for),
+while `TampinesSteamArray` still builds on OpenFOAM-style primitives
+in-crate. The forbidden `outram-foam-basic-lib → tampines` edge is never
+drawn, and in fact no dependency edge exists between the two crates in
+either direction; Solutions **A**/**B** remain the plan for wiring the
+steam tables into `outram-foam-appbuilder-lib`-level solvers.
+
+
 # Changelog
+
+v0.2.9 — mean-flow stage-by-stage turbine model (patch, additive)
+
+Adds `steam_turbine_equations::mean_flow_stages`, which resolves a steam
+turbine into stages along the mean streamline with **one homogeneous-
+equilibrium control volume per stage** (bead `op-yi7m`, gh:#164). Purely
+additive: no existing signature changes, and the 982 pre-existing library tests
+are untouched.
+
+- **Every stage is both impulse and reaction**, solved in two parts in the order
+  they physically happen. The blade first turns the relative flow at constant
+  relative speed, and the tangential momentum removed is work by the Euler
+  equation on the velocity triangle. The rotor passage then acts as a nozzle,
+  because its exit pressure is below its inlet pressure, and the blade row
+  develops lift from that acceleration. `StageWorkSplit` reports the two
+  contributions separately, and both terms are public so a unit test can
+  exercise either mechanism on its own.
+- **The split does not double count.** The lift term is driven by the velocity
+  increment the rotor pressure drop produced, `dw = sqrt(w2^2 + 2 dh_rotor) -
+  w2`, not by the full relative velocity. A rotor with no pressure drop
+  therefore has no reaction part and reduces exactly to the classical impulse
+  stage — asserted, not assumed.
+- **Stage pressures are supplied, not derived** from an assumed degree of
+  reaction. Splitting an enthalpy drop by reaction would need an `(h,s)` flash,
+  whose gaps at the triple point and at 1000 bar are recorded in this crate's
+  `CLAUDE.md`. Supplying pressures keeps every stage on the validated `(p,s)`
+  and `(p,h)` paths; the degree of reaction is *reported* from the kinematics
+  instead of prescribed.
+- **Angle convention:** angles are measured from **axial**, not from
+  tangential. The classical optimum blade-speed ratio therefore reads
+  `U/c1 = sin(alpha1)/2` here rather than the textbook `cos(alpha1)/2`. Same
+  physics, and the test sweeps it numerically rather than asserting the formula.
+- **14 tests plus one `#[ignore]`d diagnostic**, following this crate's existing
+  diagnostic pattern. They anchor on closed-form turbomachinery results rather
+  than on the model's own output: symmetric-impulse work `2U(c_th1 - U)`, its
+  optimum blade-speed ratio, the vanishing reaction term at zero rotor drop,
+  energy conservation through the control-volume chain, and reheat appearing as
+  staged isentropic drops summing above the single-step drop.
+- **Worked machine.** Eight stages, 40 bar / 400 degC admission, 0.35 bar
+  exhaust: 702 kJ/kg total work, stage efficiency rising 0.674 to 0.765,
+  reaction fraction rising 0.359 to 0.427 toward the LP end, moisture first
+  appearing at stage 6, exhaust quality 0.949. The wetness is not imposed — it
+  falls out of the equilibrium flashes.
+- **Scope.** Mean-line only: no radial equilibrium, no spanwise variation, no
+  tip leakage. The equilibrium assumption is inherited from the flashes, so
+  supersaturation and droplet lag in the wet stages are outside it, exactly as
+  they are for the rest of this crate's HEM work. Stage pressures are not solved
+  from a mass-flow match.
+
+## Transient variant — `mean_flow_stages::transient`
+
+The same stage chain driven in time by the crate's **1-D HEM KNP hybrid
+solver** (`TampinesSteamArray` in `SolverMode::HybridAllMach`), meshed **one
+cell per stage**. What the steady model is told, the solver now owns:
+
+- **Pressure is solved**, from the boundary conditions, rather than supplied
+  per stage.
+- **Axial velocity is solved**, so the velocity triangle is built on the
+  momentum equation's own answer instead of on an assumed nozzle enthalpy drop.
+  That is what makes the model transient rather than a design-point one.
+- **The work leaves through the energy equation.** Each stage's specific work
+  becomes a power from the local mass flux and is registered as a negative
+  per-cell power source, so the shaft work is an energy sink the solver sees.
+
+The KNP hybrid is selected by the constructor rather than inherited: turbine
+passages run near-sonic at the nozzle throats and the last stages expand into
+the dome, which is the regime the plain pressure-based path rings in. The mode
+is public, so the historical bit-identical `Pimple` path is still reachable.
+
+Because pressure is solved, there is no interstage station to read a degree of
+reaction off, so the rotor's share of the local drop is a per-stage input
+(`rotor_drop_fraction`). Zero reproduces the pure impulse stage, and that limit
+is asserted through the solver as well as in the steady model.
+
+### The shaft is closed-loop
+
+Shaft speed is **not** an input. Each stage's tangential momentum change becomes
+a torque, the torques sum, and `ThreePhaseElectricGeneratorTurbine` advances the
+rotor against the electrical braking of its own load. The next timestep's
+velocity triangles are built at the new speed, so steam, shaft and load are
+coupled and the machine can spin up, coast down and answer a load change.
+
+Torque is built from tangential momentum, `T = mdot * r * dc_theta`, and **not**
+by dividing shaft power by shaft speed. The difference matters at exactly one
+point and it is the important one: at standstill the blade speed is zero, so the
+work is zero, but the tangential momentum change is not. That is a turbine's
+starting torque. Recovering torque from power would give `0/0` there and the
+machine could never start. `VelocityTriangle::tangential_velocity_change` and
+`RotorBlading::reaction_tangential_velocity_change` exist to keep that quantity
+separate from the work for both mechanisms.
+
+**Still assumed:** the annulus is uniform, which is the mean-line assumption
+showing up in the mesh.
+
+Suite after this change: **1009 passed, 0 failed, 14 ignored**
+(`cargo test --release --lib`).
+
+v0.2.4 — `HybridAllMach` stabilised over the full transient (patch)
+
+Patch release fixing the late-time instability that made the v0.2.3
+`SolverMode::HybridAllMach` experimental (bug `op-21g.15.7`).
+
+- The full-600 ms Edwards run in `HybridAllMach` now **completes with no panic**
+  (previously crashed past t ≈ 0.18 s). Root cause: not an HEM limit — an
+  emptying mid-pipe cell rarefied in a localised runaway (ρ → near-vacuum), the
+  conservative-energy diagonal collapsed to its floor, and the explicit KNP
+  deferred-correction over-drove the state below the `(p,h)` validity edge.
+- **Fix**: a physically-motivated rarefied-tail taper on the blend weight —
+  `β` is scaled to zero below ρ ≈ 50 kg/m³ and full above ≈ 100 kg/m³
+  (`HYBRID_RHO_TAPER_LO/HI`). There is no flashing shock to capture in the
+  near-vacuum tail (where the HEM closure degrades anyway), and the minimum
+  dissipated-face density in the ringing window is 106.5 kg/m³, so the taper
+  never touches the physics of interest. No clamps, no tolerance changes.
+- **Result**: full-600 ms `HybridAllMach` is stable and now *more accurate than
+  default `Pimple`* — GS-1 pressure RMSE vs the digitised Data ≈ 30.6 psia
+  (vs 58.6 for `Pimple`), the ~55 % near-sonic ringing reduction retained, the
+  flashing plateau held (387.7 psia), no cold tail (min T ≈ 372 K). Default
+  `Pimple` remains bit-identical (920 lib tests pass). Residual void-fraction
+  oscillations in the depressurising tail remain a minor secondary artifact.
+- `SolverMode::HybridAllMach` is no longer flagged experimental in the API docs.
+
+v0.2.3 — Edwards–O'Brien blowdown V&V case, flashing-plateau fix,
+and the experimental all-Mach solver mode (patch)
+
+Patch release adding a validation case and a thermodynamic-consistency fix to
+the 1-D **HEM-closed rhoPimpleFoam** array (`TampinesSteamArray`).
+
+- **Edwards–O'Brien pipe blowdown V&V case** (`tests/edwards_blowdown.rs`): the
+  classic two-phase critical-depressurisation benchmark (Tomlinson & Aumiller,
+  B-T-3271 / Edwards & O'Brien, 1970) run on `TampinesSteamArray` — 24-CV
+  modified nodalisation, Hendrie (1973) non-isothermal axial IC, HEM choked
+  break BC. Writes gauge-station pressure/void/break-flow CSVs to
+  `verification_and_validation/` for plotting (excluded from the package).
+
+- **Flashing-plateau fix** (the primary numerical result). The array now
+  recovers the Edwards flashing plateau (GS-1 ≈ 392.7 psia, RMSE ≈ 60 psia vs
+  the digitised benchmark, down from 276) with **no non-physical subcooling**,
+  stable over the full 600 ms — emerging from two corrected thermodynamics, no
+  clamps:
+  1. **Conservative energy time-derivative** using the *continuity* density
+     (`ρ_cont = ρ_old − dt·∇·φ`) so the discrete `h·∇·φ` term cancels — the
+     textbook conservative form (the earlier port reused the current density for
+     both time levels, over-draining enthalpy during the flash → subcooling).
+  2. **Two-phase compressibility `ψ = ∂ρ/∂p|_h`** (finite difference of the
+     `(p,h)` flash) in place of the frozen quality-weighted `κ_T`, which omitted
+     the flashing term `(v_g−v_f)·dx/dp` and was ~100× too small in the dome.
+
+- **`SolverMode` API** (opt-in, enum-dispatched): `Pimple` (default —
+  HEM-closed PIMPLE, validated, stable full-transient) and **`HybridAllMach`
+  (EXPERIMENTAL / buggy)**. The hybrid injects a Mach-weighted KNP
+  central-upwind dissipation — using the **HEM equilibrium sound speed**
+  (Kieffer eq. 28, `w_ps_eqm_region4_kieffer`), never the frozen Wood–Wallis —
+  to damp the near-sonic ringing at the flashing front (~55% over 0–0.15 s).
+  It is **not production-ready**: the full-600 ms run is marginally unstable
+  past t ≈ 0.18 s (an emptying-pipe two-phase near-sonic cell over-cools across
+  the `(p,h)` validity edge and `correct_thermo` panics). Tracked as bug
+  `op-21g.15.7`; use the default `Pimple` mode. The KNP flux math is copied
+  in-tree (`central_upwind.rs`, GPLv3/OpenFOAM provenance preserved) with no
+  `outram-foam` dependency.
+
+- **Known accuracy limits** (secondary, not the qualitative failure): the
+  recovered plateau sits ~8 % high (393 vs ~355 psia) and the late (0.1–0.3 s)
+  pressure decline is shallower than the data — HEM-closure / axial-profile
+  items. As always in this workspace: unverified until validated.
+
+v0.2.2 — (p,h)-flash robustness (patch)
+
+Patch release. Hardened the `(p, h)` flash in Regions 4 and 5 (VLE dome /
+high-temperature steam) for the transient control-volume path;
+`TampinesSteamArray` gains OpenFOAM-style pressure bounding and is wired into
+the fhr_sim_v2 steam-generator tube example; the `lambda_ph_eqm`
+critical-enhancement term now handles the two-phase region. No breaking API
+changes.
+
+v0.2.1 — transient mass & energy balance and
+unified multiphase critical-flow dispatcher
+
+> **Design / thought process: human-authored** (written by the maintainer; the
+> Rust implementation and tests were carried out by an AI assistant following
+> this specification).
+
+Control volumes can now gain or lose mass over a timestep, with the new
+thermodynamic state recovered by an iterative `(p, h)` flash.
+
+The mental model and algorithm (as specified):
+
+1. Build a **vector of `(mass, specific-enthalpy)`** source/sink terms *outside*
+   the control volume — kept external so `TampinesSteamTableCV` stays a small
+   `Copy` value rather than carrying a `Vec`. This is the new
+   `CvMassEnthalpyChanges` ledger; `add_mass()` and `remove_mass()` push a
+   `(mass, enthalpy)` tuple (with `uom` types) onto it (removal stored as a
+   negative mass).
+2. Call `TampinesSteamTableCV::advance_timestep(&ledger)`. It sums the **total
+   mass change** and the **total enthalpy change** added to the system.
+3. The control-volume geometric volume is fixed, so the new state has a new
+   `(ρ, h)` point: the mass is `ρ · V`, the specific enthalpy is the
+   mass-weighted total enthalpy over the new mass, and the specific volume is
+   `V / m_new`.
+4. To get the thermodynamic state from that `(ρ, h)` point we iterate on
+   pressure with **regula falsi (false position)**, evaluating the `(p, h)`
+   flash `v(p, h)` until it matches the target specific volume `V / m_new`, then
+   rebuild the control volume from `(p, h_new)`.
+
+Implementation notes from the build-out:
+
+- At fixed enthalpy, specific volume decreases monotonically with pressure, so
+  the residual `v(p, h) − v_target` has a single sign change — well suited to
+  regula falsi.
+- The bracket is grown **outward from the control volume's current pressure**
+  (a known-valid point) toward the root, not from a blind 100 MPa endpoint. The
+  `(p, h)` flashes are **not implemented for region 5 (T > 800 °C)**, and
+  marching down from 100 MPa could land there and panic; seeding from the
+  current pressure keeps every evaluation inside the validated range.
+- `advance_timestep` panics on non-physical input (removing more mass than is
+  present, or a `(v, h)` target outside the validated steam-table range) rather
+  than silently returning a wrong state.
+
+
+`get_crit_pressure_and_massflux` (and `get_stagnation_critical_mass_flux`) on
+`TampinesSteamTableCV` are now a single **generic multiphase dispatcher**,
+`get_critical_pressure_and_mass_flux_multiphase_ph`, that routes a stagnation
+state `(p0, h0)` to the right HEM solver by its `ph_flash_region`:
+
+| Stagnation region | Solver |
+|---|---|
+| Region 4 (two-phase, in-dome) | `get_critical_pressure_and_mass_flux_ph_vle_dome` |
+| Region 1 (subcooled liquid) | `get_critical_pressure_and_mass_flux_subcooled_liquid_ph` |
+| Region 2 / 5 (superheated / ultra-high-T vapour) | `get_critical_pressure_and_mass_flux_superheated_vapour_ph` |
+| Region 3 (supercritical), isentrope re-enters the dome | `dome_crossing_interior_choke` (new) |
+| Region 3 (supercritical), no dome crossing | superheated or subcooled by `s0 ⋛ s_crit` |
+
+All 13 `generic_multiphase_stagnation` tests now pass (previously `#[ignore]`d),
+with **per-point tolerances that match the dedicated region tests**: Region 4 →
+0.005 (0.01 for the near-bubble x_t = 0.05 curve, as `in_dome_stagnation.rs`),
+Region 1 → 0.03 (as the subcooled test), Region 2/3 → 0.05 (as the near-critical
+x_t = 0.80 superheated curve), mass flux → 0.05 log10 everywhere. The deprecated
+combined `get_critical_pressure_and_mass_flux_with_stagnation_props` is retained
+for reference only and is no longer wired into the OOP API.
+
+**Debugging trail — why the near-critical Region 3 points were hard.**
+The only points that failed when the dispatcher first routed by region were the
+single **3000 psia** throat of every quality curve. Every other point (≈600)
+passed with < 1 % error; the failures sat at +5.6 … +6.6 %. The investigation:
+
+1. *Round-trip diagnostic per point.* Reporting region, `p_calc`, `p_ref` and
+   error for every point (instead of panicking on the first failure) isolated
+   the failures to exactly the 3000 psia point, which backward-maps to a
+   **supercritical Region 3** stagnation state (`p0 ≈ 28 MPa`) whose throat sits
+   at 20.68 MPa ≈ 0.94·p_crit — right under the dome apex.
+2. *Scanning the HEM energy-balance `G(p) = ρ·√(2(h0−h))` along the isentrope*
+   showed the true cause: a **spurious kink-peak at the supercritical→two-phase
+   phase boundary** (the apex, ~22 MPa). Crossing the boundary makes `G` non-
+   smooth, and the `max-G ⇔ M = 1` choke equivalence only holds at *smooth*
+   stationary points — so the single-phase solvers latched onto the apex kink
+   instead of the genuine, much shallower interior two-phase choke at ~20.7 MPa
+   (which matches Zaloudek to ~0.3 %). This is the critical-point analogue of the
+   already-documented bubble-point artifact on the subcooled side. The mass flux
+   barely differs across the band (`G` is flat to < 0.6 %), so only the *pressure*
+   localisation was wrong.
+3. *A fine (20 kPa) scan near the apex* exposed why naive interior-max searches
+   failed: the IF97 Region-3/4 backward equations lose digits within ~0.5 K of
+   Tc, peppering `G` with isolated single-sample glitches (one spike dropped `G`
+   to ~60 % of its neighbours) on top of a band that is otherwise flat to
+   < 0.01 %. "Strongest interior max", "first local min then first local max",
+   and "global max below the trough" each got fooled by a different glitch or by
+   the high-G decline just below the apex.
+4. *Robust finder (`dome_crossing_interior_choke`).* Coarse-scan `G` over the
+   two-phase stretch, apply **two passes of a 3-point median filter** to excise
+   the IF97 glitches, **exclude a 0.8 MPa kink+decline margin** below the dome
+   entry, then take the band peak nearest the **low-pressure** side (the first
+   local max within 1 % of the band maximum). This matches Zaloudek's choke
+   pressure, which sits at the low end of the flat near-critical band.
+5. *Tolerances & methodology.* Switching the test from Zaloudek's digitised
+   stagnation enthalpy to the self-consistent backward-mapped `h0_calc` (the
+   methodology the split tests use) tightened the whole round trip: with the
+   robust finder, **all Region 3 points land < 0.5 %**, Region 1 < 1.4 %, and
+   Region 4 < 0.9 % (the > 0.5 % cases are all the near-bubble x_t = 0.05 curve,
+   exactly where the in-dome test also relaxes to 0.01).
+
+The near-critical choke pressure remains genuinely ill-conditioned (the HEM `G(p)`
+is flat to < 0.6 % across a ~1.5 MPa band, and IF97 loses precision near Tc), so
+the Region 3 tolerance is the same 0.05 the superheated test already uses for its
+near-critical x_t = 0.80 / 3000 psia point — not a physics limit, an IF97 one.
+
+**Subcooled choked flow has two regimes — Moody vs Zaloudek do *not* contradict.**
+While re-enabling the Moody (1975) maximum-discharge isobar tests
+(`moody_critical_mass_flux_homogeneous_eqm.rs`), every two-phase (Region 4) point
+passed at ±0.01 log10 G, but the **subcooled (Region 1)** points failed, and worse
+the deeper the subcooling — the deepest points all collapsed to a constant
+≈ 260 kg/m²s (the clamped low end of the saturated-liquid sonic map). This is *not*
+a conflict between the two datasets; they sample two different subcooling regimes of
+the same HEM surface and agree where they overlap (the in-dome points, and the
+continuous trend across the dome edge). The conflict is with our solver's
+*discriminator*.
+
+The physics — the choke pressure for subcooled liquid is always pinned at the
+**bubble point** (the HEM sound speed jumps discontinuously from ~1500 m/s liquid to
+a few m/s two-phase there), but the choke *mass flux* has two limits set by the
+degree of subcooling, i.e. by how much velocity the liquid builds before it flashes
+(`p_bubble/p0`):
+
+| Regime | `p_bubble/p0` | Choke mass flux | Example |
+|---|---|---|---|
+| **Barely subcooled** (Zaloudek subcooled curves, backward-mapped from x_t ≈ 0) | ≈ 0.9–1.0 | two-phase sonic flux **ρ_f·c_2φ** (the sonic map); the energy balance *overshoots* | Zaloudek 5 psia: G_ref 457, sonic_map 422 ✓, energy 3347 ✗ |
+| **Deeply subcooled** (Moody isobars, low stagnation enthalpy) | → 0 | Bernoulli / flashing flux **ρ_f·√(2·Δh_subcool)** ≈ the energy balance; the sonic map *underestimates* by up to ~70× | Moody p0=0.172 MPa, h₀/h_ref=0.49: G_ref 18836, energy 12739 ✓, sonic_map 261 ✗ |
+
+The clincher that the deep-subcooling limit is genuine Bernoulli flow: for the
+deepest Moody point, pure incompressible √(2·ρ_f·(p0 − p_back)) = 18568 vs Moody's
+digitised 18836 — essentially exact.
+
+**…but no local discriminator can separate the two regimes, and it is a genuine
+HEM limitation.** The natural fix — route by the degree of subcooling
+(`v_b/c_2φ`, the Bernoulli velocity at the bubble point over the two-phase sound
+speed) — was implemented and rejected: it does *not* separate the datasets. The
+decisive counter-example, verified directly:
+
+| Stagnation state | p₀ | v_b/c_2φ | correct choke | HEM energy-max gives |
+|---|---|---|---|---|
+| Zaloudek 10 psia | 0.069 MPa | **3.3** | sonic **748** | 2547 (overshoot) |
+| Moody p/pref=8, h≈4.47 | 5.52 MPa | **3.1** | Bernoulli **57 681** | 60 460 ✓ |
+
+These two sit on top of each other in *every* local thermodynamic parameter
+(quality at the choke ≈ 0, v_b/c_2φ ≈ 3, similar energy/sonic ratios) yet demand
+**opposite branches**. Quality, stagnation subcooling, v_b/c_2φ *and* pressure all
+overlap between the datasets — confirming the existing CLAUDE.md warning that
+"neither stagnation subcooling nor pressure separates the artifact from genuine
+interior choking." The physical reason is that **HEM equilibrium is known to
+under-predict subcooled critical flow**: barely-subcooled liquid chokes almost
+immediately at the bubble point at the two-phase sonic flux (tiny expansion,
+p_throat/p₀ ≈ 0.99), whereas deeply-subcooled liquid expands substantially
+(p_throat/p₀ ≈ 0.6) as effectively *non-equilibrium / frozen* liquid and chokes
+Bernoulli-like. One equilibrium model cannot give both; Moody's deep-subcooled
+branch is really non-equilibrium and would need an HRM-type relaxation model.
+
+**Resolution (chosen).** The `x_at_energy < 0.03` quality discriminator is kept
+as-is (it is correct for the entire Zaloudek subcooled range), and the Moody tests
+are **region-filtered**: each isobar asserts only its in-dome (Region 4) points and
+skips the single-phase (Region 1 / Region 2) points with a logged note — exactly
+the partitioning the Zaloudek split tests use. The skipped subcooled points are
+documented as a genuine HEM limitation, not a solver bug. With this, **all 13
+Moody isobar tests pass** at an absolute log10-G tolerance of 0.06 (the in-dome
+HEM result is excellent: the worst in-dome error is +0.044 at the near-bubble edge
+of the 0.25 isobar; almost all points are < 0.02).
+
+**Deep-subcooling escape — the solver is still usable far into the subcooled
+region.** Because the contradiction lives only *near the bubble point*, where
+Zaloudek is far more precise than Moody, the solver now takes a deep-subcooling
+escape: when `v_b/c_2φ` exceeds `DEEP_SUBCOOLING_RATIO` (= 5.0, set above the
+maximum 3.30 reached by *any* Zaloudek subcooled point), the stagnation is
+unambiguously past Zaloudek's range and the choke is taken as the energy-balance /
+Bernoulli maximum. Inside the overlap (`v_b/c_2φ ≤ 5`) it defers to the precise
+near-bubble (sonic) logic. This is purely additive — it cannot change any
+near-bubble result, so all 80 Zaloudek tests still pass — and it makes
+`get_critical_pressure_and_mass_flux_subcooled_liquid_ph` give physical mass
+fluxes for deeply subcooled stagnation (e.g. Moody's deep points now land within
+±0.03 in log10 G for all but the very lowest-pressure point, which reads −0.17;
+previously they all collapsed to the ≈ 260 kg/m²s sonic floor). The remaining
+*untestable* gap is the moderate-subcooling overlap (3.3 < v_b/c_2φ < ~5), which
+stays on the Zaloudek branch by design.
+
+One curve, **`isobar_pref_4_00`, uses a looser 0.25 tolerance**: its digitised
+reference G-values are systematically ≈ 0.13 in log10 high (a factor ~1.35) across
+the *entire* in-dome range — a graph-reading error on that single curve, not a
+solver error. Its neighbours bracket it and match the solver tightly (isobar 2.0
+≤ +0.017, isobar 6.0 ≤ +0.024), and the solver's 4.0 values sit smoothly between
+them, so the loose bound admits the offset reference without masking anything.
+
+**Update (2026-06-30) — `isobar_pref_4_00` re-digitised, special tolerances
+removed.** Rather than carry a bad reference behind a loose bound, the `p/p_ref =
+4.00` chart was **re-read with GraphReader** and the curve re-digitised (18
+points). With the corrected data the solver reproduces it at the **standard**
+tolerances like every other isobar:
+
+- in-dome (Region 4): worst error **0.025** in log10 G (was forced to 0.25)
+- deeply-subcooled (Region 1 escape): worst error **0.007** in log10 G (was 0.113)
+
+So the two bespoke constants `MOODY_ISOBAR_4_LOG10_TOL = 0.25` and
+`MOODY_DEEP_ISOBAR_4_LOG10_TOL = 0.13` were **deleted**; `isobar_pref_4_00` now
+calls `validate_moody_isobar` with `MOODY_LOG10_TOL` (0.06) and
+`MOODY_DEEP_LOG10_TOL` (0.08). The old digitisation is preserved as a comment
+above the test for the debug trail. This supersedes the "looser 0.25 tolerance"
+paragraph above and the "isobar_4_00 DEEP points" root-cause block below.
+
+**Moody deeply-subcooled branch — asserting the Region 1 escape route**
+
+> **Design / thought process: human-authored** (debugging and fixes carried out by
+> an AI assistant following this specification).
+
+With the R4 (in-dome) Moody tests passing, the next step was to extend the test
+helper `validate_moody_isobar` to also assert the **deeply-subcooled (Region 1)**
+data points — specifically those where the stagnation state is classified as
+Region 1 and the deep-subcooling ratio `v_b/c_2φ > DEEP_SUBCOOLING_RATIO`, which
+triggers the solver's Bernoulli energy-balance escape route. The test helper was
+extended with a separate `deep_log10_tolerance` parameter (threaded through to each
+call site), and the inner loop was updated to classify and route each point by
+subcooling ratio as well as by `ph_flash_region`.
+
+With a placeholder `MOODY_DEEP_LOG10_TOL = 0.06`, three isobars failed. A
+diagnostic test (`diagnose_deep_subcooled_failures`, `#[ignore]`d) traced the
+intermediate solver quantities for each failing point:
+
+**Root cause — isobar_0_25 (p₀ = 1.72 bar, h/h_ref = 0.49; err = 0.170):**
+At this extreme low stagnation pressure, the bubble point lies at p_b ≈ 3.6 kPa
+(p_b/p₀ ≈ 0.021). The HEM energy-balance delivers only 82 J/kg of kinetic energy
+at the bubble point, while the incompressible-Bernoulli formula `√(2·(p₀−p_b)/v_f)`
+gives 169 J/kg — a factor-of-2 divergence. The resulting mass-flux error is 0.170
+in log10 G, which no graph-read tolerance can cover:
+
+| Quantity | Value |
+|---|---|
+| G_solver (HEM energy-balance) | 12 739 kg/(m²s) |
+| G_Bernoulli (√(2·(p₀−p_b)/v_f)) | 18 339 kg/(m²s) |
+| G_ref (Moody chart) | 18 843 kg/(m²s) |
+
+The deeply-subcooled escape was designed and validated for high-pressure stagnation
+states where the IAPWS-IF97 isentrope closely tracks the incompressible-Bernoulli
+curve; at very low stagnation pressures (< 5 bar) with very small bubble-point
+pressures (< 10 kPa), the two formulations diverge significantly. `isobar_pref_0_25`
+is `#[ignore]`d with a detailed explanation in the test doc. The in-dome (R4)
+points on this isobar are covered by its neighbours (0.50, 1.00, …).
+
+**Root cause — isobar_0_50 (p₀ = 3.45 bar, h/h_ref = 0.49; err = 0.069):**
+Same mechanism, smaller magnitude. At this pressure the energy-balance gives
+G_solver = 22 538 vs G_Bernoulli = 26 074 and G_ref = 26 447. The error of 0.069
+exceeds the 0.06 placeholder but is within the graph-read uncertainty of the Moody
+log–log chart. Setting `MOODY_DEEP_LOG10_TOL = 0.08` covers this point; the test
+now passes.
+
+**Root cause — isobar_4_00 DEEP points (p₀ = 27.6 bar; err up to 0.113):**
+*(Superseded by the 2026-06-30 re-digitisation update above: the curve was
+re-digitised; its DEEP error is now ≤ 0.007 and the `MOODY_DEEP_ISOBAR_4_LOG10_TOL`
+constant was removed. The original analysis below is kept for the debug trail.)*
+When the wide-tolerance probe was run to expose all DEEP errors on this isobar, the
+full picture emerged:
+
+| h/h_ref | sub_ratio | err (log10 G) | direction |
+|---|---|---|---|
+| 0.73 | 692 | 0.056 | solver HIGH |
+| 1.20 | 223 | 0.069 | solver HIGH |
+| 1.61 | 97 | 0.063 | solver HIGH |
+| 2.06 | 44 | 0.064 | solver HIGH |
+| 2.53 | 21 | 0.052 | solver HIGH |
+| 2.80 | 14 | 0.060 | solver HIGH |
+| 3.12 | 9.3 | 0.089 | solver HIGH |
+| 3.35 | 6.8 | 0.113 | solver HIGH |
+| 3.59–3.90 | 2.8–4.8 | (skipped — below DEEP_SUBCOOLING_RATIO) | — |
+
+The errors rise as the subcooling ratio approaches the DEEP_SUBCOOLING_RATIO = 5.0
+boundary. This is consistent with the already-documented graph-reading error on this
+curve (R4 in-dome reference is ~0.13 high); the DEEP branch sits on the same poorly-
+read graph in the same pressure range. A separate constant
+`MOODY_DEEP_ISOBAR_4_LOG10_TOL = 0.13` was added and the `validate_moody_isobar`
+signature extended to accept per-isobar deep tolerances.
+
+**Outcome.** 12 of the 13 Moody isobar tests are active and pass:
+- `MOODY_LOG10_TOL = 0.06` for in-dome (R4) points on all isobars except 4.00
+- `MOODY_ISOBAR_4_LOG10_TOL = 0.25` for R4 points on isobar 4.00 (known bad ref)
+- `MOODY_DEEP_LOG10_TOL = 0.08` for deeply-subcooled (DEEP) points on all isobars except 4.00
+- `MOODY_DEEP_ISOBAR_4_LOG10_TOL = 0.13` for DEEP points on isobar 4.00
+- `isobar_pref_0_25` — `#[ignore]`d: isentrope/Bernoulli diverge 2× at p_b/p₀ ≈ 0.02
+
+> **Updated (2026-06-30):** after re-digitising `isobar_pref_4_00`, the two
+> isobar-4.00-specific constants no longer exist — that curve now uses
+> `MOODY_LOG10_TOL` (0.06) and `MOODY_DEEP_LOG10_TOL` (0.08) like every other
+> isobar. The remaining bullets (and the `isobar_pref_0_25` ignore) still hold.
+
+
+Lastly, I removed any ndarray-linalg dependencies from tampines-steam-tables,
+thus compilation should be much simpler.
 
 v0.2.0
 
@@ -93,7 +928,8 @@ reproduce all Zaloudek quality curves, including the saturated-liquid line:
   `#[ignore]`d.
 
 - `get_critical_pressure_and_mass_flux_ph_vle_dome`: validated for two-phase
-  stagnation states (x_t = 0.0–1.00, all 21 Zaloudek quality curves pass).
+  stagnation states (x_t = 0.0–1.00, all 21 Zaloudek HEM reference curves pass;
+  note: these are HEM-computed curves digitised from Saha 1978, not measurements).
 
 - `get_critical_pressure_and_mass_flux_with_stagnation_props`: older combined
   dispatcher, **superseded** by the two split solvers above. Had a +25%
@@ -375,3 +1211,12 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
+## Copyright
+
+Copyright (C) 2026 Ong Kay Chen Theodore,
+Ethan Yew Hoe, Wong,
+Professor Per F. Peterson,
+University of California, Berkeley Thermal Hydraulics Lab,
+Singapore Nuclear Research and Safety Institute (SNRSI),
+National University of Singapore (NUS), Repository Contributors.

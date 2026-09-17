@@ -1,0 +1,57 @@
+[package]
+name = "dhoby-ghaut"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit — DHOBY GHAUT, the GUI home for OUTRAM PARK's meshing and Monte Carlo studios. Placeholder: no GUI is implemented yet."
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+# ---------------------------------------------------------------------------
+# The library itself has NO dependencies. The studios are examples.
+# ---------------------------------------------------------------------------
+#
+# `src/lib.rs` is still a placeholder and stays dependency-free. Everything
+# below is a DEV-dependency, carried only so the studio examples build. That
+# keeps the published crate trivially light and makes it obvious that nothing
+# here is a library surface yet.
+
+[dependencies]
+
+# The windowing stack, and the whole reason this crate exists. Target-gated OFF
+# Android (the workspace's single windowing exemption): eframe pulls in
+# android-activity. Nothing else in the workspace should carry these.
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+egui_plot = { workspace = true }
+env_logger = { workspace = true }
+# Authoring frontend (math/mesh/primitives) plus its Monte Carlo bridge.
+#
+# The `mc-export` feature is still required here because `outram_blender::sim`
+# has not moved yet. The intended end state is that the headless bridge lives
+# ungated in `nee_soon` and this dependency drops the feature -- see
+# `src/lib.rs`. Do not treat this line as settled.
+# Both bridges are LIBRARY code and stay in outram-blender; this crate only
+# hosts the GUIs that drive them, so it enables both features.
+outram-blender = { workspace = true, features = ["mc-export", "foam-mesh"] }
+
+# MC Studio -- author geometry, set up and run an outram-mc calculation.
+#
+#   cargo run -p dhoby-ghaut --example mc_studio --release
+#
+# Carries its own Android stub `main` (the example rule: a blanked file gives
+# "main function not found"), so an on-device Termux build still compiles it.
+[[example]]
+name = "mc_studio"
+path = "examples/mc_studio/main.rs"
+
+# Mesh Studio -- author a surface, run it through cfmesh's tet-dual pipeline,
+# write an OpenFOAM polyMesh.
+#
+#   cargo run -p dhoby-ghaut --example mesh_studio --release
+[[example]]
+name = "mesh_studio"
+path = "examples/mesh_studio/main.rs"

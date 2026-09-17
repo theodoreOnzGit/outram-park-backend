@@ -1,3 +1,29 @@
+//! Pre-built CIET components and branches for isothermal (constant-temperature)
+//! hydraulic tests.
+//!
+//! This module holds `new_*` builder functions that construct every pipe,
+//! static mixer, flowmeter, pump, CTAH and DHX component of the Compact
+//! Integral Effects Test (CIET) facility as either an
+//! [`InsulatedFluidComponent`](super::insulated_pipes_and_fluid_components::InsulatedFluidComponent)
+//! or a
+//! [`NonInsulatedFluidComponent`](super::non_insulated_fluid_components::NonInsulatedFluidComponent).
+//! Each builder takes an initial fluid temperature (a `uom`
+//! `ThermodynamicTemperature`, i.e. kelvin/degC) and fills in the geometry
+//! (hydraulic diameter and lengths in metres, flow area in square metres,
+//! incline angle in degrees, form loss and surface roughness) from the
+//! RELAP5-3D and SAM nodalisations of CIET.
+//!
+//! Geometry parameters follow the CIET nodalisations reported by Zou, Hu &
+//! Charpentier (SAM code validation, ANL/NSE-19/11, 2019) and Zweibaum's
+//! thesis (UC Berkeley, 2015).
+//!
+//! The submodules assemble these components into branches and run the
+//! isothermal flow-rate vs pressure-drop verification tests:
+//! [`ciet_branch_builders_isothermal`] wires the components into the heater,
+//! CTAH and DHX branches, while [`isothermal_ctah_heater_branch_test`] and
+//! [`isothermal_ctah_heater_dhx_branch_test`] verify the resulting mass
+//! flow rates (kg/s) against the applied pressure change (Pa).
+
 use std::f64::consts::PI;
 
 use uom::si::angle::degree;
@@ -13,14 +39,14 @@ pub mod isothermal_ctah_heater_branch_test;
 /// tests for the heater branch, ctah branch and dhx branch
 pub mod isothermal_ctah_heater_dhx_branch_test;
 
-// This library was developed for use in my PhD thesis under supervision 
+// This library was developed for use in my PhD thesis under supervision
 // of Professor Per F. Peterson. It is part of a thermal hydraulics
 // library in Rust that is released under the GNU General Public License
-// v 3.0. This is partly due to the fact that some of the libraries 
+// v 3.0. This is partly due to the fact that some of the libraries
 // inherit from GeN-Foam and OpenFOAM, both licensed under GNU General
 // Public License v3.0.
 //
-// As such, the entire library is released under GNU GPL v3.0. It is a strong 
+// As such, the entire library is released under GNU GPL v3.0. It is a strong
 // copyleft license which means you cannot use it in proprietary software.
 //
 //
@@ -28,9 +54,9 @@ pub mod isothermal_ctah_heater_dhx_branch_test;
 //    This file is part of tuas_boussinesq_solver, a partial library of the
 //    thermal hydraulics library written in rust meant to help with the
 //    fluid mechanics aspects of the calculations
-//     
+//
 //    Copyright (C) 2022-2023  Theodore Kay Chen Ong, Singapore Nuclear
-//    Research and Safety Initiative, Per F. Peterson, University of 
+//    Research and Safety Initiative, Per F. Peterson, University of
 //    California, Berkeley Thermal Hydraulics Laboratory
 //
 //    tuas_boussinesq_solver is free software; you can redistribute it and/or modify it
@@ -73,21 +99,21 @@ use crate::boussinesq_thermophysical_properties::LiquidMaterial;
 use super::insulated_pipes_and_fluid_components::InsulatedFluidComponent;
 use super::non_insulated_fluid_components::NonInsulatedFluidComponent;
 
-/// creates a new pipe6a for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new pipe6a for CIET using the RELAP5-3D and SAM parameters
 /// Pipe6a in Compact Integral Effects Test (CIET)
-/// CTAH branch 
+/// CTAH branch
 ///
 /// It is a static mixer pipe
 /// otherwise known as the static mixer pipe 6a
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_6a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -110,42 +136,43 @@ pub fn new_pipe_6a(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is zero
-    let user_specified_inner_nodes = 0; 
+    let user_specified_inner_nodes = 0;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new pipe6a for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new static mixer 41 (label 6) for CIET using the RELAP5-3D and SAM parameters
 /// Component 6 in Compact Integral Effects Test (CIET)
 /// CTAH branch  (also known as static mixer 41)
 ///
 /// static mixer 41
-/// label component 6 
+/// label component 6
 /// in Compact Integral Effects Test (CIET)
-/// CTAH branch 
+/// CTAH branch
 /// static mixer 41 (MX-41) on CIET diagram
 /// in the pump and CTAH branch
 /// just before CTAH (AKA IHX)
@@ -156,17 +183,19 @@ pub fn new_pipe_6a(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// It is a static mixer pipe
 /// otherwise known as the static mixer pipe 6a
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_static_mixer_41_label_6(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_static_mixer_41_label_6(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -187,62 +216,64 @@ pub fn new_static_mixer_41_label_6(initial_temperature: ThermodynamicTemperature
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is zero
-    let user_specified_inner_nodes = 0; 
+    let user_specified_inner_nodes = 0;
 
     let insulated_component = InsulatedFluidComponent::new_custom_component(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        reynolds_coefficient, 
-        reynolds_power, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        component_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     insulated_component
 }
 
-/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters
 /// in Compact Integral Effects Test (CIET)
 ///
-/// this is inactive, so it behaves more like a pipe rather than a 
+/// this is inactive, so it behaves more like a pipe rather than a
 /// heat exchanger
 ///
 /// Vertical part of Coiled Tube Air Heater (CTAH)
 /// label component 7a
 /// in Compact Integral Effects Test (CIET)
-/// CTAH branch 
+/// CTAH branch
 ///
 /// It is NOT insulated by the way
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 ///
-pub fn new_inactive_ctah_vertical(initial_temperature: ThermodynamicTemperature) -> 
-NonInsulatedFluidComponent {
+pub fn new_inactive_ctah_vertical(
+    initial_temperature: ThermodynamicTemperature,
+) -> NonInsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -260,44 +291,43 @@ NonInsulatedFluidComponent {
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 3 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 3 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is zero
-    let user_specified_inner_nodes = 3-2; 
+    let user_specified_inner_nodes = 3 - 2;
 
     let non_insulated_component = NonInsulatedFluidComponent::new_bare_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        id, 
-        od, 
-        pipe_length, 
-        hydraulic_diameter, 
-        surface_roughness, 
-        pipe_shell_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        id,
+        od,
+        pipe_length,
+        hydraulic_diameter,
+        surface_roughness,
+        pipe_shell_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     non_insulated_component
 }
 
-
-
-/// creates a new ctah vertical for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new inactive CTAH horizontal section for CIET using the RELAP5-3D and SAM parameters
 /// in Compact Integral Effects Test (CIET)
 ///
-/// this is inactive, so it behaves more like a pipe rather than a 
+/// this is inactive, so it behaves more like a pipe rather than a
 /// heat exchanger
 ///
 /// Horizontal part of Coiled Tube Air Heater (CTAH)
 /// label component 7b
 /// in Compact Integral Effects Test (CIET)
-/// CTAH branch 
+/// CTAH branch
 /// coiled tube air heater
 /// has fldk = 400 + 52,000/Re
 ///
@@ -308,18 +338,20 @@ NonInsulatedFluidComponent {
 ///
 /// It is NOT insulated by the way
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 ///
-pub fn new_inactive_ctah_horizontal(initial_temperature: ThermodynamicTemperature) -> NonInsulatedFluidComponent {
+pub fn new_inactive_ctah_horizontal(
+    initial_temperature: ThermodynamicTemperature,
+) -> NonInsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -338,49 +370,48 @@ pub fn new_inactive_ctah_horizontal(initial_temperature: ThermodynamicTemperatur
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 11 nodes only, 
-    // now because there are two outer nodes, 
-    // we subtract 2 
-    let user_specified_inner_nodes = 11-2; 
+    // from SAM nodalisation, we have 11 nodes only,
+    // now because there are two outer nodes,
+    // we subtract 2
+    let user_specified_inner_nodes = 11 - 2;
 
-    let non_insulated_component = NonInsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let non_insulated_component = NonInsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     non_insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// It is a static mixer pipe
 /// Static mixer pipe 8a
 /// adjacent to MX-40 in the CTAH branch
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_8a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -403,35 +434,36 @@ pub fn new_pipe_8a(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is zero
-    let user_specified_inner_nodes = 0; 
+    let user_specified_inner_nodes = 0;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// static mixer 40 (MX-40) on CIET diagram
 /// just after CTAH (AKA IHX)
@@ -441,17 +473,19 @@ pub fn new_pipe_8a(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// forced convection flow direction is same as top to bottom
 /// has a fldk of 21+4000/Re
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_static_mixer_40_label_8(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_static_mixer_40_label_8(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -470,53 +504,51 @@ pub fn new_static_mixer_40_label_8(initial_temperature: ThermodynamicTemperature
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
+    // from SAM nodalisation, we have 2 nodes only,
     // now because there are two outer nodes, we subtract 2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
-    // insulation 
+    // insulation
     let insulation_thickness = Length::new::<meter>(0.0381);
     let insulation_material = SolidMaterial::Fiberglass;
 
-
-    let insulated_component = InsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            insulation_thickness, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            insulation_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let insulated_component = InsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     insulated_component
-
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 9 in CIET's CTAH branch
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_9(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -539,46 +571,47 @@ pub fn new_pipe_9(initial_temperature: ThermodynamicTemperature) -> InsulatedFlu
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 7 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 7 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 7-2
-    let user_specified_inner_nodes = 7-2; 
+    let user_specified_inner_nodes = 7 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 10 in CIET's CTAH branch
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_10(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -601,46 +634,47 @@ pub fn new_pipe_10(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 22 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 22 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 20
-    let user_specified_inner_nodes = 22-2; 
+    let user_specified_inner_nodes = 22 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 11 in CIET's CTAH branch
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_11(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -663,47 +697,47 @@ pub fn new_pipe_11(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 4 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 4 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 4-2
-    let user_specified_inner_nodes = 4-2; 
+    let user_specified_inner_nodes = 4 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 12 in CIET's CTAH branch
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_12(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -726,35 +760,36 @@ pub fn new_pipe_12(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 3 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 3 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 3-2
-    let user_specified_inner_nodes = 3-2; 
+    let user_specified_inner_nodes = 3 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// ctah pump is a custom therminol component with
 /// ie no friction factor losses
@@ -762,14 +797,14 @@ pub fn new_pipe_12(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 ///
 /// it is located between pipe 12 and 13
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_ctah_pump(initial_temperature: ThermodynamicTemperature) -> NonInsulatedFluidComponent {
@@ -791,37 +826,34 @@ pub fn new_ctah_pump(initial_temperature: ThermodynamicTemperature) -> NonInsula
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
+    // from SAM nodalisation, we have 2 nodes only,
     // now because there are two outer nodes, we subtract 2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
-
-
-    let non_insulated_component = NonInsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let non_insulated_component = NonInsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     non_insulated_component
-
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 13 in CIET's CTAH branch
 /// just after the pump
@@ -829,14 +861,14 @@ pub fn new_ctah_pump(initial_temperature: ThermodynamicTemperature) -> NonInsula
 /// probably some combination of V-42,
 /// F-40 and F-41 on CIET diagram
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_13(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -859,36 +891,36 @@ pub fn new_pipe_13(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 12 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 12 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 12-2
-    let user_specified_inner_nodes = 12-2; 
+    let user_specified_inner_nodes = 12 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 14 in CIET's CTAH branch
 /// pipe 14 on the diagram in Nico Zweibaum nodalisation
@@ -900,14 +932,14 @@ pub fn new_pipe_13(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// and from a top to bottom direction from pipe 5
 /// to pipe 17, the incline angle is also 90 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_14(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -930,36 +962,36 @@ pub fn new_pipe_14(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 6 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 6 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 6-2
-    let user_specified_inner_nodes = 6-2; 
+    let user_specified_inner_nodes = 6 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// FM-40 Coriolis Flowmeter in CIET's CTAH branch
 /// labelled 14a in simulation schmeatic
@@ -968,17 +1000,19 @@ pub fn new_pipe_14(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// label 14a on simulation diagram
 /// fldk = 18.0+93000/(Re^1.35)
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_flowmeter_40_14a(initial_temperature: ThermodynamicTemperature) -> NonInsulatedFluidComponent {
+pub fn new_flowmeter_40_14a(
+    initial_temperature: ThermodynamicTemperature,
+) -> NonInsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -997,38 +1031,34 @@ pub fn new_flowmeter_40_14a(initial_temperature: ThermodynamicTemperature) -> No
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
+    // from SAM nodalisation, we have 2 nodes only,
     // now because there are two outer nodes, we subtract 2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
-
-
-    let non_insulated_component = NonInsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let non_insulated_component = NonInsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     non_insulated_component
-
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 15 in CIET's CTAH branch
 ///
@@ -1039,14 +1069,14 @@ pub fn new_flowmeter_40_14a(initial_temperature: ThermodynamicTemperature) -> No
 /// to pipe 17, the incline angle is also
 /// -49.36983 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_15(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1069,36 +1099,36 @@ pub fn new_pipe_15(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 3 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 3 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 3-2
-    let user_specified_inner_nodes = 3-2; 
+    let user_specified_inner_nodes = 3 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe number 16 in CIET's CTAH branch
 ///
@@ -1109,14 +1139,14 @@ pub fn new_pipe_15(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// to pipe 17, the incline angle is also
 /// -49.36983 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_16(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1139,36 +1169,36 @@ pub fn new_pipe_16(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 6 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 6 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 6-2
-    let user_specified_inner_nodes = 6-2; 
+    let user_specified_inner_nodes = 6 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// Branch (or pipe 17) in CIET's CTAH branch
 ///
@@ -1185,14 +1215,14 @@ pub fn new_pipe_16(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 ///
 /// This is treated as a single pipe though
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_branch_17(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1215,30 +1245,31 @@ pub fn new_branch_17(initial_temperature: ThermodynamicTemperature) -> Insulated
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 6 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 6 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 6-2
-    let user_specified_inner_nodes = 6-2; 
+    let user_specified_inner_nodes = 6 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
@@ -1246,14 +1277,14 @@ pub fn new_branch_17(initial_temperature: ThermodynamicTemperature) -> Insulated
 /// creates a new component for CIET using the RELAP5-3D and SAM parameters,
 /// this is branch 17b within the DHX branch in the SAM model
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_branch_17b(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1276,30 +1307,31 @@ pub fn new_branch_17b(initial_temperature: ThermodynamicTemperature) -> Insulate
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
@@ -1307,14 +1339,14 @@ pub fn new_branch_17b(initial_temperature: ThermodynamicTemperature) -> Insulate
 /// creates a new component for CIET using the RELAP5-3D and SAM parameters,
 /// this is branch 17a within the CTAH branch in the SAM model
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_branch_17a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1337,37 +1369,38 @@ pub fn new_branch_17a(initial_temperature: ThermodynamicTemperature) -> Insulate
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
-/// Branch 5a in the SAM model, using RELAP models for pipe length 
-/// and hydrualic diameter 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
+/// Branch 5a in the SAM model, using RELAP models for pipe length
+/// and hydrualic diameter
 ///
 /// located in the DHX branch
 ///
@@ -1383,14 +1416,14 @@ pub fn new_branch_17a(initial_temperature: ThermodynamicTemperature) -> Insulate
 ///
 /// This is treated as a single pipe though
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_branch_5a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1413,40 +1446,41 @@ pub fn new_branch_5a(initial_temperature: ThermodynamicTemperature) -> Insulated
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
-/// Branch 5b in the SAM model, using RELAP models for pipe length 
-/// and hydrualic diameter 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
+/// Branch 5b in the SAM model, using RELAP models for pipe length
+/// and hydrualic diameter
 ///
-/// located in the CTAH branch. 
-/// But for the purposes of hydrodynamic modelling and heat transfer 
+/// located in the CTAH branch.
+/// But for the purposes of hydrodynamic modelling and heat transfer
 /// modelling, it is the same as the branch 5a
 ///
 /// this is reverse order compared to table A-1 in
@@ -1461,14 +1495,14 @@ pub fn new_branch_5a(initial_temperature: ThermodynamicTemperature) -> Insulated
 ///
 /// This is treated as a single pipe though
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_branch_5b(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1491,39 +1525,39 @@ pub fn new_branch_5b(initial_temperature: ThermodynamicTemperature) -> Insulated
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// Branch 5 in the Heater Branch (top to bottom perspective)
-/// 
+///
 /// Approximations were made for this branch though,
 /// technically branch 5a is part of DHX branch
 /// while 5b is part of the DHX branch,
@@ -1544,7 +1578,7 @@ pub fn new_branch_5b(initial_temperature: ThermodynamicTemperature) -> Insulated
 /// it is still the same set of pipes in series
 /// calculations will still be the same numerically
 ///
-/// 
+///
 // this is reverse order compared to table A-1 in
 // the Zweibaum nodalised relap model
 /// pipe 5 on the diagram in Nico Zweibaum nodalisation
@@ -1557,14 +1591,14 @@ pub fn new_branch_5b(initial_temperature: ThermodynamicTemperature) -> Insulated
 ///
 /// This is treated as a single pipe though
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_branch_5(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1587,36 +1621,36 @@ pub fn new_branch_5(initial_temperature: ThermodynamicTemperature) -> InsulatedF
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 9 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 9 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 9-2
-    let user_specified_inner_nodes = 9-2; 
+    let user_specified_inner_nodes = 9 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 4 within the heater branch
 /// pipe 4 on the diagram in Nico Zweibaum nodalisation
@@ -1626,14 +1660,14 @@ pub fn new_branch_5(initial_temperature: ThermodynamicTemperature) -> InsulatedF
 /// to pipe 17, the incline angle is also
 /// 49.743387 +180.0 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_4(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1656,36 +1690,36 @@ pub fn new_pipe_4(initial_temperature: ThermodynamicTemperature) -> InsulatedFlu
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe3 within the heater branch
 /// pipe 3 on the diagram in Nico Zweibaum nodalisation
@@ -1695,23 +1729,25 @@ pub fn new_pipe_4(initial_temperature: ThermodynamicTemperature) -> InsulatedFlu
 /// to pipe 17, the incline angle is also
 /// 90.0 +180.0 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_pipe_3_relap_model(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_pipe_3_relap_model(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(1.2827);
-    let flow_area = hydraulic_diameter * hydraulic_diameter * PI/4.0;
+    let flow_area = hydraulic_diameter * hydraulic_diameter * PI / 4.0;
     let incline_angle = Angle::new::<degree>(90.0 + 180.0);
     let form_loss = Ratio::new::<ratio>(3.15);
     //estimated component wall roughness (doesn't matter here,
@@ -1725,35 +1761,36 @@ pub fn new_pipe_3_relap_model(initial_temperature: ThermodynamicTemperature) -> 
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 12 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 12 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 12-2
-    let user_specified_inner_nodes = 12-2; 
+    let user_specified_inner_nodes = 12 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe3 within the heater branch
 /// pipe 3 on the diagram in Nico Zweibaum nodalisation
@@ -1763,19 +1800,21 @@ pub fn new_pipe_3_relap_model(initial_temperature: ThermodynamicTemperature) -> 
 /// to pipe 17, the incline angle is also
 /// 90.0 +180.0 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
-/// This uses the SAM parameters rather than the RELAP parameters 
+/// This uses the SAM parameters rather than the RELAP parameters
 /// which uses 17.15 K value for pipe 3 rather than 3.15
-pub fn new_pipe_3_sam_model(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_pipe_3_sam_model(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(1.2827);
-    let flow_area = hydraulic_diameter * hydraulic_diameter * PI/4.0;
+    let flow_area = hydraulic_diameter * hydraulic_diameter * PI / 4.0;
     let incline_angle = Angle::new::<degree>(90.0 + 180.0);
     let form_loss = Ratio::new::<ratio>(17.15);
     //estimated component wall roughness (doesn't matter here,
@@ -1789,35 +1828,36 @@ pub fn new_pipe_3_sam_model(initial_temperature: ThermodynamicTemperature) -> In
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 12 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 12 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 12-2
-    let user_specified_inner_nodes = 12-2; 
+    let user_specified_inner_nodes = 12 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// MX-10 within the heater branch
 /// labelled as component 2
@@ -1835,24 +1875,26 @@ pub fn new_pipe_3_sam_model(initial_temperature: ThermodynamicTemperature) -> In
 /// heater
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_static_mixer_10_label_2(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_static_mixer_10_label_2(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let component_length = Length::new::<meter>(0.33);
     let flow_area = Area::new::<square_meter>(6.11e-4);
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
     let form_loss = Ratio::new::<ratio>(21.0);
     let reynolds_power = -1_f64;
     let reynolds_coefficient = Ratio::new::<ratio>(4000_f64);
@@ -1864,41 +1906,39 @@ pub fn new_static_mixer_10_label_2(initial_temperature: ThermodynamicTemperature
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
+    // from SAM nodalisation, we have 2 nodes only,
     // now because there are two outer nodes, we subtract 2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
-    // insulation 
+    // insulation
     let insulation_thickness = Length::new::<meter>(0.0381);
     let insulation_material = SolidMaterial::Fiberglass;
 
-
-    let insulated_component = InsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            insulation_thickness, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            insulation_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let insulated_component = InsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     insulated_component
-
 }
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// static mixer pipe2a in heater branch
 ///
@@ -1910,14 +1950,14 @@ pub fn new_static_mixer_10_label_2(initial_temperature: ThermodynamicTemperature
 /// to pipe 17, the incline angle is also
 /// 90.0 +180.0 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_2a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -1940,35 +1980,36 @@ pub fn new_pipe_2a(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// heater top head 1a of heater branch in CIET
 ///
@@ -1978,17 +2019,19 @@ pub fn new_pipe_2a(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// inclined at 90 degrees bottom to top
 /// or 90 degrees + 180 top to bottom orientation
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_heater_top_head_1a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_heater_top_head_1a(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -2008,38 +2051,39 @@ pub fn new_heater_top_head_1a(initial_temperature: ThermodynamicTemperature) -> 
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// This is the first version of CIET's heater
-/// 
+///
 /// It is found in CIET's heater branch;
 /// It has hydrodynamic losses similar to a pipe
 ///
@@ -2052,17 +2096,19 @@ pub fn new_heater_top_head_1a(initial_temperature: ThermodynamicTemperature) -> 
 /// or 90 degrees + 180 top to bottom orientation
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_heated_section_version_1_label_1_without_inner_annular_pipe(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_heated_section_version_1_label_1_without_inner_annular_pipe(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -2082,35 +2128,36 @@ pub fn new_heated_section_version_1_label_1_without_inner_annular_pipe(initial_t
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 15 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 15 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 15-2
-    let user_specified_inner_nodes = 15-2; 
+    let user_specified_inner_nodes = 15 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// heater bottom head 1b within CIET's heater branch
 ///
@@ -2120,17 +2167,19 @@ pub fn new_heated_section_version_1_label_1_without_inner_annular_pipe(initial_t
 /// inclined at 90 degrees bottom to top
 /// or 90 degrees + 180 top to bottom orientation
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_heater_bottom_head_1b(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_heater_bottom_head_1b(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -2150,35 +2199,36 @@ pub fn new_heater_bottom_head_1b(initial_temperature: ThermodynamicTemperature) 
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 18 within CIET's heater branch
 /// pipe 18 on the diagram in Nico Zweibaum nodalisation
@@ -2187,14 +2237,14 @@ pub fn new_heater_bottom_head_1b(initial_temperature: ThermodynamicTemperature) 
 /// to pipe 17, the incline angle is also
 /// -40.00520 +180.0 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_18(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -2217,36 +2267,36 @@ pub fn new_pipe_18(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 26 in DHX Branch from Top to Bottom orientation
 ///
@@ -2256,14 +2306,14 @@ pub fn new_pipe_18(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
 /// to pipe 17, the incline angle is also
 /// -40.00520 +180.0 degrees
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_26(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -2286,47 +2336,48 @@ pub fn new_pipe_26(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// Static mixer pipe 25a adjacent to MX-21
 /// in DHX branch
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_25a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -2336,7 +2387,7 @@ pub fn new_pipe_25a(initial_temperature: ThermodynamicTemperature) -> InsulatedF
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(0.22245);
     let flow_area = Area::new::<square_meter>(6.11e-4);
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
     let form_loss = Ratio::new::<ratio>(1.35);
     //estimated component wall roughness (doesn't matter here,
     //but i need to fill in)
@@ -2349,35 +2400,36 @@ pub fn new_pipe_25a(initial_temperature: ThermodynamicTemperature) -> InsulatedF
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is zero
-    let user_specified_inner_nodes = 0; 
+    let user_specified_inner_nodes = 0;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// static mixer 21 (MX-21) on CIET diagram
 /// in the DHX branch in primary loop
@@ -2395,24 +2447,26 @@ pub fn new_pipe_25a(initial_temperature: ThermodynamicTemperature) -> InsulatedF
 /// forced convection flow direction is same as top to bottom
 /// has a fldk of 21+4000/Re
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_static_mixer_21_label_25(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_static_mixer_21_label_25(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let component_length = Length::new::<meter>(0.33);
     let flow_area = Area::new::<square_meter>(6.11e-4);
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
     let form_loss = Ratio::new::<ratio>(21.0);
     let reynolds_power = -1_f64;
     let reynolds_coefficient = Ratio::new::<ratio>(4000_f64);
@@ -2424,42 +2478,40 @@ pub fn new_static_mixer_21_label_25(initial_temperature: ThermodynamicTemperatur
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
+    // from SAM nodalisation, we have 2 nodes only,
     // now because there are two outer nodes, we subtract 2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
-    // insulation 
+    // insulation
     let insulation_thickness = Length::new::<meter>(0.0381);
     let insulation_material = SolidMaterial::Fiberglass;
 
-
-    let insulated_component = InsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            insulation_thickness, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            insulation_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let insulated_component = InsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     insulated_component
-
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// this is the heat exchanger
 /// in the DHX branch, labelled 24
@@ -2470,17 +2522,19 @@ pub fn new_static_mixer_21_label_25(initial_temperature: ThermodynamicTemperatur
 /// inclined at 90 degrees bottom to top
 /// or 90 degrees + 180 top to bottom orientation
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_inactive_dhx_shell_side_heat_exchanger(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_inactive_dhx_shell_side_heat_exchanger(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -2500,48 +2554,49 @@ pub fn new_inactive_dhx_shell_side_heat_exchanger(initial_temperature: Thermodyn
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 11 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 11 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 11-2
-    let user_specified_inner_nodes = 11-2; 
+    let user_specified_inner_nodes = 11 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// static mixer pipe 23a in DHX branch in CIET
 ///
-/// otherwise known as the static mixer pipe 
+/// otherwise known as the static mixer pipe
 /// to MX-20
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_23a(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -2551,7 +2606,7 @@ pub fn new_pipe_23a(initial_temperature: ThermodynamicTemperature) -> InsulatedF
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(0.0891);
     let flow_area = Area::new::<square_meter>(6.11e-4);
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
     let form_loss = Ratio::new::<ratio>(1.35);
     //estimated component wall roughness (doesn't matter here,
     //but i need to fill in)
@@ -2564,35 +2619,36 @@ pub fn new_pipe_23a(initial_temperature: ThermodynamicTemperature) -> InsulatedF
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is zero
-    let user_specified_inner_nodes = 0; 
+    let user_specified_inner_nodes = 0;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// static mixer 20 (MX-20) on CIET diagram
 /// in the DRACS branch in primary loop
@@ -2613,24 +2669,26 @@ pub fn new_pipe_23a(initial_temperature: ThermodynamicTemperature) -> InsulatedF
 /// forced convection flow direction is same as top to bottom
 /// has a fldk of 21+4000/Re
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_static_mixer_20_label_23(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_static_mixer_20_label_23(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let component_length = Length::new::<meter>(0.33);
     let flow_area = Area::new::<square_meter>(6.11e-4);
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
     let form_loss = Ratio::new::<ratio>(21.0);
     let reynolds_power = -1_f64;
     let reynolds_coefficient = Ratio::new::<ratio>(4000_f64);
@@ -2642,64 +2700,64 @@ pub fn new_static_mixer_20_label_23(initial_temperature: ThermodynamicTemperatur
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
+    // from SAM nodalisation, we have 2 nodes only,
     // now because there are two outer nodes, we subtract 2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
-    // insulation 
+    // insulation
     let insulation_thickness = Length::new::<meter>(0.0381);
     let insulation_material = SolidMaterial::Fiberglass;
 
-
-    let insulated_component = InsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            insulation_thickness, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            insulation_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let insulated_component = InsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     insulated_component
-
 }
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 22 within DHX branch in CIEt
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_pipe_22_sam_model(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_pipe_22_sam_model(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(0.69215);
     let flow_area = Area::new::<square_meter>(6.11e-4);
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
-    // for RELAP model there may be a K value of 9.95 here. 
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
+    // for RELAP model there may be a K value of 9.95 here.
     // check again
     let form_loss = Ratio::new::<ratio>(45.95);
     //estimated component wall roughness (doesn't matter here,
@@ -2713,58 +2771,61 @@ pub fn new_pipe_22_sam_model(initial_temperature: ThermodynamicTemperature) -> I
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 6 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 6 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 6-2
-    let user_specified_inner_nodes = 6-2; 
+    let user_specified_inner_nodes = 6 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 22 within DHX branch in CIEt
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_pipe_22_relap_model(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
+pub fn new_pipe_22_relap_model(
+    initial_temperature: ThermodynamicTemperature,
+) -> InsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(0.69215);
     let flow_area = Area::new::<square_meter>(6.11e-4);
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
-    // for SAM model there may be a K value of 45.95 here. 
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
+    // for SAM model there may be a K value of 45.95 here.
     // check again
     let form_loss = Ratio::new::<ratio>(9.95);
     //estimated component wall roughness (doesn't matter here,
@@ -2778,36 +2839,36 @@ pub fn new_pipe_22_relap_model(initial_temperature: ThermodynamicTemperature) ->
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 6 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 6 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 6-2
-    let user_specified_inner_nodes = 6-2; 
+    let user_specified_inner_nodes = 6 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// FM-20 DHX branch flow coriolis flowmeter 20
 ///
@@ -2826,17 +2887,19 @@ pub fn new_pipe_22_relap_model(initial_temperature: ThermodynamicTemperature) ->
 /// label 14a on simulation diagram
 /// fldk = 18.0+93000/(Re^1.35)
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
-pub fn new_flowmeter_20_label_21a(initial_temperature: ThermodynamicTemperature) -> NonInsulatedFluidComponent {
+pub fn new_flowmeter_20_label_21a(
+    initial_temperature: ThermodynamicTemperature,
+) -> NonInsulatedFluidComponent {
     let ambient_temperature = ThermodynamicTemperature::new::<degree_celsius>(20.0);
     let fluid_pressure = Pressure::new::<atmosphere>(1.0);
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
@@ -2855,50 +2918,46 @@ pub fn new_flowmeter_20_label_21a(initial_temperature: ThermodynamicTemperature)
     let pipe_shell_material = SolidMaterial::SteelSS304L;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
+    // from SAM nodalisation, we have 2 nodes only,
     // now because there are two outer nodes, we subtract 2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
-
-
-    let non_insulated_component = NonInsulatedFluidComponent::
-        new_custom_component(
-            initial_temperature, 
-            ambient_temperature, 
-            fluid_pressure, 
-            solid_pressure, 
-            flow_area, 
-            incline_angle, 
-            form_loss, 
-            reynolds_coefficient, 
-            reynolds_power, 
-            shell_id, 
-            shell_od, 
-            component_length, 
-            hydraulic_diameter, 
-            pipe_shell_material, 
-            pipe_fluid, 
-            htc_to_ambient, 
-            user_specified_inner_nodes);
+    let non_insulated_component = NonInsulatedFluidComponent::new_custom_component(
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        reynolds_coefficient,
+        reynolds_power,
+        shell_id,
+        shell_od,
+        component_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+    );
 
     non_insulated_component
-
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 21 within CIET DHX loop
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_21(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -2907,8 +2966,8 @@ pub fn new_pipe_21(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(0.487725);
-    let flow_area = hydraulic_diameter * hydraulic_diameter * PI/4.0;
-    let incline_angle = Angle::new::<degree>(90.0-180.0);
+    let flow_area = hydraulic_diameter * hydraulic_diameter * PI / 4.0;
+    let incline_angle = Angle::new::<degree>(90.0 - 180.0);
     let form_loss = Ratio::new::<ratio>(4.4);
     //estimated component wall roughness (doesn't matter here,
     //but i need to fill in)
@@ -2921,48 +2980,48 @@ pub fn new_pipe_21(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 5 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 5 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 5-2
-    let user_specified_inner_nodes = 5-2; 
+    let user_specified_inner_nodes = 5 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 20 within CIET DHX loop
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_20(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -2985,48 +3044,48 @@ pub fn new_pipe_20(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 3 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 3 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 3-2
-    let user_specified_inner_nodes = 3-2; 
+    let user_specified_inner_nodes = 3 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
 
-
-/// creates a new component for CIET using the RELAP5-3D and SAM parameters 
+/// creates a new component for CIET using the RELAP5-3D and SAM parameters
 ///
 /// pipe 19 within CIET DHX loop
 ///
 ///
-/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code 
-/// validation using the compact integral effects test (CIET) 
-/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL), 
+/// Zou, Ling, Rui Hu, and Anne Charpentier. SAM code
+/// validation using the compact integral effects test (CIET)
+/// experimental data. No. ANL/NSE-19/11. Argonne National Lab.(ANL),
 ///
 ///
-/// Zweibaum, Nicolas. Experimental validation of passive safety 
-/// system models: Application to design and optimization of 
-/// fluoride-salt-cooled, high-temperature reactors. University of 
+/// Zweibaum, Nicolas. Experimental validation of passive safety
+/// system models: Application to design and optimization of
+/// fluoride-salt-cooled, high-temperature reactors. University of
 /// California, Berkeley, 2015.
 /// Argonne, IL (United States), 2019.
 pub fn new_pipe_19(initial_temperature: ThermodynamicTemperature) -> InsulatedFluidComponent {
@@ -3035,7 +3094,7 @@ pub fn new_pipe_19(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let solid_pressure = Pressure::new::<atmosphere>(1.0);
     let hydraulic_diameter = Length::new::<meter>(2.79e-2);
     let pipe_length = Length::new::<meter>(0.219075);
-    let flow_area = hydraulic_diameter * hydraulic_diameter * PI/4.0;
+    let flow_area = hydraulic_diameter * hydraulic_diameter * PI / 4.0;
     let incline_angle = Angle::new::<degree>(-31.44898 - 180.0);
     let form_loss = Ratio::new::<ratio>(7.5);
     //estimated component wall roughness (doesn't matter here,
@@ -3049,30 +3108,31 @@ pub fn new_pipe_19(initial_temperature: ThermodynamicTemperature) -> InsulatedFl
     let insulation_material = SolidMaterial::Fiberglass;
     let pipe_fluid = LiquidMaterial::TherminolVP1;
     let htc_to_ambient = HeatTransfer::new::<watt_per_square_meter_kelvin>(20.0);
-    // from SAM nodalisation, we have 2 nodes only, 
-    // now because there are two outer nodes, the 
+    // from SAM nodalisation, we have 2 nodes only,
+    // now because there are two outer nodes, the
     // number of inner nodes is 2-2
-    let user_specified_inner_nodes = 2-2; 
+    let user_specified_inner_nodes = 2 - 2;
 
     let insulated_component = InsulatedFluidComponent::new_insulated_pipe(
-        initial_temperature, 
-        ambient_temperature, 
-        fluid_pressure, 
-        solid_pressure, 
-        flow_area, 
-        incline_angle, 
-        form_loss, 
-        shell_id, 
-        shell_od, 
-        insulation_thickness, 
-        pipe_length, 
-        hydraulic_diameter, 
-        pipe_shell_material, 
-        insulation_material, 
-        pipe_fluid, 
-        htc_to_ambient, 
-        user_specified_inner_nodes, 
-        surface_roughness);
+        initial_temperature,
+        ambient_temperature,
+        fluid_pressure,
+        solid_pressure,
+        flow_area,
+        incline_angle,
+        form_loss,
+        shell_id,
+        shell_od,
+        insulation_thickness,
+        pipe_length,
+        hydraulic_diameter,
+        pipe_shell_material,
+        insulation_material,
+        pipe_fluid,
+        htc_to_ambient,
+        user_specified_inner_nodes,
+        surface_roughness,
+    );
 
     insulated_component
 }
