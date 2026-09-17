@@ -55,6 +55,58 @@
 //! `examples/godiva_continuum_anisotropy_ablation.rs`, whose statistics were
 //! got wrong twice before they were got right (gh:#196).
 //!
+//! # Results (2026-09-17, 128 seeds per arm, ENDF/B-VIII.0, frozen at thermal)
+//!
+//! 4 cores; 150.6 s nuclear data + 1406.6 + 1372.9 + 1376.8 s transport.
+//!
+//! | arm | n | mean vs ICSBEP | sd | sem |
+//! |---|---|---|---|---|
+//! | **BASE** | 128 | **+1 pcm** | 200 | ±18 |
+//! | **NU-FROZEN** @ 0.0253 eV | 128 | **−6411 pcm** | 159 | ±14 |
+//! | **CHI-FROZEN** @ 0.0253 eV | 128 | **−140 pcm** | 176 | ±16 |
+//!
+//! | difference vs BASE | unpaired | paired | quote |
+//! |---|---|---|---|
+//! | NU-FROZEN | **−6412 ± 23 pcm** (284.1σ) | −6412 ± 23, paired sd 261 | unpaired |
+//! | CHI-FROZEN | **−141 ± 24 pcm** (6.0σ) | −141 ± 22, paired sd 247 | unpaired |
+//!
+//! **ν̄: the prediction HELD.** Large, negative, thousands of pcm, and
+//! *resolved* rather than bounded. At −6412 pcm this is the **largest single
+//! reactivity lever measured anywhere in this crate** — larger than the FHR
+//! pebble's entire inelastic channel (−4190 pcm).
+//!
+//! **χ: the prediction FAILED as stated.** −141 ± 24 pcm is 6.0σ from zero and
+//! outside the predicted "well under 100 pcm"; even the 3σ lower bound on the
+//! magnitude (69 pcm) leaves the central value outside it.
+//!
+//! **The cause is the prediction's arithmetic, not the wiring.** It was
+//! calibrated on `+0.883 %`, the mean-birth-energy spread between χ's `1e-5` eV
+//! and 14 MeV **tape rows** — an endpoint pair, and it steps over a bulge. The
+//! scan this example prints shows χ flat below ~1 keV, rising to **+1.25 % at
+//! 1 MeV and +5.54 % at 4 MeV** (U-235), then falling back to +0.89 % by
+//! 14 MeV. Godiva induces its fissions at 1–4 MeV, exactly the band the
+//! endpoints skip. −141 pcm is the right order for a shift that size: the
+//! continuum angular law's ≤0.22 % mean-`E` move is worth ~38 pcm on this case.
+//!
+//! The hand-off's instruction to suspect the **wiring** first is recorded as
+//! **disfavoured but not excluded**. Against it: the control test pins the
+//! frozen arm bit-identical to the unablated arm *at* its own reference energy
+//! and makes 14 MeV draws bit-identical to thermal ones; this example's
+//! separability control shows the χ freeze leaves ν̄ bit-identical and vice
+//! versa; and the sampler reproduces each endpoint tape row's integrated mean
+//! within 1 %. **The decisive run is still open**: freezing χ at Godiva's
+//! flux-average incident energy removes the shape at fixed mean and should
+//! return ≈0 if the hook is sound (`OUTRAM_GODIVA_FREEZE_EV`).
+//!
+//! **Harness check.** BASE lands at `+1 ± 18 pcm`, within 1σ of the expected
+//! post-`op-og56` value near −22 pcm (`+16 ± 11` pooled pre-ablation, shifted by
+//! the continuum law's `−38 ± 23`). The instrument has not drifted.
+//!
+//! **Pairing does not help on either arm** — paired sd 261 and 247 against
+//! either arm's 200 — and that includes ν̄, which is documented as preserving
+//! the RNG stream. Stream preservation is not sufficient for pairing here: the
+//! histories diverge in where they go, not in how many variates they draw.
+//!
 //! ```text
 //! OUTRAM_GODIVA_SEEDS=64 cargo run --release -p outram-mc-libs \
 //!     --features endf-pebble-cases --example godiva_fission_source_ablation

@@ -42,6 +42,33 @@
 //! only**, never history by history. Both the paired and unpaired figures are
 //! printed and the run says which is tighter.
 //!
+//! # Results (2026-09-17, 128 seeds per arm, ENDF/B-VIII.0)
+//!
+//! 4 cores; 141.2 s nuclear data + 1372.7 + 1355.6 s transport.
+//! Control fired: kinematics `kT 2.530049e-2 -> 0.0` eV on all three nuclides.
+//!
+//! | arm | n | mean vs ICSBEP | sd | sem |
+//! |---|---|---|---|---|
+//! | **MOVING** (the physics) | 128 | **+1 pcm** | 200 | ±18 |
+//! | **AT-REST** (ablated) | 128 | **+1 pcm** | 200 | ±18 |
+//! | difference, unpaired | | +0 pcm | | ±25 (0.0σ) |
+//! | **difference, paired** | | **+0 pcm** | **paired sd 5** | **±0 (1.0σ)** |
+//!
+//! **The prediction HELD**, and bounded below **1 pcm at 3σ**.
+//!
+//! The load-bearing number is the **paired sd of 5 pcm against either arm's
+//! 200**. This is the *only* ablation in this study where pairing works — the
+//! continuum angular law, ν̄ and χ all have paired sd exceeding their arms'
+//! (261, 247, 246). Five pcm is the transport-level confirmation of what
+//! `tests/ablation_hook_controls.rs` shows at the kernel level: above
+//! `FREE_GAS_THRESHOLD·kT` = 10.12 eV the two kernels are bit-identical
+//! (2048/2048 draws, RNG in lockstep), so only a negligible sub-threshold tail
+//! can differ.
+//!
+//! So the switch is **alive but reaches nothing here**: the kT control fires on
+//! every nuclide while the eigenvalue does not move. That is the precondition
+//! the FHR run needs — a null there cannot be blamed on a dead switch.
+//!
 //! ```text
 //! OUTRAM_GODIVA_SEEDS=128 cargo run --release -p outram-mc-libs \
 //!     --features endf-pebble-cases --example godiva_target_at_rest_ablation
