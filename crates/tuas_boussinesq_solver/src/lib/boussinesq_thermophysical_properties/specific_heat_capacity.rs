@@ -88,7 +88,7 @@ fn solid_specific_heat_capacity(
             rho_fn,
             roughness,
         )) => CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho_fn, roughness),
-        Material::Liquid(_) => panic!("solid_specific_heat_capacity, use SolidMaterial enums only"),
+        Material::Liquid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let specific_heat_capacity: SpecificHeatCapacity = match solid_material {
@@ -156,9 +156,7 @@ fn liquid_specific_heat_capacity(
         Material::Liquid(CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)) => {
             CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)
         }
-        Material::Solid(_) => {
-            panic!("liquid_specific_heat_capacity, use LiquidMaterial enums only")
-        }
+        Material::Solid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let specific_heat_capacity: SpecificHeatCapacity = match liquid_material {

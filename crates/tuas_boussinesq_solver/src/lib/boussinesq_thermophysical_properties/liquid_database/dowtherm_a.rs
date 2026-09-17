@@ -252,10 +252,11 @@ pub fn get_temperature_from_enthalpy(
     fluid_enthalpy: AvailableEnergy,
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     if fluid_enthalpy.value < 0_f64 {
-        panic!(
+        return Err(TuasLibError::GenericStringError(
             "dowtherm A : get_temperature_from_enthalpy \n
                enthalpy < 0.0 , out of correlation range"
-        );
+                .to_string(),
+        ));
     }
 
     // first let's convert enthalpy to a double (f64)

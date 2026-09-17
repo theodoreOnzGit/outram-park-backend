@@ -279,10 +279,11 @@ pub fn get_custom_fluid_temperature_from_enthalpy(
     lower_bound_temperature: ThermodynamicTemperature,
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     if fluid_enthalpy.value < 0_f64 {
-        panic!(
+        return Err(TuasLibError::GenericStringError(
             "user supplied fluid: get_temperature_from_enthalpy \n
                enthalpy < 0.0 , out of correlation range"
-        );
+                .to_string(),
+        ));
     }
 
     // now solve using bisection

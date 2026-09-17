@@ -221,10 +221,11 @@ pub fn get_custom_solid_temperature_from_enthalpy(
     lower_bound_temperature: ThermodynamicTemperature,
 ) -> Result<ThermodynamicTemperature, TuasLibError> {
     if solid_enthalpy.value < 0_f64 {
-        panic!(
+        return Err(TuasLibError::GenericStringError(
             "user supplied solid: get_temperature_from_enthalpy \n
                enthalpy < 0.0 , out of correlation range"
-        );
+                .to_string(),
+        ));
     }
 
     // now solve using bisection

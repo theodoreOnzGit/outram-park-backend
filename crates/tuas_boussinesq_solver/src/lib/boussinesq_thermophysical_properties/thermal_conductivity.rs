@@ -103,7 +103,7 @@ fn solid_thermal_conductivity(
         Material::Solid(CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)) => {
             CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
         }
-        Material::Liquid(_) => panic!("solid_thermal_conductivity, use SolidMaterial enums only"),
+        Material::Liquid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let thermal_conductivity: ThermalConductivity =
@@ -215,7 +215,7 @@ fn liquid_thermal_conductivity(
         Material::Liquid(CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)) => {
             CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)
         }
-        Material::Solid(_) => panic!("liquid_thermal_conductivity, use LiquidMaterial enums only"),
+        Material::Solid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     liquid_material.try_get_thermal_conductivity(fluid_temp)

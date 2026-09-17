@@ -183,6 +183,48 @@ pub fn min_temp_ss_304l_high_temp_kim() -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<kelvin>(MIN_TEMPERATURE_KELVIN)
 }
 
+/// Clamp an evaluation temperature up to [`MIN_TEMPERATURE_KELVIN`], and
+/// range-check the upper bound as before.
+///
+/// **The two bounds are deliberately NOT treated the same way, and the
+/// asymmetry is the point.**
+///
+/// *Below* 300 K the correlations are merely unfitted: 300 K is 26.85 degC,
+/// so an excursion below it is a component sitting at or under room
+/// temperature, where steel properties are slowly varying and nothing
+/// physically significant is being hidden. Returning the 300 K values is a
+/// sane, conservative continuation, and it keeps a transient from aborting
+/// over a fraction of a kelvin. This was motivated by a real case: a
+/// steam-generator tube metal reached 299.999 K during a loss-of-forced-cooling
+/// run and the whole simulation died, one millikelvin outside the fit.
+///
+/// *Above* 1700 K the steel is **melting** (Kim's `T_m`), and this module
+/// implements the solid region only — see [`melting_and_liquid_region_notes`].
+/// Clamping there would silently return solid properties for molten steel and
+/// conceal the single most safety-relevant thing that can happen to a
+/// structural component. That stays an error.
+///
+/// Behaviour inside 300-1700 K is unchanged, bit for bit, so every existing
+/// validated result is untouched.
+#[inline]
+fn clamp_low_range_check_high(
+    temperature: ThermodynamicTemperature,
+) -> Result<ThermodynamicTemperature, TuasLibError> {
+    if temperature > max_temp_ss_304l_high_temp_kim() {
+        // Reuse the existing check so the error payload is identical.
+        range_check(
+            &Material::Solid(SolidMaterial::SteelSS304LHighTemp),
+            temperature,
+            max_temp_ss_304l_high_temp_kim(),
+            min_temp_ss_304l_high_temp_kim(),
+        )?;
+    }
+    if temperature < min_temp_ss_304l_high_temp_kim() {
+        return Ok(min_temp_ss_304l_high_temp_kim());
+    }
+    Ok(temperature)
+}
+
 // ---------------------------------------------------------------------------
 // Properties
 // ---------------------------------------------------------------------------
@@ -221,12 +263,7 @@ pub fn min_temp_ss_304l_high_temp_kim() -> ThermodynamicTemperature {
 pub fn steel_304_l_high_temp_density_kim(
     temperature: ThermodynamicTemperature,
 ) -> Result<MassDensity, TuasLibError> {
-    range_check(
-        &Material::Solid(SolidMaterial::SteelSS304LHighTemp),
-        temperature,
-        max_temp_ss_304l_high_temp_kim(),
-        min_temp_ss_304l_high_temp_kim(),
-    )?;
+    let temperature = clamp_low_range_check_high(temperature)?;
 
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
@@ -277,12 +314,7 @@ pub fn steel_304_l_high_temp_density_kim(
 pub fn steel_304_l_high_temp_specific_heat_capacity_kim(
     temperature: ThermodynamicTemperature,
 ) -> Result<SpecificHeatCapacity, TuasLibError> {
-    range_check(
-        &Material::Solid(SolidMaterial::SteelSS304LHighTemp),
-        temperature,
-        max_temp_ss_304l_high_temp_kim(),
-        min_temp_ss_304l_high_temp_kim(),
-    )?;
+    let temperature = clamp_low_range_check_high(temperature)?;
 
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
@@ -329,12 +361,7 @@ pub fn steel_304_l_high_temp_specific_heat_capacity_kim(
 pub fn steel_304_l_high_temp_thermal_conductivity_kim(
     temperature: ThermodynamicTemperature,
 ) -> Result<ThermalConductivity, TuasLibError> {
-    range_check(
-        &Material::Solid(SolidMaterial::SteelSS304LHighTemp),
-        temperature,
-        max_temp_ss_304l_high_temp_kim(),
-        min_temp_ss_304l_high_temp_kim(),
-    )?;
+    let temperature = clamp_low_range_check_high(temperature)?;
 
     let temperature_value_kelvin: f64 = temperature.get::<kelvin>();
 
@@ -893,23 +920,51 @@ fn kim_304l_covers_htgr_envelope_through_public_api() {
         previous_density_kg_per_m3 = density_kg_per_m3;
     }
 
-    // the bounds must actually bite, just outside the range
+    // The two bounds behave DIFFERENTLY by design -- see
+    // `clamp_low_range_check_high`. Below the range the properties are clamped
+    // to their 300 K values and returned as `Ok`; above it, where the steel is
+    // melting and the solid-region equations are meaningless, the range error
+    // still stands.
     let below_range = ThermodynamicTemperature::new::<kelvin>(299.0);
+    let far_below_range = ThermodynamicTemperature::new::<kelvin>(4.0);
     let above_range = ThermodynamicTemperature::new::<kelvin>(1701.0);
+    let at_lower_bound = min_temp_ss_304l_high_temp_kim();
 
-    assert!(
-        matches!(
-            try_get_rho(steel, below_range, pressure),
-            Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError { .. })
-        ),
-        "299 K must be rejected as below the 300 K lower bound"
-    );
+    let rho_at_bound = try_get_rho(steel, at_lower_bound, pressure)
+        .expect("300 K is in range")
+        .get::<kilogram_per_cubic_meter>();
+
+    for (label, t) in [("299 K", below_range), ("4 K", far_below_range)] {
+        let rho = try_get_rho(steel, t, pressure)
+            .unwrap_or_else(|e| panic!("{label} must clamp to the 300 K value, not error: {e}"))
+            .get::<kilogram_per_cubic_meter>();
+        assert_eq!(
+            rho, rho_at_bound,
+            "{label} must return exactly the 300 K density ({rho_at_bound} kg/m^3), \
+             so the clamp is a flat continuation and not an extrapolation"
+        );
+    }
+
+    // Specific heat and thermal conductivity clamp the same way.
+    let cp_at_bound = try_get_cp(steel, at_lower_bound, pressure).expect("300 K is in range");
+    let cp_below = try_get_cp(steel, below_range, pressure).expect("299 K must clamp, not error");
+    assert_eq!(cp_at_bound, cp_below, "cp must clamp to its 300 K value");
+
+    let k_at_bound =
+        try_get_kappa_thermal_conductivity(steel, at_lower_bound, pressure).expect("in range");
+    let k_below =
+        try_get_kappa_thermal_conductivity(steel, below_range, pressure).expect("must clamp");
+    assert_eq!(k_at_bound, k_below, "k must clamp to its 300 K value");
+
+    // The UPPER bound still bites: above it the steel is molten, and silently
+    // returning solid properties would hide the most safety-relevant thing
+    // that can happen to a structural component.
     assert!(
         matches!(
             try_get_rho(steel, above_range, pressure),
             Err(TuasLibError::ThermophysicalPropertyTemperatureRangeError { .. })
         ),
-        "1701 K must be rejected as above the 1700 K upper bound"
+        "1701 K must still be rejected as above the 1700 K melting bound"
     );
 }
 

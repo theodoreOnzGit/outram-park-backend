@@ -237,10 +237,11 @@ pub fn get_temperature_from_enthalpy(
     // temperature validity range for enthalpy,
     // then enthalpy is technically out of range
     if fluid_enthalpy.value < 0_f64 {
-        panic!(
+        return Err(TuasLibError::GenericStringError(
             "FLiNaK : get_temperature_from_enthalpy \n
                enthalpy < 0.0 , out of correlation range"
-        );
+                .to_string(),
+        ));
     }
 
     // first let's convert enthalpy to a double (f64)

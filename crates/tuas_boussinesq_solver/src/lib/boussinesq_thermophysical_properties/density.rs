@@ -141,7 +141,7 @@ fn liquid_density(
             CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)
         }
 
-        Material::Solid(_) => panic!("liquid_density, use LiquidMaterial enums only"),
+        Material::Solid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let density: MassDensity = match liquid_material {

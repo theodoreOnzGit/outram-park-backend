@@ -536,7 +536,7 @@ pub fn specific_enthalpy_test_steel_ornl_and_zweibaum_spline() {
 #[inline]
 pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum(
     h_steel: AvailableEnergy,
-) -> ThermodynamicTemperature {
+) -> Result<ThermodynamicTemperature, TuasLibError> {
     // the idea is basically to evaluate enthalpy at the
     // following temperatures
     let temperature_values_kelvin: Vec<f64> =
@@ -571,7 +571,7 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
             // i can of course unwrap the result,
             // but i want to leave it more explicit in case
             // i wish to manually handle the error
-            Err(error_msg) => panic!("{}", error_msg),
+            Err(e) => return Err(e),
         };
 
         // once i evalute the enthalpy value, pass it on to the vector
@@ -593,6 +593,13 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
         .unwrap()
         .eval(h_steel_joules_per_kg);
 
+    // `find_root_brent` takes a closure returning f64, so a property
+    // error inside it cannot be propagated with `?`. Capture it instead and
+    // re-raise after the solve, so this path returns an error rather than
+    // aborting the process.
+    let captured_error: std::cell::RefCell<Option<TuasLibError>> =
+        std::cell::RefCell::new(None);
+
     let enthalpy_root = |temp_degrees_c_value: f64| -> f64 {
         let lhs_value = h_steel.get::<joule_per_kilogram>();
 
@@ -604,8 +611,15 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
 
         let rhs_value = match rhs {
             Ok(enthalpy_val) => enthalpy_val.get::<joule_per_kilogram>(),
-            // fall back to guess value,
-            Err(error_msg) => panic!("{}", error_msg),
+            // Record the first error and return a sentinel so the root
+            // finder terminates instead of panicking; the enclosing
+            // function checks `captured_error` immediately afterwards.
+            Err(e) => {
+                if captured_error.borrow().is_none() {
+                    *captured_error.borrow_mut() = Some(e);
+                }
+                return 0.0;
+            }
         };
 
         return lhs_value - rhs_value;
@@ -626,6 +640,10 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
     let fluid_temperature_degrees_c_result =
         find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
 
+    if let Some(e) = captured_error.into_inner() {
+        return Err(e);
+    }
+
     // we can extract the temperature
     // but if this doesn't work, bracket the entire range
     // 250K to 1000K
@@ -645,7 +663,7 @@ pub(crate) fn steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zwei
     };
 
     // return temperature
-    ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin)
+    Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))
 }
 
 /// this is my third, and final iteration of getting enthalpy as a function
@@ -667,7 +685,7 @@ pub fn steel_temperature_from_enthalpy_test_spline_3() {
     let temperature_from_enthalpy_test =
         steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum(
             enthalpy_spline_zweibaum_375k,
-        );
+        ).unwrap();
 
     // we are basically off by less than 0.05K, which is
     // within measurement error!
@@ -688,7 +706,7 @@ pub fn steel_temperature_from_enthalpy_test_spline_3() {
         let temperature_from_enthalpy_test =
             steel_304_l_spline_temp_attempt_3_from_specific_enthalpy_ciet_zweibaum(
                 enthalpy_spline_zweibaum,
-            );
+            ).unwrap();
 
         // we are basically off by less than 0.5K, which is
         // within measurement error!

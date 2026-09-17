@@ -1,4 +1,5 @@
 use uom::si::f64::*;
+use crate::tuas_lib_error::TuasLibError;
 
 use crate::boussinesq_thermophysical_properties::liquid_database::flibe::get_flibe_specific_enthalpy;
 use crate::boussinesq_thermophysical_properties::liquid_database::flinak::get_flinak_specific_enthalpy;
@@ -35,7 +36,7 @@ use super::LiquidMaterial::*;
 pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
     material: Material,
     solid_temp: ThermodynamicTemperature,
-) -> AvailableEnergy {
+) -> Result<AvailableEnergy, TuasLibError> {
     // first match the enum
 
     let solid_material: SolidMaterial = match material {
@@ -49,7 +50,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
         Material::Solid(CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)) => {
             CustomSolid((low_bound_temp, high_bound_temp), cp, k, rho, roughness)
         }
-        Material::Liquid(_) => panic!("solid_specific_enthalpy, use SolidMaterial enums only"),
+        Material::Liquid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let specific_enthalpy: AvailableEnergy = match solid_material {
@@ -70,11 +71,11 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
                 high_bound_temp,
                 low_bound_temp,
             )
-            .unwrap()
+            ?
         }
     };
 
-    return specific_enthalpy;
+    Ok(specific_enthalpy)
 }
 
 // should the material happen to be a liquid, use this function
@@ -88,7 +89,7 @@ pub(in crate::boussinesq_thermophysical_properties) fn solid_specific_enthalpy(
 pub(in crate::boussinesq_thermophysical_properties) fn liquid_specific_enthalpy(
     material: Material,
     fluid_temp: ThermodynamicTemperature,
-) -> AvailableEnergy {
+) -> Result<AvailableEnergy, TuasLibError> {
     let liquid_material: LiquidMaterial = match material {
         Material::Liquid(DowthermA) => DowthermA,
         Material::Liquid(TherminolVP1) => TherminolVP1,
@@ -99,16 +100,16 @@ pub(in crate::boussinesq_thermophysical_properties) fn liquid_specific_enthalpy(
         Material::Liquid(CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)) => {
             CustomLiquid((low_bound_temp, high_bound_temp), cp, k, mu, rho)
         }
-        Material::Solid(_) => panic!("liquid_specific_enthalpy, use LiquidMaterial enums only"),
+        Material::Solid(_) => return Err(TuasLibError::TypeConversionErrorMaterial),
     };
 
     let specific_enthalpy: AvailableEnergy = match liquid_material {
-        DowthermA => dowtherm_a::get_dowtherm_a_enthalpy(fluid_temp).unwrap(),
-        TherminolVP1 => dowtherm_a::get_dowtherm_a_enthalpy(fluid_temp).unwrap(),
-        HITEC => get_hitec_specific_enthalpy(fluid_temp).unwrap(),
-        YD325 => get_yd325_specific_enthalpy(fluid_temp).unwrap(),
-        FLiBe => get_flibe_specific_enthalpy(fluid_temp).unwrap(),
-        FLiNaK => get_flinak_specific_enthalpy(fluid_temp).unwrap(),
+        DowthermA => dowtherm_a::get_dowtherm_a_enthalpy(fluid_temp)?,
+        TherminolVP1 => dowtherm_a::get_dowtherm_a_enthalpy(fluid_temp)?,
+        HITEC => get_hitec_specific_enthalpy(fluid_temp)?,
+        YD325 => get_yd325_specific_enthalpy(fluid_temp)?,
+        FLiBe => get_flibe_specific_enthalpy(fluid_temp)?,
+        FLiNaK => get_flinak_specific_enthalpy(fluid_temp)?,
         CustomLiquid((low_bound_temp, high_bound_temp), cp_fn, _k, _mu_fn, _rho_fn) => {
             liquid_database::custom_liquid_material::get_custom_fluid_enthalpy(
                 fluid_temp,
@@ -116,9 +117,9 @@ pub(in crate::boussinesq_thermophysical_properties) fn liquid_specific_enthalpy(
                 high_bound_temp,
                 low_bound_temp,
             )
-            .unwrap()
+            ?
         }
     };
 
-    return specific_enthalpy;
+    Ok(specific_enthalpy)
 }

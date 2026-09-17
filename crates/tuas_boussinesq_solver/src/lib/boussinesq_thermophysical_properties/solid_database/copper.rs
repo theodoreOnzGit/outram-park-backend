@@ -148,7 +148,7 @@ pub fn copper_specific_enthalpy(temperature: ThermodynamicTemperature) -> Availa
 #[inline]
 pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
     h_copper: AvailableEnergy,
-) -> ThermodynamicTemperature {
+) -> Result<ThermodynamicTemperature, TuasLibError> {
     // the idea is basically to evaluate enthalpy at the
     // following temperatures
     let temperature_values_kelvin: Vec<f64> = c!(200.0, 250.0, 300.0, 350.0, 400.0, 500.0, 1000.0);
@@ -182,7 +182,7 @@ pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
             // i can of course unwrap the result,
             // but i want to leave it more explicit in case
             // i wish to manually handle the error
-            Err(error_msg) => panic!("{}", error_msg),
+            Err(e) => return Err(e),
         };
 
         // once i evalute the enthalpy value, pass it on to the vector
@@ -208,6 +208,13 @@ pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
     // enough, but it is very close. We can bracket
     // the root
 
+    // `find_root_brent` takes a closure returning f64, so a property
+    // error inside it cannot be propagated with `?`. Capture it instead and
+    // re-raise after the solve, so this path returns an error rather than
+    // aborting the process.
+    let captured_error: std::cell::RefCell<Option<TuasLibError>> =
+        std::cell::RefCell::new(None);
+
     let enthalpy_root = |temp_degrees_c_value: f64| -> f64 {
         let lhs_value = h_copper.get::<joule_per_kilogram>();
 
@@ -219,8 +226,15 @@ pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
 
         let rhs_value = match rhs {
             Ok(enthalpy_val) => enthalpy_val.get::<joule_per_kilogram>(),
-            // fall back to guess value,
-            Err(error_msg) => panic!("{}", error_msg),
+            // Record the first error and return a sentinel so the root
+            // finder terminates instead of panicking; the enclosing
+            // function checks `captured_error` immediately afterwards.
+            Err(e) => {
+                if captured_error.borrow().is_none() {
+                    *captured_error.borrow_mut() = Some(e);
+                }
+                return 0.0;
+            }
         };
 
         return lhs_value - rhs_value;
@@ -239,10 +253,14 @@ pub(crate) fn copper_spline_temp_attempt_2_from_specific_enthalpy(
     let fluid_temperature_degrees_c_result =
         find_root_brent(upper_limit, lower_limit, enthalpy_root, &mut convergency);
 
+    if let Some(e) = captured_error.into_inner() {
+        return Err(e);
+    }
+
     let temperature_from_enthalpy_kelvin = fluid_temperature_degrees_c_result.unwrap();
 
     // return temperature
-    ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin)
+    Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))
 }
 
 /// Enthalpy was done calculated and tested
@@ -269,7 +287,7 @@ pub fn copper_temperature_from_enthalpy_test_spline_2() {
     // now we have an enthalpy, let's check the temperature
 
     let temperature_from_enthalpy_test =
-        copper_spline_temp_attempt_2_from_specific_enthalpy(enthalpy_spline_zweibaum_375k);
+        copper_spline_temp_attempt_2_from_specific_enthalpy(enthalpy_spline_zweibaum_375k).unwrap();
 
     // we are basically by about 5K, which is
     // not within measurement error, probably have to do more work

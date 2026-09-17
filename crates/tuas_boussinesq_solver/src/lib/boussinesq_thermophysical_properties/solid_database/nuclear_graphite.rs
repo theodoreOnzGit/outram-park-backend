@@ -417,7 +417,7 @@ pub fn nuclear_graphite_specific_enthalpy(
 #[inline]
 pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
     h_graphite: AvailableEnergy,
-) -> ThermodynamicTemperature {
+) -> Result<ThermodynamicTemperature, TuasLibError> {
     // evaluate enthalpy at the cp-table node temperatures
     let temperature_values_kelvin: Vec<f64> = c!(
         300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 1100.0, 1200.0, 1300.0, 1400.0,
@@ -482,10 +482,15 @@ pub(crate) fn nuclear_graphite_spline_temp_from_specific_enthalpy(
 
     let temperature_from_enthalpy_kelvin: f64 = match graphite_temperature_result {
         Ok(temperature_val) => temperature_val,
-        Err(_) => panic!("{:?}", h_graphite),
+        // The Brent solve failed to bracket a root for this enthalpy.
+        Err(_) => {
+            return Err(TuasLibError::GenericStringError(format!(
+                "nuclear graphite: could not invert specific enthalpy {h_graphite:?} to a temperature"
+            )))
+        }
     };
 
-    ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin)
+    Ok(ThermodynamicTemperature::new::<kelvin>(temperature_from_enthalpy_kelvin))
 }
 
 /// V&V test: cp spline reproduces the Butland & Maddison table nodes.
