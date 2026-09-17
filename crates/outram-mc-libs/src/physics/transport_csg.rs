@@ -51,7 +51,13 @@
 //! Nuclides without a table (fuel, O, clad) stay free-gas/CE. This makes a
 //! *thermal* LWR pin-cell tractable; see the `pincell` verification test.
 
-use crate::geometry::cell::SurfaceToken;
+use crate::geometry::cell::{SurfaceToken, TrackingMethod};
+use crate::pebble_beds::delta_tracking::{bounded_delta_flight, DeltaStep, Majorant};
+
+/// Virtual-collision budget for a delta-tracked region before the history is
+/// declared lost. Matches `keff_delta.rs`'s `MAX_VIRTUAL` so the two paths
+/// agree on what counts as a stuck history.
+const MAX_VIRTUAL_COLLISIONS: u32 = 100_000;
 use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
@@ -161,6 +167,7 @@ pub fn run_keff_csg(
             geom,
             materials,
             nuclides,
+            &[],
             source_box,
             settings,
             tally,
@@ -171,6 +178,7 @@ pub fn run_keff_csg(
             geom,
             materials,
             nuclides,
+            &[],
             source_box,
             settings,
             tally,
@@ -188,6 +196,7 @@ pub fn run_keff_csg(
                 geom,
                 materials,
                 nuclides,
+                &[],
                 source_box,
                 settings,
                 tally,
@@ -234,6 +243,7 @@ pub fn run_keff_csg_reactor_physics(
             geom,
             materials,
             nuclides,
+            &[],
             source_box,
             settings,
             Some(tally),
@@ -244,6 +254,7 @@ pub fn run_keff_csg_reactor_physics(
             geom,
             materials,
             nuclides,
+            &[],
             source_box,
             settings,
             Some(tally),
@@ -260,6 +271,7 @@ pub fn run_keff_csg_reactor_physics(
                 geom,
                 materials,
                 nuclides,
+                &[],
                 source_box,
                 settings,
                 Some(tally),
@@ -291,6 +303,9 @@ pub fn run_keff_csg_seq(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
+    // Majorants indexed by `TrackingMethod::Delta`; `&[]` for a purely
+    // surface-tracked model, which is every model predating bn:op-867c.
+    majorants: &[Majorant],
     source_box: SourceBox,
     settings: &KeffSettings,
     mut tally: Option<&mut Tally>,
@@ -369,6 +384,7 @@ pub fn run_keff_csg_seq(
                     geom,
                     materials,
                     nuclides,
+                    majorants,
                     temp,
                     k_running,
                     &mut next_bank,
@@ -452,6 +468,9 @@ pub fn run_keff_csg_par(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
+    // Majorants indexed by `TrackingMethod::Delta`; `&[]` for a purely
+    // surface-tracked model, which is every model predating bn:op-867c.
+    majorants: &[Majorant],
     source_box: SourceBox,
     settings: &KeffSettings,
     mut tally: Option<&mut Tally>,
@@ -555,6 +574,7 @@ pub fn run_keff_csg_par(
                             geom,
                             materials,
                             nuclides,
+                            majorants,
                             temp,
                             k_running,
                             &mut local_bank,
@@ -681,6 +701,10 @@ pub(crate) fn transport_history(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
+    // Majorants indexed by `TrackingMethod::Delta`. EMPTY when no region
+    // declares delta tracking, which is every model predating bn:op-867c --
+    // and that is what makes this change bit-identical for all of them.
+    majorants: &[Majorant],
     temp: f64,
     k_running: f64,
     next_bank: &mut Vec<Site>,
@@ -731,10 +755,75 @@ pub(crate) fn transport_history(
             };
 
             let d_bound = geom.distance_to_boundary(&path);
-            let d_col = if sigma_t > 0.0 {
-                -prn(seed).max(f64::MIN_POSITIVE).r_ln() / sigma_t
-            } else {
-                f64::INFINITY
+
+            // ── How far to the next REAL collision, and in what material ───
+            //
+            // This is the ONLY thing that differs between surface and delta
+            // tracking (bn:op-867c.4). Everything below -- the track-length
+            // scoring, the collision physics, the boundary crossing, the leak
+            // accounting -- is shared, because the collision block takes a
+            // position, a material and an energy and does not care how the
+            // particle got there.
+            //
+            // With no delta regions declared, `majorants` is empty and this
+            // reduces to exactly the previous two lines, drawing the SAME
+            // single `prn` in the same order. Every existing model is therefore
+            // bit-identical across this change, which is how it is verified.
+            let (d_col, col_material) = match path.tracking {
+                TrackingMethod::Surface => {
+                    let d = if sigma_t > 0.0 {
+                        -prn(seed).max(f64::MIN_POSITIVE).r_ln() / sigma_t
+                    } else {
+                        f64::INFINITY
+                    };
+                    (d, path.material)
+                }
+                TrackingMethod::Delta { majorant } => {
+                    let Some(maj) = majorants.get(majorant) else {
+                        // A region declared a majorant index the caller did not
+                        // supply. Leaking is the honest failure: delta tracking
+                        // with no bound would silently bias, and falling back to
+                        // surface tracking would silently change the method.
+                        score_leak(leak_batch, leak_edges, e, 1.0);
+                        break 'history;
+                    };
+                    // The region's OWN extent, not the nearest surface -- a bed
+                    // is full of internal surfaces the tracker exists to cross.
+                    let exit_at = geom.distance_out_of_level(&path, path.tracking_level);
+                    let step = bounded_delta_flight(
+                        r,
+                        u,
+                        e,
+                        maj,
+                        materials,
+                        nuclides,
+                        MAX_VIRTUAL_COLLISIONS,
+                        // `exit_at` is measured from `r`; convert a probe point
+                        // back to remaining distance along the ray.
+                        |p: Position, _d: Direction| {
+                            let travelled = (p.x - r.x) * u.u + (p.y - r.y) * u.v + (p.z - r.z) * u.w;
+                            exit_at - travelled
+                        },
+                        |p: Position| geom.locate(p, u, SurfaceToken::NONE).and_then(|q| q.material),
+                        seed,
+                    );
+                    match step {
+                        DeltaStep::Collision { position, material, .. } => {
+                            let d = (position.x - r.x) * u.u
+                                + (position.y - r.y) * u.v
+                                + (position.z - r.z) * u.w;
+                            (d, Some(material))
+                        }
+                        // Left the delta region: stream to its edge and let the
+                        // enclosing method take over on the next `locate`.
+                        // `d_col = INFINITY` sends it down the crossing arm.
+                        DeltaStep::Exit { .. } => (f64::INFINITY, path.material),
+                        DeltaStep::Exhausted { .. } => {
+                            score_leak(leak_batch, leak_edges, e, 1.0);
+                            break 'history;
+                        }
+                    }
+                }
             };
 
             // ── Track-length tally scoring ─────────────────────────────────

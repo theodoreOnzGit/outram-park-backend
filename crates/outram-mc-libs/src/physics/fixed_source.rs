@@ -201,6 +201,8 @@ pub fn run_fixed_source(
                     geom,
                     materials,
                     nuclides,
+                    // No delta-tracked regions in the fixed-source path (yet).
+                    &[],
                     settings.temperature_k,
                     1.0,
                     &mut next,
