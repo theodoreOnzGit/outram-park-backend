@@ -972,3 +972,81 @@ region agreeing to ≤0.05 %. The lesson that keeps repeating — and that produ
 two of this session's findings — is that **an exclusion is only as wide as the
 window it was measured in**: χ's mean hid χ's shape, the flux-weighted σ hid the
 band-averaged σ, and the 1.5–3.5 MeV oracle band hid everything above it.
+
+
+---
+
+## The enumeration itself (2026-09-17)
+
+Every entry above came from working an *open list*. This is the list being
+built: a module-by-module sweep of `njoy-outram-park-fork` against its own test
+suite, asking the question directly — **which ported modules have no V&V at
+all?**
+
+| module | tests | | module | tests |
+|---|---|---|---|---|
+| `reconr` | 31 | | `unresr` | 9 |
+| `thermr` | 20 | | `moder` | 4 |
+| `groupr` | 15 | | `purr` | 4 |
+| `broadr` | 13 | | `dtfr` | 3 |
+| `nuclear_data` | 12 | | `covr`, `mixr`, `samm`, `wmp` | 2 |
+| `leapr` | 12 | | `gaminr`, `heatr`, `resxsr`, `wimsr` | **1** |
+| `acer` | 10 | | `ccccr`, `gaspr`, `matxsr`, `plotr`, `powr`, `viewr` | **0** |
+| `errorr` | 9 | | | |
+
+Four of the zero-test modules are honest stubs — `ccccr`, `matxsr`, `powr` and
+`viewr` are 17–18 lines that return `NotPorted`, and they are output formats and
+plotting rather than physics. The rest is a real finding:
+
+| module | lines | `NotPorted` | tests | what it is |
+|---|---|---|---|---|
+| `gaminr` | 2549 | **0** | 1 | gamma production matrices |
+| `heatr` | 1505 | **0** | 1 | **KERMA + damage energy** |
+| `gaspr` | 469 | — | **0** | gas production (He/H) |
+
+**~4500 lines of fully ported physics carried two tests between them**, while
+`reconr` had 31. That is not a claim those modules are wrong — it is that
+nothing would have said so.
+
+### KERMA verified first, because a KERMA error is invisible to every other gate
+
+Heating is what couples neutronics to thermal hydraulics. A KERMA error does not
+move `k`, so **no criticality test can catch it** — it moves the power
+distribution, which is what the coupled calculations here are ultimately for.
+
+`tests/heatr_kerma_vs_kinematics.rs` checks it against the closed forms the
+models are *defined* by, not against the code itself: elastic
+`sigma_el * E * 2A/(A+1)^2` (derived here from the two-body kinematics),
+local capture `sigma * (E + Q)`, and the fission term. On U-238, 441 694 grid
+points:
+
+| check | result |
+|---|---|
+| KERMA vs closed form, at KERMA's own grid points | **0 to 1.8e-16** |
+| ratio flatness over 12 points (guaranteed by linearity in `sigma`) | spread **4.4e-16** |
+| negative heating anywhere | **none** |
+
+**Two oracle errors the test caught before it passed**, both mine and both the
+recurring kind:
+
+1. **Off-grid probing.** `Kerma::eval` interpolates `H` lin-lin between knots
+   while the closed form evaluates `sigma` exactly, and `sigma(E)*E` is not
+   linear between them — 3e-4 off-grid against <1e-12 on-grid. The
+   nearest-point/interpolation family again, for the fourth time in this record.
+2. **An incomplete oracle.** U-238 has **subthreshold fission open at every
+   energy** with `Q ~ +200 MeV`, so a `sigma_f` of ~1e-3 b contributes
+   materially. Omitting it left the comparison 6e-3 out — and the failure was in
+   what I wrote down, not in the code.
+
+### Still open from this enumeration
+
+- **`gaspr`** (gas production, 469 lines) — **no test of any kind.**
+- **`gaminr`** (gamma production, 2549 lines) — one synthetic-golden test.
+- **`heatr`'s damage-energy half** (`damage.rs`, DPA) — untested; this entry
+  covers KERMA only.
+- **HEATR against NJOY2016's own output** — no reference tape is held here, so
+  the verification above is against the models' defining formulae rather than
+  cross-code.
+
+These are named rather than worked because the enumeration is what was asked for
+and this is its output; each is a bounded piece of work with a clear oracle.
