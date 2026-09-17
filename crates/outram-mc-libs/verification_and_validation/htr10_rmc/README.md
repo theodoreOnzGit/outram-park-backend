@@ -132,6 +132,46 @@ suspicious."*
   open (`op-os8x`, gh #206).
 - **No control rods or absorber balls** are modelled.
 
+## The fuel deficit, half of it found exactly
+
+`k = 0` traces to the model carrying far too little fuel:
+
+| quantity | value |
+|---|---|
+| expected kernel volume fraction of an HTR-10 bed | **1.676e-3** |
+| measured source acceptance over the box | **3.375e-4** |
+| ratio | **~5x too little fuel** |
+
+**Half of that factor is found exactly.** `HexBedCell::from_paper()` carries
+`balls: 2.0` — the paper's hexagonal prism holds **two** balls, one per
+close-packed layer — but the assembled lattice places **one pebble universe per
+tile**:
+
+| | packing |
+|---|---|
+| one ball per tile (what is built) | **0.3050** |
+| two balls per tile (the paper) | **0.6100** ← the stated 0.61 |
+
+Exactly 2x, reproducing the published filling fraction to four digits. Not an
+approximation — the defect.
+
+The confusion underneath is worth stating because it is easy to repeat: a hex
+**lattice** places one universe at each tile centre, while the paper's **cell**
+is a two-layer prism carrying half-spheres on its faces and full balls between.
+They are not the same object. `HexBedCell`'s arithmetic is correct and gated —
+it predicts 27,038 balls against a stated 27,000 — but it was never reconciled
+with the lattice that consumes it, and nothing checked that the geometry
+realised the packing the arithmetic assumed.
+
+**Residual: 2.31x**, most likely the per-tile TRISO count. The assembly keeps a
+particle where the tile *centre* lies inside `r_zone - r_particle`, which is
+cruder than `cubic_array_in_ball`'s whole-particle rule and was never
+cross-checked against the 8340 that function returns.
+
+Neither is yet confirmed as *the* cause of `k = 0`. What is established is that
+the model carries ~5x too little fuel, and that a core this subcritical banking
+zero fission neutrons at 800 histories is arithmetic, not a transport defect.
+
 ## Reproducing what exists
 
 ```bash
