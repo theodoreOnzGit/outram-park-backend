@@ -219,7 +219,7 @@ mod tests {
     /// legitimately changes, add a *separate* tolerance-based comparison rather
     /// than loosening this one.
     ///
-    /// **This is a baseline of the current PRISMATIC model, and of what it does
+    /// **This is a baseline of the current PEBBLE-BED model, and of what it does
     /// rather than what it should do.** It is not an HTR-10 reference and must
     /// never be cited as one — see `op-jyyp.11` for that. It becomes
     /// intentionally obsolete when `op-jyyp` rewrites the physics.

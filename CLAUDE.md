@@ -324,6 +324,53 @@ not acceptable is not looking.
 Related: the recurring-failure-mode list in
 [`docs/human-corrections-to-ai-work.md`](docs/human-corrections-to-ai-work.md).
 
+## A doc claim contradicted by the code is a DEFECT — fix it in the same change (HARD RULE)
+
+**When you find a statement in any `docs/`, `CLAUDE.md`, `README.md` or `///`
+doc comment that the code contradicts, correct it in the change where you found
+it. Do not file it, do not "note it for later", and do not report it as an
+observation while leaving it in place.** A stale doc is not a tidiness problem;
+it is a false statement that the next reader — human or agent — will act on.
+
+**Why this is a hard rule and not a courtesy.** This workspace's docs are the
+primary interface to 40+ crates that no one can hold in their head, and the
+search-before-building rule above *depends on them being true*. A stale
+"missing" claim is the worst kind, because it causes exactly the duplication
+this file exists to prevent: an agent reads "no model exists", believes it, and
+writes a second one. Three found in a single session on 2026-09-17:
+
+| Claim | Reality |
+|---|---|
+| `docs/reactor-scoping/htr10.md`: "`reference-data/endf/` holds only a README", *re-verified 2026-08-12 — still true* | **39 ENDF/B-VIII.0 tapes**, and `outram-mc-libs` reconstructs ~13 nuclides from them |
+| same file: decay heat "is still not wired into `htgr_sim_v1`" | Wired — `kinetics.rs` holds `pub decay: DecayHeat`, seeds at equilibrium, applies per substep |
+| `htgr_sim_v1/headless.rs`: "a baseline of the current **PRISMATIC** model" | Retargeted to pebble-bed on 2026-08-12 |
+
+Note the first one carries an explicit **re-verification stamp** and was still
+wrong. A dated "still true" marker is evidence of when someone last looked, not
+that the claim holds now — so re-check the claim, never trust the stamp.
+
+**How to comply:**
+
+- **Correct it where it lives**, including the generated `docs/<crate>-api.md`
+  mirror if the source doc comment changed (`kovan-cli api-docs <crate>`).
+- **Strike through rather than delete** when the claim shaped a decision —
+  `~~old claim~~ **CORRECTED <date>** — new position`. The history is why a
+  reader can trust the correction; a silent edit looks like the doc was always
+  right.
+- **Say what you verified**, not just what is now true. "39 tapes present" is
+  checkable; "this is fixed" is not.
+- **A claim you cannot check is not a claim you may leave standing unmarked.**
+  Mark it `Not re-checked` with the reason, as section 3 of
+  `docs/reactor-scoping/htr10.md` already does.
+- **This binds for docs you did not write and were not asked to touch.** Finding
+  it makes it yours. The one exception is the scope boundary at the top of this
+  file: a doc whose repository root is not this one is out of scope entirely.
+
+**This does not license rewriting docs you merely disagree with.** The trigger
+is a claim the *code contradicts* — a falsifiable mismatch you have checked, not
+a wording preference, not a different opinion about emphasis. Fixing style while
+claiming to fix staleness is how a review pass becomes an unreviewable diff.
+
 ## Debugging a port: read upstream first (HARD RULE)
 
 **When a ported module misbehaves, find out how the upstream code handles that
