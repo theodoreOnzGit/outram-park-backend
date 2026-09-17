@@ -760,3 +760,73 @@ for MT=5), a port rather than a branch. It is **zero below ~5 MeV**, so it
 cannot affect any fission-spectrum case here — including `op-os8x`, whose band
 is 1.9–3.0 MeV — but it is 0.27 % of all collisions for a 14 MeV source. The
 gate pins it so it cannot grow unnoticed and so closing it must update a test.
+
+
+---
+
+## MT=5 wired, and chi's SHAPE excluded (2026-09-17)
+
+### MT=5, "(n,anything)" — fixed, not just flagged
+
+The partition-closure measurement found it; this closes it. `MicroXS::mt5`,
+`ContinuumLaws::mt5` (from MF=6 MT=5, which on ENDF/B-VIII.0's U-235 is a
+`ZAP=1, LAW=1` subsection with a 56-point yield table), and a collision arm in
+all four transport paths.
+
+**Result: the above-6 MeV shortfall falls from `2.7e-3` to `1.38e-4` relative —
+19x.** Below 6 MeV closure is `1.7e-7`.
+
+**Its multiplicity is tabulated, not fixed.** Because MT=5 lumps unresolved
+channels, the evaluation gives an average `y(E)`, realised by splitting the
+fractional part stochastically so the expectation is `y(E)` exactly. Sampled
+against the table: worst **1.73 sigma** over 400 000 draws per point.
+
+**Two things the work got wrong first, both caught by measurement:**
+
+1. **"MT=5 is zero below 5 MeV" is false.** It carries `QM = QI = +11.1 MeV` —
+   **exothermic, no threshold** — and its MF=3 runs from 1e-5 eV with a 1/v-like
+   tail. The closure measurement only *showed* a shortfall above 6 MeV because
+   below it the share is ~1e-7, under the gate. The honest statement is
+   "negligible and measured", not "zero": MT=5 neutron **production** per
+   collision below 100 keV is at most **3.8e-14**.
+
+2. **A defect in the new wiring, caught by the test written for it.** `y(E) = 0`
+   below ~100 keV means MT=5 emits **no neutron** there — it is acting as
+   absorption. The first version of the arm scattered the neutron anyway, which
+   would have **created neutrons the evaluation says do not exist**. It now
+   returns `Dead`. Not a corner case: even at 20 MeV `y = 0.47`, so more than
+   half of MT=5 collisions emit nothing.
+
+### chi's shape — a new `op-os8x` hypothesis, tested and excluded
+
+With every candidate on the study's list measured and excluded, the next
+hypothesis had to come from outside it. chi was the obvious one: it had been
+"cleared" on its **mean** (`⟨E_out⟩` to 0.018 %), and a mean **cannot see a
+redistribution** that moves probability out of ~100 keV into the MeV window
+while the 10 MeV tail compensates — which is exactly the residual's signature.
+And chi is the largest single source of neutrons in a bare fast assembly.
+
+Measured band by band against OpenMC's own tabulated chi (extracted and
+**analytically integrated**, so the oracle carries no Monte Carlo noise —
+`chi_shape_oracle.py`), 4 000 000 draws per incident energy:
+
+| band | flux residual | **chi shift** |
+|---|---|---|
+| 67–174 keV | −1.2 to −1.9 % | **+0.085 %** (wrong sign, 15x too small) |
+| 1.9–3.0 MeV | +0.42 % | **+0.029 %** (right sign, 14x too small) |
+
+Worst band deviation **3.04 sigma**, in a band holding 0.7 % of chi — consistent
+with sampling. **chi's shape is excluded.**
+
+### Where `op-os8x` stands
+
+Measured and excluded: cross sections, both angular laws, the MT=91 transfer
+table, the within-row CDF inversion, the inter-row unit-base rule, the CM→lab
+transform, channel branching, chi's mean, and now chi's shape.
+
+Every secondary-energy law, every angular law, the cross sections and the
+branching all agree — while the flux does not. That is a sharper constraint than
+the study has ever had, and it points away from per-collision physics
+altogether. The candidates it leaves are ones nobody has written down yet; the
+honest next move is to look at what differs *between* collisions rather than
+within one.

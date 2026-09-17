@@ -1400,6 +1400,51 @@ fn collide_batched(
         } else {
             (0.0, CollisionResult::Scatter { e: e2, u: u2 })
         }
+    } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+        // MT=5, "(n,anything)": the lumped high-energy channels. Unlike (n,2n)
+        // and (n,3n) its multiplicity is a TABULATED y(E), so the integer count
+        // is drawn from it (`sample_mt5_multiplicity`) rather than fixed.
+        //
+        // Wired 2026-09-17. Before that MT=5 had no arm at all: it is inside
+        // MT=1, so the collision happened and then fell through to the elastic
+        // branch below, which both mis-scattered it and dropped its extra
+        // neutrons. It is exactly zero below ~5 MeV, so this condition coincides
+        // with the previous boundary for any fission spectrum and no reactor
+        // result moves; at 14 MeV it is 0.27 % of all collisions.
+        let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+        let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+        // Every extra neutron is an independent draw from the same law, as for
+        // (n,2n)/(n,3n). Drawn unconditionally so the count, not the draw
+        // sequence, is what varies -- keeping the RNG stream aligned between
+        // multiplicities.
+        let mut sec = [(e2, u2); 2];
+        for slot in sec.iter_mut() {
+            *slot = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+        }
+        // `y(E) = 0` is a real state, not an edge case: ENDF/B-VIII.0's U-235
+        // MT=5 emits NO neutron below ~100 keV (it is exothermic, QM = +11.1 MeV,
+        // and is lumping charged-particle channels there), and even at 20 MeV
+        // `y = 0.47`, so more than half of those collisions emit nothing. A
+        // sampled multiplicity of zero must therefore KILL the neutron. Scattering
+        // it instead -- which the first version of this arm did -- would create
+        // neutrons the evaluation says do not exist.
+        if n_emit == 0 {
+            return (0.0, CollisionResult::Dead);
+        }
+        let n_sec = n_emit.saturating_sub(1).min(2);
+        if n_sec > 0 {
+            (
+                0.0,
+                CollisionResult::ScatterWithSecondaries {
+                    e: e2,
+                    u: u2,
+                    sec,
+                    n_sec,
+                },
+            )
+        } else {
+            (0.0, CollisionResult::Scatter { e: e2, u: u2 })
+        }
     } else {
         // Bound-atom S(alpha, beta) below the table cutoff, else free-gas —
         // see the equivalent branch in [`transport_history`].
@@ -1595,6 +1640,36 @@ fn transport_history(
                     if nuc.emits_n2n_secondary() {
                         stack.push(Site { r, u: su, e: se });
                     }
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
+                // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
+                // inside MT=1, so before this the collision happened and fell
+                // through to the ELASTIC arm, mis-scattering it and dropping its
+                // extra neutrons. Its multiplicity is a TABULATED y(E), not a
+                // fixed integer, so the count is drawn from it.
+                //
+                // `x.mt5` is exactly 0 below ~5 MeV, so this condition coincides
+                // with the previous boundary for any fission spectrum and the
+                // partition is bit-identical there.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                // Draw both possible extras unconditionally so the RNG stream
+                // depends on the law and not on the sampled multiplicity, then
+                // emit only as many as were drawn.
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                // `y(E) = 0` kills the neutron -- see the equivalent arm in
+                // `collide`. Below ~100 keV U-235's MT=5 emits nothing at all.
+                if n_emit == 0 {
+                    break;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
                 }
                 e = e2;
                 u = u2;
@@ -1805,6 +1880,36 @@ fn transport_history_tabulated(
                     if nuc.emits_n2n_secondary() {
                         stack.push(Site { r, u: su, e: se });
                     }
+                }
+                e = e2;
+                u = u2;
+            } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                // MT=5, "(n,anything)" -- the lumped high-energy channels, wired
+                // 2026-09-17. Same history as the (n,3n) arm above: MT=5 is
+                // inside MT=1, so before this the collision happened and fell
+                // through to the ELASTIC arm, mis-scattering it and dropping its
+                // extra neutrons. Its multiplicity is a TABULATED y(E), not a
+                // fixed integer, so the count is drawn from it.
+                //
+                // `x.mt5` is exactly 0 below ~5 MeV, so this condition coincides
+                // with the previous boundary for any fission spectrum and the
+                // partition is bit-identical there.
+                let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                // Draw both possible extras unconditionally so the RNG stream
+                // depends on the law and not on the sampled multiplicity, then
+                // emit only as many as were drawn.
+                let extras = [
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                ];
+                // `y(E) = 0` kills the neutron -- see the equivalent arm in
+                // `collide`. Below ~100 keV U-235's MT=5 emits nothing at all.
+                if n_emit == 0 {
+                    break;
+                }
+                for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                    stack.push(Site { r, u: *su, e: *se });
                 }
                 e = e2;
                 u = u2;

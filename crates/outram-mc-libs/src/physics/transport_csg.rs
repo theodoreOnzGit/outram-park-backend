@@ -885,6 +885,37 @@ pub(crate) fn transport_history(
                     }
                     e = e2;
                     u = u2;
+                } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n + x.mt5 {
+                    // MT=5, "(n,anything)" -- the lumped high-energy channels,
+                    // wired 2026-09-17. Same history as the (n,3n) arm above:
+                    // inside MT=1, so before this the collision fell through to
+                    // the ELASTIC arm, mis-scattering it and dropping its extra
+                    // neutrons. Its multiplicity is a TABULATED y(E), not a
+                    // fixed integer.
+                    //
+                    // `x.mt5` is exactly 0 below ~5 MeV, so this coincides with
+                    // the previous boundary for any fission spectrum.
+                    let n_emit = nuc.sample_mt5_multiplicity(e, seed);
+                    let (e2, u2) = nuc.sample_inelastic_emission(5, e, u, 0.0, seed);
+                    // Both possible extras drawn unconditionally, so the RNG
+                    // stream depends on the law rather than on the sampled
+                    // multiplicity.
+                    let extras = [
+                        nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                        nuc.sample_inelastic_emission(5, e, u, 0.0, seed),
+                    ];
+                    // `y(E) = 0` kills the neutron: U-235's MT=5 emits nothing
+                    // below ~100 keV, and even at 20 MeV `y = 0.47`. Scattering
+                    // it instead would create neutrons the evaluation says do
+                    // not exist.
+                    if n_emit == 0 {
+                        break;
+                    }
+                    for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
+                        stack.push(Site { r, u: *su, e: *se });
+                    }
+                    e = e2;
+                    u = u2;
                 } else {
                     // Scattering. Below its cutoff a moderator nuclide carrying an
                     // S(α,β) table thermalizes via the bound-atom law (lab-frame

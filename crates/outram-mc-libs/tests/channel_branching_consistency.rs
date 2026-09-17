@@ -144,7 +144,7 @@ fn the_collision_partition_closes_and_matches_what_is_sampled() {
         );
         for &e in &energies {
             let x = nuc.xs_at_energy(e, TEMP_K);
-            let parts = x.elastic + x.inelastic + x.n2n + x.n3n + x.absorption;
+            let parts = x.elastic + x.inelastic + x.n2n + x.n3n + x.mt5 + x.absorption;
             let shortfall = x.total - parts;
             let rel = shortfall.abs() / x.total.max(1.0e-30);
             // Below 6 MeV the kernel's partition is claimed complete, and that
@@ -155,6 +155,7 @@ fn the_collision_partition_closes_and_matches_what_is_sampled() {
             } else {
                 worst_closure_high = worst_closure_high.max(rel);
             }
+            let _ = &mut worst_closure_high;
             println!(
                 "{e:10.3e} {parts:12.6} {:12.6} {shortfall:12.3e} {rel:10.2e}",
                 x.total
@@ -266,14 +267,16 @@ fn the_collision_partition_closes_and_matches_what_is_sampled() {
          contains op-os8x's missing down-scatter, so a failure here would be a direct \
          candidate for it."
     );
-    // MT=5 is PINNED, not gated to zero: it is a real gap, measured, and above
-    // the band that matters for a fission spectrum. Pinning stops it growing
-    // unnoticed and makes closing it show up as a test to update.
+    // MT=5 was given a branch on 2026-09-17, so this is now a closure gate
+    // rather than a pin. The residual above 6 MeV is what MT=5 does NOT account
+    // for -- measured 1.0e-5 b at 10 MeV and 8.0e-4 b at 14 MeV out of
+    // shortfalls of 4.1e-3 and 1.5e-2 b, i.e. minor partials the evaluation
+    // carries that are neither in MT=27 nor in any branched channel.
     assert!(
-        worst_closure_high > 1.0e-5 && worst_closure_high < 5.0e-3,
-        "the above-6 MeV shortfall is {worst_closure_high:.3e} relative, outside the measured \
-         2.7e-3 band. If it fell to zero, MT=5 has been given a branch -- say so and tighten \
-         this. If it grew, another channel has been lost as well."
+        worst_closure_high < 2.0e-4,
+        "the above-6 MeV shortfall is {worst_closure_high:.3e} relative. MT=5 now has a branch, \
+         so this should be the small remainder (1.4e-4 at 14 MeV), not the 2.7e-3 it was \
+         before. A jump back means the MT=5 arm has stopped counting."
     );
     assert!(
         worst_partition_mismatch < 1.0e-9,

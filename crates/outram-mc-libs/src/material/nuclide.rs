@@ -74,6 +74,22 @@ pub struct MicroXS {
     /// threshold is ~11.3 MeV, so a fission spectrum barely reaches it — but a
     /// 14 MeV source is squarely above it.
     pub n3n: f64,
+    /// **MT=5, "(n,anything)"** σ \[barn\]; HIGH tier only, else 0.
+    ///
+    /// ENDF/B-VIII.0 uses MT=5 to lump the high-energy channels an evaluator did
+    /// not resolve individually, and its neutron multiplicity is a *tabulated*
+    /// `y(E)` in the MF=6 subsection rather than a fixed integer.
+    ///
+    /// Added 2026-09-17. Before that MT=5 had **no branch**: it is inside MT=1,
+    /// so the collision happened, but it fell through to whichever arm was last.
+    /// `tests/channel_branching_consistency.rs` found it by measuring that the
+    /// partition `elastic + inelastic + (n,2n) + (n,3n) + absorption` fell short
+    /// of `sigma_total` by **7.0e-4 relative at 10 MeV and 2.7e-3 at 14 MeV**,
+    /// of which MT=5 was 99.7 % and 94.8 %. It is **zero below ~5 MeV**, so no
+    /// fission-spectrum result here changes — it matters to a 14 MeV source.
+    ///
+    /// Exactly the same class as [`Self::n3n`]'s own history.
+    pub mt5: f64,
     /// Fission production ν̄·σ_f \[barn\].
     pub nu_fission: f64,
 }
@@ -279,6 +295,10 @@ struct ContinuumLaws {
     mt16: Option<ContinuumEmission>,
     /// MT=17, (n,3n).
     mt17: Option<ContinuumEmission>,
+    /// MT=5, "(n,anything)". Its neutron multiplicity is the MF=6 subsection's
+    /// own tabulated `y(E)`, not a fixed integer — see
+    /// [`Nuclide::mt5_yield`].
+    mt5: Option<ContinuumEmission>,
     /// The **pre-ENDF-6** law for the same three reactions: MF=5 energy + MF=4
     /// cosine, uncorrelated. Populated only where the evaluation has no MF=6 for
     /// that MT, so a nuclide never carries both for one reaction.
@@ -1251,6 +1271,10 @@ impl Nuclide {
         let mt91 = ContinuumEmission::from_endf_mf6(tape, mat, 91)?;
         let mt16 = ContinuumEmission::from_endf_mf6(tape, mat, 16)?;
         let mt17 = ContinuumEmission::from_endf_mf6(tape, mat, 17)?;
+        // MT=5 lumps the unresolved high-energy channels. Its MF=6 ZAP=1
+        // subsection is LAW=1 on ENDF/B-VIII.0's U-235, so the existing parser
+        // reads it; what is different is the multiplicity, which is tabulated.
+        let mt5 = ContinuumEmission::from_endf_mf6(tape, mat, 5)?;
 
         // 7b. The pre-ENDF-6 form of the same physics, for the reactions where
         //     step 7 found nothing: MF=5 outgoing energy + MF=4 cosine,
@@ -1277,6 +1301,7 @@ impl Nuclide {
             mt91,
             mt16,
             mt17,
+            mt5,
         };
 
         Ok(Self {
@@ -1329,6 +1354,7 @@ impl Nuclide {
             91 => self.continuum.mt91.as_ref(),
             16 => self.continuum.mt16.as_ref(),
             17 => self.continuum.mt17.as_ref(),
+            5 => self.continuum.mt5.as_ref(),
             _ => None,
         }
     }
@@ -1384,6 +1410,39 @@ impl Nuclide {
             return (e_out, rotate_direction(u, mu, seed));
         }
         continuum_inelastic_scatter(e, u, self.awr, q, seed)
+    }
+
+    /// The **neutron multiplicity `y(E)`** of MT=5 at incident energy `e`
+    /// \[eV\] — the average number of neutrons an `(n,anything)` collision
+    /// emits, read from the MF=6 subsection's own yield table.
+    ///
+    /// Unlike (n,2n) and (n,3n) this is **not a fixed integer**: MT=5 lumps
+    /// channels the evaluator did not resolve, so the evaluation tabulates the
+    /// average. `1.0` when no law is present, so a caller that reaches here
+    /// without one conserves neutrons rather than losing or inventing them.
+    pub fn mt5_yield(&self, e: f64) -> f64 {
+        match self.continuum.mt5.as_ref() {
+            Some(law) => law.total_yield_at(e).max(0.0),
+            None => 1.0,
+        }
+    }
+
+    /// Sample an **integer** MT=5 multiplicity at `e` \[eV\] from the tabulated
+    /// average, by splitting the fractional part stochastically:
+    /// `n = floor(y) + [xi < y - floor(y)]`.
+    ///
+    /// This is how a non-integer average multiplicity has to be realised in an
+    /// analogue Monte Carlo — the expectation is `y(E)` exactly, which is the
+    /// property that matters for the neutron balance. The result is **clamped to
+    /// 3** because [`crate::physics::keff::CollisionResult`] carries at most two
+    /// secondaries alongside the primary; U-235's `y` stays near 1 across the
+    /// evaluated range, so the clamp is not reached on any case here, and it
+    /// would under-produce rather than over-produce if it were.
+    pub fn sample_mt5_multiplicity(&self, e: f64, seed: &mut u64) -> usize {
+        let y = self.mt5_yield(e);
+        let whole = y.floor();
+        let n = whole as usize + usize::from(prn(seed) < (y - whole));
+        n.min(3)
     }
 
     /// Whether the evaluation supplies a real emission law for `mt`, in either
@@ -1465,6 +1524,7 @@ impl Nuclide {
                         absorption: x.absorption,
                         inelastic: 0.0, // LOW tier lumps inelastic into elastic
                         n2n: 0.0,       // LOW tier lumps (n,2n) into elastic (no group column yet)
+                        mt5: 0.0,       // LOW tier: no per-MT data
                         n3n: 0.0,       // ditto (n,3n)
                         nu_fission: x.fission * self.nu_bar(e),
                     }
@@ -1483,6 +1543,7 @@ impl Nuclide {
                         absorption: m.capture + m.fission,
                         inelastic,
                         n2n: 0.0, // LOW tier: (n,2n) still lumped in the group total
+                        mt5: 0.0, // LOW tier: no per-MT data
                         n3n: 0.0,
                         nu_fission: m.nu_fission,
                     }
@@ -1496,6 +1557,7 @@ impl Nuclide {
                         absorption: x.absorption,
                         inelastic: 0.0,
                         n2n: 0.0,
+                        mt5: 0.0, // LOW tier: no per-MT data
                         n3n: 0.0,
                         nu_fission: x.fission * self.nu_bar(e),
                     }
@@ -1514,6 +1576,9 @@ impl Nuclide {
                 // (n,3n). Inside MT=1 like (n,2n), so branching on it
                 // re-partitions the collision rather than adding to it.
                 let n3n = recon.eval_mt(MtReaction::Mt17N3n, e);
+                // MT=5 is inside MT=1 like (n,2n)/(n,3n), so branching on it
+                // re-partitions the collision rather than adding to it.
+                let mt5 = recon.eval_mt(MtReaction::Mt5NAny, e);
                 MicroXS {
                     total,
                     elastic,
@@ -1522,6 +1587,7 @@ impl Nuclide {
                     inelastic,
                     n2n,
                     n3n,
+                    mt5,
                     nu_fission: fission * self.nu_bar(e),
                 }
             }
