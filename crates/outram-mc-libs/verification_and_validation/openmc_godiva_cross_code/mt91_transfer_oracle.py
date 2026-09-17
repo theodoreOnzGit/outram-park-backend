@@ -36,9 +36,26 @@ import csv
 import numpy as np
 import openmc.data
 
-HDF5 = "work/U238.h5"
-BAND = (1.5e6, 3.5e6)
-OUT = "mt91_transfer_oracle.csv"
+# Parameterised over the nuclide 2026-09-17. It had only ever run on U-238 --
+# while **Godiva is 93.7 % U-235 by atom density**. Every other op-os8x oracle
+# here covers both (`band_xs_oracle.py`, `chi_shape_oracle.py`); the one that
+# measures where an inelastic collision actually PUTS the neutron did not. So
+# "the MT=91 transfer is excluded" was a statement about the minority nuclide.
+# Same shape of gap as the 1.5-3.5 MeV band this file's BAND comment describes,
+# one axis over: an exclusion is only as wide as the window it was measured in.
+NUCLIDES = [("U238", "work/U238.h5"), ("U235", "work/U235.h5")]
+# Widened 2026-09-17 from (1.5e6, 3.5e6). The original window was the band the
+# residual was localised to AT THE TIME (1.9-3.0 MeV, plus margin), which was
+# reasonable then and is now too narrow: the reflective (zero-leakage) spectrum
+# comparison re-localised the strongest excess to 3.0-4.8 MeV, almost entirely
+# outside it. The old window covered 18 of this law's 96 incident rows and
+# stopped at 3.4 MeV, so "the MT=91 transfer table is excluded" was a statement
+# about 19 % of the law.
+BAND = (1.5e6, 1.0e7)
+def out_for(name):
+    """U-238 keeps the original filename so the committed CSV and the Rust
+    test that reads it are unchanged; U-235 gets a suffixed one."""
+    return "mt91_transfer_oracle.csv" if name == "U238" else f"mt91_transfer_oracle_{name}.csv"
 
 
 
@@ -86,28 +103,31 @@ def moments(dist):
 
 
 def main():
-    u238 = openmc.data.IncidentNeutron.from_hdf5(HDF5)
-    dist = u238.reactions[91].products[0].distribution[0]
-    e_in = np.asarray(dist.energy, dtype=float)
-    rows = []
-    for i, e in enumerate(e_in):
-        if not (BAND[0] <= e <= BAND[1]):
-            continue
-        m = moments(dist.energy_out[i])
-        if m is None:
-            continue
-        mean, median, below, n = m
-        rows.append((f"{e:.6e}", f"{mean:.6e}", f"{median:.6e}", f"{below:.6f}", n))
+    for name, hdf5 in NUCLIDES:
+        nuc = openmc.data.IncidentNeutron.from_hdf5(hdf5)
+        dist = nuc.reactions[91].products[0].distribution[0]
+        e_in = np.asarray(dist.energy, dtype=float)
+        rows = []
+        for i, e in enumerate(e_in):
+            if not (BAND[0] <= e <= BAND[1]):
+                continue
+            m = moments(dist.energy_out[i])
+            if m is None:
+                continue
+            mean, median, below, n = m
+            rows.append((f"{e:.6e}", f"{mean:.6e}", f"{median:.6e}", f"{below:.6f}", n))
 
-    with open(OUT, "w", newline="") as fh:
-        w = csv.writer(fh)
-        w.writerow(["e_in_ev", "mean_eout_ev", "median_eout_ev", "frac_below_300kev", "n_points"])
-        w.writerows(rows)
+        out = out_for(name)
+        with open(out, "w", newline="") as fh:
+            w = csv.writer(fh)
+            w.writerow(["e_in_ev", "mean_eout_ev", "median_eout_ev",
+                        "frac_below_300kev", "n_points"])
+            w.writerows(rows)
 
-    print(f"OpenMC {openmc.__version__}: U-238 MT=91, {len(rows)} incident rows in "
-          f"[{BAND[0]:.2e}, {BAND[1]:.2e}] eV -> {OUT}")
-    for r in rows:
-        print(f"  E_in {r[0]}  <E'> {r[1]}  med {r[2]}  P(E'<300keV) {r[3]}  ({r[4]} pts)")
+        print(f"OpenMC {openmc.__version__}: {name} MT=91, {len(rows)} incident rows in "
+              f"[{BAND[0]:.2e}, {BAND[1]:.2e}] eV -> {out}")
+        for r in rows[:4]:
+            print(f"  E_in {r[0]}  <E'> {r[1]}  med {r[2]}  P(E'<300keV) {r[3]}  ({r[4]} pts)")
 
 
 if __name__ == "__main__":

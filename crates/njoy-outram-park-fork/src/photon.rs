@@ -388,6 +388,7 @@ mod tests {
         let recon = ReconrResult {
             material: material(233.0),
             sections: vec![ReconrSection {
+                lr: 0,
                 mt: MtReaction::Mt2Elastic,
                 qi: 0.0,
                 pairs: vec![(1.0e6, 10.0)],

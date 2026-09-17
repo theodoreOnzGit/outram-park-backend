@@ -112,6 +112,17 @@ fn worst_against(table: &[(f64, f64)], ours: impl Fn(f64) -> f64, label: &str) -
 /// | MT=1 total | **+0.04 %** | 20.87 eV (a resonance peak) |
 /// | MT=2 elastic | **−0.03 %** | 6.674 eV (a resonance peak) |
 /// | MT=102 capture | **−0.17 %** | 19 keV (inside the unresolved band) |
+///
+/// # A correction to this test's own oracle (2026-09-17)
+///
+/// The capture probe subtracted only fission from MT=27 absorption, on the
+/// stated grounds that U-238's other MT=101 channels are negligible below
+/// 20 MeV. They are not — that reading held only while this crate's RECONR
+/// was failing to produce them at all (U-238 carries MT=649 and MT=800 but no
+/// lumped MT=103/107; see `reconr::synthesise_lumped_particle_channels`). Once
+/// it did, the unsubtracted (n,p) + (n,alpha) made this probe read **+24.7 %**
+/// high at 14 MeV. The recorded −0.17 % is unchanged; only the oracle was
+/// wrong, and only at the top of the range.
 #[test]
 fn u238_point_cross_sections_match_njoy_pendf() {
     let Some(u238) = u238_or_skip() else {
@@ -136,15 +147,29 @@ fn u238_point_cross_sections_match_njoy_pendf() {
     );
 
     // MT=102 is radiative capture ALONE. This crate's `absorption` is MT=27
-    // (fission + all of MT=101), so capture is `absorption − fission`. For U-238
-    // below 20 MeV the other MT=101 channels are negligible, which is why the
-    // two agree here and emphatically do not for a light nuclide — see
+    // (fission + all of MT=101), so capture is `absorption − fission − the
+    // charged-particle channels` — see
     // `tests/ring_rpt_hunt_lessons.rs::absorption_is_mt27_so_li6_shows_the_n_t_channel`.
+    //
+    // The last term used to be dropped here, on the stated grounds that "for
+    // U-238 below 20 MeV the other MT=101 channels are negligible". That was
+    // only true because RECONR was not producing them: U-238's evaluation
+    // carries MT=649 and MT=800 but no lumped MT=103 or MT=107, and until
+    // 2026-09-17 this crate's RECONR did not synthesise the lumps from the
+    // levels (`reconr::synthesise_lumped_particle_channels`). With them
+    // present the approximation fails badly at the top of the range: capture
+    // has fallen to 8.2e-4 b at 14 MeV while (n,p) + (n,alpha) are ~2.0e-4 b,
+    // so dropping them reads **+24.7 %** high. Subtract them properly.
+    let charged_particle: Vec<i32> = (103..=117).filter(|m| *m != 110).collect();
     let (w_cap, e_cap) = worst_against(
         njoy::CAPTURE,
         |e| {
             let x = xs(e);
-            x.absorption - x.fission
+            let other: f64 = charged_particle
+                .iter()
+                .filter_map(|&mt| u238.reaction_xs(mt, e))
+                .sum();
+            x.absorption - x.fission - other
         },
         "MT=102 radiative capture",
     );

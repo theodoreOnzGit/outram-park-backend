@@ -74,6 +74,18 @@ pub struct ReconrConfig {
 /// One reconstructed MF=3 section, ready for Doppler broadening.
 #[derive(Debug, Clone)]
 pub struct ReconrSection {
+    /// ENDF MF=3 breakup flag `LR` (the TAB1 header's `L2`), carried through
+    /// verbatim from the evaluation.
+    ///
+    /// `0` for an ordinary two-body or lumped channel. A **non-zero** value on
+    /// an inelastic level (MT=51-91) names a *second*, simultaneous breakup of
+    /// the residual nucleus, using the same numbering as the MT it stands for:
+    /// e.g. `LR=22` is `(n,n'alpha)`, `LR=32` is `(n,n'd)`, `LR=33` is
+    /// `(n,n't)`. It is **not** redundant with `mt` and it is not rare on light
+    /// nuclides -- in ENDF/B-VIII.0, Li-6 carries `LR=32` on 30 of its levels,
+    /// Li-7 `LR=33` on 31, B-10 a mix of `LR=22/28/35`, C-12 `LR=23`. GASPR
+    /// needs it to credit those breakup particles (`gaspr.f90:565-608`).
+    pub lr: i32,
     /// Reaction type. Use `MtReaction::try_from(n)` or `MtReaction::from_any(n)`
     /// to convert from a raw integer if needed.
     pub mt: MtReaction,
@@ -280,6 +292,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
             let mut pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, eps);
             shade_discontinuities(&mut pairs);
             Ok(ReconrSection {
+                lr: tab1.head.l2,
                 mt: MtReaction::from_any(sec.key.mt),
                 qi: tab1.head.c2,
                 pairs,
@@ -322,12 +335,104 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
         urr::add_unresolved_ranges(&mut sections, &urr_ranges, eps)?;
     }
 
+    // Phase 2d: emit the lumped charged-particle channels MT=103-107 for an
+    // evaluation that carries only the discrete MT=600-849 levels.
+    synthesise_lumped_particle_channels(&mut sections);
+
     Ok(ReconrResult {
         material,
         sections,
         resonance_upper_limit: res_info.pendf_resonance_upper_limit(),
         unresolved_table,
     })
+}
+
+/// The five lumped charged-particle channels and the discrete MF=3 level
+/// ranges each one sums, for ENDF-6 (`reconr.f90:522-531`).
+const LUMPED_PARTICLE_CHANNELS: [(i32, i32, i32); 5] = [
+    (103, 600, 649), // (n,p)
+    (104, 650, 699), // (n,d)
+    (105, 700, 749), // (n,t)
+    (106, 750, 799), // (n,³He)
+    (107, 800, 849), // (n,α)
+];
+
+/// Build MT=103-107 as the sum of their discrete MT=600-849 levels when the
+/// evaluation carries the levels but not the lumped section.
+///
+/// # Why this is needed
+///
+/// `anlyzd` (`reconr.f90:566-590`) adds MT=103, 104, 105, 106 or 107 to
+/// RECONR's redundant-reaction list `mtr` as soon as *any* section in the
+/// corresponding discrete range is present on the tape, and `emerge` then
+/// reconstructs it as the sum of its parts. An evaluation is free to carry the
+/// levels alone, and several do — so a port that only copies the MF=3 sections
+/// it finds silently loses the whole channel.
+///
+/// # Measured
+///
+/// B-10 (ENDF/B-VIII.0, MAT 525) carries MT=700 but **no MT=105**. NJOY2016
+/// `ac5adf5f`'s PENDF has MT=105 = 3.0068978570e-2 b at 7.6986e5 eV and
+/// 2.1783660360e-1 b at 5.5909e6 eV, both equal to its MT=700 to every printed
+/// digit; before this pass the crate produced no MT=105 at all. The visible
+/// consequence was in GASPR: B-10's tritium production came out 3.19e-5 b
+/// against NJOY's 3.01e-2 b — a factor of 940 — and its alpha production
+/// 0.568 b against 1.004 b, because MT=105 on B-10 leaves ⁸Be and so counts
+/// **two** alphas on top of its triton. Found by
+/// `tests/gaspr_vs_njoy2016.rs`, 2026-09-17.
+///
+/// # What this deliberately does not do
+///
+/// Where the lumped section **is** present it is left alone rather than
+/// recomputed from the levels, even though upstream recomputes it
+/// unconditionally. On B-10 — which carries MT=103 *and* MT=600-605 — the
+/// evaluation's own MT=103 already equals NJOY's recomputed sum to every
+/// printed digit (2.9376236660e-2 b at 5.5909e6 eV on both sides), so
+/// recomputing would be churn with a real regression risk and no measured
+/// gain. If a tape is ever found where the two disagree, this is the place to
+/// change.
+fn synthesise_lumped_particle_channels(sections: &mut Vec<ReconrSection>) {
+    for (lumped, lo, hi) in LUMPED_PARTICLE_CHANNELS {
+        if sections.iter().any(|s| s.mt.number() == lumped) {
+            continue;
+        }
+        let levels: Vec<&ReconrSection> = sections
+            .iter()
+            .filter(|s| (lo..=hi).contains(&s.mt.number()))
+            .collect();
+        if levels.is_empty() {
+            continue;
+        }
+
+        let mut grid: Vec<f64> = levels
+            .iter()
+            .flat_map(|s| s.pairs.iter().map(|&(e, _)| e))
+            .collect();
+        grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        grid.dedup_by(|a, b| (*a - *b).abs() <= SAME_ENERGY_REL * b.abs().max(1.0));
+
+        let pairs: Vec<(f64, f64)> = grid
+            .iter()
+            .map(|&e| (e, levels.iter().map(|s| eval_lin_lin(&s.pairs, e)).sum()))
+            .collect();
+
+        // The lumped channel's Q is the ground-state level's, i.e. the lowest
+        // MT in the range — the same convention the evaluation uses when it
+        // writes the lumped section itself.
+        let qi = levels
+            .iter()
+            .min_by_key(|s| s.mt.number())
+            .map(|s| s.qi)
+            .unwrap_or(0.0);
+
+        sections.push(ReconrSection {
+            lr: 0,
+            mt: MtReaction::from_any(lumped),
+            qi,
+            pairs,
+        });
+    }
+    sections.sort_by_key(|s| i32::from(s.mt));
 }
 
 /// Relative energy tolerance below which two grid energies count as *the same*
@@ -404,6 +509,15 @@ pub fn shade_discontinuities(pairs: &mut Vec<(f64, f64)>) {
 /// Returns the same [`ReconrResult`] shape as [`reconr`] — linearised MF=3
 /// sections sorted by MT — but with **no** resonance additions. Do **not** use it
 /// below the resonance ceiling; there it omits the resonance cross section.
+///
+/// It also does **not** run [`synthesise_lumped_particle_channels`], so an
+/// evaluation carrying only the discrete MT=600-849 levels comes back with no
+/// MT=103-107 here. That asymmetry with [`reconr`] is deliberate and matches
+/// upstream: `genunr` reads the evaluation's own MF=3 off the input tape
+/// (`reconr.f90:1698`), before `emerge` writes any redundant sum, and the
+/// MT=152 writer that consumes this function needs exactly that pre-`emerge`
+/// state. A caller that wants the PENDF-equivalent section list — which is
+/// what HEATR, GASPR and ACER read — must use [`reconr`].
 pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<ReconrResult, NjoyError> {
     let mf1_sec = tape
         .section(mat, 1, 451)
@@ -425,6 +539,7 @@ pub fn reconr_background(tape: &Tape, mat: i32, tolerance: f64) -> Result<Reconr
             let mut pairs = linearize::linearize_tab1(&tab1.interp, &tab1.pairs, tolerance);
             shade_discontinuities(&mut pairs);
             Ok(ReconrSection {
+                lr: tab1.head.l2,
                 mt: MtReaction::from_any(sec.key.mt),
                 qi: tab1.head.c2,
                 pairs,

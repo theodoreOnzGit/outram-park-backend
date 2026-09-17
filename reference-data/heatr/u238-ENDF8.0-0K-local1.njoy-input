@@ -1,0 +1,15 @@
+moder
+20 -21 /
+reconr
+-21 -22 /
+'u238 pendf for heatr cross-check, local=1' /
+9237 0 /
+0.001 /
+0 /
+heatr
+-21 -22 -23 0 /
+9237 4 0 0 1 1 /
+443 444 445 446 /
+moder
+-23 24 /
+stop

@@ -48,6 +48,7 @@
 //! - RECONR reconstructs the resonance range; BROADR Doppler-broadens to 293.6 K.
 //! - This example uses the prelude-only API: `use outram_mc_libs::prelude::*;`
 
+use outram_mc_libs::tally::filter::FilterKind;
 use std::path::PathBuf;
 use outram_mc_libs::prelude::*;
 
@@ -425,8 +426,8 @@ fn main() {
     //       id: 1,
     //       name: "Fission rate tally".into(),
     //       filters: vec![
-    //           Box::new(CellFilter { cell_indices: vec![0] }),
-    //           Box::new(EnergyFilter { bins: vec![0.0, 1.0e6, 2.0e6] }),
+    //           FilterKind::Cell(CellFilter { cell_indices: vec![0] }),
+    //           FilterKind::Energy(EnergyFilter { bins: vec![0.0, 1.0e6, 2.0e6] }),
     //       ],
     //       scores: vec![ScoreType::Fission, ScoreType::Absorption],
     //       bins: vec![TallyBin::default(); 2 * 2],  // 2 energy bins × 2 scores

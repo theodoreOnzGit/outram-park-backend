@@ -99,6 +99,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
+    use outram_mc_libs::tally::filter::FilterKind;
     use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::geometry::Geometry;
@@ -137,16 +138,32 @@ mod desktop {
             .collect()
     }
 
-    /// A bare sphere of fuel: everything inside the surface is material 0, and
-    /// the surface itself leaks.
+    /// A sphere of fuel: everything inside the surface is material 0.
+    ///
+    /// The boundary is **vacuum** by default (the bare Godiva assembly, 55.8 %
+    /// leakage) and **reflective** when `OURS_KINF` is set, which removes
+    /// leakage entirely and leaves an infinite medium.
+    ///
+    /// # Why the reflective option exists
+    ///
+    /// It is the discriminating run for `op-os8x`. With leakage removed, only
+    /// the per-collision terms survive: if the spectral residual persists it is
+    /// secondary-energy or reaction sampling, and if it vanishes it is coupled
+    /// to leakage and the boundary. `godiva.py --kinf --spectrum` is the
+    /// matching arm on the OpenMC side, and sets its sphere the same way.
     fn godiva_geometry() -> Geometry {
+        let reflective = std::env::var("OURS_KINF").is_ok_and(|v| !v.is_empty() && v != "0");
         Geometry {
             surfaces: vec![SurfaceKind::Sphere(Sphere {
                 x0: 0.0,
                 y0: 0.0,
                 z0: 0.0,
                 r: RADIUS_CM,
-                bc: BoundaryType::Vacuum,
+                bc: if reflective {
+                    BoundaryType::Reflective
+                } else {
+                    BoundaryType::Vacuum
+                },
             })],
             cells: vec![Cell::material(
                 1,
