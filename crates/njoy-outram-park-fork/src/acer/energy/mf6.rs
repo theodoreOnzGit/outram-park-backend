@@ -492,6 +492,41 @@ pub fn parse_mf6_law1_neutrons(section: &Section) -> Result<Vec<Mf6Neutron>, Njo
     Ok(out)
 }
 
+/// Scan an MF=6 section and return every product subsection's `(ZAP, yield)`
+/// pair, stepping over each subsection's distribution body without parsing it.
+///
+/// `ZAP = 1000·Z + A` names the emitted product (`1` a neutron, `1001` a
+/// proton, `2004` an alpha, `0` a photon); the returned [`Tab1`] is that
+/// product's **multiplicity** `y(E)` — the number emitted per reaction, which
+/// ENDF allows to be energy dependent and non-integral.
+///
+/// This is the half of MF=6 that GASPR needs and transport does not: NJOY's
+/// `gaspr.f90:100-240` reads exactly these yields for MT=5 ("anything"), where
+/// the gas produced per event cannot be inferred from the MT number because
+/// the channel is a lump of many final states. C-12 (ENDF/B-VIII.0) is the
+/// case in `reference-data/endf/`: its MT=5 carries proton and deuteron
+/// multiplicities from 14.5 MeV to 150 MeV that no other section accounts for.
+///
+/// A subsection whose body cannot be stepped over ends the scan, returning
+/// what was read so far rather than failing — the leading subsections are the
+/// useful ones and a malformed tail should not cost them.
+pub fn parse_mf6_product_yields(section: &Section) -> Result<Vec<(i32, Tab1)>, NjoyError> {
+    let mut cur = SectionCursor::new(&section.rows);
+    let head = cur.read_cont()?; // ZA, AWR, JP, LCT, NK, 0
+    let nk = head.n1.max(0);
+    let mut out = Vec::new();
+    for _ in 0..nk {
+        let Ok(ymult) = cur.read_tab1() else { break };
+        let zap = ymult.head.c1.round() as i32;
+        let law = ymult.head.l2;
+        out.push((zap, ymult));
+        if skip_mf6_subsection(&mut cur, law).is_err() {
+            break;
+        }
+    }
+    Ok(out)
+}
+
 /// The LAW=1 body of one neutron subsection: TAB2 (LANG, LEP, NE) then one LIST
 /// per incident energy. Split out of [`parse_mf6_law1_neutrons`] so both the
 /// single- and multi-subsection entry points share one parser.

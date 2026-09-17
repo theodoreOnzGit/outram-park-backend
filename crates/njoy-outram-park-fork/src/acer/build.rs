@@ -604,6 +604,7 @@ mod tests {
     #[test]
     fn eval_partial_is_zero_below_threshold() {
         let sec = ReconrSection {
+            lr: 0,
             mt: MtReaction::Mt16N2n,
             qi: -1.0e7,
             pairs: vec![(1.0e6, 0.0), (2.0e6, 3.0)],

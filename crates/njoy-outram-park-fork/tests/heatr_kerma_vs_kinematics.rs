@@ -45,7 +45,32 @@
 //!
 //! # Results
 //!
-//! Printed by the test.
+//! Printed by the test. Measured 2026-09-17 on U-238 (`n-092_U_238.endf`,
+//! MAT 9237, RECONR `err = 0.001`, 441 696 KERMA grid points):
+//!
+//! - **H1 + H2 closed form below the first inelastic threshold:** worst
+//!   **1.8e-16** relative over five on-grid probes, i.e. machine precision.
+//! - **Linearity in sigma:** KERMA / closed-form ratio flat to **< 1e-9** over
+//!   12 probes.
+//! - KERMA non-negative everywhere; the remaining assertions as printed.
+//!
+//! # Two incomplete ORACLES this assertion has caught
+//!
+//! Both times the crate was right and the test's own closed form was wrong,
+//! which is worth recording because it is the failure mode a
+//! written-from-scratch oracle actually has:
+//!
+//! 1. **Subthreshold fission omitted** — 6e-3 out. U-238 has `sigma_f > 0` at
+//!    every energy and `Q_f` is ~+200 MeV, so even 1e-3 b matters.
+//! 2. **The (n,alpha) ground state omitted** — 1.771e-7 out. U-238's MT=800 is
+//!    **exothermic** (`QI = +8.70050 MeV`) and has no threshold:
+//!    `sigma = 1.316542e-5 b` at 1e-5 eV, contributing 114.6 eV.b against a
+//!    total of 6.4686e8 eV.b. This surfaced only once RECONR began
+//!    synthesising the lumped MT=103-107 from the discrete MT=600-849 levels
+//!    (2026-09-17) — before that the crate's KERMA silently omitted U-238's
+//!    (n,alpha) heating entirely, because MT=800 is not a modelled MT and
+//!    MT=107 did not exist. So the same change fixed a real hole in the code
+//!    *and* exposed a hole in the oracle.
 //!
 //! # What this does NOT claim
 //!
@@ -71,6 +96,28 @@ use njoy_outram_park_fork::MtReaction;
 fn elastic_recoil_fraction(awr: f64) -> f64 {
     2.0 * awr / ((awr + 1.0) * (awr + 1.0))
 }
+
+/// The H2 "local deposition" reactions other than capture: every charged-particle
+/// exit channel, whose products are all stopped in the material, so
+/// `H = sigma * (E + Q)`. Mirrors `heatr`'s own `HeatingModel::Local` arm; kept
+/// here as an explicit list so the oracle is written independently of the code
+/// under test rather than by calling into it.
+const LOCAL_MTS: [MtReaction; 14] = [
+    MtReaction::Mt103Np,
+    MtReaction::Mt104Nd,
+    MtReaction::Mt105Nt,
+    MtReaction::Mt106NHe3,
+    MtReaction::Mt107NAlpha,
+    MtReaction::Mt108N2Alpha,
+    MtReaction::Mt109N3Alpha,
+    MtReaction::Mt111N2Proton,
+    MtReaction::Mt112NProtonAlpha,
+    MtReaction::Mt113NT2Alpha,
+    MtReaction::Mt114ND2Alpha,
+    MtReaction::Mt115NProtonD,
+    MtReaction::Mt116NProtonT,
+    MtReaction::Mt117NDAlpha,
+];
 
 /// The `QI` of one reconstructed section, or `0` if absent.
 fn qi_of(recon: &njoy_outram_park_fork::reconr::ReconrResult, mt: MtReaction) -> f64 {
@@ -163,7 +210,25 @@ fn kerma_reproduces_the_closed_form_heating_models() {
         let sig_fis = recon.eval_mt(MtReaction::Mt18Fission, e);
         let q_fis = qi_of(&recon, MtReaction::Mt18Fission);
         let fission_h = sig_fis * (e + q_fis - nu.at(e) * chi.mean_energy(e));
-        let expect = sig_el * e * f_el + sig_cap * (e + q_cap) + fission_h;
+        // The other H2 (local-deposition) channels. On U-238 the (n,alpha)
+        // ground state is EXOTHERMIC (QI = +8.70050 MeV) and has no threshold:
+        // sigma(MT=800) = 1.316542e-5 b at 1e-5 eV, rising as 1/v. Times its Q
+        // that is 114.6 eV.b, which is 1.77e-7 of the 6.4686e8 eV.b total — and
+        // the oracle sat exactly that far out until this term was added.
+        //
+        // It is the SECOND incomplete-oracle finding on this same assertion
+        // (subthreshold fission was the first, 6e-3), and it only became
+        // visible once RECONR began synthesising the lumped MT=103-107 from the
+        // discrete MT=600-849 levels: U-238 carries MT=800 but no MT=107, so
+        // before that this crate's KERMA silently omitted U-238's (n,alpha)
+        // heating altogether. The term below is what HEATR now (correctly)
+        // includes; `heating_model` leaves MT=600-849 unmodelled, matching
+        // `heatr.f90:1203`, so nothing is double-counted.
+        let local_h: f64 = LOCAL_MTS
+            .iter()
+            .map(|&mt| recon.eval_mt(mt, e) * (e + qi_of(&recon, mt)))
+            .sum();
+        let expect = sig_el * e * f_el + sig_cap * (e + q_cap) + fission_h + local_h;
         let got = kerma.eval(e);
         let rel = (got - expect).abs() / expect.abs().max(1.0e-30);
         worst = worst.max(rel);
@@ -203,9 +268,14 @@ fn kerma_reproduces_the_closed_form_heating_models() {
         let q_cap = qi_of(&recon, MtReaction::Mt102Capture);
         let sig_fis = recon.eval_mt(MtReaction::Mt18Fission, e);
         let q_fis = qi_of(&recon, MtReaction::Mt18Fission);
+        let local_h: f64 = LOCAL_MTS
+            .iter()
+            .map(|&mt| recon.eval_mt(mt, e) * (e + qi_of(&recon, mt)))
+            .sum();
         let expect = sig_el * e * f_el
             + sig_cap * (e + q_cap)
-            + sig_fis * (e + q_fis - nu.at(e) * chi.mean_energy(e));
+            + sig_fis * (e + q_fis - nu.at(e) * chi.mean_energy(e))
+            + local_h;
         if expect <= 0.0 {
             continue;
         }

@@ -458,6 +458,7 @@ pub fn doppler_broaden_below_with(
 
             if pairs.first().is_some_and(|&(e, _)| e > thnmax) {
                 return ReconrSection {
+                    lr: sec.lr,
                     mt: sec.mt,
                     qi: sec.qi,
                     pairs,
@@ -471,6 +472,7 @@ pub fn doppler_broaden_below_with(
             let emtr = lab_threshold(sec.qi, awr);
             let out = broadn_section(&e, &s, alpha, tol, thnmax, emtr);
             ReconrSection {
+                lr: sec.lr,
                 mt: sec.mt,
                 qi: sec.qi,
                 pairs: out,
@@ -587,6 +589,7 @@ pub fn doppler_broaden(sections: &[ReconrSection], awr: f64, temp_k: f64) -> Vec
                 .collect();
 
             ReconrSection {
+                lr: sec.lr,
                 mt: sec.mt,
                 qi: sec.qi,
                 pairs,
@@ -776,6 +779,7 @@ mod tests {
         // early on temp_k ≤ 0.
         let pairs = vec![(0.01, 10.0), (1.0, 5.0), (10.0, 2.0)];
         let sec = ReconrSection {
+            lr: 0,
             mt: MtReaction::Mt2Elastic,
             qi: 0.0,
             pairs,
@@ -798,7 +802,12 @@ mod tests {
     }
 
     fn section(mt: MtReaction, pairs: Vec<(f64, f64)>) -> ReconrSection {
-        ReconrSection { mt, qi: 0.0, pairs }
+        ReconrSection {
+            lr: 0,
+            mt,
+            qi: 0.0,
+            pairs,
+        }
     }
 
     #[test]

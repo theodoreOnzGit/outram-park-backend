@@ -55,6 +55,7 @@ fn synthetic_capture(n: usize) -> ReconrSection {
         })
         .collect();
     ReconrSection {
+        lr: 0,
         mt: MtReaction::Mt102Capture,
         qi: 0.0,
         pairs,
