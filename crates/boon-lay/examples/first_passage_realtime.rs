@@ -235,7 +235,7 @@ mod app {
                 )
             };
 
-            egui::TopBottomPanel::top("controls").show(&ctx, |ui| {
+            egui::Panel::top("controls").show(ui, |ui| {
                 ui.heading("Walk-on-Spheres real-time TRISO diffusion (Cs-137, 1600 \u{b0}C)");
                 ui.horizontal(|ui| {
                     if ui
@@ -294,9 +294,9 @@ mod app {
                 });
             });
 
-            egui::SidePanel::right("release_panel")
-                .min_width(360.0)
-                .show(&ctx, |ui| {
+            egui::Panel::right("release_panel")
+                .min_size(360.0)
+                .show(ui, |ui| {
                     ui.heading("Release fraction over time");
                     Plot::new("release_fraction")
                         .legend(Legend::default())
@@ -315,7 +315,7 @@ mod app {
                     );
                 });
 
-            egui::CentralPanel::default().show(&ctx, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 Plot::new("positions")
                     .legend(Legend::default())
                     .data_aspect(1.0)
