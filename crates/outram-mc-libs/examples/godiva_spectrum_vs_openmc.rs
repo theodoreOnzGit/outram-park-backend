@@ -109,7 +109,7 @@ mod desktop {
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::keff::KeffSettings;
     use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
-    use outram_mc_libs::tally::filter::EnergyFilter;
+    use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind};
     use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
     use std::time::Instant;
 
@@ -200,7 +200,7 @@ mod desktop {
         let mut tally = Tally {
             id: 1,
             name: "godiva flux spectrum".into(),
-            filters: vec![Box::new(EnergyFilter {
+            filters: vec![FilterKind::Energy(EnergyFilter {
                 bins: edges.clone(),
             })],
             scores: vec![ScoreType::Flux],
