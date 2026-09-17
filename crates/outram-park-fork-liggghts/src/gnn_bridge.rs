@@ -1,9 +1,11 @@
 //! Bridge to RAFFLES's graph-neural-network layer: the contact graph, and how
 //! much message-passing reach a DEM surrogate needs.
 //!
-//! Available only with this crate's `gnn` feature, which is **off by default**
-//! — a DEM user who is not building a surrogate should not compile a tensor
-//! library.
+//! Gated on this crate's `gnn` feature, which is **on by default** (maintainer
+//! direction, 2026-09-17). Enabling it costs a `raffles` dependency but **no
+//! tensor library**: the contact graph and the reach bound below are plain
+//! combinatorics, and `raffles`'s own `burn` feature stays off unless a caller
+//! asks for it. Build without it via `--no-default-features`.
 //!
 //! # Why a DEM code wants this
 //!
@@ -76,9 +78,8 @@ pub fn contact_graph(particles: &[Particle], skin: f64) -> Result<Graph, DemErro
         .map(|p| vec![p.position.x, p.position.y, p.position.z])
         .collect();
     let radii: Vec<f64> = particles.iter().map(|p| p.radius).collect();
-    Graph::contact_graph(&centres, &radii, skin).map_err(|e| {
-        DemError::InvalidInput(format!("could not build the contact graph: {e}"))
-    })
+    Graph::contact_graph(&centres, &radii, skin)
+        .map_err(|e| DemError::InvalidInput(format!("could not build the contact graph: {e}")))
 }
 
 /// The message-passing reach a surrogate of this assembly needs, for a given

@@ -264,6 +264,69 @@ specifically, not just human contributors:
     reference is a hard error pointing at the exact line. Prefer this over a
     blind `sed` rename, which can silently mangle a colliding name.
 
+## Get the PROCESS right first; the answer comes second (HARD RULE)
+
+**Maintainer direction, 2026-09-18.** This is the governing rule of how work is
+done in this workspace, and every other rule below is downstream of it.
+
+**Never reason backwards from a target number.** Fix the inputs, the physics,
+the instrument and the assumptions on their own merits — from literature, from
+upstream, from first principles — and then report whatever answer that
+produces. A right answer obtained by a wrong process is worth **less than
+nothing**, because it looks like evidence while carrying none: it cannot fail,
+so it cannot inform, and the next person inherits a number with no provenance.
+
+### What this forbids
+
+- **Tuning an input until a comparison passes.** The benchmark is the check; the
+  moment it becomes an input, the check is gone. (This is the same rule the
+  "Model hierarchy" section states for calibration — here it is general.)
+- **Moving a threshold to make a test pass.** If a gate fails, the first
+  hypothesis is that the *thing being gated* is wrong, not the gate.
+- **Choosing the instrument after seeing the result.** Pick the measure the
+  physics calls for, state why, and keep it even when it is unflattering.
+- **Quietly repairing a number you already published.** Correct it in place, say
+  what it was, say what changed it.
+
+### What it requires
+
+1. **Justify every input from outside the comparison.** A material property
+   comes from the literature or from the upstream code, with a citation — never
+   from what makes the answer come out right.
+2. **Fix the protocol, not the criterion.** When a bound is breached, change the
+   procedure until it is genuinely satisfied.
+3. **Match the instrument to the physics**, and say why it is the right one.
+4. **Test the assumption the result rests on**, especially when it is load-
+   bearing and convenient. An assumption that has never been able to fail is
+   not evidence.
+5. **Report the disagreement when there is one.** An honestly-derived miss is
+   worth more than a fitted hit.
+6. **Say which numbers to quote** when several exist, and why the others do not
+   count.
+
+### Worked examples — all from the HTR-10 pebble-bed work (GitHub issue #216)
+
+The published filling fraction of **0.61** had been missed by −8.7 % and the
+gap was recorded as unexplained. It was closed to **−0.9 %** — and the process
+is why the result is worth anything:
+
+| decision | the shortcut | what was done instead |
+|---|---|---|
+| friction `µ` | tune `µ` down until `φ` hits 0.61 | ran a **2×2 ablation** over the *literature* graphite range (graphite is a solid lubricant, `µ ≈ 0.1–0.2`); reported all four cells, including the two that miss by 3–6 % |
+| quasi-static bound breached at `1.57e-2` vs `1e-2` | relax the threshold | **fixed the protocol** — 4× the settle window, giving `~2e-4`; the bound is the only reason the case can claim to measure creep |
+| does the result survive? | assume rate-independence, since the theory says so | **ran the control**; it revised two of my own numbers, halving one magnitude and exposing another as an artefact |
+| bed height | keep `max z`, it was already written | `max z` is a single-pebble statistic that jumps a full diameter on one placement — switched to the **99th percentile** |
+| per-particle agreement through a chaotic rearrangement | loosen the tolerance until it passes | recognised it as **Lyapunov divergence** — asserted tightly at early time where the contact path is verifiable, loosely at late time, and documented why |
+
+And the rule cuts the other way too: **the process being right is what surfaces
+defects nobody was looking for.** Questioning whether a run was reproducible —
+an assumption no test had ever challenged — exposed a P0 defect in which the
+HTR-10 bed gave a *different answer every run*, because the neighbour grid
+iterated a randomly-seeded `HashMap`.
+
+> **The point is not that 0.61 was reached. It is that the run which reached it
+> was capable of missing.**
+
 ## Search the workspace before building anything (HARD RULE)
 
 **Before attempting a solution — and before briefing an agent on one — scan this
@@ -1151,7 +1214,7 @@ the authority:
 | `njoy-outram-park-fork` | agrees with NJOY2016 to 7 significant figures | cross-code |
 | `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
 | `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
-| `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **plus** agrees with upstream LIGGGHTS-PUBLIC `3d5c00f2` compiled and run — 3 of 4 deterministic cases bit-identical throughout, the oblique friction/history case to 1-3 ulp, bulk bed packing fraction within 0.20 %; **granular physics still NOT validated (no experimental comparison)** | analytical / MMS + cross-code |
+| `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **plus** agrees with upstream LIGGGHTS-PUBLIC `3d5c00f2` compiled and run — ~~3 of 4~~ **4 of 6 deterministic cases** bit-identical throughout (**CORRECTED 2026-09-17**: there are six, and *both* oblique cases agree to 1-3 ulp rather than one), bulk bed packing fraction within 0.20 %, and — omitted entirely before — the **HTR-10 full core** at `D/d = 30`: `φ` to four decimals, median pebble **61 µm** from LIGGGHTS' over 27 554 pebbles, plus the **conus/discharge mesh geometry** to `φ` within 0.01 % with all 27 554 pebbles within 1 mm at early time; **granular physics still NOT validated (no experimental comparison)** | analytical / MMS + cross-code |
 | `farrer-park` | MMS L2 order within 0.15 of theory per element; patch test 1e-12; Lamé **displacement** within 1%, **stress** on observed order (1 ± 0.2 linear, 2 ± 0.2 quadratic); **shear locking uncured, no benchmark validation** | analytical / MMS |
 | `outram-park-fork-dwsim-libs` | agrees with upstream DWSIM `1abf72d1` to 4 sig figs; **PR EOS matches to 6 s.f. (measured 2026-09-13)**; flash-layer comparison still open | cross-code |
 | `petir` | agrees with GSL 2.8 compiled and run — 5 of 7 numerics surfaces bit-identical throughout, the rest 75-97 % with worst relative difference 1.1e-15; ARM `exp`/`log`/`pow` bit-identical | cross-code |
@@ -1665,7 +1728,7 @@ built, tested, and published from this single repository.
 | `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh). Independent fork, not official OpenFOAM. | GPL-3.0 |
 | `outram-foam-cli` | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries. Independent fork, not official OpenFOAM. | GPL-3.0 |
 | `outram-foam-multiphase` | Phase-II multiphase CFD — drift-flux first (Euler-Euler two-fluid, wall boiling, CHF, dryout planned). Reference physics for TAMPINES reduced-order models. Scaffold, no human V&V. Independent fork, not official OpenFOAM. | GPL-3.0 |
-| `outram-park-fork-liggghts` | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular). LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3-compatible; see `NOTICE`). Scaffold. | GPL-3.0 |
+| `outram-park-fork-liggghts` | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular). LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3-compatible; see `NOTICE`). ~~Scaffold.~~ **CORRECTED 2026-09-17** — **declared mature 2026-09-15** and cross-code verified against compiled upstream LIGGGHTS on six deterministic cases and the full HTR-10 core; "Scaffold" had been wrong since that declaration. Still no experimental validation of the granular physics. | GPL-3.0 |
 | `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport; enum-dispatched, `uom`-typed, no PETSc/FFI/MPI. Scaffold, no human V&V. Independent fork. | GPL-3.0 |
 | `outram-park-mpi` | Pure-Rust **MPICH** subset — the MPI-3 API surface (communicators, datatypes, point-to-point, core collectives) over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold. Not affiliated with MPICH. | GPL-3.0 |
 | `outram-park-fork-moltres` | **Circulating-fuel MSR** multiphysics on the `outram-foam-basic-lib` FV layer — multigroup neutron diffusion + delayed-neutron **precursor drift** + salt heat transfer, reimplemented from the LGPL-2.1 **Moltres** formulation on `FvMesh`/`fvm` rather than MOOSE/PETSc finite elements. Steady eigenvalue only (no coupled flux transient), and **no crate depends on it yet**. Untrusted AI-assisted draft, no human V&V. Independent fork, not affiliated with Moltres/ARFC. | GPL-3.0 |
