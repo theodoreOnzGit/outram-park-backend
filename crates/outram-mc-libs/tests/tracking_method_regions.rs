@@ -244,3 +244,93 @@ fn a_region_local_majorant_ignores_materials_outside_its_index_list() {
         assert_eq!(with_stale.at(e), by_hand.at(e), "stale index ignored");
     }
 }
+
+// --------------------------------------------------------------------------
+// Region EXTENT (op-867c.4): which level declared delta, and how far to leave it
+// --------------------------------------------------------------------------
+
+/// `locate` must report **which coordinate level declared** the tracking
+/// method, not merely what it is. Without that the region's extent is unknown
+/// and a delta flight has nothing to stop at.
+#[test]
+fn locate_reports_the_level_that_declared_the_method() {
+    let geom = geometry_with_rod_channel();
+    let u = Direction::new(1.0, 0.0, 0.0);
+
+    // Inside the bed: the declaring cell is the bed, which is level 0 (the root
+    // universe's cell), and the fuel leaf is level 1.
+    let bed = geom
+        .locate(Position::new(1.5, 0.0, 0.0), u, SurfaceToken::NONE)
+        .expect("in the bed");
+    assert_eq!(bed.tracking, TrackingMethod::Delta { majorant: 0 });
+    assert_eq!(
+        bed.tracking_level, 0,
+        "the bed cell declared delta, and it sits at level 0"
+    );
+
+    // Inside the rod: the rod declares Surface itself, one level deeper.
+    let rod = geom
+        .locate(Position::new(0.2, 0.0, 0.0), u, SurfaceToken::NONE)
+        .expect("in the rod");
+    assert_eq!(rod.tracking, TrackingMethod::Surface);
+    assert_eq!(
+        rod.tracking_level, 1,
+        "the rod overrode at level 1, deeper than the bed's declaration"
+    );
+}
+
+/// **`distance_out_of_level` must measure the DELTA REGION, not the nearest
+/// surface.** This is the whole reason it exists: `distance_to_boundary` takes
+/// the minimum over every level, so in a real bed it returns a TRISO surface
+/// microns away — useless to a tracker whose entire purpose is to stream past
+/// those surfaces without stopping.
+#[test]
+fn region_extent_is_not_the_nearest_surface() {
+    let geom = geometry_with_rod_channel();
+    let u = Direction::new(1.0, 0.0, 0.0);
+
+    // Sit inside the bed, just OUTSIDE the rod, heading +x toward the rod.
+    // The nearest boundary at any level is the rod surface, 0.3 cm away.
+    // The delta region (the bed) ends at its own surface, x = 2.0.
+    let p = Position::new(-0.8, 0.0, 0.0);
+    let at = geom.locate(p, u, SurfaceToken::NONE).expect("in the bed");
+    assert_eq!(at.tracking, TrackingMethod::Delta { majorant: 0 });
+
+    let nearest = geom.distance_to_boundary(&at).distance;
+    let out_of_region = geom.distance_out_of_level(&at, at.tracking_level);
+
+    println!(
+        "nearest boundary {nearest:.4} cm (rod surface), region extent {out_of_region:.4} cm (bed surface)"
+    );
+    assert!(
+        (nearest - 0.3).abs() < 1.0e-9,
+        "nearest boundary should be the rod surface at 0.3 cm, got {nearest:.6}"
+    );
+    // Heading +x from x = -0.8, the bed surface at x = +BED_R is BED_R - p.x
+    // away, i.e. 2.8 cm -- NOT BED_R - |p.x|, which was this assertion's first
+    // and wrong form.
+    let expected = BED_R - p.x;
+    assert!(
+        (out_of_region - expected).abs() < 1.0e-9,
+        "the delta region ends at the BED surface, {expected:.4} cm away, got {out_of_region:.6}"
+    );
+    assert!(
+        out_of_region > nearest,
+        "the region extent must exceed the nearest surface here; if they are \
+         equal, distance_out_of_level is just re-deriving distance_to_boundary \
+         and a delta flight would stop at every internal surface it exists to \
+         stream through"
+    );
+}
+
+/// An out-of-range level returns `INFINITY` rather than panicking. A too-LARGE
+/// exit distance is caught by the enclosing tracker on the next locate; a panic
+/// would end a run over a stale index.
+#[test]
+fn an_out_of_range_level_is_infinite_not_a_panic() {
+    let geom = geometry_with_rod_channel();
+    let at = geom
+        .locate(Position::new(1.5, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0), SurfaceToken::NONE)
+        .expect("locates");
+    assert!(geom.distance_out_of_level(&at, 99).is_infinite());
+}

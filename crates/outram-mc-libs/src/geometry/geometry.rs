@@ -80,6 +80,19 @@ pub struct GeometryPath {
     ///
     /// NEW WORK, no OpenMC counterpart — see [`TrackingMethod`] (`bn:op-867c.1`).
     pub tracking: TrackingMethod,
+    /// Index into [`Self::levels`] of the cell that **declared** [`Self::tracking`],
+    /// or `0` when nothing on the path declared anything (the default,
+    /// surface-tracked case).
+    ///
+    /// This is what makes a delta region's *extent* knowable. Delta tracking
+    /// must stop at the edge of the region that chose it, and
+    /// [`Geometry::distance_to_boundary`] cannot answer that: it returns the
+    /// nearest boundary at **any** level, which inside a finely divided bed is
+    /// usually a pebble or TRISO surface far inside the region. Pair this with
+    /// [`Geometry::distance_out_of_level`].
+    ///
+    /// NEW WORK, no OpenMC counterpart (`bn:op-867c.4`).
+    pub tracking_level: usize,
 }
 
 impl GeometryPath {
@@ -216,6 +229,7 @@ impl Geometry {
         // declares `Some(..)` overrides — including `Some(Surface)`, which is
         // how a surface-tracked rod channel sits inside a delta-tracked bed.
         let mut tracking = TrackingMethod::Surface;
+        let mut tracking_level = 0_usize;
         loop {
             let i_cell = self.universes[level.universe].find_cell(
                 level.r,
@@ -228,6 +242,8 @@ impl Geometry {
             let cell = &self.cells[i_cell];
             if let Some(declared) = cell.tracking {
                 tracking = declared;
+                // `levels` holds the ancestors; this cell's own level is next.
+                tracking_level = levels.len();
             }
 
             match cell.fill {
@@ -238,6 +254,7 @@ impl Geometry {
                         material: Some(m),
                         on_surface,
                         tracking,
+                        tracking_level,
                     });
                 }
                 CellFill::Void => {
@@ -247,6 +264,7 @@ impl Geometry {
                         material: None,
                         on_surface,
                         tracking,
+                        tracking_level,
                     });
                 }
                 CellFill::Universe(u_idx) => {
@@ -292,6 +310,56 @@ impl Geometry {
     /// is a lattice tile, the distance to the next tile edge; the global minimum
     /// wins. Because nested frames here are pure translations (no rotation), the
     /// global `on_surface` index is valid for coincident checks at every level.
+    /// **Distance to leave the region at coordinate level `level`** — the
+    /// extent of a delta-tracked region, which [`Self::distance_to_boundary`]
+    /// cannot give.
+    ///
+    /// NEW WORK, no OpenMC counterpart (`bn:op-867c.4`).
+    ///
+    /// # Why the ordinary query is the wrong one
+    ///
+    /// `distance_to_boundary` takes the minimum over **every** level, so inside
+    /// a pebble bed it returns the next TRISO or pebble surface — metres inside
+    /// the region, and of no interest to a delta tracker, which is precisely
+    /// the machinery that exists to *not* stop at those surfaces. What a delta
+    /// flight must stop at is the boundary of the region that chose delta
+    /// tracking, i.e. the cell at [`GeometryPath::tracking_level`].
+    ///
+    /// # What it returns
+    ///
+    /// The distance along the ray at which the particle leaves that cell,
+    /// counting both its bounding surfaces and — if that level is a lattice
+    /// tile — the tile edge. `f64::INFINITY` if it does not leave.
+    ///
+    /// Levels **deeper** than `level` are deliberately ignored: they are inside
+    /// the region. Levels **shallower** are also ignored, because leaving an
+    /// ancestor implies leaving this cell, and that crossing will be found on
+    /// the next `locate` anyway. Including them would truncate delta flights at
+    /// boundaries the tracker should stream straight through.
+    ///
+    /// Returns `INFINITY` for an out-of-range `level` rather than panicking: a
+    /// too-*large* exit distance is caught by the enclosing tracker on the next
+    /// locate, whereas a panic would take down a run over a stale index.
+    pub fn distance_out_of_level(&self, path: &GeometryPath, level: usize) -> f64 {
+        let Some(coord) = path.levels.get(level) else {
+            return f64::INFINITY;
+        };
+        let cell = &self.cells[coord.cell];
+        let (d_surf, _) =
+            cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.on_surface);
+        let mut best = d_surf;
+        if let Some(l_idx) = coord.lattice {
+            let d_tile =
+                self.lattices[l_idx]
+                    .distance(coord.r, coord.u, coord.lattice_index)
+                    .0;
+            if d_tile < best {
+                best = d_tile;
+            }
+        }
+        best
+    }
+
     pub fn distance_to_boundary(&self, path: &GeometryPath) -> BoundaryHit {
         const FP_REL: f64 = 1.0e-14;
         let mut best = BoundaryHit {
