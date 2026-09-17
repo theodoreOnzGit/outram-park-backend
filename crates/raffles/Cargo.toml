@@ -15,7 +15,7 @@ license.workspace = true
 # theirs. `authors` is inherited from [workspace.package]; whether to add an
 # explicit per-crate author entry is the maintainer's and owner's call, not an
 # assistant's — see README.md and CLAUDE.md.
-description = "RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation. Independent pure-Rust port of the uncertainty-quantification / risk-analysis core of RAVEN (Apache-2.0, Idaho National Laboratory): probability distributions, Monte Carlo / Latin-hypercube / grid samplers, Sobol and correlation sensitivity measures, surrogate models. SCAFFOLD ONLY: no distribution, sampler or estimator is implemented, and there is no human V&V. Not affiliated with the RAVEN project."
+description = "RAFFLES — Risk Analysis Framework For Learning & Ensemble Simulation. Independent pure-Rust port of the uncertainty-quantification / risk-analysis core of RAVEN (Apache-2.0, Idaho National Laboratory): probability distributions, Monte Carlo / Latin-hypercube / grid samplers, Sobol and correlation sensitivity measures, surrogate models. Also Bayesian model updating (TMCMC / TEMCMC), statistical distances, Approximate Bayesian Computation, imprecise probability and message-passing graph networks. IMPLEMENTED IN PART, with no human V&V — treat every result as untrusted draft material. Not affiliated with the RAVEN project."
 homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
@@ -54,3 +54,44 @@ thiserror.workspace = true
 # RAFFLES follows the same gating convention if it ever needs something
 # Android-hostile — see this crate's CLAUDE.md.
 outram-mc-libs.workspace = true
+# SURROGATE MODELS (src/surrogate.rs) — OPTIONAL, off by default. burn is this
+# workspace's replacement for PyTorch (maintainer direction, 2026-09-16):
+# upstream RAVEN's machine-learning surrogates are PyTorch-backed, so the port
+# reaches for burn wherever PyTorch appears, as far as it will go. The cheaper
+# surrogates (polynomial, Gaussian process) need nothing from it, so a plain
+# `cargo build -p raffles` must not pay for it — turn it on with
+# `--features burn`.
+#
+# It is declared `no_std` at the workspace root (`default-features = false`) and
+# inherited that way here: burn runs on `core` + `alloc`, which is all a tensor
+# library needs, and that keeps RAFFLES' Android/Termux and wasm builds clean —
+# burn's `std` stack is where the dataset/network/train/sqlite machinery lives.
+# `alloc` is implicit in that mode (burn declares `extern crate alloc` itself;
+# there is no `alloc` feature to name), and a `std` binary links it happily.
+#
+# BACKEND: the `burn` feature adds `ndarray`, the one backend that is pure Rust
+# and libm-backed — no system BLAS, no C/Fortran toolchain. GPU (`wgpu`,
+# `vulkan`, `metal`, `webgpu`) is deliberately OUT OF SCOPE for this first pass;
+# when it is wanted it goes behind its own feature under
+# `cfg(not(target_os = "android"))`, per the workspace wgpu rule. Never swap the
+# backend for `tch`, `candle`, `cuda`, `rocm` or a `blas-*` feature here.
+#
+# VERIFIED 2026-09-16 with burn 0.21.0, rustc 1.94.1, all clean (raffles' own
+# only; the warnings shown come from outram-mc-libs/njoy and predate this):
+#   cargo check -p raffles --lib         --features burn
+#   cargo check -p raffles --all-targets --features burn --target aarch64-linux-android
+#   cargo check -p raffles --lib         --features burn --target wasm32-unknown-unknown
+# `cargo tree -e features` confirms burn resolves with only `ndarray`/
+# `burn-ndarray` — no `std` — and that the `wgpu` in the tree comes from
+# outram-mc-libs/njoy, not from burn.
+burn = { workspace = true, optional = true }
+
+[features]
+default = []
+# Neural-network surrogates and graph neural networks via burn (no_std + alloc,
+# ndarray backend + autodiff). Consumed by `surrogate::neural`, `gnn::mpnn` and
+# `gnn::training`; everything else in the crate builds without it, which is why
+# it is off by default. `autodiff` is not optional here — training needs
+# gradients, and a burn feature that could only do a forward pass would be a
+# trap rather than a saving.
+burn = ["dep:burn", "burn/ndarray", "burn/autodiff"]

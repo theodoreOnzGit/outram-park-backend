@@ -10,12 +10,19 @@
 //! theirs to steer; changes of direction are their call. See the crate
 //! `CLAUDE.md`.
 //!
-//! ## Status — SCAFFOLD ONLY
+//! ## Status — PARTLY IMPLEMENTED, NO HUMAN V&V
 //!
-//! Nothing is implemented. Every module below is an empty, documented
-//! placeholder that states its own scope. No distribution, sampler, estimator
-//! or surrogate exists yet, and none of this has been through human V&V. Do
-//! not describe any part of this crate as working, verified or validated.
+//! This crate is no longer the empty scaffold its first commits described.
+//! [`distributions`], [`samplers`], [`sensitivity`], [`bayesian`], [`distance`], [`abc`] and [`imprecise`] carry
+//! working, unit-tested implementations whose verification methodology and
+//! measured results are recorded in the doc comments of the tests themselves.
+//! [`surrogate`] is still a placeholder.
+//!
+//! **None of it has been through human V&V.** Everything here is AI-assisted
+//! draft material under the workspace `RESPONSIBLE_USE.md` rules until the
+//! maintainer and the crate owner have reviewed it — so do not describe any
+//! part of this crate as validated, and read "verified" as "checked against a
+//! reference by an automated test", which is what it is.
 //!
 //! ## What belongs in this crate
 //!
@@ -28,6 +35,22 @@
 //!   of sample points: Monte Carlo, Latin hypercube, grid / stratified.
 //! - **[`sensitivity`]** — importance measures computed from an existing
 //!   sample set: Sobol variance decomposition, correlation coefficients.
+//! - **[`distance`]** — statistical distances between two sample sets:
+//!   Euclidean on summaries, Bhattacharyya, Hellinger, Jensen-Shannon,
+//!   Bray-Curtis and the 1-Wasserstein area metric.
+//! - **[`model_selection`]** — comparing competing models by their evidence:
+//!   Bayes factors, posterior model probabilities, the Kass-Raftery scale.
+//! - **[`imprecise`]** — imprecise probability: intervals, probability boxes,
+//!   Clopper-Pearson confidence boxes, and coherent-system reliability with or
+//!   without a dependence assumption.
+//! - **[`abc`]** — Approximate Bayesian Computation: inference when the model
+//!   can be run but no likelihood can be written down.
+//! - **[`bayesian`]** — Bayesian model updating: priors, likelihoods, MCMC
+//!   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
+//!   posterior sample and the evidence.
+//! - **[`gnn`]** — graph neural networks for physics: message-passing
+//!   topology, the physics-guided bound on message-passing iterations, and
+//!   (behind the `burn` feature) the network itself.
 //! - **[`surrogate`]** — reduced-order models fitted to a sample set and
 //!   evaluated in place of the expensive simulation.
 //!
@@ -105,7 +128,13 @@
 //! what order — is written up in `docs/raven-port-scoping.md` at the workspace
 //! root.
 
+pub mod abc;
+pub mod bayesian;
+pub mod distance;
 pub mod distributions;
+pub mod gnn;
+pub mod imprecise;
+pub mod model_selection;
 pub mod samplers;
 pub mod sensitivity;
 pub mod surrogate;

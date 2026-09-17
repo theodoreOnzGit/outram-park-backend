@@ -150,6 +150,48 @@ getrandom = "0.3"
 # Android-safe). Used by outram-blender for the large mesh solves (Laplacian
 # editing / ARAP / parameterization); per-element math stays in fixed-size types.
 faer = "0.24"
+# burn — deep-learning / tensor framework (tracel-ai), declared `no_std`.
+# MIT OR Apache-2.0, i.e. permissive into GPL-3.0 (ONE-WAY: our GPL-3.0 code
+# cannot flow back to burn).
+#
+# THIS IS THE WORKSPACE'S PYTORCH REPLACEMENT (maintainer direction,
+# 2026-09-16). Where an upstream code this suite ports from reaches for PyTorch,
+# the Rust side reaches for burn, as far as burn will go. First and currently
+# only consumer: `raffles`, whose upstream (RAVEN) backs its machine-learning
+# surrogates with PyTorch — it takes this optionally, behind its own `burn`
+# feature.
+#
+# `default-features = false` DROPS `std`, which is the whole point of declaring
+# it this way and is deliberate, not an oversight:
+#   * it keeps burn on `core` + `alloc` + `libm`, matching PETIR's `no_std`
+#     numerical core and the wasm gate (`scripts/check-wasm.sh`);
+#   * it drops burn's std-only side stack (`dataset`, `network`, `train`,
+#     `sqlite`, `tui`), none of which this workspace wants pulled in by a
+#     library;
+#   * a `std` consumer loses nothing by it — a `no_std` crate compiles and runs
+#     fine inside a `std` binary. Do NOT "fix" this by turning defaults back on;
+#     a crate that genuinely needs `std` adds `features = ["std"]` at its own
+#     `[dependencies]` entry and says why.
+#
+# BACKEND CHOICE IS PER-CRATE, NOT HERE. burn ships no tensor backend with
+# defaults off; a consumer opts into one alongside `burn.workspace = true`. The
+# `no_std`-clean one is `ndarray` (`burn-ndarray` with its own defaults off —
+# pure Rust, libm-backed, no system BLAS). ANDROID / WASM, per the workspace
+# rules: never enable `accelerate`, `blas-netlib`, `openblas`,
+# `openblas-system`, `tch`, `candle`, `cuda` or `rocm` in an unconditional
+# library build — every one of them wants a system BLAS/LAPACK or a C/C++
+# toolchain. burn's `wgpu`/`vulkan`/`metal`/`webgpu` backends are deliberately
+# OUT OF SCOPE for this first pass (maintainer direction, 2026-09-16); when one
+# is wanted it inherits the wgpu rule above — GPU/GUI scope only, behind a
+# feature/example/optional bin under `cfg(not(target_os = "android"))`.
+#
+# MSRV: burn 0.21 declares `rust-version = "1.92"` and `edition = "2024"`, so it
+# raises this workspace's effective toolchain floor to 1.92 for anyone building
+# a crate that inherits it (rustc 1.94.1 here). Note also that upstream has
+# marked `burn-ndarray` deprecated in the 0.22 pre-releases in favour of
+# `burn-flex`/`burn-cpu` — check that before bumping, since `burn-flex` is
+# cubecl-backed and its `no_std` story is not the same.
+burn = { version = "0.21.0", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
 serde-xml-rs = "0.8.2"
 anyhow = "1.0.100"
