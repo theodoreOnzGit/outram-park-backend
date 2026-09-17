@@ -242,7 +242,7 @@ mod tests {
     use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
     use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
     use crate::geometry::universe::Universe;
-    use crate::tally::filter::{CellFilter, Filter};
+    use crate::tally::filter::{CellFilter, Filter, FilterKind};
     use crate::tally::tally::{ScoreType, Tally, TallyBin};
 
     /// A single-cell sphere of radius `r_cm`; `fill` chooses void or a material.
@@ -274,7 +274,7 @@ mod tests {
     }
 
     fn flux_tally() -> Tally {
-        let filter: Box<dyn Filter> = Box::new(CellFilter {
+        let filter: FilterKind = FilterKind::Cell(CellFilter {
             cell_indices: vec![0],
         });
         Tally {

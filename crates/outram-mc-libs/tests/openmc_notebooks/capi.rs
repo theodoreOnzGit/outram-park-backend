@@ -83,6 +83,7 @@
 //! the combined σ ≈ 0.01340). The sign and magnitude of the response — the only
 //! thing this test asserts — are unchanged.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::Cell;
 use outram_mc_libs::geometry::cell::{HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
@@ -187,7 +188,7 @@ fn run_and_read(
     let mut tally = Tally {
         id: 1,
         name: "fuel cell".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::NuFission],
         bins: vec![TallyBin::default(); 2], // 1 cell × 2 scores
     };

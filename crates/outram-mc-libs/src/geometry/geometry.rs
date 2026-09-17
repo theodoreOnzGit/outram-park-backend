@@ -993,7 +993,7 @@ mod tests {
         use crate::material::nuclide::Nuclide;
         use crate::physics::keff::KeffSettings;
         use crate::physics::transport_csg::{run_keff_csg_reactor_physics, SourceBox};
-        use crate::tally::filter::EnergyFilter;
+        use crate::tally::filter::{EnergyFilter, FilterKind};
         use crate::tally::tally::{ScoreType, Tally, TallyBin};
 
         let nuclides = vec![
@@ -1022,7 +1022,7 @@ mod tests {
         let mut tally = Tally {
             id: 0,
             name: "shells".into(),
-            filters: vec![Box::new(EnergyFilter {
+            filters: vec![FilterKind::Energy(EnergyFilter {
                 bins: edges.clone(),
             })],
             scores: vec![ScoreType::Flux],

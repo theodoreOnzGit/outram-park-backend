@@ -987,7 +987,7 @@ mod leakage_tests {
     use crate::material::material::{Material, NuclideComponent};
     use crate::material::nuclide::Nuclide;
     use crate::physics::keff::KeffSettings;
-    use crate::tally::filter::{EnergyFilter, MaterialFilter};
+    use crate::tally::filter::{EnergyFilter, FilterKind, MaterialFilter};
     use crate::tally::tally::{ScoreType, Tally, TallyBin};
 
     /// Godiva (HEU-MET-FAST-001) LOW-tier material + nuclide array, embedded data.
@@ -1055,10 +1055,10 @@ mod leakage_tests {
             id: 0,
             name: "rp".into(),
             filters: vec![
-                Box::new(EnergyFilter {
+                FilterKind::Energy(EnergyFilter {
                     bins: edges.clone(),
                 }),
-                Box::new(MaterialFilter {
+                FilterKind::Material(MaterialFilter {
                     material_indices: vec![0],
                 }),
             ],

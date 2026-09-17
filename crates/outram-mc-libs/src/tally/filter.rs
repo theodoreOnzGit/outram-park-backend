@@ -6,12 +6,22 @@
 /// ALL filters attached to a tally.  Each filter maps the event to a bin index.
 ///
 /// Implemented here: Cell, Material, Energy, Universe, Mesh
-/// ([`super::mesh::RegularMesh`]) and the functional-expansion
-/// [`SpatialLegendreFilter`].
-/// TODO: Zernike, SphericalHarmonics, MuFilter, PolarAzimuthal,
-///       Surface, DelayedGroup, Time, Particle.
-use crate::geometry::position::Position;
+/// ([`super::mesh::RegularMesh`]), Surface, Mu, PolarAzimuthal, Time, Particle,
+/// DelayedGroup, and the functional expansions [`SpatialLegendreFilter`],
+/// [`ZernikeFilter`] and [`SphericalHarmonicsFilter`].
+///
+/// # Dispatch is by enum, not by trait object (2026-09-16)
+///
+/// [`FilterKind`] is what a [`super::tally::Tally`] stores. The [`Filter`] trait
+/// remains as the **compiler-enforced contract** each concrete filter satisfies,
+/// which is exactly the split the workspace's Rust design rules prescribe:
+/// traits for the contract, enums for dispatch. `Tally` previously held
+/// `Vec<Box<dyn Filter>>`, which violated both the "no trait objects" and "no
+/// `Box<T>`" rules and cost the exhaustiveness check that makes adding a filter
+/// safe.
 use super::mesh::RegularMesh;
+use crate::geometry::position::{Direction, Position};
+use crate::particle::particle::ParticleType;
 
 /// Base trait for all filters.  Maps to `openmc::Filter`.
 pub trait Filter: Send + Sync {
@@ -36,6 +46,13 @@ pub trait Filter: Send + Sync {
 }
 
 /// Snapshot of particle state passed to filters at scoring time.
+///
+/// Every field a filter in this module needs lives here; a filter that wants
+/// something absent cannot be written honestly, which is the point. The fields
+/// below `position` were added on 2026-09-16 alongside the filters that consume
+/// them — before that the struct could not express an angle, a time or a
+/// particle type at all, so those filters could not have been written even as
+/// stubs.
 pub struct FilterEvent {
     pub cell_idx: usize,
     pub material_idx: usize,
@@ -45,9 +62,57 @@ pub struct FilterEvent {
     pub surface_idx: usize,
     /// Representative spatial position of the event \[cm\] — the streamed
     /// segment's midpoint for the track-length estimator. Used by the spatial
-    /// filters ([`MeshFilter`], [`SpatialLegendreFilter`]); ignored by the
-    /// cell/material/universe/energy filters.
+    /// filters ([`MeshFilter`], [`SpatialLegendreFilter`], [`ZernikeFilter`]);
+    /// ignored by the cell/material/universe/energy filters.
     pub position: Position,
+    /// Direction of travel (unit vector). Consumed by
+    /// [`PolarAzimuthalFilter`] and [`SphericalHarmonicsFilter`].
+    pub direction: Direction,
+    /// Change-of-direction cosine `mu` of a scattering event, in the
+    /// **laboratory** frame. Meaningful only for a scatter; `MuFilter` is a
+    /// collision-estimator filter and this is what it bins.
+    pub mu: f64,
+    /// Time since the particle was born \[s\]. Consumed by [`TimeFilter`].
+    pub time: f64,
+    /// Particle type. Consumed by [`ParticleFilter`].
+    pub particle: ParticleType,
+    /// Delayed-neutron precursor group of a fission event, `0`-based, or `None`
+    /// for a prompt neutron or a non-fission event. Consumed by
+    /// [`DelayedGroupFilter`].
+    pub delayed_group: Option<usize>,
+}
+
+impl Default for FilterEvent {
+    /// An event with no geometry, no angle, zero energy and zero time.
+    ///
+    /// Provided so a caller adding one field to a constructed event does not
+    /// have to spell out the rest, and so a test can build the one field it
+    /// cares about. **Not** a physically meaningful event: `cell_idx` and the
+    /// other indices are `0`, which is a real cell, so a `Default` event passed
+    /// to a `CellFilter` will match bin 0.
+    fn default() -> Self {
+        FilterEvent {
+            cell_idx: 0,
+            material_idx: 0,
+            universe_idx: 0,
+            energy: 0.0,
+            surface_idx: usize::MAX,
+            position: Position {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            direction: Direction {
+                u: 0.0,
+                v: 0.0,
+                w: 1.0,
+            },
+            mu: 0.0,
+            time: 0.0,
+            particle: ParticleType::Neutron,
+            delayed_group: None,
+        }
+    }
 }
 
 // ── Concrete filters ──────────────────────────────────────────────────────────
@@ -293,6 +358,487 @@ fn legendre_pn(order: usize, x: f64) -> Vec<f64> {
     pnx
 }
 
+// ── Filters added 2026-09-16 ─────────────────────────────────────────────────
+
+/// Filter by the surface an event crossed. Maps to `openmc::SurfaceFilter`
+/// (`src/tallies/filter_surface.cpp`).
+///
+/// **0-based indices into the geometry's surface array, not surface IDs** — the
+/// same convention as [`CellFilter`], and the same trap: an ID passed here bins
+/// silently and wrongly.
+///
+/// Only a surface-crossing event has a surface; every other event carries
+/// [`FilterEvent::surface_idx`] `= usize::MAX` and is rejected, so attaching this
+/// to a track-length or collision tally scores nothing rather than scoring
+/// everything into bin 0.
+pub struct SurfaceFilter {
+    /// 0-based positions in the surface array. One tally bin per entry.
+    pub surface_indices: Vec<usize>,
+}
+
+impl Filter for SurfaceFilter {
+    fn n_bins(&self) -> usize {
+        self.surface_indices.len()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        if ev.surface_idx == usize::MAX {
+            return None;
+        }
+        self.surface_indices
+            .iter()
+            .position(|&s| s == ev.surface_idx)
+    }
+}
+
+/// Filter by the **change-of-direction cosine** of a scatter. Maps to
+/// `openmc::MuFilter` (`src/tallies/filter_mu.cpp`).
+///
+/// `bounds` is an ascending list of `mu` bin edges on `[-1, 1]`, so `n_bins` is
+/// `bounds.len() - 1` and bin `i` covers `[bounds[i], bounds[i+1])`. The top
+/// edge is inclusive, matching OpenMC's treatment of the last bin.
+///
+/// This bins [`FilterEvent::mu`], the **laboratory-frame** scattering cosine.
+/// OpenMC's filter is documented against the same quantity; a CM cosine binned
+/// here would be a different distribution entirely on a light nuclide.
+pub struct MuFilter {
+    /// Ascending `mu` bin edges on `[-1, 1]`; `n_bins = len() - 1`.
+    pub bounds: Vec<f64>,
+}
+
+impl Filter for MuFilter {
+    fn n_bins(&self) -> usize {
+        self.bounds.len().saturating_sub(1)
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        bin_in_edges(&self.bounds, ev.mu)
+    }
+}
+
+/// Filter by the particle's **polar and azimuthal angles of travel**. Maps to
+/// `openmc::PolarAzimuthalFilter` (`src/tallies/filter_azimuthal.cpp` +
+/// `filter_polar.cpp`, which OpenMC exposes as one filter).
+///
+/// `polar` holds ascending edges in `cos(theta)` on `[-1, 1]` — **cosine, not
+/// the angle** — where `theta` is measured from `+z`, so `cos(theta)` is the
+/// direction's `w` component. `azimuthal` holds ascending edges in `phi` on
+/// `[-pi, pi]`, with `phi = atan2(v, u)`.
+///
+/// Bins are row-major with **polar slowest-varying**:
+/// `bin = i_polar * n_azimuthal + i_azimuthal`, so `n_bins` is the product.
+pub struct PolarAzimuthalFilter {
+    /// Ascending `cos(theta)` edges on `[-1, 1]`.
+    pub polar: Vec<f64>,
+    /// Ascending `phi` edges on `[-pi, pi]` \[rad\].
+    pub azimuthal: Vec<f64>,
+}
+
+impl Filter for PolarAzimuthalFilter {
+    fn n_bins(&self) -> usize {
+        self.polar.len().saturating_sub(1) * self.azimuthal.len().saturating_sub(1)
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let i_p = bin_in_edges(&self.polar, ev.direction.w)?;
+        let phi = ev.direction.v.atan2(ev.direction.u);
+        let i_a = bin_in_edges(&self.azimuthal, phi)?;
+        Some(i_p * self.azimuthal.len().saturating_sub(1) + i_a)
+    }
+}
+
+/// Filter by time since the particle was born. Maps to `openmc::TimeFilter`
+/// (`src/tallies/filter_time.cpp`).
+///
+/// `bounds` is an ascending list of edges in **seconds**. A time-dependent tally
+/// is only as good as the time the transport threads through
+/// [`FilterEvent::time`]; the eigenvalue drivers in this crate do not track a
+/// clock, so on those this bins every event into whichever bin contains `0.0`.
+/// That is visible rather than hidden: see [`FilterEvent::default`].
+pub struct TimeFilter {
+    /// Ascending time bin edges \[s\]; `n_bins = len() - 1`.
+    pub bounds: Vec<f64>,
+}
+
+impl Filter for TimeFilter {
+    fn n_bins(&self) -> usize {
+        self.bounds.len().saturating_sub(1)
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        bin_in_edges(&self.bounds, ev.time)
+    }
+}
+
+/// Filter by particle type. Maps to `openmc::ParticleFilter`
+/// (`src/tallies/filter_particle.cpp`).
+///
+/// This crate transports neutrons only (photon/electron transport is explicitly
+/// out of scope, see the crate `CLAUDE.md`), so a tally filtering on
+/// [`ParticleType::Photon`] scores nothing today. It is implemented because the
+/// filter is cheap and because scoring zero for an absent particle is the
+/// correct answer, where omitting the filter would have forced a caller to drop
+/// the distinction.
+pub struct ParticleFilter {
+    /// Particle types to score. One bin per entry, in this order.
+    pub particles: Vec<ParticleType>,
+}
+
+impl Filter for ParticleFilter {
+    fn n_bins(&self) -> usize {
+        self.particles.len()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        self.particles.iter().position(|&p| p == ev.particle)
+    }
+}
+
+/// Filter by delayed-neutron precursor group. Maps to
+/// `openmc::DelayedGroupFilter` (`src/tallies/filter_delayedgroup.cpp`).
+///
+/// `groups` holds **0-based** precursor group indices. ENDF and most of the
+/// literature number these 1..=6; this crate indexes them from zero throughout
+/// (see `teh-o-prke`), and the two conventions differing by one is exactly the
+/// sort of thing that produces a plausible wrong answer, so it is stated here
+/// rather than left to the reader.
+///
+/// A prompt neutron or a non-fission event carries
+/// [`FilterEvent::delayed_group`] `= None` and is rejected.
+pub struct DelayedGroupFilter {
+    /// 0-based precursor group indices. One bin per entry.
+    pub groups: Vec<usize>,
+}
+
+impl Filter for DelayedGroupFilter {
+    fn n_bins(&self) -> usize {
+        self.groups.len()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let g = ev.delayed_group?;
+        self.groups.iter().position(|&x| x == g)
+    }
+}
+
+/// Functional-expansion filter in **Zernike polynomials** over a disc in the
+/// `x`-`y` plane. Maps to `openmc::ZernikeFilter`
+/// (`src/tallies/filter_zernike.cpp`).
+///
+/// The flux is expanded on the unit disc obtained by mapping
+/// `rho = sqrt((x-x0)^2 + (y-y0)^2) / r`, `theta = atan2(y-y0, x-x0)`. Moments
+/// run over the standard Zernike ordering
+///
+/// ```text
+/// n = 0, 1, 2, ... order;   m = -n, -n+2, ... , n
+/// ```
+///
+/// which gives `(order+1)(order+2)/2` moments, with
+/// `Z_n^m = R_n^|m|(rho) * cos(m theta)` for `m >= 0` and
+/// `R_n^|m|(rho) * sin(|m| theta)` for `m < 0` — the real-valued convention
+/// OpenMC uses (`calc_zn`, `src/math_functions.cpp`).
+///
+/// As with [`SpatialLegendreFilter`], the reconstruction normalisation is
+/// **not** folded into the stored weight; the raw moment is what is tallied.
+/// Events with `rho > 1` contribute nothing.
+pub struct ZernikeFilter {
+    /// Highest radial order `n` retained.
+    pub order: usize,
+    /// Disc centre `x` \[cm\].
+    pub x0: f64,
+    /// Disc centre `y` \[cm\].
+    pub y0: f64,
+    /// Disc radius \[cm\]; must be positive.
+    pub r: f64,
+}
+
+impl Filter for ZernikeFilter {
+    fn n_bins(&self) -> usize {
+        (self.order + 1) * (self.order + 2) / 2
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let (dx, dy) = (ev.position.x - self.x0, ev.position.y - self.y0);
+        if self.r <= 0.0 || (dx * dx + dy * dy).sqrt() / self.r > 1.0 {
+            return None;
+        }
+        Some(0)
+    }
+    fn expansion_moments(&self, ev: &FilterEvent) -> Option<Vec<f64>> {
+        let (dx, dy) = (ev.position.x - self.x0, ev.position.y - self.y0);
+        if self.r <= 0.0 {
+            return None;
+        }
+        let rho = (dx * dx + dy * dy).sqrt() / self.r;
+        if rho > 1.0 {
+            return None;
+        }
+        Some(zernike_zn(self.order, rho, dy.atan2(dx)))
+    }
+}
+
+/// Functional-expansion filter in **real spherical harmonics** of the particle's
+/// direction. Maps to `openmc::SphericalHarmonicsFilter`
+/// (`src/tallies/filter_sph_harm.cpp`).
+///
+/// Moments run `l = 0 ..= order`, `m = -l ..= l`, in that order, giving
+/// `(order+1)^2` bins. The weight deposited in moment `(l, m)` is the real
+/// spherical harmonic `Y_l^m(theta, phi)` evaluated on the direction of travel,
+/// with `cos(theta) = w` and `phi = atan2(v, u)`.
+///
+/// Like the other expansions here, the stored moment is raw — the `(2l+1)/(4pi)`
+/// reconstruction factor is applied when the flux is rebuilt, not when it is
+/// scored.
+pub struct SphericalHarmonicsFilter {
+    /// Highest harmonic order `l` retained (⇒ `(order+1)^2` bins).
+    pub order: usize,
+}
+
+impl Filter for SphericalHarmonicsFilter {
+    fn n_bins(&self) -> usize {
+        (self.order + 1) * (self.order + 1)
+    }
+    fn get_bin(&self, _ev: &FilterEvent) -> Option<usize> {
+        Some(0)
+    }
+    fn expansion_moments(&self, ev: &FilterEvent) -> Option<Vec<f64>> {
+        Some(real_spherical_harmonics(
+            self.order,
+            ev.direction.w,
+            ev.direction.v.atan2(ev.direction.u),
+        ))
+    }
+}
+
+/// Locate `x` in an ascending edge list, returning the 0-based bin index.
+///
+/// Bin `i` is `[edges[i], edges[i+1])`, with the **final** edge inclusive so a
+/// value exactly on the top of the range scores in the last bin rather than
+/// falling out. Returns `None` outside the range, or when there are fewer than
+/// two edges (no bins to score into).
+fn bin_in_edges(edges: &[f64], x: f64) -> Option<usize> {
+    let n = edges.len();
+    if n < 2 || x < edges[0] || x > edges[n - 1] {
+        return None;
+    }
+    if x == edges[n - 1] {
+        return Some(n - 2);
+    }
+    // Ascending edges, so a linear walk is correct; bin counts here are small.
+    (0..n - 1).find(|&i| x >= edges[i] && x < edges[i + 1])
+}
+
+/// Zernike moments `Z_n^m(rho, theta)` in OpenMC's ordering, for
+/// `n = 0..=order` and `m = -n, -n+2, ..., n`.
+///
+/// Ports `calc_zn` (`src/math_functions.cpp`). The radial polynomial is built
+/// from its defining sum
+///
+/// ```text
+/// R_n^m(rho) = sum_{k=0}^{(n-m)/2} (-1)^k (n-k)! /
+///              [ k! ((n+m)/2 - k)! ((n-m)/2 - k)! ] rho^(n-2k)
+/// ```
+///
+/// which is exact in `f64` for the orders a tally uses (factorials stay well
+/// inside the integer range until `n` is far larger than any expansion anyone
+/// reconstructs from).
+fn zernike_zn(order: usize, rho: f64, theta: f64) -> Vec<f64> {
+    let mut out = Vec::with_capacity((order + 1) * (order + 2) / 2);
+    for n in 0..=order {
+        let mut m = -(n as i32);
+        while m <= n as i32 {
+            let am = m.unsigned_abs() as usize;
+            let r = zernike_radial(n, am, rho);
+            let v = if m < 0 {
+                r * (am as f64 * theta).sin()
+            } else {
+                r * (am as f64 * theta).cos()
+            };
+            out.push(v);
+            m += 2;
+        }
+    }
+    out
+}
+
+/// The Zernike radial polynomial `R_n^m(rho)`; `0` when `n - m` is odd, which is
+/// the convention that makes the moment list above well defined.
+fn zernike_radial(n: usize, m: usize, rho: f64) -> f64 {
+    if n < m || (n - m) % 2 != 0 {
+        return 0.0;
+    }
+    let half_minus = (n - m) / 2;
+    let half_plus = (n + m) / 2;
+    let mut acc = 0.0;
+    for k in 0..=half_minus {
+        let num = factorial(n - k);
+        let den = factorial(k) * factorial(half_plus - k) * factorial(half_minus - k);
+        let term = num / den * rho.powi((n - 2 * k) as i32);
+        acc += if k % 2 == 0 { term } else { -term };
+    }
+    acc
+}
+
+/// `k!` as an `f64`. Exact for every `k` a tally expansion reaches (`f64`
+/// represents factorials exactly to `22!`).
+fn factorial(k: usize) -> f64 {
+    (1..=k).map(|i| i as f64).product::<f64>().max(1.0)
+}
+
+/// Real spherical harmonics `Y_l^m(theta, phi)` for `l = 0..=order`,
+/// `m = -l..=l`, in that order.
+///
+/// Ports `calc_rn` (`src/math_functions.cpp`). Uses the orthonormal real
+/// convention
+///
+/// ```text
+/// Y_l^0  = N_l^0 P_l(cos theta)
+/// Y_l^m  = sqrt(2) N_l^m P_l^m(cos theta) cos(m phi)      m > 0
+/// Y_l^-m = sqrt(2) N_l^m P_l^m(cos theta) sin(m phi)      m > 0
+/// N_l^m  = sqrt( (2l+1)/(4 pi) * (l-m)!/(l+m)! )
+/// ```
+fn real_spherical_harmonics(order: usize, cos_theta: f64, phi: f64) -> Vec<f64> {
+    let mut out = Vec::with_capacity((order + 1) * (order + 1));
+    let four_pi = 4.0 * std::f64::consts::PI;
+    for l in 0..=order {
+        for m in -(l as i32)..=(l as i32) {
+            let am = m.unsigned_abs() as usize;
+            let p = assoc_legendre(l, am, cos_theta);
+            let norm =
+                ((2.0 * l as f64 + 1.0) / four_pi * factorial(l - am) / factorial(l + am)).sqrt();
+            let v = if m == 0 {
+                norm * p
+            } else if m > 0 {
+                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).cos()
+            } else {
+                std::f64::consts::SQRT_2 * norm * p * (am as f64 * phi).sin()
+            };
+            out.push(v);
+        }
+    }
+    out
+}
+
+/// Associated Legendre function `P_l^m(x)` for `m >= 0`, by the standard
+/// recurrences (Condon-Shortley phase included, as OpenMC's `calc_rn` assumes).
+fn assoc_legendre(l: usize, m: usize, x: f64) -> f64 {
+    if m > l {
+        return 0.0;
+    }
+    // P_m^m = (-1)^m (2m-1)!! (1-x^2)^(m/2)
+    let mut pmm = 1.0f64;
+    if m > 0 {
+        let somx2 = ((1.0 - x) * (1.0 + x)).max(0.0).sqrt();
+        let mut fact = 1.0f64;
+        for _ in 0..m {
+            pmm *= -fact * somx2;
+            fact += 2.0;
+        }
+    }
+    if l == m {
+        return pmm;
+    }
+    let mut pmmp1 = x * (2.0 * m as f64 + 1.0) * pmm;
+    if l == m + 1 {
+        return pmmp1;
+    }
+    let mut pll = 0.0;
+    for ll in (m + 2)..=l {
+        pll = ((2.0 * ll as f64 - 1.0) * x * pmmp1 - (ll + m - 1) as f64 * pmm) / (ll - m) as f64;
+        pmm = pmmp1;
+        pmmp1 = pll;
+    }
+    pll
+}
+
+/// Every filter this crate provides, as a closed enum.
+///
+/// This is what a [`super::tally::Tally`] stores. Dispatch is by `match`, so
+/// adding a filter is a compile error at every site that must handle it — the
+/// property `Box<dyn Filter>` cost, and the reason the workspace's design rules
+/// ask for enums here. The [`Filter`] trait stays as the per-struct contract.
+pub enum FilterKind {
+    /// [`CellFilter`].
+    Cell(CellFilter),
+    /// [`MaterialFilter`].
+    Material(MaterialFilter),
+    /// [`EnergyFilter`].
+    Energy(EnergyFilter),
+    /// [`UniverseFilter`].
+    Universe(UniverseFilter),
+    /// [`MeshFilter`].
+    Mesh(MeshFilter),
+    /// [`SurfaceFilter`].
+    Surface(SurfaceFilter),
+    /// [`MuFilter`].
+    Mu(MuFilter),
+    /// [`PolarAzimuthalFilter`].
+    PolarAzimuthal(PolarAzimuthalFilter),
+    /// [`TimeFilter`].
+    Time(TimeFilter),
+    /// [`ParticleFilter`].
+    Particle(ParticleFilter),
+    /// [`DelayedGroupFilter`].
+    DelayedGroup(DelayedGroupFilter),
+    /// [`SpatialLegendreFilter`] — a functional expansion.
+    SpatialLegendre(SpatialLegendreFilter),
+    /// [`ZernikeFilter`] — a functional expansion.
+    Zernike(ZernikeFilter),
+    /// [`SphericalHarmonicsFilter`] — a functional expansion.
+    SphericalHarmonics(SphericalHarmonicsFilter),
+}
+
+impl FilterKind {
+    /// Number of tally bins this filter produces.
+    pub fn n_bins(&self) -> usize {
+        self.as_filter().n_bins()
+    }
+
+    /// Bin index for `event`, or `None` if the event does not pass.
+    pub fn get_bin(&self, event: &FilterEvent) -> Option<usize> {
+        self.as_filter().get_bin(event)
+    }
+
+    /// Functional-expansion weights, or `None` for a non-expansion filter.
+    pub fn expansion_moments(&self, event: &FilterEvent) -> Option<Vec<f64>> {
+        self.as_filter().expansion_moments(event)
+    }
+
+    /// Whether this filter deposits into every moment bin at once rather than
+    /// into a single bin — true for the three functional expansions.
+    ///
+    /// Worth its own method because the scoring path needs the distinction
+    /// *before* it has an event to test, and `expansion_moments` returning
+    /// `None` is ambiguous between "not an expansion" and "this event is outside
+    /// the expansion's domain".
+    pub fn is_expansion(&self) -> bool {
+        matches!(
+            self,
+            FilterKind::SpatialLegendre(_)
+                | FilterKind::Zernike(_)
+                | FilterKind::SphericalHarmonics(_)
+        )
+    }
+
+    /// The concrete filter behind this variant, as its trait contract.
+    ///
+    /// Returning `&dyn Filter` here is *not* dynamic dispatch for the tally: the
+    /// enum is still what is stored and matched, and this is a one-line internal
+    /// adaptor so each variant's `impl Filter` is used rather than duplicated
+    /// into three `match` arms per method.
+    fn as_filter(&self) -> &dyn Filter {
+        match self {
+            FilterKind::Cell(f) => f,
+            FilterKind::Material(f) => f,
+            FilterKind::Energy(f) => f,
+            FilterKind::Universe(f) => f,
+            FilterKind::Mesh(f) => f,
+            FilterKind::Surface(f) => f,
+            FilterKind::Mu(f) => f,
+            FilterKind::PolarAzimuthal(f) => f,
+            FilterKind::Time(f) => f,
+            FilterKind::Particle(f) => f,
+            FilterKind::DelayedGroup(f) => f,
+            FilterKind::SpatialLegendre(f) => f,
+            FilterKind::Zernike(f) => f,
+            FilterKind::SphericalHarmonics(f) => f,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -325,6 +871,7 @@ mod tests {
             energy: 1.0,
             surface_idx: usize::MAX,
             position: Position::new(0.0, 0.0, z),
+            ..Default::default()
         };
         let mid = f.expansion_moments(&ev(0.0)).unwrap();
         assert!((mid[0] - 1.0).abs() < 1e-14 && mid[1].abs() < 1e-14);

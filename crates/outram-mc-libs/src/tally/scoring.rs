@@ -173,6 +173,13 @@ pub fn score_track_length(
         energy,
         surface_idx: usize::MAX,
         position,
+        // The track-length estimator's caller does not yet thread the angle,
+        // time or particle type through. `..Default::default()` records that
+        // honestly: an angular, time or particle filter on a track-length tally
+        // would bin every event identically rather than silently producing
+        // plausible-looking structure. `filter_bin` is where that would be
+        // caught if it mattered -- see the note on `FilterEvent::default`.
+        ..Default::default()
     };
 
     // Functional-expansion path: a lone expansion filter (SpatialLegendreFilter)
@@ -286,6 +293,7 @@ pub fn score_collision(
         // The collision estimator has no spatial-filter callers yet; a mesh /
         // Legendre tally uses the track-length estimator. Score at the origin.
         position: Position::ZERO,
+        ..Default::default()
     };
 
     // Map the event through every filter to a flat bin index (row-major, first
@@ -319,7 +327,7 @@ pub fn score_collision(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tally::filter::{CellFilter, Filter};
+    use crate::tally::filter::{CellFilter, Filter, FilterKind};
     use crate::tally::tally::{Tally, TallyBin};
 
     fn cell_flux_tally(cells: Vec<usize>) -> Tally {
@@ -330,7 +338,7 @@ mod tests {
         Tally {
             id: 1,
             name: "flux".into(),
-            filters: vec![Box::new(filter)],
+            filters: vec![FilterKind::Cell(filter)],
             scores: vec![ScoreType::Flux],
             bins: vec![TallyBin::default(); n],
         }

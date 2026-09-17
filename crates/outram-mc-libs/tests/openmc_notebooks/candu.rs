@@ -81,6 +81,7 @@
 //! Superseded: **k_eff = 0.21486 ± 0.00489**, total fuel track-length
 //! flux = 2.03e4, central pin = 3.64e3, total fuel ν-fission = 3.52e3.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -283,7 +284,7 @@ fn candu_cluster_per_pin_flux_tally() {
     let mut tally = Tally {
         id: 1,
         name: "per-pin fuel flux".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Cell(filter)],
         scores: vec![ScoreType::Flux, ScoreType::NuFission],
         bins: vec![TallyBin::default(); N_PINS * 2], // 7 pins × 2 scores
     };

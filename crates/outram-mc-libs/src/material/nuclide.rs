@@ -1747,6 +1747,62 @@ impl Nuclide {
         }
     }
 
+    /// Any reconstructed MF=3 reaction cross section \[barn\] at `e` \[eV\], by
+    /// **MT number**, or `None` on the LOW tier or for an MT this evaluation has
+    /// no section for.
+    ///
+    /// A general diagnostic accessor: the transport kernel branches on a fixed
+    /// set of channels, and this is how a test asks what the evaluation says
+    /// about the ones it does *not* branch on. Used by
+    /// `tests/channel_branching_consistency.rs` to name the collisions that fall
+    /// outside the kernel's partition above ~5 MeV instead of reporting only
+    /// that some barns are missing.
+    pub fn reaction_xs(&self, mt: i32, e: f64) -> Option<f64> {
+        let XsSource::Pointwise { recon, .. } = &self.xs else {
+            return None;
+        };
+        let r = njoy_outram_park_fork::MtReaction::from_any(mt);
+        Some(recon.eval_mt(r, e))
+    }
+
+    /// The **partial cross section** of one inelastic channel `mt` \[barn\] at
+    /// incident energy `e` \[eV\], as the transport kernel's own channel sampler
+    /// sees it — or `None` on the LOW tier, which carries no per-level data, and
+    /// for an `mt` this nuclide has no level for.
+    ///
+    /// # Why this is public
+    ///
+    /// The kernel decides *whether* a collision is inelastic from
+    /// [`MicroXS::inelastic`] and *which level* from these partials, in two
+    /// different places. Nothing structurally forces the two to describe the same
+    /// partition, and when they do not the kernel enters the inelastic arm with
+    /// one probability and distributes within it using another. That is a live
+    /// candidate for the `op-os8x` spectral residual, and
+    /// `tests/channel_branching_consistency.rs` needs this accessor to measure
+    /// it. It is a diagnostic surface, not a transport hot path.
+    pub fn inelastic_channel_xs(&self, mt: i32, e: f64) -> Option<f64> {
+        let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
+            return None;
+        };
+        inel.iter()
+            .find(|l| l.mt.number() == mt)
+            .map(|l| recon.eval_mt(l.mt, e))
+    }
+
+    /// The **sum** of every inelastic channel's partial cross section \[barn\] at
+    /// `e` \[eV\] — exactly the normalisation
+    /// [`sample_inelastic`](Self::sample_inelastic) divides by.
+    ///
+    /// Compare against [`MicroXS::inelastic`]: they must agree, and
+    /// `tests/channel_branching_consistency.rs` asserts it. `None` on the LOW
+    /// tier.
+    pub fn inelastic_channel_total(&self, e: f64) -> Option<f64> {
+        let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
+            return None;
+        };
+        Some(inel.iter().map(|l| recon.eval_mt(l.mt, e)).sum())
+    }
+
     /// Mean **centre-of-mass** scattering cosine `⟨μ⟩` of one discrete inelastic
     /// level (ENDF MT=51…90) at incident energy `e` \[eV\], linearly
     /// interpolated between the evaluation's tabulated incident energies.

@@ -59,3 +59,29 @@ impl SpatialDist for SphericalSource {
         )
     }
 }
+
+/// Every spatial source distribution, as a closed enum.
+///
+/// This is what an [`super::source::IndependentSource`] stores. Dispatch is by
+/// `match`, per the workspace's Rust design rules (traits for the contract,
+/// enums for dispatch); [`SpatialDist`] remains the per-struct contract. The
+/// field was `Box<dyn SpatialDist>` until 2026-09-16, which violated both the
+/// "no trait objects" and "no `Box<T>`" rules.
+pub enum SpatialKind {
+    /// [`PointSource`].
+    Point(PointSource),
+    /// [`BoxSource`].
+    Box(BoxSource),
+    /// [`SphericalSource`].
+    Spherical(SphericalSource),
+}
+
+impl SpatialDist for SpatialKind {
+    fn sample(&self, seed: &mut u64) -> Position {
+        match self {
+            SpatialKind::Point(d) => d.sample(seed),
+            SpatialKind::Box(d) => d.sample(seed),
+            SpatialKind::Spherical(d) => d.sample(seed),
+        }
+    }
+}

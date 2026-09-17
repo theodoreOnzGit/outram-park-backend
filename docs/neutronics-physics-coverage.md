@@ -640,3 +640,123 @@ The column that matters is **control**. A mechanism can be implemented and
 verified and still be un-priceable, and an un-priceable mechanism is one whose
 contribution to a residual like `op-os8x` cannot be tested — which is precisely
 the position this crate was in before the ablation controls existed.
+
+
+---
+
+## The four open items, worked (2026-09-16/17)
+
+### 1. `ANGLE_TOL` — priced, and deliberately left alone
+
+The MF=4 lineariser's residual in `⟨μ⟩` was flagged as needing "its own paired
+measurement". It got one (`njoy`'s `tests/mf4_linearisation_tolerance_study.rs`),
+over 1857 Legendre rows:
+
+| criterion | tol | worst | worst <6 MeV | **Watt-weighted** | pts/row |
+|---|---|---|---|---|---|
+| rel. local (shipped) | 5e-3 | 6.21e-3 | 1.20e-3 | **1.44e-4** | 43.8 |
+| rel. local | 1e-3 | 3.95e-4 | 2.18e-4 | 2.90e-5 | 95.7 |
+| rel. peak | 5e-3 | 1.46e-1 | 1.14e-2 | 3.07e-4 | 21.5 |
+
+**A hypothesis measurement killed.** The obvious diagnosis — that a
+relative-to-local-`f` criterion is wrong for a moment, because it permits the
+largest absolute error exactly where `f` is biggest — predicts that scaling to
+the peak helps. It is **24× worse**: it loosens the tolerance in the tails,
+which act on `⟨μ⟩` through a long lever arm in `μ`.
+
+**Decision: `ANGLE_TOL` stays at 5e-3.** Weighted by a fission spectrum the
+error is `1.44e-4`, i.e. **0.019 % in `Σ_tr`**, sub-pcm on Godiva. Tightening
+costs 2.2× the grid points in every angular table for nothing measurable. The
+6.2e-3 worst case is real and sits at **13–28 MeV** — a fusion or
+deep-shielding application should tighten it and pay the memory.
+
+### 2. Tally filters — all eight landed
+
+`Zernike, SphericalHarmonics, Mu, PolarAzimuthal, Surface, DelayedGroup, Time,
+Particle`. Five could not previously have been written at all: `FilterEvent` had
+no field for an angle, a time, a particle type or a delayed group.
+
+Verified against their defining properties rather than themselves. The
+orthogonality gate tests **convergence**, not smallness — a fixed `1e-9`
+tolerance failed at `2.9e-5` and *looked* like a defect when it was the midpoint
+quadrature. Under 4× refinement both expansions fall by exactly **16.0×**, the
+second-order rate.
+
+**A hard-rule violation found and fixed on the way.** `Tally` held
+`Vec<Box<dyn Filter>>` and `IndependentSource` three more `Box<dyn ...>`, both
+banned by the workspace's Rust design rules. All are now enum dispatch with the
+traits kept as per-struct contracts — which is what gives the exhaustiveness
+check that made adding eight filters safe. **Zero `Box<dyn` remain in either
+crate.**
+
+### 3. Depletion coupled to a transport flux
+
+`OneGroupWeighting::TabulatedFlux` collapses against a measured spectrum, and
+`deplete_coupled` **re-solves it before every step** rather than freezing
+beginning-of-life data across the whole burnup — which `deplete_predictor` does,
+and which is only right if the spectrum does not move.
+
+Measured on a reflective HEU pin cell, spectrum tallied from `run_keff_csg` with
+an `EnergyFilter` at every step:
+
+| arm | one-group `k_inf` at BOL |
+|---|---|
+| `SingleEnergy` (0.0253 eV) | 1.92205 |
+| `ThermalFissionSpectrum` (`iwt = 4`) | 0.59300 |
+| **transport-solved flux** | **1.59737** |
+
+**The weighting choice moves the answer by a factor of three**, and the two
+frozen arms are wrong in *opposite* directions — a single thermal point
+maximises U-235 fission while barely seeing U-238 capture, and a generic
+thermal-reactor weight assumes moderation this geometry (16.3 % below 1 eV,
+43.3 % above 100 keV) does not have. These `k_inf` values are the collapse's own
+consistency metric, **not criticality results**; their spread is the finding.
+
+It is **operator splitting**, not predictor-corrector: no second solve at the
+end of a step, so first-order splitting error in step length.
+
+### 4. `op-os8x` — both named leads now measured and excluded
+
+The study had narrowed the residual to two unmeasured candidates. Both are now
+measured, neither is the cause.
+
+**Lead 1, the CM→lab transform** (`outram-mc`'s
+`tests/cm_to_lab_vs_kinematics.rs`). Checked against **Galilean velocity
+addition derived from first principles**, not against a copied formula — copying
+OpenMC's expression and matching it would test transcription. Over 2268 cases
+spanning A = 1…236, the full cosine range and `E'/E'_max` from 1e-6 to 0.99:
+agreement to **< 1e-14 of the input energy scale**, with the elastic reduction
+to `E(A² + 2Aμ + 1)/(A+1)²` exact to 1.18e-16.
+
+*A numerical trap on the way:* the first bound was **relative** and failed at
+5.1e-12, every worst case at A ≈ 1 with backward emission at `E'` near maximum —
+catastrophic cancellation (`v_cm ≈ 0.500√E` minus `v' ≈ 0.497√E`), where a
+relative bound measures the cancellation, not the transform.
+
+**Lead 2, channel branching at 2–3 MeV** (`tests/channel_branching_consistency.rs`).
+The kernel decides *whether* a collision is inelastic from `MicroXS::inelastic`
+and *which level* from the per-MT partials, in two different places, and nothing
+structurally forces them to agree. They agree **bit-identically** (`0.000e0`),
+and the sampled continuum share matches the cross sections within **1.23 σ**
+over 200 000 draws per point across 1.9–3.0 MeV.
+
+**`op-os8x` therefore remains open, with no candidate left on its list.** That
+is a more useful state than two open suspicions: the next hypothesis has to come
+from somewhere not yet considered.
+
+### A new defect that search turned up: MT=5 has no branch
+
+The collision partition closes to **1.4e-8** through 5 MeV and then does not:
+**7.0e-4 relative at 10 MeV, 2.7e-3 at 14 MeV**. `MT=1` exceeds the sum of its
+own partials by exactly the shortfall while `MT=4` equals `sum(51..91)` to 1e-8,
+so the inelastic decomposition is sound and the missing piece is outside it. It
+is **MT=5, "(n,anything)"** — 99.7 % of the shortfall at 10 MeV, 94.8 % at 14 MeV
+— which ENDF/B-VIII.0 uses to lump high-energy channels. The kernel has no arm
+for it, so those collisions fall through to whichever branch is last. Same class
+as the MT=17 defect that was losing two neutrons into the elastic arm.
+
+**Flagged and pinned, not fixed.** Sampling it needs its own emission law (MF=6
+for MT=5), a port rather than a branch. It is **zero below ~5 MeV**, so it
+cannot affect any fission-spectrum case here — including `op-os8x`, whose band
+is 1.9–3.0 MeV — but it is 0.27 % of all collisions for a 14 MeV source. The
+gate pins it so it cannot grow unnoticed and so closing it must update a test.

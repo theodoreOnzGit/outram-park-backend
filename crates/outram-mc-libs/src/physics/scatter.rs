@@ -112,7 +112,18 @@ pub fn rotate_direction(u: Direction, mu: f64, seed: &mut u64) -> Direction {
 ///
 /// With `e_cm_out = E·(A/(A+1))²` (elastic) this reduces to the familiar
 /// `E' = E·(A² + 2Aμ + 1)/(A+1)²`.
-fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
+///
+/// # Why this is public
+///
+/// It is one of the two unmeasured leads left on `op-os8x` — the Godiva
+/// spectral residual against OpenMC — because it is the step that couples the
+/// sampled `μ_cm` to `E'`, so an error here moves the spectrum while leaving
+/// every tabulated law identical, which is the signature that remains once
+/// cross sections, angular laws, `k`, and the MT=91 transfer table have all been
+/// excluded. Exposing it lets
+/// `outram-mc-libs`'s `tests/cm_to_lab_vs_kinematics.rs` check it against
+/// first-principles velocity addition rather than only through a sampler.
+pub fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) {
     let ap1 = awr + 1.0;
     let e_trans = e / (ap1 * ap1); // unit-mass energy at the CM velocity
     let cross = 2.0 * mu_cm * (e_cm_out * e_trans).sqrt();
@@ -503,8 +514,7 @@ fn sample_target_velocity_dbrc(
                     // Relative energy in the same |v| = sqrt(E) units:
                     // E_rel = (v_n - v_t)^2, expanded via the sampled cosine.
                     let beta_vt = beta_vt_sq.sqrt();
-                    let e_rel = (beta_vn * beta_vn + beta_vt_sq
-                        - 2.0 * beta_vn * beta_vt * mu)
+                    let e_rel = (beta_vn * beta_vn + beta_vt_sq - 2.0 * beta_vn * beta_vt * mu)
                         .max(0.0)
                         * kt_ev
                         / awr;

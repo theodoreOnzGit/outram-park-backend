@@ -72,6 +72,7 @@
 //! relative std-dev **0.027**. The peak bin index (45) and its energy range are
 //! properties of the fixed 50-bin log grid, not of the RNG, and did not move.
 
+use outram_mc_libs::tally::filter::FilterKind;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
@@ -238,7 +239,7 @@ fn flux_energy_spectrum() {
     let mut tally = Tally {
         id: 1,
         name: "flux spectrum".into(),
-        filters: vec![Box::new(filter)],
+        filters: vec![FilterKind::Energy(filter)],
         scores: vec![ScoreType::Flux],
         bins: vec![TallyBin::default(); n_bins],
     };

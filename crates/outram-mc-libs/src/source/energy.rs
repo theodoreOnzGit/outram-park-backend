@@ -99,6 +99,31 @@ impl EnergyDist for TabulatedEnergy {
     }
 }
 
+/// Every source energy distribution, as a closed enum. See
+/// [`super::spatial::SpatialKind`] for why this is an enum and not a trait
+/// object.
+pub enum EnergyKind {
+    /// [`Monoenergetic`].
+    Mono(Monoenergetic),
+    /// [`MaxwellSpectrum`].
+    Maxwell(MaxwellSpectrum),
+    /// [`WattSpectrum`].
+    Watt(WattSpectrum),
+    /// [`TabulatedEnergy`].
+    Tabulated(TabulatedEnergy),
+}
+
+impl EnergyDist for EnergyKind {
+    fn sample(&self, seed: &mut u64) -> f64 {
+        match self {
+            EnergyKind::Mono(d) => d.sample(seed),
+            EnergyKind::Maxwell(d) => d.sample(seed),
+            EnergyKind::Watt(d) => d.sample(seed),
+            EnergyKind::Tabulated(d) => d.sample(seed),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,11 +164,19 @@ mod tests {
     fn tabulated_energy_handles_degenerate_tables() {
         let mut seed = 1u64;
         assert_eq!(
-            TabulatedEnergy { energies: vec![], cdf: vec![] }.sample(&mut seed),
+            TabulatedEnergy {
+                energies: vec![],
+                cdf: vec![]
+            }
+            .sample(&mut seed),
             0.0
         );
         assert_eq!(
-            TabulatedEnergy { energies: vec![5.0e5], cdf: vec![1.0] }.sample(&mut seed),
+            TabulatedEnergy {
+                energies: vec![5.0e5],
+                cdf: vec![1.0]
+            }
+            .sample(&mut seed),
             5.0e5
         );
         // A CDF that never reaches 1 saturates at the last energy.
