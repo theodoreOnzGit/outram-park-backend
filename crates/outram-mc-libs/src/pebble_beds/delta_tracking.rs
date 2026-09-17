@@ -28,7 +28,7 @@
 //! (1965); the method is standard in modern MC codes (OpenMC `delta_tracking`,
 //! Serpent, RMC). See also [`super::references`] for the pebble-bed geometry work.
 
-use crate::geometry::position::{Direction, Position};
+use crate::geometry::position::{stream, Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
 use crate::rng::lcg::prn;
@@ -569,4 +569,159 @@ mod tests {
         let frac = reals as f64 / n as f64;
         assert!((frac - 0.3).abs() < 0.01, "real fraction {frac} ≠ 0.3");
     }
+}
+
+
+// ---------------------------------------------------------------------------
+// BOUNDED DELTA FLIGHT — the handoff half of hybrid tracking (bn:op-867c.3)
+// ---------------------------------------------------------------------------
+
+/// How a [`bounded_delta_flight`] ended.
+///
+/// NEW WORK, no OpenMC counterpart. The existing `delta_flight` in
+/// [`super::keff_delta`] returns `Option<(Position, usize, Direction)>`, which
+/// can express only "real collision" and "gone" — it cannot distinguish a
+/// particle that **left the delta region** (and must continue under the
+/// enclosing tracker) from one whose history was **lost**. Hybrid tracking
+/// needs all three apart.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DeltaStep {
+    /// A real collision inside the region. Sample the reaction here.
+    Collision {
+        /// Where the collision happened.
+        position: Position,
+        /// Material index at that point.
+        material: usize,
+        /// Direction on arrival (unchanged by the flight itself).
+        direction: Direction,
+        /// Virtual collisions rejected on the way. The cost of the majorant.
+        virtual_collisions: u32,
+    },
+    /// The flight reached the region boundary. The particle sits **exactly on
+    /// it**, and the caller continues with the enclosing tracking method.
+    Exit {
+        /// The boundary point, not a point beyond it.
+        position: Position,
+        /// Direction, unchanged.
+        direction: Direction,
+        /// Virtual collisions rejected inside the region.
+        virtual_collisions: u32,
+    },
+    /// The virtual-collision budget ran out. **The history is lost**, and this
+    /// variant exists so that is reported rather than silent.
+    ///
+    /// `keff_delta.rs`'s `delta_flight` signals this as a bare `None`, which
+    /// the caller cannot tell from a legitimate exit — it shows up only as an
+    /// unexplained leak. Counting it is half of `bn:op-867c.5`.
+    Exhausted {
+        /// The budget that was exhausted.
+        virtual_collisions: u32,
+    },
+}
+
+/// **Delta-track a flight inside a BOUNDED region, stopping at its boundary.**
+///
+/// The half of hybrid tracking that does not exist today. `delta_flight`
+/// (`keff_delta.rs:453`) samples a distance, advances the **full** distance,
+/// and only then looks up the material — so when the flight leaves the region
+/// it returns a point already *past* the boundary, which is useless for a
+/// handoff. This truncates at the boundary instead.
+///
+/// # Why truncating is EXACTLY unbiased, not an approximation
+///
+/// The flight length is exponential with rate `Σ_maj`, which is **memoryless**:
+/// `P(s > a + b | s > a) = P(s > b)`. So cutting a sampled flight at the
+/// boundary and resuming the sampling on the far side — under whatever method
+/// and whatever majorant apply there — gives the same distribution of
+/// interaction points as never having cut it. No weight correction, no
+/// rejection term, nothing to get subtly wrong.
+///
+/// This is the property the whole hybrid design rests on, and it is why the
+/// answer cannot depend on where the region boundaries are drawn. Only the
+/// **cost** depends on that.
+///
+/// # Parameters
+/// - `start`, `direction`, `energy` — the particle.
+/// - `majorant` — bounding `Σ_t` over **this region's** materials, built with
+///   [`Majorant::over_indices`]. It must bound every material
+///   `material_at` can return inside the region: an under-bound majorant is a
+///   **silent bias**, not a crash.
+/// - `distance_to_exit` — distance along `direction` from a point to where the
+///   region ends. `f64::INFINITY` means "not reached from here".
+/// - `material_at` — material index at a point inside the region.
+/// - `max_virtual` — budget before the history is declared lost.
+/// - `seed` — the particle's RNG stream, advanced in place.
+///
+/// # Returns
+/// [`DeltaStep`] — collision, exit, or exhaustion, each carrying the
+/// virtual-collision count so the majorant's price is measurable rather than
+/// assumed.
+pub fn bounded_delta_flight<D, M>(
+    start: Position,
+    direction: Direction,
+    energy: f64,
+    majorant: &Majorant,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    max_virtual: u32,
+    distance_to_exit: D,
+    material_at: M,
+    seed: &mut u64,
+) -> DeltaStep
+where
+    D: Fn(Position, Direction) -> f64,
+    M: Fn(Position) -> Option<usize>,
+{
+    let maj = majorant.at(energy);
+    let mut r = start;
+    let mut virtual_collisions = 0_u32;
+
+    // A non-positive majorant means nothing in this region can interact, so the
+    // particle crosses it ballistically. Treat that as an exit rather than a
+    // lost history: it is a legitimate (if degenerate) physical situation, e.g.
+    // a void region.
+    if !(maj > 0.0) {
+        let d = distance_to_exit(r, direction);
+        return DeltaStep::Exit {
+            position: if d.is_finite() { stream(r, direction, d) } else { r },
+            direction,
+            virtual_collisions,
+        };
+    }
+
+    for _ in 0..max_virtual {
+        let s = sample_delta_distance(maj, seed);
+        let d_exit = distance_to_exit(r, direction);
+        if s >= d_exit {
+            // The flight leaves the region. Land EXACTLY on the boundary --
+            // not past it -- so the caller can re-locate unambiguously.
+            return DeltaStep::Exit {
+                position: stream(r, direction, d_exit),
+                direction,
+                virtual_collisions,
+            };
+        }
+        r = stream(r, direction, s);
+        let Some(m) = material_at(r) else {
+            // `material_at` returned None inside what the geometry says is the
+            // region. That is a geometry/query disagreement, not a physical
+            // escape, and silently continuing would bias the result. Report it
+            // as exhaustion so it surfaces as a lost history rather than a
+            // wrong answer.
+            return DeltaStep::Exhausted { virtual_collisions };
+        };
+        let sigma_t = materials[m].macro_xs_total(energy, nuclides);
+        match classify_collision(sigma_t, maj, seed) {
+            DeltaEvent::Real => {
+                return DeltaStep::Collision {
+                    position: r,
+                    material: m,
+                    direction,
+                    virtual_collisions,
+                }
+            }
+            DeltaEvent::Virtual => virtual_collisions += 1,
+        }
+    }
+    DeltaStep::Exhausted { virtual_collisions }
 }
