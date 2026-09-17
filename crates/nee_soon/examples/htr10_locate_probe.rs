@@ -73,3 +73,9 @@ fn main() {
         println!("  material {m:?}: {c}");
     }
 }
+
+/// How often does a UNIFORM point in the source box land in fissionable
+/// material? That is the source rejection sampler's acceptance rate, and the
+/// driver gives up after `n_particles * 10_000` attempts.
+#[allow(dead_code)]
+fn acceptance_rate() {}

@@ -190,6 +190,12 @@ fn main() {
     println!("  difference   = {pcm:+.0} pcm   (our sigma {sigma:.0} pcm)");
     println!("  virtual coll = {}", res.virtual_collisions);
     println!("  wall clock   = {secs:.1} s");
+    println!("  generations reported: {}", res.k_by_generation.len());
+    let nz = res.k_by_generation.iter().filter(|k| **k > 0.0).count();
+    println!("  generations with k > 0: {nz}");
+    for (i, k) in res.k_by_generation.iter().take(5).enumerate() {
+        println!("    gen {i}: k = {k:.6}");
+    }
     if let (Some(first), Some(last)) = (res.entropy.first(), res.entropy.last()) {
         println!("  entropy      = {first:.4} -> {last:.4} bits (ceiling {:.4})",
                  (entropy_mesh.n_bins() as f64).log2());
