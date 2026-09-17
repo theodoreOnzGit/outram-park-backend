@@ -111,6 +111,52 @@ pub enum CellFill {
     Void,
 }
 
+/// **How a particle is transported through a region.**
+///
+/// This is NEW WORK, not a port — OpenMC is pure surface tracking and has no
+/// equivalent. It exists so a single model can use delta (Woodcock) tracking
+/// where the geometry is finely divided, and ordinary surface tracking
+/// everywhere else. See `bn:op-867c.1`, gh #214.
+///
+/// # Why a per-region choice rather than one method per run
+///
+/// Delta tracking samples flights against a **majorant** — a bound on `Σ_t`
+/// over everything the tracker might encounter — so one strong absorber
+/// anywhere raises the cost *everywhere*. Measured on 2026-09-17
+/// (`examples/majorant_absorber_price.rs`): adding one illustrative B4C control
+/// rod to the bounded material set costs **26.3x in tracking steps at the
+/// thermal peak**, and it costs that in reflector graphite metres from the rod
+/// just as much as inside it. Above ~1 keV it costs nothing, because there the
+/// rod is not the largest cross section in the problem.
+///
+/// Scoping the method — and with it the majorant — to the region that benefits
+/// is what recovers that factor. Delta tracking is **unbiased** under any valid
+/// majorant, so this is a cost decision and never an accuracy one.
+///
+/// # Inheritance
+///
+/// A region's method applies to everything nested inside it unless a deeper
+/// region overrides it. [`super::geometry::GeometryPath::tracking`] reports the
+/// method in force at the located point, which is the deepest declaration on
+/// the path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TrackingMethod {
+    /// Conventional surface tracking: stream to the next boundary, collide on
+    /// the local `Σ_t`. The default, and correct everywhere.
+    #[default]
+    Surface,
+    /// Delta (Woodcock) tracking against the majorant at `majorant` in the
+    /// caller's majorant table.
+    ///
+    /// The index is deliberately **not** a majorant by value: majorants live in
+    /// `pebble_beds::delta_tracking`, and having `geometry` own one would
+    /// invert the module dependency. The transport driver supplies the table.
+    Delta {
+        /// Index into the caller-supplied majorant table.
+        majorant: usize,
+    },
+}
+
 #[derive(Debug, Clone)]
 /// A CSG cell. Maps to `openmc::Cell`.
 pub struct Cell {
@@ -126,6 +172,18 @@ pub struct Cell {
     /// (`coord.r -= translation`). Zero for material cells and untranslated fills.
     /// Mirrors `Cell::translation_` in `src/cell.cpp`.
     pub translation: Position,
+    /// How particles are transported through this region, or `None` to
+    /// **inherit** from the enclosing region.
+    ///
+    /// `None` and `Some(TrackingMethod::Surface)` are deliberately different:
+    /// the first inherits, the second is an explicit override that carves a
+    /// surface-tracked island out of a delta-tracked parent — a control-rod
+    /// channel inside a pebble bed being exactly that case. Collapsing them
+    /// into a bare `TrackingMethod` makes every nested universe silently reset
+    /// its parent's choice, since `Surface` is the common default.
+    ///
+    /// NEW WORK, no OpenMC counterpart.
+    pub tracking: Option<TrackingMethod>,
 }
 
 impl Cell {
@@ -142,6 +200,7 @@ impl Cell {
             fill: CellFill::Material(material_idx),
             temperature,
             translation: Position::ZERO,
+            tracking: None,
         }
     }
 
@@ -153,7 +212,39 @@ impl Cell {
             fill,
             temperature: 293.6,
             translation,
+            tracking: None,
         }
+    }
+
+    /// Declare that this region is transported by **delta (Woodcock) tracking**
+    /// against majorant `majorant_idx` in the caller's majorant table.
+    ///
+    /// Builder form so existing call sites are untouched and the non-default is
+    /// always visible at the point of use:
+    ///
+    /// ```ignore
+    /// let bed = Cell::fill(7, bed_region, CellFill::Lattice(0), Position::ZERO)
+    ///     .delta_tracked(0);
+    /// ```
+    ///
+    /// The method applies to everything nested inside the region unless a
+    /// deeper cell overrides it. See [`TrackingMethod`] for why the majorant is
+    /// scoped here rather than globally — measured at **26.3x** in tracking
+    /// steps at thermal energies for a single control rod.
+    #[must_use]
+    pub fn delta_tracked(mut self, majorant_idx: usize) -> Self {
+        self.tracking = Some(TrackingMethod::Delta { majorant: majorant_idx });
+        self
+    }
+
+    /// Declare this region **explicitly** surface-tracked, overriding an
+    /// inherited delta region. Distinct from leaving `tracking` as `None`,
+    /// which inherits — this is how a surface-tracked control-rod channel is
+    /// carved out of a delta-tracked bed.
+    #[must_use]
+    pub fn surface_tracked(mut self) -> Self {
+        self.tracking = Some(TrackingMethod::Surface);
+        self
     }
 
     /// Whether a particle at `r` heading along `u` lies inside this cell's region.

@@ -19,7 +19,7 @@ use super::lattice::Lattice;
 use super::position::{stream, Direction, Position};
 use super::surface::{BoundaryType, SurfaceKind};
 use super::universe::Universe;
-use crate::geometry::cell::Cell;
+use crate::geometry::cell::{Cell, TrackingMethod};
 
 /// One coordinate level in a located particle's nesting chain.
 ///
@@ -54,6 +54,17 @@ pub struct GeometryPath {
     /// ([`SurfaceToken::NONE`] if it is on none). Used for coincident-distance
     /// handling and for unambiguous cell membership after a crossing.
     pub on_surface: SurfaceToken,
+    /// **How this point is to be transported** — the deepest
+    /// [`TrackingMethod`] declared on the path from root to leaf.
+    ///
+    /// A region's method is inherited by everything nested inside it, so a
+    /// delta-tracked bed makes its pebble and TRISO universes delta-tracked
+    /// too, without each of them restating it. A deeper cell may override,
+    /// which is how a surface-tracked control-rod channel is carved out of a
+    /// delta-tracked bed.
+    ///
+    /// NEW WORK, no OpenMC counterpart — see [`TrackingMethod`] (`bn:op-867c.1`).
+    pub tracking: TrackingMethod,
 }
 
 impl GeometryPath {
@@ -183,6 +194,12 @@ impl Geometry {
             lattice_index: [0; 3],
         };
 
+        // Inheritance: a cell that declares nothing (`None`) keeps whatever the
+        // enclosing region chose, so a delta-tracked bed makes its pebble and
+        // TRISO universes delta-tracked without each restating it. A cell that
+        // declares `Some(..)` overrides — including `Some(Surface)`, which is
+        // how a surface-tracked rod channel sits inside a delta-tracked bed.
+        let mut tracking = TrackingMethod::Surface;
         loop {
             let i_cell = self.universes[level.universe].find_cell(
                 level.r,
@@ -193,6 +210,9 @@ impl Geometry {
             )?;
             level.cell = i_cell;
             let cell = &self.cells[i_cell];
+            if let Some(declared) = cell.tracking {
+                tracking = declared;
+            }
 
             match cell.fill {
                 CellFill::Material(m) => {
@@ -201,6 +221,7 @@ impl Geometry {
                         levels,
                         material: Some(m),
                         on_surface,
+                        tracking,
                     });
                 }
                 CellFill::Void => {
@@ -209,6 +230,7 @@ impl Geometry {
                         levels,
                         material: None,
                         on_surface,
+                        tracking,
                     });
                 }
                 CellFill::Universe(u_idx) => {

@@ -678,6 +678,7 @@ fn uo2_pincell_geometry() -> Geometry {
         fill: CellFill::Void,
         temperature: T,
         translation: Position::ZERO,
+        tracking: None,
     };
     // Clad: outside gap_or ∩ inside clad_or.
     let clad = Cell::material(

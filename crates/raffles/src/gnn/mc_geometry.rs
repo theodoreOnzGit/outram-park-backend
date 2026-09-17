@@ -140,6 +140,7 @@ mod tests {
             temperature: 300.0,
             translation: Default::default(),
         }
+        tracking: None,
     }
 
     /// **Methodology.** Nested shells — the classic pin-cell or TRISO layout —

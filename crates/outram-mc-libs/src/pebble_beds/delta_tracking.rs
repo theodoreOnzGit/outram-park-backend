@@ -129,6 +129,55 @@ impl Majorant {
     /// - `subsamples` — sub-energies evaluated per bin (`≥ 2`); more ⇒ safer against
     ///   narrow resonances.
     /// - `margin` — non-negative safety fraction multiplying the final envelope.
+    /// **A majorant bounding only the materials a REGION can reach.**
+    ///
+    /// The spatial counterpart to `DhUniverse::reachable_materials`, which
+    /// already narrows by material *set*. This is what makes per-region delta
+    /// tracking ([`crate::geometry::cell::TrackingMethod`]) worth having: the
+    /// bound is taken over the region's own materials, so a strong absorber
+    /// elsewhere in the model cannot raise the cost inside it.
+    ///
+    /// # Why it matters, measured
+    ///
+    /// `examples/majorant_absorber_price.rs` (2026-09-17) added one
+    /// illustrative B4C control rod to the set bounded for an HTR-10 pebble:
+    /// **26.3x more tracking steps at the thermal peak**, 27.8x worst, and
+    /// exactly 1.00x above ~1 keV. That cost lands everywhere the majorant
+    /// applies, including reflector graphite far from the rod. Scoping the
+    /// bound to the region is what recovers it.
+    ///
+    /// # SAFETY OF THE BOUND — read this
+    ///
+    /// An **under-bound majorant is a silent bias**, not a crash: delta
+    /// tracking would reject collisions it should have accepted and quietly
+    /// return the wrong answer. So `indices` must list **every** material the
+    /// region's `material_at` can return — derive it from the geometry, never
+    /// guess it, and never prune it to "the ones that matter". Over-bounding
+    /// only costs time.
+    ///
+    /// # Parameters
+    /// - `materials` — the global material table.
+    /// - `indices` — indices into it that the region can actually reach.
+    /// - `energies` — the grid to tabulate on.
+    /// - `margin` — fractional headroom, e.g. `0.3` for 30 %.
+    ///
+    /// Indices outside `materials` are ignored rather than panicking, because a
+    /// majorant that is too *small* is the dangerous direction and a stale
+    /// index should not be able to produce one by aborting a build halfway.
+    pub fn over_indices(
+        materials: &[Material],
+        indices: &[usize],
+        nuclides: &[Nuclide],
+        energies: &[f64],
+        margin: f64,
+    ) -> Self {
+        let subset: Vec<Material> = indices
+            .iter()
+            .filter_map(|&i| materials.get(i).cloned())
+            .collect();
+        Majorant::from_materials(&subset, nuclides, energies, margin)
+    }
+
     pub fn bounding(
         materials: &[Material],
         nuclides: &[Nuclide],

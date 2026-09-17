@@ -1410,6 +1410,7 @@ pub fn to_mc_geometry(mesh: &Mesh) -> Result<outram_mc_libs::prelude::Geometry, 
         fill: CellFill::Void,
         temperature: 293.6,
         translation: Position::ZERO,
+        tracking: None,
     };
     Ok(Geometry {
         surfaces,
