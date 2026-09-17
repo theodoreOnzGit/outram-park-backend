@@ -83,6 +83,42 @@ impl TrisoSpec {
         packing_fraction: 0.30,
     };
 
+    /// **HTR-10 fuel-pebble TRISO**, as tabulated by Li, Yu & Wei (2014),
+    /// "Research on Benchmark Calculation and Analysis of HTR-10 with RMC
+    /// Code", HTR 2014 (Weihai), Table 2: 250 µm UO2 kernel radius, then
+    /// **90** / 40 / 35 / 40 µm buffer / IPyC / SiC / OPyC thicknesses, giving a
+    /// 455 µm particle radius.
+    ///
+    /// # The packing fraction is derived, not quoted
+    ///
+    /// Table 2 gives no packing fraction. It gives 8335 particles in a fuel zone
+    /// of radius 2.5 cm (a 3 cm ball less its 0.5 cm fuel-free shell), and
+    /// `8335 * (4/3)pi(0.0455)^3 / ((4/3)pi(2.5)^3)` = **0.050248114**, which is
+    /// the figure below. The same table closes independently on mass: those
+    /// 8335 kernels at 10.4 g/cm3 carry 4.9999 g of heavy metal at 17 %
+    /// enrichment, against the 5 g the table states — four significant figures
+    /// on a quantity the geometry never sees, which is why this is treated as a
+    /// faithful transcription of the benchmark rather than a rounded citation.
+    ///
+    /// # This differs from [`TrisoRadii::HTR10`](crate::geometry::TrisoRadii::HTR10)
+    ///
+    /// That preset carries a **95 µm** buffer, so a 460 µm particle and a
+    /// 5.19 % packing fraction — a 3.3 % larger particle volume. Its own
+    /// documentation calls it "typical / reference values … NOT an
+    /// authoritative specification", and it predates this table. The two are
+    /// **not interchangeable** and neither has yet been adjudicated against
+    /// IAEA-TECDOC-1382, which is the actual HTR-10 benchmark authority.
+    /// Until that is done, this constant carries a citation and that one
+    /// carries a disclaimer; do not silently swap one for the other.
+    pub const HTR10_LI2014: Self = Self {
+        kernel: 0.0250,
+        buffer: 0.0340,
+        ipyc: 0.0380,
+        sic: 0.0415,
+        opyc: 0.0455,
+        packing_fraction: 0.050_248_114,
+    };
+
     /// Whether the radii are strictly increasing and the packing fraction is in
     /// `(0, 0.64)` (below the random-close-pack ceiling).
     pub fn is_valid(&self) -> bool {

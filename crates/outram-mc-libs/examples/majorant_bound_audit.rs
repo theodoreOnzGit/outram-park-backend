@@ -51,16 +51,29 @@ fn audit(name: &str, materials: &[Material], nuclides: &[Nuclide], margin: f64, 
     }
 
     println!("\n{name}");
-    println!("  majorant built over [{lo:.1e}, {hi:.1e}] eV, margin {:.0} %", margin * 100.0);
-    println!("  scanned            [{scan_lo:.1e}, {scan_hi:.1e}] eV, {n} points x {} materials",
-             materials.len());
-    println!("  worst Sigma_t / Sigma_maj = {worst:.4}  at E = {worst_e:.3e} eV \
-              in '{}'", materials[worst_mat].name);
+    println!(
+        "  majorant built over [{lo:.1e}, {hi:.1e}] eV, margin {:.0} %",
+        margin * 100.0
+    );
+    println!(
+        "  scanned            [{scan_lo:.1e}, {scan_hi:.1e}] eV, {n} points x {} materials",
+        materials.len()
+    );
+    println!(
+        "  worst Sigma_t / Sigma_maj = {worst:.4}  at E = {worst_e:.3e} eV \
+              in '{}'",
+        materials[worst_mat].name
+    );
     if worst > 1.0 {
         println!("  *** UNDER-BOUND at {breached} scan points. Delta tracking loses collisions");
-        println!("      wherever this holds, which biases k. Sigma_maj is short by a factor {worst:.3}.");
+        println!(
+            "      wherever this holds, which biases k. Sigma_maj is short by a factor {worst:.3}."
+        );
     } else {
-        println!("  bounded everywhere scanned (headroom {:.1} %)", 100.0 * (1.0 / worst - 1.0));
+        println!(
+            "  bounded everywhere scanned (headroom {:.1} %)",
+            100.0 * (1.0 / worst - 1.0)
+        );
     }
 
     // Where does the majorant actually stop?
@@ -70,8 +83,10 @@ fn audit(name: &str, materials: &[Material], nuclides: &[Nuclide], margin: f64, 
             .iter()
             .map(|mt| mt.macro_xs_total(e, nuclides))
             .fold(0.0, f64::max);
-        println!("    E = {e:.1e} eV : Sigma_maj = {m:.4}  max Sigma_t = {st:.4}  ratio {:.3}",
-                 st / m.max(f64::MIN_POSITIVE));
+        println!(
+            "    E = {e:.1e} eV : Sigma_maj = {m:.4}  max Sigma_t = {st:.4}  ratio {:.3}",
+            st / m.max(f64::MIN_POSITIVE)
+        );
     }
 }
 
@@ -107,15 +122,20 @@ fn resonance_scan(materials: &[Material], nuclides: &[Nuclide], margin: f64) {
             }
         }
     }
-    println!("\nResolved-resonance fine scan, margin {:.0} %", margin * 100.0);
+    println!(
+        "\nResolved-resonance fine scan, margin {:.0} %",
+        margin * 100.0
+    );
     println!("  {lo:.1e} - {hi:.1e} eV at {n} points (~1e-4 eV resolution at 6.67 eV)");
     println!("  worst Sigma_t / Sigma_maj = {worst:.4} at E = {worst_e:.5} eV");
     if worst > 1.0 {
         println!("  *** UNDER-BOUND at {breaches} points — delta tracking loses collisions");
         println!("      in the FUEL, which loses absorption and biases k HIGH.");
     } else {
-        println!("  bounded (headroom {:.1} %) — the majorant is not missing resonance peaks",
-                 100.0 * (1.0 / worst - 1.0));
+        println!(
+            "  bounded (headroom {:.1} %) — the majorant is not missing resonance peaks",
+            100.0 * (1.0 / worst - 1.0)
+        );
     }
 }
 
@@ -125,7 +145,10 @@ fn main() {
         .iter()
         .map(|n| Nuclide::from_core(n).unwrap())
         .collect();
-    let comp = |i: usize, d: f64| NuclideComponent { nuclide_idx: i, atom_density: d };
+    let comp = |i: usize, d: f64| NuclideComponent {
+        nuclide_idx: i,
+        atom_density: d,
+    };
     let materials = vec![
         Material {
             id: 1,
@@ -145,15 +168,27 @@ fn main() {
     println!("====================");
     audit(
         "openmc-notebook TRISO lattice (margin 0.1, as tests/openmc_notebooks/triso.rs builds it)",
-        &materials, &nuclides, 0.1, 1.0e-4, 2.0e7,
+        &materials,
+        &nuclides,
+        0.1,
+        1.0e-4,
+        2.0e7,
     );
     audit(
         "same materials, DH V&V settings (margin 0.3, floor 1e-4)",
-        &materials, &nuclides, 0.3, 1.0e-4, 2.0e7,
+        &materials,
+        &nuclides,
+        0.3,
+        1.0e-4,
+        2.0e7,
     );
     audit(
         "same materials, floor dropped to 1e-6 eV",
-        &materials, &nuclides, 0.1, 1.0e-6, 2.0e7,
+        &materials,
+        &nuclides,
+        0.1,
+        1.0e-6,
+        2.0e7,
     );
     resonance_scan(&materials, &nuclides, 0.1);
 }

@@ -382,17 +382,24 @@ mod tests {
             name: "HEU kernel".into(),
             temperature: 293.6,
             components: vec![
-                crate::material::material::NuclideComponent { nuclide_idx: 0, atom_density: 4.4994e-2 },
-                crate::material::material::NuclideComponent { nuclide_idx: 1, atom_density: 2.4984e-3 },
+                crate::material::material::NuclideComponent {
+                    nuclide_idx: 0,
+                    atom_density: 4.4994e-2,
+                },
+                crate::material::material::NuclideComponent {
+                    nuclide_idx: 1,
+                    atom_density: 2.4984e-3,
+                },
             ],
         };
         let matrix = Material {
             id: 2,
             name: "H matrix".into(),
             temperature: 293.6,
-            components: vec![
-                crate::material::material::NuclideComponent { nuclide_idx: 2, atom_density: 4.0e-2 },
-            ],
+            components: vec![crate::material::material::NuclideComponent {
+                nuclide_idx: 2,
+                atom_density: 4.0e-2,
+            }],
         };
         let materials = [fuel, matrix];
         let floor = 1.0e-4;

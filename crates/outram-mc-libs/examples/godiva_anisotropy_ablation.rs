@@ -178,7 +178,10 @@ mod desktop {
             .cloned()
             .map(Nuclide::with_isotropic_elastic_scattering)
             .collect();
-        println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        println!(
+            "Nuclear data ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         // The ablation must actually have changed something. A silently no-op
         // ablation would "pass" every gate below while measuring nothing.
@@ -324,8 +327,10 @@ mod desktop {
         // what the MISSING inelastic anisotropy is worth.
         let scaled = INELASTIC_OVER_ELASTIC_MU * d_surf;
         println!("\n  CALIBRATION -- what the missing inelastic anisotropy should be worth:");
-        println!("    scaled from this ablation ({:.4} of the mu-bar budget): {scaled:+.0} pcm",
-                 INELASTIC_OVER_ELASTIC_MU);
+        println!(
+            "    scaled from this ablation ({:.4} of the mu-bar budget): {scaled:+.0} pcm",
+            INELASTIC_OVER_ELASTIC_MU
+        );
         println!("    measured, from the k_eff/k_inf split:                  ~+181 pcm");
         println!("    predicted, one-group diffusion:                         +219 pcm");
         println!("    Three independent routes, agreeing to ~25%. Linear scaling across a");

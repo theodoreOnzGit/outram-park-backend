@@ -326,7 +326,10 @@ fn materials() -> Vec<Material> {
         temperature: TEMP_K,
         components: comps
             .into_iter()
-            .map(|(nuclide_idx, atom_density)| NuclideComponent { nuclide_idx, atom_density })
+            .map(|(nuclide_idx, atom_density)| NuclideComponent {
+                nuclide_idx,
+                atom_density,
+            })
             .collect(),
     };
 
@@ -336,16 +339,22 @@ fn materials() -> Vec<Material> {
     let (m_li7, m_li6, m_be9, m_f19) = (7.016_003, 6.015_123, 9.012_183, 18.998_403);
     let li7_per_formula = 2.0 * LI7_PURITY;
     let li6_per_formula = 2.0 * (1.0 - LI7_PURITY);
-    let m_formula =
-        li7_per_formula * m_li7 + li6_per_formula * m_li6 + m_be9 + 4.0 * m_f19;
+    let m_formula = li7_per_formula * m_li7 + li6_per_formula * m_li6 + m_be9 + 4.0 * m_f19;
     // Formula units per barn-cm; multiply by the per-formula count for each.
     let n_formula = flibe_rho * N_A_B / m_formula;
 
     vec![
         // 0 kernel — 19.9 % HALEU UCO. Kernel carbon is not graphite.
-        m(0, "UCO kernel", vec![
-            (U235, 4.40e-3), (U238, 1.77e-2), (O16, 2.27e-2), (C_FREE, 9.10e-3),
-        ]),
+        m(
+            0,
+            "UCO kernel",
+            vec![
+                (U235, 4.40e-3),
+                (U238, 1.77e-2),
+                (O16, 2.27e-2),
+                (C_FREE, 9.10e-3),
+            ],
+        ),
         // 1 buffer — porous graphite
         m(1, "buffer", vec![(C_GRAPHITE, 5.02e-2)]),
         // 2 IPyC — pyrolytic graphite
@@ -359,12 +368,16 @@ fn materials() -> Vec<Material> {
         // 6 shell — fuel-free graphite outer shell
         m(6, "shell graphite", vec![(C_GRAPHITE, 8.78e-2)]),
         // 7 coolant — FLiBe, free-gas in both codes
-        m(7, "FLiBe coolant", vec![
-            (F19, 4.0 * n_formula),
-            (LI7, li7_per_formula * n_formula),
-            (LI6, li6_per_formula * n_formula),
-            (BE9, n_formula),
-        ]),
+        m(
+            7,
+            "FLiBe coolant",
+            vec![
+                (F19, 4.0 * n_formula),
+                (LI7, li7_per_formula * n_formula),
+                (LI6, li6_per_formula * n_formula),
+                (BE9, n_formula),
+            ],
+        ),
     ]
 }
 
@@ -458,7 +471,10 @@ fn main() {
     );
     println!("  data       : HIGH tier, ENDF/B-VIII.0 + crystalline-graphite S(a,b), {TEMP_K} K");
     println!("  geometry   : 1.9 cm fuel zone / 2.0 cm pebble / FLiBe to r = 3.0 cm, reflective");
-    println!("  reference  : OpenMC explicit TRISO k = {:.5} +/- {:.5}\n", OMC_EXPLICIT.0, OMC_EXPLICIT.1);
+    println!(
+        "  reference  : OpenMC explicit TRISO k = {:.5} +/- {:.5}\n",
+        OMC_EXPLICIT.0, OMC_EXPLICIT.1
+    );
 
     // Optionally fit the ring-RPT radius for THIS code and THIS data rather
     // than borrowing the deck author's OpenMC-fitted value. Off by default
@@ -488,7 +504,9 @@ fn main() {
             }
             Err(e) => {
                 println!("  fit failed ({e}); falling back to the reference radius\n");
-                DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }
+                DhTreatment::RingRpt {
+                    inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+                }
             }
         }
     } else {
@@ -497,7 +515,9 @@ fn main() {
              to fit this code's own radius instead — about a dozen extra solves)\n",
             DhTreatment::FHR_REFERENCE_RPT_INNER
         );
-        DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }
+        DhTreatment::RingRpt {
+            inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+        }
     };
 
     let treatments = [
@@ -530,7 +550,13 @@ fn main() {
             secs,
             particles
         );
-        rows.push(Row { treatment, k: result.k_mean, std: result.k_std, secs, particles });
+        rows.push(Row {
+            treatment,
+            k: result.k_mean,
+            std: result.k_std,
+            secs,
+            particles,
+        });
     }
 
     let Some(reference) = rows.iter().find(|r| r.treatment.is_exact()) else {
@@ -555,7 +581,11 @@ fn main() {
             dk,
             combined,
             z,
-            if z >= 3.0 { "RESOLVED bias" } else { "not resolved at this n" }
+            if z >= 3.0 {
+                "RESOLVED bias"
+            } else {
+                "not resolved at this n"
+            }
         );
     }
 
@@ -592,7 +622,11 @@ fn main() {
     for row in &rows {
         let speed = reference.secs / row.secs;
         if row.treatment.is_exact() {
-            println!("  {:<28} {:>5.2}x   (reference)", row.treatment.name(), speed);
+            println!(
+                "  {:<28} {:>5.2}x   (reference)",
+                row.treatment.name(),
+                speed
+            );
         } else {
             let (dk, _) = delta(row.k, row.std, reference.k, reference.std);
             println!(

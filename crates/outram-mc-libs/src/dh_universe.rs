@@ -361,7 +361,9 @@ impl DhTreatment {
         Self::ChordLength,
         Self::Scls,
         Self::Homogenised,
-        Self::RingRpt { inner_radius: Self::FHR_REFERENCE_RPT_INNER },
+        Self::RingRpt {
+            inner_radius: Self::FHR_REFERENCE_RPT_INNER,
+        },
     ];
 
     /// Short human-readable name, e.g. for table rows.
@@ -475,7 +477,40 @@ impl PebbleParams {
     /// coolant at index 7. Supply FLiBe at the temperature the rest of the
     /// table uses; the deck it matches runs at 600 K.
     pub fn fhr_unit_cell() -> Self {
-        Self { coolant_radius: Some(3.0), ..Self::fhr_reference() }
+        Self {
+            coolant_radius: Some(3.0),
+            ..Self::fhr_reference()
+        }
+    }
+
+    /// The **HTR-10 fuel pebble**, as specified by Li, Yu & Wei (2014), HTR 2014
+    /// (Weihai), Table 2: a 6 cm ball with a 0.5 cm fuel-free graphite shell, so
+    /// a 2.5 cm fuel zone holding 8335 TRISO particles
+    /// ([`TrisoSpec::HTR10_LI2014`]) at 5.02 % packing. Reflective at the pebble
+    /// surface — this is the bare pebble's own k-infinity, with no coolant and
+    /// no surrounding lattice.
+    ///
+    /// `materials` is left empty and **must be filled in** before use — the
+    /// geometry is reference data, the composition is yours. See
+    /// `examples/htr10_pebble_delta_tracking.rs` for the seven-material table
+    /// built from the same source, including the boron impurities.
+    ///
+    /// # Helium is absent, deliberately
+    ///
+    /// HTR-10 is helium-cooled at 3 MPa, but helium at that pressure is
+    /// neutronically negligible and Table 2 gives no coolant composition. The
+    /// boundary therefore sits at the pebble surface. Reach for
+    /// [`Self::with_coolant`] if a surrounding medium is wanted; nothing in this
+    /// preset assumes one.
+    pub fn htr10_li2014() -> Self {
+        Self {
+            spec: TrisoSpec::HTR10_LI2014,
+            fuel_zone_radius: 2.5,
+            pebble_radius: 3.0,
+            coolant_radius: None,
+            materials: Vec::new(),
+            seed: 0x4854_5231_3020_0A01,
+        }
     }
 
     /// Replace the material table, returning `self` so constructors can chain.
@@ -546,7 +581,10 @@ enum DhGeometry {
         outer: OuterShells,
     },
     /// Naive homogenisation — one smeared material filling the whole fuel zone.
-    Homogenised { homogenised: usize, outer: OuterShells },
+    Homogenised {
+        homogenised: usize,
+        outer: OuterShells,
+    },
     /// Ring-RPT — matrix ball inside `inner_radius`, homogenised particle
     /// material in the annulus out to `fuel_outer_radius`, matrix again from
     /// there to the fuel-zone boundary.
@@ -734,8 +772,12 @@ impl DhUniverse {
                 let mut materials = params.materials.clone();
                 materials.push(particle);
                 let particle_idx = materials.len() - 1;
-                let medium =
-                    ClsMedium::new(r_particle, pf, MaterialId(particle_idx), MaterialId(MATRIX_IDX));
+                let medium = ClsMedium::new(
+                    r_particle,
+                    pf,
+                    MaterialId(particle_idx),
+                    MaterialId(MATRIX_IDX),
+                );
                 return Ok(Self {
                     treatment,
                     geometry: DhGeometry::Cls {
@@ -755,8 +797,12 @@ impl DhUniverse {
                 let mut materials = params.materials.clone();
                 materials.push(particle);
                 let particle_idx = materials.len() - 1;
-                let cls =
-                    ClsMedium::new(r_particle, pf, MaterialId(particle_idx), MaterialId(MATRIX_IDX));
+                let cls = ClsMedium::new(
+                    r_particle,
+                    pf,
+                    MaterialId(particle_idx),
+                    MaterialId(MATRIX_IDX),
+                );
                 // Retention window radius. SCLS remembers inclusions within one
                 // transport mean free path; the matrix mean chord is the length
                 // scale the sampler itself works in, so it is the natural stand-in
@@ -797,7 +843,10 @@ impl DhUniverse {
                 let idx = materials.len() - 1;
                 return Ok(Self {
                     treatment,
-                    geometry: DhGeometry::Homogenised { homogenised: idx, outer },
+                    geometry: DhGeometry::Homogenised {
+                        homogenised: idx,
+                        outer,
+                    },
                     materials,
                     domain,
                     particles: 0,
@@ -816,8 +865,7 @@ impl DhUniverse {
                         params.fuel_zone_radius
                     )));
                 }
-                let r_outer3 =
-                    inner_radius.powi(3) + pf * params.fuel_zone_radius.powi(3);
+                let r_outer3 = inner_radius.powi(3) + pf * params.fuel_zone_radius.powi(3);
                 let fuel_outer_radius = r_outer3.cbrt();
                 if fuel_outer_radius > params.fuel_zone_radius {
                     return Err(DhError::Geometry(format!(
@@ -875,7 +923,9 @@ impl DhUniverse {
         }
         const PARTICLE: usize = 0;
         const MATRIX: usize = 1;
-        let domain = DeltaDomain::Cube { half: params.half_width };
+        let domain = DeltaDomain::Cube {
+            half: params.half_width,
+        };
 
         let (geometry, particles) = match treatment {
             DhTreatment::DeltaTracking => {
@@ -886,13 +936,12 @@ impl DhUniverse {
                     method: PackingMethod::Rsa,
                     seed: params.seed,
                 };
-                let spheres = cfg.generate().map_err(|e| DhError::Packing(format!("{e:?}")))?;
+                let spheres = cfg
+                    .generate()
+                    .map_err(|e| DhError::Packing(format!("{e:?}")))?;
                 let n = spheres.len();
-                let packing = PackedSpheres::from_spheres(
-                    spheres,
-                    params.half_width,
-                    params.particle_radius,
-                );
+                let packing =
+                    PackedSpheres::from_spheres(spheres, params.half_width, params.particle_radius);
                 (
                     DhGeometry::Dispersed {
                         packing,
@@ -1198,11 +1247,25 @@ impl DhUniverse {
         let mut idx: Vec<usize> = match &self.geometry {
             // Explicit geometry reaches every material the caller supplied.
             DhGeometry::Pebble(_) => (0..self.materials.len()).collect(),
-            DhGeometry::Dispersed { particle_material, matrix_material, .. } => {
+            DhGeometry::Dispersed {
+                particle_material,
+                matrix_material,
+                ..
+            } => {
                 vec![*particle_material, *matrix_material]
             }
-            DhGeometry::Cls { particle_material, matrix_material, outer, .. }
-            | DhGeometry::Scls { particle_material, matrix_material, outer, .. } => {
+            DhGeometry::Cls {
+                particle_material,
+                matrix_material,
+                outer,
+                ..
+            }
+            | DhGeometry::Scls {
+                particle_material,
+                matrix_material,
+                outer,
+                ..
+            } => {
                 let mut v = vec![*particle_material, *matrix_material];
                 v.extend(outer.reachable());
                 v
@@ -1212,7 +1275,12 @@ impl DhUniverse {
                 v.extend(outer.reachable());
                 v
             }
-            DhGeometry::RingRpt { homogenised, matrix_material, outer, .. } => {
+            DhGeometry::RingRpt {
+                homogenised,
+                matrix_material,
+                outer,
+                ..
+            } => {
                 let mut v = vec![*homogenised, *matrix_material];
                 v.extend(outer.reachable());
                 v
@@ -1279,7 +1347,13 @@ impl DhUniverse {
     ///   direction (a slightly smaller window retains slightly less).
     fn size_scls_window(&self, nuclides: &[Nuclide]) {
         use std::sync::atomic::Ordering;
-        let DhGeometry::Scls { medium, window_set, matrix_material, .. } = &self.geometry else {
+        let DhGeometry::Scls {
+            medium,
+            window_set,
+            matrix_material,
+            ..
+        } = &self.geometry
+        else {
             return;
         };
         if window_set.swap(true, Ordering::SeqCst) {
@@ -1401,9 +1475,7 @@ pub fn fit_ring_rpt_inner_radius(
     // Default bracket: from a solid smear (inner radius 0, i.e. all the
     // particle material in a central ball) out to most of the fuel zone. The
     // upper end is capped by conservation — the annulus cannot leave the zone.
-    let max_inner = (params.fuel_zone_radius.powi(3)
-        * (1.0 - params.spec.packing_fraction))
-        .cbrt();
+    let max_inner = (params.fuel_zone_radius.powi(3) * (1.0 - params.spec.packing_fraction)).cbrt();
     let (lo, hi) = bracket.unwrap_or((0.05 * params.fuel_zone_radius, 0.985 * max_inner));
 
     let k_at = |r: f64| -> Result<KeffResult, DhError> {
@@ -1482,7 +1554,9 @@ impl RingRptFit {
     /// The treatment this fit produced, ready to pass to
     /// [`DhUniverse::pebble`].
     pub fn treatment(&self) -> DhTreatment {
-        DhTreatment::RingRpt { inner_radius: self.inner_radius }
+        DhTreatment::RingRpt {
+            inner_radius: self.inner_radius,
+        }
     }
 
     /// Whether the fit converged to inside the target's own statistics.
@@ -1565,7 +1639,9 @@ fn pack_in_ball(
             method: PackingMethod::Rsa,
             seed,
         };
-        let spheres = cfg.generate().map_err(|e| DhError::Packing(format!("{e:?}")))?;
+        let spheres = cfg
+            .generate()
+            .map_err(|e| DhError::Packing(format!("{e:?}")))?;
         let kept: Vec<_> = spheres
             .into_iter()
             .filter(|s| s.center.norm() + particle_radius <= radius)
@@ -1576,7 +1652,10 @@ fn pack_in_ball(
             ));
         }
         let realised = kept.len() as f64 * unit;
-        Ok((PackedSpheres::from_spheres(kept, half, particle_radius), realised))
+        Ok((
+            PackedSpheres::from_spheres(kept, half, particle_radius),
+            realised,
+        ))
     };
 
     let mut request = packing_fraction;
@@ -1607,7 +1686,9 @@ fn pack_in_ball(
 /// Volume-homogenise the five TRISO layers into one particle material.
 fn homogenise_particle(materials: &[Material], spec: TrisoSpec) -> Result<Material, DhError> {
     if materials.len() < 5 {
-        return Err(DhError::Materials("need the 5 TRISO layer materials".into()));
+        return Err(DhError::Materials(
+            "need the 5 TRISO layer materials".into(),
+        ));
     }
     let r = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
     let total = r[4] * r[4] * r[4];
@@ -1674,9 +1755,21 @@ mod tests {
             "expected a real packing, got {}",
             delta.particle_count()
         );
-        for t in [DhTreatment::ChordLength, DhTreatment::Scls, DhTreatment::Homogenised, DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }] {
+        for t in [
+            DhTreatment::ChordLength,
+            DhTreatment::Scls,
+            DhTreatment::Homogenised,
+            DhTreatment::RingRpt {
+                inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+            },
+        ] {
             let u = DhUniverse::pebble(params(), t).unwrap();
-            assert_eq!(u.particle_count(), 0, "{} should store no particles", t.name());
+            assert_eq!(
+                u.particle_count(),
+                0,
+                "{} should store no particles",
+                t.name()
+            );
         }
     }
 
@@ -1686,7 +1779,14 @@ mod tests {
     fn approximate_treatments_extend_the_material_table() {
         let delta = DhUniverse::pebble(params(), DhTreatment::DeltaTracking).unwrap();
         assert_eq!(delta.materials().len(), 7);
-        for t in [DhTreatment::ChordLength, DhTreatment::Scls, DhTreatment::Homogenised, DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER }] {
+        for t in [
+            DhTreatment::ChordLength,
+            DhTreatment::Scls,
+            DhTreatment::Homogenised,
+            DhTreatment::RingRpt {
+                inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+            },
+        ] {
             let u = DhUniverse::pebble(params(), t).unwrap();
             assert!(
                 u.materials().len() > 7,
@@ -1704,13 +1804,22 @@ mod tests {
             let u = DhUniverse::pebble(params(), t).unwrap();
             // Deep inside the fuel zone.
             assert!(
-                u.material_at(Position { x: 0.0, y: 0.0, z: 0.0 }).is_some(),
+                u.material_at(Position {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0
+                })
+                .is_some(),
                 "{}: no material at the centre",
                 t.name()
             );
             // In the fuel-free shell (fuel zone 1.9, pebble 2.0).
             assert_eq!(
-                u.material_at(Position { x: 0.0, y: 0.0, z: 1.95 }),
+                u.material_at(Position {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.95
+                }),
                 Some(6),
                 "{}: shell should be material 6",
                 t.name()
@@ -1762,7 +1871,13 @@ mod tests {
             let u = DhUniverse::dispersed(p(), t)
                 .unwrap_or_else(|e| panic!("dispersed {} failed: {e}", t.name()));
             assert_eq!(u.treatment(), t);
-            assert!(u.material_at(Position { x: 0.0, y: 0.0, z: 0.0 }).is_some());
+            assert!(u
+                .material_at(Position {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0
+                })
+                .is_some());
         }
     }
 
@@ -1781,13 +1896,18 @@ mod tests {
         };
         let e = DhUniverse::dispersed(
             p,
-            DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER },
+            DhTreatment::RingRpt {
+                inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+            },
         )
         .expect_err("ring-RPT on a cube should be refused");
         assert!(matches!(e, DhError::Geometry(_)), "wrong error kind: {e}");
         // The message must point at the treatment that IS right for a cube,
         // rather than only saying no.
-        assert!(format!("{e}").contains("Homogenised"), "unhelpful message: {e}");
+        assert!(
+            format!("{e}").contains("Homogenised"),
+            "unhelpful message: {e}"
+        );
     }
 
     /// The two smearing treatments must be distinguishable through the API, or
@@ -1799,20 +1919,39 @@ mod tests {
         let at = |t: DhTreatment, r: f64| {
             DhUniverse::pebble(params(), t)
                 .unwrap()
-                .material_at(Position { x: 0.0, y: 0.0, z: r })
+                .material_at(Position {
+                    x: 0.0,
+                    y: 0.0,
+                    z: r,
+                })
         };
-        let rpt = DhTreatment::RingRpt { inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER };
+        let rpt = DhTreatment::RingRpt {
+            inner_radius: DhTreatment::FHR_REFERENCE_RPT_INNER,
+        };
 
         // Naive: same material at the centre and near the fuel-zone edge.
-        assert_eq!(at(DhTreatment::Homogenised, 0.0), at(DhTreatment::Homogenised, 1.8));
+        assert_eq!(
+            at(DhTreatment::Homogenised, 0.0),
+            at(DhTreatment::Homogenised, 1.8)
+        );
 
         // Ring-RPT: matrix in the middle, homogenised fuel in the annulus.
         // r_outer^3 = 1.493359375^3 + 0.30 * 1.9^3 -> r_outer ~ 1.746 cm.
         let centre = at(rpt, 0.0).expect("centre");
         let annulus = at(rpt, 1.6).expect("annulus");
-        assert_ne!(centre, annulus, "ring-RPT annulus is not distinct from its inner ball");
-        assert_eq!(centre, 5, "ring-RPT inner ball should be the matrix (index 5)");
-        assert_eq!(at(rpt, 1.8), Some(5), "outside the annulus should be matrix again");
+        assert_ne!(
+            centre, annulus,
+            "ring-RPT annulus is not distinct from its inner ball"
+        );
+        assert_eq!(
+            centre, 5,
+            "ring-RPT inner ball should be the matrix (index 5)"
+        );
+        assert_eq!(
+            at(rpt, 1.8),
+            Some(5),
+            "outside the annulus should be matrix again"
+        );
     }
 
     /// A ring-RPT radius too large for the packing fraction cannot conserve
@@ -1837,8 +1976,22 @@ mod tests {
         let eight = PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8));
         let u = DhUniverse::pebble(eight, DhTreatment::Homogenised).expect("unit cell builds");
         // Coolant fills 2.0 < r < 3.0 for every treatment.
-        assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 2.5 }), Some(7));
-        assert_eq!(u.material_at(Position { x: 0.0, y: 0.0, z: 1.95 }), Some(6));
+        assert_eq!(
+            u.material_at(Position {
+                x: 0.0,
+                y: 0.0,
+                z: 2.5
+            }),
+            Some(7)
+        );
+        assert_eq!(
+            u.material_at(Position {
+                x: 0.0,
+                y: 0.0,
+                z: 1.95
+            }),
+            Some(6)
+        );
     }
 
     /// **The safety property behind the majorant.** `reachable_materials` bounds
@@ -1854,7 +2007,9 @@ mod tests {
     fn every_material_the_geometry_returns_is_declared_reachable() {
         let mut seed = 0x5EED_1234_u64;
         let mut next = || {
-            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             ((seed >> 11) as f64) / ((1u64 << 53) as f64)
         };
 
@@ -2037,7 +2192,8 @@ mod tests {
         MaterialQuery::begin_history(&&u);
         let after_boundary = retained();
         assert_eq!(
-            after_boundary, after_first,
+            after_boundary,
+            after_first,
             "begin_history dropped {} of {after_first} retained inclusions; it must reset the \
              flight only, not the reconstructed geometry",
             after_first - after_boundary
