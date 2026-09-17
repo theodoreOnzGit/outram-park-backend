@@ -1202,7 +1202,7 @@ later needs to know not just today's bar but that it moved, or it will
 misread older results as failures against a standard that did not exist when
 they were produced.
 
-**Declared mature as of 2026-09-15** (12 of 38 crates). The bar and its
+**Declared mature as of 2026-09-15** (12 of 40 crates). The bar and its
 evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
 the authority:
 
@@ -1725,7 +1725,8 @@ built, tested, and published from this single repository.
 | `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
 | `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
 | `kovan` (bins `kovan`, `kovan-cli`, `kovan-tui`) | KOVAN's three front ends over the knowledge layer, per GitHub issue #30's final interface spec (2026-08-21): `kovan` is the **human-facing GUI** (egui, the graph digitiser window); `kovan-cli` is the **agent-facing** CLI (`clap`, line-oriented output for Claude Code and other coding agents, incl. `digitise`); `kovan-tui` is the **human-facing** TUI (`ratatui`; genuinely Android/Termux-usable, not just buildable — its Android module gate was lifted the same day). Consolidated 2026-08-21 from the former separate `kovan-cli`/`kovan-tui` crates, then restructured from five binaries down to these three later the same day. **Relicensed to AGPL-3.0-only 2026-08-21** — the one crate in this workspace that differs from the default, so it can depend on `kopitiam-pdf` (also AGPL-3.0-only, GitHub issue #30's PDF-reader work). See `crates/kovan/NOTICE` and `crates/kovan/DECISIONS.md`. | **AGPL-3.0** (workspace exception — see NOTICE) |
-| `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. Not affiliated with the Blender Foundation. | GPL-3.0 |
+| `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. The two studio **examples** moved to `dhoby-ghaut` on 2026-09-17; the export bridges themselves stay here. Not affiliated with the Blender Foundation. | GPL-3.0 |
+| `dhoby-ghaut` | **DHOBY GHAUT** (*Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit*) — the intended GUI home for OUTRAM PARK's meshing and Monte Carlo studios. **Placeholder: no GUI is implemented yet** (`src/lib.rs` only). Holds the `mc_studio` and `mesh_studio` **examples**, moved here verbatim (100 % rename) from `outram-blender` on 2026-09-17. | GPL-3.0 |
 | `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; `pipeline::surface_to_tet_dual_mesh` consumes an `outram-blender` surface and emits an `outram-foam` polyMesh. Independent fork, not official cfMesh. | GPL-3.0 |
 | `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh). Independent fork, not official OpenFOAM. | GPL-3.0 |
 | `outram-foam-cli` | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries. Independent fork, not official OpenFOAM. | GPL-3.0 |
@@ -1939,7 +1940,7 @@ target rather than letting them break the build.
 ## WebAssembly (`wasm32-unknown-unknown`) — supported target, with a hard caveat
 
 **Every in-scope crate's library must compile for `wasm32-unknown-unknown`, and
-a gate enforces it.** Added 2026-09-04 (epic `op-okqo`); 30 of 36 members are in
+a gate enforces it.** Added 2026-09-04 (epic `op-okqo`); 34 of 40 members are in
 scope, 6 are deliberately excluded.
 
 ```bash
