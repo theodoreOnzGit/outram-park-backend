@@ -134,7 +134,17 @@ fn main() {
     // 6: helium -- deliberately near-void, as the paper's own model omits it.
     mats.push(Material { id: 70, name: "helium".into(), components: vec![], temperature: TEMP_K });
     // 7: reflector, TECDOC Table 4-3 zone 22 (graphite reflector structure).
-    let z = zone_composition(22).expect("zone 22 is listed");
+    // OUTRAM_HTR10_REFL_ZONE selects which TECDOC Table 4-3 zone stands in for
+    // the WHOLE reflector. Zone 22 (the default) is the cleanest graphite in
+    // the table -- highest carbon, near-zero boron -- so it is the OPTIMISTIC
+    // bound. Zone 17 is boronated carbon brick (natural boron 3.46e-3, ~7000x
+    // zone 22), so using it everywhere is the PESSIMISTIC bound. The real
+    // reflector is a mixture of both and the truth lies between them; this
+    // knob measures how wide that bracket is before the R-Z zone map is built.
+    let zone_id = std::env::var("OUTRAM_HTR10_REFL_ZONE")
+        .ok().and_then(|v| v.parse().ok()).unwrap_or(22usize);
+    let z = zone_composition(zone_id).expect("zone is listed");
+    println!("  reflector zone: {zone_id} (C {:.4e}, natural B {:.4e})", z.carbon, z.natural_boron);
     mats.push(Material {
         id: 71,
         name: "reflector graphite (TECDOC zone 22)".into(),
@@ -151,7 +161,23 @@ fn main() {
         ],
         temperature: TEMP_K,
     });
-    assert_eq!(mats.len(), mat::REFLECTOR + 1);
+    // 8: boronated carbon brick, the outermost reflector annulus. TECDOC
+    // Table 4-3 zone 17 -- natural boron 3.4635e-3, ~7300x zone 22's.
+    let zb = zone_composition(17).expect("zone 17 is listed");
+    mats.push(Material {
+        id: 72,
+        name: "boronated carbon brick (TECDOC zone 17)".into(),
+        components: vec![
+            NuclideComponent { nuclide_idx: NUC.c_graphite, atom_density: zb.carbon },
+            NuclideComponent {
+                nuclide_idx: NUC.b10,
+                atom_density: if matches!(boron, BoronReading::None) { 0.0 }
+                              else { zb.natural_boron * B10_OF_NATURAL },
+            },
+        ],
+        temperature: TEMP_K,
+    });
+    assert_eq!(mats.len(), mat::BORONATED + 1);
 
     // OUTRAM_HTR10_SURFACE=1 runs the SAME geometry with surface tracking only.
     let surface_only = std::env::var("OUTRAM_HTR10_SURFACE").is_ok();
@@ -181,8 +207,12 @@ fn main() {
 
     let settings = KeffSettings {
         n_particles: histories,
-        n_inactive: 30,
-        n_active: 70,
+        // Tunable so source convergence can be MEASURED rather than assumed.
+        // A loosely-coupled 1.8 m pebble core is exactly where a thin inactive
+        // stage biases k, and the reference paper's own 5 inactive cycles are
+        // not a model to copy.
+        n_inactive: env_usize("OUTRAM_HTR10_INACTIVE", 30),
+        n_active: env_usize("OUTRAM_HTR10_ACTIVE", 70),
         temperature_k: TEMP_K,
         seed: 20260917,
         compute: ComputeType::CpuMultiThread(ThreadCount::Auto),
@@ -237,6 +267,18 @@ fn main() {
     println!("  generations with k > 0: {nz}");
     for (i, k) in res.k_by_generation.iter().take(5).enumerate() {
         println!("    gen {i}: k = {k:.6}");
+    }
+    // Full entropy trace: a still-rising trace means the source has NOT
+    // converged and every active generation before it is biased.
+    if !res.entropy.is_empty() {
+        let step = (res.entropy.len() / 12).max(1);
+        print!("  entropy trace:");
+        for (i, h) in res.entropy.iter().enumerate() {
+            if i % step == 0 || i + 1 == res.entropy.len() {
+                print!(" {h:.3}");
+            }
+        }
+        println!();
     }
     if let (Some(first), Some(last)) = (res.entropy.first(), res.entropy.last()) {
         println!("  entropy      = {first:.4} -> {last:.4} bits (ceiling {:.4})",

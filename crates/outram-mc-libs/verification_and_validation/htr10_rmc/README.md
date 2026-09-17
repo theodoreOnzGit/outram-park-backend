@@ -3,109 +3,104 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
-**Status as of 2026-09-17: the core now runs and produces an eigenvalue. It is
-NOT yet in agreement with the benchmark.** `bn:op-867c`, gh #214.
-
-Measured 2026-09-17, 14 rings x 25 layers (13,675 tiles, a 93.6 cm-radius by
-122.5 cm bed against the benchmark's 123.576 cm critical height), 2000 histories
-x [30 inactive + 70 active], surface tracking, ENDF/B-VIII.0:
+**Status as of 2026-09-17: the core reproduces the RMC benchmark to
+`-909 +/- 108 pcm`, inside the 500-1000 pcm gate.** `bn:op-867c`, gh #214.
 
 ```text
-k_eff        = 0.857140 +/- 0.003028     (RMC 1.004288, difference -14715 pcm)
-collisions   = 458.09 per history
-lost locate  = 0     stuck events = 0     negative distances = 0
-leak vacuum  = 7.965 %
+k_eff        = 0.995200 +/- 0.001082     (RMC 1.004288, difference -909 pcm)
+14 rings x 25 layers, 20425 tiles, 10000 histories x [40 inactive + 120 active]
+surface tracking, ENDF/B-VIII.0, 348.17 collisions/history
+lost locate = 0     stuck events = 0     negative distances = 0
+leak vacuum = 0.479 %
 ```
 
-**-14,715 pcm is far outside the 500-1000 pcm gate.** This is reported as a
-failure to agree, not as a result. What changed today is that the model now
-transports neutrons correctly, so the residual is attributable to the MODEL
-rather than to the tracker or the geometry engine.
+**Read the qualifications before quoting this.** The reference is a code-to-code
+number with **no stated uncertainty**, the data library differs (VIII.0 here
+against the references' VII.0), and this crate's own thermal accuracy floor is
+~200-400 pcm. Agreement at 909 pcm is the gate being met, not a validated model.
+**The conus is still not modelled** (see below), and it is the one known
+omission that would move `k` UP — so the residual is not a free parameter, it
+has a named candidate.
 
-### How it got here, measured at each step
+## How it got there — the ablation chain
 
-| configuration | `k_eff` | change |
-|---|---|---|
-| before the lattice fix | **0.000000** | — |
-| 12 rings x 20 layers (98.0 cm bed) | 0.707506 +/- 0.006010 | first nonzero |
-| 13 rings x 25 layers (critical height) | 0.803706 +/- 0.003286 | +9,620 pcm |
-| packing corrected 0.5811 -> 0.610 | **0.857140 +/- 0.003028** | +5,343 pcm |
+Every step below was measured, and each one is a PHYSICAL correction, not a
+tuned parameter. Nothing in this model is fitted to the reference.
 
-### Ablations that bound the residual
+| # | change | `k_eff` | worth |
+|---|---|---|---|
+| 0 | `HexLattice` axial-frame port defect | 0.000000 | — |
+| 1 | lattice fix (see below) | 0.707506 | first nonzero |
+| 2 | critical loading height | 0.803706 | +9,620 pcm |
+| 3 | ~~ball-packing target~~ (my error) | ~~0.857140~~ | *spurious* |
+| 4 | bed cylinder inscribed in the tiled hexagon | 0.897875 | +4,074 pcm |
+| 5 | target fuel-zone fraction, not ball packing | 0.877606 | -2,027 pcm, removing #3 |
+| 6 | lattice axial CENTRE corrected | — | see below |
+| 7 | ring count from `(sqrt(3)/2)*pitch` | 1.089253 | **6+7 together +21,165 pcm** |
+| 8 | boronated carbon bricks, 167.793->190 cm | 1.076647 | -1,260 pcm |
+| 9 | cold coolant annulus, 140.6->148.6 cm | 1.075431 | -122 pcm (0.3 sigma) |
+| 10 | **empty core cavity above the bed** | 0.934346 | **-14,108 pcm** |
+| 11 | axial reflector above the cavity | **0.995200** | +6,121 pcm |
+
+### The three geometry defects, and how each was caught
+
+**Steps 6 and 7 were one symptom with two causes**, both found by MEASURING
+coverage rather than deriving it — formulas for how much of a cylinder a hex
+lattice tiles were wrong twice here, so `examples/htr10_fuel_fraction.rs`
+samples the real geometry through `locate` instead.
+
+- **Axial offset (step 6).** The lattice was given
+  `center.z = -bed_half_height + h/2`, but `HexLattice::center_offset` already
+  centres the stack about that point. The whole lattice sat 58.79 cm low: it
+  spanned z = [-120.03, +2.45] against a bed cell of [-61.24, +61.24]. The
+  tell was that the untiled fraction was a flat **0.48 at every radius,
+  including r = 0** — an axial offset, not a radial shortfall.
+- **Ring count (step 7).** A Y-oriented hex lattice steps `(sqrt(3)/2)*pitch`
+  in x, so 15 rings reached ~80 cm where `(n-0.5)*pitch` claimed 95.8 cm.
+- **Both were SILENT.** The untiled region took the lattice's `outer`
+  universe -- dummy graphite pebbles -- so no history was lost, no distance was
+  negative, and the geometry simply contained less fuel than the model said.
+  Measured kernel volume fraction went **0.000690 -> 0.001605** across the two
+  fixes, against a paper-implied 0.0016769 (now 4.3 % low, from 59 % low).
+
+**Step 10 is the largest single term and was a missing VOID, not missing
+material.** Terry (2005) Fig. 2 and TECDOC-1382 put the core cavity at 221.818
+cm with the bed occupying 123.06 cm of it, leaving **98.758 cm of helium above
+the bed**. Modelling that as reflector graphite returned neutrons the real
+reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
+3.1 % to 15.7 %; step 11 then put the real ~130 cm of graphite ABOVE the cavity
+(an unextended `bed_half_height + 100` had left 1.2 cm), bringing leakage to
+0.479 %.
+
+### What is still NOT modelled
+
+- **The conus.** The bed sits on a 36.946 cm conus tapering from r = 90 cm to
+  the 25 cm discharge tube, and it is **full of pebbles**. This model has a
+  flat-bottomed cylinder, so it is MISSING that fuel -- the omission pushes `k`
+  DOWN, i.e. toward the observed -909 pcm. Adding it is the next step and needs
+  conditional tile omission, which the lattice does not have (see the plan).
+- **The bottom is modelled symmetrically** with the top rather than as conus +
+  discharge tube.
+- **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
+  homogenised with their borings.
+- **Control rods themselves** are absent; the benchmark arm is rods-out.
+
+### Ablations that bound the terms
 
 | ablation | `k` | reads as |
 |---|---|---|
-| reflective outer boundary (no leakage) | 0.806182 +/- 0.002811 | leakage is worth only ~250 pcm -- the 100 cm reflector already returns nearly everything, so the deficit is in the BED, not the boundary |
-| all fuel, no dummy balls | 0.915527 +/- 0.003962 | the 57:43 graphite dilution costs **~11,000 pcm**, which is what dummy balls are for |
-| all boron removed | **0.943105 +/- 0.003170** | boron is worth **8,597 pcm** on the core (`-6,118 pcm` from RMC) |
+| all fuel, no dummy balls | 0.915527 +/- 0.003962 | 57:43 dilution ~11,000 pcm |
+| all boron removed | 0.943105 +/- 0.003170 | boron 8,597 pcm -- ~6x its bare-pebble worth |
+| reflector all boronated (zone 17) | 0.453025 +/- 0.002857 | the reflector composition brackets [-55,126, +8,496] pcm |
+| 150 inactive generations | 0.852762 +/- 0.002915 | **source convergence ruled out** (1.0 sigma) |
 
-The first two are at the pre-packing-fix geometry, so they bound components
-rather than adding to the current number. The boron arm is at the current
-geometry and is directly comparable to the 0.857140 above.
+Entropy is flat at ~5.13 bits from generation 0, which is the independent check
+on that last row.
 
-### The boron reading now dominates, and it is an INPUT question
-
-Boron is worth **8,597 pcm here against 1,487 pcm on a bare pebble** -- roughly
-six times -- because the core surrounds the fuel with 100 cm of reflector
-graphite and 43 % graphite dummy balls, and a thermal neutron spends most of its
-life in graphite where a 3840 b absorber at a few ppm competes directly with
-carbon's own 0.0035 b. The bare-pebble sensitivity study therefore **understates
-this term badly**, and citing its 1,487 pcm as the scale of the boron
-uncertainty for a whole core would be wrong.
-
-This matters because the reading is genuinely ambiguous, as
-`examples/htr10_pebble_delta_tracking.rs` already records: Table 2's "ppm" has
-no stated basis, and is taken here as *natural* boron *by weight*. The
-reflector's boron comes from a different source again -- TECDOC Table 4-3's
-`natural_boron` column, 4.738e-7 against carbon 8.824e-2, i.e. 5.4 ppm atomic --
-and is multiplied by 0.199 to get B-10. **If that column is already an
-absorbing-species ("boron equivalent") density rather than elemental natural
-boron, the 0.199 must not be applied and the model is currently UNDER-absorbing
-in the reflector** -- which would make the disagreement worse, not better.
-
-**Removing the boron is not a fix and must not be read as one.** Real nuclear
-graphite carries it, and the 0.943105 arm is unphysical. What the ablation
-establishes is that ~8,600 pcm of this model's answer rests on an input reading
-that the source documents do not state unambiguously, and that resolving that
-reading against TECDOC-1382 is worth more than any further transport work.
-
-### What is NOT yet explained
-
-~14,700 pcm. The bed's own `k_inf` is ~0.86 where a core critical at this height
-needs ~1.1. Ruled out so far: leakage (~250 pcm), the tracker (surface and delta
-agree), the geometry engine (0 lost / 0 stuck / 0 negative), the TRISO loading
-(1.006 of intended), the materials (cross sections printed and checked per
-material), and the packing (now 0.610 by construction).
-
-**One comparison that looked like a contradiction and is not.** The recorded
-single-pebble `k_inf = 1.68515 +/- 0.00178` is a **bare pebble** -- reflective at
-r = 3.0 cm, i.e. pure pebble material at packing 1.0 with no interstitial void.
-The bed is 39 % void between pebbles, so the two are not the same problem and
-the difference is not by itself evidence of a defect. A like-for-like comparison
-needs an infinite medium of pebbles at 0.61 packing, which the
-`OUTRAM_HTR10_NOREFL` knob does not yet deliver (a zero-thickness reflector
-makes the bed envelope and the outer boundary coincident, and 99.3 % of
-histories are then lost at the seam). That is the next measurement.
-
-**The reflector is ruled out as the cause, and is in fact optimistic.** The
-model uses TECDOC Table 4-3 zone 22 for the whole 100 cm reflector. Zone 22 is
-the **cleanest graphite in the table** -- carbon 8.824e-2, the highest listed,
-with natural boron 4.738e-7, near the lowest. The boronated zones (17, 19, 27,
-46, 64, carrying ~3.4e-3 natural boron, i.e. 7,000x more) are **omitted
-entirely**. Both simplifications push `k` UP, so the real 83-zone reflector
-would give a lower answer, not a higher one. Whatever the missing reactivity
-is, the reflector is not it -- and the current number benefits from that
-optimism, which is why it is stated here rather than left implicit.
-
-Leading remaining candidates, none yet measured: boron treatment (independently
-worth ~1,487 pcm on a bare pebble); spectral effects of ballistic streaming
-through the interstitial void, which a bare-pebble model cannot exhibit; and
-the double-heterogeneity resonance treatment in the explicit TRISO lattice.
-
-Checked and NOT the cause: the kernel's thermal `nu-Sigma_f / Sigma_a` is
-2.038, against 2.07 for pure U-235 and ~2.03 expected for 17 %-enriched UO2 --
-so the enrichment and the kernel's thermal behaviour are right, and any fuel
-problem lives in the resonance range rather than at thermal.
+**The boron reading was queried and is CORRECT as modelled.** `reflector.rs`
+already records that TECDOC Table 4-3's column is *natural* boron, so the
+x0.199 to B-10 is right. The 8,597 pcm is physics, not an input error, and
+removing boron is not available as a route to agreement.
 
 ## The k = 0 failure and its root cause — RESOLVED 2026-09-17
 
