@@ -632,8 +632,103 @@ impl ContactKey {
 /// The stored quantity is the tangential displacement vector `ξ_t` `[m]`.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ShearHistory {
-    shear: HashMap<ContactKey, Vec3>,
-    live: HashMap<ContactKey, bool>,
+    /// One entry per contact carrying history.
+    ///
+    /// ~~Two parallel `HashMap`s, `shear` and `live`~~ **CORRECTED 2026-09-17**
+    /// — splitting them meant every contact paid *two* hash lookups and two
+    /// inserts per step, and both maps paid a full `retain` in
+    /// [`ShearHistory::end_step`]. On the HTR-10 bed (66 500 live contacts)
+    /// that was measured at **15.2 ms of a 33.6 ms timestep**, i.e. the
+    /// dominant cost of the whole simulation once the contact arithmetic had
+    /// been parallelised. Merged into one map of one struct, hashed by
+    /// [`ContactHasher`].
+    contacts: HashMap<ContactKey, ContactHistoryEntry, BuildContactHasher>,
+}
+
+/// One contact's stored state: its tangential spring, and whether it has been
+/// refreshed during the current force evaluation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ContactHistoryEntry {
+    /// Tangential displacement `ξ_t` `[m]`.
+    shear: Vec3,
+    /// Refreshed since the last [`ShearHistory::begin_step`]. A contact that
+    /// ends a step stale has separated and is dropped.
+    live: bool,
+}
+
+/// `BuildHasher` for [`ContactKey`], replacing the standard library's SipHash.
+///
+/// # Why this is hand-rolled rather than a dependency
+///
+/// `ContactKey` is two small integers and a discriminant. SipHash is a
+/// keyed, DoS-resistant hash designed for adversarial string keys, and it is
+/// roughly an order of magnitude more expensive than what integer keys need.
+/// The contact store is looked up ~370 000 times and written ~66 500 times per
+/// timestep, so the hash *is* the cost.
+///
+/// A crate such as `rustc-hash` would do this, but adding one would mean a new
+/// entry in the root `[workspace.dependencies]` for twenty lines of
+/// multiply-xor. This is those twenty lines: a standard FxHash-style
+/// multiply-and-rotate accumulator, pure Rust, `no_std`-compatible arithmetic,
+/// and safe on every target the workspace builds for.
+///
+/// **This is not a security boundary.** Contact keys come from the
+/// simulation's own particle tags, never from untrusted input, so hash-flooding
+/// resistance buys nothing here.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BuildContactHasher;
+
+impl std::hash::BuildHasher for BuildContactHasher {
+    type Hasher = ContactHasher;
+    fn build_hasher(&self) -> ContactHasher {
+        ContactHasher(0)
+    }
+}
+
+/// The FxHash-style accumulator built by [`BuildContactHasher`].
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ContactHasher(u64);
+
+impl ContactHasher {
+    /// FxHash's 64-bit multiplier: the odd constant from the golden-ratio
+    /// reciprocal, which spreads low-entropy integer keys across the word.
+    const SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
+
+    #[inline]
+    fn add(&mut self, word: u64) {
+        self.0 = (self.0.rotate_left(5) ^ word).wrapping_mul(Self::SEED);
+    }
+}
+
+impl std::hash::Hasher for ContactHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        // Not on the hot path — `ContactKey` hashes through the integer
+        // methods below — but a `Hasher` must handle it.
+        for &b in bytes {
+            self.add(u64::from(b));
+        }
+    }
+
+    #[inline]
+    fn write_u8(&mut self, n: u8) {
+        self.add(u64::from(n));
+    }
+
+    #[inline]
+    fn write_u64(&mut self, n: u64) {
+        self.add(n);
+    }
+
+    #[inline]
+    fn write_usize(&mut self, n: usize) {
+        self.add(n as u64);
+    }
 }
 
 impl ShearHistory {
@@ -646,45 +741,76 @@ impl ShearHistory {
     /// Number of contacts currently carrying history.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.shear.len()
+        self.contacts.len()
     }
 
     /// Whether the store holds no contacts.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.shear.is_empty()
+        self.contacts.is_empty()
     }
 
     /// The stored tangential displacement `ξ_t` `[m]` for a contact, if any.
     #[must_use]
     pub fn get(&self, key: ContactKey) -> Option<Vec3> {
-        self.shear.get(&key).copied()
+        self.contacts.get(&key).map(|e| e.shear)
     }
 
     /// Mark every stored contact stale, at the top of a force evaluation.
     pub fn begin_step(&mut self) {
-        for v in self.live.values_mut() {
-            *v = false;
+        for e in self.contacts.values_mut() {
+            e.live = false;
         }
     }
 
     /// Drop the history of every contact not refreshed since
     /// [`ShearHistory::begin_step`] — i.e. every contact that has separated.
     pub fn end_step(&mut self) {
-        self.live.retain(|_, live| *live);
-        self.shear.retain(|k, _| self.live.contains_key(k));
+        self.contacts.retain(|_, e| e.live);
     }
 
     /// Read the current displacement and mark the contact live, inserting a
     /// zero entry for a contact seen for the first time.
     fn touch(&mut self, key: ContactKey) -> Vec3 {
-        self.live.insert(key, true);
-        *self.shear.entry(key).or_insert_with(Vec3::zero)
+        let entry = self.contacts.entry(key).or_insert(ContactHistoryEntry {
+            shear: Vec3::zero(),
+            live: true,
+        });
+        entry.live = true;
+        entry.shear
     }
 
     /// Overwrite the stored displacement for a contact.
     fn set(&mut self, key: ContactKey, value: Vec3) {
-        self.shear.insert(key, value);
+        // The contact was made live by `touch` immediately before this in
+        // `resolve`; an `entry` here keeps that invariant if it ever is not.
+        self.contacts
+            .entry(key)
+            .or_insert(ContactHistoryEntry {
+                shear: value,
+                live: true,
+            })
+            .shear = value;
+    }
+
+    /// Record a contact's updated tangential displacement and mark it live —
+    /// the public equivalent of the private `touch` + `set` pair that
+    /// [`GranularContactModel::resolve`] performs internally.
+    ///
+    /// This exists for the **parallel force loop**, which evaluates contacts
+    /// concurrently through
+    /// [`GranularContactModel::resolve_pure`] (holding only `&ShearHistory`)
+    /// and then writes the results back here, serially, in the same contact
+    /// order the scalar path would have used. Calling it with the value
+    /// `resolve_pure` returned is exactly equivalent to having called
+    /// [`GranularContactModel::resolve`] on that contact.
+    ///
+    /// Call it **only** for contacts that actually carry history: a
+    /// [`TangentialModel::NoHistory`] contact must not enter the store, or
+    /// [`ShearHistory::end_step`] will retain an entry for a stateless contact.
+    pub fn store(&mut self, key: ContactKey, shear: Vec3) {
+        self.contacts
+            .insert(key, ContactHistoryEntry { shear, live: true });
     }
 }
 
@@ -843,6 +969,18 @@ pub struct GranularContactModel {
 }
 
 impl GranularContactModel {
+    /// Whether this model stores a persistent tangential spring per contact.
+    ///
+    /// `true` for [`TangentialModel::History`], `false` for
+    /// [`TangentialModel::NoHistory`], which is stateless and whose contacts
+    /// must never enter the [`ShearHistory`] store. The parallel force loop
+    /// asks once per step rather than per contact — the answer is a property of
+    /// the model, not of any individual contact.
+    #[must_use]
+    pub fn has_tangential_history(&self) -> bool {
+        matches!(self.tangential, TangentialModel::History)
+    }
+
     /// Assemble a contact model from its normal and tangential halves, with
     /// rolling resistance **off** (upstream's default `pair_style gran` has no
     /// rolling model unless one is named).
@@ -900,13 +1038,62 @@ impl GranularContactModel {
         history: &mut ShearHistory,
         dt: f64,
     ) -> GranularForce {
+        // Read the prior spring (and mark the contact live) for the model that
+        // has one. `NoHistory` must not touch the store at all — touching it
+        // would insert a live entry for a stateless contact and change what
+        // `end_step` retains.
+        let prior = match self.tangential {
+            TangentialModel::History => history.touch(key),
+            TangentialModel::NoHistory => Vec3::zero(),
+        };
+        let (force, updated) = self.resolve_pure(prior, k, dt);
+        if let Some(shear) = updated {
+            history.set(key, shear);
+        }
+        force
+    }
+
+    /// The **pure** core of [`GranularContactModel::resolve`]: the same contact
+    /// law with the shear-history store passed in and out by value instead of
+    /// being mutated in place.
+    ///
+    /// Returns the contact force/torque set, and the tangential displacement
+    /// `ξ_t` `[m]` the caller must store for this contact — `None` for
+    /// [`TangentialModel::NoHistory`], which is stateless and whose contacts
+    /// must **not** appear in the store at all.
+    ///
+    /// # Why this exists
+    ///
+    /// Contact resolution is the expensive half of a DEM timestep and is
+    /// otherwise trivially parallel: distinct contacts touch distinct
+    /// [`ContactKey`]s, so the only thing serialising them is the `&mut
+    /// ShearHistory` borrow. Splitting the borrow out lets
+    /// [`ComputeType::CpuMultiThread`](crate::compute::ComputeType::CpuMultiThread)
+    /// evaluate every contact concurrently and then apply the force
+    /// accumulation and the history writes in the serial contact order — which
+    /// is what makes the parallel backend **bit-identical** to the scalar one
+    /// rather than merely close (floating-point addition is not associative,
+    /// so the accumulation order, not the arithmetic, is what must be
+    /// preserved).
+    ///
+    /// `prior_shear` is the stored `ξ_t` for this contact, or [`Vec3::zero`]
+    /// for a contact seen for the first time — which is exactly what
+    /// [`ShearHistory::get`] returning `None` means.
+    #[must_use]
+    pub fn resolve_pure(
+        &self,
+        prior_shear: Vec3,
+        k: &ContactKinematics,
+        dt: f64,
+    ) -> (GranularForce, Option<Vec3>) {
         let normal = self.normal.evaluate(k);
         let mu = self.normal.material().friction;
+        let mut updated: Option<Vec3> = None;
 
         let ft = match self.tangential {
             TangentialModel::History => {
                 // 1. accumulate and re-project onto the tangent plane
-                let mut shear = history.touch(key).add(k.vtr.scale(dt));
+                let mut shear = prior_shear.add(k.vtr.scale(dt));
                 let rsht = shear.dot(k.en);
                 shear = shear.sub(k.en.scale(rsht));
 
@@ -923,14 +1110,14 @@ impl GranularContactModel {
                     if shrmag != 0.0 {
                         let ratio = ft_friction / ft_shear;
                         ft = ft.scale(ratio);
-                        history.set(key, ft.scale(-1.0 / kt));
+                        updated = Some(ft.scale(-1.0 / kt));
                     } else {
                         ft = Vec3::zero();
-                        history.set(key, shear);
+                        updated = Some(shear);
                     }
                 } else {
                     // 4. sticking: keep the updated displacement, add damping
-                    history.set(key, shear);
+                    updated = Some(shear);
                     ft = ft.sub(k.vtr.scale(normal.gammat));
                 }
                 ft
@@ -963,14 +1150,17 @@ impl GranularContactModel {
         torque_i = torque_i.sub(m_r);
         torque_j = torque_j.add(m_r);
 
-        GranularForce {
-            force_i,
-            force_j,
-            torque_i,
-            torque_j,
-            fn_scalar: normal.fn_scalar,
-            ft,
-        }
+        (
+            GranularForce {
+                force_i,
+                force_j,
+                torque_i,
+                torque_j,
+                fn_scalar: normal.fn_scalar,
+                ft,
+            },
+            updated,
+        )
     }
 }
 

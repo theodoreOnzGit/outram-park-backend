@@ -100,20 +100,28 @@
 
 pub mod bonded;
 pub mod boundary;
+pub mod compute;
 pub mod contact;
 pub mod coupling;
 #[cfg(feature = "gnn")]
 pub mod gnn_bridge;
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+pub mod gpu;
 pub mod granular;
 pub mod granular_system;
 pub mod integrator;
 pub mod mesh_wall;
 pub mod particle;
+pub mod rdf;
 pub mod rolling;
 pub mod simulation;
 pub mod thermal;
 pub mod thermal_radiation;
 pub mod timestep;
+/// Serial stand-ins for the `rayon` surface this crate uses, on `wasm32` where
+/// `rayon` does not build. Numerically exact here — see the module docs.
+#[cfg(target_arch = "wasm32")]
+pub(crate) mod wasm_par;
 
 /// Errors produced by the DEM library in this crate.
 #[derive(Debug, thiserror::Error)]

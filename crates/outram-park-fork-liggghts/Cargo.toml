@@ -57,6 +57,39 @@ raffles = { workspace = true, optional = true }
 # root workspace table like every other dependency.
 burn = { workspace = true, optional = true }
 
+# ── Native + Android only: no wasm32 backend ─────────────────────────────────
+# rayon-core does not build for wasm32-unknown-unknown — it needs OS threads and
+# fails with "cannot find module or crate sys".
+#
+# Target-gated off wasm ONLY, not off Android and not behind a feature: rayon is
+# pure Rust and Android-in-scope per the workspace CLAUDE.md, so Termux keeps its
+# multi-core path. Narrowing the gate to wasm is the smallest correct change.
+#
+# On wasm the rayon call sites use `crate::wasm_par`, which runs the same work
+# serially. For this crate that is numerically EXACT, not merely tolerable: the
+# parallel force loop accumulates in the serial contact order, so it is
+# bit-identical to the scalar path at any thread count (see `src/compute.rs`).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = { workspace = true }
+
+# Optional GPU compute (headless, no window) for the embarrassingly-parallel
+# analysis kernels — see `src/gpu/`. Exactly the gate `outram-mc-libs` uses, for
+# the same reasons: wgpu is target-gated OFF Android (no system Vulkan/Metal
+# loader, no easy toolchain there) and off wasm (wgpu-hal is not Sync there), so
+# the library still builds for `aarch64-linux-android` and `wasm32` via the
+# CPU-only shim. Desktop targets get the real wgpu path; the CPU stays the
+# trusted, deterministic reference — GPU is acceleration only.
+#
+# The DEM TIMESTEP has no GPU path and is not expected to gain one; see
+# `ComputeType`'s docs for why (persistent per-contact shear history). The RDF
+# pair-separation histogram does, because it is stateless and all-pairs.
+#
+# NOTE: no `pollster`/executor dependency — `src/gpu/mod.rs` hand-rolls a tiny
+# pure-std `block_on` to drive the two `request_adapter`/`request_device`
+# futures, keeping this crate's third-party surface unchanged.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
+wgpu = { workspace = true }
+
 [dev-dependencies]
 approx.workspace = true
 

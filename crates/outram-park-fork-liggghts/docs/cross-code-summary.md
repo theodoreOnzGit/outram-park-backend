@@ -99,6 +99,7 @@ undersold what the codes actually agree on.
 | angle of repose, lifting cylinder | STL mesh wall, `R = 0.050 m` | 656 | repose angle | 12.78 deg | 15.43 deg | 2.65 deg | `angle_of_repose.rs` |
 | HTR-10 full core, `E = 1e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5811 | 0.5810 | 0.02 % | `htr10_pebble_bed.rs` |
 | HTR-10 full core, `E = 3e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5754 | 0.5754 | 4 decimals | `htr10_pebble_bed.rs` |
+| **HTR-10 conus slump**, `E = 5e8` | **STL mesh** conus + tube + valve, `D/d = 30` | 27 554 | solid fraction | 0.5769 | 0.5769 | **0.01 %** | `htr10_conus_cross_code.rs` |
 | HTR-10 full core, `E = 5e8` | cylinder, `D/d = 30` | 27 554 | solid fraction | **0.5732** | **0.5732** | 4 decimals | `htr10_pebble_bed.rs` |
 
 The angle-of-repose case is the weakest agreement on this page and is reported
@@ -155,6 +156,34 @@ one. It also means the number is **not converged in `E`** — at graphite's true
 unaffected throughout, which is the point worth keeping separate: what the soft
 modulus threatened was never whether the port is correct, only whether the bed
 is a fair stand-in for a real one.
+
+## The conus slump — the mesh-wall path, verified where it matters
+
+The angle-of-repose row above is the weakest in this table, and it is a **mesh
+wall** case. Since the HTR-10 recirculation study runs on a mesh conus, that
+gap sat directly under the pebble-bed work, so the conus was given its own
+comparison rather than assumed to inherit the flat-floor result.
+
+Both codes start from LIGGGHTS' own settled bed (converted by `csv2data.sh`),
+read the **same STL**, and integrate 20 000 steps independently.
+
+| step | `φ` ours vs LIGGGHTS | Δ surface height | per-particle median | within 1 mm |
+|---|---|---|---|---|
+| 2 000 | −0.00 % | +0.0 mm | **11 µm** | **27 554 / 27 554** |
+| 6 000 | −0.00 % | +0.1 mm | 1.10 mm | 12 755 / 27 554 |
+| 12 000 | +0.00 % | +2.7 mm | 3.55 mm | 739 / 27 554 |
+| 20 000 | **−0.01 %** | **+2.8 mm** | 3.82 mm | 592 / 27 554 |
+
+**Read the first row and the last row as two different statements.** The first
+verifies the mesh-wall contact path: every one of 27 554 pebbles within 1 mm,
+median 11 µm. The last records that a bed draining 17 cm into a funnel is a
+**chaotic** rearrangement, so per-particle trajectories must diverge — while
+the bulk quantity the comparison actually gates on stays at four decimals
+throughout.
+
+This is why the HTR-10 settling case (§ per-particle agreement below) and this
+one use different instruments: settling is a small perturbation about an
+already-settled bed, and draining is not.
 
 ## Defects this comparison found
 

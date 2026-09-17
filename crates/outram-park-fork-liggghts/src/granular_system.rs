@@ -62,8 +62,18 @@
 
 use std::collections::HashMap;
 
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par as rayon;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_par::prelude::*;
+
 use crate::boundary::Boundary;
-use crate::granular::{ContactKey, ContactKinematics, GranularContactModel, ShearHistory};
+use crate::compute::ComputeType;
+use crate::granular::{
+    ContactKey, ContactKinematics, GranularContactModel, ShearHistory,
+};
 use crate::integrator::VelocityVerlet;
 use crate::mesh_wall::MovingBoundary;
 use crate::particle::{Particle, Vec3};
@@ -107,6 +117,62 @@ pub struct GranularSystem {
     tags: Vec<u64>,
     /// Next tag to hand out. Monotonic; a tag is never reused.
     next_tag: u64,
+    /// Which compute backend the timestep uses. See [`ComputeType`]; the
+    /// default is the scalar, trusted reference.
+    compute: ComputeType,
+    /// Reused candidate-pair buffer, rebuilt each step by
+    /// [`GranularSystem::rebuild_candidate_pairs`].
+    ///
+    /// Held across steps so the ~370 000-entry list at HTR-10 scale is not
+    /// reallocated 28 000 times a second.
+    pairs: Vec<(u32, u32)>,
+    /// Reused per-candidate contact outcomes for the parallel backend — see
+    /// [`GranularSystem::compute_forces`]. Empty on the scalar path, which
+    /// accumulates directly and needs no staging buffer.
+    outcomes: Vec<PairOutcome>,
+    /// How many outcomes each parallel chunk actually wrote — see
+    /// [`GranularSystem::resolve_pairs_parallel`].
+    chunk_counts: Vec<u32>,
+    /// Reused cell-offset array (prefix sums) for the neighbour grid.
+    cell_offsets: Vec<u32>,
+    /// Reused cell-membership array: particle indices, grouped by cell,
+    /// ascending within each cell.
+    cell_items: Vec<u32>,
+}
+
+/// One candidate pair's resolved contact, staged by the parallel force loop so
+/// that accumulation can happen afterwards in the serial pair order.
+///
+/// `force_j` is omitted deliberately: it is exactly `-force_i` (Newton's third
+/// law, and how [`GranularForce`] is built), so staging it would be 24 bytes
+/// per candidate of redundancy across a ~370 000-entry buffer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PairOutcome {
+    i: u32,
+    j: u32,
+    force_i: Vec3,
+    torque_i: Vec3,
+    torque_j: Vec3,
+    /// Tangential displacement to store for this contact.
+    ///
+    /// Carried unconditionally rather than as an `Option`: whether a contact
+    /// has history is a property of the *model*, not of the contact, so the
+    /// discriminant would be the same for all 66 500 of them and cost 8 bytes
+    /// each to say so. Phase 2 consults the model once instead.
+    shear: Vec3,
+}
+
+impl PairOutcome {
+    /// Filler for buffer growth. Never read: phase 2 visits only the first
+    /// `count` entries each chunk actually wrote.
+    const EMPTY: Self = Self {
+        i: 0,
+        j: 0,
+        force_i: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+        torque_i: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+        torque_j: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+        shear: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+    };
 }
 
 impl GranularSystem {
@@ -151,6 +217,12 @@ impl GranularSystem {
             torques: vec![Vec3::zero(); n],
             tags: (0..n as u64).collect(),
             next_tag: n as u64,
+            compute: ComputeType::default(),
+            pairs: Vec::new(),
+            outcomes: Vec::new(),
+            chunk_counts: Vec::new(),
+            cell_offsets: Vec::new(),
+            cell_items: Vec::new(),
         };
         s.compute_forces();
         Ok(s)
@@ -171,6 +243,31 @@ impl GranularSystem {
         self.moving_walls = walls;
         self.compute_forces();
         self
+    }
+
+    /// Select the compute backend for the timestep, returning the updated
+    /// system.
+    ///
+    /// The default is [`ComputeType::CpuSingleThread`], the trusted scalar
+    /// reference. [`ComputeType::CpuMultiThread`] is **bit-identical** to it at
+    /// any thread count — see [`crate::compute`] for why that is a requirement
+    /// here rather than a bonus, and
+    /// [`GranularSystem::resolve_pairs_parallel`] for how it is achieved.
+    /// [`ComputeType::Gpu`] runs the scalar path: the DEM timestep has no GPU
+    /// kernel (again, see [`crate::compute`]).
+    ///
+    /// Changing the backend cannot change the trajectory, so this is safe to
+    /// set on an already-running system.
+    #[must_use]
+    pub fn with_compute(mut self, compute: ComputeType) -> Self {
+        self.compute = compute;
+        self
+    }
+
+    /// The compute backend the timestep is using.
+    #[must_use]
+    pub fn compute(&self) -> ComputeType {
+        self.compute
     }
 
     /// The attached moving walls, in their current pose.
@@ -228,6 +325,83 @@ impl GranularSystem {
         self.torques.push(Vec3::zero());
         self.compute_forces();
         tag
+    }
+
+    /// The height at which a sphere of radius `r` dropped at `(x, y)` would
+    /// come to rest on the current ensemble — the **local bed surface**.
+    ///
+    /// For every existing particle whose horizontal distance `d_h` is under
+    /// `r + r_j`, the dropped sphere touches it at
+    /// `z_j + sqrt((r + r_j)² − d_h²)`; the surface is the highest such
+    /// tangency. `fallback` is returned when nothing lies under `(x, y)`.
+    ///
+    /// # Why this exists: inserting into a packed bed
+    ///
+    /// [`GranularSystem::insert_particle`] documents that it does not check for
+    /// overlap, and that a particle inserted inside a packed bed "will be
+    /// ejected violently by the normal force". This is the routine that lets a
+    /// caller avoid that, and the numbers are not marginal: inserting an HTR-10
+    /// pebble 0.04 m into the bed gives a Hertz force of ~3.4e5 N on a 0.196 kg
+    /// pebble, i.e. **Δv ≈ 61 m/s in a single 35 µs step**.
+    ///
+    /// Placing at the returned height gives **exactly zero overlap** by
+    /// construction — the separation from the supporting particle is
+    /// `sqrt(d_h² + ((r + r_j)² − d_h²)) = r + r_j`, i.e. precisely touching —
+    /// so the particle starts at rest in contact rather than as a projectile.
+    /// Add a small clearance if a strictly non-negative gap is wanted.
+    ///
+    /// This is upstream's problem too: LIGGGHTS' `fix insert/pack` carries
+    /// `overlapcheck yes` for the same reason. This is the equivalent for a
+    /// caller placing particles directly.
+    ///
+    /// # Cost
+    ///
+    /// `O(n)` in the ensemble — a linear scan, with no spatial index. Intended
+    /// for placing a refuelling batch (tens of particles), not for bulk
+    /// generation of a packing.
+    #[must_use]
+    pub fn surface_height_at(&self, x: f64, y: f64, radius: f64, fallback: f64) -> f64 {
+        let mut z = fallback;
+        for p in &self.particles {
+            let contact = radius + p.radius;
+            let dh2 = (p.position.x - x).powi(2) + (p.position.y - y).powi(2);
+            if dh2 < contact * contact {
+                let zc = p.position.z + (contact * contact - dh2).sqrt();
+                if zc > z {
+                    z = zc;
+                }
+            }
+        }
+        z
+    }
+
+    /// Insert several particles at once, returning their newly assigned stable
+    /// tags in the order given.
+    ///
+    /// Equivalent to [`GranularSystem::insert_particle`] per particle, except
+    /// that forces are recomputed **once** at the end instead of once per
+    /// particle. Inserting a 50-pebble recirculation batch one at a time costs
+    /// 50 full force evaluations — at HTR-10 scale roughly 0.6 s of pure waste
+    /// per batch — because each insertion re-solves the whole bed.
+    ///
+    /// The same caveat applies as for the single-particle form: **insert into
+    /// free space.** Nothing here checks for overlap, either against the
+    /// existing bed or between the inserted particles themselves.
+    pub fn insert_particles(&mut self, particles: impl IntoIterator<Item = Particle>) -> Vec<u64> {
+        let mut tags = Vec::new();
+        for p in particles {
+            let tag = self.next_tag;
+            self.next_tag += 1;
+            self.particles.push(p);
+            self.tags.push(tag);
+            self.forces.push(Vec3::zero());
+            self.torques.push(Vec3::zero());
+            tags.push(tag);
+        }
+        if !tags.is_empty() {
+            self.compute_forces();
+        }
+        tags
     }
 
     /// Remove the particles at the given **array indices**, returning them in
@@ -385,26 +559,16 @@ impl GranularSystem {
         self.torques.clear();
         self.torques.resize(n, Vec3::zero());
 
+        self.rebuild_candidate_pairs();
         self.history.begin_step();
 
         // --- particle-particle ---
-        for (i, j) in self.candidate_pairs() {
-            let a = self.particles[i];
-            let b = self.particles[j];
-            if let Some(k) = ContactKinematics::pair(&a, &b) {
-                let gf = self
-                    .model
-                    .resolve(
-                        ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
-                        &k,
-                        &mut self.history,
-                        self.dt,
-                    );
-                self.forces[i] = self.forces[i].add(gf.force_i);
-                self.forces[j] = self.forces[j].add(gf.force_j);
-                self.torques[i] = self.torques[i].add(gf.torque_i);
-                self.torques[j] = self.torques[j].add(gf.torque_j);
-            }
+        // Both paths accumulate in the SAME order (ascending candidate-pair
+        // index), which is what makes them bit-identical. See `compute`.
+        if self.compute.is_parallel_step() {
+            self.resolve_pairs_parallel();
+        } else {
+            self.resolve_pairs_serial();
         }
 
         // --- particle-wall (primitive boundaries, immovable) ---
@@ -460,51 +624,307 @@ impl GranularSystem {
         }
     }
 
-    /// Candidate near pairs `(i, j)`, `i < j`, each at most once.
-    fn candidate_pairs(&self) -> Vec<(usize, usize)> {
-        let n = self.particles.len();
-        if n <= Self::BRUTE_FORCE_THRESHOLD {
-            let mut v = Vec::with_capacity(n * n / 2);
-            for i in 0..n {
-                for j in (i + 1)..n {
-                    v.push((i, j));
-                }
+    /// Scalar particle-particle force accumulation — the trusted reference
+    /// path, used by [`ComputeType::CpuSingleThread`] and [`ComputeType::Gpu`].
+    fn resolve_pairs_serial(&mut self) {
+        let pairs = std::mem::take(&mut self.pairs);
+        for &(i, j) in &pairs {
+            let (i, j) = (i as usize, j as usize);
+            let a = self.particles[i];
+            let b = self.particles[j];
+            if let Some(k) = ContactKinematics::pair(&a, &b) {
+                let gf = self.model.resolve(
+                    ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
+                    &k,
+                    &mut self.history,
+                    self.dt,
+                );
+                self.forces[i] = self.forces[i].add(gf.force_i);
+                self.forces[j] = self.forces[j].add(gf.force_j);
+                self.torques[i] = self.torques[i].add(gf.torque_i);
+                self.torques[j] = self.torques[j].add(gf.torque_j);
             }
-            return v;
+        }
+        self.pairs = pairs;
+    }
+
+    /// Rayon-parallel particle-particle force accumulation, **bit-identical**
+    /// to [`GranularSystem::resolve_pairs_serial`] for any thread count.
+    ///
+    /// # How bit-identity is obtained
+    ///
+    /// Floating-point addition is not associative, so the thing that must be
+    /// preserved is not the arithmetic but the **accumulation order**. The loop
+    /// is therefore split in two:
+    ///
+    /// 1. **Parallel, order-free.** Every candidate pair is resolved
+    ///    independently through [`GranularContactModel::resolve_pure`], which
+    ///    takes the stored tangential spring by value and returns the updated
+    ///    one, so it needs only `&ShearHistory`. Results are staged into a
+    ///    slot indexed by candidate-pair index — each task writes only its own
+    ///    disjoint chunk, so there is no contention and no reduction.
+    /// 2. **Serial, ordered.** The staged outcomes are applied in ascending
+    ///    pair index — exactly the order the scalar path visits them — so every
+    ///    `forces[i] += …` sequence, and every history write, is the identical
+    ///    sequence of IEEE-754 operations.
+    ///
+    /// Distinct contacts touch distinct [`ContactKey`]s, so deferring the
+    /// history writes to phase 2 changes nothing: no pair can observe another
+    /// pair's write within a step.
+    ///
+    /// Phase 2 is cheap (vector adds and two hash inserts per live contact)
+    /// while phase 1 carries the Hertz/Mindlin/rolling evaluation, so the
+    /// serial tail does not dominate.
+    fn resolve_pairs_parallel(&mut self) {
+        let threads = self.compute.threads();
+        let pairs = std::mem::take(&mut self.pairs);
+        let mut outcomes = std::mem::take(&mut self.outcomes);
+        let mut chunk_counts = std::mem::take(&mut self.chunk_counts);
+
+        // Enough tasks to balance a ragged bed, few enough that per-task
+        // overhead stays negligible against the contact arithmetic.
+        let chunk = (pairs.len() / (threads * 8)).max(2048);
+        let n_chunks = pairs.len().div_ceil(chunk);
+        // Grown, never re-initialised per step. Writing a default into all
+        // ~370 000 slots every step was measured at 2.9 ms of a 17.8 ms
+        // timestep — 54 MB of memset to stage 9 MB of results.
+        if outcomes.len() < pairs.len() {
+            outcomes.resize(pairs.len(), PairOutcome::EMPTY);
+        }
+        if chunk_counts.len() < n_chunks {
+            chunk_counts.resize(n_chunks, 0);
         }
 
+        let has_history = self.model.has_tangential_history();
+        {
+            let particles: &[Particle] = &self.particles;
+            let tags: &[u64] = &self.tags;
+            let model = &self.model;
+            let history = &self.history;
+            let dt = self.dt;
+            shared_pool(threads).install(|| {
+                outcomes[..pairs.len()]
+                    .par_chunks_mut(chunk)
+                    .zip(pairs.par_chunks(chunk))
+                    .zip(chunk_counts[..n_chunks].par_chunks_mut(1))
+                    .for_each(|((out_chunk, pair_chunk), count)| {
+                        // Compact: only real contacts are written, in order.
+                        // ~18 % of candidates are contacts on a settled bed, so
+                        // this stages a fifth of the traffic a slot-per-candidate
+                        // layout would.
+                        let mut written = 0usize;
+                        for &(i, j) in pair_chunk {
+                            let (i, j) = (i as usize, j as usize);
+                            let a = particles[i];
+                            let b = particles[j];
+                            let Some(k) = ContactKinematics::pair(&a, &b) else {
+                                continue;
+                            };
+                            let key = ContactKey::pair(tags[i] as usize, tags[j] as usize);
+                            let prior = history.get(key).unwrap_or_else(Vec3::zero);
+                            let (gf, shear) = model.resolve_pure(prior, &k, dt);
+                            out_chunk[written] = PairOutcome {
+                                i: i as u32,
+                                j: j as u32,
+                                force_i: gf.force_i,
+                                torque_i: gf.torque_i,
+                                torque_j: gf.torque_j,
+                                shear: shear.unwrap_or_else(Vec3::zero),
+                            };
+                            written += 1;
+                        }
+                        count[0] = written as u32;
+                    });
+            });
+        }
+
+        // Phase 2: serial, chunk by chunk in ascending order and compactly
+        // within each chunk — i.e. exactly the candidate-pair order the scalar
+        // path visits, which is what makes the two bit-identical.
+        for c in 0..n_chunks {
+            let base = c * chunk;
+            for outcome in &outcomes[base..base + chunk_counts[c] as usize] {
+                let (i, j) = (outcome.i as usize, outcome.j as usize);
+                self.forces[i] = self.forces[i].add(outcome.force_i);
+                // Newton's third law, written exactly as `resolve` builds
+                // `force_j`, so the scalar and parallel paths perform the same
+                // IEEE-754 operation rather than merely an equivalent one.
+                self.forces[j] = self.forces[j].add(outcome.force_i.scale(-1.0));
+                self.torques[i] = self.torques[i].add(outcome.torque_i);
+                self.torques[j] = self.torques[j].add(outcome.torque_j);
+                if has_history {
+                    self.history.store(
+                        ContactKey::pair(self.tags[i] as usize, self.tags[j] as usize),
+                        outcome.shear,
+                    );
+                }
+            }
+        }
+
+        self.pairs = pairs;
+        self.outcomes = outcomes;
+        self.chunk_counts = chunk_counts;
+    }
+
+    /// Candidate near pairs `(i, j)`, `i < j`, each at most once.
+    ///
+    /// Convenience wrapper over [`GranularSystem::build_pairs`] that allocates
+    /// fresh buffers; the timestep uses the buffer-reusing
+    /// [`GranularSystem::rebuild_candidate_pairs`] instead.
+    fn candidate_pairs(&self) -> Vec<(usize, usize)> {
+        let (mut pairs, mut offsets, mut items) = (Vec::new(), Vec::new(), Vec::new());
+        Self::build_pairs(&self.particles, &mut pairs, &mut offsets, &mut items);
+        pairs
+            .into_iter()
+            .map(|(i, j)| (i as usize, j as usize))
+            .collect()
+    }
+
+    /// Refill `self.pairs` with the candidate near pairs, reusing the grid
+    /// buffers across steps.
+    fn rebuild_candidate_pairs(&mut self) {
+        let mut pairs = std::mem::take(&mut self.pairs);
+        let mut offsets = std::mem::take(&mut self.cell_offsets);
+        let mut items = std::mem::take(&mut self.cell_items);
+        Self::build_pairs(&self.particles, &mut pairs, &mut offsets, &mut items);
+        self.pairs = pairs;
+        self.cell_offsets = offsets;
+        self.cell_items = items;
+    }
+
+    /// Above this many grid cells, the dense flat grid is abandoned for the
+    /// ordered sparse map — see [`GranularSystem::build_pairs`].
+    ///
+    /// The bound is proportional to the particle count so it tracks the problem
+    /// rather than the machine, with a floor so small ensembles in a large
+    /// domain still get the fast path.
+    fn max_grid_cells(n: usize) -> usize {
+        (64usize.saturating_mul(n)).max(1 << 20)
+    }
+
+    /// Enumerate candidate near pairs into `pairs`, using `cell_offsets` and
+    /// `cell_items` as scratch. Every unordered pair is emitted **exactly
+    /// once**, in a **deterministic order**.
+    ///
+    /// # Determinism is the point, not a side effect
+    ///
+    /// ~~Cells were held in a `HashMap` and iterated directly~~ **CORRECTED
+    /// 2026-09-17** — `std::collections::HashMap` seeds its hasher randomly
+    /// *per process*, so that loop visited cells in a different order on every
+    /// run. Since `forces[i] += …` is a floating-point accumulation and
+    /// addition is not associative, the bed's trajectory differed run to run in
+    /// the last bits, and DEM amplifies that: three identical 200-step runs of
+    /// the settled HTR-10 bed gave kinetic energies of
+    /// `2.81519841188424304e-2`, `2.81519841188418857e-2` and
+    /// `2.81519841188432977e-2` — differing in the 13th significant figure
+    /// already. The committed reference bed could therefore not be regenerated
+    /// exactly, and one 2.91e-2 m outlier in the per-particle cross-code
+    /// comparison is consistent with exactly this. Bead `op-t3l.9`.
+    ///
+    /// The flat grid below fixes that: cells are visited in ascending linear
+    /// index and members in ascending particle index, both independent of any
+    /// hash seed.
+    ///
+    /// # Method
+    ///
+    /// Cell size is one particle diameter (`2 * max_radius`), so any two
+    /// particles in contact lie in the same or an adjacent cell. Membership is
+    /// built by a **counting sort** — count per cell, prefix-sum to offsets,
+    /// then scatter — which needs no per-cell `Vec` and no allocation once the
+    /// buffers are warm. The offset array is restored by a right shift after
+    /// the scatter has consumed it as a cursor, so no second cursor buffer is
+    /// needed.
+    ///
+    /// Only the **lexicographically-forward half** of the 26 neighbours is
+    /// visited, so each unordered cell pair is reached exactly once and no
+    /// deduplication is required.
+    fn build_pairs(
+        particles: &[Particle],
+        pairs: &mut Vec<(u32, u32)>,
+        cell_offsets: &mut Vec<u32>,
+        cell_items: &mut Vec<u32>,
+    ) {
+        let n = particles.len();
+        pairs.clear();
+        if n <= Self::BRUTE_FORCE_THRESHOLD {
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    pairs.push((i as u32, j as u32));
+                }
+            }
+            return;
+        }
+        assert!(
+            n <= u32::MAX as usize,
+            "particle count {n} exceeds the u32 index used by the neighbour grid"
+        );
+
         let mut max_radius = 0.0_f64;
-        for p in &self.particles {
+        for p in particles {
             max_radius = max_radius.max(p.radius);
         }
         let cell = 2.0 * max_radius;
         let inv = 1.0 / cell;
-        let idx = |v: Vec3| -> (i64, i64, i64) {
+        let icell = |v: Vec3| -> (i64, i64, i64) {
             (
                 (v.x * inv).floor() as i64,
                 (v.y * inv).floor() as i64,
                 (v.z * inv).floor() as i64,
             )
         };
-        let mut cells: HashMap<(i64, i64, i64), Vec<usize>> = HashMap::new();
-        for (i, p) in self.particles.iter().enumerate() {
-            cells.entry(idx(p.position)).or_default().push(i);
-        }
 
-        // Half stencil. Visiting all 26 neighbours reaches every cell pair
-        // twice, which forces a sort + dedup over the whole pair list on every
-        // step — at HTR-10 scale (27 000 pebbles) that is ~850 000 pushes and
-        // an O(n log n) sort per step, and it dominates the timestep. These 13
-        // offsets are the lexicographically-forward half of the 26, so each
-        // unordered CELL pair is visited exactly once (a cell offers B its
-        // forward neighbour, and B never offers A back). With the home cell
-        // handled separately under `i < j`, every unordered PARTICLE pair is
-        // emitted exactly once and no dedup is needed.
-        //
-        // This is a pure enumeration change: the set of pairs is identical to
-        // the full-stencil version, which
-        // `half_stencil_enumerates_the_same_pairs_as_the_full_stencil` checks
-        // directly rather than by assertion.
+        let (mut lo, mut hi) = ((i64::MAX, i64::MAX, i64::MAX), (i64::MIN, i64::MIN, i64::MIN));
+        for p in particles {
+            let c = icell(p.position);
+            lo = (lo.0.min(c.0), lo.1.min(c.1), lo.2.min(c.2));
+            hi = (hi.0.max(c.0), hi.1.max(c.1), hi.2.max(c.2));
+        }
+        let (nx, ny, nz) = (
+            (hi.0 - lo.0 + 1) as usize,
+            (hi.1 - lo.1 + 1) as usize,
+            (hi.2 - lo.2 + 1) as usize,
+        );
+        let ncells = match nx.checked_mul(ny).and_then(|v| v.checked_mul(nz)) {
+            Some(c) if c <= Self::max_grid_cells(n) => c,
+            // A domain far emptier than it is large (a long thin chute, a
+            // handful of strays far from the bed). The dense grid would be
+            // mostly empty and could dwarf the ensemble itself, so fall back to
+            // the ordered sparse map, which is slower but still deterministic.
+            _ => return Self::build_pairs_sparse(particles, pairs, icell),
+        };
+
+        let lin = |c: (i64, i64, i64)| -> usize {
+            (((c.2 - lo.2) as usize * ny) + (c.1 - lo.1) as usize) * nx + (c.0 - lo.0) as usize
+        };
+
+        // --- counting sort: count, prefix-sum, scatter ---
+        cell_offsets.clear();
+        cell_offsets.resize(ncells + 1, 0);
+        for p in particles {
+            cell_offsets[lin(icell(p.position)) + 1] += 1;
+        }
+        for c in 0..ncells {
+            cell_offsets[c + 1] += cell_offsets[c];
+        }
+        cell_items.clear();
+        cell_items.resize(n, 0);
+        for (i, p) in particles.iter().enumerate() {
+            let c = lin(icell(p.position));
+            cell_items[cell_offsets[c] as usize] = i as u32;
+            cell_offsets[c] += 1;
+        }
+        // The scatter consumed `cell_offsets` as a cursor, leaving each entry
+        // holding the END of its cell. Shifting right restores the starts.
+        for c in (0..ncells).rev() {
+            cell_offsets[c + 1] = cell_offsets[c];
+        }
+        cell_offsets[0] = 0;
+
+        // Lexicographically-forward half of the 26 neighbours: each unordered
+        // CELL pair is offered exactly once (a cell offers B its forward
+        // neighbour, and B never offers A back). With the home cell handled
+        // separately under `i < j`, every unordered PARTICLE pair is emitted
+        // exactly once and no dedup is needed.
         const FORWARD: [(i64, i64, i64); 13] = [
             (1, 0, 0),
             (-1, 1, 0),
@@ -521,28 +941,116 @@ impl GranularSystem {
             (1, 1, 1),
         ];
 
-        let mut out = Vec::new();
-        for (&(cx, cy, cz), members) in &cells {
+        for c in 0..ncells {
+            let (s, e) = (cell_offsets[c] as usize, cell_offsets[c + 1] as usize);
+            if s == e {
+                continue;
+            }
+            let members = &cell_items[s..e];
             // Within the home cell: each unordered pair once.
             for (a, &i) in members.iter().enumerate() {
                 for &j in &members[a + 1..] {
-                    out.push((i.min(j), i.max(j)));
+                    pairs.push((i.min(j), i.max(j)));
                 }
             }
-            // Forward neighbours: every cross pair once.
+            let cx = (c % nx) as i64;
+            let cy = ((c / nx) % ny) as i64;
+            let cz = (c / (nx * ny)) as i64;
+            for (dx, dy, dz) in FORWARD {
+                let (ox, oy, oz) = (cx + dx, cy + dy, cz + dz);
+                if ox < 0
+                    || oy < 0
+                    || oz < 0
+                    || ox >= nx as i64
+                    || oy >= ny as i64
+                    || oz >= nz as i64
+                {
+                    continue;
+                }
+                let o = (oz as usize * ny + oy as usize) * nx + ox as usize;
+                let (os, oe) = (cell_offsets[o] as usize, cell_offsets[o + 1] as usize);
+                for &i in members {
+                    for &j in &cell_items[os..oe] {
+                        pairs.push((i.min(j), i.max(j)));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Sparse fallback for a domain too empty for the dense grid — an ordered
+    /// [`BTreeMap`](std::collections::BTreeMap), so cells are still visited in
+    /// a deterministic (lexicographic) order and the result is reproducible.
+    fn build_pairs_sparse(
+        particles: &[Particle],
+        pairs: &mut Vec<(u32, u32)>,
+        icell: impl Fn(Vec3) -> (i64, i64, i64),
+    ) {
+        use std::collections::BTreeMap;
+        const FORWARD: [(i64, i64, i64); 13] = [
+            (1, 0, 0),
+            (-1, 1, 0),
+            (0, 1, 0),
+            (1, 1, 0),
+            (-1, -1, 1),
+            (0, -1, 1),
+            (1, -1, 1),
+            (-1, 0, 1),
+            (0, 0, 1),
+            (1, 0, 1),
+            (-1, 1, 1),
+            (0, 1, 1),
+            (1, 1, 1),
+        ];
+        let mut cells: BTreeMap<(i64, i64, i64), Vec<u32>> = BTreeMap::new();
+        for (i, p) in particles.iter().enumerate() {
+            cells.entry(icell(p.position)).or_default().push(i as u32);
+        }
+        for (&(cx, cy, cz), members) in &cells {
+            for (a, &i) in members.iter().enumerate() {
+                for &j in &members[a + 1..] {
+                    pairs.push((i.min(j), i.max(j)));
+                }
+            }
             for (dx, dy, dz) in FORWARD {
                 let Some(other) = cells.get(&(cx + dx, cy + dy, cz + dz)) else {
                     continue;
                 };
                 for &i in members {
                     for &j in other {
-                        out.push((i.min(j), i.max(j)));
+                        pairs.push((i.min(j), i.max(j)));
                     }
                 }
             }
         }
-        out
     }
+}
+
+/// A process-wide, thread-count-keyed [`rayon::ThreadPool`] registry.
+///
+/// The DEM force loop is entered once per timestep — tens of thousands of times
+/// a second — so building a pool per call would spend more time spawning OS
+/// threads than integrating. Pools are built once per distinct thread count and
+/// kept for the life of the process.
+///
+/// A **dedicated** pool is used rather than rayon's implicit global one (the
+/// same choice `outram-mc-libs` makes) so that a caller who is themselves
+/// inside a rayon scope cannot oversubscribe the machine or deadlock.
+fn shared_pool(threads: usize) -> &'static rayon::ThreadPool {
+    use std::sync::{Mutex, OnceLock};
+    static POOLS: OnceLock<Mutex<HashMap<usize, &'static rayon::ThreadPool>>> = OnceLock::new();
+    let registry = POOLS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = registry.lock().expect("thread-pool registry poisoned");
+    guard.entry(threads).or_insert_with(|| {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .expect("rayon thread pool");
+        // Leaked deliberately: bounded by the number of distinct thread counts
+        // a process asks for (in practice one), and the pool must outlive every
+        // `GranularSystem` that borrows it.
+        &*Box::leak(Box::new(pool))
+    })
 }
 
 #[cfg(test)]

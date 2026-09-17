@@ -163,11 +163,126 @@ are different claims and this entry keeps them apart.
   across the seven crates dogfooded in gh #58 — the two worst failures there
   were both prelude failures — so this crate starts from behind.
 
+- **2026-09-17 — mesh-wall cross-code leg extended to the HTR-10 DISCHARGE
+  geometry, plus a reproducibility defect found and fixed. The bar itself is
+  UNCHANGED; revising it is a maintainer decision.** The 2026-09-15 entry above
+  stands as what was accepted before.
+
+  **Why this entry exists.** The recirculation study runs on the published
+  bottom conus and fuel discharge tube — a *triangulated mesh wall*, not the
+  primitive cylinder+plane every previous HTR-10 result used. The only other
+  mesh-wall comparison in this crate is the angle-of-repose case, which is the
+  **weakest row in the whole cross-code table** (12.78° vs 15.43°). Drawing a
+  physics conclusion from untested geometry would have been exactly the mistake
+  the workspace V&V rules exist to prevent, so the conus got its own
+  comparison first: `tests/htr10_conus_cross_code.rs`, upstream deck
+  `reference-data/liggghts/in.htr10_conus`.
+
+  Both codes start from the identical configuration (LIGGGHTS' own settled bed,
+  via the new `csv2data.sh`) and read the **same STL**. Measured:
+
+  | step | `φ` ours vs LIGGGHTS | surface height | per-particle median |
+  |---|---|---|---|
+  | 2 000 | 0.5646 vs 0.5646, **−0.00 %** | **+0.0 mm** | **11 µm**, 27 554/27 554 within 1 mm |
+  | 6 000 | 0.5759 vs 0.5759, **−0.00 %** | **+0.1 mm** | 1.10 mm, 12 755/27 554 within 1 mm |
+
+  **The mesh-wall contact path is verified** — at early time, before chaos acts,
+  every one of 27 554 pebbles is within 1 mm and the median is 11 µm. The
+  later growth is **Lyapunov divergence, not disagreement**: this case drains a
+  2.17 m column 17 cm into a funnel, a large rearrangement in which pebbles
+  change neighbours, and dense granular flow is chaotic. Bulk statistics agree
+  to four decimals throughout, which is what survives. The test asserts
+  accordingly — tightly early, loosely late — and says so.
+
+  **A real defect, found while parallelising and now fixed.** The neighbour grid
+  was a `std::collections::HashMap`, whose iteration order is **randomly seeded
+  per process**; since force accumulation is floating-point and addition is not
+  associative, *every run gave a different answer*. Three identical 200-step
+  runs of the settled bed gave kinetic energies `2.81519841188424304e-2`,
+  `…18857e-2`, `…32977e-2` — the 13th significant figure, in a system chaotic
+  over 50 000 steps. **`htr10_settled_ours.csv` could not be regenerated
+  exactly**, and the single 2.91e-2 m outlier in the per-particle comparison
+  above is consistent with this mechanism. Replaced by a deterministic
+  counting-sorted flat cell list. Bead `op-t3l.9`.
+
+  **Compute backends.** `ComputeType` / `ThreadCount` (`src/compute.rs`) mirror
+  `outram-mc-libs`, with one semantic deliberately stricter: the rayon backend
+  must be **bit-identical** to the scalar reference, not merely agree within
+  uncertainty, because this crate's whole claim is bit-identical agreement with
+  LIGGGHTS. Verified by identical checksums. Measured on the settled HTR-10
+  bed: 55.95 → **18.34** ms/step scalar (defect fixes) → **12.85** ms/step on 12
+  threads. The parallel gain is capped by Amdahl — bit-identity requires an
+  ordered accumulation phase that cannot be parallelised.
+
+  **Bed structure is now measured, not just density.** `src/rdf.rs` +
+  `tests/htr10_rdf.rs` compute `g(r)`; both codes agree on contact coordination
+  number (**8.16**) and peak position (`0.990 d`), with peak heights 17.635 vs
+  17.588. Full methodology and results in
+  [`docs/verification-and-validation.md`](docs/verification-and-validation.md)
+  §§ 3.2–3.3.
+
+  **The 0.61 question is answered, and the answer is friction.** A 2x2 friction
+  ablation (V&V § 4.9) reaches a whole-core closure of **0.6047 against the
+  published 0.61** at `mu = 0.1, mu_r = 0` — the *literature* value for
+  graphite-on-graphite, graphite being a solid lubricant — where this crate's
+  previous `mu = 0.4` gave 0.5729. `mu` is worth `+0.0196` in `phi` and `mu_r`
+  a further `+0.007..0.012`. Nothing was fitted: all four cells were run and all
+  four are reported.
+
+  **Slow recirculation does NOT explain the gap**, contrary to the hypothesis on
+  record in GitHub issue #216. Over 7.3 % of the bed it moves `phi` by at most
+  0.007, against friction's 0.031 — and its **sign depends on friction**:
+  `+0.0025` at `mu = 0.1, mu_r = 0` but `-0.0073` at `mu = 0.4, mu_r = 0.1`.
+  Low-friction beds re-compact after each disturbance; high-friction beds
+  cannot, and dilate.
+
+  **Every bed is a random packing, measured not assumed.** `g(r)` for all 11
+  committed beds shows `g(sqrt2 d)` as a trough (0.617-0.691) with no FCC peak,
+  and split second peaks at `sqrt3 d` / `2 d`. The **densest** bed is
+  simultaneously the **most** random-close-packed and the **least**
+  crystalline.
+
+  **A caveat that was measured, not smoothed over — and it revised two
+  numbers.** The 40-batch runs used a 2 000-step settle window and came in at
+  `1.57e-2` against the quasi-static bound of `1e-2`, i.e. **outside the regime
+  they claim**. Raising the window to 8 000 steps drops that to `~2e-4`, and the
+  committed test now uses 8 000. Relaxing the threshold instead was considered
+  and rejected: the bound is the only reason the case can claim to measure
+  creep rather than avalanching.
+
+  A rate-independence control (two cells re-run at 8 000 steps from the
+  identical settled beds, both genuinely quasi-static at `2.2e-4` and `4.8e-4`)
+  then tested whether the result survived. **The sign flip does** — `+0.0015`
+  at `mu = 0.1` against `-0.0016` at `mu = 0.4` over the same 500 pebbles — but
+  the 2 000-step **magnitudes were inflated about twofold**, and its `-0.00245`
+  whole-core loss at `mu = 0.1` was an outright artefact (`+0.0001` once
+  relaxed). **Quote the control, not the 40-batch table.** The qualitative
+  conclusion is unchanged and slightly strengthened: the quasi-static effect is
+  smaller still, so recirculation explains even less of the 0.61 gap.
+
+  **Still NOT closed by any of this:** there remains **no experimental
+  comparison** anywhere in this repository, and no published `g(r)` or
+  radial-voidage correlation is catalogued in `crates/kovan-literature` to gate
+  against. Everything above is verification.
+
 ## Scope
 
-Modules: `bonded`, `boundary`, `contact`, `coupling`, `granular`,
-`granular_system`, `integrator`, `mesh_wall`, `particle`, `rolling`,
-`simulation`, `thermal`, `thermal_radiation`, `timestep`.
+Modules: `bonded`, `boundary`, `compute`, `contact`, `coupling`, `gnn_bridge`
+(feature `gnn`), `gpu` (non-Android, non-wasm), `granular`, `granular_system`,
+`integrator`, `mesh_wall`, `particle`, `rdf`, `rolling`, `simulation`,
+`thermal`, `thermal_radiation`, `timestep`.
+
+Three of those are newer than the rest and are worth naming here:
+
+- **`compute`** — the `ComputeType` / `ThreadCount` backend selector, mirroring
+  `outram-mc-libs`. Read its module docs before using the parallel path: the
+  rayon backend is **bit-identical** to the scalar one by design, and that
+  constraint is why the speedup is modest.
+- **`rdf`** — radial distribution function `g(r)`, i.e. bed *structure* rather
+  than bed density. Distinguishes a random packing from a crystallising one,
+  which a packing fraction cannot.
+- **`gpu`** — one headless `wgpu` kernel, for the RDF histogram only. The DEM
+  timestep deliberately has **no** GPU path; `compute`'s docs say why.
 
 **Which engine to use.** There are two, deliberately:
 
