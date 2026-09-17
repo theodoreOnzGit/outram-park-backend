@@ -45,7 +45,14 @@ wall clock   = 80.0 s
    disagreement here would have implicated the tracker, and the agreement
    implicates the model.
 
-   **The remaining candidate is the MODEL.** The geometry is also ruled out:
+   **Three eliminations, and the materials are ruled out too.**
+   `nee_soon/examples/htr10_material_check.rs` evaluates
+   `fuel_pebble_materials` directly: the UO2 kernel carries
+   **nu-fission = 5.691 cm^-1 at thermal** (fission 2.342), and every
+   non-fuel layer is correctly zero. So the fuel is real and strongly
+   multiplying.
+
+   The geometry is also ruled out:
    `nee_soon/examples/htr10_locate_probe.rs` puts 20,000 uniform probes through
    the assembled core: **0 lost**, all eight materials reached, `Delta` reported
    inside the bed and `Surface` in the reflector, four-level descent where it
