@@ -85,23 +85,65 @@ is not attempted and is not the point. Packing fraction is measured over a slab
 excluding `4 r` at the floor and at the free surface, by exact sphere-cap
 integration.
 
+~~The comparison is statistical.~~ **CORRECTED 2026-09-17** — that framing was
+written on the assumption that settling is chaotic enough to make a
+per-particle comparison meaningless. For the HTR-10 case it is not: see
+"Per-particle agreement" below, where the median pebble lands 61 micrometres
+from where LIGGGHTS puts it. The bulk quantities below are still the *asserted*
+gate, because a single-number gate is what a test can act on, but "statistical"
+undersold what the codes actually agree on.
+
 | Case | Geometry | N | Quantity | Ours | LIGGGHTS | Agreement | Test |
 |---|---|---|---|---|---|---|---|
 | bulk bed settling | cylinder, `D/d = 6` | 354 | solid fraction | 0.5571 | 0.5582 | 0.20 % | `pebble_bed_bulk.rs` |
 | angle of repose, lifting cylinder | STL mesh wall, `R = 0.050 m` | 656 | repose angle | 12.78 deg | 15.43 deg | 2.65 deg | `angle_of_repose.rs` |
 | HTR-10 full core, `E = 1e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5811 | 0.5810 | 0.02 % | `htr10_pebble_bed.rs` |
 | HTR-10 full core, `E = 3e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5754 | 0.5754 | 4 decimals | `htr10_pebble_bed.rs` |
-| HTR-10 full core, `E = 5e8` | cylinder, `D/d = 30` | 27 554 | solid fraction | *(run in flight 2026-09-17)* | 0.5732 | — | `htr10_pebble_bed.rs` |
+| HTR-10 full core, `E = 5e8` | cylinder, `D/d = 30` | 27 554 | solid fraction | **0.5732** | **0.5732** | 4 decimals | `htr10_pebble_bed.rs` |
 
 The angle-of-repose case is the weakest agreement on this page and is reported
 as such rather than being tuned: a heap angle is an emergent property of the
 whole settling history, and the two codes' heaps differ by 2.65 degrees. See
 `verification-and-validation.md` section 4.6.
 
+### Per-particle agreement — stronger than the bulk numbers suggest
+
+Both codes' settled HTR-10 beds are committed
+(`htr10_settled.csv` from LIGGGHTS, `htr10_settled_ours.csv` from this port),
+so they can be compared pebble by pebble rather than only in aggregate. Each of
+the 27 554 pebbles was integrated **50 000 steps independently** by the two
+codes from the same initial state. Displacement between the two final
+positions, measured 2026-09-17 at `E = 5e8`:
+
+| statistic | value | as a fraction of a 60 mm pebble |
+|---|---|---|
+| median | `6.09e-05 m` | 0.10 % |
+| mean | `7.12e-05 m` | 0.12 % |
+| p90 | `1.24e-04 m` | 0.21 % |
+| p99 | `1.59e-04 m` | 0.27 % |
+| p99.9 | `6.99e-04 m` | 1.2 % |
+| max | `2.91e-02 m` | 49 % (one outlier) |
+| under 1 mm | **27 535 of 27 554 (99.93 %)** | |
+
+The median pebble ends **61 micrometres** from where LIGGGHTS puts it. That is
+a much stronger statement than the packing fraction agreeing to four decimals,
+which a wrong model could reach by luck; agreeing on where 27 554 individual
+pebbles come to rest, after 50 000 independent steps each, is not something a
+different contact model does.
+
+**It is still not bit-identical, and the residual is expected.** A granular bed
+is a chaotic system with tens of thousands of contacts making and breaking;
+round-off differences of the kind the oblique cases show (1-3 ulp) are
+amplified by contact-order sensitivity. The 0.49-diameter outlier is one pebble
+that resolved a contact differently and settled into a neighbouring void — the
+kind of event a bulk measure is deliberately insensitive to, and the reason the
+asserted gate is the bulk number rather than a per-particle tolerance.
+
 ### Packing fraction is not stiffness-independent
 
 The HTR-10 rows above were run at three moduli, and `phi` falls monotonically
-as the pebbles stiffen: **0.5811 -> 0.5754 -> 0.5732**, about 1.4 % in total.
+as the pebbles stiffen: **0.5811 -> 0.5754 -> 0.5732**, about 1.4 % in total,
+and both codes track each other at every point of that sweep.
 Softer pebbles interpenetrate, and interpenetration reads as extra solid in a
 centre-based cap integration.
 
@@ -171,8 +213,11 @@ cargo test --release -p outram-park-fork-liggghts --test legacy_path_cross_code
 # the bulk cases, gated behind the default-on `long-tests` feature
 cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk    # 317 s
 cargo test --release -p outram-park-fork-liggghts --test angle_of_repose    # 2313 s
-cargo test --release -p outram-park-fork-liggghts --test htr10_pebble_bed
+cargo test --release -p outram-park-fork-liggghts --test htr10_pebble_bed  # 2714 s
 ```
+
+Runtimes measured on the host named above, 2026-09-16 and 2026-09-17. They are
+machine-dependent -- re-measure rather than trusting them.
 
 Regenerating the upstream side from source — the clone, the precision patch,
 the build, and the two dump-to-CSV converters — is described in

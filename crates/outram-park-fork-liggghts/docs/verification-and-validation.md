@@ -525,7 +525,7 @@ That guard failed twice, and each failure moved the modulus:
 |---|---|---|---|
 | `1e8 Pa` | 90x | **3.80 %** of `r` | fails — hand estimate had said 1.07 % |
 | `3e8 Pa` | 30x | **2.13 %** of `r` | fails, marginally |
-| `5e8 Pa` | 18x | *(see the test)* | — |
+| `5e8 Pa` | 18x | **1.71 %** of `r` | **passes** |
 
 The opening estimate was out by **3.5x** because it used a single pebble's
 weight where the real load is the ~2 m column above it. The lesson is the one
@@ -543,11 +543,48 @@ about 1 %, because softer pebbles interpenetrate and read as denser. Small, but
 it contradicts the usual justification's strict form and was only visible
 because both stiffnesses were actually run.
 
+One note on how that 1.71 % was reached, because the prediction was not a hit.
+Before running it I predicted **1.51 %**, by scaling the `3e8` result with the
+Hertz relation `δ ∝ (F/E)^(2/3)` — a factor 0.711. The measured factor was
+**0.803**, so the prediction was 13 % low. The scaling assumes a fixed load,
+but maximum overlap is an **extreme-value statistic over ~66 000 contacts**,
+not a mean-field quantity: the single most-loaded contact in the bed is not
+governed by the average. The estimate was good enough to decide how far to
+raise `E`, and is not a relation to quote.
+
+### Results at `E = 5e8` (measured 2026-09-17)
+
+| quantity | ours | LIGGGHTS | published |
+|---|---|---|---|
+| bulk solid fraction `φ` | **0.5732** | **0.5732** | 0.61 (whole-core design closure) |
+| bed top | 2.1686 m | 2.1687 m | 1.97 m (mean bed height) |
+| max contact overlap | 1.71 % of `r` | — | — |
+| final kinetic energy | 8.320e-4 J | 9.848e-5 J | — |
+| wall-clock | 2714 s (45.2 min) | 816 s (400 + 416) | — |
+
+`N = 27 554` pebbles, from LIGGGHTS' `fix insert/pack`, against the published
+design count of 27 000 — the pack routine overshoots and always has.
+
+Our final kinetic energy is ~8x LIGGGHTS'. In absolute terms both beds are at
+rest: over 5391 kg of pebbles that is an RMS velocity of **0.56 mm/s** for this
+port against **0.19 mm/s** for LIGGGHTS. Ours is marginally the less settled of
+the two; nothing asserts on it.
+
+**The per-particle agreement is the strongest result here**, and it is recorded
+in [`cross-code-summary.md`](./cross-code-summary.md): the median pebble ends
+**61 µm** from where LIGGGHTS puts it, and 99.93 % of the 27 554 land within
+1 mm, after 50 000 independently integrated steps each.
+
+**Runtime decides the gate, and it was measured, not inherited.** 2714 s puts
+this test in the workspace's middle tier (5 minutes to about an hour), so
+`long-tests` — default-on, skipped only under `--no-default-features` — is the
+correct gate and is what it carries.
+
 ### The bed is looser than the benchmark's nominal figure
 
-At `E = 3e8`, both codes settle to `φ ≈ 0.575` against the published `0.61`, and
-the bed stands `2.16 m` tall against the published `1.97 m`. **This is not a
-code disagreement** — the two codes agree with each other to four decimals.
+At `E = 5e8`, both codes settle to `φ = 0.5732` against the published `0.61`,
+and the bed stands `2.169 m` tall against the published `1.97 m`. **This is not
+a code disagreement** — the two codes agree with each other to four decimals.
 
 Two things are being compared that are not the same quantity. The published
 `0.61` is a *design closure*, 27 000 pebbles divided by a nominal 5.0 m³ core

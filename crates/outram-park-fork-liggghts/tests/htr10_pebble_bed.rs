@@ -66,7 +66,7 @@
 //! |---|---|---|
 //! | `1e8 Pa` (90x soft) | **3.80 %** of `r` | fails; hand estimate said 1.07 % |
 //! | `3e8 Pa` (30x soft) | **2.13 %** of `r` | fails, marginally |
-//! | `5e8 Pa` (18x soft) | see results | — |
+//! | `5e8 Pa` (18x soft) | **1.71 %** of `r` | **passes** |
 //!
 //! The first estimate was out by 3.5x because it used a single pebble's weight
 //! where the real load is the ~2 m column above it. Note the **cross-code
@@ -110,14 +110,40 @@
 //!    difference of a few per cent is expected before any physics is at fault;
 //! 3. **the maximum overlap** — whether the softened stiffness held.
 //!
-//! ## Results
+//! ## Results (measured 2026-09-17, `E = 5e8`, 27 554 pebbles)
 //!
-//! Filled in from the measured run; see `docs/verification-and-validation.md`.
+//! | quantity | ours | LIGGGHTS | published |
+//! |---|---|---|---|
+//! | bulk solid fraction `φ` | **0.5732** | **0.5732** | 0.61 (whole-core closure) |
+//! | bed top | 2.1686 m | 2.1687 m | 1.97 m (mean height) |
+//! | max contact overlap | 1.71 % of `r` | — | — |
+//! | final kinetic energy | 8.320e-4 J | 9.848e-5 J | — |
+//!
+//! **Interpretation.** The cross-code claim (3) passes to four decimals, so
+//! this port reproduces LIGGGHTS on the full reactor geometry. The stiffness
+//! guard (1) passes at 1.71 % after failing at 3.80 % and 2.13 %. The gap to
+//! the published `0.61` is ~6 % and is **not** a code disagreement — see the
+//! module docs above on why the two are different quantities.
+//!
+//! Both beds are at rest: 8.320e-4 J over 5391 kg of pebbles is an RMS
+//! velocity of 0.56 mm/s, against 0.19 mm/s for LIGGGHTS.
+//!
+//! **Stronger than any number above**, and recorded in
+//! `docs/cross-code-summary.md`: comparing the two settled beds pebble by
+//! pebble, the median pebble ends **61 µm** from where LIGGGHTS puts it and
+//! 99.93 % of the 27 554 land within 1 mm — after 50 000 independently
+//! integrated steps each.
+//!
+//! This test writes its own settled state to
+//! `reference-data/liggghts/htr10_settled_ours.csv` so that comparison can be
+//! redone without a 45-minute re-run.
 //!
 //! ## Runtime
 //!
-//! Measured, not inherited — see the constant below and the workspace
-//! "Any test over 5 minutes" rule.
+//! **2714 s (45.2 min)**, measured 2026-09-17 on x86-64 Linux, Intel Xeon @
+//! 2.80 GHz, 4 cores. That is the workspace's middle tier (5 minutes to about
+//! an hour), so the `long-tests` gate below is the correct one. Runtime is
+//! machine-dependent — re-measure rather than trusting this number.
 
 use outram_park_fork_liggghts::boundary::Boundary;
 use outram_park_fork_liggghts::granular::{
@@ -283,8 +309,8 @@ fn htr10_geometry_matches_the_published_design_point() {
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
-    ignore = "full-scale HTR-10 DEM: 27 000 pebbles x 50 000 steps; gated behind \
-              `long-tests` (default-on) per the workspace 5-minute rule"
+    ignore = "long test, measured 2714 s (45.2 min) on 2026-09-17: 27 554 pebbles \
+              x 50 000 steps. Runs by default; skipped under --no-default-features"
 )]
 fn htr10_full_core_settles_and_matches_liggghts() {
     let (Some(init), Some(settled)) = (

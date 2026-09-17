@@ -49,13 +49,19 @@ than being trusted. Measured 2026-09-15, every sampled frame compared:
 | oblique, no-history — the stateless `contact`+`simulation` path | 251 | round-off (1-3 ulp) |
 | bulk bed, 354 pebbles, `D/d = 6` | settled | packing fraction within **0.20 %** |
 | angle of repose, 656 pebbles, lifting cylinder | settled heap | `12.78°` vs `15.43°` |
+| **HTR-10 full core**, 27 554 pebbles, `D/d = 30` | settled | packing fraction to **4 decimals**; median pebble **61 µm** apart |
 
 ```bash
-cargo test --release -p outram-park-fork-liggghts --lib                     # 108 unit tests
+cargo test --release -p outram-park-fork-liggghts --lib                      # 115 unit tests
 cargo test --release -p outram-park-fork-liggghts --test liggghts_cross_code # 5 cross-code
 cargo test --release -p outram-park-fork-liggghts --test legacy_path_cross_code # stateless path
-cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk -- --ignored
-cargo test --release -p outram-park-fork-liggghts --test angle_of_repose -- --ignored
+
+# the three long cases: gated behind the default-on `long-tests` feature, so
+# they run in an ordinary `cargo test` and are skipped only under
+# `--no-default-features`. They do NOT need `-- --ignored`.
+cargo test --release -p outram-park-fork-liggghts --test pebble_bed_bulk     #  317 s
+cargo test --release -p outram-park-fork-liggghts --test angle_of_repose     # 2313 s
+cargo test --release -p outram-park-fork-liggghts --test htr10_pebble_bed    # 2714 s
 ```
 
 **This is verification, not validation.** It shows this crate reproduces

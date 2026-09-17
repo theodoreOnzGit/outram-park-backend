@@ -69,6 +69,16 @@ are different claims and this entry keeps them apart.
   | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s` |
   | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
   | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | `12.78°` vs `15.43°` — 2.65° (mesh-contact difference, see below) |
+  | **HTR-10 full core**, 27 554 pebbles, `D/d = 30`, `E = 5e8` | settled state | `φ = 0.5732` vs `0.5732` — **4 decimals**; median pebble **61 µm** apart, 99.93 % within 1 mm |
+
+  The HTR-10 row (added 2026-09-17) is the one that matters for the pebble-bed
+  work, because it is the geometry every downstream consumer uses. Its
+  per-particle result is stronger than any bulk number: after 50 000
+  independently integrated steps each, the two codes put essentially every
+  individual pebble in the same place. The consolidated single-table view of
+  every case, with the upstream model file each is judged against and what the
+  comparison does NOT cover, is
+  [`docs/cross-code-summary.md`](./docs/cross-code-summary.md).
 
   Measured at this entry: **114 tests pass** (108 unit + 6 cross-code), plus two
   slow cases that were `#[ignore]`d at the time. **Both now run in an ordinary
