@@ -676,7 +676,7 @@ impl HtgrPlant {
     pub fn new() -> Self {
         let nominal_power = nominal_thermal_power();
         Self {
-            kinetics: HtgrKinetics::new_illustrative(nominal_power),
+            kinetics: HtgrKinetics::new_htr10_published(nominal_power),
             core: ReactorModel::default(), // ReactorModelKind::OneNodePorousMedia as of 2026-08-17
             primary: HeliumPrimaryLoop::new(nominal_helium_flow()),
             secondary: SteamSecondaryLoop::new(),
@@ -1156,7 +1156,7 @@ mod tests {
     /// and is deliberately not made here.
     #[test]
     fn the_opening_rod_position_is_the_critical_one() {
-        let beta = HtgrKinetics::new_illustrative(nominal_thermal_power())
+        let beta = HtgrKinetics::new_htr10_published(nominal_thermal_power())
             .delayed_neutron_fraction()
             .get::<uom::si::ratio::ratio>();
         let critical = control_rods::critical_insertion_fraction(beta)
@@ -2454,6 +2454,330 @@ mod tests {
              [-5, 5] K band the apply_decay_heat fix holds it in (measured +0.039 K on \
              2026-08-17) -- something has reopened GitHub issue #22's energy-accounting gap. \
              See this test's docs."
+        );
+    }
+
+    /// One row of a loss-of-forced-cooling trace.
+    #[derive(Clone, Copy, Debug)]
+    pub struct LofcSample {
+        pub time_s: f64,
+        pub fission_power_w: f64,
+        pub decay_power_w: f64,
+        pub fuel_temperature_k: f64,
+        pub bed_temperature_k: f64,
+    }
+
+    /// Run the HTR-10 helium-circulator-trip ATWS scenario and return the trace.
+    ///
+    /// **Scenario, from Hu et al. (2006) section 3 and Chen et al. (2009)
+    /// section 4.** The reactor is at the test's initial condition; at `t = 0`
+    /// the helium circulator is tripped. **No control rod moves** -- that is
+    /// what makes it an anticipated transient *without scram*, and it is the
+    /// whole point of the test: the reactor must shut itself down on the
+    /// negative temperature coefficient alone. The secondary circuit is
+    /// isolated and the blower baffle closed 12 s after initiation, after which
+    /// the primary flow is "almost zero".
+    ///
+    /// The protection system is left disarmed, because arming it would insert
+    /// the rods and destroy the very thing under test.
+    /// Feedwater demand scaled to a part-load helium flow.
+    ///
+    /// **Not cosmetic.** The steam generator is a counter-flow exchanger with a
+    /// real tube-metal state: run it at 30 % helium flow while the feed pump is
+    /// still delivering its full-power demand and the tube metal is driven down
+    /// toward the feedwater temperature, out of the bottom of the SS304L
+    /// property correlation at 300 K, and the run aborts. A plant at part load
+    /// moves both sides down together, so the scenario does too.
+    fn scaled_feedwater(helium_flow_kg_s: f64) -> secondary_loop::FeedwaterCommand {
+        use uom::si::mass_rate::kilogram_per_second;
+        let fraction = helium_flow_kg_s / pebble_bed::nominal_helium_flow_kg_per_s();
+        // Default MANUAL demand is 10.0 kg/s at full helium flow.
+        let demand = (10.0 * fraction).max(1.0);
+        secondary_loop::FeedwaterCommand::Manual {
+            mass_flow_demand: MassRate::new::<kilogram_per_second>(demand),
+        }
+    }
+
+    /// Settle the plant at a given rod position and flow, and report the power
+    /// it lands on. Used to search for the test's initial condition.
+    fn settled_power_mw(rod_insertion: f64, flow_kg_s: f64, settle_s: f64) -> f64 {
+        use uom::si::mass_rate::kilogram_per_second;
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut plant = HtgrPlant::new();
+        plant.protection.set_enabled(false);
+        let mut c = PlantCommands::default();
+        c.control_rod_insertion_fraction = rod_insertion;
+        c.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(flow_kg_s);
+        c.secondary.feedwater = scaled_feedwater(flow_kg_s);
+        let steps = (settle_s / PLANT_TIMESTEP_S).round() as usize;
+        for _ in 0..steps {
+            plant.step(dt, c.clone());
+        }
+        plant.kinetics.total_power().get::<megawatt>()
+    }
+
+    /// Find the rod insertion that settles the plant at `target_mw` for a given
+    /// helium flow, by bisection.
+    ///
+    /// Deeper insertion means more negative external reactivity and therefore
+    /// less power, so settled power is monotonically decreasing in insertion
+    /// and bisection is well posed.
+    fn rod_position_for(target_mw: f64, flow_kg_s: f64, settle_s: f64) -> f64 {
+        // Bracket DEEPER than the simulator's opening position only.
+        //
+        // The opening insertion is already near critical at full flow and
+        // settles around 9 MW; any target below that is reached by inserting
+        // further. Searching shallower is not merely wasteful, it is
+        // destructive: with the protection system disabled (as it must be for
+        // an ATWS scenario) a shallow bank is strongly supercritical, the power
+        // runs away, and the secondary superheats past the 2273.15 K top of
+        // IAPWS-IF97 Region 5, which aborts the run before the search can
+        // converge.
+        let shallowest = PlantCommands::default().control_rod_insertion_fraction;
+        let (mut lo, mut hi) = (shallowest, 0.95_f64); // lo = shallower = more power
+        for _ in 0..14 {
+            let mid = 0.5 * (lo + hi);
+            if settled_power_mw(mid, flow_kg_s, settle_s) > target_mw {
+                lo = mid; // still too hot: insert deeper
+            } else {
+                hi = mid;
+            }
+        }
+        0.5 * (lo + hi)
+    }
+
+    fn run_lofc_atws(duration_s: f64, settle_s: f64) -> Vec<LofcSample> {
+        run_lofc_atws_at(duration_s, settle_s, None)
+    }
+
+    /// As [`run_lofc_atws`], optionally starting from a specified
+    /// `(rod_insertion, helium_flow_kg_s)` initial condition instead of the
+    /// simulator's default opening commands.
+    fn run_lofc_atws_at(
+        duration_s: f64,
+        settle_s: f64,
+        initial_condition: Option<(f64, f64)>,
+    ) -> Vec<LofcSample> {
+        use uom::si::mass_rate::kilogram_per_second;
+
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut plant = HtgrPlant::new();
+        plant.protection.set_enabled(false);
+
+        // Hold the opening commands while the plant settles, so the transient
+        // is not launched on top of the startup excursion.
+        let mut steady = PlantCommands::default();
+        if let Some((rod, flow)) = initial_condition {
+            steady.control_rod_insertion_fraction = rod;
+            steady.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(flow);
+            steady.secondary.feedwater = scaled_feedwater(flow);
+        }
+        let settle_steps = (settle_s / PLANT_TIMESTEP_S).round() as usize;
+        for _ in 0..settle_steps {
+            plant.step(dt, steady.clone());
+        }
+
+        let rod_position = steady.control_rod_insertion_fraction;
+        let initial_fission = plant.kinetics.total_power().get::<watt>();
+
+        // t = 0: trip the circulator. Rods stay exactly where they were.
+        plant.primary.trip_circulator(true);
+        let mut tripped = steady.clone();
+        tripped.control_rod_insertion_fraction = rod_position;
+        tripped.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(0.0);
+
+        let steps = (duration_s / PLANT_TIMESTEP_S).round() as usize;
+        let sample_every = (1.0 / PLANT_TIMESTEP_S).round() as usize; // 1 Hz
+        let mut trace = Vec::with_capacity(steps / sample_every + 1);
+        trace.push(LofcSample {
+            time_s: 0.0,
+            fission_power_w: initial_fission,
+            decay_power_w: plant.kinetics.decay.total_decay_heat_power().get::<watt>(),
+            fuel_temperature_k: plant.kinetics.prompt.fuel_temperature.get::<kelvin>(),
+            bed_temperature_k: plant.core.temperature().get::<kelvin>(),
+        });
+
+        // The protection system isolated the secondary circuit and closed the
+        // blower baffle 12 s after initiation (Hu et al. 2006 section 3).
+        const SECONDARY_ISOLATION_TIME_S: f64 = 12.0;
+        let isolation_step = (SECONDARY_ISOLATION_TIME_S / PLANT_TIMESTEP_S).round() as usize;
+
+        for i in 1..=steps {
+            if i == isolation_step {
+                plant.primary.isolate_secondary(true);
+            }
+            plant.step(dt, tripped.clone());
+            if i % sample_every == 0 {
+                trace.push(LofcSample {
+                    time_s: i as f64 * PLANT_TIMESTEP_S,
+                    fission_power_w: plant.kinetics.total_power().get::<watt>(),
+                    decay_power_w: plant.kinetics.decay.total_decay_heat_power().get::<watt>(),
+                    fuel_temperature_k: plant.kinetics.prompt.fuel_temperature.get::<kelvin>(),
+                    bed_temperature_k: plant.core.temperature().get::<kelvin>(),
+                });
+            }
+        }
+        trace
+    }
+
+    /// **HTR-10 loss-of-forced-cooling ATWS: does the reactor shut itself down?**
+    ///
+    /// This is the first of the four CRP-5 benchmark parameters of interest
+    /// (ICONE22-30088): **shutdown time**. Chen et al. (2009) section 5 report
+    /// that both the measured and the THERMIX fission power fall **from 100 %
+    /// to 1 % of the initial value within 330 s**.
+    ///
+    /// **This is a scoping measurement, not a validation.** The model is one
+    /// lumped bed node with no natural circulation, no reflector/barrel/cavity
+    /// path and no xenon, against a test whose reference analysis used a 2-D
+    /// r-z conduction model with 44 material regions including the RCCS. The
+    /// assertion is therefore only that the reactor **does** shut itself down
+    /// on temperature feedback alone, which is the qualitative claim the test
+    /// exists to demonstrate. The measured time is printed for comparison, not
+    /// gated.
+    ///
+    /// **Results: printed by this test; see the run output.**
+    #[test]
+    fn lofc_atws_reactor_shuts_itself_down() {
+        let trace = run_lofc_atws(600.0, 200.0);
+        let p0 = trace[0].fission_power_w;
+        assert!(p0 > 0.0, "initial fission power must be positive");
+
+        let one_percent = trace
+            .iter()
+            .find(|s| s.fission_power_w <= 0.01 * p0)
+            .map(|s| s.time_s);
+        let peak_fuel = trace
+            .iter()
+            .map(|s| s.fuel_temperature_k)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let last = trace.last().expect("trace is non-empty");
+
+        println!("\n=== HTR-10 LOFC ATWS (circulator trip, no scram) ===");
+        println!("initial fission power     : {:.4} MW", p0 / 1.0e6);
+        match one_percent {
+            Some(t) => println!("time to 1 % of initial    : {t:.0} s   (measured: 330 s)"),
+            None => println!(
+                "time to 1 % of initial    : NOT REACHED within {:.0} s",
+                last.time_s
+            ),
+        }
+        println!(
+            "peak fuel temperature     : {:.1} K ({:.1} degC)",
+            peak_fuel,
+            peak_fuel - 273.15
+        );
+        println!(
+            "at t = {:.0} s: fission {:.4} MW, decay {:.4} MW, fuel {:.1} K, bed {:.1} K",
+            last.time_s,
+            last.fission_power_w / 1.0e6,
+            last.decay_power_w / 1.0e6,
+            last.fuel_temperature_k,
+            last.bed_temperature_k
+        );
+
+        assert!(
+            one_percent.is_some(),
+            "the reactor did not shut itself down: fission power never fell to 1 % of its \
+             initial value within {:.0} s. The negative temperature coefficient is the only \
+             mechanism acting here, so this failing means the feedback is not arresting the \
+             transient at all.",
+            last.time_s
+        );
+    }
+
+    /// **HTR-10 LOFC ATWS at the published test initial condition.**
+    ///
+    /// The test was run at **30 % of rated power** (Hu et al. 2006 section 1):
+    /// 3000 kW, 2.5 MPa, core inlet 212-215 degC, outlet 650 degC. The
+    /// simulator's default opening commands sit near 9 MW, so a transient
+    /// launched from them starts with roughly three times the stored energy and
+    /// a different temperature margin, and its shutdown time is not comparable
+    /// to the measured one.
+    ///
+    /// This test therefore searches for the rod position that settles the plant
+    /// at 3 MW with the helium flow scaled to 30 % of the published 4.3 kg/s,
+    /// and runs the transient from there.
+    ///
+    /// **Still not a validation.** One lumped bed node, no natural circulation
+    /// (which the real test established once the baffle closed), no xenon, no
+    /// reflector/barrel/cavity path. Reported for comparison, not gated.
+    ///
+    /// **Results: printed by this test.**
+    #[test]
+    fn lofc_atws_at_the_published_test_condition() {
+        let flow_30pct = 0.30 * pebble_bed::nominal_helium_flow_kg_per_s();
+        let settle_s = 200.0;
+        let rod = rod_position_for(3.0, flow_30pct, settle_s);
+        let settled = settled_power_mw(rod, flow_30pct, settle_s);
+
+        println!("\n=== initial condition search ===");
+        println!("helium flow (30 % of rated): {flow_30pct:.3} kg/s");
+        println!("rod insertion found        : {rod:.6}");
+        println!("settled power              : {settled:.4} MW   (target 3.0 MW)");
+
+        let trace = run_lofc_atws_at(3600.0, settle_s, Some((rod, flow_30pct)));
+        let p0 = trace[0].fission_power_w;
+        let one_percent = trace
+            .iter()
+            .find(|s| s.fission_power_w <= 0.01 * p0)
+            .map(|s| s.time_s);
+
+        // First post-shutdown power peak: the first local maximum after the
+        // power has bottomed out. Scan from the minimum onward.
+        let min_idx = trace
+            .iter()
+            .enumerate()
+            .min_by(|a, b| a.1.fission_power_w.total_cmp(&b.1.fission_power_w))
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+        let (peak_idx, peak) = trace[min_idx..]
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.fission_power_w.total_cmp(&b.1.fission_power_w))
+            .map(|(i, s)| (i + min_idx, *s))
+            .unwrap_or((0, trace[0]));
+
+        let peak_fuel = trace
+            .iter()
+            .map(|s| s.fuel_temperature_k)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let last = trace.last().expect("non-empty");
+
+        println!("\n=== HTR-10 LOFC ATWS at the test condition ===");
+        println!("initial fission power : {:.4} MW   (test: 3.0 MW)", p0 / 1.0e6);
+        match one_percent {
+            Some(t) => println!("shutdown to 1 %       : {t:.0} s          (test: 330 s)"),
+            None => println!("shutdown to 1 %       : NOT REACHED"),
+        }
+        println!(
+            "power minimum at      : {:.0} s, {:.5} MW",
+            trace[min_idx].time_s,
+            trace[min_idx].fission_power_w / 1.0e6
+        );
+        println!(
+            "first peak after min  : {:.3} % of initial at {:.0} s   (test: 24.7 % at 4400 s)",
+            100.0 * peak.fission_power_w / p0,
+            peak.time_s
+        );
+        let _ = peak_idx;
+        println!(
+            "peak fuel temperature : {:.1} K ({:.1} degC)   (test analysis: 823-883 degC, limit 1230)",
+            peak_fuel,
+            peak_fuel - 273.15
+        );
+        println!(
+            "at t = {:.0} s        : fission {:.5} MW, decay {:.5} MW, fuel {:.1} K, bed {:.1} K",
+            last.time_s,
+            last.fission_power_w / 1.0e6,
+            last.decay_power_w / 1.0e6,
+            last.fuel_temperature_k,
+            last.bed_temperature_k
+        );
+
+        assert!(
+            one_percent.is_some(),
+            "the reactor did not shut itself down at the published test condition"
         );
     }
 }

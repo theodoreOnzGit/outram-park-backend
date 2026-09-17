@@ -142,9 +142,8 @@ impl HtgrKinetics {
     /// pebble-bed parameters. **Not** any specific licensed design -- round,
     /// order-of-magnitude numbers only, per this workspace's data policy.
     ///
-    /// - `Lambda = 1e-3 s` (thermal, graphite-moderated: larger prompt
-    ///   generation time than a fast system) -- illustrative,
-    /// - `beta = 0.0065` -- illustrative,
+    /// - `Lambda` = [`Self::HTR10_PROMPT_GENERATION_TIME_S`] -- **published**,
+    /// - `beta` = [`Self::HTR10_EFFECTIVE_DELAYED_FRACTION`] -- **published**,
     /// - `C_f` = the pebble bed's own lumped graphite heat capacity,
     ///   [`super::pebble_bed::bed_heat_capacity`] (about 9.0 MJ/K). This is
     ///   *derived* from the published pebble count, diameter and graphite
@@ -152,8 +151,10 @@ impl HtgrKinetics {
     ///   hydraulics does. It used to be a flat 1e8 J/K sized for the old
     ///   200 MWth prismatic plant, which at 10 MWth would have made the
     ///   temperature feedback almost inert.
-    /// - `alpha_f = -4e-5 K^-1` (negative fuel-temperature feedback) --
-    ///   illustrative,
+    /// - `alpha_f` = [`Self::HTR10_TEMPERATURE_COEFFICIENT_PER_K`] --
+    ///   **published**, and 3.5x the magnitude of the -4e-5 /K it replaced.
+    ///   This is the coefficient that arrests a LOFC transient, so the old
+    ///   value materially under-stated HTR-10's inherent safety margin,
     /// - reference/initial fuel temperature = **the pebble bed's own
     ///   design-point temperature**, [`super::pebble_bed::PebbleBedPorousMediaNode::new`]
     ///   (about 950 K), *not* a separately chosen 900 K. This matters now that
@@ -170,12 +171,69 @@ impl HtgrKinetics {
     ///
     /// The delayed bank is built with the **same** `Lambda`, so its per-group
     /// source gains `beta_i/Lambda` are consistent with the prompt layer.
-    pub fn new_illustrative(reference_power: Power) -> Self {
+    /// Effective delayed-neutron fraction of the HTR-10, dimensionless.
+    ///
+    /// **7.26e-3**, Chen et al. (2009) Table 1; the same figure appears in
+    /// Hu et al. (2006) section 2.1, both attributing it to INET (1998). The
+    /// two papers agree on this one, which is why it is the least hedged
+    /// constant here.
+    ///
+    /// Replaces an illustrative 0.0065, which was 10.5 % low.
+    pub const HTR10_EFFECTIVE_DELAYED_FRACTION: f64 = 7.26e-3;
+
+    /// Prompt neutron generation time of the HTR-10 \[s\].
+    ///
+    /// **1.68e-3 s**, Chen et al. (2009) Table 1.
+    ///
+    /// **The two sources disagree by a factor of ten and this is not an
+    /// extraction artefact** — Hu et al. (2006) section 2.1 prints
+    /// `1.68 x 10^-4 s`, Chen et al. (2009) Table 1 prints `1.68 x 10^-3 s`,
+    /// and both cite INET (1998). Chen's value is used here for two reasons:
+    /// it is the one whose post-test analysis reproduces the measured power
+    /// transient, and ~1e-3 s is the physically expected magnitude for a
+    /// graphite-moderated thermal system (a large migration area gives a long
+    /// prompt generation time; 1.68e-4 s is LWR-like). **Not resolved against
+    /// a primary source — INET (1998) has not been read.**
+    ///
+    /// Sensitivity is low for this transient: the excursion is arrested by
+    /// thermal feedback over hundreds of seconds, far slower than either
+    /// candidate `Lambda`.
+    pub const HTR10_PROMPT_GENERATION_TIME_S: f64 = 1.68e-3;
+
+    /// Isothermal temperature coefficient of reactivity \[K^-1\].
+    ///
+    /// **-1.4e-4 dk/k per degC**, Chen et al. (2009) Table 1, used as the
+    /// single lumped feedback coefficient of the post-test THERMIX analysis.
+    /// Per degC and per K are numerically identical for a *coefficient*, so
+    /// this is used directly as a `per_kelvin` quantity.
+    ///
+    /// **Why this and not the IAEA-TECDOC-1382 Table 4-33 values** already
+    /// transcribed in `tampines::pebble_bed::feedback` (-7.37e-5 to
+    /// -9.15e-5 /K): those are benchmark states spanning 20-250 degC, and
+    /// their magnitude grows with temperature (-7.49e-5 over 20-120 degC
+    /// against -9.15e-5 over 120-250 degC). This transient runs at 212-650 degC,
+    /// above all of them. -1.4e-4 is the value evaluated for the test
+    /// condition, and it is the one to use here.
+    ///
+    /// **A second, unresolved discrepancy.** Hu et al. (2006) section 2.1
+    /// gives a *split* the workspace otherwise lacks entirely — fuel
+    /// -1.93e-5, moderator -1.49e-5, reflector **+7.08e-6**, all as
+    /// `$ per degC`. Those do not reconcile with Chen's total: summed and
+    /// converted at `beta = 7.26e-3` they give about -2e-7 dk/k per degC,
+    /// three orders of magnitude small. Read as `10^-2 $/degC` the fuel term
+    /// alone would give -1.401e-4 dk/k per degC, matching Chen exactly, which
+    /// suggests a printed exponent is wrong — but the rendered PDF really does
+    /// read `10^-5`, so this is recorded rather than silently corrected. The
+    /// split is what a two-channel Doppler/graphite model would need; do not
+    /// use it until the exponent is settled against INET (1998).
+    pub const HTR10_TEMPERATURE_COEFFICIENT_PER_K: f64 = -1.4e-4;
+
+    pub fn new_htr10_published(reference_power: Power) -> Self {
         use uom::si::f64::{TemperatureCoefficient, ThermodynamicTemperature};
         use uom::si::temperature_coefficient::per_kelvin;
         use uom::si::thermodynamic_temperature::kelvin;
 
-        let prompt_generation_time = Time::new::<second>(1.0e-3);
+        let prompt_generation_time = Time::new::<second>(Self::HTR10_PROMPT_GENERATION_TIME_S);
 
         // Reference AND initial fuel temperature both taken from the pebble
         // bed's design point, so `T_f - T_ref` is zero there and the
@@ -187,14 +245,14 @@ impl HtgrKinetics {
 
         let prompt = NordheimFuchsExactTimestepper::new(
             prompt_generation_time,
-            Ratio::new::<ratio>(0.0065),
+            Ratio::new::<ratio>(Self::HTR10_EFFECTIVE_DELAYED_FRACTION),
             super::pebble_bed::bed_heat_capacity(),
-            TemperatureCoefficient::new::<per_kelvin>(-4.0e-5),
+            TemperatureCoefficient::new::<per_kelvin>(Self::HTR10_TEMPERATURE_COEFFICIENT_PER_K),
             design_point_temperature,
             design_point_temperature,
             reference_power,
         )
-        .expect("illustrative HTGR kinetics parameters must satisfy NordheimFuchs preconditions");
+        .expect("published HTR-10 kinetics parameters must satisfy NordheimFuchs preconditions");
 
         let delayed = DelayedNeutronLayer::u235_five_group(prompt_generation_time);
 
@@ -513,7 +571,7 @@ mod tests {
     /// `1 - prompt_power_fraction`.
     #[test]
     fn decay_heat_at_equilibrium_does_not_move_the_steady_state() {
-        let k = HtgrKinetics::new_illustrative(rated());
+        let k = HtgrKinetics::new_htr10_published(rated());
         let thermal = k.core_thermal_power().get::<megawatt>();
         let decay = k.decay_heat_power().get::<megawatt>();
         let share = decay / thermal;
@@ -549,7 +607,7 @@ mod tests {
     /// in took core power to zero and the graphite simply cooled.
     #[test]
     fn decay_heat_survives_a_shutdown() {
-        let mut k = HtgrKinetics::new_illustrative(rated());
+        let mut k = HtgrKinetics::new_htr10_published(rated());
         let dt = Time::new::<second>(0.1);
         for _ in 0..600 {
             // No coolant removal: this isolates the decay-heat behaviour from
@@ -595,7 +653,7 @@ mod tests {
     /// closed form where it belongs.
     #[test]
     fn the_fuel_node_cools_smoothly_rather_than_stiffly() {
-        let mut k = HtgrKinetics::new_illustrative(rated());
+        let mut k = HtgrKinetics::new_htr10_published(rated());
         let dt = Time::new::<second>(0.1);
         let removal = Power::new::<megawatt>(10.0);
         let c_f = k.prompt.fuel_heat_capacity.get::<joule_per_kelvin>();

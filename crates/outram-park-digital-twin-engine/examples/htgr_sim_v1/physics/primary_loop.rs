@@ -516,6 +516,33 @@ const RETURN_TRANSPORT_TIME_CONSTANT_S: f64 = 8.0;
 /// machine's stated range.
 const MIN_HELIUM_FLOW_KG_PER_S: f64 = 0.3;
 
+/// Residual helium flow after a circulator trip \[kg/s\] (**a modelling
+/// choice, see below**), about 0.23 % of the rated 4.3 kg/s.
+///
+/// **Not zero, and not physical residual forced flow.** In the HTR-10 loss-of-
+/// forced-cooling ATWS test the blower was stopped and the blower baffle was
+/// closed 12 s later, at which point Hu et al. (2006) record the primary mass
+/// flow as having "decreased rapidly to almost zero". What then happens is not
+/// stagnation: Chen et al. (2009) report that the helium, still at full system
+/// pressure of about 2.5 MPa and therefore dense, sets up a **buoyancy-driven
+/// natural circulation** through the core and the internals, and that this
+/// convection is an effective heat-transport mechanism alongside conduction and
+/// radiation.
+///
+/// **This model does not resolve that natural circulation** -- it has one
+/// helium node, no momentum equation and no gravity term, so buoyancy cannot
+/// be computed here (a limitation the workspace already records; see
+/// `docs/reactor-scoping/htr10.md`). The residual is therefore a small positive
+/// number chosen to keep the energy-balance denominator and the residence time
+/// finite, **not** an estimate of the natural-circulation flow rate.
+///
+/// The consequence for results is one-directional and must be stated with any
+/// number this model produces: omitting natural circulation removes a heat
+/// transport path out of the core, so the computed core temperatures are an
+/// **upper bound** and the computed power, through the negative temperature
+/// coefficient, is correspondingly a lower bound.
+const TRIPPED_HELIUM_FLOW_KG_PER_S: f64 = 1.0e-2;
+
 /// Ceiling on the commanded helium flow \[kg/s\] (**invented**), a generous
 /// stand-in for the circulator's capacity at roughly 185% of the published
 /// 4.3 kg/s. Without it, a control input scaled for the old 200 MWth prismatic
@@ -639,9 +666,60 @@ pub struct HeliumPrimaryLoop {
     bed_pressure_drop: Pressure,
     /// Circulator hydraulic power required to sustain the total pressure drop.
     circulator_power: Power,
+    /// Whether the helium circulator has tripped.
+    ///
+    /// **This exists so the simulator can enter loss of forced cooling at all.**
+    /// [`MIN_HELIUM_FLOW_KG_PER_S`] is the right floor for a *commanded*
+    /// setpoint -- the published blower regulates down to 30 % and a setpoint
+    /// below that is outside the machine's range -- but it made a circulator
+    /// trip unrepresentable: a commanded zero came back as 0.3 kg/s, about 7 %
+    /// of rated, and the core kept being cooled by a blower that was supposed
+    /// to have stopped.
+    ///
+    /// When tripped, the floor drops to [`TRIPPED_HELIUM_FLOW_KG_PER_S`]
+    /// instead. See [`Self::trip_circulator`].
+    circulator_tripped: bool,
+    /// Whether the secondary circuit has been isolated from the steam
+    /// generator.
+    ///
+    /// In the HTR-10 loss-of-forced-cooling ATWS test the reactor protection
+    /// system isolated the secondary circuit 12 s after the circulator trip,
+    /// and the blower baffle was closed at the same time (Hu et al. 2006,
+    /// section 3). See [`Self::isolate_secondary`].
+    secondary_isolated: bool,
 }
 
 impl HeliumPrimaryLoop {
+    /// Trip the helium circulator, or reset the trip.
+    ///
+    /// Once tripped, the commanded-flow floor drops from
+    /// [`MIN_HELIUM_FLOW_KG_PER_S`] to [`TRIPPED_HELIUM_FLOW_KG_PER_S`], so a
+    /// commanded zero actually reaches (near) zero instead of being raised to
+    /// 7 % of rated. Read [`TRIPPED_HELIUM_FLOW_KG_PER_S`] before interpreting
+    /// any result this produces -- the residual is a numerical floor, not an
+    /// estimate of the natural-circulation flow the real test established.
+    ///
+    /// The caller still has to command the flow down; this only removes the
+    /// floor that was preventing it.
+    pub fn trip_circulator(&mut self, tripped: bool) {
+        self.circulator_tripped = tripped;
+    }
+
+    /// Whether the circulator is currently tripped.
+    pub fn circulator_tripped(&self) -> bool {
+        self.circulator_tripped
+    }
+
+    /// Isolate (or reconnect) the secondary circuit at the steam generator.
+    ///
+    /// While isolated the steam generator is not advanced at all: it transfers
+    /// no heat and no feedwater flows through it. See
+    /// [`Self::advance_steam_generator`] for why leaving it running during a
+    /// loss of forced cooling drives the tube metal out of its property range.
+    pub fn isolate_secondary(&mut self, isolated: bool) {
+        self.secondary_isolated = isolated;
+    }
+
     /// Construct the loop at the published HTR-10 operating point:
     /// `nominal_flow` helium mass flow, core inlet seeded at 250 degC and core
     /// outlet at 700 degC, helium properties evaluated at their mean.
@@ -664,6 +742,10 @@ impl HeliumPrimaryLoop {
             core_inlet_temperature: inlet,
             core_outlet_temperature: outlet,
             mass_flow: nominal_flow,
+            // The loop is constructed at the operating point, circulator
+            // running and the secondary connected.
+            circulator_tripped: false,
+            secondary_isolated: false,
             ihx_duty: Power::new::<watt>(0.0),
             secondary_duty: Power::new::<watt>(0.0),
             ihx_outlet_temperature: inlet,
@@ -760,9 +842,18 @@ impl HeliumPrimaryLoop {
         // Clamp the commanded flow to the circulator's range so the energy
         // balance denominator and the residence time never blow up, and so a
         // setpoint scaled for a different plant cannot drive this one.
+        //
+        // A TRIPPED circulator is not a commanded setpoint, so it does not get
+        // the commanded floor: it would put 7 % of rated flow through a core
+        // that is supposed to have lost forced cooling entirely.
+        let floor = if self.circulator_tripped {
+            TRIPPED_HELIUM_FLOW_KG_PER_S
+        } else {
+            MIN_HELIUM_FLOW_KG_PER_S
+        };
         let flow_kg_s = flow_setpoint
             .get::<kilogram_per_second>()
-            .clamp(MIN_HELIUM_FLOW_KG_PER_S, MAX_HELIUM_FLOW_KG_PER_S);
+            .clamp(floor, MAX_HELIUM_FLOW_KG_PER_S);
         self.mass_flow = MassRate::new::<kilogram_per_second>(flow_kg_s);
 
         // 1. Real helium properties at the current bulk mean temperature.
@@ -823,6 +914,24 @@ impl HeliumPrimaryLoop {
         feedwater_enthalpy: AvailableEnergy,
         secondary_mass_flow: MassRate,
     ) {
+        // An ISOLATED steam generator is valved out of both circuits: it moves
+        // no heat, and nothing flows through it to chill it. Advancing it
+        // anyway is not merely wasted work, it is wrong -- the feed-flow floor
+        // MIN_SECONDARY_FLOW_THROUGH_SG_KG_PER_S keeps pushing cold water
+        // through tubes that have no helium-side source once the circulator has
+        // tripped, and the tube metal is driven below the 300 K lower bound of
+        // the SS304L property correlation, which aborts the run. That is what
+        // the HTR-10 test procedure avoids by isolating the secondary 12 s
+        // after the trip (Hu et al. 2006 section 3).
+        if self.secondary_isolated {
+            self.ihx_duty = Power::new::<watt>(0.0);
+            self.secondary_duty = Power::new::<watt>(0.0);
+            // The helium side is valved out too, so the return leg sees the
+            // core outlet rather than a cooled steam-generator outlet.
+            self.ihx_outlet_temperature = self.core_outlet_temperature;
+            return;
+        }
+
         let sg = self
             .steam_generator
             .advance_timestep(
