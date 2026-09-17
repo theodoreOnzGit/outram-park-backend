@@ -472,6 +472,73 @@ and covered by `pruning_stays_exact_after_the_mesh_moves`, which moves the wall
 over the *current* facet positions. That regression test was confirmed to fail
 without the fix before being trusted.
 
+## 4.7 HTR-10 full core — the geometry that actually matters
+
+**The verification case for the pebble-bed work**, because it is the geometry
+every downstream consumer uses: 27 000 pebbles at `D/d = 30`, not 354 at
+`D/d = 6`. `tests/htr10_pebble_bed.rs`, gated behind `long-tests`.
+
+### Geometry — the published design point
+
+From IAEA-TECDOC-1382, as transcribed in
+`Htr10DesignPoint::iaea_benchmark()` and used by `htgr_sim_v1`: core diameter
+180 cm (`R = 0.90 m`), pebble diameter 6 cm, graphite `ρ = 1730 kg/m³`,
+27 000 fuel elements, published filling fraction `f = 0.61`, bed height 197 cm.
+
+The constants are **restated** in the test rather than read from
+`outram-park-digital-twin-engine`, because depending on that crate would pull
+`egui` into this crate's *test* build and tests are not exempt from the Android
+rule (maintainer confirmed: egui must not enter `liggghts`). The drift a second
+copy invites is caught by `htr10_geometry_matches_the_published_design_point`,
+which closes 27 000 pebbles at `f = 0.61` against the published bed height:
+implied `1.9672 m` vs `1.97 m`, **−0.14 %**.
+
+### The stiffness simplification was set by measurement, not by estimate
+
+This is the part worth reading. The standard pebble-bed softening reduces
+graphite's `E ≈ 9 GPa` so the timestep (`∝ √(m/k)`) stays affordable, on the
+argument that quasi-static packing is set by geometry and friction rather than
+stiffness. The test does **not** take that on trust: it measures the maximum
+contact overlap and asserts it against 2 % of the pebble radius.
+
+That guard failed twice, and each failure moved the modulus:
+
+| `E` | softening | measured max overlap | verdict |
+|---|---|---|---|
+| `1e8 Pa` | 90x | **3.80 %** of `r` | fails — hand estimate had said 1.07 % |
+| `3e8 Pa` | 30x | **2.13 %** of `r` | fails, marginally |
+| `5e8 Pa` | 18x | *(see the test)* | — |
+
+The opening estimate was out by **3.5x** because it used a single pebble's
+weight where the real load is the ~2 m column above it. The lesson is the one
+this document keeps relearning: an assumption that is only argued is not
+checked.
+
+**Crucially, the cross-code verification was unaffected throughout** — LIGGGHTS
+runs the same soft material, and the two codes agreed to 0.02 % at `1e8` and to
+four decimal places at `3e8`. What the too-soft modulus threatened was never
+the port's correctness, only whether the bed is a fair stand-in for a real one.
+
+One genuine physics note from the sweep: **packing fraction is not quite
+stiffness-independent**. `φ` moved `0.5811 → 0.5754` between `1e8` and `3e8`,
+about 1 %, because softer pebbles interpenetrate and read as denser. Small, but
+it contradicts the usual justification's strict form and was only visible
+because both stiffnesses were actually run.
+
+### The bed is looser than the benchmark's nominal figure
+
+At `E = 3e8`, both codes settle to `φ ≈ 0.575` against the published `0.61`, and
+the bed stands `2.16 m` tall against the published `1.97 m`. **This is not a
+code disagreement** — the two codes agree with each other to four decimals.
+
+Two things are being compared that are not the same quantity. The published
+`0.61` is a *design closure*, 27 000 pebbles divided by a nominal 5.0 m³ core
+volume, not a measured packing fraction; and the slab measurement here is
+deliberately bulk-only. Beyond that, a DEM random packing at `µ = 0.4`,
+`µ_r = 0.1` simply packs looser than 0.61 — reproducing the benchmark density
+would need those friction parameters calibrated down. **Nothing here validates
+either number**; it says what this contact model, at these parameters, produces.
+
 ## 5. What is still NOT validated
 
 Unchanged from the 2026-09-06 declaration, and not weakened by anything above:
