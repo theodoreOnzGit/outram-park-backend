@@ -103,6 +103,13 @@ members = [
     # nee_soon (the CLI/headless integration layer, which must stay
     # Android-buildable) and NOT outram-blender (authoring, no solver deps).
     "crates/dhoby-ghaut",
+    # kaki-bukit — KAKI BUKIT: Kernel for Agent-based Key-resource Inventory,
+    # Backend for Utility, Key Infrastructure and Transactions. no_std pure-Rust
+    # translation of CYCLUS (fuel-cycle simulation kernel + dynamic resource
+    # exchange) and CYCAMORE (its facility agent library), both BSD-3-Clause
+    # upstream. Numerics come from petir. Named 2026-09-18 by the maintainer,
+    # replacing the provisional `kaki-bukit`. SCAFFOLD, epic op-r830.
+    "crates/kaki-bukit",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are
