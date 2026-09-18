@@ -103,9 +103,16 @@
 //!
 //! # Read this before quoting any number it prints
 //!
-//! - **ENDF/B-VIII.0**; RMC, MCNP, Serpent and HCP all used **VII.0**. On a
+//! - ~~**ENDF/B-VIII.0**; RMC, MCNP, Serpent and HCP all used **VII.0**. On a
 //!   graphite-moderated LEU system that difference alone is worth hundreds of
-//!   pcm, so a disagreement CANNOT be attributed to transport.
+//!   pcm, so a disagreement CANNOT be attributed to transport.~~
+//!   **MEASURED 2026-09-18 — it is worth `+1644 +/- 438 pcm` (3.75 sigma), and
+//!   it was essentially the whole residual.** Run `OUTRAM_HTR10_ENDF7=1` for
+//!   the reference's own library: `k = 1.004525 +/- 0.003096`, i.e.
+//!   **`+385 +/- 310 pcm` from RMC height-matched, 1.24 sigma** — agreement,
+//!   against `-1259 pcm` on VIII.0. The warning was right that a disagreement
+//!   could not be attributed to transport; it understated the size by 5x.
+//!   Single seed — pool before quoting.
 //! - The reference quotes **no uncertainty** on any of its twelve values.
 //! - The reflector densities are **R-Z homogenised**; TECDOC says a 3-D model
 //!   must correct them for the boring geometries. Unadjusted, they smear the
@@ -129,7 +136,45 @@ use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::tally::mesh::RegularMesh;
 
 const TEMP_K: f64 = 300.15;
+/// RMC's value at the **123.576 cm** loading height.
+///
+/// Kept as the historical comparison point, but **do not compare against it
+/// blind** -- see [`rmc_at_height`]. The bed this example builds is
+/// `lat_height * n_axial` tall, which at the default layer count is NOT
+/// 123.576 cm, and RMC's own curve is steep enough (~270 pcm/cm near this
+/// point) that the mismatch is a real systematic rather than a rounding
+/// detail.
 const RMC_KEFF: f64 = 1.004288; // 123.576 cm loading height
+
+/// RMC's `k_eff` interpolated to an arbitrary fuel-loading height \[cm\], from
+/// the paper's own twelve-point curve.
+///
+/// # Why this exists
+///
+/// The example compared every result against the single 123.576 cm point while
+/// building a bed of `lat_height * n_axial` cm. At the default 25 layers that
+/// bed is **122.474 cm**, and RMC's curve interpolates there to **1.000676**
+/// rather than 1.004288 -- so **+361 pcm of the reported disagreement was the
+/// comparison point, not the model**. The curve rises ~270 pcm/cm through this
+/// region, so a 1.1 cm mismatch is worth more than several of the physics terms
+/// the V&V record ablates.
+///
+/// Returns `None` outside the tabulated range \[94.182, 201.960\] cm rather
+/// than extrapolating: past the ends the curve flattens and a linear
+/// extension would invent reactivity.
+fn rmc_at_height(h_cm: f64) -> Option<f64> {
+    let c = nee_soon::htr10_rmc::RMC_KEFF_VS_HEIGHT;
+    if h_cm < c[0].0 || h_cm > c[c.len() - 1].0 {
+        return None;
+    }
+    for w in c.windows(2) {
+        let ((h0, k0), (h1, k1)) = (w[0], w[1]);
+        if (h0..=h1).contains(&h_cm) {
+            return Some(k0 + (h_cm - h0) / (h1 - h0) * (k1 - k0));
+        }
+    }
+    None
+}
 const NUC: Htr10Nuclides = Htr10Nuclides {
     u235: 0, u238: 1, o16: 2, c_free: 3, c_graphite: 4, si28: 5, b10: 6,
 };
@@ -140,8 +185,53 @@ fn env_usize(k: &str, d: usize) -> usize {
     std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
 }
 
+/// Ablation knobs over the NUCLEAR DATA rather than the geometry.
+///
+/// Both exist because the V&V record names ENDF/B-VIII.0-vs-VII.0 as a known,
+/// uncorrected systematic "worth hundreds of pcm" that had never actually been
+/// priced. No VII.0 tape is available locally, so the library term cannot be
+/// reproduced exactly; what CAN be done is to bound library sensitivity on the
+/// nuclide that carries most of it.
+///
+/// - `OUTRAM_HTR10_U238_JENDL=1` swaps U-238 to the JENDL-3.3 evaluation.
+///   **This is not the VII.0 offset** and must never be quoted as one. It is a
+///   different-library bound on the dominant absorber.
+/// - `OUTRAM_HTR10_NO_SAB=1` drops the crystalline-graphite S(alpha,beta) and
+///   leaves carbon as a free gas. Primarily a HARNESS check: in a
+///   graphite-moderated system this must be worth a large, resolved amount. If
+///   it came back near zero, the thermal scattering law would not be engaged
+///   at all, and every thermal result here would be resting on nothing.
 fn nuclides() -> Option<Vec<Nuclide>> {
     let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let u238_file = if std::env::var("OUTRAM_HTR10_U238_JENDL").is_ok() {
+        eprintln!("  ABLATION: U-238 from JENDL-3.3 (NOT the VII.0 offset -- a library bound)");
+        "n-092_U_238-JENDL3.3.endf"
+    } else {
+        "n-092_U_238.endf"
+    };
+    let no_sab = std::env::var("OUTRAM_HTR10_NO_SAB").is_ok();
+    if no_sab {
+        eprintln!("  ABLATION: graphite S(alpha,beta) DISABLED -- carbon as free gas");
+    }
+    // `OUTRAM_HTR10_ENDF7=1` runs the WHOLE nuclide set from ENDF/B-VII.0 --
+    // the library RMC, MCNP, Serpent and HCP all used. This is the offset the
+    // V&V record has named as "worth hundreds of pcm" and never priced.
+    //
+    // Downloaded 2026-09-18 from the IAEA NDS `download-endf` tree
+    // (https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/), which is
+    // the same pinned host `njoy-outram-park-fork::acquire` uses. Open,
+    // publicly released evaluated nuclear data.
+    //
+    // **One genuine evaluation difference, not a version relabel:** VII.0's
+    // carbon is ELEMENTAL natural carbon (`6-C-0`, MAT 600), where VIII.0 ships
+    // C-12 separately. So the VII.0 arm carries the 1.1 % C-13 in its carbon and
+    // the VIII.0 arm does not. That is part of what "the library difference"
+    // physically IS here, and it is not separable without a third arm.
+    let endf7 = std::env::var("OUTRAM_HTR10_ENDF7").is_ok();
+    if endf7 {
+        eprintln!("  ABLATION: ENDF/B-VII.0 for ALL nuclides (the library the references used)");
+        eprintln!("            note: VII.0 carbon is elemental C-nat, not C-12");
+    }
     let load = |n: &str, f: &str| -> Option<Nuclide> {
         let p = base.join(f);
         p.exists().then_some(())?;
@@ -151,17 +241,51 @@ fn nuclides() -> Option<Vec<Nuclide>> {
         eprintln!("{:.1?}", t.elapsed());
         r
     };
+    let (f_u235, f_u238, f_o16, f_c, f_si28, f_b10, f_tsl) = if endf7 {
+        (
+            "n-092_U_235-ENDF7.0.endf",
+            "n-092_U_238-ENDF7.0.endf",
+            "n-008_O_016-ENDF7.0.endf",
+            "n-006_C_000-ENDF7.0.endf",
+            "n-014_Si_028-ENDF7.0.endf",
+            "n-005_B_010-ENDF7.0.endf",
+            "tsl-graphite-ENDF7.0.endf",
+        )
+    } else {
+        (
+            "n-092_U_235-ENDF8.0.endf",
+            u238_file,
+            "n-008_O_016-ENDF8.0.endf",
+            "n-006_C_012-ENDF8.0.endf",
+            "n-014_Si_028-ENDF8.0.endf",
+            "n-005_B_010-ENDF8.0.endf",
+            "tsl-crystalline-graphite.endf",
+        )
+    };
+    // The graphite thermal tape's MAT differs between releases: VIII.0's
+    // crystalline graphite is MAT 30 (ZA 130), VII.0's is MAT 31 (ZA 131).
+    // Passing the wrong one makes `from_endf_file` return Err and the whole
+    // nuclide set silently become `None`, which surfaces as the misleading
+    // "reference-data/endf/ not in this checkout" -- so it is selected here
+    // rather than hardcoded.
+    let tsl_mat = if endf7 { 31 } else { 30 };
     let sab = ThermalScattering::from_endf_file(
-        base.join("tsl-crystalline-graphite.endf").to_str()?, 30, TEMP_K, "c_Graphite",
-    ).ok()?;
+        base.join(f_tsl).to_str()?, tsl_mat, TEMP_K, "c_Graphite",
+    )
+    .map_err(|e| eprintln!("  thermal scattering load FAILED (mat {tsl_mat}): {e}"))
+    .ok()?;
     Some(vec![
-        load("U235", "n-092_U_235-ENDF8.0.endf")?,
-        load("U238", "n-092_U_238.endf")?,
-        load("O16",  "n-008_O_016-ENDF8.0.endf")?,
-        load("C12",  "n-006_C_012-ENDF8.0.endf")?,
-        load("C12",  "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
-        load("B10",  "n-005_B_010-ENDF8.0.endf")?,
+        load("U235", f_u235)?,
+        load("U238", f_u238)?,
+        load("O16",  f_o16)?,
+        load("C12",  f_c)?,
+        if no_sab {
+            load("C12", f_c)?
+        } else {
+            load("C12", f_c)?.with_thermal_scattering(sab)
+        },
+        load("Si28", f_si28)?,
+        load("B10",  f_b10)?,
     ])
 }
 
@@ -318,7 +442,25 @@ fn main() {
         n_active: env_usize("OUTRAM_HTR10_ACTIVE", 70),
         temperature_k: TEMP_K,
         seed: 20260917,
-        compute: ComputeType::CpuMultiThread(ThreadCount::Auto),
+        // `OUTRAM_HTR10_THREADS=n` pins the thread count; default stays Auto.
+        //
+        // This exists because thread-count independence is **tested for
+        // `run_keff` and merely assumed for `run_keff_csg_hybrid`**, which is
+        // the driver this case actually uses.
+        // `physics::keff::tests::cpu_multi_is_reproducible` asserts bit-identity
+        // between 1 and 4 threads -- on the simple sphere path, through
+        // `run_keff`. Nothing covers the hybrid CSG path, and with `Auto` the
+        // thread count follows machine load, so two runs of this example on a
+        // busy box need not use the same count. If the hybrid driver is
+        // order-dependent, every single-seed number in the HTR-10 V&V record is
+        // irreproducible and the ablation chain built from their differences is
+        // unsound. Pinning the count is what makes that testable.
+        compute: ComputeType::CpuMultiThread(
+            match std::env::var("OUTRAM_HTR10_THREADS").ok().and_then(|v| v.parse::<usize>().ok()) {
+                Some(n) => ThreadCount::Fixed(n),
+                None => ThreadCount::Auto,
+            },
+        ),
         ..KeffSettings::default()
     };
     let r = core.tiles as f64; let _ = r;
@@ -382,7 +524,33 @@ fn main() {
         println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
     }
 
+    // Height-matched comparison. The bed is `lat_height * n_axial` tall; RMC's
+    // curve is sampled at ITS heights, so comparing against a point the model
+    // does not occupy imports a systematic worth ~270 pcm per cm of mismatch.
+    let bed_height_cm = core.bed_half_height * 2.0;
+    let rmc_here = rmc_at_height(bed_height_cm);
+    match rmc_here {
+        Some(k) => println!(
+            "\n  HEIGHT-MATCHED: bed is {bed_height_cm:.3} cm -> RMC(interp) = {k:.6}\n  \
+             (the {RMC_KEFF:.6} headline is RMC at 123.576 cm; difference {:+.0} pcm \
+             is comparison point, NOT model)",
+            (RMC_KEFF - k) * 1.0e5
+        ),
+        None => println!(
+            "\n  HEIGHT-MATCHED: bed is {bed_height_cm:.3} cm -- OUTSIDE the tabulated \
+             RMC range [94.182, 201.960] cm, so no height-matched reference exists \
+             and the {RMC_KEFF:.6} comparison below is NOT like-for-like."
+        ),
+    }
+
     let pcm = (res.k_mean - RMC_KEFF) * 1.0e5;
+    if let Some(k) = rmc_here {
+        println!(
+            "  dk height-matched = {:+.0} pcm   (against {:.6}, not {RMC_KEFF:.6})",
+            (res.k_mean - k) * 1.0e5,
+            k
+        );
+    }
     let sigma = res.k_std * 1.0e5;
     println!("  k_eff        = {:.6} +/- {:.6}", res.k_mean, res.k_std);
     println!("  RMC          = {RMC_KEFF:.6}");

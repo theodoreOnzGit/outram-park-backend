@@ -76,6 +76,43 @@ pub const HTR10_COOLANT_OUTER_CM: f64 = 148.6;
 /// that the real reactor leaks, and is worth thousands of pcm.
 pub const HTR10_CAVITY_ABOVE_BED_CM: f64 = 98.758;
 
+/// Total height \[cm\] of the **core cavity**, conus top to cavity top.
+///
+/// Terry (2005) Fig. 2 / IAEA-TECDOC-1382: `z = 130.0` to `351.818`. This is
+/// **fixed geometry** — it does not depend on how much fuel is loaded.
+pub const HTR10_CORE_CAVITY_CM: f64 = 221.818;
+
+/// Void height \[cm\] above a bed of `bed_full_height` cm, in a FIXED cavity.
+///
+/// # Why this exists
+///
+/// [`HTR10_CAVITY_ABOVE_BED_CM`] is the void at **one** loading — the
+/// benchmark's 123.06 cm — and the model applied it as a constant at every
+/// loading, which silently grows the whole cavity with the bed. The cavity is
+/// fixed; it is the *void* that shrinks as fuel is added.
+///
+/// That is exact at the benchmark point (`221.818 - 123.06 = 98.758`) and
+/// wrong in a known direction away from it: at lower loading the model has too
+/// little void, so reflector graphite sits where the reactor has helium and
+/// `k` reads HIGH; at higher loading it has too much void and `k` reads LOW.
+///
+/// Measured 2026-09-18 across four loadings (dk vs RMC, height-matched):
+/// `-54` at 102.9 cm, `-1259` at 122.5 cm, `-2194` at 147.0 cm, `-1640` at
+/// 171.5 cm — positive-shifted below the benchmark loading and
+/// negative-shifted above it, as this predicts. **The -54 pcm agreement at
+/// 102.9 cm is two errors cancelling, not correctness.**
+///
+/// Enabled by `OUTRAM_HTR10_FIXED_CAVITY=1`; the default keeps the historical
+/// constant so no committed result moves silently.
+#[must_use]
+pub fn cavity_above_bed(bed_full_height_cm: f64) -> f64 {
+    if std::env::var("OUTRAM_HTR10_FIXED_CAVITY").is_ok() {
+        (HTR10_CORE_CAVITY_CM - bed_full_height_cm).max(0.0)
+    } else {
+        HTR10_CAVITY_ABOVE_BED_CM
+    }
+}
+
 /// Axial reflector thickness \[cm\] beyond the core cavity / bed.
 ///
 /// The full benchmark model is 610 cm tall (Terry 2005, corroborated against
@@ -304,7 +341,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // centimetre of graphite before vacuum, so the cavity vented almost
     // directly to the outside -- measured at 15.7 % leakage.
     let refl_half_height = if refl_thickness > 0.0 {
-        bed_half_height + HTR10_CAVITY_ABOVE_BED_CM + HTR10_AXIAL_REFLECTOR_CM
+        bed_half_height + cavity_above_bed(2.0 * bed_half_height) + HTR10_AXIAL_REFLECTOR_CM
     } else {
         bed_half_height
     };
@@ -589,7 +626,7 @@ pub fn assemble_explicit_triso(
     // centimetre of graphite before vacuum, so the cavity vented almost
     // directly to the outside -- measured at 15.7 % leakage.
     let refl_half_height = if refl_thickness > 0.0 {
-        bed_half_height + HTR10_CAVITY_ABOVE_BED_CM + HTR10_AXIAL_REFLECTOR_CM
+        bed_half_height + cavity_above_bed(2.0 * bed_half_height) + HTR10_AXIAL_REFLECTOR_CM
     } else {
         bed_half_height
     };
@@ -645,7 +682,7 @@ pub fn assemble_explicit_triso(
     let conus_floor = -bed_half_height - HTR10_CONUS_HEIGHT_CM;
     // 16: top of the empty core cavity above the pebble bed.
     let cavity_top = if refl_thickness > 0.0 {
-        bed_half_height + HTR10_CAVITY_ABOVE_BED_CM
+        bed_half_height + cavity_above_bed(2.0 * bed_half_height)
     } else {
         bed_half_height
     };

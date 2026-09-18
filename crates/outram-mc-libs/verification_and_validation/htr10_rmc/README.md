@@ -29,7 +29,30 @@ is not there. **The geometry was right and the contents were wrong.**
 | + discharge tube as dummy pebbles | 0.991372 +/- 0.003002 | -1292 +/- 300 |
 
 **POOLED, 8 seeds** — the physical model's residual is
-**`-1592 pcm, sem +/-63`, seed-to-seed `sd 179 pcm`.**
+~~**`-1592 pcm, sem +/-63`**~~ **`-1231 pcm, sem +/-63`**, seed-to-seed
+`sd 179 pcm`.
+
+> **CORRECTED 2026-09-18 — +361 pcm of that residual was the COMPARISON POINT,
+> not the model.** Every number on this page was compared against RMC's
+> **123.576 cm** value, 1.004288, while the model builds a bed
+> `lat_height * n_axial` tall. At the 25 layers these runs use that is
+> `4.8990 * 25 = 122.474 cm`, and RMC's own twelve-point curve interpolates
+> there to **1.000676**. The curve runs **~270 pcm/cm** through this region, so
+> a 1.1 cm mismatch is worth more than several of the physics terms ablated
+> below.
+>
+> `examples/htr10_rmc_keff.rs` now interpolates `RMC_KEFF_VS_HEIGHT` to the
+> height actually modelled (`rmc_at_height`) and prints both, refusing to
+> extrapolate outside `[94.182, 201.960]` cm rather than inventing reactivity
+> past the ends. Every `vs RMC` figure in the table above is therefore **361 pcm
+> too negative** as written; the k_eff column is unaffected.
+>
+> **Open question, flagged not resolved:** whether the paper's "fuel loading
+> height" is the bed proper or includes the conus. The conus holds *dummy*
+> pebbles, so the fuel column is plausibly the bed alone — but the model's bed
+> spans `+/-61.24 cm` with a conus reaching `-98.2 cm`, and if RMC measures from
+> the conus floor the mapping differs. The +361 pcm correction stands either way,
+> because it only requires that 122.474 != 123.576.
 
 That is the number to quote. The single draw above sits **1.7 sd** off the
 pooled mean, which is the whole argument for `gh:#196` / `bn:op-awwi` in one
@@ -143,6 +166,230 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
 - **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
   homogenised with their borings.
 - **Control rods themselves** are absent; the benchmark arm is rods-out.
+
+## THE RESIDUAL WAS THE DATA LIBRARY — measured 2026-09-18
+
+The model was run on **ENDF/B-VII.0**, the library RMC, MCNP, Serpent and HCP
+all used, against the ENDF/B-VIII.0 it had always used. Same geometry, same
+seed, same settings (3000 histories x [20 + 60], 14 rings x 25 layers, bed
+122.474 cm), compared against RMC interpolated to the height actually modelled.
+
+| library | `k_eff` | dk vs RMC (height-matched) |
+|---|---|---|
+| ENDF/B-VIII.0 | 0.988088 +/- 0.003095 | **-1259 pcm** |
+| **ENDF/B-VII.0** | **1.004525 +/- 0.003096** | **+385 pcm** |
+| **library term** | | **+1644 +/- 438 pcm (3.75 sigma, RESOLVED)** |
+
+**On the reference's own library the model agrees with RMC to `+385 +/- 310
+pcm` — 1.24 sigma, statistically indistinguishable from the reference, and
+inside the 500-1000 pcm gate.**
+
+The page had named this as a known uncorrected systematic "worth hundreds of
+pcm" and never priced it. It is worth **1644 pcm**, and on this problem it was
+essentially the entire residual. **Nothing was tuned**: the number moved because
+the model was given the same evaluated data the reference used.
+
+### Where the prediction was wrong
+
+The library term was expected to sit mainly in **U-238 capture**, and U-238 was
+ablated first (VIII.0 -> JENDL-3.3): **-79 +/- 441 pcm, unresolved at 0.18
+sigma**. The full-library swap is **+1644 pcm**, so the effect is **NOT
+dominated by U-238**. It lives in U-235, the carbon evaluation, O-16, or the
+thermal law. The single-nuclide ablation was wrong twice over — underpowered,
+and aimed at the wrong nuclide.
+
+### Provenance
+
+ENDF/B-VII.0 downloaded 2026-09-18 from the IAEA NDS `download-endf` tree
+(`https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/`), the same pinned
+host `njoy-outram-park-fork::acquire` uses. Open, publicly released evaluated
+nuclear data. Tapes: `n_9228_92-U-235`, `n_9237_92-U-238`, `n_0825_8-O-16`,
+`n_0600_6-C-0`, `n_1425_14-Si-28`, `n_0525_5-B-10`, `tsl_0031_graphite`.
+Reachable as `OUTRAM_HTR10_ENDF7=1`.
+
+**Two evaluation differences that are part of the term, not bugs in it:**
+
+- **VII.0 carbon is ELEMENTAL natural carbon** (`6-C-0`, MAT 600); VIII.0 ships
+  C-12 separately. The VII.0 arm therefore carries 1.1 % C-13 and the VIII.0 arm
+  does not. Not separable without a third arm.
+- **The graphite thermal tape's MAT changed**: VIII.0 crystalline graphite is
+  MAT 30 (ZA 130), VII.0 is MAT 31 (ZA 131). Passing the wrong one makes
+  `ThermalScattering::from_endf_file` return `Err`, which turned the whole
+  nuclide set into `None` and surfaced as the misleading *"reference-data/endf/
+  not in this checkout"*. Both the MAT selection and the error message are fixed.
+
+### Read this before quoting `+385 pcm`
+
+- **SINGLE SEED.** `sigma = 310 pcm`, seed-to-seed `sd = 179 pcm`. One draw, not
+  a mean. Pool it (`OUTRAM_BENCH_SEEDS`) before it goes anywhere citable.
+- It is against the **height-matched** RMC value (1.000676). Against the old
+  hardcoded 1.004288 the same run reads `+24 pcm` — a *better-looking* number
+  that is wrong, and a good illustration of why the comparison-point fix
+  mattered even though it made the headline residual larger at the time.
+- The cavity defect (below) is ~zero at this loading, so it does not contaminate
+  this point. It is still a real defect at every other loading.
+- One loading height, one temperature, rods out, no control rods or absorber
+  balls, R-Z homogenised reflector. Unchanged.
+
+## THE CHAIN CLOSES — two routes to the answer agree (2026-09-18)
+
+Fixing the cavity was predicted, **with opposite signs at the two ends**, before
+either run. A common-mode error cannot satisfy both directions.
+
+| loading | void error | predicted | fixed-void dk | fixed-cavity dk | move |
+|---|---|---|---|---|---|
+| 102.879 cm | 20.2 cm too LITTLE | k must FALL | -54 | **-891 +/- 288** | **-837 +/- 374 (2.2 sigma)** |
+| 171.464 cm | 48.4 cm too MUCH | k must RISE | -1640 | **-447 +/- 276** | **+1193 +/- 402 (3.0 sigma)** |
+
+Both held. And the structure they were creating collapses:
+
+```text
+BEFORE (fixed void):    dk = -54, -1259, -2194, -1640    chi2 = 38   on 3 dof  NOT constant
+AFTER  (fixed cavity):  dk = -891, -1259, -447           chi2 = 3.9  on 2 dof  CONSISTENT
+                        weighted mean = -835 +/- 168 pcm
+```
+
+**That is the decisive check.** A real geometry defect should destroy the height
+dependence it was generating, and it does.
+
+### The two routes
+
+| term | value |
+|---|---|
+| baseline residual, VIII.0 + fixed cavity | **-835 +/- 168 pcm** (3 loadings, constant) |
+| data library, VIII.0 -> VII.0 | **+1644 +/- 438 pcm** (3.75 sigma) |
+| **predicted: VII.0 + fixed cavity** | **+809 +/- 469 pcm** |
+| **measured: VII.0 at 122.5 cm** | **+385 +/- 310 pcm** |
+| | **agree to 0.8 sigma** |
+
+Measuring the answer directly and summing the ablated terms agree to **0.8
+sigma**. That is the closure condition for an ablation chain: it is what
+separates "the number came out right" from "the terms are understood".
+
+### What this does and does not say
+
+**Does:** on the reference's own library and with the cavity modelled as fixed
+geometry, this model reproduces RMC within the 500-1000 pcm band the module docs
+call "a real success here" — and those same docs warn that agreement to 50 pcm
+would be *suspicious*, not good. Nothing was tuned. The reflector boring band,
+the one available knob that could have been turned toward the answer, was left
+OFF because its sign is wrong (-1572 pcm, which would have widened the gap).
+
+**Does not:** every number on this page is a **single seed** against a
+seed-to-seed `sd = 179 pcm`. Pool before citing. The **-835 pcm baseline is the
+real open residual**, and its candidates are unchanged: R-Z homogenised
+reflector, absent control-rod borings, one temperature, rods out, one spec.
+And **RMC quotes no uncertainty on any of its twelve values**, so the reference
+side of every sigma here is unmeasured.
+
+## The core cavity is modelled as a FIXED VOID, and it should be a fixed CAVITY
+
+`HTR10_CAVITY_ABOVE_BED_CM = 98.758` is applied as a constant void above the bed
+at **every** loading. Its own docstring derives it as the void at **one**
+loading: the cavity spans `z = 130.0` to `351.818` (**221.818 cm, fixed
+geometry**) and the benchmark bed occupies 123.06 cm of it.
+
+The cavity is fixed; the **void** shrinks as fuel is added. Modelling the void
+as constant instead grows the whole cavity with the bed.
+
+Measured across four loadings, dk vs RMC height-matched, all ENDF/B-VIII.0:
+
+| layers | bed height | required void | modelled void | error | dk |
+|---|---|---|---|---|---|
+| 21 | 102.879 cm | 118.94 cm | 98.758 | 20.2 too LITTLE | **-54** |
+| 25 | 122.474 cm | 99.34 cm | 98.758 | 0.6 — correct | -1259 |
+| 30 | 146.970 cm | 74.85 cm | 98.758 | 23.9 too MUCH | -2194 |
+| 35 | 171.464 cm | 50.35 cm | 98.758 | 48.4 too MUCH | -1640 |
+
+Against a constant offset these four give **chi-square 38 on 3 dof** — the
+residual is not constant, and the structure has the sign the defect predicts:
+too little void below the benchmark loading (graphite where the reactor has
+helium, over-reflecting, `k` HIGH) and too much above it (over-leaking, `k`
+LOW). The 35-layer point should be the most negative and is not, but it sits
+1.4 sigma from the 30-layer point, so it does not refute this.
+
+**The `-54 pcm` at 102.9 cm is NOT evidence of correctness.** It is an
+over-reflecting cavity cancelling most of the baseline residual — two errors
+cancelling, the same failure mode this page has already recorded twice (the
+`-909 pcm` "two offsetting errors" reading, and the conus-with-fuel overshoot).
+Had the sweep started there and stopped, it would have been reported as
+agreement with RMC to 54 pcm.
+
+`OUTRAM_HTR10_FIXED_CAVITY=1` computes `void = 221.818 - bed_full_height`
+(`core_model::cavity_above_bed`). Default keeps the historical constant so no
+committed result moves silently.
+
+### Ablations measured 2026-09-18 — data-side terms, and a determinism check
+
+All at 3000 histories x [20 inactive + 60 active], 14 rings x 25 layers,
+seed 20260917, single draw per arm unless stated.
+
+| ablation | `k_eff` | difference | resolved? |
+|---|---|---|---|
+| control | 0.988088 +/- 0.003095 | — | reference |
+| graphite S(a,b) -> free gas | 1.008729 +/- 0.002622 | **+2064 +/- 406 pcm** | **yes, 5.1 sigma** |
+| U-238 VIII.0 -> JENDL-3.3 | 0.987298 +/- 0.003142 | -79 +/- 441 pcm | **NO, 0.18 sigma** |
+
+**S(alpha,beta) is a first-order term — larger than the whole residual.**
+Including it is worth **-2064 pcm**. Predicted before the run as "large and
+resolved, order 1000 pcm or more"; the **sign was deliberately NOT predicted**
+(coherent elastic against suppressed sub-Debye transfer, not resolvable from
+first principles here), so the measured direction is a result and not a
+confirmation. Its other job was a harness check: near-zero would have meant the
+thermal scattering law was not engaged at all, and every thermal number here
+rested on nothing. It is engaged.
+
+**The U-238 library ablation is UNDERPOWERED and must not be read as a null
+result.** -79 +/- 441 pcm bounds library sensitivity below ~880 pcm at 2 sigma,
+which does **not** exclude a few-hundred-pcm term — precisely the size that
+matters against the residual. The central value is negative as predicted, but at
+0.18 sigma that is noise, not a hit. Resolving it to +/-150 pcm needs ~9 seeds
+per arm.
+
+**This is NOT the ENDF/B-VIII.0-vs-VII.0 offset** the references carry; no VII.0
+tape exists in `reference-data/endf`. It bounds library sensitivity on the
+dominant absorber and nothing more, and `OUTRAM_HTR10_U238_JENDL`'s own doc
+comment says so.
+
+### Determinism of `run_keff_csg_hybrid` — measured, not assumed
+
+`physics::keff::tests::cpu_multi_is_reproducible` asserts bit-identity between
+1 and 4 threads, but through **`run_keff`** — the simple sphere path. This case
+runs **`run_keff_csg_hybrid`**, which nothing covered, and the example hardcoded
+`ThreadCount::Auto`, so the count follows machine load.
+
+Measured (`OUTRAM_HTR10_THREADS`, added for this):
+
+```text
+threads=1   k_eff = 0.585633 +/- 0.015214     (reduced 6x8 core, a code-property test)
+threads=4   k_eff = 0.585633 +/- 0.015214
+threads=1   k_eff = 0.585633 +/- 0.015214
+```
+
+and at production scale, two separate processes under different system load:
+
+```text
+control          k_eff = 0.988088 +/- 0.003095
+control, repeat  k_eff = 0.988088 +/- 0.003095
+```
+
+**Identical in every printed digit.** The driver is thread-count independent and
+run-to-run reproducible. The test-coverage gap was real; the behaviour is sound.
+
+### A step in the chain above that is NOT resolved
+
+| step | `k_eff` | vs RMC |
+|---|---|---|
+| conus with dummy pebbles | 0.988408 +/- 0.002693 | -1588 |
+| + discharge tube as dummy | 0.991372 +/- 0.003002 | -1292 |
+| **the discharge-tube step** | | **+296 +/- 403 pcm = 0.73 sigma** |
+
+That step is **unresolved**, yet it appears in the chain as a result, and it is
+what produces the -1292 single-seed headline. The pooled 8-seed number is
+**-1592** (pre-correction), essentially identical to the **-1588** *before* the
+step — so the pooled data says the discharge-tube change is worth approximately
+nothing and the +296 pcm was noise in one draw. Re-measure it paired and
+multi-seed before quoting it.
 
 ### Ablations that bound the terms
 
