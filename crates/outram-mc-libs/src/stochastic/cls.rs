@@ -34,9 +34,13 @@
 //! boundary crossed. Because the chord statistics are direction-independent this needs
 //! only the distance between queries, which *is* the memoryless approximation. Its
 //! defining consistency property — inclusion occupancy converging to the packing
-//! fraction — is unit-tested. Coupling this into the k-eigenvalue transport loop (the
-//! benchmark of bead `op-eby.7`) is the remaining integration step, not a gap in CLS
-//! itself.
+//! fraction — is unit-tested.
+//!
+//! ~~Coupling this into the k-eigenvalue transport loop is the remaining
+//! integration step~~ **CORRECTED 2026-09-18** — it is coupled.
+//! [`crate::dh_universe::DhTreatment::ChordLength`] drives this medium through the
+//! full FHR unit-cell k-eigenvalue calculation, and `examples/dh_keff_vv.rs`
+//! publishes the resulting eigenvalue.
 //!
 //! # References
 //!
@@ -46,6 +50,21 @@
 //!   *Monte Carlo Particle Transport Methods*, CRC Press (1991); Zimmerman & Adams,
 //!   *Algorithms for Monte Carlo particle transport in binary statistical mixtures*
 //!   (1991). See also [`crate::pebble_beds::references`] for the dispersion-fuel bibliography.
+//!
+//! **Those two references describe different media, and conflating them caused a
+//! real defect.** The Markovian binary mixture of Zimmerman & Adams has
+//! *exponentially* distributed chords in **both** phases. Dispersion fuel does not:
+//! its inclusions are spheres of **fixed radius**, whose chord law is
+//! `f(l) = l / (2R^2)` on `[0, 2R]` — same mean, bounded support, about a third
+//! the relative spread. The matrix phase is still treated as Markovian here, which
+//! is standard; the inclusion phase is not, and is sampled by
+//! [`sample_chord_sphere`].
+//!
+//! The SCLS method the sibling module implements is Tan, Feng, Chan & Wang (2025),
+//! `10.1016/j.anucene.2025.111436`
+//! ([`crate::pebble_beds::references::TAN2025_CLS`]). **That paper is not yet
+//! catalogued in `crates/kovan-literature`**, which the workspace requires of any
+//! literature that informs the code.
 //!
 //! This module is **new work**, not a port — OpenMC has no CLS implementation, so the
 //! crate's "mirror the canonical source" rule does not apply here (see the crate
@@ -129,6 +148,58 @@ pub fn sample_chord(mean_chord: f64, seed: &mut u64) -> f64 {
     // prn() returns [0, 1); shift off zero so ln() stays finite.
     let xi = 1.0 - prn(seed);
     -mean_chord * xi.r_ln()
+}
+
+/// Sample a chord \[cm\] through a **sphere** of radius `radius`, from the true
+/// geometric chord-length distribution.
+///
+/// # Why this is not exponential
+///
+/// For a convex body under uniform isotropic incidence the chord length is *not*
+/// exponentially distributed. For a sphere the impact parameter `b` is uniform in
+/// area, so `b = R·√ξ`, and the chord is the corresponding secant:
+///
+/// ```text
+/// ℓ = 2·√(R² − b²) = 2R·√(1 − ξ)
+/// ```
+///
+/// which for `ξ` uniform on [0,1) is the same law as `ℓ = 2R·√ξ`. The density is
+/// `f(ℓ) = ℓ / (2R²)` on `0 ≤ ℓ ≤ 2R`, whose mean is `4R/3` — Cauchy's result, so
+/// this agrees with [`mean_chord_length_sphere`] — with standard deviation
+/// `√(2R²/9)` ≈ `0.471R`, i.e. `σ/⟨ℓ⟩ = √2/4 ≈ 0.354`.
+///
+/// # The defect this replaces — measured 2026-09-18
+///
+/// ~~Inclusion chords were drawn from [`sample_chord`], i.e. exponentially~~
+/// **CORRECTED**. The exponential is the right law for a *Markovian binary
+/// mixture* (Zimmerman & Adams), which is what this module's references
+/// describe, but the inclusions here are **spheres of fixed radius**, which is
+/// the non-Markovian case. The exponential preserves the mean — which is exactly
+/// why the unit tests passed — and gets everything else wrong:
+///
+/// | | mean | σ/⟨ℓ⟩ | `P(ℓ > 2R)` | max/2R |
+/// |---|---|---|---|---|
+/// | ray-traced sphere (truth) | `4R/3` | **0.353** | **0** | **1.00** |
+/// | exponential (previous code) | `4R/3` | 1.000 | **0.223** | 8.01 |
+///
+/// **22 % of sampled inclusion chords exceeded `2R`, the longest chord a sphere
+/// has**, and the longest sampled was eight diameters. Measured over 400 000
+/// samples at `R = 0.02135 cm`.
+///
+/// The consequence is under-absorption, because `1 − e^{−Σℓ}` is concave in `ℓ`,
+/// so by Jensen a higher-variance chord distribution at the same mean absorbs
+/// less. At `Σ⟨ℓ⟩ ≈ 2.8` — the resonance regime for a TRISO kernel — the mean
+/// absorption probability per traversal was **0.740 against a true 0.899**.
+///
+/// `radius` must be > 0; a non-positive radius yields 0.
+pub fn sample_chord_sphere(radius: f64, seed: &mut u64) -> f64 {
+    if radius <= 0.0 {
+        return 0.0;
+    }
+    // prn() is [0, 1); sqrt of it is the uniform-in-area impact parameter.
+    // `sqrt` is IEEE-exact and stays the inherent method, per `mathf`: only
+    // transcendentals are routed through PETIR for cross-platform bit-stability.
+    2.0 * radius * prn(seed).sqrt()
 }
 
 /// Transient per-history flight state used to reconstruct phase occupancy along a
@@ -247,12 +318,13 @@ impl ClsMedium {
     /// This is CLS's real query — the flight-level one. `in_inclusion` selects which
     /// phase's chord statistics to sample from.
     pub fn sample_distance_to_boundary(&self, in_inclusion: bool, seed: &mut u64) -> f64 {
-        let mean = if in_inclusion {
-            self.mean_chord_inclusion()
+        if in_inclusion {
+            // A sphere's chord, not an exponential — see `sample_chord_sphere`.
+            sample_chord_sphere(self.inclusion_radius, seed)
         } else {
-            self.mean_chord_matrix()
-        };
-        sample_chord(mean, seed)
+            // The matrix phase IS modelled as Markovian, so exponential is right.
+            sample_chord(self.mean_chord_matrix(), seed)
+        }
     }
 
     /// Material occupying `position` \[cm\], reconstructed along the CLS flight.
@@ -282,10 +354,18 @@ impl ClsMedium {
     ) -> Result<MaterialId, MediumError> {
         // Precompute both phase means and the material ids so the mutable borrow of
         // `self.flight` below does not conflict with `&self` method calls.
-        let mean_incl = self.mean_chord_inclusion();
+        let radius = self.inclusion_radius;
         let mean_matrix = self.mean_chord_matrix();
         let pf = self.packing_fraction;
-        let mean_for = |in_incl: bool| if in_incl { mean_incl } else { mean_matrix };
+        // The two phases obey different laws: a sphere's chord inside an
+        // inclusion, an exponential in the Markovian matrix.
+        let sample_for = |in_incl: bool, seed: &mut u64| {
+            if in_incl {
+                sample_chord_sphere(radius, seed)
+            } else {
+                sample_chord(mean_matrix, seed)
+            }
+        };
 
         let in_inclusion = if let Some(flight) = &mut self.flight {
             let mut step = position.distance(flight.last_position);
@@ -295,7 +375,7 @@ impl ClsMedium {
             while step >= flight.dist_to_boundary && flight.dist_to_boundary > 0.0 {
                 step -= flight.dist_to_boundary;
                 flight.in_inclusion = !flight.in_inclusion;
-                flight.dist_to_boundary = sample_chord(mean_for(flight.in_inclusion), seed);
+                flight.dist_to_boundary = sample_for(flight.in_inclusion, seed);
             }
             if flight.dist_to_boundary > 0.0 {
                 flight.dist_to_boundary -= step;
@@ -305,7 +385,7 @@ impl ClsMedium {
         } else {
             // First query: seed the phase from the volume-fraction prior.
             let in_inclusion = prn(seed) < pf;
-            let dist_to_boundary = sample_chord(mean_for(in_inclusion), seed);
+            let dist_to_boundary = sample_for(in_inclusion, seed);
             self.flight = Some(ClsFlight {
                 last_position: position,
                 in_inclusion,
@@ -345,6 +425,203 @@ mod tests {
         // Degenerate limits.
         assert_eq!(matrix_mean_chord_length(r, 0.0), f64::INFINITY);
         assert_eq!(matrix_mean_chord_length(r, 1.0), 0.0);
+    }
+
+    /// A sphere's chord can never exceed its diameter.
+    ///
+    /// **This is the test the previous implementation failed.** Inclusion chords
+    /// were drawn exponentially, which preserves the mean `4R/3` — so the
+    /// mean-only test below passed — while putting **22 % of samples beyond
+    /// `2R`**, the longest chord a sphere has, out to eight diameters.
+    #[test]
+    fn sphere_chords_never_exceed_the_diameter() {
+        let r = 0.02135;
+        let mut seed = 20260918_u64;
+        let mut worst = 0.0_f64;
+        for _ in 0..200_000 {
+            let l = sample_chord_sphere(r, &mut seed);
+            assert!(
+                l >= 0.0 && l <= 2.0 * r + 1e-15,
+                "sampled chord {l} outside [0, 2R] for R = {r}"
+            );
+            worst = worst.max(l);
+        }
+        // and it must actually reach near the diameter, or the sampler is not
+        // covering the distribution
+        assert!(
+            worst > 1.99 * r,
+            "longest of 200 000 chords was {worst}, barely under 2R = {} — the \
+             sampler is not reaching the full range",
+            2.0 * r
+        );
+        assert_eq!(sample_chord_sphere(0.0, &mut seed), 0.0);
+    }
+
+    /// The sphere chord law reproduces BOTH moments, not just the mean.
+    ///
+    /// `f(l) = l / (2R^2)` on `[0, 2R]` has mean `4R/3` (Cauchy) and standard
+    /// deviation `sqrt(2)R/3`, i.e. `sigma/mean = sqrt(2)/4 ~= 0.3536`. The
+    /// exponential this replaced has `sigma/mean = 1` exactly — the single
+    /// number that distinguishes them at equal mean.
+    #[test]
+    fn sphere_chord_matches_the_analytic_first_and_second_moments() {
+        let r = 0.02135;
+        let n = 400_000;
+        let mut seed = 424242_u64;
+        let (mut sum, mut sum_sq) = (0.0_f64, 0.0_f64);
+        for _ in 0..n {
+            let l = sample_chord_sphere(r, &mut seed);
+            sum += l;
+            sum_sq += l * l;
+        }
+        let mean = sum / n as f64;
+        let var = sum_sq / n as f64 - mean * mean;
+        let sd = var.sqrt();
+
+        let mean_exact = 4.0 * r / 3.0;
+        // E[l^2] = int_0^2R l^2 * l/(2R^2) dl = 2R^2  =>  var = 2R^2 - (4R/3)^2
+        let sd_exact = (2.0 * r * r - mean_exact * mean_exact).sqrt();
+
+        let tol = 5.0 * sd / (n as f64).sqrt();
+        assert!(
+            (mean - mean_exact).abs() < tol,
+            "mean {mean} vs Cauchy {mean_exact}"
+        );
+        assert!(
+            (sd - sd_exact).abs() < 0.02 * sd_exact,
+            "sd {sd} vs analytic {sd_exact} (sigma/mean {:.4}, expected {:.4}); \
+             an exponential would give sigma/mean = 1",
+            sd / mean,
+            sd_exact / mean_exact
+        );
+    }
+
+    /// The sampler reproduces an actual **ray trace through a real sphere** —
+    /// so the geometry is checked, not only the algebra.
+    ///
+    /// # Methodology
+    ///
+    /// A previous version of this test claimed to ray-trace but did not: it
+    /// drew `b = R*sqrt(u)` and evaluated the secant `2*sqrt(R^2 - b^2)`, which
+    /// is the *same* closed form the sampler uses, rearranged. Since `1 - u` is
+    /// uniform when `u` is, `2*sqrt(R^2 - R^2 u) = 2R*sqrt(1-u)` is literally
+    /// `sample_chord_sphere`'s own law — so it could only ever have confirmed
+    /// that two spellings of one formula agree. It would have passed even if
+    /// the formula itself were the wrong one for a sphere.
+    ///
+    /// This version constructs the geometry instead:
+    ///
+    /// 1. **Entry point** `P` uniform on the surface of a sphere of radius `R`
+    ///    (`z` uniform on `[-1,1]`, azimuth uniform — Archimedes' hat-box).
+    /// 2. **Direction** `d` drawn **cosine-weighted about the inward normal**,
+    ///    in a basis built from that normal. Cosine weighting is what "uniform
+    ///    isotropic incidence" means for a convex body, and it is the condition
+    ///    under which Cauchy's `<l> = 4V/S = 4R/3` holds.
+    /// 3. **Exit** found by solving the ray-sphere quadratic
+    ///    `|P + t d|^2 = R^2` numerically, with `c = |P|^2 - R^2` computed
+    ///    rather than assumed zero, and the chord taken as the Euclidean
+    ///    distance between the two intersection points.
+    ///
+    /// Nowhere does this path evaluate `2R*sqrt(xi)`, so agreement is a real
+    /// check. Compared by **quantile**, which is sensitive to the whole shape
+    /// rather than to the first two moments — and the first moment is exactly
+    /// what the exponential got right while being wrong everywhere else.
+    ///
+    /// Pass criterion: every compared quantile within 2 % of `2R`.
+    ///
+    /// # Result (2026-09-18)
+    ///
+    /// Agrees at all six quantiles. The worst deviation is well inside the 2 %
+    /// bar, and the ray trace independently reproduces `sigma/<l> ~ 0.354` and
+    /// `P(l > 2R) = 0` — the two statistics the exponential got wrong by a
+    /// factor of three and by 22 percentage points respectively.
+    #[test]
+    fn sphere_chord_matches_a_ray_trace_of_a_real_sphere() {
+        let r = 0.02135;
+        let n = 200_000;
+        let mut seed = 987_654_u64;
+
+        let mut sampled: Vec<f64> = (0..n).map(|_| sample_chord_sphere(r, &mut seed)).collect();
+
+        // Genuine ray trace: build the geometry, then intersect it.
+        let mut traced: Vec<f64> = Vec::with_capacity(n);
+        for _ in 0..n {
+            // 1. Entry point uniform on the sphere's surface.
+            let cz = 2.0 * prn(&mut seed) - 1.0;
+            let sz = (1.0 - cz * cz).max(0.0).sqrt();
+            let phi = 2.0 * std::f64::consts::PI * prn(&mut seed);
+            let p = [r * sz * phi.cos(), r * sz * phi.sin(), r * cz];
+
+            // Inward normal, and an orthonormal basis around it.
+            let nrm = [-p[0] / r, -p[1] / r, -p[2] / r];
+            // Pick a seed axis that is not parallel to the normal.
+            let helper = if nrm[0].abs() < 0.9 {
+                [1.0, 0.0, 0.0]
+            } else {
+                [0.0, 1.0, 0.0]
+            };
+            let mut t1 = [
+                helper[1] * nrm[2] - helper[2] * nrm[1],
+                helper[2] * nrm[0] - helper[0] * nrm[2],
+                helper[0] * nrm[1] - helper[1] * nrm[0],
+            ];
+            let t1n = (t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]).sqrt();
+            t1 = [t1[0] / t1n, t1[1] / t1n, t1[2] / t1n];
+            let t2 = [
+                nrm[1] * t1[2] - nrm[2] * t1[1],
+                nrm[2] * t1[0] - nrm[0] * t1[2],
+                nrm[0] * t1[1] - nrm[1] * t1[0],
+            ];
+
+            // 2. Cosine-weighted inward direction: cos(theta) = sqrt(xi).
+            let cos_t = prn(&mut seed).sqrt();
+            let sin_t = (1.0 - cos_t * cos_t).max(0.0).sqrt();
+            let psi = 2.0 * std::f64::consts::PI * prn(&mut seed);
+            let d = [
+                sin_t * psi.cos() * t1[0] + sin_t * psi.sin() * t2[0] + cos_t * nrm[0],
+                sin_t * psi.cos() * t1[1] + sin_t * psi.sin() * t2[1] + cos_t * nrm[1],
+                sin_t * psi.cos() * t1[2] + sin_t * psi.sin() * t2[2] + cos_t * nrm[2],
+            ];
+
+            // 3. Solve |P + t d|^2 = R^2 for the far root.
+            let a = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+            let b = 2.0 * (p[0] * d[0] + p[1] * d[1] + p[2] * d[2]);
+            let c = p[0] * p[0] + p[1] * p[1] + p[2] * p[2] - r * r;
+            let disc = (b * b - 4.0 * a * c).max(0.0);
+            let t_exit = (-b + disc.sqrt()) / (2.0 * a);
+
+            // Chord = distance between the two intersection points.
+            let exit = [
+                p[0] + t_exit * d[0],
+                p[1] + t_exit * d[1],
+                p[2] + t_exit * d[2],
+            ];
+            let dx = exit[0] - p[0];
+            let dy = exit[1] - p[1];
+            let dz = exit[2] - p[2];
+            traced.push((dx * dx + dy * dy + dz * dz).sqrt());
+        }
+
+        // No traced chord may exceed the diameter -- a check on the trace itself,
+        // so a broken reference cannot silently validate a broken sampler.
+        let longest = traced.iter().copied().fold(0.0_f64, f64::max);
+        assert!(
+            longest <= 2.0 * r * (1.0 + 1.0e-9),
+            "the ray trace itself is wrong: longest chord {longest} exceeds 2R = {}",
+            2.0 * r
+        );
+
+        sampled.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+        traced.sort_by(|a, b| a.partial_cmp(b).expect("finite"));
+
+        for q in [0.05, 0.25, 0.50, 0.75, 0.95, 0.99] {
+            let i = ((n - 1) as f64 * q) as usize;
+            let (a, b) = (sampled[i], traced[i]);
+            assert!(
+                (a - b).abs() < 0.02 * (2.0 * r),
+                "quantile {q}: sampled {a} vs ray-traced {b} (tol 2 % of 2R)"
+            );
+        }
     }
 
     /// Sampled chords are exponentially distributed: the sample mean converges to the

@@ -264,6 +264,36 @@
 //! radius via [`fit_ring_rpt_inner_radius`] instead of borrowing the deck
 //! author's OpenMC-fitted 1.4934 cm, at a cost of about a dozen extra
 //! eigenvalue solves.
+//!
+//! `OUTRAM_DH_VV_ONLY=<substring>` restricts the table to the arms whose name
+//! contains that substring, case-insensitively (e.g. `scls, kernel`).
+//!
+//! **Beware that `cls` is a substring of `scls`.** `OUTRAM_DH_VV_ONLY=cls`
+//! selects **all four** chord-length arms, and `cls, kernel` selects **both**
+//! kernel-level arms — including the SCLS one, which costs ~55 minutes. This
+//! was hit for real on 2026-09-18: a run intended to re-measure `CLS,
+//! kernel-level` alone went on to spend another hour on `SCLS, kernel-level`.
+//! To isolate the non-semi-implicit arms, anchor on the leading space or use
+//! `chord-length` (which appears only in `chord-length sampling (CLS)`).
+//! It exists
+//! because the two SCLS arms cost tens of minutes each while every other arm
+//! costs two or three, so re-measuring one should not mean re-running the six
+//! that were already fine. It changes nothing about how any arm is computed —
+//! each eigenvalue solve is independent and seeded identically either way, so a
+//! filtered run reproduces the corresponding row of a full run exactly. Verified
+//! 2026-09-18: a filtered re-run of `CLS, kernel-level` in a separate process
+//! returned `k = 1.38719 +/- 0.00662`, identical in every printed digit to the
+//! full run's row.
+//!
+//! # Arms
+//!
+//! **Seven**, not the five in the results table above — that table records the
+//! 7200-history run, which predates the two kernel-level variants. The example
+//! now also runs [`DhTreatment::ChordLengthKernel`] and
+//! [`DhTreatment::SclsKernel`], which apply CLS and SCLS to the **fuel kernel**
+//! rather than to a smeared whole particle. On this problem that is worth
+//! **+3818 pcm** to CLS. The full account, with the regime sweep and the
+//! reproducibility check, is `docs/cls-scls-vv.md`.
 
 use std::time::Instant;
 
@@ -523,13 +553,37 @@ fn main() {
     let treatments = [
         DhTreatment::DeltaTracking,
         DhTreatment::ChordLength,
+        DhTreatment::ChordLengthKernel,
         DhTreatment::Scls,
+        DhTreatment::SclsKernel,
         DhTreatment::Homogenised,
         rpt_treatment,
     ];
 
+    // `OUTRAM_DH_VV_ONLY=<substring>` restricts the table to the arms whose
+    // name contains that substring, case-insensitively. NOTE `cls` is a
+    // substring of `scls`, so `cls` matches all four chord-length arms and
+    // `cls, kernel` matches both kernel-level ones -- see the module docs.
+    // This exists because the
+    // two SCLS arms cost 15-25 minutes each while every other arm costs two or
+    // three, so re-measuring one of them should not mean re-running the six that
+    // were already fine. It changes nothing about how any arm is computed --
+    // each `keff` call is independent and seeded identically either way, so a
+    // filtered run reproduces the corresponding row of a full run exactly.
+    let only = std::env::var("OUTRAM_DH_VV_ONLY")
+        .ok()
+        .map(|s| s.to_lowercase());
+    if let Some(filter) = only.as_deref() {
+        println!("  (OUTRAM_DH_VV_ONLY={filter} -- showing only the arms whose name contains it)\n");
+    }
+
     let mut rows: Vec<Row> = Vec::new();
     for treatment in treatments {
+        if let Some(filter) = only.as_deref() {
+            if !treatment.name().to_lowercase().contains(filter) {
+                continue;
+            }
+        }
         let params = PebbleParams::fhr_unit_cell().with_materials(mats.clone());
         let universe = match DhUniverse::pebble(params, treatment) {
             Ok(u) => u,

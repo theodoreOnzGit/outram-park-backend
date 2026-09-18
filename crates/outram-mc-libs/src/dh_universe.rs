@@ -81,13 +81,30 @@
 //!
 //! # Choosing a treatment
 //!
-//! | Variant | Geometry stored | Exact? | Needs fitting | Geometry-only speed |
-//! |---|---|---|---|---|
-//! | [`DhTreatment::DeltaTracking`] | every particle | **yes** | no | 1x (reference) |
-//! | [`DhTreatment::ChordLength`] | none | no | no | ~2.5-3x faster |
-//! | [`DhTreatment::Scls`] | a retention window | no | no | ~1.5-2x faster |
-//! | [`DhTreatment::Homogenised`] | none (smeared) | no | no | ~8x faster |
-//! | [`DhTreatment::RingRpt`] | none (fitted annulus) | no | **yes** | ~8x faster |
+//! | Variant | Inclusion | Geometry stored | Exact? | Needs fitting | Geometry-only speed |
+//! |---|---|---|---|---|---|
+//! | [`DhTreatment::DeltaTracking`] | the real particle | every particle | **yes** | no | 1x (reference) |
+//! | [`DhTreatment::ChordLength`] | smeared particle | none | no | no | ~2.5-3x faster |
+//! | [`DhTreatment::ChordLengthKernel`] | **fuel kernel** | none | no | no | not measured |
+//! | [`DhTreatment::Scls`] | smeared particle | a retention window | no | no | ~1.5-2x faster |
+//! | [`DhTreatment::SclsKernel`] | **fuel kernel** | a retention window | no | no | not measured |
+//! | [`DhTreatment::Homogenised`] | none (smeared) | none (smeared) | no | no | ~8x faster |
+//! | [`DhTreatment::RingRpt`] | none (fitted annulus) | none (fitted annulus) | no | **yes** | ~8x faster |
+//!
+//! **The `Inclusion` column is the one that decides accuracy on doubly
+//! heterogeneous fuel, and it is why there are two CLS arms and two SCLS arms.**
+//! Taking the *smeared particle* as the inclusion dilutes the fuel kernel
+//! through its own coatings before the sampler ever sees it, which destroys
+//! grain-level resonance self-shielding — the effect the whole treatment
+//! exists to capture. The kernel-level variants take the undiluted kernel
+//! instead. On the FHR reference unit cell that is worth **+3818 pcm**; see
+//! `docs/cls-scls-vv.md` for the measurement and for what it costs.
+//!
+//! The two `not measured` cells are honest rather than pessimistic: the
+//! geometry-only microbenchmark has not been re-run for the kernel arms. Their
+//! *eigenvalue-run* cost has been measured and is in that V&V doc, and it is
+//! not favourable — restoring the undiluted kernel restores delta tracking's
+//! majorant, so most of the speed advantage goes with it.
 //!
 //! Measured eigenvalues and their biases live in `examples/dh_keff_vv.rs`,
 //! which runs every arm on one pebble and prints the table. They are **not**
@@ -223,6 +240,32 @@ pub enum DhTreatment {
     /// back-scatters re-crosses ground it has already covered and meets a
     /// freshly sampled medium rather than the one it just left, so CLS is
     /// least reliable in scattering-dominated, optically thick problems.
+    ///
+    /// # It also gives up grain-level self-shielding, and that is what costs
+    ///
+    /// **Measured 2026-09-18 on the FHR unit cell: `k = 1.34901 ± 0.00727`
+    /// against an exact `1.38050 ± 0.00791` — `-3149 pcm`, resolved at 2.9σ.**
+    /// That is only about 1000 pcm better than removing the double
+    /// heterogeneity altogether, which is a poor showing for a stochastic-media
+    /// method, and the reason is not the chord sampling.
+    ///
+    /// This variant takes the **whole particle** as the inclusion and fills it
+    /// with a volume-homogenised kernel-plus-coatings material, which smears
+    /// the fuel kernel over **7.7x its own volume** on the FHR spec. Resonance
+    /// self-shielding is exactly what that dilution destroys, and grain-level
+    /// shielding is the larger of the two effects a doubly-heterogeneous
+    /// treatment exists to keep.
+    ///
+    /// [`Self::ChordLengthKernel`] applies CLS at the kernel instead and
+    /// measures **`+669 pcm`, not resolved from exact (0.65σ)** — a recovery of
+    /// **+3818 pcm** on the same problem, same seed, same fuel inventory.
+    ///
+    /// **Prefer [`Self::ChordLengthKernel`] for doubly-heterogeneous fuel.**
+    /// This variant remains the right one for a genuinely single-level
+    /// stochastic medium, where the inclusion really is the thing being
+    /// sampled, and it is the faster of the two (68.9 s against 157.6 s) — but
+    /// that speed is bought with the very dilution that loses the reactivity.
+    /// See `docs/cls-scls-vv.md`.
     ChordLength,
 
     /// **Semi-implicit chord-length sampling (SCLS).** CLS, but with bounded
@@ -281,9 +324,158 @@ pub enum DhTreatment {
     /// at the domain (beyond it there is no geometry to retain) and a warning is
     /// logged, but a cap cannot rescue the premise.
     ///
+    /// **Measured 2026-09-18**, FHR reference unit cell, 800 x [15 + 40], same
+    /// seed and geometry as the exact arm:
+    ///
+    /// | | k | vs exact | time |
+    /// |---|---|---|---|
+    /// | delta tracking (exact) | 1.38050 +/- 0.00791 | — | 148.4 s |
+    /// | this variant | 1.33799 +/- 0.00638 | **-4251 pcm** (4.2 sigma, resolved) | **2158.7 s** |
+    ///
+    /// **14.5x slower than the exact method it approximates, and resolved
+    /// 4251 pcm away from it.** For scale, naive homogenisation of the whole
+    /// fuel zone scored -3403 pcm in 83.1 s on the same run — so on this problem
+    /// SCLS is both *less accurate* and *26x more expensive* than smearing
+    /// everything. That is the strongest form the recommendation above can take.
+    ///
+    /// Most of the -4251 pcm is **not** SCLS's retention machinery: this variant
+    /// inherits the whole-particle homogenisation defect that
+    /// [`Self::SclsKernel`] fixes. See `docs/cls-scls-vv.md`.
+    ///
     /// This was invisible while the window was 15x too small: the wiring bug was
     /// hiding a methodological mismatch behind an accidental speed-up.
     Scls,
+
+    /// **Chord-length sampling at the KERNEL level** — CLS applied to the fuel
+    /// kernels rather than to whole TRISO particles.
+    ///
+    /// # Why this variant exists
+    ///
+    /// [`Self::ChordLength`] takes the **whole particle** as the inclusion and
+    /// fills it with a volume-homogenised kernel-plus-coatings material. That
+    /// is a defensible reading of "the layering is below the model's
+    /// resolution", but it **smears the fuel kernel over 7.7x its own volume**
+    /// on the FHR reference spec (kernel `r = 0.0215 cm` inside an OPyC
+    /// `r = 0.0425 cm`), and resonance self-shielding is precisely what that
+    /// dilution destroys. Grain-level shielding is the larger of the two
+    /// effects a doubly-heterogeneous treatment exists to keep, so discarding
+    /// it leaves CLS only about 1000 pcm better than full homogenisation, which
+    /// is what the measured eigenvalues show.
+    ///
+    /// This variant keeps it: the **inclusion is the kernel at full density**,
+    /// and the matrix is everything else in the fuel zone — the four coating
+    /// layers and the graphite matrix, homogenised together. The packing
+    /// fraction follows from the geometry rather than being chosen:
+    ///
+    /// ```text
+    /// pf_kernel = pf_particle * (r_kernel / r_opyc)^3
+    ///           = 0.30 * (0.0215/0.0425)^3 = 0.0388   (FHR reference)
+    /// ```
+    ///
+    /// # This also moves CLS into the regime where it is accurate
+    ///
+    /// `examples/cls_scls_regime_sweep.rs` measures CLS's error against
+    /// explicit geometry as a function of packing fraction: **unresolved at
+    /// `pf = 0.05`, and +0.0369 (about 5 combined standard errors) by
+    /// `pf = 0.20`**, because the Markovian matrix chord cannot represent the
+    /// exclusion correlation of non-overlapping spheres, and that correlation
+    /// grows with `pf`. Whole-particle CLS runs at `pf = 0.30`, the worst end
+    /// of that range and past where plain RSA can even build a packing.
+    /// Kernel-level CLS runs at `pf = 0.039`, where the sweep says the method
+    /// is accurate.
+    ///
+    /// So the two defects point the same way, and this variant addresses both:
+    /// it keeps the shielding that matters and it uses CLS where CLS works.
+    ///
+    /// # What this variant still approximates — the coatings lose their address
+    ///
+    /// Fixing the inclusion does not make the treatment exact, and the residual
+    /// is worth naming rather than leaving for a reader to discover.
+    ///
+    /// The buffer, IPyC, SiC and OPyC shells are **homogenised into the
+    /// matrix**. Their inventory is conserved exactly — the fuel zone holds the
+    /// same atoms of every nuclide as the whole-particle arm, pinned to 1e-12
+    /// per nuclide by `kernel_level_cls_conserves_the_fuel_zone_inventory` —
+    /// and the grain number density is preserved exactly too
+    /// (`kernel_level_variants_preserve_the_grain_number_density`). What is lost
+    /// is their **spatial correlation with the kernel**: physically every
+    /// coating shell wraps a specific kernel, so a neutron leaving a kernel
+    /// always crosses ~210 um of low-absorption carbon and SiC before it can
+    /// reach graphite. In this model it instead enters a matrix that carries
+    /// those materials at their *average* concentration everywhere, including
+    /// far from any grain.
+    ///
+    /// Expected to be second order, for a stated reason: the coatings are
+    /// carbon and SiC, i.e. scatterers with little absorption and no
+    /// resonances of consequence, so what they perturb is the moderation a
+    /// neutron undergoes between grains rather than the shielding of the
+    /// resonance absorber itself. The large effect — the kernel's own U-238
+    /// resonances seeing their true density instead of a 7.7x dilution — is
+    /// the one this variant restores.
+    ///
+    /// **"Expected" is not "measured".** No ablation has separated this term,
+    /// so it is a candidate for part of the residual bias against exact delta
+    /// tracking, and it should not be quoted as small on the strength of the
+    /// argument above. Isolating it needs a three-phase CLS (kernel / coating
+    /// shell / graphite), which this module does not implement. See
+    /// `docs/cls-scls-vv.md`.
+    ChordLengthKernel,
+
+    /// **Semi-implicit CLS at the KERNEL level** — [`Self::Scls`]'s retention
+    /// window applied to a kernel-level medium rather than a whole-particle one.
+    ///
+    /// Exists because [`Self::Scls`] inherits the same defect
+    /// [`Self::ChordLengthKernel`] fixes: it builds its inner CLS medium from
+    /// the *whole particle* with the kernel smeared through it, so its measured
+    /// `-3365 pcm` is mostly that homogenisation and not its retention
+    /// machinery. Any comparison of SCLS against CLS that uses the
+    /// whole-particle form is therefore comparing two treatments that share a
+    /// larger error than the one being studied.
+    ///
+    /// # This does NOT make SCLS usable on a graphite pebble
+    ///
+    /// The retention window is `lambda_transport + R_largest`. Moving to the
+    /// kernel shrinks `R_largest` from 0.0425 cm to 0.0215 cm, which is
+    /// negligible beside a thermal `lambda_transport` of about 2.6 cm — still
+    /// larger than the 1.9 cm fuel zone. The window is capped at the domain, so
+    /// nothing is ever culled, the retained set grows without bound, and
+    /// `material_at` scans it linearly. **SCLS remains slower than the exact
+    /// delta tracking it approximates on this geometry, in both forms.**
+    ///
+    /// This variant is here so that SCLS is *correct* where it is appropriate —
+    /// optically thick media, strong absorbers, geometries large against
+    /// `lambda_transport` — not because it is recommended for an FHR pebble.
+    /// See `docs/cls-scls-vv.md`.
+    ///
+    /// # Measured 2026-09-18 — FHR reference unit cell, 800 x [15 + 40]
+    ///
+    /// | | k | vs exact | sigma | time |
+    /// |---|---|---|---|---|
+    /// | delta tracking (exact) | 1.38050 +/- 0.00791 | — | — | 148.4 s |
+    /// | [`Self::Scls`] (whole particle) | 1.33799 +/- 0.00638 | -4251 pcm | 4.2, **resolved** | 2158.7 s |
+    /// | **this variant** | **1.37587 +/- 0.00625** | **-463 pcm** | **0.46, not resolved** | 3298.3 s |
+    ///
+    /// **Moving SCLS to the kernel recovers +3788 pcm** and leaves it the arm
+    /// closest to exact of every approximation measured — 0.46 sigma, ahead of
+    /// even [`Self::ChordLengthKernel`]'s 0.65 sigma.
+    ///
+    /// **The confirmation worth having is that this recovery matches CLS's.**
+    /// [`Self::ChordLengthKernel`] recovers **+3818 pcm** on the same run; this
+    /// variant recovers **+3788 pcm**. They agree to **30 pcm** against a
+    /// combined standard error of order 1000 pcm, which is what must happen if
+    /// the defect being removed is the shared homogenisation rather than
+    /// anything either algorithm does — and the two share no sampling
+    /// machinery (CLS re-samples chord statistics; SCLS ray-traces materialised
+    /// spheres). Nothing in `build_kernel_level_cls` ties their eigenvalues
+    /// together.
+    ///
+    /// **Cost is the opposite story: 22.2x exact delta tracking**, the most
+    /// expensive arm measured, and 1.53x [`Self::Scls`]'s own cost. The
+    /// recommendation above is unchanged and is now measured from both sides —
+    /// on this geometry SCLS is accurate only at a price nothing here justifies.
+    /// What it buys, as ever, is **O(1) memory**: 0 particles stored against
+    /// delta tracking's 26 801.
+    SclsKernel,
 
     /// **Naive homogenisation.** One smeared material — TRISO particles and
     /// the matrix they sit in, mixed at the packing fraction — fills the whole
@@ -349,17 +541,19 @@ impl DhTreatment {
     /// answer is not zero.
     pub const FHR_REFERENCE_RPT_INNER: f64 = 1.493_359_375;
 
-    /// Every variant, for sweeping all five in a comparison.
+    /// Every variant, for sweeping all seven in a comparison.
     ///
     /// [`Self::RingRpt`] appears at [`Self::FHR_REFERENCE_RPT_INNER`], which is
     /// only meaningful on the FHR reference pebble. Sweeping `ALL` on some
     /// other fuel will build a ring-RPT arm at a radius fitted for something
     /// else — construct that variant yourself with your own fitted radius
     /// rather than reading a number out of this array.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::DeltaTracking,
         Self::ChordLength,
+        Self::ChordLengthKernel,
         Self::Scls,
+        Self::SclsKernel,
         Self::Homogenised,
         Self::RingRpt {
             inner_radius: Self::FHR_REFERENCE_RPT_INNER,
@@ -371,10 +565,31 @@ impl DhTreatment {
         match self {
             Self::DeltaTracking => "delta tracking",
             Self::ChordLength => "chord-length sampling (CLS)",
+            Self::ChordLengthKernel => "CLS, kernel-level",
+            Self::SclsKernel => "SCLS, kernel-level",
             Self::Scls => "semi-implicit CLS (SCLS)",
             Self::Homogenised => "naive homogenisation",
             Self::RingRpt { .. } => "ring-RPT (fitted annulus)",
         }
+    }
+
+    /// Whether this treatment samples the **fuel kernel** as the inclusion
+    /// rather than the whole TRISO particle.
+    ///
+    /// The kernel-level variants deliberately differ from every other arm in
+    /// two visible ways, and both are consequences of keeping grain-level
+    /// self-shielding rather than smearing it away:
+    ///
+    /// - they model the **kernel** packing fraction,
+    ///   `pf_particle * (r_kernel/r_opyc)^3`, not the particle one;
+    /// - they make the **undiluted kernel reachable**, which legitimately
+    ///   raises the delta-tracking majorant.
+    ///
+    /// Provided so those two facts are asserted in one place instead of being
+    /// special-cased wherever they surface.
+    #[must_use]
+    pub fn is_kernel_level(self) -> bool {
+        matches!(self, Self::ChordLengthKernel | Self::SclsKernel)
     }
 
     /// Whether this treatment resolves the particle geometry exactly.
@@ -687,6 +902,9 @@ impl DhUniverse {
                 params.fuel_zone_radius, params.pebble_radius
             )));
         }
+        // The five TRISO layers occupy 0..=4 in the order kernel, buffer,
+        // IPyC, SiC, OPyC -- the order `homogenise_particle` relies on too.
+        const KERNEL_IDX: usize = 0;
         const MATRIX_IDX: usize = 5;
         const SHELL_IDX: usize = 6;
         const COOLANT_IDX: usize = 7;
@@ -790,6 +1008,57 @@ impl DhUniverse {
                     domain,
                     particles: 0,
                     packing_fraction: pf,
+                });
+            }
+            DhTreatment::ChordLengthKernel => {
+                let (medium, materials, matrix_idx, pf_kernel) = build_kernel_level_cls(
+                    &params.materials,
+                    params.spec,
+                    r_particle,
+                    pf,
+                    KERNEL_IDX,
+                    MATRIX_IDX,
+                );
+                return Ok(Self {
+                    treatment,
+                    geometry: DhGeometry::Cls {
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        particle_material: KERNEL_IDX,
+                        matrix_material: matrix_idx,
+                        outer,
+                    },
+                    materials,
+                    domain,
+                    particles: 0,
+                    packing_fraction: pf_kernel,
+                });
+            }
+            DhTreatment::SclsKernel => {
+                let (cls, materials, matrix_idx, pf_kernel) = build_kernel_level_cls(
+                    &params.materials,
+                    params.spec,
+                    r_particle,
+                    pf,
+                    KERNEL_IDX,
+                    MATRIX_IDX,
+                );
+                // Seeded from the matrix mean chord; `size_scls_window` replaces
+                // it with the real transport mfp once cross sections exist.
+                let window = cls.mean_chord_matrix();
+                let medium = SclsMedium::new(cls, Position::new(0.0, 0.0, 0.0), window);
+                return Ok(Self {
+                    treatment,
+                    geometry: DhGeometry::Scls {
+                        medium: Mutex::new((medium, params.seed | 1)),
+                        window_set: std::sync::atomic::AtomicBool::new(false),
+                        particle_material: KERNEL_IDX,
+                        matrix_material: matrix_idx,
+                        outer,
+                    },
+                    materials,
+                    domain,
+                    particles: 0,
+                    packing_fraction: pf_kernel,
                 });
             }
             DhTreatment::Scls => {
@@ -967,6 +1236,21 @@ impl DhUniverse {
                     },
                     0,
                 )
+            }
+            DhTreatment::ChordLengthKernel | DhTreatment::SclsKernel => {
+                // The kernel-level variants need the TRISO layer radii to derive the
+                // kernel packing fraction and to homogenise the coatings into
+                // the matrix. `DispersedParams` carries one particle radius and
+                // two materials, so that information does not exist here.
+                // A typed error, not a silent fall back to whole-particle CLS,
+                // which would quietly be a different method.
+                return Err(DhError::Materials(
+                    "the kernel-level CLS/SCLS variants need the TRISO layer spec \
+                     (kernel/buffer/IPyC/SiC/OPyC radii); dispersed() carries only one \
+                     particle radius. Use DhUniverse::pebble, or the whole-particle \
+                     DhTreatment::ChordLength / ::Scls."
+                        .into(),
+                ));
             }
             DhTreatment::Scls => {
                 let cls = ClsMedium::new(
@@ -1684,6 +1968,73 @@ fn pack_in_ball(
 }
 
 /// Volume-homogenise the five TRISO layers into one particle material.
+/// Build the **kernel-level** CLS medium for a TRISO pebble: the inclusion is
+/// the fuel kernel at full density, and the matrix is the four coating layers
+/// plus the graphite, homogenised together.
+///
+/// Returns the medium, the material table it needs (the supplied materials plus
+/// the homogenised matrix appended), the matrix index, and the derived kernel
+/// packing fraction.
+///
+/// # Why the packing fraction is derived, not chosen
+///
+/// ```text
+/// pf_kernel = pf_particle * (r_kernel / r_opyc)^3
+/// ```
+///
+/// which is the same fuel inventory redistributed, not a different one —
+/// `kernel_level_cls_conserves_the_fuel_zone_inventory` pins that to 1e-12 per
+/// nuclide. See [`DhTreatment::ChordLengthKernel`] for what it buys and what it
+/// costs.
+///
+/// Shared by [`DhTreatment::ChordLengthKernel`] and
+/// [`DhTreatment::SclsKernel`] so the volume arithmetic exists once.
+fn build_kernel_level_cls(
+    materials: &[Material],
+    spec: TrisoSpec,
+    r_particle: f64,
+    pf: f64,
+    kernel_idx: usize,
+    matrix_idx: usize,
+) -> (ClsMedium, Vec<Material>, usize, f64) {
+    let r_kernel = spec.kernel;
+    let pf_kernel = pf * (r_kernel / r_particle).powi(3);
+
+    // Volume fractions of the fuel zone for everything that is NOT kernel:
+    // the four coating shells, then the graphite matrix.
+    let r = [spec.kernel, spec.buffer, spec.ipyc, spec.sic, spec.opyc];
+    let total = r_particle * r_particle * r_particle;
+    let mut parts: Vec<(&Material, f64)> = Vec::with_capacity(5);
+    let mut inner = r[0] * r[0] * r[0];
+    for (i, &outer_r) in r.iter().enumerate().skip(1) {
+        let v = pf * (outer_r * outer_r * outer_r - inner) / total;
+        parts.push((&materials[i], v));
+        inner = outer_r * outer_r * outer_r;
+    }
+    parts.push((&materials[matrix_idx], 1.0 - pf));
+    // Normalise by the non-kernel volume, so the result is a material rather
+    // than a diluted one.
+    let denom = 1.0 - pf_kernel;
+    let refs: Vec<(&Material, f64)> = parts.into_iter().map(|(m, v)| (m, v / denom)).collect();
+    let matrix = homogenise_by_volume(
+        &refs,
+        903,
+        "homogenised coatings + graphite matrix",
+        materials[0].temperature,
+    );
+
+    let mut out_materials = materials.to_vec();
+    out_materials.push(matrix);
+    let new_matrix_idx = out_materials.len() - 1;
+    let medium = ClsMedium::new(
+        r_kernel,
+        pf_kernel,
+        MaterialId(kernel_idx),
+        MaterialId(new_matrix_idx),
+    );
+    (medium, out_materials, new_matrix_idx, pf_kernel)
+}
+
 fn homogenise_particle(materials: &[Material], spec: TrisoSpec) -> Result<Material, DhError> {
     if materials.len() < 5 {
         return Err(DhError::Materials(
@@ -1852,7 +2203,31 @@ mod tests {
         ));
     }
 
-    /// Dispersed fuel takes the same three treatments as a pebble.
+    /// Every treatment, on dispersed fuel, either builds or is refused by name
+    /// — and which one it does is decided here rather than by accident.
+    ///
+    /// **Methodology.** Iterate [`DhTreatment::ALL`] and classify each variant
+    /// through an exhaustive `match`, so a new variant added later cannot
+    /// compile until someone states which side of the line it falls on. A
+    /// supported variant must build *and* answer `material_at` at the origin;
+    /// an unsupported one must come back as a typed [`DhError`], never as a
+    /// silent fall back to a different method.
+    ///
+    /// **Why three are refused.** [`DhTreatment::RingRpt`] is a spherical
+    /// construction and this geometry is a cube. The two kernel-level variants
+    /// need the five TRISO layer radii to derive the kernel packing fraction
+    /// and homogenise the coatings, and `DispersedParams` carries a single
+    /// particle radius and two materials — that information does not exist
+    /// here. In both cases a fallback would report a number under a method
+    /// name that never ran.
+    ///
+    /// **Result (2026-09-18).** 4 of 7 build (delta tracking, whole-particle
+    /// CLS, whole-particle SCLS, naive homogenisation); 3 of 7 return
+    /// [`DhError`] (ring-RPT, and both kernel-level arms). No variant panics
+    /// and none falls back silently.
+    ///
+    /// This test was previously named for "every treatment" while covering
+    /// only four of them — the name is now true rather than aspirational.
     #[test]
     fn dispersed_fuel_supports_every_treatment() {
         let p = || DispersedParams {
@@ -1862,23 +2237,46 @@ mod tests {
             materials: dummy_materials(2),
             seed: 42,
         };
-        for t in [
-            DhTreatment::DeltaTracking,
-            DhTreatment::ChordLength,
-            DhTreatment::Scls,
-            DhTreatment::Homogenised,
-        ] {
-            let u = DhUniverse::dispersed(p(), t)
-                .unwrap_or_else(|e| panic!("dispersed {} failed: {e}", t.name()));
-            assert_eq!(u.treatment(), t);
-            assert!(u
-                .material_at(Position {
-                    x: 0.0,
-                    y: 0.0,
-                    z: 0.0
-                })
-                .is_some());
+
+        let mut built = 0;
+        let mut refused = 0;
+        for t in DhTreatment::ALL {
+            // Exhaustive on purpose: a new variant must be classified here.
+            let supported = match t {
+                DhTreatment::DeltaTracking
+                | DhTreatment::ChordLength
+                | DhTreatment::Scls
+                | DhTreatment::Homogenised => true,
+                DhTreatment::ChordLengthKernel
+                | DhTreatment::SclsKernel
+                | DhTreatment::RingRpt { .. } => false,
+            };
+
+            match (supported, DhUniverse::dispersed(p(), t)) {
+                (true, Ok(u)) => {
+                    assert_eq!(u.treatment(), t);
+                    assert!(
+                        u.material_at(Position {
+                            x: 0.0,
+                            y: 0.0,
+                            z: 0.0
+                        })
+                        .is_some(),
+                        "{} built but returns no material at the origin",
+                        t.name()
+                    );
+                    built += 1;
+                }
+                (true, Err(e)) => panic!("dispersed {} should build, but failed: {e}", t.name()),
+                (false, Err(_)) => refused += 1,
+                (false, Ok(_)) => panic!(
+                    "dispersed {} must be REFUSED, not built -- a silent fall back to \
+                     another method would report a number under a name that never ran",
+                    t.name()
+                ),
+            }
         }
+        assert_eq!((built, refused), (4, 3), "the supported/refused split moved");
     }
 
     /// Ring-RPT is a spherical construction, so a cube of dispersed fuel must
@@ -2074,16 +2472,162 @@ mod tests {
                 idx.len(),
                 n_delta
             );
-            assert!(
-                !idx.contains(&0),
-                "{} declares the undiluted kernel (index 0) reachable, but no point in its \
-                 geometry returns it — that is the inflated-majorant bug this guards",
-                t.name()
-            );
+            // ChordLengthKernel is the one arm for which the undiluted kernel
+            // IS reachable: its inclusion *is* the kernel, at full density. The
+            // guard below is about a treatment declaring a material it never
+            // returns, which is not this. The price is a higher majorant, and
+            // that is a real cost of the method rather than a defect.
+            if !t.is_kernel_level() {
+                assert!(
+                    !idx.contains(&0),
+                    "{} declares the undiluted kernel (index 0) reachable, but no point in its \
+                     geometry returns it — that is the inflated-majorant bug this guards",
+                    t.name()
+                );
+            } else {
+                assert!(
+                    idx.contains(&0),
+                    "{} is kernel-level: the undiluted kernel MUST be reachable, or the \
+                     grain-level self-shielding it exists to keep is not there",
+                    t.name()
+                );
+            }
         }
     }
 
     /// **Every arm must model the same fuel inventory**, or a treatment
+    /// Kernel-level CLS must hold the **same heavy metal per unit fuel-zone
+    /// volume** as whole-particle CLS — it redistributes the fuel, it does not
+    /// create or destroy it.
+    ///
+    /// This is the strongest available check on the variant's construction. The
+    /// two arms differ in *where* the fuel sits: whole-particle CLS smears the
+    /// kernel through the particle and inserts that at `pf = 0.30`;
+    /// kernel-level CLS keeps the kernel undiluted and inserts it at
+    /// `pf = 0.0388`. If the packing fraction and the homogenised matrix are
+    /// derived consistently, then for every nuclide
+    ///
+    /// ```text
+    /// pf_kernel * N_kernel + (1 - pf_kernel) * N_matrix
+    ///     == pf_particle * N_particle + (1 - pf_particle) * N_graphite
+    /// ```
+    ///
+    /// i.e. both arms describe the same fuel zone. A mis-derived `pf_kernel`,
+    /// or a matrix normalised by the wrong denominator, breaks this and would
+    /// otherwise show up only as an unexplained eigenvalue shift.
+    #[test]
+    fn kernel_level_cls_conserves_the_fuel_zone_inventory() {
+        let mats = dummy_materials(8);
+        let build = |t| {
+            DhUniverse::pebble(PebbleParams::fhr_unit_cell().with_materials(mats.clone()), t)
+                .unwrap_or_else(|e| panic!("build failed: {e}"))
+        };
+        // Volume-average the fuel zone's nuclide inventory for a CLS-style arm:
+        // pf * inclusion + (1 - pf) * matrix.
+        let inventory = |u: &DhUniverse| -> std::collections::BTreeMap<usize, f64> {
+            let DhGeometry::Cls {
+                particle_material,
+                matrix_material,
+                ..
+            } = &u.geometry
+            else {
+                panic!("expected a CLS geometry");
+            };
+            let pf = u.packing_fraction();
+            let mut acc: std::collections::BTreeMap<usize, f64> = Default::default();
+            for (m, w) in [
+                (&u.materials[*particle_material], pf),
+                (&u.materials[*matrix_material], 1.0 - pf),
+            ] {
+                for c in &m.components {
+                    *acc.entry(c.nuclide_idx).or_insert(0.0) += w * c.atom_density;
+                }
+            }
+            acc
+        };
+
+        let whole = inventory(&build(DhTreatment::ChordLength));
+        let kernel = inventory(&build(DhTreatment::ChordLengthKernel));
+
+        assert_eq!(
+            whole.keys().collect::<Vec<_>>(),
+            kernel.keys().collect::<Vec<_>>(),
+            "the two CLS arms describe different nuclide sets"
+        );
+        for (idx, n_whole) in &whole {
+            let n_kernel = kernel[idx];
+            assert!(
+                (n_kernel - n_whole).abs() <= 1.0e-12 * n_whole.abs().max(1.0e-30),
+                "nuclide {idx}: kernel-level CLS holds {n_kernel:.12e} atoms/b-cm of \
+                 fuel zone against whole-particle CLS's {n_whole:.12e} — the variant \
+                 must redistribute the fuel, not change how much there is"
+            );
+        }
+    }
+
+    /// The kernel-level variants must describe the SAME GRAINS as their
+    /// whole-particle counterparts — one fuel kernel per TRISO particle — seen
+    /// at a smaller radius, not a different number of them.
+    ///
+    /// **Methodology.** A CLS medium is fully specified by an inclusion radius
+    /// and a packing fraction, and the quantity with physical meaning is the
+    /// number density those two imply,
+    ///
+    /// ```text
+    /// n = pf / ((4/3) pi r^3)
+    /// ```
+    ///
+    /// Because `build_kernel_level_cls` sets
+    /// `pf_kernel = pf * (r_kernel / r_particle)^3`, that ratio cancels
+    /// identically and `n_kernel == n_particle` — so this is a check on the
+    /// exponent and on which radius each factor is paired with, the two things
+    /// an algebra slip in that function would get wrong while still leaving
+    /// `pf_kernel` a plausible-looking number. Pass criterion: relative
+    /// agreement to 1e-12.
+    ///
+    /// **Result (2026-09-18).** Both kernel arms reproduce the whole-particle
+    /// grain number density to **0.0 relative** — the arithmetic is exact in
+    /// binary, since the same three multiplications are undone in the opposite
+    /// order. Interpretation: the kernel arms are the same dispersion of
+    /// grains, re-described; the eigenvalue difference they produce is
+    /// therefore self-shielding and not an inventory or a geometry change.
+    ///
+    /// Complements `kernel_level_cls_conserves_the_fuel_zone_inventory`, which
+    /// pins how much fuel there is; this pins how it is divided up.
+    #[test]
+    fn kernel_level_variants_preserve_the_grain_number_density() {
+        let spec = TrisoSpec::FHR_HALEU_UCO;
+        let r_particle = spec.opyc;
+        let r_kernel = spec.kernel;
+
+        // Number density up to the common 4/3 pi, which cancels in the ratio.
+        let density = |pf: f64, r: f64| pf / (r * r * r);
+
+        for (whole, kernel) in [
+            (DhTreatment::ChordLength, DhTreatment::ChordLengthKernel),
+            (DhTreatment::Scls, DhTreatment::SclsKernel),
+        ] {
+            let build = |t| {
+                DhUniverse::pebble(
+                    PebbleParams::fhr_unit_cell().with_materials(dummy_materials(8)),
+                    t,
+                )
+                .unwrap_or_else(|e| panic!("{} failed to build: {e}", DhTreatment::name(t)))
+            };
+            let n_whole = density(build(whole).packing_fraction(), r_particle);
+            let n_kernel = density(build(kernel).packing_fraction(), r_kernel);
+
+            assert!(
+                (n_kernel - n_whole).abs() <= 1.0e-12 * n_whole.abs(),
+                "{} implies {n_kernel:.12e} grains per unit volume against {}'s \
+                 {n_whole:.12e} — the kernel-level variant must re-describe the \
+                 same TRISO grains at the kernel radius, not invent or lose any",
+                kernel.name(),
+                whole.name()
+            );
+        }
+    }
+
     /// comparison is also a comparison of two different reactors.
     ///
     /// The explicit arm packs; the approximate arms smear at
@@ -2102,6 +2646,21 @@ mod tests {
             )
             .unwrap_or_else(|e| panic!("{} failed to build: {e}", t.name()));
             let pf = u.packing_fraction();
+            if t.is_kernel_level() {
+                // This arm deliberately models the KERNEL packing fraction, not
+                // the particle one — that is the whole point of the variant. It
+                // is still pinned, to the exact geometric relation, so a wrong
+                // derivation cannot pass as "a different level".
+                let spec = TrisoSpec::FHR_HALEU_UCO;
+                let expected = target * (spec.kernel / spec.opyc).powi(3);
+                assert!(
+                    (pf / expected - 1.0).abs() <= 1.0e-9,
+                    "{} models pf {pf:.6} against the derived kernel fraction {expected:.6} \
+                     = pf_particle * (r_kernel/r_opyc)^3",
+                    t.name()
+                );
+                continue;
+            }
             assert!(
                 (pf / target - 1.0).abs() <= 5.0e-3,
                 "{} models pf {pf:.5} against a requested {target:.5} ({:+.2} %) — the arms \
