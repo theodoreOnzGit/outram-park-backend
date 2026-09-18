@@ -380,6 +380,26 @@ cargo check -p kovan --bin kovan-tui --target aarch64-linux-android
 cargo check -p kovan --all-targets --target aarch64-linux-android
 ```
 
+> **CORRECTED 2026-09-18 — the third command above did NOT pass until that
+> date.** `pub mod mindmap;` was declared unconditionally in `src/lib.rs` while
+> its contents use `egui` and `egui_graphs`, both `optional = true` behind the
+> `gui` feature. So the crate failed for Android with 13 errors
+> (`cannot find module or crate egui` / `egui_graphs`), directly contradicting
+> this section and the workspace `CLAUDE.md`'s claim that the GUI is gated off
+> Android "so it never affects the other two's Android build".
+>
+> It now carries the same `#[cfg(all(feature = "gui", not(target_os =
+> "android")))]` gate as `app`, and all three commands pass.
+> `mindmap_layout` and `mindmap_model` are deliberately left ungated — they are
+> the headless path and mention `egui` only in prose.
+>
+> **Why it went unnoticed:** the two `--bin` commands above were the ones
+> actually run, and they pass, because neither binary reaches `mindmap`. Only
+> `--all-targets` compiles the library's full module tree. This is the same
+> `--lib`-versus-`--all-targets` gap the workspace `CLAUDE.md` already records
+> for the `godiva_gpu_benchmark` example. Now enforced continuously by
+> `.github/workflows/fast-tests.yml`.
+
 `ratatui` (and its bundled `crossterm`) is an **unconditional** dependency of
 this crate — not target-gated off Android. Until 2026-08-21 it *was*
 Android-gated, and `#[cfg(not(target_os = "android"))] pub mod tui;` in

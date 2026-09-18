@@ -642,7 +642,11 @@ badly-posed numerical experiment, not of the contact model.
 ## 4.6 Angle of repose — done faithfully, and verified
 
 **Status: the case now runs in both codes and a heap forms in both.**
-`tests/angle_of_repose.rs`, `#[ignore]`d (~25 min).
+`tests/angle_of_repose.rs`. ~~`#[ignore]`d (~25 min).~~ **CORRECTED 2026-09-18**
+— it is not unconditionally `#[ignore]`d: it is
+`#[cfg_attr(not(feature = "long-tests"), ignore = ...)]`, so a plain
+`cargo test` **runs** it and only `--no-default-features` skips it. Measured
+runtime **2313 s (38.5 min)** on 2026-09-16, not ~25 min.
 
 ### Faithful to upstream's own mechanism
 
