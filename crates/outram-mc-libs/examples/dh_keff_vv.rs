@@ -520,17 +520,44 @@ fn main() {
         }
     };
 
-    let treatments = [
+    let all_treatments = [
         DhTreatment::DeltaTracking,
         DhTreatment::ChordLength,
         DhTreatment::Scls,
         DhTreatment::Homogenised,
         rpt_treatment,
     ];
+    // OUTRAM_DH_ONLY selects treatments by substring of `name()`, comma
+    // separated (e.g. "chord" or "chord,delta"). Unset runs all five, which is
+    // the unchanged default. Added so a single treatment can be re-measured
+    // without paying for the others -- SCLS in particular is not fixed yet
+    // (maintainer, 2026-09-18) and running it wastes the wall clock.
+    let treatments: Vec<DhTreatment> = match std::env::var("OUTRAM_DH_ONLY") {
+        Ok(filter) => {
+            let want: Vec<String> = filter.split(',').map(|w| w.trim().to_lowercase()).collect();
+            all_treatments
+                .into_iter()
+                .filter(|t| {
+                    let n = t.name().to_lowercase();
+                    want.iter().any(|w| n.contains(w.as_str()))
+                })
+                .collect()
+        }
+        Err(_) => all_treatments.to_vec(),
+    };
+    // OUTRAM_DH_SEEDS: independent seed draws per treatment (default 1).
+    // Every DH number in this repo is a SINGLE draw; pooling is gh:#196 /
+    // bn:op-awwi. Each draw is timed separately.
+    let n_seeds: u64 = std::env::var("OUTRAM_DH_SEEDS")
+        .ok().and_then(|v| v.parse().ok()).filter(|&n: &u64| n >= 1).unwrap_or(1);
 
     let mut rows: Vec<Row> = Vec::new();
     for treatment in treatments {
+      let mut draws: Vec<f64> = Vec::with_capacity(n_seeds as usize);
+      for draw in 1..=n_seeds {
         let params = PebbleParams::fhr_unit_cell().with_materials(mats.clone());
+        let params = PebbleParams { seed: params.seed.wrapping_add(draw - 1) | 1, ..params };
+        let settings = KeffSettings { seed: draw, ..settings.clone() };
         let universe = match DhUniverse::pebble(params, treatment) {
             Ok(u) => u,
             Err(e) => {
@@ -550,13 +577,25 @@ fn main() {
             secs,
             particles
         );
-        rows.push(Row {
-            treatment,
-            k: result.k_mean,
-            std: result.k_std,
-            secs,
-            particles,
-        });
+        draws.push((result.k_mean - 1.0) * 0.0 + result.k_mean);
+        if n_seeds > 1 {
+            println!("      draw {draw}/{n_seeds}: k = {:.5} +/- {:.5}  ({secs:.1} s)",
+                     result.k_mean, result.k_std);
+        }
+        if draw == n_seeds {
+            rows.push(Row { treatment, k: result.k_mean, std: result.k_std, secs, particles });
+        }
+      }
+      if n_seeds > 1 && !draws.is_empty() {
+          let n = draws.len() as f64;
+          let mean = draws.iter().sum::<f64>() / n;
+          let sd = if n > 1.0 {
+              (draws.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
+          } else { 0.0 };
+          let sem = if n > 1.0 { sd / n.sqrt() } else { 0.0 };
+          println!("    POOLED {:<24} k = {mean:.5}  sd = {:.5}  sem = +/-{:.5}  ({} draws)",
+                   treatment.name(), sd, sem, draws.len());
+      }
     }
 
     let Some(reference) = rows.iter().find(|r| r.treatment.is_exact()) else {

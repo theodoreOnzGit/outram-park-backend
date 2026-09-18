@@ -196,7 +196,13 @@ document **both** methodology and results (measured numbers, the date, the
 interpretation) in its `///` doc comment. The existing examples to follow:
 
 - `animation::tests::residence_time_matches_analytical_identity`
-- `htgr_sim_v1::physics::primary_loop::tests::ihx_respects_the_pinch_in_both_directions`
+- `htgr_sim_v1::physics::temperature_cross::bedok_enthalpy_march::tests::a_crossed_htr10_profile_comes_back_cross_free`
+  (**CORRECTED 2026-09-18** — this list previously cited
+  `primary_loop::tests::ihx_respects_the_pinch_in_both_directions`, which no
+  longer exists: the IHX/pinch logic moved into `steam_generator.rs` on
+  2026-08-12 and no equivalent test survived under that name. Verified by
+  grep across `examples/htgr_sim_v1/physics/` that the pinch-repair
+  methodology+results example now lives in `bedok_enthalpy_march.rs`.)
 - `htgr_sim_v1::physics::secondary_loop::tests::saturation_temperature_matches_if97_reference`
 
 ## Build & test

@@ -5,7 +5,9 @@
 //! # Why
 //!
 //! Two benchmarks already bracket the FHR pebble study's machinery: Godiva
-//! (ICSBEP HEU-MET-FAST-001, fast, bare metal) at +57 ± 173 pcm and
+//! (ICSBEP HEU-MET-FAST-001, fast, bare metal) at ~~+57 ± 173 pcm~~
+//! **+16 ± 11 pcm (256 seeds, pooled)** (CORRECTED 2026-09-18: +57 was a single-seed
+//! draw, superseded by the 256-seed pooled mean) and
 //! HEU-SOL-THERM-009 (thermal, water-moderated solution) at −18 ± 171 pcm. Both
 //! are **highly enriched**: U-238 is 5 % of Godiva's heavy metal and 5 % of
 //! HST-009's. The pebble's residual has been narrowed to U-238 absorption, so
@@ -62,6 +64,40 @@
 //!     --example jemima_keff
 //! ```
 
+//!
+//! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! | | dk vs benchmark |
+//! |---|---|
+//! | **pooled mean, 32 seeds** | **-253 pcm, sem +/-34** |
+//! | seed-to-seed sd | 195 pcm — what ONE run scatters by |
+//! | previously recorded (SINGLE seed) | `+6 ± 173 pcm` |
+//!
+//! //! **The previously recorded `+6` was a 1.3-sd lucky draw.** It made this case
+//! read as near-perfect agreement; the pooled answer is `-253 pcm`. The single
+//! draw was not wrong, it was one sample from a distribution 195 pcm wide, and
+//! nothing in a single-seed report can reveal that. This is the clearest
+//! illustration in the repo of why `op-awwi` exists.
+//!
+//! **`-253 +/- 34` is still INSIDE the benchmark's own ~300 pcm band**, so the
+//! honest statement is "agrees, at -253 +/- 34 pcm" — NOT "disagrees at 7
+//! sigma". The `distance from benchmark = 7.3 sem` the example prints is
+//! measured in OUR sampling error, which pooling has made small enough that it
+//! is no longer the dominant term.
+//!
+//!
+//! **PROVENANCE WARNING on that band (added 2026-09-18).** The `± ~0.003` is
+//! NOT a quoted ICSBEP case uncertainty — this file's own line ~49 calls it
+//! *"pessimistic here"*, since fast metal assemblies have smaller
+//! uncertainties than solutions. So "inside the band" is being judged against
+//! a deliberately generous stand-in. Against a realistic fast-assembly
+//! uncertainty (nearer +/-100-200 pcm) `-253 +/- 34` is **marginal and
+//! possibly outside**. Do not publish this as agreement until the real
+//! case-specific uncertainty is obtained (bead filed 2026-09-18).
+//! This closes `gh:#196` / `bn:op-awwi` for this case: the headline is now a
+//! pooled mean, not a draw. Note the comparison is now limited by the
+//! BENCHMARK's uncertainty (ICSBEP `1.0000 ± ~0.003`, i.e. ~300 pcm), not ours — quote agreement against that
+//! band, not against our sem.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::vv::assert_reproduces_keff;
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};

@@ -16,7 +16,7 @@
 //!
 //! | benchmark | spectrum | U-238 | `p` | result |
 //! |---|---|---|---|---|
-//! | HEU-MET-FAST-001 (Godiva) | fast | 5 % of HM | — | +57 ± 173 pcm |
+//! | HEU-MET-FAST-001 (Godiva) | fast | 5 % of HM | — | +16 ± 11 pcm (256 seeds) |
 //! | IEU-MET-FAST-002 (Jemima) | fast | 83 % / 99.3 % | — | +6 ± 173 pcm |
 //! | HEU-SOL-THERM-009 case 1 | thermal | 5 % of HM | ≈ 0.95 | −18 ± 171 pcm |
 //! | **this case** | **thermal** | **97.5 % of HM** | **≈ 0.75** | ? |
@@ -109,9 +109,18 @@
 //! ## What is left, and what it is worth comparing to
 //!
 //! The remaining ~+175 pcm is small, positive, and consistent across three
-//! configurations. For scale, **Godiva's pooled residual is +214 ± 20 pcm**
-//! (96 seeds) — a *fast bare sphere* with no lattice at all, and structurally
-//! untouched by the fix above (`run_keff` never calls `cross_surface`).
+//! configurations. For scale, ~~Godiva's pooled residual is +214 ± 20 pcm
+//! (96 seeds)~~ **CORRECTED 2026-09-18 — two errors in one sentence.**
+//! `+214 ± 20` was **64** seeds, not 96 (the 96-seed study gave `+228 ± 18`
+//! before the MT=91 Q-value cap and `+314 ± 21` after); and `+214` is itself
+//! **superseded** by **`+16 ± 11 pcm` over 256 seeds**, after the discrete
+//! inelastic angular distributions landed (`op-tm9f`). Use `+16 ± 11`.
+//!
+//! The comparison it was making still stands: Godiva is a *fast bare sphere*
+//! with no lattice at all, and is structurally untouched by the fix above
+//! (`run_keff` never calls `cross_surface`). But note the scale argument is
+//! now much weaker — Godiva's residual is ~16 pcm, not ~214, so it no longer
+//! provides a "comparable residual elsewhere" for this +175 pcm.
 //!
 //! Two residuals of similar size and sign on physically very different systems
 //! is **an observation worth pricing, not a conclusion**. It is equally
@@ -409,6 +418,41 @@
 //!     --example lct008_keff -- [--clad-omission-bound] [--particles N]
 //!                              [--dbrc] [--urr]
 //! ```
+
+//!
+//! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! | | dk vs benchmark |
+//! |---|---|
+//! | **pooled mean, 32 seeds** | **+165 pcm, sem +/-25** |
+//! | seed-to-seed sd | 143 pcm — what ONE run scatters by |
+//! | previously recorded (SINGLE seed) | `+201 +/- 63 pcm` |
+//! | one draw taken 2026-09-18 | `+89 +/- 126 pcm` |
+//!
+//! **Read the configuration caveat before comparing these.** The recorded
+//! `+201 +/- 63` was measured at ~4x the histories this example now runs
+//! (its sigma was 63 pcm; a single draw of the CURRENT default gives 126).
+//! So `+201` and `+165` are not a like-for-like pair, and the apparent 36 pcm
+//! agreement is partly a coincidence of two different configurations. What IS
+//! like-for-like is `+89` against `+165`: the same deck, one seed against
+//! thirty-two, 0.53 sd apart.
+//!
+//! `+165 +/- 25` sits well inside the benchmark's own ~600 pcm band, so this
+//! case AGREES. The `distance from benchmark = 6.5 sem` the example prints is
+//! measured in OUR sampling error only — pooling has shrunk that until the
+//! experiment's uncertainty dominates, and quoting 6.5 sem as a discrepancy
+//! would be wrong.
+//!
+//!
+//! **PROVENANCE WARNING on that band (added 2026-09-18).** The `~600 pcm` is
+//! NOT a quoted ICSBEP case uncertainty. Lines ~407-409 of this file say the
+//! case-specific uncertainty "is not in the repository and the handbook is not
+//! reachable from this environment", and take the worst case of a 0.1-0.6 %
+//! range. `+165 +/- 25` would probably survive a realistic band, but that is
+//! not established. Do not publish as agreement until the real uncertainty is
+//! obtained (bead filed 2026-09-18).
+//! Seed count follows the workspace standard of **32** (maintainer decision
+//! 2026-09-18; see `examples/godiva_keff_ensemble.rs`).
 
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken, SurfaceToken};
