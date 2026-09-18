@@ -36,6 +36,9 @@ exclude = ["verification_and_validation/*.csv", "docs", "upstream_source/openfoa
 default = []
 parallel = ["dep:rayon"]
 gpu = ["dep:wgpu"]
+# Opt-in LAPACK comparison benchmark. Off by default so neither the fast suite
+# nor CI needs a system BLAS -- see the dependency tables below.
+blas-bench = ["dep:ndarray-linalg"]
 
 [dependencies]
 # erf / erfc / tgamma / lgamma in pure Rust, replacing the `extern "C"` calls
@@ -53,14 +56,41 @@ wgpu = { workspace = true, optional = true }
 approx.workspace = true
 ndarray.workspace = true
 
-[target.'cfg(target_os = "linux")'.dev-dependencies]
-ndarray-linalg = { workspace = true, features = ["openblas-system"] }
+# `ndarray-linalg` is OPT-IN, behind `blas-bench`, and is NOT a dev-dependency.
+#
+# WHY NOT A DEV-DEPENDENCY: Cargo pulls dev-dependencies for every `cargo test`
+# whether or not the test that needs them is being run, and Cargo does not
+# permit `optional = true` on one. So declaring it there forced a system BLAS
+# on ANYONE running the fast suite -- `libopenblas-dev` on Linux, and a slow
+# `intel-mkl-static` build on macOS/Windows -- for a single timing benchmark
+# that asserts nothing. That cost showed up immediately in CI
+# (`.github/workflows/fast-tests.yml`), which had to apt-install OpenBLAS.
+#
+# As an optional regular dependency plus `required-features` on the test
+# target below, `cargo quick-test` (i.e. `--no-default-features`) does not
+# resolve it at all and needs no BLAS on any platform.
+#
+# To run the benchmark:
+#   cargo test -p outram-foam-basic-lib --features blas-bench --test matrix_bench --release -- --nocapture
+#
+# Still target-gated: Android has no system BLAS and no easy C/Fortran
+# toolchain, so the dependency must not exist there even with the feature on.
+[target.'cfg(target_os = "linux")'.dependencies]
+ndarray-linalg = { workspace = true, features = ["openblas-system"], optional = true }
 
-[target.'cfg(target_os = "macos")'.dev-dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+[target.'cfg(target_os = "macos")'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"], optional = true }
 
-[target.'cfg(windows)'.dev-dependencies]
-ndarray-linalg = { workspace = true, features = ["intel-mkl-static"] }
+[target.'cfg(windows)'.dependencies]
+ndarray-linalg = { workspace = true, features = ["intel-mkl-static"], optional = true }
+
+# `required-features` keeps the test target itself out of the build graph
+# unless `blas-bench` is on, so `cargo test` does not try to compile a file
+# whose `use ndarray_linalg::...` cannot resolve.
+[[test]]
+name = "matrix_bench"
+path = "tests/matrix_bench.rs"
+required-features = ["blas-bench"]
 
 [lib]
 name = "outram_foam_basic_lib"

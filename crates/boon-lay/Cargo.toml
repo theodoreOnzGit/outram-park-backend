@@ -9,7 +9,7 @@ repository.workspace = true
 categories.workspace = true
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate.
-exclude = ["verification_and_validation/*.csv"]
+exclude = ["docs", "verification_and_validation/*.csv"]
 
 [dependencies]
 uom             = { workspace = true }

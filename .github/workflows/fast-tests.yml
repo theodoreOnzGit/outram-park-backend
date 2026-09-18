@@ -77,16 +77,18 @@ jobs:
           # matrix is ~3x slower and the intel-mkl-static download repeats.
           cache-on-failure: true
 
-      # `outram-foam-basic-lib` carries `ndarray-linalg` as a TARGET-GATED
-      # dev-dependency, so `cargo test` pulls it even though no library needs
-      # BLAS. On Linux that is `openblas-system`, i.e. a system package.
-      # Windows and macOS use `intel-mkl-static`, which is self-contained and
-      # needs no step here (it is slow on a cold cache — see cache-on-failure).
-      - name: Install OpenBLAS (Linux only)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libopenblas-dev pkg-config
+      # NO SYSTEM BLAS STEP, DELIBERATELY. `outram-foam-basic-lib` used to
+      # carry `ndarray-linalg` as a target-gated DEV-dependency, which Cargo
+      # pulls for every `cargo test` regardless of which test runs — so the
+      # fast suite needed `libopenblas-dev` on Linux and a slow
+      # `intel-mkl-static` build on macOS/Windows, all for one timing
+      # benchmark that asserts nothing. It is now an optional regular
+      # dependency behind that crate's `blas-bench` feature, with
+      # `required-features` on the test target, so `cargo quick-test` does not
+      # resolve it on any platform.
+      #
+      # If a BLAS install step ever reappears here, something has regressed
+      # back into the default graph — fix the dependency, not this file.
 
       - name: Fast tests (long tests excluded)
         run: cargo quick-test

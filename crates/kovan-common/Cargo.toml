@@ -4,6 +4,10 @@ description = "KOVAN shared canonical types (KovanDocument, KovanSymbol, …)."
 version = "0.0.1"
 edition.workspace = true
 license.workspace = true
+# `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
+# write-ups. Excluded so it never ships to crates.io (size, and it is
+# not part of the published API surface).
+exclude = ["docs"]
 repository.workspace = true
 
 [dependencies]

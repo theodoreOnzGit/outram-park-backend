@@ -11,7 +11,7 @@ readme = "README.md"
 categories.workspace = true
 # Test runs dump ~58 MB of CSV output into the crate root; keep them out of the
 # published package (well over the crates.io size limit, and not crate content).
-exclude = ["*.csv"]
+exclude = ["docs", "*.csv"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
