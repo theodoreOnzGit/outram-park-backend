@@ -353,3 +353,64 @@ MF=2/MT=152, which is committed as
 
 Data policy: contains no evaluated, proprietary, or restricted data — it is
 constructed from invented numbers by a committed script.
+
+## ENDF/B-VII.0 — the library the HTR-10 reference codes used (added 2026-09-18)
+
+Seven tapes, downloaded from the IAEA Nuclear Data Services `download-endf`
+tree — the same pinned host `njoy-outram-park-fork::acquire::IAEA_BASE_URL`
+already uses for the VIII.0 set:
+
+```
+https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/n/
+https://www-nds.iaea.org/public/download-endf/ENDF-B-VII.0/tsl/
+```
+
+| local name | upstream archive | MAT |
+|---|---|---|
+| `n-092_U_235-ENDF7.0.endf` | `n_9228_92-U-235.zip` | 9228 |
+| `n-092_U_238-ENDF7.0.endf` | `n_9237_92-U-238.zip` | 9237 |
+| `n-008_O_016-ENDF7.0.endf` | `n_0825_8-O-16.zip` | 825 |
+| `n-006_C_000-ENDF7.0.endf` | `n_0600_6-C-0.zip` | 600 |
+| `n-014_Si_028-ENDF7.0.endf` | `n_1425_14-Si-28.zip` | 1425 |
+| `n-005_B_010-ENDF7.0.endf` | `n_0525_5-B-10.zip` | 525 |
+| `tsl-graphite-ENDF7.0.endf` | `tsl_0031_graphite.zip` | 31 |
+
+### Why this library is in the repository
+
+The HTR-10 code-to-code comparison target — Li Wanlin, Yu Ganglin & Wei Chunlin,
+*"Research on Benchmark Calculation and Analysis of HTR-10 with RMC Code"*,
+HTR 2014, Weihai, paper HTR2014-51207 (catalogued as `li2014htr10rmc`) — and
+every other code it reports against (MCNP, Serpent, HCP) used **ENDF/B-VII.0**.
+This workspace's HTR-10 model had always run **VIII.0**, and its own V&V record
+named that as a known uncorrected systematic "worth hundreds of pcm" without
+ever pricing it.
+
+Measured 2026-09-18 on the HTR-10 core at the benchmark loading, same
+geometry, same seed, same settings:
+
+| library | `k_eff` | vs RMC, height-matched |
+|---|---|---|
+| ENDF/B-VIII.0 | 0.988088 +/- 0.003095 | -1259 pcm |
+| **ENDF/B-VII.0** | **1.004525 +/- 0.003096** | **+385 pcm** |
+
+**The library term is `+1644 +/- 438 pcm` (3.75 sigma)** — five times the
+"hundreds of pcm" the record had assumed, and on this problem essentially the
+whole residual. Without these tapes the comparison is not like-for-like and no
+disagreement can be attributed to transport or geometry.
+
+Reached with `OUTRAM_HTR10_ENDF7=1` in
+`crates/nee_soon/examples/htr10_rmc_keff.rs`. Full method and the accompanying
+ablation chain: `crates/outram-mc-libs/verification_and_validation/htr10_rmc/README.md`.
+
+### Two differences that are part of the physics, not transcription details
+
+- **VII.0 carbon is ELEMENTAL natural carbon** (`6-C-0`, MAT 600). VIII.0 ships
+  C-12 separately. The VII.0 arm therefore carries the 1.1 % C-13 and the
+  VIII.0 arm does not; the two are not separable without a third arm.
+- **The graphite thermal tape's MAT changed between releases**: VIII.0
+  crystalline graphite is MAT 30 (ZA 130), VII.0 is MAT 31 (ZA 131). Passing
+  the wrong one makes `ThermalScattering::from_endf_file` return `Err`.
+
+Data policy: ENDF/B-VII.0 is openly released evaluated nuclear data, published
+by the CSEWG/NNDC and mirrored by the IAEA NDS for public download. No licence
+or redistribution restriction applies. Same tier as the VIII.0 tapes beside it.
