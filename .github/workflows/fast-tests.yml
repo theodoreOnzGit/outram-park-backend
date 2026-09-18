@@ -51,9 +51,21 @@ env:
   RUST_BACKTRACE: short
 
 concurrency:
-  # Supersede an in-flight run on the same ref; these jobs are long.
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Supersede only PULL-REQUEST runs, never pushes to develop/main.
+  #
+  # `cancel-in-progress: true` was tried first and is wrong here, measured
+  # rather than guessed: the three `test` legs compile 40 crates in release and
+  # take far longer than the compile-only jobs, so on an active branch every
+  # new push killed them before they finished. Two consecutive runs
+  # (35299832412, 35300663774) completed android and ios but cancelled all
+  # three `test` legs — i.e. the slowest and most valuable jobs were the only
+  # ones that never ran, which is exactly backwards.
+  #
+  # On a PR, superseding is still right: only the tip matters and pushes are
+  # frequent. On develop/main each commit is a thing someone may later bisect
+  # to, so its run should complete.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ── Tests that actually RUN ────────────────────────────────────────────────

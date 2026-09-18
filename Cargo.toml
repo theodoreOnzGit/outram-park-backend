@@ -110,6 +110,20 @@ members = [
     # upstream. Numerics come from petir. Named 2026-09-18 by the maintainer,
     # replacing the provisional `kaki-bukit`. SCAFFOLD, epic op-r830.
     "crates/kaki-bukit",
+    # sembawang — SEMBAWANG: severe accident progression (melt behaviour,
+    # relocation, vessel failure, MCCI, hydrogen, aerosols) producing the
+    # source term CHANGI consumes. PLACEHOLDER (2026-09-18): reserved name from
+    # docs/ecosystem-naming.md made visible in the workspace; no code, no deps.
+    # The largest of the reserved names -- needs a MELCOR-class port that has
+    # not been begun (docs/melcor-scoping.md).
+    "crates/sembawang",
+    # redhill — REDHILL: Radionuclide Effluent Dispersion solver for
+    # Hydrogeological Infiltration and Leaching through Layers. Groundwater and
+    # geological transport, the far end of SEMBAWANG -> CHANGI -> REDHILL.
+    # PLACEHOLDER (2026-09-18): no code, no deps. Expected to integrate the
+    # EXISTING outram-park-fork-pflotran rather than write a new solver, but
+    # that edge is deliberately not declared until something calls into it.
+    "crates/redhill",
 ]
 
 # Shared package metadata. Member crates keep their own `version` (they are

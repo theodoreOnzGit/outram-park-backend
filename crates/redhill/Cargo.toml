@@ -1,0 +1,22 @@
+[package]
+name = "redhill"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "REDHILL (Radionuclide Effluent Dispersion solver for Hydrogeological Infiltration and Leaching through Layers) — groundwater and geological transport of radionuclides after deposition. Placeholder: nothing is implemented."
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+# `docs/` is repo-only (the rustdoc->markdown API mirror and any V&V
+# write-ups). Excluded so it never ships to crates.io.
+exclude = ["docs"]
+
+# NO DEPENDENCIES YET, deliberately.
+#
+# REDHILL is expected to build on `outram-park-fork-pflotran`, which already
+# exists in this workspace -- but declaring that edge now would be an
+# architectural claim made before any code exists to justify it, and an unused
+# dependency is not free (it enters the lock file and every downstream build
+# graph). Add it when something here actually calls into it.
+[dependencies]
