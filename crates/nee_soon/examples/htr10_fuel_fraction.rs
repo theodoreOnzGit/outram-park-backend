@@ -26,7 +26,11 @@ fn main() {
 
     // Bed extent. Sample inside the cylinder only.
     let r_max = HTR10_CORE_RADIUS_CM;
-    let z_max = core.bed_half_height;
+    // Sample the whole fuelled envelope, bed PLUS conus. Sampling only the bed
+    // cylinder cannot see conus fuel at all, so it would report "no change"
+    // however much was added.
+    let z_hi = core.bed_half_height;
+    let z_lo = core.conus_floor;
     let n = env_usize("OUTRAM_HTR10_SAMPLES", 400_000);
 
     let mut seed = 12345_u64;
@@ -44,7 +48,7 @@ fn main() {
         // Uniform in the cylinder: r = R sqrt(xi).
         let r = r_max * prn().sqrt();
         let th = 2.0 * std::f64::consts::PI * prn();
-        let z = (2.0 * prn() - 1.0) * z_max;
+        let z = z_lo + (z_hi - z_lo) * prn();
         let p = Position::new(r * th.cos(), r * th.sin(), z);
         let b = ((r / r_max) * NB as f64) as usize;
         let b = b.min(NB - 1);
@@ -59,7 +63,10 @@ fn main() {
     }
 
     let names = ["kernel", "buffer", "IPyC", "SiC", "OPyC", "graphite", "helium", "reflector", "LOST/void"];
-    println!("bed cylinder r <= {:.2} cm, |z| <= {:.2} cm, {} samples", r_max, z_max, n);
+    println!("envelope r <= {:.2} cm, z in [{:.2}, {:.2}] cm ({:.2} cm tall), {} samples",
+             r_max, z_lo, z_hi, z_hi - z_lo, n);
+    println!("  (bed {:.2} cm + conus {:.2} cm below it)",
+             2.0 * core.bed_half_height, -core.conus_floor - core.bed_half_height);
     println!("{:<12} {:>9} {:>10}", "material", "count", "fraction");
     for (i, nm) in names.iter().enumerate() {
         if counts[i] > 0 {
@@ -79,9 +86,16 @@ fn main() {
     println!();
     println!("fuel-zone (all TRISO layers + matrix is separate): {:.6}", fuel_zone as f64 / n as f64);
     println!("kernel volume fraction of bed                    : {:.6}", counts[0] as f64 / n as f64);
-    // Paper-implied kernel fraction.
-    let implied = 0.61 * (2.5_f64 / 3.0).powi(3) * 0.57 * 0.050248;
-    println!("paper-implied kernel fraction                    : {implied:.6}");
+    // Paper-implied KERNEL fraction.
+    //
+    // CORRECTED: this previously stopped at the PARTICLE fraction (0.010111)
+    // and printed it as the kernel fraction, making the ratio read 0.1587 when
+    // the model was actually within a few percent. The kernel is only
+    // (0.025/0.0455)^3 = 0.16585 of a particle's volume.
+    let particle_frac = 0.61 * (2.5_f64 / 3.0).powi(3) * 0.57 * 0.050248;
+    let implied = particle_frac * (0.025_f64 / 0.0455).powi(3);
+    println!("paper-implied PARTICLE fraction                  : {particle_frac:.6}");
+    println!("paper-implied KERNEL fraction                    : {implied:.6}");
     println!("ratio (ours / paper)                             : {:.4}",
              (counts[0] as f64 / n as f64) / implied);
 }

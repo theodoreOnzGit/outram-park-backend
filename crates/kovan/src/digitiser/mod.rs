@@ -108,7 +108,7 @@ pub mod calibration;
 pub mod dataset;
 pub mod detect;
 pub mod frontend;
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 pub mod gui;
 pub mod raster;
 pub mod synthetic;

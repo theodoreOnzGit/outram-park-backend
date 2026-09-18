@@ -3,24 +3,84 @@
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
-**Status as of 2026-09-17: the core reproduces the RMC benchmark to
-`-909 +/- 108 pcm`, inside the 500-1000 pcm gate.** `bn:op-867c`, gh #214.
+**Status as of 2026-09-18 (later): the conus was filled with the WRONG
+CONTENTS, and correcting it removes the +3670 pcm overshoot.** `op-5n34`.
 
-```text
-k_eff        = 0.995200 +/- 0.001082     (RMC 1.004288, difference -909 pcm)
-14 rings x 25 layers, 20425 tiles, 10000 histories x [40 inactive + 120 active]
-surface tracking, ENDF/B-VIII.0, 348.17 collisions/history
-lost locate = 0     stuck events = 0     negative distances = 0
-leak vacuum = 0.479 %
-```
+~~The core sits at `+3670 +/- 115 pcm`, OUTSIDE the gate.~~
+**CORRECTED** — that number came from a conus full of **fuel** pebbles.
 
-**Read the qualifications before quoting this.** The reference is a code-to-code
-number with **no stated uncertainty**, the data library differs (VIII.0 here
-against the references' VII.0), and this crate's own thermal accuracy floor is
-~200-400 pcm. Agreement at 909 pcm is the gate being met, not a validated model.
-**The conus is still not modelled** (see below), and it is the one known
-omission that would move `k` UP — so the residual is not a free parameter, it
-has a named candidate.
+Terry et al. (2005) section 2, quoted in this repository's own derived
+geometry (`kovan-literature/derived/terry2005-htr10-rz-zone-geometry.md:256`):
+
+> *"the conus and discharge tube contained only **dummy** pebbles"*
+
+The conus was built as part of the bed hex lattice, and `bed_tile_levels`
+applies the core's 57:43 fuel:dummy split to every level it makes. So
+extending the lattice down to the conus floor filled the conus with fuel that
+is not there. **The geometry was right and the contents were wrong.**
+
+### Measured, all single-seed, 3000 histories x [20 inactive + 60 active]
+
+| arm | `k_eff` | vs RMC |
+|---|---|---|
+| conus with FUEL (the +3670 state) | 1.040179 +/- 0.003215 | +3589 +/- 322 |
+| conus with DUMMY pebbles (Terry) | 0.988408 +/- 0.002693 | -1588 +/- 269 |
+| **conus contents, fuel -> dummy** | | **-5177 +/- 420 pcm (12 sigma)** |
+| + discharge tube as dummy pebbles | 0.991372 +/- 0.003002 | -1292 +/- 300 |
+
+**POOLED, 8 seeds** — the physical model's residual is
+**`-1592 pcm, sem +/-63`, seed-to-seed `sd 179 pcm`.**
+
+That is the number to quote. The single draw above sits **1.7 sd** off the
+pooled mean, which is the whole argument for `gh:#196` / `bn:op-awwi` in one
+line: at `sd = 179 pcm`, one run of this case is worth +/-179 pcm of
+re-randomisation, so a single-seed residual cannot be quoted to better than
+a few hundred pcm. Every OTHER number on this page is still a single draw.
+
+So the conus **geometry** is worth far less than the +4578 pcm previously
+recorded; almost all of that was fuel that should not have been there.
+
+### This also revises the "two offsetting errors" reading
+
+The earlier `-909 pcm` was explained as a model missing 13.6 % of its fuel and
+therefore agreeing by coincidence. That explanation is **wrong**: the
+flat-bottomed model was not missing fuel, it was missing the conus's *dummy*
+pebbles and had reflector graphite in their place. Replacing that graphite
+with dummy pebbles is worth only about **-680 pcm** (-909 -> -1588), which is
+a believable perturbation rather than a masked error. The "two offsetting
+errors" account should not be cited.
+
+### The discharge tube: neither of the two bounds
+
+The same Terry sentence covers it. The model had **solid reflector graphite**
+there (over-reflecting the conus tip where the fuel converges); an ablation to
+**pure helium** was worth `-2100 +/- 456 pcm`, which is the opposite bound.
+Neither is the reactor. It is now **pebble graphite at the bed's 0.61 filling
+fraction**, which sits between them.
+
+### The control-rod boring band — measured, but NOT enabled
+
+TECDOC zone 22 is used for every reflector region in this model, and it is
+**rank 1 of 40 distinct carbon densities in Table 4-3** — the densest graphite
+available, everywhere. Giving the band at r 95.6-108.6 cm the reduced density
+of zones 31-40 (-28.1 % carbon) is worth **-1572 +/- 425 pcm (3.7 sigma)**.
+
+**It is left OFF by default and must not be read as a correction.** The
+derived zone map records only the bottom two axial layers; the core-height
+assignment for that radial band is explicitly *"not yet placed"*. Zone 47 is
+the documented zone for `[95.6, 108.6]` at the bottom, and zones 31-40 were
+inferred only from ten consecutive zones sharing one density — the doc warns
+in terms, *"use this as a check, not a generator"*. Enabling it would swap one
+unjustified composition for another in the reflector band nearest the core.
+`OUTRAM_HTR10_BORINGS=1` measures it; nothing depends on it.
+
+### Also fixed: the source box and entropy mesh were blind to the conus
+
+Both were fixed numbers predating the conus — `SourceBox` `[-50,50]^3` and the
+entropy mesh `[-60,60]^3`, against a bed now reaching `conus_floor = -98.2 cm`.
+A starting source that misses fuel is recoverable given inactive generations;
+**an entropy mesh blind to part of the core is not** — it reports convergence
+of the region it can see. Both now span the bed's actual extent.
 
 ## How it got there — the ablation chain
 
@@ -74,11 +134,10 @@ reactor leaks. Carving it out moved `k` by -14,108 pcm and took leakage from
 
 ### What is still NOT modelled
 
-- **The conus.** The bed sits on a 36.946 cm conus tapering from r = 90 cm to
-  the 25 cm discharge tube, and it is **full of pebbles**. This model has a
-  flat-bottomed cylinder, so it is MISSING that fuel -- the omission pushes `k`
-  DOWN, i.e. toward the observed -909 pcm. Adding it is the next step and needs
-  conditional tile omission, which the lattice does not have (see the plan).
+- ~~**The conus.** ... Adding it needs conditional tile omission, which the
+  lattice does not have.~~ **MODELLED 2026-09-18 (`op-5n34`) -- and the stated
+  blocker did not exist.** See "The conus" below. It is worth **+4578 +/- 158 pcm** and
+  **OVERSHOOTS**: the model goes from -909 pcm to roughly +3.5k pcm.
 - **The bottom is modelled symmetrically** with the top rather than as conus +
   discharge tube.
 - **Control-rod borings** (r 95.6-108.6 cm) are solid graphite here, not
@@ -320,3 +379,108 @@ cargo test -p nee_soon        --release --test htr10_geometry_integrity
 cargo run  -p nee_soon        --release --example htr10_core_scaling
 cargo run  -p outram-mc-libs  --release --example majorant_absorber_price
 ```
+
+
+## The conus (2026-09-18, `op-5n34`) -- predicted sign CONFIRMED, magnitude OVERSHOOTS
+
+### Methodology
+
+The bed sits on a conus 36.946 cm tall tapering from the 90 cm core radius to
+the 25 cm fuel-discharge tube, and it is **full of pebbles**. Geometry from
+`kovan-literature/derived/terry2005-htr10-rz-zone-geometry.md` (Terry 2005
+Fig. 2, hand-read by the maintainer, corroborated at ten independent points):
+conus z in [351.818, 388.764] in Terry's downward-z frame, the 36.946 cm
+agreeing with TECDOC-1382 Table 2 exactly.
+
+Modelled as a `ZCone` with the apex 51.156 cm below the bed bottom (slope
+(90-25)/36.946 = 1.759324, `r_sq` = 3.095222), truncated at the discharge-tube
+radius by a floor plane. The bed cell's region becomes
+**cylinder UNION conus**, and the hex lattice is extended axially to reach the
+conus floor (25 -> 41 layers; the extra tiles above the bed lie outside the
+cell region and are never reached).
+
+### The stated blocker did not exist
+
+`op-5n34` and the plan both recorded this as needing **conditional tile
+omission**, which `HexLattice` does not have. **That premise is wrong.**
+`Geometry::locate` calls `find_cell` -- a CSG region test -- *before*
+descending into a lattice, so a point is only assigned a tile if it is inside
+the enclosing cell's region. The cone therefore clips the pebble lattice for
+free, exactly as `ins(7)` already clipped it to r < 90 cm, and
+`Cell::distance_to_boundary` tests the cone because it is one of that cell's
+own surfaces. No new lattice mechanism was needed, and none was written.
+
+The three options recorded on the bead -- per-tile universes via
+`surface_in_tile_frame`, real per-tile omission in `HexLattice`, and rejection
+in the delta path's `material_at` -- were all **rejected as unnecessary**.
+
+### Results -- the geometry, verified two ways before the eigenvalue
+
+Measured through `Geometry::locate` by `examples/htr10_fuel_fraction.rs`, not
+derived from a formula (coverage formulas have been wrong twice in this model):
+
+| quantity | measured | independent prediction | agrees |
+|---|---|---|:--:|
+| kernel volume | **+14.8 % +/- 4.2 %** | +13.6 % from the cone frustum | 0.3 sigma |
+| non-conus fraction of the sampling box | **0.127070** | 0.12707 from `pi r^2 h` minus the frustum | exact |
+| untiled fraction, filler removed | **0** | lattice must reach the conus floor | yes |
+
+The second row is the sharper check: it is the cone's own volume, to five
+decimal places, measured by sampling rather than integrated.
+
+### Results -- eigenvalue
+
+Both arms at identical settings -- 14 rings x 25 layers, 10000 histories x
+[40 inactive + 120 active], surface tracking, ENDF/B-VIII.0, same seed:
+
+| | `k_eff` | vs RMC 1.004288 |
+|---|---|---|
+| no conus (committed baseline) | 0.995200 +/- 0.001082 | **-909 +/- 108 pcm** |
+| with conus | **1.040984 +/- 0.001148** | **+3670 +/- 115 pcm** |
+| **conus worth** | **+4578 +/- 158 pcm** | **29.0 sigma** |
+
+The baseline arm **reproduced the committed number exactly** (0.995200 +/-
+0.001082), which is the check that the two arms differ only by the conus.
+
+Both arms stayed clean: 0 lost, 0 stuck, 0 negative distances, leakage 0.479 %
+-> 0.451 %.
+
+**The predicted sign is confirmed.** The conus adds fuel and `k` moved UP,
+exactly as stated in advance on the bead. **The magnitude overshoots by 5x**:
+it was supposed to close a 909 pcm gap and delivered 4578 pcm.
+
+### What the overshoot means -- read this, it is the important part
+
+A model that sat 909 pcm LOW while missing 13.6 % of its fuel volume was
+**agreeing for the wrong reason**. Adding real physics has exposed a
+compensating error of comparable size elsewhere: something in this model is
+over-reactive by a few thousand pcm and was being masked by the absent conus.
+
+This is the failure mode the workspace `CLAUDE.md` names explicitly -- *"two
+offsetting errors land on the right `k` too"* -- and it means **the earlier
+-909 pcm must not be cited as agreement**. It was a coincidence of two errors,
+and this change is what revealed that, which is worth more than the number it
+replaced.
+
+**Nothing was tuned to recover the old agreement**, and nothing should be. The
+candidates for the compensating error, none yet measured:
+
+- **The discharge tube** (r < 25 cm below the conus floor) is reflector
+  graphite here. In the real reactor it is a tube of pebbles and void; solid
+  graphite there over-reflects the conus tip.
+- **Control-rod borings** (r 95.6-108.6 cm) are solid graphite, not homogenised
+  with their borings -- this over-moderates and over-reflects.
+- **The bottom is symmetric with the top**, so there is 229 cm of graphite
+  below the conus where the real model has the discharge tube.
+- **Packing in the conus** is the bed's 0.61 everywhere; pebbles against a
+  sloping wall pack worse than in bulk.
+- Every reflector region is a **single homogenised TECDOC zone**.
+
+### Statistical caveat, stated plainly
+
+Both arms above are **SINGLE SEEDS** (`seed: 20260917`), as is every ablation
+in this record. Pooled multi-seed re-measurement is gh:#196 / `bn:op-awwi` and
+has **not** been done. The conus effect (+4578 +/- 158 pcm) is about ten times the
+combined single-run sigma, so it is resolved by a single pair and is safe to
+quote as an effect. The *residual* after it is not similarly safe, and no
+sub-sigma difference anywhere in this record should be quoted as a result.

@@ -14,7 +14,7 @@ categories.workspace = true
 # The vendored upstream clones are dev-only reference material (gitignored) and
 # must never be packaged; `upstream_source/README.md` (the small provenance
 # record) stays in the package.
-exclude = ["upstream_source/cfMesh", "upstream_source/voro"]
+exclude = ["docs", "upstream_source/cfMesh", "upstream_source/voro"]
 
 # The volume-meshing core (VolumeMesh, cartesian, carve, snap) is pure Rust
 # with no dependencies, so the crate stays Android/Termux-buildable by default.

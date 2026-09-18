@@ -73,7 +73,7 @@
 //! # Android/Termux portability
 //!
 //! Everything in this file that touches `eframe`/`egui`/`egui_graphs` is
-//! gated behind `#[cfg(feature = "gui")]`, matching the pattern
+//! gated behind `#[cfg(all(feature = "gui", not(target_os = "android")))]`, matching the pattern
 //! `crate::digitiser::mod::gui` already uses. [`LiteratureCard`],
 //! [`literature_card`], `bib_display`, `extract_summary` and
 //! `create_subtopic` have no GUI dependency and stay unconditional, so a
@@ -88,11 +88,11 @@ use crate::research_record::ResearchRecordIndex;
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 use eframe::egui;
 
 /// What the mindmap wants the caller to do next.
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 pub enum MindmapAction {
     /// A paper node was double-clicked — the caller should open its
     /// Research workspace (`op-9vo6.10`'s `PaperSession`), once that
@@ -100,7 +100,7 @@ pub enum MindmapAction {
     OpenPaper(String),
 }
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 #[derive(Debug, Clone, PartialEq)]
 struct ContextMenu {
     pos: egui::Pos2,
@@ -111,7 +111,7 @@ struct ContextMenu {
     new_subtopic: Option<String>,
 }
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 #[derive(Debug, Clone)]
 enum NodeKind {
     /// `name` is not kept here — it only ever fed the node's display label,
@@ -126,7 +126,7 @@ enum NodeKind {
     },
 }
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 fn node_id(kind: &NodeKind) -> String {
     match kind {
         NodeKind::Collection { path, .. } => graph::collection_node(path),
@@ -270,7 +270,7 @@ fn extract_summary(markdown: &str) -> String {
 /// portability" section) even though only [`MindmapState`]'s `gui`-gated
 /// context menu calls it today — a future headless consumer (e.g. a
 /// `kovan-cli` mindmap subcommand) can reuse it without pulling in `eframe`.
-#[cfg_attr(not(feature = "gui"), allow(dead_code))]
+#[cfg_attr(not(all(feature = "gui", not(target_os = "android"))), allow(dead_code))]
 fn create_subtopic(
     root: &KovanRoot,
     index: &KnowledgeIndex,
@@ -310,19 +310,19 @@ fn create_subtopic(
     config.save(&dir).map_err(|e| e.to_string())
 }
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 type MindmapGraph = egui_graphs::Graph<NodeKind>;
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 type MindmapLayoutState = egui_graphs::FruchtermanReingoldState;
 // `FruchtermanReingold` itself only implements `ForceAlgorithm` (the force
 // computation); `egui_graphs::Layout` is implemented for the generic
 // `LayoutForceDirected<A: ForceAlgorithm>` wrapper around it, not for
 // `FruchtermanReingold` directly (confirmed against 0.32.0's
 // `layouts/force_directed/{algorithm,layout}.rs`).
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 type MindmapLayout = egui_graphs::LayoutForceDirected<egui_graphs::FruchtermanReingold>;
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 pub struct MindmapState {
     current: String,
     selected: Option<String>,
@@ -336,7 +336,7 @@ pub struct MindmapState {
     view: Option<(String, KnowledgeIndex, MindmapGraph)>,
 }
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 impl Default for MindmapState {
     fn default() -> Self {
         Self {
@@ -349,7 +349,7 @@ impl Default for MindmapState {
     }
 }
 
-#[cfg(feature = "gui")]
+#[cfg(all(feature = "gui", not(target_os = "android")))]
 impl MindmapState {
     /// Build the star-topology graph for `current`'s scope: one anchor node
     /// for `current` itself (when non-empty), with an edge to each direct
@@ -639,7 +639,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "gui")]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
     fn build_graph_places_children_and_papers_around_the_anchor() {
         let (_dir, root) = make_root();
         EntityConfig::topic("htgrs", "HTGRs")

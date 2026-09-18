@@ -48,7 +48,6 @@
 //! - RECONR reconstructs the resonance range; BROADR Doppler-broadens to 293.6 K.
 //! - This example uses the prelude-only API: `use outram_mc_libs::prelude::*;`
 
-use outram_mc_libs::tally::filter::FilterKind;
 use std::path::PathBuf;
 use outram_mc_libs::prelude::*;
 

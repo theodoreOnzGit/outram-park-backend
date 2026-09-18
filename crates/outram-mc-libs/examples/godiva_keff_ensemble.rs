@@ -27,6 +27,33 @@
 //! pre-built ACE library — so the number exercises the data chain as well as the
 //! transport kernel.
 //!
+//! # Seed count: 32 is the standard (maintainer decision, 2026-09-18)
+//!
+//! **32 seeds is the bar for this workspace's pooled benchmark numbers. 256 is
+//! overkill and is not required.** Decided after the 32-seed regeneration
+//! below; do not spend the runtime re-litigating it.
+//!
+//! What that buys and what it costs, measured rather than asserted:
+//!
+//! | seeds | sem | runtime (this case) |
+//! |---|---|---|
+//! | 32 | +/-34 pcm | 289 s transport |
+//! | 256 | +/-11 pcm | ~40 min transport |
+//!
+//! **Regeneration, 2026-09-18, 32 seeds:** `mean -55 pcm, sd 194, sem +/-34`,
+//! against the recorded 256-seed `+16 +/- 11`. That is a **-71 pcm move at
+//! 2.0 sigma** — the drift gate passes and both sit inside ICSBEP's own
+//! +/-100 pcm band. Whether the -71 is ordinary fluctuation (2 sigma happens
+//! ~5 % of the time at this seed count) or a small real drift from the MT=27
+//! capture change and RECONR lump synthesis is **NOT resolved**, and at 32
+//! seeds it cannot be. That is an accepted cost of the decision above, stated
+//! here so it is not mistaken for a clean reproduction.
+//!
+//! **Consequence for quoting.** `+16 +/- 11` is a 256-seed figure and must not
+//! be quoted off a 32-seed run, which yields +/-34. Against the benchmark's
+//! own +/-100 pcm band `+16` and `-55` are the same answer, so report
+//! agreement against the EXPERIMENT's band, never against our sem.
+//!
 //! `N` independent seeds (default 32, override with `OUTRAM_GODIVA_SEEDS`) at
 //! 5000 histories × [40 inactive + 120 active]. Reported: the pooled mean Δk
 //! from the benchmark in pcm, the seed-to-seed sample `sd`, and the standard

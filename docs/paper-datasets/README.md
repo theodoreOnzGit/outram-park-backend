@@ -30,8 +30,18 @@ defending none of them well.
 Part III's absolute-k bias was believed to be Part II's LCT-008 finding
 reappearing in a pebble; it turned out to be a sub-threshold inelastic cross
 section on F-19 (GitHub #193), and LCT-008 contains no fluorine. Part III is now
-a positive result — ring-RPT at `−85 ± 204` pcm against OpenMC — and LCT-008
-remains open as Part II's own finding (bead `op-4ic7`).
+a positive result — ring-RPT at ~~`−85 ± 204`~~ **`−168 ± 237` pcm (0.7σ)**
+against OpenMC — and LCT-008 remains open as Part II's own finding (bead
+`op-4ic7`).
+
+> **CORRECTED 2026-09-18.** The `−85 / −469` pair in this file is a
+> **pre-MF=6 baseline**. Current values, from
+> `verification_and_validation/ring_rpt/ring_rpt_vs_openmc.md:100-103`:
+> explicit TRISO **`−460 pcm (2.2σ)`**, ring-RPT **`−168 pcm (0.7σ)`**,
+> ring-RPT CSG `+273 pcm (1.2σ)`, naive homogenised `1.32645 ± 0.00216`.
+> The qualitative reading is unchanged — ring-RPT is the clean row, explicit
+> TRISO is not agreement — but **re-extract the numbers before submission**;
+> every one of them is still a SINGLE SEED (`gh:#196` / `bn:op-awwi`).
 
 ### Not in this round
 
@@ -107,10 +117,11 @@ should be stated plainly, not buried.
 | GH #188 | S(α,β) emission tabulation — **mitigated, not closed**; ξ moves only −3.24 % → −2.89 %, and is −2.79 % even at 128 bins | every thermal result |
 | `op-x77y` | graphite S(α,β) emission grid too coarse — kernel width +39 % at 2 eV | thermal spectra |
 
-**3. Part III's explicit-TRISO row is not agreement.** `−469 ± 216` pcm is
-**2.2σ** — better than the `+4004` it replaced, and not a null result. The
-ring-RPT row (`−85`, 0.4σ) is the clean one. Do not report the pair as though
-both agreed; say which is which.
+**3. Part III's explicit-TRISO row is not agreement.** ~~`−469 ± 216` pcm is
+**2.2σ**~~ **`−460 pcm` is 2.2σ** (CORRECTED 2026-09-18; see the note above) —
+better than the `+4004` it replaced, and not a null result. The ring-RPT row
+(~~`−85`, 0.4σ~~ **`−168`, 0.7σ**) is the clean one. Do not report the pair as
+though both agreed; say which is which.
 
 **4. Remaining approximations in the pebble model**, already recorded: the five
 TRISO coating layers are resolved by nearest-centre + radius rather than exact

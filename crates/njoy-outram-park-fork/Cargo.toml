@@ -33,7 +33,7 @@ include = [
 ]
 # V&V raw data (verification_and_validation/*.csv) is dev-only, gitignored,
 # and never shipped in the packaged crate.
-exclude = ["verification_and_validation/*.csv"]
+exclude = ["docs", "verification_and_validation/*.csv"]
 
 [dependencies]
 # PETIR supplies the special functions ACER's MF=5 LF=12 (Madland-Nix) needs:

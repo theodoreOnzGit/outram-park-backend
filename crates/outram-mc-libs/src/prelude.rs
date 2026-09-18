@@ -61,10 +61,22 @@ pub use crate::pebble_beds::sphere_packing::{
     pack_spheres, PackedSpheres, PackingConfig, PackingMethod,
 };
 pub use crate::pebble_beds::crp_packing::{pack_spheres_crp, CrpError, MAX_PF_CRP};
-// Stochastic-media research track (scaffold, beads epic op-eby). The chord
-// statistics, SCLS retention machinery and brute-force index are implemented; the
-// CLS/SCLS transport drivers are not — those paths return typed NotImplemented
-// errors. See `stochastic::medium` for the model-dispatch enum.
+// Stochastic-media research track (beads epic op-eby). The chord statistics,
+// SCLS retention machinery and brute-force index are implemented.
+//
+// ~~The CLS/SCLS transport drivers are not — those paths return typed
+// NotImplemented errors.~~ **CORRECTED 2026-09-18 for CLS.** Chord-length
+// sampling DOES transport: `DhTreatment::ChordLength` builds a real
+// `ClsMedium` into `DhGeometry::Cls` (`dh_universe.rs`), and
+// `DhUniverse::keff` on it returns eigenvalues — measured on the FHR
+// reference unit cell that date, e.g. k = 1.33026 +/- 0.00692 in 25.1 s.
+// Nothing about that path returns NotImplemented.
+//
+// **SCLS is NOT re-verified here** and the maintainer records it as not fixed
+// (2026-09-18), so treat the original claim as still standing for SCLS until
+// someone measures it. `examples/dh_keff_vv.rs` drives all treatments and
+// takes `OUTRAM_DH_ONLY` / `OUTRAM_DH_SEEDS`.
+// See `stochastic::medium` for the model-dispatch enum.
 pub use crate::stochastic::medium::{MaterialId, MediumError, RsaMedium, StochasticMedium};
 pub use crate::stochastic::cls::{
     mean_chord_length_sphere, matrix_mean_chord_length, sample_chord, ClsMedium,

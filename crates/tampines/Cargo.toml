@@ -12,6 +12,10 @@ authors = [
 ]
 edition.workspace = true
 license.workspace = true
+# `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
+# write-ups. Excluded so it never ships to crates.io (size, and it is
+# not part of the published API surface).
+exclude = ["docs"]
 description = "TAMPINES -- Thermal-hydraulic Artificial-intelligence Multi-Phase INtegrated Emulator System: the central OUTRAM PARK thermal-hydraulic framework (fluid flow, thermophysical properties, heat transfer, balance of plant, humid-air psychrometrics, multiphase TH)"
 homepage.workspace = true
 repository.workspace = true

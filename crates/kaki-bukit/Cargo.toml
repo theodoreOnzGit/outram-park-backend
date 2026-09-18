@@ -1,0 +1,48 @@
+[package]
+name = "kaki-bukit"
+version = "0.0.0"
+edition.workspace = true
+# GPL-3.0-only. This crate is an independent Rust translation of CYCLUS and
+# CYCAMORE, both BSD-3-Clause (verified 2026-09-16 by reading the cloned
+# LICENSE.rst in each repository — see upstream_source/README.md). BSD-3-Clause
+# is GPLv3-compatible, so the translation may be distributed under the
+# workspace's GPL-3.0-only default. The flow is ONE-WAY: code here cannot go
+# back upstream under BSD-3-Clause.
+license.workspace = true
+description = "KAKI BUKIT (Kernel for Agent-based Key-resource Inventory, Backend for Utility, Key Infrastructure and Transactions). Independent no_std pure-Rust fork/translation of CYCLUS (agent-based nuclear fuel-cycle simulation kernel) and CYCAMORE (its additional-modules agent library). Dynamic resource exchange, material/composition bookkeeping and fuel-cycle facility agents, with all numerics taken from PETIR. SCAFFOLD: AI-assisted draft, no human V&V. Not affiliated with or endorsed by the Cyclus project or the University of Wisconsin CNERG."
+homepage.workspace = true
+repository.workspace = true
+readme = "README.md"
+categories.workspace = true
+# `docs/` is the repo-only API mirror; `upstream_source/{cyclus,cycamore}` are
+# the gitignored reference clones. Neither is packaged.
+# upstream_source/README.md is NOT excluded — the provenance record must travel
+# with the crate.
+exclude = ["docs", "upstream_source/cyclus", "upstream_source/cycamore"]
+
+[dependencies]
+# PETIR is the ONLY dependency, and that is the point of this crate's design.
+#
+# Every numerical kernel Cyclus needs — the Uniform Taylor matrix exponential
+# behind decay, the Kahan compensated summation behind composition sums, the
+# natural logarithm behind the enrichment value function — is taken from PETIR
+# rather than reimplemented here or pulled from `std`. Two consequences follow,
+# both deliberate:
+#
+#   1. This crate inherits PETIR's `no_std` guarantee and its cross-platform
+#      bit-identical transcendentals. A fuel-cycle simulation that reproduces
+#      exactly is worth a great deal when the output is a mass balance someone
+#      will cite.
+#   2. `default-features = false` drops PETIR's `transfer-fn` module and with it
+#      `uom`. Cyclus's kernel is dimensionless bookkeeping (kg and dimensionless
+#      composition fractions, by upstream's own convention — `Material::units()`
+#      returns the literal string "kg"), so there is nothing here for `uom` to
+#      type and no reason to carry it.
+petir = { path = "../petir", default-features = false }
+
+[features]
+default = []
+# Opt in to `std` for downstream convenience (`std::error::Error` on
+# `CyclusError`). The library itself must keep compiling and passing without it
+# — that is checked by the bare-metal and wasm builds recorded in README.md.
+std = []

@@ -4,6 +4,10 @@ version = "0.0.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+# `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
+# write-ups. Excluded so it never ships to crates.io (size, and it is
+# not part of the published API surface).
+exclude = ["docs"]
 description = "Reusable visualization framework for OUTRAM PARK digital twins -- visual process objects whose rendering derives directly from physics state"
 homepage.workspace = true
 repository.workspace = true
