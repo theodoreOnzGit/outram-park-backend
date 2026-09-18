@@ -664,27 +664,161 @@ Cylinder filled by repeated insertion (upstream's own `insert_every` pattern),
 they integrate the identical configuration; the cylinder is then raised at
 **0.02 m/s** for 4.0 s and the heap rests for 1.5 s.
 
-### Results (2026-09-16)
+### Results (2026-09-16, ~~superseded~~) and 2026-09-18 (current)
 
 | Quantity | this crate | LIGGGHTS | difference |
 |---|---|---|---|
-| angle of repose | **12.78 deg** | **15.43 deg** | 2.65 deg |
-| heap apex | 0.0347 m | 0.0370 m | 6.2 % |
-| residual `KE` | `2.8e-10 J` (settled) | `9.0e-11 J` (settled) | — |
+| angle of repose | ~~12.78 deg~~ **14.09 deg** | **15.43 deg** | ~~2.65 deg~~ **1.34 deg** |
+| heap apex | ~~0.0347 m~~ **0.0390 m** | 0.0370 m | **5.4 %** (ours now ABOVE) |
+| residual `KE` | ~~2.8e-10 J~~ **6.412e-11 J** (settled) | `9.0e-11 J` (settled) | — |
 | particles | 656 (none lost) | 656 (none lost) | — |
 
-A heap forms in both codes and both come to rest. The `2.65 deg` gap is larger
-than the round-off agreement the primitive-wall cases reach, and the reason was
-stated before the run rather than after: LIGGGHTS' `TriMesh` resolves a particle
-touching several facets at a shared edge, while this crate's `MeshWall` takes
-only the **single nearest facet**. On a tessellated cylinder that differs for
-every particle sitting on a vertical edge between adjacent quads — which, for
-particles pressed against the wall, is most of them. This is a **statistical**
-comparison of the resulting heap, not a trajectory comparison, and the test's
-`3 deg` bound is a regression catch that the measurement only just clears.
+**CORRECTED 2026-09-18 — `12.78 deg` came from the NONDETERMINISTIC BUILD and
+is not reproducible.** The neighbour grid was a `std::collections::HashMap`
+until `7fb86bf58f` (bead `op-t3l.9`); its hasher is seeded randomly per
+process, so force-accumulation order — and the last bits — differed on every
+run, in a system integrated over 1 100 000 steps. Re-running the unchanged
+committed test on the fixed build gives **14.09 deg**, measured twice
+independently (548 s and 1209 s runs, identical to 2 d.p.).
 
-Closing that gap means porting upstream's multi-facet mesh contact resolution.
-That is real work and is **not** done.
+Two hypotheses for the shift were tested and eliminated before settling on the
+build: the fit filter (`min_count` 3 vs 8 gives 14.092 vs 14.09 — no material
+difference), and the mesh itself (see the resolution sweep below).
+
+**So the gap HALVES, and the previous record UNDERSTATED the port's
+agreement.** The test's `3 deg` bound was described as one the measurement
+"only just clears"; at 1.34 deg it now clears with better than 2x margin.
+
+### Determinism verified, and what it implies for every PRE-FIX number
+
+**The current build is reproducible; the one that produced `12.78` was not.**
+Two independent processes, same reference STL, same settings:
+
+| run | angle | apex | flank |
+|---|---|---|---|
+| process 1 | 14.092 deg | 0.03904 m | 0.10500 m |
+| process 2 | 14.092 deg | 0.03904 m | 0.10500 m |
+
+Identical to the printed precision, where the pre-`op-t3l.9` build could not
+regenerate its own committed bed.
+
+> **Provenance note, 2026-09-18.** The two rows above were read from a pair of
+> concurrently-launched processes whose output files were later found to be
+> ambiguously written (one empty, one holding two lines), so a clean re-run was
+> commissioned to confirm them. Treat the table as **provisional** until that
+> re-run is recorded here. The independent evidence for determinism that does
+> NOT depend on it: the committed test was run twice at different times, on
+> different core sets, and returned 14.09 deg both times (548 s and 1209 s),
+> and `7fb86bf58f` itself reports byte-identical results across processes
+> through a 14 000-step slump in all four settings.
+
+**That makes the fix commit a dividing line for the whole cross-code table.**
+`7fb86bf58f` (2026-09-18 00:28) replaced the randomly-seeded `HashMap`
+neighbour grid with a counting-sorted flat cell list. Every number recorded
+before it was produced by a build whose force-accumulation order varied per
+process. Recording commits, all confirmed ancestors of the fix:
+
+| number | recorded in | exposed? |
+|---|---|---|
+| angle of repose `12.78` | `ad8e99cf4b` | **yes — confirmed wrong, now 14.09** |
+| bulk packing `0.5571` | `5bbe5fd7bf` | yes — **re-measured `0.5570`, survives** |
+| HTR-10 settled `0.5732` | `bf64272dc0` | yes — **re-measured `0.5732`, IDENTICAL** |
+| HTR-10 per-particle `61 um` median | `1db4e166b5` | yes — **not re-measured, see below** |
+| stiffness sweep `0.5811/0.5754/0.5732` | `f21b0dbfb8` | yes |
+| porosity profile `0.8753 / 0.2631 / 0.5533` | `36ce18e37a` | **no** |
+| deterministic contact cases (bit-identical, 1-3 ulp) | `5bbe5fd7bf` | **no** |
+| `0.6047` friction, RDF `8.16`, conus `11 um` | `7fb86bf58f` | post-fix |
+
+**"Pre-fix" is not the same as "exposed."** The defect needs three or more
+simultaneous contacts, so that summation order matters, AND enough steps for
+chaos to amplify. The porosity profile reads
+`reference-data/liggghts/pebble_bed_settled.csv` — **LIGGGHTS' own bed** — with
+a deterministic estimator, so our nondeterminism never enters it. The
+deterministic contact cases are two particles and one pair, where there is no
+summation ambiguity at all; their measured bit-identity is itself proof of
+determinism for that path.
+
+**The principle that falls out, and it is the useful part: BULK,
+SELF-AVERAGING quantities survive this defect; SHAPE and
+individual-configuration quantities do not.** A packing fraction averages
+hundreds to tens of thousands of pebbles and absorbs last-bit perturbations —
+the bulk bed moved `0.5571 -> 0.5570`, i.e. 0.0001. An angle of repose is
+fitted to the free surface of a heap flank and follows individual pebbles — it
+moved 1.31 deg. That predicts which remaining numbers need re-measuring without
+re-running them all, and it is why the HTR-10 `0.5732` (bulk) is expected to
+hold while the `61 um` per-particle median (individual configuration) is not.
+The crate already half-admits the latter, calling the single 2.91e-2 m outlier
+"consistent with this mechanism".
+
+**Both halves of that prediction were then tested, and the first one held
+exactly.** Re-running `htr10_pebble_bed.rs` on the fixed build (2026-09-18,
+491.85 s, 27 554 pebbles) gives `phi = 0.5732` against LIGGGHTS' `0.5732` and a
+bed top of 2.1686 m against 2.1687 m — **identical to the recorded values**. So
+the headline HTR-10 row, the one this crate's maturity roster calls "the one
+that matters for the pebble-bed work", is **unaffected** by the determinism
+defect, as a bulk quantity should be.
+
+**The `61 um` per-particle median is NOT re-measured and should be treated as
+provisional.** It is the one number in the table whose exposure the principle
+predicts, and re-running the test **regenerated
+`reference-data/liggghts/htr10_settled_ours.csv`** — so a per-particle
+comparison now runs against a different, and for the first time
+*reproducible*, bed. Re-measuring it is follow-up work; see the bead.
+
+### The stated mechanism is now UNSUPPORTED (2026-09-18)
+
+The `2.65 deg` gap was attributed — before the run, which is what made it a
+hypothesis rather than a rationalisation — to LIGGGHTS' `TriMesh` resolving a
+particle touching several facets at a shared edge where this crate's
+`MeshWall` takes only the **single nearest facet**. On the reference cylinder a
+pebble spans ~2.55 facets, so nearly every wall contact straddles an edge.
+
+That mechanism is a **real code difference** and is not in dispute. What is now
+unsupported is that it **explains the residual gap**. Three independent lines
+were run and none supports it.
+
+**1. A mesh-resolution sweep** (`examples/repose_mesh_convergence.rs`),
+cylinders regenerated at 40/80/160 segments with identical material, lift and
+rest — only the mesh differs. The prediction was recorded in that example's
+docs *before* measuring: coarsening toward facet-width ~ pebble-diameter should
+RAISE the angle toward 15.43.
+
+| mesh | segments | facet width | pebble spans | angle |
+|---|---|---|---|---|
+| `cyl_40` | 40 | 7.854 mm | 1.27 | 12.952 deg |
+| `cyl_80` | 80 | 3.927 mm | 2.55 | 14.358 deg |
+| reference STL | 80 | 3.927 mm | 2.55 | **14.092 deg** |
+| `cyl_160` | 160 | 1.963 mm | 5.09 | 14.413 deg |
+
+**The control is the useful row.** Two nominally equivalent 80-segment meshes —
+the committed reference and a regenerated one differing only in rotational
+phase — give 14.358 against 14.092. So this case's **realisation scatter for
+equivalent geometry is 0.266 deg**, an error bar the sweep previously lacked.
+
+Against it: refining 80 -> 160 (facet width halved, spans 2.55 -> 5.09) moves
+the angle **+0.055 deg = 0.21x scatter, i.e. FLAT**. Coarsening 80 -> 40 moves
+it **-1.406 deg = 5.3x scatter** — real, but in the **wrong direction** for the
+mechanism. **The prediction is refuted.** The 40-segment drop is consistent
+with the shape confound flagged in advance: a 40-gon has flat walls and 9 deg
+corners that seat pebbles differently, which is geometry, not facet ratio.
+
+**2. The conus comparison does not corroborate it either, because it is
+confounded by run length.** The argument was that the conus/discharge case has
+facets 69.94 mm (pebble spans 0.14) and agrees to 11 um median over 27 554
+pebbles, while this cylinder has 5.90 mm facets (spans 1.69) and is the one
+discordant row — same code path, ratio an order of magnitude apart, agreement
+tracking it. But **the conus 11 um is measured at 2 000 steps and this case
+runs 1 100 000** — 550x longer — and § 4.8's own table shows the conus
+degrading to 1.10 mm by 6 000 steps and 3.55 mm by 12 000. Run length is a far
+more parsimonious explanation than facet ratio, so that comparison shows only
+that a discrepancy has not amplified in 2 000 steps, not that none exists.
+
+**Next discriminating measurement**, since nothing run so far separates the
+two: re-run the conus out to a step count comparable with this case, or re-run
+this case truncated to a few thousand steps. Porting upstream's multi-facet
+resolution would settle it directly, but that is real work and should not be
+started on the strength of a mechanism with no supporting measurement. Beads
+filed 2026-09-18.
 
 ### The optimisation defect this case exposed
 
@@ -832,9 +966,16 @@ geometry *and* a different contact path.
 
 It also runs straight at this crate's weakest link. The angle-of-repose case
 (§ 4.6) is the **only** other mesh-wall comparison here and is the worst row in
-the whole cross-code table — 12.78° against 15.43°, a 2.65° gap attributed to
+the whole cross-code table — ~~12.78° against 15.43°, a 2.65° gap~~
+**14.09° against 15.43°, a 1.34° gap** (corrected 2026-09-18) attributed to
 mesh-contact differences. If the mesh-wall path carries a real discrepancy, the
-conus is exactly where it would contaminate the HTR-10 result. Concluding
+conus is exactly where it would contaminate the HTR-10 result.
+
+**That reassurance is weaker than it reads, and the step counts are why.** The
+11 um figure below is at 2 000 steps; § 4.6 runs 1 100 000. This case's own
+table degrades to 3.55 mm by 12 000 steps. So a clean conus result bounds how
+fast a mesh-contact discrepancy AMPLIFIES; it does not show there is none.
+Recorded 2026-09-18. Concluding
 anything from untested geometry would have been the mistake these rules exist
 to prevent.
 
@@ -1216,8 +1357,14 @@ removed.
   should be quoted as a validated material property**.
 - **Mesh-wall contact is not upstream's.** `MeshWall` resolves a particle
   against the single nearest facet; LIGGGHTS' `TriMesh` resolves multi-facet
-  edge contacts. This is why § 4.6 agrees to `2.65 deg` rather than to
-  round-off. Porting upstream's resolution is outstanding work.
+  edge contacts. ~~This is why § 4.6 agrees to `2.65 deg` rather than to
+  round-off.~~ **CORRECTED 2026-09-18** — § 4.6 agrees to **1.34 deg**, and the
+  causal claim is now UNSUPPORTED: a mesh-resolution sweep is flat within a
+  measured 0.266 deg realisation scatter, and coarsening moves the angle the
+  WRONG WAY. The code difference is real; that it explains the residual is not
+  established. Porting upstream's resolution is outstanding work, but should
+  not be started on the strength of a mechanism with no supporting
+  measurement.
 
   **Qualified 2026-09-17 by § 4.8, in the direction of *less* concern.** On the
   HTR-10 conus — a mesh wall of 480 facets carrying the weight of 27 554

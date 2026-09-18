@@ -32,10 +32,21 @@
 //! its own comparison before the recirculation result is believed.
 //!
 //! The angle-of-repose case is the only other mesh-wall comparison in this
-//! crate, and it is the **weakest** row in the whole cross-code table (12.78°
-//! against 15.43°, a 2.65° gap attributed to mesh-contact differences). That is
-//! precisely why this case matters: if the mesh-wall path carries a real
-//! discrepancy, the conus is where it would contaminate the HTR-10 result.
+//! crate, and it is the **weakest** row in the whole cross-code table
+//! (~~12.78° against 15.43°, a 2.65° gap~~ **14.09° against 15.43°, a 1.34°
+//! gap** — corrected 2026-09-18; the old figure came from the pre-`op-t3l.9`
+//! nondeterministic build). That is precisely why this case matters: if the
+//! mesh-wall path carries a real discrepancy, the conus is where it would
+//! contaminate the HTR-10 result.
+//!
+//! **BUT READ THE STEP COUNTS BEFORE TAKING REASSURANCE FROM THIS CASE.**
+//! The 11 µm agreement below is at **2 000 steps**; the angle-of-repose case
+//! runs **1 100 000**. The table further down shows this case itself degrading
+//! to 1.10 mm by 6 000 steps and 3.55 mm by 12 000. So a clean result here
+//! shows only that a mesh-contact discrepancy has not AMPLIFIED in 2 000
+//! steps — it does not show the mesh-wall path is free of one, and it cannot
+//! be used to argue that facet size rather than run length explains the repose
+//! gap. Recorded 2026-09-18.
 //!
 //! ## Methodology
 //!
