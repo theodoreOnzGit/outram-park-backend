@@ -241,6 +241,7 @@ pub mod nurbs_surface;
 pub mod object_ops;
 pub mod ops;
 pub mod poke_quads;
+pub mod polyfill;
 pub mod primitives;
 pub mod primitives_extra;
 pub mod procedural;
