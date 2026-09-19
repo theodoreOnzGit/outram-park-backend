@@ -64,11 +64,12 @@ and stays there.
 | `poly` | 18 | **PORTED** (eval) / PORTABLE | Horner and derivatives done; `solve_quadratic`/`cubic` portable |
 | `cheb` | ~14 | **PORTED** | Clenshaw, truncated Clenshaw, argument scaling |
 | `specfunc` (erf family) | ~12 | **PORTED** | `erf`, `erfc`, series, `erfc8`, 3 Chebyshev branches, at GSL's own `order_sp` |
+| `specfunc` (gamma family) | ~10 | **PORTED** | `lngamma`, `gamma`, `lnbeta`, `beta`; Lanczos `g=7` plus both Padé branches at the zeros |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~329 | PORTABLE | the largest remaining win — almost all pointwise |
+| `specfunc` (rest) | ~319 | PORTABLE | the largest remaining win — almost all pointwise. Bessel `J`/`Y`/`I`/`K`, `psi`, `zeta`, `dilog`, `airy`, `debye` are the next blocks |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -119,6 +120,7 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | Clenshaw | **0** bit-identical | 1.705e-07 |
 | Legendre, 17 orders | **0** bit-identical | 2.719e-06 |
 | `erf` / `erfc` | 5.960e-08 / 1.192e-07 | 8.368e-06 |
+| `lngamma` / `gamma` | 3.418e-06 / 9.107e-06 | 2.923e-05 (reflection branch) |
 | BLAS L1 (`dot`, `nrm2`, `asum`, `iamax`) | **0** bit-identical | — |
 | `gemv`, `gemm` | **0** bit-identical | see reassociation note |
 | element-wise matrix ops | **0** bit-identical (exact equality) | — |
@@ -131,6 +133,22 @@ and `libm::expf` are different functions agreeing to about an ulp. A kernel
 built only from arithmetic may be held to bit-identity; one touching a
 transcendental builtin may not, and asserting otherwise would fail on a
 conforming device.
+
+The size of that gap scales with how many builtins are involved: `erf` calls
+only `exp` and lands at one ulp, while `lngamma` calls `log`, `exp` **and
+`sin`** and lands at about thirty. The extra comes from `sin(pi * x)` in the
+reflection branch, where device and `libm` argument reduction differ and the
+sine's zero amplifies it — the same mechanism that makes that branch the worst
+on the CPU side.
+
+**`lngamma` is the least accurate kernel here, and not where it was expected
+to be.** Measured per branch: the Padé windows are **exact**, the Lanczos sum
+costs 7.839e-06, and the **reflection branch costs 4.040e-05** — five times
+worse than the sum it was predicted to be dominated by. The cause is `f32`
+argument reduction in `sin(pi * x)`, not cancellation in the Lanczos series, so
+improving the series would move the headline figure very little. A caller
+needing `ln Gamma` at moderately negative arguments in `f32` should expect
+~1e-4.
 
 **The `gemm` reassociation.** GSL's `sgemm` NoTrans/NoTrans branch sweeps `k`
 outermost and scatters partial products into `C`. A per-element GPU kernel

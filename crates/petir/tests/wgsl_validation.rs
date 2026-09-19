@@ -24,7 +24,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
-use petir::wgsl::{test_kernel, ALL, ALL_NAMES, CHEB, ERF, LEGENDRE, MATRIX, POLY};
+use petir::wgsl::{test_kernel, ALL, ALL_NAMES, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY};
 
 /// Every shader in [`petir::wgsl::ALL`] parses and validates under naga.
 ///
@@ -50,6 +50,7 @@ fn every_shader_parses_and_validates_under_naga() {
             "legendre" => "petir_legendre_p(params.k, x)",
             "erf" => "petir_erfc(x)",
             "matrix" => "petir_blas_dot(0u, 0u, params.n)",
+            "gamma" => "petir_lngamma(x)",
             other => panic!("no validation call registered for {other}.wgsl"),
         };
         let kernel = test_kernel(&[src], call);
@@ -72,7 +73,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 5] = [
+    let expected: [(&str, &[&str]); 6] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -111,6 +112,18 @@ fn every_documented_function_is_defined() {
                 "petir_mat_scale",
                 "petir_mat_add_constant",
                 "petir_mat_transpose",
+            ],
+        ),
+        (
+            GAMMA,
+            &[
+                "petir_lngamma",
+                "petir_gamma",
+                "petir_lnbeta",
+                "petir_beta",
+                "petir_lngamma_lanczos",
+                "petir_lngamma_1_pade",
+                "petir_lngamma_2_pade",
             ],
         ),
     ];
@@ -179,6 +192,7 @@ fn every_shader_validates_against_baseline_webgpu_capabilities() {
             "legendre" => "petir_legendre_p(params.k, x)",
             "erf" => "petir_erfc(x)",
             "matrix" => "petir_blas_dot(0u, 0u, params.n)",
+            "gamma" => "petir_lngamma(x)",
             other => panic!("no baseline call registered for {other}.wgsl"),
         };
         let kernel = test_kernel(&[src], call);
@@ -234,6 +248,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "erf" => LEDGER.contains("erf family"),
             "legendre" => LEDGER.contains("Legendre"),
             "matrix" => LEDGER.contains("`matrix`") && LEDGER.contains("`blas`"),
+            "gamma" => LEDGER.contains("gamma family"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

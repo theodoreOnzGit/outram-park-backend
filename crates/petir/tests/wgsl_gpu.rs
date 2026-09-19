@@ -5,7 +5,9 @@
 ))]
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
-use petir::wgsl::{mirror, mirror_erf, mirror_matrix, CHEB, ERF, LEGENDRE, MATRIX, POLY};
+use petir::wgsl::{
+    mirror, mirror_erf, mirror_gamma, mirror_matrix, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY,
+};
 
 /// Largest absolute difference between two same-length slices.
 fn worst_abs(a: &[f32], b: &[f32]) -> f32 {
@@ -616,4 +618,99 @@ fn gpu_gemv_and_elementwise_match_the_cpu_mirror() {
             "transpose ({i}, {j})"
         );
     }
+}
+
+/// `petir_lngamma` and `petir_gamma` on the GPU match the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// 512 probe points over `(-5, 20)`, crossing all four branches — the
+/// reflection below 0.5, both Padé windows, and the Lanczos sum above. Points
+/// within 0.02 of a non-positive integer are skipped: those are poles, where
+/// both sides are legitimately infinite and a difference is meaningless.
+///
+/// Compared as a **relative** difference, because `ln Gamma` spans several
+/// orders over this range, with an absolute fallback near its two zeros.
+///
+/// # Results
+///
+/// Worst relative difference **3.418e-06** for `lngamma` and **9.107e-06** for
+/// `gamma`, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`.
+///
+/// **This is the largest GPU-vs-mirror gap in the suite — about 30 `f32` ulp,
+/// where `erf` managed one.** It was predicted at one ulp before measurement
+/// and is not; the reason is worth having.
+///
+/// These kernels call `log`, `exp` **and `sin`**, all specified by WGSL to an
+/// ULP bound rather than to correct rounding, so the device's versions and
+/// `libm`'s are different functions. `erf` calls only `exp` and lands at one
+/// ulp. The extra two orders here come from `sin(pi * x)` in the reflection
+/// branch: the device and `libm` reduce that argument differently, and near a
+/// zero of the sine the difference is amplified — the same mechanism that
+/// makes the reflection branch the worst on the CPU side too
+/// (`mirror_gamma` measures 4.040e-05 there against `f64`).
+///
+/// So the ordering is consistent on both sides, which is the reassuring part:
+/// whatever disagrees, disagrees in the same place and for the same reason.
+///
+/// Note this is GPU-vs-mirror and **not an accuracy claim** — the mirror is
+/// itself only good to 2.923e-05 against `f64`.
+///
+/// `petir::wgsl::mirror_gamma` sets out why the mirror itself is limited.
+#[test]
+fn gpu_gamma_family_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_gamma_family_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let probes: Vec<f32> = (0..512)
+        .map(|i| -5.0 + 25.0 * i as f32 / 511.0)
+        .filter(|x| !(*x <= 0.0 && (x - x.round()).abs() < 0.02))
+        .collect();
+
+    let got_ln = gpu
+        .eval_map(
+            &[GAMMA],
+            "petir_lngamma(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let got_g = gpu
+        .eval_map(
+            &[GAMMA],
+            "petir_gamma(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let mut worst_ln = 0.0_f64;
+    let mut worst_g = 0.0_f64;
+    for (k, &x) in probes.iter().enumerate() {
+        let wl = mirror_gamma::lngamma(x);
+        let gl = got_ln.get(k).copied().unwrap_or(f32::NAN);
+        if wl.is_finite() && gl.is_finite() {
+            let d = if wl.abs() < 0.1 {
+                (gl - wl).abs() as f64
+            } else {
+                ((gl - wl) / wl).abs() as f64
+            };
+            worst_ln = worst_ln.max(d);
+        }
+
+        let wg = mirror_gamma::gamma(x);
+        let gg = got_g.get(k).copied().unwrap_or(f32::NAN);
+        if wg.is_finite() && gg.is_finite() && wg.abs() > 1e-6 {
+            worst_g = worst_g.max(((gg - wg) / wg).abs() as f64);
+        }
+    }
+
+    assert!(
+        worst_ln < 1e-4 && worst_g < 1e-4,
+        "GPU ({}) vs f32 mirror: lngamma {worst_ln:e}, gamma {worst_g:e}",
+        gpu.adapter_name()
+    );
 }

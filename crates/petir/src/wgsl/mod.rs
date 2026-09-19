@@ -89,6 +89,9 @@ pub mod mirror_erf;
 /// `f32` mirrors of the matrix and CBLAS shaders.
 pub mod mirror_matrix;
 
+/// `f32` mirrors of the gamma-family shaders.
+pub mod mirror_gamma;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -150,14 +153,24 @@ pub const ERF: &str = include_str!("shaders/erf.wgsl");
 /// [`mirror_matrix::gemm_gsl_order`].
 pub const MATRIX: &str = include_str!("shaders/matrix.wgsl");
 
+/// GSL's gamma family, ported from `specfunc/gamma.c` by way of
+/// [`crate::specfunc::gamma`].
+///
+/// Provides `petir_lngamma`, `petir_gamma`, `petir_lnbeta`, `petir_beta`, the
+/// Lanczos branch and the two Padé branches at `ln Gamma`'s zeros.
+///
+/// **`Gamma` overflows near `x = 35` in `f32`** — stay in log space above
+/// that.
+pub const GAMMA: &str = include_str!("shaders/gamma.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 5] = [POLY, CHEB, LEGENDRE, ERF, MATRIX];
+pub const ALL: [&str; 6] = [POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
-pub const ALL_NAMES: [&str; 5] = ["poly", "cheb", "legendre", "erf", "matrix"];
+pub const ALL_NAMES: [&str; 6] = ["poly", "cheb", "legendre", "erf", "matrix", "gamma"];
 
 pub use kernel_builder::test_kernel;
 
