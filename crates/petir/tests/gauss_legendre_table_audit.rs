@@ -106,7 +106,6 @@ fn polish(n: usize, x: f64) -> f64 {
 /// Gauss weight at that root.
 #[test]
 fn every_tabulated_value_is_correct() {
-    let mut bad = 0usize;
     let mut checked = 0usize;
     let mut worst_node = 0.0f64;
     let mut worst_weight = 0.0f64;
@@ -124,7 +123,6 @@ fn every_tabulated_value_is_correct() {
                 worst_node = node_err;
             }
             if node_err > 1e-14 {
-                bad += 1;
                 panic!("order {n} node [{k}] is not a root of P_{n}: tabulated {x:.17}, polished {r:.17}, error {node_err:e}");
             }
 
@@ -135,14 +133,12 @@ fn every_tabulated_value_is_correct() {
                 worst_weight = rel;
             }
             if rel > 1e-12 {
-                bad += 1;
                 panic!("order {n} weight [{k}]: tabulated {w:.17}, expected {expect:.17}, relative {rel:e}");
             }
         }
     }
 
     assert_eq!(checked, 928, "expected 928 values, checked {checked}");
-    assert_eq!(bad, 0, "{bad} bad entries");
     assert!(worst_node < 1e-14, "worst node movement {worst_node:e}");
     assert!(
         worst_weight < 1e-12,

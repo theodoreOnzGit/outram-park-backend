@@ -67,24 +67,31 @@ approx.workspace = true
 # implementation by name to stay an independent second opinion.
 libm.workspace = true
 
-# wgpu / naga — TEST-ONLY, and target-gated off Android and wasm.
-#
-# These are DEV-dependencies, deliberately, and there is NO `wgpu` FEATURE on
-# the library. The `wgsl` module ships shader SOURCE (`&'static str`) and `f32`
-# CPU mirrors, both of which are `no_std` and dependency-free; only the harness
-# that dispatches them to a real device needs `std`, and a test binary already
-# links `std`.
-#
-# Putting the runner behind a library feature instead would re-create exactly
-# the `std`/`platform-libm` feature that was REMOVED on 2026-09-17 (bn:op-7kwt)
-# for being uncompilable in every configuration -- `lib.rs` is `#![no_std]`
-# unconditionally, so a `std::`-using module inside the library cannot build no
-# matter how it is gated. See the note under [features] below.
+# wgpu — OPTIONAL, behind the `wgpu` feature, and target-gated off Android and
+# wasm.
 #
 # Off Android: no system Vulkan/Metal loader. Off wasm: wgpu-hal is not Sync
-# there, and dev-dependencies apply to tests as well as examples.
+# there, and a dev-dependency applies to tests as well as examples.
+#
+# THIS IS THE ONE FEATURE THAT BRINGS IN `std`, and it is the thing the
+# removed `platform-libm` feature got wrong (bn:op-7kwt). That feature declared
+# a `std` feature while `lib.rs` gated `extern crate std;` on `cfg(test)`
+# ALONE, so `std` never actually arrived for a non-test build and the hatch had
+# been dead since the crate went `no_std`. The lesson is not "never add such a
+# feature" -- it is "gate `extern crate std` on the feature as well, and prove
+# it with the sweep that caught the last one":
+#
+#     cargo check -p petir --all-features --all-targets
+#
+# `lib.rs` now reads `#[cfg(any(test, feature = "wgpu"))] extern crate std;`.
+# The crate stays `#![no_std]` with default features, and all five mandated
+# no_std checks run with default features.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dependencies]
+wgpu = { workspace = true, optional = true }
+
+# naga — wgpu's own shader front-end, used by the tests to VALIDATE the WGSL
+# without a device, so CI checks something even where no adapter exists.
 [target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
-wgpu = { workspace = true }
 naga = { workspace = true, features = ["wgsl-in"] }
 
 [features]
@@ -93,10 +100,14 @@ default = ["transfer-fn"]
 # in no_std `uom` for sample times and signal ratios. Turn it off for a
 # units-free, uom-free numerics core.
 transfer-fn = ["dep:uom"]
-# ~~wgpu~~ DELIBERATELY NOT A FEATURE. The GPU path is test-only; see the
-# target-gated dev-dependency block above for why a library feature would
-# repeat the mistake recorded immediately below.
+# wgpu — the GPU path: `wgsl::gpu`, a headless compute runner for the WGSL
+# kernels in `wgsl`. OFF BY DEFAULT and enabled by nothing else.
 #
+# This is the only feature that pulls in `std`, which is why `lib.rs` gates
+# `extern crate std;` on it as well as on `cfg(test)`. Without the shader
+# source and the `f32` mirrors it guards nothing: those live in `wgsl` and
+# `wgsl::mirror`, are `no_std` and dependency-free, and are always compiled.
+wgpu = ["dep:wgpu"]
 # ~~std / platform-libm~~ REMOVED 2026-09-17 (bn:op-7kwt). The `platform-libm`
 # escape hatch could not compile in any configuration -- it declared `std` while
 # lib.rs was `#![no_std]` unconditionally with `extern crate std` gated on

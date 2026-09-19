@@ -172,9 +172,18 @@
 
 extern crate alloc;
 
-// The test harness needs `std`; the library itself never does. This is the
-// only place `std` is named, and it is gated out of every non-test build.
-#[cfg(test)]
+// `std` is named in exactly one place, and it is gated out of every default
+// build. Two things need it: the test harness, and the optional `wgpu`
+// feature's device runner (`wgsl::gpu`).
+//
+// The `feature = "wgpu"` arm is load-bearing and must not be trimmed to
+// `cfg(test)`. That is precisely the mistake the removed `platform-libm`
+// feature made (bn:op-7kwt): it declared a `std` feature while this line was
+// gated on `cfg(test)` alone, so `std` never arrived for a non-test build and
+// the feature had been dead since the crate went `no_std`. `cargo check -p
+// petir --all-features --all-targets` is the sweep that caught it and the one
+// that keeps this honest.
+#[cfg(any(test, feature = "wgpu"))]
 extern crate std;
 
 // Crate-internal plumbing: a flattening multi-way `zip`, so the ported kernels

@@ -12,14 +12,21 @@
 //! [`crate::real::Real`]. Everything in this module compiles for
 //! `thumbv7em-none-eabihf` exactly as the rest of the crate does.
 //!
-//! **There is deliberately no `wgpu` feature on the library.** The harness
-//! that dispatches these shaders to a real device lives in
-//! `tests/wgsl_gpu.rs`, with `wgpu` as a target-gated dev-dependency, because
-//! a test binary links `std` already. A library feature would not work: this
-//! crate is `#![no_std]` *unconditionally*, and the `std`/`platform-libm`
-//! feature that tried exactly this was removed on 2026-09-17 (`bn:op-7kwt`)
-//! for being uncompilable in every configuration. Keep the split: **shader
-//! text and numerics here, device handling in the tests.**
+//! Only [`gpu`] needs `std`, and it is behind the **off-by-default `wgpu`
+//! feature**, which nothing else enables. The five checks in this crate's
+//! `CLAUDE.md` all run with default features and all still pass.
+//!
+//! That feature is the one place `std` enters the crate, and it is gated
+//! carefully because the last attempt was not: the removed `platform-libm`
+//! feature declared a `std` feature while `lib.rs` gated `extern crate std;`
+//! on `cfg(test)` **alone**, so `std` never arrived and the feature had been
+//! dead since the crate went `no_std` (`bn:op-7kwt`). `lib.rs` now reads
+//! `#[cfg(any(test, feature = "wgpu"))] extern crate std;`, and
+//! `cargo check -p petir --all-features --all-targets` — the sweep that caught
+//! the last one — is what keeps it honest.
+//!
+//! If you are adding to this module, keep the split: **shader text and
+//! numerics on the `no_std` side, device handling behind the feature.**
 //!
 //! # `f32` is the whole point, and it changes what "correct" means
 //!
@@ -41,7 +48,7 @@
 //! |---|---|---|
 //! | `f64` reference | the rest of PETIR, verified against compiled GSL | what the right answer is |
 //! | `f32` mirror | [`mirror`] | what `f32` costs, on the CPU, deterministically |
-//! | WGSL | the `.wgsl` sources here, run by `tests/wgsl_gpu.rs` | that the GPU agrees with the mirror |
+//! | WGSL | the `.wgsl` sources here, run by [`gpu`] | that the GPU agrees with the mirror |
 //!
 //! Splitting the last two matters. If a GPU result disagrees with the `f64`
 //! reference, that single comparison cannot tell you whether the shader is
@@ -74,6 +81,15 @@
 //! one such case at present.
 
 pub mod mirror;
+
+/// Headless GPU execution of these kernels. **Behind the off-by-default
+/// `wgpu` feature**, and the only module in the crate that uses `std`.
+#[cfg(all(
+    feature = "wgpu",
+    not(target_os = "android"),
+    not(target_arch = "wasm32")
+))]
+pub mod gpu;
 
 /// The storage binding every function in this module reads from.
 ///
