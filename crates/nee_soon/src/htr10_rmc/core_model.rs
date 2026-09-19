@@ -321,16 +321,53 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     let ring_reach = (3.0_f64.sqrt() / 2.0) * lat_pitch;
     let n_rings = n_rings.max((bed_radius / ring_reach).ceil() as usize + 1);
     let bed_half_height = 0.5 * lat_height * n_axial as f64;
-    // OUTRAM_HTR10_NOREFL=1 collapses the reflector to zero thickness. With
-    // OUTRAM_HTR10_REFLECTIVE=1 and OUTRAM_HTR10_ALLFUEL=1 that makes the model
-    // an INFINITE MEDIUM of fuel pebbles at the paper's filling fraction -- the
-    // one configuration directly comparable to the independently measured
-    // single-pebble k_inf from the DhUniverse path. Two implementations, one
-    // physical problem: they must agree or one of them is wrong.
+    // OUTRAM_HTR10_NOREFL=1 collapses the reflector to zero thickness.
+    //
+    // ~~With OUTRAM_HTR10_REFLECTIVE=1 and OUTRAM_HTR10_ALLFUEL=1 that makes
+    // the model an INFINITE MEDIUM of fuel pebbles.~~
+    // **CORRECTED 2026-09-19 -- that was NOT true in this function.** It is
+    // true of `assemble_explicit_triso`, which reads OUTRAM_HTR10_REFLECTIVE.
+    // `assemble` hardcoded `BoundaryType::Vacuum` on all three outer surfaces
+    // and ignored the variable, so NOREFL here gave a BARE BED VENTING TO
+    // VACUUM -- maximum leakage, not an infinite medium.
+    //
+    // Measured 2026-09-19 while building `examples/htr10_deterministic_vs_mc`:
+    // that configuration returned `k = 0.2726`, against a bed `k_inf` of order
+    // 1.3. The comment had been copied from the explicit-TRISO path and was
+    // never true here. The variable is now honoured below, so the claim holds
+    // for both functions.
     let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
         0.0
     } else {
         100.0
+    };
+    let outer_bc = if std::env::var("OUTRAM_HTR10_REFLECTIVE").is_ok() {
+        BoundaryType::Reflective
+    } else {
+        BoundaryType::Vacuum
+    };
+    // WHERE the outer boundary lives depends on whether a reflector exists.
+    //
+    // With a reflector, surfaces 5/6/7 (refl_radius, +/-refl_half_height) are
+    // the edge of the model and carry `outer_bc`, while the bed surfaces 2/3/4
+    // are interior and must stay TRANSMISSIVE so neutrons pass into the
+    // reflector.
+    //
+    // With `OUTRAM_HTR10_NOREFL=1` the reflector collapses -- `refl_radius`
+    // becomes `bed_radius` and `refl_half_height` becomes `bed_half_height` --
+    // so 5/6/7 land exactly on 2/3/4 and the shell between them has ZERO
+    // VOLUME. A boundary condition on a zero-volume shell does nothing:
+    // neutrons cross the transmissive bed surfaces and are simply lost. That is
+    // why `NOREFL=1 REFLECTIVE=1` returned k = 0.2726 rather than an infinite
+    // medium -- measured 2026-09-19, identical to six digits with and without
+    // `REFLECTIVE`, which is what exposed it.
+    //
+    // So when there is no reflector, the BED surfaces are the edge of the model
+    // and must carry `outer_bc` themselves.
+    let bed_bc = if refl_thickness > 0.0 {
+        BoundaryType::Transmissive
+    } else {
+        outer_bc
     };
     // Radial reflector structure is PHYSICAL, from Terry (2005) Fig. 2, not
     // `bed_radius + 100`: graphite out to 167.793 cm, then BORONATED CARBON
@@ -342,7 +379,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     } else {
         bed_radius
     };
-    let graphite_outer = if refl_thickness > 0.0 {
+    let _graphite_outer = if refl_thickness > 0.0 {
         HTR10_GRAPHITE_OUTER_CM
     } else {
         bed_radius
@@ -378,30 +415,30 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
             x0: 0.0,
             y0: 0.0,
             r: bed_radius,
-            bc: BoundaryType::Transmissive,
+            bc: bed_bc,
         }),
         SurfaceKind::ZPlane(ZPlane {
             z0: -bed_half_height,
-            bc: BoundaryType::Transmissive,
+            bc: bed_bc,
         }),
         SurfaceKind::ZPlane(ZPlane {
             z0: bed_half_height,
-            bc: BoundaryType::Transmissive,
+            bc: bed_bc,
         }),
         // 5..7: the reflector outer boundary -- VACUUM, this is a bare core
         SurfaceKind::ZCylinder(ZCylinder {
             x0: 0.0,
             y0: 0.0,
             r: refl_radius,
-            bc: BoundaryType::Vacuum,
+            bc: outer_bc,
         }),
         SurfaceKind::ZPlane(ZPlane {
             z0: -refl_half_height,
-            bc: BoundaryType::Vacuum,
+            bc: outer_bc,
         }),
         SurfaceKind::ZPlane(ZPlane {
             z0: refl_half_height,
-            bc: BoundaryType::Vacuum,
+            bc: outer_bc,
         }),
     ];
     let ins = |i: usize| RegionToken::HalfSpace {
@@ -726,7 +763,7 @@ pub fn assemble_explicit_triso(
     } else {
         bed_radius
     };
-    let graphite_outer = if refl_thickness > 0.0 {
+    let _graphite_outer = if refl_thickness > 0.0 {
         HTR10_GRAPHITE_OUTER_CM
     } else {
         bed_radius

@@ -310,6 +310,138 @@ pub struct MgxsLibrary {
 }
 
 impl MgxsLibrary {
+    /// Collapse every zone into ONE flux-weighted zone — the whole system as a
+    /// single homogeneous medium.
+    ///
+    /// # Why this exists
+    ///
+    /// [`condense`] produces one zone per *material*, because that is what a
+    /// `MaterialFilter` tallies. A **whole-system** quantity such as `k_inf`
+    /// is not recoverable from any single one of those zones: the kernel's
+    /// `k_inf` is not the core's. To compare a deterministic `k_inf` against
+    /// the Monte Carlo system `k_inf` (production over absorption, summed over
+    /// everything), the zones must first be homogenised into the same single
+    /// medium the Monte Carlo number describes.
+    ///
+    /// # The weighting, and why chi is different
+    ///
+    /// Reaction cross sections are **flux-weighted per group**, which is the
+    /// definition that conserves reaction rate:
+    ///
+    /// ```text
+    ///   phi_g      = sum_z phi_g,z
+    ///   Sigma_x,g  = sum_z ( Sigma_x,g,z * phi_g,z ) / phi_g
+    /// ```
+    ///
+    /// The scattering matrix is weighted the same way on its **incoming**
+    /// group, since `scatter[g][g']` multiplies `phi_g`.
+    ///
+    /// **`chi` is not a cross section and must not be flux-weighted.** It is a
+    /// probability distribution over emission energy, so it is weighted by the
+    /// fission SOURCE each zone actually produces,
+    /// `S_z = sum_g nu_Sigma_f,g,z * phi_g,z`, and the result is renormalised
+    /// to sum to one. Flux-weighting it would let a high-flux zone that
+    /// produces no fission dictate the spectrum of one that does.
+    ///
+    /// # Zero flux
+    ///
+    /// A group no neutron visited has `phi_g = 0` in every zone. Its cross
+    /// sections are left at zero rather than divided by zero — the caller is
+    /// expected to reject such a library (the GeN-Foam bridge does), because a
+    /// group with no measured cross section cannot be solved on.
+    #[must_use]
+    pub fn homogenised(&self, name: impl Into<String>) -> MgxsLibrary {
+        let g = self.zones.first().map_or(0, |z| z.flux.len());
+        let mut out = ZoneMgxs {
+            name: name.into(),
+            flux: vec![0.0; g],
+            total: vec![0.0; g],
+            absorption: vec![0.0; g],
+            nu_fission: vec![0.0; g],
+            kappa_fission: vec![0.0; g],
+            scatter: vec![vec![0.0; g]; g],
+            chi: vec![0.0; g],
+        };
+
+        // Flux-weighted sums: accumulate RATES, divide by total flux at the end.
+        for z in &self.zones {
+            for gi in 0..g {
+                let w = z.flux[gi];
+                out.flux[gi] += w;
+                out.total[gi] += z.total[gi] * w;
+                out.absorption[gi] += z.absorption[gi] * w;
+                out.nu_fission[gi] += z.nu_fission[gi] * w;
+                out.kappa_fission[gi] += z.kappa_fission[gi] * w;
+                for gj in 0..g {
+                    out.scatter[gi][gj] += z.scatter[gi][gj] * w;
+                }
+            }
+        }
+        for gi in 0..g {
+            let phi = out.flux[gi];
+            if phi > 0.0 {
+                out.total[gi] /= phi;
+                out.absorption[gi] /= phi;
+                out.nu_fission[gi] /= phi;
+                out.kappa_fission[gi] /= phi;
+                for gj in 0..g {
+                    out.scatter[gi][gj] /= phi;
+                }
+            }
+        }
+
+        // chi: weighted by each zone's own fission SOURCE, then renormalised.
+        let mut src_total = 0.0;
+        for z in &self.zones {
+            let s: f64 = (0..g).map(|gi| z.nu_fission[gi] * z.flux[gi]).sum();
+            if s <= 0.0 {
+                continue;
+            }
+            src_total += s;
+            for gi in 0..g {
+                out.chi[gi] += z.chi[gi] * s;
+            }
+        }
+        if src_total > 0.0 {
+            let norm: f64 = out.chi.iter().sum();
+            if norm > 0.0 {
+                for c in &mut out.chi {
+                    *c /= norm;
+                }
+            }
+        }
+
+        MgxsLibrary {
+            groups: self.groups.clone(),
+            zones: vec![out],
+        }
+    }
+
+    /// Infinite-multiplication factor implied by these constants, zero leakage.
+    ///
+    /// `k_inf = sum_g nu_Sigma_f,g phi_g / sum_g Sigma_a,g phi_g`, over every
+    /// zone. This is the algebraic answer the group constants encode, and is
+    /// the thing a zero-leakage deterministic solve must reproduce — so a
+    /// disagreement between this and the diffusion solver is a SOLVER defect,
+    /// while a disagreement between this and the Monte Carlo system `k_inf` is
+    /// a CONDENSATION defect. Separating those two is the point.
+    #[must_use]
+    pub fn k_inf(&self) -> f64 {
+        let mut prod = 0.0;
+        let mut absn = 0.0;
+        for z in &self.zones {
+            for gi in 0..z.flux.len() {
+                prod += z.nu_fission[gi] * z.flux[gi];
+                absn += z.absorption[gi] * z.flux[gi];
+            }
+        }
+        if absn > 0.0 {
+            prod / absn
+        } else {
+            0.0
+        }
+    }
+
     /// The same library with every group axis reversed, so index 0 is the
     /// **highest**-energy group — the usual reactor-physics convention.
     ///
