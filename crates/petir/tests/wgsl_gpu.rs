@@ -7,10 +7,11 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_dawson,
-    mirror_debye, mirror_dilog, mirror_erf, mirror_expint3, mirror_fermi_dirac, mirror_gamma,
-    mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_sinint, mirror_synchrotron,
-    mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ERF, EXPINT3,
-    FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
+    mirror_debye, mirror_dilog, mirror_ellint, mirror_erf, mirror_expint3, mirror_fermi_dirac,
+    mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_sinint,
+    mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE,
+    DILOG, ELLINT, ERF, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -2540,4 +2541,257 @@ fn gpu_sinint_matches_the_cpu_mirror() {
             "Ci at a non-positive argument gave {v:e} at probe {k}"
         );
     }
+}
+
+/// **The elliptic integrals on the device**, against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// Four dispatches, one per complete integral, through the shader's own
+/// selector `petir_ellint_comp(which, k, n)` — so the device runs the same
+/// entry point a caller would, rather than four hand-written expressions.
+/// `k` sweeps 201 moduli across `[0, 0.999]` plus 25 crowded into
+/// `[0.999, 0.999999]`, so it genuinely crosses the
+/// `k^2 >= 1 - sqrt(eps)` switch into the Abramowitz & Stegun series at
+/// `k = 0.99983`. **The first draft of this test stopped at 0.999 and claimed
+/// to cross it**; `0.999^2` is `0.998`, nowhere near, so the A&S branches
+/// were dispatched by nothing. The sweep now asserts it reaches them rather
+/// than asserting it in prose. A fifth dispatch takes the incomplete
+/// `F(phi, 1/2)` over a full period of `phi`, exercising the modulo-`pi`
+/// reduction and the periodicity term.
+///
+/// This kernel is the one place in the module where a **nested call inside a
+/// loop** is dispatched: `R_J` evaluates `R_C` at every duplication step.
+/// That was recorded as an open question when the `f64` module landed and it
+/// is not one — WGSL forbids recursion, not nesting — but `Pi` running here
+/// is what turns that from an argument into a measurement.
+///
+/// # Results
+///
+/// Measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`:
+///
+/// | | GPU vs `f32` mirror | where |
+/// |---|---|---|
+/// | `K(k)` | 1.703e-07 | only in the A&S branch, `k = 0.99989` |
+/// | `E(k)` | **0 — bit-identical** | whole sweep |
+/// | `D(k)` | **0 — bit-identical** | whole sweep |
+/// | `Pi(k, 0.3)` | **0 — bit-identical** | whole sweep |
+/// | `F(phi, 1/2)` | 4.768e-07 absolute | `phi = -4.44` |
+///
+/// **Three of the four complete integrals reproduce the mirror exactly, and
+/// the fourth does so everywhere except one branch.** That is the ledger's
+/// rule holding precisely: a kernel built from arithmetic and `sqrt` is
+/// pinned by IEEE-754 to one answer, and only a transcendental builtin —
+/// specified to an ULP bound rather than correct rounding — can break it. The
+/// whole Carlson duplication loop, including `R_J` calling `R_C` inside it,
+/// is arithmetic and `sqrt`, so it is bit-identical for every modulus below
+/// the switch. `assert_eq!(worst_carlson, 0.0)` states that rather than
+/// allowing a budget.
+///
+/// **`K` and `E` call the same `log(y)` in the same branch and only `K` pays
+/// for it.** `E`'s logarithmic term is `-y log(y) (...)` where `K`'s is
+/// `-log(y) (...)`, and at the switch `y` is `3.45e-04` — so an ulp of
+/// disagreement in `log` lands four decades below `E`'s leading `1` and
+/// rounds away entirely, while in `K` it is a term of the same size as the
+/// answer. That asymmetry is asserted as a ratio, not as two numbers another
+/// device would not reproduce.
+///
+/// `F` is not bit-identical for a different reason: it calls `sin`.
+#[test]
+fn gpu_ellint_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_ellint_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    // 201 moduli across [0, 0.999], plus 25 more crowded into
+    // [0.999, 0.999999] so the sweep genuinely crosses the
+    // `k^2 >= 1 - sqrt(eps)` switch at k = 0.99983 into the Abramowitz &
+    // Stegun series. An earlier version of this test stopped at 0.999 while
+    // claiming to cross it, and did not: 0.999^2 is 0.998, well short.
+    let moduli: Vec<f32> = (0..=200)
+        .map(|i| 0.999 * i as f32 / 200.0)
+        .chain((1..=25).map(|i| 1.0 - 1e-3 * (0.001_f32).powf(i as f32 / 25.0)))
+        .collect();
+    assert!(
+        moduli.iter().any(|k| k * k >= 1.0 - 3.4526698e-4),
+        "the sweep must reach the A&S branch"
+    );
+    let mut worst_by_which = [0.0_f64; 4];
+    for (which, name, budget) in [
+        (0u32, "K", 1e-4_f64),
+        (1, "E", 1e-4),
+        (2, "D", 1e-4),
+        (3, "Pi(k, 0.3)", 1e-4),
+    ] {
+        let got = gpu
+            .eval_map(
+                &[ELLINT],
+                "petir_ellint_comp(params.k, x, 0.3)",
+                &[],
+                &moduli,
+                KernelParams {
+                    k: which,
+                    ..KernelParams::default()
+                },
+            )
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        let (mut worst_carlson, mut at_carlson) = (0.0_f64, 0.0_f32);
+        for (i, &k) in moduli.iter().enumerate() {
+            let want = mirror_ellint::ellint_comp(which, k, 0.3);
+            let have = got.get(i).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite(),
+                "{name} at k = {k}: mirror {want}, GPU {have}"
+            );
+            let d = ((have - want) / want).abs() as f64;
+            if d > worst {
+                worst = d;
+                at = k;
+            }
+            // Below the switch the routine is Carlson duplication only:
+            // arithmetic and sqrt, no transcendental builtin.
+            if k * k < 1.0 - 3.4526698e-4 && d > worst_carlson {
+                worst_carlson = d;
+                at_carlson = k;
+            }
+        }
+        eprintln!("ellint {name}: {worst:e} at k = {at}, Carlson branch {worst_carlson:e} at {at_carlson}");
+        assert!(
+            worst < budget,
+            "GPU ({}) vs f32 mirror for {name}: {worst:e} relative at k = {at}",
+            gpu.adapter_name()
+        );
+        // THE STRONGER CLAIM: wherever the A&S series is not taken, the whole
+        // duplication loop reproduces the mirror EXACTLY. See the Results
+        // section for why `log` is the one thing that breaks it.
+        assert_eq!(
+            worst_carlson,
+            0.0,
+            "{name} is documented as bit-identical below the A&S switch, where \
+             the kernel is arithmetic and sqrt only; it missed by \
+             {worst_carlson:e} at k = {at_carlson} on {}",
+            gpu.adapter_name()
+        );
+        worst_by_which[which as usize] = worst;
+    }
+
+    // K and E take the SAME `log(y)` in the same branch, and only K pays for
+    // it: E's logarithmic term carries a factor of `y`, which at the switch is
+    // 3.45e-04, so the device's `log` and `libm::logf` disagreeing by an ulp
+    // cannot reach E's leading 1. This is the structural claim, so it is
+    // asserted as a ratio rather than as two numbers another device would not
+    // reproduce.
+    assert!(
+        worst_by_which[1] <= worst_by_which[0] / 10.0,
+        "E's A&S logarithmic term is documented as carrying a factor of y and \
+         therefore costing at least an order less than K's: E {:e} against K \
+         {:e} on {}",
+        worst_by_which[1],
+        worst_by_which[0],
+        gpu.adapter_name()
+    );
+    // D and Pi have no A&S branch at all, so they call no `log` anywhere.
+    assert_eq!(worst_by_which[2], 0.0, "D calls no transcendental builtin");
+    assert_eq!(worst_by_which[3], 0.0, "Pi calls no transcendental builtin");
+
+    // The incomplete F(phi, 1/2) over a full period, so the modulo-pi
+    // reduction and the 2 n K(k) periodicity term both run on the device.
+    let phis: Vec<f32> = (0..=400).map(|i| -6.0 + 12.0 * i as f32 / 400.0).collect();
+    let got = gpu
+        .eval_map(
+            &[ELLINT],
+            "petir_ellint_f(x, 0.5)",
+            &[],
+            &phis,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let (mut worst, mut at) = (0.0_f32, 0.0_f32);
+    for (i, &phi) in phis.iter().enumerate() {
+        let want = mirror_ellint::ellint_f(phi, 0.5);
+        let have = got.get(i).copied().unwrap_or(f32::NAN);
+        assert!(
+            want.is_finite() && have.is_finite(),
+            "F({phi}, 0.5): mirror {want}, GPU {have}"
+        );
+        if (have - want).abs() > worst {
+            worst = (have - want).abs();
+            at = phi;
+        }
+    }
+    eprintln!("ellint F(phi, 0.5): {worst:e} absolute at phi = {at}");
+    assert!(
+        worst < 1e-4,
+        "GPU ({}) vs f32 mirror for F(phi, 0.5): {worst:e} absolute at phi = {at}",
+        gpu.adapter_name()
+    );
+}
+
+/// **Legendre's relation, evaluated entirely on the device.**
+///
+/// ```text
+///     E(k) K(k') + E(k') K(k) - K(k) K(k') = pi/2,   k' = sqrt(1 - k^2)
+/// ```
+///
+/// Four calls at two complementary moduli, composed in the shader so that
+/// nothing but the modulus crosses the host boundary. This is a different
+/// kind of check from every other GPU test here: it does not compare against
+/// the mirror at all, so it cannot be satisfied by a shader and a mirror
+/// being wrong together. It is an exact identity with no free parameter, no
+/// table and no reference value — the only thing it can agree with is the
+/// mathematics.
+///
+/// It also reaches the `sqrt` the complementary modulus needs and both A&S
+/// branches, since `k` near 0 puts `k'` near 1.
+///
+/// # Results
+///
+/// **8.348e-07 relative, worst at `k = 0.1`**, measured 2026-09-19 on
+/// `llvmpipe (LLVM 20.1.2, 256 bits)` — the same figure to every printed
+/// digit as
+/// `mirror_ellint::tests::legendres_relation_survives_f32` gets on the host,
+/// which is what bit-identity below the A&S switch predicts. Seven `f32`
+/// ulps on an identity that took four evaluations and three products to
+/// build.
+#[test]
+fn gpu_legendres_relation_holds_on_the_device() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_legendres_relation_holds_on_the_device: no GPU adapter");
+        return;
+    };
+    let moduli: Vec<f32> = (1..=99).map(|i| i as f32 / 100.0).collect();
+    let got = gpu
+        .eval_map(
+            &[ELLINT],
+            "petir_ellint_ecomp(x) * petir_ellint_kcomp(sqrt(1.0 - x * x)) \
+             + petir_ellint_ecomp(sqrt(1.0 - x * x)) * petir_ellint_kcomp(x) \
+             - petir_ellint_kcomp(x) * petir_ellint_kcomp(sqrt(1.0 - x * x))",
+            &[],
+            &moduli,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let half_pi = core::f32::consts::FRAC_PI_2;
+    let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+    for (i, &k) in moduli.iter().enumerate() {
+        let have = got.get(i).copied().unwrap_or(f32::NAN);
+        assert!(
+            have.is_finite(),
+            "Legendre's relation at k = {k} gave {have}"
+        );
+        let d = ((have - half_pi) / half_pi).abs() as f64;
+        if d > worst {
+            worst = d;
+            at = k;
+        }
+    }
+    eprintln!("ellint Legendre's relation on device: {worst:e} at k = {at}");
+    assert!(
+        worst < 1e-4,
+        "Legendre's relation on {}: {worst:e} relative at k = {at}",
+        gpu.adapter_name()
+    );
 }

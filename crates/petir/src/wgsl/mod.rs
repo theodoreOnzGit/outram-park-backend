@@ -137,6 +137,9 @@ pub mod mirror_expint3;
 /// `f32` mirrors of the sine- and cosine-integral shaders.
 pub mod mirror_sinint;
 
+/// `f32` mirror of the elliptic-integral shader.
+pub mod mirror_ellint;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -346,11 +349,46 @@ pub const EXPINT3: &str = include_str!("shaders/expint3.wgsl");
 /// directly. See [`mirror_sinint`].
 pub const SININT: &str = include_str!("shaders/sinint.wgsl");
 
+/// Carlson's symmetric forms and the Legendre elliptic integrals built on
+/// them, ported from `specfunc/ellint.c` by way of
+/// [`crate::specfunc::ellint`].
+///
+/// Provides `petir_ellint_rc` / `rd` / `rf` / `rj`, the four complete
+/// integrals `petir_ellint_kcomp` / `ecomp` / `dcomp` / `pcomp`, the four
+/// incomplete `petir_ellint_f` / `e` / `p` / `d`, and the selector
+/// `petir_ellint_comp(which, k, n)`.
+///
+/// **The second table-free shader here, after [`DILOG`]** — nothing is
+/// fitted, so there is no generator and no table audit. Two parameters are
+/// measured rather than transcribed: `errtol = 0.03` is upstream's own
+/// single-precision value, and the iteration cap is **16 against upstream's
+/// 10000**. See [`mirror_ellint`].
+pub const ELLINT: &str = include_str!("shaders/ellint.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 16] = [
+///
+/// # THIS LIST IS WHAT VALIDATION WALKS, AND FOUR SHADERS WENT MISSING FROM IT
+///
+/// `tests/wgsl_validation.rs` drives naga parsing, the baseline-capability
+/// check and the ledger check from `ALL_NAMES.iter().zip(ALL.iter())`. A
+/// shader that has a `pub const` here, a `kernel_for` arm in the test, a
+/// mirror and a ledger row — but no entry in this array — is therefore
+/// **not validated at all**, and nothing goes red.
+///
+/// That is not hypothetical. `fermi_dirac`, `dawson`, `expint3` and `sinint`
+/// each shipped that way, and were compiled by naga for the first time on
+/// 2026-09-19 when `ellint` was added and the array was recounted. All four
+/// passed — but they had been taken on trust for four commits, which is the
+/// point.
+///
+/// `every_shader_file_is_listed_here` now reads the `shaders/` directory and
+/// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
+/// means adding it to both arrays**; the directory is the authority, not
+/// anyone's count.
+pub const ALL: [&str; 21] = [
     POLY,
     CHEB,
     LEGENDRE,
@@ -367,6 +405,11 @@ pub const ALL: [&str; 16] = [
     TRANSPORT,
     ATANINT,
     SYNCHROTRON,
+    FERMI_DIRAC,
+    DAWSON,
+    EXPINT3,
+    SININT,
+    ELLINT,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -377,7 +420,7 @@ pub const ALL: [&str; 16] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 16] = [
+pub const ALL_NAMES: [&str; 21] = [
     "poly",
     "cheb",
     "legendre",
@@ -394,6 +437,11 @@ pub const ALL_NAMES: [&str; 16] = [
     "transport",
     "atanint",
     "synchrotron",
+    "fermi_dirac",
+    "dawson",
+    "expint3",
+    "sinint",
+    "ellint",
 ];
 
 pub use kernel_builder::test_kernel;

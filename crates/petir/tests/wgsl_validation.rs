@@ -25,9 +25,9 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ERF,
-    EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON,
-    TRANSPORT,
+    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG,
+    ELLINT, ERF, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT,
+    SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -66,6 +66,12 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "dawson" => (vec![DAWSON], "petir_dawson(x)"),
         "expint3" => (vec![EXPINT3], "petir_expint_3(x)"),
         "sinint" => (vec![SININT], "petir_si(x) + petir_ci(abs(x) + 1.0)"),
+        // The selector, so R_F, R_D, R_J and both A&S branches are all
+        // reachable from one call.
+        "ellint" => (
+            vec![ELLINT],
+            "petir_ellint_comp(params.k, x, 0.3) + petir_ellint_f(x, 0.5)",
+        ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -92,6 +98,63 @@ fn all_and_all_names_are_the_same_length() {
         "ALL has {} sources and ALL_NAMES has {} names; the zip in every \
          other test here would silently skip the difference",
         ALL.len(),
+        ALL_NAMES.len()
+    );
+}
+
+/// **Every `.wgsl` file on disk is listed in [`ALL_NAMES`]**, because the
+/// directory is the authority and not anyone's count.
+///
+/// # This caught four shaders that were never validated
+///
+/// `all_and_all_names_are_the_same_length` above guards one half of the
+/// problem — a source in `ALL` with no name beside it. It cannot see the
+/// other half: a shader with a `pub const`, a `kernel_for` arm here, a `f32`
+/// mirror and a ledger row, but **no entry in either array**. Such a shader
+/// is simply never walked, so naga never compiles it, the baseline-capability
+/// check never sees it and the ledger check never asks for its row — and
+/// every test stays green while covering one fewer kernel.
+///
+/// `fermi_dirac`, `dawson`, `expint3` and `sinint` all shipped that way and
+/// were first compiled by naga on 2026-09-19. All four passed, which is
+/// fortunate and not the point: they had been taken on trust for four
+/// commits. Counting an array by hand is exactly the kind of check a test
+/// should be doing, so this one reads the directory instead.
+#[test]
+fn every_shader_file_is_listed_here() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/wgsl/shaders");
+    let mut on_disk: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()))
+        .map(|e| e.expect("directory entry").file_name())
+        .filter_map(|n| {
+            let n = n.to_string_lossy().into_owned();
+            n.strip_suffix(".wgsl").map(str::to_owned)
+        })
+        .collect();
+    on_disk.sort();
+    assert!(
+        !on_disk.is_empty(),
+        "no .wgsl files found under {}",
+        dir.display()
+    );
+    for name in &on_disk {
+        assert!(
+            ALL_NAMES.contains(&name.as_str()),
+            "shaders/{name}.wgsl exists but is not in ALL_NAMES, so it is \
+             validated by nothing. Add it to BOTH ALL and ALL_NAMES"
+        );
+    }
+    for name in ALL_NAMES.iter() {
+        assert!(
+            on_disk.iter().any(|n| n == name),
+            "ALL_NAMES lists {name} but shaders/{name}.wgsl does not exist"
+        );
+    }
+    assert_eq!(
+        on_disk.len(),
+        ALL_NAMES.len(),
+        "{} shader files on disk against {} names",
+        on_disk.len(),
         ALL_NAMES.len()
     );
 }
@@ -139,7 +202,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 20] = [
+    let expected: [(&str, &[&str]); 21] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -346,6 +409,24 @@ fn every_documented_function_is_defined() {
                 "petir_sinint_cheb_ci",
             ],
         ),
+        (
+            ELLINT,
+            &[
+                "petir_ellint_rc",
+                "petir_ellint_rd",
+                "petir_ellint_rf",
+                "petir_ellint_rj",
+                "petir_ellint_kcomp",
+                "petir_ellint_ecomp",
+                "petir_ellint_dcomp",
+                "petir_ellint_pcomp",
+                "petir_ellint_f",
+                "petir_ellint_e",
+                "petir_ellint_p",
+                "petir_ellint_d",
+                "petir_ellint_comp",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -501,6 +582,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "dawson" => LEDGER.contains("Dawson"),
             "expint3" => LEDGER.contains("cubic exponential integral"),
             "sinint" => LEDGER.contains("sine and cosine integrals"),
+            "ellint" => LEDGER.contains("elliptic integrals"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

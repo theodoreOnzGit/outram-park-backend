@@ -79,11 +79,11 @@ and stays there.
 | `specfunc` (Dawson's integral) | ~2 | **PORTED** | `F(x) = e^{-x^2} int_0^x e^{t^2} dt`. **The first shader to ship GSL's SINGLE-PRECISION Chebyshev order** — 45 coefficients where the `f64` order needs 84, measured to cost nothing. Upstream's underflow guard is not an `f32`, and deleting it GAINS answers |
 | `specfunc` (cubic exponential integral) | ~2 | **PORTED** | `Ei_3(x) = int_0^x e^{-t^3} dt`; two Chebyshev series at `order_sp`, 27 coefficients where the `f64` order needs 47. **The best-behaved kernel here at 1.4 `f32` ulp** — nothing to lose precision to. Its saturation cut retargets to a bit-identical answer, the counter-example to `F_2`'s |
 | `specfunc` (sine and cosine integrals) | ~4 | **PORTED** | `Si(x)`, `Ci(x)` and the `f`/`g` asymptotic pair; six Chebyshev series at `order_sp`, 81 coefficients where the `f64` order needs 129. **A `2 pi` argument reduction was tried and measured to be worse on both CPU and GPU** — see below. Both of upstream's far-field guards are deleted as unrepresentable, which gains answers |
+| `specfunc` (elliptic integrals) | ~12 | **PORTED** | Carlson's `R_C`, `R_D`, `R_F`, `R_J`, the Legendre forms `F`, `E`, `Pi`, `D` and their complete versions. **The second table-free shader**, after the dilogarithm — iterative duplication, nothing fitted. Two parameters are upstream's own rather than retargeted or guessed: `errtol = 0.03` is `GSL_PREC_SINGLE`'s value, and the iteration cap is **16 against upstream's 10000**, measured over the whole `f32`-reachable domain. Within nine `f32` ulps on the complete integrals |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (elliptic integrals) | ~12 | **f64 ONLY** | Carlson's `R_C`, `R_D`, `R_F`, `R_J` and the Legendre forms `F`, `E`, `Pi`, `D` plus their complete versions. **No Chebyshev tables at all** — iterative duplication. Not yet transcribed to WGSL; its `Mode::Single` (`errtol = 0.03`) is the natural `f32` setting and is measured at 1.3e-11 |
 | `specfunc` (rest) | ~222 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
@@ -127,6 +127,27 @@ Nothing counts as **PORTED** without all three:
 3. **A GPU dispatch test** comparing against that mirror, which skips cleanly
    where no adapter exists.
 
+### Four shaders claimed PORTED without leg 2, for four commits
+
+**Found 2026-09-19.** `tests/wgsl_validation.rs` drives naga validation from
+`ALL_NAMES.iter().zip(ALL.iter())`, and `fermi_dirac`, `dawson`, `expint3`
+and `sinint` had `pub const`s, `kernel_for` arms, mirrors, GPU tests and rows
+in this ledger — but no entry in either array. So they were walked by nothing:
+naga never compiled them, the baseline-capability check never saw them, and
+the ledger check never asked for their rows. Every test stayed green.
+
+They were added when `ellint` was, and **all four passed immediately**. That
+is the uncomfortable part rather than the reassuring one: the suite was green
+either way, so passing tells us nothing about the four commits during which
+this ledger said PORTED and meant PORTED-minus-one-leg.
+
+`every_shader_file_is_listed_here` now reads the `shaders/` directory and
+fails on any `.wgsl` file missing from `ALL_NAMES`. The pre-existing guard,
+`all_and_all_names_are_the_same_length`, could only ever catch the other
+half — a source with no name beside it — and both arrays being *equally*
+short is invisible to it. **The authority is the directory, not a hand
+count.**
+
 A dispatch test asserts a *budget*, not bit-identity, unless the kernel both
 avoids every transcendental builtin **and** takes its coefficients from a
 buffer. Both conditions, not just the first — see the inline-coefficient
@@ -160,6 +181,8 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Y_0` / `Y_1` | 3.980e-07 / 3.329e-07 | 1.288e-05 / 2.786e-05 (at the zeros) |
 | BLAS L1 (`dot`, `nrm2`, `asum`, `iamax`) | **0** bit-identical | — |
 | `gemv`, `gemm` | **0** bit-identical | see reassociation note |
+| `K` / `E` / `D` / `Pi` (complete) | **0** bit-identical below the A&S switch; `K` 1.703e-07 inside it | 8.034e-07 / 6.268e-07 / 1.048e-06 / 7.797e-07 |
+| `F(phi, k)` | 4.768e-07 abs | 1.181e-06 |
 | element-wise matrix ops | **0** bit-identical (exact equality) | — |
 
 **Why `erf` is not bit-identical and everything else is.** Pure arithmetic is
@@ -308,9 +331,12 @@ stopping rule corrected in two places.** The rule is
    way.
 
 ~~That makes four distinct kinds of constant decision across this ledger~~
-**CORRECTED 2026-09-19** — there are eight, and the table below is kept
-complete rather than frozen at the four that existed when it was written.
-**They do not generalise to each other:**
+~~**CORRECTED 2026-09-19** — there are eight~~ **RE-CORRECTED the same day —
+eleven.** The table is kept complete rather than frozen at the four that
+existed when it was written, and it had already outgrown the "eight" above by
+two rows before `ellint` added the eleventh: **count the rows, do not trust
+the sentence.** That is the same defect this ledger documents elsewhere, at
+the smallest possible scale. **They do not generalise to each other:**
 
 | kernel | constant | what it is FOR | call |
 |---|---|---|---|
@@ -324,6 +350,7 @@ complete rather than frozen at the four that existed when it was written.
 | `synchrotron` | `-8 ln(MIN)/7` | a **range guard** whose category depends on the width | keep — see immediately below |
 | `fermi_dirac` | `1/cbrt(EPSILON)`, `F_2` far cut | a **precision** constant whose upstream FORMULA is wrong | retarget the value **and correct the formula** — worth 189x |
 | `fermi_dirac` | `SQRT_DBL_MAX`, `ROOT3_DBL_MAX` | overflow guards **not representable at the narrower width** | **delete** — a third outcome, and forced rather than chosen |
+| `ellint` | `nmax = 10000` | an **iteration ceiling**: a can't-happen bound, not a working one | retarget to 16 — measured over the whole domain, and it is the GPU that makes it matter |
 
 The rule is *know what upstream's constant is FOR*. Knowing what it equals
 tells you nothing about whether it survives the change of width.
