@@ -73,7 +73,7 @@ use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
 use outram_mc_libs::physics::keff::KeffSettings;
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, run_keff_csg_hybrid, SourceBox};
-use uom::si::f64::{Power, ThermodynamicTemperature, Time};
+use uom::si::f64::{Power, Time};
 use uom::si::power::watt;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;

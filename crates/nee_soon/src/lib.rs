@@ -47,12 +47,35 @@
 //!
 //! ## Status
 //!
-//! **Mostly scaffold.** [`NeeSoon::new_prompt_excursion_model`] is real,
-//! wired code -- it exposes `teh-o-prke`'s Nordheim-Fuchs exact
-//! timestepper. The nuclear-data (`njoy-outram-park-fork`) and Monte Carlo
-//! (`outram-mc-libs`) integration points are not wired yet; those crates
-//! are declared as dependencies but the coupling logic for them is future
-//! work, deliberately out of scope for this pass.
+//! ~~**Mostly scaffold.**~~ **CORRECTED 2026-09-19.** The claim that "the
+//! nuclear-data and Monte Carlo integration points are not wired yet" is no
+//! longer true, and is struck rather than deleted because it shaped how this
+//! crate was described for months.
+//!
+//! What is real and tested today:
+//!
+//! | Module | What it does |
+//! |---|---|
+//! | [`htr10_rmc`] | one shared HTR-10 geometry and composition, so the stochastic and deterministic ends cannot drift apart |
+//! | [`mgxs`] | condenses a Monte Carlo run into multigroup constants: flux-weighted reaction rates, a nu-scatter matrix, and a **measured** fission spectrum |
+//! | [`genfoam_xs`] | hands those constants to GeN-Foam through its own `nuclearData` input path |
+//! | [`coupling`] | [`coupling::McToGenFoam`], the facade: construct, `generate_mgxs()`, `solve_infinite_medium()` |
+//! | [`direct_coupling`] | [`direct_coupling::McGenFoamDirect`], Monte Carlo iterated directly against GeN-Foam's lumped thermal region |
+//!
+//! [`NeeSoon::new_prompt_excursion_model`] remains real, wired code exposing
+//! `teh-o-prke`'s Nordheim-Fuchs exact timestepper.
+//!
+//! Measured 2026-09-19: on a leakage-free medium GeN-Foam reproduces the Monte
+//! Carlo eigenvalue to **+328 pcm, 1.7 sigma**; the HTR-10 core condenses to
+//! four zones GeN-Foam accepts and solves; the direct loop converges in 8 outer
+//! iterations over a +248 K temperature swing.
+//!
+//! **What is still NOT here:** delayed-neutron data, so everything above is
+//! **steady state only** and a transient would run without delayed neutrons;
+//! `P0` scattering only, so no SP3 `P1` and an untransport-corrected diffusion
+//! coefficient; one state point per run, so no feedback parametrisation; and
+//! **no validation of any kind** -- no experiment and no published benchmark.
+//! The [`xin_wang_sp3_workflow`] scaffold is still a scaffold.
 
 #![forbid(unsafe_code)]
 
