@@ -849,12 +849,18 @@ API-token-usage trailer" — is retired. It is replaced by the policy below,
 which *is* the hard rule from now on: do not enforce or chase the old
 mandate, and do not treat a missing trailer as something to fix.
 
-- **`crates/kovan-metrics`**, driven through the **`kovan`** binary, remains
-  the single source for token accounting **when a maintainer has chosen to set
-  it up** on a given clone — it does both the write side (git hooks stamping
-  commit trailers) and the query side (`kovan tokens query --from DDMMYY --to
-  DDMMYY [--branch develop] [--per-commit] [--json]`, summing whatever
-  trailers exist). Nothing about its internals changed; what changed is
+- **`crates/kovan-metrics`**, driven through the **`kovan-cli`** binary,
+  remains the single source for token accounting **when a maintainer has chosen
+  to set it up** on a given clone — it does both the write side (git hooks
+  stamping commit trailers) and the query side (`kovan-cli tokens query --from
+  DDMMYY --to DDMMYY [--branch develop] [--per-commit] [--json]`, summing
+  whatever trailers exist).
+
+  **`kovan-cli`, not `kovan`** — corrected 2026-09-19 against
+  `crates/kovan/src/bin/kovan-cli.rs`, which is where `Command::Tokens` and
+  `Command::Historian` are actually declared. `kovan` is the egui GUI binary
+  and will hang a non-interactive session trying to open a display, exactly as
+  the "API-doc toolchain" section already warns for `kovan-cli api-docs`. Nothing about its internals changed; what changed is
   whether using it is required.
 - **`.githooks/prepare-commit-msg`** and **`.githooks/post-commit`**, where
   installed, still stamp the `API-Usage-Since-Last-Commit:` /
@@ -879,7 +885,7 @@ mandate, and do not treat a missing trailer as something to fix.
 
 - **Source of truth: the per-commit trailers, not the markdown.** The durable
   record is the `API-Usage-*` trailer in each commit message (queryable across
-  any window with `kovan tokens query --from DDMMYY --to DDMMYY`).
+  any window with `kovan-cli tokens query --from DDMMYY --to DDMMYY`).
   `docs/token-usage.md` is a regenerable, gitignored local summary — never
   hand-edit it, never `git add` it, never re-track it.
 - **Do not strip or fake a trailer the hooks wrote.** The numbers come
@@ -913,18 +919,19 @@ mandatory today.
 generated markdown file accounting for the **API tokens spent** and the
 **lines / KLOC written** across the window of `develop` history being released,
 listing the commits over a `DDMMYY..DDMMYY` date range. The generator is
-`crates/kovan-metrics` (via the `kovan` binary); the reports live under
+`crates/kovan-metrics` (via the **`kovan-cli`** binary — *not* `kovan`, which
+is the GUI; see the token-accounting section above); the reports live under
 **`docs/historian/`** at the workspace root.
 
 - **Generate it:**
-  `kovan historian --from DDMMYY --to DDMMYY`
+  `kovan-cli historian --from DDMMYY --to DDMMYY`
   (`DDMMYY` = day-month-year, 2-digit year). With no `--from`, it defaults to
   "everything on `develop` not yet on `main`, up to today". Output is written to
   `docs/historian/historian_<from>_to_<to>.md`.
   - **This replaced `docs/historian/historian.py` on 2026-08-13** (epic
     `op-yz7b`), and the Python was deleted the same day. No parity gate was run
     against it; see the token-accounting section above.
-  - `kovan historian` dates from **UTC**, where the Python used local time.
+  - `kovan-cli historian` dates from **UTC**, where the Python used local time.
     This only affects the default `--to` bound and the filename tag; pass
     `--to` explicitly if a midnight boundary matters.
 - **What it contains:** total lines added/removed/net (all files + Rust-only),
@@ -1549,8 +1556,8 @@ This is settled direction, not a preference, and it has been applied three times
 
 | Retired | Replaced by | When |
 |---|---|---|
-| `docs/historian/historian.py` | `kovan historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
-| `docs/historian/token_usage.py` | `kovan tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `docs/historian/historian.py` | `kovan-cli historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
+| `docs/historian/token_usage.py` | `kovan-cli tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
 | `scripts/gen_api_docs.py` | `kovan-cli api-docs` | 2026-08-14, `op-w44a.7` |
 | `scripts/gen_aster_behaviour_registry.py` | retired; procedure recorded in `catalogue.rs` | 2026-08-14 |
 | `scripts/kloc_accounting.py` | `kovan kloc` (`kovan-metrics`) | 2026-08-14 |
