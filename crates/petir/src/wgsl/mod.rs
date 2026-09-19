@@ -128,6 +128,9 @@ pub mod mirror_synchrotron;
 /// `f32` mirrors of the Fermi-Dirac integral shaders.
 pub mod mirror_fermi_dirac;
 
+/// `f32` mirror of the Dawson-integral shader.
+pub mod mirror_dawson;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -313,6 +316,14 @@ pub const SYNCHROTRON: &str = include_str!("shaders/synchrotron.wgsl");
 /// and the one shader that deliberately **corrects** an upstream constant's
 /// formula rather than retargeting its value. See [`mirror_fermi_dirac`].
 pub const FERMI_DIRAC: &str = include_str!("shaders/fermi_dirac.wgsl");
+
+/// Dawson's integral `F(x)`, ported from `specfunc/dawson.c` by way of
+/// [`crate::specfunc::dawson`].
+///
+/// **The first shader here to ship GSL's single-precision Chebyshev order**
+/// rather than its `f64` one — 45 coefficients where the `f64` order needs
+/// 84. See [`mirror_dawson`].
+pub const DAWSON: &str = include_str!("shaders/dawson.wgsl");
 
 /// Every shader source in this module, in dependency order.
 ///

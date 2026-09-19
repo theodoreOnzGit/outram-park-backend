@@ -7,9 +7,10 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_debye, mirror_dilog,
-    mirror_erf, mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta,
-    mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF,
-    FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
+    mirror_dawson, mirror_erf, mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix,
+    mirror_psi_zeta, mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN,
+    DEBYE, DILOG, DAWSON, ERF, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -2013,13 +2014,19 @@ fn gpu_fermi_dirac_matches_the_cpu_mirror() {
     // -80 .. 120 linearly: the series cut at -1, all four Chebyshev
     // boundaries, the far cut at 2896 is out of range on purpose (it is
     // covered by the mirror's own test) and the asymptotic branch past 30.
-    let mut probes: Vec<f32> = (0..=2000).map(|i| -80.0 + 200.0 * i as f32 / 2000.0).collect();
+    let mut probes: Vec<f32> = (0..=2000)
+        .map(|i| -80.0 + 200.0 * i as f32 / 2000.0)
+        .collect();
     let normal_upto = probes.len();
     // Then the denormal tail, where backends part company.
     probes.extend((0..=600).map(|i| -80.0 - 30.0 * i as f32 / 600.0));
 
     for (which, name, want_fn) in [
-        (0u32, "F_-1", mirror_fermi_dirac::fermi_dirac_m1 as fn(f32) -> f32),
+        (
+            0u32,
+            "F_-1",
+            mirror_fermi_dirac::fermi_dirac_m1 as fn(f32) -> f32,
+        ),
         (1, "F_-1/2", mirror_fermi_dirac::fermi_dirac_mhalf),
         (2, "F_0", mirror_fermi_dirac::fermi_dirac_0),
         (3, "F_1/2", mirror_fermi_dirac::fermi_dirac_half),
@@ -2102,7 +2109,13 @@ fn gpu_fermi_dirac_matches_the_cpu_mirror() {
     // first series term, e^x, so the only thing being compared is exp.
     // Asserted by evaluating exp alone on the device at that point.
     let ex = gpu
-        .eval_map(&[FERMI_DIRAC], "exp(x)", &[], &[-68.2_f32], KernelParams::default())
+        .eval_map(
+            &[FERMI_DIRAC],
+            "exp(x)",
+            &[],
+            &[-68.2_f32],
+            KernelParams::default(),
+        )
         .expect("non-empty probe");
     let device_exp = ex.first().copied().unwrap_or(f32::NAN);
     let cpu_exp = (-68.2_f32).exp();
@@ -2139,4 +2152,171 @@ fn gpu_fermi_dirac_matches_the_cpu_mirror() {
             gpu.adapter_name()
         );
     }
+}
+
+/// Dawson's integral on the GPU, and **the direct experiment on whether a
+/// shorter inline coefficient array restores bit-identity**.
+///
+/// `debye.wgsl` measured that series held as inline `array<f32, N>` literals
+/// do not reproduce the CPU bit for bit where storage-buffer coefficients do
+/// — 34 of 64 against 64 of 64. This shader is the first to carry GSL's
+/// single-precision order, so its arrays are 10, 22 and 13 long where the
+/// `f64` order would make them 16, 33 and 35.
+///
+/// # The answer: it is NOT array length
+///
+/// Measured on llvmpipe (LLVM 20.1.2), 2026-09-19, running **the same
+/// function on the same device over the same probes** at two array lengths:
+///
+/// | arrays | bit-identical |
+/// |---|---|
+/// | `order_sp` — 10, 22, 13 | 470 / 602 (78.1 %) |
+/// | `f64` order — 16, 33, 35 | 456 / 602 (75.7 %) |
+///
+/// Shortening the arrays by a third moves 14 probes. Inline-versus-buffer
+/// moved 30 of 64 on `debye` — a 47-point gap against this 2-point one. So
+/// whatever costs bit-identity is about the coefficients being **inline**
+/// rather than about how many there are, and the remaining hypothesis is
+/// compile-time constant folding and reassociation of the Clenshaw
+/// recurrence, which a storage-buffer read forbids.
+///
+/// The test asserts only the ordering (shorter is not worse) and a bound on
+/// the numerical difference; pinning an exact count would make the suite fail
+/// on a different device for no reason.
+#[test]
+fn gpu_dawson_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_dawson_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    // Geometric over the three Chebyshev branches and into the 0.5/x tail,
+    // both signs.
+    let mut probes: Vec<f32> = Vec::new();
+    for i in 0..=300 {
+        let x = 1e-5_f32 * (1e10_f32).powf(i as f32 / 300.0);
+        probes.push(x);
+        probes.push(-x);
+    }
+
+    let got = gpu
+        .eval_map(
+            &[DAWSON],
+            "petir_dawson(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+    let (mut exact, mut total) = (0_u32, 0_u32);
+    for (k, &x) in probes.iter().enumerate() {
+        let want = mirror_dawson::dawson(x);
+        let have = got.get(k).copied().unwrap_or(f32::NAN);
+        assert!(
+            want.is_finite() && have.is_finite(),
+            "F({x:e}): mirror {want:e}, GPU {have:e}"
+        );
+        total += 1;
+        if want.to_bits() == have.to_bits() {
+            exact += 1;
+        }
+        if want.abs() < 1e-30 {
+            continue;
+        }
+        let d = (((have - want) / want) as f64).abs();
+        if d > worst {
+            worst = d;
+            at = x;
+        }
+    }
+    eprintln!(
+        "dawson GPU vs mirror on {}: {exact}/{total} bit-identical, worst {worst:e} at {at:e}",
+        gpu.adapter_name()
+    );
+    assert!(
+        worst < 1e-4,
+        "GPU ({}) vs f32 mirror for Dawson: {worst:e} at x = {at:e}",
+        gpu.adapter_name()
+    );
+    // Oddness must survive the device too -- both signs take the same branch
+    // and the same multiply, so a device that broke it would be doing
+    // something very strange.
+    for i in (0..probes.len()).step_by(2) {
+        let (p, n) = (got[i], got[i + 1]);
+        assert_eq!(p.to_bits(), (-n).to_bits(), "not odd at x = {}", probes[i]);
+    }
+
+    // ---- THE CONTROLLED EXPERIMENT ----
+    //
+    // The same function, the same device, the same probes -- with the f64
+    // order's arrays (16, 33, 35) instead of order_sp's (10, 22, 13). Two
+    // lengths of the SAME kernel is what makes this an experiment on array
+    // length rather than a comparison of two different functions.
+    let long = build_dawson_with_f64_order();
+    let got_long = gpu
+        .eval_map(
+            &[&long],
+            "petir_dawson_long(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let mut exact_long = 0_u32;
+    for (k, &x) in probes.iter().enumerate() {
+        let want = mirror_dawson::with_f64_order_for_test(x);
+        if want.to_bits() == got_long.get(k).copied().unwrap_or(f32::NAN).to_bits() {
+            exact_long += 1;
+        }
+    }
+    eprintln!(
+        "dawson f64-order arrays (16,33,35): {exact_long}/{total} bit-identical; \
+         order_sp arrays (10,22,13): {exact}/{total}"
+    );
+    assert!(
+        exact >= exact_long,
+        "SHORTENING the inline arrays is documented as not HURTING \
+         bit-identity: order_sp gave {exact}/{total} against the f64 order's \
+         {exact_long}/{total} on {}. If the shorter arrays are now worse, the \
+         inline-coefficient effect is not about length and op-uczx.2 needs \
+         re-opening",
+        gpu.adapter_name()
+    );
+}
+
+/// `dawson.wgsl`'s kernel rebuilt with the **f64-order** coefficient arrays,
+/// for the length experiment above. Built from the `f64` module's tables so
+/// it cannot drift from what that module actually holds.
+fn build_dawson_with_f64_order() -> String {
+    fn table(name: &str, vals: &[f64]) -> String {
+        let lits: Vec<String> = vals.iter().map(|&v| format!("{:?}", v as f32)).collect();
+        format!(
+            "fn {name}(x: f32) -> f32 {{\n    var c = array<f32, {}>({});\n\
+             \x20   var d = 0.0; var dd = 0.0; let y2 = 2.0 * x;\n\
+             \x20   for (var j: i32 = {}; j >= 1; j = j - 1) {{\n\
+             \x20       let t = d; d = y2 * d - dd + c[j]; dd = t;\n    }}\n\
+             \x20   return x * d - dd + 0.5 * c[0];\n}}\n",
+            vals.len(),
+            lits.join(", "),
+            vals.len() - 1
+        )
+    }
+    let d = petir::specfunc::dawson::probe_daw();
+    let mut src = String::new();
+    src.push_str(&table("petir_daw_long_a", &d.0[..16]));
+    src.push_str(&table("petir_daw_long_b", &d.1[..33]));
+    src.push_str(&table("petir_daw_long_c", &d.2[..35]));
+    src.push_str(
+        "fn petir_dawson_long(x: f32) -> f32 {\n\
+         \x20   if (x != x) { return bitcast<f32>(0x7fc00000u); }\n\
+         \x20   let y = abs(x);\n\
+         \x20   if (y < 4.2295206e-4) { return x; }\n\
+         \x20   if (y < 1.0) { return x * (0.75 + petir_daw_long_a(2.0 * y * y - 1.0)); }\n\
+         \x20   if (y < 4.0) { return x * (0.25 + petir_daw_long_b(0.125 * y * y - 1.0)); }\n\
+         \x20   if (y < 2048.0) { return (0.5 + petir_daw_long_c(32.0 / (y * y) - 1.0)) / x; }\n\
+         \x20   return 0.5 / x;\n}\n",
+    );
+    src
 }

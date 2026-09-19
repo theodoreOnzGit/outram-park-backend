@@ -25,8 +25,8 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, FERMI_DIRAC,
-    GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
+    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ERF,
+    FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -62,6 +62,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
             "petir_synchrotron_1(x) + petir_synchrotron_2(x)",
         ),
         "fermi_dirac" => (vec![FERMI_DIRAC], "petir_fermi_dirac(params.k, x)"),
+        "dawson" => (vec![DAWSON], "petir_dawson(x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -135,7 +136,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 17] = [
+    let expected: [(&str, &[&str]); 18] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -310,6 +311,15 @@ fn every_documented_function_is_defined() {
                 "petir_fd_eta",
             ],
         ),
+        (
+            DAWSON,
+            &[
+                "petir_dawson",
+                "petir_dawson_cheb_daw",
+                "petir_dawson_cheb_daw2",
+                "petir_dawson_cheb_dawa",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -462,6 +472,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             // PORTABLE row listing it as a future block, so the check passed
             // before the row existed. Match the row itself.
             "fermi_dirac" => LEDGER.contains("(Fermi-Dirac integrals)"),
+            "dawson" => LEDGER.contains("Dawson"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -510,7 +521,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 ///
 /// # What it covers
 ///
-/// **Every generated pair**, 85 tables and 1597 coefficients as of
+/// **Every generated pair**, 88 tables and 1642 coefficients as of
 /// 2026-09-19:
 ///
 /// | shader | tables | coefficients |
@@ -525,6 +536,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 /// | `atanint` | 1 | 21 |
 /// | `clausen` | 1 | 15 |
 /// | `gamma` | 1 | 9 |
+/// | `dawson` | 3 | 45 |
 ///
 /// ~~Covers `bessel.wgsl` and `psi_zeta.wgsl`.~~ **CORRECTED 2026-09-19** —
 /// the doc comment claimed `psi_zeta` was covered and the body compared
@@ -611,6 +623,13 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     // are asserted so that a table silently lost from either side fails here
     // rather than shrinking the comparison.
     let pairs: &[(&str, &str, &str, usize, usize)] = &[
+        (
+            "dawson",
+            petir::wgsl::DAWSON,
+            include_str!("../src/wgsl/mirror_dawson.rs"),
+            3,
+            45,
+        ),
         (
             "fermi_dirac",
             petir::wgsl::FERMI_DIRAC,
@@ -726,8 +745,8 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
         }
     }
     assert_eq!(
-        grand, 1597,
-        "the generated pairs are documented as holding 1597 coefficients in \
+        grand, 1642,
+        "the generated pairs are documented as holding 1642 coefficients in \
          total; this run compared {grand}"
     );
 }

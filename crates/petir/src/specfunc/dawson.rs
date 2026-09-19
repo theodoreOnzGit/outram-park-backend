@@ -503,3 +503,21 @@ mod tests {
         assert!(XSML < 1.0 && 4.0 < XBIG && XBIG < XMAX);
     }
 }
+
+/// The three raw tables, so [`crate::wgsl::mirror_dawson`] and
+/// `tests/wgsl_gpu.rs` can measure GSL's single-precision order against its
+/// `f64` one instead of hard-coding either.
+///
+/// Public because the GPU experiment lives in an integration test, which
+/// sees only the crate's public surface. It hands out upstream's
+/// coefficients, which the audit already compares against the vendored GSL.
+pub fn probe_daw() -> ([f64; 21], [f64; 45], [f64; 75]) {
+    (DAW, DAW2, DAWA)
+}
+
+#[cfg(test)]
+pub(crate) const PROBE_DAW: [f64; 21] = DAW;
+#[cfg(test)]
+pub(crate) const PROBE_DAW2: [f64; 45] = DAW2;
+#[cfg(test)]
+pub(crate) const PROBE_DAWA: [f64; 75] = DAWA;

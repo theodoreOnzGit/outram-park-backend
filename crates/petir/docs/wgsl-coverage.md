@@ -76,11 +76,12 @@ and stays there.
 | `specfunc` (inverse-tangent integral) | ~2 | **PORTED** | `Ti_2(x)`, one Chebyshev table evaluated at reciprocal arguments either side of `\|x\| = 1` |
 | `specfunc` (synchrotron radiation) | ~2 | **PORTED** | `S_1(x)` and `S_2(x)`; six Chebyshev series, 91 coefficients. **Upstream's underflow guard is dead code in `f64` and would DESTROY answers if retargeted** — the first constant here whose category depends on the width. See below |
 | `specfunc` (Fermi-Dirac integrals) | ~9 | **PORTED** (fixed indices) | `F_j(x)` at `j = -1, -1/2, 0, 1/2, 1, 3/2, 2`; **22 Chebyshev series, 483 coefficients — the largest table set here**. The general-`j` entry point is absent (it needs the confluent hypergeometrics). **The one shader that CORRECTS an upstream constant's formula** rather than retargeting its value, and the one that meets a guard that is not representable at all — see below |
+| `specfunc` (Dawson's integral) | ~2 | **PORTED** | `F(x) = e^{-x^2} int_0^x e^{t^2} dt`. **The first shader to ship GSL's SINGLE-PRECISION Chebyshev order** — 45 coefficients where the `f64` order needs 84, measured to cost nothing. Upstream's underflow guard is not an `f32`, and deleting it GAINS answers |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~242 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~240 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -409,6 +410,69 @@ seven different code paths is not chance: deep in the negative tail every
 compared is the transcendental. `wgsl_gpu` evaluates `exp` alone at that
 abscissa and asserts it accounts for the whole difference — which is what
 separates the device's maths library from the transcription.
+
+## GSL declares a SINGLE-PRECISION order, and every shader before `dawson` ignored it
+
+`cheb_series` has five fields, and the fifth is `order_sp` — the order
+`GSL_MODE_SINGLE` selects inside `cheb_eval_mode`:
+
+```c
+static cheb_series dawa_cs = { dawa_data, 34, /* 74, */ -1, 1, 12 };
+/*                                        ^^                    ^^  */
+/*                                    f64 order            order_sp */
+```
+
+Across the 88 tables in the ported modules where `order_sp < order`, the
+`f64` order needs **1919** coefficients and `order_sp` needs **1129** —
+**41.2 % fewer**. Using it is *porting*, not inventing a truncation:
+`cheb::eval_mode`'s reduced-`order_sp` path is already verified against
+`cheb_eval_mode` at 357/369 bit-identical.
+
+**`dawson.wgsl` is the first shader here to ship it**, and it costs nothing:
+
+| | worst `f32` vs `f64` | at | ulp |
+|---|---|---|---|
+| `order_sp` — 45 coefficients | 1.1277e-06 | 3.9939 | 9.5 |
+| `f64` order — 84 coefficients | 1.1277e-06 | 3.9939 | 9.5 |
+| the two against each other | 9.1727e-07 | 3.9824 | 7.7 |
+
+Identical worst error, bit for bit, at half the coefficients. Where the two
+differ at all they differ by less than the error both already carry.
+
+**Measure the ANSWER, not the fit.** Comparing the Chebyshev sums directly
+makes `order_sp` look far worse than it is — up to 3.3e-04 relative on
+`bessel_K1`'s `ak1_data`, 1.3e-04 on `airy`'s `am22_data` — because these
+fits enter additively against an `O(1)` leading term (`x (0.75 + cheb)`,
+`(0.5 + cheb)/x`, `val_infinity - cheb s`), so a fit passing near zero shows
+an unbounded relative figure while contributing nothing. The same tables'
+**absolute** differences are 2.98e-08 and 9.31e-10. `order_sp` targets
+absolute accuracy of the sum, which is the quantity that reaches the answer.
+
+Retrofitting the other seventeen shaders is per-kernel work, because the
+answer-level cost has to be measured each time rather than assumed from this
+one result.
+
+## The inline-coefficient effect is NOT about array length
+
+`debye.wgsl` recorded that series held as inline `array<f32, N>` literals do
+not reproduce the CPU bit for bit where storage-buffer coefficients do —
+34/64 against 64/64. Shipping `order_sp` made the obvious experiment cheap,
+and it comes back negative. **The same function, the same device, the same
+probes, at two array lengths:**
+
+| `dawson.wgsl` arrays | bit-identical |
+|---|---|
+| `order_sp` — 10, 22, 13 | 470 / 602 (78.1 %) |
+| `f64` order — 16, 33, 35 | 456 / 602 (75.7 %) |
+
+Cutting the coefficient count by a third moves **14 probes of 602**. Inline
+versus buffer moved **30 of 64**. A 2-point effect against a 47-point one, so
+length is not the mechanism.
+
+What remains is that an inline array is known to the compiler at compile
+time, so it may constant-fold and reassociate the Clenshaw recurrence, where
+a storage-buffer read forbids both. That is the next thing to test, and it is
+a different experiment from this one.
 
 **And the device puts the underflow point in a third place, which is the
 strongest argument for keeping upstream's constant.** Measured on llvmpipe
