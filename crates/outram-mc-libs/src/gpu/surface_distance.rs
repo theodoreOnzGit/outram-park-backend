@@ -1754,8 +1754,42 @@ mod tests {
         }
 
         let reference = surface_distance_cpu_f32(&encoded, &queries);
-        let (hybrid, split) =
+
+        // `SplitPolicy::Auto` deliberately declines to use a CPU-CLASS adapter
+        // (`auto_fraction` returns 0 for `DeviceClass::Cpu`), because handing
+        // work to a software rasteriser like Mesa's lavapipe costs buffer
+        // copies to run the same arithmetic on the same cores. That is correct
+        // library behaviour, so asserting `Split` under `Auto` would make this
+        // test fail on exactly the hosts where a software adapter finally lets
+        // it run at all.
+        //
+        // Check both things separately: that the heuristic makes that call,
+        // and -- with the share forced -- that the splitting machinery itself
+        // works. The second is what this test's name promises, and it had
+        // never actually executed before a software Vulkan device was
+        // available here (2026-09-19).
+        let caps = ctx.capabilities();
+        let is_cpu_class = matches!(
+            caps.gpu.as_ref().map(|g| g.class),
+            Some(crate::gpu::capabilities::DeviceClass::Cpu)
+        );
+        let (_, auto_split) =
             surface_distance_hybrid(Some(&ctx), &encoded, &queries, SplitPolicy::Auto);
+        if is_cpu_class {
+            assert_eq!(
+                auto_split.reason,
+                SplitReason::PolicyCpuOnly,
+                "Auto should decline a CPU-class adapter"
+            );
+        }
+
+        // Force a genuine split so the hybrid path is exercised on any device.
+        let (hybrid, split) = surface_distance_hybrid(
+            Some(&ctx),
+            &encoded,
+            &queries,
+            SplitPolicy::GpuFraction(0.5),
+        );
 
         assert_eq!(split.reason, SplitReason::Split, "expected a real split");
         assert!(split.gpu_items > 0, "GPU took no load");

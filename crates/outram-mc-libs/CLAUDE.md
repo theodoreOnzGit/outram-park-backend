@@ -544,6 +544,59 @@ The full Rust-module → OpenMC C++ source map, the bottom-up porting order (wit
 per-module implementation status), and the prioritised test backlog all live in
 **`docs/port-reference.md`**.
 
+## GPU policy: CI is GPU-INDEPENDENT; detection is at run time (HARD RULE)
+
+**Maintainer direction, 2026-09-19.** These are requirements, not preferences:
+
+- **CI must never fail merely because no GPU is exposed** — Windows, Linux or
+  macOS.
+- **GPU availability is detected at RUN TIME**, by `gpu::probe()`, never by a
+  build-time assumption.
+- **CPU / reference tests are mandatory on every platform.** They are the
+  trusted path and must run everywhere.
+- **GPU tests are conditional** on an available, compatible adapter, and must
+  `SKIP` cleanly without one.
+- **`SplitPolicy::Auto` must fall back to CPU gracefully** when no GPU backend
+  or device exists. `hybrid_without_a_gpu_runs_everything_on_the_cpu` is the
+  test that pins this; do not weaken it.
+
+Verified 2026-09-19 by running the suites with the Vulkan loader hidden
+(`VK_ICD_FILENAMES=/nonexistent VK_DRIVER_FILES=/nonexistent`): every GPU test
+prints `SKIP` and passes, and nothing else changes.
+
+### A software ICD is a LOCAL convenience, never a CI requirement
+
+Because every `gpu::*` test skips without an adapter, a host with no Vulkan
+driver runs the whole GPU suite green while executing none of it. That is
+correct for CI and useless for development — so when you want the shaders to
+actually run *locally*, install Mesa's software rasteriser:
+
+```bash
+apt-get update && apt-get install -y mesa-vulkan-drivers   # provides lvp_icd.json
+```
+
+`gpu::probe()` then returns `llvmpipe (LLVM …)` and the WGSL genuinely
+executes. **Do not make this a CI dependency** and do not write a test that
+requires it.
+
+**This is not hypothetical value.** Doing it on 2026-09-19 immediately exposed
+`hybrid_splits_work_across_both_devices` as broken: it asserted
+`SplitReason::Split` whenever *any* adapter existed, while `SplitPolicy::Auto`
+correctly returns a zero GPU share for `DeviceClass::Cpu` — handing work to a
+software rasteriser costs buffer copies to run the same arithmetic on the same
+cores. The library was right and the test was wrong, and the test had **never
+executed on any host**. See `bn` for the record.
+
+**Two things follow for anyone adding a GPU test here.**
+
+- **Do not assert on `SplitPolicy::Auto`'s choice** unless the test also
+  handles a CPU-class adapter. Force the share with
+  `SplitPolicy::GpuFraction(..)` when the point is to exercise the split
+  machinery rather than the heuristic.
+- **A software adapter is `DeviceClass::Cpu`, not `Virtual`.** Code that
+  branches on device class will take the CPU path on it, which is correct and
+  is also why such a test can pass vacuously.
+
 ## Build and test
 
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
