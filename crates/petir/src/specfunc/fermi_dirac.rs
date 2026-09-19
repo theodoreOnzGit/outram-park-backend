@@ -67,6 +67,24 @@
 //! Both are gaps in capability, not in fidelity — see the crate `README`'s
 //! coverage table rather than assuming the family is complete.
 //!
+//! # `fd_whiz` is ported, and unreachable from here
+//!
+//! The Levin *u*-transform that accelerates `fd_neg`'s alternating series —
+//! the one part of this port needing scratch memory, two 101-element arrays
+//! — **is never entered by any of the seven entry points above**. [`fd_neg`]
+//! is called only from [`fd_asymp`], which runs only at `x >= 30`, so it
+//! always sees `-x <= -30` and always takes the simple series instead, which
+//! converges in **2 to 3 terms**. Measured by instrumentation in
+//! `the_series_acceleration_is_unreachable_from_this_module`, which sweeps
+//! the whole domain and asserts the counter stays at zero — and then calls
+//! `fd_neg` directly at an argument that *does* take the branch, so the
+//! instrument is shown capable of firing.
+//!
+//! The code stays because it is upstream's and because
+//! `gsl_sf_fermi_dirac_int_e` would reach it. What was wrong was an earlier
+//! claim that those arrays blocked a WGSL transcription of this family; they
+//! do not, because nothing calls them.
+//!
 //! # Argument range, stated plainly
 //!
 //! **All real `x`**, dimensionless (`f64`). Below `GSL_LOG_DBL_MIN` every
@@ -104,7 +122,29 @@
 //! better), the identity `dF_j/dx = F_{j-1}`, and the exact integer
 //! reflection formulas. Every figure is asserted in the tests.
 //!
-//! ## One inherited weak spot, at `x = -5`
+//! ## Inherited weak spot 1: `F_2`'s far-field cut is misplaced
+//!
+//! Past `x = 30` both [`fermi_dirac_1`] and [`fermi_dirac_2`] use a short
+//! Chebyshev fit in `60/x`, and past a second cut drop it for the pure
+//! degenerate limit. What the fit carries is the Sommerfeld correction —
+//! `1 + (pi^2/3)/x^2` for `F_1`, `1 + pi^2/x^2` for `F_2` — so the cut
+//! belongs where that falls below `eps`.
+//!
+//! `F_1`'s does: at upstream's `1/GSL_SQRT_DBL_EPSILON = 6.711e7` the
+//! correction is 6.7e-16 and the transition is invisible. **`F_2`'s does
+//! not.** Upstream uses `1/GSL_ROOT3_DBL_EPSILON = 1.6514e5`, apparently
+//! matching the `x^3` factor rather than the accuracy requirement, where the
+//! correction is still **3.62e-10** — so the function steps down by 3.56e-10
+//! relative at that point and recovers only as `1/x^2`. `1/sqrt(eps)` would
+//! have put it at 2.2e-15.
+//!
+//! Not corrected here, because this crate's bar is agreement with GSL and a
+//! port that quietly improves on upstream makes its own comparisons
+//! meaningless. The measurement is asserted instead, in
+//! `upstreams_far_field_cut_is_exact_for_f_1_and_six_orders_early_for_f_2`,
+//! so a future GSL that moves the cut fails loudly.
+//!
+//! ## Inherited weak spot 2: `F_0` at `x = -5`
 //!
 //! [`fermi_dirac_0`] is **1.5e-14** against `ln_1p(e^x)` at exactly
 //! `x = -5`, falling to 8.8e-15 at -4.9, 2.3e-15 at -4 and bit-exact by -1.
@@ -418,6 +458,15 @@ fn fd_whiz(
     carry_n / carry_d
 }
 
+/// How many times [`fd_neg`] has entered its **series-acceleration** branch.
+///
+/// Measured, not asserted in prose: across every argument the seven public
+/// entry points can reach, this stays at zero — see
+/// `the_series_acceleration_is_unreachable_from_this_module`.
+#[cfg(test)]
+pub(crate) static FD_WHIZ_ENTRIES: core::sync::atomic::AtomicUsize =
+    core::sync::atomic::AtomicUsize::new(0);
+
 /// Upstream's `qsize`: `100 + 1`.
 const FD_QSIZE: usize = 101;
 /// Upstream's `itmax` inside `fd_neg`.
@@ -447,6 +496,10 @@ fn fd_neg(j: f64, x: f64) -> f64 {
         }
         return sum;
     }
+
+    // INSTRUMENTED: see `the_series_acceleration_is_unreachable_from_this_module`.
+    #[cfg(test)]
+    FD_WHIZ_ENTRIES.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
 
     let mut s = 0.0_f64;
     let mut xn = x;
@@ -1323,6 +1376,212 @@ mod tests {
                 enx *= ex;
             }
         }
+    }
+
+    /// **`fd_whiz` and its two 101-element work arrays are UNREACHABLE from
+    /// this module's seven entry points** — measured by instrumentation, not
+    /// argued from the branch conditions.
+    ///
+    /// # Why it matters
+    ///
+    /// The series acceleration is the one part of this port that needs
+    /// scratch memory, and it was recorded as the obstacle to a WGSL/`f32`
+    /// transcription of the family (`op-uczx.17`), where 101 `f32` slots
+    /// twice over is real function-local storage. It turns out not to be an
+    /// obstacle at all.
+    ///
+    /// [`fd_neg`] takes its acceleration branch only when `x` is NOT less
+    /// than both `-1` and `-|j+1|`. But [`fd_asymp`] is the only caller, and
+    /// it is only ever reached at `x >= 30`, so `fd_neg` always sees
+    /// `-x <= -30` — and `-|j+1|` is `-0.5`, `-1.5` or `-2.5` for the three
+    /// half-integer indices. The condition is satisfied with two orders of
+    /// room, every time.
+    ///
+    /// The simple series it takes instead converges in **2 to 3 terms**
+    /// (measured 2026-09-19 at `x = -30, -40, -100, -700` for all three `j`),
+    /// because `e^{-30}` is already 9.4e-14.
+    ///
+    /// # Why the code stays
+    ///
+    /// It is upstream's, and `gsl_sf_fermi_dirac_int_e` for general integer
+    /// `j` — which this module does not expose but a later change might —
+    /// does reach it. Removing a faithfully ported routine because the
+    /// currently exposed surface cannot call it would be exactly the kind of
+    /// silent divergence from upstream this crate's `CLAUDE.md` forbids.
+    /// What was wrong was the *claim*, not the code.
+    ///
+    /// # How this is measured
+    ///
+    /// [`FD_WHIZ_ENTRIES`] counts entries to the acceleration branch. The
+    /// sweep below covers every public entry point across the whole
+    /// reachable domain — including the asymptotic region past `x = 30`,
+    /// which is the only place `fd_neg` is called from at all — and asserts
+    /// the counter never moves. `fd_neg` is then called **directly** at an
+    /// argument that does take the branch, so the instrument is shown to be
+    /// capable of firing.
+    #[test]
+    fn the_series_acceleration_is_unreachable_from_this_module() {
+        use core::sync::atomic::Ordering;
+
+        let before = FD_WHIZ_ENTRIES.load(Ordering::Relaxed);
+        for (_, f, _) in FAMILY {
+            for k in 0..=20_000 {
+                // -750 .. 1250, so LOG_DBL_MIN, every Chebyshev boundary and
+                // the asymptotic branch are all crossed.
+                let x = -750.0 + 0.1 * k as f64;
+                let _ = f(x);
+            }
+            for x in [1e3_f64, 1e6, 1e12, 1e100, 1e200, 1e300] {
+                let _ = f(x);
+                let _ = f(-x);
+            }
+        }
+        let after = FD_WHIZ_ENTRIES.load(Ordering::Relaxed);
+        assert_eq!(
+            after - before,
+            0,
+            "fd_neg took its series-acceleration branch {} times while sweeping \
+             the whole reachable domain. It is documented as unreachable from \
+             this module -- if that has changed, the WGSL port's scratch-memory \
+             question is live again",
+            after - before
+        );
+
+        // AND THE INSTRUMENT CAN FIRE. fd_neg is private, so this is the only
+        // way to reach the branch -- which is the point being made.
+        let before = FD_WHIZ_ENTRIES.load(Ordering::Relaxed);
+        let v = fd_neg(1.5, -0.5);
+        let after = FD_WHIZ_ENTRIES.load(Ordering::Relaxed);
+        assert_eq!(
+            after - before,
+            1,
+            "fd_neg(1.5, -0.5) must take the acceleration branch -- x = -0.5 is \
+             not less than -1 -- or the sweep above proves nothing"
+        );
+        assert!(
+            v.is_finite() && v > 0.0,
+            "and it must still produce an answer: {v:e}"
+        );
+
+        // The simple series it takes instead converges in 2 to 3 terms at
+        // every argument fd_asymp can hand it.
+        for j in [-0.5_f64, 0.5, 1.5] {
+            for x in [-30.0_f64, -40.0, -100.0, -700.0] {
+                let ex = x.exp();
+                let (mut term, mut sum, mut used) = (ex, ex, 1);
+                for n in 2..100 {
+                    let rat = (n as f64 - 1.0) / n as f64;
+                    term *= -ex * rat.powf(j + 1.0);
+                    sum += term;
+                    used = n;
+                    if (term / sum).abs() < DBL_EPSILON {
+                        break;
+                    }
+                }
+                assert!(
+                    used <= 3,
+                    "the simple series is documented as converging in 2 to 3 \
+                     terms; at j = {j}, x = {x} it took {used}"
+                );
+            }
+        }
+    }
+
+    /// **Upstream's far-field cut for `F_2` is six orders of magnitude too
+    /// early, and costs 3.6e-10** — measured here so the defect is recorded
+    /// rather than inherited silently.
+    ///
+    /// # What the two cuts are for
+    ///
+    /// Past `x = 30` both `F_1` and `F_2` evaluate a short Chebyshev fit in
+    /// `60/x` times `x^2` or `x^3`, and past a second cut they drop the fit
+    /// for the pure degenerate limit. What the fit is carrying is exactly the
+    /// Sommerfeld correction:
+    ///
+    /// ```text
+    ///     F_1(x) / (x^2/2) = 1 + (pi^2/3) / x^2
+    ///     F_2(x) / (x^3/6) = 1 + pi^2      / x^2
+    /// ```
+    ///
+    /// so each cut should sit where that correction falls below `eps`. For
+    /// `F_1` upstream's `1/GSL_SQRT_DBL_EPSILON = 6.711e7` does exactly that
+    /// — the correction is 6.7e-16 there, about 3 `eps`, and the transition
+    /// is invisible.
+    ///
+    /// For `F_2` upstream uses `1/GSL_ROOT3_DBL_EPSILON = 1.6514e5`, which
+    /// looks like it was chosen to match the `x^3` factor rather than the
+    /// accuracy requirement. The correction there is still **3.62e-10**, six
+    /// orders above `eps`, so `gsl_sf_fermi_dirac_2` steps down by
+    /// **3.56e-10 relative** at that point and stays low, recovering only as
+    /// `1/x^2`. Matching `F_1`'s `1/sqrt(eps)` would have put the correction
+    /// at 2.2e-15.
+    ///
+    /// # Why it is not fixed here
+    ///
+    /// This crate's bar is agreement with GSL, and a port that silently
+    /// improves on upstream is a port whose comparisons no longer mean
+    /// anything (crate `CLAUDE.md`, rule 2). The measurement is asserted
+    /// instead, so a future GSL that fixes it fails this test loudly rather
+    /// than passing unnoticed.
+    ///
+    /// # Results (2026-09-19)
+    ///
+    /// | `x / cut` | `F_2 / exact - 1` |
+    /// |---|---|
+    /// | 0.999 | 0 |
+    /// | 0.9999 | -2.220e-16 |
+    /// | **1.0** | **-3.619e-10** |
+    /// | 1.001 | -3.612e-10 |
+    /// | 1.1 | -2.991e-10 |
+    /// | 10 | -3.619e-12 |
+    ///
+    /// and for `F_1` the same sweep never leaves 6.7e-16.
+    #[test]
+    fn upstreams_far_field_cut_is_exact_for_f_1_and_six_orders_early_for_f_2() {
+        // The exact far-field forms, from the reflection identities: the
+        // reflected piece is O(e^{-x}) and is zero at every x here.
+        let exact_1 = |x: f64| 0.5 * x * x + PI2 / 6.0;
+        let exact_2 = |x: f64| x * x * x / 6.0 + PI2 * x / 6.0;
+
+        // F_1's cut is where it should be.
+        let cut1 = 1.0 / SQRT_DBL_EPSILON;
+        for m in [0.999_f64, 0.9999, 1.0, 1.0001, 1.001, 1.1, 10.0] {
+            let x = cut1 * m;
+            let e = (fermi_dirac_1(x) / exact_1(x) - 1.0).abs();
+            assert!(
+                e < 1e-14,
+                "F_1 at {m} x its far-field cut is {e:e} from the exact form;                  upstream's 1/sqrt(eps) is documented as placing the cut where                  the Sommerfeld correction is already below eps"
+            );
+        }
+
+        // F_2's is not. Below the cut it is exact; at and above it, low by
+        // 3.6e-10. Both halves are asserted, because it is the CONTRAST that
+        // identifies this as a misplaced cut rather than a bad fit.
+        let cut2 = 1.0 / ROOT3_DBL_EPSILON;
+        for m in [0.999_f64, 0.9999] {
+            let x = cut2 * m;
+            let e = (fermi_dirac_2(x) / exact_2(x) - 1.0).abs();
+            assert!(
+                e < 1e-15,
+                "F_2 just BELOW its cut should be exact; it is {e:e}"
+            );
+        }
+        for (m, want) in [(1.0_f64, 3.619e-10), (1.001, 3.612e-10), (1.1, 2.991e-10)] {
+            let x = cut2 * m;
+            let d = fermi_dirac_2(x) / exact_2(x) - 1.0;
+            assert!(
+                d < 0.0 && (d.abs() / want - 1.0).abs() < 0.01,
+                "F_2 at {m} x its cut is documented as {want:e} LOW; it is {d:e}.                  If this now agrees with the exact form, upstream has moved the                  cut and this crate's bar -- agreement with GSL -- has changed"
+            );
+        }
+        // And it recovers as 1/x^2: ten times out is a hundred times smaller.
+        let ten = (fermi_dirac_2(cut2 * 10.0) / exact_2(cut2 * 10.0) - 1.0).abs();
+        let one = (fermi_dirac_2(cut2) / exact_2(cut2) - 1.0).abs();
+        assert!(
+            (one / ten / 100.0 - 1.0).abs() < 0.02,
+            "the F_2 deficit is documented as falling like 1/x^2 -- a factor 100              over a decade -- and fell by {}",
+            one / ten
+        );
     }
 
     /// The two bounds this module re-declares are the constants they claim to
