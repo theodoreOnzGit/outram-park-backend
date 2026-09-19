@@ -509,8 +509,8 @@ mod desktop {
                 },
                 ..Default::default()
             };
-            let r = run_keff_reactor_physics(&pebble, mats, nucs, &cfg)
-                .expect("CSG reactor physics");
+            let r =
+                run_keff_reactor_physics(&pebble, mats, nucs, &cfg).expect("CSG reactor physics");
             let (_e2, _f2, p2, eps2) = r.six_factors.two_group_openmc_convention();
             eprintln!(
                 "    {label} seed {seed:>3}: k = {:.5} ± {:.5}, p = {p2:.4}, eps = {eps2:.4}  \
@@ -584,7 +584,10 @@ mod desktop {
             "  ring-RPT fuel shell: {R_RPT_INNER:.6} < r < {r_fuel:.6} cm; pebble {R_PEBBLE}, \
              reflective root {R_ROOT}"
         );
-        eprintln!("Nuclear data + materials ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        eprintln!(
+            "Nuclear data + materials ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         let n = n_seeds();
         let seeds: Vec<u64> = (1..=n as u64).collect();
@@ -601,12 +604,7 @@ mod desktop {
         // pcm on the eigenvalue itself, the convention gh:#193's row uses.
         let diff = (kb - ka) * 1.0e5;
         let ediff = ((eka * eka) + (ekb * ekb)).sqrt() * 1.0e5;
-        let d: Vec<f64> = b
-            .k
-            .iter()
-            .zip(&a.k)
-            .map(|(x, y)| (x - y) * 1.0e5)
-            .collect();
+        let d: Vec<f64> = b.k.iter().zip(&a.k).map(|(x, y)| (x - y) * 1.0e5).collect();
         let (md, sdp, edp) = stats(&d);
 
         println!("FHR ring-RPT CSG pebble, free-gas target motion (in-process hook)");
@@ -620,7 +618,10 @@ mod desktop {
             b.k.len()
         );
         println!();
-        for (label, x, y) in [("p  (2-group)", &a.p, &b.p), ("eps(2-group)", &a.eps, &b.eps)] {
+        for (label, x, y) in [
+            ("p  (2-group)", &a.p, &b.p),
+            ("eps(2-group)", &a.eps, &b.eps),
+        ] {
             let (mx, _, ex) = stats(x);
             let (my, _, ey) = stats(y);
             println!(
@@ -748,9 +749,7 @@ mod desktop {
                 "    Note also that the {REFERENCE_PCM:+.0} pcm reference carries a ONE-SEED \
                  within-run"
             );
-            println!(
-                "    error bar (±323 pcm), not an ensemble one; part of any gap may be that."
-            );
+            println!("    error bar (±323 pcm), not an ensemble one; part of any gap may be that.");
         }
     }
 }

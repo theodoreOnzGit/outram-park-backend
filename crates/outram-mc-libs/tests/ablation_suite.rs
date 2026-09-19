@@ -351,7 +351,10 @@ fn ablating_inelastic_anisotropy_moves_sigma_tr_by_the_diagnosed_amount() {
     let str_off = sigma_tr(&iso, &mat, mu_el, 0.0);
     let shift = str_off / str_on - 1.0;
     println!("  Sigma_tr  ON  {str_on:.5} /cm");
-    println!("  Sigma_tr  OFF {str_off:.5} /cm   ({:+.2}%)", 100.0 * shift);
+    println!(
+        "  Sigma_tr  OFF {str_off:.5} /cm   ({:+.2}%)",
+        100.0 * shift
+    );
 
     assert!(
         shift > 0.0,
@@ -438,8 +441,14 @@ fn ablating_the_mf6_continuum_law_hardens_the_secondary_spectrum() {
         let mut seed = 0x5EED_u64;
         let mut acc = 0.0;
         for _ in 0..draws {
-            let (e_out, _) =
-                continuum_inelastic_scatter_evaluated(e, u, n.awr, 0.0, n.continuum_law(91), &mut seed);
+            let (e_out, _) = continuum_inelastic_scatter_evaluated(
+                e,
+                u,
+                n.awr,
+                0.0,
+                n.continuum_law(91),
+                &mut seed,
+            );
             acc += e_out / e;
         }
         acc / draws as f64
@@ -492,7 +501,11 @@ fn aggregates_are_grid_converged() {
     let (c, _, cs) = mu_inelastic_on(&nuclides, 1000, &coarse);
     let (f, _, fs) = mu_inelastic_on(&nuclides, 1000, &fine);
     println!("  <mu_inel>  {} pts {c:.4}   {} pts {f:.4}", GRID / 2, GRID);
-    println!("  MT91 share {} pts {cs:.4}   {} pts {fs:.4}", GRID / 2, GRID);
+    println!(
+        "  MT91 share {} pts {cs:.4}   {} pts {fs:.4}",
+        GRID / 2,
+        GRID
+    );
 
     let rel = (c - f).abs() / f;
     assert!(

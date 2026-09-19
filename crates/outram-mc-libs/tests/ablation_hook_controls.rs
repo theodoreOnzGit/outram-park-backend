@@ -169,7 +169,10 @@ fn sample_inelastic_outgoing(nuc: &Nuclide, e: f64, seed: &mut u64) -> Option<f6
 /// change to the mechanism under test.
 fn assert_cross_sections_unchanged(before: &Nuclide, after: &Nuclide, who: &str) {
     for &e in &[1.0e-2_f64, 1.0, 1.0e3, 1.0e5, PROBE_EV, 1.4e7] {
-        let (a, b) = (before.xs_at_energy(e, TEMP_K), after.xs_at_energy(e, TEMP_K));
+        let (a, b) = (
+            before.xs_at_energy(e, TEMP_K),
+            after.xs_at_energy(e, TEMP_K),
+        );
         for (label, x, y) in [
             ("total", a.total, b.total),
             ("elastic", a.elastic, b.elastic),
@@ -217,11 +220,7 @@ fn the_continuum_angular_hook_ablates_exactly_the_angular_law() {
     );
 
     // 3: nothing else moved.
-    assert_cross_sections_unchanged(
-        &evaluated,
-        &ablated,
-        "with_isotropic_continuum_scattering",
-    );
+    assert_cross_sections_unchanged(&evaluated, &ablated, "with_isotropic_continuum_scattering");
 
     // The energy law must survive: this ablates the ANGLE only. If the
     // outgoing-energy law went with it, the two arms would differ in how far
@@ -359,7 +358,10 @@ fn the_two_hooks_do_not_interfere() {
     // Ablating the channel may remove the angular law with it (the channel is
     // gone, so its angle is moot) -- but it must not be an error, and combining
     // them must be stable rather than panicking or resurrecting anything.
-    let both = evaluated.clone().without_inelastic().with_isotropic_continuum_scattering();
+    let both = evaluated
+        .clone()
+        .without_inelastic()
+        .with_isotropic_continuum_scattering();
     assert_eq!(
         both.xs_at_energy(PROBE_EV, TEMP_K).inelastic,
         0.0,
@@ -499,7 +501,8 @@ fn the_target_motion_hook_ablates_exactly_the_target_velocity() {
         hi = hi.max(e_out);
     }
     assert!(
-        lo >= alpha * THERMAL_PROBE_EV * (1.0 - 1.0e-12) && hi <= THERMAL_PROBE_EV * (1.0 + 1.0e-12),
+        lo >= alpha * THERMAL_PROBE_EV * (1.0 - 1.0e-12)
+            && hi <= THERMAL_PROBE_EV * (1.0 + 1.0e-12),
         "ablated outcomes spanned [{lo:.6e}, {hi:.6e}] eV, outside the target-at-rest window \
          [{:.6e}, {THERMAL_PROBE_EV:.6e}] eV (alpha = {alpha:.5}).",
         alpha * THERMAL_PROBE_EV
@@ -569,7 +572,10 @@ fn the_target_motion_hook_is_a_no_op_above_the_free_gas_threshold() {
             a.0,
             b.0
         );
-        assert_eq!(sa, sb, "draw {i}: the RNG streams diverged above the threshold");
+        assert_eq!(
+            sa, sb,
+            "draw {i}: the RNG streams diverged above the threshold"
+        );
         n += 1;
     }
     println!(
@@ -895,7 +901,11 @@ fn the_fission_source_hooks_do_not_interfere() {
     for i in 0..2048 {
         let a = evaluated.sample_fission_energy(PROBE_EV, &mut sa);
         let b = nu_off.sample_fission_energy(PROBE_EV, &mut sb);
-        assert_eq!(a.to_bits(), b.to_bits(), "draw {i}: the nu-bar freeze moved chi");
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "draw {i}: the nu-bar freeze moved chi"
+        );
     }
     // Freezing chi must not touch nu-bar (asserted at both ends of the table).
     for &e in &[NU_FREEZE_EV, PROBE_EV, 1.4e7] {
@@ -922,9 +932,15 @@ fn the_fission_source_hooks_do_not_interfere() {
 
     // And they are independent of the *scattering* hooks, which is what lets
     // one paired-seed study vary several mechanisms at once.
-    let with_scatter = both.clone().with_target_at_rest().with_isotropic_continuum_scattering();
+    let with_scatter = both
+        .clone()
+        .with_target_at_rest()
+        .with_isotropic_continuum_scattering();
     assert_eq!(with_scatter.frozen_nubar_energy(), Some(NU_FREEZE_EV));
-    assert_eq!(with_scatter.frozen_fission_spectrum_energy(), Some(NU_FREEZE_EV));
+    assert_eq!(
+        with_scatter.frozen_fission_spectrum_energy(),
+        Some(NU_FREEZE_EV)
+    );
     assert!(with_scatter.is_target_at_rest());
 
     println!("the nu-bar and chi hooks compose with each other and with the scattering hooks");
@@ -1094,8 +1110,8 @@ fn the_n2n_multiplicity_hook_reaches_the_transport_kernel() {
 
     // An ENSEMBLE, not one seed -- see the note in this test's doc comment.
     const SEEDS: [u64; 8] = [
-        20_260_916, 20_260_917, 20_260_918, 20_260_919,
-        20_260_920, 20_260_921, 20_260_922, 20_260_923,
+        20_260_916, 20_260_917, 20_260_918, 20_260_919, 20_260_920, 20_260_921, 20_260_922,
+        20_260_923,
     ];
     let mut diffs = Vec::new();
     let mut n_differ = 0usize;

@@ -37,9 +37,7 @@
 use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
-use outram_mc_libs::pebble_beds::delta_tracking::{
-    bounded_delta_flight, DeltaStep, Majorant,
-};
+use outram_mc_libs::pebble_beds::delta_tracking::{bounded_delta_flight, DeltaStep, Majorant};
 
 const E: f64 = 0.0253; // thermal, where boron is strongest
 
@@ -56,13 +54,18 @@ fn slab_material(atom_density: f64) -> Material {
     Material {
         id: 1,
         name: "absorber".into(),
-        components: vec![NuclideComponent { nuclide_idx: 0, atom_density }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 0,
+            atom_density,
+        }],
         temperature: 293.6,
     }
 }
 
 fn grid() -> Vec<f64> {
-    (0..24).map(|i| 1.0e-3 * 10.0_f64.powf(i as f64 * 0.5)).collect()
+    (0..24)
+        .map(|i| 1.0e-3 * 10.0_f64.powf(i as f64 * 0.5))
+        .collect()
 }
 
 /// A flight that reaches the boundary must land **exactly on it**, not past it.
@@ -107,7 +110,10 @@ fn an_exiting_flight_lands_exactly_on_the_boundary() {
         }
     }
     println!("{exits} of 2000 flights exited; all landed on the boundary");
-    assert!(exits > 1500, "a thin slab should mostly transmit, got {exits}/2000");
+    assert!(
+        exits > 1500,
+        "a thin slab should mostly transmit, got {exits}/2000"
+    );
 }
 
 /// **The unbiasedness claim, tested directly.**
@@ -137,7 +143,13 @@ fn truncation_is_unbiased() {
     let (mut n_coll_a, mut sum_a) = (0usize, 0.0_f64);
     for _ in 0..N {
         if let DeltaStep::Collision { position, .. } = bounded_delta_flight(
-            Position::ZERO, u, E, &maj, &mats, &nucs, 100_000,
+            Position::ZERO,
+            u,
+            E,
+            &maj,
+            &mats,
+            &nucs,
+            100_000,
             |p: Position, _d: Direction| L - p.x,
             |_p: Position| Some(0),
             &mut seed_a,
@@ -153,7 +165,13 @@ fn truncation_is_unbiased() {
     let (mut n_coll_b, mut sum_b) = (0usize, 0.0_f64);
     for _ in 0..N {
         let first = bounded_delta_flight(
-            Position::ZERO, u, E, &maj, &mats, &nucs, 100_000,
+            Position::ZERO,
+            u,
+            E,
+            &maj,
+            &mats,
+            &nucs,
+            100_000,
             |p: Position, _d: Direction| L * 0.5 - p.x,
             |_p: Position| Some(0),
             &mut seed_b,
@@ -163,10 +181,20 @@ fn truncation_is_unbiased() {
                 n_coll_b += 1;
                 sum_b += position.x;
             }
-            DeltaStep::Exit { position, direction, .. } => {
+            DeltaStep::Exit {
+                position,
+                direction,
+                ..
+            } => {
                 // Handoff: resume in the second region from the boundary.
                 if let DeltaStep::Collision { position, .. } = bounded_delta_flight(
-                    position, direction, E, &maj, &mats, &nucs, 100_000,
+                    position,
+                    direction,
+                    E,
+                    &maj,
+                    &mats,
+                    &nucs,
+                    100_000,
                     |p: Position, _d: Direction| L - p.x,
                     |_p: Position| Some(0),
                     &mut seed_b,
@@ -276,7 +304,10 @@ fn a_void_region_is_crossed_not_lost() {
     );
     match step {
         DeltaStep::Exit { position, .. } => {
-            assert!((position.x - 4.0).abs() < 1.0e-12, "void crossed to the boundary");
+            assert!(
+                (position.x - 4.0).abs() < 1.0e-12,
+                "void crossed to the boundary"
+            );
         }
         other => panic!("a void region must be crossed, not lost; got {other:?}"),
     }

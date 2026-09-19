@@ -133,7 +133,7 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
-use njoy_outram_park_fork::reference_data::reference_endf;
+    use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::geometry::Geometry;
     use outram_mc_libs::geometry::position::Position;
@@ -254,7 +254,7 @@ use njoy_outram_park_fork::reference_data::reference_endf;
                 name: "godiva flux spectrum".into(),
                 filters: vec![FilterKind::Energy(EnergyFilter {
                     bins: edges.to_vec(),
-            })],
+                })],
                 scores: vec![ScoreType::Flux],
                 bins: vec![TallyBin::default(); N_BINS],
             };
@@ -322,7 +322,10 @@ use njoy_outram_park_fork::reference_data::reference_endf;
             iso.iter().all(|n| !n.has_continuum_anisotropy()),
             "the ablation is a no-op -- it left an angular law in place"
         );
-        println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        println!(
+            "Nuclear data ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         let materials = vec![Material {
             id: 1,
@@ -379,10 +382,19 @@ use njoy_outram_park_fork::reference_data::reference_endf;
             };
             println!(
                 "  {label:<24} {ma:>14.5e} {mb:>14.5e} {:>20}",
-                format!("{:+.3} % ± {:.3} ({:.1}σ)", rel * 100.0, rel_err * 100.0, sigma)
+                format!(
+                    "{:+.3} % ± {:.3} ({:.1}σ)",
+                    rel * 100.0,
+                    rel_err * 100.0,
+                    sigma
+                )
             );
             if sigma >= 2.0 {
-                harder_votes += if (rel > 0.0) == higher_is_harder { 1 } else { -1 };
+                harder_votes += if (rel > 0.0) == higher_is_harder {
+                    1
+                } else {
+                    -1
+                };
             }
         }
 

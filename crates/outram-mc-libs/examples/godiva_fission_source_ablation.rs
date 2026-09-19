@@ -267,7 +267,9 @@ mod desktop {
         let mut base = Vec::new();
         for &(file, name, _) in NUCLIDES {
             let Some(p) = reference_endf(file) else {
-                println!("  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping.");
+                println!(
+                    "  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping."
+                );
                 return;
             };
             base.push(
@@ -367,8 +369,7 @@ mod desktop {
         }
         println!();
         for &e_in in &[
-            1.0e-5, 2.53e-2, 1.0e0, 1.0e3, 1.0e5, 5.0e5, 1.0e6, 2.0e6, 4.0e6,
-            8.0e6, 1.4e7, 3.0e7,
+            1.0e-5, 2.53e-2, 1.0e0, 1.0e3, 1.0e5, 5.0e5, 1.0e6, 2.0e6, 4.0e6, 8.0e6, 1.4e7, 3.0e7,
         ] {
             print!("    {e_in:<6.1e}");
             for n in base.iter().filter(|n| n.nu_bar(PROBE_EV) > 0.0) {
@@ -467,10 +468,16 @@ mod desktop {
         );
         let t = Instant::now();
         let b = run_arm(&base, &material, &seeds);
-        println!("  BASE       arm done in {:.1} s", t.elapsed().as_secs_f64());
+        println!(
+            "  BASE       arm done in {:.1} s",
+            t.elapsed().as_secs_f64()
+        );
         let t = Instant::now();
         let nu = run_arm(&nu_frozen, &material, &seeds);
-        println!("  NU-FROZEN  arm done in {:.1} s", t.elapsed().as_secs_f64());
+        println!(
+            "  NU-FROZEN  arm done in {:.1} s",
+            t.elapsed().as_secs_f64()
+        );
         let t = Instant::now();
         let chi = run_arm(&chi_frozen, &material, &seeds);
         println!(
@@ -482,7 +489,13 @@ mod desktop {
         println!("  arm          n     mean      sd     sem");
         for (label, x) in [("BASE", &b), ("NU-FROZEN", &nu), ("CHI-FROZEN", &chi)] {
             let (m, s, e) = stats(x);
-            println!("  {label:<10} {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", x.len(), m, s, e);
+            println!(
+                "  {label:<10} {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+                x.len(),
+                m,
+                s,
+                e
+            );
         }
         println!();
 
@@ -526,9 +539,7 @@ mod desktop {
 
         println!("  VERDICT, chi incident-energy dependence:");
         if chi_q.abs() + 3.0 * chi_e < 100.0 {
-            println!(
-                "    HELD. {chi_q:+.0} ± {chi_e:.0} pcm is bounded below 100 pcm at 3 sigma."
-            );
+            println!("    HELD. {chi_q:+.0} ± {chi_e:.0} pcm is bounded below 100 pcm at 3 sigma.");
         } else if chi_q.abs() < 3.0 * chi_e {
             println!(
                 "    CONSISTENT WITH ZERO but the bound is loose: {chi_q:+.0} ± {chi_e:.0} pcm, \
@@ -560,6 +571,9 @@ mod desktop {
         b: &'a [Nuclide],
         c: &'a [Nuclide],
     ) -> impl Iterator<Item = (&'a Nuclide, &'a Nuclide, &'a Nuclide)> {
-        a.iter().zip(b.iter()).zip(c.iter()).map(|((x, y), z)| (x, y, z))
+        a.iter()
+            .zip(b.iter())
+            .zip(c.iter())
+            .map(|((x, y), z)| (x, y, z))
     }
 }

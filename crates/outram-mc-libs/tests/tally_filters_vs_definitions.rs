@@ -433,6 +433,10 @@ fn filterkind_dispatch_matches_the_concrete_filters() {
         time: 5.0e-7,
         particle: ParticleType::Neutron,
         delayed_group: Some(1),
+        // A scatter down from 1 MeV to 1 eV, so the outgoing-energy filter
+        // below has a secondary to bin and lands in a different group from the
+        // incoming energy.
+        energy_out: Some(1.0),
     };
 
     let kinds = vec![
@@ -469,6 +473,22 @@ fn filterkind_dispatch_matches_the_concrete_filters() {
         (
             FilterKind::DelayedGroup(DelayedGroupFilter { groups: vec![0, 1] }),
             Some(1),
+        ),
+        // Incoming energy 1 MeV -> bin 1 of [1 eV, 1 keV, 10 MeV).
+        (
+            FilterKind::Energy(EnergyFilter {
+                bins: vec![1.0, 1.0e3, 1.0e7],
+            }),
+            Some(1),
+        ),
+        // Outgoing energy 1 eV -> bin 0 of the SAME structure. The two disagree
+        // on purpose: it is what proves the outgoing filter reads `energy_out`
+        // rather than `energy`.
+        (
+            FilterKind::EnergyOut(EnergyOutFilter {
+                bins: vec![1.0, 1.0e3, 1.0e7],
+            }),
+            Some(0),
         ),
     ];
     for (k, want) in &kinds {

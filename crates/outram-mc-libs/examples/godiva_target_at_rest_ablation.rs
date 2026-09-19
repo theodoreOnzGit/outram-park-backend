@@ -210,7 +210,10 @@ mod desktop {
                 r.free_gas_kt(TEMP_K)
             );
         }
-        println!("Nuclear data ready in {:.1} s.\n", t0.elapsed().as_secs_f64());
+        println!(
+            "Nuclear data ready in {:.1} s.\n",
+            t0.elapsed().as_secs_f64()
+        );
 
         let material = Material {
             id: 1,
@@ -250,8 +253,20 @@ mod desktop {
 
         println!("Δk from ICSBEP HEU-MET-FAST-001 = 1.0000, pcm");
         println!("  arm        n     mean      sd     sem");
-        println!("  MOVING   {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", a.len(), ma, sa, ea);
-        println!("  AT-REST  {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", b.len(), mb, sb, eb);
+        println!(
+            "  MOVING   {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            a.len(),
+            ma,
+            sa,
+            ea
+        );
+        println!(
+            "  AT-REST  {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            b.len(),
+            mb,
+            sb,
+            eb
+        );
         println!();
         println!(
             "  difference (AT-REST − MOVING), unpaired = {:+.0} ± {:.0} pcm  ({:.1} sigma)",

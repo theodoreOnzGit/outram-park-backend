@@ -26,8 +26,8 @@ pub use crate::material::thermal::{
 };
 pub use crate::tally::tally::{ScoreType, Tally, TallyBin};
 pub use crate::tally::filter::{
-    CellFilter, DelayedGroupFilter, EnergyFilter, Filter, FilterEvent, FilterKind, LegendreAxis,
-    MaterialFilter, MeshFilter, MuFilter, ParticleFilter, PolarAzimuthalFilter,
+    CellFilter, DelayedGroupFilter, EnergyFilter, EnergyOutFilter, Filter, FilterEvent, FilterKind,
+    LegendreAxis, MaterialFilter, MeshFilter, MuFilter, ParticleFilter, PolarAzimuthalFilter,
     SpatialLegendreFilter, SphericalHarmonicsFilter, SurfaceFilter, TimeFilter, UniverseFilter,
     ZernikeFilter,
 };

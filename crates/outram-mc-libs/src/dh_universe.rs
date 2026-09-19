@@ -2276,7 +2276,11 @@ mod tests {
                 ),
             }
         }
-        assert_eq!((built, refused), (4, 3), "the supported/refused split moved");
+        assert_eq!(
+            (built, refused),
+            (4, 3),
+            "the supported/refused split moved"
+        );
     }
 
     /// Ring-RPT is a spherical construction, so a cube of dispersed fuel must
@@ -2519,8 +2523,11 @@ mod tests {
     fn kernel_level_cls_conserves_the_fuel_zone_inventory() {
         let mats = dummy_materials(8);
         let build = |t| {
-            DhUniverse::pebble(PebbleParams::fhr_unit_cell().with_materials(mats.clone()), t)
-                .unwrap_or_else(|e| panic!("build failed: {e}"))
+            DhUniverse::pebble(
+                PebbleParams::fhr_unit_cell().with_materials(mats.clone()),
+                t,
+            )
+            .unwrap_or_else(|e| panic!("build failed: {e}"))
         };
         // Volume-average the fuel zone's nuclide inventory for a CLS-style arm:
         // pf * inclusion + (1 - pf) * matrix.

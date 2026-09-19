@@ -31,7 +31,8 @@ const R: f64 = 8.7407;
 const TEMP: f64 = 293.6;
 
 fn heu() -> Option<Vec<Nuclide>> {
-    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let base =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let load = |n: &str, f: &str| -> Option<Nuclide> {
         let p = base.join(f);
         p.exists().then_some(())?;
@@ -45,18 +46,28 @@ fn heu() -> Option<Vec<Nuclide>> {
 
 fn model() -> (Geometry, Vec<Material>) {
     let surfaces = vec![SurfaceKind::Sphere(Sphere {
-        x0: 0.0, y0: 0.0, z0: 0.0, r: R, bc: BoundaryType::Vacuum,
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: R,
+        bc: BoundaryType::Vacuum,
     })];
     let core = Cell::material(
         1,
-        vec![RegionToken::HalfSpace { surface_idx: 0, sense: HalfSpaceSense::Inside }],
+        vec![RegionToken::HalfSpace {
+            surface_idx: 0,
+            sense: HalfSpaceSense::Inside,
+        }],
         0,
         TEMP,
     );
     let geom = Geometry {
         surfaces,
         cells: vec![core],
-        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
         lattices: vec![],
         root_universe: 0,
     };
@@ -64,8 +75,14 @@ fn model() -> (Geometry, Vec<Material>) {
         id: 1,
         name: "HEU".into(),
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.4994e-2 },
-            NuclideComponent { nuclide_idx: 1, atom_density: 2.4984e-3 },
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.4994e-2,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 2.4984e-3,
+            },
         ],
         temperature: TEMP,
     }];
@@ -109,8 +126,11 @@ fn entropy_is_reported_and_plateaus() {
 
     let ceiling = (mesh.n_bins() as f64).log2();
     println!("k = {:.6} +/- {:.6}", with.k_mean, with.k_std);
-    println!("entropy over {} generations, ceiling log2({}) = {ceiling:.4}",
-             with.entropy.len(), mesh.n_bins());
+    println!(
+        "entropy over {} generations, ceiling log2({}) = {ceiling:.4}",
+        with.entropy.len(),
+        mesh.n_bins()
+    );
     for (i, h) in with.entropy.iter().enumerate() {
         if i < 3 || i >= with.entropy.len() - 3 {
             println!("  gen {i:>3}: H = {h:.5}");
@@ -136,8 +156,14 @@ fn entropy_is_reported_and_plateaus() {
     );
 
     for (i, h) in with.entropy.iter().enumerate() {
-        assert!(h.is_finite() && *h >= 0.0, "generation {i}: H = {h} is not a valid entropy");
-        assert!(*h <= ceiling + 1.0e-9, "generation {i}: H = {h} exceeds log2(n_bins) = {ceiling}");
+        assert!(
+            h.is_finite() && *h >= 0.0,
+            "generation {i}: H = {h} is not a valid entropy"
+        );
+        assert!(
+            *h <= ceiling + 1.0e-9,
+            "generation {i}: H = {h} exceeds log2(n_bins) = {ceiling}"
+        );
     }
 
     // Plateau: the last third should be flat relative to the spread over the
@@ -145,7 +171,9 @@ fn entropy_is_reported_and_plateaus() {
     let n = with.entropy.len();
     let tail = &with.entropy[n * 2 / 3..];
     let tail_mean = tail.iter().sum::<f64>() / tail.len() as f64;
-    let tail_spread = tail.iter().fold(0.0_f64, |a, h| a.max((h - tail_mean).abs()));
+    let tail_spread = tail
+        .iter()
+        .fold(0.0_f64, |a, h| a.max((h - tail_mean).abs()));
     println!("tail mean {tail_mean:.5}, max deviation {tail_spread:.5} bits");
     assert!(
         tail_spread < 0.15,

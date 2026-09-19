@@ -233,7 +233,9 @@ impl Cell {
     /// steps at thermal energies for a single control rod.
     #[must_use]
     pub fn delta_tracked(mut self, majorant_idx: usize) -> Self {
-        self.tracking = Some(TrackingMethod::Delta { majorant: majorant_idx });
+        self.tracking = Some(TrackingMethod::Delta {
+            majorant: majorant_idx,
+        });
         self
     }
 

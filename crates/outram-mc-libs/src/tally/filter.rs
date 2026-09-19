@@ -80,6 +80,16 @@ pub struct FilterEvent {
     /// for a prompt neutron or a non-fission event. Consumed by
     /// [`DelayedGroupFilter`].
     pub delayed_group: Option<usize>,
+    /// Post-collision (outgoing) neutron energy \[eV\] of a scattering event,
+    /// or `None` for any event that produced no secondary — an absorption, a
+    /// surface crossing, or a pure track-length segment. Consumed by
+    /// [`EnergyOutFilter`].
+    ///
+    /// This is deliberately separate from [`Self::energy`], which is always the
+    /// **incoming** energy. A group-to-group scattering matrix needs both at
+    /// once, so a tally carrying an [`EnergyFilter`] and an [`EnergyOutFilter`]
+    /// bins `(g_in, g_out)` from a single event.
+    pub energy_out: Option<f64>,
 }
 
 impl Default for FilterEvent {
@@ -111,6 +121,7 @@ impl Default for FilterEvent {
             time: 0.0,
             particle: ParticleType::Neutron,
             delayed_group: None,
+            energy_out: None,
         }
     }
 }
@@ -200,6 +211,50 @@ impl Filter for EnergyFilter {
             .bins
             .partition_point(|&e| e <= ev.energy)
             .saturating_sub(1);
+        Some(idx)
+    }
+}
+
+/// Filter by **outgoing** (post-collision) energy. Maps to
+/// `openmc::EnergyoutFilter`.
+///
+/// Bins [`FilterEvent::energy_out`], the secondary neutron's energy, where
+/// [`EnergyFilter`] bins the incoming energy. Pairing the two on one tally is
+/// what produces a group-to-group scattering matrix `Sigma_s,g->g'`, which is
+/// the form the deterministic solvers consume (GeN-Foam's `ZoneNuclearData`
+/// stores `scattering[moment][g_out][g_in]`).
+///
+/// An event with no secondary — an absorption, a surface crossing, or a pure
+/// track-length segment — has `energy_out == None` and does **not** pass this
+/// filter, so it contributes to no bin.
+///
+/// # Units
+///
+/// Bin edges are in **eV**, ascending, exactly as [`EnergyFilter`]. `n + 1`
+/// edges produce `n` bins. Note that multigroup structures are conventionally
+/// quoted with group 0 as the *highest* energy; this filter does not reorder,
+/// so bin 0 is the lowest-energy bin and the caller reverses if it wants
+/// group-index order.
+pub struct EnergyOutFilter {
+    /// Ascending bin EDGES in eV. `n + 1` edges produce `n` bins.
+    pub bins: Vec<f64>,
+}
+impl Filter for EnergyOutFilter {
+    fn n_bins(&self) -> usize {
+        if self.bins.len() < 2 {
+            0
+        } else {
+            self.bins.len() - 1
+        }
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        // No secondary produced: this event is not a scatter, so it belongs in
+        // no outgoing-energy bin at all.
+        let e_out = ev.energy_out?;
+        if self.bins.len() < 2 || e_out < self.bins[0] || e_out >= *self.bins.last().unwrap() {
+            return None;
+        }
+        let idx = self.bins.partition_point(|&e| e <= e_out).saturating_sub(1);
         Some(idx)
     }
 }
@@ -755,8 +810,10 @@ pub enum FilterKind {
     Cell(CellFilter),
     /// [`MaterialFilter`].
     Material(MaterialFilter),
-    /// [`EnergyFilter`].
+    /// [`EnergyFilter`] — incoming energy.
     Energy(EnergyFilter),
+    /// [`EnergyOutFilter`] — outgoing (post-collision) energy.
+    EnergyOut(EnergyOutFilter),
     /// [`UniverseFilter`].
     Universe(UniverseFilter),
     /// [`MeshFilter`].
@@ -824,6 +881,7 @@ impl FilterKind {
             FilterKind::Cell(f) => f,
             FilterKind::Material(f) => f,
             FilterKind::Energy(f) => f,
+            FilterKind::EnergyOut(f) => f,
             FilterKind::Universe(f) => f,
             FilterKind::Mesh(f) => f,
             FilterKind::Surface(f) => f,
@@ -891,5 +949,136 @@ mod tests {
             f.expansion_moments(&ev(11.0)).is_none(),
             "outside [min,max] → None"
         );
+    }
+
+    // ── EnergyOutFilter ───────────────────────────────────────────────────
+
+    /// A 3-bin outgoing-energy structure over [1, 10, 100, 1000] eV.
+    fn eout_filter() -> EnergyOutFilter {
+        EnergyOutFilter {
+            bins: vec![1.0, 10.0, 100.0, 1000.0],
+        }
+    }
+
+    /// `n + 1` edges produce `n` bins, and a degenerate edge list produces none.
+    #[test]
+    fn energy_out_filter_bin_count() {
+        assert_eq!(eout_filter().n_bins(), 3);
+        assert_eq!(EnergyOutFilter { bins: vec![1.0] }.n_bins(), 0);
+        assert_eq!(EnergyOutFilter { bins: Vec::new() }.n_bins(), 0);
+    }
+
+    /// The filter bins the OUTGOING energy and ignores the incoming one.
+    ///
+    /// This is the property that makes a scattering matrix possible: the same
+    /// event carries both energies, and this filter must key on `energy_out`.
+    /// The incoming energies below are chosen to fall in a *different* bin from
+    /// their outgoing partner, so a filter that mistakenly read `energy` would
+    /// fail rather than coincidentally agree.
+    #[test]
+    fn energy_out_filter_bins_outgoing_not_incoming() {
+        let f = eout_filter();
+        let ev = |e_in: f64, e_out: f64| FilterEvent {
+            energy: e_in,
+            energy_out: Some(e_out),
+            ..Default::default()
+        };
+        // incoming in bin 2, outgoing in bin 0
+        assert_eq!(f.get_bin(&ev(500.0, 5.0)), Some(0));
+        // incoming in bin 0, outgoing in bin 1
+        assert_eq!(f.get_bin(&ev(2.0, 50.0)), Some(1));
+        // incoming in bin 0, outgoing in bin 2
+        assert_eq!(f.get_bin(&ev(2.0, 500.0)), Some(2));
+    }
+
+    /// An event with no secondary does not pass at all.
+    ///
+    /// Absorptions, surface crossings and pure track-length segments carry
+    /// `energy_out == None`. They must contribute to NO outgoing-energy bin --
+    /// binning them anywhere would put absorptions into the scattering matrix
+    /// and silently inflate every scatter cross section.
+    #[test]
+    fn energy_out_filter_rejects_events_with_no_secondary() {
+        let f = eout_filter();
+        let absorption = FilterEvent {
+            energy: 50.0,
+            energy_out: None,
+            ..Default::default()
+        };
+        assert_eq!(
+            f.get_bin(&absorption),
+            None,
+            "an event with no secondary must bin nowhere"
+        );
+        // Default is the same case, and is what the track-length estimator builds.
+        assert_eq!(f.get_bin(&FilterEvent::default()), None);
+    }
+
+    /// Bin edges are half-open [lo, hi): the lower edge is in, the upper is out.
+    ///
+    /// Matches `EnergyFilter`'s own convention, so an incoming/outgoing pair on
+    /// one tally cannot disagree about which group a boundary energy lands in.
+    #[test]
+    fn energy_out_filter_edges_are_half_open() {
+        let f = eout_filter();
+        let at = |e_out: f64| FilterEvent {
+            energy_out: Some(e_out),
+            ..Default::default()
+        };
+        assert_eq!(f.get_bin(&at(1.0)), Some(0), "lower edge is included");
+        assert_eq!(f.get_bin(&at(10.0)), Some(1), "interior edge -> upper bin");
+        assert_eq!(f.get_bin(&at(1000.0)), None, "top edge is excluded");
+        assert_eq!(f.get_bin(&at(0.5)), None, "below range");
+        assert_eq!(f.get_bin(&at(5000.0)), None, "above range");
+    }
+
+    /// Reached through `FilterKind`, the enum the tally actually stores.
+    #[test]
+    fn energy_out_filter_dispatches_through_filter_kind() {
+        let k = FilterKind::EnergyOut(eout_filter());
+        assert_eq!(k.n_bins(), 3);
+        let ev = FilterEvent {
+            energy: 900.0,
+            energy_out: Some(50.0),
+            ..Default::default()
+        };
+        assert_eq!(k.get_bin(&ev), Some(1));
+        assert!(
+            !k.is_expansion(),
+            "outgoing energy is a single-bin filter, not a functional expansion"
+        );
+        assert!(k.expansion_moments(&ev).is_none());
+    }
+
+    /// An incoming and an outgoing filter on the same event pick the (g_in,
+    /// g_out) pair a scattering matrix is built from -- including up-scatter,
+    /// where the outgoing group is higher in energy than the incoming one.
+    #[test]
+    fn incoming_and_outgoing_filters_together_give_a_matrix_element() {
+        let f_in = EnergyFilter {
+            bins: vec![1.0, 10.0, 100.0, 1000.0],
+        };
+        let f_out = eout_filter();
+
+        // Down-scatter: 500 eV -> 5 eV is (g_in = 2, g_out = 0).
+        let down = FilterEvent {
+            energy: 500.0,
+            energy_out: Some(5.0),
+            ..Default::default()
+        };
+        assert_eq!(
+            (f_in.get_bin(&down), f_out.get_bin(&down)),
+            (Some(2), Some(0))
+        );
+
+        // Up-scatter: 5 eV -> 50 eV is (0, 1). Thermal up-scatter is real
+        // physics (the free-gas and S(alpha,beta) paths both produce it), so
+        // the pair must be representable rather than clamped to the diagonal.
+        let up = FilterEvent {
+            energy: 5.0,
+            energy_out: Some(50.0),
+            ..Default::default()
+        };
+        assert_eq!((f_in.get_bin(&up), f_out.get_bin(&up)), (Some(0), Some(1)));
     }
 }

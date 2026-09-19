@@ -72,26 +72,65 @@ const MAT_COOLANT: usize = 2;
 fn clipped_lattice_geometry() -> Geometry {
     let surfaces = vec![
         // 0: the ball, in tile-local coordinates
-        SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: BALL_R, bc: BoundaryType::Transmissive }),
+        SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: BALL_R,
+            bc: BoundaryType::Transmissive,
+        }),
         // 1: the "conus" cut plane, in GLOBAL coordinates
-        SurfaceKind::XPlane(XPlane { x0: CUT, bc: BoundaryType::Transmissive }),
+        SurfaceKind::XPlane(XPlane {
+            x0: CUT,
+            bc: BoundaryType::Transmissive,
+        }),
         // 2..7: the reflective root box
-        SurfaceKind::XPlane(XPlane { x0: -HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: -HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: HALF, bc: BoundaryType::Reflective }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: HALF,
+            bc: BoundaryType::Reflective,
+        }),
     ];
-    let ins = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
-    let out = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+    let ins = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Inside,
+    };
+    let out = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Outside,
+    };
 
     let box_region = vec![
-        out(2), ins(3), RegionToken::Intersection,
-        out(4), RegionToken::Intersection,
-        ins(5), RegionToken::Intersection,
-        out(6), RegionToken::Intersection,
-        ins(7), RegionToken::Intersection,
+        out(2),
+        ins(3),
+        RegionToken::Intersection,
+        out(4),
+        RegionToken::Intersection,
+        ins(5),
+        RegionToken::Intersection,
+        out(6),
+        RegionToken::Intersection,
+        ins(7),
+        RegionToken::Intersection,
     ];
     let root = Cell::fill(1, box_region, CellFill::Lattice(0), Position::ZERO);
 
@@ -110,7 +149,12 @@ fn clipped_lattice_geometry() -> Geometry {
     );
     let clipped_rest = Cell::material(
         5,
-        vec![ins(0), ins(1), RegionToken::Intersection, RegionToken::Complement],
+        vec![
+            ins(0),
+            ins(1),
+            RegionToken::Intersection,
+            RegionToken::Complement,
+        ],
         MAT_VOID_FILL,
         293.6,
     );
@@ -119,9 +163,18 @@ fn clipped_lattice_geometry() -> Geometry {
         surfaces,
         cells: vec![root, ball, around, clipped, clipped_rest],
         universes: vec![
-            Universe { id: 0, cell_indices: vec![0] },
-            Universe { id: 1, cell_indices: vec![1, 2] },
-            Universe { id: 2, cell_indices: vec![3, 4] },
+            Universe {
+                id: 0,
+                cell_indices: vec![0],
+            },
+            Universe {
+                id: 1,
+                cell_indices: vec![1, 2],
+            },
+            Universe {
+                id: 2,
+                cell_indices: vec![3, 4],
+            },
         ],
         lattices: vec![Lattice::Rect(RectLattice {
             id: 0,
@@ -149,7 +202,11 @@ fn a_tile_universe_can_be_clipped_by_a_global_surface() {
     };
 
     // Ordinary tile [0,0,0], centre (-1,-1,-1): the ball is whole.
-    assert_eq!(at(Position::new(-1.0, -1.0, -1.0)), Some(MAT_BALL), "unclipped ball centre");
+    assert_eq!(
+        at(Position::new(-1.0, -1.0, -1.0)),
+        Some(MAT_BALL),
+        "unclipped ball centre"
+    );
 
     // Clipped tile [1,0,0], centre (+1,-1,-1) -- entirely at x > CUT, so the
     // whole ball is rejected and the tile reads as fill.
@@ -160,7 +217,11 @@ fn a_tile_universe_can_be_clipped_by_a_global_surface() {
     );
 
     // Outside every ball: coolant, via the lattice `outer`.
-    assert_eq!(at(Position::new(-1.9, -1.9, -1.9)), Some(MAT_COOLANT), "tile corner");
+    assert_eq!(
+        at(Position::new(-1.9, -1.9, -1.9)),
+        Some(MAT_COOLANT),
+        "tile corner"
+    );
 }
 
 /// **Does the clip follow the GLOBAL surface, or the TILE frame?**
@@ -192,13 +253,21 @@ fn the_clip_tracks_the_global_surface_not_the_tile_frame() {
 
     let probe = Position::new(0.5, -1.0, -1.0);
     let got = at(probe);
-    println!("probe x = {:.2}, tile centre x = 1.00, cut at {CUT:.2} -> {got:?}", probe.x);
-    println!("  global reading expects fill ({MAT_VOID_FILL}); tile-frame expects fuel ({MAT_BALL})");
+    println!(
+        "probe x = {:.2}, tile centre x = 1.00, cut at {CUT:.2} -> {got:?}",
+        probe.x
+    );
+    println!(
+        "  global reading expects fill ({MAT_VOID_FILL}); tile-frame expects fuel ({MAT_BALL})"
+    );
 
     // Sanity: the probe really is inside the ball, so the answer is about the
     // CUT and not about having missed the sphere entirely.
     let local_r = (0.5_f64 - 1.0).abs();
-    assert!(local_r < BALL_R, "probe must be inside the ball, |local| = {local_r}");
+    assert!(
+        local_r < BALL_R,
+        "probe must be inside the ball, |local| = {local_r}"
+    );
 
     assert_eq!(
         got,
@@ -241,7 +310,10 @@ fn a_tile_frame_translated_surface_clips_at_the_world_boundary() {
     // The same probe that failed before: global x = 0.5, inside tile [1,0,0]'s
     // ball, on the REJECTED side of the world-frame cut at x = 0.
     let probe = Position::new(0.5, -1.0, -1.0);
-    println!("after translating the cut into tile [1,0,0]'s frame: {:?}", at(probe));
+    println!(
+        "after translating the cut into tile [1,0,0]'s frame: {:?}",
+        at(probe)
+    );
     assert_eq!(
         at(probe),
         Some(MAT_VOID_FILL),
@@ -293,11 +365,25 @@ fn the_translator_handles_each_surface_kind_honestly() {
 
 fn geom_xplane(x0: f64) -> outram_mc_libs::geometry::surface::SurfaceKind {
     outram_mc_libs::geometry::surface::SurfaceKind::XPlane(
-        outram_mc_libs::geometry::surface::XPlane { x0, bc: BoundaryType::Transmissive },
+        outram_mc_libs::geometry::surface::XPlane {
+            x0,
+            bc: BoundaryType::Transmissive,
+        },
     )
 }
-fn geom_sphere(x0: f64, y0: f64, z0: f64, r: f64) -> outram_mc_libs::geometry::surface::SurfaceKind {
+fn geom_sphere(
+    x0: f64,
+    y0: f64,
+    z0: f64,
+    r: f64,
+) -> outram_mc_libs::geometry::surface::SurfaceKind {
     outram_mc_libs::geometry::surface::SurfaceKind::Sphere(
-        outram_mc_libs::geometry::surface::Sphere { x0, y0, z0, r, bc: BoundaryType::Transmissive },
+        outram_mc_libs::geometry::surface::Sphere {
+            x0,
+            y0,
+            z0,
+            r,
+            bc: BoundaryType::Transmissive,
+        },
     )
 }

@@ -262,8 +262,14 @@ fn main() {
         n += 1;
     }
 
-    println!("\n  worst over the full grid : {:.2}x at {:.4e} eV", sweep_worst.1, sweep_worst.0);
-    println!("  mean over the full grid  : {:.2}x", weighted / n.max(1) as f64);
+    println!(
+        "\n  worst over the full grid : {:.2}x at {:.4e} eV",
+        sweep_worst.1, sweep_worst.0
+    );
+    println!(
+        "  mean over the full grid  : {:.2}x",
+        weighted / n.max(1) as f64
+    );
     println!(
         "\n  Read this as a COST multiplier on tracking steps everywhere in the\n  \
          domain, including in the reflector far from the rod. Delta tracking is\n  \

@@ -78,7 +78,8 @@ const R_FUEL: f64 = 8.7407; // Godiva's critical radius, a known-multiplying bod
 const TEMP: f64 = 293.6;
 
 fn heu() -> Option<Vec<Nuclide>> {
-    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let base =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let load = |name: &str, f: &str| -> Option<Nuclide> {
         let p = base.join(f);
         p.exists().then_some(())?;
@@ -95,8 +96,14 @@ fn fuel() -> Material {
         id: 1,
         name: "HEU".into(),
         components: vec![
-            NuclideComponent { nuclide_idx: 0, atom_density: 4.4994e-2 },
-            NuclideComponent { nuclide_idx: 1, atom_density: 2.4984e-3 },
+            NuclideComponent {
+                nuclide_idx: 0,
+                atom_density: 4.4994e-2,
+            },
+            NuclideComponent {
+                nuclide_idx: 1,
+                atom_density: 2.4984e-3,
+            },
         ],
         temperature: TEMP,
     }
@@ -125,7 +132,10 @@ fn sphere_geometry(delta: bool) -> Geometry {
     Geometry {
         surfaces,
         cells: vec![core],
-        universes: vec![Universe { id: 0, cell_indices: vec![0] }],
+        universes: vec![Universe {
+            id: 0,
+            cell_indices: vec![0],
+        }],
         lattices: vec![],
         root_universe: 0,
     }
@@ -169,10 +179,22 @@ fn hybrid_and_surface_tracking_agree() {
     let maj = Majorant::over_indices(&mats, &[0], &nucs, &energy_grid(), 0.3);
 
     let surf = run_keff_csg(
-        &sphere_geometry(false), &mats, &nucs, source(), &settings(1), None,
+        &sphere_geometry(false),
+        &mats,
+        &nucs,
+        source(),
+        &settings(1),
+        None,
     );
     let hyb = run_keff_csg_hybrid(
-        &sphere_geometry(true), &mats, &nucs, &[maj], None, source(), &settings(1), None,
+        &sphere_geometry(true),
+        &mats,
+        &nucs,
+        &[maj],
+        None,
+        source(),
+        &settings(1),
+        None,
     );
 
     let dk = (hyb.k_mean - surf.k_mean) * 1.0e5;
@@ -221,17 +243,44 @@ fn an_absorber_outside_the_region_does_not_raise_its_cost() {
     let absorber = Material {
         id: 2,
         name: "absorber outside the region".into(),
-        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: 5.0 }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 0,
+            atom_density: 5.0,
+        }],
         temperature: TEMP,
     };
     let global = Majorant::from_materials(&[mats[0].clone(), absorber], &nucs, &grid, 0.3);
 
     let geom = sphere_geometry(true);
-    let a = run_keff_csg_hybrid(&geom, &mats, &nucs, &[local], None, source(), &settings(2), None);
-    let b = run_keff_csg_hybrid(&geom, &mats, &nucs, &[global], None, source(), &settings(2), None);
+    let a = run_keff_csg_hybrid(
+        &geom,
+        &mats,
+        &nucs,
+        &[local],
+        None,
+        source(),
+        &settings(2),
+        None,
+    );
+    let b = run_keff_csg_hybrid(
+        &geom,
+        &mats,
+        &nucs,
+        &[global],
+        None,
+        source(),
+        &settings(2),
+        None,
+    );
 
-    println!("region-local majorant : {:>12} virtual collisions", a.virtual_collisions);
-    println!("global-style majorant : {:>12} virtual collisions", b.virtual_collisions);
+    println!(
+        "region-local majorant : {:>12} virtual collisions",
+        a.virtual_collisions
+    );
+    println!(
+        "global-style majorant : {:>12} virtual collisions",
+        b.virtual_collisions
+    );
     let ratio = b.virtual_collisions as f64 / a.virtual_collisions.max(1) as f64;
     println!("cost ratio {ratio:.1}x");
 
@@ -239,7 +288,10 @@ fn an_absorber_outside_the_region_does_not_raise_its_cost() {
     // never accuracy. That is what makes the cost comparison meaningful.
     let dk = (b.k_mean - a.k_mean) * 1.0e5;
     let sigma = ((a.k_std.powi(2) + b.k_std.powi(2)).sqrt()) * 1.0e5;
-    println!("k unchanged: {dk:+.1} pcm ({:.2} sigma)", dk.abs() / sigma.max(1e-12));
+    println!(
+        "k unchanged: {dk:+.1} pcm ({:.2} sigma)",
+        dk.abs() / sigma.max(1e-12)
+    );
     assert!(
         dk.abs() / sigma.max(1.0e-12) < 4.0,
         "an over-bound majorant must not change k, only cost: {dk:+.1} pcm apart"

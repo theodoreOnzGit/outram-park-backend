@@ -199,7 +199,10 @@ fn main() {
     let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
     ens.push((result.k_mean - 1.0) * 1.0e5);
     for seed in 2..=n_seeds as u64 {
-        let s = KeffSettings { seed, ..settings.clone() };
+        let s = KeffSettings {
+            seed,
+            ..settings.clone()
+        };
         let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
         eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
         ens.push((r.k_mean - 1.0) * 1.0e5);
@@ -215,7 +218,10 @@ fn main() {
         println!("    pooled dk    = {mean:+.0} pcm");
         println!("    seed-to-seed sd  = {sd:.0} pcm   (what ONE run scatters by)");
         println!("    uncertainty  sem = +/-{sem:.0} pcm   (on the pooled mean)");
-        println!("    distance from benchmark = {:.1} sem", (mean / sem).abs());
+        println!(
+            "    distance from benchmark = {:.1} sem",
+            (mean / sem).abs()
+        );
     }
     eprintln!("  transport: {:.1} s", t.elapsed().as_secs_f64());
     println!("  k_eff = {:.5} ± {:.5}", result.k_mean, result.k_std);

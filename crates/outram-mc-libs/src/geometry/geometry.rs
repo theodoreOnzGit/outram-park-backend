@@ -349,10 +349,9 @@ impl Geometry {
             cell.distance_to_boundary(coord.r, coord.u, &self.surfaces, path.on_surface);
         let mut best = d_surf;
         if let Some(l_idx) = coord.lattice {
-            let d_tile =
-                self.lattices[l_idx]
-                    .distance(coord.r, coord.u, coord.lattice_index)
-                    .0;
+            let d_tile = self.lattices[l_idx]
+                .distance(coord.r, coord.u, coord.lattice_index)
+                .0;
             if d_tile < best {
                 best = d_tile;
             }

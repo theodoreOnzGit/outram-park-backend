@@ -69,7 +69,10 @@ fn the_stated_particle_count_is_not_attainable_and_here_is_how_close() {
         [0.5, 0.5, 0.5],
     ];
     let mut best_err = usize::MAX;
-    println!("{:<20} {:>8} {:>10} {:>10}", "offset", "count", "err", "pitch");
+    println!(
+        "{:<20} {:>8} {:>10} {:>10}",
+        "offset", "count", "err", "pitch"
+    );
     for off in offsets {
         let (pitch, count) = cubic_pitch_for_count(R_PART, R_ZONE, STATED, off);
         let err = count.abs_diff(STATED);
@@ -86,7 +89,10 @@ fn the_stated_particle_count_is_not_attainable_and_here_is_how_close() {
         );
         best_err = best_err.min(err);
     }
-    println!("closest approach: {best_err} particles ({:.3} %)", 100.0 * best_err as f64 / STATED as f64);
+    println!(
+        "closest approach: {best_err} particles ({:.3} %)",
+        100.0 * best_err as f64 / STATED as f64
+    );
     assert!(
         best_err <= 10,
         "the closest attainable count should be within ~10 particles of {STATED}; \

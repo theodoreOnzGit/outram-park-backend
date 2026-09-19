@@ -29,18 +29,42 @@ fn cyl() -> DeltaDomain {
 fn containment_respects_the_wall_and_both_end_caps() {
     let d = cyl();
     assert!(d.contains(Position::new(0.0, 0.0, 0.0)), "centre is inside");
-    assert!(d.contains(Position::new(R - 1e-9, 0.0, 0.0)), "just inside the wall");
-    assert!(d.contains(Position::new(0.0, 0.0, H - 1e-9)), "just inside the cap");
-    assert!(d.contains(Position::new(R, 0.0, H)), "the rim is closed, so inside");
+    assert!(
+        d.contains(Position::new(R - 1e-9, 0.0, 0.0)),
+        "just inside the wall"
+    );
+    assert!(
+        d.contains(Position::new(0.0, 0.0, H - 1e-9)),
+        "just inside the cap"
+    );
+    assert!(
+        d.contains(Position::new(R, 0.0, H)),
+        "the rim is closed, so inside"
+    );
 
-    assert!(!d.contains(Position::new(R + 1e-9, 0.0, 0.0)), "outside the wall");
-    assert!(!d.contains(Position::new(0.0, 0.0, H + 1e-9)), "beyond the cap");
+    assert!(
+        !d.contains(Position::new(R + 1e-9, 0.0, 0.0)),
+        "outside the wall"
+    );
+    assert!(
+        !d.contains(Position::new(0.0, 0.0, H + 1e-9)),
+        "beyond the cap"
+    );
     // The trap: a point beyond the cap but within the radius, and a point
     // within the height but beyond the radius. Each catches one dropped test.
-    assert!(!d.contains(Position::new(0.0, 0.0, 10.0)), "within R, past the cap");
-    assert!(!d.contains(Position::new(10.0, 0.0, 0.0)), "within H, past the wall");
+    assert!(
+        !d.contains(Position::new(0.0, 0.0, 10.0)),
+        "within R, past the cap"
+    );
+    assert!(
+        !d.contains(Position::new(10.0, 0.0, 0.0)),
+        "within H, past the wall"
+    );
     // Diagonal: inside a bounding SPHERE of radius max(R,H), outside the cylinder.
-    assert!(!d.contains(Position::new(R * 0.9, R * 0.9, 0.0)), "corner of the box is out");
+    assert!(
+        !d.contains(Position::new(R * 0.9, R * 0.9, 0.0)),
+        "corner of the box is out"
+    );
 }
 
 /// `sample_point` must fill the cylinder uniformly. A naive `r = R * xi` (no
@@ -72,7 +96,10 @@ fn sampled_points_fill_the_cylinder_uniformly() {
         println!("  shell {i}: {c} (expected {expect:.0}, {dev:.2} sigma)");
         worst = worst.max(dev);
     }
-    println!("worst equal-area shell deviation {worst:.2} sigma; mean z = {:.4}", zsum / N as f64);
+    println!(
+        "worst equal-area shell deviation {worst:.2} sigma; mean z = {:.4}",
+        zsum / N as f64
+    );
 
     assert!(
         worst < 5.0,

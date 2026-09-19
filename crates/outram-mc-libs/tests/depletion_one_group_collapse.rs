@@ -128,14 +128,14 @@ fn the_default_weighting_is_unchanged() {
             e_max_ev,
             n_points,
         } => {
-            assert!(e_min_ev < 1.0e-4 && e_max_ev > 1.0e7 && n_points >= 500,
+            assert!(
+                e_min_ev < 1.0e-4 && e_max_ev > 1.0e7 && n_points >= 500,
                 "the default collapse window [{e_min_ev:.1e}, {e_max_ev:.1e}] with {n_points} \
                  nodes does not span thermal to fast; a window that misses the resonances \
-                 would quietly behave like the single-point path.");
+                 would quietly behave like the single-point path."
+            );
         }
         other => panic!("thermal_fission_default() returned {other:?}"),
     }
-    println!(
-        "default weighting is SingleEnergy at 0.0253 eV (unchanged); the collapse is opt-in"
-    );
+    println!("default weighting is SingleEnergy at 0.0253 eV (unchanged); the collapse is opt-in");
 }

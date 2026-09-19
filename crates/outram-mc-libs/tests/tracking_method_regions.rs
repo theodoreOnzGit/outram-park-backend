@@ -52,30 +52,73 @@ const ROD_R: f64 = 0.5;
 /// a delta-tracked bed with a surface-tracked control-rod channel through it.
 fn geometry_with_rod_channel() -> Geometry {
     let surfaces = vec![
-        SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: BED_R, bc: BoundaryType::Transmissive }),
-        SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: ROD_R, bc: BoundaryType::Transmissive }),
-        SurfaceKind::XPlane(XPlane { x0: -BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: -BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: BOX_HALF, bc: BoundaryType::Reflective }),
+        SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: BED_R,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: ROD_R,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
     ];
-    let inside = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
-    let outside = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+    let inside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Inside,
+    };
+    let outside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Outside,
+    };
 
     let box_region = vec![
-        outside(2), inside(3), RegionToken::Intersection,
-        outside(4), RegionToken::Intersection,
-        inside(5), RegionToken::Intersection,
-        outside(6), RegionToken::Intersection,
-        inside(7), RegionToken::Intersection,
+        outside(2),
+        inside(3),
+        RegionToken::Intersection,
+        outside(4),
+        RegionToken::Intersection,
+        inside(5),
+        RegionToken::Intersection,
+        outside(6),
+        RegionToken::Intersection,
+        inside(7),
+        RegionToken::Intersection,
     ];
 
     // Root: reflector, surface-tracked by default (declares nothing).
     let root_reflector = Cell::material(1, box_region.clone(), 2, 293.6);
     // The bed: a nested universe, DELTA-tracked.
-    let bed = Cell::fill(2, vec![inside(0)], CellFill::Universe(1), Position::ZERO).delta_tracked(0);
+    let bed =
+        Cell::fill(2, vec![inside(0)], CellFill::Universe(1), Position::ZERO).delta_tracked(0);
 
     // Inside the bed universe: fuel everywhere (declares NOTHING -> inherits
     // delta), and a rod channel that declares surface tracking explicitly.
@@ -86,8 +129,14 @@ fn geometry_with_rod_channel() -> Geometry {
         surfaces,
         cells: vec![root_reflector, bed, bed_fuel, rod],
         universes: vec![
-            Universe { id: 0, cell_indices: vec![1, 0] }, // bed tried before reflector
-            Universe { id: 1, cell_indices: vec![3, 2] }, // rod tried before fuel
+            Universe {
+                id: 0,
+                cell_indices: vec![1, 0],
+            }, // bed tried before reflector
+            Universe {
+                id: 1,
+                cell_indices: vec![3, 2],
+            }, // rod tried before fuel
         ],
         lattices: vec![],
         root_universe: 0,
@@ -182,7 +231,9 @@ fn boron() -> Option<Vec<Nuclide>> {
     let p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../reference-data/endf/n-005_B_010-ENDF8.0.endf");
     p.exists().then(|| ())?;
-    Nuclide::from_endf_file(&p, "B10", 293.6, 1.0e-3).ok().map(|n| vec![n])
+    Nuclide::from_endf_file(&p, "B10", 293.6, 1.0e-3)
+        .ok()
+        .map(|n| vec![n])
 }
 
 /// **A region-local majorant must bound only the region's own materials.**
@@ -204,12 +255,17 @@ fn a_region_local_majorant_ignores_materials_outside_its_index_list() {
     let mat = |id: i32, dens: f64| Material {
         id,
         name: format!("m{id}"),
-        components: vec![NuclideComponent { nuclide_idx: 0, atom_density: dens }],
+        components: vec![NuclideComponent {
+            nuclide_idx: 0,
+            atom_density: dens,
+        }],
         temperature: 293.6,
     };
     // m3 is 100x m1 — the "control rod" of this miniature.
     let all = vec![mat(1, 1.0e-5), mat(2, 1.0e-4), mat(3, 1.0e-2)];
-    let grid: Vec<f64> = (0..24).map(|i| 1.0e-3 * 10.0_f64.powf(i as f64 * 0.5)).collect();
+    let grid: Vec<f64> = (0..24)
+        .map(|i| 1.0e-3 * 10.0_f64.powf(i as f64 * 0.5))
+        .collect();
 
     let weak_only = Majorant::over_indices(&all, &[0, 1], &nucs, &grid, 0.3);
     let by_hand = Majorant::from_materials(&all[..2], &nucs, &grid, 0.3);
@@ -330,7 +386,11 @@ fn region_extent_is_not_the_nearest_surface() {
 fn an_out_of_range_level_is_infinite_not_a_panic() {
     let geom = geometry_with_rod_channel();
     let at = geom
-        .locate(Position::new(1.5, 0.0, 0.0), Direction::new(1.0, 0.0, 0.0), SurfaceToken::NONE)
+        .locate(
+            Position::new(1.5, 0.0, 0.0),
+            Direction::new(1.0, 0.0, 0.0),
+            SurfaceToken::NONE,
+        )
         .expect("locates");
     assert!(geom.distance_out_of_level(&at, 99).is_infinite());
 }

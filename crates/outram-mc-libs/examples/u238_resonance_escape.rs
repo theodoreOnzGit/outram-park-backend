@@ -323,15 +323,17 @@ fn slow_down(
                             }
                             None => two_body_scatter(e, u, nuc.awr, q, seed).0,
                         },
-                        Inelastic::Continuum { q } => continuum_inelastic_scatter_evaluated(
-                            e,
-                            u,
-                            nuc.awr,
-                            q,
-                            nuc.continuum_law(MT_CONTINUUM_INELASTIC),
-                            seed,
-                        )
-                        .0,
+                        Inelastic::Continuum { q } => {
+                            continuum_inelastic_scatter_evaluated(
+                                e,
+                                u,
+                                nuc.awr,
+                                q,
+                                nuc.continuum_law(MT_CONTINUUM_INELASTIC),
+                                seed,
+                            )
+                            .0
+                        }
                     };
                 } else if xi < x.absorption + x.inelastic + x.n2n {
                     // (n,2n) takes its own evaluated MF=6 law, like transport.

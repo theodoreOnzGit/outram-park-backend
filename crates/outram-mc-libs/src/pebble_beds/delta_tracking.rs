@@ -571,7 +571,6 @@ mod tests {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // BOUNDED DELTA FLIGHT — the handoff half of hybrid tracking (bn:op-867c.3)
 // ---------------------------------------------------------------------------
@@ -683,7 +682,11 @@ where
     if !(maj > 0.0) {
         let d = distance_to_exit(r, direction);
         return DeltaStep::Exit {
-            position: if d.is_finite() { stream(r, direction, d) } else { r },
+            position: if d.is_finite() {
+                stream(r, direction, d)
+            } else {
+                r
+            },
             direction,
             virtual_collisions,
         };

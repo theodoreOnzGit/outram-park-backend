@@ -68,9 +68,7 @@ use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{Lattice, RectLattice};
 use outram_mc_libs::geometry::position::{Direction, Position};
-use outram_mc_libs::geometry::surface::{
-    BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane,
-};
+use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, XPlane, YPlane, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 
 const BOX_HALF: f64 = 2.0; // root box half-width
@@ -109,17 +107,40 @@ fn depth3_geometry() -> Geometry {
             bc: BoundaryType::Transmissive,
         }),
         // 2..7: the reflective root box
-        SurfaceKind::XPlane(XPlane { x0: -BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::XPlane(XPlane { x0: BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: -BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::YPlane(YPlane { y0: BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: -BOX_HALF, bc: BoundaryType::Reflective }),
-        SurfaceKind::ZPlane(ZPlane { z0: BOX_HALF, bc: BoundaryType::Reflective }),
+        SurfaceKind::XPlane(XPlane {
+            x0: -BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::XPlane(XPlane {
+            x0: BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: -BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::YPlane(YPlane {
+            y0: BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: BOX_HALF,
+            bc: BoundaryType::Reflective,
+        }),
     ];
 
-    let inside = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
-    let outside =
-        |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+    let inside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Inside,
+    };
+    let outside = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Outside,
+    };
 
     // Root box: outside the low planes, inside the high ones.
     let box_region = vec![
@@ -171,9 +192,18 @@ fn depth3_geometry() -> Geometry {
         surfaces,
         cells: vec![root, pebble_interior, coolant, kernel, matrix],
         universes: vec![
-            Universe { id: 0, cell_indices: vec![0] },
-            Universe { id: 1, cell_indices: vec![1, 2] },
-            Universe { id: 2, cell_indices: vec![3, 4] },
+            Universe {
+                id: 0,
+                cell_indices: vec![0],
+            },
+            Universe {
+                id: 1,
+                cell_indices: vec![1, 2],
+            },
+            Universe {
+                id: 2,
+                cell_indices: vec![3, 4],
+            },
         ],
         lattices: vec![Lattice::Rect(outer_lattice), Lattice::Rect(inner_lattice)],
         root_universe: 0,
@@ -198,11 +228,7 @@ fn locate_descends_three_lattice_levels() {
         .locate(kernel_centre, u, SurfaceToken::NONE)
         .expect("a point inside a nested TRISO kernel must locate");
 
-    println!(
-        "levels = {}, material = {:?}",
-        at.levels.len(),
-        at.material
-    );
+    println!("levels = {}, material = {:?}", at.levels.len(), at.material);
     for (i, lvl) in at.levels.iter().enumerate() {
         println!(
             "  level {i}: lattice = {:?}, index = {:?}",
@@ -219,8 +245,16 @@ fn locate_descends_three_lattice_levels() {
         at.levels.len()
     );
     assert_eq!(at.material, Some(MAT_KERNEL), "should be in a TRISO kernel");
-    assert_eq!(at.levels[1].lattice, Some(0), "level 1 is the outer lattice");
-    assert_eq!(at.levels[2].lattice, Some(1), "level 2 is the INNER lattice");
+    assert_eq!(
+        at.levels[1].lattice,
+        Some(0),
+        "level 1 is the outer lattice"
+    );
+    assert_eq!(
+        at.levels[2].lattice,
+        Some(1),
+        "level 2 is the INNER lattice"
+    );
 }
 
 /// Each of the three levels must resolve to the right material, so the descent
@@ -236,13 +270,25 @@ fn every_level_resolves_to_its_own_material() {
 
     // Outside every pebble, still inside the root box -> coolant, depth 2.
     let coolant = probe(Position::new(1.9, 1.9, 1.9));
-    assert_eq!(coolant.material, Some(MAT_COOLANT), "tile corner is coolant");
+    assert_eq!(
+        coolant.material,
+        Some(MAT_COOLANT),
+        "tile corner is coolant"
+    );
     assert_eq!(coolant.levels.len(), 2, "coolant sits at depth 2, not 3");
 
     // Inside a pebble, inside the inner lattice, but outside the kernel -> matrix.
     let matrix = probe(Position::new(1.0 + 0.2 + KERNEL_R + 0.05, 1.2, 1.2));
-    assert_eq!(matrix.material, Some(MAT_MATRIX), "just outside a kernel is matrix");
-    assert_eq!(matrix.levels.len(), 3, "matrix is still inside both lattices");
+    assert_eq!(
+        matrix.material,
+        Some(MAT_MATRIX),
+        "just outside a kernel is matrix"
+    );
+    assert_eq!(
+        matrix.levels.len(),
+        3,
+        "matrix is still inside both lattices"
+    );
 
     // Inside a kernel -> fuel.
     let kernel = probe(Position::new(1.2, 1.2, 1.2));
@@ -265,7 +311,10 @@ fn streaming_stops_at_the_inner_lattice_edge() {
     let start = Position::new(1.2 - KERNEL_R + 0.01, 1.2, 1.2);
     let at = geom.locate(start, u, SurfaceToken::NONE).expect("locates");
     let d = geom.distance_to_boundary(&at);
-    println!("distance from inside kernel to first boundary = {:.6} cm", d.distance);
+    println!(
+        "distance from inside kernel to first boundary = {:.6} cm",
+        d.distance
+    );
     assert!(
         d.distance > 0.0 && d.distance < 2.0 * KERNEL_R + 1.0e-9,
         "first crossing should be the kernel surface, got {:.6}",
@@ -276,7 +325,9 @@ fn streaming_stops_at_the_inner_lattice_edge() {
     // spans local x in [0.0, 0.4], i.e. global [1.0, 1.4], so from global 1.35
     // the inner-lattice tile edge is 0.05 cm away.
     let in_matrix = Position::new(1.35, 1.2, 1.2);
-    let at2 = geom.locate(in_matrix, u, SurfaceToken::NONE).expect("locates");
+    let at2 = geom
+        .locate(in_matrix, u, SurfaceToken::NONE)
+        .expect("locates");
     let d2 = geom.distance_to_boundary(&at2);
     println!(
         "from inner-lattice matrix at x=1.35, next boundary in {:.6} cm (levels {})",

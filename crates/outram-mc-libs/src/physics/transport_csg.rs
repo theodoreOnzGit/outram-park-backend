@@ -190,7 +190,14 @@ pub fn run_keff_csg_hybrid(
     tally: Option<&mut Tally>,
 ) -> KeffResult {
     run_keff_csg_inner(
-        geom, materials, nuclides, majorants, entropy_mesh, source_box, settings, tally,
+        geom,
+        materials,
+        nuclides,
+        majorants,
+        entropy_mesh,
+        source_box,
+        settings,
+        tally,
     )
 }
 
@@ -202,7 +209,16 @@ pub fn run_keff_csg(
     settings: &KeffSettings,
     tally: Option<&mut Tally>,
 ) -> KeffResult {
-    run_keff_csg_inner(geom, materials, nuclides, &[], None, source_box, settings, tally)
+    run_keff_csg_inner(
+        geom,
+        materials,
+        nuclides,
+        &[],
+        None,
+        source_box,
+        settings,
+        tally,
+    )
 }
 
 fn run_keff_csg_inner(
@@ -482,9 +498,13 @@ pub fn run_keff_csg_seq(
                 neg_dist_run += outcome.neg_dist;
                 neg_lat_run += outcome.neg_from_lattice;
                 neg_surf_run += outcome.neg_from_surface;
-                if outcome.neg_dist > 0 { neg_level_run = outcome.neg_level; }
+                if outcome.neg_dist > 0 {
+                    neg_level_run = outcome.neg_level;
+                }
                 neg_worst_run = neg_worst_run.min(outcome.neg_worst);
-                if outcome.stuck_last_e > 0.0 { stuck_e_run = outcome.stuck_last_e; }
+                if outcome.stuck_last_e > 0.0 {
+                    stuck_e_run = outcome.stuck_last_e;
+                }
                 leak_vacuum_run_total += outcome.leak_vacuum;
                 leak_infinity_run_total += outcome.leak_infinity;
                 histories_run_total += 1;
@@ -685,7 +705,6 @@ pub fn run_keff_csg_par(
     let mut histories_run_total: u64 = 0;
     let mut entropy: Vec<f64> = Vec::new();
     pool.install(|| {
-
         for gen in 0..n_gen {
             let active = gen >= settings.n_inactive;
             // Base seed for this generation's per-history sub-streams.
@@ -742,7 +761,7 @@ pub fn run_keff_csg_par(
             // banks and sum per-history tally / leakage batches in history-index
             // order.
             let mut production = 0.0_f64;
-                let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
+            let mut next_bank: Vec<Site> = Vec::with_capacity(settings.n_particles);
             let mut batch: Vec<f64> = if active && n_bins > 0 {
                 vec![0.0; n_bins]
             } else {
@@ -763,9 +782,13 @@ pub fn run_keff_csg_par(
                 neg_dist_run += outcome.neg_dist;
                 neg_lat_run += outcome.neg_from_lattice;
                 neg_surf_run += outcome.neg_from_surface;
-                if outcome.neg_dist > 0 { neg_level_run = outcome.neg_level; }
+                if outcome.neg_dist > 0 {
+                    neg_level_run = outcome.neg_level;
+                }
                 neg_worst_run = neg_worst_run.min(outcome.neg_worst);
-                if outcome.stuck_last_e > 0.0 { stuck_e_run = outcome.stuck_last_e; }
+                if outcome.stuck_last_e > 0.0 {
+                    stuck_e_run = outcome.stuck_last_e;
+                }
                 leak_vacuum_run_total += outcome.leak_vacuum;
                 leak_infinity_run_total += outcome.leak_infinity;
                 histories_run_total += 1;
@@ -797,25 +820,25 @@ pub fn run_keff_csg_par(
 
             let k_gen = production / settings.n_particles as f64;
             // Shannon entropy of THIS generation's fission source, before the
-        // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
-        // the bank must be the pre-synchronisation one, which is why this sits
-        // here and not after `resample`.
-        if let Some(mesh) = entropy_mesh {
-            let sites: Vec<crate::particle::bank::BankSite> = next_bank
-                .iter()
-                .map(|s| crate::particle::bank::BankSite {
-                    r: s.r,
-                    u: s.u,
-                    e: s.e,
-                    wgt: 1.0,
-                    seed: 0,
-                })
-                .collect();
-            if let Some(h) = mesh.shannon_entropy(&sites) {
-                entropy.push(h);
+            // bank is resampled. Ported from OpenMC `src/eigenvalue.cpp:587` --
+            // the bank must be the pre-synchronisation one, which is why this sits
+            // here and not after `resample`.
+            if let Some(mesh) = entropy_mesh {
+                let sites: Vec<crate::particle::bank::BankSite> = next_bank
+                    .iter()
+                    .map(|s| crate::particle::bank::BankSite {
+                        r: s.r,
+                        u: s.u,
+                        e: s.e,
+                        wgt: 1.0,
+                        seed: 0,
+                    })
+                    .collect();
+                if let Some(h) = mesh.shannon_entropy(&sites) {
+                    entropy.push(h);
+                }
             }
-        }
-        k_by_generation.push(k_gen);
+            k_by_generation.push(k_gen);
             k_running = k_gen.max(1.0e-6);
             if active {
                 active_k.push(k_gen);
@@ -1083,10 +1106,14 @@ pub(crate) fn transport_history(
                         // `exit_at` is measured from `r`; convert a probe point
                         // back to remaining distance along the ray.
                         |p: Position, _d: Direction| {
-                            let travelled = (p.x - r.x) * u.u + (p.y - r.y) * u.v + (p.z - r.z) * u.w;
+                            let travelled =
+                                (p.x - r.x) * u.u + (p.y - r.y) * u.v + (p.z - r.z) * u.w;
                             exit_at - travelled
                         },
-                        |p: Position| geom.locate(p, u, SurfaceToken::NONE).and_then(|q| q.material),
+                        |p: Position| {
+                            geom.locate(p, u, SurfaceToken::NONE)
+                                .and_then(|q| q.material)
+                        },
                         seed,
                     );
                     match step {
@@ -1112,7 +1139,9 @@ pub(crate) fn transport_history(
                             virtual_collisions += u64::from(v);
                             (f64::INFINITY, path.material)
                         }
-                        DeltaStep::Exhausted { virtual_collisions: v } => {
+                        DeltaStep::Exhausted {
+                            virtual_collisions: v,
+                        } => {
                             virtual_collisions += u64::from(v);
                             score_leak(leak_batch, leak_edges, e, 1.0);
                             break 'history;

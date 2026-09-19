@@ -240,8 +240,7 @@ fn main() {
                 .find(|r| r.model.to_lowercase().contains(want))
                 .map(|r| r.absorption_probability)
         };
-        let (Some(p_rsa), Some(p_cls), Some(p_scls)) =
-            (pick("rsa"), pick("cls"), pick("scls"))
+        let (Some(p_rsa), Some(p_cls), Some(p_scls)) = (pick("rsa"), pick("cls"), pick("scls"))
         else {
             // SCLS's name contains "cls", so a naive substring match can alias.
             // Fall back to positional order, which compare() documents.

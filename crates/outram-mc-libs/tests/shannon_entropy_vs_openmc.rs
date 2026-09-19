@@ -59,9 +59,8 @@ use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::particle::bank::BankSite;
 use outram_mc_libs::tally::mesh::RegularMesh;
 
-const BANK_CSV: &str = include_str!(
-    "../verification_and_validation/shannon_entropy/entropy_source_bank.csv"
-);
+const BANK_CSV: &str =
+    include_str!("../verification_and_validation/shannon_entropy/entropy_source_bank.csv");
 const ORACLE_CSV: &str =
     include_str!("../verification_and_validation/shannon_entropy/entropy_oracle.csv");
 const COUNTS_CSV: &str =
@@ -72,7 +71,12 @@ fn oracle(key: &str) -> f64 {
     for line in ORACLE_CSV.lines().skip(1) {
         let mut it = line.split(',');
         if it.next() == Some(key) {
-            return it.next().expect("oracle row has a value").trim().parse().expect("oracle parses");
+            return it
+                .next()
+                .expect("oracle row has a value")
+                .trim()
+                .parse()
+                .expect("oracle parses");
         }
     }
     panic!("oracle key {key} not found");
@@ -86,7 +90,10 @@ fn openmc_bank() -> Vec<BankSite> {
         .skip(1)
         .filter(|l| !l.trim().is_empty())
         .map(|l| {
-            let v: Vec<f64> = l.split(',').map(|s| s.trim().parse().expect("bank parses")).collect();
+            let v: Vec<f64> = l
+                .split(',')
+                .map(|s| s.trim().parse().expect("bank parses"))
+                .collect();
             assert_eq!(v.len(), 4, "bank row is x,y,z,wgt");
             BankSite {
                 r: Position::new(v[0], v[1], v[2]),
@@ -122,9 +129,15 @@ fn reference_mesh() -> RegularMesh {
 fn entropy_matches_the_openmc_bank_oracle_exactly() {
     let mesh = reference_mesh();
     let bank = openmc_bank();
-    assert_eq!(bank.len(), oracle("n_sites") as usize, "bank size matches the oracle");
+    assert_eq!(
+        bank.len(),
+        oracle("n_sites") as usize,
+        "bank size matches the oracle"
+    );
 
-    let h = mesh.shannon_entropy(&bank).expect("a 5000-site bank has an entropy");
+    let h = mesh
+        .shannon_entropy(&bank)
+        .expect("a 5000-site bank has an entropy");
     let expected = oracle("transcribed_entropy_on_final_source_bank");
     let rel = (h - expected).abs() / expected.abs();
 
@@ -162,7 +175,14 @@ fn per_bin_weights_match_openmc_bin_for_bin() {
         .lines()
         .skip(1)
         .filter(|l| !l.trim().is_empty())
-        .map(|l| l.split(',').nth(1).expect("counts row").trim().parse().expect("count parses"))
+        .map(|l| {
+            l.split(',')
+                .nth(1)
+                .expect("counts row")
+                .trim()
+                .parse()
+                .expect("count parses")
+        })
         .collect();
 
     assert_eq!(counts.len(), expected.len(), "bin count matches");
@@ -181,9 +201,7 @@ fn per_bin_weights_match_openmc_bin_for_bin() {
             worst_bin = i;
         }
     }
-    println!(
-        "125 bins compared; worst absolute weight difference {worst:.3e} at bin {worst_bin}"
-    );
+    println!("125 bins compared; worst absolute weight difference {worst:.3e} at bin {worst_bin}");
     assert!(
         worst < 1.0e-12,
         "per-bin weights differ from OpenMC: worst {worst:.3e} at bin {worst_bin} \
@@ -220,7 +238,9 @@ fn a_uniform_source_reaches_the_log2_ceiling() {
             }
         }
     }
-    let h = mesh.shannon_entropy(&bank).expect("uniform bank has an entropy");
+    let h = mesh
+        .shannon_entropy(&bank)
+        .expect("uniform bank has an entropy");
     let ceiling = (mesh.n_bins() as f64).log2();
     println!("uniform H = {h:.15}, log2(64) = {ceiling:.15}");
     assert!(
@@ -247,7 +267,9 @@ fn a_fully_concentrated_source_has_zero_entropy() {
             seed: 0,
         })
         .collect();
-    let h = mesh.shannon_entropy(&bank).expect("concentrated bank has an entropy");
+    let h = mesh
+        .shannon_entropy(&bank)
+        .expect("concentrated bank has an entropy");
     assert_eq!(h, 0.0, "a delta source has exactly zero entropy, got {h}");
 }
 
@@ -261,11 +283,28 @@ fn an_even_two_bin_split_is_exactly_one_bit() {
         dimension: [2, 1, 1],
     };
     let bank = vec![
-        BankSite { r: Position::new(0.5, 0.5, 0.5), u: Direction::new(0.0, 0.0, 1.0), e: 1.0, wgt: 1.0, seed: 0 },
-        BankSite { r: Position::new(1.5, 0.5, 0.5), u: Direction::new(0.0, 0.0, 1.0), e: 1.0, wgt: 1.0, seed: 0 },
+        BankSite {
+            r: Position::new(0.5, 0.5, 0.5),
+            u: Direction::new(0.0, 0.0, 1.0),
+            e: 1.0,
+            wgt: 1.0,
+            seed: 0,
+        },
+        BankSite {
+            r: Position::new(1.5, 0.5, 0.5),
+            u: Direction::new(0.0, 0.0, 1.0),
+            e: 1.0,
+            wgt: 1.0,
+            seed: 0,
+        },
     ];
-    let h = mesh.shannon_entropy(&bank).expect("two-site bank has an entropy");
-    assert!((h - 1.0).abs() < 1.0e-15, "an even two-way split is 1 bit, got {h}");
+    let h = mesh
+        .shannon_entropy(&bank)
+        .expect("two-site bank has an entropy");
+    assert!(
+        (h - 1.0).abs() < 1.0e-15,
+        "an even two-way split is 1 bit, got {h}"
+    );
 }
 
 /// **The defect this port was found to have.** `get_index_in_direction`
@@ -374,8 +413,20 @@ fn count_sites_accumulates_weight_not_hits() {
         dimension: [2, 1, 1],
     };
     let bank = vec![
-        BankSite { r: Position::new(0.5, 0.5, 0.5), u: Direction::new(0.0, 0.0, 1.0), e: 1.0, wgt: 3.0, seed: 0 },
-        BankSite { r: Position::new(1.5, 0.5, 0.5), u: Direction::new(0.0, 0.0, 1.0), e: 1.0, wgt: 1.0, seed: 0 },
+        BankSite {
+            r: Position::new(0.5, 0.5, 0.5),
+            u: Direction::new(0.0, 0.0, 1.0),
+            e: 1.0,
+            wgt: 3.0,
+            seed: 0,
+        },
+        BankSite {
+            r: Position::new(1.5, 0.5, 0.5),
+            u: Direction::new(0.0, 0.0, 1.0),
+            e: 1.0,
+            wgt: 1.0,
+            seed: 0,
+        },
     ];
     let (counts, outside) = mesh.count_sites(&bank);
     assert!(!outside);
@@ -401,7 +452,11 @@ fn an_empty_or_fully_outside_bank_has_no_entropy() {
         upper_right: [1.0, 1.0, 1.0],
         dimension: [2, 2, 2],
     };
-    assert_eq!(mesh.shannon_entropy(&[]), None, "an empty bank has no entropy");
+    assert_eq!(
+        mesh.shannon_entropy(&[]),
+        None,
+        "an empty bank has no entropy"
+    );
 
     let far = vec![BankSite {
         r: Position::new(100.0, 100.0, 100.0),

@@ -203,7 +203,12 @@ fn translation_equals_moving_the_surface_for_membership() {
                             pb.levels.last().unwrap().cell,
                             "leaf cell differs at r=({:.4},{:.4},{:.4}) under translation \
                              ({:.4},{:.4},{:.4})",
-                            r.x, r.y, r.z, t.x, t.y, t.z
+                            r.x,
+                            r.y,
+                            r.z,
+                            t.x,
+                            t.y,
+                            t.z
                         );
                         if pa.material == Some(0) {
                             inner_hits += 1;
@@ -289,9 +294,7 @@ fn translation_equals_moving_the_surface_for_distance() {
         finite > 0,
         "every compared distance was infinite, so nothing was really tested"
     );
-    println!(
-        "cell translation, distance: {compared} comparisons bit-identical ({finite} finite)"
-    );
+    println!("cell translation, distance: {compared} comparisons bit-identical ({finite} finite)");
 }
 
 /// **3. The negative control — translation is not a no-op.**
@@ -315,7 +318,11 @@ fn translation_is_not_a_no_op() {
             .expect("origin is inside the root sphere")
             .material
     };
-    assert_eq!(at_origin(&untranslated), Some(0), "origin starts in material 0");
+    assert_eq!(
+        at_origin(&untranslated),
+        Some(0),
+        "origin starts in material 0"
+    );
     assert_eq!(
         at_origin(&translated),
         Some(1),

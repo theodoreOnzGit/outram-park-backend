@@ -595,7 +595,10 @@ fn main() {
     // Every DH number in this repo is a SINGLE draw; pooling is gh:#196 /
     // bn:op-awwi. Each draw is timed separately.
     let n_seeds: u64 = std::env::var("OUTRAM_DH_SEEDS")
-        .ok().and_then(|v| v.parse().ok()).filter(|&n: &u64| n >= 1).unwrap_or(1);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .filter(|&n: &u64| n >= 1)
+        .unwrap_or(1);
 
     // `OUTRAM_DH_VV_ONLY=<substring>` restricts the table to the arms whose
     // name contains that substring, case-insensitively. NOTE `cls` is a
@@ -611,7 +614,9 @@ fn main() {
         .ok()
         .map(|s| s.to_lowercase());
     if let Some(filter) = only.as_deref() {
-        println!("  (OUTRAM_DH_VV_ONLY={filter} -- showing only the arms whose name contains it)\n");
+        println!(
+            "  (OUTRAM_DH_VV_ONLY={filter} -- showing only the arms whose name contains it)\n"
+        );
     }
 
     let mut rows: Vec<Row> = Vec::new();
@@ -621,49 +626,70 @@ fn main() {
                 continue;
             }
         }
-      let mut draws: Vec<f64> = Vec::with_capacity(n_seeds as usize);
-      for draw in 1..=n_seeds {
-        let params = PebbleParams::fhr_unit_cell().with_materials(mats.clone());
-        let params = PebbleParams { seed: params.seed.wrapping_add(draw - 1) | 1, ..params };
-        let settings = KeffSettings { seed: draw, ..settings.clone() };
-        let universe = match DhUniverse::pebble(params, treatment) {
-            Ok(u) => u,
-            Err(e) => {
-                println!("  {:<28} BUILD FAILED: {e}", treatment.name());
-                continue;
+        let mut draws: Vec<f64> = Vec::with_capacity(n_seeds as usize);
+        for draw in 1..=n_seeds {
+            let params = PebbleParams::fhr_unit_cell().with_materials(mats.clone());
+            let params = PebbleParams {
+                seed: params.seed.wrapping_add(draw - 1) | 1,
+                ..params
+            };
+            let settings = KeffSettings {
+                seed: draw,
+                ..settings.clone()
+            };
+            let universe = match DhUniverse::pebble(params, treatment) {
+                Ok(u) => u,
+                Err(e) => {
+                    println!("  {:<28} BUILD FAILED: {e}", treatment.name());
+                    continue;
+                }
+            };
+            let particles = universe.particle_count();
+            let t0 = Instant::now();
+            let result = universe.keff(&nucs, &settings);
+            let secs = t0.elapsed().as_secs_f64();
+            println!(
+                "  {:<28} k = {:.5} +/- {:.5}   {:>7.1} s   {} particles stored",
+                treatment.name(),
+                result.k_mean,
+                result.k_std,
+                secs,
+                particles
+            );
+            draws.push((result.k_mean - 1.0) * 0.0 + result.k_mean);
+            if n_seeds > 1 {
+                println!(
+                    "      draw {draw}/{n_seeds}: k = {:.5} +/- {:.5}  ({secs:.1} s)",
+                    result.k_mean, result.k_std
+                );
             }
-        };
-        let particles = universe.particle_count();
-        let t0 = Instant::now();
-        let result = universe.keff(&nucs, &settings);
-        let secs = t0.elapsed().as_secs_f64();
-        println!(
-            "  {:<28} k = {:.5} +/- {:.5}   {:>7.1} s   {} particles stored",
-            treatment.name(),
-            result.k_mean,
-            result.k_std,
-            secs,
-            particles
-        );
-        draws.push((result.k_mean - 1.0) * 0.0 + result.k_mean);
-        if n_seeds > 1 {
-            println!("      draw {draw}/{n_seeds}: k = {:.5} +/- {:.5}  ({secs:.1} s)",
-                     result.k_mean, result.k_std);
+            if draw == n_seeds {
+                rows.push(Row {
+                    treatment,
+                    k: result.k_mean,
+                    std: result.k_std,
+                    secs,
+                    particles,
+                });
+            }
         }
-        if draw == n_seeds {
-            rows.push(Row { treatment, k: result.k_mean, std: result.k_std, secs, particles });
+        if n_seeds > 1 && !draws.is_empty() {
+            let n = draws.len() as f64;
+            let mean = draws.iter().sum::<f64>() / n;
+            let sd = if n > 1.0 {
+                (draws.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
+            } else {
+                0.0
+            };
+            let sem = if n > 1.0 { sd / n.sqrt() } else { 0.0 };
+            println!(
+                "    POOLED {:<24} k = {mean:.5}  sd = {:.5}  sem = +/-{:.5}  ({} draws)",
+                treatment.name(),
+                sd,
+                sem,
+                draws.len()
+            );
         }
-      }
-      if n_seeds > 1 && !draws.is_empty() {
-          let n = draws.len() as f64;
-          let mean = draws.iter().sum::<f64>() / n;
-          let sd = if n > 1.0 {
-              (draws.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
-          } else { 0.0 };
-          let sem = if n > 1.0 { sd / n.sqrt() } else { 0.0 };
-          println!("    POOLED {:<24} k = {mean:.5}  sd = {:.5}  sem = +/-{:.5}  ({} draws)",
-                   treatment.name(), sd, sem, draws.len());
-      }
     }
 
     let Some(reference) = rows.iter().find(|r| r.treatment.is_exact()) else {

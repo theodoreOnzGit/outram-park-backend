@@ -66,8 +66,8 @@ use crate::physics::compute::{ComputeType, ThreadCount};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated,
-    rotate_direction, two_body_scatter, two_body_scatter_with_mu,
+    free_gas_elastic_scatter_dbrc, continuum_inelastic_scatter_evaluated, rotate_direction,
+    two_body_scatter, two_body_scatter_with_mu,
 };
 use crate::rng::distributions::{isotropic_direction, watt};
 use crate::rng::lcg::{future_seed, prn};
@@ -1133,7 +1133,15 @@ where
                         let mu_cm = nuc
                             .sample_elastic_mu_cm(e, seed)
                             .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                        free_gas_elastic_scatter_dbrc(e, u, nuc.awr, kt, mu_cm, seed, nuc.dbrc_table())
+                        free_gas_elastic_scatter_dbrc(
+                            e,
+                            u,
+                            nuc.awr,
+                            kt,
+                            mu_cm,
+                            seed,
+                            nuc.dbrc_table(),
+                        )
                     }
                 };
                 e = e2;

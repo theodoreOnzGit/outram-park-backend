@@ -272,7 +272,10 @@ mod desktop {
              ablation would remove nothing and report a meaningless null. Either the MF=6 \
              coefficients stopped being read (bead op-og56) or the tapes changed."
         );
-        println!("  continuum angular law present on: {}", carriers.join(", "));
+        println!(
+            "  continuum angular law present on: {}",
+            carriers.join(", ")
+        );
 
         let iso: Vec<Nuclide> = aniso
             .iter()
@@ -331,8 +334,20 @@ mod desktop {
 
         println!("Δk from ICSBEP HEU-MET-FAST-001 = 1.0000, pcm");
         println!("  arm       n     mean      sd     sem");
-        println!("  ANISO   {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", a.len(), ma, sa, ea);
-        println!("  ISO     {:>3}   {:+7.0}  {:>6.0}  {:>6.0}", b.len(), mb, sb, eb);
+        println!(
+            "  ANISO   {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            a.len(),
+            ma,
+            sa,
+            ea
+        );
+        println!(
+            "  ISO     {:>3}   {:+7.0}  {:>6.0}  {:>6.0}",
+            b.len(),
+            mb,
+            sb,
+            eb
+        );
         println!();
         println!(
             "  difference (ANISO − ISO), unpaired = {:+.0} ± {:.0} pcm  ({:.1} sigma)",

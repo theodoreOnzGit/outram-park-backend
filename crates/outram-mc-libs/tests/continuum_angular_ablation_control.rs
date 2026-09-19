@@ -221,8 +221,15 @@ fn sample_arm(
     let mut mus = Vec::with_capacity(n);
     let mut es = Vec::with_capacity(n);
     for _ in 0..n {
-        let (e_out, u_out) =
-            continuum_inelastic_scatter_evaluated_with(e_in, z_dir(), awr, q, Some(law), mode, &mut s);
+        let (e_out, u_out) = continuum_inelastic_scatter_evaluated_with(
+            e_in,
+            z_dir(),
+            awr,
+            q,
+            Some(law),
+            mode,
+            &mut s,
+        );
         mus.push(u_out.w);
         es.push(e_out);
     }
@@ -307,7 +314,10 @@ fn u238_continuum_angular_law_is_read_and_has_the_evaluated_energy_profile() {
     for &target in &[4.356e5_f64, 1.02e6, 3.0e6, 8.5e6, 1.4e7, 2.0e7] {
         let i = find(target);
         let mubar = pdf_weighted_mubar(law, 0, i).expect("Legendre law");
-        println!("  E_in = {:>10.4e} eV   <mu_cm> = {:+.6}", incident[i], mubar);
+        println!(
+            "  E_in = {:>10.4e} eV   <mu_cm> = {:+.6}",
+            incident[i], mubar
+        );
         profile.push((incident[i], mubar));
     }
 

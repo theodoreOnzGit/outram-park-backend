@@ -138,9 +138,7 @@ use crate::geometry::geometry::{Crossing, Geometry};
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::physics::scatter::{
-    free_gas_elastic_scatter_dbrc, two_body_scatter_with_mu,
-};
+use crate::physics::scatter::{free_gas_elastic_scatter_dbrc, two_body_scatter_with_mu};
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
 
@@ -967,7 +965,15 @@ impl LumpCellMc {
                     let mu_cm = nuc
                         .sample_elastic_mu_cm(e, seed)
                         .unwrap_or_else(|| 2.0 * prn(seed) - 1.0);
-                    free_gas_elastic_scatter_dbrc(e, dir, nuc.awr, nuc.free_gas_kt(temp_k), mu_cm, seed, nuc.dbrc_table())
+                    free_gas_elastic_scatter_dbrc(
+                        e,
+                        dir,
+                        nuc.awr,
+                        nuc.free_gas_kt(temp_k),
+                        mu_cm,
+                        seed,
+                        nuc.dbrc_table(),
+                    )
                 }
             }
         }

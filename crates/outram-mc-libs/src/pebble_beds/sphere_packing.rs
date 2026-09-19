@@ -773,8 +773,7 @@ pub fn cubic_pitch_for_count(
     for t in 0..3000 {
         let p = p0 * (0.97 + 0.06 * t as f64 / 2999.0);
         let c = cubic_array_in_ball(particle_radius, ball_radius, p, offset).len();
-        let better = best.1 == usize::MAX
-            || c.abs_diff(target) < best.1.abs_diff(target);
+        let better = best.1 == usize::MAX || c.abs_diff(target) < best.1.abs_diff(target);
         if better {
             best = (p, c);
         }
