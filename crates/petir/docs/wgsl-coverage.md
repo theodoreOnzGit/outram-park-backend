@@ -789,12 +789,21 @@ can be measured rather than waved at.
 
 ## What would change this ledger
 
-- **`specfunc`'s remaining ~281 operations** are the largest genuinely
-  portable block left, and almost all are pointwise. That is where "exhaustive"
-  has the most room to move. `dilog`, `airy`, `debye`, the Fermi-Dirac and
-  Bose-Einstein integrals and the Coulomb wave functions are the next blocks;
-  integer-order and arbitrary-order Bessel build on the order-0/1 kernels now
-  present, and much of `cdf` builds on `psi` and the incomplete gamma.
+- **`specfunc`'s remaining operations** are the largest genuinely portable
+  block left, and almost all are pointwise. That is where "exhaustive" has the
+  most room to move. ~~`dilog`, `airy`, `debye`, the Fermi-Dirac and
+  Bose-Einstein integrals and the Coulomb wave functions are the next
+  blocks~~ **CORRECTED 2026-09-19** — four of those five are PORTED
+  (`dilog`, `airy`, `debye`, Fermi-Dirac), and this line had gone on naming
+  them as future work. What is actually next: the **Bose-Einstein
+  integrals**, the **Coulomb wave functions**, **Legendre beyond `P_n`**, and
+  the integer-order and arbitrary-order Bessel functions, which build on the
+  order-0/1 kernels now present. Much of `cdf` builds on `psi` and the
+  incomplete gamma.
+
+  **The count lives in the `specfunc` (rest) row above and nowhere else.**
+  This line used to carry its own figure, ~281, against the table's ~222; two
+  numbers for one quantity is a drift source, so there is now one.
 - **`cdf` (~200)** is the next, and is mostly compositions of `specfunc`.
 - Anything marked **N/A** will not move without a *different algorithm*, which
   would no longer be a port. Replacing GSL's quicksort with a bitonic sort is a
