@@ -106,24 +106,10 @@
 use crate::real::Real;
 
 use crate::cheb_slice::eval_gsl;
+use crate::specfunc::{
+    exp_mult, DBL_EPSILON, DBL_MIN, LOG_DBL_MAX, ROOT5_DBL_EPSILON, SQRT_DBL_EPSILON,
+};
 
-/// `GSL_DBL_EPSILON`.
-const DBL_EPSILON: f64 = 2.220_446_049_250_313_1e-16;
-/// `GSL_SQRT_DBL_EPSILON`.
-const SQRT_DBL_EPSILON: f64 = 1.490_116_119_384_765_6e-8;
-/// `GSL_ROOT5_DBL_EPSILON` — the fifth root, where `cos_pi4`'s series for
-/// `sin(eps)`/`cos(eps)` becomes exact to `f64`.
-const ROOT5_DBL_EPSILON: f64 = 7.400_959_797_414_050_5e-4;
-/// `GSL_LOG_DBL_MAX`.
-const LOG_DBL_MAX: f64 = 7.097_827_128_933_839_7e2;
-/// `GSL_LOG_DBL_MIN`.
-const LOG_DBL_MIN: f64 = -7.083_964_185_322_640_8e2;
-/// `GSL_SQRT_DBL_MAX`.
-const SQRT_DBL_MAX: f64 = 1.340_780_792_994_259_6e154;
-/// `GSL_SQRT_DBL_MIN`.
-const SQRT_DBL_MIN: f64 = 1.491_668_146_240_041_3e-154;
-/// `GSL_DBL_MIN`.
-const DBL_MIN: f64 = f64::MIN_POSITIVE;
 /// `M_SQRT2`.
 const SQRT2: f64 = core::f64::consts::SQRT_2;
 /// `2 * M_SQRT2` — upstream's `ROOT_EIGHT`, the `J1`/`I1` small-argument cut.
@@ -650,47 +636,6 @@ fn sin_pi4(y: f64, eps: f64) -> f64 {
     let d = sy - cy;
     let (seps, ceps) = sin_cos_eps(eps);
     (ceps * d + seps * s) / SQRT2
-}
-
-/// `y * exp(x)`, computed as GSL's `gsl_sf_exp_mult_err_e` (`specfunc/exp.c`)
-/// computes its value: directly where both factors are comfortably in range,
-/// and otherwise by splitting each exponent into its integer and fractional
-/// parts so that neither `exp` call can overflow on its own.
-///
-/// Only the value is translated; GSL's error propagation is not carried here
-/// because PETIR's special functions return a bare `f64` (see the module
-/// documentation of [`crate::specfunc`]).
-#[inline]
-fn exp_mult(x: f64, y: f64) -> f64 {
-    let ay = y.abs();
-    if y == 0.0 {
-        return 0.0;
-    }
-    if x < 0.5 * LOG_DBL_MAX
-        && x > 0.5 * LOG_DBL_MIN
-        && ay < 0.8 * SQRT_DBL_MAX
-        && ay > 1.2 * SQRT_DBL_MIN
-    {
-        return y * x.exp();
-    }
-    let ly = ay.ln();
-    let lnr = x + ly;
-    if lnr > LOG_DBL_MAX - 0.01 {
-        return if y < 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
-    }
-    if lnr < LOG_DBL_MIN + 0.01 {
-        return 0.0;
-    }
-    let sy = if y < 0.0 { -1.0 } else { 1.0 };
-    let m = x.floor();
-    let n = ly.floor();
-    let a = x - m;
-    let b = ly - n;
-    sy * (m + n).exp() * (a + b).exp()
 }
 
 // ---------------------------------------------------------------------------
@@ -1663,20 +1608,4 @@ mod tests {
         }
     }
 
-    /// `exp_mult`'s split branch must agree with the direct product wherever
-    /// the direct product is representable, and must stay finite where it is
-    /// not. The split is only reached for arguments `K_0`/`K_1` see past
-    /// `x ~ 354`, so it is otherwise untested by the suite.
-    #[test]
-    fn exp_mult_agrees_with_the_direct_product_and_extends_past_it() {
-        for (x, y) in [(-10.0, 3.0), (-100.0, 0.05), (5.0, -2.0)] {
-            let direct = y * x.exp();
-            assert!(((exp_mult(x, y) - direct) / direct).abs() < 1e-15);
-        }
-        // Past the fast branch: -400 is below 0.5 * LOG_DBL_MIN.
-        let v = exp_mult(-400.0, 0.05);
-        assert!(v > 0.0 && v.is_finite(), "exp_mult(-400, 0.05) = {v:e}");
-        assert!(((v - 0.05 * (-400.0_f64).exp()) / v).abs() < 1e-14);
-        assert_eq!(exp_mult(-10.0, 0.0), 0.0);
-    }
 }
