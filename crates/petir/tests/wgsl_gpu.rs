@@ -5,7 +5,7 @@
 ))]
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
-use petir::wgsl::{mirror, test_kernel, ALL, ALL_NAMES, CHEB, LEGENDRE, POLY};
+use petir::wgsl::{mirror, mirror_erf, test_kernel, ALL, ALL_NAMES, CHEB, ERF, LEGENDRE, POLY};
 
 /// Largest absolute difference between two same-length slices.
 fn worst_abs(a: &[f32], b: &[f32]) -> f32 {
@@ -41,6 +41,7 @@ fn every_shader_parses_and_validates_under_naga() {
             "poly" => "petir_poly_eval(0u, params.n, x)",
             "cheb" => "petir_cheb_eval(0u, params.n, params.a, params.b, x)",
             "legendre" => "petir_legendre_p(params.k, x)",
+            "erf" => "petir_erfc(x)",
             other => panic!("no validation call registered for {other}.wgsl"),
         };
         let kernel = test_kernel(&[src], call);
@@ -63,13 +64,25 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 3] = [
+    let expected: [(&str, &[&str]); 4] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
             &["petir_cheb_eval", "petir_cheb_eval_n", "petir_cheb_scale"],
         ),
         (LEGENDRE, &["petir_legendre_p", "petir_legendre_p_dp"]),
+        (
+            ERF,
+            &[
+                "petir_erf",
+                "petir_erfc",
+                "petir_erfseries",
+                "petir_erfc8",
+                "petir_cheb_erfc_xlt1",
+                "petir_cheb_erfc_x15",
+                "petir_cheb_erfc_x510",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -306,6 +319,134 @@ fn gpu_cheb_tracks_the_f64_reference_within_the_f32_budget() {
     assert!(
         worst < 1e-5,
         "GPU ({}) vs f64 reference: worst relative {worst:e}",
+        gpu.adapter_name()
+    );
+}
+
+/// `petir_erfc` and `petir_erf` on the GPU match the `f32` CPU mirror, across
+/// every one of GSL's branches.
+///
+/// # Methodology
+///
+/// 512 probe points over `[-12, 12]`, which crosses all four `erfc` branch
+/// boundaries (|x| = 1, 5, 10) and the sign reflection. Compared as an
+/// **absolute** difference against the mirror, not a relative one: both sides
+/// are the same `f32` computation, so what is being tested is whether the
+/// device reproduces it, and in the tail both are legitimately zero.
+///
+/// `erf` is checked on the same grid.
+///
+/// # Results
+///
+/// Worst absolute difference **1.192e-07 for `erfc`** and **5.960e-08 for
+/// `erf`**, over 512 points, measured 2026-09-19 on
+/// `llvmpipe (LLVM 20.1.2, 256 bits)`.
+///
+/// **These are the first kernels here that are NOT bit-identical, and the
+/// reason is worth stating.** `poly`, `cheb` and `legendre` all match the
+/// mirror exactly, because they are pure arithmetic — add, multiply, divide —
+/// which IEEE-754 pins to a single correctly-rounded answer. `erf` and `erfc`
+/// call `exp`, and WGSL specifies its builtins to an **ULP bound rather than
+/// correct rounding**, so the device's `exp` and `libm::expf` are different
+/// functions that agree to about an ulp. One or two ulp out of a composed
+/// expression is exactly what that predicts.
+///
+/// The practical rule this establishes for the rest of the module: a kernel
+/// built only from arithmetic can be held to bit-identity, and a kernel that
+/// touches a transcendental builtin cannot. Asserting the former on the latter
+/// would produce a test that fails on a conforming device.
+///
+/// Within that, this is still the strongest transcription evidence in the
+/// suite. `erfc` is 4 branches, 3 Chebyshev tables, a 30-term series and a
+/// degree-5/6 rational; landing within an ulp of the mirror everywhere means
+/// the branch thresholds, the argument mappings and all 65 extracted
+/// coefficients are right.
+#[test]
+fn gpu_erf_family_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_erf_family_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let probes: Vec<f32> = (0..512).map(|i| -12.0 + 24.0 * i as f32 / 511.0).collect();
+
+    let got_erfc = gpu
+        .eval_map(
+            &[ERF],
+            "petir_erfc(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let want_erfc: Vec<f32> = probes.iter().map(|&x| mirror_erf::erfc(x)).collect();
+    let worst_erfc = worst_abs(&got_erfc, &want_erfc);
+
+    let got_erf = gpu
+        .eval_map(
+            &[ERF],
+            "petir_erf(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let want_erf: Vec<f32> = probes.iter().map(|&x| mirror_erf::erf(x)).collect();
+    let worst_erf = worst_abs(&got_erf, &want_erf);
+
+    assert!(
+        worst_erfc <= 1e-6 && worst_erf <= 1e-6,
+        "GPU ({}) vs f32 mirror: erfc {worst_erfc:e}, erf {worst_erf:e}",
+        gpu.adapter_name()
+    );
+}
+
+/// The GPU's `erfc` tracks PETIR's `f64` `erfc` to the `f32` budget.
+///
+/// # Results
+///
+/// Worst relative difference **4.327e-06** over `[-9, 9]`, measured
+/// 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`.
+///
+/// The CPU mirror records 8.368e-06 against the same `f64` reference, over
+/// `[-12, 12]` at 2400 points rather than `[-9, 9]` at 512. The two are
+/// different grids and so different maxima — the mirror's worst point, `x =
+/// 8.1`, is simply not in this one's sample. They are the same statistic only
+/// in magnitude, and that is all that should be read from the agreement.
+///
+/// See `petir::wgsl::mirror_erf`'s per-branch table for why this number is
+/// `exp`'s argument amplification rather than a Chebyshev truncation, and why
+/// raising the order would not improve it.
+#[test]
+fn gpu_erfc_tracks_the_f64_reference_within_the_f32_budget() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_erfc_tracks_the_f64_reference_within_the_f32_budget: no GPU adapter");
+        return;
+    };
+    let probes: Vec<f32> = (0..512).map(|i| -9.0 + 18.0 * i as f32 / 511.0).collect();
+    let got = gpu
+        .eval_map(
+            &[ERF],
+            "petir_erfc(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let mut worst = 0.0_f64;
+    for (&x, &g) in probes.iter().zip(got.iter()) {
+        let exact = petir::specfunc::erfc(x as f64);
+        if exact < 1e-30 {
+            continue;
+        }
+        let rel = ((g as f64 - exact) / exact).abs();
+        if rel > worst {
+            worst = rel;
+        }
+    }
+    assert!(
+        worst < 1e-4,
+        "GPU ({}) vs f64 erfc: worst relative {worst:e}",
         gpu.adapter_name()
     );
 }

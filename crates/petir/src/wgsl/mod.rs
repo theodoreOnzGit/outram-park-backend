@@ -82,6 +82,10 @@
 
 pub mod mirror;
 
+/// `f32` mirrors of the error-function shaders, generated from the same parse
+/// of GSL's `specfunc/erfc.c` as `shaders/erf.wgsl`.
+pub mod mirror_erf;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -116,14 +120,22 @@ pub const CHEB: &str = include_str!("shaders/cheb.wgsl");
 /// Provides `petir_legendre_p(n, x)` and `petir_legendre_p_dp(n, x)`.
 pub const LEGENDRE: &str = include_str!("shaders/legendre.wgsl");
 
+/// The error-function family, ported from GSL's `specfunc/erfc.c`.
+///
+/// Provides `petir_erf(x)`, `petir_erfc(x)`, `petir_erfseries(x)`,
+/// `petir_erfc8(x)` and the three Chebyshev branch helpers. Truncated at
+/// GSL's own `order_sp`, the single-precision order it carries for each
+/// series.
+pub const ERF: &str = include_str!("shaders/erf.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 3] = [POLY, CHEB, LEGENDRE];
+pub const ALL: [&str; 4] = [POLY, CHEB, LEGENDRE, ERF];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
-pub const ALL_NAMES: [&str; 3] = ["poly", "cheb", "legendre"];
+pub const ALL_NAMES: [&str; 4] = ["poly", "cheb", "legendre", "erf"];
 
 pub use kernel_builder::test_kernel;
 
@@ -165,14 +177,22 @@ mod kernel_builder {
         }
         s.push_str("\n@compute @workgroup_size(64)\n");
         s.push_str("fn main(@builtin(global_invocation_id) gid: vec3<u32>) {\n");
-        // `arrayLength(&src)` keeps binding 0 live even for a `call` that
-        // never reads it. Without this, naga strips the unused binding from
-        // the auto-generated layout and `create_bind_group` then rejects the
-        // four entries the harness supplies -- which is what
-        // `petir_legendre_p`, the one function taking no array, ran into.
+        // Keep EVERY binding live, whatever `call` happens to read.
+        //
+        // naga strips a binding no code references, and `create_bind_group`
+        // then rejects the four entries a caller supplies against a
+        // three-entry layout. Both halves of this are real failures already
+        // hit here: `petir_legendre_p` reads no array (binding 0), and
+        // `petir_erfc` reads neither array nor uniform (bindings 0 and 3).
+        //
+        // `arrayLength(&src)` covers binding 0. The `params` guard covers
+        // binding 3 with a genuine branch on a genuine uniform read, so it
+        // cannot be folded away -- `0xffffffff` elements is not a length any
+        // real dispatch has.
         s.push_str("    if (arrayLength(&src) == 0u) { return; }\n");
         s.push_str("    let i = gid.x;\n");
         s.push_str("    if (i >= arrayLength(&probe)) { return; }\n");
+        s.push_str("    if (params.n == 0xffffffffu) { dst[i] = 0.0; return; }\n");
         s.push_str("    let x = probe[i];\n");
         s.push_str("    dst[i] = ");
         s.push_str(call);
@@ -222,10 +242,12 @@ mod tests {
         // workgroups, so without it the tail invocations write out of range.
         assert!(src.contains("if (i >= arrayLength(&probe)) { return; }"));
         // And every binding must be referenced, or naga strips it from the
-        // auto layout and the bind group no longer matches. This one is not
-        // hypothetical -- it is what `petir_legendre_p`, which reads no array,
-        // failed on before the guard was added.
+        // auto layout and the bind group no longer matches. Neither of these
+        // is hypothetical: `petir_legendre_p` reads no array and
+        // `petir_erfc` reads neither array nor uniform, and each failed
+        // before its guard was added.
         assert!(src.contains("arrayLength(&src)"));
+        assert!(src.contains("params.n == 0xffffffffu"));
     }
 
     /// The binding prelude matches what the generated kernel declares.
