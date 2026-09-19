@@ -107,6 +107,9 @@ pub mod mirror_debye;
 /// `f32` mirror of the dilogarithm shader.
 pub mod mirror_dilog;
 
+/// `f32` mirrors of the Airy shaders.
+pub mod mirror_airy;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -231,12 +234,21 @@ pub const DEBYE: &str = include_str!("shaders/debye.wgsl");
 /// generator and no table audit. See [`mirror_dilog`].
 pub const DILOG: &str = include_str!("shaders/dilog.wgsl");
 
+/// GSL's Airy functions `Ai`, `Bi` and their exponentially scaled forms,
+/// ported from `specfunc/airy.c` by way of [`crate::specfunc::airy`].
+///
+/// Thirteen Chebyshev series, 281 coefficients. **Prefer the scaled entry
+/// points on a GPU:** `petir_airy_bi` overflows `f32` near `x = 25.9` where
+/// the `f64` module reaches 104.1, and `petir_airy_bi_scaled` does not
+/// overflow at all.
+pub const AIRY: &str = include_str!("shaders/airy.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 10] = [
-    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG,
+pub const ALL: [&str; 11] = [
+    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG, AIRY,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -247,8 +259,9 @@ pub const ALL: [&str; 10] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 10] = [
+pub const ALL_NAMES: [&str; 11] = [
     "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye", "dilog",
+    "airy",
 ];
 
 pub use kernel_builder::test_kernel;

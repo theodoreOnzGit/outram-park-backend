@@ -25,8 +25,8 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX, POLY,
-    PSI_ZETA,
+    test_kernel, AIRY, ALL, ALL_NAMES, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX,
+    POLY, PSI_ZETA,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -52,6 +52,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "psi_zeta" => (vec![GAMMA, PSI_ZETA], "petir_psi(x) + petir_zeta(x)"),
         "debye" => (vec![DEBYE], "petir_debye(3u, x)"),
         "dilog" => (vec![DILOG], "petir_dilog(x)"),
+        "airy" => (vec![AIRY], "petir_airy_ai(x) + petir_airy_bi_scaled(x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -125,7 +126,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 10] = [
+    let expected: [(&str, &[&str]); 11] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -228,6 +229,18 @@ fn every_documented_function_is_defined() {
                 "petir_dilog_series_1",
                 "petir_dilog_series_2",
                 "petir_dilog_series_2_raw",
+            ],
+        ),
+        (
+            AIRY,
+            &[
+                "petir_airy_ai",
+                "petir_airy_ai_scaled",
+                "petir_airy_bi",
+                "petir_airy_bi_scaled",
+                "petir_airy_mod_phase",
+                "petir_airy_aie",
+                "petir_airy_bie",
             ],
         ),
     ];
@@ -372,6 +385,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "psi_zeta" => LEDGER.contains("psi/zeta family"),
             "debye" => LEDGER.contains("Debye family"),
             "dilog" => LEDGER.contains("dilogarithm"),
+            "airy" => LEDGER.contains("Airy family"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

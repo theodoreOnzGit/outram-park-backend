@@ -69,11 +69,12 @@ and stays there.
 | `specfunc` (psi/zeta family) | ~18 | **PORTED** (continuous) | `psi`, `psi_1`, `psi_1piy`, `hzeta`, `zeta`, `zetam1`, `eta`. The integer-argument lookups, `zeta(s)` below `s = -34` and `psi_n` for `n >= 2` are deliberately absent — see below |
 | `specfunc` (Debye family) | ~6 | **PORTED** | `D_1` .. `D_6` behind one `petir_debye(n, x)`; six Chebyshev series and the falling-factorial polynomial. **Two machine constants are retargeted to `f32`** and the exponential-sum counter is recomputed rather than decremented — see below |
 | `specfunc` (dilogarithm) | ~2 | **PORTED** (real) | `Li_2(x)` for all real `x`, seven branch identities and two convergent series; **no coefficient tables at all**. The complex entry points and the `clausen` dependency under them are deliberately absent — see below |
+| `specfunc` (Airy family) | ~8 | **PORTED** | `Ai`, `Bi` and both exponentially scaled forms; 13 Chebyshev series, 281 coefficients. The derivatives (`airy_der.c`) and the zeros (`airy_zero.c`) are not ported |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~273 | PORTABLE | the largest remaining win — almost all pointwise. `airy`, the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~265 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -136,6 +137,8 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `zetam1` | 3.725e-09 | 2.090e-07 |
 | `D_1` .. `D_6` | 2.994e-07 .. 1.630e-06 | 2.784e-07 .. 1.940e-06 |
 | `Li_2`, six of seven branches | 3.815e-06 abs (whole range) | 4.244e-08 .. 6.982e-07 |
+| `Ai` / `Bi` (oscillatory) | 1.839e-06 / 1.963e-06 abs | 3.558e-06 abs over `[-30, -8)` |
+| `Ai_scaled` / `Bi_scaled` | 3.375e-07 / 3.137e-07 | 1.548e-07 / 1.746e-07 |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
 | `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
@@ -204,6 +207,35 @@ lines above measures that kernel at 9.107e-06 on its own; `zeta`'s 1.079e-05
 is that figure carried through one multiplication. The positive branch, which
 calls no `Gamma`, sits at 1e-07 with the rest. Improving it means improving
 the `f32` gamma, not the zeta transcription.
+
+**`Ai` and `Bi` are measured in absolute error for the same reason `dilog`
+is** — both oscillate through infinitely many zeros below `x = -1`, so a
+relative figure over that range measures the probe grid. `mirror_airy` records
+the per-branch relative numbers where they mean something: one to two `f32`
+ulp everywhere except the oscillatory branch.
+
+**The oscillatory branch's error is irreducible in `f32`, and that is
+measured rather than asserted.** Running the identical modulus/phase formula
+in `f64` on the *same* `f32` coefficients isolates the arithmetic: the
+modulus stays flat at one ulp from `x = -2` to `x = -50`, while the phase's
+absolute error grows linearly with `theta` and stays at **0.21 to 0.52 of one
+ulp of `theta` itself**. A phase good to a fraction of its own ulp cannot be
+improved at that width, and `cos`/`sin` turn its absolute error into a
+comparable relative error in the answer.
+
+**A third threshold case, and it points the opposite way to `debye`'s.**
+`Bi`'s overflow guard carries GSL's `f64` constant. Retargeting it to the
+`f32` analogue of the same inequality was predicted necessary — and is
+**wrong**: over `x` in (25.87, 26.07) it returns `+inf` for values between
+3.6e+37 and 7.8e+37, all representable in an `f32` whose maximum is 3.4e+38.
+Upstream's constant never fires before `exp` genuinely overflows.
+
+So the three cases disagree, deliberately: `debye`'s `xcut` comes from `f64`'s
+**exponent range** and controls a loop length, so retargeting was worth 50x;
+`dilog`'s cut comes from a **truncation order**, so retargeting is neutral at
+best; `airy`'s is a **range guard on a quantity still representable**, so
+retargeting loses answers. The rule is *know what upstream's constant is FOR*,
+which is a stronger requirement than knowing what it equals.
 
 **`dilog` is measured in ABSOLUTE error, and that is not a softer standard.**
 `Li_2` has a real zero at `x = 12.595170`, inside any useful probe range and

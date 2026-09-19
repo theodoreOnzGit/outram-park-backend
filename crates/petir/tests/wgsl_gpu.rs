@@ -7,7 +7,8 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_bessel, mirror_debye, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta,
-    mirror_dilog, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    mirror_airy, mirror_dilog, AIRY, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX,
+    POLY, PSI_ZETA,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1380,4 +1381,108 @@ fn gpu_dilog_matches_the_cpu_mirror() {
         "GPU ({}) vs f32 mirror for Li_2: {worst:e} absolute at x = {at}",
         gpu.adapter_name()
     );
+}
+
+/// The Airy functions on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// Four entry points, each over the window where it is representable. The
+/// comparison is **absolute for `Ai` and `Bi`** and relative for the scaled
+/// forms, and the split is not arbitrary: `Ai` and `Bi` both oscillate
+/// through zeros below `x = -1`, where a relative figure measures where the
+/// probe grid fell rather than what the device did. The scaled forms on the
+/// positive axis have no zeros and are `O(1)`, so relative works there.
+///
+/// `Bi` is probed only to `x = 25`, below where it overflows `f32` at
+/// `x = 26.07`. `mirror_airy` pins the overflow behaviour itself.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | kernel | worst | at | measure |
+/// |---|---|---|---|
+/// | `Ai` | 1.839e-06 | -29.925 | absolute |
+/// | `Bi` | 1.963e-06 | -21.525 | absolute |
+/// | `Ai_scaled` | 3.375e-07 | 0.97 | relative |
+/// | `Bi_scaled` | 3.137e-07 | -0.852 | relative |
+///
+/// Both unscaled worst points are at the far negative end, where `theta` is
+/// largest — the same place `mirror_airy` measures the `f32` phase error, and
+/// the expected place given that `cos` and `sin` are the builtins WGSL
+/// specifies loosest (an absolute 2^-11 inside `[-pi, pi]`, implementation-
+/// defined outside). The scaled forms, probed on `[-2, 25]` where no large
+/// phase arises, come in at one `f32` ulp.
+///
+/// **Not bit-identical.** Every branch calls `sqrt` at minimum and the
+/// oscillatory one calls `cos`/`sin`; the series are also held in inline
+/// `array<f32, N>` literals, which `docs/wgsl-coverage.md` records as costing
+/// bit-identity on its own. Budgets are 1e-04 absolute and 1e-04 relative,
+/// about fifty times the worst measurement.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim** — `mirror_airy`
+/// measures its own distance from `f64` per branch, and records that the
+/// oscillatory branch's error is irreducible in `f32`.
+#[test]
+fn gpu_airy_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_airy_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let osc: Vec<f32> = (0..=400).map(|i| -30.0 + 0.075 * i as f32).collect();
+    let pos: Vec<f32> = (0..=400).map(|i| -2.0 + 0.0675 * i as f32).collect();
+
+    for (call, mirror_fn, probes, relative) in [
+        (
+            "petir_airy_ai(x)",
+            mirror_airy::airy_ai as fn(f32) -> f32,
+            &osc,
+            false,
+        ),
+        (
+            "petir_airy_bi(x)",
+            mirror_airy::airy_bi as fn(f32) -> f32,
+            &osc,
+            false,
+        ),
+        (
+            "petir_airy_ai_scaled(x)",
+            mirror_airy::airy_ai_scaled as fn(f32) -> f32,
+            &pos,
+            true,
+        ),
+        (
+            "petir_airy_bi_scaled(x)",
+            mirror_airy::airy_bi_scaled as fn(f32) -> f32,
+            &pos,
+            true,
+        ),
+    ] {
+        let got = gpu
+            .eval_map(&[AIRY], call, &[], probes, KernelParams::default())
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_fn(x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite(),
+                "{call} at x = {x}: mirror {want}, GPU {have}"
+            );
+            let d = if relative && want.abs() > 1e-3 {
+                (((have - want) / want) as f64).abs()
+            } else {
+                (have - want).abs() as f64
+            };
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for {call}: {worst:e} at x = {at}",
+            gpu.adapter_name()
+        );
+    }
 }
