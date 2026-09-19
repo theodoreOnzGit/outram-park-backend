@@ -286,4 +286,49 @@ fn mgxs_from_a_monte_carlo_run_satisfies_neutron_balance() {
         "only {checked} group(s) carried enough flux to judge; the test proved almost nothing"
     );
     println!("\nneutron balance checked in {checked} well-populated group(s)");
+
+    // ── The fission spectrum must be a spectrum ──────────────────────────────
+    //
+    // chi is MEASURED from the energies fission neutrons were actually born
+    // with, not assumed from a Watt form, so it is worth checking it behaves
+    // like a probability distribution and puts its neutrons where fission
+    // physics puts them.
+    let fuel = &lib.zones[0];
+    let chi_sum: f64 = fuel.chi.iter().sum();
+    println!(
+        "\nfission spectrum chi (zone '{}'): {:?}",
+        fuel.name, fuel.chi
+    );
+    assert!(
+        (chi_sum - 1.0).abs() < 1e-12,
+        "chi must normalise to 1, got {chi_sum}"
+    );
+    for (g, c) in fuel.chi.iter().enumerate() {
+        assert!(
+            c.is_finite() && *c >= 0.0,
+            "chi[{g}] = {c} is not a valid probability"
+        );
+    }
+    // Group 3 is the highest-energy group (0.1 MeV .. 20 MeV on this grid) and
+    // a fission spectrum peaks around 1-2 MeV, so the great majority of births
+    // belong there. A chi that came out flat, or peaked thermal, would mean the
+    // birth energy was not being read.
+    assert!(
+        fuel.chi[N_GROUPS - 1] > 0.8,
+        "fission neutrons are born fast: expected chi in the top group > 0.8, got {:.4} (full chi {:?})",
+        fuel.chi[N_GROUPS - 1],
+        fuel.chi
+    );
+    // The moderator never fissions, so its chi is all zeros -- and that must be
+    // visible rather than silently normalised into a uniform distribution.
+    let mod_chi: f64 = lib.zones[1].chi.iter().sum();
+    assert_eq!(
+        mod_chi, 0.0,
+        "a non-fissioning zone must report an all-zero chi, not a fabricated one"
+    );
+    println!(
+        "chi sums to {chi_sum:.12}; top-group fraction {:.4}",
+        fuel.chi[N_GROUPS - 1]
+    );
+    println!("non-fissioning moderator chi sums to {mod_chi} (correctly empty)");
 }

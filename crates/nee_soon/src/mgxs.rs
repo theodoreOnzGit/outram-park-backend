@@ -224,6 +224,14 @@ pub struct ZoneMgxs {
     pub kappa_fission: Vec<f64>,
     /// Isotropic (`P0`) scattering matrix, `scatter[g_in][g_out]` \[cm^-1\].
     pub scatter: Vec<Vec<f64>>,
+    /// Fission spectrum `chi_g`, normalised to sum to 1 over groups.
+    ///
+    /// **Measured, not assumed**: condensed from the energies fission neutrons
+    /// were actually born with during the run, via
+    /// `outram_mc_libs::tally::scoring::score_fission_birth`. A zone that
+    /// fissioned not at all carries all zeros, and the sum is then 0 rather
+    /// than 1 -- check before using it as a source distribution.
+    pub chi: Vec<f64>,
 }
 
 impl ZoneMgxs {
@@ -317,6 +325,7 @@ impl MgxsLibrary {
                     nu_fission: rev(&z.nu_fission),
                     kappa_fission: rev(&z.kappa_fission),
                     scatter,
+                    chi: rev(&z.chi),
                 }
             })
             .collect();
@@ -336,6 +345,11 @@ impl MgxsLibrary {
 ///
 /// Exposed so a caller building the tally cannot silently disagree with the
 /// reader about which score sits at which offset.
+/// Scores carried by the matrix pass, in order: the scattering matrix and the
+/// fission-birth spectrum. Both need the same `[Material, Energy, EnergyOut]`
+/// filters, so they share one tally and one transport pass.
+pub const MATRIX_SCORES: usize = 2;
+
 pub const SCALAR_SCORES: [ScoreType; 5] = [
     ScoreType::Flux,
     ScoreType::Total,
@@ -393,7 +407,7 @@ pub fn condense(
             out_groups: 1,
         });
     }
-    let want_matrix = n_z * n_g * n_g;
+    let want_matrix = n_z * n_g * n_g * MATRIX_SCORES;
     if matrix.bins.len() != want_matrix {
         return Err(MgxsError::BinCountMismatch {
             name: matrix.name.clone(),
@@ -411,9 +425,10 @@ pub fn condense(
     let scal = |z: usize, g: usize, s: usize| -> f64 {
         scalar.bins[(z * n_g + g) * n_s + s].mean(n_realizations)
     };
-    // [Material, Energy, EnergyOut] with one score.
-    let mat = |z: usize, gi: usize, go: usize| -> f64 {
-        matrix.bins[(z * n_g + gi) * n_g + go].mean(n_realizations)
+    // [Material, Energy, EnergyOut] with MATRIX_SCORES scores: score 0 is the
+    // scattering matrix, score 1 the fission-birth count.
+    let mat = |z: usize, gi: usize, go: usize, s: usize| -> f64 {
+        matrix.bins[((z * n_g + gi) * n_g + go) * MATRIX_SCORES + s].mean(n_realizations)
     };
 
     let mut zones = Vec::with_capacity(n_z);
@@ -438,7 +453,23 @@ pub fn condense(
             nu_fission[g] = scal(z, g, 3) / phi;
             kappa_fission[g] = scal(z, g, 4) / phi;
             for go in 0..n_g {
-                scatter[g][go] = mat(z, g, go) / phi;
+                scatter[g][go] = mat(z, g, go, 0) / phi;
+            }
+        }
+
+        // chi: sum the birth counts over the CAUSING group, then normalise to
+        // unity. Normalising is what makes it a spectrum rather than a rate, and
+        // it is deliberately done after summing so a group that caused few
+        // fissions cannot dominate through a small flux denominator -- chi is
+        // not flux-weighted, it is a distribution over births.
+        let mut chi = vec![0.0; n_g];
+        for gb in 0..n_g {
+            chi[gb] = (0..n_g).map(|gi| mat(z, gi, gb, 1)).sum();
+        }
+        let born: f64 = chi.iter().sum();
+        if born > 0.0 {
+            for c in chi.iter_mut() {
+                *c /= born;
             }
         }
 
@@ -450,6 +481,7 @@ pub fn condense(
             nu_fission,
             kappa_fission,
             scatter,
+            chi,
         });
     }
 
@@ -504,8 +536,14 @@ pub fn matrix_tally(id: i32, groups: &GroupStructure, material_indices: Vec<usiz
                 bins: groups.edges().to_vec(),
             }),
         ],
-        scores: vec![ScoreType::ScatterN],
-        bins: vec![TallyBin::default(); n],
+        // Two scores on one filter set: ScatterN is filled by the analog
+        // scatter estimator and NuFission by the fission-birth estimator. They
+        // cannot contaminate each other (each scoring function writes only its
+        // own score), and a track-length event cannot reach this tally at all
+        // because it carries no outgoing energy and the EnergyOutFilter
+        // rejects it. That is what lets chi ride along without a third pass.
+        scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
+        bins: vec![TallyBin::default(); n * MATRIX_SCORES],
     }
 }
 
@@ -538,11 +576,13 @@ mod tests {
     }
 
     fn matrix_with(n_z: usize, n_g: usize, set: impl Fn(usize, usize, usize) -> f64) -> Tally {
-        let mut bins = vec![TallyBin::default(); n_z * n_g * n_g];
+        let mut bins = vec![TallyBin::default(); n_z * n_g * n_g * MATRIX_SCORES];
         for z in 0..n_z {
             for gi in 0..n_g {
                 for go in 0..n_g {
-                    bins[(z * n_g + gi) * n_g + go].score(set(z, gi, go));
+                    // score 0 = scatter matrix; score 1 (fission births) is left
+                    // at zero unless a test sets it through `matrix_with_chi`.
+                    bins[((z * n_g + gi) * n_g + go) * MATRIX_SCORES].score(set(z, gi, go));
                 }
             }
         }
@@ -550,7 +590,7 @@ mod tests {
             id: 2,
             name: "matrix".into(),
             filters: vec![],
-            scores: vec![ScoreType::ScatterN],
+            scores: vec![ScoreType::ScatterN, ScoreType::NuFission],
             bins,
         }
     }
@@ -671,6 +711,7 @@ mod tests {
             nu_fission: vec![0.0, 0.0],
             kappa_fission: vec![0.0, 0.0],
             scatter: vec![vec![0.75, 0.25], vec![0.1, 1.5]],
+            chi: vec![0.6, 0.4],
         };
         // group 0: total 2.0, within-group 0.75 -> removal 1.25
         assert!((z.removal(0).unwrap() - 1.25).abs() < 1e-12);

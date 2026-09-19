@@ -226,6 +226,78 @@ pub fn score_track_length(
     }
 }
 
+/// Score one **fission-born neutron** into a per-batch accumulator, carrying
+/// both the energy that caused the fission and the energy the neutron was born
+/// with.
+///
+/// This is how the fission spectrum `chi_g` is measured rather than assumed. A
+/// tally holding an [`super::filter::EnergyFilter`] and an
+/// [`super::filter::EnergyOutFilter`] bins `(g_causing, g_born)`; summing over
+/// the incoming axis and normalising to unity gives `chi_g`. Keeping the
+/// incoming axis rather than collapsing it immediately means the caller can
+/// also see the (weak) dependence of the emission spectrum on the causing
+/// energy, which is real and which a single `chi` vector averages away.
+///
+/// # What it scores
+///
+/// Only [`ScoreType::NuFission`] receives weight — one unit per neutron
+/// actually banked, so the bin is a neutron count and not a reaction rate.
+/// Every other score is left at zero for the same reason as in
+/// [`score_scatter_matrix`]: depositing into them would fabricate reaction
+/// rates that did not occur at this event.
+///
+/// # Opt-in
+///
+/// Like [`score_scatter_matrix`], this fires only for a tally that carries an
+/// outgoing-energy filter. Without that guard a plain `[Energy]` tally scoring
+/// `NuFission` would receive both the track-length production rate and these
+/// birth counts, which are different quantities in different units.
+pub fn score_fission_birth(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_born: f64,
+    position: Position,
+    weight: f64,
+) {
+    if !energy_in.is_finite() || !energy_born.is_finite() || energy_born < 0.0 {
+        return;
+    }
+    if !tally
+        .filters
+        .iter()
+        .any(|f| matches!(f, FilterKind::EnergyOut(_)))
+    {
+        return;
+    }
+    let ev = FilterEvent {
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy: energy_in,
+        energy_out: Some(energy_born),
+        surface_idx: usize::MAX,
+        position,
+        ..Default::default()
+    };
+    let Some(bin) = filter_bin(tally, &ev) else {
+        return;
+    };
+    let n_scores = tally.scores.len();
+    for (s_idx, score) in tally.scores.iter().enumerate() {
+        let val = match score {
+            ScoreType::NuFission => weight,
+            _ => 0.0,
+        };
+        if val != 0.0 && val.is_finite() {
+            batch[bin * n_scores + s_idx] += val;
+        }
+    }
+}
+
 /// Score one **scattering event** into a per-batch accumulator, carrying both
 /// the incoming and the outgoing energy.
 ///

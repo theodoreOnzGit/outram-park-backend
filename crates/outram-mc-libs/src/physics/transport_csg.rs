@@ -70,7 +70,9 @@ use crate::physics::scatter::{
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
-use crate::tally::scoring::{flush_batch, flush_bins, score_scatter_matrix, score_track_length};
+use crate::tally::scoring::{
+    flush_batch, flush_bins, score_fission_birth, score_scatter_matrix, score_track_length,
+};
 use crate::tally::tally::{Tally, TallyBin};
 use crate::mathf::RealMath;
 
@@ -1217,10 +1219,27 @@ pub(crate) fn transport_history(
                     let n = sample_num_neutrons(nu_bar, k_running, seed);
                     for _ in 0..n {
                         let (dx, dy, dz) = isotropic_direction(seed);
+                        let e_born = nuc.sample_fission_energy(e, seed);
+                        // Fission-spectrum estimator: chi is MEASURED from the
+                        // energies neutrons are actually born with, rather than
+                        // assumed from an analytic Watt form.
+                        if let Some(t) = tally {
+                            score_fission_birth(
+                                batch,
+                                t,
+                                cell_idx,
+                                m,
+                                leaf.universe,
+                                e,
+                                e_born,
+                                r,
+                                1.0,
+                            );
+                        }
                         next_bank.push(Site {
                             r,
                             u: Direction::new(dx, dy, dz),
-                            e: nuc.sample_fission_energy(e, seed),
+                            e: e_born,
                         });
                     }
                     break 'history; // fission absorbs the incident neutron
