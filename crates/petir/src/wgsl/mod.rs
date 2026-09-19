@@ -122,6 +122,9 @@ pub mod mirror_transport;
 /// `f32` mirror of the inverse-tangent-integral shader.
 pub mod mirror_atanint;
 
+/// `f32` mirrors of the synchrotron shaders.
+pub mod mirror_synchrotron;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -291,13 +294,35 @@ pub const TRANSPORT: &str = include_str!("shaders/transport.wgsl");
 /// [`mirror_atanint`].
 pub const ATANINT: &str = include_str!("shaders/atanint.wgsl");
 
+/// GSL's synchrotron radiation functions `S_1` and `S_2`, ported from
+/// `specfunc/synchrotron.c` by way of [`crate::specfunc::synchrotron`].
+///
+/// **Its underflow guard is dead code in `f64` and load-bearing in `f32`** —
+/// the one constant so far whose category depends on the width. See
+/// [`mirror_synchrotron`].
+pub const SYNCHROTRON: &str = include_str!("shaders/synchrotron.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 15] = [
-    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG, AIRY, LAMBERT,
-    CLAUSEN, TRANSPORT, ATANINT,
+pub const ALL: [&str; 16] = [
+    POLY,
+    CHEB,
+    LEGENDRE,
+    ERF,
+    MATRIX,
+    GAMMA,
+    BESSEL,
+    PSI_ZETA,
+    DEBYE,
+    DILOG,
+    AIRY,
+    LAMBERT,
+    CLAUSEN,
+    TRANSPORT,
+    ATANINT,
+    SYNCHROTRON,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -308,9 +333,23 @@ pub const ALL: [&str; 15] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 15] = [
-    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye", "dilog",
-    "airy", "lambert", "clausen", "transport", "atanint",
+pub const ALL_NAMES: [&str; 16] = [
+    "poly",
+    "cheb",
+    "legendre",
+    "erf",
+    "matrix",
+    "gamma",
+    "bessel",
+    "psi_zeta",
+    "debye",
+    "dilog",
+    "airy",
+    "lambert",
+    "clausen",
+    "transport",
+    "atanint",
+    "synchrotron",
 ];
 
 pub use kernel_builder::test_kernel;

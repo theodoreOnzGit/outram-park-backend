@@ -7,9 +7,9 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_debye, mirror_dilog,
-    mirror_erf, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_transport,
-    AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT, LEGENDRE, MATRIX,
-    POLY, PSI_ZETA, TRANSPORT,
+    mirror_erf, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_synchrotron,
+    mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT,
+    LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1804,4 +1804,167 @@ fn gpu_atanint_matches_the_cpu_mirror() {
         "GPU ({}) vs f32 mirror for Ti_2: {worst:e} at x = {at:e}",
         gpu.adapter_name()
     );
+}
+
+/// `S_1` and `S_2` on the GPU against the `f32` mirror.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim** — `mirror_synchrotron`
+/// owns the `f32`-vs-`f64` figure. Two things are measured here, and the
+/// second is the interesting one.
+///
+/// # 1. Below the tail: 7.174e-04 for `S_1`, 6.462e-04 for `S_2`
+///
+/// Both at `x = 3.992`, and **that is the same cancellation the `f64`
+/// comparison reports, not a second defect.** Upstream's `x <= 4` form
+/// cancels by up to 1637x, so a one-ulp disagreement in a Chebyshev sum
+/// arrives in the answer multiplied by a thousand. Only 345 of 2252 probes
+/// are bit-identical, which is `debye`'s **inline-coefficient effect** —
+/// series held as inline `array<f32, N>` literals rather than in a storage
+/// buffer do not reproduce the CPU bit for bit, and these six are inline.
+///
+/// # 2. The device sets its own underflow point, EARLIER than either the CPU
+/// or upstream's guard — a third position on the same constant
+///
+/// Measured on llvmpipe (LLVM 20.1.2) on 2026-09-19:
+///
+/// | | `f64` CPU | `f32` CPU | `f32` GPU |
+/// |---|---|---|---|
+/// | upstream's guard fires at | 809.5959 | 809.5959 | 809.5959 |
+/// | the arithmetic reaches zero at | 745.3590 | 104.1979 | **87.57** |
+///
+/// The cause is not denormal flushing in general — `x * 1e-30` returns
+/// 1e-44 on this device quite happily. It is **`exp` alone**: `exp(-87)`
+/// gives 1.6458e-38 and `exp(-88)` gives exactly `0`, so the builtin returns
+/// zero the moment its own result would be denormal. In these kernels the
+/// exponential is then multiplied by a prefactor of order 10, so answers
+/// that are perfectly **normal** `f32` are lost: at `x = 87.57` the mirror
+/// gives 1.1010e-37 and the device gives 0.
+///
+/// **That strengthens the decision to keep upstream's `f64` constant rather
+/// than retargeting it.** Three widths and backends put the true underflow
+/// point in three different places, none of them 809.5959. A constant
+/// retargeted to any one of them is wrong on the other two, whereas keeping
+/// upstream's — which never fires — lets each backend underflow wherever its
+/// own arithmetic does. See `mirror_synchrotron` and `docs/wgsl-coverage.md`.
+///
+/// The tail is therefore asserted as a *shape* — the device may return zero
+/// early, but never a wrong non-zero, and never a value after it has started
+/// returning zero.
+#[test]
+fn gpu_synchrotron_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_synchrotron_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    // 1e-6 .. 85, so the small-argument series, both Chebyshev branches and
+    // the exponential tail all run while every intermediate stays normal.
+    let mut probes: Vec<f32> = (0..=2000)
+        .map(|i| 1e-6_f32 * (8.5e7_f32).powf(i as f32 / 2000.0))
+        .collect();
+    probes.retain(|x| *x <= 85.0);
+    // Then the underflow region, linearly, where backends part company.
+    let tail_from = probes.len();
+    probes.extend((0..=1200).map(|i| 85.0 + 25.0 * i as f32 / 1200.0));
+
+    for (which, call, want_fn) in [
+        (
+            "S_1",
+            "petir_synchrotron_1(x)",
+            mirror_synchrotron::synchrotron_1 as fn(f32) -> f32,
+        ),
+        (
+            "S_2",
+            "petir_synchrotron_2(x)",
+            mirror_synchrotron::synchrotron_2 as fn(f32) -> f32,
+        ),
+    ] {
+        let got = gpu
+            .eval_map(&[SYNCHROTRON], call, &[], &probes, KernelParams::default())
+            .expect("non-empty probe");
+
+        // --- below the tail: a real numerical comparison ---
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        for (k, &x) in probes[..tail_from].iter().enumerate() {
+            let want = want_fn(x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite() && want >= 0.0 && have >= 0.0,
+                "{which}({x:e}): mirror {want:e}, GPU {have:e}"
+            );
+            if want < 1e-30 {
+                continue;
+            }
+            let d = (((have - want) / want) as f64).abs();
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < 2e-3,
+            "GPU ({}) vs f32 mirror for {which}: {worst:e} at x = {at:e}. The \
+             documented figure is 7.2e-04 at x = 3.992, where upstream's form \
+             cancels by over a thousand",
+            gpu.adapter_name()
+        );
+        assert!(
+            (3.5..=4.1).contains(&at),
+            "the worst GPU-vs-mirror point for {which} is documented as the \
+             x = 4 cancellation; it is at {at:e}"
+        );
+
+        // --- the tail: a shape, because the underflow point is the device's ---
+        let mut zeroed_at: Option<f32> = None;
+        for (k, &x) in probes.iter().enumerate().skip(tail_from) {
+            let want = want_fn(x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            assert!(
+                have.is_finite() && have >= 0.0,
+                "{which}({x}) on the GPU: {have:e}"
+            );
+            if have == 0.0 {
+                zeroed_at.get_or_insert(x);
+            } else {
+                assert!(
+                    zeroed_at.is_none(),
+                    "{which} on GPU ({}) returned {have:e} at x = {x} after \
+                     already having underflowed to zero at x = {:?}. The tail \
+                     must be monotone into underflow",
+                    gpu.adapter_name(),
+                    zeroed_at
+                );
+                assert!(
+                    want > 0.0,
+                    "{which} on GPU ({}) returned {have:e} at x = {x} where \
+                     the mirror has already underflowed to zero. A device may \
+                     underflow EARLIER than the CPU, never later",
+                    gpu.adapter_name()
+                );
+            }
+        }
+        let zeroed_at = zeroed_at.unwrap_or_else(|| {
+            panic!(
+                "{which} never underflowed by x = 110 on {}",
+                gpu.adapter_name()
+            )
+        });
+        // The CPU mirror reaches zero at 104.1979; upstream's guard sits at
+        // 809.5959 and fires on neither. llvmpipe zeroes at 87.57 because its
+        // exp() does.
+        assert!(
+            zeroed_at <= 104.2 + 1e-3,
+            "{which} on GPU ({}) underflowed at x = {zeroed_at}, later than \
+             the CPU mirror's 104.1979 — which would mean the device is \
+             producing values the f32 arithmetic cannot",
+            gpu.adapter_name()
+        );
+        assert!(
+            zeroed_at > 85.0,
+            "{which} on GPU ({}) underflowed at x = {zeroed_at}. Anything this \
+             early means the device's exp() is worse than llvmpipe's measured \
+             87.57 and the tail is not usable there at all",
+            gpu.adapter_name()
+        );
+    }
 }

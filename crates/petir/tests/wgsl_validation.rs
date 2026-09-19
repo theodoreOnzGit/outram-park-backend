@@ -25,8 +25,8 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, AIRY, ALL, ALL_NAMES, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT,
-    LEGENDRE, ATANINT, MATRIX, POLY, PSI_ZETA, TRANSPORT,
+    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA,
+    LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -57,6 +57,10 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "clausen" => (vec![CLAUSEN], "petir_clausen(x)"),
         "transport" => (vec![TRANSPORT], "petir_transport(4u, x)"),
         "atanint" => (vec![ATANINT], "petir_atanint(x)"),
+        "synchrotron" => (
+            vec![SYNCHROTRON],
+            "petir_synchrotron_1(x) + petir_synchrotron_2(x)",
+        ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -130,7 +134,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 15] = [
+    let expected: [(&str, &[&str]); 16] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -258,7 +262,11 @@ fn every_documented_function_is_defined() {
         ),
         (
             CLAUSEN,
-            &["petir_clausen", "petir_clausen_reduce", "petir_clausen_cheb"],
+            &[
+                "petir_clausen",
+                "petir_clausen_reduce",
+                "petir_clausen_cheb",
+            ],
         ),
         (
             TRANSPORT,
@@ -270,6 +278,20 @@ fn every_documented_function_is_defined() {
             ],
         ),
         (ATANINT, &["petir_atanint", "petir_atanint_cheb"]),
+        (
+            SYNCHROTRON,
+            &[
+                "petir_synchrotron_1",
+                "petir_synchrotron_2",
+                "petir_synch_pow_int",
+                "petir_synch_cheb_synch1",
+                "petir_synch_cheb_synch2",
+                "petir_synch_cheb_synch1a",
+                "petir_synch_cheb_synch21",
+                "petir_synch_cheb_synch22",
+                "petir_synch_cheb_synch2a",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -417,6 +439,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "clausen" => LEDGER.contains("Clausen"),
             "transport" => LEDGER.contains("transport integrals"),
             "atanint" => LEDGER.contains("inverse-tangent integral"),
+            "synchrotron" => LEDGER.contains("synchrotron"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -455,19 +478,49 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 ///
 /// # Why this needs a test when both are generated
 ///
-/// They were emitted by one script from one parse of
-/// `src/specfunc/bessel.rs`, so they agree today by construction. That
-/// guarantee expires the moment anyone hand-edits either file — and a mirror
-/// that disagreed with its shader would make GPU-vs-mirror measure the
-/// difference between two tables rather than the fidelity of the
-/// transcription, which is the one thing that comparison exists to establish.
-/// The failure would be silent and would look like a device problem.
+/// Each pair was emitted by one script from one parse of the `f64` module, so
+/// they agree today by construction. That guarantee expires the moment anyone
+/// hand-edits either file — and a mirror that disagreed with its shader would
+/// make GPU-vs-mirror measure the difference between two tables rather than
+/// the fidelity of the transcription, which is the one thing that comparison
+/// exists to establish. The failure would be silent and would look like a
+/// device problem.
 ///
-/// Covers `bessel.wgsl` (22 tables, 358 coefficients) and `psi_zeta.wgsl`
-/// (7 tables, 151 coefficients). Only the *array bodies* are compared —
-/// `array<f32, N>(...)` on one side and `const NAME: [f32; N] = [...]` on the
-/// other — because the surrounding code is full of literals (`0.0`, `0.5`,
-/// `2.75`) that legitimately appear in different places on the two sides.
+/// # What it covers
+///
+/// **Every generated pair**, 62 tables and 1105 coefficients as of
+/// 2026-09-19:
+///
+/// | shader | tables | coefficients |
+/// |---|---|---|
+/// | `bessel` | 22 | 358 |
+/// | `airy` | 13 | 281 |
+/// | `psi_zeta` | 8 | 155 |
+/// | `debye` | 6 | 103 |
+/// | `synchrotron` | 6 | 91 |
+/// | `transport` | 4 | 72 |
+/// | `atanint` | 1 | 21 |
+/// | `clausen` | 1 | 15 |
+/// | `gamma` | 1 | 9 |
+///
+/// ~~Covers `bessel.wgsl` and `psi_zeta.wgsl`.~~ **CORRECTED 2026-09-19** —
+/// the doc comment claimed `psi_zeta` was covered and the body compared
+/// `bessel` alone, so seven of the nine pairs above were unchecked. The
+/// sweep below is now driven by a list, so adding a shader to it is the
+/// whole change.
+///
+/// **`erf` and `lambert` are deliberately absent.** `mirror_erf` predates the
+/// generator and holds its tables in a different order, and `lambert.wgsl`
+/// declares no `array<f32, N>` at all — its two series are unrolled. Neither
+/// is a generated pair, so there is nothing here for this test to protect.
+///
+/// Only the *array bodies* are compared — `array<f32, N>(...)` on one side
+/// and `const NAME: [f32; N] = [...]` on the other — because the surrounding
+/// code is full of literals (`0.0`, `0.5`, `2.75`) that legitimately appear
+/// in different places on the two sides. **Comments are stripped from both
+/// first**: several shader headers discuss `array<f32, N>` in prose, and
+/// without stripping, each such sentence was parsed as a one-element table
+/// and shifted every comparison after it by one.
 #[test]
 fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     /// Every `f32` in `body`, which is assumed to be nothing but a comma-list
@@ -477,16 +530,29 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
             .map(str::trim)
             .filter(|t| !t.is_empty())
             .map(|t| {
+                // Rust digit separators are legal on the mirror side and
+                // never appear on the shader side, so strip them first.
+                let t = t.replace('_', "");
                 t.parse::<f32>()
                     .unwrap_or_else(|_| panic!("not a literal in a coefficient table: {t:?}"))
             })
             .collect()
     }
 
+    /// `src` with every `//` line comment removed, so prose that happens to
+    /// mention a table declaration is not parsed as one.
+    fn code_only(src: &str) -> String {
+        src.lines()
+            .map(|l| l.split("//").next().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     /// Bodies of every `array<f32, N>( ... )` in the shader, in order.
     fn shader_tables(src: &str) -> Vec<Vec<f32>> {
+        let code = code_only(src);
         let mut out = Vec::new();
-        let mut rest = src;
+        let mut rest = code.as_str();
         while let Some(at) = rest.find("array<f32, ") {
             rest = &rest[at..];
             let Some(open) = rest.find('(') else { break };
@@ -500,13 +566,9 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     }
 
     /// Bodies of every `const NAME: [f32; N] = [ ... ];` in the mirror, in
-    /// order. Line comments are stripped first.
+    /// order.
     fn mirror_tables(src: &str) -> Vec<Vec<f32>> {
-        let code: String = src
-            .lines()
-            .map(|l| l.split("//").next().unwrap_or(""))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let code = code_only(src);
         let mut out = Vec::new();
         let mut rest = code.as_str();
         while let Some(at) = rest.find(": [f32; ") {
@@ -522,38 +584,120 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
         out
     }
 
-    let shader = shader_tables(petir::wgsl::BESSEL);
-    let mirror = mirror_tables(include_str!("../src/wgsl/mirror_bessel.rs"));
+    // (name, shader source, mirror source, tables, coefficients). The counts
+    // are asserted so that a table silently lost from either side fails here
+    // rather than shrinking the comparison.
+    let pairs: &[(&str, &str, &str, usize, usize)] = &[
+        (
+            "bessel",
+            petir::wgsl::BESSEL,
+            include_str!("../src/wgsl/mirror_bessel.rs"),
+            22,
+            358,
+        ),
+        (
+            "airy",
+            petir::wgsl::AIRY,
+            include_str!("../src/wgsl/mirror_airy.rs"),
+            13,
+            281,
+        ),
+        (
+            "psi_zeta",
+            petir::wgsl::PSI_ZETA,
+            include_str!("../src/wgsl/mirror_psi_zeta.rs"),
+            8,
+            155,
+        ),
+        (
+            "debye",
+            petir::wgsl::DEBYE,
+            include_str!("../src/wgsl/mirror_debye.rs"),
+            6,
+            103,
+        ),
+        (
+            "synchrotron",
+            petir::wgsl::SYNCHROTRON,
+            include_str!("../src/wgsl/mirror_synchrotron.rs"),
+            6,
+            91,
+        ),
+        (
+            "transport",
+            petir::wgsl::TRANSPORT,
+            include_str!("../src/wgsl/mirror_transport.rs"),
+            4,
+            72,
+        ),
+        (
+            "atanint",
+            petir::wgsl::ATANINT,
+            include_str!("../src/wgsl/mirror_atanint.rs"),
+            1,
+            21,
+        ),
+        (
+            "clausen",
+            petir::wgsl::CLAUSEN,
+            include_str!("../src/wgsl/mirror_clausen.rs"),
+            1,
+            15,
+        ),
+        (
+            "gamma",
+            petir::wgsl::GAMMA,
+            include_str!("../src/wgsl/mirror_gamma.rs"),
+            1,
+            9,
+        ),
+    ];
 
-    assert_eq!(
-        shader.len(),
-        22,
-        "bessel.wgsl declares {} coefficient arrays, expected 22",
-        shader.len()
-    );
-    assert_eq!(
-        mirror.len(),
-        22,
-        "mirror_bessel.rs declares {} coefficient arrays, expected 22",
-        mirror.len()
-    );
-    let total: usize = shader.iter().map(Vec::len).sum();
-    assert_eq!(total, 358, "expected 358 coefficients, found {total}");
+    let mut grand = 0usize;
+    for (name, shader_src, mirror_src, tables, coeffs) in pairs {
+        let shader = shader_tables(shader_src);
+        let mirror = mirror_tables(mirror_src);
 
-    for (t, (a, b)) in shader.iter().zip(mirror.iter()).enumerate() {
         assert_eq!(
-            a.len(),
-            b.len(),
-            "table {t} has {} vs {} values",
-            a.len(),
-            b.len()
+            shader.len(),
+            *tables,
+            "{name}.wgsl declares {} coefficient arrays, expected {tables}",
+            shader.len()
         );
-        for (k, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+        assert_eq!(
+            mirror.len(),
+            *tables,
+            "mirror_{name}.rs declares {} coefficient arrays, expected {tables}",
+            mirror.len()
+        );
+        let total: usize = shader.iter().map(Vec::len).sum();
+        assert_eq!(
+            total, *coeffs,
+            "{name}: expected {coeffs} coefficients, found {total}"
+        );
+        grand += total;
+
+        for (t, (a, b)) in shader.iter().zip(mirror.iter()).enumerate() {
             assert_eq!(
-                x.to_bits(),
-                y.to_bits(),
-                "table {t} coefficient {k}: bessel.wgsl has {x:e}, mirror_bessel.rs has {y:e}"
+                a.len(),
+                b.len(),
+                "{name} table {t} has {} vs {} values",
+                a.len(),
+                b.len()
             );
+            for (k, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+                assert_eq!(
+                    x.to_bits(),
+                    y.to_bits(),
+                    "{name} table {t} coefficient {k}: {name}.wgsl has {x:e}, \
+                     mirror_{name}.rs has {y:e}"
+                );
+            }
         }
     }
+    assert_eq!(
+        grand, 1105,
+        "the generated pairs are documented as holding 1105 coefficients in \
+         total; this run compared {grand}"
+    );
 }

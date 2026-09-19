@@ -74,11 +74,12 @@ and stays there.
 | `specfunc` (Clausen `Cl_2`) | ~2 | **PORTED** | one Chebyshev series, plus an **`f32`-redesigned argument reduction** — the `f64` three-way split of `2 pi` does not carry over. See below |
 | `specfunc` (transport integrals) | ~4 | **PORTED** | `J(2)` .. `J(5)`, the Bloch-Gruneisen family; four Chebyshev series and the exponential-image tail sum |
 | `specfunc` (inverse-tangent integral) | ~2 | **PORTED** | `Ti_2(x)`, one Chebyshev table evaluated at reciprocal arguments either side of `\|x\| = 1` |
+| `specfunc` (synchrotron radiation) | ~2 | **PORTED** | `S_1(x)` and `S_2(x)`; six Chebyshev series, 91 coefficients. **Upstream's underflow guard is dead code in `f64` and would DESTROY answers if retargeted** — the first constant here whose category depends on the width. See below |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~253 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~251 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -301,8 +302,10 @@ stopping rule corrected in two places.** The rule is
    without, for one extra iteration, with `W_0` untouched at 3.071e-07 either
    way.
 
-**That makes four distinct kinds of constant decision across this ledger, and
-they do not generalise to each other:**
+~~That makes four distinct kinds of constant decision across this ledger~~
+**CORRECTED 2026-09-19** — there are eight, and the table below is kept
+complete rather than frozen at the four that existed when it was written.
+**They do not generalise to each other:**
 
 | kernel | constant | what it is FOR | call |
 |---|---|---|---|
@@ -310,9 +313,78 @@ they do not generalise to each other:**
 | `dilog` | Taylor cut | a **truncation order** against epsilon | keep, gain is 1.18x |
 | `airy` | `Bi` overflow guard | a **range guard** on a representable quantity | keep — retargeting discards answers |
 | `lambert` | stopping rule | a **precision constant** *and* an inadequate **formula** | retarget one, change the other |
+| `clausen` | loss cut | a **precision** cut, matched to the head width of the reduction | retarget, and redesign the reduction with it |
+| `transport` | `LOG_DBL_EPSILON` | a **precision** constant that sets only the WORK DONE | retarget; the answers do not move |
+| `atanint` | large-argument cut | a **precision** constant, work-only; the two branches are bit-identical | retarget; nothing observable changes |
+| `synchrotron` | `-8 ln(MIN)/7` | a **range guard** whose category depends on the width | keep — see immediately below |
 
 The rule is *know what upstream's constant is FOR*. Knowing what it equals
 tells you nothing about whether it survives the change of width.
+
+**The synchrotron functions sharpen that rule as far as it goes: their guard
+is the first constant here whose CATEGORY depends on the width.** GSL bounds
+both `S_1` and `S_2` by `-8 ln(DBL_MIN)/7 = 809.5959`, past which it declares
+underflow. Measured at each width:
+
+| | `f64` | `f32` |
+|---|---|---|
+| upstream's guard | 809.5959 | 809.5959 |
+| where `exp` reaches zero on its own | 745.3590 | **104.1979** |
+| the guard is therefore | 64 units of **dead code** | 705 units of dead code |
+| the `f32` analogue `-8 ln(FLT_MIN)/7` | — | 99.8132 |
+| value just below that analogue | — | **5.65e-43, a representable denormal** |
+| answers changed by retargeting, `x` in `[95, 107]` | — | **1461 of 4001** |
+
+So the same expression is **dead in `f64`, dead in `f32` if kept, and
+actively destructive in `f32` if retargeted** — and it was retargeted first,
+on the strength of the `debye` precedent, before the measurement reversed it.
+That is `airy`'s case reached from the opposite direction: a bound derived
+from the **exponent range** is already enforced by the arithmetic, so moving
+it inward can only take away answers the hardware was willing to give. Every
+row above is asserted in `mirror_synchrotron`'s
+`the_range_guard_is_kept_because_retargeting_it_discards_answers`.
+
+**Its `f32` cost — 6.1e-04, three orders worse than any other kernel here —
+is upstream's cancellation, not this transcription.** On `x <= 4` GSL
+evaluates `S_1` as `x^{1/3} C_1 - x^{11/3} C_2 - (pi/sqrt 3) x`, three terms
+that grow while the answer falls: at `x = 4` the largest is **1124 times the
+result** for `S_1` and **1637 times** for `S_2`. That costs about `log2 R`
+bits, leaving `f32` roughly 13, which is the 1e-4 observed. `f64` runs the
+identical cancellation with 29 more bits to spend. Away from that boundary
+the mirror is ordinary — 8.6e-07 on the small-argument branch, 6.4e-05 on the
+exponential tail. `the_f32_cost_is_cancellation_at_the_branch_boundary`
+asserts the error tracks the measured cancellation ratio, so a real
+transcription defect would still fail it.
+
+**And the device puts the underflow point in a third place, which is the
+strongest argument for keeping upstream's constant.** Measured on llvmpipe
+(LLVM 20.1.2), 2026-09-19:
+
+| | `f64` CPU | `f32` CPU | `f32` GPU |
+|---|---|---|---|
+| upstream's guard fires at | 809.5959 | 809.5959 | 809.5959 |
+| the arithmetic reaches zero at | 745.3590 | 104.1979 | **87.57** |
+
+The cause is **`exp` alone, not denormal flushing** — `x * 1e-30` returns
+1e-44 on the same device, while `exp(-87)` gives 1.6458e-38 and `exp(-88)`
+gives exactly 0. The builtin returns zero as soon as its own result would be
+denormal, and because the exponential here is multiplied by a prefactor of
+order 10, ordinary **normal** `f32` answers are lost: 1.1010e-37 at
+`x = 87.57` becomes 0.
+
+Three backends, three underflow points, none of them upstream's number. A
+guard retargeted to any one of them is wrong on the other two; one that never
+fires lets each backend underflow where its own arithmetic does. `wgsl_gpu`
+therefore asserts the tail as a **shape** — the device may underflow earlier
+than the CPU, never later, never a wrong non-zero, and never a value after it
+has started returning zero — rather than as an agreement.
+
+**GPU-vs-mirror below the tail is 7.174e-04 for `S_1` and 6.462e-04 for
+`S_2`**, both at `x = 3.992`, with only 345 of 2252 probes bit-identical.
+That is `debye`'s **inline-coefficient effect** — these six series are inline
+`array<f32, N>` literals, not storage buffers — arriving through the same
+1637x cancellation that sets the `f64` figure. It is one mechanism seen twice,
+not two defects.
 
 **`Ai` and `Bi` are measured in absolute error for the same reason `dilog`
 is** — both oscillate through infinitely many zeros below `x = -1`, so a
