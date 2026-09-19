@@ -110,6 +110,9 @@ pub mod mirror_dilog;
 /// `f32` mirrors of the Airy shaders.
 pub mod mirror_airy;
 
+/// `f32` mirror of the Lambert W shader.
+pub mod mirror_lambert;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -243,12 +246,21 @@ pub const DILOG: &str = include_str!("shaders/dilog.wgsl");
 /// overflow at all.
 pub const AIRY: &str = include_str!("shaders/airy.wgsl");
 
+/// GSL's Lambert `W`, both real branches, ported from `specfunc/lambert.c`
+/// by way of [`crate::specfunc::lambert`].
+///
+/// **One constant is retargeted to `f32` and it is load-bearing:** the
+/// iteration's convergence tolerance. Upstream's `DBL_EPSILON` can never be
+/// met by an `f32` iterate, so the loop would never stop early. See
+/// [`mirror_lambert`].
+pub const LAMBERT: &str = include_str!("shaders/lambert.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 11] = [
-    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG, AIRY,
+pub const ALL: [&str; 12] = [
+    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG, AIRY, LAMBERT,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -259,9 +271,9 @@ pub const ALL: [&str; 11] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 11] = [
+pub const ALL_NAMES: [&str; 12] = [
     "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye", "dilog",
-    "airy",
+    "airy", "lambert",
 ];
 
 pub use kernel_builder::test_kernel;

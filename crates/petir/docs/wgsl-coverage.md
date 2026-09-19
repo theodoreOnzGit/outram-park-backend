@@ -70,11 +70,12 @@ and stays there.
 | `specfunc` (Debye family) | ~6 | **PORTED** | `D_1` .. `D_6` behind one `petir_debye(n, x)`; six Chebyshev series and the falling-factorial polynomial. **Two machine constants are retargeted to `f32`** and the exponential-sum counter is recomputed rather than decremented — see below |
 | `specfunc` (dilogarithm) | ~2 | **PORTED** (real) | `Li_2(x)` for all real `x`, seven branch identities and two convergent series; **no coefficient tables at all**. The complex entry points and the `clausen` dependency under them are deliberately absent — see below |
 | `specfunc` (Airy family) | ~8 | **PORTED** | `Ai`, `Bi` and both exponentially scaled forms; 13 Chebyshev series, 281 coefficients. The derivatives (`airy_der.c`) and the zeros (`airy_zero.c`) are not ported |
+| `specfunc` (Lambert `W`) | ~4 | **PORTED** | `W_0` and `W_{-1}`, both real branches. **Upstream's stopping rule is corrected in two places** for `f32` — see below |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~265 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~261 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -139,6 +140,7 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Li_2`, six of seven branches | 3.815e-06 abs (whole range) | 4.244e-08 .. 6.982e-07 |
 | `Ai` / `Bi` (oscillatory) | 1.839e-06 / 1.963e-06 abs | 3.558e-06 abs over `[-30, -8)` |
 | `Ai_scaled` / `Bi_scaled` | 3.375e-07 / 3.137e-07 | 1.548e-07 / 1.746e-07 |
+| `W_0` / `W_{-1}` | 1.383e-07 / 5.792e-07 | 1.161e-07 (`W_0` vs `f64`) |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
 | `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
@@ -207,6 +209,35 @@ lines above measures that kernel at 9.107e-06 on its own; `zeta`'s 1.079e-05
 is that figure carried through one multiplication. The positive branch, which
 calls no `Gamma`, sits at 1e-07 with the rest. Improving it means improving
 the `f32` gamma, not the zeta transcription.
+
+**Lambert `W` is the first ITERATING kernel here, and it needed upstream's
+stopping rule corrected in two places.** The rule is
+`|t| < 10 eps max(|w|, 1/(|p| e^w))`, and at `f32` width it fails twice over:
+
+1. `eps` is a **precision constant** whose `f64` value is unreachable. Over
+   200 `W_0` probes, 142 burn the full iteration budget and the other 58 stop
+   only because their step became **exactly zero** — all 58, checked — which
+   satisfies any positive tolerance. The rule never terminates the loop.
+2. The `1/(|p| e^w)` term makes the tolerance `O(1)` once `w` is very
+   negative, and is **dropped**. At `x = -2.1e-06` it gives 5.947e-01 against
+   1.885e-05 without it, over a hundred times the 0.005 step it then accepts,
+   stopping an iteration early with `w` wrong in the third decimal. Over the
+   whole `W_{-1}` domain: 4.769e-03 with the term against **9.982e-07**
+   without, for one extra iteration, with `W_0` untouched at 3.071e-07 either
+   way.
+
+**That makes four distinct kinds of constant decision across this ledger, and
+they do not generalise to each other:**
+
+| kernel | constant | what it is FOR | call |
+|---|---|---|---|
+| `debye` | `xcut` | `f64` **exponent range**, sets a loop length | retarget (50x) |
+| `dilog` | Taylor cut | a **truncation order** against epsilon | keep, gain is 1.18x |
+| `airy` | `Bi` overflow guard | a **range guard** on a representable quantity | keep — retargeting discards answers |
+| `lambert` | stopping rule | a **precision constant** *and* an inadequate **formula** | retarget one, change the other |
+
+The rule is *know what upstream's constant is FOR*. Knowing what it equals
+tells you nothing about whether it survives the change of width.
 
 **`Ai` and `Bi` are measured in absolute error for the same reason `dilog`
 is** — both oscillate through infinitely many zeros below `x = -1`, so a

@@ -7,8 +7,8 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_bessel, mirror_debye, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta,
-    mirror_airy, mirror_dilog, AIRY, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX,
-    POLY, PSI_ZETA,
+    mirror_airy, mirror_dilog, mirror_lambert, AIRY, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA,
+    LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1482,6 +1482,99 @@ fn gpu_airy_matches_the_cpu_mirror() {
         assert!(
             worst < 1e-4,
             "GPU ({}) vs f32 mirror for {call}: {worst:e} at x = {at}",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// Lambert `W`, both branches, on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// `W_0` over `[-1/e, 100]` and `W_{-1}` geometrically over `[-1/e, -1e-7)`,
+/// which is where its interesting behaviour is — it runs to `-16` there and
+/// is the branch upstream's stopping rule mishandles in `f32`.
+///
+/// Relative, with no absolute fallback: `W_0` has a zero at `x = 0`, so that
+/// one point is skipped rather than the measure being changed for the whole
+/// sweep.
+///
+/// **This kernel iterates**, which is unusual for this set — every other
+/// shader here is a fixed-length evaluation. A device whose `exp` differs
+/// from `libm`'s by an ulp can therefore take a *different number of steps*,
+/// not merely a slightly different value, so the budget is set with that in
+/// mind rather than at one ulp.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | kernel | worst relative | at |
+/// |---|---|---|
+/// | `W_0` | 1.383e-07 | 9.669 |
+/// | `W_{-1}` | 5.792e-07 | -3.411e-01 |
+///
+/// One to five `f32` ulp — notably good for an iterating kernel, which says
+/// the device took the same number of steps as the mirror at every probe. The
+/// budget is 1e-04, about two hundred times the worst measurement, set loose
+/// deliberately: a device whose `exp` differs by an ulp could take a
+/// different step count somewhere and land further out without being wrong.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim** — `mirror_lambert`
+/// measures its own distance from `f64` (1.161e-07) and from the defining
+/// identity separately.
+#[test]
+fn gpu_lambert_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_lambert_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    const ONE_OVER_E: f32 = 0.36787945;
+
+    let w0_probes: Vec<f32> = (0..=400)
+        .map(|i| -ONE_OVER_E + (100.0 + ONE_OVER_E) * (i as f32 / 400.0))
+        .collect();
+    let wm1_probes: Vec<f32> = (0..=400)
+        .map(|i| {
+            let t = i as f32 / 400.0;
+            -ONE_OVER_E * (1e-7_f32 / ONE_OVER_E).powf(t)
+        })
+        .collect();
+
+    for (call, mirror_fn, probes) in [
+        (
+            "petir_lambert_w0(x)",
+            mirror_lambert::lambert_w0 as fn(f32) -> f32,
+            &w0_probes,
+        ),
+        (
+            "petir_lambert_wm1(x)",
+            mirror_lambert::lambert_wm1 as fn(f32) -> f32,
+            &wm1_probes,
+        ),
+    ] {
+        let got = gpu
+            .eval_map(&[LAMBERT], call, &[], probes, KernelParams::default())
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_fn(x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            assert_eq!(
+                want.is_finite(),
+                have.is_finite(),
+                "{call} at x = {x:e}: mirror {want}, GPU {have}"
+            );
+            if !want.is_finite() || want.abs() < 1e-6 {
+                continue;
+            }
+            let d = (((have - want) / want) as f64).abs();
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for {call}: {worst:e} at x = {at:e}",
             gpu.adapter_name()
         );
     }
