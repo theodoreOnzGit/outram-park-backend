@@ -325,9 +325,15 @@ impl GpuContext {
         slice.map_async(wgpu::MapMode::Read, |_| {});
         self.device.poll(wgpu::PollType::wait_indefinitely()).ok()?;
         let mapped = slice.get_mapped_range().ok()?;
+        // `try_into` rather than `[c[0], c[1], ...]`: `chunks_exact(4)` does
+        // yield 4-byte slices, but that is an invariant the compiler cannot
+        // see, so the subscripts would be runtime-checked -- which
+        // `tests/no_panic_gate.rs` rejects, rightly. The `filter_map` drops a
+        // short tail that `chunks_exact` cannot produce anyway.
         let out: Vec<f32> = mapped
             .chunks_exact(4)
-            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .filter_map(|c| <[u8; 4]>::try_from(c).ok())
+            .map(f32::from_le_bytes)
             .collect();
         drop(mapped);
         read_buf.unmap();
