@@ -52,6 +52,14 @@
 //! | `integral_flux` | the tallied group flux |
 //! | `beta`, `lambda` | **zero / placeholder** — see below |
 //!
+//! ## Materials that are not in the geometry are skipped, not refused
+//!
+//! A material with zero flux in **every** group was never reached — usually it
+//! is not instantiated by this geometry at all. It is not a zone of the
+//! deterministic model and is silently dropped. A material with flux in some
+//! groups but not others is a different matter and is refused: that zone
+//! exists, and its missing groups would be singular.
+//!
 //! ## Delayed neutrons are NOT carried, and that bounds what this can do
 //!
 //! The Monte Carlo passes tally no delayed-neutron data, so `beta` is written
@@ -117,6 +125,11 @@ pub enum GenfoamXsError {
         /// Total group count.
         n_groups: usize,
     },
+    /// No material in the library carried any flux at all, so there is no
+    /// deterministic model to build. Usually means the transport never reached
+    /// the geometry, or the tallies were filtered to the wrong materials.
+    #[error("no material carried any flux, so there are no zones to hand to GeN-Foam")]
+    NoZonesWithFlux,
 }
 
 /// Macroscopic cross sections: cm^-1 to m^-1.
@@ -187,9 +200,26 @@ pub fn to_nuclear_data_input(library: &MgxsLibrary) -> Result<NuclearDataInput, 
         })
         .collect();
 
-    // Refuse unvisited groups BEFORE building anything: a zero-flux group has
-    // no measured cross section, and zeros are singular input.
-    for z in &library.zones {
+    // Two DIFFERENT zero-flux cases, which the HTR-10 core made obvious and
+    // which must not be conflated:
+    //
+    // 1. Zero flux in EVERY group -- the material is not in this geometry at
+    //    all, or no neutron ever reached it. It is not a zone of the
+    //    deterministic model, so it is SKIPPED, not an error. On the HTR-10
+    //    this is the four TRISO coating layers when the fuel zone is
+    //    homogenised, plus reflector slots a scaled-down core does not
+    //    instantiate: five of eleven materials.
+    //
+    // 2. Zero flux in SOME groups but not all -- a zone that genuinely exists
+    //    but whose cross sections were never measured in those groups. That IS
+    //    an error, because zeros make the group's diffusion equation singular.
+    let present: Vec<&crate::mgxs::ZoneMgxs> = library
+        .zones
+        .iter()
+        .filter(|z| z.flux.iter().any(|p| *p > 0.0))
+        .collect();
+
+    for z in &present {
         for (g, phi) in z.flux.iter().enumerate() {
             if !(*phi > 0.0) {
                 return Err(GenfoamXsError::UnvisitedGroup {
@@ -200,9 +230,11 @@ pub fn to_nuclear_data_input(library: &MgxsLibrary) -> Result<NuclearDataInput, 
             }
         }
     }
+    if present.is_empty() {
+        return Err(GenfoamXsError::NoZonesWithFlux);
+    }
 
-    let zones = library
-        .zones
+    let zones = present
         .iter()
         .map(|z| {
             let d: Vec<f64> = (0..n_g)

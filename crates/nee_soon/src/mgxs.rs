@@ -171,6 +171,21 @@ impl GroupStructure {
         Ok(Self { edges })
     }
 
+    /// The conventional **two-group** structure: thermal below `split_ev`,
+    /// fast above, spanning 1e-5 eV to 20 MeV.
+    ///
+    /// `split_ev = 2.38` is the cadmium cut-off, the usual thermal/fast
+    /// boundary. A coarse structure like this is often the RIGHT choice for a
+    /// Monte Carlo condensation: every group must carry flux, and a fine log
+    /// grid leaves groups empty in a spectrum that does not span it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::new`], if `split_ev` is not strictly inside the range.
+    pub fn two_group(split_ev: f64) -> Result<Self, MgxsError> {
+        Self::new(vec![1.0e-5, split_ev, 2.0e7])
+    }
+
     /// `n` log-spaced groups between `e_lo` and `e_hi` \[eV\].
     ///
     /// # Errors
