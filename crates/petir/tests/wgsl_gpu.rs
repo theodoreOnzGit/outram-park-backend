@@ -6,8 +6,8 @@
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
-    mirror, mirror_bessel, mirror_erf, mirror_gamma, mirror_matrix, BESSEL, CHEB, ERF, GAMMA,
-    LEGENDRE, MATRIX, POLY,
+    mirror, mirror_bessel, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta, BESSEL, CHEB,
+    ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -870,6 +870,206 @@ fn gpu_bessel_rejects_non_positive_arguments_exactly_as_the_mirror_does() {
                 want.is_nan(),
                 have.is_nan()
             );
+        }
+    }
+}
+
+/// The digamma and zeta families on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// Seven entry points dispatched over probe sets chosen per function — the
+/// zeta family needs points on both sides of zero to reach the reflection
+/// branch, the digamma family does not. `GAMMA` is concatenated ahead of
+/// `PSI_ZETA` because `petir_zeta` calls `petir_gamma`; that dependency is
+/// the reason the Lanczos table is not duplicated.
+///
+/// The comparison is relative away from a zero and absolute at one, as in
+/// `gpu_bessel_family_matches_the_cpu_mirror` — `psi` and `zeta` both have
+/// zeros, and a relative figure at one measures where a probe landed rather
+/// than what the device did.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | kernel | worst | at |
+/// |---|---|---|
+/// | `zetam1` | 3.725e-09 | 5.45 |
+/// | `psi` | 1.228e-07 | 3.125 |
+/// | `hzeta`, over five `q` | 1.633e-07 .. 5.674e-07 | — |
+/// | `psi_1` | 2.350e-07 | 8.375 |
+/// | `psi_1piy` | 2.445e-07 | 1.375 |
+/// | `eta` | **1.040e-05** | -27.25 |
+/// | `zeta` | **1.079e-05** | -26.25 |
+///
+/// **The two outliers are the reflection branch, and they are `petir_gamma`
+/// showing through.** `gpu_gamma_family_matches_the_cpu_mirror` independently
+/// measures that kernel at 9.107e-06 against its own mirror; `zeta`'s
+/// 1.079e-05 is that figure multiplied by the rest of the functional
+/// equation. Nothing about `zeta`'s own transcription is implicated — its
+/// positive branch, which calls no `Gamma`, sits at the same one ulp as
+/// everything else here.
+///
+/// The budgets are set at 5e-04, two orders above the worst measurement, for
+/// the reason `gpu_bessel_family_matches_the_cpu_mirror` gives: WGSL's
+/// allowance for `sin` is an absolute 2^-11, so a conforming device could be
+/// much further out without being wrong.
+///
+/// **Not bit-identical, and it would be wrong to assert that they are.**
+/// Every branch here calls `log`, `exp`, `sin` or `pow`, which WGSL specifies
+/// to an ULP bound rather than correct rounding.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim**: `mirror_psi_zeta`
+/// measures its own distance from `f64` separately, and records `zeta` below
+/// zero at 9.391e-06 against `f64` for reasons that have nothing to do with
+/// the device.
+#[test]
+fn gpu_psi_zeta_family_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_psi_zeta_family_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    // Positive axis, for the digamma family and hzeta's second argument.
+    let positive: Vec<f32> = (1..=256).map(|i| 0.125 * i as f32).collect();
+    // Both sides of zero for zeta and eta, skipping the pole at s = 1 and
+    // staying above the s = -34 refusal.
+    let signed: Vec<f32> = (0..256)
+        .map(|i| -30.0 + 0.25 * i as f32)
+        .filter(|s| (s - 1.0).abs() > 0.2)
+        .collect();
+    // zetam1's own domain.
+    let above_five: Vec<f32> = (1..=256).map(|i| 5.0 + 0.15 * i as f32).collect();
+
+    let cases: [(&str, fn(f32) -> f32, &Vec<f32>, f64); 6] = [
+        ("petir_psi(x)", mirror_psi_zeta::psi, &positive, 5e-4),
+        ("petir_psi_1(x)", mirror_psi_zeta::psi_1, &positive, 5e-4),
+        (
+            "petir_psi_1piy(x)",
+            mirror_psi_zeta::psi_1piy,
+            &positive,
+            5e-4,
+        ),
+        ("petir_zeta(x)", mirror_psi_zeta::zeta, &signed, 5e-4),
+        ("petir_eta(x)", mirror_psi_zeta::eta, &signed, 5e-4),
+        (
+            "petir_zetam1(x)",
+            mirror_psi_zeta::zetam1,
+            &above_five,
+            5e-4,
+        ),
+    ];
+
+    for (call, mirror_fn, probes, budget) in cases {
+        let got = gpu
+            .eval_map(
+                &[GAMMA, PSI_ZETA],
+                call,
+                &[],
+                probes,
+                KernelParams::default(),
+            )
+            .expect("non-empty probe");
+        let mut worst = 0.0_f64;
+        let mut at = 0.0_f32;
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_fn(x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            if !want.is_finite() || !have.is_finite() {
+                // NaN on one side and not the other is a real disagreement.
+                assert_eq!(
+                    want.is_finite(),
+                    have.is_finite(),
+                    "{call} at x = {x}: mirror finite = {}, GPU finite = {} \
+                     (GPU gave {have})",
+                    want.is_finite(),
+                    have.is_finite()
+                );
+                continue;
+            }
+            let d = if want.abs() < 0.1 {
+                (have - want).abs() as f64
+            } else {
+                ((have - want) / want).abs() as f64
+            };
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < budget,
+            "GPU ({}) vs f32 mirror for {call}: {worst:e} at x = {at}, budget {budget:e}",
+            gpu.adapter_name()
+        );
+    }
+
+    // hzeta takes two arguments, so it needs its own dispatch per q.
+    for q in [0.25_f32, 0.5, 1.0, 2.0, 7.5] {
+        let call = format!("petir_hzeta(x, {q:?})");
+        let probes: Vec<f32> = (1..=200).map(|i| 1.05 + 0.15 * i as f32).collect();
+        let got = gpu
+            .eval_map(
+                &[GAMMA, PSI_ZETA],
+                &call,
+                &[],
+                &probes,
+                KernelParams::default(),
+            )
+            .expect("non-empty probe");
+        let mut worst = 0.0_f64;
+        for (k, &s) in probes.iter().enumerate() {
+            let want = mirror_psi_zeta::hzeta(s, q);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            if want.is_finite() && have.is_finite() && want.abs() > 1e-6 {
+                worst = worst.max(((have - want) / want).abs() as f64);
+            }
+        }
+        assert!(
+            worst < 5e-5,
+            "GPU ({}) vs f32 mirror for hzeta(s, {q}): {worst:e}",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// The shader agrees with the mirror on `zeta`'s two refusals as well as on
+/// its numbers: `NaN` at `s = 1`, and `NaN` below `s = -34` where `f32`
+/// cannot carry the reflection branch.
+///
+/// The numerical sweep above cannot reach either — it filters both out — so
+/// a shader that returned a plausible number at the pole would pass it.
+#[test]
+fn gpu_zeta_refuses_exactly_where_the_mirror_does() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_zeta_refuses_exactly_where_the_mirror_does: no GPU adapter");
+        return;
+    };
+    // The pole, the f32 refusal, two trivial zeros that must survive it, and
+    // ordinary points either side.
+    let probes: Vec<f32> = vec![
+        1.0, -34.5, -35.0, -99.5, -34.0, -100.0, -2.0, 0.5, 2.0, 20.0,
+    ];
+    let got = gpu
+        .eval_map(
+            &[GAMMA, PSI_ZETA],
+            "petir_zeta(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    for (k, &s) in probes.iter().enumerate() {
+        let want = mirror_psi_zeta::zeta(s);
+        let have = got.get(k).copied().unwrap_or(0.0);
+        assert_eq!(
+            want.is_nan(),
+            have.is_nan(),
+            "petir_zeta at s = {s}: mirror NaN = {}, GPU NaN = {} (GPU gave {have})",
+            want.is_nan(),
+            have.is_nan()
+        );
+        if want == 0.0 {
+            assert_eq!(have, 0.0, "the trivial zero at s = {s} must stay exact");
         }
     }
 }

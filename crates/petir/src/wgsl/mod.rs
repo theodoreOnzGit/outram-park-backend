@@ -95,6 +95,9 @@ pub mod mirror_gamma;
 /// `f32` mirrors of the Bessel-family shaders.
 pub mod mirror_bessel;
 
+/// `f32` mirrors of the digamma and zeta shaders.
+pub mod mirror_psi_zeta;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -179,15 +182,39 @@ pub const GAMMA: &str = include_str!("shaders/gamma.wgsl");
 /// [`mirror_bessel`].
 pub const BESSEL: &str = include_str!("shaders/bessel.wgsl");
 
+/// GSL's digamma and zeta families, ported from `specfunc/psi.c` and
+/// `specfunc/zeta.c` by way of [`crate::specfunc::psi`] and
+/// [`crate::specfunc::zeta`].
+///
+/// Provides `petir_psi`, `petir_psi_1`, `petir_psi_1piy`, `petir_hzeta`,
+/// `petir_zeta`, `petir_zetam1` and `petir_eta`, plus the six Chebyshev
+/// series behind them.
+///
+/// **This is the one source with a dependency: [`GAMMA`] must be
+/// concatenated ahead of it**, because `petir_zeta`'s reflection branch calls
+/// `petir_gamma`.
+///
+/// Three entry points are deliberately absent — the integer-argument table
+/// lookups, `zeta(s)` below `s = -34`, and `psi_n` for `n >= 2`. The shader's
+/// own header gives the reason for each.
+pub const PSI_ZETA: &str = include_str!("shaders/psi_zeta.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 7] = [POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL];
+pub const ALL: [&str; 8] = [POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
-pub const ALL_NAMES: [&str; 7] = [
-    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel",
+///
+/// **Must stay the same length as [`ALL`].** Every test that walks the
+/// shaders does `ALL_NAMES.iter().zip(ALL.iter())`, and `zip` stops at the
+/// shorter of the two — so a name left off here does not fail, it silently
+/// removes a shader from validation. That happened once, to `psi_zeta`, and
+/// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
+/// what now catches it.
+pub const ALL_NAMES: [&str; 8] = [
+    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta",
 ];
 
 pub use kernel_builder::test_kernel;

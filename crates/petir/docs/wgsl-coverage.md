@@ -66,11 +66,12 @@ and stays there.
 | `specfunc` (erf family) | ~12 | **PORTED** | `erf`, `erfc`, series, `erfc8`, 3 Chebyshev branches, at GSL's own `order_sp` |
 | `specfunc` (gamma family) | ~10 | **PORTED** | `lngamma`, `gamma`, `lnbeta`, `beta`; Lanczos `g=7` plus both Padé branches at the zeros |
 | `specfunc` (Bessel family) | ~20 | **PORTED** | `J_0`, `J_1`, `Y_0`, `Y_1`, `I_0`, `I_1`, `K_0`, `K_1` and the four exponentially scaled modified forms; 18 Chebyshev series and the `cos_pi4`/`sin_pi4` phase helpers |
+| `specfunc` (psi/zeta family) | ~18 | **PORTED** (continuous) | `psi`, `psi_1`, `psi_1piy`, `hzeta`, `zeta`, `zetam1`, `eta`. The integer-argument lookups, `zeta(s)` below `s = -34` and `psi_n` for `n >= 2` are deliberately absent — see below |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~299 | PORTABLE | the largest remaining win — almost all pointwise. `psi`, `zeta`, `dilog`, `airy`, `debye` are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~281 | PORTABLE | the largest remaining win — almost all pointwise. `dilog`, `airy`, `debye`, the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -122,6 +123,10 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | Legendre, 17 orders | **0** bit-identical | 2.719e-06 |
 | `erf` / `erfc` | 5.960e-08 / 1.192e-07 | 8.368e-06 |
 | `lngamma` / `gamma` | 3.418e-06 / 9.107e-06 | 2.923e-05 (reflection branch) |
+| `psi` / `psi_1` | 1.228e-07 / 2.350e-07 | 1.152e-07 / 2.559e-07 |
+| `psi_1piy` / `hzeta` | 2.445e-07 / 5.674e-07 | 7.540e-08 / 2.763e-07 |
+| `zeta` / `eta` | 1.079e-05 / 1.040e-05 | 9.391e-06 / 6.775e-06 (below zero) |
+| `zetam1` | 3.725e-09 | 2.090e-07 |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
 | `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
 | `J_0` / `J_1` | 2.246e-07 / 5.695e-07 | 2.744e-06 / 7.354e-06 (at the zeros) |
@@ -175,6 +180,29 @@ improving the series would move the headline figure very little. A caller
 needing `ln Gamma` at moderately negative arguments in `f32` should expect
 ~1e-4.
 
+**`zeta` and `eta` below zero are `Gamma` showing through.** Both are two
+orders worse than everything else in the table, and only for `s < 0`, where
+the functional equation multiplies by `Gamma(1 - s)`. The `gamma` row two
+lines above measures that kernel at 9.107e-06 on its own; `zeta`'s 1.079e-05
+is that figure carried through one multiplication. The positive branch, which
+calls no `Gamma`, sits at 1e-07 with the rest. Improving it means improving
+the `f32` gamma, not the zeta transcription.
+
+**Three psi/zeta entry points are deliberately not in WGSL**, and the shader
+header gives each reason in full: the integer-argument lookups are 101-entry
+tables WGSL would rebuild on the stack per invocation; `zeta(s)` for
+`s <= -34` needs a `Gamma` past `f32::MAX` (the *answer* is usually
+representable — `zeta(-35)` is about 8e14 — but the route is not, so the
+kernel returns `NaN` rather than the 0 or `inf` that would fall out); and
+`psi_n` for `n >= 2` needs an `n!` that leaves `f32` at `n = 34`. All three
+are present in the `f64` modules.
+
+**`psi_zeta.wgsl` is the first source with a dependency.** `petir_zeta` calls
+`petir_gamma`, so `GAMMA` must be concatenated ahead of it. That is
+deliberate: the alternative was a second copy of the nine Lanczos
+coefficients, and a duplicated table is exactly the drift this ledger's
+verification standard exists to prevent.
+
 **The `gemm` reassociation.** GSL's `sgemm` NoTrans/NoTrans branch sweeps `k`
 outermost and scatters partial products into `C`. A per-element GPU kernel
 cannot: one invocation owns one output element and must sum over `k` itself.
@@ -187,11 +215,12 @@ can be measured rather than waved at.
 
 ## What would change this ledger
 
-- **`specfunc`'s remaining ~299 operations** are the largest genuinely
+- **`specfunc`'s remaining ~281 operations** are the largest genuinely
   portable block left, and almost all are pointwise. That is where "exhaustive"
-  has the most room to move. `psi`, `zeta`, `dilog`, `airy` and `debye` are the
-  next blocks; integer-order and arbitrary-order Bessel build on the order-0/1
-  kernels now present.
+  has the most room to move. `dilog`, `airy`, `debye`, the Fermi-Dirac and
+  Bose-Einstein integrals and the Coulomb wave functions are the next blocks;
+  integer-order and arbitrary-order Bessel build on the order-0/1 kernels now
+  present, and much of `cdf` builds on `psi` and the incomplete gamma.
 - **`cdf` (~200)** is the next, and is mostly compositions of `specfunc`.
 - Anything marked **N/A** will not move without a *different algorithm*, which
   would no longer be a port. Replacing GSL's quicksort with a bitonic sort is a

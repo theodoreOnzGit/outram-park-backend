@@ -24,7 +24,60 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
-use petir::wgsl::{test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY};
+use petir::wgsl::{
+    test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+};
+
+/// The sources a shader needs concatenated ahead of it, and a call that
+/// exercises it.
+///
+/// Only one source has a dependency today: `psi_zeta.wgsl`'s `petir_zeta`
+/// calls `petir_gamma` rather than duplicating the Lanczos table. Returning a
+/// list rather than a single source is what lets that stay true — the
+/// alternative was a second copy of nine coefficients, which is exactly the
+/// drift this crate's audits exist to prevent.
+fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
+    match name {
+        "poly" => (vec![POLY], "petir_poly_eval(0u, params.n, x)"),
+        "cheb" => (
+            vec![CHEB],
+            "petir_cheb_eval(0u, params.n, params.a, params.b, x)",
+        ),
+        "legendre" => (vec![LEGENDRE], "petir_legendre_p(params.k, x)"),
+        "erf" => (vec![ERF], "petir_erfc(x)"),
+        "matrix" => (vec![MATRIX], "petir_blas_dot(0u, 0u, params.n)"),
+        "gamma" => (vec![GAMMA], "petir_lngamma(x)"),
+        "bessel" => (vec![BESSEL], "petir_bessel_j0(x)"),
+        "psi_zeta" => (vec![GAMMA, PSI_ZETA], "petir_psi(x) + petir_zeta(x)"),
+        other => panic!("no validation call registered for {other}.wgsl"),
+    }
+}
+
+/// [`ALL`] and [`ALL_NAMES`] are the same length.
+///
+/// # Why this is its own test
+///
+/// Every sweep below is `ALL_NAMES.iter().zip(ALL.iter())`, and `zip` stops
+/// at the shorter operand. A shader added to `ALL` without a name in
+/// `ALL_NAMES` is therefore not a failure — it is silently dropped from naga
+/// validation, from the baseline-capability check and from the ledger check,
+/// all of which stay green while covering one fewer shader.
+///
+/// This is not hypothetical: `psi_zeta.wgsl` shipped that way for exactly one
+/// test run. The lengths are in the types, so this could be a compile-time
+/// check — but this crate's `no_panic_gate` forbids `assert!` in library
+/// code, and a const assertion there is what it would take.
+#[test]
+fn all_and_all_names_are_the_same_length() {
+    assert_eq!(
+        ALL.len(),
+        ALL_NAMES.len(),
+        "ALL has {} sources and ALL_NAMES has {} names; the zip in every \
+         other test here would silently skip the difference",
+        ALL.len(),
+        ALL_NAMES.len()
+    );
+}
 
 /// Every shader in [`petir::wgsl::ALL`] parses and validates under naga.
 ///
@@ -44,17 +97,12 @@ fn every_shader_parses_and_validates_under_naga() {
     for (name, src) in ALL_NAMES.iter().zip(ALL.iter()) {
         // The function libraries reference the `src` binding, so they only
         // validate inside a complete kernel. Wrap each in the harness.
-        let call = match *name {
-            "poly" => "petir_poly_eval(0u, params.n, x)",
-            "cheb" => "petir_cheb_eval(0u, params.n, params.a, params.b, x)",
-            "legendre" => "petir_legendre_p(params.k, x)",
-            "erf" => "petir_erfc(x)",
-            "matrix" => "petir_blas_dot(0u, 0u, params.n)",
-            "gamma" => "petir_lngamma(x)",
-            "bessel" => "petir_bessel_j0(x)",
-            other => panic!("no validation call registered for {other}.wgsl"),
-        };
-        let kernel = test_kernel(&[src], call);
+        let (sources, call) = kernel_for(name);
+        assert!(
+            sources.contains(src),
+            "kernel_for({name}) does not include its own source"
+        );
+        let kernel = test_kernel(&sources, call);
         let module = naga::front::wgsl::parse_str(&kernel)
             .unwrap_or_else(|e| panic!("{name}.wgsl failed to parse: {e:?}"));
         let mut validator = naga::valid::Validator::new(
@@ -74,7 +122,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 7] = [
+    let expected: [(&str, &[&str]); 8] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -147,6 +195,18 @@ fn every_documented_function_is_defined() {
                 "petir_bessel_sin_cos_eps",
             ],
         ),
+        (
+            PSI_ZETA,
+            &[
+                "petir_psi",
+                "petir_psi_1",
+                "petir_psi_1piy",
+                "petir_hzeta",
+                "petir_zeta",
+                "petir_zetam1",
+                "petir_eta",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -173,7 +233,7 @@ fn every_documented_function_is_defined() {
 /// compiling on a default build, which is exactly the signal wanted.
 #[test]
 fn the_cpu_mirror_answers_with_no_gpu_and_no_feature() {
-    use petir::wgsl::{mirror, mirror_bessel, mirror_erf};
+    use petir::wgsl::{mirror, mirror_bessel, mirror_erf, mirror_psi_zeta};
 
     // poly: 1 + 2x + 3x^2 at x = 2 is 17.
     assert_eq!(mirror::poly_eval(&[1.0, 2.0, 3.0], 2.0), 17.0);
@@ -188,6 +248,17 @@ fn the_cpu_mirror_answers_with_no_gpu_and_no_feature() {
         let x = -2.0 + 0.1 * k as f32;
         let s = mirror_erf::erf(x) + mirror_erf::erfc(x);
         assert!((s - 1.0).abs() < 1e-5, "erf + erfc at {x} is {s}");
+    }
+    // Digamma: the recurrence psi(x+1) - psi(x) = 1/x, which crosses the
+    // module's branch cuts.
+    for k in 1..=40 {
+        let x = 0.25 * k as f32;
+        let d = mirror_psi_zeta::psi(x + 1.0) - mirror_psi_zeta::psi(x);
+        assert!(
+            ((d - 1.0 / x) * x).abs() < 1e-4,
+            "psi recurrence at {x} is {d}, expected {}",
+            1.0 / x
+        );
     }
     // Bessel family: the J/Y Wronskian, which no single table can satisfy on
     // its own.
@@ -219,17 +290,8 @@ fn the_cpu_mirror_answers_with_no_gpu_and_no_feature() {
 #[test]
 fn every_shader_validates_against_baseline_webgpu_capabilities() {
     for (name, src) in ALL_NAMES.iter().zip(ALL.iter()) {
-        let call = match *name {
-            "poly" => "petir_poly_eval(0u, params.n, x)",
-            "cheb" => "petir_cheb_eval(0u, params.n, params.a, params.b, x)",
-            "legendre" => "petir_legendre_p(params.k, x)",
-            "erf" => "petir_erfc(x)",
-            "matrix" => "petir_blas_dot(0u, 0u, params.n)",
-            "gamma" => "petir_lngamma(x)",
-            "bessel" => "petir_bessel_j0(x)",
-            other => panic!("no baseline call registered for {other}.wgsl"),
-        };
-        let kernel = test_kernel(&[src], call);
+        let (sources, call) = kernel_for(name);
+        let kernel = test_kernel(&sources, call);
         let module = naga::front::wgsl::parse_str(&kernel)
             .unwrap_or_else(|e| panic!("{name}.wgsl failed to parse: {e:?}"));
         let mut validator = naga::valid::Validator::new(
@@ -284,6 +346,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "matrix" => LEDGER.contains("`matrix`") && LEDGER.contains("`blas`"),
             "gamma" => LEDGER.contains("gamma family"),
             "bessel" => LEDGER.contains("Bessel family"),
+            "psi_zeta" => LEDGER.contains("psi/zeta family"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -318,8 +381,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
     );
 }
 
-/// `shaders/bessel.wgsl` and `src/wgsl/mirror_bessel.rs` hold **identical**
-/// coefficients.
+/// Every generated shader holds **identical** coefficients to its mirror.
 ///
 /// # Why this needs a test when both are generated
 ///
@@ -331,12 +393,13 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 /// transcription, which is the one thing that comparison exists to establish.
 /// The failure would be silent and would look like a device problem.
 ///
-/// 358 coefficients across 22 tables. Only the *array bodies* are compared —
+/// Covers `bessel.wgsl` (22 tables, 358 coefficients) and `psi_zeta.wgsl`
+/// (7 tables, 151 coefficients). Only the *array bodies* are compared —
 /// `array<f32, N>(...)` on one side and `const NAME: [f32; N] = [...]` on the
 /// other — because the surrounding code is full of literals (`0.0`, `0.5`,
 /// `2.75`) that legitimately appear in different places on the two sides.
 #[test]
-fn the_bessel_shader_and_its_mirror_hold_the_same_constants() {
+fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     /// Every `f32` in `body`, which is assumed to be nothing but a comma-list
     /// of literals.
     fn parse(body: &str) -> Vec<f32> {
