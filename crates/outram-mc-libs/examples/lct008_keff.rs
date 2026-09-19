@@ -384,11 +384,20 @@
 //!
 //! ## What is approximated, and by how much
 //!
-//! Only the **Al-6061 clad's trace alloying elements** are omitted, because
+//! ~~Only the **Al-6061 clad's trace alloying elements** are omitted, because
 //! this environment has no ENDF tape for them: Mg-24/25/26, Ti-46…50,
-//! Cr-50/52/53/54, Fe-54/56/57, Cu-63/65, Zn-64/66/67/68/70 and B-11. Nothing
-//! is omitted from the fuel, the moderator, or the boron poison — B-10, the
-//! entire worth of the 1511 ppm soluble boron, is present.
+//! Cr-50/52/53/54, Fe-54/56/57, Cu-63/65, Zn-64/66/67/68/70 and B-11.~~
+//! **CORRECTED 2026-09-20 — NOTHING IS OMITTED ANY MORE.** All 24 of those
+//! tapes (plus Fe-58 and Na-23, which that list also missed) were located in
+//! the local ENDF/B-VIII.0 library and committed to `reference-data/endf/`,
+//! and `TAPES` now covers **all 36 nuclides** the OpenMC material cards name.
+//! The "no ENDF tape for them" claim was true when written and is not true now.
+//! Nothing is omitted from the fuel, the moderator, or the boron poison
+//! either — B-10, the entire worth of the 1511 ppm soluble boron, is present.
+//!
+//! **This changes the eigenvalue**, and the `--clad-omission-bound` figures
+//! below were measured against the omitted-clad model. Re-measure before
+//! quoting them.
 //!
 //! The run prints the omitted atom density and its share of the clad. To bound
 //! its worth **by measurement rather than by assertion**, pass
@@ -532,18 +541,77 @@ const PIN_SHELLS: &[(i32, &[(f64, i32)], i32)] = &[
 /// Nuclides this environment has an ENDF/B-VIII.0 tape for, by the OpenMC name
 /// the model uses. Anything in the model and not in this table is omitted, and
 /// the omission is reported and bounded (see the module docs).
-const TAPES: &[(&str, &str)] = &[
+const TAPES_CHEAP: &[(&str, &str)] = &[
+    // ── Fuel, moderator, poison ──────────────────────────────────────────
     ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
     ("B10", "n-005_B_010-ENDF8.0.endf"),
     ("O16", "n-008_O_016-ENDF8.0.endf"),
+    ("U234", "n-092_U_234-ENDF8.0.endf"),
+    ("U235", "n-092_U_235-ENDF8.0.endf"),
+    ("U238", "n-092_U_238.endf"),
+    // ── Clad, CHEAP tier: the three the clad cannot do without ───────────
     ("Al27", "n-013_Al_027-ENDF8.0.endf"),
     ("Si28", "n-014_Si_028-ENDF8.0.endf"),
     ("Si29", "n-014_Si_029-ENDF8.0.endf"),
     ("Si30", "n-014_Si_030-ENDF8.0.endf"),
     ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+];
+
+/// The **FULL** tape set — every nuclide the OpenMC material cards name, 36 in
+/// all. Selected with `--full-nuclides`.
+///
+/// # Cost
+///
+/// This is the expensive tier and it is opt-in for that reason. Each tape is
+/// resonance-reconstructed and Doppler-broadened on device (RECONR + BROADR);
+/// the iron and chromium evaluations alone are 8-24 MB of ENDF text apiece.
+/// Reconstruction dominates the run, and it happens before a single neutron
+/// moves.
+///
+/// Prefer [`TAPES_CHEAP`] while iterating on geometry, tallies or statistics —
+/// it exercises the identical transport path. Reach for this tier when the
+/// clad's trace alloying elements are actually the thing being measured.
+const TAPES_FULL: &[(&str, &str)] = &[
+    // Everything in the cheap tier ...
+    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
+    ("B10", "n-005_B_010-ENDF8.0.endf"),
+    ("O16", "n-008_O_016-ENDF8.0.endf"),
     ("U234", "n-092_U_234-ENDF8.0.endf"),
     ("U235", "n-092_U_235-ENDF8.0.endf"),
     ("U238", "n-092_U_238.endf"),
+    ("Al27", "n-013_Al_027-ENDF8.0.endf"),
+    ("Si28", "n-014_Si_028-ENDF8.0.endf"),
+    ("Si29", "n-014_Si_029-ENDF8.0.endf"),
+    ("Si30", "n-014_Si_030-ENDF8.0.endf"),
+    ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+    // ... plus the Al-6061 trace alloying elements, added 2026-09-20 from the
+    // local ENDF/B-VIII.0 library. Before this they were absent and the model
+    // ran WITHOUT them.
+    ("B11", "n-005_B_011-ENDF8.0.endf"),
+    ("Na23", "n-011_Na_023-ENDF8.0.endf"),
+    ("Mg24", "n-012_Mg_024-ENDF8.0.endf"),
+    ("Mg25", "n-012_Mg_025-ENDF8.0.endf"),
+    ("Mg26", "n-012_Mg_026-ENDF8.0.endf"),
+    ("Ti46", "n-022_Ti_046-ENDF8.0.endf"),
+    ("Ti47", "n-022_Ti_047-ENDF8.0.endf"),
+    ("Ti48", "n-022_Ti_048-ENDF8.0.endf"),
+    ("Ti49", "n-022_Ti_049-ENDF8.0.endf"),
+    ("Ti50", "n-022_Ti_050-ENDF8.0.endf"),
+    ("Cr50", "n-024_Cr_050-ENDF8.0.endf"),
+    ("Cr52", "n-024_Cr_052-ENDF8.0.endf"),
+    ("Cr53", "n-024_Cr_053-ENDF8.0.endf"),
+    ("Cr54", "n-024_Cr_054-ENDF8.0.endf"),
+    ("Fe54", "n-026_Fe_054-ENDF8.0.endf"),
+    ("Fe56", "n-026_Fe_056-ENDF8.0.endf"),
+    ("Fe57", "n-026_Fe_057-ENDF8.0.endf"),
+    ("Fe58", "n-026_Fe_058-ENDF8.0.endf"),
+    ("Cu63", "n-029_Cu_063-ENDF8.0.endf"),
+    ("Cu65", "n-029_Cu_065-ENDF8.0.endf"),
+    ("Zn64", "n-030_Zn_064-ENDF8.0.endf"),
+    ("Zn66", "n-030_Zn_066-ENDF8.0.endf"),
+    ("Zn67", "n-030_Zn_067-ENDF8.0.endf"),
+    ("Zn68", "n-030_Zn_068-ENDF8.0.endf"),
+    ("Zn70", "n-030_Zn_070-ENDF8.0.endf"),
 ];
 
 fn main() {
@@ -555,7 +623,17 @@ fn main() {
     let n_active = arg_usize(&args, "--active").unwrap_or(250);
 
     eprintln!("LEU-COMP-THERM-008 — B&W critical lattices, Core XI, 2.459 w/o UO₂");
-    eprintln!("  specification: mit-crpg/benchmarks OpenMC model, parsed from XML at run time\n");
+    eprintln!("  specification: mit-crpg/benchmarks OpenMC model, parsed from XML at run time");
+    eprintln!(
+        "  nuclide tier: {} ({} tapes){}\n",
+        if tapes().len() == TAPES_FULL.len() { "FULL" } else { "CHEAP" },
+        tapes().len(),
+        if tapes().len() == TAPES_FULL.len() {
+            " -- every nuclide the OpenMC cards name; slow to reconstruct"
+        } else {
+            " -- fuel/moderator/poison + Al,Si,Mn clad; pass --full-nuclides for all 36"
+        }
+    );
 
     let case: u32 = arg_usize(&args, "--case").unwrap_or(1) as u32;
     assert!(
@@ -876,6 +954,19 @@ struct ResonanceOptions {
     urr: bool,
 }
 
+/// Which tape set this run uses. **Cheap by default** — the full set is opt-in
+/// via `--full-nuclides`, because reconstructing 36 evaluations (several of
+/// them 8-24 MB of ENDF text) dominates the run before a single neutron moves.
+fn tapes() -> &'static [(&'static str, &'static str)] {
+    static FULL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    let full = *FULL.get_or_init(|| std::env::args().any(|a| a == "--full-nuclides"));
+    if full {
+        TAPES_FULL
+    } else {
+        TAPES_CHEAP
+    }
+}
+
 fn load_nuclides(
     spec: &[MaterialSpec],
     opts: ResonanceOptions,
@@ -884,7 +975,7 @@ fn load_nuclides(
     let mut omitted: BTreeMap<String, f64> = BTreeMap::new();
     for m in spec {
         for (name, ao) in &m.nuclides {
-            match TAPES.iter().find(|(n, _)| n == name) {
+            match tapes().iter().find(|(n, _)| n == name) {
                 Some(_) => {
                     if !wanted.contains(&name.as_str()) {
                         wanted.push(name);
@@ -915,7 +1006,7 @@ fn load_nuclides(
     let mut nuclides = Vec::new();
     let mut slots = BTreeMap::new();
     for name in wanted {
-        let file = TAPES.iter().find(|(n, _)| *n == name).expect("tape").1;
+        let file = tapes().iter().find(|(n, _)| *n == name).expect("tape").1;
         let mut n = load(name, file);
         // Resonance treatments, on the actinides only -- they are where the
         // resolved and unresolved resonances that matter live, and building
