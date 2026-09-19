@@ -77,11 +77,13 @@ and stays there.
 | `specfunc` (synchrotron radiation) | ~2 | **PORTED** | `S_1(x)` and `S_2(x)`; six Chebyshev series, 91 coefficients. **Upstream's underflow guard is dead code in `f64` and would DESTROY answers if retargeted** — the first constant here whose category depends on the width. See below |
 | `specfunc` (Fermi-Dirac integrals) | ~9 | **PORTED** (fixed indices) | `F_j(x)` at `j = -1, -1/2, 0, 1/2, 1, 3/2, 2`; **22 Chebyshev series, 483 coefficients — the largest table set here**. The general-`j` entry point is absent (it needs the confluent hypergeometrics). **The one shader that CORRECTS an upstream constant's formula** rather than retargeting its value, and the one that meets a guard that is not representable at all — see below |
 | `specfunc` (Dawson's integral) | ~2 | **PORTED** | `F(x) = e^{-x^2} int_0^x e^{t^2} dt`. **The first shader to ship GSL's SINGLE-PRECISION Chebyshev order** — 45 coefficients where the `f64` order needs 84, measured to cost nothing. Upstream's underflow guard is not an `f32`, and deleting it GAINS answers |
+| `specfunc` (cubic exponential integral) | ~2 | **PORTED** | `Ei_3(x) = int_0^x e^{-t^3} dt`; two Chebyshev series at `order_sp`, 27 coefficients where the `f64` order needs 47. **The best-behaved kernel here at 1.4 `f32` ulp** — nothing to lose precision to. Its saturation cut retargets to a bit-identical answer, the counter-example to `F_2`'s |
+| `specfunc` (sine and cosine integrals) | ~4 | **PORTED** | `Si(x)`, `Ci(x)` and the `f`/`g` asymptotic pair; six Chebyshev series at `order_sp`, 81 coefficients where the `f64` order needs 129. **A `2 pi` argument reduction was tried and measured to be worse on both CPU and GPU** — see below. Both of upstream's far-field guards are deleted as unrepresentable, which gains answers |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~240 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~234 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -473,6 +475,60 @@ What remains is that an inline array is known to the compiler at compile
 time, so it may constant-fold and reassociate the Clenshaw recurrence, where
 a storage-buffer read forbids both. That is the next thing to test, and it is
 a different experiment from this one.
+
+## A reduction that looked obviously right, and is worse
+
+`sinint.wgsl` is the one kernel here whose accuracy at large `x` is set by
+`sin` and `cos` rather than by its own arithmetic:
+
+```text
+    Si(x) = pi/2 - f(x) cos x - g(x) sin x
+    Ci(x) =        f(x) sin x - g(x) cos x
+```
+
+`clausen.wgsl` already carries `petir_clausen_reduce`, the `f32` three-way
+`2 pi` split, so reusing it here looked like the obvious move — the
+search-before-building rule pointing straight at it. **Measured, it is worse
+on both sides**, and the shader calls `sin` and `cos` directly.
+
+`Ci` against its `1/x` envelope, on the CPU against the `f64` module:
+
+| range | direct | through the reduction |
+|---|---|---|
+| `[4, 1e2]` | 2.104e-07 | 2.722e-07 |
+| `[1e2, 1e4]` | 3.635e-07 | 3.693e-07 |
+| `[1e4, 1e5]` | 1.955e-07 | **1.182e-06** |
+| `[1e5, 5.2e5]` | 1.652e-07 | **7.993e-06** |
+
+**`Si` is untouched either way** — bit-identical, at every argument tried —
+because there `sin` and `cos` are multiplied by `f ~ 1/x` against a leading
+`pi/2`, while `Ci` *is* `f sin - g cos` and carries their error at full
+weight. That asymmetry is why `Ci` is the instrument and `Si` would have
+shown nothing.
+
+On the device, llvmpipe's `sin` is within 1e-07 of `f64` to about `x = 1e7`
+and 7.4e-04 at `1e8`; the reduction returns `NaN` above its own loss cut of
+524288, so past `5.2e5` it is not even available, and below it it is the
+worse of the two (0.0357484 against the correct 0.0357488 at `x = 1e5`).
+Both libraries already do a multi-word reduction internally; the three-term
+split is coarser than either.
+
+**And what actually ends the usable range is neither.** At `x = 1e7` one
+`f32` ulp of the *argument* is **1 radian**, so `sin(x)` is not determined by
+the `f32` `x` at all:
+
+| `x` | `ulp(x)` | `Ci` changes by | envelope `1/x` |
+|---|---|---|---|
+| 1e5 | 7.81e-03 rad | 7.81e-08 | 1e-05 |
+| 1e6 | 6.25e-02 rad | 5.92e-08 | 1e-06 |
+| **1e7** | **1.0 rad** | 9.57e-08 | 1e-07 |
+
+Moving to the next representable argument at `x = 1e7` changes `Ci` by
+essentially its whole envelope. The kernel's own error stays flat at 1e-07
+out to `1e9` — it is faithful to the number it is given — but the number has
+stopped being the one the caller meant. **The oscillating branch is honest
+to about `x = 1e6`**, and no reduction can extend that. That, rather than the
+accuracy table above, is the real reason none is shipped.
 
 **And the device puts the underflow point in a third place, which is the
 strongest argument for keeping upstream's constant.** Measured on llvmpipe

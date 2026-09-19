@@ -131,6 +131,12 @@ pub mod mirror_fermi_dirac;
 /// `f32` mirror of the Dawson-integral shader.
 pub mod mirror_dawson;
 
+/// `f32` mirror of the cubic-exponential-integral shader.
+pub mod mirror_expint3;
+
+/// `f32` mirrors of the sine- and cosine-integral shaders.
+pub mod mirror_sinint;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -324,6 +330,21 @@ pub const FERMI_DIRAC: &str = include_str!("shaders/fermi_dirac.wgsl");
 /// rather than its `f64` one — 45 coefficients where the `f64` order needs
 /// 84. See [`mirror_dawson`].
 pub const DAWSON: &str = include_str!("shaders/dawson.wgsl");
+
+/// The cubic exponential integral `Ei_3(x)`, ported from
+/// `specfunc/expint3.c` by way of [`crate::specfunc::expint3`].
+///
+/// Carries GSL's single-precision Chebyshev order: 27 coefficients where the
+/// `f64` order needs 47. See [`mirror_expint3`].
+pub const EXPINT3: &str = include_str!("shaders/expint3.wgsl");
+
+/// The sine and cosine integrals `Si(x)` and `Ci(x)`, ported from
+/// `specfunc/sinint.c` by way of [`crate::specfunc::sinint`].
+///
+/// **Self-contained**: a `2 pi` argument reduction was tried and measured to
+/// be worse on both CPU and GPU, so this shader calls `sin` and `cos`
+/// directly. See [`mirror_sinint`].
+pub const SININT: &str = include_str!("shaders/sinint.wgsl");
 
 /// Every shader source in this module, in dependency order.
 ///

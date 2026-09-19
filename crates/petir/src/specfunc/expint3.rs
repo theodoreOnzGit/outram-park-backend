@@ -304,3 +304,9 @@ mod tests {
         assert_eq!(expint_3(f64::INFINITY), VAL_INFINITY);
     }
 }
+
+/// `Gamma(4/3)`, so [`crate::wgsl::mirror_expint3`] can check its `f32`
+/// against upstream's literal rather than repeating it.
+pub fn probe_val_infinity() -> f64 {
+    VAL_INFINITY
+}

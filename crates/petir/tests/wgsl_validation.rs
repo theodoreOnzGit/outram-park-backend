@@ -26,7 +26,8 @@
 
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ERF,
-    FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
+    EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON,
+    TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -63,6 +64,8 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         ),
         "fermi_dirac" => (vec![FERMI_DIRAC], "petir_fermi_dirac(params.k, x)"),
         "dawson" => (vec![DAWSON], "petir_dawson(x)"),
+        "expint3" => (vec![EXPINT3], "petir_expint_3(x)"),
+        "sinint" => (vec![SININT], "petir_si(x) + petir_ci(abs(x) + 1.0)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -136,7 +139,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 18] = [
+    let expected: [(&str, &[&str]); 20] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -320,6 +323,29 @@ fn every_documented_function_is_defined() {
                 "petir_dawson_cheb_dawa",
             ],
         ),
+        (
+            EXPINT3,
+            &[
+                "petir_expint_3",
+                "petir_expint3_cheb_expint3",
+                "petir_expint3_cheb_expint3a",
+            ],
+        ),
+        (
+            SININT,
+            &[
+                "petir_si",
+                "petir_ci",
+                "petir_si_fg_asymp",
+                "petir_si_sin_cos",
+                "petir_sinint_cheb_f1",
+                "petir_sinint_cheb_f2",
+                "petir_sinint_cheb_g1",
+                "petir_sinint_cheb_g2",
+                "petir_sinint_cheb_si",
+                "petir_sinint_cheb_ci",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -473,6 +499,8 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             // before the row existed. Match the row itself.
             "fermi_dirac" => LEDGER.contains("(Fermi-Dirac integrals)"),
             "dawson" => LEDGER.contains("Dawson"),
+            "expint3" => LEDGER.contains("cubic exponential integral"),
+            "sinint" => LEDGER.contains("sine and cosine integrals"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -521,7 +549,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 ///
 /// # What it covers
 ///
-/// **Every generated pair**, 88 tables and 1642 coefficients as of
+/// **Every generated pair**, 96 tables and 1750 coefficients as of
 /// 2026-09-19:
 ///
 /// | shader | tables | coefficients |
@@ -537,6 +565,8 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 /// | `clausen` | 1 | 15 |
 /// | `gamma` | 1 | 9 |
 /// | `dawson` | 3 | 45 |
+/// | `expint3` | 2 | 27 |
+/// | `sinint` | 6 | 81 |
 ///
 /// ~~Covers `bessel.wgsl` and `psi_zeta.wgsl`.~~ **CORRECTED 2026-09-19** —
 /// the doc comment claimed `psi_zeta` was covered and the body compared
@@ -623,6 +653,20 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     // are asserted so that a table silently lost from either side fails here
     // rather than shrinking the comparison.
     let pairs: &[(&str, &str, &str, usize, usize)] = &[
+        (
+            "sinint",
+            petir::wgsl::SININT,
+            include_str!("../src/wgsl/mirror_sinint.rs"),
+            6,
+            81,
+        ),
+        (
+            "expint3",
+            petir::wgsl::EXPINT3,
+            include_str!("../src/wgsl/mirror_expint3.rs"),
+            2,
+            27,
+        ),
         (
             "dawson",
             petir::wgsl::DAWSON,
@@ -745,8 +789,8 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
         }
     }
     assert_eq!(
-        grand, 1642,
-        "the generated pairs are documented as holding 1642 coefficients in \
+        grand, 1750,
+        "the generated pairs are documented as holding 1750 coefficients in \
          total; this run compared {grand}"
     );
 }

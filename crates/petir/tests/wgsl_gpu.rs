@@ -6,11 +6,11 @@
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
-    mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_debye, mirror_dilog,
-    mirror_dawson, mirror_erf, mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix,
-    mirror_psi_zeta, mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN,
-    DEBYE, DILOG, DAWSON, ERF, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
-    SYNCHROTRON, TRANSPORT,
+    mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_dawson,
+    mirror_debye, mirror_dilog, mirror_erf, mirror_expint3, mirror_fermi_dirac, mirror_gamma,
+    mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_sinint, mirror_synchrotron,
+    mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ERF, EXPINT3,
+    FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -2319,4 +2319,200 @@ fn build_dawson_with_f64_order() -> String {
          \x20   return 0.5 / x;\n}\n",
     );
     src
+}
+
+/// `Ei_3` on the GPU against the `f32` mirror.
+///
+/// This kernel is the cleanest in the module — 1.4 `f32` ulp against `f64`,
+/// two short Chebyshev branches and no cancellation anywhere — so it is also
+/// the sharpest test of the device's `exp`, which is the only transcendental
+/// it calls and which `fermi_dirac` already showed to be where llvmpipe and
+/// the CPU part company.
+///
+/// Measured on llvmpipe (LLVM 20.1.2), 2026-09-19: **766 of 802
+/// bit-identical (95.5 %), worst 2.034e-07 at x = 0.0733** — the closest
+/// agreement of any inline-coefficient kernel here.
+///
+/// **That is not evidence for the array-length hypothesis**, which
+/// `gpu_dawson_matches_the_cpu_mirror` refuted with a controlled experiment.
+/// Comparing bit-identity rates ACROSS kernels is confounded: `debye` sits
+/// at 53 % with 17-long arrays, `dawson` at 78 % with 10-to-22-long ones and
+/// this at 95.5 % with 11 and 16, but the functions differ in how much
+/// arithmetic follows the Chebyshev sum and in whether anything cancels.
+/// Within one function at two lengths the effect was 2 points. This number
+/// is recorded because it is the measurement, not because it explains it.
+#[test]
+fn gpu_expint_3_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_expint_3_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let mut probes: Vec<f32> = (0..=400)
+        .map(|i| 1e-6_f32 * (1e7_f32).powf(i as f32 / 400.0))
+        .collect();
+    // And the exp branch densely, since that is the only place a device's
+    // maths library can differ here.
+    probes.extend((0..=400).map(|i| 2.0 + 0.6 * i as f32 / 400.0));
+
+    let got = gpu
+        .eval_map(
+            &[EXPINT3],
+            "petir_expint_3(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+    let (mut exact, mut total) = (0_u32, 0_u32);
+    for (k, &x) in probes.iter().enumerate() {
+        let want = mirror_expint3::expint_3(x);
+        let have = got.get(k).copied().unwrap_or(f32::NAN);
+        assert!(
+            want.is_finite() && have.is_finite() && have >= 0.0,
+            "Ei_3({x:e}): mirror {want:e}, GPU {have:e}"
+        );
+        total += 1;
+        if want.to_bits() == have.to_bits() {
+            exact += 1;
+        }
+        if want < 1e-30 {
+            continue;
+        }
+        let d = (((have - want) / want) as f64).abs();
+        if d > worst {
+            worst = d;
+            at = x;
+        }
+    }
+    eprintln!(
+        "expint3 GPU vs mirror on {}: {exact}/{total} bit-identical, worst {worst:e} at {at:e}",
+        gpu.adapter_name()
+    );
+    assert!(
+        worst < 1e-5,
+        "GPU ({}) vs f32 mirror for Ei_3: {worst:e} at x = {at:e}",
+        gpu.adapter_name()
+    );
+    // The bound is the function's, not the device's: Ei_3 never exceeds
+    // Gamma(4/3) on either side.
+    for v in got {
+        assert!(v <= 0.892_979_6, "the GPU returned {v:e}, above Gamma(4/3)");
+    }
+}
+
+/// `Si` and `Ci` on the GPU against the `f32` mirror.
+///
+/// This is the one kernel here whose accuracy is set by the device's `sin`
+/// and `cos` rather than by its own arithmetic, so the comparison is run
+/// where that still means something. `mirror_sinint` measures the argument's
+/// own resolution: at `x = 1e7` one `f32` ulp is a whole radian, so the
+/// sweep stops at `1e6`, where an ulp is 0.0625 rad and `Ci` moves by 6 % of
+/// its envelope.
+///
+/// `Ci` is compared against its `1/x` **envelope**, not its value: it passes
+/// through infinitely many zeros, and a relative figure across them measures
+/// the probe grid rather than the kernel.
+///
+/// Measured on llvmpipe (LLVM 20.1.2), 2026-09-19: **1183 of 1602
+/// bit-identical (73.8 %)**, `Si` within 2.384e-07 absolute at `x = 1.155`
+/// and `Ci` within 4.746e-07 of its envelope at `x = 3.981` — the latter
+/// sitting just under the `x = 4` handover, where the Chebyshev branch is at
+/// its worst.
+#[test]
+fn gpu_sinint_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_sinint_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    // 1e-4 .. 1e6, crossing the small cut, the x = 4 handover and the
+    // sqrt(50) split between the f1/g1 and f2/g2 fits.
+    let probes: Vec<f32> = (0..=800)
+        .map(|i| 1e-4_f32 * (1e10_f32).powf(i as f32 / 800.0))
+        .collect();
+
+    let si_got = gpu
+        .eval_map(
+            &[SININT],
+            "petir_si(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let ci_got = gpu
+        .eval_map(
+            &[SININT],
+            "petir_ci(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let (mut si_worst, mut si_at) = (0.0_f64, 0.0_f32);
+    let (mut ci_worst, mut ci_at) = (0.0_f64, 0.0_f32);
+    let (mut exact, mut total) = (0_u32, 0_u32);
+    for (k, &x) in probes.iter().enumerate() {
+        let (ws, wc) = (mirror_sinint::si(x), mirror_sinint::ci(x));
+        let (hs, hc) = (si_got[k], ci_got[k]);
+        assert!(
+            ws.is_finite() && hs.is_finite() && wc.is_finite() && hc.is_finite(),
+            "at x = {x:e}: Si mirror {ws:e} GPU {hs:e}, Ci mirror {wc:e} GPU {hc:e}"
+        );
+        total += 2;
+        if ws.to_bits() == hs.to_bits() {
+            exact += 1;
+        }
+        if wc.to_bits() == hc.to_bits() {
+            exact += 1;
+        }
+        // Si is O(1) and bounded, so absolute is the right figure for it too.
+        let d = ((hs - ws) as f64).abs();
+        if d > si_worst {
+            si_worst = d;
+            si_at = x;
+        }
+        let d = (((hc - wc) as f64) * x as f64).abs();
+        if d > ci_worst {
+            ci_worst = d;
+            ci_at = x;
+        }
+    }
+    eprintln!(
+        "sinint GPU vs mirror on {}: {exact}/{total} bit-identical; \
+         Si abs {si_worst:e} at {si_at:e}, Ci/envelope {ci_worst:e} at {ci_at:e}",
+        gpu.adapter_name()
+    );
+    assert!(
+        si_worst < 1e-5,
+        "GPU ({}) vs mirror for Si: {si_worst:e} at {si_at:e}",
+        gpu.adapter_name()
+    );
+    assert!(
+        ci_worst < 1e-4,
+        "GPU ({}) vs mirror for Ci, against its 1/x envelope: {ci_worst:e} at \
+         {ci_at:e}",
+        gpu.adapter_name()
+    );
+
+    // The domain restriction must hold on the device too.
+    let bad = gpu
+        .eval_map(
+            &[SININT],
+            "petir_ci(x)",
+            &[],
+            &[-1.0_f32, 0.0, -1e20],
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    for (k, v) in bad.iter().enumerate() {
+        assert!(
+            v.is_nan(),
+            "Ci at a non-positive argument gave {v:e} at probe {k}"
+        );
+    }
 }
