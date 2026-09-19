@@ -69,9 +69,29 @@ it.
 
 # Do the ICSBEP benchmarks match? — determination of 2026-09-19
 
-**Short answer: one case matches on defensible grounds, two probably match but
-against bands we chose ourselves, and one is at genuine risk.** The leading
-explanation for the residuals has been tested and REFUTED.
+**Short answer: 2 of 4 pass, 2 fail, against an explicit ±100 pcm criterion set
+by the maintainer.** Three candidate explanations for the residuals have been
+tested and all three are REFUTED.
+
+## The acceptance criterion (maintainer, 2026-09-18)
+
+> *"Okay lah within 100 pcm for all 4 is good, arbitrary."*
+
+**±100 pcm on the pooled residual, all four cases. The maintainer labelled it
+arbitrary and it is recorded as arbitrary** — it is not derived from the ICSBEP
+case uncertainties, and it is not a claim about what this code *should* achieve.
+
+**Why adopt an admittedly arbitrary bar anyway:** the previous verdicts were
+judged against bands this project chose *for itself*, two of them deliberately
+set to the WIDEST plausible value because the ICSBEP handbook was not reachable
+(NEA licensing — see "Why the band cannot be settled here"). A self-selected
+band tuned for easy satisfaction is worth less than an arbitrary fixed bar,
+because the arbitrary bar can FAIL. This one does fail, twice — which is the
+point, and is why it is an improvement despite being arbitrary.
+
+It removes the handbook dependency from the *criterion*. It does NOT remove it
+from the *physics*: getting the real case uncertainties remains the data task
+that would let these residuals be interpreted rather than merely scored.
 
 ## The pooled results
 
@@ -80,18 +100,21 @@ substance). Single-seed values are superseded — on Jemima the single draw read
 `+6 ± 173`, which looked like near-perfect agreement and was a 1.3-sd
 excursion.
 
-| case | spectrum | dominant | pooled | benchmark band | verdict |
+| case | spectrum | geometry | dominant | pooled | vs ±100 pcm |
 |---|---|---|---|---|---|
-| Godiva HEU-MET-FAST-001 | fast | U-235 (93.7 %) | **−55 ± 34** | ±100, **real ICSBEP** | **matches** |
-| Jemima IEU-MET-FAST-002 | fast | U-238 (83 % HM) | **−253 ± 34** | ±300, *pessimistic stand-in* | **at risk** |
-| HST-009 HEU-SOL-THERM-009 | thermal | U-235 | **−38 ± 36** | ±600, *assumed worst case* | probably, not established |
-| LCT-008 LEU-COMP-THERM-008 | thermal | U-238 (LEU) | **+165 ± 25** | ±600, *assumed worst case* | probably, not established |
+| Godiva HEU-MET-FAST-001 | fast | bare sphere (**homog.**) | U-235 (93.7 %) | **−55 ± 34** | **PASS** |
+| HST-009 HEU-SOL-THERM-009 | thermal | solution (**homog.**) | U-235 | **−38 ± 36** | **PASS** |
+| Jemima IEU-MET-FAST-002 | fast | plates (**heterog.**) | U-238 (83 % HM) | **−253 ± 34** | **FAIL** by 153 (4.5 σ) |
+| LCT-008 LEU-COMP-THERM-008 | thermal | pin lattice (**heterog.**) | U-238 (LEU) | **+165 ± 25** | **FAIL** by 65 (2.6 σ) |
 
-**Only Godiva is judged against a quoted ICSBEP uncertainty.** The other three
-bands are self-selected, two of them as the WIDEST plausible value because the
-handbook was not reachable — the assumption that makes "inside the band"
-easiest to satisfy. Getting the real case uncertainties is a DATA task and is
-the single thing that would settle three of these four verdicts.
+**2 of 4 pass.** Godiva additionally sits inside its real quoted ICSBEP
+uncertainty (±100), so its pass does not depend on the arbitrary criterion at
+all. The two failures need 153 pcm and 65 pcm respectively to clear the bar.
+
+**The rows are sorted to show the split that the ablations exposed:** the two
+passes are the two HOMOGENEOUS geometries, the two failures are the two
+HETEROGENEOUS ones. See "The geometry split" below — this is a hypothesis with
+a mechanism, not an established cause, and it is weakly powered at n = 4.
 
 ## The pattern that motivated the ablation
 
@@ -230,3 +253,84 @@ the local OpenMC checkout.
 **Obtaining the real case uncertainties requires a handbook licence and is the
 single action that would settle three of the four verdicts.** It is a data
 task, not a compute one, and no amount of further ablation substitutes for it.
+
+---
+
+## Ablation 3 — frozen ν̄(E). REFUTED, 2026-09-19
+
+Paired Godiva/Jemima, 32 seeds each, ν̄ frozen at its 0.0253 eV value via
+`Nuclide::with_frozen_nubar` (`OUTRAM_FROZEN_NUBAR=1`).
+
+| | ν̄ term worth | pooled with ν̄ frozen |
+|---|---|---|
+| Godiva | **−6461 pcm** | −6416 ± 37 |
+| Jemima | **−4991 pcm** | −5244 ± 29 |
+
+**Ratio 0.77× — Jemima is LESS ν̄-sensitive than Godiva, not more.** The
+elimination is arithmetic: explaining Jemima's −253 needs a **5.07 %** error in
+ν̄, and that same error puts Godiva at **+328 pcm** against its measured
+−55 ± 34. Roughly 11 σ incompatible.
+
+This is the most decisive of the three, because the ratio went the *wrong
+direction*. For a shared material property to explain Jemima while sparing
+Godiva, Jemima must be MORE sensitive to it. It is less.
+
+## Three eliminations, and what they have in common
+
+| # | candidate | how it died |
+|---|---|---|
+| 1 | U-238 evaluation (VII.0 vs VIII.0) | Jemima moves +37 ± 54 — not resolved |
+| 2 | U-238 inelastic angular | sensitivity ratio 1.53 vs the 4.6 required; a sufficient error puts Godiva ~6 σ out |
+| 3 | ν̄(E) | ratio **0.77** (wrong direction); ~11 σ out |
+
+**Every one of these is a MATERIAL property, and every one died the same way:**
+the required Jemima/Godiva sensitivity ratio was never there. That is not three
+independent failures — it is one structural finding. A property that scales
+with composition cannot produce a residual in one U-238 case and the *opposite
+sign* in the other.
+
+## The geometry split — current leading hypothesis, NOT established
+
+| | geometry | verdict |
+|---|---|---|
+| Godiva | bare sphere | PASS |
+| HST-009 | solution | PASS |
+| Jemima | **plates** | FAIL |
+| LCT-008 | **pin lattice** | FAIL |
+
+The two failures are the two spatially heterogeneous configurations. This
+survives all three ablations precisely because it is *not* a material property.
+
+**Stated honestly, three ways this could be wrong:**
+
+- **n = 4, and it is weakly powered.** With 2 failures among 4 cases, a
+  coincidental binary split has ~1/6 odds. This is suggestive, not evidence.
+- **The obvious mechanism does not apply.** This is a continuous-energy MC
+  code; spatial self-shielding is handled by geometry and pointwise cross
+  sections, so there is no "self-shielding approximation" to get wrong the way
+  a deterministic code has. Any real mechanism must be subtler than the
+  textbook one, which weakens the story considerably.
+- **It still does not explain the SIGN FLIP.** Jemima is −253 and LCT-008 is
+  +165. A single geometric defect producing opposite signs in fast and thermal
+  systems is possible but is an additional claim, not a consequence.
+
+The better-specified version: both failures involve neutron slowing-down
+through the U-238 resonance region **in a spatially separated fuel/moderator
+arrangement**. Godiva has almost no slowing-down; HST-009 is homogeneous and
+HEU. That framing at least survives the CE-MC objection.
+
+**The one known defect in exactly that region is already fixed.** `op-sdbk`
+(BROADR running SIGMA1 across the resolved/unresolved seam) was closed
+2026-09-10 and oracle-confirmed against NJOY2016 built in-session — the port
+matches upstream's PENDF to every printed digit at all five seam energies. It
+is already folded into the numbers above, so it is NOT available as an
+explanation. Its own closing note records that the 6.2 % low fast-fission
+factor is not a BROADR effect and needs a different lead.
+
+## Status against the criterion
+
+**NOT MET.** 2 of 4 pass. Jemima and LCT-008 fail by 153 and 65 pcm.
+
+No tuning has been applied and none will be: calibrating a free parameter until
+a benchmark agrees converts the reference into an input and destroys the check.
+The failures are recorded as failures.

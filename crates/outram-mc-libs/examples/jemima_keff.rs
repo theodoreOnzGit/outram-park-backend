@@ -161,6 +161,28 @@ fn main() {
         nuclides
     };
 
+    // OUTRAM_FROZEN_NUBAR=1 freezes nu-bar(E) at thermal, ablating its energy
+    // dependence. `with_frozen_nubar(0.0253)`.
+    //
+    // WHY THIS PAIR. The inelastic ablation eliminated itself by SCALING: the
+    // term was worth 1.53x more on Jemima while the residuals differ by 4.6x.
+    // So the cause must be something Jemima HAS and Godiva LARGELY DOES NOT,
+    // not something it has more of. The structural difference is that Jemima
+    // is NATURAL-URANIUM REFLECTED on all sides (99.3 % U-238) while Godiva is
+    // a BARE sphere with vacuum outside.
+    //
+    // nu-bar(E) rises steeply with energy and is sampled at every fission --
+    // including fissions in Jemima's reflector, which Godiva does not have at
+    // all. If the Jemima/Godiva worth-ratio comes out near 1.5 it is
+    // eliminated by the same argument as inelastic; if it is much larger, it
+    // is a live candidate.
+    let nuclides: Vec<Nuclide> = if std::env::var("OUTRAM_FROZEN_NUBAR").is_ok() {
+        eprintln!("  ABLATION: nu-bar frozen at 0.0253 eV (energy dependence off)");
+        nuclides.into_iter().map(|n| n.with_frozen_nubar(0.0253)).collect()
+    } else {
+        nuclides
+    };
+
     eprintln!(
         "Nuclear data ready in {:.1} s.\n",
         t0.elapsed().as_secs_f64()

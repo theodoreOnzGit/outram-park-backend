@@ -172,10 +172,19 @@ mod desktop {
                 );
                 return;
             };
-            nuclides.push(
-                Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
-                    .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display())),
-            );
+            let nuc = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
+                .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
+            // OUTRAM_FROZEN_NUBAR=1 freezes nu-bar(E) at thermal. Paired with
+            // the same knob on Jemima: the WORTH RATIO between the two cases is
+            // the measurement, not either number alone. The inelastic ablation
+            // eliminated itself at a ratio of 1.53 against a residual ratio of
+            // 4.6, so a candidate has to break that scaling to survive.
+            let nuc = if std::env::var("OUTRAM_FROZEN_NUBAR").is_ok() {
+                nuc.with_frozen_nubar(0.0253)
+            } else {
+                nuc
+            };
+            nuclides.push(nuc);
         }
         println!(
             "Nuclear data ready in {:.1} s.\n",
