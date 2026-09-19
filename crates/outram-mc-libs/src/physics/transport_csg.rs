@@ -70,7 +70,7 @@ use crate::physics::scatter::{
 };
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
-use crate::tally::scoring::{flush_batch, flush_bins, score_track_length};
+use crate::tally::scoring::{flush_batch, flush_bins, score_scatter_matrix, score_track_length};
 use crate::tally::tally::{Tally, TallyBin};
 use crate::mathf::RealMath;
 
@@ -1364,6 +1364,20 @@ pub(crate) fn transport_history(
                             )
                         }
                     };
+                    // Scattering-matrix estimator: score the (E_in, E_out) pair
+                    // BEFORE `e` is overwritten, so a tally carrying both an
+                    // EnergyFilter and an EnergyOutFilter bins one element of
+                    // Sigma_s,g->g'. `e2` may exceed `e` -- thermal up-scatter
+                    // is real physics here, not an error to clamp away.
+                    //
+                    // A tally without an outgoing-energy filter is unaffected:
+                    // it would bin this event by incoming energy alone, which is
+                    // why only ScatterN/Events receive weight and the flux score
+                    // is left to the track-length estimator (see
+                    // `score_scatter_matrix`).
+                    if let Some(t) = tally {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                    }
                     e = e2;
                     u = u2;
                 }

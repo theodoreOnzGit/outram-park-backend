@@ -23,7 +23,7 @@
 //! the simplest unbiased estimator; a track-length estimator (bead op-6tz.9
 //! follow-up) would additionally score along free-flight segments.
 
-use super::filter::FilterEvent;
+use super::filter::{FilterEvent, FilterKind};
 use super::tally::{ScoreType, Tally, TallyBin};
 use crate::geometry::position::Position;
 use crate::material::material::MacroXs;
@@ -221,6 +221,103 @@ pub fn score_track_length(
         // are dropped rather than propagated (documented gap op-6tz.9); the
         // collision estimator is immune because it scores the ratio Σ_x/Σ_t.
         if val.is_finite() {
+            batch[bin * n_scores + s_idx] += val;
+        }
+    }
+}
+
+/// Score one **scattering event** into a per-batch accumulator, carrying both
+/// the incoming and the outgoing energy.
+///
+/// This is the analog estimator behind a group-to-group scattering matrix. The
+/// caller supplies the energy the neutron arrived with and the energy the
+/// scatter kernel actually produced, so a tally holding an
+/// [`super::filter::EnergyFilter`] *and* an [`super::filter::EnergyOutFilter`]
+/// bins the pair `(g_in, g_out)` — one element of `Sigma_s,g->g'`. That matrix
+/// is what the deterministic solvers consume (GeN-Foam's `ZoneNuclearData`
+/// stores `scattering[moment][g_out][g_in]`).
+///
+/// # What it scores, and what it deliberately does not
+///
+/// Only [`ScoreType::ScatterN`] and [`ScoreType::Events`] receive the event's
+/// weight. Every other score is left at zero, because they are meaningless on a
+/// scattering event: there is no fission, no absorption and no track length
+/// here, and depositing `weight` into them would fabricate reaction rates that
+/// did not occur. In particular [`ScoreType::Flux`] is **not** scored — flux is
+/// a track-length quantity and is already accumulated by
+/// [`score_track_length`]; scoring it again here would double-count.
+///
+/// # Normalisation — this returns a RATE, not a cross section
+///
+/// The accumulated bin is the scatter reaction *rate* per source particle for
+/// the pair `(g_in, g_out)`. To obtain the macroscopic cross section
+/// `Sigma_s,g->g'` the caller divides by the group-`g` scalar flux from a
+/// companion track-length flux tally over the same spatial filter. This
+/// function does not do that division, because the flux tally is a separate
+/// accumulator and combining them is the MGXS layer's job.
+///
+/// # Parameters
+/// - `batch` — flat per-generation accumulator, `tally.bins.len()` long.
+/// - `tally` — the tally *definition* (filters + scores); bins are untouched.
+/// - `cell_idx` / `material_idx` / `universe_idx` — leaf geometry indices of the
+///   collision site.
+/// - `energy_in` — energy the neutron arrived with \[eV\].
+/// - `energy_out` — energy the scatter kernel produced \[eV\]. May be *higher*
+///   than `energy_in`: thermal up-scatter is real and both the free-gas and
+///   S(alpha,beta) kernels produce it.
+/// - `position` — collision site, for spatial filters.
+/// - `weight` — particle statistical weight (1.0 for analog transport).
+pub fn score_scatter_matrix(
+    batch: &mut [f64],
+    tally: &Tally,
+    cell_idx: usize,
+    material_idx: usize,
+    universe_idx: usize,
+    energy_in: f64,
+    energy_out: f64,
+    position: Position,
+    weight: f64,
+) {
+    if !energy_in.is_finite() || !energy_out.is_finite() || energy_out < 0.0 {
+        return;
+    }
+    // OPT-IN: this estimator only fires for a tally that actually carries an
+    // outgoing-energy filter, i.e. one asking for a scattering matrix.
+    //
+    // Without this guard an existing tally scoring `ScatterN` behind a plain
+    // `EnergyFilter` would receive BOTH the track-length scatter rate from
+    // `score_track_length` and these analog events, silently double-counting
+    // into the same bin. The presence of an `EnergyOutFilter` is what
+    // distinguishes "I want the matrix" from "I want the group total", so it is
+    // the gate.
+    if !tally
+        .filters
+        .iter()
+        .any(|f| matches!(f, FilterKind::EnergyOut(_)))
+    {
+        return;
+    }
+    let ev = FilterEvent {
+        cell_idx,
+        material_idx,
+        universe_idx,
+        energy: energy_in,
+        energy_out: Some(energy_out),
+        surface_idx: usize::MAX,
+        position,
+        ..Default::default()
+    };
+
+    let Some(bin) = filter_bin(tally, &ev) else {
+        return;
+    };
+    let n_scores = tally.scores.len();
+    for (s_idx, score) in tally.scores.iter().enumerate() {
+        let val = match score {
+            ScoreType::ScatterN | ScoreType::Events => weight,
+            _ => 0.0,
+        };
+        if val != 0.0 && val.is_finite() {
             batch[bin * n_scores + s_idx] += val;
         }
     }
