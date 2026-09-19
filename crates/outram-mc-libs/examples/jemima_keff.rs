@@ -130,7 +130,11 @@ fn main() {
     let nuclides: Vec<Nuclide> = vec![
         load("U234", "n-092_U_234-ENDF8.0.endf"),
         load("U235", "n-092_U_235-ENDF8.0.endf"),
-        load("U238", "n-092_U_238.endf"),
+        // OUTRAM_U238_ENDF7=1 swaps U-238 ALONE to ENDF/B-VII.0, every other
+        // nuclide held at VIII.0. Isolates one nuclide's evaluation: the four
+        // pooled ICSBEP residuals split by U-238 content and the two U-238-heavy
+        // cases disagree in SIGN, which a whole-library swap could not separate.
+        load("U238", if std::env::var("OUTRAM_U238_ENDF7").is_ok() { "n-092_U_238-ENDF7.0.endf" } else { "n-092_U_238.endf" }),
     ];
     eprintln!(
         "Nuclear data ready in {:.1} s.\n",

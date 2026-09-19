@@ -64,3 +64,104 @@ That is reasoning from what an ICSBEP benchmark *is*. It is not a licence to
 recall the rest: **atom densities and geometry must come from the file**, never
 from memory or a web summary, or the result looks like validation without being
 it.
+
+---
+
+# Do the ICSBEP benchmarks match? — determination of 2026-09-19
+
+**Short answer: one case matches on defensible grounds, two probably match but
+against bands we chose ourselves, and one is at genuine risk.** The leading
+explanation for the residuals has been tested and REFUTED.
+
+## The pooled results
+
+All four re-measured over 32 independent seeds (`gh:#196` / `bn:op-awwi` in
+substance). Single-seed values are superseded — on Jemima the single draw read
+`+6 ± 173`, which looked like near-perfect agreement and was a 1.3-sd
+excursion.
+
+| case | spectrum | dominant | pooled | benchmark band | verdict |
+|---|---|---|---|---|---|
+| Godiva HEU-MET-FAST-001 | fast | U-235 (93.7 %) | **−55 ± 34** | ±100, **real ICSBEP** | **matches** |
+| Jemima IEU-MET-FAST-002 | fast | U-238 (83 % HM) | **−253 ± 34** | ±300, *pessimistic stand-in* | **at risk** |
+| HST-009 HEU-SOL-THERM-009 | thermal | U-235 | **−38 ± 36** | ±600, *assumed worst case* | probably, not established |
+| LCT-008 LEU-COMP-THERM-008 | thermal | U-238 (LEU) | **+165 ± 25** | ±600, *assumed worst case* | probably, not established |
+
+**Only Godiva is judged against a quoted ICSBEP uncertainty.** The other three
+bands are self-selected, two of them as the WIDEST plausible value because the
+handbook was not reachable — the assumption that makes "inside the band"
+easiest to satisfy. Getting the real case uncertainties is a DATA task and is
+the single thing that would settle three of these four verdicts.
+
+## The pattern that motivated the ablation
+
+The residuals do not scatter randomly. They sort by **U-238 content**, and the
+two U-238-heavy cases disagree in **sign** — a 418 pcm swing, negative fast and
+positive thermal. Both U-235-dominated cases sit near zero across BOTH spectra,
+so the U-235 physics looks sound. A single scalar error in U-238 cannot produce
+an opposite-signed pair; an energy-dependent shape error can.
+
+That, plus the HTR-10 result of the previous day — where the whole residual
+turned out to be the data library (`+385 ± 310` on ENDF/B-VII.0 against
+`−1259` on VIII.0) — made "the U-238 evaluation differs" the obvious candidate.
+
+## The ablation: U-238 alone swapped to ENDF/B-VII.0
+
+Every other nuclide held at VIII.0. A whole-library swap could not tell U-238
+apart from U-235, which is the distinction the pattern turns on.
+`OUTRAM_U238_ENDF7=1` on all four examples.
+
+| case | VIII.0 | U-238 → VII.0 | shift | |
+|---|---|---|---|---|
+| Godiva | −55 ± 34 | −43 ± 32 | **+12 ± 47** | 0.26 σ |
+| Jemima | −253 ± 34 | −216 ± 42 | **+37 ± 54** | 0.68 σ |
+| HST-009 | +0 ± 50 | +132 ± 103 | **+132 ± 114** | 1.15 σ |
+| LCT-008 | +108 ± 60 | +10 ± 122 | **−98 ± 136** | 0.72 σ |
+
+**Not one shift is resolved.** The largest is 1.15 σ.
+
+### PREDICTION REFUTED, and it was recorded before measuring
+
+The prediction filed in advance was that Jemima and LCT-008 would move
+**"substantially — order 100s of pcm"**. Jemima moved `+37 ± 54`, consistent
+with zero, at 32-seed precision. The prediction failed.
+
+**The U-238 evaluation is not the explanation.** What made it attractive was
+the HTR-10 result, and the reason it does not transfer is now clear: HTR-10's
+residual lived in the thermal/epithermal range where VII.0 and VIII.0 genuinely
+diverge, while Jemima is a fast metal assembly. Consistent picture, wrong
+transfer.
+
+### Honest statement of resolving power — the two halves differ
+
+- **Fast cases, 32 seeds per arm:** bounds the U-238 evaluation term below
+  **~150 pcm**. A real exclusion.
+- **Thermal cases, 4 seeds per arm** (maintainer chose the seed count): bounds
+  it only below **~340 pcm at 3 σ**. An effect of 100–200 pcm would be
+  invisible here. **This is a weaker exclusion and must not be quoted as
+  equivalent to the fast one.** Settling it needs ~32 seeds per thermal arm.
+
+The 4-seed baselines do reproduce the 32-seed pooled means — HST-009 at
+0.62 σ, LCT-008 at 0.88 σ — so the thermal arms are measuring the right thing,
+just with less precision.
+
+## What remains, for Jemima specifically
+
+None of these is touched by a library swap:
+
+- **U-238 inelastic angular treatment.** `op-os8x`'s open Godiva residual was
+  localised to a down-scatter deficit out of the MeV window, and inelastic is
+  the only channel that moves a 2 MeV neutron to ~100 keV in one collision.
+  Jemima is far more U-238-dominated than Godiva, so the same defect would bite
+  harder there. **This is the leading candidate.**
+- **U-238 fast fission** above its ~1 MeV threshold.
+- **ν̄(E)** for U-238.
+
+## What this determination does NOT claim
+
+It does not say the benchmarks fail. Three of four residuals are small by any
+reasonable standard, and the fourth is only "at risk" because its band is a
+stand-in rather than a quoted value. What it says is that the residuals are
+**structured, not noise**, that the cheapest explanation for that structure has
+been tested and rejected, and that the remaining candidates are transport-side
+rather than data-side.

@@ -152,6 +152,20 @@ mod desktop {
         let t0 = Instant::now();
         let mut nuclides = Vec::new();
         for &(file, name, _) in NUCLIDES {
+            // OUTRAM_U238_ENDF7=1 swaps U-238 ALONE to ENDF/B-VII.0, every other
+            // nuclide held at VIII.0. Remapped HERE rather than in NUCLIDES
+            // because that is a `const` and `env::var` is not const-callable.
+            //
+            // Isolating one nuclide matters: the four pooled ICSBEP residuals
+            // split by U-238 content (Godiva -55, Jemima -253, HST-009 -38,
+            // LCT-008 +165 pcm over 32 seeds) and the two U-238-heavy cases
+            // disagree in SIGN. A whole-library swap cannot separate U-238
+            // from U-235; this can.
+            let file = if name == "U238" && std::env::var("OUTRAM_U238_ENDF7").is_ok() {
+                "n-092_U_238-ENDF7.0.endf"
+            } else {
+                file
+            };
             let Some(p) = reference_endf(file) else {
                 println!(
                     "  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping."
