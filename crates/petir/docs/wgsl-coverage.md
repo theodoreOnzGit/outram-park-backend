@@ -81,6 +81,7 @@ and stays there.
 | `specfunc` (sine and cosine integrals) | ~4 | **PORTED** | `Si(x)`, `Ci(x)` and the `f`/`g` asymptotic pair; six Chebyshev series at `order_sp`, 81 coefficients where the `f64` order needs 129. **A `2 pi` argument reduction was tried and measured to be worse on both CPU and GPU** — see below. Both of upstream's far-field guards are deleted as unrepresentable, which gains answers |
 | `specfunc` (elliptic integrals) | ~12 | **PORTED** | Carlson's `R_C`, `R_D`, `R_F`, `R_J`, the Legendre forms `F`, `E`, `Pi`, `D` and their complete versions. **The second table-free shader**, after the dilogarithm — iterative duplication, nothing fitted. Two parameters are upstream's own rather than retargeted or guessed: `errtol = 0.03` is `GSL_PREC_SINGLE`'s value, and the iteration cap is **16 against upstream's 10000**, measured over the whole `f32`-reachable domain. Within nine `f32` ulps on the complete integrals |
 | `specfunc` (Jacobi elliptic functions) | ~1 | **PORTED** | `sn(u\|m)`, `cn`, `dn` from one arithmetic-geometric-mean descent, returned as a `vec3<f32>`. The inverse of the row above. **No tables** -- the third table-free shader. Descent cap **8 against upstream's 16**, measured at 5 steps in `f32` and 7 in `f64`; the degenerate-limit windows are retargeted because `f64`'s `2 DBL_EPSILON` makes both of upstream's special cases unreachable at this width |
+| `specfunc` (Gegenbauer polynomials) | ~5 | **PORTED** | `C_n^lambda(x)`, three closed forms and a three-term recurrence. **The simplest kernel here and the only one with NO numeric constant at all** -- no tolerance, no cut, nothing to retarget, and a trip count that is a uniform function of `n` so a workgroup never diverges. `lambda = 1/2` is Legendre, `lambda = 1` is Chebyshev `U_n`, `lambda = 0` is upstream's `2 T_n/n` normalisation. The `array` variant is not ported: it writes `nmax + 1` outputs per call, which is a different kernel shape |
 | `specfunc` (exponential integrals) | ~8 | **PORTED** (`E_1`, `Ei`) | `E_1(x)`, `Ei(x)` and both scaled forms; six Chebyshev series at `order_sp`. `Ei` is `-E_1(-x)` -- upstream's whole definition -- so four entry points come from one branch tree. `E_n` for `n >= 2` is absent: upstream reaches it by a recurrence over `n`, which is a host loop. **Prefer the scaled forms on a GPU**, which stay in range where `E_1` underflows past `x ~ 83` |
 | `specfunc` (hyperbolic sine/cosine integrals) | ~4 | **PORTED** | `Shi(x)`, `Chi(x)`. One 7-coefficient series plus `(Ei +/- E_1)/2`. **The first series here whose `order_sp` EQUALS its `f64` order** -- seven terms, last coefficient 4.67e-22, nothing to cut. Ported only after reading `shint.c` showed it needed `Ei`, which PETIR did not have |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
@@ -184,9 +185,40 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Y_0` / `Y_1` | 3.980e-07 / 3.329e-07 | 1.288e-05 / 2.786e-05 (at the zeros) |
 | BLAS L1 (`dot`, `nrm2`, `asum`, `iamax`) | **0** bit-identical | — |
 | `gemv`, `gemm` | **0** bit-identical | see reassociation note |
+| `C_n^{1/2}`, `n` = 4, 12, 32, 64 | **0** bit-identical at every order | 1.7e-06 .. 1.6e-05, envelope 40 n eps |
+| `C_12^0` (`2 T_n/n`, via `acos`) | 2.837e-04 — the device's `acos`, above | — |
+| `sn` / `cn` / `dn` | 1.788e-07 abs | 3.011e-06 / 2.894e-06 / 7.461e-07 abs |
+| `E_1` / `Ei` / `Shi` / `Chi` | 3.3e-06; scaled forms 4.0e-07 | 1.3e-07 .. 5.7e-07 |
 | `K` / `E` / `D` / `Pi` (complete) | **0** bit-identical below the A&S switch; `K` 1.703e-07 inside it | 8.034e-07 / 6.268e-07 / 1.048e-06 / 7.797e-07 |
 | `F(phi, k)` | 4.768e-07 abs | 1.181e-06 |
 | element-wise matrix ops | **0** bit-identical (exact equality) | — |
+
+### Not all of this device's builtins are equally good: `acos` is 689 ulps out
+
+Measured directly on `llvmpipe (LLVM 20.1.2)`, 2026-09-20, over 401 points:
+
+| builtin | worst difference from `libm` |
+|---|---|
+| `cos` | 5.960e-08 — sub-ulp |
+| **`acos`** | **1.560e-04, about 689 ulps** |
+
+That is not a defect. WGSL constrains its transcendentals to an ULP bound
+rather than to correct rounding, and the bound on `acos` is loose enough that
+a conforming implementation may compute it as `atan2(sqrt(1 - x*x), x)` and
+accumulate exactly this.
+
+It matters because **the error is then amplified by whatever the kernel does
+with the angle.** `gegenbauer`'s `lambda = 0` branch computes
+`2 cos(n acos x) / n`, so an error `d` in `acos` arrives as
+`2 |sin(n acos x)| d` — up to `3.1e-04` for `d = 1.56e-04`, against the
+`2.837e-04` actually measured. The chain is quantitative, and it is why that
+one row of the table below sits three orders above its neighbours while the
+recurrence beside it is bit-identical.
+
+**The general lesson for reading this ledger: a kernel that passes an
+argument through an inverse trigonometric builtin cannot be held to the same
+budget as one that does not**, and the difference is the device's, not the
+port's.
 
 **Why `erf` is not bit-identical and everything else is.** Pure arithmetic is
 pinned by IEEE-754 to a single correctly-rounded answer, so a faithful

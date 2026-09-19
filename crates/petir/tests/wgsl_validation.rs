@@ -26,8 +26,8 @@
 
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG,
-    ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY,
-    PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
+    ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, GEGENBAUER, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE,
+    MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -83,6 +83,11 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "elljac" => (
             vec![ELLJAC],
             "petir_elljac_component(params.k, x, 0.5) + petir_elljac(x, 0.0).x",
+        ),
+        // Both the recurrence and the lambda = 0 Chebyshev branch.
+        "gegenbauer" => (
+            vec![GEGENBAUER],
+            "petir_gegenpoly_n(params.k, 0.5, x) + petir_gegenpoly_n(8u, 0.0, x)",
         ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
@@ -214,7 +219,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 23] = [
+    let expected: [(&str, &[&str]); 24] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -467,6 +472,15 @@ fn every_documented_function_is_defined() {
                 "petir_elljac_nan3",
             ],
         ),
+        (
+            GEGENBAUER,
+            &[
+                "petir_gegenpoly_1",
+                "petir_gegenpoly_2",
+                "petir_gegenpoly_3",
+                "petir_gegenpoly_n",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -625,6 +639,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "ellint" => LEDGER.contains("elliptic integrals"),
             "expint" => LEDGER.contains("exponential integrals"),
             "elljac" => LEDGER.contains("Jacobi elliptic functions"),
+            "gegenbauer" => LEDGER.contains("Gegenbauer"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

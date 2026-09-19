@@ -161,6 +161,7 @@ pub mod erf_inv;
 pub mod expint3;
 pub mod fermi_dirac;
 pub mod gamma;
+pub mod gegenbauer;
 /// Regularised and unnormalised incomplete gamma functions, lifted verbatim
 /// from outram-foam-basic-lib (DiDonato & Morris, ACM TOMS 1986).
 pub mod inc_gamma;

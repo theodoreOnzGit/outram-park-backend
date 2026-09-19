@@ -8,10 +8,11 @@ use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_dawson,
     mirror_debye, mirror_dilog, mirror_ellint, mirror_elljac, mirror_erf, mirror_expint,
-    mirror_expint3, mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix,
-    mirror_psi_zeta, mirror_sinint, mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL,
-    CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA,
-    LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
+    mirror_expint3, mirror_fermi_dirac, mirror_gegenbauer, mirror_gamma, mirror_lambert,
+    mirror_matrix, mirror_psi_zeta, mirror_sinint, mirror_synchrotron, mirror_transport, AIRY,
+    ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ELLINT, ELLJAC, ERF, EXPINT, EXPINT3,
+    GEGENBAUER, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON,
+    TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -3382,4 +3383,177 @@ fn gpu_elljac_matches_the_cpu_mirror() {
         "the defining identity on {}: {worst:e}",
         gpu.adapter_name()
     );
+}
+
+/// **The Gegenbauer polynomials on the device**, against the `f32` CPU
+/// mirror.
+///
+/// # Methodology
+///
+/// Four dispatches at `n = 4, 12, 32, 64` sweeping `x` across `[-1, 1]`, so
+/// the recurrence runs 1, 9, 29 and 61 times respectively and any drift with
+/// order shows as a trend rather than a single number. A fifth takes
+/// `lambda = 0`, which is a different branch entirely — `2 T_n(x)/n` through
+/// `acos`/`cos` rather than the recurrence.
+///
+/// This is the kernel with **no numeric constant at all**: no tolerance, no
+/// cut, no machine constant. There is correspondingly nothing that could be
+/// mis-retargeted, so a disagreement here could only be a transcription
+/// error or the device's arithmetic.
+///
+/// # Results
+///
+/// Measured 2026-09-20 on `llvmpipe (LLVM 20.1.2, 256 bits)`:
+///
+/// | | GPU vs `f32` mirror |
+/// |---|---|
+/// | `C_n^{1/2}`, `n = 4` | **0 — bit-identical** |
+/// | `C_n^{1/2}`, `n = 12` | **0 — bit-identical** |
+/// | `C_n^{1/2}`, `n = 32` | **0 — bit-identical** |
+/// | `C_n^{1/2}`, `n = 64` | **0 — bit-identical** |
+/// | `C_12^0`, the `2 T_n/n` branch | 2.837e-04 |
+///
+/// **The recurrence is bit-identical at every order, including 61 iterations
+/// of it.** That is the ledger's rule at its cleanest: the kernel is pure
+/// arithmetic — no transcendental builtin, and no inline coefficient table
+/// either, since every coefficient is computed from `k` and `lambda` — so
+/// IEEE-754 pins it to one answer and the compiler has no constants to fold.
+/// It is the only kernel here that satisfies **both** conditions the
+/// bit-identity rule needs, and it is correspondingly the only one exact at
+/// every point.
+///
+/// `P_n(±1) = (±1)^n` exactly on the device too, asserted as equality — a
+/// value the `f64` explicit-coefficient route in `poly::dense` gets wrong by
+/// `4.470e-07` at `n = 29`.
+///
+/// **The `lambda = 0` branch is a thousand times worse, and it is the
+/// device's `acos`.** Measured directly on this adapter, `acos` differs from
+/// `libm::acosf` by `1.560e-04` — about **689 ulps** — while `cos` is
+/// sub-ulp at `5.960e-08`. The branch computes `2 cos(n acos x) / n`, so an
+/// error `d` in `acos` propagates as `2 |sin(n acos x)| d`, up to `3.1e-04`
+/// against the `2.837e-04` observed. WGSL constrains `acos` loosely and a
+/// conforming device may implement it as `atan2(sqrt(1 - x*x), x)`, so this
+/// is the builtin's latitude rather than a transcription defect.
+#[test]
+fn gpu_gegenbauer_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_gegenbauer_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let xs: Vec<f32> = (0..=400).map(|i| -1.0 + 2.0 * i as f32 / 400.0).collect();
+
+    for n in [4u32, 12, 32, 64] {
+        let got = gpu
+            .eval_map(
+                &[GEGENBAUER],
+                "petir_gegenpoly_n(params.k, 0.5, x)",
+                &[],
+                &xs,
+                KernelParams {
+                    k: n,
+                    ..KernelParams::default()
+                },
+            )
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f32, 0.0_f32);
+        for (i, &x) in xs.iter().enumerate() {
+            let want = mirror_gegenbauer::gegenpoly_n(n, 0.5, x);
+            let have = got.get(i).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite(),
+                "C_{n}^0.5({x}): mirror {want}, GPU {have}"
+            );
+            if (have - want).abs() > worst {
+                worst = (have - want).abs();
+                at = x;
+            }
+        }
+        eprintln!("gegenbauer n={n}: {worst:e} absolute at x = {at}");
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for C_{n}^0.5: {worst:e} at x = {at}",
+            gpu.adapter_name()
+        );
+    }
+
+    // The lambda = 0 branch, which is trigonometric rather than recursive.
+    let got = gpu
+        .eval_map(
+            &[GEGENBAUER],
+            "petir_gegenpoly_n(12u, 0.0, x)",
+            &[],
+            &xs,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let (mut worst, mut at) = (0.0_f32, 0.0_f32);
+    let (mut worst_mid, mut at_mid) = (0.0_f32, 0.0_f32);
+    for (i, &x) in xs.iter().enumerate() {
+        let want = mirror_gegenbauer::gegenpoly_n(12, 0.0, x);
+        let have = got.get(i).copied().unwrap_or(f32::NAN);
+        assert!(have.is_finite(), "lambda = 0 at {x}: GPU {have}");
+        let d = (have - want).abs();
+        if d > worst {
+            worst = d;
+            at = x;
+        }
+        if x.abs() < 0.9 && d > worst_mid {
+            worst_mid = d;
+            at_mid = x;
+        }
+    }
+    eprintln!(
+        "gegenbauer lambda=0 (2 T_n/n): {worst:e} at x = {at}; away from the \
+         endpoints {worst_mid:e} at {at_mid}"
+    );
+    // A THOUSAND TIMES THE RECURRENCE'S ZERO, and it is the device's acos.
+    // Measured directly on this adapter: acos differs from libm::acosf by
+    // 1.560e-04 (about 689 ulps) while cos is sub-ulp at 5.960e-08. The
+    // branch computes 2 cos(n acos x)/n, so an error d in acos propagates as
+    // 2 |sin(n acos x)| d -- up to 3.1e-04 for d = 1.56e-04, against the
+    // 2.837e-04 observed. The chain is quantitative, not a hand-wave.
+    //
+    // This is a legitimate difference in an ULP-bounded builtin, not a
+    // transcription defect: WGSL constrains acos loosely and a conforming
+    // device may implement it as atan2(sqrt(1 - x*x), x). The budget is set
+    // where the measurement is, with the reason recorded.
+    assert!(
+        worst < 1e-3,
+        "GPU ({}) at lambda = 0: {worst:e}. This branch inherits the device's \
+         acos, measured 689 ulps from libm here; a figure far above 1e-3 \
+         would mean something else as well",
+        gpu.adapter_name()
+    );
+
+    // P_n(+/-1) = (+/-1)^n exactly, ON THE DEVICE. The recurrence forms no
+    // large intermediate, so this is exact there as it is on the CPU -- and
+    // it is a value the f64 explicit-coefficient route gets wrong by 4.5e-07
+    // at n = 29. Asserted as equality, not a tolerance.
+    let ends: Vec<f32> = vec![1.0, -1.0];
+    for n in [4u32, 17, 29, 40] {
+        let got = gpu
+            .eval_map(
+                &[GEGENBAUER],
+                "petir_gegenpoly_n(params.k, 0.5, x)",
+                &[],
+                &ends,
+                KernelParams {
+                    k: n,
+                    ..KernelParams::default()
+                },
+            )
+            .expect("non-empty probe");
+        assert_eq!(
+            got.first().copied(),
+            Some(1.0),
+            "P_{n}(1) must be exactly 1 on {}",
+            gpu.adapter_name()
+        );
+        assert_eq!(
+            got.get(1).copied(),
+            Some(if n % 2 == 0 { 1.0 } else { -1.0 }),
+            "P_{n}(-1) must be exactly (-1)^n on {}",
+            gpu.adapter_name()
+        );
+    }
 }
