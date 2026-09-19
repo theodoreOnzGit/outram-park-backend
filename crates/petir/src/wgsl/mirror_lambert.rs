@@ -82,10 +82,6 @@ fn series_eval(r: f32) -> f32 {
 /// choice of it can be **measured** — see
 /// `the_f64_tolerance_would_never_terminate_the_iteration`. `f32::EPSILON` is
 /// what ships, and what the shader hard-codes.
-fn halley(x: f32, w_initial: f32, max_iters: u32, eps: f32) -> (f32, u32) {
-    halley_with(x, w_initial, max_iters, eps, false)
-}
-
 fn halley_with(x: f32, w_initial: f32, max_iters: u32, eps: f32, upstream_tol: bool) -> (f32, u32) {
     let mut w = w_initial;
     for i in 0..max_iters {
