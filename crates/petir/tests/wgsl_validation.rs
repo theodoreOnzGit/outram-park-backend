@@ -26,7 +26,7 @@
 
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT,
-    LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    LEGENDRE, MATRIX, POLY, PSI_ZETA, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -55,6 +55,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "airy" => (vec![AIRY], "petir_airy_ai(x) + petir_airy_bi_scaled(x)"),
         "lambert" => (vec![LAMBERT], "petir_lambert_w0(x)"),
         "clausen" => (vec![CLAUSEN], "petir_clausen(x)"),
+        "transport" => (vec![TRANSPORT], "petir_transport(4u, x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -128,7 +129,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 13] = [
+    let expected: [(&str, &[&str]); 14] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -257,6 +258,15 @@ fn every_documented_function_is_defined() {
         (
             CLAUSEN,
             &["petir_clausen", "petir_clausen_reduce", "petir_clausen_cheb"],
+        ),
+        (
+            TRANSPORT,
+            &[
+                "petir_transport",
+                "petir_transport_sumexp",
+                "petir_transport_cheb",
+                "petir_transport_vinf",
+            ],
         ),
     ];
     for (src, names) in expected {
@@ -403,6 +413,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "airy" => LEDGER.contains("Airy family"),
             "lambert" => LEDGER.contains("Lambert"),
             "clausen" => LEDGER.contains("Clausen"),
+            "transport" => LEDGER.contains("transport integrals"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

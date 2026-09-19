@@ -116,6 +116,9 @@ pub mod mirror_lambert;
 /// `f32` mirror of the Clausen shader, and its `f32` angle reduction.
 pub mod mirror_clausen;
 
+/// `f32` mirrors of the transport-integral shaders.
+pub mod mirror_transport;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -268,13 +271,22 @@ pub const LAMBERT: &str = include_str!("shaders/lambert.wgsl");
 /// range ends about two decades below the refusal.
 pub const CLAUSEN: &str = include_str!("shaders/clausen.wgsl");
 
+/// GSL's transport integrals `J(n, x)` for `n = 2 ..= 5`, ported from
+/// `specfunc/transport.c` by way of [`crate::specfunc::transport`].
+///
+/// **Three machine constants are retargeted**, all of them precision
+/// constants; `GSL_LOG_DBL_EPSILON` is load-bearing twice over, setting both
+/// the number of exponential images summed and the point at which the tail is
+/// discarded. See [`mirror_transport`].
+pub const TRANSPORT: &str = include_str!("shaders/transport.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 13] = [
+pub const ALL: [&str; 14] = [
     POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG, AIRY, LAMBERT,
-    CLAUSEN,
+    CLAUSEN, TRANSPORT,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -285,9 +297,9 @@ pub const ALL: [&str; 13] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 13] = [
+pub const ALL_NAMES: [&str; 14] = [
     "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye", "dilog",
-    "airy", "lambert", "clausen",
+    "airy", "lambert", "clausen", "transport",
 ];
 
 pub use kernel_builder::test_kernel;

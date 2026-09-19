@@ -72,11 +72,12 @@ and stays there.
 | `specfunc` (Airy family) | ~8 | **PORTED** | `Ai`, `Bi` and both exponentially scaled forms; 13 Chebyshev series, 281 coefficients. The derivatives (`airy_der.c`) and the zeros (`airy_zero.c`) are not ported |
 | `specfunc` (Lambert `W`) | ~4 | **PORTED** | `W_0` and `W_{-1}`, both real branches. **Upstream's stopping rule is corrected in two places** for `f32` — see below |
 | `specfunc` (Clausen `Cl_2`) | ~2 | **PORTED** | one Chebyshev series, plus an **`f32`-redesigned argument reduction** — the `f64` three-way split of `2 pi` does not carry over. See below |
+| `specfunc` (transport integrals) | ~4 | **PORTED** | `J(2)` .. `J(5)`, the Bloch-Gruneisen family; four Chebyshev series and the exponential-image tail sum |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~259 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~255 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -143,6 +144,7 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Ai_scaled` / `Bi_scaled` | 3.375e-07 / 3.137e-07 | 1.548e-07 / 1.746e-07 |
 | `W_0` / `W_{-1}` | 1.383e-07 / 5.792e-07 | 1.161e-07 (`W_0` vs `f64`) |
 | `Cl_2` | 7.339e-07 / 9.947e-07 abs | 4.521e-07 abs over one period |
+| `J(2)` .. `J(5)` | 1.133e-07 .. 2.222e-06 | 7.092e-08 .. 1.295e-06 |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
 | `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
@@ -211,6 +213,29 @@ lines above measures that kernel at 9.107e-06 on its own; `zeta`'s 1.079e-05
 is that figure carried through one multiplication. The positive branch, which
 calls no `Gamma`, sits at 1e-07 with the rest. Improving it means improving
 the `f32` gamma, not the zeta transcription.
+
+**The transport integrals add a sixth kind of constant decision: a precision
+constant whose retargeting is correct but changes only the WORK DONE.** All
+three of GSL's machine constants there are precision constants and are
+retargeted. The first, `GSL_LOG_DBL_EPSILON`, was predicted to be load-bearing
+twice over — it sets both the number of exponential images summed in the tail
+and the threshold at which the tail is discarded. Measured, only the first is
+real:
+
+| | `f32` log-eps | GSL's `f64` value |
+|---|---|---|
+| `numexp` at `x = 5` | 4 | 8 |
+| `numexp` at `x = 16` | 1 | 3 |
+| `J(2)` saturation | 22.25 | 22.25 |
+| `J(5)` saturation | 29.60 | 29.60 |
+| worst relative vs `f64` | 1.3633715693879367e-06 | **identical** |
+
+The saturation point does not move because `vinf - exp(t)` collapses to
+`vinf` as soon as `exp(t)` drops below half an ulp of `vinf`, well before `t`
+reaches -36 — **the arithmetic enforces the guard before the guard does**.
+That is the same mechanism as `airy`'s overflow threshold, with the opposite
+consequence: there, retargeting would have destroyed answers; here it is
+harmless and merely halves the tail sum.
 
 **Clausen needed its ARGUMENT REDUCTION redesigned, not transcribed.** GSL
 splits `2 pi` into three `f64` pieces so each `y * Pk` subtraction is exact;

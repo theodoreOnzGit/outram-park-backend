@@ -6,9 +6,9 @@
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
-    mirror, mirror_bessel, mirror_debye, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta,
-    mirror_airy, mirror_clausen, mirror_dilog, mirror_lambert, AIRY, BESSEL, CHEB, CLAUSEN, DEBYE,
-    DILOG, ERF, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    mirror, mirror_airy, mirror_bessel, mirror_clausen, mirror_debye, mirror_dilog, mirror_erf,
+    mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_transport, AIRY, BESSEL,
+    CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1656,6 +1656,81 @@ fn gpu_clausen_matches_the_cpu_mirror() {
         assert!(
             worst < 1e-4,
             "GPU ({}) vs f32 mirror for Cl_2, {label}: {worst:e} at x = {at:e}",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// The transport integrals on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// One dispatch per order over `x` in `(0, 35]`, which crosses all four
+/// branches — the small-argument power, the Chebyshev series, the
+/// exponential-image tail, and the saturation point where the tail is
+/// discarded and `J(n, inf)` returned exactly (22.25 to 29.6, per order).
+///
+/// Relative, with a floor: `J(n, .)` is zero at the origin and grows
+/// monotonically, so away from `x = 0` a relative figure is well defined.
+///
+/// **The tail branch runs a nested loop whose trip count depends on `x`**, so
+/// like `lambert` this is a kernel where a device could in principle do a
+/// different amount of work, not merely round differently.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | order | worst relative | at |
+/// |---|---|---|
+/// | `J(2)` | 1.133e-07 | 2.45 |
+/// | `J(3)` | 2.683e-07 | 4.69 |
+/// | `J(4)` | 6.715e-07 | 4.13 |
+/// | `J(5)` | 2.222e-06 | 4.41 |
+///
+/// Three of the four worst points sit just past `x = 4`, the Chebyshev/tail
+/// join, which is also where `mirror_transport` measures its own worst
+/// against `f64` — so the device is not adding a failure mode of its own,
+/// it is amplifying the one the formulation already has there. The figures
+/// track the mirror's own (7.092e-08 .. 1.295e-06) within a factor of two,
+/// which says the device took the same number of tail images at every probe.
+///
+/// Not bit-identical: the kernel calls `exp` and `log`, and the series are
+/// inline literal arrays. The budget is 1e-04, about fifty times the worst.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim**.
+#[test]
+fn gpu_transport_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_transport_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let probes: Vec<f32> = (1..=500).map(|i| 0.07 * i as f32).collect();
+
+    for n in 2..=5u32 {
+        let call = format!("petir_transport({n}u, x)");
+        let got = gpu
+            .eval_map(&[TRANSPORT], &call, &[], &probes, KernelParams::default())
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_transport::transport(n, x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite(),
+                "J({n}, {x}): mirror {want}, GPU {have}"
+            );
+            if want.abs() < 1e-6 {
+                continue;
+            }
+            let d = (((have - want) / want) as f64).abs();
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for J({n}): {worst:e} at x = {at}",
             gpu.adapter_name()
         );
     }
