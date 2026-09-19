@@ -45,15 +45,35 @@ use crate::mesh::{FaceId, Mesh};
 /// Which diagonal [`triangulate_quads`] cuts a quad along.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuadMethod {
-    /// The shorter of the two diagonals.
+    /// The shorter of the two diagonals. Same rule as
+    /// [`crate::triangulate::QuadMethod::ShortEdge`].
     ShortestDiagonal,
-    /// Always `v0–v2`.
+    /// Always `v0–v2`. Same as [`crate::triangulate::QuadMethod::Fixed`].
     Fixed,
-    /// Always `v1–v3`.
+    /// Always `v1–v3`. Same as [`crate::triangulate::QuadMethod::Alternate`].
     FixedAlternate,
-    /// The diagonal that maximises the smaller of the four resulting triangle
-    /// angles (a local "beauty" choice).
+    /// The diagonal that gives the better-shaped triangle pair, decided by
+    /// Blender's own rule — see [`crate::triangulate::QuadMethod::Beauty`].
+    ///
+    /// **Changed 2026-09-19.** This variant previously used a hand-rolled
+    /// "maximise the smallest of the four resulting angles" measure, written
+    /// before Blender's own rule was ported. It now delegates to the ported
+    /// rule (`is_quad_flip_v3`, then area-over-perimeter), so the crate has
+    /// one definition of "beauty" rather than two that drift. The two agree
+    /// on planar convex quads and differ on warped or concave ones, where
+    /// the upstream rule is the one that avoids folding the pair.
     Beauty,
+}
+
+impl From<QuadMethod> for crate::triangulate::QuadMethod {
+    fn from(m: QuadMethod) -> Self {
+        match m {
+            QuadMethod::ShortestDiagonal => crate::triangulate::QuadMethod::ShortEdge,
+            QuadMethod::Fixed => crate::triangulate::QuadMethod::Fixed,
+            QuadMethod::FixedAlternate => crate::triangulate::QuadMethod::Alternate,
+            QuadMethod::Beauty => crate::triangulate::QuadMethod::Beauty,
+        }
+    }
 }
 
 /// Poke every face into a centroid fan. The centre vertex is
@@ -91,24 +111,14 @@ pub fn triangulate_quads(mesh: &Mesh, method: QuadMethod) -> Mesh {
         match vs.len() {
             3 => faces.push(vs),
             4 => {
-                let diag_02 = match method {
-                    QuadMethod::Fixed => true,
-                    QuadMethod::FixedAlternate => false,
-                    QuadMethod::ShortestDiagonal => {
-                        pos[vs[0]].sub(pos[vs[2]]).length() <= pos[vs[1]].sub(pos[vs[3]]).length()
-                    }
-                    QuadMethod::Beauty => {
-                        let a = min_angle4(&pos, vs[0], vs[1], vs[2], vs[3], true);
-                        let b = min_angle4(&pos, vs[0], vs[1], vs[2], vs[3], false);
-                        a >= b
-                    }
-                };
-                if diag_02 {
-                    faces.push(vec![vs[0], vs[1], vs[2]]);
-                    faces.push(vec![vs[0], vs[2], vs[3]]);
-                } else {
-                    faces.push(vec![vs[1], vs[2], vs[3]]);
-                    faces.push(vec![vs[1], vs[3], vs[0]]);
+                // One definition of the diagonal choice, in `triangulate`,
+                // which is the port of upstream's `BM_face_triangulate`
+                // switch. Keeping a second copy here is how the two silently
+                // drift apart (workspace CLAUDE.md, "Search the workspace
+                // before building anything").
+                let quad = [pos[vs[0]], pos[vs[1]], pos[vs[2]], pos[vs[3]]];
+                for t in crate::triangulate::split_quad(&quad, method.into()) {
+                    faces.push(vec![vs[t[0]], vs[t[1]], vs[t[2]]]);
                 }
             }
             n if n > 4 => {
@@ -199,6 +209,13 @@ pub fn tris_to_quads(mesh: &Mesh, max_angle: f64) -> Mesh {
     Mesh::from_polygons(&pos, &faces)
 }
 
+/// The superseded hand-rolled "beauty" measure: the smallest of the four
+/// angles produced by a given diagonal.
+///
+/// Retained **only as a test fixture**, so the 2026-09-19 switch to
+/// Blender's own rule can be shown rather than asserted. Not part of the
+/// operator any more — see [`QuadMethod::Beauty`].
+#[cfg(test)]
 fn min_angle4(pos: &[Vec3], a: usize, b: usize, c: usize, d: usize, diag_ac: bool) -> f64 {
     let ang = |o: usize, p: usize, q: usize| {
         let u = pos[p].sub(pos[o]);
@@ -317,5 +334,103 @@ mod tests {
         m.add_face(&[a, c, d]);
         let q = tris_to_quads(&m, 1.0);
         assert_eq!(q.face_count(), 2, "non-convex union does not merge");
+    }
+
+    /// Evidence for replacing this module's hand-rolled beauty rule with
+    /// Blender's.
+    ///
+    /// # Methodology
+    ///
+    /// Sweep the same 625-quad family used in `triangulate` — three corners
+    /// moved over a 5-value grid, spanning non-planar quads and planar
+    /// darts. For each, compare the diagonal the old min-angle rule picks
+    /// against the one the ported upstream rule picks, and count how often
+    /// the old rule chooses a diagonal that FOLDS the triangle pair.
+    ///
+    /// # Results (measured 2026-09-19)
+    ///
+    /// The two rules disagree on **246 of 625** quads. On the 576 where
+    /// exactly one diagonal folds, the old min-angle rule picked the
+    /// folding one **242 times (42 %)**; the ported upstream rule picked it
+    /// **zero** times. Maximising the smallest angle says nothing about
+    /// whether the two triangles point the same way, which is exactly why
+    /// upstream consults `is_quad_flip_v3` before measuring anything.
+    ///
+    /// That is the justification for the switch: not that the old rule was
+    /// arbitrary, but that it was blind to folding.
+    #[test]
+    fn the_ported_beauty_rule_avoids_folds_the_old_one_did_not() {
+        let vals = [-1.0f64, -0.4, 0.0, 0.4, 1.0];
+        let mut disagreements = 0;
+        let mut old_folds = 0;
+        let mut new_folds = 0;
+        let mut single_fold_cases = 0;
+
+        for &z0 in &vals {
+            for &z1 in &vals {
+                for &a in &vals {
+                    for &b in &vals {
+                        let pts = [
+                            Vec3::new(0.0, 0.0, z0),
+                            Vec3::new(1.0, 0.0, z1),
+                            Vec3::new(0.3 + 0.2 * a, 0.3 + 0.2 * b, 0.0),
+                            Vec3::new(0.0, 1.0, 0.0),
+                        ];
+                        let idx = [0usize, 1, 2, 3];
+
+                        // Old rule.
+                        let old_02 = min_angle4(&pts, idx[0], idx[1], idx[2], idx[3], true)
+                            >= min_angle4(&pts, idx[0], idx[1], idx[2], idx[3], false);
+                        // Ported rule.
+                        let new_split = crate::triangulate::split_quad(
+                            &pts,
+                            crate::triangulate::QuadMethod::Beauty,
+                        );
+                        let new_02 = new_split == [[0, 1, 2], [0, 2, 3]];
+                        if old_02 != new_02 {
+                            disagreements += 1;
+                        }
+
+                        let folds = |diag_02: bool| {
+                            let t = if diag_02 {
+                                [[0usize, 1, 2], [0, 2, 3]]
+                            } else {
+                                [[1usize, 2, 3], [1, 3, 0]]
+                            };
+                            let nrm = |q: [usize; 3]| {
+                                let (x, y, z) = (pts[q[0]], pts[q[1]], pts[q[2]]);
+                                y.sub(x).cross(z.sub(x))
+                            };
+                            nrm(t[0]).dot(nrm(t[1])) < 0.0
+                        };
+                        // Only meaningful where exactly one diagonal folds.
+                        if folds(true) != folds(false) {
+                            single_fold_cases += 1;
+                            if folds(old_02) {
+                                old_folds += 1;
+                            }
+                            if folds(new_02) {
+                                new_folds += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        assert_eq!(single_fold_cases, 576);
+        assert_eq!(
+            new_folds, 0,
+            "the ported rule must never pick a folding diagonal"
+        );
+        assert!(
+            old_folds > 0,
+            "the old rule was supposed to be blind to folding; if this now \
+             passes with 0 the fixture family has changed"
+        );
+        assert!(
+            disagreements > 0,
+            "the two rules should differ somewhere, or the switch was a no-op"
+        );
     }
 }

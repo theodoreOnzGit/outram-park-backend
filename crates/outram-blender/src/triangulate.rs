@@ -217,7 +217,7 @@ pub fn triangulate_with(mesh: &Mesh, quad: QuadMethod, ngon: NgonMethod) -> Mesh
 /// `(0,2,3)` from it; the rotation is what encodes the diagonal. That is
 /// reproduced here directly as the two index triples, which is the same thing
 /// written without the intermediate array.
-fn split_quad(pts: &[Vec3], method: QuadMethod) -> [[usize; 3]; 2] {
+pub(crate) fn split_quad(pts: &[Vec3], method: QuadMethod) -> [[usize; 3]; 2] {
     // Diagonal 0-2: upstream's `loops = [c0, c1, c2, c3]`.
     const DIAG_02: [[usize; 3]; 2] = [[0, 1, 2], [0, 2, 3]];
     // Diagonal 1-3: upstream's `loops = [c1, c2, c3, c0]`.
