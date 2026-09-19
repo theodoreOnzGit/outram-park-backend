@@ -71,11 +71,12 @@ and stays there.
 | `specfunc` (dilogarithm) | ~2 | **PORTED** (real) | `Li_2(x)` for all real `x`, seven branch identities and two convergent series; **no coefficient tables at all**. The complex entry points and the `clausen` dependency under them are deliberately absent — see below |
 | `specfunc` (Airy family) | ~8 | **PORTED** | `Ai`, `Bi` and both exponentially scaled forms; 13 Chebyshev series, 281 coefficients. The derivatives (`airy_der.c`) and the zeros (`airy_zero.c`) are not ported |
 | `specfunc` (Lambert `W`) | ~4 | **PORTED** | `W_0` and `W_{-1}`, both real branches. **Upstream's stopping rule is corrected in two places** for `f32` — see below |
+| `specfunc` (Clausen `Cl_2`) | ~2 | **PORTED** | one Chebyshev series, plus an **`f32`-redesigned argument reduction** — the `f64` three-way split of `2 pi` does not carry over. See below |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~261 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~259 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -141,6 +142,7 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Ai` / `Bi` (oscillatory) | 1.839e-06 / 1.963e-06 abs | 3.558e-06 abs over `[-30, -8)` |
 | `Ai_scaled` / `Bi_scaled` | 3.375e-07 / 3.137e-07 | 1.548e-07 / 1.746e-07 |
 | `W_0` / `W_{-1}` | 1.383e-07 / 5.792e-07 | 1.161e-07 (`W_0` vs `f64`) |
+| `Cl_2` | 7.339e-07 / 9.947e-07 abs | 4.521e-07 abs over one period |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
 | `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
@@ -209,6 +211,36 @@ lines above measures that kernel at 9.107e-06 on its own; `zeta`'s 1.079e-05
 is that figure carried through one multiplication. The positive branch, which
 calls no `Gamma`, sits at 1e-07 with the rest. Improving it means improving
 the `f32` gamma, not the zeta transcription.
+
+**Clausen needed its ARGUMENT REDUCTION redesigned, not transcribed.** GSL
+splits `2 pi` into three `f64` pieces so each `y * Pk` subtraction is exact;
+`P1` holds about 30 significant bits, which leaves no room in a 24-bit
+mantissa for the period count. The replacement head is **upstream's own** —
+`clausen.c` already carries `p0 = 6.28125` (201/32, eight significant bits)
+for its `pi - x` reflection, so the split reuses it and adds a remainder.
+
+Measured against a naive single-`f32` `2 pi` reduction, through `sin`:
+
+| `theta` | split | naive | ratio |
+|---|---|---|---|
+| 1e2 | 2.384e-07 | 4.682e-05 | 196 |
+| 1e4 | 9.783e-07 | 5.350e-03 | **5468** |
+| 2.6e5 .. 5.2e5 | 7.774e-06 | 2.893e-02 | ~3700 |
+
+It holds near 8e-06 **all the way to the refusal**, with no collapse inside
+the usable range — because an eight-bit head keeps `y * P0` exact to 65 536
+periods, `4.12e+05` in `theta`, against a cut at `5.24e+05`. The head width
+and the cut are matched to within a factor of 1.3. Contrast `f64`, where the
+equivalent split collapses at `1e8` against a cut at `2.8e+14`, seven decades
+apart.
+
+Two instrument notes, both from tests that failed first. `|reduce(theta) -
+(theta mod 2 pi)|` is the obvious measure and is **wrong**: at a period
+boundary the reduced value jumps between `0` and `2 pi`, so a probe either
+side reports an error of `2 pi` when nothing is amiss — the comparison goes
+through `sin`, which is continuous there. And a first sweep ran to `6.7e+05`,
+*past the refusal*, and reported a collapse at `1e5` that does not exist
+inside the domain.
 
 **Lambert `W` is the first ITERATING kernel here, and it needed upstream's
 stopping rule corrected in two places.** The rule is

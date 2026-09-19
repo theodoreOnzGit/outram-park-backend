@@ -25,8 +25,8 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, AIRY, ALL, ALL_NAMES, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LAMBERT, LEGENDRE,
-    MATRIX, POLY, PSI_ZETA,
+    test_kernel, AIRY, ALL, ALL_NAMES, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT,
+    LEGENDRE, MATRIX, POLY, PSI_ZETA,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -54,6 +54,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "dilog" => (vec![DILOG], "petir_dilog(x)"),
         "airy" => (vec![AIRY], "petir_airy_ai(x) + petir_airy_bi_scaled(x)"),
         "lambert" => (vec![LAMBERT], "petir_lambert_w0(x)"),
+        "clausen" => (vec![CLAUSEN], "petir_clausen(x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -127,7 +128,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 12] = [
+    let expected: [(&str, &[&str]); 13] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -252,6 +253,10 @@ fn every_documented_function_is_defined() {
                 "petir_lambert_halley",
                 "petir_lambert_series",
             ],
+        ),
+        (
+            CLAUSEN,
+            &["petir_clausen", "petir_clausen_reduce", "petir_clausen_cheb"],
         ),
     ];
     for (src, names) in expected {
@@ -397,6 +402,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "dilog" => LEDGER.contains("dilogarithm"),
             "airy" => LEDGER.contains("Airy family"),
             "lambert" => LEDGER.contains("Lambert"),
+            "clausen" => LEDGER.contains("Clausen"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

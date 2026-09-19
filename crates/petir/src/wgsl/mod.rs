@@ -113,6 +113,9 @@ pub mod mirror_airy;
 /// `f32` mirror of the Lambert W shader.
 pub mod mirror_lambert;
 
+/// `f32` mirror of the Clausen shader, and its `f32` angle reduction.
+pub mod mirror_clausen;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -255,12 +258,23 @@ pub const AIRY: &str = include_str!("shaders/airy.wgsl");
 /// [`mirror_lambert`].
 pub const LAMBERT: &str = include_str!("shaders/lambert.wgsl");
 
+/// GSL's Clausen function `Cl_2`, ported from `specfunc/clausen.c` by way of
+/// [`crate::specfunc::clausen`].
+///
+/// **The argument reduction is redesigned for `f32`, not transcribed:** the
+/// `f64` three-way split of `2 pi` leaves no mantissa room for the period
+/// count, so this uses an eight-bit head — taken from `clausen.c`'s own
+/// reflection constants. See [`mirror_clausen`], and note that the usable
+/// range ends about two decades below the refusal.
+pub const CLAUSEN: &str = include_str!("shaders/clausen.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 12] = [
+pub const ALL: [&str; 13] = [
     POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG, AIRY, LAMBERT,
+    CLAUSEN,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -271,9 +285,9 @@ pub const ALL: [&str; 12] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 12] = [
+pub const ALL_NAMES: [&str; 13] = [
     "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye", "dilog",
-    "airy", "lambert",
+    "airy", "lambert", "clausen",
 ];
 
 pub use kernel_builder::test_kernel;

@@ -7,8 +7,8 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_bessel, mirror_debye, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta,
-    mirror_airy, mirror_dilog, mirror_lambert, AIRY, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA,
-    LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    mirror_airy, mirror_clausen, mirror_dilog, mirror_lambert, AIRY, BESSEL, CHEB, CLAUSEN, DEBYE,
+    DILOG, ERF, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1575,6 +1575,87 @@ fn gpu_lambert_matches_the_cpu_mirror() {
         assert!(
             worst < 1e-4,
             "GPU ({}) vs f32 mirror for {call}: {worst:e} at x = {at:e}",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// The Clausen function on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// Two sweeps: one over a single period `[-pi, pi]`, and one at large
+/// argument (`[1e4, 5e5]`) which exercises the **redesigned `f32` argument
+/// reduction** rather than the Chebyshev branch. The second is the point of
+/// this test — the reduction is the part that is not a transcription.
+///
+/// Absolute, because `Cl_2` has zeros at `0` and `pi` and both sweeps cross
+/// them.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | sweep | worst absolute | at |
+/// |---|---|---|
+/// | one period, `[-pi, pi]` | 7.339e-07 | -3.079 |
+/// | large argument, `[1e4, 5e5]` | 9.947e-07 | 4.816e+05 |
+///
+/// **The two are within a factor of 1.4**, which is the result worth having:
+/// the redesigned reduction costs essentially nothing on the GPU even at
+/// `4.8e+05`, just below the refusal. Device and mirror agree on the period
+/// count everywhere, so the eight-bit head is doing its job identically on
+/// both.
+///
+/// Not bit-identical — the kernel calls `log` and the series is an inline
+/// literal array. The budget is 1e-04, about a hundred times the worst
+/// measurement.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim**: `mirror_clausen`
+/// measures its own distance from `f64` at 4.521e-07 over one period.
+#[test]
+fn gpu_clausen_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_clausen_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let one_period: Vec<f32> = (0..=400)
+        .map(|i| -core::f32::consts::PI + core::f32::consts::TAU * (i as f32 / 400.0))
+        .collect();
+    let large: Vec<f32> = (0..=400)
+        .map(|i| 1.0e4 + (5.0e5 - 1.0e4) * (i as f32 / 400.0))
+        .collect();
+
+    for (label, probes) in [("one period", &one_period), ("large argument", &large)] {
+        let got = gpu
+            .eval_map(
+                &[CLAUSEN],
+                "petir_clausen(x)",
+                &[],
+                probes,
+                KernelParams::default(),
+            )
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_clausen::clausen(x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            assert_eq!(
+                want.is_finite(),
+                have.is_finite(),
+                "Cl_2({x:e}): mirror {want}, GPU {have}"
+            );
+            if !want.is_finite() {
+                continue;
+            }
+            let d = (have - want).abs() as f64;
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for Cl_2, {label}: {worst:e} at x = {at:e}",
             gpu.adapter_name()
         );
     }
