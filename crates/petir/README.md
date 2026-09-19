@@ -169,10 +169,10 @@ one refactor away from not building for one at all.
 Verified on every commit:
 
 ```bash
-cargo build -p petir --target thumbv7em-none-eabihf   # bare-metal Cortex-M4F
-cargo build -p petir --target wasm32-unknown-unknown
-cargo check -p petir --all-targets --target aarch64-linux-android
-cargo build -p petir --no-default-features            # numerics only, no uom
+cargo build --release -p petir --target thumbv7em-none-eabihf  # bare-metal Cortex-M4F
+cargo build --release -p petir --target wasm32-unknown-unknown
+cargo check --release -p petir --all-targets --target aarch64-linux-android
+cargo build --release -p petir --no-default-features           # numerics only, no uom
 ```
 
 Consequences that are load-bearing rather than incidental:

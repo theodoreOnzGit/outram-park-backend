@@ -192,7 +192,7 @@ change, never unconditionally.
 Proxy check (all targets, not just the library):
 
 ```bash
-cargo check -p raffles --all-targets --target aarch64-linux-android
+cargo check --release -p raffles --all-targets --target aarch64-linux-android
 ```
 
 The authoritative check is still a native build inside Termux.
@@ -222,7 +222,7 @@ the methodology (reference, inputs, tolerances, pass criterion) and the
 ## Build
 
 ```bash
-cargo check -p raffles --lib
+cargo check --release -p raffles --lib
 cargo test  -p raffles --lib --tests --release
 ```
 

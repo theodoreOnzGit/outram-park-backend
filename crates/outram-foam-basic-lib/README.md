@@ -471,7 +471,7 @@ all fluid/solid thermo types.
 
 ```bash
 # Library unit tests (no external BLAS required)
-cargo test -p outram-foam-basic-lib --lib --tests
+cargo test --release -p outram-foam-basic-lib --lib --tests
 
 # Matrix benchmark (release mode for meaningful numbers)
 cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture

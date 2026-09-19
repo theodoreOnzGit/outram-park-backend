@@ -2143,6 +2143,49 @@ simply extends it to the type-check, which had been the one command still
 pulling in the dev profile. `cargo quick-test` (`.cargo/config.toml`) already
 expands to a `--release` invocation and is unaffected.
 
+### EVERYTHING is release — every profile, every target, no exceptions
+
+**Maintainer direction, 2026-09-19: "everything should be release, no debug".**
+The 2026-09-17 entry above fixed the workspace type-check; this generalises it.
+**Every `cargo build`, `check`, `test`, `run`, `clippy` and `bench` in this
+workspace passes `--release`** — in a command you type, in a command a doc
+tells someone to type, and in a script.
+
+**The cross-compilation targets were the larger hole, not the host.** The host
+`target/debug` that prompted the first rule was 3.7 GB. Measured 2026-09-19,
+after that rule was already in force:
+
+| tree | size | built by |
+|---|---|---|
+| `target/wasm32-unknown-unknown/` (dev) | **5.7 GB** | `scripts/check-wasm.sh`, 34 crates |
+| `target/debug/` | 4.2 GB | per-crate `cargo check` with no profile |
+| `target/release/` | 4.0 GB | everything else |
+| `target/aarch64-linux-android/` (dev) | 651 MB | the Android gate |
+| `target/thumbv7em-none-eabihf/` (dev) | 371 MB | petir's `no_std` checks |
+
+The wasm gate alone was carrying more artifacts than the entire release build,
+because a `--target` invocation still defaults to the dev profile — it just
+puts the result under a different directory where nobody looks. Fixed in
+`scripts/check-wasm.sh` and in the eight crate `CLAUDE.md` files whose
+prescribed commands omitted it (16 command lines), plus 14 more in seven
+`README.md` files and four in `crates/petir/docs/verification-summary.md`.
+
+**Measured after, same session.** The gate re-run in release reports
+**37 ok, 0 failed, 6 excluded** — identical to the dev-profile result, which
+is the point: the profile changes what it costs, not what it reports. The
+tree it leaves behind is **744 MB instead of 5.7 GB**, a 7.7x reduction for
+the same answer. Across all five trees the workspace went from roughly 15 GB
+to 5.2 GB, and the container from 13 GB free to 23 GB.
+
+**What this does NOT change.** Historical records stay as they were run:
+`verification_and_validation/generated/`, `debug_markdowns/`, the
+`docs/<crate>-api.md` mirrors and the V&V logs record commands that were
+actually executed, and rewriting them would falsify the record. Fix the
+instruction, never the receipt.
+
+**`cargo install`, `cargo publish` and `cargo fmt` need nothing** — the first
+two build in release already, the third builds nothing.
+
 ### TUAS natural-circulation tests are VERY long running — run them in parallel
 
 **HARD RULE.** The CIET coupled-DRACS natural-circulation regression tests and

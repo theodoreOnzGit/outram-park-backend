@@ -218,5 +218,5 @@ run without it silently skips them.
 Android check (library reduces to `animation/`):
 
 ```bash
-cargo check -p outram-park-digital-twin-engine --target aarch64-linux-android
+cargo check --release -p outram-park-digital-twin-engine --target aarch64-linux-android
 ```

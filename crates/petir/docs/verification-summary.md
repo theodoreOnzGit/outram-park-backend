@@ -160,12 +160,17 @@ the argument for doing them.
 ## Reproducing
 
 ```sh
-cargo test -p petir --release                       # 346 tests, 26 suites
-cargo build -p petir --target thumbv7em-none-eabihf
-cargo build -p petir --target wasm32-unknown-unknown
-cargo check -p petir --all-targets --target aarch64-linux-android
-cargo build -p petir --no-default-features
+cargo test  --release -p petir                      # 532 tests, 31 suites
+cargo build --release -p petir --target thumbv7em-none-eabihf
+cargo build --release -p petir --target wasm32-unknown-unknown
+cargo check --release -p petir --all-targets --target aarch64-linux-android
+cargo build --release -p petir --no-default-features
 ```
+
+~~346 tests, 26 suites~~ **CORRECTED 2026-09-19** — measured 532 across 31
+suites (97 of them doctests) after the Bessel, digamma and zeta ports and
+their WGSL kernels landed. Every command above now carries `--release`, per
+the workspace rule that everything builds in release and nothing in dev.
 
 Regenerating the GSL references needs the vendored clone and a C compiler; each
 file's recipe is in [`reference-data/gsl/README.md`](../../../reference-data/gsl/README.md).

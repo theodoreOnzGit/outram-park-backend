@@ -81,7 +81,7 @@ samples); methodology and measured results live in
 ## to run 
 
 ```bash
-cargo run 
+cargo run --release
 ```
 To watch:
 ```bash

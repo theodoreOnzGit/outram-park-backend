@@ -602,7 +602,7 @@ executed on any host**. See `bn` for the record.
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ```bash
-cargo check -p outram-mc-libs --lib
+cargo check --release -p outram-mc-libs --lib
 cargo test  -p outram-mc-libs --lib --release
 ```
 

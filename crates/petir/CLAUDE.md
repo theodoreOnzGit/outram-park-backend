@@ -169,10 +169,10 @@ done:
 
 ```bash
 cargo test  -p petir --release
-cargo build -p petir --target thumbv7em-none-eabihf
-cargo build -p petir --target wasm32-unknown-unknown
-cargo check -p petir --all-targets --target aarch64-linux-android
-cargo build -p petir --no-default-features
+cargo build --release -p petir --target thumbv7em-none-eabihf
+cargo build --release -p petir --target wasm32-unknown-unknown
+cargo check --release -p petir --all-targets --target aarch64-linux-android
+cargo build --release -p petir --no-default-features
 ```
 
 The host build passing means nothing on its own — `cargo test` links `std`, so

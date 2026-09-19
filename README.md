@@ -157,8 +157,8 @@ sudo apt install libopenblas-dev
 ```
 
 ```bash
-cargo build --workspace
-cargo test  --workspace --lib --tests
+cargo build --release --workspace
+cargo test  --release --workspace --lib --tests
 ```
 
 ## Generated documentation (`kovan`)

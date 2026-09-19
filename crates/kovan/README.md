@@ -375,9 +375,9 @@ Android/Termux-usable, not just buildable** — every screen and subcommand,
 including the Digitiser tab, actually runs there:
 
 ```bash
-cargo check -p kovan --bin kovan-cli --target aarch64-linux-android
-cargo check -p kovan --bin kovan-tui --target aarch64-linux-android
-cargo check -p kovan --all-targets --target aarch64-linux-android
+cargo check --release -p kovan --bin kovan-cli --target aarch64-linux-android
+cargo check --release -p kovan --bin kovan-tui --target aarch64-linux-android
+cargo check --release -p kovan --all-targets --target aarch64-linux-android
 ```
 
 > **CORRECTED 2026-09-18 — the third command above did NOT pass until that

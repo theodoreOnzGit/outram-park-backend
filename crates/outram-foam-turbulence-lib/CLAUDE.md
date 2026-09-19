@@ -140,7 +140,7 @@ in **`docs/model-reference.md`**.
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ```bash
-cargo check -p outram-foam-turbulence-lib --lib
+cargo check --release -p outram-foam-turbulence-lib --lib
 cargo test  -p outram-foam-turbulence-lib --lib --release
 ```
 

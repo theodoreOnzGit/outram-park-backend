@@ -333,7 +333,7 @@ that change is stale and needs re-measuring before it is cited
 Proxy check, all targets:
 
 ```bash
-cargo check -p raffles --all-targets --target aarch64-linux-android
+cargo check --release -p raffles --all-targets --target aarch64-linux-android
 ```
 
 The authoritative check is a native build inside Termux.
@@ -388,9 +388,9 @@ Verified clean on 2026-09-16 with `burn` 0.21.0 and rustc 1.94.1 (warnings in
 the output came from `outram-mc-libs`/`njoy-outram-park-fork` and predate this):
 
 ```bash
-cargo check -p raffles --lib         --features burn
-cargo check -p raffles --all-targets --features burn --target aarch64-linux-android
-cargo check -p raffles --lib         --features burn --target wasm32-unknown-unknown
+cargo check --release -p raffles --lib         --features burn
+cargo check --release -p raffles --all-targets --features burn --target aarch64-linux-android
+cargo check --release -p raffles --lib         --features burn --target wasm32-unknown-unknown
 ```
 
 ---
@@ -415,7 +415,7 @@ what order — lives in the workspace-root **`docs/raven-port-scoping.md`**.
 ## Build and test
 
 ```bash
-cargo check -p raffles --lib
+cargo check --release -p raffles --lib
 cargo test  -p raffles --lib --tests --release
 ```
 
@@ -425,7 +425,7 @@ The optional `burn` feature is **not** in the default build, so add it
 explicitly when the work touches the surrogate path:
 
 ```bash
-cargo check -p raffles --lib --features burn
+cargo check --release -p raffles --lib --features burn
 cargo test  -p raffles --lib --tests --release --features burn
 ```
 

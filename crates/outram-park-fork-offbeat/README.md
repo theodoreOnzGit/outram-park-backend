@@ -199,7 +199,7 @@ only dev-dependency — nothing needing a C/Fortran toolchain or system
 BLAS/LAPACK. Verified 2026-07-30 with:
 
 ```bash
-cargo check -p outram-park-fork-offbeat --all-targets --target aarch64-linux-android
+cargo check --release -p outram-park-fork-offbeat --all-targets --target aarch64-linux-android
 ```
 
 The authoritative check remains a native build inside Termux on-device.

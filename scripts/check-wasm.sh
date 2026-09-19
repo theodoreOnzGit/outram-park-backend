@@ -5,6 +5,13 @@
 # Bead op-okqo.6. Shell, not Python, per the workspace "No Python for
 # documentation or accounting" rule and to keep the gate dependency-free.
 #
+# RUNS IN RELEASE, like everything else in this workspace (maintainer
+# direction, 2026-09-19; the check-in-release rule dates from 2026-09-17).
+# A type-check reports the same diagnostics either way, but a dev-profile one
+# builds a whole second set of artifacts: this gate alone had grown
+# target/wasm32-unknown-unknown to 5.7 GB across 34 crates -- larger than the
+# entire release tree -- for no diagnostic gain.
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # WHAT THIS CHECKS, AND WHAT IT DOES NOT
 #
@@ -116,7 +123,7 @@ for c in $MEMBERS; do
     skipped=$((skipped + 1))
     continue
   fi
-  err=$(cargo check -q -p "$c" --lib --target wasm32-unknown-unknown 2>&1)
+  err=$(cargo check -q --release -p "$c" --lib --target wasm32-unknown-unknown 2>&1)
   if echo "$err" | grep -qE '^error'; then
     printf '  FAIL  %-40s\n' "$c"
     [ "$VERBOSE" = "1" ] && echo "$err" | grep -E '^error' | head -3 | sed 's/^/          /'
@@ -135,7 +142,7 @@ if [ "$fail" -gt 0 ]; then
   echo
   echo "Failed: ${failed_names[*]}"
   echo "Re-run with -v for the first error lines, or:"
-  echo "  cargo check -p <crate> --lib --target wasm32-unknown-unknown"
+  echo "  cargo check --release -p <crate> --lib --target wasm32-unknown-unknown"
   echo
   echo "Common causes and the fix this workspace uses (bead op-okqo):"
   echo "  * rayon        — target-gate OFF WASM ONLY, never feature-gate and"

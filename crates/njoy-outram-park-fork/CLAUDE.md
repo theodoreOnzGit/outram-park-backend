@@ -157,7 +157,7 @@ U-235 alone is 35 MB.
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ```bash
-cargo check -p njoy-outram-park-fork --lib
+cargo check --release -p njoy-outram-park-fork --lib
 cargo test  -p njoy-outram-park-fork --lib --release
 ```
 

@@ -196,6 +196,6 @@ variants cause `run()` to take zero steps.
 **Rule: always use `--release` for builds and tests.** Never run in debug mode.
 
 ```bash
-cargo check -p outram-foam-appbuilder-lib --lib
+cargo check --release -p outram-foam-appbuilder-lib --lib
 cargo test  -p outram-foam-appbuilder-lib --lib --release
 ```
