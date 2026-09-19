@@ -763,7 +763,7 @@ pub fn assemble_explicit_triso(
     } else {
         bed_radius
     };
-    let _graphite_outer = if refl_thickness > 0.0 {
+    let graphite_outer = if refl_thickness > 0.0 {
         HTR10_GRAPHITE_OUTER_CM
     } else {
         bed_radius
