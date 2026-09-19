@@ -125,6 +125,9 @@ pub mod mirror_atanint;
 /// `f32` mirrors of the synchrotron shaders.
 pub mod mirror_synchrotron;
 
+/// `f32` mirrors of the Fermi-Dirac integral shaders.
+pub mod mirror_fermi_dirac;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -301,6 +304,15 @@ pub const ATANINT: &str = include_str!("shaders/atanint.wgsl");
 /// the one constant so far whose category depends on the width. See
 /// [`mirror_synchrotron`].
 pub const SYNCHROTRON: &str = include_str!("shaders/synchrotron.wgsl");
+
+/// GSL's complete Fermi-Dirac integrals `F_j` at the seven fixed indices,
+/// ported from `specfunc/fermi_dirac.c` by way of
+/// [`crate::specfunc::fermi_dirac`].
+///
+/// **The largest table set here** — 22 Chebyshev series, 483 coefficients —
+/// and the one shader that deliberately **corrects** an upstream constant's
+/// formula rather than retargeting its value. See [`mirror_fermi_dirac`].
+pub const FERMI_DIRAC: &str = include_str!("shaders/fermi_dirac.wgsl");
 
 /// Every shader source in this module, in dependency order.
 ///

@@ -25,8 +25,8 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA,
-    LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
+    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, FERMI_DIRAC,
+    GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -61,6 +61,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
             vec![SYNCHROTRON],
             "petir_synchrotron_1(x) + petir_synchrotron_2(x)",
         ),
+        "fermi_dirac" => (vec![FERMI_DIRAC], "petir_fermi_dirac(params.k, x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -134,7 +135,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 16] = [
+    let expected: [(&str, &[&str]); 17] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -292,6 +293,23 @@ fn every_documented_function_is_defined() {
                 "petir_synch_cheb_synch2a",
             ],
         ),
+        (
+            FERMI_DIRAC,
+            &[
+                "petir_fermi_dirac",
+                "petir_fd_m1",
+                "petir_fd_0",
+                "petir_fd_1",
+                "petir_fd_2",
+                "petir_fd_mhalf",
+                "petir_fd_half",
+                "petir_fd_3half",
+                "petir_fd_asymp",
+                "petir_fd_series",
+                "petir_fd_series_half",
+                "petir_fd_eta",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -440,6 +458,10 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "transport" => LEDGER.contains("transport integrals"),
             "atanint" => LEDGER.contains("inverse-tangent integral"),
             "synchrotron" => LEDGER.contains("synchrotron"),
+            // NOT just "Fermi-Dirac": that string was already in the
+            // PORTABLE row listing it as a future block, so the check passed
+            // before the row existed. Match the row itself.
+            "fermi_dirac" => LEDGER.contains("(Fermi-Dirac integrals)"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -488,11 +510,12 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 ///
 /// # What it covers
 ///
-/// **Every generated pair**, 62 tables and 1105 coefficients as of
+/// **Every generated pair**, 85 tables and 1597 coefficients as of
 /// 2026-09-19:
 ///
 /// | shader | tables | coefficients |
 /// |---|---|---|
+/// | `fermi_dirac` | 23 | 492 |
 /// | `bessel` | 22 | 358 |
 /// | `airy` | 13 | 281 |
 /// | `psi_zeta` | 8 | 155 |
@@ -588,6 +611,13 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     // are asserted so that a table silently lost from either side fails here
     // rather than shrinking the comparison.
     let pairs: &[(&str, &str, &str, usize, usize)] = &[
+        (
+            "fermi_dirac",
+            petir::wgsl::FERMI_DIRAC,
+            include_str!("../src/wgsl/mirror_fermi_dirac.rs"),
+            23,
+            492,
+        ),
         (
             "bessel",
             petir::wgsl::BESSEL,
@@ -696,8 +726,8 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
         }
     }
     assert_eq!(
-        grand, 1105,
-        "the generated pairs are documented as holding 1105 coefficients in \
+        grand, 1597,
+        "the generated pairs are documented as holding 1597 coefficients in \
          total; this run compared {grand}"
     );
 }

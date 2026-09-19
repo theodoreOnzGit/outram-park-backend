@@ -7,9 +7,9 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_debye, mirror_dilog,
-    mirror_erf, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_synchrotron,
-    mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT,
-    LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
+    mirror_erf, mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta,
+    mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF,
+    FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1964,6 +1964,178 @@ fn gpu_synchrotron_matches_the_cpu_mirror() {
             "{which} on GPU ({}) underflowed at x = {zeroed_at}. Anything this \
              early means the device's exp() is worse than llvmpipe's measured \
              87.57 and the tail is not usable there at all",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// All seven Fermi-Dirac integrals on the GPU against the `f32` mirror,
+/// through the single `petir_fermi_dirac(which, x)` dispatcher.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim** — `mirror_fermi_dirac`
+/// owns the `f32`-vs-`f64` figures, which run 1.7e-07 to 8.5e-06 with `F_0`
+/// alone at the top because of upstream's branch cut at `x = -5`.
+///
+/// # The result: 3.597e-06 for all seven, and it is the device's `exp`
+///
+/// Measured on llvmpipe (LLVM 20.1.2), 2026-09-19: every one of the seven
+/// indices reports a worst difference of **3.597333488869481e-06 at
+/// x = -68.2** — identical to seventeen significant digits across seven
+/// different code paths, which cannot happen by chance. Deep in the negative
+/// tail every `F_j` collapses to its first series term, `e^x`, so the only
+/// thing being compared there is `exp`. The test evaluates `exp` alone on the
+/// device at that abscissa and asserts it accounts for the whole difference,
+/// which is what separates "the device's transcendental" from "the
+/// transcription".
+///
+/// # Why the dispatcher rather than seven calls
+///
+/// `petir_fermi_dirac` is a `switch` over seven branches, each ending in a
+/// different 20-odd-coefficient Chebyshev chain. That is by far the largest
+/// control-flow graph in this module, and a compiler that mis-lowered the
+/// switch would return a neighbouring index's answer — which is a plausible
+/// wrong value, not a NaN. Dispatching by index is what makes that
+/// detectable: every one of the seven is compared against its own mirror in
+/// the same kernel.
+///
+/// The sweep deliberately includes the **denormal tail** past `x = -87`,
+/// where `mirror_fermi_dirac` shows 2218 real answers living below
+/// `f32::MIN_POSITIVE`. A device that flushes denormals disagrees there, so
+/// that region is asserted as a shape — the device may reach zero earlier
+/// than the CPU, never later — exactly as `synchrotron` does.
+#[test]
+fn gpu_fermi_dirac_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_fermi_dirac_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    // -80 .. 120 linearly: the series cut at -1, all four Chebyshev
+    // boundaries, the far cut at 2896 is out of range on purpose (it is
+    // covered by the mirror's own test) and the asymptotic branch past 30.
+    let mut probes: Vec<f32> = (0..=2000).map(|i| -80.0 + 200.0 * i as f32 / 2000.0).collect();
+    let normal_upto = probes.len();
+    // Then the denormal tail, where backends part company.
+    probes.extend((0..=600).map(|i| -80.0 - 30.0 * i as f32 / 600.0));
+
+    for (which, name, want_fn) in [
+        (0u32, "F_-1", mirror_fermi_dirac::fermi_dirac_m1 as fn(f32) -> f32),
+        (1, "F_-1/2", mirror_fermi_dirac::fermi_dirac_mhalf),
+        (2, "F_0", mirror_fermi_dirac::fermi_dirac_0),
+        (3, "F_1/2", mirror_fermi_dirac::fermi_dirac_half),
+        (4, "F_1", mirror_fermi_dirac::fermi_dirac_1),
+        (5, "F_3/2", mirror_fermi_dirac::fermi_dirac_3half),
+        (6, "F_2", mirror_fermi_dirac::fermi_dirac_2),
+    ] {
+        let got = gpu
+            .eval_map(
+                &[FERMI_DIRAC],
+                "petir_fermi_dirac(params.k, x)",
+                &[],
+                &probes,
+                KernelParams {
+                    k: which,
+                    ..KernelParams::default()
+                },
+            )
+            .expect("non-empty probe");
+
+        // --- the normal range: a real numerical comparison ---
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        for (i, &x) in probes[..normal_upto].iter().enumerate() {
+            let want = want_fn(x);
+            let have = got.get(i).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite() && want >= 0.0 && have >= 0.0,
+                "{name}({x}): mirror {want:e}, GPU {have:e}"
+            );
+            if want < 1e-30 {
+                continue;
+            }
+            let d = (((have - want) / want) as f64).abs();
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for {name}: {worst:e} at x = {at}",
+            gpu.adapter_name()
+        );
+
+        // --- the denormal tail: a shape, because the device decides ---
+        let mut zeroed = false;
+        for (i, &x) in probes.iter().enumerate().skip(normal_upto) {
+            let want = want_fn(x);
+            let have = got.get(i).copied().unwrap_or(f32::NAN);
+            assert!(
+                have.is_finite() && have >= 0.0,
+                "{name}({x}) on the GPU: {have:e}"
+            );
+            if have == 0.0 {
+                zeroed = true;
+            } else {
+                assert!(
+                    want > 0.0,
+                    "{name} on GPU ({}) returned {have:e} at x = {x} where the \
+                     mirror has already underflowed. A device may underflow \
+                     EARLIER than the CPU, never later",
+                    gpu.adapter_name()
+                );
+            }
+        }
+        // The sweep runs to x = -110, past where f32 reaches zero at -104, so
+        // every backend must get there.
+        assert!(
+            zeroed,
+            "{name} never underflowed by x = -110 on {}",
+            gpu.adapter_name()
+        );
+    }
+
+    // AND THE DIFFERENCE IS THE DEVICE'S exp(), NOT THE TRANSCRIPTION. All
+    // seven indices report a worst difference identical to 17 significant
+    // digits (3.597333488869481e-06) at the same abscissa, x = -68.2. Seven
+    // different code paths cannot agree to that precision by chance; they
+    // agree because deep in the negative tail every F_j collapses to its
+    // first series term, e^x, so the only thing being compared is exp.
+    // Asserted by evaluating exp alone on the device at that point.
+    let ex = gpu
+        .eval_map(&[FERMI_DIRAC], "exp(x)", &[], &[-68.2_f32], KernelParams::default())
+        .expect("non-empty probe");
+    let device_exp = ex.first().copied().unwrap_or(f32::NAN);
+    let cpu_exp = (-68.2_f32).exp();
+    let exp_gap = (((device_exp - cpu_exp) as f64) / cpu_exp as f64).abs();
+    assert!(
+        (exp_gap / 3.597_333_488_869_481e-6 - 1.0).abs() < 0.02,
+        "the Fermi-Dirac GPU difference is documented as the device's exp \
+         alone: exp(-68.2) differs by {exp_gap:e} on {}, against the 3.597e-06 \
+         every one of the seven indices reports. If these have come apart, the \
+         difference is no longer purely exp and the transcription needs \
+         looking at",
+        gpu.adapter_name()
+    );
+
+    // An out-of-range index must be NaN on the device too, not a neighbour's
+    // answer -- which is the failure mode a switch mis-lowering would produce.
+    let bad = gpu
+        .eval_map(
+            &[FERMI_DIRAC],
+            "petir_fermi_dirac(params.k, x)",
+            &[],
+            &[1.0_f32, 5.0, 20.0],
+            KernelParams {
+                k: 7,
+                ..KernelParams::default()
+            },
+        )
+        .expect("non-empty probe");
+    for (k, v) in bad.iter().enumerate() {
+        assert!(
+            v.is_nan(),
+            "petir_fermi_dirac(7, .) gave {v:e} at probe {k} on {}; an \
+             out-of-range index is documented as NaN",
             gpu.adapter_name()
         );
     }

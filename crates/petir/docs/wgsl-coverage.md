@@ -75,11 +75,12 @@ and stays there.
 | `specfunc` (transport integrals) | ~4 | **PORTED** | `J(2)` .. `J(5)`, the Bloch-Gruneisen family; four Chebyshev series and the exponential-image tail sum |
 | `specfunc` (inverse-tangent integral) | ~2 | **PORTED** | `Ti_2(x)`, one Chebyshev table evaluated at reciprocal arguments either side of `\|x\| = 1` |
 | `specfunc` (synchrotron radiation) | ~2 | **PORTED** | `S_1(x)` and `S_2(x)`; six Chebyshev series, 91 coefficients. **Upstream's underflow guard is dead code in `f64` and would DESTROY answers if retargeted** — the first constant here whose category depends on the width. See below |
+| `specfunc` (Fermi-Dirac integrals) | ~9 | **PORTED** (fixed indices) | `F_j(x)` at `j = -1, -1/2, 0, 1/2, 1, 3/2, 2`; **22 Chebyshev series, 483 coefficients — the largest table set here**. The general-`j` entry point is absent (it needs the confluent hypergeometrics). **The one shader that CORRECTS an upstream constant's formula** rather than retargeting its value, and the one that meets a guard that is not representable at all — see below |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~251 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~242 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -317,6 +318,8 @@ complete rather than frozen at the four that existed when it was written.
 | `transport` | `LOG_DBL_EPSILON` | a **precision** constant that sets only the WORK DONE | retarget; the answers do not move |
 | `atanint` | large-argument cut | a **precision** constant, work-only; the two branches are bit-identical | retarget; nothing observable changes |
 | `synchrotron` | `-8 ln(MIN)/7` | a **range guard** whose category depends on the width | keep — see immediately below |
+| `fermi_dirac` | `1/cbrt(EPSILON)`, `F_2` far cut | a **precision** constant whose upstream FORMULA is wrong | retarget the value **and correct the formula** — worth 189x |
+| `fermi_dirac` | `SQRT_DBL_MAX`, `ROOT3_DBL_MAX` | overflow guards **not representable at the narrower width** | **delete** — a third outcome, and forced rather than chosen |
 
 The rule is *know what upstream's constant is FOR*. Knowing what it equals
 tells you nothing about whether it survives the change of width.
@@ -355,6 +358,57 @@ the mirror is ordinary — 8.6e-07 on the small-argument branch, 6.4e-05 on the
 exponential tail. `the_f32_cost_is_cancellation_at_the_branch_boundary`
 asserts the error tracks the measured cancellation ratio, so a real
 transcription defect would still fail it.
+
+**The Fermi-Dirac integrals add the seventh and eighth kinds, and the eighth
+is the first one that is not a choice at all.**
+
+*Seventh — a precision constant whose upstream formula is wrong.* Past its
+far-field cut each of `F_1` and `F_2` drops a Chebyshev fit in `60/x` for the
+pure degenerate limit, and what the fit carries is the Sommerfeld correction:
+`1 + (pi^2/3)/x^2` for `F_1`, `1 + pi^2/x^2` for `F_2`. Both have the same
+`1/x^2` shape, so both want the same **square** root of epsilon. Upstream uses
+a **cube** root for `F_2`, apparently matching its `x^3` factor rather than the
+accuracy requirement. Measured against the exact far-field form over
+`x` in `[1e2, 1e6]`:
+
+| `F_2` far cut | worst relative | in `f32` ulp |
+|---|---|---|
+| `1/sqrt(eps)` = 2896.31 (**shipped**) | 1.265e-06 | 10.6 |
+| `1/cbrt(eps)` = 203.19 (upstream's form) | 2.390e-04 | **2005** |
+
+Two thousand ulp is not a rounding difference, so the **formula** is corrected
+here and not merely the value — `lambert`'s case. The `f64` module reproduces
+upstream's mistake faithfully and asserts it (it steps down by 3.56e-10 at
+`x = 1.6514e5`), because its bar is agreement with GSL; this module's bar is
+what `f32` can do.
+
+*Eighth — a guard that cannot be written down.* GSL's two overflow bounds,
+`GSL_SQRT_DBL_MAX = 1.34e+154` and `GSL_ROOT3_DBL_MAX = 5.64e+102`, are not
+`f32` numbers at all; the type stops at 3.4e+38. **Keep and retarget are both
+unavailable**, so the branches are deleted and the arithmetic is left to
+overflow on its own — at `10^19.416` for `F_1` and `10^12.844` for `F_2`,
+returning the same infinity `OVERFLOW_ERROR` would have. Every other row in
+this table records a decision; this one records that there was none to make.
+
+**The blocker that was recorded and then measured away.** `fd_asymp` calls
+`fd_neg`, which can run a Levin *u*-transform over two 101-element work
+arrays — 202 `f32` of function-local storage, which `psi_zeta` had already
+declined once. It is never reached: `fd_neg` is called only from `fd_asymp`,
+which runs only at `x >= 30`, so it always takes the simple alternating
+series instead. Established by instrumenting the `f64` module rather than by
+reading branch conditions, and with it went two further dependencies —
+`cos(j pi)` is exactly zero at all three half-integer indices so the whole
+reflection term drops (measured contribution 1e-31 to 1e-64), and
+`lnGamma(j+2)` is a compile-time constant at each, so neither `gamma` nor
+`psi_zeta` is needed.
+
+**GPU-vs-mirror is 3.597e-06 for all seven indices, at the same abscissa, and
+that is the device's `exp`.** Identical to seventeen significant digits across
+seven different code paths is not chance: deep in the negative tail every
+`F_j` collapses to its first series term `e^x`, so the only thing being
+compared is the transcendental. `wgsl_gpu` evaluates `exp` alone at that
+abscissa and asserts it accounts for the whole difference — which is what
+separates the device's maths library from the transcription.
 
 **And the device puts the underflow point in a third place, which is the
 strongest argument for keeping upstream's constant.** Measured on llvmpipe
