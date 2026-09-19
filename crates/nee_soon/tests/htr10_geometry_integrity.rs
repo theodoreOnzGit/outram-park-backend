@@ -32,10 +32,8 @@ use outram_mc_libs::pebble_beds::sphere_packing::{cubic_array_in_ball, cubic_pit
 fn the_bed_reproduces_the_published_ball_inventory() {
     let cell = HexBedCell::from_paper();
     let total = cell.balls_in_core(table1::CORE_DIAMETER_CM, table1::CORE_HEIGHT_CM);
-    let (fuel, moderator) = cell.fuel_and_moderator_balls(
-        table1::CORE_DIAMETER_CM,
-        table1::CORE_HEIGHT_CM,
-    );
+    let (fuel, moderator) =
+        cell.fuel_and_moderator_balls(table1::CORE_DIAMETER_CM, table1::CORE_HEIGHT_CM);
     // The published 27,000 is the TOTAL ball inventory, not the fuel subset.
     // (An earlier version of this test compared it against the 57 % fuel share
     // and read -42.9 %, which is just 0.57 - 1. The constant's name invites
@@ -95,8 +93,14 @@ fn the_tile_assignment_agrees_with_the_continuum_split() {
 #[test]
 fn the_reflector_covers_every_zone_the_model_can_reference() {
     let zones = listed_zones();
-    let missing: Vec<usize> = (0..=MAX_ZONE).filter(|z| zone_composition(*z).is_none()).collect();
-    println!("{} of {} zones have a composition; absent: {missing:?}", zones.len(), MAX_ZONE + 1);
+    let missing: Vec<usize> = (0..=MAX_ZONE)
+        .filter(|z| zone_composition(*z).is_none())
+        .collect();
+    println!(
+        "{} of {} zones have a composition; absent: {missing:?}",
+        zones.len(),
+        MAX_ZONE + 1
+    );
     assert_eq!(missing, vec![5], "only the top core cavity may be absent");
 }
 

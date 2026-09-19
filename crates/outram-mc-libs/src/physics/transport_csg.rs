@@ -1245,6 +1245,13 @@ pub(crate) fn transport_history(
                             nuc.sample_inelastic_emission(91, e, u, q, seed)
                         }
                     };
+                    // Inelastic is a scattering reaction and belongs in the
+                    // nu-scatter matrix. Omitting it leaves the FAST groups
+                    // short: inelastic is where a fast neutron loses most of its
+                    // energy on a heavy nuclide.
+                    if let Some(t) = tally {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                    }
                     e = e2;
                     u = u2;
                 } else if xi < x.absorption + x.inelastic + x.n2n {
@@ -1276,6 +1283,25 @@ pub(crate) fn transport_history(
                             e: sec_e2,
                         });
                     }
+                    // Multiplicity counts: this is a NU-scatter matrix, so every
+                    // neutron actually emitted scores its own (E_in, E_out). The
+                    // secondary is scored only when emitted, matching its gate.
+                    if let Some(t) = tally {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                        if nuc.emits_n2n_secondary() {
+                            score_scatter_matrix(
+                                batch,
+                                t,
+                                cell_idx,
+                                m,
+                                leaf.universe,
+                                e,
+                                sec_e2,
+                                r,
+                                1.0,
+                            );
+                        }
+                    }
                     e = e2;
                     u = u2;
                 } else if xi < x.absorption + x.inelastic + x.n2n + x.n3n {
@@ -1301,7 +1327,23 @@ pub(crate) fn transport_history(
                         };
                         if nuc.emits_n2n_secondary() {
                             stack.push(Site { r, u: su, e: se });
+                            if let Some(t) = tally {
+                                score_scatter_matrix(
+                                    batch,
+                                    t,
+                                    cell_idx,
+                                    m,
+                                    leaf.universe,
+                                    e,
+                                    se,
+                                    r,
+                                    1.0,
+                                );
+                            }
                         }
+                    }
+                    if let Some(t) = tally {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
                     }
                     e = e2;
                     u = u2;
@@ -1333,6 +1375,22 @@ pub(crate) fn transport_history(
                     }
                     for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
                         stack.push(Site { r, u: *su, e: *se });
+                        if let Some(t) = tally {
+                            score_scatter_matrix(
+                                batch,
+                                t,
+                                cell_idx,
+                                m,
+                                leaf.universe,
+                                e,
+                                *se,
+                                r,
+                                1.0,
+                            );
+                        }
+                    }
+                    if let Some(t) = tally {
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
                     }
                     e = e2;
                     u = u2;

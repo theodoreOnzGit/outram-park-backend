@@ -123,7 +123,9 @@
 
 use std::time::Instant;
 
-use nee_soon::htr10_rmc::core_model::{PAPER_FILLING_FRACTION, HTR10_BORED_CARBON, HTR10_BORED_BORON, assemble_explicit_triso, mat};
+use nee_soon::htr10_rmc::core_model::{
+    PAPER_FILLING_FRACTION, HTR10_BORED_CARBON, HTR10_BORED_BORON, assemble_explicit_triso, mat,
+};
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
@@ -176,13 +178,22 @@ fn rmc_at_height(h_cm: f64) -> Option<f64> {
     None
 }
 const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0, u238: 1, o16: 2, c_free: 3, c_graphite: 4, si28: 5, b10: 6,
+    u235: 0,
+    u238: 1,
+    o16: 2,
+    c_free: 3,
+    c_graphite: 4,
+    si28: 5,
+    b10: 6,
 };
 /// Natural boron is 19.9 at.% B-10; the rest is effectively a non-absorber.
 const B10_OF_NATURAL: f64 = 0.199;
 
 fn env_usize(k: &str, d: usize) -> usize {
-    std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
+    std::env::var(k)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(d)
 }
 
 /// Ablation knobs over the NUCLEAR DATA rather than the geometry.
@@ -202,7 +213,8 @@ fn env_usize(k: &str, d: usize) -> usize {
 ///   it came back near zero, the thermal scattering law would not be engaged
 ///   at all, and every thermal result here would be resting on nothing.
 fn nuclides() -> Option<Vec<Nuclide>> {
-    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let base =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let u238_file = if std::env::var("OUTRAM_HTR10_U238_JENDL").is_ok() {
         eprintln!("  ABLATION: U-238 from JENDL-3.3 (NOT the VII.0 offset -- a library bound)");
         "n-092_U_238-JENDL3.3.endf"
@@ -270,22 +282,25 @@ fn nuclides() -> Option<Vec<Nuclide>> {
     // rather than hardcoded.
     let tsl_mat = if endf7 { 31 } else { 30 };
     let sab = ThermalScattering::from_endf_file(
-        base.join(f_tsl).to_str()?, tsl_mat, TEMP_K, "c_Graphite",
+        base.join(f_tsl).to_str()?,
+        tsl_mat,
+        TEMP_K,
+        "c_Graphite",
     )
     .map_err(|e| eprintln!("  thermal scattering load FAILED (mat {tsl_mat}): {e}"))
     .ok()?;
     Some(vec![
         load("U235", f_u235)?,
         load("U238", f_u238)?,
-        load("O16",  f_o16)?,
-        load("C12",  f_c)?,
+        load("O16", f_o16)?,
+        load("C12", f_c)?,
         if no_sab {
             load("C12", f_c)?
         } else {
             load("C12", f_c)?.with_thermal_scattering(sab)
         },
         load("Si28", f_si28)?,
-        load("B10",  f_b10)?,
+        load("B10", f_b10)?,
     ])
 }
 
@@ -317,7 +332,12 @@ fn main() {
     let mut mats = fuel_pebble_materials(NUC, boron, TEMP_K);
     mats.truncate(6);
     // 6: helium -- deliberately near-void, as the paper's own model omits it.
-    mats.push(Material { id: 70, name: "helium".into(), components: vec![], temperature: TEMP_K });
+    mats.push(Material {
+        id: 70,
+        name: "helium".into(),
+        components: vec![],
+        temperature: TEMP_K,
+    });
     // 7: reflector, TECDOC Table 4-3 zone 22 (graphite reflector structure).
     // OUTRAM_HTR10_REFL_ZONE selects which TECDOC Table 4-3 zone stands in for
     // the WHOLE reflector. Zone 22 (the default) is the cleanest graphite in
@@ -327,7 +347,9 @@ fn main() {
     // reflector is a mixture of both and the truth lies between them; this
     // knob measures how wide that bracket is before the R-Z zone map is built.
     let zone_id = std::env::var("OUTRAM_HTR10_REFL_ZONE")
-        .ok().and_then(|v| v.parse().ok()).unwrap_or(22usize);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(22usize);
     let z = zone_composition(zone_id).expect("zone is listed");
     // OUTRAM_HTR10_REFL_SCALE scales the reflector's CARBON density.
     //
@@ -341,13 +363,21 @@ fn main() {
     //
     // It is a BOUND, not a model. 1.0 is the unmodified zone-22 reflector.
     let refl_scale: f64 = std::env::var("OUTRAM_HTR10_REFL_SCALE")
-        .ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
-    println!("  reflector zone: {zone_id} (C {:.4e} x{refl_scale:.3}, natural B {:.4e})", z.carbon, z.natural_boron);
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
+    println!(
+        "  reflector zone: {zone_id} (C {:.4e} x{refl_scale:.3}, natural B {:.4e})",
+        z.carbon, z.natural_boron
+    );
     mats.push(Material {
         id: 71,
         name: "reflector graphite (TECDOC zone 22)".into(),
         components: vec![
-            NuclideComponent { nuclide_idx: NUC.c_graphite, atom_density: z.carbon * refl_scale },
+            NuclideComponent {
+                nuclide_idx: NUC.c_graphite,
+                atom_density: z.carbon * refl_scale,
+            },
             NuclideComponent {
                 nuclide_idx: NUC.b10,
                 atom_density: if matches!(boron, BoronReading::None) {
@@ -366,11 +396,17 @@ fn main() {
         id: 72,
         name: "boronated carbon brick (TECDOC zone 17)".into(),
         components: vec![
-            NuclideComponent { nuclide_idx: NUC.c_graphite, atom_density: zb.carbon },
+            NuclideComponent {
+                nuclide_idx: NUC.c_graphite,
+                atom_density: zb.carbon,
+            },
             NuclideComponent {
                 nuclide_idx: NUC.b10,
-                atom_density: if matches!(boron, BoronReading::None) { 0.0 }
-                              else { zb.natural_boron * B10_OF_NATURAL },
+                atom_density: if matches!(boron, BoronReading::None) {
+                    0.0
+                } else {
+                    zb.natural_boron * B10_OF_NATURAL
+                },
             },
         ],
         temperature: TEMP_K,
@@ -382,11 +418,17 @@ fn main() {
         id: 73,
         name: "bored side reflector (TECDOC zones 31-40)".into(),
         components: vec![
-            NuclideComponent { nuclide_idx: NUC.c_graphite, atom_density: HTR10_BORED_CARBON },
+            NuclideComponent {
+                nuclide_idx: NUC.c_graphite,
+                atom_density: HTR10_BORED_CARBON,
+            },
             NuclideComponent {
                 nuclide_idx: NUC.b10,
-                atom_density: if matches!(boron, BoronReading::None) { 0.0 }
-                              else { HTR10_BORED_BORON * B10_OF_NATURAL },
+                atom_density: if matches!(boron, BoronReading::None) {
+                    0.0
+                } else {
+                    HTR10_BORED_BORON * B10_OF_NATURAL
+                },
             },
         ],
         temperature: TEMP_K,
@@ -398,10 +440,14 @@ fn main() {
     mats.push(Material {
         id: 74,
         name: "homogenised dummy pebbles (0.61 packing)".into(),
-        components: dummy_graphite.components.iter().map(|c| NuclideComponent {
-            nuclide_idx: c.nuclide_idx,
-            atom_density: c.atom_density * PAPER_FILLING_FRACTION,
-        }).collect(),
+        components: dummy_graphite
+            .components
+            .iter()
+            .map(|c| NuclideComponent {
+                nuclide_idx: c.nuclide_idx,
+                atom_density: c.atom_density * PAPER_FILLING_FRACTION,
+            })
+            .collect(),
         temperature: TEMP_K,
     });
     assert_eq!(mats.len(), mat::HOMOG_DUMMY + 1);
@@ -419,10 +465,26 @@ fn main() {
     } else {
         assemble_explicit_triso(rings, layers, maj_idx)
     };
-    println!("  fuel zone: {}", if homog { "HOMOGENISED" } else { "explicit TRISO lattice" });
-    println!("  tracking: {}", if surface_only { "SURFACE ONLY" } else { "hybrid (delta bed)" });
-    println!("  geometry: {} tiles, {} cells, {} universes",
-             core.tiles, core.cells, core.universes);
+    println!(
+        "  fuel zone: {}",
+        if homog {
+            "HOMOGENISED"
+        } else {
+            "explicit TRISO lattice"
+        }
+    );
+    println!(
+        "  tracking: {}",
+        if surface_only {
+            "SURFACE ONLY"
+        } else {
+            "hybrid (delta bed)"
+        }
+    );
+    println!(
+        "  geometry: {} tiles, {} cells, {} universes",
+        core.tiles, core.cells, core.universes
+    );
 
     // Region-local majorant: the BED's materials only. The reflector is
     // surface-tracked, so it must NOT raise the bed's tracking cost.
@@ -456,14 +518,18 @@ fn main() {
         // irreproducible and the ablation chain built from their differences is
         // unsound. Pinning the count is what makes that testable.
         compute: ComputeType::CpuMultiThread(
-            match std::env::var("OUTRAM_HTR10_THREADS").ok().and_then(|v| v.parse::<usize>().ok()) {
+            match std::env::var("OUTRAM_HTR10_THREADS")
+                .ok()
+                .and_then(|v| v.parse::<usize>().ok())
+            {
                 Some(n) => ThreadCount::Fixed(n),
                 None => ThreadCount::Auto,
             },
         ),
         ..KeffSettings::default()
     };
-    let r = core.tiles as f64; let _ = r;
+    let r = core.tiles as f64;
+    let _ = r;
     // The source box and entropy mesh must span the WHOLE fissile region.
     //
     // Both were [-50,50]^3 / [-60,60]^3, fixed numbers that predate the conus
@@ -486,13 +552,24 @@ fn main() {
         dimension: [4, 4, 4],
     };
 
-    println!("  {histories} histories x [{} inactive + {} active]\n",
-             settings.n_inactive, settings.n_active);
+    println!(
+        "  {histories} histories x [{} inactive + {} active]\n",
+        settings.n_inactive, settings.n_active
+    );
     let t = Instant::now();
     let res = run_keff_csg_hybrid(
-        &core.geometry, &mats, &nucs,
-        if surface_only { &[] } else { std::slice::from_ref(&maj) },
-        Some(&entropy_mesh), src, &settings, None,
+        &core.geometry,
+        &mats,
+        &nucs,
+        if surface_only {
+            &[]
+        } else {
+            std::slice::from_ref(&maj)
+        },
+        Some(&entropy_mesh),
+        src,
+        &settings,
+        None,
     );
     let secs = t.elapsed().as_secs_f64();
 
@@ -508,11 +585,23 @@ fn main() {
     if n_seeds > 1 {
         let mut ens: Vec<f64> = vec![(res.k_mean - RMC_KEFF) * 1.0e5];
         for seed in 2..=n_seeds as u64 {
-            let sset = KeffSettings { seed: settings.seed + seed, ..settings.clone() };
+            let sset = KeffSettings {
+                seed: settings.seed + seed,
+                ..settings.clone()
+            };
             let r2 = run_keff_csg_hybrid(
-                &core.geometry, &mats, &nucs,
-                if surface_only { &[] } else { std::slice::from_ref(&maj) },
-                Some(&entropy_mesh), src, &sset, None,
+                &core.geometry,
+                &mats,
+                &nucs,
+                if surface_only {
+                    &[]
+                } else {
+                    std::slice::from_ref(&maj)
+                },
+                Some(&entropy_mesh),
+                src,
+                &sset,
+                None,
             );
             eprintln!("    seed {seed}: k = {:.6} +/- {:.6}", r2.k_mean, r2.k_std);
             ens.push((r2.k_mean - RMC_KEFF) * 1.0e5);
@@ -558,20 +647,51 @@ fn main() {
     println!("  virtual coll = {}", res.virtual_collisions);
     // Histories transported = n_particles x every generation, active or not.
     let n_hist = res.histories.max(1) as f64;
-    println!("  histories    = {} (planned {})", res.histories,
-             settings.n_particles * (settings.n_inactive + settings.n_active));
-    println!("  collisions   = {} ({:.2} per history)", res.collisions, res.collisions as f64 / n_hist);
-    println!("  lost locate  = {} ({:.3} %)", res.lost_locate, 100.0 * res.lost_locate as f64 / n_hist);
-    println!("  stuck events = {} ({:.3} %)", res.stuck_events, 100.0 * res.stuck_events as f64 / n_hist);
+    println!(
+        "  histories    = {} (planned {})",
+        res.histories,
+        settings.n_particles * (settings.n_inactive + settings.n_active)
+    );
+    println!(
+        "  collisions   = {} ({:.2} per history)",
+        res.collisions,
+        res.collisions as f64 / n_hist
+    );
+    println!(
+        "  lost locate  = {} ({:.3} %)",
+        res.lost_locate,
+        100.0 * res.lost_locate as f64 / n_hist
+    );
+    println!(
+        "  stuck events = {} ({:.3} %)",
+        res.stuck_events,
+        100.0 * res.stuck_events as f64 / n_hist
+    );
     if res.stuck_events > 0 {
-        println!("  stuck path   = {:.4} cm mean, last E = {:.4e} eV",
-                 res.stuck_path_cm / res.stuck_events as f64, res.stuck_last_e);
+        println!(
+            "  stuck path   = {:.4} cm mean, last E = {:.4e} eV",
+            res.stuck_path_cm / res.stuck_events as f64,
+            res.stuck_last_e
+        );
     }
-    println!("  neg distance = {} (worst {:.4e} cm, level {})",
-             res.neg_dist, res.neg_worst, res.neg_level);
-    println!("      from lattice = {}, from surface = {}", res.neg_from_lattice, res.neg_from_surface);
-    println!("  leak vacuum  = {} ({:.3} %)", res.leak_vacuum, 100.0 * res.leak_vacuum as f64 / n_hist);
-    println!("  leak infinity= {} ({:.3} %)", res.leak_infinity, 100.0 * res.leak_infinity as f64 / n_hist);
+    println!(
+        "  neg distance = {} (worst {:.4e} cm, level {})",
+        res.neg_dist, res.neg_worst, res.neg_level
+    );
+    println!(
+        "      from lattice = {}, from surface = {}",
+        res.neg_from_lattice, res.neg_from_surface
+    );
+    println!(
+        "  leak vacuum  = {} ({:.3} %)",
+        res.leak_vacuum,
+        100.0 * res.leak_vacuum as f64 / n_hist
+    );
+    println!(
+        "  leak infinity= {} ({:.3} %)",
+        res.leak_infinity,
+        100.0 * res.leak_infinity as f64 / n_hist
+    );
     println!("  wall clock   = {secs:.1} s");
     println!("  generations reported: {}", res.k_by_generation.len());
     let nz = res.k_by_generation.iter().filter(|k| **k > 0.0).count();
@@ -592,8 +712,10 @@ fn main() {
         println!();
     }
     if let (Some(first), Some(last)) = (res.entropy.first(), res.entropy.last()) {
-        println!("  entropy      = {first:.4} -> {last:.4} bits (ceiling {:.4})",
-                 (entropy_mesh.n_bins() as f64).log2());
+        println!(
+            "  entropy      = {first:.4} -> {last:.4} bits (ceiling {:.4})",
+            (entropy_mesh.n_bins() as f64).log2()
+        );
     }
     println!("\n  Gate is 500-1000 pcm. This is a REDUCED core ({rings} rings x {layers} layers),");
     println!("  not the 123.576 cm loading, and carries the VIII.0-vs-VII.0 offset.");

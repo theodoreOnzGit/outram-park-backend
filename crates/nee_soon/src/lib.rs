@@ -64,6 +64,7 @@ pub use teh_o_prke::teh_o_prke_error::TehOPrkeError;
 use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, ThermodynamicTemperature, Time};
 
 pub mod htr10_rmc;
+pub mod mgxs;
 
 /// Object-oriented facade for the OUTRAM PARK neutronics + kinetics suite.
 ///

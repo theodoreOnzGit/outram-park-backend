@@ -15,7 +15,10 @@ use outram_mc_libs::geometry::position::{Direction, Position};
 use outram_mc_libs::geometry::cell::SurfaceToken;
 
 fn env_usize(k: &str, d: usize) -> usize {
-    std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
+    std::env::var(k)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(d)
 }
 
 fn main() {
@@ -35,12 +38,14 @@ fn main() {
 
     let mut seed = 12345_u64;
     let mut prn = || {
-        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         ((seed >> 11) as f64) / ((1u64 << 53) as f64)
     };
 
     let mut counts = [0usize; 9]; // 0..7 materials, 8 = void/none
-    // Radial bins: where does the tiling actually stop?
+                                  // Radial bins: where does the tiling actually stop?
     const NB: usize = 18;
     let (mut bin_tot, mut bin_lost) = ([0usize; NB], [0usize; NB]);
     let u = Direction::new(0.0, 0.0, 1.0);
@@ -53,7 +58,10 @@ fn main() {
         let b = ((r / r_max) * NB as f64) as usize;
         let b = b.min(NB - 1);
         bin_tot[b] += 1;
-        match geom.locate(p, u, SurfaceToken::NONE).and_then(|g| g.material) {
+        match geom
+            .locate(p, u, SurfaceToken::NONE)
+            .and_then(|g| g.material)
+        {
             Some(m) => counts[m.min(7)] += 1,
             None => {
                 counts[8] += 1;
@@ -62,30 +70,64 @@ fn main() {
         }
     }
 
-    let names = ["kernel", "buffer", "IPyC", "SiC", "OPyC", "graphite", "helium", "reflector", "LOST/void"];
-    println!("envelope r <= {:.2} cm, z in [{:.2}, {:.2}] cm ({:.2} cm tall), {} samples",
-             r_max, z_lo, z_hi, z_hi - z_lo, n);
-    println!("  (bed {:.2} cm + conus {:.2} cm below it)",
-             2.0 * core.bed_half_height, -core.conus_floor - core.bed_half_height);
+    let names = [
+        "kernel",
+        "buffer",
+        "IPyC",
+        "SiC",
+        "OPyC",
+        "graphite",
+        "helium",
+        "reflector",
+        "LOST/void",
+    ];
+    println!(
+        "envelope r <= {:.2} cm, z in [{:.2}, {:.2}] cm ({:.2} cm tall), {} samples",
+        r_max,
+        z_lo,
+        z_hi,
+        z_hi - z_lo,
+        n
+    );
+    println!(
+        "  (bed {:.2} cm + conus {:.2} cm below it)",
+        2.0 * core.bed_half_height,
+        -core.conus_floor - core.bed_half_height
+    );
     println!("{:<12} {:>9} {:>10}", "material", "count", "fraction");
     for (i, nm) in names.iter().enumerate() {
         if counts[i] > 0 {
-            println!("{nm:<12} {:>9} {:>10.6}", counts[i], counts[i] as f64 / n as f64);
+            println!(
+                "{nm:<12} {:>9} {:>10.6}",
+                counts[i],
+                counts[i] as f64 / n as f64
+            );
         }
     }
     println!();
     println!("radial profile of UNTILED fraction (needs OUTRAM_HTR10_NO_OUTER=1):");
     for b in 0..NB {
-        if bin_tot[b] == 0 { continue; }
+        if bin_tot[b] == 0 {
+            continue;
+        }
         let f = bin_lost[b] as f64 / bin_tot[b] as f64;
         let lo = r_max * b as f64 / NB as f64;
         let hi = r_max * (b + 1) as f64 / NB as f64;
-        println!("  r {lo:6.1}-{hi:6.1} cm : {f:6.3}  {}", "#".repeat((f * 40.0) as usize));
+        println!(
+            "  r {lo:6.1}-{hi:6.1} cm : {f:6.3}  {}",
+            "#".repeat((f * 40.0) as usize)
+        );
     }
     let fuel_zone: usize = counts[0] + counts[1] + counts[2] + counts[3] + counts[4];
     println!();
-    println!("fuel-zone (all TRISO layers + matrix is separate): {:.6}", fuel_zone as f64 / n as f64);
-    println!("kernel volume fraction of bed                    : {:.6}", counts[0] as f64 / n as f64);
+    println!(
+        "fuel-zone (all TRISO layers + matrix is separate): {:.6}",
+        fuel_zone as f64 / n as f64
+    );
+    println!(
+        "kernel volume fraction of bed                    : {:.6}",
+        counts[0] as f64 / n as f64
+    );
     // Paper-implied KERNEL fraction.
     //
     // CORRECTED: this previously stopped at the PARTICLE fraction (0.010111)
@@ -96,6 +138,8 @@ fn main() {
     let implied = particle_frac * (0.025_f64 / 0.0455).powi(3);
     println!("paper-implied PARTICLE fraction                  : {particle_frac:.6}");
     println!("paper-implied KERNEL fraction                    : {implied:.6}");
-    println!("ratio (ours / paper)                             : {:.4}",
-             (counts[0] as f64 / n as f64) / implied);
+    println!(
+        "ratio (ours / paper)                             : {:.4}",
+        (counts[0] as f64 / n as f64) / implied
+    );
 }

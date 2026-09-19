@@ -33,7 +33,10 @@ use outram_mc_libs::geometry::position::{Direction, Position};
 fn main() {
     let core = assemble_explicit_triso(8, 12, 0);
     let u = Direction::new(0.0, 0.0, 1.0);
-    println!("tiles {}, cells {}, universes {}", core.tiles, core.cells, core.universes);
+    println!(
+        "tiles {}, cells {}, universes {}",
+        core.tiles, core.cells, core.universes
+    );
 
     let probes = [
         ("origin", Position::ZERO),
@@ -45,11 +48,17 @@ fn main() {
     for (label, p) in probes {
         match core.geometry.locate(p, u, SurfaceToken::NONE) {
             Some(path) => {
-                let lv: Vec<String> = path.levels.iter()
-                    .map(|c| format!("{:?}/{:?}", c.lattice, c.lattice_index)).collect();
+                let lv: Vec<String> = path
+                    .levels
+                    .iter()
+                    .map(|c| format!("{:?}/{:?}", c.lattice, c.lattice_index))
+                    .collect();
                 println!(
                     "{label:<16} mat={:?} levels={} tracking={:?} [{}]",
-                    path.material, path.levels.len(), path.tracking, lv.join(" -> ")
+                    path.material,
+                    path.levels.len(),
+                    path.tracking,
+                    lv.join(" -> ")
                 );
             }
             None => println!("{label:<16} LOST (locate returned None)"),
@@ -63,12 +72,20 @@ fn main() {
         let p = Position::new(
             -30.0 + 60.0 * outram_mc_libs::rng::lcg::prn(&mut seed),
             -30.0 + 60.0 * outram_mc_libs::rng::lcg::prn(&mut seed),
-            -30.0 + 60.0 * outram_mc_libs::rng::lcg::prn(&mut seed));
+            -30.0 + 60.0 * outram_mc_libs::rng::lcg::prn(&mut seed),
+        );
         if let Some(path) = core.geometry.locate(p, u, SurfaceToken::NONE) {
             if path.material == Some(0) {
-                let lv: Vec<String> = path.levels.iter()
-                    .map(|c| format!("{:?}", c.lattice)).collect();
-                println!("  kernel at depth {} [{}]", path.levels.len(), lv.join(" -> "));
+                let lv: Vec<String> = path
+                    .levels
+                    .iter()
+                    .map(|c| format!("{:?}", c.lattice))
+                    .collect();
+                println!(
+                    "  kernel at depth {} [{}]",
+                    path.levels.len(),
+                    lv.join(" -> ")
+                );
                 break;
             }
         }
@@ -80,7 +97,10 @@ fn main() {
     for i in 0..20000 {
         let t = i as f64 / 20000.0;
         let p = Position::new(
-            (t * 97.0).sin() * 45.0, (t * 61.0).cos() * 45.0, (t * 29.0).sin() * 50.0);
+            (t * 97.0).sin() * 45.0,
+            (t * 61.0).cos() * 45.0,
+            (t * 29.0).sin() * 50.0,
+        );
         match core.geometry.locate(p, u, SurfaceToken::NONE) {
             Some(path) => *counts.entry(path.material).or_insert(0usize) += 1,
             None => lost += 1,

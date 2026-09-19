@@ -19,7 +19,11 @@ fn main() {
             -50.0 + 100.0 * prn(&mut seed),
             -50.0 + 100.0 * prn(&mut seed),
         );
-        match core.geometry.locate(p, u, SurfaceToken::NONE).and_then(|q| q.material) {
+        match core
+            .geometry
+            .locate(p, u, SurfaceToken::NONE)
+            .and_then(|q| q.material)
+        {
             Some(FISSILE) => hits += 1,
             Some(_) => {}
             None => lost += 1,

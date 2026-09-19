@@ -107,7 +107,9 @@ fn main() {
             core.tiles
         );
         if found == 0 {
-            println!("      (no probe landed inside -- geometry may be smaller than the probe box)");
+            println!(
+                "      (no probe landed inside -- geometry may be smaller than the probe box)"
+            );
         }
         last = Some((core.tiles as f64, locate_us));
     }

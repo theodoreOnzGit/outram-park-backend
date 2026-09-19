@@ -13,38 +13,69 @@ use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Ht
 
 const TEMP_K: f64 = 300.15;
 const NUC: Htr10Nuclides = Htr10Nuclides {
-    u235: 0, u238: 1, o16: 2, c_free: 3, c_graphite: 4, si28: 5, b10: 6,
+    u235: 0,
+    u238: 1,
+    o16: 2,
+    c_free: 3,
+    c_graphite: 4,
+    si28: 5,
+    b10: 6,
 };
 
 fn main() {
-    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
+    let base =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let load = |n: &str, f: &str| -> Option<Nuclide> {
         let p = base.join(f);
         p.exists().then_some(())?;
         Nuclide::from_endf_file(&p, n, TEMP_K, 1.0e-3).ok()
     };
     let Some(sab) = ThermalScattering::from_endf_file(
-        base.join("tsl-crystalline-graphite.endf").to_str().unwrap(), 30, TEMP_K, "c_Graphite").ok()
-    else { println!("SKIP: no tapes"); return; };
-    let Some(nucs) = (|| Some(vec![
-        load("U235", "n-092_U_235-ENDF8.0.endf")?,
-        load("U238", "n-092_U_238.endf")?,
-        load("O16",  "n-008_O_016-ENDF8.0.endf")?,
-        load("C12",  "n-006_C_012-ENDF8.0.endf")?,
-        load("C12",  "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
-        load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
-        load("B10",  "n-005_B_010-ENDF8.0.endf")?,
-    ]))() else { println!("SKIP: no tapes"); return; };
+        base.join("tsl-crystalline-graphite.endf").to_str().unwrap(),
+        30,
+        TEMP_K,
+        "c_Graphite",
+    )
+    .ok() else {
+        println!("SKIP: no tapes");
+        return;
+    };
+    let Some(nucs) = (|| {
+        Some(vec![
+            load("U235", "n-092_U_235-ENDF8.0.endf")?,
+            load("U238", "n-092_U_238.endf")?,
+            load("O16", "n-008_O_016-ENDF8.0.endf")?,
+            load("C12", "n-006_C_012-ENDF8.0.endf")?,
+            load("C12", "n-006_C_012-ENDF8.0.endf")?.with_thermal_scattering(sab),
+            load("Si28", "n-014_Si_028-ENDF8.0.endf")?,
+            load("B10", "n-005_B_010-ENDF8.0.endf")?,
+        ])
+    })() else {
+        println!("SKIP: no tapes");
+        return;
+    };
 
     let mut mats = fuel_pebble_materials(NUC, BoronReading::Natural, TEMP_K);
     mats.truncate(6);
-    mats.push(Material { id: 70, name: "helium (empty)".into(), components: vec![], temperature: TEMP_K });
+    mats.push(Material {
+        id: 70,
+        name: "helium (empty)".into(),
+        components: vec![],
+        temperature: TEMP_K,
+    });
     let z = zone_composition(22).unwrap();
     mats.push(Material {
-        id: 71, name: "reflector".into(),
+        id: 71,
+        name: "reflector".into(),
         components: vec![
-            NuclideComponent { nuclide_idx: NUC.c_graphite, atom_density: z.carbon },
-            NuclideComponent { nuclide_idx: NUC.b10, atom_density: z.natural_boron * 0.199 },
+            NuclideComponent {
+                nuclide_idx: NUC.c_graphite,
+                atom_density: z.carbon,
+            },
+            NuclideComponent {
+                nuclide_idx: NUC.b10,
+                atom_density: z.natural_boron * 0.199,
+            },
         ],
         temperature: TEMP_K,
     });
@@ -56,13 +87,19 @@ fn main() {
 
     println!("Why a whole-bed delta region rejects 18,801 times per history");
     println!("=============================================================\n");
-    println!("{:<34} {:>14} {:>14} {:>12}", "material", "sigma_t(0.0253)", "majorant", "p_real");
+    println!(
+        "{:<34} {:>14} {:>14} {:>12}",
+        "material", "sigma_t(0.0253)", "majorant", "p_real"
+    );
     println!("{:-<78}", "");
     let m = maj.at(0.0253);
     for (i, mat) in mats.iter().enumerate().take(7) {
         let st = mat.macro_xs_total(0.0253, &nucs);
         let p = if m > 0.0 { st / m } else { 0.0 };
-        println!("{:<34} {st:>14.5} {m:>14.5} {p:>12.2e}", format!("{i}: {}", mat.name));
+        println!(
+            "{:<34} {st:>14.5} {m:>14.5} {p:>12.2e}",
+            format!("{i}: {}", mat.name)
+        );
     }
     let helium_p: f64 = 0.0;
     println!("\n  The majorant is set by the UO2 KERNEL, which occupies about");
@@ -76,7 +113,10 @@ fn main() {
     for (i, v) in vols.iter().enumerate() {
         acc += v * mats[i].macro_xs_total(0.0253, &nucs) / m;
     }
-    println!("    p_accept ~ {acc:.4}  ->  ~{:.0} rejections per real collision", 1.0/acc.max(1e-12) - 1.0);
+    println!(
+        "    p_accept ~ {acc:.4}  ->  ~{:.0} rejections per real collision",
+        1.0 / acc.max(1e-12) - 1.0
+    );
     println!("    measured: 18,801 virtual collisions per history");
     let _ = helium_p;
 }

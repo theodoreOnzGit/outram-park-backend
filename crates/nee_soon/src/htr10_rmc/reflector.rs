@@ -73,19 +73,31 @@ const ROWS: &[(&[usize], f64, f64)] = &[
     (&[14], 0.541118E-01, 0.577456E-04),
     (&[15], 0.332110E-01, 0.178309E-06),
     (&[16], 0.881811E-01, 0.358866E-04),
-    (&[17, 55, 72, 74, 75, 76, 78, 79], 0.765984E-01, 0.346349E-02),
+    (
+        &[17, 55, 72, 74, 75, 76, 78, 79],
+        0.765984E-01,
+        0.346349E-02,
+    ),
     (&[18, 56, 73], 0.797184E-01, 0.0),
     (&[19], 0.761157E-01, 0.344166E-02),
     (&[20], 0.878374E-01, 0.471597E-06),
     (&[21], 0.579696E-01, 0.311238E-06),
-    (&[22, 23, 25, 49, 50, 52, 54, 66, 67, 69, 71, 80], 0.882418E-01, 0.473769E-06),
+    (
+        &[22, 23, 25, 49, 50, 52, 54, 66, 67, 69, 71, 80],
+        0.882418E-01,
+        0.473769E-06,
+    ),
     (&[24, 51, 68], 0.879541E-01, 0.168369E-03),
     (&[26], 0.846754E-01, 0.454621E-06),
     (&[27], 0.589319E-01, 0.266468E-02),
     (&[28, 82], 0.678899E-01, 1.400000E-05),
     (&[29], 0.403794E-01, 1.400000E-05),
     (&[30, 41], 0.678899E-01, 0.364500E-06),
-    (&[31, 32, 33, 34, 35, 36, 37, 38, 39, 40], 0.634459E-01, 0.340640E-06),
+    (
+        &[31, 32, 33, 34, 35, 36, 37, 38, 39, 40],
+        0.634459E-01,
+        0.340640E-06,
+    ),
     (&[42], 0.676758E-01, 0.125331E-03),
     (&[43, 45], 0.861476E-01, 0.462525E-06),
     (&[44], 0.829066E-01, 0.445124E-06),
@@ -120,7 +132,10 @@ pub fn zone_composition(zone: usize) -> Option<ZoneComposition> {
 /// Every zone the table lists, ascending.
 #[must_use]
 pub fn listed_zones() -> Vec<usize> {
-    let mut v: Vec<usize> = ROWS.iter().flat_map(|(z, _, _)| z.iter().copied()).collect();
+    let mut v: Vec<usize> = ROWS
+        .iter()
+        .flat_map(|(z, _, _)| z.iter().copied())
+        .collect();
     v.sort_unstable();
     v
 }
@@ -157,7 +172,10 @@ mod tests {
             "exactly one zone should be absent -- zone 5, the top core cavity, \
              which the table does not list because it is void"
         );
-        assert!(zone_composition(5).is_none(), "the cavity must report None, not zeros");
+        assert!(
+            zone_composition(5).is_none(),
+            "the cavity must report None, not zeros"
+        );
     }
 
     /// The boronated-brick rows must actually be boronated, and the carbon-brick
@@ -204,7 +222,10 @@ mod tests {
         }
         println!(
             "densest zone {} at {:.6e}; solid graphite at 1.76 g/cm3 is {:.6e} ({:.1} %)",
-            worst.0, worst.1, solid, 100.0 * worst.1 / solid
+            worst.0,
+            worst.1,
+            solid,
+            100.0 * worst.1 / solid
         );
     }
 }

@@ -221,7 +221,11 @@ pub fn bed_tile_levels(
             for _ in 0..count {
                 let a = ((n as f64) * f).floor();
                 let b = (((n + 1) as f64) * f).floor();
-                elems.push(if b > a { fuel_universe } else { moderator_universe });
+                elems.push(if b > a {
+                    fuel_universe
+                } else {
+                    moderator_universe
+                });
                 n += 1;
             }
             level.push(elems);
@@ -298,7 +302,10 @@ mod hex_lattice_tests {
             // Deviation in TILES, which is the meaningful unit.
             worst = worst.max((fuel as f64 - target * n as f64).abs());
         }
-        println!("{} tiles, worst prefix deviation {worst:.4} tiles", flat.len());
+        println!(
+            "{} tiles, worst prefix deviation {worst:.4} tiles",
+            flat.len()
+        );
         assert!(
             worst < 1.0,
             "a low-discrepancy split must stay within one tile of the target at \
@@ -319,7 +326,11 @@ mod hex_lattice_tests {
             for (i, ring) in lvl.iter().enumerate() {
                 let r = lvl.len() - 1 - i;
                 let want = if r == 0 { 1 } else { 6 * r };
-                assert_eq!(ring.len(), want, "entry {i} is ring {r}, must hold {want} tiles");
+                assert_eq!(
+                    ring.len(),
+                    want,
+                    "entry {i} is ring {r}, must hold {want} tiles"
+                );
             }
         }
     }

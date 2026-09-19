@@ -280,8 +280,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // without compensation, so the bed carries ~4.7 % less pebble-shell
     // moderator than a whole-ball bed would. That is a real second-order
     // approximation of the one-ball-per-tile construction.
-    let target_fuel_zone_fraction =
-        PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
+    let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
     let lat_pitch = (clipped(r_fuel_zone)
         / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))
         .sqrt();
@@ -328,14 +327,26 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // one configuration directly comparable to the independently measured
     // single-pebble k_inf from the DhUniverse path. Two implementations, one
     // physical problem: they must agree or one of them is wrong.
-    let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() { 0.0 } else { 100.0 };
+    let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
+        0.0
+    } else {
+        100.0
+    };
     // Radial reflector structure is PHYSICAL, from Terry (2005) Fig. 2, not
     // `bed_radius + 100`: graphite out to 167.793 cm, then BORONATED CARBON
     // BRICKS to the 190 cm outer boundary. Modelling the whole reflector as
     // clean graphite omits that absorber entirely and is optimistic -- measured
     // at +8496 pcm against RMC with it missing.
-    let refl_radius = if refl_thickness > 0.0 { HTR10_REFLECTOR_OUTER_CM } else { bed_radius };
-    let graphite_outer = if refl_thickness > 0.0 { HTR10_GRAPHITE_OUTER_CM } else { bed_radius };
+    let refl_radius = if refl_thickness > 0.0 {
+        HTR10_REFLECTOR_OUTER_CM
+    } else {
+        bed_radius
+    };
+    let graphite_outer = if refl_thickness > 0.0 {
+        HTR10_GRAPHITE_OUTER_CM
+    } else {
+        bed_radius
+    };
     // The axial reflector must sit ABOVE the cavity, not be consumed by it.
     // With `bed_half_height + 100` the cavity top (bed + 98.758) left barely a
     // centimetre of graphite before vacuum, so the cavity vented almost
@@ -348,31 +359,80 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 
     let surfaces = vec![
         // 0,1: pebble and its fuel zone, in TILE-LOCAL coordinates
-        SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: r_pebble, bc: BoundaryType::Transmissive }),
-        SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: r_fuel_zone, bc: BoundaryType::Transmissive }),
+        SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: r_pebble,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::Sphere(Sphere {
+            x0: 0.0,
+            y0: 0.0,
+            z0: 0.0,
+            r: r_fuel_zone,
+            bc: BoundaryType::Transmissive,
+        }),
         // 2..4: the bed envelope
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: bed_radius, bc: BoundaryType::Transmissive }),
-        SurfaceKind::ZPlane(ZPlane { z0: -bed_half_height, bc: BoundaryType::Transmissive }),
-        SurfaceKind::ZPlane(ZPlane { z0: bed_half_height, bc: BoundaryType::Transmissive }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: bed_radius,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -bed_half_height,
+            bc: BoundaryType::Transmissive,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: bed_half_height,
+            bc: BoundaryType::Transmissive,
+        }),
         // 5..7: the reflector outer boundary -- VACUUM, this is a bare core
-        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: refl_radius, bc: BoundaryType::Vacuum }),
-        SurfaceKind::ZPlane(ZPlane { z0: -refl_half_height, bc: BoundaryType::Vacuum }),
-        SurfaceKind::ZPlane(ZPlane { z0: refl_half_height, bc: BoundaryType::Vacuum }),
+        SurfaceKind::ZCylinder(ZCylinder {
+            x0: 0.0,
+            y0: 0.0,
+            r: refl_radius,
+            bc: BoundaryType::Vacuum,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: -refl_half_height,
+            bc: BoundaryType::Vacuum,
+        }),
+        SurfaceKind::ZPlane(ZPlane {
+            z0: refl_half_height,
+            bc: BoundaryType::Vacuum,
+        }),
     ];
-    let ins = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
-    let out = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+    let ins = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Inside,
+    };
+    let out = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Outside,
+    };
 
     // Universe 1 -- fuelled pebble. Universe 2 -- dummy pebble. Both sit in
     // tile-local coordinates, so the spheres are shared.
     let fuel_zone = Cell::material(10, vec![ins(1)], mat::FUEL, 293.6);
-    let fuel_shell = Cell::material(11, vec![out(1), ins(0), RegionToken::Intersection], mat::GRAPHITE, 293.6);
+    let fuel_shell = Cell::material(
+        11,
+        vec![out(1), ins(0), RegionToken::Intersection],
+        mat::GRAPHITE,
+        293.6,
+    );
     let fuel_helium = Cell::material(12, vec![out(0)], mat::HELIUM, 293.6);
     let dummy_ball = Cell::material(13, vec![ins(0)], mat::GRAPHITE, 293.6);
     let dummy_helium = Cell::material(14, vec![out(0)], mat::HELIUM, 293.6);
 
     // The bed: a cylinder, DELTA-tracked, filled by the hex lattice.
     let bed_region = vec![
-        ins(2), out(3), RegionToken::Intersection, ins(4), RegionToken::Intersection,
+        ins(2),
+        out(3),
+        RegionToken::Intersection,
+        ins(4),
+        RegionToken::Intersection,
     ];
     let bed_cell = Cell::fill(1, bed_region.clone(), CellFill::Lattice(0), Position::ZERO);
     let bed = if majorant_index == usize::MAX {
@@ -383,7 +443,11 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
 
     // The reflector: everything else inside the vacuum boundary, SURFACE-tracked.
     let mut refl_region = vec![
-        ins(5), out(6), RegionToken::Intersection, ins(7), RegionToken::Intersection,
+        ins(5),
+        out(6),
+        RegionToken::Intersection,
+        ins(7),
+        RegionToken::Intersection,
     ];
     refl_region.extend(bed_region);
     refl_region.push(RegionToken::Complement);
@@ -393,7 +457,11 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // OUTRAM_HTR10_ALLFUEL=1 makes EVERY tile a fuelled pebble. Not physical --
     // the first critical core is 57 % fuel / 43 % graphite dummies -- but it is
     // an ABLATION that bounds how much of a k deficit the dilution can explain.
-    let mod_universe = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() { 1 } else { 2 };
+    let mod_universe = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
+        1
+    } else {
+        2
+    };
     let levels = bed_tile_levels(n_rings, n_axial, 1, mod_universe);
     let tiles: usize = levels.iter().flatten().map(|r| r.len()).sum();
     let lattice = HexLattice::from_rings_3d(
@@ -422,23 +490,53 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         // a measurement: with no filler, `locate` reports those points as lost,
         // so the lost fraction IS the fraction of the bed cylinder the lattice
         // fails to tile. Formulas for that have been wrong twice here.
-        if std::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() { None } else { Some(2) },
+        if std::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() {
+            None
+        } else {
+            Some(2)
+        },
     );
 
     let geometry = Geometry {
         surfaces,
-        cells: vec![bed, reflector, fuel_zone, fuel_shell, fuel_helium, dummy_ball, dummy_helium],
+        cells: vec![
+            bed,
+            reflector,
+            fuel_zone,
+            fuel_shell,
+            fuel_helium,
+            dummy_ball,
+            dummy_helium,
+        ],
         universes: vec![
-            Universe { id: 0, cell_indices: vec![0, 1] },
-            Universe { id: 1, cell_indices: vec![2, 3, 4] },
-            Universe { id: 2, cell_indices: vec![5, 6] },
+            Universe {
+                id: 0,
+                cell_indices: vec![0, 1],
+            },
+            Universe {
+                id: 1,
+                cell_indices: vec![2, 3, 4],
+            },
+            Universe {
+                id: 2,
+                cell_indices: vec![5, 6],
+            },
         ],
         lattices: vec![Lattice::Hex(lattice)],
         root_universe: 0,
     };
     let (cells, universes) = (geometry.cells.len(), geometry.universes.len());
-    AssembledCore { geometry, tiles, cells, universes, bed_radius, bed_half_height, lat_pitch, lat_height,
-        conus_floor: -bed_half_height }
+    AssembledCore {
+        geometry,
+        tiles,
+        cells,
+        universes,
+        bed_radius,
+        bed_half_height,
+        lat_pitch,
+        lat_height,
+        conus_floor: -bed_half_height,
+    }
 }
 
 /// **Assemble the core with an EXPLICIT TRISO lattice in each fuelled pebble** —
@@ -537,8 +635,7 @@ pub fn assemble_explicit_triso(
     // without compensation, so the bed carries ~4.7 % less pebble-shell
     // moderator than a whole-ball bed would. That is a real second-order
     // approximation of the one-ball-per-tile construction.
-    let target_fuel_zone_fraction =
-        PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
+    let target_fuel_zone_fraction = PAPER_FILLING_FRACTION * (r_fuel_zone / r_ball).powi(3);
     let lat_pitch = (clipped(r_fuel_zone)
         / (target_fuel_zone_fraction * (3.0_f64.sqrt() / 2.0) * lat_height))
         .sqrt();
@@ -546,7 +643,8 @@ pub fn assemble_explicit_triso(
     // Adjudicated radii (op-867c.12): TECDOC-1382, 90 um buffer.
     let tr = [0.0250_f64, 0.0340, 0.0380, 0.0415, 0.0455];
     let r_part = tr[4];
-    let (pitch_triso, _n_particles) = cubic_pitch_for_count(r_part, r_fuel_zone, 8335, [0.5, 0.5, 0.0]);
+    let (pitch_triso, _n_particles) =
+        cubic_pitch_for_count(r_part, r_fuel_zone, 8335, [0.5, 0.5, 0.0]);
     // A cubic lattice spanning the fuel zone; tiles outside it fall through to
     // `outer` = matrix graphite, which is exactly the "not occupied is filled
     // with graphite" the paper specifies.
@@ -613,14 +711,26 @@ pub fn assemble_explicit_triso(
     // one configuration directly comparable to the independently measured
     // single-pebble k_inf from the DhUniverse path. Two implementations, one
     // physical problem: they must agree or one of them is wrong.
-    let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() { 0.0 } else { 100.0 };
+    let refl_thickness = if std::env::var("OUTRAM_HTR10_NOREFL").is_ok() {
+        0.0
+    } else {
+        100.0
+    };
     // Radial reflector structure is PHYSICAL, from Terry (2005) Fig. 2, not
     // `bed_radius + 100`: graphite out to 167.793 cm, then BORONATED CARBON
     // BRICKS to the 190 cm outer boundary. Modelling the whole reflector as
     // clean graphite omits that absorber entirely and is optimistic -- measured
     // at +8496 pcm against RMC with it missing.
-    let refl_radius = if refl_thickness > 0.0 { HTR10_REFLECTOR_OUTER_CM } else { bed_radius };
-    let graphite_outer = if refl_thickness > 0.0 { HTR10_GRAPHITE_OUTER_CM } else { bed_radius };
+    let refl_radius = if refl_thickness > 0.0 {
+        HTR10_REFLECTOR_OUTER_CM
+    } else {
+        bed_radius
+    };
+    let graphite_outer = if refl_thickness > 0.0 {
+        HTR10_GRAPHITE_OUTER_CM
+    } else {
+        bed_radius
+    };
     // The axial reflector must sit ABOVE the cavity, not be consumed by it.
     // With `bed_half_height + 100` the cavity top (bed + 98.758) left barely a
     // centimetre of graphite before vacuum, so the cavity vented almost
@@ -634,15 +744,46 @@ pub fn assemble_explicit_triso(
     // Surfaces 0..4 are the TRISO shells, in PARTICLE-local coordinates.
     let mut surfaces: Vec<SurfaceKind> = tr
         .iter()
-        .map(|&r| SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r, bc: BoundaryType::Transmissive }))
+        .map(|&r| {
+            SurfaceKind::Sphere(Sphere {
+                x0: 0.0,
+                y0: 0.0,
+                z0: 0.0,
+                r,
+                bc: BoundaryType::Transmissive,
+            })
+        })
         .collect();
     // 5: fuel zone, 6: pebble -- in TILE-local coordinates.
-    surfaces.push(SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: r_fuel_zone, bc: BoundaryType::Transmissive }));
-    surfaces.push(SurfaceKind::Sphere(Sphere { x0: 0.0, y0: 0.0, z0: 0.0, r: r_pebble, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::Sphere(Sphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: r_fuel_zone,
+        bc: BoundaryType::Transmissive,
+    }));
+    surfaces.push(SurfaceKind::Sphere(Sphere {
+        x0: 0.0,
+        y0: 0.0,
+        z0: 0.0,
+        r: r_pebble,
+        bc: BoundaryType::Transmissive,
+    }));
     // 7..9 bed envelope, 10..12 reflector vacuum boundary, 13..14 tile clip.
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: bed_radius, bc: BoundaryType::Transmissive }));
-    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: -bed_half_height, bc: BoundaryType::Transmissive }));
-    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: bed_half_height, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: bed_radius,
+        bc: BoundaryType::Transmissive,
+    }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: -bed_half_height,
+        bc: BoundaryType::Transmissive,
+    }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: bed_half_height,
+        bc: BoundaryType::Transmissive,
+    }));
     // OUTRAM_HTR10_REFLECTIVE=1 closes the outer boundary. NOT physical -- it is
     // a DIAGNOSTIC that separates the two ways k can be low: with no leakage at
     // all, whatever k remains is pure in-model absorption or lost histories.
@@ -651,11 +792,27 @@ pub fn assemble_explicit_triso(
     } else {
         BoundaryType::Vacuum
     };
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: refl_radius, bc: obc }));
-    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: -refl_half_height, bc: obc }));
-    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: refl_half_height, bc: obc }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: refl_radius,
+        bc: obc,
+    }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: -refl_half_height,
+        bc: obc,
+    }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: refl_half_height,
+        bc: obc,
+    }));
     // 13: graphite / boronated-brick interface (Terry 2005 Fig. 2).
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: graphite_outer, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: graphite_outer,
+        bc: BoundaryType::Transmissive,
+    }));
     // 14, 15: the COLD COOLANT FLOW annulus, 140.6 -> 148.6 cm. Modelling it as
     // solid graphite (as this did) overstates the reflector: it is a helium
     // flow path, i.e. effectively void, and leaving it solid suppresses
@@ -665,8 +822,18 @@ pub fn assemble_explicit_triso(
     } else {
         (graphite_outer, graphite_outer)
     };
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: cool_in, bc: BoundaryType::Transmissive }));
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: cool_out, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: cool_in,
+        bc: BoundaryType::Transmissive,
+    }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: cool_out,
+        bc: BoundaryType::Transmissive,
+    }));
     // 17, 18: the CONUS — the sloping bottom of the pebble bed.
     //
     // A cone from r = 90 cm at the bed bottom down to the 25 cm discharge tube
@@ -686,13 +853,21 @@ pub fn assemble_explicit_triso(
     } else {
         bed_half_height
     };
-    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: cavity_top, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: cavity_top,
+        bc: BoundaryType::Transmissive,
+    }));
     surfaces.push(SurfaceKind::ZCone(ZCone {
-        x0: 0.0, y0: 0.0, z0: conus_apex_z,
+        x0: 0.0,
+        y0: 0.0,
+        z0: conus_apex_z,
         r_sq: conus_slope * conus_slope,
         bc: BoundaryType::Transmissive,
     }));
-    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: conus_floor, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane {
+        z0: conus_floor,
+        bc: BoundaryType::Transmissive,
+    }));
     // 19, 20: the side-reflector band carrying the CONTROL-ROD BORINGS,
     // 95.6 -> 108.6 cm (Terry 2005 Fig. 2). Modelled as solid zone-22 graphite
     // this over-reflects: TECDOC zones 31-40 give that homogenised band
@@ -710,38 +885,61 @@ pub fn assemble_explicit_triso(
     // So enabling it by default would be substituting one unjustified
     // composition for another in the reflector band nearest the core. The knob
     // instead MEASURES the sensitivity: OUTRAM_HTR10_BORINGS=1 turns it on.
-    let (bore_in, bore_out) = if refl_thickness > 0.0
-        && std::env::var("OUTRAM_HTR10_BORINGS").is_ok()
-    {
-        (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM)
-    } else {
-        (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_INNER_CM)
-    };
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: bore_in, bc: BoundaryType::Transmissive }));
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: bore_out, bc: BoundaryType::Transmissive }));
+    let (bore_in, bore_out) =
+        if refl_thickness > 0.0 && std::env::var("OUTRAM_HTR10_BORINGS").is_ok() {
+            (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM)
+        } else {
+            (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_INNER_CM)
+        };
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: bore_in,
+        bc: BoundaryType::Transmissive,
+    }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: bore_out,
+        bc: BoundaryType::Transmissive,
+    }));
     // 21: the FUEL DISCHARGE TUBE below the conus floor, r < 25 cm. Reflector
     // graphite here over-reflects the conus tip, where the fuel converges.
     // Real: a tube of pebbles and void. Modelled as helium, which BOUNDS the
     // effect (real pebbles would reflect somewhat more than void).
     //
     // OUTRAM_HTR10_NO_DISCHARGE=1 collapses it, restoring graphite.
-    let tube_r = if refl_thickness > 0.0
-        && std::env::var("OUTRAM_HTR10_NO_DISCHARGE").is_err()
-    {
+    let tube_r = if refl_thickness > 0.0 && std::env::var("OUTRAM_HTR10_NO_DISCHARGE").is_err() {
         HTR10_DISCHARGE_TUBE_RADIUS_CM
     } else {
         0.0
     };
-    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: tube_r, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder {
+        x0: 0.0,
+        y0: 0.0,
+        r: tube_r,
+        bc: BoundaryType::Transmissive,
+    }));
     // OUTRAM_HTR10_REFLECTIVE=1 closes the outer boundary. NOT physical -- it is
     // a DIAGNOSTIC that separates the two ways k can be low: with no leakage at
     // all, whatever k remains is pure in-model absorption or lost histories.
 
-    let ins = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Inside };
-    let out = |i: usize| RegionToken::HalfSpace { surface_idx: i, sense: HalfSpaceSense::Outside };
+    let ins = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Inside,
+    };
+    let out = |i: usize| RegionToken::HalfSpace {
+        surface_idx: i,
+        sense: HalfSpaceSense::Outside,
+    };
 
     let shell = |inner: usize, outer: usize, m: usize, id: i32| {
-        Cell::material(id, vec![out(inner), ins(outer), RegionToken::Intersection], m, 293.6)
+        Cell::material(
+            id,
+            vec![out(inner), ins(outer), RegionToken::Intersection],
+            m,
+            293.6,
+        )
     };
 
     // Universe 3 -- one TRISO particle: five shells then matrix.
@@ -760,9 +958,19 @@ pub fn assemble_explicit_triso(
             // that this needed conditional tile omission was wrong.
             let bed = Cell::fill(
                 1,
-                vec![ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection,
-                     ins(17), ins(8), RegionToken::Intersection, out(18), RegionToken::Intersection,
-                     RegionToken::Union],
+                vec![
+                    ins(7),
+                    out(8),
+                    RegionToken::Intersection,
+                    ins(9),
+                    RegionToken::Intersection,
+                    ins(17),
+                    ins(8),
+                    RegionToken::Intersection,
+                    out(18),
+                    RegionToken::Intersection,
+                    RegionToken::Union,
+                ],
                 CellFill::Lattice(0),
                 Position::ZERO,
             );
@@ -770,53 +978,146 @@ pub fn assemble_explicit_triso(
             // geometry can be run both ways. That is the discriminator for the
             // k = 0 failure: if surface tracking gives a sensible k on this
             // model, the delta path is at fault; if it does not, the model is.
-            if majorant_index == usize::MAX { bed } else { bed.delta_tracked(majorant_index) }
+            if majorant_index == usize::MAX {
+                bed
+            } else {
+                bed.delta_tracked(majorant_index)
+            }
         },
         // 1: graphite reflector -- inside the boronated interface, outside the
         // bed, and outside the coolant annulus.
-        Cell::material(2, vec![ins(13), out(11), RegionToken::Intersection, ins(12), RegionToken::Intersection,
-                               ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection,
-                               RegionToken::Complement, RegionToken::Intersection,
-                               ins(15), out(14), RegionToken::Intersection,
-                               RegionToken::Complement, RegionToken::Intersection,
-                               ins(7), out(9), RegionToken::Intersection, ins(16), RegionToken::Intersection,
-                               RegionToken::Complement, RegionToken::Intersection,
-                               // and the conus, which the bed now occupies
-                               ins(17), ins(8), RegionToken::Intersection, out(18), RegionToken::Intersection,
-                               RegionToken::Complement, RegionToken::Intersection,
-                               // minus the bored control-rod band
-                               ins(20), out(19), RegionToken::Intersection,
-                               out(18), RegionToken::Intersection, ins(16), RegionToken::Intersection,
-                               RegionToken::Complement, RegionToken::Intersection,
-                               // minus the discharge tube
-                               ins(21), ins(18), RegionToken::Intersection,
-                               RegionToken::Complement, RegionToken::Intersection],
-                       mat::REFLECTOR, 293.6),
+        Cell::material(
+            2,
+            vec![
+                ins(13),
+                out(11),
+                RegionToken::Intersection,
+                ins(12),
+                RegionToken::Intersection,
+                ins(7),
+                out(8),
+                RegionToken::Intersection,
+                ins(9),
+                RegionToken::Intersection,
+                RegionToken::Complement,
+                RegionToken::Intersection,
+                ins(15),
+                out(14),
+                RegionToken::Intersection,
+                RegionToken::Complement,
+                RegionToken::Intersection,
+                ins(7),
+                out(9),
+                RegionToken::Intersection,
+                ins(16),
+                RegionToken::Intersection,
+                RegionToken::Complement,
+                RegionToken::Intersection,
+                // and the conus, which the bed now occupies
+                ins(17),
+                ins(8),
+                RegionToken::Intersection,
+                out(18),
+                RegionToken::Intersection,
+                RegionToken::Complement,
+                RegionToken::Intersection,
+                // minus the bored control-rod band
+                ins(20),
+                out(19),
+                RegionToken::Intersection,
+                out(18),
+                RegionToken::Intersection,
+                ins(16),
+                RegionToken::Intersection,
+                RegionToken::Complement,
+                RegionToken::Intersection,
+                // minus the discharge tube
+                ins(21),
+                ins(18),
+                RegionToken::Intersection,
+                RegionToken::Complement,
+                RegionToken::Intersection,
+            ],
+            mat::REFLECTOR,
+            293.6,
+        ),
         // 1d: side reflector homogenised with its CONTROL-ROD BORINGS.
-        Cell::material(16, vec![ins(20), out(19), RegionToken::Intersection,
-                                out(18), RegionToken::Intersection, ins(16), RegionToken::Intersection],
-                       mat::BORED_GRAPHITE, 293.6),
+        Cell::material(
+            16,
+            vec![
+                ins(20),
+                out(19),
+                RegionToken::Intersection,
+                out(18),
+                RegionToken::Intersection,
+                ins(16),
+                RegionToken::Intersection,
+            ],
+            mat::BORED_GRAPHITE,
+            293.6,
+        ),
         // 1e: the FUEL DISCHARGE TUBE below the conus. Terry (2005) section 2
         // says it holds only DUMMY PEBBLES -- so neither solid reflector
         // graphite (what this model had, over-reflecting) nor helium (the
         // bounding ablation, under-reflecting), but pebble graphite at the
         // bed's filling fraction.
-        Cell::material(17, vec![ins(21), ins(18), RegionToken::Intersection,
-                                out(11), RegionToken::Intersection],
-                       mat::HOMOG_DUMMY, 293.6),
+        Cell::material(
+            17,
+            vec![
+                ins(21),
+                ins(18),
+                RegionToken::Intersection,
+                out(11),
+                RegionToken::Intersection,
+            ],
+            mat::HOMOG_DUMMY,
+            293.6,
+        ),
         // 1c: the EMPTY CORE CAVITY above the pebble bed -- helium, not graphite.
-        Cell::material(5, vec![ins(7), out(9), RegionToken::Intersection, ins(16), RegionToken::Intersection],
-                       mat::HELIUM, 293.6),
+        Cell::material(
+            5,
+            vec![
+                ins(7),
+                out(9),
+                RegionToken::Intersection,
+                ins(16),
+                RegionToken::Intersection,
+            ],
+            mat::HELIUM,
+            293.6,
+        ),
         // 1b: the cold coolant flow annulus -- helium, i.e. effectively void.
-        Cell::material(4, vec![ins(15), out(14), RegionToken::Intersection,
-                               out(11), RegionToken::Intersection, ins(12), RegionToken::Intersection],
-                       mat::HELIUM, 293.6),
+        Cell::material(
+            4,
+            vec![
+                ins(15),
+                out(14),
+                RegionToken::Intersection,
+                out(11),
+                RegionToken::Intersection,
+                ins(12),
+                RegionToken::Intersection,
+            ],
+            mat::HELIUM,
+            293.6,
+        ),
         // 2: BORONATED CARBON BRICKS -- the outermost reflector annulus,
         // 167.793 -> 190.0 cm (Terry 2005 Fig. 2). Omitting this is what made
         // the reflector optimistic.
-        Cell::material(3, vec![ins(10), out(13), RegionToken::Intersection,
-                               out(11), RegionToken::Intersection, ins(12), RegionToken::Intersection],
-                       mat::BORONATED, 293.6),
+        Cell::material(
+            3,
+            vec![
+                ins(10),
+                out(13),
+                RegionToken::Intersection,
+                out(11),
+                RegionToken::Intersection,
+                ins(12),
+                RegionToken::Intersection,
+            ],
+            mat::BORONATED,
+            293.6,
+        ),
         // 3: fuelled pebble -- fuel zone holds the TRISO lattice
         Cell::fill(3, vec![ins(5)], CellFill::Lattice(1), Position::ZERO),
         // 3: pebble shell, 4: helium around the fuelled pebble
@@ -847,7 +1148,11 @@ pub fn assemble_explicit_triso(
     // OUTRAM_HTR10_ALLFUEL=1 makes EVERY tile a fuelled pebble. Not physical --
     // the first critical core is 57 % fuel / 43 % graphite dummies -- but it is
     // an ABLATION that bounds how much of a k deficit the dilution can explain.
-    let mod_universe = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() { 1 } else { 2 };
+    let mod_universe = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() {
+        1
+    } else {
+        2
+    };
     // AXIAL EXTENT: the lattice must reach the conus floor, not just the bed.
     //
     // `n_axial` is the fuel LOADING HEIGHT and sets `bed_half_height`; it must
@@ -899,7 +1204,8 @@ pub fn assemble_explicit_triso(
     let levels = levels;
     let tiles: usize = levels.iter().flatten().map(|r| r.len()).sum();
     let bed_lattice = HexLattice::from_rings_3d(
-        0, HexOrientation::Y,
+        0,
+        HexOrientation::Y,
         // The lattice CENTRE, not its bottom tile.
         //
         // `HexLattice::center_offset` already centres the axial stack about
@@ -915,9 +1221,15 @@ pub fn assemble_explicit_triso(
         // a flat 0.48 at EVERY radius including r = 0, which is what
         // distinguishes an axial offset from a radial coverage shortfall.
         Position::ZERO,
-        lat_pitch, lat_height, &levels,
+        lat_pitch,
+        lat_height,
+        &levels,
         // See the OUTRAM_HTR10_NO_OUTER note in `assemble`.
-        if std::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() { None } else { Some(2) },
+        if std::env::var("OUTRAM_HTR10_NO_OUTER").is_ok() {
+            None
+        } else {
+            Some(2)
+        },
     );
     let triso_lattice = RectLattice {
         id: 1,
@@ -934,7 +1246,11 @@ pub fn assemble_explicit_triso(
                     for i in 0..n_triso {
                         let c = |n: usize| -lattice_half + (n as f64 + 0.5) * pitch_triso;
                         let (x, y, z) = (c(i), c(j), c(k));
-                        v.push(if x * x + y * y + z * z <= r_keep * r_keep { 3 } else { 4 });
+                        v.push(if x * x + y * y + z * z <= r_keep * r_keep {
+                            3
+                        } else {
+                            4
+                        });
                     }
                 }
             }
@@ -949,16 +1265,40 @@ pub fn assemble_explicit_triso(
         universes: vec![
             // Root order: bed, graphite reflector, bored control-rod band,
             // discharge tube, cavity, coolant annulus, boronated bricks.
-            Universe { id: 0, cell_indices: vec![0, 1, 2, 3, 4, 5, 6] },
-            Universe { id: 1, cell_indices: vec![7, 8, 9] },        // fuelled pebble
-            Universe { id: 2, cell_indices: vec![10, 11] },         // dummy pebble
-            Universe { id: 3, cell_indices: vec![12, 13, 14, 15, 16, 17] }, // TRISO particle
-            Universe { id: 4, cell_indices: vec![18, 19] },         // matrix (lattice outer)
+            Universe {
+                id: 0,
+                cell_indices: vec![0, 1, 2, 3, 4, 5, 6],
+            },
+            Universe {
+                id: 1,
+                cell_indices: vec![7, 8, 9],
+            }, // fuelled pebble
+            Universe {
+                id: 2,
+                cell_indices: vec![10, 11],
+            }, // dummy pebble
+            Universe {
+                id: 3,
+                cell_indices: vec![12, 13, 14, 15, 16, 17],
+            }, // TRISO particle
+            Universe {
+                id: 4,
+                cell_indices: vec![18, 19],
+            }, // matrix (lattice outer)
         ],
         lattices: vec![Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)],
         root_universe: 0,
     };
     let (c, u) = (geometry.cells.len(), geometry.universes.len());
-    AssembledCore { geometry, tiles, cells: c, universes: u, bed_radius, bed_half_height, lat_pitch, lat_height,
-        conus_floor }
+    AssembledCore {
+        geometry,
+        tiles,
+        cells: c,
+        universes: u,
+        bed_radius,
+        bed_half_height,
+        lat_pitch,
+        lat_height,
+        conus_floor,
+    }
 }
