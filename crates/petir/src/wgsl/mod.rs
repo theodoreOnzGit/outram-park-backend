@@ -101,6 +101,9 @@ pub mod mirror_bessel;
 /// `f32` mirrors of the digamma and zeta shaders.
 pub mod mirror_psi_zeta;
 
+/// `f32` mirrors of the Debye shaders.
+pub mod mirror_debye;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -202,11 +205,25 @@ pub const BESSEL: &str = include_str!("shaders/bessel.wgsl");
 /// own header gives the reason for each.
 pub const PSI_ZETA: &str = include_str!("shaders/psi_zeta.wgsl");
 
+/// GSL's Debye functions `D_1` .. `D_6`, ported from `specfunc/debye.c` by
+/// way of [`crate::specfunc::debye`].
+///
+/// Provides `petir_debye(n, x)` and the six Chebyshev series behind it.
+/// `D_3` is the Debye heat-capacity function.
+///
+/// **Two machine constants are retargeted to `f32`** — GSL's `xcut` and the
+/// sum/closed-form cut are derived from `f64`'s range and mean nothing here.
+/// See [`mirror_debye`]; the retargeting shortens the inner loop eight-fold
+/// at no measured cost.
+pub const DEBYE: &str = include_str!("shaders/debye.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 8] = [POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA];
+pub const ALL: [&str; 9] = [
+    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE,
+];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
 ///
@@ -216,8 +233,8 @@ pub const ALL: [&str; 8] = [POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PS
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 8] = [
-    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta",
+pub const ALL_NAMES: [&str; 9] = [
+    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye",
 ];
 
 pub use kernel_builder::test_kernel;

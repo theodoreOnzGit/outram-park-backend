@@ -25,7 +25,7 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, DEBYE, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -49,6 +49,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "gamma" => (vec![GAMMA], "petir_lngamma(x)"),
         "bessel" => (vec![BESSEL], "petir_bessel_j0(x)"),
         "psi_zeta" => (vec![GAMMA, PSI_ZETA], "petir_psi(x) + petir_zeta(x)"),
+        "debye" => (vec![DEBYE], "petir_debye(3u, x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -122,7 +123,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 8] = [
+    let expected: [(&str, &[&str]); 9] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -205,6 +206,16 @@ fn every_documented_function_is_defined() {
                 "petir_zeta",
                 "petir_zetam1",
                 "petir_eta",
+            ],
+        ),
+        (
+            DEBYE,
+            &[
+                "petir_debye",
+                "petir_debye_cheb",
+                "petir_debye_fall",
+                "petir_debye_fall_x",
+                "petir_debye_pow_n",
             ],
         ),
     ];
@@ -347,6 +358,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "gamma" => LEDGER.contains("gamma family"),
             "bessel" => LEDGER.contains("Bessel family"),
             "psi_zeta" => LEDGER.contains("psi/zeta family"),
+            "debye" => LEDGER.contains("Debye family"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

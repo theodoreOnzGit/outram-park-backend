@@ -6,8 +6,8 @@
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
-    mirror, mirror_bessel, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta, BESSEL, CHEB,
-    ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    mirror, mirror_bessel, mirror_debye, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta,
+    BESSEL, CHEB, DEBYE, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1072,4 +1072,241 @@ fn gpu_zeta_refuses_exactly_where_the_mirror_does() {
             assert_eq!(have, 0.0, "the trivial zero at s = {s} must stay exact");
         }
     }
+}
+
+/// The Debye functions `D_1` .. `D_6` on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// One dispatch per order over `x` in `[0.01, 16]`, which crosses all five
+/// branches — the small-argument quadratic, the Chebyshev series, the
+/// exponential sum, the closed form and the asymptote. `DEBYE` has no
+/// dependency on another source; `petir_debye` carries its own Chebyshev
+/// evaluation.
+///
+/// The comparison is relative throughout, with no absolute fallback: `D_n` is
+/// strictly positive and decreasing on `[0, inf)`, with no zero anywhere, so
+/// unlike `psi`, `zeta` and the Bessel functions there is no point where a
+/// relative figure degenerates.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | order | worst | at |
+/// |---|---|---|
+/// | `D_1` | 2.994e-07 | 3.875 |
+/// | `D_2` | 4.956e-07 | 4.0 |
+/// | `D_3` | 6.381e-07 | 3.9375 |
+/// | `D_4` | 6.913e-07 | 3.75 |
+/// | `D_5` | 8.574e-07 | 3.9375 |
+/// | `D_6` | 1.630e-06 | 4.5 |
+///
+/// **Not bit-identical, and the reason is not what the ledger's general rule
+/// would predict.** Five of the six worst points sit at or just below
+/// `x = 4`, which is the *Chebyshev* branch — pure arithmetic, calling no
+/// transcendental builtin at all. By the rule stated in
+/// `docs/wgsl-coverage.md` that branch should match exactly, and it does not.
+///
+/// `the_inline_coefficient_array_is_what_costs_bit_identity` isolates the
+/// cause: it is the inline `array<f32, 17>` literal, not the recurrence. The
+/// budget below is set at 1e-04, about sixty times the worst measurement.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim** — `mirror_debye`
+/// measures its own distance from `f64` separately, at 2.8e-07 .. 1.9e-06
+/// over the same window, which is the same size. The device contributes
+/// about as much as `f32` itself does here.
+#[test]
+fn gpu_debye_family_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_debye_family_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let probes: Vec<f32> = (1..=256).map(|i| 0.0625 * i as f32).collect();
+
+    for n in 1..=6u32 {
+        let call = format!("petir_debye({n}u, x)");
+        let got = gpu
+            .eval_map(&[DEBYE], &call, &[], &probes, KernelParams::default())
+            .expect("non-empty probe");
+        let mut worst = 0.0_f64;
+        let mut at = 0.0_f32;
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_debye::debye_n(n, x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite(),
+                "D_{n} at x = {x}: mirror {want}, GPU {have}"
+            );
+            let d = ((have - want) / want).abs() as f64;
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for D_{n}: {worst:e} at x = {at}",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// **Why the Debye Chebyshev branch is not bit-identical although it is pure
+/// arithmetic: the inline coefficient array, not the recurrence.**
+///
+/// `docs/wgsl-coverage.md` states the general rule that a kernel built only
+/// from arithmetic may be held to bit-identity, because IEEE-754 pins it to
+/// one correctly-rounded answer. `petir_debye`'s `x <= 4` branch is exactly
+/// such a kernel — Clenshaw over 17 constants, no `exp`, no `log`, no `sin` —
+/// and it misses by up to 4 ulp. The rule needed a qualification, and this
+/// test is the experiment that found it.
+///
+/// # Methodology
+///
+/// A controlled A/B over the *same* 17 coefficients (`adeb1_cs`), the same 64
+/// arguments, and the same Clenshaw recurrence, differing in one thing only:
+///
+/// * `petir_debye_cheb1` holds them in an inline `array<f32, 17>` literal, so
+///   the shader compiler sees compile-time constants;
+/// * `petir_cheb_eval` reads them from the storage buffer, so it cannot.
+///
+/// `a = -1, b = 1` makes `petir_cheb_eval`'s argument scaling the identity,
+/// which is what lets the two be compared at all.
+///
+/// # Result, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | coefficients | bit-exact against the CPU |
+/// |---|---|
+/// | storage buffer | **64 / 64** |
+/// | inline literal | 34 / 64 |
+///
+/// The buffer-fed form is *exactly* right at every point. The inline form is
+/// wrong at 30 of 64, always by one ulp downward at the Chebyshev step, which
+/// compounds to 4 ulp by the end of `petir_debye`. So the recurrence, the
+/// coefficients and the transcription are all correct; what differs is what
+/// the shader compiler is allowed to do once the operands are constants.
+///
+/// # What this means for the rest of the ledger, stated as a prediction
+///
+/// `bessel.wgsl`, `gamma.wgsl` and `psi_zeta.wgsl` all embed their series as
+/// inline literals, so they should show the same signature — and one figure
+/// already on the ledger fits it: `I_0_scaled` calls no `exp` at all and
+/// still sits 2.364e-07 from its mirror, which had no explanation before
+/// this. That is a **hypothesis, not a result**; what would settle it is a
+/// buffer-fed copy of the `bi0_cs` series compared the same way. Filed
+/// rather than asserted here.
+#[test]
+fn the_inline_coefficient_array_is_what_costs_bit_identity() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP the_inline_coefficient_array_is_what_costs_bit_identity: no GPU adapter");
+        return;
+    };
+
+    // GSL's adeb1_cs, the same 17 values debye.wgsl and mirror_debye hold.
+    const ADEB1: [f32; 17] = [
+        2.40065972,
+        0.193721304,
+        -0.00623291246,
+        0.000351117477,
+        -2.28222467e-05,
+        1.58054679e-06,
+        -1.1353782e-07,
+        8.35833612e-09,
+        -6.26442479e-10,
+        4.76033489e-11,
+        -3.6574154e-12,
+        2.835431e-13,
+        -2.21473e-14,
+        1.7409e-15,
+        -1.376e-16,
+        1.09e-17,
+        -9e-19,
+    ];
+
+    /// Clenshaw in GSL's convention, on the CPU, in `f32`.
+    fn clenshaw(x: f32) -> f32 {
+        let (mut d, mut dd) = (0.0_f32, 0.0_f32);
+        let y2 = 2.0 * x;
+        for j in (1..=16).rev() {
+            let t = d;
+            d = y2 * d - dd + ADEB1[j];
+            dd = t;
+        }
+        x * d - dd + 0.5 * ADEB1[0]
+    }
+
+    // debye.wgsl's own argument mapping, so these are arguments the kernel
+    // really sees.
+    let ys: Vec<f32> = (1..=64)
+        .map(|i| {
+            let x = 0.0625 * i as f32;
+            x * x / 8.0 - 1.0
+        })
+        .collect();
+
+    let inline = gpu
+        .eval_map(
+            &[DEBYE],
+            "petir_debye_cheb(1u, x)",
+            &[],
+            &ys,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let buffered = gpu
+        .eval_map(
+            &[CHEB],
+            "petir_cheb_eval(0u, 17u, -1.0, 1.0, x)",
+            &ADEB1,
+            &ys,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let exact_buffered = ys
+        .iter()
+        .enumerate()
+        .filter(|(k, &y)| buffered.get(*k) == Some(&clenshaw(y)))
+        .count();
+    let exact_inline = ys
+        .iter()
+        .enumerate()
+        .filter(|(k, &y)| inline.get(*k) == Some(&clenshaw(y)))
+        .count();
+
+    // The control: with the coefficients opaque to the compiler, the device
+    // reproduces the CPU exactly. If this ever stops holding, the finding
+    // below is no longer about inlining and the docs need rewriting.
+    assert_eq!(
+        exact_buffered,
+        ys.len(),
+        "GPU ({}) buffer-fed Clenshaw is documented as bit-identical to the          CPU at every one of {} points, and matched {exact_buffered}",
+        gpu.adapter_name(),
+        ys.len()
+    );
+
+    // The finding: the inline-literal form is not, although nothing else
+    // about it differs.
+    assert!(
+        exact_inline < ys.len(),
+        "GPU ({}) inline-literal Clenshaw matched the CPU at all {} points.          That contradicts the measurement this test records (34/64) and the          explanation built on it in docs/wgsl-coverage.md — re-measure and          rewrite those rather than deleting this assertion",
+        gpu.adapter_name(),
+        ys.len()
+    );
+
+    // And the disagreement is small: one ulp per Chebyshev step.
+    let worst_ulp = ys
+        .iter()
+        .enumerate()
+        .map(|(k, &y)| {
+            let want = clenshaw(y).to_bits() as i64;
+            let have = inline.get(k).copied().unwrap_or(f32::NAN).to_bits() as i64;
+            (have - want).abs()
+        })
+        .max()
+        .unwrap_or(0);
+    assert!(
+        worst_ulp <= 2,
+        "the inline-literal Chebyshev branch is documented as differing by at          most one ulp per step, and differed by {worst_ulp}"
+    );
 }

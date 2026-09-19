@@ -76,7 +76,7 @@
 use crate::real::Real;
 
 use crate::cheb_slice::eval_gsl;
-use crate::specfunc::{DBL_EPSILON, LOG_DBL_MIN, SQRT_DBL_EPSILON};
+use crate::specfunc::{LOG_DBL_MIN, SQRT_DBL_EPSILON};
 
 use core::f64::consts::{LN_2, SQRT_2};
 /// GSL `debye.c/adeb1_data` (17 values).
