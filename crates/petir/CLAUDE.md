@@ -121,6 +121,47 @@ substitutions and compares substantive lines.
   block **and** raise `allowed_deviations` in the test with a reason. There are
   currently exactly two, both the `extern "C"` → `libm` FFI removal.
 
+## GPU policy: CI is GPU-INDEPENDENT (HARD RULE)
+
+**Maintainer direction, 2026-09-19.** The `wgpu` feature and the `wgsl` module
+exist under these requirements, which are not preferences:
+
+- **CI must never fail merely because no GPU is exposed** — Windows, Linux or
+  macOS.
+- **GPU availability is detected at RUN TIME**, by `wgsl::gpu::GpuContext::probe`,
+  which returns `Option`. `None` means *run the CPU path*, never an error.
+- **CPU / reference tests are mandatory on every platform.** `wgsl::mirror` and
+  `wgsl::mirror_erf` are `no_std`, feature-free and always compiled, and
+  `tests/wgsl_validation.rs` needs neither a feature nor a device.
+- **GPU tests are conditional** on an available adapter and `SKIP` cleanly
+  without one — `tests/wgsl_gpu.rs`, which additionally requires the `wgpu`
+  feature, so a default build does not even link it.
+
+### The split that makes this work
+
+| runs | needs a feature | needs a GPU |
+|---|---|---|
+| `wgsl` shader source + `wgsl::mirror*` (in-lib tests) | no | no |
+| `tests/wgsl_validation.rs` — naga parse, baseline-capability check, CPU mirror | no | no |
+| `tests/wgsl_gpu.rs` — dispatch and compare | **`wgpu`** | yes (else SKIP) |
+
+**Shader VALIDATION must stay in the feature-free file.** It was briefly inside
+the `wgpu`-gated one, which meant a default CI run validated no shader source
+at all — the suite was green while checking nothing. If you add a shader, add
+its entry-point call to `wgsl_validation.rs`'s match arms; the test panics on
+an unregistered name rather than skipping it.
+
+Verified 2026-09-19 across the whole matrix by hiding the Vulkan loader
+(`VK_ICD_FILENAMES=/nonexistent VK_DRIVER_FILES=/nonexistent`): default
+features with no GPU, `--features wgpu` with no GPU, and `--features wgpu` with
+one, all green.
+
+### A software ICD is a LOCAL convenience, never a CI dependency
+
+`apt-get install mesa-vulkan-drivers` gives a software Vulkan device
+(`llvmpipe`) so the shaders genuinely execute during development. Do not make
+CI require it, and do not write a test that needs it.
+
 ## `no_std` is the contract, not a configuration
 
 There is no `std` feature and there must not be one. Before calling anything

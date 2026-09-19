@@ -5,7 +5,7 @@
 ))]
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
-use petir::wgsl::{mirror, mirror_erf, test_kernel, ALL, ALL_NAMES, CHEB, ERF, LEGENDRE, POLY};
+use petir::wgsl::{mirror, mirror_erf, CHEB, ERF, LEGENDRE, POLY};
 
 /// Largest absolute difference between two same-length slices.
 fn worst_abs(a: &[f32], b: &[f32]) -> f32 {
@@ -13,85 +13,6 @@ fn worst_abs(a: &[f32], b: &[f32]) -> f32 {
         .zip(b.iter())
         .map(|(x, y)| (x - y).abs())
         .fold(0.0_f32, f32::max)
-}
-
-// ---------------------------------------------------------------------------
-// Validation — runs with no device, so CI always checks something
-// ---------------------------------------------------------------------------
-
-/// Every shader in [`petir::wgsl::ALL`] parses and validates under naga.
-///
-/// # Why this runs without a GPU
-///
-/// A skipped dispatch test proves nothing, and most CI has no adapter. naga is
-/// `wgpu`'s own front-end, so passing it is the same check a real device
-/// performs when creating the shader module — it catches every syntax error,
-/// type error and undefined identifier, on any host.
-///
-/// # Results
-///
-/// All three sources, and every generated test kernel, validate with **no
-/// diagnostics**, measured 2026-09-19.
-#[test]
-fn every_shader_parses_and_validates_under_naga() {
-    for (name, src) in ALL_NAMES.iter().zip(ALL.iter()) {
-        // The function libraries reference the `src` binding, so they only
-        // validate inside a complete kernel. Wrap each in the harness.
-        let call = match *name {
-            "poly" => "petir_poly_eval(0u, params.n, x)",
-            "cheb" => "petir_cheb_eval(0u, params.n, params.a, params.b, x)",
-            "legendre" => "petir_legendre_p(params.k, x)",
-            "erf" => "petir_erfc(x)",
-            other => panic!("no validation call registered for {other}.wgsl"),
-        };
-        let kernel = test_kernel(&[src], call);
-        let module = naga::front::wgsl::parse_str(&kernel)
-            .unwrap_or_else(|e| panic!("{name}.wgsl failed to parse: {e:?}"));
-        let mut validator = naga::valid::Validator::new(
-            naga::valid::ValidationFlags::all(),
-            naga::valid::Capabilities::default(),
-        );
-        validator
-            .validate(&module)
-            .unwrap_or_else(|e| panic!("{name}.wgsl failed validation: {e:?}"));
-    }
-}
-
-/// Every function the module documents as available is actually defined.
-///
-/// The doc comments on `POLY`, `CHEB` and `LEGENDRE` list the function names
-/// callers are told to use. This checks the text really defines them, so a
-/// rename cannot silently make the documentation wrong.
-#[test]
-fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 4] = [
-        (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
-        (
-            CHEB,
-            &["petir_cheb_eval", "petir_cheb_eval_n", "petir_cheb_scale"],
-        ),
-        (LEGENDRE, &["petir_legendre_p", "petir_legendre_p_dp"]),
-        (
-            ERF,
-            &[
-                "petir_erf",
-                "petir_erfc",
-                "petir_erfseries",
-                "petir_erfc8",
-                "petir_cheb_erfc_xlt1",
-                "petir_cheb_erfc_x15",
-                "petir_cheb_erfc_x510",
-            ],
-        ),
-    ];
-    for (src, names) in expected {
-        for name in names {
-            assert!(
-                src.contains(&format!("fn {name}(")),
-                "documented function {name} is not defined in its shader"
-            );
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
