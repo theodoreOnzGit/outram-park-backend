@@ -83,7 +83,8 @@ and stays there.
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~234 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (elliptic integrals) | ~12 | **f64 ONLY** | Carlson's `R_C`, `R_D`, `R_F`, `R_J` and the Legendre forms `F`, `E`, `Pi`, `D` plus their complete versions. **No Chebyshev tables at all** — iterative duplication. Not yet transcribed to WGSL; its `Mode::Single` (`errtol = 0.03`) is the natural `f32` setting and is measured at 1.3e-11 |
+| `specfunc` (rest) | ~222 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |

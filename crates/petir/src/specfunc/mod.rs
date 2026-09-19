@@ -151,6 +151,7 @@ pub mod clausen;
 pub mod dawson;
 pub mod debye;
 pub mod dilog;
+pub mod ellint;
 pub mod erf;
 /// Inverse error function (Winitzki approximation), lifted verbatim from
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
