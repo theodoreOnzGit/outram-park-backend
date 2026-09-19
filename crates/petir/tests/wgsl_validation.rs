@@ -24,7 +24,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
-use petir::wgsl::{test_kernel, ALL, ALL_NAMES, CHEB, ERF, LEGENDRE, POLY};
+use petir::wgsl::{test_kernel, ALL, ALL_NAMES, CHEB, ERF, LEGENDRE, MATRIX, POLY};
 
 /// Every shader in [`petir::wgsl::ALL`] parses and validates under naga.
 ///
@@ -49,6 +49,7 @@ fn every_shader_parses_and_validates_under_naga() {
             "cheb" => "petir_cheb_eval(0u, params.n, params.a, params.b, x)",
             "legendre" => "petir_legendre_p(params.k, x)",
             "erf" => "petir_erfc(x)",
+            "matrix" => "petir_blas_dot(0u, 0u, params.n)",
             other => panic!("no validation call registered for {other}.wgsl"),
         };
         let kernel = test_kernel(&[src], call);
@@ -71,7 +72,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 4] = [
+    let expected: [(&str, &[&str]); 5] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -88,6 +89,28 @@ fn every_documented_function_is_defined() {
                 "petir_cheb_erfc_xlt1",
                 "petir_cheb_erfc_x15",
                 "petir_cheb_erfc_x510",
+            ],
+        ),
+        (
+            MATRIX,
+            &[
+                "petir_mat_get",
+                "petir_mat_index",
+                "petir_blas_dot",
+                "petir_blas_nrm2",
+                "petir_blas_asum",
+                "petir_blas_iamax",
+                "petir_blas_gemv_row",
+                "petir_blas_gemv_row_trans",
+                "petir_blas_gemm_element",
+                "petir_blas_gemm_element_nt",
+                "petir_mat_add",
+                "petir_mat_sub",
+                "petir_mat_mul_elements",
+                "petir_mat_div_elements",
+                "petir_mat_scale",
+                "petir_mat_add_constant",
+                "petir_mat_transpose",
             ],
         ),
     ];
@@ -155,6 +178,7 @@ fn every_shader_validates_against_baseline_webgpu_capabilities() {
             "cheb" => "petir_cheb_eval(0u, params.n, params.a, params.b, x)",
             "legendre" => "petir_legendre_p(params.k, x)",
             "erf" => "petir_erfc(x)",
+            "matrix" => "petir_blas_dot(0u, 0u, params.n)",
             other => panic!("no baseline call registered for {other}.wgsl"),
         };
         let kernel = test_kernel(&[src], call);
@@ -181,4 +205,65 @@ fn every_shader_validates_against_baseline_webgpu_capabilities() {
             "{name}.wgsl uses f64 in code, which baseline WebGPU does not have"
         );
     }
+}
+
+/// The coverage ledger's **PORTED** rows match what the crate actually ships.
+///
+/// # Why a doc needs a test
+///
+/// `docs/wgsl-coverage.md` is the answer to "how much of GSL is in WGSL". A
+/// coverage document nobody checks drifts within a release or two, and drifts
+/// in one direction — claiming more than is there. This pins the direction
+/// that matters: every shader the crate ships must appear in the ledger, so a
+/// new kernel cannot land without the ledger being updated in the same change.
+///
+/// It deliberately does **not** try to parse the whole table. The claim being
+/// enforced is narrow and mechanical — names present, measured figures
+/// present — and a test that tried to validate prose would be worse than none.
+#[test]
+fn the_coverage_ledger_lists_every_shipped_shader() {
+    const LEDGER: &str = include_str!("../docs/wgsl-coverage.md");
+
+    // Every shader source in the crate must be named somewhere in the ledger.
+    for name in ALL_NAMES.iter() {
+        let mentioned = match *name {
+            // The ledger names GSL modules; these are the rows that cover
+            // each shader file.
+            "poly" => LEDGER.contains("`poly`"),
+            "cheb" => LEDGER.contains("`cheb`"),
+            "erf" => LEDGER.contains("erf family"),
+            "legendre" => LEDGER.contains("Legendre"),
+            "matrix" => LEDGER.contains("`matrix`") && LEDGER.contains("`blas`"),
+            other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
+        };
+        assert!(
+            mentioned,
+            "shader {name}.wgsl is shipped but has no row in docs/wgsl-coverage.md"
+        );
+    }
+
+    // The ledger must state the verification standard it holds PORTED to,
+    // because "ported" without it is an unfalsifiable word.
+    for required in [
+        "f32` CPU mirror",
+        "naga validation",
+        "GPU dispatch test",
+        "bit-identical",
+    ] {
+        assert!(
+            LEDGER.contains(required),
+            "the ledger no longer states '{required}' -- the verification \
+             standard is what makes PORTED mean anything"
+        );
+    }
+
+    // And it must keep the two caveats that stop its numbers being misread.
+    assert!(
+        LEDGER.contains("ULP bound rather than correct rounding"),
+        "the ledger must explain why erf is not bit-identical"
+    );
+    assert!(
+        LEDGER.contains("reassociation"),
+        "the ledger must explain the gemm summation-order deviation"
+    );
 }

@@ -93,6 +93,14 @@ pub struct KernelParams {
     pub b: f32,
     /// An order, degree or index, where the kernel takes one.
     pub k: u32,
+    /// A row count, for the matrix kernels.
+    pub m: u32,
+    /// Offset of a second matrix within `src`, for the matrix kernels.
+    pub off_b: u32,
+    /// Leading dimension of that second matrix.
+    pub ld_b: u32,
+    /// Offset of a third matrix (the accumulator `C`) within `src`.
+    pub off_c: u32,
 }
 
 impl Default for KernelParams {
@@ -103,6 +111,10 @@ impl Default for KernelParams {
             a: 0.0,
             b: 0.0,
             k: 0,
+            m: 0,
+            off_b: 0,
+            ld_b: 0,
+            off_c: 0,
         }
     }
 }
@@ -367,11 +379,15 @@ impl KernelParams {
     /// why they are written adjacent to each other in this file and the
     /// generator.
     fn to_le_bytes(self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(16);
+        let mut out = Vec::with_capacity(32);
         out.extend_from_slice(&self.n.to_le_bytes());
         out.extend_from_slice(&self.a.to_le_bytes());
         out.extend_from_slice(&self.b.to_le_bytes());
         out.extend_from_slice(&self.k.to_le_bytes());
+        out.extend_from_slice(&self.m.to_le_bytes());
+        out.extend_from_slice(&self.off_b.to_le_bytes());
+        out.extend_from_slice(&self.ld_b.to_le_bytes());
+        out.extend_from_slice(&self.off_c.to_le_bytes());
         out
     }
 }

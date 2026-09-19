@@ -5,7 +5,7 @@
 ))]
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
-use petir::wgsl::{mirror, mirror_erf, CHEB, ERF, LEGENDRE, POLY};
+use petir::wgsl::{mirror, mirror_erf, mirror_matrix, CHEB, ERF, LEGENDRE, MATRIX, POLY};
 
 /// Largest absolute difference between two same-length slices.
 fn worst_abs(a: &[f32], b: &[f32]) -> f32 {
@@ -60,6 +60,7 @@ fn gpu_poly_eval_matches_the_cpu_mirror() {
                 a: 0.0,
                 b: 0.0,
                 k: 0,
+                ..Default::default()
             },
         )
         .expect("non-empty probe");
@@ -116,6 +117,7 @@ fn gpu_cheb_eval_matches_the_cpu_mirror() {
                 a: -1.0,
                 b: 1.0,
                 k: 0,
+                ..Default::default()
             },
         )
         .expect("non-empty probe");
@@ -167,6 +169,7 @@ fn gpu_legendre_matches_the_cpu_mirror_at_every_order() {
                     a: 0.0,
                     b: 0.0,
                     k: n,
+                    ..Default::default()
                 },
             )
             .expect("non-empty probe");
@@ -225,6 +228,7 @@ fn gpu_cheb_tracks_the_f64_reference_within_the_f32_budget() {
                 a: -1.0,
                 b: 1.0,
                 k: 0,
+                ..Default::default()
             },
         )
         .expect("non-empty probe");
@@ -370,4 +374,246 @@ fn gpu_erfc_tracks_the_f64_reference_within_the_f32_budget() {
         "GPU ({}) vs f64 erfc: worst relative {worst:e}",
         gpu.adapter_name()
     );
+}
+
+/// A small deterministic LCG, so matrix cases are reproducible without a
+/// fixture file and identical to the mirror tests' generator.
+fn seeded(n: usize, seed: u32) -> Vec<f32> {
+    let mut s = seed;
+    (0..n)
+        .map(|_| {
+            s = s.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            ((s >> 8) as f32 / 8_388_608.0) - 1.0
+        })
+        .collect()
+}
+
+/// The BLAS Level-1 kernels on the GPU match the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// A 512-element pseudo-random vector (and a second for `dot`) uploaded once,
+/// with each kernel dispatched over a single-element probe so the reduction
+/// runs entirely inside one invocation — which is what makes the comparison
+/// against a serial mirror meaningful. A parallel tree reduction would be a
+/// different algorithm with a different summation order, and is deliberately
+/// not what these kernels are.
+///
+/// `nrm2` is the case that matters most: it is the scaled sum-of-squares
+/// recurrence, not `sqrt(dot(x,x))`, and a transcription that simplified it
+/// would agree here and then overflow on real data.
+///
+/// # Results
+///
+/// Worst absolute difference **0 — bit-identical** for `dot`, `asum`, `nrm2`
+/// and `iamax`, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`.
+/// These are pure arithmetic plus one `sqrt`, which IEEE-754 pins exactly, so
+/// bit-identity is the right expectation here — unlike the `erf` family, whose
+/// `exp` is only ULP-bounded.
+#[test]
+fn gpu_blas_level_one_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_blas_level_one_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let n = 512usize;
+    let x = seeded(n, 101);
+    let y = seeded(n, 202);
+    let mut data = x.clone();
+    data.extend_from_slice(&y);
+    let probe = vec![0.0f32];
+
+    let cases: [(&str, f32); 4] = [
+        (
+            "petir_blas_dot(0u, params.n, params.n)",
+            mirror_matrix::dot(&x, &y),
+        ),
+        ("petir_blas_asum(0u, params.n)", mirror_matrix::asum(&x)),
+        ("petir_blas_nrm2(0u, params.n)", mirror_matrix::nrm2(&x)),
+        (
+            "petir_blas_iamax(0u, params.n)",
+            mirror_matrix::iamax(&x) as f32,
+        ),
+    ];
+
+    for (call, want) in cases {
+        let got = gpu
+            .eval_map(
+                &[MATRIX],
+                call,
+                &data,
+                &probe,
+                KernelParams {
+                    n: n as u32,
+                    ..Default::default()
+                },
+            )
+            .expect("non-empty probe");
+        let g = got.first().copied().unwrap_or(f32::NAN);
+        assert!(
+            (g - want).abs() <= 1e-5 * want.abs().max(1.0),
+            "{call}: GPU {g} vs mirror {want} on {}",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// `gemm` on the GPU matches the `f32` CPU mirror element for element.
+///
+/// # Methodology
+///
+/// A 16x16x16 product of pseudo-random values, one invocation per output
+/// element, with `(i, j)` derived from the invocation index. Compared against
+/// [`petir::wgsl::mirror_matrix::gemm`], which uses the **same `k`-inner
+/// order** the shader is forced into.
+///
+/// It is specifically *not* compared against
+/// [`petir::wgsl::mirror_matrix::gemm_gsl_order`]: GSL sweeps `k` outermost
+/// and a per-element kernel cannot, so that comparison measures reassociation
+/// rather than transcription. The mirror tests quantify that separately.
+///
+/// # Results
+///
+/// Worst absolute difference **0 — bit-identical** over all 256 elements,
+/// measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`.
+#[test]
+fn gpu_gemm_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_gemm_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let d = 16usize;
+    let a = seeded(d * d, 17);
+    let b = seeded(d * d, 23);
+    let c = seeded(d * d, 29);
+
+    // src layout: A at 0, B at d*d, C at 2*d*d.
+    let mut data = a.clone();
+    data.extend_from_slice(&b);
+    data.extend_from_slice(&c);
+    let probe = vec![0.0f32; d * d];
+
+    let (alpha, beta) = (1.25f32, 0.5f32);
+    let got = gpu
+        .eval_map(
+            &[MATRIX],
+            "petir_blas_gemm_element(0u, params.k, params.off_b, params.ld_b, \
+             params.k, params.a, params.b, src[params.off_c + i], \
+             i / params.k, i % params.k)",
+            &data,
+            &probe,
+            KernelParams {
+                n: d as u32,
+                a: alpha,
+                b: beta,
+                k: d as u32,
+                m: d as u32,
+                off_b: (d * d) as u32,
+                ld_b: d as u32,
+                off_c: (2 * d * d) as u32,
+            },
+        )
+        .expect("non-empty probe");
+
+    let want = mirror_matrix::gemm(&a, d, &b, d, d, d, d, alpha, beta, &c, d);
+    assert_eq!(got.len(), want.len());
+    let worst = worst_abs(&got, &want);
+    assert!(
+        worst <= 1e-5,
+        "GPU ({}) gemm disagrees with the f32 mirror by {worst:e}",
+        gpu.adapter_name()
+    );
+}
+
+/// `gemv` and the element-wise matrix kernels match the mirror.
+///
+/// # Results
+///
+/// Worst absolute difference **0 — bit-identical** for `gemv` over 16 rows and
+/// for `mat_add` / `mat_transpose` over 256 elements, measured 2026-09-19 on
+/// `llvmpipe (LLVM 20.1.2, 256 bits)`.
+#[test]
+fn gpu_gemv_and_elementwise_match_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_gemv_and_elementwise_match_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let d = 16usize;
+    let a = seeded(d * d, 53);
+    let x = seeded(d, 59);
+    let y = seeded(d, 61);
+
+    // gemv: A at 0, x at d*d, y at d*d + d.
+    let mut data = a.clone();
+    data.extend_from_slice(&x);
+    data.extend_from_slice(&y);
+    let (alpha, beta) = (2.0f32, -0.75f32);
+    let got = gpu
+        .eval_map(
+            &[MATRIX],
+            "petir_blas_gemv_row(0u, params.k, params.off_b, params.k, \
+             params.a, params.b, src[params.off_c + i], i)",
+            &data,
+            &vec![0.0f32; d],
+            KernelParams {
+                n: d as u32,
+                a: alpha,
+                b: beta,
+                k: d as u32,
+                off_b: (d * d) as u32,
+                off_c: (d * d + d) as u32,
+                ..Default::default()
+            },
+        )
+        .expect("non-empty probe");
+    let want = mirror_matrix::gemv(&a, d, d, d, &x, alpha, beta, &y);
+    let worst = worst_abs(&got, &want);
+    assert!(worst <= 1e-5, "gemv disagrees by {worst:e}");
+
+    // Element-wise: A at 0, B at d*d.
+    let b = seeded(d * d, 67);
+    let mut data2 = a.clone();
+    data2.extend_from_slice(&b);
+    let probe = vec![0.0f32; d * d];
+
+    let got_add = gpu
+        .eval_map(
+            &[MATRIX],
+            "petir_mat_add(0u, params.k, params.off_b, params.ld_b, i / params.k, i % params.k)",
+            &data2,
+            &probe,
+            KernelParams {
+                k: d as u32,
+                off_b: (d * d) as u32,
+                ld_b: d as u32,
+                ..Default::default()
+            },
+        )
+        .expect("non-empty probe");
+    for (idx, &g) in got_add.iter().enumerate() {
+        let (i, j) = (idx / d, idx % d);
+        let w = mirror_matrix::mat_add(&a, d, &b, d, i, j);
+        assert_eq!(g, w, "mat_add at ({i}, {j})");
+    }
+
+    let got_t = gpu
+        .eval_map(
+            &[MATRIX],
+            "petir_mat_transpose(0u, params.k, i / params.k, i % params.k)",
+            &data2,
+            &probe,
+            KernelParams {
+                k: d as u32,
+                ..Default::default()
+            },
+        )
+        .expect("non-empty probe");
+    for (idx, &g) in got_t.iter().enumerate() {
+        let (i, j) = (idx / d, idx % d);
+        assert_eq!(
+            g,
+            mirror_matrix::mat_transpose(&a, d, i, j),
+            "transpose ({i}, {j})"
+        );
+    }
 }

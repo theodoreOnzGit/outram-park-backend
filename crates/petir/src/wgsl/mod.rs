@@ -86,6 +86,9 @@ pub mod mirror;
 /// of GSL's `specfunc/erfc.c` as `shaders/erf.wgsl`.
 pub mod mirror_erf;
 
+/// `f32` mirrors of the matrix and CBLAS shaders.
+pub mod mirror_matrix;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -128,14 +131,33 @@ pub const LEGENDRE: &str = include_str!("shaders/legendre.wgsl");
 /// series.
 pub const ERF: &str = include_str!("shaders/erf.wgsl");
 
+/// GSL's matrix layer and reference CBLAS, ported from `cblas/source_*_r.h`
+/// and `matrix/`.
+///
+/// Provides `petir_mat_get`, `petir_mat_index`, the Level-1 kernels
+/// `petir_blas_dot` / `nrm2` / `asum` / `iamax`, the Level-2
+/// `petir_blas_gemv_row` and `_trans`, the Level-3
+/// `petir_blas_gemm_element` and `_nt`, and the element-wise
+/// `petir_mat_add` / `sub` / `mul_elements` / `div_elements` / `scale` /
+/// `add_constant` / `transpose`.
+///
+/// **Row-major with an explicit leading dimension**, matching
+/// `CblasRowMajor` and `gsl_matrix.tda`. Column-major is not ported.
+///
+/// **A per-element GPU kernel cannot reproduce GSL's `k`-outer `gemm`
+/// accumulation** — one invocation owns one output element, so it must sum
+/// over `k` itself. See the shader header and
+/// [`mirror_matrix::gemm_gsl_order`].
+pub const MATRIX: &str = include_str!("shaders/matrix.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 4] = [POLY, CHEB, LEGENDRE, ERF];
+pub const ALL: [&str; 5] = [POLY, CHEB, LEGENDRE, ERF, MATRIX];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
-pub const ALL_NAMES: [&str; 4] = ["poly", "cheb", "legendre", "erf"];
+pub const ALL_NAMES: [&str; 5] = ["poly", "cheb", "legendre", "erf", "matrix"];
 
 pub use kernel_builder::test_kernel;
 
@@ -166,7 +188,14 @@ mod kernel_builder {
     /// ```
     pub fn test_kernel(sources: &[&str], call: &str) -> String {
         let mut s = String::new();
-        s.push_str("struct Params { n: u32, a: f32, b: f32, k: u32 };\n");
+        // Eight slots, 32 bytes. The first four are the scalar kernels'
+        // original layout and are unchanged; the last four were appended for
+        // the matrix kernels, which need a second matrix offset and leading
+        // dimension. Appending keeps every existing call site working through
+        // `..Default::default()`.
+        s.push_str(
+            "struct Params { n: u32, a: f32, b: f32, k: u32,              m: u32, off_b: u32, ld_b: u32, off_c: u32 };\n",
+        );
         s.push_str("@group(0) @binding(0) var<storage, read> src: array<f32>;\n");
         s.push_str("@group(0) @binding(1) var<storage, read> probe: array<f32>;\n");
         s.push_str("@group(0) @binding(2) var<storage, read_write> dst: array<f32>;\n");
@@ -237,6 +266,10 @@ mod tests {
         assert!(src.contains("var<storage, read> src: array<f32>"));
         assert!(src.contains("var<storage, read_write> dst: array<f32>"));
         assert!(src.contains("var<uniform> params: Params"));
+        assert!(
+            src.contains("off_b: u32"),
+            "the matrix slots must be present"
+        );
         assert!(src.contains("fn petir_poly_eval"));
         // The bounds guard must be there: a dispatch rounds up to whole
         // workgroups, so without it the tail invocations write out of range.
