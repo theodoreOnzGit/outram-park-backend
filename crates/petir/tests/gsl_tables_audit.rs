@@ -4,7 +4,8 @@
 //! Re-derives every GSL-ported coefficient table in `src/specfunc/` from the
 //! vendored GSL C sources and compares them **bit for bit**.
 //!
-//! Covers `bessel.rs`, `psi.rs` and `zeta.rs` — 35 tables, 1014 literals.
+//! Covers `bessel.rs`, `psi.rs`, `zeta.rs` and `debye.rs` — 41 tables,
+//! 1117 literals.
 //!
 //! # Why a table audit and not just the numerical tests
 //!
@@ -107,6 +108,12 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ),
     ("zeta.rs", "ETA_POS_INT", "zeta.c", "eta_pos_int_table"),
     ("zeta.rs", "ETA_NEG_INT", "zeta.c", "eta_neg_int_table"),
+    ("debye.rs", "ADEB1", "debye.c", "adeb1_data"),
+    ("debye.rs", "ADEB2", "debye.c", "adeb2_data"),
+    ("debye.rs", "ADEB3", "debye.c", "adeb3_data"),
+    ("debye.rs", "ADEB4", "debye.c", "adeb4_data"),
+    ("debye.rs", "ADEB5", "debye.c", "adeb5_data"),
+    ("debye.rs", "ADEB6", "debye.c", "adeb6_data"),
 ];
 
 /// `TWOPI_POW` in `zeta.rs` is a LOCAL array inside `gsl_sf_zeta_e`'s
@@ -310,8 +317,8 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
     }
     assert_eq!(
         checked,
-        1014,
-        "expected 1014 coefficients across {} tables, audited {checked}",
+        1117,
+        "expected 1117 coefficients across {} tables, audited {checked}",
         TABLES.len()
     );
 }
@@ -321,7 +328,7 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
 #[test]
 fn every_rust_table_is_audited() {
     let mut total_declared = 0usize;
-    for module in ["bessel.rs", "psi.rs", "zeta.rs"] {
+    for module in ["bessel.rs", "psi.rs", "zeta.rs", "debye.rs"] {
         let src = rust_source(module);
         let declared: Vec<String> = src
             .lines()
@@ -412,6 +419,12 @@ fn every_series_uses_its_whole_array() {
         ("psi.c", "apsi_cs", "apsics_data"),
         ("zeta.c", "zeta_xlt1_cs", "zeta_xlt1_data"),
         ("zeta.c", "zeta_xgt1_cs", "zeta_xgt1_data"),
+        ("debye.c", "adeb1_cs", "adeb1_data"),
+        ("debye.c", "adeb2_cs", "adeb2_data"),
+        ("debye.c", "adeb3_cs", "adeb3_data"),
+        ("debye.c", "adeb4_cs", "adeb4_data"),
+        ("debye.c", "adeb5_cs", "adeb5_data"),
+        ("debye.c", "adeb6_cs", "adeb6_data"),
     ];
     for (file, cs, array) in series {
         let text = fs::read_to_string(upstream_dir().join(file)).expect("vendored source");

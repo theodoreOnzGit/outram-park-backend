@@ -145,6 +145,7 @@ mod exp_mult_tests {
 }
 
 pub mod bessel;
+pub mod debye;
 pub mod erf;
 /// Inverse error function (Winitzki approximation), lifted verbatim from
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
@@ -164,6 +165,7 @@ pub use bessel::{
     bessel_i0, bessel_i0_scaled, bessel_i1, bessel_i1_scaled, bessel_j0, bessel_j1, bessel_k0,
     bessel_k0_scaled, bessel_k1, bessel_k1_scaled, bessel_y0, bessel_y1,
 };
+pub use debye::{debye_1, debye_2, debye_3, debye_4, debye_5, debye_6, debye_n};
 pub use erf::{erf, erfc, erfc_scaled, erfcx};
 pub use erf_inv::erf_inv;
 pub use gamma::{
