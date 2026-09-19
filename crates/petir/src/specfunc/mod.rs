@@ -155,6 +155,7 @@ pub mod erf;
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
 /// module documentation above before relying on it.
 pub mod erf_inv;
+pub mod fermi_dirac;
 pub mod gamma;
 /// Regularised and unnormalised incomplete gamma functions, lifted verbatim
 /// from outram-foam-basic-lib (DiDonato & Morris, ACM TOMS 1986).

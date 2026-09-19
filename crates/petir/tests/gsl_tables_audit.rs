@@ -4,12 +4,10 @@
 //! Re-derives every GSL-ported coefficient table in `src/specfunc/` from the
 //! vendored GSL C sources and compares them **bit for bit**.
 //!
-//! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs` and
-//! `lambert.rs`, `clausen.rs`, `transport.rs`, `atanint.rs` and
-//! `synchrotron.rs` — 66 file-scope
-//! tables plus
-//! two local ones,
-//! 1597 literals.
+//! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs`,
+//! `lambert.rs`, `clausen.rs`, `transport.rs`, `atanint.rs`,
+//! `synchrotron.rs` and `fermi_dirac.rs` — 88 file-scope tables plus two
+//! local ones, **2080 literals**.
 //!
 //! # Why a table audit and not just the numerical tests
 //!
@@ -143,6 +141,28 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ("synchrotron.rs", "SYNCH21", "synchrotron.c", "synchrotron21_data"),
     ("synchrotron.rs", "SYNCH22", "synchrotron.c", "synchrotron22_data"),
     ("synchrotron.rs", "SYNCH2A", "synchrotron.c", "synchrotron2a_data"),
+    ("fermi_dirac.rs", "FD_1_A", "fermi_dirac.c", "fd_1_a_data"),
+    ("fermi_dirac.rs", "FD_1_B", "fermi_dirac.c", "fd_1_b_data"),
+    ("fermi_dirac.rs", "FD_1_C", "fermi_dirac.c", "fd_1_c_data"),
+    ("fermi_dirac.rs", "FD_1_D", "fermi_dirac.c", "fd_1_d_data"),
+    ("fermi_dirac.rs", "FD_1_E", "fermi_dirac.c", "fd_1_e_data"),
+    ("fermi_dirac.rs", "FD_2_A", "fermi_dirac.c", "fd_2_a_data"),
+    ("fermi_dirac.rs", "FD_2_B", "fermi_dirac.c", "fd_2_b_data"),
+    ("fermi_dirac.rs", "FD_2_C", "fermi_dirac.c", "fd_2_c_data"),
+    ("fermi_dirac.rs", "FD_2_D", "fermi_dirac.c", "fd_2_d_data"),
+    ("fermi_dirac.rs", "FD_2_E", "fermi_dirac.c", "fd_2_e_data"),
+    ("fermi_dirac.rs", "FD_MHALF_A", "fermi_dirac.c", "fd_mhalf_a_data"),
+    ("fermi_dirac.rs", "FD_MHALF_B", "fermi_dirac.c", "fd_mhalf_b_data"),
+    ("fermi_dirac.rs", "FD_MHALF_C", "fermi_dirac.c", "fd_mhalf_c_data"),
+    ("fermi_dirac.rs", "FD_MHALF_D", "fermi_dirac.c", "fd_mhalf_d_data"),
+    ("fermi_dirac.rs", "FD_HALF_A", "fermi_dirac.c", "fd_half_a_data"),
+    ("fermi_dirac.rs", "FD_HALF_B", "fermi_dirac.c", "fd_half_b_data"),
+    ("fermi_dirac.rs", "FD_HALF_C", "fermi_dirac.c", "fd_half_c_data"),
+    ("fermi_dirac.rs", "FD_HALF_D", "fermi_dirac.c", "fd_half_d_data"),
+    ("fermi_dirac.rs", "FD_3HALF_A", "fermi_dirac.c", "fd_3half_a_data"),
+    ("fermi_dirac.rs", "FD_3HALF_B", "fermi_dirac.c", "fd_3half_b_data"),
+    ("fermi_dirac.rs", "FD_3HALF_C", "fermi_dirac.c", "fd_3half_c_data"),
+    ("fermi_dirac.rs", "FD_3HALF_D", "fermi_dirac.c", "fd_3half_d_data"),
 ];
 
 /// `TWOPI_POW` in `zeta.rs` is a LOCAL array inside `gsl_sf_zeta_e`'s
@@ -357,8 +377,8 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
     }
     assert_eq!(
         checked,
-        1597,
-        "expected 1597 coefficients across {} tables, audited {checked}",
+        2080,
+        "expected 2080 coefficients across {} tables, audited {checked}",
         TABLES.len()
     );
 }
@@ -379,6 +399,7 @@ fn every_rust_table_is_audited() {
         "transport.rs",
         "atanint.rs",
         "synchrotron.rs",
+        "fermi_dirac.rs",
     ] {
         let src = rust_source(module);
         let declared: Vec<String> = src
