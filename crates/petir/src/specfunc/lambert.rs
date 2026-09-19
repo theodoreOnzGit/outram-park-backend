@@ -250,16 +250,17 @@ pub fn lambert_wm1(x: f64) -> f64 {
     if q < 0.0 {
         return f64::NAN;
     }
-    let mut w;
+    let w;
     if x < -1.0e-6 {
         // Series about q = 0, with -sqrt(q): the other side of the branch
         // point. Upstream bails out here when q is small, because Halley
         // converges badly in finite arithmetic when p is near zero and the
         // increment alternates.
-        w = series_eval(-q.sqrt());
+        let v = series_eval(-q.sqrt());
         if q < 3.0e-3 {
-            return w;
+            return v;
         }
+        w = v;
     } else {
         // Asymptotic near zero.
         let l1 = (-x).ln();

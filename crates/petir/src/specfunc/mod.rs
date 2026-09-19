@@ -146,6 +146,7 @@ mod exp_mult_tests {
 
 pub mod airy;
 pub mod bessel;
+pub mod clausen;
 pub mod debye;
 pub mod dilog;
 pub mod erf;
@@ -162,6 +163,7 @@ pub mod inc_gamma;
 pub mod inv_inc_gamma;
 pub mod lambert;
 pub mod psi;
+pub mod trig;
 pub mod zeta;
 
 pub use bessel::{
