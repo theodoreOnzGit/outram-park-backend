@@ -242,6 +242,7 @@ pub mod object_ops;
 pub mod ops;
 pub mod poke_quads;
 pub mod polyfill;
+pub mod polyfill_beautify;
 pub mod primitives;
 pub mod primitives_extra;
 pub mod procedural;

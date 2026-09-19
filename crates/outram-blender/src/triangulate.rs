@@ -75,6 +75,7 @@
 use crate::math::Vec3;
 use crate::mesh::Mesh;
 use crate::polyfill;
+use crate::polyfill_beautify;
 
 /// How to split a four-cornered face into two triangles.
 ///
@@ -86,14 +87,15 @@ use crate::polyfill;
 /// why upstream makes it a user decision rather than a constant.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum QuadMethod {
-    /// Pick the diagonal that makes the better-shaped pair, falling back to
-    /// the shorter one. Upstream `MOD_TRIANGULATE_QUAD_BEAUTY`.
+    /// Pick the diagonal that gives the better-shaped triangle pair.
+    /// Upstream `MOD_TRIANGULATE_QUAD_BEAUTY`.
     ///
-    /// Upstream decides this with `is_quad_flip_v3` plus
-    /// `BM_verts_calc_rotate_beauty`. Those are not ported yet, so this
-    /// variant currently behaves as [`QuadMethod::ShortEdge`] — the same
-    /// choice upstream's beauty rule makes for a planar convex quad, and a
-    /// documented approximation elsewhere. Tracked for the beautify port.
+    /// Decided exactly as upstream's `BM_face_triangulate` does: first
+    /// [`crate::polyfill_beautify::is_quad_flip_v3`] rejects a diagonal that
+    /// would fold the quad, and only if neither folds is the
+    /// area-over-perimeter measure
+    /// ([`crate::polyfill_beautify::edge_rotate_cost_3d`]) consulted.
+    /// Unlike the length-based variants this one is aware of non-planarity.
     Beauty,
     /// Always split corner 0 to corner 2 — the historical fan. Upstream
     /// `MOD_TRIANGULATE_QUAD_FIXED`.
@@ -119,9 +121,11 @@ pub enum NgonMethod {
     /// Ear-clip, then improve the result by rotating interior edges.
     /// Upstream `MOD_TRIANGULATE_NGON_BEAUTY`, and upstream's default.
     ///
-    /// The edge-rotation pass (`BLI_polyfill_beautify`) is not ported yet, so
-    /// this variant currently behaves as [`NgonMethod::EarClip`]. The tiling
-    /// is correct either way; only triangle *quality* differs.
+    /// The rotation pass is [`crate::polyfill_beautify::polyfill_beautify`],
+    /// the port of `BLI_polyfill_beautify`. Both variants tile correctly;
+    /// this one additionally removes slivers (measured 5.8x improvement in
+    /// the worst triangle's fatness on a sliver-prone fixture — see that
+    /// module).
     Beauty,
     /// Ear-clip only. Upstream `MOD_TRIANGULATE_NGON_EARCLIP`, via
     /// [`crate::polyfill::polyfill_3d`].
@@ -187,11 +191,15 @@ pub fn triangulate_with(mesh: &Mesh, quad: QuadMethod, ngon: NgonMethod) -> Mesh
             }
         } else {
             let normal = polyfill::newell_normal(&pts);
-            let tris = match ngon {
-                // Beauty's extra edge-rotation pass is not ported yet; the
-                // ear-clipped tiling is what both variants produce today.
-                NgonMethod::Beauty | NgonMethod::EarClip => polyfill::polyfill_3d(&pts, normal),
-            };
+            let mut tris = polyfill::polyfill_3d(&pts, normal);
+            if ngon == NgonMethod::Beauty {
+                // Beautify works in the same projected frame the clipping
+                // used, so the coordinates must come from the same negated
+                // projection — not a fresh one, or the rotations are scored
+                // against a mirrored plane.
+                let coords = polyfill::project_to_plane(&pts, normal.scale(-1.0));
+                polyfill_beautify::polyfill_beautify(&coords, &mut tris);
+            }
             for t in tris {
                 faces.push(vec![poly[t[0]].0, poly[t[1]].0, poly[t[2]].0]);
             }
@@ -215,6 +223,22 @@ fn split_quad(pts: &[Vec3], method: QuadMethod) -> [[usize; 3]; 2] {
     // Diagonal 1-3: upstream's `loops = [c1, c2, c3, c0]`.
     const DIAG_13: [[usize; 3]; 2] = [[1, 2, 3], [1, 3, 0]];
 
+    if method == QuadMethod::Beauty {
+        // Upstream names the corners v1..v4 = c1, c2, c3, c0 — rotated one
+        // step — and `split_24` in that frame means "use the 0-2 diagonal".
+        let (b1, b2, b3, b4) = (pts[1], pts[2], pts[3], pts[0]);
+        let flip = polyfill_beautify::is_quad_flip_v3(b1, b2, b3, b4);
+        let split_02 = if flip & (1 << 0) != 0 {
+            true
+        } else if flip & (1 << 1) != 0 {
+            false
+        } else {
+            // flag 0 upstream, so degenerate states are not locked.
+            polyfill_beautify::edge_rotate_cost_3d(b1, b2, b3, b4, false) > 0.0
+        };
+        return if split_02 { DIAG_02 } else { DIAG_13 };
+    }
+
     match method {
         QuadMethod::Fixed => DIAG_02,
         QuadMethod::Alternate => DIAG_13,
@@ -228,7 +252,6 @@ fn split_quad(pts: &[Vec3], method: QuadMethod) -> [[usize; 3]; 2] {
             // `split_24` in upstream means "use the 0-2 diagonal".
             let split_02 = match method {
                 QuadMethod::LongEdge => (d2 - d1) < 0.0,
-                // ShortEdge, and Beauty until its rule is ported.
                 _ => (d2 - d1) > 0.0,
             };
             if split_02 {
@@ -469,5 +492,184 @@ mod tests {
             assert!(is_watertight_consistent(&t));
             assert_eq!(t.euler_characteristic(), 2);
         }
+    }
+
+    /// `NgonMethod::Beauty` must tile identically to `EarClip` but with
+    /// better-shaped triangles — same area, same count, different diagonals.
+    ///
+    /// # Results (measured 2026-09-19)
+    ///
+    /// On a 20-corner zig-zag strip face, both methods emit 18 triangles
+    /// totalling the same area to 1e-9; Beauty's worst triangle is strictly
+    /// fatter. The assertion is on the relation, so it cannot go stale.
+    #[test]
+    fn ngon_beauty_matches_earclip_area_but_improves_shape() {
+        use crate::math::Vec3;
+        // A strip whose ear clipping is sliver-prone.
+        let n = 10;
+        let mut ring: Vec<Vec3> = Vec::new();
+        for i in 0..n {
+            ring.push(Vec3::new(i as f64, 0.0, 0.0));
+        }
+        for i in (0..n).rev() {
+            ring.push(Vec3::new(i as f64 + 0.5, 1.0, 0.0));
+        }
+        let idx: Vec<usize> = (0..ring.len()).collect();
+        let mesh = Mesh::from_polygons(&ring, &[idx]);
+
+        let ear = triangulate_with(&mesh, QuadMethod::ShortEdge, NgonMethod::EarClip);
+        let beauty = triangulate_with(&mesh, QuadMethod::ShortEdge, NgonMethod::Beauty);
+
+        assert_eq!(ear.face_count(), beauty.face_count());
+        let (a, b) = (surface_area(&ear), surface_area(&beauty));
+        assert!((a - b).abs() < 1e-9, "areas differ: {a} vs {b}");
+
+        // Worst-triangle fatness: 2*area / longest_edge^2.
+        let worst = |m: &Mesh| -> f64 {
+            let p = m.positions();
+            (0..m.face_count())
+                .map(|i| {
+                    let vs = m.face_vertices(crate::mesh::FaceId(i));
+                    let (x, y, z) = (p[vs[0].0], p[vs[1].0], p[vs[2].0]);
+                    let area = 0.5 * y.sub(x).cross(z.sub(x)).length();
+                    let longest = y
+                        .sub(x)
+                        .length()
+                        .max(z.sub(y).length())
+                        .max(x.sub(z).length());
+                    2.0 * area / (longest * longest)
+                })
+                .fold(f64::INFINITY, f64::min)
+        };
+        let (we, wb) = (worst(&ear), worst(&beauty));
+        assert!(
+            wb > we,
+            "beauty should improve the worst triangle: {we} -> {wb}"
+        );
+    }
+
+    /// `QuadMethod::Beauty` must refuse a diagonal that folds a non-planar
+    /// quad, where the purely length-based methods are blind to the fold.
+    /// Code-to-code verification of upstream's quad-Beauty rule.
+    ///
+    /// # Methodology
+    ///
+    /// `BM_face_triangulate`'s Beauty branch consults
+    /// `is_quad_flip_v3` first and only falls through to the
+    /// area-over-perimeter measure when neither diagonal folds. Sweep a
+    /// 625-member family of quads — three corners moved over a 5-value grid,
+    /// covering both non-planar quads and planar darts — keep the ones where
+    /// exactly one diagonal folds, and check that upstream's rule picks the
+    /// other one.
+    ///
+    /// # Results (measured 2026-09-19)
+    ///
+    /// 576 of the 625 quads have exactly one folding diagonal. On **every
+    /// one**, `QuadMethod::Beauty` picked the non-folding split and the
+    /// alternative split did fold. The rule does what upstream claims.
+    ///
+    /// One finding worth recording: a merely **non-planar** quad is not
+    /// enough to reach this branch. Sweeping only the four corner heights
+    /// over a square footprint produced **zero** single-fold quads —
+    /// `is_quad_flip_v3` returned 0 or 3, never 1 or 2, because a saddle
+    /// folds across both diagonals or neither. The branch needs a *concave*
+    /// (dart) quad, where one diagonal lies outside the quad. A fixture
+    /// built from a saddle, which is the obvious first guess, tests nothing.
+    #[test]
+    fn quad_beauty_picks_the_non_folding_diagonal() {
+        use crate::math::Vec3;
+        let vals = [-1.0f64, -0.4, 0.0, 0.4, 1.0];
+        let mut single_fold = 0;
+        for &z0 in &vals {
+            for &z1 in &vals {
+                for &a in &vals {
+                    for &b in &vals {
+                        // Corner 2 moves in-plane (making darts) as well as
+                        // corners 0 and 1 moving out of plane.
+                        let pts = [
+                            Vec3::new(0.0, 0.0, z0),
+                            Vec3::new(1.0, 0.0, z1),
+                            Vec3::new(0.3 + 0.2 * a, 0.3 + 0.2 * b, 0.0),
+                            Vec3::new(0.0, 1.0, 0.0),
+                        ];
+                        let flip =
+                            polyfill_beautify::is_quad_flip_v3(pts[1], pts[2], pts[3], pts[0]);
+                        if flip != 1 && flip != 2 {
+                            continue;
+                        }
+                        single_fold += 1;
+
+                        let nrm = |t: [usize; 3]| {
+                            let (p, q, r) = (pts[t[0]], pts[t[1]], pts[t[2]]);
+                            q.sub(p).cross(r.sub(p))
+                        };
+                        let chosen = split_quad(&pts, QuadMethod::Beauty);
+                        let other = if chosen == [[0, 1, 2], [0, 2, 3]] {
+                            [[1usize, 2, 3], [1, 3, 0]]
+                        } else {
+                            [[0usize, 1, 2], [0, 2, 3]]
+                        };
+                        assert!(
+                            nrm(chosen[0]).dot(nrm(chosen[1])) > 0.0,
+                            "Beauty picked a folding diagonal at z=({z0},{z1}) a={a} b={b}"
+                        );
+                        assert!(
+                            nrm(other[0]).dot(nrm(other[1])) < 0.0,
+                            "the rejected diagonal was supposed to be the folding one"
+                        );
+                    }
+                }
+            }
+        }
+        assert_eq!(
+            single_fold, 576,
+            "the fixture family should contain 576 single-fold quads"
+        );
+    }
+
+    /// The companion finding: a non-planar quad over a square footprint
+    /// never has exactly one folding diagonal, so a saddle cannot exercise
+    /// the branch above.
+    #[test]
+    fn a_saddle_folds_on_both_diagonals_or_neither() {
+        use crate::math::Vec3;
+        let vals = [-1.0f64, -0.4, 0.0, 0.4, 1.0];
+        for &z0 in &vals {
+            for &z1 in &vals {
+                for &z2 in &vals {
+                    for &z3 in &vals {
+                        let pts = [
+                            Vec3::new(0.0, 0.0, z0),
+                            Vec3::new(1.0, 0.0, z1),
+                            Vec3::new(1.0, 1.0, z2),
+                            Vec3::new(0.0, 1.0, z3),
+                        ];
+                        let flip =
+                            polyfill_beautify::is_quad_flip_v3(pts[1], pts[2], pts[3], pts[0]);
+                        assert!(
+                            flip == 0 || flip == 3,
+                            "z=({z0},{z1},{z2},{z3}) gave flip={flip}, expected 0 or 3"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Beauty on a planar convex quad must agree with the shorter diagonal —
+    /// the case where the two rules provably coincide.
+    #[test]
+    fn quad_beauty_agrees_with_short_edge_on_a_planar_convex_quad() {
+        use crate::math::Vec3;
+        let pts = [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(4.0, 0.0, 0.0),
+            Vec3::new(3.0, 1.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        ];
+        assert_eq!(
+            split_quad(&pts, QuadMethod::Beauty),
+            split_quad(&pts, QuadMethod::ShortEdge)
+        );
     }
 }
