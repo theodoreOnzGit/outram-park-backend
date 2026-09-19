@@ -90,6 +90,7 @@ and stays there.
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
 | `specfunc` (associated Legendre `P_l^m`) | ~4 | **PORTED** (`Plm`) | seed `P_m^m` plus the upward recurrence in degree; no array, trip count `l - m - 1`. Its overflow guard is **retargeted** (a range guard: `LOG_MIN` is `-87.34` here against `-708.40`) and **carries an upstream hole at `l == m`**, where `legendre_poly.c:304` gates `t_s` on `dif` rather than `sum` -- so the guard cannot fire where `P_l^m` is largest. `f64` reaches `inf` at `P_200^200`, `f32` at `P_30^30`. Faithful on purpose; pinned by tests. `sphPlm` is absent: it needs `lnpoch` and `log_1plusx`, which PETIR does not port |
 | `specfunc` (rest) | ~222 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (Coulomb wave functions) | ~10 | **NOT GPU-SHAPED** (measured) | `F_L`, `G_L`. Its continued fraction `coulomb_CF1` needs **up to 99,329 iterations**, measured over 7875 points of `(L, eta, x)`; 18 % of them need more than 256 and 26 % hit upstream's own `CF1_abort` of `1e5`. Against `ellint`'s 16 and `elljac`'s 8. A trip count varying from 3 to 99,329 between neighbouring arguments has no cap that is both safe and cheap, and every invocation in a workgroup would wait for the worst. **An f64 port is still worth having; a shader is not.** See `op-uczx.28` |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -858,6 +859,16 @@ can be measured rather than waved at.
   This line used to carry its own figure, ~281, against the table's ~222; two
   numbers for one quantity is a drift source, so there is now one.
 - **`cdf` (~200)** is the next, and is mostly compositions of `specfunc`.
+- **Not everything portable is GPU-shaped, and the difference is
+  measurable.** Every kernel shipped here has a trip count that is either
+  fixed or a uniform function of its integer parameters — `ellint` 16,
+  `elljac` 8, `gegenbauer` exactly `n - 3`, `legendre_plm` exactly
+  `l - m - 1`. The Coulomb wave functions are the first block measured and
+  **rejected**: 99,329 iterations at worst, 3 at best, varying between
+  neighbouring arguments. The rule this suggests, for the blocks still
+  unassessed: **measure the trip count over the reachable domain before
+  writing a shader, not after.** It cost one throwaway probe here and saved
+  a kernel that could not have worked.
 - Anything marked **N/A** will not move without a *different algorithm*, which
   would no longer be a port. Replacing GSL's quicksort with a bitonic sort is a
   legitimate thing to want and an illegitimate thing to call a GSL port; if it
