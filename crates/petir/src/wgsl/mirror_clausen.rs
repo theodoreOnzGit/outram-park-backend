@@ -84,12 +84,12 @@ const LOSS_CUT: f32 = 524288.0;
 /// `pi * sqrt(f32::EPSILON)`. Mirrors `PETIR_CLAUSEN_X_CUT`.
 const X_CUT: f32 = 1.0846882e-3;
 
-/// GSL's `aclaus_cs`, 15 coefficients. Mirrors `petir_clausen_cheb`'s array.
+/// GSL's `aclaus_data` at its SINGLE-PRECISION order: 9 of the 15 stored,
+/// where `f64` evaluates 15.
 #[rustfmt::skip]
-const ACLAUS: [f32; 15] = [
-    2.1426945, 0.07233243, 0.0010164248, 3.2452503e-5, 1.3331519e-6,
-    6.2132406e-8, 3.1300413e-9, 1.6635723e-10, 9.196593e-12, 5.240046e-13,
-    3.05804e-14, 1.8197e-15, 1.1e-16, 6.8e-18, 4e-19,
+const ACLAUS: [f32; 9] = [
+    2.1426945, 0.07233243, 0.0010164248, 3.2452503e-5, 1.3331519e-6, 6.2132406e-8,
+    3.1300413e-9, 1.6635723e-10, 9.196593e-12,
 ];
 
 /// Clenshaw in GSL's convention. Mirrors `petir_clausen_cheb`.

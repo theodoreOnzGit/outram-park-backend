@@ -1146,6 +1146,31 @@ fn gpu_debye_family_matches_the_cpu_mirror() {
                 at = x;
             }
         }
+        // Bit-identity is counted, not asserted exactly: it is a property of
+        // the device's codegen and differs between adapters. What IS asserted
+        // is a floor, because a collapse would mean something structural
+        // rather than a rounding difference. Measured on llvmpipe (LLVM
+        // 20.1.2), 2026-09-19, and UNCHANGED by the order_sp retrofit that
+        // cut these tables from 103 coefficients to 65 -- 226/256 for D_1
+        // down to 157/256 for D_6, at both lengths, with identical worst
+        // errors. That is recorded in docs/wgsl-coverage.md as the second
+        // confirmation that the inline-coefficient effect is not about array
+        // length.
+        let exact = probes
+            .iter()
+            .enumerate()
+            .filter(|(k, &x)| {
+                got.get(*k).map(|v| v.to_bits()) == Some(mirror_debye::debye_n(n, x).to_bits())
+            })
+            .count();
+        assert!(
+            exact * 4 >= probes.len(),
+            "GPU ({}) reproduced the mirror bit for bit at only {exact} of {} \
+             points for D_{n}. llvmpipe manages 157/256 at worst; anything \
+             below a quarter is a structural difference, not rounding",
+            gpu.adapter_name(),
+            probes.len()
+        );
         assert!(
             worst < 1e-4,
             "GPU ({}) vs f32 mirror for D_{n}: {worst:e} at x = {at}",

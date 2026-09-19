@@ -549,20 +549,20 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 ///
 /// # What it covers
 ///
-/// **Every generated pair**, 96 tables and 1750 coefficients as of
+/// **Every generated pair**, 96 tables and 1409 coefficients as of
 /// 2026-09-19:
 ///
 /// | shader | tables | coefficients |
 /// |---|---|---|
-/// | `fermi_dirac` | 23 | 492 |
-/// | `bessel` | 22 | 358 |
-/// | `airy` | 13 | 281 |
+/// | `fermi_dirac` | 23 | 405 |
+/// | `bessel` | 22 | 226 |
+/// | `airy` | 13 | 213 |
 /// | `psi_zeta` | 8 | 155 |
-/// | `debye` | 6 | 103 |
+/// | `debye` | 6 | 65 |
 /// | `synchrotron` | 6 | 91 |
 /// | `transport` | 4 | 72 |
-/// | `atanint` | 1 | 21 |
-/// | `clausen` | 1 | 15 |
+/// | `atanint` | 1 | 11 |
+/// | `clausen` | 1 | 9 |
 /// | `gamma` | 1 | 9 |
 /// | `dawson` | 3 | 45 |
 /// | `expint3` | 2 | 27 |
@@ -679,21 +679,21 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
             petir::wgsl::FERMI_DIRAC,
             include_str!("../src/wgsl/mirror_fermi_dirac.rs"),
             23,
-            492,
+            405,
         ),
         (
             "bessel",
             petir::wgsl::BESSEL,
             include_str!("../src/wgsl/mirror_bessel.rs"),
             22,
-            358,
+            226,
         ),
         (
             "airy",
             petir::wgsl::AIRY,
             include_str!("../src/wgsl/mirror_airy.rs"),
             13,
-            281,
+            213,
         ),
         (
             "psi_zeta",
@@ -707,7 +707,7 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
             petir::wgsl::DEBYE,
             include_str!("../src/wgsl/mirror_debye.rs"),
             6,
-            103,
+            65,
         ),
         (
             "synchrotron",
@@ -728,14 +728,14 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
             petir::wgsl::ATANINT,
             include_str!("../src/wgsl/mirror_atanint.rs"),
             1,
-            21,
+            11,
         ),
         (
             "clausen",
             petir::wgsl::CLAUSEN,
             include_str!("../src/wgsl/mirror_clausen.rs"),
             1,
-            15,
+            9,
         ),
         (
             "gamma",
@@ -789,8 +789,8 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
         }
     }
     assert_eq!(
-        grand, 1750,
-        "the generated pairs are documented as holding 1750 coefficients in \
+        grand, 1409,
+        "the generated pairs are documented as holding 1409 coefficients in \
          total; this run compared {grand}"
     );
 }

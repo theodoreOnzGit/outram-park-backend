@@ -62,7 +62,7 @@
 // THIS KERNEL IS NOT BIT-IDENTICAL TO ITS CPU MIRROR, although its worst
 // branch is pure arithmetic. The x <= 4 Chebyshev branch calls no builtin, so
 // docs/wgsl-coverage.md's general rule says it should match exactly; it misses
-// by up to 4 ulp. The cause is the inline array<f32, 17> literal below, not
+// by up to 4 ulp. The cause is the inline array<f32, N> literal below, not
 // the recurrence -- fed the same 17 values through a storage buffer instead,
 // the same Clenshaw is bit-exact at 64 of 64 points, and inline it is exact at
 // 34. See the_inline_coefficient_array_is_what_costs_bit_identity in
@@ -80,17 +80,17 @@
 // WGSL specification is an ULP bound rather than correct rounding, so they
 // cannot. Measured figures are in `wgsl::mirror_debye`.
 
-// GSL's `adeb1_cs`, 17 coefficients, Clenshaw in GSL's convention.
+// GSL's `adeb1_data` at its SINGLE-PRECISION order: 10 of the 17 stored,
+// where `f64` evaluates 17.
 fn petir_debye_cheb1(x: f32) -> f32 {
-    var c = array<f32, 17>(
+    var c = array<f32, 10>(
         2.40065972, 0.193721304, -0.00623291246, 0.000351117477, -2.28222467e-05,
         1.58054679e-06, -1.1353782e-07, 8.35833612e-09, -6.26442479e-10, 4.76033489e-11,
-        -3.6574154e-12, 2.835431e-13, -2.21473e-14, 1.7409e-15, -1.376e-16, 1.09e-17, -9e-19
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 16; j >= 1; j = j - 1) {
+    for (var j: i32 = 9; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -98,18 +98,18 @@ fn petir_debye_cheb1(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `adeb2_cs`, 18 coefficients, Clenshaw in GSL's convention.
+// GSL's `adeb2_data` at its SINGLE-PRECISION order: 11 of the 18 stored,
+// where `f64` evaluates 18.
 fn petir_debye_cheb2(x: f32) -> f32 {
-    var c = array<f32, 18>(
+    var c = array<f32, 11>(
         2.59438102, 0.28633572, -0.0102062656, 0.000604910978, -4.05257659e-05,
         2.86338263e-06, -2.0863943e-07, 1.55237876e-08, -1.17312801e-09, 8.97358589e-11,
-        -6.9317614e-12, 5.398057e-13, -4.23241e-14, 3.3378e-15, -2.645e-16, 2.11e-17,
-        -1.7e-18, 1e-19
+        -6.9317614e-12,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 17; j >= 1; j = j - 1) {
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -117,18 +117,18 @@ fn petir_debye_cheb2(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `adeb3_cs`, 17 coefficients, Clenshaw in GSL's convention.
+// GSL's `adeb3_data` at its SINGLE-PRECISION order: 11 of the 17 stored,
+// where `f64` evaluates 17.
 fn petir_debye_cheb3(x: f32) -> f32 {
-    var c = array<f32, 17>(
+    var c = array<f32, 11>(
         2.70773707, 0.340068135, -0.0129451502, 0.000796375538, -5.4636001e-05,
         3.92430196e-06, -2.89403282e-07, 2.17317614e-08, -1.65421e-09, 1.27279619e-10,
-        -9.8796346e-12, 7.725074e-13, -6.07797e-14, 4.8076e-15, -3.82e-16, 3.05e-17,
-        -2.4e-18
+        -9.8796346e-12,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 16; j >= 1; j = j - 1) {
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -136,18 +136,18 @@ fn petir_debye_cheb3(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `adeb4_cs`, 17 coefficients, Clenshaw in GSL's convention.
+// GSL's `adeb4_data` at its SINGLE-PRECISION order: 11 of the 17 stored,
+// where `f64` evaluates 17.
 fn petir_debye_cheb4(x: f32) -> f32 {
-    var c = array<f32, 17>(
+    var c = array<f32, 11>(
         2.78186942, 0.374976784, -0.0149409074, 0.000945679811, -6.61329161e-05,
         4.81563298e-06, -3.58808396e-07, 2.71601187e-08, -2.08070991e-09, 1.60938387e-10,
-        -1.25470979e-11, 9.847265e-13, -7.77237e-14, 6.1648e-15, -4.911e-16, 3.93e-17,
-        -3.2e-18
+        -1.25470979e-11,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 16; j >= 1; j = j - 1) {
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -155,18 +155,18 @@ fn petir_debye_cheb4(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `adeb5_cs`, 17 coefficients, Clenshaw in GSL's convention.
+// GSL's `adeb5_data` at its SINGLE-PRECISION order: 11 of the 17 stored,
+// where `f64` evaluates 17.
 fn petir_debye_cheb5(x: f32) -> f32 {
-    var c = array<f32, 17>(
+    var c = array<f32, 11>(
         2.83402695, 0.399409886, -0.0164566765, 0.00106521383, -7.56730375e-05,
         5.57459852e-06, -4.19069233e-07, 3.19456144e-08, -2.46133182e-09, 1.91280163e-10,
-        -1.49720049e-11, 1.1790312e-12, -9.33329e-14, 7.4218e-15, -5.925e-16, 4.75e-17,
-        -3.9e-18
+        -1.49720049e-11,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 16; j >= 1; j = j - 1) {
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -174,18 +174,18 @@ fn petir_debye_cheb5(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `adeb6_cs`, 17 coefficients, Clenshaw in GSL's convention.
+// GSL's `adeb6_data` at its SINGLE-PRECISION order: 11 of the 17 stored,
+// where `f64` evaluates 17.
 fn petir_debye_cheb6(x: f32) -> f32 {
-    var c = array<f32, 17>(
+    var c = array<f32, 11>(
         2.87267271, 0.417437535, -0.0176453849, 0.00116298527, -8.37118027e-05,
         6.22836116e-06, -4.71864447e-07, 3.61950398e-08, -2.8030368e-09, 2.18768198e-10,
-        -1.71857387e-11, 1.3575809e-12, -1.07758e-13, 8.5893e-15, -6.872e-16, 5.52e-17,
-        -4.4e-18
+        -1.71857387e-11,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 16; j >= 1; j = j - 1) {
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;

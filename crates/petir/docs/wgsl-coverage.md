@@ -65,17 +65,17 @@ and stays there.
 | `cheb` | ~14 | **PORTED** | Clenshaw, truncated Clenshaw, argument scaling |
 | `specfunc` (erf family) | ~12 | **PORTED** | `erf`, `erfc`, series, `erfc8`, 3 Chebyshev branches, at GSL's own `order_sp` |
 | `specfunc` (gamma family) | ~10 | **PORTED** | `lngamma`, `gamma`, `lnbeta`, `beta`; Lanczos `g=7` plus both Padé branches at the zeros |
-| `specfunc` (Bessel family) | ~20 | **PORTED** | `J_0`, `J_1`, `Y_0`, `Y_1`, `I_0`, `I_1`, `K_0`, `K_1` and the four exponentially scaled modified forms; 18 Chebyshev series and the `cos_pi4`/`sin_pi4` phase helpers |
+| `specfunc` (Bessel family) | ~20 | **PORTED** | `J_0`, `J_1`, `Y_0`, `Y_1`, `I_0`, `I_1`, `K_0`, `K_1` and the four exponentially scaled modified forms; 18 Chebyshev series (22 arrays) at GSL's **single-precision order**, 226 coefficients where the `f64` order needs 358, plus the `cos_pi4`/`sin_pi4` phase helpers |
 | `specfunc` (psi/zeta family) | ~18 | **PORTED** (continuous) | `psi`, `psi_1`, `psi_1piy`, `hzeta`, `zeta`, `zetam1`, `eta`. The integer-argument lookups, `zeta(s)` below `s = -34` and `psi_n` for `n >= 2` are deliberately absent — see below |
 | `specfunc` (Debye family) | ~6 | **PORTED** | `D_1` .. `D_6` behind one `petir_debye(n, x)`; six Chebyshev series and the falling-factorial polynomial. **Two machine constants are retargeted to `f32`** and the exponential-sum counter is recomputed rather than decremented — see below |
 | `specfunc` (dilogarithm) | ~2 | **PORTED** (real) | `Li_2(x)` for all real `x`, seven branch identities and two convergent series; **no coefficient tables at all**. The complex entry points and the `clausen` dependency under them are deliberately absent — see below |
-| `specfunc` (Airy family) | ~8 | **PORTED** | `Ai`, `Bi` and both exponentially scaled forms; 13 Chebyshev series, 281 coefficients. The derivatives (`airy_der.c`) and the zeros (`airy_zero.c`) are not ported |
+| `specfunc` (Airy family) | ~8 | **PORTED** | `Ai`, `Bi` and both exponentially scaled forms; 13 Chebyshev series at GSL's **single-precision order**, 213 coefficients where the `f64` order needs 281. The derivatives (`airy_der.c`) and the zeros (`airy_zero.c`) are not ported |
 | `specfunc` (Lambert `W`) | ~4 | **PORTED** | `W_0` and `W_{-1}`, both real branches. **Upstream's stopping rule is corrected in two places** for `f32` — see below |
 | `specfunc` (Clausen `Cl_2`) | ~2 | **PORTED** | one Chebyshev series, plus an **`f32`-redesigned argument reduction** — the `f64` three-way split of `2 pi` does not carry over. See below |
 | `specfunc` (transport integrals) | ~4 | **PORTED** | `J(2)` .. `J(5)`, the Bloch-Gruneisen family; four Chebyshev series and the exponential-image tail sum |
 | `specfunc` (inverse-tangent integral) | ~2 | **PORTED** | `Ti_2(x)`, one Chebyshev table evaluated at reciprocal arguments either side of `\|x\| = 1` |
 | `specfunc` (synchrotron radiation) | ~2 | **PORTED** | `S_1(x)` and `S_2(x)`; six Chebyshev series, 91 coefficients. **Upstream's underflow guard is dead code in `f64` and would DESTROY answers if retargeted** — the first constant here whose category depends on the width. See below |
-| `specfunc` (Fermi-Dirac integrals) | ~9 | **PORTED** (fixed indices) | `F_j(x)` at `j = -1, -1/2, 0, 1/2, 1, 3/2, 2`; **22 Chebyshev series, 483 coefficients — the largest table set here**. The general-`j` entry point is absent (it needs the confluent hypergeometrics). **The one shader that CORRECTS an upstream constant's formula** rather than retargeting its value, and the one that meets a guard that is not representable at all — see below |
+| `specfunc` (Fermi-Dirac integrals) | ~9 | **PORTED** (fixed indices) | `F_j(x)` at `j = -1, -1/2, 0, 1/2, 1, 3/2, 2`; **22 Chebyshev series — the largest table set here**, at GSL's single-precision order: 396 coefficients where the `f64` order needs 483. The general-`j` entry point is absent (it needs the confluent hypergeometrics). **The one shader that CORRECTS an upstream constant's formula** rather than retargeting its value, and the one that meets a guard that is not representable at all — see below |
 | `specfunc` (Dawson's integral) | ~2 | **PORTED** | `F(x) = e^{-x^2} int_0^x e^{t^2} dt`. **The first shader to ship GSL's SINGLE-PRECISION Chebyshev order** — 45 coefficients where the `f64` order needs 84, measured to cost nothing. Upstream's underflow guard is not an `f32`, and deleting it GAINS answers |
 | `specfunc` (cubic exponential integral) | ~2 | **PORTED** | `Ei_3(x) = int_0^x e^{-t^3} dt`; two Chebyshev series at `order_sp`, 27 coefficients where the `f64` order needs 47. **The best-behaved kernel here at 1.4 `f32` ulp** — nothing to lose precision to. Its saturation cut retargets to a bit-identical answer, the counter-example to `F_2`'s |
 | `specfunc` (sine and cosine integrals) | ~4 | **PORTED** | `Si(x)`, `Ci(x)` and the `f`/`g` asymptotic pair; six Chebyshev series at `order_sp`, 81 coefficients where the `f64` order needs 129. **A `2 pi` argument reduction was tried and measured to be worse on both CPU and GPU** — see below. Both of upstream's far-field guards are deleted as unrepresentable, which gains answers |
@@ -450,9 +450,60 @@ an unbounded relative figure while contributing nothing. The same tables'
 **absolute** differences are 2.98e-08 and 9.31e-10. `order_sp` targets
 absolute accuracy of the sum, which is the quantity that reaches the answer.
 
-Retrofitting the other seventeen shaders is per-kernel work, because the
-answer-level cost has to be measured each time rather than assumed from this
-one result.
+**And the retrofit is now done, measured kernel by kernel rather than assumed
+from that one result.** Every shader whose tables have a smaller `order_sp`
+now ships it:
+
+| shader | `f64` order | `order_sp` | saved |
+|---|---|---|---|
+| `bessel` | 358 | 226 | 132 |
+| `fermi_dirac` | 492 | 405 | 87 |
+| `airy` | 281 | 213 | 68 |
+| `sinint` | 129 | 81 | 48 |
+| `dawson` | 84 | 45 | 39 |
+| `debye` | 103 | 65 | 38 |
+| `expint3` | 47 | 27 | 20 |
+| `atanint` | 21 | 11 | 10 |
+| `clausen` | 15 | 9 | 6 |
+| **total** | | | **448** |
+
+`psi_zeta`, `synchrotron`, `transport`, `gamma` and `erf` are absent because
+GSL declares the same order for both widths there — there was nothing to
+take.
+
+**What it cost, measured on every affected kernel.** Three shaders produce
+**bit-identical output**: `debye`, `atanint` and `clausen`, over dense
+sweeps, every sample. For the rest a handful of samples move, and the
+**worst-case error against `f64` is unchanged to seventeen digits** on all
+but one:
+
+| kernel | `f64` order | `order_sp` |
+|---|---|---|
+| `airy_ai` | 4.48058099178578e-06 | 4.48058099178578e-06 |
+| `bessel_j1` | 1.3750403666384914e-07 | 1.3750403666384914e-07 |
+| `bessel_y1` | 1.0235957361715009e-05 | 1.0235957361715009e-05 |
+| `bessel_k0` | 2.1793530976510653e-07 | 2.1793530976510653e-07 |
+| **`bessel_k1`** | 2.3116967275130247e-07 | **2.277731624587427e-07** |
+| `fd_1` | 3.287469625295479e-07 | 3.287469625295479e-07 |
+| `fd_2` | 6.08093568421626e-07 | 6.08093568421626e-07 |
+
+`bessel_k1` is the only one that moved at all, and it **improved**. Every
+mirror's own `the_f32_cost_is_what_it_was_measured_to_be` still passes at its
+documented bound.
+
+**On the GPU it changes nothing either.** `debye`'s six orders were dispatched
+at both table lengths on llvmpipe over the same 256 probes:
+
+| | `f64` order | `order_sp` |
+|---|---|---|
+| `D_1` bit-identical | 226/256 | 226/256 |
+| `D_4` | 185/256 | 185/256 |
+| `D_6` | 157/256 | 157/256 |
+| `D_6` worst | 1.630432961974293e-06 | 1.630432961974293e-06 |
+
+Identical counts and identical worst errors, with 38 % fewer coefficients —
+which is a second, independent confirmation that the inline-coefficient
+effect below is not about array length.
 
 ## The inline-coefficient effect is NOT about array length
 

@@ -94,19 +94,18 @@
 // That is a THIRD outcome beside keep and retarget, and it is forced rather
 // than chosen: a constant one cannot even write down cannot be a guard.
 
-// GSL's fd_1_a_data, 22 coefficients.
+// GSL's `fd_1_a_data` at its SINGLE-PRECISION order: 13 of the 22 stored,
+// where `f64` evaluates 22.
 fn petir_fd_cheb_1_a(x: f32) -> f32 {
-    var c = array<f32, 22>(
+    var c = array<f32, 13>(
         1.894934058189392, 0.7237719297409058, 0.125, 0.010106519795954227, 0.0,
         -6.0061523981858045e-05, 0.0, 6.816528639319586e-07, 0.0, -9.58957802055238e-09,
-        0.0, 1.5151041532490694e-10, 0.0, -2.578561496269227e-12, 0.0,
-        4.622699927925647e-14, 0.0, -8.611999968136021e-16, 0.0, 1.6499999980444308e-17,
-        0.0, -3.0000000340435383e-19,
+        0.0, 1.5151041532490694e-10, 0.0,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 21; j >= 1; j = j - 1) {
+    for (var j: i32 = 12; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -114,21 +113,19 @@ fn petir_fd_cheb_1_a(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_1_b_data, 22 coefficients.
+// GSL's `fd_1_b_data` at its SINGLE-PRECISION order: 12 of the 22 stored,
+// where `f64` evaluates 22.
 fn petir_fd_cheb_1_b(x: f32) -> f32 {
-    var c = array<f32, 22>(
+    var c = array<f32, 12>(
         10.409136772155762, 3.899445056915283, 0.5135109424591064, 0.01061873696744442,
         -0.0015844680601730943, 0.0001461392967030406, -1.4080957271289662e-06,
         -2.1779937924293336e-06, 3.9142366858868627e-07, -2.3860263098640644e-08,
-        -4.138309694923237e-09, 1.2839652674401236e-09, -1.3969599088614615e-10,
-        -4.9077430487598495e-12, 4.3998780313581065e-12, -7.172910269220845e-13,
-        2.4319999817170104e-14, 1.4229999353875845e-14, -3.446000021182431e-15,
-        2.929999990511524e-16, 3.700000055773374e-17, -1.600000073301928e-17,
+        -4.138309694923237e-09, 1.2839652674401236e-09,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 21; j >= 1; j = j - 1) {
+    for (var j: i32 = 11; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -136,22 +133,20 @@ fn petir_fd_cheb_1_b(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_1_c_data, 23 coefficients.
+// GSL's `fd_1_c_data` at its SINGLE-PRECISION order: 14 of the 23 stored,
+// where `f64` evaluates 23.
 fn petir_fd_cheb_1_c(x: f32) -> f32 {
-    var c = array<f32, 23>(
+    var c = array<f32, 14>(
         56.7809944152832, 21.007184982299805, 2.245924472808838, 0.0017379363998770714,
         -0.000587164715398103, 0.00016306959150824696, -3.817425749730319e-05,
         7.645272489753552e-06, -1.3134849723428488e-06, 1.9000646034328383e-07,
         -2.1413281814375296e-08, 1.2390637404990912e-09, 2.1848048370465278e-10,
-        -1.0134282302232123e-10, 2.484728048313123e-11, -4.73066984890691e-12,
-        7.355500214988042e-13, -8.739999690773534e-14, 4.850000118178507e-15,
-        1.2300000478722558e-15, -5.600000041489789e-16, 1.4000000103724471e-16,
-        -3.0000001167615996e-17,
+        -1.0134282302232123e-10,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 22; j >= 1; j = j - 1) {
+    for (var j: i32 = 13; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -159,24 +154,20 @@ fn petir_fd_cheb_1_c(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_1_d_data, 30 coefficients.
+// GSL's `fd_1_d_data` at its SINGLE-PRECISION order: 15 of the 30 stored,
+// where `f64` evaluates 30.
 fn petir_fd_cheb_1_d(x: f32) -> f32 {
-    var c = array<f32, 30>(
+    var c = array<f32, 15>(
         1.012662649154663, -0.00633125239983201, 0.002483731834217906,
         -0.0008764333906583488, 0.0002913344360422343, -9.31877875700593e-05,
         2.9015134714427404e-05, -8.854870429786388e-06, 2.6603474907460622e-06,
         -7.89141552104411e-07, 2.315730256441384e-07, -6.731794854886175e-08,
         1.9404803097700096e-08, -5.5507127783016585e-09, 1.576609065523371e-09,
-        -4.4493109196963587e-10, 1.2482927191914683e-10, -3.483928770475764e-11,
-        9.67915504690442e-12, -2.678624032650956e-12, 7.388851900116955e-13,
-        -2.0328279803829424e-13, 5.5811498949958835e-14, -1.5298700823426596e-14,
-        4.188599947029144e-15, -1.1457999965966133e-15, 3.1319998783771376e-16,
-        -8.559999821410692e-17, 2.3300000333336532e-17, -5.90000013588401e-18,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 29; j >= 1; j = j - 1) {
+    for (var j: i32 = 14; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -184,18 +175,17 @@ fn petir_fd_cheb_1_d(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_1_e_data, 10 coefficients.
+// GSL's `fd_1_e_data` at its SINGLE-PRECISION order: 5 of the 10 stored,
+// where `f64` evaluates 10.
 fn petir_fd_cheb_1_e(x: f32) -> f32 {
-    var c = array<f32, 10>(
+    var c = array<f32, 5>(
         1.0013707876205444, 0.0009138522436842322, 0.00022846306092105806,
-        -1.5700000522819772e-17, -1.2700000075185928e-17, -9.699999627552083e-18,
-        -6.899999871504985e-18, -4.6000001900635275e-18, -2.9000001018404714e-18,
-        -1.6999999848254795e-18,
+        -1.5700000522819772e-17, -1.2700000075185928e-17,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 9; j >= 1; j = j - 1) {
+    for (var j: i32 = 4; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -203,19 +193,18 @@ fn petir_fd_cheb_1_e(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_2_a_data, 21 coefficients.
+// GSL's `fd_2_a_data` at its SINGLE-PRECISION order: 13 of the 21 stored,
+// where `f64` evaluates 21.
 fn petir_fd_cheb_2_a(x: f32) -> f32 {
-    var c = array<f32, 21>(
+    var c = array<f32, 13>(
         2.1573662757873535, 0.884967029094696, 0.17841634154319763, 0.02083333395421505,
         0.0012708225985988975, 0.0, -5.0619314606592525e-06, 0.0, 4.320265389878841e-08,
-        0.0, -4.870543968138463e-10, 0.0, 6.420374214916036e-12, 0.0,
-        -9.374239665765893e-14, 0.0, 1.4715000466836528e-15, 0.0, -2.4400000001160574e-17,
-        0.0, 3.99999987306209e-19,
+        0.0, -4.870543968138463e-10, 0.0, 6.420374214916036e-12,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 20; j >= 1; j = j - 1) {
+    for (var j: i32 = 12; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -223,21 +212,19 @@ fn petir_fd_cheb_2_a(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_2_b_data, 22 coefficients.
+// GSL's `fd_2_b_data` at its SINGLE-PRECISION order: 13 of the 22 stored,
+// where `f64` evaluates 22.
 fn petir_fd_cheb_2_b(x: f32) -> f32 {
-    var c = array<f32, 22>(
+    var c = array<f32, 13>(
         16.508258819580078, 7.421719551086426, 1.4583098888397217, 0.12877385318279266,
         0.001963611925020814, -0.0002374589821556583, 1.8539662050898187e-05,
         -1.9280564345081075e-07, -2.0195003003209422e-07, 3.296349859738257e-08,
         -1.8858170580671185e-09, -2.7263274970934503e-10, 8.055456302002995e-11,
-        -8.313223373579426e-12, -2.2448900648553566e-13, 2.1877799864702258e-13,
-        -3.4290001122826846e-14, 1.2250000123846137e-15, 5.810000155542219e-16,
-        -1.369999956265272e-16, 1.2000000136174153e-17, 1.000000045813705e-18,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 21; j >= 1; j = j - 1) {
+    for (var j: i32 = 12; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -245,21 +232,19 @@ fn petir_fd_cheb_2_b(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_2_c_data, 20 coefficients.
+// GSL's `fd_2_c_data` at its SINGLE-PRECISION order: 13 of the 20 stored,
+// where `f64` evaluates 20.
 fn petir_fd_cheb_2_c(x: f32) -> f32 {
-    var c = array<f32, 20>(
+    var c = array<f32, 13>(
         168.8712921142578, 81.80260467529297, 15.754084587097168, 1.1232558488845825,
         0.0005905750440433621, -0.00016469713591504842, 3.8856076571391895e-05,
         -7.898736839706544e-06, 1.3978624338051304e-06, -2.1534528116262663e-07,
         2.83151102564716e-08, -2.949785748995737e-09, 1.6755082044017655e-10,
-        2.2342289476839916e-11, -1.0351299678523773e-11, 2.4111700049761486e-12,
-        -4.353099911785785e-13, 6.447000187393206e-14, -7.389999934692346e-15,
-        4.300000079125694e-16,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 19; j >= 1; j = j - 1) {
+    for (var j: i32 = 12; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -267,24 +252,20 @@ fn petir_fd_cheb_2_c(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_2_d_data, 30 coefficients.
+// GSL's `fd_2_d_data` at its SINGLE-PRECISION order: 15 of the 30 stored,
+// where `f64` evaluates 30.
 fn petir_fd_cheb_2_d(x: f32) -> f32 {
-    var c = array<f32, 30>(
+    var c = array<f32, 15>(
         0.34599605202674866, -0.006331364158540964, 0.0024838296230882406,
         -0.0008765119127929211, 0.0002913925563916564, -9.322746336692944e-05,
         2.90402185783023e-05, -8.869622433849145e-06, 2.6684497242968064e-06,
         -7.933156780381978e-07, 2.3359868350780744e-07, -6.824790688142457e-08,
         1.9810364904060407e-08, -5.7194040614660935e-09, 1.6437942118585624e-09,
-        -4.706493528239264e-10, 1.3432614742736604e-10, -3.823400623881312e-11,
-        1.0857720104950896e-11, -3.0772745462925855e-12, 8.706484968742934e-13,
-        -2.4595429859441964e-13, 6.938530696179446e-14, -1.9549389979555375e-14,
-        5.5016200234023985e-15, -1.5465700356999596e-15, 4.34289991562396e-16,
-        -1.217800047044495e-16, 3.3940001391548976e-17, -8.809999610559328e-18,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 29; j >= 1; j = j - 1) {
+    for (var j: i32 = 14; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -309,7 +290,8 @@ fn petir_fd_cheb_2_e(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_mhalf_a_data, 20 coefficients.
+// GSL's `fd_mhalf_a_data` at its SINGLE-PRECISION order: 13 of the 20 stored,
+// where `f64` evaluates 20.
 fn petir_fd_cheb_mhalf_a(x: f32) -> f32 {
     var c = array<f32, 20>(
         1.266329050064087, 0.36978763341903687, 0.027813101187348366, -0.003333284752443433,
@@ -331,7 +313,8 @@ fn petir_fd_cheb_mhalf_a(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_mhalf_b_data, 20 coefficients.
+// GSL's `fd_mhalf_b_data` at its SINGLE-PRECISION order: 13 of the 20 stored,
+// where `f64` evaluates 20.
 fn petir_fd_cheb_mhalf_b(x: f32) -> f32 {
     var c = array<f32, 20>(
         3.270796060562134, 0.5809004902839661, -0.029931344091892242,
@@ -353,7 +336,8 @@ fn petir_fd_cheb_mhalf_b(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_mhalf_c_data, 25 coefficients.
+// GSL's `fd_mhalf_c_data` at its SINGLE-PRECISION order: 14 of the 25 stored,
+// where `f64` evaluates 25.
 fn petir_fd_cheb_mhalf_c(x: f32) -> f32 {
     var c = array<f32, 25>(
         5.828283309936523, 0.6775211095809937, -0.043946247547864914, 0.005825595930218697,
@@ -376,7 +360,8 @@ fn petir_fd_cheb_mhalf_c(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_mhalf_d_data, 30 coefficients.
+// GSL's `fd_mhalf_d_data` at its SINGLE-PRECISION order: 16 of the 30 stored,
+// where `f64` evaluates 30.
 fn petir_fd_cheb_mhalf_d(x: f32) -> f32 {
     var c = array<f32, 30>(
         2.2530744075775146, 0.0018745153211057186, -0.0007550198351964355,
@@ -401,7 +386,8 @@ fn petir_fd_cheb_mhalf_d(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_half_a_data, 23 coefficients.
+// GSL's `fd_half_a_data` at its SINGLE-PRECISION order: 12 of the 23 stored,
+// where `f64` evaluates 23.
 fn petir_fd_cheb_half_a(x: f32) -> f32 {
     var c = array<f32, 23>(
         1.7177138328552246, 0.619257926940918, 0.09328022599220276, 0.004709485452622175,
@@ -424,7 +410,8 @@ fn petir_fd_cheb_half_a(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_half_b_data, 20 coefficients.
+// GSL's `fd_half_b_data` at its SINGLE-PRECISION order: 13 of the 20 stored,
+// where `f64` evaluates 20.
 fn petir_fd_cheb_half_b(x: f32) -> f32 {
     var c = array<f32, 20>(
         7.6510138511657715, 2.475545644760132, 0.21833598613739014, -0.007730591576546431,
@@ -446,7 +433,8 @@ fn petir_fd_cheb_half_b(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_half_c_data, 23 coefficients.
+// GSL's `fd_half_c_data` at its SINGLE-PRECISION order: 14 of the 23 stored,
+// where `f64` evaluates 23.
 fn petir_fd_cheb_half_c(x: f32) -> f32 {
     var c = array<f32, 23>(
         29.584339141845703, 8.808343887329102, 0.5037716627120972, -0.021540695801377296,
@@ -469,7 +457,8 @@ fn petir_fd_cheb_half_c(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_half_d_data, 30 coefficients.
+// GSL's `fd_half_d_data` at its SINGLE-PRECISION order: 16 of the 30 stored,
+// where `f64` evaluates 30.
 fn petir_fd_cheb_half_d(x: f32) -> f32 {
     var c = array<f32, 30>(
         1.5116909742355347, -0.00360434059984982, 0.0014207743806764483,
@@ -494,7 +483,8 @@ fn petir_fd_cheb_half_d(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_3half_a_data, 20 coefficients.
+// GSL's `fd_3half_a_data` at its SINGLE-PRECISION order: 12 of the 20 stored,
+// where `f64` evaluates 20.
 fn petir_fd_cheb_3half_a(x: f32) -> f32 {
     var c = array<f32, 20>(
         2.0404775142669678, 0.8122168183326721, 0.1536371111869812, 0.015617432072758675,
@@ -516,7 +506,8 @@ fn petir_fd_cheb_3half_a(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_3half_b_data, 22 coefficients.
+// GSL's `fd_3half_b_data` at its SINGLE-PRECISION order: 13 of the 22 stored,
+// where `f64` evaluates 22.
 fn petir_fd_cheb_3half_b(x: f32) -> f32 {
     var c = array<f32, 22>(
         13.403206825256348, 5.574508190155029, 0.9312285780906677, 0.05463835597038269,
@@ -538,7 +529,8 @@ fn petir_fd_cheb_3half_b(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_3half_c_data, 21 coefficients.
+// GSL's `fd_3half_c_data` at its SINGLE-PRECISION order: 13 of the 21 stored,
+// where `f64` evaluates 21.
 fn petir_fd_cheb_3half_c(x: f32) -> f32 {
     var c = array<f32, 21>(
         101.03684997558594, 43.620853424072266, 6.622413635253906, 0.25081413984298706,
@@ -560,7 +552,8 @@ fn petir_fd_cheb_3half_c(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's fd_3half_d_data, 25 coefficients.
+// GSL's `fd_3half_d_data` at its SINGLE-PRECISION order: 17 of the 25 stored,
+// where `f64` evaluates 25.
 fn petir_fd_cheb_3half_d(x: f32) -> f32 {
     var c = array<f32, 25>(
         0.6160645484924316, -0.007123948074877262, 0.002790686674416065,
