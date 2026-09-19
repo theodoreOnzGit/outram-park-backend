@@ -103,6 +103,12 @@
 //! which is upstream's `DOMAIN_ERROR`, and `NaN` where upstream signals
 //! `OVERFLOW_ERROR`.
 //!
+//! **[`legendre_plm_checked`] returns a [`crate::Result`] instead**, and is
+//! the one to reach for if you cannot rule out large `m`: it reports
+//! [`PetirError::Overflow`](crate::PetirError::Overflow) for a non-finite
+//! result whether or not upstream's guard saw it coming, which closes the
+//! `l == m` hole for a caller without making the ported function unfaithful.
+//!
 //! # Accuracy
 //!
 //! Measured against the **`m = 0` reduction** to the ordinary Legendre
@@ -198,6 +204,79 @@ pub fn legendre_plm(l: u32, m: u32, x: f64) -> f64 {
         p_ellm1 = p_ell;
     }
     p_ell
+}
+
+/// [`legendre_plm`] with the overflow **actually checked**, returning
+/// [`crate::Result`] rather than a bare `f64`.
+///
+/// # Why this exists beside the bare form
+///
+/// [`legendre_plm`] is a faithful transcription, and upstream's guard has a
+/// hole at `l == m` — see the module documentation. The consequence is that
+/// `legendre_plm(200, 200, 0.5)` returns `inf` and says nothing about it, so
+/// a caller who does not know about the hole gets an infinity propagating
+/// silently through whatever comes next.
+///
+/// This entry point closes that without touching the faithful one. It runs
+/// the same computation and then **checks the result it actually got**:
+///
+/// | outcome | returned |
+/// |---|---|
+/// | finite | `Ok(value)` |
+/// | `inf` | `Err(`[`PetirError::Overflow`](crate::PetirError::Overflow)`)` |
+/// | `NaN` from the domain test | `Err(`[`PetirError::Domain`](crate::PetirError::Domain)`)` |
+/// | `NaN` from upstream's guard | `Err(`[`PetirError::Overflow`](crate::PetirError::Overflow)`)` |
+///
+/// Checking the output rather than re-deriving a better magnitude estimate
+/// is deliberate: it cannot disagree with the bare function about *what was
+/// computed*, only about how that is reported. A second, cleverer guard
+/// could drift from the one that ships.
+///
+/// **This is not a substitute for the normalised form.** Where `P_l^m` is
+/// genuinely too large for `f64`, no error convention makes the value
+/// available — see the module documentation on `sphPlm`. What this buys is
+/// that the caller finds out.
+///
+/// # Errors
+///
+/// - [`PetirError::Domain`](crate::PetirError::Domain) for `l < m`,
+///   `|x| > 1`, or a `NaN` argument.
+/// - [`PetirError::Overflow`](crate::PetirError::Overflow) where the result
+///   is not finite, whether upstream's guard caught it or not.
+///
+/// # Examples
+///
+/// ```
+/// use petir::specfunc::legendre::{legendre_plm, legendre_plm_checked};
+/// use petir::PetirError;
+///
+/// // An ordinary case agrees with the bare form exactly.
+/// assert_eq!(legendre_plm_checked(8, 3, 0.4).unwrap(), legendre_plm(8, 3, 0.4));
+///
+/// // The case upstream's guard cannot see: the bare form returns infinity,
+/// // this one says why.
+/// assert!(legendre_plm(200, 200, 0.5).is_infinite());
+/// assert_eq!(legendre_plm_checked(200, 200, 0.5), Err(PetirError::Overflow));
+///
+/// // And a domain error stays a domain error.
+/// assert_eq!(legendre_plm_checked(2, 3, 0.5), Err(PetirError::Domain));
+/// ```
+pub fn legendre_plm_checked(l: u32, m: u32, x: f64) -> crate::Result<f64> {
+    // The domain test first, so a refusal here is reported as a domain error
+    // rather than being folded into the NaN the guard also produces.
+    if x.is_nan() || l < m || !(-1.0..=1.0).contains(&x) {
+        return Err(crate::PetirError::Domain);
+    }
+    let v = legendre_plm(l, m, x);
+    if v.is_finite() {
+        Ok(v)
+    } else {
+        // Past the domain test, the only remaining ways out are upstream's
+        // magnitude guard (NaN) and the factorial growth escaping f64 (inf).
+        // Both are the same condition reported two ways, so both are
+        // Overflow.
+        Err(crate::PetirError::Overflow)
+    }
 }
 
 #[cfg(test)]
@@ -415,6 +494,105 @@ mod tests {
                 "the guard fired on an ordinary case, l = {l}, m = {m}"
             );
         }
+    }
+
+    /// **The checked form agrees with the bare one everywhere, and reports
+    /// what the bare one cannot.**
+    ///
+    /// Two claims, both swept rather than spot-checked:
+    ///
+    /// 1. Wherever `legendre_plm` returns a finite value,
+    ///    `legendre_plm_checked` returns `Ok` of **exactly** that value —
+    ///    bit equality, not a tolerance, because it is the same computation.
+    /// 2. Wherever the bare form returns `inf` or a guard `NaN`, the checked
+    ///    form returns `Err(Overflow)`; wherever the arguments are out of
+    ///    domain, `Err(Domain)`.
+    ///
+    /// The second is what closes upstream's `l == m` hole for a caller. The
+    /// first is what stops the checked form from silently becoming a
+    /// *different* function — which is the real risk in adding a second
+    /// entry point, and the reason this asserts equality rather than
+    /// agreement.
+    #[test]
+    fn the_checked_form_agrees_exactly_and_reports_the_overflow() {
+        use crate::PetirError;
+
+        let (mut finite, mut overflowed, mut domain) = (0usize, 0usize, 0usize);
+        // m to 200 so the l == m overflow near m = 160 is inside the sweep,
+        // and an l far above m so upstream's guard (which needs dif != 0)
+        // fires too. A narrower sweep reached NEITHER, and the assertions
+        // below are what caught that.
+        for m in (0..=200u32).step_by(4) {
+            // m.saturating_sub(1) gives l < m for every m > 0, so the
+            // domain branch is exercised by the sweep and not only by the
+            // spot checks below.
+            for l in [
+                m.saturating_sub(1),
+                m,
+                m + 1,
+                m + 3,
+                m + 17,
+                m + 60,
+                m + 1200,
+            ] {
+                for i in 0..=8 {
+                    let x = -1.0 + 2.0 * i as f64 / 8.0;
+                    let bare = legendre_plm(l, m, x);
+                    match legendre_plm_checked(l, m, x) {
+                        Ok(v) => {
+                            assert_eq!(
+                                v.to_bits(),
+                                bare.to_bits(),
+                                "checked and bare disagree at l = {l}, m = {m}, \
+                                 x = {x}: {v:e} against {bare:e}"
+                            );
+                            assert!(v.is_finite());
+                            finite += 1;
+                        }
+                        Err(PetirError::Overflow) => {
+                            assert!(
+                                !bare.is_finite(),
+                                "checked reported Overflow at l = {l}, m = {m} \
+                                 where the bare form returned a finite {bare:e}"
+                            );
+                            overflowed += 1;
+                        }
+                        Err(PetirError::Domain) => {
+                            assert!(l < m, "Domain reported for l = {l} >= m = {m}");
+                            domain += 1;
+                        }
+                        Err(e) => panic!("unexpected error {e} at l = {l}, m = {m}"),
+                    }
+                }
+            }
+        }
+        // All three outcomes must actually occur, or the sweep is not
+        // exercising what it claims to.
+        assert!(finite > 1000, "only {finite} finite results");
+        assert!(overflowed > 0, "the sweep never reached an overflow");
+        assert!(domain > 0, "the sweep never reached a domain refusal");
+
+        // The specific case upstream's guard cannot see. The bare form is
+        // infinite and silent; the checked form says Overflow.
+        assert!(legendre_plm(200, 200, 0.5).is_infinite());
+        assert_eq!(
+            legendre_plm_checked(200, 200, 0.5),
+            Err(PetirError::Overflow)
+        );
+        // And the case the guard DOES catch, which must report the same
+        // thing -- a caller should not have to know which mechanism fired.
+        assert!(legendre_plm(1124, 100, 0.5).is_nan());
+        assert_eq!(
+            legendre_plm_checked(1124, 100, 0.5),
+            Err(PetirError::Overflow)
+        );
+        // A domain refusal is NOT folded into Overflow.
+        assert_eq!(legendre_plm_checked(2, 3, 0.5), Err(PetirError::Domain));
+        assert_eq!(legendre_plm_checked(3, 1, 1.5), Err(PetirError::Domain));
+        assert_eq!(
+            legendre_plm_checked(3, 1, f64::NAN),
+            Err(PetirError::Domain)
+        );
     }
 
     /// The domain refusals, which are upstream's.

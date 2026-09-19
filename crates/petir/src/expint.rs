@@ -259,10 +259,11 @@ fn cheb_eval(c: &[f64], order: usize, a: f64, b: f64, x: f64) -> (f64, f64) {
 /// # Errors
 /// - [`PetirError::Domain`] at `x == 0`, where `E_1` diverges
 ///   (`DOMAIN_ERROR`, `:329`).
-/// - [`PetirError::ZeroDivide`] for `x < -xmax`, upstream's `OVERFLOW_ERROR`
+/// - [`PetirError::Overflow`] for `x < -xmax`, upstream's `OVERFLOW_ERROR`
 ///   (`:297`) — the result would exceed the double range.
-/// - [`PetirError::Tolerance`] where upstream signals `UNDERFLOW_ERROR`
-///   (`:365`, `:370`): the result has fallen below the smallest normal double.
+/// - [`PetirError::Underflow`] where upstream signals `UNDERFLOW_ERROR`
+///   (`:365`, `:370`): the result has fallen below the smallest normal
+///   double, so it is effectively zero and a caller can usually continue.
 pub fn expint_e1(x: f64) -> Result<(f64, f64)> {
     expint_e1_impl(x, false)
 }
@@ -321,7 +322,7 @@ fn expint_e1_impl(x: f64, scale: bool) -> Result<(f64, f64)> {
     let xmax = xmaxt - libm::log(xmaxt);
 
     if x < -xmax && !scale {
-        return Err(PetirError::ZeroDivide); // OVERFLOW_ERROR
+        return Err(PetirError::Overflow); // OVERFLOW_ERROR
     }
     if x <= -10.0 {
         let s = 1.0 / x * if scale { 1.0 } else { libm::exp(-x) };
@@ -362,11 +363,11 @@ fn expint_e1_impl(x: f64, scale: bool) -> Result<(f64, f64)> {
         let val = s * (1.0 + c);
         let err = s * (EPS + ce) + 2.0 * (x + 1.0) * EPS * libm::fabs(val);
         if val == 0.0 {
-            Err(PetirError::Tolerance) // UNDERFLOW_ERROR
+            Err(PetirError::Underflow) // UNDERFLOW_ERROR
         } else {
             Ok((val, err))
         }
     } else {
-        Err(PetirError::Tolerance) // UNDERFLOW_ERROR
+        Err(PetirError::Underflow) // UNDERFLOW_ERROR
     }
 }

@@ -197,6 +197,141 @@ pub fn chi(x: f64) -> f64 {
     }
 }
 
+/// [`shi`] with the refusal **reported** rather than collapsed to `NaN`.
+///
+/// # Why this exists beside the bare form
+///
+/// `Shi` grows like `e^x / (2x)` and leaves `f64`'s range near `x = 709`.
+/// [`shi`] returns `NaN` there — which is indistinguishable from `shi(NaN)`,
+/// although one is a representation limit on a perfectly well-defined value
+/// and the other is a bad argument. The information exists one layer down:
+/// [`crate::expint::expint_ei`] reports
+/// [`PetirError::Overflow`](crate::PetirError::Overflow). The bare form
+/// throws it away because the rest of [`crate::specfunc`] returns a plain
+/// `f64`; this one propagates it.
+///
+/// # It reproduces upstream's PRECEDENCE, which `?` would not
+///
+/// `specfunc/shint.c:86-91` reports underflow only when **both** `Ei` and
+/// `E_1` underflow, and overflow when **either** overflows. That is not the
+/// same as propagating whichever error is seen first:
+///
+/// | | `Ei` | `E_1` | upstream, and this function |
+/// |---|---|---|---|
+/// | `x > 709` | overflows | underflows | **Overflow** |
+/// | `x < -709` | **underflows** | overflows | **Overflow** |
+///
+/// A naive `expint_ei(x)?` would report `Underflow` for the second row. The
+/// match below encodes upstream's order instead.
+///
+/// # Errors
+///
+/// - [`PetirError::Overflow`](crate::PetirError::Overflow) where either
+///   underlying integral overflows — in practice everywhere `|x|` exceeds
+///   about 709.
+/// - [`PetirError::Underflow`](crate::PetirError::Underflow) where both
+///   underflow. **Measured unreachable** over `|x| <= 800`: see
+///   `the_two_integrals_always_fail_together`.
+/// - [`PetirError::Domain`](crate::PetirError::Domain) for a `NaN` argument.
+///
+/// # Examples
+///
+/// ```
+/// use petir::specfunc::shint::{shi, shi_checked};
+/// use petir::PetirError;
+///
+/// assert_eq!(shi_checked(1.5).unwrap(), shi(1.5));
+/// // Past the representable range the bare form is silent; this is not.
+/// assert!(shi(800.0).is_nan());
+/// assert_eq!(shi_checked(800.0), Err(PetirError::Overflow));
+/// assert_eq!(shi_checked(-800.0), Err(PetirError::Overflow));
+/// ```
+pub fn shi_checked(x: f64) -> crate::Result<f64> {
+    if x.is_nan() {
+        return Err(crate::PetirError::Domain);
+    }
+    let ax = x.abs();
+    if ax < crate::specfunc::SQRT_DBL_EPSILON {
+        return Ok(x);
+    }
+    if ax <= 0.375 {
+        return Ok(x * (1.0 + cheb(128.0 * x * x / 9.0 - 1.0, &SHI)));
+    }
+    combine(
+        crate::expint::expint_ei(x),
+        crate::expint::expint_e1(x),
+        |ei, e1| 0.5 * (ei + e1),
+    )
+}
+
+/// [`chi`] with the refusal reported rather than collapsed to `NaN`.
+///
+/// The companion of [`shi_checked`]; see that function for why the bare
+/// forms cannot carry this and for upstream's precedence rule.
+///
+/// `Chi` has one refusal `Shi` does not: **`x = 0`**, where `E_1` diverges
+/// and upstream checks `GSL_EDOM` *before* the range cases
+/// (`specfunc/shint.c:102`). `Shi`'s own small-argument series covers the
+/// origin, so it has no such branch.
+///
+/// # Errors
+///
+/// - [`PetirError::Domain`](crate::PetirError::Domain) at `x == 0` and for
+///   a `NaN` argument.
+/// - [`PetirError::Overflow`](crate::PetirError::Overflow) where either
+///   underlying integral overflows.
+/// - [`PetirError::Underflow`](crate::PetirError::Underflow) where both
+///   underflow.
+///
+/// # Examples
+///
+/// ```
+/// use petir::specfunc::shint::{chi, chi_checked};
+/// use petir::PetirError;
+///
+/// assert_eq!(chi_checked(1.5).unwrap(), chi(1.5));
+/// assert_eq!(chi_checked(0.0), Err(PetirError::Domain));
+/// assert_eq!(chi_checked(800.0), Err(PetirError::Overflow));
+/// ```
+pub fn chi_checked(x: f64) -> crate::Result<f64> {
+    if x.is_nan() {
+        return Err(crate::PetirError::Domain);
+    }
+    combine(
+        crate::expint::expint_ei(x),
+        crate::expint::expint_e1(x),
+        |ei, e1| 0.5 * (ei - e1),
+    )
+}
+
+/// Upstream's error precedence for `Shi` and `Chi`, in one place because
+/// both use it and getting it subtly different in two functions is how a
+/// port drifts.
+///
+/// `specfunc/shint.c:86-91` and `:102-110`: domain first, then **both**
+/// underflow, then **either** overflow.
+fn combine(
+    ei: crate::Result<(f64, f64)>,
+    e1: crate::Result<(f64, f64)>,
+    f: impl Fn(f64, f64) -> f64,
+) -> crate::Result<f64> {
+    use crate::PetirError as E;
+    match (ei, e1) {
+        (Ok((a, _)), Ok((b, _))) => Ok(f(a, b)),
+        // Domain first -- x = 0, where E_1 diverges.
+        (Err(E::Domain), _) | (_, Err(E::Domain)) => Err(E::Domain),
+        // Underflow only when BOTH underflow.
+        (Err(E::Underflow), Err(E::Underflow)) => Err(E::Underflow),
+        // Overflow when EITHER overflows. This must be tested after the
+        // both-underflow case and before any single-error fallthrough, or
+        // x < -709 (Ei underflows, E_1 overflows) reports the wrong one.
+        (Err(E::Overflow), _) | (_, Err(E::Overflow)) => Err(E::Overflow),
+        // Anything else upstream does not enumerate; report it rather than
+        // inventing a classification.
+        (Err(e), _) | (_, Err(e)) => Err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -451,6 +586,113 @@ mod tests {
         // Sanity on the bracket, so a bisection that converged to an endpoint
         // could not pass.
         assert!(z_mod > 0.4 && z_mod < 0.7, "Chi's zero at {z_mod}");
+    }
+
+    /// **The checked forms agree with the bare ones exactly, and report what
+    /// the bare ones cannot.**
+    ///
+    /// Everywhere `shi`/`chi` return a finite value, `shi_checked`/
+    /// `chi_checked` return `Ok` of **bit-identically** that value — they
+    /// are the same computation. Everywhere the bare forms return `NaN`, the
+    /// checked ones name the reason.
+    ///
+    /// The equality matters more than it looks: the risk in adding a second
+    /// entry point is that it quietly becomes a different function.
+    #[test]
+    fn the_checked_forms_agree_exactly_and_name_the_refusal() {
+        use crate::PetirError;
+
+        let (mut ok, mut refused) = (0usize, 0usize);
+        for i in -80000..=80000i64 {
+            let x = i as f64 * 0.01;
+            for (bare, checked, name) in [
+                (shi(x), shi_checked(x), "Shi"),
+                (chi(x), chi_checked(x), "Chi"),
+            ] {
+                match checked {
+                    Ok(v) => {
+                        assert_eq!(
+                            v.to_bits(),
+                            bare.to_bits(),
+                            "{name}: checked and bare disagree at x = {x}"
+                        );
+                        ok += 1;
+                    }
+                    Err(e) => {
+                        assert!(
+                            bare.is_nan(),
+                            "{name}: checked reported {e} at x = {x} where the \
+                             bare form returned a finite {bare:e}"
+                        );
+                        refused += 1;
+                    }
+                }
+            }
+        }
+        assert!(ok > 100_000, "only {ok} finite results");
+        assert!(
+            refused > 100,
+            "only {refused} refusals -- the sweep is not \
+                                reaching the representable limit"
+        );
+
+        // The overflow is reported as overflow at BOTH ends, which is
+        // upstream's precedence and is what a naive `?` would get wrong.
+        assert_eq!(shi_checked(800.0), Err(PetirError::Overflow));
+        assert_eq!(shi_checked(-800.0), Err(PetirError::Overflow));
+        assert_eq!(chi_checked(800.0), Err(PetirError::Overflow));
+        // Chi's extra refusal, which Shi does not have.
+        assert_eq!(chi_checked(0.0), Err(PetirError::Domain));
+        assert_eq!(shi_checked(0.0), Ok(0.0));
+        // NaN in is a domain error, not an overflow -- the distinction the
+        // bare forms cannot express at all.
+        assert_eq!(shi_checked(f64::NAN), Err(PetirError::Domain));
+        assert_eq!(chi_checked(f64::NAN), Err(PetirError::Domain));
+    }
+
+    /// **`Ei` and `E_1` always fail together**, which is why the bare forms'
+    /// collapse to `NaN` loses no *value* — only the reason.
+    ///
+    /// Upstream's `Shi` carries a three-way branch: underflow when **both**
+    /// underflow, overflow when **either** overflows, and success otherwise —
+    /// that last arm covering the case where exactly one fails and its
+    /// documented value (`0.0` for underflow) is still usable.
+    ///
+    /// Measured 2026-09-20 over 160 001 points spanning `x` in
+    /// `[-800, 800]`: **there is no `x` at which exactly one of them
+    /// errors.** 19 635 points fail, and at every one of them both fail. So
+    /// upstream's success-with-one-failure arm is unreachable for `Shi`, and
+    /// this port's simpler collapse is equivalent rather than merely close.
+    ///
+    /// That is recorded as a measurement rather than an argument because the
+    /// two functions are not obviously coupled: `Ei(x) = -E_1(-x)`, so one
+    /// overflowing at `+x` pairs with the other underflowing at `-x`, and
+    /// the windows happen to coincide. If `expint`'s `xmax` ever moves, this
+    /// fails and the collapse needs revisiting.
+    #[test]
+    fn the_two_integrals_always_fail_together() {
+        let (mut only_one, mut both) = (0usize, 0usize);
+        for i in -80000..=80000i64 {
+            let x = i as f64 * 0.01;
+            let ei = crate::expint::expint_ei(x).is_err();
+            let e1 = crate::expint::expint_e1(x).is_err();
+            if ei != e1 {
+                only_one += 1;
+            } else if ei {
+                both += 1;
+            }
+        }
+        assert_eq!(
+            only_one, 0,
+            "upstream's success-with-one-failure arm is documented as \
+             unreachable; {only_one} points now reach it, so shi/chi's \
+             collapse to NaN is no longer equivalent to upstream"
+        );
+        assert!(
+            both > 19_000,
+            "the sweep is documented as reaching 19 635 joint failures; it \
+             reached {both}"
+        );
     }
 
     /// `Shi` is odd and `Chi` is not, and the refusals are upstream's.

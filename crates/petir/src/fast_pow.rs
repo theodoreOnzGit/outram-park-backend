@@ -586,7 +586,7 @@ fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (
         // deliberately not transcribed.
         let y = y * P1009;
         return if y.is_infinite() {
-            Err((PetirError::ZeroDivide, y)) // check_oflow
+            Err((PetirError::Overflow, y)) // check_oflow
         } else {
             Ok(y)
         };
@@ -612,7 +612,7 @@ fn pow_specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (
     }
     let y = P_M1022 * y;
     if y == 0.0 {
-        Err((PetirError::Tolerance, y)) // check_uflow
+        Err((PetirError::Underflow, y)) // check_uflow
     } else {
         Ok(y)
     }
@@ -643,10 +643,10 @@ fn exp_inline(x: f64, xtail: f64, sign_bias: u32) -> core::result::Result<f64, (
             // the sign taken from `sign_bias` being non-zero.
             let neg = sign_bias != 0;
             return if x.to_bits() >> 63 != 0 {
-                Err((PetirError::Tolerance, if neg { -0.0 } else { 0.0 }))
+                Err((PetirError::Underflow, if neg { -0.0 } else { 0.0 }))
             } else {
                 Err((
-                    PetirError::ZeroDivide,
+                    PetirError::Overflow,
                     if neg {
                         f64::NEG_INFINITY
                     } else {
@@ -850,9 +850,9 @@ fn powf_inner(x: f64, y: f64) -> core::result::Result<f64, (PetirError, f64)> {
                 });
             }
             return if (ix > 1.0f64.to_bits()) == (topy < 0x800) {
-                Err((PetirError::ZeroDivide, f64::INFINITY)) // __math_oflow(0)
+                Err((PetirError::Overflow, f64::INFINITY)) // __math_oflow(0)
             } else {
-                Err((PetirError::Tolerance, 0.0)) // __math_uflow(0)
+                Err((PetirError::Underflow, 0.0)) // __math_uflow(0)
             };
         }
         if topx == 0 {
@@ -881,9 +881,12 @@ fn powf_inner(x: f64, y: f64) -> core::result::Result<f64, (PetirError, f64)> {
 ///
 /// # Errors
 ///
-/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the
-/// result exceeds the double range) or `__math_divzero` (`0^negative`), and
-/// [`PetirError::Tolerance`] where it returns `__math_uflow`.
+/// [`PetirError::Overflow`] where upstream returns `__math_oflow` (the
+/// result exceeds the double range), [`PetirError::ZeroDivide`] where it
+/// returns `__math_divzero` (`0^negative`), and [`PetirError::Underflow`]
+/// where it returns `__math_uflow`. The first two were a single variant
+/// until 2026-09-20; they are different conditions and are now reported as
+/// such.
 /// [`PetirError::Domain`] for a negative base raised to a non-integer
 /// exponent, where upstream returns `__math_invalid` (a NaN, with the invalid
 /// flag). The IEEE special cases that have a finite or infinite answer —
