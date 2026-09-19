@@ -41,7 +41,8 @@ pub use crate::physics::search::{
 };
 pub use crate::physics::transport_csg::{run_keff_csg, run_keff_csg_reactor_physics, SourceBox};
 pub use crate::physics::reactor_physics::{
-    run_keff_reactor_physics, Estimate, Group, LethargySpectrum, ReactorPhysicsConfig,
+    assemble_six_factors, run_keff_reactor_physics, Estimate, Group, LethargySpectrum,
+    ReactorPhysicsConfig,
     ReactorPhysicsError, ReactorPhysicsReport, SixFactors, CONSISTENCY_BAND,
 };
 pub use crate::physics::fixed_source::{

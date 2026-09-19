@@ -89,6 +89,8 @@ use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, Thermodyn
 pub mod htr10_rmc;
 pub mod mgxs;
 pub mod genfoam_xs;
+pub mod det_six_factor;
+pub mod rod_insertion;
 pub mod coupling;
 pub mod direct_coupling;
 

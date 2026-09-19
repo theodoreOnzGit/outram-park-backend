@@ -468,7 +468,23 @@ fn group_of(e_hi: f64, cut_t: f64, cut_r: f64) -> Group {
 /// indexed `[thermal, resonance, fast]`; `a_thermal_fuel` is thermal absorption
 /// in the fuel materials. See the module docs for the formulas — they telescope
 /// exactly to `η·f·p·ε·P_FNL·P_TNL = P_total / (A_total + L_total)`.
-fn assemble_six_factors(
+///
+/// # Why this is public
+///
+/// `p` and `ε` are **not convention-free** — this module's own docs record a
+/// case where comparing two differently-defined `p` values made them look
+/// 8.8 % apart while their product differed by 2.2 %, which was read as
+/// physics and was not. A deterministic (diffusion / SP3) solve that wants to
+/// be compared against a Monte Carlo run must therefore use *this* assembly on
+/// its own group-resolved rates, rather than reimplementing the formulas
+/// against the same names. Supply rates in the same units on both sides — per
+/// source neutron per generation — and the two decompositions are comparable
+/// term by term.
+///
+/// A deterministic solve has no statistical uncertainty, so pass
+/// [`Estimate`]s with zero standard deviation; the propagation then reduces to
+/// the means and the resulting `1σ` fields are zero, as they should be.
+pub fn assemble_six_factors(
     a: [Estimate; 3],
     a_thermal_fuel: Estimate,
     p: [Estimate; 3],

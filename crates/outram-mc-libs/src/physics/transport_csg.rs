@@ -1160,25 +1160,88 @@ pub(crate) fn transport_history(
             // finite even in a void (d_col = ∞ ⇒ seg = the boundary distance);
             // there `macro_xs` is `None`, so only the flux score deposits.
             if let Some(t) = tally {
-                let seg = d_col.min(d_bound.distance);
-                let mxs = path.material.map(|m| materials[m].macro_xs(e, nuclides));
-                let mat_idx = path.material.unwrap_or(usize::MAX);
-                // Spatial filters (mesh / Legendre) bin on the segment midpoint
-                // `r + 0.5·seg·u` — the track-length-representative point of the
-                // free flight (constant energy, single cell over the segment).
-                let mid = stream(r, u, 0.5 * seg);
-                score_track_length(
-                    batch,
-                    t,
-                    cell_idx,
-                    mat_idx,
-                    leaf.universe,
-                    e,
-                    seg,
-                    mid,
-                    mxs.as_ref(),
-                    1.0,
-                );
+                match path.tracking {
+                    // ── Surface tracking: TRACK-LENGTH estimator ───────────
+                    // The flight is bounded by the nearest surface, so it
+                    // cannot cross a material and `path.material` IS the
+                    // material the whole segment traversed.
+                    TrackingMethod::Surface => {
+                        let seg = d_col.min(d_bound.distance);
+                        let mxs = path.material.map(|m| materials[m].macro_xs(e, nuclides));
+                        let mat_idx = path.material.unwrap_or(usize::MAX);
+                        // Spatial filters (mesh / Legendre) bin on the segment
+                        // midpoint `r + 0.5·seg·u` — the track-length-
+                        // representative point of the free flight (constant
+                        // energy, single cell over the segment).
+                        let mid = stream(r, u, 0.5 * seg);
+                        score_track_length(
+                            batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
+                            mxs.as_ref(), 1.0,
+                        );
+                    }
+                    // ── Delta tracking: COLLISION estimator ────────────────
+                    //
+                    // A TRACK-LENGTH ESTIMATOR IS INVALID HERE. Under delta
+                    // tracking the flight crosses materials virtually and ends
+                    // wherever the real collision happened, so there is no
+                    // single material whose cross sections describe the
+                    // segment. Scoring `seg` against `path.material` — the
+                    // material `locate` reported at the START of the flight —
+                    // attributes the whole path to the wrong material with the
+                    // wrong cross sections.
+                    //
+                    // That was the defect (`bn:op-ra9f`). It is the same trap
+                    // the collision branch below already documents for the
+                    // reaction physics under `bn:op-867c.4`: that one was fixed
+                    // by reading `col_material`, and this estimator was left
+                    // behind. Measured on the HTR-10 bed, 8-group: the tallied
+                    // `k_inf` fell 4175 pcm below what the run's own
+                    // `k_eff/(1-L)` balance implies, and came out BELOW `k_eff`
+                    // — impossible for a leaking system. Surface-tracking the
+                    // same geometry closed that balance to -133 pcm.
+                    //
+                    // The collision estimator is what OpenMC and Serpent use in
+                    // delta-tracked regions for exactly this reason: it scores
+                    // `w/Sigma_t` at the resolved collision site, where the
+                    // material IS known. A flight that exits the region without
+                    // colliding scores nothing — correct, not an omission: the
+                    // estimator's support is collisions, and it is unbiased
+                    // over a history.
+                    TrackingMethod::Delta { .. } => {
+                        if d_col < d_bound.distance {
+                            if let Some(m) = col_material {
+                                let mxs = materials[m].macro_xs(e, nuclides);
+                                if mxs.total > 0.0 {
+                                    // The collision estimator scored THROUGH the
+                                    // track-length machinery. The two differ only
+                                    // in the length deposited: track-length gives
+                                    // `w·d`, the collision estimator `w/Sigma_t`.
+                                    // Passing `1/Sigma_t` as the length therefore
+                                    // deposits `w/Sigma_t` (flux) and
+                                    // `w·Sigma_x/Sigma_t` (reaction rates), which
+                                    // IS the collision estimator — and it keeps
+                                    // the per-generation batch accumulation and
+                                    // every filter the track-length path already
+                                    // supports. `score_collision` writes straight
+                                    // to the tally and would bypass the batch.
+                                    let at = stream(r, u, d_col);
+                                    score_track_length(
+                                        batch,
+                                        t,
+                                        cell_idx,
+                                        m,
+                                        leaf.universe,
+                                        e,
+                                        1.0 / mxs.total,
+                                        at,
+                                        Some(&mxs),
+                                        1.0,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if d_col < d_bound.distance {

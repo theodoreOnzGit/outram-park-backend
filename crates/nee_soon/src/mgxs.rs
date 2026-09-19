@@ -271,6 +271,52 @@ impl ZoneMgxs {
         Some(total - within)
     }
 
+    /// Diffusion length `L = sqrt(D / Sigma_a)` \[cm\] for group `g`.
+    ///
+    /// The distance a neutron of that group diffuses before absorption — the
+    /// length that governs how thick a reflector has to be before extra
+    /// thickness stops mattering. Returns `None` for a group with no
+    /// absorption, where `L` is unbounded.
+    #[must_use]
+    pub fn diffusion_length(&self, g: usize) -> Option<f64> {
+        let d = self.diffusion_coefficient(g)?;
+        let a = *self.absorption.get(g)?;
+        if a > 0.0 {
+            Some((d / a).sqrt())
+        } else {
+            None
+        }
+    }
+
+    /// Absorption as the **GeN-Foam bridge infers it**, `Sigma_t,g - sum_g'
+    /// Sigma_s,g->g'` \[cm^-1\] — NOT the tallied [`Self::absorption`].
+    ///
+    /// # Why this exists
+    ///
+    /// [`crate::genfoam_xs`] never reads the tallied `absorption` field. It
+    /// passes `sigma_removal = Sigma_t - Sigma_s,g->g` plus the full scattering
+    /// matrix, so whatever absorption the solver sees is whatever is left over
+    /// after the out-scatter is subtracted — this quantity.
+    ///
+    /// **This is a difference of two large, independently tallied numbers.** In
+    /// graphite `Sigma_t ~ 0.4 cm^-1` and the scatter row sum is also
+    /// `~0.4 cm^-1`, while the true absorption is `~3e-4 cm^-1`. A balance
+    /// residual of only 0.4 % between them is therefore about **five times the
+    /// absorption itself**, and it lands entirely in the solver's absorption
+    /// term. A condensation can look well-balanced and still be useless here.
+    ///
+    /// Compare against `absorption[g]` to see what the solver is actually
+    /// absorbing with; [`MgxsLibrary::k_inf_inferred_absorption`] turns that
+    /// comparison into an eigenvalue.
+    ///
+    /// Returns `None` if `g` is out of range.
+    #[must_use]
+    pub fn inferred_absorption(&self, g: usize) -> Option<f64> {
+        let total = *self.total.get(g)?;
+        let row: f64 = self.scatter.get(g)?.iter().sum();
+        Some(total - row)
+    }
+
     /// Diffusion coefficient `D_g = 1 / (3 Sigma_tr,g)` \[cm\].
     ///
     /// **Uses the TOTAL cross section, not a transport-corrected one.** With
@@ -310,6 +356,442 @@ pub struct MgxsLibrary {
 }
 
 impl MgxsLibrary {
+    /// Collapse every zone into ONE flux-weighted zone — the whole system as a
+    /// single homogeneous medium.
+    ///
+    /// # Why this exists
+    ///
+    /// [`condense`] produces one zone per *material*, because that is what a
+    /// `MaterialFilter` tallies. A **whole-system** quantity such as `k_inf`
+    /// is not recoverable from any single one of those zones: the kernel's
+    /// `k_inf` is not the core's. To compare a deterministic `k_inf` against
+    /// the Monte Carlo system `k_inf` (production over absorption, summed over
+    /// everything), the zones must first be homogenised into the same single
+    /// medium the Monte Carlo number describes.
+    ///
+    /// # The weighting, and why chi is different
+    ///
+    /// Reaction cross sections are **flux-weighted per group**, which is the
+    /// definition that conserves reaction rate:
+    ///
+    /// ```text
+    ///   phi_g      = sum_z phi_g,z
+    ///   Sigma_x,g  = sum_z ( Sigma_x,g,z * phi_g,z ) / phi_g
+    /// ```
+    ///
+    /// The scattering matrix is weighted the same way on its **incoming**
+    /// group, since `scatter[g][g']` multiplies `phi_g`.
+    ///
+    /// **`chi` is not a cross section and must not be flux-weighted.** It is a
+    /// probability distribution over emission energy, so it is weighted by the
+    /// fission SOURCE each zone actually produces,
+    /// `S_z = sum_g nu_Sigma_f,g,z * phi_g,z`, and the result is renormalised
+    /// to sum to one. Flux-weighting it would let a high-flux zone that
+    /// produces no fission dictate the spectrum of one that does.
+    ///
+    /// # Zero flux
+    ///
+    /// A group no neutron visited has `phi_g = 0` in every zone. Its cross
+    /// sections are left at zero rather than divided by zero — the caller is
+    /// expected to reject such a library (the GeN-Foam bridge does), because a
+    /// group with no measured cross section cannot be solved on.
+    #[must_use]
+    pub fn homogenised(&self, name: impl Into<String>) -> MgxsLibrary {
+        let all: Vec<usize> = (0..self.zones.len()).collect();
+        self.homogenised_subset(&all, name)
+    }
+
+    /// Homogenise only the zones named by `which`, leaving the rest out.
+    ///
+    /// # Why a subset, and not just everything
+    ///
+    /// [`Self::homogenised`] collapses the WHOLE library into one medium, which
+    /// is wrong for a reflected core: it smears the reflector graphite and the
+    /// boronated carbon bricks into the fuel, where they become a pure
+    /// parasitic absorber with no fission and no spatial separation. In the
+    /// real core those regions are separate, and neutrons that leak into them
+    /// come BACK. Measured on the HTR-10 at 2 groups, collapsing everything
+    /// into one zone put the deterministic eigenvalue about 27 000 pcm below
+    /// the Monte Carlo one, after leakage (450 pcm), condensation balance
+    /// (0.4 %) and the solver (SP3 = diffusion to 0 pcm) had each been excluded
+    /// as the cause.
+    ///
+    /// Building one homogenised medium per PHYSICAL REGION — bed, reflector —
+    /// and giving each its own cells on a mesh is what lets a deterministic
+    /// model represent reflection at all.
+    ///
+    /// Indices out of range are ignored rather than panicking; a subset that
+    /// selects nothing yields a zone of zeros, which the bridge will reject.
+    #[must_use]
+    pub fn homogenised_subset(&self, which: &[usize], name: impl Into<String>) -> MgxsLibrary {
+        let g = self.zones.first().map_or(0, |z| z.flux.len());
+        let mut out = ZoneMgxs {
+            name: name.into(),
+            flux: vec![0.0; g],
+            total: vec![0.0; g],
+            absorption: vec![0.0; g],
+            nu_fission: vec![0.0; g],
+            kappa_fission: vec![0.0; g],
+            scatter: vec![vec![0.0; g]; g],
+            chi: vec![0.0; g],
+        };
+
+        let picked = || which.iter().filter_map(|&i| self.zones.get(i));
+
+        // Flux-weighted sums: accumulate RATES, divide by total flux at the end.
+        for z in picked() {
+            for gi in 0..g {
+                let w = z.flux[gi];
+                out.flux[gi] += w;
+                out.total[gi] += z.total[gi] * w;
+                out.absorption[gi] += z.absorption[gi] * w;
+                out.nu_fission[gi] += z.nu_fission[gi] * w;
+                out.kappa_fission[gi] += z.kappa_fission[gi] * w;
+                for gj in 0..g {
+                    out.scatter[gi][gj] += z.scatter[gi][gj] * w;
+                }
+            }
+        }
+        for gi in 0..g {
+            let phi = out.flux[gi];
+            if phi > 0.0 {
+                out.total[gi] /= phi;
+                out.absorption[gi] /= phi;
+                out.nu_fission[gi] /= phi;
+                out.kappa_fission[gi] /= phi;
+                for gj in 0..g {
+                    out.scatter[gi][gj] /= phi;
+                }
+            }
+        }
+
+        // chi: weighted by each zone's own fission SOURCE, then renormalised.
+        let mut src_total = 0.0;
+        for z in picked() {
+            let s: f64 = (0..g).map(|gi| z.nu_fission[gi] * z.flux[gi]).sum();
+            if s <= 0.0 {
+                continue;
+            }
+            src_total += s;
+            for gi in 0..g {
+                out.chi[gi] += z.chi[gi] * s;
+            }
+        }
+        if src_total > 0.0 {
+            let norm: f64 = out.chi.iter().sum();
+            if norm > 0.0 {
+                for c in &mut out.chi {
+                    *c /= norm;
+                }
+            }
+        }
+
+        MgxsLibrary {
+            groups: self.groups.clone(),
+            zones: vec![out],
+        }
+    }
+
+    /// Add a **measured** buckling leakage `D_g * B^2` to every group's
+    /// absorption, so a zero-gradient deterministic solve carries the same
+    /// leakage the Monte Carlo run measured.
+    ///
+    /// # Why this is necessary, and why it is not a fit
+    ///
+    /// Group constants condensed from a full-core Monte Carlo run carry a
+    /// **leakage-hardened** spectrum. Solving them with zero leakage asks the
+    /// solver to re-derive an *infinite-medium* spectrum instead, which is a
+    /// different problem — measured at `-25578 pcm` on this model, and it is a
+    /// mismatch of questions rather than a defect in either code.
+    ///
+    /// Adding `D_g B^2` as an extra removal term makes the deterministic
+    /// spectrum leakage-hardened too, so it matches the spectrum the constants
+    /// were condensed under, and `k_eff` becomes comparable to `k_eff`.
+    ///
+    /// **`B^2` is MEASURED, not tuned.** The caller obtains it from the Monte
+    /// Carlo run's own leakage via [`Self::buckling_from_leakage`]; it is never
+    /// searched for a value that makes the eigenvalues agree. Searching it
+    /// would convert the comparison into a fit and destroy the check — the same
+    /// rule the workspace applies to any calibrated parameter.
+    ///
+    /// `D_g = 1 / (3 Sigma_t,g)`, the standard diffusion coefficient. This uses
+    /// the TOTAL cross section rather than the transport cross section because
+    /// the condensation is `P0` and carries no `P1` scattering moment, so
+    /// `Sigma_tr` is not available. That approximation is `mu_bar = 0`; for
+    /// graphite `mu_bar = 2/(3A) = 0.056`, so `D` is understated by about 6 %
+    /// and the leakage with it. Stated rather than hidden, and it is a
+    /// candidate term in the ablation.
+    /// # Which field this modifies, and why it is NOT `absorption`
+    ///
+    /// The GeN-Foam bridge builds `sigma_removal` as `Sigma_t - Sigma_s,g->g`
+    /// and the diffusion coefficient from `Sigma_t`. **It never reads the
+    /// `absorption` field.** An earlier version of this method added the
+    /// leakage to `absorption` and the deterministic eigenvalue came back
+    /// BIT-IDENTICAL — which is how the mistake was caught, and is the same
+    /// signature as a boundary condition that changes nothing.
+    ///
+    /// The leakage is therefore added to `total`, which is what reaches the
+    /// solver through `sigma_removal`. `absorption` is updated by the same
+    /// amount so [`Self::k_inf`] stays consistent with what the solver sees;
+    /// the two must not drift apart, since comparing them is the whole
+    /// fault-isolation scheme.
+    ///
+    /// `D` is evaluated from the ORIGINAL `Sigma_t`, so the added removal is
+    /// exactly `D_0 B^2`. The resulting small change in `D` itself is second
+    /// order and is not compensated.
+    #[must_use]
+    pub fn with_buckling(&self, b2: f64) -> MgxsLibrary {
+        let mut out = self.clone();
+        for z in &mut out.zones {
+            for g in 0..z.flux.len() {
+                let sigma_t = z.total[g];
+                if sigma_t > 0.0 {
+                    let leak = b2 / (3.0 * sigma_t);
+                    z.total[g] += leak;
+                    z.absorption[g] += leak;
+                }
+            }
+        }
+        out
+    }
+
+    /// Per-group check that `Sigma_t` agrees with `Sigma_a + sum_g' Sigma_s,g->g'`.
+    ///
+    /// # Why this matters more than it looks
+    ///
+    /// The GeN-Foam bridge builds removal as `Sigma_t - Sigma_s,g->g`, which is
+    /// only the correct removal if the total and the scattering matrix are
+    /// mutually consistent — i.e. if `Sigma_t = Sigma_a + Sigma_s,total`. Those
+    /// two come from SEPARATE Monte Carlo tallies (a scalar pass and a matrix
+    /// pass), so nothing enforces the identity.
+    ///
+    /// If the matrix pass undercounts scattering, removal is computed too large
+    /// and the eigenvalue comes out too LOW, while `Sigma_a` and hence
+    /// [`Self::k_inf`] are unaffected — producing exactly the signature of a
+    /// solver that disagrees with the algebraic `k_inf` of its own input.
+    ///
+    /// Returns, per zone and group, `(Sigma_t, Sigma_a + Sigma_s,row, relative
+    /// discrepancy)`. A relative discrepancy far from zero is a CONDENSATION
+    /// defect, not a solver one.
+    #[must_use]
+    pub fn balance_check(&self) -> Vec<(String, Vec<(f64, f64, f64)>)> {
+        self.zones
+            .iter()
+            .map(|z| {
+                let rows = (0..z.flux.len())
+                    .map(|g| {
+                        let s_row: f64 = z.scatter[g].iter().sum();
+                        let rebuilt = z.absorption[g] + s_row;
+                        let rel = if z.total[g] > 0.0 {
+                            (rebuilt - z.total[g]) / z.total[g]
+                        } else {
+                            0.0
+                        };
+                        (z.total[g], rebuilt, rel)
+                    })
+                    .collect();
+                (z.name.clone(), rows)
+            })
+            .collect()
+    }
+
+    /// Solve for the buckling that reproduces a **measured** leakage fraction.
+    ///
+    /// `leak_fraction` is neutrons lost per neutron produced, taken from the
+    /// Monte Carlo run (`leak_vacuum / histories`, or the six-factor leakage
+    /// sum). The buckling that reproduces it satisfies
+    ///
+    /// ```text
+    ///   leak_rate = sum_g D_g B^2 phi_g  =  B^2 * sum_g phi_g / (3 Sigma_t,g)
+    /// ```
+    ///
+    /// so `B^2 = leak_rate / sum_g ( phi_g / (3 Sigma_t,g) )`, with `leak_rate`
+    /// put on the same per-absorption footing as the tallies by scaling with
+    /// the total absorption rate.
+    ///
+    /// Returns `None` when the flux is empty or the denominator vanishes,
+    /// rather than returning a buckling of zero that would silently mean "no
+    /// leakage".
+    #[must_use]
+    pub fn buckling_from_leakage(&self, leak_fraction: f64) -> Option<f64> {
+        if !(leak_fraction > 0.0) {
+            return None;
+        }
+        let mut absn = 0.0;
+        let mut denom = 0.0;
+        for z in &self.zones {
+            for g in 0..z.flux.len() {
+                absn += z.absorption[g] * z.flux[g];
+                if z.total[g] > 0.0 {
+                    denom += z.flux[g] / (3.0 * z.total[g]);
+                }
+            }
+        }
+        if denom <= 0.0 || absn <= 0.0 {
+            return None;
+        }
+        // leak_fraction is per absorption+leakage; convert to a rate on the
+        // same scale as `absn`, then solve for B^2.
+        let leak_rate = absn * leak_fraction / (1.0 - leak_fraction).max(1.0e-12);
+        Some(leak_rate / denom)
+    }
+
+    /// Infinite-multiplication factor implied by these constants, zero leakage.
+    ///
+    /// `k_inf = sum_g nu_Sigma_f,g phi_g / sum_g Sigma_a,g phi_g`, over every
+    /// zone. This is the algebraic answer the group constants encode, and is
+    /// the thing a zero-leakage deterministic solve must reproduce — so a
+    /// disagreement between this and the diffusion solver is a SOLVER defect,
+    /// while a disagreement between this and the Monte Carlo system `k_inf` is
+    /// a CONDENSATION defect. Separating those two is the point.
+    #[must_use]
+    pub fn k_inf(&self) -> f64 {
+        let mut prod = 0.0;
+        let mut absn = 0.0;
+        for z in &self.zones {
+            for gi in 0..z.flux.len() {
+                prod += z.nu_fission[gi] * z.flux[gi];
+                absn += z.absorption[gi] * z.flux[gi];
+            }
+        }
+        if absn > 0.0 {
+            prod / absn
+        } else {
+            0.0
+        }
+    }
+
+    /// The same library with every group's total rebalanced to
+    /// `Sigma_t,g = Sigma_a,g + sum_g' Sigma_s,g->g'`.
+    ///
+    /// # Why this is the right repair, and why on the total
+    ///
+    /// [`crate::genfoam_xs`] hands the solver `sigma_removal` and the
+    /// scattering matrix, never the tallied absorption, so the solver's
+    /// effective absorption is `Sigma_t - Sigma_s,row`
+    /// ([`ZoneMgxs::inferred_absorption`]). A condensed Monte Carlo tally never
+    /// balances exactly, and that residual therefore lands **entirely** in the
+    /// absorption term — the single most eigenvalue-sensitive number in the set,
+    /// and in a graphite-reflected core one that is ~1000x smaller than the two
+    /// quantities being differenced.
+    ///
+    /// Enforcing the balance by moving `Sigma_t` puts the residual where it does
+    /// almost nothing instead. `Sigma_t` enters only
+    /// [`ZoneMgxs::diffusion_coefficient`] (`D = 1/(3 Sigma_t)`) and the
+    /// removal, both of which shift by the residual's own relative size — a few
+    /// tenths of a percent — while the absorption becomes exactly the tallied
+    /// value.
+    ///
+    /// **This is a rebalancing, not a fit.** No parameter is tuned against any
+    /// reference: the tallied `Sigma_a` and the tallied scattering matrix are
+    /// both kept exactly as measured, and `Sigma_t` is set to the sum they imply.
+    /// The quantity discarded is the inconsistency between the three, which has
+    /// no physical content — a true cross section set satisfies this identity by
+    /// definition.
+    ///
+    /// Compare [`Self::k_inf`] against [`Self::k_inf_inferred_absorption`] on
+    /// the rebalanced library: they are equal by construction, which is the
+    /// check that this worked.
+    #[must_use]
+    pub fn rebalanced(&self) -> Self {
+        let zones = self
+            .zones
+            .iter()
+            .map(|z| {
+                let mut out = z.clone();
+                for g in 0..out.total.len() {
+                    let row: f64 = out.scatter.get(g).map_or(0.0, |r| r.iter().sum());
+                    let abs = out.absorption.get(g).copied().unwrap_or(0.0);
+                    out.total[g] = abs + row;
+                }
+                out
+            })
+            .collect();
+        Self {
+            zones,
+            ..self.clone()
+        }
+    }
+
+    /// Reflector savings `delta` \[cm\] from one-group diffusion theory.
+    ///
+    /// ```text
+    /// delta = (D_core / D_refl) * L_refl * tanh(t_refl / L_refl)
+    /// ```
+    ///
+    /// # What it is for
+    ///
+    /// A reflected core leaks far less than its bare dimensions imply. The
+    /// saving is the distance by which the reflector effectively extends the
+    /// core, so a transverse buckling can be written
+    /// `B^2 = (2.405 / (R + delta))^2` for a cylinder without meshing the
+    /// reflector in that direction.
+    ///
+    /// **Every input comes from the cross sections themselves** — `D` and `L`
+    /// of the two zones, and the reflector thickness from geometry. Nothing is
+    /// taken from the reference eigenvalue, which is what separates this from
+    /// [`Self::buckling_from_leakage`]: that one reads the Monte Carlo run's
+    /// own measured leakage and therefore cannot be used to *test* the leakage
+    /// model, only to bypass it.
+    ///
+    /// # Limits
+    ///
+    /// One-group, so it uses the thermal group's `D` and `L` and ignores fast
+    /// leakage entirely. `tanh` saturates: beyond about `2 L` of reflector the
+    /// saving stops growing, which is the same physics that made a 310 cm
+    /// graphite reflector worth only ~86 pcm more than a 100 cm one.
+    ///
+    /// Returns `None` if either zone index is out of range, or the reflector
+    /// group has no finite diffusion length.
+    #[must_use]
+    pub fn reflector_savings(
+        &self,
+        core_zone: usize,
+        refl_zone: usize,
+        thermal_group: usize,
+        refl_thickness_cm: f64,
+    ) -> Option<f64> {
+        let core = self.zones.get(core_zone)?;
+        let refl = self.zones.get(refl_zone)?;
+        let d_core = core.diffusion_coefficient(thermal_group)?;
+        let d_refl = refl.diffusion_coefficient(thermal_group)?;
+        let l_refl = refl.diffusion_length(thermal_group)?;
+        if d_refl <= 0.0 || l_refl <= 0.0 {
+            return None;
+        }
+        Some((d_core / d_refl) * l_refl * (refl_thickness_cm / l_refl).tanh())
+    }
+
+    /// `k_inf` recomputed with the absorption the **bridge infers** rather than
+    /// the absorption that was tallied — see [`ZoneMgxs::inferred_absorption`].
+    ///
+    /// # Interpreting the two
+    ///
+    /// [`Self::k_inf`] is the algebraic eigenvalue of the tallied data and is
+    /// what a zero-leakage solve *should* reproduce exactly. This function is
+    /// what a zero-leakage solve will *actually* reproduce, because it is the
+    /// absorption the GeN-Foam bridge hands the solver.
+    ///
+    /// **A large split between them is a condensation defect, not a solver
+    /// defect**, and it localises the fault precisely: the transport solve is
+    /// doing the right arithmetic on the wrong absorption.
+    #[must_use]
+    pub fn k_inf_inferred_absorption(&self) -> f64 {
+        let mut prod = 0.0;
+        let mut absn = 0.0;
+        for z in &self.zones {
+            for gi in 0..z.flux.len() {
+                prod += z.nu_fission[gi] * z.flux[gi];
+                absn += z.inferred_absorption(gi).unwrap_or(0.0) * z.flux[gi];
+            }
+        }
+        if absn > 0.0 {
+            prod / absn
+        } else {
+            0.0
+        }
+    }
+
     /// The same library with every group axis reversed, so index 0 is the
     /// **highest**-energy group — the usual reactor-physics convention.
     ///
@@ -717,6 +1199,123 @@ mod tests {
     /// Removal subtracts within-group scattering; the diffusion coefficient is
     /// 1/(3 Sigma_t).
     #[test]
+    /// Rebalancing makes the solver's absorption equal the tallied absorption.
+    ///
+    /// # Methodology
+    ///
+    /// A two-group zone is built deliberately out of balance: the totals are
+    /// 3 % above what `Sigma_a + Sigma_s,row` implies, so the absorption
+    /// [`crate::genfoam_xs`] would infer is far from the tallied one. The
+    /// library is then passed through [`MgxsLibrary::rebalanced`].
+    ///
+    /// # Result
+    ///
+    /// After rebalancing, `inferred_absorption(g)` equals `absorption[g]` to
+    /// 1e-12 in every group, and the two eigenvalues
+    /// [`MgxsLibrary::k_inf`] and [`MgxsLibrary::k_inf_inferred_absorption`]
+    /// agree to 1e-12 — they are equal by construction, which is the property
+    /// that makes a zero-leakage solve able to reproduce the exact answer.
+    ///
+    /// The tallied absorption and the full scattering matrix are asserted
+    /// UNCHANGED, because the repair must move `Sigma_t` and nothing else; a
+    /// version that quietly adjusted `Sigma_a` to force the balance would pass
+    /// the eigenvalue check while destroying the measurement.
+    #[test]
+    fn rebalancing_moves_the_residual_off_the_absorption() {
+        let lib = MgxsLibrary {
+            groups: GroupStructure::new(vec![1.0e-5, 1.0, 2.0e7]).expect("edges ascend"),
+            zones: vec![ZoneMgxs {
+                name: "out-of-balance".into(),
+                flux: vec![1.0, 2.0],
+                // 3 % high against absorption + scatter row.
+                total: vec![(0.01 + 0.50) * 1.03, (0.02 + 0.80) * 1.03],
+                absorption: vec![0.01, 0.02],
+                nu_fission: vec![0.015, 0.030],
+                kappa_fission: vec![0.0, 0.0],
+                scatter: vec![vec![0.40, 0.10], vec![0.05, 0.75]],
+                chi: vec![1.0, 0.0],
+            }],
+        };
+
+        let before = lib.zones[0].inferred_absorption(0).unwrap();
+        assert!(
+            (before - 0.01).abs() > 1.0e-3,
+            "the fixture must start genuinely out of balance, got {before:e}"
+        );
+
+        let fixed = lib.rebalanced();
+        for g in 0..2 {
+            let inferred = fixed.zones[0].inferred_absorption(g).unwrap();
+            let tallied = fixed.zones[0].absorption[g];
+            assert!(
+                (inferred - tallied).abs() < 1.0e-12,
+                "group {g}: inferred {inferred:e} != tallied {tallied:e}"
+            );
+        }
+
+        assert!(
+            (fixed.k_inf() - fixed.k_inf_inferred_absorption()).abs() < 1.0e-12,
+            "after rebalancing the two eigenvalues must coincide: {} vs {}",
+            fixed.k_inf(),
+            fixed.k_inf_inferred_absorption()
+        );
+
+        // The measurement itself must be untouched.
+        assert_eq!(fixed.zones[0].absorption, lib.zones[0].absorption);
+        assert_eq!(fixed.zones[0].scatter, lib.zones[0].scatter);
+        assert_eq!(fixed.zones[0].nu_fission, lib.zones[0].nu_fission);
+    }
+
+    /// A 0.4 % condensation imbalance becomes a ~5x absorption error.
+    ///
+    /// # Methodology
+    ///
+    /// Two graphite-like groups are built with the scattering-dominated
+    /// numbers a thermal reflector actually has: `Sigma_t = 0.4 cm^-1`, true
+    /// `Sigma_a = 3.0e-4 cm^-1`. The scatter row is then given a deliberate
+    /// **0.4 % deficit** against the total — the size of residual a condensed
+    /// Monte Carlo tally routinely carries, and the size this example's own
+    /// balance check reported and I wrongly dismissed as negligible.
+    ///
+    /// # Result
+    ///
+    /// The absorption [`crate::genfoam_xs`] infers is `1.6e-3 cm^-1` against a
+    /// true `3.0e-4 cm^-1` — **5.33x too high**, because it is a difference of
+    /// two numbers each ~1300x larger than the answer. The pass criterion is
+    /// that the inferred value exceed the true one by more than 4x, i.e. that
+    /// a residual everyone would call small does NOT stay small here.
+    ///
+    /// This is why a balance check quoted as a *relative* residual cannot
+    /// clear the condensation: 0.4 % of `Sigma_t` is 533 % of `Sigma_a`.
+    #[test]
+    fn a_small_balance_residual_is_a_large_absorption_error() {
+        let sigma_t = 0.4_f64;
+        let true_abs = 3.0e-4_f64;
+        // Scatter row 0.4 % short of the total.
+        let row = sigma_t * 0.996;
+        let z = ZoneMgxs {
+            name: "graphite-like".into(),
+            flux: vec![1.0],
+            total: vec![sigma_t],
+            absorption: vec![true_abs],
+            nu_fission: vec![0.0],
+            kappa_fission: vec![0.0],
+            scatter: vec![vec![row]],
+            chi: vec![0.0],
+        };
+
+        let inferred = z.inferred_absorption(0).expect("group 0 exists");
+        assert!(
+            (inferred - 1.6e-3).abs() < 1.0e-9,
+            "inferred absorption should be the 0.4 % deficit, got {inferred:e}"
+        );
+        assert!(
+            inferred > 4.0 * true_abs,
+            "a 0.4 % balance residual must show up as a LARGE absorption error; \
+             inferred {inferred:e} vs true {true_abs:e}"
+        );
+    }
+
     fn removal_and_diffusion_follow_their_definitions() {
         let z = ZoneMgxs {
             name: "z".into(),
