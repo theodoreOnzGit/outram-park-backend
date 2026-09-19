@@ -144,6 +144,7 @@ mod exp_mult_tests {
     }
 }
 
+pub mod airy;
 pub mod bessel;
 pub mod debye;
 pub mod dilog;

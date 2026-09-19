@@ -4,8 +4,8 @@
 //! Re-derives every GSL-ported coefficient table in `src/specfunc/` from the
 //! vendored GSL C sources and compares them **bit for bit**.
 //!
-//! Covers `bessel.rs`, `psi.rs`, `zeta.rs` and `debye.rs` — 41 tables,
-//! 1117 literals.
+//! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs` and `airy.rs` — 54 tables,
+//! 1398 literals.
 //!
 //! # Why a table audit and not just the numerical tests
 //!
@@ -114,6 +114,19 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ("debye.rs", "ADEB4", "debye.c", "adeb4_data"),
     ("debye.rs", "ADEB5", "debye.c", "adeb5_data"),
     ("debye.rs", "ADEB6", "debye.c", "adeb6_data"),
+    ("airy.rs", "AM21", "airy.c", "am21_data"),
+    ("airy.rs", "ATH1", "airy.c", "ath1_data"),
+    ("airy.rs", "AM22", "airy.c", "am22_data"),
+    ("airy.rs", "ATH2", "airy.c", "ath2_data"),
+    ("airy.rs", "AIF", "airy.c", "ai_data_f"),
+    ("airy.rs", "AIG", "airy.c", "ai_data_g"),
+    ("airy.rs", "BIF", "airy.c", "data_bif"),
+    ("airy.rs", "BIG", "airy.c", "data_big"),
+    ("airy.rs", "BIF2", "airy.c", "data_bif2"),
+    ("airy.rs", "BIG2", "airy.c", "data_big2"),
+    ("airy.rs", "AIP", "airy.c", "data_aip"),
+    ("airy.rs", "BIP", "airy.c", "data_bip"),
+    ("airy.rs", "BIP2", "airy.c", "data_bip2"),
 ];
 
 /// `TWOPI_POW` in `zeta.rs` is a LOCAL array inside `gsl_sf_zeta_e`'s
@@ -317,8 +330,8 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
     }
     assert_eq!(
         checked,
-        1117,
-        "expected 1117 coefficients across {} tables, audited {checked}",
+        1398,
+        "expected 1398 coefficients across {} tables, audited {checked}",
         TABLES.len()
     );
 }
@@ -328,7 +341,7 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
 #[test]
 fn every_rust_table_is_audited() {
     let mut total_declared = 0usize;
-    for module in ["bessel.rs", "psi.rs", "zeta.rs", "debye.rs"] {
+    for module in ["bessel.rs", "psi.rs", "zeta.rs", "debye.rs", "airy.rs"] {
         let src = rust_source(module);
         let declared: Vec<String> = src
             .lines()
