@@ -145,6 +145,7 @@ mod exp_mult_tests {
 }
 
 pub mod airy;
+pub mod atanint;
 pub mod bessel;
 pub mod clausen;
 pub mod debye;

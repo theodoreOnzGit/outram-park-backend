@@ -26,7 +26,7 @@
 
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT,
-    LEGENDRE, MATRIX, POLY, PSI_ZETA, TRANSPORT,
+    LEGENDRE, ATANINT, MATRIX, POLY, PSI_ZETA, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -56,6 +56,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "lambert" => (vec![LAMBERT], "petir_lambert_w0(x)"),
         "clausen" => (vec![CLAUSEN], "petir_clausen(x)"),
         "transport" => (vec![TRANSPORT], "petir_transport(4u, x)"),
+        "atanint" => (vec![ATANINT], "petir_atanint(x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -129,7 +130,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 14] = [
+    let expected: [(&str, &[&str]); 15] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -268,6 +269,7 @@ fn every_documented_function_is_defined() {
                 "petir_transport_vinf",
             ],
         ),
+        (ATANINT, &["petir_atanint", "petir_atanint_cheb"]),
     ];
     for (src, names) in expected {
         for name in names {
@@ -414,6 +416,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "lambert" => LEDGER.contains("Lambert"),
             "clausen" => LEDGER.contains("Clausen"),
             "transport" => LEDGER.contains("transport integrals"),
+            "atanint" => LEDGER.contains("inverse-tangent integral"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

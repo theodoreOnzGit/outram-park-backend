@@ -5,9 +5,10 @@
 //! vendored GSL C sources and compares them **bit for bit**.
 //!
 //! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs` and
-//! `lambert.rs`, `clausen.rs` and `transport.rs` — 59 file-scope tables plus
+//! `lambert.rs`, `clausen.rs`, `transport.rs` and `atanint.rs` — 60 file-scope
+//! tables plus
 //! two local ones,
-//! 1485 literals.
+//! 1506 literals.
 //!
 //! # Why a table audit and not just the numerical tests
 //!
@@ -134,6 +135,7 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ("transport.rs", "TRANSPORT3", "transport.c", "transport3_data"),
     ("transport.rs", "TRANSPORT4", "transport.c", "transport4_data"),
     ("transport.rs", "TRANSPORT5", "transport.c", "transport5_data"),
+    ("atanint.rs", "ATANINT", "atanint.c", "atanint_data"),
 ];
 
 /// `TWOPI_POW` in `zeta.rs` is a LOCAL array inside `gsl_sf_zeta_e`'s
@@ -348,8 +350,8 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
     }
     assert_eq!(
         checked,
-        1485,
-        "expected 1485 coefficients across {} tables, audited {checked}",
+        1506,
+        "expected 1506 coefficients across {} tables, audited {checked}",
         TABLES.len()
     );
 }
@@ -368,6 +370,7 @@ fn every_rust_table_is_audited() {
         "lambert.rs",
         "clausen.rs",
         "transport.rs",
+        "atanint.rs",
     ] {
         let src = rust_source(module);
         let declared: Vec<String> = src

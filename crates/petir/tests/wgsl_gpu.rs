@@ -6,9 +6,10 @@
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
-    mirror, mirror_airy, mirror_bessel, mirror_clausen, mirror_debye, mirror_dilog, mirror_erf,
-    mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_transport, AIRY, BESSEL,
-    CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, TRANSPORT,
+    mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_debye, mirror_dilog,
+    mirror_erf, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_transport,
+    AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DEBYE, DILOG, ERF, GAMMA, LAMBERT, LEGENDRE, MATRIX,
+    POLY, PSI_ZETA, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1734,4 +1735,73 @@ fn gpu_transport_matches_the_cpu_mirror() {
             gpu.adapter_name()
         );
     }
+}
+
+/// The inverse-tangent integral on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// One geometric sweep over `|x|` in `[1e-05, 1e+08]`, mirrored to negative
+/// `x`, which crosses every branch: the small-argument identity, both
+/// Chebyshev branches either side of `|x| = 1`, and the closed form past the
+/// retargeted large cut at 2896.3.
+///
+/// Relative, with a floor near the origin where `Ti_2` has its only zero.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// Worst relative **1.444e-07 at `x = 7.516`** — one `f32` ulp, and just
+/// inside the reflected Chebyshev branch rather than at any boundary.
+///
+/// Not bit-identical: the kernel calls `log` and the series is an inline
+/// literal array. The budget is 1e-04, about seven hundred times the worst.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim** — `mirror_atanint`
+/// measures its own distance from `f64` at 1.595e-07.
+#[test]
+fn gpu_atanint_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_atanint_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let mut probes: Vec<f32> = Vec::new();
+    for i in 0..=250 {
+        let t = i as f32 / 250.0;
+        let x = 1e-5_f32 * (1e13_f32).powf(t);
+        probes.push(x);
+        probes.push(-x);
+    }
+
+    let got = gpu
+        .eval_map(
+            &[ATANINT],
+            "petir_atanint(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+    for (k, &x) in probes.iter().enumerate() {
+        let want = mirror_atanint::atanint(x);
+        let have = got.get(k).copied().unwrap_or(f32::NAN);
+        assert!(
+            want.is_finite() && have.is_finite(),
+            "Ti_2({x:e}): mirror {want}, GPU {have}"
+        );
+        if want.abs() < 1e-6 {
+            continue;
+        }
+        let d = (((have - want) / want) as f64).abs();
+        if d > worst {
+            worst = d;
+            at = x;
+        }
+    }
+    assert!(
+        worst < 1e-4,
+        "GPU ({}) vs f32 mirror for Ti_2: {worst:e} at x = {at:e}",
+        gpu.adapter_name()
+    );
 }

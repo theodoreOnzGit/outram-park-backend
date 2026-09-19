@@ -73,11 +73,12 @@ and stays there.
 | `specfunc` (Lambert `W`) | ~4 | **PORTED** | `W_0` and `W_{-1}`, both real branches. **Upstream's stopping rule is corrected in two places** for `f32` — see below |
 | `specfunc` (Clausen `Cl_2`) | ~2 | **PORTED** | one Chebyshev series, plus an **`f32`-redesigned argument reduction** — the `f64` three-way split of `2 pi` does not carry over. See below |
 | `specfunc` (transport integrals) | ~4 | **PORTED** | `J(2)` .. `J(5)`, the Bloch-Gruneisen family; four Chebyshev series and the exponential-image tail sum |
+| `specfunc` (inverse-tangent integral) | ~2 | **PORTED** | `Ti_2(x)`, one Chebyshev table evaluated at reciprocal arguments either side of `\|x\| = 1` |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~255 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (rest) | ~253 | PORTABLE | the largest remaining win — almost all pointwise. the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -145,6 +146,7 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `W_0` / `W_{-1}` | 1.383e-07 / 5.792e-07 | 1.161e-07 (`W_0` vs `f64`) |
 | `Cl_2` | 7.339e-07 / 9.947e-07 abs | 4.521e-07 abs over one period |
 | `J(2)` .. `J(5)` | 1.133e-07 .. 2.222e-06 | 7.092e-08 .. 1.295e-06 |
+| `Ti_2` | 1.444e-07 | 1.595e-07 |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
 | `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
@@ -213,6 +215,22 @@ lines above measures that kernel at 9.107e-06 on its own; `zeta`'s 1.079e-05
 is that figure carried through one multiplication. The positive branch, which
 calls no `Gamma`, sits at 1e-07 with the rest. Improving it means improving
 the `f32` gamma, not the zeta transcription.
+
+**`Ti_2` sharpens that same case to bit equality.** Its large cut,
+`1/sqrt(EPSILON)`, is a precision constant and is retargeted — arriving
+**23 170 times sooner** in `f32`, so far more of the domain takes the
+closed-form branch. That was predicted to reshape the domain. Over 4000
+probes spanning the entire disputed window, `2896.3` to `6.711e+07`, **0 of
+4000 answers differ** and the worst error against `f64` is identical to the
+last digit. The branch taken changes; the answer never does.
+
+And the reason is not the obvious one: the series argument never rounds to
+exactly `-1` near the cut (`-0.99999976` at `x = 2900`, still `-0.99999994`
+at `x = 6000`, because the `f32` spacing just below `0.5` is half that just
+above). What makes the branches agree is that the series enters as
+`cheb(t)/|x|` against a dominant `(pi/2) ln|x|`, and its variation is rounded
+away by the addition. Two drafts of that note asserted the rounding
+explanation and the test refuted each.
 
 **The transport integrals add a sixth kind of constant decision: a precision
 constant whose retargeting is correct but changes only the WORK DONE.** All
