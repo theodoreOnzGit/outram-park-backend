@@ -160,6 +160,7 @@ pub mod inc_gamma;
 /// Inverse of the regularised lower incomplete gamma function, lifted verbatim
 /// from outram-foam-basic-lib.
 pub mod inv_inc_gamma;
+pub mod lambert;
 pub mod psi;
 pub mod zeta;
 

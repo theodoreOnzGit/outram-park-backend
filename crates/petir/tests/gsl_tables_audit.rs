@@ -4,7 +4,8 @@
 //! Re-derives every GSL-ported coefficient table in `src/specfunc/` from the
 //! vendored GSL C sources and compares them **bit for bit**.
 //!
-//! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs` and `airy.rs` — 54 tables,
+//! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs` and
+//! `lambert.rs` — 54 file-scope tables plus two local ones,
 //! 1398 literals.
 //!
 //! # Why a table audit and not just the numerical tests
@@ -135,7 +136,18 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
 /// [`the_local_twopi_table_matches_upstream`] instead, which searches the
 /// function body. Listed here so `every_rust_table_is_audited` knows it is
 /// not an omission.
-const AUDITED_ELSEWHERE: &[(&str, &str)] = &[("zeta.rs", "TWOPI_POW")];
+///
+/// **That test did not exist until 2026-09-19.** The comment above claimed it
+/// did, `AUDITED_ELSEWHERE` made `every_rust_table_is_audited` accept the
+/// table as covered on the strength of the claim, and nothing checked the 18
+/// coefficients at all. This is exactly the failure mode an "audited
+/// elsewhere" list invites: it is an assertion that something else is doing
+/// the work. The test below now does it, and the entry is only honest
+/// because of that.
+const AUDITED_ELSEWHERE: &[(&str, &str)] = &[
+    ("zeta.rs", "TWOPI_POW"),
+    ("lambert.rs", "SERIES_C"),
+];
 
 fn crate_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -341,7 +353,7 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
 #[test]
 fn every_rust_table_is_audited() {
     let mut total_declared = 0usize;
-    for module in ["bessel.rs", "psi.rs", "zeta.rs", "debye.rs", "airy.rs"] {
+    for module in ["bessel.rs", "psi.rs", "zeta.rs", "debye.rs", "airy.rs", "lambert.rs"] {
         let src = rust_source(module);
         let declared: Vec<String> = src
             .lines()
@@ -498,4 +510,95 @@ fn the_one_series_shorter_than_its_array() {
         "zetam1_inter_cs no longer has a shorter order than its array; if \
          upstream fixed this, `zeta::zetam1_intermediate` should stop slicing"
     );
+}
+
+/// **`TWOPI_POW` against upstream's local `twopi_pow[18]`.**
+///
+/// The array lives inside `gsl_sf_zeta_e`'s reflection branch in `zeta.c`
+/// rather than at file scope, so `every_coefficient_is_bit_identical_to_the_
+/// vendored_gsl`'s parser cannot reach it by name. This one searches the
+/// function body for the declaration instead and compares bit-for-bit, as the
+/// file-scope audit does.
+///
+/// It is the check `AUDITED_ELSEWHERE` has always claimed existed and, until
+/// 2026-09-19, did not — see the comment on that constant.
+#[test]
+fn the_local_twopi_table_matches_upstream() {
+    let c = fs::read_to_string(upstream_dir().join("zeta.c")).expect("vendored specfunc/zeta.c");
+    let at = c
+        .find("const double twopi_pow[18] = {")
+        .expect("upstream's local twopi_pow[18] declaration moved or was renamed");
+    let rest = &c[at..];
+    let open = rest.find('{').expect("no { after the declaration");
+    let close = rest[open..].find('}').expect("no } closing the initialiser");
+    let upstream: Vec<f64> = rest[open + 1..open + close]
+        .split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .map(|t| {
+            t.parse::<f64>()
+                .unwrap_or_else(|_| panic!("not a literal in twopi_pow: {t:?}"))
+        })
+        .collect();
+
+    let r = rust_source("zeta.rs");
+    let ours = rust_table(&r, "TWOPI_POW")
+        .expect("TWOPI_POW is no longer declared in src/specfunc/zeta.rs");
+
+    assert_eq!(
+        ours.len(),
+        upstream.len(),
+        "TWOPI_POW has {} coefficients, upstream's twopi_pow has {}",
+        ours.len(),
+        upstream.len()
+    );
+    assert_eq!(upstream.len(), 18, "upstream twopi_pow is declared [18]");
+    for (i, (a, b)) in ours.iter().zip(upstream.iter()).enumerate() {
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "TWOPI_POW[{i}]: ours {a:e}, upstream {b:e}"
+        );
+    }
+}
+
+/// **`SERIES_C` against upstream's local `c[12]` in `series_eval`.**
+///
+/// Like `TWOPI_POW`, the array is declared inside a function in `lambert.c`
+/// rather than at file scope, so the name-based parser cannot reach it.
+///
+/// These twelve coefficients carry ~30 decimal digits where `f64` holds about
+/// 17, so the comparison is on the parsed value, as everywhere else in this
+/// file — see `every_coefficient_is_bit_identical_to_the_vendored_gsl`'s note
+/// on what that deliberately does not catch.
+#[test]
+fn the_local_lambert_series_matches_upstream() {
+    let c = fs::read_to_string(upstream_dir().join("lambert.c"))
+        .expect("vendored specfunc/lambert.c");
+    let at = c
+        .find("static const double c[12] = {")
+        .expect("upstream's local c[12] in series_eval moved or was renamed");
+    let rest = &c[at..];
+    let open = rest.find('{').expect("no { after the declaration");
+    let close = rest[open..].find('}').expect("no } closing the initialiser");
+    let upstream = parse_floats(&strip_block_comments(&rest[open + 1..open + close]));
+
+    let r = rust_source("lambert.rs");
+    let ours =
+        rust_table(&r, "SERIES_C").expect("SERIES_C is no longer declared in specfunc/lambert.rs");
+
+    assert_eq!(ours.len(), 12, "SERIES_C has {} coefficients", ours.len());
+    assert_eq!(
+        upstream.len(),
+        12,
+        "upstream c[12] parsed to {} values",
+        upstream.len()
+    );
+    for (i, (a, b)) in ours.iter().zip(upstream.iter()).enumerate() {
+        assert_eq!(
+            a.to_bits(),
+            b.to_bits(),
+            "SERIES_C[{i}]: ours {a:e}, upstream {b:e}"
+        );
+    }
 }
