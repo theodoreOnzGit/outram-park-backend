@@ -641,6 +641,13 @@ fn main() {
     let mut ens: Vec<f64> = Vec::with_capacity(n_seeds);
     let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
     ens.push((result.k_mean - 1.0) * 1.0e5);
+    // Pool the active-phase drift across seeds. LCT-008 is the large, loosely
+    // coupled lattice in this set -- the case where a dominance ratio near 1
+    // makes source-convergence bias most likely, and where the single-seed
+    // trace showed the largest drift of the four.
+    let mut drifts: Vec<f64> =
+        vec![outram_mc_libs::vv::source_convergence_drift_pcm(&result, settings.n_inactive)];
+    outram_mc_libs::vv::report_transport_losses("lct008_keff seed 1", &result);
     for seed in 2..=n_seeds as u64 {
         let s = KeffSettings {
             seed,
@@ -649,6 +656,7 @@ fn main() {
         let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
         eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
         ens.push((r.k_mean - 1.0) * 1.0e5);
+        drifts.push(outram_mc_libs::vv::source_convergence_drift_pcm(&r, s.n_inactive));
         // Deliberately NOT `result = r`. Everything downstream -- the
         // convergence trace, the printed k_eff, the V&V gate and the
         // bounded-geometry cross-check -- is sized against SEED 1, which is
@@ -656,6 +664,17 @@ fn main() {
         // repoints all of them at the last seed of the ensemble.
     }
     if n_seeds > 1 {
+        let good: Vec<f64> = drifts.iter().copied().filter(|d| d.is_finite()).collect();
+        if good.len() > 1 {
+            let (dm, dsd, dsem) = outram_mc_libs::vv::pooled(&good);
+            println!("\n  POOLED SOURCE-CONVERGENCE DRIFT ({} seeds)", good.len());
+            println!("    active-half drift = {dm:+.0} +/- {dsem:.0} pcm   (seed-to-seed sd {dsd:.0})");
+            if dm.abs() > 2.0 * dsem {
+                println!("    => RESOLVED systematic drift: source still moving while scoring.");
+            } else {
+                println!("    => not resolved; consistent with statistical scatter.");
+            }
+        }
         let (mean, sd, sem) = outram_mc_libs::vv::pooled(&ens);
         println!("\n  ENSEMBLE LEU-COMP-THERM-008 case {case}: {n_seeds} seeds");
         println!("    pooled dk    = {mean:+.0} pcm");

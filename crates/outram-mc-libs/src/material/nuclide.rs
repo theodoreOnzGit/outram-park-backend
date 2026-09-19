@@ -281,6 +281,20 @@ pub struct Nuclide {
 /// [`Nuclide::with_dbrc`]; this is only the cap on what is *kept*.
 pub const DBRC_GRID_MAX_EV: f64 = 2.5e4;
 
+/// Default upper energy for DBRC when correct physics is applied at
+/// construction, \[eV\].
+///
+/// **1 keV, matching OpenMC's `resonance_scattering` default upper bound.**
+/// Resonance elastic scattering (the Doppler Broadening Rejection Correction)
+/// matters where the target nuclide's own resonance structure varies across
+/// the thermal-motion window of the incident neutron -- in practice the low
+/// epithermal range of the heavy actinides. Above ~1 keV the correction is
+/// negligible and the free-gas treatment is adequate.
+///
+/// Capped by [`DBRC_GRID_MAX_EV`], which is where the retained 0 K elastic
+/// grid ends.
+pub const DBRC_DEFAULT_E_MAX_EV: f64 = 1.0e3;
+
 /// The evaluated MF=6 LAW=1 emission laws a [`Nuclide`] carries, by reaction.
 ///
 /// Two reactions need one: **MT=91** (continuum inelastic) and **MT=16**
@@ -1304,7 +1318,7 @@ impl Nuclide {
             mt5,
         };
 
-        Ok(Self {
+        let built = Self {
             name: name.to_string(),
             awr,
             nu,
@@ -1324,7 +1338,35 @@ impl Nuclide {
             urr: None,
             dbrc: None,
             elastic_0k,
-        })
+        };
+
+        // CORRECT PHYSICS IS THE DEFAULT (workspace hard rule, 2026-09-20).
+        //
+        // Both of the following are physics the evaluation SUPPLIES and that a
+        // transport code is wrong to ignore. They used to be opt-in builders
+        // that almost nothing called, which meant the crate's own benchmark
+        // examples ran without them and their recorded residuals were measured
+        // against an incomplete model.
+        //
+        // They are applied here, at the single point `from_endf_file` and
+        // `from_tape` both funnel through, so a caller gets correct physics
+        // without having to know it exists. Ablating either is still possible
+        // and is what `without_urr_probability_tables` / `without_dbrc` are
+        // for -- an ablation must be an explicit, visible act.
+        //
+        // COST IS ACCEPTED, DELIBERATELY. PURR is a Monte Carlo over resonance
+        // ladders and roughly doubles nuclide construction time (measured
+        // 2026-09-20 on Godiva: 64.0 s -> 140.7 s for three actinides). Per the
+        // rule, correctness outranks runtime.
+        //
+        // NEITHER IS A NO-OP GUARD: `with_urr_probability_tables` returns the
+        // nuclide unchanged when the evaluation has no unresolved range, and
+        // `with_dbrc` builds from the 0 K elastic grid already in hand.
+        // An evaluation with no unresolved range yields `urr = None` and is NOT
+        // an error, so `?` here propagates only a genuine parse failure --
+        // which a transport code must not silently swallow.
+        let built = built.with_urr_probability_tables(tape, mat, temp_k, 20, 16, 2000)?;
+        Ok(built.with_dbrc(DBRC_DEFAULT_E_MAX_EV))
     }
 
     /// Microscopic cross sections at incident energy `e` \[eV\] and temperature

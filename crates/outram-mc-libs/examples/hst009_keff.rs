@@ -286,6 +286,8 @@ fn main() {
     let mut ens: Vec<f64> = Vec::with_capacity(n_seeds);
     let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
     ens.push((result.k_mean - 1.0) * 1.0e5);
+    outram_mc_libs::vv::report_transport_losses("hst009_keff seed 1", &result);
+    outram_mc_libs::vv::report_source_convergence("hst009_keff seed 1", &result, settings.n_inactive);
     for seed in 2..=n_seeds as u64 {
         let s = KeffSettings {
             seed,
