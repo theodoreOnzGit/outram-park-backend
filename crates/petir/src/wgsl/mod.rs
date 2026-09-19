@@ -22,8 +22,11 @@
 //! on `cfg(test)` **alone**, so `std` never arrived and the feature had been
 //! dead since the crate went `no_std` (`bn:op-7kwt`). `lib.rs` now reads
 //! `#[cfg(any(test, feature = "wgpu"))] extern crate std;`, and
-//! `cargo check -p petir --all-features --all-targets` — the sweep that caught
-//! the last one — is what keeps it honest.
+//! `cargo check --release -p petir --all-features --all-targets` — the sweep
+//! that caught the last one — is what keeps it honest. **`--release`, not a
+//! bare check**: the workspace rule (2026-09-17) is that even type-checks run
+//! in release mode, because a dev-profile check builds a second complete
+//! `target/debug` tree beside the release one for no diagnostic gain.
 //!
 //! If you are adding to this module, keep the split: **shader text and
 //! numerics on the `no_std` side, device handling behind the feature.**
