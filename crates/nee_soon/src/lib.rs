@@ -67,6 +67,7 @@ pub mod htr10_rmc;
 pub mod mgxs;
 pub mod genfoam_xs;
 pub mod coupling;
+pub mod direct_coupling;
 
 /// Object-oriented facade for the OUTRAM PARK neutronics + kinetics suite.
 ///
