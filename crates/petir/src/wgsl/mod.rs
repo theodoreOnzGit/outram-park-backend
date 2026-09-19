@@ -104,6 +104,9 @@ pub mod mirror_psi_zeta;
 /// `f32` mirrors of the Debye shaders.
 pub mod mirror_debye;
 
+/// `f32` mirror of the dilogarithm shader.
+pub mod mirror_dilog;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -217,12 +220,23 @@ pub const PSI_ZETA: &str = include_str!("shaders/psi_zeta.wgsl");
 /// at no measured cost.
 pub const DEBYE: &str = include_str!("shaders/debye.wgsl");
 
+/// GSL's real dilogarithm `Li_2(x)`, ported from `specfunc/dilog.c` by way of
+/// [`crate::specfunc::dilog`].
+///
+/// Provides `petir_dilog(x)` for all real `x`, returning the **real part** of
+/// the principal branch above the branch point at `x = 1`.
+///
+/// **No coefficient tables** — two convergent series and seven branch
+/// identities — so unlike the other specfunc shaders this one has no
+/// generator and no table audit. See [`mirror_dilog`].
+pub const DILOG: &str = include_str!("shaders/dilog.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 9] = [
-    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE,
+pub const ALL: [&str; 10] = [
+    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -233,8 +247,8 @@ pub const ALL: [&str; 9] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 9] = [
-    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye",
+pub const ALL_NAMES: [&str; 10] = [
+    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye", "dilog",
 ];
 
 pub use kernel_builder::test_kernel;

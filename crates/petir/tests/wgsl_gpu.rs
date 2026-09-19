@@ -7,7 +7,7 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_bessel, mirror_debye, mirror_erf, mirror_gamma, mirror_matrix, mirror_psi_zeta,
-    BESSEL, CHEB, DEBYE, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    mirror_dilog, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -1308,5 +1308,76 @@ fn the_inline_coefficient_array_is_what_costs_bit_identity() {
     assert!(
         worst_ulp <= 2,
         "the inline-literal Chebyshev branch is documented as differing by at          most one ulp per step, and differed by {worst_ulp}"
+    );
+}
+
+/// The real dilogarithm on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// One dispatch over `x` in `[-15, 15]`, which crosses **all seven** branches
+/// of `petir_dilog_xge0` plus the negative-axis duplication. `DILOG` has no
+/// dependency on another source and no coefficient tables.
+///
+/// The comparison is **absolute, not relative**, and that is the whole point
+/// of the window. `Li_2` has a real zero at `x = 12.595170`, inside the
+/// probe range and squarely in the `x > 2` inversion branch, where
+/// `(1/2) ln^2 x` passes through `pi^2/3`. A relative figure there measures
+/// where a probe landed, not what the device did. `mirror_dilog` records the
+/// per-branch relative numbers where they are meaningful.
+///
+/// # Result, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// Worst absolute difference **3.815e-06 at `x = -9.85`**, where `Li_2` is
+/// about -5.9 — so roughly one `f32` ulp of the value, not of the unit.
+///
+/// **Not bit-identical**, and every branch here calls `log`, which WGSL
+/// specifies to an ULP bound rather than correct rounding. The budget is
+/// 1e-04, about twenty-six times the measurement.
+///
+/// Note the worst point is on the **negative** axis, which reaches
+/// `petir_dilog_xge0` twice through the duplication formula and therefore
+/// accumulates two branches' worth of `log` disagreement. That is the
+/// expected place for it to be, and it is not the same place as the
+/// mirror-vs-`f64` worst, which is at `Li_2`'s zero.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim** — `mirror_dilog`
+/// measures its own distance from `f64` per branch.
+#[test]
+fn gpu_dilog_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_dilog_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let probes: Vec<f32> = (0..=600).map(|i| -15.0 + 0.05 * i as f32).collect();
+    let got = gpu
+        .eval_map(
+            &[DILOG],
+            "petir_dilog(x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+
+    let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+    for (k, &x) in probes.iter().enumerate() {
+        let want = mirror_dilog::dilog(x);
+        let have = got.get(k).copied().unwrap_or(f32::NAN);
+        assert!(
+            want.is_finite() && have.is_finite(),
+            "Li_2({x}): mirror {want}, GPU {have}"
+        );
+        let d = (have - want).abs() as f64;
+        if d > worst {
+            worst = d;
+            at = x;
+        }
+    }
+    assert!(
+        worst < 1e-4,
+        "GPU ({}) vs f32 mirror for Li_2: {worst:e} absolute at x = {at}",
+        gpu.adapter_name()
     );
 }

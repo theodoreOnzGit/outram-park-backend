@@ -25,7 +25,8 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, DEBYE, ERF, GAMMA, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX, POLY,
+    PSI_ZETA,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -50,6 +51,7 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "bessel" => (vec![BESSEL], "petir_bessel_j0(x)"),
         "psi_zeta" => (vec![GAMMA, PSI_ZETA], "petir_psi(x) + petir_zeta(x)"),
         "debye" => (vec![DEBYE], "petir_debye(3u, x)"),
+        "dilog" => (vec![DILOG], "petir_dilog(x)"),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -123,7 +125,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 9] = [
+    let expected: [(&str, &[&str]); 10] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -216,6 +218,16 @@ fn every_documented_function_is_defined() {
                 "petir_debye_fall",
                 "petir_debye_fall_x",
                 "petir_debye_pow_n",
+            ],
+        ),
+        (
+            DILOG,
+            &[
+                "petir_dilog",
+                "petir_dilog_xge0",
+                "petir_dilog_series_1",
+                "petir_dilog_series_2",
+                "petir_dilog_series_2_raw",
             ],
         ),
     ];
@@ -359,6 +371,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "bessel" => LEDGER.contains("Bessel family"),
             "psi_zeta" => LEDGER.contains("psi/zeta family"),
             "debye" => LEDGER.contains("Debye family"),
+            "dilog" => LEDGER.contains("dilogarithm"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

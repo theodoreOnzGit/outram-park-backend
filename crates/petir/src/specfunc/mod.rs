@@ -146,6 +146,7 @@ mod exp_mult_tests {
 
 pub mod bessel;
 pub mod debye;
+pub mod dilog;
 pub mod erf;
 /// Inverse error function (Winitzki approximation), lifted verbatim from
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
