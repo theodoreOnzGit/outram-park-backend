@@ -23,6 +23,11 @@
 //!   form [`erfc_scaled`], translated from GSL's `specfunc/erfc.c`; and
 //!   [`erf_inv`], the Winitzki approximation lifted verbatim from
 //!   `outram-foam-basic-lib`.
+//! - **Bessel family**: the cylindrical functions of orders 0 and 1 —
+//!   [`bessel_j0`], [`bessel_j1`], [`bessel_y0`], [`bessel_y1`],
+//!   [`bessel_i0`], [`bessel_i1`], [`bessel_k0`], [`bessel_k1`] and the
+//!   exponentially scaled modified forms — translated from GSL's
+//!   `specfunc/bessel_{J,Y,I,K}{0,1}.c`.
 //! - **Gamma family**: [`ln_gamma`] and [`gamma`] (GSL's Lanczos form), the
 //!   regularised incomplete gamma functions
 //!   [`inc_gamma_ratio_p`] / [`inc_gamma_ratio_q`] and their unnormalised
@@ -44,6 +49,7 @@
 //!
 //! Each function's own doc comment states its accuracy and its upstream.
 
+pub mod bessel;
 pub mod erf;
 /// Inverse error function (Winitzki approximation), lifted verbatim from
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
@@ -57,6 +63,10 @@ pub mod inc_gamma;
 /// from outram-foam-basic-lib.
 pub mod inv_inc_gamma;
 
+pub use bessel::{
+    bessel_i0, bessel_i0_scaled, bessel_i1, bessel_i1_scaled, bessel_j0, bessel_j1, bessel_k0,
+    bessel_k0_scaled, bessel_k1, bessel_k1_scaled, bessel_y0, bessel_y1,
+};
 pub use erf::{erf, erfc, erfc_scaled, erfcx};
 pub use erf_inv::erf_inv;
 pub use gamma::{
