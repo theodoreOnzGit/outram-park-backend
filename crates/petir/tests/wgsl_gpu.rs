@@ -7,11 +7,11 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_dawson,
-    mirror_debye, mirror_dilog, mirror_ellint, mirror_erf, mirror_expint3, mirror_fermi_dirac,
-    mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_sinint,
-    mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE,
-    DILOG, ELLINT, ERF, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
-    SININT, SYNCHROTRON, TRANSPORT,
+    mirror_debye, mirror_dilog, mirror_ellint, mirror_erf, mirror_expint, mirror_expint3,
+    mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta,
+    mirror_sinint, mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN,
+    DAWSON, DEBYE, DILOG, ELLINT, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE,
+    MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -3047,4 +3047,189 @@ fn the_inline_coefficient_effect_is_constant_folding() {
          at all; it differed, so loop structure IS part of the effect and the \
          conclusion here needs rewriting rather than this assertion loosening"
     );
+}
+
+/// **The exponential and hyperbolic integrals on the device**, against the
+/// `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// Six dispatches through the shader's own selector
+/// `petir_expint_family(which, x)`, so the device runs the entry point a
+/// caller would rather than six hand-written expressions. The probe sweep is
+/// geometric over `(0.8, 80]`, which crosses every one of `E_1`'s positive
+/// branch boundaries (`x = 1`, `x = 4`) and runs out to where the unscaled
+/// form is within a few decades of underflowing.
+///
+/// A seventh dispatch takes the negative side, where `E_1` has three further
+/// branches (`x <= -1`, `-4`, `-10`) that the positive sweep never reaches —
+/// and which `Ei`, `Shi` and `Chi` all go through, since `Ei(x) = -E_1(-x)`.
+///
+/// # Results
+///
+/// Measured 2026-09-20 on `llvmpipe (LLVM 20.1.2, 256 bits)`:
+///
+/// | entry point | `x > 0` | `x < 0` |
+/// |---|---|---|
+/// | `E_1` | 3.305e-06 | 8.025e-07 |
+/// | **`E_1` scaled** | **3.976e-07** | 6.991e-07 |
+/// | `Ei` | 3.309e-06 | 9.387e-07 |
+/// | **`Ei` scaled** | **3.565e-07** | 2.431e-07 |
+/// | `Shi` | 3.309e-06 | 8.025e-07 |
+/// | `Chi` | 3.309e-06 | 2.327e-05 |
+///
+/// **The scaled forms are eight times more accurate at large `x`, and that
+/// is structural.** Above `x = 4` the unscaled branch is
+/// `exp(-x)/x * (1 + cheb)` and the scaled one is `1/x * (1 + cheb)` — the
+/// same arithmetic with one `exp` removed. WGSL specifies its transcendental
+/// builtins to an ULP bound rather than to correct rounding, so that single
+/// call is the whole difference. This is a second, independent reason to
+/// prefer the scaled entry points on a GPU, alongside the documented range
+/// argument; only the device showed it.
+///
+/// **`Chi`'s `2.327e-05` is at `x = -0.525`, which is minus its real
+/// zero.** `Chi` is exactly even here (see below), its zero is at
+/// `0.5238226`, and relative error is unbounded at a zero for any
+/// implementation in any precision — the absolute error there is `6e-08`,
+/// one `f32` ulp of the operands. It is not a defect in the negative branch.
+#[test]
+fn gpu_expint_family_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_expint_family_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    let pos: Vec<f32> = (1..=300)
+        .map(|i| (0.01_f32).powf(1.0 - i as f32 / 300.0) * 80.0)
+        .collect();
+    let neg: Vec<f32> = (1..=200).map(|i| -0.075 * i as f32).collect();
+
+    for (which, name) in [
+        (0u32, "E_1"),
+        (1, "E_1 scaled"),
+        (2, "Ei"),
+        (3, "Ei scaled"),
+        (4, "Shi"),
+        (5, "Chi"),
+    ] {
+        for (probes, side) in [(&pos, "x > 0"), (&neg, "x < 0")] {
+            let got = gpu
+                .eval_map(
+                    &[EXPINT],
+                    "petir_expint_family(params.k, x)",
+                    &[],
+                    probes,
+                    KernelParams {
+                        k: which,
+                        ..KernelParams::default()
+                    },
+                )
+                .expect("non-empty probe");
+            let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+            for (i, &x) in probes.iter().enumerate() {
+                let want = mirror_expint::expint_family(which, x);
+                let have = got.get(i).copied().unwrap_or(f32::NAN);
+                // Both sides may legitimately be non-finite here: E_1
+                // overflows below x ~ -83 and Ei above x ~ 83. Where the
+                // mirror is not finite, require only that the device agrees
+                // about that.
+                if !want.is_finite() {
+                    assert!(
+                        !have.is_finite(),
+                        "{name} at {x}: mirror {want}, GPU {have} -- they \
+                         disagree about whether the answer exists"
+                    );
+                    continue;
+                }
+                assert!(have.is_finite(), "{name} at {x}: mirror {want}, GPU {have}");
+                if want.abs() < 1e-30 {
+                    continue;
+                }
+                let d = ((have - want) / want).abs() as f64;
+                if d > worst {
+                    worst = d;
+                    at = x;
+                }
+            }
+            eprintln!("expint {name} ({side}): {worst:e} at x = {at}");
+            assert!(
+                worst < 1e-4,
+                "GPU ({}) vs f32 mirror for {name} ({side}): {worst:e} relative at x = {at}",
+                gpu.adapter_name()
+            );
+        }
+    }
+}
+
+/// **`Ei(x) = -E_1(-x)` holds on the device, exactly.**
+///
+/// The shader defines `petir_expint_ei` as `-petir_expint_e1(-x)` and
+/// nothing more, which is upstream's own definition. So this is a
+/// transcription check with no tolerance available to hide behind: if the
+/// two entry points ever stop being the same code, this fails.
+///
+/// It is composed in the shader rather than compared across two dispatches,
+/// so the device computes both sides in one invocation and the comparison
+/// cannot be confounded by anything the host does.
+#[test]
+fn gpu_ei_is_exactly_minus_e1_of_minus_x() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_ei_is_exactly_minus_e1_of_minus_x: no GPU adapter");
+        return;
+    };
+    let probes: Vec<f32> = (1..=400).map(|i| -20.0 + 0.1 * i as f32).collect();
+    let got = gpu
+        .eval_map(
+            &[EXPINT],
+            "petir_expint_ei(x) + petir_expint_e1(-x)",
+            &[],
+            &probes,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let mut checked = 0usize;
+    for (i, &x) in probes.iter().enumerate() {
+        let v = got.get(i).copied().unwrap_or(f32::NAN);
+        // x = 0 is E_1's singularity on both sides, so the sum is NaN there.
+        if x == 0.0 || !mirror_expint::ei(x).is_finite() {
+            continue;
+        }
+        assert_eq!(
+            v,
+            0.0,
+            "Ei(x) + E_1(-x) is documented as EXACTLY zero on the device \
+             because they are the same code; at x = {x} it is {v:e} on {}",
+            gpu.adapter_name()
+        );
+        checked += 1;
+    }
+    assert!(checked > 300, "only {checked} points were actually checked");
+
+    // Shi is exactly odd and Chi exactly even, for the same reason and with
+    // the same force: both follow from Ei(-x) = -E_1(x), which the shader
+    // satisfies by construction. Composed in-shader so the device computes
+    // both sides in one invocation.
+    for (expr, name) in [
+        ("petir_shi(x) + petir_shi(-x)", "Shi is exactly odd"),
+        ("petir_chi(x) - petir_chi(-x)", "Chi is exactly even"),
+    ] {
+        let got = gpu
+            .eval_map(&[EXPINT], expr, &[], &probes, KernelParams::default())
+            .expect("non-empty probe");
+        let mut n = 0usize;
+        for (i, &x) in probes.iter().enumerate() {
+            if x == 0.0 || !mirror_expint::shi(x).is_finite() {
+                continue;
+            }
+            let v = got.get(i).copied().unwrap_or(f32::NAN);
+            assert_eq!(
+                v,
+                0.0,
+                "{name} on the device; at x = {x} the combination is {v:e} on {}",
+                gpu.adapter_name()
+            );
+            n += 1;
+        }
+        assert!(n > 300, "{name}: only {n} points checked");
+    }
 }

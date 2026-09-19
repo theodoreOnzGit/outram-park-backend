@@ -140,6 +140,9 @@ pub mod mirror_sinint;
 /// `f32` mirror of the elliptic-integral shader.
 pub mod mirror_ellint;
 
+/// `f32` mirror of the exponential- and hyperbolic-integral shader.
+pub mod mirror_expint;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -365,6 +368,21 @@ pub const SININT: &str = include_str!("shaders/sinint.wgsl");
 /// 10000**. See [`mirror_ellint`].
 pub const ELLINT: &str = include_str!("shaders/ellint.wgsl");
 
+/// The exponential integrals `E_1` and `Ei` and the hyperbolic sine and
+/// cosine integrals `Shi` and `Chi`, ported from `specfunc/expint.c` and
+/// `specfunc/shint.c` by way of [`crate::expint`] and
+/// [`crate::specfunc::shint`].
+///
+/// Provides `petir_expint_e1`, `petir_expint_e1_scaled`, `petir_expint_ei`,
+/// `petir_expint_ei_scaled`, `petir_shi`, `petir_chi` and the selector
+/// `petir_expint_family(which, x)`, plus the seven Chebyshev series.
+///
+/// **Four functions from one branch tree** — `Ei` is `-E_1(-x)` and `Shi`,
+/// `Chi` are its sum and difference with `E_1`. **Prefer the scaled entry
+/// points on a GPU**: `E_1` underflows to zero past `x ~ 83`. See
+/// [`mirror_expint`].
+pub const EXPINT: &str = include_str!("shaders/expint.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
@@ -388,7 +406,7 @@ pub const ELLINT: &str = include_str!("shaders/ellint.wgsl");
 /// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
 /// means adding it to both arrays**; the directory is the authority, not
 /// anyone's count.
-pub const ALL: [&str; 21] = [
+pub const ALL: [&str; 22] = [
     POLY,
     CHEB,
     LEGENDRE,
@@ -410,6 +428,7 @@ pub const ALL: [&str; 21] = [
     EXPINT3,
     SININT,
     ELLINT,
+    EXPINT,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -420,7 +439,7 @@ pub const ALL: [&str; 21] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 21] = [
+pub const ALL_NAMES: [&str; 22] = [
     "poly",
     "cheb",
     "legendre",
@@ -442,6 +461,7 @@ pub const ALL_NAMES: [&str; 21] = [
     "expint3",
     "sinint",
     "ellint",
+    "expint",
 ];
 
 pub use kernel_builder::test_kernel;

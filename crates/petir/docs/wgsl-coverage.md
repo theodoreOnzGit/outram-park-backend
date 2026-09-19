@@ -80,6 +80,8 @@ and stays there.
 | `specfunc` (cubic exponential integral) | ~2 | **PORTED** | `Ei_3(x) = int_0^x e^{-t^3} dt`; two Chebyshev series at `order_sp`, 27 coefficients where the `f64` order needs 47. **The best-behaved kernel here at 1.4 `f32` ulp** — nothing to lose precision to. Its saturation cut retargets to a bit-identical answer, the counter-example to `F_2`'s |
 | `specfunc` (sine and cosine integrals) | ~4 | **PORTED** | `Si(x)`, `Ci(x)` and the `f`/`g` asymptotic pair; six Chebyshev series at `order_sp`, 81 coefficients where the `f64` order needs 129. **A `2 pi` argument reduction was tried and measured to be worse on both CPU and GPU** — see below. Both of upstream's far-field guards are deleted as unrepresentable, which gains answers |
 | `specfunc` (elliptic integrals) | ~12 | **PORTED** | Carlson's `R_C`, `R_D`, `R_F`, `R_J`, the Legendre forms `F`, `E`, `Pi`, `D` and their complete versions. **The second table-free shader**, after the dilogarithm — iterative duplication, nothing fitted. Two parameters are upstream's own rather than retargeted or guessed: `errtol = 0.03` is `GSL_PREC_SINGLE`'s value, and the iteration cap is **16 against upstream's 10000**, measured over the whole `f32`-reachable domain. Within nine `f32` ulps on the complete integrals |
+| `specfunc` (exponential integrals) | ~8 | **PORTED** (`E_1`, `Ei`) | `E_1(x)`, `Ei(x)` and both scaled forms; six Chebyshev series at `order_sp`. `Ei` is `-E_1(-x)` -- upstream's whole definition -- so four entry points come from one branch tree. `E_n` for `n >= 2` is absent: upstream reaches it by a recurrence over `n`, which is a host loop. **Prefer the scaled forms on a GPU**, which stay in range where `E_1` underflows past `x ~ 83` |
+| `specfunc` (hyperbolic sine/cosine integrals) | ~4 | **PORTED** | `Shi(x)`, `Chi(x)`. One 7-coefficient series plus `(Ei +/- E_1)/2`. **The first series here whose `order_sp` EQUALS its `f64` order** -- seven terms, last coefficient 4.67e-22, nothing to cut. Ported only after reading `shint.c` showed it needed `Ei`, which PETIR did not have |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
@@ -795,11 +797,28 @@ can be measured rather than waved at.
   Bose-Einstein integrals and the Coulomb wave functions are the next
   blocks~~ **CORRECTED 2026-09-19** — four of those five are PORTED
   (`dilog`, `airy`, `debye`, Fermi-Dirac), and this line had gone on naming
-  them as future work. What is actually next: the **Bose-Einstein
-  integrals**, the **Coulomb wave functions**, **Legendre beyond `P_n`**, and
-  the integer-order and arbitrary-order Bessel functions, which build on the
-  order-0/1 kernels now present. Much of `cdf` builds on `psi` and the
-  incomplete gamma.
+  them as future work.
+
+  ~~What is actually next: the Bose-Einstein integrals, ...~~ **CORRECTED
+  AGAIN, same day.** **GSL has no Bose-Einstein module.** `ls
+  upstream_source/GSL/specfunc/` has no such file and never did; the
+  Bose-Einstein integrals are what the **Debye functions** already here
+  compute. The claim survived one correction because that correction was
+  written from the sentence being fixed instead of from the source directory
+  — the precise failure this crate's rule 2 exists to prevent, committed while
+  fixing an instance of it.
+
+  What is actually next, read off `upstream_source/GSL/specfunc/`: the
+  **hyperbolic sine and cosine integrals** `shint.c` (`Shi`, `Chi` — the
+  direct sibling of the ported `sinint`), the **Jacobi elliptic functions**
+  `elljac.c` (the sibling of the just-ported `ellint`), `log.c`'s
+  `log(1+x)` series, the **orthogonal polynomial** families
+  (`gegenbauer.c`, `hermite.c`, `laguerre.c`), **Legendre beyond `P_n`**
+  (`alf_P.c`, `legendre_source.c`), the integer-order and arbitrary-order
+  **Bessel** functions which build on the order-0/1 kernels now present, and
+  the **Coulomb wave functions** `coulomb.c`. `E_1` is already ported at
+  `src/expint.rs` and simply has no shader yet. Much of `cdf` builds on `psi`
+  and the incomplete gamma.
 
   **The count lives in the `specfunc` (rest) row above and nowhere else.**
   This line used to carry its own figure, ~281, against the table's ~222; two

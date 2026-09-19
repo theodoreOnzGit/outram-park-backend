@@ -26,8 +26,8 @@
 
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG,
-    ELLINT, ERF, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT,
-    SYNCHROTRON, TRANSPORT,
+    ELLINT, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
+    SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -71,6 +71,12 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "ellint" => (
             vec![ELLINT],
             "petir_ellint_comp(params.k, x, 0.3) + petir_ellint_f(x, 0.5)",
+        ),
+        // The selector, so E_1, Ei, Shi and Chi are all reachable from one
+        // call, plus a scaled form which takes a different branch.
+        "expint" => (
+            vec![EXPINT],
+            "petir_expint_family(params.k, x) + petir_expint_e1_scaled(abs(x) + 1.0)",
         ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
@@ -202,7 +208,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 21] = [
+    let expected: [(&str, &[&str]); 22] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -427,6 +433,25 @@ fn every_documented_function_is_defined() {
                 "petir_ellint_comp",
             ],
         ),
+        (
+            EXPINT,
+            &[
+                "petir_expint_e1",
+                "petir_expint_e1_scaled",
+                "petir_expint_ei",
+                "petir_expint_ei_scaled",
+                "petir_shi",
+                "petir_chi",
+                "petir_expint_family",
+                "petir_expint_cheb_ae11",
+                "petir_expint_cheb_ae12",
+                "petir_expint_cheb_e11",
+                "petir_expint_cheb_e12",
+                "petir_expint_cheb_ae13",
+                "petir_expint_cheb_ae14",
+                "petir_expint_cheb_shi",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -583,6 +608,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "expint3" => LEDGER.contains("cubic exponential integral"),
             "sinint" => LEDGER.contains("sine and cosine integrals"),
             "ellint" => LEDGER.contains("elliptic integrals"),
+            "expint" => LEDGER.contains("exponential integrals"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

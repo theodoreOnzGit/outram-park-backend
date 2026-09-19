@@ -275,6 +275,47 @@ pub fn expint_e1_scaled(x: f64) -> Result<(f64, f64)> {
     expint_e1_impl(x, true)
 }
 
+/// `Ei(x)`, the exponential integral, with an absolute-error estimate —
+/// `gsl_sf_expint_Ei_e` (`specfunc/expint.c:501`).
+///
+/// ```text
+///     Ei(x) = -PV integral_{-x}^{inf} e^{-t} / t  dt
+/// ```
+///
+/// **Upstream defines it as `-E_1(-x)` and nothing more**, so this is that
+/// one line rather than a second branch tree. Reading the source is what
+/// establishes there is no separate implementation to port; the six
+/// Chebyshev series above are the whole of it.
+///
+/// Returns `(value, abserr)`. `x` is dimensionless.
+///
+/// # Errors
+///
+/// Whatever [`expint_e1`] returns for `-x`: [`PetirError::Domain`] at
+/// `x == 0` where `Ei` diverges, and the overflow/underflow conditions with
+/// their signs mirrored.
+///
+/// # Examples
+///
+/// ```
+/// use petir::expint::expint_ei;
+/// // Ei(1) = 1.8951178163559368...
+/// let (v, _) = expint_ei(1.0).unwrap();
+/// assert!((v - 1.895_117_816_355_936_8).abs() < 1e-14);
+/// ```
+pub fn expint_ei(x: f64) -> Result<(f64, f64)> {
+    let (v, e) = expint_e1_impl(-x, false)?;
+    Ok((-v, e))
+}
+
+/// `exp(-x) Ei(x)` — the scaled form, `gsl_sf_expint_Ei_scaled_e`
+/// (`specfunc/expint.c:514`). Same one-line relation to
+/// [`expint_e1_scaled`].
+pub fn expint_ei_scaled(x: f64) -> Result<(f64, f64)> {
+    let (v, e) = expint_e1_impl(-x, true)?;
+    Ok((-v, e))
+}
+
 fn expint_e1_impl(x: f64, scale: bool) -> Result<(f64, f64)> {
     let xmaxt = -LOG_DBL_MIN;
     let xmax = xmaxt - libm::log(xmaxt);

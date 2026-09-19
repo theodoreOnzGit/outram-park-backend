@@ -168,6 +168,7 @@ pub mod inc_gamma;
 pub mod inv_inc_gamma;
 pub mod lambert;
 pub mod psi;
+pub mod shint;
 pub mod sinint;
 pub mod synchrotron;
 pub mod transport;

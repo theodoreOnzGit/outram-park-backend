@@ -6,9 +6,17 @@
 //!
 //! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs`,
 //! `lambert.rs`, `clausen.rs`, `transport.rs`, `atanint.rs`,
-//! `synchrotron.rs`, `fermi_dirac.rs`, `dawson.rs`, `expint3.rs` and
-//! `sinint.rs` — 99 file-scope tables plus two local ones, **2397
-//! literals**.
+//! `synchrotron.rs`, `fermi_dirac.rs`, `dawson.rs`, `expint3.rs`,
+//! `sinint.rs`, `shint.rs` and `gamma.rs` — 101 file-scope tables plus two
+//! local ones, **2413 literals**.
+//!
+//! `gamma.rs` is the odd one out and was the odd one *missing*: its
+//! `LANCZOS_7_C` is not a Chebyshev series but the Lanczos `g=7, n=9`
+//! coefficients, and it had never been audited at all. It was found on
+//! 2026-09-20 by `every_module_with_a_table_is_in_the_audited_list`, added
+//! the same day after `shint.rs` slipped past the hand-maintained module
+//! list below. All nine values matched the vendored `lanczos_7_c` on the
+//! first run.
 //!
 //! # Why a table audit and not just the numerical tests
 //!
@@ -279,6 +287,14 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ("dawson.rs", "DAWA", "dawson.c", "dawa_data"),
     ("expint3.rs", "EXPINT3", "expint3.c", "expint3_data"),
     ("expint3.rs", "EXPINT3A", "expint3.c", "expint3a_data"),
+    // gamma.c -- NOT a Chebyshev series: the Lanczos g=7, n=9 coefficients.
+    // Found unaudited on 2026-09-20 by
+    // `every_module_with_a_table_is_in_the_audited_list`, which was itself
+    // written after `shint.rs` slipped past the hand-maintained module list.
+    ("gamma.rs", "LANCZOS_7_C", "gamma.c", "lanczos_7_c"),
+    // shint.c -- one series, the only one whose order_sp equals its
+    // f64 order.
+    ("shint.rs", "SHI", "shint.c", "shi_data"),
     ("sinint.rs", "F1", "sinint.c", "f1_data"),
     ("sinint.rs", "F2", "sinint.c", "f2_data"),
     ("sinint.rs", "G1", "sinint.c", "g1_data"),
@@ -348,7 +364,11 @@ fn parse_floats(body: &str) -> Vec<f64> {
         if bytes[i] == '-' || bytes[i] == '+' {
             i += 1;
         }
-        while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == '.') {
+        // `_` is Rust's digit separator; rustfmt writes it into hand-edited
+        // tables such as gamma.rs's Lanczos coefficients, and without this
+        // the scanner splits one literal into several. It is not valid in C,
+        // so accepting it on both sides costs nothing.
+        while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == '.' || bytes[i] == '_') {
             i += 1;
         }
         if i < bytes.len() && matches!(bytes[i], 'e' | 'E' | 'd' | 'D') {
@@ -358,7 +378,7 @@ fn parse_floats(body: &str) -> Vec<f64> {
                 i += 1;
             }
             if i < bytes.len() && bytes[i].is_ascii_digit() {
-                while i < bytes.len() && bytes[i].is_ascii_digit() {
+                while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == '_') {
                     i += 1;
                 }
             } else {
@@ -368,7 +388,8 @@ fn parse_floats(body: &str) -> Vec<f64> {
         let lit: String = bytes[start..i]
             .iter()
             .collect::<String>()
-            .replace(['d', 'D'], "e");
+            .replace(['d', 'D'], "e")
+            .replace('_', "");
         // A bare "12" from an array dimension is a float too; the caller only
         // ever hands us an initialiser body, so that cannot occur.
         out.push(lit.parse::<f64>().expect("literal in a numeric table"));
@@ -496,10 +517,90 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
     }
     assert_eq!(
         checked,
-        2397,
-        "expected 2397 coefficients across {} tables, audited {checked}",
+        2413,
+        "expected 2413 coefficients across {} tables, audited {checked}",
         TABLES.len()
     );
+}
+
+/// The modules `every_rust_table_is_audited` walks.
+///
+/// Kept as a named constant so `every_module_with_a_table_is_in_the_audited_list`
+/// can check it against the directory rather than against nobody.
+const AUDITED_MODULES: [&str; 16] = [
+    "bessel.rs",
+    "psi.rs",
+    "zeta.rs",
+    "debye.rs",
+    "airy.rs",
+    "lambert.rs",
+    "clausen.rs",
+    "transport.rs",
+    "atanint.rs",
+    "synchrotron.rs",
+    "fermi_dirac.rs",
+    "dawson.rs",
+    "expint3.rs",
+    "sinint.rs",
+    "shint.rs",
+    "gamma.rs",
+];
+
+/// **Every module under `src/specfunc/` that declares a `[f64; N]` table is
+/// in the list `every_rust_table_is_audited` walks**, because the directory
+/// is the authority and not a hand-maintained array of filenames.
+///
+/// # This caught a table that was audited by nothing
+///
+/// `every_rust_table_is_audited` sweeps a literal list of module names. A
+/// module absent from that list is not a failure — its tables are simply
+/// never looked at, and the audit stays green while covering one fewer
+/// series. `shint.rs` landed that way on 2026-09-20 and its seven
+/// coefficients went unchecked against the vendored `shi_data` until the
+/// list was extended by hand.
+///
+/// That is the same shape as `tests/wgsl_validation.rs`'s
+/// `every_shader_file_is_listed_here`, found the day before: a registry
+/// maintained by counting, next to a directory that already knows the
+/// answer. Both now read the directory.
+#[test]
+fn every_module_with_a_table_is_in_the_audited_list() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/specfunc");
+    let mut with_tables: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()))
+        .map(|e| e.expect("directory entry").file_name())
+        .filter_map(|n| {
+            let name = n.to_string_lossy().into_owned();
+            if !name.ends_with(".rs") {
+                return None;
+            }
+            let body = std::fs::read_to_string(dir.join(&name)).ok()?;
+            body.lines()
+                .filter_map(|l| l.strip_prefix("const "))
+                .any(|l| l.contains(": [f64; "))
+                .then_some(name)
+        })
+        .collect();
+    with_tables.sort();
+    assert!(
+        !with_tables.is_empty(),
+        "no table-bearing modules found under {}",
+        dir.display()
+    );
+    for name in &with_tables {
+        assert!(
+            AUDITED_MODULES.contains(&name.as_str()),
+            "src/specfunc/{name} declares a [f64; N] table but is not in \
+             AUDITED_MODULES, so nothing checks its coefficients against the \
+             vendored GSL. Add it there and give each table a TABLES row"
+        );
+    }
+    for name in AUDITED_MODULES {
+        assert!(
+            with_tables.iter().any(|n| n == name),
+            "AUDITED_MODULES lists {name}, which declares no [f64; N] table"
+        );
+    }
 }
 
 /// No table may exist in the module without a row in [`TABLES`]. Without this
@@ -507,22 +608,7 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
 #[test]
 fn every_rust_table_is_audited() {
     let mut total_declared = 0usize;
-    for module in [
-        "bessel.rs",
-        "psi.rs",
-        "zeta.rs",
-        "debye.rs",
-        "airy.rs",
-        "lambert.rs",
-        "clausen.rs",
-        "transport.rs",
-        "atanint.rs",
-        "synchrotron.rs",
-        "fermi_dirac.rs",
-        "dawson.rs",
-        "expint3.rs",
-        "sinint.rs",
-    ] {
+    for module in AUDITED_MODULES {
         let src = rust_source(module);
         let declared: Vec<String> = src
             .lines()
