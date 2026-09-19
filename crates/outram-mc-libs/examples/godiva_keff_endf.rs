@@ -285,7 +285,9 @@ fn main() {
     // remote sandbox among them, where the egress proxy returns 403 — and a
     // recorded number cannot be kept honest anywhere the program cannot run.
     // The twin that reads `reference-data/endf/` instead,
-    // `examples/godiva_keff_endf_local.rs`, does carry one: +57 +/- 173 pcm on
+    // `examples/godiva_keff_endf_local.rs`, does carry one. That number was
+    // +57 +/- 173 pcm on a SINGLE seed; it is superseded by the 256-seed
+    // pooled +16 +/- 11 pcm (CORRECTED 2026-09-18). Historically it read: on
     // ENDF/B-VIII.0.
     let library = if used_local {
         "ENDF/B-VIII.0 from reference-data/endf/ (the IAEA fetch was unavailable)"

@@ -133,7 +133,6 @@ fn main() {
 
 #[cfg(not(target_os = "android"))]
 mod desktop {
-use outram_mc_libs::tally::filter::FilterKind;
 use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
     use outram_mc_libs::geometry::geometry::Geometry;
@@ -144,7 +143,7 @@ use njoy_outram_park_fork::reference_data::reference_endf;
     use outram_mc_libs::material::nuclide::Nuclide;
     use outram_mc_libs::physics::keff::KeffSettings;
     use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
-    use outram_mc_libs::tally::filter::{EnergyFilter, FilterKind};
+    use outram_mc_libs::tally::filter::EnergyFilter;
     use outram_mc_libs::tally::tally::{ScoreType, Tally, TallyBin};
     use std::time::Instant;
 

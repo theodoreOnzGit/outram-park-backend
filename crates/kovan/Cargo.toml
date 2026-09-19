@@ -12,6 +12,10 @@ edition.workspace = true
 # pick it up by accident, and nothing else in the workspace may depend on
 # `kovan` without re-examining that boundary.
 license = "AGPL-3.0-only"
+# `docs/` is repo-only: the rustdoc->markdown API mirror and the V&V
+# write-ups. Excluded so it never ships to crates.io (size, and it is
+# not part of the published API surface).
+exclude = ["docs"]
 repository.workspace = true
 
 # Consolidated 2026-08-21 from the former separate `kovan-cli` and

@@ -260,10 +260,54 @@
 //! than roughly 2000 pcm will read as "not resolved" — which means
 //! **unmeasured**, not zero. Raise it with `OUTRAM_DH_VV_HISTORIES`.
 //!
+//! `OUTRAM_DH_SEEDS=<n>` runs `n` independent seed draws per treatment
+//! (default 1) and prints a `POOLED` line per arm with the sample mean, sd and
+//! standard error over those draws. This is the mechanism for beating the
+//! ~900 pcm single-draw noise floor named above without lengthening each
+//! history, and it is the right knob when the question is *where is the bias*
+//! rather than *how fast is the arm*.
+//!
+//! **Known limit, stated because it is easy to misread the output:** the
+//! `POOLED` line is printed but is **not** what the "Bias vs the exact
+//! treatment" table below uses. That table is built from the **last draw
+//! only** (`rows` is pushed when `draw == n_seeds`), so at `n > 1` the printed
+//! pooled mean and the tabulated `dk`/`sigma` come from different quantities.
+//! Read the `POOLED` lines, not the table, when running multi-seed.
+//!
 //! `OUTRAM_DH_VV_FIT_RPT=1` additionally fits this code's own ring-RPT inner
 //! radius via [`fit_ring_rpt_inner_radius`] instead of borrowing the deck
 //! author's OpenMC-fitted 1.4934 cm, at a cost of about a dozen extra
 //! eigenvalue solves.
+//!
+//! `OUTRAM_DH_VV_ONLY=<substring>` restricts the table to the arms whose name
+//! contains that substring, case-insensitively (e.g. `scls, kernel`).
+//!
+//! **Beware that `cls` is a substring of `scls`.** `OUTRAM_DH_VV_ONLY=cls`
+//! selects **all four** chord-length arms, and `cls, kernel` selects **both**
+//! kernel-level arms — including the SCLS one, which costs ~55 minutes. This
+//! was hit for real on 2026-09-18: a run intended to re-measure `CLS,
+//! kernel-level` alone went on to spend another hour on `SCLS, kernel-level`.
+//! To isolate the non-semi-implicit arms, anchor on the leading space or use
+//! `chord-length` (which appears only in `chord-length sampling (CLS)`).
+//! It exists
+//! because the two SCLS arms cost tens of minutes each while every other arm
+//! costs two or three, so re-measuring one should not mean re-running the six
+//! that were already fine. It changes nothing about how any arm is computed —
+//! each eigenvalue solve is independent and seeded identically either way, so a
+//! filtered run reproduces the corresponding row of a full run exactly. Verified
+//! 2026-09-18: a filtered re-run of `CLS, kernel-level` in a separate process
+//! returned `k = 1.38719 +/- 0.00662`, identical in every printed digit to the
+//! full run's row.
+//!
+//! # Arms
+//!
+//! **Seven**, not the five in the results table above — that table records the
+//! 7200-history run, which predates the two kernel-level variants. The example
+//! now also runs [`DhTreatment::ChordLengthKernel`] and
+//! [`DhTreatment::SclsKernel`], which apply CLS and SCLS to the **fuel kernel**
+//! rather than to a smeared whole particle. On this problem that is worth
+//! **+3818 pcm** to CLS. The full account, with the regime sweep and the
+//! reproducibility check, is `docs/cls-scls-vv.md`.
 
 use std::time::Instant;
 
@@ -520,17 +564,68 @@ fn main() {
         }
     };
 
-    let treatments = [
+    let all_treatments = [
         DhTreatment::DeltaTracking,
         DhTreatment::ChordLength,
+        DhTreatment::ChordLengthKernel,
         DhTreatment::Scls,
+        DhTreatment::SclsKernel,
         DhTreatment::Homogenised,
         rpt_treatment,
     ];
+    // OUTRAM_DH_ONLY selects treatments by substring of `name()`, comma
+    // separated (e.g. "chord" or "chord,delta"). Unset runs all five, which is
+    // the unchanged default. Added so a single treatment can be re-measured
+    // without paying for the others -- SCLS in particular is not fixed yet
+    // (maintainer, 2026-09-18) and running it wastes the wall clock.
+    let treatments: Vec<DhTreatment> = match std::env::var("OUTRAM_DH_ONLY") {
+        Ok(filter) => {
+            let want: Vec<String> = filter.split(',').map(|w| w.trim().to_lowercase()).collect();
+            all_treatments
+                .into_iter()
+                .filter(|t| {
+                    let n = t.name().to_lowercase();
+                    want.iter().any(|w| n.contains(w.as_str()))
+                })
+                .collect()
+        }
+        Err(_) => all_treatments.to_vec(),
+    };
+    // OUTRAM_DH_SEEDS: independent seed draws per treatment (default 1).
+    // Every DH number in this repo is a SINGLE draw; pooling is gh:#196 /
+    // bn:op-awwi. Each draw is timed separately.
+    let n_seeds: u64 = std::env::var("OUTRAM_DH_SEEDS")
+        .ok().and_then(|v| v.parse().ok()).filter(|&n: &u64| n >= 1).unwrap_or(1);
+
+    // `OUTRAM_DH_VV_ONLY=<substring>` restricts the table to the arms whose
+    // name contains that substring, case-insensitively. NOTE `cls` is a
+    // substring of `scls`, so `cls` matches all four chord-length arms and
+    // `cls, kernel` matches both kernel-level ones -- see the module docs.
+    // This exists because the
+    // two SCLS arms cost 15-25 minutes each while every other arm costs two or
+    // three, so re-measuring one of them should not mean re-running the six that
+    // were already fine. It changes nothing about how any arm is computed --
+    // each `keff` call is independent and seeded identically either way, so a
+    // filtered run reproduces the corresponding row of a full run exactly.
+    let only = std::env::var("OUTRAM_DH_VV_ONLY")
+        .ok()
+        .map(|s| s.to_lowercase());
+    if let Some(filter) = only.as_deref() {
+        println!("  (OUTRAM_DH_VV_ONLY={filter} -- showing only the arms whose name contains it)\n");
+    }
 
     let mut rows: Vec<Row> = Vec::new();
     for treatment in treatments {
+        if let Some(filter) = only.as_deref() {
+            if !treatment.name().to_lowercase().contains(filter) {
+                continue;
+            }
+        }
+      let mut draws: Vec<f64> = Vec::with_capacity(n_seeds as usize);
+      for draw in 1..=n_seeds {
         let params = PebbleParams::fhr_unit_cell().with_materials(mats.clone());
+        let params = PebbleParams { seed: params.seed.wrapping_add(draw - 1) | 1, ..params };
+        let settings = KeffSettings { seed: draw, ..settings.clone() };
         let universe = match DhUniverse::pebble(params, treatment) {
             Ok(u) => u,
             Err(e) => {
@@ -550,13 +645,25 @@ fn main() {
             secs,
             particles
         );
-        rows.push(Row {
-            treatment,
-            k: result.k_mean,
-            std: result.k_std,
-            secs,
-            particles,
-        });
+        draws.push((result.k_mean - 1.0) * 0.0 + result.k_mean);
+        if n_seeds > 1 {
+            println!("      draw {draw}/{n_seeds}: k = {:.5} +/- {:.5}  ({secs:.1} s)",
+                     result.k_mean, result.k_std);
+        }
+        if draw == n_seeds {
+            rows.push(Row { treatment, k: result.k_mean, std: result.k_std, secs, particles });
+        }
+      }
+      if n_seeds > 1 && !draws.is_empty() {
+          let n = draws.len() as f64;
+          let mean = draws.iter().sum::<f64>() / n;
+          let sd = if n > 1.0 {
+              (draws.iter().map(|k| (k - mean).powi(2)).sum::<f64>() / (n - 1.0)).sqrt()
+          } else { 0.0 };
+          let sem = if n > 1.0 { sd / n.sqrt() } else { 0.0 };
+          println!("    POOLED {:<24} k = {mean:.5}  sd = {:.5}  sem = +/-{:.5}  ({} draws)",
+                   treatment.name(), sd, sem, draws.len());
+      }
     }
 
     let Some(reference) = rows.iter().find(|r| r.treatment.is_exact()) else {

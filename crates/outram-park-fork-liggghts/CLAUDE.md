@@ -68,7 +68,7 @@ are different claims and this entry keeps them apart.
   | oblique + friction (shear history, slip, torque) | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 5.68e-14 rad/s` (≈1–3 ulp) |
   | oblique, **no-history** — the stateless `contact`+`simulation` path | 251 | `max|Δv| = 1.11e-16 m/s`, `max|Δω| = 1.42e-14 rad/s` |
   | bulk bed, 354 pebbles, `D/d = 6` | settled state | `φ = 0.5571` vs `0.5582` — **0.20 %** |
-  | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | `12.78°` vs `15.43°` — 2.65° (mesh-contact difference, see below) |
+  | angle of repose, 656 pebbles, lifting cylinder (mesh + `move/mesh`) | settled heap | ~~`12.78°` vs `15.43°` — 2.65°~~ **`14.09°` vs `15.43°` — 1.34°** (**CORRECTED 2026-09-18**: 12.78 came from the pre-`op-t3l.9` nondeterministic build and is not reproducible; the gap HALVES. The mesh-contact attribution is now UNSUPPORTED — a resolution sweep is flat within a measured 0.266° realisation scatter. See the V&V doc.) |
   | **HTR-10 full core**, 27 554 pebbles, `D/d = 30`, `E = 5e8` | settled state | `φ = 0.5732` vs `0.5732` — **4 decimals**; median pebble **61 µm** apart, 99.93 % within 1 mm |
 
   The HTR-10 row (added 2026-09-17) is the one that matters for the pebble-bed
@@ -172,7 +172,8 @@ are different claims and this entry keeps them apart.
   bottom conus and fuel discharge tube — a *triangulated mesh wall*, not the
   primitive cylinder+plane every previous HTR-10 result used. The only other
   mesh-wall comparison in this crate is the angle-of-repose case, which is the
-  **weakest row in the whole cross-code table** (12.78° vs 15.43°). Drawing a
+  **weakest row in the whole cross-code table** (~~12.78°~~ **14.09°** vs 15.43°,
+  corrected 2026-09-18 — still the weakest, but by 1.34° not 2.65°). Drawing a
   physics conclusion from untested geometry would have been exactly the mistake
   the workspace V&V rules exist to prevent, so the conus got its own
   comparison first: `tests/htr10_conus_cross_code.rs`, upstream deck

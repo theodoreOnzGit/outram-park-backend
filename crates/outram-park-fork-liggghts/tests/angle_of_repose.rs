@@ -82,14 +82,27 @@
 //!
 //! | Quantity | this crate | LIGGGHTS | difference |
 //! |---|---|---|---|
-//! | angle of repose | **12.78 deg** | **15.43 deg** | 2.65 deg |
+//! | angle of repose | ~~12.78 deg~~ **14.09 deg** | **15.43 deg** | ~~2.65~~ **1.34 deg** |
+//!
+//! **CORRECTED 2026-09-18.** `12.78` was produced by the pre-`op-t3l.9`
+//! nondeterministic build (randomly-seeded `HashMap` neighbour grid ->
+//! force-accumulation order varied per process) and is not reproducible.
+//! Re-measured twice on the fixed build: **14.09 deg**. The gap to LIGGGHTS
+//! halves, so this record previously UNDERSTATED the port's agreement.
 //! | heap apex | 0.0347 m | 0.0370 m | 6.2 % |
 //! | residual `KE` | `2.8e-10 J` (settled) | `9.0e-11 J` (settled) | — |
 //! | particles | 656 (none lost) | 656 (none lost) | — |
 //!
-//! A heap forms in both codes and both come to rest. The `2.65 deg` gap is the
-//! mesh-contact difference flagged above, not a physics difference; the `3 deg`
-//! bound this test asserts is a regression catch that the measurement **only
+//! A heap forms in both codes and both come to rest. ~~The `2.65 deg` gap is
+//! the mesh-contact difference flagged above~~ **CORRECTED 2026-09-18 — the
+//! gap is 1.34 deg, and attributing it to the mesh-contact difference is now
+//! UNSUPPORTED**: a resolution sweep
+//! (`examples/repose_mesh_convergence.rs`) is flat within a measured 0.266 deg
+//! realisation scatter, and coarsening moves the angle the wrong way. It is
+//! still not a physics difference; the `3 deg`
+//! bound this test asserts is a regression catch. ~~The measurement only
+//! just clears it.~~ **CORRECTED 2026-09-18** — at a 1.34 deg gap it clears
+//! the 3 deg bound with better than 2x margin. The measurement **only
 //! just clears**, so tightening it needs upstream's multi-facet resolution
 //! first.
 //!

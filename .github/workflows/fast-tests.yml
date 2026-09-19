@@ -1,0 +1,200 @@
+# Fast tests — the five platforms, long tests excluded.
+#
+# WHAT "FAST" MEANS HERE. The workspace gates every test over 5 minutes behind
+# a default-on `long-tests` feature (see the HARD RULE in the root CLAUDE.md).
+# `cargo quick-test` is the repo's own alias for turning those off:
+#
+#     quick-test = ["test", "--release", "--lib", "--tests", "--no-default-features"]
+#
+# This workflow runs THAT ALIAS rather than spelling the flags out, so CI and a
+# developer's local fast run cannot drift apart. `--no-default-features` is the
+# only mechanism Cargo offers for disabling a single default feature, so it also
+# drops `kovan`'s `gui` and `petir`'s `transfer-fn`; both build and test without,
+# and dropping `gui` is desirable on a headless runner anyway.
+#
+# RELEASE MODE IS NOT NEGOTIABLE. The root CLAUDE.md mandates `--release` for
+# every build and test. It costs CI time and is kept regardless.
+#
+# WORK IS NOT DONE ON A GREEN RUN HERE. This is the edit-compile-check loop,
+# not the gate. The real suite is
+#     cargo test --workspace --lib --tests --release
+# which includes the long tests this workflow deliberately skips. A green badge
+# from this file means "nothing fast is broken", never "the suite passes".
+#
+# ── What each platform can actually do ───────────────────────────────────────
+#
+# Linux / Windows / macOS  RUN the tests.
+# Android / iOS            COMPILE ONLY. A CI runner has no device and no
+#                          emulator here, so these are `cargo check`. That is
+#                          the same bar the root CLAUDE.md sets for Android:
+#                          `--all-targets`, because a `--lib`-only check
+#                          silently misses broken examples, tests and benches —
+#                          exactly the gap that let an un-gated example ship.
+#
+# NOT COVERED, deliberately: `wasm32-unknown-unknown`, which has its own gate at
+# `scripts/check-wasm.sh` with a documented per-crate exclusion list. Folding it
+# in here would duplicate that logic and hide the exclusions.
+
+name: fast tests
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # A failed build should not be retried silently into a timeout.
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Supersede only PULL-REQUEST runs, never pushes to develop/main.
+  #
+  # `cancel-in-progress: true` was tried first and is wrong here, measured
+  # rather than guessed: the three `test` legs compile 40 crates in release and
+  # take far longer than the compile-only jobs, so on an active branch every
+  # new push killed them before they finished. Two consecutive runs
+  # (35299832412, 35300663774) completed android and ios but cancelled all
+  # three `test` legs — i.e. the slowest and most valuable jobs were the only
+  # ones that never ran, which is exactly backwards.
+  #
+  # On a PR, superseding is still right: only the tip matters and pushes are
+  # frequent. On develop/main each commit is a thing someone may later bisect
+  # to, so its run should complete.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ── Tests that actually RUN ────────────────────────────────────────────────
+  test:
+    name: test / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false # one platform's failure must not hide the others'
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: fast-${{ matrix.os }}
+          # A 40-crate release build is the dominant cost; without this the
+          # matrix is ~3x slower and the intel-mkl-static download repeats.
+          cache-on-failure: true
+
+      # NO SYSTEM BLAS STEP, DELIBERATELY. `outram-foam-basic-lib` used to
+      # carry `ndarray-linalg` as a target-gated DEV-dependency, which Cargo
+      # pulls for every `cargo test` regardless of which test runs — so the
+      # fast suite needed `libopenblas-dev` on Linux and a slow
+      # `intel-mkl-static` build on macOS/Windows, all for one timing
+      # benchmark that asserts nothing. It is now an optional regular
+      # dependency behind that crate's `blas-bench` feature, with
+      # `required-features` on the test target, so `cargo quick-test` does not
+      # resolve it on any platform.
+      #
+      # If a BLAS install step ever reappears here, something has regressed
+      # back into the default graph — fix the dependency, not this file.
+
+      - name: Fast tests (long tests excluded)
+        run: cargo quick-test
+
+  # ── Compile-only platforms ─────────────────────────────────────────────────
+  android:
+    name: check / android (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # The three the root CLAUDE.md names: the device target plus the two
+        # emulator targets.
+        target: [aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android-${{ matrix.target }}
+          cache-on-failure: true
+
+      # NO NDK IS INSTALLED, AND NONE IS NEEDED. `cargo check` type-checks
+      # without linking, so a pure-Rust workspace checks for Android with the
+      # target alone. Verified 2026-09-18 on a machine with no NDK present.
+      # If a crate ever grows a `build.rs` that invokes a C compiler, this job
+      # will start failing and WILL need `cargo-ndk` — that failure is the
+      # signal, and should not be worked around by dropping `--all-targets`.
+      # EXCLUSION, and there is exactly one. `outram-park-digital-twin-engine`
+      # is egui/eframe and is the workspace's single declared GUI exemption
+      # (root CLAUDE.md: "only `outram-park-digital-twin-engine` (egui/eframe)
+      # is a genuine GUI exemption"). Every other member, including `kovan`
+      # and its CLI/TUI binaries, is REQUIRED to check for Android.
+      #
+      # Measured 2026-09-18: with that one exclusion the whole workspace passes
+      # `--all-targets` for aarch64-linux-android. Do not add to this list to
+      # make a red job green — a new failure here is an Android-portability
+      # defect (epic op-zfr), which is the entire point of the job.
+      - name: Check all targets for ${{ matrix.target }}
+        run: |
+          cargo check --workspace \
+            --exclude outram-park-digital-twin-engine \
+            --all-targets --target ${{ matrix.target }}
+
+  ios:
+    name: check / ios (${{ matrix.target }})
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-ios, aarch64-apple-ios-sim]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios-${{ matrix.target }}
+          cache-on-failure: true
+
+      # iOS IS NEW GROUND FOR THIS WORKSPACE AND IS UNVERIFIED.
+      #
+      # Nothing in the repository has ever been built for iOS, the root
+      # CLAUDE.md's portability rules name Android and wasm but not iOS, and
+      # this job was authored on a Linux machine where an iOS target CANNOT be
+      # checked (it needs the macOS SDK). So unlike every other job here, its
+      # first run on CI is also its first run anywhere.
+      #
+      # Consequences, stated rather than discovered:
+      #  - `--lib` only, not `--all-targets`. The Android rule prefers
+      #    `--all-targets` and it is the better bar, but several crates carry
+      #    egui/wgpu examples and terminal binaries that plainly cannot build
+      #    for iOS, and a permanently red job is an ignored job. Tightening
+      #    this to `--all-targets` is the right follow-up once the library
+      #    baseline is green.
+      #  - iOS escapes the `ndarray-linalg` dev-dependency (Linux/macOS/Windows
+      #    only), so no BLAS is needed. It does NOT escape the
+      #    `cfg(not(target_os = "android"))` tables, so rayon, tokio, wgpu and
+      #    friends are all pulled in. Whether those build for iOS is exactly
+      #    what this job measures.
+      #
+      # If this job is red on arrival, that is INFORMATION, not a broken
+      # workflow: it is the first measurement of the workspace's iOS
+      # portability. Record what fails per crate and gate it the way
+      # `scripts/check-wasm.sh` gates its exclusions, rather than deleting the
+      # job.
+      - name: Check libraries for ${{ matrix.target }}
+        run: cargo check --workspace --lib --target ${{ matrix.target }}

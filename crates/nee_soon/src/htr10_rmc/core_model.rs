@@ -33,7 +33,7 @@ use outram_mc_libs::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::lattice::{HexLattice, HexOrientation, Lattice};
 use outram_mc_libs::geometry::position::Position;
-use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCylinder, ZPlane};
+use outram_mc_libs::geometry::surface::{BoundaryType, Sphere, SurfaceKind, ZCone, ZCylinder, ZPlane};
 use outram_mc_libs::geometry::universe::Universe;
 
 use super::bed::{bed_tile_levels, HexBedCell};
@@ -76,6 +76,43 @@ pub const HTR10_COOLANT_OUTER_CM: f64 = 148.6;
 /// that the real reactor leaks, and is worth thousands of pcm.
 pub const HTR10_CAVITY_ABOVE_BED_CM: f64 = 98.758;
 
+/// Total height \[cm\] of the **core cavity**, conus top to cavity top.
+///
+/// Terry (2005) Fig. 2 / IAEA-TECDOC-1382: `z = 130.0` to `351.818`. This is
+/// **fixed geometry** — it does not depend on how much fuel is loaded.
+pub const HTR10_CORE_CAVITY_CM: f64 = 221.818;
+
+/// Void height \[cm\] above a bed of `bed_full_height` cm, in a FIXED cavity.
+///
+/// # Why this exists
+///
+/// [`HTR10_CAVITY_ABOVE_BED_CM`] is the void at **one** loading — the
+/// benchmark's 123.06 cm — and the model applied it as a constant at every
+/// loading, which silently grows the whole cavity with the bed. The cavity is
+/// fixed; it is the *void* that shrinks as fuel is added.
+///
+/// That is exact at the benchmark point (`221.818 - 123.06 = 98.758`) and
+/// wrong in a known direction away from it: at lower loading the model has too
+/// little void, so reflector graphite sits where the reactor has helium and
+/// `k` reads HIGH; at higher loading it has too much void and `k` reads LOW.
+///
+/// Measured 2026-09-18 across four loadings (dk vs RMC, height-matched):
+/// `-54` at 102.9 cm, `-1259` at 122.5 cm, `-2194` at 147.0 cm, `-1640` at
+/// 171.5 cm — positive-shifted below the benchmark loading and
+/// negative-shifted above it, as this predicts. **The -54 pcm agreement at
+/// 102.9 cm is two errors cancelling, not correctness.**
+///
+/// Enabled by `OUTRAM_HTR10_FIXED_CAVITY=1`; the default keeps the historical
+/// constant so no committed result moves silently.
+#[must_use]
+pub fn cavity_above_bed(bed_full_height_cm: f64) -> f64 {
+    if std::env::var("OUTRAM_HTR10_FIXED_CAVITY").is_ok() {
+        (HTR10_CORE_CAVITY_CM - bed_full_height_cm).max(0.0)
+    } else {
+        HTR10_CAVITY_ABOVE_BED_CM
+    }
+}
+
 /// Axial reflector thickness \[cm\] beyond the core cavity / bed.
 ///
 /// The full benchmark model is 610 cm tall (Terry 2005, corroborated against
@@ -84,9 +121,41 @@ pub const HTR10_CAVITY_ABOVE_BED_CM: f64 = 98.758;
 /// `bed_half_height + 100` leaves once the cavity is carved out of it.
 pub const HTR10_AXIAL_REFLECTOR_CM: f64 = 130.0;
 
+/// Height \[cm\] of the **conus** — the sloping bottom of the pebble bed,
+/// tapering from the core radius to the discharge tube.
+///
+/// Terry (2005) Fig. 2: z = 351.818 (conus top, "zero core height") to
+/// z = 388.764, corroborated against TECDOC-1382 Table 2's stated 36.946.
+/// **It is full of pebbles**, so omitting it omits fuel.
+pub const HTR10_CONUS_HEIGHT_CM: f64 = 36.946;
+
+/// Fuel-discharge-tube radius \[cm\] — the conus's lower radius.
+pub const HTR10_DISCHARGE_TUBE_RADIUS_CM: f64 = 25.0;
+
 /// Outer radius \[cm\] of the boronated carbon bricks = reflector outer
 /// boundary (380 cm diameter / 2).
 pub const HTR10_REFLECTOR_OUTER_CM: f64 = 190.0;
+
+/// Inner radius \[cm\] of the side-reflector band carrying the control-rod
+/// borings — Terry (2005) Fig. 2, corroborated as channel r 102.1 − 13/2.
+pub const HTR10_CONTROL_ROD_INNER_CM: f64 = 95.6;
+
+/// Outer radius \[cm\] of that band (102.1 + 13/2).
+pub const HTR10_CONTROL_ROD_OUTER_CM: f64 = 108.6;
+
+/// Carbon atom density \[atoms/b·cm\] of the **bored** side-reflector band.
+///
+/// IAEA-TECDOC-1382 Table 4-3 zones 31–40 — ten consecutive zones sharing one
+/// reduced density, which is what a homogenised boring region looks like.
+/// Against zone 22's 8.82418e-2 this is **28.1 % less carbon**.
+///
+/// Modelling that band as solid zone-22 graphite (as this did) over-reflects
+/// and over-moderates in the reflector band *nearest the core*, which is the
+/// highest-leverage place in the whole reflector to get wrong.
+pub const HTR10_BORED_CARBON: f64 = 0.634459E-01;
+
+/// Natural-boron atom density \[atoms/b·cm\] of the same zones 31–40.
+pub const HTR10_BORED_BORON: f64 = 0.340640E-06;
 
 pub mod mat {
     /// TRISO UO2 kernel.
@@ -107,6 +176,16 @@ pub mod mat {
     pub const REFLECTOR: usize = 7;
     /// Boronated carbon brick — the outermost reflector annulus.
     pub const BORONATED: usize = 8;
+    /// Side-reflector graphite homogenised with its control-rod borings
+    /// (TECDOC zones 31–40): 28 % less carbon than solid zone-22 graphite.
+    pub const BORED_GRAPHITE: usize = 9;
+    /// **Homogenised dummy pebbles** — pebble graphite at the bed's filling
+    /// fraction, i.e. what the discharge tube actually contains.
+    ///
+    /// Terry (2005) §2: *"the conus and discharge tube contained only dummy
+    /// pebbles"*. Solid reflector graphite there over-reflects; pure helium
+    /// (the bounding ablation) under-reflects. This is the physical value.
+    pub const HOMOG_DUMMY: usize = 10;
     /// Homogenised fuel zone, used only by [`super::assemble`].
     pub const FUEL: usize = KERNEL;
 }
@@ -129,6 +208,9 @@ pub struct AssembledCore {
     pub lat_pitch: f64,
     /// Axial tile height \[cm\].
     pub lat_height: f64,
+    /// Bottom of the conus \[cm\] — the deepest fuelled z. Equal to
+    /// `-bed_half_height` when no conus is modelled.
+    pub conus_floor: f64,
 }
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
@@ -259,7 +341,7 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
     // centimetre of graphite before vacuum, so the cavity vented almost
     // directly to the outside -- measured at 15.7 % leakage.
     let refl_half_height = if refl_thickness > 0.0 {
-        bed_half_height + HTR10_CAVITY_ABOVE_BED_CM + HTR10_AXIAL_REFLECTOR_CM
+        bed_half_height + cavity_above_bed(2.0 * bed_half_height) + HTR10_AXIAL_REFLECTOR_CM
     } else {
         bed_half_height
     };
@@ -355,7 +437,8 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         root_universe: 0,
     };
     let (cells, universes) = (geometry.cells.len(), geometry.universes.len());
-    AssembledCore { geometry, tiles, cells, universes, bed_radius, bed_half_height, lat_pitch, lat_height }
+    AssembledCore { geometry, tiles, cells, universes, bed_radius, bed_half_height, lat_pitch, lat_height,
+        conus_floor: -bed_half_height }
 }
 
 /// **Assemble the core with an EXPLICIT TRISO lattice in each fuelled pebble** —
@@ -543,7 +626,7 @@ pub fn assemble_explicit_triso(
     // centimetre of graphite before vacuum, so the cavity vented almost
     // directly to the outside -- measured at 15.7 % leakage.
     let refl_half_height = if refl_thickness > 0.0 {
-        bed_half_height + HTR10_CAVITY_ABOVE_BED_CM + HTR10_AXIAL_REFLECTOR_CM
+        bed_half_height + cavity_above_bed(2.0 * bed_half_height) + HTR10_AXIAL_REFLECTOR_CM
     } else {
         bed_half_height
     };
@@ -584,13 +667,72 @@ pub fn assemble_explicit_triso(
     };
     surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: cool_in, bc: BoundaryType::Transmissive }));
     surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: cool_out, bc: BoundaryType::Transmissive }));
+    // 17, 18: the CONUS — the sloping bottom of the pebble bed.
+    //
+    // A cone from r = 90 cm at the bed bottom down to the 25 cm discharge tube
+    // over 36.946 cm. `ZCone` is the OpenMC quadric
+    // `(x-x0)^2 + (y-y0)^2 - r_sq*(z-z0)^2`, so `z0` is the APEX (where r = 0)
+    // and `r_sq` is the slope squared. The apex sits below the conus bottom
+    // because the conus is a frustum, not a full cone: with slope
+    // (90-25)/36.946 = 1.759324 the apex is 90/1.759324 = 51.156 cm below the
+    // bed bottom. `conus_floor` then truncates it at the discharge-tube radius.
+    let conus_slope =
+        (HTR10_CORE_RADIUS_CM - HTR10_DISCHARGE_TUBE_RADIUS_CM) / HTR10_CONUS_HEIGHT_CM;
+    let conus_apex_z = -bed_half_height - HTR10_CORE_RADIUS_CM / conus_slope;
+    let conus_floor = -bed_half_height - HTR10_CONUS_HEIGHT_CM;
     // 16: top of the empty core cavity above the pebble bed.
     let cavity_top = if refl_thickness > 0.0 {
-        bed_half_height + HTR10_CAVITY_ABOVE_BED_CM
+        bed_half_height + cavity_above_bed(2.0 * bed_half_height)
     } else {
         bed_half_height
     };
     surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: cavity_top, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZCone(ZCone {
+        x0: 0.0, y0: 0.0, z0: conus_apex_z,
+        r_sq: conus_slope * conus_slope,
+        bc: BoundaryType::Transmissive,
+    }));
+    surfaces.push(SurfaceKind::ZPlane(ZPlane { z0: conus_floor, bc: BoundaryType::Transmissive }));
+    // 19, 20: the side-reflector band carrying the CONTROL-ROD BORINGS,
+    // 95.6 -> 108.6 cm (Terry 2005 Fig. 2). Modelled as solid zone-22 graphite
+    // this over-reflects: TECDOC zones 31-40 give that homogenised band
+    // 28.1 % LESS carbon. It is the reflector band nearest the core, so it is
+    // the highest-leverage place in the reflector to get wrong.
+    //
+    // DEFAULT OFF, and that is deliberate. The zone map in
+    // `terry2005-htr10-rz-zone-geometry.md` records only the bottom two axial
+    // layers; the CORE-HEIGHT assignment for this radial band is explicitly
+    // "not yet placed". Zone 47 is the documented zone for [95.6, 108.6] at
+    // the bottom, and zones 31-40 (used by this knob) were inferred only from
+    // ten consecutive zones sharing one reduced density -- a guess, not data.
+    // The doc warns in terms: "use this as a check, not a generator".
+    //
+    // So enabling it by default would be substituting one unjustified
+    // composition for another in the reflector band nearest the core. The knob
+    // instead MEASURES the sensitivity: OUTRAM_HTR10_BORINGS=1 turns it on.
+    let (bore_in, bore_out) = if refl_thickness > 0.0
+        && std::env::var("OUTRAM_HTR10_BORINGS").is_ok()
+    {
+        (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_OUTER_CM)
+    } else {
+        (HTR10_CONTROL_ROD_INNER_CM, HTR10_CONTROL_ROD_INNER_CM)
+    };
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: bore_in, bc: BoundaryType::Transmissive }));
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: bore_out, bc: BoundaryType::Transmissive }));
+    // 21: the FUEL DISCHARGE TUBE below the conus floor, r < 25 cm. Reflector
+    // graphite here over-reflects the conus tip, where the fuel converges.
+    // Real: a tube of pebbles and void. Modelled as helium, which BOUNDS the
+    // effect (real pebbles would reflect somewhat more than void).
+    //
+    // OUTRAM_HTR10_NO_DISCHARGE=1 collapses it, restoring graphite.
+    let tube_r = if refl_thickness > 0.0
+        && std::env::var("OUTRAM_HTR10_NO_DISCHARGE").is_err()
+    {
+        HTR10_DISCHARGE_TUBE_RADIUS_CM
+    } else {
+        0.0
+    };
+    surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: tube_r, bc: BoundaryType::Transmissive }));
     // OUTRAM_HTR10_REFLECTIVE=1 closes the outer boundary. NOT physical -- it is
     // a DIAGNOSTIC that separates the two ways k can be low: with no leakage at
     // all, whatever k remains is pure in-model absorption or lost histories.
@@ -606,9 +748,21 @@ pub fn assemble_explicit_triso(
     let cells = vec![
         // 0: the bed (delta-tracked)
         {
+            // The bed is the cylinder UNION the conus.
+            //
+            // This is the whole mechanism -- no per-tile omission is needed.
+            // `Geometry::locate` calls `find_cell` (a CSG region test) BEFORE
+            // descending into the lattice, so a point is only given a tile if
+            // it is inside this region. The cone therefore clips the pebble
+            // lattice exactly as `ins(7)` already clips it to r < 90 cm, and
+            // `Cell::distance_to_boundary` tests the cone because it is one of
+            // this cell's own surfaces. See the V&V record: the bead's premise
+            // that this needed conditional tile omission was wrong.
             let bed = Cell::fill(
                 1,
-                vec![ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection],
+                vec![ins(7), out(8), RegionToken::Intersection, ins(9), RegionToken::Intersection,
+                     ins(17), ins(8), RegionToken::Intersection, out(18), RegionToken::Intersection,
+                     RegionToken::Union],
                 CellFill::Lattice(0),
                 Position::ZERO,
             );
@@ -626,8 +780,30 @@ pub fn assemble_explicit_triso(
                                ins(15), out(14), RegionToken::Intersection,
                                RegionToken::Complement, RegionToken::Intersection,
                                ins(7), out(9), RegionToken::Intersection, ins(16), RegionToken::Intersection,
+                               RegionToken::Complement, RegionToken::Intersection,
+                               // and the conus, which the bed now occupies
+                               ins(17), ins(8), RegionToken::Intersection, out(18), RegionToken::Intersection,
+                               RegionToken::Complement, RegionToken::Intersection,
+                               // minus the bored control-rod band
+                               ins(20), out(19), RegionToken::Intersection,
+                               out(18), RegionToken::Intersection, ins(16), RegionToken::Intersection,
+                               RegionToken::Complement, RegionToken::Intersection,
+                               // minus the discharge tube
+                               ins(21), ins(18), RegionToken::Intersection,
                                RegionToken::Complement, RegionToken::Intersection],
                        mat::REFLECTOR, 293.6),
+        // 1d: side reflector homogenised with its CONTROL-ROD BORINGS.
+        Cell::material(16, vec![ins(20), out(19), RegionToken::Intersection,
+                                out(18), RegionToken::Intersection, ins(16), RegionToken::Intersection],
+                       mat::BORED_GRAPHITE, 293.6),
+        // 1e: the FUEL DISCHARGE TUBE below the conus. Terry (2005) section 2
+        // says it holds only DUMMY PEBBLES -- so neither solid reflector
+        // graphite (what this model had, over-reflecting) nor helium (the
+        // bounding ablation, under-reflecting), but pebble graphite at the
+        // bed's filling fraction.
+        Cell::material(17, vec![ins(21), ins(18), RegionToken::Intersection,
+                                out(11), RegionToken::Intersection],
+                       mat::HOMOG_DUMMY, 293.6),
         // 1c: the EMPTY CORE CAVITY above the pebble bed -- helium, not graphite.
         Cell::material(5, vec![ins(7), out(9), RegionToken::Intersection, ins(16), RegionToken::Intersection],
                        mat::HELIUM, 293.6),
@@ -672,7 +848,55 @@ pub fn assemble_explicit_triso(
     // the first critical core is 57 % fuel / 43 % graphite dummies -- but it is
     // an ABLATION that bounds how much of a k deficit the dilution can explain.
     let mod_universe = if std::env::var("OUTRAM_HTR10_ALLFUEL").is_ok() { 1 } else { 2 };
-    let levels = bed_tile_levels(n_rings, n_axial, 1, mod_universe);
+    // AXIAL EXTENT: the lattice must reach the conus floor, not just the bed.
+    //
+    // `n_axial` is the fuel LOADING HEIGHT and sets `bed_half_height`; it must
+    // not change, or the benchmark's loading height changes with it. But the
+    // lattice is centred on z = 0 and now has to supply tiles all the way down
+    // to `conus_floor`, so it needs enough layers to cover the DEEPER of the
+    // two half-extents. Tiles above the bed top fall outside the bed cell's
+    // region and are simply never reached, which costs build time and nothing
+    // else.
+    //
+    // The centre stays `Position::ZERO`. A bottom-referenced centre is exactly
+    // the defect that once put the lattice 58.79 cm low and silently replaced
+    // 48 % of the bed with dummy pebbles -- do not "optimise" the layer count
+    // by offsetting it.
+    let lattice_half_needed = bed_half_height.max(-conus_floor);
+    let n_axial_lattice = n_axial.max((2.0 * lattice_half_needed / lat_height).ceil() as usize);
+    let mut levels = bed_tile_levels(n_rings, n_axial_lattice, 1, mod_universe);
+    // THE CONUS HOLDS ONLY DUMMY PEBBLES.
+    //
+    // Terry et al. (2005) section 2: *"the conus and discharge tube contained
+    // only dummy pebbles"* (quoted in
+    // `kovan-literature/derived/terry2005-htr10-rz-zone-geometry.md:256`).
+    //
+    // `bed_tile_levels` applies the core's 57:43 fuel:dummy split to EVERY
+    // level it builds, so extending the lattice down to the conus floor filled
+    // the conus with FUEL. That is not a small error: it was worth
+    // +4578 +/- 158 pcm and overshot the benchmark fivefold. The geometry was
+    // right and the contents were wrong.
+    //
+    // Level `k` is centred at `-n/2*h + (k+0.5)*h` about the lattice centre
+    // (z = 0). Any level whose centre lies below the bed bottom is conus, and
+    // every tile in it becomes the dummy universe.
+    //
+    // OUTRAM_HTR10_FUEL_CONUS=1 restores the (incorrect) fuelled conus as an
+    // ablation arm.
+    if std::env::var("OUTRAM_HTR10_FUEL_CONUS").is_err() {
+        let half = 0.5 * n_axial_lattice as f64 * lat_height;
+        for (k, level) in levels.iter_mut().enumerate() {
+            let z = -half + (k as f64 + 0.5) * lat_height;
+            if z < -bed_half_height {
+                for ring in level.iter_mut() {
+                    for u in ring.iter_mut() {
+                        *u = 2; // dummy pebble universe
+                    }
+                }
+            }
+        }
+    }
+    let levels = levels;
     let tiles: usize = levels.iter().flatten().map(|r| r.len()).sum();
     let bed_lattice = HexLattice::from_rings_3d(
         0, HexOrientation::Y,
@@ -723,16 +947,18 @@ pub fn assemble_explicit_triso(
         surfaces,
         cells,
         universes: vec![
-            // Indices shifted by one from the boronated-brick cell inserted at 2.
-            Universe { id: 0, cell_indices: vec![0, 1, 2, 3, 4] },  // root: bed + graphite + cavity + coolant + boronated
-            Universe { id: 1, cell_indices: vec![5, 6, 7] },        // fuelled pebble
-            Universe { id: 2, cell_indices: vec![8, 9] },           // dummy pebble
-            Universe { id: 3, cell_indices: vec![10, 11, 12, 13, 14, 15] }, // TRISO particle
-            Universe { id: 4, cell_indices: vec![16, 17] },         // matrix (lattice outer)
+            // Root order: bed, graphite reflector, bored control-rod band,
+            // discharge tube, cavity, coolant annulus, boronated bricks.
+            Universe { id: 0, cell_indices: vec![0, 1, 2, 3, 4, 5, 6] },
+            Universe { id: 1, cell_indices: vec![7, 8, 9] },        // fuelled pebble
+            Universe { id: 2, cell_indices: vec![10, 11] },         // dummy pebble
+            Universe { id: 3, cell_indices: vec![12, 13, 14, 15, 16, 17] }, // TRISO particle
+            Universe { id: 4, cell_indices: vec![18, 19] },         // matrix (lattice outer)
         ],
         lattices: vec![Lattice::Hex(bed_lattice), Lattice::Rect(triso_lattice)],
         root_universe: 0,
     };
     let (c, u) = (geometry.cells.len(), geometry.universes.len());
-    AssembledCore { geometry, tiles, cells: c, universes: u, bed_radius, bed_half_height, lat_pitch, lat_height }
+    AssembledCore { geometry, tiles, cells: c, universes: u, bed_radius, bed_half_height, lat_pitch, lat_height,
+        conus_floor }
 }

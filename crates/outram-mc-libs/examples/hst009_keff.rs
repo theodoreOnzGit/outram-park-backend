@@ -6,7 +6,9 @@
 //!
 //! `godiva_keff_endf_local.rs` settled the *fast* half of the machinery against
 //! an experiment: ν̄, χ, fast σ, inelastic levels, (n,2n) and the eigenvalue
-//! driver reproduce ICSBEP **HEU-MET-FAST-001** to +57 ± 173 pcm. Nothing had
+//! driver reproduce ICSBEP **HEU-MET-FAST-001** to ~~+57 ± 173 pcm~~
+//! **+16 ± 11 pcm (256 seeds, pooled)** — CORRECTED 2026-09-18; +57 was one seed, and
+//! one draw of that case re-randomises by ~250 pcm. Nothing had
 //! settled the *thermal* half, and the FHR pebble study's residual
 //! (`op-mzvp.2.12`, +4004 pcm at the time, entirely the fraction of neutrons
 //! crossing 0.625 eV) lived there. Every mechanism on this side had been excluded
@@ -82,6 +84,35 @@
 //!     --example hst009_keff
 //! ```
 
+//!
+//! ## POOLED RESULT (2026-09-18) — 32 seeds, `OUTRAM_BENCH_SEEDS=32`
+//!
+//! | | dk vs benchmark |
+//! |---|---|
+//! | **pooled mean, 32 seeds** | **-38 pcm, sem +/-36** |
+//! | seed-to-seed sd | 205 pcm — what ONE run scatters by |
+//! | previously recorded (SINGLE seed) | `-18 ± 171 pcm` |
+//!
+//! //! **The previously recorded `-18` happened to be accurate** — 0.1 sd from the
+//! pooled mean. That is luck, not method: the seed-to-seed sd is 205 pcm, so a
+//! single draw could as easily have landed 300 pcm away, as Jemima's did. An
+//! accurate single-seed number and an inaccurate one are indistinguishable
+//! without the ensemble.
+//!
+//!
+//! **PROVENANCE WARNING on that band (added 2026-09-18).** The `± ~0.006` is
+//! NOT a quoted ICSBEP case uncertainty. This file's own lines ~76-78 say the
+//! case-specific uncertainty "is not in the repository and the handbook is not
+//! reachable from this environment", and take **the top of a 0.1-0.6 % range**
+//! as a worst case. That is the assumption that makes "inside the band"
+//! easiest to satisfy. `-38 +/- 36` is small enough that it would probably
+//! survive a realistic band too -- but "probably" is not a result. Do not
+//! publish as agreement until the real uncertainty is obtained (bead filed
+//! 2026-09-18).
+//! This closes `gh:#196` / `bn:op-awwi` for this case: the headline is now a
+//! pooled mean, not a draw. Note the comparison is now limited by the
+//! BENCHMARK's uncertainty (ICSBEP `1.0000 ± ~0.006`, i.e. ~600 pcm), not ours — quote agreement against that
+//! band, not against our sem.
 use njoy_outram_park_fork::reference_data::reference_endf;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::BoundaryType;

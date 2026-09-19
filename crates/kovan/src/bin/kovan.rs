@@ -25,6 +25,30 @@
 //! resolving to nothing on an Android target (no `--no-default-features`
 //! needed there either).
 
+/// Android has no windowing GUI, and `egui`/`eframe` are not in the dependency
+/// graph for that target at all (they live under
+/// `[target.'cfg(not(target_os = "android"))'.dependencies]`). So this binary
+/// cannot be built there, and the workspace `CLAUDE.md` prescribes exactly this
+/// shape for a bin in that position: an Android stub `main` that prints a
+/// desktop-only line, with every desktop item gated off Android.
+///
+/// **A blanked file would not do** — a bin target with no `main` fails with
+/// "main function not found", which is why the stub exists rather than a
+/// whole-file `#![cfg(...)]`.
+///
+/// ~~The `gui` requirement resolves to nothing on an Android target.~~
+/// **CORRECTED 2026-09-18** — the module docs above said that, and it is only
+/// half true. The *dependencies* resolve to nothing, but `default = ["gui"]`
+/// is unconditional, so the `gui` FEATURE is still on for Android and
+/// `required-features = ["gui"]` is still satisfied. Cargo therefore tried to
+/// build this binary against an absent `eframe`. Found by the first
+/// workspace-wide Android check (`.github/workflows/fast-tests.yml`).
+#[cfg(target_os = "android")]
+fn main() {
+    eprintln!("kovan: the GUI is desktop-only; use kovan-cli or kovan-tui on Android");
+}
+
+#[cfg(not(target_os = "android"))]
 fn main() -> std::process::ExitCode {
     // `kovan [image] [--root <dir>] [--paper <citekey>]`. The two flags open
     // the window directly on a library, and on one paper's PDF — the

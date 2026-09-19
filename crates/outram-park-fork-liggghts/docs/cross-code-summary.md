@@ -96,7 +96,7 @@ undersold what the codes actually agree on.
 | Case | Geometry | N | Quantity | Ours | LIGGGHTS | Agreement | Test |
 |---|---|---|---|---|---|---|---|
 | bulk bed settling | cylinder, `D/d = 6` | 354 | solid fraction | 0.5571 | 0.5582 | 0.20 % | `pebble_bed_bulk.rs` |
-| angle of repose, lifting cylinder | STL mesh wall, `R = 0.050 m` | 656 | repose angle | 12.78 deg | 15.43 deg | 2.65 deg | `angle_of_repose.rs` |
+| angle of repose, lifting cylinder | STL mesh wall, `R = 0.050 m` | 656 | repose angle | 12.78 deg | 15.43 deg | ~~2.65~~ **1.34** deg (corrected 2026-09-18) | `angle_of_repose.rs` |
 | HTR-10 full core, `E = 1e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5811 | 0.5810 | 0.02 % | `htr10_pebble_bed.rs` |
 | HTR-10 full core, `E = 3e8` | cylinder, `D/d = 30` | 27 558 | solid fraction | 0.5754 | 0.5754 | 4 decimals | `htr10_pebble_bed.rs` |
 | **HTR-10 conus slump**, `E = 5e8` | **STL mesh** conus + tube + valve, `D/d = 30` | 27 554 | solid fraction | 0.5769 | 0.5769 | **0.01 %** | `htr10_conus_cross_code.rs` |
@@ -104,7 +104,7 @@ undersold what the codes actually agree on.
 
 The angle-of-repose case is the weakest agreement on this page and is reported
 as such rather than being tuned: a heap angle is an emergent property of the
-whole settling history, and the two codes' heaps differ by 2.65 degrees. See
+whole settling history, and the two codes' heaps differ by ~~2.65~~ **1.34** degrees — corrected 2026-09-18, the 2.65 figure came from the pre-`op-t3l.9` nondeterministic build. See
 `verification-and-validation.md` section 4.6.
 
 ### Per-particle agreement — stronger than the bulk numbers suggest

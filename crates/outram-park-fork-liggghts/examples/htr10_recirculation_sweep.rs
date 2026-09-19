@@ -88,8 +88,26 @@ const RHO: f64 = 1730.0;
 const H_CONE: f64 = 0.36946;
 const TUBE_LEN: f64 = 0.25;
 const Z_VALVE: f64 = -(H_CONE + TUBE_LEN);
+/// Default Young's modulus \[Pa\]. Overridable with `--young`; see the note at
+/// the parse site for why that knob exists. Nuclear graphite is ~9 GPa; this is
+/// the standard pebble-bed DEM softening, and § 4.7 of the V&V doc records that
+/// it was set by measuring contact overlap, not by its effect on packing.
 const YOUNGS_MODULUS: f64 = 5.0e8;
+/// Default integration timestep \[s\]. Overridable with `--dt`. 11.7 % of the
+/// Rayleigh time at `E = 5e8`; a packing fraction that moves with this is a
+/// numerical artefact rather than a physical result.
 const DT: f64 = 3.5e-5;
+
+/// Default Poisson's ratio for nuclear graphite \[-\]. Overridable with
+/// `--poisson`. Enters the Hertz normal stiffness through the effective
+/// modulus `E* = E / (2(1 - nu^2))`, so its leverage on `phi` is weak by
+/// construction -- which is a prediction, and is ablated rather than assumed.
+const POISSON_RATIO: f64 = 0.2;
+
+/// Default coefficient of restitution \[-\]. Overridable with `--restitution`.
+/// Sets the normal damping, i.e. how fast collisional energy leaves the bed.
+/// A quasi-static settle should depend on it only weakly.
+const RESTITUTION: f64 = 0.5;
 
 /// Clearance above the tangent point when placing a pebble `[m]`.
 ///
@@ -269,6 +287,21 @@ fn place_on_surface(existing: &[Vec3], x: f64, y: f64, fallback_z: f64) -> Vec3 
     Vec3::new(x, y, z + PLACE_CLEARANCE)
 }
 
+/// A numeric CLI override whose default is a **named constant**, not a string
+/// literal, so the default exists in exactly one place and cannot drift from
+/// the value the constant documents.
+fn arg_f64(name: &str, default: f64) -> f64 {
+    let args: Vec<String> = std::env::args().collect();
+    args.iter()
+        .position(|a| a == name)
+        .and_then(|i| args.get(i + 1))
+        .map(|v| {
+            v.parse()
+                .unwrap_or_else(|_| panic!("{name} expects a number, got {v:?}"))
+        })
+        .unwrap_or(default)
+}
+
 fn arg(name: &str, default: &str) -> String {
     let args: Vec<String> = std::env::args().collect();
     args.iter()
@@ -282,6 +315,21 @@ fn main() {
     let label = arg("--label", "default");
     let mu: f64 = arg("--mu", "0.4").parse().expect("mu");
     let mu_r: f64 = arg("--mu-r", "0.1").parse().expect("mu-r");
+    // Material and integration parameters, exposed so they can be ABLATED
+    // rather than merely asserted. Every default is the value this case has
+    // always used, so an invocation that does not pass them is unchanged.
+    //
+    // These exist because each carries a falsifiable prediction that had never
+    // been tested: `phi` must be independent of `--dt` (or it is a numerical
+    // artefact, not a packing), and if the settling is quasi-static as the
+    // stiffness softening claims, `phi` must be only weakly dependent on
+    // `--young`. `E` was originally set by measuring overlap, never by its
+    // effect on `phi` -- so the argument licensing the softening had never
+    // been checked against the quantity it is used to justify.
+    let dt = arg_f64("--dt", DT);
+    let young = arg_f64("--young", YOUNGS_MODULUS);
+    let poisson = arg_f64("--poisson", POISSON_RATIO);
+    let restitution = arg_f64("--restitution", RESTITUTION);
     let batches: usize = arg("--batches", "40").parse().expect("batches");
     let batch_size: usize = arg("--batch-size", "50").parse().expect("batch-size");
     let settle_steps: usize = arg("--settle-steps", "2000").parse().expect("settle-steps");
@@ -314,7 +362,7 @@ fn main() {
     );
 
     let material =
-        GranularMaterial::new(YOUNGS_MODULUS, 0.2, 0.5, mu).expect("valid graphite material");
+        GranularMaterial::new(young, poisson, restitution, mu).expect("valid graphite material");
     let mut model = GranularContactModel::hertz_history(material);
     if mu_r > 0.0 {
         model = model.with_rolling(RollingModel::cdt(mu_r).expect("valid mu_r"));
@@ -333,7 +381,7 @@ fn main() {
         boundaries,
         model,
         Vec3::new(0.0, 0.0, -9.81),
-        DT,
+        dt,
     )
     .expect("valid system")
     .with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)))

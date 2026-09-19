@@ -30,6 +30,124 @@ the workspace root) for the full attribution and non-affiliation notice.
 
 ## Modules
 
+## Module `mathf`
+
+Deterministic float maths — the crate's transcendental calls, routed so the
+backend can be chosen (`bn:op-chyp.5`).
+
+# The problem
+
+`std`'s `f64::exp`, `ln`, `cos` and friends are thin wrappers over the
+**platform** libm. glibc, macOS and MSVC disagree in the last ulp, so a
+k-eff computed on Windows can differ from Linux in its final digits for no
+physical reason. This crate's drivers document thread-count-independent
+results and its committed fixtures inherit the same fragility.
+
+# The shape: `exp`/`ln`/`powf` are always deterministic; the rest is a feature
+
+Every transcendental call goes through [`RealMath`], and the three hot ones
+— [`RealMath::r_exp`], [`RealMath::r_ln`] and [`RealMath::r_powf`] — go to
+PETIR **unconditionally, in every build**. The remaining six (`log10`,
+`cbrt`, `cos`, `sin`, `tanh`, `atan2`) still switch on the
+**`deterministic-math`** feature: `std` by default, `petir::real` when it
+is on.
+
+## Why the split moved (2026-09-14)
+
+`bn:op-chyp.5` originally asked for an unconditional swap to `petir::real`.
+Measurement argued against it, because `petir::real` was then a pure `libm`
+(musl-derived) route and `libm` is slower than the platform:
+
+```text
+        std vs libm          benchmark, 20M calls
+  exp    9.64 % of calls     std 125 ms   libm 219 ms   1.74x SLOWER
+  ln     1.68 %              std 121 ms   libm 174 ms   1.43x SLOWER
+  cos    3.22 %              std 232 ms   libm 186 ms   0.80x (faster)
+```
+
+`ln` and `exp` are 68 of this crate's 126 transcendental sites and sit in
+Monte Carlo inner loops, so paying 1.5-1.7x on every run for a property
+that only matters *between* platforms was the wrong default.
+
+**That trade-off no longer exists for those three.** `petir::real::{exp,
+ln, powf}` now route to PETIR's ports of ARM optimized-routines — the
+implementation glibc itself ships — each verified 100.000 % bit-identical
+to upstream's own compiled C. Measured from Rust over 2 000 000 calls per
+route, five runs:
+
+```text
+           old libm route / ARM route      ARM route / platform
+  exp            1.75 - 1.86x                   0.70 - 0.75x
+  ln             1.09 - 1.18x                   1.04 - 1.25x
+  powf           2.09 - 2.18x                   1.41 - 1.57x
+```
+
+`exp` is now *faster than the platform*, and `ln` is within a few per cent
+of it. `powf` is the one that still costs — about 1.4-1.6x the platform —
+but it is a small minority of this crate's sites and 2.1x better than the
+route it replaces. So determinism on the three hot functions is no longer
+something to opt into and pay for; it is simply the default.
+
+## What this means for existing results
+
+**The bits moved once.** ARM's `exp` and musl's are different
+implementations, and glibc's build of ARM's is FMA-contracted where this
+port is not, so a default build's `exp`/`ln`/`powf` output is no longer
+bit-identical to what it was. Anything pinned to full `f64` precision
+needs re-baselining once. Nothing is *less* accurate: all three are within
+about 1 ulp of the platform, and now identical on every platform, which
+they were not before.
+
+# What is deliberately NOT routed
+
+`sqrt`, `abs`, `floor`, `ceil`, `round`, `powi`. IEEE-754 requires `sqrt`
+to be correctly rounded and the others are exact, so they are **already**
+bit-identical everywhere — 0.0000 % mismatch over 200 000 points. Routing
+them would buy nothing and cost real time (`libm::sqrt` benchmarks 3.73x
+slower than the hardware instruction). That is 562 of the ~700 float call
+sites in this crate, left alone on purpose.
+
+```rust
+pub mod mathf { /* ... */ }
+```
+
+### Traits
+
+#### Trait `RealMath`
+
+The transcendental functions this crate routes.
+
+Method names are prefixed `r_` so the call sites read as a deliberate
+choice rather than shadowing the inherent `f64` methods — and so the sweep
+that introduced them was a mechanical rename rather than an expression
+rewrite.
+
+```rust
+pub trait RealMath {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `r_ln`: Natural logarithm. **Always** PETIR's ARM optimized-routines port,
+- `r_exp`: `e^x`. **Always** PETIR's ARM optimized-routines port, in every build.
+- `r_log10`: Base-10 logarithm.
+- `r_cbrt`: Cube root.
+- `r_powf`: `x^y` for real `y`. **Always** PETIR's ARM optimized-routines port,
+- `r_cos`: Cosine.
+- `r_sin`: Sine.
+- `r_tanh`: Hyperbolic tangent.
+- `r_atan2`: Two-argument arctangent.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `f64`
+
 ## Module `rng`
 
 ```rust
@@ -4291,6 +4409,196 @@ Void — no material, streams freely.
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `TrackingMethod`
+
+**How a particle is transported through a region.**
+
+This is NEW WORK, not a port — OpenMC is pure surface tracking and has no
+equivalent. It exists so a single model can use delta (Woodcock) tracking
+where the geometry is finely divided, and ordinary surface tracking
+everywhere else. See `bn:op-867c.1`, gh #214.
+
+# Why a per-region choice rather than one method per run
+
+Delta tracking samples flights against a **majorant** — a bound on `Σ_t`
+over everything the tracker might encounter — so one strong absorber
+anywhere raises the cost *everywhere*. Measured on 2026-09-17
+(`examples/majorant_absorber_price.rs`): adding one illustrative B4C control
+rod to the bounded material set costs **26.3x in tracking steps at the
+thermal peak**, and it costs that in reflector graphite metres from the rod
+just as much as inside it. Above ~1 keV it costs nothing, because there the
+rod is not the largest cross section in the problem.
+
+Scoping the method — and with it the majorant — to the region that benefits
+is what recovers that factor. Delta tracking is **unbiased** under any valid
+majorant, so this is a cost decision and never an accuracy one.
+
+# Inheritance
+
+A region's method applies to everything nested inside it unless a deeper
+region overrides it. [`super::geometry::GeometryPath::tracking`] reports the
+method in force at the located point, which is the deepest declaration on
+the path.
+
+```rust
+pub enum TrackingMethod {
+    Surface,
+    Delta {
+        majorant: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `Surface`
+
+Conventional surface tracking: stream to the next boundary, collide on
+the local `Σ_t`. The default, and correct everywhere.
+
+###### `Delta`
+
+Delta (Woodcock) tracking against the majorant at `majorant` in the
+caller's majorant table.
+
+The index is deliberately **not** a majorant by value: majorants live in
+`pebble_beds::delta_tracking`, and having `geometry` own one would
+invert the module dependency. The transport driver supplies the table.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `majorant` | `usize` | Index into the caller-supplied majorant table. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TrackingMethod { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> TrackingMethod { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TrackingMethod) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 #### Struct `Cell`
 
 A CSG cell. Maps to `openmc::Cell`.
@@ -4302,6 +4610,7 @@ pub struct Cell {
     pub fill: CellFill,
     pub temperature: f64,
     pub translation: super::position::Position,
+    pub tracking: Option<TrackingMethod>,
 }
 ```
 
@@ -4314,6 +4623,7 @@ pub struct Cell {
 | `fill` | `CellFill` | What the cell is filled with. |
 | `temperature` | `f64` | Temperature of this cell in Kelvin (passed to the Doppler XS lookup). |
 | `translation` | `super::position::Position` | Rigid translation \[cm\] applied to a fill universe's local frame<br>(`coord.r -= translation`). Zero for material cells and untranslated fills.<br>Mirrors `Cell::translation_` in `src/cell.cpp`. |
+| `tracking` | `Option<TrackingMethod>` | How particles are transported through this region, or `None` to<br>**inherit** from the enclosing region.<br><br>`None` and `Some(TrackingMethod::Surface)` are deliberately different:<br>the first inherits, the second is an explicit override that carves a<br>surface-tracked island out of a delta-tracked parent — a control-rod<br>channel inside a pebble bed being exactly that case. Collapsing them<br>into a bare `TrackingMethod` makes every nested universe silently reset<br>its parent's choice, since `Surface` is the common default.<br><br>NEW WORK, no OpenMC counterpart. |
 
 ##### Implementations
 
@@ -4328,6 +4638,16 @@ pub struct Cell {
   pub fn fill(id: i32, region: Vec<RegionToken>, fill: CellFill, translation: Position) -> Self { /* ... */ }
   ```
   Build a fill cell (nested universe or lattice) with an optional translation.
+
+- ```rust
+  pub fn delta_tracked(self: Self, majorant_idx: usize) -> Self { /* ... */ }
+  ```
+  Declare that this region is transported by **delta (Woodcock) tracking**
+
+- ```rust
+  pub fn surface_tracked(self: Self) -> Self { /* ... */ }
+  ```
+  Declare this region **explicitly** surface-tracked, overriding an
 
 - ```rust
   pub fn contains(self: &Self, r: Position, u: Direction, surfaces: &[SurfaceKind], on_surface: SurfaceToken) -> bool { /* ... */ }
@@ -4795,6 +5115,11 @@ pub struct RectLattice {
   Position of `r` recentred into the local frame of tile `i` (tile centre at
 
 - ```rust
+  pub fn tile_center(self: &Self, i: [i32; 3]) -> Position { /* ... */ }
+  ```
+  **Exactly what [`Self::get_local_position`] subtracts** — the centre of
+
+- ```rust
   pub fn distance(self: &Self, r: Position, u: Direction) -> (f64, [i32; 3]) { /* ... */ }
   ```
   Distance \[cm\] to the next lattice-tile boundary along `(r, u)`, with `r`
@@ -5132,6 +5457,11 @@ pub struct HexLattice {
   Position of `r` recentred into the local frame of tile `i` (tile centre at
 
 - ```rust
+  pub fn tile_center(self: &Self, i: [i32; 3]) -> Position { /* ... */ }
+  ```
+  **Exactly what [`Self::get_local_position`] subtracts** — see
+
+- ```rust
   pub fn get_indices(self: &Self, r: Position, u: Direction) -> [i32; 3] { /* ... */ }
   ```
   Map a position + direction to a (possibly out-of-range) skewed index
@@ -5315,6 +5645,11 @@ Fields:
   Position `r` recentred into tile `i`'s local frame (tile centre at origin).
 
 - ```rust
+  pub fn tile_center(self: &Self, i: [i32; 3]) -> Position { /* ... */ }
+  ```
+  The centre of tile `i`, exactly as [`Self::get_local_position`]
+
+- ```rust
   pub fn distance(self: &Self, r: Position, u: Direction, i_xyz: [i32; 3]) -> (f64, [i32; 3]) { /* ... */ }
   ```
   Distance to the next tile boundary along `(r, u)` from tile `i_xyz`, with
@@ -5423,6 +5758,56 @@ Fields:
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+### Functions
+
+#### Function `surface_in_tile_frame`
+
+**Translate a surface into a lattice tile's local frame** — the mechanism for
+clipping tile contents against a boundary defined in world coordinates
+(`bn:op-867c.10`, gh #214).
+
+NEW WORK, no OpenMC counterpart.
+
+# Why this is needed
+
+A cell region inside a tile universe is evaluated in the **tile-local**
+frame, because `Geometry::locate` recentres the position into the tile before
+testing the region. Measured 2026-09-17 in
+`tests/lattice_tile_clipping.rs`, which was written specifically to find out.
+
+So a single world-frame surface — HTR-10's conus, or its discharge tube —
+does **not** clip every boundary tile at the right place. Each boundary tile
+needs its own copy of that surface, translated by minus its tile centre.
+
+# Why not the alternatives
+
+Two other routes were considered and are recorded on the bead. Real per-tile
+omission in [`HexLattice`] is the cleanest answer but the largest change —
+`universe_at` returns a plain index and `HEX_NONE` marks only the skewed
+array's unused corners. Doing the rejection in the delta path's `material_at`
+closure is cheaper at run time and became possible only once hybrid tracking
+landed, but needs the transport dispatch to accept a caller-supplied query,
+which it does not.
+
+This route needs nothing new, and its cost is bounded: one surface per
+BOUNDARY tile, generated once at model-build time, not per history.
+
+# What is supported
+
+Planes and quadrics translate exactly. A sphere or cylinder translates by
+moving its centre; a cone likewise. Surfaces whose definition is not
+translation-covariant are returned unchanged and **that is a defect the
+caller must not paper over** — check the returned surface if in doubt.
+
+# Parameters
+- `surface` — the world-frame surface to translate.
+- `tile_center` — the tile's centre in the parent frame, from
+  [`RectLattice::tile_center`] or [`HexLattice::tile_center`].
+
+```rust
+pub fn surface_in_tile_frame(surface: &crate::geometry::surface::SurfaceKind, tile_center: super::position::Position) -> crate::geometry::surface::SurfaceKind { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `HEX_NONE`
@@ -5945,6 +6330,7 @@ pub struct Coord {
     pub u: super::position::Direction,
     pub lattice: Option<usize>,
     pub lattice_index: [i32; 3],
+    pub offset: super::position::Position,
 }
 ```
 
@@ -5958,6 +6344,7 @@ pub struct Coord {
 | `u` | `super::position::Direction` | Direction (unit) in this level's local frame. |
 | `lattice` | `Option<usize>` | Lattice index if this level was entered via a lattice, else `None`. |
 | `lattice_index` | `[i32; 3]` | Lattice tile index `[ix, iy, iz]` for this level (only meaningful if<br>`lattice` is `Some`). |
+| `offset` | `super::position::Position` | **Exact global -> local frame offset for this level**: `r` here equals<br>the global position minus this, and a direction needs no transformation<br>because every nested frame in this crate is a pure translation.<br><br>Accumulated on the way down (`parent.offset + cell.translation`, plus the<br>lattice tile centre for a lattice level) rather than recovered afterwards<br>as `levels[0].r - levels[k].r`. That subtraction is catastrophic<br>cancellation — with a probe at `y = -9` and a translation of `0.2` it<br>returns `0.19999999999999929` — and the ~1e-16 error it leaves in the<br>local coordinate is enough to put a crossing point exactly on<br>`dot == 0.0` in `nudge_across`, flipping that branch and displacing the<br>particle by `1e-9`, a 10^6 amplification. Carrying the offset removes the<br>cancellation entirely. Found by `tests/cell_translation.rs`; it affects<br>lattice tile centres too, not only non-zero cell translations. |
 
 ##### Implementations
 
@@ -6075,6 +6462,8 @@ pub struct GeometryPath {
     pub levels: Vec<Coord>,
     pub material: Option<usize>,
     pub on_surface: super::cell::SurfaceToken,
+    pub tracking: crate::geometry::cell::TrackingMethod,
+    pub tracking_level: usize,
 }
 ```
 
@@ -6085,6 +6474,8 @@ pub struct GeometryPath {
 | `levels` | `Vec<Coord>` | Coordinate levels from root (index 0) down to the material leaf. |
 | `material` | `Option<usize>` | Leaf material index, or `None` for a void cell. |
 | `on_surface` | `super::cell::SurfaceToken` | The surface the particle currently sits on and which side of it it is on<br>([`SurfaceToken::NONE`] if it is on none). Used for coincident-distance<br>handling and for unambiguous cell membership after a crossing. |
+| `tracking` | `crate::geometry::cell::TrackingMethod` | **How this point is to be transported** — the deepest<br>[`TrackingMethod`] declared on the path from root to leaf.<br><br>A region's method is inherited by everything nested inside it, so a<br>delta-tracked bed makes its pebble and TRISO universes delta-tracked<br>too, without each of them restating it. A deeper cell may override,<br>which is how a surface-tracked control-rod channel is carved out of a<br>delta-tracked bed.<br><br>NEW WORK, no OpenMC counterpart — see [`TrackingMethod`] (`bn:op-867c.1`). |
+| `tracking_level` | `usize` | Index into [`Self::levels`] of the cell that **declared** [`Self::tracking`],<br>or `0` when nothing on the path declared anything (the default,<br>surface-tracked case).<br><br>This is what makes a delta region's *extent* knowable. Delta tracking<br>must stop at the edge of the region that chose it, and<br>[`Geometry::distance_to_boundary`] cannot answer that: it returns the<br>nearest boundary at **any** level, which inside a finely divided bed is<br>usually a pebble or TRISO surface far inside the region. Pair this with<br>[`Geometry::distance_out_of_level`].<br><br>NEW WORK, no OpenMC counterpart (`bn:op-867c.4`). |
 
 ##### Implementations
 
@@ -6628,9 +7019,13 @@ pub struct Geometry {
   Locate the particle at global position `r` moving along `u`.
 
 - ```rust
-  pub fn distance_to_boundary(self: &Self, path: &GeometryPath) -> BoundaryHit { /* ... */ }
+  pub fn distance_out_of_level(self: &Self, path: &GeometryPath, level: usize) -> f64 { /* ... */ }
   ```
   Distance to the nearest boundary — surface or lattice tile — over all
+
+- ```rust
+  pub fn distance_to_boundary(self: &Self, path: &GeometryPath) -> BoundaryHit { /* ... */ }
+  ```
 
 - ```rust
   pub fn sigma_t_at(self: &Self, r: Position, u: Direction, e: f64, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide]) -> Option<f64> { /* ... */ }
@@ -6641,6 +7036,11 @@ pub struct Geometry {
   pub fn cross_surface(self: &Self, i_surf: usize, r: Position, u: Direction) -> SurfaceCrossing { /* ... */ }
   ```
   Apply a surface crossing to a global position/direction and return the
+
+- ```rust
+  pub fn cross_surface_in_frame(self: &Self, i_surf: usize, path: &GeometryPath, coord_level: usize, r_global: Position, u: Direction) -> SurfaceCrossing { /* ... */ }
+  ```
+  Apply a boundary condition **in the coordinate frame the surface actually
 
 ###### Trait Implementations
 
@@ -6752,7 +7152,7 @@ cell can be filled with, exactly like the single-kernel universe the existing
 
 # Reference dimensions (typical HTR-10 / reference TRISO — NOT an authoritative spec)
 
-The [`TrisoRadii::HTR10`] preset uses the widely cited HTR-10 pebble-bed TRISO
+The [`TrisoRadii::HTR10`] preset uses IAEA-TECDOC-1382's HTR-10 pebble-bed TRISO
 geometry (UO2 kernel + the standard four coatings). These are **typical /
 reference** values drawn from open pebble-bed-HTGR literature, provided as a
 convenience default — they are not a controlled design specification and must
@@ -6761,10 +7161,10 @@ not be treated as one:
 | Region | Layer size | Cumulative outer radius |
 |---|---|---|
 | UO2 kernel   | 250 µm radius   | 0.0250 cm |
-| buffer (PyC) | 95 µm thick     | 0.0345 cm |
-| IPyC         | 40 µm thick     | 0.0385 cm |
-| SiC          | 35 µm thick     | 0.0420 cm |
-| OPyC         | 40 µm thick     | 0.0460 cm |
+| buffer (PyC) | 90 µm thick     | 0.0340 cm |
+| IPyC         | 40 µm thick     | 0.0380 cm |
+| SiC          | 35 µm thick     | 0.0415 cm |
+| OPyC         | 40 µm thick     | 0.0455 cm |
 
 (1 µm = 1e-4 cm; the kernel figure is a *radius*, the four coatings are
 *thicknesses* accumulated onto it.) The builder itself is fully general — it
@@ -8473,6 +8873,8 @@ pub struct MicroXS {
     pub absorption: f64,
     pub inelastic: f64,
     pub n2n: f64,
+    pub n3n: f64,
+    pub mt5: f64,
     pub nu_fission: f64,
 }
 ```
@@ -8487,6 +8889,8 @@ pub struct MicroXS {
 | `absorption` | `f64` | Absorption σ_a = capture + fission \[barn\]. |
 | `inelastic` | `f64` | Total inelastic scattering σ (MT=51…91) \[barn\]; HIGH tier only, else 0. |
 | `n2n` | `f64` | (n,2n) scattering σ (MT=16) \[barn\]; HIGH tier only, else 0. Emits 2<br>neutrons — the multiplicity the transport kernel restores. |
+| `n3n` | `f64` | (n,3n) scattering σ (MT=17) \[barn\]; HIGH tier only, else 0. Emits **3**<br>neutrons.<br><br>Carried separately from [`Self::n2n`] because the multiplicity differs.<br>Before 2026-09-16 this channel had no branch at all: MT=17 is inside<br>MT=1, so the collision still happened, but it fell through to the<br>*elastic* arm and the two extra neutrons were silently lost. U-238's<br>threshold is ~11.3 MeV, so a fission spectrum barely reaches it — but a<br>14 MeV source is squarely above it. |
+| `mt5` | `f64` | **MT=5, "(n,anything)"** σ \[barn\]; HIGH tier only, else 0.<br><br>ENDF/B-VIII.0 uses MT=5 to lump the high-energy channels an evaluator did<br>not resolve individually, and its neutron multiplicity is a *tabulated*<br>`y(E)` in the MF=6 subsection rather than a fixed integer.<br><br>Added 2026-09-17. Before that MT=5 had **no branch**: it is inside MT=1,<br>so the collision happened, but it fell through to whichever arm was last.<br>`tests/channel_branching_consistency.rs` found it by measuring that the<br>partition `elastic + inelastic + (n,2n) + (n,3n) + absorption` fell short<br>of `sigma_total` by **7.0e-4 relative at 10 MeV and 2.7e-3 at 14 MeV**,<br>of which MT=5 was 99.7 % and 94.8 %. It is **zero below ~5 MeV**, so no<br>fission-spectrum result here changes — it matters to a 14 MeV source.<br><br>Exactly the same class as [`Self::n3n`]'s own history. |
 | `nu_fission` | `f64` | Fission production ν̄·σ_f \[barn\]. |
 
 ##### Implementations
@@ -8614,8 +9018,11 @@ of inelastic secondary-energy laws is closed and known at compile time.
 pub enum Inelastic {
     Level {
         q: f64,
+        mt: i32,
     },
-    Continuum,
+    Continuum {
+        q: f64,
+    },
 }
 ```
 
@@ -8631,11 +9038,19 @@ Fields:
 | Name | Type | Documentation |
 |------|------|---------------|
 | `q` | `f64` | Reaction Q-value \[eV\] (< 0), i.e. −(level excitation energy). |
+| `mt` | `i32` | The ENDF MT of the level that was sampled (51…90), so the collision<br>site can look up this level's own MF=4 angular distribution via<br>[`Nuclide::sample_inelastic_mu_cm`]. Levels differ in anisotropy, so<br>one lumped distribution would not do. |
 
 ###### `Continuum`
 
 The continuum inelastic channel (MT=91): a broad secondary-energy
-distribution modelled by a Weisskopf evaporation spectrum.
+distribution modelled by a Weisskopf evaporation spectrum, bounded by the
+channel's own Q-value.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `q` | `f64` | Reaction Q-value \[eV\] (≤ 0) — MT=91's `QI`, minus the energy of the<br>lowest continuum state. Caps the outgoing energy at what two-body<br>energy balance allows; `0.0` when the channel carries no Q (the LOW<br>tier, or the MT=4 lumped fallback). |
 
 ##### Implementations
 
@@ -8787,6 +9202,131 @@ pub struct Nuclide {
   Attach a bound-atom S(α,β) [`ThermalScattering`] treatment to this nuclide
 
 - ```rust
+  pub fn with_isotropic_elastic_scattering(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation control for V&V: discard the evaluated elastic angular
+
+- ```rust
+  pub fn with_isotropic_inelastic_scattering(self: Self) -> Self { /* ... */ }
+  ```
+  Return this nuclide with its **discrete inelastic** (MT=51…90) angular
+
+- ```rust
+  pub fn with_isotropic_continuum_scattering(self: Self) -> Self { /* ... */ }
+  ```
+  Return this nuclide with its **continuum** (MT=91) and **(n,2n)**
+
+- ```rust
+  pub fn has_continuum_anisotropy(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this nuclide carries a samplable **continuum** angular law on
+
+- ```rust
+  pub fn with_target_at_rest(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation control for V&V: hold this nuclide's nucleus at rest in an
+
+- ```rust
+  pub fn is_target_at_rest(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether [`with_target_at_rest`](Self::with_target_at_rest) has been
+
+- ```rust
+  pub fn free_gas_kt(self: &Self, temp_k: f64) -> f64 { /* ... */ }
+  ```
+  The `k_B·T` \[eV\] this nuclide's **elastic kinematics** should use at
+
+- ```rust
+  pub fn nu_bar(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  Average neutrons per fission ν̄ at incident energy `e` \[eV\].
+
+- ```rust
+  pub fn with_frozen_nubar(self: Self, e_ref_ev: f64) -> Self { /* ... */ }
+  ```
+  **Ablation control for V&V: freeze ν̄ at incident energy `e_ref_ev`,
+
+- ```rust
+  pub fn frozen_nubar_energy(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  The incident energy \[eV\] ν̄ is frozen at, or `None` when ν̄ is
+
+- ```rust
+  pub fn with_frozen_fission_spectrum(self: Self, e_ref_ev: f64) -> Self { /* ... */ }
+  ```
+  **Ablation control for V&V: sample the fission spectrum χ as if every
+
+- ```rust
+  pub fn frozen_fission_spectrum_energy(self: &Self) -> Option<f64> { /* ... */ }
+  ```
+  The incident energy \[eV\] the fission spectrum χ is frozen at, or `None`
+
+- ```rust
+  pub fn with_unit_n2n_multiplicity(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation control for V&V: cut every multiplying channel's yield to
+
+- ```rust
+  pub fn emits_n2n_secondary(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether an (n,2n) collision on this nuclide emits its second neutron —
+
+- ```rust
+  pub fn with_urr_probability_tables(self: Self, tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temperature_k: f64, nbin: usize, nladr: usize, nsamp: usize) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  Attach **unresolved-resonance probability tables** to this nuclide,
+
+- ```rust
+  pub fn has_urr_probability_tables(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this nuclide carries unresolved-resonance probability tables.
+
+- ```rust
+  pub fn urr_range_ev(self: &Self) -> Option<(f64, f64)> { /* ... */ }
+  ```
+  The unresolved range these tables cover, as `(e_low, e_high)` \[eV\], or
+
+- ```rust
+  pub fn without_urr_probability_tables(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation control for V&V: discard the unresolved-resonance
+
+- ```rust
+  pub fn sample_urr(self: &Self, e: f64, xi: f64) -> Option<UrrSample> { /* ... */ }
+  ```
+  Sample the unresolved-resonance band at energy `e` \[eV\] with the
+
+- ```rust
+  pub fn needs_urr_draw(self: &Self, e: f64) -> bool { /* ... */ }
+  ```
+  Whether a collision on this nuclide at energy `e` \[eV\] requires a URR
+
+- ```rust
+  pub fn with_dbrc(self: Self, e_max_ev: f64) -> Self { /* ... */ }
+  ```
+  Enable the **DBRC** resonance-elastic correction below `e_max_ev` \[eV\].
+
+- ```rust
+  pub fn without_dbrc(self: Self) -> Self { /* ... */ }
+  ```
+  **Ablation control for V&V: remove the DBRC correction**, returning the
+
+- ```rust
+  pub fn has_dbrc(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the DBRC correction is enabled on this nuclide.
+
+- ```rust
+  pub fn dbrc_table(self: &Self) -> Option<&DbrcTable> { /* ... */ }
+  ```
+  This nuclide's DBRC table, for the transport kernels to hand to
+
+- ```rust
+  pub fn xs_at_energy_urr(self: &Self, e: f64, temp_k: f64, xi: f64) -> MicroXS { /* ... */ }
+  ```
+  This nuclide's microscopic cross sections at `e` \[eV\] and `temp_k`
+
+- ```rust
   pub fn from_endf_file(path: &std::path::Path, name: &str, temp_k: f64, tolerance: f64) -> Result<Self, NjoyError> { /* ... */ }
   ```
   Build a nuclide from an ENDF file **on disk** — the ordinary case.
@@ -8797,9 +9337,43 @@ pub struct Nuclide {
   Build a nuclide from an ENDF tape **already in hand** — no network, no
 
 - ```rust
-  pub fn xs_at_energy(self: &Self, e: f64, temp_k: f64) -> MicroXS { /* ... */ }
+  pub fn continuum_law(self: &Self, mt: i32) -> Option<&ContinuumEmission> { /* ... */ }
   ```
   Microscopic cross sections at incident energy `e` \[eV\] and temperature
+
+- ```rust
+  pub fn sample_inelastic_emission(self: &Self, mt: i32, e: f64, u: crate::geometry::position::Direction, q: f64, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+  ```
+  Sample the outgoing state of an inelastic or multiplying collision on
+
+- ```rust
+  pub fn mt5_yield(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  The **neutron multiplicity `y(E)`** of MT=5 at incident energy `e`
+
+- ```rust
+  pub fn sample_mt5_multiplicity(self: &Self, e: f64, seed: &mut u64) -> usize { /* ... */ }
+  ```
+  Sample an **integer** MT=5 multiplicity at `e` \[eV\] from the tabulated
+
+- ```rust
+  pub fn has_evaluated_emission(self: &Self, mt: i32) -> bool { /* ... */ }
+  ```
+  Whether the evaluation supplies a real emission law for `mt`, in either
+
+- ```rust
+  pub fn uncorrelated_law(self: &Self, mt: i32) -> Option<&UncorrelatedEmission> { /* ... */ }
+  ```
+  The **uncorrelated MF=4 + MF=5** emission law for `mt` (91, 16 or 17),
+
+- ```rust
+  pub fn has_evaluated_continuum(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this nuclide's MT=91 continuum inelastic uses the **evaluated**
+
+- ```rust
+  pub fn xs_at_energy(self: &Self, e: f64, temp_k: f64) -> MicroXS { /* ... */ }
+  ```
 
 - ```rust
   pub fn sample_inelastic(self: &Self, e: f64, seed: &mut u64) -> Inelastic { /* ... */ }
@@ -8812,6 +9386,11 @@ pub struct Nuclide {
   Sample an elastic scattering cosine in the **centre-of-mass frame** at
 
 - ```rust
+  pub fn sample_inelastic_mu_cm(self: &Self, mt: i32, e: f64, seed: &mut u64) -> Option<f64> { /* ... */ }
+  ```
+  Sample a **discrete inelastic** (MT=51…90) scattering cosine in the
+
+- ```rust
   pub fn sample_thermal(self: &Self, e: f64, seed: &mut u64) -> Option<(f64, f64)> { /* ... */ }
   ```
   Sample a bound-atom S(α,β) thermal scatter at incident energy `e` \[eV\],
@@ -8820,6 +9399,56 @@ pub struct Nuclide {
   pub fn elastic_mubar(self: &Self, e: f64) -> f64 { /* ... */ }
   ```
   The elastic-scattering **mean cosine** μ̄ (CM frame) this nuclide's data
+
+- ```rust
+  pub fn elastic_mubar_cm(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  The **ENDF MF=4 mean elastic cosine** in the CM frame at incident energy
+
+- ```rust
+  pub fn reaction_xs(self: &Self, mt: i32, e: f64) -> Option<f64> { /* ... */ }
+  ```
+  Any reconstructed MF=3 reaction cross section \[barn\] at `e` \[eV\], by
+
+- ```rust
+  pub fn inelastic_channel_xs(self: &Self, mt: i32, e: f64) -> Option<f64> { /* ... */ }
+  ```
+  The **partial cross section** of one inelastic channel `mt` \[barn\] at
+
+- ```rust
+  pub fn inelastic_channel_total(self: &Self, e: f64) -> Option<f64> { /* ... */ }
+  ```
+  The **sum** of every inelastic channel's partial cross section \[barn\] at
+
+- ```rust
+  pub fn inelastic_mubar_cm(self: &Self, mt: i32, e: f64) -> f64 { /* ... */ }
+  ```
+  Mean **centre-of-mass** scattering cosine `⟨μ⟩` of one discrete inelastic
+
+- ```rust
+  pub fn inelastic_levels_table(self: &Self) -> Vec<(u32, f64, bool)> { /* ... */ }
+  ```
+  **Diagnostic**: the inelastic channel table this nuclide samples from —
+
+- ```rust
+  pub fn inelastic_mt4_and_levels(self: &Self, e: f64) -> (f64, usize) { /* ... */ }
+  ```
+  **Diagnostic**: the tape's own lumped **MT=4** total-inelastic cross
+
+- ```rust
+  pub fn without_inelastic(self: Self) -> Self { /* ... */ }
+  ```
+  **Diagnostic**: a copy of this nuclide with its resolved inelastic levels
+
+- ```rust
+  pub fn without_evaluated_continuum(self: Self) -> Self { /* ... */ }
+  ```
+  **Diagnostic**: a copy of this nuclide with its evaluated MF=6 LAW=1
+
+- ```rust
+  pub fn with_isotropic_elastic(self: Self) -> Self { /* ... */ }
+  ```
+  **Diagnostic**: a copy of this nuclide whose elastic scattering is
 
 - ```rust
   pub fn e_max_ev(self: &Self) -> f64 { /* ... */ }
@@ -8940,6 +9569,145 @@ pub struct Nuclide {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+### Functions
+
+#### Function `sample_uncorrelated_emission`
+
+Sample a fission-neutron birth energy \[eV\] from χ at incident energy `e_in`
+\[eV\] — dispatches over every [`FissionSpectrum`] law this port reconstructs:
+
+- [`FissionSpectrum::ContinuousTabular`] (LF=1) — [`sample_continuous_tabular`],
+  a port of OpenMC `ContinuousTabular::sample`.
+- [`FissionSpectrum::Maxwell`] (LF=7) — [`sample_maxwell_lf7`], a port of
+  OpenMC `MaxwellEnergy::sample`.
+- [`FissionSpectrum::Evaporation`] (LF=9) — [`sample_evaporation_lf9`], a port
+  of OpenMC `Evaporation::sample`.
+- [`FissionSpectrum::WattEnergyDependent`] (LF=11) — [`sample_watt_lf11`], a
+  port of OpenMC `WattEnergy::sample`.
+- [`FissionSpectrum::Mixture`] (NK>1) — sample which partition is active by
+  its `p_k(e_in)` fraction, then recurse into that partition's law.
+- [`FissionSpectrum::Watt`] / [`FissionSpectrum::Tabulated`] — the
+  energy-independent stand-ins, unchanged by `e_in`.
+
+All four energy-dependent laws (LF=7/9/11 plus the ContinuousTabular envelope
+scaling) are ported from `src/distribution_energy.cpp`.
+Sample an **uncorrelated MF=4 + MF=5 emission** at incident energy `e_in`
+\[eV\], returning `(E' \[eV\], mu)` in the frame the law names.
+
+# What this is
+
+The pre-ENDF-6 representation of a continuum or multiplying reaction: the
+outgoing energy comes from MF=5 and the cosine from MF=4, **drawn
+independently** because the evaluation states no correlation between them.
+Ten of the eleven such sections in `reference-data/endf/` use MF=5 `LF=1`
+(tabulated) and one uses `LF=9` (evaporation); all eleven are `LCT = 1`
+(laboratory).
+
+# Why this reuses rather than converts
+
+Both halves already have exact samplers here — [`sample_chi`] covers every
+ported `LF` including the analytic ones, and [`sample_mf4_mu_cm`] implements
+OpenMC's statistical-neighbour convention for the AND block on MF=4's own
+incident grid. Converting the law into `ChiTabular` to reuse the *continuum*
+path would have replaced two exact samplers with one tabulated
+approximation, and would have had to resample MF=4 onto MF=5's unrelated
+energy grid. Reuse here means calling them, not rebuilding them.
+
+# Variate count is deliberately not fixed
+
+Unlike [`crate::physics::scatter::continuum_inelastic_scatter_evaluated_with`],
+this consumes a variable number of variates — `sample_mf4_mu_cm` spends one
+on its statistical neighbour pick only when the incident energy falls inside
+the tabulated grid. That is correct for this law and is why it is a separate
+entry point: the continuum path's ablation control depends on a fixed
+one-variate cosine draw, and folding this in would have broken that
+invariant silently.
+
+Returns an isotropic cosine when the evaluation declares the reaction
+isotropic (`LTT = 0` or `LI = 1`, as C-12's MT=91 does) — a statement by the
+evaluator, not a gap in this port.
+
+```rust
+pub fn sample_uncorrelated_emission(law: &njoy_outram_park_fork::nuclear_data::secondary::UncorrelatedEmission, e_in: f64, seed: &mut u64) -> (f64, f64) { /* ... */ }
+```
+
+#### Function `sample_continuum_outgoing_energy`
+
+[`sample_continuous_tabular`], additionally reporting **which** tabulated
+distribution the draw came from: `(E', table index l, outgoing row k)`.
+
+# Why the indices are part of the answer
+
+ENDF MF=6 LAW=1 is a *correlated* energy-angle law — the emission cosine is
+conditional on the outgoing energy — so sampling `E'` is only half of a
+sample. `(l, k)` is exactly the key
+[`ContinuumAngular::row`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::row)
+is indexed by, and returning it from the same CDF search that produced `E'`
+is what guarantees the angle belongs to the energy actually drawn. Locating
+the row a second time from the sampled `E'` would disagree at a bin edge and
+would be wrong wherever the envelope scaling in step (4) has moved `E'` off
+table `l`'s own grid.
+
+**`l` is the table whose CDF was inverted**, not the lower bracket `i`. Those
+differ whenever the statistical pick in step (2) chooses the upper table, and
+the angular law must follow the table that was actually sampled.
+
+# RNG draws
+
+Identical to [`sample_continuous_tabular`] — this consumes the same variates
+in the same order and returns the same `E'`. That matters for a paired
+ablation: switching the angular law off must not re-randomise the energy
+sampling, or the measured difference includes a change of random stream.
+Sample one outgoing energy \[eV\] from a tabulated continuum law `chi` at
+incident energy `e_in` \[eV\].
+
+The public entry point to the same sampling the transport kernel uses for an
+ENDF **MF=6 LAW=1** continuum emission (`ContinuumBranch::spectrum`) and for
+an **MF=5 LF=1** fission spectrum — the two share this representation and
+therefore this code path.
+
+# The inter-row rule this implements
+
+Between two tabulated incident-energy rows the outcome is built by
+**unit-base interpolation**, mirroring OpenMC's
+`CorrelatedAngleEnergy::sample`: locate the bracketing rows and the
+interpolation factor `r`; draw from the upper row with probability `r` and
+the lower otherwise; invert that row's outgoing-energy CDF; then rescale the
+result from its own row's `[E_1, E_k]` envelope onto the interpolated
+envelope. Sampling the row's CDF alone, without the rescale, would be a
+different distribution — that is the step this function exists to make
+testable from outside the crate.
+
+# Why it is public
+
+`tests/mt91_transfer_vs_openmc.rs` compares the *sampled* off-grid spectrum
+against the closed-form mean of OpenMC's construction. A row-by-row
+comparison of the underlying tables is structurally blind to a defect in the
+inter-row rule, so the rule has to be reachable on its own.
+
+Units are eV throughout. `seed` is advanced as the transport RNG would
+advance it.
+
+```rust
+pub fn sample_continuum_outgoing_energy(chi: &njoy_outram_park_fork::nuclear_data::secondary::ChiTabular, e_in: f64, seed: &mut u64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DBRC_GRID_MAX_EV`
+
+Upper energy \[eV\] of the 0 K elastic grid retained for DBRC.
+
+DBRC is a **resolved-resonance** correction, so it is pointless above the
+resolved region and expensive to carry there. 25 keV clears U-238's resolved
+range (which ends at 20 keV) with headroom, while keeping the retained table
+small. A caller can still choose a lower working limit per nuclide via
+[`Nuclide::with_dbrc`]; this is only the cap on what is *kept*.
+
+```rust
+pub const DBRC_GRID_MAX_EV: f64 = 2.5e4;
+```
+
 ## Module `reaction`
 
 ```rust
@@ -9750,6 +10518,11 @@ pub struct ThermalScattering {
   Bake the tables from an already-parsed ENDF tape — the shared body of
 
 - ```rust
+  pub fn from_tape_with_grids(tape: &njoy_outram_park_fork::endf::tape::Tape, mat: i32, temperature_k: f64, name: &str, n_emit: usize, n_outgoing: usize) -> Result<Self, NjoyError> { /* ... */ }
+  ```
+  [`from_tape`](Self::from_tape) with the **two emission-table dimensions
+
+- ```rust
   pub fn cutoff_ev(self: &Self) -> f64 { /* ... */ }
   ```
   Upper energy \[eV\] of the S(α,β) treatment (the thermal cutoff). Above it
@@ -10056,9 +10829,9 @@ Independent (uncorrelated) external source.  Maps to `openmc::IndependentSource`
 
 ```rust
 pub struct IndependentSource {
-    pub spatial: Box<dyn super::spatial::SpatialDist>,
-    pub energy: Box<dyn super::energy::EnergyDist>,
-    pub angle: Box<dyn super::angle::AngleDist>,
+    pub spatial: super::spatial::SpatialKind,
+    pub energy: super::energy::EnergyKind,
+    pub angle: super::angle::AngleKind,
     pub strength: f64,
 }
 ```
@@ -10067,10 +10840,10 @@ pub struct IndependentSource {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `spatial` | `Box<dyn super::spatial::SpatialDist>` |  |
-| `energy` | `Box<dyn super::energy::EnergyDist>` |  |
-| `angle` | `Box<dyn super::angle::AngleDist>` |  |
-| `strength` | `f64` |  |
+| `spatial` | `super::spatial::SpatialKind` | Where the source particle starts. |
+| `energy` | `super::energy::EnergyKind` | Its kinetic energy \[eV\]. |
+| `angle` | `super::angle::AngleKind` | Its initial direction. |
+| `strength` | `f64` | Source strength, carried into the sampled site's weight. |
 
 ##### Implementations
 
@@ -10485,6 +11258,143 @@ pub struct SphericalSource {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `SpatialKind`
+
+Every spatial source distribution, as a closed enum.
+
+This is what an [`super::source::IndependentSource`] stores. Dispatch is by
+`match`, per the workspace's Rust design rules (traits for the contract,
+enums for dispatch); [`SpatialDist`] remains the per-struct contract. The
+field was `Box<dyn SpatialDist>` until 2026-09-16, which violated both the
+"no trait objects" and "no `Box<T>`" rules.
+
+```rust
+pub enum SpatialKind {
+    Point(PointSource),
+    Box(BoxSource),
+    Spherical(SphericalSource),
+}
+```
+
+##### Variants
+
+###### `Point`
+
+[`PointSource`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PointSource` |  |
+
+###### `Box`
+
+[`BoxSource`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `BoxSource` |  |
+
+###### `Spherical`
+
+[`SphericalSource`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SphericalSource` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SpatialDist**
+  - ```rust
+    fn sample(self: &Self, seed: &mut u64) -> Position { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Traits
 
 #### Trait `SpatialDist`
@@ -10510,6 +11420,7 @@ This trait is implemented for the following types:
 - `PointSource`
 - `BoxSource`
 - `SphericalSource`
+- `SpatialKind`
 
 ## Module `energy`
 
@@ -10624,8 +11535,10 @@ pub struct Monoenergetic {
 - **WasmNotSync**
 #### Struct `MaxwellSpectrum`
 
-Maxwellian fission spectrum: f(E) ∝ √E · exp(−E / θ). θ in eV.
-TODO: port Maxwell sampler from `random_dist.cpp`.
+Maxwellian fission spectrum `f(E) ∝ √E · exp(−E / θ)`, `theta` in eV.
+
+Sampling is [`crate::rng::distributions::maxwell`], the port of
+`random_dist.cpp`'s `maxwell_spectrum`.
 
 ```rust
 pub struct MaxwellSpectrum {
@@ -10728,8 +11641,11 @@ pub struct MaxwellSpectrum {
 - **WasmNotSync**
 #### Struct `WattSpectrum`
 
-Watt fission spectrum: f(E) ∝ exp(−E/a) · sinh(√(b·E)). a, b in eV.
-TODO: port from `random_dist.cpp`.
+Watt fission spectrum `f(E) ∝ exp(−E/a) · sinh(√(b·E))`, `a` in eV and `b`
+in eV⁻¹.
+
+Sampling is [`crate::rng::distributions::watt`], the port of
+`random_dist.cpp`'s `watt_spectrum`.
 
 ```rust
 pub struct WattSpectrum {
@@ -10834,8 +11750,26 @@ pub struct WattSpectrum {
 - **WasmNotSync**
 #### Struct `TabulatedEnergy`
 
-Tabulated energy distribution (piecewise linear CDF).
-TODO: port interpolation from `distribution_energy.cpp`.
+Tabulated source energy distribution, sampled by inverting a piecewise-linear
+CDF.
+
+`energies` \[eV\] is ascending; `cdf` is aligned with it, non-decreasing,
+starting at 0 and ending at 1. A value is drawn by finding the bin holding a
+uniform `xi` and interpolating linearly across it — the `Tabular` /
+`histogram`-free arm of OpenMC's `distribution_energy.cpp`.
+
+# This used to be a live panic
+
+Until 2026-09-16 `sample` was `todo!()`: a constructible source distribution
+that aborted the run if anything ever drew from it. It was found by the
+physics-coverage survey rather than by a test, because nothing in the crate
+constructed one — which is exactly how a latent panic survives.
+
+# Degenerate inputs
+
+Returns the first energy for an empty or single-point table, and clamps
+`xi` into `[0, 1]`, so no input shape can panic. A table whose CDF does not
+reach 1 simply saturates at its last energy.
 
 ```rust
 pub struct TabulatedEnergy {
@@ -10848,8 +11782,8 @@ pub struct TabulatedEnergy {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `energies` | `Vec<f64>` |  |
-| `cdf` | `Vec<f64>` |  |
+| `energies` | `Vec<f64>` | Ascending outgoing-energy grid \[eV\]. |
+| `cdf` | `Vec<f64>` | Cumulative probability aligned with [`Self::energies`]. |
 
 ##### Implementations
 
@@ -10878,7 +11812,151 @@ pub struct TabulatedEnergy {
 
 - **EnergyDist**
   - ```rust
-    fn sample(self: &Self, _seed: &mut u64) -> f64 { /* ... */ }
+    fn sample(self: &Self, seed: &mut u64) -> f64 { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `EnergyKind`
+
+Every source energy distribution, as a closed enum. See
+[`super::spatial::SpatialKind`] for why this is an enum and not a trait
+object.
+
+```rust
+pub enum EnergyKind {
+    Mono(Monoenergetic),
+    Maxwell(MaxwellSpectrum),
+    Watt(WattSpectrum),
+    Tabulated(TabulatedEnergy),
+}
+```
+
+##### Variants
+
+###### `Mono`
+
+[`Monoenergetic`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Monoenergetic` |  |
+
+###### `Maxwell`
+
+[`MaxwellSpectrum`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `MaxwellSpectrum` |  |
+
+###### `Watt`
+
+[`WattSpectrum`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `WattSpectrum` |  |
+
+###### `Tabulated`
+
+[`TabulatedEnergy`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `TabulatedEnergy` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **EnergyDist**
+  - ```rust
+    fn sample(self: &Self, seed: &mut u64) -> f64 { /* ... */ }
     ```
 
 - **Freeze**
@@ -10967,6 +12045,7 @@ This trait is implemented for the following types:
 - `MaxwellSpectrum`
 - `WattSpectrum`
 - `TabulatedEnergy`
+- `EnergyKind`
 
 ## Module `angle`
 
@@ -11175,6 +12254,128 @@ pub struct MonodirectionalAngle {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `AngleKind`
+
+Every source angular distribution, as a closed enum. See
+[`super::spatial::SpatialKind`] for why this is an enum and not a trait
+object.
+
+```rust
+pub enum AngleKind {
+    Isotropic(IsotropicAngle),
+    Monodirectional(MonodirectionalAngle),
+}
+```
+
+##### Variants
+
+###### `Isotropic`
+
+[`IsotropicAngle`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `IsotropicAngle` |  |
+
+###### `Monodirectional`
+
+[`MonodirectionalAngle`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `MonodirectionalAngle` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **AngleDist**
+  - ```rust
+    fn sample(self: &Self, seed: &mut u64, e: f64) -> Direction { /* ... */ }
+    ```
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Traits
 
 #### Trait `AngleDist`
@@ -11199,6 +12400,7 @@ This trait is implemented for the following types:
 
 - `IsotropicAngle`
 - `MonodirectionalAngle`
+- `AngleKind`
 
 ## Module `tally`
 
@@ -11542,7 +12744,7 @@ A tally.  Maps to `openmc::Tally`.
 pub struct Tally {
     pub id: i32,
     pub name: String,
-    pub filters: Vec<Box<dyn Filter>>,
+    pub filters: Vec<super::filter::FilterKind>,
     pub scores: Vec<ScoreType>,
     pub bins: Vec<TallyBin>,
 }
@@ -11554,7 +12756,7 @@ pub struct Tally {
 |------|------|---------------|
 | `id` | `i32` |  |
 | `name` | `String` |  |
-| `filters` | `Vec<Box<dyn Filter>>` |  |
+| `filters` | `Vec<super::filter::FilterKind>` | The filters this tally is conditioned on, as a closed enum rather than<br>trait objects — see [`super::filter::FilterKind`] for why (workspace<br>design rules: traits for the contract, enums for dispatch). |
 | `scores` | `Vec<ScoreType>` |  |
 | `bins` | `Vec<TallyBin>` | Accumulated bins, indexed `[filter_bin * n_scores + score_idx]`. |
 
@@ -11659,6 +12861,13 @@ pub mod filter { /* ... */ }
 
 Snapshot of particle state passed to filters at scoring time.
 
+Every field a filter in this module needs lives here; a filter that wants
+something absent cannot be written honestly, which is the point. The fields
+below `position` were added on 2026-09-16 alongside the filters that consume
+them — before that the struct could not express an angle, a time or a
+particle type at all, so those filters could not have been written even as
+stubs.
+
 ```rust
 pub struct FilterEvent {
     pub cell_idx: usize,
@@ -11667,6 +12876,11 @@ pub struct FilterEvent {
     pub energy: f64,
     pub surface_idx: usize,
     pub position: crate::geometry::position::Position,
+    pub direction: crate::geometry::position::Direction,
+    pub mu: f64,
+    pub time: f64,
+    pub particle: crate::particle::particle::ParticleType,
+    pub delayed_group: Option<usize>,
 }
 ```
 
@@ -11679,7 +12893,12 @@ pub struct FilterEvent {
 | `universe_idx` | `usize` |  |
 | `energy` | `f64` |  |
 | `surface_idx` | `usize` | Surface crossed (usize::MAX if not a surface-crossing event). |
-| `position` | `crate::geometry::position::Position` | Representative spatial position of the event \[cm\] — the streamed<br>segment's midpoint for the track-length estimator. Used by the spatial<br>filters ([`MeshFilter`], [`SpatialLegendreFilter`]); ignored by the<br>cell/material/universe/energy filters. |
+| `position` | `crate::geometry::position::Position` | Representative spatial position of the event \[cm\] — the streamed<br>segment's midpoint for the track-length estimator. Used by the spatial<br>filters ([`MeshFilter`], [`SpatialLegendreFilter`], [`ZernikeFilter`]);<br>ignored by the cell/material/universe/energy filters. |
+| `direction` | `crate::geometry::position::Direction` | Direction of travel (unit vector). Consumed by<br>[`PolarAzimuthalFilter`] and [`SphericalHarmonicsFilter`]. |
+| `mu` | `f64` | Change-of-direction cosine `mu` of a scattering event, in the<br>**laboratory** frame. Meaningful only for a scatter; `MuFilter` is a<br>collision-estimator filter and this is what it bins. |
+| `time` | `f64` | Time since the particle was born \[s\]. Consumed by [`TimeFilter`]. |
+| `particle` | `crate::particle::particle::ParticleType` | Particle type. Consumed by [`ParticleFilter`]. |
+| `delayed_group` | `Option<usize>` | Delayed-neutron precursor group of a fission event, `0`-based, or `None`<br>for a prompt neutron or a non-fission event. Consumed by<br>[`DelayedGroupFilter`]. |
 
 ##### Implementations
 
@@ -11701,6 +12920,12 @@ pub struct FilterEvent {
     ```
 
 - **CastableFrom**
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    An event with no geometry, no angle, zero energy and zero time.
+
 - **Downcast**
   - ```rust
     fn downcast(self: &Self) -> &T { /* ... */ }
@@ -12640,6 +13865,1236 @@ pub struct SpatialLegendreFilter {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `SurfaceFilter`
+
+Filter by the surface an event crossed. Maps to `openmc::SurfaceFilter`
+(`src/tallies/filter_surface.cpp`).
+
+**0-based indices into the geometry's surface array, not surface IDs** — the
+same convention as [`CellFilter`], and the same trap: an ID passed here bins
+silently and wrongly.
+
+Only a surface-crossing event has a surface; every other event carries
+[`FilterEvent::surface_idx`] `= usize::MAX` and is rejected, so attaching this
+to a track-length or collision tally scores nothing rather than scoring
+everything into bin 0.
+
+```rust
+pub struct SurfaceFilter {
+    pub surface_indices: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `surface_indices` | `Vec<usize>` | 0-based positions in the surface array. One tally bin per entry. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MuFilter`
+
+Filter by the **change-of-direction cosine** of a scatter. Maps to
+`openmc::MuFilter` (`src/tallies/filter_mu.cpp`).
+
+`bounds` is an ascending list of `mu` bin edges on `[-1, 1]`, so `n_bins` is
+`bounds.len() - 1` and bin `i` covers `[bounds[i], bounds[i+1])`. The top
+edge is inclusive, matching OpenMC's treatment of the last bin.
+
+This bins [`FilterEvent::mu`], the **laboratory-frame** scattering cosine.
+OpenMC's filter is documented against the same quantity; a CM cosine binned
+here would be a different distribution entirely on a light nuclide.
+
+```rust
+pub struct MuFilter {
+    pub bounds: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bounds` | `Vec<f64>` | Ascending `mu` bin edges on `[-1, 1]`; `n_bins = len() - 1`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PolarAzimuthalFilter`
+
+Filter by the particle's **polar and azimuthal angles of travel**. Maps to
+`openmc::PolarAzimuthalFilter` (`src/tallies/filter_azimuthal.cpp` +
+`filter_polar.cpp`, which OpenMC exposes as one filter).
+
+`polar` holds ascending edges in `cos(theta)` on `[-1, 1]` — **cosine, not
+the angle** — where `theta` is measured from `+z`, so `cos(theta)` is the
+direction's `w` component. `azimuthal` holds ascending edges in `phi` on
+`[-pi, pi]`, with `phi = atan2(v, u)`.
+
+Bins are row-major with **polar slowest-varying**:
+`bin = i_polar * n_azimuthal + i_azimuthal`, so `n_bins` is the product.
+
+```rust
+pub struct PolarAzimuthalFilter {
+    pub polar: Vec<f64>,
+    pub azimuthal: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `polar` | `Vec<f64>` | Ascending `cos(theta)` edges on `[-1, 1]`. |
+| `azimuthal` | `Vec<f64>` | Ascending `phi` edges on `[-pi, pi]` \[rad\]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `TimeFilter`
+
+Filter by time since the particle was born. Maps to `openmc::TimeFilter`
+(`src/tallies/filter_time.cpp`).
+
+`bounds` is an ascending list of edges in **seconds**. A time-dependent tally
+is only as good as the time the transport threads through
+[`FilterEvent::time`]; the eigenvalue drivers in this crate do not track a
+clock, so on those this bins every event into whichever bin contains `0.0`.
+That is visible rather than hidden: see [`FilterEvent::default`].
+
+```rust
+pub struct TimeFilter {
+    pub bounds: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `bounds` | `Vec<f64>` | Ascending time bin edges \[s\]; `n_bins = len() - 1`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ParticleFilter`
+
+Filter by particle type. Maps to `openmc::ParticleFilter`
+(`src/tallies/filter_particle.cpp`).
+
+This crate transports neutrons only (photon/electron transport is explicitly
+out of scope, see the crate `CLAUDE.md`), so a tally filtering on
+[`ParticleType::Photon`] scores nothing today. It is implemented because the
+filter is cheap and because scoring zero for an absent particle is the
+correct answer, where omitting the filter would have forced a caller to drop
+the distinction.
+
+```rust
+pub struct ParticleFilter {
+    pub particles: Vec<crate::particle::particle::ParticleType>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `particles` | `Vec<crate::particle::particle::ParticleType>` | Particle types to score. One bin per entry, in this order. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DelayedGroupFilter`
+
+Filter by delayed-neutron precursor group. Maps to
+`openmc::DelayedGroupFilter` (`src/tallies/filter_delayedgroup.cpp`).
+
+`groups` holds **0-based** precursor group indices. ENDF and most of the
+literature number these 1..=6; this crate indexes them from zero throughout
+(see `teh-o-prke`), and the two conventions differing by one is exactly the
+sort of thing that produces a plausible wrong answer, so it is stated here
+rather than left to the reader.
+
+A prompt neutron or a non-fission event carries
+[`FilterEvent::delayed_group`] `= None` and is rejected.
+
+```rust
+pub struct DelayedGroupFilter {
+    pub groups: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `groups` | `Vec<usize>` | 0-based precursor group indices. One bin per entry. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ZernikeFilter`
+
+Functional-expansion filter in **Zernike polynomials** over a disc in the
+`x`-`y` plane. Maps to `openmc::ZernikeFilter`
+(`src/tallies/filter_zernike.cpp`).
+
+The flux is expanded on the unit disc obtained by mapping
+`rho = sqrt((x-x0)^2 + (y-y0)^2) / r`, `theta = atan2(y-y0, x-x0)`. Moments
+run over the standard Zernike ordering
+
+```text
+n = 0, 1, 2, ... order;   m = -n, -n+2, ... , n
+```
+
+which gives `(order+1)(order+2)/2` moments, with
+`Z_n^m = R_n^|m|(rho) * cos(m theta)` for `m >= 0` and
+`R_n^|m|(rho) * sin(|m| theta)` for `m < 0` — the real-valued convention
+OpenMC uses (`calc_zn`, `src/math_functions.cpp`).
+
+As with [`SpatialLegendreFilter`], the reconstruction normalisation is
+**not** folded into the stored weight; the raw moment is what is tallied.
+Events with `rho > 1` contribute nothing.
+
+```rust
+pub struct ZernikeFilter {
+    pub order: usize,
+    pub x0: f64,
+    pub y0: f64,
+    pub r: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `order` | `usize` | Highest radial order `n` retained. |
+| `x0` | `f64` | Disc centre `x` \[cm\]. |
+| `y0` | `f64` | Disc centre `y` \[cm\]. |
+| `r` | `f64` | Disc radius \[cm\]; must be positive. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+  - ```rust
+    fn expansion_moments(self: &Self, ev: &FilterEvent) -> Option<Vec<f64>> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SphericalHarmonicsFilter`
+
+Functional-expansion filter in **real spherical harmonics** of the particle's
+direction. Maps to `openmc::SphericalHarmonicsFilter`
+(`src/tallies/filter_sph_harm.cpp`).
+
+Moments run `l = 0 ..= order`, `m = -l ..= l`, in that order, giving
+`(order+1)^2` bins. The weight deposited in moment `(l, m)` is the real
+spherical harmonic `Y_l^m(theta, phi)` evaluated on the direction of travel,
+with `cos(theta) = w` and `phi = atan2(v, u)`.
+
+Like the other expansions here, the stored moment is raw — the `(2l+1)/(4pi)`
+reconstruction factor is applied when the flux is rebuilt, not when it is
+scored.
+
+```rust
+pub struct SphericalHarmonicsFilter {
+    pub order: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `order` | `usize` | Highest harmonic order `l` retained (⇒ `(order+1)^2` bins). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Filter**
+  - ```rust
+    fn n_bins(self: &Self) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    fn get_bin(self: &Self, _ev: &FilterEvent) -> Option<usize> { /* ... */ }
+    ```
+
+  - ```rust
+    fn expansion_moments(self: &Self, ev: &FilterEvent) -> Option<Vec<f64>> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `FilterKind`
+
+Every filter this crate provides, as a closed enum.
+
+This is what a [`super::tally::Tally`] stores. Dispatch is by `match`, so
+adding a filter is a compile error at every site that must handle it — the
+property `Box<dyn Filter>` cost, and the reason the workspace's design rules
+ask for enums here. The [`Filter`] trait stays as the per-struct contract.
+
+```rust
+pub enum FilterKind {
+    Cell(CellFilter),
+    Material(MaterialFilter),
+    Energy(EnergyFilter),
+    Universe(UniverseFilter),
+    Mesh(MeshFilter),
+    Surface(SurfaceFilter),
+    Mu(MuFilter),
+    PolarAzimuthal(PolarAzimuthalFilter),
+    Time(TimeFilter),
+    Particle(ParticleFilter),
+    DelayedGroup(DelayedGroupFilter),
+    SpatialLegendre(SpatialLegendreFilter),
+    Zernike(ZernikeFilter),
+    SphericalHarmonics(SphericalHarmonicsFilter),
+}
+```
+
+##### Variants
+
+###### `Cell`
+
+[`CellFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `CellFilter` |  |
+
+###### `Material`
+
+[`MaterialFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `MaterialFilter` |  |
+
+###### `Energy`
+
+[`EnergyFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `EnergyFilter` |  |
+
+###### `Universe`
+
+[`UniverseFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `UniverseFilter` |  |
+
+###### `Mesh`
+
+[`MeshFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `MeshFilter` |  |
+
+###### `Surface`
+
+[`SurfaceFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SurfaceFilter` |  |
+
+###### `Mu`
+
+[`MuFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `MuFilter` |  |
+
+###### `PolarAzimuthal`
+
+[`PolarAzimuthalFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PolarAzimuthalFilter` |  |
+
+###### `Time`
+
+[`TimeFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `TimeFilter` |  |
+
+###### `Particle`
+
+[`ParticleFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ParticleFilter` |  |
+
+###### `DelayedGroup`
+
+[`DelayedGroupFilter`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `DelayedGroupFilter` |  |
+
+###### `SpatialLegendre`
+
+[`SpatialLegendreFilter`] — a functional expansion.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SpatialLegendreFilter` |  |
+
+###### `Zernike`
+
+[`ZernikeFilter`] — a functional expansion.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ZernikeFilter` |  |
+
+###### `SphericalHarmonics`
+
+[`SphericalHarmonicsFilter`] — a functional expansion.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `SphericalHarmonicsFilter` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn n_bins(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of tally bins this filter produces.
+
+- ```rust
+  pub fn get_bin(self: &Self, event: &FilterEvent) -> Option<usize> { /* ... */ }
+  ```
+  Bin index for `event`, or `None` if the event does not pass.
+
+- ```rust
+  pub fn expansion_moments(self: &Self, event: &FilterEvent) -> Option<Vec<f64>> { /* ... */ }
+  ```
+  Functional-expansion weights, or `None` for a non-expansion filter.
+
+- ```rust
+  pub fn is_expansion(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether this filter deposits into every moment bin at once rather than
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Traits
 
 #### Trait `Filter`
@@ -12676,6 +15131,14 @@ This trait is implemented for the following types:
 - `UniverseFilter`
 - `MeshFilter`
 - `SpatialLegendreFilter`
+- `SurfaceFilter`
+- `MuFilter`
+- `PolarAzimuthalFilter`
+- `TimeFilter`
+- `ParticleFilter`
+- `DelayedGroupFilter`
+- `ZernikeFilter`
+- `SphericalHarmonicsFilter`
 
 ## Module `mesh`
 
@@ -12747,6 +15210,16 @@ pub struct RegularMesh {
   pub fn get_bin(self: &Self, p: Position) -> Option<usize> { /* ... */ }
   ```
   Flat bin index of the mesh cell containing `p`, or `None` if `p` lies
+
+- ```rust
+  pub fn count_sites(self: &Self, sites: &[crate::particle::bank::BankSite]) -> (Vec<f64>, bool) { /* ... */ }
+  ```
+  Accumulate the **weight** of each bank site into its mesh bin.
+
+- ```rust
+  pub fn shannon_entropy(self: &Self, sites: &[crate::particle::bank::BankSite]) -> Option<f64> { /* ... */ }
+  ```
+  **Shannon entropy of the fission source on this mesh, in bits.**
 
 ###### Trait Implementations
 
@@ -13315,6 +15788,19 @@ that iterate them over a geometry.
   drivers (single-thread / multi-thread / GPU).
 - [`search`] — reactivity search wrapping the k-eigenvalue driver (root-find
   a geometry/material parameter for a target `k_eff`).
+
+# Oracles (independent solutions the drivers are measured against)
+
+- [`slowing_down`] — the epithermal slowing-down equation solved
+  **deterministically**, both for an infinite homogeneous medium
+  ([`slowing_down::solve_on_grid`], exact) and for a concentric-sphere cell
+  ([`slowing_down::solve_deterministic_multiregion`], exact but for the
+  flat-flux-per-shell discretisation). Together they are the reference the
+  self-shielded resonance absorption is judged against, in energy and in
+  space.
+- [`collision_probability`] — the geometric half of that: exact first-flight
+  collision probabilities for concentric spheres by impact-parameter track
+  quadrature, with a white-boundary closure.
 
 [`transport`] is a stub retained for the generic history-based loop notes;
 the live per-history loop is in [`transport_csg`].
@@ -13943,7 +16429,7 @@ pub struct SourceBox {
 - **WasmNotSync**
 ### Functions
 
-#### Function `run_keff_csg`
+#### Function `run_keff_csg_hybrid`
 
 Run fission-source power iteration over an arbitrary CSG [`Geometry`].
 
@@ -13981,6 +16467,37 @@ backends; only the execution strategy differs:
   `log::debug!` line. It never errors on the selection. Wiring a genuine GPU
   Sigma_t lookup into CSG/delta transport is tracked as follow-up work
   (bead op-fla).
+**Hybrid k-eigenvalue: delta tracking where a region asks for it, surface
+tracking everywhere else** (`bn:op-867c`, gh #214).
+
+Identical to [`run_keff_csg`] except that it takes a majorant table.
+A cell declares `Cell::delta_tracked(i)` to be transported by delta
+(Woodcock) tracking against `majorants[i]`, and everything else -- including
+regions nested inside it that declare `surface_tracked()` -- uses ordinary
+surface tracking.
+
+# The majorant must bound its region, or the answer is silently wrong
+
+Build each entry with [`Majorant::over_indices`] over **every** material the
+region's geometry can present. An under-bound majorant does not crash: delta
+tracking rejects collisions it should have accepted and returns a biased `k`.
+Over-bounding only costs time, and [`KeffResult::virtual_collisions`]
+reports how much.
+
+# Why scope it at all
+
+Measured 2026-09-17 (`examples/majorant_absorber_price.rs`): adding one B4C
+control rod to a globally-bounded material set costs **26.3x** in tracking
+steps at the thermal peak, and it costs that in reflector graphite metres
+from the rod as much as inside it. Above ~1 keV it costs nothing.
+
+Passing an empty table makes this exactly [`run_keff_csg`].
+
+```rust
+pub fn run_keff_csg_hybrid(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>) -> crate::physics::keff::KeffResult { /* ... */ }
+```
+
+#### Function `run_keff_csg`
 
 ```rust
 pub fn run_keff_csg(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>) -> crate::physics::keff::KeffResult { /* ... */ }
@@ -14039,7 +16556,7 @@ escape energy, flushed once per active generation exactly like the tally
 [`run_keff_csg`] takes.
 
 ```rust
-pub fn run_keff_csg_seq(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>) -> crate::physics::keff::KeffResult { /* ... */ }
+pub fn run_keff_csg_seq(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>) -> crate::physics::keff::KeffResult { /* ... */ }
 ```
 
 #### Function `run_keff_csg_par`
@@ -14085,7 +16602,7 @@ history-index order (a deterministic reduction) into the generation leak
 batch, and flushed once per active generation. `&[]` / `None` disables it.
 
 ```rust
-pub fn run_keff_csg_par(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult { /* ... */ }
+pub fn run_keff_csg_par(geom: &crate::geometry::geometry::Geometry, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorants: &[crate::pebble_beds::delta_tracking::Majorant], entropy_mesh: Option<&crate::tally::mesh::RegularMesh>, source_box: SourceBox, settings: &crate::physics::keff::KeffSettings, tally: Option<&mut crate::tally::tally::Tally>, leak_edges: &[f64], leak_bins: Option<&mut Vec<crate::tally::tally::TallyBin>>, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult { /* ... */ }
 ```
 
 ## Module `fixed_source`
@@ -14590,36 +17107,413 @@ Neutron scattering kinematics — elastic and inelastic.
 C++ source: `src/physics_common.cpp`, `src/physics.cpp`.
 
 The channels differ in both their outgoing *energy* law and their angular law.
-Elastic scatter can use an anisotropic centre-of-mass distribution (ENDF MF=4,
-sampled by the caller and passed as `mu_cm`) — the dominant reactivity lever for
-a bare fast-metal sphere, where forward-peaked elastic off heavy nuclei sets the
-transport cross section and hence the leakage. The inelastic channels remain
-isotropic-CM in angle for now. By outgoing-energy law:
+**Every channel now samples the evaluation's own angular distribution** where
+the evaluation carries one: elastic and the discrete inelastic levels from
+ENDF MF=4 (sampled by the caller and passed as `mu_cm` to
+[`two_body_scatter_with_mu`]), and the continuum channels from the `f₁ … f_NA`
+columns of MF=6 LAW=1 (bead `op-og56`, see
+[`continuum_inelastic_scatter_evaluated`]). Angle is the dominant reactivity
+lever for a bare fast-metal sphere, where forward-peaked scatter off heavy
+nuclei sets the transport cross section and hence the leakage.
+
+Both MF=6 representations this workspace's evaluations use are sampled:
+`LANG = 1` (Legendre) and `LANG = 2` (Kalbach-Mann, via the Kalbach-86 slope
+systematics). A representation that is retained but not sampled reports
+itself as
+[`ContinuumAngular::Unported`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Unported)
+rather than being indistinguishable from an evaluation that is genuinely
+flat; nothing in `reference-data/endf/` currently reaches it. By
+outgoing-energy law:
 
 - **Elastic** (MT=2) — [`elastic_scatter`]: two-body kinematics with `Q = 0`;
   off a heavy actinide the neutron loses almost no energy per collision
-  (α = ((A−1)/(A+1))² ≈ 0.98 for A ≈ 238).
-- **Discrete-level inelastic** (MT=51…90) — [`two_body_scatter`] with the
-  level's `Q < 0`: the neutron gives up the level excitation energy, a *large*
-  per-collision energy loss (tens of keV to MeV) that softens the fast
-  spectrum. This is the dominant fast-spectrum energy-loss mechanism for heavy
-  nuclei, and its absence (inelastic lumped into elastic) was the leading bias
-  in the first Godiva Keff — see `docs/development-history.md`.
-- **Continuum inelastic** (MT=91) — [`continuum_inelastic_scatter`]: the
-  outgoing energy is a distribution, not fixed by a single `Q`. RECONR does not
-  reconstruct the ENDF MF=5 continuum law, so this uses a **Weisskopf
-  evaporation** model with a nuclear temperature θ = √(E/a), level-density
-  parameter a ≈ A/11 MeV⁻¹ (actinide) — an approximation, documented as such.
+  (α = ((A−1)/(A+1))² ≈ 0.98 for A ≈ 238). This form holds the target **at
+  rest**, which confines the outgoing energy to `[α·E, E]`.
+- **Free-gas elastic** — [`free_gas_elastic_scatter`]: the same collision with
+  the target's own thermal motion sampled, below `400·kT`. Transport must use
+  this one: a target at rest can only take energy away, so without it a
+  neutron population has no Maxwellian fixed point and cools without bound —
+  the defect recorded as bead `op-50vu`. A nuclide carrying an S(α,β) table
+  uses that law instead below its cutoff and this one in the band between the
+  cutoff and `400·kT`.
+- **Discrete-level inelastic** (MT=51…90) — [`two_body_scatter_with_mu`] with
+  the level's `Q < 0` and the level's own MF=4 CM cosine: the neutron gives up
+  the level excitation energy, a *large* per-collision energy loss (tens of
+  keV to MeV) that softens the fast spectrum. This is the dominant
+  fast-spectrum energy-loss mechanism for heavy nuclei, and its absence
+  (inelastic lumped into elastic) was the leading bias in the first Godiva
+  Keff — see `docs/development-history.md`. Its *angular* law was isotropic
+  until bead `op-tm9f`; U-238's levels are forward-peaked (`⟨μ_cm⟩` +0.03 at
+  1 MeV to +0.51 at 14 MeV) and sampling them isotropically suppressed leakage
+  on Godiva. A level the evaluation leaves isotropic (U-235's MT=51/52/54 are
+  genuinely so) falls back to [`two_body_scatter`].
+- **Continuum inelastic** (MT=91) and **(n,2n)** (MT=16) —
+  [`continuum_inelastic_scatter_evaluated`]: the outgoing energy is a
+  distribution, not fixed by a single `Q`, and the emission angle is
+  *correlated with it*. Both halves come from the evaluation's own ENDF MF=6
+  LAW=1 law. [`continuum_inelastic_scatter`] remains as the fallback for a
+  nuclide carrying no MF=6 section: a **Weisskopf evaporation** model with
+  nuclear temperature θ = √(E/a) and level-density parameter a ≈ A/11 MeV⁻¹
+  (actinide), isotropic in the CM — an approximation, documented as such, and
+  measurably too hard (U-238 at 2 MeV: `⟨E'/E⟩ = 0.2787` against the
+  evaluation's 0.2095).
 
-Anisotropic elastic uses the full ENDF MF=4 tabulated cosine distribution
-(sampled in `material::nuclide`, ported from OpenMC), passed here as a CM cosine
-via [`two_body_scatter_with_mu`]. Anisotropic *inelastic* angular laws (coupled
-to the MF=5/MF=6 energy distributions) remain future work.
+The MF=4 paths use the full tabulated cosine distribution (sampled in
+`material::nuclide`, ported from OpenMC), passed here as a CM cosine via
+[`two_body_scatter_with_mu`] — elastic from MT=2, each discrete level from its
+own MT. The MF=6 path costs one variate per collision either way: `LANG = 1`
+linearises each row's Legendre coefficients once at load time and inverts the
+resulting cosine CDF, and `LANG = 2` inverts the Kalbach-Mann cumulative in
+closed form.
 
 ```rust
 pub mod scatter { /* ... */ }
 ```
 
+### Types
+
+#### Struct `DbrcTable`
+
+A nuclide's **0 K elastic scattering cross section** over the energy window
+where resonance structure makes the constant-cross-section approximation
+wrong — the data DBRC needs.
+
+# What DBRC corrects
+
+[`free_gas_elastic_scatter`] samples the target velocity from a Maxwellian
+weighted only by the relative speed. That is the **constant cross-section
+(CXS)** approximation: it assumes `σ_s` does not vary over the range of
+relative energies a thermal target can reach. Near a resolved resonance in a
+heavy nuclide that is badly wrong — U-238's 6.67 eV resonance changes `σ_s`
+by orders of magnitude across a window the target's own motion spans — and
+the correct kernel weights the target velocity by `σ_s(E_rel)` as well.
+
+**Doppler Broadening Rejection Correction** does that by rejection: sample a
+target velocity as usual, compute the relative energy, and accept with
+probability `σ_s^{0K}(E_rel) / σ_max` over the neighbourhood. The 0 K cross
+section is the right one because the target motion is being modelled
+explicitly — using a broadened `σ` here would count Doppler broadening twice.
+
+# Why it matters here specifically
+
+It is an **epithermal** effect on resolved resonances, so it is invisible on
+a bare fast metal sphere and material in a thermal or epithermal lattice —
+exactly the reactors this project targets (HTR-10, MSRE, the FHR pebble),
+and exactly where this crate has the least validation evidence. It raises
+U-238's effective resonance absorption and is worth of order 100-200 pcm in
+an LWR pin cell in the published literature; it has **not** been measured
+here (see `Nuclide::with_dbrc`).
+
+Ported from OpenMC `sample_target_velocity` / `ResScatMethod::DBRC`
+(`src/physics.cpp`, `src/nuclide.cpp`).
+
+```rust
+pub struct DbrcTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn from_pairs(pairs: &[(f64, f64)], e_max_ev: f64) -> Option<Self> { /* ... */ }
+  ```
+  Build from an ascending 0 K `(energy [eV], σ_elastic [b])` grid,
+
+- ```rust
+  pub fn e_max_ev(self: &Self) -> f64 { /* ... */ }
+  ```
+  Upper energy \[eV\] DBRC is applied below.
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of tabulated points.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the table is empty (never true for a [`Self::from_pairs`] result).
+
+- ```rust
+  pub fn xs_at(self: &Self, e: f64) -> f64 { /* ... */ }
+  ```
+  0 K elastic cross section \[b\] at `e` \[eV\], lin-lin interpolated and
+
+- ```rust
+  pub fn xs_max_over(self: &Self, lo: f64, hi: f64) -> f64 { /* ... */ }
+  ```
+  The maximum 0 K elastic cross section \[b\] over `[lo, hi]` eV — the
+
+- ```rust
+  pub fn applies(self: &Self, e: f64) -> bool { /* ... */ }
+  ```
+  Whether DBRC applies to a neutron of energy `e` \[eV\].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DbrcTable { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ContinuumAngularMode`
+
+Whether the evaluated continuum angular law is sampled, or ablated away.
+
+The ablation arm of a paired worth measurement. Separating it from the
+environment lookup is deliberate: a test can drive both arms in one process
+with no global state and no ordering hazard, which a cached `static` flag
+cannot support.
+
+```rust
+pub enum ContinuumAngularMode {
+    Evaluated,
+    IsotropicAblation,
+}
+```
+
+##### Variants
+
+###### `Evaluated`
+
+Sample the evaluation's correlated cosine law wherever it carries one.
+The physical arm.
+
+###### `IsotropicAblation`
+
+Force isotropic emission in the law's own frame, whatever the evaluation
+says. The ablation arm — this is how the law's reactivity worth gets
+*priced* rather than argued from the size of `⟨μ⟩`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ContinuumAngularMode { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ContinuumAngularMode) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `rotate_direction`
@@ -14633,6 +17527,38 @@ about the x-axis instead to avoid dividing by √(1−w²) ≈ 0.
 
 ```rust
 pub fn rotate_direction(u: crate::geometry::position::Direction, mu: f64, seed: &mut u64) -> crate::geometry::position::Direction { /* ... */ }
+```
+
+#### Function `cm_to_lab`
+
+Convert a neutron's centre-of-mass outgoing energy and CM scattering cosine to
+the laboratory frame, for a target of atomic weight ratio `awr` initially at
+rest.
+
+`e` is the incident lab energy \[eV\], `e_cm_out` the outgoing neutron energy
+in the CM frame \[eV\], `mu_cm` the CM scattering cosine. Returns
+`(e_out_lab, mu_lab)`. The CM frame moves with the incident neutron, carrying a
+unit-mass "translational" energy `E/(A+1)²`; the lab energy is the vector sum:
+
+`E' = E_cm + E/(A+1)² + 2·μ_cm·√(E_cm · E/(A+1)²)`,
+`μ_lab = μ_cm·√(E_cm/E') + √(E/(A+1)²/E')`.
+
+With `e_cm_out = E·(A/(A+1))²` (elastic) this reduces to the familiar
+`E' = E·(A² + 2Aμ + 1)/(A+1)²`.
+
+# Why this is public
+
+It is one of the two unmeasured leads left on `op-os8x` — the Godiva
+spectral residual against OpenMC — because it is the step that couples the
+sampled `μ_cm` to `E'`, so an error here moves the spectrum while leaving
+every tabulated law identical, which is the signature that remains once
+cross sections, angular laws, `k`, and the MT=91 transfer table have all been
+excluded. Exposing it lets
+`outram-mc-libs`'s `tests/cm_to_lab_vs_kinematics.rs` check it against
+first-principles velocity addition rather than only through a sampler.
+
+```rust
+pub fn cm_to_lab(e: f64, e_cm_out: f64, mu_cm: f64, awr: f64) -> (f64, f64) { /* ... */ }
 ```
 
 #### Function `two_body_scatter`
@@ -14688,23 +17614,230 @@ loss of at most a couple of percent.
 pub fn elastic_scatter(e: f64, u: crate::geometry::position::Direction, awr: f64, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
 ```
 
+#### Function `free_gas_elastic_scatter`
+
+Elastic scatter off a **thermally moving** target — the free-gas kernel.
+
+[`two_body_scatter_with_mu`] holds the target at rest, so its outgoing energy
+is confined to `[α·E, E]`: the neutron can only lose energy. That is correct
+far above the thermal range and **wrong inside it**, where it removes the
+up-scatter that gives a neutron population its fixed point. Without up-scatter
+there is no Maxwellian equilibrium at all: a neutron random-walking in such a
+medium cools without bound (measured: `⟨E⟩ → 1e-27 eV` and below in FLiBe,
+graphite kernel carbon, O-16 and SiC after 400 collisions at 600 K, against
+the correct `1.5·kT = 0.0776 eV` — `examples/epithermal_slowing_down.rs`,
+bead `op-50vu`). Only a nuclide carrying an S(α,β) table escaped, because that
+law does model lattice recoil.
+
+This is a port of OpenMC `elastic_scatter` + `sample_target_velocity`
+(`src/physics.cpp`) in the **constant cross-section (CXS)** approximation:
+σ is taken as constant over the target velocity distribution, which is exactly
+consistent with using a Doppler-broadened σ for the collision *rate* — the rate
+already carries the target motion, and this supplies the matching kinematics.
+(OpenMC's DBRC refinement, which resamples σ at the relative energy inside a
+resonance, is a further correction and is not modelled here.)
+
+`kt_ev` is the material temperature as `k_B·T` \[eV\]; `mu_cm` is the
+centre-of-mass cosine from the nuclide's ENDF MF=4 law, sampled by the caller
+at the incident *lab* energy, as OpenMC does. Above `FREE_GAS_THRESHOLD·kT`
+(and for `awr > 1`) this delegates to the target-at-rest form, so the fast
+range is bit-for-bit unchanged.
+
+```rust
+pub fn free_gas_elastic_scatter(e: f64, u: crate::geometry::position::Direction, awr: f64, kt_ev: f64, mu_cm: f64, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+```
+
+#### Function `free_gas_elastic_scatter_dbrc`
+
+[`free_gas_elastic_scatter`] with an optional **DBRC** correction.
+
+With `dbrc = None` this is bit-identical to `free_gas_elastic_scatter`,
+including its RNG draw count — so a nuclide without a table is unaffected,
+and every result recorded before DBRC existed still reproduces.
+
+With `Some(table)` and an incident energy inside the table's window, the
+sampled target velocity is additionally accepted with probability
+`σ_s^{0K}(E_rel) / σ_max`, which is the weighting the constant-cross-section
+approximation drops. See [`DbrcTable`] for why that matters and where.
+
+```rust
+pub fn free_gas_elastic_scatter_dbrc(e: f64, u: crate::geometry::position::Direction, awr: f64, kt_ev: f64, mu_cm: f64, seed: &mut u64, dbrc: Option<&DbrcTable>) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+```
+
 #### Function `continuum_inelastic_scatter`
 
 Continuum inelastic scatter (MT=91) — the outgoing neutron energy is sampled
 from a **Weisskopf evaporation spectrum** rather than fixed by a single level.
 
 `f(E'_cm) ∝ E'_cm · exp(−E'_cm/θ)` with nuclear temperature `θ = √(E/a)` and
-level-density parameter `a ≈ A/11 MeV⁻¹` (a standard actinide value). The
-sampled CM energy is capped below the elastic CM energy `E·(A/(A+1))²` so the
-collision always loses energy, then transformed to the lab isotropically in CM.
+level-density parameter `a ≈ A/11 MeV⁻¹` (a standard actinide value), sampled
+then transformed to the lab isotropically in CM.
 
-This is an **approximation**: RECONR reconstructs cross sections (MF=3) but not
-the ENDF MF=5 secondary-energy law, so the true continuum distribution is not
-available here. The evaporation model captures the essential physics — a large,
-broadly distributed down-scatter — which is what softens the fast spectrum.
+`q` is the channel's ENDF Q-value \[eV\] (negative — MT=91's `QI`, i.e. minus
+the energy of the lowest continuum state). It **caps** the outgoing CM energy
+at what two-body energy balance allows for that minimum excitation,
+
+`E'_cm ≤ E·(A/(A+1))² + Q·A/(A+1)`,
+
+which is the same bound [`two_body_scatter`] enforces for a discrete level.
+Pass `q = 0` for a channel whose Q is genuinely zero or unknown; that reduces
+the cap to the elastic CM energy, which is the behaviour this function had
+before the Q-value was threaded through.
+
+# Why the cap is not optional
+
+Without it the sampler caps only at the *elastic* CM energy, so a neutron can
+leave a continuum-inelastic collision carrying energy the reaction cannot
+have left it — the excitation of the residual nucleus is simply not paid for.
+Measured on ENDF/B-VIII.0 before this was threaded through: **22 % of draws**
+above the kinematic bound for U-238 and U-235 at 1 MeV (just above the MT=91
+threshold at `|QI| = 0.434 MeV`), 2.5 % at 2 MeV, falling to zero by 14 MeV
+where the cap is loose. The violation is largest exactly where the channel
+opens, which is where it matters most.
+
+This remains an **approximation** in its *shape*: it is the fallback for a
+nuclide whose evaluation carries no MF=6 LAW=1 law this port can read. Where
+one is available, call
+[`continuum_inelastic_scatter_evaluated`] instead and pass it — the evaluated
+law is the evaluation's own spectrum and this evaporation model is measurably
+too hard (U-238 at 2 MeV: `⟨E'/E⟩ = 0.2787` here against the evaluation's
+**0.2095**, i.e. 33 % harder, at the energy where MT=91 is opening). See
+GitHub #192.
 
 ```rust
-pub fn continuum_inelastic_scatter(e: f64, u: crate::geometry::position::Direction, awr: f64, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+pub fn continuum_inelastic_scatter(e: f64, u: crate::geometry::position::Direction, awr: f64, q: f64, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+```
+
+#### Function `continuum_inelastic_scatter_evaluated`
+
+Continuum inelastic (MT=91) or (n,2n) (MT=16) scatter using the
+**evaluated** ENDF MF=6 LAW=1 emission law when the nuclide carries one,
+falling back to [`continuum_inelastic_scatter`]'s Weisskopf evaporation
+stand-in when it does not.
+
+# Arguments
+
+`e` incident lab energy \[eV\], `u` incident direction, `awr` the target's
+atomic weight ratio, `q` the channel `QI` \[eV\] (used only by the fallback
+and by the kinematic cap), `law` the evaluated emission law
+([`Nuclide::continuum_law`](crate::material::nuclide::Nuclide::continuum_law)),
+and `seed` the particle's RNG stream.
+
+# What the evaluated path does
+
+1. Picks an emission **branch** in proportion to the branches' yields. Most
+   evaluations have one; F-19's MF=6/MT=16 has two, of yield 1 each, carrying
+   different spectra for the first and second emitted neutron.
+2. Samples `E'` from that branch's tabulated `f₀(E→E')` with the same
+   `ContinuousTabular` sampler the MF=5 fission spectrum uses (locate the
+   incident bin, statistically pick a table, invert its CDF, scale between the
+   neighbouring tables' envelopes) — ported from OpenMC
+   `src/distribution_energy.cpp`.
+3. Transforms to the laboratory frame **only if the evaluation says to**:
+   ENDF `LCT = 2` (both uranium isotopes' MT=91) means the law is tabulated in
+   the centre of mass, so the sampled `E'` is a CM energy and goes through
+   [`cm_to_lab`] with an isotropic CM cosine. `LCT = 1` (F-19's MT=91 and
+   MT=16) means it is already a laboratory energy, and the emission is taken
+   isotropic in the lab. Assuming one frame for both is wrong by the full
+   CM-motion term, which is why the flag is carried rather than inferred.
+
+# The angular correlation
+
+MF=6 LAW=1 is a **correlated** energy-angle law: each `[E', f₀, f₁ … f_NA]`
+row carries an emission cosine distribution *conditional on that outgoing
+energy*. Those `f₁ … f_NA` are now read and sampled for `LANG = 1`
+(Legendre), which is what ENDF/B-VIII.0's U-234/U-235/U-238, F-19 and Si-28
+use — see [`ContinuumAngular`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular). Until bead `op-og56` they were discarded at
+parse time and every continuum neutron left isotropically; the evaluations
+say otherwise on essentially every row (U-238's MT=91: 8652 of 8654 rows
+anisotropic, `⟨μ⟩` reaching 0.56).
+
+Three cases, and they are deliberately distinguishable rather than all
+arriving as "isotropic":
+
+- [`ContinuumAngular::Legendre`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::Legendre) — the row's tabulated cosine CDF is
+  inverted. This is the evaluated law.
+- [`ContinuumAngular::EvaluatedIsotropic`](njoy_outram_park_fork::nuclear_data::secondary::ContinuumAngular::EvaluatedIsotropic) — the evaluation declares
+  `NA = 0` throughout (F-19's MT=91), so `μ = 2ξ − 1` is **correct**.
+- `ContinuumAngular::KalbachMann` — `LANG = 2`, which ENDF/B-VIII.0's O-16
+  and Al-27 use on MT=16 and MT=91. The slope `a` comes from the Kalbach-86
+  systematics where the evaluation stores only `r`.
+- [`ContinuumAngular::Unported`] — a representation this port retains but
+  does not sample. Emission falls back to isotropic and says so. **No
+  evaluation in `reference-data/endf/` currently reaches it.**
+
+# Ablation
+
+Setting `OUTRAM_MC_ISOTROPIC_CONTINUUM=1` forces the isotropic draw on every
+path, so the law's worth can be **priced** by running the same case twice
+rather than argued from the size of `⟨μ⟩`. It consumes the identical RNG
+variate either way — one draw, whether it indexes a CDF or is mapped
+linearly — so a paired run differs by the physics and not by a re-randomised
+stream. See `tests/continuum_angular_ablation_control.rs`, which asserts the
+switch actually changes the sampled cosines: a control that silently fails to
+ablate reports "no difference" and reads as "this physics does not matter".
+
+```rust
+pub fn continuum_inelastic_scatter_evaluated(e: f64, u: crate::geometry::position::Direction, awr: f64, q: f64, law: Option<&njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission>, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+```
+
+#### Function `continuum_inelastic_scatter_evaluated_with`
+
+[`continuum_inelastic_scatter_evaluated`] with the angular treatment chosen
+explicitly rather than read from the environment.
+
+Both modes consume the **same RNG variates in the same order**, and the
+outgoing *energy* is identical between them — one draw is spent either
+inverting the row's cosine CDF or mapping linearly to `2ξ − 1`. A paired run
+therefore differs by the angular physics alone and not by a re-randomised
+stream, which is what makes the difference attributable. That property is
+asserted, not assumed: see
+`tests/continuum_angular_ablation_control.rs`.
+
+```rust
+pub fn continuum_inelastic_scatter_evaluated_with(e: f64, u: crate::geometry::position::Direction, awr: f64, q: f64, law: Option<&njoy_outram_park_fork::nuclear_data::secondary::ContinuumEmission>, mode: ContinuumAngularMode, seed: &mut u64) -> (f64, crate::geometry::position::Direction) { /* ... */ }
+```
+
+#### Function `continuum_angular_mode_from_env`
+
+The continuum angular mode for this process, from
+`OUTRAM_MC_ISOTROPIC_CONTINUUM`.
+
+Set the variable to `1` (or anything other than `0`/empty) to run the
+ablation arm. It is read once and cached, so the inner transport loop pays an
+atomic load rather than an environment lookup per collision — which also
+means changing it mid-process has no effect. A test that needs both arms
+calls [`continuum_inelastic_scatter_evaluated_with`] directly instead of
+fighting this cache.
+
+The switch exists so the law's reactivity worth is **measured**, not
+asserted — the standing lesson of GitHub #193, where pricing a mechanism by
+switching it off found in one run what days of accuracy comparisons had
+missed. The same shape as the `OUTRAM_RINGRPT_*` ablations.
+
+```rust
+pub fn continuum_angular_mode_from_env() -> ContinuumAngularMode { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `K_BOLTZMANN_EV_PER_K`
+
+Boltzmann constant \[eV K⁻¹\].
+
+```rust
+pub const K_BOLTZMANN_EV_PER_K: f64 = 8.617_333_262e-5;
+```
+
+#### Constant `FREE_GAS_THRESHOLD`
+
+OpenMC's `FREE_GAS_THRESHOLD` (`src/constants.h`): above `400·kT` the target
+nucleus may be treated as stationary, because its thermal speed is negligible
+beside the neutron's. Below it the target's own motion must be sampled or the
+neutron can never gain energy — see [`free_gas_elastic_scatter`].
+
+```rust
+pub const FREE_GAS_THRESHOLD: f64 = 400.0;
 ```
 
 ## Module `fission`
@@ -14865,7 +17998,7 @@ pub struct KeffSettings {
     pub seed: u64,
     pub watt_a: f64,
     pub watt_b: f64,
-    pub compute: crate::physics::compute::ComputeType,
+    pub compute: ComputeType,
 }
 ```
 
@@ -14880,7 +18013,7 @@ pub struct KeffSettings {
 | `seed` | `u64` | Master RNG seed. Fixed seed ⇒ bit-reproducible run. |
 | `watt_a` | `f64` | Watt fission-spectrum parameter `a` \[eV\] for banked neutron energies. |
 | `watt_b` | `f64` | Watt fission-spectrum parameter `b` \[eV⁻¹\]. |
-| `compute` | `crate::physics::compute::ComputeType` | Which transport backend [`run_keff`] dispatches to.<br><br>- [`ComputeType::CpuSingleThread`] — the scalar, single-RNG-stream path<br>  ([`run_keff_cpu_single`]); the trusted, bit-reproducible **deterministic<br>  reference**. This is the [`Default`].<br>- [`ComputeType::CpuMultiThread`] — [`rayon`]-parallel over the histories<br>  of each generation ([`run_keff_cpu_multi`]) in a dedicated pool sized by<br>  the carried [`ThreadCount`] (default [`ThreadCount::Auto`] = every<br>  logical core); each history runs on its own deterministically derived RNG<br>  sub-stream, so the eigenvalue is reproducible independent of thread count<br>  (but does **not** bit-match the single-thread stream — see that<br>  function's docs).<br>- [`ComputeType::Gpu`] — GPU-accelerated macroscopic Sigma_t lookup<br>  ([`run_keff_gpu`]), with a transparent CPU fallback (never an error) when<br>  no GPU adapter is available. The GPU is `f32` acceleration only; the CPU<br>  single-thread path stays the trusted reference. |
+| `compute` | `ComputeType` | Which transport backend [`run_keff`] dispatches to.<br><br>- [`ComputeType::CpuSingleThread`] — the scalar, single-RNG-stream path<br>  ([`run_keff_cpu_single`]); the trusted, bit-reproducible **deterministic<br>  reference**. This is the [`Default`].<br>- [`ComputeType::CpuMultiThread`] — [`rayon`]-parallel over the histories<br>  of each generation ([`run_keff_cpu_multi`]) in a dedicated pool sized by<br>  the carried [`ThreadCount`] (default [`ThreadCount::Auto`] = every<br>  logical core); each history runs on its own deterministically derived RNG<br>  sub-stream, so the eigenvalue is reproducible independent of thread count<br>  (but does **not** bit-match the single-thread stream — see that<br>  function's docs).<br>- [`ComputeType::Gpu`] — GPU-accelerated macroscopic Sigma_t lookup<br>  ([`run_keff_gpu`]), with a transparent CPU fallback (never an error) when<br>  no GPU adapter is available. The GPU is `f32` acceleration only; the CPU<br>  single-thread path stays the trusted reference. |
 
 ##### Implementations
 
@@ -15011,6 +18144,21 @@ pub struct KeffResult {
     pub k_mean: f64,
     pub k_std: f64,
     pub k_by_generation: Vec<f64>,
+    pub entropy: Vec<f64>,
+    pub virtual_collisions: u64,
+    pub collisions: u64,
+    pub lost_locate: u64,
+    pub stuck_events: u64,
+    pub stuck_path_cm: f64,
+    pub stuck_last_e: f64,
+    pub neg_dist: u64,
+    pub neg_level: u64,
+    pub neg_worst: f64,
+    pub neg_from_lattice: u64,
+    pub neg_from_surface: u64,
+    pub leak_vacuum: u64,
+    pub leak_infinity: u64,
+    pub histories: u64,
 }
 ```
 
@@ -15021,6 +18169,21 @@ pub struct KeffResult {
 | `k_mean` | `f64` | Mean eigenvalue over the active generations. |
 | `k_std` | `f64` | Standard error of the mean (1σ) over the active generations. |
 | `k_by_generation` | `Vec<f64>` | Per-generation eigenvalue estimates, all generations (inactive first). |
+| `entropy` | `Vec<f64>` | **Shannon entropy of the fission source, one value per generation.**<br><br>Empty unless an entropy mesh was supplied to<br>[`crate::physics::transport_csg::run_keff_csg_hybrid`]. Ported<br>diagnostic: `H = -sum p_i log2 p_i` over the fission bank binned on a<br>regular mesh (OpenMC `src/eigenvalue.cpp:587`), in **bits**.<br><br># Why it matters more than it looks<br><br>`H` rises from a concentrated initial guess and **plateaus once the<br>source has converged**, which is how you choose how many inactive<br>generations to discard. A `k` quoted without it is a number whose source<br>convergence nobody checked — and on a large, loosely-coupled core such<br>as a pebble bed, that is exactly where the bias hides. The HTR-10 RMC<br>reference used **5** inactive cycles on a 1.8 m core; this field is how<br>you avoid copying that. |
+| `virtual_collisions` | `u64` | **Virtual collisions rejected inside delta-tracked regions** over the<br>whole run — the measured price of the majorant (`bn:op-867c.5`).<br><br>`0` for a purely surface-tracked model, which is every model predating<br>`bn:op-867c`. A large value relative to the history count means the<br>majorant is badly over-bounding the region: measured 2026-09-17, adding<br>one B4C control rod to a globally-bounded set costs **26.3x** at the<br>thermal peak (`examples/majorant_absorber_price.rs`). Scoping the<br>majorant to its region is what recovers that, and this field is how you<br>see whether it did.<br><br>Reported rather than discarded: `keff_delta.rs`'s `delta_flight` throws<br>the count away, so no HTR-10 run in this crate has ever had a measured<br>rejection rate. |
+| `collisions` | `u64` | **Real collisions over the whole run.** Divided by the history count<br>this is the mean collisions per neutron, which separates a model that<br>absorbs its neutrons from one that loses them before they interact. |
+| `lost_locate` | `u64` | Histories ended by a failed `Geometry::locate`. Scored as leaks in the<br>neutron balance, so `k` alone cannot reveal them. |
+| `stuck_events` | `u64` | Histories ended by exhausting the per-history event budget. |
+| `stuck_path_cm` | `f64` | Total path \[cm\] travelled by stuck histories — near zero means they<br>were oscillating on a surface, large means real tile traversal. |
+| `stuck_last_e` | `f64` | Last-known energy \[eV\] of a stuck history. |
+| `neg_dist` | `u64` | Times `distance_to_boundary` returned a negative distance — a geometry<br>defect that makes the neutron step backwards and oscillate. |
+| `neg_level` | `u64` | Coordinate (nesting) level of the most recent negative distance. |
+| `neg_worst` | `f64` | Most negative distance \[cm\] observed. |
+| `neg_from_lattice` | `u64` | Negative distances coming from a lattice tile crossing. |
+| `neg_from_surface` | `u64` | Negative distances coming from a CSG surface. |
+| `leak_vacuum` | `u64` | Histories leaking across a genuine vacuum boundary. |
+| `leak_infinity` | `u64` | Histories that streamed to infinity with no surface ahead — a geometry<br>defect, not physics, whenever the model is closed. |
+| `histories` | `u64` | **Histories actually transported.** The denominator for every counter<br>above. It is NOT `n_particles x n_generations` when a run dies early,<br>and using the planned figure understates every rate — which is exactly<br>how a 68 % stuck-history rate first read as 2.7 %. |
 
 ##### Implementations
 
@@ -15242,7 +18405,7 @@ statistically independent estimate of the same eigenvalue and agrees with the
 reference within combined statistical uncertainty.
 
 ```rust
-pub fn run_keff_cpu_multi(radius_cm: f64, material: &crate::material::material::Material, nuclides: &[crate::material::nuclide::Nuclide], settings: &KeffSettings, thread_count: crate::physics::compute::ThreadCount) -> KeffResult { /* ... */ }
+pub fn run_keff_cpu_multi(radius_cm: f64, material: &crate::material::material::Material, nuclides: &[crate::material::nuclide::Nuclide], settings: &KeffSettings, thread_count: ThreadCount) -> KeffResult { /* ... */ }
 ```
 
 #### Function `run_keff_gpu`
@@ -15274,7 +18437,7 @@ pub fn run_keff_gpu(radius_cm: f64, material: &crate::material::material::Materi
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:598:11: 598:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:598:10: 598:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:701:11: 701:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:701:10: 701:33 (#0))])]")`
 
 The genuine GPU path behind [`run_keff_gpu`] (desktop / non-Android only).
 
@@ -15324,7 +18487,7 @@ pub fn run_keff_gpu_inner(ctx: &crate::gpu::GpuContext, radius_cm: f64, material
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:769:11: 769:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:769:10: 769:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:888:11: 888:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:888:10: 888:33 (#0))])]")`
 
 **Event-based, batched-flight GPU power iteration** ([`ComputeType::Gpu`]) —
 the deep GPU penetration of beads op-u6s.7. Desktop / non-Android only.
@@ -15400,7 +18563,7 @@ pub fn run_keff_event_cpu_mirror(radius_cm: f64, material: &crate::material::mat
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1103:11: 1103:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1103:10: 1103:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/physics/keff.rs:1244:11: 1244:32 (#0) }, crates/outram-mc-libs/src/physics/keff.rs:1244:10: 1244:33 (#0))])]")`
 
 **Event-based COLLISION-on-GPU power iteration** ([`ComputeType::Gpu`]) — the
 op-u6s.8 deep-penetration path. Desktop / non-Android only.
@@ -15428,6 +18591,20 @@ within combined uncertainty. The per-event GPU logic is held to the CPU mirror
 
 ```rust
 pub fn run_keff_gpu_event(ctx: &crate::gpu::GpuContext, radius_cm: f64, material: &crate::material::material::Material, nuclides: &[crate::material::nuclide::Nuclide], settings: &KeffSettings) -> KeffResult { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `ComputeType`
+
+```rust
+pub use crate::physics::compute::ComputeType;
+```
+
+#### Re-export `ThreadCount`
+
+```rust
+pub use crate::physics::compute::ThreadCount;
 ```
 
 ## Module `search`
@@ -17422,6 +20599,13 @@ pub struct SixFactors {
 
 ##### Implementations
 
+###### Methods
+
+- ```rust
+  pub fn two_group_openmc_convention(self: &Self) -> (f64, f64, f64, f64) { /* ... */ }
+  ```
+  The same run re-expressed in the **two-group** convention the OpenMC
+
 ###### Trait Implementations
 
 - **Any**
@@ -17992,6 +21176,3774 @@ means a mis-specified tally.
 pub const CONSISTENCY_BAND: (f64, f64) = _;
 ```
 
+## Module `slowing_down`
+
+Epithermal slowing down in an **infinite homogeneous medium**, solved two
+independent ways — deterministically and by Monte Carlo — so the two can be
+made to check each other.
+
+# Why this module exists
+
+The FHR ring-RPT study (`verification_and_validation/ring_rpt/`, bead
+`op-mzvp.2.12`, GitHub #178) ran out of eigenvalues. It established, against
+four measured criticality benchmarks and NJOY2016's own PENDF, that
+
+- `σ_γ(E)` for U-238 is correct — ±0.04 % pointwise, 0.12 % worst in
+  resonance *shape* over six resonances, **+0.00 %** in infinitely-dilute
+  resonance integral;
+- the tracking method is not implicated (delta-tracked and surface-tracked
+  models are both high, and agree with each other to 18 pcm);
+- and yet the **self-shielded** absorption is ~11 % low, reproduced on a
+  measured critical experiment (ICSBEP LEU-COMP-THERM-008, +2950 ± 61 pcm).
+
+So the defect sits between a correct cross section and the absorption rate it
+produces once the medium is optically thick — and no `k` can say where,
+because `k` is one number. What is needed is a **spectrum**, judged against
+something that is exact rather than merely different.
+
+An infinite homogeneous medium is the one geometry where that exists. The
+slowing-down equation has no spatial variable, so it can be integrated
+directly on a fine energy grid to whatever accuracy the grid allows, using
+**this crate's own reconstructed cross sections**. Running the Monte Carlo
+collision kernel on the same medium then compares two solutions of the same
+equation with the same data, and any difference is the transport, not the
+data and not the geometry.
+
+That splits the remaining search cleanly:
+
+- **They agree** ⇒ the collision physics and the cross-section lookup are
+  right in a homogeneous medium, and the defect is **spatial** — how a lump's
+  interior flux is built. That is already the pattern the benchmark table
+  shows: HEU-SOL-THERM-009 is the one *homogeneous* thermal case and it is
+  the one that comes out right.
+- **They disagree** ⇒ the defect is in the energy treatment, and because the
+  deterministic solution gives the flux bin by bin, the disagreement **names
+  the energies**.
+
+# The equation
+
+Write lethargy `u = ln(E_top/E)` and let `F(u) = Σ_t(E) φ(E) E` be the
+collision density per unit lethargy. For elastic scattering that is isotropic
+in the centre of mass off a target **at rest**, a collision at `u′` lands
+uniformly in `E′ ∈ [α_i E, E]`, and the balance is
+
+```text
+F(u) = Σ_i ∫_{u−ε_i}^{u} (Σ_s,i/Σ_t)(u′) · F(u′) · e^{−(u−u′)}/(1−α_i) du′ + S(u)
+
+    α_i = ((A_i−1)/(A_i+1))²        ε_i = ln(1/α_i)
+```
+
+and the absorption rate per unit lethargy in nuclide `i` is
+`F(u)·(Σ_a,i/Σ_t)(u)`.
+
+**The kernel is separable**, which is what makes this cheap: since
+`e^{−(u−u′)} = e^{−u}·e^{u′}`, the inner integral is
+`e^{−u}·[G_i(u) − G_i(u−ε_i)]` with `G_i` a running cumulative integral. The
+solve is therefore **O(N)** in the number of grid points, not O(N × window),
+and a grid fine enough to resolve the resolved resonances costs seconds
+rather than hours.
+
+# What is deliberately *not* modelled, and why the comparison is still fair
+
+The deterministic side assumes isotropic-CM elastic scattering off a target
+at rest, and no inelastic or (n,2n) channels. Rather than assume the Monte
+Carlo side matches, [`InfiniteMediumMc`] offers the same medium under three
+successively more complete kernels ([`ScatterKernel`]), so each ingredient is
+*measured* instead of waved away:
+
+| kernel | what it adds | what the difference measures |
+|---|---|---|
+| [`ScatterKernel::IsotropicCmAtRest`] | — | this is the deterministic model exactly; **the oracle comparison** |
+| [`ScatterKernel::AnisotropicCmAtRest`] | the nuclide's own ENDF MF=4 law | anisotropy of elastic scattering |
+| [`ScatterKernel::Production`] | S(α,β) and free-gas target motion | exactly what `transport_csg::transport_history` does |
+
+Keeping the band above the inelastic thresholds' reach (U-238's first level
+is at 44.9 keV, C-12's at 4.44 MeV) removes the remaining channels, and
+[`InfiniteMediumMc`] asserts it never took one.
+
+# What it found (2026-09-11)
+
+U-238 + C-12 at 293.6 K, a 10 keV source scored down to 1 eV, with the
+background cross section `σ_b = N_C σ_p,C / N_8` scanned over three decades:
+
+```text
+sigma_b [b]   deterministic p_esc      Monte Carlo          diff      z
+       30           0.02940        0.02880 ± 0.00037      −2.05 %   −1.61
+      100           0.17579        0.17730 ± 0.00085      +0.86 %   +1.77
+      300           0.38763        0.38904 ± 0.00109      +0.36 %   +1.29
+     1000           0.60543        0.60582 ± 0.00109      +0.06 %   +0.35
+    10000           0.88390        0.88402 ± 0.00072      +0.01 %   +0.17
+```
+
+**They agree at every dilution**, worst 1.8σ, with the deterministic side
+converged to 0.014 % under a bisected lethargy grid. Read as effective
+resonance integrals through `p = exp(−I_eff/(ξ σ_b))`, the same solve gives
+194.9 b, 79.2 b, 44.9 b, 27.5 b and 16.7 b over that scan — an **11.7×
+collapse** — so this is agreement in the strongly self-shielded regime, not
+in the dilute limit where the interesting physics is switched off.
+
+So the first branch is the one that happened: **the energy treatment is
+sound, and the ring-RPT residual is spatial.** The regression form of this
+measurement, with the assertions, is
+`tests/ring_rpt_hunt_lessons.rs::monte_carlo_matches_the_deterministic_slowing_down_solution`.
+
+# The spatial half, 2026-09-12: [`solve_deterministic_multiregion`]
+
+"The residual is spatial" was where the previous paragraph left it, and the
+spatial problem then had an oracle in the **transparent limit only**
+(`examples/lump_self_shielding_scan.rs`: the thin-lump row reproduces the
+exact homogeneous answer to −0.51 %, and past it there was a monotone trend
+with nothing to check it against). The FHR ring-RPT fuel annulus is
+1.4934–1.7531 cm and **6.65 mean free paths thick at the 6.674 eV U-238
+peak**, and it carries the entire heavy-metal inventory — worth +3327 pcm
+over naive homogenisation on this code's own numbers.
+
+[`solve_deterministic_multiregion`] closes that gap. It is [`solve_on_grid`]
+with one thing added: the spatial coupling `C_i(u) = Σ_j s_j(u) P_{j→i}(u)`,
+where `P_{j→i}` are the **exact** first-flight collision probabilities of a
+concentric-sphere cell from
+[`crate::physics::collision_probability::first_flight`], recomputed at every
+lethargy point and closed with a white outer boundary. There is no Monte
+Carlo in it.
+
+Set `P_{j→i} = δ_{ji}` and it is [`solve_on_grid`] line for line — and giving
+every shell the **same** material does exactly that by way of the physics,
+because `Σ_j V_j P_{j→i} = V_i` makes `C_i ∝ V_i` the solution. That is the
+test that cannot be fudged, and it passes to **1.1e-12** at cell radii from
+0.01 cm to 100 cm and 3 to 24 shells
+(`tests/lump_collision_probability.rs`).
+
+```rust
+pub mod slowing_down { /* ... */ }
+```
+
+### Types
+
+#### Struct `MixComponent`
+
+One nuclide of an infinite homogeneous mixture: which nuclide, and how much.
+
+```rust
+pub struct MixComponent {
+    pub nuclide_idx: usize,
+    pub atom_density: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide_idx` | `usize` | Index into the caller's nuclide array. |
+| `atom_density` | `f64` | Atom density \[atoms·barn⁻¹·cm⁻¹\], the same unit<br>[`crate::material::material::Material`] uses. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MixComponent { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SlowingDownBand`
+
+Where the answer is scored: a mono-energetic source at `e_top`, and neutrons
+followed until they are absorbed or fall below `e_bot`.
+
+`e_top` should sit **below the lowest inelastic threshold** of every nuclide
+in the mixture (44.9 keV for U-238), so the only channels open are elastic
+scattering and absorption — which is what the deterministic solution models.
+
+```rust
+pub struct SlowingDownBand {
+    pub e_top: f64,
+    pub e_bot: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `e_top` | `f64` | Source energy \[eV\]; also the top of the scored band. |
+| `e_bot` | `f64` | Bottom of the scored band \[eV\]. A neutron reaching it has escaped. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SlowingDownBand { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SlowingDownResult`
+
+Where the source neutrons ended up, as fractions of one source neutron.
+
+`absorbed_by[i]` is indexed like the mixture's component array, so the
+per-nuclide split is available and not just the total. The three outcomes
+sum to 1 by construction.
+
+```rust
+pub struct SlowingDownResult {
+    pub absorbed_by: Vec<f64>,
+    pub escaped: f64,
+    pub collision_density: Vec<f64>,
+    pub lethargy: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `absorbed_by` | `Vec<f64>` | Fraction absorbed in each component, in the mixture's own order. |
+| `escaped` | `f64` | Fraction that reached `e_bot` still alive. |
+| `collision_density` | `Vec<f64>` | Collision density per unit lethargy, on the solve grid. Empty for the<br>Monte Carlo, which scores outcomes rather than a flux. |
+| `lethargy` | `Vec<f64>` | Lethargy grid `u = ln(e_top/E)` the flux is given on. Empty for the<br>Monte Carlo. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn absorbed(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total absorbed fraction — one minus the escape probability.
+
+- ```rust
+  pub fn resonance_escape(self: &Self) -> f64 { /* ... */ }
+  ```
+  Resonance escape probability over the band: the fraction of source
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SlowingDownResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &SlowingDownResult) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ScatterKernel`
+
+Which elastic-scattering kernel the Monte Carlo walker uses.
+
+The point of the enum is that the deterministic solution models exactly one
+of these, so the other two turn "the deterministic model omits anisotropy and
+target motion" from an excuse into a measurement. See the module docs.
+
+```rust
+pub enum ScatterKernel {
+    IsotropicCmAtRest,
+    AnisotropicCmAtRest,
+    Production,
+}
+```
+
+##### Variants
+
+###### `IsotropicCmAtRest`
+
+Isotropic in the centre of mass, target at rest. **This is the
+deterministic model's own kernel**, so a disagreement here is a defect
+rather than a modelling difference.
+
+###### `AnisotropicCmAtRest`
+
+The nuclide's own ENDF MF=4 angular law, target still at rest. The
+difference from [`Self::IsotropicCmAtRest`] is the worth of anisotropy.
+
+###### `Production`
+
+Exactly what `transport_csg::transport_history` does: the bound-atom
+S(α,β) law where the nuclide has one, otherwise free-gas with the
+target's own thermal motion sampled below `400·kT`.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ScatterKernel { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ScatterKernel) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SlowingDownGrid`
+
+The slowing-down problem reduced to numbers: everything
+[`solve_on_grid`] needs, and nothing about where it came from.
+
+Keeping this separate from the nuclear data is what lets the solver be
+checked against a **closed-form** answer rather than only against itself:
+a medium with constant cross sections has an exact solution (see
+`tests/ring_rpt_hunt_lessons.rs`), and constructing one here takes three
+lines and no ENDF tape.
+
+```rust
+pub struct SlowingDownGrid {
+    pub lethargy: Vec<f64>,
+    pub scatter_frac: Vec<Vec<f64>>,
+    pub absorb_frac: Vec<Vec<f64>>,
+    pub alpha: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lethargy` | `Vec<f64>` | Lethargy `u = ln(e_top/E)`, strictly increasing and starting at 0. |
+| `scatter_frac` | `Vec<Vec<f64>>` | Per component, per grid point: the probability that a collision is a<br>**scatter off this component**, `N_i σ_s,i / Σ_t`. |
+| `absorb_frac` | `Vec<Vec<f64>>` | Per component, per grid point: the probability that a collision is an<br>**absorption in this component**, `N_i σ_a,i / Σ_t`. |
+| `alpha` | `Vec<f64>` | Per component: `α = ((A−1)/(A+1))²`, the maximum fractional energy loss. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SlowingDownGrid { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `InfiniteMediumMc`
+
+Monte-Carlo random walk through the same infinite homogeneous medium, using
+the crate's own collision kernels.
+
+There is no geometry: in an infinite homogeneous medium the flight length
+never matters to the outcome, only the sequence of collisions does, so a
+history is a loop over collisions. What *is* shared with the real transport
+loop is everything that decides those collisions — the ∝ `N_i σ_t,i` nuclide
+sampling, the fission/absorption/inelastic/(n,2n)/elastic partition against a
+uniform `ξ·σ_t`, and (under [`ScatterKernel::Production`]) the very same
+`sample_thermal` → `free_gas_elastic_scatter` branch. That is the point: this
+is not a reimplementation of the physics, it is the physics under a geometry
+simple enough to have an exact answer.
+
+```rust
+pub struct InfiniteMediumMc {
+    pub histories: usize,
+    pub seed: u64,
+    pub kernel: ScatterKernel,
+    pub max_collisions: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `histories` | `usize` | Source neutrons to follow. |
+| `seed` | `u64` | Master RNG seed. |
+| `kernel` | `ScatterKernel` | Which elastic kernel to use — see [`ScatterKernel`]. |
+| `max_collisions` | `u32` | Guard against a history that will not terminate. A neutron off U-238<br>loses at most 1.7 % per collision, so a band two decades wide needs a few<br>hundred collisions at worst; this is far above that, and being hit is a<br>defect, not a tuning parameter. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn run(self: &Self, nuclides: &[Nuclide], mix: &[MixComponent], band: SlowingDownBand, temp_k: f64) -> SlowingDownResult { /* ... */ }
+  ```
+  Follow `histories` neutrons from `band.e_top` until each is absorbed or
+
+- ```rust
+  pub fn stderr_of(self: &Self, p: f64) -> f64 { /* ... */ }
+  ```
+  1σ on a scored fraction `p` from `histories` independent binomial trials.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> InfiniteMediumMc { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LumpCellMc`
+
+Monte-Carlo slowing down through a **Wigner-Seitz cell** — a fuel lump inside
+a moderator shell with a reflective outer boundary — using the crate's real
+CSG transport.
+
+# Why this exists
+
+[`InfiniteMediumMc`] against [`solve_on_grid`] established that this crate's
+*energy* treatment of self-shielded resonance absorption is right (agreement
+at every dilution from `σ_b = 30 b` to 10 000 b, an 11.7× collapse of the
+effective resonance integral). That leaves the **spatial** half: what happens
+to the flux inside an optically thick lump, which is the one mechanism the
+FHR pebble and ICSBEP LEU-COMP-THERM-008 share and the three reproduced
+benchmarks do not.
+
+This walker is deliberately *not* a re-implementation. Its flights, boundary
+crossings and collisions go through [`Geometry::locate`],
+[`Geometry::distance_to_boundary`] and [`Geometry::cross_surface`] — the same
+calls `transport_csg::transport_history` makes — so what is under test is the
+real spatial machinery. Only fission banking and the tally plumbing are left
+out, because a resonance-escape measurement is a per-history outcome rather
+than a track-length score.
+
+# The oracle: the thin-lump limit is exact
+
+Scale the lump and the cell down together at fixed composition and the
+optical thickness of both regions goes to zero, so the cell becomes
+**exactly** the homogeneous medium [`solve_on_grid`] solves. That gives a
+reference that owes nothing to equivalence theory, rational approximations or
+any remembered correlation:
+
+- at small scale the answer **must** converge on the homogeneous solution, and
+  if it does not, the spatial machinery is broken and the scan says by how
+  much;
+- as the scale grows the absorption must fall monotonically, because that is
+  what lumping *is*;
+- and the size of the fall at a realistic scale is the lumping reactivity,
+  the quantity the ring-RPT residual is now narrowed to.
+
+# The outer boundary must be WHITE, and that is not a detail
+
+A **specularly** reflective sphere is not a valid Wigner-Seitz boundary, and
+the way it fails is silent. Specular reflection off a sphere concentric with
+the lump conserves the impact parameter `b = r·sin θ` exactly: a neutron
+leaves at the same angle to the radius it arrived at, so its closest approach
+to the centre never changes. **A neutron with `b > R_lump` can therefore
+never enter the lump, at any energy, for the whole of its life.** The lump is
+starved of exactly the neutrons that should be sampling it, and the effect is
+*scale-invariant* — it does not weaken as the lump shrinks, because it is
+geometry, not optics.
+
+Measured here before the fix: a lump **0.034 mean free paths** across at the
+6.67 eV resonance peak — optically transparent, so the cell is provably the
+homogeneous mixture — returned a resonance escape probability **39 % above**
+the exact homogeneous answer, and the same 39 % at 0.10, 0.86 and 2.57 mean
+free paths. A flat offset across two decades of optical thickness is the
+fingerprint: self-shielding cannot do that, and geometry can.
+
+[`CellBoundary::White`] is therefore the default: a neutron reaching the
+outer surface re-enters at a **random** point on it with a cosine-distributed
+inward direction, which is the standard Wigner-Seitz closure and destroys the
+invariant. [`CellBoundary::Specular`] is kept only so the defect can be
+demonstrated rather than described.
+
+(The FHR ring-RPT pebble is run on a specularly reflective sphere by *both*
+this crate and its OpenMC reference, so that comparison stays like-for-like;
+the artefact is in the shared model, not in one side of it.)
+
+# Source
+
+Uniform in the cell volume at `band.e_top`, matching [`InfiniteMediumMc`]'s
+unit source so the thin-lump limit is a like-for-like comparison. At 10 keV —
+well above the resolved resonances that matter — the real slowing-down source
+is close to spatially flat, so this is also the physically right choice, not
+only the convenient one.
+
+```rust
+pub struct LumpCellMc {
+    pub histories: usize,
+    pub seed: u64,
+    pub kernel: ScatterKernel,
+    pub boundary: CellBoundary,
+    pub max_events: u32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `histories` | `usize` | Source neutrons to follow. |
+| `seed` | `u64` | Master RNG seed. |
+| `kernel` | `ScatterKernel` | Which elastic kernel to use — see [`ScatterKernel`]. |
+| `boundary` | `CellBoundary` | How the outer surface returns a neutron to the cell. **Leave this<br>[`CellBoundary::White`]** unless you are demonstrating the specular<br>defect — see the type docs. |
+| `max_events` | `u32` | Guard against a history that will not terminate (flights *and*<br>collisions, so a neutron trapped on a surface trips it). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn run(self: &Self, geom: &Geometry, materials: &[Material], nuclides: &[Nuclide], band: SlowingDownBand, temp_k: f64, cell_radius: f64) -> LumpCellResult { /* ... */ }
+  ```
+  Follow `histories` neutrons from `band.e_top`, born uniformly in the ball
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LumpCellMc { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `CellBoundary`
+
+How a neutron reaching the cell's outer surface is returned to it.
+
+```rust
+pub enum CellBoundary {
+    White,
+    Specular,
+}
+```
+
+##### Variants
+
+###### `White`
+
+Re-enter at a **random** point on the outer sphere with a
+cosine-distributed inward direction — the standard Wigner-Seitz closure.
+Build the geometry with a **vacuum** outer surface and this variant
+intercepts the escape.
+
+###### `Specular`
+
+Let the geometry's own reflective boundary handle it. **For a sphere this
+is wrong**, in the specific and silent way described on [`LumpCellMc`]:
+it conserves the impact parameter and can starve the lump entirely.
+Retained so the defect stays reproducible.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CellBoundary { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CellBoundary) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `LumpCellResult`
+
+Outcome of a [`LumpCellMc`] run, as fractions of one source neutron.
+
+```rust
+pub struct LumpCellResult {
+    pub absorbed_by: Vec<f64>,
+    pub escaped: f64,
+    pub lost: f64,
+    pub histories: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `absorbed_by` | `Vec<f64>` | Fraction absorbed in each **material**, in the geometry's own order. |
+| `escaped` | `f64` | Fraction that reached `band.e_bot` still alive — the resonance escape<br>probability over the band. |
+| `lost` | `f64` | Fraction that left the geometry or was lost in it. Should be zero for a<br>reflective cell; anything else is a geometry defect, not physics. |
+| `histories` | `usize` | Histories run, for the binomial standard error. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn stderr_of(self: &Self, p: f64) -> f64 { /* ... */ }
+  ```
+  1σ on a scored fraction `p`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> LumpCellResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &LumpCellResult) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `ShellCell`
+
+A concentric-sphere cell for [`solve_deterministic_multiregion`]: the shell
+radii and which material fills each shell.
+
+Shells are flux regions as well as material regions, so subdividing one
+material into several shells is how the flat-flux approximation is refined.
+See [`solve_deterministic_multiregion`] for why that matters at 6.6 mean free
+paths.
+
+```rust
+pub struct ShellCell {
+    pub radii: Vec<f64>,
+    pub material: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radii` | `Vec<f64>` | **Outer** radius of each shell \[cm\], strictly increasing. |
+| `material` | `Vec<usize>` | Index into the caller's material array, one per shell. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn subdivide(self: &Self, k: usize) -> ShellCell { /* ... */ }
+  ```
+  Subdivide every shell into `k` sub-shells of **equal volume**, keeping
+
+- ```rust
+  pub fn subdivide_each(self: &Self, k: &[usize]) -> ShellCell { /* ... */ }
+  ```
+  Subdivide shell `s` into `k[s]` equal-volume sub-shells.
+
+- ```rust
+  pub fn volumes(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Shell volumes \[cm³\].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ShellCell { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &ShellCell) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `MultiRegionResult`
+
+Where the source neutrons ended up in a [`ShellCell`], as fractions of one
+source neutron.
+
+```rust
+pub struct MultiRegionResult {
+    pub absorbed_by_shell: Vec<f64>,
+    pub absorbed_by_material: Vec<f64>,
+    pub escaped: f64,
+    pub worst_conservation_defect: f64,
+    pub grid_points: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `absorbed_by_shell` | `Vec<f64>` | Fraction absorbed in each **shell**, in the cell's own order. |
+| `absorbed_by_material` | `Vec<f64>` | Fraction absorbed in each **material**, in the caller's own order. |
+| `escaped` | `f64` | Fraction that reached `band.e_bot` still alive — the resonance escape<br>probability over the band, directly comparable with<br>[`LumpCellResult::escaped`] and with [`SlowingDownResult::escaped`]. |
+| `worst_conservation_defect` | `f64` | Worst `|Σ_j P_ij − 1|` seen over the whole lethargy sweep. Analytically<br>zero; what is left is the impact-parameter quadrature's own error, so<br>this is the solve's live accuracy monitor. |
+| `grid_points` | `usize` | Lethargy points used. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn absorbed(self: &Self) -> f64 { /* ... */ }
+  ```
+  Total absorbed fraction — one minus the escape probability.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> MultiRegionResult { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &MultiRegionResult) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `solve_on_grid`
+
+Solve the infinite-medium slowing-down equation on a prepared grid.
+
+See the module docs for the equation and for why the separable kernel makes
+this O(N) in the grid size.
+
+# The source
+
+A mono-energetic source at the top of the band enters as a delta in the
+collision density: its first collision happens at `u = 0` with unit weight,
+so the absorbed fraction picks up `(Σ_a,i/Σ_t)(0)` directly and the scattered
+part seeds the running integrals. [`InfiniteMediumMc`] starts its histories
+the same way, so the two share the transient rather than having to argue
+about it.
+
+# Accuracy, and the one way to get it badly wrong
+
+The only approximation is the grid, and the failure mode is specific: the
+scatter-in window for component `i` is `ε_i = ln(1/α_i)` wide, which for
+**U-238 is 0.0169 lethargy**. A grid interval wider than that cannot
+represent the integral at all, and the solve does not diverge — it quietly
+returns a far too *absorbing* answer. A resonance-adaptive energy grid is
+exactly the kind that has such intervals, because it is dense at resonances
+and sparse between them.
+
+[`slowing_down_grid`] therefore caps the lethargy step at a fraction of the
+narrowest window, and [`solve_on_grid`] asserts the cap held. Grid
+convergence must still be demonstrated rather than assumed — solve twice, the
+second time on [`refine_lethargy_grid`]'s output.
+
+```rust
+pub fn solve_on_grid(g: &SlowingDownGrid) -> SlowingDownResult { /* ... */ }
+```
+
+#### Function `slowing_down_grid`
+
+Build a [`SlowingDownGrid`] from real nuclear data.
+
+`grid_ev` supplies the *energy* resolution — pass the union of the nuclides'
+own [`Nuclide::native_energy_grid`]s, which resolves every resonance the
+reconstruction resolved. This function then supplies the *lethargy*
+resolution the solver needs, subdividing any interval wider than
+`ε_min / steps_per_window` (see [`solve_on_grid`] for why that matters).
+`steps_per_window = 20` is a sound default.
+
+The branch probabilities are built exactly as the Monte Carlo's reaction
+partition computes them: the nuclide is sampled ∝ `N_i σ_t,i` and the channel
+within it ∝ `σ_x/σ_t,i`, so a scatter off `i` has per-collision probability
+`N_i σ_s,i / Σ_t`, with `σ_s` the transport loop's own residual branch —
+total minus absorption, inelastic and (n,2n).
+
+```rust
+pub fn slowing_down_grid(nuclides: &[crate::material::nuclide::Nuclide], mix: &[MixComponent], band: SlowingDownBand, temp_k: f64, grid_ev: &[f64], steps_per_window: usize) -> SlowingDownGrid { /* ... */ }
+```
+
+#### Function `solve_deterministic`
+
+[`slowing_down_grid`] + [`solve_on_grid`] in one call, with the default
+20 lethargy steps per scattering window.
+
+```rust
+pub fn solve_deterministic(nuclides: &[crate::material::nuclide::Nuclide], mix: &[MixComponent], band: SlowingDownBand, temp_k: f64, grid_ev: &[f64]) -> SlowingDownResult { /* ... */ }
+```
+
+#### Function `refine_lethargy_grid`
+
+Bisect every interval of an energy grid in **lethargy**, returning a grid
+with one extra point between each neighbouring pair.
+
+This is the grid-convergence lever for [`solve_deterministic`]: solve on
+`grid`, solve again on `refine_lethargy_grid(grid)`, and the difference
+bounds the discretisation error. Bisecting in lethargy rather than in energy
+keeps the refinement uniform in the variable the equation is written in.
+
+```rust
+pub fn refine_lethargy_grid(grid_ev: &[f64]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `solve_deterministic_multiregion`
+
+**Attributes:**
+
+- `Other("#[allow(clippy::too_many_arguments)]")`
+
+Solve the slowing-down equation on a **concentric-sphere cell** — the lumped
+problem — deterministically, with no Monte Carlo anywhere in it.
+
+# What this is for
+
+[`solve_on_grid`] is exact for an infinite homogeneous medium and settled the
+*energy* half of self-shielding. This is its spatial extension, and it exists
+because the FHR ring-RPT fuel annulus (1.4934–1.7531 cm, ≈ 6.6 mean free
+paths at the 6.674 eV U-238 peak) is **deeply self-shielded and had no
+reference**: `examples/lump_self_shielding_scan.rs` anchors only the
+transparent limit and then reports a monotone trend with nothing to check it
+against.
+
+# The equations
+
+Per unit lethargy, with `C_i(u)` the total collision rate in shell `i` and
+`s_i(u)` the total emission rate,
+
+```text
+C_i(u) = Σ_j s_j(u) · P_{j→i}(u)
+s_i(u) = q_i δ(u) + Σ_k (1/(1−α_k)) ∫_{u−ε_k}^{u} c_{i,k}(u′) C_i(u′) e^{−(u−u′)} du′
+```
+
+with `c_{i,k} = Σ_{s,k}/Σ_{t,i}` the probability that a collision in shell `i`
+is a scatter off nuclide `k`, and `q_i = V_i/V_cell` the uniform unit source.
+Setting `P_{j→i} = δ_{ji}` recovers [`solve_on_grid`] line for line, which is
+the point: the *only* new ingredient is the spatial coupling.
+
+`P_{j→i}(u)` are the **exact** first-flight collision probabilities of the
+cell at that energy, from
+[`crate::physics::collision_probability::first_flight`] — an impact-parameter
+track quadrature of the analytic six-fold integral, closed with a white outer
+boundary. They are recomputed at every lethargy point, so a resonance is
+self-shielded spatially as well as in energy.
+
+The lethargy march, the separable `e^{−(u−u′)}` kernel and the `ε_k`-wide
+lookback are [`solve_on_grid`]'s, so the two share their discretisation and
+the homogeneous limit below is a like-for-like test of the *coupling*.
+Because `d_i = Σ_k ½Δu·c_{i,k}` is O(10⁻⁴) at the grid spacing this solver
+insists on, the per-point `n_shell × n_shell` implicit system is solved by
+four fixed-point sweeps, converged to O(10⁻¹⁵).
+
+# The one approximation, and how it is removed
+
+Flat flux and flat source **within a shell**. That is a discretisation, not a
+modelling choice: [`ShellCell::subdivide`] splits every shell into equal-volume
+sub-shells, and the answer must converge. Refinement is the accuracy
+statement, and callers are expected to demonstrate it rather than assume it —
+`examples/lump_self_shielding_scan.rs` does.
+
+# The exact test this construction admits
+
+Give every shell the **same** material. Then `Σ_j V_j P_{j→i} = V_i` follows
+from reciprocity plus conservation, so `C_i ∝ V_i` solves the coupled system
+and the cell must return the infinite-medium answer **identically, at every
+geometric size**. Nothing in the quadrature, the closure or the coupling is
+free to be wrong and still pass that, which is why it is the first gate in
+`tests/lump_collision_probability.rs`.
+
+```rust
+pub fn solve_deterministic_multiregion(cell: &ShellCell, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], band: SlowingDownBand, temp_k: f64, grid_ev: &[f64], cp_nodes: usize, steps_per_window: usize) -> MultiRegionResult { /* ... */ }
+```
+
+## Module `collision_probability`
+
+First-flight **collision probabilities** for concentric spheres, computed by
+exact track quadrature — the geometric half of an oracle for resonance
+absorption in an optically thick lump.
+
+# Why this module exists
+
+[`crate::physics::slowing_down::solve_on_grid`] gives the **exact** answer
+for an infinite *homogeneous* medium, and `examples/slowing_down_oracle.rs`
+showed the Monte Carlo reproduces it at every dilution from σ_b = 30 b to
+10 000 b. That closed the *energy* half of self-shielding.
+
+The *spatial* half had no oracle at the working point.
+`examples/lump_self_shielding_scan.rs` anchors the **transparent** limit
+(−0.51 % against the exact homogeneous solution at 0.10 mean free paths) and
+then reports a monotone rise with lump size with nothing to check it against.
+The FHR ring-RPT fuel annulus is 1.4934–1.7531 cm and is **≈ 6.6 mean free
+paths thick at the 6.674 eV U-238 resonance peak**, where that concentration
+of the whole heavy-metal inventory is worth +3327 pcm over naive
+homogenisation. Nothing checked whether it is the *right* +3327 pcm.
+
+This module supplies what was missing: a way to compute, without any Monte
+Carlo, the probability that a neutron born uniformly and isotropically in
+shell `i` of a concentric-sphere cell has its **first collision** in shell
+`j`. Feeding those into a multi-region slowing-down solve
+([`crate::physics::slowing_down::solve_deterministic_multiregion`]) gives a
+deterministic reference for the lumped resonance absorption itself.
+
+# The quadrature, and why it is exact rather than approximate
+
+For a flat isotropic source in region `i`,
+
+```text
+V_i Σ_i P_ij = ∫_{V_i} dr ∫_{V_j} dr′ Σ_i Σ_j e^{−τ(r,r′)} / (4π|r−r′|²)
+```
+
+Writing `r′ = r + sΩ` and reorganising `∫_{V_i} dr ∫ dΩ/4π` into families of
+parallel lines (`∫ dΩ/4π ∫ dA_⊥ ∫ dt`) collapses the six-dimensional
+integral onto straight **tracks**. On one track the double segment integral
+is elementary,
+
+```text
+∫_{t∈a} dt ∫_{s∈b, s>t} ds Σ_i Σ_j e^{−τ} = (1−e^{−τ_a})(1−e^{−τ_b}) e^{−τ_between}
+```
+
+— the cross sections cancel — and for a **spherically symmetric** geometry
+every direction `Ω` gives the same track family, so `∫dΩ/4π` is free and what
+is left is a **one-dimensional** integral over the impact parameter `p`:
+
+```text
+V_i Σ_i P_ij = ∫_0^{R} 2πp dp · Σ_{a∈i} Σ_{b∈j, b after a} (1−e^{−τ_a})(1−e^{−τ_b}) e^{−τ_between}
+```
+
+with the same-segment term `τ_a − 1 + e^{−τ_a}` for `a = b`. The only
+approximation left is the quadrature in `p`, and the integrand is smooth once
+each shell interval is mapped through `p² = r_k² − s²` (which is exactly the
+substitution that removes the square-root turning point at `p = r_k`). Gauss–
+Legendre in `s` then converges geometrically; [`first_flight`] takes the node
+count so convergence can be **demonstrated** rather than asserted.
+
+Only "flat and isotropic **within a shell**" is physics rather than
+quadrature — and that is a discretisation, removed by subdividing, not a
+modelling choice. [`crate::physics::slowing_down::solve_deterministic_multiregion`]
+exposes the subdivision for exactly that reason.
+
+# The white-boundary closure
+
+A Wigner–Seitz cell is closed with a **white** outer boundary (re-entry at a
+random point with a cosine-distributed inward direction), which is what
+`LumpCellMc` does and what
+`examples/lump_self_shielding_scan.rs` documents at length: a *specular*
+sphere conserves the impact parameter and silently starves the lump.
+
+Tracks that leave the cell are therefore not lost, they are reinjected. The
+standard closure is exact and needs only two more quadratures on the same
+tracks — the escape probabilities `P_iS` and the surface-to-region
+probabilities `P_Sj` for an isotropic incident flux:
+
+```text
+P_ij = P_ij⁰ + P_iS · P_Sj / (1 − P_SS),      P_SS = 1 − Σ_j P_Sj
+```
+
+Because `Σ_j P_Sj/(1−P_SS) = 1` by construction, `Σ_j P_ij = Σ_j P_ij⁰ +
+P_iS = 1` identically: the closed cell conserves neutrons exactly, and
+[`CollisionProbabilities::conservation_defect`] measures it as a check on the
+quadrature rather than as an assumption.
+
+# What it was measured against (2026-09-12)
+
+- the closed-form escape probability of a bare sphere,
+  `P_esc(x) = (3/4x)[1 − 1/(2x²) + (1/x + 1/(2x²))e^{−2x}]`, over
+  `x = 10⁻³ … 10²` at ten points per decade — worst relative departure
+  **1.09e-4** at 8 Gauss nodes per shell interval, **6.62e-6** at 16 and
+  **1.54e-13** at 48, so the convergence is demonstrated rather than
+  asserted;
+- the reciprocity identity `4 V_i Σ_i P_iS = A P_Si` on a four-shell cell at
+  three cross-section sets spanning four decades (including a near-void
+  shell next to a near-black one, which is what a resonance peak makes):
+  worst **3.7e-16** relative;
+- conservation `Σ_j P_ij = 1` after the white closure: worst **8.9e-16**;
+- invariance under splitting a homogeneous sphere of `Σ_t R = 5` into 1, 2,
+  5 and 20 shells: worst **4.4e-16** on the aggregate escape probability;
+- the Gauss–Legendre generator against `∫_{−1}^{1} x^{2m} dx` for every even
+  moment a rule is exact for, `n = 2 … 64`: worst **1.68e-14**.
+
+And, through
+[`crate::physics::slowing_down::solve_deterministic_multiregion`], against
+the infinite-medium solution: a cell whose every shell carries the **same**
+material must return [`crate::physics::slowing_down::solve_on_grid`]'s
+answer identically, and does, to **1.1e-12** at cell radii from 0.01 cm to
+100 cm and 3 to 24 shells.
+
+The regression form of all of these is
+`tests/lump_collision_probability.rs`.
+
+# The closed form was the thing that was wrong
+
+The first draft of [`sphere_escape_probability`]'s small-`x` series carried
+`−(1/5)x³` where the expansion gives `−(1/6)x³`. [`first_flight`] disagreed
+with it by 2.1e-6 at `x = 0.0398` and 3.3e-8 at `x = 0.01` — exactly
+`(1/5 − 1/6)x³`. The numerical method was right and the hand-derived oracle
+was wrong, which is the argument for keeping two independent routes to the
+same number even when one of them is "analytic".
+
+```rust
+pub mod collision_probability { /* ... */ }
+```
+
+### Types
+
+#### Struct `CollisionProbabilities`
+
+```rust
+pub struct CollisionProbabilities {
+    pub n: usize,
+    pub p: Vec<f64>,
+    pub p_open: Vec<f64>,
+    pub p_escape: Vec<f64>,
+    pub p_surface_to: Vec<f64>,
+    pub volume: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n` | `usize` | Number of shells (= number of flux regions). |
+| `p` | `Vec<f64>` | `p[i * n + j]` = probability that a neutron born flat-isotropic in shell<br>`i` has its first collision in shell `j`, **after** white re-entry. Rows<br>sum to 1. |
+| `p_open` | `Vec<f64>` | `p_open[i * n + j]` — the same, but with the outer surface treated as a<br>vacuum (no re-entry). Rows sum to `1 − p_escape[i]`. |
+| `p_escape` | `Vec<f64>` | Probability that a neutron born flat-isotropic in shell `i` reaches the<br>outer surface uncollided. |
+| `p_surface_to` | `Vec<f64>` | Probability that a neutron entering through the outer surface with an<br>isotropic incident flux has its first collision in shell `j`. |
+| `volume` | `Vec<f64>` | Shell volumes \[cm³\], for reciprocity checks and for volume weighting. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn p_at(self: &Self, i: usize, j: usize) -> f64 { /* ... */ }
+  ```
+  `P_{i→j}` under the white closure.
+
+- ```rust
+  pub fn conservation_defect(self: &Self) -> f64 { /* ... */ }
+  ```
+  Worst `|Σ_j P_ij − 1|` over the rows. Exactly zero is the analytic value;
+
+- ```rust
+  pub fn reciprocity_defect(self: &Self, sigma_t: &[f64], r_out: f64) -> f64 { /* ... */ }
+  ```
+  Worst relative departure from the surface reciprocity identity
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CollisionProbabilities { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CollisionProbabilities) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `sphere_escape_probability`
+
+Closed-form escape probability of a **bare homogeneous sphere** of optical
+radius `x = Σ_t R`, for a uniform isotropic source.
+
+```text
+P_esc(x) = (3 / 4x) · [ 1 − 1/(2x²) + (1/x + 1/(2x²)) e^{−2x} ]
+```
+
+`P_esc → 1 − (3/4)x + (2/5)x²` as `x → 0` and `→ 3/(4x) = 1/(Σ_t l̄)` as
+`x → ∞`, with `l̄ = 4V/S = 4R/3` the mean chord. The series form is used
+below `x = 0.05`, where the closed form cancels catastrophically.
+
+This is the oracle [`first_flight`] is checked against; it is *not* used to
+compute anything.
+
+```rust
+pub fn sphere_escape_probability(x: f64) -> f64 { /* ... */ }
+```
+
+#### Function `first_flight`
+
+Compute the first-flight collision probabilities of a concentric-sphere cell.
+
+`radii` are the **outer** radii of the shells, strictly increasing and all
+positive; `sigma_t[k]` is the macroscopic total cross section \[cm⁻¹\] of
+shell `k`. `nodes` is the Gauss–Legendre order used on each impact-parameter
+interval — 32 is already at round-off for smooth cases, and the parameter
+exists so convergence can be shown.
+
+Cost is `O(nodes · n_shells³)`: each of the `nodes · n_shells` tracks carries
+up to `2·n_shells − 1` segments and the segment pair loop is quadratic in
+that. No transcendental function is evaluated inside the pair loop — the
+running attenuation between two segments is accumulated multiplicatively —
+so this is cheap enough to call at every point of a resonance-resolved
+lethargy grid.
+
+```rust
+pub fn first_flight(radii: &[f64], sigma_t: &[f64], nodes: usize) -> CollisionProbabilities { /* ... */ }
+```
+
+#### Function `gauss_legendre`
+
+Gauss–Legendre nodes and weights on `[−1, 1]`, by Newton iteration on the
+Legendre polynomial with the standard Tricomi starting guess.
+
+Written here rather than pulled in so the quadrature the oracle rests on has
+no external dependency; it is checked against `∫_{−1}^{1} x^{2m} dx` in
+`tests/lump_collision_probability.rs`.
+
+```rust
+pub fn gauss_legendre(n: usize) -> (Vec<f64>, Vec<f64>) { /* ... */ }
+```
+
+## Module `dh_universe`
+
+**Doubly heterogeneous universes** — one enum to choose how the particles
+are resolved, and one call to get an eigenvalue out.
+
+A *doubly heterogeneous* (DH) medium has structure at two scales: fuel
+particles a few hundred microns across, dispersed through a matrix that is
+itself a region of a reactor. A pebble holds O(10^4) TRISO particles; a
+dispersion-fuel plate holds a comparable number. Resolving every particle is
+exact and expensive, so practical calculations pick a treatment — and the
+whole point of this module is that picking one should be a single enum
+variant, not a different program.
+
+```no_run
+use outram_mc_libs::prelude::*;
+# let materials: Vec<Material> = Vec::new();
+# let nuclides: Vec<Nuclide> = Vec::new();
+
+let universe = DhUniverse::pebble(
+    PebbleParams::fhr_reference().with_materials(materials),
+    DhTreatment::DeltaTracking,
+)?;
+let result = universe.keff(&nuclides, &KeffSettings::default());
+println!("k_eff = {:.5} +/- {:.5}", result.k_mean, result.k_std);
+# Ok::<(), DhError>(())
+```
+
+See [Building the material table](#building-the-material-table) below for
+what goes in `materials` — it is the one thing a caller must supply.
+
+Swap `DhTreatment::DeltaTracking` for any other [`DhTreatment`] variant and
+nothing else changes.
+
+# Building the material table
+
+A pebble needs **seven** materials, in this order — the five TRISO layers
+outward from the centre, then the fuel-zone matrix, then the fuel-free outer
+shell — or **eight** with a coolant shell ([`PebbleParams::with_coolant`],
+[`PebbleParams::fhr_unit_cell`]). The count and order are **checked**: a
+short or misordered table is a [`DhError::Materials`], not a silent wrong
+answer.
+
+```no_run
+use outram_mc_libs::prelude::*;
+use outram_mc_libs::material::material::NuclideComponent;
+
+// Nuclide indices refer to positions in the `nuclides` slice passed to keff().
+let nuclides: Vec<Nuclide> = ["U235", "U238", "O16", "C0", "Si28"]
+    .iter()
+    .map(|n| Nuclide::from_core(n).unwrap())
+    .collect();
+let (u235, u238, o16, c, si) = (0, 1, 2, 3, 4);
+
+let mat = |id: i32, name: &str, comps: &[(usize, f64)]| Material {
+    id,
+    name: name.into(),
+    temperature: 293.6,
+    components: comps
+        .iter()
+        .map(|&(nuclide_idx, atom_density)| NuclideComponent { nuclide_idx, atom_density })
+        .collect(),
+};
+
+// atom densities in atoms/b-cm
+let materials = vec![
+    mat(0, "UCO kernel", &[(u235, 4.40e-3), (u238, 1.77e-2), (o16, 2.27e-2), (c, 9.10e-3)]),
+    mat(1, "buffer",     &[(c, 5.02e-2)]),
+    mat(2, "IPyC",       &[(c, 9.53e-2)]),
+    mat(3, "SiC",        &[(si, 4.79e-2), (c, 4.79e-2)]),
+    mat(4, "OPyC",       &[(c, 9.53e-2)]),
+    mat(5, "matrix",     &[(c, 8.53e-2)]),
+    mat(6, "shell",      &[(c, 8.78e-2)]),
+];
+
+let universe = DhUniverse::pebble(
+    PebbleParams::fhr_reference().with_materials(materials),
+    DhTreatment::DeltaTracking,
+)?;
+# Ok::<(), DhError>(())
+```
+
+Dispersed fuel needs only **two**: `[particle, matrix]`.
+
+# Choosing a treatment
+
+| Variant | Inclusion | Geometry stored | Exact? | Needs fitting | Geometry-only speed |
+|---|---|---|---|---|---|
+| [`DhTreatment::DeltaTracking`] | the real particle | every particle | **yes** | no | 1x (reference) |
+| [`DhTreatment::ChordLength`] | smeared particle | none | no | no | ~2.5-3x faster |
+| [`DhTreatment::ChordLengthKernel`] | **fuel kernel** | none | no | no | not measured |
+| [`DhTreatment::Scls`] | smeared particle | a retention window | no | no | ~1.5-2x faster |
+| [`DhTreatment::SclsKernel`] | **fuel kernel** | a retention window | no | no | not measured |
+| [`DhTreatment::Homogenised`] | none (smeared) | none (smeared) | no | no | ~8x faster |
+| [`DhTreatment::RingRpt`] | none (fitted annulus) | none (fitted annulus) | no | **yes** | ~8x faster |
+
+**The `Inclusion` column is the one that decides accuracy on doubly
+heterogeneous fuel, and it is why there are two CLS arms and two SCLS arms.**
+Taking the *smeared particle* as the inclusion dilutes the fuel kernel
+through its own coatings before the sampler ever sees it, which destroys
+grain-level resonance self-shielding — the effect the whole treatment
+exists to capture. The kernel-level variants take the undiluted kernel
+instead. On the FHR reference unit cell that is worth **+3818 pcm**; see
+`docs/cls-scls-vv.md` for the measurement and for what it costs.
+
+The two `not measured` cells are honest rather than pessimistic: the
+geometry-only microbenchmark has not been re-run for the kernel arms. Their
+*eigenvalue-run* cost has been measured and is in that V&V doc, and it is
+not favourable — restoring the undiluted kernel restores delta tracking's
+majorant, so most of the speed advantage goes with it.
+
+Measured eigenvalues and their biases live in `examples/dh_keff_vv.rs`,
+which runs every arm on one pebble and prints the table. They are **not**
+duplicated here, because a number copied into two places drifts — an earlier
+revision of this file advertised biases from a superseded run for exactly
+that reason.
+
+**Read a geometry-only speedup with suspicion, but not with the suspicion
+an earlier revision of this file recommended.** That revision reported every
+approximate treatment as *slower* than exact delta tracking in a real
+eigenvalue calculation. It was wrong: [`DhUniverse::keff`] was bounding its
+majorant over the whole material table, including the undiluted kernel no
+approximate geometry can return, which multiplied their virtual-collision
+counts by roughly 25x at the U-238 resonances. Bounding over reachable
+materials only (2026-09-14) put all four arms at **1.7-2.2x faster** than
+delta tracking. The geometry-only benchmark's 19-69x still does not
+transfer — the eigenvalue speedups are far smaller — but the sign was this
+crate's bug, not a property of the methods. Measure on your own case.
+
+# Ring-RPT needs a fitted radius, and there is an API for that
+
+[`DhTreatment::RingRpt`] carries an `inner_radius` that is a fitted
+equivalence, not a dimension you can look up. Published values are fitted
+against one fuel, one library and one code and do not transfer.
+[`fit_ring_rpt_inner_radius`] runs the fit for your own pebble — it solves
+the explicit pebble once for a target, then bisects the radius until
+ring-RPT matches — so the parameter is measured rather than borrowed.
+
+# Haiku dogfood record — 2026-09-14
+
+Per the workspace "dogfood the API on a small model" hard rule: a Haiku agent
+with **documentation only** — no repository access, no source, no compiler —
+was asked to build this pebble and solve its eigenvalue under every
+treatment.
+
+**It wrote correct code on the first attempt**, with zero wrong method names
+and zero wrong argument orders. It found `DhTreatment::ALL`, `is_exact()`,
+`name()`, `with_materials()` and `keff()` unaided. For contrast, the baseline
+recorded in the workspace `CLAUDE.md` is an *Opus* session guessing wrong ten
+times across six scripts against the older API, **with** source access.
+
+Self-rated confidence was 6/10 — and every reason it gave was about
+*adjacent* types rather than this enum. Those are the real findings, and they
+were fixed rather than filed:
+
+| It could not tell | Fix |
+|---|---|
+| Whether repeated `ChordLength` runs reproduce | [`DhUniverse::keff`] now has a Reproducibility section; the answer is backend-dependent, which it could not have guessed |
+| How to construct a `Material` at all — "I do not know what fields they have" | Worked material-table example added above |
+| Whether the 7-material contract is checked or merely stated | Now says explicitly that it is checked |
+| Why `DeltaTracking` is "exact" — no physics cited | [`DhTreatment::DeltaTracking`] now says unbiased-at-the-majorant, and what that does and does not mean |
+
+One finding came from running the doctests rather than from the agent: the
+module's own headline example **did not compile** (it used an undeclared
+`nuclides`). That is the same failure already recorded in
+[`crate::pebble_beds::fhr_pebble`] — an API that cannot be called from the
+module documenting it is not callable. Both examples are now compile-tested.
+
+**What the dogfood did NOT catch, and could not have.** The agent had only
+the documentation, and the documentation was *wrong*: the variant then named
+`RingRpt` did naive full-zone homogenisation while its rustdoc described the
+fitted-annulus method. Haiku wrote code that called it correctly and got a
+number that was not ring-RPT. A usability dogfood tests whether an API can be
+found and called; it cannot test whether the API does what it says. That
+needed a V&V run against a published reference, which is what eventually
+caught it — see the correction on [`DhTreatment`].
+
+Still open, deliberately: the agent could not find the field lists for
+`KeffResult`, `KeffSettings`, `Material` or `Nuclide`. Those are other
+modules' documentation debt, not this one's, and are not papered over here.
+
+# Scope
+
+Mono-material-per-region: each treatment answers "which material index is at
+this point?", and the caller supplies the material table. That is the seam
+every k-eff driver in this crate already consumes, which is why every
+treatment shares one transport path rather than each needing its own.
+
+```rust
+pub mod dh_universe { /* ... */ }
+```
+
+### Types
+
+#### Enum `DhTreatment`
+
+How the double heterogeneity is resolved.
+
+The four variants sit on one axis — how much particle geometry survives —
+and each gives something up in exchange for time.
+
+# A correction, 2026-09-14
+
+Until this revision there were three variants and the one named `RingRpt`
+did **naive full-fuel-zone homogenisation**: one smeared material filling
+`r < fuel_zone_radius`, with no inner ball and no fitted shell. Its own
+rustdoc described the fitted-shell method, so the name and the prose both
+promised something the code did not do, and a k-eff V&V run against it
+reported ring-RPT as costing **-5151 pcm** when the method it was named
+after costs about **-30 pcm**.
+
+The naive smear is still here and still useful — it is the "all double
+heterogeneity removed" upper bound on speedup — but it is now called
+[`Self::Homogenised`], which is what it is. [`Self::RingRpt`] is the real
+method and carries the fitted radius it cannot work without.
+
+```rust
+pub enum DhTreatment {
+    DeltaTracking,
+    ChordLength,
+    Scls,
+    ChordLengthKernel,
+    SclsKernel,
+    Homogenised,
+    RingRpt {
+        inner_radius: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `DeltaTracking`
+
+**Exact.** Every particle is stored; flights are sampled at a majorant
+and collisions accepted by rejection (Woodcock).
+
+Gives up nothing: rejection at the majorant is an *unbiased* estimator
+of the true collision density, so this reproduces the explicit-geometry
+answer to within its own statistics. That is what "exact" means here —
+no geometric approximation, not zero statistical error.
+
+The unbiasedness holds only while the majorant bounds the true total
+cross section everywhere; [`DhUniverse::keff`] builds one with margin
+for that reason. This is the reference the other two are judged against.
+
+###### `ChordLength`
+
+**Chord-length sampling.** No geometry is stored; particle crossings are
+resampled from closed-form chord statistics as the neutron flies.
+
+Gives up *memory of where the particles were*. A neutron that
+back-scatters re-crosses ground it has already covered and meets a
+freshly sampled medium rather than the one it just left, so CLS is
+least reliable in scattering-dominated, optically thick problems.
+
+# It also gives up grain-level self-shielding, and that is what costs
+
+**Measured 2026-09-18 on the FHR unit cell: `k = 1.34901 ± 0.00727`
+against an exact `1.38050 ± 0.00791` — `-3149 pcm`, resolved at 2.9σ.**
+That is only about 1000 pcm better than removing the double
+heterogeneity altogether, which is a poor showing for a stochastic-media
+method, and the reason is not the chord sampling.
+
+This variant takes the **whole particle** as the inclusion and fills it
+with a volume-homogenised kernel-plus-coatings material, which smears
+the fuel kernel over **7.7x its own volume** on the FHR spec. Resonance
+self-shielding is exactly what that dilution destroys, and grain-level
+shielding is the larger of the two effects a doubly-heterogeneous
+treatment exists to keep.
+
+[`Self::ChordLengthKernel`] applies CLS at the kernel instead and
+measures **`+669 pcm`, not resolved from exact (0.65σ)** — a recovery of
+**+3818 pcm** on the same problem, same seed, same fuel inventory.
+
+**Prefer [`Self::ChordLengthKernel`] for doubly-heterogeneous fuel.**
+This variant remains the right one for a genuinely single-level
+stochastic medium, where the inclusion really is the thing being
+sampled, and it is the faster of the two (68.9 s against 157.6 s) — but
+that speed is bought with the very dilution that loses the reactivity.
+See `docs/cls-scls-vv.md`.
+
+###### `Scls`
+
+**Semi-implicit chord-length sampling (SCLS).** CLS, but with bounded
+geometric memory: inclusions the neutron has already met are remembered
+inside a moving sphere of radius `transport_mfp + inclusion_radius`, so a
+back-scattered neutron re-meets the particle it just left instead of a
+freshly sampled one.
+
+This attacks exactly the weakness named on [`Self::ChordLength`], at the
+cost of carrying a retention window. Whether it is *closer* to exact is
+regime-dependent and this crate has measured it going the wrong way:
+`src/stochastic/benchmark.rs` finds CLS nearer an RSA reference than
+SCLS at pf 0.2, with SCLS over-correcting past it. Measure on your own
+problem; do not assume the more elaborate method wins.
+
+# Wiring, and a correction — 2026-09-14
+
+SCLS has two kinds of state and they are reset differently. The
+in-progress **flight** is per-history and is discarded at each history
+boundary through
+[`MaterialQuery::begin_history`](crate::pebble_beds::keff_delta::MaterialQuery::begin_history).
+The **retained inclusions** are not per-history at all — they are a
+progressively reconstructed model of the packing, and
+[`SclsMedium::begin_flight`](crate::stochastic::scls::SclsMedium::begin_flight)
+deliberately keeps them so a later history in the same neighbourhood
+still benefits.
+
+**Two defects here made this arm CLS in all but name, and both are
+fixed.** `begin_history` restored a pristine medium, wiping the retained
+geometry every history; and the retention window was seeded from
+`mean_chord_matrix()`, a *geometric* inter-inclusion distance, where the
+rule calls for a *transport mean free path* — 0.132 cm against ~2.6 cm
+on the FHR pebble, about **15x too small**. Both pushed SCLS towards CLS,
+and the V&V duly measured the two within statistics of each other. Any
+SCLS number recorded before 2026-09-14 is a measurement of that wiring,
+not of the method.
+
+# SCLS is the WRONG METHOD for a graphite pebble, and fixing the wiring is what showed it
+
+The retention window is `lambda_transport-mfp + R_largest`. In a
+graphite-moderated pebble at thermal energy that is about **2.68 cm**,
+against a fuel zone of radius **1.9 cm** — the window is larger than the
+region it is supposed to be a *local* view of.
+
+When the window exceeds the domain nothing is ever culled, so the
+retained set grows to every inclusion the neutron has ever met, and
+[`SclsMedium::material_at`](crate::stochastic::scls::SclsMedium::material_at)
+scans it **linearly on every query**. Bounded memory — the entire premise
+of the method — does not hold, and the result is slower than explicit
+delta tracking, which answers the same question from an O(1) grid.
+
+So SCLS pays off only where `lambda_tr` is genuinely *small* against the
+domain: optically thick media, strong absorbers, larger geometries. On
+this problem it is dominated by delta tracking on both accuracy and cost,
+and the honest recommendation is not to use it here. The window is capped
+at the domain (beyond it there is no geometry to retain) and a warning is
+logged, but a cap cannot rescue the premise.
+
+**Measured 2026-09-18**, FHR reference unit cell, 800 x [15 + 40], same
+seed and geometry as the exact arm:
+
+| | k | vs exact | time |
+|---|---|---|---|
+| delta tracking (exact) | 1.38050 +/- 0.00791 | — | 148.4 s |
+| this variant | 1.33799 +/- 0.00638 | **-4251 pcm** (4.2 sigma, resolved) | **2158.7 s** |
+
+**14.5x slower than the exact method it approximates, and resolved
+4251 pcm away from it.** For scale, naive homogenisation of the whole
+fuel zone scored -3403 pcm in 83.1 s on the same run — so on this problem
+SCLS is both *less accurate* and *26x more expensive* than smearing
+everything. That is the strongest form the recommendation above can take.
+
+Most of the -4251 pcm is **not** SCLS's retention machinery: this variant
+inherits the whole-particle homogenisation defect that
+[`Self::SclsKernel`] fixes. See `docs/cls-scls-vv.md`.
+
+This was invisible while the window was 15x too small: the wiring bug was
+hiding a methodological mismatch behind an accidental speed-up.
+
+###### `ChordLengthKernel`
+
+**Chord-length sampling at the KERNEL level** — CLS applied to the fuel
+kernels rather than to whole TRISO particles.
+
+# Why this variant exists
+
+[`Self::ChordLength`] takes the **whole particle** as the inclusion and
+fills it with a volume-homogenised kernel-plus-coatings material. That
+is a defensible reading of "the layering is below the model's
+resolution", but it **smears the fuel kernel over 7.7x its own volume**
+on the FHR reference spec (kernel `r = 0.0215 cm` inside an OPyC
+`r = 0.0425 cm`), and resonance self-shielding is precisely what that
+dilution destroys. Grain-level shielding is the larger of the two
+effects a doubly-heterogeneous treatment exists to keep, so discarding
+it leaves CLS only about 1000 pcm better than full homogenisation, which
+is what the measured eigenvalues show.
+
+This variant keeps it: the **inclusion is the kernel at full density**,
+and the matrix is everything else in the fuel zone — the four coating
+layers and the graphite matrix, homogenised together. The packing
+fraction follows from the geometry rather than being chosen:
+
+```text
+pf_kernel = pf_particle * (r_kernel / r_opyc)^3
+          = 0.30 * (0.0215/0.0425)^3 = 0.0388   (FHR reference)
+```
+
+# This also moves CLS into the regime where it is accurate
+
+`examples/cls_scls_regime_sweep.rs` measures CLS's error against
+explicit geometry as a function of packing fraction: **unresolved at
+`pf = 0.05`, and +0.0369 (about 5 combined standard errors) by
+`pf = 0.20`**, because the Markovian matrix chord cannot represent the
+exclusion correlation of non-overlapping spheres, and that correlation
+grows with `pf`. Whole-particle CLS runs at `pf = 0.30`, the worst end
+of that range and past where plain RSA can even build a packing.
+Kernel-level CLS runs at `pf = 0.039`, where the sweep says the method
+is accurate.
+
+So the two defects point the same way, and this variant addresses both:
+it keeps the shielding that matters and it uses CLS where CLS works.
+
+# What this variant still approximates — the coatings lose their address
+
+Fixing the inclusion does not make the treatment exact, and the residual
+is worth naming rather than leaving for a reader to discover.
+
+The buffer, IPyC, SiC and OPyC shells are **homogenised into the
+matrix**. Their inventory is conserved exactly — the fuel zone holds the
+same atoms of every nuclide as the whole-particle arm, pinned to 1e-12
+per nuclide by `kernel_level_cls_conserves_the_fuel_zone_inventory` —
+and the grain number density is preserved exactly too
+(`kernel_level_variants_preserve_the_grain_number_density`). What is lost
+is their **spatial correlation with the kernel**: physically every
+coating shell wraps a specific kernel, so a neutron leaving a kernel
+always crosses ~210 um of low-absorption carbon and SiC before it can
+reach graphite. In this model it instead enters a matrix that carries
+those materials at their *average* concentration everywhere, including
+far from any grain.
+
+Expected to be second order, for a stated reason: the coatings are
+carbon and SiC, i.e. scatterers with little absorption and no
+resonances of consequence, so what they perturb is the moderation a
+neutron undergoes between grains rather than the shielding of the
+resonance absorber itself. The large effect — the kernel's own U-238
+resonances seeing their true density instead of a 7.7x dilution — is
+the one this variant restores.
+
+**"Expected" is not "measured".** No ablation has separated this term,
+so it is a candidate for part of the residual bias against exact delta
+tracking, and it should not be quoted as small on the strength of the
+argument above. Isolating it needs a three-phase CLS (kernel / coating
+shell / graphite), which this module does not implement. See
+`docs/cls-scls-vv.md`.
+
+###### `SclsKernel`
+
+**Semi-implicit CLS at the KERNEL level** — [`Self::Scls`]'s retention
+window applied to a kernel-level medium rather than a whole-particle one.
+
+Exists because [`Self::Scls`] inherits the same defect
+[`Self::ChordLengthKernel`] fixes: it builds its inner CLS medium from
+the *whole particle* with the kernel smeared through it, so its measured
+`-3365 pcm` is mostly that homogenisation and not its retention
+machinery. Any comparison of SCLS against CLS that uses the
+whole-particle form is therefore comparing two treatments that share a
+larger error than the one being studied.
+
+# This does NOT make SCLS usable on a graphite pebble
+
+The retention window is `lambda_transport + R_largest`. Moving to the
+kernel shrinks `R_largest` from 0.0425 cm to 0.0215 cm, which is
+negligible beside a thermal `lambda_transport` of about 2.6 cm — still
+larger than the 1.9 cm fuel zone. The window is capped at the domain, so
+nothing is ever culled, the retained set grows without bound, and
+`material_at` scans it linearly. **SCLS remains slower than the exact
+delta tracking it approximates on this geometry, in both forms.**
+
+This variant is here so that SCLS is *correct* where it is appropriate —
+optically thick media, strong absorbers, geometries large against
+`lambda_transport` — not because it is recommended for an FHR pebble.
+See `docs/cls-scls-vv.md`.
+
+# Measured 2026-09-18 — FHR reference unit cell, 800 x [15 + 40]
+
+| | k | vs exact | sigma | time |
+|---|---|---|---|---|
+| delta tracking (exact) | 1.38050 +/- 0.00791 | — | — | 148.4 s |
+| [`Self::Scls`] (whole particle) | 1.33799 +/- 0.00638 | -4251 pcm | 4.2, **resolved** | 2158.7 s |
+| **this variant** | **1.37587 +/- 0.00625** | **-463 pcm** | **0.46, not resolved** | 3298.3 s |
+
+**Moving SCLS to the kernel recovers +3788 pcm** and leaves it the arm
+closest to exact of every approximation measured — 0.46 sigma, ahead of
+even [`Self::ChordLengthKernel`]'s 0.65 sigma.
+
+**The confirmation worth having is that this recovery matches CLS's.**
+[`Self::ChordLengthKernel`] recovers **+3818 pcm** on the same run; this
+variant recovers **+3788 pcm**. They agree to **30 pcm** against a
+combined standard error of order 1000 pcm, which is what must happen if
+the defect being removed is the shared homogenisation rather than
+anything either algorithm does — and the two share no sampling
+machinery (CLS re-samples chord statistics; SCLS ray-traces materialised
+spheres). Nothing in `build_kernel_level_cls` ties their eigenvalues
+together.
+
+**Cost is the opposite story: 22.2x exact delta tracking**, the most
+expensive arm measured, and 1.53x [`Self::Scls`]'s own cost. The
+recommendation above is unchanged and is now measured from both sides —
+on this geometry SCLS is accurate only at a price nothing here justifies.
+What it buys, as ever, is **O(1) memory**: 0 particles stored against
+delta tracking's 26 801.
+
+###### `Homogenised`
+
+**Naive homogenisation.** One smeared material — TRISO particles and
+the matrix they sit in, mixed at the packing fraction — fills the whole
+fuel zone. No double heterogeneity is left at all.
+
+Gives up *self-shielding entirely*: a neutron sees absorber spread
+everywhere at reduced density instead of concentrated in kernels it
+could have missed, so U-238's resonances lose the spatial shielding that
+protected them and reactivity drops hard. Measured at **-5151 pcm** on
+the bare reference pebble.
+
+Worth keeping despite that, because it is the **upper bound on what any
+DH treatment can save**: with the geometry gone completely, nothing
+cheaper is possible. Read its speed as a ceiling and its eigenvalue as a
+warning.
+
+The mixing conserves inventory. Filling the zone with pure particle
+material instead would give `1/pf` times the heavy metal and delete the
+matrix graphite that moderates the explicit pebble from the inside —
+that is a different reactor, not a homogenisation of this one.
+
+###### `RingRpt`
+
+**Ring-RPT.** The particles are dissolved into an equivalent *annulus*
+of homogenised material, wrapped around an inner ball of matrix
+graphite.
+
+This is the method [`Self::Homogenised`] is often confused with, and the
+difference is the whole point. Concentrating the smeared fuel into a
+shell at the right radius keeps much of the *radial* self-shielding that
+full homogenisation throws away, which is why it lands within tens of
+pcm of explicit TRISO where the naive smear is thousands out.
+
+`inner_radius` \[cm\] is the single fitted knob; the outer radius follows
+from conserving particle volume,
+`r_outer^3 = inner_radius^3 + pf * fuel_zone_radius^3`
+([`rpt_fuel_outer_radius`]). It is **fuel- and code-specific** — the
+reference value [`Self::FHR_REFERENCE_RPT_INNER`] was fitted against
+OpenMC for this crate's FHR pebble, and refitting it for another fuel,
+another data library, or another code is part of using the method, not
+an optional refinement. Passing a radius fitted elsewhere is the usual
+way to get a bad ring-RPT answer.
+
+# Errors
+
+[`DhUniverse::pebble`] returns [`DhError::Geometry`] if the conserved
+outer radius would fall outside the fuel zone, which happens when
+`inner_radius` is too large for the packing fraction.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inner_radius` | `f64` | Inner radius of the homogenised fuel annulus \[cm\]; the fitted knob. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn name(self: Self) -> &'static str { /* ... */ }
+  ```
+  Short human-readable name, e.g. for table rows.
+
+- ```rust
+  pub fn is_kernel_level(self: Self) -> bool { /* ... */ }
+  ```
+  Whether this treatment samples the **fuel kernel** as the inclusion
+
+- ```rust
+  pub fn is_exact(self: Self) -> bool { /* ... */ }
+  ```
+  Whether this treatment resolves the particle geometry exactly.
+
+- ```rust
+  pub fn needs_fitting(self: Self) -> bool { /* ... */ }
+  ```
+  Whether this treatment needs a parameter fitted against a reference
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DhTreatment { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DhTreatment) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `DhError`
+
+What went wrong building a [`DhUniverse`].
+
+```rust
+pub enum DhError {
+    Packing(String),
+    Geometry(String),
+    Materials(String),
+}
+```
+
+##### Variants
+
+###### `Packing`
+
+The particle packing could not be generated at the requested fraction.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Geometry`
+
+A geometric parameter was inconsistent, e.g. fuel zone outside the pebble.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Materials`
+
+The material table did not carry the indices the universe needs.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Error**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `PebbleParams`
+
+A spherical fuel pebble with TRISO particles in a graphite fuel zone.
+
+Radii are in cm and must satisfy `fuel_zone_radius < pebble_radius`.
+
+```rust
+pub struct PebbleParams {
+    pub spec: crate::pebble_beds::fhr_pebble::TrisoSpec,
+    pub fuel_zone_radius: f64,
+    pub pebble_radius: f64,
+    pub coolant_radius: Option<f64>,
+    pub materials: Vec<crate::material::material::Material>,
+    pub seed: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `spec` | `crate::pebble_beds::fhr_pebble::TrisoSpec` | TRISO layer radii and packing fraction. |
+| `fuel_zone_radius` | `f64` | Outer radius of the particle-bearing fuel zone \[cm\]. |
+| `pebble_radius` | `f64` | Outer radius of the whole pebble, including the fuel-free shell \[cm\]. |
+| `coolant_radius` | `Option<f64>` | Outer radius of a coolant shell around the pebble \[cm\], which becomes<br>the reflective boundary. `None` puts the boundary at the pebble surface<br>and models the pebble alone. Set it with [`Self::with_coolant`]. |
+| `materials` | `Vec<crate::material::material::Material>` | Material table. Indices are the convention documented on<br>[`DhUniverse::material_at`]. |
+| `seed` | `u64` | Packing seed — fixes the particle positions, so a fixed seed gives a<br>reproducible universe. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn fhr_reference() -> Self { /* ... */ }
+  ```
+  The FHR reference pebble **on its own**: 19.9 % HALEU UCO TRISO at 30 %
+
+- ```rust
+  pub fn fhr_unit_cell() -> Self { /* ... */ }
+  ```
+  The FHR reference **unit cell**: [`Self::fhr_reference`]'s pebble with a
+
+- ```rust
+  pub fn htr10_li2014() -> Self { /* ... */ }
+  ```
+  The **HTR-10 fuel pebble**, as specified by Li, Yu & Wei (2014), HTR 2014
+
+- ```rust
+  pub fn with_materials(self: Self, materials: Vec<Material>) -> Self { /* ... */ }
+  ```
+  Replace the material table, returning `self` so constructors can chain.
+
+- ```rust
+  pub fn with_coolant(self: Self, outer_radius: f64) -> Self { /* ... */ }
+  ```
+  Wrap the pebble in a coolant shell out to `outer_radius` \[cm\], which
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PebbleParams { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DispersedParams`
+
+Fuel particles dispersed through a matrix in a cube — dispersion fuel,
+burnable-poison particles, a plate rather than a pebble.
+
+```rust
+pub struct DispersedParams {
+    pub particle_radius: f64,
+    pub packing_fraction: f64,
+    pub half_width: f64,
+    pub materials: Vec<crate::material::material::Material>,
+    pub seed: u64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `particle_radius` | `f64` | Whole-particle radius \[cm\]. |
+| `packing_fraction` | `f64` | Particle volume fraction in the cube, in (0, 1). |
+| `half_width` | `f64` | Half-width of the cubic domain \[cm\]. |
+| `materials` | `Vec<crate::material::material::Material>` | Material table — see [`DhUniverse::material_at`]. |
+| `seed` | `u64` | Packing seed. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DispersedParams { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `DhUniverse`
+
+A doubly heterogeneous universe with a chosen [`DhTreatment`].
+
+Build one with [`Self::pebble`] or [`Self::dispersed`], then call
+[`Self::keff`]. The treatment is fixed at construction because it changes
+what geometry is stored, not merely how it is traversed.
+
+```rust
+pub struct DhUniverse {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn pebble(params: PebbleParams, treatment: DhTreatment) -> Result<Self, DhError> { /* ... */ }
+  ```
+  Build a TRISO fuel pebble under the chosen treatment.
+
+- ```rust
+  pub fn dispersed(params: DispersedParams, treatment: DhTreatment) -> Result<Self, DhError> { /* ... */ }
+  ```
+  Build a cube of fuel particles dispersed through a matrix.
+
+- ```rust
+  pub fn packing_fraction(self: &Self) -> f64 { /* ... */ }
+  ```
+  The particle volume fraction this universe **actually** models.
+
+- ```rust
+  pub fn treatment(self: &Self) -> DhTreatment { /* ... */ }
+  ```
+  Which treatment this universe was built with.
+
+- ```rust
+  pub fn particle_count(self: &Self) -> usize { /* ... */ }
+  ```
+  How many particles are explicitly stored.
+
+- ```rust
+  pub fn materials(self: &Self) -> &[Material] { /* ... */ }
+  ```
+  The material table this universe resolves indices against, including any
+
+- ```rust
+  pub fn material_at(self: &Self, p: Position) -> Option<usize> { /* ... */ }
+  ```
+  Material index at `p` \[cm\], or `None` outside the universe.
+
+- ```rust
+  pub fn keff(self: &Self, nuclides: &[Nuclide], settings: &KeffSettings) -> KeffResult { /* ... */ }
+  ```
+  Solve the eigenvalue for this universe.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **MaterialQuery**
+  - ```rust
+    fn material_at(self: &Self, p: Position) -> Option<usize> { /* ... */ }
+    ```
+
+  - ```rust
+    fn begin_history(self: &Self) { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RingRptFit`
+
+What [`fit_ring_rpt_inner_radius`] found.
+
+```rust
+pub struct RingRptFit {
+    pub inner_radius: f64,
+    pub fitted_k: f64,
+    pub target_k: f64,
+    pub target_std: f64,
+    pub residual_pcm: f64,
+    pub evaluations: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inner_radius` | `f64` | The fitted ring-RPT inner radius \[cm\]. Feed it to [`Self::treatment`]. |
+| `fitted_k` | `f64` | Eigenvalue ring-RPT gives at that radius. |
+| `target_k` | `f64` | Eigenvalue of the explicit delta-tracked pebble — what was fitted to. |
+| `target_std` | `f64` | Statistical standard deviation on `target_k`. **The fit is meaningless<br>below this**; bisection stops once the residual is inside it. |
+| `residual_pcm` | `f64` | `fitted_k - target_k` in pcm. Compare against `target_std * 1e5`. |
+| `evaluations` | `usize` | Eigenvalue solves spent, target included. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn treatment(self: &Self) -> DhTreatment { /* ... */ }
+  ```
+  The treatment this fit produced, ready to pass to
+
+- ```rust
+  pub fn converged(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the fit converged to inside the target's own statistics.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> RingRptFit { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `fit_ring_rpt_inner_radius`
+
+Find the ring-RPT inner radius that reproduces the explicit-TRISO
+eigenvalue for a given pebble — the fit the method cannot be used without.
+
+[`DhTreatment::RingRpt`] takes an `inner_radius` that is a **fitted
+equivalence**, not a physical dimension. Published values are fitted for one
+fuel, one data library and one code, and do not transfer. This runs the fit
+for *your* pebble with *your* data, so you do not have to guess or borrow a
+number: it solves the explicit delta-tracked pebble once for a target, then
+bisects on the radius until ring-RPT matches it.
+
+```no_run
+use outram_mc_libs::prelude::*;
+# let materials: Vec<Material> = Vec::new();
+# let nuclides: Vec<Nuclide> = Vec::new();
+let params = PebbleParams::fhr_unit_cell().with_materials(materials);
+let settings = KeffSettings::default();
+
+let fit = fit_ring_rpt_inner_radius(&params, &nuclides, &settings, None)?;
+println!("fitted inner radius = {:.4} cm (target k = {:.5})", fit.inner_radius, fit.target_k);
+
+// Then use it.
+let universe = DhUniverse::pebble(params, fit.treatment())?;
+# Ok::<(), DhError>(())
+```
+
+# Cost
+
+One explicit eigenvalue solve for the target, then one ring-RPT solve per
+bisection step (up to `max_iterations`, default 12). Budget roughly a dozen
+times a single `keff()` call. Raise `settings.n_particles` before trusting a
+tight fit — bisecting on a noisy residual converges to noise, and the
+returned `target_std` tells you how noisy the target itself was.
+
+# What the fit does and does not mean
+
+A fitted radius makes ring-RPT reproduce the explicit **eigenvalue**. It
+does not make the smeared pebble a good model of anything else about the
+explicit one — the flux shape inside the fuel zone is not the same, and a
+tally that resolves radius will not agree. Fit for the quantity you care
+about, and say which one it was.
+
+# Errors
+
+[`DhError::Geometry`] if the bracket does not straddle the target (widen it,
+or check that ring-RPT can reach the explicit k at all for this fuel), and
+whatever [`DhUniverse::pebble`] returns if the pebble will not build.
+
+```rust
+pub fn fit_ring_rpt_inner_radius(params: &PebbleParams, nuclides: &[crate::material::nuclide::Nuclide], settings: &crate::physics::keff::KeffSettings, bracket: Option<(f64, f64)>) -> Result<RingRptFit, DhError> { /* ... */ }
+```
+
 ## Module `pebble_beds`
 
 Pebble-bed reactor specialization — the doubly-heterogeneous transport slice.
@@ -18442,9 +25394,13 @@ pub struct Majorant {
   Build the majorant `Σ_maj(E) = max_m Σ_t,m(E)` over `materials` on the
 
 - ```rust
-  pub fn bounding(materials: &[Material], nuclides: &[Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize, margin: f64) -> Self { /* ... */ }
+  pub fn over_indices(materials: &[Material], indices: &[usize], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
   ```
   Build a **provably bounding** majorant by taking, for each energy bin, the
+
+- ```rust
+  pub fn bounding(materials: &[Material], nuclides: &[Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize, margin: f64) -> Self { /* ... */ }
+  ```
 
 - ```rust
   pub fn at(self: &Self, e: f64) -> f64 { /* ... */ }
@@ -18833,6 +25789,192 @@ pub struct DeltaFlight {
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Enum `DeltaStep`
+
+How a [`bounded_delta_flight`] ended.
+
+NEW WORK, no OpenMC counterpart. The existing `delta_flight` in
+[`super::keff_delta`] returns `Option<(Position, usize, Direction)>`, which
+can express only "real collision" and "gone" — it cannot distinguish a
+particle that **left the delta region** (and must continue under the
+enclosing tracker) from one whose history was **lost**. Hybrid tracking
+needs all three apart.
+
+```rust
+pub enum DeltaStep {
+    Collision {
+        position: crate::geometry::position::Position,
+        material: usize,
+        direction: crate::geometry::position::Direction,
+        virtual_collisions: u32,
+    },
+    Exit {
+        position: crate::geometry::position::Position,
+        direction: crate::geometry::position::Direction,
+        virtual_collisions: u32,
+    },
+    Exhausted {
+        virtual_collisions: u32,
+    },
+}
+```
+
+##### Variants
+
+###### `Collision`
+
+A real collision inside the region. Sample the reaction here.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::geometry::position::Position` | Where the collision happened. |
+| `material` | `usize` | Material index at that point. |
+| `direction` | `crate::geometry::position::Direction` | Direction on arrival (unchanged by the flight itself). |
+| `virtual_collisions` | `u32` | Virtual collisions rejected on the way. The cost of the majorant. |
+
+###### `Exit`
+
+The flight reached the region boundary. The particle sits **exactly on
+it**, and the caller continues with the enclosing tracking method.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `position` | `crate::geometry::position::Position` | The boundary point, not a point beyond it. |
+| `direction` | `crate::geometry::position::Direction` | Direction, unchanged. |
+| `virtual_collisions` | `u32` | Virtual collisions rejected inside the region. |
+
+###### `Exhausted`
+
+The virtual-collision budget ran out. **The history is lost**, and this
+variant exists so that is reported rather than silent.
+
+`keff_delta.rs`'s `delta_flight` signals this as a bare `None`, which
+the caller cannot tell from a legitimate exit — it shows up only as an
+unexplained leak. Counting it is half of `bn:op-867c.5`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `virtual_collisions` | `u32` | The budget that was exhausted. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeltaStep { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeltaStep) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `sample_delta_distance`
@@ -18898,6 +26040,53 @@ where
     F: Fn(crate::geometry::position::Position) -> Option<f64> { /* ... */ }
 ```
 
+#### Function `bounded_delta_flight`
+
+**Delta-track a flight inside a BOUNDED region, stopping at its boundary.**
+
+The half of hybrid tracking that does not exist today. `delta_flight`
+(`keff_delta.rs:453`) samples a distance, advances the **full** distance,
+and only then looks up the material — so when the flight leaves the region
+it returns a point already *past* the boundary, which is useless for a
+handoff. This truncates at the boundary instead.
+
+# Why truncating is EXACTLY unbiased, not an approximation
+
+The flight length is exponential with rate `Σ_maj`, which is **memoryless**:
+`P(s > a + b | s > a) = P(s > b)`. So cutting a sampled flight at the
+boundary and resuming the sampling on the far side — under whatever method
+and whatever majorant apply there — gives the same distribution of
+interaction points as never having cut it. No weight correction, no
+rejection term, nothing to get subtly wrong.
+
+This is the property the whole hybrid design rests on, and it is why the
+answer cannot depend on where the region boundaries are drawn. Only the
+**cost** depends on that.
+
+# Parameters
+- `start`, `direction`, `energy` — the particle.
+- `majorant` — bounding `Σ_t` over **this region's** materials, built with
+  [`Majorant::over_indices`]. It must bound every material
+  `material_at` can return inside the region: an under-bound majorant is a
+  **silent bias**, not a crash.
+- `distance_to_exit` — distance along `direction` from a point to where the
+  region ends. `f64::INFINITY` means "not reached from here".
+- `material_at` — material index at a point inside the region.
+- `max_virtual` — budget before the history is declared lost.
+- `seed` — the particle's RNG stream, advanced in place.
+
+# Returns
+[`DeltaStep`] — collision, exit, or exhaustion, each carrying the
+virtual-collision count so the majorant's price is measurable rather than
+assumed.
+
+```rust
+pub fn bounded_delta_flight<D, M>(start: crate::geometry::position::Position, direction: crate::geometry::position::Direction, energy: f64, majorant: &Majorant, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], max_virtual: u32, distance_to_exit: D, material_at: M, seed: &mut u64) -> DeltaStep
+where
+    D: Fn(crate::geometry::position::Position, crate::geometry::position::Direction) -> f64,
+    M: Fn(crate::geometry::position::Position) -> Option<usize> { /* ... */ }
+```
+
 ## Module `fhr_pebble`
 
 FHR (fluoride-salt-cooled high-temperature reactor) TRISO-pebble builders —
@@ -18938,72 +26127,6 @@ pub mod fhr_pebble { /* ... */ }
 ```
 
 ### Types
-
-#### Struct `ExplicitTrisoPebble`
-
-The explicit-TRISO pebble's point-membership lookup for delta (Woodcock)
-tracking: randomly-packed, five-layer TRISO particles in a graphite matrix,
-itself wrapped in a graphite shell and a coolant exterior.
-
-This is the explicit counterpart of [`fhr_pebble_geometry`], which builds the
-*ring-RPT* pebble as concentric CSG shells. The explicit pebble cannot be
-expressed that way — the fuel zone holds tens of thousands of randomly placed
-particles — so delta tracking asks "what material is at this point?" instead,
-and this type answers it.
-
-```rust
-pub struct ExplicitTrisoPebble { /* private fields */ }
-```
-
-##### Implementations
-
-```rust
-impl ExplicitTrisoPebble {
-    pub fn new(
-        packed: PackedSpheres,
-        spec: TrisoSpec,
-        mats: TrisoMaterials,
-        shell_mat: usize,
-        coolant_mat: usize,
-        r_fuel_zone: f64,
-        r_pebble: f64,
-    ) -> Self;
-
-    pub fn material_at(&self, p: Position) -> Option<usize>;
-}
-```
-
-Import both from the same module:
-
-```rust
-use outram_mc_libs::pebble_beds::fhr_pebble::{ExplicitTrisoPebble, TrisoMaterials, TrisoSpec};
-```
-
-**`new`** — assemble a pebble from an already-packed TRISO fuel zone. `packed`
-should be a packing of `spec.opyc`-radius spheres (whole TRISO particles)
-confined to `r_fuel_zone`; build it with
-`crate::pebble_beds::crp_packing::pack_spheres_crp` followed by
-[`PackedSpheres::from_spheres`]. `mats` names every material by its layer —
-`kernel`, `buffer`, `ipyc`, `sic`, `opyc`, `matrix` — reusing
-[`TrisoMaterials`] so the five coatings cannot be transposed positionally.
-Panics if `r_fuel_zone >= r_pebble`.
-
-**`material_at`** — the material index at `p`, or `None` outside the domain.
-Inside `r_fuel_zone`: the containing packed particle's coating layer resolved by
-radius, or `mats.matrix` where no particle contains the point. Between
-`r_fuel_zone` and `r_pebble`: `shell_mat`. Beyond: `coolant_mat`.
-
-Pass it straight to a delta-tracked eigenvalue run:
-
-```rust
-let pebble = ExplicitTrisoPebble::new(packed, spec, mats, shell, coolant, 1.9, 2.0);
-let k = run_keff_delta_in(
-    DeltaDomain::Sphere { radius: 3.0 },
-    &materials, &nuclides, &majorant,
-    |p| pebble.material_at(p),
-    &settings,
-);
-```
 
 #### Struct `TrisoSpec`
 
@@ -19317,6 +26440,180 @@ Outer pyrolytic carbon.
 - **WasmNotSend**
 - **WasmNotSendSync**
 - **WasmNotSync**
+#### Struct `ExplicitTrisoPebble`
+
+The explicit-TRISO pebble's point-membership lookup for delta (Woodcock)
+tracking: randomly-packed, five-layer TRISO particles in a graphite
+matrix, itself wrapped in a graphite shell and a coolant exterior.
+
+# Why this exists
+
+The ring-RPT pebble gets a one-call builder, [`fhr_pebble_geometry`] — CSG
+surfaces and cells, done. The explicit pebble has no equivalent: "what
+material is at this point" for a packed TRISO fuel zone means combining
+[`PackedSpheres::containing_center`] (which particle, if any, contains
+`p`) with [`triso_layer_at`] (which coating layer, by radius from that
+particle's centre), falling back to the matrix when no particle contains
+`p` — plus the two shells outside the fuel zone entirely. Every caller was
+hand-assembling that as a closure; `examples/fhr_ring_rpt_endf.rs` carried
+one (`explicit_at`) before this type existed. A **Haiku dogfood run**
+(`docs/dogfood-2026-09-11-ring-rpt.md`, `op-mzvp.3`) — given only the API
+docs, no source, no compiler — reproduced the same gap independently: it
+assembled the ring-RPT pebble in one call and got stuck on the explicit
+one, because there was nothing to call.
+
+[`ExplicitTrisoPebble`] packages that lookup once: build it from a
+[`PackedSpheres`] packing, a [`TrisoSpec`], the per-layer-plus-matrix
+material indices ([`TrisoMaterials`]), the shell/coolant material indices,
+and the two zone radii, then call [`ExplicitTrisoPebble::material_at`]
+wherever the closure used to be. It reproduces that closure's logic
+exactly — see "Domain" below — nothing more, nothing smarter.
+
+# Domain
+
+- `r < r_fuel_zone`: inside a packed particle, the layer at that radius
+  from its centre ([`triso_layer_at`]); otherwise the surrounding
+  graphite matrix (`mats.matrix`).
+- `r_fuel_zone <= r < r_pebble`: the graphite shell (`shell_mat`).
+- `r >= r_pebble`: the coolant (`coolant_mat`).
+
+There is no outer bound here — a delta-tracking domain
+([`crate::pebble_beds::keff_delta::DeltaDomain`]) supplies that — so
+[`ExplicitTrisoPebble::material_at`] never actually returns `None`; the
+`Option` in its signature is there because that is what
+[`crate::pebble_beds::keff_delta::run_keff_delta_in`]'s `material_at`
+parameter requires.
+
+```rust
+pub struct ExplicitTrisoPebble {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(packed: PackedSpheres, spec: TrisoSpec, mats: TrisoMaterials, shell_mat: usize, coolant_mat: usize, r_fuel_zone: f64, r_pebble: f64) -> Self { /* ... */ }
+  ```
+  Assemble a pebble from an already-packed TRISO fuel zone.
+
+- ```rust
+  pub fn material_at(self: &Self, p: Position) -> Option<usize> { /* ... */ }
+  ```
+  Material index at `p`, or `None` outside the domain — see the type's
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> ExplicitTrisoPebble { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `triso_layer_at`
@@ -19416,6 +26713,516 @@ comparing an explicit packing against its homogenised equivalent.
 pub fn homogeneous_cube(h: f64, material_idx: usize, temperature: f64) -> crate::geometry::geometry::Geometry { /* ... */ }
 ```
 
+### Re-exports
+
+#### Re-export `TrisoMaterials`
+
+```rust
+pub use crate::geometry::triso_particle::TrisoMaterials;
+```
+
+## Module `htr10`
+
+HTR-10 fuel-pebble **composition**, from Li, Yu & Wei (2014) Table 2.
+
+The geometry lives next door ([`TrisoSpec::HTR10_LI2014`](super::TrisoSpec),
+[`PebbleParams::htr10_li2014`](crate::dh_universe::PebbleParams)); this
+module is the material side, kept separate because **the composition is the
+shared input to both the Monte Carlo and the deterministic ends** of the
+neutronics. A multigroup or diffusion solver needs exactly these atom
+densities; if it derived its own, the two would drift and the comparison
+would be measuring the drift.
+
+# Source
+
+Li Wanlin, Yu Ganglin & Wei Chunlin, *"Research on Benchmark Calculation and
+Analysis of HTR-10 with RMC Code"*, 7th International Topical Meeting on High
+Temperature Reactor Technology (HTR 2014), Weihai, China, 27-31 October 2014.
+**Table 2**, "Characteristics of HTR-10 fuel and moderator ball".
+
+# Three things Table 2 does not say
+
+Every one is an assumption a reader must be able to overrule, so each is a
+named constant or an enum rather than a buried literal:
+
+1. **The enrichment basis.** "Fuel enrichment 17 %" gives no basis.
+   [`ENRICHMENT_WT`] takes it as **weight** percent, the industry convention.
+   The table's own 5 g heavy-metal figure *cannot* arbitrate — it comes out
+   4.99991 g on a weight reading against 4.99992 g on an atom reading — but
+   the two differ by **1.06 % in U-235 number density**, which an eigenvalue
+   does see.
+2. **The fuel ball's graphite density.** Table 2 states 1.73 g/cm3 only for
+   the *moderator* ball. [`RHO_GRAPHITE`] applies it to the matrix and shell
+   too.
+3. **The "ppm" basis.** Taken as by weight, of *natural* boron — see
+   [`BoronReading`], which exists because this one is both easy to get wrong
+   and expensive when you do.
+
+```rust
+pub mod htr10 { /* ... */ }
+```
+
+### Types
+
+#### Enum `BoronReading`
+
+How the two "ppm" rows of Table 2 are read.
+
+This is an **ablation knob**, not a modelling preference. Table 2 says
+"natural boron content", and taking that as *elemental B-10* instead
+over-absorbs by `1/0.1843` = 5.43x — a mistake the table's wording does
+nothing to prevent. The arms exist so the cost is measured rather than
+asserted; `examples/htr10_pebble_delta_tracking.rs` runs all four and
+`tests/htr10_boron_ablation_control.rs` gates that they actually differ.
+
+```rust
+pub enum BoronReading {
+    Natural,
+    None,
+    GraphiteOnly,
+    AsElementalB10,
+}
+```
+
+##### Variants
+
+###### `Natural`
+
+Table 2 read as written: ppm by weight of **natural** boron, so only
+[`B10_WEIGHT_FRACTION_OF_NATURAL_B`] of it absorbs. The correct reading.
+
+###### `None`
+
+Both impurity rows dropped — the "does boron matter at all" arm.
+
+###### `GraphiteOnly`
+
+Graphite's 1.3 ppm kept, the uranium's 4 ppm dropped.
+
+Isolates which row carries the worth. A 2200 m/s hand estimate says the
+kernel's is ~0.06 % of local absorption and the graphite's ~24 %, so this
+arm is predicted to be **indistinguishable from [`Self::Natural`]** —
+stated before measuring, so the measurement can falsify it.
+
+###### `AsElementalB10`
+
+The mistake: ppm read as **elemental B-10**, over-absorbing 5.43x.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn label(self: Self) -> &'static str { /* ... */ }
+  ```
+  A short label for tables and logs.
+
+- ```rust
+  pub fn b10_fraction(self: Self) -> f64 { /* ... */ }
+  ```
+  The B-10 weight fraction applied to the stated ppm under this reading.
+
+- ```rust
+  pub fn kernel_ppm(self: Self) -> f64 { /* ... */ }
+  ```
+  Natural-boron ppm applied to the **kernel** under this reading.
+
+- ```rust
+  pub fn graphite_ppm(self: Self) -> f64 { /* ... */ }
+  ```
+  Natural-boron ppm applied to the **graphite** under this reading.
+
+- ```rust
+  pub fn all() -> [Self; 4] { /* ... */ }
+  ```
+  Every arm, for iterating an ablation study.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> BoronReading { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &BoronReading) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Htr10Nuclides`
+
+Where each nuclide sits in the slice handed to the transport driver.
+
+Indices, not names, because that is the convention
+[`Material`] already uses — see
+[`DhUniverse::material_at`](crate::dh_universe::DhUniverse::material_at).
+
+```rust
+pub struct Htr10Nuclides {
+    pub u235: usize,
+    pub u238: usize,
+    pub o16: usize,
+    pub c_free: usize,
+    pub c_graphite: usize,
+    pub si28: usize,
+    pub b10: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `u235` | `usize` | U-235. |
+| `u238` | `usize` | U-238. |
+| `o16` | `usize` | O-16. |
+| `c_free` | `usize` | Free-gas carbon — the SiC layer only. |
+| `c_graphite` | `usize` | Graphite-bound carbon (with S(alpha,beta)) — buffer, PyC, matrix, shell.<br><br>Using free-gas carbon here would misrepresent the thermal spectrum a<br>graphite-moderated pebble lives in. The distinction is not cosmetic. |
+| `si28` | `usize` | Si-28. |
+| `b10` | `usize` | B-10 — the impurity absorber. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10Nuclides { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `u235_atom_fraction`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+U-235 **atom** fraction implied by [`ENRICHMENT_WT`].
+
+```rust
+pub fn u235_atom_fraction() -> f64 { /* ... */ }
+```
+
+#### Function `b10_atom_density`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+B-10 atom density \[atoms/b-cm\] for `ppm` by weight of natural boron in a
+host of density `rho` \[g/cm3\], under the given reading.
+
+```rust
+pub fn b10_atom_density(rho_host: f64, ppm: f64, reading: BoronReading) -> f64 { /* ... */ }
+```
+
+#### Function `fuel_pebble_materials`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The seven-material table for an HTR-10 fuel pebble, in the order
+[`DhUniverse::pebble`](crate::dh_universe::DhUniverse::pebble) requires:
+the five TRISO shells outward from the centre, then the fuel-zone matrix,
+then the fuel-free outer shell.
+
+`temperature_k` is stamped on every material; the paper runs at 27 C
+(300.15 K).
+
+```rust
+pub fn fuel_pebble_materials(n: Htr10Nuclides, boron: BoronReading, temperature_k: f64) -> Vec<crate::material::material::Material> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `ENRICHMENT_WT`
+
+Fuel enrichment as a **weight** fraction of U-235 in uranium (Table 2: 17 %).
+
+See the module docs for why the basis is an assumption and what it costs.
+
+```rust
+pub const ENRICHMENT_WT: f64 = 0.17;
+```
+
+#### Constant `RHO_UO2`
+
+UO2 kernel density \[g/cm3\] (Table 2).
+
+```rust
+pub const RHO_UO2: f64 = 10.4;
+```
+
+#### Constant `RHO_BUFFER`
+
+Buffer (porous PyC) density \[g/cm3\] (Table 2, first of `1.1/1.9/3.18/1.9`).
+
+```rust
+pub const RHO_BUFFER: f64 = 1.1;
+```
+
+#### Constant `RHO_PYC`
+
+IPyC and OPyC density \[g/cm3\] (Table 2).
+
+```rust
+pub const RHO_PYC: f64 = 1.9;
+```
+
+#### Constant `RHO_SIC`
+
+SiC density \[g/cm3\] (Table 2).
+
+```rust
+pub const RHO_SIC: f64 = 3.18;
+```
+
+#### Constant `RHO_GRAPHITE`
+
+Graphite density \[g/cm3\] — Table 2 gives this for the **moderator ball**;
+applied here to the fuel ball's matrix and shell as well. See the module docs.
+
+```rust
+pub const RHO_GRAPHITE: f64 = 1.73;
+```
+
+#### Constant `B_PPM_URANIUM`
+
+Natural boron in the uranium \[ppm by weight\] (Table 2).
+
+```rust
+pub const B_PPM_URANIUM: f64 = 4.0;
+```
+
+#### Constant `B_PPM_GRAPHITE`
+
+Natural boron in the graphite and moderator \[ppm by weight\] (Table 2).
+
+```rust
+pub const B_PPM_GRAPHITE: f64 = 1.3;
+```
+
+#### Constant `B10_WEIGHT_FRACTION_OF_NATURAL_B`
+
+B-10 **weight** fraction of natural boron (19.9 at% B-10 / 80.1 at% B-11).
+
+B-11 is left out of the compositions below: its absorption cross section is
+~0.005 b against B-10's ~3840 b, and at 1.3 ppm its scattering contributes
+nothing. Only the absorber is modelled.
+
+```rust
+pub const B10_WEIGHT_FRACTION_OF_NATURAL_B: f64 = 0.184_3;
+```
+
 ## Module `keff_delta`
 
 Doubly-heterogeneous k-eigenvalue power iteration driven by **delta (Woodcock)
@@ -19443,12 +27250,20 @@ split).
 
 # Geometry model
 
-A **reflective cube** of half-width `half_width` (an infinite-medium unit cell:
-neutrons reflect off the six walls, so the eigenvalue is the infinite-medium
-`k∞` of the packed fuel, free of leakage). Inside the cube the caller's
-`material_at` closure maps a point to a material index (kernel → fuel, else
-matrix). The delta flight reflects the ray off the walls segment by segment, so
-the neutron always lands at an interior point where `material_at` is defined.
+A reflective [`DeltaDomain`] — a **cube** of half-width `half`, or a **sphere**
+of radius `radius`. Either way the boundary reflects, so there is no leakage
+and the eigenvalue is the infinite-medium `k∞` of whatever fills the domain.
+Inside it the caller's `material_at` closure maps a point to a material index
+(kernel → fuel, else matrix). The delta flight reflects the ray off the
+boundary segment by segment, so the neutron always lands at an interior point
+where `material_at` is defined.
+
+**Pick the shape the thing you are comparing against used.** For a uniform
+medium the shape genuinely does not matter (see
+`geometry_independence_of_k_inf_for_a_uniform_medium`), but the moment the
+medium is *not* uniform out to the boundary — a pebble sitting in coolant —
+a cube of half-width `R` holds material in its corners that a sphere of
+radius `R` does not, and on an FHR pebble that is worth thousands of pcm.
 
 # Collision physics
 
@@ -19459,7 +27274,7 @@ inelastic | (n,2n) | elastic — mirrors [`crate::physics::keff`] /
 next generation; `(n,2n)` multiplicity is realized in-generation via a local
 work stack. Fidelity matches those drivers: analog, target at rest, data tier
 set by how the `nuclides` were built ([`Nuclide::from_core`] LOW /
-[`Nuclide::from_endf`] HIGH).
+[`Nuclide::from_endf_file`] HIGH).
 
 # Provenance
 
@@ -19472,72 +27287,335 @@ assembly built on this crate's primitives.
 pub mod keff_delta { /* ... */ }
 ```
 
-### Functions
+### Types
 
 #### Enum `DeltaDomain`
 
 The reflective tracking domain a delta-tracked run fills.
 
 A reflective boundary makes the eigenvalue an **infinite-medium** `k∞` — no
-leakage — so for a *uniform* medium the shape is physically irrelevant and both
-arms must return the same `k∞`. The shape stops being irrelevant the moment the
-medium is not uniform, which is exactly the pebble case: a reflective cube of
-half-width 3 cm circumscribes a 3 cm sphere, so its corners (3 < r < 3√3) hold
-extra coolant that a reflective sphere of the same radius does not. That
-over-count is worth thousands of pcm on an FHR pebble and makes a cube run
-non-comparable to a sphere run of "the same" radius.
+leakage — so for a *uniform* medium the shape is physically irrelevant and
+both arms must return the same `k∞`. The shape stops being irrelevant the
+moment the medium is not uniform, which is exactly the pebble case: a
+reflective cube of half-width 3 cm circumscribes a 3 cm sphere, so its
+corners (3 < r < 3√3) hold extra coolant that a reflective sphere of the
+same radius does not. That over-count is worth thousands of pcm on an FHR
+pebble and makes a cube run non-comparable to a sphere run of "the same"
+radius.
 
-Use [`DeltaDomain::Sphere`] whenever the reference being compared against used a
-spherical reflective boundary — OpenMC pebble decks typically do.
+Use [`DeltaDomain::Sphere`] whenever the reference being compared against
+used a spherical reflective boundary — OpenMC pebble decks typically do.
+
+`geometry_independence_of_k_inf_for_a_uniform_medium` in this module's tests
+pins the equivalence the first paragraph claims.
 
 ```rust
 pub enum DeltaDomain {
-    Cube { half: f64 },
-    Sphere { radius: f64 },
+    Cube {
+        half: f64,
+    },
+    Sphere {
+        radius: f64,
+    },
+    SphereVacuum {
+        radius: f64,
+    },
+    CylinderVacuum {
+        radius: f64,
+        half_height: f64,
+    },
 }
 ```
 
 ##### Variants
 
-- `Cube { half: f64 }` — reflective cube of half-width `half` [cm], centred on the origin.
-- `Sphere { radius: f64 }` — reflective sphere of radius `radius` [cm], centred on the origin.
+###### `Cube`
+
+Reflective cube of half-width `half` \[cm\], centred on the origin.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `half` | `f64` |  |
+
+###### `Sphere`
+
+Reflective sphere of radius `radius` \[cm\], centred on the origin.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `f64` |  |
+
+###### `SphereVacuum`
+
+**Vacuum** (leakage) sphere of radius `radius` \[cm\], centred on the
+origin — a *bare* body, not an infinite-lattice cell.
+
+Added 2026-09-15. Every other variant here reflects, because this module
+was written for pebble-bed `k_inf`, where a reflective cell IS the model.
+A bare critical assembly is the opposite problem: leakage is most of the
+physics, and reflecting it computes a different eigenvalue entirely. With
+no vacuum variant, delta tracking simply could not run Godiva, which is
+why the surface-tracking driver had no delta-tracked counterpart to be
+checked against.
+
+# Why a landing point outside the sphere means the history escaped
+
+Woodcock tracking samples a flight from the *majorant*, which bounds
+`Sigma_t` inside the body; outside is void, where `Sigma_t = 0` and no
+collision can occur. A sphere is **convex**, so a ray that leaves it
+never re-enters: if `r + s*u` lands outside, the particle crossed the
+boundary somewhere along `s` and is gone. The flight therefore does not
+reflect, and the caller's [`MaterialQuery`] returns `None` outside the
+body, which [`delta_flight`]'s `?` already treats as leakage.
+
+**This reasoning is convexity-dependent.** Do not copy this variant's
+straight-line advance to a non-convex vacuum boundary without handling
+re-entry.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `f64` |  |
+
+###### `CylinderVacuum`
+
+**Vacuum (leakage) finite cylinder**, radius `radius` and half-height
+`half_height` \[cm\], axis along z, centred on the origin.
+
+Added 2026-09-17 for the HTR-10 core (`bn:op-867c.6`, gh #214), whose
+pebble bed is a cylinder with a reflector around it. Every earlier
+variant is a cube or a sphere, so a bed could only be delta-tracked by
+bounding it with something the wrong shape.
+
+# Why the straight-line advance is valid here
+
+The same convexity argument [`Self::SphereVacuum`] documents: a finite
+cylinder is **convex**, so a ray that leaves it never re-enters, and a
+landing point outside means the particle crossed the boundary somewhere
+along the flight and is gone. Do NOT copy this to a non-convex boundary
+-- an annulus, or a cylinder with a re-entrant channel -- without
+handling re-entry.
+
+Note this is the VACUUM form only. A reflective cylinder is a different
+thing (it would need specular reflection off the curved wall and the two
+end caps) and is deliberately absent until something needs it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `radius` | `f64` | Radius in the x-y plane \[cm\]. |
+| `half_height` | `f64` | Half-height along z \[cm\]. |
 
 ##### Implementations
 
-```rust
-pub fn contains(&self, p: crate::geometry::position::Position) -> bool { /* ... */ }
-pub fn bounding_half(&self) -> f64 { /* ... */ }
-pub fn sample_point(&self, seed: &mut u64) -> crate::geometry::position::Position { /* ... */ }
-pub fn advance_reflective(&self, r: crate::geometry::position::Position, u: crate::geometry::position::Direction, distance: f64) -> (crate::geometry::position::Position, crate::geometry::position::Direction) { /* ... */ }
+###### Methods
+
+- ```rust
+  pub fn contains(self: &Self, p: Position) -> bool { /* ... */ }
+  ```
+  Is `p` inside the closed domain?
+
+- ```rust
+  pub fn bounding_half(self: &Self) -> f64 { /* ... */ }
+  ```
+  A half-extent that bounds the domain on every axis \[cm\] — the cube's
+
+- ```rust
+  pub fn sample_point(self: &Self, seed: &mut u64) -> Position { /* ... */ }
+  ```
+  Draw a point uniformly over the domain's volume.
+
+- ```rust
+  pub fn advance(self: &Self, r: Position, u: Direction, distance: f64) -> (Position, Direction) { /* ... */ }
+  ```
+  Advance a ray by `distance` \[cm\] and return the landing position and
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DeltaDomain { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DeltaDomain) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Traits
+
+#### Trait `MaterialQuery`
+
+The geometry seam every delta-tracked driver in this module talks to: "what
+material is at this point?", plus a per-history boundary notification.
+
+# Why this is a trait and not just a closure
+
+It was a bare `Fn(Position) -> Option<usize> + Sync` until 2026-09-14, and
+**every such closure still works unchanged** — the blanket impl below makes
+one. Nothing at any existing call site had to change.
+
+What a closure cannot express is a lookup with *per-history state*.
+Semi-implicit chord-length sampling
+([`SclsMedium`](crate::stochastic::scls::SclsMedium)) remembers the
+inclusions a neutron has already met, inside a window that must be **thrown
+away when the next history starts**. Through a bare closure there is no
+moment at which to throw it away, so history *n+1* inherits history *n*'s
+remembered geometry — which is not SCLS, and biases the result by an amount
+nobody has measured.
+
+[`Self::begin_history`] is that moment. It defaults to doing nothing, so a
+stateless lookup ignores it entirely.
+
+# Implementing it
+
+`material_at` takes `&self`, so a stateful implementor needs interior
+mutability — `Mutex`/`RwLock`, which is also what satisfies the [`Sync`]
+supertrait the multi-threaded backend requires.
+
+```
+use outram_mc_libs::pebble_beds::keff_delta::MaterialQuery;
+use outram_mc_libs::geometry::position::Position;
+
+// A closure is already a MaterialQuery — this is the common case.
+let two_zone = |p: Position| Some(if p.norm() < 1.0 { 0 } else { 1 });
+assert_eq!(MaterialQuery::material_at(&two_zone, Position::new(0.0, 0.0, 0.5)), Some(0));
 ```
 
-`contains` — is `p` inside the closed domain?
-`bounding_half` — a half-extent that bounds the domain on every axis [cm].
-`sample_point` — draw a point uniformly over the domain's volume.
-`advance_reflective` — advance a ray by `distance` [cm], reflecting specularly
-off the boundary as many times as the flight requires, returning the landing
-position and the (possibly reflected) direction.
-
-#### Function `run_keff_delta_in`
-
-Run fission-source power iteration over a reflective [`DeltaDomain`] filled with
-a two-(or-more-)material dispersion medium, transporting each history by delta
-(Woodcock) tracking.
-
-This is the general entry point. [`run_keff_delta`] is a cube shorthand for it.
-
 ```rust
-pub fn run_keff_delta_in<F>(domain: crate::pebble_beds::keff_delta::DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
-where
-    F: Fn(crate::geometry::position::Position) -> Option<usize> + Sync { /* ... */ }
+pub trait MaterialQuery: Sync {
+    /* Associated items */
+}
 ```
+
+##### Required Items
+
+###### Required Methods
+
+- `material_at`: Material index at `p`, or `None` if the point is outside the model.
+
+##### Provided Methods
+
+- ```rust
+  fn begin_history(self: &Self) { /* ... */ }
+  ```
+  Called once immediately before each source neutron is transported.
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `&DhUniverse`
+- `F` with <F>
+
+### Functions
 
 #### Function `run_keff_delta`
-
-Cube shorthand for [`run_keff_delta_in`] — a reflective cube of half-width
-`half_width` [cm]. When the medium is **not** uniform out to the boundary — a
-pebble in coolant, say — prefer [`run_keff_delta_in`] with
-[`DeltaDomain::Sphere`] and match whatever boundary the reference used.
 
 Run fission-source power iteration over a **reflective cube** filled with a
 two-(or-more-)material dispersion medium, transporting each history by delta
@@ -19580,11 +27658,28 @@ across backends; only the execution strategy differs:
   multi-threaded CPU path and emits a `log::debug!` line. It never errors on
   the selection. Wiring a genuine GPU path into CSG/delta transport is tracked
   as follow-up work (bead op-fla).
+Cube shorthand for [`run_keff_delta_in`] — a reflective cube of half-width
+`half_width` \[cm\].
+
+Kept because a reflective cube is the right unit cell for an infinite
+*uniform* dispersion, which is what most callers want. When the medium is
+**not** uniform out to the boundary — a pebble in coolant, say — the cube's
+corners hold material a sphere of the same radius does not, so prefer
+[`run_keff_delta_in`] with [`DeltaDomain::Sphere`] and match whatever
+boundary the reference used.
 
 ```rust
-pub fn run_keff_delta<F>(half_width: f64, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
+pub fn run_keff_delta<Q>(half_width: f64, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: Q, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
 where
-    F: Fn(crate::geometry::position::Position) -> Option<usize> + Sync { /* ... */ }
+    Q: MaterialQuery { /* ... */ }
+```
+
+#### Function `run_keff_delta_in`
+
+```rust
+pub fn run_keff_delta_in<Q>(domain: DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: Q, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
+where
+    Q: MaterialQuery { /* ... */ }
 ```
 
 #### Function `run_keff_delta_seq_in`
@@ -19600,9 +27695,9 @@ machine. [`run_keff_delta_par_in`] is acceleration only and is validated against
 this reference.
 
 ```rust
-pub fn run_keff_delta_seq_in<F>(domain: crate::pebble_beds::keff_delta::DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
+pub fn run_keff_delta_seq_in<Q>(domain: DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: Q, settings: &crate::physics::keff::KeffSettings) -> crate::physics::keff::KeffResult
 where
-    F: Fn(crate::geometry::position::Position) -> Option<usize> { /* ... */ }
+    Q: MaterialQuery { /* ... */ }
 ```
 
 #### Function `run_keff_delta_par_in`
@@ -19633,9 +27728,9 @@ The `material_at` geometry lookup is shared across threads by reference, so it
 must be [`Sync`] (every packed-sphere / membership lookup in this crate is).
 
 ```rust
-pub fn run_keff_delta_par_in<F>(domain: crate::pebble_beds::keff_delta::DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: F, settings: &crate::physics::keff::KeffSettings, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult
+pub fn run_keff_delta_par_in<Q>(domain: DeltaDomain, materials: &[crate::material::material::Material], nuclides: &[crate::material::nuclide::Nuclide], majorant: &crate::pebble_beds::delta_tracking::Majorant, material_at: Q, settings: &crate::physics::keff::KeffSettings, thread_count: crate::physics::compute::ThreadCount) -> crate::physics::keff::KeffResult
 where
-    F: Fn(crate::geometry::position::Position) -> Option<usize> + Sync { /* ... */ }
+    Q: MaterialQuery { /* ... */ }
 ```
 
 ## Module `references`
@@ -20597,6 +28692,11 @@ pub struct PackedSpheres {
   Centre \[cm\] of the packed sphere that contains `p`, or `None` if `p` is
 
 - ```rust
+  pub fn volume_fraction_in_ball(self: &Self, radius: f64, samples: usize, seed: u64) -> f64 { /* ... */ }
+  ```
+  Volume fraction of packed spheres inside the ball `r < radius`, by uniform
+
+- ```rust
   pub fn spheres(self: &Self) -> &[Sphere] { /* ... */ }
   ```
   The packed kernels.
@@ -20773,6 +28873,76 @@ The overlap predicate is squared-distance `< (2·radius)²`, exactly as upstream
 pub fn pack_spheres(radius: f64, half_width: f64, packing_fraction: f64, seed: u64) -> Result<Vec<Sphere>, PackingError> { /* ... */ }
 ```
 
+#### Function `cubic_array_in_ball`
+
+**A simple-cubic array of particles clipped to a ball, keeping only WHOLE
+particles** — the arrangement the HTR-10 RMC benchmark specifies for TRISO
+inside a fuel zone.
+
+NEW WORK, not a port. Li, Yu & Wei (2014) describe it as
+
+> a lattice in a **cubic array** in three-dimensional space … embedded into
+> a spherical volume such that **only full TRISO particles are permitted**
+> inside the sphere; volume not occupied is filled with graphite
+
+This differs from [`pack_spheres`] and from `dh_universe`'s `pack_in_ball`,
+which are **random** (RSA) and target a packing *fraction* by iteration. Here
+the arrangement is deterministic and the pitch is the free parameter.
+
+# The rejection rule
+
+A particle is kept when `|centre| + particle_radius <= ball_radius`, i.e. it
+lies **wholly** inside. That is the same predicate `pack_in_ball` uses; only
+the arrangement differs.
+
+# `offset` matters, and 8335 exactly is NOT reachable
+
+`offset` shifts the lattice in units of the pitch, so `[0.0; 3]` puts a
+particle at the ball centre and `[0.5; 3]` puts the centre between eight.
+It changes the achievable counts, because the count moves in **symmetry
+shells** as lattice points cross the boundary together — not one at a time.
+
+Measured 2026-09-17 for HTR-10's fuel zone (ball 2.5 cm, particle 0.0455 cm),
+sweeping the pitch finely over +/-3 % around the continuum estimate:
+
+| offset | counts reachable near 8335 |
+|---|---|
+| `[0, 0, 0]` | 8289, **8385** |
+| `[0.5, 0, 0]` | **8330** |
+| `[0.5, 0.5, 0]` | **8340** |
+| `[0.5, 0.5, 0.5]` | none within 60 |
+| `[0.25; 3]` | 8310, 8361 |
+
+**The benchmark's stated 8335 is not attainable by any of them.** The
+closest are 8330 and 8340, i.e. **+/-0.060 %** in both particle count and
+packing fraction (0.050218 or 0.050278 against the 0.050248 implied by
+8335). That is negligible for `k` but it is a real discrepancy with the
+reference, and it is stated rather than rounded away: the paper's
+arrangement is evidently not exactly this one, or its zone radius or
+particle radius differ in the last digit.
+
+# Parameters
+- `particle_radius`, `ball_radius` \[cm\].
+- `pitch` \[cm\] — the cubic lattice spacing.
+- `offset` — lattice shift in units of `pitch`.
+
+```rust
+pub fn cubic_array_in_ball(particle_radius: f64, ball_radius: f64, pitch: f64, offset: [f64; 3]) -> Vec<Sphere> { /* ... */ }
+```
+
+#### Function `cubic_pitch_for_count`
+
+Pitch whose [`cubic_array_in_ball`] count is closest to `target`, searched
+over `+/-3 %` of the continuum estimate `((4/3) pi r_eff^3 / target)^(1/3)`.
+
+Returns `(pitch, realised_count)`. **Read the count**: the exact target is
+often unreachable, for the symmetry-shell reason in
+[`cubic_array_in_ball`]'s docs.
+
+```rust
+pub fn cubic_pitch_for_count(particle_radius: f64, ball_radius: f64, target: usize, offset: [f64; 3]) -> (f64, usize) { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `MAX_PF_RSA`
@@ -20830,15 +29000,40 @@ The two do meet: [`medium::RsaMedium`] wraps the RSA packing generated by
 [`crate::pebble_beds::sphere_packing`], which stays where it is because the
 delta-tracking path depends on it directly.
 
-# Status: scaffold
+# Status — CORRECTED 2026-09-18
 
-The chord statistics, the SCLS retention machinery and the brute-force index are
-implemented and unit-tested. The **CLS and SCLS transport drivers are not** — those
-paths return typed `NotImplemented` errors rather than fabricated answers.
+~~Status: scaffold. The CLS and SCLS transport drivers are not implemented —
+those paths return typed `NotImplemented` errors. No accuracy claim is
+made.~~
 
-**No accuracy claim is made for CLS or SCLS.** Whether either reproduces the
-explicit-RSA reference is an empirical question the benchmark suite (bead
-`op-eby.7`) must measure before anything here may be called validated.
+**All three statements were stale.** Both drivers are implemented, no
+`NotImplemented` remains on either path, and accuracy has been measured and
+published: [`crate::dh_universe::DhTreatment`] runs CLS and SCLS as full arms
+of the FHR unit-cell k-eigenvalue comparison, and `examples/dh_keff_vv.rs`
+reports their eigenvalues against an exact delta-tracked reference.
+
+What *is* still true, and matters more than the scaffold label did:
+
+- **The old text asked whether CLS reproduces the explicit-RSA reference,
+  and left it open. It does not, and the reason is implementation —
+  specifically *what CLS was applied to*.** Whole-particle CLS measures `-3149 pcm`
+  (2.9σ, resolved) because it smears the fuel kernel over 7.7x its volume
+  and destroys grain-level self-shielding. Applying CLS at the **kernel**
+  instead — [`crate::dh_universe::DhTreatment::ChordLengthKernel`] — gives
+  `+669 pcm`, **not resolved from exact** at these statistics: a recovery of
+  **+3818 pcm**. The price is the whole speed advantage (157.6 s against
+  exact delta tracking's 148.4 s); what survives is O(1) memory.
+- The absorbing-inclusion benchmark ([`benchmark`]) independently measures
+  CLS **over-absorbing** against an explicit RSA reference — the same sign.
+- One implementation defect is found and fixed: inclusion chords were drawn
+  exponentially rather than from a sphere's chord law, see
+  [`cls::sample_chord_sphere`]. It preserved the mean, so the mean-only tests
+  passed, while putting 22 % of sampled chords beyond `2R`. Correcting it
+  moves absorption *up*, so it does not explain the eigenvalue gap — it was
+  masking part of it.
+
+**Nothing here is validated.** These are measurements against another code
+path, not against experiment.
 
 Scaffolded per the *OUTRAM-MC Design Scaffold v0.1* (Theodore Ong, Zhe Chuan Tan),
 tracked under beads epic `op-eby`. This is **new work**, not an OpenMC port —
@@ -21256,9 +29451,13 @@ length between successive queries, toggling phase and re-sampling a chord at eve
 boundary crossed. Because the chord statistics are direction-independent this needs
 only the distance between queries, which *is* the memoryless approximation. Its
 defining consistency property — inclusion occupancy converging to the packing
-fraction — is unit-tested. Coupling this into the k-eigenvalue transport loop (the
-benchmark of bead `op-eby.7`) is the remaining integration step, not a gap in CLS
-itself.
+fraction — is unit-tested.
+
+~~Coupling this into the k-eigenvalue transport loop is the remaining
+integration step~~ **CORRECTED 2026-09-18** — it is coupled.
+[`crate::dh_universe::DhTreatment::ChordLength`] drives this medium through the
+full FHR unit-cell k-eigenvalue calculation, and `examples/dh_keff_vv.rs`
+publishes the resulting eigenvalue.
 
 # References
 
@@ -21268,6 +29467,21 @@ itself.
   *Monte Carlo Particle Transport Methods*, CRC Press (1991); Zimmerman & Adams,
   *Algorithms for Monte Carlo particle transport in binary statistical mixtures*
   (1991). See also [`crate::pebble_beds::references`] for the dispersion-fuel bibliography.
+
+**Those two references describe different media, and conflating them caused a
+real defect.** The Markovian binary mixture of Zimmerman & Adams has
+*exponentially* distributed chords in **both** phases. Dispersion fuel does not:
+its inclusions are spheres of **fixed radius**, whose chord law is
+`f(l) = l / (2R^2)` on `[0, 2R]` — same mean, bounded support, about a third
+the relative spread. The matrix phase is still treated as Markovian here, which
+is standard; the inclusion phase is not, and is sampled by
+[`sample_chord_sphere`].
+
+The SCLS method the sibling module implements is Tan, Feng, Chan & Wang (2025),
+`10.1016/j.anucene.2025.111436`
+([`crate::pebble_beds::references::TAN2025_CLS`]). **That paper is not yet
+catalogued in `crates/kovan-literature`**, which the workspace requires of any
+literature that informs the code.
 
 This module is **new work**, not a port — OpenMC has no CLS implementation, so the
 crate's "mirror the canonical source" rule does not apply here (see the crate
@@ -21540,6 +29754,55 @@ A non-positive `mean_chord` yields 0.
 
 ```rust
 pub fn sample_chord(mean_chord: f64, seed: &mut u64) -> f64 { /* ... */ }
+```
+
+#### Function `sample_chord_sphere`
+
+Sample a chord \[cm\] through a **sphere** of radius `radius`, from the true
+geometric chord-length distribution.
+
+# Why this is not exponential
+
+For a convex body under uniform isotropic incidence the chord length is *not*
+exponentially distributed. For a sphere the impact parameter `b` is uniform in
+area, so `b = R·√ξ`, and the chord is the corresponding secant:
+
+```text
+ℓ = 2·√(R² − b²) = 2R·√(1 − ξ)
+```
+
+which for `ξ` uniform on [0,1) is the same law as `ℓ = 2R·√ξ`. The density is
+`f(ℓ) = ℓ / (2R²)` on `0 ≤ ℓ ≤ 2R`, whose mean is `4R/3` — Cauchy's result, so
+this agrees with [`mean_chord_length_sphere`] — with standard deviation
+`√(2R²/9)` ≈ `0.471R`, i.e. `σ/⟨ℓ⟩ = √2/4 ≈ 0.354`.
+
+# The defect this replaces — measured 2026-09-18
+
+~~Inclusion chords were drawn from [`sample_chord`], i.e. exponentially~~
+**CORRECTED**. The exponential is the right law for a *Markovian binary
+mixture* (Zimmerman & Adams), which is what this module's references
+describe, but the inclusions here are **spheres of fixed radius**, which is
+the non-Markovian case. The exponential preserves the mean — which is exactly
+why the unit tests passed — and gets everything else wrong:
+
+| | mean | σ/⟨ℓ⟩ | `P(ℓ > 2R)` | max/2R |
+|---|---|---|---|---|
+| ray-traced sphere (truth) | `4R/3` | **0.353** | **0** | **1.00** |
+| exponential (previous code) | `4R/3` | 1.000 | **0.223** | 8.01 |
+
+**22 % of sampled inclusion chords exceeded `2R`, the longest chord a sphere
+has**, and the longest sampled was eight diameters. Measured over 400 000
+samples at `R = 0.02135 cm`.
+
+The consequence is under-absorption, because `1 − e^{−Σℓ}` is concave in `ℓ`,
+so by Jensen a higher-variance chord distribution at the same mean absorbs
+less. At `Σ⟨ℓ⟩ ≈ 2.8` — the resonance regime for a TRISO kernel — the mean
+absorption probability per traversal was **0.740 against a true 0.899**.
+
+`radius` must be > 0; a non-positive radius yields 0.
+
+```rust
+pub fn sample_chord_sphere(radius: f64, seed: &mut u64) -> f64 { /* ... */ }
 ```
 
 ## Module `medium`
@@ -25176,6 +33439,7 @@ pub struct BurnupSettings {
     pub n_steps: usize,
     pub temperature_k: f64,
     pub one_group_energy_ev: f64,
+    pub weighting: OneGroupWeighting,
 }
 ```
 
@@ -25188,7 +33452,8 @@ pub struct BurnupSettings {
 | `step_days` | `f64` | Length of each burnup step \[days\]. |
 | `n_steps` | `usize` | Number of burnup steps. |
 | `temperature_k` | `f64` | Data/lookup temperature \[K\] for the cross-section evaluation. |
-| `one_group_energy_ev` | `f64` | One-group energy \[eV\] at which cross sections are evaluated<br>(0.0253 eV = 2200 m/s thermal point by default). |
+| `one_group_energy_ev` | `f64` | One-group energy \[eV\] at which cross sections are evaluated when<br>[`Self::weighting`] is [`OneGroupWeighting::SingleEnergy`]<br>(0.0253 eV = 2200 m/s thermal point by default). |
+| `weighting` | `OneGroupWeighting` | How the one-group cross sections are formed — see<br>[`OneGroupWeighting`]. Defaults to<br>[`OneGroupWeighting::SingleEnergy`], which is what this module did<br>unconditionally before 2026-09-16. |
 
 ##### Implementations
 
@@ -25220,7 +33485,6 @@ pub struct BurnupSettings {
     unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
     ```
 
-- **Copy**
 - **Debug**
   - ```rust
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
@@ -25271,6 +33535,227 @@ pub struct BurnupSettings {
 - **RefUnwindSafe**
 - **Same**
 - **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `OneGroupWeighting`
+
+How [`BurnupSettings`] forms its one-group cross sections.
+
+# Why this exists
+
+Depletion needs `σ` averaged over the flux the fuel actually sees. Until
+2026-09-16 this module evaluated every cross section at a **single energy**
+(0.0253 eV by default) and called the result one-group. For a purely
+thermal spectrum that is defensible; for anything else it is not, and it
+misses **resonance absorption entirely** — U-238's capture cross section is
+~2.7 b at 0.0253 eV, while its flux-weighted value in a real lattice is
+several times that, because the resonance integral dominates.
+
+The survey in `docs/neutronics-physics-coverage.md` recorded this as a
+coupling gap rather than a fidelity knob, and it is: a burnup calculation
+whose one-group data is wrong depletes the wrong nuclides.
+
+```rust
+pub enum OneGroupWeighting {
+    SingleEnergy,
+    ThermalFissionSpectrum {
+        e_min_ev: f64,
+        e_max_ev: f64,
+        n_points: usize,
+    },
+    TabulatedFlux {
+        e_grid_ev: Vec<f64>,
+        phi: Vec<f64>,
+        sub_points: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `SingleEnergy`
+
+Evaluate at [`BurnupSettings::one_group_energy_ev`] and nowhere else.
+
+The historical behaviour, kept as the default so existing results
+reproduce **bit-identically**. Correct only for a spectrum concentrated
+at that one energy.
+
+###### `ThermalFissionSpectrum`
+
+Collapse `σ_g = ∫σ(E)φ(E)dE / ∫φ(E)dE` against NJOY's **`iwt = 4`**
+analytic weighting spectrum: a Maxwellian thermal peak, a `1/E` slowing-
+down region, and a fission-spectrum fast tail.
+
+Reuses [`AnalyticWeight::ThermalFission`] from `njoy-outram-park-fork`'s
+GROUPR port rather than re-deriving the shape — it is the same weight
+NJOY uses to collapse multigroup libraries, already ported and tested.
+
+The integral is a log-spaced trapezoid over `[e_min_ev, e_max_ev]` with
+`n_points` nodes. It is **not** a transport-calculated flux: it is a
+representative spectrum, which is a large improvement on a single point
+and still an approximation. Collapsing against the *actual* flux from a
+transport solve is the remaining step.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `e_min_ev` | `f64` | Lower integration bound \[eV\]. |
+| `e_max_ev` | `f64` | Upper integration bound \[eV\]. |
+| `n_points` | `usize` | Number of log-spaced quadrature nodes. |
+
+###### `TabulatedFlux`
+
+Collapse against a **flux spectrum the caller measured**, typically
+tallied from a transport solve of the actual geometry.
+
+This is the variant the other two are approximations of. The analytic
+`iwt = 4` shape is a *representative* spectrum — it knows nothing about
+this geometry's moderation, leakage, or self-shielding — and
+`SingleEnergy` knows nothing at all. A tallied spectrum carries the
+resonance dips that make U-238's effective capture several times its
+0.0253 eV value, which is the whole reason the one-group data matters.
+
+# Fields
+
+- `e_grid_ev` — ascending group **boundaries** \[eV\], length `n + 1`.
+- `phi` — the flux in each group, length `n`. Units are arbitrary and
+  cancel; only the *shape* is used.
+
+# How the collapse treats a group
+
+`sigma_g = sum_g phi_g * sigma_bar_g / sum_g phi_g`, with `sigma_bar_g`
+the cross section averaged across the group on a log-spaced sub-grid.
+Averaging within the group rather than evaluating at its midpoint
+matters wherever a resonance sits inside one — which, on any practical
+group structure, is most of the resolved range.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `e_grid_ev` | `Vec<f64>` | Ascending group boundaries \[eV\]; length is `phi.len() + 1`. |
+| `phi` | `Vec<f64>` | Flux per group (arbitrary units — only the shape is used). |
+| `sub_points` | `usize` | Sub-samples per group used to average `sigma` inside it. `1` reduces<br>to evaluating at the group's geometric midpoint. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn thermal_fission_default() -> Self { /* ... */ }
+  ```
+  NJOY's standard `iwt = 4` breakpoints: thermal Maxwellian below
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> OneGroupWeighting { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &OneGroupWeighting) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
 - **Sync**
 - **ToOwned**
   - ```rust
@@ -25580,6 +34065,63 @@ pub struct BurnupResult {
 - **WasmNotSendSync**
 - **WasmNotSync**
 ### Functions
+
+#### Function `deplete_coupled`
+
+Run a burnup calculation in which the **flux spectrum is recomputed at every
+step** from the current inventory, rather than frozen at beginning of life.
+
+# Why this exists
+
+[`deplete_predictor`] computes the one-group cross sections **once**, before
+the loop. That is correct only if the spectrum does not move — and the whole
+point of depletion is that it does: fissile material burns out, fission
+products with large thermal absorption build in, and the spectrum hardens.
+Cross sections collapsed against a beginning-of-life spectrum therefore drift
+further from the truth at every step, and the error compounds because the
+inventory they produce is the input to the next step.
+
+`spectrum` is called before each step with the current inventory as
+`(nuclide, atom density \[atoms/(barn*cm)\])` pairs, and returns
+`(group boundaries \[eV\], flux per group)` — exactly what an
+[`crate::tally::filter::EnergyFilter`] tally produces from a transport solve.
+Returning `None` keeps the previous step's spectrum, which is what a caller
+should do when a solve fails rather than silently substituting a different
+weighting.
+
+# The coupling this does and does not do
+
+This is an **operator-splitting** (predictor) coupling: transport is solved
+on the inventory at the start of a step, the resulting one-group data is held
+constant across that step, and the inventory is advanced with CRAM. It is
+**not** a predictor-corrector scheme — there is no second transport solve at
+the end of the step and no averaging of the two — so it carries the usual
+first-order splitting error in the step length. Shortening `step_days` is
+what controls that, and a caller who needs more should say so rather than
+assume this is second order.
+
+`settings.weighting` is **overridden** for each step by the returned
+spectrum; whatever it holds on entry is used only if `spectrum` returns
+`None` on the very first call.
+
+# Call count: `n_steps`, not `n_steps + 1`
+
+`spectrum` is called once at beginning of life and then once before each of
+steps `2..=n_steps` — `n_steps` calls in total. Step 1 reuses the
+beginning-of-life spectrum because it starts from the **same inventory**, so
+re-solving would repeat an identical calculation at the cost of a full
+transport run. The arithmetic looks off by one until that is spelled out,
+which is why it is.
+
+# Generic, not a trait object
+
+`spectrum` is an `impl FnMut` — a monomorphised parameter, not a
+`Box<dyn Fn>` — per the workspace's Rust design rules, the same way
+`physics::search` takes its predicate.
+
+```rust
+pub fn deplete_coupled</* synthetic */ impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>: FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>>(chain: &super::chain::DepletionChain, initial: &[(String, f64)], settings: &BurnupSettings, spectrum: impl FnMut(&[(String, f64)]) -> Option<(Vec<f64>, Vec<f64>)>) -> BurnupResult { /* ... */ }
+```
 
 #### Function `deplete_predictor`
 
@@ -29606,6 +38148,945 @@ usual working directory for `cargo test`/example runs).
 pub const LOCAL_PERF_DIR: &str = "verification_and_validation/local_perf";
 ```
 
+## Module `vv`
+
+Verification & validation gates and the committed oracle tables this crate is
+measured against.
+
+The gate helpers themselves live one crate down, in
+[`njoy_outram_park_fork::vv`], because both crates run oracle comparisons and
+this one depends on that one — so there is a single implementation rather
+than two that drift. They are re-exported here so callers need only one path.
+
+[`njoy_golden`] holds the NJOY2016 oracle **values** for the comparisons that
+are about *this* crate's fidelity: the S(alpha,beta) laws and the U-238 point
+cross sections. Those belong here rather than in the data crate, because what
+they measure is `outram-mc-libs` reproducing NJOY, not NJOY reproducing
+itself.
+
+```rust
+pub mod vv { /* ... */ }
+```
+
+### Modules
+
+## Module `njoy_golden`
+
+NJOY2016 oracle values, committed as golden data.
+
+# Provenance
+
+Every number here was measured by running **NJOY2016 release 2016.79**
+(`18Mar25`) on the same open ENDF/B-VIII.0 evaluations this crate reads from
+`reference-data/endf/`. The dates are recorded per table. The NJOY output
+tapes are 24–37 MB and are **not** checked in; the handful of numbers taken
+off them are, which is what lets the comparisons run on a machine with no
+NJOY installed and no multi-megabyte tape on disk.
+
+The decks that produce each tape are reproduced in the doc comments of the
+examples that read them directly:
+`examples/graphite_vs_njoy_thermr.rs`, `examples/h2o_vs_njoy_thermr.rs`,
+`examples/h2o_kernel_vs_njoy_thermr.rs`,
+`examples/graphite_kernel_vs_njoy_thermr.rs` and
+`examples/u238_vs_njoy_pendf.rs`.
+
+# Why this lives in the library rather than in a test file
+
+It was in a test file, and the examples that generated it carried their own
+copies of the same numbers in prose. Two copies of an oracle drift, and the
+prose copy drifts first because nothing checks it. Both the golden tests and
+the examples now read *these* tables, so there is exactly one recorded value
+per measurement and a single place to update when the oracle is re-run.
+
+# These are oracle values, not targets
+
+Agreement here is a claim about this crate's fidelity to the code it ports.
+Where the port is known to be wrong, the discrepancy is recorded in the table
+comments rather than smoothed away — see [`H2O_KERNEL`], whose −2 % to −5.5 %
+column is the open defect tracked as GitHub #188.
+
+```rust
+pub mod njoy_golden { /* ... */ }
+```
+
+### Modules
+
+## Module `u238_pendf`
+
+**NJOY2016 2016.79 PENDF for U-238**, MAT 9237 at 600 K: `(E [eV], sigma [b])`
+at nineteen probe energies — thermal, the four big low-lying capture
+resonances, the resolved tail, the resolved/unresolved boundary, the
+unresolved band, and fast. Measured 2026-09-11.
+
+# What these pin, and what they cannot
+
+These are **point** values, so they pin the *peak heights*. They structurally
+cannot see the **area** under a resonance, which is what actually drives
+resonance escape: a grid too coarse between the nodes loses area without
+moving any node value. That gap is closed by
+`examples/u238_resonance_integral.rs`, which integrates `sigma_gamma dE/E`
+on this crate's own grid — the grid transport actually interpolates on — and
+gets +0.001 % against NJOY over 0.5 eV to 100 keV.
+
+# Results
+
+MT=1 and MT=2 agree to **0.04 %** worst, MT=102 to **0.17 %** worst (at
+19 keV, where capture is 0.119 b between resonances). Where a row carries no
+comment, this crate and NJOY agree to better than the printed precision.
+
+MT=18 is a special case — see [`u238_pendf::FISSION`].
+
+```rust
+pub mod u238_pendf { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `TOTAL`
+
+MT=1, total.
+
+```rust
+pub const TOTAL: &[(f64, f64)] = _;
+```
+
+#### Constant `ELASTIC`
+
+MT=2, elastic.
+
+```rust
+pub const ELASTIC: &[(f64, f64)] = _;
+```
+
+#### Constant `CAPTURE`
+
+MT=102, radiative capture — the resonance-absorption channel the whole
+study turns on.
+
+```rust
+pub const CAPTURE: &[(f64, f64)] = _;
+```
+
+#### Constant `FISSION`
+
+MT=18, fission.
+
+**Most of this column is sub-threshold and carries no information.**
+U-238 fission has a ~1 MeV threshold, so below it the tabulated values
+are the evaluation's small sub-threshold tail — 1.354e-7 b at 1 keV, for
+instance. A *relative* comparison against a number that size measures
+reconstruction round-off, not physics: this crate gives 1.453e-7 b there,
++7.31 %, which is 1e-8 b in absolute terms and means nothing.
+
+Any gate on this table must therefore carry a **significance floor** on
+the oracle magnitude and must assert *how many* points that floor
+excluded — otherwise a data change that silently zeroed the whole column
+would slip through as "everything passed". At a 1e-6 b floor, exactly one
+point (1 keV) is excluded.
+
+```rust
+pub const FISSION: &[(f64, f64)] = _;
+```
+
+### Types
+
+#### Type Alias `XsPoint`
+
+One point of a cross-section comparison: `(E [eV], sigma [b])`.
+
+```rust
+pub type XsPoint = (f64, f64);
+```
+
+#### Type Alias `KernelPoint`
+
+One point of a first-moment kernel comparison: `(E [eV], <E'>/E)`.
+
+```rust
+pub type KernelPoint = (f64, f64);
+```
+
+### Functions
+
+#### Function `interp_linlin`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Linear-linear interpolation on an ascending `(E, sigma)` table, returning
+zero outside it — the same contract as NJOY's `gety1`, so a comparison
+against a PENDF or THERMR tape is made on the oracle's own terms.
+
+```
+# use outram_mc_libs::vv::njoy_golden::interp_linlin;
+let table = [(1.0, 10.0), (2.0, 20.0)];
+assert_eq!(interp_linlin(&table, 1.5), 15.0);
+assert_eq!(interp_linlin(&table, 9.0), 0.0); // outside: zero, not clamped
+```
+
+```rust
+pub fn interp_linlin(pairs: &[(f64, f64)], e: f64) -> f64 { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `H2O_XS`
+
+**H-in-H₂O incoherent-inelastic cross section**, THERMR MT=222 for
+`tsl-HinH2O` at 293.6 K.
+
+# The `// ours` row comments are the **2026-09-11** values and are superseded
+
+On 2026-09-11 this crate sat a consistent **+0.65 % to +1.47 %** above NJOY
+across the whole range — the "one-signed magnitude offset" the rows record.
+**Most of that was this crate's own E' quadrature, not its scattering law.**
+THERMR's `ep_profile` integrated σ(E→E') on the raw β-mapped grid with no
+adaptive refinement; porting `calcem`/`sigl`'s linearisation (2026-09-13)
+gives:
+
+```text
+  E [eV]      NJOY        2026-09-11    2026-09-13
+  1.000e-3    116.85880    +1.37 %       -0.24 %
+  5.000e-3     81.85424    +0.83 %       -0.17 %
+  1.000e-2     69.32242    +0.86 %       -0.04 %
+  2.530e-2     51.68752    +0.88 %       -0.18 %
+  5.000e-2     39.51121    +1.01 %       -0.35 %
+  1.000e-1     32.55061    +1.07 %       -0.53 %
+  2.000e-1     27.45337    +1.15 %       -0.70 %
+  4.000e-1     23.63236    +1.18 %       -0.85 %
+  6.250e-1     22.15801    +0.65 %       -1.39 %
+  1.000e0      21.50120    +1.46 %       -0.45 %
+  2.000e0      20.94862    +1.47 %       -0.31 %
+  mean |error|              1.10 %        0.47 %
+  worst                    +1.47 %       -1.39 %
+```
+
+So the mean error more than halves and the **sign flips**: the excess is
+gone and a smaller deficit is left, worst at 0.625 eV, which was the one
+point the old excess was *smallest* at. The residual is the scattering law's
+own, and is what GitHub #188 is now about.
+
+Note what this table does *not* see: the cross section is the *area* of the
+scattering law, and [`H2O_KERNEL`] shows the *shape* is wrong by up to
+5.5 %. A magnitude oracle alone would have cleared a defective law — and the
+kernel width did **not** move when the quadrature was fixed, so the two
+defects are genuinely separate.
+
+```rust
+pub const H2O_XS: &[XsPoint] = _;
+```
+
+#### Constant `H2O_XS_TOL`
+
+The envelope [`H2O_XS`] is asserted inside.
+
+**Tightened 2026-09-13 from 2 % to 1.5 %**, against a worst measured
+deviation of −1.39 % (was +1.47 % before the E' quadrature fix; see
+[`H2O_XS`] for the full before/after). The comparison is fully deterministic
+— no RNG anywhere in it — so a gate 0.11 % above the worst measured point is
+a gate, not a flake.
+
+```rust
+pub const H2O_XS_TOL: f64 = 0.015;
+```
+
+#### Constant `H2O_XS_EXPECTED_SIGN`
+
+The **sign** [`H2O_XS`]'s error is expected to carry: `-1` for a deficit.
+
+Recorded as `+1` (a consistent excess) until 2026-09-13, when fixing this
+crate's E' quadrature removed the excess and left a smaller deficit at all
+eleven points. The sign is asserted separately from the magnitude because a
+one-signed error is evidence about *which* defect is present, and a flip is
+worth stopping for — which is exactly how the quadrature fix announced
+itself.
+
+```rust
+pub const H2O_XS_EXPECTED_SIGN: f64 = -1.0;
+```
+
+#### Constant `H2O_LAW_UPPER_BOUND_EV`
+
+NJOY's H-in-H₂O law runs to **10 eV**; this crate's ends between 2 and 4 eV.
+
+That is why [`H2O_XS`] stops at 2 eV. The handover to free gas is a real
+difference between the two codes and is asserted separately, rather than
+being hidden by truncating the comparison silently.
+
+```rust
+pub const H2O_LAW_UPPER_BOUND_EV: (f64, f64) = _;
+```
+
+#### Constant `H2O_KERNEL`
+
+**H-in-H₂O scattering kernel**, THERMR MF=6/MT=222 for `tsl-HinH2O` at
+293.6 K, reduced to its first moment: `(E [eV], <E'>/E, xi = <ln(E/E')>)`.
+Oracle measured 2026-09-11; this crate re-measured against it 2026-09-12.
+
+# This table records an open defect, deliberately
+
+This crate's kernel is **too narrow**: as first measured on 2026-09-11 it
+moved neutrons −5.5 % at 1.5 meV through to +1.5 % at 1.9 eV, crossing over
+at 0.1116 eV, with `xi` 3–5 % low. Water therefore moderated about 4 % less
+per collision here than in NJOY. That is [GitHub #188].
+
+# Partly repaired 2026-09-12 — and the cause is now known
+
+#188 was suspected of sharing a cause with #190 (graphite's kernel being
+**too broad** at high energy from a coarse emission grid). It does not, and
+the sweep in `examples/thermal_emission_grid_convergence.rs` settles it by
+measurement: water's kernel is **entirely insensitive to the incident-energy
+grid** — `<E'>/E` at 1.5 meV is −5.40 % at 48 grid points and −5.51 % at
+1536 — and **responds only to the equiprobable outgoing-bin count**
+`N_OUTGOING`:
+
+```text
+  N_OUTGOING        16       32       64      128
+  <E'>/E @1.5 meV  −5.51 %  −3.26 %  −2.10 %  −1.43 %
+  worst |xi| rel    3.2 %    3.1 %    2.9 %    2.8 %
+  width @0.0253 eV −13.49 % −7.99 %  −4.64 %  −2.53 %
+```
+
+Raising `N_OUTGOING` 16 → 64 the same day therefore took the first moment
+from −5.51 % to **−2.10 %**. It is a **mitigation, not a fix**: the error
+falls as ~`1/N_OUTGOING` with no plateau, and `xi` — which weights the
+low-`E'` tail logarithmically and so is the most tail-sensitive moment
+there is — barely moves (−2.89 % at 64 bins, −2.79 % at 128). What is being
+measured is the equiprobable representation truncating both tails of the
+distribution, and the proper fix is a **continuous** outgoing-energy law
+(NJOY's `iform = 1`), not more bins. **#188 stays open.**
+
+**Do not "fix" a failure of the kernel assertions by widening them.** The
+envelope is pinned just above the measured defect — it is sized to catch the
+defect getting *worse*, and it must be *tightened* when the port is
+repaired, not loosened.
+
+# How a defect this size survived a full analytic test file
+
+`tests/thermal_h2o_sab.rs` checks the free-atom limit, detailed balance, the
+cross section, and the effective temperature. A kernel that is too narrow
+satisfies detailed balance *exactly* (it is a symmetry, not a width),
+reproduces the free-atom limit (that tests the absence of binding), has
+nearly the right area (see [`H2O_XS`]) and the right effective temperature
+(a scalar). Only a direct comparison of the outgoing-energy distribution
+sees it — and only a comparison of the *second* moment
+([`H2O_KERNEL_WIDTH`]) identifies which dimension of the tabulation is at
+fault.
+
+[GitHub #188]: https://github.com/theodoreOnzGit/outram-park-backend/issues/188
+
+```rust
+pub const H2O_KERNEL: &[(f64, f64, f64)] = _;
+```
+
+#### Constant `H2O_KERNEL_TOL`
+
+The envelope [`H2O_KERNEL`] is asserted inside: **3 %**, sized to the worst
+remaining deviation — −1.63 % at 1.5 meV and +1.68 % at 1.855 eV at the
+gate's 200 000 samples, −2.10 % at the sweep's 400 000 (2026-09-12).
+
+**Tightened from 6 % on 2026-09-12**, when `N_OUTGOING` 16 → 64 took the
+worst deviation from −5.54 % to −2.10 %. The 6 % figure was sized to the old
+defect and would now pass a full regression of it. Tighten this again when
+#188 is closed; never widen it.
+
+**Updated 2026-09-13, GitHub #188 fixed.** Worst is now `+0.88 %` (was
+`5.54 %`, one-signed), so the bound tightens from 3 % to 1.5 %.
+
+```rust
+pub const H2O_KERNEL_TOL: f64 = 0.015;
+```
+
+#### Constant `H2O_KERNEL_CROSSOVER_EV`
+
+Incident energy at which this crate's H-in-H₂O kernel crosses NJOY's, in eV.
+Below it this crate's `<E'>/E` is low, above it high — the sign structure
+that identifies a *width* error rather than a scale error.
+
+```rust
+pub const H2O_KERNEL_CROSSOVER_EV: f64 = 0.11157;
+```
+
+#### Constant `H2O_KERNEL_WIDTH`
+
+**H-in-H₂O scattering kernel WIDTH**, 293.6 K: `(E [eV],
+sqrt(var(E'))/<E'>)` of the incoherent-inelastic outgoing-energy
+distribution, from THERMR MF=6/MT=222 by trapezoid quadrature.
+Measured 2026-09-12.
+
+# Why water needed a second moment too
+
+[`GRAPHITE_KERNEL_WIDTH`] exists because a kernel can have the right mean
+and the wrong spread. Water had the same hole, and worse: [`H2O_KERNEL`]
+records a defect *in the mean* (#188) with no measurement at all of the
+spread underneath it, so there was no way to tell whether the two moments
+were failing for one reason or two. This table closes that.
+
+# Results (2026-09-12, NJOY2016 2016.79, ENDF/B-VIII.0, 400 000 samples)
+
+The comment on each row is this crate's own value at the emission-table
+dimensions set the same day (`N_EMIT_GRID` 384, `N_OUTGOING` 64). The
+sampled kernel is **one-signed narrow across the whole range**, worst
+−4.6 % at 0.0253 eV — the same signature, and the same cause, as the
+residual in [`GRAPHITE_KERNEL_WIDTH`]: the equiprobable outgoing-energy
+representation truncates both tails. Worst **−4.91 %** at the gate's 200 000
+samples; the sweep's 400 000-sample stream gives −4.64 % at the same energy,
+which is the scale of the stream-to-stream scatter on a sampled width.
+
+# What this table proved about #188
+
+Swept against the emission-table dimensions (see
+`examples/thermal_emission_grid_convergence.rs`), water's width is
+**completely insensitive to the incident-energy grid** — −12.16 % at 48
+points and −12.44 % at 1536, at 16 outgoing bins — and **entirely
+responsive to the outgoing-bin count**: −13.49 % at 16 bins, −7.99 % at 32,
+−4.64 % at 64, −2.53 % at 128. Graphite's #190 defect was the *other*
+dimension. So #188 and #190 are **not the same defect**, and the fix for one
+is not the fix for the other; they are two dimensions of the same ACE
+equiprobable pre-tabulation.
+
+[GitHub #188]: https://github.com/theodoreOnzGit/outram-park-backend/issues/188
+
+```rust
+pub const H2O_KERNEL_WIDTH: &[(f64, f64)] = _;
+```
+
+#### Constant `H2O_KERNEL_WIDTH_TOL`
+
+The envelope [`H2O_KERNEL_WIDTH`] is asserted inside: **5 %**, against a worst
+measured deviation of **−4.02 % at 0.0253 eV** (2026-09-12, continuous
+outgoing-energy sampling), and **one-signed narrow** at every energy.
+
+# This was expected to collapse, and it did not — which is the finding
+
+The previous revision of this comment said the bound "is a bound on the
+equiprobable outgoing-energy representation, not on a mystery", that it
+"shrinks as `1/N_OUTGOING`", and that it "should be replaced outright by a
+~1 % bound when the representation is replaced by a continuous
+outgoing-energy law".
+
+The representation **was** replaced, on 2026-09-12, and the deficit did not
+collapse:
+
+```text
+  representation                      graphite worst   H2O worst
+  48 x 16 equiprobable                    +39.0 %        -5.5 %
+  384 x 64 equiprobable                    -2.33 %       -4.91 %
+  384 x continuous (quantile interp)       -1.96 %       -4.02 %
+```
+
+So roughly **80 % of the width deficit is not the discretisation at all** —
+it is in the THERMR kernel underneath, which is what GitHub #188 now means.
+The prediction in the old comment was wrong, and it is left quoted here
+rather than deleted because a bound whose stated cause has been refuted by
+measurement should say so.
+
+Never widen it.
+
+```rust
+pub const H2O_KERNEL_WIDTH_TOL: f64 = 0.05;
+```
+
+#### Constant `GRAPHITE_XS_INELASTIC`
+
+**Graphite incoherent-inelastic cross section**, THERMR MT=229 for
+`tsl-crystalline-graphite` at 600 K. Measured 2026-09-11.
+
+600 K is a *tabulated* temperature on that tape, so no temperature
+interpolation is involved and any difference is in the law itself.
+
+Worst deviation **−0.14 %**, at the top of the range. This is what a ported
+thermal law looks like when it is right, and it is the control against which
+[`H2O_KERNEL`]'s −5.5 % is read.
+
+```rust
+pub const GRAPHITE_XS_INELASTIC: &[XsPoint] = _;
+```
+
+#### Constant `GRAPHITE_XS_COHERENT`
+
+**Graphite coherent-elastic cross section**, THERMR MT=230 for
+`tsl-crystalline-graphite` at 600 K. Measured 2026-09-11.
+
+Worst deviation **−0.09 %**. The two points below the first Bragg edge are
+exactly zero on both sides, which is a *structural* agreement rather than a
+numerical one: a code that has the Bragg cutoff in the wrong place, or that
+smears it, cannot produce an exact zero there.
+
+```rust
+pub const GRAPHITE_XS_COHERENT: &[XsPoint] = _;
+```
+
+#### Constant `GRAPHITE_XS_TOL`
+
+The envelope both graphite cross-section tables are asserted inside:
+**0.5 %**, against a worst measured deviation of −0.14 %.
+
+```rust
+pub const GRAPHITE_XS_TOL: f64 = 0.005;
+```
+
+#### Constant `GRAPHITE_FIRST_BRAGG_EDGE_ABOVE_EV`
+
+Highest energy at which graphite's coherent-elastic cross section is still
+exactly zero, in eV — i.e. below the first Bragg edge.
+
+```rust
+pub const GRAPHITE_FIRST_BRAGG_EDGE_ABOVE_EV: f64 = 1.0e-3;
+```
+
+#### Constant `GRAPHITE_KERNEL`
+
+**Graphite scattering kernel**, THERMR MF=6/MT=229 for
+`tsl-crystalline-graphite` at 600 K: `(E [eV], <E'>/E)`, coherent elastic
+excluded from the moment. Measured 2026-09-11.
+
+# This table corrects a claim this workspace had been repeating
+
+"Graphite's kernel matches THERMR to ≤0.5 %" was used to argue that water's
+−5.5 % was uniquely bad. That figure was **scoped to 0.1–4 eV**. Over the
+range where water is compared, graphite is **−1.53 %** at 0.0253 eV against
+water's −1.47 % — the same, not better.
+
+What actually distinguishes the two is **convergence**: graphite's deviation
+falls to ≤0.1 % above 0.2 eV and stays there, while water's grows
+monotonically to +1.5 %. The discriminator is the trend, not the worst
+value, which is why [`GRAPHITE_KERNEL_CONVERGED_ABOVE_EV`] exists and is
+asserted separately.
+
+The third column of each comment is the coherent-elastic share of the total
+cross section at that energy, which is why the low-energy points carry the
+larger deviations: little inelastic signal is left to measure.
+
+```rust
+pub const GRAPHITE_KERNEL: &[KernelPoint] = _;
+```
+
+#### Constant `GRAPHITE_KERNEL_TOL`
+
+The envelope [`GRAPHITE_KERNEL`] is asserted inside: **1 %**, against a worst
+measured deviation of −0.56 % (2026-09-12).
+
+**Tightened from 2 % on 2026-09-12**, when `N_OUTGOING` 16 → 64 took the
+worst deviation from −1.53 % to −0.56 %. Note what this table could *not*
+see even at −1.53 %: the first moment was already inside 2 % while the
+*second* moment was +39 % out at 2 eV. A mean is not a distribution — see
+[`GRAPHITE_KERNEL_WIDTH`].
+
+```rust
+pub const GRAPHITE_KERNEL_TOL: f64 = 0.01;
+```
+
+#### Constant `GRAPHITE_KERNEL_CONVERGED_ABOVE_EV`
+
+Above this energy graphite's kernel agrees with NJOY to
+[`GRAPHITE_KERNEL_CONVERGED_TOL`] and stays there. This convergence — not
+the worst-point figure — is what distinguishes a correct thermal law from
+[`H2O_KERNEL`]'s, whose deviation instead grows with energy.
+
+```rust
+pub const GRAPHITE_KERNEL_CONVERGED_ABOVE_EV: f64 = 0.2;
+```
+
+#### Constant `GRAPHITE_KERNEL_CONVERGED_TOL`
+
+The tight envelope graphite's kernel holds above
+[`GRAPHITE_KERNEL_CONVERGED_ABOVE_EV`]: **0.2 %**, against a worst measured
+deviation of +0.05 % there (2026-09-12; tightened from 0.4 % / +0.10 %
+when the emission tabulation was resized).
+
+```rust
+pub const GRAPHITE_KERNEL_CONVERGED_TOL: f64 = 0.002;
+```
+
+#### Constant `GRAPHITE_MUBAR`
+
+**Graphite scattering ANGLE**, 600 K:
+`(E [eV], mubar_inelastic, mubar_coherent_elastic, mubar_total)`.
+Measured 2026-09-12.
+
+# Why an angular table exists at all
+
+Every other thermal oracle in this workspace is an **energy-domain** oracle
+— [`GRAPHITE_XS_INELASTIC`] (how often), [`GRAPHITE_KERNEL`] (how much energy
+per collision), `graphite_energy_decrement` (ξ), `slowing_down_oracle` (the
+whole energy treatment). None of them constrains μ. Before this table the
+only assertion on a thermal cosine anywhere in the crate was
+`(-1.0..=1.0).contains(&mu)`.
+
+The angle sets σ_tr = σ_s(1 − μ̄), hence the diffusion coefficient, hence
+the thermal flux shape in a heterogeneous cell — the axis the FHR ring-RPT
+residual hunt (`op-mzvp.2.12`) had narrowed to.
+
+# The two oracles, which are independent of each other
+
+- **Inelastic** — THERMR MF=6/MT=229 carries, per incident energy, `NEP`
+  groups of `NA + 2 = 18` numbers `(E′, f(E′), μ₁…μ₁₆)` whose 16 cosines are
+  **equally probable** in the laboratory frame.
+  `examples/graphite_kernel_vs_njoy_thermr.rs` parses the same records and
+  discards those cosines; `examples/graphite_mubar_vs_njoy_thermr.rs` keeps
+  them and forms `μ̄ = Σ f(E′)·mean(μ|E′) / Σ f(E′)` by the same trapezoid
+  used for the energy moment. So the two differ only in which column they
+  reduce.
+- **Coherent elastic** — needs no MF=6 at all. `E·σ_coh(E)` from
+  MF=3/MT=230 is a staircase whose 296 risers *are* the Bragg edges
+  `(E_i, f_i)`; each edge scatters at exactly `μ_i = 1 − 2E_i/E`, so
+  `μ̄_el(E) = Σ f_i(1 − 2E_i/E)/Σ f_i` is recovered from NJOY's own cross
+  section without ever reading this crate's edge table.
+
+The `total` column is the two weighted by THERMR's own MT=229 and MT=230
+cross sections at that energy, which is the quantity transport actually uses.
+
+# Result: the thermal angle is NOT the ring-RPT residual
+
+Worst deviation **−0.0084 absolute on μ̄_inelastic** (0.01 eV) and **−0.0017
+on μ̄_total** (5 meV). μ̄_total is ≈ 0.05 across the whole range, so a 0.005
+error moves σ_tr = σ_s(1 − μ̄) by **0.05 %**. Against the +4004 pcm k-residual
+this was measured against (closed 2026-09-13, GitHub #193; now +37 pcm)
+that is an exclusion, not a candidate.
+
+**Re-measured 2026-09-12** after the emission tabulation was resized
+(`N_EMIT_GRID` 48 → 384, `N_OUTGOING` 16 → 64 — see
+[`GRAPHITE_KERNEL_WIDTH`]). The angle barely moved: the worst inelastic
+deviation was **+0.0085 at 0.0253 eV** before and is **−0.0084 at 0.01 eV**
+after, i.e. the same size with the sign of the worst point relocated, and
+μ̄_total's worst went from +0.0050 to −0.0017. That is the expected result —
+the cosines are tabulated per outgoing-energy bin and refining the *energy*
+bins does not sharpen the angular law — and it is recorded because "we
+changed the tables and checked the angle did not move" is a claim that
+needs a measurement behind it. The per-row comments carry the post-change
+values; the conclusion is unchanged.
+
+The Bragg column is the tighter of the two — worst **+0.0033** at 5 meV,
+and it reproduces the sign reversal (μ̄_el runs −0.40 at 2.6 meV, just above
+the first edge where only backscattering is open, to +0.97 at 3.75 eV where
+every edge is open and forward-scattering dominates) without being given the
+edge table.
+
+Comments carry this crate's own value on the date above.
+
+```rust
+pub const GRAPHITE_MUBAR: &[(f64, f64, f64, f64)] = _;
+```
+
+#### Constant `GRAPHITE_MUBAR_TOL`
+
+The envelope [`GRAPHITE_MUBAR`]'s inelastic column is asserted inside:
+**0.02 absolute on μ̄**, against a worst measured deviation of −0.0084
+(2026-09-12; +0.0085 before the emission tabulation was resized).
+
+The bound is **absolute, not relative**, on purpose: μ̄_inelastic passes
+through zero near 0.9 eV, so a relative bound there is arithmetic noise —
+the same trap [`GRAPHITE_KERNEL`]'s doc records for ξ.
+
+```rust
+pub const GRAPHITE_MUBAR_TOL: f64 = 0.02;
+```
+
+#### Constant `GRAPHITE_MUBAR_ELASTIC_TOL`
+
+The tighter envelope the **coherent-elastic** column holds: **0.01 absolute**,
+against a worst measured deviation of +0.0033. It is tighter because the
+Bragg law is discrete and deterministic — there is no kernel integration in
+it, only the edge table and `μ = 1 − 2E_i/E`.
+
+```rust
+pub const GRAPHITE_MUBAR_ELASTIC_TOL: f64 = 0.01;
+```
+
+#### Constant `GRAPHITE_KERNEL_WIDTH`
+
+**Graphite scattering kernel WIDTH**, 600 K: `(E [eV], sqrt(var(E'))/<E'>)`
+of the incoherent-inelastic outgoing-energy distribution, from THERMR
+MF=6/MT=229 by quadrature. Oracle measured 2026-09-11; this crate
+re-measured against it 2026-09-12 **after** the emission-table defect below
+was fixed.
+
+# What this sees that [`GRAPHITE_KERNEL`] cannot
+
+[`GRAPHITE_KERNEL`] is the **first** moment `<E'>/E`. A kernel can have
+exactly the right mean and the wrong spread, and the spread is what decides
+how many neutrons cross the 0.625 eV group boundary per collision — i.e. the
+joining region between the 1/E slowing-down spectrum and the Maxwellian.
+Nothing in this crate had ever compared it.
+
+# Results — the defect this table recorded, and its repair
+
+```text
+   E [eV]     w NJOY    ours       rel        ours       rel
+                      (was: 48x16)          (now: 384x64)
+   0.00101    0.76168   0.73571   −3.41 %    0.74747   −1.87 %
+   0.0026     0.79883   0.77356   −3.16 %    0.78640   −1.56 %
+   0.005      0.84932   0.82747   −2.57 %    0.83181   −2.06 %
+   0.01       0.90255   0.87859   −2.65 %    0.89398   −0.95 %
+   0.0253     0.79241   0.71967   −9.18 %    0.77501   −2.20 %
+   0.05       0.54768   0.48432  −11.57 %    0.53492   −2.33 %
+   0.1035     0.35619   0.33874   −4.90 %    0.35009   −1.71 %
+   0.2        0.27905   0.26517   −4.98 %    0.27576   −1.18 %
+   0.39       0.22681   0.25083  +10.59 %    0.22351   −1.46 %
+   0.625      0.19328   0.21794  +12.76 %    0.19011   −1.64 %
+   1.05       0.16345   0.18220  +11.47 %    0.16202   −0.87 %
+   2.02       0.13644   0.18971  +39.04 %    0.13564   −0.59 %
+   3.75       0.11994   0.16209  +35.15 %    0.11971   −0.19 %
+```
+
+Both "ours" columns are the gate's own 200 000-sample measurement. **How
+precise is a sampled width?** Not as precise as `1/sqrt(2N)` = 0.16 %
+suggests — that is the Gaussian estimate and the outgoing-energy
+distribution has heavy tails, so the variance estimator carries the error of
+a fourth moment. Measured stream-to-stream scatter between this gate (200 000
+samples) and `examples/thermal_emission_grid_convergence.rs` (400 000, a
+different stream) is up to **0.8 points** on an individual row. Comparisons
+*within* that sweep are far tighter than that, because every tabulation
+there is sampled from the same stream — common random numbers — which is
+why its column-to-column convergence is clean and monotone while its
+absolute values differ from this table's by a few tenths of a point.
+
+**The superseded column is kept deliberately.** It is the measurement that
+found the defect, and the shape of it is the diagnosis: the sign flipped at
+0.39 eV and the excess reached **+39 % at 2 eV**, because the emission
+tables sat on a 48-point log grid over 1e-5 … 4 eV — adjacent incident
+energies **31.6 % apart** — and `select_table` mixes the two bracketing
+tables by ACE statistical interpolation, which adds a variance
+`r(1-r)(m2-m1)^2` the true kernel has not got. Where the intrinsic spread is
+small (above ~0.4 eV, `w ~ 0.12`) that term dominated; where it is large
+(below 0.1 eV, `w ~ 0.8`) it was invisible and what showed instead was the
+16-bin equiprobable representation's own **−3 % to −12 %** narrowing.
+
+# The fix (2026-09-12): both dimensions, sized by a sweep
+
+`N_EMIT_GRID` 48 → **384** and `N_OUTGOING` 16 → **64**, each sized against
+this oracle by `examples/thermal_emission_grid_convergence.rs` rather than
+chosen. The two knobs fix different halves and neither substitutes for the
+other: the grid removes the broad excess (and stops improving at 384 —
+rms 1.78 % there against 1.81 % at 768 and 1.85 % at 1536), the bin count
+removes the narrowing (worst −11.6 % at 16 bins, −5.96 % at 32, −2.50 % at
+64, −1.65 % at 128, with no plateau). The result is **one-signed narrow
+everywhere, worst −2.50 %, rms 1.78 %**, and what remains is the
+equiprobable representation itself, whose proper fix is a continuous
+outgoing-energy law.
+
+# The k-worth of the repair was MEASURED, not assumed
+
+Same deck, same seed, `examples/fhr_ring_rpt_endf.rs` with
+`OUTRAM_RINGRPT_ONLY=csg`, 4000 x [30 + 80]:
+
+```text
+  2026-09-12  N_EMIT_GRID = 48   N_OUTGOING = 16   k = <PEB_OLD>
+  2026-09-12  N_EMIT_GRID = 384  N_OUTGOING = 64   k = <PEB_NEW>
+```
+
+The earlier grid-only comparison (48 → 192 at 16 bins, 2026-09-12) gave
+1.40745 ± 0.00214 against 1.40682 ± 0.00221, i.e. **−63 pcm** — inside its
+own sampling error, and recorded here as the non-measurement it was.
+
+Tracked as [GitHub #190] and bead `op-x77y`. The angular oracle from the
+same session — [`GRAPHITE_MUBAR`], which excluded the angle — is bead
+`op-i7u9`. Water's half of the same story is [`H2O_KERNEL_WIDTH`].
+
+Comments carry this crate's own value at the current defaults.
+
+[GitHub #190]: https://github.com/theodoreOnzGit/outram-park-backend/issues/190
+
+```rust
+pub const GRAPHITE_KERNEL_WIDTH: &[(f64, f64)] = _;
+```
+
+#### Constant `GRAPHITE_KERNEL_WIDTH_TOL`
+
+The envelope [`GRAPHITE_KERNEL_WIDTH`] is asserted inside: **3 %**, against a
+worst measured deviation of **−1.96 % at 5 meV** (2026-09-12, 200 000
+samples, continuous outgoing-energy sampling).
+
+**Tightened twice on 2026-09-12**: from 50 % when the emission-table defect it
+was characterising was fixed (worst then −2.33 %), and from 4 % when the
+equiprobable representation was replaced by a continuous one (worst −1.96 %).
+The 50 % figure had been a characterisation bound on a +39 % excess. Tighten
+further whenever the representation improves; never widen.
+
+```rust
+pub const GRAPHITE_KERNEL_WIDTH_TOL: f64 = 0.03;
+```
+
+#### Constant `GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`
+
+Below this energy the width deviation is asserted to be **one-signed narrow**
+as well as small. As of 2026-09-12 it is the thermal cutoff itself — i.e. the
+whole table — because that is what the measurement now shows.
+
+It used to be 0.2 eV, when the table had two halves that failed for different
+reasons: below it the equiprobable representation's own narrowing, above it
+the coarse incident grid's spurious *broadening*. With the grid fixed there
+is only one mechanism left and it is one-signed everywhere, so the sign
+assertion now covers every row. Raising this constant **strengthens** the
+test; do not lower it without a measurement that says the sign structure came
+back.
+
+```rust
+pub const GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV: f64 = 4.0;
+```
+
+#### Constant `GRAPHITE_KERNEL_WIDTH_NARROW_TOL`
+
+The envelope the width holds below
+[`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`]: **3 %**, against a worst
+measured deviation of −1.96 %. Tightened from 15 % → 4 % → 3 % over
+2026-09-12 as the emission tabulation was fixed and then removed.
+
+**Updated 2026-09-13, GitHub #188 fixed.** The home-grown emission
+tabulation was replaced by the ported `aceth.f90::acesix`, and the width
+residual stopped being one-signed: it is now two-sided and smaller, worst
+`+0.60 %` (was `-1.96 %`). The tolerance is tightened from 3 % to 1.2 %
+accordingly.
+
+```rust
+pub const GRAPHITE_KERNEL_WIDTH_NARROW_TOL: f64 = 0.012;
+```
+
+#### Constant `GRAPHITE_KERNEL_WIDTH_BROAD_CEILING`
+
+How far **broad** a width point may be below
+[`GRAPHITE_KERNEL_WIDTH_INTRINSIC_BELOW_EV`] before the gate fires: **0.5 %**.
+
+# Why this replaced a strict one-signed assertion
+
+Until the continuous outgoing-energy law landed (2026-09-12) the width was
+narrow at *every* tabulated energy, and the gate asserted that sign as well
+as the magnitude — a real strengthening, because #190's failure mode was a
++39 % **broad** kernel and a sign test catches its return at the first point.
+
+The continuous law took the top of the table to the reference: 3.75 eV now
+measures **+0.03 %**, which is agreement, not breadth. A strict `rel < 0`
+would fail on a point that is right, so the sign test becomes a small
+positive ceiling instead. It still catches #190's return by two orders of
+magnitude — that defect was +35 % at this very energy — while admitting a
+point that has converged onto NJOY from below and crossed by a third of a
+sigma of the sampling error.
+
+**Updated 2026-09-13, GitHub #188 fixed.** With `acesix` bins the kernel is
+no longer narrow everywhere below 4 eV — at 1.0e-2 eV it now measures
+`+0.60 %`, i.e. slightly **broad**. That is the residual of the
+64-equally-probable-bin representation plus this crate's within-bin
+reconstruction, not a return of #190: measured against NJOY's own ACE file
+the bins agree to `2.6e-5`, so the discretisation is NJOY's too. The ceiling
+rises to 1.2 % to admit it, which still catches #190's `+35 %` at this
+energy by a factor of 29.
+
+```rust
+pub const GRAPHITE_KERNEL_WIDTH_BROAD_CEILING: f64 = 0.012;
+```
+
+### Functions
+
+#### Function `pooled`
+
+Pooled statistics of a seed ensemble: `(mean, sample sd, standard error)`.
+
+# Why a shared helper and not a local closure
+
+Every criticality benchmark in this crate is a Monte Carlo estimate whose
+**single-run scatter is far larger than the effect sizes being argued
+about** — Godiva carries `sd ≈ 175 pcm` per run at 5000 histories ×
+[40 + 120]. A single run therefore cannot resolve a 100–200 pcm change, and
+this crate's record contains three headline numbers that were single draws
+and moved by more than their own quoted uncertainty when pooled
+(`+57 → +228`, `+512 → +247`, URR `+79 → +43`).
+
+The fix is to make pooling the default way a benchmark reports, which means
+it has to be one line at every call site.
+
+# The distinction that matters
+
+- **`sd`** is what *one* run scatters by. Quote it when telling a reader
+  what a single reproduction of the example will give them.
+- **`sem = sd/√n`** is the uncertainty *on the pooled mean*. Quote it when
+  comparing against a benchmark or another code.
+
+Confusing the two is how a result gets over- or under-claimed. Both are
+returned so a caller cannot silently pick the flattering one.
+
+Returns `(mean, 0.0, 0.0)` for a single sample: one draw has no measurable
+spread, and reporting `0` uncertainty is more honest than inventing one.
+
+# Example
+
+```
+use outram_mc_libs::vv::pooled;
+let (mean, sd, sem) = pooled(&[100.0, 200.0, 300.0]);
+assert!((mean - 200.0).abs() < 1e-9);
+assert!((sd - 100.0).abs() < 1e-9);
+assert!((sem - 100.0 / 3.0_f64.sqrt()).abs() < 1e-9);
+```
+
+```rust
+pub fn pooled(x: &[f64]) -> (f64, f64, f64) { /* ... */ }
+```
+
+#### Function `bench_seeds`
+
+How many seeds a benchmark example should run, from `OUTRAM_BENCH_SEEDS`.
+
+Defaults to `1`, so an example keeps its original single-seed behaviour and
+its original runtime unless a caller asks for an ensemble. Set it to the
+count that reaches the uncertainty you need: at seed-to-seed `sd`, the
+pooled `sem` is `sd/√n`, so 7 seeds reach ~70 pcm on a case with
+`sd ≈ 175 pcm` and 64 reach ~22.
+
+```rust
+pub fn bench_seeds() -> usize { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `assert_absolute`
+
+```rust
+pub use njoy_outram_park_fork::vv::assert_absolute;
+```
+
+#### Re-export `assert_monotone`
+
+```rust
+pub use njoy_outram_park_fork::vv::assert_monotone;
+```
+
+#### Re-export `assert_relative`
+
+```rust
+pub use njoy_outram_park_fork::vv::assert_relative;
+```
+
+#### Re-export `assert_reproduces_keff`
+
+```rust
+pub use njoy_outram_park_fork::vv::assert_reproduces_keff;
+```
+
+#### Re-export `assert_reproduces_recorded`
+
+```rust
+pub use njoy_outram_park_fork::vv::assert_reproduces_recorded;
+```
+
+#### Re-export `assert_table_relative`
+
+```rust
+pub use njoy_outram_park_fork::vv::assert_table_relative;
+```
+
+#### Re-export `RecordedKeff`
+
+```rust
+pub use njoy_outram_park_fork::vv::RecordedKeff;
+```
+
+#### Re-export `WorstDeviation`
+
+```rust
+pub use njoy_outram_park_fork::vv::WorstDeviation;
+```
+
 ## Module `prelude`
 
 ```rust
@@ -29932,6 +39413,12 @@ pub use crate::tally::tally::TallyBin;
 pub use crate::tally::filter::CellFilter;
 ```
 
+#### Re-export `DelayedGroupFilter`
+
+```rust
+pub use crate::tally::filter::DelayedGroupFilter;
+```
+
 #### Re-export `EnergyFilter`
 
 ```rust
@@ -29942,6 +39429,18 @@ pub use crate::tally::filter::EnergyFilter;
 
 ```rust
 pub use crate::tally::filter::Filter;
+```
+
+#### Re-export `FilterEvent`
+
+```rust
+pub use crate::tally::filter::FilterEvent;
+```
+
+#### Re-export `FilterKind`
+
+```rust
+pub use crate::tally::filter::FilterKind;
 ```
 
 #### Re-export `LegendreAxis`
@@ -29962,16 +39461,58 @@ pub use crate::tally::filter::MaterialFilter;
 pub use crate::tally::filter::MeshFilter;
 ```
 
+#### Re-export `MuFilter`
+
+```rust
+pub use crate::tally::filter::MuFilter;
+```
+
+#### Re-export `ParticleFilter`
+
+```rust
+pub use crate::tally::filter::ParticleFilter;
+```
+
+#### Re-export `PolarAzimuthalFilter`
+
+```rust
+pub use crate::tally::filter::PolarAzimuthalFilter;
+```
+
 #### Re-export `SpatialLegendreFilter`
 
 ```rust
 pub use crate::tally::filter::SpatialLegendreFilter;
 ```
 
+#### Re-export `SphericalHarmonicsFilter`
+
+```rust
+pub use crate::tally::filter::SphericalHarmonicsFilter;
+```
+
+#### Re-export `SurfaceFilter`
+
+```rust
+pub use crate::tally::filter::SurfaceFilter;
+```
+
+#### Re-export `TimeFilter`
+
+```rust
+pub use crate::tally::filter::TimeFilter;
+```
+
 #### Re-export `UniverseFilter`
 
 ```rust
 pub use crate::tally::filter::UniverseFilter;
+```
+
+#### Re-export `ZernikeFilter`
+
+```rust
+pub use crate::tally::filter::ZernikeFilter;
 ```
 
 #### Re-export `RegularMesh`
@@ -30154,6 +39695,48 @@ pub use crate::physics::fixed_source::FixedSourceResult;
 pub use crate::physics::fixed_source::FixedSourceSettings;
 ```
 
+#### Re-export `fit_ring_rpt_inner_radius`
+
+```rust
+pub use crate::dh_universe::fit_ring_rpt_inner_radius;
+```
+
+#### Re-export `DhError`
+
+```rust
+pub use crate::dh_universe::DhError;
+```
+
+#### Re-export `DhTreatment`
+
+```rust
+pub use crate::dh_universe::DhTreatment;
+```
+
+#### Re-export `DhUniverse`
+
+```rust
+pub use crate::dh_universe::DhUniverse;
+```
+
+#### Re-export `DispersedParams`
+
+```rust
+pub use crate::dh_universe::DispersedParams;
+```
+
+#### Re-export `PebbleParams`
+
+```rust
+pub use crate::dh_universe::PebbleParams;
+```
+
+#### Re-export `RingRptFit`
+
+```rust
+pub use crate::dh_universe::RingRptFit;
+```
+
 #### Re-export `track_to_collision`
 
 ```rust
@@ -30208,6 +39791,12 @@ pub use crate::pebble_beds::fhr_pebble::rpt_fuel_outer_radius;
 pub use crate::pebble_beds::fhr_pebble::triso_layer_at;
 ```
 
+#### Re-export `ExplicitTrisoPebble`
+
+```rust
+pub use crate::pebble_beds::fhr_pebble::ExplicitTrisoPebble;
+```
+
 #### Re-export `TrisoLayer`
 
 ```rust
@@ -30224,6 +39813,12 @@ pub use crate::pebble_beds::fhr_pebble::TrisoSpec;
 
 ```rust
 pub use crate::pebble_beds::keff_delta::run_keff_delta;
+```
+
+#### Re-export `MaterialQuery`
+
+```rust
+pub use crate::pebble_beds::keff_delta::MaterialQuery;
 ```
 
 #### Re-export `pack_spheres`
@@ -30404,7 +39999,7 @@ pub use crate::gpu::GpuContext;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:77:11: 77:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:77:10: 77:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:83:11: 83:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:83:10: 83:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::xs_interp::interp_xs_gpu;
@@ -30450,7 +40045,7 @@ pub use crate::gpu::surface_distance::SURF_STRIDE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:87:11: 87:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:87:10: 87:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:93:11: 93:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:93:10: 93:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::surface_distance::surface_distance_gpu;
@@ -30484,7 +40079,7 @@ pub use crate::gpu::batched_flight::FlightSphere;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:95:11: 95:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:95:10: 95:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:101:11: 101:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:101:10: 101:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_flight::advance_flight_gpu;
@@ -30536,7 +40131,7 @@ pub use crate::gpu::batched_event::FISS_NONE;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:107:11: 107:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:107:10: 107:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-mc-libs/src/prelude.rs:113:11: 113:32 (#0) }, crates/outram-mc-libs/src/prelude.rs:113:10: 113:33 (#0))])]")`
 
 ```rust
 pub use crate::gpu::batched_event::advance_generation_gpu;

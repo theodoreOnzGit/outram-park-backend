@@ -9,7 +9,7 @@ repository.workspace = true
 categories.workspace = true
 # The upstream FLEXPART clone is reference-only and gitignored; it is never
 # compiled into the crate and never packaged.
-exclude = ["upstream_source/*", "dev/*"]
+exclude = ["docs", "upstream_source/*", "dev/*"]
 
 [dependencies]
 uom   = { workspace = true }

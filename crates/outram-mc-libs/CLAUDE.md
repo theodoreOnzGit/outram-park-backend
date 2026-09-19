@@ -319,10 +319,17 @@ maturity gate in that file for what this means and how the bar is revised.
   off the accuracy achieved — a `|mean| ≤ 30 pcm` gate would fail a correct
   build about a third of the time at the default 32 seeds.
 
-  `examples/godiva_keff_endf_local.rs` still records `RECORDED_PCM = 214.0` and
-  is **stale**; it is a single-seed tutorial whose own docs say it cannot
-  resolve the bar, and re-pointing it is follow-up work rather than part of this
-  change.
+  ~~`examples/godiva_keff_endf_local.rs` still records `RECORDED_PCM = 214.0`
+  and is **stale**; re-pointing it is follow-up work.~~ **CORRECTED 2026-09-18
+  — this claim was itself stale.** Verified on that date: the file records
+  `RECORDED_PCM = 16.0` and `RECORDED_SEM_PCM = 11.0` (`:267`, `:269`) and
+  gates through `RecordedKeff::pooled` (`:192`), i.e. it was re-pointed at the
+  256-seed pooled result at some point after this paragraph was written. The
+  follow-up it describes is **done**.
+
+  It remains a **single-seed tutorial** whose own docs say it cannot resolve
+  the 500 pcm bar — that part was and is true, and is why it gates against the
+  pooled number rather than its own draw.
 
 **Upstream license:** OpenMC is MIT-licensed. This Rust port is GPL-3.0-only
 per the workspace default; the port constitutes new copyrightable expression.

@@ -1,0 +1,18 @@
+[package]
+name = "sembawang"
+version = "0.0.1"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SEMBAWANG — severe accident progression: melt behaviour, relocation, vessel failure, MCCI, hydrogen and aerosols, producing the source term consumed by CHANGI. Placeholder: nothing is implemented."
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+# `docs/` is repo-only (the rustdoc->markdown API mirror and any V&V
+# write-ups). Excluded so it never ships to crates.io.
+exclude = ["docs"]
+
+# NO DEPENDENCIES. This crate holds a reserved name and a scope statement, not
+# code. Adding a dependency here before there is anything to depend on would
+# assert an architecture that has not been decided -- see `src/lib.rs`.
+[dependencies]

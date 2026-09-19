@@ -24,6 +24,7 @@ repository.workspace = true
 # `open` at *any* depth — which silently excluded `generated/bibtex/open/`, the
 # one part of the archive that is meant to ship. Keep the slashes.
 exclude = [
+    "docs",
     "/open/",
     "/proprietary/",
     "/generated/markdown/",
