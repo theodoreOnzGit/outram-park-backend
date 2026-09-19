@@ -24,6 +24,7 @@ teh-o-prke            = { workspace = true }   # point reactor kinetics (PRKE)
 # port is in progress in a parallel session; the scaffold codes against its
 # intended NeutronicsModel::Sp3 / Sp3Neutronics interface (see op-fr2.2.4).
 outram-foam-appbuilder-lib = { workspace = true }   # GeN-Foam SP3 multiphysics host
+outram-foam-basic-lib      = { workspace = true }   # FvMesh / fields, for the GeN-Foam bridge
 
 # Public API primitives — dimensioned quantities and error types for the
 # object-oriented surface.

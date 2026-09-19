@@ -5907,6 +5907,7 @@ version = "0.0.2"
 dependencies = [
  "njoy-outram-park-fork",
  "outram-foam-appbuilder-lib",
+ "outram-foam-basic-lib",
  "outram-mc-libs",
  "teh-o-prke",
  "thiserror 2.0.18",

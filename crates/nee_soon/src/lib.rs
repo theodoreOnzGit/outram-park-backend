@@ -65,6 +65,7 @@ use uom::si::f64::{HeatCapacity, Power, Ratio, TemperatureCoefficient, Thermodyn
 
 pub mod htr10_rmc;
 pub mod mgxs;
+pub mod genfoam_xs;
 
 /// Object-oriented facade for the OUTRAM PARK neutronics + kinetics suite.
 ///
