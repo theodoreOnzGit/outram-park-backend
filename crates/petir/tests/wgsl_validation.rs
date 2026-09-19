@@ -26,8 +26,8 @@
 
 use petir::wgsl::{
     test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG,
-    ELLINT, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA,
-    SININT, SYNCHROTRON, TRANSPORT,
+    ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY,
+    PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -77,6 +77,12 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "expint" => (
             vec![EXPINT],
             "petir_expint_family(params.k, x) + petir_expint_e1_scaled(abs(x) + 1.0)",
+        ),
+        // The component selector, so the AGM descent, both reflection
+        // branches and both degenerate limits are reachable from one call.
+        "elljac" => (
+            vec![ELLJAC],
+            "petir_elljac_component(params.k, x, 0.5) + petir_elljac(x, 0.0).x",
         ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
@@ -208,7 +214,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 22] = [
+    let expected: [(&str, &[&str]); 23] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -452,6 +458,15 @@ fn every_documented_function_is_defined() {
                 "petir_expint_cheb_shi",
             ],
         ),
+        (
+            ELLJAC,
+            &[
+                "petir_elljac",
+                "petir_elljac_component",
+                "petir_elljac_hypot",
+                "petir_elljac_nan3",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -609,6 +624,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "sinint" => LEDGER.contains("sine and cosine integrals"),
             "ellint" => LEDGER.contains("elliptic integrals"),
             "expint" => LEDGER.contains("exponential integrals"),
+            "elljac" => LEDGER.contains("Jacobi elliptic functions"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(

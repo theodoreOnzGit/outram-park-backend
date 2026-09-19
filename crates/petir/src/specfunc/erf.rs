@@ -299,7 +299,10 @@ mod tests {
             let direct = (x * x).exp() * erfc(x);
             let got = erfcx(x);
             let rel = (direct - got).abs() / direct;
-            assert!(rel < 1e-13, "x={x}: direct={direct}, erfcx={got}, rel={rel}");
+            assert!(
+                rel < 1e-13,
+                "x={x}: direct={direct}, erfcx={got}, rel={rel}"
+            );
         }
     }
 
@@ -321,7 +324,10 @@ mod tests {
             let asym = ONE_OVER_SQRT_PI / x * asym;
             let got = erfcx(x);
             let rel = (asym - got).abs() / asym;
-            assert!(rel < 1e-14, "x={x}: asymptotic={asym}, erfcx={got}, rel={rel}");
+            assert!(
+                rel < 1e-14,
+                "x={x}: asymptotic={asym}, erfcx={got}, rel={rel}"
+            );
         }
     }
 

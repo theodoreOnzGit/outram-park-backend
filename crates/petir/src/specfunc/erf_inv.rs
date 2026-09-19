@@ -19,7 +19,6 @@
 // You should have received a copy of the GNU General Public License along
 // with OUTRAM PARK.  If not, see <https://www.gnu.org/licenses/>.
 
-
 // Under a std-linked build (`cargo test`) f64's inherent sqrt/exp/... shadow
 // these trait methods, leaving the import formally unused. See crate::real.
 #[allow(unused_imports)]

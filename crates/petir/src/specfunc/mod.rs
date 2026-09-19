@@ -152,6 +152,7 @@ pub mod dawson;
 pub mod debye;
 pub mod dilog;
 pub mod ellint;
+pub mod elljac;
 pub mod erf;
 /// Inverse error function (Winitzki approximation), lifted verbatim from
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
@@ -182,9 +183,7 @@ pub use bessel::{
 pub use debye::{debye_1, debye_2, debye_3, debye_4, debye_5, debye_6, debye_n};
 pub use erf::{erf, erfc, erfc_scaled, erfcx};
 pub use erf_inv::erf_inv;
-pub use gamma::{
-    beta, choose, factorial, gamma, ln_beta, ln_factorial, ln_gamma, ln_gamma_sgn,
-};
+pub use gamma::{beta, choose, factorial, gamma, ln_beta, ln_factorial, ln_gamma, ln_gamma_sgn};
 pub use inc_gamma::{inc_gamma_p, inc_gamma_q, inc_gamma_ratio_p, inc_gamma_ratio_q};
 pub use inv_inc_gamma::inv_inc_gamma;
 pub use psi::{psi, psi_1, psi_1_int, psi_1piy, psi_int, psi_n};

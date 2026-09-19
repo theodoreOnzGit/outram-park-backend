@@ -143,6 +143,9 @@ pub mod mirror_ellint;
 /// `f32` mirror of the exponential- and hyperbolic-integral shader.
 pub mod mirror_expint;
 
+/// `f32` mirror of the Jacobi-elliptic-function shader.
+pub mod mirror_elljac;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -383,6 +386,19 @@ pub const ELLINT: &str = include_str!("shaders/ellint.wgsl");
 /// [`mirror_expint`].
 pub const EXPINT: &str = include_str!("shaders/expint.wgsl");
 
+/// The Jacobi elliptic functions `sn`, `cn` and `dn`, ported from
+/// `specfunc/elljac.c` by way of [`crate::specfunc::elljac`].
+///
+/// Provides `petir_elljac(u, m) -> vec3<f32>` and the scalar selector
+/// `petir_elljac_component(which, u, m)`.
+///
+/// **The third table-free shader**, after [`DILOG`] and [`ELLINT`], and the
+/// companion of the last: `ellint` evaluates the integrals and this inverts
+/// them. All three functions come from one arithmetic-geometric-mean
+/// descent, which is why the entry point returns a vector. The descent cap
+/// is **8 against upstream's 16**, measured. See [`mirror_elljac`].
+pub const ELLJAC: &str = include_str!("shaders/elljac.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
@@ -406,7 +422,7 @@ pub const EXPINT: &str = include_str!("shaders/expint.wgsl");
 /// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
 /// means adding it to both arrays**; the directory is the authority, not
 /// anyone's count.
-pub const ALL: [&str; 22] = [
+pub const ALL: [&str; 23] = [
     POLY,
     CHEB,
     LEGENDRE,
@@ -429,6 +445,7 @@ pub const ALL: [&str; 22] = [
     SININT,
     ELLINT,
     EXPINT,
+    ELLJAC,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -439,7 +456,7 @@ pub const ALL: [&str; 22] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 22] = [
+pub const ALL_NAMES: [&str; 23] = [
     "poly",
     "cheb",
     "legendre",
@@ -462,6 +479,7 @@ pub const ALL_NAMES: [&str; 22] = [
     "sinint",
     "ellint",
     "expint",
+    "elljac",
 ];
 
 pub use kernel_builder::test_kernel;

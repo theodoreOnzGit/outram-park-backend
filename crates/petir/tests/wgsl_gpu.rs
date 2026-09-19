@@ -7,11 +7,11 @@
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_dawson,
-    mirror_debye, mirror_dilog, mirror_ellint, mirror_erf, mirror_expint, mirror_expint3,
-    mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix, mirror_psi_zeta,
-    mirror_sinint, mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN,
-    DAWSON, DEBYE, DILOG, ELLINT, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE,
-    MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
+    mirror_debye, mirror_dilog, mirror_ellint, mirror_elljac, mirror_erf, mirror_expint,
+    mirror_expint3, mirror_fermi_dirac, mirror_gamma, mirror_lambert, mirror_matrix,
+    mirror_psi_zeta, mirror_sinint, mirror_synchrotron, mirror_transport, AIRY, ATANINT, BESSEL,
+    CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, FERMI_DIRAC, GAMMA,
+    LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -3232,4 +3232,154 @@ fn gpu_ei_is_exactly_minus_e1_of_minus_x() {
         }
         assert!(n > 300, "{name}: only {n} points checked");
     }
+}
+
+/// **The Jacobi elliptic functions on the device**, against the `f32` CPU
+/// mirror.
+///
+/// # Methodology
+///
+/// Three dispatches, one per component, through the shader's own selector
+/// `petir_elljac_component(which, u, m)` at a fixed `m = 0.5` across a sweep
+/// of `u` spanning several periods — the functions are doubly periodic, so a
+/// sweep that does not cover a period tests one phase of the recurrence and
+/// no other.
+///
+/// Two further dispatches take the degenerate limits `m = 0` and `m = 1`,
+/// which are upstream's own special cases and which this shader reaches at a
+/// **retargeted** window: `f64`'s `2 DBL_EPSILON` is narrower than anything
+/// `f32` can express away from zero, so keeping it would have left both
+/// branches dead. Dispatching them is what shows they are live on a device.
+///
+/// A sixth checks the defining identity `sn^2 + cn^2 = 1` composed **in the
+/// shader**, so it compares against no mirror at all and cannot be satisfied
+/// by both sides being wrong together.
+///
+/// # Results
+///
+/// Measured 2026-09-20 on `llvmpipe (LLVM 20.1.2, 256 bits)`, absolute:
+///
+/// | | GPU vs `f32` mirror |
+/// |---|---|
+/// | `sn` | 1.788e-07 |
+/// | `cn` | 1.788e-07 |
+/// | `dn` | 1.788e-07 |
+/// | `m = 0`, against `sin u` | 5.960e-08 |
+/// | `m = 1`, against `tanh u` | 1.192e-07 |
+/// | `sn^2 + cn^2 - 1`, composed in-shader | 4.172e-07 |
+///
+/// **One to two `f32` ulps, against the mirror's own 3.011e-06 versus
+/// `f64`.** That sixteen-fold gap is the whole reason the two layers are
+/// separate: the device reproduces the mirror to within rounding, so the
+/// transcription is faithful, and the `f32` cost measured on the CPU is
+/// precision rather than a porting defect. A single GPU-versus-`f64`
+/// comparison could not have told those apart.
+///
+/// Both degenerate limits come back live, which is what the retargeted
+/// window buys: at `f64`'s `2 DBL_EPSILON` neither branch would have been
+/// reachable at this width.
+#[test]
+fn gpu_elljac_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_elljac_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+
+    // Several periods: K(0.5) is about 1.854, so the real period of sn is
+    // 4K ~ 7.4 and this covers roughly three of them.
+    let us: Vec<f32> = (0..=400).map(|i| -12.0 + 0.06 * i as f32).collect();
+
+    for (which, name) in [(0u32, "sn"), (1, "cn"), (2, "dn")] {
+        let got = gpu
+            .eval_map(
+                &[ELLJAC],
+                "petir_elljac_component(params.k, x, 0.5)",
+                &[],
+                &us,
+                KernelParams {
+                    k: which,
+                    ..KernelParams::default()
+                },
+            )
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f32, 0.0_f32);
+        for (i, &u) in us.iter().enumerate() {
+            let want = mirror_elljac::elljac_component(which, u, 0.5);
+            let have = got.get(i).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite(),
+                "{name} at u = {u}: mirror {want}, GPU {have}"
+            );
+            // Absolute: all three are bounded by 1 and periodic, so they
+            // have zeros throughout and a relative figure is unbounded.
+            if (have - want).abs() > worst {
+                worst = (have - want).abs();
+                at = u;
+            }
+        }
+        eprintln!("elljac {name}: {worst:e} absolute at u = {at}");
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for {name}: {worst:e} absolute at u = {at}",
+            gpu.adapter_name()
+        );
+    }
+
+    // The two degenerate limits, which the retargeted window is what keeps
+    // reachable.
+    for (m, name, reference) in [
+        (0.0_f32, "m = 0 (circular)", 0u8),
+        (1.0, "m = 1 (hyperbolic)", 1u8),
+    ] {
+        let got = gpu
+            .eval_map(
+                &[ELLJAC],
+                "petir_elljac(x, params.a).x",
+                &[],
+                &us,
+                KernelParams {
+                    a: m,
+                    ..KernelParams::default()
+                },
+            )
+            .expect("non-empty probe");
+        let mut worst = 0.0_f32;
+        for (i, &u) in us.iter().enumerate() {
+            let want = if reference == 0 { u.sin() } else { u.tanh() };
+            let have = got.get(i).copied().unwrap_or(f32::NAN);
+            assert!(have.is_finite(), "{name} at u = {u}: GPU {have}");
+            worst = worst.max((have - want).abs());
+        }
+        eprintln!("elljac {name}: {worst:e} absolute");
+        assert!(
+            worst < 1e-5,
+            "GPU ({}) at {name}: {worst:e} -- if this is large the degenerate \
+             window is not being reached and the branch is dead on the device",
+            gpu.adapter_name()
+        );
+    }
+
+    // sn^2 + cn^2 = 1, composed in the shader. No mirror enters this.
+    let got = gpu
+        .eval_map(
+            &[ELLJAC],
+            "petir_elljac(x, 0.5).x * petir_elljac(x, 0.5).x \
+             + petir_elljac(x, 0.5).y * petir_elljac(x, 0.5).y - 1.0",
+            &[],
+            &us,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let mut worst = 0.0_f32;
+    for (i, &u) in us.iter().enumerate() {
+        let v = got.get(i).copied().unwrap_or(f32::NAN);
+        assert!(v.is_finite(), "identity at u = {u} gave {v}");
+        worst = worst.max(v.abs());
+    }
+    eprintln!("elljac sn^2 + cn^2 - 1 on device: {worst:e}");
+    assert!(
+        worst < 1e-5,
+        "the defining identity on {}: {worst:e}",
+        gpu.adapter_name()
+    );
 }
