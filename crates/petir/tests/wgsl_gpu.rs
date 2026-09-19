@@ -2202,9 +2202,12 @@ fn gpu_fermi_dirac_matches_the_cpu_mirror() {
 /// Shortening the arrays by a third moves 14 probes. Inline-versus-buffer
 /// moved 30 of 64 on `debye` — a 47-point gap against this 2-point one. So
 /// whatever costs bit-identity is about the coefficients being **inline**
-/// rather than about how many there are, and the remaining hypothesis is
-/// compile-time constant folding and reassociation of the Clenshaw
-/// recurrence, which a storage-buffer read forbids.
+/// rather than about how many there are. ~~The remaining hypothesis is
+/// compile-time constant folding.~~ **CONFIRMED 2026-09-19** — multiplying
+/// the inline literals by a uniform holding `1.0`, which is an exact IEEE
+/// identity and therefore no change to the arithmetic, restores the
+/// buffer-fed answer at every point. See
+/// `the_inline_coefficient_effect_is_constant_folding`.
 ///
 /// The test asserts only the ordering (shorter is not worse) and a bound on
 /// the numerical difference; pinning an exact count would make the suite fail
@@ -2793,5 +2796,251 @@ fn gpu_legendres_relation_holds_on_the_device() {
         worst < 1e-4,
         "Legendre's relation on {}: {worst:e} relative at k = {at}",
         gpu.adapter_name()
+    );
+}
+
+/// **What the inline-coefficient effect actually is: the compiler folding
+/// known constants into the recurrence.** The third and last experiment in
+/// the sequence `op-uczx.2` opened.
+///
+/// # The question, and what was already ruled out
+///
+/// `the_inline_coefficient_array_is_what_costs_bit_identity` established that
+/// the same Clenshaw sweep over the same 17 coefficients is bit-identical to
+/// the CPU when they arrive through a storage buffer (64/64) and is not when
+/// they are written as WGSL literals (34/64). Two explanations were live:
+///
+/// 1. **Array length** — a longer inline array costs more. **Refuted**: a
+///    controlled two-length A/B on `dawson` moved 14 probes of 602 where the
+///    inline-versus-buffer A/B moved 30 of 64. A 2-point effect against a
+///    47-point one.
+/// 2. **Constant folding** — a literal array is fully known at compile time,
+///    so the compiler may fold, contract or reassociate around it. A buffer
+///    load forbids all three, because the value is not known until run time.
+///
+/// # The experiment, and the prediction it was written to be able to fail
+///
+/// Three shaders, one arithmetic. All three evaluate GSL's `adeb1_cs` by
+/// Clenshaw at the same 64 arguments `debye.wgsl` really sees:
+///
+/// | variant | coefficients | loop |
+/// |---|---|---|
+/// | `inline` | WGSL literals | `for` |
+/// | `unrolled` | WGSL literals | straight-line, 16 steps written out |
+/// | `opaque` | WGSL literals **times a uniform that is 1.0** | `for` |
+///
+/// **`opaque` is the sharp one, and multiplying by `1.0` is not a change to
+/// the arithmetic.** IEEE-754 multiplication by exactly `1.0` is the identity
+/// on every finite value, every infinity and every zero including `-0.0`, so
+/// `c[j] * params.a` computes exactly `c[j]` — while being, to the compiler, a
+/// value it cannot know. The bead that proposed this experiment warned it
+/// "adds a multiply, so it changes the arithmetic slightly". It does not, and
+/// that is what makes it a clean control rather than a confounded one.
+///
+/// Predicted before running, with signs:
+///
+/// - If folding is the mechanism, **`opaque` returns to 64/64** — the buffer
+///   level — while `inline` stays at 34.
+/// - `unrolled` separates *whether the loop is unrolled* from *what folding
+///   does once it is*. If the compiler already unrolls `inline`, the two agree
+///   exactly; if `unrolled` is worse, unrolling is itself part of the cost.
+///
+/// # Results
+///
+/// Measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`:
+///
+/// | variant | bit-identical to the CPU |
+/// |---|---|
+/// | inline, looped | 34 / 64 |
+/// | inline, hand-unrolled | **34 / 64** |
+/// | inline, times a uniform `1.0` | **64 / 64** |
+/// | buffer (control) | 64 / 64 |
+///
+/// **The prediction held, and it held exactly.** `opaque` does not merely
+/// match the buffer's *count* — it reproduces the buffer-fed output at every
+/// one of the 64 points, so the two are asserted equal as vectors. The array
+/// is still inline, still seventeen literals, still indexed by a loop
+/// variable; the only thing that changed is that the compiler can no longer
+/// see the values. **Compile-time knowledge of the coefficients is the
+/// mechanism.**
+///
+/// **Hand-unrolling changes nothing, point for point** — the looped form was
+/// already being unrolled before anything was folded into it. That is
+/// asserted as an equality too, so the second explanation cannot quietly
+/// become true later without failing.
+///
+/// # This is not a correctness problem and nothing should change because of it
+///
+/// WGSL permits contraction and reassociation, so a conforming device is
+/// entitled to do this. The worst inline-coefficient disagreement measured
+/// anywhere in this crate is 5.27e-07 on `dawson`, about four `f32` ulp —
+/// well inside the budget these kernels are held to. Moving every table into
+/// a storage buffer to recover exactness would buy a few ulp for a real
+/// cost: one buffer read per coefficient per invocation. The finding's value
+/// is in **reading the other numbers correctly**: a "GPU vs mirror" figure on
+/// an inline-coefficient kernel is measuring the optimiser, not the
+/// transcription.
+#[test]
+fn the_inline_coefficient_effect_is_constant_folding() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP the_inline_coefficient_effect_is_constant_folding: no GPU adapter");
+        return;
+    };
+
+    // GSL's adeb1_cs, the same 17 values debye.wgsl and mirror_debye hold.
+    const ADEB1: [f32; 17] = [
+        2.40065972,
+        0.193721304,
+        -0.00623291246,
+        0.000351117477,
+        -2.28222467e-05,
+        1.58054679e-06,
+        -1.1353782e-07,
+        8.35833612e-09,
+        -6.26442479e-10,
+        4.76033489e-11,
+        -3.6574154e-12,
+        2.835431e-13,
+        -2.21473e-14,
+        1.7409e-15,
+        -1.376e-16,
+        1.09e-17,
+        -9e-19,
+    ];
+
+    fn clenshaw(x: f32) -> f32 {
+        let (mut d, mut dd) = (0.0_f32, 0.0_f32);
+        let y2 = 2.0 * x;
+        for j in (1..=16).rev() {
+            let t = d;
+            d = y2 * d - dd + ADEB1[j];
+            dd = t;
+        }
+        x * d - dd + 0.5 * ADEB1[0]
+    }
+
+    // The literal list, written once and shared by all three variants so no
+    // variant can differ by a transcription slip.
+    let lits: Vec<String> = ADEB1.iter().map(|c| format!("{c:e}")).collect();
+    let array_decl = format!("    var c = array<f32, 17>({});\n", lits.join(", "));
+
+    let looped = format!(
+        "fn probe_cheb(x: f32) -> f32 {{\n{array_decl}\
+         \n    var d = 0.0;\n    var dd = 0.0;\n    let y2 = 2.0 * x;\n\
+         \n    for (var j: i32 = 16; j >= 1; j = j - 1) {{\n\
+         \n        let t = d;\n        d = y2 * d - dd + c[j];\n        dd = t;\n    }}\n\
+         \n    return x * d - dd + 0.5 * c[0];\n}}\n"
+    );
+
+    let opaque = format!(
+        "fn probe_cheb(x: f32) -> f32 {{\n{array_decl}\
+         \n    var d = 0.0;\n    var dd = 0.0;\n    let y2 = 2.0 * x;\n\
+         \n    for (var j: i32 = 16; j >= 1; j = j - 1) {{\n\
+         \n        let t = d;\n        d = y2 * d - dd + c[j] * params.a;\n        dd = t;\n    }}\n\
+         \n    return x * d - dd + 0.5 * c[0] * params.a;\n}}\n"
+    );
+
+    let mut body = String::from(
+        "fn probe_cheb(x: f32) -> f32 {\n    var d = 0.0;\n    var dd = 0.0;\n\
+         \n    var t = 0.0;\n    let y2 = 2.0 * x;\n",
+    );
+    for j in (1..=16usize).rev() {
+        body.push_str(&format!(
+            "    t = d;\n    d = y2 * d - dd + {};\n    dd = t;\n",
+            lits[j]
+        ));
+    }
+    body.push_str(&format!("    return x * d - dd + 0.5 * {};\n}}\n", lits[0]));
+    let unrolled = body;
+
+    // debye.wgsl's own argument mapping, so these are arguments the kernel
+    // really sees.
+    let ys: Vec<f32> = (1..=64)
+        .map(|i| {
+            let x = 0.0625 * i as f32;
+            x * x / 8.0 - 1.0
+        })
+        .collect();
+
+    let run = |src: &str, a: f32| -> Vec<f32> {
+        gpu.eval_map(
+            &[src],
+            "probe_cheb(x)",
+            &ADEB1,
+            &ys,
+            KernelParams {
+                a,
+                ..KernelParams::default()
+            },
+        )
+        .expect("non-empty probe")
+    };
+    let reference: Vec<f32> = ys.iter().map(|&y| clenshaw(y)).collect();
+    let exact = |got: &[f32]| -> usize {
+        got.iter()
+            .zip(reference.iter())
+            .filter(|(a, b)| a == b)
+            .count()
+    };
+
+    let v_looped = run(&looped, 0.0);
+    let v_unrolled = run(&unrolled, 0.0);
+    let v_opaque = run(&opaque, 1.0);
+    let v_buffered = gpu
+        .eval_map(
+            &[CHEB],
+            "petir_cheb_eval(0u, 17u, -1.0, 1.0, x)",
+            &ADEB1,
+            &ys,
+            KernelParams::default(),
+        )
+        .expect("non-empty probe");
+    let (n_looped, n_unrolled, n_opaque, n_buffered) = (
+        exact(&v_looped),
+        exact(&v_unrolled),
+        exact(&v_opaque),
+        exact(&v_buffered),
+    );
+    eprintln!(
+        "bit-identical to the CPU, of {}: looped inline {n_looped}, unrolled \
+         inline {n_unrolled}, opaque inline {n_opaque}, buffer {n_buffered}",
+        ys.len()
+    );
+
+    // The control, restated here so this test stands alone.
+    assert_eq!(
+        n_buffered,
+        ys.len(),
+        "the buffer-fed control is documented as bit-identical at every point"
+    );
+    assert!(
+        n_looped < ys.len(),
+        "the inline-literal form is documented as NOT bit-identical; it \
+         matched at all {} points, which refutes the finding this test is \
+         built on",
+        ys.len()
+    );
+
+    // THE FINDING. Making the coefficients unknowable to the compiler, while
+    // leaving them inline, leaving the array indexed and leaving the
+    // arithmetic exactly what it was, restores bit-identity completely.
+    assert_eq!(
+        v_opaque,
+        v_buffered,
+        "multiplying the inline literals by a uniform 1.0 is documented as \
+         restoring the buffer-fed answer EXACTLY, which is what identifies \
+         compile-time knowledge of the coefficients as the mechanism. It did \
+         not, on {}",
+        gpu.adapter_name()
+    );
+
+    // And the loop structure is not the variable: unrolling by hand changes
+    // nothing, point for point, so the looped form was already being
+    // unrolled before anything was folded into it.
+    assert_eq!(
+        v_unrolled, v_looped,
+        "hand-unrolling the inline Clenshaw is documented as changing nothing \
+         at all; it differed, so loop structure IS part of the effect and the \
+         conclusion here needs rewriting rather than this assertion loosening"
     );
 }

@@ -533,7 +533,7 @@ Identical counts and identical worst errors, with 38 % fewer coefficients —
 which is a second, independent confirmation that the inline-coefficient
 effect below is not about array length.
 
-## The inline-coefficient effect is NOT about array length
+## The inline-coefficient effect is CONSTANT FOLDING, measured three ways
 
 `debye.wgsl` recorded that series held as inline `array<f32, N>` literals do
 not reproduce the CPU bit for bit where storage-buffer coefficients do —
@@ -550,10 +550,51 @@ Cutting the coefficient count by a third moves **14 probes of 602**. Inline
 versus buffer moved **30 of 64**. A 2-point effect against a 47-point one, so
 length is not the mechanism.
 
-What remains is that an inline array is known to the compiler at compile
-time, so it may constant-fold and reassociate the Clenshaw recurrence, where
-a storage-buffer read forbids both. That is the next thing to test, and it is
-a different experiment from this one.
+### And the remaining explanation is the right one
+
+What remained was that an inline array is known to the compiler at compile
+time, so it may fold, contract and reassociate around it, where a
+storage-buffer read forbids all three. **Measured 2026-09-19, three variants
+of one arithmetic on the same 64 arguments:**
+
+| variant | coefficients | loop | bit-identical to the CPU |
+|---|---|---|---|
+| inline | WGSL literals | `for` | 34 / 64 |
+| **unrolled** | WGSL literals | straight-line, 16 steps | **34 / 64** |
+| **opaque** | the same literals **times a uniform holding 1.0** | `for` | **64 / 64** |
+| buffer (control) | `storage` read | `for` | 64 / 64 |
+
+**Multiplying by `1.0` is not a change to the arithmetic.** IEEE-754
+multiplication by exactly `1.0` is the identity on every finite value, every
+infinity and every zero including `-0.0`, so `c[j] * params.a` computes
+exactly `c[j]`. What it changes is what the *compiler* knows: a uniform is
+not a compile-time constant. The array is still inline, still seventeen
+literals, still indexed by a loop variable — and bit-identity comes back
+**completely**, matching the buffer-fed answer not merely in count but at
+every one of the 64 points.
+
+**Hand-unrolling changes nothing, point for point.** The unrolled and looped
+inline forms produce byte-identical output, so the loop was already being
+unrolled before anything was folded into it. Loop structure is not the
+variable; knowledge of the values is.
+
+Both are asserted as equalities in
+`the_inline_coefficient_effect_is_constant_folding`, not as counts, so either
+one ceasing to hold fails the test rather than quietly rewriting the finding.
+
+**What this means for reading the rest of this ledger.** Every "GPU vs `f32`
+mirror" figure above for a Chebyshev kernel is measuring the device's
+optimiser, not the transcription. A shader whose coefficients come from a
+buffer may honestly be held to bit-identity; one that embeds them may not, and
+the residual is a few ulp of legitimate compiler freedom — WGSL permits
+contraction and reassociation, and a conforming device may exercise it. The
+practical consequence is small and worth stating plainly: **this is not a
+correctness problem and nothing should be changed because of it.** The worst
+inline-coefficient disagreement measured anywhere here is 5.27e-07 on
+`dawson`, about four `f32` ulp. Moving every table into a buffer to recover
+exactness would trade a real cost — a storage read per coefficient per
+invocation — for a difference below the `f32` error budget these kernels are
+held to in the first place.
 
 ## A reduction that looked obviously right, and is worse
 
