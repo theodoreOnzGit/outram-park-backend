@@ -49,7 +49,7 @@ use alloc::vec::Vec;
 #[allow(unused_imports)]
 use crate::real::Real;
 
-use crate::integration::gauss_legendre_tables::{gauss_legendre_table, MAX_ORDER, MIN_ORDER};
+use crate::integration::gauss_legendre_tables::gauss_legendre_table;
 use crate::poly::dense::DensePoly;
 use crate::{PetirError, Result};
 
@@ -171,6 +171,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::integration::gauss_legendre_tables::{MAX_ORDER, MIN_ORDER};
     use alloc::vec;
 
     /// Gauss-Legendre is exact for degree `2n - 1` and not beyond.
@@ -287,7 +288,7 @@ mod tests {
                 |x| 1.0 / (1.0 + x * x),
                 |x| (2.0 * x).cos(),
             ];
-            let mut measure = |f: fn(f64) -> f64, slot: &mut f64| {
+            let measure = |f: fn(f64) -> f64, slot: &mut f64| {
                 let gl = gauss_legendre(f, a, b, 10).unwrap();
                 let gk = kronrod(QkRule::Qk15, f, a, b).result;
                 let rel = if gk == 0.0 {

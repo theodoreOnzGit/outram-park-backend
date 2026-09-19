@@ -67,12 +67,36 @@ approx.workspace = true
 # implementation by name to stay an independent second opinion.
 libm.workspace = true
 
+# wgpu / naga — TEST-ONLY, and target-gated off Android and wasm.
+#
+# These are DEV-dependencies, deliberately, and there is NO `wgpu` FEATURE on
+# the library. The `wgsl` module ships shader SOURCE (`&'static str`) and `f32`
+# CPU mirrors, both of which are `no_std` and dependency-free; only the harness
+# that dispatches them to a real device needs `std`, and a test binary already
+# links `std`.
+#
+# Putting the runner behind a library feature instead would re-create exactly
+# the `std`/`platform-libm` feature that was REMOVED on 2026-09-17 (bn:op-7kwt)
+# for being uncompilable in every configuration -- `lib.rs` is `#![no_std]`
+# unconditionally, so a `std::`-using module inside the library cannot build no
+# matter how it is gated. See the note under [features] below.
+#
+# Off Android: no system Vulkan/Metal loader. Off wasm: wgpu-hal is not Sync
+# there, and dev-dependencies apply to tests as well as examples.
+[target.'cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))'.dev-dependencies]
+wgpu = { workspace = true }
+naga = { workspace = true, features = ["wgsl-in"] }
+
 [features]
 default = ["transfer-fn"]
 # Continuous and discrete transfer functions (the `transfer_fn` module). Pulls
 # in no_std `uom` for sample times and signal ratios. Turn it off for a
 # units-free, uom-free numerics core.
 transfer-fn = ["dep:uom"]
+# ~~wgpu~~ DELIBERATELY NOT A FEATURE. The GPU path is test-only; see the
+# target-gated dev-dependency block above for why a library feature would
+# repeat the mistake recorded immediately below.
+#
 # ~~std / platform-libm~~ REMOVED 2026-09-17 (bn:op-7kwt). The `platform-libm`
 # escape hatch could not compile in any configuration -- it declared `std` while
 # lib.rs was `#![no_std]` unconditionally with `extern crate std` gated on

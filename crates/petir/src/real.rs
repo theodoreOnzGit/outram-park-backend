@@ -183,7 +183,6 @@ pub fn atan2(y: f64, x: f64) -> f64 {
     libm::atan2(y, x)
 }
 
-
 // ---------------------------------------------------------------------------
 // The method-syntax half: everything `core` omits, as a trait.
 // ---------------------------------------------------------------------------
@@ -455,6 +454,188 @@ impl Real for f64 {
         }
     }
 }
+/// `f32` float maths, from `libm`'s single-precision entry points.
+///
+/// Added 2026-09-19 for the GPU path: WGSL's `f32` is the only float type a
+/// baseline WebGPU device is guaranteed to have, so every CPU mirror of a
+/// WGSL kernel in [`crate::wgsl`] needs `no_std` `f32` maths to compare
+/// against. Nothing in the crate's `f64` numerics changed.
+///
+/// # This is NOT a lower-precision alias for the `f64` impl
+///
+/// Each method calls `libm`'s **`f32` routine** (`sqrtf`, `expf`, `logf`, …),
+/// not the `f64` one with a cast. That matters: `libm::expf` is its own
+/// polynomial, so `(x as f64).exp() as f32` and `x.exp()` are *different
+/// functions* and disagree in the last ulp. The mirror must use this one,
+/// because it is the one whose error budget matches a GPU's.
+///
+/// # Accuracy, stated plainly
+///
+/// `f32` carries about 7.2 decimal digits. A relative error near `1e-7` is
+/// the floor for any single operation here, and a composed expression is
+/// worse. Do not compare an `f32` result against an `f64` reference at an
+/// `f64` tolerance — [`crate::wgsl`]'s tests state the budget they use.
+impl Real for f32 {
+    #[inline]
+    fn sqrt(self) -> f32 {
+        libm::sqrtf(self)
+    }
+    #[inline]
+    fn cbrt(self) -> f32 {
+        libm::cbrtf(self)
+    }
+    #[inline]
+    fn exp(self) -> f32 {
+        libm::expf(self)
+    }
+    #[inline]
+    fn exp2(self) -> f32 {
+        libm::exp2f(self)
+    }
+    #[inline]
+    fn exp_m1(self) -> f32 {
+        libm::expm1f(self)
+    }
+    #[inline]
+    fn ln(self) -> f32 {
+        libm::logf(self)
+    }
+    #[inline]
+    fn ln_1p(self) -> f32 {
+        libm::log1pf(self)
+    }
+    #[inline]
+    fn log10(self) -> f32 {
+        libm::log10f(self)
+    }
+    #[inline]
+    fn log2(self) -> f32 {
+        libm::log2f(self)
+    }
+    #[inline]
+    fn log(self, base: f32) -> f32 {
+        libm::logf(self) / libm::logf(base)
+    }
+    #[inline]
+    fn powf(self, n: f32) -> f32 {
+        libm::powf(self, n)
+    }
+    /// Exponentiation by squaring, mirroring the `f64` impl exactly — the
+    /// same loop, so the two agree on operation count and association.
+    #[inline]
+    fn powi(self, n: i32) -> f32 {
+        let mut e = (n as i64).unsigned_abs();
+        let mut base = self;
+        let mut acc = 1.0_f32;
+        while e > 0 {
+            if e & 1 == 1 {
+                acc *= base;
+            }
+            base *= base;
+            e >>= 1;
+        }
+        if n < 0 {
+            1.0 / acc
+        } else {
+            acc
+        }
+    }
+    #[inline]
+    fn sin(self) -> f32 {
+        libm::sinf(self)
+    }
+    #[inline]
+    fn cos(self) -> f32 {
+        libm::cosf(self)
+    }
+    #[inline]
+    fn tan(self) -> f32 {
+        libm::tanf(self)
+    }
+    #[inline]
+    fn sin_cos(self) -> (f32, f32) {
+        libm::sincosf(self)
+    }
+    #[inline]
+    fn asin(self) -> f32 {
+        libm::asinf(self)
+    }
+    #[inline]
+    fn acos(self) -> f32 {
+        libm::acosf(self)
+    }
+    #[inline]
+    fn atan(self) -> f32 {
+        libm::atanf(self)
+    }
+    #[inline]
+    fn atan2(self, other: f32) -> f32 {
+        libm::atan2f(self, other)
+    }
+    #[inline]
+    fn sinh(self) -> f32 {
+        libm::sinhf(self)
+    }
+    #[inline]
+    fn cosh(self) -> f32 {
+        libm::coshf(self)
+    }
+    #[inline]
+    fn tanh(self) -> f32 {
+        libm::tanhf(self)
+    }
+    #[inline]
+    fn asinh(self) -> f32 {
+        libm::asinhf(self)
+    }
+    #[inline]
+    fn acosh(self) -> f32 {
+        libm::acoshf(self)
+    }
+    #[inline]
+    fn atanh(self) -> f32 {
+        libm::atanhf(self)
+    }
+    #[inline]
+    fn hypot(self, other: f32) -> f32 {
+        libm::hypotf(self, other)
+    }
+    #[inline]
+    fn floor(self) -> f32 {
+        libm::floorf(self)
+    }
+    #[inline]
+    fn ceil(self) -> f32 {
+        libm::ceilf(self)
+    }
+    #[inline]
+    fn round(self) -> f32 {
+        libm::roundf(self)
+    }
+    #[inline]
+    fn trunc(self) -> f32 {
+        libm::truncf(self)
+    }
+    #[inline]
+    fn fract(self) -> f32 {
+        self - libm::truncf(self)
+    }
+    #[inline]
+    fn mul_add(self, a: f32, b: f32) -> f32 {
+        libm::fmaf(self, a, b)
+    }
+    /// Matches `f32::rem_euclid`, mirroring the `f64` impl.
+    #[inline]
+    fn rem_euclid(self, rhs: f32) -> f32 {
+        let r = libm::fmodf(self, rhs);
+        if r < 0.0 {
+            r + libm::fabsf(rhs)
+        } else {
+            r
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -207,6 +207,11 @@ pub mod scalar;
 pub mod specfunc;
 #[cfg(feature = "transfer-fn")]
 pub mod transfer_fn;
+/// **WGSL kernels** — PETIR's pointwise numerics as GPU shader source, in
+/// `f32`, with an `f32` CPU mirror of each and (behind the off-by-default
+/// `wgpu` feature) a headless runner. The shader text and the mirrors are
+/// `no_std` and dependency-free; only the runner needs `std`.
+pub mod wgsl;
 
 pub use cheb::{ChebFit, ChebSeries, Precision};
 pub use cheb_slice::{

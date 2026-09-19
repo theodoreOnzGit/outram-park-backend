@@ -272,6 +272,92 @@ fn the_public_fallible_api_returns_result() {
 /// an *index* from array **type** syntax (`[f64; 8]`), an array literal, an
 /// attribute (`#[inline]`), or a slice pattern -- none of which can panic and
 /// all of which are preceded by a space, `#`, `(`, `:` or another `[`.
+/// Replace the contents of every string literal with spaces, keeping the
+/// quotes and the line's length.
+///
+/// Handles ordinary `"..."` with `\"` escapes and raw strings `r"..."` /
+/// `r#"..."#`. Character literals are left alone: `'['` is not a subscript and
+/// `index_expressions` would not read it as one.
+///
+/// Length is preserved so that any column information stays meaningful.
+fn strip_string_literals(line: &str) -> String {
+    let chars: Vec<char> = line.chars().collect();
+    let mut out = String::with_capacity(chars.len());
+    let mut i = 0usize;
+    while i < chars.len() {
+        let c = chars[i];
+        // Raw string: r"..." or r#"..."#, r##"..."## and so on.
+        if c == 'r' {
+            let mut hashes = 0usize;
+            let mut j = i + 1;
+            while chars.get(j) == Some(&'#') {
+                hashes += 1;
+                j += 1;
+            }
+            if chars.get(j) == Some(&'"') {
+                out.push('r');
+                for _ in 0..hashes {
+                    out.push('#');
+                }
+                out.push('"');
+                let mut k = j + 1;
+                // Scan to the closing quote followed by `hashes` hashes.
+                while k < chars.len() {
+                    if chars[k] == '"' {
+                        let mut h = 0usize;
+                        while h < hashes && chars.get(k + 1 + h) == Some(&'#') {
+                            h += 1;
+                        }
+                        if h == hashes {
+                            break;
+                        }
+                    }
+                    out.push(' ');
+                    k += 1;
+                }
+                if k < chars.len() {
+                    out.push('"');
+                    for _ in 0..hashes {
+                        out.push('#');
+                    }
+                    k += 1 + hashes;
+                }
+                i = k;
+                continue;
+            }
+        }
+        if c == '"' {
+            out.push('"');
+            let mut k = i + 1;
+            while k < chars.len() {
+                if chars[k] == '\\' {
+                    // Skip the escape and whatever it escapes.
+                    out.push(' ');
+                    if k + 1 < chars.len() {
+                        out.push(' ');
+                    }
+                    k += 2;
+                    continue;
+                }
+                if chars[k] == '"' {
+                    break;
+                }
+                out.push(' ');
+                k += 1;
+            }
+            if k < chars.len() {
+                out.push('"');
+                k += 1;
+            }
+            i = k;
+            continue;
+        }
+        out.push(c);
+        i += 1;
+    }
+    out
+}
+
 fn index_expressions(line: &str) -> Vec<(String, String)> {
     let bytes: Vec<char> = line.chars().collect();
     let mut out = Vec::new();
@@ -327,7 +413,10 @@ fn fixed_size_consts(files: &[PathBuf]) -> HashMap<String, usize> {
             let t = line.trim();
 
             // `const NAME: [.. ; 123] = ..`
-            if let Some(rest) = t.strip_prefix("const ").or_else(|| t.strip_prefix("pub const ")) {
+            if let Some(rest) = t
+                .strip_prefix("const ")
+                .or_else(|| t.strip_prefix("pub const "))
+            {
                 if let Some((name, ty)) = rest.split_once(':') {
                     if let Some(len) = outer_array_len(ty) {
                         lengths.insert(name.trim().to_string(), len);
@@ -459,8 +548,18 @@ fn no_subscript_in_the_crate_can_fail_at_runtime() {
         };
 
         for (lineno, line) in library_lines(&text) {
-            // A trailing `//` comment on a code line is still commentary.
-            let code = line.split("//").next().unwrap_or(&line);
+            // Blank the CONTENTS of string literals first, then strip a
+            // trailing `//` comment. Order matters: a literal can contain
+            // `//` (a URL), and -- the case that prompted this -- it can
+            // contain a subscript. `crate::wgsl` builds WGSL source in Rust
+            // strings, and `probe[i]` inside a `&str` is shader text that
+            // Rust never executes, so scanning it was a false positive.
+            //
+            // This does not weaken the gate: a subscript inside a string
+            // literal cannot panic at run time because it is not an
+            // expression. Anything outside the quotes is still scanned.
+            let destrung = strip_string_literals(&line);
+            let code = destrung.split("//").next().unwrap_or(&destrung);
             for (target, index) in index_expressions(code) {
                 if is_compile_time_checked(&target, &index, &consts) {
                     continue;
