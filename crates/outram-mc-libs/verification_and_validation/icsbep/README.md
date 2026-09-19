@@ -165,3 +165,68 @@ stand-in rather than a quoted value. What it says is that the residuals are
 **structured, not noise**, that the cheapest explanation for that structure has
 been tested and rejected, and that the remaining candidates are transport-side
 rather than data-side.
+
+## Second ablation: U-238 inelastic angular treatment — also ELIMINATED
+
+The remaining leading candidate after the library swap. `op-tm9f` wired in the
+ENDF MF=4/MT=51..90 discrete inelastic angular distributions; before it, every
+inelastic collision drew `mu_cm = 2*prn − 1`. Jemima is **83 % U-238 by heavy
+metal and 99.3 % U-238 in its reflector** against Godiva's ~5 %, so it is far
+more exposed to the same treatment.
+
+Measured by ablating it (`OUTRAM_JEMIMA_ISO_INELASTIC=1`), 32 seeds per arm:
+
+| case | ANISO (current) | ISO (ablated) | the term is worth | |
+|---|---|---|---|---|
+| Godiva | +45 ± 32 | +269 ± 30 | **+224 ± 44 pcm** | 5.1 σ |
+| Jemima | −253 ± 34 | +90 ± 31 | **+343 ± 46 pcm** | 7.5 σ |
+
+The term IS worth more on Jemima — 1.53× — exactly as U-238 dominance
+predicts. That part of the physics behaves as expected. But it cannot carry
+the residual, by two independent arguments:
+
+**1. The residuals do not scale with the sensitivities.** If Jemima's residual
+came from this treatment, the residual ratio should track the sensitivity
+ratio, **1.53**. The measured residual ratio is 253/55 = **4.6**. A common
+cause scaled by exposure would give the same number twice; it does not.
+
+**2. A sufficient error is excluded by Godiva.** Explaining −253 pcm on Jemima
+needs a **74 % error** in the treatment. The same 74 % error on Godiva, where
+the term is worth 224 pcm, would put Godiva at **+165 pcm**. Godiva is measured
+at **−55 ± 34**. Those are ~6 σ apart.
+
+**Eliminated**, on the same standard as the library swap.
+
+## Where the ICSBEP determination now stands
+
+Two candidates tested, both with predictions recorded in advance, both refuted:
+
+| candidate | result | bound |
+|---|---|---|
+| U-238 evaluation (VII.0 vs VIII.0) | not resolved | < ~150 pcm on the fast cases |
+| U-238 inelastic angular (MF=4/MT=51..90) | excluded at ~6 σ | cannot produce 253 pcm without breaking Godiva |
+
+**Still open, and the honest list is short:**
+
+- **U-238 fast fission** above its ~1 MeV threshold. Jemima's spectrum sits
+  where this matters and Godiva's largely does not, so unlike the two
+  eliminated candidates this one CAN break the 1.53 scaling that killed them.
+  It is the natural next ablation.
+- **ν̄(E) for U-238.**
+- **The benchmark band itself.** Jemima's ±300 is a stand-in the code calls
+  pessimistic; if the true ICSBEP uncertainty is nearer ±200, −253 ± 34 is a
+  real disagreement, and if it is wider, there may be nothing to explain. This
+  is not resolvable from this environment — see below.
+
+### Why the band cannot be settled here (checked, not assumed)
+
+The network IS reachable, so an earlier claim in this repository that the
+handbook is unreachable is **stale and is corrected here**. What blocks it is
+licensing, not connectivity: the ICSBEP handbook is NEA-licensed and not
+freely redistributable, so fetching it would breach `DATA_POLICY.md`. There is
+no ICSBEP material in `crates/kovan-literature`, in `reference-data/`, or in
+the local OpenMC checkout.
+
+**Obtaining the real case uncertainties requires a handbook licence and is the
+single action that would settle three of the four verdicts.** It is a data
+task, not a compute one, and no amount of further ablation substitutes for it.

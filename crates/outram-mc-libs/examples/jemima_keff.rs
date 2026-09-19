@@ -136,6 +136,31 @@ fn main() {
         // cases disagree in SIGN, which a whole-library swap could not separate.
         load("U238", if std::env::var("OUTRAM_U238_ENDF7").is_ok() { "n-092_U_238-ENDF7.0.endf" } else { "n-092_U_238.endf" }),
     ];
+    // OUTRAM_JEMIMA_ISO_INELASTIC=1 samples every inelastic collision
+    // isotropically in the CM frame, ablating the ENDF MF=4/MT=51..90 discrete
+    // angular distributions that `op-tm9f` wired in.
+    //
+    // WHY ON JEMIMA. That fix was priced on Godiva (-224 +/- 44 pcm), which is
+    // 93.7 % U-235 and only ~5 % U-238. Jemima is 83 % U-238 by heavy metal
+    // and 99.3 % U-238 in its reflector, so it is far more exposed to the same
+    // treatment. Measuring the SENSITIVITY here bounds how large a residual
+    // error in that treatment would have to be to explain Jemima's
+    // -253 +/- 34 pcm: if the term is worth S pcm on Jemima, an error of
+    // f * S explains the residual, and f is then checkable against Godiva's
+    // own -55 +/- 34.
+    //
+    // This is a SENSITIVITY measurement, not a correctness one. It cannot say
+    // the treatment is wrong -- only how much room there is for it to matter.
+    let nuclides: Vec<Nuclide> = if std::env::var("OUTRAM_JEMIMA_ISO_INELASTIC").is_ok() {
+        eprintln!("  ABLATION: inelastic sampled ISOTROPICALLY in CM (MF=4/MT=51..90 off)");
+        nuclides
+            .into_iter()
+            .map(Nuclide::with_isotropic_inelastic_scattering)
+            .collect()
+    } else {
+        nuclides
+    };
+
     eprintln!(
         "Nuclear data ready in {:.1} s.\n",
         t0.elapsed().as_secs_f64()
