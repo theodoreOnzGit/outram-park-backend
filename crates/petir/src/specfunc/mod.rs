@@ -148,6 +148,7 @@ pub mod airy;
 pub mod atanint;
 pub mod bessel;
 pub mod clausen;
+pub mod dawson;
 pub mod debye;
 pub mod dilog;
 pub mod erf;
@@ -155,6 +156,7 @@ pub mod erf;
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
 /// module documentation above before relying on it.
 pub mod erf_inv;
+pub mod expint3;
 pub mod fermi_dirac;
 pub mod gamma;
 /// Regularised and unnormalised incomplete gamma functions, lifted verbatim
@@ -165,6 +167,7 @@ pub mod inc_gamma;
 pub mod inv_inc_gamma;
 pub mod lambert;
 pub mod psi;
+pub mod sinint;
 pub mod synchrotron;
 pub mod transport;
 pub mod trig;

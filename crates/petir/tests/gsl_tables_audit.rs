@@ -6,8 +6,9 @@
 //!
 //! Covers `bessel.rs`, `psi.rs`, `zeta.rs`, `debye.rs`, `airy.rs`,
 //! `lambert.rs`, `clausen.rs`, `transport.rs`, `atanint.rs`,
-//! `synchrotron.rs` and `fermi_dirac.rs` — 88 file-scope tables plus two
-//! local ones, **2080 literals**.
+//! `synchrotron.rs`, `fermi_dirac.rs`, `dawson.rs`, `expint3.rs` and
+//! `sinint.rs` — 99 file-scope tables plus two local ones, **2397
+//! literals**.
 //!
 //! # Why a table audit and not just the numerical tests
 //!
@@ -39,7 +40,7 @@
 //! `src/specfunc/bessel.rs` run unconditionally and are what a clone without
 //! the upstream tree relies on.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -130,17 +131,67 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ("airy.rs", "BIP", "airy.c", "data_bip"),
     ("airy.rs", "BIP2", "airy.c", "data_bip2"),
     ("clausen.rs", "ACLAUS", "clausen.c", "aclaus_data"),
-    ("transport.rs", "TRANSPORT2", "transport.c", "transport2_data"),
-    ("transport.rs", "TRANSPORT3", "transport.c", "transport3_data"),
-    ("transport.rs", "TRANSPORT4", "transport.c", "transport4_data"),
-    ("transport.rs", "TRANSPORT5", "transport.c", "transport5_data"),
+    (
+        "transport.rs",
+        "TRANSPORT2",
+        "transport.c",
+        "transport2_data",
+    ),
+    (
+        "transport.rs",
+        "TRANSPORT3",
+        "transport.c",
+        "transport3_data",
+    ),
+    (
+        "transport.rs",
+        "TRANSPORT4",
+        "transport.c",
+        "transport4_data",
+    ),
+    (
+        "transport.rs",
+        "TRANSPORT5",
+        "transport.c",
+        "transport5_data",
+    ),
     ("atanint.rs", "ATANINT", "atanint.c", "atanint_data"),
-    ("synchrotron.rs", "SYNCH1", "synchrotron.c", "synchrotron1_data"),
-    ("synchrotron.rs", "SYNCH2", "synchrotron.c", "synchrotron2_data"),
-    ("synchrotron.rs", "SYNCH1A", "synchrotron.c", "synchrotron1a_data"),
-    ("synchrotron.rs", "SYNCH21", "synchrotron.c", "synchrotron21_data"),
-    ("synchrotron.rs", "SYNCH22", "synchrotron.c", "synchrotron22_data"),
-    ("synchrotron.rs", "SYNCH2A", "synchrotron.c", "synchrotron2a_data"),
+    (
+        "synchrotron.rs",
+        "SYNCH1",
+        "synchrotron.c",
+        "synchrotron1_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH2",
+        "synchrotron.c",
+        "synchrotron2_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH1A",
+        "synchrotron.c",
+        "synchrotron1a_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH21",
+        "synchrotron.c",
+        "synchrotron21_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH22",
+        "synchrotron.c",
+        "synchrotron22_data",
+    ),
+    (
+        "synchrotron.rs",
+        "SYNCH2A",
+        "synchrotron.c",
+        "synchrotron2a_data",
+    ),
     ("fermi_dirac.rs", "FD_1_A", "fermi_dirac.c", "fd_1_a_data"),
     ("fermi_dirac.rs", "FD_1_B", "fermi_dirac.c", "fd_1_b_data"),
     ("fermi_dirac.rs", "FD_1_C", "fermi_dirac.c", "fd_1_c_data"),
@@ -151,18 +202,89 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
     ("fermi_dirac.rs", "FD_2_C", "fermi_dirac.c", "fd_2_c_data"),
     ("fermi_dirac.rs", "FD_2_D", "fermi_dirac.c", "fd_2_d_data"),
     ("fermi_dirac.rs", "FD_2_E", "fermi_dirac.c", "fd_2_e_data"),
-    ("fermi_dirac.rs", "FD_MHALF_A", "fermi_dirac.c", "fd_mhalf_a_data"),
-    ("fermi_dirac.rs", "FD_MHALF_B", "fermi_dirac.c", "fd_mhalf_b_data"),
-    ("fermi_dirac.rs", "FD_MHALF_C", "fermi_dirac.c", "fd_mhalf_c_data"),
-    ("fermi_dirac.rs", "FD_MHALF_D", "fermi_dirac.c", "fd_mhalf_d_data"),
-    ("fermi_dirac.rs", "FD_HALF_A", "fermi_dirac.c", "fd_half_a_data"),
-    ("fermi_dirac.rs", "FD_HALF_B", "fermi_dirac.c", "fd_half_b_data"),
-    ("fermi_dirac.rs", "FD_HALF_C", "fermi_dirac.c", "fd_half_c_data"),
-    ("fermi_dirac.rs", "FD_HALF_D", "fermi_dirac.c", "fd_half_d_data"),
-    ("fermi_dirac.rs", "FD_3HALF_A", "fermi_dirac.c", "fd_3half_a_data"),
-    ("fermi_dirac.rs", "FD_3HALF_B", "fermi_dirac.c", "fd_3half_b_data"),
-    ("fermi_dirac.rs", "FD_3HALF_C", "fermi_dirac.c", "fd_3half_c_data"),
-    ("fermi_dirac.rs", "FD_3HALF_D", "fermi_dirac.c", "fd_3half_d_data"),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_A",
+        "fermi_dirac.c",
+        "fd_mhalf_a_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_B",
+        "fermi_dirac.c",
+        "fd_mhalf_b_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_C",
+        "fermi_dirac.c",
+        "fd_mhalf_c_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_MHALF_D",
+        "fermi_dirac.c",
+        "fd_mhalf_d_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_A",
+        "fermi_dirac.c",
+        "fd_half_a_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_B",
+        "fermi_dirac.c",
+        "fd_half_b_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_C",
+        "fermi_dirac.c",
+        "fd_half_c_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_HALF_D",
+        "fermi_dirac.c",
+        "fd_half_d_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_A",
+        "fermi_dirac.c",
+        "fd_3half_a_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_B",
+        "fermi_dirac.c",
+        "fd_3half_b_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_C",
+        "fermi_dirac.c",
+        "fd_3half_c_data",
+    ),
+    (
+        "fermi_dirac.rs",
+        "FD_3HALF_D",
+        "fermi_dirac.c",
+        "fd_3half_d_data",
+    ),
+    ("dawson.rs", "DAW", "dawson.c", "daw_data"),
+    ("dawson.rs", "DAW2", "dawson.c", "daw2_data"),
+    ("dawson.rs", "DAWA", "dawson.c", "dawa_data"),
+    ("expint3.rs", "EXPINT3", "expint3.c", "expint3_data"),
+    ("expint3.rs", "EXPINT3A", "expint3.c", "expint3a_data"),
+    ("sinint.rs", "F1", "sinint.c", "f1_data"),
+    ("sinint.rs", "F2", "sinint.c", "f2_data"),
+    ("sinint.rs", "G1", "sinint.c", "g1_data"),
+    ("sinint.rs", "G2", "sinint.c", "g2_data"),
+    ("sinint.rs", "SI", "sinint.c", "si_data"),
+    ("sinint.rs", "CI", "sinint.c", "ci_data"),
 ];
 
 /// `TWOPI_POW` in `zeta.rs` is a LOCAL array inside `gsl_sf_zeta_e`'s
@@ -179,10 +301,7 @@ const TABLES: &[(&str, &str, &str, &str)] = &[
 /// elsewhere" list invites: it is an assertion that something else is doing
 /// the work. The test below now does it, and the entry is only honest
 /// because of that.
-const AUDITED_ELSEWHERE: &[(&str, &str)] = &[
-    ("zeta.rs", "TWOPI_POW"),
-    ("lambert.rs", "SERIES_C"),
-];
+const AUDITED_ELSEWHERE: &[(&str, &str)] = &[("zeta.rs", "TWOPI_POW"), ("lambert.rs", "SERIES_C")];
 
 fn crate_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -377,8 +496,8 @@ fn every_coefficient_is_bit_identical_to_the_vendored_gsl() {
     }
     assert_eq!(
         checked,
-        2080,
-        "expected 2080 coefficients across {} tables, audited {checked}",
+        2397,
+        "expected 2397 coefficients across {} tables, audited {checked}",
         TABLES.len()
     );
 }
@@ -400,6 +519,9 @@ fn every_rust_table_is_audited() {
         "atanint.rs",
         "synchrotron.rs",
         "fermi_dirac.rs",
+        "dawson.rs",
+        "expint3.rs",
+        "sinint.rs",
     ] {
         let src = rust_source(module);
         let declared: Vec<String> = src
@@ -446,11 +568,16 @@ fn every_series_uses_its_whole_array() {
     }
     // (file, cheb_series name, data array)
     //
-    // `zeta.c`'s `zetam1_inter_cs` is DELIBERATELY absent: it is the one
-    // series in these modules whose order is smaller than its array, and
+    // FOUR series are DELIBERATELY absent, because their order is smaller
+    // than their array: `zeta.c`'s `zetam1_inter_cs` and all three of
+    // `dawson.c`'s. Each is covered where it lives --
     // `zeta::tests::the_intermediate_series_stops_at_the_order_gsl_declares`
-    // is what covers it. `the_one_series_shorter_than_its_array` below pins
-    // that it really is the only one.
+    // and `dawson::tests::upstreams_truncation_costs_at_most_eight_ulp` --
+    // and `the_series_shorter_than_their_arrays` below pins that those four
+    // are the complete set.
+    //
+    // ~~`zetam1_inter_cs` is the one series~~ CORRECTED 2026-09-19: it was
+    // the only one until `dawson.c` was ported, which brought three more.
     let series: &[(&str, &str, &str)] = &[
         ("bessel_I0.c", "bi0_cs", "bi0_data"),
         ("bessel_I0.c", "ai0_cs", "ai0_data"),
@@ -489,6 +616,14 @@ fn every_series_uses_its_whole_array() {
         ("psi.c", "r1py_cs", "r1py_data"),
         ("psi.c", "psi_cs", "psics_data"),
         ("psi.c", "apsi_cs", "apsics_data"),
+        ("expint3.c", "expint3_cs", "expint3_data"),
+        ("expint3.c", "expint3a_cs", "expint3a_data"),
+        ("sinint.c", "f1_cs", "f1_data"),
+        ("sinint.c", "f2_cs", "f2_data"),
+        ("sinint.c", "g1_cs", "g1_data"),
+        ("sinint.c", "g2_cs", "g2_data"),
+        ("sinint.c", "si_cs", "si_data"),
+        ("sinint.c", "ci_cs", "ci_data"),
         ("zeta.c", "zeta_xlt1_cs", "zeta_xlt1_data"),
         ("zeta.c", "zeta_xgt1_cs", "zeta_xgt1_data"),
         ("debye.c", "adeb1_cs", "adeb1_data"),
@@ -522,40 +657,92 @@ fn every_series_uses_its_whole_array() {
     }
 }
 
-/// `zetam1_inter_cs` is the **only** series in these modules whose declared
-/// order is smaller than its data array.
+/// **Every GSL series whose declared order is smaller than its array**, and
+/// the assertion that this is the complete list.
 ///
-/// `every_series_uses_its_whole_array` deliberately omits it, and the port
-/// slices it to 23 of 24 by hand. This checks that the omission is a single
-/// known exception rather than a growing list — if upstream shortened another
-/// series, the corresponding port would silently include a coefficient GSL
-/// ignores and nothing else would notice.
+/// ~~`zetam1_inter_cs` is the one series shorter than its array.~~
+/// **CORRECTED 2026-09-19** — it was, until `dawson.c` was ported, which
+/// brought three more. More to the point, the previous version of this test
+/// checked `zetam1_inter_cs` alone while its comment claimed it "pins that it
+/// really is the only one". It did not: nothing scanned for others, so a new
+/// truncated series could arrive silently and `every_series_uses_its_whole_
+/// array` would simply not know about it.
+///
+/// This version scans **every upstream file this crate ports from**, finds
+/// each `cheb_series` whose order is below `len - 1`, and compares the set
+/// against the expected list. Adding a module with a truncated series now
+/// fails here until it is acknowledged.
+///
+/// The four, as of 2026-09-19:
+///
+/// | file | series | array | order | evaluates |
+/// |---|---|---|---|---|
+/// | `zeta.c` | `zetam1_inter_cs` | 24 | 22 | 23 |
+/// | `dawson.c` | `daw_cs` | 21 | 15 | 16 |
+/// | `dawson.c` | `daw2_cs` | 45 | 32 | 33 |
+/// | `dawson.c` | `dawa_cs` | 75 | 34 | 35 |
+///
+/// All four are SLATEC's `initds` convention, which GSL inherited: the array
+/// carries enough coefficients for the highest precision anyone might want
+/// and the order selects what `double` needs. GSL leaves the full order
+/// beside each in a comment (`34, /* 74, */`).
 #[test]
-fn the_one_series_shorter_than_its_array() {
+fn the_series_shorter_than_their_arrays() {
     let dir = upstream_dir();
     if !dir.is_dir() {
         eprintln!("skipping: vendored GSL not present at {dir:?}");
         return;
     }
-    let text = strip_block_comments(
-        &fs::read_to_string(dir.join("zeta.c")).expect("vendored specfunc/zeta.c"),
-    );
-    let body = extract_delimited(&text, "cheb_series zetam1_inter_cs =", '{', '}')
-        .expect("no `cheb_series zetam1_inter_cs` in specfunc/zeta.c");
-    let fields: Vec<&str> = body.split(',').map(str::trim).collect();
-    let order: usize = fields
-        .get(1)
-        .and_then(|f| f.parse().ok())
-        .expect("cannot read zetam1_inter_cs's order");
-    let n = upstream_table("zeta.c", "zetam1_inter_data")
-        .expect("no `zetam1_inter_data`")
-        .len();
-    assert_eq!(order, 22, "zetam1_inter_cs's order moved to {order}");
-    assert_eq!(n, 24, "zetam1_inter_data now holds {n} values");
-    assert!(
-        order + 1 < n,
-        "zetam1_inter_cs no longer has a shorter order than its array; if \
-         upstream fixed this, `zeta::zetam1_intermediate` should stop slicing"
+
+    // Every upstream file behind a TABLES row, deduplicated.
+    let files: BTreeSet<&str> = TABLES.iter().map(|(_, _, f, _)| *f).collect();
+
+    let mut found: Vec<(String, String, usize, usize)> = Vec::new();
+    for file in files {
+        let text = strip_block_comments(
+            &fs::read_to_string(dir.join(file)).unwrap_or_else(|e| panic!("{file}: {e}")),
+        );
+        let mut rest = text.as_str();
+        while let Some(at) = rest.find("cheb_series ") {
+            rest = &rest[at + "cheb_series ".len()..];
+            let name: String = rest
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            let Some(body) = extract_delimited(rest, "", '{', '}') else {
+                break;
+            };
+            let fields: Vec<&str> = body.split(',').map(str::trim).collect();
+            let (Some(array), Some(order)) = (
+                fields.first().map(|f| f.trim_end_matches("_data")),
+                fields.get(1).and_then(|f| f.parse::<usize>().ok()),
+            ) else {
+                continue;
+            };
+            if let Some(n) = upstream_table(file, &format!("{array}_data")) {
+                if order + 1 < n.len() {
+                    found.push((file.to_string(), name, n.len(), order));
+                }
+            }
+        }
+    }
+    found.sort();
+
+    let expected: &[(&str, &str, usize, usize)] = &[
+        ("dawson.c", "daw2_cs", 45, 32),
+        ("dawson.c", "daw_cs", 21, 15),
+        ("dawson.c", "dawa_cs", 75, 34),
+        ("zeta.c", "zetam1_inter_cs", 24, 22),
+    ];
+    let got: Vec<(&str, &str, usize, usize)> = found
+        .iter()
+        .map(|(f, n, l, o)| (f.as_str(), n.as_str(), *l, *o))
+        .collect();
+    assert_eq!(
+        got, expected,
+        "the set of GSL series shorter than their arrays has changed. Each \
+         one must be left out of `every_series_uses_its_whole_array` and \
+         covered by its own module's test"
     );
 }
 
@@ -577,7 +764,9 @@ fn the_local_twopi_table_matches_upstream() {
         .expect("upstream's local twopi_pow[18] declaration moved or was renamed");
     let rest = &c[at..];
     let open = rest.find('{').expect("no { after the declaration");
-    let close = rest[open..].find('}').expect("no } closing the initialiser");
+    let close = rest[open..]
+        .find('}')
+        .expect("no } closing the initialiser");
     let upstream: Vec<f64> = rest[open + 1..open + close]
         .split(',')
         .map(str::trim)
@@ -620,14 +809,16 @@ fn the_local_twopi_table_matches_upstream() {
 /// on what that deliberately does not catch.
 #[test]
 fn the_local_lambert_series_matches_upstream() {
-    let c = fs::read_to_string(upstream_dir().join("lambert.c"))
-        .expect("vendored specfunc/lambert.c");
+    let c =
+        fs::read_to_string(upstream_dir().join("lambert.c")).expect("vendored specfunc/lambert.c");
     let at = c
         .find("static const double c[12] = {")
         .expect("upstream's local c[12] in series_eval moved or was renamed");
     let rest = &c[at..];
     let open = rest.find('{').expect("no { after the declaration");
-    let close = rest[open..].find('}').expect("no } closing the initialiser");
+    let close = rest[open..]
+        .find('}')
+        .expect("no } closing the initialiser");
     let upstream = parse_floats(&strip_block_comments(&rest[open + 1..open + close]));
 
     let r = rust_source("lambert.rs");
