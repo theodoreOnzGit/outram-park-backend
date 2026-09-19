@@ -1550,7 +1550,9 @@ mod tests {
             let e = (fermi_dirac_1(x) / exact_1(x) - 1.0).abs();
             assert!(
                 e < 1e-14,
-                "F_1 at {m} x its far-field cut is {e:e} from the exact form;                  upstream's 1/sqrt(eps) is documented as placing the cut where                  the Sommerfeld correction is already below eps"
+                "F_1 at {m} x its far-field cut is {e:e} from the exact form; upstream's \
+                 1/sqrt(eps) is documented as placing the cut where the Sommerfeld correction is \
+                 already below eps"
             );
         }
 
@@ -1571,7 +1573,9 @@ mod tests {
             let d = fermi_dirac_2(x) / exact_2(x) - 1.0;
             assert!(
                 d < 0.0 && (d.abs() / want - 1.0).abs() < 0.01,
-                "F_2 at {m} x its cut is documented as {want:e} LOW; it is {d:e}.                  If this now agrees with the exact form, upstream has moved the                  cut and this crate's bar -- agreement with GSL -- has changed"
+                "F_2 at {m} x its cut is documented as {want:e} LOW; it is {d:e}. If this now \
+                 agrees with the exact form, upstream has moved the cut and this crate's bar -- \
+                 agreement with GSL -- has changed"
             );
         }
         // And it recovers as 1/x^2: ten times out is a hundred times smaller.
@@ -1579,7 +1583,8 @@ mod tests {
         let one = (fermi_dirac_2(cut2) / exact_2(cut2) - 1.0).abs();
         assert!(
             (one / ten / 100.0 - 1.0).abs() < 0.02,
-            "the F_2 deficit is documented as falling like 1/x^2 -- a factor 100              over a decade -- and fell by {}",
+            "the F_2 deficit is documented as falling like 1/x^2 -- a factor 100              over \
+             a decade -- and fell by {}",
             one / ten
         );
     }

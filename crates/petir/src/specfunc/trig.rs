@@ -262,11 +262,13 @@ mod tests {
             let (ws, wn) = per_decade(e);
             assert!(
                 ws < 1e-14,
-                "the split is documented as holding at one f64 ulp up to                  1e7, and at 1e{e} it measured {ws:e}"
+                "the split is documented as holding at one f64 ulp up to                  1e7, and \
+                 at 1e{e} it measured {ws:e}"
             );
             assert!(
                 wn > 100.0 * ws,
-                "the naive reduction is documented as far worse below 1e8:                  at 1e{e}, split {ws:e}, naive {wn:e}"
+                "the naive reduction is documented as far worse below 1e8: at 1e{e}, split {ws:e}, \
+                 naive {wn:e}"
             );
         }
         // And the gap really does grow with the magnitude.
@@ -274,7 +276,8 @@ mod tests {
         let (s7, n7) = per_decade(7);
         assert!(
             (n7 / s7) > 1000.0 * (n1 / s1),
-            "the advantage is documented as growing with theta: {:.1e} at              1e1 against {:.1e} at 1e7",
+            "the advantage is documented as growing with theta: {:.1e} at              1e1 against \
+             {:.1e} at 1e7",
             n1 / s1,
             n7 / s7
         );
@@ -284,11 +287,14 @@ mod tests {
             let (ws, wn) = per_decade(e);
             assert!(
                 ws > 1e-8,
-                "the split is documented as LOSING its exactness above 1e8,                  because y * P1 no longer fits in 53 bits. At 1e{e} it                  measured {ws:e}, which would mean it still holds and this                  explanation is wrong"
+                "the split is documented as LOSING its exactness above 1e8, because y * P1 no \
+                 longer fits in 53 bits. At 1e{e} it measured {ws:e}, which would mean it still \
+                 holds and this explanation is wrong"
             );
             assert!(
                 wn < 10.0 * ws,
-                "above 1e8 the two are documented as comparable (ratio ~1.5):                  at 1e{e}, split {ws:e}, naive {wn:e}"
+                "above 1e8 the two are documented as comparable (ratio ~1.5): at 1e{e}, split \
+                 {ws:e}, naive {wn:e}"
             );
         }
 
@@ -296,7 +302,8 @@ mod tests {
         let gsl_marker = 0.0625 / crate::specfunc::SQRT_DBL_EPSILON;
         assert!(
             (4.0e6..5.0e6).contains(&gsl_marker),
-            "GSL's 0.0625/sqrt(eps) marker is documented at 4.2e+06, and is              {gsl_marker:e}"
+            "GSL's 0.0625/sqrt(eps) marker is documented at 4.2e+06, and is              \
+             {gsl_marker:e}"
         );
     }
 

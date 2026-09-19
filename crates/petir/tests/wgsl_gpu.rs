@@ -1309,7 +1309,8 @@ fn the_inline_coefficient_array_is_what_costs_bit_identity() {
     assert_eq!(
         exact_buffered,
         ys.len(),
-        "GPU ({}) buffer-fed Clenshaw is documented as bit-identical to the          CPU at every one of {} points, and matched {exact_buffered}",
+        "GPU ({}) buffer-fed Clenshaw is documented as bit-identical to the CPU at every one of {} \
+         points, and matched {exact_buffered}",
         gpu.adapter_name(),
         ys.len()
     );
@@ -1318,7 +1319,9 @@ fn the_inline_coefficient_array_is_what_costs_bit_identity() {
     // about it differs.
     assert!(
         exact_inline < ys.len(),
-        "GPU ({}) inline-literal Clenshaw matched the CPU at all {} points.          That contradicts the measurement this test records (34/64) and the          explanation built on it in docs/wgsl-coverage.md — re-measure and          rewrite those rather than deleting this assertion",
+        "GPU ({}) inline-literal Clenshaw matched the CPU at all {} points. That contradicts the \
+         measurement this test records (34/64) and the explanation built on it in \
+         docs/wgsl-coverage.md — re-measure and rewrite those rather than deleting this assertion",
         gpu.adapter_name(),
         ys.len()
     );
@@ -1336,7 +1339,8 @@ fn the_inline_coefficient_array_is_what_costs_bit_identity() {
         .unwrap_or(0);
     assert!(
         worst_ulp <= 2,
-        "the inline-literal Chebyshev branch is documented as differing by at          most one ulp per step, and differed by {worst_ulp}"
+        "the inline-literal Chebyshev branch is documented as differing by at most one ulp per \
+         step, and differed by {worst_ulp}"
     );
 }
 
