@@ -53,10 +53,32 @@
 // impossible to match in f32). Instead it is derived from the TOP 24 bits of the
 // advanced 64-bit state:
 //   xi = f32(state_hi >> 8) * (1.0 / 16777216.0)      // top 24 bits -> [0,1)
-// state_hi >> 8 is < 2^24, so f32 represents it exactly. DOCUMENTED DIVERGENCE:
-// the integer state stream is bit-exact vs the CPU; the f32 xi VALUE differs from
-// the CPU f64 `prn` — the accepted f32 acceleration divergence. The CPU single-
-// thread path stays the trusted, bit-reproducible reference.
+// state_hi >> 8 is < 2^24, so f32 represents it exactly.
+//
+// DOCUMENTED DIVERGENCE. The integer state stream is bit-exact vs the CPU
+// (gpu_lcg_advance_directly.rs asserts it as equality, over 256 seeds and over
+// 4096-step chains). The uniform VALUE is not, and ~~this is the accepted f32
+// acceleration divergence~~ **CORRECTED 2026-09-19** — it is STRUCTURAL, not a
+// precision effect, and calling it an f32 cost understated it by seven orders
+// of magnitude:
+//
+//   CPU  src/rng/lcg.rs:116-117 applies a PCG-RXS-M-XS output PERMUTATION to
+//        the advanced state, then scales the permuted word by 2^-64.
+//   GPU  applies NO permutation and scales the raw top 24 bits by 2^-24.
+//
+// These are different functions of the same integer and would disagree in
+// exact arithmetic. Measured over 1e6 consecutive draws from seed 1, the worst
+// gap is 9.995e-01 — effectively two unrelated uniforms.
+//
+// THE BEHAVIOUR IS STILL SOUND, and that is measured, not assumed. An LCG's
+// high bits are its good ones; the permutation exists because OpenMC wanted
+// quality across ALL bits. Over the same 1e6 draws the raw top-24 stream has
+// mean 4.9977e-01, chi-square 44.67 on 63 dof over 64 equal buckets (5 %
+// critical value 82.5), and covariance -6.6e-05 against the CPU stream, inside
+// one standard error of zero. Re-measured by
+// `the_reference_is_sound_without_a_gpu`.
+//
+// The CPU single-thread path stays the trusted, bit-reproducible reference.
 //
 // PROVENANCE
 // ----------
