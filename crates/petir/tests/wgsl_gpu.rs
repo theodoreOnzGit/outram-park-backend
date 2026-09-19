@@ -6,7 +6,8 @@
 
 use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
-    mirror, mirror_erf, mirror_gamma, mirror_matrix, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY,
+    mirror, mirror_bessel, mirror_erf, mirror_gamma, mirror_matrix, BESSEL, CHEB, ERF, GAMMA,
+    LEGENDRE, MATRIX, POLY,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -713,4 +714,162 @@ fn gpu_gamma_family_matches_the_cpu_mirror() {
         "GPU ({}) vs f32 mirror: lngamma {worst_ln:e}, gamma {worst_g:e}",
         gpu.adapter_name()
     );
+}
+
+/// The whole Bessel family on the GPU against the `f32` CPU mirror.
+///
+/// # Methodology
+///
+/// All twelve entry points — `J_0`, `J_1`, `Y_0`, `Y_1`, `I_0`, `I_1`, `K_0`,
+/// `K_1` and the four exponentially scaled modified forms — dispatched over
+/// 512 probes on `(0, 40]`, one dispatch each, against
+/// [`petir::wgsl::mirror_bessel`]. The window stops at 40 because `I_0`
+/// leaves `f32` near `x = 88` and a comparison of two infinities establishes
+/// nothing.
+///
+/// The comparison is **relative where the value is not near a zero and
+/// absolute where it is**, for the reason `mirror_bessel`'s documentation
+/// sets out: `J` and `Y` pass through zero, and a relative figure there is
+/// dominated by how close a probe happened to land rather than by the device.
+///
+/// # Results, measured 2026-09-19 on `llvmpipe (LLVM 20.1.2, 256 bits)`
+///
+/// | kernel | worst | at |
+/// |---|---|---|
+/// | `I_0` | 1.821e-06 | 38.359 |
+/// | `I_1` | 1.761e-06 | 35.781 |
+/// | `K_0` | 2.242e-07 | 1.875 |
+/// | `K_1` | 2.812e-07 | 1.406 |
+/// | `I_0` scaled | 2.364e-07 | 2.813 |
+/// | `I_1` scaled | 3.716e-07 | 2.813 |
+/// | `K_0` scaled | 3.040e-07 | 0.938 |
+/// | `K_1` scaled | 1.758e-07 | 14.375 |
+/// | `J_0` | 2.246e-07 | 22.109 |
+/// | `J_1` | 5.695e-07 | 3.516 |
+/// | `Y_0` | 3.980e-07 | 0.703 |
+/// | `Y_1` | 3.329e-07 | 1.875 |
+///
+/// **The two unscaled `I` kernels are an order worse than their scaled forms,
+/// and that is the device's `exp`.** `I_0(x)` is `exp(x) * I_0_scaled(x)`;
+/// the scaled form does not call `exp` at all and sits at 2.4e-07, while the
+/// unscaled one picks up 1.8e-06 at `x = 38`. WGSL's allowance for `exp` is
+/// `3 + 2|x|` ulp, which at `x = 38` is 79 ulp — the measured 15 ulp is well
+/// inside it. Nothing is wrong; the scaled entry point is simply the one to
+/// reach for when the device's `exp` is in the way.
+///
+/// **These cannot be bit-identical and it would be wrong to assert that they
+/// are.** Every Bessel branch calls `sqrt`, `exp`, `log`, `sin` or `cos`, and
+/// WGSL specifies its builtins to an **ULP bound rather than correct
+/// rounding** — the device's `sin` and `libm`'s `sinf` are different functions
+/// agreeing to about an ulp. The pure-arithmetic kernels in this file (Horner,
+/// Clenshaw, BLAS) *are* held to zero; these are not, and the difference is
+/// the builtins.
+///
+/// # The budgets are looser than the measurements, deliberately
+///
+/// WGSL's allowance for `sin`/`cos` is an **absolute** error of `2^-11`
+/// (4.9e-04) on `[-pi, pi]`, and is left implementation-defined outside it.
+/// A strictly conforming device could therefore be three orders worse than
+/// llvmpipe on the `J`/`Y` asymptotic branches without violating anything. The
+/// budgets below are set where a real device plausibly lands rather than at
+/// that allowance, so a failure is worth investigating — but it would be a
+/// finding about the device's builtins, not about this transcription.
+///
+/// This is GPU-vs-mirror and **not an accuracy claim**: `mirror_bessel`
+/// measures its own distance from `f64` separately.
+#[test]
+fn gpu_bessel_family_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_bessel_family_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let probes: Vec<f32> = (1..=512).map(|i| 40.0 * i as f32 / 512.0).collect();
+
+    // (call, mirror, budget). One budget per function rather than one for the
+    // family: the oscillatory four legitimately differ more, since a phase
+    // disagreement of an ulp lands on a function whose slope near a zero is
+    // steep, and flattening that into one number would hide it.
+    let cases: [(&str, fn(f32) -> f32, f64); 12] = [
+        // The two unscaled I kernels carry the device's exp() and get a
+        // looser budget for it; everything else is held near one ulp.
+        ("petir_bessel_i0(x)", mirror_bessel::i0, 2e-5),
+        ("petir_bessel_i1(x)", mirror_bessel::i1, 2e-5),
+        ("petir_bessel_k0(x)", mirror_bessel::k0, 5e-6),
+        ("petir_bessel_k1(x)", mirror_bessel::k1, 5e-6),
+        ("petir_bessel_i0_scaled(x)", mirror_bessel::i0_scaled, 5e-6),
+        ("petir_bessel_i1_scaled(x)", mirror_bessel::i1_scaled, 5e-6),
+        ("petir_bessel_k0_scaled(x)", mirror_bessel::k0_scaled, 5e-6),
+        ("petir_bessel_k1_scaled(x)", mirror_bessel::k1_scaled, 5e-6),
+        ("petir_bessel_j0(x)", mirror_bessel::j0, 5e-6),
+        ("petir_bessel_j1(x)", mirror_bessel::j1, 5e-6),
+        ("petir_bessel_y0(x)", mirror_bessel::y0, 5e-6),
+        ("petir_bessel_y1(x)", mirror_bessel::y1, 5e-6),
+    ];
+
+    for (call, mirror_fn, budget) in cases {
+        let got = gpu
+            .eval_map(&[BESSEL], call, &[], &probes, KernelParams::default())
+            .expect("non-empty probe");
+        let mut worst = 0.0_f64;
+        let mut at = 0.0_f32;
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_fn(x);
+            let have = got.get(k).copied().unwrap_or(f32::NAN);
+            if !want.is_finite() || !have.is_finite() {
+                continue;
+            }
+            // Relative away from a zero, absolute at one -- see the doc above.
+            let d = if want.abs() < 0.1 {
+                (have - want).abs() as f64
+            } else {
+                ((have - want) / want).abs() as f64
+            };
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        assert!(
+            worst < budget,
+            "GPU ({}) vs f32 mirror for {call}: {worst:e} at x = {at}, budget {budget:e}",
+            gpu.adapter_name()
+        );
+    }
+}
+
+/// The Bessel shader agrees with the mirror on the *domain* errors too, not
+/// only on the numbers.
+///
+/// `Y` and `K` are undefined for `x <= 0`, and both sides spell that test as
+/// `!(x > 0.0)` so that `NaN` propagates rather than falling into a branch.
+/// A shader that returned a plausible number there would pass every numerical
+/// comparison above, because the probes are all positive.
+#[test]
+fn gpu_bessel_rejects_non_positive_arguments_exactly_as_the_mirror_does() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_bessel_rejects_non_positive_arguments_exactly_as_the_mirror_does: no GPU adapter");
+        return;
+    };
+    let probes: Vec<f32> = vec![-4.0, -1.0, -0.001, 0.0, 1.0, 4.0];
+    for (call, mirror_fn) in [
+        ("petir_bessel_y0(x)", mirror_bessel::y0 as fn(f32) -> f32),
+        ("petir_bessel_y1(x)", mirror_bessel::y1),
+        ("petir_bessel_k0(x)", mirror_bessel::k0),
+        ("petir_bessel_k1(x)", mirror_bessel::k1),
+    ] {
+        let got = gpu
+            .eval_map(&[BESSEL], call, &[], &probes, KernelParams::default())
+            .expect("non-empty probe");
+        for (k, &x) in probes.iter().enumerate() {
+            let want = mirror_fn(x);
+            let have = got.get(k).copied().unwrap_or(0.0);
+            assert_eq!(
+                want.is_nan(),
+                have.is_nan(),
+                "{call} at x = {x}: mirror NaN = {}, GPU NaN = {} (GPU gave {have})",
+                want.is_nan(),
+                have.is_nan()
+            );
+        }
+    }
 }

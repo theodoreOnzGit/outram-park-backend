@@ -92,6 +92,9 @@ pub mod mirror_matrix;
 /// `f32` mirrors of the gamma-family shaders.
 pub mod mirror_gamma;
 
+/// `f32` mirrors of the Bessel-family shaders.
+pub mod mirror_bessel;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -163,14 +166,29 @@ pub const MATRIX: &str = include_str!("shaders/matrix.wgsl");
 /// that.
 pub const GAMMA: &str = include_str!("shaders/gamma.wgsl");
 
+/// GSL's order-0 and order-1 cylindrical Bessel functions, ported from
+/// `specfunc/bessel_{J,Y,I,K}{0,1}.c` by way of [`crate::specfunc::bessel`].
+///
+/// Provides `petir_bessel_j0`, `j1`, `y0`, `y1`, `i0`, `i1`, `k0`, `k1`, the
+/// four exponentially scaled modified forms, the eighteen Chebyshev series
+/// and the `cos_pi4`/`sin_pi4` phase helpers.
+///
+/// **These are the module's least accurate kernels, and the asymptotic
+/// branches past `x = 4` are the reason** — the phase is `x` itself, so an
+/// `f32` argument's own representation error becomes the answer's. See
+/// [`mirror_bessel`].
+pub const BESSEL: &str = include_str!("shaders/bessel.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 6] = [POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA];
+pub const ALL: [&str; 7] = [POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
-pub const ALL_NAMES: [&str; 6] = ["poly", "cheb", "legendre", "erf", "matrix", "gamma"];
+pub const ALL_NAMES: [&str; 7] = [
+    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel",
+];
 
 pub use kernel_builder::test_kernel;
 

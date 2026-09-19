@@ -24,7 +24,7 @@
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
-use petir::wgsl::{test_kernel, ALL, ALL_NAMES, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY};
+use petir::wgsl::{test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, ERF, GAMMA, LEGENDRE, MATRIX, POLY};
 
 /// Every shader in [`petir::wgsl::ALL`] parses and validates under naga.
 ///
@@ -51,6 +51,7 @@ fn every_shader_parses_and_validates_under_naga() {
             "erf" => "petir_erfc(x)",
             "matrix" => "petir_blas_dot(0u, 0u, params.n)",
             "gamma" => "petir_lngamma(x)",
+            "bessel" => "petir_bessel_j0(x)",
             other => panic!("no validation call registered for {other}.wgsl"),
         };
         let kernel = test_kernel(&[src], call);
@@ -73,7 +74,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 6] = [
+    let expected: [(&str, &[&str]); 7] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -126,6 +127,26 @@ fn every_documented_function_is_defined() {
                 "petir_lngamma_2_pade",
             ],
         ),
+        (
+            BESSEL,
+            &[
+                "petir_bessel_j0",
+                "petir_bessel_j1",
+                "petir_bessel_y0",
+                "petir_bessel_y1",
+                "petir_bessel_i0",
+                "petir_bessel_i1",
+                "petir_bessel_k0",
+                "petir_bessel_k1",
+                "petir_bessel_i0_scaled",
+                "petir_bessel_i1_scaled",
+                "petir_bessel_k0_scaled",
+                "petir_bessel_k1_scaled",
+                "petir_bessel_cos_pi4",
+                "petir_bessel_sin_pi4",
+                "petir_bessel_sin_cos_eps",
+            ],
+        ),
     ];
     for (src, names) in expected {
         for name in names {
@@ -152,7 +173,7 @@ fn every_documented_function_is_defined() {
 /// compiling on a default build, which is exactly the signal wanted.
 #[test]
 fn the_cpu_mirror_answers_with_no_gpu_and_no_feature() {
-    use petir::wgsl::{mirror, mirror_erf};
+    use petir::wgsl::{mirror, mirror_bessel, mirror_erf};
 
     // poly: 1 + 2x + 3x^2 at x = 2 is 17.
     assert_eq!(mirror::poly_eval(&[1.0, 2.0, 3.0], 2.0), 17.0);
@@ -167,6 +188,18 @@ fn the_cpu_mirror_answers_with_no_gpu_and_no_feature() {
         let x = -2.0 + 0.1 * k as f32;
         let s = mirror_erf::erf(x) + mirror_erf::erfc(x);
         assert!((s - 1.0).abs() < 1e-5, "erf + erfc at {x} is {s}");
+    }
+    // Bessel family: the J/Y Wronskian, which no single table can satisfy on
+    // its own.
+    for k in 1..=40 {
+        let x = 0.25 * k as f32;
+        let w = mirror_bessel::j0(x) * mirror_bessel::y1(x)
+            - mirror_bessel::j1(x) * mirror_bessel::y0(x);
+        let exact = -2.0 / (core::f32::consts::PI * x);
+        assert!(
+            ((w - exact) / exact).abs() < 1e-4,
+            "J/Y Wronskian at {x} is {w}, expected {exact}"
+        );
     }
 }
 
@@ -193,6 +226,7 @@ fn every_shader_validates_against_baseline_webgpu_capabilities() {
             "erf" => "petir_erfc(x)",
             "matrix" => "petir_blas_dot(0u, 0u, params.n)",
             "gamma" => "petir_lngamma(x)",
+            "bessel" => "petir_bessel_j0(x)",
             other => panic!("no baseline call registered for {other}.wgsl"),
         };
         let kernel = test_kernel(&[src], call);
@@ -249,6 +283,7 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "legendre" => LEDGER.contains("Legendre"),
             "matrix" => LEDGER.contains("`matrix`") && LEDGER.contains("`blas`"),
             "gamma" => LEDGER.contains("gamma family"),
+            "bessel" => LEDGER.contains("Bessel family"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -281,4 +316,111 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
         LEDGER.contains("reassociation"),
         "the ledger must explain the gemm summation-order deviation"
     );
+}
+
+/// `shaders/bessel.wgsl` and `src/wgsl/mirror_bessel.rs` hold **identical**
+/// coefficients.
+///
+/// # Why this needs a test when both are generated
+///
+/// They were emitted by one script from one parse of
+/// `src/specfunc/bessel.rs`, so they agree today by construction. That
+/// guarantee expires the moment anyone hand-edits either file — and a mirror
+/// that disagreed with its shader would make GPU-vs-mirror measure the
+/// difference between two tables rather than the fidelity of the
+/// transcription, which is the one thing that comparison exists to establish.
+/// The failure would be silent and would look like a device problem.
+///
+/// 358 coefficients across 22 tables. Only the *array bodies* are compared —
+/// `array<f32, N>(...)` on one side and `const NAME: [f32; N] = [...]` on the
+/// other — because the surrounding code is full of literals (`0.0`, `0.5`,
+/// `2.75`) that legitimately appear in different places on the two sides.
+#[test]
+fn the_bessel_shader_and_its_mirror_hold_the_same_constants() {
+    /// Every `f32` in `body`, which is assumed to be nothing but a comma-list
+    /// of literals.
+    fn parse(body: &str) -> Vec<f32> {
+        body.split(',')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .map(|t| {
+                t.parse::<f32>()
+                    .unwrap_or_else(|_| panic!("not a literal in a coefficient table: {t:?}"))
+            })
+            .collect()
+    }
+
+    /// Bodies of every `array<f32, N>( ... )` in the shader, in order.
+    fn shader_tables(src: &str) -> Vec<Vec<f32>> {
+        let mut out = Vec::new();
+        let mut rest = src;
+        while let Some(at) = rest.find("array<f32, ") {
+            rest = &rest[at..];
+            let Some(open) = rest.find('(') else { break };
+            let Some(close) = rest[open..].find(')') else {
+                break;
+            };
+            out.push(parse(&rest[open + 1..open + close]));
+            rest = &rest[open + close..];
+        }
+        out
+    }
+
+    /// Bodies of every `const NAME: [f32; N] = [ ... ];` in the mirror, in
+    /// order. Line comments are stripped first.
+    fn mirror_tables(src: &str) -> Vec<Vec<f32>> {
+        let code: String = src
+            .lines()
+            .map(|l| l.split("//").next().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let mut out = Vec::new();
+        let mut rest = code.as_str();
+        while let Some(at) = rest.find(": [f32; ") {
+            rest = &rest[at..];
+            let Some(eq) = rest.find("] = [") else { break };
+            let start = eq + 5;
+            let Some(close) = rest[start..].find(']') else {
+                break;
+            };
+            out.push(parse(&rest[start..start + close]));
+            rest = &rest[start + close..];
+        }
+        out
+    }
+
+    let shader = shader_tables(petir::wgsl::BESSEL);
+    let mirror = mirror_tables(include_str!("../src/wgsl/mirror_bessel.rs"));
+
+    assert_eq!(
+        shader.len(),
+        22,
+        "bessel.wgsl declares {} coefficient arrays, expected 22",
+        shader.len()
+    );
+    assert_eq!(
+        mirror.len(),
+        22,
+        "mirror_bessel.rs declares {} coefficient arrays, expected 22",
+        mirror.len()
+    );
+    let total: usize = shader.iter().map(Vec::len).sum();
+    assert_eq!(total, 358, "expected 358 coefficients, found {total}");
+
+    for (t, (a, b)) in shader.iter().zip(mirror.iter()).enumerate() {
+        assert_eq!(
+            a.len(),
+            b.len(),
+            "table {t} has {} vs {} values",
+            a.len(),
+            b.len()
+        );
+        for (k, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+            assert_eq!(
+                x.to_bits(),
+                y.to_bits(),
+                "table {t} coefficient {k}: bessel.wgsl has {x:e}, mirror_bessel.rs has {y:e}"
+            );
+        }
+    }
 }

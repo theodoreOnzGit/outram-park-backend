@@ -65,11 +65,12 @@ and stays there.
 | `cheb` | ~14 | **PORTED** | Clenshaw, truncated Clenshaw, argument scaling |
 | `specfunc` (erf family) | ~12 | **PORTED** | `erf`, `erfc`, series, `erfc8`, 3 Chebyshev branches, at GSL's own `order_sp` |
 | `specfunc` (gamma family) | ~10 | **PORTED** | `lngamma`, `gamma`, `lnbeta`, `beta`; Lanczos `g=7` plus both Padé branches at the zeros |
+| `specfunc` (Bessel family) | ~20 | **PORTED** | `J_0`, `J_1`, `Y_0`, `Y_1`, `I_0`, `I_1`, `K_0`, `K_1` and the four exponentially scaled modified forms; 18 Chebyshev series and the `cos_pi4`/`sin_pi4` phase helpers |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~319 | PORTABLE | the largest remaining win — almost all pointwise. Bessel `J`/`Y`/`I`/`K`, `psi`, `zeta`, `dilog`, `airy`, `debye` are the next blocks |
+| `specfunc` (rest) | ~299 | PORTABLE | the largest remaining win — almost all pointwise. `psi`, `zeta`, `dilog`, `airy`, `debye` are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -121,6 +122,10 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | Legendre, 17 orders | **0** bit-identical | 2.719e-06 |
 | `erf` / `erfc` | 5.960e-08 / 1.192e-07 | 8.368e-06 |
 | `lngamma` / `gamma` | 3.418e-06 / 9.107e-06 | 2.923e-05 (reflection branch) |
+| `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
+| `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
+| `J_0` / `J_1` | 2.246e-07 / 5.695e-07 | 2.744e-06 / 7.354e-06 (at the zeros) |
+| `Y_0` / `Y_1` | 3.980e-07 / 3.329e-07 | 1.288e-05 / 2.786e-05 (at the zeros) |
 | BLAS L1 (`dot`, `nrm2`, `asum`, `iamax`) | **0** bit-identical | — |
 | `gemv`, `gemm` | **0** bit-identical | see reassociation note |
 | element-wise matrix ops | **0** bit-identical (exact equality) | — |
@@ -140,6 +145,26 @@ only `exp` and lands at one ulp, while `lngamma` calls `log`, `exp` **and
 reflection branch, where device and `libm` argument reduction differ and the
 sine's zero amplifies it — the same mechanism that makes that branch the worst
 on the CPU side.
+
+The Bessel rows show the same effect isolated cleanly. `I_0(x)` is
+`exp(x) * I_0_scaled(x)`; the scaled form calls no `exp` and agrees with the
+mirror to 2.364e-07, while the unscaled one picks up 1.821e-06 at `x = 38`.
+WGSL allows `exp` `3 + 2|x|` ulp, which is 79 ulp there, so the measured 15 is
+well inside spec. **Prefer a scaled entry point on the GPU wherever one
+exists** — it is not only about range.
+
+**The Bessel mirror-vs-`f64` column needs reading carefully.** The `J` and `Y`
+figures are dominated by probes landing next to a zero, where relative error is
+unbounded for any implementation in any precision — `J_1`'s worst is at
+`x = 3.875` against a zero at 3.8317. Restricted to `|f| > 0.05` all four fall
+to 1.8e-07 – 6.6e-07, one `f32` ulp, and the bounded quantity is the absolute
+error: 9.927e-08 (`J_0`) to 7.542e-07 (`Y_1`).
+
+A prediction was recorded before that measurement and refuted by it: the
+asymptotic branch past `x = 4` evaluates `cos(x - pi/4 + theta/x)` with the
+phase being `x` itself, and was expected to be visibly worse than the
+Chebyshev branch below the cut. It is not — the two agree to within a factor of
+four out to `x = 50`, and `J_1` is worse *below* the cut.
 
 **`lngamma` is the least accurate kernel here, and not where it was expected
 to be.** Measured per branch: the Padé windows are **exact**, the Lanczos sum
@@ -162,9 +187,11 @@ can be measured rather than waved at.
 
 ## What would change this ledger
 
-- **`specfunc`'s remaining ~329 operations** are the largest genuinely
+- **`specfunc`'s remaining ~299 operations** are the largest genuinely
   portable block left, and almost all are pointwise. That is where "exhaustive"
-  has the most room to move.
+  has the most room to move. `psi`, `zeta`, `dilog`, `airy` and `debye` are the
+  next blocks; integer-order and arbitrary-order Bessel build on the order-0/1
+  kernels now present.
 - **`cdf` (~200)** is the next, and is mostly compositions of `specfunc`.
 - Anything marked **N/A** will not move without a *different algorithm*, which
   would no longer be a port. Replacing GSL's quicksort with a bitonic sort is a
