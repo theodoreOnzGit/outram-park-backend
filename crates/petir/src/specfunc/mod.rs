@@ -169,6 +169,7 @@ pub mod inc_gamma;
 /// from outram-foam-basic-lib.
 pub mod inv_inc_gamma;
 pub mod lambert;
+pub mod legendre;
 pub mod psi;
 pub mod shint;
 pub mod sinint;

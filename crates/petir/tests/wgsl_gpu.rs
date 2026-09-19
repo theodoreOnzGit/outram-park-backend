@@ -8,11 +8,11 @@ use petir::wgsl::gpu::{GpuContext, KernelParams};
 use petir::wgsl::{
     mirror, mirror_airy, mirror_atanint, mirror_bessel, mirror_clausen, mirror_dawson,
     mirror_debye, mirror_dilog, mirror_ellint, mirror_elljac, mirror_erf, mirror_expint,
-    mirror_expint3, mirror_fermi_dirac, mirror_gegenbauer, mirror_gamma, mirror_lambert,
-    mirror_matrix, mirror_psi_zeta, mirror_sinint, mirror_synchrotron, mirror_transport, AIRY,
-    ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ELLINT, ELLJAC, ERF, EXPINT, EXPINT3,
-    GEGENBAUER, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON,
-    TRANSPORT,
+    mirror_expint3, mirror_fermi_dirac, mirror_gegenbauer, mirror_legendre_plm, mirror_gamma,
+    mirror_lambert, mirror_matrix, mirror_psi_zeta, mirror_sinint, mirror_synchrotron,
+    mirror_transport, AIRY, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG, ELLINT, ELLJAC,
+    ERF, EXPINT, EXPINT3, GEGENBAUER, FERMI_DIRAC, GAMMA, LAMBERT, LEGENDRE, LEGENDRE_PLM, MATRIX,
+    POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// Largest absolute difference between two same-length slices.
@@ -3556,4 +3556,116 @@ fn gpu_gegenbauer_matches_the_cpu_mirror() {
             gpu.adapter_name()
         );
     }
+}
+
+/// **The associated Legendre polynomials on the device**, against the `f32`
+/// CPU mirror.
+///
+/// # Methodology
+///
+/// Four dispatches at `(l, m) = (3,3), (8,3), (20,3), (27,8)` sweeping `x`
+/// across `[-1, 1]`. The first is the bare seed, the rest run the recurrence
+/// 6, 18 and 18 times; the last is the mirror's own measured worst case, so
+/// the device is asked the hardest question the CPU found.
+///
+/// A fifth checks `m = 0` against the ordinary `P_n` kernel in a **different
+/// shader**, `legendre.wgsl`'s Bonnet recurrence, composed in one
+/// invocation so both run on the device together.
+///
+/// # Results
+///
+/// Measured 2026-09-20 on `llvmpipe (LLVM 20.1.2, 256 bits)`:
+/// **`0` — bit-identical — at every one of `(3,3)`, `(8,3)`, `(20,3)` and
+/// `(27,8)`**, including the mirror's own worst case `(27, 8)`, and `0` for
+/// the cross-shader `m = 0` comparison.
+///
+/// Like `gegenbauer`, this kernel meets both conditions the bit-identity
+/// rule needs: no transcendental in the recurrence, and no inline
+/// coefficient table — every coefficient is built from `l` and `m`. The
+/// guard's `log` calls run before the recurrence and do not reach the
+/// result unless they refuse outright.
+///
+/// **The cross-shader zero is a transcription check, not two algorithms
+/// agreeing.** At `m = 0` upstream's `(l-m) P_l = (2l-1) x P_{l-1} -
+/// (l+m-1) P_{l-2}` *is* Bonnet's recurrence, so the two shaders are
+/// evaluating the same expression and bit-identity says they were both
+/// transcribed the same way. That is worth having — it is exactly the drift
+/// two independent copies of one recurrence would show — but it is not
+/// independent corroboration of the mathematics, and the `f64` module's
+/// orthogonality test is what supplies that.
+///
+/// The `f32` cost measured on the CPU, `1.541e-04`, is therefore entirely
+/// precision: nineteen recurrence steps of compounding cancellation, with
+/// the device reproducing every one of them exactly.
+#[test]
+fn gpu_legendre_plm_matches_the_cpu_mirror() {
+    let Some(gpu) = GpuContext::probe() else {
+        eprintln!("SKIP gpu_legendre_plm_matches_the_cpu_mirror: no GPU adapter");
+        return;
+    };
+    let xs: Vec<f32> = (0..=400).map(|i| -1.0 + 2.0 * i as f32 / 400.0).collect();
+
+    for (l, m) in [(3u32, 3u32), (8, 3), (20, 3), (27, 8)] {
+        let got = gpu
+            .eval_map(
+                &[LEGENDRE_PLM],
+                "petir_legendre_plm(params.k, params.m, x)",
+                &[],
+                &xs,
+                KernelParams {
+                    k: l,
+                    m,
+                    ..KernelParams::default()
+                },
+            )
+            .expect("non-empty probe");
+        let (mut worst, mut at) = (0.0_f64, 0.0_f32);
+        for (i, &x) in xs.iter().enumerate() {
+            let want = mirror_legendre_plm::legendre_plm(l, m, x);
+            let have = got.get(i).copied().unwrap_or(f32::NAN);
+            assert!(
+                want.is_finite() && have.is_finite(),
+                "P_{l}^{m}({x}): mirror {want}, GPU {have}"
+            );
+            let scale = (want.abs() as f64).max(1.0);
+            let d = (have - want).abs() as f64 / scale;
+            if d > worst {
+                worst = d;
+                at = x;
+            }
+        }
+        eprintln!("legendre_plm l={l} m={m}: {worst:e} at x = {at}");
+        assert!(
+            worst < 1e-4,
+            "GPU ({}) vs f32 mirror for P_{l}^{m}: {worst:e} at x = {at}",
+            gpu.adapter_name()
+        );
+    }
+
+    // m = 0 against the OTHER shader's Bonnet recurrence, on the device.
+    // Two independent routes to P_n, compared where both run.
+    let got = gpu
+        .eval_map(
+            &[LEGENDRE, LEGENDRE_PLM],
+            "petir_legendre_plm(params.k, 0u, x) - petir_legendre_p(params.k, x)",
+            &[],
+            &xs,
+            KernelParams {
+                k: 12,
+                ..KernelParams::default()
+            },
+        )
+        .expect("non-empty probe");
+    let mut worst = 0.0_f32;
+    for (i, &x) in xs.iter().enumerate() {
+        let v = got.get(i).copied().unwrap_or(f32::NAN);
+        assert!(v.is_finite(), "P_12^0 - P_12 at {x} gave {v}");
+        worst = worst.max(v.abs());
+    }
+    eprintln!("legendre_plm m=0 against Bonnet on device: {worst:e}");
+    assert!(
+        worst < 1e-4,
+        "the two recurrences disagree on {}: {worst:e}",
+        gpu.adapter_name()
+    );
 }

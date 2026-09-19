@@ -149,6 +149,9 @@ pub mod mirror_elljac;
 /// `f32` mirror of the Gegenbauer-polynomial shader.
 pub mod mirror_gegenbauer;
 
+/// `f32` mirror of the associated-Legendre shader.
+pub mod mirror_legendre_plm;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -414,6 +417,19 @@ pub const ELLJAC: &str = include_str!("shaders/elljac.wgsl");
 /// the Chebyshev polynomials of the second kind. See [`mirror_gegenbauer`].
 pub const GEGENBAUER: &str = include_str!("shaders/gegenbauer.wgsl");
 
+/// The associated Legendre polynomials `P_l^m(x)`, ported from
+/// `specfunc/legendre_poly.c` by way of [`crate::specfunc::legendre`].
+///
+/// Provides `petir_legendre_pmm(m, x)` and `petir_legendre_plm(l, m, x)`.
+///
+/// **Separate from [`LEGENDRE`]**, which carries the ordinary `P_n(x)` and
+/// is reached far more often — a kernel wanting only `P_n` should not carry
+/// this one's seed, guard and two-index recurrence.
+///
+/// **Its overflow guard is retargeted and carries an upstream hole at
+/// `l == m`**, both deliberately. See [`mirror_legendre_plm`].
+pub const LEGENDRE_PLM: &str = include_str!("shaders/legendre_plm.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
@@ -437,7 +453,7 @@ pub const GEGENBAUER: &str = include_str!("shaders/gegenbauer.wgsl");
 /// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
 /// means adding it to both arrays**; the directory is the authority, not
 /// anyone's count.
-pub const ALL: [&str; 24] = [
+pub const ALL: [&str; 25] = [
     POLY,
     CHEB,
     LEGENDRE,
@@ -462,6 +478,7 @@ pub const ALL: [&str; 24] = [
     EXPINT,
     ELLJAC,
     GEGENBAUER,
+    LEGENDRE_PLM,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -472,7 +489,7 @@ pub const ALL: [&str; 24] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 24] = [
+pub const ALL_NAMES: [&str; 25] = [
     "poly",
     "cheb",
     "legendre",
@@ -497,6 +514,7 @@ pub const ALL_NAMES: [&str; 24] = [
     "expint",
     "elljac",
     "gegenbauer",
+    "legendre_plm",
 ];
 
 pub use kernel_builder::test_kernel;

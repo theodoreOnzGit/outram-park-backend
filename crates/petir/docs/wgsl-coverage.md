@@ -88,6 +88,7 @@ and stays there.
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
+| `specfunc` (associated Legendre `P_l^m`) | ~4 | **PORTED** (`Plm`) | seed `P_m^m` plus the upward recurrence in degree; no array, trip count `l - m - 1`. Its overflow guard is **retargeted** (a range guard: `LOG_MIN` is `-87.34` here against `-708.40`) and **carries an upstream hole at `l == m`**, where `legendre_poly.c:304` gates `t_s` on `dif` rather than `sum` -- so the guard cannot fire where `P_l^m` is largest. `f64` reaches `inf` at `P_200^200`, `f32` at `P_30^30`. Faithful on purpose; pinned by tests. `sphPlm` is absent: it needs `lnpoch` and `log_1plusx`, which PETIR does not port |
 | `specfunc` (rest) | ~222 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
