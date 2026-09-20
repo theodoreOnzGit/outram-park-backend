@@ -1953,12 +1953,36 @@ mod tests {
         assert!(matches!(sph.surfaces[0], SurfaceKind::Sphere(_)));
     }
 
-    /// The MC bridge honestly refuses a convex-faceted CSG: `outram-mc-libs` has
-    /// no general-plane surface, so a stretched octahedron (which fits to general
-    /// `CsgSurface::Plane`s) returns `NotImplemented` rather than a wrong mapping.
+    /// **The MC bridge maps a convex-faceted CSG through**, one general
+    /// `Plane` per face.
+    ///
+    /// ~~The MC bridge honestly refuses a convex-faceted CSG: `outram-mc-libs`
+    /// has no general-plane surface, so a stretched octahedron returns
+    /// `NotImplemented` rather than a wrong mapping.~~ **CORRECTED
+    /// 2026-09-20** — `outram-mc-libs` gained
+    /// `geometry::surface::Plane`, and [`to_mc_geometry`] has mapped
+    /// `CsgSurface::Plane` onto it field-for-field since `2714d4134`. This
+    /// test still asserted the old refusal and had been failing ever since;
+    /// it is gated behind `mc-export`, so a plain `cargo test -p
+    /// outram-blender` compiles 514 tests without it and never saw it. It
+    /// surfaces only when a crate that enables the feature — `dhoby-ghaut` —
+    /// is in the same invocation and Cargo unifies features, giving 536.
+    ///
+    /// Methodology: the same stretched octahedron as
+    /// [`csg_fit_octahedron_faceted_convex`], which covers the CSG fit
+    /// itself; this asserts the **MC mapping** on top of it.
+    ///
+    /// Results (asserted below): `to_csg_primitive` gives 8 `Plane`s, and
+    /// `to_mc_geometry` maps every one of them to a
+    /// `SurfaceKind::Plane` carrying the identical `a, b, c, d` — a
+    /// field-for-field check rather than merely `is_ok()`, because "it
+    /// returned something" is what let the old assertion's replacement go
+    /// unnoticed once before.
     #[cfg(feature = "mc-export")]
     #[test]
-    fn mc_geometry_rejects_convex_faceted_plane() {
+    fn mc_geometry_maps_a_convex_faceted_plane() {
+        use outram_mc_libs::prelude::SurfaceKind;
+
         let positions = [
             Vec3::new(1.0, 0.0, 0.0),
             Vec3::new(-1.0, 0.0, 0.0),
@@ -1978,10 +2002,29 @@ mod tests {
             vec![0, 3, 5],
         ];
         let octa = Mesh::from_polygons(&positions, &faces);
-        assert!(matches!(
-            to_mc_geometry(&octa),
-            Err(ExportError::NotImplemented(_))
-        ));
+
+        let desc = to_csg_primitive(&octa).expect("convex octahedron must fit");
+        assert_eq!(desc.surfaces.len(), 8, "octahedron = eight face planes");
+
+        let geom = to_mc_geometry(&octa).expect("the general-plane route must map");
+        assert_eq!(
+            geom.surfaces.len(),
+            8,
+            "every face plane must reach the MC geometry"
+        );
+        // Field-for-field, in order: the mapping claims to be exact, so this
+        // checks it is rather than checking it merely happened.
+        for (i, (ours, theirs)) in desc.surfaces.iter().zip(geom.surfaces.iter()).enumerate() {
+            let CsgSurface::Plane { a, b, c, d } = *ours else {
+                panic!("surface {i} is not a general plane: {ours:?}");
+            };
+            match theirs {
+                SurfaceKind::Plane(p) => {
+                    assert_eq!((p.a, p.b, p.c, p.d), (a, b, c, d), "plane {i} differs");
+                }
+                other => panic!("surface {i} mapped to {other:?}, not a Plane"),
+            }
+        }
     }
 
     /// [`to_faceted_solid`] orients outward regardless of the input winding, so
