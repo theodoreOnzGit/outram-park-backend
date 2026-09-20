@@ -521,6 +521,33 @@ at 51 % of memory and climbing, which is the same class. These two are
 **unmeasured, and now for a specific and actionable reason**: unbounded memory
 growth in the `LRF=7` reconstruction path.
 
+**The tolerance does not bound it, which is the discriminating result.** The
+comparator gained a `--tol` flag so a tape can be compared with *both* codes at
+a looser reconstruction tolerance — relaxing the input symmetrically, never the
+comparison criterion. Fe-57 was then run down a tolerance ladder:
+
+| RECONR tolerance (both codes) | outcome |
+|---|---|
+| 0.001 | **OOM-killed**, 13.7 GB resident |
+| 0.01 | **OOM-killed** |
+| 0.1 | **OOM-killed** |
+
+A hundredfold relaxation does not save it, while **NJOY2016's own `reconr` on
+the same tape reports `0.0s`**. So this is not "a big problem that needs a
+bigger machine" — it is a defect in this port's resolved-resonance
+reconstruction on `LRF=7`, and no amount of container memory would make the
+comparison meaningful.
+
+**A candidate mechanism, stated as a candidate.** `src/reconr/mod.rs` caps
+resolved-resonance bisection at `RES_MAX_BISECTION_DEPTH = 64`, which is no
+practical bound at all — the cap exists only to guard "a pathological
+`delta_at`", with real termination expected from the significant-figure test
+(`reconr.f90:2374-2379`) that the port reproduces. Two sibling caps in the same
+crate are 50 (`linearize.rs`) and 10 (`urr.rs`). If the significant-figure test
+does not fire on this evaluation, depth 64 permits astronomically many points.
+**This has NOT been confirmed** — no instrumented run has shown the achieved
+depth — and no constant was changed on the strength of it.
+
 **Both timeouts are `LRF=7` tapes, and so is the worst ESZ outlier.** Seven
 tapes in the set use `LRU=1 / LRF=7`: Cl-35, Fe-54, Fe-57, Cu-63, Cu-65, Sr-88,
 Mo-95. Zero of the 50 non-`LRF=7` tapes timed out.
@@ -572,11 +599,31 @@ with evidence rather than left unstated.
 
 | group | n | `NSUB` | outcome |
 |---|---|---|---|
-| incident neutron, `n-*` | 57 | 10 | **55 compared** (54 in the sweep + B-10 VIII.0, above); 2 OOM |
+| incident neutron, `n-*` | 57 | 10 | **55 compared** (54 in the sweep + B-10 VIII.0, above); **2 not comparable** — Fe-57 and Mo-95, OOM at every tolerance tried |
 | `synthetic-caseb-lfw1` | 1 | **10** | a neutron tape the `n-*` glob missed — **compared at RECONR level**; NJOY itself cannot ACE it |
 | thermal `tsl-*` | 9 | 12 | **all 9 compared** — see `acer_thermal_vs_njoy2016.md` |
 | photoatomic | 2 | 3 | **both compared** against NJOY GAMINR goldens |
 | incident alpha, He-4 | 1 | 20040 | **not comparable** — different ACE class |
+
+**Final tally: 67 of 70 tapes carry a comparison against NJOY2016**, and all
+70 are resolved.
+
+| | count |
+|---|---|
+| incident-neutron ACE compared | **55** |
+| thermal ACE compared | **9** |
+| photoatomic compared (GAMINR) | **2** |
+| RECONR-level compared (`synthetic-caseb-lfw1`) | **1** |
+| **carrying a comparison** | **67** |
+| not comparable — different ACE class (He-4) | 1 |
+| not comparable — this port's reconstruction OOMs (Fe-57, Mo-95) | 2 |
+| **total** | **70** |
+
+The three without a number are not gaps in the sweep: He-4's is *settled*
+(NJOY writes a `2004.00a` table, this port has no incident-charged-particle
+class, so the correct output is "no number"), and Fe-57/Mo-95's is a measured
+defect with a tolerance ladder behind it.
+
 
 ### `synthetic-caseb-lfw1.endf` — NJOY cannot ACE it either
 
