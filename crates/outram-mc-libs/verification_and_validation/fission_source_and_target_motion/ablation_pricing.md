@@ -8,6 +8,28 @@ itself, plus one code-to-code consistency check against a previously recorded
 run. **Not validation**: no experiment is compared against here, and no human
 V&V has been done. AI-assisted draft.
 
+> **⚠ SUPERSEDED MODEL — added 2026-09-20.** Every number below was taken at
+> `d716ab5`. The model has since moved twice, in ways that change the arms these
+> ablations are differenced against:
+>
+> 1. **URR probability tables and DBRC became default-on** in
+>    `Nuclide::from_endf_file` ("correct physics is the default", 2026-09-20).
+>    At `d716ab5` *neither* was applied, so every BASE / MOVING arm here is a
+>    model missing both terms.
+> 2. **MT=5 was wired** into the reaction inventory.
+>
+> The **prediction verdicts** stated below stand as the record of what was
+> predicted and what was measured at `d716ab5` — that is what a V&V record is
+> for, and it is not rewritten after the fact. The **prices** (the pcm figures)
+> are what may have moved, and none has been re-measured.
+>
+> The harness check at the end is the part most likely to read as a drift
+> alarm and must not: `+1 ± 18 pcm` was checked against a pre-URR/DBRC
+> expectation of `−22 pcm`. Under the new defaults that expectation is unknown,
+> so a BASE arm landing somewhere else is not evidence that anything broke.
+>
+> Re-running both drivers on current `HEAD` is open work.
+
 ## Why this record exists
 
 Three `Nuclide` ablation hooks landed on 2026-09-16 —

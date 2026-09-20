@@ -134,7 +134,15 @@ mod desktop {
 
     const TEMP_K: f64 = 293.6;
     const RADIUS_CM: f64 = 8.7407;
-    const WORKERS: usize = 4;
+    /// Worker threads, taken from the machine rather than hard-coded. The
+    /// result does not depend on it: seeds are chunked in order and each
+    /// writes its own slot, so the per-seed vector is thread-count
+    /// independent, not merely the mean.
+    fn workers() -> usize {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+    }
 
     const NUCLIDES: &[(&str, &str, f64)] = &[
         ("n-092_U_234-ENDF8.0.endf", "U234", 4.9184e-4),
@@ -237,7 +245,7 @@ mod desktop {
         println!("{n_seeds} seeds, 5000 histories × [40 inactive + 120 active]…");
         let t = Instant::now();
         let mut pcm = vec![0.0f64; seeds.len()];
-        let chunk = seeds.len().div_ceil(WORKERS);
+        let chunk = seeds.len().div_ceil(workers().min(seeds.len()).max(1));
         std::thread::scope(|s| {
             for (sd_chunk, out_chunk) in seeds.chunks(chunk).zip(pcm.chunks_mut(chunk)) {
                 let nuclides = Arc::clone(&nuclides);

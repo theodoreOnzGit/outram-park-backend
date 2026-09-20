@@ -1,5 +1,43 @@
 # ICSBEP benchmark specifications
 
+> ## ⚠ EVERY RESIDUAL IN THIS FILE PREDATES THE URR/DBRC DEFAULT — READ THIS FIRST
+>
+> **Added 2026-09-20.** On 2026-09-20 the workspace adopted "correct physics is
+> the default", and `Nuclide::from_endf_file` now applies **unresolved-resonance
+> self-shielding (URR probability tables)** and **resonance elastic scattering
+> (DBRC)** unconditionally. Before that both were opt-in builders that **no
+> ICSBEP example called**, so *every* number below — the pooled table, the
+> ablation prices, the σ arithmetic, and every inference drawn from them — was
+> measured against a model missing both terms.
+>
+> **Two of the four rows have a recorded post-change value** (source: the
+> "Correct physics is the DEFAULT SETTING" section of the workspace
+> `CLAUDE.md`, which records the nine-hypothesis hunt that found the defaults):
+>
+> | case | in the table below (pre-URR/DBRC) | recorded after the change |
+> |---|---|---|
+> | Jemima IEU-MET-FAST-002 | −253 pcm | **−395 pcm** (URR on) |
+> | LCT-008 LEU-COMP-THERM-008 | +165 pcm | **+139 pcm** (DBRC + URR; the shift is *not* resolved, 0.7 σ) |
+>
+> **The other two rows — Godiva and HST-009 — have NOT been re-measured** under
+> the new defaults, and this file does not claim a value for them. Do not
+> substitute `CLAUDE.md`'s Godiva `+16 ± 11 pcm`: that is a 256-seed figure from
+> a different example taken on 2026-09-15, five days before the defaults moved,
+> not a post-change re-measurement of the 32-seed pool below.
+>
+> **What this does and does not invalidate.** The *geometry* work is unaffected:
+> the LCT-008 pin-for-pin cross-check against the MCNP deck, the provenance, and
+> the specification parsing are all independent of cross-section physics. What
+> is superseded is every **k-residual** and every argument that turns on its
+> magnitude — in particular the homogeneous/heterogeneous split below, whose
+> whole content is the sign and size of four residuals, two of which have since
+> moved by 142 and 26 pcm. Treat the analysis as a record of what was concluded
+> from the pre-URR/DBRC model, not as the crate's current position.
+>
+> **Re-pooling all four under the new defaults is open work** and is the only
+> thing that turns this file back into a live result.
+
+
 Committed OpenMC input files for the ICSBEP criticality benchmarks this crate
 runs as **external** oracles — cases whose answer does not come from any deck
 under test, because an ICSBEP *critical* configuration has benchmark
@@ -104,8 +142,12 @@ excursion.
 |---|---|---|---|---|---|
 | Godiva HEU-MET-FAST-001 | fast | bare sphere (**homog.**) | U-235 (93.7 %) | **−55 ± 34** | **PASS** |
 | HST-009 HEU-SOL-THERM-009 | thermal | solution (**homog.**) | U-235 | **−38 ± 36** | **PASS** |
-| Jemima IEU-MET-FAST-002 | fast | plates (**heterog.**) | U-238 (83 % HM) | **−253 ± 34** | **FAIL** by 153 (4.5 σ) |
-| LCT-008 LEU-COMP-THERM-008 | thermal | pin lattice (**heterog.**) | U-238 (LEU) | **+165 ± 25** | **FAIL** by 65 (2.6 σ) |
+| Jemima IEU-MET-FAST-002 | fast | plates (**heterog.**) | U-238 (83 % HM) | ~~**−253 ± 34**~~ → **−395** | **FAIL** by 153 (4.5 σ) — worse after URR |
+| LCT-008 LEU-COMP-THERM-008 | thermal | pin lattice (**heterog.**) | U-238 (LEU) | ~~**+165 ± 25**~~ → **+139** | **FAIL** by 65 (2.6 σ) — shift not resolved |
+
+**All four values in that table are pre-URR/DBRC** (see the banner at the top);
+the two arrows are the recorded post-change values, and the `vs ±100 pcm`
+verdicts have NOT been recomputed against them.
 
 **2 of 4 pass.** Godiva additionally sits inside its real quoted ICSBEP
 uncertainty (±100), so its pass does not depend on the arbitrary criterion at
