@@ -184,6 +184,52 @@ mod desktop {
         (9237, "n-092_U_238.endf"),
     ];
 
+
+    /// Exact integral of a **lin-lin** tabulation over `[a, b]`.
+    ///
+    /// Both ACE tables are lin-lin by construction, so a trapezoid over each
+    /// panel — with the end panels clipped to `a` and `b` and the integrand
+    /// interpolated there — is not an approximation, it is the integral of the
+    /// function the table *defines*.
+    ///
+    /// This is the instrument that makes a broadened-region comparison
+    /// possible at all: it depends only on the function each table represents,
+    /// not on where either code chose to put its grid points. A shared-point
+    /// comparison cannot reach the broadened region, because below `thnmax`
+    /// the two adaptive grids essentially never coincide.
+    fn integrate_linlin(e: &[f64], x: &[f64], a: f64, b: f64) -> f64 {
+        if b <= a || e.len() < 2 {
+            return 0.0;
+        }
+        let at = |i: usize, t: f64| -> f64 {
+            // Linear interpolation inside panel i for energy t.
+            let (e0, e1) = (e[i], e[i + 1]);
+            if e1 <= e0 {
+                return x[i];
+            }
+            x[i] + (x[i + 1] - x[i]) * (t - e0) / (e1 - e0)
+        };
+        let mut acc = 0.0;
+        // First panel whose upper edge exceeds `a`.
+        let mut i = match e.binary_search_by(|v| v.partial_cmp(&a).unwrap()) {
+            Ok(k) => k,
+            Err(k) => k.saturating_sub(1),
+        };
+        while i + 1 < e.len() && e[i + 1] <= a {
+            i += 1;
+        }
+        while i + 1 < e.len() && e[i] < b {
+            let lo = e[i].max(a);
+            let hi = e[i + 1].min(b);
+            if hi > lo {
+                let (xlo, xhi) = (at(i, lo), at(i, hi));
+                acc += 0.5 * (xlo + xhi) * (hi - lo);
+            }
+            i += 1;
+        }
+        acc
+    }
+
     pub fn run() {
         let njoy_path = std::env::args().nth(1).unwrap_or_else(|| {
             eprintln!(
@@ -420,6 +466,66 @@ mod desktop {
             println!("  NJOY's ACE grid has {nes_t} points");
         }
 
+        // FISSION CONSISTENCY. MT=18 is defined as the sum of the partial
+        // chances, so if both are on the tape they must agree. They do NOT
+        // always: RECONR adds the resonance contribution to MT=18, while the
+        // MF=3 partials may carry only the smooth background. A table whose
+        // total is rebuilt from the partials then LOSES resonance fission —
+        // silently, because every individual section is still self-consistent.
+        {
+            let get = |mt: i32| result.sections.iter().find(|s| i32::from(s.mt) == mt);
+            if let Some(m18) = get(18) {
+                let parts: Vec<_> = [19, 20, 21, 38].iter().filter_map(|&m| get(m)).collect();
+                if !parts.is_empty() {
+                    for p in &parts {
+                        println!(
+                            "  MT={:<4} spans [{:.4e}, {:.4e}] eV, {} points",
+                            i32::from(p.mt),
+                            p.pairs.first().map(|&(e, _)| e).unwrap_or(0.0),
+                            p.pairs.last().map(|&(e, _)| e).unwrap_or(0.0),
+                            p.pairs.len()
+                        );
+                    }
+                    // Compare ONLY where every partial is defined. Below the
+                    // threshold of a higher-chance channel the partials are
+                    // legitimately zero, and counting that as disagreement is
+                    // the same below-range artefact this file already warns
+                    // about for the interpolated ESZ row.
+                    let lo = parts
+                        .iter()
+                        .filter_map(|p| p.pairs.first().map(|&(e, _)| e))
+                        .fold(0.0f64, f64::max);
+                    println!("  comparing only at E >= {lo:.4e} eV (all partials defined)");
+                    let mut worst = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+                    for &(e, x18) in &m18.pairs {
+                        if x18 <= 0.0 || e < lo {
+                            continue;
+                        }
+                        let sum: f64 = parts
+                            .iter()
+                            .map(|p| njoy_outram_park_fork::reconr::eval_lin_lin(&p.pairs, e))
+                            .sum();
+                        let d = ((sum - x18) / x18).abs();
+                        if d > worst.0 {
+                            worst = (d, e, sum, x18);
+                        }
+                    }
+                    println!("\n=== fission consistency: MT=18 vs sum(19,20,21,38) ===");
+                    println!(
+                        "  worst rel {:.3e} at {:.6e} eV  (sum {:.6e}, MT=18 {:.6e})",
+                        worst.0, worst.1, worst.2, worst.3
+                    );
+                    if worst.0 > 1.0e-3 {
+                        println!(
+                            "  !! The partials do NOT sum to MT=18. Rebuilding the ESZ total from\n  \
+                             the partials would lose {:.1} % of fission at that energy.",
+                            100.0 * (worst.3 - worst.2) / worst.3
+                        );
+                    }
+                }
+            }
+        }
+
         println!("\n=== ESZ at shared grid points (no interpolation) ===");
         // SPLIT AT THE BROADENING LIMIT. Above `thnmax` neither code runs
         // SIGMA1 (`broadr.f90:441`, ported as `broadr::broadening_limit`), so
@@ -510,6 +616,65 @@ mod desktop {
                 );
             }
         }
+
+        // ── Band integrals: the ONLY instrument here that reaches the
+        //    broadened region ───────────────────────────────────────────────
+        //
+        // Both tables claim to represent the same sigma(E) to their own 0.001
+        // thinning tolerance. Integrating each over a FIXED energy band, on its
+        // own grid, compares the functions rather than the sampling — so unlike
+        // the shared-point comparison it works where the grids disagree, which
+        // below thnmax is everywhere.
+        //
+        // Equal-lethargy bands, so resonance structure is not averaged away by
+        // a handful of wide bins at low energy.
+        println!("\n=== band integrals (grid-independent) ===");
+        const BANDS_PER_DECADE: usize = 20;
+        let e_min = e_ours[0].max(e_theirs[0]).max(1.0e-11);
+        let e_max = e_ours[nes_o - 1].min(e_theirs[nes_t - 1]);
+        let decades = (e_max / e_min).log10();
+        let nbands = ((decades * BANDS_PER_DECADE as f64).ceil() as usize).max(1);
+        let edge = |k: usize| e_min * 10f64.powf(decades * k as f64 / nbands as f64);
+
+        for (col, label) in [(1usize, "total"), (2, "absorption"), (3, "elastic")] {
+            let xo = &ours.xss[eo + col * nes_o..eo + (col + 1) * nes_o];
+            let xt = &theirs.xss[et + col * nes_t..et + (col + 1) * nes_t];
+            let mut worst_lo = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+            let mut worst_hi = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+            let mut n_lo = 0usize;
+            for k in 0..nbands {
+                let (a, b) = (edge(k), edge(k + 1));
+                let io = integrate_linlin(e_ours, xo, a, b);
+                let it = integrate_linlin(e_theirs, xt, a, b);
+                if it == 0.0 {
+                    continue;
+                }
+                let d = ((io - it) / it).abs();
+                // A band is "broadened" only if it lies wholly below thnmax;
+                // a band straddling the limit mixes the two regimes and is
+                // attributed to neither.
+                if b <= thnmax_mev {
+                    n_lo += 1;
+                    if d > worst_lo.0 {
+                        worst_lo = (d, a, io, it);
+                    }
+                } else if a >= thnmax_mev && d > worst_hi.0 {
+                    worst_hi = (d, a, io, it);
+                }
+            }
+            println!(
+                "  {:<11} BROADENED  ({n_lo:>3} bands < thnmax)  worst rel {:.3e} at band from {:.4e} MeV",
+                label, worst_lo.0, worst_lo.1
+            );
+            println!(
+                "  {:<11} unbroadened                      worst rel {:.3e} at band from {:.4e} MeV",
+                "", worst_hi.0, worst_hi.1
+            );
+        }
+        println!(
+            "  ({BANDS_PER_DECADE} bands/decade over [{:.3e}, {:.3e}] MeV; thnmax {:.3e} MeV)",
+            e_min, e_max, thnmax_mev
+        );
 
         // ── Optional: dump the shared-grid rows as a committed test oracle ──
         //

@@ -45,8 +45,14 @@ Three instruments, and **which one to quote matters more than any number here**:
 
 ## The finding that changes how the earlier numbers read
 
-**Doppler broadening is NOT verified against NJOY2016. Not to 1e-6, not at
-all.**
+> **SUPERSEDED THE SAME DAY — read to the end of this section.** The claim
+> below ("not verified at all") was true of the instruments that existed when
+> it was written. A grid-independent one was then built, and Doppler broadening
+> **is now verified on all three nuclides**. The original text stands because
+> the reasoning is what produced the fix.
+
+~~**Doppler broadening is NOT verified against NJOY2016. Not to 1e-6, not at
+all.**~~
 
 Above `thnmax` neither code runs SIGMA1 (`broadr.f90:441`, ported as
 `broadr::broadening_limit`), so both tables there are the *same* unbroadened
@@ -67,17 +73,43 @@ appeared to show.
 
 Below `thnmax` the two codes' adaptive grids essentially never coincide, so a
 shared-point comparison cannot reach the broadened region at all. **Verifying
-broadening needs a different instrument** — a grid-independent one (band
-integrals), or a comparison against a reference evaluated at our own energies.
-That is open work, and until it is done no claim about this port's Doppler
-broadening against NJOY is supported by anything in this file.
+broadening needs a different instrument** — a grid-independent one.
+
+### That instrument was built, and broadening now IS verified
+
+Both tables are lin-lin by construction, so the integral of each over a fixed
+energy band is exact and depends only on the function the table *defines* —
+not on where either code put its grid points. Equal-lethargy bands, 20 per
+decade, each integrated on its own grid.
+
+**The instrument validates itself before it is trusted:** in the unbroadened
+region it reproduces the shared-point answer it must (U-235 3.5e-7 against the
+shared-point 4.7e-7; U-238 2.0e-7 against 4.5e-7). A new instrument that
+disagreed with the old one where the old one works would be measuring
+something else.
+
+Worst relative difference in band integrals, **below `thnmax`** — the bands
+that actually test broadening:
+
+| nuclide | bands | total | absorption | elastic |
+|---|---|---|---|---|
+| U-234 | 163 | 6.680e-4 | 5.132e-4 | 8.305e-4 |
+| U-235 | 167 | 4.393e-4 | 4.088e-4 | 3.174e-4 |
+| U-238 | 186 | 3.547e-4 | 4.840e-4 | 3.599e-4 |
+
+**All nine are inside `errthn = 1e-3`**, the thinning tolerance each table is
+written to in the first place — so the two codes' broadened cross sections
+agree to better than either table individually promises. That is the strongest
+statement the data supports, and it is a real verification of this port's
+SIGMA1 against NJOY2016's, which nothing in this file supported an hour
+earlier.
 
 ## Results — reaction inventory
 
 | nuclide, T | NTR ours/NJOY | NR ours/NJOY | verdict |
 |---|---|---|---|
 | U-235, 0 K | **84 / 84** | **44 / 44** | identical sets, zero difference either direction |
-| U-234, 293.6 K | **49 / 49** | **48 / 48** | every NJOY MT present, producer sets match |
+| U-234, 293.6 K | ~~49 / 49~~ **46 / 49** | ~~48 / 48~~ **45 / 48** | **deliberately not matched — see below** |
 | U-238, 293.6 K | **49 / 49** | **44 / 44** | every NJOY MT present, producer sets match |
 
 `NR` = `NXS(5)`, the count of reactions carrying a secondary-neutron
@@ -110,6 +142,39 @@ rule hardcoded to one side, which is why U-234 carried MT=18 where NJOY
 carried the four partials. Both tables were internally consistent — nothing
 failed, they simply disagreed about which reactions exist, which is why only a
 cross-nuclide comparison could surface it.
+
+### …and why U-234 deliberately still does NOT match
+
+Applying that rule to U-234 **broke the table**, and the band-integral
+instrument caught it: the total went from `2.5e-3` to `1.8e-1` — ours
+`56.5 b` against NJOY's `69.2 b` at 516 eV, **18 % low**.
+
+Cause, measured rather than guessed: **RECONR adds the resonance
+reconstruction to MT=18 only.** This port's MT=19 comes back as the smooth
+355-point background, against MT=18's several thousand points. Swapping MT=18
+for the partials therefore dropped resonance fission out of the ESZ total —
+silently, because every individual section stayed self-consistent and the
+*inventory* looked more correct than before.
+
+**This is a difference between the two codes' architectures, not a free
+choice.** `acelod` copies the total from MF=3 MT=1, which carries full fission
+whatever is stored in MTR, so NJOY can store an incomplete MT=19 harmlessly.
+This port rebuilds the total as `elastic + Σ partials`, which makes "what is
+stored" and "what the total contains" the same question.
+
+So the `mt19` rule is now applied **only when the partials actually sum to
+MT=18** (`FISSION_SUM_TOL = 1e-3`, checked over MT=18's own grid, where a
+higher-chance channel below its threshold correctly contributes zero). U-234
+fails that check, keeps MT=18, and its inventory reads 46 against NJOY's 49.
+
+**The cost is stated rather than hidden:** three MTs of inventory parity, in
+exchange for a total that is right. The check is measured and self-correcting
+— if RECONR is later taught to reconstruct the partials, it passes and the
+inventory matches with nobody revisiting this. **The real defect is in RECONR,
+not in ACER**, and that is where the fix belongs.
+
+Restored by the guard: U-234's broadened-band total went `2.129e-2` →
+**`6.680e-4`**, a 32× improvement, back inside tolerance.
 
 ## Results — ESZ cross sections at shared grid energies
 

@@ -46,6 +46,14 @@ use super::{jxs, nxs, AceTable};
 /// Convert eV → MeV (NJOY `emev`).
 const EMEV: f64 = 1.0e6;
 
+/// How closely MT=19+20+21+38 must reproduce MT=18 before the partial fission
+/// channels may replace it as the stored representation.
+///
+/// They are the same quantity by definition, so this is a consistency check,
+/// not a tolerance on physics: anything above it means one representation is
+/// carrying structure the other lacks.
+const FISSION_SUM_TOL: f64 = 1.0e-3;
+
 /// Round `x` to `n` significant figures, matching NJOY's `sigfig(x,n,0)`.
 ///
 /// NJOY writes ACE values to 7 significant figures so that independently
@@ -274,6 +282,50 @@ impl AceTable {
         let present: Vec<i32> = result.sections.iter().map(|s| i32::from(s.mt)).collect();
         let has_discrete_inelastic = present.iter().any(|&m| (51..=91).contains(&m));
         let has_partial_fission = present.iter().any(|&m| matches!(m, 19 | 20 | 21 | 38));
+
+        // CAN the partial fission channels actually replace MT=18 here?
+        //
+        // Upstream's `mt19` rule says which representation to STORE, and the
+        // ESZ total follows from what is stored, because this port rebuilds
+        // the total as `elastic + Σ partials` rather than copying MF=3 MT=1
+        // the way `acelod` does.
+        //
+        // That makes storage and completeness the same question for us and not
+        // for NJOY. Measured on U-234, 2026-09-20: RECONR adds the resonance
+        // reconstruction to **MT=18 only** — its MT=19 comes back as the smooth
+        // 355-point background — so swapping MT=18 for the partials silently
+        // dropped resonance fission and put the total 18 % low at 516 eV while
+        // every individual section stayed self-consistent.
+        //
+        // So the rule is applied only when the partials genuinely sum to
+        // MT=18. This is measured, not assumed, and it self-corrects: if
+        // RECONR later reconstructs the partials too, the check passes and the
+        // inventory matches NJOY without anyone revisiting this.
+        //
+        // Evaluating a higher-chance channel below its threshold correctly
+        // yields zero, so the comparison runs over MT=18's own grid.
+        let fission_partials_complete = if has_partial_fission {
+            match result.sections.iter().find(|s| i32::from(s.mt) == 18) {
+                None => true,
+                Some(m18) => {
+                    let parts: Vec<&ReconrSection> = result
+                        .sections
+                        .iter()
+                        .filter(|s| matches!(i32::from(s.mt), 19 | 20 | 21 | 38))
+                        .collect();
+                    m18.pairs.iter().all(|&(e, x18)| {
+                        if x18 <= 0.0 {
+                            return true;
+                        }
+                        let sum: f64 = parts.iter().map(|p| eval_partial(p, e)).sum();
+                        ((sum - x18) / x18).abs() <= FISSION_SUM_TOL
+                    })
+                }
+            }
+        } else {
+            true
+        };
+        let mt19 = mt19 && fission_partials_complete;
 
         let elastic = result.sections.iter().find(|s| i32::from(s.mt) == 2);
         let partials: Vec<&ReconrSection> = result
