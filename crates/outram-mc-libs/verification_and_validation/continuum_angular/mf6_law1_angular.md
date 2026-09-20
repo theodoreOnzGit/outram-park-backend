@@ -257,6 +257,82 @@ in where they go, not in how many draws they take.
 **What would resolve it:** `σ_diff ≈ 13`, i.e. roughly **400 seeds per arm**.
 Nothing here depends on the number being resolved rather than bounded.
 
+### The 400-seed run: the statistics hit their target, the effect did not
+
+**Measured 2026-09-20**, 400 seeds per arm, same case and same settings, on
+4 cores (ANISO 3757.5 s, ISO 3699.5 s, nuclear data 111.4 s; 2.10 h total).
+**Run verbatim:**
+
+```
+Δk from ICSBEP HEU-MET-FAST-001 = 1.0000, pcm
+  arm       n     mean      sd     sem
+  ANISO   400       -10     187       9
+  ISO     400        +6     194      10
+
+  difference (ANISO − ISO), unpaired = -16 ± 13 pcm  (1.2 sigma)
+  difference (ANISO − ISO), paired   = -16 ± 13 pcm  (1.2 sigma), paired sd 259
+  -> paired sd (259) EXCEEDS either arm's (194); the seeds do not pair, so quote the unpaired figure.
+```
+
+**`σ_diff` came in at exactly the predicted 13 pcm.** The sizing arithmetic in
+the paragraph above was right. What it also assumed — that the central value
+would stay near `−38` — was not: the estimate moved to **`−16`**, so the result
+is **still a bound, at 1.2 σ**, not the ~3 σ measurement 400 seeds were chosen
+to buy.
+
+That distinction matters and is the reason this subsection exists. The plan did
+not fail because the statistics missed; it failed because a bound that shrinks
+when you add samples was never going to resolve on the schedule a fixed central
+value implies. **Sizing a run from an unresolved central value assumes the thing
+being measured.**
+
+**The prediction HELD, now on its tighter clause too.** Direction: negative, as
+predicted. Magnitude: `|−16|` is under 50 pcm and under the *"plausibly under
+20"* half of the recorded prediction, which the 128-seed `−38` did not satisfy.
+The alternative the 128-seed run killed stays killed: an `op-tm9f`-sized
+`−198 pcm` now sits **14 σ** away.
+
+**Quote it as:** *consistent with zero, bounded below 40 pcm at 3 σ, central
+value negative as predicted* — replacing the `70 pcm` bound above.
+
+**This supersedes the 128-seed row, and again is not a second measurement of
+it.** Seeds `1…128` are a subset of `1…400`. The `−38 → −16` movement is one
+estimate being refined, not two runs disagreeing, and pooling would
+double-count.
+
+**The seeds still do not pair, and now by how much:** from `sd_a = 187`,
+`sd_b = 194`, `sd_d = 259`, the implied correlation is **ρ = 0.076**. The arms
+are, for practical purposes, independent samples. This confirms at 400 seeds
+what 128 suggested: identical RNG consumption per collision does not make two
+arms pair when the physics sends the histories to different places.
+
+**What resolving `−16` at 3 σ would actually cost:** `σ_diff ≤ 5.3` pcm, i.e.
+**~2380 seeds per arm** — about **12.4 hours on 4 cores** at the measured
+37.6 CPU-s per seed. Recorded so the decision is made on a number rather than
+an impression. Nothing in this document depends on it.
+
+### The ANISO arm is also the current Godiva residual
+
+The ANISO arm is the unablated crate, so **`−10 ± 9 pcm` over 400 seeds is
+Godiva's residual under the 2026-09-20 defaults** — the first measurement of it
+with **URR probability tables and DBRC on** (they became default-on that day;
+see the workspace `CLAUDE.md`). It sits well inside ICSBEP's own ±100 pcm band.
+
+**Do not read the two arms against the pre-`op-og56` pooled `+16 ± 11 pcm`
+the way the 128-seed run did.** That check was valid when the only difference
+between the arms and that pooled figure was the continuum angular law. It is
+now **confounded**: this run also carries URR and DBRC, which that pooled value
+does not. The ISO arm's `+6 ± 10` happens to sit 0.7 σ from `+16 ± 11`, and
+that agreement is *not* evidence the instrument is unchanged — it is a
+comparison across two model differences at once, and nothing here separates
+them. A clean re-check needs `+16 ± 11` re-pooled under the new defaults.
+
+**Consequence for `RECORDED_PCM = 16.0`:** it was measured pre-`op-og56` *and*
+pre-URR/DBRC, so the `−22` projection above is superseded by neither arm
+cleanly. `−10 ± 9` is the honest current figure for the full model, but
+changing the constant on it would fold two unseparated effects into one number;
+that is a maintainer decision, not something to do from this run.
+
 ## Results — the spectral side effect: predicted harder, measured softer
 
 For a CM law `⟨E'_lab⟩` rises with `⟨μ_cm⟩` per collision, so this section

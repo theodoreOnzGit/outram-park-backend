@@ -19,11 +19,16 @@
 > | Jemima IEU-MET-FAST-002 | −253 pcm | **−395 pcm** (URR on) |
 > | LCT-008 LEU-COMP-THERM-008 | +165 pcm | **+139 pcm** (DBRC + URR; the shift is *not* resolved, 0.7 σ) |
 >
-> **The other two rows — Godiva and HST-009 — have NOT been re-measured** under
-> the new defaults, and this file does not claim a value for them. Do not
-> substitute `CLAUDE.md`'s Godiva `+16 ± 11 pcm`: that is a 256-seed figure from
-> a different example taken on 2026-09-15, five days before the defaults moved,
-> not a post-change re-measurement of the 32-seed pool below.
+> **Godiva HAS since been re-measured: `−10 ± 9 pcm` over 400 seeds**, taken
+> 2026-09-20 as the unablated (ANISO) arm of
+> `examples/godiva_continuum_anisotropy_ablation`, with URR and DBRC on. It sits
+> well inside ICSBEP's own ±100 pcm band. Record:
+> `continuum_angular/mf6_law1_angular.md`.
+>
+> **HST-009 has NOT been re-measured** and this file claims no value for it. Do
+> not substitute `CLAUDE.md`'s Godiva `+16 ± 11 pcm` for either: that is a
+> 256-seed figure from a different example taken on 2026-09-15, five days before
+> the defaults moved.
 >
 > **What this does and does not invalidate.** The *geometry* work is unaffected:
 > the LCT-008 pin-for-pin cross-check against the MCNP deck, the provenance, and
@@ -140,7 +145,7 @@ excursion.
 
 | case | spectrum | geometry | dominant | pooled | vs ±100 pcm |
 |---|---|---|---|---|---|
-| Godiva HEU-MET-FAST-001 | fast | bare sphere (**homog.**) | U-235 (93.7 %) | **−55 ± 34** | **PASS** |
+| Godiva HEU-MET-FAST-001 | fast | bare sphere (**homog.**) | U-235 (93.7 %) | ~~**−55 ± 34**~~ → **−10 ± 9** | **PASS** (re-measured 2026-09-20) |
 | HST-009 HEU-SOL-THERM-009 | thermal | solution (**homog.**) | U-235 | **−38 ± 36** | **PASS** |
 | Jemima IEU-MET-FAST-002 | fast | plates (**heterog.**) | U-238 (83 % HM) | ~~**−253 ± 34**~~ → **−395** | **FAIL** by 153 (4.5 σ) — worse after URR |
 | LCT-008 LEU-COMP-THERM-008 | thermal | pin lattice (**heterog.**) | U-238 (LEU) | ~~**+165 ± 25**~~ → **+139** | **FAIL** by 65 (2.6 σ) — shift not resolved |

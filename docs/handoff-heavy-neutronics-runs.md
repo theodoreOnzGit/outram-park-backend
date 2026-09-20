@@ -63,7 +63,20 @@ These come from the workspace `CLAUDE.md` and from this study's own history.
 
 ## Job 1 — resolve the continuum angular law's reactivity worth
 
-**Status: bounded at `−38 ± 23 pcm` (1.6σ) over 128 seeds/arm. Not resolved.**
+~~**Status: bounded at `−38 ± 23 pcm` (1.6σ) over 128 seeds/arm. Not resolved.**~~
+
+**DONE 2026-09-20 — and still not resolved, for a reason worth reading.** Run at
+400 seeds/arm: **`−16 ± 13 pcm` (1.2 σ)**, 2.10 h on 4 cores. `σ_diff` came in
+at **exactly the 13 pcm predicted below**, so the sizing arithmetic was right;
+the central value moved `−38 → −16`, so 400 seeds bought a tighter bound rather
+than the ~3 σ measurement they were chosen for. **Sizing a run from an
+unresolved central value assumes the thing being measured.** Resolving `−16` at
+3 σ needs ~2380 seeds/arm, about 12.4 h on 4 cores.
+
+The prediction **held**, now including its tighter "plausibly under 20" clause.
+The ANISO arm doubles as Godiva's current residual under the 2026-09-20
+URR/DBRC defaults: **`−10 ± 9 pcm`**. Full record and the confounded-harness-
+check caveat: `crates/outram-mc-libs/verification_and_validation/continuum_angular/mf6_law1_angular.md`.
 
 ```bash
 OUTRAM_GODIVA_SEEDS=400 cargo run --release -p outram-mc-libs \
