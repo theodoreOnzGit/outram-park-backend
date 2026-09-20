@@ -56,6 +56,21 @@ use super::energy::parse_mf5_law4;
 /// eV → MeV.
 const EMEV: f64 = 1.0e6;
 
+/// MT=460 — **delayed** photon data, which ACER excludes from the prompt
+/// photon-production block entirely.
+///
+/// Upstream guards it in three separate places, and all three are needed:
+/// `convr` leaves it out of the `gmt` list (`acefc.f90:400`,
+/// `mfd.eq.12.and.mtd.ne.460`), `gamout`'s counting pass skips the section
+/// before it can add `NK` to `ntrpp` (`:3642`), and `gamout`'s writing pass
+/// skips both MF=12 and MF=14 for it (`:4030`).
+///
+/// It is not a small correction. U-235 ENDF/B-VII.0 carries **`NK = 3262`**
+/// subsections under MF=12/MT=460, so a port without this guard writes 3295
+/// photon entries where NJOY2016 writes 33 — a hundredfold over-production
+/// that leaves every LSIGP/LDLWP locator pointing at the wrong data.
+const MT_DELAYED_PHOTON: i32 = 460;
+
 /// How a photon-production entry states its production rate.
 #[derive(Debug, Clone)]
 pub enum SigP {
@@ -121,6 +136,9 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
     // wrongly concludes the photons are anisotropic — which silently
     // suppressed the whole block on the first run of this code.
     for mt in 1..1000 {
+        if mt == MT_DELAYED_PHOTON {
+            continue; // `acefc.f90:4030` — MF=14/MT=460 is skipped outright
+        }
         if let Some(sec) = tape.section(mat, 14, mt) {
             let mut cur = SectionCursor::new(&sec.rows);
             if let Ok(h) = cur.read_cont() {
@@ -158,6 +176,9 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
     let mut out = Vec::new();
     for (file, is_yield) in [(12i32, true), (13i32, false)] {
     for mt in 1..1000 {
+        if file == 12 && mt == MT_DELAYED_PHOTON {
+            continue; // `acefc.f90:3642` — MF=12/MT=460 never reaches MTRP
+        }
         let Some(sec) = tape.section(mat, file, mt) else { continue };
         let mut cur = SectionCursor::new(&sec.rows);
         let Ok(head) = cur.read_cont() else { continue };
@@ -288,6 +309,9 @@ struct Level {
 fn read_levels(tape: &Tape, mat: i32) -> Vec<Level> {
     let mut out = Vec::new();
     for mt in 1..1000 {
+        if mt == MT_DELAYED_PHOTON {
+            continue;
+        }
         let Some(sec) = tape.section(mat, 12, mt) else { continue };
         let mut cur = SectionCursor::new(&sec.rows);
         let Ok(head) = cur.read_cont() else { continue };
