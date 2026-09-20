@@ -288,58 +288,69 @@ pub fn connect_nonplanar(mesh: &Mesh, angle_limit: f64) -> Mesh {
     let positions = mesh.positions();
     let angle_limit_cos = angle_limit.cos();
 
+    // Process each input face independently and append its pieces in
+    // order, so the output face order tracks the input's.
+    //
+    // A single global work stack is the obvious implementation and it
+    // shuffles the face order even when nothing is split — which makes the
+    // operator a non-no-op on already-planar input at the representation
+    // level, and perturbs anything downstream that is order-sensitive. A
+    // headless sweep of Mesh Studio caught this: running it over an
+    // all-planar sphere changed the resulting volume mesh's max skewness
+    // in its seventh digit, purely from reordering.
     let mut out: Vec<Vec<usize>> = Vec::new();
-    // Upstream's `BLI_LINKSTACK`: split faces go back on the stack so an
-    // n-gon is reduced repeatedly.
-    let mut stack: Vec<Vec<usize>> = mesh
-        .polygons()
-        .into_iter()
-        .map(|p| p.into_iter().map(|v| v.0).collect())
-        .collect();
 
-    // A face of `k` corners can be split at most `k - 3` times, so the total
-    // work is bounded; this guard only catches a logic error, not a legal
-    // input.
-    let mut budget = 1 + 8 * stack.iter().map(|r| r.len()).sum::<usize>();
+    for poly in mesh.polygons() {
+        let ring_idx: Vec<usize> = poly.into_iter().map(|v| v.0).collect();
+        let mut stack: Vec<Vec<usize>> = vec![ring_idx];
+        // A face of `k` corners can be split at most `k - 3` times; the
+        // guard only catches a logic error, not a legal input.
+        let mut budget = 1 + 8 * stack[0].len();
+        let mut pieces: Vec<Vec<usize>> = Vec::new();
 
-    while let Some(ring_idx) = stack.pop() {
-        budget = budget.saturating_sub(1);
-        if ring_idx.len() <= 3 || budget == 0 {
-            out.push(ring_idx);
-            continue;
-        }
-
-        let ring: Vec<Vec3> = ring_idx.iter().map(|&i| positions[i]).collect();
-        let normal = polyfill::newell_normal(&ring);
-        let ring2d = polyfill::project_to_plane(&ring, normal);
-
-        match find_best_split(&ring, &ring2d) {
-            // Upstream `bm_face_split_by_angle`: split only when the two
-            // halves really do disagree by more than the limit.
-            Some(((a, b), angle_cos)) if angle_cos < angle_limit_cos => {
-                let mut half_a: Vec<usize> = Vec::new();
-                let mut i = a;
-                loop {
-                    half_a.push(ring_idx[i]);
-                    if i == b {
-                        break;
-                    }
-                    i = (i + 1) % ring_idx.len();
-                }
-                let mut half_b: Vec<usize> = Vec::new();
-                let mut j = b;
-                loop {
-                    half_b.push(ring_idx[j]);
-                    if j == a {
-                        break;
-                    }
-                    j = (j + 1) % ring_idx.len();
-                }
-                stack.push(half_a);
-                stack.push(half_b);
+        while let Some(ring_idx) = stack.pop() {
+            budget = budget.saturating_sub(1);
+            if ring_idx.len() <= 3 || budget == 0 {
+                pieces.push(ring_idx);
+                continue;
             }
-            _ => out.push(ring_idx),
+
+            let ring: Vec<Vec3> = ring_idx.iter().map(|&i| positions[i]).collect();
+            let normal = polyfill::newell_normal(&ring);
+            let ring2d = polyfill::project_to_plane(&ring, normal);
+
+            match find_best_split(&ring, &ring2d) {
+                // Upstream `bm_face_split_by_angle`: split only when the
+                // two halves really do disagree by more than the limit.
+                Some(((a, b), angle_cos)) if angle_cos < angle_limit_cos => {
+                    let mut half_a: Vec<usize> = Vec::new();
+                    let mut i = a;
+                    loop {
+                        half_a.push(ring_idx[i]);
+                        if i == b {
+                            break;
+                        }
+                        i = (i + 1) % ring_idx.len();
+                    }
+                    let mut half_b: Vec<usize> = Vec::new();
+                    let mut j = b;
+                    loop {
+                        half_b.push(ring_idx[j]);
+                        if j == a {
+                            break;
+                        }
+                        j = (j + 1) % ring_idx.len();
+                    }
+                    // Pushed so that `half_a` is popped first, keeping the
+                    // pieces in ring order.
+                    stack.push(half_b);
+                    stack.push(half_a);
+                }
+                _ => pieces.push(ring_idx),
+            }
         }
+
+        out.extend(pieces);
     }
 
     Mesh::from_polygons(&positions, &out)
@@ -414,13 +425,34 @@ mod tests {
         );
     }
 
-    /// A planar face must be left completely alone.
+    /// A planar face must be left completely alone — including its
+    /// position in the face order.
+    ///
+    /// Face *order* matters more than it looks. A headless sweep of Mesh
+    /// Studio caught this operator reordering the faces of an all-planar
+    /// sphere, which changed the downstream volume mesh's max skewness in
+    /// its seventh digit even though not a single face had been split. An
+    /// operator that claims to leave planar input alone has to leave the
+    /// representation alone too, not just the geometry.
     #[test]
-    fn planar_faces_are_untouched() {
+    fn planar_input_is_returned_completely_unchanged() {
         let flat = warped_quad(0.0);
         let s = connect_nonplanar(&flat, DEFAULT_ANGLE_LIMIT);
         assert_eq!(s.face_count(), 1);
         assert_eq!(s.vertex_count(), 4);
+
+        // Order-preserving on a real mesh with many planar faces.
+        for m in [
+            crate::primitives::cube(2.0),
+            crate::primitives::uv_sphere(16, 12, 1.0),
+        ] {
+            let out = connect_nonplanar(&m, DEFAULT_ANGLE_LIMIT);
+            assert_eq!(
+                out.polygons(),
+                m.polygons(),
+                "planar input must come back with its faces in the same order"
+            );
+        }
     }
 
     /// The angle gate must actually gate: a barely-warped face survives a
