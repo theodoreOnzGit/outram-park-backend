@@ -3,8 +3,11 @@
 //! Ports the cross-section portion of `acelod` in NJOY2016 `acefc.f90`:
 //! constructing the union energy grid, the ESZ block (energy, total,
 //! disappearance, elastic, heating), and the MTR/LQR/TYR/LSIG/SIG reaction
-//! blocks. The secondary-distribution blocks (NU/AND/DLW) and heating (KERMA)
-//! are out of scope for this increment — see the [module docs](super).
+//! blocks. ~~The secondary-distribution blocks (NU/AND/DLW) and heating
+//! (KERMA) are out of scope for this increment~~ — **CORRECTED 2026-09-20**:
+//! AND and DLW *are* built here (see `jxs::LAND`/`AND`/`LDLW`/`DLW` below).
+//! Still absent: **NU** (fission ν̄, `JXS(2)` written as 0) and heating/KERMA.
+//! See the [module docs](super).
 //!
 //! ## Reaction bookkeeping (faithful to `acelod`, incident neutron)
 //!
@@ -18,7 +21,15 @@
 //!   rebuilt as `elastic + Σ partials` on the union grid so it is self-consistent.
 //! - **Stored partials** — everything else (MT=18 fission, MT=16 (n,2n),
 //!   MT=102 capture, MT=51–91 inelastic levels, charged-particle reactions, …).
-//!   Each becomes one MTR/LQR/TYR/LSIG/SIG entry and contributes to the total.
+//!   Each becomes one MTR/LQR/TYR/LSIG/SIG entry.
+//!
+//! **Stored is not the same as summed.** A discrete charged-particle level
+//! (MT=600–849) is stored so it can be tallied, but is left OUT of the ESZ
+//! total and disappearance whenever its lumped total (MT=103–107) is also
+//! present, because the lumped section already sums those levels. Upstream
+//! spells this out as the `mt103.eq.0 .and. mth.ge.mpmin …` guards in
+//! `acefc.f90`; omitting it double-counts the whole (n,p)/(n,α) channel into
+//! the total, silently.
 //!
 //! The **disappearance** cross section (ESZ column 3) sums the stored partials
 //! that remove the neutron without re-emitting one: capture and charged-particle
@@ -72,12 +83,50 @@ enum Role {
     Partial,
 }
 
+/// The five lumped charged-particle channels and the discrete MF=3 level
+/// ranges each one sums over, as `acelod` names them (`mpmin`/`mpmax` …
+/// `m4min`/`m4max`, `acefc.f90` lines 1141-1150).
+const LUMPED_LEVEL_RANGES: [(i32, i32, i32); 5] = [
+    (103, 600, 649), // (n,p)
+    (104, 650, 699), // (n,d)
+    (105, 700, 749), // (n,t)
+    (106, 750, 799), // (n,³He)
+    (107, 800, 849), // (n,α)
+];
+
+/// True when `mt` is a discrete charged-particle level whose lumped total is
+/// also present, so the level is **stored but not summed**.
+///
+/// This is upstream's `mt103.eq.0 .and. mth.ge.mpmin .and. mth.le.mpmax`
+/// family of guards (`acefc.f90` ~5652 for disappearance, ~5670 for the
+/// total). The lumped MT=103/107 already carries the sum of its levels, so
+/// adding both would double-count the channel. Getting this wrong is silent:
+/// the table still builds, the total is just too big.
+fn covered_by_lumped(mt: i32, present: &[i32]) -> bool {
+    LUMPED_LEVEL_RANGES
+        .iter()
+        .any(|&(lumped, lo, hi)| (lo..=hi).contains(&mt) && present.contains(&lumped))
+}
+
 /// True for MTs whose cross section removes the neutron without producing one
 /// (the ESZ disappearance column), per `acelod` for an incident neutron.
-fn is_disappearance(mt: i32) -> bool {
-    (102..=150).contains(&mt)
-        || matches!(mt, 155 | 182 | 191 | 192 | 193 | 197)
-        || (600..=849).contains(&mt)
+///
+/// `present` is every MT on the tape, needed for the lumped-level guard above.
+fn is_disappearance(mt: i32, present: &[i32]) -> bool {
+    if (600..=849).contains(&mt) {
+        return !covered_by_lumped(mt, present);
+    }
+    (102..=150).contains(&mt) || matches!(mt, 155 | 182 | 191 | 192 | 193 | 197)
+}
+
+/// True when a stored partial contributes to the rebuilt ESZ **total**.
+///
+/// Every stored partial contributes except a discrete charged-particle level
+/// whose lumped total is present — the same guard as [`covered_by_lumped`],
+/// and the reason MT=649 and MT=800-849 can appear in MTR without inflating
+/// the total.
+fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
+    !covered_by_lumped(mt, present)
 }
 
 /// Assign a [`Role`] to a reaction, given the set of MT numbers present.
@@ -91,6 +140,19 @@ fn role_of(mt: i32, has_discrete_inelastic: bool, has_total_fission: bool) -> Ro
         1 | 3 | 27 | 101 => Role::Redundant,
         4 if has_discrete_inelastic => Role::Redundant,
         19 | 20 | 21 | 38 if has_total_fission => Role::Redundant,
+        // Discrete charged-particle levels and (n,2n) levels are REAL partials.
+        // Upstream stores them in a second pass over MF=3 (`acefc.f90` ~5536:
+        // pass 1 defers `mt.gt.200.and.mt.le.849`, pass 2 picks exactly that
+        // range back up), so they carry an MTR/LQR/TYR/LSIG/SIG entry and can
+        // be tallied. They are kept OUT of the ESZ sums by
+        // `covered_by_lumped` when their lumped total is present.
+        //
+        // MT=600-849 is verified against NJOY2016's own U-235 table (MT=649
+        // and MT=800-835). MT=875-891 follows from the same upstream passes
+        // but **no tape in `reference-data/` carries it**, so that half is
+        // unverified and is marked as such rather than claimed.
+        m if (600..=849).contains(&m) => Role::Partial,
+        m if (875..=891).contains(&m) => Role::Partial,
         m if m >= 251 => Role::Redundant, // mu-bar, ξ, heating, KERMA, photon data
         _ => Role::Partial,
     }
@@ -225,9 +287,12 @@ impl AceTable {
         let mut disappear = vec![0.0f64; nes];
         for (k, sec) in partials.iter().enumerate() {
             let mt = i32::from(sec.mt);
-            let disap = is_disappearance(mt);
+            let disap = is_disappearance(mt, &present);
+            let in_total = contributes_to_total(mt, &present);
             for j in 0..nes {
-                total[j] += partial_xs[k][j];
+                if in_total {
+                    total[j] += partial_xs[k][j];
+                }
                 if disap {
                     disappear[j] += partial_xs[k][j];
                 }
@@ -606,12 +671,52 @@ mod tests {
 
     #[test]
     fn disappearance_excludes_fission_and_scatter() {
-        assert!(is_disappearance(102)); // capture
-        assert!(is_disappearance(103)); // (n,p)
-        assert!(is_disappearance(107)); // (n,α)
-        assert!(!is_disappearance(18)); // fission is NOT disappearance
-        assert!(!is_disappearance(2)); // elastic
-        assert!(!is_disappearance(16)); // (n,2n)
+        let none: [i32; 0] = [];
+        assert!(is_disappearance(102, &none)); // capture
+        assert!(is_disappearance(103, &none)); // (n,p)
+        assert!(is_disappearance(107, &none)); // (n,α)
+        assert!(!is_disappearance(18, &none)); // fission is NOT disappearance
+        assert!(!is_disappearance(2, &none)); // elastic
+        assert!(!is_disappearance(16, &none)); // (n,2n)
+    }
+
+    /// The discrete charged-particle levels are STORED but only SUMMED when
+    /// their lumped total is absent — upstream's `mt103.eq.0 .and. …` guard.
+    ///
+    /// This is the test that would have caught the double-count: without the
+    /// guard, MT=649 and MT=800-835 are added to the ESZ total on top of
+    /// MT=103/107, which already sum them. The table still builds; the total
+    /// is just silently wrong, which is why this is asserted rather than
+    /// eyeballed.
+    #[test]
+    fn charged_particle_levels_are_stored_but_not_double_counted() {
+        // Stored either way: they carry an MTR entry so they can be tallied.
+        assert!(matches!(role_of(649, true, true), Role::Partial));
+        assert!(matches!(role_of(800, true, true), Role::Partial));
+        assert!(matches!(role_of(835, true, true), Role::Partial));
+
+        // U-235's case: the lumped totals ARE present, so the levels must not
+        // reach the total or the disappearance column.
+        let with_lumped = [2, 18, 102, 103, 107, 649, 800, 835];
+        assert!(covered_by_lumped(649, &with_lumped));
+        assert!(covered_by_lumped(835, &with_lumped));
+        assert!(!contributes_to_total(649, &with_lumped));
+        assert!(!contributes_to_total(835, &with_lumped));
+        assert!(!is_disappearance(649, &with_lumped));
+        assert!(!is_disappearance(835, &with_lumped));
+
+        // An evaluation carrying ONLY the levels: now they are the channel, so
+        // they must be summed. Upstream's guard is `mt103.eq.0`, not "never".
+        let levels_only = [2, 102, 649, 800, 835];
+        assert!(!covered_by_lumped(649, &levels_only));
+        assert!(contributes_to_total(649, &levels_only));
+        assert!(is_disappearance(649, &levels_only));
+        assert!(is_disappearance(835, &levels_only));
+
+        // The ranges are per-channel: an (n,α) level is not covered by MT=103.
+        let only_103 = [2, 103, 800];
+        assert!(!covered_by_lumped(800, &only_103));
+        assert!(contributes_to_total(800, &only_103));
     }
 
     #[test]

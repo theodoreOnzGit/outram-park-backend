@@ -181,7 +181,7 @@ subdivide differently, and the 1e-6 figure is measured on their intersection.
 | gap | evidence | consequence |
 |---|---|---|
 | **fission ν̄ (NU) block** | `JXS(2)`: ours `0`, NJOY `1167576` | **An ACE with no NU block cannot drive a fission eigenvalue** — ν̄ = 0, no fission source. This alone blocks feeding our port's ACE to OpenMC. |
-| **37 reactions** | ours 47 MTs, NJOY 84 | missing MT=649 ((n,p) continuum) and MT=800–835 ((n,α) discrete levels) |
+| ~~**37 reactions**~~ **CLOSED 2026-09-20** | ours **84 MTs, matching NJOY's MTR set exactly** (was 47) | MT=649 and MT=800–835 are now stored, and deliberately kept OUT of the ESZ total/disappearance because the lumped MT=103/107 already sum them — the ESZ agreement is bit-identical before and after, which is the evidence the guard is right |
 | **photon production** | `NXS(6)` NTRP: ours `0`, NJOY `583` | no photon transport from our tables |
 
 No MT is present in ours and absent from NJOY — the port is a strict subset,

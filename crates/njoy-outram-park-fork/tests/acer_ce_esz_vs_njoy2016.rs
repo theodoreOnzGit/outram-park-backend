@@ -75,6 +75,22 @@ const MAT: i32 = 9228;
 /// Gate. Worst measured 2026-09-20 was 1.527e-6 (absorption); see module docs.
 const TOL: f64 = 1.0e-5;
 
+/// NJOY2016's own MTR block for this evaluation, ascending.
+///
+/// Read directly out of `reference-data/ace/reference-njoy/endf-b-viii.0/0K/
+/// U235.ace.gz` (NJOY2016 2016.79 `ac5adf5`) on 2026-09-20 — the same file the
+/// ESZ oracle above was dumped from. Inlined rather than parsed at test time
+/// because that table is 316 MB uncompressed and this is 84 integers.
+///
+/// MT=649 is the (n,p) continuum level and MT=800-835 the (n,α) discrete
+/// levels; those 37 were the gap this port carried until 2026-09-20.
+const NJOY_MTR_U235_0K: [i32; 84] = [
+    5, 16, 17, 18, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+    71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 102, 103, 107,
+    649, 800, 801, 802, 803, 804, 805, 806, 807, 808, 809, 810, 811, 812, 813, 814, 815, 816, 817,
+    818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829, 830, 831, 832, 833, 834, 835,
+];
+
 /// One oracle row: NJOY2016's ESZ at an energy this port also has on its grid.
 struct Row {
     e: f64,
@@ -202,6 +218,11 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
 /// and `JXS(2) = 0` reads as "agrees" to anything that only compares numbers.
 /// Pinning it means the day someone implements ν̄ output, this test says so
 /// instead of silently continuing to pass.
+///
+/// **It worked.** The reaction-count pin fired on 2026-09-20 when MT=649 and
+/// MT=800-835 were added, and refused to be updated without establishing what
+/// had changed. That assertion is now a set comparison against NJOY's own
+/// MTR block rather than a bare count.
 #[test]
 fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
     let ours = build_ours();
@@ -219,16 +240,32 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
          records that say it is absent."
     );
 
+    // CLOSED 2026-09-20. This was pinned at 47 against NJOY's 84; the gap was
+    // MT=649 and MT=800-835, the discrete charged-particle levels, which
+    // `role_of`'s `m >= 251` catch-all had been sweeping up as "derived".
+    // Upstream stores them in a second pass over MF=3 and keeps them out of
+    // the ESZ sums when the lumped MT=103/107 is present (`acefc.f90` ~5536
+    // and ~5652). Both halves are implemented; this now asserts the set, not
+    // just the count, because a count can match while the members differ.
     let ntr = ours.nxs[nxs::NTR] as usize;
+    let m = ours.jxs[jxs::MTR];
+    assert!(m > 0, "MTR block is absent");
+    let base = (m - 1) as usize;
+    let mut ours_mts: Vec<i32> = (0..ntr)
+        .map(|i| ours.xss[base + i].round() as i32)
+        .collect();
+    ours_mts.sort_unstable();
+    let njoy_mts: Vec<i32> = NJOY_MTR_U235_0K.to_vec();
     assert_eq!(
-        ntr, 47,
-        "the reaction count changed from 47. NJOY2016 writes 84 for this \
-         evaluation; the ones missing were MT=649 and MT=800-835. A change here \
-         means reactions were added or lost -- establish which before updating \
-         this number."
+        ours_mts, njoy_mts,
+        "the MTR reaction set no longer matches NJOY2016's exactly. It matched \
+         on 2026-09-20 at 84 MTs. Compare the two lists before touching this -- \
+         a count that still reads 84 while the members differ is the failure \
+         this assertion exists to catch."
     );
+    assert_eq!(ntr, 84, "reaction count moved off NJOY2016's 84");
     println!(
         "acer vs NJOY2016: NU absent (JXS(2)=0), NTRP absent, {ntr} reactions \
-         against NJOY's 84 -- as recorded"
+         matching NJOY's MTR set exactly"
     );
 }

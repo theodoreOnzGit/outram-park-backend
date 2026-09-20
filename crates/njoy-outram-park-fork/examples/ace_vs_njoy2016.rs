@@ -69,7 +69,7 @@
 //! | gap | evidence | consequence |
 //! |---|---|---|
 //! | fission ν̄ (NU) | `JXS(2)` ours `0`, NJOY `1167576` | **no fission source** — such an ACE cannot drive an eigenvalue |
-//! | 37 reactions | ours 47 MTs, NJOY 84 | MT=649 ((n,p) continuum), MT=800–835 ((n,α) levels) |
+//! | ~~37 reactions~~ **CLOSED 2026-09-20** | ours **84**, NJOY 84, sets identical | MT=649 and MT=800–835 now stored; excluded from the ESZ sums under the lumped MT=103/107, so the ESZ numbers above are unchanged |
 //! | photon production | `NXS(6)` ours `0`, NJOY `583` | no photon transport |
 //!
 //! No MT is in ours and absent from NJOY — a strict subset, not a divergence.
