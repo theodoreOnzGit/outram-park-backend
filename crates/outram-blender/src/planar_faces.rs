@@ -84,7 +84,7 @@
 //!    other operator here.
 
 use crate::math::Vec3;
-use crate::mesh::{FaceId, Mesh};
+use crate::mesh::Mesh;
 use crate::polyfill;
 
 /// Upstream's default relaxation factor for **Make Planar Faces**.
@@ -297,6 +297,7 @@ pub fn planar_faces_converge(mesh: &Mesh, factor: f64, tolerance: f64, max_passe
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mesh::FaceId;
 
     /// Peak absolute corner-to-plane deviation over all faces.
     fn max_warp(mesh: &Mesh) -> f64 {

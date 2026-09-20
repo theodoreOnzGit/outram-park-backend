@@ -12,7 +12,7 @@ tree, not by guessing.
 - **Upstream licence:** GPL-2.0-or-later, GPLv3-compatible. See
   `upstream_source/README.md` for the verification and `NOTICE` for the
   lineage.
-- **This crate:** 82 modules, ~42k lines, 493 unit tests + 18 doctests at
+- **This crate:** 83 modules, ~43k lines, 504 unit tests + 19 doctests at
   the time of writing.
 
 > **Status is about *presence and provenance*, not correctness.** Nothing in
@@ -72,7 +72,7 @@ tree, not by guessing.
 | `bmo_subdivide_edgering.cc` | 1239 | `loop_cut` (partial) | PARTIAL |
 | `bmo_symmetrize.cc` | 104 | `symmetry` | REIMPLEMENTED |
 | `bmo_triangulate.cc` | 293 | `triangulate` | **PORTED** (method model + `polyfill`) |
-| `bmo_unsubdivide.cc` | 47 | — | **MISSING** |
+| `bmo_unsubdivide.cc` | 47 | `subdivide::un_subdivide` | REIMPLEMENTED |
 | `bmo_utils.cc` | 772 | scattered | PARTIAL |
 | `bmo_wireframe.cc` | 55 | `modifiers::Wireframe` | REIMPLEMENTED |
 
@@ -85,8 +85,8 @@ tree, not by guessing.
 | `bmesh_bisect_plane.cc` | `bisect` | REIMPLEMENTED |
 | `bmesh_boolean.cc` | `boolean`, `boolean_general` | REIMPLEMENTED (on ported `boolean_predicates`) |
 | `bmesh_decimate_collapse.cc` | `decimate` | REIMPLEMENTED (QEM) |
-| `bmesh_decimate_dissolve.cc` | — | **MISSING** — see priorities |
-| `bmesh_decimate_unsubdivide.cc` | — | **MISSING** |
+| `bmesh_decimate_dissolve.cc` | `limited_dissolve` | **PORTED** |
+| `bmesh_decimate_unsubdivide.cc` | `subdivide::un_subdivide` | REIMPLEMENTED |
 | `bmesh_edgenet.cc` | — | **MISSING** |
 | `bmesh_edgesplit.cc` | `edge_tools::edge_split` | REIMPLEMENTED |
 | `bmesh_intersect.cc` | `boolean_general` | REIMPLEMENTED |
@@ -139,20 +139,15 @@ anything affecting whether a downstream solver can consume the surface.
 
 ### Worth closing
 
-1. **`bmesh_decimate_dissolve.cc` — limited (planar/angle) dissolve.**
-   Merges coplanar faces within an angle limit. The natural cleanup pass
-   before export: it removes the edges a subdivision or boolean left behind
-   without moving any geometry. Nothing here does it — `dissolve` takes an
-   explicit element list, which is a different operation.
-2. **`bmo_connect_concave.cc` — split concave faces into convex parts.**
+1. **`bmo_connect_concave.cc` — split concave faces into convex parts.**
    A concave face has a centroid outside itself, which breaks
    cell-centre and face-normal assumptions downstream. Upstream's approach
    is triangulate-then-greedily-remerge-while-convex, so it needs face
    joining this crate does not yet have.
-3. **`BLI_kdopbvh.cc` — a BVH.** Not an operator, but the boolean and knife
+2. **`BLI_kdopbvh.cc` — a BVH.** Not an operator, but the boolean and knife
    paths currently do linear scans. This is the difference between a
    demonstration and something usable on a real mesh.
-4. **`delaunay_2d.cc` — constrained Delaunay.** Would give `fill`,
+3. **`delaunay_2d.cc` — constrained Delaunay.** Would give `fill`,
    `fill_holes` and the parameterisation path a better tessellation than
    ear clipping alone.
 
@@ -160,7 +155,7 @@ anything affecting whether a downstream solver can consume the surface.
 
 `bmo_circularize`, `bmo_relax_edge_loops`, `bmo_space_edge_loops_evenly`,
 `bmo_offset_edgeloops`, `bmo_fill_edgeloop`, `bmo_edgenet`, `bmo_flatten`,
-`bmo_unsubdivide`, `bmesh_path_region`, `bmesh_region_match` — interactive
+`bmesh_path_region`, `bmesh_region_match` — interactive
 modelling aids. A headless authoring frontend driven from code does not
 need them, and porting them would add surface area without adding
 capability. Listed so the decision is visible, not so it is forgotten.
@@ -184,6 +179,8 @@ down.
 | `BLI_polyfill_calc` emits **clockwise** triples whatever the input winding; upstream's mesh callers compensate by projecting through the *negated* normal. Missing that inverts every triangulated normal. | `polyfill::polyfill_3d` |
 | `bmo_planar_faces`'s `iterations` argument **does not converge** on shared geometry — it plateaus after one sweep and slowly degrades, because each face's target plane is frozen from the input. Re-invoking the operator does converge. | `planar_faces` |
 | That operator's `eps = 1e-5` is an **absolute** floor in model units, so a mesh in metres cannot be flattened below ~1e-5 m while the same shape in millimetres flattens a thousand times finer. | `planar_faces` |
+| The crate's own one-shot limited dissolve **did not conserve area** (+23.7 % on a 48x32 sphere at 5°) and **silently no-opped** past 15°, because it costed every edge once instead of re-costing after each merge. Now delegates to the port. | `limited_dissolve` |
+| Two faces being dissolved commonly share **more than one** edge, so splicing across a single named edge is not enough — it stalls a 3x3 grid at 4 faces. Upstream's `BM_faces_join` cancels the whole shared set; the port does boundary cancellation. | `limited_dissolve::join_faces` |
 
 ## Maintaining this file
 

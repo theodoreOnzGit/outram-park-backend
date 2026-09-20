@@ -227,6 +227,7 @@ pub mod fill_holes;
 pub mod inset;
 pub mod knife;
 pub mod laplacian;
+pub mod limited_dissolve;
 pub mod loop_cut;
 pub mod loop_tools;
 pub mod loop_subdivision;
