@@ -2389,12 +2389,42 @@ passes'", and nothing ran the other half.
 |---|---|---|---|
 | `develop` | `.github/workflows/fast-tests.yml` | `cargo quick-test` | **off** |
 | `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release` | **on** |
+| *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
 
 `fast-tests.yml` is now `develop`-only: the full command is a strict superset
 of `quick-test`, so running both on `main` would be pure duplication. The full
 job checks out submodules and allows 360 minutes; it is Linux-only, because the
 long tier is dominated by TUAS's coupled natural-circulation regressions and a
 three-OS matrix buys little there.
+
+**`manual-tests.yml` (added 2026-09-20) fills the gap the two-branch split
+leaves: running the FULL suite against `develop` on demand.** Neither of the
+other two can — `fast-tests.yml` is short by construction, and `full-tests.yml`
+only fires on `main`.
+
+**It has TWO triggers, and the reason is a GitHub constraint worth knowing.**
+`workflow_dispatch` is exposed ONLY for workflows present on the **default
+branch**. Measured 2026-09-20: `full-tests.yml` already carried
+`workflow_dispatch:`, and `POST /actions/workflows/full-tests.yml/dispatches`
+still returned **404**, with `GET /actions/workflows` listing only
+`fast-tests.yml` — because `main` has no `.github` directory at all, sitting
+2056 commits behind `develop`. So adding another dispatch-only workflow to
+`develop` would have changed nothing.
+
+The second trigger is therefore a **push to a `ci-run/**` branch**, which the
+default-branch rule does not cover, because a push event runs the workflow file
+from the pushed ref itself:
+
+```bash
+git push -f origin develop:ci-run/develop     # full suite, develop's exact tree
+```
+
+Force-push is expected — `ci-run/**` branches are disposable triggers, never
+merged from, safe to delete. The pattern deliberately excludes `develop` and
+`main` so it cannot fire on ordinary work. That path takes no inputs (a push
+carries none) and always runs the full scope; the dispatch path adds
+scope/crate/filter inputs **once the file reaches `main`**, which as of
+2026-09-20 it has not.
 
 **Not yet enabled, and deliberately:** `OUTRAM_PARK_REQUIRE_REFERENCE_DATA=1`
 on the full job, which turns a data-skip into a hard failure and is the real
