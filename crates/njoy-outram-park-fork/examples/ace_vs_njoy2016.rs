@@ -383,6 +383,49 @@ mod desktop {
             );
         }
 
+        // ── Optional: dump the shared-grid rows as a committed test oracle ──
+        //
+        // The full NJOY table is 316 MB and cannot live in the repository. The
+        // rows compared above can: they are the interpolation-free subset, so a
+        // test built on them measures exactly what this example measures, with
+        // no 316 MB dependency and no decompression. Same shape as
+        // `tests/acer_acesix_vs_njoy2016_ace.rs`, which keeps a slice of its
+        // own comparison rather than the whole ACE file.
+        if let Some(out) = std::env::args().skip_while(|a| a != "--dump-oracle").nth(1) {
+            use std::io::Write;
+            let mut f = std::io::BufWriter::new(
+                std::fs::File::create(&out).unwrap_or_else(|e| panic!("create {out}: {e}")),
+            );
+            writeln!(f, "# NJOY2016 0 K U-235 ESZ at grid energies this port also chose.")
+                .unwrap();
+            writeln!(f, "# Oracle for tests/acer_ce_esz_vs_njoy2016.rs. Columns are MeV and barns.\n# 17 significant digits: f64 needs that to round-trip exactly, and the test\n# matches grid energies by EXACT equality.")
+                .unwrap();
+            writeln!(f, "energy_mev,total_b,absorption_b,elastic_b").unwrap();
+            let (mut i, mut j, mut n) = (0usize, 0usize, 0usize);
+            while i < nes_o && j < nes_t {
+                let (a, b) = (e_ours[i], e_theirs[j]);
+                if a == b {
+                    writeln!(
+                        f,
+                        "{:.17e},{:.17e},{:.17e},{:.17e}",
+                        b,
+                        theirs.xss[et + nes_t + j],
+                        theirs.xss[et + 2 * nes_t + j],
+                        theirs.xss[et + 3 * nes_t + j]
+                    )
+                    .unwrap();
+                    n += 1;
+                    i += 1;
+                    j += 1;
+                } else if a < b {
+                    i += 1;
+                } else {
+                    j += 1;
+                }
+            }
+            println!("\n  wrote {n} oracle rows to {out}");
+        }
+
         // ── Reaction inventory ───────────────────────────────────────────────
         //
         // A cross section can agree everywhere it exists and still leave the
