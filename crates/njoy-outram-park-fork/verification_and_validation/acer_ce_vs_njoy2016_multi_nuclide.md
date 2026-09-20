@@ -181,6 +181,28 @@ and diverge from the third on. This port uses the power. **No tape in
   gap in this file.
 - **Photon production.** `NXS(6)` ours 0 against NJOY's 583 (U-235), 358
   (U-238), 6 (U-234). Neutron transport does not need it.
+
+  **Scoped 2026-09-20 and deliberately not started**, because a half-written
+  photon block is worse than none. `NXS(6) = 0` is a *legal* ACE table meaning
+  "carries no photon production"; a partial one is a malformed table that a
+  reader cannot recover from. What it would actually take:
+
+  | piece | state today |
+  |---|---|
+  | MF=13 photon production cross sections | **parsed** (`photon.rs`) |
+  | MF=12 LO=1 yields | **parsed** (`photon.rs`) |
+  | MF=15 continuum spectra | only the **first moment** (mean E_γ) is taken; the full `g(E→E_γ)` is not retained |
+  | MF=14 photon angular distributions | **not parsed at all** |
+  | MF=12 LO=2 transition-probability cascades | **not parsed**, and explicitly skipped today |
+  | `jxs` constants for GPD/MTRP/LSIGP/SIGP/LANDP/ANDP/LDLWP/DLWP | **absent** — the locator names do not exist in `acer::jxs` |
+  | the eight blocks + their locator arithmetic | **absent** |
+  | MTRP's `MT·1000 + line` numbering (how U-235 reaches 583 entries) | **absent** |
+
+  So this is a larger increment than everything else closed on this date put
+  together, and it is the one gap where no partial result can be verified: an
+  ACE reader either gets a self-consistent photon block or it gets a broken
+  table. It is listed here with its parts so the next session can cost it,
+  rather than being described as nearly done.
 - **Grid construction differs by rule.** `acelod` takes the ACE grid straight
   off MF=3 MT=1 of the PENDF (`acefc.f90:5343`); this port builds the union of
   elastic and every stored partial. At 0 K these nearly coincide (+1.5 %)

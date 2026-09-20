@@ -276,9 +276,16 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
         "acer vs NJOY2016: NU block {} values, BIT-IDENTICAL",
         nu_oracle.len()
     );
+    // The LAST remaining pinned gap, as of 2026-09-20 — the ν̄ and reaction-count
+    // pins both fired and are now positive assertions above. `NXS(6) = 0` is a
+    // legal ACE table meaning "no photon production", not a malformed one, which
+    // is why it is left at 0 rather than partly written. Scope for closing it is
+    // in verification_and_validation/acer_ce_vs_njoy2016_multi_nuclide.md.
     assert_eq!(
         ours.nxs[nxs::NTRP], 0,
-        "NXS(6) is no longer 0, so photon production is now written. Update the \
+        "NXS(6) is no longer 0, so photon production is now written. Check it \
+         against NJOY's 583 for this evaluation BEFORE updating this assertion — \
+         a partial photon block is a broken table, not progress — and update the \
          records that say it is absent."
     );
 
