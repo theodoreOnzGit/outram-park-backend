@@ -74,11 +74,15 @@ broadening against NJOY is supported by anything in this file.
 
 ## Results — reaction inventory
 
-| nuclide, T | ours | NJOY | verdict |
+| nuclide, T | NTR ours/NJOY | NR ours/NJOY | verdict |
 |---|---|---|---|
-| U-235, 0 K | 84 | 84 | **identical sets**, zero difference either direction |
-| U-234, 293.6 K | 49 | 49 | **every NJOY MT present** |
-| U-238, 293.6 K | 49 | 49 | **every NJOY MT present** |
+| U-235, 0 K | **84 / 84** | **44 / 44** | identical sets, zero difference either direction |
+| U-234, 293.6 K | **49 / 49** | **48 / 48** | every NJOY MT present, producer sets match |
+| U-238, 293.6 K | **49 / 49** | **44 / 44** | every NJOY MT present, producer sets match |
+
+`NR` = `NXS(5)`, the count of reactions carrying a secondary-neutron
+distribution. It was off by one on U-235/U-238 and by four on U-234 until
+fission secondaries were implemented — see below.
 
 Two distinct defects were behind the earlier mismatches.
 
@@ -128,6 +132,31 @@ effect on the reference's MF=3. **Neither has been checked** — recorded as a
 hypothesis, not a cause, per this workspace's own rule about that exact
 mistake.
 
+## Results — fission secondaries (χ), and what the NR gap actually was
+
+`NXS(5)` was 43 against NJOY's 44 on U-235. The missing producer was **MT=18**
+— found by diffing the two TYR blocks rather than inferred, which matters
+because the first guess was MT=5 and it was wrong.
+
+The consequence was worse than a count: **the table had ν̄ but no fission
+energy distribution.** A fission source needs both, so the NU block alone did
+not make these tables usable — that only became visible once NR was chased.
+
+Implemented as Law 4 from **MF=5**, laboratory frame, with `TYR = 19` — the
+ACE flag meaning *the yield comes from the NU block*, verified against
+NJOY's own tables (MT=18 for U-235/U-238, each of MT=19/20/21/38 for U-234).
+
+**MF=5, not MF=6, and that choice is load-bearing.** U-235 and U-238 carry
+both an MF=5 and an MF=6 for MT=18. Upstream skips the MF=6 explicitly —
+`acefc.f90:4398`, `call tosend(...) !skip past mf6/mt18 (for now)` — so taking
+MF=6 because it happens to parse would silently disagree with NJOY on the
+fission spectrum of every major actinide.
+
+Predicted before measuring: U-235 and U-238 gain one producer (MT=18) to reach
+44, U-234 gains four (MT=19/20/21/38, each with its own MF=5) to reach 48.
+Measured: exactly that, on all three, with the producer sets identical to
+NJOY's.
+
 ## Results — ν̄ (the NU block)
 
 **347 of 347 values bit-identical** to NJOY2016's, header included
@@ -152,8 +181,6 @@ and diverge from the third on. This port uses the power. **No tape in
   gap in this file.
 - **Photon production.** `NXS(6)` ours 0 against NJOY's 583 (U-235), 358
   (U-238), 6 (U-234). Neutron transport does not need it.
-- **`NXS(5)` (reactions with secondary-neutron distributions)** is off: ours 43
-  against 44 (U-235, U-238) and 44 against 48 (U-234). Not chased.
 - **Grid construction differs by rule.** `acelod` takes the ACE grid straight
   off MF=3 MT=1 of the PENDF (`acefc.f90:5343`); this port builds the union of
   elastic and every stored partial. At 0 K these nearly coincide (+1.5 %)

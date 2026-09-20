@@ -163,6 +163,23 @@ pub fn law3_discrete_level(qi_ev: f64, awr: f64) -> EnergyLaw {
 ///
 /// Fission (MT=18) is deliberately excluded: its secondaries are governed by the
 /// ν̄ (NU) block, which is a separate increment.
+/// The fission MTs that carry secondary neutrons: total fission and the four
+/// partial chances. Exactly one of the two representations is ever stored (see
+/// `acer::build`'s `role_of`), so this never double-counts.
+const FISSION_MTS: [i32; 5] = [18, 19, 20, 21, 38];
+
+/// ACE `TYR` for a fission reaction.
+///
+/// Not a multiplicity: `19` is the flag telling the reader that the neutron
+/// yield comes from the **NU block** (ν̄(E)), because fission multiplicity is
+/// energy-dependent and shared across the fission MTs. Positive, so the
+/// distribution is laboratory-frame — fission neutrons are emitted from a
+/// moving, fragmenting system and ACE stores them in the lab.
+///
+/// Verified against NJOY2016's own tables on 2026-09-20: `TYR = 19` for MT=18
+/// (U-235, U-238) and for each of MT=19/20/21/38 (U-234).
+const TYR_FISSION: i32 = 19;
+
 fn neutron_yield(mt: i32) -> Option<u32> {
     match mt {
         16 => Some(2),      // (n,2n)
@@ -184,12 +201,39 @@ fn neutron_yield(mt: i32) -> Option<u32> {
 ///   become **Law 4** from their MF=6 neutron spectrum, with the TYR sign set by
 ///   the MF=6 frame (LCT). Reactions whose MF=6 is absent or not yet parseable
 ///   are skipped (they simply carry no secondary in this table).
-/// - Fission (MT=18) is excluded (handled by the ν̄ block later).
+/// - **Fission** (MT=18, or the partial chances MT=19/20/21/38 when those are
+///   the stored representation) becomes **Law 4 from MF=5**, laboratory frame,
+///   with `TYR = 19` — the ACE flag meaning *the neutron yield for this
+///   reaction comes from the NU block*. See [`TYR_FISSION`].
 ///
 /// `partials` are `(MT, Q [eV])` pairs, in MTR order.
 pub fn build_emissions(tape: &Tape, mat: i32, awr: f64, partials: &[(i32, f64)]) -> Vec<Emission> {
     let mut out = Vec::new();
     for &(mt, qi) in partials {
+        // FISSION FIRST, and deliberately from MF=5 rather than MF=6.
+        //
+        // U-235 and U-238 carry BOTH an MF=5 and an MF=6 for MT=18, and
+        // upstream uses the MF=5: `acefc.f90:4398` reads
+        // `call tosend(...) !skip past mf6/mt18 (for now)`. Taking MF=6 here
+        // because it happens to parse would silently disagree with NJOY on the
+        // fission spectrum of every major actinide.
+        //
+        // Handled before `neutron_yield`, which returns None for fission: the
+        // yield is not a fixed multiplicity at all, it is ν̄(E) from the NU
+        // block, which is exactly what TYR=19 tells the reader.
+        if FISSION_MTS.contains(&mt) {
+            if let Some(sec) = tape.section(mat, 5, mt) {
+                if let Ok(law4) = super::mf5::parse_mf5_law4(sec) {
+                    out.push(Emission {
+                        mt,
+                        tyr: TYR_FISSION,
+                        law: EnergyLaw::Law4(law4),
+                        angular: None,
+                    });
+                }
+            }
+            continue;
+        }
         let Some(y) = neutron_yield(mt) else { continue };
         if (51..=90).contains(&mt) {
             // Two-body discrete level → Law 3 (CM frame ⇒ negative TYR). Its

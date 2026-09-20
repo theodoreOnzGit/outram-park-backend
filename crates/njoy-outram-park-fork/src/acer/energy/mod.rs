@@ -40,7 +40,10 @@
 //!   Legendre → **Law 61**, LANG=2 Kalbach-Mann → **Law 44** (`acelf6`).
 //! - **MF=5 LF=12** (Madland-Nix) — needs `acelf5`'s adaptive-linearization
 //!   integral; out of the LF=1/5/7/9/11 scope this pass closed.
-//! - **Fission** (MT=18) secondaries — coupled to the ν̄ (NU) block.
+//! - ~~**Fission** (MT=18) secondaries — coupled to the ν̄ (NU) block.~~
+//!   **IMPLEMENTED 2026-09-20**, once the NU block landed: Law 4 from MF=5,
+//!   lab frame, `TYR = 19`. Covers the partial chances MT=19/20/21/38 too, for
+//!   evaluations where those are the stored representation.
 //!
 //! ## How the DLW block is assembled (the wiring this feeds — `acelod`)
 //!
