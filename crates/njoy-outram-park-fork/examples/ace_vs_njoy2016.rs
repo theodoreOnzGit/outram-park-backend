@@ -242,9 +242,19 @@ mod desktop {
         println!("comparing MAT {mat} ({tape_file}) at {temp_k} K against {njoy_path}\n");
         let path = njoy_outram_park_fork::reference_data::reference_endf_dir().join(tape_file);
         let tape = Tape::read(File::open(&path).expect("open ENDF")).expect("parse ENDF");
+        // `--tol` exists so a tape whose reconstruction will not fit in memory at
+        // 0.001 can still be compared at a looser tolerance -- with NJOY run at
+        // THE SAME tolerance, so it stays a like-for-like measurement. It
+        // relaxes the reconstruction input on both sides, never the comparison
+        // criterion, and the value used is printed and carried in SUMMARY so a
+        // reader can never mistake a 0.01 run for a 0.001 one.
+        let tolerance: f64 = flag("--tol")
+            .map(|v| v.parse().expect("--tol"))
+            .unwrap_or(0.001);
+        println!("  RECONR tolerance: {tolerance}");
         let cfg = ReconrConfig {
             mat,
-            tolerance: 0.001,
+            tolerance,
             temperature: 0.0,
         };
         let result = reconr(&tape, &cfg).expect("RECONR");
@@ -966,7 +976,7 @@ mod desktop {
                 "DIFFER"
             };
             println!(
-                "SUMMARY mat={mat} nes={}/{} ntr={}/{} nr={}/{} ntrp={}/{} mtr={} mtrp={} \
+                "SUMMARY mat={mat} tol={tolerance} nes={}/{} ntr={}/{} nr={}/{} ntrp={}/{} mtr={} mtrp={} \
                  esz_shared={} esz_tot={:.3e} esz_abs={:.3e} esz_ela={:.3e} nu={}",
                 ours.nxs[nxs::NES],
                 theirs.nxs[nxs::NES],

@@ -134,8 +134,13 @@ pub struct IncoherentInelastic {
     /// parser to exponentiate would be an improvement beyond upstream, which
     /// the crate's translation policy defers until the translation is done.
     ///
-    /// All eight `tsl-*` evaluations in `reference-data/endf/` carry
-    /// `LLN = 0`, so nothing we hold is affected. Check this field before
+    /// ~~All eight~~ **All NINE** `tsl-*` evaluations in `reference-data/endf/`
+    /// carry `LLN = 0`, so nothing we hold is affected. **CORRECTED
+    /// 2026-09-20** — the count was wrong, not the conclusion: the directory
+    /// holds nine `tsl-*.endf` tapes (Al-27, C-in-SiC, H-in-H2O, H-in-ZrH,
+    /// Si-in-SiC, crystalline graphite, ENDF/B-VII.0 graphite, and reactor
+    /// graphite at 10 % and 30 % porosity). Verified by parsing all nine and
+    /// printing `LLN`, not by counting files. Check this field before
     /// trusting [`s_tables`] from an unfamiliar evaluation.
     ///
     /// [`s_tables`]: IncoherentInelastic::s_tables

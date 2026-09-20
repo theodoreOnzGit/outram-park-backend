@@ -470,9 +470,56 @@ cause is established for any of them.**
 
 | tape | outcome |
 |---|---|
-| B-10 ENDF/B-VIII.0 | **`NJOYFAIL`** — NJOY2016's own run fails. Not this port. The ENDF/B-VII.0 B-10 tape processes fine on both sides. |
-| Fe-57 ENDF/B-VIII.0 | comparator exceeded its 2400 s budget |
-| Mo-95 ENDF/B-VIII.0-beta | comparator exceeded its 2400 s budget (40 min CPU, 7.8 GB resident) |
+| B-10 ENDF/B-VIII.0 | ~~**`NJOYFAIL`** — NJOY2016's own run fails. Not this port.~~ **CORRECTED 2026-09-20 — INCOMPLETE, and now COMPARED.** NJOY fails only with `newfor = 1`; with `newfor = 0` it returns `rc = 0`. See below. |
+| Fe-57 ENDF/B-VIII.0 | ~~comparator exceeded its 2400 s budget~~ **CORRECTED — OOM-killed**, see below |
+| Mo-95 ENDF/B-VIII.0-beta | ~~comparator exceeded its 2400 s budget~~ **CORRECTED — same OOM class**, see below |
+
+**The three "failures" were re-examined on 2026-09-20 and two of the three
+descriptions above were wrong.**
+
+**B-10 ENDF/B-VIII.0 is not an NJOY failure — it is a format failure, and the
+tape is now compared.** NJOY `STOP 77`s with `***error in change***Undefined
+law for dlwh block: 0`, from `change` (`acefc.f90:13942`), the routine that
+writes Type-1 ASCII. Tested across all four `newfor`/`iopp` combinations:
+
+| `newfor iopp` | rc | outcome |
+|---|---|---|
+| 1 1 | **77** | `Undefined law for dlwh block: 0` |
+| 1 0 | **77** | same |
+| 0 1 | **0** | 902 327-byte table |
+| 0 0 | **0** | 782 183-byte table |
+
+So `newfor = 1` (the new ACE format, carrying the charged-particle DLWH blocks)
+is what NJOY cannot write for this tape; VIII.0 adds an MT=700 triton-production
+section that VII.0 lacks. Against a `newfor = 0` reference the tape compares:
+**`ntr` 50/50, `nr` 35/35, `ntrp` 38/38, `mtr` and `mtrp` both ok**, ESZ
+`6.207e-4` / `8.117e-4` / `2.038e-4`. That comparison is against an **old-format**
+reference and is caveated accordingly — the DLW law numbering differs between
+the two formats — but the inventory and ESZ results above are directly
+comparable.
+
+**A method note, because the first answer here was wrong.** The four-variant
+test initially reported all four as succeeding, because it checked whether
+`tape24` was non-empty. `change` writes progressively, so a failed run leaves a
+**truncated but non-empty** file. Checking the exit status instead reversed two
+of the four rows. A file that exists is not a file that is finished.
+
+**Fe-57 and Mo-95 are OOM kills, not timeouts.** Re-run with a 4-hour budget,
+Fe-57 died with the kernel recording:
+
+```
+Memory cgroup out of memory: Killed process 1591 (ace_vs_njoy2016)
+  total-vm:20129492kB, anon-rss:13723352kB
+```
+
+**13.7 GB resident, 20.1 GB virtual**, on a 15 GB container — and it took a
+concurrently running `rustc` down with it. It never reached the first report
+section, so the memory is consumed in **this port's own reconstruction**, not
+in the ACE comparison or the photon blocks (an earlier guess that
+`append_photon_blocks` was responsible is therefore wrong). Mo-95 was last seen
+at 51 % of memory and climbing, which is the same class. These two are
+**unmeasured, and now for a specific and actionable reason**: unbounded memory
+growth in the `LRF=7` reconstruction path.
 
 **Both timeouts are `LRF=7` tapes, and so is the worst ESZ outlier.** Seven
 tapes in the set use `LRU=1 / LRF=7`: Cl-35, Fe-54, Fe-57, Cu-63, Cu-65, Sr-88,
@@ -514,6 +561,65 @@ cargo build --release -p njoy-outram-park-fork --example ace_vs_njoy2016
 
 Each run ends in one machine-readable `SUMMARY` line, which is what the tables
 above are built from.
+
+## All 70 tapes accounted for (2026-09-20)
+
+The sweep above covers the 57 `n-*` incident-neutron tapes.
+`reference-data/endf/` holds **70 `.endf` tapes** in total (75 files, less
+`README.md`, two `.generator.py`, `screen_endf_flags.py` and a `.readme`). The
+other 13 are a different problem in each case, and every one is now resolved
+with evidence rather than left unstated.
+
+| group | n | `NSUB` | outcome |
+|---|---|---|---|
+| incident neutron, `n-*` | 57 | 10 | **55 compared** (54 in the sweep + B-10 VIII.0, above); 2 OOM |
+| `synthetic-caseb-lfw1` | 1 | **10** | a neutron tape the `n-*` glob missed — **compared at RECONR level**; NJOY itself cannot ACE it |
+| thermal `tsl-*` | 9 | 12 | **all 9 compared** — see `acer_thermal_vs_njoy2016.md` |
+| photoatomic | 2 | 3 | **both compared** against NJOY GAMINR goldens |
+| incident alpha, He-4 | 1 | 20040 | **not comparable** — different ACE class |
+
+### `synthetic-caseb-lfw1.endf` — NJOY cannot ACE it either
+
+It is `NSUB = 10` (incident neutron) but carries **MF=1, 2, 3 only**; it is a
+generated RECONR test material for the unresolved `LRU=2/LRF=1/LFW=1` Case-B
+branch. ACER stops on it with NJOY's own words:
+
+```
+***error in findf*** mat9998 mf 4 mt  0 not on tape 20
+```
+
+so the limit is upstream's, not this port's. The tape **is** compared against
+NJOY, at the level it supports: `tests/reconr_mt152_all_unresolved_cases_vs_njoy2016.rs`
+checks our MF=2/MT=152 against NJOY's committed 16-energy PENDF, and
+`case_b_stored_values_match_njoys_own` passes.
+
+### The two photoatomic tapes are compared through GAMINR, not ACER
+
+`src/acer/README.md` already records the dosimetry/photoatomic/photonuclear
+ACE classes (`acedo`/`acepa`/`acepn`) as unported, so there is no ACE table to
+difference. Both tapes are nonetheless code-to-code compared against NJOY2016
+via `tests/gaminr_vs_njoy2016.rs`, against committed GENDF goldens:
+`njoy_gaminr_u_photoatomic_matches_gamout` and
+`njoy_gaminr_synthetic_z6_matches_gamout` both pass.
+
+### He-4 is a different ACE class, and the ZAID says so
+
+`a-002_He_004-ENDF8.0.endf` is `NSUB = 20040`, incident alpha: MF=1/451,
+MF=3/MT=2 and MF=6/MT=2, nothing else. NJOY processes it happily and writes a
+**`2004.00a`** table. This port's ACER writes the incident-neutron class, so the
+same tape through our pipeline gives **`2004.00c`** — and the tables disagree
+structurally, as they must:
+
+| | ours | NJOY |
+|---|---|---|
+| ZAID | `2004.00c` | **`2004.00a`** |
+| `NXS(1)` LEN_XSS | 145 | 674 |
+| `NXS(3)` NES | 29 | 51 |
+| MTR/LQR/TYR/LSIG/SIG | absent | present |
+
+There is no common table to difference, so **no number is reported for this
+tape**. The ZAID class difference is the evidence; incident-charged-particle
+ACER is simply not ported.
 
 ## What is NOT covered
 
