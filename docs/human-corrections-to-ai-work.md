@@ -268,6 +268,70 @@ failure mode 1 below, which this entry is a fresh instance of.
 
 ---
 
+## 2026-09-20 — A reactor core is not a slab
+
+### What the AI did
+
+Built every HTR-10 deterministic model on `create_one_d_mesh(...)` — a **1-D
+Cartesian slab** — to compare diffusion and SP3 against Monte Carlo. The HTR-10
+is a cylinder: bed at `r < 90 cm`, graphite reflector to `r = 190 cm`, finite
+in `z`.
+
+Then spent a long run of measurements engineering around that choice: a
+transverse buckling for whichever direction was not meshed (its one-group
+reflector saving once returning 123 cm, *larger than the 100 cm reflector it
+was saving*), then a "volume-matched" slab, then a **bracket** of the two —
+argued in a forty-line source comment as an unavoidable dilemma, because "a
+slab cannot represent a cylinder's volume weighting and its leakage path at
+once".
+
+### The correction
+
+> *"why are u doing a slab?"* … *"you were never meant to do a slab."*
+
+The dilemma was invented.
+
+`FvMesh`'s builder exposes **`.cell_volumes(Vec<f64>)`**. `create_one_d_mesh`
+merely fills them with `vec![h * area; n]`. An R-Z mesh needs **no new mesh
+generator** — set cell volume to the annulus `pi (r_out^2 - r_in^2) H` and face
+areas proportional to `r`, and the existing finite-volume operators consume it
+unchanged.
+
+And more basically: **this class of problem is posed in R-Z.** It is the
+geometry the benchmark specification itself uses — IAEA-TECDOC-1382's Table 4-3
+zone map and Terry 2005 Fig. 2 are both R-Z partitions, both catalogued here,
+both read by the assistant the same day, and the workspace's own derived record
+is literally named `htr10-rz-zone-geometry.md`. Choosing a slab discarded the
+geometry the benchmark is written in.
+
+So the ~6200 pcm residual being carefully decomposed into "one-group axial
+saving" and "missing cylindrical weighting" was substantially just the wrong
+geometry, and the bracket was measuring a self-inflicted error.
+
+### Why the AI process missed it
+
+Same failure as the porous-media entry above, the same day: searched for **a
+function returning a mesh**, found one, used it — instead of asking **what
+geometry this physics is posed in** and checking whether the workspace could
+express it. `.cell_volumes()` was one `grep` away throughout.
+
+The tell was misread repeatedly. Every time the model failed to fit, machinery
+was added rather than the premise questioned. By the time the reasoning reached
+"neither arm is the answer, so run both", the assistant had written down that
+its model could not represent the system — and treated that as a fact about the
+world rather than about its own choice.
+
+### Test that would have caught it
+
+A geometry assertion, not a numerical one: the deterministic mesh must
+reproduce each material region's **volume** in the Monte Carlo model it is
+compared against. The slab fails instantly — reflector at 52.6 % of the domain
+against the cylinder's 77.6 % — and fails *before* any eigenvalue is computed.
+No comparison of `k` means anything between two models that disagree on how
+much of each material exists.
+
+---
+
 ## Recurring failure modes
 
 Patterns visible across entries, worth checking against before trusting AI work
@@ -303,3 +367,17 @@ in this workspace:
    formulation, not just an obstacle to route around. *Check: before optimising
    or working around the cost, ask whether the expensive thing is the right
    thing.*
+8. **Escalating workarounds instead of re-examining the premise.** Machinery
+   added each time a model fails to fit — a correction factor, a matched
+   variant, a bracket — rather than questioning the choice that made it
+   necessary. The tell is arriving at "this model cannot represent the system,
+   so here is a bound instead". *Check: before bracketing an error, ask whether
+   it is a property of the system or of a choice you made.*
+9. **Taking a convenience constructor as the only option.** Using the first
+   function that returns the right type without reading what it builds, or
+   checking whether the type beneath supports what the physics needs. *Check:
+   what does this actually construct, and what does the underlying type admit?*
+10. **Discarding the geometry the specification is written in.** A benchmark
+    carries its geometry with it; an R-Z zone map is part of the problem
+    statement, not an implementation suggestion. *Check: what geometry is the
+    reference posed in, and does your model share it?*
