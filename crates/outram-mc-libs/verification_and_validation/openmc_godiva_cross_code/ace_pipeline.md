@@ -29,7 +29,7 @@ Recorded here so a future reader does not assume it was merely skipped.
 
 | tool | provenance |
 |---|---|
-| NJOY2016 | `github.com/njoy/NJOY2016`, cmake + gfortran, ~1 min |
+| NJOY2016 | `github.com/njoy/NJOY2016` tag **2016.79**, commit `ac5adf5`, cmake + gfortran, ~1 min |
 | OpenMC | `openmc-dev/openmc` commit `afa7a14ac5cb8630f642a77229ca64dc3eaeef81`, Release, MPI off |
 | pugixml | v1.15, commit `ee86beb30e4973f5feffe3ce63bfa4fbadf72f38` |
 | fmt | 11.0.2, commit `0c9fce2ffefecfdce794e1859584e25877b7b592` |
@@ -51,8 +51,27 @@ pointing at [`theodoreOnzGit/ace_and_other_data`](https://github.com/theodoreOnz
 
 ```bash
 git submodule update --init reference-data/ace
-gunzip -c reference-data/ace/endf-b-viii.0/293.6K/U235.ace.gz > U235.ace
+gunzip -c reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz > U235.ace
 ```
+
+The submodule separates **`reference-njoy/`** (NJOY2016 — the oracle, and what
+OpenMC transport should use) from **`outram-park-njoy/`** (this crate's port —
+the thing under test). They are not interchangeable: the port's table has no
+fission ν̄ block and cannot drive an eigenvalue.
+
+**Every table is stamped with its own provenance in the ACE `hk` comment
+field** — generator, version, commit and date, so it travels with the data
+rather than beside it. A trailing `+` on the commit means the tree was dirty
+when the table was built:
+
+```text
+reference  U235 E8.0 NJOY2016 2016.79 ac5adf5 2026-09-20 opb 26cd692
+ours       ZA=92235 njoy-outram-park-fork v0.0.3 26cd692+ 2026-09-20
+```
+
+On our side that comes from `njoy-outram-park-fork/build.rs`, which captures
+the commit and date at compile time and degrades to `unknown` outside a git
+checkout rather than failing the build.
 
 **They are gzipped because they have to be.** ACE is ASCII and compresses about
 6.4x; raw, U-235 is 129.6 MB and the 0 K U-235 is 301.6 MB, both over GitHub's

@@ -367,7 +367,20 @@ impl AceTable {
             awr,
             kt_mev,
             date: "  njoy-rust".to_string(),
-            comment: format!("ZA={za} AWR={awr:.6} processed by njoy-outram-park-fork"),
+            // Provenance, written into the ACE `hk` field (70 chars) so it
+            // travels with the table rather than beside it: which crate
+            // version, which commit (`+` = built from a dirty tree), and when.
+            //
+            // AWR was dropped from this string to make room. It is not lost --
+            // it is field 2 of line 1 of every ACE file, at full precision,
+            // two columns from this comment. Repeating it here bought nothing
+            // and cost the characters the provenance needs.
+            comment: format!(
+                "ZA={za} njoy-outram-park-fork v{} {} {}",
+                env!("CARGO_PKG_VERSION"),
+                env!("NJOY_OP_GIT_SHA"),
+                env!("NJOY_OP_BUILD_DATE"),
+            ),
             mat_id,
             nxs: nxs_arr,
             jxs,
