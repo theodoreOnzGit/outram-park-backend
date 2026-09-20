@@ -304,9 +304,7 @@ pub fn reconr(tape: &Tape, config: &ReconrConfig) -> Result<ReconrResult, NjoyEr
 
     // The LRU=2 ranges, parsed once for both phases below.
     let urr_ranges = match tape.section(mat, 2, 151) {
-        Some(sec) if sec.rows.len() > 1 => {
-            crate::unresr::mf2::parse_lru2_ranges(&sec.rows[1..])?
-        }
+        Some(sec) if sec.rows.len() > 1 => crate::unresr::mf2::parse_lru2_ranges(&sec.rows[1..])?,
         _ => Vec::new(),
     };
 

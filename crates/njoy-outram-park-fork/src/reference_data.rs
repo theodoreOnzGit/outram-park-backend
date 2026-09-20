@@ -160,7 +160,13 @@ pub fn reference_data_required() -> bool {
 /// process-global from inside a test binary whose tests run concurrently on
 /// threads — which is racy, and would leave this guard in the same
 /// never-actually-executed state as the tests it exists to catch.
-fn missing_reference(required: bool, label: &str, file: &str, dir: &Path, hint: &str) -> Option<PathBuf> {
+fn missing_reference(
+    required: bool,
+    label: &str,
+    file: &str,
+    dir: &Path,
+    hint: &str,
+) -> Option<PathBuf> {
     assert!(
         !required,
         "[{label}] reference file {file} not found in {}, and \
@@ -168,7 +174,10 @@ fn missing_reference(required: bool, label: &str, file: &str, dir: &Path, hint: 
          passed without asserting anything",
         dir.display()
     );
-    println!("[{label}] SKIP: reference file {file} not found in {} ({hint})", dir.display());
+    println!(
+        "[{label}] SKIP: reference file {file} not found in {} ({hint})",
+        dir.display()
+    );
     None
 }
 

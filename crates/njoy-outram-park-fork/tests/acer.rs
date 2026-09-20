@@ -74,7 +74,17 @@ fn build_full(name: &str, mat: i32) -> AceTable {
     let ang = tape
         .section(mat, 4, 2)
         .map(|s| parse_elastic_angular(s).unwrap());
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, None, None, false, None)
+    AceTable::from_reconr_full(
+        &res,
+        0.0,
+        0,
+        ang.as_ref(),
+        &emissions,
+        None,
+        None,
+        false,
+        None,
+    )
 }
 
 /// Build the full table **with the HEATR heating column** (ESZ column 5).
@@ -102,7 +112,17 @@ fn build_heated(name: &str, mat: i32) -> AceTable {
     let emission = build_emission_spectra(&tape, mat);
     let photons = PhotonProduction::from_endf(&tape, mat, &res);
     let kerma = Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma), None, false, None)
+    AceTable::from_reconr_full(
+        &res,
+        0.0,
+        0,
+        ang.as_ref(),
+        &emissions,
+        Some(&kerma),
+        None,
+        false,
+        None,
+    )
 }
 
 /// A minimal parsed Type-1 ACE table: just the arrays we need to validate.
@@ -200,7 +220,9 @@ fn esz_total_equals_elastic_plus_partials() {
     // tolerance to absorb the difference would have hidden exactly the
     // double-count the guard exists to prevent, so the rule is encoded instead.
     let mtr0 = ace.jxs[jxs::MTR] as usize;
-    let mts: Vec<i32> = (0..ntr).map(|i| ace.xss[mtr0 - 1 + i].round() as i32).collect();
+    let mts: Vec<i32> = (0..ntr)
+        .map(|i| ace.xss[mtr0 - 1 + i].round() as i32)
+        .collect();
     const LUMPED: [(i32, i32, i32); 5] = [
         (103, 600, 649),
         (104, 650, 699),

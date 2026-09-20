@@ -335,8 +335,7 @@ pub(super) fn ismooth_linlin(buf: &mut Vec<f64>, messages: &mut Vec<String>) {
         }
         buf[6 + ncyc] = sigfig(FX * buf[6 + 2 * ncyc], 6, 0);
         for i in 1..ncyc {
-            buf[6 + ncyc + i] =
-                buf[6 + 2 * ncyc + i] * (buf[6 + ncyc] / buf[6 + 2 * ncyc]).sqrt();
+            buf[6 + ncyc + i] = buf[6 + 2 * ncyc + i] * (buf[6 + ncyc] / buf[6 + 2 * ncyc]).sqrt();
         }
         if nn > 1 {
             cxx += (buf[6 + 2 * ncyc] - buf[6 + ncyc]) * (buf[7 + 2 * ncyc] + buf[7 + ncyc]) / 2.0;
@@ -367,4 +366,3 @@ pub(super) fn ismooth_linlin(buf: &mut Vec<f64>, messages: &mut Vec<String>) {
     }
     buf.truncate(6 + nx);
 }
-

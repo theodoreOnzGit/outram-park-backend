@@ -753,7 +753,10 @@ mod tests {
             .unwrap()
             .incoherent_inelastic
             .unwrap();
-        assert_eq!(ii.lln, 1, "the flag is preserved for a reader that wants it");
+        assert_eq!(
+            ii.lln, 1,
+            "the flag is preserved for a reader that wants it"
+        );
         // ln S is negative for this small-S law: proof the value was not undone.
         assert!(
             ii.s_tables[0].s.iter().any(|&s| s < 0.0),

@@ -104,15 +104,22 @@ fn oracle() -> Vec<Row> {
         env!("CARGO_MANIFEST_DIR"),
         "/../../reference-data/acer/u235_0k_esz_njoy2016.csv"
     );
-    let text = std::fs::read_to_string(path)
-        .unwrap_or_else(|e| panic!("read oracle {path}: {e}"));
+    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read oracle {path}: {e}"));
     text.lines()
         .filter(|l| !l.starts_with('#') && !l.starts_with("energy_mev"))
         .filter(|l| !l.trim().is_empty())
         .map(|l| {
-            let v: Vec<f64> = l.split(',').map(|t| t.parse().expect("oracle number")).collect();
+            let v: Vec<f64> = l
+                .split(',')
+                .map(|t| t.parse().expect("oracle number"))
+                .collect();
             assert_eq!(v.len(), 4, "oracle row {l:?}");
-            Row { e: v[0], total: v[1], absorption: v[2], elastic: v[3] }
+            Row {
+                e: v[0],
+                total: v[1],
+                absorption: v[2],
+                elastic: v[3],
+            }
         })
         .collect()
 }
@@ -125,24 +132,44 @@ fn build_ours() -> AceTable {
     )
     .expect("tape present");
     let tape = Tape::read(std::fs::File::open(&path).expect("open")).expect("parse ENDF");
-    let cfg = ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat: MAT,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let result = reconr(&tape, &cfg).expect("RECONR");
     let angular = tape
         .section(MAT, 4, 2)
         .map(|s| parse_elastic_angular(s).expect("parse MF=4"));
-    let partials: Vec<(i32, f64)> =
-        result.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
+    let partials: Vec<(i32, f64)> = result
+        .sections
+        .iter()
+        .map(|s| (i32::from(s.mt), s.qi))
+        .collect();
     let emissions = build_emissions(&tape, MAT, result.material.awr, &partials);
-    let nu = NuBar::from_endf(&tape, MAT).expect("MF=1").unwrap_or_default();
-    let chi = FissionSpectrum::from_endf_mf5(&tape, MAT).expect("MF=5").unwrap_or_default();
+    let nu = NuBar::from_endf(&tape, MAT)
+        .expect("MF=1")
+        .unwrap_or_default();
+    let chi = FissionSpectrum::from_endf_mf5(&tape, MAT)
+        .expect("MF=5")
+        .unwrap_or_default();
     let emission = build_emission_spectra(&tape, MAT);
     let photons = PhotonProduction::from_endf(&tape, MAT, &result);
     let kerma =
         Kerma::from_reconr(&result, &nu, &chi, &emission).with_energy_balance(&photons, &result);
     // The ACE NU block (fission nu-bar); None for a non-fissile nuclide.
-    let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, MAT)
-        .expect("NU block");
-    AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma), nu_block.as_deref(), njoy_outram_park_fork::acer::has_mt19_distributions(&tape, MAT), njoy_outram_park_fork::acer::photon_blocks::build(&tape, MAT).as_deref())
+    let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, MAT).expect("NU block");
+    AceTable::from_reconr_full(
+        &result,
+        0.0,
+        0,
+        angular.as_ref(),
+        &emissions,
+        Some(&kerma),
+        nu_block.as_deref(),
+        njoy_outram_park_fork::acer::has_mt19_distributions(&tape, MAT),
+        njoy_outram_park_fork::acer::photon_blocks::build(&tape, MAT).as_deref(),
+    )
 }
 
 /// The ESZ cross sections reproduce NJOY2016's at every energy both grids hold.
@@ -240,8 +267,8 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
             env!("CARGO_MANIFEST_DIR"),
             "/../../reference-data/acer/u235_0k_nu_njoy2016.csv"
         );
-        let text = std::fs::read_to_string(path)
-            .unwrap_or_else(|e| panic!("read NU oracle {path}: {e}"));
+        let text =
+            std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read NU oracle {path}: {e}"));
         text.lines()
             .filter(|l| !l.starts_with('#') && *l != "xss" && !l.trim().is_empty())
             .map(|l| l.trim().parse::<f64>().expect("NU oracle value"))
@@ -309,7 +336,8 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
         .map(|i| ours.xss[(pb - 1) as usize + i].round() as i32)
         .collect();
     assert_eq!(
-        ours_mtrp, mtrp_oracle,
+        ours_mtrp,
+        mtrp_oracle,
         "the MTRP block no longer matches NJOY2016's, in content or in order. \
          It matched exactly on 2026-09-20 at {} entries.",
         mtrp_oracle.len()

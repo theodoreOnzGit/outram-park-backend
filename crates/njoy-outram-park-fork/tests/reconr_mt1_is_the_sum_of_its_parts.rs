@@ -217,9 +217,7 @@ fn mt1_equals_the_sum_of_our_own_partials() {
             .filter(|&m| tape.section(case.mat, 3, m).is_some())
             .collect();
         let has = |lo: i32, hi: i32| present.iter().any(|&m| (lo..=hi).contains(&m));
-        let has_fission_parts = present
-            .iter()
-            .any(|&m| (19..=21).contains(&m) || m == 38);
+        let has_fission_parts = present.iter().any(|&m| (19..=21).contains(&m) || m == 38);
         let is_part = |mt: i32| -> bool {
             if mt == 1 || mt == 3 || mt == 4 || mt == 10 || (46..=49).contains(&mt) {
                 return false;

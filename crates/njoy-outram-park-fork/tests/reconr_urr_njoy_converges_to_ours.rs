@@ -73,7 +73,9 @@ const INTERPOLATED: [f64; 7] = [
 ];
 
 /// Baseline deviations, recorded 2026-09-14 — the "before" column.
-const BASELINE: [f64; 7] = [-9.00e-4, 5.80e-3, 6.25e-3, 3.70e-3, -4.62e-3, -5.69e-3, -4.71e-3];
+const BASELINE: [f64; 7] = [
+    -9.00e-4, 5.80e-3, 6.25e-3, 3.70e-3, -4.62e-3, -5.69e-3, -4.71e-3,
+];
 
 /// After 16-fold parameter-grid refinement every deviation must be at or below
 /// this. The measured worst is 4.73e-5; the gate allows an order of margin so
@@ -140,7 +142,10 @@ fn refining_njoys_parameter_grid_moves_its_output_onto_ours() {
         };
         let db = (b - o) / o;
         let dr = (r - o) / o;
-        println!("  E={e:12.6e}  baseline {db:+.2e} (recorded {:+.2e})  x16 {dr:+.2e}", BASELINE[i]);
+        println!(
+            "  E={e:12.6e}  baseline {db:+.2e} (recorded {:+.2e})  x16 {dr:+.2e}",
+            BASELINE[i]
+        );
 
         assert!(
             dr.abs() <= REFINED_GATE,
@@ -183,8 +188,8 @@ fn refinement_leaves_the_physics_unchanged_at_the_original_parameter_energies() 
     };
     let base = mf3_mt(&Tape::read_file(&base_p).expect("baseline parses"), 18)
         .expect("baseline MF=3 MT=18");
-    let x16 = mf3_mt(&Tape::read_file(&ref_p).expect("refined parses"), 18)
-        .expect("refined MF=3 MT=18");
+    let x16 =
+        mf3_mt(&Tape::read_file(&ref_p).expect("refined parses"), 18).expect("refined MF=3 MT=18");
 
     // The evaluation's own unresolved parameter energies.
     const PARAM_ENERGIES: [f64; 8] = [2.5e3, 3.5e3, 5.0e3, 8.0e3, 1.5e4, 2.5e4, 4.0e4, 6.0e4];
@@ -206,5 +211,8 @@ fn refinement_leaves_the_physics_unchanged_at_the_original_parameter_energies() 
         );
         checked += 1;
     }
-    assert!(checked >= 6, "only {checked} parameter energies present in both tapes");
+    assert!(
+        checked >= 6,
+        "only {checked} parameter energies present in both tapes"
+    );
 }

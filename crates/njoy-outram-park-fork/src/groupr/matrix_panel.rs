@@ -781,7 +781,10 @@ mod tests {
             emaxx: 2.0e7,
         };
         let sec = feed_matrix(&sigma, &flux, &mut feed, 1, &header).expect("matrix builds");
-        assert!(!sec.records.is_empty(), "the continuum feed produced no rows");
+        assert!(
+            !sec.records.is_empty(),
+            "the continuum feed produced no rows"
+        );
         // The feed's label-700 normalisation scales it to the YIELD, not to 1
         // (`groupr.f90:8128-8132`; the hand-derived rows in
         // `groupr::mf6_feed::tests` sum to yld = 2). That is precisely why the

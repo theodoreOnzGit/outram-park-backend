@@ -644,7 +644,12 @@ fn production_interpolation_stays_inside_its_bracket() {
     let x = interp.cross_section(3.9, 393.15, natom);
     near(lo, 4.617008, 1e-3, "sigma_inel(3.9 eV, 296 K)");
     near(hi, 4.643566, 1e-3, "sigma_inel(3.9 eV, 400 K)");
-    near(x, 4.6418, 1e-3, "sigma_inel(3.9 eV, 393.15 K), production path");
+    near(
+        x,
+        4.6418,
+        1e-3,
+        "sigma_inel(3.9 eV, 393.15 K), production path",
+    );
 
     // The kernel itself is the same interpolation, pointwise: the emission
     // profile at the interpolated temperature lies between the two ends.

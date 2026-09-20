@@ -50,6 +50,7 @@ use crate::reconr::{eval_lin_lin, ReconrResult, ReconrSection};
 use super::angular::ElasticAngular;
 use super::energy::Emission;
 use super::{jxs, nxs, AceTable};
+use super::photon_blocks::SigP;
 
 /// Convert eV → MeV (NJOY `emev`).
 const EMEV: f64 = 1.0e6;
@@ -165,7 +166,8 @@ fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
 /// # When the lumped MT=4 is kept
 ///
 /// `mt4_has_mf12` is whether the evaluation carries an **MF=12 section keyed on
-/// MT=4**, and it is the whole of upstream's rule.
+/// MT=4**, and it is the whole of upstream's rule. **MF=13/MT=4 does not
+/// count** — `mf12s` tests `mfd.eq.12` alone.
 ///
 /// `convr`'s redundant-reaction pass (`acefc.f90:1713-1731`) eliminates MT=3
 /// and MT=4 *unless* the MT appears in `mf12s`, in `mf16s`, or is the
@@ -271,7 +273,17 @@ impl AceTable {
         suffix: u32,
         angular: &ElasticAngular,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, Some(angular), &[], None, None, false, None)
+        Self::build(
+            result,
+            kt_mev,
+            suffix,
+            Some(angular),
+            &[],
+            None,
+            None,
+            false,
+            None,
+        )
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -332,8 +344,19 @@ impl AceTable {
         // combination -- U-235 ENDF/B-VII.0 is the only one carrying MF=12/MT=4
         // and its photon block builds -- so the fallback is unexercised rather
         // than verified, and is recorded here instead of being claimed correct.
+        //
+        // MF=12 ONLY, never MF=13. `mf12s` is built from `mfd.eq.12` alone, so an
+        // evaluation carrying MF=13/MT=4 and no MF=12/MT=4 has MT=4 eliminated.
+        // B-10 ENDF/B-VIII.0 is exactly that case (MF=12: MT=102; MF=13: MT=4,
+        // 103) and it is what caught this: testing the MTRP number alone kept
+        // MT=4 and gave 51 reactions against NJOY's 50. An MF=12 yield entry is
+        // `SigP::Yield { mftype: 12 }`; MF=13 is `SigP::Xs` and MF=6 photon
+        // production is `mftype: 16`, and neither may satisfy this test.
         let mt4_has_mf12 = photons
-            .map(|p| p.iter().any(|e| e.mtrp / 1000 == 4))
+            .map(|p| {
+                p.iter()
+                    .any(|e| e.mtrp / 1000 == 4 && matches!(e.sigp, SigP::Yield { mftype: 12, .. }))
+            })
             .unwrap_or(false);
         let has_partial_fission = present.iter().any(|&m| matches!(m, 19 | 20 | 21 | 38));
 
@@ -386,8 +409,7 @@ impl AceTable {
             .sections
             .iter()
             .filter(|s| {
-                role_of(i32::from(s.mt), mt4_has_mf12, mt19, has_partial_fission)
-                    == Role::Partial
+                role_of(i32::from(s.mt), mt4_has_mf12, mt19, has_partial_fission) == Role::Partial
             })
             .collect();
 
@@ -826,7 +848,6 @@ fn append_photon_blocks(
     entries: &[super::photon_blocks::PhotonEntry],
     egrid: &[f64],
 ) -> (i32, i32, i32, i32, i32, i32, i32) {
-    use super::photon_blocks::SigP;
     let n = entries.len();
 
     // MTRP.
@@ -884,7 +905,12 @@ fn append_photon_blocks(
     let sigp = b.next_locator();
     for e in entries {
         match &e.sigp {
-            SigP::Yield { mftype, mtmult, e_mev, y } => {
+            SigP::Yield {
+                mftype,
+                mtmult,
+                e_mev,
+                y,
+            } => {
                 b.int(*mftype);
                 b.int(*mtmult);
                 b.int(0); // NR — single lin-lin range

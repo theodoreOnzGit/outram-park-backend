@@ -51,7 +51,11 @@ const UNITY: f64 = 1.0;
 /// wired here); the numeric clamp itself, which is unconditional, is.
 fn build_row(ep_ev: f64, y: &[Vec<f64>], i: usize, nl: usize) -> EqualProbableRow {
     let raw = y[1][i];
-    let pdf = if raw >= EM9 { sigfig(raw, 9, 0) } else { sigfig(raw, 8, 0) };
+    let pdf = if raw >= EM9 {
+        sigfig(raw, 9, 0)
+    } else {
+        sigfig(raw, 8, 0)
+    };
     let mut cosines = Vec::with_capacity(nl.saturating_sub(1));
     for il in 2..=nl {
         let mut c = sigfig(y[il][i], 9, 0);
@@ -63,7 +67,11 @@ fn build_row(ep_ev: f64, y: &[Vec<f64>], i: usize, nl: usize) -> EqualProbableRo
         }
         cosines.push(c);
     }
-    EqualProbableRow { ep_ev, pdf, cosines }
+    EqualProbableRow {
+        ep_ev,
+        pdf,
+        cosines,
+    }
 }
 
 /// The first three Legendre moments `P₁, P₂, P₃` of a single equally-probable
@@ -165,11 +173,23 @@ pub fn compute_iform0(
                 }
                 if jbeta <= 0 {
                     let bj = ii.beta[(-jbeta) as usize - 1];
-                    ep = if lat == 1 { enow - bj * super::sigl::TEVZ } else { enow - bj * tev };
-                    ep = if ep == enow { sigfig(enow, 8, -1) } else { sigfig(ep, 8, 0) };
+                    ep = if lat == 1 {
+                        enow - bj * super::sigl::TEVZ
+                    } else {
+                        enow - bj * tev
+                    };
+                    ep = if ep == enow {
+                        sigfig(enow, 8, -1)
+                    } else {
+                        sigfig(ep, 8, 0)
+                    };
                 } else {
                     let bj = ii.beta[jbeta as usize - 1];
-                    ep = if lat == 1 { enow + bj * super::sigl::TEVZ } else { enow + bj * tev };
+                    ep = if lat == 1 {
+                        enow + bj * super::sigl::TEVZ
+                    } else {
+                        enow + bj * tev
+                    };
                     if ep == enow {
                         ep = sigfig(enow, 8, 1);
                         iskip = true;

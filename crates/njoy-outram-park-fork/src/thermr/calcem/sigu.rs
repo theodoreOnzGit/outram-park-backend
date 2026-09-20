@@ -167,7 +167,11 @@ pub fn sigu(ii: &IncoherentInelastic, e: f64, u: f64, natom: f64, tolin: f64) ->
             }
             let cand = if jbeta <= 0 {
                 let bj = beta[(-jbeta) as usize - 1];
-                let mut v = if lat == 1 { e - bj * TEVZ } else { e - bj * tev };
+                let mut v = if lat == 1 {
+                    e - bj * TEVZ
+                } else {
+                    e - bj * tev
+                };
                 v = sigfig(v, 8, 0);
                 if v == e {
                     v = sigfig(e, 8, -1);
@@ -225,7 +229,17 @@ pub fn sigu(ii: &IncoherentInelastic, e: f64, u: f64, natom: f64, tolin: f64) ->
                 continue 'bisect;
             }
             match label_160(
-                &mut i, &x, &y, &mut jbeta, nbeta, beta, &mut j, &mut points, &mut sum, &mut xl, &mut yl,
+                &mut i,
+                &x,
+                &y,
+                &mut jbeta,
+                nbeta,
+                beta,
+                &mut j,
+                &mut points,
+                &mut sum,
+                &mut xl,
+                &mut yl,
             ) {
                 Action::Bisect => continue 'bisect,
                 Action::Panels => continue 'panels,

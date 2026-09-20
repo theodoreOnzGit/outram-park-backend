@@ -204,13 +204,16 @@ fn load(case: &Case) -> Option<Loaded> {
         return None;
     };
     let eval_tape = Tape::read_file(&ep).expect("evaluation parses");
-    let material =
-        mf1::parse_material_info(eval_tape.section(case.mat, 1, 451).expect("MF=1/451"))
-            .expect("material info");
+    let material = mf1::parse_material_info(eval_tape.section(case.mat, 1, 451).expect("MF=1/451"))
+        .expect("material info");
     // `parse_lru2_ranges` wants the records AFTER the per-isotope CONT.
     let sec = eval_tape.section(case.mat, 2, 151).expect("MF=2/151");
     let ranges = parse_lru2_ranges(&sec.rows[1..]).expect("LRU=2 ranges");
-    assert!(!ranges.is_empty(), "{} must carry an LRU=2 range", case.label);
+    assert!(
+        !ranges.is_empty(),
+        "{} must carry an LRU=2 range",
+        case.label
+    );
     let background = reconr_background(&eval_tape, case.mat, 0.001).expect("background");
     let rows = build_mt152(
         material.za,
@@ -277,7 +280,8 @@ fn case_a_and_lssf1_grid_and_flags_match_njoys_own() {
             case.label
         );
 
-        let mine = read_urr_table(&l.rows, 0.0).expect("our section round-trips through our reader");
+        let mine =
+            read_urr_table(&l.rows, 0.0).expect("our section round-trips through our reader");
         let theirs = read_urr_from_tape(Some(&l.njoy_tape), case.mat, 1, 0.0)
             .expect("NJOY MT=152 parses")
             .expect("NJOY MT=152 present");
@@ -626,7 +630,10 @@ fn reproduce_csunr1_with_upstream_fall_through(range: &UnresolvedRange, e: f64) 
     ];
 
     let UnresolvedCase::CaseA {
-        awri, ap, spi, l_states,
+        awri,
+        ap,
+        spi,
+        l_states,
     } = &range.case_
     else {
         panic!("this reproduction covers Case A only");
@@ -775,9 +782,8 @@ fn released_and_beta_fe58_carry_the_same_unresolved_parameters() {
     // And the precondition for the defect: L must reach 3 on both.
     for (label, p) in [("Beta4", &beta), ("released", &rel)] {
         let t = Tape::read_file(p).expect("parses");
-        let ranges =
-            parse_lru2_ranges(&t.section(FE58.mat, 2, 151).expect("MF=2/151").rows[1..])
-                .expect("LRU=2 ranges");
+        let ranges = parse_lru2_ranges(&t.section(FE58.mat, 2, 151).expect("MF=2/151").rows[1..])
+            .expect("LRU=2 ranges");
         let UnresolvedCase::CaseA { l_states, .. } = &ranges[0].case_ else {
             panic!("{label} Fe-58 should parse as Case A");
         };

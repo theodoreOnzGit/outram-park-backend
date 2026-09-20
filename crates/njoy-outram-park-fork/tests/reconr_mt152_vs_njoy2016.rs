@@ -128,7 +128,12 @@ fn fixture() -> Option<Fixture> {
     // the background alone -- not a reconstruction that already carries the
     // unresolved contribution this test is measuring.
     let background = reconr_background(&eval_tape, MAT, 0.001).ok()?;
-    Some(Fixture { table, range, background, wtable: WTable::new() })
+    Some(Fixture {
+        table,
+        range,
+        background,
+        wtable: WTable::new(),
+    })
 }
 
 #[test]
@@ -157,7 +162,9 @@ fn the_kernel_plus_background_reproduces_njoys_mt152_table_at_every_stored_energ
                 continue;
             }
             // genunr: stored = dilute URR + MF=3 background (reconr.f90:1694-1727).
-            let bg = f.background.eval_mt(MtReaction::from_any(bg_mt), p.energy_ev);
+            let bg = f
+                .background
+                .eval_mt(MtReaction::from_any(bg_mt), p.energy_ev);
             let mine = kernel(&f.range, p.energy_ev, &f.wtable)[slot] + bg;
             let dev = (mine - theirs).abs() / theirs.abs();
             n += 1;

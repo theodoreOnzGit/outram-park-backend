@@ -1331,7 +1331,6 @@ pub(crate) fn bound_cross_section_times_npr(spr: f64, awr: f64, npr: i32) -> f64
 mod tests {
     use super::*;
 
-
     /// The `sb` translation, against its two source lines. `leapr.f90:3014`
     /// gives `sb = spr*((1+awr)/awr)**2` and `:3169` stores `sb*npr`.
     ///
@@ -1353,9 +1352,7 @@ mod tests {
         let want = spr * factor * 2.0;
         assert!((got - want).abs() < 1.0e-12 * want, "{got} != {want}");
         // npr scales it linearly, and npr = 0 is a degenerate but legal deck.
-        assert!(
-            (bound_cross_section_times_npr(spr, awr, 1) * 2.0 - got).abs() < 1.0e-12 * got
-        );
+        assert!((bound_cross_section_times_npr(spr, awr, 1) * 2.0 - got).abs() < 1.0e-12 * got);
         assert_eq!(bound_cross_section_times_npr(spr, awr, 0), 0.0);
     }
 

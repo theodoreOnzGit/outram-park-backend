@@ -108,7 +108,11 @@ pub fn sigl(
     }
     b = b.abs();
     let s1bb = (1.0 + b * b).sqrt();
-    let seep = if ep != 0.0 { 1.0 / (e * ep).sqrt() } else { 0.0 };
+    let seep = if ep != 0.0 {
+        1.0 / (e * ep).sqrt()
+    } else {
+        0.0
+    };
 
     let mut s = vec![0.0f64; nl + 1];
 
@@ -150,7 +154,10 @@ pub fn sigl(
             let yt = sig(xm);
             let test = tol * yt.abs() + tol * ymax / 50.0;
             let test2 = ym + ymax / 100.0;
-            if (yt - ym).abs() <= test && (y[i - 1] - y[i]).abs() <= test2 && (x[i - 1] - x[i]) < 0.5 {
+            if (yt - ym).abs() <= test
+                && (y[i - 1] - y[i]).abs() <= test2
+                && (x[i - 1] - x[i]) < 0.5
+            {
                 true
             } else if x[i - 1] - x[i] < XTOL {
                 true
@@ -239,7 +246,10 @@ pub fn sigl(
             let yt = sig(xm);
             let test = tol * yt.abs() + tol * ymax / 50.0;
             let test2 = ym + ymax / 100.0;
-            if (yt - ym).abs() <= test && (y[i - 1] - y[i]).abs() <= test2 && (x[i - 1] - x[i]) < 0.5 {
+            if (yt - ym).abs() <= test
+                && (y[i - 1] - y[i]).abs() <= test2
+                && (x[i - 1] - x[i]) < 0.5
+            {
                 true
             } else if x[i - 1] - x[i] < XTOL {
                 true
@@ -356,7 +366,9 @@ pub fn sigl(
             let yn = yl2 + (y[i] - yl2) * (xn - xl2) * xil;
             gral += (xn - xl2)
                 * (yl2 * 0.5 * (xn + xl2)
-                    + (y[i] - yl2) * xil * (-xl2 * 0.5 * (xn + xl2) + THIRD * (xn * xn + xn * xl2 + xl2 * xl2)));
+                    + (y[i] - yl2)
+                        * xil
+                        * (-xl2 * 0.5 * (xn + xl2) + THIRD * (xn * xn + xn * xl2 + xl2 * xl2)));
             let xbar = gral * rfract;
 
             if nlin >= 0 {

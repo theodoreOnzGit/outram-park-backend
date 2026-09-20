@@ -106,18 +106,29 @@ fn build_ours() -> Option<AceTable> {
         "U-235 evaluation (broadening vs NJOY2016)",
     )?;
     let tape = Tape::read(std::fs::File::open(&path).expect("open")).expect("parse ENDF");
-    let cfg = ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 };
+    let cfg = ReconrConfig {
+        mat: MAT,
+        tolerance: 0.001,
+        temperature: 0.0,
+    };
     let result = reconr(&tape, &cfg).expect("RECONR");
     let result = njoy_outram_park_fork::broadr::broaden_result(&result, TEMP_K);
 
     let angular = tape
         .section(MAT, 4, 2)
         .map(|s| parse_elastic_angular(s).expect("parse MF=4"));
-    let partials: Vec<(i32, f64)> =
-        result.sections.iter().map(|s| (i32::from(s.mt), s.qi)).collect();
+    let partials: Vec<(i32, f64)> = result
+        .sections
+        .iter()
+        .map(|s| (i32::from(s.mt), s.qi))
+        .collect();
     let emissions = build_emissions(&tape, MAT, result.material.awr, &partials);
-    let nu = NuBar::from_endf(&tape, MAT).expect("MF=1").unwrap_or_default();
-    let chi = FissionSpectrum::from_endf_mf5(&tape, MAT).expect("MF=5").unwrap_or_default();
+    let nu = NuBar::from_endf(&tape, MAT)
+        .expect("MF=1")
+        .unwrap_or_default();
+    let chi = FissionSpectrum::from_endf_mf5(&tape, MAT)
+        .expect("MF=5")
+        .unwrap_or_default();
     let emission = build_emission_spectra(&tape, MAT);
     let photons = PhotonProduction::from_endf(&tape, MAT, &result);
     let kerma =

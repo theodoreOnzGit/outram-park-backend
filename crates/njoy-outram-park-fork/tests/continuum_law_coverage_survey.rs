@@ -231,7 +231,6 @@ fn every_mf6_continuum_section_yields_an_evaluated_law() {
         );
     }
 
-
     // The MF=4/5 count is PINNED so a newly added tape in this category shows up
     // as a test to update rather than as silence. Every section counted here has
     // just been shown to build a law by the loop above, so updating this number

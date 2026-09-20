@@ -99,7 +99,11 @@ impl BinWeights {
 ///
 /// Returns `nbin` bins, or an empty vector when the kernel carries no area
 /// (`σ_inel = 0`, i.e. no scatter) or the inputs are degenerate.
-pub fn acesix_equiprobable(rows: &[EqualProbableRow], nbin: usize, iwt: BinWeights) -> Vec<AcesixBin> {
+pub fn acesix_equiprobable(
+    rows: &[EqualProbableRow],
+    nbin: usize,
+    iwt: BinWeights,
+) -> Vec<AcesixBin> {
     let nep = rows.len();
     if nep < 2 || nbin == 0 {
         return Vec::new();

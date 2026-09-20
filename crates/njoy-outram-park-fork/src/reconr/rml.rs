@@ -117,4 +117,3 @@ fn add_rml_halo_energies(
         }
     }
 }
-

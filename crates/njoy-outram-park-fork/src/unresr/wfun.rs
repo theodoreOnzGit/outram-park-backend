@@ -618,19 +618,38 @@ mod tests {
         ];
         for &(x, y, re, im) in &pts {
             let (r, i) = uw(x, y);
-            assert!((r - re).abs() <= 1e-12 * re.abs(), "Re w({x},{y}): {r:e} vs {re:e}");
-            assert!((i - im).abs() <= 1e-12 * im.abs(), "Im w({x},{y}): {i:e} vs {im:e}");
+            assert!(
+                (r - re).abs() <= 1e-12 * re.abs(),
+                "Re w({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                (i - im).abs() <= 1e-12 * im.abs(),
+                "Im w({x},{y}): {i:e} vs {im:e}"
+            );
         }
     }
 
     #[test]
     fn wtable_is_exact_at_its_nodes_and_close_between_them() {
         let t = WTable::new();
-        for &(x, y) in &[(0.0, 0.0), (0.5, 0.3), (2.0, 0.1), (2.1, 0.0), (3.7, 4.4), (5.9, 0.2)] {
+        for &(x, y) in &[
+            (0.0, 0.0),
+            (0.5, 0.3),
+            (2.0, 0.1),
+            (2.1, 0.0),
+            (3.7, 4.4),
+            (5.9, 0.2),
+        ] {
             let (r, i) = t.lookup(x, y, true);
             let (re, im) = uw(x, y);
-            assert!((r - re).abs() <= 1e-9 * re.abs().max(1e-12), "node ({x},{y}): {r:e} vs {re:e}");
-            assert!((i - im).abs() <= 1e-9 * im.abs().max(1e-12), "node ({x},{y}): {i:e} vs {im:e}");
+            assert!(
+                (r - re).abs() <= 1e-9 * re.abs().max(1e-12),
+                "node ({x},{y}): {r:e} vs {re:e}"
+            );
+            assert!(
+                (i - im).abs() <= 1e-9 * im.abs().max(1e-12),
+                "node ({x},{y}): {i:e} vs {im:e}"
+            );
         }
         let mut worst: f64 = 0.0;
         for ix in 0..58 {
@@ -641,7 +660,9 @@ mod tests {
                 }
                 let (r, i) = t.lookup(x, y, true);
                 let (re, im) = uw(x, y);
-                let e = ((r - re) / re).abs().max(((i - im) / im.abs().max(1e-3 * re)).abs());
+                let e = ((r - re) / re)
+                    .abs()
+                    .max(((i - im) / im.abs().max(1e-3 * re)).abs());
                 worst = worst.max(e);
             }
         }

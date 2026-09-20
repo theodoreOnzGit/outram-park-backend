@@ -566,9 +566,8 @@ pub fn rpxsamm(
                         if k2 != 0 {
                             let a = ctx.derived.get(n2, n1, k - 1);
                             if a != 0.0 {
-                                sigs[i1][n1] += a * de
-                                    * (p.sigp[k2 - 1] * wt + pl.sigp[k2 - 1] * wtl)
-                                    / 2.0;
+                                sigs[i1][n1] +=
+                                    a * de * (p.sigp[k2 - 1] * wt + pl.sigp[k2 - 1] * wtl) / 2.0;
                             }
                         }
                     }

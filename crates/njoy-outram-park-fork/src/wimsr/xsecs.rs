@@ -174,7 +174,11 @@ fn scatter_block(
 /// an error upstream (the first entry is used, with a message); an empty
 /// tape is.
 #[allow(clippy::needless_range_loop)] // Fortran index loops kept verbatim
-pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<XsecsResult, NjoyError> {
+pub fn xsecs(
+    inp: &WimsrInput,
+    mat: &GendfMaterial,
+    cnt: &Counts,
+) -> Result<XsecsResult, NjoyError> {
     const DILINF: f64 = 1.0e10;
     let ngnd = inp.ngnd;
     let nfg = inp.nfg;
@@ -482,9 +486,9 @@ pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<Xsec
                             // 301: treated as temperature-independent
                             to_365 = mf6_independent(
                                 rec, mfh, mth, nl, nzs, ng2, ig2lo, jg, ngnd, nfg, nrg, mti, mtc,
-                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs,
-                                &mut scat, &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus,
-                                &mut chi, &mut cspc, &mut jfiss, &mut jfspp, true,
+                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs, &mut scat,
+                                &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus, &mut chi,
+                                &mut cspc, &mut jfiss, &mut jfspp, true,
                             );
                         } else {
                             let mut max = 0usize;
@@ -535,9 +539,9 @@ pub fn xsecs(inp: &WimsrInput, mat: &GendfMaterial, cnt: &Counts) -> Result<Xsec
                         if jtemp <= 1 {
                             to_365 = mf6_independent(
                                 rec, mfh, mth, nl, nzs, ng2, ig2lo, jg, ngnd, nfg, nrg, mti, mtc,
-                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs,
-                                &mut scat, &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus,
-                                &mut chi, &mut cspc, &mut jfiss, &mut jfspp, false,
+                                isg, iz, jtemp, &mut if6, &mut nth1, &mut nth, &mut xs, &mut scat,
+                                &mut csp1, &out.p1flx, &mut l1, &mut l2, &mut snus, &mut chi,
+                                &mut cspc, &mut jfiss, &mut jfspp, false,
                             );
                         }
                     }
