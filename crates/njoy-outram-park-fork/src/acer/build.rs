@@ -6,7 +6,8 @@
 //! blocks. ~~The secondary-distribution blocks (NU/AND/DLW) and heating
 //! (KERMA) are out of scope for this increment~~ — **CORRECTED 2026-09-20**:
 //! AND and DLW *are* built here (see `jxs::LAND`/`AND`/`LDLW`/`DLW` below).
-//! Still absent: **NU** (fission ν̄, `JXS(2)` written as 0) and heating/KERMA.
+//! **NU also landed 2026-09-20** (`acer::nu`), bit-identical to NJOY2016 on
+//! U-235. Still absent: photon production (`NXS(6)` written as 0).
 //! See the [module docs](super).
 //!
 //! ## Reaction bookkeeping (faithful to `acelod`, incident neutron)
@@ -50,7 +51,7 @@ const EMEV: f64 = 1.0e6;
 /// NJOY writes ACE values to 7 significant figures so that independently
 /// processed libraries compare cleanly; reproducing it keeps our output aligned
 /// with the upstream oracle.
-fn sigfig(x: f64, n: i32) -> f64 {
+pub(crate) fn sigfig(x: f64, n: i32) -> f64 {
     if x == 0.0 || !x.is_finite() {
         return x;
     }
@@ -179,7 +180,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None)
+        Self::build(result, kt_mev, suffix, None, &[], None, None)
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -195,7 +196,7 @@ impl AceTable {
         suffix: u32,
         angular: &ElasticAngular,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, Some(angular), &[], None)
+        Self::build(result, kt_mev, suffix, Some(angular), &[], None, None)
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -219,8 +220,9 @@ impl AceTable {
         angular: Option<&ElasticAngular>,
         emissions: &[Emission],
         heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, angular, emissions, heating)
+        Self::build(result, kt_mev, suffix, angular, emissions, heating, nu)
     }
 
     /// Shared assembly for the `from_reconr*` constructors.
@@ -231,6 +233,7 @@ impl AceTable {
         angular: Option<&ElasticAngular>,
         emissions: &[Emission],
         heating: Option<&crate::heatr::Kerma>,
+        nu: Option<&[f64]>,
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -329,6 +332,18 @@ impl AceTable {
         let ntr = partials.len();
         let mut jxs = [0i32; 32];
         jxs[jxs::ESZ] = 1;
+
+        // NU: fission ν̄, between ESZ and MTR (`acefc.f90` ~5369: `nu=next;
+        // next=nu+nnu; … mtr=next`). Absent for a non-fissile nuclide, where
+        // JXS(2)=0 is correct rather than a gap — see `acer::nu`.
+        if let Some(block) = nu {
+            if !block.is_empty() {
+                jxs[jxs::NU] = b.next_locator();
+                for &v in block {
+                    b.real(v);
+                }
+            }
+        }
 
         if ntr > 0 {
             // MTR: reaction MT numbers (integers).

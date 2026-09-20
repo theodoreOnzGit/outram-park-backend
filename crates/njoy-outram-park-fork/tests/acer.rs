@@ -74,7 +74,7 @@ fn build_full(name: &str, mat: i32) -> AceTable {
     let ang = tape
         .section(mat, 4, 2)
         .map(|s| parse_elastic_angular(s).unwrap());
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, None)
+    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, None, None)
 }
 
 /// Build the full table **with the HEATR heating column** (ESZ column 5).
@@ -102,7 +102,7 @@ fn build_heated(name: &str, mat: i32) -> AceTable {
     let emission = build_emission_spectra(&tape, mat);
     let photons = PhotonProduction::from_endf(&tape, mat, &res);
     let kerma = Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma))
+    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma), None)
 }
 
 /// A minimal parsed Type-1 ACE table: just the arrays we need to validate.

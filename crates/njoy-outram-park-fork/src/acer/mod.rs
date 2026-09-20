@@ -60,6 +60,7 @@ pub mod acesix;
 pub mod angular;
 pub mod build;
 pub mod energy;
+pub mod nu;
 /// Thermal scattering **S(α,β)** ACE table writer.
 ///
 /// ~~scaffold only (Phase 4, scheduled after the continuous-energy ACE
@@ -145,7 +146,10 @@ pub mod nxs {
 pub mod jxs {
     /// JXS(1): location of the ESZ block (always `1`).
     pub const ESZ: usize = 0;
-    /// JXS(2): location of the fission ν̄ (NU) block (deferred; `0`).
+    /// JXS(2): location of the fission ν̄ (NU) block.
+    ///
+    /// ~~deferred; `0`~~ **CORRECTED 2026-09-20** — written by [`super::nu`],
+    /// and `0` now means only what it should: the material is not fissile.
     pub const NU: usize = 1;
     /// JXS(3): location of the MTR block (reaction MT numbers).
     pub const MTR: usize = 2;

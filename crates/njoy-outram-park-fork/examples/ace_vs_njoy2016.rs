@@ -68,7 +68,7 @@
 //!
 //! | gap | evidence | consequence |
 //! |---|---|---|
-//! | fission ν̄ (NU) | `JXS(2)` ours `0`, NJOY `1167576` | **no fission source** — such an ACE cannot drive an eigenvalue |
+//! | ~~fission ν̄ (NU)~~ **CLOSED 2026-09-20** | ours **bit-identical to NJOY, 347/347 values** | the table carries a fission source |
 //! | ~~37 reactions~~ **CLOSED 2026-09-20** | ours **84**, NJOY 84, sets identical | MT=649 and MT=800–835 now stored; excluded from the ESZ sums under the lumped MT=103/107, so the ESZ numbers above are unchanged |
 //! | photon production | `NXS(6)` ours `0`, NJOY `583` | no photon transport |
 //!
@@ -76,11 +76,15 @@
 //!
 //! Full record: `outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/ace_pipeline.md`.
 //!
-//! `JXS(2)` — the fission ν̄ (NU) block — is **deferred and written as 0** by
-//! this port (`acer/mod.rs`). The example reports that as an explicit ABSENT
-//! row rather than letting a zero locator read as agreement, because a missing
-//! block and a matching block are indistinguishable in a naive diff, and an ACE
-//! file with no NU block cannot drive a fission eigenvalue at all.
+//! ~~`JXS(2)` — the fission ν̄ (NU) block — is **deferred and written as 0** by
+//! this port.~~ **CLOSED 2026-09-20** — it is written by `acer::nu` and is
+//! bit-identical to NJOY2016's, 347 of 347 values.
+//!
+//! The reporting convention that found it stays: a zero locator is reported as
+//! an explicit ABSENT row rather than allowed to read as agreement, because a
+//! missing block and a matching block are indistinguishable in a naive diff.
+//! That convention is why this gap was visible at all, and it still guards
+//! `NXS(6)` (photon production), which really is absent.
 
 fn main() {
     desktop::run();
@@ -195,8 +199,17 @@ mod desktop {
         let photons = PhotonProduction::from_endf(&tape, MAT, &result);
         let kerma = Kerma::from_reconr(&result, &nu, &chi, &emission)
             .with_energy_balance(&photons, &result);
-        let ours =
-            AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma));
+        // The ACE NU block (fission nu-bar); None for a non-fissile nuclide.
+        let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, MAT).expect("NU block");
+        let ours = AceTable::from_reconr_full(
+            &result,
+            0.0,
+            0,
+            angular.as_ref(),
+            &emissions,
+            Some(&kerma),
+            nu_block.as_deref(),
+        );
 
         // ── Header ───────────────────────────────────────────────────────────
         println!("=== header ===");

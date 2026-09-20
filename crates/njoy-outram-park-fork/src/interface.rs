@@ -305,6 +305,10 @@ impl NuclearDataLibrary {
         let kerma = crate::heatr::Kerma::from_reconr(r, &nu, &chi, &emission)
             .with_energy_balance(&photons, r);
 
+        // Fission nu-bar (the ACE NU block). None for a non-fissile nuclide,
+        // which leaves JXS(2)=0 -- correct, not a gap.
+        let nu_block = crate::acer::nu::build(&self.tape, self.mat)?;
+
         let ace = crate::acer::AceTable::from_reconr_full(
             r,
             kt_mev,
@@ -312,6 +316,7 @@ impl NuclearDataLibrary {
             ang.as_ref(),
             &emissions,
             Some(&kerma),
+            nu_block.as_deref(),
         );
         ace.write_type1(path).map_err(NjoyError::Io)
     }

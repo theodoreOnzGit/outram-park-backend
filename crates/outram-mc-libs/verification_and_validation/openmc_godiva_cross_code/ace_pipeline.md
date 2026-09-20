@@ -57,7 +57,7 @@ gunzip -c reference-data/ace/reference-njoy/endf-b-viii.0/293.6K/U235.ace.gz > U
 The submodule separates **`reference-njoy/`** (NJOY2016 — the oracle, and what
 OpenMC transport should use) from **`outram-park-njoy/`** (this crate's port —
 the thing under test). They are not interchangeable: the port's table has no
-fission ν̄ block and cannot drive an eigenvalue.
+~~fission ν̄ block and cannot drive an eigenvalue.~~ **CORRECTED 2026-09-20** — the NU block is written and is bit-identical to NJOY2016's; see the table below.
 
 **Every table is stamped with its own provenance in the ACE `hk` comment
 field** — generator, version, commit and date, so it travels with the data
@@ -180,7 +180,7 @@ subdivide differently, and the 1e-6 figure is measured on their intersection.
 
 | gap | evidence | consequence |
 |---|---|---|
-| **fission ν̄ (NU) block** | `JXS(2)`: ours `0`, NJOY `1167576` | **An ACE with no NU block cannot drive a fission eigenvalue** — ν̄ = 0, no fission source. This alone blocks feeding our port's ACE to OpenMC. |
+| ~~**fission ν̄ (NU) block**~~ **CLOSED 2026-09-20** | our NU block is **bit-identical to NJOY2016's — 347 of 347 values**, prompt (MF=1/MT=456) and total (MT=452) | the table now carries a fission source. The block being byte-for-byte identical rather than merely close is expected: it is the evaluation's own table with one unit change (eV → MeV), so anything else would mean a real difference in reading or writing it. |
 | ~~**37 reactions**~~ **CLOSED 2026-09-20** | ours **84 MTs, matching NJOY's MTR set exactly** (was 47) | MT=649 and MT=800–835 are now stored, and deliberately kept OUT of the ESZ total/disappearance because the lumped MT=103/107 already sum them — the ESZ agreement is bit-identical before and after, which is the evidence the guard is right |
 | **photon production** | `NXS(6)` NTRP: ours `0`, NJOY `583` | no photon transport from our tables |
 

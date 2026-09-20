@@ -70,8 +70,17 @@ fn main() {
         Kerma::from_reconr(&result, &nu, &chi, &emission).with_energy_balance(&photons, &result);
 
     // kT = 0 → 0 K table; suffix 0 → ZAID "92235.00c".
-    let ace =
-        AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma));
+    // The ACE NU block (fission nu-bar); None for a non-fissile nuclide.
+    let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, MAT).expect("NU block");
+    let ace = AceTable::from_reconr_full(
+        &result,
+        0.0,
+        0,
+        angular.as_ref(),
+        &emissions,
+        Some(&kerma),
+        nu_block.as_deref(),
+    );
 
     println!("ZAID          : {}", ace.zaid.trim());
     println!("AWR           : {:.6}", ace.awr);

@@ -139,7 +139,10 @@ fn build_ours() -> AceTable {
     let photons = PhotonProduction::from_endf(&tape, MAT, &result);
     let kerma =
         Kerma::from_reconr(&result, &nu, &chi, &emission).with_energy_balance(&photons, &result);
-    AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma))
+    // The ACE NU block (fission nu-bar); None for a non-fissile nuclide.
+    let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, MAT)
+        .expect("NU block");
+    AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma), nu_block.as_deref())
 }
 
 /// The ESZ cross sections reproduce NJOY2016's at every energy both grids hold.
@@ -227,12 +230,51 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
 fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
     let ours = build_ours();
 
+    // CLOSED 2026-09-20. This pin fired as designed when the NU block landed.
+    // It is now the opposite assertion: the block must be present AND must
+    // reproduce NJOY2016's own, value for value.
+    assert_ne!(ours.jxs[jxs::NU], 0, "the NU block disappeared again");
+
+    let nu_oracle: Vec<f64> = {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../reference-data/acer/u235_0k_nu_njoy2016.csv"
+        );
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("read NU oracle {path}: {e}"));
+        text.lines()
+            .filter(|l| !l.starts_with('#') && *l != "xss" && !l.trim().is_empty())
+            .map(|l| l.trim().parse::<f64>().expect("NU oracle value"))
+            .collect()
+    };
+    let nu_start = (ours.jxs[jxs::NU] - 1) as usize;
+    let ours_nu = &ours.xss[nu_start..nu_start + nu_oracle.len()];
     assert_eq!(
-        ours.jxs[jxs::NU], 0,
-        "JXS(2) is no longer 0, so this port now writes a fission nu-bar block. \
-         That is good news and this assertion is the notification: an ACE with a \
-         NU block CAN drive a fission eigenvalue, so re-check whether OpenMC can \
-         now consume our tables, and update ace_pipeline.md."
+        ours_nu.len(),
+        nu_oracle.len(),
+        "NU block length moved off NJOY2016's 347"
+    );
+    let mismatches: Vec<(usize, f64, f64)> = ours_nu
+        .iter()
+        .zip(&nu_oracle)
+        .enumerate()
+        .filter(|(_, (a, b))| a != b)
+        .map(|(i, (a, b))| (i, *a, *b))
+        .collect();
+    assert!(
+        mismatches.is_empty(),
+        "the NU block was BIT-IDENTICAL to NJOY2016's on 2026-09-20 and no longer is. \
+         {} of {} values differ; first three: {:?}. Exact equality is asserted \
+         deliberately -- this block is copied from the evaluation with one unit \
+         change, so anything other than bit-identical means a real change in how \
+         it is read or written, not rounding.",
+        mismatches.len(),
+        nu_oracle.len(),
+        &mismatches[..mismatches.len().min(3)]
+    );
+    println!(
+        "acer vs NJOY2016: NU block {} values, BIT-IDENTICAL",
+        nu_oracle.len()
     );
     assert_eq!(
         ours.nxs[nxs::NTRP], 0,
@@ -265,7 +307,7 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
     );
     assert_eq!(ntr, 84, "reaction count moved off NJOY2016's 84");
     println!(
-        "acer vs NJOY2016: NU absent (JXS(2)=0), NTRP absent, {ntr} reactions \
+        "acer vs NJOY2016: NTRP absent, {ntr} reactions \
          matching NJOY's MTR set exactly"
     );
 }
