@@ -74,7 +74,7 @@ fn build_full(name: &str, mat: i32) -> AceTable {
     let ang = tape
         .section(mat, 4, 2)
         .map(|s| parse_elastic_angular(s).unwrap());
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, None, None, false)
+    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, None, None, false, None)
 }
 
 /// Build the full table **with the HEATR heating column** (ESZ column 5).
@@ -102,7 +102,7 @@ fn build_heated(name: &str, mat: i32) -> AceTable {
     let emission = build_emission_spectra(&tape, mat);
     let photons = PhotonProduction::from_endf(&tape, mat, &res);
     let kerma = Kerma::from_reconr(&res, &nu, &chi, &emission).with_energy_balance(&photons, &res);
-    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma), None, false)
+    AceTable::from_reconr_full(&res, 0.0, 0, ang.as_ref(), &emissions, Some(&kerma), None, false, None)
 }
 
 /// A minimal parsed Type-1 ACE table: just the arrays we need to validate.
@@ -186,6 +186,34 @@ fn esz_total_equals_elastic_plus_partials() {
     assert!(energy[0] > 0.0);
 
     // Re-sum the SIG partials at each grid point and compare to the ESZ total.
+    //
+    // STORED IS NOT THE SAME AS SUMMED. A discrete charged-particle level
+    // (MT=600-849) is stored so it can be tallied, but is excluded from the
+    // ESZ total whenever its lumped total (MT=103-107) is also present,
+    // because the lumped section already sums those levels. That is upstream's
+    // `mt103.eq.0 .and. mth.ge.mpmin …` guard (`acefc.f90` ~5670), and it is
+    // why this invariant is "elastic + Σ CONTRIBUTING partials" rather than
+    // "elastic + Σ partials".
+    //
+    // Before MT=600-849 were stored at all (2026-09-20) the two were the same
+    // statement, and this test asserted the simpler one. Widening the
+    // tolerance to absorb the difference would have hidden exactly the
+    // double-count the guard exists to prevent, so the rule is encoded instead.
+    let mtr0 = ace.jxs[jxs::MTR] as usize;
+    let mts: Vec<i32> = (0..ntr).map(|i| ace.xss[mtr0 - 1 + i].round() as i32).collect();
+    const LUMPED: [(i32, i32, i32); 5] = [
+        (103, 600, 649),
+        (104, 650, 699),
+        (105, 700, 749),
+        (106, 750, 799),
+        (107, 800, 849),
+    ];
+    let contributes = |mt: i32| -> bool {
+        !LUMPED
+            .iter()
+            .any(|&(lump, lo, hi)| (lo..=hi).contains(&mt) && mts.contains(&lump))
+    };
+
     let sig0 = ace.jxs[jxs::SIG] as usize; // 1-based
     for j in 0..nes {
         let mut sum = elastic[j];
@@ -196,7 +224,9 @@ fn esz_total_equals_elastic_plus_partials() {
             let ne = ace.xss[base + 1] as usize;
             assert_eq!(ie, 1);
             assert_eq!(ne, nes);
-            sum += ace.xss[base + 2 + j];
+            if contributes(mts[i]) {
+                sum += ace.xss[base + 2 + j];
+            }
         }
         let t = total[j];
         assert!(

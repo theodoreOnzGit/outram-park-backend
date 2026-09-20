@@ -31,6 +31,18 @@ pub enum EnergyLaw {
     },
     /// **ACE Law 4** — continuous tabular outgoing-energy distribution.
     Law4(Law4),
+    /// **ACE Law 2** — a discrete photon line.
+    ///
+    /// Used only by the photon-production blocks (`DLWP`), never by neutrons.
+    /// `LP = 0` or `1` is a fixed line at `EG`; `LP = 2` is a *primary* capture
+    /// photon whose energy rises with the incident energy as
+    /// `EG + E·A/(A+1)`, which the reader applies.
+    Law2 {
+        /// ENDF `LP`: 0/1 fixed line, 2 primary photon.
+        lp: i32,
+        /// The photon energy `EG` \[MeV\].
+        eg_mev: f64,
+    },
 }
 
 impl EnergyLaw {
@@ -39,6 +51,7 @@ impl EnergyLaw {
         match self {
             EnergyLaw::Law3 { .. } => 3,
             EnergyLaw::Law4(_) => 4,
+            EnergyLaw::Law2 { .. } => 2,
         }
     }
 
@@ -48,6 +61,7 @@ impl EnergyLaw {
         match self {
             EnergyLaw::Law3 { .. } => 2,
             EnergyLaw::Law4(l) => l.data_len(),
+            EnergyLaw::Law2 { .. } => 2,
         }
     }
 
@@ -58,6 +72,7 @@ impl EnergyLaw {
         match self {
             EnergyLaw::Law3 { ldat1_mev, ldat2 } => vec![(*ldat1_mev, false), (*ldat2, false)],
             EnergyLaw::Law4(l) => l.serialize(data_start_rel),
+            EnergyLaw::Law2 { lp, eg_mev } => vec![(f64::from(*lp), true), (*eg_mev, false)],
         }
     }
 }

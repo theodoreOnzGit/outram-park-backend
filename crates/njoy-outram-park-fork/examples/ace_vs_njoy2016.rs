@@ -242,6 +242,12 @@ mod desktop {
             .with_energy_balance(&photons, &result);
         // The ACE NU block (fission nu-bar); None for a non-fissile nuclide.
         let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, mat).expect("NU block");
+        match njoy_outram_park_fork::acer::photon_blocks::build(&tape, mat) {
+            None => println!("photon blocks: REFUSED (a form this port does not write)"),
+            Some(v) if v.is_empty() => println!("photon blocks: none found on the tape"),
+            Some(v) => println!("photon blocks: {} entries built", v.len()),
+        }
+
         let ours = AceTable::from_reconr_full(
             &result,
             temp_k * BOLTZMANN_EV_PER_K / 1.0e6,
@@ -251,6 +257,7 @@ mod desktop {
             Some(&kerma),
             nu_block.as_deref(),
             njoy_outram_park_fork::acer::has_mt19_distributions(&tape, mat),
+        njoy_outram_park_fork::acer::photon_blocks::build(&tape, mat).as_deref(),
         );
 
         // ── Header ───────────────────────────────────────────────────────────
@@ -570,6 +577,88 @@ mod desktop {
                     labels[k], w.0, w.1, w.2, w.3
                 );
             }
+        }
+
+        // ── Photon production blocks ─────────────────────────────────────
+        println!("\n=== photon production (MTRP / SIGP / DLWP) ===");
+        {
+            let ntrp_o = ours.nxs[nxs::NTRP] as usize;
+            let ntrp_t = theirs.nxs[nxs::NTRP] as usize;
+            println!("  NTRP: ours {ntrp_o}, njoy {ntrp_t}");
+            let mtrp = |t: &NjoyAce, n: usize| -> Vec<i32> {
+                let b = t.jxs[jxs::MTRP];
+                if b == 0 || n == 0 {
+                    return Vec::new();
+                }
+                (0..n).map(|i| t.xss[(b - 1) as usize + i].round() as i32).collect()
+            };
+            let mo: Vec<i32> = if ours.jxs[jxs::MTRP] == 0 {
+                Vec::new()
+            } else {
+                (0..ntrp_o)
+                    .map(|i| ours.xss[(ours.jxs[jxs::MTRP] - 1) as usize + i].round() as i32)
+                    .collect()
+            };
+            let mt = mtrp(&theirs, ntrp_t);
+            let miss: Vec<i32> = mt.iter().copied().filter(|m| !mo.contains(m)).collect();
+            let extra: Vec<i32> = mo.iter().copied().filter(|m| !mt.contains(m)).collect();
+            if miss.is_empty() && extra.is_empty() && !mt.is_empty() {
+                println!("  MTRP sets IDENTICAL ({} entries)", mt.len());
+            } else {
+                if !miss.is_empty() {
+                    println!("  in NJOY, not ours ({}): {:?}", miss.len(), &miss[..miss.len().min(12)]);
+                }
+                if !extra.is_empty() {
+                    println!("  in ours, not NJOY ({}): {:?}", extra.len(), &extra[..extra.len().min(12)]);
+                }
+            }
+            // MFTYPE and LAW per entry, in NJOY's order, for the entries both have.
+            let describe = |t_jxs: &[i32; 32], xss: &[f64], n: usize, i: usize| -> (i32, i32) {
+                let lsigp = t_jxs[jxs::LSIGP];
+                let sigp = t_jxs[jxs::SIGP];
+                let ldlwp = t_jxs[jxs::LDLWP];
+                let dlwp = t_jxs[jxs::DLWP];
+                if lsigp == 0 || i >= n {
+                    return (0, 0);
+                }
+                let so = xss[(lsigp - 1) as usize + i] as i32;
+                let mft = xss[(sigp - 1 + so - 1) as usize].round() as i32;
+                let lo = xss[(ldlwp - 1) as usize + i] as i32;
+                let law = xss[(dlwp - 1 + lo - 1) as usize + 1].round() as i32;
+                (mft, law)
+            };
+            // Compare BY MT, not by position: a pure ordering difference would
+            // otherwise read as every entry being wrong, which is exactly how
+            // the first run of this comparison misreported itself.
+            let nshow = ntrp_t.min(ntrp_o).min(12);
+            let mut mismatched = 0usize;
+            for i in 0..ntrp_t.min(ntrp_o) {
+                let Some(j) = mo.iter().position(|m| Some(m) == mt.get(i)) else {
+                    mismatched += 1;
+                    continue;
+                };
+                let a = describe(&ours.jxs, &ours.xss, ntrp_o, j);
+                let b2 = describe(&theirs.jxs, &theirs.xss, ntrp_t, i);
+                if a != b2 {
+                    mismatched += 1;
+                }
+                if i < nshow {
+                    let flag = if a == b2 { "ok" } else { "DIFFER" };
+                    println!(
+                        "    {:<8} MFTYPE ours {:>3} njoy {:>3} | LAW ours {:>2} njoy {:>2}  {}",
+                        mt.get(i).copied().unwrap_or(0),
+                        a.0, b2.0, a.1, b2.1, flag
+                    );
+                }
+            }
+            if ntrp_t.min(ntrp_o) > nshow {
+                println!("    … {} more", ntrp_t.min(ntrp_o) - nshow);
+            }
+            println!(
+                "  MFTYPE/LAW agree on {} of {} compared entries",
+                ntrp_t.min(ntrp_o) - mismatched,
+                ntrp_t.min(ntrp_o)
+            );
         }
 
         // ── Band integrals: the ONLY instrument here that reaches the

@@ -247,8 +247,31 @@ and diverge from the third on. This port uses the power. **No tape in
 - **Photon production.** `NXS(6)` ours 0 against NJOY's 583 (U-235), 358
   (U-238), 6 (U-234). Neutron transport does not need it.
 
-  **Scoped 2026-09-20 and deliberately not started**, because a half-written
-  photon block is worse than none. `NXS(6) = 0` is a *legal* ACE table meaning
+  **PARTLY CLOSED the same day.** The blocks are implemented and **verified
+  exactly on U-234: `NTRP` 6/6, MTRP sets identical, and MFTYPE/LAW agreeing on
+  6 of 6 entries.** U-234 was chosen deliberately as the smallest *complete*
+  target — every entry checkable by hand — rather than the biggest.
+
+  **U-235 and U-238 still read `NXS(6) = 0`, and that is the builder refusing
+  rather than failing.** Their discrete inelastic levels give photons as
+  **MF=12 `LO=2` transition-probability cascades** (checked on the tapes: MT=51
+  onward, `LO=2`), which expand into hundreds of discrete lines — that is how
+  U-235 reaches 583 entries from ~40 levels — and that expansion is not
+  ported. The builder returns `None` for any form it cannot write, so those
+  two get a legal `NXS(6)=0` table instead of a partial, malformed one.
+
+  What IS implemented and verified: MF=12 `LO=1` yields (MFTYPE 12), MF=13
+  cross sections (MFTYPE 13), discrete lines (`LF=2` → ACE **Law 2**) and
+  continuum spectra (`LF=1` → ACE **Law 4** via MF=15, reusing the MF=5 parser
+  since the two files share a structure). MF=14 is checked for `LI=0`
+  (anisotropic) and refused; every uranium evaluation here is `LI=1`.
+
+  **Remaining: the MF=12 `LO=2` cascade expansion.** That is now the whole
+  gap, where this morning it was the whole feature.
+
+  ~~**Scoped 2026-09-20 and deliberately not started**, because a half-written
+  photon block is worse than none.~~ The reasoning stands and is why the
+  refusal path exists: `NXS(6) = 0` is a *legal* ACE table meaning
   "carries no photon production"; a partial one is a malformed table that a
   reader cannot recover from. What it would actually take:
 

@@ -218,7 +218,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None, None, false)
+        Self::build(result, kt_mev, suffix, None, &[], None, None, false, None)
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -234,7 +234,7 @@ impl AceTable {
         suffix: u32,
         angular: &ElasticAngular,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, Some(angular), &[], None, None, false)
+        Self::build(result, kt_mev, suffix, Some(angular), &[], None, None, false, None)
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -260,8 +260,11 @@ impl AceTable {
         heating: Option<&crate::heatr::Kerma>,
         nu: Option<&[f64]>,
         mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, angular, emissions, heating, nu, mt19)
+        Self::build(
+            result, kt_mev, suffix, angular, emissions, heating, nu, mt19, photons,
+        )
     }
 
     /// Shared assembly for the `from_reconr*` constructors.
@@ -274,6 +277,7 @@ impl AceTable {
         heating: Option<&crate::heatr::Kerma>,
         nu: Option<&[f64]>,
         mt19: bool,
+        photons: Option<&[super::photon_blocks::PhotonEntry]>,
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -503,6 +507,25 @@ impl AceTable {
             jxs[jxs::DLW] = dlw;
         }
 
+        // Photon production. Absent is the normal case and a legal table; the
+        // builder returns None rather than a partial block for a form it
+        // cannot write (see `photon_blocks::build`).
+        let mut ntrp = 0i32;
+        if let Some(entries) = photons {
+            if !entries.is_empty() {
+                let (mtrp, lsigp, sigp, landp, andp, ldlwp, dlwp) =
+                    append_photon_blocks(&mut b, entries, &egrid);
+                jxs[jxs::MTRP] = mtrp;
+                jxs[jxs::LSIGP] = lsigp;
+                jxs[jxs::SIGP] = sigp;
+                jxs[jxs::LANDP] = landp;
+                jxs[jxs::ANDP] = andp;
+                jxs[jxs::LDLWP] = ldlwp;
+                jxs[jxs::DLWP] = dlwp;
+                ntrp = entries.len() as i32;
+            }
+        }
+
         let (xss, is_int) = b.finish();
         jxs[jxs::END] = xss.len() as i32;
 
@@ -513,7 +536,8 @@ impl AceTable {
         nxs_arr[nxs::NES] = nes as i32;
         nxs_arr[nxs::NTR] = ntr as i32;
         nxs_arr[nxs::NR] = nr as i32;
-        nxs_arr[nxs::NTRP] = 0;
+        // NTRP was hard-zeroed here while photon production was unwritten.
+        nxs_arr[nxs::NTRP] = ntrp;
         nxs_arr[nxs::S] = 0;
         nxs_arr[nxs::Z] = za / 1000;
         nxs_arr[nxs::A] = za % 1000;
@@ -737,6 +761,143 @@ fn append_dlw(b: &mut XssBuilder, producers: &[&Emission], e_lo: f64, e_hi: f64)
     }
 
     (ldlw, dlw)
+}
+
+/// Append the seven **photon-production** blocks, returning the 1-based
+/// locators for `JXS(13..19)` in order `(MTRP, LSIGP, SIGP, LANDP, ANDP,
+/// LDLWP, DLWP)`.
+///
+/// Mirrors [`append_dlw`] for the photon side (`acelpp`, `acefc.f90`
+/// 8214-9014). `ANDP` is returned equal to `LDLWP` when every photon is
+/// isotropic — which is what NJOY writes, and what makes an all-zero `LANDP`
+/// unambiguous.
+fn append_photon_blocks(
+    b: &mut XssBuilder,
+    entries: &[super::photon_blocks::PhotonEntry],
+    egrid: &[f64],
+) -> (i32, i32, i32, i32, i32, i32, i32) {
+    use super::photon_blocks::SigP;
+    let n = entries.len();
+
+    // MTRP.
+    let mtrp = b.next_locator();
+    for e in entries {
+        b.int(e.mtrp);
+    }
+
+    // LSIGP: SIGP-relative 1-based offsets, so size each SIGP entry first.
+    // MFTYPE=13 entries are tabulated on the ACE grid HERE, because this is
+    // where that grid exists. Each runs from the first grid point at or above
+    // the section's own first energy to the last at or below its last -- NOT
+    // to the end of the grid, which is what NJOY writes (U-234's MT=3
+    // subsections stop early).
+    let xs_window = |interp: &[(u32, u32)], pairs: &[(f64, f64)]| -> (i32, Vec<f64>) {
+        let (e_first, e_last) = match (pairs.first(), pairs.last()) {
+            (Some(&(a, _)), Some(&(b, _))) => (a, b),
+            _ => return (1, Vec::new()),
+        };
+        let ie = egrid.iter().position(|&e| e >= e_first).unwrap_or(0);
+        let last = egrid
+            .iter()
+            .rposition(|&e| e <= e_last)
+            .unwrap_or(egrid.len().saturating_sub(1));
+        if last < ie {
+            return (1, Vec::new());
+        }
+        let sig = egrid[ie..=last]
+            .iter()
+            .map(|&e| crate::endf::interp::eval_tab1(e, interp, pairs).unwrap_or(0.0))
+            .collect();
+        (ie as i32 + 1, sig)
+    };
+
+    let sigp_len = |e: &super::photon_blocks::PhotonEntry| -> i32 {
+        match &e.sigp {
+            // [12, MTMULT, NR=0, NE, E(NE), y(NE)]
+            SigP::Yield { e_mev, .. } => 4 + 2 * e_mev.len() as i32,
+            // [13, IE, NE, sigma(NE)]
+            SigP::Xs { interp, pairs } => 3 + xs_window(interp, pairs).1.len() as i32,
+        }
+    };
+    let mut sig_off = Vec::with_capacity(n);
+    let mut off = 1i32;
+    for e in entries {
+        sig_off.push(off);
+        off += sigp_len(e);
+    }
+    let lsigp = b.next_locator();
+    for &o in &sig_off {
+        b.int(o);
+    }
+
+    // SIGP.
+    let sigp = b.next_locator();
+    for e in entries {
+        match &e.sigp {
+            SigP::Yield { mtmult, e_mev, y } => {
+                b.int(12);
+                b.int(*mtmult);
+                b.int(0); // NR — single lin-lin range
+                b.int(e_mev.len() as i32);
+                for &v in e_mev {
+                    b.real(v);
+                }
+                for &v in y {
+                    b.real(v);
+                }
+            }
+            SigP::Xs { interp, pairs } => {
+                let (ie, sig) = xs_window(interp, pairs);
+                b.int(13);
+                b.int(ie);
+                b.int(sig.len() as i32);
+                for &v in &sig {
+                    b.real(v);
+                }
+            }
+        }
+    }
+
+    // LANDP: 0 ⇒ isotropic. Every photon this port writes is isotropic, which
+    // `photon_blocks::build` guarantees by refusing MF=14 with LI=0 outright.
+    let landp = b.next_locator();
+    for _ in entries {
+        b.int(0);
+    }
+
+    // LDLWP / DLWP, laid out exactly as the neutron LDLW/DLW.
+    const HEADER: i32 = 9;
+    let mut header_off = Vec::with_capacity(n);
+    let mut off = 1i32;
+    for e in entries {
+        header_off.push(off);
+        off += HEADER + e.law.data_len();
+    }
+    let ldlwp = b.next_locator();
+    for &o in &header_off {
+        b.int(o);
+    }
+    // ANDP carries nothing, so it starts where DLWP does — the same
+    // convention NJOY writes.
+    let andp = ldlwp;
+    let dlwp = b.next_locator();
+    for (i, e) in entries.iter().enumerate() {
+        let idat_rel = header_off[i] + HEADER;
+        b.int(0); // LNW
+        b.int(e.law.law_number());
+        b.int(idat_rel);
+        b.int(0); // NR
+        b.int(2); // NE
+        b.real(e.e_lo_mev);
+        b.real(e.e_hi_mev);
+        b.real(1.0);
+        b.real(1.0);
+        for (v, is_int) in e.law.serialize(idat_rel) {
+            b.word(v, is_int);
+        }
+    }
+
+    (mtrp, lsigp, sigp, landp, andp, ldlwp, dlwp)
 }
 
 #[cfg(test)]

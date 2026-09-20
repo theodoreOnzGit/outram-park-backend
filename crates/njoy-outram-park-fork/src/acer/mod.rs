@@ -61,6 +61,7 @@ pub mod angular;
 pub mod build;
 pub mod energy;
 pub mod nu;
+pub mod photon_blocks;
 
 /// True when the evaluation supplies **MF=4/5/6 secondary distributions for
 /// MT=19** (first-chance fission) — upstream's `mt19` flag, set from the tape
@@ -233,6 +234,27 @@ pub mod jxs {
     /// JXS(11): location of the DLW block (energy distributions; deferred; `0`).
     pub const DLW: usize = 10;
     /// JXS(22): location of the last word of the table (`END` = XSS length).
+    /// JXS(13): location of the photon-production MT list (`MTRP`).
+    ///
+    /// `0` when the table carries no photon production — a legal ACE table,
+    /// not a malformed one.
+    pub const MTRP: usize = 12;
+    /// JXS(14): locators into [`SIGP`], one per photon-production entry.
+    pub const LSIGP: usize = 13;
+    /// JXS(15): photon-production yields (MFTYPE=12) or cross sections
+    /// (MFTYPE=13).
+    pub const SIGP: usize = 14;
+    /// JXS(16): locators into [`ANDP`]; `0` means isotropic.
+    pub const LANDP: usize = 15;
+    /// JXS(17): photon angular distributions. Empty when every photon is
+    /// isotropic, in which case it equals [`LDLWP`].
+    pub const ANDP: usize = 16;
+    /// JXS(18): locators into [`DLWP`], one per photon-production entry.
+    pub const LDLWP: usize = 17;
+    /// JXS(19): photon energy distributions (ACE Law 2 discrete lines or
+    /// Law 4 continua).
+    pub const DLWP: usize = 18;
+
     pub const END: usize = 21;
 }
 

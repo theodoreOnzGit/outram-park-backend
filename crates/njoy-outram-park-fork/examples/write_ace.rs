@@ -81,6 +81,7 @@ fn main() {
         Some(&kerma),
         nu_block.as_deref(),
         njoy_outram_park_fork::acer::has_mt19_distributions(&tape, MAT),
+        njoy_outram_park_fork::acer::photon_blocks::build(&tape, MAT).as_deref(),
     );
 
     println!("ZAID          : {}", ace.zaid.trim());
