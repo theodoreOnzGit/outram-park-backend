@@ -1259,6 +1259,24 @@ pub(crate) fn transport_history(
                 let material = &materials[m];
 
                 // Analog reaction partition (mirrors keff.rs transport_history).
+                //
+                // THE COLLISION MATERIAL'S OWN TEMPERATURE, not the run-wide
+                // `settings.temperature_k`.
+                //
+                // `Material::macro_xs` already evaluates at `self.temperature`,
+                // so the flight distance and the tally scores respect per-material
+                // temperature. Partitioning the collision at a global temperature
+                // instead left the two inconsistent: a neutron would fly according
+                // to one temperature and then have its collision split into
+                // fission / capture / scatter according to another. Invisible
+                // while every material sits at one temperature, and wrong the
+                // moment they differ -- which is exactly what a fuel / moderator /
+                // reflector temperature-coefficient map needs them to do.
+                //
+                // Same family as the `col_material` fix below and `bn:op-ra9f`
+                // above: a per-material quantity read from the wrong source at
+                // the collision site.
+                let mat_temp = material.temperature;
                 let ci = material.sample_nuclide(e, seed, nuclides);
                 let nuc = &nuclides[material.components[ci].nuclide_idx];
                 let x = if nuc.needs_urr_draw(e) {
@@ -1267,9 +1285,9 @@ pub(crate) fn transport_history(
                     // bit-identical to one from before they existed -- an
                     // unconditional draw would shift every RNG stream in the crate
                     // for no physical reason.
-                    nuc.xs_at_energy_urr(e, temp, prn(seed))
+                    nuc.xs_at_energy_urr(e, mat_temp, prn(seed))
                 } else {
-                    nuc.xs_at_energy(e, temp)
+                    nuc.xs_at_energy(e, mat_temp)
                 };
                 let xi = prn(seed) * x.total;
                 if xi < x.fission {

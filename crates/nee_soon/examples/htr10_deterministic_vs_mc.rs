@@ -133,7 +133,7 @@ use std::sync::Arc;
 use nee_soon::genfoam_xs::to_nuclear_data_input;
 use nee_soon::htr10_rmc::core_model::{
     HTR10_AXIAL_REFLECTOR_CM,
-    assemble, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION,
+    assemble_explicit_triso, mat, HTR10_BORED_BORON, HTR10_BORED_CARBON, PAPER_FILLING_FRACTION,
 };
 use nee_soon::htr10_rmc::reflector::zone_composition;
 use nee_soon::mgxs::{condense, matrix_tally, scalar_tally, GroupStructure, MgxsLibrary};
@@ -296,7 +296,20 @@ fn main() {
     // and not under delta tracking, the delta path is scoring virtual
     // collisions as real ones. That is the leading candidate for `op-ra9f`.
     let surface_only = std::env::var("OUTRAM_HTR10_SURFACE").is_ok();
-    let core = assemble(rings, layers, if surface_only { usize::MAX } else { 0 });
+    // `assemble_explicit_triso`, NOT `assemble`.
+    //
+    // `assemble` homogenises the bed and carries only four materials -- FUEL,
+    // GRAPHITE, HELIUM, REFLECTOR. It has no boronated carbon bricks, no bored
+    // control-rod band and no cold-helium annulus. Building a five-zone radial
+    // deterministic model on top of it gave three zones with EXACTLY zero flux,
+    // because those materials are not in that geometry at all: a deterministic
+    // model of a richer reactor than the Monte Carlo it is compared against.
+    //
+    // `assemble_explicit_triso` carries all eleven materials and the real
+    // radial layering, and is the geometry the RMC comparison uses. It is more
+    // expensive -- an explicit TRISO lattice per pebble -- which is the price
+    // of comparing like with like.
+    let core = assemble_explicit_triso(rings, layers, if surface_only { usize::MAX } else { 0 });
     if surface_only {
         println!("  TRACKING: surface-only (delta tracking disabled) -- op-ra9f discriminator");
     }
@@ -1110,6 +1123,26 @@ fn main() {
                     }
                     .rebalanced();
 
+                    // Which zones actually have flux in which groups? A zone
+                    // the Monte Carlo barely visited has empty groups, whose
+                    // zero cross sections make the diffusion equation singular
+                    // and make the bridge refuse the whole library. Printing
+                    // this BEFORE the solve turns "refused" into a diagnosis.
+                    for z in &radial.zones {
+                        let empty: Vec<usize> = (0..z.flux.len())
+                            .filter(|&g| z.flux[g] <= 0.0)
+                            .collect();
+                        let total: f64 = z.flux.iter().sum();
+                        if empty.is_empty() {
+                            println!("  zone {:<22} all groups populated, flux sum {total:.4e}", z.name);
+                        } else {
+                            println!(
+                                "  zone {:<22} EMPTY groups {empty:?}, flux sum {total:.4e}",
+                                z.name
+                            );
+                        }
+                    }
+
                     // 1 cm cells out to the 190 cm vacuum boundary.
                     const NR: usize = 190;
                     let zone_r: Vec<usize> = (0..NR)
@@ -1157,12 +1190,23 @@ fn main() {
                         ("no axial leakage ", radial.clone()),
                         ("axial B_z^2      ", radial.with_buckling(b2_z)),
                     ] {
-                        let Some(xs_r) = to_nuclear_data_input(&lib.in_descending_energy())
-                            .ok()
-                            .and_then(|i| CrossSectionData::from_input(&i).ok())
-                        else {
-                            println!("  {label} bridge refused the library");
-                            continue;
+                        // Report WHY, never just "unavailable". A swallowed
+                        // error here cost a whole run: all four arms printed
+                        // "solve unavailable" with no reason, which is a
+                        // diagnostic that tells the reader nothing.
+                        let input_r = match to_nuclear_data_input(&lib.in_descending_energy()) {
+                            Ok(i) => i,
+                            Err(e) => {
+                                println!("  {label} bridge refused the library: {e}");
+                                continue;
+                            }
+                        };
+                        let xs_r = match CrossSectionData::from_input(&input_r) {
+                            Ok(x) => x,
+                            Err(e) => {
+                                println!("  {label} GeN-Foam rejected the input: {e}");
+                                continue;
+                            }
                         };
                         let mesh_r = Arc::new(
                             create_one_d_mesh(
@@ -1172,42 +1216,30 @@ fn main() {
                             )
                             .expect("radial mesh"),
                         );
-                        for (solver, k) in [
-                            (
-                                "diffusion",
-                                DiffusionNeutronics::new(
-                                    mesh_r.clone(),
-                                    &xs_r,
-                                    &zone_r,
-                                    &[],
-                                    &bc_r,
-                                    DiffusionSettings::default(),
-                                )
-                                .ok()
-                                .and_then(|mut m| m.solve_eigenvalue().ok().map(|r| r.k_eff)),
-                            ),
-                            (
-                                "SP3      ",
-                                Sp3Neutronics::with_cross_sections(
-                                    mesh_r.clone(),
-                                    &xs_r,
-                                    &zone_r,
-                                    &[],
-                                    &bc_r,
-                                    Sp3Settings::default(),
-                                )
-                                .ok()
-                                .and_then(|mut m| m.solve_eigenvalue().ok().map(|r| r.k_eff)),
-                            ),
-                        ] {
-                            match k {
-                                Some(k) => println!(
-                                    "  {solver} {label} k_eff = {k:.6}   ({:+.0} pcm vs MC k_eff {:.6})",
-                                    (k - mc.k_mean) * 1.0e5,
-                                    mc.k_mean
+                        match DiffusionNeutronics::new(
+                            mesh_r.clone(), &xs_r, &zone_r, &[], &bc_r,
+                            DiffusionSettings::default(),
+                        ) {
+                            Ok(mut m) => match m.solve_eigenvalue() {
+                                Ok(r) => println!(
+                                    "  diffusion {label} k_eff = {:.6}   ({:+.0} pcm vs MC k_eff {:.6})",
+                                    r.k_eff, (r.k_eff - mc.k_mean) * 1.0e5, mc.k_mean
                                 ),
-                                None => println!("  {solver} {label} solve unavailable"),
-                            }
+                                Err(e) => println!("  diffusion {label} solve failed: {e}"),
+                            },
+                            Err(e) => println!("  diffusion {label} build failed: {e}"),
+                        }
+                        match Sp3Neutronics::with_cross_sections(
+                            mesh_r.clone(), &xs_r, &zone_r, &[], &bc_r, Sp3Settings::default(),
+                        ) {
+                            Ok(mut m) => match m.solve_eigenvalue() {
+                                Ok(r) => println!(
+                                    "  SP3       {label} k_eff = {:.6}   ({:+.0} pcm vs MC k_eff {:.6})",
+                                    r.k_eff, (r.k_eff - mc.k_mean) * 1.0e5, mc.k_mean
+                                ),
+                                Err(e) => println!("  SP3       {label} solve failed: {e}"),
+                            },
+                            Err(e) => println!("  SP3       {label} build failed: {e}"),
                         }
                     }
                     println!("  Both arms use the REBALANCED condensation (op-q6yy).");

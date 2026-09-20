@@ -197,6 +197,77 @@ between the landmarks, every one required to stay at the warning stage.
 
 ---
 
+## 2026-09-20 — A pebble bed is a POROUS MEDIUM, not an explicit lattice
+
+### What the AI did
+
+Building the HTR-10 deterministic-vs-Monte-Carlo comparison, the assistant
+switched the model from `assemble()` (homogenised bed) to
+`assemble_explicit_triso()` (every pebble carrying an explicit 8340-particle
+TRISO lattice), on the reasoning that the explicit geometry was "the real
+model" and the homogenised one a cheap approximation to be escaped.
+
+It then discovered that a single Monte Carlo point cost **over an hour without
+finishing pass 1 of 2** at only 3000 histories — 22876 tiles each carrying a
+TRISO lattice — and reported this to the maintainer as a hard constraint on
+whether a parameter map was feasible at all, proposing to work around it.
+
+### The correction
+
+> *"Pebble beds are porous media! ... We use porous media heat transfer."*
+
+The cost crisis was self-inflicted. A pebble bed **is** a porous medium, and the
+porous-media treatment is the *appropriate physical model*, not a compromise
+made for speed. The explicit lattice is the special-purpose instrument — useful
+for verifying a self-shielding treatment at a few anchor points — and it is not
+the thing a core model should be built on.
+
+Three consequences the assistant had not drawn:
+
+1. **This workspace already treats the bed as porous media**, on the thermal
+   side, and has for some time: `crates/tampines/src/pebble_bed/`, with
+   `src/htr10/kta.rs` and `src/htr10/zbs.rs` for packed-bed friction and
+   effective conductivity. The neutronics should be consistent with the
+   thermal-hydraulics, not modelled on a different footing.
+2. **The double heterogeneity has its own machinery here** — chord length
+   sampling (`stochastic/cls.rs`, CLS/SCLS) and `dh_universe.rs` exist precisely
+   so a homogenised medium keeps TRISO self-shielding without explicit geometry.
+   The assistant had worked on that code earlier in the same session and did not
+   connect it.
+3. **The goal's three temperatures are the porous medium's PHASE temperatures.**
+   "Fuel temperature, graphite temperature, moderator temperature" are not three
+   arbitrary knobs — they are the solid-fuel, solid-moderator and fluid phases a
+   porous-media heat-transfer model already carries separately. Reading them as
+   arbitrary inputs is what made the temperature axes look like a modelling
+   question rather than a coupling question.
+
+### Why the AI process missed it
+
+The reasoning was "explicit geometry is higher fidelity, therefore more
+correct", applied without asking what the *governing model* for a pebble bed
+actually is. Fidelity was treated as a scalar to be maximised rather than a
+choice of formulation to be justified.
+
+It is also the search-before-building rule failing one level up: the assistant
+searched for *code* that solved its stated problem, and did not search for how
+this workspace already *models the thing* — the porous-media treatment was
+sitting in a sibling crate and in the CLS machinery it had itself been editing
+hours earlier.
+
+The tell was present and misread: an hour-long single point should have
+prompted "is this the right model?" rather than "how do I afford this model?".
+Cost blowing up by an order of magnitude is evidence about the formulation, not
+merely a budget problem.
+
+### Test that would have caught it
+
+None would. No test can catch reaching for the wrong formulation, because every
+test is written against the formulation chosen. What would have caught it is
+stating the governing model and its justification before building — recurring
+failure mode 1 below, which this entry is a fresh instance of.
+
+---
+
 ## Recurring failure modes
 
 Patterns visible across entries, worth checking against before trusting AI work
@@ -218,3 +289,17 @@ in this workspace:
 5. **Plausible-looking output resists scrutiny.** Polished artwork, confident
    prose and precise-looking numbers all reduce the chance anyone checks the
    claim underneath.
+6. **Fidelity treated as a scalar to maximise.** Reaching for the most explicit
+   representation available, rather than the formulation the physics of the
+   system calls for. Explicit geometry is not automatically "more correct" —
+   a pebble bed is a porous medium, a homogenised medium with a
+   double-heterogeneity treatment is its proper model, and the explicit lattice
+   is a verification instrument. *Check: can you name the governing model for
+   this system and say why it is the right one, before choosing a
+   discretisation? And does the rest of the workspace already model this system
+   that way?*
+7. **Cost blow-up read as a budget problem.** When a chosen approach becomes an
+   order of magnitude more expensive than expected, that is evidence about the
+   formulation, not just an obstacle to route around. *Check: before optimising
+   or working around the cost, ask whether the expensive thing is the right
+   thing.*
