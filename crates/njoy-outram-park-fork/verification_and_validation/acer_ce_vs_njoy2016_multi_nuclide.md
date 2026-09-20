@@ -242,8 +242,13 @@ and diverge from the third on. This port uses the power. **No tape in
 
 ## What is NOT covered
 
-- **Doppler broadening** — see above. Zero verified points. The single largest
-  gap in this file.
+- ~~**Doppler broadening** — see above. Zero verified points. The single largest
+  gap in this file.~~ **CORRECTED 2026-09-20, same day** — superseded by the
+  section above before this file was first committed. Doppler broadening **is**
+  verified, on all three nuclides, at 3-8e-4 on the shared points *below*
+  `thnmax`, and gated by `tests/acer_broadening_vs_njoy2016.rs`. The struck
+  sentence is kept because it is what motivated building the band-integral
+  instrument that produced the result.
 - **Photon production.** `NXS(6)` ours 0 against NJOY's 583 (U-235), 358
   (U-238), 6 (U-234). Neutron transport does not need it.
 
@@ -301,7 +306,15 @@ and diverge from the third on. This port uses the power. **No tape in
   | the eight blocks + their locator arithmetic | **absent** |
   | MTRP's `MT·1000 + line` numbering (how U-235 reaches 583 entries) | **absent** |
 
-  So this is a larger increment than everything else closed on this date put
+  **The table above is the COST ESTIMATE as it stood before the work, kept as
+  the record of what was actually built. Every "absent"/"not parsed" row in it
+  is now done** — `acer/photon_blocks.rs` parses MF=12 LO=1 and LO=2, MF=13 and
+  MF=6 ZAP=0; `acer::jxs` carries MTRP/LSIGP/SIGP/LANDP/ANDP/LDLWP/DLWP;
+  `append_photon_blocks` writes all seven with their locator arithmetic; and the
+  `MT*1000 + k` numbering is gated in order against a committed oracle. Read it
+  as history, not as current state.
+
+  So this was a larger increment than everything else closed on this date put
   together, and it is the one gap where no partial result can be verified: an
   ACE reader either gets a self-consistent photon block or it gets a broken
   table. It is listed here with its parts so the next session can cost it,
