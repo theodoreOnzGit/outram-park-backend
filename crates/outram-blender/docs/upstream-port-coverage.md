@@ -12,8 +12,8 @@ tree, not by guessing.
 - **Upstream licence:** GPL-2.0-or-later, GPLv3-compatible. See
   `upstream_source/README.md` for the verification and `NOTICE` for the
   lineage.
-- **This crate:** 84 modules, ~44k lines, 512 unit tests + 21 doctests at
-  the time of writing.
+- **This crate:** 84 modules, ~44k lines, 514 unit tests + 21 doctests at
+  the time of writing, plus 8 headless studio tests in `dhoby-ghaut`.
 
 > **Status is about *presence and provenance*, not correctness.** Nothing in
 > this table is human-reviewed V&V. Per the workspace `RESPONSIBLE_USE.md`,
@@ -57,7 +57,7 @@ tree, not by guessing.
 | `bmo_join_triangles.cc` | 1150 | `poke_quads::tris_to_quads` | REIMPLEMENTED |
 | `bmo_mesh_convert.cc` | 60 | `mesh`, `export` | REIMPLEMENTED |
 | `bmo_mirror.cc` | 110 | `symmetry`, `modifiers` | REIMPLEMENTED |
-| `bmo_normals.cc` | 303 | `normals`, `recalc_normals` | REIMPLEMENTED |
+| `bmo_normals.cc` | 303 | `normals`, `recalc_normals` | REIMPLEMENTED — outward criterion now ported from `recalc_face_normals_find_index`, with one deliberate divergence (see findings) |
 | `bmo_offset_edgeloops.cc` | 278 | — | **MISSING** |
 | `bmo_planar_faces.cc` | 134 | `planar_faces` | **PORTED** |
 | `bmo_poke.cc` | 135 | `poke_quads::poke_faces` | REIMPLEMENTED — all three centre modes + relative offset, verified against upstream's defaults |
@@ -176,6 +176,8 @@ down.
 | That operator's `eps = 1e-5` is an **absolute** floor in model units, so a mesh in metres cannot be flattened below ~1e-5 m while the same shape in millimetres flattens a thousand times finer. | `planar_faces` |
 | The crate's own one-shot limited dissolve **did not conserve area** (+23.7 % on a 48x32 sphere at 5°) and **silently no-opped** past 15°, because it costed every edge once instead of re-costing after each merge. Now delegates to the port. | `limited_dissolve` |
 | Two faces being dissolved commonly share **more than one** edge, so splicing across a single named edge is not enough — it stalls a 3x3 grid at 4 faces. Upstream's `BM_faces_join` cancels the whole shared set; the port does boundary cancellation. | `limited_dissolve::join_faces` |
+| `recalculate_normals` decided "outward" by signed volume about the coordinate **origin** — translation-invariant only for closed surfaces. An open bowl at z = -20 came out inverted while the identical bowl at z = 0, 2, 5 or 20 came out correct. | `recalc_normals` |
+| **A bug in upstream.** `recalc_face_normals_find_index` computes its area-weighted centroid as `sum(f_cent * area) / (N * total_area)` — the `cent_fac = 1/N` is applied to the accumulator but never to the divisor — so its centre is the true centroid divided by the face count. Verified: a cube of side 2 at (10,0,0) gives (1.667, 0, 0) instead of (10, 0, 0). Invisible in Blender, where meshes sit near their object origin; not invisible here. The port drops the `1/N` and says so. Worth reporting upstream — a maintainer's call. | `recalc_normals` |
 | Poke was using upstream's `BMOP_POKE_MEDIAN` while Blender's tool defaults to `MEDIAN_WEIGHTED` — measured 2.415 units apart on a 10-unit face, a quarter of the face. The default now matches, and the other two modes plus `use_relative_offset` were added. | `poke_quads` |
 | Concave splitting reaches the optimum (2 pieces) on a single-notch L but only 10-from-14 on a three-notch comb: re-entrant notches force convex boundaries the greedy re-merge cannot cross. "Splits into convex pieces" is not "splits into few convex pieces". | `connect_concave` |
 
