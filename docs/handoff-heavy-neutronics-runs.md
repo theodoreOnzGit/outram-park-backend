@@ -420,6 +420,18 @@ is the check; it must stay at 10 passed.
 - Long runs: the workspace `CLAUDE.md` warns that a killed long run is **not a
   failing test**. Do not report a timeout as a failure, and never loosen a
   tolerance because a run was inconvenient.
+- **`nohup <job> &` from an agent tool call does NOT survive the turn** in the
+  Claude Code remote container, and this bites exactly the jobs in this file.
+  Observed 2026-09-20: job 1 at 400 seeds was launched with `nohup … &`,
+  printed its nuclear-data line, and was **gone 16 minutes later** with the log
+  truncated immediately after the arm header. It was **not** an OOM — 15.4 GB
+  of 16 GB free, nothing in `dmesg` — so the inference (not directly observed)
+  is that the process group is reaped when the tool call's shell is torn down.
+  `nohup` blocks `SIGHUP`, not a process-group kill. Use the harness's own
+  background mechanism (Bash `run_in_background: true`), which is managed
+  across turns, and **confirm the process is still alive on the next turn**
+  rather than assuming it is. A 2-hour run that dies silently at minute 2 looks
+  identical to one that is still going.
 
 ## What to send back
 
