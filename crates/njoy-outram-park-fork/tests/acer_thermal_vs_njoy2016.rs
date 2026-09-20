@@ -95,13 +95,27 @@ fn oracle() -> Option<Oracle> {
 
 #[test]
 fn al27_thermal_table_matches_njoy2016() {
+    // A skip must HONOUR the require flag, or this test joins the 19 that were
+    // found on 2026-09-11 "passing in 0.00 s having asserted nothing". Proven
+    // necessary the same day this test was written: without these two asserts it
+    // reported `ok` in 0.00 s under OUTRAM_PARK_REQUIRE_REFERENCE_DATA=1, while
+    // gaminr_vs_njoy2016 beside it correctly failed.
     let Some(oracle) = oracle() else {
-        eprintln!("skipping: reference-data/acer oracle not present");
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "[al27-thermal] reference-data/acer/al27_20k_thermal_njoy2016.csv absent              and OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set"
+        );
+        println!("[al27-thermal] SKIP — oracle CSV not present");
         return;
     };
-    let Some(tsl) = njoy_outram_park_fork::reference_data::reference_endf("tsl-013_Al_027-ENDF8.0.endf")
+    let Some(tsl) =
+        njoy_outram_park_fork::reference_data::reference_endf("tsl-013_Al_027-ENDF8.0.endf")
     else {
-        eprintln!("skipping: tsl-013_Al_027-ENDF8.0.endf not present");
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "[al27-thermal] tsl-013_Al_027-ENDF8.0.endf absent and              OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set"
+        );
+        println!("[al27-thermal] SKIP — tsl tape not present");
         return;
     };
     let tape = Tape::read(File::open(tsl).expect("open tsl")).expect("parse tsl");
