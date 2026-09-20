@@ -526,14 +526,26 @@ comparator gained a `--tol` flag so a tape can be compared with *both* codes at
 a looser reconstruction tolerance — relaxing the input symmetrically, never the
 comparison criterion. Fe-57 was then run down a tolerance ladder:
 
-| RECONR tolerance (both codes) | outcome |
-|---|---|
-| 0.001 | **OOM-killed**, 13.7 GB resident |
-| 0.01 | **OOM-killed** |
-| 0.1 | **OOM-killed** |
+| tape | RECONR tolerance (both codes) | outcome |
+|---|---|---|
+| Fe-57 | 0.001 | **OOM-killed**, 13.72 GB anon-rss |
+| Fe-57 | 0.01 | **OOM-killed** |
+| Fe-57 | 0.1 | **OOM-killed** |
+| Mo-95 | 0.001 | killed at the 2400 s budget, 51 % of memory and climbing |
+| Mo-95 | 0.1 | **OOM-killed**, 13.96 GB anon-rss, 21.36 GB total-vm, 72 min CPU |
 
-A hundredfold relaxation does not save it, while **NJOY2016's own `reconr` on
-the same tape reports `0.0s`**. So this is not "a big problem that needs a
+Kernel records for both, which is what makes this a measurement rather than an
+inference:
+
+```
+Killed process 5794 (ace_vs_njoy2016) total-vm:20443892kB, anon-rss:13857792kB
+Killed process 6339 (ace_vs_njoy2016) total-vm:21358092kB, anon-rss:13962948kB
+```
+
+A hundredfold relaxation does not save Fe-57, and Mo-95 dies at the loosest
+tolerance tried, while **NJOY2016's own `reconr` on the Fe-57 tape reports
+`0.0s`**. Both tapes converge on the same ~13.7-14.0 GB ceiling, which is the
+container's, not the algorithm's — the algorithm has no ceiling. So this is not "a big problem that needs a
 bigger machine" — it is a defect in this port's resolved-resonance
 reconstruction on `LRF=7`, and no amount of container memory would make the
 comparison meaningful.
