@@ -60,6 +60,69 @@ pub mod acesix;
 pub mod angular;
 pub mod build;
 pub mod energy;
+pub mod nu;
+pub mod photon_blocks;
+
+/// True when the evaluation supplies **MF=4/5/6 secondary distributions for
+/// MT=19** (first-chance fission) — upstream's `mt19` flag, set from the tape
+/// dictionary at `acefc.f90:388`.
+///
+/// This decides which fission representation an ACE table stores: with it set,
+/// the partial chances MT=19/20/21/38 are stored and MT=18 is dropped; without
+/// it, MT=18 is stored and the partials are dropped. Exactly one set may be
+/// stored, because MT=18 is their sum.
+///
+/// Measured on ENDF/B-VIII.0, 2026-09-20: true for U-234 (MF=4/MT=19), false
+/// for U-235 and U-238 — matching which reactions NJOY2016 puts in each of
+/// those tables.
+/// Exact integral of a **lin-lin** tabulation over `[a, b]`.
+///
+/// Both ACE tables are lin-lin by construction, so a trapezoid over each
+/// panel — with the end panels clipped to `a` and `b` and the integrand
+/// interpolated there — is not an approximation, it is the integral of the
+/// function the table *defines*.
+///
+/// This is the instrument that makes a broadened-region comparison
+/// possible at all: it depends only on the function each table represents,
+/// not on where either code chose to put its grid points. A shared-point
+/// comparison cannot reach the broadened region, because below `thnmax`
+/// the two adaptive grids essentially never coincide.
+pub fn integrate_linlin(e: &[f64], x: &[f64], a: f64, b: f64) -> f64 {
+    if b <= a || e.len() < 2 {
+        return 0.0;
+    }
+    let at = |i: usize, t: f64| -> f64 {
+        // Linear interpolation inside panel i for energy t.
+        let (e0, e1) = (e[i], e[i + 1]);
+        if e1 <= e0 {
+            return x[i];
+        }
+        x[i] + (x[i + 1] - x[i]) * (t - e0) / (e1 - e0)
+    };
+    let mut acc = 0.0;
+    // First panel whose upper edge exceeds `a`.
+    let mut i = match e.binary_search_by(|v| v.partial_cmp(&a).unwrap()) {
+        Ok(k) => k,
+        Err(k) => k.saturating_sub(1),
+    };
+    while i + 1 < e.len() && e[i + 1] <= a {
+        i += 1;
+    }
+    while i + 1 < e.len() && e[i] < b {
+        let lo = e[i].max(a);
+        let hi = e[i + 1].min(b);
+        if hi > lo {
+            let (xlo, xhi) = (at(i, lo), at(i, hi));
+            acc += 0.5 * (xlo + xhi) * (hi - lo);
+        }
+        i += 1;
+    }
+    acc
+}
+
+pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool {
+    (4..=6).any(|mf| tape.section(mat, mf, 19).is_some())
+}
 /// Thermal scattering **S(α,β)** ACE table writer.
 ///
 /// ~~scaffold only (Phase 4, scheduled after the continuous-energy ACE
@@ -145,7 +208,10 @@ pub mod nxs {
 pub mod jxs {
     /// JXS(1): location of the ESZ block (always `1`).
     pub const ESZ: usize = 0;
-    /// JXS(2): location of the fission ν̄ (NU) block (deferred; `0`).
+    /// JXS(2): location of the fission ν̄ (NU) block.
+    ///
+    /// ~~deferred; `0`~~ **CORRECTED 2026-09-20** — written by [`super::nu`],
+    /// and `0` now means only what it should: the material is not fissile.
     pub const NU: usize = 1;
     /// JXS(3): location of the MTR block (reaction MT numbers).
     pub const MTR: usize = 2;
@@ -168,6 +234,27 @@ pub mod jxs {
     /// JXS(11): location of the DLW block (energy distributions; deferred; `0`).
     pub const DLW: usize = 10;
     /// JXS(22): location of the last word of the table (`END` = XSS length).
+    /// JXS(13): location of the photon-production MT list (`MTRP`).
+    ///
+    /// `0` when the table carries no photon production — a legal ACE table,
+    /// not a malformed one.
+    pub const MTRP: usize = 12;
+    /// JXS(14): locators into [`SIGP`], one per photon-production entry.
+    pub const LSIGP: usize = 13;
+    /// JXS(15): photon-production yields (MFTYPE=12) or cross sections
+    /// (MFTYPE=13).
+    pub const SIGP: usize = 14;
+    /// JXS(16): locators into [`ANDP`]; `0` means isotropic.
+    pub const LANDP: usize = 15;
+    /// JXS(17): photon angular distributions. Empty when every photon is
+    /// isotropic, in which case it equals [`LDLWP`].
+    pub const ANDP: usize = 16;
+    /// JXS(18): locators into [`DLWP`], one per photon-production entry.
+    pub const LDLWP: usize = 17;
+    /// JXS(19): photon energy distributions (ACE Law 2 discrete lines or
+    /// Law 4 continua).
+    pub const DLWP: usize = 18;
+
     pub const END: usize = 21;
 }
 

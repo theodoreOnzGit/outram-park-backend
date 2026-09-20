@@ -478,9 +478,25 @@ MF=3 to 0.08 % from 24 keV up), and adding PURR self-shielding would have
 *raised* k, moving the case further from the reference rather than closer. The
 real defect was one upstream guard we had not ported: NJOY bounds BROADR at
 `thnmax` and never runs SIGMA1 across the resolved/unresolved boundary, while
-this port broadens the whole grid unconditionally (`op-sdbk`). Hours went into
-a first-principles argument and two speculative patches that reading
+~~this port broadens the whole grid unconditionally~~ (`op-sdbk`). Hours went
+into a first-principles argument and two speculative patches that reading
 `broadr.f90` and the ENDF flag would have pre-empted.
+
+**CORRECTED 2026-09-20 — the guard IS ported.** `broadr::broadening_limit`
+implements `thnmax`, citing `broadr.f90:441` and `:522-524`, and
+`doppler_broaden_below` copies everything above it through untouched. The
+lesson above is unchanged and is why this section exists; only the present
+tense was wrong. Verified by reading the function, and visible in
+`examples/ace_vs_njoy2016`, which now prints the limit it derives (U-234
+1.5 keV, U-235 2.25 keV, U-238 20 keV).
+
+**And a second-order consequence of that guard, found the same day:** because
+neither code broadens above `thnmax`, a shared-grid comparison against NJOY at
+293.6 K that does *not* split at the limit measures only the **unbroadened**
+table — on all three uranium nuclides, **zero** shared grid points fall below
+it. This port's Doppler broadening is therefore **not verified against NJOY at
+all**, despite a 293.6 K comparison that reads as ~1e-6 agreement. See
+`crates/njoy-outram-park-fork/verification_and_validation/acer_ce_vs_njoy2016_multi_nuclide.md`.
 
 ## Dogfood KOPITIAM and KOPI-BEANS (HARD RULE)
 
@@ -2172,6 +2188,14 @@ sudo pacman -S openblas
 # Debian / Ubuntu / Mint
 sudo apt install libopenblas-dev
 ```
+
+**This workspace has a submodule as of 2026-09-20** — `reference-data/ace`
+(`theodoreOnzGit/ace_and_other_data`), holding the gzipped NJOY2016 ACE tables
+that are too large to track here directly. Clone with
+`git clone --recurse-submodules`, or run `git submodule update --init
+reference-data/ace` afterwards. A plain clone leaves that path an **empty
+directory rather than an error**, so nothing complains until something looks
+for a table and does not find one.
 
 ```bash
 cargo build --workspace --release                  # all libraries

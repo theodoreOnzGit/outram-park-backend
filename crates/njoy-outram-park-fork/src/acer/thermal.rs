@@ -369,7 +369,14 @@ impl AceTable {
             awr: mf7.awr,
             kt_mev,
             date: "  njoy-rust".to_string(),
-            comment: format!("thermal S(a,b) {name} at {temp_k} K — njoy-outram-park-fork"),
+            // Same provenance stamp as the continuous-energy path; see
+            // `acer::build` for why it lives in the `hk` comment field.
+            comment: format!(
+                "S(a,b) {name} {temp_k}K njoy-op v{} {} {}",
+                env!("CARGO_PKG_VERSION"),
+                env!("NJOY_OP_GIT_SHA"),
+                env!("NJOY_OP_BUILD_DATE"),
+            ),
             mat_id,
             nxs: nxs_arr,
             jxs: jxs_arr,

@@ -8,6 +8,30 @@ itself, plus one code-to-code consistency check against a previously recorded
 run. **Not validation**: no experiment is compared against here, and no human
 V&V has been done. AI-assisted draft.
 
+> **⚠ SUPERSEDED MODEL — added 2026-09-20.** Every number below was taken at
+> `d716ab5`. The model has since moved twice, in ways that change the arms these
+> ablations are differenced against:
+>
+> 1. **URR probability tables and DBRC became default-on** in
+>    `Nuclide::from_endf_file` ("correct physics is the default", 2026-09-20).
+>    At `d716ab5` *neither* was applied, so every BASE / MOVING arm here is a
+>    model missing both terms.
+> 2. **MT=5 was wired** into the reaction inventory.
+>
+> The **prediction verdicts** stated below stand as the record of what was
+> predicted and what was measured at `d716ab5` — that is what a V&V record is
+> for, and it is not rewritten after the fact. The **prices** (the pcm figures)
+> are what may have moved, and none has been re-measured.
+>
+> The harness check at the end is the part most likely to read as a drift
+> alarm and must not: `+1 ± 18 pcm` was checked against a pre-URR/DBRC
+> expectation of `−22 pcm`. Under the new defaults that expectation is unknown,
+> so a BASE arm landing somewhere else is not evidence that anything broke.
+>
+> **Re-run on `HEAD` 2026-09-20 — done, and NOTHING MOVED.** See the section
+> at the end of this file. Every price is reproduced within noise, so the
+> numbers below stand as measured rather than merely as history.
+
 ## Why this record exists
 
 Three `Nuclide` ablation hooks landed on 2026-09-16 —
@@ -190,3 +214,62 @@ the instrument is where it should be and nothing else has drifted.
 - `with_frozen_nubar` is a documented **partial no-op** on the LOW (`Core`)
   tier above the WMP `e_max`, where ν̄ is baked into the group constant. Every
   Godiva case above runs the HIGH (`Pointwise`) tier, where it is complete.
+
+## Re-baseline on current `HEAD` (2026-09-20)
+
+**Why.** Everything above was taken at `d716ab5`. Two things changed since:
+MT=5 was wired, and **URR probability tables and DBRC became default-on**
+("correct physics is the default"). A default that changes the model
+invalidates every V&V number measured against the old one *until it is
+re-measured* — so this is the re-measurement, not a confirmation exercise.
+
+Same protocol throughout: 128 seeds per arm, 5000 histories ×
+[40 inactive + 120 active], 4 cores, ENDF/B-VIII.0.
+
+| quantity | at `d716ab5` | on `HEAD` | shift |
+|---|---|---|---|
+| BASE / MOVING arm | `+1 ± 18` | **`−11 ± 16`** | 0.5 σ |
+| ν̄ frozen at thermal | `−6412 ± 23` | **`−6405 ± 24`** | 0.2 σ |
+| χ frozen at thermal | `−141 ± 24` | **`−139 ± 23`** | 0.06 σ |
+| free-gas target motion (paired) | `+0`, paired sd 5 | **`+1 ± 1`**, paired sd 12 | consistent with zero either way |
+
+**URR and DBRC did not move any of the prices.** That is a real result and not
+a foregone one: both terms change the transport, and the honest prior was that
+an ablation *difference* might well move with them. It did not, so the
+mechanism prices above are properties of the ablations themselves rather than
+of the surrounding model.
+
+Arm runtimes: BASE 1182.2 s, NU-FROZEN 1360.0 s, CHI-FROZEN 1488.2 s, MOVING
+1528.6 s, AT-REST 1381.3 s. The spread is contention from unrelated work on
+the same box, not a change in cost.
+
+### Both prediction verdicts are unchanged
+
+- **ν̄'s slope: HELD.** `−6405 ± 24 pcm`, resolved at 268.6 σ.
+- **χ's incident-energy dependence: FAILED as stated.** `−139 ± 23 pcm` at
+  6.2 σ, against a prediction of "well under 100 pcm". The failure survives the
+  re-baseline, so it is a property of the prediction or the wiring — not an
+  artefact of the pre-URR/DBRC model. The discriminating test named above
+  (freezing at the flux-average incident energy rather than at thermal) is
+  still the thing that would separate those two, and is still open.
+- **Free-gas target motion: HELD.** `+1 ± 1 pcm`, bounded below 3 pcm at 3 σ.
+  The paired figure is now the tighter one (paired sd 12 against either arm's
+  181), where at `d716ab5` it was tighter still (5 against 200).
+
+### A three-program instrument check
+
+The unablated arm is the same model in three independent programs on the same
+`HEAD`, and they agree:
+
+| program | arm | seeds | Δk vs ICSBEP |
+|---|---|---|---|
+| `godiva_continuum_anisotropy_ablation` | ANISO | 400 | `−10 ± 9` |
+| `godiva_fission_source_ablation` | BASE | 128 | `−11 ± 16` |
+| `godiva_target_at_rest_ablation` | MOVING | 128 | `−11 ± 16` |
+
+Agreement to 1 pcm across three separately-written drivers is worth more than
+any one of them: it checks the instrument, not the result. **This replaces the
+harness check the hand-off originally asked for**, which compared the ablated
+arm against a pooled `+16 ± 11 pcm` taken *before* URR/DBRC — a comparison now
+confounded by two model differences at once and therefore not evidence of
+anything. This one is confounded by nothing.

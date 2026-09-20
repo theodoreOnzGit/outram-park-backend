@@ -30,8 +30,9 @@ Jobs 4-7 need a driver because the hooks are new and no example calls them yet.
 The pattern to copy is `examples/godiva_continuum_anisotropy_ablation.rs`,
 which is a paired-seed two-arm harness whose entire ablation is **one line**
 (`.map(Nuclide::with_isotropic_continuum_scattering)` at line 280). Swapping
-that call is the whole change; everything else — seeding, `WORKERS`, the
-pooling and the σ arithmetic — is already right and should not be re-derived.
+that call is the whole change; everything else — seeding, the thread count,
+the pooling and the σ arithmetic — is already right and should not be
+re-derived.
 
 **Do not invent a different harness.** The statistics in that file were got
 wrong twice before they were got right (gh:#196), and the corrections are
@@ -62,17 +63,59 @@ These come from the workspace `CLAUDE.md` and from this study's own history.
 
 ## Job 1 — resolve the continuum angular law's reactivity worth
 
-**Status: bounded at `−38 ± 23 pcm` (1.6σ) over 128 seeds/arm. Not resolved.**
+~~**Status: bounded at `−38 ± 23 pcm` (1.6σ) over 128 seeds/arm. Not resolved.**~~
+
+**DONE 2026-09-20 — and still not resolved, for a reason worth reading.** Run at
+400 seeds/arm: **`−16 ± 13 pcm` (1.2 σ)**, 2.10 h on 4 cores. `σ_diff` came in
+at **exactly the 13 pcm predicted below**, so the sizing arithmetic was right;
+the central value moved `−38 → −16`, so 400 seeds bought a tighter bound rather
+than the ~3 σ measurement they were chosen for. **Sizing a run from an
+unresolved central value assumes the thing being measured.** Resolving `−16` at
+3 σ needs ~2380 seeds/arm, about 12.4 h on 4 cores.
+
+The prediction **held**, now including its tighter "plausibly under 20" clause.
+The ANISO arm doubles as Godiva's current residual under the 2026-09-20
+URR/DBRC defaults: **`−10 ± 9 pcm`**. Full record and the confounded-harness-
+check caveat: `crates/outram-mc-libs/verification_and_validation/continuum_angular/mf6_law1_angular.md`.
 
 ```bash
 OUTRAM_GODIVA_SEEDS=400 cargo run --release -p outram-mc-libs \
     --features endf-pebble-cases --example godiva_continuum_anisotropy_ablation
 ```
 
-Cost: ~4300 CPU-seconds per arm at 128 seeds on 4 cores, so ~3.1× that at 400.
+~~Cost: ~4300 CPU-seconds per arm at 128 seeds on 4 cores, so ~3.1× that at 400.
 Two arms. Budget roughly 7–8 CPU-hours; it parallelises over seeds with
 `WORKERS = 4` hard-coded in the example — **raise that constant to the machine's
-core count** before running, it is the only change needed.
+core count** before running, it is the only change needed.~~
+
+**CORRECTED 2026-09-20.** Two things in that paragraph are no longer true.
+
+*The constant is gone.* Every ablation example now takes its thread count from
+`std::thread::available_parallelism()`, so there is nothing to raise. The
+per-seed vector is thread-count independent (seeds are chunked in order and
+each writes its own slot), so this changes scheduling and nothing else.
+
+*The cost figure moved, but only a little — MEASURED, not guessed.* It was
+taken before URR probability tables and DBRC became the default in
+`Nuclide::from_endf_file` (workspace rule "correct physics is the default",
+2026-09-20). An 8-seed calibration on 4 cores, 2026-09-20, with both now on:
+
+| quantity | measured | the figure above |
+|---|---|---|
+| transport, per seed | **37.6 CPU-s** | — |
+| transport, per arm at 128 seeds (extrapolated) | **~4810 CPU-s** | ~4300 CPU-s |
+| nuclear data, once per run | **112.1 s** | ~145 s |
+
+So URR + DBRC cost roughly **+12 % in transport**, and nuclear-data
+reconstruction is *faster* than the older note claims, not slower. At 400 seeds
+on 4 cores that is **~63 min per arm, ~2.1 h for the pair**.
+
+An earlier revision of this correction predicted "roughly double" for the
+reconstruction and called the transport figure a material under-estimate.
+**Both were wrong**, and are struck here rather than quietly fixed: they were
+written from the `64.0 s -> 140.7 s` construction figure in `CLAUDE.md` without
+running anything. Measure the per-seed cost on the machine you are on before
+sizing a run — that is the point this paragraph now makes by having failed it.
 
 **What it measures.** Ablating the ENDF MF=6 LAW=1 angular law (bead `op-og56`)
 on Godiva, ANISO vs ISO over the same seeds.
@@ -377,14 +420,31 @@ is the check; it must stay at 10 passed.
   are described in place.)
   Override the directory with `OUTRAM_PARK_ENDF_DIR` if they live elsewhere.
 - The `endf-pebble-cases` feature is required for every job here.
-- `WORKERS` is hard-coded at 4 in every ablation example, including any you
+- ~~`WORKERS` is hard-coded at 4 in every ablation example, including any you
   copy for jobs 4-7. **Raise it to the machine's core count** — it is the only
-  change those files need to scale.
-- Nuclear-data reconstruction (RECONR + BROADR on three actinides) costs
-  ~145 s once per run, before any transport. That is not a hang.
+  change those files need to scale.~~ **CORRECTED 2026-09-20** — every ablation
+  example now calls `std::thread::available_parallelism()`; there is no
+  constant left to raise, and a copy of one inherits that.
+- Nuclear-data reconstruction costs **112.1 s** once per run, before any
+  transport. That is not a hang. ~~(RECONR + BROADR on three actinides, ~145 s)~~
+  **CORRECTED 2026-09-20** — the pipeline is now RECONR + BROADR **+ PURR +
+  DBRC**, and the 112.1 s is *measured* on 4 cores with all four on, so it is
+  lower than the ~145 s the note used to quote, not higher.
 - Long runs: the workspace `CLAUDE.md` warns that a killed long run is **not a
   failing test**. Do not report a timeout as a failure, and never loosen a
   tolerance because a run was inconvenient.
+- **`nohup <job> &` from an agent tool call does NOT survive the turn** in the
+  Claude Code remote container, and this bites exactly the jobs in this file.
+  Observed 2026-09-20: job 1 at 400 seeds was launched with `nohup … &`,
+  printed its nuclear-data line, and was **gone 16 minutes later** with the log
+  truncated immediately after the arm header. It was **not** an OOM — 15.4 GB
+  of 16 GB free, nothing in `dmesg` — so the inference (not directly observed)
+  is that the process group is reaped when the tool call's shell is torn down.
+  `nohup` blocks `SIGHUP`, not a process-group kill. Use the harness's own
+  background mechanism (Bash `run_in_background: true`), which is managed
+  across turns, and **confirm the process is still alive on the next turn**
+  rather than assuming it is. A 2-hour run that dies silently at minute 2 looks
+  identical to one that is still going.
 
 ## What to send back
 

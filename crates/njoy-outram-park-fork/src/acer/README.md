@@ -35,7 +35,7 @@ Ported in [`crate::acer`]:
   χ, MF=6 LAW=1 neutron); discrete-level angular wired.
 - **4e heating (ESZ col 5)** ✅ — `H(E)=KERMA/σ_total` from HEATR H1–H5.
 - **4f thermal `…t`** ✅ — inelastic (IFENG=0) + coherent/incoherent elastic.
-- **4b ν̄ (NU block)** ⬜, continuum correlated angle (Law 44/61) ⬜.
+- **4b ν̄ (NU block)** ✅ *(2026-09-20 — bit-identical to NJOY2016, 347/347 values on U-235)*, continuum correlated angle (Law 44/61) ⬜.
 - **Dosimetry / photoatomic / photonuclear classes** ⬜ — `acedo`/`acepa`/`acepn`
   not started.
 
@@ -47,7 +47,7 @@ See `docs/porting-plan.md` §4 for the full V&V trail.
 
 ## Caveats
 
-- Not yet a *complete* CE transport library: fission has no NU block (4b) and
+- Not yet a *complete* CE transport library: ~~fission has no NU block (4b) and~~ **CORRECTED 2026-09-20 — the NU block is written; what remains is**
   MF=6 continuum producers are still emitted isotropic.
 - Photoatomic/photonuclear/dosimetry classes are unported.
 - The `run()` driver returns `NotPorted`; use `crate::acer` / `write_ace`.

@@ -541,26 +541,6 @@ const PIN_SHELLS: &[(i32, &[(f64, i32)], i32)] = &[
 /// Nuclides this environment has an ENDF/B-VIII.0 tape for, by the OpenMC name
 /// the model uses. Anything in the model and not in this table is omitted, and
 /// the omission is reported and bounded (see the module docs).
-/// The tape to load for `name`, honouring `OUTRAM_U238_ENDF7`.
-///
-/// `OUTRAM_U238_ENDF7=1` swaps U-238 ALONE to ENDF/B-VII.0, every other
-/// nuclide held at VIII.0. Resolved here rather than in [`TAPES`] because that
-/// is a `const` and `std::env::var` is not const-callable.
-///
-/// Isolating a single nuclide is the point. The four pooled ICSBEP residuals
-/// split by U-238 content -- Godiva -55, Jemima -253, HST-009 -38, LCT-008
-/// +165 pcm over 32 seeds -- and the two U-238-heavy cases disagree in SIGN.
-/// A whole-library swap cannot tell U-238 apart from U-235; this can.
-///
-/// Looks the name up in whichever tier is active ([`tapes`]), so the
-/// `--cheap-nuclides` subset and the full default share one resolver.
-fn tape_for(name: &str) -> &'static str {
-    if name == "U238" && std::env::var("OUTRAM_U238_ENDF7").is_ok() {
-        return "n-092_U_238-ENDF7.0.endf";
-    }
-    tapes().iter().find(|(n, _)| *n == name).expect("tape").1
-}
-
 /// **The default tape set: every nuclide the OpenMC material cards name.**
 ///
 /// Correct physics is the DEFAULT, not an opt-in (`develop`, 2026-09-20). The
@@ -1010,6 +990,33 @@ fn tapes() -> &'static [(&'static str, &'static str)] {
     } else {
         TAPES
     }
+}
+
+/// The tape to load for `name`: the active tier's entry, unless the U-238
+/// ablation switch overrides it.
+///
+/// `OUTRAM_U238_ENDF7=1` swaps U-238 **alone** to ENDF/B-VII.0, every other
+/// nuclide held at VIII.0. Resolved here rather than in the `TAPES_*` tables
+/// because those are `const` and `std::env::var` is not const-callable, and it
+/// wraps [`tapes()`] rather than either table directly so the ablation composes
+/// with `--cheap-nuclides` instead of silently ignoring the tier.
+///
+/// Isolating a single nuclide is the point. The four pooled ICSBEP residuals
+/// split by U-238 content, and the two U-238-heavy cases disagree in SIGN. A
+/// whole-library swap cannot tell U-238 apart from U-235; this can.
+///
+/// **The residuals that motivated it were measured BEFORE unresolved-resonance
+/// probability tables and DBRC became defaults** (workspace `CLAUDE.md`,
+/// "Correct physics is the DEFAULT SETTING"). They were Godiva −55, Jemima
+/// −253, HST-009 −38, LCT-008 +165 pcm over 32 seeds. Jemima and LCT-008 have
+/// since moved and **a re-measure of all four is owed**; do not quote those two
+/// figures as current. The reasoning above is unaffected — it turns on the
+/// sign split, not the magnitudes.
+fn tape_for(name: &str) -> &'static str {
+    if name == "U238" && std::env::var("OUTRAM_U238_ENDF7").is_ok() {
+        return "n-092_U_238-ENDF7.0.endf";
+    }
+    tapes().iter().find(|(n, _)| *n == name).expect("tape").1
 }
 
 fn load_nuclides(

@@ -190,7 +190,18 @@ mod desktop {
     /// ICSBEP HEU-MET-FAST-001 sphere radius \[cm\].
     const RADIUS_CM: f64 = 8.7407;
     /// Worker threads. Each runs whole seeds; transport inside a seed is serial.
-    const WORKERS: usize = 4;
+    ///
+    /// Taken from the machine, not hard-coded. This example exists to be moved
+    /// to a bigger box, and a constant is one more thing a reader has to
+    /// remember to raise -- the hand-off used to say exactly that. The result
+    /// does not depend on it: seeds are chunked in order and each writes its
+    /// own slot, so a run on 4 threads and a run on 64 produce the same
+    /// per-seed vector, not merely the same mean.
+    fn workers() -> usize {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+    }
 
     /// `(tape file, nuclide name, atom density \[atoms/barn·cm\])` — the three
     /// ICSBEP nuclides, same numbers as `godiva_keff_endf_local`.
@@ -212,7 +223,7 @@ mod desktop {
     /// Run one arm over `seeds`, returning Δk from the benchmark in pcm per seed.
     fn run_arm(nuclides: &Arc<Vec<Nuclide>>, material: &Material, seeds: &[u64]) -> Vec<f64> {
         let mut out = vec![0.0; seeds.len()];
-        let chunk = seeds.len().div_ceil(WORKERS);
+        let chunk = seeds.len().div_ceil(workers().min(seeds.len()).max(1));
         std::thread::scope(|s| {
             for (sd_chunk, out_chunk) in seeds.chunks(chunk).zip(out.chunks_mut(chunk)) {
                 let nuclides = Arc::clone(nuclides);

@@ -417,6 +417,23 @@ pub fn parse_mf6_law1_neutron(section: &Section) -> Result<Mf6Neutron, NjoyError
 /// subsection has an illegal law; [`NjoyError::EndfParse`] on malformed
 /// records.
 pub fn parse_mf6_law1_neutrons(section: &Section) -> Result<Vec<Mf6Neutron>, NjoyError> {
+    parse_mf6_law1_products(section, 1)
+}
+
+/// [`parse_mf6_law1_neutrons`] for any secondary product, selected by `ZAP`.
+///
+/// `ZAP = 1` is the neutron; **`ZAP = 0` is the photon**, which is how several
+/// evaluations give photon production for the continuum reactions instead of
+/// MF=12/13 — U-238's MT=5, 16, 17, 91, 102 and 649 all do. Upstream calls
+/// that "move any MF=6 photon production" (`convr`, `acefc.f90` 3868).
+///
+/// The yield `Tab1` of the selected subsection is returned alongside the
+/// distribution, because the ACE photon blocks need it as an `MFTYPE=16`
+/// yield table.
+pub fn parse_mf6_law1_products(
+    section: &Section,
+    want_zap: i32,
+) -> Result<Vec<Mf6Neutron>, NjoyError> {
     let mut cur = SectionCursor::new(&section.rows);
     let head = cur.read_cont()?; // ZA, AWR, JP, LCT, NK, 0
     let lct = head.l2;
@@ -440,7 +457,7 @@ pub fn parse_mf6_law1_neutrons(section: &Section) -> Result<Vec<Mf6Neutron>, Njo
         let zap = ymult.head.c1.round() as i32;
         let law = ymult.head.l2;
 
-        if zap != 1 {
+        if zap != want_zap {
             if skip_mf6_subsection(&mut cur, law).is_err() {
                 if out.is_empty() {
                     return Err(NjoyError::EndfParse(
