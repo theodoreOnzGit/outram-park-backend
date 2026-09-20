@@ -39,11 +39,25 @@
 //! — a category count alone would not notice the law failing to build. Both gaps
 //! were closed on 2026-09-16 and neither may reopen.
 //!
-//! # Results (2026-09-16, 27 neutron tapes)
+//! # Results
 //!
-//! **42 evaluated, 11 on MF=4/5, 0 MF=6-but-no-law.**
+//! | date | tapes | from MF=6 | from MF=4/5 | MF=6-but-no-law | no law anywhere |
+//! |---|---|---|---|---|---|
+//! | 2026-09-16 | 27 | 42 | 11 | 0 | 0 |
+//! | **2026-09-20** | **57** | **98** | **20** | **0** | **0** |
+//!
+//! The 2026-09-20 row is the same survey over every incident-neutron tape in
+//! `reference-data/endf/`, run alongside the 57-tape ACE parity sweep. The
+//! MF=4/5 population grew by nine sections — C-nat MT=91, Na-23 MT=16/91 and
+//! Mg-24/25/26 MT=16/91 — because those tapes were added after the first run,
+//! not because anything regressed. **Both pass criteria still hold at 57
+//! tapes: zero MF=6-but-no-law, and all 20 MF=4/5 sections build a law.**
 //!
 //! # The MF=4/5 gap, found by this survey
+//!
+//! (The table below was written for the original 11 and is left as it stood;
+//! the nine added in 2026-09-20 are listed in the pin's own comment near the
+//! assertion, with the same MT=16/91 shape.)
 //!
 //! The 11 were first counted as benign — "the evaluation carries no MF=6, so the
 //! stand-in is all there is". That was wrong, and checking rather than assuming
@@ -189,21 +203,17 @@ fn every_mf6_continuum_section_yields_an_evaluated_law() {
         evaluated > 0,
         "no evaluated continuum law was built at all; the survey measured nothing."
     );
-    // The MF=4/5 count is PINNED so a newly added tape in this category shows up
-    // as a test to update rather than as silence.
-    const MF45_SECTIONS: usize = 11;
-    assert_eq!(
-        mf45.len(),
-        MF45_SECTIONS,
-        "the number of MF=4/5 sections changed from {MF45_SECTIONS} to {}. A tape was added or \
-         removed; confirm the new one is served by UncorrelatedEmission and update this \
-         constant. Sections: {mf45:?}",
-        mf45.len()
-    );
-
-    // A count is not enough: every one of them must actually BUILD a law. This
-    // is what would catch `UncorrelatedEmission::from_endf` starting to return
-    // None -- the category would still be 11 and the stand-in would be back.
+    // ORDER MATTERS, and it was wrong until 2026-09-20. The service check below
+    // is the real gate; the inventory pin that follows it is a tripwire. With
+    // the pin first, adding a tape made the pin fire and the gate never ran at
+    // all -- so the run that was supposed to confirm "the new sections are
+    // served" could not, and the only way to clear it was to bump a number on
+    // faith. Gate first, then pin.
+    //
+    // A count is not enough on its own: every one of them must actually BUILD a
+    // law. This is what would catch `UncorrelatedEmission::from_endf` starting
+    // to return None -- the category count would be unchanged and the Weisskopf
+    // stand-in would be quietly back.
     for entry in &mf45 {
         let (name, mt) = entry.split_once(" MT=").expect("survey label format");
         let mt: i32 = mt.parse().expect("MT parses");
@@ -220,6 +230,28 @@ fn every_mf6_continuum_section_yields_an_evaluated_law() {
              on the Weisskopf stand-in over data that is present."
         );
     }
+
+
+    // The MF=4/5 count is PINNED so a newly added tape in this category shows up
+    // as a test to update rather than as silence. Every section counted here has
+    // just been shown to build a law by the loop above, so updating this number
+    // records a confirmed inventory rather than asserting one.
+    //
+    // 2026-09-16: 11, over 27 neutron tapes.
+    // 2026-09-20: 20, over 57 neutron tapes -- C-nat MT=91, Na-23 MT=16/91 and
+    //   Mg-24/25/26 MT=16/91 were added to `reference-data/endf/` after the
+    //   first pin. All nine build a law. Found by the 57-tape ACE parity sweep,
+    //   which independently identified this same MF=4/5 population as the
+    //   dominant cause of this port's NXS(5) undercount against NJOY2016.
+    const MF45_SECTIONS: usize = 20;
+    assert_eq!(
+        mf45.len(),
+        MF45_SECTIONS,
+        "the number of MF=4/5 sections changed from {MF45_SECTIONS} to {}. A tape was added or \
+         removed; the loop above has already confirmed each one builds a law, so update this \
+         constant. Sections: {mf45:?}",
+        mf45.len()
+    );
 
     assert!(
         gaps.is_empty(),

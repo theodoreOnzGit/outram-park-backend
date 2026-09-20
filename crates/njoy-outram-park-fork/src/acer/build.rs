@@ -7,7 +7,12 @@
 //! (KERMA) are out of scope for this increment~~ — **CORRECTED 2026-09-20**:
 //! AND and DLW *are* built here (see `jxs::LAND`/`AND`/`LDLW`/`DLW` below).
 //! **NU also landed 2026-09-20** (`acer::nu`), bit-identical to NJOY2016 on
-//! U-235. Still absent: photon production (`NXS(6)` written as 0).
+//! U-235. ~~Still absent: photon production (`NXS(6)` written as 0).~~
+//! **CORRECTED 2026-09-20** — photon production landed the same day
+//! (`acer::photon_blocks` + `append_photon_blocks` below): MTRP/LSIGP/SIGP/
+//! LANDP/ANDP/LDLWP/DLWP are all written, and `NXS(6)` matches NJOY2016 on
+//! U-234 (6), U-235 (583) and U-238 (358). What is still refused outright is
+//! *anisotropic* photon emission (MF=14 with `LI=0`).
 //! See the [module docs](super).
 //!
 //! ## Reaction bookkeeping (faithful to `acelod`, incident neutron)
@@ -16,7 +21,10 @@
 //!
 //! - **Elastic (MT=2)** — stored in its own ESZ column, never in MTR.
 //! - **Redundant sums** — MT=1 (total), MT=3 (nonelastic), MT=4 (total inelastic,
-//!   *only* when discrete levels MT=51–91 are present), MT=27/101 (absorption
+//!   ~~*only* when discrete levels MT=51–91 are present~~ — **CORRECTED
+//!   2026-09-20**: upstream drops MT=4 unless the evaluation carries MF=12/MT=4
+//!   (`acefc.f90:1713-1731`); the discrete-level test was this port's own
+//!   invention and disagreed with NJOY on U-235 ENDF/B-VII.0), MT=27/101 (absorption
 //!   sums), MT=19/20/21/38 (partial fission, when total fission MT=18 is present),
 //!   and the derived quantities MT≥251. These are dropped: the ACE total is
 //!   rebuilt as `elastic + Σ partials` on the union grid so it is self-consistent.
@@ -128,6 +136,20 @@ fn is_disappearance(mt: i32, present: &[i32]) -> bool {
     (102..=150).contains(&mt) || matches!(mt, 155 | 182 | 191 | 192 | 193 | 197)
 }
 
+/// True when the lumped MT=4 is stored *and* its own discrete levels are too,
+/// so MT=4 must be kept out of the ESZ sums.
+///
+/// This is the same double-count hazard as [`covered_by_lumped`] but in the
+/// other direction: there a *level* is covered by its lumped total, here the
+/// *lumped* MT=4 is covered by the MT=51–91 levels that sum to it. Upstream
+/// never hits it because `acelod` takes the ESZ total straight off MF=3 MT=1
+/// rather than rebuilding it; this port rebuilds, so it needs the guard
+/// explicitly. Getting it wrong is silent — the table still builds, the total
+/// is just inelastic-scattering too big.
+fn covered_by_levels(mt: i32, present: &[i32]) -> bool {
+    mt == 4 && present.iter().any(|&m| (51..=91).contains(&m))
+}
+
 /// True when a stored partial contributes to the rebuilt ESZ **total**.
 ///
 /// Every stored partial contributes except a discrete charged-particle level
@@ -135,13 +157,33 @@ fn is_disappearance(mt: i32, present: &[i32]) -> bool {
 /// and the reason MT=649 and MT=800-849 can appear in MTR without inflating
 /// the total.
 fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
-    !covered_by_lumped(mt, present)
+    !covered_by_lumped(mt, present) && !covered_by_levels(mt, present)
 }
 
 /// Assign a [`Role`] to a reaction, given the set of MT numbers present.
 ///
-/// `has_discrete_inelastic` is whether any of MT=51–91 are present (which makes
-/// the lumped MT=4 redundant).
+/// # When the lumped MT=4 is kept
+///
+/// `mt4_has_mf12` is whether the evaluation carries an **MF=12 section keyed on
+/// MT=4**, and it is the whole of upstream's rule.
+///
+/// `convr`'s redundant-reaction pass (`acefc.f90:1713-1731`) eliminates MT=3
+/// and MT=4 *unless* the MT appears in `mf12s`, in `mf16s`, or is the
+/// unresolved-resonance competition reaction. `mf12s` is built from the tape's
+/// own dictionary for `mfd.eq.12.and.(mtd.lt.5.or.mtd.gt.600)` (`:390`), and
+/// `mf16s` only ever receives MTs `.ge.600` (`:4418`) — so for MT=4 the test
+/// reduces to "does MF=12/MT=4 exist".
+///
+/// **This port previously keyed it on whether MT=51–91 were present**, which is
+/// not upstream's rule and is not even correlated with it: U-235 ENDF/B-VII.0
+/// and ENDF/B-VIII.0 both carry ~40 discrete levels, and NJOY keeps MT=4 on the
+/// first and drops it on the second — because only VII.0 carries MF=12/MT=4.
+/// Found by the 57-tape sweep, which reported 46 reactions against NJOY's 47.
+///
+/// **Not ported:** the `mtcomp.eq.4` clause (`:1731`), which keeps MT=4 when the
+/// unresolved-resonance data names it as the competition reaction. No tape in
+/// `reference-data/endf/` exercises it against this port's PURR-free path, so it
+/// is left unimplemented rather than written untested.
 ///
 /// # Which fission representation is stored
 ///
@@ -167,16 +209,11 @@ fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
 /// `mt19` set but no partial sections in MF=3 keeps its fission rather than
 /// losing it entirely. On a real tape `mt19` implies the partials exist, so
 /// this never fires; it is here because the failure it prevents is silent.
-fn role_of(
-    mt: i32,
-    has_discrete_inelastic: bool,
-    mt19: bool,
-    has_partial_fission: bool,
-) -> Role {
+fn role_of(mt: i32, mt4_has_mf12: bool, mt19: bool, has_partial_fission: bool) -> Role {
     match mt {
         2 => Role::Elastic,
         1 | 3 | 27 | 101 => Role::Redundant,
-        4 if has_discrete_inelastic => Role::Redundant,
+        4 if !mt4_has_mf12 => Role::Redundant,
         18 if mt19 && has_partial_fission => Role::Redundant,
         19 | 20 | 21 | 38 if !mt19 => Role::Redundant,
         // Discrete charged-particle levels and (n,2n) levels are REAL partials.
@@ -284,7 +321,20 @@ impl AceTable {
 
         // Partition the reconstructed sections by role.
         let present: Vec<i32> = result.sections.iter().map(|s| i32::from(s.mt)).collect();
-        let has_discrete_inelastic = present.iter().any(|&m| (51..=91).contains(&m));
+        // Upstream reads this off the tape dictionary (`mf12s`, `acefc.f90:390`).
+        // The photon block is built from the same MF=12 sections and numbers its
+        // entries `MT*1000 + k`, so an MT=4 section shows up here as entries
+        // 4001.., which is the same evidence by a different route.
+        //
+        // LIMITATION: when the photon block was refused outright (MF=14 `LI=0`)
+        // this reads `false` and MT=4 is dropped, where upstream would still have
+        // consulted the dictionary. No tape in `reference-data/endf/` hits that
+        // combination -- U-235 ENDF/B-VII.0 is the only one carrying MF=12/MT=4
+        // and its photon block builds -- so the fallback is unexercised rather
+        // than verified, and is recorded here instead of being claimed correct.
+        let mt4_has_mf12 = photons
+            .map(|p| p.iter().any(|e| e.mtrp / 1000 == 4))
+            .unwrap_or(false);
         let has_partial_fission = present.iter().any(|&m| matches!(m, 19 | 20 | 21 | 38));
 
         // CAN the partial fission channels actually replace MT=18 here?
@@ -336,7 +386,7 @@ impl AceTable {
             .sections
             .iter()
             .filter(|s| {
-                role_of(i32::from(s.mt), has_discrete_inelastic, mt19, has_partial_fission)
+                role_of(i32::from(s.mt), mt4_has_mf12, mt19, has_partial_fission)
                     == Role::Partial
             })
             .collect();
@@ -918,9 +968,13 @@ mod tests {
         assert!(matches!(role_of(1, true, false, false), Role::Redundant));
         assert!(matches!(role_of(3, false, false, false), Role::Redundant));
         assert!(matches!(role_of(2, false, false, false), Role::Elastic));
-        // MT=4 is redundant only when discrete inelastic levels exist.
-        assert!(matches!(role_of(4, true, false, false), Role::Redundant));
-        assert!(matches!(role_of(4, false, false, false), Role::Partial));
+        // MT=4 is kept ONLY when the evaluation carries MF=12/MT=4
+        // (`acefc.f90:1713-1731` via `mf12s`, built at `:390`). It is NOT keyed
+        // on whether discrete inelastic levels exist -- U-235 ENDF/B-VII.0 and
+        // ENDF/B-VIII.0 both have ~40 levels and NJOY keeps MT=4 only on the
+        // first, which is exactly the tape carrying MF=12/MT=4.
+        assert!(matches!(role_of(4, false, false, false), Role::Redundant));
+        assert!(matches!(role_of(4, true, false, false), Role::Partial));
         // Real partials are kept.
         assert!(matches!(role_of(102, false, false, false), Role::Partial));
         assert!(matches!(role_of(16, false, false, false), Role::Partial));
