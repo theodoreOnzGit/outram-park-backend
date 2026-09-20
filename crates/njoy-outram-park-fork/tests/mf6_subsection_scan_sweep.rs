@@ -146,8 +146,7 @@ fn mf6_subsection_scan_stays_aligned_across_the_whole_reference_library() {
                                     t.e_in_mev
                                 );
                                 assert!(
-                                    t.e_out_mev.len() == t.pdf.len()
-                                        && t.pdf.len() == t.cdf.len(),
+                                    t.e_out_mev.len() == t.pdf.len() && t.pdf.len() == t.cdf.len(),
                                     "{file} MF=6/MT={mt} branch {bi}: ragged table"
                                 );
                                 assert!(

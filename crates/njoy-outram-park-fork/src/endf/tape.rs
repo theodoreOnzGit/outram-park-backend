@@ -127,7 +127,9 @@ impl Tape {
                     });
                     index.entry(key).or_insert(idx);
                     if key.mf == 32 {
-                        raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+                        raw_mf32
+                            .entry(key)
+                            .or_insert(std::mem::take(&mut current_raw));
                     }
                     current_raw.clear();
                 }
@@ -150,7 +152,9 @@ impl Tape {
                     });
                     index.entry(prev_key).or_insert(idx);
                     if prev_key.mf == 32 {
-                        raw_mf32.entry(prev_key).or_insert(std::mem::take(&mut current_raw));
+                        raw_mf32
+                            .entry(prev_key)
+                            .or_insert(std::mem::take(&mut current_raw));
                     }
                     current_raw.clear();
                 }
@@ -173,7 +177,9 @@ impl Tape {
             });
             index.entry(key).or_insert(idx);
             if key.mf == 32 {
-                raw_mf32.entry(key).or_insert(std::mem::take(&mut current_raw));
+                raw_mf32
+                    .entry(key)
+                    .or_insert(std::mem::take(&mut current_raw));
             }
         }
 

@@ -591,6 +591,9 @@ mod tests {
             assert_reproduces_keff("no recorded value", 1.0, 1.0e-3, 1.0, 1.0e-3, None);
         })
         .is_ok();
-        assert!(ok, "a run sitting on the benchmark with no recorded value must pass");
+        assert!(
+            ok,
+            "a run sitting on the benchmark with no recorded value must pass"
+        );
     }
 }

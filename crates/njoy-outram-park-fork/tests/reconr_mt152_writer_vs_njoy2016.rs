@@ -67,10 +67,8 @@ fn the_written_mt152_matches_njoys_own() {
     };
 
     let eval_tape = Tape::read_file(&ep).expect("evaluation parses");
-    let material = mf1::parse_material_info(
-        eval_tape.section(MAT, 1, 451).expect("MF=1/451"),
-    )
-    .expect("material info");
+    let material = mf1::parse_material_info(eval_tape.section(MAT, 1, 451).expect("MF=1/451"))
+        .expect("material info");
     let sec = eval_tape.section(MAT, 2, 151).expect("MF=2/151");
     let ranges = parse_lru2_ranges(&sec.rows[1..]).expect("LRU=2 ranges");
     let background = reconr_background(&eval_tape, MAT, 0.001).expect("background");
@@ -152,8 +150,10 @@ fn the_written_mt152_matches_njoys_own() {
             let dev = (x - y).abs() / y.abs();
             if dev > worst {
                 worst = dev;
-                worst_at =
-                    format!("E={:.6e} {label}: ours {x:.7e} vs NJOY {y:.7e}", a.energy_ev);
+                worst_at = format!(
+                    "E={:.6e} {label}: ours {x:.7e} vs NJOY {y:.7e}",
+                    a.energy_ev
+                );
             }
         }
     }
@@ -182,9 +182,16 @@ fn the_fifth_column_repeats_the_total() {
     let ranges = parse_lru2_ranges(&eval_tape.section(MAT, 2, 151).expect("MF=2/151").rows[1..])
         .expect("LRU=2");
     let background = reconr_background(&eval_tape, MAT, 0.001).expect("background");
-    let rows = build_mt152(material.za, material.awr, &ranges, &background.sections, 0.0, 0.001)
-        .expect("writer runs")
-        .expect("section written");
+    let rows = build_mt152(
+        material.za,
+        material.awr,
+        &ranges,
+        &background.sections,
+        0.0,
+        0.001,
+    )
+    .expect("writer runs")
+    .expect("section written");
     let table = read_urr_table(&rows, 0.0).expect("round-trips");
 
     for p in table.points() {
@@ -197,7 +204,10 @@ fn the_fifth_column_repeats_the_total() {
             p.energy_ev
         );
     }
-    println!("  column 5 repeats the total at all {} points", table.n_points());
+    println!(
+        "  column 5 repeats the total at all {} points",
+        table.n_points()
+    );
 }
 
 /// `reconr()` itself emits the section — not merely that [`build_mt152`] can.
@@ -245,7 +255,11 @@ fn reconr_emits_the_section_and_it_still_matches_njoy() {
     .expect("NJOY MT=152 parses")
     .expect("present");
 
-    assert_eq!(mine.n_points(), theirs.n_points(), "energy-grid size differs");
+    assert_eq!(
+        mine.n_points(),
+        theirs.n_points(),
+        "energy-grid size differs"
+    );
     let mut worst = 0.0_f64;
     for (a, b) in mine.points().iter().zip(theirs.points()) {
         for col in 0..4 {
@@ -263,15 +277,27 @@ fn reconr_emits_the_section_and_it_still_matches_njoy() {
     for col in 0..4 {
         let (mut cw, mut at) = (0.0f64, String::new());
         for (a, b) in mine.points().iter().zip(theirs.points()) {
-            let (Some(x), Some(y)) = (a.xs.get(col).and_then(|c| c.first()).copied(),
-                                      b.xs.get(col).and_then(|c| c.first()).copied()) else { continue };
-            if y == 0.0 { continue }
-            let d = (x-y).abs()/y.abs();
-            if d > cw { cw = d; at = format!("E={:.5e} ours {x:.6e} njoy {y:.6e}", a.energy_ev); }
+            let (Some(x), Some(y)) = (
+                a.xs.get(col).and_then(|c| c.first()).copied(),
+                b.xs.get(col).and_then(|c| c.first()).copied(),
+            ) else {
+                continue;
+            };
+            if y == 0.0 {
+                continue;
+            }
+            let d = (x - y).abs() / y.abs();
+            if d > cw {
+                cw = d;
+                at = format!("E={:.5e} ours {x:.6e} njoy {y:.6e}", a.energy_ev);
+            }
         }
         println!("  col {col}: worst {cw:.2e}  {at}");
     }
-    println!("  reconr()-emitted MT=152: {} points, worst {worst:.2e}", mine.n_points());
+    println!(
+        "  reconr()-emitted MT=152: {} points, worst {worst:.2e}",
+        mine.n_points()
+    );
     assert!(
         worst <= GATE,
         "the section reconr() emits deviates from NJOY's by {worst:.2e}. If this \

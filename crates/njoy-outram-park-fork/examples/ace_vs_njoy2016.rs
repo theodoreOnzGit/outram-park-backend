@@ -119,8 +119,7 @@ mod desktop {
     /// 8, and the XSS block 4 values to a line. Whitespace-splitting is enough
     /// for all of it — NJOY writes the fixed-width fields space-separated.
     fn parse_njoy_ace(path: &str) -> NjoyAce {
-        let text = std::fs::read_to_string(path)
-            .unwrap_or_else(|e| panic!("read {path}: {e}"));
+        let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
         let lines: Vec<&str> = text.lines().collect();
         assert!(
             lines.len() > 12,
@@ -137,7 +136,10 @@ mod desktop {
         let ints: Vec<i32> = lines[6..12]
             .iter()
             .flat_map(|l| l.split_whitespace())
-            .map(|t| t.parse::<i32>().unwrap_or_else(|e| panic!("int {t:?}: {e}")))
+            .map(|t| {
+                t.parse::<i32>()
+                    .unwrap_or_else(|e| panic!("int {t:?}: {e}"))
+            })
             .collect();
         assert_eq!(ints.len(), 48, "NXS(16) + JXS(32) should be 48 integers");
         let mut nxs = [0i32; 16];
@@ -148,10 +150,20 @@ mod desktop {
         let xss: Vec<f64> = lines[12..]
             .iter()
             .flat_map(|l| l.split_whitespace())
-            .map(|t| t.parse::<f64>().unwrap_or_else(|e| panic!("xss {t:?}: {e}")))
+            .map(|t| {
+                t.parse::<f64>()
+                    .unwrap_or_else(|e| panic!("xss {t:?}: {e}"))
+            })
             .collect();
 
-        NjoyAce { zaid, awr, kt_mev, nxs, jxs, xss }
+        NjoyAce {
+            zaid,
+            awr,
+            kt_mev,
+            nxs,
+            jxs,
+            xss,
+        }
     }
 
     /// Worst relative difference between two slices, and where it occurred.
@@ -161,7 +173,11 @@ mod desktop {
         let mut worst = 0.0f64;
         let mut at = 0usize;
         for (i, (a, b)) in ours.iter().zip(theirs).enumerate() {
-            let d = if *b == 0.0 { (a - b).abs() } else { ((a - b) / b).abs() };
+            let d = if *b == 0.0 {
+                (a - b).abs()
+            } else {
+                ((a - b) / b).abs()
+            };
             if d > worst {
                 worst = d;
                 at = i;
@@ -184,7 +200,6 @@ mod desktop {
         (9237, "n-092_U_238.endf"),
     ];
 
-
     pub fn run() {
         let njoy_path = std::env::args().nth(1).unwrap_or_else(|| {
             eprintln!(
@@ -197,7 +212,9 @@ mod desktop {
         });
         let argv: Vec<String> = std::env::args().collect();
         let flag = |name: &str| -> Option<String> {
-            argv.iter().position(|a| a == name).and_then(|i| argv.get(i + 1).cloned())
+            argv.iter()
+                .position(|a| a == name)
+                .and_then(|i| argv.get(i + 1).cloned())
         };
         let mat: i32 = flag("--mat").and_then(|v| v.parse().ok()).unwrap_or(9228);
         let temp_k: f64 = flag("--temp-k").and_then(|v| v.parse().ok()).unwrap_or(0.0);
@@ -205,18 +222,41 @@ mod desktop {
         let theirs = parse_njoy_ace(&njoy_path);
 
         // ── Ours: the identical pipeline examples/write_ace.rs uses ──────────
-        let tape_file = KNOWN
-            .iter()
-            .find(|&&(m, _)| m == mat)
-            .map(|&(_, f)| f)
-            .unwrap_or_else(|| {
-                eprintln!("unknown MAT {mat}; known: {:?}", KNOWN.iter().map(|&(m, _)| m).collect::<Vec<_>>());
-                std::process::exit(2);
-            });
+        // `--tape` names the evaluation directly, so any of the repository's
+        // ENDF tapes can be compared without editing KNOWN.
+        let tape_flag = flag("--tape");
+        let tape_file: &str = match tape_flag.as_deref() {
+            Some(f) => f,
+            None => KNOWN
+                .iter()
+                .find(|&&(m, _)| m == mat)
+                .map(|&(_, f)| f)
+                .unwrap_or_else(|| {
+                    eprintln!(
+                        "unknown MAT {mat}; pass --tape <file>, or one of: {:?}",
+                        KNOWN.iter().map(|&(m, _)| m).collect::<Vec<_>>()
+                    );
+                    std::process::exit(2);
+                }),
+        };
         println!("comparing MAT {mat} ({tape_file}) at {temp_k} K against {njoy_path}\n");
         let path = njoy_outram_park_fork::reference_data::reference_endf_dir().join(tape_file);
         let tape = Tape::read(File::open(&path).expect("open ENDF")).expect("parse ENDF");
-        let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
+        // `--tol` exists so a tape whose reconstruction will not fit in memory at
+        // 0.001 can still be compared at a looser tolerance -- with NJOY run at
+        // THE SAME tolerance, so it stays a like-for-like measurement. It
+        // relaxes the reconstruction input on both sides, never the comparison
+        // criterion, and the value used is printed and carried in SUMMARY so a
+        // reader can never mistake a 0.01 run for a 0.001 one.
+        let tolerance: f64 = flag("--tol")
+            .map(|v| v.parse().expect("--tol"))
+            .unwrap_or(0.001);
+        println!("  RECONR tolerance: {tolerance}");
+        let cfg = ReconrConfig {
+            mat,
+            tolerance,
+            temperature: 0.0,
+        };
         let result = reconr(&tape, &cfg).expect("RECONR");
         // BROADR at the requested temperature. At 0 K this is skipped entirely
         // so the 0 K path stays byte-for-byte what it was.
@@ -234,8 +274,12 @@ mod desktop {
             .map(|s| (i32::from(s.mt), s.qi))
             .collect();
         let emissions = build_emissions(&tape, mat, result.material.awr, &partials);
-        let nu = NuBar::from_endf(&tape, mat).expect("MF=1").unwrap_or_default();
-        let chi = FissionSpectrum::from_endf_mf5(&tape, mat).expect("MF=5").unwrap_or_default();
+        let nu = NuBar::from_endf(&tape, mat)
+            .expect("MF=1")
+            .unwrap_or_default();
+        let chi = FissionSpectrum::from_endf_mf5(&tape, mat)
+            .expect("MF=5")
+            .unwrap_or_default();
         let emission = build_emission_spectra(&tape, mat);
         let photons = PhotonProduction::from_endf(&tape, mat, &result);
         let kerma = Kerma::from_reconr(&result, &nu, &chi, &emission)
@@ -257,12 +301,17 @@ mod desktop {
             Some(&kerma),
             nu_block.as_deref(),
             njoy_outram_park_fork::acer::has_mt19_distributions(&tape, mat),
-        njoy_outram_park_fork::acer::photon_blocks::build(&tape, mat).as_deref(),
+            njoy_outram_park_fork::acer::photon_blocks::build(&tape, mat).as_deref(),
         );
 
         // ── Header ───────────────────────────────────────────────────────────
         println!("=== header ===");
-        println!("  {:<10} ours {:>14}   njoy {:>14}", "ZAID", ours.zaid.trim(), theirs.zaid);
+        println!(
+            "  {:<10} ours {:>14}   njoy {:>14}",
+            "ZAID",
+            ours.zaid.trim(),
+            theirs.zaid
+        );
         println!(
             "  {:<10} ours {:>14.6} njoy {:>14.6}   rel {:.3e}",
             "AWR",
@@ -270,7 +319,10 @@ mod desktop {
             theirs.awr,
             ((ours.awr - theirs.awr) / theirs.awr).abs()
         );
-        println!("  {:<10} ours {:>14.6e} njoy {:>14.6e}", "kT [MeV]", ours.kt_mev, theirs.kt_mev);
+        println!(
+            "  {:<10} ours {:>14.6e} njoy {:>14.6e}",
+            "kT [MeV]", ours.kt_mev, theirs.kt_mev
+        );
         if (ours.kt_mev - theirs.kt_mev).abs() > 1e-12 {
             println!(
                 "  !! TEMPERATURE MISMATCH -- ours and the reference were not built at the\n     \
@@ -283,20 +335,38 @@ mod desktop {
         // ── NXS / JXS ────────────────────────────────────────────────────────
         println!("\n=== NXS (table dimensions) ===");
         let nxs_names = [
-            (nxs::LEN_XSS, "LEN_XSS"), (nxs::ZA, "ZA"), (nxs::NES, "NES"),
-            (nxs::NTR, "NTR"), (nxs::NR, "NR"), (nxs::NTRP, "NTRP"),
+            (nxs::LEN_XSS, "LEN_XSS"),
+            (nxs::ZA, "ZA"),
+            (nxs::NES, "NES"),
+            (nxs::NTR, "NTR"),
+            (nxs::NR, "NR"),
+            (nxs::NTRP, "NTRP"),
         ];
         for (i, name) in nxs_names {
             let (a, b) = (ours.nxs[i], theirs.nxs[i]);
-            println!("  NXS({:<2}) {:<8} ours {:>10}  njoy {:>10}  {}",
-                i + 1, name, a, b, if a == b { "ok" } else { "DIFFER" });
+            println!(
+                "  NXS({:<2}) {:<8} ours {:>10}  njoy {:>10}  {}",
+                i + 1,
+                name,
+                a,
+                b,
+                if a == b { "ok" } else { "DIFFER" }
+            );
         }
 
         println!("\n=== JXS (block locators) ===");
         let jxs_names = [
-            (jxs::ESZ, "ESZ"), (jxs::NU, "NU"), (jxs::MTR, "MTR"), (jxs::LQR, "LQR"),
-            (jxs::TYR, "TYR"), (jxs::LSIG, "LSIG"), (jxs::SIG, "SIG"),
-            (jxs::LAND, "LAND"), (jxs::AND, "AND"), (jxs::LDLW, "LDLW"), (jxs::DLW, "DLW"),
+            (jxs::ESZ, "ESZ"),
+            (jxs::NU, "NU"),
+            (jxs::MTR, "MTR"),
+            (jxs::LQR, "LQR"),
+            (jxs::TYR, "TYR"),
+            (jxs::LSIG, "LSIG"),
+            (jxs::SIG, "SIG"),
+            (jxs::LAND, "LAND"),
+            (jxs::AND, "AND"),
+            (jxs::LDLW, "LDLW"),
+            (jxs::DLW, "DLW"),
         ];
         for (i, name) in jxs_names {
             let (a, b) = (ours.jxs[i], theirs.jxs[i]);
@@ -307,7 +377,14 @@ mod desktop {
                 _ if a == b => "ok",
                 _ => "DIFFER",
             };
-            println!("  JXS({:<2}) {:<5} ours {:>10}  njoy {:>10}  {}", i + 1, name, a, b, verdict);
+            println!(
+                "  JXS({:<2}) {:<5} ours {:>10}  njoy {:>10}  {}",
+                i + 1,
+                name,
+                a,
+                b,
+                verdict
+            );
         }
 
         // ── ESZ, compared on a COMMON energy grid ───────────────────────────
@@ -333,7 +410,9 @@ mod desktop {
 
         println!(
             "  grid: ours {} pts [{:.6e}, {:.6e}] MeV",
-            nes_o, e_ours[0], e_ours[nes_o - 1]
+            nes_o,
+            e_ours[0],
+            e_ours[nes_o - 1]
         );
         println!(
             "  grid: njoy {} pts [{:.6e}, {:.6e}] MeV   ({:+.2} % more points in ours)",
@@ -367,7 +446,12 @@ mod desktop {
         // NJOY's heating column is identically zero there while this port
         // always computes a KERMA. Those zeros are skipped below, which is why
         // `heating` reports n=0 -- that is the DECK differing, not the port.
-        for (k, label) in [(1, "total"), (2, "absorption"), (3, "elastic"), (4, "heating")] {
+        for (k, label) in [
+            (1, "total"),
+            (2, "absorption"),
+            (3, "elastic"),
+            (4, "heating"),
+        ] {
             let xs_o = &ours.xss[eo + k * nes_o..eo + (k + 1) * nes_o];
             let xs_t = &theirs.xss[et + k * nes_t..et + (k + 1) * nes_t];
             let (mut worst, mut at_e, mut a_w, mut b_w) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
@@ -581,6 +665,7 @@ mod desktop {
 
         // ── Photon production blocks ─────────────────────────────────────
         println!("\n=== photon production (MTRP / SIGP / DLWP) ===");
+        let mut photon_verdict = "none";
         {
             let ntrp_o = ours.nxs[nxs::NTRP] as usize;
             let ntrp_t = theirs.nxs[nxs::NTRP] as usize;
@@ -590,7 +675,9 @@ mod desktop {
                 if b == 0 || n == 0 {
                     return Vec::new();
                 }
-                (0..n).map(|i| t.xss[(b - 1) as usize + i].round() as i32).collect()
+                (0..n)
+                    .map(|i| t.xss[(b - 1) as usize + i].round() as i32)
+                    .collect()
             };
             let mo: Vec<i32> = if ours.jxs[jxs::MTRP] == 0 {
                 Vec::new()
@@ -602,14 +689,29 @@ mod desktop {
             let mt = mtrp(&theirs, ntrp_t);
             let miss: Vec<i32> = mt.iter().copied().filter(|m| !mo.contains(m)).collect();
             let extra: Vec<i32> = mo.iter().copied().filter(|m| !mt.contains(m)).collect();
+            photon_verdict = if mt.is_empty() && mo.is_empty() {
+                "none"
+            } else if miss.is_empty() && extra.is_empty() {
+                "ok"
+            } else {
+                "DIFFER"
+            };
             if miss.is_empty() && extra.is_empty() && !mt.is_empty() {
                 println!("  MTRP sets IDENTICAL ({} entries)", mt.len());
             } else {
                 if !miss.is_empty() {
-                    println!("  in NJOY, not ours ({}): {:?}", miss.len(), &miss[..miss.len().min(12)]);
+                    println!(
+                        "  in NJOY, not ours ({}): {:?}",
+                        miss.len(),
+                        &miss[..miss.len().min(12)]
+                    );
                 }
                 if !extra.is_empty() {
-                    println!("  in ours, not NJOY ({}): {:?}", extra.len(), &extra[..extra.len().min(12)]);
+                    println!(
+                        "  in ours, not NJOY ({}): {:?}",
+                        extra.len(),
+                        &extra[..extra.len().min(12)]
+                    );
                 }
             }
             // MFTYPE and LAW per entry, in NJOY's order, for the entries both have.
@@ -647,7 +749,11 @@ mod desktop {
                     println!(
                         "    {:<8} MFTYPE ours {:>3} njoy {:>3} | LAW ours {:>2} njoy {:>2}  {}",
                         mt.get(i).copied().unwrap_or(0),
-                        a.0, b2.0, a.1, b2.1, flag
+                        a.0,
+                        b2.0,
+                        a.1,
+                        b2.1,
+                        flag
                     );
                 }
             }
@@ -755,7 +861,11 @@ mod desktop {
                 "# = {thnmax_mev:.6e} MeV, i.e. the bands that actually test Doppler broadening."
             )
             .unwrap();
-            writeln!(f, "# MAT {mat}, {temp_k} K. Integrals in barn*MeV; energies in MeV.").unwrap();
+            writeln!(
+                f,
+                "# MAT {mat}, {temp_k} K. Integrals in barn*MeV; energies in MeV."
+            )
+            .unwrap();
             writeln!(f, "e_lo_mev,e_hi_mev,total,absorption,elastic").unwrap();
             for r in &band_rows {
                 writeln!(
@@ -781,8 +891,11 @@ mod desktop {
             let mut f = std::io::BufWriter::new(
                 std::fs::File::create(&out).unwrap_or_else(|e| panic!("create {out}: {e}")),
             );
-            writeln!(f, "# NJOY2016 0 K U-235 ESZ at grid energies this port also chose.")
-                .unwrap();
+            writeln!(
+                f,
+                "# NJOY2016 0 K U-235 ESZ at grid energies this port also chose."
+            )
+            .unwrap();
             writeln!(f, "# Oracle for tests/acer_ce_esz_vs_njoy2016.rs. Columns are MeV and barns.\n# 17 significant digits: f64 needs that to round-trip exactly, and the test\n# matches grid energies by EXACT equality.")
                 .unwrap();
             writeln!(f, "energy_mev,total_b,absorption_b,elastic_b").unwrap();
@@ -834,15 +947,56 @@ mod desktop {
         if missing.is_empty() {
             println!("  every NJOY MT is present in ours");
         } else {
-            println!("  MTs in NJOY and NOT in ours ({}): {:?}", missing.len(), missing);
+            println!(
+                "  MTs in NJOY and NOT in ours ({}): {:?}",
+                missing.len(),
+                missing
+            );
         }
         if !extra.is_empty() {
-            println!("  MTs in ours and NOT in NJOY ({}): {:?}", extra.len(), extra);
+            println!(
+                "  MTs in ours and NOT in NJOY ({}): {:?}",
+                extra.len(),
+                extra
+            );
         }
 
         println!(
             "\nNJOY2016 is the specification. A difference here is this port's defect until\n\
              a reason is demonstrated -- do not widen a tolerance to absorb one."
         );
+
+        // ── One machine-readable line, so a sweep over many evaluations can be
+        //    tabulated without re-parsing this whole report ──────────────────
+        {
+            let f = |a: i32, b: i32| if a == b { "ok" } else { "DIFFER" };
+            let mtr_verdict = if mo.len() == mt.len() && mo.iter().all(|m| mt.contains(m)) {
+                "ok"
+            } else {
+                "DIFFER"
+            };
+            println!(
+                "SUMMARY mat={mat} tol={tolerance} nes={}/{} ntr={}/{} nr={}/{} ntrp={}/{} mtr={} mtrp={} \
+                 esz_shared={} esz_tot={:.3e} esz_abs={:.3e} esz_ela={:.3e} nu={}",
+                ours.nxs[nxs::NES],
+                theirs.nxs[nxs::NES],
+                ours.nxs[nxs::NTR],
+                theirs.nxs[nxs::NTR],
+                ours.nxs[nxs::NR],
+                theirs.nxs[nxs::NR],
+                ours.nxs[nxs::NTRP],
+                theirs.nxs[nxs::NTRP],
+                mtr_verdict,
+                photon_verdict,
+                shared,
+                worst[0].0,
+                worst[1].0,
+                worst[2].0,
+                f(
+                    i32::from(ours.jxs[jxs::NU] != 0),
+                    i32::from(theirs.jxs[jxs::NU] != 0)
+                ),
+            );
+        }
     }
 }

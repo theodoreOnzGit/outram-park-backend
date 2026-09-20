@@ -56,6 +56,21 @@ use super::energy::parse_mf5_law4;
 /// eV → MeV.
 const EMEV: f64 = 1.0e6;
 
+/// MT=460 — **delayed** photon data, which ACER excludes from the prompt
+/// photon-production block entirely.
+///
+/// Upstream guards it in three separate places, and all three are needed:
+/// `convr` leaves it out of the `gmt` list (`acefc.f90:400`,
+/// `mfd.eq.12.and.mtd.ne.460`), `gamout`'s counting pass skips the section
+/// before it can add `NK` to `ntrpp` (`:3642`), and `gamout`'s writing pass
+/// skips both MF=12 and MF=14 for it (`:4030`).
+///
+/// It is not a small correction. U-235 ENDF/B-VII.0 carries **`NK = 3262`**
+/// subsections under MF=12/MT=460, so a port without this guard writes 3295
+/// photon entries where NJOY2016 writes 33 — a hundredfold over-production
+/// that leaves every LSIGP/LDLWP locator pointing at the wrong data.
+const MT_DELAYED_PHOTON: i32 = 460;
+
 /// How a photon-production entry states its production rate.
 #[derive(Debug, Clone)]
 pub enum SigP {
@@ -121,6 +136,9 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
     // wrongly concludes the photons are anisotropic — which silently
     // suppressed the whole block on the first run of this code.
     for mt in 1..1000 {
+        if mt == MT_DELAYED_PHOTON {
+            continue; // `acefc.f90:4030` — MF=14/MT=460 is skipped outright
+        }
         if let Some(sec) = tape.section(mat, 14, mt) {
             let mut cur = SectionCursor::new(&sec.rows);
             if let Ok(h) = cur.read_cont() {
@@ -157,82 +175,95 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
 
     let mut out = Vec::new();
     for (file, is_yield) in [(12i32, true), (13i32, false)] {
-    for mt in 1..1000 {
-        let Some(sec) = tape.section(mat, file, mt) else { continue };
-        let mut cur = SectionCursor::new(&sec.rows);
-        let Ok(head) = cur.read_cont() else { continue };
-        if is_yield && head.l1 == 2 {
-            // LO=2 transition-probability cascade — expanded below, from the
-            // level data gathered once before this loop.
-            let awr = head.c2;
-            for e in expand_cascade(&levels, mt, awr, e_max_ev) {
-                out.push(e);
+        for mt in 1..1000 {
+            if file == 12 && mt == MT_DELAYED_PHOTON {
+                continue; // `acefc.f90:3642` — MF=12/MT=460 never reaches MTRP
             }
-            continue;
-        }
-        if is_yield && head.l1 != 1 {
-            return None;
-        }
-        let nk = head.n1;
-        if nk > 1 {
-            // A leading total (yield or cross section) precedes the
-            // subsections when there is more than one; it is redundant with
-            // their sum and ACE does not store it.
-            if cur.read_tab1().is_err() {
-                return None;
-            }
-        }
-        // MF=15 continuum spectra for this MT, consumed in order by the
-        // LF=1 subsections.
-        let mut mf15_used = false;
-
-        for k in 1..=nk {
-            let Ok(tab) = cur.read_tab1() else { return None };
-            let eg_ev = tab.head.c1;
-            let lp = tab.head.l1;
-            let lf = tab.head.l2;
-            if tab.pairs.is_empty() {
+            let Some(sec) = tape.section(mat, file, mt) else {
+                continue;
+            };
+            let mut cur = SectionCursor::new(&sec.rows);
+            let Ok(head) = cur.read_cont() else { continue };
+            if is_yield && head.l1 == 2 {
+                // LO=2 transition-probability cascade — expanded below, from the
+                // level data gathered once before this loop.
+                let awr = head.c2;
+                for e in expand_cascade(&levels, mt, awr, e_max_ev) {
+                    out.push(e);
+                }
                 continue;
             }
-            let e_first = tab.pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
-            let e_last = tab.pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
-
-            let law = if lf == 2 || lf == 0 {
-                EnergyLaw::Law2 { lp, eg_mev: eg_ev / EMEV }
-            } else {
-                // LF=1 ⇒ the spectrum lives in MF=15 for this MT.
-                if mf15_used {
-                    // More than one continuum subsection for one MT: the
-                    // mapping to MF=15's own subsections is not established
-                    // here, so refuse rather than guess.
+            if is_yield && head.l1 != 1 {
+                return None;
+            }
+            let nk = head.n1;
+            if nk > 1 {
+                // A leading total (yield or cross section) precedes the
+                // subsections when there is more than one; it is redundant with
+                // their sum and ACE does not store it.
+                if cur.read_tab1().is_err() {
                     return None;
                 }
-                mf15_used = true;
-                let sec15 = tape.section(mat, 15, mt)?;
-                let l4 = parse_mf5_law4(sec15).ok()?;
-                EnergyLaw::Law4(l4)
-            };
+            }
+            // MF=15 continuum spectra for this MT, consumed in order by the
+            // LF=1 subsections.
+            let mut mf15_used = false;
 
-            let sigp = if is_yield {
-                SigP::Yield {
-                    mftype: 12,
-                    mtmult: mt,
-                    e_mev: tab.pairs.iter().map(|&(e, _)| e / EMEV).collect(),
-                    y: tab.pairs.iter().map(|&(_, y)| y).collect(),
+            for k in 1..=nk {
+                let Ok(tab) = cur.read_tab1() else {
+                    return None;
+                };
+                let eg_ev = tab.head.c1;
+                let lp = tab.head.l1;
+                let lf = tab.head.l2;
+                if tab.pairs.is_empty() {
+                    continue;
                 }
-            } else {
-                SigP::Xs { interp: tab.interp.clone(), pairs: tab.pairs.clone() }
-            };
+                let e_first = tab.pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
+                let e_last = tab.pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
 
-            out.push(PhotonEntry {
-                mtrp: mt * 1000 + k,
-                sigp,
-                law,
-                e_lo_mev: e_first / EMEV,
-                e_hi_mev: e_last / EMEV,
-            });
+                let law = if lf == 2 || lf == 0 {
+                    EnergyLaw::Law2 {
+                        lp,
+                        eg_mev: eg_ev / EMEV,
+                    }
+                } else {
+                    // LF=1 ⇒ the spectrum lives in MF=15 for this MT.
+                    if mf15_used {
+                        // More than one continuum subsection for one MT: the
+                        // mapping to MF=15's own subsections is not established
+                        // here, so refuse rather than guess.
+                        return None;
+                    }
+                    mf15_used = true;
+                    let sec15 = tape.section(mat, 15, mt)?;
+                    let l4 = parse_mf5_law4(sec15).ok()?;
+                    EnergyLaw::Law4(l4)
+                };
+
+                let sigp = if is_yield {
+                    SigP::Yield {
+                        mftype: 12,
+                        mtmult: mt,
+                        e_mev: tab.pairs.iter().map(|&(e, _)| e / EMEV).collect(),
+                        y: tab.pairs.iter().map(|&(_, y)| y).collect(),
+                    }
+                } else {
+                    SigP::Xs {
+                        interp: tab.interp.clone(),
+                        pairs: tab.pairs.clone(),
+                    }
+                };
+
+                out.push(PhotonEntry {
+                    mtrp: mt * 1000 + k,
+                    sigp,
+                    law,
+                    e_lo_mev: e_first / EMEV,
+                    e_hi_mev: e_last / EMEV,
+                });
+            }
         }
-    }
     }
 
     // THIRD PASS: photon production given in MF=6 as a ZAP=0 secondary.
@@ -244,8 +275,12 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
     // they occupy positions 352-357 of 358, after every MF=12 and MF=13 entry.
     // The order matters because LSIGP and LDLWP are positional.
     for mt in 1..1000 {
-        let Some(sec) = tape.section(mat, 6, mt) else { continue };
-        let Ok(products) = super::energy::parse_mf6_law1_products(sec, 0) else { continue };
+        let Some(sec) = tape.section(mat, 6, mt) else {
+            continue;
+        };
+        let Ok(products) = super::energy::parse_mf6_law1_products(sec, 0) else {
+            continue;
+        };
         for (k, prod) in products.into_iter().enumerate() {
             if prod.yield_pairs.is_empty() {
                 continue;
@@ -288,7 +323,12 @@ struct Level {
 fn read_levels(tape: &Tape, mat: i32) -> Vec<Level> {
     let mut out = Vec::new();
     for mt in 1..1000 {
-        let Some(sec) = tape.section(mat, 12, mt) else { continue };
+        if mt == MT_DELAYED_PHOTON {
+            continue;
+        }
+        let Some(sec) = tape.section(mat, 12, mt) else {
+            continue;
+        };
         let mut cur = SectionCursor::new(&sec.rows);
         let Ok(head) = cur.read_cont() else { continue };
         if head.l1 != 2 {
@@ -311,7 +351,12 @@ fn read_levels(tape: &Tape, mat: i32) -> Vec<Level> {
             };
             trans.push((e_j, tp, gp));
         }
-        out.push(Level { mt, es_ev, lg, trans });
+        out.push(Level {
+            mt,
+            es_ev,
+            lg,
+            trans,
+        });
     }
     out
 }
@@ -392,7 +437,10 @@ fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<Pho
                 e_mev: vec![e_lo / EMEV, e_max_ev / EMEV],
                 y: vec![y, y],
             },
-            law: EnergyLaw::Law2 { lp: 0, eg_mev: eg_ev / EMEV },
+            law: EnergyLaw::Law2 {
+                lp: 0,
+                eg_mev: eg_ev / EMEV,
+            },
             e_lo_mev: e_lo / EMEV,
             e_hi_mev: e_max_ev / EMEV,
         })

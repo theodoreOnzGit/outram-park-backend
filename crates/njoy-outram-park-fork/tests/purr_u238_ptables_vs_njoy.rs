@@ -143,7 +143,8 @@ fn parse_mt153(tape: &Tape) -> Vec<NjoyPoint> {
     (0..nunx)
         .map(|k| {
             let base = k * stride;
-            let block = |i: usize| list.data[base + 1 + i * nbin..base + 1 + (i + 1) * nbin].to_vec();
+            let block =
+                |i: usize| list.data[base + 1 + i * nbin..base + 1 + (i + 1) * nbin].to_vec();
             NjoyPoint {
                 e: list.data[base],
                 prob: block(0),
@@ -197,7 +198,11 @@ fn lssf1_background(bkg: [f64; 4]) -> [f64; 4] {
     const TOL: f64 = 1.0e-3;
     let [tot, el, fis, cap] = bkg;
     let remainder = tot - el - fis - cap;
-    let keep = if remainder > TOL * tot { remainder } else { 0.0 };
+    let keep = if remainder > TOL * tot {
+        remainder
+    } else {
+        0.0
+    };
     [keep, 0.0, 0.0, 0.0]
 }
 
@@ -315,7 +320,11 @@ fn purr_probability_tables_match_njoy2016() {
         for i in 0..4 {
             let sigu = t.bondarenko[0][i];
             for j in 0..NBIN {
-                let ours = if sigu != 0.0 { t.bin_xs[j][i] / sigu } else { 1.0 };
+                let ours = if sigu != 0.0 {
+                    t.bin_xs[j][i] / sigu
+                } else {
+                    1.0
+                };
                 let theirs = point.ratio[i][j];
                 let d = (ours - theirs).abs() / theirs.abs().max(1.0e-6);
                 ratio_sq += d * d;

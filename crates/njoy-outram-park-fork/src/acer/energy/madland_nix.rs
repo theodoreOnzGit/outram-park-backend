@@ -233,12 +233,19 @@ mod tests {
             .max_by(|a, b| a.1 .1.partial_cmp(&b.1 .1).unwrap())
             .map(|(i, _)| i)
             .unwrap();
-        assert!(imax > 0 && imax < vals.len() - 1, "peak at the edge: index {imax}");
+        assert!(
+            imax > 0 && imax < vals.len() - 1,
+            "peak at the edge: index {imax}"
+        );
         for w in vals[..=imax].windows(2) {
             assert!(w[1].1 >= w[0].1, "not rising before the peak at {}", w[1].0);
         }
         for w in vals[imax..].windows(2) {
-            assert!(w[1].1 <= w[0].1, "not decaying after the peak at {}", w[1].0);
+            assert!(
+                w[1].1 <= w[0].1,
+                "not decaying after the peak at {}",
+                w[1].0
+            );
         }
         println!("  peak at E' = {:.3e} eV", vals[imax].0);
     }

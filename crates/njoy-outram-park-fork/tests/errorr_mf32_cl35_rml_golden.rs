@@ -308,7 +308,14 @@ fn tier1_matches_njoy_tape23() {
     assert!(d.cov.rel < TIER1_TOL, "{tag}: covariance: {}", d.cov);
     // the resonance covariance is non-trivial: elastic, capture and (n,p)
     // blocks all carry it
-    for (mt, mt1) in [(2, 2), (102, 102), (600, 600), (2, 102), (2, 600), (102, 600)] {
+    for (mt, mt1) in [
+        (2, 2),
+        (102, 102),
+        (600, 600),
+        (2, 102),
+        (2, 600),
+        (102, 600),
+    ] {
         let b = d
             .per_block
             .iter()
@@ -317,7 +324,10 @@ fn tier1_matches_njoy_tape23() {
         assert!(b.2 > 0, "{tag}: block ({mt},{mt1}) has non-zero elements");
     }
     let tt = d.per_block.iter().find(|b| b.0 == 1 && b.1 == 1).unwrap();
-    assert_eq!(tt.2, 0, "{tag}: the directly-evaluated dummy MT=1 gets no sensitivity");
+    assert_eq!(
+        tt.2, 0,
+        "{tag}: the directly-evaluated dummy MT=1 gets no sensitivity"
+    );
 }
 
 // ---------------------------------------------------------------------------

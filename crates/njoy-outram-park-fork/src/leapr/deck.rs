@@ -632,10 +632,16 @@ impl LeaprDeck {
         // Both are exercised against an exp/log round-trip and a
         // detailed-balance-factor oracle in `leapr_isym_ilog.rs`.
         if !(0..=1).contains(&self.isabt) {
-            out.push(format!("isabt = {} is not a valid S type (0, 1)", self.isabt));
+            out.push(format!(
+                "isabt = {} is not a valid S type (0, 1)",
+                self.isabt
+            ));
         }
         if !(0..=1).contains(&self.ilog) {
-            out.push(format!("ilog = {} is not a valid log flag (0, 1)", self.ilog));
+            out.push(format!(
+                "ilog = {} is not a valid log flag (0, 1)",
+                self.ilog
+            ));
         }
         out
     }

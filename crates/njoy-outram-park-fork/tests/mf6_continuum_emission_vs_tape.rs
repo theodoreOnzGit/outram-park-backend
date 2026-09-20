@@ -151,7 +151,10 @@ fn mf6_continuum_emission_satisfies_the_tape_s_own_invariants() {
             } else {
                 assert_eq!(c.branches.len(), nb16, "{label} MT=16 neutron subsections");
             }
-            assert!(!c.branches.is_empty(), "{label} MT={mt}: at least one branch");
+            assert!(
+                !c.branches.is_empty(),
+                "{label} MT={mt}: at least one branch"
+            );
 
             for (bi, b) in c.branches.iter().enumerate() {
                 assert_eq!(

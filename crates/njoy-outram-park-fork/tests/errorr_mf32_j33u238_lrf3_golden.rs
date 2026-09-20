@@ -426,13 +426,7 @@ fn listing() -> Vec<(&'static str, i32, i32, Vec<Row>)> {
 
 /// Compare the listing's diagonals (rows `ig <= max_group` only); returns
 /// the worst relative deviation.
-fn check_listing(
-    tag: &str,
-    got: &ErrorrResult,
-    tol: f64,
-    max_group: usize,
-    xs_floor: f64,
-) -> f64 {
+fn check_listing(tag: &str, got: &ErrorrResult, tol: f64, max_group: usize, xs_floor: f64) -> f64 {
     let rc = got.resonance.as_ref().expect("MF=32 was processed");
     let cflx = &got.coarse.cflx;
     let mut worst = Worst::default();
@@ -506,7 +500,10 @@ fn tier1_env_gated_matches_njoy_tape23() {
     for m in &rc.messages {
         println!("[{tag}] message: {m}");
     }
-    assert!(rc.ifresr && rc.ifunrs, "{tag}: resolved and unresolved ranges processed");
+    assert!(
+        rc.ifresr && rc.ifunrs,
+        "{tag}: resolved and unresolved ranges processed"
+    );
     assert!(!rc.sammy);
     let d = compare(tag, &got, &golden, TIER1_ABS, usize::MAX, 0.0);
     assert!(d.xs.rel < TIER1_TOL, "{tag}: sigma_g: {}", d.xs);
@@ -582,7 +579,14 @@ fn tier2_crate_pendf_and_listing() {
     // sub-threshold fission (module docs): group cross sections under 1e-6 b
     // sit below the reconstruction pipelines' integral criterion
     const TIER2_XS_FLOOR: f64 = 1e-6;
-    let d = compare(tag, &got, &golden, TIER1_ABS, RESOLVED_GROUPS, TIER2_XS_FLOOR);
+    let d = compare(
+        tag,
+        &got,
+        &golden,
+        TIER1_ABS,
+        RESOLVED_GROUPS,
+        TIER2_XS_FLOOR,
+    );
     assert!(d.xs.rel < 2e-2, "{tag}: sigma_g: {}", d.xs);
     assert!(
         d.cov_resonance.rel < 5e-2,

@@ -242,7 +242,10 @@ fn lssf1_materials_are_untouched_by_the_unresolved_reconstruction() {
         for (i, &e) in PROBES.iter().enumerate() {
             let got = r.eval_mt(MtReaction::Mt1Total, e);
             let dev = (got - want[i]).abs() / want[i].abs();
-            println!("  {f} MT=1 at {e:8.1e}: {got:.9e} vs recorded {:.9e} ({dev:.2e})", want[i]);
+            println!(
+                "  {f} MT=1 at {e:8.1e}: {got:.9e} vs recorded {:.9e} ({dev:.2e})",
+                want[i]
+            );
             assert!(
                 dev < 1.0e-8,
                 "{f} MT=1 at {e:e} moved: {got:.9e} against the pre-change {:.9e} \

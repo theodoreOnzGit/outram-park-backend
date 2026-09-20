@@ -241,13 +241,7 @@ fn unresolved_grid(range: &UnresolvedRange) -> Vec<f64> {
 /// Filtering first loses the fill above the last in-range energy — on U-234
 /// that silently cost `7.2e4` and `8.5e4`, two of the twenty-seven points NJOY
 /// stores.
-fn seed_with_gap_fill(
-    energies: &[f64],
-    step_divisor: f64,
-    el: f64,
-    eh: f64,
-    list: &mut Vec<f64>,
-) {
+fn seed_with_gap_fill(energies: &[f64], step_divisor: f64, el: f64, eh: f64, list: &mut Vec<f64>) {
     for (i, &ener) in energies.iter().enumerate() {
         if !(ener >= el && ener < eh) {
             continue;
@@ -465,10 +459,7 @@ pub fn build_mt152(
         // reconr.f90:1694-1727 -- add the MF=3 background, LSSF=0 only.
         if range.lssf == 0 {
             for (k, mt) in [(0usize, 1i32), (1, 2), (2, 18), (3, 102)] {
-                if let Some(sec) = background
-                    .iter()
-                    .find(|s| s.mt == MtReaction::from_any(mt))
-                {
+                if let Some(sec) = background.iter().find(|s| s.mt == MtReaction::from_any(mt)) {
                     row[k] += eval_lin_lin(&sec.pairs, e);
                 }
             }

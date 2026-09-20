@@ -57,9 +57,7 @@ fn main() {
 /// Days-to-civil is Howard Hinnant's algorithm (public domain), valid for any
 /// date this will ever see.
 fn utc_date() -> String {
-    let secs = match std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-    {
+    let secs = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
         Ok(d) => d.as_secs() as i64,
         Err(_) => return "unknown".to_string(),
     };

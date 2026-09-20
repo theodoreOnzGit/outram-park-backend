@@ -165,7 +165,10 @@ fn sigl_cross_section_converges_onto_an_independent_quadrature() {
 
     for &(e, ep) in PROBES {
         let reference = ii.sigma_e_to_ep(e, ep, TEMP_K, NATOM);
-        assert!(reference > 0.0, "probe ({e}, {ep}) must have a cross section");
+        assert!(
+            reference > 0.0,
+            "probe ({e}, {ep}) must have a cross section"
+        );
 
         let mut last_err = f64::INFINITY;
         for &tol in &[5.0e-3_f64, 5.0e-4, 5.0e-5] {

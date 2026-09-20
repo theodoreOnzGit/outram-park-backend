@@ -168,9 +168,10 @@ pub fn wimout(
                     out.push(i15(ntnp as i64));
                 }
                 out.push(header.clone());
-                let nu = g.nu_fission.clone().unwrap_or_else(|| {
-                    vec![vec![0.0; jsigz]; jres]
-                });
+                let nu = g
+                    .nu_fission
+                    .clone()
+                    .unwrap_or_else(|| vec![vec![0.0; jsigz]; jres]);
                 lines_5e(&record(&nu, g), &mut out);
             }
             if inp.iverw == 4 {

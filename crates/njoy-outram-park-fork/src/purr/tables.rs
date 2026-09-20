@@ -287,7 +287,11 @@ fn lssf_reduced_background(bkg: [f64; 4]) -> [f64; 4] {
     const TOL: f64 = 1.0e-3;
     let [tot, el, fis, cap] = bkg;
     let remainder = tot - el - fis - cap;
-    let keep = if remainder > TOL * tot { remainder } else { 0.0 };
+    let keep = if remainder > TOL * tot {
+        remainder
+    } else {
+        0.0
+    };
     [keep, 0.0, 0.0, 0.0]
 }
 

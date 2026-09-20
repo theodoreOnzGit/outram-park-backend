@@ -350,7 +350,10 @@ impl<'a> Cursor<'a> {
         while flat.len() < 2 * np {
             flat.extend_from_slice(&self.next_row()?);
         }
-        let xy: Vec<(f64, f64)> = flat[..2 * np].chunks_exact(2).map(|p| (p[0], p[1])).collect();
+        let xy: Vec<(f64, f64)> = flat[..2 * np]
+            .chunks_exact(2)
+            .map(|p| (p[0], p[1]))
+            .collect();
         Ok((head, interp, xy))
     }
 }

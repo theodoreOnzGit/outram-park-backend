@@ -550,7 +550,15 @@ pub fn rpxlc12(
                     b[il3] = backdt * 0.99;
                 }
                 let sigr = if gwidth != 0.0 {
-                    Some(rpendf(&b, rp, eskip, eres, &mut arat, ilnum + 1, ajres_abs)?)
+                    Some(rpendf(
+                        &b,
+                        rp,
+                        eskip,
+                        eres,
+                        &mut arat,
+                        ilnum + 1,
+                        ajres_abs,
+                    )?)
                 } else {
                     None
                 };
@@ -571,7 +579,15 @@ pub fn rpxlc12(
                     b[il3] = backdt * 1.01;
                 }
                 let sigp = if gwidth != 0.0 {
-                    Some(rpendf(&b, rp, eskip, eres, &mut arat, ilnum + 1, ajres_abs)?)
+                    Some(rpendf(
+                        &b,
+                        rp,
+                        eskip,
+                        eres,
+                        &mut arat,
+                        ilnum + 1,
+                        ajres_abs,
+                    )?)
                 } else {
                     None
                 };
