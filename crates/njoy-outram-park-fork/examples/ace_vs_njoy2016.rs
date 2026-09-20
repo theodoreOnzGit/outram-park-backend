@@ -185,51 +185,6 @@ mod desktop {
     ];
 
 
-    /// Exact integral of a **lin-lin** tabulation over `[a, b]`.
-    ///
-    /// Both ACE tables are lin-lin by construction, so a trapezoid over each
-    /// panel — with the end panels clipped to `a` and `b` and the integrand
-    /// interpolated there — is not an approximation, it is the integral of the
-    /// function the table *defines*.
-    ///
-    /// This is the instrument that makes a broadened-region comparison
-    /// possible at all: it depends only on the function each table represents,
-    /// not on where either code chose to put its grid points. A shared-point
-    /// comparison cannot reach the broadened region, because below `thnmax`
-    /// the two adaptive grids essentially never coincide.
-    fn integrate_linlin(e: &[f64], x: &[f64], a: f64, b: f64) -> f64 {
-        if b <= a || e.len() < 2 {
-            return 0.0;
-        }
-        let at = |i: usize, t: f64| -> f64 {
-            // Linear interpolation inside panel i for energy t.
-            let (e0, e1) = (e[i], e[i + 1]);
-            if e1 <= e0 {
-                return x[i];
-            }
-            x[i] + (x[i + 1] - x[i]) * (t - e0) / (e1 - e0)
-        };
-        let mut acc = 0.0;
-        // First panel whose upper edge exceeds `a`.
-        let mut i = match e.binary_search_by(|v| v.partial_cmp(&a).unwrap()) {
-            Ok(k) => k,
-            Err(k) => k.saturating_sub(1),
-        };
-        while i + 1 < e.len() && e[i + 1] <= a {
-            i += 1;
-        }
-        while i + 1 < e.len() && e[i] < b {
-            let lo = e[i].max(a);
-            let hi = e[i + 1].min(b);
-            if hi > lo {
-                let (xlo, xhi) = (at(i, lo), at(i, hi));
-                acc += 0.5 * (xlo + xhi) * (hi - lo);
-            }
-            i += 1;
-        }
-        acc
-    }
-
     pub fn run() {
         let njoy_path = std::env::args().nth(1).unwrap_or_else(|| {
             eprintln!(
@@ -636,6 +591,7 @@ mod desktop {
         let nbands = ((decades * BANDS_PER_DECADE as f64).ceil() as usize).max(1);
         let edge = |k: usize| e_min * 10f64.powf(decades * k as f64 / nbands as f64);
 
+        let mut band_rows: Vec<(f64, f64, f64, f64, f64)> = Vec::new(); // e_lo, e_hi, njoy tot/abs/el
         for (col, label) in [(1usize, "total"), (2, "absorption"), (3, "elastic")] {
             let xo = &ours.xss[eo + col * nes_o..eo + (col + 1) * nes_o];
             let xt = &theirs.xss[et + col * nes_t..et + (col + 1) * nes_t];
@@ -644,8 +600,8 @@ mod desktop {
             let mut n_lo = 0usize;
             for k in 0..nbands {
                 let (a, b) = (edge(k), edge(k + 1));
-                let io = integrate_linlin(e_ours, xo, a, b);
-                let it = integrate_linlin(e_theirs, xt, a, b);
+                let io = njoy_outram_park_fork::acer::integrate_linlin(e_ours, xo, a, b);
+                let it = njoy_outram_park_fork::acer::integrate_linlin(e_theirs, xt, a, b);
                 if it == 0.0 {
                     continue;
                 }
@@ -655,6 +611,15 @@ mod desktop {
                 // attributed to neither.
                 if b <= thnmax_mev {
                     n_lo += 1;
+                    if col == 1 {
+                        band_rows.push((a, b, it, 0.0, 0.0));
+                    } else if let Some(r) = band_rows.iter_mut().find(|r| r.0 == a) {
+                        if col == 2 {
+                            r.3 = it;
+                        } else {
+                            r.4 = it;
+                        }
+                    }
                     if d > worst_lo.0 {
                         worst_lo = (d, a, io, it);
                     }
@@ -675,6 +640,44 @@ mod desktop {
             "  ({BANDS_PER_DECADE} bands/decade over [{:.3e}, {:.3e}] MeV; thnmax {:.3e} MeV)",
             e_min, e_max, thnmax_mev
         );
+
+        // ── Optional: dump NJOY's BROADENED band integrals as a test oracle ──
+        //
+        // Committed so the broadening gate does not need the 135 MB reference
+        // table at test time: 167 rows against a file that big is the same
+        // trade the ESZ oracle already makes.
+        if let Some(out) = flag("--dump-band-oracle") {
+            use std::io::Write;
+            let mut f = std::io::BufWriter::new(
+                std::fs::File::create(&out).unwrap_or_else(|e| panic!("create {out}: {e}")),
+            );
+            writeln!(
+                f,
+                "# NJOY2016 2016.79 ac5adf5 -- band integrals of the ESZ columns over"
+            )
+            .unwrap();
+            writeln!(
+                f,
+                "# equal-lethargy bands ({BANDS_PER_DECADE}/decade) lying wholly BELOW thnmax"
+            )
+            .unwrap();
+            writeln!(
+                f,
+                "# = {thnmax_mev:.6e} MeV, i.e. the bands that actually test Doppler broadening."
+            )
+            .unwrap();
+            writeln!(f, "# MAT {mat}, {temp_k} K. Integrals in barn*MeV; energies in MeV.").unwrap();
+            writeln!(f, "e_lo_mev,e_hi_mev,total,absorption,elastic").unwrap();
+            for r in &band_rows {
+                writeln!(
+                    f,
+                    "{:.17e},{:.17e},{:.17e},{:.17e},{:.17e}",
+                    r.0, r.1, r.2, r.3, r.4
+                )
+                .unwrap();
+            }
+            println!("\nwrote {} band rows to {out}", band_rows.len());
+        }
 
         // ── Optional: dump the shared-grid rows as a committed test oracle ──
         //

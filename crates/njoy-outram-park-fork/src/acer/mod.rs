@@ -74,6 +74,51 @@ pub mod nu;
 /// Measured on ENDF/B-VIII.0, 2026-09-20: true for U-234 (MF=4/MT=19), false
 /// for U-235 and U-238 — matching which reactions NJOY2016 puts in each of
 /// those tables.
+/// Exact integral of a **lin-lin** tabulation over `[a, b]`.
+///
+/// Both ACE tables are lin-lin by construction, so a trapezoid over each
+/// panel — with the end panels clipped to `a` and `b` and the integrand
+/// interpolated there — is not an approximation, it is the integral of the
+/// function the table *defines*.
+///
+/// This is the instrument that makes a broadened-region comparison
+/// possible at all: it depends only on the function each table represents,
+/// not on where either code chose to put its grid points. A shared-point
+/// comparison cannot reach the broadened region, because below `thnmax`
+/// the two adaptive grids essentially never coincide.
+pub fn integrate_linlin(e: &[f64], x: &[f64], a: f64, b: f64) -> f64 {
+    if b <= a || e.len() < 2 {
+        return 0.0;
+    }
+    let at = |i: usize, t: f64| -> f64 {
+        // Linear interpolation inside panel i for energy t.
+        let (e0, e1) = (e[i], e[i + 1]);
+        if e1 <= e0 {
+            return x[i];
+        }
+        x[i] + (x[i + 1] - x[i]) * (t - e0) / (e1 - e0)
+    };
+    let mut acc = 0.0;
+    // First panel whose upper edge exceeds `a`.
+    let mut i = match e.binary_search_by(|v| v.partial_cmp(&a).unwrap()) {
+        Ok(k) => k,
+        Err(k) => k.saturating_sub(1),
+    };
+    while i + 1 < e.len() && e[i + 1] <= a {
+        i += 1;
+    }
+    while i + 1 < e.len() && e[i] < b {
+        let lo = e[i].max(a);
+        let hi = e[i + 1].min(b);
+        if hi > lo {
+            let (xlo, xhi) = (at(i, lo), at(i, hi));
+            acc += 0.5 * (xlo + xhi) * (hi - lo);
+        }
+        i += 1;
+    }
+    acc
+}
+
 pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool {
     (4..=6).any(|mf| tape.section(mat, mf, 19).is_some())
 }
