@@ -76,9 +76,83 @@ impl From<QuadMethod> for crate::triangulate::QuadMethod {
     }
 }
 
-/// Poke every face into a centroid fan. The centre vertex is
-/// `centroid + normal · offset`.
+/// Where the poke centre goes — upstream's `BMOP_POKE_*`
+/// (`bmesh_operators.hh:93`).
+///
+/// Blender's **Poke Faces** tool defaults to [`PokeCenter::MedianWeighted`]
+/// (`editmesh_tools.cc:5470`), which is why that is the default here too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PokeCenter {
+    /// Each corner weighted by the length of the two edges meeting there,
+    /// so a cluster of closely-spaced corners does not drag the centre
+    /// toward itself. Upstream `BMOP_POKE_MEDIAN_WEIGHTED`, and upstream's
+    /// default.
+    #[default]
+    MedianWeighted,
+    /// The plain mean of the corner positions. Upstream `BMOP_POKE_MEDIAN`.
+    Median,
+    /// The centre of the face's axis-aligned bounding box. Upstream
+    /// `BMOP_POKE_BOUNDS`.
+    Bounds,
+}
+
+/// Upstream `BM_face_calc_center_bounds` — the midpoint of the corner
+/// bounding box.
+fn center_bounds(pts: &[Vec3]) -> Vec3 {
+    let mut lo = pts[0];
+    let mut hi = pts[0];
+    for p in &pts[1..] {
+        lo = Vec3::new(lo.x.min(p.x), lo.y.min(p.y), lo.z.min(p.z));
+        hi = Vec3::new(hi.x.max(p.x), hi.y.max(p.y), hi.z.max(p.z));
+    }
+    lo.add(hi).scale(0.5)
+}
+
+/// Poke every face into a fan around a new centre vertex, using upstream's
+/// defaults.
+///
+/// The centre is placed by [`PokeCenter::MedianWeighted`] and displaced
+/// along the face normal by `offset` (an absolute length, in the caller's
+/// units). See [`poke_faces_with`] for the other modes.
+///
+/// **Changed 2026-09-19.** This previously used the plain vertex mean,
+/// which is upstream's `BMOP_POKE_MEDIAN` — *not* its default. Blender's
+/// Poke Faces tool defaults to median-weighted, so this now does too. The
+/// two agree on any face whose corners are evenly spaced and differ on one
+/// where they are not; see
+/// `poke_center_modes_differ_on_unevenly_spaced_corners`.
 pub fn poke_faces(mesh: &Mesh, offset: f64) -> Mesh {
+    poke_faces_with(mesh, offset, PokeCenter::default(), false)
+}
+
+/// Poke every face into a fan, choosing the centre mode and offset scaling.
+///
+/// When `use_relative_offset` is set, `offset` is multiplied by the mean
+/// distance from the face centre to its corners, so the displacement scales
+/// with the face rather than being absolute — upstream's
+/// `use_relative_offset` slot, which defaults to off.
+///
+/// Positions of existing vertices are never changed; one vertex is added
+/// per face. Infallible.
+///
+/// # Examples
+///
+/// ```
+/// use outram_blender::primitives;
+/// use outram_blender::poke_quads::{poke_faces_with, PokeCenter};
+///
+/// let cube = primitives::cube(2.0);
+/// // Six quads become six fans of four triangles.
+/// let poked = poke_faces_with(&cube, 0.0, PokeCenter::MedianWeighted, false);
+/// assert_eq!(poked.face_count(), 24);
+/// assert_eq!(poked.vertex_count(), cube.vertex_count() + 6);
+/// ```
+pub fn poke_faces_with(
+    mesh: &Mesh,
+    offset: f64,
+    center_mode: PokeCenter,
+    use_relative_offset: bool,
+) -> Mesh {
     let mut positions = mesh.positions();
     let mut faces: Vec<Vec<usize>> = Vec::new();
     for f in 0..mesh.face_count() {
@@ -87,9 +161,20 @@ pub fn poke_faces(mesh: &Mesh, offset: f64) -> Mesh {
             faces.push(vs);
             continue;
         }
-        let c = mesh
-            .face_centroid(FaceId(f))
-            .add(mesh.face_normal(FaceId(f)).scale(offset));
+        let pts: Vec<Vec3> = vs.iter().map(|&i| positions[i]).collect();
+        let base = match center_mode {
+            PokeCenter::MedianWeighted => crate::planar_faces::center_median_weighted(&pts),
+            PokeCenter::Median => mesh.face_centroid(FaceId(f)),
+            PokeCenter::Bounds => center_bounds(&pts),
+        };
+        // Upstream accumulates the centre-to-corner distances and divides
+        // by the corner count; with the flag off the factor stays at 1.
+        let offset_fac = if use_relative_offset {
+            pts.iter().map(|p| p.sub(base).length()).sum::<f64>() / pts.len() as f64
+        } else {
+            1.0
+        };
+        let c = base.add(mesh.face_normal(FaceId(f)).scale(offset * offset_fac));
         let ci = positions.len();
         positions.push(c);
         let n = vs.len();
@@ -431,6 +516,113 @@ mod tests {
         assert!(
             disagreements > 0,
             "the two rules should differ somewhere, or the switch was a no-op"
+        );
+    }
+
+    /// Code-to-code check against upstream's poke defaults.
+    ///
+    /// # Methodology
+    ///
+    /// `bmo_poke.cc` offers three centre modes, and Blender's Poke Faces
+    /// tool defaults to `BMOP_POKE_MEDIAN_WEIGHTED`
+    /// (`editmesh_tools.cc:5470`). This crate used the plain vertex mean —
+    /// upstream's `BMOP_POKE_MEDIAN`, a different mode. Build a face whose
+    /// corners are deliberately unevenly spaced and confirm the three modes
+    /// put the centre in three different places, so the default genuinely
+    /// mattered.
+    ///
+    /// # Results (measured 2026-09-19)
+    ///
+    /// On a quad with three corners bunched at `x ≈ 0` and one at
+    /// `x = 10`, the three centres land at:
+    ///
+    /// | mode | centre |
+    /// |---|---|
+    /// | median (the old behaviour) | `(2.5750, 0.0250)` |
+    /// | median-weighted (upstream's default, now ours) | `(4.9900, 0.0248)` |
+    /// | bounds | `(5.0000, 0.0500)` |
+    ///
+    /// So the mode this crate was using put the poke vertex **2.415 units**
+    /// away from where Blender's default puts it, on a face 10 units
+    /// across — a quarter of the face, not a rounding difference.
+    ///
+    /// Note that median-weighted and bounds nearly coincide here (0.027
+    /// apart): the single long edge dominates the weighting, pulling the
+    /// weighted centre out to where the bounding box is centred. They are
+    /// still distinct modes and separate on other shapes, but this fixture
+    /// does not distinguish them, and asserting that it did would be
+    /// asserting something false.
+    #[test]
+    fn poke_center_modes_differ_on_unevenly_spaced_corners() {
+        let pts = vec![
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.1, 0.0, 0.0),
+            Vec3::new(0.2, 0.1, 0.0),
+            Vec3::new(10.0, 0.0, 0.0),
+        ];
+        let m = Mesh::from_polygons(&pts, &[vec![0, 1, 2, 3]]);
+
+        let centre = |mode: PokeCenter| -> Vec3 {
+            let poked = poke_faces_with(&m, 0.0, mode, false);
+            // The added vertex is the last one.
+            poked.positions()[poked.vertex_count() - 1]
+        };
+        let w = centre(PokeCenter::MedianWeighted);
+        let med = centre(PokeCenter::Median);
+        let b = centre(PokeCenter::Bounds);
+
+        // The finding: the old default sat a long way from upstream's.
+        assert!(
+            w.sub(med).length() > 2.0,
+            "weighted {w:?} vs median {med:?} — the default change should matter"
+        );
+        assert!(b.sub(med).length() > 2.0, "bounds {b:?} vs median {med:?}");
+        // Weighted and bounds are distinct modes but nearly coincide on this
+        // particular fixture; assert only that they are not identical.
+        let wb = b.sub(w).length();
+        assert!(wb > 1e-9 && wb < 0.1, "bounds vs weighted here is {wb}");
+
+        // And the default is upstream's, not the old one.
+        let default_centre = poke_faces(&m, 0.0);
+        let d = default_centre.positions()[default_centre.vertex_count() - 1];
+        assert!(
+            d.sub(w).length() < 1e-12,
+            "default should be median-weighted"
+        );
+    }
+
+    /// Relative offset must scale with the face, absolute must not.
+    ///
+    /// # Results (measured 2026-09-19)
+    ///
+    /// A cube of side 2 and one of side 20, poked with `offset = 0.5`:
+    /// absolute mode lifts both centres by exactly 0.5; relative mode lifts
+    /// them by 0.7071 and 7.0711 respectively — a 10x ratio matching the
+    /// 10x size, which is what "relative" is supposed to mean.
+    #[test]
+    fn relative_offset_scales_with_the_face_and_absolute_does_not() {
+        let lift = |size: f64, relative: bool| -> f64 {
+            let cube = crate::primitives::cube(size);
+            let poked = poke_faces_with(&cube, 0.5, PokeCenter::MedianWeighted, relative);
+            let flat = poke_faces_with(&cube, 0.0, PokeCenter::MedianWeighted, relative);
+            // Compare the first added centre against its un-offset position.
+            let i = cube.vertex_count();
+            poked.positions()[i].sub(flat.positions()[i]).length()
+        };
+
+        let abs_small = lift(2.0, false);
+        let abs_big = lift(20.0, false);
+        assert!(
+            (abs_small - 0.5).abs() < 1e-12,
+            "absolute small {abs_small}"
+        );
+        assert!((abs_big - 0.5).abs() < 1e-12, "absolute big {abs_big}");
+
+        let rel_small = lift(2.0, true);
+        let rel_big = lift(20.0, true);
+        assert!(
+            (rel_big / rel_small - 10.0).abs() < 1e-9,
+            "relative should scale 10x with a 10x cube: {rel_small} -> {rel_big}"
         );
     }
 }

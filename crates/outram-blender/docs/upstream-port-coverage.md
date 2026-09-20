@@ -12,7 +12,7 @@ tree, not by guessing.
 - **Upstream licence:** GPL-2.0-or-later, GPLv3-compatible. See
   `upstream_source/README.md` for the verification and `NOTICE` for the
   lineage.
-- **This crate:** 84 modules, ~44k lines, 510 unit tests + 20 doctests at
+- **This crate:** 84 modules, ~44k lines, 512 unit tests + 21 doctests at
   the time of writing.
 
 > **Status is about *presence and provenance*, not correctness.** Nothing in
@@ -60,7 +60,7 @@ tree, not by guessing.
 | `bmo_normals.cc` | 303 | `normals`, `recalc_normals` | REIMPLEMENTED |
 | `bmo_offset_edgeloops.cc` | 278 | — | **MISSING** |
 | `bmo_planar_faces.cc` | 134 | `planar_faces` | **PORTED** |
-| `bmo_poke.cc` | 135 | `poke_quads::poke_faces` | REIMPLEMENTED |
+| `bmo_poke.cc` | 135 | `poke_quads::poke_faces` | REIMPLEMENTED — all three centre modes + relative offset, verified against upstream's defaults |
 | `bmo_primitive.cc` | 1999 | `primitives`, `primitives_extra` | REIMPLEMENTED |
 | `bmo_relax_edge_loops.cc` | 390 | — | **MISSING** |
 | `bmo_removedoubles.cc` | 930 | `weld`, `merge` | REIMPLEMENTED |
@@ -176,6 +176,7 @@ down.
 | That operator's `eps = 1e-5` is an **absolute** floor in model units, so a mesh in metres cannot be flattened below ~1e-5 m while the same shape in millimetres flattens a thousand times finer. | `planar_faces` |
 | The crate's own one-shot limited dissolve **did not conserve area** (+23.7 % on a 48x32 sphere at 5°) and **silently no-opped** past 15°, because it costed every edge once instead of re-costing after each merge. Now delegates to the port. | `limited_dissolve` |
 | Two faces being dissolved commonly share **more than one** edge, so splicing across a single named edge is not enough — it stalls a 3x3 grid at 4 faces. Upstream's `BM_faces_join` cancels the whole shared set; the port does boundary cancellation. | `limited_dissolve::join_faces` |
+| Poke was using upstream's `BMOP_POKE_MEDIAN` while Blender's tool defaults to `MEDIAN_WEIGHTED` — measured 2.415 units apart on a 10-unit face, a quarter of the face. The default now matches, and the other two modes plus `use_relative_offset` were added. | `poke_quads` |
 | Concave splitting reaches the optimum (2 pieces) on a single-notch L but only 10-from-14 on a three-notch comb: re-entrant notches force convex boundaries the greedy re-merge cannot cross. "Splits into convex pieces" is not "splits into few convex pieces". | `connect_concave` |
 
 ## Maintaining this file

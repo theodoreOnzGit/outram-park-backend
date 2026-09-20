@@ -103,7 +103,7 @@ const EPS: f64 = 1e-5;
 /// Each corner is weighted by the length of the two edges meeting there,
 /// which keeps the centre from being dragged toward a cluster of closely
 /// spaced corners the way a plain vertex mean would.
-fn center_median_weighted(pts: &[Vec3]) -> Vec3 {
+pub(crate) fn center_median_weighted(pts: &[Vec3]) -> Vec3 {
     let n = pts.len();
     if n == 0 {
         return Vec3::new(0.0, 0.0, 0.0);
