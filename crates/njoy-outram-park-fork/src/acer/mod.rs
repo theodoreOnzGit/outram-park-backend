@@ -61,6 +61,22 @@ pub mod angular;
 pub mod build;
 pub mod energy;
 pub mod nu;
+
+/// True when the evaluation supplies **MF=4/5/6 secondary distributions for
+/// MT=19** (first-chance fission) — upstream's `mt19` flag, set from the tape
+/// dictionary at `acefc.f90:388`.
+///
+/// This decides which fission representation an ACE table stores: with it set,
+/// the partial chances MT=19/20/21/38 are stored and MT=18 is dropped; without
+/// it, MT=18 is stored and the partials are dropped. Exactly one set may be
+/// stored, because MT=18 is their sum.
+///
+/// Measured on ENDF/B-VIII.0, 2026-09-20: true for U-234 (MF=4/MT=19), false
+/// for U-235 and U-238 — matching which reactions NJOY2016 puts in each of
+/// those tables.
+pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool {
+    (4..=6).any(|mf| tape.section(mat, mf, 19).is_some())
+}
 /// Thermal scattering **S(α,β)** ACE table writer.
 ///
 /// ~~scaffold only (Phase 4, scheduled after the continuous-energy ACE

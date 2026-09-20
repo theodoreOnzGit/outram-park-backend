@@ -170,45 +170,86 @@ mod desktop {
         (worst, at)
     }
 
+    /// Boltzmann constant \[eV/K\] — kT\[MeV\] = k_B·T/1e6, the ACE header's
+    /// temperature field.
+    const BOLTZMANN_EV_PER_K: f64 = 8.617_333_262e-5;
+
+    /// The evaluations this comparator knows how to build, keyed by MAT.
+    ///
+    /// `(mat, tape file)`. Extend here rather than in the caller, so a new
+    /// nuclide is one line and the rest of the pipeline is shared.
+    const KNOWN: &[(i32, &str)] = &[
+        (9225, "n-092_U_234-ENDF8.0.endf"),
+        (9228, "n-092_U_235-ENDF8.0.endf"),
+        (9237, "n-092_U_238.endf"),
+    ];
+
     pub fn run() {
         let njoy_path = std::env::args().nth(1).unwrap_or_else(|| {
-            eprintln!("usage: ace_vs_njoy2016 <njoy_type1_ace_file>");
+            eprintln!(
+                "usage: ace_vs_njoy2016 <njoy_type1_ace_file> [--mat N] [--temp-k K] \
+                 [--dump-oracle PATH]\n\
+                 \n\
+                 --mat defaults to 9228 (U-235); --temp-k defaults to 0 (no BROADR)."
+            );
             std::process::exit(2);
         });
+        let argv: Vec<String> = std::env::args().collect();
+        let flag = |name: &str| -> Option<String> {
+            argv.iter().position(|a| a == name).and_then(|i| argv.get(i + 1).cloned())
+        };
+        let mat: i32 = flag("--mat").and_then(|v| v.parse().ok()).unwrap_or(9228);
+        let temp_k: f64 = flag("--temp-k").and_then(|v| v.parse().ok()).unwrap_or(0.0);
+
         let theirs = parse_njoy_ace(&njoy_path);
 
         // ── Ours: the identical pipeline examples/write_ace.rs uses ──────────
-        const MAT: i32 = 9228;
-        let path = njoy_outram_park_fork::reference_data::reference_endf_dir()
-            .join("n-092_U_235-ENDF8.0.endf");
+        let tape_file = KNOWN
+            .iter()
+            .find(|&&(m, _)| m == mat)
+            .map(|&(_, f)| f)
+            .unwrap_or_else(|| {
+                eprintln!("unknown MAT {mat}; known: {:?}", KNOWN.iter().map(|&(m, _)| m).collect::<Vec<_>>());
+                std::process::exit(2);
+            });
+        println!("comparing MAT {mat} ({tape_file}) at {temp_k} K against {njoy_path}\n");
+        let path = njoy_outram_park_fork::reference_data::reference_endf_dir().join(tape_file);
         let tape = Tape::read(File::open(&path).expect("open ENDF")).expect("parse ENDF");
-        let cfg = ReconrConfig { mat: MAT, tolerance: 0.001, temperature: 0.0 };
+        let cfg = ReconrConfig { mat, tolerance: 0.001, temperature: 0.0 };
         let result = reconr(&tape, &cfg).expect("RECONR");
+        // BROADR at the requested temperature. At 0 K this is skipped entirely
+        // so the 0 K path stays byte-for-byte what it was.
+        let result = if temp_k > 0.0 {
+            njoy_outram_park_fork::broadr::broaden_result(&result, temp_k)
+        } else {
+            result
+        };
         let angular = tape
-            .section(MAT, 4, 2)
+            .section(mat, 4, 2)
             .map(|s| parse_elastic_angular(s).expect("parse MF=4"));
         let partials: Vec<(i32, f64)> = result
             .sections
             .iter()
             .map(|s| (i32::from(s.mt), s.qi))
             .collect();
-        let emissions = build_emissions(&tape, MAT, result.material.awr, &partials);
-        let nu = NuBar::from_endf(&tape, MAT).expect("MF=1").unwrap_or_default();
-        let chi = FissionSpectrum::from_endf_mf5(&tape, MAT).expect("MF=5").unwrap_or_default();
-        let emission = build_emission_spectra(&tape, MAT);
-        let photons = PhotonProduction::from_endf(&tape, MAT, &result);
+        let emissions = build_emissions(&tape, mat, result.material.awr, &partials);
+        let nu = NuBar::from_endf(&tape, mat).expect("MF=1").unwrap_or_default();
+        let chi = FissionSpectrum::from_endf_mf5(&tape, mat).expect("MF=5").unwrap_or_default();
+        let emission = build_emission_spectra(&tape, mat);
+        let photons = PhotonProduction::from_endf(&tape, mat, &result);
         let kerma = Kerma::from_reconr(&result, &nu, &chi, &emission)
             .with_energy_balance(&photons, &result);
         // The ACE NU block (fission nu-bar); None for a non-fissile nuclide.
-        let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, MAT).expect("NU block");
+        let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, mat).expect("NU block");
         let ours = AceTable::from_reconr_full(
             &result,
-            0.0,
+            temp_k * BOLTZMANN_EV_PER_K / 1.0e6,
             0,
             angular.as_ref(),
             &emissions,
             Some(&kerma),
             nu_block.as_deref(),
+            njoy_outram_park_fork::acer::has_mt19_distributions(&tape, mat),
         );
 
         // ── Header ───────────────────────────────────────────────────────────
@@ -224,9 +265,10 @@ mod desktop {
         println!("  {:<10} ours {:>14.6e} njoy {:>14.6e}", "kT [MeV]", ours.kt_mev, theirs.kt_mev);
         if (ours.kt_mev - theirs.kt_mev).abs() > 1e-12 {
             println!(
-                "  !! TEMPERATURE MISMATCH -- the oracle is not a matched 0 K RECONR-only run.\n     \
-                 Every block difference below is then confounded with Doppler broadening and\n     \
-                 cannot be attributed to ACER. Regenerate with make_ace_0k.sh."
+                "  !! TEMPERATURE MISMATCH -- ours and the reference were not built at the\n     \
+                 same temperature, so every block difference below is confounded with Doppler\n     \
+                 broadening and cannot be attributed to ACER. Pass --temp-k to match the\n     \
+                 reference deck (0 for a RECONR-only table, 293.6 for the broadened set)."
             );
         }
 
@@ -356,9 +398,50 @@ mod desktop {
         //
         // At energies BOTH grids contain, no interpolation happens at all, so
         // this is the figure that actually measures the port.
+        // WHERE OUR GRID COMES FROM vs where NJOY's does. `acelod` takes the
+        // ACE energy grid straight off MF=3 MT=1 of the PENDF
+        // (`acefc.f90:5343`, `call findf(matd,3,1,nin)`); this port instead
+        // builds the UNION of elastic and every stored partial. At 0 K those
+        // are nearly the same set, because RECONR already wrote every MT on a
+        // common union grid. After BROADR they are not: BROADR thins each MT
+        // separately to `errthn`, so the union over ~85 sections is far denser
+        // than MT=1's own thinned grid. Printed so the size gap is attributable
+        // rather than mysterious.
+        if let Some(mt1) = result.sections.iter().find(|s| i32::from(s.mt) == 1) {
+            println!("\n=== grid provenance ===");
+            println!(
+                "  broadened MF=3 MT=1 has {} points — this is the grid `acelod` would use",
+                mt1.pairs.len()
+            );
+            println!(
+                "  our ACE grid has {} points — the union over elastic + stored partials",
+                nes_o
+            );
+            println!("  NJOY's ACE grid has {nes_t} points");
+        }
+
         println!("\n=== ESZ at shared grid points (no interpolation) ===");
+        // SPLIT AT THE BROADENING LIMIT. Above `thnmax` neither code runs
+        // SIGMA1 (`broadr.f90:441`, ported as `broadr::broadening_limit`), so
+        // both tables there are the *same* unbroadened RECONR output and the
+        // comparison says nothing about Doppler broadening — it re-measures the
+        // 0 K agreement. Only points BELOW the limit test the broadening.
+        //
+        // Reporting one pooled number across both regions would let the large,
+        // easy, unbroadened population hide a disagreement in the small, hard,
+        // broadened one. That is the same failure as the interpolated row
+        // above, one level subtler.
+        let thnmax_ev = njoy_outram_park_fork::broadr::broadening_limit(&result);
+        let thnmax_mev = thnmax_ev / 1.0e6;
+        println!(
+            "  broadening limit (thnmax) = {:.6e} MeV — below it both codes broaden, \
+             above it neither does",
+            thnmax_mev
+        );
         let mut shared = 0usize;
         let mut worst = [(0.0f64, 0.0f64, 0.0f64, 0.0f64); 3];
+        let mut shared_lo = 0usize;
+        let mut worst_lo = [(0.0f64, 0.0f64, 0.0f64, 0.0f64); 3];
         let labels = ["total", "absorption", "elastic"];
         let mut i = 0usize;
         let mut j = 0usize;
@@ -375,6 +458,20 @@ mod desktop {
                             *w = (d, a, xo, xt);
                         }
                     }
+                }
+                if a < thnmax_mev {
+                    for (k, w) in worst_lo.iter_mut().enumerate() {
+                        let col = k + 1;
+                        let xo = ours.xss[eo + col * nes_o + i];
+                        let xt = theirs.xss[et + col * nes_t + j];
+                        if xt != 0.0 {
+                            let d = ((xo - xt) / xt).abs();
+                            if d > w.0 {
+                                *w = (d, a, xo, xt);
+                            }
+                        }
+                    }
+                    shared_lo += 1;
                 }
                 shared += 1;
                 i += 1;
@@ -394,6 +491,24 @@ mod desktop {
                 "  {:<11} worst rel {:.3e} at {:.6e} MeV  (ours {:.6e} njoy {:.6e})",
                 labels[k], w.0, w.1, w.2, w.3
             );
+        }
+        println!(
+            "\n  -- of those, {shared_lo} are BELOW thnmax (the ones that actually test \
+             Doppler broadening) --"
+        );
+        if shared_lo == 0 {
+            println!(
+                "  NONE. Every shared point is above the broadening limit, so this run \
+                 measures\n  the unbroadened table only and must NOT be reported as \
+                 agreement on broadening."
+            );
+        } else {
+            for (k, w) in worst_lo.iter().enumerate() {
+                println!(
+                    "  {:<11} worst rel {:.3e} at {:.6e} MeV  (ours {:.6e} njoy {:.6e})",
+                    labels[k], w.0, w.1, w.2, w.3
+                );
+            }
         }
 
         // ── Optional: dump the shared-grid rows as a committed test oracle ──

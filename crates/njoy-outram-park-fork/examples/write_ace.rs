@@ -80,6 +80,7 @@ fn main() {
         &emissions,
         Some(&kerma),
         nu_block.as_deref(),
+        njoy_outram_park_fork::acer::has_mt19_distributions(&tape, MAT),
     );
 
     println!("ZAID          : {}", ace.zaid.trim());

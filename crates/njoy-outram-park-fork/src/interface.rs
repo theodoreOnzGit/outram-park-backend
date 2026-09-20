@@ -317,6 +317,7 @@ impl NuclearDataLibrary {
             &emissions,
             Some(&kerma),
             nu_block.as_deref(),
+            crate::acer::has_mt19_distributions(&self.tape, self.mat),
         );
         ace.write_type1(path).map_err(NjoyError::Io)
     }

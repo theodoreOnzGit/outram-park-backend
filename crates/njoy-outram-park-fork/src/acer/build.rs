@@ -133,14 +133,44 @@ fn contributes_to_total(mt: i32, present: &[i32]) -> bool {
 /// Assign a [`Role`] to a reaction, given the set of MT numbers present.
 ///
 /// `has_discrete_inelastic` is whether any of MT=51–91 are present (which makes
-/// the lumped MT=4 redundant); `has_total_fission` is whether MT=18 is present
-/// (which makes the partial-fission MTs 19/20/21/38 redundant).
-fn role_of(mt: i32, has_discrete_inelastic: bool, has_total_fission: bool) -> Role {
+/// the lumped MT=4 redundant).
+///
+/// # Which fission representation is stored
+///
+/// An evaluation may give total fission (MT=18), the partial chances
+/// (MT=19/20/21/38), or both. Exactly one set may be stored — MT=18 is their
+/// sum, so keeping both double-counts fission in the total.
+///
+/// **The switch is not "is MT=18 present".** Upstream keys it on `mt19`
+/// (`acefc.f90:388`): whether the evaluation supplies **MF=4/5/6 secondary
+/// distributions for MT=19**. The skip test at `acefc.f90:1734` reads
+///
+/// ```text
+/// (mt19==1 .and. mth==18) .or. (mt19==0 .and. mth in {19,20,21,38})
+/// ```
+///
+/// so a first-chance-fission distribution means the partials are the better
+/// representation and MT=18 is dropped; without one, MT=18 is kept and the
+/// partials are dropped. Checked against the tapes on 2026-09-20: U-234 has
+/// MF=4/MT=19 and NJOY stores 19/20/21/38 without 18; U-235 and U-238 have
+/// none and NJOY stores 18 without the partials.
+///
+/// `has_partial_fission` guards the MT=18 drop so that an evaluation with
+/// `mt19` set but no partial sections in MF=3 keeps its fission rather than
+/// losing it entirely. On a real tape `mt19` implies the partials exist, so
+/// this never fires; it is here because the failure it prevents is silent.
+fn role_of(
+    mt: i32,
+    has_discrete_inelastic: bool,
+    mt19: bool,
+    has_partial_fission: bool,
+) -> Role {
     match mt {
         2 => Role::Elastic,
         1 | 3 | 27 | 101 => Role::Redundant,
         4 if has_discrete_inelastic => Role::Redundant,
-        19 | 20 | 21 | 38 if has_total_fission => Role::Redundant,
+        18 if mt19 && has_partial_fission => Role::Redundant,
+        19 | 20 | 21 | 38 if !mt19 => Role::Redundant,
         // Discrete charged-particle levels and (n,2n) levels are REAL partials.
         // Upstream stores them in a second pass over MF=3 (`acefc.f90` ~5536:
         // pass 1 defers `mt.gt.200.and.mt.le.849`, pass 2 picks exactly that
@@ -180,7 +210,7 @@ impl AceTable {
     /// To include the elastic angular distribution, use
     /// [`from_reconr_with_angular`][Self::from_reconr_with_angular].
     pub fn from_reconr(result: &ReconrResult, kt_mev: f64, suffix: u32) -> Self {
-        Self::build(result, kt_mev, suffix, None, &[], None, None)
+        Self::build(result, kt_mev, suffix, None, &[], None, None, false)
     }
 
     /// Assemble an ACE table including the **elastic** angular distribution.
@@ -196,7 +226,7 @@ impl AceTable {
         suffix: u32,
         angular: &ElasticAngular,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, Some(angular), &[], None, None)
+        Self::build(result, kt_mev, suffix, Some(angular), &[], None, None, false)
     }
 
     /// Assemble a full ACE table: cross sections, the elastic angular
@@ -221,8 +251,9 @@ impl AceTable {
         emissions: &[Emission],
         heating: Option<&crate::heatr::Kerma>,
         nu: Option<&[f64]>,
+        mt19: bool,
     ) -> Self {
-        Self::build(result, kt_mev, suffix, angular, emissions, heating, nu)
+        Self::build(result, kt_mev, suffix, angular, emissions, heating, nu, mt19)
     }
 
     /// Shared assembly for the `from_reconr*` constructors.
@@ -234,6 +265,7 @@ impl AceTable {
         emissions: &[Emission],
         heating: Option<&crate::heatr::Kerma>,
         nu: Option<&[f64]>,
+        mt19: bool,
     ) -> Self {
         let za = result.material.za.round() as i32;
         let awr = result.material.awr;
@@ -241,14 +273,15 @@ impl AceTable {
         // Partition the reconstructed sections by role.
         let present: Vec<i32> = result.sections.iter().map(|s| i32::from(s.mt)).collect();
         let has_discrete_inelastic = present.iter().any(|&m| (51..=91).contains(&m));
-        let has_total_fission = present.contains(&18);
+        let has_partial_fission = present.iter().any(|&m| matches!(m, 19 | 20 | 21 | 38));
 
         let elastic = result.sections.iter().find(|s| i32::from(s.mt) == 2);
         let partials: Vec<&ReconrSection> = result
             .sections
             .iter()
             .filter(|s| {
-                role_of(i32::from(s.mt), has_discrete_inelastic, has_total_fission) == Role::Partial
+                role_of(i32::from(s.mt), has_discrete_inelastic, mt19, has_partial_fission)
+                    == Role::Partial
             })
             .collect();
 
@@ -669,19 +702,50 @@ mod tests {
     #[test]
     fn role_drops_redundant_sums_keeps_partials() {
         // MT=1/3 are always redundant; MT=2 is elastic.
-        assert!(matches!(role_of(1, true, true), Role::Redundant));
-        assert!(matches!(role_of(3, false, false), Role::Redundant));
-        assert!(matches!(role_of(2, false, false), Role::Elastic));
+        assert!(matches!(role_of(1, true, false, false), Role::Redundant));
+        assert!(matches!(role_of(3, false, false, false), Role::Redundant));
+        assert!(matches!(role_of(2, false, false, false), Role::Elastic));
         // MT=4 is redundant only when discrete inelastic levels exist.
-        assert!(matches!(role_of(4, true, false), Role::Redundant));
-        assert!(matches!(role_of(4, false, false), Role::Partial));
-        // Partial fission MTs are redundant only when total fission MT=18 exists.
-        assert!(matches!(role_of(19, false, true), Role::Redundant));
-        assert!(matches!(role_of(19, false, false), Role::Partial));
+        assert!(matches!(role_of(4, true, false, false), Role::Redundant));
+        assert!(matches!(role_of(4, false, false, false), Role::Partial));
         // Real partials are kept.
-        assert!(matches!(role_of(18, false, false), Role::Partial));
-        assert!(matches!(role_of(102, false, false), Role::Partial));
-        assert!(matches!(role_of(16, false, false), Role::Partial));
+        assert!(matches!(role_of(102, false, false, false), Role::Partial));
+        assert!(matches!(role_of(16, false, false, false), Role::Partial));
+    }
+
+    /// Exactly ONE fission representation is stored, and which one is decided
+    /// by `mt19` — whether the evaluation gives MF=4/5/6 for MT=19 — not by
+    /// whether MT=18 happens to be present.
+    ///
+    /// This is the rule that had U-234 wrong: NJOY2016 stores MT=19/20/21/38
+    /// and no MT=18 for it, and this port stored MT=18 and dropped the
+    /// partials. Both are internally consistent, so nothing failed — the
+    /// tables simply disagreed about which reactions exist, which is why it
+    /// took a cross-nuclide comparison to surface.
+    #[test]
+    fn fission_representation_follows_mt19_not_mt18() {
+        // U-235 / U-238 shape: no MF=4/5/6 for MT=19, evaluation gives MT=18
+        // and the partials. Keep MT=18, drop the partials.
+        assert!(matches!(role_of(18, false, false, true), Role::Partial));
+        for mt in [19, 20, 21, 38] {
+            assert!(
+                matches!(role_of(mt, false, false, true), Role::Redundant),
+                "MT={mt} should be dropped when mt19 is unset"
+            );
+        }
+
+        // U-234 shape: MF=4/MT=19 present. Keep the partials, drop MT=18.
+        assert!(matches!(role_of(18, false, true, true), Role::Redundant));
+        for mt in [19, 20, 21, 38] {
+            assert!(
+                matches!(role_of(mt, false, true, true), Role::Partial),
+                "MT={mt} should be stored when mt19 is set"
+            );
+        }
+
+        // Guard: mt19 set but no partial sections on the tape. Dropping MT=18
+        // would leave the table with NO fission at all, so it is kept.
+        assert!(matches!(role_of(18, false, true, false), Role::Partial));
     }
 
     #[test]
@@ -706,9 +770,9 @@ mod tests {
     #[test]
     fn charged_particle_levels_are_stored_but_not_double_counted() {
         // Stored either way: they carry an MTR entry so they can be tallied.
-        assert!(matches!(role_of(649, true, true), Role::Partial));
-        assert!(matches!(role_of(800, true, true), Role::Partial));
-        assert!(matches!(role_of(835, true, true), Role::Partial));
+        assert!(matches!(role_of(649, true, false, false), Role::Partial));
+        assert!(matches!(role_of(800, true, false, false), Role::Partial));
+        assert!(matches!(role_of(835, true, false, false), Role::Partial));
 
         // U-235's case: the lumped totals ARE present, so the levels must not
         // reach the total or the disappearance column.

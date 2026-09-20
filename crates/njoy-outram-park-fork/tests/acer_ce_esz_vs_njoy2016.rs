@@ -142,7 +142,7 @@ fn build_ours() -> AceTable {
     // The ACE NU block (fission nu-bar); None for a non-fissile nuclide.
     let nu_block = njoy_outram_park_fork::acer::nu::build(&tape, MAT)
         .expect("NU block");
-    AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma), nu_block.as_deref())
+    AceTable::from_reconr_full(&result, 0.0, 0, angular.as_ref(), &emissions, Some(&kerma), nu_block.as_deref(), njoy_outram_park_fork::acer::has_mt19_distributions(&tape, MAT))
 }
 
 /// The ESZ cross sections reproduce NJOY2016's at every energy both grids hold.
