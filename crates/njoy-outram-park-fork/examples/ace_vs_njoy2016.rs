@@ -205,14 +205,23 @@ mod desktop {
         let theirs = parse_njoy_ace(&njoy_path);
 
         // ── Ours: the identical pipeline examples/write_ace.rs uses ──────────
-        let tape_file = KNOWN
-            .iter()
-            .find(|&&(m, _)| m == mat)
-            .map(|&(_, f)| f)
-            .unwrap_or_else(|| {
-                eprintln!("unknown MAT {mat}; known: {:?}", KNOWN.iter().map(|&(m, _)| m).collect::<Vec<_>>());
-                std::process::exit(2);
-            });
+        // `--tape` names the evaluation directly, so any of the repository's
+        // ENDF tapes can be compared without editing KNOWN.
+        let tape_flag = flag("--tape");
+        let tape_file: &str = match tape_flag.as_deref() {
+            Some(f) => f,
+            None => KNOWN
+                .iter()
+                .find(|&&(m, _)| m == mat)
+                .map(|&(_, f)| f)
+                .unwrap_or_else(|| {
+                    eprintln!(
+                        "unknown MAT {mat}; pass --tape <file>, or one of: {:?}",
+                        KNOWN.iter().map(|&(m, _)| m).collect::<Vec<_>>()
+                    );
+                    std::process::exit(2);
+                }),
+        };
         println!("comparing MAT {mat} ({tape_file}) at {temp_k} K against {njoy_path}\n");
         let path = njoy_outram_park_fork::reference_data::reference_endf_dir().join(tape_file);
         let tape = Tape::read(File::open(&path).expect("open ENDF")).expect("parse ENDF");
@@ -581,6 +590,7 @@ mod desktop {
 
         // ── Photon production blocks ─────────────────────────────────────
         println!("\n=== photon production (MTRP / SIGP / DLWP) ===");
+        let mut photon_verdict = "none";
         {
             let ntrp_o = ours.nxs[nxs::NTRP] as usize;
             let ntrp_t = theirs.nxs[nxs::NTRP] as usize;
@@ -602,6 +612,13 @@ mod desktop {
             let mt = mtrp(&theirs, ntrp_t);
             let miss: Vec<i32> = mt.iter().copied().filter(|m| !mo.contains(m)).collect();
             let extra: Vec<i32> = mo.iter().copied().filter(|m| !mt.contains(m)).collect();
+            photon_verdict = if mt.is_empty() && mo.is_empty() {
+                "none"
+            } else if miss.is_empty() && extra.is_empty() {
+                "ok"
+            } else {
+                "DIFFER"
+            };
             if miss.is_empty() && extra.is_empty() && !mt.is_empty() {
                 println!("  MTRP sets IDENTICAL ({} entries)", mt.len());
             } else {
@@ -844,5 +861,29 @@ mod desktop {
             "\nNJOY2016 is the specification. A difference here is this port's defect until\n\
              a reason is demonstrated -- do not widen a tolerance to absorb one."
         );
+
+        // ── One machine-readable line, so a sweep over many evaluations can be
+        //    tabulated without re-parsing this whole report ──────────────────
+        {
+            let f = |a: i32, b: i32| if a == b { "ok" } else { "DIFFER" };
+            let mtr_verdict = if mo.len() == mt.len() && mo.iter().all(|m| mt.contains(m)) {
+                "ok"
+            } else {
+                "DIFFER"
+            };
+            println!(
+                "SUMMARY mat={mat} nes={}/{} ntr={}/{} nr={}/{} ntrp={}/{} mtr={} mtrp={} \
+                 esz_shared={} esz_tot={:.3e} esz_abs={:.3e} esz_ela={:.3e} nu={}",
+                ours.nxs[nxs::NES], theirs.nxs[nxs::NES],
+                ours.nxs[nxs::NTR], theirs.nxs[nxs::NTR],
+                ours.nxs[nxs::NR], theirs.nxs[nxs::NR],
+                ours.nxs[nxs::NTRP], theirs.nxs[nxs::NTRP],
+                mtr_verdict,
+                photon_verdict,
+                shared,
+                worst[0].0, worst[1].0, worst[2].0,
+                f(i32::from(ours.jxs[jxs::NU] != 0), i32::from(theirs.jxs[jxs::NU] != 0)),
+            );
+        }
     }
 }
