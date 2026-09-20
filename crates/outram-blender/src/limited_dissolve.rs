@@ -137,7 +137,7 @@ fn unit_normal(ring: &[usize], positions: &[Vec3]) -> Option<Vec3> {
 /// one cycle, that cycle is the merged face; if it is two or more, the
 /// merge would create a hole or a pinch and is refused. That refusal is
 /// this port's stand-in for upstream's `USE_DEGENERATE_CHECK`.
-fn join_faces(fa: &[usize], fb: &[usize]) -> Option<Vec<usize>> {
+pub(crate) fn join_faces(fa: &[usize], fb: &[usize]) -> Option<Vec<usize>> {
     use std::collections::HashSet;
 
     let mut directed: HashSet<(usize, usize)> = HashSet::new();

@@ -190,6 +190,7 @@ pub mod boolean_general;
 pub mod boolean_predicates;
 pub mod bridge;
 pub mod connect;
+pub mod connect_concave;
 pub mod connect_nonplanar;
 pub mod convex_hull;
 pub mod curve;

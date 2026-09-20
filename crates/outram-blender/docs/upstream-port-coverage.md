@@ -12,7 +12,7 @@ tree, not by guessing.
 - **Upstream licence:** GPL-2.0-or-later, GPLv3-compatible. See
   `upstream_source/README.md` for the verification and `NOTICE` for the
   lineage.
-- **This crate:** 83 modules, ~43k lines, 504 unit tests + 19 doctests at
+- **This crate:** 84 modules, ~44k lines, 510 unit tests + 20 doctests at
   the time of writing.
 
 > **Status is about *presence and provenance*, not correctness.** Nothing in
@@ -39,7 +39,7 @@ tree, not by guessing.
 | `bmo_bridge.cc` | 662 | `bridge` | REIMPLEMENTED |
 | `bmo_circularize.cc` | 728 | — | **MISSING** |
 | `bmo_connect.cc` | 220 | `connect` | REIMPLEMENTED |
-| `bmo_connect_concave.cc` | 214 | — | **MISSING** — see priorities |
+| `bmo_connect_concave.cc` | 214 | `connect_concave` | **PORTED** |
 | `bmo_connect_nonplanar.cc` | 174 | `connect_nonplanar` | **PORTED** |
 | `bmo_connect_pair.cc` | 745 | `connect` (partial) | PARTIAL |
 | `bmo_create.cc` | 299 | `fill`, `mesh::add_face` | REIMPLEMENTED |
@@ -139,15 +139,10 @@ anything affecting whether a downstream solver can consume the surface.
 
 ### Worth closing
 
-1. **`bmo_connect_concave.cc` — split concave faces into convex parts.**
-   A concave face has a centroid outside itself, which breaks
-   cell-centre and face-normal assumptions downstream. Upstream's approach
-   is triangulate-then-greedily-remerge-while-convex, so it needs face
-   joining this crate does not yet have.
-2. **`BLI_kdopbvh.cc` — a BVH.** Not an operator, but the boolean and knife
+1. **`BLI_kdopbvh.cc` — a BVH.** Not an operator, but the boolean and knife
    paths currently do linear scans. This is the difference between a
    demonstration and something usable on a real mesh.
-3. **`delaunay_2d.cc` — constrained Delaunay.** Would give `fill`,
+2. **`delaunay_2d.cc` — constrained Delaunay.** Would give `fill`,
    `fill_holes` and the parameterisation path a better tessellation than
    ear clipping alone.
 
@@ -181,6 +176,7 @@ down.
 | That operator's `eps = 1e-5` is an **absolute** floor in model units, so a mesh in metres cannot be flattened below ~1e-5 m while the same shape in millimetres flattens a thousand times finer. | `planar_faces` |
 | The crate's own one-shot limited dissolve **did not conserve area** (+23.7 % on a 48x32 sphere at 5°) and **silently no-opped** past 15°, because it costed every edge once instead of re-costing after each merge. Now delegates to the port. | `limited_dissolve` |
 | Two faces being dissolved commonly share **more than one** edge, so splicing across a single named edge is not enough — it stalls a 3x3 grid at 4 faces. Upstream's `BM_faces_join` cancels the whole shared set; the port does boundary cancellation. | `limited_dissolve::join_faces` |
+| Concave splitting reaches the optimum (2 pieces) on a single-notch L but only 10-from-14 on a three-notch comb: re-entrant notches force convex boundaries the greedy re-merge cannot cross. "Splits into convex pieces" is not "splits into few convex pieces". | `connect_concave` |
 
 ## Maintaining this file
 
