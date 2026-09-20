@@ -59,9 +59,14 @@ const EMEV: f64 = 1.0e6;
 /// How a photon-production entry states its production rate.
 #[derive(Debug, Clone)]
 pub enum SigP {
-    /// `MFTYPE = 12` — a yield to be multiplied by reaction `mtmult`'s cross
-    /// section.
+    /// A **yield** to be multiplied by reaction `mtmult`'s cross section.
+    ///
+    /// `mftype` is `12` when the yield came from MF=12, and `16` when it came
+    /// from a photon subsection of MF=6 — ACE distinguishes the two even
+    /// though a reader treats both as "multiply by MTMULT's cross section".
     Yield {
+        /// `12` (from MF=12) or `16` (from MF=6).
+        mftype: i32,
         /// The MT whose cross section this yield multiplies.
         mtmult: i32,
         /// Incident energies \[MeV\].
@@ -133,14 +138,39 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
     // SIGP and DLWP. Verified against NJOY's U-234 table, whose MTRP reads
     // [18001, 102001, 3001..3004] — MF=12's MT=18 and MT=102 ahead of MF=13's
     // MT=3, not ascending by MT.
+    // The whole level scheme, read once: every MT whose MF=12 is LO=2
+    // contributes the transitions OUT of one level, and a cascade started at
+    // any level walks through the others.
+    let levels = read_levels(tape, mat);
+
+    // Upper bound of the synthesised yield tables — the evaluation's own top
+    // energy, taken from MF=3 MT=1 rather than assumed to be 20 or 30 MeV.
+    let e_max_ev = tape
+        .section(mat, 3, 1)
+        .and_then(|sec| {
+            let mut c = SectionCursor::new(&sec.rows);
+            c.read_cont().ok()?;
+            let t = c.read_tab1().ok()?;
+            t.pairs.last().map(|&(e, _)| e)
+        })
+        .unwrap_or(2.0e7);
+
     let mut out = Vec::new();
     for (file, is_yield) in [(12i32, true), (13i32, false)] {
     for mt in 1..1000 {
         let Some(sec) = tape.section(mat, file, mt) else { continue };
         let mut cur = SectionCursor::new(&sec.rows);
         let Ok(head) = cur.read_cont() else { continue };
+        if is_yield && head.l1 == 2 {
+            // LO=2 transition-probability cascade — expanded below, from the
+            // level data gathered once before this loop.
+            let awr = head.c2;
+            for e in expand_cascade(&levels, mt, awr, e_max_ev) {
+                out.push(e);
+            }
+            continue;
+        }
         if is_yield && head.l1 != 1 {
-            // LO=2 transition-probability cascade — not ported.
             return None;
         }
         let nk = head.n1;
@@ -185,6 +215,7 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
 
             let sigp = if is_yield {
                 SigP::Yield {
+                    mftype: 12,
                     mtmult: mt,
                     e_mev: tab.pairs.iter().map(|&(e, _)| e / EMEV).collect(),
                     y: tab.pairs.iter().map(|&(_, y)| y).collect(),
@@ -203,5 +234,167 @@ pub fn build(tape: &Tape, mat: i32) -> Option<Vec<PhotonEntry>> {
         }
     }
     }
+
+    // THIRD PASS: photon production given in MF=6 as a ZAP=0 secondary.
+    //
+    // Several evaluations put the continuum reactions' photons here instead of
+    // in MF=12/13 — U-238's MT=5, 16, 17, 91, 102 and 649 all do — which is
+    // upstream's "move any MF=6 photon production" (`convr`). These entries go
+    // LAST and in ascending MT: verified against NJOY's U-238 table, where
+    // they occupy positions 352-357 of 358, after every MF=12 and MF=13 entry.
+    // The order matters because LSIGP and LDLWP are positional.
+    for mt in 1..1000 {
+        let Some(sec) = tape.section(mat, 6, mt) else { continue };
+        let Ok(products) = super::energy::parse_mf6_law1_products(sec, 0) else { continue };
+        for (k, prod) in products.into_iter().enumerate() {
+            if prod.yield_pairs.is_empty() {
+                continue;
+            }
+            let e_first = prod.yield_pairs.first().map(|&(e, _)| e).unwrap_or(0.0);
+            let e_last = prod.yield_pairs.last().map(|&(e, _)| e).unwrap_or(0.0);
+            out.push(PhotonEntry {
+                mtrp: mt * 1000 + k as i32 + 1,
+                sigp: SigP::Yield {
+                    mftype: 16,
+                    mtmult: mt,
+                    e_mev: prod.yield_pairs.iter().map(|&(e, _)| e / EMEV).collect(),
+                    y: prod.yield_pairs.iter().map(|&(_, y)| y).collect(),
+                },
+                law: EnergyLaw::Law4(prod.law4),
+                e_lo_mev: e_first / EMEV,
+                e_hi_mev: e_last / EMEV,
+            });
+        }
+    }
+
     Some(out)
+}
+
+/// One excited level's decay data, from its MF=12 `LO=2` section.
+#[derive(Debug, Clone)]
+struct Level {
+    /// The MT whose MF=12 section declared this level (51 → first level, …).
+    mt: i32,
+    /// Level energy `ES` \[eV\].
+    es_ev: f64,
+    /// `LG`: 2 when a photon fraction `GP` accompanies each transition
+    /// probability, 1 when every transition emits a photon.
+    lg: i32,
+    /// `(E_lower [eV], TP, GP)` for each transition out of this level.
+    trans: Vec<(f64, f64, f64)>,
+}
+
+/// Read every MF=12 `LO=2` level for this material, keyed by MT.
+fn read_levels(tape: &Tape, mat: i32) -> Vec<Level> {
+    let mut out = Vec::new();
+    for mt in 1..1000 {
+        let Some(sec) = tape.section(mat, 12, mt) else { continue };
+        let mut cur = SectionCursor::new(&sec.rows);
+        let Ok(head) = cur.read_cont() else { continue };
+        if head.l1 != 2 {
+            continue;
+        }
+        let lg = head.l2;
+        let Ok(list) = cur.read_list() else { continue };
+        let es_ev = list.head.c1;
+        let nt = list.head.n2 as usize;
+        let stride = (lg + 1) as usize; // (E, TP) or (E, TP, GP)
+        let mut trans = Vec::with_capacity(nt);
+        for k in 0..nt {
+            let b = k * stride;
+            let Some(&e_j) = list.data.get(b) else { break };
+            let tp = list.data.get(b + 1).copied().unwrap_or(0.0);
+            let gp = if lg == 2 {
+                list.data.get(b + 2).copied().unwrap_or(1.0)
+            } else {
+                1.0
+            };
+            trans.push((e_j, tp, gp));
+        }
+        out.push(Level { mt, es_ev, lg, trans });
+    }
+    out
+}
+
+/// Expand the γ cascade that follows populating one level, into discrete
+/// photon lines.
+///
+/// This is `convr`'s LO=2 → LO=1 conversion (`acefc.f90` 3868-4514). A
+/// reaction MT=51+n leaves the nucleus in level `n`; the nucleus then decays
+/// down the level scheme, and **every** photon emitted on the way belongs to
+/// that reaction. That is why MT=52 produces two lines in NJOY's table and
+/// MT=54 produces four.
+///
+/// **`TP` and `GP` do different jobs, and conflating them is the easy error.**
+/// `TP` is the probability the level decays *via that transition*, so it
+/// carries the population downward. `GP` is the fraction of those decays that
+/// emit a photon rather than an internal-conversion electron, so it scales the
+/// *yield* only. Verified against U-238: its first level is almost entirely
+/// converted (`GP = 1.639e-3`), which is exactly why NJOY's `52002` repeats
+/// `51001`'s tiny yield while the population flowing through that level is 1.
+fn expand_cascade(levels: &[Level], mt: i32, awr: f64, e_max_ev: f64) -> Vec<PhotonEntry> {
+    // The level this reaction populates is the one whose own MF=12 section is
+    // this MT.
+    let Some(start) = levels.iter().find(|l| l.mt == mt) else {
+        return Vec::new();
+    };
+
+    // (level energy, population). Walked highest-first so a level is decayed
+    // only once everything above it has fed into it.
+    let mut pop: Vec<(f64, f64)> = vec![(start.es_ev, 1.0)];
+    let mut photons: Vec<(f64, f64)> = Vec::new();
+    loop {
+        let Some(i) = pop
+            .iter()
+            .enumerate()
+            .filter(|(_, &(_, p))| p > 0.0)
+            .max_by(|a, b| a.1 .0.partial_cmp(&b.1 .0).unwrap())
+            .map(|(i, _)| i)
+        else {
+            break;
+        };
+        let (es_i, p_i) = pop[i];
+        pop[i].1 = 0.0;
+        let Some(lv) = levels
+            .iter()
+            .find(|l| (l.es_ev - es_i).abs() < 1.0e-6 * es_i.max(1.0))
+        else {
+            continue; // ground state, or a level with no decay data
+        };
+        for &(e_j, tp, gp) in &lv.trans {
+            let yield_ = p_i * tp * if lv.lg == 2 { gp } else { 1.0 };
+            if yield_ > 0.0 {
+                photons.push((es_i - e_j, yield_));
+            }
+            let flow = p_i * tp;
+            if flow > 0.0 && e_j > 0.0 {
+                match pop
+                    .iter_mut()
+                    .find(|(e, _)| (*e - e_j).abs() < 1.0e-6 * e_j.max(1.0))
+                {
+                    Some(slot) => slot.1 += flow,
+                    None => pop.push((e_j, flow)),
+                }
+            }
+        }
+    }
+
+    // The reaction threshold in the laboratory: ES·(A+1)/A.
+    let e_lo = start.es_ev * (awr + 1.0) / awr;
+    photons
+        .into_iter()
+        .enumerate()
+        .map(|(k, (eg_ev, y))| PhotonEntry {
+            mtrp: mt * 1000 + k as i32 + 1,
+            sigp: SigP::Yield {
+                mftype: 12,
+                mtmult: mt,
+                e_mev: vec![e_lo / EMEV, e_max_ev / EMEV],
+                y: vec![y, y],
+            },
+            law: EnergyLaw::Law2 { lp: 0, eg_mev: eg_ev / EMEV },
+            e_lo_mev: e_lo / EMEV,
+            e_hi_mev: e_max_ev / EMEV,
+        })
+        .collect()
 }

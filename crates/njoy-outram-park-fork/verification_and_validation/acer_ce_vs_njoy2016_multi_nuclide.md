@@ -247,31 +247,46 @@ and diverge from the third on. This port uses the power. **No tape in
 - **Photon production.** `NXS(6)` ours 0 against NJOY's 583 (U-235), 358
   (U-238), 6 (U-234). Neutron transport does not need it.
 
-  **PARTLY CLOSED the same day.** The blocks are implemented and **verified
-  exactly on U-234: `NTRP` 6/6, MTRP sets identical, and MFTYPE/LAW agreeing on
-  6 of 6 entries.** U-234 was chosen deliberately as the smallest *complete*
-  target — every entry checkable by hand — rather than the biggest.
+  **CLOSED 2026-09-20.** Verified on all three nuclides:
 
-  **U-235 and U-238 still read `NXS(6) = 0`, and that is the builder refusing
-  rather than failing.** Their discrete inelastic levels give photons as
-  **MF=12 `LO=2` transition-probability cascades** (checked on the tapes: MT=51
-  onward, `LO=2`), which expand into hundreds of discrete lines — that is how
-  U-235 reaches 583 entries from ~40 levels — and that expansion is not
-  ported. The builder returns `None` for any form it cannot write, so those
-  two get a legal `NXS(6)=0` table instead of a partial, malformed one.
+  | nuclide | `NTRP` ours / NJOY | MTRP set | MFTYPE + LAW |
+  |---|---|---|---|
+  | U-234 | **6 / 6** | identical | 6 of 6 agree |
+  | U-235 | **583 / 583** | identical | 583 of 583 agree |
+  | U-238 | **358 / 358** | identical | 358 of 358 agree |
 
-  What IS implemented and verified: MF=12 `LO=1` yields (MFTYPE 12), MF=13
-  cross sections (MFTYPE 13), discrete lines (`LF=2` → ACE **Law 2**) and
-  continuum spectra (`LF=1` → ACE **Law 4** via MF=15, reusing the MF=5 parser
-  since the two files share a structure). MF=14 is checked for `LI=0`
-  (anisotropic) and refused; every uranium evaluation here is `LI=1`.
+  Three separate sources feed the block, and all three had to be right:
 
-  **Remaining: the MF=12 `LO=2` cascade expansion.** That is now the whole
-  gap, where this morning it was the whole feature.
+  1. **MF=12 `LO=1`** yields and **MF=13** cross sections — the direct forms.
+  2. **MF=12 `LO=2`** transition-probability cascades. A reaction MT=51+n
+     leaves the nucleus in level *n*, and every photon emitted on the way down
+     belongs to that reaction — which is why MT=52 yields two lines and MT=54
+     four, and how U-235 reaches 583 entries from ~40 levels. **`TP` and `GP`
+     do different jobs:** `TP` carries the population downward, `GP` is the
+     fraction of those decays emitting a photon rather than an
+     internal-conversion electron, so it scales the yield only. U-238 proves
+     the distinction — its first level is almost entirely converted
+     (`GP = 1.639e-3`), which is exactly why NJOY's `52002` repeats `51001`'s
+     tiny yield while the population through that level is 1.0.
+  3. **MF=6 with `ZAP = 0`** — several evaluations give the continuum
+     reactions' photons as a secondary particle instead (U-238's MT=5, 16, 17,
+     91, 102, 649), written as `MFTYPE = 16`. Upstream calls this "move any
+     MF=6 photon production".
 
-  ~~**Scoped 2026-09-20 and deliberately not started**, because a half-written
-  photon block is worse than none.~~ The reasoning stands and is why the
-  refusal path exists: `NXS(6) = 0` is a *legal* ACE table meaning
+  **Entry ORDER is part of the answer, not a detail.** NJOY emits every MF=12
+  entry, then every MF=13, then every MF=6 — verified against U-238, where the
+  six MF=6 entries occupy positions 352-357 of 358. `LSIGP` and `LDLWP` are
+  positional, so a table with the right MTs in the wrong order pairs each entry
+  with the wrong cross section and the wrong distribution. The gate therefore
+  asserts the MTRP block **in order**, against a committed oracle, not as a set.
+
+  Still not covered: anisotropic photons (MF=14 with `LI = 0`). Every uranium
+  evaluation here is `LI = 1`, and the builder refuses `LI = 0` outright rather
+  than writing an isotropic approximation.
+
+  ~~**Scoped and deliberately not started**, because a half-written photon
+  block is worse than none.~~ The reasoning stands and is why the refusal path
+  exists at all: `NXS(6) = 0` is a *legal* ACE table meaning
   "carries no photon production"; a partial one is a malformed table that a
   reader cannot recover from. What it would actually take:
 

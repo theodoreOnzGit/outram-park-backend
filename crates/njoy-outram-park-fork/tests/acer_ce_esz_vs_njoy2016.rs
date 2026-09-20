@@ -276,17 +276,43 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
         "acer vs NJOY2016: NU block {} values, BIT-IDENTICAL",
         nu_oracle.len()
     );
-    // The LAST remaining pinned gap, as of 2026-09-20 — the ν̄ and reaction-count
-    // pins both fired and are now positive assertions above. `NXS(6) = 0` is a
-    // legal ACE table meaning "no photon production", not a malformed one, which
-    // is why it is left at 0 rather than partly written. Scope for closing it is
-    // in verification_and_validation/acer_ce_vs_njoy2016_multi_nuclide.md.
+    // CLOSED 2026-09-20 — the last of the three pinned gaps. This asserted
+    // NXS(6)==0 and fired when the photon blocks landed; it is now a positive
+    // check of the whole MTRP block against NJOY's own, in NJOY's own ORDER.
+    //
+    // Order is asserted, not just the set, because LSIGP and LDLWP are
+    // positional: a table with the right MTs in the wrong order pairs every
+    // entry with the wrong cross section and the wrong distribution. That
+    // exact bug occurred while this was being written.
+    let mtrp_oracle: Vec<i32> = {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../reference-data/acer/u235_0k_mtrp_njoy2016.csv"
+        );
+        let text = std::fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("read MTRP oracle {path}: {e}"));
+        text.lines()
+            .filter(|l| !l.starts_with('#') && *l != "mtrp" && !l.trim().is_empty())
+            .map(|l| l.trim().parse::<i32>().expect("MTRP oracle value"))
+            .collect()
+    };
+    let ntrp = ours.nxs[nxs::NTRP] as usize;
     assert_eq!(
-        ours.nxs[nxs::NTRP], 0,
-        "NXS(6) is no longer 0, so photon production is now written. Check it \
-         against NJOY's 583 for this evaluation BEFORE updating this assertion — \
-         a partial photon block is a broken table, not progress — and update the \
-         records that say it is absent."
+        ntrp,
+        mtrp_oracle.len(),
+        "NXS(6) moved off NJOY2016's {} photon-production entries",
+        mtrp_oracle.len()
+    );
+    let pb = ours.jxs[jxs::MTRP];
+    assert!(pb > 0, "NXS(6) is {ntrp} but JXS(13) is 0");
+    let ours_mtrp: Vec<i32> = (0..ntrp)
+        .map(|i| ours.xss[(pb - 1) as usize + i].round() as i32)
+        .collect();
+    assert_eq!(
+        ours_mtrp, mtrp_oracle,
+        "the MTRP block no longer matches NJOY2016's, in content or in order. \
+         It matched exactly on 2026-09-20 at {} entries.",
+        mtrp_oracle.len()
     );
 
     // CLOSED 2026-09-20. This was pinned at 47 against NJOY's 84; the gap was
@@ -314,7 +340,8 @@ fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
     );
     assert_eq!(ntr, 84, "reaction count moved off NJOY2016's 84");
     println!(
-        "acer vs NJOY2016: NTRP absent, {ntr} reactions \
-         matching NJOY's MTR set exactly"
+        "acer vs NJOY2016: NTRP {} matching NJOY's MTRP exactly, {ntr} reactions \
+         matching NJOY's MTR set exactly",
+        ntrp
     );
 }

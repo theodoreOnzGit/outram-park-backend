@@ -89,6 +89,7 @@ mod tests;
 pub use core::{
     build_emissions, law3_discrete_level, Emission, EnergyLaw, Law4, OutgoingEnergy,
 };
+pub use mf6::parse_mf6_law1_products;
 pub use mf5::{parse_mf5_law4, parse_mf5_section, Applicability, Mf5Law, Mf5Subsection, TabFn};
 pub use mf6::{
     parse_mf6_law1_neutron, parse_mf6_law1_neutrons, parse_mf6_law6_phase_space,

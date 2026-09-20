@@ -834,8 +834,8 @@ fn append_photon_blocks(
     let sigp = b.next_locator();
     for e in entries {
         match &e.sigp {
-            SigP::Yield { mtmult, e_mev, y } => {
-                b.int(12);
+            SigP::Yield { mftype, mtmult, e_mev, y } => {
+                b.int(*mftype);
                 b.int(*mtmult);
                 b.int(0); // NR — single lin-lin range
                 b.int(e_mev.len() as i32);
