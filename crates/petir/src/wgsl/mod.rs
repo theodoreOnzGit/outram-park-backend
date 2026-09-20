@@ -107,6 +107,51 @@ pub mod mirror_debye;
 /// `f32` mirror of the dilogarithm shader.
 pub mod mirror_dilog;
 
+/// `f32` mirrors of the Airy shaders.
+pub mod mirror_airy;
+
+/// `f32` mirror of the Lambert W shader.
+pub mod mirror_lambert;
+
+/// `f32` mirror of the Clausen shader, and its `f32` angle reduction.
+pub mod mirror_clausen;
+
+/// `f32` mirrors of the transport-integral shaders.
+pub mod mirror_transport;
+
+/// `f32` mirror of the inverse-tangent-integral shader.
+pub mod mirror_atanint;
+
+/// `f32` mirrors of the synchrotron shaders.
+pub mod mirror_synchrotron;
+
+/// `f32` mirrors of the Fermi-Dirac integral shaders.
+pub mod mirror_fermi_dirac;
+
+/// `f32` mirror of the Dawson-integral shader.
+pub mod mirror_dawson;
+
+/// `f32` mirror of the cubic-exponential-integral shader.
+pub mod mirror_expint3;
+
+/// `f32` mirrors of the sine- and cosine-integral shaders.
+pub mod mirror_sinint;
+
+/// `f32` mirror of the elliptic-integral shader.
+pub mod mirror_ellint;
+
+/// `f32` mirror of the exponential- and hyperbolic-integral shader.
+pub mod mirror_expint;
+
+/// `f32` mirror of the Jacobi-elliptic-function shader.
+pub mod mirror_elljac;
+
+/// `f32` mirror of the Gegenbauer-polynomial shader.
+pub mod mirror_gegenbauer;
+
+/// `f32` mirror of the associated-Legendre shader.
+pub mod mirror_legendre_plm;
+
 /// Headless GPU execution of these kernels. **Behind the off-by-default
 /// `wgpu` feature**, and the only module in the crate that uses `std`.
 #[cfg(all(
@@ -231,12 +276,209 @@ pub const DEBYE: &str = include_str!("shaders/debye.wgsl");
 /// generator and no table audit. See [`mirror_dilog`].
 pub const DILOG: &str = include_str!("shaders/dilog.wgsl");
 
+/// GSL's Airy functions `Ai`, `Bi` and their exponentially scaled forms,
+/// ported from `specfunc/airy.c` by way of [`crate::specfunc::airy`].
+///
+/// Thirteen Chebyshev series, 281 coefficients. **Prefer the scaled entry
+/// points on a GPU:** `petir_airy_bi` overflows `f32` near `x = 25.9` where
+/// the `f64` module reaches 104.1, and `petir_airy_bi_scaled` does not
+/// overflow at all.
+pub const AIRY: &str = include_str!("shaders/airy.wgsl");
+
+/// GSL's Lambert `W`, both real branches, ported from `specfunc/lambert.c`
+/// by way of [`crate::specfunc::lambert`].
+///
+/// **One constant is retargeted to `f32` and it is load-bearing:** the
+/// iteration's convergence tolerance. Upstream's `DBL_EPSILON` can never be
+/// met by an `f32` iterate, so the loop would never stop early. See
+/// [`mirror_lambert`].
+pub const LAMBERT: &str = include_str!("shaders/lambert.wgsl");
+
+/// GSL's Clausen function `Cl_2`, ported from `specfunc/clausen.c` by way of
+/// [`crate::specfunc::clausen`].
+///
+/// **The argument reduction is redesigned for `f32`, not transcribed:** the
+/// `f64` three-way split of `2 pi` leaves no mantissa room for the period
+/// count, so this uses an eight-bit head — taken from `clausen.c`'s own
+/// reflection constants. See [`mirror_clausen`], and note that the usable
+/// range ends about two decades below the refusal.
+pub const CLAUSEN: &str = include_str!("shaders/clausen.wgsl");
+
+/// GSL's transport integrals `J(n, x)` for `n = 2 ..= 5`, ported from
+/// `specfunc/transport.c` by way of [`crate::specfunc::transport`].
+///
+/// **Three machine constants are retargeted**, all of them precision
+/// constants; `GSL_LOG_DBL_EPSILON` is load-bearing twice over, setting both
+/// the number of exponential images summed and the point at which the tail is
+/// discarded. See [`mirror_transport`].
+pub const TRANSPORT: &str = include_str!("shaders/transport.wgsl");
+
+/// GSL's inverse-tangent integral `Ti_2`, ported from `specfunc/atanint.c`
+/// by way of [`crate::specfunc::atanint`].
+///
+/// One Chebyshev table evaluated at reciprocal arguments either side of
+/// `|x| = 1`. **The large cut is retargeted and reshapes the domain** — see
+/// [`mirror_atanint`].
+pub const ATANINT: &str = include_str!("shaders/atanint.wgsl");
+
+/// GSL's synchrotron radiation functions `S_1` and `S_2`, ported from
+/// `specfunc/synchrotron.c` by way of [`crate::specfunc::synchrotron`].
+///
+/// **Its underflow guard is dead code in `f64` and load-bearing in `f32`** —
+/// the one constant so far whose category depends on the width. See
+/// [`mirror_synchrotron`].
+pub const SYNCHROTRON: &str = include_str!("shaders/synchrotron.wgsl");
+
+/// GSL's complete Fermi-Dirac integrals `F_j` at the seven fixed indices,
+/// ported from `specfunc/fermi_dirac.c` by way of
+/// [`crate::specfunc::fermi_dirac`].
+///
+/// **The largest table set here** — 22 Chebyshev series, 483 coefficients —
+/// and the one shader that deliberately **corrects** an upstream constant's
+/// formula rather than retargeting its value. See [`mirror_fermi_dirac`].
+pub const FERMI_DIRAC: &str = include_str!("shaders/fermi_dirac.wgsl");
+
+/// Dawson's integral `F(x)`, ported from `specfunc/dawson.c` by way of
+/// [`crate::specfunc::dawson`].
+///
+/// **The first shader here to ship GSL's single-precision Chebyshev order**
+/// rather than its `f64` one — 45 coefficients where the `f64` order needs
+/// 84. See [`mirror_dawson`].
+pub const DAWSON: &str = include_str!("shaders/dawson.wgsl");
+
+/// The cubic exponential integral `Ei_3(x)`, ported from
+/// `specfunc/expint3.c` by way of [`crate::specfunc::expint3`].
+///
+/// Carries GSL's single-precision Chebyshev order: 27 coefficients where the
+/// `f64` order needs 47. See [`mirror_expint3`].
+pub const EXPINT3: &str = include_str!("shaders/expint3.wgsl");
+
+/// The sine and cosine integrals `Si(x)` and `Ci(x)`, ported from
+/// `specfunc/sinint.c` by way of [`crate::specfunc::sinint`].
+///
+/// **Self-contained**: a `2 pi` argument reduction was tried and measured to
+/// be worse on both CPU and GPU, so this shader calls `sin` and `cos`
+/// directly. See [`mirror_sinint`].
+pub const SININT: &str = include_str!("shaders/sinint.wgsl");
+
+/// Carlson's symmetric forms and the Legendre elliptic integrals built on
+/// them, ported from `specfunc/ellint.c` by way of
+/// [`crate::specfunc::ellint`].
+///
+/// Provides `petir_ellint_rc` / `rd` / `rf` / `rj`, the four complete
+/// integrals `petir_ellint_kcomp` / `ecomp` / `dcomp` / `pcomp`, the four
+/// incomplete `petir_ellint_f` / `e` / `p` / `d`, and the selector
+/// `petir_ellint_comp(which, k, n)`.
+///
+/// **The second table-free shader here, after [`DILOG`]** — nothing is
+/// fitted, so there is no generator and no table audit. Two parameters are
+/// measured rather than transcribed: `errtol = 0.03` is upstream's own
+/// single-precision value, and the iteration cap is **16 against upstream's
+/// 10000**. See [`mirror_ellint`].
+pub const ELLINT: &str = include_str!("shaders/ellint.wgsl");
+
+/// The exponential integrals `E_1` and `Ei` and the hyperbolic sine and
+/// cosine integrals `Shi` and `Chi`, ported from `specfunc/expint.c` and
+/// `specfunc/shint.c` by way of [`crate::expint`] and
+/// [`crate::specfunc::shint`].
+///
+/// Provides `petir_expint_e1`, `petir_expint_e1_scaled`, `petir_expint_ei`,
+/// `petir_expint_ei_scaled`, `petir_shi`, `petir_chi` and the selector
+/// `petir_expint_family(which, x)`, plus the seven Chebyshev series.
+///
+/// **Four functions from one branch tree** — `Ei` is `-E_1(-x)` and `Shi`,
+/// `Chi` are its sum and difference with `E_1`. **Prefer the scaled entry
+/// points on a GPU**: `E_1` underflows to zero past `x ~ 83`. See
+/// [`mirror_expint`].
+pub const EXPINT: &str = include_str!("shaders/expint.wgsl");
+
+/// The Jacobi elliptic functions `sn`, `cn` and `dn`, ported from
+/// `specfunc/elljac.c` by way of [`crate::specfunc::elljac`].
+///
+/// Provides `petir_elljac(u, m) -> vec3<f32>` and the scalar selector
+/// `petir_elljac_component(which, u, m)`.
+///
+/// **The third table-free shader**, after [`DILOG`] and [`ELLINT`], and the
+/// companion of the last: `ellint` evaluates the integrals and this inverts
+/// them. All three functions come from one arithmetic-geometric-mean
+/// descent, which is why the entry point returns a vector. The descent cap
+/// is **8 against upstream's 16**, measured. See [`mirror_elljac`].
+pub const ELLJAC: &str = include_str!("shaders/elljac.wgsl");
+
+/// The Gegenbauer (ultraspherical) polynomials `C_n^lambda(x)`, ported from
+/// `specfunc/gegenbauer.c` by way of [`crate::specfunc::gegenbauer`].
+///
+/// Provides `petir_gegenpoly_1/2/3` and `petir_gegenpoly_n(n, lambda, x)`.
+///
+/// **The simplest kernel in this module**: three closed forms and a
+/// three-term recurrence, with no tolerance, no cut and **no numeric
+/// constant of any kind** — so it is the one shader with nothing to
+/// retarget. `lambda = 1/2` gives the Legendre polynomials and `lambda = 1`
+/// the Chebyshev polynomials of the second kind. See [`mirror_gegenbauer`].
+pub const GEGENBAUER: &str = include_str!("shaders/gegenbauer.wgsl");
+
+/// The associated Legendre polynomials `P_l^m(x)`, ported from
+/// `specfunc/legendre_poly.c` by way of [`crate::specfunc::legendre`].
+///
+/// Provides `petir_legendre_pmm(m, x)` and `petir_legendre_plm(l, m, x)`.
+///
+/// **Separate from [`LEGENDRE`]**, which carries the ordinary `P_n(x)` and
+/// is reached far more often — a kernel wanting only `P_n` should not carry
+/// this one's seed, guard and two-index recurrence.
+///
+/// **Its overflow guard is retargeted and carries an upstream hole at
+/// `l == m`**, both deliberately. See [`mirror_legendre_plm`].
+pub const LEGENDRE_PLM: &str = include_str!("shaders/legendre_plm.wgsl");
+
 /// Every shader source in this module, in dependency order.
 ///
 /// They are mutually independent today; the order is fixed so that a
 /// concatenation is reproducible.
-pub const ALL: [&str; 10] = [
-    POLY, CHEB, LEGENDRE, ERF, MATRIX, GAMMA, BESSEL, PSI_ZETA, DEBYE, DILOG,
+///
+/// # THIS LIST IS WHAT VALIDATION WALKS, AND FOUR SHADERS WENT MISSING FROM IT
+///
+/// `tests/wgsl_validation.rs` drives naga parsing, the baseline-capability
+/// check and the ledger check from `ALL_NAMES.iter().zip(ALL.iter())`. A
+/// shader that has a `pub const` here, a `kernel_for` arm in the test, a
+/// mirror and a ledger row — but no entry in this array — is therefore
+/// **not validated at all**, and nothing goes red.
+///
+/// That is not hypothetical. `fermi_dirac`, `dawson`, `expint3` and `sinint`
+/// each shipped that way, and were compiled by naga for the first time on
+/// 2026-09-19 when `ellint` was added and the array was recounted. All four
+/// passed — but they had been taken on trust for four commits, which is the
+/// point.
+///
+/// `every_shader_file_is_listed_here` now reads the `shaders/` directory and
+/// fails if any `.wgsl` file is absent from [`ALL_NAMES`]. **Adding a shader
+/// means adding it to both arrays**; the directory is the authority, not
+/// anyone's count.
+pub const ALL: [&str; 25] = [
+    POLY,
+    CHEB,
+    LEGENDRE,
+    ERF,
+    MATRIX,
+    GAMMA,
+    BESSEL,
+    PSI_ZETA,
+    DEBYE,
+    DILOG,
+    AIRY,
+    LAMBERT,
+    CLAUSEN,
+    TRANSPORT,
+    ATANINT,
+    SYNCHROTRON,
+    FERMI_DIRAC,
+    DAWSON,
+    EXPINT3,
+    SININT,
+    ELLINT,
+    EXPINT,
+    ELLJAC,
+    GEGENBAUER,
+    LEGENDRE_PLM,
 ];
 
 /// Names of the sources in [`ALL`], index for index, for diagnostics.
@@ -247,8 +489,32 @@ pub const ALL: [&str; 10] = [
 /// removes a shader from validation. That happened once, to `psi_zeta`, and
 /// `all_and_all_names_are_the_same_length` in `tests/wgsl_validation.rs` is
 /// what now catches it.
-pub const ALL_NAMES: [&str; 10] = [
-    "poly", "cheb", "legendre", "erf", "matrix", "gamma", "bessel", "psi_zeta", "debye", "dilog",
+pub const ALL_NAMES: [&str; 25] = [
+    "poly",
+    "cheb",
+    "legendre",
+    "erf",
+    "matrix",
+    "gamma",
+    "bessel",
+    "psi_zeta",
+    "debye",
+    "dilog",
+    "airy",
+    "lambert",
+    "clausen",
+    "transport",
+    "atanint",
+    "synchrotron",
+    "fermi_dirac",
+    "dawson",
+    "expint3",
+    "sinint",
+    "ellint",
+    "expint",
+    "elljac",
+    "gegenbauer",
+    "legendre_plm",
 ];
 
 pub use kernel_builder::test_kernel;

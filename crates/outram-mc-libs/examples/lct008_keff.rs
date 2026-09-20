@@ -541,37 +541,40 @@ const PIN_SHELLS: &[(i32, &[(f64, i32)], i32)] = &[
 /// Nuclides this environment has an ENDF/B-VIII.0 tape for, by the OpenMC name
 /// the model uses. Anything in the model and not in this table is omitted, and
 /// the omission is reported and bounded (see the module docs).
-const TAPES_CHEAP: &[(&str, &str)] = &[
-    // ── Fuel, moderator, poison ──────────────────────────────────────────
-    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
-    ("B10", "n-005_B_010-ENDF8.0.endf"),
-    ("O16", "n-008_O_016-ENDF8.0.endf"),
-    ("U234", "n-092_U_234-ENDF8.0.endf"),
-    ("U235", "n-092_U_235-ENDF8.0.endf"),
-    ("U238", "n-092_U_238.endf"),
-    // ── Clad, CHEAP tier: the three the clad cannot do without ───────────
-    ("Al27", "n-013_Al_027-ENDF8.0.endf"),
-    ("Si28", "n-014_Si_028-ENDF8.0.endf"),
-    ("Si29", "n-014_Si_029-ENDF8.0.endf"),
-    ("Si30", "n-014_Si_030-ENDF8.0.endf"),
-    ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
-];
+/// The tape to load for `name`, honouring `OUTRAM_U238_ENDF7`.
+///
+/// `OUTRAM_U238_ENDF7=1` swaps U-238 ALONE to ENDF/B-VII.0, every other
+/// nuclide held at VIII.0. Resolved here rather than in [`TAPES`] because that
+/// is a `const` and `std::env::var` is not const-callable.
+///
+/// Isolating a single nuclide is the point. The four pooled ICSBEP residuals
+/// split by U-238 content -- Godiva -55, Jemima -253, HST-009 -38, LCT-008
+/// +165 pcm over 32 seeds -- and the two U-238-heavy cases disagree in SIGN.
+/// A whole-library swap cannot tell U-238 apart from U-235; this can.
+///
+/// Looks the name up in whichever tier is active ([`tapes`]), so the
+/// `--cheap-nuclides` subset and the full default share one resolver.
+fn tape_for(name: &str) -> &'static str {
+    if name == "U238" && std::env::var("OUTRAM_U238_ENDF7").is_ok() {
+        return "n-092_U_238-ENDF7.0.endf";
+    }
+    tapes().iter().find(|(n, _)| *n == name).expect("tape").1
+}
 
-/// The **FULL** tape set — every nuclide the OpenMC material cards name, 36 in
-/// all. Selected with `--full-nuclides`.
+/// **The default tape set: every nuclide the OpenMC material cards name.**
+///
+/// Correct physics is the DEFAULT, not an opt-in (`develop`, 2026-09-20). The
+/// clad's trace alloying elements are part of the model, so they are loaded
+/// unless someone deliberately asks for less with `--cheap-nuclides`.
 ///
 /// # Cost
 ///
-/// This is the expensive tier and it is opt-in for that reason. Each tape is
-/// resonance-reconstructed and Doppler-broadened on device (RECONR + BROADR);
-/// the iron and chromium evaluations alone are 8-24 MB of ENDF text apiece.
-/// Reconstruction dominates the run, and it happens before a single neutron
-/// moves.
-///
-/// Prefer [`TAPES_CHEAP`] while iterating on geometry, tallies or statistics —
-/// it exercises the identical transport path. Reach for this tier when the
-/// clad's trace alloying elements are actually the thing being measured.
-const TAPES_FULL: &[(&str, &str)] = &[
+/// Each tape is resonance-reconstructed and Doppler-broadened on device
+/// (RECONR + BROADR); the iron and chromium evaluations alone are 8-24 MB of
+/// ENDF text apiece, and reconstruction dominates the run before a single
+/// neutron moves. [`TAPES_CHEAP`] exists for iterating on geometry, tallies or
+/// statistics, where the clad's trace elements change nothing being looked at.
+const TAPES: &[(&str, &str)] = &[
     // Everything in the cheap tier ...
     ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
     ("B10", "n-005_B_010-ENDF8.0.endf"),
@@ -614,6 +617,28 @@ const TAPES_FULL: &[(&str, &str)] = &[
     ("Zn70", "n-030_Zn_070-ENDF8.0.endf"),
 ];
 
+/// The **cheap** subset — fuel, moderator, soluble-boron poison, and the three
+/// clad nuclides the clad cannot do without. Selected with `--cheap-nuclides`.
+///
+/// It exercises the identical transport path at a fraction of the
+/// reconstruction cost, so it is the tier to use while iterating on geometry,
+/// tallies or statistics. It is **not** the default: the model it describes is
+/// incomplete, and correct physics is the default here.
+const TAPES_CHEAP: &[(&str, &str)] = &[
+    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf"),
+    ("B10", "n-005_B_010-ENDF8.0.endf"),
+    ("O16", "n-008_O_016-ENDF8.0.endf"),
+    ("U234", "n-092_U_234-ENDF8.0.endf"),
+    ("U235", "n-092_U_235-ENDF8.0.endf"),
+    ("U238", "n-092_U_238.endf"),
+    // ── Clad, CHEAP tier: the three the clad cannot do without ───────────
+    ("Al27", "n-013_Al_027-ENDF8.0.endf"),
+    ("Si28", "n-014_Si_028-ENDF8.0.endf"),
+    ("Si29", "n-014_Si_029-ENDF8.0.endf"),
+    ("Si30", "n-014_Si_030-ENDF8.0.endf"),
+    ("Mn55", "n-025_Mn_055-ENDF8.0.endf"),
+];
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let clad_bound = args.iter().any(|a| a == "--clad-omission-bound");
@@ -626,12 +651,12 @@ fn main() {
     eprintln!("  specification: mit-crpg/benchmarks OpenMC model, parsed from XML at run time");
     eprintln!(
         "  nuclide tier: {} ({} tapes){}\n",
-        if tapes().len() == TAPES_FULL.len() { "FULL" } else { "CHEAP" },
+        if tapes().len() == TAPES.len() { "FULL" } else { "CHEAP" },
         tapes().len(),
-        if tapes().len() == TAPES_FULL.len() {
-            " -- every nuclide the OpenMC cards name; slow to reconstruct"
+        if tapes().len() == TAPES.len() {
+            " -- every nuclide the OpenMC cards name (default); slow to reconstruct"
         } else {
-            " -- fuel/moderator/poison + Al,Si,Mn clad; pass --full-nuclides for all 36"
+            " -- fuel/moderator/poison + Al,Si,Mn clad (--cheap-nuclides)"
         }
     );
 
@@ -702,6 +727,13 @@ fn main() {
     let mut ens: Vec<f64> = Vec::with_capacity(n_seeds);
     let mut result = run_keff_csg(&geom, &materials, &nuclides, src, &settings, None);
     ens.push((result.k_mean - 1.0) * 1.0e5);
+    // Pool the active-phase drift across seeds. LCT-008 is the large, loosely
+    // coupled lattice in this set -- the case where a dominance ratio near 1
+    // makes source-convergence bias most likely, and where the single-seed
+    // trace showed the largest drift of the four.
+    let mut drifts: Vec<f64> =
+        vec![outram_mc_libs::vv::source_convergence_drift_pcm(&result, settings.n_inactive)];
+    outram_mc_libs::vv::report_transport_losses("lct008_keff seed 1", &result);
     for seed in 2..=n_seeds as u64 {
         let s = KeffSettings {
             seed,
@@ -710,6 +742,7 @@ fn main() {
         let r = run_keff_csg(&geom, &materials, &nuclides, src, &s, None);
         eprintln!("    seed {seed}: k = {:.5} +/- {:.5}", r.k_mean, r.k_std);
         ens.push((r.k_mean - 1.0) * 1.0e5);
+        drifts.push(outram_mc_libs::vv::source_convergence_drift_pcm(&r, s.n_inactive));
         // Deliberately NOT `result = r`. Everything downstream -- the
         // convergence trace, the printed k_eff, the V&V gate and the
         // bounded-geometry cross-check -- is sized against SEED 1, which is
@@ -717,6 +750,17 @@ fn main() {
         // repoints all of them at the last seed of the ensemble.
     }
     if n_seeds > 1 {
+        let good: Vec<f64> = drifts.iter().copied().filter(|d| d.is_finite()).collect();
+        if good.len() > 1 {
+            let (dm, dsd, dsem) = outram_mc_libs::vv::pooled(&good);
+            println!("\n  POOLED SOURCE-CONVERGENCE DRIFT ({} seeds)", good.len());
+            println!("    active-half drift = {dm:+.0} +/- {dsem:.0} pcm   (seed-to-seed sd {dsd:.0})");
+            if dm.abs() > 2.0 * dsem {
+                println!("    => RESOLVED systematic drift: source still moving while scoring.");
+            } else {
+                println!("    => not resolved; consistent with statistical scatter.");
+            }
+        }
         let (mean, sd, sem) = outram_mc_libs::vv::pooled(&ens);
         println!("\n  ENSEMBLE LEU-COMP-THERM-008 case {case}: {n_seeds} seeds");
         println!("    pooled dk    = {mean:+.0} pcm");
@@ -954,16 +998,17 @@ struct ResonanceOptions {
     urr: bool,
 }
 
-/// Which tape set this run uses. **Cheap by default** — the full set is opt-in
-/// via `--full-nuclides`, because reconstructing 36 evaluations (several of
-/// them 8-24 MB of ENDF text) dominates the run before a single neutron moves.
+/// Which tape set this run uses. **Full by default** — every nuclide the
+/// OpenMC material cards name, because correct physics is the default and not
+/// an opt-in. `--cheap-nuclides` drops to the 11-nuclide subset for iteration,
+/// at the cost of running an incomplete model.
 fn tapes() -> &'static [(&'static str, &'static str)] {
-    static FULL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    let full = *FULL.get_or_init(|| std::env::args().any(|a| a == "--full-nuclides"));
-    if full {
-        TAPES_FULL
-    } else {
+    static CHEAP: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    let cheap = *CHEAP.get_or_init(|| std::env::args().any(|a| a == "--cheap-nuclides"));
+    if cheap {
         TAPES_CHEAP
+    } else {
+        TAPES
     }
 }
 
@@ -1006,7 +1051,7 @@ fn load_nuclides(
     let mut nuclides = Vec::new();
     let mut slots = BTreeMap::new();
     for name in wanted {
-        let file = tapes().iter().find(|(n, _)| *n == name).expect("tape").1;
+        let file = tape_for(name);
         let mut n = load(name, file);
         // Resonance treatments, on the actinides only -- they are where the
         // resolved and unresolved resonances that matter live, and building

@@ -25,10 +25,33 @@
 //! — education / research / V&V, per the workspace `RESPONSIBLE_USE.md`. Not for
 //! reactor operation, licensing, or safety-critical decisions.
 //!
-//! Run (needs the `foam-mesh` feature → the cfmesh bridge + its polyMesh writer):
+//! # Running it
+//!
 //! ```text
-//! cargo run -p outram-blender --example mesh_studio --features foam-mesh --release
+//! cargo run -p dhoby-ghaut --example mesh_studio --release
 //! ```
+//!
+//! (The `foam-mesh` feature comes from this crate's own dependency line; it
+//! no longer needs passing on the command line, and the crate is
+//! `dhoby-ghaut`, not `outram-blender` — the studios moved on 2026-09-17.)
+//!
+//! # Headless mode — required, not optional
+//!
+//! ```text
+//! cargo run -p dhoby-ghaut --example mesh_studio --release -- --headless [case]
+//! ```
+//!
+//! Emits one CSV row per case on stdout, with a stable header and fixed
+//! precision, so a run diffs cleanly against a committed fixture. Pass a
+//! case name (`box`, `sphere`, `cylinder`, `subdivided-cube`) to run just
+//! that one; with no argument it runs all four.
+//!
+//! The workspace `CLAUDE.md` makes this a hard rule, and the reason is
+//! worth restating: an agent or a CI job cannot open a window, so without
+//! a headless path the model can only be checked by a human watching it —
+//! which means in practice it is not checked at all, and every claim about
+//! what the studio does becomes unfalsifiable. The headless path drives
+//! [`model`] directly: no window, no event loop, no spawned thread.
 //!
 //! Target-gated OFF Android (windowing GUI); the library stays headless.
 
@@ -40,6 +63,15 @@ fn main() {}
 
 #[cfg(not(target_os = "android"))]
 fn main() -> eframe::Result<()> {
+    // The headless path must be reachable before anything touches eframe,
+    // or a machine with no display cannot run it at all.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--headless") {
+        let case = args.iter().find(|a| !a.starts_with("--")).cloned();
+        print!("{}", headless::run(case.as_deref()));
+        return Ok(());
+    }
+
     env_logger::init();
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 820.0]),
@@ -53,30 +85,34 @@ fn main() -> eframe::Result<()> {
 }
 
 #[cfg(not(target_os = "android"))]
-mod app {
-    use std::sync::{Arc, RwLock};
+pub mod model {
+    //! The studio's model, with no GUI in it.
+    //!
+    //! Everything here is callable from a test or from `--headless`. That
+    //! separation is the whole point: the GUI module below owns only
+    //! widgets and drawing, so nothing about what the studio *computes*
+    //! depends on a window existing.
 
-    use outram_blender::foam_mesh::{
-        export_polymesh, mesh_to_tet_dual, TetDualOptions, TetDualReport, Vec3, VolumeMesh,
-    };
+    use outram_blender::foam_mesh::{mesh_to_tet_dual, TetDualOptions, TetDualReport, VolumeMesh};
     use outram_blender::mesh::Mesh;
     use outram_blender::primitives::{cube, cylinder, uv_sphere};
     use outram_blender::subdivision::catmull_clark;
 
     /// Which blender-authored surface to volume-mesh.
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum GeomKind {
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub enum GeomKind {
         Box,
         Sphere,
         Cylinder,
-        /// A procedurally-authored blender mesh: a cube run through one level of
-        /// Catmull-Clark subdivision (a rounded, closed genus-0 blob) — proof the
-        /// bridge accepts an arbitrary authored surface, not just a primitive.
+        /// A procedurally-authored blender mesh: a cube run through one
+        /// level of Catmull-Clark subdivision (a rounded, closed genus-0
+        /// blob) — proof the bridge accepts an arbitrary authored surface,
+        /// not just a primitive.
         SubdividedCube,
     }
 
     impl GeomKind {
-        fn label(self) -> &'static str {
+        pub fn label(self) -> &'static str {
             match self {
                 GeomKind::Box => "Box (primitive)",
                 GeomKind::Sphere => "UV-sphere (primitive)",
@@ -84,13 +120,260 @@ mod app {
                 GeomKind::SubdividedCube => "Subdivided cube (procedural)",
             }
         }
+
+        /// Short machine-readable name, used by `--headless` and by the CSV.
+        pub fn slug(self) -> &'static str {
+            match self {
+                GeomKind::Box => "box",
+                GeomKind::Sphere => "sphere",
+                GeomKind::Cylinder => "cylinder",
+                GeomKind::SubdividedCube => "subdivided-cube",
+            }
+        }
+
+        pub fn from_slug(s: &str) -> Option<Self> {
+            Self::ALL.iter().copied().find(|k| k.slug() == s)
+        }
+
+        pub const ALL: [GeomKind; 4] = [
+            GeomKind::Box,
+            GeomKind::Sphere,
+            GeomKind::Cylinder,
+            GeomKind::SubdividedCube,
+        ];
     }
 
-    /// A generated volume mesh plus its report (owned by the app for drawing).
-    struct Built {
-        mesh: VolumeMesh,
-        report: TetDualReport,
+    /// Optional surface-cleanup stage, run between authoring and meshing.
+    ///
+    /// These are the mesh-quality operators ported from Blender in
+    /// `outram-blender`. They matter here specifically: the cfmesh pipeline
+    /// takes the surface as the truth about the geometry, and a warped or
+    /// concave face has no single well-defined normal, centroid or area for
+    /// it to work from.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+    pub enum Cleanup {
+        /// Hand the authored surface over untouched.
+        #[default]
+        None,
+        /// Split faces that are non-planar by more than 5 degrees
+        /// ([`outram_blender::connect_nonplanar`]). Adds edges, moves
+        /// nothing.
+        SplitNonPlanar,
+        /// Split concave faces into convex pieces
+        /// ([`outram_blender::connect_concave`]). Adds edges, moves
+        /// nothing.
+        SplitConcave,
+        /// Both splits, non-planar first.
+        SplitBoth,
     }
+
+    impl Cleanup {
+        pub fn label(self) -> &'static str {
+            match self {
+                Cleanup::None => "None (author surface as-is)",
+                Cleanup::SplitNonPlanar => "Split non-planar faces (>5 deg)",
+                Cleanup::SplitConcave => "Split concave faces",
+                Cleanup::SplitBoth => "Split non-planar, then concave",
+            }
+        }
+
+        pub fn slug(self) -> &'static str {
+            match self {
+                Cleanup::None => "none",
+                Cleanup::SplitNonPlanar => "nonplanar",
+                Cleanup::SplitConcave => "concave",
+                Cleanup::SplitBoth => "both",
+            }
+        }
+
+        pub const ALL: [Cleanup; 4] = [
+            Cleanup::None,
+            Cleanup::SplitNonPlanar,
+            Cleanup::SplitConcave,
+            Cleanup::SplitBoth,
+        ];
+    }
+
+    /// The immutable authoring + meshing parameters handed to the worker
+    /// thread, or to the headless driver.
+    #[derive(Clone, Debug)]
+    pub struct Params {
+        pub kind: GeomKind,
+        pub size: f64,
+        pub cyl_radius: f64,
+        pub cyl_height: f64,
+        pub sphere_lat: usize,
+        pub sphere_lon: usize,
+        pub cleanup: Cleanup,
+        pub opts: TetDualOptions,
+    }
+
+    impl Default for Params {
+        fn default() -> Self {
+            Params {
+                kind: GeomKind::Box,
+                size: 2.0,
+                cyl_radius: 2.0,
+                cyl_height: 5.0,
+                sphere_lat: 12,
+                sphere_lon: 24,
+                cleanup: Cleanup::None,
+                opts: TetDualOptions {
+                    cell_size: 0.5,
+                    first_layer_thickness: 0.02,
+                    ..Default::default()
+                },
+            }
+        }
+    }
+
+    /// A generated volume mesh plus its report.
+    pub struct Built {
+        pub mesh: VolumeMesh,
+        pub report: TetDualReport,
+        /// Face count of the surface actually handed to the mesher, after
+        /// any [`Cleanup`]. Recorded so the CSV shows what cleanup did.
+        pub surface_faces: usize,
+    }
+
+    /// Author the blender surface [`Mesh`] for `p`, before cleanup.
+    ///
+    /// This is deterministic: the primitives and Catmull-Clark are pure
+    /// functions of the parameters, with no clock and no RNG.
+    pub fn author_surface(p: &Params) -> Mesh {
+        match p.kind {
+            GeomKind::Box => cube(p.size),
+            GeomKind::Sphere => uv_sphere(p.sphere_lon.max(3), p.sphere_lat.max(2), p.size),
+            GeomKind::Cylinder => cylinder(24, p.cyl_radius, p.cyl_height),
+            // One Catmull-Clark level turns the 6-quad cube into a rounded,
+            // still-closed genus-0 surface — a genuine authored
+            // (non-primitive) mesh to feed the bridge.
+            GeomKind::SubdividedCube => catmull_clark(&cube(p.size), 1),
+        }
+    }
+
+    /// Apply the chosen [`Cleanup`] to an authored surface.
+    pub fn clean_surface(surface: &Mesh, cleanup: Cleanup) -> Mesh {
+        use outram_blender::connect_nonplanar::{connect_nonplanar, DEFAULT_ANGLE_LIMIT};
+        match cleanup {
+            Cleanup::None => surface.clone(),
+            Cleanup::SplitNonPlanar => connect_nonplanar(surface, DEFAULT_ANGLE_LIMIT),
+            Cleanup::SplitConcave => outram_blender::connect_concave::connect_concave(surface),
+            Cleanup::SplitBoth => outram_blender::connect_concave::connect_concave(
+                &connect_nonplanar(surface, DEFAULT_ANGLE_LIMIT),
+            ),
+        }
+    }
+
+    /// Author, clean, and volume-mesh — the whole model in one call, with
+    /// no GUI and no thread.
+    pub fn build(p: &Params) -> Result<Built, String> {
+        let authored = author_surface(p);
+        let surface = clean_surface(&authored, p.cleanup);
+        let surface_faces = surface.face_count();
+        mesh_to_tet_dual(&surface, &p.opts).map(|(mesh, report)| Built {
+            mesh,
+            report,
+            surface_faces,
+        })
+    }
+}
+
+/// The headless driver: run cases and emit CSV, no window involved.
+#[cfg(not(target_os = "android"))]
+pub mod headless {
+    use super::model::{build, GeomKind, Params};
+
+    /// Stable CSV header. Keep this and the row format in lockstep — a
+    /// committed fixture diffs against both.
+    pub const CSV_HEADER: &str =
+        "case,cleanup,surface_faces,cells,volume,valid,max_non_orth_deg,max_skewness,neg_vol_cells,stage_notes
+";
+
+    /// Run one case and format its row. Fixed precision so the output is
+    /// byte-stable across runs and machines.
+    pub fn run_case(p: &Params) -> String {
+        match build(p) {
+            Ok(b) => format!(
+                "{},{},{},{},{:.6},{},{:.4},{:.6},{},{}
+",
+                p.kind.slug(),
+                p.cleanup.slug(),
+                b.surface_faces,
+                b.report.cell_count,
+                b.report.total_volume,
+                b.report.valid,
+                b.report.max_non_orthogonality_deg,
+                b.report.max_skewness,
+                b.report.n_negative_volume_cells,
+                b.report.stage_notes.len(),
+            ),
+            Err(e) => format!(
+                "{},{},0,0,0.000000,false,0.0000,0.000000,0,ERROR:{}\n",
+                p.kind.slug(),
+                p.cleanup.slug(),
+                e.replace(',', ";")
+            ),
+        }
+    }
+
+    /// Every case crossed with every cleanup mode — the sweep that shows
+    /// what the surface-quality operators are worth to the mesher.
+    pub fn run_sweep() -> String {
+        use super::model::Cleanup;
+        let mut out = String::from(CSV_HEADER);
+        for kind in GeomKind::ALL {
+            for cleanup in Cleanup::ALL {
+                let p = Params {
+                    kind,
+                    cleanup,
+                    ..Default::default()
+                };
+                out.push_str(&run_case(&p));
+            }
+        }
+        out
+    }
+
+    /// Run `case` (or every case when `None`) and return the whole CSV.
+    pub fn run(case: Option<&str>) -> String {
+        if case == Some("sweep") {
+            return run_sweep();
+        }
+        let kinds: Vec<GeomKind> = match case {
+            Some(name) => match GeomKind::from_slug(name) {
+                Some(k) => vec![k],
+                None => {
+                    return format!(
+                        "# unknown case {name:?}; known cases: {}\n",
+                        GeomKind::ALL
+                            .iter()
+                            .map(|k| k.slug())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                }
+            },
+            None => GeomKind::ALL.to_vec(),
+        };
+        let mut out = String::from(CSV_HEADER);
+        for kind in kinds {
+            let p = Params {
+                kind,
+                ..Default::default()
+            };
+            out.push_str(&run_case(&p));
+        }
+        out
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+mod app {
+    use std::sync::{Arc, RwLock};
+
+    use super::model::{build, Built, Cleanup, GeomKind, Params};
+    use outram_blender::foam_mesh::{export_polymesh, Vec3};
 
     /// Shared slot the background mesher writes into.
     #[derive(Default)]
@@ -98,18 +381,6 @@ mod app {
         running: bool,
         /// Set once when a rebuild finishes; the GUI `take()`s it into `current`.
         done: Option<Result<Built, String>>,
-    }
-
-    /// The immutable authoring + meshing parameters handed to the worker thread.
-    #[derive(Clone)]
-    struct Params {
-        kind: GeomKind,
-        size: f64,
-        cyl_radius: f64,
-        cyl_height: f64,
-        sphere_lat: usize,
-        sphere_lon: usize,
-        opts: TetDualOptions,
     }
 
     pub struct MeshStudio {
@@ -125,19 +396,7 @@ mod app {
     impl Default for MeshStudio {
         fn default() -> Self {
             Self {
-                p: Params {
-                    kind: GeomKind::Box,
-                    size: 2.0,
-                    cyl_radius: 2.0,
-                    cyl_height: 5.0,
-                    sphere_lat: 12,
-                    sphere_lon: 24,
-                    opts: TetDualOptions {
-                        cell_size: 0.5,
-                        first_layer_thickness: 0.02,
-                        ..Default::default()
-                    },
-                },
+                p: Params::default(),
                 yaw: 0.6,
                 pitch: 0.5,
                 export_dir: "/tmp/mesh_studio/polyMesh".into(),
@@ -145,20 +404,6 @@ mod app {
                 slot: Arc::new(RwLock::new(Slot::default())),
                 current: None,
             }
-        }
-    }
-
-    /// Author the blender surface [`Mesh`] for the current parameters. This is
-    /// the surface the bridge triangulates and hands to the cfmesh pipeline.
-    fn author_surface(p: &Params) -> Mesh {
-        match p.kind {
-            GeomKind::Box => cube(p.size),
-            GeomKind::Sphere => uv_sphere(p.sphere_lon.max(3), p.sphere_lat.max(2), p.size),
-            GeomKind::Cylinder => cylinder(24, p.cyl_radius, p.cyl_height),
-            // One Catmull-Clark level turns the 6-quad cube into a rounded,
-            // still-closed genus-0 surface — a genuine authored (non-primitive)
-            // mesh to feed the bridge.
-            GeomKind::SubdividedCube => catmull_clark(&cube(p.size), 1),
         }
     }
 
@@ -175,9 +420,9 @@ mod app {
             let p = self.p.clone();
             let slot = self.slot.clone();
             std::thread::spawn(move || {
-                let surface = author_surface(&p);
-                let result = mesh_to_tet_dual(&surface, &p.opts)
-                    .map(|(mesh, report)| Built { mesh, report });
+                // Exactly the call `--headless` makes, so the GUI cannot
+                // drift from what the headless path reports.
+                let result = build(&p);
                 let mut s = slot.write().unwrap();
                 s.running = false;
                 s.done = Some(result);
@@ -256,6 +501,18 @@ mod app {
                 _ => {
                     ui.add(egui::Slider::new(&mut self.p.size, 0.5..=10.0).text("size [m]"));
                 }
+            }
+
+            ui.separator();
+            ui.heading("Surface cleanup (before meshing)");
+            ui.label(
+                "Mesh-quality operators ported from Blender. A warped or concave \
+                 face has no single well-defined normal, centroid or area, and the \
+                 cfmesh pipeline takes the surface as the truth about the geometry. \
+                 Both add edges only — no vertex moves, so the surface is unchanged.",
+            );
+            for c in Cleanup::ALL {
+                ui.radio_value(&mut self.p.cleanup, c, c.label());
             }
 
             ui.separator();
@@ -460,5 +717,178 @@ mod app {
             let y2 = y1 * cp - z1 * sp;
             egui::vec2(x1 as f32, y2 as f32)
         }
+    }
+}
+
+/// Regression tests for the headless path, called directly — never through
+/// the GUI, which is the point.
+///
+/// Run with `cargo test -p dhoby-ghaut --examples --release`.
+#[cfg(all(test, not(target_os = "android")))]
+mod tests {
+    use super::headless;
+    use super::model::{build, Cleanup, GeomKind, Params};
+
+    /// The committed fixture, regenerated with
+    /// `cargo run -p dhoby-ghaut --example mesh_studio --release -- --headless sweep`.
+    const FIXTURE: &str = include_str!("../../tests/fixtures/mesh_studio_sweep.csv");
+
+    /// Determinism is the property every committed fixture depends on:
+    /// same config in, byte-identical trace out.
+    #[test]
+    fn the_headless_sweep_is_deterministic() {
+        let a = headless::run_sweep();
+        let b = headless::run_sweep();
+        assert_eq!(a, b, "two runs of the same sweep must agree byte for byte");
+    }
+
+    /// And it must still match what was committed.
+    #[test]
+    fn the_headless_sweep_matches_the_committed_fixture() {
+        let got = headless::run_sweep();
+        assert_eq!(
+            got, FIXTURE,
+            "the sweep changed; if that is intended, regenerate the fixture \
+             with `--headless sweep` and say in the commit what moved and why"
+        );
+    }
+
+    /// Bounds the model must not leave. A harness check on the mesher's
+    /// own reported quality, **not** physics V&V — it catches divergence,
+    /// it does not validate anything.
+    #[test]
+    fn every_case_produces_a_valid_mesh_within_loose_bounds() {
+        for kind in GeomKind::ALL {
+            for cleanup in Cleanup::ALL {
+                let p = Params {
+                    kind,
+                    cleanup,
+                    ..Default::default()
+                };
+                let b = build(&p).unwrap_or_else(|e| panic!("{kind:?}/{cleanup:?}: {e}"));
+                let label = format!("{}/{}", kind.slug(), cleanup.slug());
+
+                assert!(b.report.valid, "{label}: mesh reported invalid");
+                assert_eq!(
+                    b.report.n_negative_volume_cells, 0,
+                    "{label}: inverted cells"
+                );
+                assert!(b.report.cell_count > 0, "{label}: empty mesh");
+                assert!(
+                    b.report.total_volume > 0.0 && b.report.total_volume.is_finite(),
+                    "{label}: volume {}",
+                    b.report.total_volume
+                );
+                // Non-orthogonality: boundary-layer meshes legitimately
+                // exceed checkMesh's 70 deg warning near the wall, so the
+                // bound here only catches outright divergence.
+                assert!(
+                    b.report.max_non_orthogonality_deg < 90.0,
+                    "{label}: non-orthogonality {} deg",
+                    b.report.max_non_orthogonality_deg
+                );
+                // Skewness: checkMesh's own limit is 4.0 and cfmesh
+                // documents exceeding it near the wall (its reference case
+                // records ~14). 30 is a divergence catch, not a standard.
+                assert!(
+                    b.report.max_skewness < 30.0,
+                    "{label}: skewness {}",
+                    b.report.max_skewness
+                );
+            }
+        }
+    }
+
+    /// The regression this fixture exists for.
+    ///
+    /// # What happened
+    ///
+    /// `connect_nonplanar` originally drove its recursion from one global
+    /// work stack, which shuffled the output face order even when it split
+    /// nothing. Nothing in the operator's own tests noticed — they checked
+    /// face and vertex counts, not order — and the geometry was identical
+    /// either way.
+    ///
+    /// Handing that shuffled surface to the cfmesh pipeline was not
+    /// harmless. Measured on the Catmull-Clark cube:
+    ///
+    /// | | cells | max skewness |
+    /// |---|---|---|
+    /// | shuffled face order | 2837 | 23.735 |
+    /// | input order preserved | 1632 | 0.901 |
+    ///
+    /// A 26x difference in skewness, and 74 % more cells, from nothing but
+    /// the order the faces arrived in. The first reading of that sweep
+    /// looked like "splitting non-planar faces wrecks the volume mesh",
+    /// which would have been a wrong and rather memorable conclusion.
+    ///
+    /// This test pins the corrected behaviour: cleanup on a surface whose
+    /// faces are already planar must change **nothing**, and cleanup that
+    /// does split must not blow the skewness up.
+    #[test]
+    fn surface_cleanup_does_not_wreck_the_volume_mesh() {
+        // Planar-faced primitives: cleanup must be a complete no-op.
+        for kind in [GeomKind::Box, GeomKind::Sphere, GeomKind::Cylinder] {
+            let base = build(&Params {
+                kind,
+                cleanup: Cleanup::None,
+                ..Default::default()
+            })
+            .expect("base build");
+            for cleanup in [
+                Cleanup::SplitNonPlanar,
+                Cleanup::SplitConcave,
+                Cleanup::SplitBoth,
+            ] {
+                let c = build(&Params {
+                    kind,
+                    cleanup,
+                    ..Default::default()
+                })
+                .expect("cleanup build");
+                assert_eq!(
+                    c.surface_faces,
+                    base.surface_faces,
+                    "{}/{:?}: cleanup should not touch an already-clean surface",
+                    kind.slug(),
+                    cleanup
+                );
+                assert_eq!(c.report.cell_count, base.report.cell_count);
+                assert!((c.report.max_skewness - base.report.max_skewness).abs() < 1e-9);
+            }
+        }
+
+        // The Catmull-Clark cube genuinely has warped quads, so splitting
+        // them does something — and must stay sane while doing it.
+        let base = build(&Params {
+            kind: GeomKind::SubdividedCube,
+            cleanup: Cleanup::None,
+            ..Default::default()
+        })
+        .expect("base");
+        let split = build(&Params {
+            kind: GeomKind::SubdividedCube,
+            cleanup: Cleanup::SplitNonPlanar,
+            ..Default::default()
+        })
+        .expect("split");
+
+        assert_eq!(
+            split.surface_faces,
+            2 * base.surface_faces,
+            "quads -> triangle pairs"
+        );
+        assert!(
+            (split.report.total_volume - base.report.total_volume).abs() < 1e-3,
+            "splitting must not change the enclosed volume: {} vs {}",
+            base.report.total_volume,
+            split.report.total_volume
+        );
+        assert!(
+            split.report.max_skewness < 2.0,
+            "skewness after splitting should stay near the unsplit 0.67, got {} \
+             (it was 23.7 with the face-ordering bug)",
+            split.report.max_skewness
+        );
     }
 }

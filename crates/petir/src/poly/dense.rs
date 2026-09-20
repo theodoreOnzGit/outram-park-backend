@@ -645,6 +645,31 @@ pub enum ChebyshevKind {
 /// high `n` loses precision. Measured agreement with the exact rational
 /// coefficients is in the tests below.
 ///
+/// **Evaluating the result is a separate and worse problem, and it is
+/// quantified.** `P_n`'s coefficients alternate in sign and reach `~1e7` by
+/// `n = 29`, so [`DensePoly::eval`] cancels. Measured 2026-09-20 against
+/// [`crate::specfunc::gegenbauer::gegenpoly_n`] at `lambda = 1/2`, which
+/// computes the same polynomials by a value-recurrence that forms no large
+/// intermediate:
+///
+/// | `n` | worst gap over `[-0.9, 0.9]` | this form's `P_n(-1)` |
+/// |---|---|---|
+/// | 8 | 2.220e-15 | exact |
+/// | 16 | 1.509e-12 | exact |
+/// | 20 | 2.534e-11 | exact |
+/// | 29 | 8.010e-08 | **4.470e-07 off** |
+/// | 32 | 2.270e-07 | **5.444e-07 off** |
+///
+/// About one digit lost every three orders. `P_n(±1) = (±1)^n` exactly, so
+/// the last column is unambiguous about which route is wrong — and it is
+/// this one.
+///
+/// **If you want the value of `P_n(x)`, call `gegenpoly_n(n, 0.5, x)`**,
+/// which is bit-exact at the endpoints for every order tried. Use this
+/// function when you want the *coefficients* — for the roots, for
+/// differentiation, or for the Gauss-Legendre nodes below — which is what it
+/// exists for.
+///
 /// # Examples
 ///
 /// ```

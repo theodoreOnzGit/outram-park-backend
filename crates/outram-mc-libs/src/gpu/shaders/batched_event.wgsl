@@ -46,10 +46,20 @@
 //   Everything here is f32; the trusted reference is the raw-f64 CPU transport
 //   loop. `advance_event_cpu_mirror` (batched_event.rs) runs the SAME f32 path and
 //   is the bit-level reference for this kernel's LOGIC. The uniform is the top-24
-//   bits of the advanced 64-bit LCG state (as in batched_flight.wgsl) — the
-//   documented f32 divergence from the CPU f64 `prn` VALUE; the integer state
-//   stream stays bit-exact. UNTRUSTED, AI-DRAFTED: must pass the V&V gate and
-//   human review before it is trusted.
+//   bits of the advanced 64-bit LCG state (as in batched_flight.wgsl). The
+//   integer state stream stays bit-exact vs the CPU, and
+//   gpu_lcg_advance_directly.rs additionally pins THIS kernel's rng_next and
+//   batched_flight's lcg_advance to the same stream, state and uniform alike —
+//   the two files implement the LCG twice and a history depends on which one
+//   drew it. ~~The uniform VALUE is the documented f32 divergence from the CPU
+//   f64 `prn`.~~ **CORRECTED 2026-09-19** — that divergence is STRUCTURAL, not
+//   a precision effect: the CPU applies a PCG-RXS-M-XS output permutation
+//   (src/rng/lcg.rs:116-117) and this does not, so the two would disagree in
+//   exact arithmetic (worst gap 9.995e-01 over 1e6 draws). The raw top-24
+//   stream is a sound uniform in its own right — see batched_flight.wgsl's
+//   header for the measured mean, chi-square and covariance.
+//   UNTRUSTED, AI-DRAFTED: must pass the V&V gate and human review before it
+//   is trusted.
 //
 // BUFFER LAYOUT (4 storage + 1 uniform; downlevel_defaults allows 4 storage/stage)
 //   @binding(0) xs    : array<f32> read       — packed tables, see accessors below

@@ -62,19 +62,19 @@ fn petir_bessel_cheb_bi0(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `ai0_cs`, 21 coefficients, Clenshaw in GSL's convention
+// GSL's `ai0_data` at its SINGLE-PRECISION order: 14 of the 21 stored,
+// where `f64` evaluates 21.
 // (closing with 0.5*c[0]). Mirrors `cheb_ai0` in wgsl::mirror_bessel.
 fn petir_bessel_cheb_ai0(x: f32) -> f32 {
-    var c = array<f32, 21>(
+    var c = array<f32, 14>(
         0.0757599449, 0.00759138081, 0.000415313134, 1.07007646e-05, -7.90117998e-06,
         -7.8261435e-07, 2.78384994e-07, 8.2524726e-09, -1.20446394e-08, 1.55964859e-09,
-        2.2925563e-10, -1.1916228e-10, 1.757854e-11, 1.12822e-12, -1.14684e-12, 2.7155e-13,
-        -2.415e-14, -6.08e-15, 3.14e-15, -7.1e-16, 7e-17
+        2.2925563e-10, -1.1916228e-10, 1.757854e-11, 1.12822e-12,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 20; j >= 1; j = j - 1) {
+    for (var j: i32 = 13; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -82,19 +82,19 @@ fn petir_bessel_cheb_ai0(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `ai02_cs`, 22 coefficients, Clenshaw in GSL's convention
+// GSL's `ai02_data` at its SINGLE-PRECISION order: 12 of the 22 stored,
+// where `f64` evaluates 22.
 // (closing with 0.5*c[0]). Mirrors `cheb_ai02` in wgsl::mirror_bessel.
 fn petir_bessel_cheb_ai02(x: f32) -> f32 {
-    var c = array<f32, 22>(
+    var c = array<f32, 12>(
         0.054490411, 0.00336911648, 6.88975835e-05, 2.89137052e-06, 2.04891859e-07,
         2.26666899e-08, 3.39623203e-09, 4.9406022e-10, 1.188914e-11, -3.149915e-11,
-        -1.32158e-11, -1.79419e-12, 7.1801e-13, 3.8529e-13, 1.539e-14, -4.151e-14, -9.54e-15,
-        3.82e-15, 1.76e-15, -3.4e-16, -2.7e-16, 3e-17
+        -1.32158e-11, -1.79419e-12,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 21; j >= 1; j = j - 1) {
+    for (var j: i32 = 11; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -120,72 +120,14 @@ fn petir_bessel_cheb_bi1(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `ai1_cs`, 21 coefficients, Clenshaw in GSL's convention
+// GSL's `ai1_data` at its SINGLE-PRECISION order: 12 of the 21 stored,
+// where `f64` evaluates 21.
 // (closing with 0.5*c[0]). Mirrors `cheb_ai1` in wgsl::mirror_bessel.
 fn petir_bessel_cheb_ai1(x: f32) -> f32 {
-    var c = array<f32, 21>(
+    var c = array<f32, 12>(
         -0.0284674418, -0.0192295323, -0.000611518586, -2.06997125e-05, 8.58561915e-06,
         1.04949825e-06, -2.91833892e-07, -1.55937815e-08, 1.31801237e-08, -1.44842341e-09,
-        -2.9085122e-10, 1.2663889e-10, -1.664947e-11, -1.66665e-12, 1.2426e-12, -2.7315e-13,
-        2.023e-14, 7.3e-15, -3.33e-15, 7.1e-16, -6e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 20; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `ai12_cs`, 22 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_ai12` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_ai12(x: f32) -> f32 {
-    var c = array<f32, 22>(
-        0.028576235, -0.00976109749, -0.000110588939, -3.88256481e-06, -2.51223624e-07,
-        -2.63146885e-08, -3.83538039e-09, -5.5897433e-10, -1.897495e-11, 3.252602e-11,
-        1.41258e-11, 2.03564e-12, -7.1985e-13, -4.0836e-13, -2.101e-14, 4.273e-14, 1.041e-14,
-        -3.82e-15, -1.86e-15, 3.3e-16, 2.8e-16, -3e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 21; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `bj0_cs`, 13 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_bj0` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_bj0(x: f32) -> f32 {
-    var c = array<f32, 13>(
-        0.100254162, -0.665223008, 0.248983703, -0.0332527232, 0.00231141793, -9.91127742e-05,
-        2.89167086e-06, -6.12108587e-08, 9.83865079e-10, -1.24235515e-11, 1.265433e-13,
-        -1.0619e-15, 7.4e-18
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 12; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `bj1_cs`, 12 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_bj1` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_bj1(x: f32) -> f32 {
-    var c = array<f32, 12>(
-        -0.117261415, -0.253615218, 0.050127081, -0.00463151481, 0.000247996229,
-        -8.67894869e-06, 2.14293917e-07, -3.93609308e-09, 5.5911823e-11, -6.32761e-13,
-        5.84e-15, -4.4e-17
+        -2.9085122e-10, 1.2663889e-10,
     );
     var d = 0.0;
     var dd = 0.0;
@@ -198,13 +140,206 @@ fn petir_bessel_cheb_bj1(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `by0_cs`, 13 coefficients, Clenshaw in GSL's convention
+// GSL's `ai12_data` at its SINGLE-PRECISION order: 10 of the 22 stored,
+// where `f64` evaluates 22.
+// (closing with 0.5*c[0]). Mirrors `cheb_ai12` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_ai12(x: f32) -> f32 {
+    var c = array<f32, 10>(
+        0.028576235, -0.00976109749, -0.000110588939, -3.88256481e-06, -2.51223624e-07,
+        -2.63146885e-08, -3.83538039e-09, -5.5897433e-10, -1.897495e-11, 3.252602e-11,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 9; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `bj0_data` at its SINGLE-PRECISION order: 10 of the 13 stored,
+// where `f64` evaluates 13.
+// (closing with 0.5*c[0]). Mirrors `cheb_bj0` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_bj0(x: f32) -> f32 {
+    var c = array<f32, 10>(
+        0.100254162, -0.665223008, 0.248983703, -0.0332527232, 0.00231141793,
+        -9.91127742e-05, 2.89167086e-06, -6.12108587e-08, 9.83865079e-10, -1.24235515e-11,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 9; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `bj1_data` at its SINGLE-PRECISION order: 9 of the 12 stored,
+// where `f64` evaluates 12.
+// (closing with 0.5*c[0]). Mirrors `cheb_bj1` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_bj1(x: f32) -> f32 {
+    var c = array<f32, 9>(
+        -0.117261415, -0.253615218, 0.050127081, -0.00463151481, 0.000247996229,
+        -8.67894869e-06, 2.14293917e-07, -3.93609308e-09, 5.5911823e-11,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 8; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `by0_data` at its SINGLE-PRECISION order: 9 of the 13 stored,
+// where `f64` evaluates 13.
 // (closing with 0.5*c[0]). Mirrors `cheb_by0` in wgsl::mirror_bessel.
 fn petir_bessel_cheb_by0(x: f32) -> f32 {
-    var c = array<f32, 13>(
+    var c = array<f32, 9>(
         -0.0112778394, -0.128345238, -0.104378848, 0.0236627492, -0.00209039165,
-        0.000103975454, -3.36974716e-06, 7.72938427e-08, -1.32497677e-09, 1.7648232e-11,
-        -1.88105e-13, 1.641e-15, -1.1e-17
+        0.000103975454, -3.36974716e-06, 7.72938427e-08, -1.32497677e-09,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 8; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `by1_data` at its SINGLE-PRECISION order: 11 of the 14 stored,
+// where `f64` evaluates 14.
+// (closing with 0.5*c[0]). Mirrors `cheb_by1` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_by1(x: f32) -> f32 {
+    var c = array<f32, 11>(
+        0.032080471, 1.2627079, 0.0064999619, -0.0893616453, 0.0132508812, -0.000897905912,
+        3.64736149e-05, -1.00137438e-06, 1.99453966e-08, -3.0230656e-10, 3.60987815e-12,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `ak0_data` at its SINGLE-PRECISION order: 11 of the 24 stored,
+// where `f64` evaluates 24.
+// (closing with 0.5*c[0]). Mirrors `cheb_ak0` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_ak0(x: f32) -> f32 {
+    var c = array<f32, 11>(
+        -0.0328737867, -0.0449369058, 0.00298149992, -0.000303693649, 3.91085569e-05,
+        -5.86872422e-06, 9.8287371e-07, -1.78978645e-07, 3.48332307e-08, -7.1590921e-09,
+        1.5401993e-09,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `ak02_data` at its SINGLE-PRECISION order: 9 of the 14 stored,
+// where `f64` evaluates 14.
+// (closing with 0.5*c[0]). Mirrors `cheb_ak02` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_ak02(x: f32) -> f32 {
+    var c = array<f32, 9>(
+        -0.0120186983, -0.00917485269, 0.000144455093, -4.01361418e-06, 1.56783181e-07,
+        -7.77011044e-09, 4.61118258e-10, -3.158593e-11, 2.43501804e-12,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 8; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `ak1_data` at its SINGLE-PRECISION order: 10 of the 25 stored,
+// where `f64` evaluates 25.
+// (closing with 0.5*c[0]). Mirrors `cheb_ak1` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_ak1(x: f32) -> f32 {
+    var c = array<f32, 10>(
+        0.207996868, 0.162581565, -0.00587070424, 0.00049502152, -5.78958348e-05,
+        8.1861461e-06, -1.31604832e-06, 2.32546032e-07, -4.42206518e-08, 8.92163995e-09,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 9; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `ak12_data` at its SINGLE-PRECISION order: 8 of the 14 stored,
+// where `f64` evaluates 14.
+// (closing with 0.5*c[0]). Mirrors `cheb_ak12` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_ak12(x: f32) -> f32 {
+    var c = array<f32, 8>(
+        0.0637930834, 0.0283288781, -0.000247537067, 5.77197245e-06, -2.06893922e-07,
+        9.73998344e-09, -5.58533614e-10, 3.73299663e-11,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 7; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `bm0_data` at its SINGLE-PRECISION order: 11 of the 21 stored,
+// where `f64` evaluates 21.
+// (closing with 0.5*c[0]). Mirrors `cheb_bm0` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_bm0(x: f32) -> f32 {
+    var c = array<f32, 11>(
+        0.0928496164, -0.00142987707, 2.83057927e-05, -1.43300611e-06, 1.2028628e-07,
+        -1.39711301e-08, 2.04076188e-09, -3.5399669e-10, 7.024759e-11, -1.554107e-11,
+        3.76226e-12,
+    );
+    var d = 0.0;
+    var dd = 0.0;
+    let y2 = 2.0 * x;
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
+        let temp = d;
+        d = y2 * d - dd + c[j];
+        dd = temp;
+    }
+    return x * d - dd + 0.5 * c[0];
+}
+
+// GSL's `bth0_data` at its SINGLE-PRECISION order: 13 of the 24 stored,
+// where `f64` evaluates 24.
+// (closing with 0.5*c[0]). Mirrors `cheb_bth0` in wgsl::mirror_bessel.
+fn petir_bessel_cheb_bth0(x: f32) -> f32 {
+    var c = array<f32, 13>(
+        -0.246391638, 0.00173709831, -6.21836334e-05, 4.36805017e-06, -4.5609302e-07,
+        6.21974001e-08, -1.03004429e-08, 1.97952678e-09, -4.28198396e-10, 1.0203584e-10,
+        -2.6363898e-11, 7.297935e-12, -2.144188e-12,
     );
     var d = 0.0;
     var dd = 0.0;
@@ -217,158 +352,19 @@ fn petir_bessel_cheb_by0(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `by1_cs`, 14 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_by1` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_by1(x: f32) -> f32 {
-    var c = array<f32, 14>(
-        0.032080471, 1.2627079, 0.0064999619, -0.0893616453, 0.0132508812, -0.000897905912,
-        3.64736149e-05, -1.00137438e-06, 1.99453966e-08, -3.0230656e-10, 3.60987815e-12,
-        -3.487488e-14, 2.7838e-16, -1.86e-18
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 13; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `ak0_cs`, 24 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_ak0` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_ak0(x: f32) -> f32 {
-    var c = array<f32, 24>(
-        -0.0328737867, -0.0449369058, 0.00298149992, -0.000303693649, 3.91085569e-05,
-        -5.86872422e-06, 9.8287371e-07, -1.78978645e-07, 3.48332307e-08, -7.1590921e-09,
-        1.5401993e-09, -3.44555486e-10, 7.97356102e-11, -1.90090969e-11, 4.65295609e-12,
-        -1.16614287e-12, 2.98554375e-13, -7.7927698e-14, 2.07027467e-14, -5.5898786e-15,
-        1.53202966e-15, -4.25737537e-16, 1.19840239e-16, -3.41407347e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 23; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `ak02_cs`, 14 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_ak02` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_ak02(x: f32) -> f32 {
-    var c = array<f32, 14>(
-        -0.0120186983, -0.00917485269, 0.000144455093, -4.01361418e-06, 1.56783181e-07,
-        -7.77011044e-09, 4.61118258e-10, -3.158593e-11, 2.43501804e-12, -2.07433139e-13,
-        1.92578728e-14, -1.92755481e-15, 2.06219803e-16, -2.34168512e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 13; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `ak1_cs`, 25 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_ak1` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_ak1(x: f32) -> f32 {
-    var c = array<f32, 25>(
-        0.207996868, 0.162581565, -0.00587070424, 0.00049502152, -5.78958348e-05,
-        8.1861461e-06, -1.31604832e-06, 2.32546032e-07, -4.42206518e-08, 8.92163995e-09,
-        -1.89046271e-09, 4.17568808e-10, -9.55912362e-11, 2.25769353e-11, -5.48128e-12,
-        1.36386123e-12, -3.46936691e-13, 9.00354564e-14, -2.37950578e-14, 6.39447504e-15,
-        -1.74498363e-15, 4.82994548e-16, -1.35460928e-16, 3.84604274e-17, -1.10456856e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 24; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `ak12_cs`, 14 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_ak12` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_ak12(x: f32) -> f32 {
-    var c = array<f32, 14>(
-        0.0637930834, 0.0283288781, -0.000247537067, 5.77197245e-06, -2.06893922e-07,
-        9.73998344e-09, -5.58533614e-10, 3.73299663e-11, -2.82505196e-12, 2.372019e-13,
-        -2.17667739e-14, 2.15791416e-15, -2.29019693e-16, 2.58288573e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 13; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `bm0_cs`, 21 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_bm0` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_bm0(x: f32) -> f32 {
-    var c = array<f32, 21>(
-        0.0928496164, -0.00142987707, 2.83057927e-05, -1.43300611e-06, 1.2028628e-07,
-        -1.39711301e-08, 2.04076188e-09, -3.5399669e-10, 7.024759e-11, -1.554107e-11,
-        3.76226e-12, -9.8282e-13, 2.7408e-13, -8.091e-14, 2.511e-14, -8.14e-15, 2.75e-15,
-        -9.6e-16, 3.4e-16, -1.2e-16, 4e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 20; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `bth0_cs`, 24 coefficients, Clenshaw in GSL's convention
-// (closing with 0.5*c[0]). Mirrors `cheb_bth0` in wgsl::mirror_bessel.
-fn petir_bessel_cheb_bth0(x: f32) -> f32 {
-    var c = array<f32, 24>(
-        -0.246391638, 0.00173709831, -6.21836334e-05, 4.36805017e-06, -4.5609302e-07,
-        6.21974001e-08, -1.03004429e-08, 1.97952678e-09, -4.28198396e-10, 1.0203584e-10,
-        -2.6363898e-11, 7.297935e-12, -2.144188e-12, 6.63693e-13, -2.15126e-13, 7.2659e-14,
-        -2.5465e-14, 9.229e-15, -3.448e-15, 1.325e-15, -5.22e-16, 2.1e-16, -8.7e-17, 3.6e-17
-    );
-    var d = 0.0;
-    var dd = 0.0;
-    let y2 = 2.0 * x;
-    for (var j: i32 = 23; j >= 1; j = j - 1) {
-        let temp = d;
-        d = y2 * d - dd + c[j];
-        dd = temp;
-    }
-    return x * d - dd + 0.5 * c[0];
-}
-
-// GSL's `bm1_cs`, 21 coefficients, Clenshaw in GSL's convention
+// GSL's `bm1_data` at its SINGLE-PRECISION order: 11 of the 21 stored,
+// where `f64` evaluates 21.
 // (closing with 0.5*c[0]). Mirrors `cheb_bm1` in wgsl::mirror_bessel.
 fn petir_bessel_cheb_bm1(x: f32) -> f32 {
-    var c = array<f32, 21>(
+    var c = array<f32, 11>(
         0.104736251, 0.00442443894, -5.6616395e-05, 2.31349417e-06, -1.7377182e-07,
         1.89320993e-08, -2.65416023e-09, 4.4740209e-10, -8.691795e-11, 1.891492e-11,
-        -4.51884e-12, 1.16765e-12, -3.2265e-13, 9.45e-14, -2.913e-14, 9.39e-15, -3.15e-15,
-        1.09e-15, -3.9e-16, 1.4e-16, -5e-17
+        -4.51884e-12,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 20; j >= 1; j = j - 1) {
+    for (var j: i32 = 10; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;
@@ -376,19 +372,19 @@ fn petir_bessel_cheb_bm1(x: f32) -> f32 {
     return x * d - dd + 0.5 * c[0];
 }
 
-// GSL's `bth1_cs`, 24 coefficients, Clenshaw in GSL's convention
+// GSL's `bth1_data` at its SINGLE-PRECISION order: 13 of the 24 stored,
+// where `f64` evaluates 24.
 // (closing with 0.5*c[0]). Mirrors `cheb_bth1` in wgsl::mirror_bessel.
 fn petir_bessel_cheb_bth1(x: f32) -> f32 {
-    var c = array<f32, 24>(
+    var c = array<f32, 13>(
         0.74060141, -0.00457175566, 0.000119818511, -6.96456189e-06, 6.55495621e-07,
         -8.40662289e-08, 1.33768866e-08, -2.49956565e-09, 5.294951e-10, -1.24135944e-10,
-        3.1656485e-11, -8.66864e-12, 2.523758e-12, -7.75085e-13, 2.49527e-13, -8.3773e-14,
-        2.9205e-14, -1.0534e-14, 3.919e-15, -1.5e-15, 5.89e-16, -2.37e-16, 9.7e-17, -4e-17
+        3.1656485e-11, -8.66864e-12, 2.523758e-12,
     );
     var d = 0.0;
     var dd = 0.0;
     let y2 = 2.0 * x;
-    for (var j: i32 = 23; j >= 1; j = j - 1) {
+    for (var j: i32 = 12; j >= 1; j = j - 1) {
         let temp = d;
         d = y2 * d - dd + c[j];
         dd = temp;

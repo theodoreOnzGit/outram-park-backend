@@ -121,21 +121,35 @@ pub fn dissolve_vertices(mesh: &Mesh, verts: &[VertexId]) -> Mesh {
 
 /// Dissolve every interior edge whose two faces are within `angle` radians of
 /// coplanar — Blender's Limited Dissolve (planar cleanup).
+///
+/// **Reimplemented 2026-09-19.** This now delegates to
+/// [`crate::limited_dissolve::limited_dissolve`], the port of upstream's
+/// `BM_mesh_decimate_dissolve`. The signature and behaviour-on-flat-geometry
+/// are unchanged, so callers need no edit.
+///
+/// # Why it changed
+///
+/// The previous implementation scored every edge **once** against the input
+/// normals and dissolved the whole qualifying set in a single
+/// [`dissolve_edges`] call. Upstream re-costs the merged face's edges after
+/// every join, which is what keeps a curved surface from collapsing: once
+/// two facets merge, the merged normal is their average, so the next facet
+/// is measured against a normal that has already moved.
+///
+/// Measured over two UV spheres, the one-shot approach failed two ways:
+///
+/// - **Area was not conserved.** On a 48x32 sphere at 5 degrees it produced
+///   a surface of area 15.501 against a true 12.533 — a +23.7 % error, from
+///   merged n-gons warped enough to no longer describe the same surface.
+/// - **Past a threshold it silently did nothing.** At 15 and 30 degrees it
+///   returned the input unchanged, because a single all-at-once merge
+///   cannot form a simple boundary and bails. Asking for more
+///   simplification produced less, with no error.
+///
+/// The full table is on
+/// `limited_dissolve::tests::the_iterative_dissolve_conserves_area_where_the_one_shot_did_not`.
 pub fn limited_dissolve(mesh: &Mesh, angle: f64) -> Mesh {
-    let topo = MeshTopology::new(mesh);
-    let cos_tol = angle.cos();
-    let mut to_dissolve: Vec<EdgeId> = Vec::new();
-    for e in 0..mesh.edge_count() {
-        let f = topo.edge_faces(EdgeId(e));
-        if f.len() == 2 {
-            let n0 = mesh.face_normal(f[0]);
-            let n1 = mesh.face_normal(f[1]);
-            if n0.dot(n1) >= cos_tol {
-                to_dissolve.push(EdgeId(e));
-            }
-        }
-    }
-    dissolve_edges(mesh, &to_dissolve)
+    crate::limited_dissolve::limited_dissolve(mesh, angle)
 }
 
 /// The delete/erase matrix.

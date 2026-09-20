@@ -47,8 +47,31 @@ pub enum PetirError {
     /// evaluation point outside the interval a fit was built on.
     Domain,
     /// `GSL_ERANGE` — the result is mathematically fine but not representable
-    /// as an `f64`: the output overflowed or underflowed the exponent range.
+    /// as an `f64`, where the routine does not distinguish which end of the
+    /// exponent range was left.
+    ///
+    /// Prefer [`PetirError::Overflow`] or [`PetirError::Underflow`] where the
+    /// routine does know — upstream's `specfunc/error.h` macros
+    /// `OVERFLOW_ERROR` and `UNDERFLOW_ERROR` always do.
     Range,
+    /// `GSL_EOVRFLW` — the result is too large to represent.
+    ///
+    /// Upstream's `OVERFLOW_ERROR` macro (`specfunc/error.h:1`), which also
+    /// sets the value to `+inf`. **This is not recoverable by carrying on
+    /// with the returned value**: the answer exists mathematically and the
+    /// format cannot hold it, so a caller must rescale, work in log space, or
+    /// use a normalised form of the function.
+    Overflow,
+    /// `GSL_EUNDRFLW` — the result is too small to represent, and is
+    /// effectively zero.
+    ///
+    /// Upstream's `UNDERFLOW_ERROR` macro (`specfunc/error.h:3`), which also
+    /// sets the value to `0.0`. **Usually recoverable**: unlike
+    /// [`PetirError::Overflow`], continuing with `0.0` is normally the right
+    /// thing, which is exactly why the two are separate variants rather than
+    /// one `Range`. A caller that treats both the same is discarding the
+    /// distinction that makes the error useful.
+    Underflow,
     /// `GSL_EINVAL` — invalid argument that is not a domain question, e.g. a
     /// requested order larger than the number of coefficients held.
     Invalid,
@@ -119,6 +142,8 @@ impl PetirError {
         match self {
             PetirError::Domain => "GSL_EDOM",
             PetirError::Range => "GSL_ERANGE",
+            PetirError::Overflow => "GSL_EOVRFLW",
+            PetirError::Underflow => "GSL_EUNDRFLW",
             PetirError::Invalid => "GSL_EINVAL",
             PetirError::NoMemory => "GSL_ENOMEM",
             PetirError::MaxIterations => "GSL_EMAXITER",
@@ -141,16 +166,22 @@ impl fmt::Display for PetirError {
         match self {
             PetirError::Domain => write!(f, "input domain error (GSL_EDOM)"),
             PetirError::Range => write!(f, "output range error (GSL_ERANGE)"),
+            PetirError::Overflow => {
+                write!(f, "result too large to represent (GSL_EOVRFLW)")
+            }
+            PetirError::Underflow => write!(
+                f,
+                "result too small to represent, effectively zero (GSL_EUNDRFLW)"
+            ),
             PetirError::Invalid => write!(f, "invalid argument (GSL_EINVAL)"),
             PetirError::NoMemory => write!(f, "allocation failed (GSL_ENOMEM)"),
             PetirError::MaxIterations => write!(
                 f,
                 "iteration limit reached before convergence (GSL_EMAXITER)"
             ),
-            PetirError::Tolerance => write!(
-                f,
-                "requested tolerance could not be reached (GSL_ETOL)"
-            ),
+            PetirError::Tolerance => {
+                write!(f, "requested tolerance could not be reached (GSL_ETOL)")
+            }
             PetirError::ZeroDivide => write!(f, "division by zero (GSL_EZERODIV)"),
             PetirError::Singular { col } => write!(
                 f,
@@ -190,6 +221,8 @@ mod tests {
     fn gsl_symbols_match_upstream_gsl_errno_h() {
         assert_eq!(PetirError::Domain.gsl_code(), "GSL_EDOM");
         assert_eq!(PetirError::Range.gsl_code(), "GSL_ERANGE");
+        assert_eq!(PetirError::Overflow.gsl_code(), "GSL_EOVRFLW");
+        assert_eq!(PetirError::Underflow.gsl_code(), "GSL_EUNDRFLW");
         assert_eq!(PetirError::Invalid.gsl_code(), "GSL_EINVAL");
         assert_eq!(PetirError::NoMemory.gsl_code(), "GSL_ENOMEM");
         assert_eq!(PetirError::MaxIterations.gsl_code(), "GSL_EMAXITER");
@@ -205,7 +238,13 @@ mod tests {
     fn display_reports_the_offending_index() {
         let msg = std::format!("{}", PetirError::Singular { col: 3 });
         assert!(msg.contains('3'), "message should name the column: {msg}");
-        let msg = std::format!("{}", PetirError::LengthMismatch { expected: 7, found: 2 });
+        let msg = std::format!(
+            "{}",
+            PetirError::LengthMismatch {
+                expected: 7,
+                found: 2
+            }
+        );
         assert!(msg.contains('7') && msg.contains('2'), "got: {msg}");
     }
 

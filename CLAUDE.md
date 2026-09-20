@@ -1381,6 +1381,60 @@ runtime, not a number that matches a reference. Where a high-fidelity crate
 cannot yet carry the real model, say so plainly rather than substituting
 something cheaper that reads as if it does.
 
+### Correct physics is the DEFAULT SETTING, not an opt-in (HARD RULE)
+
+**Maintainer direction, 2026-09-20. Binds every high-fidelity crate**, i.e.
+every crate whose job is to represent physics rather than to tabulate,
+orchestrate or visualise it — `outram-mc-libs`, `njoy-outram-park-fork`,
+`outram-foam-*`, `farrer-park`, `tampines*`, `bedok`, `boon-lay`,
+`outram-park-fork-*`, `changi`, `nee_soon`.
+
+**Physics the evaluation, the correlation or the governing equation SUPPLIES
+must be applied unless a caller explicitly ablates it.** A physics term behind
+an off-by-default flag is, in practice, physics the code does not have: nobody
+passes the flag, the examples do not pass it, and the recorded V&V numbers are
+measured without it.
+
+**Concretely:**
+
+- **Default ON.** If the data carries it and the model is meant to represent
+  it, the constructor applies it. Do not put it behind a flag "for
+  performance" and do not make the *caller* responsible for knowing it exists.
+- **Ablation must be an explicit, visible act** — a `without_*` builder or a
+  named environment knob, never the default state. An ablation that is the
+  default is not an ablation, it is a missing term.
+- **Runtime is not a reason to default it off.** Correctness outranks runtime
+  (see the section above). Where the cost is large, state it in the doc
+  comment with a measured number.
+- **Pin the default with a test.** A default that nothing asserts will drift
+  back off silently. `crates/outram-mc-libs/tests/correct_physics_is_default.rs`
+  is the pattern: construct through the ordinary path and assert the physics is
+  present.
+- **When a default changes, RE-MEASURE every V&V number that depended on it**,
+  and record the movement including when it is unflattering.
+
+**Why this is a rule and not a preference — the case that produced it.** On
+2026-09-20 a nine-hypothesis hunt for `outram-mc-libs`' ICSBEP residuals found
+that **unresolved-resonance self-shielding (URR) and resonance elastic
+scattering (DBRC) both defaulted OFF**, and that *no* ICSBEP benchmark example
+enabled them. Every recorded residual for Godiva, Jemima, HST-009 and LCT-008
+had been measured against a model missing both. The omission was invisible
+because a missing physics term does not announce itself in `k_eff` — it just
+shifts it.
+
+Worse, the defaults were *mis-read* during the hunt itself: a grep for
+`with_urr_probability_tables` returned hits in `lct008_keff.rs` and that was
+taken as the feature being ACTIVE, when three lines away it read
+`urr: args.iter().any(|a| a == "--urr")` — off unless asked for. **Counting a
+symbol's presence is not checking a default.**
+
+**And the fix made the benchmark numbers WORSE, which is the point.** Turning
+URR on moved Jemima from `-253` to `-395 pcm`; DBRC+URR moved LCT-008 from
+`+165` to `+139` (a shift not resolved at 0.7 sigma). Correct physics is not
+selected by whether it flatters a comparison — the same lesson as gh:#192's
+two-body cap, which moved Godiva **+85 pcm away** from its experiment and was
+kept because it was right.
+
 ### Low-fidelity crates: hierarchical surrogates, in this order
 
 **A hierarchical (physics-derived, reduced-order) surrogate is preferred to a

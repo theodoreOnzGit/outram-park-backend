@@ -259,10 +259,11 @@ fn cheb_eval(c: &[f64], order: usize, a: f64, b: f64, x: f64) -> (f64, f64) {
 /// # Errors
 /// - [`PetirError::Domain`] at `x == 0`, where `E_1` diverges
 ///   (`DOMAIN_ERROR`, `:329`).
-/// - [`PetirError::ZeroDivide`] for `x < -xmax`, upstream's `OVERFLOW_ERROR`
+/// - [`PetirError::Overflow`] for `x < -xmax`, upstream's `OVERFLOW_ERROR`
 ///   (`:297`) — the result would exceed the double range.
-/// - [`PetirError::Tolerance`] where upstream signals `UNDERFLOW_ERROR`
-///   (`:365`, `:370`): the result has fallen below the smallest normal double.
+/// - [`PetirError::Underflow`] where upstream signals `UNDERFLOW_ERROR`
+///   (`:365`, `:370`): the result has fallen below the smallest normal
+///   double, so it is effectively zero and a caller can usually continue.
 pub fn expint_e1(x: f64) -> Result<(f64, f64)> {
     expint_e1_impl(x, false)
 }
@@ -275,12 +276,53 @@ pub fn expint_e1_scaled(x: f64) -> Result<(f64, f64)> {
     expint_e1_impl(x, true)
 }
 
+/// `Ei(x)`, the exponential integral, with an absolute-error estimate —
+/// `gsl_sf_expint_Ei_e` (`specfunc/expint.c:501`).
+///
+/// ```text
+///     Ei(x) = -PV integral_{-x}^{inf} e^{-t} / t  dt
+/// ```
+///
+/// **Upstream defines it as `-E_1(-x)` and nothing more**, so this is that
+/// one line rather than a second branch tree. Reading the source is what
+/// establishes there is no separate implementation to port; the six
+/// Chebyshev series above are the whole of it.
+///
+/// Returns `(value, abserr)`. `x` is dimensionless.
+///
+/// # Errors
+///
+/// Whatever [`expint_e1`] returns for `-x`: [`PetirError::Domain`] at
+/// `x == 0` where `Ei` diverges, and the overflow/underflow conditions with
+/// their signs mirrored.
+///
+/// # Examples
+///
+/// ```
+/// use petir::expint::expint_ei;
+/// // Ei(1) = 1.8951178163559368...
+/// let (v, _) = expint_ei(1.0).unwrap();
+/// assert!((v - 1.895_117_816_355_936_8).abs() < 1e-14);
+/// ```
+pub fn expint_ei(x: f64) -> Result<(f64, f64)> {
+    let (v, e) = expint_e1_impl(-x, false)?;
+    Ok((-v, e))
+}
+
+/// `exp(-x) Ei(x)` — the scaled form, `gsl_sf_expint_Ei_scaled_e`
+/// (`specfunc/expint.c:514`). Same one-line relation to
+/// [`expint_e1_scaled`].
+pub fn expint_ei_scaled(x: f64) -> Result<(f64, f64)> {
+    let (v, e) = expint_e1_impl(-x, true)?;
+    Ok((-v, e))
+}
+
 fn expint_e1_impl(x: f64, scale: bool) -> Result<(f64, f64)> {
     let xmaxt = -LOG_DBL_MIN;
     let xmax = xmaxt - libm::log(xmaxt);
 
     if x < -xmax && !scale {
-        return Err(PetirError::ZeroDivide); // OVERFLOW_ERROR
+        return Err(PetirError::Overflow); // OVERFLOW_ERROR
     }
     if x <= -10.0 {
         let s = 1.0 / x * if scale { 1.0 } else { libm::exp(-x) };
@@ -321,11 +363,11 @@ fn expint_e1_impl(x: f64, scale: bool) -> Result<(f64, f64)> {
         let val = s * (1.0 + c);
         let err = s * (EPS + ce) + 2.0 * (x + 1.0) * EPS * libm::fabs(val);
         if val == 0.0 {
-            Err(PetirError::Tolerance) // UNDERFLOW_ERROR
+            Err(PetirError::Underflow) // UNDERFLOW_ERROR
         } else {
             Ok((val, err))
         }
     } else {
-        Err(PetirError::Tolerance) // UNDERFLOW_ERROR
+        Err(PetirError::Underflow) // UNDERFLOW_ERROR
     }
 }

@@ -413,8 +413,8 @@ pub(crate) fn top12(x: f64) -> u32 {
 /// docs.
 ///
 /// # Errors
-/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the result
-/// exceeds the double range), and [`PetirError::Tolerance`] where it returns
+/// [`PetirError::Overflow`] where upstream returns `__math_oflow` (the result
+/// exceeds the double range), and [`PetirError::Underflow`] where it returns
 /// `__math_uflow` (the result is below the smallest normal). Upstream signals
 /// these through errno and a returned infinity/zero; this port returns them,
 /// consistent with the rest of PETIR.
@@ -442,9 +442,9 @@ fn exp_inner(x: f64) -> core::result::Result<f64, (PetirError, f64)> {
             // +inf; both also raise the corresponding IEEE flag, which Rust
             // has no portable way to do.
             return if x.to_bits() >> 63 != 0 {
-                Err((PetirError::Tolerance, 0.0))
+                Err((PetirError::Underflow, 0.0))
             } else {
-                Err((PetirError::ZeroDivide, f64::INFINITY))
+                Err((PetirError::Overflow, f64::INFINITY))
             };
         }
         // Large x is special-cased below.
@@ -508,7 +508,7 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (Peti
         let y = P1009 * (scale + scale * tmp);
         // check_oflow
         return if y.is_infinite() {
-            Err((PetirError::ZeroDivide, y))
+            Err((PetirError::Overflow, y))
         } else {
             Ok(y)
         };
@@ -533,7 +533,7 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (Peti
     let y = f64::MIN_POSITIVE * y; // 0x1p-1022
                                    // check_uflow
     if y == 0.0 {
-        Err((PetirError::Tolerance, y))
+        Err((PetirError::Underflow, y))
     } else {
         Ok(y)
     }
@@ -546,9 +546,9 @@ fn specialcase(tmp: f64, sbits: u64, ki: u64) -> core::result::Result<f64, (Peti
 ///
 /// # Errors
 ///
-/// [`PetirError::ZeroDivide`] where upstream returns `__math_oflow` (the
+/// [`PetirError::Overflow`] where upstream returns `__math_oflow` (the
 /// result exceeds the double range; upstream returns `+inf`), and
-/// [`PetirError::Tolerance`] where it returns `__math_uflow` (the result is
+/// [`PetirError::Underflow`] where it returns `__math_uflow` (the result is
 /// below the smallest subnormal; upstream returns `+0.0`).
 #[inline]
 pub fn exp(x: f64) -> Result<f64> {

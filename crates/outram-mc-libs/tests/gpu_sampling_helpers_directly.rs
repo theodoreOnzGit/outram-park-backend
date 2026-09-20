@@ -7,10 +7,11 @@
 //! `batched_event.wgsl` is checked today through whole transported histories
 //! and through `gpu_kinematics_invariants.rs`, which pins the elastic
 //! kinematics against closed forms. Neither reaches the helpers *underneath*
-//! that: `rng_next`, `locate`, `interp_channel`, `langevin_inverse` and
-//! `exponential_mu` are exercised only in composition, where a helper that is
-//! subtly wrong still produces a plausible history and the statistics absorb
-//! it. A biased sampler is exactly the kind of defect that never crashes.
+//! that: `rng_next`, `locate`, `interp_channel`, `langevin_inverse`,
+//! `exponential_mu` and `continuum_inelastic` are exercised only in
+//! composition, where a helper that is subtly wrong still produces a
+//! plausible history and the statistics absorb it. A biased sampler is
+//! exactly the kind of defect that never crashes.
 //!
 //! # What each is checked against, and why it is independent
 //!
@@ -21,6 +22,7 @@
 //! | `interp_channel` | exact at grid points, linear between | closed form |
 //! | `langevin_inverse` | the residual `L(lambda) - x` in `f64` | inverts nothing; evaluates the forward function |
 //! | `exponential_mu` | **its mean over uniform input equals `mubar`** | the defining property of the law, not the formula |
+//! | `continuum_inelastic` | a unit direction, a recovered CM energy inside the rejection window, and **the sampled spectrum against an inverse-CDF sampler of the same law** | the reference inverts `Gamma(2, theta)`'s CDF; the kernel uses rejection |
 //!
 //! The `exponential_mu` row is the one that matters most. It samples a cosine
 //! from `p(mu) ~ exp(lambda mu)` by inverse transform, and the whole point of
@@ -28,6 +30,15 @@
 //! asked for. Integrating `mu(xi)` over uniform `xi` recovers that mean
 //! directly, and a wrong `lambda` — the most likely defect, since
 //! `langevin_inverse` is a Newton solve — shows up immediately.
+//!
+//! The `continuum_inelastic` row is the same idea one level up. The kernel
+//! draws `E_cm = -theta ln(r1 r2)` — a `Gamma(2, theta)` variate — and
+//! rejects anything above `e_cm_elastic`, so the result should be that law
+//! truncated. The sampled CM energy is not returned, but it is **recoverable
+//! in closed form** from the lab energy and lab cosine that are:
+//! `E_cm = E_out + E_t - 2 mu_lab sqrt(E_t E_out)`, by eliminating `mu_cm`
+//! between `cm_to_lab`'s two relations. That is what makes a distributional
+//! test possible without re-running any of the shader's draws.
 //!
 //! # `f32`, deliberately
 //!
@@ -50,10 +61,18 @@
 //! | `carry = 0u` in the LCG's 64-bit add | `gpu_rng_next_is_bit_identical_to_a_u64_lcg` |
 //! | `langevin_inverse(mu_bar) * 1.05` | `gpu_exponential_mu_has_the_mean_it_was_asked_for`, by 1.698e-02 against a 2e-03 bound |
 //! | `i_grid = lo + 1` in the binary search | `gpu_locate_brackets_and_reconstructs_the_energy` *and* the interpolation test |
+//! | `theta * 1.05` in `continuum_inelastic` | `gpu_continuum_inelastic_samples_the_weisskopf_spectrum`, mean 1.4274e6 against 1.3596e6 on a 1 % bound |
+//! | one uniform instead of two — `Gamma(1)` for `Gamma(2)` | the same test, mean 6.798e5 against 1.3596e6 |
 //!
 //! The second is the one worth noting: a 5 % error in `lambda` leaves every
 //! sampled cosine inside `[-1, 1]`, monotone in `xi`, and entirely plausible.
 //! It is a biased sampler and nothing else here would have seen it.
+//!
+//! The last two are the same lesson for the evaporation spectrum. Both leave
+//! every sampled energy inside the kinematic window, every direction a unit
+//! vector and every history transportable —
+//! `gpu_continuum_inelastic_is_kinematically_consistent` passes under both.
+//! Only the distribution sees them.
 
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
@@ -118,6 +137,26 @@ fn probe_exponential_mu(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (i >= arrayLength(&fstate) / 3u) { return; }
     fstate[3u * i + 2u] = exponential_mu(fstate[3u * i], fstate[3u * i + 1u]);
+}
+
+// Stride 8. In:  [0] e, [1..3] u, [4] awr, with the seed in istate[2i..2i+1].
+//           Out: [5] e_out, [6] dot(u, dir), [7] |dir|, and istate holding the
+// advanced seed. Returning the projection and the length rather than the
+// direction itself is what lets the test recover the sampled CM energy in
+// closed form while still checking that the direction is a unit vector.
+@compute @workgroup_size(64)
+fn probe_continuum_inelastic(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let i = gid.x;
+    if (i >= arrayLength(&fstate) / 8u) { return; }
+    let b = 8u * i;
+    let u = vec3<f32>(fstate[b + 1u], fstate[b + 2u], fstate[b + 3u]);
+    let s = vec2<u32>(istate[2u * i], istate[2u * i + 1u]);
+    let sc = continuum_inelastic(fstate[b], u, fstate[b + 4u], s);
+    fstate[b + 5u] = sc.e;
+    fstate[b + 6u] = dot(u, sc.dir);
+    fstate[b + 7u] = length(sc.dir);
+    istate[2u * i] = sc.seed.x;
+    istate[2u * i + 1u] = sc.seed.y;
 }
 "#;
 
@@ -826,4 +865,324 @@ fn gpu_exponential_mu_has_the_mean_it_was_asked_for() {
         "exponential_mu's sampled mean is {worst:e} away from the mubar it \
          was given (worst at mubar = {at})"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Continuum inelastic (Weisskopf evaporation)
+// ---------------------------------------------------------------------------
+
+/// The Weisskopf evaporation parameters the kernel derives from `(E, A)`.
+///
+/// `theta` is the nuclear temperature in eV and `e_cm_elastic` the largest CM
+/// outgoing energy the kinematics allow. Both are recomputed here in `f64`
+/// from the same two inputs, so nothing is taken from the shader.
+fn weisskopf(e: f64, awr: f64) -> (f64, f64) {
+    let a_ld = (awr / 11.0).max(1.0);
+    let theta = ((e * 1.0e-6 / a_ld).sqrt() * 1.0e6).max(1.0);
+    let ratio = awr / (awr + 1.0);
+    (theta, e * ratio * ratio)
+}
+
+/// `P(Gamma(2, theta) <= x)`, the fraction of evaporation draws the rejection
+/// loop accepts on one try.
+fn gamma2_cdf(x: f64, theta: f64) -> f64 {
+    let t = x / theta;
+    1.0 - (-t).exp() * (1.0 + t)
+}
+
+/// A draw from `Gamma(2, theta)` truncated to `[0, c]`, by **inverse CDF**.
+///
+/// This is deliberately a different sampler from the kernel's, which uses
+/// rejection: two uniforms, `-theta ln(r1 r2)`, retry if it exceeds `c`. Two
+/// samplers of the same law agreeing is evidence about the law; the same
+/// sampler written twice would not be.
+fn truncated_gamma2_inverse_cdf(p: f64, theta: f64, c: f64) -> f64 {
+    let target = p * gamma2_cdf(c, theta);
+    let (mut lo, mut hi) = (0.0_f64, c);
+    for _ in 0..200 {
+        let m = 0.5 * (lo + hi);
+        if gamma2_cdf(m, theta) < target {
+            lo = m;
+        } else {
+            hi = m;
+        }
+    }
+    0.5 * (lo + hi)
+}
+
+/// The CM outgoing energy, recovered from what the kernel returns.
+///
+/// `cm_to_lab` gives
+///
+/// ```text
+///     E_out  = E_cm + E_t + 2 mu_cm sqrt(E_cm E_t)
+///     mu_lab = mu_cm sqrt(E_cm / E_out) + sqrt(E_t / E_out)
+/// ```
+///
+/// with `E_t = E / (A+1)^2`. Eliminating `mu_cm` between them leaves
+///
+/// ```text
+///     E_cm = E_out + E_t - 2 mu_lab sqrt(E_t E_out)
+/// ```
+///
+/// so the sampled CM energy is a closed-form function of the lab energy and
+/// the lab cosine — both of which the probe returns. That is what makes a
+/// distributional test possible without re-running any of the shader's draws.
+fn cm_energy_from_lab(e_in: f64, e_out: f64, mu_lab: f64, awr: f64) -> f64 {
+    let ap1 = awr + 1.0;
+    let e_t = e_in / (ap1 * ap1);
+    e_out + e_t - 2.0 * mu_lab * (e_t * e_out).sqrt()
+}
+
+/// Run `probe_continuum_inelastic` for `n` particles at one `(E, A)`.
+///
+/// Returns `(e_out, mu_lab, |dir|)` per particle. Seeds are `(i, 0)`, which
+/// gives every particle a different LCG stream.
+fn continuum_batch(gpu: &GpuContext, e: f32, awr: f32, n: usize) -> Vec<(f32, f32, f32)> {
+    let mut fstate = vec![0.0_f32; 8 * n];
+    let mut istate = vec![0_u32; 2 * n];
+    for i in 0..n {
+        let b = 8 * i;
+        fstate[b] = e;
+        // A direction off every axis, so rotate_direction takes its main
+        // branch (b0 > 1e-10) rather than the degenerate one.
+        let inv = 1.0 / 3.0_f32.sqrt();
+        fstate[b + 1] = inv;
+        fstate[b + 2] = inv;
+        fstate[b + 3] = inv;
+        fstate[b + 4] = awr;
+        istate[2 * i] = i as u32;
+        istate[2 * i + 1] = 0;
+    }
+    let out = run(
+        gpu,
+        "probe_continuum_inelastic",
+        ProbeIo { fstate, istate },
+        &[],
+        0,
+        n,
+        &[1, 2],
+    );
+    (0..n)
+        .map(|i| {
+            let b = 8 * i;
+            (out.fstate[b + 5], out.fstate[b + 6], out.fstate[b + 7])
+        })
+        .collect()
+}
+
+/// **The kernel's outgoing state is kinematically consistent**: a unit
+/// direction, a cosine in range, and a recovered CM energy inside the window
+/// the rejection loop is supposed to enforce.
+///
+/// These are the checks that need no statistics. The recovered CM energy is
+/// the interesting one: `continuum_inelastic` accepts a candidate only when
+/// it is at or below `e_cm_elastic`, so *every* sample must satisfy that,
+/// and the recovery goes through `cm_to_lab`'s inverse rather than through
+/// anything the sampler did.
+///
+/// Measured 2026-09-19 on llvmpipe over 4096 particles at each of six
+/// `(E, A)` pairs: every direction within 2.4e-07 of unit length, every
+/// recovered CM energy inside `[0, e_cm_elastic]` to within 1.5e-04 relative.
+#[test]
+fn gpu_continuum_inelastic_is_kinematically_consistent() {
+    let Some(gpu) = probe() else {
+        eprintln!("SKIP gpu_continuum_inelastic_is_kinematically_consistent: no GPU adapter");
+        return;
+    };
+    for (e, awr) in [
+        (1.0e6_f32, 12.0_f32),
+        (1.0e6, 56.0),
+        (1.0e6, 238.0),
+        (1.0e7, 12.0),
+        (1.0e7, 56.0),
+        (1.0e7, 238.0),
+    ] {
+        let (_, e_cm_elastic) = weisskopf(e as f64, awr as f64);
+        let batch = continuum_batch(&gpu, e, awr, 4096);
+        let (mut worst_len, mut worst_over) = (0.0_f64, 0.0_f64);
+        for &(e_out, mu_lab, len) in &batch {
+            assert!(
+                e_out.is_finite() && e_out >= 0.0,
+                "E = {e:e}, A = {awr}: e_out = {e_out:e}"
+            );
+            assert!(
+                (-1.0..=1.0).contains(&mu_lab),
+                "E = {e:e}, A = {awr}: mu_lab = {mu_lab}"
+            );
+            worst_len = worst_len.max(((len - 1.0) as f64).abs());
+
+            let e_cm = cm_energy_from_lab(e as f64, e_out as f64, mu_lab as f64, awr as f64);
+            assert!(
+                e_cm > -1e-3 * e_cm_elastic,
+                "E = {e:e}, A = {awr}: recovered CM energy {e_cm:e} is negative"
+            );
+            if e_cm > e_cm_elastic {
+                worst_over = worst_over.max((e_cm - e_cm_elastic) / e_cm_elastic);
+            }
+        }
+        assert!(
+            worst_len < 1e-5,
+            "E = {e:e}, A = {awr}: a scattered direction was {worst_len:e} off unit length"
+        );
+        assert!(
+            worst_over < 1e-3,
+            "E = {e:e}, A = {awr}: a recovered CM energy exceeded e_cm_elastic by \
+             {worst_over:e} relative. The rejection loop is documented as \
+             enforcing that bound on every accepted sample"
+        );
+    }
+}
+
+/// **The sampled CM energy follows the truncated Weisskopf spectrum**, checked
+/// against an independent inverse-CDF sampler of the same law.
+///
+/// # Why this is the test that matters
+///
+/// `continuum_inelastic` draws `E_cm = -theta ln(r1 r2)`, which is a
+/// `Gamma(2, theta)` variate, and rejects anything above `e_cm_elastic`. The
+/// result should therefore be `Gamma(2, theta)` truncated to that window. A
+/// sampler that got `theta` wrong, used one uniform instead of two, or
+/// mishandled the rejection would still return energies in range, still be
+/// smooth, and still transport plausibly — the statistics would absorb it.
+/// Only the distribution shows it.
+///
+/// The reference draws the same law by **inverse CDF** (bisection on
+/// `1 - e^{-t}(1+t)`), which shares no line with the kernel's rejection.
+///
+/// # Results (2026-09-19, llvmpipe, 65 536 particles)
+///
+/// Compared as mean, second moment and a ten-bucket population, at
+/// `(E, A) = (1e7, 238)` where the rejection loop essentially never falls
+/// back (see the next test).
+#[test]
+fn gpu_continuum_inelastic_samples_the_weisskopf_spectrum() {
+    let Some(gpu) = probe() else {
+        eprintln!("SKIP gpu_continuum_inelastic_samples_the_weisskopf_spectrum: no GPU adapter");
+        return;
+    };
+    const N: usize = 65_536;
+    let (e, awr) = (1.0e7_f32, 238.0_f32);
+    let (theta, c) = weisskopf(e as f64, awr as f64);
+
+    let batch = continuum_batch(&gpu, e, awr, N);
+    let sampled: Vec<f64> = batch
+        .iter()
+        .map(|&(e_out, mu_lab, _)| {
+            cm_energy_from_lab(e as f64, e_out as f64, mu_lab as f64, awr as f64).clamp(0.0, c)
+        })
+        .collect();
+
+    // The independent reference, at the same count, on a regular quantile
+    // lattice so it carries no Monte Carlo noise of its own.
+    let reference: Vec<f64> = (0..N)
+        .map(|k| {
+            let p = (k as f64 + 0.5) / N as f64;
+            truncated_gamma2_inverse_cdf(p, theta, c)
+        })
+        .collect();
+
+    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len() as f64;
+    let m2 = |v: &[f64]| v.iter().map(|x| x * x).sum::<f64>() / v.len() as f64;
+
+    let (ms, mr) = (mean(&sampled), mean(&reference));
+    assert!(
+        ((ms - mr) / mr).abs() < 0.01,
+        "the sampled CM energy's mean is {ms:e} against the truncated \
+         Weisskopf spectrum's {mr:e} -- a 1 % band on {N} samples"
+    );
+    let (ss, sr) = (m2(&sampled), m2(&reference));
+    assert!(
+        ((ss - sr) / sr).abs() < 0.02,
+        "the sampled second moment is {ss:e} against {sr:e}"
+    );
+
+    // Ten equal-probability buckets of the reference law; each should hold
+    // N/10 samples to within Poisson noise.
+    let edges: Vec<f64> = (1..10)
+        .map(|k| truncated_gamma2_inverse_cdf(k as f64 / 10.0, theta, c))
+        .collect();
+    let mut counts = [0_usize; 10];
+    for &x in &sampled {
+        let b = edges.iter().position(|&e| x < e).unwrap_or(9);
+        counts[b] += 1;
+    }
+    let expect = N as f64 / 10.0;
+    // Poisson sigma on N/10 is about 81 here; 6 sigma is a 486 margin, wide
+    // enough that a correct sampler never trips it and narrow enough that a
+    // wrong theta -- which shifts whole buckets by thousands -- always does.
+    let tol = 6.0 * expect.sqrt();
+    for (b, &n) in counts.iter().enumerate() {
+        assert!(
+            (n as f64 - expect).abs() < tol,
+            "bucket {b} of the truncated Weisskopf spectrum holds {n} samples, \
+             expected {expect} +/- {tol:.0}. Counts: {counts:?}"
+        );
+    }
+}
+
+/// **The rejection loop has a fallback, it is a uniform draw rather than the
+/// evaporation spectrum, and how often it fires depends sharply on the
+/// nuclide** — measured, and negligible everywhere continuum inelastic
+/// scattering is physically reachable.
+///
+/// After 64 failed tries `continuum_inelastic` keeps its initial
+/// `e_cm_elastic * xi0`, which is **uniform** on `[0, e_cm_elastic]` and not
+/// the truncated Weisskopf spectrum. The probability of reaching it is
+/// `(1 - F(e_cm_elastic))^64` with `F` the `Gamma(2, theta)` CDF, and that
+/// varies over eighty orders of magnitude across the `(E, A)` plane:
+///
+/// | `A` | `E` | `P(accept per try)` | `P(fallback)` |
+/// |---|---|---|---|
+/// | 1 | 1e5 | 0.00297 | **0.827** |
+/// | 1 | 1e6 | 0.02650 | **0.179** |
+/// | 2 | 1e5 | 0.00900 | **0.561** |
+/// | 12 | 1e5 | 0.03290 | **0.118** |
+/// | 12 | 1e7 | 0.77134 | 9.7e-42 |
+/// | 56 | 1e6 | 0.63999 | 4.0e-29 |
+/// | 238 | 1e6 | 0.94429 | 5.5e-81 |
+///
+/// **The top rows are not reachable physics.** Continuum inelastic
+/// scattering needs the incident energy above the continuum threshold, which
+/// for light nuclei is several MeV — carbon's first inelastic level is at
+/// 4.8 MeV, and hydrogen has none at all. Everywhere the channel actually
+/// opens, the fallback is astronomically unlikely, which is why
+/// `gpu_continuum_inelastic_samples_the_weisskopf_spectrum` can compare
+/// against the pure truncated spectrum with no mixture term.
+///
+/// This test asserts the closed form and the reachability argument rather
+/// than the kernel: it is a statement about *when the previous test is
+/// entitled to its reference*, and it fails if that stops being true.
+#[test]
+fn the_rejection_fallback_is_unreachable_where_the_channel_is_open() {
+    for (awr, e, want) in [
+        (1.0_f64, 1.0e5_f64, 0.827_f64),
+        (1.0, 1.0e6, 0.179),
+        (2.0, 1.0e5, 0.561),
+        (12.0, 1.0e5, 0.118),
+    ] {
+        let (theta, c) = weisskopf(e, awr);
+        let p = (1.0 - gamma2_cdf(c, theta)).powi(64);
+        assert!(
+            (p - want).abs() < 0.01,
+            "A = {awr}, E = {e:e}: the fallback probability is documented as \
+             {want}; it is {p:.4}"
+        );
+    }
+    // And where the channel is open, it is not reachable.
+    for (awr, e) in [
+        (12.0_f64, 1.0e7_f64),
+        (56.0, 1.0e6),
+        (238.0, 1.0e6),
+        (238.0, 1.0e7),
+    ] {
+        let (theta, c) = weisskopf(e, awr);
+        let p = (1.0 - gamma2_cdf(c, theta)).powi(64);
+        assert!(
+            p < 1e-20,
+            "A = {awr}, E = {e:e}: the fallback is documented as unreachable \
+             where continuum inelastic scattering is open; P = {p:e}. If this \
+             has grown, the spectrum test's reference needs a mixture term"
+        );
+    }
 }

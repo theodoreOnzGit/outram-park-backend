@@ -25,8 +25,9 @@
 #![cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 
 use petir::wgsl::{
-    test_kernel, ALL, ALL_NAMES, BESSEL, CHEB, DEBYE, DILOG, ERF, GAMMA, LEGENDRE, MATRIX, POLY,
-    PSI_ZETA,
+    test_kernel, AIRY, ALL, ALL_NAMES, ATANINT, BESSEL, CHEB, CLAUSEN, DAWSON, DEBYE, DILOG,
+    ELLINT, ELLJAC, ERF, EXPINT, EXPINT3, GEGENBAUER, LEGENDRE_PLM, FERMI_DIRAC, GAMMA, LAMBERT,
+    LEGENDRE, MATRIX, POLY, PSI_ZETA, SININT, SYNCHROTRON, TRANSPORT,
 };
 
 /// The sources a shader needs concatenated ahead of it, and a call that
@@ -52,6 +53,47 @@ fn kernel_for(name: &str) -> (Vec<&'static str>, &'static str) {
         "psi_zeta" => (vec![GAMMA, PSI_ZETA], "petir_psi(x) + petir_zeta(x)"),
         "debye" => (vec![DEBYE], "petir_debye(3u, x)"),
         "dilog" => (vec![DILOG], "petir_dilog(x)"),
+        "airy" => (vec![AIRY], "petir_airy_ai(x) + petir_airy_bi_scaled(x)"),
+        "lambert" => (vec![LAMBERT], "petir_lambert_w0(x)"),
+        "clausen" => (vec![CLAUSEN], "petir_clausen(x)"),
+        "transport" => (vec![TRANSPORT], "petir_transport(4u, x)"),
+        "atanint" => (vec![ATANINT], "petir_atanint(x)"),
+        "synchrotron" => (
+            vec![SYNCHROTRON],
+            "petir_synchrotron_1(x) + petir_synchrotron_2(x)",
+        ),
+        "fermi_dirac" => (vec![FERMI_DIRAC], "petir_fermi_dirac(params.k, x)"),
+        "dawson" => (vec![DAWSON], "petir_dawson(x)"),
+        "expint3" => (vec![EXPINT3], "petir_expint_3(x)"),
+        "sinint" => (vec![SININT], "petir_si(x) + petir_ci(abs(x) + 1.0)"),
+        // The selector, so R_F, R_D, R_J and both A&S branches are all
+        // reachable from one call.
+        "ellint" => (
+            vec![ELLINT],
+            "petir_ellint_comp(params.k, x, 0.3) + petir_ellint_f(x, 0.5)",
+        ),
+        // The selector, so E_1, Ei, Shi and Chi are all reachable from one
+        // call, plus a scaled form which takes a different branch.
+        "expint" => (
+            vec![EXPINT],
+            "petir_expint_family(params.k, x) + petir_expint_e1_scaled(abs(x) + 1.0)",
+        ),
+        // The component selector, so the AGM descent, both reflection
+        // branches and both degenerate limits are reachable from one call.
+        "elljac" => (
+            vec![ELLJAC],
+            "petir_elljac_component(params.k, x, 0.5) + petir_elljac(x, 0.0).x",
+        ),
+        // Both the recurrence and the lambda = 0 Chebyshev branch.
+        "gegenbauer" => (
+            vec![GEGENBAUER],
+            "petir_gegenpoly_n(params.k, 0.5, x) + petir_gegenpoly_n(8u, 0.0, x)",
+        ),
+        // The seed, the guard and the recurrence.
+        "legendre_plm" => (
+            vec![LEGENDRE_PLM],
+            "petir_legendre_plm(params.k, 3u, x) + petir_legendre_pmm(2u, x)",
+        ),
         other => panic!("no validation call registered for {other}.wgsl"),
     }
 }
@@ -78,6 +120,63 @@ fn all_and_all_names_are_the_same_length() {
         "ALL has {} sources and ALL_NAMES has {} names; the zip in every \
          other test here would silently skip the difference",
         ALL.len(),
+        ALL_NAMES.len()
+    );
+}
+
+/// **Every `.wgsl` file on disk is listed in [`ALL_NAMES`]**, because the
+/// directory is the authority and not anyone's count.
+///
+/// # This caught four shaders that were never validated
+///
+/// `all_and_all_names_are_the_same_length` above guards one half of the
+/// problem — a source in `ALL` with no name beside it. It cannot see the
+/// other half: a shader with a `pub const`, a `kernel_for` arm here, a `f32`
+/// mirror and a ledger row, but **no entry in either array**. Such a shader
+/// is simply never walked, so naga never compiles it, the baseline-capability
+/// check never sees it and the ledger check never asks for its row — and
+/// every test stays green while covering one fewer kernel.
+///
+/// `fermi_dirac`, `dawson`, `expint3` and `sinint` all shipped that way and
+/// were first compiled by naga on 2026-09-19. All four passed, which is
+/// fortunate and not the point: they had been taken on trust for four
+/// commits. Counting an array by hand is exactly the kind of check a test
+/// should be doing, so this one reads the directory instead.
+#[test]
+fn every_shader_file_is_listed_here() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/wgsl/shaders");
+    let mut on_disk: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()))
+        .map(|e| e.expect("directory entry").file_name())
+        .filter_map(|n| {
+            let n = n.to_string_lossy().into_owned();
+            n.strip_suffix(".wgsl").map(str::to_owned)
+        })
+        .collect();
+    on_disk.sort();
+    assert!(
+        !on_disk.is_empty(),
+        "no .wgsl files found under {}",
+        dir.display()
+    );
+    for name in &on_disk {
+        assert!(
+            ALL_NAMES.contains(&name.as_str()),
+            "shaders/{name}.wgsl exists but is not in ALL_NAMES, so it is \
+             validated by nothing. Add it to BOTH ALL and ALL_NAMES"
+        );
+    }
+    for name in ALL_NAMES.iter() {
+        assert!(
+            on_disk.iter().any(|n| n == name),
+            "ALL_NAMES lists {name} but shaders/{name}.wgsl does not exist"
+        );
+    }
+    assert_eq!(
+        on_disk.len(),
+        ALL_NAMES.len(),
+        "{} shader files on disk against {} names",
+        on_disk.len(),
         ALL_NAMES.len()
     );
 }
@@ -125,7 +224,7 @@ fn every_shader_parses_and_validates_under_naga() {
 /// rename cannot silently make the documentation wrong.
 #[test]
 fn every_documented_function_is_defined() {
-    let expected: [(&str, &[&str]); 10] = [
+    let expected: [(&str, &[&str]); 25] = [
         (POLY, &["petir_poly_eval", "petir_poly_eval_comp"]),
         (
             CHEB,
@@ -230,6 +329,164 @@ fn every_documented_function_is_defined() {
                 "petir_dilog_series_2_raw",
             ],
         ),
+        (
+            AIRY,
+            &[
+                "petir_airy_ai",
+                "petir_airy_ai_scaled",
+                "petir_airy_bi",
+                "petir_airy_bi_scaled",
+                "petir_airy_mod_phase",
+                "petir_airy_aie",
+                "petir_airy_bie",
+            ],
+        ),
+        (
+            LAMBERT,
+            &[
+                "petir_lambert_w0",
+                "petir_lambert_wm1",
+                "petir_lambert_halley",
+                "petir_lambert_series",
+            ],
+        ),
+        (
+            CLAUSEN,
+            &[
+                "petir_clausen",
+                "petir_clausen_reduce",
+                "petir_clausen_cheb",
+            ],
+        ),
+        (
+            TRANSPORT,
+            &[
+                "petir_transport",
+                "petir_transport_sumexp",
+                "petir_transport_cheb",
+                "petir_transport_vinf",
+            ],
+        ),
+        (ATANINT, &["petir_atanint", "petir_atanint_cheb"]),
+        (
+            SYNCHROTRON,
+            &[
+                "petir_synchrotron_1",
+                "petir_synchrotron_2",
+                "petir_synch_pow_int",
+                "petir_synch_cheb_synch1",
+                "petir_synch_cheb_synch2",
+                "petir_synch_cheb_synch1a",
+                "petir_synch_cheb_synch21",
+                "petir_synch_cheb_synch22",
+                "petir_synch_cheb_synch2a",
+            ],
+        ),
+        (
+            FERMI_DIRAC,
+            &[
+                "petir_fermi_dirac",
+                "petir_fd_m1",
+                "petir_fd_0",
+                "petir_fd_1",
+                "petir_fd_2",
+                "petir_fd_mhalf",
+                "petir_fd_half",
+                "petir_fd_3half",
+                "petir_fd_asymp",
+                "petir_fd_series",
+                "petir_fd_series_half",
+                "petir_fd_eta",
+            ],
+        ),
+        (
+            DAWSON,
+            &[
+                "petir_dawson",
+                "petir_dawson_cheb_daw",
+                "petir_dawson_cheb_daw2",
+                "petir_dawson_cheb_dawa",
+            ],
+        ),
+        (
+            EXPINT3,
+            &[
+                "petir_expint_3",
+                "petir_expint3_cheb_expint3",
+                "petir_expint3_cheb_expint3a",
+            ],
+        ),
+        (
+            SININT,
+            &[
+                "petir_si",
+                "petir_ci",
+                "petir_si_fg_asymp",
+                "petir_si_sin_cos",
+                "petir_sinint_cheb_f1",
+                "petir_sinint_cheb_f2",
+                "petir_sinint_cheb_g1",
+                "petir_sinint_cheb_g2",
+                "petir_sinint_cheb_si",
+                "petir_sinint_cheb_ci",
+            ],
+        ),
+        (
+            ELLINT,
+            &[
+                "petir_ellint_rc",
+                "petir_ellint_rd",
+                "petir_ellint_rf",
+                "petir_ellint_rj",
+                "petir_ellint_kcomp",
+                "petir_ellint_ecomp",
+                "petir_ellint_dcomp",
+                "petir_ellint_pcomp",
+                "petir_ellint_f",
+                "petir_ellint_e",
+                "petir_ellint_p",
+                "petir_ellint_d",
+                "petir_ellint_comp",
+            ],
+        ),
+        (
+            EXPINT,
+            &[
+                "petir_expint_e1",
+                "petir_expint_e1_scaled",
+                "petir_expint_ei",
+                "petir_expint_ei_scaled",
+                "petir_shi",
+                "petir_chi",
+                "petir_expint_family",
+                "petir_expint_cheb_ae11",
+                "petir_expint_cheb_ae12",
+                "petir_expint_cheb_e11",
+                "petir_expint_cheb_e12",
+                "petir_expint_cheb_ae13",
+                "petir_expint_cheb_ae14",
+                "petir_expint_cheb_shi",
+            ],
+        ),
+        (
+            ELLJAC,
+            &[
+                "petir_elljac",
+                "petir_elljac_component",
+                "petir_elljac_hypot",
+                "petir_elljac_nan3",
+            ],
+        ),
+        (
+            GEGENBAUER,
+            &[
+                "petir_gegenpoly_1",
+                "petir_gegenpoly_2",
+                "petir_gegenpoly_3",
+                "petir_gegenpoly_n",
+            ],
+        ),
+        (LEGENDRE_PLM, &["petir_legendre_pmm", "petir_legendre_plm"]),
     ];
     for (src, names) in expected {
         for name in names {
@@ -372,6 +629,24 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
             "psi_zeta" => LEDGER.contains("psi/zeta family"),
             "debye" => LEDGER.contains("Debye family"),
             "dilog" => LEDGER.contains("dilogarithm"),
+            "airy" => LEDGER.contains("Airy family"),
+            "lambert" => LEDGER.contains("Lambert"),
+            "clausen" => LEDGER.contains("Clausen"),
+            "transport" => LEDGER.contains("transport integrals"),
+            "atanint" => LEDGER.contains("inverse-tangent integral"),
+            "synchrotron" => LEDGER.contains("synchrotron"),
+            // NOT just "Fermi-Dirac": that string was already in the
+            // PORTABLE row listing it as a future block, so the check passed
+            // before the row existed. Match the row itself.
+            "fermi_dirac" => LEDGER.contains("(Fermi-Dirac integrals)"),
+            "dawson" => LEDGER.contains("Dawson"),
+            "expint3" => LEDGER.contains("cubic exponential integral"),
+            "sinint" => LEDGER.contains("sine and cosine integrals"),
+            "ellint" => LEDGER.contains("elliptic integrals"),
+            "expint" => LEDGER.contains("exponential integrals"),
+            "elljac" => LEDGER.contains("Jacobi elliptic functions"),
+            "gegenbauer" => LEDGER.contains("Gegenbauer"),
+            "legendre_plm" => LEDGER.contains("associated Legendre"),
             other => panic!("shader {other}.wgsl has no row in docs/wgsl-coverage.md"),
         };
         assert!(
@@ -410,19 +685,53 @@ fn the_coverage_ledger_lists_every_shipped_shader() {
 ///
 /// # Why this needs a test when both are generated
 ///
-/// They were emitted by one script from one parse of
-/// `src/specfunc/bessel.rs`, so they agree today by construction. That
-/// guarantee expires the moment anyone hand-edits either file — and a mirror
-/// that disagreed with its shader would make GPU-vs-mirror measure the
-/// difference between two tables rather than the fidelity of the
-/// transcription, which is the one thing that comparison exists to establish.
-/// The failure would be silent and would look like a device problem.
+/// Each pair was emitted by one script from one parse of the `f64` module, so
+/// they agree today by construction. That guarantee expires the moment anyone
+/// hand-edits either file — and a mirror that disagreed with its shader would
+/// make GPU-vs-mirror measure the difference between two tables rather than
+/// the fidelity of the transcription, which is the one thing that comparison
+/// exists to establish. The failure would be silent and would look like a
+/// device problem.
 ///
-/// Covers `bessel.wgsl` (22 tables, 358 coefficients) and `psi_zeta.wgsl`
-/// (7 tables, 151 coefficients). Only the *array bodies* are compared —
-/// `array<f32, N>(...)` on one side and `const NAME: [f32; N] = [...]` on the
-/// other — because the surrounding code is full of literals (`0.0`, `0.5`,
-/// `2.75`) that legitimately appear in different places on the two sides.
+/// # What it covers
+///
+/// **Every generated pair**, 96 tables and 1409 coefficients as of
+/// 2026-09-19:
+///
+/// | shader | tables | coefficients |
+/// |---|---|---|
+/// | `fermi_dirac` | 23 | 405 |
+/// | `bessel` | 22 | 226 |
+/// | `airy` | 13 | 213 |
+/// | `psi_zeta` | 8 | 155 |
+/// | `debye` | 6 | 65 |
+/// | `synchrotron` | 6 | 91 |
+/// | `transport` | 4 | 72 |
+/// | `atanint` | 1 | 11 |
+/// | `clausen` | 1 | 9 |
+/// | `gamma` | 1 | 9 |
+/// | `dawson` | 3 | 45 |
+/// | `expint3` | 2 | 27 |
+/// | `sinint` | 6 | 81 |
+///
+/// ~~Covers `bessel.wgsl` and `psi_zeta.wgsl`.~~ **CORRECTED 2026-09-19** —
+/// the doc comment claimed `psi_zeta` was covered and the body compared
+/// `bessel` alone, so seven of the nine pairs above were unchecked. The
+/// sweep below is now driven by a list, so adding a shader to it is the
+/// whole change.
+///
+/// **`erf` and `lambert` are deliberately absent.** `mirror_erf` predates the
+/// generator and holds its tables in a different order, and `lambert.wgsl`
+/// declares no `array<f32, N>` at all — its two series are unrolled. Neither
+/// is a generated pair, so there is nothing here for this test to protect.
+///
+/// Only the *array bodies* are compared — `array<f32, N>(...)` on one side
+/// and `const NAME: [f32; N] = [...]` on the other — because the surrounding
+/// code is full of literals (`0.0`, `0.5`, `2.75`) that legitimately appear
+/// in different places on the two sides. **Comments are stripped from both
+/// first**: several shader headers discuss `array<f32, N>` in prose, and
+/// without stripping, each such sentence was parsed as a one-element table
+/// and shifted every comparison after it by one.
 #[test]
 fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     /// Every `f32` in `body`, which is assumed to be nothing but a comma-list
@@ -432,16 +741,29 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
             .map(str::trim)
             .filter(|t| !t.is_empty())
             .map(|t| {
+                // Rust digit separators are legal on the mirror side and
+                // never appear on the shader side, so strip them first.
+                let t = t.replace('_', "");
                 t.parse::<f32>()
                     .unwrap_or_else(|_| panic!("not a literal in a coefficient table: {t:?}"))
             })
             .collect()
     }
 
+    /// `src` with every `//` line comment removed, so prose that happens to
+    /// mention a table declaration is not parsed as one.
+    fn code_only(src: &str) -> String {
+        src.lines()
+            .map(|l| l.split("//").next().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
     /// Bodies of every `array<f32, N>( ... )` in the shader, in order.
     fn shader_tables(src: &str) -> Vec<Vec<f32>> {
+        let code = code_only(src);
         let mut out = Vec::new();
-        let mut rest = src;
+        let mut rest = code.as_str();
         while let Some(at) = rest.find("array<f32, ") {
             rest = &rest[at..];
             let Some(open) = rest.find('(') else { break };
@@ -455,13 +777,9 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
     }
 
     /// Bodies of every `const NAME: [f32; N] = [ ... ];` in the mirror, in
-    /// order. Line comments are stripped first.
+    /// order.
     fn mirror_tables(src: &str) -> Vec<Vec<f32>> {
-        let code: String = src
-            .lines()
-            .map(|l| l.split("//").next().unwrap_or(""))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let code = code_only(src);
         let mut out = Vec::new();
         let mut rest = code.as_str();
         while let Some(at) = rest.find(": [f32; ") {
@@ -477,38 +795,148 @@ fn every_generated_shader_and_its_mirror_hold_the_same_constants() {
         out
     }
 
-    let shader = shader_tables(petir::wgsl::BESSEL);
-    let mirror = mirror_tables(include_str!("../src/wgsl/mirror_bessel.rs"));
+    // (name, shader source, mirror source, tables, coefficients). The counts
+    // are asserted so that a table silently lost from either side fails here
+    // rather than shrinking the comparison.
+    let pairs: &[(&str, &str, &str, usize, usize)] = &[
+        (
+            "sinint",
+            petir::wgsl::SININT,
+            include_str!("../src/wgsl/mirror_sinint.rs"),
+            6,
+            81,
+        ),
+        (
+            "expint3",
+            petir::wgsl::EXPINT3,
+            include_str!("../src/wgsl/mirror_expint3.rs"),
+            2,
+            27,
+        ),
+        (
+            "dawson",
+            petir::wgsl::DAWSON,
+            include_str!("../src/wgsl/mirror_dawson.rs"),
+            3,
+            45,
+        ),
+        (
+            "fermi_dirac",
+            petir::wgsl::FERMI_DIRAC,
+            include_str!("../src/wgsl/mirror_fermi_dirac.rs"),
+            23,
+            405,
+        ),
+        (
+            "bessel",
+            petir::wgsl::BESSEL,
+            include_str!("../src/wgsl/mirror_bessel.rs"),
+            22,
+            226,
+        ),
+        (
+            "airy",
+            petir::wgsl::AIRY,
+            include_str!("../src/wgsl/mirror_airy.rs"),
+            13,
+            213,
+        ),
+        (
+            "psi_zeta",
+            petir::wgsl::PSI_ZETA,
+            include_str!("../src/wgsl/mirror_psi_zeta.rs"),
+            8,
+            155,
+        ),
+        (
+            "debye",
+            petir::wgsl::DEBYE,
+            include_str!("../src/wgsl/mirror_debye.rs"),
+            6,
+            65,
+        ),
+        (
+            "synchrotron",
+            petir::wgsl::SYNCHROTRON,
+            include_str!("../src/wgsl/mirror_synchrotron.rs"),
+            6,
+            91,
+        ),
+        (
+            "transport",
+            petir::wgsl::TRANSPORT,
+            include_str!("../src/wgsl/mirror_transport.rs"),
+            4,
+            72,
+        ),
+        (
+            "atanint",
+            petir::wgsl::ATANINT,
+            include_str!("../src/wgsl/mirror_atanint.rs"),
+            1,
+            11,
+        ),
+        (
+            "clausen",
+            petir::wgsl::CLAUSEN,
+            include_str!("../src/wgsl/mirror_clausen.rs"),
+            1,
+            9,
+        ),
+        (
+            "gamma",
+            petir::wgsl::GAMMA,
+            include_str!("../src/wgsl/mirror_gamma.rs"),
+            1,
+            9,
+        ),
+    ];
 
-    assert_eq!(
-        shader.len(),
-        22,
-        "bessel.wgsl declares {} coefficient arrays, expected 22",
-        shader.len()
-    );
-    assert_eq!(
-        mirror.len(),
-        22,
-        "mirror_bessel.rs declares {} coefficient arrays, expected 22",
-        mirror.len()
-    );
-    let total: usize = shader.iter().map(Vec::len).sum();
-    assert_eq!(total, 358, "expected 358 coefficients, found {total}");
+    let mut grand = 0usize;
+    for (name, shader_src, mirror_src, tables, coeffs) in pairs {
+        let shader = shader_tables(shader_src);
+        let mirror = mirror_tables(mirror_src);
 
-    for (t, (a, b)) in shader.iter().zip(mirror.iter()).enumerate() {
         assert_eq!(
-            a.len(),
-            b.len(),
-            "table {t} has {} vs {} values",
-            a.len(),
-            b.len()
+            shader.len(),
+            *tables,
+            "{name}.wgsl declares {} coefficient arrays, expected {tables}",
+            shader.len()
         );
-        for (k, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+        assert_eq!(
+            mirror.len(),
+            *tables,
+            "mirror_{name}.rs declares {} coefficient arrays, expected {tables}",
+            mirror.len()
+        );
+        let total: usize = shader.iter().map(Vec::len).sum();
+        assert_eq!(
+            total, *coeffs,
+            "{name}: expected {coeffs} coefficients, found {total}"
+        );
+        grand += total;
+
+        for (t, (a, b)) in shader.iter().zip(mirror.iter()).enumerate() {
             assert_eq!(
-                x.to_bits(),
-                y.to_bits(),
-                "table {t} coefficient {k}: bessel.wgsl has {x:e}, mirror_bessel.rs has {y:e}"
+                a.len(),
+                b.len(),
+                "{name} table {t} has {} vs {} values",
+                a.len(),
+                b.len()
             );
+            for (k, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+                assert_eq!(
+                    x.to_bits(),
+                    y.to_bits(),
+                    "{name} table {t} coefficient {k}: {name}.wgsl has {x:e}, \
+                     mirror_{name}.rs has {y:e}"
+                );
+            }
         }
     }
+    assert_eq!(
+        grand, 1409,
+        "the generated pairs are documented as holding 1409 coefficients in \
+         total; this run compared {grand}"
+    );
 }

@@ -65,15 +65,32 @@ and stays there.
 | `cheb` | ~14 | **PORTED** | Clenshaw, truncated Clenshaw, argument scaling |
 | `specfunc` (erf family) | ~12 | **PORTED** | `erf`, `erfc`, series, `erfc8`, 3 Chebyshev branches, at GSL's own `order_sp` |
 | `specfunc` (gamma family) | ~10 | **PORTED** | `lngamma`, `gamma`, `lnbeta`, `beta`; Lanczos `g=7` plus both Padé branches at the zeros |
-| `specfunc` (Bessel family) | ~20 | **PORTED** | `J_0`, `J_1`, `Y_0`, `Y_1`, `I_0`, `I_1`, `K_0`, `K_1` and the four exponentially scaled modified forms; 18 Chebyshev series and the `cos_pi4`/`sin_pi4` phase helpers |
+| `specfunc` (Bessel family) | ~20 | **PORTED** | `J_0`, `J_1`, `Y_0`, `Y_1`, `I_0`, `I_1`, `K_0`, `K_1` and the four exponentially scaled modified forms; 18 Chebyshev series (22 arrays) at GSL's **single-precision order**, 226 coefficients where the `f64` order needs 358, plus the `cos_pi4`/`sin_pi4` phase helpers |
 | `specfunc` (psi/zeta family) | ~18 | **PORTED** (continuous) | `psi`, `psi_1`, `psi_1piy`, `hzeta`, `zeta`, `zetam1`, `eta`. The integer-argument lookups, `zeta(s)` below `s = -34` and `psi_n` for `n >= 2` are deliberately absent — see below |
 | `specfunc` (Debye family) | ~6 | **PORTED** | `D_1` .. `D_6` behind one `petir_debye(n, x)`; six Chebyshev series and the falling-factorial polynomial. **Two machine constants are retargeted to `f32`** and the exponential-sum counter is recomputed rather than decremented — see below |
 | `specfunc` (dilogarithm) | ~2 | **PORTED** (real) | `Li_2(x)` for all real `x`, seven branch identities and two convergent series; **no coefficient tables at all**. The complex entry points and the `clausen` dependency under them are deliberately absent — see below |
+| `specfunc` (Airy family) | ~8 | **PORTED** | `Ai`, `Bi` and both exponentially scaled forms; 13 Chebyshev series at GSL's **single-precision order**, 213 coefficients where the `f64` order needs 281. The derivatives (`airy_der.c`) and the zeros (`airy_zero.c`) are not ported |
+| `specfunc` (Lambert `W`) | ~4 | **PORTED** | `W_0` and `W_{-1}`, both real branches. **Upstream's stopping rule is corrected in two places** for `f32` — see below |
+| `specfunc` (Clausen `Cl_2`) | ~2 | **PORTED** | one Chebyshev series, plus an **`f32`-redesigned argument reduction** — the `f64` three-way split of `2 pi` does not carry over. See below |
+| `specfunc` (transport integrals) | ~4 | **PORTED** | `J(2)` .. `J(5)`, the Bloch-Gruneisen family; four Chebyshev series and the exponential-image tail sum |
+| `specfunc` (inverse-tangent integral) | ~2 | **PORTED** | `Ti_2(x)`, one Chebyshev table evaluated at reciprocal arguments either side of `\|x\| = 1` |
+| `specfunc` (synchrotron radiation) | ~2 | **PORTED** | `S_1(x)` and `S_2(x)`; six Chebyshev series, 91 coefficients. **Upstream's underflow guard is dead code in `f64` and would DESTROY answers if retargeted** — the first constant here whose category depends on the width. See below |
+| `specfunc` (Fermi-Dirac integrals) | ~9 | **PORTED** (fixed indices) | `F_j(x)` at `j = -1, -1/2, 0, 1/2, 1, 3/2, 2`; **22 Chebyshev series — the largest table set here**, at GSL's single-precision order: 396 coefficients where the `f64` order needs 483. The general-`j` entry point is absent (it needs the confluent hypergeometrics). **The one shader that CORRECTS an upstream constant's formula** rather than retargeting its value, and the one that meets a guard that is not representable at all — see below |
+| `specfunc` (Dawson's integral) | ~2 | **PORTED** | `F(x) = e^{-x^2} int_0^x e^{t^2} dt`. **The first shader to ship GSL's SINGLE-PRECISION Chebyshev order** — 45 coefficients where the `f64` order needs 84, measured to cost nothing. Upstream's underflow guard is not an `f32`, and deleting it GAINS answers |
+| `specfunc` (cubic exponential integral) | ~2 | **PORTED** | `Ei_3(x) = int_0^x e^{-t^3} dt`; two Chebyshev series at `order_sp`, 27 coefficients where the `f64` order needs 47. **The best-behaved kernel here at 1.4 `f32` ulp** — nothing to lose precision to. Its saturation cut retargets to a bit-identical answer, the counter-example to `F_2`'s |
+| `specfunc` (sine and cosine integrals) | ~4 | **PORTED** | `Si(x)`, `Ci(x)` and the `f`/`g` asymptotic pair; six Chebyshev series at `order_sp`, 81 coefficients where the `f64` order needs 129. **A `2 pi` argument reduction was tried and measured to be worse on both CPU and GPU** — see below. Both of upstream's far-field guards are deleted as unrepresentable, which gains answers |
+| `specfunc` (elliptic integrals) | ~12 | **PORTED** | Carlson's `R_C`, `R_D`, `R_F`, `R_J`, the Legendre forms `F`, `E`, `Pi`, `D` and their complete versions. **The second table-free shader**, after the dilogarithm — iterative duplication, nothing fitted. Two parameters are upstream's own rather than retargeted or guessed: `errtol = 0.03` is `GSL_PREC_SINGLE`'s value, and the iteration cap is **16 against upstream's 10000**, measured over the whole `f32`-reachable domain. Within nine `f32` ulps on the complete integrals |
+| `specfunc` (Jacobi elliptic functions) | ~1 | **PORTED** | `sn(u\|m)`, `cn`, `dn` from one arithmetic-geometric-mean descent, returned as a `vec3<f32>`. The inverse of the row above. **No tables** -- the third table-free shader. Descent cap **8 against upstream's 16**, measured at 5 steps in `f32` and 7 in `f64`; the degenerate-limit windows are retargeted because `f64`'s `2 DBL_EPSILON` makes both of upstream's special cases unreachable at this width |
+| `specfunc` (Gegenbauer polynomials) | ~5 | **PORTED** | `C_n^lambda(x)`, three closed forms and a three-term recurrence. **The simplest kernel here and the only one with NO numeric constant at all** -- no tolerance, no cut, nothing to retarget, and a trip count that is a uniform function of `n` so a workgroup never diverges. `lambda = 1/2` is Legendre, `lambda = 1` is Chebyshev `U_n`, `lambda = 0` is upstream's `2 T_n/n` normalisation. The `array` variant is not ported: it writes `nmax + 1` outputs per call, which is a different kernel shape |
+| `specfunc` (exponential integrals) | ~8 | **PORTED** (`E_1`, `Ei`) | `E_1(x)`, `Ei(x)` and both scaled forms; six Chebyshev series at `order_sp`. `Ei` is `-E_1(-x)` -- upstream's whole definition -- so four entry points come from one branch tree. `E_n` for `n >= 2` is absent: upstream reaches it by a recurrence over `n`, which is a host loop. **Prefer the scaled forms on a GPU**, which stay in range where `E_1` underflows past `x ~ 83` |
+| `specfunc` (hyperbolic sine/cosine integrals) | ~4 | **PORTED** | `Shi(x)`, `Chi(x)`. One 7-coefficient series plus `(Ei +/- E_1)/2`. **The first series here whose `order_sp` EQUALS its `f64` order** -- seven terms, last coefficient 4.67e-22, nothing to cut. Ported only after reading `shint.c` showed it needed `Ei`, which PETIR did not have |
 | `matrix` | 145 | **PORTED** (core) | element access, add/sub/mul/div elements, scale, add_constant, transpose |
 | `vector` | 99 | **PORTED** (core) | covered by the Level-1 kernels and element access |
 | `blas` | 46 | **PORTED** (real, row-major) | L1 `dot`/`nrm2`/`asum`/`iamax`; L2 `gemv` ±trans; L3 `gemm` ±trans |
 | — Legendre `P_n` | — | **PORTED** | Bonnet recurrence; not a GSL module but `gsl_sf_legendre`'s subject |
-| `specfunc` (rest) | ~273 | PORTABLE | the largest remaining win — almost all pointwise. `airy`, the Fermi-Dirac and Bose-Einstein integrals, and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (associated Legendre `P_l^m`) | ~4 | **PORTED** (`Plm`) | seed `P_m^m` plus the upward recurrence in degree; no array, trip count `l - m - 1`. Its overflow guard is **retargeted** (a range guard: `LOG_MIN` is `-87.34` here against `-708.40`) and **carries an upstream hole at `l == m`**, where `legendre_poly.c:304` gates `t_s` on `dif` rather than `sum` -- so the guard cannot fire where `P_l^m` is largest. `f64` reaches `inf` at `P_200^200`, `f32` at `P_30^30`. Faithful on purpose; pinned by tests. `sphPlm` is absent: it needs `lnpoch` and `log_1plusx`, which PETIR does not port |
+| `specfunc` (rest) | ~222 | PORTABLE | the largest remaining win — almost all pointwise. the Bose-Einstein integrals and the Coulomb wave functions are the next blocks; the integer-order and arbitrary-order Bessel functions build on the order-0/1 kernels already here |
+| `specfunc` (Coulomb wave functions) | ~10 | **NOT GPU-SHAPED** (measured) | `F_L`, `G_L`. Its continued fraction `coulomb_CF1` needs **up to 99,329 iterations**, measured over 7875 points of `(L, eta, x)`; 18 % of them need more than 256 and 26 % hit upstream's own `CF1_abort` of `1e5`. Against `ellint`'s 16 and `elljac`'s 8. A trip count varying from 3 to 99,329 between neighbouring arguments has no cap that is both safe and cheap, and every invocation in a workgroup would wait for the worst. **An f64 port is still worth having; a shader is not.** See `op-uczx.28` |
 | `cdf` | ~200 | PORTABLE | pointwise distribution functions |
 | `randist` | 102 | PORTABLE | samplers; needs the RNG below |
 | `rng` / `qrng` | 28 | PORTABLE | `outram-mc-libs` already has an LCG in WGSL |
@@ -116,6 +133,27 @@ Nothing counts as **PORTED** without all three:
 3. **A GPU dispatch test** comparing against that mirror, which skips cleanly
    where no adapter exists.
 
+### Four shaders claimed PORTED without leg 2, for four commits
+
+**Found 2026-09-19.** `tests/wgsl_validation.rs` drives naga validation from
+`ALL_NAMES.iter().zip(ALL.iter())`, and `fermi_dirac`, `dawson`, `expint3`
+and `sinint` had `pub const`s, `kernel_for` arms, mirrors, GPU tests and rows
+in this ledger — but no entry in either array. So they were walked by nothing:
+naga never compiled them, the baseline-capability check never saw them, and
+the ledger check never asked for their rows. Every test stayed green.
+
+They were added when `ellint` was, and **all four passed immediately**. That
+is the uncomfortable part rather than the reassuring one: the suite was green
+either way, so passing tells us nothing about the four commits during which
+this ledger said PORTED and meant PORTED-minus-one-leg.
+
+`every_shader_file_is_listed_here` now reads the `shaders/` directory and
+fails on any `.wgsl` file missing from `ALL_NAMES`. The pre-existing guard,
+`all_and_all_names_are_the_same_length`, could only ever catch the other
+half — a source with no name beside it — and both arrays being *equally*
+short is invisible to it. **The authority is the directory, not a hand
+count.**
+
 A dispatch test asserts a *budget*, not bit-identity, unless the kernel both
 avoids every transcendental builtin **and** takes its coefficients from a
 buffer. Both conditions, not just the first — see the inline-coefficient
@@ -136,6 +174,12 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `zetam1` | 3.725e-09 | 2.090e-07 |
 | `D_1` .. `D_6` | 2.994e-07 .. 1.630e-06 | 2.784e-07 .. 1.940e-06 |
 | `Li_2`, six of seven branches | 3.815e-06 abs (whole range) | 4.244e-08 .. 6.982e-07 |
+| `Ai` / `Bi` (oscillatory) | 1.839e-06 / 1.963e-06 abs | 3.558e-06 abs over `[-30, -8)` |
+| `Ai_scaled` / `Bi_scaled` | 3.375e-07 / 3.137e-07 | 1.548e-07 / 1.746e-07 |
+| `W_0` / `W_{-1}` | 1.383e-07 / 5.792e-07 | 1.161e-07 (`W_0` vs `f64`) |
+| `Cl_2` | 7.339e-07 / 9.947e-07 abs | 4.521e-07 abs over one period |
+| `J(2)` .. `J(5)` | 1.133e-07 .. 2.222e-06 | 7.092e-08 .. 1.295e-06 |
+| `Ti_2` | 1.444e-07 | 1.595e-07 |
 | `Li_2`, inversion branch (`x > 2`) | — | 5.710e-06, at `Li_2`'s zero |
 | `I_0` / `I_1` | 1.821e-06 / 1.761e-06 | 1.576e-07 / 1.748e-07 |
 | `K_0` / `K_1` | 2.242e-07 / 2.812e-07 | 1.629e-07 / 1.736e-07 |
@@ -143,7 +187,40 @@ Measured so far, on `llvmpipe (LLVM 20.1.2, 256 bits)`:
 | `Y_0` / `Y_1` | 3.980e-07 / 3.329e-07 | 1.288e-05 / 2.786e-05 (at the zeros) |
 | BLAS L1 (`dot`, `nrm2`, `asum`, `iamax`) | **0** bit-identical | — |
 | `gemv`, `gemm` | **0** bit-identical | see reassociation note |
+| `C_n^{1/2}`, `n` = 4, 12, 32, 64 | **0** bit-identical at every order | 1.7e-06 .. 1.6e-05, envelope 40 n eps |
+| `C_12^0` (`2 T_n/n`, via `acos`) | 2.837e-04 — the device's `acos`, above | — |
+| `sn` / `cn` / `dn` | 1.788e-07 abs | 3.011e-06 / 2.894e-06 / 7.461e-07 abs |
+| `E_1` / `Ei` / `Shi` / `Chi` | 3.3e-06; scaled forms 4.0e-07 | 1.3e-07 .. 5.7e-07 |
+| `K` / `E` / `D` / `Pi` (complete) | **0** bit-identical below the A&S switch; `K` 1.703e-07 inside it | 8.034e-07 / 6.268e-07 / 1.048e-06 / 7.797e-07 |
+| `F(phi, k)` | 4.768e-07 abs | 1.181e-06 |
 | element-wise matrix ops | **0** bit-identical (exact equality) | — |
+
+### Not all of this device's builtins are equally good: `acos` is 689 ulps out
+
+Measured directly on `llvmpipe (LLVM 20.1.2)`, 2026-09-20, over 401 points:
+
+| builtin | worst difference from `libm` |
+|---|---|
+| `cos` | 5.960e-08 — sub-ulp |
+| **`acos`** | **1.560e-04, about 689 ulps** |
+
+That is not a defect. WGSL constrains its transcendentals to an ULP bound
+rather than to correct rounding, and the bound on `acos` is loose enough that
+a conforming implementation may compute it as `atan2(sqrt(1 - x*x), x)` and
+accumulate exactly this.
+
+It matters because **the error is then amplified by whatever the kernel does
+with the angle.** `gegenbauer`'s `lambda = 0` branch computes
+`2 cos(n acos x) / n`, so an error `d` in `acos` arrives as
+`2 |sin(n acos x)| d` — up to `3.1e-04` for `d = 1.56e-04`, against the
+`2.837e-04` actually measured. The chain is quantitative, and it is why that
+one row of the table below sits three orders above its neighbours while the
+recurrence beside it is bit-identical.
+
+**The general lesson for reading this ledger: a kernel that passes an
+argument through an inverse trigonometric builtin cannot be held to the same
+budget as one that does not**, and the difference is the device's, not the
+port's.
 
 **Why `erf` is not bit-identical and everything else is.** Pure arithmetic is
 pinned by IEEE-754 to a single correctly-rounded answer, so a faithful
@@ -204,6 +281,470 @@ lines above measures that kernel at 9.107e-06 on its own; `zeta`'s 1.079e-05
 is that figure carried through one multiplication. The positive branch, which
 calls no `Gamma`, sits at 1e-07 with the rest. Improving it means improving
 the `f32` gamma, not the zeta transcription.
+
+**`Ti_2` sharpens that same case to bit equality.** Its large cut,
+`1/sqrt(EPSILON)`, is a precision constant and is retargeted — arriving
+**23 170 times sooner** in `f32`, so far more of the domain takes the
+closed-form branch. That was predicted to reshape the domain. Over 4000
+probes spanning the entire disputed window, `2896.3` to `6.711e+07`, **0 of
+4000 answers differ** and the worst error against `f64` is identical to the
+last digit. The branch taken changes; the answer never does.
+
+And the reason is not the obvious one: the series argument never rounds to
+exactly `-1` near the cut (`-0.99999976` at `x = 2900`, still `-0.99999994`
+at `x = 6000`, because the `f32` spacing just below `0.5` is half that just
+above). What makes the branches agree is that the series enters as
+`cheb(t)/|x|` against a dominant `(pi/2) ln|x|`, and its variation is rounded
+away by the addition. Two drafts of that note asserted the rounding
+explanation and the test refuted each.
+
+**The transport integrals add a sixth kind of constant decision: a precision
+constant whose retargeting is correct but changes only the WORK DONE.** All
+three of GSL's machine constants there are precision constants and are
+retargeted. The first, `GSL_LOG_DBL_EPSILON`, was predicted to be load-bearing
+twice over — it sets both the number of exponential images summed in the tail
+and the threshold at which the tail is discarded. Measured, only the first is
+real:
+
+| | `f32` log-eps | GSL's `f64` value |
+|---|---|---|
+| `numexp` at `x = 5` | 4 | 8 |
+| `numexp` at `x = 16` | 1 | 3 |
+| `J(2)` saturation | 22.25 | 22.25 |
+| `J(5)` saturation | 29.60 | 29.60 |
+| worst relative vs `f64` | 1.3633715693879367e-06 | **identical** |
+
+The saturation point does not move because `vinf - exp(t)` collapses to
+`vinf` as soon as `exp(t)` drops below half an ulp of `vinf`, well before `t`
+reaches -36 — **the arithmetic enforces the guard before the guard does**.
+That is the same mechanism as `airy`'s overflow threshold, with the opposite
+consequence: there, retargeting would have destroyed answers; here it is
+harmless and merely halves the tail sum.
+
+**Clausen needed its ARGUMENT REDUCTION redesigned, not transcribed.** GSL
+splits `2 pi` into three `f64` pieces so each `y * Pk` subtraction is exact;
+`P1` holds about 30 significant bits, which leaves no room in a 24-bit
+mantissa for the period count. The replacement head is **upstream's own** —
+`clausen.c` already carries `p0 = 6.28125` (201/32, eight significant bits)
+for its `pi - x` reflection, so the split reuses it and adds a remainder.
+
+Measured against a naive single-`f32` `2 pi` reduction, through `sin`:
+
+| `theta` | split | naive | ratio |
+|---|---|---|---|
+| 1e2 | 2.384e-07 | 4.682e-05 | 196 |
+| 1e4 | 9.783e-07 | 5.350e-03 | **5468** |
+| 2.6e5 .. 5.2e5 | 7.774e-06 | 2.893e-02 | ~3700 |
+
+It holds near 8e-06 **all the way to the refusal**, with no collapse inside
+the usable range — because an eight-bit head keeps `y * P0` exact to 65 536
+periods, `4.12e+05` in `theta`, against a cut at `5.24e+05`. The head width
+and the cut are matched to within a factor of 1.3. Contrast `f64`, where the
+equivalent split collapses at `1e8` against a cut at `2.8e+14`, seven decades
+apart.
+
+Two instrument notes, both from tests that failed first. `|reduce(theta) -
+(theta mod 2 pi)|` is the obvious measure and is **wrong**: at a period
+boundary the reduced value jumps between `0` and `2 pi`, so a probe either
+side reports an error of `2 pi` when nothing is amiss — the comparison goes
+through `sin`, which is continuous there. And a first sweep ran to `6.7e+05`,
+*past the refusal*, and reported a collapse at `1e5` that does not exist
+inside the domain.
+
+**Lambert `W` is the first ITERATING kernel here, and it needed upstream's
+stopping rule corrected in two places.** The rule is
+`|t| < 10 eps max(|w|, 1/(|p| e^w))`, and at `f32` width it fails twice over:
+
+1. `eps` is a **precision constant** whose `f64` value is unreachable. Over
+   200 `W_0` probes, 142 burn the full iteration budget and the other 58 stop
+   only because their step became **exactly zero** — all 58, checked — which
+   satisfies any positive tolerance. The rule never terminates the loop.
+2. The `1/(|p| e^w)` term makes the tolerance `O(1)` once `w` is very
+   negative, and is **dropped**. At `x = -2.1e-06` it gives 5.947e-01 against
+   1.885e-05 without it, over a hundred times the 0.005 step it then accepts,
+   stopping an iteration early with `w` wrong in the third decimal. Over the
+   whole `W_{-1}` domain: 4.769e-03 with the term against **9.982e-07**
+   without, for one extra iteration, with `W_0` untouched at 3.071e-07 either
+   way.
+
+~~That makes four distinct kinds of constant decision across this ledger~~
+~~**CORRECTED 2026-09-19** — there are eight~~ **RE-CORRECTED the same day —
+eleven.** The table is kept complete rather than frozen at the four that
+existed when it was written, and it had already outgrown the "eight" above by
+two rows before `ellint` added the eleventh: **count the rows, do not trust
+the sentence.** That is the same defect this ledger documents elsewhere, at
+the smallest possible scale. **They do not generalise to each other:**
+
+| kernel | constant | what it is FOR | call |
+|---|---|---|---|
+| `debye` | `xcut` | `f64` **exponent range**, sets a loop length | retarget (50x) |
+| `dilog` | Taylor cut | a **truncation order** against epsilon | keep, gain is 1.18x |
+| `airy` | `Bi` overflow guard | a **range guard** on a representable quantity | keep — retargeting discards answers |
+| `lambert` | stopping rule | a **precision constant** *and* an inadequate **formula** | retarget one, change the other |
+| `clausen` | loss cut | a **precision** cut, matched to the head width of the reduction | retarget, and redesign the reduction with it |
+| `transport` | `LOG_DBL_EPSILON` | a **precision** constant that sets only the WORK DONE | retarget; the answers do not move |
+| `atanint` | large-argument cut | a **precision** constant, work-only; the two branches are bit-identical | retarget; nothing observable changes |
+| `synchrotron` | `-8 ln(MIN)/7` | a **range guard** whose category depends on the width | keep — see immediately below |
+| `fermi_dirac` | `1/cbrt(EPSILON)`, `F_2` far cut | a **precision** constant whose upstream FORMULA is wrong | retarget the value **and correct the formula** — worth 189x |
+| `fermi_dirac` | `SQRT_DBL_MAX`, `ROOT3_DBL_MAX` | overflow guards **not representable at the narrower width** | **delete** — a third outcome, and forced rather than chosen |
+| `ellint` | `nmax = 10000` | an **iteration ceiling**: a can't-happen bound, not a working one | retarget to 16 — measured over the whole domain, and it is the GPU that makes it matter |
+
+The rule is *know what upstream's constant is FOR*. Knowing what it equals
+tells you nothing about whether it survives the change of width.
+
+**The synchrotron functions sharpen that rule as far as it goes: their guard
+is the first constant here whose CATEGORY depends on the width.** GSL bounds
+both `S_1` and `S_2` by `-8 ln(DBL_MIN)/7 = 809.5959`, past which it declares
+underflow. Measured at each width:
+
+| | `f64` | `f32` |
+|---|---|---|
+| upstream's guard | 809.5959 | 809.5959 |
+| where `exp` reaches zero on its own | 745.3590 | **104.1979** |
+| the guard is therefore | 64 units of **dead code** | 705 units of dead code |
+| the `f32` analogue `-8 ln(FLT_MIN)/7` | — | 99.8132 |
+| value just below that analogue | — | **5.65e-43, a representable denormal** |
+| answers changed by retargeting, `x` in `[95, 107]` | — | **1461 of 4001** |
+
+So the same expression is **dead in `f64`, dead in `f32` if kept, and
+actively destructive in `f32` if retargeted** — and it was retargeted first,
+on the strength of the `debye` precedent, before the measurement reversed it.
+That is `airy`'s case reached from the opposite direction: a bound derived
+from the **exponent range** is already enforced by the arithmetic, so moving
+it inward can only take away answers the hardware was willing to give. Every
+row above is asserted in `mirror_synchrotron`'s
+`the_range_guard_is_kept_because_retargeting_it_discards_answers`.
+
+**Its `f32` cost — 6.1e-04, three orders worse than any other kernel here —
+is upstream's cancellation, not this transcription.** On `x <= 4` GSL
+evaluates `S_1` as `x^{1/3} C_1 - x^{11/3} C_2 - (pi/sqrt 3) x`, three terms
+that grow while the answer falls: at `x = 4` the largest is **1124 times the
+result** for `S_1` and **1637 times** for `S_2`. That costs about `log2 R`
+bits, leaving `f32` roughly 13, which is the 1e-4 observed. `f64` runs the
+identical cancellation with 29 more bits to spend. Away from that boundary
+the mirror is ordinary — 8.6e-07 on the small-argument branch, 6.4e-05 on the
+exponential tail. `the_f32_cost_is_cancellation_at_the_branch_boundary`
+asserts the error tracks the measured cancellation ratio, so a real
+transcription defect would still fail it.
+
+**The Fermi-Dirac integrals add the seventh and eighth kinds, and the eighth
+is the first one that is not a choice at all.**
+
+*Seventh — a precision constant whose upstream formula is wrong.* Past its
+far-field cut each of `F_1` and `F_2` drops a Chebyshev fit in `60/x` for the
+pure degenerate limit, and what the fit carries is the Sommerfeld correction:
+`1 + (pi^2/3)/x^2` for `F_1`, `1 + pi^2/x^2` for `F_2`. Both have the same
+`1/x^2` shape, so both want the same **square** root of epsilon. Upstream uses
+a **cube** root for `F_2`, apparently matching its `x^3` factor rather than the
+accuracy requirement. Measured against the exact far-field form over
+`x` in `[1e2, 1e6]`:
+
+| `F_2` far cut | worst relative | in `f32` ulp |
+|---|---|---|
+| `1/sqrt(eps)` = 2896.31 (**shipped**) | 1.265e-06 | 10.6 |
+| `1/cbrt(eps)` = 203.19 (upstream's form) | 2.390e-04 | **2005** |
+
+Two thousand ulp is not a rounding difference, so the **formula** is corrected
+here and not merely the value — `lambert`'s case. The `f64` module reproduces
+upstream's mistake faithfully and asserts it (it steps down by 3.56e-10 at
+`x = 1.6514e5`), because its bar is agreement with GSL; this module's bar is
+what `f32` can do.
+
+*Eighth — a guard that cannot be written down.* GSL's two overflow bounds,
+`GSL_SQRT_DBL_MAX = 1.34e+154` and `GSL_ROOT3_DBL_MAX = 5.64e+102`, are not
+`f32` numbers at all; the type stops at 3.4e+38. **Keep and retarget are both
+unavailable**, so the branches are deleted and the arithmetic is left to
+overflow on its own — at `10^19.416` for `F_1` and `10^12.844` for `F_2`,
+returning the same infinity `OVERFLOW_ERROR` would have. Every other row in
+this table records a decision; this one records that there was none to make.
+
+**The blocker that was recorded and then measured away.** `fd_asymp` calls
+`fd_neg`, which can run a Levin *u*-transform over two 101-element work
+arrays — 202 `f32` of function-local storage, which `psi_zeta` had already
+declined once. It is never reached: `fd_neg` is called only from `fd_asymp`,
+which runs only at `x >= 30`, so it always takes the simple alternating
+series instead. Established by instrumenting the `f64` module rather than by
+reading branch conditions, and with it went two further dependencies —
+`cos(j pi)` is exactly zero at all three half-integer indices so the whole
+reflection term drops (measured contribution 1e-31 to 1e-64), and
+`lnGamma(j+2)` is a compile-time constant at each, so neither `gamma` nor
+`psi_zeta` is needed.
+
+**GPU-vs-mirror is 3.597e-06 for all seven indices, at the same abscissa, and
+that is the device's `exp`.** Identical to seventeen significant digits across
+seven different code paths is not chance: deep in the negative tail every
+`F_j` collapses to its first series term `e^x`, so the only thing being
+compared is the transcendental. `wgsl_gpu` evaluates `exp` alone at that
+abscissa and asserts it accounts for the whole difference — which is what
+separates the device's maths library from the transcription.
+
+## GSL declares a SINGLE-PRECISION order, and every shader before `dawson` ignored it
+
+`cheb_series` has five fields, and the fifth is `order_sp` — the order
+`GSL_MODE_SINGLE` selects inside `cheb_eval_mode`:
+
+```c
+static cheb_series dawa_cs = { dawa_data, 34, /* 74, */ -1, 1, 12 };
+/*                                        ^^                    ^^  */
+/*                                    f64 order            order_sp */
+```
+
+Across the 88 tables in the ported modules where `order_sp < order`, the
+`f64` order needs **1919** coefficients and `order_sp` needs **1129** —
+**41.2 % fewer**. Using it is *porting*, not inventing a truncation:
+`cheb::eval_mode`'s reduced-`order_sp` path is already verified against
+`cheb_eval_mode` at 357/369 bit-identical.
+
+**`dawson.wgsl` is the first shader here to ship it**, and it costs nothing:
+
+| | worst `f32` vs `f64` | at | ulp |
+|---|---|---|---|
+| `order_sp` — 45 coefficients | 1.1277e-06 | 3.9939 | 9.5 |
+| `f64` order — 84 coefficients | 1.1277e-06 | 3.9939 | 9.5 |
+| the two against each other | 9.1727e-07 | 3.9824 | 7.7 |
+
+Identical worst error, bit for bit, at half the coefficients. Where the two
+differ at all they differ by less than the error both already carry.
+
+**Measure the ANSWER, not the fit.** Comparing the Chebyshev sums directly
+makes `order_sp` look far worse than it is — up to 3.3e-04 relative on
+`bessel_K1`'s `ak1_data`, 1.3e-04 on `airy`'s `am22_data` — because these
+fits enter additively against an `O(1)` leading term (`x (0.75 + cheb)`,
+`(0.5 + cheb)/x`, `val_infinity - cheb s`), so a fit passing near zero shows
+an unbounded relative figure while contributing nothing. The same tables'
+**absolute** differences are 2.98e-08 and 9.31e-10. `order_sp` targets
+absolute accuracy of the sum, which is the quantity that reaches the answer.
+
+**And the retrofit is now done, measured kernel by kernel rather than assumed
+from that one result.** Every shader whose tables have a smaller `order_sp`
+now ships it:
+
+| shader | `f64` order | `order_sp` | saved |
+|---|---|---|---|
+| `bessel` | 358 | 226 | 132 |
+| `fermi_dirac` | 492 | 405 | 87 |
+| `airy` | 281 | 213 | 68 |
+| `sinint` | 129 | 81 | 48 |
+| `dawson` | 84 | 45 | 39 |
+| `debye` | 103 | 65 | 38 |
+| `expint3` | 47 | 27 | 20 |
+| `atanint` | 21 | 11 | 10 |
+| `clausen` | 15 | 9 | 6 |
+| **total** | | | **448** |
+
+`psi_zeta`, `synchrotron`, `transport`, `gamma` and `erf` are absent because
+GSL declares the same order for both widths there — there was nothing to
+take.
+
+**What it cost, measured on every affected kernel.** Three shaders produce
+**bit-identical output**: `debye`, `atanint` and `clausen`, over dense
+sweeps, every sample. For the rest a handful of samples move, and the
+**worst-case error against `f64` is unchanged to seventeen digits** on all
+but one:
+
+| kernel | `f64` order | `order_sp` |
+|---|---|---|
+| `airy_ai` | 4.48058099178578e-06 | 4.48058099178578e-06 |
+| `bessel_j1` | 1.3750403666384914e-07 | 1.3750403666384914e-07 |
+| `bessel_y1` | 1.0235957361715009e-05 | 1.0235957361715009e-05 |
+| `bessel_k0` | 2.1793530976510653e-07 | 2.1793530976510653e-07 |
+| **`bessel_k1`** | 2.3116967275130247e-07 | **2.277731624587427e-07** |
+| `fd_1` | 3.287469625295479e-07 | 3.287469625295479e-07 |
+| `fd_2` | 6.08093568421626e-07 | 6.08093568421626e-07 |
+
+`bessel_k1` is the only one that moved at all, and it **improved**. Every
+mirror's own `the_f32_cost_is_what_it_was_measured_to_be` still passes at its
+documented bound.
+
+**On the GPU it changes nothing either.** `debye`'s six orders were dispatched
+at both table lengths on llvmpipe over the same 256 probes:
+
+| | `f64` order | `order_sp` |
+|---|---|---|
+| `D_1` bit-identical | 226/256 | 226/256 |
+| `D_4` | 185/256 | 185/256 |
+| `D_6` | 157/256 | 157/256 |
+| `D_6` worst | 1.630432961974293e-06 | 1.630432961974293e-06 |
+
+Identical counts and identical worst errors, with 38 % fewer coefficients —
+which is a second, independent confirmation that the inline-coefficient
+effect below is not about array length.
+
+## The inline-coefficient effect is CONSTANT FOLDING, measured three ways
+
+`debye.wgsl` recorded that series held as inline `array<f32, N>` literals do
+not reproduce the CPU bit for bit where storage-buffer coefficients do —
+34/64 against 64/64. Shipping `order_sp` made the obvious experiment cheap,
+and it comes back negative. **The same function, the same device, the same
+probes, at two array lengths:**
+
+| `dawson.wgsl` arrays | bit-identical |
+|---|---|
+| `order_sp` — 10, 22, 13 | 470 / 602 (78.1 %) |
+| `f64` order — 16, 33, 35 | 456 / 602 (75.7 %) |
+
+Cutting the coefficient count by a third moves **14 probes of 602**. Inline
+versus buffer moved **30 of 64**. A 2-point effect against a 47-point one, so
+length is not the mechanism.
+
+### And the remaining explanation is the right one
+
+What remained was that an inline array is known to the compiler at compile
+time, so it may fold, contract and reassociate around it, where a
+storage-buffer read forbids all three. **Measured 2026-09-19, three variants
+of one arithmetic on the same 64 arguments:**
+
+| variant | coefficients | loop | bit-identical to the CPU |
+|---|---|---|---|
+| inline | WGSL literals | `for` | 34 / 64 |
+| **unrolled** | WGSL literals | straight-line, 16 steps | **34 / 64** |
+| **opaque** | the same literals **times a uniform holding 1.0** | `for` | **64 / 64** |
+| buffer (control) | `storage` read | `for` | 64 / 64 |
+
+**Multiplying by `1.0` is not a change to the arithmetic.** IEEE-754
+multiplication by exactly `1.0` is the identity on every finite value, every
+infinity and every zero including `-0.0`, so `c[j] * params.a` computes
+exactly `c[j]`. What it changes is what the *compiler* knows: a uniform is
+not a compile-time constant. The array is still inline, still seventeen
+literals, still indexed by a loop variable — and bit-identity comes back
+**completely**, matching the buffer-fed answer not merely in count but at
+every one of the 64 points.
+
+**Hand-unrolling changes nothing, point for point.** The unrolled and looped
+inline forms produce byte-identical output, so the loop was already being
+unrolled before anything was folded into it. Loop structure is not the
+variable; knowledge of the values is.
+
+Both are asserted as equalities in
+`the_inline_coefficient_effect_is_constant_folding`, not as counts, so either
+one ceasing to hold fails the test rather than quietly rewriting the finding.
+
+**What this means for reading the rest of this ledger.** Every "GPU vs `f32`
+mirror" figure above for a Chebyshev kernel is measuring the device's
+optimiser, not the transcription. A shader whose coefficients come from a
+buffer may honestly be held to bit-identity; one that embeds them may not, and
+the residual is a few ulp of legitimate compiler freedom — WGSL permits
+contraction and reassociation, and a conforming device may exercise it. The
+practical consequence is small and worth stating plainly: **this is not a
+correctness problem and nothing should be changed because of it.** The worst
+inline-coefficient disagreement measured anywhere here is 5.27e-07 on
+`dawson`, about four `f32` ulp. Moving every table into a buffer to recover
+exactness would trade a real cost — a storage read per coefficient per
+invocation — for a difference below the `f32` error budget these kernels are
+held to in the first place.
+
+## A reduction that looked obviously right, and is worse
+
+`sinint.wgsl` is the one kernel here whose accuracy at large `x` is set by
+`sin` and `cos` rather than by its own arithmetic:
+
+```text
+    Si(x) = pi/2 - f(x) cos x - g(x) sin x
+    Ci(x) =        f(x) sin x - g(x) cos x
+```
+
+`clausen.wgsl` already carries `petir_clausen_reduce`, the `f32` three-way
+`2 pi` split, so reusing it here looked like the obvious move — the
+search-before-building rule pointing straight at it. **Measured, it is worse
+on both sides**, and the shader calls `sin` and `cos` directly.
+
+`Ci` against its `1/x` envelope, on the CPU against the `f64` module:
+
+| range | direct | through the reduction |
+|---|---|---|
+| `[4, 1e2]` | 2.104e-07 | 2.722e-07 |
+| `[1e2, 1e4]` | 3.635e-07 | 3.693e-07 |
+| `[1e4, 1e5]` | 1.955e-07 | **1.182e-06** |
+| `[1e5, 5.2e5]` | 1.652e-07 | **7.993e-06** |
+
+**`Si` is untouched either way** — bit-identical, at every argument tried —
+because there `sin` and `cos` are multiplied by `f ~ 1/x` against a leading
+`pi/2`, while `Ci` *is* `f sin - g cos` and carries their error at full
+weight. That asymmetry is why `Ci` is the instrument and `Si` would have
+shown nothing.
+
+On the device, llvmpipe's `sin` is within 1e-07 of `f64` to about `x = 1e7`
+and 7.4e-04 at `1e8`; the reduction returns `NaN` above its own loss cut of
+524288, so past `5.2e5` it is not even available, and below it it is the
+worse of the two (0.0357484 against the correct 0.0357488 at `x = 1e5`).
+Both libraries already do a multi-word reduction internally; the three-term
+split is coarser than either.
+
+**And what actually ends the usable range is neither.** At `x = 1e7` one
+`f32` ulp of the *argument* is **1 radian**, so `sin(x)` is not determined by
+the `f32` `x` at all:
+
+| `x` | `ulp(x)` | `Ci` changes by | envelope `1/x` |
+|---|---|---|---|
+| 1e5 | 7.81e-03 rad | 7.81e-08 | 1e-05 |
+| 1e6 | 6.25e-02 rad | 5.92e-08 | 1e-06 |
+| **1e7** | **1.0 rad** | 9.57e-08 | 1e-07 |
+
+Moving to the next representable argument at `x = 1e7` changes `Ci` by
+essentially its whole envelope. The kernel's own error stays flat at 1e-07
+out to `1e9` — it is faithful to the number it is given — but the number has
+stopped being the one the caller meant. **The oscillating branch is honest
+to about `x = 1e6`**, and no reduction can extend that. That, rather than the
+accuracy table above, is the real reason none is shipped.
+
+**And the device puts the underflow point in a third place, which is the
+strongest argument for keeping upstream's constant.** Measured on llvmpipe
+(LLVM 20.1.2), 2026-09-19:
+
+| | `f64` CPU | `f32` CPU | `f32` GPU |
+|---|---|---|---|
+| upstream's guard fires at | 809.5959 | 809.5959 | 809.5959 |
+| the arithmetic reaches zero at | 745.3590 | 104.1979 | **87.57** |
+
+The cause is **`exp` alone, not denormal flushing** — `x * 1e-30` returns
+1e-44 on the same device, while `exp(-87)` gives 1.6458e-38 and `exp(-88)`
+gives exactly 0. The builtin returns zero as soon as its own result would be
+denormal, and because the exponential here is multiplied by a prefactor of
+order 10, ordinary **normal** `f32` answers are lost: 1.1010e-37 at
+`x = 87.57` becomes 0.
+
+Three backends, three underflow points, none of them upstream's number. A
+guard retargeted to any one of them is wrong on the other two; one that never
+fires lets each backend underflow where its own arithmetic does. `wgsl_gpu`
+therefore asserts the tail as a **shape** — the device may underflow earlier
+than the CPU, never later, never a wrong non-zero, and never a value after it
+has started returning zero — rather than as an agreement.
+
+**GPU-vs-mirror below the tail is 7.174e-04 for `S_1` and 6.462e-04 for
+`S_2`**, both at `x = 3.992`, with only 345 of 2252 probes bit-identical.
+That is `debye`'s **inline-coefficient effect** — these six series are inline
+`array<f32, N>` literals, not storage buffers — arriving through the same
+1637x cancellation that sets the `f64` figure. It is one mechanism seen twice,
+not two defects.
+
+**`Ai` and `Bi` are measured in absolute error for the same reason `dilog`
+is** — both oscillate through infinitely many zeros below `x = -1`, so a
+relative figure over that range measures the probe grid. `mirror_airy` records
+the per-branch relative numbers where they mean something: one to two `f32`
+ulp everywhere except the oscillatory branch.
+
+**The oscillatory branch's error is irreducible in `f32`, and that is
+measured rather than asserted.** Running the identical modulus/phase formula
+in `f64` on the *same* `f32` coefficients isolates the arithmetic: the
+modulus stays flat at one ulp from `x = -2` to `x = -50`, while the phase's
+absolute error grows linearly with `theta` and stays at **0.21 to 0.52 of one
+ulp of `theta` itself**. A phase good to a fraction of its own ulp cannot be
+improved at that width, and `cos`/`sin` turn its absolute error into a
+comparable relative error in the answer.
+
+**A third threshold case, and it points the opposite way to `debye`'s.**
+`Bi`'s overflow guard carries GSL's `f64` constant. Retargeting it to the
+`f32` analogue of the same inequality was predicted necessary — and is
+**wrong**: over `x` in (25.87, 26.07) it returns `+inf` for values between
+3.6e+37 and 7.8e+37, all representable in an `f32` whose maximum is 3.4e+38.
+Upstream's constant never fires before `exp` genuinely overflows.
+
+So the three cases disagree, deliberately: `debye`'s `xcut` comes from `f64`'s
+**exponent range** and controls a loop length, so retargeting was worth 50x;
+`dilog`'s cut comes from a **truncation order**, so retargeting is neutral at
+best; `airy`'s is a **range guard on a quantity still representable**, so
+retargeting loses answers. The rule is *know what upstream's constant is FOR*,
+which is a stronger requirement than knowing what it equals.
 
 **`dilog` is measured in ABSOLUTE error, and that is not a softer standard.**
 `Li_2` has a real zero at `x = 12.595170`, inside any useful probe range and
@@ -285,13 +826,49 @@ can be measured rather than waved at.
 
 ## What would change this ledger
 
-- **`specfunc`'s remaining ~281 operations** are the largest genuinely
-  portable block left, and almost all are pointwise. That is where "exhaustive"
-  has the most room to move. `dilog`, `airy`, `debye`, the Fermi-Dirac and
-  Bose-Einstein integrals and the Coulomb wave functions are the next blocks;
-  integer-order and arbitrary-order Bessel build on the order-0/1 kernels now
-  present, and much of `cdf` builds on `psi` and the incomplete gamma.
+- **`specfunc`'s remaining operations** are the largest genuinely portable
+  block left, and almost all are pointwise. That is where "exhaustive" has the
+  most room to move. ~~`dilog`, `airy`, `debye`, the Fermi-Dirac and
+  Bose-Einstein integrals and the Coulomb wave functions are the next
+  blocks~~ **CORRECTED 2026-09-19** — four of those five are PORTED
+  (`dilog`, `airy`, `debye`, Fermi-Dirac), and this line had gone on naming
+  them as future work.
+
+  ~~What is actually next: the Bose-Einstein integrals, ...~~ **CORRECTED
+  AGAIN, same day.** **GSL has no Bose-Einstein module.** `ls
+  upstream_source/GSL/specfunc/` has no such file and never did; the
+  Bose-Einstein integrals are what the **Debye functions** already here
+  compute. The claim survived one correction because that correction was
+  written from the sentence being fixed instead of from the source directory
+  — the precise failure this crate's rule 2 exists to prevent, committed while
+  fixing an instance of it.
+
+  What is actually next, read off `upstream_source/GSL/specfunc/`: the
+  **hyperbolic sine and cosine integrals** `shint.c` (`Shi`, `Chi` — the
+  direct sibling of the ported `sinint`), the **Jacobi elliptic functions**
+  `elljac.c` (the sibling of the just-ported `ellint`), `log.c`'s
+  `log(1+x)` series, the **orthogonal polynomial** families
+  (`gegenbauer.c`, `hermite.c`, `laguerre.c`), **Legendre beyond `P_n`**
+  (`alf_P.c`, `legendre_source.c`), the integer-order and arbitrary-order
+  **Bessel** functions which build on the order-0/1 kernels now present, and
+  the **Coulomb wave functions** `coulomb.c`. `E_1` is already ported at
+  `src/expint.rs` and simply has no shader yet. Much of `cdf` builds on `psi`
+  and the incomplete gamma.
+
+  **The count lives in the `specfunc` (rest) row above and nowhere else.**
+  This line used to carry its own figure, ~281, against the table's ~222; two
+  numbers for one quantity is a drift source, so there is now one.
 - **`cdf` (~200)** is the next, and is mostly compositions of `specfunc`.
+- **Not everything portable is GPU-shaped, and the difference is
+  measurable.** Every kernel shipped here has a trip count that is either
+  fixed or a uniform function of its integer parameters — `ellint` 16,
+  `elljac` 8, `gegenbauer` exactly `n - 3`, `legendre_plm` exactly
+  `l - m - 1`. The Coulomb wave functions are the first block measured and
+  **rejected**: 99,329 iterations at worst, 3 at best, varying between
+  neighbouring arguments. The rule this suggests, for the blocks still
+  unassessed: **measure the trip count over the reachable domain before
+  writing a shader, not after.** It cost one throwaway probe here and saved
+  a kernel that could not have worked.
 - Anything marked **N/A** will not move without a *different algorithm*, which
   would no longer be a port. Replacing GSL's quicksort with a bitonic sort is a
   legitimate thing to want and an illegitimate thing to call a GSL port; if it

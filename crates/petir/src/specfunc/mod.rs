@@ -144,22 +144,38 @@ mod exp_mult_tests {
     }
 }
 
+pub mod airy;
+pub mod atanint;
 pub mod bessel;
+pub mod clausen;
+pub mod dawson;
 pub mod debye;
 pub mod dilog;
+pub mod ellint;
+pub mod elljac;
 pub mod erf;
 /// Inverse error function (Winitzki approximation), lifted verbatim from
 /// outram-foam-basic-lib. Maximum relative error of order 1e-4 -- see the
 /// module documentation above before relying on it.
 pub mod erf_inv;
+pub mod expint3;
+pub mod fermi_dirac;
 pub mod gamma;
+pub mod gegenbauer;
 /// Regularised and unnormalised incomplete gamma functions, lifted verbatim
 /// from outram-foam-basic-lib (DiDonato & Morris, ACM TOMS 1986).
 pub mod inc_gamma;
 /// Inverse of the regularised lower incomplete gamma function, lifted verbatim
 /// from outram-foam-basic-lib.
 pub mod inv_inc_gamma;
+pub mod lambert;
+pub mod legendre;
 pub mod psi;
+pub mod shint;
+pub mod sinint;
+pub mod synchrotron;
+pub mod transport;
+pub mod trig;
 pub mod zeta;
 
 pub use bessel::{
@@ -169,9 +185,7 @@ pub use bessel::{
 pub use debye::{debye_1, debye_2, debye_3, debye_4, debye_5, debye_6, debye_n};
 pub use erf::{erf, erfc, erfc_scaled, erfcx};
 pub use erf_inv::erf_inv;
-pub use gamma::{
-    beta, choose, factorial, gamma, ln_beta, ln_factorial, ln_gamma, ln_gamma_sgn,
-};
+pub use gamma::{beta, choose, factorial, gamma, ln_beta, ln_factorial, ln_gamma, ln_gamma_sgn};
 pub use inc_gamma::{inc_gamma_p, inc_gamma_q, inc_gamma_ratio_p, inc_gamma_ratio_q};
 pub use inv_inc_gamma::inv_inc_gamma;
 pub use psi::{psi, psi_1, psi_1_int, psi_1piy, psi_int, psi_n};

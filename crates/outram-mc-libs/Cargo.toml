@@ -64,6 +64,13 @@ log = { workspace = true }
 # (ratatui moved to the wasm target table at the end of this manifest.)
 
 [features]
+# Tests that individually exceed 5 minutes (workspace CLAUDE.md hard rule).
+# DEFAULT-ON, deliberately: a long test that is off by default is a test that
+# rots. `cargo quick-test` (--no-default-features) is the iteration escape
+# hatch; work is not done on a quick-test run.
+default = ["long-tests"]
+long-tests = []
+
 # Route the REMAINING transcendentals -- log10, cbrt, cos, sin, tanh, atan2 --
 # through PETIR instead of std's platform libm, making them BIT-IDENTICAL
 # across platforms.

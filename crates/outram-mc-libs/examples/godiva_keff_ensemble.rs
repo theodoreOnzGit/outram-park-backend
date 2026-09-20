@@ -152,16 +152,64 @@ mod desktop {
         let t0 = Instant::now();
         let mut nuclides = Vec::new();
         for &(file, name, _) in NUCLIDES {
+            // OUTRAM_U238_ENDF7=1 swaps U-238 ALONE to ENDF/B-VII.0, every other
+            // nuclide held at VIII.0. Remapped HERE rather than in NUCLIDES
+            // because that is a `const` and `env::var` is not const-callable.
+            //
+            // Isolating one nuclide matters: the four pooled ICSBEP residuals
+            // split by U-238 content (Godiva -55, Jemima -253, HST-009 -38,
+            // LCT-008 +165 pcm over 32 seeds) and the two U-238-heavy cases
+            // disagree in SIGN. A whole-library swap cannot separate U-238
+            // from U-235; this can.
+            let file = if name == "U238" && std::env::var("OUTRAM_U238_ENDF7").is_ok() {
+                "n-092_U_238-ENDF7.0.endf"
+            } else {
+                file
+            };
             let Some(p) = reference_endf(file) else {
                 println!(
                     "  missing {file} — set OUTRAM_PARK_ENDF_DIR or fetch the tape; skipping."
                 );
                 return;
             };
-            nuclides.push(
-                Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
-                    .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display())),
-            );
+            let nuc = Nuclide::from_endf_file(&p, name, TEMP_K, 1.0e-3)
+                .unwrap_or_else(|e| panic!("from_endf_file({}): {e}", p.display()));
+            // OUTRAM_FROZEN_NUBAR=1 freezes nu-bar(E) at thermal. Paired with
+            // the same knob on Jemima: the WORTH RATIO between the two cases is
+            // the measurement, not either number alone. The inelastic ablation
+            // eliminated itself at a ratio of 1.53 against a residual ratio of
+            // 4.6, so a candidate has to break that scaling to survive.
+            let nuc = if std::env::var("OUTRAM_FROZEN_NUBAR").is_ok() {
+                nuc.with_frozen_nubar(0.0253)
+            } else {
+                nuc
+            };
+
+            // OUTRAM_URR=1 adds unresolved-resonance self-shielding (PURR
+            // probability tables). This is the BARE arm of the pair: Godiva is
+            // 93.7 % U-235 with no reflector, so if the URR hypothesis is
+            // right this should be worth far LESS here than on Jemima, whose
+            // reflector is 99.3 % U-238. A shift here as large as Jemima's
+            // refutes the hypothesis.
+            let nuc = if std::env::var("OUTRAM_URR").is_ok() {
+                let tape = njoy_outram_park_fork::endf::tape::Tape::read_file(&p).expect("tape");
+                let mat = tape.materials()[0];
+                nuc.with_urr_probability_tables(&tape, mat, TEMP_K, 20, 16, 2000)
+                    .expect("PURR")
+            } else {
+                nuc
+            };
+
+            // OUTRAM_ISO_ELASTIC=1 ablates the MF=4/MT=2 elastic angular law.
+            // Godiva is the BARE arm of this pair: it has no reflector, so if
+            // reflector return is what Jemima's residual is made of, this knob
+            // should be worth far less here than there.
+            let nuc = if std::env::var("OUTRAM_ISO_ELASTIC").is_ok() {
+                nuc.with_isotropic_elastic_scattering()
+            } else {
+                nuc
+            };
+            nuclides.push(nuc);
         }
         println!(
             "Nuclear data ready in {:.1} s.\n",
