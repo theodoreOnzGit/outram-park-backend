@@ -105,8 +105,14 @@ docs/token-usage.md
 ours_spectrum.csv
 openmc_spectrum.csv
 
-# OpenMC cross-code work products: ACE (260 MB) and HDF5 regenerated from the
-# repo's own ENDF tapes by make_ace.sh + build_data.py. Reproducible, large,
-# and never committed -- see verification_and_validation/README.md.
+# OpenMC cross-code work products: ACE and HDF5 regenerated from the repo's own
+# ENDF tapes by make_ace.sh + build_data.py. This is SCRATCH -- regenerable and
+# never committed; see verification_and_validation/README.md.
+#
+# ~~"and never committed"~~ CORRECTED 2026-09-20 -- that is still true of THIS
+# path, which stays scratch, but a curated ACE set IS now tracked, as the
+# `reference-data/ace` submodule (theodoreOnzGit/ace_and_other_data, gzipped).
+# The two are different things: this is whatever a local run happened to emit,
+# that is a published set with a manifest and checksums.
 crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/ace/
 crates/outram-mc-libs/verification_and_validation/openmc_godiva_cross_code/work/

@@ -44,6 +44,31 @@ and **fmt 9.1.0** against a pinned 11.0.2. No OpenMC source was patched.
 history CMake reads the version from is absent. **The commit hash is the honest
 identifier.**
 
+### Getting the set without regenerating it
+
+The generated tables are published as **`reference-data/ace`**, a git submodule
+pointing at [`theodoreOnzGit/ace_and_other_data`](https://github.com/theodoreOnzGit/ace_and_other_data).
+
+```bash
+git submodule update --init reference-data/ace
+gunzip -c reference-data/ace/endf-b-viii.0/293.6K/U235.ace.gz > U235.ace
+```
+
+**They are gzipped because they have to be.** ACE is ASCII and compresses about
+6.4x; raw, U-235 is 129.6 MB and the 0 K U-235 is 301.6 MB, both over GitHub's
+**100 MiB per-file hard limit**. gzip was chosen over Git LFS so a plain clone
+suffices with no LFS quota. `MANIFEST.tsv` carries the SHA-256 of each
+*uncompressed* table; all four were verified to round-trip to the exact
+checksum and byte count before publishing.
+
+**The 0 K table is not for transport.** It is the matched oracle for Part 2
+below and nothing else.
+
+This is the **first submodule in this workspace**, so a fresh clone needs
+`git clone --recurse-submodules`, or `git submodule update --init` after the
+fact. Without it `reference-data/ace/` is an empty directory rather than an
+error, which is the failure mode to recognise.
+
 ### Generating the set
 
 `make_ace.sh` (already committed) drives RECONR → BROADR(293.6 K) → PURR →

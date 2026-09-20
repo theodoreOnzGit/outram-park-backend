@@ -2173,6 +2173,14 @@ sudo pacman -S openblas
 sudo apt install libopenblas-dev
 ```
 
+**This workspace has a submodule as of 2026-09-20** — `reference-data/ace`
+(`theodoreOnzGit/ace_and_other_data`), holding the gzipped NJOY2016 ACE tables
+that are too large to track here directly. Clone with
+`git clone --recurse-submodules`, or run `git submodule update --init
+reference-data/ace` afterwards. A plain clone leaves that path an **empty
+directory rather than an error**, so nothing complains until something looks
+for a table and does not find one.
+
 ```bash
 cargo build --workspace --release                  # all libraries
 cargo check --release --workspace --lib --tests     # type-check (see note below)
