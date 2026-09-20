@@ -94,6 +94,10 @@ fn oracle() -> Option<Oracle> {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reference-data tier (NJOY2016 oracles); runs by default, skipped under --no-default-features"
+)]
 fn al27_thermal_table_matches_njoy2016() {
     // A skip must HONOUR the require flag, or this test joins the 19 that were
     // found on 2026-09-11 "passing in 0.00 s having asserted nothing". Proven

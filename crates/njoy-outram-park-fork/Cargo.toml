@@ -91,6 +91,12 @@ directories = { workspace = true }
 wgpu = { workspace = true }
 
 [features]
+# `long-tests` is default-on so the reference-data tests run unless someone
+# deliberately opts out with `--no-default-features` (i.e. `cargo quick-test`).
+# Cargo offers no way to disable a single default feature, which is why the
+# workspace's quick-test alias uses `--no-default-features`.
+default = ["long-tests"]
+
 # The CORE 125-nuclide windowed-multipole blob (`src/data/wmp_core.wmpl`,
 # ~4.7 MB, ENDF/B-VII.1, MIT CRPG) is ALWAYS embedded via `include_bytes!` and
 # exposed through `WmpLibrary::core` — there is no opt-out feature. Every build
@@ -111,6 +117,21 @@ net-fetch = ["dep:ureq", "dep:zip"]
 # (repo-only, multi-MB) and take minutes — gated out of the default build and
 # `cargo test --examples`, like `outram-mc-libs`' `endf-pebble-cases`.
 urr-diagnostics = []
+
+# ── long-tests: the REFERENCE-DATA tier ──────────────────────────────────────
+#
+# DEFAULT-ON, per the workspace HARD RULE that `long-tests` lives in `default`
+# so the heavy tests run unless someone deliberately turns them off.
+# `cargo quick-test` (= `--no-default-features`) is the opt-out.
+#
+# NOTE THE GATING CRITERION HERE IS **DATA**, NOT RUNTIME. The workspace rule
+# gates tests over 5 minutes; these are 88.5 s and 69 s, measured, and would not
+# qualify on runtime alone. They are gated because they are the tests built on
+# the NJOY2016 reference-data tier (`reference-data/acer/` oracles extracted
+# from the `reference-data/ace` submodule's 316 MB tables), so a short run needs
+# no heavy reference data and CI can run short on `develop` and long on `main`.
+# Maintainer direction, 2026-09-20.
+long-tests = []
 
 # ── Diagnostic: which stage loses the resolved/unresolved seam (op-sdbk) ──────
 [[example]]

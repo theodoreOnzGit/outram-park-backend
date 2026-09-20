@@ -2352,6 +2352,56 @@ angle-of-repose cases each back a number quoted in this file's maturity
 roster, and neither had ever run in a normal suite. If a test is the evidence
 for a claim, it belongs in the default run.
 
+### `long-tests` also gates the REFERENCE-DATA tier (maintainer direction, 2026-09-20)
+
+**A second, orthogonal criterion shares the same feature flag: a test built on
+heavy reference data goes behind `long-tests` even when its runtime is well
+under 5 minutes.** Cargo gives one lever, not two, so both criteria land in
+`long-tests`.
+
+The point is that a *short* run must need no heavy reference data, which is
+what makes the CI split below possible. First applied to
+`njoy-outram-park-fork`'s NJOY2016 oracle tier:
+
+| test | measured runtime | gated on |
+|---|---|---|
+| `acer_ce_esz_vs_njoy2016` | 88.5 s (2 tests) | **data** |
+| `acer_broadening_vs_njoy2016` | 69 s | **data** |
+| `acer_thermal_vs_njoy2016` | 3.3 s | **data** |
+
+None qualifies on runtime. All three read oracles extracted from the
+`reference-data/ace` submodule's NJOY tables (316 MB for U-235 alone).
+
+**State which criterion applies in the `ignore` message and the doc comment.**
+A reader who sees a 3.3 s test behind `long-tests` will otherwise assume the
+runtime figure is wrong, which is exactly the kind of mistrust that gets a gate
+deleted.
+
+### CI runs short on `develop` and long on `main`
+
+**Maintainer direction, 2026-09-20.** Until that date `fast-tests.yml` covered
+**both** branches and passed `--no-default-features` on both, so **CI never
+exercised the `long-tests` tier at all** — the workflow's own header said "a
+green badge from this file means 'nothing fast is broken', never 'the suite
+passes'", and nothing ran the other half.
+
+| branch | workflow | command | `long-tests` |
+|---|---|---|---|
+| `develop` | `.github/workflows/fast-tests.yml` | `cargo quick-test` | **off** |
+| `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release` | **on** |
+
+`fast-tests.yml` is now `develop`-only: the full command is a strict superset
+of `quick-test`, so running both on `main` would be pure duplication. The full
+job checks out submodules and allows 360 minutes; it is Linux-only, because the
+long tier is dominated by TUAS's coupled natural-circulation regressions and a
+three-OS matrix buys little there.
+
+**Not yet enabled, and deliberately:** `OUTRAM_PARK_REQUIRE_REFERENCE_DATA=1`
+on the full job, which turns a data-skip into a hard failure and is the real
+guard against a test "passing in 0.00 s having asserted nothing". Whether the
+whole workspace passes with it on has **not been measured**, and switching it on
+unmeasured would paint the job red for the wrong reason. Measure, then enable.
+
 **This rule is about RUNTIME ONLY. It says nothing about why else a test may
 be ignored, and it un-ignores nothing on its own.** An `#[ignore]` that exists
 for any other reason keeps it, at any runtime:

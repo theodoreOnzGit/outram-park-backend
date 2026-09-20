@@ -52,8 +52,17 @@
 //!
 //! **Runtime: 88.5 s for both tests** (RECONR on the 36 MB U-235 tape,
 //! measured 2026-09-20 on 4 cores). That is under the workspace's 5-minute
-//! threshold, so these are deliberately NOT behind `long-tests` — an earlier
-//! draft gated them on an assumed ~3 min that was never measured.
+//! threshold, so ~~these are deliberately NOT behind `long-tests`~~ **they are
+//! not gated on RUNTIME** — an earlier draft gated them on an assumed ~3 min
+//! that was never measured.
+//!
+//! **CHANGED 2026-09-20 (maintainer direction): they ARE behind `long-tests`
+//! now, on a DATA criterion rather than a runtime one.** These are the
+//! reference-data-tier tests, built on oracles extracted from the
+//! `reference-data/ace` submodule's 316 MB NJOY tables. Gating them lets a
+//! short run need no heavy reference data, so CI can run short on `develop`
+//! and the full suite on `main`. `long-tests` is default-on, so an ordinary
+//! `cargo test` still runs them; `cargo quick-test` skips them.
 //!
 //! ~6–7 significant figures. **Gated at 1e-5**, a 6.5x margin over the worst
 //! measured value — tight enough to catch a real regression, loose enough not
@@ -174,6 +183,10 @@ fn build_ours() -> AceTable {
 
 /// The ESZ cross sections reproduce NJOY2016's at every energy both grids hold.
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reference-data tier (NJOY2016 oracles); runs by default, skipped under --no-default-features"
+)]
 fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
     let rows = oracle();
     assert!(
@@ -254,6 +267,10 @@ fn esz_cross_sections_match_njoy2016_at_shared_grid_energies() {
 /// had changed. That assertion is now a set comparison against NJOY's own
 /// MTR block rather than a bare count.
 #[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "reference-data tier (NJOY2016 oracles); runs by default, skipped under --no-default-features"
+)]
 fn the_unwritten_ace_blocks_are_still_the_ones_we_think() {
     let ours = build_ours();
 

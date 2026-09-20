@@ -1,0 +1,91 @@
+# Full suite — everything `fast-tests.yml` deliberately skips.
+#
+# WHY THIS FILE EXISTS (maintainer direction, 2026-09-20).
+# `fast-tests.yml` runs `cargo quick-test`, i.e. `--no-default-features`, which
+# turns OFF every crate's `long-tests` feature. That is the right bar for the
+# edit-compile-check loop and for `develop`, and its own header says so: "A
+# green badge from this file means 'nothing fast is broken', never 'the suite
+# passes'." Nothing was running the other half.
+#
+# The split is therefore:
+#
+#   develop   fast-tests.yml   cargo quick-test         long tests OFF
+#   main      THIS FILE        cargo test ... release   long tests ON
+#
+# So a merge to `main` is the point at which the reference-data tier and the
+# long-running physics regressions actually have to pass.
+#
+# WHAT `long-tests` GATES, AND ON WHAT CRITERION. Two different reasons, and
+# they are not the same rule:
+#   - RUNTIME: the workspace HARD RULE gates any single test over 5 minutes.
+#   - DATA: `njoy-outram-park-fork` gates its NJOY2016 reference-data tier
+#     (`acer_ce_esz_vs_njoy2016`, `acer_broadening_vs_njoy2016`,
+#     `acer_thermal_vs_njoy2016`) behind the same feature, at 88.5 s / 69 s /
+#     3.3 s — well under the runtime threshold. They are gated so a short run
+#     needs no heavy reference data.
+# Both land in `long-tests` because Cargo has one lever, not two.
+#
+# SUBMODULES ARE CHECKED OUT HERE, AND NOT IN THE FAST JOB. `reference-data/ace`
+# (102 MB, the gzipped NJOY2016 tables) is provenance: as of 2026-09-20 NO test
+# reads it at runtime — every oracle was extracted into committed CSVs under
+# `reference-data/acer/`. It is cloned here anyway so that the full run matches
+# a complete developer clone, and so a future test that DOES read a `.ace.gz`
+# fails loudly here instead of silently skipping.
+#
+# NOT SET, DELIBERATELY: `OUTRAM_PARK_REQUIRE_REFERENCE_DATA=1`, which turns a
+# data-skip into a hard failure and is the real guard against a test that
+# "passes in 0.00 s having asserted nothing" (see `src/reference_data.rs`, and
+# the 2026-09-11 audit that found 19 such tests). It belongs here — but whether
+# the whole workspace passes with it on has NOT been measured, and switching it
+# on unmeasured would paint this job red for the wrong reason. Measure, then
+# enable.
+#
+# LINUX ONLY. `fast-tests.yml` covers the three-OS matrix for the fast tier.
+# The long tier is dominated by TUAS's coupled natural-circulation regressions,
+# which integrate a loop at a 0.1 s timestep to 2000-2500 s of simulated time;
+# running that on three runners buys little and costs a lot. If a
+# platform-specific long-test failure ever appears, widen the matrix then.
+
+name: full tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 2
+  RUST_BACKTRACE: short
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Same reasoning as fast-tests.yml: supersede PR runs, never pushes to main.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  full:
+    name: full suite (long tests included)
+    runs-on: ubuntu-latest
+    # The long tier is minutes-per-test by construction. 90 minutes is the fast
+    # job's budget and is not enough here.
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: full-ubuntu-latest
+          cache-on-failure: true
+
+      # DO NOT add `--test-threads=1`. The TUAS natural-circulation cases are a
+      # workspace HARD RULE: they must run in parallel, and serialising them
+      # turns a long job into an impossible one.
+      - name: Full suite
+        run: cargo test --workspace --lib --tests --release

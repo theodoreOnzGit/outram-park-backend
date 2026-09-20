@@ -21,6 +21,11 @@
 # which includes the long tests this workflow deliberately skips. A green badge
 # from this file means "nothing fast is broken", never "the suite passes".
 #
+# That real suite now RUNS, in `.github/workflows/full-tests.yml`, on `main`.
+# Until 2026-09-20 nothing ran it: this workflow covered both `develop` and
+# `main` and passed `--no-default-features` on both, so the `long-tests` tier
+# was never exercised by CI at all.
+#
 # ── What each platform can actually do ───────────────────────────────────────
 #
 # Linux / Windows / macOS  RUN the tests.
@@ -37,11 +42,16 @@
 
 name: fast tests
 
+# DEVELOP ONLY, as of 2026-09-20 (maintainer direction). `main` is covered by
+# `full-tests.yml`, which runs the same tests PLUS the `long-tests` tier —
+# `cargo test --workspace --lib --tests --release` is a strict superset of
+# `cargo quick-test`, so running this file on `main` as well would be pure
+# duplication. The split is: develop = short, main = long.
 on:
   push:
-    branches: [develop, main]
+    branches: [develop]
   pull_request:
-    branches: [develop, main]
+    branches: [develop]
   workflow_dispatch:
 
 env:
@@ -63,8 +73,9 @@ concurrency:
   # ones that never ran, which is exactly backwards.
   #
   # On a PR, superseding is still right: only the tip matters and pushes are
-  # frequent. On develop/main each commit is a thing someone may later bisect
-  # to, so its run should complete.
+  # frequent. On a develop push each commit is a thing someone may later bisect
+  # to, so its run should complete. (This file no longer covers `main`; see the
+  # DEVELOP ONLY note above.)
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
