@@ -188,27 +188,40 @@ file comes from before writing its attribution header.
    Version reported: SCRAM 0.16.2
    Date accessed:    2026-09-21
 
-   Ported into:      src/scram/probability.rs, src/scram/importance.rs
-   Both carry their own per-file attribution headers naming the upstream
-   file. src/scram/mod.rs is the module doc and re-export surface and carries
-   the same header.
+   Ported into:      src/scram/probability.rs, src/scram/importance.rs, and
+                     the Connective TAXONOMY ONLY of src/scram/fault_tree.rs.
+   Those files carry their own per-file attribution headers naming the
+   upstream file. src/scram/mod.rs is the module doc and re-export surface and
+   carries the same header.
 
-   WHAT WAS PORTED is the fault-tree QUANTIFICATION layer only: the rare-event
-   and MCUB approximations, the per-cut-set product, and the five derived
-   importance factors of `ImportanceAnalyzerBase::Analyze`. Cut-set GENERATION
-   — MOCUS, BDD, ZBDD, the preprocessor and the Boolean graph — is the bulk of
-   SCRAM and is NOT ported, so this cannot analyse a fault tree end-to-end.
-   Neither is XML input handling, event trees, alignments, CCF groups,
-   substitutions, or the expression library.
+   WHAT WAS PORTED is the fault-tree QUANTIFICATION layer: the rare-event and
+   MCUB approximations, the per-cut-set product, the five derived importance
+   factors of `ImportanceAnalyzerBase::Analyze`, and `pdag.h`'s eight-variant
+   `Connective` enum.
 
-   TWO FUNCTIONS ARE NOT PORTS and say so in their headers: the exact
-   top-event probability is computed by inclusion-exclusion where upstream
-   uses a BDD, and the Birnbaum factor from its definition where upstream
-   differentiates the BDD. They are verified AGAINST upstream rather than
-   translated from it.
+   WHAT IS IN THE MODULE BUT IS **NOT** A PORT, each saying so in its own
+   doc rather than carrying an attribution header:
 
-   VERIFICATION: upstream was built from source and run; the oracle is in
-   reference-data/scram/ with its own README, and the full record is in
+     - src/scram/mocus.rs. Upstream's MOCUS is a driver over a ZBDD operating
+       on a preprocessed Boolean graph (zbdd + pdag + preprocessor + bdd =
+       9,076 lines), none of which is ported. This is the classical top-down
+       MOCUS expansion from the published literature (Fussell & Vesely 1972;
+       cf. Rauzy 1993), verified AGAINST upstream's reported products.
+     - The exact top-event probability: inclusion-exclusion where upstream
+       traverses a BDD.
+     - The Birnbaum importance factor: its definition, where upstream
+       differentiates the BDD.
+     - The rest of src/scram/fault_tree.rs: upstream builds its tree from XML
+       through Initializer/Model/Formula; this is a plain indexed structure a
+       caller builds in Rust, since input parsing is out of RAFFLES' scope.
+
+   STILL ABSENT: BDD, ZBDD, the preprocessor, complement elimination (so
+   NON-COHERENT trees are refused, not approximated), upstream's probability
+   cut-off on products, XML input handling, event trees, alignments, CCF
+   groups, substitutions, house events, and the expression library.
+
+   VERIFICATION: upstream was built from source and run; the oracles are in
+   reference-data/scram/ with their own README, and the full record is in
    docs/scram-port-verification.md.
 
 

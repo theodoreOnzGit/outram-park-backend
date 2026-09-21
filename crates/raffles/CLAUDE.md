@@ -92,15 +92,28 @@ as this crate — so it carries **none** of the one-way constraint the RAVEN
 grant does, and the Apache-2.0 header template below is **wrong** for those
 files. Use the GPL header the existing `src/scram/` files carry.
 
-What is ported is the **quantification layer only**: the rare-event and MCUB
-approximations, the per-cut-set product, and the five derived importance
-factors. Cut-set *generation* (MOCUS, BDD, ZBDD, the preprocessor, the Boolean
-graph) is the bulk of SCRAM and is absent, so `scram` cannot analyse a fault
-tree end-to-end — the caller supplies the cut sets. Two functions are
-deliberately **not** ports and say so in their headers: the exact top-event
-probability (inclusion-exclusion where upstream uses a BDD) and the Birnbaum
-factor (its definition where upstream differentiates the BDD). They are
-verified *against* upstream rather than translated from it.
+**Half of `src/scram/` is a port and half deliberately is not, and the
+difference is load-bearing.** Ported, with attribution headers:
+`probability.rs`, `importance.rs`, and `fault_tree.rs`'s `Connective`
+taxonomy. **Not** ports, each saying so in its own doc instead:
+
+- `mocus.rs` — upstream's MOCUS drives a ZBDD over a preprocessed Boolean
+  graph (`zbdd` + `pdag` + `preprocessor` + `bdd` = 9,076 lines), none of it
+  ported. This is the classical top-down expansion from the literature.
+- The exact top-event probability — inclusion-exclusion, not a BDD traversal.
+- The Birnbaum factor — its definition, not a BDD derivative.
+- The rest of `fault_tree.rs` — a plain indexed structure, not upstream's
+  XML-driven `Initializer`/`Model`/`Formula`.
+
+**Do not retrofit an attribution header onto any of those.** A header is a
+statement about where a file came from, and the whole value of these four is
+that they are *independent* of upstream: two unrelated algorithms agreeing is
+evidence, a translation agreeing with its original is much weaker. That is the
+same rule the paper-derived Bayesian modules follow.
+
+Absent: BDD, ZBDD, the preprocessor, complement elimination (so **non-coherent
+trees are refused, not approximated**), upstream's probability cut-off on
+products, XML input, event trees, alignments, CCF groups, house events.
 
 Verification record: [`docs/scram-port-verification.md`](docs/scram-port-verification.md),
 oracle in `reference-data/scram/`. Upstream was **built and run** — nothing in
@@ -276,7 +289,7 @@ The reference for each family:
 | Sobol indices | The **Ishigami function** — closed-form first-order and total indices at the conventional parameters. Plus an additive linear model (first-order indices sum to 1 and equal the total indices) and the Sobol g-function for a strongly interacting case |
 | Correlation measures | A construction with a known correlation matrix; and a monotone non-linear transform of it, where Spearman is preserved and Pearson is not |
 | Surrogate | Exact reproduction of a polynomial at the matching expansion order; a published test problem with reported error metrics |
-| Fault-tree quantification | Upstream **SCRAM built from source and run** on upstream's own input models — totals in all three modes and all five importance factors for every basic event. Fixture in `reference-data/scram/` |
+| Fault trees | Upstream **SCRAM built from source and run** on upstream's own input models — cut sets compared set-for-set against SCRAM's products, then totals in all three modes and all five importance factors for every basic event. Fixtures in `reference-data/scram/` |
 
 **Document methodology AND results.** Per the workspace V&V rule, a test whose
 docs say only what it does is incomplete. State the reference, the inputs,

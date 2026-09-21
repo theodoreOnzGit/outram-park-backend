@@ -1,0 +1,91 @@
+MODEL TwoTrain/two_train
+GATE TopEvent and - g:TrainOne g:TrainTwo
+GATE TrainOne or - b:ValveOne b:PumpOne
+GATE TrainTwo or - b:ValveTwo b:PumpTwo
+TOP TopEvent
+END
+MODEL Theatre/theatre
+GATE Theatre and - b:Mains_Fail g:Generator
+GATE Generator or - b:Gen_Fail b:Relay_Fail
+TOP Theatre
+END
+MODEL SmallTree/SmallTree
+GATE top or - g:g1 g:g2
+GATE g1 and - b:e1 b:e2
+GATE g2 and - b:e3 b:e4
+TOP top
+END
+MODEL ThreeMotor/three_motor
+GATE E1 or - b:K1 g:E2
+GATE E2 or - g:E3 g:E4
+GATE E4 or - b:S1 b:T1inc
+GATE E6 or - b:KT2inc b:T3inc
+GATE E3 and - g:E5 g:E6 g:E7
+GATE E5 or - b:KT1inc b:T2inc
+GATE E8 or - b:K1 g:E9
+GATE E9 or - g:E10 g:E11
+CANNOT-PARSE E10 house event (not ported)
+CANNOT-PARSE E12 house event (not ported)
+GATE E11 or - b:S1 b:T3
+GATE E1 or - b:K1 g:E2
+GATE E2 or - g:E3 g:E4
+GATE E4 or - b:S1 b:T1inc
+GATE E3 and - g:E5 g:E6 g:E7
+GATE E5 or - b:KT1inc b:T2inc
+GATE E6 or - b:KT2inc b:T3inc
+GATE E7 or - b:KT3inc b:T4inc
+CANNOT-PARSE <top> 4 candidate top gates
+END
+MODEL BSCU/BSCU
+GATE LossOfBrakingCommands or - b:ValidityMonitorFailure g:Systems1And2DoNotOperate g:SwitchFailure
+GATE Systems1And2DoNotOperate and - g:LossOfSystem1 g:LossOfSystem2
+GATE LossOfSystem1 or - b:System1ElectronicFailure b:LossOfSystem1PowerSupply
+GATE LossOfSystem2 or - b:System2ElectronicFailure b:LossOfSystem2PowerSupply
+GATE SwitchFailure or - g:SwitchFailsInPosition1AndSystem1Fails b:SwitchStuckInIntermediatePosition g:SwitchFailsInPosition2AndSystem2Fails
+GATE SwitchFailsInPosition1AndSystem1Fails and - g:LossOfSystem1 b:SwitchStuckInPosition1
+GATE SwitchFailsInPosition2AndSystem2Fails and - g:LossOfSystem2 b:SwitchStuckInPosition2
+TOP LossOfBrakingCommands
+END
+MODEL Lift/lift
+GATE LiftDoor or - g:LiftStartDoorOpen g:DoorOpensInMotion g:DoorRefuses g:OR_1
+GATE LiftStartDoorOpen or - b:LMD_1 b:DPD_1 g:AND_1 g:DoorMotorSlow
+GATE AND_1 and - b:DM_1 b:DPD_1
+GATE DoorMotorSlow or - b:PS_1 g:DoorHindered
+GATE DoorHindered or - b:DOD_1 b:D_1
+GATE DoorOpensInMotion or - b:DMS_2 g:AND_2 g:AND_3
+GATE AND_2 and - g:UncommandedDoorOpen g:MotionDetector
+GATE UncommandedDoorOpen or - b:W_1 b:CP_1 b:DMS_2
+GATE MotionDetector and - b:LMD_1 b:LMD_1_1
+GATE AND_3 and - b:CP_1 g:MotionDetector
+GATE DoorRefuses or - b:CP_1 b:LMD_2 b:LPD_1 g:DoorMotor
+GATE DoorMotor or - b:DM_1 b:PS_1
+GATE OR_1 or - b:DOD_1 b:DOD_2 b:DMS_1
+TOP LiftDoor
+END
+MODEL HIPPS/HIPPS
+GATE top or - g:SensorFailure b:LogicSolverFailure g:W1NotIsolated g:W2NotIsolated
+GATE SensorFailure or - b:PSHCCF g:PSHFailure
+GATE PSHFailure atleast 2 b:PSH1Failure b:PSH2Failure b:PSH3Failure
+GATE W1NotIsolated or - b:SV1Failure b:SDV1Failure
+GATE W2NotIsolated or - b:SV2Failure b:SDV2Failure
+TOP top
+END
+MODEL ne574/ne574
+GATE System and - g:TrainOne g:TrainTwo
+GATE TrainOne or - g:A b:B b:C
+GATE A or - b:F b:G
+GATE TrainTwo or - b:C b:D g:E
+GATE E and - b:H b:I
+TOP System
+END
+MODEL ThreeLevels/top
+GATE Top null - g:Middle
+GATE Middle null - g:Bottom
+GATE Bottom or - b:A b:B
+TOP Top
+END
+MODEL TransTest/trans_one
+CANNOT-PARSE <model> assembled by xi:include, structure is incomplete
+GATE TransOne and - b:C b:TransTwo
+TOP TransOne
+END

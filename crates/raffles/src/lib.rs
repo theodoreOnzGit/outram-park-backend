@@ -13,10 +13,16 @@
 //! ## Status — PARTLY IMPLEMENTED, NO HUMAN V&V
 //!
 //! This crate is no longer the empty scaffold its first commits described.
-//! [`distributions`], [`samplers`], [`sensitivity`], [`bayesian`], [`distance`], [`abc`] and [`imprecise`] carry
-//! working, unit-tested implementations whose verification methodology and
-//! measured results are recorded in the doc comments of the tests themselves.
-//! [`surrogate`] is still a placeholder.
+//! Every module below — [`distributions`], [`samplers`], [`sensitivity`],
+//! [`bayesian`], [`distance`], [`abc`], [`imprecise`], [`model_selection`],
+//! [`scram`], [`gnn`] and [`surrogate`] — carries working, unit-tested code
+//! whose verification methodology and measured results are recorded in the doc
+//! comments of the tests themselves.
+//!
+//! Two carry less than their names suggest and say so in their own docs:
+//! [`surrogate`] has polynomial regression and a `burn`-backed neural
+//! regressor but no Gaussian process and no polynomial chaos, and [`scram`]
+//! handles **coherent** fault trees only.
 //!
 //! **None of it has been through human V&V.** Everything here is AI-assisted
 //! draft material under the workspace `RESPONSIBLE_USE.md` rules until the
@@ -48,6 +54,9 @@
 //! - **[`bayesian`]** — Bayesian model updating: priors, likelihoods, MCMC
 //!   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
 //!   posterior sample and the evidence.
+//! - **[`scram`]** — fault trees: build one, generate its minimal cut sets,
+//!   quantify the top-event probability, and rank the basic events by the
+//!   five standard importance measures. Coherent trees only.
 //! - **[`gnn`]** — graph neural networks for physics: message-passing
 //!   topology, the physics-guided bound on message-passing iterations, and
 //!   (behind the `burn` feature) the network itself.
@@ -62,7 +71,8 @@
 //! - **Simulation drivers, job scheduling, file/XML input parsing, plotting,
 //!   databases.** RAVEN is a whole workflow application; RAFFLES ports only
 //!   its statistical core. A caller drives their own runs and hands RAFFLES
-//!   arrays of numbers.
+//!   arrays of numbers. [`scram`] holds to the same line: it takes a fault
+//!   tree a caller has built in Rust, never a SCRAM input model.
 //! - **Optimisation.** RAVEN's optimisers (gradient descent, genetic
 //!   algorithms, Bayesian optimisation) are out of scope unless the crate
 //!   owner decides otherwise.
@@ -114,6 +124,12 @@
 //! the required Battelle Energy Alliance / Idaho National Laboratory
 //! attribution, and the verbatim upstream licence text are in the crate's
 //! `NOTICE`, `LICENSE-APACHE-RAVEN` and `NOTICE-RAVEN`.
+//!
+//! **RAVEN is not the only upstream, and the others are not Apache-2.0.**
+//! [`scram`] derives from [SCRAM](https://github.com/rakhimov/scram) and parts
+//! of [`bayesian`] and [`gnn`] from other projects, all **GPL-3.0**, so none
+//! carries the one-way constraint above. Check which upstream a file comes
+//! from before writing an attribution header; the `NOTICE` lists all of them.
 //!
 //! ## Intended use
 //!

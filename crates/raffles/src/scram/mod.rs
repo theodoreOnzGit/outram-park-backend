@@ -42,15 +42,32 @@
 //! being sufficient.
 //!
 //! The minimal cut sets are the complete qualitative answer: the system fails
-//! exactly when at least one of them occurs. Everything in this module takes
-//! that set as given and answers the quantitative questions — how likely, and
-//! which events drive it.
+//! exactly when at least one of them occurs. The quantitative questions — how
+//! likely, and which events drive it — follow from them.
 //!
-//! **Producing the cut sets is not done here yet.** SCRAM derives them with
-//! MOCUS, BDD or ZBDD over a Boolean graph; those are the larger part of the
-//! upstream and are not ported. This module starts at the point where the cut
-//! sets already exist, which is the layer with the cleanest oracles and the
-//! one a caller can reach with cut sets from any source.
+//! ## The route through this module
+//!
+//! 1. [`fault_tree::FaultTreeBuilder`] — describe the tree in names.
+//! 2. [`mocus::minimal_cut_sets`] — generate the cut sets.
+//! 3. [`top_event_probability`] — quantify.
+//! 4. [`importance_factors`] — rank the basic events.
+//!
+//! Steps 3 and 4 are **ports** of SCRAM and carry its attribution headers.
+//! Step 2 is **not**: SCRAM generates cut sets with a ZBDD over a
+//! heavily-preprocessed Boolean graph, which is the larger part of the
+//! upstream and is not ported. [`mocus`] is the classical top-down expansion
+//! from the published literature instead, verified *against* SCRAM's reported
+//! products rather than translated from its code — see that module.
+//!
+//! A caller who already has cut sets from elsewhere can skip straight to
+//! step 3; [`CutSet`] does not care where they came from.
+//!
+//! **What is still absent:** everything SCRAM does around this core — XML
+//! input models, event trees, alignments, common-cause-failure groups,
+//! substitutions and the expression library — plus, in the analysis itself,
+//! the BDD and ZBDD algorithms, the preprocessor, and complement elimination.
+//! That last one is why [`mocus`] refuses a **non-coherent** tree rather than
+//! answering it approximately.
 //!
 //! ## Where this sits relative to the rest of the crate
 //!
@@ -74,8 +91,12 @@
 //! commit, the one build patch that was needed, and the measured agreement are
 //! recorded in `crates/raffles/docs/scram-port-verification.md`.
 
+pub mod fault_tree;
 pub mod importance;
+pub mod mocus;
 pub mod probability;
 
-pub use importance::{ImportanceFactors, importance_factors};
-pub use probability::{Approximation, CutSet, cut_set_probability, top_event_probability};
+pub use fault_tree::{Arg, Connective, FaultTree, FaultTreeBuilder, FaultTreeModel, Gate};
+pub use importance::{importance_factors, ImportanceFactors};
+pub use mocus::minimal_cut_sets;
+pub use probability::{cut_set_probability, top_event_probability, Approximation, CutSet};

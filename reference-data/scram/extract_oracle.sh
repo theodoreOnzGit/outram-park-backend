@@ -24,6 +24,16 @@ for input in "$@"; do
   [ -z "$rpt" ] && continue
   grep -q "<product " <<< "$rpt" || continue
 
+  # A model defining several fault trees produces one <sum-of-products> per
+  # tree, and this format has nowhere to say which product belongs to which.
+  # Merging them would be a silently wrong fixture -- TransTest/trans_one and
+  # ThreeLevels/top are both like this -- so such a model is refused outright.
+  nresults=$(grep -c "<sum-of-products " <<< "$rpt")
+  if [ "$nresults" -ne 1 ]; then
+    echo "skipping $name: $nresults result sets, cannot attribute products to a top event" >&2
+    continue
+  fi
+
   echo "MODEL $name"
 
   # Basic-event probabilities, from the importance section.

@@ -44,7 +44,7 @@ maker: propose changes of direction to them rather than making them.
 | `abc` | Approximate Bayesian Computation — three kernels, rejection ABC, and an approximate log-likelihood the transitional samplers consume directly |
 | `imprecise` | Imprecise probability — intervals, probability boxes, Clopper–Pearson confidence boxes, coherent-system reliability with or without a dependence assumption |
 | `model_selection` | Comparing models by evidence — Bayes factors, posterior model probabilities, the Kass–Raftery scale |
-| `scram` | Fault-tree quantification ported from [SCRAM](https://github.com/rakhimov/scram) — top-event probability by rare-event, MCUB or exact inclusion-exclusion, and the five standard importance measures. Cut-set **generation** (MOCUS/BDD/ZBDD) is **not** ported: the caller supplies the cut sets |
+| `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS), quantify the top event by rare-event, MCUB or exact inclusion-exclusion, and rank the basic events by the five standard importance measures. **Coherent trees only**; no BDD/ZBDD, no complement elimination, no XML input |
 | `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
 | `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
 
@@ -127,7 +127,7 @@ be done:
 |---|---|---|
 | [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this GPL-3.0 crate, one-way, with the attribution header in `CLAUDE.md` |
 | [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | Same licence as this workspace, so `gnn::mpnn` **is** a port and carries its attribution header |
-| [SCRAM](https://github.com/rakhimov/scram) | GPL-3.0-or-later | Same licence as this crate, so `scram::probability` and `scram::importance` **are** ports and carry their attribution headers |
+| [SCRAM](https://github.com/rakhimov/scram) | GPL-3.0-or-later | Same licence as this crate, so `scram::probability`, `scram::importance` and `scram::fault_tree`'s connective taxonomy **are** ports and carry their attribution headers. `scram::mocus` is **not** — it is the published MOCUS algorithm, verified *against* SCRAM rather than translated from it, and says so |
 | Adolphus Lye's `Bayesian-Model-Updating-Tutorials` | GPL-3.0 (LICENSE file) | Portable, same as above; `bayesian::case_studies` **is** a port and carries its header |
 | Adolphus Lye's six other repositories (workspace issue #158) | GPL-3.0 **by direct grant** from the author, who is the copyright holder and this crate's owner — stated to the maintainer 2026-09-09, reaffirmed 2026-09-16. No `LICENSE` file in the repositories as of 2026-09-16 | Portable. Nothing has been taken from them so far: the Bayesian, distance, ABC and imprecise modules were written from the published papers, each cited with its DOI |
 
@@ -225,9 +225,12 @@ independently of the implementation:
   case.
 - **Surrogates** — exact reproduction of a polynomial at the matching
   expansion order, plus a published test problem.
-- **Fault-tree quantification** — upstream **SCRAM built from source and
-  run**, on upstream's own input models. The oracle is committed under
-  `reference-data/scram/`; the record is
+- **Fault trees** — upstream **SCRAM built from source and run**, on
+  upstream's own input models, end to end: cut sets generated here compared
+  set-for-set against the products SCRAM found (46 of 46 across 7 models), and
+  the totals and importance factors compared on top. The oracles are committed
+  under `reference-data/scram/`; the record, including what it does *not*
+  establish, is
   [`docs/scram-port-verification.md`](docs/scram-port-verification.md).
 
 Per the workspace V&V rule, the documentation of each gate must state **both**
