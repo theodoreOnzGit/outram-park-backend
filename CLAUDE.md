@@ -194,17 +194,15 @@ specifically, not just human contributors:
   - The hook authorises *pushing*, nothing else. It does not authorise opening
     a pull request, merging, force-pushing, or bumping versions — those still
     need an explicit request.
-- **Vestigial — the beads store ref `Stop` hook.** `.claude/settings.json`
-  still runs `./scripts/push-beads-store.sh` at the end of each turn, which
-  pushes **exactly one refspec**
-  (`refs/heads/beads/store:refs/heads/beads/store`) and is a no-op when the
-  local ref is absent or already matches the remote. Since kopi-beans was
-  deprecated as the tracker on 2026-09-21 it publishes a store nothing writes
-  to any more, and is harmless. **Do not widen it** — it authorises that one
-  refspec, never a branch or tag, and **never `main`**. **Do not delete the
-  hook or the script unprompted** either; the store itself is preserved for
-  the `op-*` citations (see "Issue tracking & roadmap"), and removing the hook
-  is a separate maintainer decision.
+- **The beads store `Stop` hook is GONE — removed 2026-09-21.**
+  `.claude/settings.json` no longer carries it, nor the `bn prime --mcp`
+  SessionStart hook; its `hooks` object is now empty. Nothing in this
+  workspace pushes a git ref automatically any more, so the
+  never-auto-push rule above is the whole story. `scripts/push-beads-store.sh`
+  is kept as a **manual-only** fallback for republishing the preserved
+  `refs/heads/beads/store` ref by hand; it pushes **exactly one refspec**, is
+  idempotent, and must never be widened — never a branch or tag, and **never
+  `main`**.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when
   explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo`
@@ -791,10 +789,11 @@ history, **not** as something to look up in `gh`, and **do not mint new ones.**
 - **Open beads were not bulk-imported**, deliberately — a few hundred
   auto-filed issues would bury the ones that matter. Open a GitHub issue for
   work as it is picked up, citing the old id in the body where one exists.
-- `.claude/settings.json` still carries the `bn prime --mcp` SessionStart hook
-  and the `push-beads-store.sh` Stop hook. Both are harmless no-ops once `bn`
-  is gone; **removing them is a separate maintainer decision** — do not do it
-  unprompted.
+- **`.claude/settings.json` was cleaned on 2026-09-21** — the `bn prime --mcp`
+  SessionStart hook and the `push-beads-store.sh` Stop hook are both removed
+  and its `hooks` object is empty. `scripts/push-beads-store.sh` is retained
+  as a manual-only way to republish the preserved store ref; nothing runs it
+  automatically.
 
 ## README / Markdown format (mandatory)
 
