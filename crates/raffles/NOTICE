@@ -120,17 +120,17 @@ verbatim and edit the fields — is in this crate's `CLAUDE.md`.
 
 No RAVEN source has been ported into this crate yet. The RAVEN-facing modules
 are still module boundaries, licensing and provenance only. Other parts of the
-crate are implemented; see the two upstreams recorded below.
+crate are implemented; see the three upstreams recorded below.
 
 
 OTHER UPSTREAMS — GPL-3.0, NOT COVERED BY THE APACHE-2.0 GRANT ABOVE
 ====================================================================
 
-RAFFLES has taken in work from two upstreams besides RAVEN. Both are GPL-3.0,
-the same licence as this crate, so neither carries the one-way restriction the
-Apache-2.0 grant above does. The Apache-2.0 licence text in
-LICENSE-APACHE-RAVEN does NOT apply to either — check which upstream a file
-comes from before writing its attribution header.
+RAFFLES has taken in work from three upstreams besides RAVEN. All three are
+GPL-3.0, the same licence as this crate, so none carries the one-way
+restriction the Apache-2.0 grant above does. The Apache-2.0 licence text in
+LICENSE-APACHE-RAVEN does NOT apply to any of them — check which upstream a
+file comes from before writing its attribution header.
 
 1. Physics-guided-MPNN
    ------------------------------------------------------------------------
@@ -176,6 +176,41 @@ comes from before writing its attribution header.
    repositories. Do not add one retroactively — an attribution header is a
    statement about where a file came from, not a courtesy.
 
+3. SCRAM
+   ------------------------------------------------------------------------
+   Project:          SCRAM (a probabilistic risk analysis tool)
+   Author:           Olzhas Rakhimov
+   Upstream repo:    https://github.com/rakhimov/scram
+   Licence:          GPL-3.0-or-later (LICENSE file present in the repository)
+   Copyright:        Copyright (C) 2014-2018 Olzhas Rakhimov
+   Commit ported
+   from:             b85b78940de38996eeffec54d946824bd4280a1c (2019-07-03)
+   Version reported: SCRAM 0.16.2
+   Date accessed:    2026-09-21
+
+   Ported into:      src/scram/probability.rs, src/scram/importance.rs
+   Both carry their own per-file attribution headers naming the upstream
+   file. src/scram/mod.rs is the module doc and re-export surface and carries
+   the same header.
+
+   WHAT WAS PORTED is the fault-tree QUANTIFICATION layer only: the rare-event
+   and MCUB approximations, the per-cut-set product, and the five derived
+   importance factors of `ImportanceAnalyzerBase::Analyze`. Cut-set GENERATION
+   — MOCUS, BDD, ZBDD, the preprocessor and the Boolean graph — is the bulk of
+   SCRAM and is NOT ported, so this cannot analyse a fault tree end-to-end.
+   Neither is XML input handling, event trees, alignments, CCF groups,
+   substitutions, or the expression library.
+
+   TWO FUNCTIONS ARE NOT PORTS and say so in their headers: the exact
+   top-event probability is computed by inclusion-exclusion where upstream
+   uses a BDD, and the Birnbaum factor from its definition where upstream
+   differentiates the BDD. They are verified AGAINST upstream rather than
+   translated from it.
+
+   VERIFICATION: upstream was built from source and run; the oracle is in
+   reference-data/scram/ with its own README, and the full record is in
+   docs/scram-port-verification.md.
+
 
 INDEPENDENCE / TRADEMARK
 ========================
@@ -185,6 +220,10 @@ release of RAVEN, and is not endorsed by or affiliated with RAVEN, Idaho
 National Laboratory, Battelle Energy Alliance, LLC, or the U.S. Department of
 Energy. "RAVEN" is used only to identify the upstream work being ported. See
 the workspace `TRADEMARKS.md`.
+
+The same holds for the other upstreams: RAFFLES is not SCRAM, is not a release
+of SCRAM, and is not endorsed by or affiliated with SCRAM or Olzhas Rakhimov.
+"SCRAM" is used only to identify the upstream work being ported.
 
 
 INTENDED USE

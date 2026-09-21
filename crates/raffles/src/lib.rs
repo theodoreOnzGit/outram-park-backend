@@ -136,6 +136,7 @@ pub mod gnn;
 pub mod imprecise;
 pub mod model_selection;
 pub mod samplers;
+pub mod scram;
 pub mod sensitivity;
 pub mod surrogate;
 

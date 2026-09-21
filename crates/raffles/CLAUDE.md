@@ -12,10 +12,11 @@ Apache-2.0).
 
 **Current state: implemented in part, with no human V&V.** Distributions,
 samplers, sensitivity, Bayesian model updating, distances, ABC, imprecise
-probability, model selection, GNNs and surrogates all carry working, tested
-code. All of it is AI-assisted draft material until the maintainer and the
-crate owner have reviewed it, so do not describe any part of it as validated,
-and read "verified" as "checked against a reference by an automated test".
+probability, model selection, fault-tree quantification, GNNs and surrogates
+all carry working, tested code. All of it is AI-assisted draft material until
+the maintainer and the crate owner have reviewed it, so do not describe any
+part of it as validated, and read "verified" as "checked against a reference by
+an automated test".
 
 ---
 
@@ -81,6 +82,29 @@ This restricts the direction of *code* flow only. Reading RAVEN's papers,
 theory manual and documentation and implementing the published algorithms is
 unaffected — and where the algorithm is published, an independent
 implementation from the paper is usually the better route anyway.
+
+### SCRAM is a second upstream, and it is NOT Apache-2.0
+
+`src/scram/` is ported from **[SCRAM](https://github.com/rakhimov/scram)**
+(Olzhas Rakhimov), commit `b85b78940de38996eeffec54d946824bd4280a1c`,
+accessed 2026-09-21. SCRAM is **GPL-3.0-or-later** — the same licence family
+as this crate — so it carries **none** of the one-way constraint the RAVEN
+grant does, and the Apache-2.0 header template below is **wrong** for those
+files. Use the GPL header the existing `src/scram/` files carry.
+
+What is ported is the **quantification layer only**: the rare-event and MCUB
+approximations, the per-cut-set product, and the five derived importance
+factors. Cut-set *generation* (MOCUS, BDD, ZBDD, the preprocessor, the Boolean
+graph) is the bulk of SCRAM and is absent, so `scram` cannot analyse a fault
+tree end-to-end — the caller supplies the cut sets. Two functions are
+deliberately **not** ports and say so in their headers: the exact top-event
+probability (inclusion-exclusion where upstream uses a BDD) and the Birnbaum
+factor (its definition where upstream differentiates the BDD). They are
+verified *against* upstream rather than translated from it.
+
+Verification record: [`docs/scram-port-verification.md`](docs/scram-port-verification.md),
+oracle in `reference-data/scram/`. Upstream was **built and run** — nothing in
+that fixture was reasoned out from reading SCRAM's source.
 
 ### Third-party BSD code inside RAVEN
 
@@ -252,6 +276,7 @@ The reference for each family:
 | Sobol indices | The **Ishigami function** — closed-form first-order and total indices at the conventional parameters. Plus an additive linear model (first-order indices sum to 1 and equal the total indices) and the Sobol g-function for a strongly interacting case |
 | Correlation measures | A construction with a known correlation matrix; and a monotone non-linear transform of it, where Spearman is preserved and Pearson is not |
 | Surrogate | Exact reproduction of a polynomial at the matching expansion order; a published test problem with reported error metrics |
+| Fault-tree quantification | Upstream **SCRAM built from source and run** on upstream's own input models — totals in all three modes and all five importance factors for every basic event. Fixture in `reference-data/scram/` |
 
 **Document methodology AND results.** Per the workspace V&V rule, a test whose
 docs say only what it does is incomplete. State the reference, the inputs,
@@ -398,7 +423,16 @@ cargo check --release -p raffles --lib         --features burn --target wasm32-u
 ## Scope boundaries (do not widen without the owner's say-so)
 
 **In scope:** probability distributions, sampling strategies, sensitivity
-measures, surrogate models — the statistical core.
+measures, surrogate models — the statistical core. Plus, since 2026-09-21,
+fault-tree quantification in `src/scram/` (see below).
+
+**`src/scram/` was added at the workspace maintainer's direction, not the crate
+owner's.** It is a port of SCRAM's quantification layer and it widens this
+crate past the RAVEN-derived statistical core it was scoped to. That is a
+direction call, and by the ownership rule above it is **Adolphus Lye's to
+confirm or reverse** — it is recorded here so it is visible to them rather than
+absorbed silently. Do not build further on it, or extend it toward cut-set
+generation, without checking with them first.
 
 **Out of scope:** physics of any kind; simulation drivers, job scheduling and
 run-directory management; input-file / XML parsing; databases; plotting and
