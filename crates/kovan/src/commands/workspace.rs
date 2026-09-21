@@ -317,7 +317,27 @@ mod tests {
 
         let (dir, how) = resolved.unwrap();
         assert_eq!(dir.file_name().unwrap(), "agent-docs");
-        assert!(dir.starts_with(&root), "got {}", dir.display());
+
+        // Compare CANONICAL paths, not the raw tempdir path.
+        //
+        // `output_dir` resolves through `current_dir()`, and macOS returns that
+        // canonicalised: `/var/folders/...` comes back as `/private/var/folders/...`
+        // because `/var` is a symlink to `/private/var`. `root` is the raw
+        // `tempfile` path, so `starts_with` compared a canonical path against a
+        // non-canonical one and failed on macOS alone -- the whole macOS CI job,
+        // on every run, for a reason that has nothing to do with this code.
+        //
+        // Canonicalise `root` rather than `dir`: `dir` need not exist yet (it is
+        // an output directory this function only resolves, never creates), and
+        // `canonicalize` errors on a missing path. Falling back to `root` keeps
+        // the assertion meaningful on any platform where canonicalisation fails.
+        let root_canonical = std::fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
+        assert!(
+            dir.starts_with(&root_canonical),
+            "got {}, expected it under {}",
+            dir.display(),
+            root_canonical.display()
+        );
         assert!(how.contains("workspace"));
     }
 

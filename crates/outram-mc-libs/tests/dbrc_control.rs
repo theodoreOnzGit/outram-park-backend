@@ -57,10 +57,31 @@ fn u238() -> Option<Nuclide> {
 /// report zero and read as "resonance elastic scattering does not matter".
 #[test]
 fn the_dbrc_table_carries_real_resonance_structure() {
-    let Some(plain) = u238() else { return };
+    let Some(built) = u238() else { return };
+
+    // DBRC IS ON BY DEFAULT, and the control arm must therefore be EXPLICIT.
+    //
+    // ~~"DBRC is on by default; it must be opt-in"~~ **CORRECTED 2026-09-21.**
+    // `f8dbb49512` ("correct physics is the DEFAULT, not an opt-in") made
+    // `from_endf_file` attach DBRC itself, and this assertion -- the guard on
+    // the old policy -- was left asserting the opposite. It failed on every CI
+    // run from that commit onward.
+    //
+    // The complaint underneath it was still right, so it is kept rather than
+    // deleted: if DBRC rides in by default, then a study's "without" arm is
+    // only what it claims when it says so. Both directions are now asserted,
+    // which is strictly more than the original did -- it only ever checked that
+    // the default was off, and would not have noticed `without_dbrc` failing to
+    // remove anything.
+    assert!(
+        built.has_dbrc(),
+        "from_endf_file no longer attaches DBRC. If that is deliberate, this file's premise \
+         has changed and the whole control needs rewriting -- see `f8dbb49512`."
+    );
+    let plain = built.clone().without_dbrc();
     assert!(
         !plain.has_dbrc(),
-        "DBRC is on by default; it must be opt-in, or the 'without' arm of every study is not \
+        "without_dbrc left a table attached, so the 'without' arm of every DBRC study is not \
          what it claims and every pre-DBRC result silently changed."
     );
 
