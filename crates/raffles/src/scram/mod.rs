@@ -52,6 +52,12 @@
 //! 3. [`top_event_probability`] — quantify.
 //! 4. [`importance_factors`] — rank the basic events.
 //!
+//! **If all you want is the probability, skip to [`bdd::Bdd`].** It evaluates
+//! the tree's Boolean function directly, so it needs no cut sets, has no
+//! `2^n` ceiling, and on a non-coherent tree gives the *true* value where cut
+//! sets can only bound it. Cut sets remain the answer to "how does it fail",
+//! which no single probability can give.
+//!
 //! Steps 3 and 4 are **ports** of SCRAM and carry its attribution headers.
 //! Step 2 is **not**: SCRAM generates cut sets with a ZBDD over a
 //! heavily-preprocessed Boolean graph, which is the larger part of the
@@ -72,7 +78,7 @@
 //! **What is still absent:** everything SCRAM does around this core — XML
 //! input models, event trees, alignments, common-cause-failure groups,
 //! substitutions and the expression library — plus, in the analysis itself,
-//! the BDD and ZBDD algorithms, the preprocessor, and prime implicants
+//! the ZBDD algorithm, the preprocessor, and prime implicants
 //! (upstream's `--prime-implicants`, which is what recovers the exact function
 //! a non-coherent tree describes).
 //!
@@ -98,11 +104,13 @@
 //! commit, the one build patch that was needed, and the measured agreement are
 //! recorded in `crates/raffles/docs/scram-port-verification.md`.
 
+pub mod bdd;
 pub mod fault_tree;
 pub mod importance;
 pub mod mocus;
 pub mod probability;
 
+pub use bdd::Bdd;
 pub use fault_tree::{Arg, Connective, FaultTree, FaultTreeBuilder, FaultTreeModel, Gate};
 pub use importance::{importance_factors, ImportanceFactors};
 pub use mocus::minimal_cut_sets;

@@ -22,7 +22,9 @@ which basic events matter. Three of its four modules are ports of
 | `scram::probability::cut_set_probability` | `CutSetProbabilityCalculator::Calculate` | yes |
 | `scram::probability::top_event_probability` (`RareEvent`) | `RareEventCalculator::Calculate` | yes |
 | `scram::probability::top_event_probability` (`Mcub`) | `McubCalculator::Calculate` | yes |
-| `scram::probability::top_event_probability` (`Exact`) | — | **no** — inclusion-exclusion where upstream traverses a BDD |
+| `scram::probability::top_event_probability` (`Exact`) | — | **no** — inclusion-exclusion, a second route to what the BDD gives |
+| `scram::bdd::Bdd::probability` | `ProbabilityAnalyzer<Bdd>::CalculateProbability` | yes |
+| `scram::bdd` (the diagram itself) | — | **no** — Bryant's algorithm from the tree, where upstream builds from a preprocessed `Pdag` |
 | `scram::importance::importance_factors` (the five derived factors) | `ImportanceAnalyzerBase::Analyze` | yes |
 | `scram::importance::importance_factors` (the Birnbaum factor) | — | **no** — the definition `P(top\|e) - P(top\|not e)` where upstream differentiates the BDD |
 | `scram::fault_tree::Connective` | `src/pdag.h` `enum Connective` | taxonomy only |
@@ -45,7 +47,7 @@ much less.
 
 **Still absent.** XML input handling (explicitly out of RAFFLES' scope), event
 trees, alignments, CCF groups, substitutions, house events, the `expression`
-library, the BDD and ZBDD algorithms, the preprocessor, and prime implicants
+library, the ZBDD algorithm, the preprocessor, and prime implicants
 (upstream's `--prime-implicants`).
 
 ~~and complement elimination (so non-coherent trees are **refused**, not
@@ -171,6 +173,9 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | **Non-coherent** cut sets vs SCRAM's | `scram_noncoherent::generated_cut_sets_of_a_non_coherent_tree_match_scram` | exact set equality |
 | **Non-coherent** conservatism, measured | `scram_noncoherent::our_exact_value_exceeds_scrams_because_cut_sets_are_conservative` | **+23.6 %**, and necessarily above |
 | Quantification at scale | `scram_noncoherent::quantifying_4259_cut_sets_matches_scram` | **4,259 cut sets, 108 basic events** |
+| **Exact probability, no cut-set ceiling** | `scram_bdd_oracle::exact_probability_matches_scrams_bdd_on_every_model` | **10 of 10 models**, up to 386,261 nodes |
+| BDD against inclusion-exclusion | `scram_bdd_oracle::the_bdd_and_inclusion_exclusion_agree_where_both_can_run` | 7 models, to **1e-12** |
+| BDD gets what cut sets cannot | `scram_bdd_oracle::the_bdd_gets_the_non_coherent_answer_that_cut_sets_cannot` | `0.5032` exactly |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -348,6 +353,72 @@ rest of the SCRAM suite — and run with `-- --ignored`.
 here reaches: rare-event `0.004783225` against SCRAM's `0.004783220`, MCUB
 `0.004772037` against `0.004772040`.
 
+### Exact probability by BDD — 10 of 10 models, no ceiling
+
+Every other exact-probability result in this document goes through
+inclusion-exclusion over minimal cut sets, which is `2^n` in their number and
+refuses past 20. That left the strongest quantification claim resting on models
+of at most 12 cut sets, and left the two largest models unchecked exactly at
+all. `scram::bdd` removes the ceiling: it evaluates the Boolean function
+directly and needs no cut sets.
+
+| model | | RAFFLES | SCRAM | nodes | products |
+|---|---|---|---|---|---|
+| TwoTrain/two_train | coherent | 0.722500000 | 0.722500000 | 8 | 4 |
+| Theatre/theatre | coherent | 0.002070000 | 0.002070000 | 5 | 2 |
+| SmallTree/SmallTree | coherent | 0.026776840 | 0.026776800 | 8 | 2 |
+| BSCU/BSCU | coherent | 0.112408535 | 0.112409000 | 34 | 10 |
+| Lift/lift | coherent | 0.000012000 | 0.000012000 | 62 | 12 |
+| HIPPS/HIPPS | coherent | 0.001620905 | 0.001620910 | 41 | 9 |
+| ne574/ne574 | coherent | 0.662208000 | 0.662208000 | 18 | 7 |
+| **Aralia/chinese** | coherent | **0.001170582** | **0.001170580** | 259 | **392** |
+| noncoherent_small | **non-coherent** | 0.503200000 | 0.503200000 | 10 | 3 |
+| **Aralia/das9601** | **non-coherent** | **0.004234403** | **0.004234400** | **386,261** | **4,259** |
+
+`das9601` is the result to read first: 288 gates, 14 `not`, 12 `xor`, a model
+whose cut sets `scram::mocus` cannot reach at any order limit, now exact to
+upstream's reported precision. The whole file runs in **0.3 s**.
+
+**Both sides are BDDs, so is this a cross-check?** The representation agrees by
+construction; nothing else does. SCRAM builds its diagram from a `Pdag` a
+2,411-line preprocessor has rewritten, with modules, complement edges and its
+own variable ordering; this builds a plain Bryant diagram straight from the
+tree, with explicit terminals and a first-appearance order. Only the
+probability recurrence is a port. Two further checks pin it down:
+
+- **Against a genuinely unrelated algorithm.** On the seven coherent models
+  within the cut-set limit, the BDD and inclusion-exclusion over
+  independently-generated cut sets agree to **1e-12** — tighter than the `5e-6`
+  used against SCRAM, because there no report precision intervenes.
+- **Against closed forms.** Independent AND, OR, XOR, 2-of-3, De Morgan for
+  NAND and NOR, and the two tautologies `A OR NOT A` and `A AND NOT A`, which
+  must reduce to *terminals* rather than merely evaluate to 1 and 0.
+
+#### It also gets the non-coherent answer, which cut sets cannot
+
+On `noncoherent_small` the BDD gives `0.503200` — SCRAM's value exactly — where
+cut-set quantification gives `0.622000`. The gap is not an error in either:
+minimal cut sets of a non-coherent tree are conservative by definition. The
+test asserts the BDD matches SCRAM **and** that the cut-set figure lies strictly
+above it, so the `+23.6 %` is pinned from both sides.
+
+#### A harness defect this found, worth recording
+
+The first run gave `0.487` against SCRAM's `0.5032` on that model. The BDD was
+right; the *test* was wrong. SCRAM's report prices only basic events that
+survive into some product, and `b` survives into none — the cut-set tests
+substitute an arbitrary sentinel for such an event and assert no arithmetic
+reaches it. **A BDD evaluates the whole function**, so an event outside every
+cut set still moves the answer, and `0.487` is precisely the value for
+`p(b) = 0.5`.
+
+The fix is that `extract_models.sh` now also emits `PARAM` records — the
+probability the *model declares*, for events given a direct `<float>`. That is
+part of the question, not an answer, and where the report also has a value the
+two are asserted to agree. An expression-defined event outside every product
+has no value from either source, and the model is skipped rather than guessed
+at.
+
 ### One deliberate divergence: RRW at the singularity
 
 `Theatre/theatre`, `Mains_Fail`: MIF, CIF, DIF and RAW all match SCRAM
@@ -433,10 +504,9 @@ third-party project was not part of this task.
 - **Only 438 of those 450 cut sets were generated here.** `ThreeMotor`'s 12
   are checked against the quantification layer only, because the structure
   parser refuses the model (house events, four candidate top gates).
-- **The exact top-event probability is checked only on small models.** Seven
-  of the nine; `Aralia/chinese` and `ThreeMotor` are rare-event and MCUB only.
-  So the BDD-vs-inclusion-exclusion agreement — the single strongest
-  quantification result here — rests on models of at most 12 cut sets.
+- **`Approximation::Exact` is still capped at 20 cut sets**, and that is
+  inherent — it is `2^n`. It is no longer the only exact route, so the cap is
+  a property of that function rather than of the crate.
 - **Non-coherent results are conservative, by definition.** Their minimal cut
   sets bound the top-event probability from above; only prime implicants
   (not ported) recover the exact function. Verified on one small written-here
@@ -444,8 +514,14 @@ third-party project was not part of this task.
   only.
 - **`scram::mocus` does not scale to a real PRA model.** It is the classical
   top-down expansion and is exponential; `Aralia/das9601` (288 gates, 12
-  `xor`) exhausts its 5,000,000-state ceiling at every order limit tried.
-  Anything of that size needs the BDD/ZBDD path, which is not ported.
+  `xor`) exhausts its 5,000,000-state ceiling at every order limit tried. Its
+  *probability* is no longer blocked by that — `scram::bdd` answers it exactly
+  — but its **cut sets** are, and getting those at scale needs the ZBDD, which
+  is not ported.
+- **The BDD's variable ordering is not optimised.** First appearance in a
+  depth-first walk, where upstream spends a preprocessor on the problem.
+  `das9601` needs 386,261 nodes under it; a model that blew up would need that
+  work, and `Bdd::node_count` is how it would show.
 - **Order truncation is checked to order 6 and no further.** `Aralia/chinese`
   gives limits 1-5 that each cut inside the distribution of cut-set orders,
   which is where an over-eager prune would show; the other eight models bottom
@@ -479,6 +555,7 @@ reference-data/scram/extract_models.sh $MODELS \
     > reference-data/scram/models.txt
 
 # Check the port against them.
+cargo test -p raffles --release --test scram_bdd_oracle -- --nocapture
 cargo test -p raffles --release --test scram_mocus_oracle -- --nocapture
 cargo test -p raffles --release --test scram_oracle_suite -- --nocapture
 cargo test -p raffles --release --test scram_cross_code -- --nocapture

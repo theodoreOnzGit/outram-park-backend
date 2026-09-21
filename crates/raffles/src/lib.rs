@@ -22,8 +22,9 @@
 //! Two carry less than their names suggest and say so in their own docs:
 //! [`surrogate`] has polynomial regression and a `burn`-backed neural
 //! regressor but no Gaussian process and no polynomial chaos, and [`scram`]
-//! generates cut sets by the classical MOCUS expansion rather than the BDD
-//! methods that make a full-size PRA model tractable.
+//! generates cut sets by the classical MOCUS expansion rather than the ZBDD
+//! method that makes a full-size PRA model's cut sets tractable — its
+//! *probability* is another matter, and has no such limit.
 //!
 //! **None of it has been through human V&V.** Everything here is AI-assisted
 //! draft material under the workspace `RESPONSIBLE_USE.md` rules until the
@@ -56,9 +57,10 @@
 //!   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
 //!   posterior sample and the evidence.
 //! - **[`scram`]** — fault trees: build one, generate its minimal cut sets,
-//!   quantify the top-event probability, and rank the basic events by the
-//!   five standard importance measures. Coherent and non-coherent, though a
-//!   non-coherent tree's cut sets are conservative by definition.
+//!   quantify the top-event probability by cut sets or by a binary decision
+//!   diagram, and rank the basic events by the five standard importance
+//!   measures. Coherent and non-coherent, though a non-coherent tree's cut
+//!   sets are conservative where its BDD is exact.
 //! - **[`gnn`]** — graph neural networks for physics: message-passing
 //!   topology, the physics-guided bound on message-passing iterations, and
 //!   (behind the `burn` feature) the network itself.

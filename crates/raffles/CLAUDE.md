@@ -111,8 +111,15 @@ that they are *independent* of upstream: two unrelated algorithms agreeing is
 evidence, a translation agreeing with its original is much weaker. That is the
 same rule the paper-derived Bayesian modules follow.
 
-Absent: BDD, ZBDD, the preprocessor, prime implicants, XML input, event trees,
+Absent: ZBDD, the preprocessor, prime implicants, XML input, event trees,
 alignments, CCF groups, house events.
+
+~~BDD~~ **CORRECTED 2026-09-21** — `src/scram/bdd.rs` landed the same day: a
+Bryant-style diagram built straight from the tree, with upstream's probability
+recurrence ported verbatim. It removed the largest limitation the port had —
+exact probability no longer needs cut sets, so it is no longer capped at 20 of
+them. Verified against SCRAM's own BDD on 10 models, including `Aralia/das9601`
+(288 gates, non-coherent, 386,261 nodes) which `mocus` cannot touch.
 
 ~~complement elimination (so **non-coherent trees are refused, not
 approximated**)~~ **CORRECTED 2026-09-21** — complement elimination landed the

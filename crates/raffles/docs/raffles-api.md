@@ -30,8 +30,9 @@ comments of the tests themselves.
 Two carry less than their names suggest and say so in their own docs:
 [`surrogate`] has polynomial regression and a `burn`-backed neural
 regressor but no Gaussian process and no polynomial chaos, and [`scram`]
-generates cut sets by the classical MOCUS expansion rather than the BDD
-methods that make a full-size PRA model tractable.
+generates cut sets by the classical MOCUS expansion rather than the ZBDD
+method that makes a full-size PRA model's cut sets tractable — its
+*probability* is another matter, and has no such limit.
 
 **None of it has been through human V&V.** Everything here is AI-assisted
 draft material under the workspace `RESPONSIBLE_USE.md` rules until the
@@ -64,9 +65,10 @@ reasoning about the spread of their answers:
   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
   posterior sample and the evidence.
 - **[`scram`]** — fault trees: build one, generate its minimal cut sets,
-  quantify the top-event probability, and rank the basic events by the
-  five standard importance measures. Coherent and non-coherent, though a
-  non-coherent tree's cut sets are conservative by definition.
+  quantify the top-event probability by cut sets or by a binary decision
+  diagram, and rank the basic events by the five standard importance
+  measures. Coherent and non-coherent, though a non-coherent tree's cut
+  sets are conservative where its BDD is exact.
 - **[`gnn`]** — graph neural networks for physics: message-passing
   topology, the physics-guided bound on message-passing iterations, and
   (behind the `burn` feature) the network itself.
@@ -9476,6 +9478,12 @@ likely, and which events drive it — follow from them.
 3. [`top_event_probability`] — quantify.
 4. [`importance_factors`] — rank the basic events.
 
+**If all you want is the probability, skip to [`bdd::Bdd`].** It evaluates
+the tree's Boolean function directly, so it needs no cut sets, has no
+`2^n` ceiling, and on a non-coherent tree gives the *true* value where cut
+sets can only bound it. Cut sets remain the answer to "how does it fail",
+which no single probability can give.
+
 Steps 3 and 4 are **ports** of SCRAM and carry its attribution headers.
 Step 2 is **not**: SCRAM generates cut sets with a ZBDD over a
 heavily-preprocessed Boolean graph, which is the larger part of the
@@ -9496,7 +9504,7 @@ of this implementation — see [`mocus`].
 **What is still absent:** everything SCRAM does around this core — XML
 input models, event trees, alignments, common-cause-failure groups,
 substitutions and the expression library — plus, in the analysis itself,
-the BDD and ZBDD algorithms, the preprocessor, and prime implicants
+the ZBDD algorithm, the preprocessor, and prime implicants
 (upstream's `--prime-implicants`, which is what recovers the exact function
 a non-coherent tree describes).
 
@@ -9527,6 +9535,413 @@ pub mod scram { /* ... */ }
 ```
 
 ### Modules
+
+## Module `bdd`
+
+Binary decision diagrams — the **exact** top-event probability, at any
+scale.
+
+[`super::probability::Approximation::Exact`] computes the same quantity by
+inclusion-exclusion over the minimal cut sets, which is `2^n` in their
+number and refuses past
+[`super::probability::EXACT_CUT_SET_LIMIT`]. This module has no such limit:
+it evaluates the fault tree's Boolean function directly, so it scales to
+models where enumerating cut sets is hopeless, and it needs no cut sets at
+all.
+
+**For a non-coherent tree the two are not even the same number.** Minimal
+cut sets are conservative — deleting the complemented literals discards the
+requirement that a component be *working* — so quantifying them gives an
+upper bound. The BDD evaluates the real function. On the fixture's small
+non-coherent model that is `0.5032` here against `0.6220` from the cut
+sets, and `0.5032` is the right answer.
+
+# Variable ordering
+
+A BDD's *size* depends heavily on the order its variables are tested in;
+its *value* does not. This module orders variables by first appearance in a
+depth-first walk from the top gate, which keeps related events adjacent and
+is what makes the fixture's largest model tractable. Finding a good order
+in general is NP-hard, and upstream spends its preprocessor on the problem;
+nothing here does. A tree that blows up under this order would need that
+work, and [`Bdd::node_count`] is how you would see it happening.
+
+# Example
+
+```
+use raffles::scram::fault_tree::{Connective, FaultTreeBuilder};
+use raffles::scram::bdd::Bdd;
+
+let mut b = FaultTreeBuilder::new();
+b.basic_event("ValveOne", 0.5).unwrap();
+b.basic_event("PumpOne", 0.7).unwrap();
+b.basic_event("ValveTwo", 0.5).unwrap();
+b.basic_event("PumpTwo", 0.7).unwrap();
+b.gate("TrainOne", Connective::Or, &["ValveOne", "PumpOne"]).unwrap();
+b.gate("TrainTwo", Connective::Or, &["ValveTwo", "PumpTwo"]).unwrap();
+b.gate("TopEvent", Connective::And, &["TrainOne", "TrainTwo"]).unwrap();
+let model = b.build("TopEvent").unwrap();
+
+let bdd = Bdd::build(model.tree()).unwrap();
+let p = bdd.probability(model.probabilities()).unwrap();
+assert!((p - 0.7225).abs() < 1e-12);
+```
+
+```rust
+pub mod bdd { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `NodeId`
+
+A node in the diagram: `0` is the constant **false**, `1` the constant
+**true**, and anything above indexes [`Bdd::nodes`].
+
+```rust
+pub type NodeId = usize;
+```
+
+#### Struct `Ite`
+
+One if-then-else node: test `variable`, follow `high` when it occurs and
+`low` when it does not.
+
+```rust
+pub struct Ite {
+    pub order: usize,
+    pub high: NodeId,
+    pub low: NodeId,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `order` | `usize` | Position of the tested variable in the diagram's own ordering, **not**<br>a basic-event index. [`Bdd::basic_event`] converts. |
+| `high` | `NodeId` | Followed when the variable occurs. |
+| `low` | `NodeId` | Followed when it does not. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Hash**
+  - ```rust
+    fn hash<__H: $crate::hash::Hasher>(self: &Self, state: &mut __H) { /* ... */ }
+    ```
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `Bdd`
+
+A reduced, ordered binary decision diagram of a fault tree's Boolean
+function.
+
+```rust
+pub struct Bdd {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn build(tree: &FaultTree) -> Result<Self> { /* ... */ }
+  ```
+  Builds the diagram of a fault tree's Boolean function.
+
+- ```rust
+  pub fn node_count(self: &Self) -> usize { /* ... */ }
+  ```
+  How many if-then-else nodes the diagram holds.
+
+- ```rust
+  pub fn root(self: &Self) -> NodeId { /* ... */ }
+  ```
+  The root node.
+
+- ```rust
+  pub fn is_never(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the function is the constant false — a tree that cannot fail.
+
+- ```rust
+  pub fn is_always(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether the function is the constant true — a tree that always fails.
+
+- ```rust
+  pub fn basic_event(self: &Self, order: usize) -> usize { /* ... */ }
+  ```
+  The basic event tested at ordering position `order`.
+
+- ```rust
+  pub fn probability(self: &Self, event_probabilities: &[f64]) -> Result<f64> { /* ... */ }
+  ```
+  Exact probability that the top event occurs.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `ZERO`
+
+The constant-false terminal.
+
+```rust
+pub const ZERO: NodeId = 0;
+```
+
+#### Constant `ONE`
+
+The constant-true terminal.
+
+```rust
+pub const ONE: NodeId = 1;
+```
+
+#### Constant `NODE_LIMIT`
+
+Ceiling on how many distinct nodes may be created.
+
+A BDD is exponential in the worst case, and on a bad variable order an
+ordinary-looking model reaches that worst case. Hitting this returns an
+error naming the limit rather than exhausting memory, for the same reason
+[`super::mocus::EXPANSION_LIMIT`] exists: a diagnosable failure beats a
+disappearing process.
+
+```rust
+pub const NODE_LIMIT: usize = 20_000_000;
+```
 
 ## Module `fault_tree`
 
@@ -11123,8 +11538,13 @@ for small trees and for checking the approximations, not for a full
 plant model. [`top_event_probability`] refuses more than
 [`EXACT_CUT_SET_LIMIT`] cut sets rather than hanging.
 
-Upstream computes the exact value by BDD traversal instead, which
-scales far better; that is not ported.
+**Prefer [`super::bdd::Bdd::probability`] for anything larger.** It
+computes the same quantity from the tree directly, with no cut-set
+ceiling — and on a **non-coherent** tree it computes a *different*,
+truer quantity, because minimal cut sets there are conservative. This
+variant is kept because it is an independent second route to the same
+number on a coherent tree, and the two are checked against each
+other.
 
 ###### `RareEvent`
 
@@ -11319,6 +11739,12 @@ pub const EXACT_CUT_SET_LIMIT: usize = 20;
 ```
 
 ### Re-exports
+
+#### Re-export `Bdd`
+
+```rust
+pub use bdd::Bdd;
+```
 
 #### Re-export `Arg`
 

@@ -196,8 +196,9 @@ pub fn minimal_cut_sets(tree: &FaultTree, limit_order: usize) -> Result<Vec<CutS
                         value: seen.len() as f64,
                         reason: format!(
                             "cut-set expansion exceeded {EXPANSION_LIMIT} intermediate states. \
-                             MOCUS is exponential; lower `limit_order`, or use a BDD method \
-                             (not ported from SCRAM)"
+                             MOCUS is exponential; lower `limit_order`. If you need the \
+                             top-event PROBABILITY rather than the cut sets, \
+                             `scram::bdd::Bdd` computes it without enumerating them"
                         ),
                     });
                 }

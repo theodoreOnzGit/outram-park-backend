@@ -20,8 +20,19 @@
 # Output format, one record per line:
 #   MODEL <name>
 #   GATE  <name> <connective> <min-or-dash> <g:arg|b:arg> ...
+#   PARAM <basic-event> <probability>
 #   TOP   <name>
 #   END
+#
+# PARAM is emitted ONLY for a basic event declared with a direct <float>, and
+# it is the one number this script reports. It is still part of the question,
+# not an answer: it is what the model says, not what SCRAM computed. It exists
+# because a BDD evaluates the whole Boolean function and so needs EVERY basic
+# event's probability, while SCRAM's report prices only the events that
+# survive into some product. `Lift`'s W_1 and the small non-coherent model's
+# `b` are exactly that case. An event defined by an expression (GLM,
+# periodic-test, ...) gets no PARAM, because this script does not evaluate
+# expressions -- for those the oracle's own value is the only source.
 set -u
 
 for input in "$@"; do
@@ -62,6 +73,32 @@ for input in "$@"; do
       ingate = 1; next
     }
     /<\/define-gate>/ { ingate = 0; next }
+
+    # --- basic-event probabilities, direct <float> only -------------------
+    /<define-basic-event[ >]/ {
+      bname = attr($0, "name"); inbe = 1; bekind = ""
+      # The whole declaration may sit on one line, in which case the float and
+      # the closing tag are right here and the per-line rules below never see
+      # them.
+      if ($0 ~ /<float[ ]/) { bekind = "float"; beval = attr($0, "value") }
+      if ($0 ~ /<\/define-basic-event>/) {
+        if (bekind == "float") param[bname] = beval
+        inbe = 0
+      }
+      next
+    }
+    /<\/define-basic-event>/ {
+      if (inbe && bekind == "float") param[bname] = beval
+      inbe = 0; next
+    }
+    inbe && /<label[ >]/ { next }
+    inbe && /<attributes[ >]/ { next }
+    inbe && /<attribute[ >]/ { next }
+    inbe && /<\/attributes>/ { next }
+    inbe && bekind == "" && /<float[ ]/ { bekind = "float"; beval = attr($0, "value"); next }
+    # Anything else that opens an element is an expression this script does
+    # not evaluate; the event is left without a PARAM rather than guessed at.
+    inbe && bekind == "" && /</ { bekind = "expression"; next }
 
     ingate && /<(and|or|atleast|xor|not|nand|nor|null)[ >]/ {
       if (match($0, /<(and|or|atleast|xor|not|nand|nor|null)[ >]/)) {
@@ -108,6 +145,7 @@ for input in "$@"; do
         }
         print rec
       }
+      for (bn in param) print "PARAM " bn " " param[bn]
       # The top gate is the one no other gate names as an argument.
       ntop = 0
       for (i = 1; i <= ngates; i++) if (!(order[i] in referenced)) { ntop++; top = order[i] }

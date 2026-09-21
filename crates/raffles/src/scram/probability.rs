@@ -18,9 +18,12 @@
 // probabilities. Here they are free functions over slices, selected by the
 // `Approximation` enum, per the workspace no-trait-objects rule. The `Exact`
 // variant is NOT a port of a SCRAM class — upstream computes the exact value
-// by BDD traversal, which is not ported; this is inclusion-exclusion over the
-// same cut sets, which yields the same number for independent basic events
-// and is verified against upstream's BDD result.
+// by BDD traversal; this is inclusion-exclusion over the same cut sets,
+// which yields the same number for independent basic events and is verified
+// against upstream's BDD result. A BDD *is* available in this crate --
+// `super::bdd` -- and computes the same quantity with no cut-set ceiling and
+// no cut sets at all; the two are checked against each other as well as
+// against upstream.
 // ---------------------------------------------------------------------------
 
 //! Top-event probability from minimal cut sets.
@@ -100,8 +103,13 @@ pub enum Approximation {
     /// plant model. [`top_event_probability`] refuses more than
     /// [`EXACT_CUT_SET_LIMIT`] cut sets rather than hanging.
     ///
-    /// Upstream computes the exact value by BDD traversal instead, which
-    /// scales far better; that is not ported.
+    /// **Prefer [`super::bdd::Bdd::probability`] for anything larger.** It
+    /// computes the same quantity from the tree directly, with no cut-set
+    /// ceiling — and on a **non-coherent** tree it computes a *different*,
+    /// truer quantity, because minimal cut sets there are conservative. This
+    /// variant is kept because it is an independent second route to the same
+    /// number on a coherent tree, and the two are checked against each
+    /// other.
     Exact,
     /// Rare-event approximation: the sum of the cut-set probabilities,
     /// clamped to 1.
@@ -210,8 +218,8 @@ pub fn top_event_probability(
                     value: cut_sets.len() as f64,
                     reason: format!(
                         "inclusion-exclusion is 2^n terms; {} cut sets exceeds the limit of \
-                         {EXACT_CUT_SET_LIMIT}. Use an approximation, or a BDD method \
-                         (not ported)",
+                         {EXACT_CUT_SET_LIMIT}. Use `scram::bdd::Bdd::probability`, which \
+                         has no such ceiling, or an approximation",
                         cut_sets.len()
                     ),
                 });

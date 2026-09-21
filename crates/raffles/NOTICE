@@ -215,9 +215,15 @@ file comes from before writing its attribution header.
        through Initializer/Model/Formula; this is a plain indexed structure a
        caller builds in Rust, since input parsing is out of RAFFLES' scope.
 
-   STILL ABSENT: BDD, ZBDD, the preprocessor, prime implicants (upstream's
+   STILL ABSENT: ZBDD, the preprocessor, prime implicants (upstream's
    --prime-implicants), XML input handling, event trees, alignments, CCF
    groups, substitutions, house events, and the expression library.
+
+   A BDD IS present, in src/scram/bdd.rs. Its probability recurrence is
+   ported from ProbabilityAnalyzer<Bdd>::CalculateProbability and carries the
+   attribution header; the diagram construction around it is not a port --
+   upstream builds from a preprocessed Pdag, this builds from the tree
+   directly by Bryant's standard algorithm.
 
    NON-COHERENT trees ARE handled: negated gates expand through their De
    Morgan duals, contradictory partial sets are dropped, and the complements

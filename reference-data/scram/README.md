@@ -141,9 +141,21 @@ refused and why.
 ```
 MODEL <suite>/<input basename>
 GATE  <name> <connective> <min-or-dash> <g:arg|b:arg> ...
+PARAM <basic-event> <probability>
 TOP   <name>
 END
 ```
+
+**`PARAM` is the one number this script reports, and it is still the question,
+not an answer** — it is what the model *declares*, not what SCRAM computed. It
+exists because `crates/raffles/src/scram/bdd.rs` evaluates the whole Boolean
+function and so needs every basic event's probability, while SCRAM's report
+prices only the events that survive into some product. `Lift`'s `W_1` and the
+small non-coherent model's `b` are exactly that case, and substituting a
+sentinel for them gives a wrong answer — measured, not hypothesised, in the
+first run of `scram_bdd_oracle`. Where the report also has a value the two are
+asserted to agree. An event defined by an expression (`GLM`, `periodic-test`)
+gets no `PARAM`, because this script does not evaluate expressions.
 
 A gate the parser cannot read becomes a `CANNOT-PARSE <what> <why>` record
 rather than a guess, and any model carrying one is skipped by the tests with
@@ -187,6 +199,9 @@ reference-data/scram/extract_models.sh $MODELS \
 - `crates/raffles/tests/scram_mocus_oracle.rs` — end to end: build the tree
   from `models.txt`, generate cut sets with `raffles::scram::mocus`, compare
   them against `oracle.txt`'s products, then quantify and compare the totals.
+- `crates/raffles/tests/scram_bdd_oracle.rs` — exact top-event probability by
+  binary decision diagram, on every model of both fixtures, with no cut-set
+  ceiling.
 - `crates/raffles/tests/scram_noncoherent.rs` — the non-coherent models:
   cut-set generation on the small one, the measured conservatism of cut-set
   quantification, and 4,259-product quantification on `das9601`.
