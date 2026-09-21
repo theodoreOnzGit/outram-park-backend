@@ -22,7 +22,68 @@ use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 use uom::si::torque::newton_meter;
 
-/// Which widget the studio is currently exercising.
+/// The two top-level views of the studio, chosen from the tab bar across the
+/// top of the window.
+///
+/// **Component preview** is the original gallery: one widget at a time, picked
+/// from the left-hand list. **Test reactors** holds plant-specific vessels,
+/// picked by reactor from their own left-hand list. The studio opens on
+/// component preview.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StudioMode {
+    /// One component widget at a time, from the left-hand widget list.
+    #[default]
+    ComponentPreview,
+    /// A plant-specific test reactor, from the left-hand reactor list.
+    TestReactors,
+}
+
+impl StudioMode {
+    /// Every mode, in tab order.
+    pub const ALL: &'static [Self] = &[Self::ComponentPreview, Self::TestReactors];
+
+    /// Label on the top tab bar.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ComponentPreview => "Component preview",
+            Self::TestReactors => "Preview of test reactors",
+        }
+    }
+}
+
+/// Which test reactor is on the canvas in [`StudioMode::TestReactors`].
+///
+/// An enum, like [`WidgetUnderTest`], so a second reactor is a new variant the
+/// compiler then walks every `match` to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TestReactor {
+    /// HTR-10: the simplified vessel with its three-pass helium path.
+    #[default]
+    Htr10,
+}
+
+impl TestReactor {
+    /// Every test reactor, in list order.
+    pub const ALL: &'static [Self] = &[Self::Htr10];
+
+    /// Name in the left-hand list.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Htr10 => "HTR-10",
+        }
+    }
+
+    /// One-line status under the name, in the same spirit as
+    /// [`WidgetUnderTest::status`].
+    pub fn status(self) -> &'static str {
+        match self {
+            Self::Htr10 => "simplified vessel, three-pass helium path, pebble bed",
+        }
+    }
+}
+
+/// Which widget the studio is currently exercising in
+/// [`StudioMode::ComponentPreview`].
 ///
 /// Deliberately an enum rather than a registry of trait objects — the set of
 /// widgets is closed and known at compile time, matching the workspace's
@@ -34,7 +95,6 @@ pub enum WidgetUnderTest {
     Pipes,
     PipeBend,
     Reactors,
-    TestReactors,
     SteamGenerators,
     Pumps,
     Condensers,
@@ -50,7 +110,6 @@ impl WidgetUnderTest {
         Self::Pipes,
         Self::PipeBend,
         Self::Reactors,
-        Self::TestReactors,
         Self::SteamGenerators,
         Self::Pumps,
         Self::Condensers,
@@ -66,7 +125,6 @@ impl WidgetUnderTest {
             Self::Pipes => "Pipes (3 backends)",
             Self::PipeBend => "Pipe bend",
             Self::Reactors => "Reactor vessels (6 types)",
-            Self::TestReactors => "Test reactors",
             Self::SteamGenerators => "Steam generators (3 types)",
             Self::Pumps => "Pumps (3 types)",
             Self::Condensers => "Condensers (2 arrangements)",
@@ -85,9 +143,6 @@ impl WidgetUnderTest {
             Self::PipeBend => "two helium runs, live turn angle",
             Self::Reactors => {
                 "schematic art for every scoped reactor — illustrative, not validated"
-            }
-            Self::TestReactors => {
-                "plant-specific vessels under development — HTR-10, three-pass helium path"
             }
             Self::SteamGenerators => {
                 "vertical U-tube (PWR), horizontal U-tube (VVER), helical once-through"
@@ -111,8 +166,12 @@ impl WidgetUnderTest {
 
 /// The studio app.
 pub struct WidgetStudio {
-    /// Which widget is on the canvas.
+    /// Which top-level view is showing. Opens on component preview.
+    mode: StudioMode,
+    /// Which component widget is on the canvas in component preview.
     selected: WidgetUnderTest,
+    /// Which test reactor is on the canvas in the test-reactor view.
+    test_reactor: TestReactor,
 
     // ── Turbine physics (a real model, advanced every frame) ──────────────────
     /// The generator/rotor model under test.
@@ -192,7 +251,9 @@ impl Default for WidgetStudio {
     fn default() -> Self {
         let (pipe_rows, pipe_errors) = crate::pipes::build_rows();
         Self {
+            mode: StudioMode::default(),
             selected: WidgetUnderTest::SteamTurbine,
+            test_reactor: TestReactor::default(),
             generator: ThreePhaseElectricGeneratorTurbine::new_250_megawatt_generator(),
             simulation_time: Time::new::<second>(0.0),
             // Enough torque to spin a 530,000 kg*m^2 rotor up over tens of
@@ -311,6 +372,21 @@ impl eframe::App for WidgetStudio {
             self.last_substeps = 0;
         }
 
+        // Top tab bar: which view the rest of the window shows. Added before the
+        // side panels so it spans the full width.
+        egui::Panel::top("mode_tabs").show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for m in StudioMode::ALL {
+                    ui.selectable_value(&mut self.mode, *m, RichText::new(m.label()).strong());
+                }
+            });
+        });
+
+        if self.mode == StudioMode::TestReactors {
+            self.test_reactor_view(ui);
+            return;
+        }
+
         egui::Panel::left("picker").show(ui, |ui| {
             ui.heading("Widgets");
             ui.label(
@@ -342,9 +418,6 @@ impl eframe::App for WidgetStudio {
                 WidgetUnderTest::Pipes => self.pipe_controls(ui),
                 WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
                 WidgetUnderTest::Reactors => crate::reactor_tab::controls(ui, &mut self.reactors),
-                WidgetUnderTest::TestReactors => {
-                    crate::test_reactors_tab::controls(ui, &mut self.test_reactors)
-                }
                 WidgetUnderTest::SteamGenerators => {
                     crate::steam_generator_tab::controls(
                         ui,
@@ -371,9 +444,6 @@ impl eframe::App for WidgetStudio {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
             WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),
-            WidgetUnderTest::TestReactors => {
-                crate::test_reactors_tab::draw(ui, &self.test_reactors)
-            }
             WidgetUnderTest::SteamGenerators => {
                 crate::steam_generator_tab::draw(ui, &self.steam_generators, &self.htr10_sg_tracers)
             }
@@ -401,6 +471,40 @@ impl eframe::App for WidgetStudio {
 }
 
 impl WidgetStudio {
+    /// The test-reactor view: reactor list on the left, that reactor's controls
+    /// on the right, its vessel in the middle.
+    ///
+    /// Its physics and tracers are stepped in [`eframe::App::ui`] with the rest
+    /// of the studio, so switching views never pauses or resets them.
+    fn test_reactor_view(&mut self, ui: &mut egui::Ui) {
+        egui::Panel::left("test_reactor_picker").show(ui, |ui| {
+            ui.heading("Test reactors");
+            ui.label(
+                RichText::new("Plant-specific vessels, drawn from published plant data.")
+                    .small()
+                    .weak(),
+            );
+            ui.separator();
+            for r in TestReactor::ALL {
+                ui.selectable_value(&mut self.test_reactor, *r, r.label());
+                ui.label(RichText::new(r.status()).small().weak());
+                ui.add_space(6.0);
+            }
+        });
+
+        egui::Panel::right("test_reactor_controls")
+            .min_size(320.0)
+            .show(ui, |ui| match self.test_reactor {
+                TestReactor::Htr10 => {
+                    crate::test_reactors_tab::controls(ui, &mut self.test_reactors)
+                }
+            });
+
+        egui::CentralPanel::default().show(ui, |ui| match self.test_reactor {
+            TestReactor::Htr10 => crate::test_reactors_tab::draw(ui, &self.test_reactors),
+        });
+    }
+
     /// Kelvin / Celsius toggle for the legends.
     fn legend_unit_toggle(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
