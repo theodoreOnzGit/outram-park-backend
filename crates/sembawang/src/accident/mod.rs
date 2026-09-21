@@ -15,6 +15,8 @@
 //! The temperature transient itself is **prescribed by the caller** — see the
 //! crate docs for the full list of what is not computed here.
 
+pub mod release;
 pub mod venting;
 
+pub use release::{accident_release, AccidentRelease, PlantParameters};
 pub use venting::VentingWindow;

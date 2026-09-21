@@ -102,6 +102,8 @@
 
 pub mod accident;
 pub mod error;
+pub mod inventory;
+pub mod scenario;
 pub mod units;
 
 /// The scope this crate reserves, as a machine-readable string.
