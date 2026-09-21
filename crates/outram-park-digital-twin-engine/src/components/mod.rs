@@ -48,7 +48,10 @@ pub use heat_exchanger::{
 pub use htr10_reactor_vessel::{Htr10FlowAnchors, Htr10ReactorVesselVisual};
 pub use instrumentation::InstrumentationVisual;
 pub use legend::{LegendUnit, TemperatureLegend};
-pub use pipe::{PipePhaseShade, PipeScalars, PipeScale, PipeVisual, PipeVisualState};
+pub use pipe::{
+    CoaxialDuctGeometry, CoaxialDuctVisual, PipePhaseShade, PipeScalars, PipeScale, PipeVisual,
+    PipeVisualState,
+};
 pub use pipe_component::PipeComponent;
 pub use pump::PumpVisual;
 pub use reactor_archetype::{ReactorArchetype, ReactorArchetypeVisual};

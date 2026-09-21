@@ -96,6 +96,103 @@ trigger fires for a specific model** — do not move any example physics into
 `src/` on your own initiative; the human-V&V half of the trigger cannot be
 satisfied by an AI assistant.
 
+## ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED (HARD RULE)
+
+**Maintainer direction, 2026-09-21, stated in these words: "never hardcode —
+that is a shortcut that is never to be done in this engine", in terms of
+animation.**
+
+Every animated quantity in this crate must be **computed from the physics
+state the caller supplies**. Concretely:
+
+- **Direction of travel comes from the sign of the mass flow.** Never from the
+  layout, never from a constant, never from "this is the return leg so it runs
+  the other way", and never from which end the artwork happens to start at.
+- **Speed comes from the residence time** — a mark crosses the run in exactly
+  one residence time (`1/residence_time` of the run per second). Never a fixed
+  points-per-second, never a frame counter, never a rate picked to look right.
+- **Rotation, phase, amplitude and any other motion follow the same rule** — a
+  pump impeller turns at its own shaft speed, not at a nominal rate.
+
+### Why this is a hard rule and not a preference
+
+**An animation that is hardcoded cannot be wrong on screen, so it can never
+reveal a fault.** That is the whole failure: it does not merely fail to help,
+it actively misleads. A hardcoded direction keeps animating a plant state the
+model no longer has, and it keeps doing so most confidently in exactly the
+situations the operator most needs to see — a circulator trip, a reversed
+natural-circulation leg, a stalled loop. A tracer that is still marching in a
+LOFC transient is a lie drawn on top of a correct model.
+
+The inverse is what makes this crate worth anything: when direction and speed
+are derived, **the animation is a readout**. Raise the helium flow and the
+tracers visibly speed up. Trip the circulator and they stop. Reverse the flow
+and they reverse. None of that needs any extra code — it falls out of having
+refused the shortcut once.
+
+This is not a new idea here, it is the crate's founding one, promoted to a
+hard rule because it was broken: the top of this file already says the engine
+turns physics into process objects where *"mass flow drives tracer direction,
+residence time drives tracer travel time"*.
+
+### Worked example — the coaxial duct, 2026-09-21
+
+`CoaxialDuctVisual` (`src/components/pipe.rs`) draws two streams sharing one
+duct body. The first draft hardcoded the annulus as *always* running opposite
+to `screen_vector`, reasoning that a coaxial duct is built for counter-current
+flow and the inner stream defines the axis. It even documented the assumption,
+which made it look deliberate rather than wrong.
+
+It was wrong. `screen_vector` is the duct **axis**, not a flow direction. The
+correct version takes each stream's direction from the sign of **its own**
+`PipeScalars::mass_flow`, so counter-current motion is a *consequence* of the
+state the caller passes rather than something the widget imposes. What that
+bought, immediately and for free:
+
+- a co-current duct, or one stream stalled, now draws correctly;
+- **a flow that reverses in a transient reverses its tracers** — which for the
+  HTR-10 hot gas duct is precisely the LOFC behaviour the simulator exists to
+  show.
+
+### How to comply
+
+If you are about to write a literal that decides **which way** something moves
+or **how fast**, stop — that is the defect. Ask which physical quantity the
+caller already has that determines it, and take it from there. If the caller
+does not yet expose that quantity, add it to their state (or to the widget's
+scalar interface), rather than guessing it here.
+
+A hardcoded *geometry* — where a nozzle sits, how thick a wall draws — is a
+different thing and is fine, provided it is derived from the artwork's own
+rectangle rather than eyeballed in screen coordinates. This rule is about
+**motion**.
+
+### The only two ways a hardcoded value is permitted
+
+**Deriving from state is the default. Hardcoding is the exception, and it must
+be one of these two — never a silent third.**
+
+1. **The maintainer asked for it.** If the maintainer specifies a hardcoded
+   value, hardcode it. Record in the doc comment that it was their call and
+   when, so the next reader does not "fix" it back.
+2. **You can justify it with physically correct reasoning, written down.** A
+   constant is acceptable where the physics genuinely makes it constant, or
+   where the quantity is a drawing parameter with no physical counterpart at
+   all. The justification goes in the `///` doc comment, next to the value,
+   and must say *why the physics makes it so* — not merely that it looks right.
+
+**"It looks right", "it is close enough", "the real one is usually like this",
+and "the caller does not expose it yet" are NOT justifications.** The last one
+is a task: expose the quantity.
+
+**State honestly which of the two you used**, and if a value is an indicative
+drawing choice rather than a plant dimension, say so at the point of use so it
+cannot be quoted back as data. `CoaxialDuctGeometry::htr10_hot_gas_duct` is the
+shape to follow: the 300 mm and 900 mm bores are cited plant dimensions, while
+the insulation thickness is marked as an indicative drawing fraction precisely
+because no source states it, and the duct length is deliberately absent from
+the type for the same reason.
+
 ## Module layout
 
 | Module | Contains |

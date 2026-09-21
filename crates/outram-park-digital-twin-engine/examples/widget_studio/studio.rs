@@ -152,6 +152,9 @@ pub struct WidgetStudio {
     /// The reactor-vessel gallery: shared temperatures and rod position for
     /// every scoped architecture.
     reactors: crate::reactor_tab::ReactorTab,
+    /// The coaxial-duct row of the Pipes tab. Owns its tracer trains, which
+    /// persist across frames and are advanced in `step`.
+    coax_duct: crate::pipes::CoaxialDuctDemo,
     /// The steam-generator gallery: three architectures under shared sliders.
     steam_generators: crate::steam_generator_tab::SteamGeneratorTab,
     /// The pump gallery. Owns its own simulation clock, advanced in `step`,
@@ -199,6 +202,7 @@ impl Default for WidgetStudio {
             pipe_errors,
             bend: crate::bend_tab::BendDemo::default(),
             reactors: crate::reactor_tab::ReactorTab::default(),
+            coax_duct: crate::pipes::CoaxialDuctDemo::default(),
             steam_generators: crate::steam_generator_tab::SteamGeneratorTab::default(),
             pumps: crate::pump_tab::PumpTab::default(),
             condensers: crate::condenser_tab::CondenserTab::default(),
@@ -278,6 +282,7 @@ impl eframe::App for WidgetStudio {
             // so it must hold regardless of frame rate.
             let sim_dt = Time::new::<second>(dt_real * self.sim_speed);
             self.pipe_step_errors = crate::pipes::step_rows(&mut self.pipe_rows, sim_dt);
+            self.coax_duct.step(sim_dt);
             self.pipe_step_errors.extend(self.bend.step(sim_dt));
             // Pump impellers turn on an application-owned clock, like the turbine.
             self.pumps.step(sim_dt);
@@ -364,7 +369,7 @@ impl eframe::App for WidgetStudio {
                 egui::ScrollArea::horizontal()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        crate::pipes::draw(ui, &self.pipe_rows, &self.pipe_errors)
+                        crate::pipes::draw(ui, &self.pipe_rows, &self.pipe_errors, &self.coax_duct)
                     });
             }
         });
@@ -415,6 +420,52 @@ impl WidgetStudio {
                 .text(format!("{name} [m/s]")),
             );
         }
+
+        ui.add_space(10.0);
+        ui.label(RichText::new("Coaxial duct — HTR-10 hot gas duct").strong());
+        ui.label(
+            RichText::new(
+                "Two streams, one duct. Set a flow NEGATIVE to send that stream the \
+                 other way, or to zero to stall it — direction and speed are both read \
+                 off these numbers, never hardcoded. The annulus starts negative \
+                 because the cold return really does run SG-to-reactor.",
+            )
+            .small()
+            .weak(),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.hot_mass_flow_kg_per_s, -10.0..=10.0)
+                .text("inner (hot) [kg/s]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.cold_mass_flow_kg_per_s, -10.0..=10.0)
+                .text("annulus (cold) [kg/s]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.hot_temp_k, 300.0..=1200.0)
+                .text("inner temperature [K]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.cold_temp_k, 300.0..=1200.0)
+                .text("annulus temperature [K]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.pressure_mpa, 0.1..=10.0)
+                .text("primary pressure [MPa]"),
+        );
+        ui.add(
+            egui::Slider::new(&mut self.coax_duct.assumed_length_m, 1.0..=30.0)
+                .text("duct length [m] — UNKNOWN"),
+        );
+        ui.label(
+            RichText::new(
+                "No source states the duct length, so it is a display choice. It scales \
+                 both residence times equally, so the RATIO of the two tracer speeds \
+                 stays physical whatever you set it to.",
+            )
+            .small()
+            .weak(),
+        );
 
         ui.add_space(8.0);
         ui.label(RichText::new("What drives what").strong());

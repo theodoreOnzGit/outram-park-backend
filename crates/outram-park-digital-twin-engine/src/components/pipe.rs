@@ -603,6 +603,378 @@ impl Widget for PipeVisual {
     }
 }
 
+/// Bore geometry of a **coaxial** run — a duct inside a duct, the two annular
+/// spaces carrying different streams in opposite directions.
+///
+/// All lengths are real plant dimensions. The drawn picture is a longitudinal
+/// section, so the radii below set the band proportions across the run.
+///
+/// The radial layout, axis outward:
+///
+/// ```text
+///   ┌──────────────────────────  outer tube wall
+///   │ ← ← ← annulus              (return stream)
+///   │ ▒▒▒▒▒ insulation
+///   │ ───── inner tube wall
+///   │ → → → inner bore           (supply stream)
+///   │ ───── inner tube wall
+///   │ ▒▒▒▒▒ insulation
+///   │ ← ← ← annulus
+///   └──────────────────────────  outer tube wall
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CoaxialDuctGeometry {
+    /// Inside diameter of the **inner** tube — the bore of the supply stream.
+    pub inner_bore: Length,
+    /// Inside diameter of the **outer** tube. The annulus is the space between
+    /// this and [`Self::inner_bore`].
+    pub outer_bore: Length,
+    /// Share of the **radial annulus gap** taken up by thermal insulation,
+    /// dimensionless in `[0, 1)`, measured outward from the inner tube.
+    ///
+    /// Insulation thickness is a *drawing* parameter, not a plant dimension:
+    /// see [`Self::htr10_hot_gas_duct`], where the source establishes that
+    /// insulation is present but never states how thick it is.
+    pub insulation_fraction: f32,
+}
+
+impl CoaxialDuctGeometry {
+    /// The HTR-10 hot gas duct: the horizontal coaxial duct inside the
+    /// connecting cross-vessel that ties the reactor pressure vessel to the
+    /// steam-generator pressure vessel.
+    ///
+    /// | Quantity | Value |
+    /// |---|---|
+    /// | Inner (hot helium) tube diameter | 300 mm |
+    /// | Outer (cold helium) tube diameter | 900 mm |
+    /// | Annulus radial gap | 300 mm |
+    /// | Orientation | horizontal |
+    ///
+    /// Hot helium runs core-to-SG in the centre tube; cold helium runs
+    /// circulator-to-core in the annulus, so the two streams are
+    /// counter-current. Thermal insulation is installed between the inner and
+    /// outer tubes, and the inner tube runs at high temperature but **low
+    /// pressure differential** — the cold annulus carries the pressure.
+    ///
+    /// Source: `docs/reactor-scoping/htr10-plant-data.md` section 4.1, which
+    /// records these as *Quoted* from its [S2] and cross-checked against [S5].
+    ///
+    /// **Two things that table marks as unknown, and this constructor
+    /// therefore does not invent:**
+    ///
+    /// - The duct **length** is not stated in any source that document
+    ///   reviews. This type carries no length: the caller sets the drawn run
+    ///   length through `screen_vector`, and a schematic using it should say
+    ///   that the length shown is a layout choice rather than a dimension.
+    /// - The insulation **thickness** is not stated either. The default
+    ///   [`Self::insulation_fraction`] here is an indicative 0.2 of the radial
+    ///   gap, chosen only so the layer is visible. Do not quote it as a plant
+    ///   dimension or derive a heat loss from it.
+    pub fn htr10_hot_gas_duct() -> Self {
+        Self {
+            inner_bore: Length::new::<meter>(0.300),
+            outer_bore: Length::new::<meter>(0.900),
+            insulation_fraction: 0.2,
+        }
+    }
+
+    /// Radial gap between the inner tube's outside and the outer tube's
+    /// inside: `(outer_bore - inner_bore) / 2`.
+    ///
+    /// For the HTR-10 duct this is 300 mm, matching the value the plant-data
+    /// sheet derives the same way.
+    pub fn annulus_radial_gap(&self) -> Length {
+        (self.outer_bore - self.inner_bore) * 0.5
+    }
+
+    /// Flow area of the inner bore, `pi d^2 / 4`.
+    pub fn inner_flow_area(&self) -> Area {
+        let d = self.inner_bore.get::<meter>();
+        Area::new::<square_meter>(std::f64::consts::PI * d * d * 0.25)
+    }
+
+    /// Flow area of the annulus, `pi (D^2 - d^2) / 4`.
+    ///
+    /// Ignores the insulation and the inner tube's wall thickness, neither of
+    /// which is a stated dimension, so this is the **gross** annular area
+    /// rather than a net flow area.
+    pub fn annulus_flow_area(&self) -> Area {
+        let d = self.inner_bore.get::<meter>();
+        let big = self.outer_bore.get::<meter>();
+        Area::new::<square_meter>(std::f64::consts::PI * (big * big - d * d) * 0.25)
+    }
+
+    /// Inner bore as a fraction of the outer bore, which is what sets the band
+    /// proportions in the drawing. `0.333` for the HTR-10 duct.
+    pub fn inner_radius_fraction(&self) -> f32 {
+        let outer = self.outer_bore.get::<meter>();
+        if outer <= 0.0 {
+            return 0.0;
+        }
+        (self.inner_bore.get::<meter>() / outer).clamp(0.0, 1.0) as f32
+    }
+}
+
+/// Visual representation of a **coaxial duct** run: two streams, one inside
+/// the other, drawn as a longitudinal section.
+///
+/// The counterpart of [`PipeVisual`] for the case a single-bore pipe cannot
+/// represent — a supply and a return sharing one duct body. Both streams take
+/// [`PipeScalars`], the same narrow interface [`PipeVisualState::Scalars`]
+/// uses, so a simulator whose loop physics is its own lumped model supplies
+/// that model's real state and gets correct colour and tracer motion.
+///
+/// **Direction comes from the physics, not from an assumption.**
+/// `screen_vector` is the duct **axis**, not a flow direction. Each stream's
+/// tracers travel the way its own [`PipeScalars::mass_flow`] points: positive
+/// runs along `screen_vector`, negative runs against it. So the
+/// counter-current arrangement a coaxial duct is usually built for is a
+/// *consequence* of the state the caller supplies — pass a positive inner
+/// flow and a negative annulus flow — rather than something this widget
+/// imposes. A co-current duct, or a duct with one stream stalled, draws
+/// correctly for the same reason, and **a flow that reverses in a transient
+/// reverses its tracers** instead of continuing to animate a direction the
+/// model no longer has.
+///
+/// **Scale.** Unlike [`PipeVisual`], drawn thickness is **not** derived from
+/// flow area through a [`PipeScale`]: a coaxial duct's whole readability
+/// depends on the *ratio* of its two bores, which a per-stream area scale
+/// would destroy. Thickness is set directly by
+/// [`Self::drawn_outer_thickness`], and the bands within it are in true
+/// proportion to the real bores through
+/// [`CoaxialDuctGeometry::inner_radius_fraction`]. The run **length** is the
+/// caller's `screen_vector` — see [`CoaxialDuctGeometry::htr10_hot_gas_duct`]
+/// on why no real length is carried.
+pub struct CoaxialDuctVisual {
+    /// Bore geometry, setting the band proportions.
+    pub geometry: CoaxialDuctGeometry,
+    /// On-screen anchor: the inner stream's inlet endpoint.
+    pub screen_position: Pos2,
+    /// On-screen direction and length, the inner stream's inlet to outlet.
+    pub screen_vector: Vec2,
+    /// Fluid state of the **inner** bore.
+    pub core: PipeScalars,
+    /// Fluid state of the **annulus**, flowing the opposite way.
+    pub annulus: PipeScalars,
+    /// Temperature drawn in the coldest displayable colour.
+    pub min_temp: ThermodynamicTemperature,
+    /// Temperature drawn in the hottest displayable colour.
+    pub max_temp: ThermodynamicTemperature,
+    /// Total drawn thickness of the duct across the run, in screen points —
+    /// the outer tube's outside, wall to wall.
+    pub drawn_outer_thickness: f32,
+    /// Tracer marks for the inner stream. Advanced by the application, once
+    /// per frame; see [`crate::animation`].
+    pub core_tracer: Option<TracerTrain>,
+    /// Tracer marks for the annulus stream.
+    pub annulus_tracer: Option<TracerTrain>,
+    /// Whether to draw the stream labels.
+    pub show_labels: bool,
+}
+
+impl CoaxialDuctVisual {
+    /// Build a coaxial duct run.
+    ///
+    /// `core` is the inner bore's state and `annulus` the annulus's; the
+    /// annulus is drawn flowing against `screen_vector`.
+    pub fn new(
+        geometry: CoaxialDuctGeometry,
+        screen_position: Pos2,
+        screen_vector: Vec2,
+        core: PipeScalars,
+        annulus: PipeScalars,
+        min_temp: ThermodynamicTemperature,
+        max_temp: ThermodynamicTemperature,
+    ) -> Self {
+        Self {
+            geometry,
+            screen_position,
+            screen_vector,
+            core,
+            annulus,
+            min_temp,
+            max_temp,
+            drawn_outer_thickness: 46.0,
+            core_tracer: None,
+            annulus_tracer: None,
+            show_labels: true,
+        }
+    }
+
+    /// Set the total drawn thickness, in screen points. Builder-style.
+    pub fn with_drawn_thickness(mut self, points: f32) -> Self {
+        self.drawn_outer_thickness = points.max(6.0);
+        self
+    }
+
+    /// Attach the inner-stream tracer train. Builder-style.
+    pub fn with_core_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.core_tracer = Some(tracer);
+        self
+    }
+
+    /// Attach the annulus tracer train. Builder-style.
+    pub fn with_annulus_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.annulus_tracer = Some(tracer);
+        self
+    }
+
+    /// Turn the stream labels off — for thumbnails. Builder-style.
+    pub fn without_labels(mut self) -> Self {
+        self.show_labels = false;
+        self
+    }
+}
+
+impl Widget for CoaxialDuctVisual {
+    /// Draws the duct as a longitudinal section: the annulus as the outer
+    /// body, an insulation layer inside it, and the inner bore on the axis,
+    /// each filled by its own stream's temperature through the shared
+    /// [`crate::components::temperature_colour`] map.
+    ///
+    /// Each stream's tracer marks travel **in the direction that stream is
+    /// actually flowing**: [`crate::animation::TracerTrain`] takes the
+    /// direction from the sign of the mass flow it is advanced with, so this
+    /// widget applies none of its own. In the usual counter-current duct the
+    /// two sets of marks visibly run opposite ways, and a stream that reverses
+    /// or stalls reverses or freezes on screen. Annulus marks are drawn in
+    /// both the upper and lower annular bands, since a longitudinal section
+    /// cuts the annulus twice.
+    fn ui(self, ui: &mut Ui) -> Response {
+        let direction = if self.screen_vector.length() > f32::EPSILON {
+            self.screen_vector.normalized()
+        } else {
+            Vec2::new(1.0, 0.0)
+        };
+        let normal = Vec2::new(-direction.y, direction.x);
+        let length_pts = self.screen_vector.length().max(1.0);
+        let half = 0.5 * self.drawn_outer_thickness;
+
+        let start = self.screen_position;
+        let end = start + direction * length_pts;
+        let rect = Rect::from_two_pos(start, end).expand(half.max(1.0));
+        let response = ui.allocate_rect(rect, Sense::hover());
+        let painter = ui.painter();
+
+        // A band of the section, given signed offsets from the axis.
+        let band = |a: f32, b: f32| -> Vec<Pos2> {
+            vec![
+                start + normal * a,
+                end + normal * a,
+                end + normal * b,
+                start + normal * b,
+            ]
+        };
+
+        let r_inner = self.geometry.inner_radius_fraction() * half;
+        let gap = half - r_inner;
+        let r_insulation = r_inner + gap * self.geometry.insulation_fraction.clamp(0.0, 0.95);
+
+        let cold = temperature_colour(self.annulus.temperature, self.min_temp, self.max_temp);
+        let hot = temperature_colour(self.core.temperature, self.min_temp, self.max_temp);
+
+        // Annulus: the full outer body, drawn first so the inner layers sit
+        // on top of it.
+        painter.add(egui::Shape::convex_polygon(
+            band(-half, half),
+            cold,
+            Stroke::NONE,
+        ));
+        // Insulation, hugging the inner tube on both sides.
+        for sign in [-1.0_f32, 1.0] {
+            painter.add(egui::Shape::convex_polygon(
+                band(sign * r_inner, sign * r_insulation),
+                Color32::from_gray(155),
+                Stroke::NONE,
+            ));
+        }
+        // Inner bore.
+        painter.add(egui::Shape::convex_polygon(
+            band(-r_inner, r_inner),
+            hot,
+            Stroke::NONE,
+        ));
+
+        // Tube walls: the inner tube and the outer tube, same weight and grey
+        // as a single-bore pipe's wall, because they are the same metal.
+        let wall = Color32::from_gray(110);
+        painter.add(egui::Shape::convex_polygon(
+            band(-half, half),
+            Color32::TRANSPARENT,
+            Stroke::new(PIPE_WALL_WIDTH, wall),
+        ));
+        painter.add(egui::Shape::convex_polygon(
+            band(-r_inner, r_inner),
+            Color32::TRANSPARENT,
+            Stroke::new(PIPE_WALL_WIDTH * 0.7, wall),
+        ));
+
+        // Tracer marks.
+        //
+        // Direction is NOT applied here, and deliberately so: `TracerTrain`
+        // already derives it from the sign of the mass flow it is advanced
+        // with, decrementing its phase for a reverse flow. Mirroring the
+        // position here as well would flip it a second time and animate a
+        // reversed stream *forwards* — a hardcoded direction cancelling a
+        // derived one. Each stream therefore runs whichever way the caller's
+        // own mass flow says, and the usual counter-current duct falls out of
+        // advancing the annulus train with a negative flow.
+        let mark_len = (length_pts * TRACER_LENGTH_FRACTION).max(2.0);
+        let plug = |position: f64, a: f32, b: f32| {
+            let centre = length_pts * position as f32;
+            let p0 = (centre - 0.5 * mark_len).clamp(0.0, length_pts);
+            let p1 = (centre + 0.5 * mark_len).clamp(0.0, length_pts);
+            if p1 - p0 < 0.5 {
+                return;
+            }
+            let s = start + direction * p0;
+            let e = start + direction * p1;
+            painter.add(egui::Shape::convex_polygon(
+                vec![
+                    s + normal * a,
+                    e + normal * a,
+                    e + normal * b,
+                    s + normal * b,
+                ],
+                Color32::WHITE,
+                Stroke::NONE,
+            ));
+        };
+
+        if let Some(train) = &self.core_tracer {
+            for position in train.positions() {
+                plug(position, -r_inner, r_inner);
+            }
+        }
+        if let Some(train) = &self.annulus_tracer {
+            for position in train.positions() {
+                plug(position, r_insulation, half);
+                plug(position, -half, -r_insulation);
+            }
+        }
+
+        if self.show_labels {
+            let mid = start + direction * (length_pts * 0.5);
+            painter.text(
+                mid - normal * (half + 9.0),
+                egui::Align2::CENTER_CENTER,
+                "cold annulus",
+                egui::FontId::proportional(9.0),
+                Color32::from_gray(150),
+            );
+            painter.text(
+                mid + normal * (half + 9.0),
+                egui::Align2::CENTER_CENTER,
+                "hot inner tube",
+                egui::FontId::proportional(9.0),
+                Color32::from_gray(150),
+            );
+        }
+
+        response
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -21,7 +21,10 @@
 //! data policy.
 
 use egui::{Pos2, RichText, Vec2};
-use outram_park_digital_twin_engine::components::PipeComponent;
+use outram_park_digital_twin_engine::animation::{residence_time_from_velocity, TracerTrain};
+use outram_park_digital_twin_engine::components::{
+    CoaxialDuctGeometry, CoaxialDuctVisual, PipeComponent, PipeScalars,
+};
 use tampines::components::{Pipe, PipeBackend};
 use tampines::compressible::{CompressibleFluidArray, CoolPropFluid};
 use tampines::single_phase::LiquidMaterial;
@@ -31,9 +34,12 @@ use tuas_boussinesq_solver::boussinesq_thermophysical_properties::SolidMaterial;
 use uom::si::angle::degree;
 use uom::si::area::square_meter;
 use uom::si::f64::{
-    Angle, Area, HeatTransfer, Length, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity,
+    Angle, Area, HeatTransfer, Length, MassDensity, MassRate, Pressure, Ratio,
+    ThermodynamicTemperature, Time, Velocity,
 };
 use uom::si::heat_transfer::watt_per_square_meter_kelvin;
+use uom::si::mass_density::kilogram_per_cubic_meter;
+use uom::si::mass_rate::kilogram_per_second;
 use uom::si::velocity::meter_per_second;
 use uom::si::length::{meter, millimeter};
 use uom::si::pressure::atmosphere;
@@ -251,8 +257,13 @@ pub fn step_rows(rows: &mut [PipeRow], dt: Time) -> Vec<String> {
     errors
 }
 
-/// Draw the stacked pipes and their labels.
-pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
+/// Draw the stacked pipes and their labels, then the coaxial duct below them.
+pub fn draw(
+    ui: &mut egui::Ui,
+    rows: &[PipeRow],
+    errors: &[String],
+    coax: &CoaxialDuctDemo,
+) {
     ui.heading("Pipes — one widget, three flow backends");
     ui.label(
         RichText::new(
@@ -310,5 +321,270 @@ pub fn draw(ui: &mut egui::Ui, rows: &[PipeRow], errors: &[String]) {
         // The component mints this frame's widget; all persistent state
         // (physics array, tracer phase) stays in the component.
         ui.add(row.component.visual(start));
+    }
+
+    // ── The coaxial duct, below the three single-bore rows ──────────────────
+    //
+    // Deliberately last and visually separate: it is a different widget
+    // (`CoaxialDuctVisual`), not a fourth backend behind the same one.
+    let coax_top = available.top() + 12.0 + rows.len() as f32 * row_height;
+    ui.scope_builder(
+        egui::UiBuilder::new().max_rect(egui::Rect::from_min_size(
+            Pos2::new(available.left(), coax_top),
+            Vec2::new(available.width(), COAXIAL_ROW_HEIGHT),
+        )),
+        |ui| {
+            ui.separator();
+            ui.label(RichText::new("Coaxial duct — HTR-10 hot gas duct").strong());
+            ui.label(
+                RichText::new(
+                    "A different widget: two streams in one duct body, drawn as a \
+                     longitudinal section. Bores are the real 300 mm inner / 900 mm outer, \
+                     so the drawn band ratio is the plant's.",
+                )
+                .small()
+                .weak(),
+            );
+            // The derivation chain, printed. This is the studio's whole point:
+            // a widget secretly ignoring its physics has nowhere to hide if the
+            // numbers driving it are on screen beside it.
+            ui.label(
+                RichText::new(format!(
+                    "inner: {:.2} kg/s over {:.4} m² at {:.2} kg/m³ → {:.1} m/s, τ = {:.2} s   |   \
+                     annulus: {:.2} kg/s over {:.4} m² at {:.2} kg/m³ → {:.1} m/s, τ = {:.2} s",
+                    coax.hot_mass_flow_kg_per_s,
+                    coax.geometry.inner_flow_area().get::<square_meter>(),
+                    coax.density_at(coax.hot_temp_k),
+                    coax.hot_velocity().get::<meter_per_second>(),
+                    coax.core_scalars().residence_time.get::<second>(),
+                    coax.cold_mass_flow_kg_per_s,
+                    coax.geometry.annulus_flow_area().get::<square_meter>(),
+                    coax.density_at(coax.cold_temp_k),
+                    coax.cold_velocity().get::<meter_per_second>(),
+                    coax.annulus_scalars().residence_time.get::<second>(),
+                ))
+                .small()
+                .monospace(),
+            );
+        },
+    );
+
+    let coax_start = Pos2::new(
+        available.left() + 8.0,
+        coax_top + COAXIAL_ROW_HEIGHT - 34.0,
+    );
+    ui.add(coax.visual(coax_start, DISPLAY_MIN_K, DISPLAY_MAX_K));
+}
+
+/// Vertical space reserved for the coaxial-duct row, in points.
+///
+/// Taller than a pipe row: it carries three lines of caption plus a duct drawn
+/// thicker than any single-bore run, and the stream labels sit outside the
+/// duct body on both sides.
+const COAXIAL_ROW_HEIGHT: f32 = 168.0;
+
+/// Cold end of the coaxial duct's colour scale, K.
+///
+/// Set about the HTR-10 primary loop rather than to the extremes seen: the
+/// midpoint of this range is the diverging map's neutral white point, so it
+/// falls between the 523 K cold return and the 973 K hot supply and puts one
+/// stream on each half of the scale.
+const DISPLAY_MIN_K: f64 = 300.0;
+
+/// Hot end of the coaxial duct's colour scale, K.
+const DISPLAY_MAX_K: f64 = 1200.0;
+
+// ── Coaxial duct (HTR-10 hot gas duct) ──────────────────────────────────────
+
+/// Molar mass of helium, kg/mol (IUPAC standard atomic weight, 4.002602).
+const HELIUM_MOLAR_MASS_KG_PER_MOL: f64 = 0.004_002_602;
+
+/// Universal gas constant, J/(mol K).
+const GAS_CONSTANT_J_PER_MOL_K: f64 = 8.314_462_618;
+
+/// The coaxial-duct row: the HTR-10 hot gas duct, both streams live.
+///
+/// Exists to exercise [`CoaxialDuctVisual`] against real plant numbers rather
+/// than invented ones. Every quantity that drives the drawing is **derived**
+/// here, in the open, so the tab doubles as a check that the derivation chain
+/// works:
+///
+/// ```text
+///   mass flow ──┐
+///   bore area ──┼─> velocity ──┐
+///   density   ──┘              ├─> residence time ──> tracer SPEED
+///   duct length ───────────────┘
+///   sign of mass flow ─────────────────────────────> tracer DIRECTION
+/// ```
+///
+/// Nothing about the motion is hardcoded — see the crate `CLAUDE.md`,
+/// "ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED".
+///
+/// **The one thing that cannot be derived is the duct length**, which no
+/// source in `docs/reactor-scoping/htr10-plant-data.md` states (section 4.1
+/// records it as *Unknown*). It is therefore a slider, labelled as a display
+/// choice, and it scales both residence times identically — so the *ratio* of
+/// the two tracer speeds stays physical whatever it is set to.
+pub struct CoaxialDuctDemo {
+    /// Bore geometry — the real HTR-10 duct by default.
+    pub geometry: CoaxialDuctGeometry,
+    /// Hot helium temperature in the inner tube, K. Reactor outlet.
+    pub hot_temp_k: f64,
+    /// Cold helium temperature in the annulus, K. Circulator discharge.
+    pub cold_temp_k: f64,
+    /// Inner-tube mass flow, kg/s. Positive runs reactor -> SG.
+    pub hot_mass_flow_kg_per_s: f64,
+    /// Annulus mass flow, kg/s. **Negative** runs SG -> reactor, which is the
+    /// real direction, and is what makes the duct counter-current.
+    pub cold_mass_flow_kg_per_s: f64,
+    /// Primary helium pressure, MPa. Sets both densities.
+    pub pressure_mpa: f64,
+    /// Duct length, m. **Not a plant dimension** — see the type docs.
+    pub assumed_length_m: f64,
+    /// Drawn run length in screen points. A layout choice, like the length.
+    pub drawn_length_points: f32,
+    /// Tracer train for the inner stream. Persists across frames.
+    core_tracer: TracerTrain,
+    /// Tracer train for the annulus stream.
+    annulus_tracer: TracerTrain,
+}
+
+impl Default for CoaxialDuctDemo {
+    /// HTR-10 normal full-power operation, from
+    /// `docs/reactor-scoping/htr10-plant-data.md`: helium 250 degC in /
+    /// 700 degC out (section 6), 4.32 kg/s (section 6, *Quoted*), 3.0 MPa
+    /// primary pressure (section 6, *Quoted*, all three sources agree).
+    ///
+    /// The annulus flow is seeded **negative** because the cold return runs
+    /// SG-to-reactor, against the inner stream. That single sign is what makes
+    /// the two tracer trains separate on screen.
+    fn default() -> Self {
+        Self {
+            geometry: CoaxialDuctGeometry::htr10_hot_gas_duct(),
+            hot_temp_k: 973.15,
+            cold_temp_k: 523.15,
+            hot_mass_flow_kg_per_s: 4.32,
+            cold_mass_flow_kg_per_s: -4.32,
+            pressure_mpa: 3.0,
+            assumed_length_m: 5.0,
+            drawn_length_points: 520.0,
+            core_tracer: TracerTrain::new(5),
+            annulus_tracer: TracerTrain::new(5),
+        }
+    }
+}
+
+impl CoaxialDuctDemo {
+    /// Helium density at this pressure and temperature, kg/m3, from the ideal
+    /// gas law `rho = p M / (R T)`.
+    ///
+    /// Helium at 3.0 MPa and 250-700 degC is close to ideal (compressibility
+    /// factor within a couple of percent of unity), so this is good enough to
+    /// set a tracer speed and is stated rather than hidden. It is **not** good
+    /// enough for a heat balance — use `outram-park-fork-coolprop` for that.
+    fn density(&self, temperature_k: f64) -> MassDensity {
+        let p = self.pressure_mpa * 1.0e6;
+        let rho = if temperature_k > 0.0 {
+            p * HELIUM_MOLAR_MASS_KG_PER_MOL / (GAS_CONSTANT_J_PER_MOL_K * temperature_k)
+        } else {
+            0.0
+        };
+        MassDensity::new::<kilogram_per_cubic_meter>(rho)
+    }
+
+    /// Helium density at `temperature_k` and the current pressure, kg/m3.
+    ///
+    /// Exposed so the tab can print the number that is actually driving the
+    /// velocity, rather than the reader having to trust that it was computed.
+    pub fn density_at(&self, temperature_k: f64) -> f64 {
+        self.density(temperature_k)
+            .get::<kilogram_per_cubic_meter>()
+    }
+
+    /// Bulk velocity in the inner tube, `u = m_dot / (rho A)`.
+    pub fn hot_velocity(&self) -> Velocity {
+        Self::velocity(
+            self.hot_mass_flow_kg_per_s,
+            self.density(self.hot_temp_k),
+            self.geometry.inner_flow_area(),
+        )
+    }
+
+    /// Bulk velocity in the annulus, on the gross annular area.
+    pub fn cold_velocity(&self) -> Velocity {
+        Self::velocity(
+            self.cold_mass_flow_kg_per_s,
+            self.density(self.cold_temp_k),
+            self.geometry.annulus_flow_area(),
+        )
+    }
+
+    fn velocity(mass_flow_kg_per_s: f64, density: MassDensity, area: Area) -> Velocity {
+        let denominator =
+            density.get::<kilogram_per_cubic_meter>() * area.get::<square_meter>();
+        let u = if denominator > 0.0 {
+            mass_flow_kg_per_s / denominator
+        } else {
+            0.0
+        };
+        Velocity::new::<meter_per_second>(u)
+    }
+
+    fn length(&self) -> Length {
+        Length::new::<meter>(self.assumed_length_m)
+    }
+
+    /// Inner-tube state handed to the widget.
+    pub fn core_scalars(&self) -> PipeScalars {
+        PipeScalars {
+            temperature: ThermodynamicTemperature::new::<kelvin>(self.hot_temp_k),
+            mass_flow: MassRate::new::<kilogram_per_second>(self.hot_mass_flow_kg_per_s),
+            residence_time: residence_time_from_velocity(self.length(), self.hot_velocity()),
+        }
+    }
+
+    /// Annulus state handed to the widget.
+    pub fn annulus_scalars(&self) -> PipeScalars {
+        PipeScalars {
+            temperature: ThermodynamicTemperature::new::<kelvin>(self.cold_temp_k),
+            mass_flow: MassRate::new::<kilogram_per_second>(self.cold_mass_flow_kg_per_s),
+            residence_time: residence_time_from_velocity(self.length(), self.cold_velocity()),
+        }
+    }
+
+    /// Advance both tracer trains by `dt`.
+    ///
+    /// Each train is given **its own** residence time and mass flow, so it
+    /// takes both its speed and its direction from that stream's state. Set
+    /// either flow to zero and that train freezes; flip a sign and it runs the
+    /// other way. Neither behaviour is coded for here — it falls out of
+    /// `TracerTrain::advance`.
+    pub fn step(&mut self, dt: Time) {
+        let core = self.core_scalars();
+        let annulus = self.annulus_scalars();
+        self.core_tracer
+            .advance(dt, core.residence_time, core.mass_flow);
+        self.annulus_tracer
+            .advance(dt, annulus.residence_time, annulus.mass_flow);
+    }
+
+    /// Mint this frame's widget, anchored at `at`.
+    ///
+    /// The trains are **copied in**, not owned by the widget: widgets are
+    /// rebuilt every repaint, so a train living in one would reset its phase
+    /// each frame. See `crate::animation` in the engine crate.
+    pub fn visual(&self, at: Pos2, min_temp_k: f64, max_temp_k: f64) -> CoaxialDuctVisual {
+        CoaxialDuctVisual::new(
+            self.geometry,
+            at,
+            Vec2::new(self.drawn_length_points, 0.0),
+            self.core_scalars(),
+            self.annulus_scalars(),
+            ThermodynamicTemperature::new::<kelvin>(min_temp_k),
+            ThermodynamicTemperature::new::<kelvin>(max_temp_k),
+        )
+        .with_drawn_thickness(54.0)
+        .with_core_tracer(self.core_tracer.clone())
+        .with_annulus_tracer(self.annulus_tracer.clone())
     }
 }
