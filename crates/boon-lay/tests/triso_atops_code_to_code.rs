@@ -118,13 +118,21 @@ use boon_lay::triso_atops_fork::release_models::steady_state::{
 use boon_lay::triso_atops_fork::release_models::transient::{
     booth_transient, breakthrough_model_transient, rf_graph,
 };
+use boon_lay::triso_atops_fork::accident::{
+    coolant_release, distribute_inventory_axially, mean_temperature_rate, release_activity,
+    AccidentFractions, NormalOperationNode, ReleaseMaterial as AccidentMaterial,
+};
 use boon_lay::triso_atops_fork::normal_operation::NodalActivities;
+use boon_lay::triso_atops_fork::run_selection::{
+    select_nuclides, select_nuclides_accident, ParentDecayPolicy,
+};
 
 use uom::si::area::square_meter;
 use uom::si::diffusion_coefficient::square_meter_per_second;
 use uom::si::f64::{
-    Area, DiffusionCoefficient, Frequency, Length, Ratio, ThermodynamicTemperature, Time,
+    Area, DiffusionCoefficient, Frequency, Length, Pressure, Ratio, ThermodynamicTemperature, Time,
 };
+use uom::si::pressure::kilopascal;
 use uom::si::frequency::hertz;
 use uom::si::length::meter;
 use uom::si::ratio::ratio;
@@ -684,6 +692,205 @@ fn node_clean_up_activity_matches_upstream() {
     check_group("node.clean_up_activity", 1e-9, |a| {
         node_outputs(a).clean_up_activity
     });
+}
+
+// ── accident path: release_activity ──────────────────────────────────────────
+
+/// Build the accident inputs from a fixture row.
+///
+/// Row layout: `[z, inventory, graphite, circulating, plate_out, hps, clean,
+/// release_fraction, f_hm, f_sic, f_inc, f_inc_sic, f_inc_acc, f_inc_sic_acc]`.
+fn accident_row(a: &[f64]) -> (u32, NormalOperationNode, AccidentFractions) {
+    (
+        a[0] as u32,
+        NormalOperationNode {
+            kernel_inventory_atoms: a[1],
+            graphite_activity: a[2],
+            circulating_activity: a[3],
+            plate_out_activity: a[4],
+            clean_up_activity: a[5],
+            ..Default::default()
+        },
+        AccidentFractions {
+            heavy_metal: a[8],
+            sic: a[9],
+            incremental: a[10],
+            incremental_sic: a[11],
+            incremental_accident: a[12],
+            incremental_sic_accident: a[13],
+        },
+    )
+}
+
+/// Accident-path inventory drawdown, kernel side.
+///
+/// Replayed with `upstream_cadmium_typo = true`: the fixture comes from the
+/// stock Python, which carries the `z == 48` silver branch. The *corrected*
+/// behaviour is not code-to-code verifiable by construction — upstream cannot
+/// produce it — so it is pinned by a unit test in the module instead
+/// (`accident::tests::the_cadmium_typo_changes_palladium`).
+#[test]
+fn release_activity_kernel_matches_upstream() {
+    check_group("release_activity.kernel", 1e-12, |a| {
+        let (z, node, fr) = accident_row(a);
+        release_activity(
+            ElementGroup::from_atomic_number(z),
+            fr,
+            node,
+            a[7],
+            a[6] != 0.0,
+            AccidentMaterial::Kernel,
+            true,
+            z,
+        )
+    });
+}
+
+/// Accident-path drawdown, graphite side — reads the graphite channel only.
+#[test]
+fn release_activity_graphite_matches_upstream() {
+    check_group("release_activity.graphite", 1e-12, |a| {
+        let (z, node, fr) = accident_row(a);
+        release_activity(
+            ElementGroup::from_atomic_number(z),
+            fr,
+            node,
+            a[7],
+            a[6] != 0.0,
+            AccidentMaterial::Graphite,
+            true,
+            z,
+        )
+    });
+}
+
+// ── accident path: coolant_release ───────────────────────────────────────────
+
+/// Decode a `[n, t_0..t_{n-1}, T_0..T_{n-1}, out_index]` row into the slices
+/// the port's coolant functions take, plus the index being compared.
+fn decode_history(a: &[f64]) -> (Vec<Time>, Vec<ThermodynamicTemperature>, usize) {
+    let n = a[0] as usize;
+    let times: Vec<Time> = a[1..1 + n]
+        .iter()
+        .map(|v| Time::new::<second>(*v))
+        .collect();
+    let temps: Vec<ThermodynamicTemperature> = a[1 + n..1 + 2 * n]
+        .iter()
+        .map(|v| ThermodynamicTemperature::new::<degree_celsius>(*v))
+        .collect();
+    (times, temps, a[1 + 2 * n] as usize)
+}
+
+/// Mean `dT/dt` across the core at each sample.
+///
+/// The port splits this out of `coolant_release` into `mean_temperature_rate`,
+/// so it is verified against the same expression upstream computes inline.
+#[test]
+fn coolant_mean_temperature_rate_matches_upstream() {
+    check_group("coolant_release.mean_dtdt", 1e-12, |a| {
+        let (times, temps, idx) = decode_history(a);
+        mean_temperature_rate(&times, &[temps])[idx]
+    });
+}
+
+/// Vented coolant fraction at each venting sample, including upstream's
+/// hard-pinned `frac[0] = 1` and its non-contiguous venting mask.
+#[test]
+fn coolant_release_fraction_matches_upstream() {
+    check_group("coolant_release.fraction", 1e-12, |a| {
+        let (times, temps, idx) = decode_history(a);
+        let rate = mean_temperature_rate(&times, core::slice::from_ref(&temps));
+        let (frac, _) =
+            coolant_release(&times, &rate, &temps, Pressure::new::<kilopascal>(101.325));
+        frac[idx]
+    });
+}
+
+/// The times the venting samples correspond to — a gappy subset whenever the
+/// transient cools and re-heats.
+#[test]
+fn coolant_release_vent_times_match_upstream() {
+    check_group("coolant_release.vent_time", 1e-12, |a| {
+        let (times, temps, idx) = decode_history(a);
+        let rate = mean_temperature_rate(&times, core::slice::from_ref(&temps));
+        let (_, vent) =
+            coolant_release(&times, &rate, &temps, Pressure::new::<kilopascal>(101.325));
+        vent[idx].get::<second>()
+    });
+}
+
+// ── run set-up ───────────────────────────────────────────────────────────────
+
+/// Axial split of a per-ring inventory. Row layout: `[n_axial, inventory]`.
+#[test]
+fn inventory_processing_matches_upstream() {
+    check_group("inventory_processing", 1e-12, |a| {
+        distribute_inventory_axially(a[1], a[0] as usize)[0]
+    });
+}
+
+/// Short-lived classification, `t½ / t_irrad < 0.2`.
+///
+/// Compared exactly rather than with a tolerance: the quantity under test is a
+/// **decision**, encoded `1.0`/`0.0`, and a tolerance on a decision is
+/// meaningless.
+#[test]
+fn nuclide_short_lived_classification_matches_upstream() {
+    let all = cases();
+    let rows: Vec<&Case> = all
+        .iter()
+        .filter(|c| c.function.starts_with("nuclide_import.short_lived:"))
+        .collect();
+    assert!(!rows.is_empty(), "no short-lived rows in fixture");
+    for c in &rows {
+        let name = c.function.trim_start_matches("nuclide_import.short_lived:");
+        let (sel, skipped) = select_nuclides(
+            &[name],
+            Time::new::<second>(c.args[0]),
+            None,
+            ParentDecayPolicy::default(),
+        );
+        assert!(skipped.is_empty(), "{name} should be in the database");
+        let got = f64::from(u8::from(sel[0].short_lived));
+        assert_eq!(
+            got, c.expected,
+            "{name} at t_irrad = {} s: port {got} vs upstream {}",
+            c.args[0], c.expected
+        );
+    }
+    println!(
+        "nuclide_import.short_lived: {} decisions matched",
+        rows.len()
+    );
+}
+
+/// Accident retention, `t½ / t_accident >= 0.04`. Exact, for the same reason.
+#[test]
+fn nuclide_accident_retention_matches_upstream() {
+    let all = cases();
+    let rows: Vec<&Case> = all
+        .iter()
+        .filter(|c| c.function.starts_with("nuclide_import_accident.retained:"))
+        .collect();
+    assert!(!rows.is_empty(), "no accident-retention rows in fixture");
+    for c in &rows {
+        let name = c
+            .function
+            .trim_start_matches("nuclide_import_accident.retained:");
+        let (sel, skipped) =
+            select_nuclides_accident(&[name], Time::new::<second>(c.args[0]), None);
+        assert!(skipped.is_empty(), "{name} should be in the database");
+        let got = f64::from(u8::from(!sel.is_empty()));
+        assert_eq!(
+            got, c.expected,
+            "{name} at t_accident = {} s: port {got} vs upstream {}",
+            c.args[0], c.expected
+        );
+    }
+    println!(
+        "nuclide_import_accident.retained: {} decisions matched",
+        rows.len()
+    );
 }
 
 // ── nuclide database ─────────────────────────────────────────────────────────

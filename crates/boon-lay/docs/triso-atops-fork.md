@@ -65,17 +65,38 @@ MIT is GPLv3-compatible, so porting MIT-licensed TRISO-ATOPS into GPL-3.0
 | `calculation_functions.py` — `circulating*`, `plate_out*`, `clean_up*`, `release_rate`, `base_activities` | `triso_atops_fork::activities` (`coolant_activity`, `source_terms`) | **Ported + verified** (bead op-b4a.2.2) |
 | `calculation_functions.py` — `higher_activities` routing | `triso_atops_fork::normal_operation::normal_operation_node` | **Ported + verified** (bead op-b4a.2.2) |
 | `trisoatops.py` — `normal_operation` (per-node body) | `triso_atops_fork::normal_operation::normal_operation_node` | **Ported + verified** (bead op-b4a.2.2) |
-| `calculation_functions.py` — `nuclide_import`, `nuclide_import_accident` | — | **NOT PORTED** — name normalisation, short-lived/long-lived classification and parent-decay wiring. See the upstream-defect note below before porting. |
-| `calculation_functions.py` — `inventory_processing` | — | **NOT PORTED** — axial inventory reshaping. |
-| `calculation_functions.py` — `release_activity`, `coolant_release`; `trisoatops.py` — `accident_case`, `main` | — | **NOT PORTED** ~~Scaffold~~ **CORRECTED 2026-09-21** — there is no accident driver in the port at all: `normal_operation` contains 5 public types and 1 public function, all normal-operation. "Scaffold" implied partial code where none exists. |
-| `run_functions.py` — `create_log`, `read_profile`, `convert_time`, `read_save_file`, `process_run_file`, `check_run_file`, `count_errors`, `trisoatops`, `nuclide_sort` | — | **NOT PORTED** ~~Scaffold~~ **CORRECTED 2026-09-21** — nothing exists. `inventory_processing` was also listed here and is **not** in this file; it lives in `calculation_functions.py:319`. |
+| `calculation_functions.py` — `nuclide_import`, `nuclide_import_accident` | `triso_atops_fork::run_selection` (`select_nuclides`, `select_nuclides_accident`, `normalise_nuclide_name`) | **Ported + verified** (2026-09-21) — both classification tests compared decision-for-decision against upstream. Parent-decay wiring is behind [`ParentDecayPolicy`] because upstream's is defeated by an `==` bug; see the defect note below. |
+| `calculation_functions.py` — `inventory_processing` | `triso_atops_fork::run_selection` / `accident::distribute_inventory_axially` | **Ported + verified** (2026-09-21) |
+| `calculation_functions.py` — `release_activity`, `coolant_release`; `trisoatops.py` — `accident_case` | `triso_atops_fork::accident` (`release_activity`, `coolant_release`, `mean_temperature_rate`, `accident_release_curies`, `atoms_to_curies`) | **Ported + verified** (2026-09-21) ~~Scaffold~~ ~~NOT PORTED~~ — 6 068 code-to-code cases. `main`'s argparse shell is not ported and will not be; see "What is deliberately not ported". |
+| `run_functions.py` — `convert_time`, `read_save_file`, `process_run_file`, `check_run_file`, `read_profile` | `triso_atops_fork::run_file` (`TimeUnit`, `RunFile`, `RunConfig`, `RunFile::to_config`) | **Ported** (2026-09-21) — serde-derived, so a GUI-written JSON file deserialises directly; validation collects every problem rather than the first. |
+| `run_functions.py` — `nuclide_sort` | `triso_atops_fork::run_selection::sort_parents_before_daughters` | **Ported** (2026-09-21) — does what upstream *intends*; upstream's own version is a no-op (defect 7 below). |
+| `run_functions.py` — `create_log`, `count_errors`, `trisoatops`; `trisoatops.py` — `main` | — | **Deliberately not ported** — Python `logging` setup, an error counter that `Result` replaces, a version banner, and an argparse shell. See "What is deliberately not ported". |
 | `trisoatops_gui.py` (1432 LOC) | — | **Excluded (GUI, out of scope)** |
 
-### Upstream defects found in the UNPORTED functions (2026-09-21)
+### What is deliberately not ported
 
-Read before porting any of the four rows above. These were found by reading
-`calculation_functions.py` at `de374c8` while scoping the remaining work; none
-of them affects the ported subset, and none has been reported upstream.
+Four upstream entries have no Rust counterpart and will not get one:
+
+- **`run_functions.py::create_log`** configures Python's `logging` module. A
+  Rust library that installs a global logger is badly behaved; diagnostics
+  surface as `RunFileError` / `SelectionError` values instead, which a caller
+  logs however it likes.
+- **`run_functions.py::count_errors`** threads an error counter through every
+  function because Python has no `Result`. `Result` does that job.
+- **`run_functions.py::trisoatops()`** prints a version banner to stdout.
+- **`trisoatops.py::main`** is an `argparse` shell around the physics. The
+  composition it performs is available as library calls; wrapping them in a CLI
+  is `outram-foam-cli`'s business, not this crate's.
+- **`trisoatops_gui.py`** (1 432 LOC) — Tkinter GUI, out of scope as recorded
+  below.
+
+### Upstream defects found while porting (2026-09-21)
+
+Seven defects, found by reading `calculation_functions.py`, `run_functions.py`
+and `trisoatops.py` at `de374c8`. **None affects the previously-verified
+subset.** Where the port diverges, the divergence is selectable rather than
+silent, and named in the item's own documentation. None has been reported
+upstream.
 
 **1. `parent_decay` is assigned with `==`, so the runtime logic never fires.**
 `nuclide_import` (lines 275 and 277) writes
@@ -131,6 +152,35 @@ has.** `nuclide_import` checks `if nuclide_name in nuclides` before lookup;
 regex but is absent from the table raises `KeyError` instead of being skipped
 with a warning. Its `else` branch also logs `{match}`, which is `None`
 whenever that branch is taken.
+
+**6. `nuclide_sort` never reorders anything.** `run_functions.py:412` reads
+
+```python
+par = calc.nuclides[n].parents          # a LIST, e.g. ['Kr-89']
+if par is not None and par in list(nuke_list[:, 0]):
+```
+
+which asks whether the *list* `['Kr-89']` is an element of a list of *strings*.
+That is never true, so the branch that moves a parent ahead of its daughter is
+dead and the function returns its input order unchanged — defeating the stated
+purpose of letting the driver accumulate parent activities first.
+`run_selection::sort_parents_before_daughters` does what the function says it
+does; a caller wanting upstream's no-op simply does not call it.
+
+**7. `accident_case` discards the temperature history when nothing is
+truncated.** `trisoatops.py` narrows the transient to the venting window with
+
+```python
+rmv = np.size(times) - np.size(times_short)
+accident_temp = accident_temp[:, :-rmv, :]
+```
+
+If every sample is a venting sample — which is exactly what a monotonic
+heat-up gives — then `rmv == 0`, and `[:-0]` is `[:0]`, the **empty** slice.
+The whole temperature history vanishes and every downstream integral is empty.
+The port cannot reproduce this (slices arrive aligned and a mismatch is an
+assertion), but a reader comparing against a stock run on a monotonic transient
+will see upstream produce nothing, and should know why.
 
 ### Why the GUI was excluded
 

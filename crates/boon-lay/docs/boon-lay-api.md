@@ -7282,6 +7282,700 @@ pub use nuclide_database::supported_nuclides;
 pub use nuclide_database::TRISO_ATOPS_NUCLIDE_COUNT;
 ```
 
+## Module `run_selection`
+
+Run set-up: nuclide selection, classification and inventory distribution.
+Run set-up: which nuclides a run uses, how they are classified, and how a
+bulk inventory is distributed over the axial nodes.
+
+This is the layer between a user's nuclide list and the physics: it
+normalises names, looks them up in the database, decides short-lived vs
+long-lived against the run's own timescale, and wires parent → daughter
+coupling. Upstream calls it `nuclide_import` / `nuclide_import_accident` /
+`inventory_processing`.
+
+# Upstream defects reproduced or corrected here — read before trusting
+
+Porting this module meant deciding, for five upstream bugs, whether to
+reproduce or correct. The rule applied throughout: **reproduce upstream's
+observable behaviour where it is a physics choice, correct it where the
+upstream code plainly states an intent its own syntax defeats** — and in
+every case make the divergence explicit and selectable, never silent. Each
+is documented on the item it affects. Summary:
+
+| Upstream | Here |
+|---|---|
+| `parent_decay` assigned with `==` (dead short-lived test) | [`ParentDecayPolicy`] — intended logic is the default, bug-compatible mode is explicit |
+| Rh-105 defaulted `parent_decay = False` despite having a parent | Reproduced under [`ParentDecayPolicy::UpstreamTableDefault`] only |
+| `nuclide_import` mutates the shared module table | Impossible here: values are owned |
+| `nuclide_import_accident` unguarded table lookup (`KeyError`) | Returns [`SelectionError::UnknownNuclide`] |
+| `nuclide_sort` compares a `list` to `str` (dead reordering) | [`sort_parents_before_daughters`] does what upstream intended |
+
+```rust
+pub mod run_selection { /* ... */ }
+```
+
+### Types
+
+#### Enum `SelectionError`
+
+Why a nuclide could not be taken into a run.
+
+```rust
+pub enum SelectionError {
+    Unparseable {
+        supplied: String,
+    },
+    UnknownNuclide {
+        normalised: String,
+    },
+}
+```
+
+##### Variants
+
+###### `Unparseable`
+
+The name did not parse as `Element[-]MassNumber[metastable]`, e.g. `"Cs137"`,
+`"cs-137"` and `"Cs-137m"` all parse; `"plutonium"` and `"137"` do not.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `supplied` | `String` | The name as supplied by the caller. |
+
+###### `UnknownNuclide`
+
+The name parsed but is absent from the TRISO-ATOPS nuclide table.
+
+Upstream's `nuclide_import` logs a warning and skips; its
+`nuclide_import_accident` omits that guard and raises `KeyError`. This
+port returns the same error from both and lets the caller decide (see
+[`select_nuclides`], which skips, versus
+[`select_nuclides_accident`], which also skips — deliberately unlike
+upstream).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `normalised` | `String` | The normalised name that was looked up, e.g. `"Cs-137"`. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ParentDecayPolicy`
+
+How to decide whether a daughter's parent-decay coupling is switched on.
+
+# Why this is an enum and not a `bool`
+
+Upstream's `nuclide_import` contains this (lines 275 and 277):
+
+```python
+if nuclide_out[parent].sl == True:
+    nuclide_out[nuclide].parent_decay == True      # `==`, not `=`
+else:
+    nuclide_out[nuclide].parent_decay == False     # `==`, not `=`
+```
+
+Both statements are comparisons whose results are discarded, so in the
+branch that is supposed to *decide* the flag, nothing is written and the
+value hard-coded in the nuclide table survives. The consequence is not that
+parent decay is disabled — it is that **the short-lived-parent test the
+code was written to perform never runs**.
+
+The two behaviours are genuinely different physics, so the port exposes
+both rather than picking silently.
+
+```rust
+pub enum ParentDecayPolicy {
+    ShortLivedParentOnly,
+    UpstreamTableDefault,
+}
+```
+
+##### Variants
+
+###### `ShortLivedParentOnly`
+
+Apply the test upstream's source plainly intends: couple a daughter to
+its parent only when the parent is present in the run **and** is
+classified short-lived.
+
+This is the default, because the workspace requires correct physics to
+be the default rather than an opt-in, and because it is what upstream's
+own control flow says it wants. It is **not** what a stock TRISO-ATOPS
+run does.
+
+###### `UpstreamTableDefault`
+
+Reproduce the stock TRISO-ATOPS behaviour bug-for-bug: take the flag
+from the nuclide table and ignore the parent's half-life entirely,
+except that a parent absent from the run still forces it off (upstream
+lines 280 and 283 use `=` correctly).
+
+Use this for code-to-code comparison against upstream, or to reproduce
+a published TRISO-ATOPS result. Note it also carries upstream's Rh-105
+inconsistency — see [`upstream_table_parent_decay`].
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `SelectedNuclide`
+
+A nuclide admitted to a run, with the run-dependent classification attached.
+
+Upstream stores `sl` and `parent_decay` by mutating the shared module-level
+`nuclides` dictionary, so classification from one run leaks into the next
+within a process. Owning the values here makes that class of bug
+impossible.
+
+```rust
+pub struct SelectedNuclide {
+    pub nuclide: super::nuclide_model::TrisoAtopsNuclide,
+    pub short_lived: bool,
+    pub parent_decay: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `nuclide` | `super::nuclide_model::TrisoAtopsNuclide` | The database record (name, `Z`, `A`, half-life, parents). |
+| `short_lived` | `bool` | `true` when the half-life is short compared to the run's own timescale.<br><br>Upstream: `hl / irad_time < short_lived_ratio`, default ratio `0.2`.<br>Short-lived species reach equilibrium within the irradiation and take<br>the undivided birth rate in [`release_rate`](super::activities::release_rate);<br>long-lived ones are divided by `1 - exp(-lambda t)`. |
+| `parent_decay` | `bool` | `true` when this nuclide's activity is fed by its parent's decay.<br><br>Governed by [`ParentDecayPolicy`]; see that type for why it is not a<br>straightforward read of upstream. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `upstream_table_parent_decay`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The nuclides upstream's table defaults to `parent_decay = True`.
+
+Thirteen of the fourteen table rows that carry a parent are defaulted
+`True`. The fourteenth, **Rh-105**, is defaulted `False` despite carrying
+`['Ru-105']` and the same `# og with parent decay` comment as the other
+thirteen — which, because the runtime assignment is defeated by the `==`
+bug, means a stock TRISO-ATOPS run never applies parent decay to Rh-105.
+
+That looks like an oversight rather than a decision, but it is upstream's,
+so [`ParentDecayPolicy::UpstreamTableDefault`] reproduces it exactly rather
+than quietly repairing it.
+
+# Returns
+`true` if the stock table would default this nuclide's `parent_decay` flag
+on; `false` otherwise (including for every nuclide with no parent).
+
+```rust
+pub fn upstream_table_parent_decay(name: &str) -> bool { /* ... */ }
+```
+
+#### Function `normalise_nuclide_name`
+
+Normalise a nuclide name to the database's canonical spelling.
+
+Ports the regex `([a-z]{1,2})(?:[-]?)([0-9]+)([a-z]?)` plus the
+`f"{element.capitalize()}-{main_number}{suffix}"` reassembly that upstream
+applies in both `nuclide_import` and `nuclide_import_accident`. Hand-rolled
+rather than pulling in `regex`, which the crate does not otherwise need.
+
+Accepts one or two element letters, an optional hyphen, the mass number,
+and an optional single metastable letter. Input case is irrelevant.
+
+# Arguments
+- `supplied` — the caller's spelling, e.g. `"cs137"`, `"CS-137"`, `"Cs-137m"`.
+
+# Returns
+The canonical name (`"Cs-137"`, `"Cs-137m"`), or
+[`SelectionError::Unparseable`] if the pattern does not match.
+
+# Note on strictness
+Like upstream's regex this is anchored only at the start, so trailing junk
+after the optional metastable letter is rejected here but silently ignored
+by Python's `re.match`. That is a deliberate tightening: a name upstream
+would have silently truncated is far more likely a typo than an intent.
+
+```rust
+pub fn normalise_nuclide_name(supplied: &str) -> Result<String, SelectionError> { /* ... */ }
+```
+
+#### Function `select_nuclides`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Select and classify the nuclides for a **normal-operation** run.
+
+Ports `nuclide_import`. For each supplied name: normalise it, look it up,
+classify short-lived against the irradiation time, then wire parent-decay
+coupling per `policy`.
+
+# Arguments
+- `supplied_names` — the run's nuclide list, in any spelling
+  [`normalise_nuclide_name`] accepts.
+- `irradiation_time` — the reactor irradiation time the short-lived test is
+  measured against (SI seconds; must be `> 0`).
+- `short_lived_ratio` — the threshold on `t½ / t_irrad` below which a
+  nuclide counts as short-lived. Upstream's default is `0.2`; pass
+  `None` for it.
+- `policy` — see [`ParentDecayPolicy`].
+
+# Returns
+`(selected, skipped)` — the admitted nuclides in input order, and one
+[`SelectionError`] per name that could not be taken. Upstream logs those as
+warnings and continues; this returns them so a caller can decide, which is
+the only behavioural difference.
+
+# Panics
+Panics if `irradiation_time` is not strictly positive — upstream would
+divide by zero and classify everything as not-short-lived.
+
+```rust
+pub fn select_nuclides(supplied_names: &[&str], irradiation_time: uom::si::f64::Time, short_lived_ratio: Option<f64>, policy: ParentDecayPolicy) -> (Vec<SelectedNuclide>, Vec<SelectionError>) { /* ... */ }
+```
+
+#### Function `select_nuclides_accident`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Select the nuclides relevant to an **accident** window.
+
+Ports `nuclide_import_accident`. Keeps only nuclides whose half-life is
+long enough to matter over the accident: `t½ / t_accident >= use_ratio`.
+Note the inequality runs the opposite way to [`select_nuclides`] — here a
+*short* half-life is what disqualifies a nuclide, because anything that has
+already decayed away cannot be released.
+
+# Arguments
+- `supplied_names` — the run's nuclide list.
+- `accident_time` — duration of the accident transient (SI seconds, `> 0`).
+- `use_ratio` — threshold on `t½ / t_accident`; upstream's default is
+  `0.04`. Pass `None` for it.
+
+# Returns
+`(selected, skipped)`. No classification is attached: upstream does not set
+`sl` or `parent_decay` on this path, and the accident driver does not read
+them.
+
+# Divergence from upstream
+Upstream indexes the table **without** the `in nuclides` guard its sibling
+has, so a name that satisfies the regex but is absent raises `KeyError` and
+aborts the run. This port skips it and reports
+[`SelectionError::UnknownNuclide`], matching `nuclide_import`'s
+warn-and-continue. Upstream's `else` branch also logs `{match}`, which is
+`None` whenever that branch is reached.
+
+# Panics
+Panics if `accident_time` is not strictly positive.
+
+```rust
+pub fn select_nuclides_accident(supplied_names: &[&str], accident_time: uom::si::f64::Time, use_ratio: Option<f64>) -> (Vec<super::nuclide_model::TrisoAtopsNuclide>, Vec<SelectionError>) { /* ... */ }
+```
+
+#### Function `sort_parents_before_daughters`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Reorder a nuclide list so every parent precedes its daughters.
+
+Ports `run_functions.py::nuclide_sort`, whose stated purpose is to let the
+driver accumulate parent activities before the daughters that consume them.
+
+# Divergence: upstream's version never reorders anything
+
+`nuclide_sort` reads
+
+```python
+par = calc.nuclides[n].parents          # a LIST, e.g. ['Kr-89']
+if par is not None and par in list(nuke_list[:, 0]):
+```
+
+which tests whether the *list* `['Kr-89']` is an element of a list of
+*strings*. That is never true, so the reordering branch is dead and the
+function returns the input order unchanged. This port does what the
+function says it does; a caller wanting the upstream no-op can simply not
+call it.
+
+# Arguments
+- `names` — nuclide names, already normalised.
+
+# Returns
+The same names, with each parent that is present moved ahead of its first
+daughter. Names absent from the database keep their relative order.
+Stable: nuclides with no parent relationship are not moved relative to one
+another.
+
+```rust
+pub fn sort_parents_before_daughters(names: &[String]) -> Vec<String> { /* ... */ }
+```
+
 ## Module `diffusion`
 
 # Diffusion coefficients — Arrhenius correlations `D(T)`
@@ -10075,6 +10769,1575 @@ The effective-unit [`NodalActivities`]; call
 pub fn normal_operation_node(nuclide: &crate::triso_atops_fork::TrisoAtopsNuclide, short_lived: bool, inventory: crate::triso_atops_fork::Activity, fractions: crate::triso_atops_fork::activities::FailureFractions, plant: PlantConstants, node: NodeState, hps_enabled: bool, parent: ParentPools) -> NodalActivities { /* ... */ }
 ```
 
+## Module `accident`
+
+Depressurisation-accident release: inventory drawdown, coolant venting.
+Depressurisation-accident release: how much of the activity a normal
+operation left sitting in the fuel and the primary circuit escapes when the
+coolant blows down.
+
+The chain upstream's `accident_case` runs, per nuclide and per node:
+
+```text
+  integrate(D over the transient T(t))            -> diffusion integral
+    -> release_fraction(kernel) / (graphite)      -> dimensionless RF
+      -> release_activity(what is left to release) -> atoms
+        -> x lambda / 3.7e10                       -> curies
+          -> x coolant_release fraction + lift-off -> released curies
+```
+
+The first two steps already live in
+[`diffusion`](super::diffusion) and
+[`release_models`](super::release_models); this module adds the rest.
+
+# Scope limit
+
+Like the whole crate this is **research, education and V&V only**, and an
+accident source term especially must not be presented as authoritative for
+emergency planning, emergency response or licensing. See the crate docs.
+
+```rust
+pub mod accident { /* ... */ }
+```
+
+### Types
+
+#### Struct `AccidentFractions`
+
+The six failure fractions an accident run uses.
+
+Upstream assembles these into a bare six-element array
+(`trisoatops.py::accident_case`) from `constants[0..3]` plus
+`constants[12..13]`; naming them here is what stops an index slip from
+silently reinterpreting the source term.
+
+All six are dimensionless fractions in `[0, 1]`.
+
+```rust
+pub struct AccidentFractions {
+    pub heavy_metal: f64,
+    pub sic: f64,
+    pub incremental: f64,
+    pub incremental_sic: f64,
+    pub incremental_accident: f64,
+    pub incremental_sic_accident: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `heavy_metal` | `f64` | `f_hm` — heavy-metal contamination fraction (fuel outside intact particles). |
+| `sic` | `f64` | `f_sic` — as-manufactured SiC-defective fraction. |
+| `incremental` | `f64` | `f_inc` — incremental in-service failure fraction during normal operation. |
+| `incremental_sic` | `f64` | `f_inc_sic` — incremental SiC-only failure fraction during normal operation. |
+| `incremental_accident` | `f64` | `f_inc_acc` — **additional** incremental failure fraction caused by the<br>accident itself. |
+| `incremental_sic_accident` | `f64` | `f_inc_sic_acc` — additional incremental SiC-only failure from the accident. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn total(self: &Self) -> f64 { /* ... */ }
+  ```
+  Upstream's `np.sum(fractions)` — all six.
+
+- ```rust
+  pub fn normal_operation_sum(self: &Self) -> f64 { /* ... */ }
+  ```
+  Upstream's `np.sum(fractions[:4])` — the four normal-operation fractions.
+
+- ```rust
+  pub fn accident_sum(self: &Self) -> f64 { /* ... */ }
+  ```
+  Upstream's `np.sum(fractions[4:])` — the two accident-only fractions.
+
+- ```rust
+  pub fn volatile_sum(self: &Self) -> f64 { /* ... */ }
+  ```
+  Upstream's `fractions[0] + fractions[2] + fractions[-2]` — the volatile
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `NormalOperationNode`
+
+The per-node normal-operation state an accident release draws down.
+
+Mirrors upstream's `nodal_data[nuclide][channel, radial, axial]` array, one
+node's worth. Channel 0 is an **atom count**; channels 1-6 are the
+activities `normal_operation_node` produces, in the same units it produces
+them (atoms, or atoms/second for the two rates — the curie conversion
+happens later).
+
+Naming the channels is not cosmetic: upstream indexes this array by bare
+integer at eleven sites in `release_activity` alone, and `[5]` versus `[6]`
+is the difference between plate-out and clean-up.
+
+```rust
+pub struct NormalOperationNode {
+    pub kernel_inventory_atoms: f64,
+    pub release_rate: f64,
+    pub source_rate: f64,
+    pub graphite_activity: f64,
+    pub circulating_activity: f64,
+    pub plate_out_activity: f64,
+    pub clean_up_activity: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `kernel_inventory_atoms` | `f64` | Channel 0 — kernel inventory, **atoms**<br>(upstream: `inventory / lambda * 3.7e10`). |
+| `release_rate` | `f64` | Channel 1 — TRISO release rate, atoms/s. |
+| `source_rate` | `f64` | Channel 2 — source rate into the coolant, atoms/s. |
+| `graphite_activity` | `f64` | Channel 3 — activity held up in the matrix graphite, atoms. |
+| `circulating_activity` | `f64` | Channel 4 — circulating activity, atoms. |
+| `plate_out_activity` | `f64` | Channel 5 — plated-out activity, atoms. |
+| `clean_up_activity` | `f64` | Channel 6 — activity removed by the clean-up system, atoms. Zero when<br>no clean-up system is fitted. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `ReleaseMaterial`
+
+Which material's release fraction is being converted to an activity.
+
+```rust
+pub enum ReleaseMaterial {
+    Kernel,
+    Graphite,
+}
+```
+
+##### Variants
+
+###### `Kernel`
+
+Release out of the fuel kernel.
+
+###### `Graphite`
+
+Release out of the matrix graphite.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Functions
+
+#### Function `distribute_inventory_axially`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Distribute a per-radial-ring inventory evenly over the axial nodes.
+
+Ports `inventory_processing`. A run may supply inventories either already
+resolved per node (radial × time × axial, passed through untouched) or only
+per radial ring, in which case each ring's inventory is **divided equally**
+among `n_axial` nodes.
+
+# Arguments
+- `ring_inventory` — inventory for one radial ring, in whatever unit the
+  caller is working in (upstream uses curies here, before the
+  `/ lambda * 3.7e10` conversion to atoms). Must be finite.
+- `n_axial` — number of axial nodes to spread it over; must be `>= 1`.
+
+# Returns
+`n_axial` equal shares, each `ring_inventory / n_axial`.
+
+# Divergence from upstream
+Upstream handles `ndim == 3` (pass through) and `ndim == 2` (split) and has
+**no `else`**, so any other rank falls off the end and returns `None`,
+which then fails confusingly downstream. Rust's type system removes that
+case: the pass-through variant is simply not routed here.
+
+# Panics
+Panics if `n_axial == 0`.
+
+```rust
+pub fn distribute_inventory_axially(ring_inventory: f64, n_axial: usize) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `release_activity`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The activity still available for accident release at one node, in atoms.
+
+Ports `release_activity`. The idea is a mass balance: take the node's total
+kernel inventory, scale it by the failure fraction appropriate to the
+nuclide's transport group, then subtract whatever normal operation has
+already moved elsewhere — graphite hold-up, circulating activity, plate-out
+and clean-up.
+
+Upstream evaluates two expressions and selects between them with a
+per-node mask:
+
+```text
+  condition = inventory * sum(fractions[:4]) - plate_out > 0
+```
+
+i.e. *has normal operation already released more than it plated out?* Where
+that holds, the fuller expression (scaled by the group fraction, and
+subtracting plate-out as well) is used; elsewhere the accident-only
+fractions apply and plate-out is not subtracted.
+
+# Arguments
+- `group` — the nuclide's transport group, which picks the failure fraction.
+- `fractions` — the six accident failure fractions.
+- `node` — that node's normal-operation state.
+- `release_fraction` — the dimensionless RF from
+  [`release_fraction_transient`](super::release_models::release_fraction_transient).
+- `clean` — whether a clean-up system is fitted; when `true` the clean-up
+  channel is subtracted too.
+- `material` — kernel or graphite.
+
+# Returns
+Released activity at this node, **atoms**. May be negative if the
+subtractions exceed the scaled inventory; upstream does not clamp, and
+neither does this — a negative value is a signal that the normal-operation
+and accident fraction sets are inconsistent, and hiding it would hide that.
+
+# UPSTREAM DEFECT reproduced behind a flag: the silver group is `z == 48`
+
+At `calculation_functions.py:906` the silver branch reads
+`z == 47 or z == 48` — silver and **cadmium**. Every other silver-group
+test in the file (lines 208, 722, 747, 775) reads `z == 47 or z == 46`,
+silver and **palladium**. Both affected nuclides ship in the table
+(`Pd-107`, `Z = 46`; `Cd-113`, `Z = 48`), so this is reachable: under
+upstream, Pd-107 falls through to the all-fractions sum instead of
+receiving `fract = 1`, and Cd-113 wrongly receives the silver treatment.
+
+Four sites against one make `48` the near-certain typo, so this port treats
+[`ElementGroup::Silver`] (Ag **and** Pd, as the rest of the model defines
+it) as the silver branch. Pass `upstream_cadmium_typo = true` to reproduce
+the stock behaviour for code-to-code comparison.
+
+```rust
+pub fn release_activity(group: super::nuclide_model::ElementGroup, fractions: AccidentFractions, node: NormalOperationNode, release_fraction: f64, clean: bool, material: ReleaseMaterial, upstream_cadmium_typo: bool, z: u32) -> f64 { /* ... */ }
+```
+
+#### Function `coolant_release`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Fraction of the primary coolant vented, over the venting window.
+
+Ports `coolant_release`. During a depressurisation the coolant leaves while
+the core is heating: by the ideal gas law at fixed pressure and volume,
+`n = PV/RT`, so `dn/dt = -(P/R) (dT/dt) / T^2`. Upstream integrates that
+trapezoidally, normalises by the initial mole count, and reports only the
+samples where the bed is heating (`dT/dt >= 0`), which is when gas is
+actually being pushed out.
+
+# Arguments
+- `times` — sample times, SI seconds, strictly increasing, at least 2.
+- `mean_dtdt` — mean `dT/dt` across the core at each sample, K/s (upstream
+  averages over the radial and axial axes). Same length as `times`.
+- `hot_node_temperature` — temperature of the reference (hottest) node at
+  each sample. Upstream defaults to the innermost ring, centre axial node,
+  and takes these in **degrees Celsius**, converting with `+ 273.15`
+  inline; this port takes a `uom` temperature so the unit cannot be
+  mistaken. Same length as `times`.
+- `pressure` — system pressure; upstream's default is `101.325` in the
+  **kilopascal** the `R = 8.31447` J/(mol·K) denominator implies.
+
+# Returns
+`(fraction, vent_times)` — the released fraction at each venting sample and
+the times those correspond to. Upstream forces the first element to exactly
+`1`, which this reproduces.
+
+# The `pressure` argument cannot change the answer — measured, not assumed
+
+`frac = |integral / n_0|`, and both the integral (`dn/dt = -(P/R)...`) and
+the normalisation (`n_0 = P/(R T_0)`) carry the same `P/R` factor, so it
+cancels exactly. Verified against upstream on 2026-09-21: feeding
+`P = 1.0`, `101.325`, `202.65` and `5000.0` through
+`calculation_functions.coolant_release` returns **bit-identical** fractions.
+
+**This port agrees to within 1 ulp, not bit-exactly.** The cancellation is
+algebraic, and its exactness depends on operation order: upstream's NumPy
+expression happens to cancel exactly, while this port's
+`-p / R * dTdt / T / T` against `p / R / T_0` does not for every `p`
+(measured: `1.0` kPa moves the second sample by one ulp,
+`5.07056142185376e-2` against `5.070561421853761e-2`). That is a
+floating-point artefact of the same algebra, not a physical dependence.
+
+The parameter is kept because it is upstream's signature and because a
+future formulation that tracks absolute moles would need it — but a caller
+tuning it expecting a different release fraction is wasting their time, and
+this is the only place that says so. [`pressure_does_not_affect_the_fraction`]
+pins it, since a fixture comparison cannot: upstream's own output does not
+depend on it either.
+
+# Two upstream quirks preserved
+
+1. **`frac[0] = 1`** is hard-coded, so the first venting sample always
+   reports a fully released coolant regardless of the integral.
+2. **The venting samples need not be contiguous.** `np.where(dTdt_avg >= 0)`
+   selects every heating sample, so a transient that cools and re-heats
+   produces a gappy set, and the returned times are that same gappy set.
+
+# Panics
+Panics if the three slices differ in length, if fewer than two samples are
+supplied, or if any temperature is at or below absolute zero.
+
+```rust
+pub fn coolant_release(times: &[uom::si::f64::Time], mean_dtdt: &[f64], hot_node_temperature: &[uom::si::f64::ThermodynamicTemperature], pressure: uom::si::f64::Pressure) -> (Vec<f64>, Vec<uom::si::f64::Time>) { /* ... */ }
+```
+
+#### Function `mean_temperature_rate`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Mean `dT/dt` at each sample, averaged across the core.
+
+Ports the first three lines of `coolant_release`, which upstream computes
+inline: a backward difference in time, zero-padded at the first sample, then
+averaged over the radial and axial axes.
+
+Separated out because it is the only part of the calculation that needs the
+full 3-D temperature field; splitting it lets [`coolant_release`] stay a
+slice-based function like the rest of the port.
+
+# Arguments
+- `times` — sample times, SI seconds, strictly increasing.
+- `node_temperatures` — `[node][time]` temperature history for every node
+  in the core (radial × axial flattened; the average does not care about
+  the layout). Every inner slice must match `times` in length.
+
+# Returns
+Mean `dT/dt` in K/s at each sample; the first entry is `0` by construction.
+
+# Note on upstream's epsilon
+Upstream divides by `np.diff(times) + np.finfo(float).eps` to avoid a
+zero-division on repeated timestamps. This port asserts strictly increasing
+times instead, which is the condition that epsilon was papering over.
+
+# Panics
+Panics on ragged input, fewer than two samples, or non-increasing times.
+
+```rust
+pub fn mean_temperature_rate(times: &[uom::si::f64::Time], node_temperatures: &[Vec<uom::si::f64::ThermodynamicTemperature>]) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `accident_release_curies`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Total released activity for one nuclide over the accident, in **curies**.
+
+Ports the per-nuclide body of `trisoatops.py::accident_case`:
+
+```text
+  released(t) = frac(t) * (kernel + graphite)          [curies]
+              + circulating + x_liftoff * plate_out    [curies, released at once]
+```
+
+The first term is what diffuses out of the fuel and matrix during the
+transient, scaled by the fraction of coolant that has actually vented by
+time `t`. The second is the primary-circuit inventory: circulating activity
+leaves with the coolant, and a `x_liftoff` share of the plated-out activity
+is re-entrained by the blowdown. That second term is **not** scaled by
+`frac`, and is constant in `t`.
+
+# Arguments
+- `kernel_release_curies` — already-converted kernel release at each
+  transient sample (i.e. [`release_activity`] on the kernel, times
+  `lambda / 3.7e10`).
+- `graphite_release_curies` — the same for the graphite path.
+- `vent_fraction` — the vented-coolant fraction at each sample, from
+  [`coolant_release`]. Must match the two release slices in length.
+- `circulating_curies`, `plate_out_curies` — the node-summed
+  normal-operation inventories, already in curies.
+- `x_liftoff` — re-entrained share of plate-out, dimensionless `[0, 1]`.
+
+# Returns
+Released activity in curies at each sample.
+
+# UPSTREAM DEFECT not reproduced: `accident_temp[:, :-rmv, :]`
+
+`accident_case` truncates the temperature history to the venting window
+with
+
+```python
+rmv = np.size(times) - np.size(times_short)
+accident_temp = accident_temp[:, :-rmv, :]
+```
+
+When nothing is truncated — every sample is a venting sample, which is
+exactly what a monotonic heat-up produces — `rmv` is `0`, and `[:-0]` in
+Python is `[:0]`, i.e. **the empty slice**. The temperature history is
+silently discarded and every downstream integral is empty.
+
+This port cannot reproduce that: the slices are passed in already aligned,
+and a length mismatch is an assertion rather than an empty result. Recorded
+here because a reader comparing against a stock TRISO-ATOPS run on a
+monotonic transient will see upstream produce nothing and should know why.
+
+# Panics
+Panics if the three per-sample slices differ in length, or if `x_liftoff`
+is outside `[0, 1]`.
+
+```rust
+pub fn accident_release_curies(kernel_release_curies: &[f64], graphite_release_curies: &[f64], vent_fraction: &[f64], circulating_curies: f64, plate_out_curies: f64, x_liftoff: f64) -> Vec<f64> { /* ... */ }
+```
+
+#### Function `atoms_to_curies`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+Convert an activity in atoms to curies: `atoms * lambda / 3.7e10`.
+
+Ports the `* lam / 3.7e10` conversion `accident_case` applies to both
+release paths. Provided as a named function because upstream writes that
+literal at four separate sites, and `3.7e10` is easy to mistype.
+
+# Arguments
+- `atoms` — activity as an atom count.
+- `decay_constant` — `lambda`, s⁻¹.
+
+```rust
+pub fn atoms_to_curies(atoms: f64, decay_constant: f64) -> f64 { /* ... */ }
+```
+
+## Module `run_file`
+
+The JSON run file: parsing, validation and unit attachment.
+The JSON run file: the document TRISO-ATOPS' GUI writes and its CLI reads.
+
+Upstream passes a bare `np.ndarray` of fifteen constants between every
+layer, indexed by position — `constants[6]` is the plate-out rate,
+`constants[14]` is the lift-off fraction, and nothing in the type system
+says so. This module parses that document once into a named, `uom`-typed
+[`RunConfig`], so an index slip becomes impossible rather than silent.
+
+# What is deliberately NOT ported
+
+Three `run_functions.py` entries have no Rust counterpart here, and their
+absence is a decision rather than an omission:
+
+- **`create_log`** configures Python's `logging` module. Rust callers pick
+  their own facade (`log`, `tracing`, or none); a library that installs a
+  global logger is badly behaved. Diagnostics surface as
+  [`RunFileError`] values instead, which a caller can log however it likes.
+- **`count_errors`** is a counter upstream threads through every function
+  because Python has no `Result`. Its job is done by `Result` here.
+- **`trisoatops()`** prints a version banner to stdout.
+
+# Unit convention
+
+The JSON carries **bare numbers**, and upstream attaches units positionally
+through a parallel `const_units` list: lengths in metres, rate constants in
+s⁻¹, and **`run_time` and `irradiation_time` in years**. Those two are the
+trap — a caller who assumes seconds is out by a factor of 3.15e7 — so
+[`RunFile::to_config`] converts them explicitly and the field docs say so.
+
+```rust
+pub mod run_file { /* ... */ }
+```
+
+### Types
+
+#### Enum `TimeUnit`
+
+A time unit the run file may express a duration in.
+
+Ports `convert_time`. Upstream returns `None` for an unrecognised unit and
+the caller then multiplies by it, raising `TypeError` well away from the
+mistake; here an unknown unit is a parse failure at the boundary.
+
+```rust
+pub enum TimeUnit {
+    Second,
+    Minute,
+    Hour,
+    Day,
+    Year,
+}
+```
+
+##### Variants
+
+###### `Second`
+
+Seconds (`"s"`), factor 1.
+
+###### `Minute`
+
+Minutes (`"min"`), factor 60.
+
+###### `Hour`
+
+Hours (`"hr"`), factor 3600.
+
+###### `Day`
+
+Days (`"d"`), factor 86 400.
+
+###### `Year`
+
+Years (`"yr"`), factor 31 536 000.
+
+**A 365-day year**, not the 365.25-day Julian year. Upstream spells it
+`365 * 24 * 3600`; the 0.07 % difference against a Julian year is small
+but systematic, so the port keeps upstream's definition rather than
+silently improving it.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn seconds(self: Self) -> f64 { /* ... */ }
+  ```
+  Seconds per unit. Ports `convert_time`'s factor table exactly.
+
+- ```rust
+  pub fn parse(unit: &str) -> Option<Self> { /* ... */ }
+  ```
+  Parse upstream's unit string (`"s"`, `"min"`, `"hr"`, `"d"`, `"yr"`).
+
+- ```rust
+  pub fn to_time(self: Self, value: f64) -> Time { /* ... */ }
+  ```
+  Convert a duration in this unit to a `uom` [`Time`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Enum `RunFileError`
+
+Why a run file could not be turned into a [`RunConfig`].
+
+Ports the conditions `check_run_file` and `process_run_file` log and count.
+
+```rust
+pub enum RunFileError {
+    MissingKey {
+        key: String,
+    },
+    OutOfRange {
+        key: String,
+        value: f64,
+        expected: String,
+    },
+    ShapeMismatch {
+        key: String,
+        found: usize,
+        expected: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `MissingKey`
+
+A key the run demands is absent.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` | The absent key, spelled as the JSON uses it. |
+
+###### `OutOfRange`
+
+A value is present but outside its physically admissible range.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` | Which key. |
+| `value` | `f64` | The offending value. |
+| `expected` | `String` | What was required, in words (e.g. `"a fraction in [0, 1]"`). |
+
+###### `ShapeMismatch`
+
+A temperature or inventory table does not match the declared node counts.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `key` | `String` | Which table. |
+| `found` | `usize` | Elements found. |
+| `expected` | `usize` | Elements the `n_radial x n_axial` declaration implies. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RunFile`
+
+The run file exactly as it appears on disk.
+
+Field names match the JSON keys upstream's `required_keys` /
+`accident_keys` lists demand, so `serde` reads a GUI-written file directly.
+Every quantity is a bare number here; [`RunFile::to_config`] is what
+attaches units and validates.
+
+```rust
+pub struct RunFile {
+    pub f_hm: f64,
+    pub f_sic: f64,
+    pub f_inc: f64,
+    pub f_inc_sic: f64,
+    pub a_graph: f64,
+    pub a_grain: f64,
+    pub k_plate: f64,
+    pub run_time: f64,
+    pub irradiation_time: f64,
+    pub k_clean: f64,
+    pub r_kernel: f64,
+    pub a_sic: f64,
+    pub hps_tog: bool,
+    pub accident_tog: bool,
+    pub n_radial: usize,
+    pub n_axial: usize,
+    pub nuclides: Vec<String>,
+    pub inventories: Vec<f64>,
+    pub core_temps: Vec<f64>,
+    pub graphite_temps: Vec<f64>,
+    pub f_inc_acc: f64,
+    pub f_inc_sic_acc: f64,
+    pub x_liftoff: f64,
+    pub times: Vec<f64>,
+    pub accident_temps: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `f_hm` | `f64` | Heavy-metal contamination fraction, dimensionless. |
+| `f_sic` | `f64` | As-manufactured SiC-defective fraction, dimensionless. |
+| `f_inc` | `f64` | Incremental in-service failure fraction, dimensionless. |
+| `f_inc_sic` | `f64` | Incremental SiC-only failure fraction, dimensionless. |
+| `a_graph` | `f64` | Matrix graphite thickness, **metres**. |
+| `a_grain` | `f64` | Fuel grain size, **metres**. |
+| `k_plate` | `f64` | Plate-out rate constant, **s⁻¹**. |
+| `run_time` | `f64` | Reactor run time, **years** — see the module's unit note. |
+| `irradiation_time` | `f64` | Irradiation time, **years** — see the module's unit note. |
+| `k_clean` | `f64` | Clean-up (HPS) rate constant, **s⁻¹**. Ignored when `hps_tog` is false;<br>upstream `continue`s past it rather than reading it, so a run with the<br>HPS off need not supply a meaningful value. |
+| `r_kernel` | `f64` | Fuel kernel radius, **metres**. |
+| `a_sic` | `f64` | SiC layer thickness, **metres**. |
+| `hps_tog` | `bool` | Whether a helium purification (clean-up) system is fitted. |
+| `accident_tog` | `bool` | Whether to run the depressurisation accident after normal operation. |
+| `n_radial` | `usize` | Number of radial rings. |
+| `n_axial` | `usize` | Number of axial nodes. |
+| `nuclides` | `Vec<String>` | Nuclide names, in the run file's own spelling. |
+| `inventories` | `Vec<f64>` | Per-nuclide inventories, curies. |
+| `core_temps` | `Vec<f64>` | Core temperature per node, °C, row-major `n_radial x n_axial`. |
+| `graphite_temps` | `Vec<f64>` | Graphite temperature per node, °C, row-major `n_radial x n_axial`. |
+| `f_inc_acc` | `f64` | Additional incremental failure fraction from the accident. Required<br>only when `accident_tog`. |
+| `f_inc_sic_acc` | `f64` | Additional incremental SiC-only failure from the accident. Accident only. |
+| `x_liftoff` | `f64` | Lift-off fraction — the share of plated-out activity re-entrained by the<br>blowdown. Accident only, dimensionless. |
+| `times` | `Vec<f64>` | Accident transient sample times, seconds. Accident only. |
+| `accident_temps` | `Vec<f64>` | Accident transient temperatures, °C. Accident only. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn to_config(self: &Self) -> Result<RunConfig, Vec<RunFileError>> { /* ... */ }
+  ```
+  Validate and convert to a [`RunConfig`].
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Deserialize**
+  - ```rust
+    fn deserialize<__D>(__deserializer: __D) -> _serde::__private228::Result<Self, <__D as >::Error>
+where
+    __D: _serde::Deserializer<''de> { /* ... */ }
+    ```
+
+- **DeserializeOwned**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Serialize**
+  - ```rust
+    fn serialize<__S>(self: &Self, __serializer: __S) -> _serde::__private228::Result<<__S as >::Ok, <__S as >::Error>
+where
+    __S: _serde::Serializer { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+#### Struct `RunConfig`
+
+A validated, unit-carrying run configuration.
+
+This is what upstream's positional `constants` array becomes once every
+index has a name and a unit.
+
+```rust
+pub struct RunConfig {
+    pub f_hm: f64,
+    pub f_sic: f64,
+    pub f_inc: f64,
+    pub f_inc_sic: f64,
+    pub graphite_thickness: uom::si::f64::Length,
+    pub grain_size: uom::si::f64::Length,
+    pub k_plate: uom::si::f64::Frequency,
+    pub run_time: uom::si::f64::Time,
+    pub irradiation_time: uom::si::f64::Time,
+    pub k_clean: uom::si::f64::Frequency,
+    pub kernel_radius: uom::si::f64::Length,
+    pub sic_thickness: uom::si::f64::Length,
+    pub hps: bool,
+    pub accident: bool,
+    pub n_radial: usize,
+    pub n_axial: usize,
+    pub nuclides: Vec<String>,
+    pub inventories: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `f_hm` | `f64` | Heavy-metal contamination fraction. |
+| `f_sic` | `f64` | As-manufactured SiC-defective fraction. |
+| `f_inc` | `f64` | Incremental in-service failure fraction. |
+| `f_inc_sic` | `f64` | Incremental SiC-only failure fraction. |
+| `graphite_thickness` | `uom::si::f64::Length` | Matrix graphite thickness. |
+| `grain_size` | `uom::si::f64::Length` | Fuel grain size. |
+| `k_plate` | `uom::si::f64::Frequency` | Plate-out rate constant. |
+| `run_time` | `uom::si::f64::Time` | Reactor run time, converted from the file's years. |
+| `irradiation_time` | `uom::si::f64::Time` | Irradiation time, converted from the file's years. |
+| `k_clean` | `uom::si::f64::Frequency` | Clean-up rate constant; exactly zero when no HPS is fitted. |
+| `kernel_radius` | `uom::si::f64::Length` | Fuel kernel radius. |
+| `sic_thickness` | `uom::si::f64::Length` | SiC layer thickness. |
+| `hps` | `bool` | Whether a clean-up system is fitted. |
+| `accident` | `bool` | Whether the accident case runs. |
+| `n_radial` | `usize` | Radial ring count. |
+| `n_axial` | `usize` | Axial node count. |
+| `nuclides` | `Vec<String>` | Nuclide names as supplied. |
+| `inventories` | `Vec<f64>` | Per-nuclide inventories, curies. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Types
 
 #### Type Alias `DecayConstant`

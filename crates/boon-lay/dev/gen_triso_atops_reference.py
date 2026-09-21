@@ -420,6 +420,132 @@ def gen_normal_operation_node(calc):
                             case("node.clean_up_activity", args, flat(hps))
 
 
+def gen_release_activity(calc):
+    """`release_activity` — the accident-path inventory drawdown.
+
+    Driven per node (upstream works on a whole radial x axial array; a
+    1x1x1 array isolates one node and keeps the fixture scalar like the rest).
+
+    The six fractions are `[f_hm, f_sic, f_inc, f_inc_sic, f_inc_acc,
+    f_inc_sic_acc]`, exactly as `trisoatops.py::accident_case` assembles them.
+
+    Emits the STOCK behaviour, cadmium typo and all -- `z` is passed through
+    to upstream untouched, so `z == 48` takes the silver branch and `z == 46`
+    does not. The Rust side replays this with `upstream_cadmium_typo = true`.
+    """
+    import numpy as np
+
+    fr = np.array([1e-4, 1e-4, 2.3e-5, 3.6e-5, 5e-5, 7e-5])
+    # z spans every branch: noble gas, halogen, silver(47), the typo'd 48,
+    # palladium(46) which the typo excludes, a special metal and an "other".
+    for z in [54, 53, 47, 48, 46, 55, 60]:
+        for inv in [0.0, 1e9, 1e14]:
+            for graph in [0.0, 1e6]:
+                for circ in [0.0, 1e5]:
+                    for plate in [0.0, 1e3, 1e13]:
+                        for hps in [0.0, 1e4]:
+                            for clean in [True, False]:
+                                for rf in [0.0, 1e-6, 0.5]:
+                                    nodal = np.zeros((7, 1, 1))
+                                    nodal[0, 0, 0] = inv
+                                    nodal[3, 0, 0] = graph
+                                    nodal[4, 0, 0] = circ
+                                    nodal[5, 0, 0] = plate
+                                    nodal[6, 0, 0] = hps
+                                    rf_vals = np.full((1, 1, 1), rf)
+                                    for material in ["kernel", "graphite"]:
+                                        out = calc.release_activity(
+                                            z, fr, nodal, rf_vals, clean, material)
+                                        case(f"release_activity.{material}",
+                                             [z, inv, graph, circ, plate, hps,
+                                              1.0 if clean else 0.0, rf, *fr],
+                                             np.asarray(out).ravel()[0])
+
+
+def gen_coolant_release(calc):
+    """`coolant_release` — vented coolant fraction over a depressurisation.
+
+    Upstream takes the full (radial, time, axial) temperature field and
+    reduces it internally. The Rust port splits that reduction out into
+    `mean_temperature_rate`, so the fixture records BOTH: the mean dT/dt
+    upstream computes, and the release fraction it derives.
+
+    Row layout mirrors the port's slice signature:
+        [n, t_0..t_{n-1}, T_0..T_{n-1}, out_index]
+    with the hot-node temperature history doubling as the single node, which
+    is what makes the two sides comparable.
+    """
+    import numpy as np
+
+    histories = [
+        # steady heat-up
+        ([0.0, 100.0, 200.0, 300.0], [500.0, 600.0, 700.0, 800.0]),
+        # heat then cool -- exercises the non-contiguous venting mask
+        ([0.0, 3600.0, 7200.0, 10800.0, 14400.0],
+         [600.0, 900.0, 1100.0, 1000.0, 850.0]),
+        # near-isothermal: dT/dt ~ 0, the >= 0 boundary
+        ([0.0, 1000.0, 2000.0], [700.0, 700.0, 700.0]),
+    ]
+    for times, temps in histories:
+        n = len(times)
+        t_arr = np.array(times)
+        # one radial ring, one axial node: shape (1, n, 1)
+        temp_field = np.array(temps).reshape(1, n, 1)
+        frac, vent_times = calc.coolant_release(t_arr, temp_field)
+        for i in range(len(frac)):
+            case("coolant_release.fraction",
+                 [n, *times, *temps, i], frac[i])
+        for i in range(len(vent_times)):
+            case("coolant_release.vent_time",
+                 [n, *times, *temps, i], vent_times[i])
+        # The mean dT/dt upstream computes inline, so the port's split-out
+        # `mean_temperature_rate` is verified against the same source.
+        dTdt = np.diff(temp_field, axis=1) / (np.diff(t_arr)[:, None] + np.finfo(float).eps)
+        dTdt = np.pad(dTdt, ((0, 0), (1, 0), (0, 0)), mode='constant', constant_values=0)
+        dTdt_avg = np.mean(dTdt, axis=(0, 2))
+        for i in range(n):
+            case("coolant_release.mean_dtdt", [n, *times, *temps, i], dTdt_avg[i])
+
+
+def gen_inventory_processing(calc):
+    """`inventory_processing` — axial split of a per-ring inventory."""
+    import numpy as np
+
+    for n_axial in [1, 2, 5, 11]:
+        for inv in [0.0, 1.0, 44.5, 1e6]:
+            # upstream's 2-D branch: (n_nuclides, n_radial) -> split over axial
+            arr = np.array([[inv]])
+            out = calc.inventory_processing(arr, n_axial)
+            case("inventory_processing", [n_axial, inv],
+                 np.asarray(out).ravel()[0])
+
+
+def gen_nuclide_selection(calc):
+    """`nuclide_import` / `nuclide_import_accident` classification.
+
+    Only the numeric decisions are emitted -- the short-lived test and the
+    accident retention test -- because those are the parts that change a
+    result. Name normalisation and the parent-decay wiring are asserted on the
+    Rust side instead: normalisation is pure string handling, and
+    `parent_decay` cannot be read out of upstream at all, since the `==` bug
+    means the value never leaves the shared table (see the module docs).
+    """
+    names = ["Kr-85m", "Cs-137", "I-131", "Xe-135", "Sr-90", "Kr-89",
+             "Ru-105", "Rh-105", "Ag-110m", "Pd-107"]
+    for name in names:
+        nuc = calc.nuclides.get(name)
+        if nuc is None:
+            continue
+        for t_irrad in [3.15576e7, 9.46728e7, 1.262304e9]:
+            # upstream: hl / irad_time < short_lived_ratio (default 0.2)
+            sl = 1.0 if (nuc.hl / t_irrad) < 0.2 else 0.0
+            case(f"nuclide_import.short_lived:{name}", [t_irrad], sl)
+        for t_acc in [8.64e4, 2.592e5, 2.592e6]:
+            # upstream: hl / accident_time >= use_ratio (default 0.04)
+            keep = 1.0 if (nuc.hl / t_acc) >= 0.04 else 0.0
+            case(f"nuclide_import_accident.retained:{name}", [t_acc], keep)
+
+
 def gen_nuclides(calc):
     """Decay constants straight out of the upstream nuclide table."""
     for name in sorted(calc.nuclides):
@@ -444,6 +570,10 @@ def main() -> int:
     gen_release_fraction(calc)
     gen_integrate(calc)
     gen_normal_operation_node(calc)
+    gen_release_activity(calc)
+    gen_coolant_release(calc)
+    gen_inventory_processing(calc)
+    gen_nuclide_selection(calc)
     gen_nuclides(calc)
 
     out = [

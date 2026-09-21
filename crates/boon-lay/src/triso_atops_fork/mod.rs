@@ -132,6 +132,9 @@ pub type ReleaseFraction = uom::si::f64::Ratio;
 
 pub mod nuclide_model;
 
+/// Run set-up: nuclide selection, classification and inventory distribution.
+pub mod run_selection;
+
 pub mod diffusion;
 
 pub mod release_models;
@@ -139,6 +142,12 @@ pub mod release_models;
 pub mod activities;
 
 pub mod normal_operation;
+
+/// Depressurisation-accident release: inventory drawdown, coolant venting.
+pub mod accident;
+
+/// The JSON run file: parsing, validation and unit attachment.
+pub mod run_file;
 
 pub use activities::Activity;
 pub use nuclide_model::{ElementGroup, TrisoAtopsNuclide};
