@@ -616,14 +616,19 @@ struct VesselLayout {
 }
 
 impl VesselLayout {
-    /// Lay the vessel out inside the widget's full box.
-    fn new(full: Rect) -> Self {
+    /// Lay the vessel out inside the widget's full box. The rightmost
+    /// `duct_reach` points of the box belong to the coaxial duct, so the
+    /// vessel is fitted into what is left, on the left.
+    fn new(full: Rect, duct_reach: f32) -> Self {
         let bands = 1.0 + DRIVE_BAND_FRACTION + CHUTE_BAND_FRACTION;
         let drive_band = full.height() * DRIVE_BAND_FRACTION / bands;
         let chute_band = full.height() * CHUTE_BAND_FRACTION / bands;
         let rect = fit_native_aspect(Rect::from_min_max(
             Pos2::new(full.left(), full.top() + drive_band),
-            Pos2::new(full.right(), full.bottom() - chute_band),
+            Pos2::new(
+                (full.right() - duct_reach).max(full.left()),
+                full.bottom() - chute_band,
+            ),
         ));
         Self {
             rect,
@@ -662,7 +667,8 @@ impl VesselLayout {
     }
 
     /// The coaxial duct's outer body and its hot inner tube, the body running
-    /// `0.16` vessel widths past the vessel plus `extension` points.
+    /// [`DUCT_STUB_FRACTION`] vessel widths past the vessel plus `extension`
+    /// points.
     fn coax(&self, extension: f32) -> (Rect, Rect) {
         let plenum = self.hot_plenum();
         let coax = Rect::from_min_max(
@@ -671,7 +677,7 @@ impl VesselLayout {
                 plenum.top() - plenum.height() * 0.45,
             ),
             Pos2::new(
-                self.rect.right() + self.rect.width() * 0.16 + extension.max(0.0),
+                self.rect.right() + self.rect.width() * DUCT_STUB_FRACTION + extension.max(0.0),
                 plenum.bottom() + plenum.height() * 0.45,
             ),
         );
@@ -683,6 +689,10 @@ impl VesselLayout {
         (coax, hot)
     }
 }
+
+/// How far the coaxial duct runs past the vessel by default, as a fraction of
+/// the vessel width. A drawing choice; no source gives the duct length.
+const DUCT_STUB_FRACTION: f32 = 0.16;
 
 /// Where the coaxial duct leaves [`Htr10ReactorSchematic`]: its outboard end,
 /// for connecting it to a steam generator drawn beside the vessel.
@@ -830,9 +840,19 @@ impl Htr10ReactorSchematic {
         )
     }
 
-    /// On-screen size, in points.
+    /// On-screen size, in points: the vessel box ([`Self::native_size`]) plus
+    /// the run of the coaxial duct to its right.
+    ///
+    /// **CHANGED 2026-09-21.** This was the vessel box alone, and because a
+    /// widget's painter is clipped to its own box, the duct beyond the vessel
+    /// was never visible: it was cut off at the vessel's edge.
     pub fn size(&self) -> Vec2 {
-        self.size
+        self.size + Vec2::new(self.duct_reach(), 0.0)
+    }
+
+    /// Width the coaxial duct takes to the right of the vessel box, points.
+    fn duct_reach(&self) -> f32 {
+        DUCT_STUB_FRACTION * self.size.x + self.duct_extension
     }
 
     /// Pebble-bed height, centimetres, measured up from zero core height.
@@ -932,10 +952,11 @@ impl Htr10ReactorSchematic {
     }
 
     /// Where the coaxial duct ends, for a widget whose box is `widget_rect`
-    /// (the rect it will be placed in). Computed by the same layout code that
+    /// (the rect it will be placed in, of size [`Self::size`]). Computed by the same layout code that
     /// paints the duct, so it matches the drawing exactly.
     pub fn duct_port(&self, widget_rect: Rect) -> DuctPort {
-        let (coax, hot) = VesselLayout::new(widget_rect).coax(self.duct_extension);
+        let (coax, hot) =
+            VesselLayout::new(widget_rect, self.duct_reach()).coax(self.duct_extension);
         DuctPort {
             end: Pos2::new(coax.right(), coax.center().y),
             outer_height: coax.height(),
@@ -992,12 +1013,12 @@ impl Widget for Htr10ReactorSchematic {
     /// the discharge tube and defuelling chute (with pebbles), and
     /// the control rods with their drives.
     fn ui(mut self, ui: &mut Ui) -> Response {
-        let (response, painter) = ui.allocate_painter(self.size, Sense::hover());
+        let (response, painter) = ui.allocate_painter(self.size(), Sense::hover());
         self.control_rod_insertion_frac = self.control_rod_insertion_frac.clamp(0.0, 1.0);
 
         // The drives stand above the head and the defuelling chute exits just
         // below the bottom head, so the vessel gets the middle of the box.
-        let layout = VesselLayout::new(response.rect);
+        let layout = VesselLayout::new(response.rect, self.duct_reach());
         let (rect, drive_band, chute_band) = (layout.rect, layout.drive_band, layout.chute_band);
         let w = rect.width();
         let h = rect.height();
@@ -1934,15 +1955,26 @@ mod tests {
     /// hot inner tube is narrower than the body around it.
     #[test]
     fn the_duct_port_follows_the_extension_exactly() {
+        let origin = Pos2::new(40.0, 10.0);
         let v = visual();
-        let r = Rect::from_min_size(Pos2::new(40.0, 10.0), v.size());
-        let base = v.duct_port(r);
-        let longer = visual().with_duct_extension(55.0).duct_port(r);
+        let base = v.duct_port(Rect::from_min_size(origin, v.size()));
+        let l = visual().with_duct_extension(55.0);
+        let longer = l.duct_port(Rect::from_min_size(origin, l.size()));
+        let r = Rect::from_min_size(origin, v.size());
+        assert!(
+            (l.size().x - v.size().x - 55.0).abs() < 1e-3,
+            "the widget box grows with the duct, so the duct is never clipped"
+        );
+        assert!(
+            (base.end.x - r.right()).abs() < 1e-3,
+            "the duct ends exactly at the widget box edge, not beyond it"
+        );
         assert!((longer.end.x - base.end.x - 55.0).abs() < 1e-3);
         assert!((longer.end.y - base.end.y).abs() < 1e-6);
         assert!(base.inner_height < base.outer_height);
         assert!(base.end.x > r.center().x, "the duct leaves on the right");
-        let shorter = visual().with_duct_extension(-10.0).duct_port(r);
+        let s = visual().with_duct_extension(-10.0);
+        let shorter = s.duct_port(Rect::from_min_size(origin, s.size()));
         assert_eq!(shorter, base, "a negative extension is treated as zero");
     }
 

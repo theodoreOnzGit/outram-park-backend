@@ -552,8 +552,9 @@ fn draw_plant(ui: &mut egui::Ui, state: &TestReactorsTab) {
     // The steam generator first, so the duct is painted over its foot and
     // reads as entering it.
     ui.put(sg_local.translate(shift), state.sg_tracers.attach(sg));
-    ui.put(
-        reactor_local.translate(shift),
-        reactor.with_duct_extension(extension),
-    );
+    // The extended reactor is wider (its box includes the duct), but its
+    // vessel is anchored at the left of the box, so the origin is unchanged.
+    let reactor = reactor.with_duct_extension(extension);
+    let reactor_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, reactor.size());
+    ui.put(reactor_rect.translate(shift), reactor);
 }

@@ -17,9 +17,7 @@
 
 use egui::{RichText, Vec2};
 use crate::test_reactors_tab::TestReactorsTab;
-use outram_park_digital_twin_engine::components::{
-    Htr10ReactorSchematic, ReactorArchetype, ReactorArchetypeVisual,
-};
+use outram_park_digital_twin_engine::components::{ReactorArchetype, ReactorArchetypeVisual};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::degree_celsius;
 
@@ -255,8 +253,10 @@ fn htr10_mini_card(
 
         // Largest vessel width whose native box fits inside the card, with the
         // same 16 pt margin the archetype cards use.
-        let per_width = Htr10ReactorSchematic::native_size(1.0);
-        let width = (card_w - 16.0).min((vessel_h - 16.0) / per_width.y * per_width.x);
+        // The widget's box includes its coaxial duct, so size by the whole
+        // box per unit of vessel width, not the vessel alone.
+        let per_width = htr10.visual_at_width(1.0).size();
+        let width = ((card_w - 16.0) / per_width.x).min((vessel_h - 16.0) / per_width.y);
         let mini = htr10.visual_at_width(width);
         ui.put(
             egui::Rect::from_center_size(rect.center(), mini.size()),
