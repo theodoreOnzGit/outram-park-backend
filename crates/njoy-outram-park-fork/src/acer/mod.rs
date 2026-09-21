@@ -132,6 +132,7 @@ pub fn has_mt19_distributions(tape: &crate::endf::tape::Tape, mat: i32) -> bool 
 /// `IncoherentInelastic`/`CoherentElastic`, and is exercised by `op-1y4y`'s
 /// closing evidence (`thermal_from_mf7` writing ITCE/ITCX from
 /// `s_of_e_at(temp_k)`). See [`thermal`] for the table layout.
+pub mod read;
 pub mod thermal;
 pub mod write;
 

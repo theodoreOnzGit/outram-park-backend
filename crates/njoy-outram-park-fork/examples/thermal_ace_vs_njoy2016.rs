@@ -101,21 +101,23 @@ fn main() {
         return;
     }
 
-    // ---- NJOY's table -----------------------------------------------------
-    let text = std::fs::read_to_string(&ace_path)
+    // ---- NJOY's table, through the library reader -------------------------
+    // Was an ad-hoc parser inlined here, one of five near-identical copies in
+    // this crate. `acer::read` is now the single implementation and it also
+    // checks NXS(1) against the actual XSS length, so a truncated reference
+    // fails here instead of producing quiet nonsense downstream.
+    let njoy = njoy_outram_park_fork::acer::read::read_type1(&ace_path)
         .unwrap_or_else(|e| panic!("read {ace_path}: {e}"));
-    let lines: Vec<&str> = text.lines().collect();
-    let ints: Vec<i32> = lines[6..12]
-        .iter()
-        .flat_map(|l| l.split_whitespace())
-        .map(|t| t.parse::<i32>().expect("nxs/jxs int"))
-        .collect();
-    let (t_nxs, t_jxs) = (&ints[..16], &ints[16..]);
-    let t_xss: Vec<f64> = lines[12..]
-        .iter()
-        .flat_map(|l| l.split_whitespace())
-        .map(|t| t.parse::<f64>().expect("xss real"))
-        .collect();
+    assert_eq!(
+        njoy.header.class,
+        njoy_outram_park_fork::acer::read::AceClass::Thermal,
+        "{ace_path} is a {:?} table, not a thermal one -- this comparator only \
+         understands the `t` class",
+        njoy.header.class
+    );
+    let t_nxs = &njoy.nxs[..];
+    let t_jxs = &njoy.jxs[..];
+    let t_xss: Vec<f64> = njoy.xss.clone();
     // JXS locators are 1-based into XSS.
     let at = |loc: i32| -> usize { (loc - 1) as usize };
 
@@ -263,6 +265,15 @@ fn main() {
         println!("    {:.4e}  {:.6e}  {:.6e}  {:.2e}", njoy_e[k], a, b, r);
     }
 
+    // Exhaustive-coverage accumulators, reported in SUMMARY so a sweep can
+    // tabulate them. Initialised to NAN, not 0.0: a block that was never
+    // compared must not read as "compared and perfect".
+    let mut itxe_ep = f64::NAN;
+    let mut itxe_mu = f64::NAN;
+    let mut itxe_n = 0usize;
+    let mut inel_e = f64::NAN;
+    let mut inel_a = f64::NAN;
+
     // ---- coherent elastic -------------------------------------------------
     let mut worst_be = 0.0f64;
     let mut worst_s = 0.0f64;
@@ -338,17 +349,184 @@ fn main() {
         println!("\n=== coherent elastic ===\n  not present on both sides (IDPNC={idpnc})");
     }
 
+    // ---- ITXE: the equiprobable emission bins -----------------------------
+    //
+    // Layout for IFENG=0, read off upstream's OWN printer (`aceth.f90:904-968`):
+    //
+    //     loc = itxe - 1
+    //     for i in 1..=nie:            nang = nil+1,  nbini = nieb
+    //         for j in 1..=nbini:      xss[loc+1 ..= loc+nang+1]   # E', mu(1..nang)
+    //                                  loc += nang + 1
+    //
+    // so the block is NIE * NIEB * (nang+1) values.
+    //
+    // POSITIONAL COMPARISON IS LEGITIMATE HERE, and only here. Everywhere else
+    // this program matches by energy, because two codes do not share a grid.
+    // This block is built on NJOY's own incident-energy grid with NJOY's own
+    // NIEB and NIL, so entry k of one table is the same (incident energy,
+    // bin, cosine) as entry k of the other by construction. If NXS ever
+    // disagreed the assertion above would have already failed.
+    let nang = (nil + 1) as usize;
+    let stride = nang + 1;
+    let want_len = nei * nieb * stride;
+    let t_itxe = at(t_jxs[jxs::ITXE]);
+    let o_itxe = (o_jxs[jxs::ITXE] - 1) as usize;
+    println!("\n=== ITXE emission bins ({nei} x {nieb} x {stride} = {want_len} values) ===");
+    if t_itxe + want_len > t_xss.len() || o_itxe + want_len > o_xss.len() {
+        println!("  block does not fit in one of the tables -- NOT compared");
+    } else {
+        // E' and the cosines are different quantities and are kept apart: a
+        // cosine legitimately passes through zero, where a relative difference
+        // is meaningless, so it is reported as an ABSOLUTE difference.
+        let mut worst_ep = (0.0f64, 0usize);
+        let mut worst_mu = (0.0f64, 0usize);
+        for k in 0..want_len {
+            let (a, b) = (o_xss[o_itxe + k], t_xss[t_itxe + k]);
+            if k % stride == 0 {
+                if b != 0.0 {
+                    let d = ((a - b) / b).abs();
+                    if d > worst_ep.0 {
+                        worst_ep = (d, k);
+                    }
+                }
+            } else {
+                let d = (a - b).abs();
+                if d > worst_mu.0 {
+                    worst_mu = (d, k);
+                }
+            }
+        }
+        println!(
+            "  outgoing energy E'  worst REL {:.3e}  (at index {})",
+            worst_ep.0, worst_ep.1
+        );
+        println!(
+            "  cosines             worst ABS {:.3e}  (at index {}; absolute because a \
+             cosine crosses zero)",
+            worst_mu.0, worst_mu.1
+        );
+        itxe_ep = worst_ep.0;
+        itxe_mu = worst_mu.0;
+        itxe_n = want_len;
+    }
+
+    // ---- incoherent elastic ----------------------------------------------
+    //
+    // `aceth.f90:1031-1041`: IDPNC=3 uses ITCE/ITCA with nea = NCL+1; IDPNC=5
+    // (mixed) uses the secondary ITCEI/ITCAI with nea = NCLI+1.
+    println!("\n=== incoherent elastic ===");
+    if idpnc == 3 || idpnc == 5 {
+        let (t_start, t_mid, nea) = if idpnc == 5 {
+            (t_jxs[jxs::ITCEI], t_jxs[jxs::ITCAI], (t_nxs[nxs::NCLI] + 1) as usize)
+        } else {
+            (t_jxs[jxs::ITCE], t_jxs[jxs::ITCA], (t_nxs[nxs::NCL] + 1) as usize)
+        };
+        let (o_start, o_mid) = if idpnc == 5 {
+            (o_jxs[jxs::ITCEI], o_jxs[jxs::ITCAI])
+        } else {
+            (o_jxs[jxs::ITCE], o_jxs[jxs::ITCA])
+        };
+        if t_start == 0 || o_start == 0 {
+            println!("  locator absent on one side (ours {o_start}, njoy {t_start}) -- NOT compared");
+        } else {
+            let t_nei_e = t_xss[at(t_start)] as usize;
+            let o_nei_e = o_xss[(o_start - 1) as usize] as usize;
+            println!("  NE ours {o_nei_e}  njoy {t_nei_e}");
+            if t_nei_e == o_nei_e && t_mid != 0 && o_mid != 0 {
+                let mut worst_e = 0.0f64;
+                let mut worst_a = 0.0f64;
+                for k in 0..t_nei_e {
+                    let (a, b) = (o_xss[(o_start - 1) as usize + 1 + k], t_xss[at(t_start) + 1 + k]);
+                    if b != 0.0 {
+                        worst_e = worst_e.max(((a - b) / b).abs());
+                    }
+                }
+                let na = t_nei_e * nea;
+                if at(t_mid) + na <= t_xss.len() && (o_mid - 1) as usize + na <= o_xss.len() {
+                    for k in 0..na {
+                        let (a, b) = (o_xss[(o_mid - 1) as usize + k], t_xss[at(t_mid) + k]);
+                        worst_a = worst_a.max((a - b).abs());
+                    }
+                }
+                println!("  energies worst REL {worst_e:.3e}");
+                println!("  equiprobable cosines ({nea} per energy) worst ABS {worst_a:.3e}");
+                inel_e = worst_e;
+                inel_a = worst_a;
+            }
+        }
+    } else {
+        println!("  none on this evaluation (IDPNC={idpnc})");
+    }
+
+    // ---- JXS locators and the declared table length -----------------------
+    println!("\n=== JXS locators / table length ===");
+    let jxs_names = [
+        ("ITIE", jxs::ITIE), ("ITIX", jxs::ITIX), ("ITXE", jxs::ITXE),
+        ("ITCE", jxs::ITCE), ("ITCX", jxs::ITCX), ("ITCA", jxs::ITCA),
+        ("ITCEI", jxs::ITCEI), ("ITCXI", jxs::ITCXI), ("ITCAI", jxs::ITCAI),
+    ];
+    let mut jxs_ok = true;
+    for (label, i) in jxs_names {
+        let (a, b) = (o_jxs[i], t_jxs[i]);
+        if a != b {
+            jxs_ok = false;
+            println!("  {label:<6} ours {a:>8}  njoy {b:>8}  DIFFER");
+        }
+    }
+    if jxs_ok {
+        println!("  all nine locators identical");
+    }
+    let len_ok = o_nxs[nxs::LEN_XSS] == t_nxs[nxs::LEN_XSS]
+        && o_xss.len() == t_xss.len();
     println!(
-        "\nNOT COMPARED HERE: the ITXE equiprobable emission bins. Their lengths agree by\n\
-         construction once NIEB and NIL match, so a length check proves nothing about the\n\
-         values, and this program does not claim otherwise."
+        "  XSS length ours {} ({}) njoy {} ({})  {}",
+        o_xss.len(), o_nxs[nxs::LEN_XSS], t_xss.len(), t_nxs[nxs::LEN_XSS],
+        if len_ok { "ok" } else { "DIFFER" }
     );
+    // A bare "DIFFER" on the length is not a finding, it is a question. The
+    // coherent-elastic block is 2*NEE values (NEE edge energies + NEE
+    // cumulative S), so if this port keeps more Bragg edges than NJOY the
+    // difference must be EXACTLY 2*(NEE_ours - NEE_njoy), and every locator
+    // after ITCE must shift by exactly that edge count. Checking the
+    // arithmetic turns an unexplained mismatch into an attributed one -- or,
+    // if it fails, into a real defect that this check is what would catch.
+    let mut attributed = false;
+    if !len_ok && t_jxs[jxs::ITCE] != 0 && o_jxs[jxs::ITCE] != 0 {
+        let t_nee = t_xss[at(t_jxs[jxs::ITCE])] as i64;
+        let o_nee = o_xss[(o_jxs[jxs::ITCE] - 1) as usize] as i64;
+        let d_edges = o_nee - t_nee;
+        let d_len = o_xss.len() as i64 - t_xss.len() as i64;
+        let d_itcx = (o_jxs[jxs::ITCX] - t_jxs[jxs::ITCX]) as i64;
+        if d_len == 2 * d_edges && d_itcx == d_edges {
+            attributed = true;
+            println!(
+                "  ATTRIBUTED: we keep {d_edges} more Bragg edges than NJOY ({o_nee} vs \
+                 {t_nee}).\n             The coherent block is 2*NEE values, so the length \
+                 differs by exactly\n             2*{d_edges} = {d_len}, and ITCX shifts by \
+                 exactly {d_itcx}. Both hold, so the\n             whole structural difference \
+                 is edge thinning and nothing else."
+            );
+        } else {
+            println!(
+                "  NOT attributable to edge thinning: edges differ by {d_edges}, length by \
+                 {d_len} (expected {}), ITCX by {d_itcx} (expected {d_edges}).",
+                2 * d_edges
+            );
+        }
+    }
+    let all_ok = (jxs_ok && len_ok) || attributed;
     println!(
         "SUMMARY tsl={tsl} mat={mat} temp={temp_k} nei={nei} nee={nee} ifeng={ifeng} \
-         nxs={} xs={:.3e} bragg_e={:.3e} bragg_s={:.3e}",
+         nxs={} xs={:.3e} bragg_e={:.3e} bragg_s={:.3e} itxe_n={itxe_n} \
+         itxe_ep={:.3e} itxe_mu={:.3e} inel_e={:.3e} inel_a={:.3e} struct={}",
         if nxs_ok { "ok" } else { "DIFFER" },
         worst_xs.0,
         worst_be,
-        worst_s
+        worst_s,
+        itxe_ep,
+        itxe_mu,
+        inel_e,
+        inel_a,
+        if jxs_ok && len_ok { "ok" } else if all_ok { "thinning" } else { "DIFFER" }
     );
 }

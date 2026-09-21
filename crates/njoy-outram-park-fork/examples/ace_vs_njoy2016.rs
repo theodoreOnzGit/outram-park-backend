@@ -101,8 +101,14 @@ mod desktop {
     };
     use std::fs::File;
 
-    /// A Type-1 ASCII ACE table, parsed into the same three pieces
-    /// [`AceTable`] holds so the two can be diffed directly.
+    /// A Type-1 ASCII ACE table, in the same three pieces [`AceTable`] holds so
+    /// the two can be diffed directly.
+    ///
+    /// **The hand-rolled parser that used to live here is gone.** It was one of
+    /// five near-identical copies in this crate; `acer::read` is now the single
+    /// implementation, shared with the thermal comparator, and it validates
+    /// `NXS(1)` against the actual `XSS` length so a truncated reference fails
+    /// loudly instead of being quietly differenced.
     struct NjoyAce {
         zaid: String,
         awr: f64,
@@ -112,57 +118,17 @@ mod desktop {
         xss: Vec<f64>,
     }
 
-    /// Parse NJOY2016's Type-1 ASCII ACE layout.
-    ///
-    /// Line 1 `zaid awr tz date`; line 2 free comment + material id; lines 3-6
-    /// the 16 IZ/AW pairs; then NXS as 2 lines of 8 integers, JXS as 4 lines of
-    /// 8, and the XSS block 4 values to a line. Whitespace-splitting is enough
-    /// for all of it — NJOY writes the fixed-width fields space-separated.
+    /// Read NJOY2016's Type-1 ASCII ACE through the library reader.
     fn parse_njoy_ace(path: &str) -> NjoyAce {
-        let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
-        let lines: Vec<&str> = text.lines().collect();
-        assert!(
-            lines.len() > 12,
-            "{path} has {} lines; a Type-1 ACE header alone is 12",
-            lines.len()
-        );
-
-        let h: Vec<&str> = lines[0].split_whitespace().collect();
-        let zaid = h[0].to_string();
-        let awr: f64 = h[1].parse().expect("AWR");
-        let kt_mev: f64 = h[2].parse().expect("kT [MeV]");
-
-        // Lines 3-6 are the IZ/AW pairs; NXS starts at line 7 (index 6).
-        let ints: Vec<i32> = lines[6..12]
-            .iter()
-            .flat_map(|l| l.split_whitespace())
-            .map(|t| {
-                t.parse::<i32>()
-                    .unwrap_or_else(|e| panic!("int {t:?}: {e}"))
-            })
-            .collect();
-        assert_eq!(ints.len(), 48, "NXS(16) + JXS(32) should be 48 integers");
-        let mut nxs = [0i32; 16];
-        let mut jxs = [0i32; 32];
-        nxs.copy_from_slice(&ints[..16]);
-        jxs.copy_from_slice(&ints[16..]);
-
-        let xss: Vec<f64> = lines[12..]
-            .iter()
-            .flat_map(|l| l.split_whitespace())
-            .map(|t| {
-                t.parse::<f64>()
-                    .unwrap_or_else(|e| panic!("xss {t:?}: {e}"))
-            })
-            .collect();
-
+        let t = njoy_outram_park_fork::acer::read::read_type1(path)
+            .unwrap_or_else(|e| panic!("read {path}: {e}"));
         NjoyAce {
-            zaid,
-            awr,
-            kt_mev,
-            nxs,
-            jxs,
-            xss,
+            zaid: t.header.zaid,
+            awr: t.header.awr,
+            kt_mev: t.header.kt_mev,
+            nxs: t.nxs,
+            jxs: t.jxs,
+            xss: t.xss,
         }
     }
 

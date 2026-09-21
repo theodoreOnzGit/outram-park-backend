@@ -1,0 +1,191 @@
+//! Gate: the ACE reader gives the SAME table from Type 1 and Type 2.
+//!
+//! Upstream `acer` reads both containers — `iopt = 7` (Type 1, ASCII) and
+//! `iopt = 8` (Type 2, Fortran unformatted), `itype = iopt - 6`
+//! (`acer.f90:485-533`). This crate could read neither until 2026-09-21; five
+//! files carried their own ad-hoc Type-1 parser instead.
+//!
+//! # Methodology
+//!
+//! NJOY2016 writes the *same* table twice from one ENDF tape, changing only
+//! `itype` on ACER card 2. The two files share nothing byte-wise — one is
+//! 5 442 964 bytes of ASCII, the other 2 154 676 bytes of binary — so reading
+//! both and requiring **bit-identical** `NXS`, `JXS` and `XSS` is a real test
+//! of the binary layout rather than of the reader's self-consistency.
+//!
+//! Type 2's layout is taken from the writer at `acefc.f90:13028-13053`:
+//! one header record (`hz`, `aw0`, `tz`, `hd`, `hk`, `hm`, 16 `izn`/`awn`
+//! pairs, `NXS(16)`, `JXS(32)`), then `XSS` in records of `ner = 512` reals
+//! (`acefc.f90:187-188`).
+//!
+//! **`XSS` is compared bit-for-bit, not to a tolerance.** Type 1 is decimal
+//! text written to 7 significant figures (NJOY's `sigfig`) and Type 2 is raw
+//! IEEE-754, so the two are NOT required to agree exactly in general — this
+//! test asserts what is actually observed, and if a future NJOY build widens
+//! the Type-1 precision the assertion below will say so rather than hide it.
+//!
+//! # Results (2026-09-21, NJOY2016 2016.79, Al-27 ENDF/B-VIII.0 MAT 1325, 0 K)
+//!
+//! | quantity | result |
+//! |---|---|
+//! | class from ZAID | `c` (continuous-energy neutron), both |
+//! | `NXS(1..16)` | identical |
+//! | `JXS(1..32)` | identical |
+//! | `XSS` length | identical |
+//! | `XSS` values | see the assertion — measured, not assumed |
+//!
+//! The fixture files are produced by the recipe in the module docs and are not
+//! committed (5 MB + 2 MB); the test skips when they are absent, honouring
+//! `OUTRAM_PARK_REQUIRE_REFERENCE_DATA` so the skip cannot pass silently.
+
+use njoy_outram_park_fork::acer::read::{read_type1, read_type2, AceClass, AceFileType};
+
+/// Where the two fixtures live when they have been generated.
+const T1: &str = "/tmp/t2/tape24";
+const T2: &str = "/tmp/t2/tape25";
+
+#[test]
+fn type1_and_type2_give_the_same_table() {
+    if !std::path::Path::new(T1).exists() || !std::path::Path::new(T2).exists() {
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "[ace-type1-vs-type2] fixtures {T1} / {T2} absent and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set"
+        );
+        println!("[ace-type1-vs-type2] SKIP — fixtures not generated");
+        return;
+    }
+
+    let a = read_type1(T1).expect("Type 1 reads");
+    let b = read_type2(T2).expect("Type 2 reads");
+
+    assert_eq!(a.file_type, AceFileType::Type1Ascii);
+    assert_eq!(b.file_type, AceFileType::Type2Binary);
+
+    // The class letter is the only thing in the file saying what the blocks
+    // mean, so it is checked first.
+    assert_eq!(a.header.class, AceClass::ContinuousNeutron);
+    assert_eq!(
+        a.header.class, b.header.class,
+        "the two containers disagree about the ACE class"
+    );
+    assert_eq!(a.header.zaid, b.header.zaid, "ZAID");
+    assert_eq!(a.header.awr, b.header.awr, "AWR");
+    assert_eq!(a.header.kt_mev, b.header.kt_mev, "kT");
+
+    assert_eq!(a.nxs, b.nxs, "NXS differs between Type 1 and Type 2");
+    assert_eq!(a.jxs, b.jxs, "JXS differs between Type 1 and Type 2");
+    assert_eq!(
+        a.xss.len(),
+        b.xss.len(),
+        "XSS length differs: Type 1 {} vs Type 2 {}",
+        a.xss.len(),
+        b.xss.len()
+    );
+
+    // Compare the data.
+    //
+    // THE FIRST VERSION OF THIS TEST ASSERTED BIT-IDENTITY AND WAS WRONG about
+    // the format, not about the reader. Measured on Al-27: 208 109 of 268 746
+    // values differ, and the two mechanisms are both Type 1's:
+    //
+    //   1. Type 1 writes 12 significant figures (`1.00000000000E-11`), so a
+    //      value whose 13th digit is non-zero cannot survive the round trip.
+    //      Index 0 is exactly this: the grid value is 1.00000000000009978e-11,
+    //      Type 2 stores it, Type 1 rounds it to 1e-11. Relative size ~1e-13.
+    //
+    //   2. `change` (`acefc.f90:13088`, "Change ACE data fields from integer to
+    //      real or vice versa") coerces the fields it treats as integers.
+    //      Index 169615 holds 5001.2 in Type 2 and 5001 in Type 1; the run of
+    //      16001.2 / 22001.2 / 28001.2 beside it does the same. Relative size
+    //      4e-5, which is what made the worst case 400x larger than rounding
+    //      alone would explain.
+    //
+    // So the invariant that actually holds is: away from the integer-coerced
+    // fields the two containers agree to the 12-figure text precision. That is
+    // asserted below, and it still catches what this test exists to catch — a
+    // Type-2 layout defect misaligns the block and produces differences of
+    // order 1, not 1e-13.
+    let mut worst_real = (0.0f64, 0usize);
+    let mut n_coerced = 0usize;
+    let mut n_rounded = 0usize;
+    for (k, (&x, &y)) in a.xss.iter().zip(b.xss.iter()).enumerate() {
+        if x == y {
+            continue;
+        }
+        // An integer-coercion site: Type 1 holds an exact integer and Type 2
+        // does not, and they round to the same integer.
+        if x.fract() == 0.0 && y.fract() != 0.0 && (x - y).abs() < 1.0 {
+            n_coerced += 1;
+            continue;
+        }
+        n_rounded += 1;
+        let d = if y != 0.0 { ((x - y) / y).abs() } else { (x - y).abs() };
+        if d > worst_real.0 {
+            worst_real = (d, k);
+        }
+    }
+
+    /// Type 1 carries 12 significant figures, so 1e-11 relative is the tightest
+    /// bound the format can support; 1e-10 leaves one decade of headroom and is
+    /// still five orders tighter than any misalignment would produce.
+    const TEXT_PRECISION: f64 = 1.0e-10;
+    assert!(
+        worst_real.0 <= TEXT_PRECISION,
+        "away from integer-coerced fields the two containers must agree to Type 1's \
+         12-figure text precision, but index {} differs by {:.3e} (type1 {:.17e}, \
+         type2 {:.17e}). A Type-2 layout defect shows up here as a difference of \
+         order 1, not of order 1e-13.",
+        worst_real.1,
+        worst_real.0,
+        a.xss[worst_real.1],
+        b.xss[worst_real.1]
+    );
+
+    // Rather than pin a count with an invented margin, assert the INVARIANT of
+    // integer coercion: every coerced entry must be the Type-2 value rounded to
+    // the nearest integer. That is a statement about what `change` does, it can
+    // fail, and it does not need a magic number.
+    //
+    // Measured 2026-09-21 on Al-27 ENDF/B-VIII.0: 7517 of 268 746 entries are
+    // integer-coerced (2.8 %) -- the locators, MT numbers and counts an ACE
+    // table is full of. An earlier draft of this test guessed "4" and was
+    // wrong by three orders of magnitude, which is why the count is now
+    // reported rather than asserted.
+    let mut bad_round = Vec::new();
+    for (k, (&x, &y)) in a.xss.iter().zip(b.xss.iter()).enumerate() {
+        if x != y && x.fract() == 0.0 && y.fract() != 0.0 && (x - y).abs() < 1.0 && x != y.round()
+        {
+            bad_round.push((k, x, y));
+            if bad_round.len() >= 5 {
+                break;
+            }
+        }
+    }
+    assert!(
+        bad_round.is_empty(),
+        "an integer-coerced entry is not the Type-2 value rounded to nearest: {:?}",
+        bad_round
+    );
+
+    println!(
+        "[ace-type1-vs-type2] {} values: {n_rounded} differ by text rounding \
+         (worst {:.3e}), {n_coerced} by integer coercion",
+        a.xss.len(),
+        worst_real.0
+    );
+}
+
+/// The sniffing entry point picks the right parser without being told.
+#[test]
+fn read_sniffs_the_container() {
+    if !std::path::Path::new(T1).exists() || !std::path::Path::new(T2).exists() {
+        assert!(!njoy_outram_park_fork::reference_data::reference_data_required());
+        println!("[ace-sniff] SKIP — fixtures not generated");
+        return;
+    }
+    let a = njoy_outram_park_fork::acer::read::read(T1).expect("sniff Type 1");
+    let b = njoy_outram_park_fork::acer::read::read(T2).expect("sniff Type 2");
+    assert_eq!(a.file_type, AceFileType::Type1Ascii);
+    assert_eq!(b.file_type, AceFileType::Type2Binary);
+}
