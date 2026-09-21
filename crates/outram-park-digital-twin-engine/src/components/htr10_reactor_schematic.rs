@@ -64,12 +64,26 @@
 //!
 //! ## Animation
 //!
-//! Three optional tracer trains, all driven by the **primary** loop mass flow
+//! Four optional tracer trains, all driven by the **primary** loop mass flow
 //! and obeying the crate's "ANIMATION IS DERIVED FROM PHYSICS, NEVER
 //! HARDCODED" hard rule. Each pass's inlet end is geometry; the direction the
 //! marks then travel comes from the sign of the flow the caller advanced the
-//! train with, so a reversed or stalled loop reverses or freezes all three
+//! train with, so a reversed or stalled loop reverses or freezes all four
 //! together.
+//!
+//! Two of them are worth calling out:
+//!
+//! - **The boreholes are drawn as one continuous run**, U-bend and vertical
+//!   climb together, with marks placed along it by ARC LENGTH. The bend is
+//!   where the gas actually reverses — it arrives at the bottom cavity going
+//!   down and leaves going up — and drawing it as a bend rather than two
+//!   disconnected lines is what makes that reversal legible. Placing marks by
+//!   vertex index instead would bunch them at the corner, where the path is
+//!   finely sampled, and they would appear to jump it.
+//! - **The upper cold plenum runs two opposed streams inward.** The boreholes
+//!   deliver up both sides and the gas converges on the axis before turning
+//!   down into the bed, so this is the one place in the vessel where flow
+//!   visibly meets itself.
 //!
 //! **The fuel discharge tube carries no tracer, deliberately.** Pebbles are
 //! not coolant: they cross the core over weeks on a 5-pass recirculation
@@ -86,6 +100,7 @@
 
 use crate::animation::TracerTrain;
 use crate::components::temperature_colour;
+use std::f32::consts::PI;
 use egui::{
     Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, Widget,
 };
@@ -143,6 +158,63 @@ const INTERNALS: Color32 = Color32::from_rgb(64, 68, 76);
 const VOID: Color32 = Color32::from_rgb(28, 30, 34);
 const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 
+/// A U-bend pick-up: down the annulus, round the turn, up the borehole.
+///
+/// `entry` is where the run starts in the annulus, `riser_x` the borehole's
+/// centreline, `bend_y` how deep the turn reaches, and `top_y` the top of the
+/// climb. Returned as a polyline so a tracer can be placed along it by arc
+/// length — the mark then travels the bend at the same speed as the straights,
+/// which is what stops it appearing to jump the corner.
+fn u_bend_path(entry_x: f32, entry_y: f32, riser_x: f32, bend_y: f32, top_y: f32) -> Vec<Pos2> {
+    let mut points = vec![Pos2::new(entry_x, entry_y), Pos2::new(entry_x, bend_y)];
+    let mid_x = 0.5 * (entry_x + riser_x);
+    let bulge = (0.45 * (riser_x - entry_x).abs()).max(2.0);
+    let arc_samples = 14;
+    for i in 1..arc_samples {
+        let a = PI * i as f32 / arc_samples as f32;
+        points.push(Pos2::new(
+            mid_x + (entry_x - mid_x) * a.cos(),
+            bend_y + bulge * a.sin(),
+        ));
+    }
+    points.push(Pos2::new(riser_x, bend_y));
+    points.push(Pos2::new(riser_x, top_y));
+    points
+}
+
+/// Point at fraction `t` of a polyline's total length, `t` in `[0, 1]`.
+///
+/// By **arc length**, not by vertex index: spacing marks evenly over vertices
+/// would bunch them wherever the path is finely sampled, which for a U-bend is
+/// exactly at the corner.
+fn point_along(points: &[Pos2], t: f32) -> Pos2 {
+    match points.len() {
+        0 => Pos2::ZERO,
+        1 => points[0],
+        _ => {
+            let total: f32 = points.windows(2).map(|w| (w[1] - w[0]).length()).sum();
+            if total <= f32::EPSILON {
+                return points[0];
+            }
+            let target = t.clamp(0.0, 1.0) * total;
+            let mut walked = 0.0;
+            for w in points.windows(2) {
+                let seg = (w[1] - w[0]).length();
+                if walked + seg >= target {
+                    let f = if seg > f32::EPSILON {
+                        (target - walked) / seg
+                    } else {
+                        0.0
+                    };
+                    return w[0] + (w[1] - w[0]) * f;
+                }
+                walked += seg;
+            }
+            points[points.len() - 1]
+        }
+    }
+}
+
 /// Letterbox `available` to the vessel's real proportions.
 pub fn fit_native_aspect(available: Rect) -> Rect {
     let target = HTR10_RPV_ASPECT_RATIO;
@@ -181,6 +253,7 @@ pub struct Htr10ReactorSchematic {
     downcomer_tracer: Option<TracerTrain>,
     riser_tracer: Option<TracerTrain>,
     plenum_tracer: Option<TracerTrain>,
+    cold_plenum_tracer: Option<TracerTrain>,
 }
 
 impl Htr10ReactorSchematic {
@@ -213,6 +286,7 @@ impl Htr10ReactorSchematic {
             downcomer_tracer: None,
             riser_tracer: None,
             plenum_tracer: None,
+            cold_plenum_tracer: None,
         }
     }
 
@@ -249,6 +323,18 @@ impl Htr10ReactorSchematic {
     /// Advance with the primary mass flow. Its inlet is the **bottom**.
     pub fn with_riser_tracer(mut self, tracer: TracerTrain) -> Self {
         self.riser_tracer = Some(tracer);
+        self
+    }
+
+    /// Cold helium converging in the upper cold plenum.
+    ///
+    /// Advance with the primary mass flow. Its inlets are the plenum's
+    /// **outer ends**, where the boreholes deliver, and the two streams run
+    /// inward to meet on the axis before turning down into the bed. At a
+    /// reversed flow they run outward instead, which is what a reversed loop
+    /// would really do.
+    pub fn with_cold_plenum_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.cold_plenum_tracer = Some(tracer);
         self
     }
 
@@ -384,22 +470,32 @@ impl Widget for Htr10ReactorSchematic {
         painter.rect_stroke(reflector, 2, Stroke::new(1.0, INTERNALS), StrokeKind::Middle);
 
         // ── Pass 2: side-reflector coolant boreholes ───────────────────────
+        //
+        // Each borehole is drawn as ONE continuous run: a U-bend picking the
+        // gas up from the foot of the annulus, then the vertical climb. The
+        // bend is the real turn — gas reaches the bottom cavity going down and
+        // has to reverse to go up the reflector — and drawing it as a bend
+        // rather than two disconnected lines is what makes the reversal
+        // legible. Marks then travel the whole path without teleporting.
+        //
+        // The three per side nest, shallowest nearest the wall, so they read
+        // as a manifold rather than as three lines crossing.
         let riser_top = y(0.215);
-        let riser_bottom = y(0.800);
-        let mut riser_xs = Vec::new();
+        let annulus_mid = 0.5 * (annulus_outer + annulus_inner);
+        let mut riser_paths: Vec<Vec<Pos2>> = Vec::new();
         for side in [-1.0_f32, 1.0] {
             for k in 0..DRAWN_RISERS_PER_SIDE {
                 let f = 0.255 + 0.030 * k as f32;
-                let x = cx + side * w * f;
-                riser_xs.push(x);
-                painter.rect_filled(
-                    Rect::from_min_max(
-                        Pos2::new(x - w * 0.010, riser_top),
-                        Pos2::new(x + w * 0.010, riser_bottom),
-                    ),
-                    1,
-                    cold,
-                );
+                let riser_x = cx + side * w * f;
+                let entry_x = cx + side * annulus_mid;
+                let bend_y = y(0.800) + h * 0.018 * k as f32;
+                riser_paths.push(u_bend_path(entry_x, y(0.760), riser_x, bend_y, riser_top));
+            }
+        }
+        let riser_width = (w * 0.020).max(1.5);
+        for path in &riser_paths {
+            for seg in path.windows(2) {
+                painter.line_segment([seg[0], seg[1]], Stroke::new(riser_width, cold));
             }
         }
 
@@ -592,14 +688,45 @@ impl Widget for Htr10ReactorSchematic {
             }
         }
 
-        // Pass 2, inlet at the BOTTOM: it turns at the foot and climbs.
+        // Pass 2, inlet at the ANNULUS end of the U: the gas is picked up at
+        // the foot, turns through the bend, and climbs. Marks are placed by
+        // arc length along the whole run, so they round the corner at the same
+        // speed they travel the straights.
         if let Some(train) = &self.riser_tracer {
-            for x in &riser_xs {
-                let run = Rect::from_min_max(
-                    Pos2::new(x - w * 0.010, riser_top),
-                    Pos2::new(x + w * 0.010, riser_bottom),
-                );
-                vertical_marks(run, train, false, Color32::WHITE);
+            let mark = (riser_width * 0.85).max(1.5);
+            for path in &riser_paths {
+                for position in train.positions() {
+                    let p = point_along(path, position as f32);
+                    painter.circle_filled(p, mark * 0.5, Color32::WHITE);
+                }
+            }
+        }
+
+        // Cold plenum, inlet at BOTH OUTER ENDS: the boreholes deliver up the
+        // sides and the gas converges on the axis before turning down into the
+        // bed. Drawn as two opposed streams running inward, which is the one
+        // place in the vessel where flow visibly meets itself.
+        if let Some(train) = &self.cold_plenum_tracer {
+            let mark_w = (cold_plenum.width() * 0.045).max(1.5);
+            let half = cold_plenum.width() * 0.5;
+            for position in train.positions() {
+                for side in [-1.0_f32, 1.0] {
+                    // position 0 at the outer end, 1 at the centre.
+                    let xc = cx + side * half * (1.0 - position as f32);
+                    let a = (xc - 0.5 * mark_w).max(cold_plenum.left());
+                    let b = (xc + 0.5 * mark_w).min(cold_plenum.right());
+                    if b - a < 0.5 {
+                        continue;
+                    }
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            Pos2::new(a, cold_plenum.top() + 1.0),
+                            Pos2::new(b, cold_plenum.bottom() - 1.0),
+                        ),
+                        0,
+                        Color32::WHITE,
+                    );
+                }
             }
         }
 

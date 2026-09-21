@@ -60,10 +60,13 @@ pub struct TestReactorsTab {
     pub riser_residence_s: f64,
     /// Residence time across the hot plenum, s. Display choice.
     pub plenum_residence_s: f64,
+    /// Residence time across the upper cold plenum, s. Display choice.
+    pub cold_plenum_residence_s: f64,
 
     downcomer: TracerTrain,
     riser: TracerTrain,
     plenum: TracerTrain,
+    cold_plenum: TracerTrain,
 }
 
 impl Default for TestReactorsTab {
@@ -86,9 +89,11 @@ impl Default for TestReactorsTab {
             downcomer_residence_s: 4.0,
             riser_residence_s: 3.0,
             plenum_residence_s: 1.5,
+            cold_plenum_residence_s: 2.0,
             downcomer: TracerTrain::new(5),
             riser: TracerTrain::new(5),
             plenum: TracerTrain::new(3),
+            cold_plenum: TracerTrain::new(3),
         }
     }
 }
@@ -111,6 +116,11 @@ impl TestReactorsTab {
             .advance(dt, Time::new::<second>(self.riser_residence_s), primary);
         self.plenum
             .advance(dt, Time::new::<second>(self.plenum_residence_s), primary);
+        self.cold_plenum.advance(
+            dt,
+            Time::new::<second>(self.cold_plenum_residence_s),
+            primary,
+        );
     }
 
     /// Build this frame's widget with the trains copied in.
@@ -129,6 +139,7 @@ impl TestReactorsTab {
         .with_downcomer_tracer(self.downcomer.clone())
         .with_riser_tracer(self.riser.clone())
         .with_plenum_tracer(self.plenum.clone())
+        .with_cold_plenum_tracer(self.cold_plenum.clone())
 ;
         if self.show_labels {
             v
@@ -217,6 +228,10 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
     ui.add(egui::Slider::new(&mut state.downcomer_residence_s, 0.3..=30.0).text("downcomer"));
     ui.add(egui::Slider::new(&mut state.riser_residence_s, 0.3..=30.0).text("reflector risers"));
     ui.add(egui::Slider::new(&mut state.plenum_residence_s, 0.2..=20.0).text("hot plenum"));
+    ui.add(
+        egui::Slider::new(&mut state.cold_plenum_residence_s, 0.2..=20.0)
+            .text("cold plenum"),
+    );
     ui.label(
         RichText::new(
             "All four are DISPLAY CHOICES, not derived: the sheet gives no internal \
