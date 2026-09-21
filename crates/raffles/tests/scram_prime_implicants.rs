@@ -250,8 +250,8 @@ fn named(model: &FaultTreeModel, pis: &[zbdd::PrimeImplicant]) -> BTreeSet<Named
 /// SCRAM reported under `--prime-implicants`. Compared as a set of
 /// (positive, negative) name-set pairs, so a sign error cannot hide.
 ///
-/// **Result** (2026-09-21): printed below; all 9 models agree, 441 implicants
-/// in total. The one that carries the signs is
+/// **Result** (2026-09-21): printed below; all **10 models agree, 443
+/// implicants** in total. The one that carries the signs is
 /// `models-for-this-port/noncoherent_small` — `{+a,-b}`, `{+c,-d}`, `{-c,+d}`
 /// — and it is the only model in the fixture with any negative literal at all,
 /// since the other eight are coherent.
@@ -291,7 +291,7 @@ fn prime_implicants_match_scram() {
         signed += with_negatives;
     }
     println!("checked {checked} models, {total} prime implicants, {signed} carrying a complement");
-    assert!(checked >= 9, "only {checked} models");
+    assert!(checked >= 10, "only {checked} models");
     assert!(signed >= 3, "no complemented literal was exercised");
 }
 
@@ -303,8 +303,8 @@ fn prime_implicants_match_scram() {
 /// two code paths against each other: `zbdd::prime_implicants` runs the
 /// consensus recursion, `zbdd::minimal_cut_sets` does not.
 ///
-/// **Result** (2026-09-21): holds on all 8 coherent models in the fixture, 438
-/// implicants, not one carrying a negative literal.
+/// **Result** (2026-09-21): holds on all **9 coherent models** in the
+/// fixture, 440 implicants, not one carrying a negative literal.
 #[test]
 fn on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets() {
     let oracles = load_oracles();
@@ -342,7 +342,7 @@ fn on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets() {
         checked += 1;
     }
     println!("checked {checked} coherent models");
-    assert!(checked >= 8, "only {checked}");
+    assert!(checked >= 9, "only {checked}");
 }
 
 /// **Methodology.** Prime implicants describe the function *exactly*, so

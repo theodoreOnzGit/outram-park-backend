@@ -322,11 +322,13 @@ fn agrees(ours: f64, theirs: f64, tol: f64) -> bool {
 /// that says whether the variable ordering is working, and a regression in it
 /// would otherwise be invisible.
 ///
-/// **Result** (2026-09-21): printed per model by the run below; every model
-/// agrees. The two that matter most are the ones inclusion-exclusion cannot
-/// reach at all — `Aralia/chinese` at 392 cut sets and `Aralia/das9601` at
-/// 4,259 — and the non-coherent `noncoherent_small`, whose exact value cut
-/// sets cannot express even in principle.
+/// **Result** (2026-09-21): **11 of 11 models agree**, printed per model by
+/// the run below. The two that matter most are the ones inclusion-exclusion
+/// cannot reach at all — `Aralia/chinese` at 392 cut sets and
+/// `Aralia/das9601` at 4,259, the latter needing 386,261 diagram nodes — and
+/// the non-coherent `noncoherent_small`, whose exact value cut sets cannot
+/// express even in principle. Only `ThreeMotor/three_motor` is skipped, for
+/// its `<define-component>` namespaces.
 #[test]
 fn exact_probability_matches_scrams_bdd_on_every_model() {
     let oracles = load_oracles();
@@ -371,7 +373,7 @@ fn exact_probability_matches_scrams_bdd_on_every_model() {
         println!("skipped {s}");
     }
     println!("checked {checked} models exactly");
-    assert!(checked >= 10, "only {checked} models checked");
+    assert!(checked >= 11, "only {checked} models checked");
 }
 
 /// **Methodology.** Where inclusion-exclusion over the cut sets *can* run, it
@@ -382,10 +384,10 @@ fn exact_probability_matches_scrams_bdd_on_every_model() {
 /// model to exact probability twice over, by routes that share nothing beyond
 /// the tree itself.
 ///
-/// **Result** (2026-09-21): agreement to `1e-12` — far tighter than the `5e-6`
-/// used against SCRAM, because here both numbers are this port's own and no
-/// report precision intervenes. Checked on every coherent model within
-/// [`EXACT_CUT_SET_LIMIT`].
+/// **Result** (2026-09-21): agreement to `1e-12` on **8 models** — far
+/// tighter than the `5e-6` used against SCRAM, because here both numbers are
+/// this port's own and no report precision intervenes. `Aralia/chinese` is
+/// skipped at 392 cut sets, being past [`EXACT_CUT_SET_LIMIT`].
 #[test]
 fn the_bdd_and_inclusion_exclusion_agree_where_both_can_run() {
     let oracles = load_oracles();
@@ -422,7 +424,7 @@ fn the_bdd_and_inclusion_exclusion_agree_where_both_can_run() {
         checked += 1;
     }
     println!("checked {checked} models both ways");
-    assert!(checked >= 7, "only {checked} models checked both ways");
+    assert!(checked >= 8, "only {checked} models checked both ways");
 }
 
 /// **Methodology.** On a **non-coherent** tree the two must *disagree*, in a
@@ -575,9 +577,10 @@ fn the_diagram_satisfies_the_identities_it_must() {
 /// *right* — and it is also what lets `das9601`'s cut sets be verified at all,
 /// since `mocus` cannot produce them.
 ///
-/// **Result** (2026-09-21): printed below. Every model on which both run
-/// agrees with the other and with SCRAM; on `Aralia/das9601`, where `mocus`
-/// cannot, the ZBDD reproduces all **4,259** of SCRAM's products.
+/// **Result** (2026-09-21): **11 models, 4,702 cut sets**, printed below.
+/// Every model on which both run agrees with the other and with SCRAM; on
+/// `Aralia/das9601`, where `mocus` cannot, the ZBDD reproduces all **4,259**
+/// of SCRAM's products.
 #[test]
 fn zbdd_cut_sets_match_scram_and_mocus() {
     use raffles::scram::zbdd;
@@ -655,6 +658,6 @@ fn zbdd_cut_sets_match_scram_and_mocus() {
         total += ours_named.len();
     }
     println!("checked {checked} models, {total} cut sets");
-    assert!(checked >= 10, "only {checked} models");
-    assert!(total >= 4700, "only {total} cut sets");
+    assert!(checked >= 11, "only {checked} models");
+    assert!(total >= 4702, "only {total} cut sets");
 }

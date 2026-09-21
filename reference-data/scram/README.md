@@ -85,7 +85,7 @@ several models (`HIPPS` especially) define them through `periodic-test` and
 
 ## `oracle.txt`
 
-Nine models, 83 basic events, 450 products.
+Ten models, 85 basic events, 452 products.
 
 | model | basic events | products | max order |
 |---|---|---|---|
@@ -98,6 +98,7 @@ Nine models, 83 basic events, 450 products.
 | `HIPPS/HIPPS` | 9 | 9 | 2 |
 | `ne574/ne574` | 7 | 7 | 3 |
 | `Aralia/chinese` | 25 | 392 | 6 |
+| `models-for-this-port/house_events_small` | 2 | 2 | 1 |
 
 `Aralia/chinese` is nearly nine times the rest of the fixture combined and is
 the only model deep enough to exercise order truncation properly; the others
@@ -152,13 +153,14 @@ quantification check at that scale.
 
 ## `oracle-prime-implicants.txt`
 
-Nine models, 441 prime implicants, from `scram --probability --importance
---prime-implicants`. Products here carry **signs**: `PI 2 +a -b` means `a`
+Eleven models, 455 prime implicants, from `scram --probability --importance
+--prime-implicants`. Ten are checked: `ThreeMotor` is captured but its
+structure is unreadable, so 443 of the 455 take part. Products here carry **signs**: `PI 2 +a -b` means `a`
 must occur and `b` must not.
 
-For a coherent tree the prime implicants are the minimal cut sets, so eight of
-these nine duplicate `oracle.txt` — deliberately, because that duplication is
-the invariant `scram_prime_implicants` checks. The ninth,
+For a coherent tree the prime implicants are the minimal cut sets, so ten of
+these eleven duplicate `oracle.txt` — deliberately, because that duplication
+is the invariant `scram_prime_implicants` checks. The eleventh,
 `models-for-this-port/noncoherent_small`, is the only one with a negative
 literal anywhere.
 

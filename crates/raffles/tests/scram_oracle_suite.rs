@@ -20,7 +20,7 @@
 //! | Upstream | <https://github.com/rakhimov/scram> @ `b85b7894` (2019-07-03) |
 //! | Version | SCRAM 0.16.2 |
 //! | Built with | GCC, Boost 1.83.0, libxml2 2.9.14, Release |
-//! | Models | upstream's own `input/` suite: 9 models, 83 basic events, 450 products |
+//! | Models | 10 models (9 of upstream's own, 1 written here), 85 basic events, 452 products |
 //!
 //! Model selection is mechanical, not curated: a model is in if it has between
 //! 1 and 600 cut sets (the largest Aralia benchmarks reach 75,379 products and

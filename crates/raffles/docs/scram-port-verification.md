@@ -47,10 +47,28 @@ for the same reason the `Exact` and Birnbaum rows above are: two unrelated
 algorithms agreeing is evidence, a translation agreeing with its original is
 much less.
 
-**Still absent.** XML input handling (explicitly out of RAFFLES' scope), event
-trees, alignments, CCF groups, substitutions, `<define-component>` private
-namespaces, the `expression` library, `Zbdd::EliminateComplements`, and the
-preprocessor. **House events are present** (`Arg::Constant`).
+**What is left, classified honestly.** After the BDD, the ZBDD, prime
+implicants, complement elimination and house events, the remainder is not one
+list but three:
+
+*Out of RAFFLES' declared scope, and would stay out even if written:* XML
+input handling, event trees, alignments, common-cause-failure groups,
+substitutions, the `expression` library, and `<define-component>` private
+namespaces. These are all **input-model and workflow** features. The crate's
+own boundary says a caller builds a tree in Rust and hands RAFFLES numbers;
+`docs/raven-port-scoping.md` says the same of RAVEN's XML.
+
+*An optimisation rather than a capability:* the **preprocessor**. Upstream
+spends 2,411 lines finding a good variable order and extracting modules. This
+port has neither, and computes the same answers without them — `das9601`'s
+386,261 diagram nodes are the price. A model that blew up under the naive
+order would need that work; nothing in the fixture does.
+
+*Genuinely absent, and reachable only through code this port does not have:*
+`Zbdd::EliminateComplements`, which belongs to upstream's non-BDD `Zbdd(const
+Gate&)` constructor. This port's complement handling goes through the BDD
+instead and is verified against upstream's answers, so the routine has no
+caller here rather than a missing implementation.
 
 ~~and complement elimination (so non-coherent trees are **refused**, not
 approximated)~~ **CORRECTED 2026-09-21** — complement elimination landed the
@@ -182,14 +200,16 @@ fixture instead of being silently dropped:
   its product list merges two.
 - **More than 40 cut sets** — the Aralia benchmarks reach 75,379 products and
   exhausted memory on a first attempt.
-- **A gate the structure parser cannot read** — a nested formula, a house event,
-  an `xi:include`d model, or an ambiguous top gate. `ThreeMotor/three_motor`
-  trips this on all of house events, and four candidate top gates.
+- **A structure the parser cannot read** — a nested formula, an `xi:include`d
+  model, an ambiguous top gate, or a `<define-component>` private namespace.
+  `ThreeMotor/three_motor` trips the last of these.
 
-**Eight models were captured**: `TwoTrain`, `Theatre`, `SmallTree`,
-`ThreeMotor`, `BSCU`, `Lift`, `HIPPS`, `ne574` — 58 basic events and 58
-products. Seven of them are structurally readable and take part in the
-end-to-end comparison; `ThreeMotor` is quantification-only.
+**Eleven models across the three fixtures**: nine of upstream's own —
+`TwoTrain`, `Theatre`, `SmallTree`, `ThreeMotor`, `BSCU`, `Lift`, `HIPPS`,
+`ne574`, `Aralia/chinese`, plus `Aralia/das9601` in the non-coherent one — and
+two written here, `noncoherent_small` and `house_events_small`. Ten are
+structurally readable and take part in the end-to-end comparisons;
+`ThreeMotor` is quantification-only.
 
 ## Results (2026-09-21)
 
@@ -199,27 +219,27 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 
 | check | test | result |
 |---|---|---|
-| Cut sets generated here vs SCRAM's products | `scram_mocus_oracle::generated_cut_sets_match_the_ones_scram_found` | **8 models, 438 cut sets, exact set equality** |
-| Input model to top-event probability, end to end | `scram_mocus_oracle::quantifying_generated_cut_sets_reproduces_scrams_totals` | **23 of 23 model/mode combinations** |
-| Importance from cut sets generated here, end to end | `scram_mocus_oracle::ranking_generated_cut_sets_reproduces_scrams_importance_factors` | **47 basic events x 5 factors, 7 models** |
-| Top-event probability from SCRAM's own cut sets | `scram_oracle_suite::every_model_total_probability_matches_scram` | **26 of 26 model/mode combinations** |
-| Importance from SCRAM's own cut sets | `scram_oracle_suite::every_importance_factor_matches_scram` | **58 basic events x 5 factors** |
-| Minimality, independent of SCRAM | `scram_mocus_oracle::generated_cut_sets_are_minimal_by_construction_not_by_luck` | 438 cut sets, 2,580 tree evaluations |
-| Order truncation | `scram_mocus_oracle::truncating_by_order_drops_exactly_the_long_cut_sets` | 20 (model, limit) cases |
+| Cut sets generated here vs SCRAM's products | `scram_mocus_oracle::generated_cut_sets_match_the_ones_scram_found` | **9 models, 440 cut sets, exact set equality** |
+| Input model to top-event probability, end to end | `scram_mocus_oracle::quantifying_generated_cut_sets_reproduces_scrams_totals` | **26 of 26 model/mode combinations** |
+| Importance from cut sets generated here, end to end | `scram_mocus_oracle::ranking_generated_cut_sets_reproduces_scrams_importance_factors` | **49 basic events x 5 factors, 8 models** |
+| Top-event probability from SCRAM's own cut sets | `scram_oracle_suite::every_model_total_probability_matches_scram` | **29 of 29 model/mode combinations** |
+| Importance from SCRAM's own cut sets | `scram_oracle_suite::every_importance_factor_matches_scram` | **60 basic events x 5 factors** |
+| Minimality, independent of SCRAM | `scram_mocus_oracle::generated_cut_sets_are_minimal_by_construction_not_by_luck` | 440 cut sets, 2,584 tree evaluations |
+| Order truncation | `scram_mocus_oracle::truncating_by_order_drops_exactly_the_long_cut_sets` | 21 (model, limit) cases |
 | **Non-coherent** cut sets vs SCRAM's | `scram_noncoherent::generated_cut_sets_of_a_non_coherent_tree_match_scram` | exact set equality |
 | **Non-coherent** conservatism, measured | `scram_noncoherent::our_exact_value_exceeds_scrams_because_cut_sets_are_conservative` | **+23.6 %**, and necessarily above |
 | Quantification at scale | `scram_noncoherent::quantifying_4259_cut_sets_matches_scram` | **4,259 cut sets, 108 basic events** |
-| **Exact probability, no cut-set ceiling** | `scram_bdd_oracle::exact_probability_matches_scrams_bdd_on_every_model` | **10 of 10 models**, up to 386,261 nodes |
-| BDD against inclusion-exclusion | `scram_bdd_oracle::the_bdd_and_inclusion_exclusion_agree_where_both_can_run` | 7 models, to **1e-12** |
+| **Exact probability, no cut-set ceiling** | `scram_bdd_oracle::exact_probability_matches_scrams_bdd_on_every_model` | **11 of 11 models**, up to 386,261 nodes |
+| BDD against inclusion-exclusion | `scram_bdd_oracle::the_bdd_and_inclusion_exclusion_agree_where_both_can_run` | 8 models, to **1e-12** |
 | BDD gets what cut sets cannot | `scram_bdd_oracle::the_bdd_gets_the_non_coherent_answer_that_cut_sets_cannot` | `0.5032` exactly |
-| **Cut sets at scale**, vs SCRAM **and** vs MOCUS | `scram_bdd_oracle::zbdd_cut_sets_match_scram_and_mocus` | **10 models, 4,700 cut sets** |
-| **Prime implicants**, signs included | `scram_prime_implicants::prime_implicants_match_scram` | **9 models, 441 implicants** |
-| Prime implicants == cut sets when coherent | `scram_prime_implicants::on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets` | 8 models, no complement |
+| **Cut sets at scale**, vs SCRAM **and** vs MOCUS | `scram_bdd_oracle::zbdd_cut_sets_match_scram_and_mocus` | **11 models, 4,702 cut sets** |
+| **Prime implicants**, signs included | `scram_prime_implicants::prime_implicants_match_scram` | **10 models, 443 implicants** |
+| Prime implicants == cut sets when coherent | `scram_prime_implicants::on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets` | 9 models, no complement |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
 
-### Cut-set generation — 438 of 438, no extra and none missing
+### Cut-set generation — 440 of 440, no extra and none missing
 
 Compared **as a set of sets**, by basic-event name. A missing cut set and a
 spurious one are different defects and both fail.
@@ -234,6 +254,7 @@ spurious one are different defects and both fail.
 | HIPPS/HIPPS | 9 | 2 |
 | ne574/ne574 | 7 | 3 |
 | **Aralia/chinese** | **392** | **6** |
+| house_events_small | 2 | 1 |
 
 `Aralia/chinese` carries most of the weight and was added for exactly that
 reason: at 392 cut sets of up to order 6 it is nearly nine times the rest of
@@ -252,7 +273,7 @@ the only check that the combination expansion is right, and its basic-event
 probabilities are ones SCRAM *computes* from `periodic-test` and `GLM`
 expressions rather than reading as literals.
 
-### Top-event probability — 26 of 26 combinations agree
+### Top-event probability — 29 of 29 combinations agree
 
 RAFFLES / SCRAM, from SCRAM's own cut sets:
 
@@ -289,7 +310,7 @@ which is also the honest reading of `Approximation::Exact`'s 20-cut-set cap.
 the approximation failing loudly: these basic events are far too likely for
 "rare event" to mean anything. `ne574` clamps for the same reason.
 
-### Importance factors — 58 from SCRAM's cut sets, 47 end to end
+### Importance factors — 60 from SCRAM's cut sets, 49 end to end
 
 Every event of every model, all five measures, plus **exact** agreement on the
 integer occurrence counts.
@@ -300,7 +321,7 @@ Upstream obtains the Birnbaum factor by differentiating its BDD
 factors are all derived from MIF, so an error in it would move every column at
 once — and none moved.
 
-**47 of those events are also ranked from cut sets generated here**, closing
+**49 of those events are also ranked from cut sets generated here**, closing
 the last step of the pipeline that had only ever been checked against SCRAM's
 own products. That form can distinguish what the first cannot: a spurious cut
 set that duplicated an existing one's events would leave the totals intact but
@@ -314,16 +335,16 @@ importance analysis on the exact BDD value and matching it requires
 Agreeing with SCRAM would not by itself prove the cut sets are *minimal* — a
 generator that forgot absorption produces a superset-laden list that still
 quantifies to roughly the right answer under the rare-event approximation. So
-all 438 are also checked against the definition directly, with an evaluator
+all 440 are also checked against the definition directly, with an evaluator
 written in the test file rather than taken from the library:
 
 1. no cut set properly contains another;
 2. no cut set appears twice;
 3. every cut set, set true with all other events false, really does make the
-   tree evaluate true (438 evaluations);
-4. removing any single member makes it evaluate false (2,142 evaluations).
+   tree evaluate true (440 evaluations);
+4. removing any single member makes it evaluate false (2,144 evaluations).
 
-All four hold for all 438. Check 1 is `O(n^2)` in the cut-set count, so
+All four hold for all 440. Check 1 is `O(n^2)` in the cut-set count, so
 `Aralia/chinese` alone contributes about 153,000 subset comparisons.
 
 ### Non-coherent trees — handled, conservatively, and verified
@@ -392,7 +413,7 @@ rest of the SCRAM suite — and run with `-- --ignored`.
 here reaches: rare-event `0.004783225` against SCRAM's `0.004783220`, MCUB
 `0.004772037` against `0.004772040`.
 
-### Exact probability by BDD — 10 of 10 models, no ceiling
+### Exact probability by BDD — 11 of 11 models, no ceiling
 
 Every other exact-probability result in this document goes through
 inclusion-exclusion over minimal cut sets, which is `2^n` in their number and
@@ -411,6 +432,7 @@ directly and needs no cut sets.
 | HIPPS/HIPPS | coherent | 0.001620905 | 0.001620910 | 41 | 9 |
 | ne574/ne574 | coherent | 0.662208000 | 0.662208000 | 18 | 7 |
 | **Aralia/chinese** | coherent | **0.001170582** | **0.001170580** | 259 | **392** |
+| house_events_small | coherent | 0.370000000 | 0.370000000 | 4 | 2 |
 | noncoherent_small | **non-coherent** | 0.503200000 | 0.503200000 | 10 | 3 |
 | **Aralia/das9601** | **non-coherent** | **0.004234403** | **0.004234400** | **386,261** | **4,259** |
 
@@ -500,14 +522,14 @@ contains its complement, or is an implicant of the consensus `f_x AND
 f_not-x`.
 
 Checked against `scram --probability --importance --prime-implicants`:
-**9 models, 441 implicants, compared as signed (positive, negative) name-set
+**10 models, 443 implicants, compared as signed (positive, negative) name-set
 pairs** so a sign error cannot hide. `models-for-this-port/noncoherent_small`
 is the one carrying signs — `{+a,-b}`, `{+c,-d}`, `{-c,+d}` — and the other
 eight are coherent, which gives the second check:
 
 **On a coherent tree the prime implicants must be exactly the minimal cut
 sets**, with no complemented literal anywhere, because a component working can
-never help cause failure. That invariant holds on all 8, across 438
+never help cause failure. That invariant holds on all 9, across 440
 implicants, and it pins the consensus recursion against the plain conversion —
 two code paths, same answer.
 
@@ -663,15 +685,20 @@ third-party project was not part of this task.
 - ~~**Upstream's own tests never ran**~~ **CORRECTED 2026-09-21** — they do
   now: 540 assertions in 71 test cases, all passing, including a test per
   benchmark model. See above.
-- **Nine models, 450 cut sets, 83 basic events.** Real PRA models reach tens of
+- **Eleven models, 4,702 cut sets.** The coherent fixture holds 85 basic
+  events and 452 products, the non-coherent one 111 and 4,262. Real PRA models reach tens of
   thousands of cut sets, and the largest Aralia benchmarks in upstream's own
   suite already reach 75,379 — those exhausted memory during extraction and
   are not in the fixture. `Approximation::Exact` cannot scale in principle
   (it is `2^n`, capped at 20 cut sets), and `scram::mocus` is exponential in
   the worst case, which is exactly what upstream's ZBDD exists to avoid.
-- **Only 438 of those 450 cut sets were generated here.** `ThreeMotor`'s 12
-  are checked against the quantification layer only, because the structure
-  parser refuses the model (house events, four candidate top gates).
+- **`ThreeMotor/three_motor` is the one model no route covers structurally.**
+  Its 12 cut sets are checked against the quantification layer only. The cause
+  is `<define-component role="private">`: resolving those namespaces means
+  reimplementing MEF name resolution, which is input parsing and outside this
+  crate's scope — and getting it subtly wrong would build the *wrong tree*,
+  which is the failure mode this whole exercise exists to prevent. Refusing it
+  is the deliberate choice.
 - **`Approximation::Exact` is still capped at 20 cut sets**, and that is
   inherent — it is `2^n`. It is no longer the only exact route, so the cap is
   a property of that function rather than of the crate.
@@ -680,8 +707,8 @@ third-party project was not part of this task.
   both give the exact answer — but a caller who asks for cut sets on such a
   tree and quantifies them gets an upper bound, and nothing in the types says
   so.
-- **Prime implicants are verified on small and medium models only**: 9 of
-  them, 441 implicants, none larger than `Aralia/chinese`'s 392. Upstream
+- **Prime implicants are verified on small and medium models only**: 10 of
+  them, 443 implicants, none larger than `Aralia/chinese`'s 392. Upstream
   itself cannot produce them for `das9601`, so there is no oracle at that
   scale to compare against.
 - **`scram::mocus` does not scale to a real PRA model**, and is kept as a
@@ -693,7 +720,7 @@ third-party project was not part of this task.
   work, and `Bdd::node_count` is how it would show.
 - **Order truncation is checked to order 6 and no further.** `Aralia/chinese`
   gives limits 1-5 that each cut inside the distribution of cut-set orders,
-  which is where an over-eager prune would show; the other eight models bottom
+  which is where an over-eager prune would show; the other nine models bottom
   out at order 3. A real PRA truncation at order 8-10 on a model with hundreds
   of thousands of products is still untested.
 - **`Connective::Null` has no oracle coverage in the committed fixture.** It

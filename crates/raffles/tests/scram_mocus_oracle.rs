@@ -311,8 +311,8 @@ fn agrees(ours: f64, theirs: f64, tol: f64) -> bool {
 /// the comparison rather than indices, so a mis-ordered index mapping cannot
 /// hide.
 ///
-/// **Result** (2026-09-21): 8 models compared, and every one produced exactly
-/// SCRAM's set of products — **438 cut sets in total, none missing and none
+/// **Result** (2026-09-21): 9 models compared, and every one produced exactly
+/// SCRAM's set of products — **440 cut sets in total, none missing and none
 /// spurious**.
 ///
 /// | model | cut sets, both | max order |
@@ -325,6 +325,7 @@ fn agrees(ours: f64, theirs: f64, tol: f64) -> bool {
 /// | `HIPPS/HIPPS` | 9 | 2 |
 /// | `ne574/ne574` | 7 | 3 |
 /// | `Aralia/chinese` | **392** | **6** |
+/// | `models-for-this-port/house_events_small` | 2 | 1 |
 ///
 /// `Aralia/chinese` carries most of the weight: at 392 cut sets of up to
 /// order 6 it is nearly nine times the rest of the fixture combined, and it
@@ -395,8 +396,8 @@ fn generated_cut_sets_match_the_ones_scram_found() {
     }
     println!("compared {compared} models, {total_cut_sets} cut sets");
     assert!(
-        compared >= 8,
-        "expected at least 8 models compared, got {compared}"
+        compared >= 9,
+        "expected at least 9 models compared, got {compared}"
     );
     // Nothing may be skipped silently: every skip carries the reason the
     // extractor recorded. Asserted by shape rather than by count, so that
@@ -428,7 +429,7 @@ fn generated_cut_sets_match_the_ones_scram_found() {
 /// Tolerance `5e-6` relative — the resolution of upstream's
 /// 6-significant-figure report.
 ///
-/// **Result** (2026-09-21): **23 model/mode combinations checked across the 8
+/// **Result** (2026-09-21): **26 model/mode combinations checked across the 9
 /// readable models, all agreeing.** `Exact` is skipped where a model has more
 /// than [`EXACT_CUT_SET_LIMIT`] cut sets, since inclusion-exclusion is `2^n`;
 /// `Aralia/chinese` at 392 cut sets is the one that trips it, so its
@@ -490,7 +491,7 @@ fn quantifying_generated_cut_sets_reproduces_scrams_totals() {
         }
     }
     println!("checked {checked} model/mode combinations end to end");
-    assert!(checked >= 23, "expected a broad sweep, only {checked}");
+    assert!(checked >= 26, "expected a broad sweep, only {checked}");
 }
 
 /// **Methodology.** Properties every correct minimal-cut-set generator must
@@ -508,9 +509,9 @@ fn quantifying_generated_cut_sets_reproduces_scrams_totals() {
 /// 4. **Necessity** — removing any single member of any cut set makes the tree
 ///    evaluate false. Together with (3) this is the definition of minimal.
 ///
-/// **Result** (2026-09-21): all four hold for all **438 cut sets** of the 8
-/// readable models. Properties 3 and 4 between them evaluate the tree **2,580
-/// times** (438 sufficiency checks and 2,142 necessity checks, one per member
+/// **Result** (2026-09-21): all four hold for all **440 cut sets** of the 9
+/// readable models. Properties 3 and 4 between them evaluate the tree **2,584
+/// times** (440 sufficiency checks and 2,144 necessity checks, one per member
 /// of each cut set). Property 1 is `O(n^2)` in the cut-set count, so
 /// `Aralia/chinese` alone accounts for about 153,000 subset comparisons.
 #[test]
@@ -573,7 +574,7 @@ fn generated_cut_sets_are_minimal_by_construction_not_by_luck() {
         }
     }
     println!("{cut_sets_checked} cut sets, {evaluations} tree evaluations");
-    assert!(cut_sets_checked >= 430, "only {cut_sets_checked} cut sets");
+    assert!(cut_sets_checked >= 440, "only {cut_sets_checked} cut sets");
 }
 
 /// Evaluates the fault tree with exactly `true_events` set true.
@@ -712,9 +713,9 @@ fn the_unported_and_the_malformed_are_refused_not_guessed() {
 /// cut-set order the model has.
 ///
 /// **Result** (2026-09-21): exact agreement at every limit on every model —
-/// **20 (model, limit) cases**, the cut-set orders being `TwoTrain` 2,
-/// `Theatre` 2, `SmallTree` 2, `BSCU` 2, `Lift` 1, `HIPPS` 2, `ne574` 3 and
-/// `Aralia/chinese` **6**.
+/// **21 (model, limit) cases**, the cut-set orders being `TwoTrain` 2,
+/// `Theatre` 2, `SmallTree` 2, `BSCU` 2, `Lift` 1, `HIPPS` 2, `ne574` 3,
+/// `house_events_small` 1 and `Aralia/chinese` **6**.
 ///
 /// This matters because truncation is applied *during* expansion, where a
 /// too-eager prune could drop a partial set that would still have reached a
@@ -757,7 +758,7 @@ fn truncating_by_order_drops_exactly_the_long_cut_sets() {
         println!("{:<24} max order {max_order}", spec.name);
     }
     println!("{cases} (model, limit) cases");
-    assert!(cases >= 20, "only {cases} truncation cases");
+    assert!(cases >= 21, "only {cases} truncation cases");
 }
 
 /// **Methodology.** The importance factors, computed from cut sets **generated
@@ -780,7 +781,7 @@ fn truncating_by_order_drops_exactly_the_long_cut_sets() {
 /// generated cut set that SCRAM did not find would change one even where the
 /// probabilities round to the same six figures.
 ///
-/// **Result** (2026-09-21): **47 basic events across 7 models, all five
+/// **Result** (2026-09-21): **49 basic events across 8 models, all five
 /// factors each, plus the occurrence counts** — every one agreeing to `5e-6`
 /// relative, with `Theatre`'s `Mains_Fail` RRW the one documented singular
 /// point (see `scram_oracle_suite::rrw_diverges_from_upstream_only_at_the_singularity`).
@@ -876,7 +877,7 @@ fn ranking_generated_cut_sets_reproduces_scrams_importance_factors() {
         );
     }
     println!("checked {checked} basic events end to end, {singular} at the RRW singularity");
-    assert!(checked >= 40, "only {checked} events ranked");
+    assert!(checked >= 49, "only {checked} events ranked");
     assert_eq!(
         singular, 1,
         "expected exactly one singular RRW, got {singular}"
