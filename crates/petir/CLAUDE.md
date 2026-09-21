@@ -286,6 +286,27 @@ The 19 verbatim lifts are a separate lineage entirely (OpenFOAM via
 `outram-foam-basic-lib`, GNU Octave via `chem-eng`), pinned by
 `tests/verbatim_provenance.rs` rather than by any GSL comparison.
 
+### Why a consumer should reach for `real::Real` — a measured case
+
+[`docs/why-petir-last-ulp-evidence.md`](docs/why-petir-last-ulp-evidence.md)
+records the first demonstration on a real consumer that the "platform libms
+disagree in the last ulp" claim has teeth. In `bedok`, seven `sinh`/`cosh`
+calls reaching the system C library moved a nodal eigenvalue by **14.33 pcm**
+between Linux and Windows — by changing the solve's convergence path, 211
+iterations against 216 — and flipped three tests pinning a chaotic regime from
+one garbage answer to another.
+
+Two things in it are worth knowing before you port a consumer:
+
+- **A `std` crate needs UFCS.** `use petir::real::Real;` plus `a.sinh()`
+  compiles, runs, and silently keeps calling the platform libm, because
+  `f64`'s inherent method wins. Write `Real::sinh(a)`. This is the same
+  shadowing the `#[allow(unused_imports)]` note above describes, seen from the
+  consumer's side, and there it is merely noisy — here it is a silent no-op.
+- **The swap is not always a no-op.** It was bit-for-bit identical on the
+  converged case and changed the answer where the solver was already chaotic.
+  Expect to run the consumer's whole suite, not one test.
+
 ### What maturity obliges
 
 The workspace rule "if it is too complex for Haiku, it is a bad API" now

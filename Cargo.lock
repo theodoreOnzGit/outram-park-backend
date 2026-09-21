@@ -829,6 +829,7 @@ name = "bedok"
 version = "0.0.0"
 dependencies = [
  "faer",
+ "petir",
  "thiserror 2.0.18",
 ]
 

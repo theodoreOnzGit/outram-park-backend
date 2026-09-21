@@ -24,6 +24,15 @@ publish = false
 # NOTICE as that licence requires.
 [dependencies]
 thiserror.workspace = true
+# Platform-independent transcendentals for the nodal coupling coefficients.
+#
+# `calc_abefghxyz` builds its coefficients from `sinh` and `cosh`. Rust's
+# inherent `f64::sinh` dispatches to the SYSTEM C library, and glibc and the
+# MSVC CRT disagree in the last ulp — which is enough to change the flux
+# solve's convergence path and move k_eff by 14 pcm. PETIR routes them through
+# the pure-Rust `libm` (fdlibm) instead, one fixed implementation on every
+# platform. See GitHub issue #222 and `petir::real`.
+petir.workspace = true
 # Sparse linear algebra, for the two flux solvers.
 #
 # Everything ported before them avoided a sparse solve: the A2 system in

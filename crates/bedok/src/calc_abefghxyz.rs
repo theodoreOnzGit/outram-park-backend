@@ -11,6 +11,14 @@
 //!   PARK; see the crate README, "Permission and attribution".
 //! - **Licence:** GPL-3.0-only.
 
+// Platform-independent `sinh`/`cosh`, via PETIR's pure-Rust libm shim.
+//
+// ALWAYS CALL THESE AS `Real::sinh(a)`, never `a.sinh()`. This is a `std`
+// crate, so `f64` carries INHERENT `sinh`/`cosh` that take precedence over a
+// trait method — writing `a.sinh()` with this trait in scope compiles, resolves
+// to the platform C library anyway, and reverts the fix silently.
+use petir::real::Real;
+
 use crate::handle3dcoords::handle3dcoords;
 use crate::matlab::Array4;
 use crate::types::{Geometry, Params, Sigma};
@@ -153,8 +161,11 @@ fn abefgh(a: f64, form: crate::types::NodalCoeffForm) -> (f64, f64, f64, f64, f6
     {
         return abefgh_series(a);
     }
-    let sh = a.sinh();
-    let ch = a.cosh();
+    // UFCS, not `a.sinh()`. bedok is a `std` crate, so the INHERENT
+    // `f64::sinh` would win over the trait method and this change would
+    // silently do nothing — see the `use` above.
+    let sh = Real::sinh(a);
+    let ch = Real::cosh(a);
 
     let ms = 3.0 * (ch / a - sh / a / a);
     let mc = 5.0 * (sh / a - 3.0 * ch / a / a + 3.0 * sh / a.powi(3));
@@ -338,8 +349,8 @@ mod tests {
     #[test]
     fn hh_matches_a_hand_evaluation_at_alpha_one() {
         let a: f64 = 1.0;
-        let sh = a.sinh();
-        let ch = a.cosh();
+        let sh = Real::sinh(a);
+        let ch = Real::cosh(a);
         let ms = 3.0 * (ch / a - sh / a / a);
         let expected = (a * ch - ms) / (sh - ms);
 
@@ -477,7 +488,8 @@ mod tests {
 
         // --- 1. where the closed form loses significance ---
         fn mc_closed(a: f64) -> f64 {
-            5.0 * (a.sinh() / a - 3.0 * a.cosh() / (a * a) + 3.0 * a.sinh() / a.powi(3))
+            5.0 * (Real::sinh(a) / a - 3.0 * Real::cosh(a) / (a * a)
+                + 3.0 * Real::sinh(a) / a.powi(3))
         }
         // Series, derived term by term from sinh/cosh: the 1/a^2 terms and the
         // constants both cancel exactly, leaving

@@ -1425,16 +1425,19 @@ mod tests {
     /// **refreshing** the nodal correction, or lie downstream in the
     /// thermal-hydraulics.
     #[test]
-    // FAILS ON WINDOWS, and the tolerance is deliberately NOT widened to hide
-    // it: this lands at -14.33 pcm there against a 10 pcm gate, with the flux
-    // sum off by 5.7e-5, so the whole solution drifts rather than just the
-    // eigenvalue. Widening the gate would make CI green while destroying the
-    // only evidence that this port reproduces the MATLAB on ANY platform.
-    // Tracked as GitHub issue #222.
-    #[cfg_attr(
-        windows,
-        ignore = "fails on Windows at -14.33 pcm vs a 10 pcm gate; see GitHub issue #222"
-    )]
+    // WAS FAILING ON WINDOWS at -14.33 pcm against this 10 pcm gate, while
+    // passing at +0.00 pcm on Linux. Root cause found: `calc_abefghxyz` built
+    // its nodal coefficients with `f64::sinh`/`cosh`, which dispatch to the
+    // SYSTEM C library, and glibc and the MSVC CRT differ in the last ulp.
+    // That was enough to change this solve's convergence path -- 216
+    // iterations on Windows against 211 on Linux, both terminating legally
+    // under the same residual threshold, but at different points.
+    //
+    // Those seven calls now go through PETIR's pure-Rust libm shim, which is
+    // one fixed implementation everywhere. The Windows ignore is REMOVED so
+    // this test measures whether that worked; if it is red again, the cause
+    // is elsewhere. GitHub issue #222,
+    // crates/petir/docs/why-petir-last-ulp-evidence.md.
     fn x1_frozen_nodal_static_eigenvalue_against_the_matlab() {
         const MATLAB_K_EFF: f64 = 1.0230689628;
         const MATLAB_FLUX_SUM: f64 = 1.1819094459e4;
