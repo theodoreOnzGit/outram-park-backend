@@ -251,6 +251,10 @@ anyhow = "1.0.100"
 # `async-opcua.workspace = true`.
 async-opcua = { version = "0.19.0", default-features = false }
 
+# Human written note: this is an alternative important server client interface 
+# besides OPC-UA
+rust-mqtt = "0.5.1"
+
 # KOVAN knowledge-layer stack — all pure-Rust and Android-friendly (no system
 # libs), matching KOVAN's offline/Android-first mandate. See docs/kovan.md.
 serde_json = "1.0"           # KovanDocument (de)serialisation, generated artifacts
