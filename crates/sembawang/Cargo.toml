@@ -4,7 +4,7 @@ version = "0.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "SEMBAWANG — severe accident progression: melt behaviour, relocation, vessel failure, MCCI, hydrogen and aerosols, producing the source term consumed by CHANGI. Placeholder: nothing is implemented."
+description = "SEMBAWANG — severe accident progression: melt behaviour, relocation, vessel failure, MCCI, hydrogen and aerosols, producing the source term consumed by CHANGI. Research, education and V&V only."
 homepage.workspace = true
 repository.workspace = true
 categories.workspace = true
@@ -12,7 +12,18 @@ categories.workspace = true
 # write-ups). Excluded so it never ships to crates.io.
 exclude = ["docs"]
 
-# NO DEPENDENCIES. This crate holds a reserved name and a scope statement, not
-# code. Adding a dependency here before there is anything to depend on would
-# assert an architecture that has not been decided -- see `src/lib.rs`.
+# Dependencies added 2026-09-21, when the crate stopped being a placeholder for
+# its source-term half. The comment that stood here said adding one before
+# there was anything to depend on would assert an undecided architecture --
+# that reasoning held, and these three are added because there is now code
+# that calls into them, not ahead of it.
 [dependencies]
+# The release physics. boon-lay's TRISO-ATOPS fork is the whole mechanistic
+# layer; this crate orchestrates it and does not reimplement any of it.
+boon-lay  = { workspace = true }
+# The consumer. The dependency direction is sembawang -> changi and never the
+# reverse: changi defines the source-term types its own driver consumes, which
+# is what lets changi's end-to-end example run with this crate untouched.
+changi    = { workspace = true }
+uom       = { workspace = true }
+thiserror = { workspace = true }
