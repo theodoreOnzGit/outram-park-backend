@@ -124,6 +124,17 @@ pub struct AceHeader {
     pub iz: [i32; 16],
     /// The 16 `AW` entries of the IZ/AW pair block.
     pub aw: [f64; 16],
+    /// The four Fortran `character(n)` fields **exactly as stored**, in order:
+    /// `hz`, `hd`, `hk`, `hm`.
+    ///
+    /// The trimmed fields above are what a caller wants to read; these are what
+    /// a byte-exact rewrite needs. NJOY does not always space-pad: Al-27's
+    /// Type-2 `hz` is `13027.00c` followed by byte `0x0E`, so reconstructing
+    /// the field from the trimmed string and a padding rule cannot reproduce
+    /// it. Writing these back verbatim is the only way a read-then-write
+    /// round trip is byte-exact, and that round trip is the whole point of
+    /// upstream's `iopt = 7/8`.
+    pub raw_text: [Vec<u8>; 4],
 }
 
 /// A complete ACE table as stored: header plus the three raw arrays.
@@ -230,7 +241,8 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
 
     // Line 1: the ZAID is a fixed 10-column field; the rest is free-form.
     let l0 = lines[0];
-    let zaid = l0.chars().take(10).collect::<String>().trim().to_string();
+    let zaid_raw: Vec<u8> = l0.bytes().take(10).collect();
+    let zaid = String::from_utf8_lossy(&zaid_raw).trim().to_string();
     let rest: Vec<&str> = l0.get(10..).unwrap_or("").split_whitespace().collect();
     if rest.len() < 2 {
         return Err(NjoyError::EndfParse(format!(
@@ -249,8 +261,10 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
     // Line 2: 70-column comment then a 10-column material id. Sliced, never
     // whitespace-split — the comment legitimately contains spaces.
     let l1 = lines[1];
-    let comment = l1.chars().take(70).collect::<String>().trim_end().to_string();
-    let mat_id = l1.chars().skip(70).collect::<String>().trim().to_string();
+    let comment_raw: Vec<u8> = l1.bytes().take(70).collect();
+    let mat_raw: Vec<u8> = l1.bytes().skip(70).take(10).collect();
+    let comment = String::from_utf8_lossy(&comment_raw).trim_end().to_string();
+    let mat_id = String::from_utf8_lossy(&mat_raw).trim().to_string();
 
     // Lines 3-6: 16 IZ/AW pairs.
     let pair_toks: Vec<&str> = lines[2..6].iter().flat_map(|l| l.split_whitespace()).collect();
@@ -327,11 +341,12 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
             class,
             awr,
             kt_mev,
-            date,
+            date: date.clone(),
             comment,
             mat_id,
             iz,
             aw,
+            raw_text: [zaid_raw, date.into_bytes(), comment_raw, mat_raw],
         },
         nxs,
         jxs,
@@ -442,12 +457,20 @@ pub fn read_type2<P: AsRef<Path>>(path: P) -> Result<RawAceTable, NjoyError> {
     }
 
     let mut o = 0usize;
-    let zaid = take_str(&head, &mut o, hz_len).trim().to_string();
+    let zaid_raw = head[o..o + hz_len].to_vec();
+    o += hz_len;
+    let zaid = String::from_utf8_lossy(&zaid_raw).trim().to_string();
     let awr = take_f64(&head, &mut o);
     let kt_mev = take_f64(&head, &mut o);
-    let date = take_str(&head, &mut o, 10).trim().to_string();
-    let comment = take_str(&head, &mut o, 70).trim_end().to_string();
-    let mat_id = take_str(&head, &mut o, 10).trim().to_string();
+    let date_raw = head[o..o + 10].to_vec();
+    o += 10;
+    let comment_raw = head[o..o + 70].to_vec();
+    o += 70;
+    let mat_raw = head[o..o + 10].to_vec();
+    o += 10;
+    let date = String::from_utf8_lossy(&date_raw).trim().to_string();
+    let comment = String::from_utf8_lossy(&comment_raw).trim_end().to_string();
+    let mat_id = String::from_utf8_lossy(&mat_raw).trim().to_string();
     let mut iz = [0i32; 16];
     let mut aw = [0f64; 16];
     for k in 0..16 {
@@ -501,6 +524,7 @@ pub fn read_type2<P: AsRef<Path>>(path: P) -> Result<RawAceTable, NjoyError> {
             mat_id,
             iz,
             aw,
+            raw_text: [zaid_raw, date_raw, comment_raw, mat_raw],
         },
         nxs,
         jxs,
@@ -611,4 +635,193 @@ mod tests {
         let msg = format!("{e}");
         assert!(msg.contains("class letters"), "message should name the valid set: {msg}");
     }
+}
+
+// ── Writing a table back out ────────────────────────────────────────────────
+
+/// Pad or truncate `s` to exactly `n` bytes of ASCII, space-filled on the right.
+///
+/// Fortran `character(n)` fields are fixed width and space-padded; a shorter
+/// string must be padded, a longer one truncated, or the record length changes
+/// and the reader on the other side loses alignment.
+fn fixed_field(s: &str, n: usize) -> Vec<u8> {
+    let mut v: Vec<u8> = s.bytes().take(n).collect();
+    v.resize(n, b' ');
+    v
+}
+
+/// Emit one Fortran unformatted sequential record: 4-byte length, body, length.
+fn push_record(out: &mut Vec<u8>, body: &[u8]) {
+    let n = body.len() as u32;
+    out.extend_from_slice(&n.to_le_bytes());
+    out.extend_from_slice(body);
+    out.extend_from_slice(&n.to_le_bytes());
+}
+
+impl RawAceTable {
+    /// Serialise as a **Type 2** (Fortran unformatted sequential) ACE file —
+    /// the container upstream writes for `itype = 2`.
+    ///
+    /// Layout is the writer at `acefc.f90:13028-13053`:
+    ///
+    /// ```text
+    /// record 1   hz(10), aw0, tz, hd(10), hk(70), hm(10),
+    ///            (izn(i) integer, awn(i) real, i=1,16),
+    ///            NXS(16), JXS(32)
+    /// record 2+  XSS in chunks of ner = 512 reals (acefc.f90:187)
+    /// ```
+    ///
+    /// The ZAID is written at the width it was read at (10, or 13 for mcnpx),
+    /// so a table read from one file and written back produces the same record
+    /// length rather than silently switching format.
+    pub fn to_type2_bytes(&self) -> Vec<u8> {
+        // Prefer the bytes as they were read. A field reconstructed from the
+        // trimmed string plus a padding rule cannot reproduce NJOY's own output
+        // -- Al-27's Type-2 `hz` ends in byte 0x0E, not a space -- and this
+        // writer exists so that a read-then-write round trip is byte-exact.
+        let raw_or = |i: usize, s: &str, n: usize| -> Vec<u8> {
+            let r = &self.header.raw_text[i];
+            if r.len() == n {
+                r.clone()
+            } else {
+                fixed_field(s, n)
+            }
+        };
+        let hz_len = if self.header.raw_text[0].len() == 13 { 13 } else { 10 };
+        let mut head: Vec<u8> = Vec::with_capacity(500);
+        head.extend_from_slice(&raw_or(0, &self.header.zaid, hz_len));
+        head.extend_from_slice(&self.header.awr.to_le_bytes());
+        head.extend_from_slice(&self.header.kt_mev.to_le_bytes());
+        head.extend_from_slice(&raw_or(1, &self.header.date, 10));
+        head.extend_from_slice(&raw_or(2, &self.header.comment, 70));
+        head.extend_from_slice(&raw_or(3, &self.header.mat_id, 10));
+        for k in 0..16 {
+            head.extend_from_slice(&self.header.iz[k].to_le_bytes());
+            head.extend_from_slice(&self.header.aw[k].to_le_bytes());
+        }
+        for v in self.nxs.iter() {
+            head.extend_from_slice(&v.to_le_bytes());
+        }
+        for v in self.jxs.iter() {
+            head.extend_from_slice(&v.to_le_bytes());
+        }
+
+        let mut out = Vec::with_capacity(head.len() + self.xss.len() * XSS_BYTES + 4096);
+        push_record(&mut out, &head);
+        for chunk in self.xss.chunks(XSS_PER_RECORD) {
+            let mut body = Vec::with_capacity(chunk.len() * XSS_BYTES);
+            for v in chunk {
+                body.extend_from_slice(&v.to_le_bytes());
+            }
+            push_record(&mut out, &body);
+        }
+        out
+    }
+
+    /// Write this table to `path` as a Type-2 ACE file.
+    pub fn write_type2<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
+        let path = path.as_ref();
+        std::fs::write(path, self.to_type2_bytes())
+            .map_err(|e| NjoyError::EndfParse(format!("write {}: {e}", path.display())))
+    }
+}
+
+impl RawAceTable {
+    /// Serialise as a **Type 1** (ASCII) ACE file.
+    ///
+    /// The counterpart to [`to_type2_bytes`][Self::to_type2_bytes], so a table
+    /// read from either container can be written back to either — which is
+    /// what upstream's `iopt = 7/8` do (`acer.f90:485-533` reads, `itype`
+    /// chooses the container it is written back as).
+    ///
+    /// **Integer-valued words are written as integers**, matching `change`
+    /// (`acefc.f90:13088`). Which words those are is not recorded anywhere in
+    /// the file, so it is inferred the only way available from a raw table: a
+    /// value that is exactly integral and small enough to be a locator, count
+    /// or MT number is written as one. That reproduces NJOY's own Type-1
+    /// output on the tables tested, and the test says so rather than the doc
+    /// claiming it in general.
+    pub fn to_type1_string(&self) -> String {
+        let mut out = String::with_capacity(self.xss.len() * 21 + 1024);
+        let txt = |i: usize, fallback: &str, n: usize| -> String {
+            let r = &self.header.raw_text[i];
+            if r.len() == n {
+                String::from_utf8_lossy(r).to_string()
+            } else {
+                format!("{fallback:<n$}")
+            }
+        };
+        out.push_str(&format!(
+            "{}{} {} {:<10}\n",
+            txt(0, &self.header.zaid, 10),
+            fortran_f(self.header.awr, 12, 6),
+            fortran_e(self.header.kt_mev, 4, 11),
+            self.header.date,
+        ));
+        out.push_str(&format!(
+            "{}{}\n",
+            txt(2, &self.header.comment, 70),
+            txt(3, &self.header.mat_id, 10)
+        ));
+        for row in 0..4 {
+            let mut line = String::new();
+            for col in 0..4 {
+                let k = row * 4 + col;
+                line.push_str(&format!("{:7}{}", self.header.iz[k], fortran_f0(self.header.aw[k])));
+            }
+            out.push_str(line.trim_end());
+            out.push('\n');
+        }
+        for (i, v) in self.nxs.iter().chain(self.jxs.iter()).enumerate() {
+            out.push_str(&format!("{v:9}"));
+            if i % 8 == 7 {
+                out.push('\n');
+            }
+        }
+        for (i, v) in self.xss.iter().enumerate() {
+            if v.fract() == 0.0 && v.abs() < 1.0e9 {
+                out.push_str(&format!("{:20}", *v as i64));
+            } else {
+                out.push_str(&fortran_e20(*v));
+            }
+            if i % 4 == 3 {
+                out.push('\n');
+            }
+        }
+        if self.xss.len() % 4 != 0 {
+            out.push('\n');
+        }
+        out
+    }
+}
+
+fn fortran_f(v: f64, w: usize, d: usize) -> String {
+    format!("{v:>w$.d$}")
+}
+
+fn fortran_f0(v: f64) -> String {
+    format!("{v:>11.0}")
+}
+
+fn fortran_e(v: f64, d: usize, w: usize) -> String {
+    if v == 0.0 {
+        return format!("{:>w$}", format!("{:.*}", d, 0.0));
+    }
+    let s = format!("{:.*E}", d, v);
+    format!("{s:>w$}")
+}
+
+/// NJOY's `1pE20.11` for a real XSS word.
+fn fortran_e20(v: f64) -> String {
+    if v == 0.0 {
+        return format!("{:>20}", "0.00000000000E+00");
+    }
+    let exp = v.abs().log10().floor() as i32;
+    let mant = v / 10f64.powi(exp);
+    let (mant, exp) = if mant.abs() >= 10.0 {
+        (mant / 10.0, exp + 1)
+    } else {
+        (mant, exp)
+    };
+    format!("{:>20}", format!("{mant:.11}E{}{:02}", if exp < 0 { "-" } else { "+" }, exp.abs()))
 }

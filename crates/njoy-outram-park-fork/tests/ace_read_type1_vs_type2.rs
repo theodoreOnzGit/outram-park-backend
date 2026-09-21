@@ -256,3 +256,113 @@ fn every_obtainable_class_reads() {
         );
     }
 }
+
+/// Byte-for-byte: read NJOY2016's own Type-2 file and write it back out.
+///
+/// This is the strongest statement available about the Type-2 **writer**. A
+/// round trip through our own reader and writer only proves the two agree with
+/// each other; reproducing NJOY's bytes proves the container itself is right —
+/// record markers, field widths, chunking at `ner = 512`, and the exact padding
+/// of every Fortran `character(n)` field.
+///
+/// # Result (2026-09-21, Al-27 ENDF/B-VIII.0 MAT 1325, 0 K, 2 154 676 bytes)
+///
+/// See the assertion: it reports the first differing offset, because *where*
+/// the first byte differs localises the defect immediately (before 500 = the
+/// header record, after = a data record or a chunk boundary).
+#[test]
+fn type2_write_reproduces_njoys_bytes() {
+    if !std::path::Path::new(T2).exists() {
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "[ace-type2-write] fixture {T2} absent and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set"
+        );
+        println!("[ace-type2-write] SKIP — fixture not generated");
+        return;
+    }
+    let original = std::fs::read(T2).expect("read NJOY's Type 2");
+    let table = read_type2(T2).expect("parse NJOY's Type 2");
+    let ours = table.to_type2_bytes();
+
+    assert_eq!(
+        ours.len(),
+        original.len(),
+        "Type-2 byte length: ours {} vs NJOY {}. A length difference is a record \
+         framing or field-width error, not a value error.",
+        ours.len(),
+        original.len()
+    );
+    let first_diff = ours
+        .iter()
+        .zip(original.iter())
+        .position(|(a, b)| a != b);
+    assert!(
+        first_diff.is_none(),
+        "Type-2 bytes differ from NJOY's at offset {:?}. Before offset 500 that is \
+         the header record (field widths or padding); after it, a data record or \
+         the ner=512 chunk boundary.",
+        first_diff
+    );
+    println!(
+        "[ace-type2-write] reproduced NJOY's {} bytes exactly",
+        original.len()
+    );
+}
+
+/// Type-1 write: read NJOY's ASCII table and write it back.
+///
+/// The Type-2 writer reproduces NJOY's bytes exactly. This asks the same of
+/// Type 1, and the answer is **not** "exactly" — which is worth having
+/// measured rather than assumed. Type 1 is a formatted text container, so
+/// reproducing it byte-for-byte requires matching NJOY's Fortran edit
+/// descriptors in every field, including which words `change` emits as
+/// integers. What this test pins is the property that actually matters: the
+/// table **round-trips through the value domain** — write it, read it back,
+/// and every `NXS`, `JXS` and `XSS` value returns unchanged.
+#[test]
+fn type1_write_round_trips_through_values() {
+    if !std::path::Path::new(T1).exists() {
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "[ace-type1-write] fixture {T1} absent and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set"
+        );
+        println!("[ace-type1-write] SKIP — fixture not generated");
+        return;
+    }
+    let original = read_type1(T1).expect("read NJOY's Type 1");
+    let text = original.to_type1_string();
+    let back = njoy_outram_park_fork::acer::read::parse_type1(&text)
+        .expect("our own Type-1 output must re-read");
+
+    assert_eq!(back.nxs, original.nxs, "NXS did not survive the round trip");
+    assert_eq!(back.jxs, original.jxs, "JXS did not survive the round trip");
+    assert_eq!(
+        back.xss.len(),
+        original.xss.len(),
+        "XSS length changed across the round trip"
+    );
+    let mut worst = (0.0f64, 0usize);
+    for (k, (&a, &b)) in back.xss.iter().zip(original.xss.iter()).enumerate() {
+        let d = if b != 0.0 { ((a - b) / b).abs() } else { (a - b).abs() };
+        if d > worst.0 {
+            worst = (d, k);
+        }
+    }
+    // Our Type-1 real format is 1pE20.11 -- 12 significant figures, the same as
+    // NJOY's -- so a value that came FROM a Type-1 file must return exactly.
+    assert!(
+        worst.0 == 0.0,
+        "a value read from Type 1 must survive a Type-1 rewrite exactly, but \
+         index {} moved by {:.3e} (was {:.17e}, became {:.17e})",
+        worst.1,
+        worst.0,
+        original.xss[worst.1],
+        back.xss[worst.1]
+    );
+    println!(
+        "[ace-type1-write] {} values round-tripped exactly through Type 1",
+        original.xss.len()
+    );
+}
