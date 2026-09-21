@@ -18,6 +18,7 @@ pub mod excursion;
 pub mod fhr_reactor_vessel;
 pub mod heat_exchanger;
 pub mod htr10_reactor_vessel;
+pub mod htr10_steam_generator;
 pub mod instrumentation;
 mod legend;
 pub(crate) mod pebble_bed_texture;
@@ -46,6 +47,7 @@ pub use heat_exchanger::{
     HeatExchangerScalars, HeatExchangerVisual, HeatExchangerVisualState,
 };
 pub use htr10_reactor_vessel::{Htr10FlowAnchors, Htr10ReactorVesselVisual};
+pub use htr10_steam_generator::Htr10SteamGeneratorVisual;
 pub use instrumentation::InstrumentationVisual;
 pub use legend::{LegendUnit, TemperatureLegend};
 pub use pipe::{

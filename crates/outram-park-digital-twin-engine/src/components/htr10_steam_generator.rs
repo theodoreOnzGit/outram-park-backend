@@ -1,0 +1,525 @@
+//! HTR-10 steam generator — a schematic of its *general structure*.
+//!
+//! A dedicated widget rather than a variant of
+//! [`crate::components::SteamGeneratorVisual`], because it draws a specific
+//! internal arrangement rather than a generic once-through helical unit. The
+//! generic widget stays as it was and keeps serving every other caller.
+//!
+//! ## The arrangement drawn here
+//!
+//! **Maintainer specification, 2026-09-21, in these words:** *"a general
+//! structure, a central hot gas riser taking up about 40% of the diameter, and
+//! two peripheral helical steam generators. The helical coils will be angled
+//! around 20 degrees, ~~represented by short parallel strokes~~."*
+//!
+//! **REVISED the same day, also at the maintainer's request:** the coils are
+//! drawn as a **continuous winding** — *"some swirly things, so it looks
+//! simplified in style, and not too much like the actual schematic"* — rather
+//! than as parallel strokes. The 20 degree angle survives the change and still
+//! drives the drawing, now by setting how many turns the helix makes; see
+//! [`DEFAULT_COIL_ANGLE_DEGREES`].
+//!
+//! ```text
+//!        ┌─────────────────────────┐
+//!        │ ⌇⌇⌇ │             │ ⌇⌇⌇ │   coil as a winding, turns set
+//!        │ ⌇⌇⌇ │   central   │ ⌇⌇⌇ │   by the ~20 deg pitch angle
+//!        │ ⌇⌇⌇ │  hot gas    │ ⌇⌇⌇ │
+//!        │ ⌇⌇⌇ │   riser     │ ⌇⌇⌇ │   two peripheral bundles
+//!        │ ⌇⌇⌇ │   ~40% D    │ ⌇⌇⌇ │
+//!        └─────────────────────────┘
+//! ```
+//!
+//! The winding is drawn in the same stylisation as
+//! [`crate::components::SteamGeneratorVisual`]'s generic helical-coil unit, so
+//! the two read as the same kind of machine.
+//!
+//! ## What this is and is not
+//!
+//! **It is a general-structure schematic, drawn to a specification, not a
+//! reproduction of any published figure and not the plant's phase-one
+//! internals.** Two points where it deliberately differs from what this
+//! workspace's own source review records, so nobody reads the picture as data:
+//!
+//! - `docs/reactor-scoping/htr10-plant-data.md` section 5 records the 30
+//!   helical modules as installed in an **annular space**, with the vessel
+//!   centre **reserved for a N2-He intermediate heat exchanger and empty in
+//!   the first stage**. The central riser drawn here is a schematic device for
+//!   showing where the hot gas goes, specified by the maintainer; it is not a
+//!   claim that a riser occupies that cavity.
+//! - The **40 % diameter** and **20 degree** coil angle are the maintainer's
+//!   drawing parameters. Neither is a plant dimension — section 5 of that
+//!   sheet lists the coil pitch as *Unknown*, and records only a 112 mm bundle
+//!   diameter per module, which this schematic does not attempt to resolve.
+//!
+//! Dimensions that *are* cited are marked as such at the point of use.
+//!
+//! ## Animation
+//!
+//! Nothing in this widget moves. That is deliberate rather than unfinished:
+//! per the crate's "ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED" hard
+//! rule, a stream may only be animated from a real mass flow and residence
+//! time, and this widget is not given either. Colour *is* derived — every
+//! region is graded by a temperature the caller supplies.
+
+use crate::components::temperature_colour;
+use std::f32::consts::PI;
+use egui::{Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2,
+    Widget};
+use uom::si::angle::degree;
+use uom::si::f64::{Angle, ThermodynamicTemperature};
+use uom::si::thermodynamic_temperature::kelvin;
+
+/// Outer proportions of the HTR-10 steam-generator pressure vessel,
+/// width / height.
+///
+/// From `docs/reactor-scoping/htr10-plant-data.md` section 4.2: SG pressure
+/// vessel diameter **2.6 m** (*Quoted*), height **more than 11 m** (*Quoted*
+/// as a bound, and flagged *Uncertain* there because the scan is poor). 11 m
+/// is used as the height, which makes this a lower bound on slenderness — the
+/// real vessel is at least this slender, never squatter.
+pub const HTR10_SG_ASPECT_RATIO: f32 = 2.6 / 11.0;
+
+/// Share of the vessel diameter taken by the central hot gas riser.
+///
+/// **Maintainer-specified drawing parameter** (2026-09-21: *"about 40% of the
+/// diameter"*), not a plant dimension.
+pub const DEFAULT_RISER_DIAMETER_FRACTION: f32 = 0.40;
+
+/// Pitch angle of the drawn coil, from the horizontal.
+///
+/// **Maintainer-specified drawing parameter** (2026-09-21: *"angled around 20
+/// degrees"*). The real coil pitch is recorded as *Unknown* in the plant-data
+/// sheet, so this is a representation of a helix, not a measurement of one.
+///
+/// It sets how many turns the winding makes over the bundle height, through
+/// the helix relation `tan(theta) = p / (2 pi r)` — so a **shallower** angle
+/// winds **more** turns, as a shallower helix genuinely does. Changing it
+/// therefore still changes the picture in a way that means something, which is
+/// why the parameter was kept when the coils moved from parallel strokes to a
+/// continuous winding.
+pub const DEFAULT_COIL_ANGLE_DEGREES: f64 = 20.0;
+
+const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
+const OUTLINE: Color32 = Color32::from_rgb(150, 154, 162);
+const INTERNALS: Color32 = Color32::from_rgb(64, 68, 76);
+const VOID: Color32 = Color32::from_rgb(28, 30, 34);
+const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
+
+/// Letterbox `available` to the vessel's real proportions.
+///
+/// Keeps the vessel's slenderness at any box size, so a wide panel does not
+/// draw a squat generator that misrepresents the machine.
+pub fn fit_native_aspect(available: Rect) -> Rect {
+    let target = HTR10_SG_ASPECT_RATIO;
+    let have = available.width() / available.height().max(1.0);
+    if have > target {
+        let w = available.height() * target;
+        Rect::from_center_size(available.center(), Vec2::new(w, available.height()))
+    } else {
+        let h = available.width() / target;
+        Rect::from_center_size(available.center(), Vec2::new(available.width(), h))
+    }
+}
+
+/// The HTR-10 steam generator, drawn as a general-structure schematic.
+///
+/// Four temperatures drive the colouring, all supplied by the caller from its
+/// own model and all graded through the shared
+/// [`crate::components::temperature_colour`] map, so this widget reads on the
+/// same colour scale as every other one in the library:
+///
+/// | Field | Physical quantity |
+/// |---|---|
+/// | [`Self::helium_inlet_temp`] | hot helium entering the riser from the reactor, K |
+/// | [`Self::helium_outlet_temp`] | cooled helium leaving the bundles, K |
+/// | [`Self::feedwater_temp`] | feedwater entering the coils at the bottom, K |
+/// | [`Self::steam_temp`] | superheated steam leaving at the top, K |
+///
+/// At the HTR-10 design point those are 700 degC, 250 degC, 104 degC and
+/// 440 degC respectively (`docs/reactor-scoping/htr10-plant-data.md` section
+/// 6), but the widget imposes none of them — it draws what it is given.
+pub struct Htr10SteamGeneratorVisual {
+    size: Vec2,
+    min_temp: ThermodynamicTemperature,
+    max_temp: ThermodynamicTemperature,
+    helium_inlet_temp: ThermodynamicTemperature,
+    helium_outlet_temp: ThermodynamicTemperature,
+    feedwater_temp: ThermodynamicTemperature,
+    steam_temp: ThermodynamicTemperature,
+    riser_diameter_fraction: f32,
+    coil_angle: Angle,
+    show_labels: bool,
+}
+
+impl Htr10SteamGeneratorVisual {
+    /// Build the schematic.
+    ///
+    /// `min_temp`/`max_temp` bound the colour scale. The map is diverging, so
+    /// set them about a meaningful midpoint rather than to the extremes seen —
+    /// for this unit a range spanning roughly 300 K to 1200 K puts the water
+    /// side on the cool half and the helium side on the warm half.
+    pub fn new(
+        size: Vec2,
+        min_temp: ThermodynamicTemperature,
+        max_temp: ThermodynamicTemperature,
+        helium_inlet_temp: ThermodynamicTemperature,
+        helium_outlet_temp: ThermodynamicTemperature,
+        feedwater_temp: ThermodynamicTemperature,
+        steam_temp: ThermodynamicTemperature,
+    ) -> Self {
+        Self {
+            size,
+            min_temp,
+            max_temp,
+            helium_inlet_temp,
+            helium_outlet_temp,
+            feedwater_temp,
+            steam_temp,
+            riser_diameter_fraction: DEFAULT_RISER_DIAMETER_FRACTION,
+            coil_angle: Angle::new::<degree>(DEFAULT_COIL_ANGLE_DEGREES),
+            show_labels: true,
+        }
+    }
+
+    /// On-screen size, in points.
+    pub fn size(&self) -> Vec2 {
+        self.size
+    }
+
+    /// Set the riser's share of the vessel diameter, dimensionless.
+    ///
+    /// Clamped to `[0.1, 0.8]` at render time: outside that the drawing stops
+    /// being readable as a riser flanked by two bundles, which is the whole
+    /// structure this widget exists to show.
+    pub fn with_riser_diameter_fraction(mut self, fraction: f32) -> Self {
+        self.riser_diameter_fraction = fraction;
+        self
+    }
+
+    /// Set the angle of the coil strokes from the horizontal. Builder-style.
+    pub fn with_coil_angle(mut self, angle: Angle) -> Self {
+        self.coil_angle = angle;
+        self
+    }
+
+    /// Turn the internal labels off — for thumbnails. Builder-style.
+    pub fn without_labels(mut self) -> Self {
+        self.show_labels = false;
+        self
+    }
+
+    /// The riser fraction actually used when drawing.
+    pub fn drawn_riser_fraction(&self) -> f32 {
+        self.riser_diameter_fraction.clamp(0.1, 0.8)
+    }
+
+    fn colour(&self, t: ThermodynamicTemperature) -> Color32 {
+        temperature_colour(t, self.min_temp, self.max_temp)
+    }
+
+    fn tag(&self, painter: &Painter, at: Pos2, text: &str) {
+        if !self.show_labels {
+            return;
+        }
+        painter.text(
+            at,
+            egui::Align2::CENTER_CENTER,
+            text,
+            FontId::proportional(9.0),
+            LABEL,
+        );
+    }
+
+    /// Water-side temperature at height fraction `f`, `0` at the top.
+    ///
+    /// Feedwater enters low and superheated steam leaves high, so the water
+    /// side is coldest at the bottom. Linear between the two supplied ends:
+    /// the real profile is not linear — it is flat through the evaporating
+    /// region — and interpolating for *colour* is artwork, stated as such.
+    fn water_temperature_at(&self, f: f32) -> ThermodynamicTemperature {
+        let rise = (1.0 - f).clamp(0.0, 1.0) as f64;
+        ThermodynamicTemperature::new::<kelvin>(
+            self.feedwater_temp.get::<kelvin>() * (1.0 - rise)
+                + self.steam_temp.get::<kelvin>() * rise,
+        )
+    }
+}
+
+impl Widget for Htr10SteamGeneratorVisual {
+    /// Draws the vessel, the central hot gas riser and the two peripheral
+    /// helical bundles.
+    ///
+    /// The riser is filled at the helium **inlet** temperature over its whole
+    /// height: it carries reactor-outlet gas up to the top of the unit before
+    /// any heat has been given up. The bundles are graded from the helium
+    /// inlet at the top to the helium outlet at the bottom, because the gas
+    /// turns at the top and flows back down across the coil. The coil strokes
+    /// themselves carry the **water-side** temperature at their elevation, so
+    /// the two sides of the heat exchange are separately visible.
+    fn ui(self, ui: &mut Ui) -> Response {
+        let (response, painter) = ui.allocate_painter(self.size, Sense::hover());
+        let rect = fit_native_aspect(response.rect);
+        let w = rect.width();
+        let h = rect.height();
+        let cx = rect.center().x;
+        let y = |f: f32| rect.top() + f * h;
+
+        let helium_in = self.colour(self.helium_inlet_temp);
+
+        // ── Pressure vessel: a capsule with domed heads ─────────────────────
+        let dome = w * 0.5;
+        let shell = Rect::from_min_max(
+            Pos2::new(rect.left(), rect.top() + dome * 0.62),
+            Pos2::new(rect.right(), rect.bottom() - dome * 0.62),
+        );
+        painter.rect_filled(shell, 0, STEEL);
+        painter.rect_filled(
+            Rect::from_min_max(
+                Pos2::new(rect.left(), rect.top()),
+                Pos2::new(rect.right(), shell.top() + dome * 0.4),
+            ),
+            (dome * 0.6).round().clamp(0.0, 255.0) as u8,
+            STEEL,
+        );
+        painter.rect_filled(
+            Rect::from_min_max(
+                Pos2::new(rect.left(), shell.bottom() - dome * 0.4),
+                Pos2::new(rect.right(), rect.bottom()),
+            ),
+            (dome * 0.6).round().clamp(0.0, 255.0) as u8,
+            STEEL,
+        );
+
+        // Interior cavity the internals sit in.
+        let interior = Rect::from_min_max(
+            Pos2::new(cx - w * 0.45, y(0.05)),
+            Pos2::new(cx + w * 0.45, y(0.95)),
+        );
+        painter.rect_filled(interior, (w * 0.06).round() as u8, VOID);
+
+        // ── Vertical extent of the internals ────────────────────────────────
+        let top_f = 0.10_f32;
+        let bottom_f = 0.90_f32;
+        let bundle_top = y(top_f);
+        let bundle_bottom = y(bottom_f);
+
+        // ── Central hot gas riser ───────────────────────────────────────────
+        //
+        // Maintainer-specified at ~40 % of the vessel diameter. Measured on
+        // the interior cavity's width, so the two peripheral bundles get the
+        // remainder split evenly between them.
+        let cavity_half = interior.width() * 0.5;
+        let riser_half = cavity_half * self.drawn_riser_fraction();
+        let riser = Rect::from_min_max(
+            Pos2::new(cx - riser_half, bundle_top),
+            Pos2::new(cx + riser_half, bundle_bottom),
+        );
+        painter.rect_filled(riser, 2, helium_in);
+        painter.rect_stroke(riser, 2, Stroke::new(1.2, INTERNALS), StrokeKind::Middle);
+        self.tag(&painter, Pos2::new(cx, y(0.5)), "hot gas");
+        self.tag(&painter, Pos2::new(cx, y(0.5) + 11.0), "riser");
+
+        // ── Two peripheral helical bundles ──────────────────────────────────
+        //
+        // Each occupies the gap between the riser and the vessel wall. The gas
+        // side is graded top-to-bottom from helium inlet to helium outlet,
+        // since the gas turns at the top of the riser and descends across the
+        // coil.
+        let gas_bands = 12;
+        for side in [-1.0_f32, 1.0] {
+            let inner = cx + side * riser_half;
+            let outer = cx + side * cavity_half;
+            let (left, right) = if side < 0.0 {
+                (outer, inner)
+            } else {
+                (inner, outer)
+            };
+
+            for b in 0..gas_bands {
+                let t0 = b as f32 / gas_bands as f32;
+                let t1 = (b + 1) as f32 / gas_bands as f32;
+                let mid = 0.5 * (t0 + t1);
+                let band = Rect::from_min_max(
+                    Pos2::new(left, bundle_top + (bundle_bottom - bundle_top) * t0),
+                    Pos2::new(right, bundle_top + (bundle_bottom - bundle_top) * t1),
+                );
+                let gas = ThermodynamicTemperature::new::<kelvin>(
+                    self.helium_inlet_temp.get::<kelvin>() * (1.0 - mid as f64)
+                        + self.helium_outlet_temp.get::<kelvin>() * mid as f64,
+                );
+                let c = self.colour(gas);
+                painter.rect_filled(
+                    band,
+                    0,
+                    Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 90),
+                );
+            }
+
+            // The coil, drawn as a continuous winding rather than as separate
+            // tube sections — the same stylisation
+            // `SteamGeneratorVisual::draw_helical_coil` uses, so the two read
+            // as the same kind of machine. Deliberately simplified: it says
+            // "helix" without pretending to be a tube layout.
+            //
+            // Two passes give it depth. The half of each turn passing BEHIND
+            // the bundle axis is drawn first and translucent, the front half
+            // afterwards at full strength, so the winding reads as wrapping
+            // something rather than as a flat zigzag.
+            //
+            // Each segment carries the WATER-side temperature at its own
+            // elevation, so the coil reads as the heated stream while the band
+            // behind it reads as the gas.
+            let bundle_w = (right - left).max(1.0);
+            let mid_x = 0.5 * (left + right);
+            let coil_radius = bundle_w * 0.34;
+            let span = bundle_bottom - bundle_top;
+
+            // The specified pitch angle still drives the drawing, now through
+            // the helix geometry instead of a stroke slope: for a helix of
+            // radius `r` climbing an axial pitch `p` per turn,
+            // `tan(theta) = p / (2 pi r)`, so the number of turns over a
+            // height `H` is `H / (2 pi r tan theta)`. A shallower angle winds
+            // more turns, which is what a shallower helix actually does.
+            let theta = (self.coil_angle.get::<degree>() as f32).to_radians();
+            let tan_theta = theta.tan().abs().max(0.02);
+            let turns = (span / (2.0 * PI * coil_radius * tan_theta)).clamp(2.0, 40.0);
+
+            let samples = 320;
+            let width = (bundle_w * 0.15).max(1.2);
+            for behind in [true, false] {
+                for k in 0..samples {
+                    let t0 = k as f32 / samples as f32;
+                    let t1 = (k + 1) as f32 / samples as f32;
+                    let a0 = turns * 2.0 * PI * t0;
+                    let a1 = turns * 2.0 * PI * t1;
+                    // Sign of the cosine says which side of the axis this bit
+                    // of the turn is on, so it selects the pass.
+                    if ((0.5 * (a0 + a1)).cos() < 0.0) != behind {
+                        continue;
+                    }
+                    let p0 = Pos2::new(mid_x + coil_radius * a0.sin(), bundle_top + span * t0);
+                    let p1 = Pos2::new(mid_x + coil_radius * a1.sin(), bundle_top + span * t1);
+                    let water = self.water_temperature_at(t0);
+                    let mut c = self.colour(water);
+                    if behind {
+                        c = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 120);
+                    }
+                    painter.line_segment([p0, p1], Stroke::new(width, c));
+                }
+            }
+
+            self.tag(
+                &painter,
+                Pos2::new(mid_x, y(top_f) - 9.0),
+                "helical coil",
+            );
+        }
+
+        // ── Nozzles ─────────────────────────────────────────────────────────
+        //
+        // Water side on the right, facing the turbine hall: feedwater in low,
+        // superheated steam out high. Helium connections are deliberately NOT
+        // drawn here — where they attach is the coaxial duct's business, and
+        // `CoaxialDuctVisual` owns that.
+        painter.rect_filled(
+            Rect::from_min_max(
+                Pos2::new(cx + w * 0.30, y(0.085)),
+                Pos2::new(cx + w * 0.70, y(0.110)),
+            ),
+            2,
+            self.colour(self.steam_temp),
+        );
+        self.tag(&painter, Pos2::new(cx + w * 0.86, y(0.0975)), "steam");
+
+        painter.rect_filled(
+            Rect::from_min_max(
+                Pos2::new(cx + w * 0.30, y(0.890)),
+                Pos2::new(cx + w * 0.70, y(0.915)),
+            ),
+            2,
+            self.colour(self.feedwater_temp),
+        );
+        self.tag(&painter, Pos2::new(cx + w * 0.88, y(0.9025)), "feedwater");
+
+        painter.rect_stroke(shell, 0, Stroke::new(1.5, OUTLINE), StrokeKind::Middle);
+
+        response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn kelvins(v: f64) -> ThermodynamicTemperature {
+        ThermodynamicTemperature::new::<kelvin>(v)
+    }
+
+    fn visual() -> Htr10SteamGeneratorVisual {
+        Htr10SteamGeneratorVisual::new(
+            Vec2::new(120.0, 480.0),
+            kelvins(300.0),
+            kelvins(1200.0),
+            kelvins(973.15),
+            kelvins(523.15),
+            kelvins(377.15),
+            kelvins(713.15),
+        )
+    }
+
+    /// The riser defaults to the maintainer-specified 40 % of the diameter.
+    ///
+    /// Pinned because it is a *specification*, not an implementation detail:
+    /// if it drifts, the drawing no longer matches what was asked for.
+    #[test]
+    fn riser_defaults_to_forty_percent_of_the_diameter() {
+        assert!((visual().drawn_riser_fraction() - 0.40).abs() < 1e-6);
+        assert!((DEFAULT_RISER_DIAMETER_FRACTION - 0.40).abs() < 1e-6);
+    }
+
+    /// The coil angle defaults to the specified 20 degrees.
+    #[test]
+    fn coil_angle_defaults_to_twenty_degrees() {
+        assert!((DEFAULT_COIL_ANGLE_DEGREES - 20.0).abs() < 1e-9);
+    }
+
+    /// An out-of-range riser fraction is clamped rather than drawn, so a
+    /// caller that oversteers gets a readable picture instead of a bundle of
+    /// zero width or a riser wider than the vessel.
+    #[test]
+    fn riser_fraction_is_clamped_to_a_readable_range() {
+        assert!((visual().with_riser_diameter_fraction(5.0).drawn_riser_fraction() - 0.8).abs() < 1e-6);
+        assert!((visual().with_riser_diameter_fraction(-1.0).drawn_riser_fraction() - 0.1).abs() < 1e-6);
+    }
+
+    /// The water side is coldest at the bottom: feedwater enters low and
+    /// superheated steam leaves at the top. `f` is measured from the TOP, so
+    /// `f = 1` must be the feedwater end.
+    #[test]
+    fn water_side_is_coldest_at_the_bottom() {
+        let v = visual();
+        let top = v.water_temperature_at(0.0).get::<kelvin>();
+        let bottom = v.water_temperature_at(1.0).get::<kelvin>();
+        assert!(
+            bottom < top,
+            "feedwater end ({bottom} K) must be colder than the steam end ({top} K)"
+        );
+        assert!((top - 713.15).abs() < 1e-6);
+        assert!((bottom - 377.15).abs() < 1e-6);
+    }
+
+    /// The vessel keeps its real slenderness whatever box it is given, so a
+    /// wide panel cannot draw a squat generator.
+    #[test]
+    fn the_vessel_letterboxes_to_its_own_proportions() {
+        let wide = fit_native_aspect(Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 300.0)));
+        let tall = fit_native_aspect(Rect::from_min_size(Pos2::ZERO, Vec2::new(100.0, 900.0)));
+        for r in [wide, tall] {
+            let aspect = r.width() / r.height();
+            assert!(
+                (aspect - HTR10_SG_ASPECT_RATIO).abs() < 1e-4,
+                "aspect {aspect} should match {HTR10_SG_ASPECT_RATIO}"
+            );
+        }
+    }
+}

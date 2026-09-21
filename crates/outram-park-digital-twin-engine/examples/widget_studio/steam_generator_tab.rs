@@ -19,10 +19,12 @@
 //! specific licensed design.
 
 use egui::{RichText, Vec2};
+use outram_park_digital_twin_engine::components::Htr10SteamGeneratorVisual;
 use outram_park_digital_twin_engine::components::steam_generator::{
     SteamGeneratorKind, SteamGeneratorScalars, SteamGeneratorVisual,
 };
-use uom::si::f64::ThermodynamicTemperature;
+use uom::si::angle::degree;
+use uom::si::f64::{Angle, ThermodynamicTemperature};
 use uom::si::thermodynamic_temperature::degree_celsius;
 
 /// Studio state for the steam-generator gallery.
@@ -46,6 +48,15 @@ pub struct SteamGeneratorTab {
     pub cell_width: f32,
     /// Whether to draw the internal component labels.
     pub show_labels: bool,
+    /// HTR-10 card: riser share of the vessel diameter, dimensionless.
+    ///
+    /// Defaults to the maintainer-specified 0.40. A drawing parameter, not a
+    /// plant dimension.
+    pub riser_fraction: f32,
+    /// HTR-10 card: coil stroke angle from the horizontal, degrees.
+    ///
+    /// Defaults to the maintainer-specified 20 degrees.
+    pub coil_angle_degrees: f64,
 }
 
 impl Default for SteamGeneratorTab {
@@ -65,6 +76,8 @@ impl Default for SteamGeneratorTab {
             water_level_frac: 0.62,
             cell_width: 210.0,
             show_labels: true,
+            riser_fraction: 0.40,
+            coil_angle_degrees: 20.0,
         }
     }
 }
@@ -151,6 +164,28 @@ pub fn controls(ui: &mut egui::Ui, state: &mut SteamGeneratorTab) {
         )
         .small()
         .weak(),
+    );
+
+    ui.separator();
+    ui.label(RichText::new("HTR-10 general structure").strong());
+    ui.label(
+        RichText::new(
+            "The fourth card is a different widget: one plant's internal \
+             arrangement, not a generic architecture. Both numbers below are \
+             DRAWING parameters specified by the maintainer, not plant \
+             dimensions — the real coil pitch is recorded as Unknown.",
+        )
+        .small()
+        .weak(),
+    );
+    ui.add(
+        egui::Slider::new(&mut state.riser_fraction, 0.1..=0.8)
+            .text("riser share of diameter")
+            .fixed_decimals(2),
+    );
+    ui.add(
+        egui::Slider::new(&mut state.coil_angle_degrees, 0.0..=60.0)
+            .text("coil angle [deg]"),
     );
 
     ui.separator();
@@ -246,6 +281,59 @@ pub fn draw(ui: &mut egui::Ui, state: &SteamGeneratorTab) {
                     });
                     ui.add_space(gap);
                 }
+
+                // ── HTR-10 general-structure schematic ────────────────────
+                //
+                // A different widget, not a fourth `SteamGeneratorKind`: it
+                // draws one plant's specific internal arrangement rather than
+                // a generic architecture, so it does not belong in that enum.
+                ui.vertical(|ui| {
+                    let card_w = state.cell_width;
+                    ui.set_width(card_w);
+
+                    let (rect, _response) =
+                        ui.allocate_exact_size(Vec2::new(card_w, card_h), egui::Sense::hover());
+                    let htr10 = Htr10SteamGeneratorVisual::new(
+                        Vec2::new(card_w - 16.0, card_h - 16.0),
+                        degc(state.min_temp_degc),
+                        degc(state.max_temp_degc),
+                        degc(state.primary_inlet_degc),
+                        degc(state.primary_outlet_degc),
+                        degc(state.feedwater_degc),
+                        degc(state.steam_degc),
+                    )
+                    .with_riser_diameter_fraction(state.riser_fraction)
+                    .with_coil_angle(Angle::new::<degree>(state.coil_angle_degrees));
+                    let htr10 = if state.show_labels {
+                        htr10
+                    } else {
+                        htr10.without_labels()
+                    };
+                    ui.put(rect, htr10);
+
+                    ui.allocate_ui(Vec2::new(card_w, caption_h), |ui| {
+                        ui.label(RichText::new("HTR-10 (general structure)").strong());
+                        ui.label(
+                            RichText::new(
+                                "Central hot gas riser flanked by two peripheral helical \
+                                 bundles; coils drawn as short parallel strokes.",
+                            )
+                            .small()
+                            .weak(),
+                        );
+                        ui.label(
+                            RichText::new(format!(
+                                "riser {:.0} % of diameter, coils at {:.0}° — drawing \
+                                 parameters, not plant dimensions",
+                                state.riser_fraction * 100.0,
+                                state.coil_angle_degrees,
+                            ))
+                            .small()
+                            .weak(),
+                        );
+                    });
+                });
+                ui.add_space(gap);
             });
 
             ui.add_space(gap);
