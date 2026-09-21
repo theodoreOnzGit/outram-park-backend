@@ -104,6 +104,7 @@
 #![forbid(unsafe_code)]
 
 pub mod accident;
+pub mod chain;
 pub mod error;
 pub mod inventory;
 pub mod scenario;
