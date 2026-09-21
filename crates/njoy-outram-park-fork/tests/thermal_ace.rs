@@ -46,23 +46,18 @@ fn al27_thermal() -> AceTable {
     AceTable::thermal_from_mf7(&mf7, temp, "al27", 0, &grid, opts).unwrap()
 }
 
-/// Minimal Type-1 parser: skip the 6 header/IZAW lines, read NXS(16)+JXS(32)
-/// (6 lines of 8 ints), then the XSS values.
+/// Parse a Type-1 table through the library reader.
+///
+/// This was a hand-rolled parser — one of five near-identical copies in this
+/// crate — until `acer::read` landed on 2026-09-21. Going through the library
+/// turns this from "the writer produced text my test can re-read" into a real
+/// **write -> read round trip**: the same reader that consumes NJOY2016's
+/// output consumes ours, so a table this crate writes but the reader cannot
+/// read now fails here.
 fn parse_type1(text: &str) -> (Vec<i32>, Vec<i32>, Vec<f64>) {
-    let lines: Vec<&str> = text.lines().collect();
-    let mut ints: Vec<i32> = Vec::new();
-    for line in &lines[6..12] {
-        for tok in line.split_whitespace() {
-            ints.push(tok.parse().unwrap());
-        }
-    }
-    let mut xss: Vec<f64> = Vec::new();
-    for line in &lines[12..] {
-        for tok in line.split_whitespace() {
-            xss.push(tok.parse().unwrap());
-        }
-    }
-    (ints[..16].to_vec(), ints[16..].to_vec(), xss)
+    let t = njoy_outram_park_fork::acer::read::parse_type1(text)
+        .expect("our own Type-1 output must be readable by our own reader");
+    (t.nxs.to_vec(), t.jxs.to_vec(), t.xss)
 }
 
 #[test]

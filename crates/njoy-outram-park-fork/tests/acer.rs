@@ -132,31 +132,24 @@ struct ParsedAce {
     xss: Vec<f64>,
 }
 
-/// Parse a Type-1 ASCII ACE table written by [`AceTable::write_to`].
+/// Parse a Type-1 ASCII ACE table written by [`AceTable::write_to`], through
+/// the library reader.
 ///
-/// Layout: 2 header lines, 4 IZAW lines, 6 lines of NXS(16)+JXS(32) (8 ints
-/// each), then the XSS data (4 values per line). Numeric fields are
-/// whitespace-separable because every field is right-justified in its column.
+/// This was a hand-rolled parser — one of five near-identical copies in this
+/// crate — until `acer::read` landed on 2026-09-21. Going through the library
+/// makes this a real **write -> read round trip**: the same reader that
+/// consumes NJOY2016's output consumes ours. A table this crate writes but its
+/// own reader cannot read now fails here, and so does one whose `NXS(1)`
+/// disagrees with the number of values actually written — a check the
+/// hand-rolled version did not make.
 fn parse_type1(text: &str) -> ParsedAce {
-    let lines: Vec<&str> = text.lines().collect();
-    // Skip 2 header + 4 IZAW lines.
-    let mut ints: Vec<i32> = Vec::new();
-    for line in &lines[6..12] {
-        for tok in line.split_whitespace() {
-            ints.push(tok.parse().unwrap());
-        }
+    let t = njoy_outram_park_fork::acer::read::parse_type1(text)
+        .expect("our own Type-1 output must be readable by our own reader");
+    ParsedAce {
+        nxs: t.nxs.to_vec(),
+        jxs: t.jxs.to_vec(),
+        xss: t.xss,
     }
-    assert_eq!(ints.len(), 48, "expected 16 NXS + 32 JXS integers");
-    let nxs = ints[..16].to_vec();
-    let jxs = ints[16..].to_vec();
-
-    let mut xss: Vec<f64> = Vec::new();
-    for line in &lines[12..] {
-        for tok in line.split_whitespace() {
-            xss.push(tok.parse().unwrap());
-        }
-    }
-    ParsedAce { nxs, jxs, xss }
 }
 
 #[test]
