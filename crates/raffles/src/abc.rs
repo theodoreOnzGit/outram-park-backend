@@ -502,12 +502,10 @@ mod tests {
     /// conjugate tests in [`crate::bayesian::transitional`] use, so the two
     /// modules' answers are directly comparable.
     fn observed() -> Vec<Vec<f64>> {
-        [
-            2.1, 3.4, 1.9, 2.8, 2.2, 3.1, 2.6, 2.0, 3.0, 2.4, 2.9, 1.6,
-        ]
-        .iter()
-        .map(|v| vec![*v])
-        .collect()
+        [2.1, 3.4, 1.9, 2.8, 2.2, 3.1, 2.6, 2.0, 3.0, 2.4, 2.9, 1.6]
+            .iter()
+            .map(|v| vec![*v])
+            .collect()
     }
 
     /// Closed-form posterior for the conjugate problem: `mu ~ N(0, 5^2)`,
@@ -593,7 +591,9 @@ mod tests {
             );
         }
         // A non-positive epsilon is refused rather than producing NaN.
-        assert!(AbcKernel::Gaussian { epsilon: 0.0 }.ln_likelihood(1.0).is_err());
+        assert!(AbcKernel::Gaussian { epsilon: 0.0 }
+            .ln_likelihood(1.0)
+            .is_err());
     }
 
     /// **Methodology — frozen randomness.** The module claims the approximate
@@ -849,9 +849,7 @@ mod tests {
         let metric = DistanceMetric::Wasserstein1;
         let kernel = AbcKernel::Gaussian { epsilon: 0.1 };
         assert!(AbcLikelihood::new(Vec::new(), metric, kernel, 1, 0).is_err());
-        assert!(
-            AbcLikelihood::new(vec![vec![1.0], vec![1.0, 2.0]], metric, kernel, 1, 0).is_err()
-        );
+        assert!(AbcLikelihood::new(vec![vec![1.0], vec![1.0, 2.0]], metric, kernel, 1, 0).is_err());
         assert!(AbcLikelihood::new(observed(), metric, kernel, 0, 0).is_err());
         assert!(AbcLikelihood::new(
             observed(),

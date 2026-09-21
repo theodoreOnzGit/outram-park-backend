@@ -110,12 +110,7 @@ impl PolynomialSurrogate {
     ///   not positive definite even after regularisation — which means the
     ///   design cannot identify the coefficients, and returning some arbitrary
     ///   one of the infinitely many solutions would be worse than failing.
-    pub fn fit(
-        inputs: &[Vec<f64>],
-        outputs: &[f64],
-        degree: usize,
-        ridge: f64,
-    ) -> Result<Self> {
+    pub fn fit(inputs: &[Vec<f64>], outputs: &[f64], degree: usize, ridge: f64) -> Result<Self> {
         if inputs.is_empty() {
             return Err(RafflesError::InvalidParameter {
                 parameter: "inputs".to_string(),
@@ -438,7 +433,11 @@ mod tests {
     #[test]
     fn the_basis_has_the_size_the_formula_says() {
         for (d, p, expected) in [(1, 3, 4), (2, 2, 6), (3, 3, 20), (4, 5, 126)] {
-            assert_eq!(PolynomialSurrogate::basis_size(d, p), expected, "d={d} p={p}");
+            assert_eq!(
+                PolynomialSurrogate::basis_size(d, p),
+                expected,
+                "d={d} p={p}"
+            );
             let basis = monomial_basis(d, p);
             assert_eq!(basis.len(), expected, "generated basis for d={d} p={p}");
             // Every term distinct, and none above the total degree.
@@ -512,9 +511,8 @@ mod tests {
     /// function that is not a polynomial.
     #[test]
     fn the_ishigami_fit_reports_honest_out_of_sample_accuracy() {
-        let ishigami = |x: &[f64]| {
-            x[0].sin() + 7.0 * x[1].sin().powi(2) + 0.1 * x[2].powi(4) * x[0].sin()
-        };
+        let ishigami =
+            |x: &[f64]| x[0].sin() + 7.0 * x[1].sin().powi(2) + 0.1 * x[2].powi(4) * x[0].sin();
         let mut seed = stream_seed(4_242, 0);
         let draw = |n: usize, seed: &mut u64| {
             let mut inputs = Vec::new();

@@ -179,10 +179,7 @@ pub fn posterior_model_probabilities(models: &[ModelEvidence]) -> Result<Vec<f64
         .iter()
         .map(|m| m.ln_evidence)
         .fold(f64::NEG_INFINITY, f64::max);
-    let weights: Vec<f64> = models
-        .iter()
-        .map(|m| (m.ln_evidence - max).exp())
-        .collect();
+    let weights: Vec<f64> = models.iter().map(|m| (m.ln_evidence - max).exp()).collect();
     let total: f64 = weights.iter().sum();
     Ok(weights.into_iter().map(|w| w / total).collect())
 }
@@ -249,7 +246,10 @@ pub fn compare_models(models: &[ModelEvidence]) -> Result<ModelComparison> {
     let probabilities = posterior_model_probabilities(&ranked)?;
     let (ln_b, strength) = if ranked.len() > 1 {
         let ln_b = ranked[0].ln_evidence - ranked[1].ln_evidence;
-        (Some(ln_b), Some(EvidenceStrength::from_ln_bayes_factor(ln_b)))
+        (
+            Some(ln_b),
+            Some(EvidenceStrength::from_ln_bayes_factor(ln_b)),
+        )
     } else {
         (None, None)
     };
@@ -342,15 +342,16 @@ mod tests {
     /// probability of 1.0000 to four figures.
     #[test]
     fn model_selection_picks_the_model_the_data_came_from() {
-        let y: Vec<f64> = vec![
-            2.1, 3.4, 1.9, 2.8, 2.2, 3.1, 2.6, 2.0, 3.0, 2.4, 2.9, 1.6,
-        ];
+        let y: Vec<f64> = vec![2.1, 3.4, 1.9, 2.8, 2.2, 3.1, 2.6, 2.0, 3.0, 2.4, 2.9, 1.6];
         let prior =
             IndependentPrior::new(vec![Distribution::Normal(Normal::new(0.0, 5.0).unwrap())])
                 .unwrap();
 
         let mut candidates = Vec::new();
-        for (name, sigma) in [("sigma = 1 (correct)", 1.0), ("sigma = 3 (over-dispersed)", 3.0)] {
+        for (name, sigma) in [
+            ("sigma = 1 (correct)", 1.0),
+            ("sigma = 3 (over-dispersed)", 3.0),
+        ] {
             let data = y.clone();
             let ln_likelihood = move |theta: &[f64]| {
                 let mu = theta[0];
@@ -366,8 +367,15 @@ mod tests {
 
         let comparison = compare_models(&candidates).unwrap();
         println!("model selection: {}", comparison.summary());
-        for (model, probability) in comparison.ranked.iter().zip(comparison.probabilities.iter()) {
-            println!("  {}: ln Z {:.4}, P(M|D) {:.4}", model.name, model.ln_evidence, probability);
+        for (model, probability) in comparison
+            .ranked
+            .iter()
+            .zip(comparison.probabilities.iter())
+        {
+            println!(
+                "  {}: ln Z {:.4}, P(M|D) {:.4}",
+                model.name, model.ln_evidence, probability
+            );
         }
 
         assert_eq!(comparison.best().name, "sigma = 1 (correct)");

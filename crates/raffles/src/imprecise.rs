@@ -366,7 +366,8 @@ impl SystemStructure {
                             .max(0.0)
                             .min(1.0);
                         let mut uppers: Vec<f64> = components.iter().map(|c| c.upper()).collect();
-                        uppers.sort_by(|a, b| b.partial_cmp(a).unwrap_or(core::cmp::Ordering::Equal));
+                        uppers
+                            .sort_by(|a, b| b.partial_cmp(a).unwrap_or(core::cmp::Ordering::Equal));
                         let upper = uppers[*k - 1].clamp(0.0, 1.0);
                         Interval::new(lower.min(upper), upper)
                     }
@@ -444,14 +445,10 @@ impl SystemStructure {
 /// instant rather than a million evaluations. Monotonicity of the structure
 /// function is what lets the bounds be computed from the endpoint values.
 fn k_out_of_n_independent(components: &[Interval], k: usize) -> Interval {
-    let lower = poisson_binomial_at_least(
-        &components.iter().map(|c| c.lower()).collect::<Vec<_>>(),
-        k,
-    );
-    let upper = poisson_binomial_at_least(
-        &components.iter().map(|c| c.upper()).collect::<Vec<_>>(),
-        k,
-    );
+    let lower =
+        poisson_binomial_at_least(&components.iter().map(|c| c.lower()).collect::<Vec<_>>(), k);
+    let upper =
+        poisson_binomial_at_least(&components.iter().map(|c| c.upper()).collect::<Vec<_>>(), k);
     Interval { lower, upper }
 }
 
@@ -547,9 +544,7 @@ impl Pbox {
                 return Err(RafflesError::InvalidParameter {
                     parameter: "quantile".to_string(),
                     value: *lo,
-                    reason: format!(
-                        "lower quantile at level {i} exceeds the upper quantile {up}"
-                    ),
+                    reason: format!("lower quantile at level {i} exceeds the upper quantile {up}"),
                 });
             }
             if i > 0 && (*lo < lower[i - 1] - 1e-12 || *up < upper[i - 1] - 1e-12) {
@@ -905,7 +900,11 @@ mod tests {
     fn more_data_tightens_the_confidence_box() {
         let mut widths = Vec::new();
         for (k, n) in [(3usize, 10usize), (30, 100), (300, 1_000)] {
-            let width = cbox_binomial(k, n, 1001).unwrap().cut(0.05).unwrap().width();
+            let width = cbox_binomial(k, n, 1001)
+                .unwrap()
+                .cut(0.05)
+                .unwrap()
+                .width();
             widths.push((n, width));
         }
         println!("c-box 95 % widths against sample size: {widths:?}");
@@ -923,10 +922,7 @@ mod tests {
     /// **Result** (2026-09-16): both exact to 1e-15.
     #[test]
     fn independent_systems_match_the_textbook_formulas() {
-        let components = [
-            Interval::point(0.9).unwrap(),
-            Interval::point(0.8).unwrap(),
-        ];
+        let components = [Interval::point(0.9).unwrap(), Interval::point(0.8).unwrap()];
         let series = SystemStructure::Series
             .reliability_interval(&components, EventDependence::Independent)
             .unwrap();
@@ -934,7 +930,10 @@ mod tests {
             .reliability_interval(&components, EventDependence::Independent)
             .unwrap();
         assert!((series.lower() - 0.72).abs() < 1e-15, "series {series:?}");
-        assert!((parallel.lower() - 0.98).abs() < 1e-15, "parallel {parallel:?}");
+        assert!(
+            (parallel.lower() - 0.98).abs() < 1e-15,
+            "parallel {parallel:?}"
+        );
         assert!(series.width() < 1e-15 && parallel.width() < 1e-15);
     }
 
@@ -949,10 +948,7 @@ mod tests {
     /// **Result** (2026-09-16): bounds exact, containment holds.
     #[test]
     fn frechet_bounds_contain_the_independent_answer() {
-        let components = [
-            Interval::point(0.9).unwrap(),
-            Interval::point(0.8).unwrap(),
-        ];
+        let components = [Interval::point(0.9).unwrap(), Interval::point(0.8).unwrap()];
         for (structure, expected, independent) in [
             (SystemStructure::Series, (0.7, 0.8), 0.72),
             (SystemStructure::Parallel, (0.9, 1.0), 0.98),
@@ -1080,8 +1076,16 @@ mod tests {
             assert!(pbox.quantile_interval(level).unwrap().width() < 1e-15);
         }
         let cut = pbox.cut(0.05).unwrap();
-        assert!((cut.lower() + 1.959_964).abs() < 1.0e-2, "lower {}", cut.lower());
-        assert!((cut.upper() - 1.959_964).abs() < 1.0e-2, "upper {}", cut.upper());
+        assert!(
+            (cut.lower() + 1.959_964).abs() < 1.0e-2,
+            "lower {}",
+            cut.lower()
+        );
+        assert!(
+            (cut.upper() - 1.959_964).abs() < 1.0e-2,
+            "upper {}",
+            cut.upper()
+        );
         assert!(pbox.encloses_distribution(&normal).unwrap());
     }
 

@@ -138,8 +138,7 @@ impl IterationBound {
 
     /// How many iterations are missing, or zero when the bound is met.
     pub fn shortfall(&self) -> Option<usize> {
-        self.configured
-            .map(|m| self.required.saturating_sub(m))
+        self.configured.map(|m| self.required.saturating_sub(m))
     }
 }
 

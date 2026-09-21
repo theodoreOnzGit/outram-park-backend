@@ -68,8 +68,6 @@
 //! around them — the Lightning training supervisor, the Weights & Biases
 //! sweep, and the matplotlib plotting.
 
-
-
 use burn::module::{Module, Param};
 use burn::nn::{LayerNorm, LayerNormConfig, Linear, LinearConfig, Relu};
 use burn::prelude::Backend;
@@ -162,10 +160,7 @@ impl<B: Backend> Mlp<B> {
             let weights: Vec<f32> = (0..fan_in * fan_out)
                 .map(|_| ((prn(seed) * 2.0 - 1.0) * k) as f32)
                 .collect();
-            layer.weight = Param::from_data(
-                TensorData::new(weights, [fan_in, fan_out]),
-                device,
-            );
+            layer.weight = Param::from_data(TensorData::new(weights, [fan_in, fan_out]), device);
             if let Some(bias) = layer.bias.as_mut() {
                 let n = bias.val().dims()[0];
                 let values: Vec<f32> = (0..n)
@@ -451,10 +446,8 @@ mod tests {
         // Perturb node 8 only.
         let mut perturbed_values = vec![0.0f32; 9];
         perturbed_values[8] = 1.0;
-        let perturbed = Tensor::<TestBackend, 2>::from_data(
-            TensorData::new(perturbed_values, [9, 1]),
-            &device,
-        );
+        let perturbed =
+            Tensor::<TestBackend, 2>::from_data(TensorData::new(perturbed_values, [9, 1]), &device);
         let after: Vec<f32> = net.forward(&graph, perturbed).into_data().to_vec().unwrap();
 
         let deltas: Vec<f32> = baseline

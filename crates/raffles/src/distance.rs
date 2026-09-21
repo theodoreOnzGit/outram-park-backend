@@ -305,7 +305,11 @@ impl DistanceMetric {
             }
             Self::BrayCurtis { .. } => {
                 let (p, q) = histogram_pair(self, a, b, d)?;
-                Ok(0.5 * p.iter().zip(q.iter()).map(|(x, y)| (x - y).abs()).sum::<f64>())
+                Ok(0.5
+                    * p.iter()
+                        .zip(q.iter())
+                        .map(|(x, y)| (x - y).abs())
+                        .sum::<f64>())
             }
             Self::Wasserstein1 => Ok((0..d)
                 .map(|j| {
@@ -807,9 +811,7 @@ mod tests {
         let c = normal_sample(50_000, 3.0, 1.0, &mut seed);
 
         for metric in [
-            DistanceMetric::Euclidean {
-                standardise: false,
-            },
+            DistanceMetric::Euclidean { standardise: false },
             DistanceMetric::Hellinger { bins: Some(32) },
             DistanceMetric::BrayCurtis { bins: Some(32) },
             DistanceMetric::Wasserstein1,

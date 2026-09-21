@@ -416,7 +416,10 @@ mod tests {
                 / (n as f64 - 1.0);
             let tolerance = 4.0 * sd / (n as f64).sqrt();
 
-            println!("prior column {column}: mean {sample_mean:.5} (ref {mean}) sd {:.5} (ref {sd})", sample_var.sqrt());
+            println!(
+                "prior column {column}: mean {sample_mean:.5} (ref {mean}) sd {:.5} (ref {sd})",
+                sample_var.sqrt()
+            );
             assert!(
                 (sample_mean - mean).abs() < tolerance,
                 "column {column}: mean {sample_mean} vs {mean}"
