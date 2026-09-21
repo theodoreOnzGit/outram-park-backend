@@ -38,7 +38,7 @@
 //! | [`diffusion`](crate::triso_atops_fork::diffusion) | Arrhenius diffusion coefficients `D(T)` in m^2/s in the kernel, matrix graphite, and (for Ag) the SiC layer, plus the time-integrated `∫D dt` used by transient/accident release. |
 //! | [`release_models`](crate::triso_atops_fork::release_models) | The dimensionless release-fraction / release-to-birth models: Booth (long-lived, short-lived), breakthrough, graphite attenuation, and their transient (accident) variants, plus the group dispatchers. |
 //! | [`activities`](crate::triso_atops_fork::activities) | Circulating / plate-out / clean-up activity bookkeeping and the release-rate / graphite source terms, plus the Ci↔Bq and `A = λN` conversions (bead op-b4a.2.2, done). |
-//! | [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). The JSON run-file driver + accident case remain scaffolded (bead op-b4a.2.3). |
+//! | [`normal_operation`](crate::triso_atops_fork::normal_operation) | Per-node normal-operation orchestration ([`normal_operation_node`](crate::triso_atops_fork::normal_operation::normal_operation_node)) composing the whole chain to curies (bead op-b4a.2.2, done). The JSON run-file driver + accident case are **not ported** — no code exists for either (bead op-b4a.2.3). |
 //!
 //! ## Derivation, step by step
 //!
@@ -132,6 +132,9 @@ pub type ReleaseFraction = uom::si::f64::Ratio;
 
 pub mod nuclide_model;
 
+/// Run set-up: nuclide selection, classification and inventory distribution.
+pub mod run_selection;
+
 pub mod diffusion;
 
 pub mod release_models;
@@ -139,6 +142,12 @@ pub mod release_models;
 pub mod activities;
 
 pub mod normal_operation;
+
+/// Depressurisation-accident release: inventory drawdown, coolant venting.
+pub mod accident;
+
+/// The JSON run file: parsing, validation and unit attachment.
+pub mod run_file;
 
 pub use activities::Activity;
 pub use nuclide_model::{ElementGroup, TrisoAtopsNuclide};

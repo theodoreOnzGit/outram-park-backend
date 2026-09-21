@@ -65,9 +65,197 @@ MIT is GPLv3-compatible, so porting MIT-licensed TRISO-ATOPS into GPL-3.0
 | `calculation_functions.py` — `circulating*`, `plate_out*`, `clean_up*`, `release_rate`, `base_activities` | `triso_atops_fork::activities` (`coolant_activity`, `source_terms`) | **Ported + verified** (bead op-b4a.2.2) |
 | `calculation_functions.py` — `higher_activities` routing | `triso_atops_fork::normal_operation::normal_operation_node` | **Ported + verified** (bead op-b4a.2.2) |
 | `trisoatops.py` — `normal_operation` (per-node body) | `triso_atops_fork::normal_operation::normal_operation_node` | **Ported + verified** (bead op-b4a.2.2) |
-| `calculation_functions.py` — `release_activity`, `coolant_release`; `trisoatops.py` — `accident_case`, `main` | `triso_atops_fork::normal_operation` (accident driver) | **Scaffold** (bead op-b4a.2.3) |
-| `run_functions.py` — `process_run_file`, `check_run_file`, `convert_time`, `nuclide_sort`, `read_save_file`, `read_profile`, `inventory_processing` | `triso_atops_fork::normal_operation` (JSON run-file API) | **Scaffold** (bead op-b4a.2.3) |
+| `calculation_functions.py` — `nuclide_import`, `nuclide_import_accident` | `triso_atops_fork::run_selection` (`select_nuclides`, `select_nuclides_accident`, `normalise_nuclide_name`) | **Ported + verified** (2026-09-21) — both classification tests compared decision-for-decision against upstream. Parent-decay wiring is behind [`ParentDecayPolicy`] because upstream's is defeated by an `==` bug; see the defect note below. |
+| `calculation_functions.py` — `inventory_processing` | `triso_atops_fork::run_selection` / `accident::distribute_inventory_axially` | **Ported + verified** (2026-09-21) |
+| `calculation_functions.py` — `release_activity`, `coolant_release`; `trisoatops.py` — `accident_case` | `triso_atops_fork::accident` (`release_activity`, `coolant_release`, `mean_temperature_rate`, `accident_release_curies`, `atoms_to_curies`) | **Ported + verified** (2026-09-21) ~~Scaffold~~ ~~NOT PORTED~~ — 6 068 code-to-code cases. `main`'s argparse shell is not ported and will not be; see "What is deliberately not ported". |
+| `run_functions.py` — `convert_time`, `read_save_file`, `process_run_file`, `check_run_file`, `read_profile` | `triso_atops_fork::run_file` (`TimeUnit`, `RunFile`, `RunConfig`, `RunFile::to_config`) | **Ported** (2026-09-21) — serde-derived, so a GUI-written JSON file deserialises directly; validation collects every problem rather than the first. |
+| `run_functions.py` — `nuclide_sort` | `triso_atops_fork::run_selection::sort_parents_before_daughters` | **Ported** (2026-09-21) — does what upstream *intends*; upstream's own version is a no-op (defect 7 below). |
+| `run_functions.py` — `create_log`, `count_errors`, `trisoatops`; `trisoatops.py` — `main` | — | **Deliberately not ported** — Python `logging` setup, an error counter that `Result` replaces, a version banner, and an argparse shell. See "What is deliberately not ported". |
 | `trisoatops_gui.py` (1432 LOC) | — | **Excluded (GUI, out of scope)** |
+
+### What is deliberately not ported
+
+Four upstream entries have no Rust counterpart and will not get one:
+
+- **`run_functions.py::create_log`** configures Python's `logging` module. A
+  Rust library that installs a global logger is badly behaved; diagnostics
+  surface as `RunFileError` / `SelectionError` values instead, which a caller
+  logs however it likes.
+- **`run_functions.py::count_errors`** threads an error counter through every
+  function because Python has no `Result`. `Result` does that job.
+- **`run_functions.py::trisoatops()`** prints a version banner to stdout.
+- **`trisoatops.py::main`** is an `argparse` shell around the physics. The
+  composition it performs is available as library calls; wrapping them in a CLI
+  is `outram-foam-cli`'s business, not this crate's.
+- **`trisoatops_gui.py`** (1 432 LOC) — Tkinter GUI, out of scope as recorded
+  below.
+
+### Upstream defects found while porting (2026-09-21)
+
+~~Seven defects~~ **CORRECTED 2026-09-21 — ten.** Defects 1–7 were found by
+reading `calculation_functions.py`, `run_functions.py` and `trisoatops.py` at
+`de374c8`; **8–10 were found by the second verification pass**, when the
+fixture was widened from 11 855 to 14 130 cases and the end-to-end
+`accident_case` composition was driven for the first time. Two of the three
+were found by *running* upstream rather than reading it, which is the point of
+keeping the harness executable.
+
+**None affects the previously-verified subset.** Where the port diverges, the
+divergence is selectable rather than silent, and named in the item's own
+documentation. All ten are filed for upstream in GitHub issue #219; none has
+been reported to INL directly.
+
+**1. `parent_decay` is assigned with `==`, so the runtime logic never fires.**
+`nuclide_import` (lines 275 and 277) writes
+
+```python
+if nuclide_out[parent].sl == True:
+    nuclide_out[nuclide].parent_decay == True      # `==`, not `=`
+else:
+    nuclide_out[nuclide].parent_decay == False     # `==`, not `=`
+```
+
+Both are comparisons whose result is discarded. In the branch where the parent
+*is* present in the run's nuclide list — the branch meant to decide whether
+parent decay applies — `parent_decay` is therefore never set and keeps the
+value hard-coded in the `nuclides` table. The two `else` paths (lines 280, 283)
+do use `=` and correctly set `False`.
+
+The consequence is not that parent decay is off, but that **the short-lived
+parent test is dead**: `trisoatops.py:109` branches on `parent_decay is True`
+to feed parent circulating/plate-out/clean-up pools into `higher_activities`,
+so for the 13 table rows defaulted `True` the coupling is applied whenever the
+parent is in the list, regardless of the parent's half-life ratio that the
+`sl` test was written to check.
+
+**2. Rh-105 carries a parent but is defaulted `parent_decay=False`.** It has
+`['Ru-105']` and the same `# og with parent decay` comment as the 13 rows
+defaulted `True`. Given defect 1 leaves the table default in control, Rh-105
+never receives parent decay even when Ru-105 is present. The 13/1 split looks
+like an oversight rather than a decision, but it is upstream's, so a port
+should reproduce it and say so rather than silently "fixing" it.
+
+**3. `release_activity` uses `z == 48` where every other site uses `z == 46`.**
+The silver/palladium group is spelled `z == 47 or z == 46` at
+`calculation_functions.py` lines 208, 722, 747 and 775. Line 906, inside
+`release_activity`, instead reads `z == 47 or z == 48` — silver and
+**cadmium**. Both affected nuclides ship in the table (`Pd-107`, z=46, line
+163; `Cd-113`, z=48, line 166), so this is reachable, not theoretical:
+Pd-107 falls through to `fract = np.sum(fractions)` instead of `fract = 1`,
+and Cd-113 wrongly receives the silver treatment. Four sites against one makes
+`48` the likely typo.
+
+**4. `nuclide_import` mutates the shared module-level table.**
+`nuclide_out[nuclide_name] = nuclides[nuclide_name]` (lines 262 and 314) binds
+a reference, not a copy, so the subsequent `.sl` and `.parent_decay` writes
+land on the global `nuclides` dict. Two runs in one process — which is exactly
+what `trisoatops_gui.py` does — leak the first run's classification into the
+second. A Rust port gets this right for free by owning the value; that is a
+divergence worth recording rather than an inherited bug.
+
+**5. `nuclide_import_accident` indexes the table without the guard its sibling
+has.** `nuclide_import` checks `if nuclide_name in nuclides` before lookup;
+`nuclide_import_accident` (line 313) does not, so a name that satisfies the
+regex but is absent from the table raises `KeyError` instead of being skipped
+with a warning. Its `else` branch also logs `{match}`, which is `None`
+whenever that branch is taken.
+
+**6. `nuclide_sort` never reorders anything.** `run_functions.py:412` reads
+
+```python
+par = calc.nuclides[n].parents          # a LIST, e.g. ['Kr-89']
+if par is not None and par in list(nuke_list[:, 0]):
+```
+
+which asks whether the *list* `['Kr-89']` is an element of a list of *strings*.
+That is never true, so the branch that moves a parent ahead of its daughter is
+dead and the function returns its input order unchanged — defeating the stated
+purpose of letting the driver accumulate parent activities first.
+`run_selection::sort_parents_before_daughters` does what the function says it
+does; a caller wanting upstream's no-op simply does not call it.
+
+**7. `accident_case` discards the temperature history when nothing is
+truncated.** `trisoatops.py` narrows the transient to the venting window with
+
+```python
+rmv = np.size(times) - np.size(times_short)
+accident_temp = accident_temp[:, :-rmv, :]
+```
+
+If every sample is a venting sample — which is exactly what a monotonic
+heat-up gives — then `rmv == 0`, and `[:-0]` is `[:0]`, the **empty** slice.
+The whole temperature history vanishes and every downstream integral is empty.
+The port cannot reproduce this (slices arrive aligned and a mismatch is an
+assertion), but a reader comparing against a stock run on a monotonic transient
+will see upstream produce nothing, and should know why.
+
+**8. The nuclide-name regex is unanchored, so a malformed name is silently
+truncated into a *different* valid nuclide.** `nuclide_import` and
+`nuclide_import_accident` both normalise with
+
+```python
+match = re.match(r'([a-z]{1,2})(?:[-]?)([0-9]+)([a-z]?)', nuclide_name)
+```
+
+`re.match` anchors only at the start, and there is no `$`, so trailing junk is
+dropped rather than rejected. Measured against upstream at `de374c8`:
+
+| input | upstream accepts as | what the user meant |
+|---|---|---|
+| `Cs-137xyz` | `Cs-137x` | — (typo) |
+| `Cs-137-extra` | `Cs-137` | — (typo) |
+| `cs137mm` | **`Cs-137m`** | — (typo) |
+
+The third is the dangerous one: a typo is silently promoted to the *metastable
+state*, a physically different nuclide with a different half-life, and the run
+proceeds with no warning. (The first two then raise a `KeyError` on the
+`nuclides` lookup, which at least fails loudly.) `normalise_nuclide_name`
+anchors the match and rejects all three; the divergence is asserted
+deliberately in `name_normalisation_matches_upstream_regex`.
+
+**9. `accident_case` pairs the venting *times* with the wrong temperature
+*slices* whenever the venting mask is gappy.** After narrowing the transient,
+`trisoatops.py` has
+
+```python
+frac, times_short = calc.coolant_release(times, accident_temp)
+rmv = np.size(times) - np.size(times_short)
+times = times_short                       # the VENTING samples
+accident_temp = accident_temp[:, :-rmv, :]  # the FIRST n - rmv samples
+```
+
+`times_short` is `times[vent]` — a *selection*. `accident_temp[:, :-rmv, :]` is
+a *prefix*. The two coincide only while the venting mask is contiguous. A
+transient that heats, cools, and re-heats produces a gappy mask, and upstream
+then integrates a diffusion coefficient evaluated at one instant's temperature
+over a `Δt` taken from a different pair of instants. Measured on the fixture's
+`gappy_vent_mask` scenario (vent mask `[0, 1, 3]` out of six samples): the
+nodal kernel release for Xe-133 at the last retained sample is `-3.20e-8 Ci`
+with upstream's pairing and `-4.99e-8 Ci` with the consistent one — a **36 %**
+difference on a single node.
+
+The port reproduces this deliberately in the code-to-code test, because the
+test's job is to establish what upstream computes. Library callers assembling
+their own accident case should use the venting times with the venting slices.
+
+**10. `booth_transient`'s `RF < 1e-6 → 0` guard is dead code.** The series is
+truncated at `num_terms = 5000`, so as `int_Dp → 0` the sum tends to
+`Σ_{i=1}^{4999} (iπ)^{-2}`, not to `1/6`, and the result tends to
+
+$$ RF(0^+) \;=\; \frac{6}{\pi^2} \sum_{i=N}^{\infty} i^{-2} \;\approx\; \frac{6}{\pi^2 N} \;=\; 1.216 \times 10^{-4} $$
+
+for `N = 5000` — two orders of magnitude above the `1e-6` the guard tests
+against. `int_Dp == 0` is caught by an earlier early return and `RF` is
+monotone in `int_Dp`, so nothing can land inside the guard band. Measured
+minimum over the fixture's 52 non-zero `booth_transient` rows:
+`1.21628e-4`, against the predicted `1.21585e-4`.
+
+The guard is harmless but misleading — it reads as if tiny releases are
+clamped to zero, and they are not. The port keeps it (bug-compatibility) and
+pins the premise with `booth_transient_zero_floor_is_unreachable`, so raising
+`BOOTH_SERIES_TERMS` past `6/(π²·10⁻⁶) ≈ 6.1e5` cannot quietly change
+behaviour. It is also the reason deleting that guard is an **equivalent
+mutant** in the mutation table rather than a surviving one.
 
 ### Why the GUI was excluded
 
@@ -126,8 +314,9 @@ Bead status:
 - **op-b4a.2.1** — calculation core (done).
 - **op-b4a.2.2** — activity bookkeeping + per-node orchestration (**done this
   pass**, uom-typed + verified against upstream Python).
-- **op-b4a.2.3** — run-file JSON API + accident-case driver entry point (still
-  scaffolded; blocked by nothing now, but out of scope this pass).
+- **op-b4a.2.3** — run-file JSON API + accident-case driver entry point
+  (~~still scaffolded~~ **CORRECTED 2026-09-21: not ported — no code exists**;
+  blocked by nothing, but out of scope this pass).
 - **op-b4a.2.4** — verification (done).
 
 ## Verification approach & results

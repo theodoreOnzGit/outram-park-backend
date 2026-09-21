@@ -8,7 +8,7 @@
 //                    routing, the `× λ / 3.7e10` Ci conversion)
 //                    trisoatops/utility_functions/calculation_functions.py (`higher_activities`)
 //                    trisoatops/utility_functions/run_functions.py (run-file I/O — see the
-//                    JSON-driver note below; still scaffolded, bead op-b4a.2.3)
+//                    JSON-driver note below; NOT ported, bead op-b4a.2.3)
 // Original license : MIT — Copyright (c) 2026 Battelle Energy Alliance, LLC
 // This port is distributed under GPL-3.0 as part of the combined boon-lay work;
 // the MIT notice above is retained (see LICENSE.triso-atops / NOTICE.triso-atops).
@@ -43,7 +43,7 @@
 //! `× λ / 3.7e10` conversion to the reportable [`NodalActivitiesCurie`] (all in
 //! curies, or curies/second for the two rates).
 //!
-//! ## Still scaffolded — the JSON run-file driver (bead op-b4a.2.3)
+//! ## NOT PORTED — the JSON run-file driver and the accident case (bead op-b4a.2.3)
 //!
 //! The TRISO-ATOPS GUI writes a `.json` run file (User Manual §2.4) that
 //! `run_functions.py` parses (`process_run_file`, `check_run_file`,

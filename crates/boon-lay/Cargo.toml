@@ -32,6 +32,10 @@ wgpu = { workspace = true }
 
 [dev-dependencies]
 approx          = { workspace = true }
+# JSON only for the run-file round-trip test. The library itself derives
+# Serialize/Deserialize and stays format-agnostic, so a consumer picks its own
+# serde format -- which also keeps the lib wasm/Android-clean.
+serde_json      = { workspace = true }
 log             = { workspace = true }
 csv             = { workspace = true }
 

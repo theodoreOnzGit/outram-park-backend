@@ -15,8 +15,10 @@ Research and educational use only:
 - Radionuclide deposition
 - Ground contamination
 
-**Input:** source terms produced by SEMBAWANG (reserved name, not yet created).
-Until SEMBAWANG exists, a release-rate time series has to be supplied by hand —
+**Input:** source terms produced by SEMBAWANG. `sembawang` exists in the
+workspace as an explicit placeholder (created 2026-09-18) with no
+implementation, so until it has a real source-term calculation, a
+release-rate time series has to be supplied by hand —
 FLEXPART needs nothing more than that from the accident side.
 
 ## Scope — future, not current
@@ -62,15 +64,18 @@ CHANGI is the middle link of the offsite chain:
 
 | | Question | Crate |
 |---|---|---|
-| SEMBAWANG | What gets released? | reserved, not yet created |
+| SEMBAWANG | What gets released? | `sembawang` — placeholder crate, nothing implemented |
 | **CHANGI** | **What happens after release?** | **this crate** |
-| REDHILL | What happens after deposition? | reserved; will build on `outram-park-fork-pflotran` |
+| REDHILL | What happens after deposition? | `redhill` — placeholder crate, nothing implemented; will build on `outram-park-fork-pflotran` |
 
 ## What exists today
 
-A Rust port of FLEXPART's **surface-layer and deposition scalar kernels** — the
-pure functions that turn meteorological surface fields into turbulence scales
-and aerosol deposition properties.
+Two independent, separately verified ports.
+
+### 1. `flexpart` — FLEXPART's surface-layer and deposition scalar kernels
+
+The pure functions that turn meteorological surface fields into turbulence
+scales and aerosol deposition properties.
 
 | Area | Upstream files | Ported |
 |---|---|---|
@@ -85,6 +90,74 @@ and aerosol deposition properties.
 boundary-layer scheme, wet scavenging, the Richardson mixing-height diagnostic,
 the GRIB/NetCDF readers, the output grids and the OH chemistry. This is the
 first verified slice of a port, not "FLEXPART in Rust".
+
+### 2. `puff` — the Gaussian puff forward model
+
+A complete Rust port of the physics of the R package
+[`puff`](https://github.com/Hammerling-Research-Group/puff) (MIT, `0.1.1`,
+commit `5213d58`), from the Hammerling Research Group at the Colorado School of
+Mines.
+
+A Gaussian *puff* model discretises a continuous release into a train of
+discrete puffs, each advected by the wind sampled when it was emitted and
+spread by a Pasquill–Gifford coefficient that grows with the distance it has
+travelled. It complements the FLEXPART port rather than duplicating it:
+FLEXPART is a Lagrangian *particle* model on gridded meteorology, built for
+synoptic scales; this is analytic, needs no meteorological files, and is cheap
+enough to run interactively over a site-sized domain.
+
+| Area | Upstream file | Ported |
+|---|---|---|
+| Pasquill stability classification | `R/helpers.R` | yes |
+| Pasquill–Gifford `sigma_y`, `sigma_z` | `R/helpers.R` | yes |
+| Met-convention wind handling, resampling | `R/helpers.R` | yes |
+| The Gaussian puff kernel | `R/helpers.R` | yes |
+| Sensor mode | `R/simulate_sensor_mode.R` | yes |
+| Grid mode | `R/simulate_grid_mode.R` | yes |
+| Plotting | `R/plots.R` | **no** — see below |
+
+**Not ported:** `R/plots.R`, which is 1 077 of upstream's 2 296 lines — 47 % of
+the package. It is `ggplot2`/`plotly` chart construction with no physics.
+`changi` is a headless library that must build for Android and `wasm32`, and
+does not own its caller's plotting. Everything else in upstream is physics, and
+all of it is here.
+
+**One default deliberately differs from upstream.** Upstream's puff record is
+built with an R `data.frame` whose length-1 columns get recycled against a
+length-2 stability class, so an emission event with an ambiguous class produces
+**two puffs each carrying the full mass** — doubling the emitted mass across six
+of the stability table's ten regimes. This port defaults to the mass-conserving
+reading and offers upstream's behaviour as
+`EmissionPolicy::UpstreamRecycleStabilityClasses`. Three further upstream
+defects are reproduced faithfully and documented. See
+[`docs/puff-code-to-code.md`](docs/puff-code-to-code.md).
+
+**The unit conversion is methane-specific.** Upstream's oil-and-gas application
+converts to ppm of methane with a factor encoding methane's molar mass. For a
+radionuclide that factor is wrong twice over — wrong molar mass, and ppm is the
+wrong unit for an activity concentration. Use the mass-density return.
+
+## Start here
+
+```bash
+cargo run --release -p changi --example puff_site_survey
+```
+
+[`examples/puff_site_survey.rs`](examples/puff_site_survey.rs) is the entry
+point for the puff model and is written to be read top to bottom — one source
+leaking over a small site with a ring of sensors, what the stability class does
+to the answer, and the one place this port deliberately disagrees with its
+upstream, with the size of that disagreement measured rather than asserted.
+
+Two things in it are worth knowing before using the crate for anything:
+
+- **Stability, not wind speed, is the dominant control.** At the *same* 1.0 m/s,
+  a calm clear night reads ~77x a calm sunny afternoon, because the afternoon's
+  convection dilutes the plume far faster than any horizontal wind does.
+- **Upstream's mass doubling is not a factor of two you can divide out.** The
+  mass doubles exactly, but the two duplicated puffs carry *different* stability
+  classes, so the concentration ratio is geometry-dependent — 1.78 in the
+  example's configuration.
 
 ## Verification
 
@@ -104,9 +177,23 @@ That is **verification, not validation**: it shows the Rust computes what the
 Fortran computes, and says nothing about whether FLEXPART's parameterisations
 reproduce measured dispersion.
 
+The `puff` port is verified the same way, by **executing the upstream R
+itself** — 10 182 reference cases, 18 tests. Full methodology and results:
+[`docs/puff-code-to-code.md`](docs/puff-code-to-code.md).
+
+Headline: agreement from **bit-exact to 2.7e-15** relative. Both sides are
+double precision, so unlike the FLEXPART comparison there is no precision floor
+to account for. The Pasquill–Gifford coefficients agree **bit-exactly** across
+all 234 cases. Nineteen mutations of the port were run to check the suite is not
+vacuous; **all nineteen were killed**. The pass also found three defects in the
+port itself, including a `uom::Ratio` round trip that was silently truncating
+small concentrations — all three are recorded in the doc.
+
 ```bash
 cargo test --release -p changi
-./dev/build_reference.sh     # regenerate the fixtures (needs gfortran + the upstream clone)
+./dev/build_reference.sh                # FLEXPART fixtures (needs gfortran + the upstream clone)
+Rscript dev/gen_puff_reference.R        # puff fixture (needs R + dplyr + the upstream clone)
+Rscript dev/gen_puff_reference.R --check  # verify the committed fixture is current
 ```
 
 ## Reuse
@@ -127,10 +214,18 @@ Per the workspace "reuse before porting, port before writing" rule:
 
 ## Licence
 
-GPL-3.0, containing a port of FLEXPART (GPL-3.0-or-later, © FLEXPART 1998-2019).
-See [`LICENSE.flexpart`](LICENSE.flexpart) and
-[`NOTICE.flexpart`](NOTICE.flexpart). Independent fork; not affiliated with or
-endorsed by NILU or the FLEXPART developers.
+GPL-3.0, containing two ports:
+
+- **FLEXPART** (GPL-3.0-or-later, © FLEXPART 1998-2019) —
+  [`LICENSE.flexpart`](LICENSE.flexpart), [`NOTICE.flexpart`](NOTICE.flexpart).
+  Independent fork; not affiliated with or endorsed by NILU or the FLEXPART
+  developers.
+- **`puff`** (MIT, © 2025 Hammerling Research Group) —
+  [`LICENSE.puff`](LICENSE.puff), [`NOTICE.puff`](NOTICE.puff). MIT into
+  GPL-3.0 is compatible and **one-way**: nothing in `src/puff/` may be copied
+  back into an MIT project on the strength of its origin here. Independent
+  fork; not affiliated with or endorsed by the Hammerling Research Group or the
+  Colorado School of Mines.
 
 ## Bookkeeping status
 

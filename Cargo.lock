@@ -956,6 +956,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde-xml-rs",
+ "serde_json",
  "uom 0.38.0",
  "wgpu",
 ]

@@ -1486,7 +1486,7 @@ applies: only to crates declared mature".
 | `outram-park-fork-thermochimica` | Pure-Rust fork of **ORNL Thermochimica** — molten-salt Gibbs-energy minimisation. Scaffold | |
 | `boon-lay` | TRISO-particle / Lagrangian decay simulator; includes the TRISO-ATOPS fork | |
 | `kaki-bukit` | **KAKI BUKIT** — agent-based nuclear fuel-cycle kernel, `no_std` fork of CYCLUS/CYCAMORE, numerics from `petir`. Scaffold, no human V&V | |
-| `changi` | **CHANGI** — atmospheric dispersion, plume transport, deposition, ground contamination. FLEXPART v10.4 port, scalar kernels only. **Research/education/V&V only** | |
+| `changi` | **CHANGI** — atmospheric dispersion, plume transport, deposition, ground contamination. Two ports: FLEXPART v10.4 (scalar kernels only) and the Gaussian puff model of `Hammerling-Research-Group/puff` (physics complete, MIT→GPL one-way). **Research/education/V&V only** | |
 | `sembawang` | **SEMBAWANG** — severe-accident progression (melt, relocation, vessel failure, MCCI, hydrogen, aerosols) producing CHANGI's source term. **Placeholder: nothing implemented** | |
 | `redhill` | **REDHILL** — groundwater and geological transport of radionuclides after deposition. **Placeholder: nothing implemented** | |
 | `raffles` | **RAFFLES** — UQ / risk analysis ported from RAVEN. **Owned by Adolphus Lye.** Apache-2.0 → GPL-3.0 is **one-way**. Implemented in part, no human V&V | |

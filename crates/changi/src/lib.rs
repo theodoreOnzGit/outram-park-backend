@@ -13,8 +13,10 @@
 //! It is the middle link of the OUTRAM PARK offsite chain — SEMBAWANG (severe
 //! accident: *what gets released?*) → **CHANGI** (*what happens after
 //! release?*) → REDHILL (*what happens after deposition and infiltration?*).
-//! Its input is a source term produced by SEMBAWANG; until that crate exists, a
-//! release-rate time series must be supplied by hand.
+//! Its input is a source term produced by SEMBAWANG. `sembawang` exists in the
+//! workspace as an explicit placeholder (no implementation), so until it
+//! produces a real source term, a release-rate time series must be supplied
+//! by hand.
 //!
 //! ## Scope
 //!
@@ -44,12 +46,29 @@
 //! ## Status
 //!
 //! **Untrusted AI-assisted draft. No human V&V.** The crate is not declared
-//! mature and carries no maturity bar. What exists today is the first verified
-//! slice of a FLEXPART port — see [`flexpart`] for exactly what is and is not
-//! covered — and nothing here has been compared against measured atmospheric
-//! dispersion data. Code-to-code agreement with FLEXPART is *verification*
-//! (is it implemented as upstream specifies?), never *validation* (does it
-//! represent reality well enough?).
+//! mature and carries no maturity bar. Nothing here has been compared against
+//! measured atmospheric dispersion data. Code-to-code agreement with an
+//! upstream code is *verification* (is it implemented as upstream specifies?),
+//! never *validation* (does it represent reality well enough?).
+//!
+//! ## The two models
+//!
+//! Two independent ports, each with its own upstream, licence and verification
+//! harness. They are complementary, not alternatives:
+//!
+//! | Module | Model | Upstream | Driven by |
+//! |---|---|---|---|
+//! | [`flexpart`] | Lagrangian particle dispersion | FLEXPART v10.4 (GPL-3.0-or-later) | gridded meteorology |
+//! | [`puff`] | Analytic Gaussian puff | `puff` 0.1.1 (MIT) | a single wind series |
+//!
+//! [`flexpart`] is built for synoptic scales and needs meteorological files;
+//! only its surface-layer and deposition scalar kernels are ported so far, so
+//! read it as the first verified slice of a port rather than "FLEXPART in
+//! Rust". [`puff`] is complete for upstream's physics, needs no meteorological
+//! input, and is cheap enough to run interactively over a site-sized domain —
+//! but its dispersion fits are empirical over roughly 0.1–10 km and its unit
+//! conversion is methane-specific. See each module for what it does and does
+//! not cover.
 //!
 //! ## What it builds on
 //!
@@ -76,6 +95,7 @@
 #![forbid(unsafe_code)]
 
 pub mod flexpart;
+pub mod puff;
 
 /// Everything a caller normally needs, re-exported in one place.
 ///
@@ -88,6 +108,16 @@ pub mod prelude {
         decay_constant, decay_constant_exact, decayed, surviving_fraction,
     };
     pub use crate::flexpart::surface_layer::{obukhov, psih, psim, raerod, scalev, MetDataFormat};
+    pub use crate::puff::concentration::{
+        gaussian_puff_concentration, gaussian_puff_methane_ppm, METHANE_PPM_PER_KG_PER_M3,
+    };
+    pub use crate::puff::dispersion::{pasquill_gifford_sigmas, DispersionSigmas};
+    pub use crate::puff::simulate::{
+        constant_wind, simulate_grid_mode, simulate_sensor_mode, EmissionPolicy, GridSeries,
+        Receptor, RunConfig, SensorSeries, Source,
+    };
+    pub use crate::puff::stability::{is_day, stability_class, StabilityClass, StabilitySet};
+    pub use crate::puff::wind::{interpolate_wind, wind_speed, wind_vector_convert, WindComponents};
     pub use crate::flexpart::thermo::{
         dynamic_viscosity_of_air, ew_kelvin, saturation_vapour_pressure, viscosity_kelvin,
     };
