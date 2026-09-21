@@ -332,14 +332,144 @@ Both are the same shape as the first pass's `RB_fail_Noble_Gases` and
 `clean_up` divergences — reproduce where it is a physics choice, correct where
 the code states an intent its own syntax defeats, and never silently.
 
+## Third pass — exhaustive widening and the end-to-end composition (2026-09-21)
+
+The second pass verified every *function* on the accident path. It did not
+verify the **composition** — the order those functions are called in, the
+arguments passed between them, or the array layouts they assume — and several
+of its groups were thin enough that a branch could hide inside one. Both were
+closed in a third pass the same day. The fixture grew from 11 855 to
+**14 130 cases** and the suite from 42 to **51 tests**, against the same
+upstream `de374c8`.
+
+### What was widened, and why it mattered
+
+| Group | Cases before | after | What the widening reached |
+|---|---:|---:|---|
+| `nuclide_import.short_lived` | 30 | **504** | every one of the 84 supported nuclides × 6 irradiation times, not a 10-nuclide sample |
+| `nuclide_import_accident.retained` | 30 | **420** | the same, × 5 accident durations |
+| `booth_transient` | 8 | **53** | three points per decade over `1e-12 .. 1e2`, which is what exposed defect 10 |
+| `rf_graph` | 18 | **135** | both arguments swept independently, into the saturated regime |
+| `diffusion_coefficient_sic_ag` | 20 | **102** | 25 K steps across 250–2500 °C, ~30 decades of `D` |
+| `inventory_processing` | 16 | **~1 900** | **every** axial slot, not just slot 0 — the operation is a divide *and* a repeat |
+| `coolant_release.*` | 32 | **331** | 1-, 2-, 3- and 6-node fields, every hot-node choice, three pressures |
+
+Three surfaces earlier described as "not verifiable by construction" turned out
+to be directly testable and were added: the nuclide-name regex
+(`name_normalisation`, 31 cases), `convert_time`'s unit factors (5), and
+`nuclide_sort`'s dead reordering branch (5). The first of those found defect 8.
+
+### The end-to-end `accident_case` composition
+
+`trisoatops.accident_case` is driven whole, over three scenarios — a
+contiguous heat-then-cool transient with and without the clean-up system, and
+one whose venting mask is deliberately gappy — for six nuclides spanning every
+upstream branch (noble gas, halogen, the Te-counted-as-halogen case, silver,
+and two ordinary fission metals). The port side is composed from public
+functions **in the order the module doc comments prescribe**, so this group
+tests the documented wiring, not just the formulas.
+
+| Group | Cases | max_rel_dev | Worst case's share of its tolerance |
+|---|---:|---:|---:|
+| `accident_case.dropped` | 18 | exact (decisions) | — |
+| `accident_case.total` | 54 | 3.63e-15 | 0.0 % |
+| `accident_case.nodal_graphite` | 180 | 2.22e-13 | 0.0 % |
+| `accident_case.nodal_kernel` | 180 | 2.44e-9 | 19 % |
+
+The kernel group's `2.44e-9` exceeds the `1e-9` group tolerance and is admitted
+only by the per-case conditioning widening described above: it is an Ag-110m
+row, whose release fraction comes from `breakthrough_model_transient`, the most
+cancellation-prone expression in the code. The conditioning is **inherited, not
+re-derived** — the generator reads the integrals `accident_case` actually used
+off the returned dataset and feeds them to the same `cond_breakthrough` the
+standalone `release_fraction.kernel` group uses.
+
+Upstream's `vectorized_format` — `np.format_float_scientific(x, precision=2)`,
+i.e. three significant digits, as strings — is a *display* step. It is patched
+to an identity for the duration of the call so the fixture records upstream's
+full-precision values, and restored immediately afterwards. Nothing else about
+the upstream call is altered. Comparing against the formatted output instead
+would have capped this whole group's resolution at ~1e-3 and hidden every
+result in the table above.
+
+Each scenario is written to the fixture **once**, as its own
+`accident_case.scenario:<id>` row, and the 432 value rows refer to it by
+index. Repeating the ~170-number scenario on every value row made the
+committed CSV 44 % scenario prefix — 2.6 MB against 1.5 MB — and the whole
+file is `include_str!`d into the test binary, so that is compile time and
+binary size, not just disk.
+
+**This is the group that found defect 9.** The first end-to-end run disagreed
+by 36 % on one node of the gappy-mask scenario, and the cause was upstream
+pairing the *venting times* with the *first-n temperature slices* — two
+different sample sets whenever the mask has a hole in it. The port reproduces
+the pairing deliberately, with the reason stated at the call site.
+
+### Non-vacuity, third pass
+
+Eleven mutations, 2026-09-21. Each edits the port, runs the named test, and is
+reverted:
+
+| Mutation | Test | Result |
+|---|---|---|
+| `normalise_nuclide_name` drops the metastable suffix | `name_normalisation_matches_upstream_regex` | **killed** |
+| `TimeUnit::Year` → 365.25 days | `convert_time_factors_match_upstream` | **killed** |
+| `distribute_inventory_axially` fills only slot 0 | `inventory_processing_matches_upstream` | **killed** |
+| `mean_temperature_rate` scaled by `1 + 1e-6` | `coolant_mean_temperature_rate_matches_upstream` | **killed** |
+| `coolant_release` drops one power of `T` | `coolant_release_fraction_matches_upstream` | **killed** |
+| `rf_graph` sums even terms too | `rf_graph_matches_upstream` | **killed** |
+| `diffusion_coefficient_sic_ag` 215 → 216 kJ/mol | `diffusion_coefficient_sic_ag_matches_upstream` | **killed** |
+| `sort_parents_before_daughters` made a no-op | `upstream_nuclide_sort_never_reorders` | **killed** |
+| `accident_release_curies` scales the circuit term by `frac` | `accident_case_total_matches_upstream` | **killed** |
+| `release_activity` drops the plate-out subtraction | `accident_case_nodal_kernel_matches_upstream` | **killed** |
+| `booth_transient`'s `RF < 1e-6 → 0` guard deleted | `booth_transient_matches_upstream` | **equivalent mutant** |
+
+The last one is not a gap. The guard is **unreachable** — the 5000-term
+truncation leaves a residual of `6/(π²·5000) = 1.216e-4`, two orders of
+magnitude above the `1e-6` it tests against — so deleting it cannot change any
+output. That is upstream defect 10, and it is asserted directly by
+`booth_transient_zero_floor_is_unreachable` rather than left as a mutation
+score footnote. A surviving mutant that is provably equivalent is a statement
+about the *code*, not about the test suite.
+
+### A documented port divergence: the `dTdt_avg >= 0` knife edge
+
+Upstream's venting mask tests a floating-point mean against zero. On a
+symmetric field — one node heating at `+0.2 K/s`, another cooling at
+`-0.2 K/s` — the true mean is exactly zero. Upstream works in degrees Celsius
+throughout and gets a clean `0.0`, so every sample vents. The port stores
+temperature as `uom`'s `ThermodynamicTemperature`, i.e. in kelvin, and
+`800 °C` and `900 °C` are not exactly representable after the `+273.15` shift
+(they return as `800.000000000000114`). The differences therefore do not cancel
+exactly, the mean lands at `-2.220446049250313e-16`, and the mask drops those
+samples: **upstream vents 4 of 4, the port vents 1.**
+
+This is not a physics difference and not a formula error — it is a `>= 0` test
+on a quantity whose true value is zero, which no reimplementation in any
+language can be relied on to reproduce. Computing in Celsius would trade it for
+the same defect in the other direction and break the workspace's `uom` rule;
+the conditioning, not the unit, is the problem. It is recorded rather than
+tuned away, under its own fixture group `coolant_release.knife_edge.*`, and
+asserted by `coolant_release_knife_edge_divergence_is_representation_noise` —
+which fails if the disagreement ever exceeds `3e-16` or disappears.
+
 ## What this does NOT establish
 
 This is **verification, not validation**. It shows the Rust port computes what
 the upstream Python computes. It says nothing about whether *either* reproduces
 measured TRISO fission-product release — that requires a public benchmark and is
 not claimed here. Per `RESPONSIBLE_USE.md`, AI-assisted output remains untrusted
-draft material until a human reviews it, and the `Bookkeeping status` block in
-the crate README records that review as outstanding.
+draft material until a human reviews it, and that review is outstanding here.
+
+> ~~"…and the `Bookkeeping status` block in the crate README records that
+> review as outstanding."~~ **CORRECTED 2026-09-21** — verified by `ls`:
+> **`crates/boon-lay/` has no `README.md` at all**, so there is no such block
+> and nothing records the sign-off state. Seven other crates are in the same
+> position (`dhoby-ghaut`, `kovan-codegen`, `kovan-common`, `kovan-literature`,
+> `kovan-semantics`, `redhill`, `sembawang`). Filed as a follow-up; creating
+> the block is a bookkeeping-pass task, and **only the maintainer may clear
+> either axis**. Until then, treat this crate as INCOMPLETE on both axes by
+> default — which is what the block would say anyway.
 
 ~~Still not covered, and tracked in `bn:op-b4a.2.7`:~~
 **CLOSED 2026-09-21** — every physics item below was ported and verified in the

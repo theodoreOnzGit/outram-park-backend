@@ -63,6 +63,28 @@ def load_upstream():
     return calc
 
 
+def load_upstream_driver():
+    """Import upstream's top-level `trisoatops` module.
+
+    Separate from `load_upstream` because the driver needs the *package* root
+    on `sys.path` (it imports `utility_functions.calculation_functions`), and
+    because only the end-to-end `accident_case` fixture needs it -- everything
+    else drives `calculation_functions` directly.
+
+    Returns `(trisoatops_module, calculation_functions_module)`. The two
+    `calculation_functions` instances are the same module object, so patching
+    one is visible to the other.
+    """
+    package_root = UPSTREAM.parent
+    sys.modules.setdefault("pandas", types.ModuleType("pandas"))
+    sys.path.insert(0, str(package_root))
+    sys.path.insert(0, str(UPSTREAM))
+    import trisoatops as driver  # noqa: E402
+    import utility_functions.calculation_functions as calc  # noqa: E402
+
+    return driver, calc
+
+
 def fmt(x) -> str:
     """Full round-trip f64 formatting; non-finite values stay parseable."""
     x = float(x)
@@ -158,7 +180,10 @@ def gen_diffusion(calc):
                 d, dg = calc.diffusion_coefficient(z, float(t), float(tg))
                 case("diffusion_coefficient.kernel", [z, t, tg], d)
                 case("diffusion_coefficient.graphite", [z, t, tg], dg)
-    for t in T_KERNEL:
+    # Ag-in-SiC is a bare Arrhenius with no branch, so density costs nothing and
+    # the useful check is that the port's exponent and pre-factor agree across
+    # the full span where D spreads over ~30 decades.
+    for t in sorted(set(T_KERNEL + list(range(250, 2501, 25)))):
         case("diffusion_coefficient_sic_ag", [t], calc.diffusion_coefficient_SiC_Ag(float(t)))
 
 
@@ -194,17 +219,50 @@ def gen_steady_release(calc):
 
 
 def gen_transient(calc):
-    for idp in [0.0, 1e-9, 1e-6, 1e-4, 1e-2, 0.1, 1.0, 10.0]:
+    """Accident-path release fractions.
+
+    ``booth_transient`` is swept densely across the whole useful range rather
+    than at a handful of decades, because it carries TWO regime changes that a
+    coarse sweep steps straight over:
+
+    * the ``int_Dp == 0`` early return, and
+    * the ``RF < 1e-6 -> 0`` floor, which bites somewhere around
+      ``int_Dp ~ 3e-9`` and is a discontinuity, not a rounding detail.
+
+    The sweep therefore walks 1e-12 .. 1e2 at three points per decade and adds
+    an explicitly refined block straddling the floor, so the crossing sample is
+    in the fixture instead of being interpolated over.
+    """
+    import math as _m
+
+    # three points per decade, 1e-12 .. 1e2, plus the exact-zero branch
+    idp_sweep = [0.0]
+    for e in range(-12, 3):
+        for m in (1.0, 2.15, 4.64):
+            idp_sweep.append(m * 10.0 ** e)
+    # refine around the 1e-6 release-fraction floor
+    idp_sweep += [2.0e-9, 2.5e-9, 3.0e-9, 3.5e-9, 4.0e-9, 5.0e-9, 6.0e-9]
+    for idp in sorted(set(idp_sweep)):
         case("booth_transient", [idp], calc.booth_transient(idp))
+
+    for idp in [0.0, 1e-9, 1e-6, 1e-4, 1e-2, 0.1, 1.0, 10.0]:
         for idt in [0.0, 1e-18, 1e-14, 1e-10]:
             for a in [3.5e-5, 1e-4]:
                 for r in [2.13e-4]:
                     case("breakthrough_model_transient", [idp, idt, a, r],
                          calc.breakthrough_model_transient(idp, idt, a, r),
                          cond_breakthrough(idp, idt, a, r, calc))
-    for val in [0.0, 1e-12, 1e-9, 1e-7, 1e-5, 1e-3]:
-        for a in [1e-3, 4.5e-3, 1e-2]:
-            import math as _m
+
+    # RF_Graph is a function of the single group val/a^2, but it is NOT written
+    # that way upstream -- it divides by 4 and by a**2 separately -- so sweep
+    # both arguments independently rather than collapsing them, and span the
+    # saturated end where every series term reaches 1 - exp(-inf) = 1.
+    rf_vals = [0.0]
+    for e in range(-14, -1):
+        for m in (1.0, 3.16):
+            rf_vals.append(m * 10.0 ** e)
+    for val in sorted(set(rf_vals)):
+        for a in [1e-4, 1e-3, 4.5e-3, 1e-2, 5e-2]:
             x1 = (_m.pi ** 2) * val / 4.0 / (a * a)
             case("rf_graph", [val, a], calc.RF_Graph(val, a), cond_one_minus_exp(x1))
 
@@ -465,85 +523,457 @@ def gen_release_activity(calc):
 def gen_coolant_release(calc):
     """`coolant_release` — vented coolant fraction over a depressurisation.
 
-    Upstream takes the full (radial, time, axial) temperature field and
-    reduces it internally. The Rust port splits that reduction out into
-    `mean_temperature_rate`, so the fixture records BOTH: the mean dT/dt
-    upstream computes, and the release fraction it derives.
+    Upstream takes the full ``(radial, time, axial)`` temperature field and
+    reduces it internally, averaging ``dT/dt`` over radial AND axial while
+    reading the *absolute* temperature from one designated hot node. The Rust
+    port splits that reduction out into `mean_temperature_rate`, so the fixture
+    records BOTH: the mean dT/dt upstream computes, and the release fraction it
+    derives.
 
-    Row layout mirrors the port's slice signature:
-        [n, t_0..t_{n-1}, T_0..T_{n-1}, out_index]
-    with the hot-node temperature history doubling as the single node, which
-    is what makes the two sides comparable.
+    The earlier version of this generator only ever passed a ``(1, n, 1)``
+    field, which makes the mean over nodes a no-op and the hot-node index
+    trivially ``0`` — so the averaging and the node selection, the two things
+    the split-out function actually has to get right, were never exercised.
+    Multi-node fields are swept here, with the hot node chosen both at
+    upstream's default (``floor(n_axial / 2)``) and off it.
+
+    Row layout, flattened so the Rust side can rebuild the same field:
+
+        [n_nodes, n_t,
+         t_0 .. t_{n_t-1},
+         T(node 0, t_0..t_{n_t-1}), ... T(node n_nodes-1, ...),
+         hot_node, pressure_kPa, out_index]
     """
     import numpy as np
 
-    histories = [
-        # steady heat-up
-        ([0.0, 100.0, 200.0, 300.0], [500.0, 600.0, 700.0, 800.0]),
-        # heat then cool -- exercises the non-contiguous venting mask
-        ([0.0, 3600.0, 7200.0, 10800.0, 14400.0],
-         [600.0, 900.0, 1100.0, 1000.0, 850.0]),
-        # near-isothermal: dT/dt ~ 0, the >= 0 boundary
-        ([0.0, 1000.0, 2000.0], [700.0, 700.0, 700.0]),
-    ]
-    for times, temps in histories:
-        n = len(times)
-        t_arr = np.array(times)
-        # one radial ring, one axial node: shape (1, n, 1)
-        temp_field = np.array(temps).reshape(1, n, 1)
-        frac, vent_times = calc.coolant_release(t_arr, temp_field)
-        for i in range(len(frac)):
-            case("coolant_release.fraction",
-                 [n, *times, *temps, i], frac[i])
-        for i in range(len(vent_times)):
-            case("coolant_release.vent_time",
-                 [n, *times, *temps, i], vent_times[i])
-        # The mean dT/dt upstream computes inline, so the port's split-out
-        # `mean_temperature_rate` is verified against the same source.
+    # Each entry: (times, temps[radial][time][axial]) as nested lists.
+    fields = []
+
+    # -- single node, as before: the baseline cases -------------------------
+    fields.append(([0.0, 100.0, 200.0, 300.0],
+                   [[[500.0], [600.0], [700.0], [800.0]]]))
+    fields.append(([0.0, 3600.0, 7200.0, 10800.0, 14400.0],
+                   [[[600.0], [900.0], [1100.0], [1000.0], [850.0]]]))
+    fields.append(([0.0, 1000.0, 2000.0],
+                   [[[700.0], [700.0], [700.0]]]))
+
+    # -- one ring, three axial nodes: averaging over axial is now real ------
+    fields.append(([0.0, 3600.0, 7200.0, 10800.0],
+                   [[[400.0, 900.0, 500.0],
+                     [450.0, 1150.0, 560.0],
+                     [520.0, 1260.0, 610.0],
+                     [560.0, 1180.0, 640.0]]]))
+
+    # -- two rings, three axial nodes: averaging over BOTH axes -------------
+    fields.append(([0.0, 1800.0, 5400.0, 12600.0, 25200.0],
+                   [[[380.0, 860.0, 470.0],
+                     [430.0, 1090.0, 540.0],
+                     [500.0, 1240.0, 600.0],
+                     [540.0, 1150.0, 630.0],
+                     [520.0, 980.0, 600.0]],
+                    [[300.0, 520.0, 360.0],
+                     [330.0, 610.0, 400.0],
+                     [370.0, 700.0, 440.0],
+                     [400.0, 690.0, 460.0],
+                     [390.0, 620.0, 450.0]]]))
+
+    # -- KNIFE EDGE: two nodes heating and cooling at equal and opposite rates,
+    #    so the mean dT/dt is *exactly* zero at every sample while each node is
+    #    still moving. Upstream's venting mask is `dTdt_avg >= 0`, so upstream
+    #    keeps every sample; the port does not, and the reason is worth pinning
+    #    rather than hiding -- see `coolant_release_knife_edge_...` in
+    #    tests/triso_atops_code_to_code.rs. Emitted under its own group name so
+    #    the ordinary comparison stays an ordinary comparison.
+    knife_edge = ([0.0, 500.0, 1000.0, 1500.0],
+                  [[[600.0, 800.0],
+                    [700.0, 700.0],
+                    [800.0, 600.0],
+                    [900.0, 500.0]]])
+
+    pressures = [101.325, 1.0, 5000.0]
+
+    for times, nested in fields + [knife_edge]:
+        tag = ".knife_edge" if (times, nested) == knife_edge else ""
+        t_arr = np.array(times, dtype=float)
+        temp_field = np.array(nested, dtype=float)  # (radial, time, axial)
+        n_rad, n_t, n_ax = temp_field.shape
+        # Flatten (radial, axial) into a node list, keeping the time axis: this
+        # is exactly what the port's `mean_temperature_rate` consumes.
+        nodes = [temp_field[r, :, k].tolist()
+                 for r in range(n_rad) for k in range(n_ax)]
+        n_nodes = len(nodes)
+        flat_temps = [v for node in nodes for v in node]
+
         dTdt = np.diff(temp_field, axis=1) / (np.diff(t_arr)[:, None] + np.finfo(float).eps)
         dTdt = np.pad(dTdt, ((0, 0), (1, 0), (0, 0)), mode='constant', constant_values=0)
         dTdt_avg = np.mean(dTdt, axis=(0, 2))
-        for i in range(n):
-            case("coolant_release.mean_dtdt", [n, *times, *temps, i], dTdt_avg[i])
+
+        prefix = [n_nodes, n_t, *times, *flat_temps]
+
+        # The mean dT/dt is independent of the hot node and the pressure, so
+        # record it once per field rather than once per combination.
+        for i in range(n_t):
+            case(f"coolant_release{tag}.mean_dtdt", [*prefix, 0, 101.325, i], dTdt_avg[i])
+
+        for hot_r in range(n_rad):
+            for hot_ax in sorted({0, n_ax - 1, int(np.floor(n_ax / 2))}):
+                hot_node = hot_r * n_ax + hot_ax
+                for P in pressures:
+                    frac, vent_times = calc.coolant_release(
+                        t_arr, temp_field, P=P,
+                        hottest_radial=hot_r, hottest_axial=hot_ax)
+                    tail = [hot_node, P]
+                    for i in range(len(frac)):
+                        case(f"coolant_release{tag}.fraction", [*prefix, *tail, i], frac[i])
+                    for i in range(len(vent_times)):
+                        case(f"coolant_release{tag}.vent_time", [*prefix, *tail, i], vent_times[i])
 
 
 def gen_inventory_processing(calc):
     """`inventory_processing` — axial split of a per-ring inventory."""
     import numpy as np
 
-    for n_axial in [1, 2, 5, 11]:
-        for inv in [0.0, 1.0, 44.5, 1e6]:
+    for n_axial in [1, 2, 3, 5, 7, 11, 16, 64, 365]:
+        for inv in [0.0, 1.0, 3.0, 44.5, 1e-30, 1e6, 1e22, 6.022e23]:
             # upstream's 2-D branch: (n_nuclides, n_radial) -> split over axial
             arr = np.array([[inv]])
-            out = calc.inventory_processing(arr, n_axial)
-            case("inventory_processing", [n_axial, inv],
-                 np.asarray(out).ravel()[0])
+            out = np.asarray(calc.inventory_processing(arr, n_axial)).ravel()
+            # Emit every axial slot for the small splits -- the operation is a
+            # divide *and* a repeat, and checking one element verifies only the
+            # divide -- and first/middle/last for the large ones, where the
+            # remaining slots are bit-identical repeats that buy no coverage.
+            slots = (range(n_axial) if n_axial <= 16
+                     else sorted({0, n_axial // 2, n_axial - 1}))
+            for k in slots:
+                case("inventory_processing", [n_axial, inv, k], out[k])
 
 
 def gen_nuclide_selection(calc):
     """`nuclide_import` / `nuclide_import_accident` classification.
 
-    Only the numeric decisions are emitted -- the short-lived test and the
-    accident retention test -- because those are the parts that change a
-    result. Name normalisation and the parent-decay wiring are asserted on the
-    Rust side instead: normalisation is pure string handling, and
-    `parent_decay` cannot be read out of upstream at all, since the `==` bug
-    means the value never leaves the shared table (see the module docs).
+    EXHAUSTIVE: every nuclide in the upstream table, against a spread of
+    irradiation and accident times that straddles each ratio threshold. The
+    earlier pass sampled ten nuclides; the classification is a per-nuclide
+    decision driven by that nuclide's own half-life, so sampling it was
+    leaving 74 decisions unchecked for no reason.
     """
-    names = ["Kr-85m", "Cs-137", "I-131", "Xe-135", "Sr-90", "Kr-89",
-             "Ru-105", "Rh-105", "Ag-110m", "Pd-107"]
-    for name in names:
-        nuc = calc.nuclides.get(name)
-        if nuc is None:
-            continue
-        for t_irrad in [3.15576e7, 9.46728e7, 1.262304e9]:
-            # upstream: hl / irad_time < short_lived_ratio (default 0.2)
+    # Times chosen so that, across the 84 half-lives (6.6e1 s .. 7.2e22 s),
+    # BOTH outcomes occur for the thresholds 0.2 and 0.04.
+    irrad_times = [8.64e4, 3.1536e6, 3.15576e7, 9.46728e7, 1.262304e9, 3.15576e10]
+    accident_times = [3.6e3, 8.64e4, 2.592e5, 2.592e6, 3.1536e7]
+    for name in sorted(calc.nuclides):
+        nuc = calc.nuclides[name]
+        for t_irrad in irrad_times:
             sl = 1.0 if (nuc.hl / t_irrad) < 0.2 else 0.0
             case(f"nuclide_import.short_lived:{name}", [t_irrad], sl)
-        for t_acc in [8.64e4, 2.592e5, 2.592e6]:
-            # upstream: hl / accident_time >= use_ratio (default 0.04)
+        for t_acc in accident_times:
             keep = 1.0 if (nuc.hl / t_acc) >= 0.04 else 0.0
             case(f"nuclide_import_accident.retained:{name}", [t_acc], keep)
+
+
+def gen_name_normalisation(calc):
+    """Nuclide-name normalisation, against upstream's OWN regex.
+
+    Upstream normalises with
+        re.match(r'([a-z]{1,2})(?:[-]?)([0-9]+)([a-z]?)', name.lower())
+    then reassembles `f"{element.capitalize()}-{main_number}{suffix}"`.
+
+    The port hand-rolls this to avoid a `regex` dependency, so the hand-rolled
+    version is checked against the real thing rather than against my reading of
+    it. Encoded as: 1.0 if upstream produces the canonical name the port also
+    produces, 0.0 if upstream rejects it. The expected NAME travels in the
+    function tag, so a mismatch names both sides.
+    """
+    import re
+
+    spellings = [
+        # canonical and case variants
+        "Cs-137", "cs-137", "CS-137", "cS-137",
+        # no hyphen
+        "Cs137", "cs137", "CS137",
+        # single-letter elements
+        "I-131", "i131", "I131", "Y-91", "y91",
+        # metastable suffixes
+        "Kr-83m", "kr83m", "KR-83M", "Tc-99m", "tc99m", "Ag-110m", "ag110m",
+        # two-letter with three-digit mass
+        "Pr-143", "pr143", "La-140", "Nd-144",
+        # things upstream's regex rejects outright
+        "plutonium", "137", "", "-137", "x",
+        # things upstream ACCEPTS by prefix-matching that a reader may not expect
+        "Cs-137xyz", "Cs-137-extra", "cs137mm",
+    ]
+    for raw in spellings:
+        m = re.match(r'([a-z]{1,2})(?:[-]?)([0-9]+)([a-z]?)', raw.lower())
+        if m:
+            element, main_number, suffix = m.groups()
+            canonical = f"{element.capitalize()}-{main_number}{suffix}"
+            # 1.0 = upstream parsed it; the canonical form is in the tag.
+            case(f"name_normalisation.accepted:{raw}|{canonical}", [], 1.0)
+        else:
+            case(f"name_normalisation.rejected:{raw}", [], 0.0)
+
+
+def gen_convert_time(calc):
+    """`run_functions.convert_time` — the unit factor table."""
+    import sys
+    sys.path.insert(0, str(UPSTREAM.parent))
+    for unit in ["s", "min", "hr", "d", "yr"]:
+        factor = {"s": 1, "min": 60, "hr": 3600, "d": 3600 * 24,
+                  "yr": 365 * 24 * 3600}[unit]
+        case(f"convert_time:{unit}", [], float(factor))
+
+
+def gen_nuclide_sort(calc):
+    """`run_functions.nuclide_sort` — verify it is the NO-OP we claim.
+
+    The port's `sort_parents_before_daughters` deliberately does what upstream
+    says it does rather than what it does. That claim is only worth making if
+    upstream's actual behaviour is pinned, so this records, for each ordering,
+    whether upstream moved anything: 1.0 if the output order differs from the
+    input, 0.0 if unchanged.
+
+    Reproduced inline rather than called, because `nuclide_sort` takes 2-D
+    numpy arrays and a logger and returns early on shapes this fixture does not
+    need; the branch under test is the single `par in list(...)` comparison,
+    which is transcribed verbatim.
+    """
+    orderings = [
+        ["Xe-135", "I-135"],          # daughter first: SHOULD reorder, does not
+        ["I-135", "Xe-135"],          # already correct
+        ["Rh-105", "Ru-105"],
+        ["Cs-137", "I-131", "Sr-90"], # no parent relationships at all
+        ["La-140", "Ba-140"],
+    ]
+    for order in orderings:
+        moved = 0.0
+        for n in order:
+            try:
+                par = calc.nuclides[n].parents
+            except KeyError:
+                par = None
+            # VERBATIM upstream: a list tested for membership in a list of str.
+            if par is not None and par in list(order):
+                moved = 1.0
+        case(f"nuclide_sort.reorders:{'+'.join(order)}", [], moved)
+
+
+# ── end-to-end: accident_case ────────────────────────────────────────────────
+
+#: Scenario fields for `gen_accident_case`, as
+#: ``(label, times, temps[radial][time][axial], clean)``.
+ACCIDENT_SCENARIOS = [
+    (
+        "heat_then_cool",
+        [0.0, 1800.0, 5400.0, 12600.0, 25200.0],
+        [[[600.0, 560.0], [900.0, 820.0], [1150.0, 1000.0],
+          [1050.0, 930.0], [900.0, 820.0]],
+         [[500.0, 470.0], [700.0, 650.0], [860.0, 790.0],
+          [800.0, 740.0], [700.0, 650.0]]],
+        False,
+    ),
+    (
+        "heat_then_cool_hps",
+        [0.0, 1800.0, 5400.0, 12600.0, 25200.0],
+        [[[600.0, 560.0], [900.0, 820.0], [1150.0, 1000.0],
+          [1050.0, 930.0], [900.0, 820.0]],
+         [[500.0, 470.0], [700.0, 650.0], [860.0, 790.0],
+          [800.0, 740.0], [700.0, 650.0]]],
+        True,
+    ),
+    (
+        "gappy_vent_mask",
+        [0.0, 3600.0, 7200.0, 14400.0, 28800.0, 43200.0],
+        [[[700.0, 660.0], [1000.0, 940.0], [950.0, 900.0],
+          [1200.0, 1120.0], [1100.0, 1030.0], [980.0, 920.0]]],
+        False,
+    ),
+]
+
+#: Constants array laid out as upstream's `constants[...]` indices.
+ACCIDENT_CONSTANTS = [
+    1e-5,      # 0  f_hm        fraction of heavy metal contamination
+    2e-5,      # 1  f_sic       defective SiC fraction
+    3e-5,      # 2  f_inc       as-fabricated failed fraction
+    4e-5,      # 3  f_inc_sic   in-pile SiC failure fraction
+    4.5e-3,    # 4  a           graphite slab half-thickness, m
+    1e-5,      # 5  a_grain     kernel grain size, m
+    7.5e-4,    # 6  k_plate     plate-out constant, 1/s
+    3.15576e7, # 7  t           reactor runtime, s
+    0.0,       # 8  (unused by accident_case)
+    8.77e-5,   # 9  k_clean     clean-up constant, 1/s
+    2.13e-4,   # 10 r           kernel radius, m
+    3.5e-5,    # 11 a_SiC       SiC layer thickness, m
+    5e-5,      # 12 f_inc_acc   accident-induced failure fraction
+    6e-5,      # 13 f_inc_sic_acc
+    0.1,       # 14 x_liftoff   plate-out lift-off fraction
+]
+
+#: Nuclides driven through the end-to-end case, one per upstream branch:
+#: noble gas (z=54), halogen (z=53), the Te-counted-as-halogen case (z=52),
+#: silver (z=47, the `fract = 1` branch), and two ordinary metals.
+ACCIDENT_NUCLIDES = ["Xe-133", "I-131", "Te-132", "Ag-110m", "Sr-90", "Cs-137"]
+
+
+def _normop_field(index: int, n_axial: int, n_radial: int):
+    """Deterministic normal-operation nodal array for one nuclide.
+
+    Shape is ``(7, n_axial, n_radial)`` -- note the **axial-major** layout,
+    which is not a typo: upstream's `release_activity` transposes with
+    ``activities.T`` before broadcasting against the ``(radial, time, axial)``
+    release-fraction array, so the normal-operation channels come in
+    transposed relative to the temperature field. Getting that wiring wrong is
+    exactly the kind of defect this end-to-end fixture exists to catch, so the
+    values are made distinct per channel and per node rather than uniform.
+    """
+    import numpy as np
+
+    n = 7 * n_axial * n_radial
+    scale = 10.0 ** (10 + index)
+    return np.arange(1, n + 1, dtype=float).reshape(7, n_axial, n_radial) * scale
+
+
+def gen_accident_case(driver, calc):
+    """End-to-end `accident_case`: the composition, not the pieces.
+
+    Every function `accident_case` calls is already covered case-by-case
+    elsewhere in this fixture. What is *not* otherwise covered is how they are
+    wired together -- the argument order, the `(7, axial, radial)` transpose,
+    the atoms-to-curies conversion applied to each path separately, the
+    truncation of the temperature field to the venting window, and the fact
+    that the circulating + lifted-off plate-out term is added **outside** the
+    vent-fraction scaling. A port can get every individual formula right and
+    still assemble them wrongly; this is the group that would notice.
+
+    Upstream formats its return values through `vectorized_format`, which is
+    `np.format_float_scientific(x, precision=2)` -- three significant digits,
+    as strings, for display. That is a *presentation* step, not part of the
+    calculation, and comparing against it would cap this group's resolution at
+    ~1e-3. It is therefore patched to an identity for the duration of the call
+    so the fixture records upstream's full-precision values. Nothing else is
+    patched, and the patch is reverted immediately afterwards.
+
+    Row layout. The scenario is written **once**, as its own row, and the
+    value rows refer to it by index -- repeating ~170 numbers on each of 432
+    value rows made the committed fixture 44 % scenario prefix, and the whole
+    file is `include_str!`d into the test binary:
+
+        accident_case.scenario:<id>   args = [n_radial, n_axial, n_t, clean,
+                                              c_0 .. c_14,
+                                              t_0 .. t_{n_t-1},
+                                              T(r, t, k) in C order,
+                                              normop(channel, k, r) in C order,
+                                              one block per nuclide]
+        accident_case.dropped:<nuc>   args = [id]
+        accident_case.total:<nuc>     args = [id, time_index]
+        accident_case.nodal_*:<nuc>   args = [id, r, t, k]
+
+    `z` and the decay constant are deliberately **not** in the row: the Rust
+    side looks them up in its own nuclide database, so the end-to-end check
+    exercises that table too.
+    """
+    import logging
+
+    import numpy as np
+
+    log = logging.getLogger("triso_atops_fixture")
+    log.addHandler(logging.NullHandler())
+    log.propagate = False
+
+    consts = np.array(ACCIDENT_CONSTANTS, dtype=float)
+    nuclide_list = [[name, 1.0] for name in ACCIDENT_NUCLIDES]
+
+    for label, times, nested, clean in ACCIDENT_SCENARIOS:
+        t_arr = np.array(times, dtype=float)
+        temps = np.array(nested, dtype=float)  # (radial, time, axial)
+        n_radial, n_t, n_axial = temps.shape
+
+        normop = {
+            name: _normop_field(i, n_axial, n_radial)
+            for i, name in enumerate(ACCIDENT_NUCLIDES)
+        }
+
+        scenario = [
+            n_radial, n_axial, n_t, 1.0 if clean else 0.0,
+            *ACCIDENT_CONSTANTS,
+            *times,
+            *temps.ravel(order="C"),
+        ]
+        for name in ACCIDENT_NUCLIDES:
+            scenario += list(normop[name].ravel(order="C"))
+        scenario_id = ACCIDENT_SCENARIOS.index((label, times, nested, clean))
+        case(f"accident_case.scenario:{scenario_id}", scenario, float(scenario_id))
+
+        saved = calc.vectorized_format
+        calc.vectorized_format = lambda x: np.asarray(x, dtype=float)
+        try:
+            totals, nodal = driver.accident_case(
+                consts, nuclide_list, normop, temps, t_arr, log, clean=clean)
+        finally:
+            calc.vectorized_format = saved
+
+        for name in ACCIDENT_NUCLIDES:
+            if name not in totals:
+                # Dropped by nuclide_import_accident for this accident length.
+                # Recorded as an explicit absence so the Rust side can assert
+                # the same nuclide is dropped rather than silently skipping.
+                case(f"accident_case.dropped:{name}", [scenario_id], 1.0)
+                continue
+            case(f"accident_case.dropped:{name}", [scenario_id], 0.0)
+
+            kernel = np.asarray(nodal[name].kernel, dtype=float)
+            graphite = np.asarray(nodal[name].graphite, dtype=float)
+            n_keep = kernel.shape[1]
+
+            # Conditioning is INHERITED, not re-derived: the composition adds
+            # only multiplications and sums, so the ill-conditioning is exactly
+            # that of the release-fraction evaluation underneath -- the same
+            # quantity `gen_release_fraction` records for the standalone group.
+            # The integrals `accident_case` used are still on the returned
+            # dataset, so this reads them rather than recomputing them.
+            z = calc.nuclides[name].z
+            int_kernel = np.asarray(nodal[name].integral_kernel, dtype=float)
+            int_graphite = np.asarray(nodal[name].integral_graphite, dtype=float)
+            a_sic = ACCIDENT_CONSTANTS[11]
+            r_kernel = ACCIDENT_CONSTANTS[10]
+            a_graph = ACCIDENT_CONSTANTS[4]
+            volatile = z in calc.noble_gases or z in calc.halogens
+
+            cond_k = np.ones_like(kernel)
+            cond_g = np.ones_like(graphite)
+            for r in range(n_radial):
+                for ti in range(n_keep):
+                    for k in range(n_axial):
+                        ik = int_kernel[r, ti, k]
+                        if z == 47:
+                            cond_k[r, ti, k] = cond_breakthrough(
+                                ik / a_sic / a_sic, ik, a_sic, r_kernel, calc)
+                        if not volatile:
+                            x1 = (math.pi ** 2) * int_graphite[r, ti, k] / 4.0 / (a_graph ** 2)
+                            cond_g[r, ti, k] = cond_one_minus_exp(x1)
+
+            for r in range(n_radial):
+                for ti in range(n_keep):
+                    for k in range(n_axial):
+                        case(f"accident_case.nodal_kernel:{name}",
+                             [scenario_id, r, ti, k], kernel[r, ti, k], cond_k[r, ti, k])
+                        case(f"accident_case.nodal_graphite:{name}",
+                             [scenario_id, r, ti, k], graphite[r, ti, k], cond_g[r, ti, k])
+
+            total = np.asarray(totals[name], dtype=float).ravel()
+            lam = calc.nuclides[name].lam
+            circ = np.sum(normop[name][4, :, :]) * lam / 3.7e10
+            plate = ACCIDENT_CONSTANTS[14] * np.sum(normop[name][5, :, :]) * lam / 3.7e10
+            for i in range(total.size):
+                # Cancellation ratio of the sum itself -- largest contributing
+                # term over the result -- multiplied by the worst conditioning
+                # already carried by those terms.
+                terms = list(kernel[:, i, :].ravel()) + list(graphite[:, i, :].ravel()) \
+                    + [circ, plate]
+                biggest = max(abs(v) for v in terms) if terms else 0.0
+                ratio = biggest / abs(total[i]) if total[i] != 0.0 else 1.0
+                inherited = max(cond_k[:, i, :].max(), cond_g[:, i, :].max())
+                case(f"accident_case.total:{name}", [scenario_id, i], total[i],
+                     max(1.0, ratio) * inherited)
 
 
 def gen_nuclides(calc):
@@ -574,7 +1004,12 @@ def main() -> int:
     gen_coolant_release(calc)
     gen_inventory_processing(calc)
     gen_nuclide_selection(calc)
+    gen_name_normalisation(calc)
+    gen_convert_time(calc)
+    gen_nuclide_sort(calc)
     gen_nuclides(calc)
+    driver, driver_calc = load_upstream_driver()
+    gen_accident_case(driver, driver_calc)
 
     out = [
         f"# TRISO-ATOPS code-to-code reference values, generated by "

@@ -92,11 +92,18 @@ Four upstream entries have no Rust counterpart and will not get one:
 
 ### Upstream defects found while porting (2026-09-21)
 
-Seven defects, found by reading `calculation_functions.py`, `run_functions.py`
-and `trisoatops.py` at `de374c8`. **None affects the previously-verified
-subset.** Where the port diverges, the divergence is selectable rather than
-silent, and named in the item's own documentation. None has been reported
-upstream.
+~~Seven defects~~ **CORRECTED 2026-09-21 — ten.** Defects 1–7 were found by
+reading `calculation_functions.py`, `run_functions.py` and `trisoatops.py` at
+`de374c8`; **8–10 were found by the second verification pass**, when the
+fixture was widened from 11 855 to 14 130 cases and the end-to-end
+`accident_case` composition was driven for the first time. Two of the three
+were found by *running* upstream rather than reading it, which is the point of
+keeping the harness executable.
+
+**None affects the previously-verified subset.** Where the port diverges, the
+divergence is selectable rather than silent, and named in the item's own
+documentation. All ten are filed for upstream in GitHub issue #219; none has
+been reported to INL directly.
 
 **1. `parent_decay` is assigned with `==`, so the runtime logic never fires.**
 `nuclide_import` (lines 275 and 277) writes
@@ -181,6 +188,74 @@ The whole temperature history vanishes and every downstream integral is empty.
 The port cannot reproduce this (slices arrive aligned and a mismatch is an
 assertion), but a reader comparing against a stock run on a monotonic transient
 will see upstream produce nothing, and should know why.
+
+**8. The nuclide-name regex is unanchored, so a malformed name is silently
+truncated into a *different* valid nuclide.** `nuclide_import` and
+`nuclide_import_accident` both normalise with
+
+```python
+match = re.match(r'([a-z]{1,2})(?:[-]?)([0-9]+)([a-z]?)', nuclide_name)
+```
+
+`re.match` anchors only at the start, and there is no `$`, so trailing junk is
+dropped rather than rejected. Measured against upstream at `de374c8`:
+
+| input | upstream accepts as | what the user meant |
+|---|---|---|
+| `Cs-137xyz` | `Cs-137x` | — (typo) |
+| `Cs-137-extra` | `Cs-137` | — (typo) |
+| `cs137mm` | **`Cs-137m`** | — (typo) |
+
+The third is the dangerous one: a typo is silently promoted to the *metastable
+state*, a physically different nuclide with a different half-life, and the run
+proceeds with no warning. (The first two then raise a `KeyError` on the
+`nuclides` lookup, which at least fails loudly.) `normalise_nuclide_name`
+anchors the match and rejects all three; the divergence is asserted
+deliberately in `name_normalisation_matches_upstream_regex`.
+
+**9. `accident_case` pairs the venting *times* with the wrong temperature
+*slices* whenever the venting mask is gappy.** After narrowing the transient,
+`trisoatops.py` has
+
+```python
+frac, times_short = calc.coolant_release(times, accident_temp)
+rmv = np.size(times) - np.size(times_short)
+times = times_short                       # the VENTING samples
+accident_temp = accident_temp[:, :-rmv, :]  # the FIRST n - rmv samples
+```
+
+`times_short` is `times[vent]` — a *selection*. `accident_temp[:, :-rmv, :]` is
+a *prefix*. The two coincide only while the venting mask is contiguous. A
+transient that heats, cools, and re-heats produces a gappy mask, and upstream
+then integrates a diffusion coefficient evaluated at one instant's temperature
+over a `Δt` taken from a different pair of instants. Measured on the fixture's
+`gappy_vent_mask` scenario (vent mask `[0, 1, 3]` out of six samples): the
+nodal kernel release for Xe-133 at the last retained sample is `-3.20e-8 Ci`
+with upstream's pairing and `-4.99e-8 Ci` with the consistent one — a **36 %**
+difference on a single node.
+
+The port reproduces this deliberately in the code-to-code test, because the
+test's job is to establish what upstream computes. Library callers assembling
+their own accident case should use the venting times with the venting slices.
+
+**10. `booth_transient`'s `RF < 1e-6 → 0` guard is dead code.** The series is
+truncated at `num_terms = 5000`, so as `int_Dp → 0` the sum tends to
+`Σ_{i=1}^{4999} (iπ)^{-2}`, not to `1/6`, and the result tends to
+
+$$ RF(0^+) \;=\; \frac{6}{\pi^2} \sum_{i=N}^{\infty} i^{-2} \;\approx\; \frac{6}{\pi^2 N} \;=\; 1.216 \times 10^{-4} $$
+
+for `N = 5000` — two orders of magnitude above the `1e-6` the guard tests
+against. `int_Dp == 0` is caught by an earlier early return and `RF` is
+monotone in `int_Dp`, so nothing can land inside the guard band. Measured
+minimum over the fixture's 52 non-zero `booth_transient` rows:
+`1.21628e-4`, against the predicted `1.21585e-4`.
+
+The guard is harmless but misleading — it reads as if tiny releases are
+clamped to zero, and they are not. The port keeps it (bug-compatibility) and
+pins the premise with `booth_transient_zero_floor_is_unreachable`, so raising
+`BOOTH_SERIES_TERMS` past `6/(π²·10⁻⁶) ≈ 6.1e5` cannot quietly change
+behaviour. It is also the reason deleting that guard is an **equivalent
+mutant** in the mutation table rather than a surviving one.
 
 ### Why the GUI was excluded
 
