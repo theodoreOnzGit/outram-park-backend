@@ -44,7 +44,7 @@ maker: propose changes of direction to them rather than making them.
 | `abc` | Approximate Bayesian Computation — three kernels, rejection ABC, and an approximate log-likelihood the transitional samplers consume directly |
 | `imprecise` | Imprecise probability — intervals, probability boxes, Clopper–Pearson confidence boxes, coherent-system reliability with or without a dependence assumption |
 | `model_selection` | Comparing models by evidence — Bayes factors, posterior model probabilities, the Kass–Raftery scale |
-| `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS), quantify the top event by rare-event, MCUB or exact inclusion-exclusion, and rank the basic events by the five standard importance measures. **Coherent trees only**; no BDD/ZBDD, no complement elimination, no XML input |
+| `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS, coherent **and** non-coherent), quantify the top event by rare-event, MCUB or exact inclusion-exclusion, and rank the basic events by the five standard importance measures. No BDD/ZBDD, no prime implicants, no XML input; non-coherent answers are conservative by definition |
 | `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
 | `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
 

@@ -25,12 +25,22 @@
 //!
 //! # What it does and does not handle
 //!
-//! **Coherent trees only.** [`Connective::And`], [`Connective::Or`],
-//! [`Connective::Atleast`] and [`Connective::Null`] are expanded; the four
-//! negating connectives are refused with an error naming complement
-//! elimination, which is the part of upstream that is missing. A refusal is
-//! the honest answer here: a non-coherent tree analysed as if it were coherent
-//! yields cut sets that are wrong rather than approximate.
+//! **All eight connectives**, coherent and not. A negated gate is expanded
+//! through its De Morgan dual, so complemented literals appear during
+//! expansion; a partial set containing both a literal and its complement is
+//! impossible and is dropped. At the end the negative literals are deleted and
+//! the result minimised by absorption — which is what upstream does too, in
+//! ZBDD form: `Zbdd::EliminateComplement` OR-merges the two branches of a
+//! negative-index node (deleting the literal) and `Zbdd::Minimize` absorbs.
+//!
+//! **Minimal cut sets of a non-coherent tree are CONSERVATIVE**, and that is a
+//! property of the definition, not of this implementation. Deleting negative
+//! literals discards the information that some failure combinations require a
+//! component to be *working*, so the cut sets describe a function that is
+//! everywhere at least as large as the real one. Quantifying them gives an
+//! **upper bound** on the top-event probability, not the probability. Use
+//! prime implicants if you need the exact function — upstream has them behind
+//! `--prime-implicants`, and they are not ported.
 //!
 //! **It is exponential in the worst case**, which is why Rauzy's paper exists.
 //! [`minimal_cut_sets`] takes an order limit for that reason, and it is the
@@ -51,7 +61,7 @@
 
 use std::collections::HashSet;
 
-use super::fault_tree::{Arg, Connective, FaultTree};
+use super::fault_tree::{Arg, Connective, FaultTree, Gate};
 use super::probability::CutSet;
 use crate::{RafflesError, Result};
 
@@ -89,9 +99,8 @@ pub const EXPANSION_LIMIT: usize = 5_000_000;
 ///
 /// # Errors
 ///
-/// - [`RafflesError::InvalidParameter`] if the tree contains a non-coherent
-///   connective (complement elimination is not ported), if `limit_order` is
-///   zero, or if the expansion exceeds [`EXPANSION_LIMIT`].
+/// - [`RafflesError::InvalidParameter`] if `limit_order` is zero, or if the
+///   expansion exceeds [`EXPANSION_LIMIT`] intermediate states.
 ///
 /// # Example
 ///
@@ -122,83 +131,64 @@ pub fn minimal_cut_sets(tree: &FaultTree, limit_order: usize) -> Result<Vec<CutS
             reason: "an order limit of zero admits no cut set at all; use at least 1".to_string(),
         });
     }
-    for (i, gate) in tree.gates().iter().enumerate() {
-        if !gate.connective().is_coherent() {
-            return Err(RafflesError::InvalidParameter {
-                parameter: "tree".to_string(),
-                value: i as f64,
-                reason: format!(
-                    "gate {i} is `{}`, which is non-coherent. Complement elimination is not \
-                     ported from SCRAM, and analysing a non-coherent tree as if it were \
-                     coherent gives wrong cut sets rather than approximate ones",
-                    gate.connective().as_str()
-                ),
-            });
-        }
-    }
 
-    // A partially-expanded cut set: basic events settled so far, and the gates
-    // still to expand. Both are kept sorted and deduplicated so that two
-    // routes to the same intermediate state compare equal and are visited once
-    // — on a tree with shared subtrees that is the difference between
-    // exponential and tractable.
-    type Partial = (Vec<usize>, Vec<usize>);
+    // A partially-expanded set: the literals settled so far, positive and
+    // complemented kept apart, and the gates still to expand with the sign
+    // each was reached under. Every component is sorted and deduplicated so
+    // that two routes to the same intermediate state compare equal and are
+    // visited once -- on a tree with shared subtrees that is the difference
+    // between exponential and tractable.
+    type Partial = (Vec<usize>, Vec<usize>, Vec<(usize, bool)>);
 
+    let start: Partial = (Vec::new(), Vec::new(), vec![(tree.top(), false)]);
     let mut seen: HashSet<Partial> = HashSet::new();
-    let start: Partial = (Vec::new(), vec![tree.top()]);
     seen.insert(start.clone());
     let mut pending: Vec<Partial> = vec![start];
     let mut complete: Vec<Vec<usize>> = Vec::new();
 
-    while let Some((events, gates)) = pending.pop() {
-        let Some((&gate, rest)) = gates.split_first() else {
-            complete.push(events);
+    while let Some((positive, negative, gates)) = pending.pop() {
+        let Some((&(gate, negated), rest)) = gates.split_first() else {
+            // No gates left: the negative literals have done their work
+            // constraining the expansion and are now deleted, exactly as
+            // upstream's `EliminateComplement` deletes them. What survives is
+            // a cut set in the conservative sense -- see the module doc.
+            complete.push(positive);
             continue;
         };
         let rest = rest.to_vec();
-        let gate_args = tree.gates()[gate].args();
 
-        // Each branch is one alternative way this gate can be satisfied; the
-        // arguments within a branch must all occur.
-        let branches: Vec<Vec<Arg>> = match tree.gates()[gate].connective() {
-            // All arguments must occur: one branch, everything in it.
-            Connective::And => vec![gate_args.to_vec()],
-            // Pass-through: identical to AND over its single argument.
-            Connective::Null => vec![gate_args.to_vec()],
-            // Any one suffices: one branch per argument.
-            Connective::Or => gate_args.iter().map(|a| vec![*a]).collect(),
-            // At least `min` of them: one branch per `min`-combination.
-            Connective::Atleast { min } => combinations(gate_args, min),
-            // Rejected above; unreachable, and cheaper to say so than to
-            // widen the error path.
-            other => {
-                return Err(RafflesError::InvalidParameter {
-                    parameter: "tree".to_string(),
-                    value: gate as f64,
-                    reason: format!("non-coherent connective `{}`", other.as_str()),
-                })
-            }
-        };
-
-        for branch in branches {
-            let mut events = events.clone();
+        for branch in branches(&tree.gates()[gate], negated) {
+            let mut positive = positive.clone();
+            let mut negative = negative.clone();
             let mut gates = rest.clone();
-            for arg in branch {
+            for (arg, arg_negated) in branch {
                 match arg {
-                    Arg::BasicEvent(e) => events.push(e),
-                    Arg::Gate(g) => gates.push(g),
+                    Arg::BasicEvent(e) if arg_negated => negative.push(e),
+                    Arg::BasicEvent(e) => positive.push(e),
+                    Arg::Gate(g) => gates.push((g, arg_negated)),
                 }
             }
-            events.sort_unstable();
-            events.dedup();
+            for v in [&mut positive, &mut negative] {
+                v.sort_unstable();
+                v.dedup();
+            }
             gates.sort_unstable();
             gates.dedup();
-            // Truncate here rather than after expansion: a cut set only grows,
-            // so one already over the limit can never come back under it.
-            if events.len() > limit_order {
+
+            // A set requiring an event both to occur and not to occur is the
+            // empty function: it is no implicant at all, and dropping it here
+            // is what keeps the deletion above from inventing a cut set.
+            if positive.iter().any(|e| negative.binary_search(e).is_ok()) {
                 continue;
             }
-            let next: Partial = (events, gates);
+            // Truncate here rather than after expansion: the positive literals
+            // only grow, and they alone decide the final order, so a partial
+            // set already over the limit can never come back under it.
+            if positive.len() > limit_order {
+                continue;
+            }
+
+            let next: Partial = (positive, negative, gates);
             if seen.insert(next.clone()) {
                 if seen.len() > EXPANSION_LIMIT {
                     return Err(RafflesError::InvalidParameter {
@@ -217,6 +207,59 @@ pub fn minimal_cut_sets(tree: &FaultTree, limit_order: usize) -> Result<Vec<CutS
     }
 
     Ok(minimize(complete))
+}
+
+/// The alternative ways a gate can be satisfied, under the sign it was reached
+/// with.
+///
+/// Each branch is a conjunction: every `(arg, negated)` in it must hold. The
+/// branches themselves are alternatives. A negated gate is expanded through
+/// its De Morgan dual rather than by building an explicit negation-normal
+/// form first, which is what upstream's preprocessor does instead.
+///
+/// The negated `atleast` is the one worth spelling out: *not* (at least `k` of
+/// `n`) is *at most* `k - 1` of them, which is *at least* `n - k + 1` of their
+/// complements. That is why the negated case takes combinations of size
+/// `n - min + 1` rather than `min`.
+fn branches(gate: &Gate, negated: bool) -> Vec<Vec<(Arg, bool)>> {
+    let args = gate.args();
+    // All arguments, each carrying `sign`, as a single conjunctive branch.
+    let all = |sign: bool| vec![args.iter().map(|a| (*a, sign)).collect::<Vec<_>>()];
+    // One branch per argument, each carrying `sign`.
+    let each = |sign: bool| args.iter().map(|a| vec![(*a, sign)]).collect::<Vec<_>>();
+    // One branch per `k`-combination, every member carrying `sign`.
+    let choose = |k: usize, sign: bool| {
+        combinations(args, k)
+            .into_iter()
+            .map(|c| c.into_iter().map(|a| (a, sign)).collect())
+            .collect::<Vec<Vec<_>>>()
+    };
+
+    match (gate.connective(), negated) {
+        // AND: everything, or -- negated, by De Morgan -- any one negated.
+        (Connective::And, false) | (Connective::Nand, true) => all(false),
+        (Connective::And, true) | (Connective::Nand, false) => each(true),
+        // OR: any one, or -- negated -- everything negated.
+        (Connective::Or, false) | (Connective::Nor, true) => each(false),
+        (Connective::Or, true) | (Connective::Nor, false) => all(true),
+        // NULL is a pass-through, so it is AND over its single argument.
+        (Connective::Null, sign) => all(sign),
+        // NOT flips whatever sign it was reached with.
+        (Connective::Not, sign) => all(!sign),
+        // At least `min` of `n`; negated, at least `n - min + 1` complements.
+        (Connective::Atleast { min }, false) => choose(min, false),
+        (Connective::Atleast { min }, true) => choose(args.len() - min + 1, true),
+        // XOR(a, b) is `a and not b` or `not a and b`; its negation is IFF,
+        // `both` or `neither`. Arity is fixed at two by `FaultTreeBuilder`.
+        (Connective::Xor, false) => vec![
+            vec![(args[0], false), (args[1], true)],
+            vec![(args[0], true), (args[1], false)],
+        ],
+        (Connective::Xor, true) => vec![
+            vec![(args[0], false), (args[1], false)],
+            vec![(args[0], true), (args[1], true)],
+        ],
+    }
 }
 
 /// Every `k`-subset of `args`, preserving the declared order within each.

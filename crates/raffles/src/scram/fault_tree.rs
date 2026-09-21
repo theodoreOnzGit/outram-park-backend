@@ -106,8 +106,12 @@ impl Connective {
     /// Whether this connective is **coherent** — monotone, so that a basic
     /// event occurring can never make the top event less likely.
     ///
-    /// Non-coherent trees need complement elimination, which is not ported;
-    /// [`super::mocus::minimal_cut_sets`] refuses them.
+    /// [`super::mocus::minimal_cut_sets`] handles both, but the answers mean
+    /// different things: the minimal cut sets of a **non-coherent** tree are
+    /// conservative, because deleting the complemented literals discards the
+    /// requirement that some component be *working*. Quantifying them gives an
+    /// upper bound on the top-event probability rather than the probability.
+    /// [`FaultTree::is_coherent`] is how a caller finds out which case it has.
     pub fn is_coherent(&self) -> bool {
         matches!(
             self,

@@ -62,12 +62,19 @@
 //! A caller who already has cut sets from elsewhere can skip straight to
 //! step 3; [`CutSet`] does not care where they came from.
 //!
+//! **Non-coherent trees are handled, and their answers mean something
+//! different.** Where a `not`, `nand`, `nor` or `xor` appears, a component
+//! *working* can contribute to the top event, and the minimal cut sets are
+//! **conservative**: quantifying them bounds the top-event probability from
+//! above rather than computing it. That is a property of the definition, not
+//! of this implementation — see [`mocus`].
+//!
 //! **What is still absent:** everything SCRAM does around this core — XML
 //! input models, event trees, alignments, common-cause-failure groups,
 //! substitutions and the expression library — plus, in the analysis itself,
-//! the BDD and ZBDD algorithms, the preprocessor, and complement elimination.
-//! That last one is why [`mocus`] refuses a **non-coherent** tree rather than
-//! answering it approximately.
+//! the BDD and ZBDD algorithms, the preprocessor, and prime implicants
+//! (upstream's `--prime-implicants`, which is what recovers the exact function
+//! a non-coherent tree describes).
 //!
 //! ## Where this sits relative to the rest of the crate
 //!

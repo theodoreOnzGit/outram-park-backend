@@ -30,7 +30,8 @@ comments of the tests themselves.
 Two carry less than their names suggest and say so in their own docs:
 [`surrogate`] has polynomial regression and a `burn`-backed neural
 regressor but no Gaussian process and no polynomial chaos, and [`scram`]
-handles **coherent** fault trees only.
+generates cut sets by the classical MOCUS expansion rather than the BDD
+methods that make a full-size PRA model tractable.
 
 **None of it has been through human V&V.** Everything here is AI-assisted
 draft material under the workspace `RESPONSIBLE_USE.md` rules until the
@@ -64,7 +65,8 @@ reasoning about the spread of their answers:
   posterior sample and the evidence.
 - **[`scram`]** — fault trees: build one, generate its minimal cut sets,
   quantify the top-event probability, and rank the basic events by the
-  five standard importance measures. Coherent trees only.
+  five standard importance measures. Coherent and non-coherent, though a
+  non-coherent tree's cut sets are conservative by definition.
 - **[`gnn`]** — graph neural networks for physics: message-passing
   topology, the physics-guided bound on message-passing iterations, and
   (behind the `burn` feature) the network itself.
@@ -9484,12 +9486,19 @@ products rather than translated from its code — see that module.
 A caller who already has cut sets from elsewhere can skip straight to
 step 3; [`CutSet`] does not care where they came from.
 
+**Non-coherent trees are handled, and their answers mean something
+different.** Where a `not`, `nand`, `nor` or `xor` appears, a component
+*working* can contribute to the top event, and the minimal cut sets are
+**conservative**: quantifying them bounds the top-event probability from
+above rather than computing it. That is a property of the definition, not
+of this implementation — see [`mocus`].
+
 **What is still absent:** everything SCRAM does around this core — XML
 input models, event trees, alignments, common-cause-failure groups,
 substitutions and the expression library — plus, in the analysis itself,
-the BDD and ZBDD algorithms, the preprocessor, and complement elimination.
-That last one is why [`mocus`] refuses a **non-coherent** tree rather than
-answering it approximately.
+the BDD and ZBDD algorithms, the preprocessor, and prime implicants
+(upstream's `--prime-implicants`, which is what recovers the exact function
+a non-coherent tree describes).
 
 ## Where this sits relative to the rest of the crate
 
@@ -10790,12 +10799,22 @@ precisely because the two algorithms are unrelated — see
 
 # What it does and does not handle
 
-**Coherent trees only.** [`Connective::And`], [`Connective::Or`],
-[`Connective::Atleast`] and [`Connective::Null`] are expanded; the four
-negating connectives are refused with an error naming complement
-elimination, which is the part of upstream that is missing. A refusal is
-the honest answer here: a non-coherent tree analysed as if it were coherent
-yields cut sets that are wrong rather than approximate.
+**All eight connectives**, coherent and not. A negated gate is expanded
+through its De Morgan dual, so complemented literals appear during
+expansion; a partial set containing both a literal and its complement is
+impossible and is dropped. At the end the negative literals are deleted and
+the result minimised by absorption — which is what upstream does too, in
+ZBDD form: `Zbdd::EliminateComplement` OR-merges the two branches of a
+negative-index node (deleting the literal) and `Zbdd::Minimize` absorbs.
+
+**Minimal cut sets of a non-coherent tree are CONSERVATIVE**, and that is a
+property of the definition, not of this implementation. Deleting negative
+literals discards the information that some failure combinations require a
+component to be *working*, so the cut sets describe a function that is
+everywhere at least as large as the real one. Quantifying them gives an
+**upper bound** on the top-event probability, not the probability. Use
+prime implicants if you need the exact function — upstream has them behind
+`--prime-implicants`, and they are not ported.
 
 **It is exponential in the worst case**, which is why Rauzy's paper exists.
 [`minimal_cut_sets`] takes an order limit for that reason, and it is the
@@ -10840,9 +10859,8 @@ member index, so two runs on the same tree compare equal.
 
 # Errors
 
-- [`RafflesError::InvalidParameter`] if the tree contains a non-coherent
-  connective (complement elimination is not ported), if `limit_order` is
-  zero, or if the expansion exceeds [`EXPANSION_LIMIT`].
+- [`RafflesError::InvalidParameter`] if `limit_order` is zero, or if the
+  expansion exceeds [`EXPANSION_LIMIT`] intermediate states.
 
 # Example
 

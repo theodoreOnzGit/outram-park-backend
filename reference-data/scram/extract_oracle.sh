@@ -20,9 +20,18 @@ attr() { sed -n "s/.*$2=\"\([^\"]*\)\".*/\1/p" <<< "$1"; }
 
 for input in "$@"; do
   name=$(basename "$(dirname "$input")")/$(basename "$input" .xml)
-  rpt=$("$SCRAM" --probability --importance "$input" 2>/dev/null) || continue
-  [ -z "$rpt" ] && continue
-  grep -q "<product " <<< "$rpt" || continue
+  # A model that fails to run, or runs and yields nothing, must SAY so. An
+  # earlier revision swallowed both silently, and a model with an XML defect
+  # simply vanished from the fixture without a word.
+  if ! rpt=$("$SCRAM" --probability --importance "$input" 2>&1) || [ -z "$rpt" ]; then
+    echo "skipping $name: scram failed --" >&2
+    echo "$rpt" | head -5 >&2
+    continue
+  fi
+  if ! grep -q "<product " <<< "$rpt"; then
+    echo "skipping $name: scram produced no products" >&2
+    continue
+  fi
 
   # A model defining several fault trees produces one <sum-of-products> per
   # tree, and this format has nowhere to say which product belongs to which.

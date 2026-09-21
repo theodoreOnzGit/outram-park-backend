@@ -215,10 +215,16 @@ file comes from before writing its attribution header.
        through Initializer/Model/Formula; this is a plain indexed structure a
        caller builds in Rust, since input parsing is out of RAFFLES' scope.
 
-   STILL ABSENT: BDD, ZBDD, the preprocessor, complement elimination (so
-   NON-COHERENT trees are refused, not approximated), XML input handling,
-   event trees, alignments, CCF groups, substitutions, house events, and the
-   expression library.
+   STILL ABSENT: BDD, ZBDD, the preprocessor, prime implicants (upstream's
+   --prime-implicants), XML input handling, event trees, alignments, CCF
+   groups, substitutions, house events, and the expression library.
+
+   NON-COHERENT trees ARE handled: negated gates expand through their De
+   Morgan duals, contradictory partial sets are dropped, and the complements
+   are deleted and the result re-minimised -- which is what upstream's
+   Zbdd::EliminateComplement plus Zbdd::Minimize do. Their minimal cut sets
+   are conservative by definition, so quantifying them bounds the top-event
+   probability from above rather than computing it.
 
    NOT absent, despite appearances: upstream's product probability cut-off.
    SCRAM 0.16.2 stores and validates `Settings::cut_off_` but never reads it

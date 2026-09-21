@@ -117,3 +117,301 @@ GATE g16 or - b:e20 b:e19 b:e21
 GATE g7 or - b:e12 b:e13
 TOP r1
 END
+MODEL models-for-this-port/noncoherent_small
+GATE top or - g:g1 g:g2
+GATE g1 and - b:a g:not_b
+GATE not_b not - b:b
+GATE g2 xor - b:c b:d
+TOP top
+END
+MODEL Aralia/das9601
+GATE r1 and - g:g161 g:g145
+GATE g145 and - g:g146 g:g147
+GATE g147 or - g:g151 g:g150
+GATE g150 and - g:g152 g:g265
+GATE g265 or - g:g273 g:g272
+GATE g272 and - g:g39 g:g68 g:g69
+GATE g273 and - g:g246 g:g74 g:g73
+GATE g246 or - g:g40 g:g67
+GATE g151 and - g:g153 g:g264
+GATE g264 or - g:g275 g:g274
+GATE g274 and - g:g78 g:g79 g:g260
+GATE g275 and - g:g73 g:g247 g:g74 g:g260
+GATE g260 or - b:e16 g:g258 g:g254
+GATE g254 and - g:g72 g:g67
+GATE g67 xor - g:g69 g:g68
+GATE g68 or - b:e28 g:g70
+GATE g70 atleast 2 g:g133 g:g134 g:g135
+GATE g69 or - b:e29 g:g71
+GATE g71 atleast 2 g:g133 g:g134 g:g135
+GATE g72 xor - g:g73 g:g74
+GATE g74 or - b:e31 g:g76
+GATE g76 atleast 2 g:g127 g:g128 g:g129
+GATE g247 or - g:g77 g:g42
+GATE g77 xor - g:g78 g:g79
+GATE g79 or - b:e33 g:g81
+GATE g81 atleast 2 g:g139 g:g140 g:g141
+GATE g78 or - b:e32 g:g80
+GATE g80 atleast 2 g:g139 g:g140 g:g141
+GATE g73 or - b:e30 g:g75
+GATE g75 atleast 2 g:g127 g:g128 g:g129
+GATE g146 or - g:g149 g:g148
+GATE g148 and - g:g267 g:g152
+GATE g267 or - g:g277 g:g276
+GATE g276 and - g:g39 g:g83 g:g84
+GATE g39 not - g:g40
+GATE g277 and - g:g88 g:g248 g:g89
+GATE g248 or - g:g82 g:g40
+GATE g149 and - g:g153 g:g266
+GATE g266 or - g:g279 g:g278
+GATE g278 and - g:g94 g:g93 g:g261
+GATE g279 and - g:g88 g:g249 g:g89 g:g261
+GATE g261 or - b:e16 g:g258 g:g255
+GATE g255 and - g:g82 g:g87
+GATE g87 xor - g:g88 g:g89
+GATE g82 xor - g:g84 g:g83
+GATE g83 or - b:e34 g:g85
+GATE g85 atleast 2 g:g133 g:g134 g:g135
+GATE g84 or - b:e35 g:g86
+GATE g86 atleast 2 g:g133 g:g134 g:g135
+GATE g258 and - g:g3 g:g40
+GATE g89 or - b:e37 g:g91
+GATE g91 atleast 2 g:g127 g:g128 g:g129
+GATE g249 or - g:g92 g:g42
+GATE g92 xor - g:g94 g:g93
+GATE g93 or - b:e38 g:g95
+GATE g95 atleast 2 g:g139 g:g140 g:g141
+GATE g94 or - b:e39 g:g96
+GATE g96 atleast 2 g:g139 g:g140 g:g141
+GATE g88 or - b:e36 g:g90
+GATE g90 atleast 2 g:g127 g:g128 g:g129
+GATE g161 not - g:g154
+GATE g154 and - g:g155 g:g156
+GATE g156 or - g:g159 g:g160
+GATE g160 and - g:g152 g:g268
+GATE g268 or - g:g283 g:g282
+GATE g282 and - g:g109 g:g108 g:g262
+GATE g283 and - g:g103 g:g251 g:g104 g:g262
+GATE g262 or - b:e18 g:g259 g:g256
+GATE g256 and - g:g102 g:g97
+GATE g102 xor - g:g103 g:g104
+GATE g251 or - g:g40 g:g107
+GATE g107 xor - g:g109 g:g108
+GATE g108 or - b:e44 g:g110
+GATE g110 atleast 2 g:g133 g:g134 g:g135
+GATE g109 or - b:e45 g:g111
+GATE g111 atleast 2 g:g133 g:g134 g:g135
+GATE g159 and - g:g153 g:g269
+GATE g269 or - g:g280 g:g281
+GATE g281 and - g:g103 g:g250 g:g104
+GATE g104 or - b:e43 g:g106
+GATE g106 atleast 2 g:g127 g:g128 g:g129
+GATE g250 or - g:g42 g:g97
+GATE g97 xor - g:g98 g:g99
+GATE g103 or - b:e42 g:g105
+GATE g105 atleast 2 g:g127 g:g128 g:g129
+GATE g280 and - g:g41 g:g99 g:g98
+GATE g98 or - b:e40 g:g100
+GATE g100 atleast 2 g:g139 g:g140 g:g141
+GATE g99 or - b:e41 g:g101
+GATE g101 atleast 2 g:g139 g:g140 g:g141
+GATE g155 or - g:g157 g:g158
+GATE g158 and - g:g152 g:g270
+GATE g270 or - g:g287 g:g286
+GATE g286 and - g:g123 g:g124 g:g263
+GATE g287 and - g:g119 g:g253 g:g118 g:g263
+GATE g263 or - b:e18 g:g259 g:g257
+GATE g257 and - g:g112 g:g117
+GATE g117 xor - g:g119 g:g118
+GATE g259 and - g:g42 g:g3
+GATE g253 or - g:g40 g:g122
+GATE g122 xor - g:g123 g:g124
+GATE g124 or - b:e51 g:g126
+GATE g126 atleast 2 g:g133 g:g134 g:g135
+GATE g123 or - b:e50 g:g125
+GATE g125 atleast 2 g:g133 g:g134 g:g135
+GATE g135 or - b:e57 g:g138
+GATE g138 or - b:e62 g:g163
+GATE g163 or - g:g59 g:g190 g:g206 g:g205
+GATE g205 atleast 2 g:g207 g:g209 g:g208
+GATE g206 and - g:g210 g:g211
+GATE g211 or - b:e95 b:e96
+GATE g210 or - b:e77 b:e78
+GATE g190 and - g:g181 g:g172
+GATE g172 or - b:e70 b:e72
+GATE g181 or - b:e74 b:e11
+GATE g59 and - g:g14 g:g56
+GATE g14 not - g:g15
+GATE g15 or - g:g17 g:g3 g:g16
+GATE g16 or - b:e2 b:e9
+GATE g17 or - b:e8 g:g38
+GATE g134 or - b:e56 g:g137
+GATE g137 or - b:e65 g:g166
+GATE g166 or - g:g224 g:g62 g:g193 g:g223
+GATE g223 atleast 2 g:g207 g:g209 g:g208
+GATE g193 and - g:g175 g:g184
+GATE g184 or - b:e74 b:e11
+GATE g175 or - b:e70 b:e72
+GATE g62 and - g:g18 g:g56
+GATE g18 not - g:g19
+GATE g19 or - g:g21 g:g3 g:g20
+GATE g20 or - b:e2 b:e9
+GATE g21 or - b:e10 g:g38
+GATE g224 and - g:g225 g:g226
+GATE g226 or - b:e102 b:e101
+GATE g225 or - b:e84 b:e83
+GATE g133 or - b:e55 g:g136
+GATE g136 or - b:e68 g:g169
+GATE g169 or - g:g65 g:g196 g:g235 g:g236
+GATE g236 and - g:g237 g:g238
+GATE g238 or - b:e108 b:e107
+GATE g237 or - b:e90 b:e89
+GATE g235 atleast 2 g:g207 g:g209 g:g208
+GATE g208 or - b:e121 g:g245
+GATE g209 or - b:e115 g:g243
+GATE g207 or - b:e118 g:g244
+GATE g196 and - g:g187 g:g178
+GATE g178 or - b:e70 b:e72
+GATE g187 or - b:e74 b:e11
+GATE g65 and - g:g22 g:g56
+GATE g56 atleast 2 g:g45 g:g49 g:g53
+GATE g53 or - b:e20 b:e23 b:e26 g:g52
+GATE g49 or - b:e22 b:e10 b:e20 g:g48
+GATE g45 or - b:e20 b:e21 b:e8 g:g44
+GATE g22 not - g:g23
+GATE g23 or - g:g24 g:g3 g:g25
+GATE g25 or - b:e2 b:e9
+GATE g24 or - b:e11 g:g38
+GATE g40 or - b:e16 b:e17
+GATE g152 not - b:e16
+GATE g157 and - g:g153 g:g271
+GATE g271 or - g:g284 g:g285
+GATE g285 and - g:g119 g:g252 g:g118
+GATE g118 or - b:e48 g:g120
+GATE g120 atleast 2 g:g127 g:g128 g:g129
+GATE g252 or - g:g112 g:g42
+GATE g112 xor - g:g113 g:g114
+GATE g119 or - b:e49 g:g121
+GATE g121 atleast 2 g:g127 g:g128 g:g129
+GATE g129 or - b:e54 g:g132
+GATE g132 or - b:e61 g:g162
+GATE g162 or - g:g58 g:g189 g:g199 g:g198
+GATE g198 atleast 2 g:g202 g:g200 g:g201
+GATE g199 and - g:g204 g:g203
+GATE g203 or - b:e76 b:e75
+GATE g204 or - b:e94 b:e93
+GATE g189 and - g:g180 g:g171
+GATE g171 or - b:e70 b:e71
+GATE g180 or - b:e7 b:e74
+GATE g58 and - g:g55 g:g1
+GATE g1 not - g:g2
+GATE g2 or - g:g4 g:g3 g:g5
+GATE g5 or - b:e1 g:g38
+GATE g4 or - b:e2 b:e3
+GATE g128 or - b:e53 g:g131
+GATE g131 or - b:e64 g:g165
+GATE g165 or - g:g220 g:g192 g:g219 g:g61
+GATE g61 and - g:g6 g:g55
+GATE g6 not - g:g7
+GATE g7 or - g:g8 g:g3 g:g9
+GATE g9 or - b:e6 g:g38
+GATE g8 or - b:e2 b:e3
+GATE g219 atleast 2 g:g202 g:g200 g:g201
+GATE g192 and - g:g183 g:g174
+GATE g174 or - b:e70 b:e71
+GATE g183 or - b:e7 b:e74
+GATE g220 and - g:g221 g:g222
+GATE g222 or - b:e100 b:e99
+GATE g221 or - b:e82 b:e81
+GATE g127 or - b:e52 g:g130
+GATE g130 or - b:e67 g:g168
+GATE g168 or - g:g64 g:g232 g:g195 g:g231
+GATE g231 atleast 2 g:g202 g:g200 g:g201
+GATE g201 or - b:e120 g:g245
+GATE g200 or - b:e117 g:g244
+GATE g202 or - b:e114 g:g243
+GATE g195 and - g:g186 g:g177
+GATE g177 or - b:e70 b:e71
+GATE g186 or - b:e7 b:e74
+GATE g232 and - g:g233 g:g234
+GATE g234 or - b:e105 b:e106
+GATE g233 or - b:e87 b:e88
+GATE g64 and - g:g10 g:g55
+GATE g55 atleast 2 g:g47 g:g51 g:g43
+GATE g43 or - b:e20 b:e21 b:e1 g:g44
+GATE g51 or - b:e20 b:e23 b:e24 g:g52
+GATE g47 or - b:e22 b:e6 b:e20 g:g48
+GATE g10 not - g:g11
+GATE g11 or - g:g13 g:g3 g:g12
+GATE g12 or - b:e7 g:g38
+GATE g13 or - b:e2 b:e3
+GATE g284 and - g:g41 g:g114 g:g113
+GATE g113 or - b:e46 g:g115
+GATE g115 atleast 2 g:g139 g:g140 g:g141
+GATE g114 or - b:e47 g:g116
+GATE g116 atleast 2 g:g139 g:g140 g:g141
+GATE g141 or - b:e60 g:g144
+GATE g144 or - b:e63 g:g164
+GATE g164 or - g:g212 g:g191 g:g213 g:g60
+GATE g60 and - g:g57 g:g26
+GATE g26 not - g:g27
+GATE g27 or - g:g28 g:g3 g:g29
+GATE g29 or - b:e12 g:g38
+GATE g28 or - b:e13 b:e2
+GATE g213 and - g:g218 g:g217
+GATE g217 or - b:e80 b:e79
+GATE g218 or - b:e98 b:e97
+GATE g191 and - g:g173 g:g182
+GATE g182 or - b:e15 b:e74
+GATE g173 or - b:e73 b:e70
+GATE g212 atleast 2 g:g216 g:g214 g:g215
+GATE g140 or - b:e59 g:g143
+GATE g143 or - b:e66 g:g167
+GATE g167 or - g:g228 g:g194 g:g227 g:g63
+GATE g63 and - g:g57 g:g30
+GATE g30 not - g:g31
+GATE g31 or - g:g32 g:g3 g:g33
+GATE g33 or - b:e14 g:g38
+GATE g32 or - b:e13 b:e2
+GATE g227 atleast 2 g:g216 g:g214 g:g215
+GATE g194 and - g:g185 g:g176
+GATE g176 or - b:e73 b:e70
+GATE g185 or - b:e15 b:e74
+GATE g228 and - g:g229 g:g230
+GATE g230 or - b:e103 b:e104
+GATE g229 or - b:e85 b:e86
+GATE g139 or - b:e58 g:g142
+GATE g142 or - b:e69 g:g170
+GATE g170 or - g:g66 g:g239 g:g197 g:g240
+GATE g240 atleast 2 g:g216 g:g214 g:g215
+GATE g215 or - b:e122 g:g245
+GATE g245 or - b:e4 b:e25 b:e113
+GATE g214 or - b:e119 g:g244
+GATE g244 or - b:e18 b:e19 b:e112
+GATE g216 or - b:e116 g:g243
+GATE g243 or - b:e16 b:e17 b:e111
+GATE g197 and - g:g188 g:g179
+GATE g179 or - b:e73 b:e70
+GATE g188 or - b:e15 b:e74
+GATE g239 and - g:g241 g:g242
+GATE g242 or - b:e110 b:e109
+GATE g241 or - b:e92 b:e91
+GATE g66 and - g:g57 g:g34
+GATE g34 not - g:g35
+GATE g35 or - g:g36 g:g3 g:g37
+GATE g37 or - b:e13 b:e2
+GATE g3 or - b:e4 b:e5
+GATE g36 or - b:e15 g:g38
+GATE g38 or - b:e4 b:e5
+GATE g57 atleast 2 g:g50 g:g46 g:g54
+GATE g54 or - b:e20 b:e23 b:e27 g:g52
+GATE g52 or - b:e4 b:e25
+GATE g46 or - b:e20 b:e21 b:e12 g:g44
+GATE g44 or - b:e16 b:e17
+GATE g50 or - b:e22 b:e14 b:e20 g:g48
+GATE g48 or - b:e18 b:e19
+GATE g41 not - g:g42
+GATE g42 or - b:e18 b:e19
+GATE g153 not - b:e18
+TOP r1
+END

@@ -111,9 +111,19 @@ that they are *independent* of upstream: two unrelated algorithms agreeing is
 evidence, a translation agreeing with its original is much weaker. That is the
 same rule the paper-derived Bayesian modules follow.
 
-Absent: BDD, ZBDD, the preprocessor, complement elimination (so **non-coherent
-trees are refused, not approximated**), XML input, event trees, alignments,
-CCF groups, house events.
+Absent: BDD, ZBDD, the preprocessor, prime implicants, XML input, event trees,
+alignments, CCF groups, house events.
+
+~~complement elimination (so **non-coherent trees are refused, not
+approximated**)~~ **CORRECTED 2026-09-21** — complement elimination landed the
+same day. `mocus` now expands negated gates through their De Morgan duals,
+drops contradictory partial sets, deletes the complements and re-minimises,
+matching what upstream's `Zbdd::EliminateComplement` does. **The answers mean
+something different, though**: minimal cut sets of a non-coherent tree are
+conservative, so quantifying them is an upper bound, not the probability.
+Measured on the fixture's small non-coherent model, ours is `0.622` against
+SCRAM's exact BDD value of `0.5032` — `+23.6 %`, and correct. Do not "fix"
+that gap.
 
 ~~upstream's probability cut-off on products~~ **CORRECTED 2026-09-21** — that
 was listed as absent, wrongly. SCRAM 0.16.2 stores and validates

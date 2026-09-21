@@ -236,6 +236,10 @@ fn build(spec: &ModelSpec, oracle: &Oracle) -> Option<(FaultTreeModel, Vec<usize
             "and" => Connective::And,
             "or" => Connective::Or,
             "null" => Connective::Null,
+            "not" => Connective::Not,
+            "nand" => Connective::Nand,
+            "nor" => Connective::Nor,
+            "xor" => Connective::Xor,
             "atleast" => Connective::Atleast {
                 min: min.expect("atleast carries its min"),
             },
@@ -569,11 +573,13 @@ fn evaluate(model: &FaultTreeModel, true_events: &[usize]) -> bool {
             Arg::Gate(sub) => eval(model, *sub, on),
         };
         match g.connective() {
-            Connective::And => g.args().iter().all(value),
+            Connective::And | Connective::Null => g.args().iter().all(value),
             Connective::Or => g.args().iter().any(value),
-            Connective::Null => g.args().iter().all(value),
             Connective::Atleast { min } => g.args().iter().filter(|a| value(a)).count() >= min,
-            other => panic!("evaluator does not handle `{}`", other.as_str()),
+            Connective::Not => !value(&g.args()[0]),
+            Connective::Nand => !g.args().iter().all(value),
+            Connective::Nor => !g.args().iter().any(value),
+            Connective::Xor => value(&g.args()[0]) != value(&g.args()[1]),
         }
     }
     eval(model, model.tree().top(), true_events)
@@ -587,17 +593,21 @@ fn evaluate(model: &FaultTreeModel, true_events: &[usize]) -> bool {
 /// **Result** (2026-09-21): all refused.
 #[test]
 fn the_unported_and_the_malformed_are_refused_not_guessed() {
-    // Non-coherent: NOT is representable so that it can be refused clearly.
+    // A tree that is nothing but a complement has no cut set at all: `NOT A`
+    // is caused by A *not* occurring, and deleting the negative literal leaves
+    // the empty set, which is not a cut set. Accepted and answered with an
+    // empty list rather than refused — the refusal this test used to assert
+    // was removed when complement elimination landed.
     let mut b = FaultTreeBuilder::new();
     b.basic_event("A", 0.1).unwrap();
     b.gate("Top", Connective::Not, &["A"]).unwrap();
     let model = b.build("Top").unwrap();
     assert!(!model.tree().is_coherent());
-    let err = minimal_cut_sets(model.tree(), DEFAULT_LIMIT_ORDER).unwrap_err();
-    let message = err.to_string();
     assert!(
-        message.contains("non-coherent") && message.contains("Complement elimination"),
-        "the refusal should name what is missing, got: {message}"
+        minimal_cut_sets(model.tree(), DEFAULT_LIMIT_ORDER)
+            .unwrap()
+            .is_empty(),
+        "a tree whose only content is a complement has no minimal cut set"
     );
 
     // A zero order limit admits nothing at all.

@@ -45,8 +45,14 @@ much less.
 
 **Still absent.** XML input handling (explicitly out of RAFFLES' scope), event
 trees, alignments, CCF groups, substitutions, house events, the `expression`
-library, the BDD and ZBDD algorithms, the preprocessor, and complement
-elimination (so non-coherent trees are **refused**, not approximated).
+library, the BDD and ZBDD algorithms, the preprocessor, and prime implicants
+(upstream's `--prime-implicants`).
+
+~~and complement elimination (so non-coherent trees are **refused**, not
+approximated)~~ **CORRECTED 2026-09-21** — complement elimination landed the
+same day; see
+[Non-coherent trees](#non-coherent-trees--handled-conservatively-and-verified)
+below.
 
 ~~and upstream's probability cut-off on products (`Settings::cut_off_`,
 default `1e-8` — this port truncates by cut-set order only)~~ **CORRECTED
@@ -162,6 +168,9 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | Importance from SCRAM's own cut sets | `scram_oracle_suite::every_importance_factor_matches_scram` | **58 basic events x 5 factors** |
 | Minimality, independent of SCRAM | `scram_mocus_oracle::generated_cut_sets_are_minimal_by_construction_not_by_luck` | 438 cut sets, 2,580 tree evaluations |
 | Order truncation | `scram_mocus_oracle::truncating_by_order_drops_exactly_the_long_cut_sets` | 20 (model, limit) cases |
+| **Non-coherent** cut sets vs SCRAM's | `scram_noncoherent::generated_cut_sets_of_a_non_coherent_tree_match_scram` | exact set equality |
+| **Non-coherent** conservatism, measured | `scram_noncoherent::our_exact_value_exceeds_scrams_because_cut_sets_are_conservative` | **+23.6 %**, and necessarily above |
+| Quantification at scale | `scram_noncoherent::quantifying_4259_cut_sets_matches_scram` | **4,259 cut sets, 108 basic events** |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -273,6 +282,72 @@ written in the test file rather than taken from the library:
 All four hold for all 438. Check 1 is `O(n^2)` in the cut-set count, so
 `Aralia/chinese` alone contributes about 153,000 subset comparisons.
 
+### Non-coherent trees — handled, conservatively, and verified
+
+A tree is **non-coherent** when a `not`, `nand`, `nor` or `xor` appears in its
+logic, so a component *working* can contribute to the top event. `scram::mocus`
+expands a negated gate through its De Morgan dual, drops any partial set
+requiring an event both to occur and not to, then deletes the complements and
+re-minimises — which is what upstream does in ZBDD form:
+`Zbdd::EliminateComplement` OR-merges the two branches of a negative-index node
+(deleting the literal) and `Zbdd::Minimize` absorbs.
+
+**Upstream has no small non-coherent model, so one was written.** Of its seven
+inputs containing a negating connective, four produce no products, two are
+event-tree or alignment models this port does not handle, and the only usable
+one is `Aralia/das9601` at 288 gates and 4,259 products — from which a
+disagreement could not be diagnosed. The small model is committed at
+`reference-data/scram/models-for-this-port/noncoherent_small.xml` with its
+reasoning in an XML comment. **SCRAM remains the oracle**: only the question is
+ours.
+
+It is `a AND NOT b`, OR'd with `c XOR d` — small enough to check by eye. The
+first branch gives the implicant `{a+, b-}`; the `xor` gives `{c+, d-}` and
+`{c-, d+}`. Deleting the complements and absorbing leaves `{a}`, `{c}`, `{d}`,
+which is exactly what SCRAM reports.
+
+#### The conservatism is real, measured, and must not be "fixed"
+
+For a non-coherent tree, SCRAM's reported probability with no approximation
+flag is the **true function's**, from its BDD. This port has no BDD, and its
+`Approximation::Exact` is inclusion-exclusion over the *minimal cut sets* —
+which describe a strictly larger function, because deleting the negative
+literals throws away the requirement that a component be working.
+
+| quantity | RAFFLES | SCRAM | |
+|---|---|---|---|
+| rare-event | 0.800000 | 0.800000 | agree — both sum the same 3 cut sets |
+| MCUB | 0.622000 | 0.622000 | agree — both combine the same 3 cut sets |
+| "exact" | **0.622000** | **0.503200** | **differ, necessarily: +23.6 %** |
+
+The two approximations are computed *from the cut sets* by both codes, so they
+must agree; the exact value is not, and must not. The test asserts ours is
+strictly **above** SCRAM's — a run where it was not would mean the elimination
+had lost something — and pins the gap to the measured 23.6 %.
+
+The same shows up on a real model: `das9601`'s rare-event figure is 11 % above
+its own exact BDD value.
+
+#### `das9601` is beyond this algorithm, and it says so
+
+288 gates carrying 12 `xor`s, each of which doubles the branch count, is the
+case Rauzy's 1993 paper was written about and the reason upstream uses a ZBDD.
+This port's top-down expansion **exceeds its 5,000,000-state ceiling** on it —
+at the default order limit of 20 after **28.9 s**, and again at order limit 9
+(SCRAM's own highest product order for this model, hence the tightest limit
+that could still reproduce its answer) after a further **26.3 s**.
+
+Both return the named expansion-limit error rather than hanging, being killed,
+or returning a wrong answer, and that is what
+`scram_noncoherent::das9601_is_beyond_this_algorithm_and_says_so` asserts. It
+is `#[ignore]`d — 57 s to demonstrate a negative, against about 1 s for the
+rest of the SCRAM suite — and run with `-- --ignored`.
+
+`das9601` stays in the fixture regardless, because its **4,259 cut sets over
+108 basic events** exercise the quantification layer at a scale nothing else
+here reaches: rare-event `0.004783225` against SCRAM's `0.004783220`, MCUB
+`0.004772037` against `0.004772040`.
+
 ### One deliberate divergence: RRW at the singularity
 
 `Theatre/theatre`, `Mains_Fail`: MIF, CIF, DIF and RAW all match SCRAM
@@ -362,9 +437,15 @@ third-party project was not part of this task.
   of the nine; `Aralia/chinese` and `ThreeMotor` are rare-event and MCUB only.
   So the BDD-vs-inclusion-exclusion agreement — the single strongest
   quantification result here — rests on models of at most 12 cut sets.
-- **Only coherent trees.** Complement elimination is not ported, so a tree with
-  `not`, `nand`, `nor` or `xor` is refused. Nothing here says what this port
-  would do with one, because it will not attempt one.
+- **Non-coherent results are conservative, by definition.** Their minimal cut
+  sets bound the top-event probability from above; only prime implicants
+  (not ported) recover the exact function. Verified on one small written-here
+  model and one 4,259-product upstream model, the latter for quantification
+  only.
+- **`scram::mocus` does not scale to a real PRA model.** It is the classical
+  top-down expansion and is exponential; `Aralia/das9601` (288 gates, 12
+  `xor`) exhausts its 5,000,000-state ceiling at every order limit tried.
+  Anything of that size needs the BDD/ZBDD path, which is not ported.
 - **Order truncation is checked to order 6 and no further.** `Aralia/chinese`
   gives limits 1-5 that each cut inside the distribution of cut-set orders,
   which is where an over-eager prune would show; the other eight models bottom
