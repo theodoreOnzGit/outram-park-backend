@@ -58,9 +58,9 @@ pub struct TestReactorsTab {
     /// Whether to draw the internal labels.
     pub show_labels: bool,
 
-    /// Primary (helium) loop mass flow, kg/s. Drives all three coolant
-    /// passes. HTR-10 design value 4.32 kg/s (same sheet, section 6,
-    /// *Quoted*).
+    /// Primary (helium) loop mass flow, kg/s. Drives every coolant tracer (the
+    /// three passes and both duct streams). HTR-10 design value 4.32 kg/s
+    /// (same sheet, section 6, *Quoted*).
     pub primary_mass_flow_kg_per_s: f64,
     /// Residence time down the downcomer annulus, s. Display choice.
     pub downcomer_residence_s: f64,
@@ -70,11 +70,20 @@ pub struct TestReactorsTab {
     pub plenum_residence_s: f64,
     /// Residence time across the upper cold plenum, s. Display choice.
     pub cold_plenum_residence_s: f64,
+    /// Residence time along the coaxial duct's hot inner tube, s. Display
+    /// choice: the bores are cited but the duct length is not, so there is no
+    /// volume to derive it from.
+    pub hot_duct_residence_s: f64,
+    /// Residence time back along the coaxial duct's cold annulus, s. Display
+    /// choice, for the same reason.
+    pub cold_duct_residence_s: f64,
 
     downcomer: TracerTrain,
     riser: TracerTrain,
     plenum: TracerTrain,
     cold_plenum: TracerTrain,
+    hot_duct: TracerTrain,
+    cold_duct: TracerTrain,
 }
 
 impl Default for TestReactorsTab {
@@ -99,10 +108,14 @@ impl Default for TestReactorsTab {
             riser_residence_s: 3.0,
             plenum_residence_s: 1.5,
             cold_plenum_residence_s: 2.0,
+            hot_duct_residence_s: 1.5,
+            cold_duct_residence_s: 2.5,
             downcomer: TracerTrain::new(5),
             riser: TracerTrain::new(5),
             plenum: TracerTrain::new(3),
             cold_plenum: TracerTrain::new(3),
+            hot_duct: TracerTrain::new(4),
+            cold_duct: TracerTrain::new(4),
         }
     }
 }
@@ -130,6 +143,10 @@ impl TestReactorsTab {
             Time::new::<second>(self.cold_plenum_residence_s),
             primary,
         );
+        self.hot_duct
+            .advance(dt, Time::new::<second>(self.hot_duct_residence_s), primary);
+        self.cold_duct
+            .advance(dt, Time::new::<second>(self.cold_duct_residence_s), primary);
     }
 
     /// Build this frame's widget with the trains copied in.
@@ -158,7 +175,9 @@ impl TestReactorsTab {
         .with_downcomer_tracer(self.downcomer.clone())
         .with_riser_tracer(self.riser.clone())
         .with_plenum_tracer(self.plenum.clone())
-        .with_cold_plenum_tracer(self.cold_plenum.clone());
+        .with_cold_plenum_tracer(self.cold_plenum.clone())
+        .with_hot_duct_tracer(self.hot_duct.clone())
+        .with_cold_duct_tracer(self.cold_duct.clone());
         if self.show_labels {
             v
         } else {
@@ -277,9 +296,11 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
         egui::Slider::new(&mut state.cold_plenum_residence_s, 0.2..=20.0)
             .text("cold plenum"),
     );
+    ui.add(egui::Slider::new(&mut state.hot_duct_residence_s, 0.2..=20.0).text("duct, hot inner tube"));
+    ui.add(egui::Slider::new(&mut state.cold_duct_residence_s, 0.2..=20.0).text("duct, cold annulus"));
     ui.label(
         RichText::new(
-            "All four are DISPLAY CHOICES, not derived: the sheet gives no internal \
+            "All six are DISPLAY CHOICES, not derived: the sheet gives no internal \
              volumes for these passes, so there is nothing to divide a flow into. \
              Sliders rather than hardcoded constants, so that is visible.",
         )

@@ -92,12 +92,20 @@
 //!
 //! ## Animation
 //!
-//! Four optional tracer trains, all driven by the **primary** loop mass flow
+//! Six optional tracer trains, all driven by the **primary** loop mass flow
 //! and obeying the crate's "ANIMATION IS DERIVED FROM PHYSICS, NEVER
 //! HARDCODED" hard rule. Each pass's inlet end is geometry; the direction the
 //! marks then travel comes from the sign of the flow the caller advanced the
-//! train with, so a reversed or stalled loop reverses or freezes all four
-//! together.
+//! train with, so a reversed or stalled loop reverses or freezes all six
+//! together. (Four were added first; the two coaxial-duct trains, hot out
+//! through the inner tube and cold back through the annulus, were added on
+//! 2026-09-21.)
+//!
+//! **The coaxial duct is painted in front of the annulus.** The annulus run
+//! starts at the duct centreline, where the cold return enters, and painted
+//! after the duct it cut vertically through the middle of it (maintainer,
+//! 2026-09-21). The annulus and its marks are now painted first, then the duct
+//! and its own two trains over them.
 //!
 //! Two of them are worth calling out:
 //!
@@ -123,6 +131,20 @@
 //!   deliver up both sides and the gas converges on the axis before turning
 //!   down into the bed, so this is the one place in the vessel where flow
 //!   visibly meets itself.
+//!
+//! **The discharge tube continues as a defuelling chute**: straight down the
+//! tube, then an inverted-L leg to the left dipping 15 degrees below
+//! horizontal, then a thin exit tube one pebble wide down through the bottom
+//! head, left open: the opening to the outside. All of it is filled with
+//! pebbles drawn exactly like the bed's. Only the ~3.3 m tube is cited; the
+//! rest is a drawing choice (maintainer direction, 2026-09-21). See
+//! `defuelling_route`.
+//!
+//! **Pebbles are not to scale.** Every drawn pebble has one radius, a fixed
+//! fraction of the vessel width, which comes out roughly twice the real 6 cm
+//! pebble. There are also far fewer of them: a few hundred drawn against about
+//! 27 000 in the core. They show WHAT fills the bed, cone and chute, not how
+//! many pebbles there are or how big. The widget says so on screen.
 //!
 //! **The fuel discharge tube carries no tracer, deliberately.** Pebbles are
 //! not coolant: they cross the core over weeks on a 5-pass recirculation
@@ -273,6 +295,27 @@ pub const VESSEL_HEIGHT_CM: f32 = 1100.0;
 pub const HTR10_RPV_ASPECT_RATIO: f32 =
     2.0 * VESSEL_INNER_RADIUS_CM / VESSEL_HEIGHT_CM;
 
+/// Extra radius the DRAWN vessel is given beyond the real one, centimetres,
+/// to make room for the refuelling chute between the cold annulus and the
+/// wall on the left.
+///
+/// **A drawing choice** (maintainer direction, 2026-09-21: "make the vessel
+/// slightly fatter to accommodate this chute"). It does NOT change
+/// [`VESSEL_INNER_RADIUS_CM`] or [`HTR10_RPV_ASPECT_RATIO`], which stay the
+/// real values; the cold annulus still ends at the real wall line, and the gap
+/// beyond it is the allowance. On the right, where there is no chute, the same
+/// gap is left empty.
+pub const REFUEL_CHUTE_ALLOWANCE_CM: f32 = 25.0;
+
+/// Radius of the DRAWN vessel interior, centimetres: the real inner radius
+/// plus [`REFUEL_CHUTE_ALLOWANCE_CM`]. The drawing scale and the vessel's
+/// drawn proportions use this, never the plant data.
+pub const DRAWN_VESSEL_RADIUS_CM: f32 = VESSEL_INNER_RADIUS_CM + REFUEL_CHUTE_ALLOWANCE_CM;
+
+/// Proportions the vessel is DRAWN at, width / height: [`HTR10_RPV_ASPECT_RATIO`]
+/// widened by the refuelling-chute allowance. Not a plant proportion.
+pub const DRAWN_ASPECT_RATIO: f32 = 2.0 * DRAWN_VESSEL_RADIUS_CM / VESSEL_HEIGHT_CM;
+
 /// Fuel discharge tube length as a fraction of vessel height.
 ///
 /// From `docs/reactor-scoping/htr10-plant-data.md` section 4.3: *"about
@@ -306,9 +349,12 @@ pub const CONTROL_ROD_CHANNELS: usize = 10;
 /// A radius in centimetres, as a fraction of the vessel's **half**-width.
 ///
 /// The single place plant centimetres become drawing units. `1.0` is the
-/// vessel wall.
+/// DRAWN vessel wall, [`DRAWN_VESSEL_RADIUS_CM`]; the real wall line,
+/// [`VESSEL_INNER_RADIUS_CM`], sits just inside it (**CHANGED 2026-09-21**, when
+/// the vessel was drawn wider for the refuelling chute; `1.0` was previously
+/// the real wall).
 pub fn radius_fraction(radius_cm: f32) -> f32 {
-    radius_cm / VESSEL_INNER_RADIUS_CM
+    radius_cm / DRAWN_VESSEL_RADIUS_CM
 }
 
 /// A model `z` in centimetres, as a fraction of the vessel's height.
@@ -425,6 +471,57 @@ const FOOT_BULGE_FRACTION: f32 = 0.30;
 /// corner rather than a sweep.
 const TURN_RADIUS_FRACTION: f32 = 0.35;
 
+/// The defuelling route as two polylines: the full-bore chute, and the thin
+/// exit tube that leaves the vessel.
+struct DefuellingRoute {
+    /// Foot of the conus, down the tube, then along the dipping leg. Drawn at
+    /// the discharge tube's full bore.
+    chute: Vec<Pos2>,
+    /// From the end of the leg down through the bottom head to the open end.
+    /// Drawn one pebble diameter wide.
+    exit: Vec<Pos2>,
+}
+
+/// Centrelines of the defuelling route.
+///
+/// ```text
+///          top
+///           │      1. straight down the cited ~3.3 m discharge tube, to
+///           │         `tube_end_y`
+///   ╶───────┘      2. an inverted-L leg to the LEFT, dipping `dip_deg` below
+///   │                 horizontal over a horizontal `leg_run`
+///   ╵              3. a THIN exit tube, one pebble wide, straight down to
+///                     `exit_y`, ending OPEN: the opening to the outside
+/// ```
+///
+/// The leg turns **left**, away from the coaxial duct on the right. Returned
+/// as polylines so pebbles can be placed along them by arc length with
+/// [`point_along`].
+///
+/// **Everything past the tube is a drawing choice** (maintainer direction,
+/// 2026-09-21: "an inverted L with a 15 degree dip, then a thin (1 pebble
+/// diameter) tube out to vessel exterior"). Only the tube's length is cited
+/// ([`DISCHARGE_TUBE_LENGTH_FRACTION`]). The exit tube runs downward, through
+/// the bottom head; that direction is an assumption, since the instruction
+/// did not specify it.
+fn defuelling_route(
+    top: Pos2,
+    tube_end_y: f32,
+    dip_deg: f32,
+    leg_run: f32,
+    exit_y: f32,
+) -> DefuellingRoute {
+    let tube_end = Pos2::new(top.x, tube_end_y);
+    let leg_end = Pos2::new(
+        top.x - leg_run,
+        tube_end_y + leg_run * dip_deg.to_radians().tan(),
+    );
+    DefuellingRoute {
+        chute: vec![top, tube_end, leg_end],
+        exit: vec![leg_end, Pos2::new(leg_end.x, exit_y.max(leg_end.y))],
+    }
+}
+
 /// Point at fraction `t` of a polyline's total length, `t` in `[0, 1]`.
 ///
 /// By **arc length**, not by vertex index: spacing marks evenly over vertices
@@ -458,9 +555,10 @@ fn point_along(points: &[Pos2], t: f32) -> Pos2 {
     }
 }
 
-/// Letterbox `available` to the vessel's real proportions.
+/// Letterbox `available` to the vessel's DRAWN proportions,
+/// [`DRAWN_ASPECT_RATIO`] (the real ones widened for the refuelling chute).
 pub fn fit_native_aspect(available: Rect) -> Rect {
-    let target = HTR10_RPV_ASPECT_RATIO;
+    let target = DRAWN_ASPECT_RATIO;
     let have = available.width() / available.height().max(1.0);
     if have > target {
         let w = available.height() * target;
@@ -482,6 +580,22 @@ const WALL_FRACTION: f32 = 0.035;
 /// outside the pressure boundary. See [`Htr10ReactorSchematic::native_size`],
 /// which adds this on top of the vessel's own aspect.
 const DRIVE_BAND_FRACTION: f32 = 0.12;
+
+/// Share of the widget reserved **below** the vessel, as a fraction of the
+/// vessel's own height, for the defuelling chute's open end.
+///
+/// **A drawing choice** (maintainer direction, 2026-09-21). The chute's last
+/// leg passes through the bottom head and ends just outside it, so like the
+/// drives above, it needs a little room outside the vessel.
+const CHUTE_BAND_FRACTION: f32 = 0.04;
+
+/// Dip of the chute's inverted-L leg below horizontal, degrees. Maintainer
+/// direction, 2026-09-21: "an inverted L with a 15 degree dip".
+const CHUTE_DIP_DEG: f32 = 15.0;
+
+/// Horizontal run of the inverted-L leg, as a fraction of the vessel bore's
+/// half-width. A drawing choice.
+const CHUTE_LEG_RUN_FRACTION: f32 = 0.55;
 
 /// Simplified HTR-10 reactor vessel.
 ///
@@ -510,6 +624,8 @@ pub struct Htr10ReactorSchematic {
     riser_tracer: Option<TracerTrain>,
     plenum_tracer: Option<TracerTrain>,
     cold_plenum_tracer: Option<TracerTrain>,
+    hot_duct_tracer: Option<TracerTrain>,
+    cold_duct_tracer: Option<TracerTrain>,
 }
 
 impl Htr10ReactorSchematic {
@@ -545,14 +661,20 @@ impl Htr10ReactorSchematic {
             riser_tracer: None,
             plenum_tracer: None,
             cold_plenum_tracer: None,
+            hot_duct_tracer: None,
+            cold_duct_tracer: None,
         }
     }
 
     /// The box this widget wants for a given vessel width, including the room
-    /// the control rod drives need above the head.
+    /// the control rod drives need above the head and the defuelling chute's
+    /// open end needs below the bottom head.
     pub fn native_size(vessel_width: f32) -> Vec2 {
-        let vessel_h = vessel_width / HTR10_RPV_ASPECT_RATIO;
-        Vec2::new(vessel_width, vessel_h * (1.0 + DRIVE_BAND_FRACTION))
+        let vessel_h = vessel_width / DRAWN_ASPECT_RATIO;
+        Vec2::new(
+            vessel_width,
+            vessel_h * (1.0 + DRIVE_BAND_FRACTION + CHUTE_BAND_FRACTION),
+        )
     }
 
     /// On-screen size, in points.
@@ -626,6 +748,27 @@ impl Htr10ReactorSchematic {
         self
     }
 
+    /// Hot helium leaving through the coaxial duct's **inner tube**, towards
+    /// the steam generator.
+    ///
+    /// Advance with the primary mass flow. Its inlet is the **vessel** end of
+    /// the duct, where the inner tube drains the hot plenum.
+    pub fn with_hot_duct_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.hot_duct_tracer = Some(tracer);
+        self
+    }
+
+    /// Cold helium returning through the coaxial duct's **annulus**, from the
+    /// steam generator, on both sides of the inner tube.
+    ///
+    /// Advance with the primary mass flow. Its inlet is the **outboard** end of
+    /// the duct, so with positive flow its marks run towards the vessel,
+    /// opposite to the hot inner tube's.
+    pub fn with_cold_duct_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.cold_duct_tracer = Some(tracer);
+        self
+    }
+
     fn colour(&self, t: ThermodynamicTemperature) -> Color32 {
         temperature_colour(t, self.min_temp, self.max_temp)
     }
@@ -646,19 +789,22 @@ impl Htr10ReactorSchematic {
 
 impl Widget for Htr10ReactorSchematic {
     /// Draws the vessel, the reflector's real radial bands, the three-pass
-    /// helium path, the bed with its conus, the hot plenum, the discharge tube
-    /// and the control rods with their drives.
+    /// helium path, the bed with its conus, the hot plenum, the coaxial duct,
+    /// the discharge tube and defuelling chute (with pebbles), and
+    /// the control rods with their drives.
     fn ui(mut self, ui: &mut Ui) -> Response {
         let (response, painter) = ui.allocate_painter(self.size, Sense::hover());
         self.control_rod_insertion_frac = self.control_rod_insertion_frac.clamp(0.0, 1.0);
 
-        // The drives stand above the head, so the vessel gets the lower part
-        // of the box and the drives the band above it.
+        // The drives stand above the head and the defuelling chute exits just
+        // below the bottom head, so the vessel gets the middle of the box.
         let full = response.rect;
-        let drive_band = full.height() * DRIVE_BAND_FRACTION / (1.0 + DRIVE_BAND_FRACTION);
+        let bands = 1.0 + DRIVE_BAND_FRACTION + CHUTE_BAND_FRACTION;
+        let drive_band = full.height() * DRIVE_BAND_FRACTION / bands;
+        let chute_band = full.height() * CHUTE_BAND_FRACTION / bands;
         let rect = fit_native_aspect(Rect::from_min_max(
             Pos2::new(full.left(), full.top() + drive_band),
-            full.max,
+            Pos2::new(full.right(), full.bottom() - chute_band),
         ));
         let w = rect.width();
         let h = rect.height();
@@ -695,8 +841,8 @@ impl Widget for Htr10ReactorSchematic {
         }
         painter.rect_filled(
             Rect::from_min_max(
-                Pos2::new(rx(VESSEL_INNER_RADIUS_CM, -1.0), rect.top() + dome * 0.30),
-                Pos2::new(rx(VESSEL_INNER_RADIUS_CM, 1.0), rect.bottom() - dome * 0.30),
+                Pos2::new(rx(DRAWN_VESSEL_RADIUS_CM, -1.0), rect.top() + dome * 0.30),
+                Pos2::new(rx(DRAWN_VESSEL_RADIUS_CM, 1.0), rect.bottom() - dome * 0.30),
             ),
             (w * 0.04).round() as u8,
             VOID,
@@ -921,6 +1067,14 @@ impl Widget for Htr10ReactorSchematic {
         painter.rect_filled(bed, 2, self.colour(self.pebble_temp));
 
         let pebble_r = (w * 0.014).max(1.0);
+        // One pebble, drawn identically in the bed and in the defuelling chute.
+        let draw_pebble = |at: Pos2| {
+            painter.circle_stroke(
+                at,
+                pebble_r,
+                Stroke::new(0.9, Color32::from_black_alpha(150)),
+            );
+        };
         let rows = ((bed.height() / (pebble_r * 2.4)).floor() as usize).max(1);
         let cols = ((bed.width() / (pebble_r * 2.4)).floor() as usize).max(1);
         for r in 0..rows {
@@ -931,11 +1085,7 @@ impl Widget for Htr10ReactorSchematic {
                 if px + pebble_r > bed.right() || py + pebble_r > bed.bottom() {
                     continue;
                 }
-                painter.circle_stroke(
-                    Pos2::new(px, py),
-                    pebble_r,
-                    Stroke::new(0.9, Color32::from_black_alpha(150)),
-                );
+                draw_pebble(Pos2::new(px, py));
             }
         }
 
@@ -951,7 +1101,41 @@ impl Widget for Htr10ReactorSchematic {
             self.colour(self.pebble_temp),
             Stroke::new(1.0, INTERNALS),
         ));
+        // Pebbles in the conus too (maintainer direction, 2026-09-21): the
+        // bed does not stop at zero core height, it funnels into the tube.
+        // Rows on the same pitch as the bed, each as wide as the cone is at
+        // that height, so they narrow towards the tube.
+        let (cone_top, cone_bottom) = (zy(CORE_ZERO_HEIGHT_Z_CM), zy(CONUS_BOTTOM_Z_CM));
+        let cone_pitch = 2.4 * pebble_r;
+        let mut y = cone_top + 1.2 * pebble_r;
+        let mut row = 0;
+        while y + pebble_r <= cone_bottom {
+            let frac = (y - cone_top) / (cone_bottom - cone_top).max(1.0);
+            // Half-width of the cone at the pebble's LOWEST point, so the
+            // circle stays inside the sloping wall.
+            let frac_low = ((y + pebble_r) - cone_top) / (cone_bottom - cone_top).max(1.0);
+            let half_top = 0.5 * cavity.width();
+            let half = half_top + (tube_half - half_top) * frac_low.max(frac);
+            let usable = half - pebble_r;
+            if usable >= 0.0 {
+                let stagger = if row % 2 == 0 { 0.0 } else { 0.5 * cone_pitch };
+                let n = (2.0 * usable / cone_pitch).floor() as i32;
+                for k in 0..=n {
+                    let x = cx - usable + stagger + k as f32 * cone_pitch;
+                    if x <= cx + usable {
+                        draw_pebble(Pos2::new(x, y));
+                    }
+                }
+            }
+            y += cone_pitch;
+            row += 1;
+        }
         self.tag(&painter, Pos2::new(cx, bed.center().y), "pebble bed");
+        self.tag(
+            &painter,
+            Pos2::new(cx, bed.center().y + 11.0),
+            "(pebbles not to scale)",
+        );
 
         // ── Hot helium plenum, in the bottom reflector ─────────────────────
         let plenum = Rect::from_min_max(
@@ -972,19 +1156,20 @@ impl Widget for Htr10ReactorSchematic {
         // hot plenum, and the hot plenum is in the BOTTOM reflector — so the
         // duct, cold annulus included, attaches LOW, and cold helium returns
         // near the foot of the vessel rather than at the top.
+        //
+        // Only its GEOMETRY is fixed here. It is PAINTED further down, after
+        // the annulus and the annulus tracers, so that it sits IN FRONT of
+        // them: the annulus run starts at the duct centreline, and painted
+        // last it would cut vertically across the middle of the duct
+        // (maintainer direction, 2026-09-21).
         let coax = Rect::from_min_max(
             Pos2::new(rx(CORE_RADIUS_CM + 18.0, 1.0), plenum.top() - plenum.height() * 0.45),
             Pos2::new(rect.right() + w * 0.16, plenum.bottom() + plenum.height() * 0.45),
         );
-        painter.rect_filled(coax, 2, cold);
-        painter.rect_stroke(coax, 2, Stroke::new(1.0, INTERNALS), StrokeKind::Middle);
-        painter.rect_filled(
-            Rect::from_min_max(
-                Pos2::new(coax.left(), plenum.top()),
-                Pos2::new(coax.right(), plenum.bottom()),
-            ),
-            2,
-            hot,
+        // The hot inner tube, level with the hot plenum it drains.
+        let coax_hot = Rect::from_min_max(
+            Pos2::new(coax.left(), plenum.top()),
+            Pos2::new(coax.right(), plenum.bottom()),
         );
 
         // ── Pass 1: the annulus ────────────────────────────────────────────
@@ -1015,21 +1200,8 @@ impl Widget for Htr10ReactorSchematic {
             downcomer_rects.push(run);
         }
 
-        // ── Fuel discharge tube — the pebble-handling route ────────────────
-        let tube_bottom = zy(CONUS_BOTTOM_Z_CM) + h * DISCHARGE_TUBE_LENGTH_FRACTION;
-        let tube = Rect::from_min_max(
-            Pos2::new(cx - tube_half, zy(CONUS_BOTTOM_Z_CM)),
-            Pos2::new(cx + tube_half, tube_bottom.min(rect.bottom() - h * 0.01)),
-        );
-        painter.rect_filled(tube, 2, self.colour(self.pebble_temp));
-        painter.rect_stroke(tube, 2, Stroke::new(1.2, INTERNALS), StrokeKind::Middle);
-        self.tag(
-            &painter,
-            Pos2::new(cx + w * 0.16, tube.center().y),
-            "discharge",
-        );
-
-        // ── Tracers ────────────────────────────────────────────────────────
+        // Tracer marks on a vertical run. `inlet_at_top` is geometry (which
+        // end the gas enters); the direction of travel comes from the train.
         let vertical_marks = |run: Rect, train: &TracerTrain, inlet_at_top: bool| {
             let mark_h = (run.height() * 0.045).max(2.0);
             for position in train.positions() {
@@ -1055,12 +1227,66 @@ impl Widget for Htr10ReactorSchematic {
             }
         };
 
+        // Tracer marks on a horizontal run. `inlet_at_left` is geometry; the
+        // direction of travel comes from the train.
+        let horizontal_marks = |run: Rect, train: &TracerTrain, inlet_at_left: bool| {
+            let mark_w = (run.width() * 0.035).max(2.0);
+            for position in train.positions() {
+                let f = if inlet_at_left {
+                    position as f32
+                } else {
+                    1.0 - position as f32
+                };
+                let xc = run.left() + run.width() * f;
+                let a = (xc - 0.5 * mark_w).max(run.left());
+                let b = (xc + 0.5 * mark_w).min(run.right());
+                if b - a < 0.5 {
+                    continue;
+                }
+                painter.rect_filled(
+                    Rect::from_min_max(
+                        Pos2::new(a, run.top() + 0.5),
+                        Pos2::new(b, run.bottom() - 0.5),
+                    ),
+                    0,
+                    Color32::WHITE,
+                );
+            }
+        };
+
+        // Annulus marks are painted HERE, before the duct, for the same reason
+        // the borehole marks are painted with the channels: the right-hand run
+        // starts behind the duct, and the duct must cover it.
         if let Some(train) = &self.downcomer_tracer {
             for r in &downcomer_rects {
                 vertical_marks(*r, train, true);
             }
         }
 
+        // ── The coaxial duct, painted now so it sits in front ──────────────
+        painter.rect_filled(coax, 2, cold);
+        painter.rect_filled(coax_hot, 2, hot);
+
+        // Hot helium leaves through the inner tube: its inlet is the VESSEL
+        // end (left), where it drains the hot plenum.
+        if let Some(train) = &self.hot_duct_tracer {
+            horizontal_marks(coax_hot, train, true);
+        }
+        // Cold helium returns through the annulus, above and below the inner
+        // tube: its inlet is the OUTBOARD end (right), from the steam
+        // generator.
+        if let Some(train) = &self.cold_duct_tracer {
+            let upper = Rect::from_min_max(coax.min, Pos2::new(coax.right(), coax_hot.top()));
+            let lower = Rect::from_min_max(Pos2::new(coax.left(), coax_hot.bottom()), coax.max);
+            horizontal_marks(upper, train, false);
+            horizontal_marks(lower, train, false);
+        }
+        painter.rect_stroke(coax, 2, Stroke::new(1.0, INTERNALS), StrokeKind::Middle);
+
+        // (The fuel discharge tube and defuelling chute are drawn at the end,
+        // in front of the vessel outline they pass through.)
+
+        // ── Tracers (the annulus and duct marks were painted above) ────────
         if let Some(train) = &self.cold_plenum_tracer {
             let mark_w = (cold_plenum.width() * 0.045).max(1.5);
             let half = cold_plenum.width() * 0.5;
@@ -1106,6 +1332,99 @@ impl Widget for Htr10ReactorSchematic {
             }
         }
 
+        painter.rect_stroke(shell, 0, Stroke::new(1.5, OUTLINE), StrokeKind::Middle);
+
+        // ── Fuel discharge tube and defuelling chute ───────────────────────
+        //
+        // Drawn AFTER the vessel outline, because the exit tube passes through
+        // the bottom head. Straight down the cited ~3.3 m discharge tube, an
+        // inverted-L leg to the left dipping 15 degrees, then a THIN exit tube
+        // one pebble wide, down through the bottom head and left OPEN just
+        // outside the vessel (maintainer direction, 2026-09-21). Only the
+        // 3.3 m tube is cited; see `defuelling_route`.
+        //
+        // Each piece is a thick stroke: the outline colour first, the fill one
+        // stroke narrower on top. A stroke has no end cap, so the exit reads
+        // as open with no extra drawing.
+        let chute_top = Pos2::new(cx, zy(CONUS_BOTTOM_Z_CM));
+        let route = defuelling_route(
+            chute_top,
+            chute_top.y + h * DISCHARGE_TUBE_LENGTH_FRACTION,
+            CHUTE_DIP_DEG,
+            CHUTE_LEG_RUN_FRACTION * bore,
+            rect.bottom() + 0.8 * chute_band,
+        );
+        let pebble_fill = self.colour(self.pebble_temp);
+        let pitch = 2.4 * pebble_r;
+        // One piece of the route: its walls, its fill, and pebbles placed by
+        // arc length in rows across it, the same size as the bed's. Like the
+        // bed's, they show WHAT fills the channel, not how many pebbles do.
+        let draw_route_piece = |line: &[Pos2], bore_width: f32| {
+            painter.add(egui::Shape::line(
+                line.to_vec(),
+                Stroke::new(bore_width + 2.4, INTERNALS),
+            ));
+            painter.add(egui::Shape::line(
+                line.to_vec(),
+                Stroke::new(bore_width, pebble_fill),
+            ));
+            let across = ((bore_width / pitch).floor() as usize).max(1);
+            let length: f32 = line.windows(2).map(|s| s[0].distance(s[1])).sum();
+            if length <= pitch {
+                return;
+            }
+            let along = (length / pitch).floor() as usize;
+            for i in 0..along {
+                let t = (i as f32 + 0.5) * pitch / length;
+                let at = point_along(line, t);
+                let ahead = point_along(line, (t + 0.01).min(1.0));
+                let behind = point_along(line, (t - 0.01).max(0.0));
+                let tangent = (ahead - behind).normalized();
+                let normal = egui::vec2(-tangent.y, tangent.x);
+                for k in 0..across {
+                    let offset = (k as f32 - 0.5 * (across as f32 - 1.0)) * pitch;
+                    draw_pebble(at + normal * offset);
+                }
+            }
+        };
+        // The thin exit tube first, so the chute's corner covers the joint.
+        draw_route_piece(&route.exit, 2.0 * pebble_r);
+        draw_route_piece(&route.chute, 2.0 * tube_half);
+
+        self.tag(
+            &painter,
+            Pos2::new(cx + w * 0.16, 0.5 * (chute_top.y + rect.bottom())),
+            "discharge",
+        );
+        if let Some(open_end) = route.exit.last() {
+            self.tag(
+                &painter,
+                Pos2::new(open_end.x - w * 0.13, open_end.y),
+                "opening",
+            );
+        }
+
+        // ── Refuelling chute, up the left-hand side ────────────────────────
+        //
+        // One pebble wide, in the gap the widened vessel leaves between the
+        // cold annulus and the wall on the LEFT, running from below the bottom
+        // head all the way up through the top head to the top-left of the
+        // reactor (maintainer direction, 2026-09-21). It closes the pebble
+        // recirculation loop the defuelling chute opens: out at the bottom,
+        // back up the side. Its route is a drawing choice; see
+        // `REFUEL_CHUTE_ALLOWANCE_CM`.
+        let refuel_x = rx(0.5 * (VESSEL_INNER_RADIUS_CM + DRAWN_VESSEL_RADIUS_CM), -1.0);
+        let refuel = [
+            Pos2::new(refuel_x, rect.bottom() + 0.8 * chute_band),
+            Pos2::new(refuel_x, rect.top() - 0.5 * drive_band),
+        ];
+        draw_route_piece(&refuel, 2.0 * pebble_r);
+        self.tag(
+            &painter,
+            Pos2::new(refuel_x + w * 0.11, rect.top() - 0.5 * drive_band),
+            "refuelling",
+        );
+
         if self.show_labels {
             self.tag(
                 &painter,
@@ -1116,8 +1435,6 @@ impl Widget for Htr10ReactorSchematic {
                 ),
             );
         }
-
-        painter.rect_stroke(shell, 0, Stroke::new(1.5, OUTLINE), StrokeKind::Middle);
 
         response
     }
@@ -1298,6 +1615,53 @@ mod tests {
         );
     }
 
+    /// The route is an inverted L: straight down to the tube's end, a leg to
+    /// the LEFT dipping exactly `dip_deg` below horizontal, then a vertical
+    /// exit tube from the end of the leg down to `exit_y`.
+    #[test]
+    fn the_defuelling_route_is_an_inverted_l_then_a_thin_exit() {
+        let top = Pos2::new(100.0, 10.0);
+        let (tube_end, dip, run, exit) = (150.0, 15.0_f32, 40.0, 220.0);
+        let route = defuelling_route(top, tube_end, dip, run, exit);
+
+        assert_eq!(route.chute.len(), 3);
+        assert_eq!(
+            route.chute[0], top,
+            "the chute starts at the foot of the conus"
+        );
+        assert_eq!(
+            route.chute[1],
+            Pos2::new(top.x, tube_end),
+            "first leg is vertical"
+        );
+
+        let leg = route.chute[2] - route.chute[1];
+        assert!(leg.x < 0.0, "the leg turns left, away from the duct");
+        assert!((-leg.x - run).abs() < 1e-4, "horizontal run");
+        let measured = (leg.y / -leg.x).atan().to_degrees();
+        assert!((measured - dip).abs() < 1e-3, "dip {measured} deg");
+
+        assert_eq!(
+            route.exit[0], route.chute[2],
+            "the exit starts where the leg ends"
+        );
+        assert_eq!(
+            route.exit[1].x, route.exit[0].x,
+            "the exit tube is vertical"
+        );
+        assert_eq!(route.exit[1].y, exit, "the exit tube ends at exit_y");
+    }
+
+    /// The native box must leave room below the vessel for the chute's open
+    /// end, as well as above it for the drives.
+    #[test]
+    fn the_native_box_has_room_for_the_chute_below_the_vessel() {
+        let native = Htr10ReactorSchematic::native_size(220.0);
+        let vessel_only = 220.0 / HTR10_RPV_ASPECT_RATIO;
+        let expected = vessel_only * (1.0 + DRIVE_BAND_FRACTION + CHUTE_BAND_FRACTION);
+        assert!((native.y - expected).abs() < 1e-3);
+    }
+
     /// Arc-length placement hits both ends exactly and stays on the path.
     #[test]
     fn point_along_spans_the_whole_run() {
@@ -1309,11 +1673,16 @@ mod tests {
         assert_eq!(point_along(&path, 9.0), *path.last().unwrap());
     }
 
-    /// Centimetres map onto the drawing monotonically, with the vessel wall at
-    /// 1.0 and the internals top at the reserved offset.
+    /// Centimetres map onto the drawing monotonically, with the DRAWN vessel
+    /// wall at 1.0, the real wall line inside it, and the internals top at the
+    /// reserved offset.
     #[test]
     fn the_cm_to_drawing_mapping_is_consistent() {
-        assert!((radius_fraction(VESSEL_INNER_RADIUS_CM) - 1.0).abs() < 1e-6);
+        assert!((radius_fraction(DRAWN_VESSEL_RADIUS_CM) - 1.0).abs() < 1e-6);
+        assert!(
+            radius_fraction(VESSEL_INNER_RADIUS_CM) < 1.0,
+            "the real wall line sits inside the drawn one"
+        );
         assert!(radius_fraction(CORE_RADIUS_CM) < radius_fraction(COOLANT_CHANNEL_RADIUS_CM));
         assert!((axial_fraction(0.0) - INTERNALS_TOP_FRACTION).abs() < 1e-6);
         assert!(axial_fraction(INTERNALS_HEIGHT_CM) < 1.0);
