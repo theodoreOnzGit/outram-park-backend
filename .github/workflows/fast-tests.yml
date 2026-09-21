@@ -83,7 +83,27 @@ jobs:
   test:
     name: test / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    # 150, raised from 90 on 2026-09-21 because 90 could not finish. MEASURED
+    # from run 35555855296's ubuntu leg rather than guessed:
+    #
+    #   cache restored      02:58:41
+    #   first test output   03:20:11   ->  ~21 min building
+    #   test time            77.7 min  ->  summed over 190 test binaries
+    #                                      (the slowest single binary: 811 s)
+    #   total needed        ~99 min
+    #
+    # Both the ubuntu and macOS legs hit the 90-minute wall mid-suite and were
+    # reported as failures; windows only escaped by failing fast on a real
+    # `bedok` defect (GitHub issue #222). The build is NOT the problem — the
+    # cache restores fine and 21 minutes of it is reasonable for 43 crates in
+    # release. The tests are.
+    #
+    # THIS IS A CEILING, NOT A FIX. A "fast" suite that takes an hour and a
+    # half is only fast relative to the long tier. The real fix is to split
+    # this job into a matrix over crate groups so the 77 minutes run in
+    # parallel rather than in series; that is a bigger change and is not done
+    # here. If this timeout ever needs raising again, do the split instead.
+    timeout-minutes: 150
     strategy:
       fail-fast: false # one platform's failure must not hide the others'
       matrix:
