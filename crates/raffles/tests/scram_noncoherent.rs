@@ -55,6 +55,10 @@ struct Oracle {
 }
 
 struct ModelSpec {
+    /// House events the model declares: a condition fixed for the analysis,
+    /// `true` or `false`, with no probability. Gate arguments name them with
+    /// an `h:` prefix.
+    houses: Vec<(String, bool)>,
     gates: Vec<(String, String, Option<usize>, Vec<String>)>,
     top: Option<String>,
     unparsed: Vec<String>,
@@ -123,10 +127,16 @@ fn load_model(wanted: &str) -> ModelSpec {
         match f[0] {
             "MODEL" => {
                 cur = (f[1] == wanted).then(|| ModelSpec {
+                    houses: Vec::new(),
                     gates: Vec::new(),
                     top: None,
                     unparsed: Vec::new(),
                 })
+            }
+            "HOUSE" => {
+                if let Some(m) = cur.as_mut() {
+                    m.houses.push((f[1].to_string(), f[2] == "true"));
+                }
             }
             "GATE" => {
                 if let Some(m) = cur.as_mut() {
@@ -180,6 +190,9 @@ fn build(name: &str, oracle: &Oracle) -> (FaultTreeModel, Vec<usize>) {
     let mut event_names: Vec<&str> = oracle.events.keys().map(|s| s.as_str()).collect();
     for (_, _, _, args) in &spec.gates {
         for a in args {
+            if a.starts_with("h:") {
+                continue;
+            }
             let n = &a[2..];
             if !gate_names.contains(n)
                 && !oracle.events.contains_key(n)
@@ -202,6 +215,10 @@ fn build(name: &str, oracle: &Oracle) -> (FaultTreeModel, Vec<usize>) {
             }
         };
         b.basic_event(n, p).expect("valid probability");
+    }
+    for (house, value) in &spec.houses {
+        b.house_event(house, *value)
+            .expect("a fresh house-event name");
     }
     for (gate, connective, min, args) in &spec.gates {
         let c = match connective.as_str() {
@@ -502,22 +519,62 @@ fn complement_elimination_handles_the_cases_no_oracle_model_reaches() {
     });
     assert_eq!(named(&m), expect(&[&["A"]]), "NOT NOT A is A");
 
-    // De Morgan: NAND is NOT(AND), so each argument alone suffices, and the
-    // complements then vanish leaving one empty set — no cut set at all.
+    // The next three are trees whose every implicant is complemented. Their
+    // minimal cut sets are the EMPTY set, which cannot be listed, so cut-set
+    // generation refuses them — upstream warns "The set is UNITY/Base." on
+    // exactly this class. Prime implicants express them perfectly, and are
+    // checked here as the route that works.
+    let refused_as_unity = |m: &FaultTreeModel, what: &str| {
+        let err = minimal_cut_sets(m.tree(), DEFAULT_LIMIT_ORDER)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("UNITY"), "{what}: {err}");
+    };
+    let pi_names = |m: &FaultTreeModel| -> BTreeSet<(BTreeSet<String>, BTreeSet<String>)> {
+        raffles::scram::zbdd::prime_implicants(m.tree())
+            .unwrap()
+            .iter()
+            .map(|pi| {
+                let name = |i: &usize| m.basic_event_names()[*i].clone();
+                (
+                    pi.positive().iter().map(name).collect(),
+                    pi.negative().iter().map(name).collect(),
+                )
+            })
+            .collect()
+    };
+    let only_negative = |sets: &[&[&str]]| -> BTreeSet<(BTreeSet<String>, BTreeSet<String>)> {
+        sets.iter()
+            .map(|s| {
+                (
+                    BTreeSet::new(),
+                    s.iter()
+                        .map(|n| n.to_string())
+                        .collect::<BTreeSet<String>>(),
+                )
+            })
+            .collect()
+    };
+
+    // De Morgan: NAND is NOT(AND), so either argument being absent suffices.
     let m = two(&|b| {
         b.gate("Top", Connective::Nand, &["A", "B"]).unwrap();
     });
-    assert!(named(&m).is_empty(), "NAND alone yields only complements");
+    refused_as_unity(&m, "NAND");
+    assert_eq!(pi_names(&m), only_negative(&[&["A"], &["B"]]));
 
-    // NOR is NOT(OR): both must be absent, so again only complements.
+    // NOR is NOT(OR): both must be absent, so one implicant with both.
     let m = two(&|b| {
         b.gate("Top", Connective::Nor, &["A", "B"]).unwrap();
     });
-    assert!(named(&m).is_empty(), "NOR alone yields only complements");
+    refused_as_unity(&m, "NOR");
+    assert_eq!(pi_names(&m), only_negative(&[&["A", "B"]]));
 
-    // A negated at-least: NOT(at least 2 of 3) is at least 2 of the three
-    // complements, so once more nothing positive survives. Checked because the
-    // index arithmetic (`n - min + 1`) is the easiest thing here to get wrong.
+    // A negated at-least: NOT(at least 2 of 3) is "at most one of three", so
+    // its prime implicants are the three pairs of complements. Checked
+    // because the index arithmetic (`n - min + 1`) is the easiest thing here
+    // to get wrong, and this is the only place the negated form's *answer* is
+    // pinned rather than just its emptiness.
     let mut b = FaultTreeBuilder::new();
     for n in ["A", "B", "C"] {
         b.basic_event(n, 0.1).unwrap();
@@ -526,7 +583,11 @@ fn complement_elimination_handles_the_cases_no_oracle_model_reaches() {
         .unwrap();
     b.gate("Top", Connective::Not, &["Vote"]).unwrap();
     let m = b.build("Top").unwrap();
-    assert!(named(&m).is_empty(), "NOT(2-of-3) yields only complements");
+    refused_as_unity(&m, "NOT(2-of-3)");
+    assert_eq!(
+        pi_names(&m),
+        only_negative(&[&["A", "B"], &["A", "C"], &["B", "C"]])
+    );
 
     // And the same negated at-least in a position where something positive
     // does survive: `D AND NOT(2-of-3)` keeps `{D}`.

@@ -50,6 +50,10 @@ use std::collections::{BTreeSet, HashMap};
 
 /// One model's structure, as upstream's input model declares it.
 struct ModelSpec {
+    /// House events the model declares: a condition fixed for the analysis,
+    /// `true` or `false`, with no probability. Gate arguments name them with
+    /// an `h:` prefix.
+    houses: Vec<(String, bool)>,
     name: String,
     /// `(gate name, connective, min-or-none, arg specs as "g:Name"/"b:Name")`.
     gates: Vec<(String, String, Option<usize>, Vec<String>)>,
@@ -84,10 +88,15 @@ fn load_models() -> Vec<ModelSpec> {
         match f[0] {
             "MODEL" => out.push(ModelSpec {
                 name: f[1].to_string(),
+                houses: Vec::new(),
                 gates: Vec::new(),
                 top: None,
                 unparsed: Vec::new(),
             }),
+            "HOUSE" => {
+                let m = out.last_mut().expect("HOUSE before MODEL");
+                m.houses.push((f[1].to_string(), f[2] == "true"));
+            }
             "GATE" => {
                 let m = out.last_mut().expect("GATE before MODEL");
                 let min = if f[3] == "-" {
@@ -205,6 +214,11 @@ fn build(spec: &ModelSpec, oracle: &Oracle) -> Option<(FaultTreeModel, Vec<usize
     let mut referenced: BTreeSet<&str> = BTreeSet::new();
     for (_, _, _, args) in &spec.gates {
         for a in args {
+            // An `h:` argument is a house event: a constant, not a basic
+            // event, and it carries no probability.
+            if a.starts_with("h:") {
+                continue;
+            }
             let name = &a[2..];
             if !gate_names.contains(name) {
                 referenced.insert(name);
@@ -230,6 +244,10 @@ fn build(spec: &ModelSpec, oracle: &Oracle) -> Option<(FaultTreeModel, Vec<usize
             }
         };
         b.basic_event(n, p).expect("valid probability");
+    }
+    for (house, value) in &spec.houses {
+        b.house_event(house, *value)
+            .expect("a fresh house-event name");
     }
     for (name, connective, min, args) in &spec.gates {
         let connective = match connective.as_str() {
@@ -571,6 +589,7 @@ fn evaluate(model: &FaultTreeModel, true_events: &[usize]) -> bool {
         let value = |arg: &Arg| match arg {
             Arg::BasicEvent(e) => on.contains(e),
             Arg::Gate(sub) => eval(model, *sub, on),
+            Arg::Constant(v) => *v,
         };
         match g.connective() {
             Connective::And | Connective::Null => g.args().iter().all(value),
@@ -593,21 +612,42 @@ fn evaluate(model: &FaultTreeModel, true_events: &[usize]) -> bool {
 /// **Result** (2026-09-21): all refused.
 #[test]
 fn the_unported_and_the_malformed_are_refused_not_guessed() {
-    // A tree that is nothing but a complement has no cut set at all: `NOT A`
-    // is caused by A *not* occurring, and deleting the negative literal leaves
-    // the empty set, which is not a cut set. Accepted and answered with an
-    // empty list rather than refused — the refusal this test used to assert
-    // was removed when complement elimination landed.
+    // A tree that is nothing but a complement: `NOT A` is caused by A *not*
+    // occurring, and deleting the negative literal leaves the EMPTY set. That
+    // is not a cut set and cannot be listed, so it is refused rather than
+    // silently answered.
+    //
+    // Upstream agrees, and the oracle was consulted rather than assumed:
+    // `scram --probability` on this tree reports `basic-events="0"`, one
+    // product with no members, and `warning="The set is UNITY/Base."` — while
+    // `scram --prime-implicants` on the same tree reports `{-A}` with
+    // probability 0.9. Cut sets genuinely cannot express this tree; prime
+    // implicants can, and so can the BDD.
     let mut b = FaultTreeBuilder::new();
     b.basic_event("A", 0.1).unwrap();
     b.gate("Top", Connective::Not, &["A"]).unwrap();
     let model = b.build("Top").unwrap();
     assert!(!model.tree().is_coherent());
+    let err = minimal_cut_sets(model.tree(), DEFAULT_LIMIT_ORDER)
+        .unwrap_err()
+        .to_string();
     assert!(
-        minimal_cut_sets(model.tree(), DEFAULT_LIMIT_ORDER)
-            .unwrap()
-            .is_empty(),
-        "a tree whose only content is a complement has no minimal cut set"
+        err.contains("UNITY") && err.contains("prime_implicants"),
+        "the refusal should cite upstream's warning and point at the route that works: {err}"
+    );
+
+    // The routes that do work, on the same tree.
+    let pis = raffles::scram::zbdd::prime_implicants(model.tree()).unwrap();
+    assert_eq!(pis.len(), 1);
+    assert_eq!(pis[0].negative(), &[0], "the implicant is `NOT A`");
+    assert!(pis[0].positive().is_empty());
+    let p = raffles::scram::bdd::Bdd::build(model.tree())
+        .unwrap()
+        .probability(model.probabilities())
+        .unwrap();
+    assert!(
+        (p - 0.9).abs() < 1e-12,
+        "SCRAM reports 0.9 for this tree, got {p}"
     );
 
     // A zero order limit admits nothing at all.

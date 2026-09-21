@@ -34,13 +34,28 @@ and has since been removed; `src/error.h` was changed to use
 attached to thrown exceptions for diagnostics — it cannot affect a computed
 value.
 
-### Upstream's own test suite was NOT built, and that is a gap
+### Upstream's own test suite passes on this build
 
-`tests/` fails to compile: the vendored Catch2 uses `SIGSTKSZ` in a constant
-expression, which modern glibc no longer permits. So there is no independent
-confirmation that this build of SCRAM behaves as its authors intended — the
-oracle rests on the `scram` CLI, which is the same code path but not the same
-check.
+The vendored Catch2 uses `MINSIGSTKSZ` in a constant expression, which modern
+glibc no longer permits — but that is confined to Catch2's POSIX signal
+handling, which it can be told to omit. Adding
+`-DBUILD_TESTING=ON -DCMAKE_CXX_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS"` to
+the configure line builds `scram_tests` with no source patched, and
+
+```
+All tests passed (540 assertions in 71 test cases)
+```
+
+(excluding `~[perf]`, which measures timings rather than asserting answers;
+and symlinking the built `libscram_dummy_extern.so` to `<scram-src>/build/lib/
+scram/`, which one test locates by a path relative to its input).
+
+**This is what makes the fixtures trustworthy.** Upstream's suite has a test
+per benchmark model and every model here has one — `RiskAnalysisTest.TwoTrain`,
+`.Theatre`, `.SmallTree`, `.ThreeMotor`, `.BSCU`, `.Lift`, `.HIPPS`, `.ne574`,
+`.ChineseTree` — asserting upstream's own expected products and
+probabilities. So these numbers are not merely what this binary printed; they
+are what SCRAM's authors say it should print, checked.
 
 ## Four fixtures, deliberately separate
 
@@ -152,6 +167,21 @@ literal anywhere.
 gives in about a second. The generator reports the timeout on stderr rather
 than dropping it silently.
 
+## Models written for this port
+
+Two, both under `models-for-this-port/`, and both needed because upstream has
+no *small* model exercising the feature:
+
+| model | why it was written |
+|---|---|
+| `noncoherent_small.xml` | of upstream's seven models with a negating connective, four produce no products, two are event-tree or alignment models, and the only usable one is `das9601` at 288 gates |
+| `house_events_small.xml` | upstream's only house-event model is `ThreeMotor`, which the extractor refuses for its `<define-component>` namespaces |
+
+**SCRAM is the oracle for both**: their expected answers come from running the
+compiled binary, exactly as for upstream's own models. Only the question is
+ours, and each file says so in an XML comment with its reasoning and a
+by-hand prediction of the answer.
+
 ## `models.txt`
 
 Fault-tree structure for all eleven models, so a reader can see what was
@@ -182,7 +212,12 @@ the reason printed. Present refusals:
 
 | model | why |
 |---|---|
-| `ThreeMotor/three_motor` | house events (`E10`, `E12`), and four candidate top gates |
+| `ThreeMotor/three_motor` | uses `<define-component role="private">`, whose private namespaces this script does not model — an inner gate `E1` is really `t.E1` and distinct from the outer `E1`, and the script was silently merging them |
+
+House events are **no longer** a reason to refuse a model: they are emitted as
+`h:` arguments and `HOUSE <name> <true|false>` records, and
+`raffles::scram` handles them. `ThreeMotor` was previously refused partly for
+having them, which was a symptom rather than the cause.
 
 The `xi:include` refusal is also implemented and was exercised on
 `TransTest/trans_one`, which the multi-result guard now excludes from the

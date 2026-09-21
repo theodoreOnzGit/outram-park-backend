@@ -10005,10 +10005,9 @@ pub mod fault_tree { /* ... */ }
 
 The Boolean logic a gate applies to its arguments.
 
-Mirrors upstream SCRAM's `pdag.h` `Connective` enum. **Only the coherent
-subset is supported by [`super::mocus`]** — the four negating variants are
-representable so that a tree containing one can be built and *refused with
-a clear message*, rather than being silently unrepresentable.
+Mirrors upstream SCRAM's `pdag.h` `Connective` enum. All eight are
+analysed; the four negating ones make the tree **non-coherent**, which
+changes what its cut sets mean — see [`Connective::is_coherent`].
 
 ```rust
 pub enum Connective {
@@ -10214,16 +10213,17 @@ would change the tree's shape.
 - **WasmNotSync**
 #### Enum `Arg`
 
-What feeds a gate: another gate, or a basic event.
+What feeds a gate: another gate, a basic event, or a constant.
 
-Both carry an index, not a name — gate indices into [`FaultTree::gates`],
-basic-event indices into the probability slice. [`FaultTreeBuilder`] does
-the name resolution so a caller need not.
+The first two carry an index, not a name — gate indices into
+[`FaultTree::gates`], basic-event indices into the probability slice.
+[`FaultTreeBuilder`] does the name resolution so a caller need not.
 
 ```rust
 pub enum Arg {
     Gate(usize),
     BasicEvent(usize),
+    Constant(bool),
 }
 ```
 
@@ -10248,6 +10248,24 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `usize` |  |
+
+###### `Constant`
+
+A **house event** — a condition fixed for the analysis rather than
+sampled, which the Model Exchange Format writes as
+`<constant value="true"/>`.
+
+House events model the configuration a study is run in: a valve lined
+up or not, a timer reset or not. They have no probability and never
+appear in a cut set; they only decide which parts of the tree are
+live. `ThreeMotor`'s three timer-reset conditions are the fixture's
+example, and all three are `true`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `bool` |  |
 
 ##### Implementations
 
@@ -10556,6 +10574,11 @@ pub struct FaultTree {
   pub fn basic_event_count(self: &Self) -> usize { /* ... */ }
   ```
   How many distinct basic events the tree refers to.
+
+- ```rust
+  pub fn has_house_events(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether any gate is fed by a [`Arg::Constant`] house event.
 
 - ```rust
   pub fn top(self: &Self) -> usize { /* ... */ }
@@ -10886,6 +10909,11 @@ pub struct FaultTreeBuilder {
   pub fn basic_event(self: &mut Self, name: &str, probability: f64) -> Result<usize> { /* ... */ }
   ```
   Declares a basic event and its probability of occurrence.
+
+- ```rust
+  pub fn house_event(self: &mut Self, name: &str, value: bool) -> Result<()> { /* ... */ }
+  ```
+  Declares a **house event** — a condition fixed for the analysis.
 
 - ```rust
   pub fn gate(self: &mut Self, name: &str, connective: Connective, args: &[&str]) -> Result<usize> { /* ... */ }

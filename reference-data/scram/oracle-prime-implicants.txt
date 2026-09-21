@@ -26,6 +26,32 @@ PI 2 +e1 +e2
 PI 2 +e3 +e4
 TOTAL exact 0.0267768
 END
+MODEL ThreeMotor/three_motor
+EVENT K5 0.02
+EVENT K1 0.02
+EVENT KT1inc 0.02
+EVENT T2inc 0.02
+EVENT KT2inc 0.02
+EVENT T3inc 0.02
+EVENT KT3inc 0.02
+EVENT T4inc 0.02
+EVENT S1 0.02
+EVENT T1inc 0.02
+EVENT T2 0.02
+PI 4 +KT1inc +KT2inc +KT3inc +T2
+PI 4 +KT1inc +KT2inc +T4inc +T2
+PI 4 +KT1inc +T3inc +KT3inc +T2
+PI 4 +KT1inc +T3inc +T4inc +T2
+PI 4 +T2inc +KT2inc +KT3inc +T2
+PI 4 +T2inc +KT2inc +T4inc +T2
+PI 4 +T2inc +T3inc +KT3inc +T2
+PI 4 +T2inc +T3inc +T4inc +T2
+PI 2 +S1 +T2
+PI 2 +T1inc +T2
+PI 2 +K1 +T2
+PI 1 +K5
+TOTAL exact 0.0211538
+END
 MODEL BSCU/BSCU
 EVENT ValidityMonitorFailure 0.00140062
 EVENT System1ElectronicFailure 0.231104
@@ -531,6 +557,13 @@ PI 2 +e3 +e7
 PI 2 +e3 +e4
 PI 2 +e3 +e6
 TOTAL exact 0.00117058
+END
+MODEL models-for-this-port/house_events_small
+EVENT a 0.1
+EVENT c 0.3
+PI 1 +a
+PI 1 +c
+TOTAL exact 0.37
 END
 MODEL models-for-this-port/noncoherent_small
 EVENT a 0.1

@@ -383,6 +383,11 @@ pub fn from_bdd(bdd: &Bdd, limit_order: Option<usize>) -> Result<Vec<CutSet>> {
     };
     let converted = builder.convert(bdd, bdd.root())?;
     let minimal = builder.minimize(converted)?;
+    // The family holding just the empty set is upstream's "UNITY/Base": the
+    // top event is unconditional. See `super::mocus::unity_error`.
+    if minimal == BASE {
+        return Err(super::mocus::unity_error());
+    }
 
     let mut raw = Vec::new();
     builder.collect(minimal, bdd, &mut Vec::new(), limit_order, &mut raw);

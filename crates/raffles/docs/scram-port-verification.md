@@ -48,8 +48,9 @@ algorithms agreeing is evidence, a translation agreeing with its original is
 much less.
 
 **Still absent.** XML input handling (explicitly out of RAFFLES' scope), event
-trees, alignments, CCF groups, substitutions, house events, the `expression`
-library, `Zbdd::EliminateComplements`, and the preprocessor.
+trees, alignments, CCF groups, substitutions, `<define-component>` private
+namespaces, the `expression` library, `Zbdd::EliminateComplements`, and the
+preprocessor. **House events are present** (`Arg::Constant`).
 
 ~~and complement elimination (so non-coherent trees are **refused**, not
 approximated)~~ **CORRECTED 2026-09-21** — complement elimination landed the
@@ -102,17 +103,51 @@ included. **The macro expands to a function-name string attached to thrown
 exceptions for diagnostics** — it cannot affect a computed value, and after the
 change the build produced only warnings.
 
-### The test suite was NOT built, and that is a gap
+### Upstream's own test suite was built and run — 540 of 540 assertions pass
 
-`tests/` fails to compile: the vendored Catch2 uses `SIGSTKSZ` in a constant
-expression, which modern glibc no longer permits. This is a Catch2/glibc
-incompatibility, unrelated to SCRAM's algorithms.
+~~`tests/` fails to compile: the vendored Catch2 uses `SIGSTKSZ` in a constant
+expression, which modern glibc no longer permits. Consequence: **upstream's
+own unit tests were never run**, so there is no independent confirmation that
+this build of SCRAM behaves as its authors intended. The oracle rests on the
+`scram` CLI producing correct results, which is the same code path but not the
+same check.~~
 
-Consequence: **upstream's own unit tests were never run**, so there is no
-independent confirmation that this build of SCRAM behaves as its authors
-intended. The oracle rests on the `scram` CLI producing correct results, which
-is the same code path but not the same check. Upgrading the vendored Catch2
-would close this; it was not attempted.
+**CORRECTED 2026-09-21.** That limitation stood through five commits of this
+port and is now closed. The Catch2/glibc incompatibility is real —
+`MINSIGSTKSZ` stopped being a compile-time constant — but it is confined to
+Catch2's POSIX signal handling, which Catch2 itself can be told to omit:
+
+```bash
+cmake <scram-src> -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF \
+      -DWITH_TCMALLOC=OFF -DWITH_JEMALLOC=OFF -DBUILD_TESTING=ON \
+      -DCMAKE_CXX_FLAGS="-DCATCH_CONFIG_NO_POSIX_SIGNALS"
+make -j4 scram_tests
+```
+
+No source was patched. The flag turns off Catch2's crash-reporting handlers;
+it does not touch a test, an assertion or any SCRAM code.
+
+One further failure had to be cleared, and it was a build-layout assumption
+rather than a defect: `RiskAnalysisTest.ExternFunctionProbability` loads a
+shared library by a path relative to its input file
+(`../../../build/lib/scram/scram_dummy_extern`), so it requires the build tree
+to sit at `<scram-src>/build`. Symlinking the built
+`libscram_dummy_extern.so` there satisfies it.
+
+```
+All tests passed (540 assertions in 71 test cases)
+```
+
+**This is what the oracle needed.** Upstream's suite contains a test per
+benchmark model, and every model in these fixtures has one:
+`RiskAnalysisTest.TwoTrain`, `.Theatre`, `.SmallTree`, `.ThreeMotor`, `.BSCU`,
+`.Lift`, `.HIPPS`, `.ne574`, `.ChineseTree`. They assert upstream's own
+expected products and probabilities, and they pass on this build. So the
+numbers in `oracle.txt` are no longer merely "what this binary printed" — they
+are what SCRAM's authors say SCRAM should print, checked.
+
+`[perf]`-tagged performance tests are excluded (`~[perf]`); they measure
+timings rather than assert answers.
 
 ### Extraction — two fixtures, deliberately separate
 
@@ -498,6 +533,59 @@ on a model whose minimal cut sets it produces in about a second. The consensus
 term adds a third recursive call at every node. Recorded so the absence is not
 read as a limitation of this port.
 
+### House events, and a defect they exposed
+
+A **house event** is a condition fixed for the analysis rather than sampled —
+a valve lined up or not, a timer reset or not. It has no probability and never
+appears in a cut set; it decides which parts of the tree are live.
+`Arg::Constant` carries it, and the BDD needs no special case at all because a
+constant *is* a terminal.
+
+Upstream's only house-event model is `ThreeMotor`, which also uses
+`<define-component role="private">` — private namespaces in which an inner
+gate `E1` is really `t.E1` and distinct from the outer `E1`. The structure
+extractor has no notion of namespaces and was **silently merging them**; that
+is now a refusal, and it is the real reason `ThreeMotor` stays excluded (the
+earlier "house events, four candidate top gates" was a symptom). A small model
+was written to give the feature genuine oracle coverage —
+`models-for-this-port/house_events_small.xml`, exercising both values in both
+connectives — and SCRAM confirms `{a}`, `{c}`, `p = 0.37`.
+
+#### The defect: an unconditional top reported as conditional
+
+Writing the house-event unit test caught something the oracle models never
+would have. `OR(A, true-house-event)` makes the top event **unconditional**,
+so its only minimal cut set is the *empty* set. `CutSet` cannot represent
+that, and `minimize` was silently dropping it — returning `{A}`, which says
+the system fails only when `A` does when in fact it always fails.
+
+Upstream was consulted rather than guessed at:
+
+```
+scram --probability  ->  warning="The set is UNITY/Base."
+                         basic-events="0"  products="1"  probability="1"
+                         <product order="1" probability="1"/>   (no members)
+```
+
+Both `mocus::minimal_cut_sets` and `zbdd::minimal_cut_sets` now **refuse**
+this, with a message naming upstream's warning.
+
+**Two quite different trees land there**, and the message says so. One is
+genuinely unconditional. The other is non-coherent with every implicant
+complemented — `NOT A` — where the *function* is not unconditional at all but
+its cut-set representation is, because deleting the complements loses
+everything. Upstream agrees on both, and the contrast is sharp:
+
+| `NOT A` | SCRAM | this port |
+|---|---|---|
+| minimal cut sets | `UNITY/Base` warning, empty product | refused, citing that warning |
+| prime implicants | `{-A}`, probability 0.9 | `{-A}` |
+| probability | 0.9 | 0.9 (BDD) |
+
+So the refusal is not a limitation but a correct statement that the *question*
+has no answer in that representation — and both routes that do answer it are
+asserted in the same test.
+
 ### One deliberate divergence: RRW at the singularity
 
 `Theatre/theatre`, `Mains_Fail`: MIF, CIF, DIF and RAW all match SCRAM
@@ -572,8 +660,9 @@ third-party project was not part of this task.
   SCRAM's answers. It says nothing about whether fault-tree quantification is
   the right model for any particular system, and nothing about whether any
   particular tree describes a real one.
-- **Upstream's own tests never ran** (Catch2/glibc, above), so the oracle is
-  only as trustworthy as the CLI path.
+- ~~**Upstream's own tests never ran**~~ **CORRECTED 2026-09-21** — they do
+  now: 540 assertions in 71 test cases, all passing, including a test per
+  benchmark model. See above.
 - **Nine models, 450 cut sets, 83 basic events.** Real PRA models reach tens of
   thousands of cut sets, and the largest Aralia benchmarks in upstream's own
   suite already reach 75,379 — those exhausted memory during extraction and

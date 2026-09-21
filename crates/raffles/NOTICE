@@ -216,8 +216,12 @@ file comes from before writing its attribution header.
        caller builds in Rust, since input parsing is out of RAFFLES' scope.
 
    STILL ABSENT: the preprocessor, XML input handling, event trees,
-   alignments, CCF groups, substitutions, house events, and the expression
-   library.
+   alignments, CCF groups, substitutions, <define-component> namespaces, and
+   the expression library.
+
+   HOUSE EVENTS are present, as Arg::Constant -- conditions fixed for the
+   analysis rather than sampled, which the MEF writes as
+   <constant value="true"/>.
 
    PRIME IMPLICANTS are present, in src/scram/zbdd.rs, porting
    Zbdd::ConvertBddPrimeImplicants together with Bdd::Consensus (which is

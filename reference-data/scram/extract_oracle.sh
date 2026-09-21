@@ -45,6 +45,14 @@ for input in "$@"; do
 
   echo "MODEL $name"
 
+  # Which fault tree SCRAM actually analysed. A model may declare several
+  # gates that nothing references -- ThreeMotor declares four -- and the
+  # report is the only place that says which one the answers belong to. It is
+  # an answer, so it belongs here rather than in models.txt.
+  analysed=$(grep -oE '<sum-of-products name="[^"]*"' <<< "$rpt" | head -1 \
+             | sed -n 's/.*name="\([^"]*\)".*/\1/p')
+  [ -n "$analysed" ] && echo "TOPNAME $analysed"
+
   # Basic-event probabilities, from the importance section.
   while IFS= read -r line; do
     ev=$(attr "$line" name); p=$(attr "$line" probability)

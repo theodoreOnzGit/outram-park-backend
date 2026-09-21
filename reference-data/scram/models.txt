@@ -23,6 +23,7 @@ GATE g2 and - b:e3 b:e4
 TOP top
 END
 MODEL ThreeMotor/three_motor
+CANNOT-PARSE <model> uses define-component, whose private namespaces this script does not model
 GATE E1 or - b:K1 g:E2
 GATE E2 or - g:E3 g:E4
 GATE E4 or - b:S1 b:T1inc
@@ -31,8 +32,8 @@ GATE E3 and - g:E5 g:E6 g:E7
 GATE E5 or - b:KT1inc b:T2inc
 GATE E8 or - b:K1 g:E9
 GATE E9 or - g:E10 g:E11
-CANNOT-PARSE E10 house event (not ported)
-CANNOT-PARSE E12 house event (not ported)
+GATE E10 and - h:KT1 h:KT3 g:E12
+GATE E12 or - h:KT2 b:T4
 GATE E11 or - b:S1 b:T3
 GATE E1 or - b:K1 g:E2
 GATE E2 or - g:E3 g:E4
@@ -41,6 +42,9 @@ GATE E3 and - g:E5 g:E6 g:E7
 GATE E5 or - b:KT1inc b:T2inc
 GATE E6 or - b:KT2inc b:T3inc
 GATE E7 or - b:KT3inc b:T4inc
+HOUSE KT1 true
+HOUSE KT2 true
+HOUSE KT3 true
 PARAM KT1inc 2.000000e-002
 PARAM T3inc 2.000000e-002
 PARAM T1inc 2.000000e-002
@@ -56,7 +60,7 @@ PARAM K5 2.000000e-002
 PARAM T1 2.000000e-002
 PARAM T4inc 2.000000e-002
 PARAM KT2inc 2.000000e-002
-CANNOT-PARSE <top> 4 candidate top gates
+CANNOT-PARSE <top> 3 candidate top gates
 END
 MODEL BSCU/BSCU
 GATE LossOfBrakingCommands or - b:ValidityMonitorFailure g:Systems1And2DoNotOperate g:SwitchFailure
@@ -184,6 +188,18 @@ PARAM e11 0.01
 PARAM e4 0.01
 PARAM e23 0.01
 TOP r1
+END
+MODEL models-for-this-port/house_events_small
+GATE top or - g:live g:dead g:either
+GATE live and - b:a h:KT_ON
+GATE dead and - b:b h:KT_OFF
+GATE either or - b:c h:KT_OFF
+HOUSE KT_OFF false
+HOUSE KT_ON true
+PARAM c 0.3
+PARAM b 0.2
+PARAM a 0.1
+TOP top
 END
 MODEL models-for-this-port/noncoherent_small
 GATE top or - g:g1 g:g2

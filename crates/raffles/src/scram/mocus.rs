@@ -170,12 +170,24 @@ pub fn minimal_cut_sets(tree: &FaultTree, limit_order: usize) -> Result<Vec<CutS
             let mut positive = positive.clone();
             let mut negative = negative.clone();
             let mut gates = rest.clone();
+            // A house event whose literal is FALSE makes the whole branch
+            // unsatisfiable; one whose literal is true contributes nothing.
+            let mut impossible = false;
             for (arg, arg_negated) in branch {
                 match arg {
                     Arg::BasicEvent(e) if arg_negated => negative.push(e),
                     Arg::BasicEvent(e) => positive.push(e),
                     Arg::Gate(g) => gates.push((g, arg_negated)),
+                    Arg::Constant(value) => {
+                        if value == arg_negated {
+                            impossible = true;
+                            break;
+                        }
+                    }
                 }
+            }
+            if impossible {
+                continue;
             }
             for v in [&mut positive, &mut negative] {
                 v.sort_unstable();
@@ -216,7 +228,7 @@ pub fn minimal_cut_sets(tree: &FaultTree, limit_order: usize) -> Result<Vec<CutS
         }
     }
 
-    Ok(minimize(complete))
+    minimize(complete)
 }
 
 /// The alternative ways a gate can be satisfied, under the sign it was reached
@@ -300,26 +312,53 @@ fn combinations(args: &[Arg], k: usize) -> Vec<Vec<Arg>> {
 ///
 /// Sorting by order first means a superset is always compared against sets
 /// already known to be no larger, so one pass suffices.
-fn minimize(mut sets: Vec<Vec<usize>>) -> Vec<CutSet> {
+fn minimize(mut sets: Vec<Vec<usize>>) -> Result<Vec<CutSet>> {
     sets.sort_unstable();
     sets.dedup();
     sets.sort_by(|a, b| a.len().cmp(&b.len()).then_with(|| a.cmp(b)));
 
     let mut kept: Vec<Vec<usize>> = Vec::new();
     for candidate in sets {
-        // An empty cut set means the top event is unconditional; it absorbs
-        // everything, and `CutSet::new` refuses it, so it is dropped here with
-        // the rest of the non-minimal sets rather than being silently kept.
+        // The empty set absorbs everything: if it is present the top event is
+        // unconditional, and no list of cut sets can say so -- `CutSet` cannot
+        // represent it. Silently dropping it would report a system that ALWAYS
+        // fails as one that fails only under the remaining sets, which is the
+        // worst kind of wrong answer. Upstream reports it as a product with no
+        // members and the warning "The set is UNITY/Base."; here it is an
+        // error, since this function's return type has nowhere to put it.
         if candidate.is_empty() {
-            continue;
+            return Err(unity_error());
         }
         if !kept.iter().any(|k| is_subset(k, &candidate)) {
             kept.push(candidate);
         }
     }
-    kept.into_iter()
+    Ok(kept
+        .into_iter()
         .map(|members| CutSet::new(&members).expect("non-empty by construction"))
-        .collect()
+        .collect())
+}
+
+/// The error for a tree whose minimal cut sets are the empty set.
+///
+/// Shared with [`super::zbdd`], which reaches the same state by its own
+/// route. See the message for the two quite different trees that land here.
+pub(super) fn unity_error() -> RafflesError {
+    RafflesError::InvalidParameter {
+        parameter: "tree".to_string(),
+        value: 1.0,
+        reason: "the minimal cut sets of this tree are the EMPTY set, which a list of cut \
+                 sets cannot express -- upstream SCRAM reports it as a product with no \
+                 members and the warning \"The set is UNITY/Base.\". Two different trees \
+                 reach this: one whose top event really is unconditional (a `true` house \
+                 event under an OR), and a non-coherent one whose every implicant is \
+                 complemented (`NOT A`), where the FUNCTION is not unconditional but its \
+                 cut-set representation is -- deleting the complements loses everything. \
+                 `scram::bdd::Bdd` tells the two apart (`is_always`, and `probability` for \
+                 the real value), and `scram::zbdd::prime_implicants` gives the second kind \
+                 the answer cut sets cannot"
+            .to_string(),
+    }
 }
 
 /// Whether every member of `small` appears in `large`; both are sorted.
@@ -507,6 +546,64 @@ mod tests {
                 .then_with(|| a.members().cmp(b.members()))
         });
         assert_eq!(sets, sorted, "the returned order should already be sorted");
+    }
+
+    /// **Methodology.** House-event semantics, which the oracle comparison
+    /// checks end-to-end but which are worth pinning directly because the
+    /// two polarities behave oppositely in the two connectives.
+    ///
+    /// A **true** house event contributes nothing to an AND and satisfies an
+    /// OR outright; a **false** one makes an AND impossible and contributes
+    /// nothing to an OR. Getting either backwards silently changes which
+    /// parts of the tree are live.
+    ///
+    /// **Result** (2026-09-21): all four cases hold, and no house event
+    /// appears in any cut set — they carry no probability, so one reaching a
+    /// cut set would be a type error waiting to happen.
+    #[test]
+    fn a_house_event_decides_which_parts_of_the_tree_are_live() {
+        let tree = |on: bool, connective: Connective| {
+            let mut b = FaultTreeBuilder::new();
+            b.basic_event("A", 0.1).unwrap();
+            b.house_event("H", on).unwrap();
+            b.gate("Top", connective, &["A", "H"]).unwrap();
+            b.build("Top").unwrap()
+        };
+
+        // AND with a true house event reduces to {A}; with a false one, to
+        // nothing at all.
+        assert_eq!(
+            named(&tree(true, Connective::And), DEFAULT_LIMIT_ORDER),
+            expect(&[&["A"]])
+        );
+        assert!(named(&tree(false, Connective::And), DEFAULT_LIMIT_ORDER).is_empty());
+
+        // OR with a false house event reduces to {A}; with a true one the top
+        // event is unconditional, which is no cut set rather than an empty
+        // one -- `CutSet` refuses the empty set for exactly this reason.
+        assert_eq!(
+            named(&tree(false, Connective::Or), DEFAULT_LIMIT_ORDER),
+            expect(&[&["A"]])
+        );
+        // OR with a TRUE house event makes the top event unconditional. Its
+        // only minimal cut set is the empty set, which `CutSet` cannot hold,
+        // so this is refused rather than answered -- silently returning {A}
+        // would say the system fails only when A does, when it always fails.
+        // Upstream warns "The set is UNITY/Base." and reports a product with
+        // no members.
+        let err = minimal_cut_sets(tree(true, Connective::Or).tree(), DEFAULT_LIMIT_ORDER)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("unconditional") && err.contains("UNITY"),
+            "the refusal should name the condition and cite upstream: {err}"
+        );
+        // The BDD says the same thing without generating anything, and its
+        // probability is 1 whatever A does.
+        let model = tree(true, Connective::Or);
+        let bdd = crate::scram::bdd::Bdd::build(model.tree()).unwrap();
+        assert!(bdd.is_always());
+        assert_eq!(bdd.probability(&[0.1]).unwrap(), 1.0);
     }
 
     /// **Methodology.** A wide AND of ORs is the standard blow-up case:

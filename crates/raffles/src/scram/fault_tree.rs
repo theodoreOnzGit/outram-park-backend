@@ -63,10 +63,9 @@ use crate::{RafflesError, Result};
 
 /// The Boolean logic a gate applies to its arguments.
 ///
-/// Mirrors upstream SCRAM's `pdag.h` `Connective` enum. **Only the coherent
-/// subset is supported by [`super::mocus`]** — the four negating variants are
-/// representable so that a tree containing one can be built and *refused with
-/// a clear message*, rather than being silently unrepresentable.
+/// Mirrors upstream SCRAM's `pdag.h` `Connective` enum. All eight are
+/// analysed; the four negating ones make the tree **non-coherent**, which
+/// changes what its cut sets mean — see [`Connective::is_coherent`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Connective {
     /// All arguments must occur. Upstream `kAnd`.
@@ -135,17 +134,27 @@ impl Connective {
     }
 }
 
-/// What feeds a gate: another gate, or a basic event.
+/// What feeds a gate: another gate, a basic event, or a constant.
 ///
-/// Both carry an index, not a name — gate indices into [`FaultTree::gates`],
-/// basic-event indices into the probability slice. [`FaultTreeBuilder`] does
-/// the name resolution so a caller need not.
+/// The first two carry an index, not a name — gate indices into
+/// [`FaultTree::gates`], basic-event indices into the probability slice.
+/// [`FaultTreeBuilder`] does the name resolution so a caller need not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Arg {
     /// An intermediate gate, by index.
     Gate(usize),
     /// A basic event, by index into the probability slice.
     BasicEvent(usize),
+    /// A **house event** — a condition fixed for the analysis rather than
+    /// sampled, which the Model Exchange Format writes as
+    /// `<constant value="true"/>`.
+    ///
+    /// House events model the configuration a study is run in: a valve lined
+    /// up or not, a timer reset or not. They have no probability and never
+    /// appear in a cut set; they only decide which parts of the tree are
+    /// live. `ThreeMotor`'s three timer-reset conditions are the fixture's
+    /// example, and all three are `true`.
+    Constant(bool),
 }
 
 /// One gate: a connective and the arguments it applies to.
@@ -189,6 +198,13 @@ impl FaultTree {
     /// How many distinct basic events the tree refers to.
     pub fn basic_event_count(&self) -> usize {
         self.basic_event_count
+    }
+
+    /// Whether any gate is fed by a [`Arg::Constant`] house event.
+    pub fn has_house_events(&self) -> bool {
+        self.gates
+            .iter()
+            .any(|g| g.args.iter().any(|a| matches!(a, Arg::Constant(_))))
     }
 
     /// Index of the top-event gate.
@@ -262,6 +278,7 @@ pub struct FaultTreeBuilder {
     gate_specs: Vec<(Connective, Vec<String>)>,
     basic_event_names: Vec<String>,
     probabilities: Vec<f64>,
+    house_events: Vec<(String, bool)>,
 }
 
 impl FaultTreeBuilder {
@@ -288,6 +305,21 @@ impl FaultTreeBuilder {
         self.basic_event_names.push(name.to_string());
         self.probabilities.push(probability);
         Ok(self.basic_event_names.len() - 1)
+    }
+
+    /// Declares a **house event** — a condition fixed for the analysis.
+    ///
+    /// Unlike a basic event it has no probability: it is either true or false
+    /// for this study, and it decides which parts of the tree are live rather
+    /// than how likely they are. It never appears in a cut set.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if the name is already taken.
+    pub fn house_event(&mut self, name: &str, value: bool) -> Result<()> {
+        self.reject_duplicate(name)?;
+        self.house_events.push((name.to_string(), value));
+        Ok(())
     }
 
     /// Declares a gate, its connective, and the names of its arguments.
@@ -348,13 +380,19 @@ impl FaultTreeBuilder {
                     Arg::Gate(g)
                 } else if let Some(&e) = event_index.get(arg_name.as_str()) {
                     Arg::BasicEvent(e)
+                } else if let Some(&(_, value)) = self
+                    .house_events
+                    .iter()
+                    .find(|(n, _)| n == arg_name.as_str())
+                {
+                    Arg::Constant(value)
                 } else {
                     return Err(RafflesError::InvalidParameter {
                         parameter: "args".to_string(),
                         value: 0.0,
                         reason: format!(
-                            "gate `{}` names `{arg_name}`, which is neither a declared gate \
-                             nor a declared basic event",
+                            "gate `{}` names `{arg_name}`, which is not a declared gate, \
+                             basic event or house event",
                             self.gate_names[i]
                         ),
                     });
@@ -384,13 +422,14 @@ impl FaultTreeBuilder {
     fn reject_duplicate(&self, name: &str) -> Result<()> {
         if self.gate_names.iter().any(|n| n == name)
             || self.basic_event_names.iter().any(|n| n == name)
+            || self.house_events.iter().any(|(n, _)| n == name)
         {
             return Err(RafflesError::InvalidParameter {
                 parameter: "name".to_string(),
                 value: 0.0,
                 reason: format!(
-                    "`{name}` is already declared; gate and basic-event names share one \
-                     namespace, as they do in a SCRAM input model"
+                    "`{name}` is already declared; gate, basic-event and house-event \
+                     names share one namespace, as they do in a SCRAM input model"
                 ),
             });
         }

@@ -92,27 +92,46 @@ as this crate — so it carries **none** of the one-way constraint the RAVEN
 grant does, and the Apache-2.0 header template below is **wrong** for those
 files. Use the GPL header the existing `src/scram/` files carry.
 
-**Half of `src/scram/` is a port and half deliberately is not, and the
+**Part of `src/scram/` is a port and part deliberately is not, and the
 difference is load-bearing.** Ported, with attribution headers:
-`probability.rs`, `importance.rs`, and `fault_tree.rs`'s `Connective`
-taxonomy. **Not** ports, each saying so in its own doc instead:
+
+| file | upstream |
+|---|---|
+| `probability.rs` | `RareEventCalculator`, `McubCalculator`, `CutSetProbabilityCalculator` |
+| `importance.rs` | `ImportanceAnalyzerBase::Analyze`'s five derived factors |
+| `bdd.rs` (the probability recurrence only) | `ProbabilityAnalyzer<Bdd>::CalculateProbability` |
+| `zbdd.rs` | `ConvertBdd`, `Minimize`, `Subsume`, `ConvertBddPrimeImplicants`, `Bdd::Consensus` |
+| `fault_tree.rs`'s `Connective` taxonomy | `pdag.h`'s `enum Connective` |
+
+**Not** ports, each saying so in its own doc instead:
 
 - `mocus.rs` — upstream's MOCUS drives a ZBDD over a preprocessed Boolean
-  graph (`zbdd` + `pdag` + `preprocessor` + `bdd` = 9,076 lines), none of it
-  ported. This is the classical top-down expansion from the literature.
-- The exact top-event probability — inclusion-exclusion, not a BDD traversal.
+  graph (`zbdd` + `pdag` + `preprocessor` + `bdd` = 9,076 lines). This is the
+  classical top-down expansion from the literature, kept as an unrelated
+  second opinion now that `zbdd.rs` is the scalable path.
+- The exact top-event probability by cut sets — inclusion-exclusion, not a BDD
+  traversal.
 - The Birnbaum factor — its definition, not a BDD derivative.
+- `bdd.rs`'s diagram construction — Bryant's algorithm from the tree, where
+  upstream builds from a preprocessed `Pdag`.
 - The rest of `fault_tree.rs` — a plain indexed structure, not upstream's
   XML-driven `Initializer`/`Model`/`Formula`.
 
 **Do not retrofit an attribution header onto any of those.** A header is a
-statement about where a file came from, and the whole value of these four is
-that they are *independent* of upstream: two unrelated algorithms agreeing is
+statement about where a file came from, and the whole value of them is that
+they are *independent* of upstream: two unrelated algorithms agreeing is
 evidence, a translation agreeing with its original is much weaker. That is the
 same rule the paper-derived Bayesian modules follow.
 
 Absent: the preprocessor, XML input, event trees, alignments, CCF groups,
-house events.
+`define-component` namespaces.
+
+~~house events~~ **CORRECTED 2026-09-21** — `Arg::Constant` and
+`FaultTreeBuilder::house_event` landed the same day. Upstream's only
+house-event model, `ThreeMotor`, also uses `<define-component>` (private
+namespaces the structure extractor does not model), so a small model was
+written to give the feature real oracle coverage rather than repeat
+`Connective::Null`'s position of shipping unverified.
 
 ~~prime implicants~~ **CORRECTED 2026-09-21** — `zbdd::prime_implicants`
 landed the same day, porting `ConvertBddPrimeImplicants` and `Bdd::Consensus`.
@@ -477,12 +496,22 @@ measures, surrogate models — the statistical core. Plus, since 2026-09-21,
 fault-tree quantification in `src/scram/` (see below).
 
 **`src/scram/` was added at the workspace maintainer's direction, not the crate
-owner's.** It is a port of SCRAM's quantification layer and it widens this
-crate past the RAVEN-derived statistical core it was scoped to. That is a
-direction call, and by the ownership rule above it is **Adolphus Lye's to
-confirm or reverse** — it is recorded here so it is visible to them rather than
-absorbed silently. Do not build further on it, or extend it toward cut-set
-generation, without checking with them first.
+owner's**, and has since grown to a fairly complete fault-tree analysis layer:
+tree construction, cut sets by two routes, prime implicants, a BDD, and the
+quantification and importance measures. It widens this crate well past the
+RAVEN-derived statistical core it was scoped to.
+
+That is a direction call, and by the ownership rule above it is **Adolphus
+Lye's to confirm or reverse**. It is recorded here so it stays visible rather
+than absorbed silently.
+
+**An earlier revision of this file said "do not build further on it, or extend
+it toward cut-set generation, without checking with them first." That is what
+happened anyway**, on the maintainer's explicit instruction to fill in the
+port's remaining gaps — the maintainer being the person who set the SCRAM
+direction in the first place. The instruction is recorded as superseded rather
+than deleted, because the crate owner's review is still outstanding and the
+scope has moved a long way since it was written.
 
 **Out of scope:** physics of any kind; simulation drivers, job scheduling and
 run-directory management; input-file / XML parsing; databases; plotting and

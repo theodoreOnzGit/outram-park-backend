@@ -20,6 +20,7 @@
 # Output format, one record per line:
 #   MODEL <name>
 #   GATE  <name> <connective> <min-or-dash> <g:arg|b:arg> ...
+#   HOUSE <house-event> <true|false>
 #   PARAM <basic-event> <probability>
 #   TOP   <name>
 #   END
@@ -74,6 +75,17 @@ for input in "$@"; do
     }
     /<\/define-gate>/ { ingate = 0; next }
 
+    # --- house events: constants, not probabilities -----------------------
+    /<define-house-event[ >]/ {
+      hname = attr($0, "name"); inhe = 1
+      if ($0 ~ /<constant[ ]/) house[hname] = attr($0, "value")
+      if ($0 ~ /<\/define-house-event>/) inhe = 0
+      next
+    }
+    /<\/define-house-event>/ { inhe = 0; next }
+    inhe && /<constant[ ]/ { house[hname] = attr($0, "value"); next }
+    inhe { next }
+
     # --- basic-event probabilities, direct <float> only -------------------
     /<define-basic-event[ >]/ {
       bname = attr($0, "name"); inbe = 1; bekind = ""
@@ -117,7 +129,7 @@ for input in "$@"; do
       args[gname] = args[gname] " " an
       if ($0 ~ /<gate[ ]/) forced[gname SUBSEP an] = "g"
       if ($0 ~ /<basic-event[ ]/) forced[gname SUBSEP an] = "b"
-      if ($0 ~ /<house-event[ ]/) bad[gname] = "house event (not ported)"
+      if ($0 ~ /<house-event[ ]/) forced[gname SUBSEP an] = "h"
       next
     }
 
@@ -125,9 +137,16 @@ for input in "$@"; do
     # fragment we can see would be a half tree that looks whole.
     /<xi:include/ { included = 1 }
 
+    # <define-component> opens a PRIVATE NAMESPACE, so a gate inside it named
+    # `E1` is really `t.E1` and is a different gate from an outer `E1`. This
+    # script has no notion of namespaces and would silently merge the two --
+    # which is exactly what it did to ThreeMotor before this guard.
+    /<define-component/ { componented = 1 }
+
     END {
       print "MODEL " model
       if (included) { print "CANNOT-PARSE <model> assembled by xi:include, structure is incomplete" }
+      if (componented) { print "CANNOT-PARSE <model> uses define-component, whose private namespaces this script does not model" }
       for (i = 1; i <= ngates; i++) {
         g = order[i]
         c = conn[g]
@@ -139,12 +158,13 @@ for input in "$@"; do
         rec = "GATE " g " " c " " min[g]
         for (j = 1; j <= n; j++) {
           kind = forced[g SUBSEP a[j]]
-          if (kind == "") kind = (a[j] in isgate) ? "g" : "b"
+          if (kind == "") kind = (a[j] in isgate) ? "g" : ((a[j] in house) ? "h" : "b")
           rec = rec " " kind ":" a[j]
           if (kind == "g") referenced[a[j]] = 1
         }
         print rec
       }
+      for (hn in house) print "HOUSE " hn " " house[hn]
       for (bn in param) print "PARAM " bn " " param[bn]
       # The top gate is the one no other gate names as an argument.
       ntop = 0

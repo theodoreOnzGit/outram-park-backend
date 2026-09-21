@@ -345,6 +345,8 @@ impl Bdd {
             for arg in tree.gates()[gate].args().iter().rev() {
                 match *arg {
                     Arg::Gate(g) => stack.push(g),
+                    // A house event is a constant, so it orders no variable.
+                    Arg::Constant(_) => {}
                     Arg::BasicEvent(e) => {
                         event_to_order.entry(e).or_insert_with(|| {
                             order_to_event.push(e);
@@ -521,6 +523,11 @@ fn build_gate(
     for arg in tree.gates()[gate].args() {
         args.push(match *arg {
             Arg::Gate(g) => build_gate(b, tree, g, memo)?,
+            // A house event is exactly a terminal, which is why the diagram
+            // needs no special case for one anywhere else: `apply` folds it
+            // away and the reduction rules delete whatever it made redundant.
+            Arg::Constant(true) => ONE,
+            Arg::Constant(false) => ZERO,
             Arg::BasicEvent(e) => {
                 let order = b.event_to_order[&e];
                 b.make(order, ONE, ZERO)?

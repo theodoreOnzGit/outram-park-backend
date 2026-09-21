@@ -37,6 +37,10 @@ struct Oracle {
 }
 
 struct ModelSpec {
+    /// House events the model declares: a condition fixed for the analysis,
+    /// `true` or `false`, with no probability. Gate arguments name them with
+    /// an `h:` prefix.
+    houses: Vec<(String, bool)>,
     gates: Vec<(String, String, Option<usize>, Vec<String>)>,
     params: HashMap<String, f64>,
     top: Option<String>,
@@ -112,11 +116,17 @@ fn load_models() -> HashMap<String, ModelSpec> {
             "MODEL" => {
                 name = f[1].to_string();
                 cur = Some(ModelSpec {
+                    houses: Vec::new(),
                     gates: Vec::new(),
                     params: HashMap::new(),
                     top: None,
                     unparsed: Vec::new(),
                 });
+            }
+            "HOUSE" => {
+                if let Some(m) = cur.as_mut() {
+                    m.houses.push((f[1].to_string(), f[2] == "true"));
+                }
             }
             "GATE" => {
                 if let Some(m) = cur.as_mut() {
@@ -171,6 +181,9 @@ fn build(name: &str, spec: &ModelSpec, oracle: &Oracle) -> Option<FaultTreeModel
     let mut event_names: Vec<&str> = oracle.events.keys().map(|s| s.as_str()).collect();
     for (_, _, _, args) in &spec.gates {
         for a in args {
+            if a.starts_with("h:") {
+                continue;
+            }
             let n = &a[2..];
             if !gate_names.contains(n)
                 && !oracle.events.contains_key(n)
@@ -190,6 +203,10 @@ fn build(name: &str, spec: &ModelSpec, oracle: &Oracle) -> Option<FaultTreeModel
             (None, None) => return None,
         };
         b.basic_event(n, p).expect("valid probability");
+    }
+    for (house, value) in &spec.houses {
+        b.house_event(house, *value)
+            .expect("a fresh house-event name");
     }
     for (gate, connective, min, args) in &spec.gates {
         let c = match connective.as_str() {
