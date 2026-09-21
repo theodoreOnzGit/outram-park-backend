@@ -277,7 +277,8 @@ Still not covered, and tracked in `bn:op-b4a.2.7`:
   classification against runtime, and the 0.2 / 0.04 ratio defaults;
 - `inventory_processing` — axial inventory reshaping;
 - `release_activity` — the accident-path activity assembly;
-- the JSON run-file driver and accident-case entry point, still scaffolded
+- the JSON run-file driver and accident-case entry point — ~~still
+  scaffolded~~ **CORRECTED 2026-09-21: not ported, no code exists**
   (`bn:op-b4a.2.3`);
 - the upstream Tkinter GUI, intentionally not ported.
 

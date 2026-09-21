@@ -65,9 +65,72 @@ MIT is GPLv3-compatible, so porting MIT-licensed TRISO-ATOPS into GPL-3.0
 | `calculation_functions.py` — `circulating*`, `plate_out*`, `clean_up*`, `release_rate`, `base_activities` | `triso_atops_fork::activities` (`coolant_activity`, `source_terms`) | **Ported + verified** (bead op-b4a.2.2) |
 | `calculation_functions.py` — `higher_activities` routing | `triso_atops_fork::normal_operation::normal_operation_node` | **Ported + verified** (bead op-b4a.2.2) |
 | `trisoatops.py` — `normal_operation` (per-node body) | `triso_atops_fork::normal_operation::normal_operation_node` | **Ported + verified** (bead op-b4a.2.2) |
-| `calculation_functions.py` — `release_activity`, `coolant_release`; `trisoatops.py` — `accident_case`, `main` | `triso_atops_fork::normal_operation` (accident driver) | **Scaffold** (bead op-b4a.2.3) |
-| `run_functions.py` — `process_run_file`, `check_run_file`, `convert_time`, `nuclide_sort`, `read_save_file`, `read_profile`, `inventory_processing` | `triso_atops_fork::normal_operation` (JSON run-file API) | **Scaffold** (bead op-b4a.2.3) |
+| `calculation_functions.py` — `nuclide_import`, `nuclide_import_accident` | — | **NOT PORTED** — name normalisation, short-lived/long-lived classification and parent-decay wiring. See the upstream-defect note below before porting. |
+| `calculation_functions.py` — `inventory_processing` | — | **NOT PORTED** — axial inventory reshaping. |
+| `calculation_functions.py` — `release_activity`, `coolant_release`; `trisoatops.py` — `accident_case`, `main` | — | **NOT PORTED** ~~Scaffold~~ **CORRECTED 2026-09-21** — there is no accident driver in the port at all: `normal_operation` contains 5 public types and 1 public function, all normal-operation. "Scaffold" implied partial code where none exists. |
+| `run_functions.py` — `create_log`, `read_profile`, `convert_time`, `read_save_file`, `process_run_file`, `check_run_file`, `count_errors`, `trisoatops`, `nuclide_sort` | — | **NOT PORTED** ~~Scaffold~~ **CORRECTED 2026-09-21** — nothing exists. `inventory_processing` was also listed here and is **not** in this file; it lives in `calculation_functions.py:319`. |
 | `trisoatops_gui.py` (1432 LOC) | — | **Excluded (GUI, out of scope)** |
+
+### Upstream defects found in the UNPORTED functions (2026-09-21)
+
+Read before porting any of the four rows above. These were found by reading
+`calculation_functions.py` at `de374c8` while scoping the remaining work; none
+of them affects the ported subset, and none has been reported upstream.
+
+**1. `parent_decay` is assigned with `==`, so the runtime logic never fires.**
+`nuclide_import` (lines 275 and 277) writes
+
+```python
+if nuclide_out[parent].sl == True:
+    nuclide_out[nuclide].parent_decay == True      # `==`, not `=`
+else:
+    nuclide_out[nuclide].parent_decay == False     # `==`, not `=`
+```
+
+Both are comparisons whose result is discarded. In the branch where the parent
+*is* present in the run's nuclide list — the branch meant to decide whether
+parent decay applies — `parent_decay` is therefore never set and keeps the
+value hard-coded in the `nuclides` table. The two `else` paths (lines 280, 283)
+do use `=` and correctly set `False`.
+
+The consequence is not that parent decay is off, but that **the short-lived
+parent test is dead**: `trisoatops.py:109` branches on `parent_decay is True`
+to feed parent circulating/plate-out/clean-up pools into `higher_activities`,
+so for the 13 table rows defaulted `True` the coupling is applied whenever the
+parent is in the list, regardless of the parent's half-life ratio that the
+`sl` test was written to check.
+
+**2. Rh-105 carries a parent but is defaulted `parent_decay=False`.** It has
+`['Ru-105']` and the same `# og with parent decay` comment as the 13 rows
+defaulted `True`. Given defect 1 leaves the table default in control, Rh-105
+never receives parent decay even when Ru-105 is present. The 13/1 split looks
+like an oversight rather than a decision, but it is upstream's, so a port
+should reproduce it and say so rather than silently "fixing" it.
+
+**3. `release_activity` uses `z == 48` where every other site uses `z == 46`.**
+The silver/palladium group is spelled `z == 47 or z == 46` at
+`calculation_functions.py` lines 208, 722, 747 and 775. Line 906, inside
+`release_activity`, instead reads `z == 47 or z == 48` — silver and
+**cadmium**. Both affected nuclides ship in the table (`Pd-107`, z=46, line
+163; `Cd-113`, z=48, line 166), so this is reachable, not theoretical:
+Pd-107 falls through to `fract = np.sum(fractions)` instead of `fract = 1`,
+and Cd-113 wrongly receives the silver treatment. Four sites against one makes
+`48` the likely typo.
+
+**4. `nuclide_import` mutates the shared module-level table.**
+`nuclide_out[nuclide_name] = nuclides[nuclide_name]` (lines 262 and 314) binds
+a reference, not a copy, so the subsequent `.sl` and `.parent_decay` writes
+land on the global `nuclides` dict. Two runs in one process — which is exactly
+what `trisoatops_gui.py` does — leak the first run's classification into the
+second. A Rust port gets this right for free by owning the value; that is a
+divergence worth recording rather than an inherited bug.
+
+**5. `nuclide_import_accident` indexes the table without the guard its sibling
+has.** `nuclide_import` checks `if nuclide_name in nuclides` before lookup;
+`nuclide_import_accident` (line 313) does not, so a name that satisfies the
+regex but is absent from the table raises `KeyError` instead of being skipped
+with a warning. Its `else` branch also logs `{match}`, which is `None`
+whenever that branch is taken.
 
 ### Why the GUI was excluded
 
@@ -126,8 +189,9 @@ Bead status:
 - **op-b4a.2.1** — calculation core (done).
 - **op-b4a.2.2** — activity bookkeeping + per-node orchestration (**done this
   pass**, uom-typed + verified against upstream Python).
-- **op-b4a.2.3** — run-file JSON API + accident-case driver entry point (still
-  scaffolded; blocked by nothing now, but out of scope this pass).
+- **op-b4a.2.3** — run-file JSON API + accident-case driver entry point
+  (~~still scaffolded~~ **CORRECTED 2026-09-21: not ported — no code exists**;
+  blocked by nothing, but out of scope this pass).
 - **op-b4a.2.4** — verification (done).
 
 ## Verification approach & results
