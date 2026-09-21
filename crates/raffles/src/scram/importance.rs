@@ -55,6 +55,11 @@ pub struct ImportanceFactors {
     ///
     /// A purely structural count — it ignores probabilities entirely. Upstream
     /// calls it `occurrence`.
+    ///
+    /// **Zero when the factors came from [`importance_factors_from_bdd`]**,
+    /// which never builds cut sets and so has nothing to count. Reported as
+    /// zero rather than guessed at; use [`importance_factors`], or
+    /// [`super::zbdd::minimal_cut_sets`], if the count is what you need.
     pub occurrence: usize,
     /// **Birnbaum marginal importance factor** — `P(top | event) - P(top | not
     /// event)`.
@@ -187,6 +192,117 @@ pub fn importance_factors(
     //
     // So the singularity is detected by relative magnitude instead. See
     // `tests/scram_oracle_suite.rs` for the case and the reasoning.
+    let denominator = p_total - p_var * mif;
+    let rrw = if denominator.abs() <= p_total * SINGULARITY_TOLERANCE {
+        f64::INFINITY
+    } else {
+        p_total / denominator
+    };
+
+    Ok(ImportanceFactors {
+        occurrence,
+        mif,
+        cif,
+        dif,
+        raw,
+        rrw,
+    })
+}
+
+/// Computes the five importance measures from a **binary decision diagram**.
+///
+/// Same measures as [`importance_factors`], same derived formulas — but the
+/// three probabilities they rest on come from
+/// [`super::bdd::Bdd::probability`] rather than from inclusion-exclusion over
+/// cut sets. That makes three differences, and the third is the reason this
+/// exists:
+///
+/// 1. **No cut-set ceiling.** [`importance_factors`] inherits
+///    [`super::probability::EXACT_CUT_SET_LIMIT`]; this does not.
+/// 2. **No cut sets needed at all**, so a model whose cut sets are
+///    intractable can still be ranked.
+/// 3. **On a non-coherent tree it is the RIGHT ANSWER, and the cut-set
+///    version is not.** Minimal cut sets there are conservative, and every
+///    factor derived from them inherits that. Measured on the fixture's small
+///    non-coherent model, event `a`: this gives the Birnbaum factor
+///    `0.432`, matching SCRAM exactly, where [`importance_factors`] over the
+///    same tree's cut sets gives `0.420`. Upstream computes importance from
+///    its BDD for precisely this reason.
+///
+/// On a **coherent** tree the two agree exactly, which is asserted in
+/// `tests/scram_bdd_oracle.rs`.
+///
+/// `event` is a basic-event index, as for [`importance_factors`].
+///
+/// # Errors
+///
+/// [`RafflesError::InvalidParameter`] if `event` is out of range, if a
+/// probability is invalid, or if the top-event probability is zero — every
+/// factor divides by it.
+///
+/// # Example
+///
+/// ```
+/// use raffles::scram::bdd::Bdd;
+/// use raffles::scram::fault_tree::{Connective, FaultTreeBuilder};
+/// use raffles::scram::importance::importance_factors_from_bdd;
+///
+/// // `a AND NOT b` OR `c` -- non-coherent, so cut sets would be conservative.
+/// let mut b = FaultTreeBuilder::new();
+/// b.basic_event("a", 0.1).unwrap();
+/// b.basic_event("b", 0.2).unwrap();
+/// b.basic_event("c", 0.3).unwrap();
+/// b.gate("NotB", Connective::Not, &["b"]).unwrap();
+/// b.gate("Left", Connective::And, &["a", "NotB"]).unwrap();
+/// b.gate("Top", Connective::Or, &["Left", "c"]).unwrap();
+/// let model = b.build("Top").unwrap();
+///
+/// let bdd = Bdd::build(model.tree()).unwrap();
+/// let f = importance_factors_from_bdd(0, &bdd, model.probabilities()).unwrap();
+/// // P(top | a) - P(top | not a) = (0.8 + 0.3 - 0.24) - 0.3 = 0.56
+/// assert!((f.mif - 0.56).abs() < 1e-12);
+/// ```
+pub fn importance_factors_from_bdd(
+    event: usize,
+    bdd: &super::bdd::Bdd,
+    event_probabilities: &[f64],
+) -> Result<ImportanceFactors> {
+    let p_var = *event_probabilities
+        .get(event)
+        .ok_or_else(|| RafflesError::InvalidParameter {
+            parameter: "event".to_string(),
+            value: event as f64,
+            reason: format!(
+                "basic-event index {event} is out of range for {} probabilities",
+                event_probabilities.len()
+            ),
+        })?;
+
+    let p_total = bdd.probability(event_probabilities)?;
+    if p_total == 0.0 {
+        return Err(RafflesError::InvalidParameter {
+            parameter: "p_total".to_string(),
+            value: 0.0,
+            reason: "the top-event probability is zero, so every importance measure divides \
+                     by zero; the ranking is undefined"
+                .to_string(),
+        });
+    }
+
+    let mut with = event_probabilities.to_vec();
+    with[event] = 1.0;
+    let mut without = event_probabilities.to_vec();
+    without[event] = 0.0;
+    let mif = bdd.probability(&with)? - bdd.probability(&without)?;
+
+    // An occurrence count is a property of the cut sets, which this route
+    // never builds. Reported as zero rather than guessed at, and documented on
+    // the field.
+    let occurrence = 0;
+
+    let cif = p_var * mif / p_total;
+    let raw = 1.0 + (1.0 - p_var) * mif / p_total;
+    let dif = p_var * raw;
     let denominator = p_total - p_var * mif;
     let rrw = if denominator.abs() <= p_total * SINGULARITY_TOLERANCE {
         f64::INFINITY

@@ -235,6 +235,7 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | **Cut sets at scale**, vs SCRAM **and** vs MOCUS | `scram_bdd_oracle::zbdd_cut_sets_match_scram_and_mocus` | **11 models, 4,702 cut sets** |
 | **Prime implicants**, signs included | `scram_prime_implicants::prime_implicants_match_scram` | **10 models, 443 implicants** |
 | Prime implicants == cut sets when coherent | `scram_prime_implicants::on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets` | 9 models, no complement |
+| **Importance from the BDD**, both fixtures | `scram_bdd_oracle::bdd_importance_factors_match_scram_including_the_non_coherent_models` | **185 events, 11 models** |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -607,6 +608,64 @@ everything. Upstream agrees on both, and the contrast is sharp:
 So the refusal is not a limitation but a correct statement that the *question*
 has no answer in that representation — and both routes that do answer it are
 asserted in the same test.
+
+### Importance from the BDD — and a sign divergence in upstream
+
+Every other importance check here goes through minimal cut sets. On a
+**non-coherent** tree those are conservative, so every factor derived from
+them inherits the conservatism and does **not** match SCRAM, which computes
+importance from its BDD. That was unverified until now, because the earlier
+importance tests read only the coherent fixture.
+
+`importance::importance_factors_from_bdd` closes it. On
+`noncoherent_small`, event `a`:
+
+| | Birnbaum factor |
+|---|---|
+| SCRAM (from its BDD) | **0.432000** |
+| this port, from the BDD | **0.432000** |
+| this port, from cut sets | 0.420000 |
+
+**185 basic events across 11 models**, 111 on non-coherent trees. 77 agree on
+all five factors. The other 108 agree in magnitude and differ in sign.
+
+#### The 108 are all of `Aralia/das9601`, and all of it
+
+Every one of that model's 108 events diverges; not one event of the other ten
+does. Magnitudes agree to `5e-6` throughout, and the divergence runs **both
+ways** — SCRAM reports negative factors too — so it is not an absolute value
+on either side. It is a single **global sign inversion on one model**.
+
+The sign this port reports is the Birnbaum factor's definition, checked
+directly rather than argued. On `e18`:
+
+```text
+P(top | e18)     = 0.000014035880
+P(top | not e18) = 0.004277032857
+difference       = -0.004262996977      SCRAM reports +0.004263
+```
+
+`e18` occurring makes the top event about 300 times *less* likely, which a
+non-coherent tree permits. The diagram is not in doubt: its top-event
+probability `0.004234402887` matches SCRAM's `0.0042344`, and
+`0.01 x 1.4036e-5 + 0.99 x 4.27703e-3` reproduces it.
+
+**A candidate explanation, offered as that and not as a conclusion.**
+`ProbabilityAnalyzer<Bdd>::CalculateTotalProbability` ends with
+`if (bdd_graph_->root().complement) prob = 1 - prob;`.
+`ImportanceAnalyzer<Bdd>::CalculateMif` reads the same
+`bdd_graph_->root().vertex` and applies no corresponding negation, though its
+recursion is signed throughout (`ite.factor(high - low)`, and `mif = -mif` for
+a complemented module). A complemented root would flip every factor of that
+model and nothing else — exactly the pattern measured. This port uses explicit
+terminals and has no root complement to forget.
+
+The alternative is that upstream intends a criticality convention rather than
+the signed difference; the `-mif` on complemented modules argues against it,
+but this has **not been established either way**. The test therefore asserts
+the *measurement* — magnitudes equal, signs opposite, exactly 108 of them —
+not the explanation. Not raised upstream: `rakhimov/scram`'s last commit is
+from 2019 and filing against a third-party project was not part of this task.
 
 ### One deliberate divergence: RRW at the singularity
 

@@ -11073,7 +11073,7 @@ pub struct ImportanceFactors {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `occurrence` | `usize` | How many cut sets contain this event.<br><br>A purely structural count — it ignores probabilities entirely. Upstream<br>calls it `occurrence`. |
+| `occurrence` | `usize` | How many cut sets contain this event.<br><br>A purely structural count — it ignores probabilities entirely. Upstream<br>calls it `occurrence`.<br><br>**Zero when the factors came from [`importance_factors_from_bdd`]**,<br>which never builds cut sets and so has nothing to count. Reported as<br>zero rather than guessed at; use [`importance_factors`], or<br>[`super::zbdd::minimal_cut_sets`], if the count is what you need. |
 | `mif` | `f64` | **Birnbaum marginal importance factor** — `P(top | event) - P(top | not<br>event)`.<br><br>The sensitivity of the top-event probability to this event: how much<br>the answer moves between the event being certain and impossible. It<br>does **not** depend on the event's own probability, which is why a very<br>reliable component can still have a large MIF. |
 | `cif` | `f64` | **Critical importance factor** — `p * MIF / p_total`.<br><br>The fraction of top-event probability attributable to this event being<br>critical. Unlike MIF this *does* weight by the event's own probability,<br>so it answers "where is the risk actually coming from". Upstream:<br>`imp.cif = p_var * imp.mif / p_total;` |
 | `dif` | `f64` | **Fussell-Vesely diagnosis importance factor** — `p * RAW`.<br><br>Upstream computes it exactly this way:<br>`imp.dif = p_var * imp.raw;`. Note this is SCRAM's definition and is<br>ported as such; other PRA codes define Fussell-Vesely as the fraction<br>of top-event probability from cut sets containing the event, which is<br>numerically different. **If you are comparing against another tool,<br>check which definition it uses before concluding anything disagrees.** |
@@ -11214,6 +11214,66 @@ than infinite.
 
 ```rust
 pub fn importance_factors(event: usize, cut_sets: &[super::probability::CutSet], event_probabilities: &[f64], approximation: super::probability::Approximation) -> crate::Result<ImportanceFactors> { /* ... */ }
+```
+
+#### Function `importance_factors_from_bdd`
+
+Computes the five importance measures from a **binary decision diagram**.
+
+Same measures as [`importance_factors`], same derived formulas — but the
+three probabilities they rest on come from
+[`super::bdd::Bdd::probability`] rather than from inclusion-exclusion over
+cut sets. That makes three differences, and the third is the reason this
+exists:
+
+1. **No cut-set ceiling.** [`importance_factors`] inherits
+   [`super::probability::EXACT_CUT_SET_LIMIT`]; this does not.
+2. **No cut sets needed at all**, so a model whose cut sets are
+   intractable can still be ranked.
+3. **On a non-coherent tree it is the RIGHT ANSWER, and the cut-set
+   version is not.** Minimal cut sets there are conservative, and every
+   factor derived from them inherits that. Measured on the fixture's small
+   non-coherent model, event `a`: this gives the Birnbaum factor
+   `0.432`, matching SCRAM exactly, where [`importance_factors`] over the
+   same tree's cut sets gives `0.420`. Upstream computes importance from
+   its BDD for precisely this reason.
+
+On a **coherent** tree the two agree exactly, which is asserted in
+`tests/scram_bdd_oracle.rs`.
+
+`event` is a basic-event index, as for [`importance_factors`].
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if `event` is out of range, if a
+probability is invalid, or if the top-event probability is zero — every
+factor divides by it.
+
+# Example
+
+```
+use raffles::scram::bdd::Bdd;
+use raffles::scram::fault_tree::{Connective, FaultTreeBuilder};
+use raffles::scram::importance::importance_factors_from_bdd;
+
+// `a AND NOT b` OR `c` -- non-coherent, so cut sets would be conservative.
+let mut b = FaultTreeBuilder::new();
+b.basic_event("a", 0.1).unwrap();
+b.basic_event("b", 0.2).unwrap();
+b.basic_event("c", 0.3).unwrap();
+b.gate("NotB", Connective::Not, &["b"]).unwrap();
+b.gate("Left", Connective::And, &["a", "NotB"]).unwrap();
+b.gate("Top", Connective::Or, &["Left", "c"]).unwrap();
+let model = b.build("Top").unwrap();
+
+let bdd = Bdd::build(model.tree()).unwrap();
+let f = importance_factors_from_bdd(0, &bdd, model.probabilities()).unwrap();
+// P(top | a) - P(top | not a) = (0.8 + 0.3 - 0.24) - 0.3 = 0.56
+assert!((f.mif - 0.56).abs() < 1e-12);
+```
+
+```rust
+pub fn importance_factors_from_bdd(event: usize, bdd: &super::bdd::Bdd, event_probabilities: &[f64]) -> crate::Result<ImportanceFactors> { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -12251,6 +12311,12 @@ pub use fault_tree::Gate;
 
 ```rust
 pub use importance::importance_factors;
+```
+
+#### Re-export `importance_factors_from_bdd`
+
+```rust
+pub use importance::importance_factors_from_bdd;
 ```
 
 #### Re-export `ImportanceFactors`

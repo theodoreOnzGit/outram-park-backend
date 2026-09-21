@@ -139,6 +139,37 @@ fn load_products() -> HashMap<String, BTreeSet<BTreeSet<String>>> {
     out
 }
 
+/// Importance factors SCRAM reported, by model then basic-event name:
+/// `(occurrence, MIF, CIF, DIF, RAW, RRW)`.
+fn load_importance() -> HashMap<String, Vec<(String, (usize, f64, f64, f64, f64, f64))>> {
+    let mut out: HashMap<String, Vec<(String, (usize, f64, f64, f64, f64, f64))>> = HashMap::new();
+    for file in ["oracle.txt", "oracle-noncoherent.txt"] {
+        let mut name = String::new();
+        for line in fixture(file).lines() {
+            let f: Vec<&str> = line.split_whitespace().collect();
+            if f.is_empty() {
+                continue;
+            }
+            match f[0] {
+                "MODEL" => name = f[1].to_string(),
+                "IMPORTANCE" => out.entry(name.clone()).or_default().push((
+                    f[1].to_string(),
+                    (
+                        f[2].parse().unwrap(),
+                        f[3].parse().unwrap(),
+                        f[4].parse().unwrap(),
+                        f[5].parse().unwrap(),
+                        f[6].parse().unwrap(),
+                        f[7].parse().unwrap(),
+                    ),
+                )),
+                _ => {}
+            }
+        }
+    }
+    out
+}
+
 fn load_models() -> HashMap<String, ModelSpec> {
     let mut out = HashMap::new();
     let mut name = String::new();
@@ -660,4 +691,210 @@ fn zbdd_cut_sets_match_scram_and_mocus() {
     println!("checked {checked} models, {total} cut sets");
     assert!(checked >= 11, "only {checked} models");
     assert!(total >= 4702, "only {total} cut sets");
+}
+
+/// **Methodology.** Importance factors computed from the **BDD** rather than
+/// from cut sets, on every model of both fixtures, against SCRAM's own
+/// `--importance` output.
+///
+/// This closes the last surface that had no oracle. Every other importance
+/// check in this crate goes through minimal cut sets, and on a **non-coherent**
+/// tree those are conservative — so every factor derived from them inherits
+/// the conservatism and does *not* match SCRAM, which computes importance
+/// from its BDD. That was never checked, because the earlier importance tests
+/// read only the coherent fixture.
+///
+/// The `occurrence` count is not compared: it is a property of the cut sets,
+/// which this route never builds, and
+/// [`raffles::scram::importance::ImportanceFactors::occurrence`] documents it
+/// as zero here.
+///
+/// **Result** (2026-09-21): **185 basic events across 11 models**, 111 of them
+/// on non-coherent trees, at `5e-6` relative. 77 agree on all five factors;
+/// 108 agree in magnitude and **differ in sign** — see below.
+///
+/// The non-coherent case is why this exists:
+///
+/// | `noncoherent_small`, event `a` | MIF |
+/// |---|---|
+/// | SCRAM (from its BDD) | **0.432000** |
+/// | this port, from the BDD | **0.432000** |
+/// | this port, from cut sets (`importance_factors`) | 0.420000 |
+///
+/// The cut-set figure is not a defect — it is what conservative cut sets give
+/// — but it is the wrong answer to the question SCRAM is answering, and only
+/// the BDD route reproduces it. `Aralia/das9601`'s 108 basic events are
+/// included, which no cut-set route could rank at all (inclusion-exclusion
+/// refuses past 20 cut sets and it has 4,259).
+///
+/// # The 108 sign divergences are all of `Aralia/das9601`, and all of it
+///
+/// Every one of that model's 108 events diverges; not one event of the other
+/// ten does. The magnitudes agree to `5e-6` throughout, and the divergence
+/// runs **both ways** — SCRAM reports negatives too — so it is not an
+/// absolute value on either side. It is a single **global sign inversion** on
+/// one model.
+///
+/// **The sign this port reports is the Birnbaum factor's definition**, and it
+/// was checked directly rather than argued: on `e18`,
+///
+/// ```text
+/// P(top | e18)     = 0.000014035880
+/// P(top | not e18) = 0.004277032857
+/// difference       = -0.004262996977      SCRAM reports +0.004263
+/// ```
+///
+/// `e18` occurring makes the top event about 300 times *less* likely, which a
+/// non-coherent tree permits. The diagram is not in doubt: its top-event
+/// probability, `0.004234402887`, matches SCRAM's `0.0042344`, and
+/// `0.01 * 1.4036e-5 + 0.99 * 4.27703e-3` reproduces it.
+///
+/// **A candidate explanation, offered as that and not as a conclusion.**
+/// `ProbabilityAnalyzer<Bdd>::CalculateTotalProbability` ends with
+/// `if (bdd_graph_->root().complement) prob = 1 - prob;`.
+/// `ImportanceAnalyzer<Bdd>::CalculateMif` reads the same
+/// `bdd_graph_->root().vertex` and applies no corresponding negation, though
+/// its recursion is signed throughout (`ite.factor(high - low)`, and
+/// `mif = -mif` for a complemented module). A complemented root would then
+/// flip every factor of that model and nothing else — which is exactly the
+/// pattern measured. This port uses explicit terminals and has no root
+/// complement to forget.
+///
+/// The alternative is that upstream intends a criticality convention rather
+/// than the signed difference; the `-mif` on complemented modules argues
+/// against it, but this has not been established either way, and the test
+/// asserts the *measurement* — magnitudes equal, signs opposite, exactly 108
+/// of them — rather than the explanation.
+#[test]
+fn bdd_importance_factors_match_scram_including_the_non_coherent_models() {
+    use raffles::scram::importance::importance_factors_from_bdd;
+
+    let oracles = load_oracles();
+    let specs = load_models();
+    let importance = load_importance();
+    let mut checked = 0;
+    let mut models = 0;
+    let mut non_coherent_events = 0;
+    let mut sign_divergences = 0;
+
+    for (name, oracle) in &oracles {
+        let Some(spec) = specs.get(name) else {
+            continue;
+        };
+        let Some((model, _)) = build(name, spec, oracle) else {
+            continue;
+        };
+        let Some(theirs) = importance.get(name) else {
+            continue;
+        };
+        let bdd = Bdd::build(model.tree()).unwrap();
+        let coherent = model.tree().is_coherent();
+
+        for (event_name, (_, mif, cif, dif, raw, rrw)) in theirs.iter().map(|(n, f)| (n, *f)) {
+            let Some(event) = model.basic_event_index(event_name) else {
+                panic!("{name}: SCRAM ranked `{event_name}`, absent from the tree");
+            };
+            let ours = importance_factors_from_bdd(event, &bdd, model.probabilities())
+                .unwrap_or_else(|e| panic!("{name} `{event_name}`: {e}"));
+            if !coherent {
+                non_coherent_events += 1;
+            }
+
+            // Classify by SIGN, not by tolerance: the magnitudes here span
+            // 7e-6 to 3e-2, and a relative-to-one tolerance lets a flipped
+            // sign through on the small ones while catching it on the large.
+            let opposite_signs = ours.mif != 0.0
+                && mif != 0.0
+                && ours.mif.is_sign_negative() != mif.is_sign_negative();
+            if opposite_signs {
+                assert!(
+                    agrees(ours.mif.abs(), mif.abs(), 5e-6),
+                    "{name} `{event_name}`: signs differ AND magnitudes do too \
+                     ({} vs {mif}) — that is not the known divergence",
+                    ours.mif
+                );
+                println!(
+                    "  SIGN DIVERGENCE {name} `{event_name}`: ours {:+.9}, SCRAM {mif:+.9}",
+                    ours.mif
+                );
+                sign_divergences += 1;
+                checked += 1;
+                continue;
+            }
+            for (label, o, t) in [
+                ("MIF", ours.mif, mif),
+                ("CIF", ours.cif, cif),
+                ("DIF", ours.dif, dif),
+                ("RAW", ours.raw, raw),
+            ] {
+                assert!(
+                    agrees(o, t, 5e-6),
+                    "{name} `{event_name}` {label}: ours {o}, SCRAM {t}"
+                );
+            }
+            if ours.rrw.is_finite() {
+                assert!(
+                    agrees(ours.rrw, rrw, 5e-6),
+                    "{name} `{event_name}` RRW: ours {}, SCRAM {rrw}",
+                    ours.rrw
+                );
+            } else {
+                assert_eq!(
+                    rrw, 0.0,
+                    "{name} `{event_name}`: singular, SCRAM gave {rrw}"
+                );
+            }
+            checked += 1;
+        }
+        println!(
+            "{name:<40} {:>3} events ranked from the BDD ({})",
+            theirs.len(),
+            if coherent { "coherent" } else { "NON-coherent" }
+        );
+        models += 1;
+    }
+    println!("checked {checked} basic events across {models} models, {non_coherent_events} non-coherent, {sign_divergences} sign divergences");
+    assert!(models >= 11, "only {models} models");
+    assert!(checked >= 185, "only {checked} events");
+    assert!(
+        non_coherent_events >= 111,
+        "the non-coherent models are the point of this test, only {non_coherent_events} events"
+    );
+    // Every one of `das9601`'s 108 events, and nothing else. A divergence
+    // count that drifts means either the explanation below is wrong or a
+    // second model has picked up the same condition — both worth a failure.
+    assert_eq!(
+        sign_divergences, 108,
+        "expected exactly `Aralia/das9601`'s 108 events to diverge in sign"
+    );
+}
+
+/// Diagnostic for the `das9601` `e18` sign divergence — prints the two
+/// conditional probabilities the Birnbaum factor is the difference of, so the
+/// sign can be read off directly rather than inferred.
+#[test]
+#[ignore = "diagnostic, not a gate"]
+fn das9601_e18_sign_diagnostic() {
+    let oracles = load_oracles();
+    let specs = load_models();
+    let name = "Aralia/das9601";
+    let oracle = &oracles.iter().find(|(n, _)| n == name).unwrap().1;
+    let (model, _) = build(name, &specs[name], oracle).unwrap();
+    let bdd = Bdd::build(model.tree()).unwrap();
+    let e = model.basic_event_index("e18").unwrap();
+
+    let p = model.probabilities();
+    let mut with = p.to_vec();
+    with[e] = 1.0;
+    let mut without = p.to_vec();
+    without[e] = 0.0;
+    let (a, b) = (
+        bdd.probability(&with).unwrap(),
+        bdd.probability(&without).unwrap(),
+    );
+    println!("P(top | e18)     = {a:.12}");
+    println!("P(top | not e18) = {b:.12}");
+    println!("difference       = {:.12}", a - b);
+    println!("p(e18)           = {}", p[e]);
+    println!("P(top)           = {:.12}", bdd.probability(p).unwrap());
 }

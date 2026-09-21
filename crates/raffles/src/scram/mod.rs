@@ -119,7 +119,7 @@ pub mod zbdd;
 
 pub use bdd::Bdd;
 pub use fault_tree::{Arg, Connective, FaultTree, FaultTreeBuilder, FaultTreeModel, Gate};
-pub use importance::{importance_factors, ImportanceFactors};
+pub use importance::{importance_factors, importance_factors_from_bdd, ImportanceFactors};
 pub use mocus::minimal_cut_sets;
 pub use zbdd::{count_minimal_cut_sets, prime_implicants, PrimeImplicant};
 pub use probability::{cut_set_probability, top_event_probability, Approximation, CutSet};
