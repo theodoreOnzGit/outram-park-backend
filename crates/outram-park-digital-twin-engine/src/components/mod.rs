@@ -17,6 +17,7 @@ pub mod distillation_column;
 pub mod excursion;
 pub mod fhr_reactor_vessel;
 pub mod heat_exchanger;
+pub mod htr10_reactor_schematic;
 pub mod htr10_reactor_vessel;
 pub mod htr10_steam_generator;
 pub mod instrumentation;
@@ -46,6 +47,7 @@ pub use heat_exchanger::{
     ApproachVerdict, HeatExchangerConstruction, HeatExchangerDisplayRange, HeatExchangerKind,
     HeatExchangerScalars, HeatExchangerVisual, HeatExchangerVisualState,
 };
+pub use htr10_reactor_schematic::Htr10ReactorSchematic;
 pub use htr10_reactor_vessel::{Htr10FlowAnchors, Htr10ReactorVesselVisual};
 pub use htr10_steam_generator::Htr10SteamGeneratorVisual;
 pub use instrumentation::InstrumentationVisual;

@@ -34,6 +34,7 @@ pub enum WidgetUnderTest {
     Pipes,
     PipeBend,
     Reactors,
+    TestReactors,
     SteamGenerators,
     Pumps,
     Condensers,
@@ -49,6 +50,7 @@ impl WidgetUnderTest {
         Self::Pipes,
         Self::PipeBend,
         Self::Reactors,
+        Self::TestReactors,
         Self::SteamGenerators,
         Self::Pumps,
         Self::Condensers,
@@ -64,6 +66,7 @@ impl WidgetUnderTest {
             Self::Pipes => "Pipes (3 backends)",
             Self::PipeBend => "Pipe bend",
             Self::Reactors => "Reactor vessels (6 types)",
+            Self::TestReactors => "Test reactors",
             Self::SteamGenerators => "Steam generators (3 types)",
             Self::Pumps => "Pumps (3 types)",
             Self::Condensers => "Condensers (2 arrangements)",
@@ -82,6 +85,9 @@ impl WidgetUnderTest {
             Self::PipeBend => "two helium runs, live turn angle",
             Self::Reactors => {
                 "schematic art for every scoped reactor — illustrative, not validated"
+            }
+            Self::TestReactors => {
+                "plant-specific vessels under development — HTR-10, three-pass helium path"
             }
             Self::SteamGenerators => {
                 "vertical U-tube (PWR), horizontal U-tube (VVER), helical once-through"
@@ -152,6 +158,8 @@ pub struct WidgetStudio {
     /// The reactor-vessel gallery: shared temperatures and rod position for
     /// every scoped architecture.
     reactors: crate::reactor_tab::ReactorTab,
+    /// The HTR-10 vessel bench. Owns four tracer trains, advanced in `step`.
+    test_reactors: crate::test_reactors_tab::TestReactorsTab,
     /// The coaxial-duct row of the Pipes tab. Owns its tracer trains, which
     /// persist across frames and are advanced in `step`.
     coax_duct: crate::pipes::CoaxialDuctDemo,
@@ -204,6 +212,7 @@ impl Default for WidgetStudio {
             pipe_errors,
             bend: crate::bend_tab::BendDemo::default(),
             reactors: crate::reactor_tab::ReactorTab::default(),
+            test_reactors: crate::test_reactors_tab::TestReactorsTab::default(),
             coax_duct: crate::pipes::CoaxialDuctDemo::default(),
             steam_generators: crate::steam_generator_tab::SteamGeneratorTab::default(),
             htr10_sg_tracers: crate::steam_generator_tab::Htr10Tracers::default(),
@@ -287,6 +296,7 @@ impl eframe::App for WidgetStudio {
             self.pipe_step_errors = crate::pipes::step_rows(&mut self.pipe_rows, sim_dt);
             self.coax_duct.step(sim_dt);
             self.htr10_sg_tracers.step(sim_dt);
+            self.test_reactors.step(sim_dt);
             self.pipe_step_errors.extend(self.bend.step(sim_dt));
             // Pump impellers turn on an application-owned clock, like the turbine.
             self.pumps.step(sim_dt);
@@ -332,6 +342,9 @@ impl eframe::App for WidgetStudio {
                 WidgetUnderTest::Pipes => self.pipe_controls(ui),
                 WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
                 WidgetUnderTest::Reactors => crate::reactor_tab::controls(ui, &mut self.reactors),
+                WidgetUnderTest::TestReactors => {
+                    crate::test_reactors_tab::controls(ui, &mut self.test_reactors)
+                }
                 WidgetUnderTest::SteamGenerators => {
                     crate::steam_generator_tab::controls(
                         ui,
@@ -358,6 +371,9 @@ impl eframe::App for WidgetStudio {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
             WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),
+            WidgetUnderTest::TestReactors => {
+                crate::test_reactors_tab::draw(ui, &self.test_reactors)
+            }
             WidgetUnderTest::SteamGenerators => {
                 crate::steam_generator_tab::draw(ui, &self.steam_generators, &self.htr10_sg_tracers)
             }
