@@ -8191,6 +8191,12 @@ checksum = "2ab42ca02749e120097e328d91d415325bdf43b1c72c4c8badf37375fe40a813"
 [[package]]
 name = "sembawang"
 version = "0.0.1"
+dependencies = [
+ "boon-lay",
+ "changi",
+ "thiserror 2.0.18",
+ "uom 0.38.0",
+]
 
 [[package]]
 name = "semver"
