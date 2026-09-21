@@ -16,12 +16,13 @@
 use uom::si::f64::{Length, Mass, MassRate, Time, Velocity};
 use uom::si::length::meter;
 use uom::si::mass::kilogram;
+use uom::si::mass_density::kilogram_per_cubic_meter;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::time::second;
 use uom::si::velocity::meter_per_second;
 
-use super::concentration::gaussian_puff_methane_ppm;
-use super::stability::{stability_class, StabilityClass};
+use super::concentration::{gaussian_puff_concentration, gaussian_puff_methane_ppm};
+use super::stability::{stability_class, StabilityClass, StabilitySet};
 use super::wind::{wind_speed, WindComponents};
 
 /// How many puffs an emission event produces when the stability class is
@@ -119,13 +120,19 @@ pub struct RunConfig {
 }
 
 /// One live puff.
+///
+/// `pub(crate)` rather than private so [`crate::activity`] can drive the same
+/// puff population without a second copy of the advection. It is **not** part of
+/// the public API and is not re-exported — the visibility is the minimum that
+/// lets one crate-internal consumer reuse this loop, and no field or method of
+/// it changed when that consumer was added.
 #[derive(Debug, Clone, Copy)]
-struct Puff {
-    time_emitted_s: f64,
-    wind_u: f64,
-    wind_v: f64,
-    class: StabilityClass,
-    mass_kg: f64,
+pub(crate) struct Puff {
+    pub(crate) time_emitted_s: f64,
+    pub(crate) wind_u: f64,
+    pub(crate) wind_v: f64,
+    pub(crate) class: StabilityClass,
+    pub(crate) mass_kg: f64,
 }
 
 /// Concentration at each sensor, averaged over each output interval.
@@ -188,6 +195,25 @@ fn emit(
 ) {
     let speed = wind_speed(wind);
     let set = stability_class(Some(speed), config.start_hour);
+    emit_with_classes(live, elapsed_s, wind, set, config, emission_rate);
+}
+
+/// [`emit`] with the stability classes supplied rather than derived from the
+/// wind speed and the hour.
+///
+/// Factored out so [`crate::activity`] can hold the stability class fixed
+/// across a sweep — something [`stability_class`] cannot express, since it
+/// derives the class *from* the wind speed. [`emit`] is the only caller inside
+/// this module and passes exactly what it computed before, so upstream's
+/// behaviour on the verified path is unchanged by the split.
+pub(crate) fn emit_with_classes(
+    live: &mut Vec<Puff>,
+    elapsed_s: f64,
+    wind: WindComponents,
+    set: StabilitySet,
+    config: &RunConfig,
+    emission_rate: MassRate,
+) {
     let q_per_puff = emission_rate.get::<kilogram_per_second>() * config.puff_dt.get::<second>();
     let base = Puff {
         time_emitted_s: elapsed_s,
@@ -232,8 +258,52 @@ fn sum_over_puffs(live: &[Puff], source: Source, receptor: Receptor, elapsed_s: 
     total
 }
 
+/// One puff's contribution at one receptor, **per kilogram of puff mass**.
+///
+/// This is [`gaussian_puff_concentration`] evaluated at `mass = 1 kg`, so the
+/// returned bare `f64` carries units of **m^-3**: multiply by a puff mass in kg
+/// to get kg/m^3, or by an activity in Bq to get Bq/m^3. Scaling afterwards is
+/// *exact*, not an approximation — the kernel is linear in mass, which
+/// `concentration::tests::concentration_is_linear_in_puff_mass` pins.
+///
+/// The puff's own `mass_kg` is deliberately **ignored**. A caller wanting the
+/// puff's actual contribution multiplies it back in; a caller building a
+/// unit-release response (which is why this exists) does not want it at all.
+///
+/// It repeats [`sum_over_puffs`]'s advection — `px = source.x + u·age` —
+/// rather than calling it, and that duplication is deliberate.
+/// `sum_over_puffs` goes through [`gaussian_puff_methane_ppm`], whose `1e6 *
+/// 1.524` is methane-specific and whose multiply order is what the code-to-code
+/// fixture compares against upstream R. Routing it through this function would
+/// change that arithmetic to chase a two-line saving. **If the advection is
+/// ever corrected, both copies must move together** — they are pinned to agree
+/// by `activity::chi_over_q::tests::unit_response_agrees_with_the_ported_sum`.
+pub(crate) fn puff_unit_response(
+    p: &Puff,
+    source: Source,
+    receptor: Receptor,
+    elapsed_s: f64,
+) -> f64 {
+    let age = elapsed_s - p.time_emitted_s;
+    let sx = source.x.get::<meter>();
+    let sy = source.y.get::<meter>();
+    let px = sx + p.wind_u * age;
+    let py = sy + p.wind_v * age;
+    let travel = (px - sx).hypot(py - sy);
+    gaussian_puff_concentration(
+        Mass::new::<kilogram>(1.0),
+        p.class,
+        Length::new::<meter>(px),
+        Length::new::<meter>(py),
+        source.height,
+        (receptor.x, receptor.y, receptor.z),
+        Length::new::<meter>(travel),
+    )
+    .get::<kilogram_per_cubic_meter>()
+}
+
 /// Whether a step emits, matching upstream's `t_idx == 1 || elapsed %% puff_dt == 0`.
-fn emits_at(step: usize, elapsed_s: f64, puff_dt_s: f64) -> bool {
+pub(crate) fn emits_at(step: usize, elapsed_s: f64, puff_dt_s: f64) -> bool {
     step == 0 || (elapsed_s % puff_dt_s).abs() < 1e-9
 }
 
