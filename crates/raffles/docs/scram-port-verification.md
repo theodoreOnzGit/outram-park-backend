@@ -25,6 +25,7 @@ which basic events matter. Three of its four modules are ports of
 | `scram::probability::top_event_probability` (`Exact`) | — | **no** — inclusion-exclusion, a second route to what the BDD gives |
 | `scram::bdd::Bdd::probability` | `ProbabilityAnalyzer<Bdd>::CalculateProbability` | yes |
 | `scram::bdd` (the diagram itself) | — | **no** — Bryant's algorithm from the tree, where upstream builds from a preprocessed `Pdag` |
+| `scram::zbdd` | `Zbdd::ConvertBdd`, `Zbdd::Minimize`, `Zbdd::Subsume` | yes |
 | `scram::importance::importance_factors` (the five derived factors) | `ImportanceAnalyzerBase::Analyze` | yes |
 | `scram::importance::importance_factors` (the Birnbaum factor) | — | **no** — the definition `P(top\|e) - P(top\|not e)` where upstream differentiates the BDD |
 | `scram::fault_tree::Connective` | `src/pdag.h` `enum Connective` | taxonomy only |
@@ -47,8 +48,9 @@ much less.
 
 **Still absent.** XML input handling (explicitly out of RAFFLES' scope), event
 trees, alignments, CCF groups, substitutions, house events, the `expression`
-library, the ZBDD algorithm, the preprocessor, and prime implicants
-(upstream's `--prime-implicants`).
+library, the preprocessor, and prime implicants (upstream's
+`--prime-implicants`, along with `Zbdd::ConvertBddPrimeImplicants` and
+`Zbdd::EliminateComplements`).
 
 ~~and complement elimination (so non-coherent trees are **refused**, not
 approximated)~~ **CORRECTED 2026-09-21** — complement elimination landed the
@@ -176,6 +178,7 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | **Exact probability, no cut-set ceiling** | `scram_bdd_oracle::exact_probability_matches_scrams_bdd_on_every_model` | **10 of 10 models**, up to 386,261 nodes |
 | BDD against inclusion-exclusion | `scram_bdd_oracle::the_bdd_and_inclusion_exclusion_agree_where_both_can_run` | 7 models, to **1e-12** |
 | BDD gets what cut sets cannot | `scram_bdd_oracle::the_bdd_gets_the_non_coherent_answer_that_cut_sets_cannot` | `0.5032` exactly |
+| **Cut sets at scale**, vs SCRAM **and** vs MOCUS | `scram_bdd_oracle::zbdd_cut_sets_match_scram_and_mocus` | **10 models, 4,700 cut sets** |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -419,6 +422,37 @@ two are asserted to agree. An expression-defined event outside every product
 has no value from either source, and the model is skipped rather than guessed
 at.
 
+### Cut sets at scale by ZBDD — 4,700 of them, including the ones MOCUS cannot get
+
+`scram::mocus` is the classical top-down expansion and gives up on a real
+model: `Aralia/das9601` exhausts its five-million-state ceiling at every order
+limit tried. `scram::zbdd` takes the same answer off the BDD instead —
+`ConvertBdd`, `Minimize` and `Subsume`, all three ported — where the work is
+proportional to the diagram rather than to the number of intermediate sets.
+
+| model | ZBDD | SCRAM | MOCUS |
+|---|---|---|---|
+| TwoTrain/two_train | 4 | 4 | agrees |
+| Theatre/theatre | 2 | 2 | agrees |
+| SmallTree/SmallTree | 2 | 2 | agrees |
+| BSCU/BSCU | 10 | 10 | agrees |
+| Lift/lift | 12 | 12 | agrees |
+| HIPPS/HIPPS | 9 | 9 | agrees |
+| ne574/ne574 | 7 | 7 | agrees |
+| Aralia/chinese | 392 | 392 | agrees |
+| noncoherent_small | 3 | 3 | agrees |
+| **Aralia/das9601** | **4,259** | **4,259** | **cannot reach it** |
+
+Two comparisons at once, which is the point: against SCRAM's own products, and
+against this crate's own unrelated top-down generator wherever that one can
+run. The ZBDD is also asked to **count** the family without materialising it,
+and the count must equal the listing — a cheap check that the diagram is
+reduced rather than merely enumerable.
+
+The whole file runs in **0.9 s**. MOCUS is not attempted above a thousand
+products, since demonstrating its failure costs ~29 s and has its own
+reproduction test.
+
 ### One deliberate divergence: RRW at the singularity
 
 `Theatre/theatre`, `Mains_Fail`: MIF, CIF, DIF and RAW all match SCRAM
@@ -512,12 +546,9 @@ third-party project was not part of this task.
   (not ported) recover the exact function. Verified on one small written-here
   model and one 4,259-product upstream model, the latter for quantification
   only.
-- **`scram::mocus` does not scale to a real PRA model.** It is the classical
-  top-down expansion and is exponential; `Aralia/das9601` (288 gates, 12
-  `xor`) exhausts its 5,000,000-state ceiling at every order limit tried. Its
-  *probability* is no longer blocked by that — `scram::bdd` answers it exactly
-  — but its **cut sets** are, and getting those at scale needs the ZBDD, which
-  is not ported.
+- **`scram::mocus` does not scale to a real PRA model**, and is kept as a
+  second opinion rather than as the working path. `scram::zbdd` is what to use
+  above a few hundred cut sets.
 - **The BDD's variable ordering is not optimised.** First appearance in a
   depth-first walk, where upstream spends a preprocessor on the problem.
   `das9601` needs 386,261 nodes under it; a model that blew up would need that

@@ -48,7 +48,9 @@
 //! ## The route through this module
 //!
 //! 1. [`fault_tree::FaultTreeBuilder`] — describe the tree in names.
-//! 2. [`mocus::minimal_cut_sets`] — generate the cut sets.
+//! 2. [`mocus::minimal_cut_sets`] — generate the cut sets, or
+//!    [`zbdd::minimal_cut_sets`] when the model is big enough that top-down
+//!    expansion gives up.
 //! 3. [`top_event_probability`] — quantify.
 //! 4. [`importance_factors`] — rank the basic events.
 //!
@@ -78,7 +80,7 @@
 //! **What is still absent:** everything SCRAM does around this core — XML
 //! input models, event trees, alignments, common-cause-failure groups,
 //! substitutions and the expression library — plus, in the analysis itself,
-//! the ZBDD algorithm, the preprocessor, and prime implicants
+//! the preprocessor and prime implicants
 //! (upstream's `--prime-implicants`, which is what recovers the exact function
 //! a non-coherent tree describes).
 //!
@@ -109,9 +111,11 @@ pub mod fault_tree;
 pub mod importance;
 pub mod mocus;
 pub mod probability;
+pub mod zbdd;
 
 pub use bdd::Bdd;
 pub use fault_tree::{Arg, Connective, FaultTree, FaultTreeBuilder, FaultTreeModel, Gate};
 pub use importance::{importance_factors, ImportanceFactors};
 pub use mocus::minimal_cut_sets;
+pub use zbdd::count_minimal_cut_sets;
 pub use probability::{cut_set_probability, top_event_probability, Approximation, CutSet};

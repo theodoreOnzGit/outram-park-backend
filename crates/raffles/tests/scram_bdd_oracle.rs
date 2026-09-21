@@ -106,6 +106,35 @@ fn load_oracles() -> Vec<(String, Oracle)> {
     out
 }
 
+/// The products SCRAM reported, by model, as sets of names.
+fn load_products() -> HashMap<String, BTreeSet<BTreeSet<String>>> {
+    let mut out = HashMap::new();
+    for file in ["oracle.txt", "oracle-noncoherent.txt"] {
+        let mut name = String::new();
+        let mut sets: BTreeSet<BTreeSet<String>> = BTreeSet::new();
+        for line in fixture(file).lines() {
+            let f: Vec<&str> = line.split_whitespace().collect();
+            if f.is_empty() {
+                continue;
+            }
+            match f[0] {
+                "MODEL" => {
+                    name = f[1].to_string();
+                    sets = BTreeSet::new();
+                }
+                "PRODUCT" => {
+                    sets.insert(f[2..].iter().map(|s| s.to_string()).collect());
+                }
+                "END" => {
+                    out.insert(std::mem::take(&mut name), std::mem::take(&mut sets));
+                }
+                _ => {}
+            }
+        }
+    }
+    out
+}
+
 fn load_models() -> HashMap<String, ModelSpec> {
     let mut out = HashMap::new();
     let mut name = String::new();
@@ -518,4 +547,97 @@ fn the_diagram_satisfies_the_identities_it_must() {
     let bdd = Bdd::build(m.tree()).unwrap();
     assert!(bdd.probability(&[0.0, 1.0, 0.5]).unwrap().abs() < 1e-15);
     assert!((bdd.probability(&[1.0, 1.0, 0.5]).unwrap() - 1.0).abs() < 1e-15);
+}
+
+/// **Methodology.** The same minimal cut sets, by two unrelated algorithms and
+/// against SCRAM's products: [`raffles::scram::mocus`] expands top-down and
+/// absorbs, [`raffles::scram::zbdd`] converts the BDD and subsumes. Compared
+/// as sets of sets, by name.
+///
+/// This is the check that says the ZBDD path is not merely *fast* but
+/// *right* — and it is also what lets `das9601`'s cut sets be verified at all,
+/// since `mocus` cannot produce them.
+///
+/// **Result** (2026-09-21): printed below. Every model on which both run
+/// agrees with the other and with SCRAM; on `Aralia/das9601`, where `mocus`
+/// cannot, the ZBDD reproduces all **4,259** of SCRAM's products.
+#[test]
+fn zbdd_cut_sets_match_scram_and_mocus() {
+    use raffles::scram::zbdd;
+
+    let oracles = load_oracles();
+    let specs = load_models();
+    let products = load_products();
+    let mut checked = 0;
+    let mut total = 0usize;
+
+    for (name, oracle) in &oracles {
+        let Some(spec) = specs.get(name) else {
+            continue;
+        };
+        let Some((model, _)) = build(name, spec, oracle) else {
+            continue;
+        };
+        let theirs = &products[name];
+
+        let bdd = Bdd::build(model.tree()).unwrap();
+        let ours = zbdd::from_bdd(&bdd, None).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let ours_named: BTreeSet<BTreeSet<String>> = ours
+            .iter()
+            .map(|c| {
+                c.members()
+                    .iter()
+                    .map(|&i| model.basic_event_names()[i].clone())
+                    .collect()
+            })
+            .collect();
+
+        // The count must come off the diagram without materialising, too.
+        let counted = zbdd::count_minimal_cut_sets(model.tree()).unwrap();
+        assert_eq!(
+            counted as usize,
+            ours_named.len(),
+            "{name}: counted {counted}, listed {}",
+            ours_named.len()
+        );
+
+        // `mocus` is attempted only where top-down expansion is known to
+        // terminate. Product count is the cheap proxy: above a thousand, the
+        // expansion blows its five-million-state ceiling and costs ~29 s to
+        // say so, which this test should not pay for on every run. That
+        // failure has its own reproduction in
+        // `scram_noncoherent::das9601_is_beyond_this_algorithm_and_says_so`.
+        let mocus_note = if theirs.len() > 1_000 {
+            "mocus not attempted, see scram_noncoherent"
+        } else {
+            let sets = minimal_cut_sets(model.tree(), DEFAULT_LIMIT_ORDER)
+                .unwrap_or_else(|e| panic!("{name}: mocus was expected to manage this: {e}"));
+            let named: BTreeSet<BTreeSet<String>> = sets
+                .iter()
+                .map(|c| {
+                    c.members()
+                        .iter()
+                        .map(|&i| model.basic_event_names()[i].clone())
+                        .collect()
+                })
+                .collect();
+            assert_eq!(named, ours_named, "{name}: mocus and zbdd disagree");
+            "mocus agrees"
+        };
+
+        println!(
+            "{name:<40} zbdd {:>5} cut sets, scram {:>5}   ({mocus_note})",
+            ours_named.len(),
+            theirs.len()
+        );
+        assert_eq!(
+            ours_named, *theirs,
+            "{name}: ZBDD cut sets differ from SCRAM's"
+        );
+        checked += 1;
+        total += ours_named.len();
+    }
+    println!("checked {checked} models, {total} cut sets");
+    assert!(checked >= 10, "only {checked} models");
+    assert!(total >= 4700, "only {total} cut sets");
 }

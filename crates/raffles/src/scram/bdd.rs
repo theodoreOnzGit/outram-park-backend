@@ -395,6 +395,19 @@ impl Bdd {
         self.order_to_event[order]
     }
 
+    /// How many variables the diagram orders.
+    pub fn variable_count(&self) -> usize {
+        self.order_to_event.len()
+    }
+
+    /// The if-then-else at `node`, or `None` at a terminal.
+    ///
+    /// Exposed so [`super::zbdd`] can walk the diagram; a caller wanting a
+    /// probability or a decision should not need it.
+    pub fn ite(&self, node: NodeId) -> Option<Ite> {
+        (node > ONE).then(|| self.nodes[node - 2])
+    }
+
     /// Exact probability that the top event occurs.
     ///
     /// `event_probabilities[i]` is the probability of basic event `i`. Basic

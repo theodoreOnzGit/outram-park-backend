@@ -111,8 +111,13 @@ that they are *independent* of upstream: two unrelated algorithms agreeing is
 evidence, a translation agreeing with its original is much weaker. That is the
 same rule the paper-derived Bayesian modules follow.
 
-Absent: ZBDD, the preprocessor, prime implicants, XML input, event trees,
+Absent: the preprocessor, prime implicants, XML input, event trees,
 alignments, CCF groups, house events.
+
+~~ZBDD~~ **CORRECTED 2026-09-21** — `src/scram/zbdd.rs` landed the same day,
+porting `ConvertBdd`/`Minimize`/`Subsume`. It is how `Aralia/das9601`'s 4,259
+cut sets are verified: `mocus` cannot reach them at any order limit, and the
+ZBDD produces all of them in under a second.
 
 ~~BDD~~ **CORRECTED 2026-09-21** — `src/scram/bdd.rs` landed the same day: a
 Bryant-style diagram built straight from the tree, with upstream's probability

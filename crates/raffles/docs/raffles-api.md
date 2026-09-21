@@ -30,9 +30,8 @@ comments of the tests themselves.
 Two carry less than their names suggest and say so in their own docs:
 [`surrogate`] has polynomial regression and a `burn`-backed neural
 regressor but no Gaussian process and no polynomial chaos, and [`scram`]
-generates cut sets by the classical MOCUS expansion rather than the ZBDD
-method that makes a full-size PRA model's cut sets tractable — its
-*probability* is another matter, and has no such limit.
+has no preprocessor, so a model whose variable ordering matters is at the
+mercy of a first-appearance heuristic.
 
 **None of it has been through human V&V.** Everything here is AI-assisted
 draft material under the workspace `RESPONSIBLE_USE.md` rules until the
@@ -9474,7 +9473,9 @@ likely, and which events drive it — follow from them.
 ## The route through this module
 
 1. [`fault_tree::FaultTreeBuilder`] — describe the tree in names.
-2. [`mocus::minimal_cut_sets`] — generate the cut sets.
+2. [`mocus::minimal_cut_sets`] — generate the cut sets, or
+   [`zbdd::minimal_cut_sets`] when the model is big enough that top-down
+   expansion gives up.
 3. [`top_event_probability`] — quantify.
 4. [`importance_factors`] — rank the basic events.
 
@@ -9504,7 +9505,7 @@ of this implementation — see [`mocus`].
 **What is still absent:** everything SCRAM does around this core — XML
 input models, event trees, alignments, common-cause-failure groups,
 substitutions and the expression library — plus, in the analysis itself,
-the ZBDD algorithm, the preprocessor, and prime implicants
+the preprocessor and prime implicants
 (upstream's `--prime-implicants`, which is what recovers the exact function
 a non-coherent tree describes).
 
@@ -9801,6 +9802,16 @@ pub struct Bdd {
   pub fn basic_event(self: &Self, order: usize) -> usize { /* ... */ }
   ```
   The basic event tested at ordering position `order`.
+
+- ```rust
+  pub fn variable_count(self: &Self) -> usize { /* ... */ }
+  ```
+  How many variables the diagram orders.
+
+- ```rust
+  pub fn ite(self: &Self, node: NodeId) -> Option<Ite> { /* ... */ }
+  ```
+  The if-then-else at `node`, or `None` at a terminal.
 
 - ```rust
   pub fn probability(self: &Self, event_probabilities: &[f64]) -> Result<f64> { /* ... */ }
@@ -11235,6 +11246,15 @@ prime implicants if you need the exact function — upstream has them behind
 [`minimal_cut_sets`] takes an order limit for that reason, and it is the
 same knob upstream calls `limit_order`.
 
+**[`super::zbdd::minimal_cut_sets`] computes the same answer and is not
+exponential in the same way.** It is the one to reach for on anything
+sizeable: on the fixture's `Aralia/das9601` this module exhausts its
+five-million-state ceiling at every order limit and the ZBDD finishes in
+under a second. This module is kept because it is an unrelated second
+route to the same sets — the two are checked against each other — and
+because it is far easier to follow when a disagreement has to be
+diagnosed.
+
 **Upstream has a probability cut-off setting, and it does nothing.**
 `Settings::cut_off_` defaults to `1e-8`, is settable from the CLI
 (`--cut-off`) and from a project file, and is range-validated on the way
@@ -11738,6 +11758,173 @@ million, which is a second or so, and every step beyond doubles it.
 pub const EXACT_CUT_SET_LIMIT: usize = 20;
 ```
 
+## Module `zbdd`
+
+Zero-suppressed decision diagrams — minimal cut sets **at scale**.
+
+[`super::mocus`] generates cut sets by the classical top-down expansion,
+which is exponential and gives up on a real model:
+`reference-data/scram`'s `Aralia/das9601` exhausts its five-million-state
+ceiling at every order limit. This module gets the same answer from the
+[`super::bdd::Bdd`] instead, where the work is proportional to the diagram
+rather than to the number of intermediate sets — which is the whole reason
+upstream reaches for a ZBDD, and the reason Rauzy's 1993 paper exists.
+
+A **zero-suppressed** diagram represents a *family of sets* rather than a
+Boolean function, and its reduction rule is the one that matters here: a
+node whose "present" branch is empty is dropped, so a variable absent from
+every set in the family costs nothing. Cut sets are sparse — a model with
+108 basic events has cut sets of order 9 — which is exactly the shape that
+rule is for.
+
+# Coherent and non-coherent
+
+The conversion keeps the variables taken on the "occurs" branch of each
+path to `true`, and drops the rest. For a **coherent** tree that is exactly
+the minimal cut sets. For a **non-coherent** one it discards the
+requirement that some component be *working*, so the result is
+conservative in the same way [`super::mocus`]'s is, and for the same
+reason — upstream's ordinary path does the same, and only
+`--prime-implicants` (not ported) keeps the complemented literals.
+
+# Example
+
+```
+use raffles::scram::fault_tree::{Connective, FaultTreeBuilder};
+use raffles::scram::zbdd::minimal_cut_sets;
+
+let mut b = FaultTreeBuilder::new();
+b.basic_event("ValveOne", 0.5).unwrap();
+b.basic_event("PumpOne", 0.7).unwrap();
+b.basic_event("ValveTwo", 0.5).unwrap();
+b.basic_event("PumpTwo", 0.7).unwrap();
+b.gate("TrainOne", Connective::Or, &["ValveOne", "PumpOne"]).unwrap();
+b.gate("TrainTwo", Connective::Or, &["ValveTwo", "PumpTwo"]).unwrap();
+b.gate("TopEvent", Connective::And, &["TrainOne", "TrainTwo"]).unwrap();
+let model = b.build("TopEvent").unwrap();
+
+let cut_sets = minimal_cut_sets(model.tree(), None).unwrap();
+assert_eq!(cut_sets.len(), 4);
+assert!(cut_sets.iter().all(|c| c.order() == 2));
+```
+
+```rust
+pub mod zbdd { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `SetId`
+
+A node in the family diagram: `0` is the **empty family** (no sets at all),
+`1` the family holding just the **empty set**, and anything above indexes
+the builder's node table.
+
+```rust
+pub type SetId = usize;
+```
+
+### Functions
+
+#### Function `minimal_cut_sets`
+
+The minimal cut sets of a fault tree, by way of its BDD.
+
+Equivalent to [`super::mocus::minimal_cut_sets`] and enormously more
+scalable: `mocus` enumerates intermediate sets, this walks a diagram. On
+`Aralia/das9601` — 288 gates, non-coherent — `mocus` gives up and this
+does not.
+
+`limit_order` discards cut sets above that order, as upstream's
+`limit_order` setting does; `None` keeps all of them. Note the truncation
+happens when the family is materialised, so unlike `mocus` it does not
+reduce the work — it is for trimming the answer, not for making a hard
+model tractable.
+
+Returned cut sets are sorted by order then by member index, matching
+`mocus`, so the two can be compared directly.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if the [`Bdd`] or the family diagram
+exceeds its node limit.
+
+# A non-coherent tree's answer is conservative
+
+See the module doc: the complemented literals are dropped, exactly as in
+`mocus` and in upstream's ordinary (non-prime-implicant) path.
+
+```rust
+pub fn minimal_cut_sets(tree: &super::fault_tree::FaultTree, limit_order: Option<usize>) -> crate::Result<Vec<super::probability::CutSet>> { /* ... */ }
+```
+
+#### Function `from_bdd`
+
+The minimal cut sets of an already-built diagram.
+
+Use this rather than [`minimal_cut_sets`] when the [`Bdd`] is also wanted
+for its probability — building it twice is the expensive half.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if the family diagram exceeds
+[`NODE_LIMIT`].
+
+```rust
+pub fn from_bdd(bdd: &super::bdd::Bdd, limit_order: Option<usize>) -> crate::Result<Vec<super::probability::CutSet>> { /* ... */ }
+```
+
+#### Function `count_minimal_cut_sets`
+
+How many minimal cut sets a tree has, without materialising them.
+
+The count comes off the diagram in time proportional to its size, so a
+model with millions of cut sets can be counted even where listing them is
+hopeless. Untruncated — an order limit is a property of the listing, not of
+the family.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if either diagram exceeds its node
+limit.
+
+```rust
+pub fn count_minimal_cut_sets(tree: &super::fault_tree::FaultTree) -> crate::Result<u128> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `EMPTY`
+
+The family containing no sets — a function that cannot be satisfied.
+
+```rust
+pub const EMPTY: SetId = 0;
+```
+
+#### Constant `BASE`
+
+The family containing exactly the empty set.
+
+Not the same as [`EMPTY`], and the difference is the usual first
+confusion: `EMPTY` has no members, `BASE` has one member which happens to
+have no elements.
+
+```rust
+pub const BASE: SetId = 1;
+```
+
+#### Constant `NODE_LIMIT`
+
+Ceiling on how many distinct family nodes may be created.
+
+Same purpose as [`super::bdd::NODE_LIMIT`]: fail with a name rather than
+exhaust memory.
+
+```rust
+pub const NODE_LIMIT: usize = 20_000_000;
+```
+
 ### Re-exports
 
 #### Re-export `Bdd`
@@ -11798,6 +11985,12 @@ pub use importance::ImportanceFactors;
 
 ```rust
 pub use mocus::minimal_cut_sets;
+```
+
+#### Re-export `count_minimal_cut_sets`
+
+```rust
+pub use zbdd::count_minimal_cut_sets;
 ```
 
 #### Re-export `cut_set_probability`

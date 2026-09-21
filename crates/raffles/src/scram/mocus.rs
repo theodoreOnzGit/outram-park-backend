@@ -46,6 +46,15 @@
 //! [`minimal_cut_sets`] takes an order limit for that reason, and it is the
 //! same knob upstream calls `limit_order`.
 //!
+//! **[`super::zbdd::minimal_cut_sets`] computes the same answer and is not
+//! exponential in the same way.** It is the one to reach for on anything
+//! sizeable: on the fixture's `Aralia/das9601` this module exhausts its
+//! five-million-state ceiling at every order limit and the ZBDD finishes in
+//! under a second. This module is kept because it is an unrelated second
+//! route to the same sets — the two are checked against each other — and
+//! because it is far easier to follow when a disagreement has to be
+//! diagnosed.
+//!
 //! **Upstream has a probability cut-off setting, and it does nothing.**
 //! `Settings::cut_off_` defaults to `1e-8`, is settable from the CLI
 //! (`--cut-off`) and from a project file, and is range-validated on the way
@@ -196,9 +205,9 @@ pub fn minimal_cut_sets(tree: &FaultTree, limit_order: usize) -> Result<Vec<CutS
                         value: seen.len() as f64,
                         reason: format!(
                             "cut-set expansion exceeded {EXPANSION_LIMIT} intermediate states. \
-                             MOCUS is exponential; lower `limit_order`. If you need the \
-                             top-event PROBABILITY rather than the cut sets, \
-                             `scram::bdd::Bdd` computes it without enumerating them"
+                             MOCUS is exponential; use `scram::zbdd::minimal_cut_sets`, \
+                             which gets the same answer off a decision diagram and is not, \
+                             or lower `limit_order`"
                         ),
                     });
                 }

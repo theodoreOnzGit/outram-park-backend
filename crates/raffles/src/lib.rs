@@ -22,9 +22,8 @@
 //! Two carry less than their names suggest and say so in their own docs:
 //! [`surrogate`] has polynomial regression and a `burn`-backed neural
 //! regressor but no Gaussian process and no polynomial chaos, and [`scram`]
-//! generates cut sets by the classical MOCUS expansion rather than the ZBDD
-//! method that makes a full-size PRA model's cut sets tractable — its
-//! *probability* is another matter, and has no such limit.
+//! has no preprocessor, so a model whose variable ordering matters is at the
+//! mercy of a first-appearance heuristic.
 //!
 //! **None of it has been through human V&V.** Everything here is AI-assisted
 //! draft material under the workspace `RESPONSIBLE_USE.md` rules until the
