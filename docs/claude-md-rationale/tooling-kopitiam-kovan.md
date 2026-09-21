@@ -343,3 +343,203 @@ no reason to reach for `bd` here, and no supported way to.
 guardrail *when it has been enabled for the session*, never-auto-commit/push,
 the Android/Termux portability rule, and the data-policy rules all still bind
 when using either tool.
+
+## The KOPITIAM dogfooding section as it stood on 2026-09-21
+
+Removed from the workspace `CLAUDE.md` on 2026-09-21 at the maintainer's
+request: KOPITIAM no longer needs dogfooding here. Kept verbatim for history.
+
+### Dogfood KOPITIAM and KOVAN (HARD RULE)
+
+**KOPITIAM (`kopitiam`) is a first-party tool of this project's maintainer and
+MUST be dogfooded in this workspace, by default** (`cargo install kopitiam`;
+source: https://github.com/theodoreOnzGit/kopitiam). It is a local-first
+"Semantic Runtime" CLI over real `cargo` / rust-analyzer / rustdoc facts, plus
+a PDF-to-Markdown engine. This workspace is its proving ground, so **reach for
+it first** where it covers the task, and **report every rough edge you hit**
+(see "Raising issues" below).
+
+> **`kopi-beans` (`bn`) is no longer part of this rule.** It was deprecated as
+> this workspace's issue tracker on 2026-09-21 — persistent beads-store and
+> daemon problems made it cumbersome. GitHub issues replace it; see "Issue
+> tracking & roadmap" and [`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).
+> Defects found in it still get filed upstream under "Raising issues".
+
+**For OUTRAM-PARK-specific context, prefer `kovan` over `kopitiam` (maintainer
+direction, 2026-08-15).** `kovan` is this workspace's *own* deterministic
+knowledge layer — reach for it first for repo understanding, symbol/code
+queries, and literature scoped to this codebase.
+
+- **Token-frugal reading:** `kovan-cli cost <path>` (real BPE-approximation
+  estimate), `kovan-cli outline <file>` (declarations skeleton),
+  `kovan-cli slice <file> <start> <end>`. Prefer this
+  `cost → outline → refs → slice` loop over reading whole large files.
+- **Symbol queries:** `kovan-cli def|sig|refs <symbol> --file <file>`,
+  rust-analyzer-backed (needs `rust-analyzer` on PATH). The *first* query for
+  a workspace root pays a real indexing wait (up to `KOVAN_RA_TIMEOUT_SECS`,
+  default 180 s); that root then stays warm in a background `lsp-daemon`, so
+  every later call answers in well under a second. There is deliberately **no**
+  idle timeout. Stop it explicitly with
+  `kovan-cli lsp-daemon-stop --root <root>`.
+- **Prefer all six of these over `kopitiam tokens`/`outline`/`slice`/`def`/
+  `sig`/`refs` when the file is inside this workspace.** `kopitiam` remains
+  the right tool for what `kovan` does not cover: `callers`/`callees`/`impls`,
+  and `rename`/`code-actions`.
+- **`kopitiam rename`** (diff preview by default, `--apply` to write) and
+  `kopitiam code-actions` **fill the exact gap** the Workflow-rules section
+  flags — the harness LSP tool is query-only. Prefer it over a `sed`-based
+  rename.
+- **Compact diagnostics:** `kopitiam check --compact` / `test --compact`
+  collapse cargo output to one line per distinct problem. The dedup is
+  **opt-in** — without `--compact` (or `--json`) raw output streams unchanged.
+- **Never run `kovan`, `kovan-tui` or `kovan-cli lsp-daemon-serve` directly**
+  in a non-interactive session — the first two are GUI/TUI front ends and the
+  third is the daemon's own foreground process; all three will hang.
+
+Run `kovan-cli skill-gen` to (re)generate `kovan_skill.md` for an agent
+session that hasn't read this file.
+
+#### Literature handling (the kovan ingestion mandate was RETIRED 2026-09-21)
+
+**~~ANY literature ingested OR USED goes into kovan (HARD RULE)~~ and ~~READ
+AND WRITE THE LITERATURE LIBRARY THROUGH `kovan` (HARD RULE)~~ — RETIRED
+2026-09-21 at the maintainer's request. Neither applies any more.** Literature
+does **not** have to be routed into `crates/kovan-literature`, and reads of it
+do not have to go through the `kovan lit` CLI. Do not enforce either rule, and
+do not treat a paper that is not in the archive as a defect to fix. The full
+original text of both rules is preserved in
+[`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
+
+`kovan lit import` / `outline` / `bibtex` and `kopitiam pdf2md` all remain
+available and are still perfectly good tools — using them is now a choice, not
+an obligation. `crates/kovan-literature/` and its `CATALOGUE.md` stay where
+they are; existing citations into the archive remain valid.
+
+**What survives this retirement, because it never came from `kovan` in the
+first place** — these are `DATA_POLICY.md` and compliance obligations and they
+still bind wherever a document lives:
+
+- **The open/proprietary split.** Public, openly published literature is
+  committable; anything restricted is not and must stay out of the repository.
+  **Decide the access tier from the document's own copyright page**, not from
+  where it was downloaded — public hosting (INIS, gen-4.org, a lab's website)
+  grants no redistribution rights. **Unsure means proprietary**; that failure
+  direction is recoverable and the other is a licence violation in a public
+  repository. The root-level `collaboration/` directory is gitignored scratch
+  and is **not** automatically open — ask if provenance is not stated.
+- **Text-and-data-mining / AI-training reservations.** Where a copyright line
+  carries one, record metadata and factual findings only and do **not** extract
+  the full text — facts are not copyrightable, but the corpus is what that
+  clause reserves.
+- **Provenance for anything the code depends on.** If a document informs the
+  code — a correlation taken from it, a benchmark value cited, a number in a
+  doc comment — record its source, author, title, licence/access terms,
+  URL/DOI, date accessed and any processing steps, per the "Responsible use &
+  data policy" section. A citation that points at nothing a reader can reach
+  is a dead reference. Where to put that record is now your judgement: a
+  `References.md` beside the example, the relevant validation report, or the
+  kovan archive.
+#### Graph digitisation (the `kovan-cli digitise` mandate was RETIRED 2026-09-21)
+
+**~~Graph digitisation: dogfood `kovan-cli digitise` (HARD RULE)~~ — RETIRED
+2026-09-21 at the maintainer's request, alongside the kovan literature
+mandate above. It no longer applies.** Getting data off a published figure
+does not have to go through `kovan-cli digitise`, the `kovan-tui` Digitiser
+tab or the `kovan` GUI. Do not enforce it. The full original text is preserved
+in [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
+
+The digitiser still exists in `crates/kovan/src/digitiser/` and still works —
+using it is now a choice. Two of its properties are worth knowing if you do:
+its accuracy is verified **against synthetic ground truth only** (never
+against real published figures), and **only a human can mark a dataset
+reviewed** — an agent session cannot, and a CLI run can only ever emit
+`Unreviewed`.
+
+**What survives, because it was never a `kovan` rule:** if a number in this
+codebase came off a plot, **say so and say how**. Record the figure it came
+from, the axis calibration or reference points used, the scale (linear or
+log), and whether the reading was automatic or by eye. That is the
+"Responsible use & data policy" provenance obligation and the
+"Verification & validation documentation" rule, not a tooling preference — a
+digitised value with no record of how it was read is not a citable number,
+whatever produced it.
+#### Known friction — read `docs/kopitiam-issues/`, don't trust a version number written here
+
+kopitiam has moved fast enough that any dated claim in this file goes stale
+almost immediately. The current open queue and the closing evidence for every
+resolved issue live in **`docs/kopitiam-issues/README.md`** and
+**`docs/kopitiam-issues/resolved/`**. Check there, or run
+`cargo install --list`, before citing the tool's behaviour as current.
+
+One fact that stays true regardless of version churn: **`kopitiam check` /
+`kopitiam test` have no `--release` flag** and run the `dev` profile. Use them
+for fast iteration, but still run the mandated release commands before calling
+work done — and note that running them materialises the `target/debug` tree
+that the release rule exists to avoid.
+
+#### CONSUME THE BINARIES ONLY — never modify kopitiam from this workspace
+
+This is the hard boundary and it does not bend. It still covers `kopi-beans`
+for as long as anything here consumes it.
+
+- **Use released binaries** from crates.io. Upgrade by installing a newer
+  published version. That is the *only* supported way this workspace consumes
+  them.
+- **Never edit their source from here.** No local edits, no local patched
+  builds, no `cargo install --path` off a working copy, no commits, no
+  branches, no pull requests out of this workspace. If a bug or missing
+  feature blocks you, **the deliverable is an issue, not a patch.**
+- **Never make them part of this workspace.** Not in
+  `[workspace.dependencies]`, not as workspace members, not vendored. This
+  matters doubly for `kopi-beans`, which is AGPL-3.0-only.
+- **If you consult the source at all, treat it as strictly read-only**, and
+  keep the clone in a **separate directory outside this repository** — a
+  nested clone would pollute `git status`, break cargo workspace discovery,
+  and risk committing another project's history into this one.
+- **Its per-project state stays local.** `kopitiam` writes `.kopitiam/state.redb`
+  into the repo root; that path is gitignored and must never be committed.
+- Keep the projects' trackers separate: OUTRAM PARK work goes in this repo's
+  GitHub issues, kopitiam/kopi-beans bugs go upstream.
+
+#### Raising issues — two channels, in this order
+
+Every rough edge, bug, and feature request in either tool gets written up.
+**Never silently work around a defect.**
+
+1. **Preferred: a GitHub issue on the kopitiam repo.** It is *not* in this
+   workspace's default GitHub scope — file with
+   `gh issue create --repo theodoreOnzGit/kopitiam`. Both tools live in that
+   one repo; say in the title which tool it concerns.
+2. **Fallback, when `gh` is unavailable or unauthenticated: file locally under
+   `docs/kopitiam-issues/`**, one markdown file per issue, named
+   `<tool>-<short-kebab-slug>.md`. These are a queue for later upstreaming,
+   not a private bug tracker — mention any new ones in your hand-off.
+
+Whichever channel: report **what you actually ran, the observed output, and
+the expected behaviour**, plus the tool version from `cargo install --list`.
+Do not invent version numbers or fabricate reproductions. Filing the issue is
+the end of your involvement — do not follow it up with code.
+
+**HARD RULE — resolved issues move to `docs/kopitiam-issues/resolved/`.** Do
+not delete the file and do not leave it in the top-level queue.
+
+- **"Resolved" means verified, not announced.** Upgrade to the published
+  version claiming the fix, **re-run the exact reproduction recorded in the
+  file**, and confirm the behaviour changed. Only then move it.
+- **Record the closing evidence as you move it:** the fixing version, the
+  date, the command re-run, its new output. A file in `resolved/` without that
+  evidence is not a resolution, it is a claim.
+- The top level therefore always reads as **the live queue**; `resolved/` is
+  the history. Anything still at the top level is outstanding.
+- This also applies to this file's own "known friction" notes: when one is
+  fixed, update or remove it in the same change, so `CLAUDE.md` never
+  advertises friction that no longer exists.
+
+**This rule relaxes nothing.** The release-mode rule, the working-hours
+guardrail *when enabled for the session*, never-auto-commit/push, the
+Android/Termux portability rule and the data-policy rules all still bind.
+
+> Full original text — the complete command inventory, the digitiser's
+> binary-rename history and the kopi-beans-era tracker rules as they stood:
+> [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
+

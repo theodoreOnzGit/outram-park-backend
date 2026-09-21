@@ -167,3 +167,10 @@ matrix exponential, no CRAM solver, and no stiffness handling.
   per-region transmutation rates.
 - Real-time 3-D TRISO diffusion visualisation (extends `boon_lay_decay_simulator`
   example).
+
+## egui simulators need a headless mode
+
+This crate's egui/eframe examples fall under the workspace headless-mode
+rule: a deterministic `--headless` path with a regression test. The full rule
+lives in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](../outram-park-digital-twin-engine/CLAUDE.md).

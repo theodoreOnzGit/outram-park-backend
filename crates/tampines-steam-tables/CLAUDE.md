@@ -438,3 +438,10 @@ See **`docs/notes.md`** for the 2026-06 migration log. The vestigial
 `ndarray-linalg` dep is **removed** (done, not planned — see "Build, test, run"
 above), and the former `fhr_sim_v2` UI state-update bug is resolved (both
 recorded in `docs/notes.md`).
+
+## egui simulators need a headless mode
+
+This crate's egui/eframe examples fall under the workspace headless-mode
+rule: a deterministic `--headless` path with a regression test. The full rule
+lives in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](../outram-park-digital-twin-engine/CLAUDE.md).

@@ -105,3 +105,10 @@ Requires system OpenBLAS (see root CLAUDE.md).
 
 The plan to drop the `ndarray-linalg` runtime dep (one 7×7 solve) and the
 2026-06 migration log live in **`docs/notes.md`**.
+
+## egui simulators need a headless mode
+
+This crate's egui/eframe examples fall under the workspace headless-mode
+rule: a deterministic `--headless` path with a regression test. The full rule
+lives in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](../outram-park-digital-twin-engine/CLAUDE.md).

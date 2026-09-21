@@ -298,3 +298,10 @@ longer applies.
 See **`docs/notes.md`** for the full workspace integration details, the 2026-06
 dependency migration log, and the v0.1.1 CustomSolid/CustomLiquid
 integration-hang bug writeup (peroxide G20K41 adaptive-tolerance fix).
+
+## egui simulators need a headless mode
+
+This crate's egui/eframe examples fall under the workspace headless-mode
+rule: a deterministic `--headless` path with a regression test. The full rule
+lives in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](../outram-park-digital-twin-engine/CLAUDE.md).

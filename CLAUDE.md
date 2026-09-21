@@ -194,15 +194,6 @@ specifically, not just human contributors:
   - The hook authorises *pushing*, nothing else. It does not authorise opening
     a pull request, merging, force-pushing, or bumping versions — those still
     need an explicit request.
-- **The beads store `Stop` hook is GONE — removed 2026-09-21.**
-  `.claude/settings.json` no longer carries it, nor the `bn prime --mcp`
-  SessionStart hook; its `hooks` object is now empty. Nothing in this
-  workspace pushes a git ref automatically any more, so the
-  never-auto-push rule above is the whole story. `scripts/push-beads-store.sh`
-  is kept as a **manual-only** fallback for republishing the preserved
-  `refs/heads/beads/store` ref by hand; it pushes **exactly one refspec**, is
-  idempotent, and must never be widened — never a branch or tag, and **never
-  `main`**.
 - **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when
   explicitly requested.
 - **Always build and test in release mode.** Use `--release` for all `cargo`
@@ -221,8 +212,7 @@ specifically, not just human contributors:
     `findReferences` to enumerate the sites, then apply the edits yourself,
     and rely on the compiler as the reference checker — every missed reference
     is a hard error pointing at the exact line. Prefer this over a blind `sed`
-    rename, which can silently mangle a colliding name. (`kopitiam rename`
-    fills this gap where it works — see the KOPITIAM section.)
+    rename, which can silently mangle a colliding name.
 
 ## Get the PROCESS right first; the answer comes second (HARD RULE)
 
@@ -423,26 +413,11 @@ a 293.6 K comparison that reads as ~1e-6 agreement. See
 > tables and the `thnmax` correction history:
 > [`docs/claude-md-rationale/process-and-porting-lessons.md`](docs/claude-md-rationale/process-and-porting-lessons.md).
 
-## Dogfood KOPITIAM and KOVAN (HARD RULE)
+## Use KOVAN for repository context
 
-**KOPITIAM (`kopitiam`) is a first-party tool of this project's maintainer and
-MUST be dogfooded in this workspace, by default** (`cargo install kopitiam`;
-source: https://github.com/theodoreOnzGit/kopitiam). It is a local-first
-"Semantic Runtime" CLI over real `cargo` / rust-analyzer / rustdoc facts, plus
-a PDF-to-Markdown engine. This workspace is its proving ground, so **reach for
-it first** where it covers the task, and **report every rough edge you hit**
-(see "Raising issues" below).
-
-> **`kopi-beans` (`bn`) is no longer part of this rule.** It was deprecated as
-> this workspace's issue tracker on 2026-09-21 — persistent beads-store and
-> daemon problems made it cumbersome. GitHub issues replace it; see "Issue
-> tracking & roadmap" and [`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).
-> Defects found in it still get filed upstream under "Raising issues".
-
-**For OUTRAM-PARK-specific context, prefer `kovan` over `kopitiam` (maintainer
-direction, 2026-08-15).** `kovan` is this workspace's *own* deterministic
-knowledge layer — reach for it first for repo understanding, symbol/code
-queries, and literature scoped to this codebase.
+`kovan` is this workspace's own deterministic knowledge layer — reach for it
+first for repo understanding, symbol/code queries, and literature scoped to
+this codebase. **Use `kovan-cli`**, the agent front end.
 
 - **Token-frugal reading:** `kovan-cli cost <path>` (real BPE-approximation
   estimate), `kovan-cli outline <file>` (declarations skeleton),
@@ -455,23 +430,18 @@ queries, and literature scoped to this codebase.
   every later call answers in well under a second. There is deliberately **no**
   idle timeout. Stop it explicitly with
   `kovan-cli lsp-daemon-stop --root <root>`.
-- **Prefer all six of these over `kopitiam tokens`/`outline`/`slice`/`def`/
-  `sig`/`refs` when the file is inside this workspace.** `kopitiam` remains
-  the right tool for what `kovan` does not cover: `callers`/`callees`/`impls`,
-  and `rename`/`code-actions`.
-- **`kopitiam rename`** (diff preview by default, `--apply` to write) and
-  `kopitiam code-actions` **fill the exact gap** the Workflow-rules section
-  flags — the harness LSP tool is query-only. Prefer it over a `sed`-based
-  rename.
-- **Compact diagnostics:** `kopitiam check --compact` / `test --compact`
-  collapse cargo output to one line per distinct problem. The dedup is
-  **opt-in** — without `--compact` (or `--json`) raw output streams unchanged.
 - **Never run `kovan`, `kovan-tui` or `kovan-cli lsp-daemon-serve` directly**
   in a non-interactive session — the first two are GUI/TUI front ends and the
   third is the daemon's own foreground process; all three will hang.
 
 Run `kovan-cli skill-gen` to (re)generate `kovan_skill.md` for an agent
 session that hasn't read this file.
+
+**KOPITIAM is no longer dogfooded here** (maintainer direction, 2026-09-21).
+It may still be used where it helps, but it is not mandated and its rough
+edges no longer need filing from this workspace. The former rule, and the
+`docs/kopitiam-issues/` queue it fed, are preserved in
+[`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
 
 ### Literature handling (the kovan ingestion mandate was RETIRED 2026-09-21)
 
@@ -537,86 +507,6 @@ log), and whether the reading was automatic or by eye. That is the
 "Verification & validation documentation" rule, not a tooling preference — a
 digitised value with no record of how it was read is not a citable number,
 whatever produced it.
-### Known friction — read `docs/kopitiam-issues/`, don't trust a version number written here
-
-kopitiam has moved fast enough that any dated claim in this file goes stale
-almost immediately. The current open queue and the closing evidence for every
-resolved issue live in **`docs/kopitiam-issues/README.md`** and
-**`docs/kopitiam-issues/resolved/`**. Check there, or run
-`cargo install --list`, before citing the tool's behaviour as current.
-
-One fact that stays true regardless of version churn: **`kopitiam check` /
-`kopitiam test` have no `--release` flag** and run the `dev` profile. Use them
-for fast iteration, but still run the mandated release commands before calling
-work done — and note that running them materialises the `target/debug` tree
-that the release rule exists to avoid.
-
-### CONSUME THE BINARIES ONLY — never modify kopitiam from this workspace
-
-This is the hard boundary and it does not bend. It still covers `kopi-beans`
-for as long as anything here consumes it.
-
-- **Use released binaries** from crates.io. Upgrade by installing a newer
-  published version. That is the *only* supported way this workspace consumes
-  them.
-- **Never edit their source from here.** No local edits, no local patched
-  builds, no `cargo install --path` off a working copy, no commits, no
-  branches, no pull requests out of this workspace. If a bug or missing
-  feature blocks you, **the deliverable is an issue, not a patch.**
-- **Never make them part of this workspace.** Not in
-  `[workspace.dependencies]`, not as workspace members, not vendored. This
-  matters doubly for `kopi-beans`, which is AGPL-3.0-only.
-- **If you consult the source at all, treat it as strictly read-only**, and
-  keep the clone in a **separate directory outside this repository** — a
-  nested clone would pollute `git status`, break cargo workspace discovery,
-  and risk committing another project's history into this one.
-- **Its per-project state stays local.** `kopitiam` writes `.kopitiam/state.redb`
-  into the repo root; that path is gitignored and must never be committed.
-- Keep the projects' trackers separate: OUTRAM PARK work goes in this repo's
-  GitHub issues, kopitiam/kopi-beans bugs go upstream.
-
-### Raising issues — two channels, in this order
-
-Every rough edge, bug, and feature request in either tool gets written up.
-**Never silently work around a defect.**
-
-1. **Preferred: a GitHub issue on the kopitiam repo.** It is *not* in this
-   workspace's default GitHub scope — file with
-   `gh issue create --repo theodoreOnzGit/kopitiam`. Both tools live in that
-   one repo; say in the title which tool it concerns.
-2. **Fallback, when `gh` is unavailable or unauthenticated: file locally under
-   `docs/kopitiam-issues/`**, one markdown file per issue, named
-   `<tool>-<short-kebab-slug>.md`. These are a queue for later upstreaming,
-   not a private bug tracker — mention any new ones in your hand-off.
-
-Whichever channel: report **what you actually ran, the observed output, and
-the expected behaviour**, plus the tool version from `cargo install --list`.
-Do not invent version numbers or fabricate reproductions. Filing the issue is
-the end of your involvement — do not follow it up with code.
-
-**HARD RULE — resolved issues move to `docs/kopitiam-issues/resolved/`.** Do
-not delete the file and do not leave it in the top-level queue.
-
-- **"Resolved" means verified, not announced.** Upgrade to the published
-  version claiming the fix, **re-run the exact reproduction recorded in the
-  file**, and confirm the behaviour changed. Only then move it.
-- **Record the closing evidence as you move it:** the fixing version, the
-  date, the command re-run, its new output. A file in `resolved/` without that
-  evidence is not a resolution, it is a claim.
-- The top level therefore always reads as **the live queue**; `resolved/` is
-  the history. Anything still at the top level is outstanding.
-- This also applies to this file's own "known friction" notes: when one is
-  fixed, update or remove it in the same change, so `CLAUDE.md` never
-  advertises friction that no longer exists.
-
-**This rule relaxes nothing.** The release-mode rule, the working-hours
-guardrail *when enabled for the session*, never-auto-commit/push, the
-Android/Termux portability rule and the data-policy rules all still bind.
-
-> Full original text — the complete command inventory, the digitiser's
-> binary-rename history and the kopi-beans-era tracker rules as they stood:
-> [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
-
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
 **Whenever you spawn an agent fleet — any background subagent, parallel agent
@@ -715,85 +605,34 @@ release carries its own accounting. Do not hand-edit the generated markdown.
 > Full opt-in policy, the historian's replacement history and the reasoning:
 > [`docs/claude-md-rationale/accounting-and-no-python.md`](docs/claude-md-rationale/accounting-and-no-python.md).
 
-## Issue tracking & roadmap — GitHub issues (mandatory)
+## Issue tracking — GitHub issues (mandatory)
 
-**Maintainer decision, 2026-09-21: this workspace tracks issues and per-crate
-roadmap progress in GitHub issues, on
-`theodoreOnzGit/outram-park-backend`, via `gh`. `bn` / kopi-beans is
-deprecated as the tracker and is no longer mandated.**
-
-**Why it was deprecated: persistent problems with the beads store made it
-cumbersome to operate.** kopi-beans keeps its canonical state in git refs, and
-that store — and the daemon that publishes it — was the recurring source of
-friction: a `gix` "slotmap turned out to be too small" sync failure that hangs
-`bn sync` ([kopitiam#27](https://github.com/theodoreOnzGit/kopitiam/issues/27),
-still open), a daemon holding ~37 % of a CPU core
-([kopitiam#26](https://github.com/theodoreOnzGit/kopitiam/issues/26), still
-open), an uncapped push-retry loop, a store that could not be published at
-all, and a `format_version` migration before it could be read. A distributed
-tracker whose distribution mechanism needs nursing is worse than a hosted one
-that does not. **Full record, with every issue file and its evidence:
-[`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).**
+Track all tasks and roadmap progress in GitHub issues on
+`theodoreOnzGit/outram-park-backend`, via `gh`, not TodoWrite or markdown
+TODO lists. (`bn` / kopi-beans was deprecated 2026-09-21; see
+[`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).)
 
 ```bash
 gh issue list --state open                       # what is open
-gh issue list --assignee @me --state open        # your active work
 gh issue view <number>                           # details + comments
 gh issue create --title "..." --body "..."       # file one
 gh issue comment <number> --body "..."           # progress
 ```
 
-- **Standing rule: use GitHub issues** for all task/roadmap tracking and
-  progress bookkeeping — in preference to TodoWrite / TaskCreate / ad-hoc
-  markdown TODO lists. Create and update issues as work happens; file one for
-  any follow-up you discover.
-- **Do not close issues on your own initiative.** Propose the closure with its
-  evidence and let the maintainer decide.
-- **Labels carry what the old tracker's fields did** — `bug`, `enhancement`,
-  `epic`, `P0`…`P3`. One epic issue per member crate; link children by number
-  in the epic body and reference the parent from each child. GitHub has no
-  dependency graph, so state blocking relationships in the issue body in
-  words ("blocked by #123").
-- **Roadmap / progress summaries come from `gh`.** When the user asks "where
-  are we" / "summarise progress" / "what's the roadmap", read it out of
-  `gh issue list` / `gh issue view` rather than re-deriving from scattered
-  docs.
-- **After a plan is approved (exiting plan mode), convert it into issues
-  before writing any code.** One epic per new crate the plan introduces (or a
-  child under the relevant crate's existing epic, for plans scoped to one
-  crate); one child issue per part/module/deliverable the plan names, with the
-  ordering constraints written into the bodies. Do this even if the plan is
-  also saved as a markdown file — the markdown is for human reading, the
-  issues are what survive a session boundary. Standing rule, not a one-off.
-- **If `gh` is unavailable or unauthenticated** — a locked-down sandbox, no
-  network — fall back to the harness task tools (TaskCreate / TodoWrite) and
-  **note in your hand-off that the tracker wasn't updated and why.**
-- **Relationship to the memory system.** The tracker and the per-project
-  memory files (`~/.claude/projects/<slug>/memory/`) are complementary and
-  **both stay in use**: the tracker holds *tasks / roadmap / open work*; the
-  memory files track *durable facts, user preferences, and feedback*. When in
-  doubt: a thing to *do or finish* → an issue; a thing to *remember about how
-  the user works or a settled fact* → memory.
-
-### The legacy beads store
-
-**`op-*` identifiers are historical references.** Several hundred beads were
-filed under the old tracker and are cited throughout this file, the crate
-`CLAUDE.md`s and the V&V write-ups. Treat an `op-*` id as a pointer into that
-history, **not** as something to look up in `gh`, and **do not mint new ones.**
-
-- **The store is preserved, not deleted** — `refs/heads/beads/store`, the
-  `refs/beads/backup/*` refs, and the pre-migration snapshot
-  **`refs/beads/premigration-v1-20260807`** all stay. Keeping them is what
-  keeps those citations resolvable. **Do not delete any of them.**
-- **Open beads were not bulk-imported**, deliberately — a few hundred
-  auto-filed issues would bury the ones that matter. Open a GitHub issue for
-  work as it is picked up, citing the old id in the body where one exists.
-- **`.claude/settings.json` was cleaned on 2026-09-21** — the `bn prime --mcp`
-  SessionStart hook and the `push-beads-store.sh` Stop hook are both removed
-  and its `hooks` object is empty. `scripts/push-beads-store.sh` is retained
-  as a manual-only way to republish the preserved store ref; nothing runs it
-  automatically.
+- **Do not close issues on your own initiative.** Propose the closure with
+  its evidence; the maintainer decides.
+- **Labels:** `bug`, `enhancement`, `epic`, `P0`…`P3`. One epic per member
+  crate; state blocking relationships in the body in words ("blocked by #123").
+- **After a plan is approved, convert it into issues before writing code** —
+  one child issue per deliverable, under the relevant crate's epic.
+- **Roadmap / progress questions** are answered from `gh issue list/view`.
+- **If `gh` is unavailable**, fall back to the harness task tools and say so
+  in the hand-off.
+- **`op-*` ids are historical** references into the old beads store; do not
+  look them up in `gh` and do not mint new ones. The store refs
+  (`refs/heads/beads/store`, `refs/beads/*`) are preserved — do not delete them.
+- The tracker holds *work to do*; the per-project `memory/` files hold
+  *durable facts and preferences*. Both stay in use.
 
 ## README / Markdown format (mandatory)
 
@@ -889,50 +728,14 @@ what crate they need and how to call it.
   update its `///` doc comment in the same change.
 - Do not write examples that require reading internal modules to understand.
 
-## Every egui simulator ships a headless mode (HARD RULE)
+## egui simulators: headless mode lives in the crate docs
 
-**Any example or binary with an egui/eframe GUI MUST also provide a headless
-execution path** that runs the underlying model with no window, no event loop
-and no GUI thread, and emits a machine-readable trace on stdout.
+Every egui/eframe simulator must ship a deterministic `--headless` mode with a
+regression test. The full rule is in
+[`crates/outram-park-digital-twin-engine/CLAUDE.md`](crates/outram-park-digital-twin-engine/CLAUDE.md);
+the other crates with egui simulator examples point to it.
 
-```
-cargo run --release --example <sim> -- --headless [steps] [sample_every]
-```
-
-**WHY: a GUI-only simulator cannot be tested, and cannot be trusted.** An agent
-or a CI job cannot open a window, so without this the model can only be checked
-by a human watching it — which means in practice it is not checked at all. Every
-claim about what the simulator does becomes unfalsifiable.
-
-It also makes a specific, recurring class of bug invisible. `htgr_sim_v1`'s
-`PlantCommands::default()` was documented as starting *"near steady state
-rather than on a prompt excursion"*. The first headless run ever taken of it
-(2026-09-06) showed power **overshooting to 27.8 MW — roughly 2.8x nominal —
-before settling near 8.1 MW**, with the bed temperature still drifting downward
-1200 s in. The docstring was wrong and had been wrong unnoticed, because nobody
-could run the thing without watching it.
-
-**Requirements:**
-
-- **No GUI, no window, no event loop, no spawned physics thread.** The headless
-  path drives the model directly.
-- **Deterministic.** No wall clock, no RNG seeded from time, no I/O inside the
-  loop. Same config in, byte-identical trace out. Assert this in a test — it is
-  the property every committed fixture depends on.
-- **Machine-readable output**, CSV or equivalent, with a stable header and fixed
-  precision so a committed fixture diffs cleanly.
-- **A regression test that calls the headless path directly**, not through the
-  GUI.
-- Where the model can leave physical range, assert bounds in that test. Loose
-  bounds that catch divergence are worth far more than none; **this is a
-  harness check, not physics V&V, and must not be described as validation.**
-
-**This is a precondition for declaring any simulator's behaviour, not an
-optional convenience.** A simulator without a headless mode has no reference
-baseline, so it cannot be refactored safely and cannot be shown to still work
-afterwards.
-
-### When this applies: only to crates declared mature (HARD RULE)
+## Crate maturity gate (HARD RULE)
 
 **The dogfooding rule below is a hard rule for every crate the maintainer has
 declared mature, and is not enforced on any crate before that.** Both halves
@@ -1955,67 +1758,6 @@ never-auto-commit/push — and the working-hours guardrail whenever the session
 has opted into it) is relaxed — correctness and honesty come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
 corrections.** Default is standard English; opt-in only.
 
-
-<!-- Issue-tracker integration: hand-maintained. Was a kopi-beans managed block
-     (BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61) until 2026-09-21,
-     when kopi-beans was deprecated as this workspace's tracker. Do not let a
-     generator rewrite this section. -->
-## Issue tracker (GitHub issues)
-
-**Maintainer direction, 2026-09-21: GitHub issues are this workspace's issue
-tracker. `bn` / kopi-beans is no longer mandated.** See "Issue tracking &
-roadmap" above for the full rule; this is the quick reference.
-
-```bash
-gh issue list --state open                       # what is open
-gh issue list --assignee @me --state open        # your active work
-gh issue view <number>                           # details + comments
-gh issue create --title "..." --body "..."       # file one
-gh issue close <number> --comment "..."          # close with evidence
-```
-
-Useful filters: `--label`, `--milestone`, `--search`. Labels carry what a
-tracker's type/priority fields used to: `bug`, `enhancement`, `epic`,
-`P0`…`P3`. Link work with `Closes #<n>` in a commit or PR body, and reference
-a parent epic by number in the issue body.
-
-### Rules
-
-- **Use GitHub issues for ALL task tracking.** Do not use TodoWrite,
-  TaskCreate, or markdown TODO lists. If `gh` is unavailable or
-  unauthenticated in a given environment, fall back to the harness task tools
-  and **say so in the hand-off**.
-- **Do not close an issue on your own initiative.** Closing is the
-  maintainer's decision — propose it with the evidence and let them call it.
-- **Legacy `op-*` identifiers are historical.** Several hundred beads were
-  filed under the old tracker and are cited throughout this file and the
-  crate docs. Treat an `op-*` id as a **historical reference**, not something
-  to look up in `gh`. Do not mint new ones.
-- Persistent durable facts / user preferences: keep using the per-project
-  `memory/` + `MEMORY.md` workflow — that is complementary to the tracker and
-  is **not** dropped.
-
-## Agent context profiles
-
-This is task-tracking guidance, not permission to override repository, user,
-or orchestrator instructions.
-
-- **Conservative (default).** Track work in GitHub issues. Do **not** run git
-  commits, pushes, or a manual sync unless explicitly asked. At hand-off,
-  report changed files, validation run, suggested next commands, and anything
-  left blocked.
-- **Minimal.** Keep tool instruction files as pointers to this section; same
-  conservative git policy unless active instructions say otherwise.
-- **Team-maintainer.** Only when the repository explicitly opts in may agents
-  close issues, run quality gates, commit, and push as part of session close.
-  A current "do not commit" or "do not push" instruction still wins.
-
-**Critical rules:**
-
-- Explicit user or orchestrator instructions override this block.
-- Do not commit or push without clear authority from the active profile, the
-  current user request, or the stop hook (see "Workflow rules").
-- If a required push is blocked, stop and report the exact command and error.
 
 ## Session completion
 
