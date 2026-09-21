@@ -282,6 +282,30 @@ impl RunFile {
     /// When `hps_tog` is false, upstream skips reading `k_clean` entirely.
     /// This forces it to exactly zero, so a stray non-zero value in the file
     /// cannot leak into a no-HPS run.
+    ///
+    /// # KNOWN GAP — every accident field is validated here and then DROPPED
+    ///
+    /// [`RunConfig`] carries `accident: bool` and nothing else about the
+    /// accident. These five [`RunFile`] fields are range-checked above and then
+    /// have nowhere to go:
+    ///
+    /// | field | what it is |
+    /// |---|---|
+    /// | [`RunFile::x_liftoff`] | fraction of deposited activity lifted off |
+    /// | [`RunFile::f_inc_acc`] | accident-phase defective-kernel fraction |
+    /// | [`RunFile::f_inc_sic_acc`] | accident-phase defective-SiC fraction |
+    /// | [`RunFile::times`] | the accident temperature transient's time axis |
+    /// | [`RunFile::accident_temps`] | the transient itself |
+    ///
+    /// So a caller that drives an accident case **through this method alone
+    /// gets a silently normal-operation configuration** — the validation passes,
+    /// `accident` is `true`, and none of the data an accident needs arrives.
+    ///
+    /// **Read [`RunFile`] directly for those five.** This is recorded rather
+    /// than fixed because widening [`RunConfig`] changes a type that the
+    /// code-to-code comparison against upstream goes through; the honest
+    /// intermediate is to name the gap where a caller meets it. Filed as
+    /// GitHub issue #233.
     pub fn to_config(&self) -> Result<RunConfig, Vec<RunFileError>> {
         let mut errs = Vec::new();
 

@@ -45,6 +45,49 @@
 //! with no human V&V, so "the engine exists" means the port exists, not that it
 //! is validated.
 //!
+//! # Why the name predates the plan — history, recorded so it is not "fixed"
+//!
+//! **The name REDHILL was reserved before this workspace's agentic naming
+//! convention existed, and before the fork-a-mature-code pattern was the
+//! default.** At the time, the motivation was to write an in-house groundwater
+//! code **by hand, first** — the crate was going to be an original solver, not
+//! an integration layer over somebody else's. The dependency on
+//! `outram-park-fork-pflotran` described above came later and was, in the
+//! maintainer's own words, more of an afterthought.
+//!
+//! **This is why REDHILL's intended relationship to its engine differs in
+//! pattern from CHANGI's, and that asymmetry is deliberate rather than an
+//! oversight:**
+//!
+//! | | engine lives | pattern |
+//! |---|---|---|
+//! | `changi` | *inside* the crate, as `changi::flexpart` | contains its port |
+//! | `redhill` | *outside*, as `outram-park-fork-pflotran` | depends on a separate crate |
+//!
+//! Two different eras, not inconsistent reasoning. The separate-crate shape is
+//! also independently justified: PFLOTRAN is a general subsurface flow and
+//! reactive-transport code with uses well beyond radionuclides, so it earns its
+//! own crate whether or not REDHILL ever consumes it — whereas FLEXPART's
+//! scalar kernels have no consumer in this workspace outside atmospheric
+//! dispersion.
+//!
+//! **Recorded here so that a future session does not "harmonise" the two in
+//! whichever direction it happens to notice first.** Neither shape is the
+//! mistake.
+//!
+//! ## And this is not a judgement that FLEXPART is a lesser code
+//!
+//! It would be easy to read "CHANGI merely contains a few FLEXPART modules,
+//! REDHILL depends on a whole PFLOTRAN fork" as ranking the two upstreams. It
+//! does not. FLEXPART is one of the standard Lagrangian particle dispersion
+//! models and is close to the reference tool for radionuclide source
+//! attribution — CTBTO-style verification work, and the Fukushima and Chernobyl
+//! source reconstructions, are built on it.
+//!
+//! What is in `changi::flexpart` is four scalar-kernel modules, which that
+//! crate's own documentation already calls *"the first verified slice of a
+//! port"*. **The gap is in the port, not in the upstream.**
+//!
 //! # Intended use
 //!
 //! Research, education, capability building and V&V only

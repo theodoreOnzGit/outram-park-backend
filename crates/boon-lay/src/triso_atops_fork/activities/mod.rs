@@ -104,9 +104,23 @@ pub use source_terms::{base_activities, release_rate, FailureFractions, SourceAn
 /// `Activity::new::<hertz>(bq)` and read with `.get::<hertz>()` (`hertz == s^-1`;
 /// the unit name is only a dimension label — the value is in becquerels).
 ///
-/// Curies are **not** an SI unit and are not part of `uom`; convert with
-/// [`becquerels_from_curies`] / [`curies_from_becquerels`] and the [`BQ_PER_CI`]
-/// constant.
+/// The curie is not an SI unit. ~~and is not part of `uom`~~ **CORRECTED
+/// 2026-09-21** — `uom` 0.38 *does* carry it: the `Radioactivity` quantity has
+/// a built-in `@curie` unit, so `Radioactivity::new::<curie>(1.0)` reads
+/// `3.7e10 Bq` without `3.7e10` being written anywhere. Verified against
+/// `uom-0.38.0/src/si/radioactivity.rs` and pinned by
+/// `changi::activity::units::tests::uom_carries_the_curie_so_the_conversion_never_has_to_be_written_out`.
+///
+/// **That does not make this alias wrong, and it is deliberately not being
+/// changed.** `Activity = Frequency` is code-to-code verified against upstream
+/// TRISO-ATOPS and human-signed-off; `Radioactivity` is a *different Rust type*
+/// of the same dimension, so switching would churn every signature in this
+/// fork for no physics. Convert with [`becquerels_from_curies`] /
+/// [`curies_from_becquerels`] and the [`BQ_PER_CI`] constant as before.
+///
+/// A downstream crate that prefers `Radioactivity` converts at its own
+/// boundary — that crossing is the consumer's to own, in one file, not this
+/// fork's.
 pub type Activity = Frequency;
 
 /// Becquerels per curie: `1 Ci = 3.7 × 10^10 Bq` (exact, by definition).
