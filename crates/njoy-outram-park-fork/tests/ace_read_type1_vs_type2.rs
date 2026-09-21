@@ -189,3 +189,70 @@ fn read_sniffs_the_container() {
     assert_eq!(a.file_type, AceFileType::Type1Ascii);
     assert_eq!(b.file_type, AceFileType::Type2Binary);
 }
+
+/// Every ACE **class** this port can obtain a real file for is read, and the
+/// class letter is recognised as upstream's dispatch recognises it.
+///
+/// Upstream routes six letters (`acer.f90:513-533`); four can be produced from
+/// what this repository holds:
+///
+/// | file | ZAID | class | produced by |
+/// |---|---|---|---|
+/// | `/tmp/t2/tape24` | `13027.00c` | continuous-energy neutron | `acer iopt=1` |
+/// | `/tmp/tsl1/tape24_type1.ace` | `al27.00t` | thermal | `acer iopt=2` |
+/// | `/tmp/dos/tape24` | `92000.00p` | photoatomic | `acer iopt=4` |
+/// | `/tmp/he4/tape24` | `2004.00a` | charged particle | `acer iopt=1`, alpha sublibrary |
+///
+/// The two not covered are `u` (photonuclear) and `y` (dosimetry): neither
+/// sublibrary is present in `reference-data/endf/`, so no such table can be
+/// produced to read back. That is a gap in the *fixtures*, not in the reader —
+/// the container is class-independent and every letter is unit-tested in
+/// `acer::read` — and it is stated here rather than left implied.
+#[test]
+fn every_obtainable_class_reads() {
+    let cases: [(&str, &str, AceClass); 4] = [
+        ("/tmp/t2/tape24", "13027.00c", AceClass::ContinuousNeutron),
+        ("/tmp/tsl1/tape24_type1.ace", "al27.00t", AceClass::Thermal),
+        ("/tmp/dos/tape24", "92000.00p", AceClass::Photoatomic),
+        ("/tmp/he4/tape24", "2004.00a", AceClass::ChargedParticle('a')),
+    ];
+    let mut read_any = false;
+    for (path, want_zaid, want_class) in cases {
+        if !std::path::Path::new(path).exists() {
+            println!("[ace-classes] SKIP {path} — not generated");
+            continue;
+        }
+        read_any = true;
+        let t = njoy_outram_park_fork::acer::read::read(path)
+            .unwrap_or_else(|e| panic!("read {path}: {e}"));
+        assert_eq!(t.header.zaid, want_zaid, "{path} ZAID");
+        assert_eq!(t.header.class, want_class, "{path} class");
+        // NXS(1) is the declared XSS length; the reader checks it, so getting
+        // here at all means the container decoded end to end.
+        assert_eq!(
+            t.nxs[0] as usize,
+            t.xss.len(),
+            "{path}: NXS(1) and XSS length must agree"
+        );
+        // A thermal ZAID is a name, every other class's is a number.
+        if want_class == AceClass::Thermal {
+            assert!(t.header.zaid_num.is_none(), "{path}: thermal ZAID is not numeric");
+        } else {
+            assert!(t.header.zaid_num.is_some(), "{path}: non-thermal ZAID should parse");
+        }
+        println!(
+            "[ace-classes] {path}: {} {:?}, NXS(1)={}, {} XSS values",
+            t.header.zaid,
+            t.header.class,
+            t.nxs[0],
+            t.xss.len()
+        );
+    }
+    if !read_any {
+        assert!(
+            !njoy_outram_park_fork::reference_data::reference_data_required(),
+            "[ace-classes] no class fixture present and \
+             OUTRAM_PARK_REQUIRE_REFERENCE_DATA is set"
+        );
+    }
+}

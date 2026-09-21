@@ -94,10 +94,23 @@ Gate: `tests/ace_read_type1_vs_type2.rs`.
 - **The fixtures are not committed** (5 MB + 2 MB). The gate skips when they
   are absent and honours `OUTRAM_PARK_REQUIRE_REFERENCE_DATA`, so the skip
   cannot pass silently.
-- **Only the `c` and `t` classes have been read from real files.** The
-  container is class-independent and the class letters are unit-tested, but
-  `p`, `u`, `y` and the charged-particle letters have not been exercised on an
-  actual table — this port cannot yet *produce* those classes to read back.
+- ~~**Only the `c` and `t` classes have been read from real files.**~~
+  **CORRECTED 2026-09-21, same day** — **four of the six** are now read from
+  real NJOY2016 output, each decoding end to end with `NXS(1)` matching the
+  actual `XSS` length:
+
+  | ZAID | class | produced by | `XSS` |
+  |---|---|---|---|
+  | `13027.00c` | continuous-energy neutron | `acer iopt=1` | 268 746 |
+  | `al27.00t` | thermal | `acer iopt=2` | 29 664 |
+  | `92000.00p` | photoatomic | `acer iopt=4` | 71 807 |
+  | `2004.00a` | charged particle (alpha) | `acer iopt=1`, alpha sublibrary | 674 |
+
+  The two still uncovered are **`u` (photonuclear)** and **`y` (dosimetry)**:
+  neither sublibrary is present in `reference-data/endf/`, so no such table can
+  be produced to read back. That is a gap in the *fixtures*, not in the reader —
+  the container is class-independent and all ten class letters are unit-tested.
+  Gate: `every_obtainable_class_reads`.
 - **mcnpx-format (13-character ZAID) is implemented but unexercised.** The
   width is inferred from the Type-2 record length; no mcnpx file was available
   to confirm it.
