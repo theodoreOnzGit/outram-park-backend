@@ -3,11 +3,21 @@
 //! **S**evere-accident **E**volution and **M**elt **B**ehaviour **A**nalysis
 //! **W**orkbench for **A**dvanced **N**uclear **G**eometries.
 //!
-//! **Severe accident progression** — melt behaviour, relocation, vessel
-//! failure, molten-core–concrete interaction, hydrogen and aerosol release.
+//! **Severe accident and source term, and orchestrator of the offsite chain**
+//! (maintainer decision 2026-09-21, GitHub #235; `docs/ecosystem-naming.md`
+//! decision 7).
 //!
-//! The question this crate answers is **"what gets released?"**, and its
-//! output is the **source term** that [`changi`] takes as input.
+//! - **Its own physics:** the fission-product source term (implemented, on
+//!   `boon-lay`'s TRISO-ATOPS fork) and severe-accident progression: melt
+//!   behaviour, relocation, vessel failure, molten-core–concrete interaction,
+//!   hydrogen and aerosol release (**not implemented**).
+//! - **What it orchestrates:** [`changi`] for dispersion and deposition (wired
+//!   in, see [`chain`]), `redhill` for ground transport (a placeholder, not
+//!   wired), and `raffles` for uncertainty propagation (GitHub #238, not yet
+//!   a dependency).
+//!
+//! The chain ends at activity released, air concentration and deposition.
+//! **No dose quantity is computed**, and none of this is described as PSA.
 //!
 //! # STATUS: partially implemented, and the unimplemented part is the larger one
 //!
@@ -33,7 +43,12 @@
 //! consumes is **prescribed by the caller**; nothing here computes it.
 //!
 //! So: cite this crate for a TRISO release calculation under a temperature
-//! history you supplied. Do **not** cite it for accident progression.
+//! history you supplied, and (since 2026-09-21) for carrying that release
+//! through `changi` to air concentration and deposition. The line below is the
+//! original, kept because it is still true as far as it goes:
+//!
+//! > cite this crate for a TRISO release calculation under a temperature
+//! > history you supplied. Do **not** cite it for accident progression.
 //!
 //! The name was already reserved in `docs/ecosystem-naming.md` and
 //! `GOVERNANCE.md`; this crate makes the reservation visible in the workspace
@@ -42,15 +57,20 @@
 //! # Where it sits: the offsite chain
 //!
 //! ```text
-//!   SEMBAWANG  ──►  CHANGI  ──►  REDHILL
-//!   what gets       what happens    what happens after
-//!   released?       after release?  deposition + infiltration?
+//!              ┌──────────── SEMBAWANG orchestrates ────────────┐
+//!   boon-lay ──► source term ──► CHANGI ──► REDHILL             │
+//!   (TRISO       (what gets      (air, Bq·s/m³;  (ground         │
+//!    release)     released?)      ground, Bq/m²)  transport)     │
+//!              └── RAFFLES: uncertainty propagation (#238) ─────┘
 //! ```
 //!
-//! [`changi`] exists and has a FLEXPART v10.4 port under way; [`redhill`] is,
+//! ~~[`changi`] exists and has a FLEXPART v10.4 port under way; [`redhill`] is,
 //! like this crate, a placeholder. **CHANGI currently has no upstream**: its
 //! own README records that until SEMBAWANG exists, a release-rate time series
-//! has to be supplied by hand.
+//! has to be supplied by hand.~~ **CORRECTED 2026-09-21**: this crate is no
+//! longer a placeholder, and it feeds [`changi`] directly through
+//! [`chain::pad_for_dispersion`] (see `examples/npmhtgr_chain.rs`). `redhill` is
+//! still a placeholder.
 //!
 //! # Honest scope of the gap
 //!

@@ -1,9 +1,22 @@
 # sembawang
 
 **SEMBAWANG** — *Severe-accident Evolution and Melt Behaviour Analysis Workbench
-for Advanced Nuclear Geometries* — the source-term end of the offsite chain
-(SEMBAWANG -> CHANGI -> REDHILL). "Workbench" because it is a toolkit, not a
+for Advanced Nuclear Geometries*. "Workbench" because it is a toolkit, not a
 single code.
+
+**Scope (maintainer decision 2026-09-21, #235): severe accident and source
+term, and orchestrator of the offsite chain.** ~~the source-term end of the
+offsite chain (SEMBAWANG -> CHANGI -> REDHILL)~~ SEMBAWANG computes the source
+term and drives the rest of the chain:
+
+```text
+boon-lay (TRISO release) -> SEMBAWANG source term -> CHANGI (air, ground) -> REDHILL (ground transport)
+                            RAFFLES: uncertainty propagation across the whole chain (#238)
+```
+
+Wired in today: `boon-lay` and `changi`. Not yet: `raffles` (#238) and
+`redhill` (a placeholder). **No dose is computed**, and none of this is
+described as PSA. See `docs/ecosystem-naming.md` decision 7.
 
 ## What exists, and what does not
 
