@@ -5,18 +5,12 @@ Guidance for Claude Code (and other AI assistants) working in this repository.
 ## Scope boundary: this file governs `outram-park-backend` ONLY — never a parent folder (HARD RULE)
 
 **This file, and every crate-level `CLAUDE.md` under `crates/*/`, apply
-exclusively to the `outram-park-backend` repository tree** — this directory
-and everything under it, nothing else. This repo is sometimes checked out
-*inside* another person's project — as a git submodule, a subtree, or a plain
-nested clone. When that is the case, **none** of these rules — the
-never-auto-commit/push policy and its carve-outs, release-mode-only
-builds/tests, `bn`/kopi-beans as the mandated tracker, `kovan` dogfooding, the
-working-hours guardrail, the token-accounting policy, the Rust design rules
-(no trait objects/`Box`/lifetimes), the Android/Termux hard rule, the
-responsible-use/data-policy/AI-usage framing, the README math-syntax rule, the
-"no Python for docs/accounting" rule — apply to the **parent** project, its
-other submodules, or its top-level files. Ever. This binds regardless of
-which directory the session's working directory happens to be in.
+exclusively to the `outram-park-backend` repository tree** — this directory and
+everything under it, nothing else. This repo is sometimes checked out *inside*
+another person's project — as a git submodule, a subtree, or a plain nested
+clone. When that is the case, **none** of these rules apply to the **parent**
+project, its other submodules, or its top-level files. Ever. This binds
+regardless of which directory the session's working directory happens to be in.
 
 **How to tell whether a given file or command is in scope.** Resolve its
 repository root and compare it against *this* repo's own root:
@@ -26,73 +20,59 @@ git -C <path-in-question> rev-parse --show-toplevel
 ```
 
 If that root is `outram-park-backend` itself (or, for a submodule mount, the
-path where this repo is checked out), the rules in this file apply. If it
-resolves to a **different** root — a parent project's own `.git`, or another
-sibling repository entirely — **this file has no authority there**, full
-stop, no matter how the session got there or what was discussed earlier in
-the conversation.
+path where this repo is checked out), the rules here apply. If it resolves to a
+**different** root, **this file has no authority there**, full stop, no matter
+how the session got there or what was discussed earlier in the conversation.
 
 **Concretely, when a parent project merely contains this repo as a
 submodule/subrepo:**
 
-- Only apply this file's rules to work that is actually inside this repo's
-  own working tree. A commit, build, dependency change, or doc edit anywhere
-  else in the parent project is governed by *that* project's own conventions
-  (its own `CLAUDE.md` if it has one, or none at all) — not by anything
+- Only apply this file's rules to work actually inside this repo's own working
+  tree. A commit, build, dependency change, or doc edit anywhere else in the
+  parent project is governed by *that* project's conventions — not by anything
   written here.
-- Do not assume the parent project uses `bn`/kopi-beans, `kovan`, this repo's
-  git hooks, or any other tool mandated here. Do not install or run them
-  against the parent's own tree on the strength of this file.
-- If a task spans both the parent and this submodule (a cross-repo refactor, a
-  parent-level commit that bumps this submodule's pinned revision), this file
-  governs only the parts that touch this repo's own tree. If it's unclear
-  which rule set a given change falls under, ask rather than guessing outward.
-- This applies even mid-session: if the working directory moves from inside
-  this repo out into the parent project (or a sibling), re-check scope before
-  continuing to apply anything from this file. Nothing here "sticks" once
-  you've left this repo's tree.
+- Do not assume the parent project uses `kovan`, GitHub issues, this repo's git
+  hooks, or any other tool mandated here. Do not install or run them against
+  the parent's own tree on the strength of this file.
+- If a task spans both, this file governs only the parts touching this repo's
+  own tree. If it's unclear which rule set a change falls under, **ask rather
+  than guessing outward.**
+- This applies even mid-session: if the working directory moves out into the
+  parent (or a sibling), re-check scope before continuing. Nothing here
+  "sticks" once you've left this repo's tree.
 
-**Why this exists.** `CLAUDE.md` guidance is easy to over-apply once it's been
-read into a session — the failure mode is carrying a rule outward onto
-unrelated code that merely happens to live in the same checkout, or in a
-project that embeds this one. This section exists so that never happens: the
-boundary is this repository's own root, determined by its own `.git`, not the
-process's current working directory and not how far back the rule was stated
-in the conversation.
+**Why this exists.** `CLAUDE.md` guidance is easy to over-apply once read into
+a session — the failure mode is carrying a rule outward onto unrelated code
+that merely happens to live in the same checkout. The boundary is this
+repository's own root, determined by its own `.git`, not the process's current
+working directory and not how far back the rule was stated.
 
 ## Working-hours guardrail (OPT-IN — off unless the user turns it on)
 
 **This guardrail is OFF by default, and nothing about it is mandatory** —
 there is no required question to ask at session start and no required time
 check to run. It is not a standing rule. Changed 2026-08-13, and further
-relaxed 2026-09-03, at the maintainer's request; the history and rationale for
-the original rule are preserved under "Why it exists" below.
+relaxed 2026-09-03, at the maintainer's request.
 
-### Turning it on
+**Turning it on.** The guardrail applies only when the user turns it on in
+plain words ("enable the working-hours guardrail", "enforce my hours this
+session"). You are **not** required to ask about it — offer it only if the
+user seems to want it, and **treat silence as Off, always.** The user may
+switch it on or off at any point; honour that immediately, with no
+confirmation question.
 
-The guardrail applies only when the user turns it on in plain words ("enable
-the working-hours guardrail", "enforce my hours this session"). You are **not**
-required to ask about it — offer it only if the user seems to want it, and
-treat silence as Off, always. The user may switch it on or off at any point;
-honour that immediately, with no confirmation question.
+**If it is off (the default):** no time check, no hour restriction, no
+rest-day rule. Work normally. Do not volunteer reminders about the
+maintainer's hours or health, and do not re-litigate the setting.
 
-### If it is off (the default)
-
-No time check, no hour restriction, no rest-day rule. Work normally. Do not
-volunteer reminders about the maintainer's hours or health, and do not
-re-litigate the setting.
-
-### If the user has turned it on
-
-Everything below applies **for the rest of that session, as a hard rule**:
+**If the user has turned it on**, everything below applies for the rest of
+that session, as a hard rule.
 
 **Check the real local time and day of week** with a system tool before
-substantive work — do not infer it from conversation content, a cached date, or
-skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'` via the Bash tool. Any
-equivalent works if `date` isn't available (`fastfetch`, a one-line Python
-`datetime.now()` / Rust `chrono::Local::now()` script).
+substantive work — do not infer it from conversation content, a cached date,
+or skip the check. Preferred: `date +'%Y-%m-%d %H:%M %A %Z'`.
 
-**Active working hours** (local time to the repository owner, Asia/Singapore):
+**Active working hours** (local to the repository owner, Asia/Singapore):
 
 | Day | Hours |
 |---|---|
@@ -106,33 +86,26 @@ equivalent works if `date` isn't available (`fastfetch`, a one-line Python
   explanation beyond the minimum needed to log something for later.
 - Do **not** agentically write code, run test suites, or open-endedly work a
   task.
-- Ideas, plans, or scaffolding that come up may be recorded — as a `bn` issue
-  (see "Issue tracking & roadmap" below) or a short markdown note — and
-  nothing more.
-- **Exception, still allowed outside hours:** compiling / running the
-  existing test suite to confirm already-finished work is good, and pushing
-  already-finished work to GitHub. Nothing beyond finishing and shipping
-  work that already exists.
+- Ideas, plans, or scaffolding may be recorded — as a GitHub issue or a short
+  markdown note — and nothing more.
+- **Exception, still allowed:** compiling / running the existing test suite to
+  confirm already-finished work is good, and pushing already-finished work to
+  GitHub. Nothing beyond finishing and shipping work that already exists.
 
 **While enabled, the hour limits do not bend in the moment.** Turning the
 guardrail on is a deliberate decision; asking for a one-off exception at 23:00
 is not. If the user asks to work past the limit *within an enabled session*,
-say so plainly, log the request in beads for the next active window, and stop
-there — do not negotiate or justify. Turning the guardrail off
-outright is always the user's call and is honoured immediately (above); what
-this clause blocks is piecemeal erosion while it is on.
+say so plainly, log the request for the next active window, and stop there —
+do not negotiate or justify. Turning the guardrail off outright is always the
+user's call and is honoured immediately; what this clause blocks is piecemeal
+erosion while it is on.
 
-### Why it exists
-
-It protects the human maintainer's rest. Instituted 2026-07-11 after a month of
-illness from overwork; the supporting analysis is in
-[`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md). Making it
-opt-in does not retract that finding — it moves the decision to the human, who
-turns it on when they want it, rather than having the assistant ask about or
-enforce it.
-
-**To restore it as an always-on rule**, or to make asking about it mandatory
-again, edit this section accordingly. That is a maintainer decision.
+**Why it exists.** It protects the human maintainer's rest. Instituted
+2026-07-11 after a month of illness from overwork; the supporting analysis is
+in [`DEVELOPER_HEALTH_WARNING.md`](./DEVELOPER_HEALTH_WARNING.md). Making it
+opt-in does not retract that finding — it moves the decision to the human.
+**To restore it as an always-on rule**, edit this section accordingly. That is
+a maintainer decision.
 
 ## Responsible use & data policy (mandatory, NUS compliance)
 
@@ -221,48 +194,37 @@ specifically, not just human contributors:
   - The hook authorises *pushing*, nothing else. It does not authorise opening
     a pull request, merging, force-pushing, or bumping versions — those still
     need an explicit request.
-- **Exception — the kopi-beans store ref is pushed automatically.** Per explicit
-  maintainer instruction on 2026-08-11, `refs/heads/beads/store` is published
-  without asking, by a **`Stop` hook** in `.claude/settings.json` that runs
-  **`./scripts/push-beads-store.sh`** at the end of each turn. Beads filed in a
-  session are otherwise stranded on one machine, which defeats a
-  distributed tracker.
-  - The script pushes **exactly one refspec** —
-    `refs/heads/beads/store:refs/heads/beads/store` — and nothing else. It is a
-    no-op when the local ref is absent or already matches the remote, and it
-    warns rather than failing the session if the remote is unreachable.
-  - **This carve-out does not widen.** It authorises publishing the beads store
-    ref only. It does **not** authorise pushing branches or tags, and **never**
-    `main` — that still requires the maintainer to ask in so many words. If you
-    find yourself adding a second refspec to that script, stop and ask.
-  - You may still run the push by hand at any time; it is idempotent.
-  - **The hook is now redundant, and it stays anyway.** As of kopi-beans 0.1.3
-    the daemon publishes the store ref by itself (verified 2026-08-12 —
-    `docs/kopitiam-issues/resolved/kopi-beans-cannot-push-store-ref.md`), so the
-    script is no longer load-bearing. It remains harmless and is a correct
-    fallback when the daemon is not running. **Do not remove the `Stop` hook
-    from `.claude/settings.json`, do not delete
-    `scripts/push-beads-store.sh`, and do not drop this carve-out.**
-    Retiring the carve-out is a **maintainer policy decision that has not been
-    made** — an agent noticing the redundancy is not authorisation to act on it.
-- **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when explicitly requested.
-- **Always build and test in release mode.** Use `--release` for all `cargo build` and `cargo test` invocations. Never run tests or builds in debug mode.
+- **Vestigial — the beads store ref `Stop` hook.** `.claude/settings.json`
+  still runs `./scripts/push-beads-store.sh` at the end of each turn, which
+  pushes **exactly one refspec**
+  (`refs/heads/beads/store:refs/heads/beads/store`) and is a no-op when the
+  local ref is absent or already matches the remote. Since kopi-beans was
+  deprecated as the tracker on 2026-09-21 it publishes a store nothing writes
+  to any more, and is harmless. **Do not widen it** — it authorises that one
+  refspec, never a branch or tag, and **never `main`**. **Do not delete the
+  hook or the script unprompted** either; the store itself is preserved for
+  the `op-*` citations (see "Issue tracking & roadmap"), and removing the hook
+  is a separate maintainer decision.
+- **Never auto-bump versions** in `Cargo.toml` files. Only bump versions when
+  explicitly requested.
+- **Always build and test in release mode.** Use `--release` for all `cargo`
+  invocations — see "EVERYTHING is release" under "Build & test". Never run
+  tests or builds in debug mode.
 - **Use rust-analyzer (the LSP tool) for all code-intelligence workflows.**
-  Maximise its use whenever possible. For any symbol query — a definition,
-  every reference/caller, type/hover info, or listing symbols in a file or
-  across the workspace — reach for the rust-analyzer LSP tool first, **not** text
-  search (`grep`). It resolves symbols semantically, so it does not confuse a
-  module path with a like-named identifier the way a text match can.
+  For any symbol query — a definition, every reference/caller, type/hover
+  info, or listing symbols in a file or across the workspace — reach for the
+  rust-analyzer LSP tool first, **not** text search (`grep`). It resolves
+  symbols semantically, so it does not confuse a module path with a like-named
+  identifier the way a text match can.
   - **The LSP tool here is read-only** — `goToDefinition`, `findReferences`,
     `hover`, `documentSymbol`, `workspaceSymbol`, and call hierarchy. It does
-    **not** expose rename / code-action / `applyEdit`. (Full rust-analyzer in an
-    editor like Neovim/VS Code does; this harness surfaces only the query half.)
-  - For a refactor an editor would drive with *rename* (e.g. renaming a module
-    and rewriting every `crate::…` path to it), first use `findReferences` to
-    enumerate the sites, then apply the edits yourself, and rely on the compiler
-    (`cargo build`/`cargo check`) as the reference checker — every missed
-    reference is a hard error pointing at the exact line. Prefer this over a
-    blind `sed` rename, which can silently mangle a colliding name.
+    **not** expose rename / code-action / `applyEdit`.
+  - For a refactor an editor would drive with *rename*, first use
+    `findReferences` to enumerate the sites, then apply the edits yourself,
+    and rely on the compiler as the reference checker — every missed reference
+    is a hard error pointing at the exact line. Prefer this over a blind `sed`
+    rename, which can silently mangle a colliding name. (`kopitiam rename`
+    fills this gap where it works — see the KOPITIAM section.)
 
 ## Get the PROCESS right first; the answer comes second (HARD RULE)
 
@@ -278,144 +240,121 @@ so it cannot inform, and the next person inherits a number with no provenance.
 
 ### What this forbids
 
-- **Tuning an input until a comparison passes.** The benchmark is the check; the
-  moment it becomes an input, the check is gone. (This is the same rule the
-  "Model hierarchy" section states for calibration — here it is general.)
+- **Tuning an input until a comparison passes.** The benchmark is the check;
+  the moment it becomes an input, the check is gone.
 - **Moving a threshold to make a test pass.** If a gate fails, the first
   hypothesis is that the *thing being gated* is wrong, not the gate.
 - **Choosing the instrument after seeing the result.** Pick the measure the
   physics calls for, state why, and keep it even when it is unflattering.
-- **Quietly repairing a number you already published.** Correct it in place, say
-  what it was, say what changed it.
+- **Quietly repairing a number you already published.** Correct it in place,
+  say what it was, say what changed it.
 
 ### What it requires
 
 1. **Justify every input from outside the comparison.** A material property
-   comes from the literature or from the upstream code, with a citation — never
-   from what makes the answer come out right.
-2. **Fix the protocol, not the criterion.** When a bound is breached, change the
-   procedure until it is genuinely satisfied.
+   comes from the literature or from the upstream code, with a citation —
+   never from what makes the answer come out right.
+2. **Fix the protocol, not the criterion.** When a bound is breached, change
+   the procedure until it is genuinely satisfied.
 3. **Match the instrument to the physics**, and say why it is the right one.
-4. **Test the assumption the result rests on**, especially when it is load-
-   bearing and convenient. An assumption that has never been able to fail is
-   not evidence.
+4. **Test the assumption the result rests on**, especially when it is
+   load-bearing and convenient. An assumption that has never been able to fail
+   is not evidence.
 5. **Report the disagreement when there is one.** An honestly-derived miss is
    worth more than a fitted hit.
-6. **Say which numbers to quote** when several exist, and why the others do not
-   count.
+6. **Say which numbers to quote** when several exist, and why the others do
+   not count.
 
-### Worked examples — all from the HTR-10 pebble-bed work (GitHub issue #216)
-
-The published filling fraction of **0.61** had been missed by −8.7 % and the
-gap was recorded as unexplained. It was closed to **−0.9 %** — and the process
-is why the result is worth anything:
-
-| decision | the shortcut | what was done instead |
-|---|---|---|
-| friction `µ` | tune `µ` down until `φ` hits 0.61 | ran a **2×2 ablation** over the *literature* graphite range (graphite is a solid lubricant, `µ ≈ 0.1–0.2`); reported all four cells, including the two that miss by 3–6 % |
-| quasi-static bound breached at `1.57e-2` vs `1e-2` | relax the threshold | **fixed the protocol** — 4× the settle window, giving `~2e-4`; the bound is the only reason the case can claim to measure creep |
-| does the result survive? | assume rate-independence, since the theory says so | **ran the control**; it revised two of my own numbers, halving one magnitude and exposing another as an artefact |
-| bed height | keep `max z`, it was already written | `max z` is a single-pebble statistic that jumps a full diameter on one placement — switched to the **99th percentile** |
-| per-particle agreement through a chaotic rearrangement | loosen the tolerance until it passes | recognised it as **Lyapunov divergence** — asserted tightly at early time where the contact path is verifiable, loosely at late time, and documented why |
-
-And the rule cuts the other way too: **the process being right is what surfaces
-defects nobody was looking for.** Questioning whether a run was reproducible —
-an assumption no test had ever challenged — exposed a P0 defect in which the
-HTR-10 bed gave a *different answer every run*, because the neighbour grid
-iterated a randomly-seeded `HashMap`.
+**Worked example.** The HTR-10 filling fraction (GitHub issue #216) was missed
+by −8.7 % and closed to **−0.9 %** — and the process is why the result is
+worth anything: `µ` was ablated across the *literature* graphite range rather
+than tuned, all four cells reported including the two that miss by 3–6 %; a
+breached quasi-static bound was fixed by lengthening the settle window 4×
+rather than relaxing the threshold; a rate-independence control was run and
+**revised two of my own numbers**, halving one and exposing another as an
+artefact. And the rule cuts the other way: questioning whether a run was
+reproducible — an assumption no test had ever challenged — exposed a P0 defect
+in which the HTR-10 bed gave a *different answer every run*, because the
+neighbour grid iterated a randomly-seeded `HashMap`.
 
 > **The point is not that 0.61 was reached. It is that the run which reached it
 > was capable of missing.**
 
 ## Search the workspace before building anything (HARD RULE)
 
-**Before attempting a solution — and before briefing an agent on one — scan this
-workspace for existing code that solves the problem, or comes close to solving
-it. Always reuse.** Writing something this workspace already contains wastes
-time and tokens, and worse, creates a second implementation that silently drifts
-from the first.
+**Before attempting a solution — and before briefing an agent on one — scan
+this workspace for existing code that solves the problem, or comes close to
+solving it. Always reuse.** Writing something this workspace already contains
+wastes time and tokens, and worse, creates a second implementation that
+silently drifts from the first.
 
-This is a **hard rule, not a preference**, and it applies to *specifying* work as
-much as to writing it. A brief that names an approach without first checking what
-exists is the same defect one level up: the agent follows it competently and
-produces a duplicate.
+This is a **hard rule, not a preference**, and it applies to *specifying* work
+as much as to writing it. A brief that names an approach without first
+checking what exists is the same defect one level up: the agent follows it
+competently and produces a duplicate.
 
-**Why it needs to be a rule.** This workspace is 40+ crates, many of them ports
-of mature codes. The prior is **"this probably exists already"**, not "this needs
-writing". On 2026-08-12 alone, five separate pieces of work were specified before
-checking, and every one turned out to be already present:
-
-| Specified | Already existed |
-|---|---|
-| Packed-bed friction + effective conductivity as "over-scoped" | `src/htr10/kta.rs`, `src/htr10/zbs.rs` — tested |
-| A hand-rolled implicit heat-exchanger matrix solver | `TampinesSteamArray` / `OPCPFluidArray` on `Arc<FvMesh>` with PIMPLE correctors |
-| "Build it directly on `outram-foam-basic-lib`'s `fvm::` operators" | Those arrays already wrap exactly that |
-| An `inletOutlet` boundary condition, written from scratch | `tuas_boussinesq_solver`'s `advection_to_bcs.rs` upwind terminal |
-| A limiter for bounded scalar convection | `fvc::Limiter` (Upwind/Linear/VanLeer/Minmod), vendored and tested |
-
-A whole subsystem — `crates/tampines/src/pebble_bed/`, 5,656 lines with 34
-passing tests — was found only by a documentation audit, having had no consumer
-and gone unnoticed while related work was being written elsewhere.
+**Why it needs to be a rule.** This workspace is 43 crates, many of them ports
+of mature codes. The prior is **"this probably exists already"**, not "this
+needs writing". On 2026-08-12 alone, five separate pieces of work were
+specified before checking, and **every one turned out to be already present** —
+packed-bed friction and effective conductivity, an implicit heat-exchanger
+solver, the FV operators a brief proposed building on, an `inletOutlet`
+boundary condition, and a bounded-scalar limiter. A whole subsystem
+(`crates/tampines/src/pebble_bed/`, 5,656 lines, 34 passing tests) was found
+only by a documentation audit, having had no consumer and gone unnoticed while
+related work was being written elsewhere.
 
 **How to comply, concretely.** Before writing or briefing:
 
-1. **Grep for the domain noun, not your intended API name.** `grep -rn "pub
-   struct .*Array" crates/`, `grep -rni "laplacian\|upwind\|limiter" crates/
-   --include=*.rs`. You are looking for someone else's vocabulary, not your own.
-2. **Read the relevant crate's `CLAUDE.md` and `docs/`.** Several crates document
-   capabilities that are not obvious from their names, and several document
-   *deliberate* omissions you would otherwise "fix" wrongly.
-3. **Check `src/` of the crate you are editing, not only the `examples/` you are
-   working in.** The KTA/ZBS duplication happened exactly this way.
-4. **Search sibling crates for the same lineage.** Ports often exist in pairs
-   (`tampines-steam-tables` ⟷ `outram-park-fork-coolprop`); a defect or a feature
-   in one usually has a counterpart in the other.
+1. **Grep for the domain noun, not your intended API name.** You are looking
+   for someone else's vocabulary, not your own.
+2. **Read the relevant crate's `CLAUDE.md` and `docs/`.** Several crates
+   document capabilities that are not obvious from their names, and several
+   document *deliberate* omissions you would otherwise "fix" wrongly.
+3. **Check `src/` of the crate you are editing, not only the `examples/` you
+   are working in.**
+4. **Search sibling crates for the same lineage.** Ports often exist in pairs;
+   a defect or a feature in one usually has a counterpart in the other.
 5. **State in the brief what you checked**, so the agent can correct you. "I
-   searched X and Y and found nothing" is a claim someone can falsify; silence is
-   not.
+   searched X and Y and found nothing" is falsifiable; silence is not.
 
 **Reuse in preference to porting, and porting in preference to writing.** If
-direct reuse does not compose — different lineage, incompatible interface — port
-the *logic* and **cite the reference implementation in the doc comment** so the
-two cannot drift unnoticed. Only write something new when both fail, and say
-plainly in your report why.
+direct reuse does not compose, port the *logic* and **cite the reference
+implementation in the doc comment** so the two cannot drift unnoticed. Only
+write something new when both fail, and say plainly in your report why.
 
-**A checked-and-rejected is a good answer.** "I looked at `tampines/src/gas_phase/`
-and it does not cover this because …" is valuable and should be reported. What is
-not acceptable is not looking.
+**A checked-and-rejected is a good answer.** "I looked at X and it does not
+cover this because …" is valuable and should be reported. What is not
+acceptable is not looking.
 
-Related: the recurring-failure-mode list in
-[`docs/human-corrections-to-ai-work.md`](docs/human-corrections-to-ai-work.md).
+Related: [`docs/human-corrections-to-ai-work.md`](docs/human-corrections-to-ai-work.md).
 
 ## A doc claim contradicted by the code is a DEFECT — fix it in the same change (HARD RULE)
 
 **When you find a statement in any `docs/`, `CLAUDE.md`, `README.md` or `///`
-doc comment that the code contradicts, correct it in the change where you found
-it. Do not file it, do not "note it for later", and do not report it as an
-observation while leaving it in place.** A stale doc is not a tidiness problem;
-it is a false statement that the next reader — human or agent — will act on.
+doc comment that the code contradicts, correct it in the change where you
+found it. Do not file it, do not "note it for later", and do not report it as
+an observation while leaving it in place.** A stale doc is not a tidiness
+problem; it is a false statement that the next reader — human or agent — will
+act on.
 
 **Why this is a hard rule and not a courtesy.** This workspace's docs are the
-primary interface to 40+ crates that no one can hold in their head, and the
+primary interface to 43 crates that no one can hold in their head, and the
 search-before-building rule above *depends on them being true*. A stale
 "missing" claim is the worst kind, because it causes exactly the duplication
-this file exists to prevent: an agent reads "no model exists", believes it, and
-writes a second one. Three found in a single session on 2026-09-17:
-
-| Claim | Reality |
-|---|---|
-| `docs/reactor-scoping/htr10.md`: "`reference-data/endf/` holds only a README", *re-verified 2026-08-12 — still true* | **39 ENDF/B-VIII.0 tapes**, and `outram-mc-libs` reconstructs ~13 nuclides from them |
-| same file: decay heat "is still not wired into `htgr_sim_v1`" | Wired — `kinetics.rs` holds `pub decay: DecayHeat`, seeds at equilibrium, applies per substep |
-| `htgr_sim_v1/headless.rs`: "a baseline of the current **PRISMATIC** model" | Retargeted to pebble-bed on 2026-08-12 |
-
-Note the first one carries an explicit **re-verification stamp** and was still
-wrong. A dated "still true" marker is evidence of when someone last looked, not
-that the claim holds now — so re-check the claim, never trust the stamp.
+this file exists to prevent: an agent reads "no model exists", believes it,
+and writes a second one. Three were found in a single session on 2026-09-17 —
+including one claiming `reference-data/endf/` held only a README when it holds
+**39 ENDF/B-VIII.0 tapes**. That claim carried an explicit **re-verification
+stamp** (*"re-verified 2026-08-12 — still true"*) and was still wrong. A dated
+"still true" marker is evidence of when someone last looked, not that the
+claim holds now — **re-check the claim, never trust the stamp.**
 
 **How to comply:**
 
-- **Correct it where it lives**, including the generated `docs/<crate>-api.md`
-  mirror if the source doc comment changed (`kovan-cli api-docs <crate>`).
+- **Correct it where it lives**, including the generated
+  `docs/<crate>-api.md` mirror if the source doc comment changed
+  (`kovan-cli api-docs <crate>`).
 - **Strike through rather than delete** when the claim shaped a decision —
   `~~old claim~~ **CORRECTED <date>** — new position`. The history is why a
   reader can trust the correction; a silent edit looks like the doc was always
@@ -423,411 +362,262 @@ that the claim holds now — so re-check the claim, never trust the stamp.
 - **Say what you verified**, not just what is now true. "39 tapes present" is
   checkable; "this is fixed" is not.
 - **A claim you cannot check is not a claim you may leave standing unmarked.**
-  Mark it `Not re-checked` with the reason, as section 3 of
-  `docs/reactor-scoping/htr10.md` already does.
-- **This binds for docs you did not write and were not asked to touch.** Finding
-  it makes it yours. The one exception is the scope boundary at the top of this
-  file: a doc whose repository root is not this one is out of scope entirely.
+  Mark it `Not re-checked` with the reason.
+- **This binds for docs you did not write and were not asked to touch.**
+  Finding it makes it yours. The one exception is the scope boundary at the
+  top of this file: a doc whose repository root is not this one is out of
+  scope entirely.
 
 **This does not license rewriting docs you merely disagree with.** The trigger
-is a claim the *code contradicts* — a falsifiable mismatch you have checked, not
-a wording preference, not a different opinion about emphasis. Fixing style while
-claiming to fix staleness is how a review pass becomes an unreviewable diff.
+is a claim the *code contradicts* — a falsifiable mismatch you have checked,
+not a wording preference. Fixing style while claiming to fix staleness is how
+a review pass becomes an unreviewable diff.
 
 ## Debugging a port: read upstream first (HARD RULE)
 
 **When a ported module misbehaves, find out how the upstream code handles that
 exact situation BEFORE proposing, writing, or testing a fix.** Most of this
 workspace is a translation — NJOY2016, PFLOTRAN, CoolProp, GeN-Foam, OFFBEAT,
-`code_aster`, DWSIM — and in a translation the overwhelmingly likely cause of a
-discrepancy is that upstream does something the port does not. Upstream is the
-specification. Reasoning about the physics from first principles, or from what
-the port's own comments claim, is not a substitute for reading it.
-
-**What "read upstream first" means, concretely:**
+`code_aster`, DWSIM, GSL, LIGGGHTS, FLEXPART — and in a translation the
+overwhelmingly likely cause of a discrepancy is that upstream does something
+the port does not. **Upstream is the specification.** Reasoning about the
+physics from first principles, or from what the port's own comments claim, is
+not a substitute for reading it.
 
 1. **Find the upstream routine** that owns the behaviour and read it — the
    Fortran/C++/VB source, not just the manual. Vendored sources live in the
-   gitignored `vendor/` folders (workspace rule); the manuals are in `kovan`'s
-   literature store.
+   gitignored `vendor/` folders; the manuals are in `kovan`'s literature store.
 2. **Ask what upstream does that we do not.** Bounds and guards are the usual
    answer: an upper energy limit, a card default, a branch on a format flag, a
-   range check, a special case for a boundary. A missing *limit* is a far more
-   common port defect than a wrong *formula*, because formulas get reviewed
-   line-by-line during translation and control flow does not.
+   range check, a special case for a boundary. **A missing *limit* is a far
+   more common port defect than a wrong *formula***, because formulas get
+   reviewed line-by-line during translation and control flow does not.
 3. **Check the data's own format flags before blaming the code.** ENDF-6 (and
    equivalents elsewhere) change the meaning of a section based on flags —
-   `LSSF`, `LRU`/`LRF`, `LI`, `INT`. A file where `LSSF=1` means something
-   categorically different from `LSSF=0`, and a "missing physics" hypothesis
-   that ignores the flag will send you porting a module you did not need.
+   `LSSF`, `LRU`/`LRF`, `LI`, `INT`. A "missing physics" hypothesis that
+   ignores the flag will send you porting a module you did not need.
 4. **Only then form a hypothesis, and state its predicted sign and magnitude
    before you measure.** If the fix would move the answer the wrong way, you
    have the wrong hypothesis — stop and go back to step 1.
 
-**Record what you find in the bead**, including when upstream turns out to
-handle it the same way we do (that result is worth as much as a defect, and
-saves the next session repeating the search).
+**Record what you find in the issue**, including when upstream turns out to
+handle it the same way we do — that result is worth as much as a defect, and
+saves the next session repeating the search.
 
-**Why this exists.** A worked example, 2026-09-10: the U-238 ring-RPT
-discrepancy (`op-mzvp.2.12`) was recorded with "URR self-shielding not
-reconstructed" as the leading hypothesis and "expect ours low + structureless"
-as the predicted signature. Reading the evaluation first would have shown
-`LSSF=1` in U-238's `LRU=2` range — MF=3 already carries the infinitely-dilute
-unresolved cross sections, so the reconstruction is *not* low (it reproduces
-MF=3 to 0.08 % from 24 keV up), and adding PURR self-shielding would have
-*raised* k, moving the case further from the reference rather than closer. The
-real defect was one upstream guard we had not ported: NJOY bounds BROADR at
-`thnmax` and never runs SIGMA1 across the resolved/unresolved boundary, while
-~~this port broadens the whole grid unconditionally~~ (`op-sdbk`). Hours went
-into a first-principles argument and two speculative patches that reading
-`broadr.f90` and the ENDF flag would have pre-empted.
+**Why this exists.** The U-238 ring-RPT discrepancy was recorded with "URR
+self-shielding not reconstructed" as the leading hypothesis. Reading the
+evaluation first would have shown `LSSF=1` in U-238's `LRU=2` range — MF=3
+already carries the infinitely-dilute unresolved cross sections, so the
+reconstruction is *not* low, and adding PURR self-shielding would have moved
+the case **further** from the reference. Hours went into a first-principles
+argument and two speculative patches that reading `broadr.f90` and the ENDF
+flag would have pre-empted.
 
-**CORRECTED 2026-09-20 — the guard IS ported.** `broadr::broadening_limit`
-implements `thnmax`, citing `broadr.f90:441` and `:522-524`, and
-`doppler_broaden_below` copies everything above it through untouched. The
-lesson above is unchanged and is why this section exists; only the present
-tense was wrong. Verified by reading the function, and visible in
-`examples/ace_vs_njoy2016`, which now prints the limit it derives (U-234
-1.5 keV, U-235 2.25 keV, U-238 20 keV).
-
-**And a second-order consequence of that guard, found the same day:** because
-neither code broadens above `thnmax`, a shared-grid comparison against NJOY at
-293.6 K that does *not* split at the limit measures only the **unbroadened**
-table — on all three uranium nuclides, **zero** shared grid points fall below
-it. This port's Doppler broadening is therefore **not verified against NJOY at
-all**, despite a 293.6 K comparison that reads as ~1e-6 agreement. See
+**A second-order consequence, worth knowing.** Because neither code broadens
+above `thnmax`, a shared-grid comparison against NJOY at 293.6 K that does
+*not* split at the limit measures only the **unbroadened** table — on all
+three uranium nuclides, **zero** shared grid points fall below it. This port's
+Doppler broadening is therefore **not verified against NJOY at all**, despite
+a 293.6 K comparison that reads as ~1e-6 agreement. See
 `crates/njoy-outram-park-fork/verification_and_validation/acer_ce_vs_njoy2016_multi_nuclide.md`.
 
-## Dogfood KOPITIAM and KOPI-BEANS (HARD RULE)
+> Full original text of all four sections, with the complete worked-example
+> tables and the `thnmax` correction history:
+> [`docs/claude-md-rationale/process-and-porting-lessons.md`](docs/claude-md-rationale/process-and-porting-lessons.md).
 
-**KOPITIAM (`kopitiam`) and KOPI-BEANS (`kopi-beans`, binary `bn`) are
-first-party tools of this project's maintainer and MUST be dogfooded in this
-workspace, by default.** Install both from crates.io:
+## Dogfood KOPITIAM and KOVAN (HARD RULE)
 
-```bash
-cargo install kopitiam     # binary: kopitiam
-cargo install kopi-beans   # binary: bn
-```
+**KOPITIAM (`kopitiam`) is a first-party tool of this project's maintainer and
+MUST be dogfooded in this workspace, by default** (`cargo install kopitiam`;
+source: https://github.com/theodoreOnzGit/kopitiam). It is a local-first
+"Semantic Runtime" CLI over real `cargo` / rust-analyzer / rustdoc facts, plus
+a PDF-to-Markdown engine. This workspace is its proving ground, so **reach for
+it first** where it covers the task, and **report every rough edge you hit**
+(see "Raising issues" below).
 
-Source for both: https://github.com/theodoreOnzGit/kopitiam.
-
-- **`kopitiam`** is a local-first "Semantic Runtime" CLI over real `cargo` /
-  rust-analyzer / rustdoc facts, plus a PDF-to-Markdown engine.
-- **`kopi-beans`** is a distributed, git-backed work-item tracker — a
-  Windows/Termux-capable fork of beads-rs (MIT upstream), relicensed
-  **AGPL-3.0-only**, binary `bn`. It is this workspace's mandated issue
-  tracker (superseding beads-rs's `bd` — see "Which tracker" below); its CLI
-  mirrors `bd`'s 1:1 (`init`, `create`, `show`, `list`, `ready`, `claim`,
-  `close`, `dep`, `status`, `prime`, …).
-
-Using them here is deliberate: this workspace is their proving ground, so
-**reach for them first** where they cover the task, and **report every rough
-edge you hit** (see "Raising issues" below).
+> **`kopi-beans` (`bn`) is no longer part of this rule.** It was deprecated as
+> this workspace's issue tracker on 2026-09-21 — persistent beads-store and
+> daemon problems made it cumbersome. GitHub issues replace it; see "Issue
+> tracking & roadmap" and [`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).
+> Defects found in it still get filed upstream under "Raising issues".
 
 **For OUTRAM-PARK-specific context, prefer `kovan` over `kopitiam` (maintainer
-direction, 2026-08-15).** `kovan` (`kovan-semantics`, `kovan-literature`, etc.)
-is this workspace's *own* deterministic knowledge layer — reach for it first
-for repo understanding, symbol/code queries, and literature scoped to this
-codebase. **`kovan-cli` now has its own token-frugal reading loop** — `kovan-cli
-cost <path>` (a real BPE-approximation estimate, `kopitiam-tokenizer`-backed —
-see `crates/kovan/src/commands/cost.rs`), `kovan-cli outline <file>`
-(ripgrep-first declarations skeleton, `kovan-semantics`-backed), and
-`kovan-cli slice <file> <start> <end>` — landed 2026-08-22 per GitHub issue
-#32 ("kovan token savings"). **`kovan-cli` also now has rust-analyzer-backed
-`def <symbol> --file <file>` / `sig <symbol> --file <file>` / `refs <symbol>
---file <file>`** (wired directly to `kopitiam-semantic`'s
-`RustAnalyzerSession` — needs `rust-analyzer` on PATH, `rustup component add
-rust-analyzer`; the *first* query for a workspace root pays a real indexing
-wait, up to `KOVAN_RA_TIMEOUT_SECS` (default 180s), but that root then stays
-warm in a background `lsp-daemon` (op-fdph) so every later `def`/`sig`/`refs`
-call — from any `kovan-cli` invocation — answers in well under a second,
-until explicitly stopped with `kovan-cli lsp-daemon-stop --root <root>`; there
-is deliberately **no** idle timeout (maintainer direction, 2026-08-22) — once
-warm, it stays warm rather than risking a cold restart mid-work. **Never run
-`kovan-cli lsp-daemon-serve` directly** — it's the daemon's own foreground
-process (spawned detached automatically) and will hang a non-interactive
-session exactly like `kovan`/`kovan-tui` would). **Prefer all six of these over
-`kopitiam tokens`/`outline`/`slice`/`def`/`sig`/`refs` when the file in
-question is inside this workspace** — same reasoning as the rest of this
-section, kovan is scoped to this codebase and kopitiam is not. `kopitiam`
-remains the right tool for what `kovan` doesn't cover yet:
-`callers`/`callees`/`impls` (a deferred kovan-semantics call-hierarchy
-composition, tracked as `op-l3uz`) and `rename`/`code-actions`, which `kovan`
-has no equivalent for. Run `kovan-cli skill-gen` to (re)generate
-`kovan_skill.md`, a Claude-Code-Skill-format Markdown file spelling this out
-for an agent session that hasn't read this file.
+direction, 2026-08-15).** `kovan` is this workspace's *own* deterministic
+knowledge layer — reach for it first for repo understanding, symbol/code
+queries, and literature scoped to this codebase.
 
-> **Licence note.** `kopi-beans` is AGPL-3.0-only. That is fine here because it
-> is **consumed as a standalone binary**, never linked or vendored — see the
-> hard boundary below. Do not add it as a dependency of any workspace crate.
+- **Token-frugal reading:** `kovan-cli cost <path>` (real BPE-approximation
+  estimate), `kovan-cli outline <file>` (declarations skeleton),
+  `kovan-cli slice <file> <start> <end>`. Prefer this
+  `cost → outline → refs → slice` loop over reading whole large files.
+- **Symbol queries:** `kovan-cli def|sig|refs <symbol> --file <file>`,
+  rust-analyzer-backed (needs `rust-analyzer` on PATH). The *first* query for
+  a workspace root pays a real indexing wait (up to `KOVAN_RA_TIMEOUT_SECS`,
+  default 180 s); that root then stays warm in a background `lsp-daemon`, so
+  every later call answers in well under a second. There is deliberately **no**
+  idle timeout. Stop it explicitly with
+  `kovan-cli lsp-daemon-stop --root <root>`.
+- **Prefer all six of these over `kopitiam tokens`/`outline`/`slice`/`def`/
+  `sig`/`refs` when the file is inside this workspace.** `kopitiam` remains
+  the right tool for what `kovan` does not cover: `callers`/`callees`/`impls`,
+  and `rename`/`code-actions`.
+- **`kopitiam rename`** (diff preview by default, `--apply` to write) and
+  `kopitiam code-actions` **fill the exact gap** the Workflow-rules section
+  flags — the harness LSP tool is query-only. Prefer it over a `sed`-based
+  rename.
+- **Compact diagnostics:** `kopitiam check --compact` / `test --compact`
+  collapse cargo output to one line per distinct problem. The dedup is
+  **opt-in** — without `--compact` (or `--json`) raw output streams unchanged.
+- **Never run `kovan`, `kovan-tui` or `kovan-cli lsp-daemon-serve` directly**
+  in a non-interactive session — the first two are GUI/TUI front ends and the
+  third is the daemon's own foreground process; all three will hang.
 
-**Where `kopitiam` is the preferred tool:**
+Run `kovan-cli skill-gen` to (re)generate `kovan_skill.md` for an agent
+session that hasn't read this file.
 
-- **Token-frugal code reading.** `kopitiam tokens <path>` before deciding to
-  read a file; `kopitiam outline <file>` for a declarations-only skeleton;
-  `kopitiam slice <file> <range>` to read only the lines you need. Prefer this
-  `tokens → outline → refs → slice` loop over reading whole large files.
-- **Symbol queries.** `def`, `sig`, `refs`, `callers`, `callees`, `impls` —
-  rust-analyzer-backed, so they resolve semantically. These complement the
-  read-only LSP tool described under "Workflow rules".
-- **Rename and code actions.** `kopitiam rename` (diff preview by default,
-  `--apply` to write) and `kopitiam code-actions` **fill the exact gap** the
-  Workflow-rules section flags — the harness LSP tool is query-only and exposes
-  no rename/code-action/`applyEdit`. Prefer `kopitiam rename` over a hand-rolled
-  or `sed`-based rename.
-- **Compact diagnostics.** `kopitiam check --compact` and
-  `kopitiam test --compact` collapse cargo output to one line per distinct
-  problem — far cheaper to read than raw cargo output. **The dedup is opt-in:
-  without `--compact` (or `--json`) the raw output streams through unchanged.**
-- **PDF → Markdown.** `kopitiam pdf2md` / `translate`. **But for document and
-  literature management, prefer `kovan` — see the rule immediately below.**
+### Literature handling (the kovan ingestion mandate was RETIRED 2026-09-21)
 
-**ANY literature ingested OR USED goes into kovan (HARD RULE).** If a document
-informs the code — a correlation taken from it, a benchmark value cited, a
-number in a doc comment, a design decision justified by it — it belongs in
-`crates/kovan-literature`, catalogued, with its access tier and provenance. Not
-in `~/Downloads`, not loose in `reference-data/`, not read once and forgotten.
+**~~ANY literature ingested OR USED goes into kovan (HARD RULE)~~ and ~~READ
+AND WRITE THE LITERATURE LIBRARY THROUGH `kovan` (HARD RULE)~~ — RETIRED
+2026-09-21 at the maintainer's request. Neither applies any more.** Literature
+does **not** have to be routed into `crates/kovan-literature`, and reads of it
+do not have to go through the `kovan lit` CLI. Do not enforce either rule, and
+do not treat a paper that is not in the archive as a defect to fix. The full
+original text of both rules is preserved in
+[`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
 
-- **"Used" is the trigger, not "ingested".** Reading a paper and typing one of
-  its numbers into a constant makes it a dependency of this codebase. A
-  citation in a doc comment that points at nothing in the archive is a dead
-  reference the next reader cannot check.
-- **Decide the access tier BEFORE cataloguing**, from the document's own
-  copyright page — not from where it was downloaded. Public hosting (INIS,
-  gen-4.org, a lab's website) grants no redistribution rights. Unsure means
-  **proprietary**; that failure direction is recoverable and the other is a
-  licence violation in a public repository.
-- **`kovan_import/` is the staging area** (gitignored) — drop the PDF there
-  first, decide the tier, then `kovan lit import` into `open/` or
-  `proprietary/`. Delete the staged copy once catalogued.
-- **Check the extracted metadata; it is frequently wrong.** Observed failures
-  include the article-type label, a journal running header, the PII string and
-  the Word source filename all taken as titles, editors taken as authors, and
-  a scan date taken as the publication year. `kovan lit bibtex <json>` must
-  round-trip cleanly — that is the acceptance check.
-- **Watch for a text-and-data-mining / AI-training reservation** in the
-  copyright line. Where present, catalogue metadata and factual findings only
-  and do **not** extract the full text — facts are not copyrightable, but the
-  corpus is what that clause reserves. See `op-b7bx`.
-- `crates/kovan-literature/CATALOGUE.md` is the human-readable index; keep it
-  current when adding a document.
+`kovan lit import` / `outline` / `bibtex` and `kopitiam pdf2md` all remain
+available and are still perfectly good tools — using them is now a choice, not
+an obligation. `crates/kovan-literature/` and its `CATALOGUE.md` stay where
+they are; existing citations into the archive remain valid.
 
-**Document management: `kovan` is preferred over `kopitiam` (HARD RULE).**
-For ingesting, cataloguing and citing literature, use this workspace's own
-`kovan` CLI (`crates/kovan`, binary `kovan`) rather than kopitiam's
-PDF tooling. `kovan lit import <pdf> --json-out <…> --markdown-out <…>` produces
-a `KovanDocument` — the canonical on-disk form — alongside the Markdown body,
-and `kovan lit bibtex` / `kovan lit outline` work from it. That keeps every
-ingested document inside the project's own knowledge layer with its metadata
-and provenance intact, instead of leaving a loose Markdown file with no record
-of where it came from.
+**What survives this retirement, because it never came from `kovan` in the
+first place** — these are `DATA_POLICY.md` and compliance obligations and they
+still bind wherever a document lives:
 
-- Build it from the workspace (`cargo build --release -p kovan --bin kovan`) — it is a
-  member crate, not something to `cargo install` from crates.io.
-- **Respect the open/proprietary split.** Public, openly published literature
-  goes under `crates/kovan-literature/open/` and is committable; anything
-  restricted goes under `proprietary/`, which is gitignored. Confirm which a
-  document is *before* ingesting it — see `DATA_POLICY.md`. The root-level
-  `collaboration/` directory is gitignored scratch space and its contents are
-  **not** automatically open; ask if the provenance is not stated.
-- `kopitiam pdf2md` remains fine for a quick one-off conversion where no
-  catalogue entry is wanted, but it is the fallback, not the default.
+- **The open/proprietary split.** Public, openly published literature is
+  committable; anything restricted is not and must stay out of the repository.
+  **Decide the access tier from the document's own copyright page**, not from
+  where it was downloaded — public hosting (INIS, gen-4.org, a lab's website)
+  grants no redistribution rights. **Unsure means proprietary**; that failure
+  direction is recoverable and the other is a licence violation in a public
+  repository. The root-level `collaboration/` directory is gitignored scratch
+  and is **not** automatically open — ask if provenance is not stated.
+- **Text-and-data-mining / AI-training reservations.** Where a copyright line
+  carries one, record metadata and factual findings only and do **not** extract
+  the full text — facts are not copyrightable, but the corpus is what that
+  clause reserves.
+- **Provenance for anything the code depends on.** If a document informs the
+  code — a correlation taken from it, a benchmark value cited, a number in a
+  doc comment — record its source, author, title, licence/access terms,
+  URL/DOI, date accessed and any processing steps, per the "Responsible use &
+  data policy" section. A citation that points at nothing a reader can reach
+  is a dead reference. Where to put that record is now your judgement: a
+  `References.md` beside the example, the relevant validation report, or the
+  kovan archive.
+### Graph digitisation (the `kovan-cli digitise` mandate was RETIRED 2026-09-21)
 
-**READ AND WRITE THE LITERATURE LIBRARY THROUGH `kovan` — HARD RULE.** The
-previous rule covers *ingesting*. This one covers everything after: `kovan` is
-the interface to `crates/kovan-literature`, in **both** directions, for humans
-and agents alike. Reaching around it — `cat`-ing a PDF's converted markdown,
-`grep`-ing the archive, hand-editing `CATALOGUE.md`, writing a JSON sidecar by
-hand — is not a shortcut, it is how the catalogue and the documents drift apart.
+**~~Graph digitisation: dogfood `kovan-cli digitise` (HARD RULE)~~ — RETIRED
+2026-09-21 at the maintainer's request, alongside the kovan literature
+mandate above. It no longer applies.** Getting data off a published figure
+does not have to go through `kovan-cli digitise`, the `kovan-tui` Digitiser
+tab or the `kovan` GUI. Do not enforce it. The full original text is preserved
+in [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
 
-- **Reading.** Query the archive with `kovan lit` (`outline`, `bibtex`, and the
-  search/show subcommands `kovan lit --help` lists) rather than opening files
-  under `open/`, `proprietary/`, `generated/` or `derived/` directly. It is the
-  path that carries the access tier and the provenance with the text; a raw
-  `Read` of a markdown body gives you the words with neither, which is exactly
-  how a proprietary passage or a TDM-reserved full text gets quoted into a
-  commit by someone who did not know.
-- **Writing.** New documents arrive via `kovan lit import`. New *derived* data —
-  a digitised figure, a hand-read table, an extracted parameter set — goes into
-  `crates/kovan-literature/derived/` **beside the document it came from**, with
-  its provenance block, not into `docs/` and not into a crate's `src/`. Where a
-  scoping doc needs it, that doc holds a **pointer**, not a copy;
-  `docs/reactor-scoping/htr10-rz-zone-geometry.md` is the shape to follow.
-- **`CATALOGUE.md` is maintained through `kovan`, not by hand.** If a catalogue
-  entry is wrong, fix it at the source and regenerate. Hand-editing it is what
-  produced the duplicated, mutually-contradicting corroboration sections found
-  in the Terry 2005 geometry record on 2026-08-14.
-- **If `kovan` cannot do what you need, that is a bug in `kovan` — file it as a
-  bead and say so in your hand-off.** KOVAN is this workspace's own crate, so
-  the deliverable is an issue against it (like `op-szai` for the metadata
-  extractor), never a hand-rolled workaround that bypasses the library.
-- This does not relax the open/proprietary split, the TDM/AI-reservation rule,
-  or `DATA_POLICY.md` — it is the mechanism by which they are actually enforced.
+The digitiser still exists in `crates/kovan/src/digitiser/` and still works —
+using it is now a choice. Two of its properties are worth knowing if you do:
+its accuracy is verified **against synthetic ground truth only** (never
+against real published figures), and **only a human can mark a dataset
+reviewed** — an agent session cannot, and a CLI run can only ever emit
+`Unreviewed`.
 
-**Graph digitisation: dogfood `kovan-cli digitise` (HARD RULE).** Several
-validation targets this project depends on exist **only as figures** — the
-HTR-10 safety demonstration tests and the MSRE reactivity-insertion figures
-are both recorded in `docs/reactor-scoping/` as arriving that way. When data
-must come off a plot, use this workspace's own digitiser, in
-`crates/kovan/src/digitiser/` (**moved here from `crates/kovan-literature/`
-on 2026-08-21** — see `crates/kovan/NOTICE`: only the digitiser needs
-`kopitiam-pdf`, which is why `kovan` alone is AGPL-3.0-only), reachable from
-all three of that crate's binaries — **collapsed from five standalone
-digitiser/TUI/CLI binaries to exactly three later the same day**, per
-GitHub issue #30's final interface spec:
+**What survives, because it was never a `kovan` rule:** if a number in this
+codebase came off a plot, **say so and say how**. Record the figure it came
+from, the axis calibration or reference points used, the scale (linear or
+log), and whether the reading was automatic or by eye. That is the
+"Responsible use & data policy" provenance obligation and the
+"Verification & validation documentation" rule, not a tooling preference — a
+digitised value with no record of how it was read is not a citable number,
+whatever produced it.
+### Known friction — read `docs/kopitiam-issues/`, don't trust a version number written here
 
-```bash
-cargo build --release -p kovan --bin kovan-cli                # CLI: `kovan-cli digitise`
-cargo build --release -p kovan --bin kovan-tui                # TUI: Digitiser tab
-cargo build --release -p kovan --bin kovan --features gui     # GUI
-```
+kopitiam has moved fast enough that any dated claim in this file goes stale
+almost immediately. The current open queue and the closing evidence for every
+resolved issue live in **`docs/kopitiam-issues/README.md`** and
+**`docs/kopitiam-issues/resolved/`**. Check there, or run
+`cargo install --list`, before citing the tool's behaviour as current.
 
-- **`kovan-cli digitise` is the agent path** — fully automatic, scriptable,
-  deterministic. **Use it rather than reading points off a figure by eye.** A
-  hand-read point has no calibration record, no uncertainty and no audit
-  trail, and is exactly the kind of silent processing step `DATA_POLICY.md`
-  forbids. Same reasoning as the 138-number Tobias Table 16 transcription:
-  prefer the machine-readable path and validate it, over eyeballing.
-- **`kovan-tui`'s Digitiser tab and the `kovan` GUI are the human path** —
-  automatic pass first, then the maintainer verifies. The CLI can only ever
-  emit `Unreviewed`; **only a human marks a dataset reviewed**, and editing a
-  point afterwards resets it to unreviewed. Do not attempt to mark anything
-  reviewed from an agent session. (This engine has had three different
-  binary layouts in one day, 2026-08-21: first as `kovan-literature`'s
-  `kovan-digitise`/`kovan-digitise-tui`/`kovan-digitise-gui`; then moved into
-  `kovan` unrenamed except `kovan-digitise-gui` → `kovan-gui`; then
-  `kovan-gui` → plain `kovan`, the old `kovan` CLI → `kovan-cli` with a
-  `digitise` subcommand replacing standalone `kovan-digitise`, and
-  `kovan-digitise-tui`'s review screen absorbed into `kovan-tui` as a
-  Digitiser tab. There is no longer any `kovan-digitise`, `kovan-gui`, or
-  `kovan-digitise-tui`/`-gui` binary — see `crates/kovan/DECISIONS.md`.)
-- **Provenance is structurally mandatory and must stay that way.** A
-  `DigitisedDataset` cannot be constructed without a `FigureSource` and a
-  `PlotCalibration`. Never add a path that exports points without them.
-- **Known limit, by design:** there is no tick-label OCR (no ML, per KOVAN's
-  offline-deterministic rule), so the axis reference values must be supplied —
-  read them off the figure and pass `--x-range`/`--y-range`, or explicit
-  `--x-ref`/`--y-ref` pixel=value pairs. Always state `--x-scale`/`--y-scale`;
-  log axes interpolate in log space and getting this wrong is silent.
-- **Report rough edges as beads, not workarounds.** Unlike kopitiam, KOVAN is
-  *our own* crate, so a defect here is a bead in this workspace (e.g.
-  `op-szai` for the metadata extractor), not an upstream issue.
-- **Accuracy is verified against synthetic ground truth only** (lin-lin and
-  log-lin 0.138% of span, log-log 0.002765 decades, measured 2026-08-11).
-  There is **no** verification against real published figures until the
-  maintainer supplies the hand-digitised Tobias oracle (`op-amfh`). Do not
-  describe digitised data as validated before then.
+One fact that stays true regardless of version churn: **`kopitiam check` /
+`kopitiam test` have no `--release` flag** and run the `dev` profile. Use them
+for fast iteration, but still run the mandated release commands before calling
+work done — and note that running them materialises the `target/debug` tree
+that the release rule exists to avoid.
 
-**Known friction and resolution history — read `docs/kopitiam-issues/`, don't
-trust a version number written here.** Both tools have moved fast enough
-(kopi-beans alone: 0.1.3 -> 0.1.4 -> 0.1.6 -> 0.1.7 in a single day, once) that
-any dated claim in this file goes stale almost immediately. The current open
-queue, the upstream issue-number table, and full closing evidence for every
-resolved issue live in **`docs/kopitiam-issues/README.md`** (open + upstream
-state table) and **`docs/kopitiam-issues/resolved/`** (closed, each with the
-re-run reproduction and new output). Check there, or run `bn --version` /
-`cargo install --list`, before citing either tool's behaviour as current.
+### CONSUME THE BINARIES ONLY — never modify kopitiam from this workspace
 
-Two facts that stay true regardless of version churn:
+This is the hard boundary and it does not bend. It still covers `kopi-beans`
+for as long as anything here consumes it.
 
-- **`kopitiam check`/`kopitiam test` have no `--release` flag** and run the
-  `dev` profile. Use them for fast iteration, but still run the mandated
-  `cargo check --release --workspace --lib --tests` / `cargo test --release` before
-  calling work done — do not let kopitiam's default profile substitute for it.
-  Note that running them also materialises the `target/debug` tree that the
-  release-check note under "Build & test" exists to avoid.
-- **`bn setup claude --project` is verified safe** — it writes only the
-  gitignored `.claude/settings.local.json` and leaves the hand-maintained
-  `.claude/settings.json` untouched. The **unflagged/global form was never
-  tested** — do not run it without testing first.
-
-**CONSUME THE BINARIES ONLY — NEVER MODIFY KOPITIAM OR KOPI-BEANS FROM THIS
-WORKSPACE.** This is the hard boundary, it covers **both** tools, and it does
-not bend:
-
-- **Use released binaries.** Install with `cargo install kopitiam` /
-  `cargo install kopi-beans` (crates.io). Upgrade by installing a newer
+- **Use released binaries** from crates.io. Upgrade by installing a newer
   published version. That is the *only* supported way this workspace consumes
   them.
 - **Never edit their source from here.** No local edits, no local patched
   builds, no `cargo install --path` off a working copy, no commits, no
-  branches, and no pull requests to the kopitiam repo out of this workspace.
-  If a bug or missing feature blocks you, **the deliverable is an issue, not a
-  patch.**
-- **Never make them part of this workspace.** Do not add either to
-  `[workspace.dependencies]`, do not add them as workspace members, and do not
-  vendor their source here. This matters doubly for `kopi-beans`, which is
-  AGPL-3.0-only.
-- **If you consult its source at all, treat it as strictly read-only**, and
-  keep the clone in a **separate directory outside this repository** — e.g.
-  `/workspace/kopitiam`, never anywhere under the OUTRAM PARK working tree.
-  A nested clone would pollute `git status`, break `cargo` workspace
-  discovery, and risk committing another project's history into this one.
-  Reading it is for writing an *accurate issue*, nothing more.
-- **Its per-project state stays local.** Running kopitiam here writes
-  `.kopitiam/state.redb` (session memory) into the repo root; that path is
-  gitignored and must never be committed or un-ignored.
-- Keep the projects' trackers separate: OUTRAM PARK work goes in this
-  workspace's tracker, kopitiam/kopi-beans bugs go upstream.
+  branches, no pull requests out of this workspace. If a bug or missing
+  feature blocks you, **the deliverable is an issue, not a patch.**
+- **Never make them part of this workspace.** Not in
+  `[workspace.dependencies]`, not as workspace members, not vendored. This
+  matters doubly for `kopi-beans`, which is AGPL-3.0-only.
+- **If you consult the source at all, treat it as strictly read-only**, and
+  keep the clone in a **separate directory outside this repository** — a
+  nested clone would pollute `git status`, break cargo workspace discovery,
+  and risk committing another project's history into this one.
+- **Its per-project state stays local.** `kopitiam` writes `.kopitiam/state.redb`
+  into the repo root; that path is gitignored and must never be committed.
+- Keep the projects' trackers separate: OUTRAM PARK work goes in this repo's
+  GitHub issues, kopitiam/kopi-beans bugs go upstream.
 
-**Raising issues — two channels, in this order.** Every rough edge, bug, and
-feature request in either tool gets written up. Never silently work around a
-defect.
+### Raising issues — two channels, in this order
 
-1. **Preferred: a GitHub issue, via `gh` if it is available.** The kopitiam
-   repo is *not* in this workspace's default GitHub scope — add it to the
-   session first (`add_repo` for `theodoreOnzGit/kopitiam`), then file with
+Every rough edge, bug, and feature request in either tool gets written up.
+**Never silently work around a defect.**
+
+1. **Preferred: a GitHub issue on the kopitiam repo.** It is *not* in this
+   workspace's default GitHub scope — file with
    `gh issue create --repo theodoreOnzGit/kopitiam`. Both tools live in that
    one repo; say in the title which tool it concerns.
 2. **Fallback, when `gh` is unavailable or unauthenticated: file locally under
-   `docs/kopitiam-issues/`, one markdown file per issue.** Name it
-   `<tool>-<short-kebab-slug>.md` (e.g. `kopitiam-check-has-no-release-flag.md`,
-   `kopi-beans-bn-init-fails-on-termux.md`). These are a queue for later
-   upstreaming, not a private bug tracker — do not let them accumulate silently;
-   mention any new ones in your hand-off.
+   `docs/kopitiam-issues/`**, one markdown file per issue, named
+   `<tool>-<short-kebab-slug>.md`. These are a queue for later upstreaming,
+   not a private bug tracker — mention any new ones in your hand-off.
 
 Whichever channel: report **what you actually ran, the observed output, and
 the expected behaviour**, plus the tool version from `cargo install --list`.
 Do not invent version numbers or fabricate reproductions. Filing the issue is
-the end of your involvement in the fix — do not follow it up with code.
+the end of your involvement — do not follow it up with code.
 
-**HARD RULE — resolved issues move to `docs/kopitiam-issues/resolved/`.** Once
-an issue is actually fixed upstream, **move its markdown file** from
-`docs/kopitiam-issues/` into `docs/kopitiam-issues/resolved/`. Do not delete it
-and do not leave it sitting in the top-level queue.
+**HARD RULE — resolved issues move to `docs/kopitiam-issues/resolved/`.** Do
+not delete the file and do not leave it in the top-level queue.
 
 - **"Resolved" means verified, not announced.** Upgrade to the published
-  version that claims the fix (`cargo install kopitiam` /
-  `cargo install kopi-beans`), **re-run the exact reproduction recorded in the
+  version claiming the fix, **re-run the exact reproduction recorded in the
   file**, and confirm the behaviour changed. Only then move it.
-- **Record the closing evidence in the file as you move it:** the version that
-  fixes it, the date, the command re-run, and its new output. A file in
-  `resolved/` without that evidence is not a resolution, it is a claim.
-- If the fix landed upstream as a GitHub issue rather than a local file, close
-  the loop the same way — verify against a published binary before treating it
-  as done.
-- The top level of `docs/kopitiam-issues/` therefore always reads as **the live
-  queue**, and `resolved/` as the history. Anything still at the top level is
-  outstanding.
-- This also applies when the workspace's own "known friction" notes (e.g. the
-  kopitiam `--release` gap recorded above) are fixed: update or remove the note
-  in this file in the same change, so `CLAUDE.md` never advertises friction
-  that no longer exists.
-
-**Which tracker for OUTRAM PARK's own work.** `bn` (kopi-beans) is a *fork of*
-beads-rs, so it overlaps `bd` rather than complementing it — running both
-against one repo defeats the purpose. **Per explicit maintainer instruction on
-2026-08-07, kopi-beans (`bn`) replaces beads-rs (`bd`) as this workspace's
-tracker.** This is *not* a dogfooding-only install anymore — see the mandatory
-"Issue tracking & roadmap" section below, which is written for `bn`. **The
-migration is complete**: kopi-beans 0.1.2 reads and has migrated the store
-(format_version 2), and `bd` is uninstalled and its daemon stopped. There is
-no reason to reach for `bd` here, and no supported way to.
+- **Record the closing evidence as you move it:** the fixing version, the
+  date, the command re-run, its new output. A file in `resolved/` without that
+  evidence is not a resolution, it is a claim.
+- The top level therefore always reads as **the live queue**; `resolved/` is
+  the history. Anything still at the top level is outstanding.
+- This also applies to this file's own "known friction" notes: when one is
+  fixed, update or remove it in the same change, so `CLAUDE.md` never
+  advertises friction that no longer exists.
 
 **This rule relaxes nothing.** The release-mode rule, the working-hours
-guardrail *when it has been enabled for the session*, never-auto-commit/push,
-the Android/Termux portability rule, and the data-policy rules all still bind
-when using either tool.
+guardrail *when enabled for the session*, never-auto-commit/push, the
+Android/Termux portability rule and the data-policy rules all still bind.
+
+> Full original text — the complete command inventory, the digitiser's
+> binary-rename history and the kopi-beans-era tracker rules as they stood:
+> [`docs/claude-md-rationale/tooling-kopitiam-kovan.md`](docs/claude-md-rationale/tooling-kopitiam-kovan.md).
 
 ## Agent-fleet progress reporting (HARD RULE, container-timeout prevention)
 
@@ -857,170 +647,154 @@ in-flight work.
   run fleets outside active hours in the first place) and the
   never-auto-commit/push rule.
 
-## Token accounting on every commit (opt-in, HARD RULE as stated below)
+## Token accounting on every commit (opt-in)
 
-**Changed 2026-08-17 at the maintainer's request: token accounting is now
-opt-in, not mandatory.** The previous rule — "every commit must carry an
-API-token-usage trailer" — is retired. It is replaced by the policy below,
-which *is* the hard rule from now on: do not enforce or chase the old
-mandate, and do not treat a missing trailer as something to fix.
+**Changed 2026-08-17 at the maintainer's request: token accounting is opt-in,
+not mandatory.** The previous rule — "every commit must carry an
+API-token-usage trailer" — is retired. Do not enforce or chase it, and do not
+treat a missing trailer as something to fix.
 
-- **`crates/kovan-metrics`**, driven through the **`kovan-cli`** binary,
-  remains the single source for token accounting **when a maintainer has chosen
-  to set it up** on a given clone — it does both the write side (git hooks
-  stamping commit trailers) and the query side (`kovan-cli tokens query --from
-  DDMMYY --to DDMMYY [--branch develop] [--per-commit] [--json]`, summing
-  whatever trailers exist).
+**If a clone has not opted in** (no `kovan` binary, hooks not installed):
 
-  **`kovan-cli`, not `kovan`** — corrected 2026-09-19 against
-  `crates/kovan/src/bin/kovan-cli.rs`, which is where `Command::Tokens` and
-  `Command::Historian` are actually declared. `kovan` is the egui GUI binary
-  and will hang a non-interactive session trying to open a display, exactly as
-  the "API-doc toolchain" section already warns for `kovan-cli api-docs`. Nothing about its internals changed; what changed is
-  whether using it is required.
-- **`.githooks/prepare-commit-msg`** and **`.githooks/post-commit`**, where
-  installed, still stamp the `API-Usage-Since-Last-Commit:` /
-  `API-Usage-Session-Cumulative:` trailer and regenerate the local
-  `docs/token-usage.md` summary exactly as before (idempotent, amend/rebase
-  safe). Let them run undisturbed on a clone that has opted in.
-
-**If a clone has not opted in (no `kovan` binary, hooks not installed):**
-
-- **Do not prompt the user to install anything.** No suggesting
-  `./scripts/install-token-hooks.sh`, no "want me to set up token accounting"
-  — opting in is a maintainer decision made once, not a gap to flag on every
-  commit.
-- **Do not hand-write a trailer or invent numbers.** If the hooks aren't
-  present, the commit has no `API-Usage-*` trailer, full stop.
+- **Do not prompt the user to install anything.** Opting in is a maintainer
+  decision made once, not a gap to flag on every commit.
+- **Do not hand-write a trailer or invent numbers.** No hooks means no
+  `API-Usage-*` trailer, full stop.
 - **Note the absence in the commit message body instead**, one short line
-  (e.g. `No token accounting on this clone.`) rather than saying nothing.
-  That line is the entire obligation — it carries no numbers and is not a
-  substitute trailer.
+  (e.g. `No token accounting on this clone.`). That line is the entire
+  obligation — it carries no numbers and is not a substitute trailer.
 
-**If a clone has opted in, the mechanics are unchanged:**
+**If a clone has opted in**, `.githooks/prepare-commit-msg` and
+`.githooks/post-commit` stamp the `API-Usage-Since-Last-Commit:` /
+`API-Usage-Session-Cumulative:` trailers and regenerate the gitignored local
+`docs/token-usage.md`. Let them run undisturbed, and:
 
-- **Source of truth: the per-commit trailers, not the markdown.** The durable
-  record is the `API-Usage-*` trailer in each commit message (queryable across
-  any window with `kovan-cli tokens query --from DDMMYY --to DDMMYY`).
-  `docs/token-usage.md` is a regenerable, gitignored local summary — never
-  hand-edit it, never `git add` it, never re-track it.
-- **Do not strip or fake a trailer the hooks wrote.** The numbers come
-  straight from the transcripts; nothing is estimated or invented. A commit
-  made outside a Claude session legitimately shows `total=0 source=none` —
-  that is correct, not a bug.
+- **Source of truth is the per-commit trailers, not the markdown.** Query any
+  window with `kovan-cli tokens query --from DDMMYY --to DDMMYY`.
+  `docs/token-usage.md` is a regenerable local summary — never hand-edit it,
+  never `git add` it, never re-track it.
+- **Do not strip or fake a trailer the hooks wrote.** The numbers come from
+  the transcripts; nothing is estimated. A commit made outside a Claude
+  session legitimately shows `total=0 source=none` — correct, not a bug.
 - **`total` = `in` + `out` + `cache_read` + `cache_write`.** Cache-read
-  (prompt-cache re-reads of the growing context) usually dominates and is
-  shown separately — do not collapse it into a single figure that hides the
-  split.
-- **Opting in:** `./scripts/install-token-hooks.sh` (sets the local
-  `core.hooksPath` to `.githooks` and initialises the baseline) is still there
-  for whoever wants it, unchanged — it is simply no longer something to push
-  on someone who hasn't asked for it.
-- **New repositories worked on here do not inherit this as a requirement.**
-  Copying `.githooks/` (incl. `kovan-bin.sh`) + the installer over is optional,
-  at that repository's maintainer's discretion — same opt-in stance as here.
-- This does not relax the never-auto-commit/push rule above: the hooks, where
-  present, only act *when a commit the user asked for is being made*; they
-  never initiate one.
+  usually dominates and is shown separately — do not collapse the split.
+- Opting in is `./scripts/install-token-hooks.sh`. **New repositories worked
+  on here do not inherit this as a requirement.**
 
-**This section documents the reasoning history** — `docs/historian/*` and the
-"No Python for documentation or accounting" section below still describe real
-past incidents (e.g. the Windows `python3` alias silently zeroing out
-trailers) accurately; they are history, not evidence that accounting is
-mandatory today.
+**Use `kovan-cli`, not `kovan`** — `kovan` is the egui GUI binary and will
+hang a non-interactive session trying to open a display. This does not relax
+the never-auto-commit/push rule: the hooks only act when a commit the user
+asked for is being made; they never initiate one.
 
 ## Historian report before every merge to `main` (mandatory)
 
 **Before merging `develop` into `main`, generate a "historian" report** — a
 generated markdown file accounting for the **API tokens spent** and the
-**lines / KLOC written** across the window of `develop` history being released,
-listing the commits over a `DDMMYY..DDMMYY` date range. The generator is
-`crates/kovan-metrics` (via the **`kovan-cli`** binary — *not* `kovan`, which
-is the GUI; see the token-accounting section above); the reports live under
-**`docs/historian/`** at the workspace root.
+**lines / KLOC written** across the window of `develop` history being
+released. The generator is `crates/kovan-metrics` (via the **`kovan-cli`**
+binary — *not* `kovan`, the GUI); reports live under **`docs/historian/`**.
 
-- **Generate it:**
-  `kovan-cli historian --from DDMMYY --to DDMMYY`
-  (`DDMMYY` = day-month-year, 2-digit year). With no `--from`, it defaults to
-  "everything on `develop` not yet on `main`, up to today". Output is written to
-  `docs/historian/historian_<from>_to_<to>.md`.
-  - **This replaced `docs/historian/historian.py` on 2026-08-13** (epic
-    `op-yz7b`), and the Python was deleted the same day. No parity gate was run
-    against it; see the token-accounting section above.
-  - `kovan-cli historian` dates from **UTC**, where the Python used local time.
-    This only affects the default `--to` bound and the filename tag; pass
-    `--to` explicitly if a midnight boundary matters.
-- **What it contains:** total lines added/removed/net (all files + Rust-only),
-  total tokens broken out (`in`/`out`/`cache_read`/`cache_write`/`total`), a
-  per-crate lines-added breakdown, and a per-commit ledger.
-- **Sources, not estimates.** Tokens come from the `API-Usage-Since-Last-Commit`
-  commit trailers (§ token accounting above); lines come from
-  `git log --numstat --no-merges` over the range. Commits predating the token
-  hooks legitimately show *no token data* — that is correct, not a gap.
-- **Commit the generated report alongside the `develop`→`main` merge**, so each
-  release carries its own accounting. Do not hand-edit the generated markdown.
+```bash
+kovan-cli historian --from DDMMYY --to DDMMYY     # DDMMYY = day-month-year, 2-digit year
+```
 
-## Issue tracking & roadmap — kopi-beans (mandatory)
+With no `--from`, it defaults to "everything on `develop` not yet on `main`,
+up to today". Output goes to `docs/historian/historian_<from>_to_<to>.md`.
+It dates from **UTC**, which affects the default `--to` bound and the filename
+tag; pass `--to` explicitly if a midnight boundary matters.
 
-This workspace tracks issues and per-crate roadmap progress with
-**kopi-beans** (`bn`). It is a dependency-aware issue tracker whose canonical
-data lives **in git refs** — `refs/heads/beads/store` (holding `state.jsonl`,
-`deps.jsonl`, `tombstones.jsonl`, `meta.json`), with backups under
-`refs/beads/backup/*`. `.beads/issues.jsonl` is a local compat-export
-**symlink**, not the source of truth.
+**What it contains:** total lines added/removed/net (all files + Rust-only),
+tokens broken out (`in`/`out`/`cache_read`/`cache_write`/`total`), a per-crate
+lines-added breakdown, and a per-commit ledger.
 
-> **Migrated 2026-08-07** from beads-rs (`bd`) to kopi-beans (`bn`), per
-> explicit maintainer instruction. **The migration is complete and the store
-> is live**; `bd` is uninstalled. A pre-migration snapshot is preserved at
-> **`refs/beads/premigration-v1-20260807`** — **do not delete it.** Full
-> migration evidence (the format_version fix, issue counts at the time) is in
-> `docs/kopitiam-issues/resolved/kopi-beans-store-format-version-1.md`; run
-> `bn status` for the current issue count rather than trusting a number
-> written here.
+**Sources, not estimates.** Tokens come from the `API-Usage-*` commit
+trailers; lines come from `git log --numstat --no-merges`. Commits predating
+the token hooks legitimately show *no token data* — that is correct, not a gap.
 
-- **KOPI-BEANS ONLY.** Do **not** install or use `beads-rs` (binary `bd`) in
-  this workspace — `bn` is the mandated tool and `bd` is gone.
-- **Install:** `cargo install kopi-beans` (binary `bn`; check the current
-  version with `bn --version` rather than a number written here). The store in
-  this repo is already initialised — do **not** run `bn init` here.
-  `.claude/settings.json` carries a hand-written, verified hook (`bn prime
-  --mcp`) and is maintained **by hand** — never let a generator rewrite it.
-  `bn setup claude --project` is verified safe (see "Dogfood KOPITIAM and
-  KOPI-BEANS" above); the unflagged/global form is not.
-- **Standing rule: you MUST use `bn`** for all task/roadmap tracking and
+**Commit the generated report alongside the `develop`→`main` merge**, so each
+release carries its own accounting. Do not hand-edit the generated markdown.
+
+> Full opt-in policy, the historian's replacement history and the reasoning:
+> [`docs/claude-md-rationale/accounting-and-no-python.md`](docs/claude-md-rationale/accounting-and-no-python.md).
+
+## Issue tracking & roadmap — GitHub issues (mandatory)
+
+**Maintainer decision, 2026-09-21: this workspace tracks issues and per-crate
+roadmap progress in GitHub issues, on
+`theodoreOnzGit/outram-park-backend`, via `gh`. `bn` / kopi-beans is
+deprecated as the tracker and is no longer mandated.**
+
+**Why it was deprecated: persistent problems with the beads store made it
+cumbersome to operate.** kopi-beans keeps its canonical state in git refs, and
+that store — and the daemon that publishes it — was the recurring source of
+friction: a `gix` "slotmap turned out to be too small" sync failure that hangs
+`bn sync` ([kopitiam#27](https://github.com/theodoreOnzGit/kopitiam/issues/27),
+still open), a daemon holding ~37 % of a CPU core
+([kopitiam#26](https://github.com/theodoreOnzGit/kopitiam/issues/26), still
+open), an uncapped push-retry loop, a store that could not be published at
+all, and a `format_version` migration before it could be read. A distributed
+tracker whose distribution mechanism needs nursing is worse than a hosted one
+that does not. **Full record, with every issue file and its evidence:
+[`docs/kopi-beans-deprecation.md`](docs/kopi-beans-deprecation.md).**
+
+```bash
+gh issue list --state open                       # what is open
+gh issue list --assignee @me --state open        # your active work
+gh issue view <number>                           # details + comments
+gh issue create --title "..." --body "..."       # file one
+gh issue comment <number> --body "..."           # progress
+```
+
+- **Standing rule: use GitHub issues** for all task/roadmap tracking and
   progress bookkeeping — in preference to TodoWrite / TaskCreate / ad-hoc
-  markdown TODO lists. Create/close/update issues as work happens; file one for
+  markdown TODO lists. Create and update issues as work happens; file one for
   any follow-up you discover.
-- **Syncing is automated.** See "Workflow rules" above (the `Stop`-hook
-  carve-out) for the mechanics and exact scope — not repeated here. The daemon
-  publishes `refs/heads/beads/store` on its own; the manual push
-  (`git push origin refs/heads/beads/store:refs/heads/beads/store`) remains a
-  valid, idempotent fallback for when the daemon isn't running.
-- **If `bn` is genuinely unavailable** — an OS/environment with no `bn` build
-  (a locked-down sandbox, or Android before a Termux build is confirmed) — fall
-  back to the harness task tools (TaskCreate / TodoWrite) and note in your
-  hand-off that the tracker wasn't updated and why. This is now an
-  environment-specific exception, not the normal case.
-- **Roadmap / progress summaries come from kopi-beans.** When the user asks
-  "where are we" / "summarise progress" / "what's the roadmap", read it out of
-  `bn` (`bn list`, `bn ready`, `bn show <id>`, `bn status`, `bn dep`) rather
-  than re-deriving from scattered docs. One epic per member crate; child issues
-  are that crate's workstreams.
+- **Do not close issues on your own initiative.** Propose the closure with its
+  evidence and let the maintainer decide.
+- **Labels carry what the old tracker's fields did** — `bug`, `enhancement`,
+  `epic`, `P0`…`P3`. One epic issue per member crate; link children by number
+  in the epic body and reference the parent from each child. GitHub has no
+  dependency graph, so state blocking relationships in the issue body in
+  words ("blocked by #123").
+- **Roadmap / progress summaries come from `gh`.** When the user asks "where
+  are we" / "summarise progress" / "what's the roadmap", read it out of
+  `gh issue list` / `gh issue view` rather than re-deriving from scattered
+  docs.
+- **After a plan is approved (exiting plan mode), convert it into issues
+  before writing any code.** One epic per new crate the plan introduces (or a
+  child under the relevant crate's existing epic, for plans scoped to one
+  crate); one child issue per part/module/deliverable the plan names, with the
+  ordering constraints written into the bodies. Do this even if the plan is
+  also saved as a markdown file — the markdown is for human reading, the
+  issues are what survive a session boundary. Standing rule, not a one-off.
+- **If `gh` is unavailable or unauthenticated** — a locked-down sandbox, no
+  network — fall back to the harness task tools (TaskCreate / TodoWrite) and
+  **note in your hand-off that the tracker wasn't updated and why.**
 - **Relationship to the memory system.** The tracker and the per-project
   memory files (`~/.claude/projects/<slug>/memory/`) are complementary and
   **both stay in use**: the tracker holds *tasks / roadmap / open work*; the
   memory files track *durable facts, user preferences, and feedback*. When in
   doubt: a thing to *do or finish* → an issue; a thing to *remember about how
   the user works or a settled fact* → memory.
-- **After a plan is approved (exiting plan mode), convert it into issues
-  before writing any code.** One epic per new
-  crate the plan introduces (or a child under the relevant crate's existing
-  epic, for plans scoped to one crate); one child issue per part/module/
-  deliverable the plan names, with `bn dep add` wiring the real ordering
-  constraints between them. Do this even if the plan is also saved as a
-  markdown file — the markdown is for human reading, `bn` is what `bn ready`/
-  `bn show` make queryable across a session boundary. This is a standing rule,
-  not a one-off.
+
+### The legacy beads store
+
+**`op-*` identifiers are historical references.** Several hundred beads were
+filed under the old tracker and are cited throughout this file, the crate
+`CLAUDE.md`s and the V&V write-ups. Treat an `op-*` id as a pointer into that
+history, **not** as something to look up in `gh`, and **do not mint new ones.**
+
+- **The store is preserved, not deleted** — `refs/heads/beads/store`, the
+  `refs/beads/backup/*` refs, and the pre-migration snapshot
+  **`refs/beads/premigration-v1-20260807`** all stay. Keeping them is what
+  keeps those citations resolvable. **Do not delete any of them.**
+- **Open beads were not bulk-imported**, deliberately — a few hundred
+  auto-filed issues would bury the ones that matter. Open a GitHub issue for
+  work as it is picked up, citing the old id in the body where one exists.
+- `.claude/settings.json` still carries the `bn prime --mcp` SessionStart hook
+  and the `push-beads-store.sh` Stop hook. Both are harmless no-ops once `bn`
+  is gone; **removing them is a separate maintainer decision** — do not do it
+  unprompted.
 
 ## README / Markdown format (mandatory)
 
@@ -1132,12 +906,12 @@ by a human watching it — which means in practice it is not checked at all. Eve
 claim about what the simulator does becomes unfalsifiable.
 
 It also makes a specific, recurring class of bug invisible. `htgr_sim_v1`'s
-`PlantCommands::default()` is documented as starting *"near steady state rather
-than on a prompt excursion"*. The first headless run ever taken of it (2026-09-06)
-showed power **overshooting to 27.8 MW — roughly 2.8x nominal — before settling
-near 8.1 MW**, with the bed temperature still drifting downward 1200 s in. The
-docstring was wrong and had been wrong unnoticed, because nobody could run the
-thing without watching it.
+`PlantCommands::default()` was documented as starting *"near steady state
+rather than on a prompt excursion"*. The first headless run ever taken of it
+(2026-09-06) showed power **overshooting to 27.8 MW — roughly 2.8x nominal —
+before settling near 8.1 MW**, with the bed temperature still drifting downward
+1200 s in. The docstring was wrong and had been wrong unnoticed, because nobody
+could run the thing without watching it.
 
 **Requirements:**
 
@@ -1159,8 +933,6 @@ optional convenience.** A simulator without a headless mode has no reference
 baseline, so it cannot be refactored safely and cannot be shown to still work
 afterwards.
 
-Tracked: `op-otiy`.
-
 ### When this applies: only to crates declared mature (HARD RULE)
 
 **The dogfooding rule below is a hard rule for every crate the maintainer has
@@ -1171,24 +943,23 @@ finding its shape.
 **API polish comes after the internals are shown to be reasonably accurate,
 never before.** An interface is a commitment to a shape, and shaping an
 interface around physics that is still moving means paying for the same
-interface twice — and the wheel, the stubs, the examples and the codegen
-registry all move with it. Worse, an API that is pleasant to call and quietly
-wrong is more dangerous than one that is awkward, because the ergonomics
-invite trust the numbers have not earned.
+interface twice. Worse, an API that is pleasant to call and quietly wrong is
+more dangerous than one that is awkward, because the ergonomics invite trust
+the numbers have not earned.
 
 **What "reasonably accurate" means here.** A crate becomes eligible when its
 internals are backed by at least one of:
 
-- **Analytical or manufactured solution.** Agreement with a closed-form
-  result, or an MMS convergence study showing the expected order of accuracy.
-  This proves the numerics.
-- **Cross-code comparison.** Agreement with an established code (OpenMC,
+- **Analytical or manufactured solution** — a closed-form result, or an MMS
+  convergence study showing the expected order of accuracy. This proves the
+  numerics.
+- **Cross-code comparison** — agreement with an established code (OpenMC,
   Serpent, MOOSE, OpenFOAM, NJOY) on the same input, where no closed form
   exists.
-- **Unit tests and internal consistency.** Conservation, symmetry, reciprocity
-  and limiting-case invariants holding under test. Necessary always, and
-  sufficient on its own only for crates with no physics to get wrong
-  (utility, I/O, tooling).
+- **Unit tests and internal consistency** — conservation, symmetry,
+  reciprocity and limiting-case invariants holding under test. Necessary
+  always, and sufficient on its own only for crates with no physics to get
+  wrong (utility, I/O, tooling).
 
 **Published-benchmark agreement is deliberately not on that list.** Matching
 HTR-10, MSRE or ICSBEP is the *goal* of the validation pipeline, and that
@@ -1201,112 +972,51 @@ lenient.)
 There is no workspace-wide number: 500 pcm means something in `outram-mc-libs`
 and nothing in `outram-park-fork-dwsim-libs`. Each crate states its own bar,
 the reference it is measured against, and the evidence class above that it
-claims. A crate with no such statement is by definition not yet mature.
+claims. **A crate with no such statement is by definition not yet mature.**
 
-**Who declares it.** The maintainer, and only the maintainer, marks a crate
-mature. An agent that believes a crate has cleared its bar may *propose*
-maturity — open the issue in both trackers, cite the specific runs and
-numbers, and stop there. Do not flip the flag, and do not begin enforcing the
-dogfooding rule on the strength of your own assessment.
+**Who declares it.** The maintainer, and only the maintainer. An agent that
+believes a crate has cleared its bar may *propose* maturity — open an issue,
+cite the specific runs and numbers, and stop there. **Do not flip the flag**,
+and do not begin enforcing the dogfooding rule on the strength of your own
+assessment.
 
-**The bar moves, and that is expected.** Standards tighten as the physics
-firms up and as reference data improves. Record every revision as a dated
-entry in the crate's own `CLAUDE.md`, keeping the superseded ones:
+**The bar moves, and that is expected.** Record every revision as a dated
+entry in the crate's own `CLAUDE.md`, **keeping the superseded ones** — an
+agent reading the crate later needs to know not just today's bar but that it
+moved, or it will misread older results as failures against a standard that
+did not exist when they were produced.
 
-```
-- 2026-09-05 — mature. Bar: k-eff within 500 pcm of a cross-code OpenMC run
-  on the same ENDF/B-VIII.0 evaluation. Evidence: cross-code comparison.
-- 2026-11-xx — bar tightened to 200 pcm now that the scatter matrix is
-  verified; the 500 pcm entry above stands as what was accepted before.
-```
+**Twelve crates were declared mature as of 2026-09-15**, plus `petir`; the
+Members table marks them. **The bar and its evidence live in each crate's own
+`CLAUDE.md`, which is the authority — this file's roster is a pointer.**
 
-Keeping the history matters more than it looks: an agent reading the crate
-later needs to know not just today's bar but that it moved, or it will
-misread older results as failures against a standard that did not exist when
-they were produced.
+**Read the crate's own file before citing any of them as validated.** Several
+carry caveats that matter and that a roster row cannot hold: `teh-o-prke`
+lacks analytical transient validation; `farrer-park` has a **known uncured
+shear-locking defect** and no cross-code or benchmark leg at all;
+`outram-park-fork-dwsim-libs` has met its bar **at the EOS layer only**, with
+0 of 107 port-coverage rows at `PORTED + VALIDATED`; `petir`'s bar is
+cross-code agreement **alone**, against no published benchmark; and
+`outram-park-fork-liggghts` reproduces upstream LIGGGHTS essentially exactly
+while having **no experimental comparison** of the granular physics at all.
+Agreeing on a number is not the same as agreeing on the physics —
+`outram-mc-libs` sits well inside its 500 pcm bar on Godiva while a ~69 pcm
+*spectral* residual against OpenMC is still open.
 
-**Declared mature as of 2026-09-15** (12 of 40 crates). The bar and its
-evidence live in each crate's own `CLAUDE.md`; this roster is a pointer, not
-the authority:
+> The full roster with each crate's bar and evidence class, the six honest
+> notes in full, and the measured API-guessing table:
+> [`docs/claude-md-rationale/maturity-and-api-dogfooding.md`](docs/claude-md-rationale/maturity-and-api-dogfooding.md).
 
-| crate | bar | evidence class |
-|---|---|---|
-| `tampines-steam-tables` | IF97 region eqns to 1e-8 vs IAPWS values; flash tables looser (0.5% vol, 8% λ) | reference standard |
-| `tuas_boussinesq_solver` | CIET outlet temp within 0.2 °C; Gnielinski 2% | experimental + cross-code |
-| `outram-foam-appbuilder-lib` | Sod (1978) Table II vs exact Riemann; L2 within 5% of peak | analytical / MMS |
-| `chem-eng-real-time-process-control-simulator` | discretisations exact at samples vs closed form | analytical (+ Scilab, dissertation) |
-| `outram-foam-basic-lib` | conservation to 1e-12; convergence order matches theory | analytical / MMS |
-| `njoy-outram-park-fork` | agrees with NJOY2016 to 7 significant figures | cross-code |
-| `outram-mc-libs` | k-eff within 500 pcm of ICSBEP Godiva | cross-code |
-| `teh-o-prke` | published β reproduced; PRKE limiting cases exact | unit + consistency |
-| `outram-park-fork-liggghts` | integrator + contact laws vs closed form; **plus** agrees with upstream LIGGGHTS-PUBLIC `3d5c00f2` compiled and run — ~~3 of 4~~ **4 of 6 deterministic cases** bit-identical throughout (**CORRECTED 2026-09-17**: there are six, and *both* oblique cases agree to 1-3 ulp rather than one), bulk bed packing fraction within 0.20 %, and — omitted entirely before — the **HTR-10 full core** at `D/d = 30`: `φ` to four decimals, median pebble **61 µm** from LIGGGHTS' over 27 554 pebbles, plus the **conus/discharge mesh geometry** to `φ` within 0.01 % with all 27 554 pebbles within 1 mm at early time; **granular physics still NOT validated (no experimental comparison)** | analytical / MMS + cross-code |
-| `farrer-park` | MMS L2 order within 0.15 of theory per element; patch test 1e-12; Lamé **displacement** within 1%, **stress** on observed order (1 ± 0.2 linear, 2 ± 0.2 quadratic); **shear locking uncured, no benchmark validation** | analytical / MMS |
-| `outram-park-fork-dwsim-libs` | agrees with upstream DWSIM `1abf72d1` to 4 sig figs; **PR EOS matches to 6 s.f. (measured 2026-09-13)**; flash-layer comparison still open | cross-code |
-| `petir` | agrees with GSL 2.8 compiled and run — 5 of 7 numerics surfaces bit-identical throughout, the rest 75-97 % with worst relative difference 1.1e-15; ARM `exp`/`log`/`pow` bit-identical | cross-code |
-
-Every other crate is **not** declared, and the dogfooding rule does not apply
-to it.
-
-**`petir` was declared on 2026-09-15**, by the maintainer, on the stated
-condition "if it agrees with GSL". It does, and by the strongest mechanism on
-this roster: GSL 2.8 was **built from the vendored tree and executed**, and its
-output committed under `reference-data/gsl/` so the comparison regenerates
-rather than being trusted.
-
-One qualification belonged with the declaration and was closed the same day.
-At the moment of declaration the compiled comparison covered `cheb`,
-`expint`, `gamma_inc` and the `linalg` QR only; `roots`, `min`, `deriv`,
-`interp`, `integration` and `ode` had GSL-derived tests but no compiled
-reference. Those six were given one, and five of the seven surfaces came back
-**bit-identical throughout**. The consolidated table — every surface, its
-upstream, its measured agreement, and what is NOT covered — is
-`crates/petir/docs/verification-summary.md`.
-
-Six honest notes on this roster: `teh-o-prke` is the thinnest of the
-twelve and lacks analytical transient validation (its own file says so, and
-says what would fix it); `outram-mc-libs`' 500 pcm is now far looser
-than what it achieves — as of 2026-09-15 Godiva sits at **+16 ± 11 pcm over 256
-seeds**, 44 sigma inside the bar and inside ICSBEP's own ±100 pcm band, after
-the discrete inelastic angular distributions were wired in (`op-tm9f`). The bar
-was deliberately **not** tightened with that result; doing so is a maintainer
-decision. Note also that agreeing on `k` is not the same as agreeing on the
-physics: a ~69 pcm *spectral* residual against OpenMC is still open
-(`op-os8x`), and the crate's own `CLAUDE.md` records it beside the result; the
-Scilab half of the process-control crate's evidence lives in the maintainer's
-dissertation rather than in this repository, so its recorded bar is written
-against the analytical tests that *are* reproducible here; `farrer-park`
-carries a **known uncured defect** — shear locking, measured at 66.7 % too
-stiff on Quad4 at element aspect ratio 4 (`op-uqqg`) — so its maturity says
-the numerics it *does* implement converge at the theoretical rate, not that
-every element is fit for bending, and it is the only entry on this roster
-declared within days of the crate first existing, with an analytical/MMS bar
-and no cross-code or benchmark leg at all; and **`outram-park-fork-dwsim-libs`
-has met its bar at the EOS layer only** — upstream DWSIM has since been built
-and run headless (procedure in that crate's `CLAUDE.md`), and its `Z_PR` agrees
-with this port to 6 significant figures. The flash-layer comparison the bar
-also names is still open, and 0 of the 107 rows in its port-coverage matrix are
-`PORTED + VALIDATED`. Read that crate's file before citing it as validated.
-Finally, `petir`'s bar is cross-code agreement **alone** — nothing in it has
-been compared against a published benchmark, and both of its bookkeeping axes
-remain unsigned. The same caveat now applies to
-`outram-park-fork-liggghts`, which gained a cross-code leg on 2026-09-15
-(upstream LIGGGHTS built and run, `reference-data/liggghts/`): it reproduces
-LIGGGHTS essentially exactly, but that says nothing about whether LIGGGHTS'
-granular physics is right for an HTR-10 bed — there is still **no
-experimental comparison**, and the settled voidage both codes produce
-(`ε ≈ 0.442`) sits 2.2 percentage points above the Dixon (1988) correlation
-for `D/d = 6`. Read that crate's `docs/verification-and-validation.md`
-before citing it as validated.
 ### Verifying it: dogfood the API on a small model (HARD RULE)
 
 > **If it is too complex for Haiku, it is a bad API.**
 
 That is the standing test for **every crate declared mature** (see the gate
 directly above — it is not asked of a crate still finding its shape), and it
-is a test, not a slogan: a small model has no budget to read the source, so it can
-only use what the interface itself makes discoverable — exactly like the human
-this section already requires the API to serve. When it cannot get there, the
-interface is wrong, however correct the physics underneath.
+is a test, not a slogan: a small model has no budget to read the source, so it
+can only use what the interface itself makes discoverable — exactly like the
+human this file already requires the API to serve. When it cannot get there,
+the interface is wrong, however correct the physics underneath.
 
 **Before claiming a public API is usable from Python, run it on a Haiku agent
 with a fresh context and the wheel only — no repository access, no `.pyi`
@@ -1318,28 +1028,13 @@ the fix list.
 *worst* instrument for this, for the same reason the author of a tool is the
 worst person to usability-test it — when the API is unguessable it reads the
 Rust source and compensates, and the compensation is invisible in the result.
-The finished script looks clean and the defect ships.
-
-Measured on 2026-09-04, writing short scripts against this workspace's own
-wheel **with** full source access and grep, an Opus session guessed wrong ten
-times across six scripts:
-
-| guessed | actual |
-|---|---|
-| `mc.Sphere(center, radius)` | `Sphere(x0, y0, z0, r, bc)` |
-| `RegionToken.HalfSpace(0, False)` | needs a `HalfSpaceSense` |
-| `HalfSpaceSense.Negative()` | `.Inside()` |
-| `KeffResult.k_eff` | `.k_mean` |
-| `GeometryPath.cell` | only `.material` exists |
-| `profiles.stage_temperatures` | `.stage_temperature` (singular) |
-| `triso_particle(c, [radii], [mats])` | needs `TrisoRadii`, `TrisoMaterials` |
-| `TrayHydraulics()` | `.HoldupTimeConstant(tau_seconds=..)` |
-| `ControlDict()` | thirteen positional arguments |
-| `FvSolution()` | not constructible at all |
-
+The finished script looks clean and the defect ships. Measured 2026-09-04, an
+Opus session **with** full source access and grep still guessed wrong ten
+times across six scripts (`mc.Sphere(center, radius)` for
+`Sphere(x0, y0, z0, r, bc)`, `.k_eff` for `.k_mean`, `FvSolution()` which is
+not constructible at all, and seven more — the table is in the rationale doc).
 Every one cost a round trip. A model that *cannot* read the source has no way
-to recover from any of them, which is the point: it is forced to rely on the
-affordances the API actually provides, exactly as a human at a terminal is.
+to recover from any of them, which is the point.
 
 **What the test requires:**
 
@@ -1348,9 +1043,7 @@ affordances the API actually provides, exactly as a human at a terminal is.
 - **A fixed task list** spanning the tiers — a one-call case, a case assembled
   from parts, and one exotic enough to need the low-level types.
 - **Every exception logged, not just the count.** Ranked by frequency across
-  tasks, that log *is* the backlog, in priority order. This is the same
-  technique as `outram-park/codegen/blocked.md` applied one level up: make the
-  gaps countable and they stop being a matter of opinion.
+  tasks, that log *is* the backlog, in priority order.
 
 **What it does NOT measure: physical correctness.** A script can run cleanly
 and be nonsense. This never substitutes for the V&V tests — it tests whether
@@ -1361,30 +1054,21 @@ A failure unique to the small model is more likely its own priors — the tell
 is whether a different model trips on the same call. Fix the first kind.
 
 **The same principle applies one layer down, to Rust callers.** A confusing
-trait-bound error is the compiler's version of an undiscoverable API, and
-`#[diagnostic::on_unimplemented]` has been stable since Rust 1.78 — it
-replaces "the trait bound `X: Y` is not satisfied" with a message, a label
-and a note of your choosing, naming what to construct instead.
-`#[diagnostic::do_not_recommend]` (stable since 1.85) suppresses a blanket
-impl the compiler would otherwise suggest unhelpfully. This workspace has 65
-public traits and, as of 2026-09-04, not one of them carries either
-attribute. Any trait whose bound a caller can plausibly fail should — the
-audit is `op-wiep`, ranked by how often each trait is actually named as a
-bound (`EquationOfState` 91, `ThermoModel` 89, `FluidComponentTrait` 53
-lead it).
+trait-bound error is the compiler's version of an undiscoverable API.
+`#[diagnostic::on_unimplemented]` (stable since 1.78) replaces "the trait
+bound `X: Y` is not satisfied" with a message, a label and a note of your
+choosing; `#[diagnostic::do_not_recommend]` (stable since 1.85) suppresses a
+blanket impl the compiler would otherwise suggest unhelpfully. This workspace
+has 65 public traits and, as of 2026-09-04, not one carries either attribute.
+Any trait whose bound a caller can plausibly fail should.
 
 A good message does not restate the bound. It names the concrete types that
 *do* implement the trait, or the constructor to call: "implemented by
 `PengRobinson`, `Srk`, `PengRobinson1978`" turns a search through the source
-into a choice from a list, which is the same standard the Python enums are
-held to above.
+into a choice from a list.
 
-The harness itself, and the first baseline, are tracked as `op-m2mj`. Take
-the baseline *before* changing anything: the fixes this suggests — enum
-errors that name their constructors, did-you-mean on a wrong attribute,
-constructors that return the general type rather than swallowing the run —
+**Take the baseline *before* changing anything** — the fixes this suggests
 should be measured against it, not asserted.
-
 ## Model hierarchy: correct physics first, surrogates uncalibrated before calibrated (HARD RULE)
 
 **Maintainer direction, 2026-09-17.** This governs *what kind of model* to
@@ -1555,19 +1239,20 @@ and in sync with the code. It is a recurring command, not a one-off.
    **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
    ```
 
-3. **Staleness audit.** Sweep the READMEs, beads, and every markdown file
-   (recursively) for drift versus the actual code/state: internal
-   contradictions, references to renamed/removed crates or files, "planned/TODO"
-   items that are actually done, wrong member lists or crate counts, beads that
-   should be closed (or reopened). Fix in-crate drift; for cross-cutting or bead
-   changes, report candidates rather than silently editing — beads are closed by
-   the maintainer's decision, and the read-only auditor never mutates them.
+3. **Staleness audit.** Sweep the READMEs, the open GitHub issues, and every
+   markdown file (recursively) for drift versus the actual code/state:
+   internal contradictions, references to renamed/removed crates or files,
+   "planned/TODO" items that are actually done, wrong member lists or crate
+   counts, issues that should be closed (or reopened). Fix in-crate drift; for
+   cross-cutting or issue-state changes, report candidates rather than
+   silently editing — **issues are closed by the maintainer's decision**, and
+   the read-only auditor never mutates them.
 
 4. **Codify / update** this command here if the routine itself changes.
 
 **How to run it as a fleet:** partition strictly by crate (one agent per crate,
 no shared files → `cargo fmt -p` is safe to avoid per the parallel-agent rule),
-plus a separate **read-only** agent for the cross-cutting markdown + beads
+plus a separate **read-only** agent for the cross-cutting markdown + issue
 staleness audit (it must skip the crates being actively edited to avoid read
 races). Commit any pending verified work first so the tree is clean, and
 **exclude from the pass any crate with a publish in flight** (an uncommitted
@@ -1608,7 +1293,7 @@ which rustdoc-md && cargo install --list | grep rustdoc-md
 rustup toolchain list
 ```
 
-This is a rule because an agent once shipped a bead/commit/hand-off claiming
+This is a rule because an agent once shipped an issue/commit/hand-off claiming
 `rustdoc-md`/nightly were missing on a host where both were installed —
 running the check instead immediately exposed a real bug in
 `--regenerate-missing` that the false "tool missing" assumption had been
@@ -1622,72 +1307,52 @@ prerequisite, then run the path.
 write, restore, or reach for a Python script to do either. If `kovan` cannot do
 it yet, extend `kovan`.**
 
-This is settled direction, not a preference, and it has been applied three times:
-
-| Retired | Replaced by | When |
-|---|---|---|
-| `docs/historian/historian.py` | `kovan-cli historian` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
-| `docs/historian/token_usage.py` | `kovan-cli tokens` (`kovan-metrics`) | 2026-08-13, epic `op-yz7b` |
-| `scripts/gen_api_docs.py` | `kovan-cli api-docs` | 2026-08-14, `op-w44a.7` |
-| `scripts/gen_aster_behaviour_registry.py` | retired; procedure recorded in `catalogue.rs` | 2026-08-14 |
-| `scripts/kloc_accounting.py` | `kovan kloc` (`kovan-metrics`) | 2026-08-14 |
-
-**`scripts/` now holds no tracked Python** — only `.gitignore` and four shell
-scripts. (`find` reports hits under `scripts/vendor/`; that directory is
-gitignored and holds repository clones the retired `kloc_accounting.py` made.
-It is now orphaned: `kovan kloc` vendors into its own output directory instead,
-so `scripts/vendor/` can be deleted.)
-
-**Seven first-party Python files remain, and are NOT covered by this rule as
-written:** `crates/outram-park-fork-coolprop/dev/*.py` — `gen_fluid.py`,
-`gen_incompressible.py`, `gen_mixture.py`, their three `regen_*_all.py`
-drivers, and `gen_latex_doc.py`. Six are **code generation** (they read the
-gitignored upstream CoolProp JSON clone and emit Rust), which is neither
-documentation nor accounting; `gen_latex_doc.py` scaffolds a LaTeX doc series
-and arguably is. Whether to bring them in is a maintainer decision that has not
-been made — tracked as a bead. Do not delete them under this rule without
-asking.
-
-Everything else matching `*.py` is vendored upstream source under
-`upstream_source/` (NJOY2016, Blender, TRISO-ATOPS) or gitignored
-`collaboration/` scratch, both explicitly out of scope.
+This is settled direction, not a preference. Five Python scripts have been
+retired under it — `historian.py`, `token_usage.py`, `gen_api_docs.py`,
+`gen_aster_behaviour_registry.py` and `kloc_accounting.py` — replaced by
+`kovan-cli historian` / `tokens` / `api-docs` and `kovan kloc`.
+**`scripts/` now holds no tracked Python.**
 
 **Why, concretely.** A script merely has to exist; an interpreter has to be
-installed, on `PATH`, and not shadowed. On Windows `python3` routinely resolves
-to a Microsoft Store alias stub that prints an advert and exits — which silently
-turned the token-accounting git hooks into no-ops and let commits ship with no
-`API-Usage` trailer at all. That is the failure mode this rule exists to
-prevent: not an error, a **silent** no-op in the thing that keeps the records
-honest. The reasoning is recorded in `.githooks/kovan-bin.sh`.
+installed, on `PATH`, and not shadowed. On Windows `python3` routinely
+resolves to a Microsoft Store alias stub that prints an advert and exits —
+which silently turned the token-accounting git hooks into no-ops and let
+commits ship with no `API-Usage` trailer at all. That is the failure mode this
+rule exists to prevent: not an error, a **silent** no-op in the thing that
+keeps the records honest.
 
 **Scope.** Documentation generation, repository accounting, and the artifacts
-either produces. It does **not** reach into `collaboration/` (gitignored scratch
-owned by collaborators), `reference-data/` (vendored upstream trees), or a
-third-party tool that happens to be written in Python.
+either produces. It does **not** reach into `collaboration/` (gitignored
+scratch owned by collaborators), `reference-data/` (vendored upstream trees),
+or a third-party tool that happens to be written in Python.
 
-**When porting, gate parity — do not waive it.** `op-yz7b` shipped without a
-byte-for-byte comparison against the Python it replaced, and that gap is
-recorded above as a known weakness. `op-w44a.7` did gate it: the Python-generated
-`api.md` was already committed, so regenerating through the Rust path and
-running `git diff --quiet` was a real check, and it passed. **Do that.** If the
-old output is not committed anywhere, generate it with the Python *before*
-deleting the script, commit it, then port.
+**Seven first-party Python files remain and are NOT covered by this rule as
+written:** `crates/outram-park-fork-coolprop/dev/*.py`. Six are **code
+generation** (they read the gitignored upstream CoolProp JSON clone and emit
+Rust), which is neither documentation nor accounting; `gen_latex_doc.py`
+arguably is. Whether to bring them in is a maintainer decision that has not
+been made. **Do not delete them under this rule without asking.** Everything
+else matching `*.py` is vendored upstream source under `upstream_source/` or
+gitignored `collaboration/` scratch — both explicitly out of scope.
+
+**When porting, gate parity — do not waive it.** If the old output is not
+committed anywhere, generate it with the Python *before* deleting the script,
+commit it, then port and diff. `op-w44a.7` did this and it was a real check;
+`op-yz7b` did not, and that gap is recorded as a known weakness.
 
 **A Python script that is a published reproducibility artifact is a different
 question — ask, do not delete.** Where a script exists so that a *journal
-reader* can re-derive a table or figure, replacing it with a Rust binary raises
-the reproduction bar from "run this script" to "build a 40-crate Rust
+reader* can re-derive a table or figure, replacing it with a Rust binary
+raises the reproduction bar from "run this script" to "build a 43-crate Rust
 workspace", and may break a byte-identical copy held in a manuscript
 repository. Raise it with the maintainer rather than applying this rule
-mechanically.
+mechanically. `kloc_accounting.py` was exactly that case: it was put to the
+maintainer on 2026-08-14 with the consequence stated, and they chose the full
+port.
 
-`kloc_accounting.py` was exactly that case: it reproduces the Annals of Nuclear
-Energy submission's tables and figure. It was put to the maintainer on
-2026-08-14 with the consequence stated, and they chose the full port. **The
-manuscript's own copy and any text telling a reader to run the script are now
-stale and are the maintainer's to update** — that repository is not visible from
-here.
-
+> The retirement table, the full Windows-alias incident and the
+> `kloc_accounting.py` decision:
+> [`docs/claude-md-rationale/accounting-and-no-python.md`](docs/claude-md-rationale/accounting-and-no-python.md).
 ## Rust design rules (mandatory)
 
 ### No trait objects — use enums for dispatch
@@ -1775,114 +1440,120 @@ built, tested, and published from this single repository.
 
 ## Members
 
-| Crate (`crates/…`) | Role | License |
+**43 member crates.** The table below is a one-line index: what each crate is
+for, and whether it is declared mature. **Each crate's own
+`crates/<crate>/CLAUDE.md` and `README.md` are the authority** for its status,
+its bar, its known gaps and its correction history — this table is a pointer,
+not a status record, and must not be cited as evidence of anything.
+
+> Full per-crate prose, with every status note, caveat and dated correction as
+> it stood on 2026-09-21:
+> [`docs/claude-md-rationale/crate-roster.md`](docs/claude-md-rationale/crate-roster.md).
+
+All crates are **GPL-3.0** except `kovan` (**AGPL-3.0-only**, workspace
+exception — see `crates/kovan/NOTICE`) and
+`chem-eng-real-time-process-control-simulator` (GPL-3.0 since 2026-08-11;
+published versions <= 0.1.1 stay Apache-2.0 — see its `NOTICE`). "Mature" in
+the last column means the maintainer has declared it so — see "When this
+applies: only to crates declared mature".
+
+| Crate (`crates/…`) | Role | Mature |
 |---|---|---|
-| `chem-eng-real-time-process-control-simulator` | PID / transfer-function process-control library (real-time simulators) | GPL-3.0 (relicensed from Apache-2.0 on 2026-08-11; published versions <= 0.1.1 stay Apache-2.0 — see crate `NOTICE`) |
-| `teh-o-prke` | Point Reactor Kinetics (PRKE) for the Teh-O transport/eigenvalue solver | GPL-3.0 |
-| `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) solver — TUAS | GPL-3.0 |
-| `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations — TAMPINES | GPL-3.0 |
-| `outram-foam-basic-lib` | Pure-Rust translation of the OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics kernels, fields, mesh, FV operators, fluid/solid thermo | GPL-3.0 |
-| `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), the Faddeeva kernel, windowed-multipole evaluation, lean-ACE + WMP data blobs, ν̄/χ. Exposes the `XsProvider` surface other crates pull cross sections from. | GPL-3.0 |
-| `outram-mc-libs` | **Monte Carlo transport** — CSG geometry, particle tracking, k-eigenvalue, delta (Woodcock) tracking for doubly heterogeneous media, depletion. **Data-free**: pulls cross sections from `njoy-outram-park-fork`. | GPL-3.0 |
-| `tampines` | Central thermal-hydraulic framework — composes `tuas`, `outram-park-fork-coolprop`, `tampines-steam-tables`, `outram-foam-basic-lib`, `chem-eng…` | GPL-3.0 |
-| `outram-park-fork-coolprop` | Pure-Rust fork of **CoolProp** — Helmholtz-EOS thermophysical properties (137 fluids, incompressibles, humid air, mixtures). Independent fork, not official CoolProp. | GPL-3.0 |
-| `outram-park-fork-offbeat` | Pure-Rust fork of **OFFBEAT** (foam-for-nuclear) — nuclear fuel performance: solid mechanics with eigenstrain, rheology (plasticity/creep), fuel-cladding gap and contact, ~70 material property correlations, burnup/fast-flux/FGR, cladding corrosion. Independent fork, not official OFFBEAT. | GPL-3.0 |
-| `farrer-park` | **FEM structural mechanics** — Finite-element Analysis for Reactor Reliability, Engineering Response, Plasticity And Risk. Small-strain linear elasticity and J2 plasticity with a consistent tangent, on Lagrange Tri3/Tri6/Quad4/Tet4/Hex8. Ported from **MOOSE**, **PRISMS-Plasticity** and **PRISMS-Fatigue** (all LGPL-2.1; GPL-3.0 via LGPL-2.1 §3, one-way). Depends on `outram-foam-basic-lib` for the shared Krylov/preconditioner backend **only, never for its discretisation** — it is genuinely FEM and must not be reformulated as finite volume (GitHub issue #175, epic `op-vrtt`). Verified against analytical/manufactured solutions (MMS orders match theory; patch test at machine precision; Lamé; Newton order 2.004) — **verification only, no human V&V, not a validated RPV or piping life-assessment tool**. **B-bar (mean dilatation)** and **plane stress** landed 2026-09-11 (`op-vrtt.1`, `op-vrtt.2`), both as explicit enums with the conservative option still the default: volumetric locking is measured and cured (nearly-incompressible MMS order 0.63-1.24 under full integration against 2.00-2.05 under B-bar; plastic collapse +23.9 % against +1.06 % versus the closed-form limit load). Known gaps: **shear locking is measured and NOT cured** (11.25 % too stiff at two square Quad4 elements through the depth, 66.7 % at aspect ratio 4 — `op-uqqg`), ILU(0) stagnates on nearly incompressible systems (`op-ldaz`), no curved elements. **Rate-dependent crystal plasticity landed 2026-09-11** (`op-q75c`): FCC {111}<110> and BCC {110}<111>, power-law flow, saturating self-and-latent hardening, cubic or isotropic single-crystal elasticity, consistent algorithmic tangent — **small strain**, so no lattice reorientation and no backstress. Verified against the analytic Schmid yield stress (1.5e-15 relative), frame indifference (7.6e-16), and a Richardson-extrapolated numerical Jacobian (3.6e-9, difference-scheme order 2.0006); **still verification only, no validation**. Microstructure-sensitive fatigue (`op-q1zn`) is **partial**: the Fatemi-Socie indicator parameter and region averaging, but no slip-band geometry and no fatigue life. Independent fork, not affiliated with INL/MOOSE or the PRISMS Center. | GPL-3.0 |
-| `outram-park-fork-dwsim-libs` | Pure-Rust fork of **DWSIM** process-simulation building blocks. Independent fork. | GPL-3.0 |
-| `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; k-ε / k-ω / Spalart-Allmaras / Smagorinsky scaffolded) on `outram-foam-basic-lib` | GPL-3.0 |
-| `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer (pimpleFoam / rhoCentralFoam / rhoPimpleFoam) + case I/O; host of the in-progress **GeN-Foam** deterministic-neutronics + TH port | GPL-3.0 |
-| `boon-lay` | TRISO-particle / Lagrangian decay simulator (BOON-LAY); includes the TRISO-ATOPS fork | GPL-3.0 |
-| `nee_soon` | Integration / coupling layer — composes MC + deterministic/TH + nuclear data + PRKE. ~~Mostly scaffold.~~ **CORRECTED 2026-09-19** — the MC and deterministic ends are now wired and tested: `htr10_rmc` (1918 lines) builds one shared HTR-10 geometry for both; `mgxs` condenses a Monte Carlo run into multigroup constants (flux-weighted rates, a nu-scatter matrix, a measured fission spectrum); `genfoam_xs` hands them to GeN-Foam through its own `nuclearData` path; `coupling::McToGenFoam` is the facade; `direct_coupling::McGenFoamDirect` iterates MC against GeN-Foam's lumped thermal region to a steady state. Measured: GeN-Foam reproduces the MC eigenvalue to **+328 pcm (1.7 sigma)** on a leakage-free medium, and the HTR-10 core condenses to 4 zones GeN-Foam accepts. The prompt-excursion path remains wired to `teh-o-prke`. **Steady state only** — no delayed-neutron data is tallied — and **no validation**. | GPL-3.0 |
-| `bedok` | Systems-level multiphysics coupling — 3-D nodal-diffusion neutronics coupled to channel TH, at the fidelity band **above 1-D neutronics and below CFD**. Rust translation of a MATLAB implementation by Than Yan Ren (SNRSI), used with the author's permission. **The file-by-file translation of the MATLAB snapshot is complete** (all 50 files, 2026-08-18). The **IAEA-3D** benchmark matches the published `k_eff` to **-1.1 pcm** (PARCS) / **+0.2 pcm** (ADPRES) — the crate's only validation evidence. The coupled steady loop and the transient both run, but are asserted **structurally only**: the NEACRP specification is not in `kovan-literature`, so there is no published curve or eigenvalue to compare against. **Every runnable case is verified against the running MATLAB** (2026-08-19), steady and transient; the X1 critical-boron discrepancy is **resolved** (causes: defect Z1, the silently rounded axial mesh, and defect N1, an unstable default nodal-update interval — run case A2 with `nodalupd >= 20`). **Stage-2 corrections opened 2026-08-21** and are **on by default**, so on the cases they touch this crate deliberately no longer reproduces the MATLAB: the diffusion face coupling and `gradterms` (G1/G2/G3), the W-3 `K4` enthalpy (T5/T6), and the hottest-channel search (C2/T4). Build from `Params::reference_faithful()` to get the reference's numbers back. Measured: A2's critical boron moves 1138.8 -> 1152.5 ppm against a published 1160.6, A1's 551.4 -> 561.0 against 567.7, and A2's reported DNBR falls 18.2%. See `docs/bedok-reference-defects.md`. | GPL-3.0 |
-| `outram-park-digital-twin-engine` | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only; formerly `outram-park-digital-twin-gui`) | GPL-3.0 |
-| `kovan-common` | **KOVAN** knowledge layer — shared canonical types (`KovanDocument`, `KovanSymbol`, …). The Rust struct is the source of truth. | GPL-3.0 |
-| `kovan-discovery` | KOVAN file discovery + text search — the `fd` (`ignore`) walker and ripgrep (`grep-*`) engine. Offline, deterministic. | GPL-3.0 |
-| `kovan-literature` | KOVAN literature archive — PDF → Markdown (`pulldown-cmark`) → `KovanDocument` → BibTeX. `open/` committable, `proprietary/` gitignored. | GPL-3.0 |
-| `kovan-semantics` | KOVAN repo-understanding — ripgrep-first, escalating to language servers (rust-analyzer / clangd / Pyright / fortls). Does not reimplement compilers. | GPL-3.0 |
-| `kovan-codegen` | KOVAN deterministic code generation — templates for known numerical methods (root finders, linear/nonlinear/ODE solvers). Not an AI assistant. | GPL-3.0 |
-| `kovan-metrics` | KOVAN repository accounting — per-commit API-token trailers (read from the Claude Code session transcripts) and the pre-merge historian report. Replaced `docs/historian/*.py` on 2026-08-13 so the toolchain needs no Python. | GPL-3.0 |
-| `kovan` (bins `kovan`, `kovan-cli`, `kovan-tui`) | KOVAN's three front ends over the knowledge layer, per GitHub issue #30's final interface spec (2026-08-21): `kovan` is the **human-facing GUI** (egui, the graph digitiser window); `kovan-cli` is the **agent-facing** CLI (`clap`, line-oriented output for Claude Code and other coding agents, incl. `digitise`); `kovan-tui` is the **human-facing** TUI (`ratatui`; genuinely Android/Termux-usable, not just buildable — its Android module gate was lifted the same day). Consolidated 2026-08-21 from the former separate `kovan-cli`/`kovan-tui` crates, then restructured from five binaries down to these three later the same day. **Relicensed to AGPL-3.0-only 2026-08-21** — the one crate in this workspace that differs from the default, so it can depend on `kopitiam-pdf` (also AGPL-3.0-only, GitHub issue #30's PDF-reader work). See `crates/kovan/NOTICE` and `crates/kovan/DECISIONS.md`. | **AGPL-3.0** (workspace exception — see NOTICE) |
-| `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) — headless surface authoring with opt-in **Monte Carlo** (`mc-export` → `sim` → MC Studio) and **OpenFOAM volume-meshing** (`foam-mesh` → `foam_mesh` → tet-dual Mesh Studio) solver bridges. The two studio **examples** moved to `dhoby-ghaut` on 2026-09-17; the export bridges themselves stay here. Not affiliated with the Blender Foundation. | GPL-3.0 |
-| `dhoby-ghaut` | **DHOBY GHAUT** (*Digital High-fidelity Orchestration by GUI for a Human-friendly Automated Unified Toolkit*) — the intended GUI home for OUTRAM PARK's meshing and Monte Carlo studios. **Placeholder: no GUI is implemented yet** (`src/lib.rs` only). Holds the `mc_studio` and `mesh_studio` **examples**, moved here verbatim (100 % rename) from `outram-blender` on 2026-09-17. | GPL-3.0 |
-| `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tetrahedral/polyhedral volume meshing with boundary layers; `pipeline::surface_to_tet_dual_mesh` consumes an `outram-blender` surface and emits an `outram-foam` polyMesh. Independent fork, not official cfMesh. | GPL-3.0 |
-| `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, ideasUnvToFoam, polyDualMesh). Independent fork, not official OpenFOAM. | GPL-3.0 |
-| `outram-foam-cli` | OpenFOAM-style command-line utilities (blockMesh, pimpleFoam, gen-foam, …) as terminal binaries. Independent fork, not official OpenFOAM. | GPL-3.0 |
-| `outram-foam-multiphase` | Phase-II multiphase CFD — drift-flux first (Euler-Euler two-fluid, wall boiling, CHF, dryout planned). Reference physics for TAMPINES reduced-order models. Scaffold, no human V&V. Independent fork, not official OpenFOAM. | GPL-3.0 |
-| `outram-park-fork-liggghts` | Pure-Rust granular-DEM library — particles, contact mechanics, thermal DEM, pebble/packed-bed physics (ports LIGGGHTS/LAMMPS-granular). LIGGGHTS-PUBLIC is GPL-2-or-later (GPL-3-compatible; see `NOTICE`). ~~Scaffold.~~ **CORRECTED 2026-09-17** — **declared mature 2026-09-15** and cross-code verified against compiled upstream LIGGGHTS on six deterministic cases and the full HTR-10 core; "Scaffold" had been wrong since that declaration. Still no experimental validation of the granular physics. | GPL-3.0 |
-| `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport; enum-dispatched, `uom`-typed, no PETSc/FFI/MPI. Scaffold, no human V&V. Independent fork. | GPL-3.0 |
-| `outram-park-mpi` | Pure-Rust **MPICH** subset — the MPI-3 API surface (communicators, datatypes, point-to-point, core collectives) over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold. Not affiliated with MPICH. | GPL-3.0 |
-| `outram-park-fork-moltres` | **Circulating-fuel MSR** multiphysics on the `outram-foam-basic-lib` FV layer — multigroup neutron diffusion + delayed-neutron **precursor drift** + salt heat transfer, reimplemented from the LGPL-2.1 **Moltres** formulation on `FvMesh`/`fvm` rather than MOOSE/PETSc finite elements. Steady eigenvalue only (no coupled flux transient), and **no crate depends on it yet**. Untrusted AI-assisted draft, no human V&V. Independent fork, not affiliated with Moltres/ARFC. | GPL-3.0 |
-| `outram-park-fork-onix` | Pure-Rust fork of **ONIX** (MIT upstream) — Bateman/CRAM depletion + fission-product inventory for the MSRE digital twin. Untrusted AI-assisted draft, no human V&V. Independent fork, not affiliated with ONIX. | GPL-3.0 |
-| `outram-park-fork-thermochimica` | Pure-Rust fork of **ORNL Thermochimica** (BSD-3) — molten-salt Gibbs-energy-minimisation thermochemistry (fission-product speciation, redox, solubility) for the MSRE digital twin. Scaffold, no human V&V. Independent fork, not affiliated with ORNL. | GPL-3.0 |
-| `changi` | **CHANGI** (*Consequence and Hazard Analysis for Nuclear Ground-level and atmospheric Impacts*) — atmospheric consequences ("what happens after release?"). **Current scope, research/educational only:** dispersion, plume transport, radionuclide deposition, ground contamination. Radiological consequence assessment, dose assessment, emergency-planning and Level 3 PSA support are recorded as **future** scope, not current capability (maintainer direction, 2026-09-15). Middle link of SEMBAWANG → CHANGI → REDHILL, taking source terms from SEMBAWANG. Rust port of **FLEXPART v10.4** (NILU, GPL-3.0-or-later, commit `3d7eebf`). **Surface-layer and deposition scalar kernels ported and verified code-to-code** against the upstream Fortran compiled at two precisions — 11 of 12 function groups bit-exact against a `-fdefault-real-8` build, the rest of the 5e-8..3.4e-6 spread being FLEXPART's own single precision (its makefile passes no `-fdefault-real-8`). The particle advection loop, Hanna turbulence, CBL scheme, wet scavenging, mixing-height diagnostic and met readers are **not** ported. Uses `petir` for `erf` rather than porting FLEXPART's `erf.f90`. Untrusted AI-assisted draft, no human V&V, not declared mature. **Research, education and V&V only — never emergency planning, emergency response, dose assessment for real populations, or Level 3 PSA** (`docs/ecosystem-naming.md` decision 3, reaffirmed 2026-09-15). Independent fork, not affiliated with NILU. Epic `op-k9em`. | GPL-3.0 |
-| `raffles` | **RAFFLES** (Risk Analysis Framework For Learning & Ensemble Simulation) — independent pure-Rust port of the UQ / risk-analysis core of **RAVEN** (Apache-2.0, Idaho National Laboratory): distributions, samplers, Sobol/correlation sensitivity, surrogates. **Owned by Adolphus Lye.** Apache-2.0 into GPL-3.0 is **one-way** — code cannot flow back to RAVEN (see the crate `NOTICE`). ~~Scaffold only, nothing implemented, no human V&V.~~ **CORRECTED 2026-09-17** — implemented in part: distributions, samplers, sensitivity, Bayesian model updating, distances, ABC, imprecise probability, model selection, GNNs and surrogates (~17.8k lines under `src/`, `src/bayesian/`, `src/gnn/`, `src/surrogate/`) all carry working, tested code, per the crate's own `CLAUDE.md`. All AI-assisted draft, **still no human V&V**. Independent fork, not affiliated with RAVEN/INL. Scoping: `docs/raven-port-scoping.md`. | GPL-3.0 |
+| `petir` | **Core numerics** — polynomials, equations, transforms, integration, roots. `no_std`, dependency-lean, ported from GSL. Every other crate's numerics floor. | ✅ |
+| `outram-foam-basic-lib` | OpenFOAM primitive + finite-volume layer (Layers 1–4): tensor algebra, solvers, interpolation, thermophysics, fields, mesh, FV operators | ✅ |
+| `outram-foam-turbulence-lib` | OpenFOAM turbulence closures (k-ω SST implemented; others scaffolded) | |
+| `outram-foam-appbuilder-lib` | OpenFOAM solver-application layer + case I/O; host of the **GeN-Foam** deterministic-neutronics + TH port | ✅ |
+| `outram-foam-mesh` | OpenFOAM mesh generation & conversion (blockMesh, snappyHexMesh, …) | |
+| `outram-foam-cli` | OpenFOAM-style command-line utilities as terminal binaries | |
+| `outram-foam-multiphase` | Phase-II multiphase CFD — drift-flux first. Scaffold, no human V&V | |
+| `njoy-outram-park-fork` | **All nuclear data** — NJOY2016 ENDF port (RECONR/BROADR/THERMR/ACER), Faddeeva, windowed multipole, ν̄/χ. Exposes `XsProvider` | ✅ |
+| `outram-mc-libs` | **Monte Carlo transport** — CSG geometry, tracking, k-eigenvalue, delta tracking, depletion. **Data-free**: pulls from `njoy-outram-park-fork` | ✅ |
+| `teh-o-prke` | Point Reactor Kinetics (PRKE) | ✅ |
+| `nee_soon` | Integration / coupling layer — MC ⟷ deterministic/TH ⟷ nuclear data ⟷ PRKE. Steady state only, no validation | |
+| `bedok` | Systems-level multiphysics — 3-D nodal diffusion + channel TH, above 1-D neutronics and below CFD. IAEA-3D matches published `k_eff`; stage-2 corrections on by default | |
+| `tuas_boussinesq_solver` | Thermal-hydraulics (Boussinesq single-phase) — TUAS | ✅ |
+| `tampines` | Central thermal-hydraulic framework — composes TUAS, CoolProp, steam tables, outram-foam, chem-eng | |
+| `tampines-steam-tables` | IAPWS-IF97 steam/water properties + steam-turbine equations | ✅ |
+| `chem-eng-real-time-process-control-simulator` | PID / transfer-function process-control library | ✅ |
+| `outram-park-fork-coolprop` | Pure-Rust fork of **CoolProp** — Helmholtz-EOS properties (137 fluids, incompressibles, humid air, mixtures) | |
+| `outram-park-fork-dwsim-libs` | Pure-Rust fork of **DWSIM** process-simulation building blocks. **EOS layer only** has met its bar; flash layer open | ✅ |
+| `outram-park-fork-offbeat` | Pure-Rust fork of **OFFBEAT** — nuclear fuel performance (eigenstrain, rheology, gap/contact, burnup, FGR, corrosion) | |
+| `farrer-park` | **FEM structural mechanics** — small-strain elasticity, J2 plasticity, crystal plasticity. **Shear locking measured and NOT cured** (`op-uqqg`) | ✅ |
+| `outram-park-fork-liggghts` | Granular DEM — contact mechanics, thermal DEM, pebble-bed physics (ports LIGGGHTS). Cross-code verified; **no experimental validation** | ✅ |
+| `outram-park-fork-pflotran` | Pure-Rust fork of **PFLOTRAN** — subsurface flow & reactive transport. Scaffold | |
+| `outram-park-fork-cfmesh` | Pure-Rust fork of **cfMesh** — Cartesian/tet/polyhedral volume meshing with boundary layers | |
+| `outram-park-fork-moltres` | **Circulating-fuel MSR** — multigroup diffusion + precursor drift + salt heat transfer on the FV layer. Steady eigenvalue only, no consumer yet | |
+| `outram-park-fork-onix` | Pure-Rust fork of **ONIX** — Bateman/CRAM depletion + fission-product inventory | |
+| `outram-park-fork-thermochimica` | Pure-Rust fork of **ORNL Thermochimica** — molten-salt Gibbs-energy minimisation. Scaffold | |
+| `boon-lay` | TRISO-particle / Lagrangian decay simulator; includes the TRISO-ATOPS fork | |
+| `kaki-bukit` | **KAKI BUKIT** — agent-based nuclear fuel-cycle kernel, `no_std` fork of CYCLUS/CYCAMORE, numerics from `petir`. Scaffold, no human V&V | |
+| `changi` | **CHANGI** — atmospheric dispersion, plume transport, deposition, ground contamination. FLEXPART v10.4 port, scalar kernels only. **Research/education/V&V only** | |
+| `sembawang` | **SEMBAWANG** — severe-accident progression (melt, relocation, vessel failure, MCCI, hydrogen, aerosols) producing CHANGI's source term. **Placeholder: nothing implemented** | |
+| `redhill` | **REDHILL** — groundwater and geological transport of radionuclides after deposition. **Placeholder: nothing implemented** | |
+| `raffles` | **RAFFLES** — UQ / risk analysis ported from RAVEN. **Owned by Adolphus Lye.** Apache-2.0 → GPL-3.0 is **one-way**. Implemented in part, no human V&V | |
+| `outram-park-mpi` | Pure-Rust **MPICH** subset over a shared-memory threads-as-ranks transport. No C/FFI, Android-buildable. Scaffold | |
+| `outram-blender` | Mesh-authoring frontend (GPL fork of Blender's mesh architecture) + the MC and OpenFOAM export bridges | |
+| `dhoby-ghaut` | **DHOBY GHAUT** — intended GUI home for the meshing and MC studios. **Placeholder**; holds the `mc_studio` / `mesh_studio` examples | |
+| `outram-park-digital-twin-engine` | Offline digital-twin engine + egui GUI example simulators (offline demonstrations only) | |
+| `kovan-common` | KOVAN shared canonical types (`KovanDocument`, `KovanSymbol`, …) | |
+| `kovan-discovery` | KOVAN file discovery + text search (`ignore` walker, `grep-*` engine) | |
+| `kovan-literature` | KOVAN literature archive — PDF → Markdown → `KovanDocument` → BibTeX. `open/` committable, `proprietary/` gitignored | |
+| `kovan-semantics` | KOVAN repo understanding — ripgrep-first, escalating to language servers | |
+| `kovan-codegen` | KOVAN deterministic code generation for known numerical methods. Not an AI assistant | |
+| `kovan-metrics` | KOVAN repository accounting — token trailers and the historian report | |
+| `kovan` (bins `kovan`, `kovan-cli`, `kovan-tui`) | KOVAN's three front ends: `kovan` = **human GUI** (egui, digitiser window); `kovan-cli` = **agent CLI**; `kovan-tui` = **human TUI** (ratatui, Android/Termux-usable) | |
 
 > **KOVAN** is the deterministic *knowledge* layer (literature + semantics +
-> codegen), interfaced three ways, all binaries of the single `kovan` crate:
-> the `kovan-cli` **CLI** for agents, the `kovan-tui` **TUI** for humans, and
-> the `kovan` **GUI** (the graph digitiser window) for humans. Offline /
-> Android-first, no cloud, no Tree-sitter/SQLite/vector-store. Full design
-> spec: **`docs/kovan.md`** (+ `docs/kovan-architecture.md`). Non-GUI kovan
-> crates build for Android; `kovan-cli` and `kovan-tui` (including its
-> Digitiser tab) are genuinely Android/Termux-usable — `ratatui` is an
-> unconditional dependency, not target-gated off Android (see
-> `crates/kovan/README.md` "Android"); only the `kovan` GUI's egui/eframe
-> stack is Android-hostile and stays behind the `gui` feature, target-gated
-> off Android on top of that.
+> codegen), interfaced three ways, all binaries of the single `kovan` crate.
+> Offline / Android-first, no cloud, no Tree-sitter/SQLite/vector-store. Full
+> design spec: **`docs/kovan.md`** (+ `docs/kovan-architecture.md`). Non-GUI
+> kovan crates build for Android; only the `kovan` GUI's egui/eframe stack is
+> Android-hostile and stays behind the `gui` feature.
 
-> **MSRE digital-twin group:** `outram-park-fork-moltres` (circulating-fuel
-> neutronics), `outram-park-fork-onix` (depletion) and
-> `outram-park-fork-thermochimica` (salt thermochemistry) exist to serve the
-> MSRE digital twin and are tracked under the **`op-6w0`** epic. All three are
-> AI-assisted drafts with no human V&V, and none is wired into a simulator yet
-> — do not describe any of them as validated. Scoping: `docs/reactor-scoping/msre.md`.
+> **MSRE digital-twin group:** `outram-park-fork-moltres`,
+> `outram-park-fork-onix` and `outram-park-fork-thermochimica`, tracked under
+> the **`op-6w0`** epic. All three are AI-assisted drafts with no human V&V and
+> none is wired into a simulator yet — do not describe any as validated.
+> Scoping: `docs/reactor-scoping/msre.md`.
+
+> **Consequence chain:** SEMBAWANG → CHANGI → REDHILL (source term →
+> atmospheric dispersion → groundwater). Two of the three are placeholders.
 
 > **Neutronics architecture:** the responsibility split (nuclear data ⟂ Monte
-> Carlo ⟂ deterministic/TH ⟂ coupling), the dependency graph, and phasing live in
-> **`docs/architecture.md`**. Rule of thumb: *all* cross-section /
+> Carlo ⟂ deterministic/TH ⟂ coupling), the dependency graph and phasing live
+> in **`docs/architecture.md`**. Rule of thumb: *all* cross-section /
 > nuclear-data code belongs in `njoy-outram-park-fork`; transport crates are
 > data-free and pull from it.
 
-**Planned future crates** (not yet in the workspace):
-
-| Crate | Depends on | Targets |
-|---|---|---|
-| `openfoam-icof` | `outram-foam-basic-lib` | **icoFoam** (incompressible laminar PISO) |
-| `openfoam-cht` | `outram-foam-basic-lib` | **chtMultiRegionFoam** (conjugate heat transfer, multi-region) |
-| `openfoam-rho` | `outram-foam-basic-lib` | **rhoPimpleFoam** / **sonicFoam** (compressible) |
-| **GenFOAM** (deterministic + TH) | *ported inside* `outram-foam-appbuilder-lib` | Deterministic neutronics + thermal hydraulics. **No longer on hold — substantially ported**: `src/genfoam/` is ~32k lines / ~262 tests as of 2026-08-07 (AI-assisted draft, no human V&V). |
-
-> `nee-soon` is no longer "planned" — it exists as the `nee_soon` member crate
-> (see the Members table above); it remains mostly scaffold.
+**Planned future crates** (not yet in the workspace): `openfoam-icof`
+(**icoFoam**), `openfoam-cht` (**chtMultiRegionFoam**), `openfoam-rho`
+(**rhoPimpleFoam** / **sonicFoam**) — all on `outram-foam-basic-lib`.
+**GenFOAM** is *ported inside* `outram-foam-appbuilder-lib` (`src/genfoam/`,
+~32k lines / ~262 tests as of 2026-08-07; AI-assisted draft, no human V&V).
 
 **Layer 5 (solver loop logic) MUST live in these separate crates**, not in
-`outram-foam-basic-lib`.  `outram-foam-basic-lib` provides the mathematical building
-blocks (Layers 1–4) only; the PISO/PIMPLE loop, multi-region coupling logic,
-and turbulence model registries belong in solver-specific crates so that
-`outram-foam-basic-lib` stays publishable independently and is reusable by other
-projects.
+`outram-foam-basic-lib`. `outram-foam-basic-lib` provides the mathematical
+building blocks (Layers 1–4) only; the PISO/PIMPLE loop, multi-region coupling
+logic, and turbulence model registries belong in solver-specific crates so
+that `outram-foam-basic-lib` stays publishable independently.
 
-Internal dependency edges (all by **path**, not crates.io):
-`teh-o-prke → tuas` (dev); `teh-o-prke → chem-eng` (real, non-dev -- `nordheim_fuchs`'s
-optional reactivity-input driver reuses `chem-eng`'s `TransferFnFirstOrder`);
-`tuas` dev-deps → `chem-eng`, `teh-o-prke`;
-`nee_soon → teh-o-prke` (real -- `NeeSoon::new_prompt_excursion_model` exposes
-`teh-o-prke::nordheim_fuchs::NordheimFuchsExactTimestepper`);
-`outram-park-digital-twin-engine → nee_soon` (real -- `components::ReactorVesselVisual`
-wraps `NordheimFuchsExactTimestepper`);
-`tampines` dev-deps → `{tuas, teh-o-prke, chem-eng}` (the FHR simulator examples use TUAS —
-the `tampines` **library** itself is TUAS-free).
-`farrer-park → outram-foam-basic-lib` (real -- for the **shared numerical backend only**:
-`farrer-park`'s FEM `CsrMatrix` implements `outram_foam_basic_lib::linear_operator::LinearOperator`
-and drives that crate's `cg_op`/`gmres_op`/`bicgstab_op`. It does **not** take the FV
-discretisation; `LduMatrix` stays FVM-optimised and FEM stays FEM. `linear_operator` was added
-to `outram-foam-basic-lib` for this and is **purely additive** — no existing solver signature
-changed. Note GAMG and Gauss-Seidel are *not* on the contract, since coarsening needs face
-addressing, so `farrer-park` carries its own CSR ILU(0)).
-`outram-foam-basic-lib` has no internal deps (pure third-party: `uom`, `ndarray`, `thiserror`).
-`njoy-outram-park-fork` is lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
-Neutronics edges (target): `outram-mc-libs → njoy-outram-park-fork` (cross sections; declared in
-root workspace deps, wiring deferred); `nee-soon → {outram-mc-libs, njoy-outram-park-fork, teh-o-prke, outram-foam-appbuilder-lib}`.
+**Internal dependency edges** are all by **path**, not crates.io. The ones
+worth knowing: `teh-o-prke → {tuas (dev), chem-eng (real)}`; `tuas` dev-deps →
+`{chem-eng, teh-o-prke}`; `nee_soon → teh-o-prke`;
+`outram-park-digital-twin-engine → nee_soon`; `tampines` dev-deps →
+`{tuas, teh-o-prke, chem-eng}` (the **library** itself is TUAS-free);
+`outram-mc-libs → njoy-outram-park-fork` (cross sections).
+`outram-foam-basic-lib` has no internal deps, and `njoy-outram-park-fork` is
+kept lean (`thiserror`, `uom`; no BLAS) so data consumers stay light.
+
+**`farrer-park → outram-foam-basic-lib` is for the shared numerical backend
+ONLY.** Its FEM `CsrMatrix` implements
+`outram_foam_basic_lib::linear_operator::LinearOperator` and drives that
+crate's `cg_op`/`gmres_op`/`bicgstab_op`. It does **not** take the FV
+discretisation — `LduMatrix` stays FVM-optimised and FEM stays FEM
+(GitHub issue #175, epic `op-vrtt`). `linear_operator` was added for this and
+is purely additive. GAMG and Gauss-Seidel are *not* on the contract, since
+coarsening needs face addressing, so `farrer-park` carries its own CSR ILU(0).
 
 ## Dependency policy — single source of truth
 
@@ -1944,161 +1615,88 @@ Android feature gates.** "Compiles on Termux" is the acceptance bar: a build run
 BLAS/LAPACK, no C/Fortran toolchain) must succeed for every non-GUI library. This
 does not bend for convenience — if a change cannot build on Termux, it is not done
 until the offending dependency/test/example is gated off Android in the *same*
-change. Workspace-wide tracking lives in the **`op-zfr` "Android support" epic**.
+change. Tracking: the **`op-zfr` "Android support" epic**.
 
-Termux specifics to keep in mind:
-
-- **Termux builds natively on the device**, so the target is `aarch64-linux-android`
-  and **`target_os = "android"`** (not `"linux"`). Every gate below keys off that.
-- Prefer an explicit **Cargo feature** (e.g. `android`, or an inverted
-  `native-blas`/`gui` feature that is simply *not* enabled on Termux) plus the
-  `cfg(target_os = "android")` target gate, so a Termux user gets a working build
-  from the default feature set with no manual flag-twiddling.
-- No system package manager for BLAS/LAPACK/GUI libs is assumed to exist on Termux.
-
-**Every crate's non-GUI library code must also compile for Android**
-(`aarch64-linux-android` and the armv7/x86_64 emulator targets) when cross-built
-from a host. Android has no system BLAS/LAPACK and no easy C/Fortran toolchain, so
-**Android-hostile dependencies must not compile on Android** — gate them off by
-target rather than letting them break the build.
-
-- **`ndarray-linalg`** (and anything needing system BLAS/LAPACK, or a C/Fortran
-  toolchain, or `std`-GUI/windowing) is Android-hostile. Declare it only under
-  target-conditional tables — e.g.
-  `[target.'cfg(not(target_os = "android"))'.dev-dependencies]` — never as an
-  unconditional dependency. (Android's `target_os` is **`"android"`, not
-  `"linux"`**, so an existing `cfg(target_os = "linux")` gate already excludes
-  it — but do not *rely* on a linux-only gate to mean "not Android" without
-  saying so.)
+- **Termux builds natively on the device**, so the target is
+  `aarch64-linux-android` and **`target_os = "android"`** (not `"linux"`).
+  Every gate keys off that. No system package manager for BLAS/LAPACK/GUI libs
+  is assumed to exist.
+- Prefer an explicit **Cargo feature** (e.g. an inverted `native-blas`/`gui`
+  feature that is simply *not* enabled on Termux) **plus** the
+  `cfg(target_os = "android")` target gate, so a Termux user gets a working
+  build from the default feature set with no manual flag-twiddling.
+- **`ndarray-linalg`** — and anything needing system BLAS/LAPACK, a C/Fortran
+  toolchain, or `std`-GUI/windowing — is Android-hostile. Declare it only
+  under target-conditional tables, never unconditionally.
 - **Examples/tests/benches count — they are NOT exempt.** A native Termux
-  `cargo build` / `cargo test` compiles **examples, integration tests, and
-  benches**, so an Android-hostile dep or a desktop-only-API reference in *any*
-  of those breaks the on-device build even when the library itself is clean.
-  Gate every one that touches an Android-hostile path:
-  - **Tests / benches** (no `main` required): put `#![cfg(not(target_os =
-    "android"))]` at the top of the file — blanking the whole file on Android is
-    fine. Precedent: `outram-foam-basic-lib`'s `tests/matrix_bench.rs`.
-  - **Examples / bins** (a `main` *is* required — a blanked file gives "main
-    function not found"): add an **Android stub `main`** under `#[cfg(target_os
-    = "android")]` that prints a "desktop-only" line, and gate every desktop
-    item (`use`/`const`/`fn`/`struct`/…) with `#[cfg(not(target_os =
-    "android"))]`. Precedent: `njoy-outram-park-fork`'s
-    `examples/gpu_wmp_bench.rs` and `outram-mc-libs`'s
-    `examples/godiva_gpu_benchmark.rs`.
+  build compiles them, so an Android-hostile dep in *any* of them breaks the
+  on-device build even when the library is clean. Tests/benches take
+  `#![cfg(not(target_os = "android"))]` at the top of the file; examples/bins
+  need an **Android stub `main`** (a blanked file gives "main function not
+  found") with every desktop item gated. Precedents:
+  `outram-foam-basic-lib`'s `tests/matrix_bench.rs`,
+  `njoy-outram-park-fork`'s `examples/gpu_wmp_bench.rs`.
 - **Only windowing GUI is out of scope — terminal apps are IN scope.** Termux
-  *is* a terminal, so a **CLI or a `ratatui` TUI must compile and run on
-  Android** like any other non-GUI crate — do not exempt it. What is out of
-  scope is **`egui`/`eframe`/`wgpu`-surface/windowing** GUI: keep that behind
-  examples/optional bins/target gates, never in a library's unconditional
-  build, so the lib still builds headless for Android. Concretely: the `kovan`
-  crate's `kovan-cli` (CLI) and `kovan-tui` (`ratatui` TUI — genuinely
-  Android/Termux-*usable*, not merely buildable; no Android stub as of
-  2026-08-21, see `crates/kovan/README.md` "Android") binaries are **in
-  scope and verified building and running** for `aarch64-linux-android` (its
-  `kovan` binary — the GUI, renamed from `kovan-gui` the same day — is the
-  crate's own GUI exemption, gated behind a `gui` feature that defaults on
-  everywhere except Android, so it never affects the other two's Android
-  build); only `outram-park-digital-twin-engine` (egui/eframe) is a genuine
+  *is* a terminal, so a CLI or a `ratatui` TUI must compile and run on Android
+  like any other non-GUI crate. `egui`/`eframe`/`wgpu`-surface windowing stays
+  behind examples/optional bins/target gates. `kovan-cli` and `kovan-tui` are
+  in scope and verified; only `outram-park-digital-twin-engine` is a genuine
   GUI exemption.
 - **New code follows this by default.** If you add a dep or a test that can't
   build on Android, target-gate it in the same change and note it.
-- **The check MUST cover all targets, not just `--lib`.** A `cargo check
-  --lib --target aarch64-linux-android` checks *only the library* and silently
-  misses broken examples/tests/benches — the exact gap that let the
-  `godiva_gpu_benchmark` example ship un-gated (found only by an on-device
-  Termux build). The proxy check is therefore **`cargo check -p <crate>
-  --all-targets --target aarch64-linux-android`** (needs the Android target +
-  NDK / `cargo-ndk`). The **authoritative** check is still a **native Termux
-  build** (`cargo build` / `cargo test` run inside Termux on-device), which
-  compiles all targets by construction. Never report Android/Termux support as
-  verified from a `--lib`-only run. Workspace-wide Android/Termux build tracking
-  lives in beads (the **`op-zfr` "Android support" epic**).
-
+- **The check MUST cover all targets, not just `--lib`.** A `--lib`-only check
+  silently misses broken examples/tests/benches — the exact gap that let the
+  `godiva_gpu_benchmark` example ship un-gated. The proxy check is
+  **`cargo check --release -p <crate> --all-targets --target
+  aarch64-linux-android`** (needs the Android target + NDK / `cargo-ndk`). The
+  **authoritative** check is a **native Termux build** on-device. Never report
+  Android/Termux support as verified from a `--lib`-only run.
 ## WebAssembly (`wasm32-unknown-unknown`) — supported target, with a hard caveat
 
 **Every in-scope crate's library must compile for `wasm32-unknown-unknown`, and
-a gate enforces it.** Added 2026-09-04 (epic `op-okqo`); 34 of 40 members are in
-scope, 6 are deliberately excluded.
+a gate enforces it.** Added 2026-09-04. **37 of the 43 members are in scope; 6 are deliberately
+excluded** — `kovan`, `kovan-discovery`, `kovan-metrics`, `kovan-semantics`,
+`bedok` and `outram-blender`, each with its reason in the script.
+**CORRECTED 2026-09-21** — this file had said "34 of 40", stale on both
+numbers; verified against `scripts/check-wasm.sh` and the workspace member
+list. Run `scripts/check-wasm.sh` (the gate;
+`-v` shows first error lines); install the target once with
+`rustup target add wasm32-unknown-unknown`.
 
-```bash
-scripts/check-wasm.sh          # the gate; -v shows first error lines
-```
+**COMPILING IS NOT RUNNING.** The gate checks **compilation only**, and the
+gap between that and working in a browser is large: `std::thread::spawn`,
+`std::time::Instant` and `std::fs` all **compile** for wasm32 and fail only at
+**run time**. `chem-eng-real-time-process-control-simulator` is the standing
+proof — it passes the gate today while containing 5 `thread::spawn` sites and
+10 files using `std::fs`. So "passes `check-wasm.sh`" means *the types line
+up*, never *this works in a browser*. Making a crate genuinely run on wasm is
+per-crate work tracked under epic `op-eeqw` (GH #39). **Do not describe a
+crate as wasm-ready on the strength of this gate.**
 
-Install the target once with `rustup target add wasm32-unknown-unknown`.
+**The gate is `--lib`, and that is a known limitation.** The Android rule uses
+`--all-targets`; wasm cannot, because several crates carry GUI examples and
+terminal binaries that legitimately cannot build for wasm, and a permanently
+red gate is an ignored gate. A broken wasm-facing *example* will **not** be
+caught. Stated here rather than papered over.
 
-### COMPILING IS NOT RUNNING — read this before claiming wasm support
+**Choose the right mechanism: a feature is for "the user may not want this", a
+target gate is for "this cannot exist here".** And gate off the *right*
+target — `rayon`, `ratatui`/`crossterm`, `async-opcua`/`tokio`/`mdns-sd`/
+`directories` are all gated **off wasm only** and stay available on Android;
+`wgpu` is gated **off Android** (no system Vulkan/Metal loader) and separately
+off wasm in some crates for a different reason.
 
-The gate checks **compilation only**, and the gap between that and working in a
-browser is large. `std::thread::spawn`, `std::time::Instant` and `std::fs` all
-**compile** for wasm32 and fail only at **run time** — the first two panic, the
-third errors. `chem-eng-real-time-process-control-simulator` is the standing
-proof: it passes the gate today while containing 5 `thread::spawn` sites and 10
-files using `std::fs`.
-
-So "passes `check-wasm.sh`" means *the types line up*, never *this works in a
-browser*. Making a crate genuinely run on wasm is per-crate work tracked under
-epic `op-eeqw` (GH #39). Do not describe a crate as wasm-ready on the strength
-of this gate.
-
-### The gate is `--lib`, and that is a known limitation
-
-The Android rule uses `--all-targets` because a `--lib`-only check silently
-misses broken examples and tests. wasm cannot follow it: several crates carry
-egui/eframe GUI examples and terminal binaries that legitimately cannot build
-for wasm, so `--all-targets` would be permanently red and therefore ignored.
-A broken wasm-facing *example* will **not** be caught. Stated here rather than
-papered over.
-
-### The mechanism matters: feature-gate vs target-gate vs which target
-
-This trips people, so it is spelled out. Three different tools, three reasons:
-
-| Dependency | Gate | Why |
-|---|---|---|
-| `rayon` | target-gated **off wasm only** | `rayon-core` needs OS threads and does not build for wasm at all. But rayon is pure Rust and **Android-in-scope**, so feature-gating it or gating it off Android would cost Termux its multi-core path for nothing. |
-| `wgpu` | target-gated **off Android** | No system Vulkan/Metal loader there. Note it *also* needs gating off wasm in some crates for a different reason — see below. |
-| `ratatui` / `crossterm` | target-gated **off wasm only** | No terminal in a browser. A TUI **is** Android-in-scope per the Android section, so Android keeps it. |
-| `async-opcua`, `tokio`, `mdns-sd`, `directories` | target-gated **off wasm only** | Sockets, multicast, XDG paths. All verified Android-clean, so Android keeps them. |
-
-**Do not reach for a Cargo feature when a target gate is correct**, and vice
-versa. A feature is for "the user may not want this"; a target gate is for "this
-cannot exist here".
-
-### Patterns this workspace uses
-
-- **`src/wasm_par.rs`** — a small in-crate module giving serial stand-ins for
-  the handful of `rayon` adapters a crate actually uses (`njoy-outram-park-fork`,
-  `outram-mc-libs`, `boon-lay` each have one). It is **not** a parallelism
-  implementation and its docs say so. Where a crate's results are
-  thread-count-independent — which the Monte Carlo drivers document — the serial
-  path is *numerically exact*, not merely a degraded fallback.
-- **`.cargo/config.toml`** supplies `--cfg getrandom_backend="wasm_js"` for the
-  wasm target. `getrandom` 0.3 needs **both** that flag and its `wasm_js`
-  feature; the feature alone is insufficient and getrandom errors if either is
-  missing. Prefer **cutting** a transitive randomness dependency over satisfying
-  it — gating `async-opcua` off wasm removed `getrandom` 0.2 and `uuid` from
-  `outram-park-digital-twin-engine` outright.
-- **`wasm32` has a 32-bit `usize`.** When a constant overflows, **widen the
-  type; do not truncate the constant.** `outram-park-mpi`'s
-  `COLL_CONTEXT_OFFSET = 1 << 40` became `u64` because it is a numeric namespace
-  tag, not a memory size — truncating would have silently collapsed the
-  isolation it provides.
-- **wgpu's WebGPU backend is `!Send` on wasm** (it holds `Rc<Cell<u32>>`), so a
-  `static OnceLock<Option<GpuContext>>` cache will not compile there. Reaching
-  WebGPU from wasm needs a `thread_local!` instead — a real change, not a gate.
-
-### Exclusions are deliberate and listed in one place
-
-`scripts/check-wasm.sh` carries the exclusion list with a reason per crate.
-Currently excluded: `kovan`, `kovan-discovery`, `kovan-metrics`,
-`kovan-semantics` (a filesystem-walking developer CLI/TUI — "compiles for wasm"
-would be meaningless), and `bedok`, `outram-blender` (not wanted as wasm
-targets). Note `kovan-codegen`, `kovan-common` and `kovan-literature` are
-**not** excluded: they already pass, so gating them is free.
+**Exclusions are deliberate and listed in one place** —
+`scripts/check-wasm.sh` carries the list with a reason per crate. Note
+`kovan-codegen`, `kovan-common` and `kovan-literature` are **not** excluded:
+they already pass, so gating them is free.
 
 **This does not relax the Android rule.** wasm is an additional target, not a
 replacement, and nothing may break `aarch64-linux-android`.
 
+> The gate-vs-feature reasoning table, the `wasm_par.rs` / `getrandom` /
+> 32-bit-`usize` / `!Send`-wgpu patterns and the full exclusion list:
+> [`docs/claude-md-rationale/portability-android-wasm.md`](docs/claude-md-rationale/portability-android-wasm.md).
 ## File path length: 170-character hard cap (HARD RULE, added 2026-08-18)
 
 **No new file in this workspace may have a repo-relative path longer than 170
@@ -2130,64 +1728,45 @@ workspace targets contributors who may not, so the rule is to not need it.
 
 ### Path-length refactor precedent — this is a well-trodden, low-risk operation
 
-**An agent session did this exact refactor workspace-wide on 2026-08-19** (the
-170-char backlog above) and it is safe to ask for again: shortening directory
-and file names to fix path-length violations, keeping the whole workspace
-compiling (including test binaries) throughout, is a routine that has already
-been proven out here, not a novel or risky undertaking. Concretely, that pass:
+**An agent session did this exact refactor workspace-wide on 2026-08-19** —
+shortening directory and file names to fix path-length violations while
+keeping the whole workspace compiling (including test binaries) throughout is
+a routine that has already been proven out here, not a novel or risky
+undertaking. It is safe to ask for again.
 
-- Renamed the offending directories/files in `tampines-steam-tables` (2 files,
-  one private nested test-module directory, no public API involved) and
-  `tuas_boussinesq_solver` (51 files, 17 directory renames + 8 file renames).
-- **Checked every renamed identifier for public-API exposure first** (a
+Two things that pass carried that are worth repeating:
+
+- **Check every renamed identifier for public-API exposure first** — a
   workspace-wide grep for real `use`/`pub use` references, not just a
-  directory listing) before touching anything — four `tuas_boussinesq_solver`
-  identifiers turned out to be genuinely public, cross-crate API: old names
-  `ciet_steady_state_natural_circulation_test_components`,
-  `array_control_vol_and_fluid_component_collections`,
-  `one_d_fluid_array_with_lateral_coupling`,
-  `one_d_solid_array_with_lateral_coupling`, renamed to
-  `ciet_nat_circ_tests`, `array_fluid_collections`,
-  `fluid_array_lateral_coupling`, `solid_array_lateral_coupling`.
-- **First landed with a `pub use new_name as old_name;` compatibility
-  re-export** at each original declaration site, so the first push broke
-  nothing downstream without touching any consumer. **Immediately followed,
-  same day, by migrating every downstream reference** (`tampines`,
-  `tampines-steam-tables`, `teh-o-prke`, and
-  `outram-park-digital-twin-engine`'s CIET v2 binary/examples — 178 files
-  workspace-wide) to the new short names directly, then deleting the four
-  aliases once a workspace-wide grep for each old identifier came back empty.
-  The alias was a same-session bridge, not a standing policy — the maintainer
-  wanted the short names used everywhere, not kept behind a compatibility
-  shim. If a future pass repeats this on a crate with real crates.io
-  consumers outside this workspace, keeping the alias for at least one
-  published version is worth raising with the maintainer explicitly, since
-  those consumers cannot be grepped for and fixed in the same session.
-- Verified with `cargo check --workspace --lib --tests` and
-  `cargo test --workspace --no-run --release` (all test binaries, not just
-  `--lib`) after each stage, all clean.
-- **kopitiam's `rename` command could not be used** (a real bug: rust-analyzer
-  rejected every rename request with "Client does not support rename
-  capability", LSP error -32803 — filed as
-  [kopitiam#30](https://github.com/theodoreOnzGit/kopitiam/issues/30)). The
-  fallback this file's own "Workflow rules" section already prescribes for
-  when the LSP rename tooling is unavailable — enumerate every reference with
-  a text search, apply the rename by hand, and let the compiler (`cargo
-  check`) be the reference-checker that catches anything missed — carried the
-  whole refactor without incident.
+  directory listing. Four `tuas_boussinesq_solver` identifiers turned out to
+  be genuinely public cross-crate API.
+- **The compiler is the reference-checker.** kopitiam's `rename` could not be
+  used (rust-analyzer rejected every request — filed as
+  [kopitiam#30](https://github.com/theodoreOnzGit/kopitiam/issues/30)), so the
+  fallback this file's "Workflow rules" already prescribes — enumerate
+  references by text search, rename by hand, let `cargo check` catch the
+  misses — carried the whole refactor without incident.
+
+The compatibility re-exports used on the first push were a **same-session
+bridge, not a standing policy**; they were deleted the same day once every
+downstream reference had been migrated. If a future pass repeats this on a
+crate with real crates.io consumers outside this workspace, keeping the alias
+for at least one published version is worth raising with the maintainer
+explicitly, since those consumers cannot be grepped for and fixed in-session.
+
+> Full account — the exact renames, the four public identifiers, the
+> verification commands run at each stage:
+> [`docs/claude-md-rationale/path-length-refactor-precedent.md`](docs/claude-md-rationale/path-length-refactor-precedent.md).
 
 ## Build & test
 
+> Measured evidence, the CI-trigger investigation and the long-tests worked
+> examples: [`docs/claude-md-rationale/build-test-and-ci.md`](docs/claude-md-rationale/build-test-and-ci.md).
+
 A system BLAS is **only** needed to run `outram-foam-basic-lib`'s
 `matrix_bench` test (its sole remaining `ndarray-linalg` dev-dependency) — no
-library in the workspace needs it. If you want that bench:
-
-```bash
-# Arch / EndeavourOS
-sudo pacman -S openblas
-# Debian / Ubuntu / Mint
-sudo apt install libopenblas-dev
-```
+library in the workspace needs it (`sudo pacman -S openblas` /
+`sudo apt install libopenblas-dev`).
 
 **This workspace has a submodule as of 2026-09-20** — `reference-data/ace`
 (`theodoreOnzGit/ace_and_other_data`), holding the gzipped NJOY2016 ACE tables
@@ -2198,105 +1777,51 @@ directory rather than an error**, so nothing complains until something looks
 for a table and does not find one.
 
 ```bash
-cargo build --workspace --release                  # all libraries
-cargo check --release --workspace --lib --tests     # type-check (see note below)
-cargo test  --workspace --lib --tests --release    # run the test suites
+cargo build --workspace --release                   # all libraries
+cargo check --release --workspace --lib --tests     # type-check
+cargo test  --workspace --lib --tests --release     # run the test suites
 ```
 
 Note: a bare `cargo test --workspace` also compiles the **examples**. Use
 `--lib --tests` to skip them.
 
-**Type-check in RELEASE too — `--release` on `cargo check` as well (maintainer
-direction, 2026-09-17).** The check line above used to omit `--release` and was
-annotated "mode-independent". It is mode-independent in what it *reports* — the
-same type errors either way — but not in what it *costs*: without `--release`
-cargo builds a second, complete `target/debug` tree beside the release one, so a
-40+ crate workspace pays for two full sets of artifacts.
-
-Measured on this workspace, 2026-09-17: `target/debug` had grown to **3.7 GB**
-beside a 13 GB `target/release`, on a container whose writable allowance is
-roughly 38 GB — of which ~11 GB is the base image and toolchain before any build
-starts. Deleting `target/debug` was pointless while the mandated check command
-rebuilt it: it was back to 3.7 GB within two runs. Re-run as `cargo check
---release --workspace --lib --tests`, it finished in **85 s against the existing
-release tree, exit 0, with `target/release` unchanged at 13 GB** and no debug
-tree created at all.
-
-So: **pass `--release` to `cargo check` as well**, and keep a single build tree.
-This is the same reasoning as the release-mode rule under "Workflow rules" — it
-simply extends it to the type-check, which had been the one command still
-pulling in the dev profile. `cargo quick-test` (`.cargo/config.toml`) already
-expands to a `--release` invocation and is unaffected.
-
 ### EVERYTHING is release — every profile, every target, no exceptions
 
 **Maintainer direction, 2026-09-19: "everything should be release, no debug".**
-The 2026-09-17 entry above fixed the workspace type-check; this generalises it.
 **Every `cargo build`, `check`, `test`, `run`, `clippy` and `bench` in this
 workspace passes `--release`** — in a command you type, in a command a doc
-tells someone to type, and in a script.
+tells someone to type, and in a script. This includes `cargo check`, which
+otherwise builds a second complete `target/debug` tree beside the release one,
+and it includes every `--target` cross-compilation invocation (the wasm and
+Android gates), which default to the dev profile and put the result under a
+directory nobody looks at.
 
-**The cross-compilation targets were the larger hole, not the host.** The host
-`target/debug` that prompted the first rule was 3.7 GB. Measured 2026-09-19,
-after that rule was already in force:
+The profile changes what a check *costs*, never what it *reports*. Measured
+2026-09-19: moving the gates to release took the five build trees from ~15 GB
+to 5.2 GB for identical results. `cargo install`, `cargo publish` and
+`cargo fmt` need nothing — the first two build in release already, the third
+builds nothing.
 
-| tree | size | built by |
-|---|---|---|
-| `target/wasm32-unknown-unknown/` (dev) | **5.7 GB** | `scripts/check-wasm.sh`, 34 crates |
-| `target/debug/` | 4.2 GB | per-crate `cargo check` with no profile |
-| `target/release/` | 4.0 GB | everything else |
-| `target/aarch64-linux-android/` (dev) | 651 MB | the Android gate |
-| `target/thumbv7em-none-eabihf/` (dev) | 371 MB | petir's `no_std` checks |
-
-The wasm gate alone was carrying more artifacts than the entire release build,
-because a `--target` invocation still defaults to the dev profile — it just
-puts the result under a different directory where nobody looks. Fixed in
-`scripts/check-wasm.sh` and in the eight crate `CLAUDE.md` files whose
-prescribed commands omitted it (16 command lines), plus 14 more in seven
-`README.md` files and four in `crates/petir/docs/verification-summary.md`.
-
-**Measured after, same session.** The gate re-run in release reports
-**37 ok, 0 failed, 6 excluded** — identical to the dev-profile result, which
-is the point: the profile changes what it costs, not what it reports. The
-tree it leaves behind is **744 MB instead of 5.7 GB**, a 7.7x reduction for
-the same answer. Across all five trees the workspace went from roughly 15 GB
-to 5.2 GB, and the container from 13 GB free to 23 GB.
-
-**What this does NOT change.** Historical records stay as they were run:
-`verification_and_validation/generated/`, `debug_markdowns/`, the
-`docs/<crate>-api.md` mirrors and the V&V logs record commands that were
-actually executed, and rewriting them would falsify the record. Fix the
-instruction, never the receipt.
-
-**`cargo install`, `cargo publish` and `cargo fmt` need nothing** — the first
-two build in release already, the third builds nothing.
+**Historical records stay as they were run**
+(`verification_and_validation/generated/`, `debug_markdowns/`, the
+`docs/<crate>-api.md` mirrors, the V&V logs). Fix the instruction, never the
+receipt.
 
 ### TUAS natural-circulation tests are VERY long running — run them in parallel
 
 **HARD RULE.** The CIET coupled-DRACS natural-circulation regression tests and
 simulations in `crates/tuas_boussinesq_solver` (under
-`pre_built_components/ciet_nat_circ_tests/`,
-including `coupled_dracs_loop_tests/` and the
-`para_heat_loss_regr_tests/`) take a **very** long time. They
-integrate a coupled loop at a 0.1 s timestep for 2000–2500 s of simulated time
-to reach steady state — see the crate `CLAUDE.md` "Testing Notes".
+`pre_built_components/ciet_nat_circ_tests/`, including
+`coupled_dracs_loop_tests/` and `para_heat_loss_regr_tests/`) integrate a
+coupled loop at a 0.1 s timestep for 2000–2500 s of simulated time to reach
+steady state — see the crate `CLAUDE.md` "Testing Notes".
 
 **They must be run in parallel, not serially.** Let cargo's test harness use
-all cores rather than forcing a single thread:
+all cores: `cargo test --release -p tuas_boussinesq_solver`. **Do not add
+`--test-threads=1`**, and do not wrap them in anything that serialises
+execution. If a specific case needs isolation, isolate that case rather than
+the whole suite.
 
-```bash
-# GOOD — the harness parallelises across tests by default
-cargo test --release -p tuas_boussinesq_solver
-
-# BAD — serialises every case; these tests are far too slow for this
-cargo test --release -p tuas_boussinesq_solver -- --test-threads=1
-```
-
-So: **do not add `--test-threads=1`**, and do not wrap them in anything that
-serialises execution. If a specific case needs isolation, isolate that case
-rather than the whole suite.
-
-Practical consequences for an agent or a CI step:
 - **Budget real wall-clock time.** A default 120 s command timeout will kill
   them mid-run; give them a generous timeout or run them in the background.
 - **Run the targeted subset** while iterating (`cargo test --release -p
@@ -2312,13 +1837,8 @@ its crate's `long-tests` feature, and that feature MUST be in the crate's
 possible at all, and the default-on is mandatory so the slow tests still run
 unless someone deliberately turns them off.
 
-**The threshold is per test, not per suite.** A test binary that takes 12
-minutes across 40 tests running in parallel contains no long test; a single
-test that takes 6 minutes does. Measure the test, not the `cargo test`
-invocation.
-
-**Three tiers, and this rule only creates the middle one.** The workspace
-already had the other two; do not collapse them together.
+**The threshold is per test, not per suite.** Three tiers — do not collapse
+them together:
 
 | runtime | treatment | in a default `cargo test`? |
 |---|---|---|
@@ -2327,124 +1847,25 @@ already had the other two; do not collapse them together.
 | multiple hours | plain unconditional `#[ignore = "..."]` | no — opt in with `--ignored` |
 
 **Measure, never inherit a number.** Runtimes in this workspace's own comments
-have been wrong by a factor of four. On 2026-09-16 the two
-`outram-park-fork-liggghts` cases were timed for the first time:
-`bulk_packing_matches_liggghts` was documented at ~210 s and measured **317 s**
-— which moved it across the threshold and changed how it had to be gated —
-and `lifting_cylinder_heap_matches_liggghts` was documented at ~10 min in the
-test and 25 min in the crate's `CLAUDE.md`, and measured **2313 s (38.5 min)**.
-Runtime is also machine-dependent, so record the number **with its date**, and
-re-measure rather than trusting a figure written by a previous session on
-different hardware. A test sitting just under the threshold on one machine is
-over it on another; when it is close, gate it.
+have been wrong by a factor of four (see the rationale doc). Record the number
+**with its date**, and re-measure rather than trusting a figure written by a
+previous session on different hardware. When it is close to the threshold,
+gate it. Do **not** promote an hours-long test into the middle tier, and do
+**not** demote a mid-tier test into the bottom one — if a test is the evidence
+for a claim quoted in this file, it belongs in the default run.
 
-**Do NOT promote an hours-long test into the middle tier.** Several already
-exist — TUAS's `dracs_mesh_refinement/mesh_refinement_{10,20}_times.rs` carry
-`#[ignore = "regression test takes several hours"]` across 18 tests. Putting
-those behind `long-tests` would make the ordinary suite take a day, which
-defeats the purpose of having a suite that anyone runs. They stay
-unconditionally ignored and opt-in.
-
-**Do NOT demote a mid-tier test into the bottom one either.** An
-unconditional `#[ignore]` on a 6-minute test is how a V&V claim ends up
-protected by nothing: `outram-park-fork-liggghts`'s bulk-packing and
-angle-of-repose cases each back a number quoted in this file's maturity
-roster, and neither had ever run in a normal suite. If a test is the evidence
-for a claim, it belongs in the default run.
-
-### `long-tests` also gates the REFERENCE-DATA tier (maintainer direction, 2026-09-20)
-
-**A second, orthogonal criterion shares the same feature flag: a test built on
-heavy reference data goes behind `long-tests` even when its runtime is well
-under 5 minutes.** Cargo gives one lever, not two, so both criteria land in
-`long-tests`.
-
+**A second, orthogonal criterion shares the same flag: a test built on heavy
+reference data goes behind `long-tests` even when its runtime is well under 5
+minutes** (maintainer direction, 2026-09-20). Cargo gives one lever, not two.
 The point is that a *short* run must need no heavy reference data, which is
-what makes the CI split below possible. First applied to
-`njoy-outram-park-fork`'s NJOY2016 oracle tier:
+what makes the CI split below possible. **State which criterion applies in the
+`ignore` message and the doc comment** — a reader who sees a 3.3 s test behind
+`long-tests` will otherwise assume the runtime figure is wrong.
 
-| test | measured runtime | gated on |
-|---|---|---|
-| `acer_ce_esz_vs_njoy2016` | 88.5 s (2 tests) | **data** |
-| `acer_broadening_vs_njoy2016` | 69 s | **data** |
-| `acer_thermal_vs_njoy2016` | 3.3 s | **data** |
-
-None qualifies on runtime. All three read oracles extracted from the
-`reference-data/ace` submodule's NJOY tables (316 MB for U-235 alone).
-
-**State which criterion applies in the `ignore` message and the doc comment.**
-A reader who sees a 3.3 s test behind `long-tests` will otherwise assume the
-runtime figure is wrong, which is exactly the kind of mistrust that gets a gate
-deleted.
-
-### CI runs short on `develop` and long on `main`
-
-**Maintainer direction, 2026-09-20.** Until that date `fast-tests.yml` covered
-**both** branches and passed `--no-default-features` on both, so **CI never
-exercised the `long-tests` tier at all** — the workflow's own header said "a
-green badge from this file means 'nothing fast is broken', never 'the suite
-passes'", and nothing ran the other half.
-
-| branch | workflow | command | `long-tests` |
-|---|---|---|---|
-| `develop` | `.github/workflows/fast-tests.yml` | `cargo quick-test` | **off** |
-| `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release` | **on** |
-| *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
-
-`fast-tests.yml` is now `develop`-only: the full command is a strict superset
-of `quick-test`, so running both on `main` would be pure duplication. The full
-job checks out submodules and allows 360 minutes; it is Linux-only, because the
-long tier is dominated by TUAS's coupled natural-circulation regressions and a
-three-OS matrix buys little there.
-
-**`manual-tests.yml` (added 2026-09-20) fills the gap the two-branch split
-leaves: running the FULL suite against `develop` on demand.** Neither of the
-other two can — `fast-tests.yml` is short by construction, and `full-tests.yml`
-only fires on `main`.
-
-**It has TWO triggers, and the reason is a GitHub constraint worth knowing.**
-`workflow_dispatch` is exposed ONLY for workflows present on the **default
-branch**. Measured 2026-09-20: `full-tests.yml` already carried
-`workflow_dispatch:`, and `POST /actions/workflows/full-tests.yml/dispatches`
-still returned **404**, with `GET /actions/workflows` listing only
-`fast-tests.yml` — because `main` has no `.github` directory at all, sitting
-2056 commits behind `develop`. So adding another dispatch-only workflow to
-`develop` would have changed nothing.
-
-The second trigger is therefore a **push to a `ci-run/**` branch**, which the
-default-branch rule does not cover, because a push event runs the workflow file
-from the pushed ref itself:
-
-```bash
-git push -f origin develop:ci-run/develop     # full suite, develop's exact tree
-```
-
-Force-push is expected — `ci-run/**` branches are disposable triggers, never
-merged from, safe to delete. The pattern deliberately excludes `develop` and
-`main` so it cannot fire on ordinary work. That path takes no inputs (a push
-carries none) and always runs the full scope; the dispatch path adds
-scope/crate/filter inputs **once the file reaches `main`**, which as of
-2026-09-20 it has not.
-
-**Not yet enabled, and deliberately:** `OUTRAM_PARK_REQUIRE_REFERENCE_DATA=1`
-on the full job, which turns a data-skip into a hard failure and is the real
-guard against a test "passing in 0.00 s having asserted nothing". Whether the
-whole workspace passes with it on has **not been measured**, and switching it on
-unmeasured would paint the job red for the wrong reason. Measure, then enable.
-
-**This rule is about RUNTIME ONLY. It says nothing about why else a test may
-be ignored, and it un-ignores nothing on its own.** An `#[ignore]` that exists
-for any other reason keeps it, at any runtime:
-
-- **Measurements and diagnostics that assert nothing** — `ldu_matrix`'s
-  `"measurement, ~31 s"` benchmarks, `keff.rs`'s hardware-dependent timing
-  runs, `reactor_physics.rs`'s `"a spectrum-direction diagnostic, not a
-  gate"`. A test that cannot fail is not protecting anything, so putting it in
-  the default suite buys nothing and costs wall clock.
-- **Unimplemented or won't-port work** — most of
-  `outram-mc-libs/tests/openmc_notebooks/`, each carrying its bead id.
-- **Deliberately on hold** by maintainer decision.
-
+**This rule is about RUNTIME (and reference data) ONLY. It un-ignores
+nothing.** An `#[ignore]` that exists for any other reason keeps it, at any
+runtime: measurements and diagnostics that assert nothing, unimplemented or
+won't-port work, and anything deliberately on hold by maintainer decision.
 Before converting any `#[ignore]` to the feature gate, read its message. If it
 does not say the test is slow, leave it alone.
 
@@ -2459,8 +1880,6 @@ does not say the test is slow, leave it alone.
 fn coupled_dracs_loop_reaches_steady_state() { /* ... */ }
 ```
 
-and in that crate's `Cargo.toml`:
-
 ```toml
 [features]
 default = ["long-tests"]
@@ -2469,46 +1888,49 @@ long-tests = []
 
 **Use `#[cfg_attr(..., ignore)]`, never `#![cfg(feature = ...)]`.** The
 `ignore` form keeps the test compiled and reports it as `ignored` when
-switched off, so a skipped long test is visible in the output. Blanking it
-out with `cfg` makes it disappear silently, and a test that can silently
-vanish is a test that rots. The state a reader wants — "this ran", "this was
-deliberately skipped", "this does not exist" — must stay distinguishable.
+switched off. Blanking it out with `cfg` makes it disappear silently, and a
+test that can silently vanish is a test that rots.
 
-**Turning them off, for iteration only:**
+**Turning them off, for iteration only:** `cargo quick-test` (whole workspace)
+or `cargo quick-test -p <crate>`. The alias lives in `.cargo/config.toml` and
+expands to `cargo test --release --lib --tests --no-default-features`.
 
-```bash
-cargo quick-test                 # whole workspace, long tests skipped
-cargo quick-test -p <crate>      # one crate
-```
-
-The alias lives in `.cargo/config.toml` and expands to `cargo test --release
---lib --tests --no-default-features`. Cargo has no flag to disable a single
-default feature, so `--no-default-features` is the only mechanism; it also
-drops `kovan`'s `gui` and `petir`'s `transfer-fn`, both of which build and
-test fine without, and dropping `gui` is desirable headless anyway.
-
-**Work is NOT done on a `quick-test` run.** `cargo quick-test` is for the
-edit-compile-check loop. Before reporting work complete, before committing,
-and before any hand-off, run the real thing:
-
-```bash
-cargo test --workspace --lib --tests --release
-```
-
-Reporting a green `quick-test` as if it were a green suite is the failure
-mode this rule creates, so it is called out explicitly: **say which of the
-two you ran.** "Tests pass (quick-test; long tests not run)" is an honest
-report. "Tests pass" after a `quick-test` is not.
+**Work is NOT done on a `quick-test` run.** Before reporting work complete,
+before committing, and before any hand-off, run
+`cargo test --workspace --lib --tests --release`. **Say which of the two you
+ran.** "Tests pass (quick-test; long tests not run)" is an honest report.
+"Tests pass" after a `quick-test` is not.
 
 **When you write a test that crosses the threshold, gate it in the same
 change** — add the feature to the crate's `Cargo.toml` if it has none, and
-state the measured runtime in the `ignore` message so the next reader knows
-what they are skipping. Do not guess the number; measure it.
+state the measured runtime in the `ignore` message. Do not guess; measure.
 
-**This does not change the TUAS rule above.** Those tests are long *and* must
-run in parallel; gating them does not license `--test-threads=1`, and a
-timeout is still not a failure.
+### CI runs short on `develop` and long on `main`
 
+| branch | workflow | command | `long-tests` |
+|---|---|---|---|
+| `develop` | `.github/workflows/fast-tests.yml` | `cargo quick-test` | **off** |
+| `main` | `.github/workflows/full-tests.yml` | `cargo test --workspace --lib --tests --release` | **on** |
+| *on request, any branch* | `.github/workflows/manual-tests.yml` | either, chosen by input | selectable |
+
+`manual-tests.yml` fills the gap the split leaves — running the FULL suite
+against `develop` on demand. It has **two** triggers because GitHub exposes
+`workflow_dispatch` only for workflows present on the **default branch**, and
+`main` has no `.github` directory at all. The second trigger is a push to a
+`ci-run/**` branch, which a push event runs from the pushed ref itself:
+
+```bash
+git push -f origin develop:ci-run/develop     # full suite, develop's exact tree
+```
+
+Force-push is expected — `ci-run/**` branches are disposable triggers, never
+merged from, safe to delete. The pattern excludes `develop` and `main` so it
+cannot fire on ordinary work.
+
+**Not yet enabled, deliberately:** `OUTRAM_PARK_REQUIRE_REFERENCE_DATA=1` on
+the full job, which turns a data-skip into a hard failure. Whether the whole
+workspace passes with it on has **not been measured**; switching it on
+unmeasured would paint the job red for the wrong reason. Measure, then enable.
 ## Reference material (read on demand, not per turn)
 
 These live in `docs/` so they don't load on every turn — consult them only when
@@ -2528,71 +1950,87 @@ Optional **chat-only** Singlish style toggle — the full rules, vocabulary, and
 the **maintainer-curated corrections log** live in **[`SINGLISH_MODE.md`](./SINGLISH_MODE.md)**.
 In short: when the user asks for "Singlish mode" (or "lah mode" etc.), reply in
 Singlish for the *conversational prose only*; **code, comments, commit messages,
-`README`/`docs`, V&V write-ups, and beads stay clear standard English**, and no
+`README`/`docs`, V&V write-ups, and issues stay clear standard English**, and no
 mandatory rule (responsible-use / data policy, V&V docs, Rust design rules,
 never-auto-commit/push — and the working-hours guardrail whenever the session
 has opted into it) is relaxed — correctness and honesty come first. **When in Singlish mode, read `SINGLISH_MODE.md` and apply its logged
 corrections.** Default is standard English; opt-in only.
 
 
-<!-- BEGIN ISSUE TRACKER INTEGRATION (hand-maintained for kopi-beans since 2026-08-07; formerly BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61) -->
-## Issue Tracker (kopi-beans)
+<!-- Issue-tracker integration: hand-maintained. Was a kopi-beans managed block
+     (BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61) until 2026-09-21,
+     when kopi-beans was deprecated as this workspace's tracker. Do not let a
+     generator rewrite this section. -->
+## Issue tracker (GitHub issues)
 
-This project uses **kopi-beans** (`bn`) for issue tracking — it replaced
-beads-rs (`bd`) on 2026-08-07 and `bd` is now uninstalled. Run `bn prime` to
-see workflow context. The store is **live and readable** (kopi-beans **0.1.3**
-installed as of 2026-08-12, format_version 2); `bn status`, `bn list`,
-`bn ready` all work.
-
-### Quick Reference
+**Maintainer direction, 2026-09-21: GitHub issues are this workspace's issue
+tracker. `bn` / kopi-beans is no longer mandated.** See "Issue tracking &
+roadmap" above for the full rule; this is the quick reference.
 
 ```bash
-bn ready              # Find available work
-bn show <id>          # View issue details
-bn claim <id>         # Claim work
-bn close <id>         # Complete work
+gh issue list --state open                       # what is open
+gh issue list --assignee @me --state open        # your active work
+gh issue view <number>                           # details + comments
+gh issue create --title "..." --body "..."       # file one
+gh issue close <number> --comment "..."          # close with evidence
 ```
+
+Useful filters: `--label`, `--milestone`, `--search`. Labels carry what a
+tracker's type/priority fields used to: `bug`, `enhancement`, `epic`,
+`P0`…`P3`. Link work with `Closes #<n>` in a commit or PR body, and reference
+a parent epic by number in the issue body.
 
 ### Rules
 
-- Use `bn` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists. The only exception is an environment with no working `bn` build at all, which must be stated in the hand-off.
-- Run `bn prime` for workflow context.
-- **Sync is automated.** See "Workflow rules" above for the `Stop`-hook mechanics and scope (not repeated here).
+- **Use GitHub issues for ALL task tracking.** Do not use TodoWrite,
+  TaskCreate, or markdown TODO lists. If `gh` is unavailable or
+  unauthenticated in a given environment, fall back to the harness task tools
+  and **say so in the hand-off**.
+- **Do not close an issue on your own initiative.** Closing is the
+  maintainer's decision — propose it with the evidence and let them call it.
+- **Legacy `op-*` identifiers are historical.** Several hundred beads were
+  filed under the old tracker and are cited throughout this file and the
+  crate docs. Treat an `op-*` id as a **historical reference**, not something
+  to look up in `gh`. Do not mint new ones.
 - Persistent durable facts / user preferences: keep using the per-project
-  `memory/` + `MEMORY.md` workflow (see the "Issue tracking & roadmap" section
-  above — this workspace keeps MEMORY.md; it is **not** dropped).
+  `memory/` + `MEMORY.md` workflow — that is complementary to the tracker and
+  is **not** dropped.
 
-**Architecture in one line (kopi-beans):** issues live in git refs — canonical state on `refs/heads/beads/store` (state/deps/tombstones jsonl + meta.json), backups under `refs/beads/backup/*`, plus a preserved pre-migration snapshot at `refs/beads/premigration-v1-20260807` that must not be deleted. The daemon debounces local writes and publishes them to the git remote itself; the manual push is a fallback for when the daemon is not running. `.beads/issues.jsonl` is a local compat-export symlink.
+## Agent context profiles
 
-## Agent Context Profiles
+This is task-tracking guidance, not permission to override repository, user,
+or orchestrator instructions.
 
-The managed tracker block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
-
-- **Conservative (default)**: Use `bn` for task tracking — its store is live in this repo. Do not run git commits, git pushes, or a manual sync unless explicitly asked; that includes `git push origin refs/heads/beads/store:refs/heads/beads/store`, which on kopi-beans 0.1.3 is normally unnecessary anyway — the daemon publishes the ref itself (kopitiam#19 resolved, verified 2026-08-12). At handoff, report changed files, validation, suggested next commands, and whether the store ref still needs pushing.
-- **Minimal**: Keep tool instruction files as pointers to `bn prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close issues, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
-
-## Session Completion
-
-This protocol applies when ending a kopi-beans-tracked implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
-
-1. **File issues for remaining work** - Create tracker issues (or, while the blocker above is open, harness tasks) for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
-   ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
-
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   git push
-   git status
-   ```
-5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
+- **Conservative (default).** Track work in GitHub issues. Do **not** run git
+  commits, pushes, or a manual sync unless explicitly asked. At hand-off,
+  report changed files, validation run, suggested next commands, and anything
+  left blocked.
+- **Minimal.** Keep tool instruction files as pointers to this section; same
+  conservative git policy unless active instructions say otherwise.
+- **Team-maintainer.** Only when the repository explicitly opts in may agents
+  close issues, run quality gates, commit, and push as part of session close.
+  A current "do not commit" or "do not push" instruction still wins.
 
 **Critical rules:**
-- Explicit user or orchestrator instructions override this tracker block.
-- Do not commit or push without clear authority from the active profile or the current user request.
-- If a required sync or push is blocked, stop and report the exact command and error.
-<!-- END ISSUE TRACKER INTEGRATION -->
+
+- Explicit user or orchestrator instructions override this block.
+- Do not commit or push without clear authority from the active profile, the
+  current user request, or the stop hook (see "Workflow rules").
+- If a required push is blocked, stop and report the exact command and error.
+
+## Session completion
+
+This protocol applies when ending an implementation workflow. It is
+subordinate to explicit user, repository, and orchestrator instructions.
+
+1. **File issues for remaining work** — `gh issue create` for anything that
+   needs follow-up.
+2. **Run quality gates** (if code changed) — tests, linters, builds, in
+   release mode, and say which suite you ran (see "Build & test").
+3. **Update issue status** — comment progress on in-progress items; propose
+   closures rather than making them.
+4. **Handle git by the never-auto-commit/push rule** — report `git status` and
+   the proposed commands and wait for approval, unless the user or the stop
+   hook has asked for the commit.
+5. **Hand off** — summarise changes, validation, issue status, and any blocked
+   commit/push step with the exact command and error.
