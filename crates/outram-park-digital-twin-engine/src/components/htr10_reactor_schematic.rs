@@ -21,8 +21,8 @@
 //!    │  ╭───────╮       ╭───────╮  │  cold helium RETURNS LOW, through the
 //!    │  │ ╰═╗           ╔═════╯ │  │  annulus of the coaxial duct
 //!    │  │  ══ cold plenum (9.7 cm) ══ │
-//!    │  ↑ │      ┌─────┐        │↑  │  1. DOWN the annulus to the bottom
-//!    │  ↑ │      │ bed │        │↑  │     cavity
+//!    │    │      ┌─────┐        │   │  1. DOWN the annulus, duct to the
+//!    │    │      │ bed │        │   │     borehole pick-up only
 //!    │  ↑ │      │  ↓  │        │↑  │  2. U-bend at the foot, UP the
 //!    │  ↑ │      └──┬──┘        │↑  │     boreholes, then a 90-degree turn
 //!    │  ╰─╮         ▼         ╭─╯  │     inward, level into the plenum
@@ -38,12 +38,16 @@
 //! the vessel, and pass 1 is a **short descent to the bottom cavity** — not a
 //! full-height downcomer fed from the top.
 //!
-//! The annulus is nonetheless drawn cold over its **whole** height, because it
-//! is: section 4.2 records it as *"filled with 250 degC cold helium to hold
-//! vessel temperature below limit"*. Being full of cold helium is what
-//! protects the pressure boundary, and that is true whether or not gas is
-//! moving through a given part of it — so the fill and the tracers cover
-//! deliberately different extents.
+//! **The annulus is drawn only where the gas moves** — from the duct centreline
+//! down to where the boreholes pick it up (maintainer direction, 2026-09-21).
+//!
+//! Worth knowing what that leaves out: section 4.2 records the annulus as
+//! *"filled with 250 degC cold helium to hold vessel temperature below limit"*
+//! over its **whole** height, so the real one is cold end to end regardless of
+//! where gas is flowing. Drawing only the live segment reads far better — the
+//! eye follows one path instead of a tall block with a short active part
+//! inside it — at the cost of no longer showing the whole boundary bathed in
+//! cold helium. A deliberate trade, not an oversight.
 //!
 //! Source for the sequence: `docs/reactor-scoping/htr10-plant-data.md`
 //! section 4.4, from two sources that agree — step 4 takes the cold helium
@@ -985,33 +989,30 @@ impl Widget for Htr10ReactorSchematic {
 
         // ── Pass 1: the annulus ────────────────────────────────────────────
         //
-        // Drawn cold over its FULL height, because it is: section 4.2 records
-        // it as "filled with 250 degC cold helium to hold vessel temperature
-        // below limit". Being full of cold helium is what protects the
-        // pressure boundary, whether or not gas moves through a given part.
-        // The MOVING part is shorter — from the duct down to the bottom
-        // cavity — so fill and tracers cover deliberately different extents.
-        let annulus_top = zy(-6.0);
-        let annulus_bottom = zy(bottom_z + 44.0);
+        // Drawn ONLY where the gas is actually moving: from the centreline of
+        // the coaxial duct, where the cold return enters, down to where the
+        // boreholes pick it up. **Maintainer direction, 2026-09-21.**
+        //
+        // Note what this deliberately does NOT draw. Section 4.2 records the
+        // annulus as "filled with 250 degC cold helium to hold vessel
+        // temperature below limit" over its whole height, so the real annulus
+        // is cold from end to end whether or not gas flows through a given
+        // part of it. An earlier version drew that full extent. Showing only
+        // the moving segment reads far better — the eye follows one path
+        // instead of a tall block with a short live section inside it — at the
+        // cost of no longer showing that the whole boundary is bathed in cold
+        // helium. That trade is the maintainer's call; do not "restore" the
+        // full-height fill as a correctness fix.
         let mut downcomer_rects = Vec::new();
         for side in [-1.0_f32, 1.0] {
             let a = rx(REFLECTOR_OUTER_RADIUS_CM, side);
             let b = rx(VESSEL_INNER_RADIUS_CM, side);
-            painter.rect_filled(
-                Rect::from_min_max(
-                    Pos2::new(a.min(b), annulus_top),
-                    Pos2::new(a.max(b), annulus_bottom),
-                ),
-                1,
-                cold,
-            );
-            // The MOVING descent runs from the duct only as far as the
-            // boreholes pick the gas up. Below that the annulus is still
-            // full of cold helium, but the gas is in the channels.
-            downcomer_rects.push(Rect::from_min_max(
+            let run = Rect::from_min_max(
                 Pos2::new(a.min(b), coax.center().y),
                 Pos2::new(a.max(b), borehole_pickup_y),
-            ));
+            );
+            painter.rect_filled(run, 1, cold);
+            downcomer_rects.push(run);
         }
 
         // ── Fuel discharge tube — the pebble-handling route ────────────────
