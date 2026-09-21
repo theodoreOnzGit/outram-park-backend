@@ -24,8 +24,9 @@
 //!
 //! Model selection is mechanical, not curated: a model is in if it has between
 //! 1 and 600 cut sets (the largest Aralia benchmarks reach 75,379 products and
-//! exhausted memory on a first attempt) **and** its report contains exactly
-//! one `<sum-of-products>`. The second condition matters — a model defining
+//! exhausted memory on a first attempt; they are left out by maintainer
+//! direction, 2026-09-21, rather than pending) **and** its report contains
+//! exactly one `<sum-of-products>`. The second condition matters — a model defining
 //! several fault trees produces one result set per tree and the fixture format
 //! has nowhere to say which product belongs to which, so merging them would be
 //! silently wrong. `TransTest/trans_one` and `ThreeLevels/top` are excluded by

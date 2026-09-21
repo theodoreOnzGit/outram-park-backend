@@ -107,7 +107,9 @@ bottom out at order 3. Extraction of all nine takes about 5 s.
 Model selection is mechanical rather than curated. A model is skipped when:
 
 - **it has more than 600 cut sets** — the largest Aralia benchmarks reach
-  75,379 products and exhausted memory on a first attempt; or
+  75,379 products and exhausted memory on a first attempt. Left out by
+  **maintainer direction, 2026-09-21** — a closed decision rather than a
+  pending one, so do not raise this cap to chase them; or
 - **its report contains more than one `<sum-of-products>`** — a model defining
   several fault trees produces one result set per tree, and this format has
   nowhere to say which product belongs to which, so merging them would be

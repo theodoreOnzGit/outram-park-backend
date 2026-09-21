@@ -198,8 +198,9 @@ fixture instead of being silently dropped:
   had been compared successfully, when the merge was noticed; the earlier pass
   on `TransTest` had been luck, since its report's total covers one tree while
   its product list merges two.
-- **More than 40 cut sets** — the Aralia benchmarks reach 75,379 products and
-  exhausted memory on a first attempt.
+- **More than 600 cut sets** — the largest Aralia benchmarks reach 75,379
+  products and exhausted memory on a first attempt. Left out by maintainer
+  direction (2026-09-21) rather than pending.
 - **A structure the parser cannot read** — a nested formula, an `xi:include`d
   model, an ambiguous top gate, or a `<define-component>` private namespace.
   `ThreeMotor/three_motor` trips the last of these.
@@ -745,12 +746,16 @@ third-party project was not part of this task.
   now: 540 assertions in 71 test cases, all passing, including a test per
   benchmark model. See above.
 - **Eleven models, 4,702 cut sets.** The coherent fixture holds 85 basic
-  events and 452 products, the non-coherent one 111 and 4,262. Real PRA models reach tens of
-  thousands of cut sets, and the largest Aralia benchmarks in upstream's own
-  suite already reach 75,379 — those exhausted memory during extraction and
-  are not in the fixture. `Approximation::Exact` cannot scale in principle
-  (it is `2^n`, capped at 20 cut sets), and `scram::mocus` is exponential in
-  the worst case, which is exactly what upstream's ZBDD exists to avoid.
+  events and 452 products, the non-coherent one 111 and 4,262. Real PRA models
+  reach tens of thousands of cut sets, and the largest Aralia benchmarks in
+  upstream's own suite already reach 75,379.
+  **Those are deliberately left out — maintainer direction, 2026-09-21** —
+  having exhausted memory during a first extraction attempt. This is a closed
+  decision, not an open gap: do not reopen it by raising the fixture's
+  600-product cap or by chasing the memory ceiling.
+  `Approximation::Exact` cannot scale in principle (it is `2^n`, capped at 20
+  cut sets), and `scram::mocus` is exponential in the worst case, which is
+  exactly what upstream's ZBDD exists to avoid.
 - **`ThreeMotor/three_motor` is the one model no route covers structurally.**
   Its 12 cut sets are checked against the quantification layer only. The cause
   is `<define-component role="private">`: resolving those namespaces means
