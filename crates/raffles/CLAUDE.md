@@ -112,8 +112,15 @@ evidence, a translation agreeing with its original is much weaker. That is the
 same rule the paper-derived Bayesian modules follow.
 
 Absent: BDD, ZBDD, the preprocessor, complement elimination (so **non-coherent
-trees are refused, not approximated**), upstream's probability cut-off on
-products, XML input, event trees, alignments, CCF groups, house events.
+trees are refused, not approximated**), XML input, event trees, alignments,
+CCF groups, house events.
+
+~~upstream's probability cut-off on products~~ **CORRECTED 2026-09-21** — that
+was listed as absent, wrongly. SCRAM 0.16.2 stores and validates
+`Settings::cut_off_` but **never reads it**: the getter has no callers, and
+`--cut-off 0.5` on a model whose top-event probability is `1.17e-3` discards
+none of its 392 products. There is nothing to port, and truncating by cut-set
+order only is not a divergence. Do not "fix" this by implementing one.
 
 Verification record: [`docs/scram-port-verification.md`](docs/scram-port-verification.md),
 oracle in `reference-data/scram/`. Upstream was **built and run** — nothing in

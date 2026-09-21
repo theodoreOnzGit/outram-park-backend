@@ -216,9 +216,15 @@ file comes from before writing its attribution header.
        caller builds in Rust, since input parsing is out of RAFFLES' scope.
 
    STILL ABSENT: BDD, ZBDD, the preprocessor, complement elimination (so
-   NON-COHERENT trees are refused, not approximated), upstream's probability
-   cut-off on products, XML input handling, event trees, alignments, CCF
-   groups, substitutions, house events, and the expression library.
+   NON-COHERENT trees are refused, not approximated), XML input handling,
+   event trees, alignments, CCF groups, substitutions, house events, and the
+   expression library.
+
+   NOT absent, despite appearances: upstream's product probability cut-off.
+   SCRAM 0.16.2 stores and validates `Settings::cut_off_` but never reads it
+   (its getter has no callers), so no product is discarded by probability and
+   there is nothing to port. Measured, not inferred -- see
+   docs/scram-port-verification.md.
 
    VERIFICATION: upstream was built from source and run; the oracles are in
    reference-data/scram/ with their own README, and the full record is in

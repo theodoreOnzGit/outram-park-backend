@@ -10801,12 +10801,18 @@ yields cut sets that are wrong rather than approximate.
 [`minimal_cut_sets`] takes an order limit for that reason, and it is the
 same knob upstream calls `limit_order`.
 
-**Upstream's probability cut-off is not implemented.** SCRAM also discards
-a product whose probability falls below `Settings::cut_off_` (default
-`1e-8`); this module truncates by order only. On the eight models compared
-in `tests/scram_mocus_oracle.rs` the cut-set sets come out equal anyway —
-measured, so the cut-off demonstrably does not bite there — but on a model
-where it does, this port will return cut sets SCRAM omits.
+**Upstream has a probability cut-off setting, and it does nothing.**
+`Settings::cut_off_` defaults to `1e-8`, is settable from the CLI
+(`--cut-off`) and from a project file, and is range-validated on the way
+in — but its getter `Settings::cut_off()` has **no callers anywhere in
+SCRAM 0.16.2**, so no product is ever discarded by probability. Checked by
+running it, not only by reading: `--cut-off 0.5` on `Aralia/chinese`, whose
+top-event probability is `1.17e-3`, leaves all 392 products in place and
+the total unchanged.
+
+So there is nothing to port here, and truncating by order only is not a
+divergence from upstream. Stated because the opposite is the natural
+assumption from reading `settings.h`.
 
 ```rust
 pub mod mocus { /* ... */ }

@@ -45,10 +45,15 @@ much less.
 
 **Still absent.** XML input handling (explicitly out of RAFFLES' scope), event
 trees, alignments, CCF groups, substitutions, house events, the `expression`
-library, the BDD and ZBDD algorithms, the preprocessor, complement elimination
-(so non-coherent trees are **refused**, not approximated), and upstream's
-probability cut-off on products (`Settings::cut_off_`, default `1e-8` — this
-port truncates by cut-set order only).
+library, the BDD and ZBDD algorithms, the preprocessor, and complement
+elimination (so non-coherent trees are **refused**, not approximated).
+
+~~and upstream's probability cut-off on products (`Settings::cut_off_`,
+default `1e-8` — this port truncates by cut-set order only)~~ **CORRECTED
+2026-09-21** — that claim was wrong, and the correction is a finding about
+upstream rather than about this port. See
+[Upstream's probability cut-off does nothing](#upstreams-probability-cut-off-does-nothing)
+below.
 
 ## Licence
 
@@ -303,6 +308,39 @@ singular, SCRAM reported exactly 0 **and** the event occurs in every cut set —
 so if the explanation is ever wrong, the test fails rather than the claim
 quietly rotting.
 
+### Upstream's probability cut-off does nothing
+
+An earlier revision of this document listed SCRAM's product probability
+cut-off among the things not ported, and said a model where it bites would
+diverge. **That was wrong**, and finding out why is a result about upstream.
+
+`Settings::cut_off_` defaults to `1e-8`, is settable from the CLI
+(`--cut-off`) and from a project file, and is range-validated on the way in.
+Its getter `Settings::cut_off()` is declared at `src/settings.h:122` and has
+**no callers anywhere in SCRAM 0.16.2** — the only mentions in the whole tree
+are the declaration, the setter, the default, the CLI binding in `scram.cc`
+and the project-file binding in `project.cc`. Nothing in the analysis reads
+it, so no product is ever discarded by probability.
+
+Confirmed by running it rather than only by grep, because a grep can miss a
+call through an alias:
+
+| run | products | total |
+|---|---|---|
+| `scram --probability` | 392 | 0.00117058 |
+| `scram --probability --cut-off 1e-8` | 392 | 0.00117058 |
+| `scram --probability --cut-off 1e-4` | 392 | 0.00117058 |
+| `scram --probability --cut-off 0.5` | 392 | 0.00117058 |
+
+A cut-off of 0.5 on a model whose top-event probability is `1.17e-3` should
+discard every product it has. It discards none.
+
+So there is **nothing to port**, truncating by cut-set order only is not a
+divergence, and the agreement measured on all eight models is not luck about
+where the cut-off happens not to bite. This is recorded rather than raised
+upstream: `rakhimov/scram`'s last commit is from 2019 and filing against a
+third-party project was not part of this task.
+
 ## What this does NOT establish
 
 - **It is not validation.** Agreement with SCRAM shows this port reproduces
@@ -327,10 +365,6 @@ quietly rotting.
 - **Only coherent trees.** Complement elimination is not ported, so a tree with
   `not`, `nand`, `nor` or `xor` is refused. Nothing here says what this port
   would do with one, because it will not attempt one.
-- **Upstream's probability cut-off is not implemented.** SCRAM discards
-  products below `Settings::cut_off_` (default `1e-8`); this truncates by
-  cut-set order only. On the seven models compared the resulting sets are
-  equal, which is measured — but a model where the cut-off bites would diverge.
 - **Order truncation is checked to order 6 and no further.** `Aralia/chinese`
   gives limits 1-5 that each cut inside the distribution of cut-set orders,
   which is where an over-eager prune would show; the other eight models bottom
