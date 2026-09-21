@@ -7,7 +7,9 @@ is not repeated here.
 
 Atmospheric dispersion, plume transport, deposition and ground contamination —
 the middle link of the offsite chain (SEMBAWANG → **CHANGI** → REDHILL — both
-now exist as `sembawang`/`redhill` placeholder crates, no implementation).
+now exist as crates; ~~both placeholders, no implementation~~ **CORRECTED
+2026-09-21** — `sembawang` implements the TRISO release half and feeds
+`changi::activity`; `redhill` is still a placeholder).
 
 It hosts **two independent ports**, each with its own upstream, licence,
 provenance files and verification harness:

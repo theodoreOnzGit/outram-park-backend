@@ -36,6 +36,20 @@ No dose quantity is computed.
 
 ## Not done
 
-The plan's day-3 end-to-end *example* was not written (an automated safety
+~~The plan's day-3 end-to-end *example* was not written (an automated safety
 classifier stopped that response). The chain is demonstrated by the integration
-tests instead.
+tests instead.~~ **CORRECTED 2026-09-21** — written later the same day:
+`examples/site_activity_survey.rs` carries a prescribed 1 Ci each of Kr-88 and
+I-131, released over one hour from 30 m in Pasquill class D at 4 m/s, and
+prints the release (Bq, Ci), time-integrated air concentration (Bq·s/m³) and
+dry deposition (Bq/m²) at 100 m – 8 km. `sembawang`'s
+`examples/npmhtgr_release.rs` is the source-term half, in Bq and Ci. Neither
+computes a dose.
+
+Hand check, 2026-09-21: at 1 km the survey gives I-131
+`8.68e5 Bq·s/m³`. The textbook ground-level Gaussian-plume value with
+Briggs-rural class-D sigmas (σy ≈ 68 m, σz ≈ 32 m at 1 km),
+`Q/(π σy σz u)·exp(−H²/2σz²)` with Q = 3.7e10 Bq, u = 4 m/s, H = 30 m, is
+≈ `8.7e5 Bq·s/m³`. That is an order-of-magnitude sanity check by hand, not a
+verification: the sigmas were read from memory of the standard curves, not
+from a cited table.
