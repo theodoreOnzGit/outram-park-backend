@@ -15,8 +15,10 @@ Research and educational use only:
 - Radionuclide deposition
 - Ground contamination
 
-**Input:** source terms produced by SEMBAWANG (reserved name, not yet created).
-Until SEMBAWANG exists, a release-rate time series has to be supplied by hand —
+**Input:** source terms produced by SEMBAWANG. `sembawang` exists in the
+workspace as an explicit placeholder (created 2026-09-18) with no
+implementation, so until it has a real source-term calculation, a
+release-rate time series has to be supplied by hand —
 FLEXPART needs nothing more than that from the accident side.
 
 ## Scope — future, not current
@@ -62,9 +64,9 @@ CHANGI is the middle link of the offsite chain:
 
 | | Question | Crate |
 |---|---|---|
-| SEMBAWANG | What gets released? | reserved, not yet created |
+| SEMBAWANG | What gets released? | `sembawang` — placeholder crate, nothing implemented |
 | **CHANGI** | **What happens after release?** | **this crate** |
-| REDHILL | What happens after deposition? | reserved; will build on `outram-park-fork-pflotran` |
+| REDHILL | What happens after deposition? | `redhill` — placeholder crate, nothing implemented; will build on `outram-park-fork-pflotran` |
 
 ## What exists today
 

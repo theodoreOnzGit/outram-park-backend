@@ -6,7 +6,8 @@ is not repeated here.
 ## What this crate is
 
 Atmospheric dispersion, plume transport, deposition and ground contamination —
-the middle link of the offsite chain (SEMBAWANG → **CHANGI** → REDHILL). It
+the middle link of the offsite chain (SEMBAWANG → **CHANGI** → REDHILL — both
+now exist as `sembawang`/`redhill` placeholder crates, no implementation). It
 hosts a Rust port of **FLEXPART v10.4** (GPL-3.0-or-later, commit `3d7eebf`).
 
 ## Scope limit — binding, do not soften

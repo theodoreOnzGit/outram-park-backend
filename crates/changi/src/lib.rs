@@ -13,8 +13,10 @@
 //! It is the middle link of the OUTRAM PARK offsite chain — SEMBAWANG (severe
 //! accident: *what gets released?*) → **CHANGI** (*what happens after
 //! release?*) → REDHILL (*what happens after deposition and infiltration?*).
-//! Its input is a source term produced by SEMBAWANG; until that crate exists, a
-//! release-rate time series must be supplied by hand.
+//! Its input is a source term produced by SEMBAWANG. `sembawang` exists in the
+//! workspace as an explicit placeholder (no implementation), so until it
+//! produces a real source term, a release-rate time series must be supplied
+//! by hand.
 //!
 //! ## Scope
 //!
