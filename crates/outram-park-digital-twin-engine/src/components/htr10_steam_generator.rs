@@ -10,19 +10,21 @@
 //! **Maintainer specification, 2026-09-21, in these words:** *"a general
 //! structure, a central hot gas riser taking up about 40% of the diameter, and
 //! two peripheral helical steam generators. The helical coils will be angled
-//! around 20 degrees, ~~represented by short parallel strokes~~."*
+//! around ~~20~~ **7** degrees, ~~represented by short parallel strokes~~."*
 //!
 //! **REVISED the same day, also at the maintainer's request:** the coils are
 //! drawn as a **continuous winding** — *"some swirly things, so it looks
 //! simplified in style, and not too much like the actual schematic"* — rather
-//! than as parallel strokes. The 20 degree angle survives the change and still
-//! drives the drawing, now by setting how many turns the helix makes; see
+//! than as parallel strokes. The pitch angle survives the change and still
+//! drives the drawing, now by setting how many turns the helix makes — and it
+//! was lowered from 20 to 7 degrees at the same time, because a winding needs
+//! a shallower pitch than parallel strokes did to read as a coil. See
 //! [`DEFAULT_COIL_ANGLE_DEGREES`].
 //!
 //! ```text
 //!        ┌─────────────────────────┐
 //!        │ ⌇⌇⌇ │             │ ⌇⌇⌇ │   coil as a winding, turns set
-//!        │ ⌇⌇⌇ │   central   │ ⌇⌇⌇ │   by the ~20 deg pitch angle
+//!        │ ⌇⌇⌇ │   central   │ ⌇⌇⌇ │   by the ~7 deg pitch angle
 //!        │ ⌇⌇⌇ │  hot gas    │ ⌇⌇⌇ │
 //!        │ ⌇⌇⌇ │   riser     │ ⌇⌇⌇ │   two peripheral bundles
 //!        │ ⌇⌇⌇ │   ~40% D    │ ⌇⌇⌇ │
@@ -46,34 +48,43 @@
 //!   the first stage**. The central riser drawn here is a schematic device for
 //!   showing where the hot gas goes, specified by the maintainer; it is not a
 //!   claim that a riser occupies that cavity.
-//! - The **40 % diameter** and **20 degree** coil angle are the maintainer's
+//! - The **40 % diameter** and **7 degree** coil angle are the maintainer's
 //!   drawing parameters. Neither is a plant dimension — section 5 of that
 //!   sheet lists the coil pitch as *Unknown*, and records only a 112 mm bundle
 //!   diameter per module, which this schematic does not attempt to resolve.
 //!
 //! Dimensions that *are* cited are marked as such at the point of use.
 //!
-//! ## Animation — three streams, each on its own flow
+//! ## Animation — five streams on two loops
 //!
-//! Three optional tracer trains, all obeying the crate's "ANIMATION IS DERIVED
+//! Five optional tracer trains, all obeying the crate's "ANIMATION IS DERIVED
 //! FROM PHYSICS, NEVER HARDCODED" hard rule:
 //!
 //! | Train | Stream | Advance it with |
 //! |---|---|---|
 //! | [`Htr10SteamGeneratorVisual::with_riser_tracer`] | helium climbing the central riser | **primary** loop mass flow |
 //! | [`Htr10SteamGeneratorVisual::with_shell_gas_tracer`] | helium descending across the coil | **primary** loop mass flow, shell-side residence time |
-//! | [`Htr10SteamGeneratorVisual::with_coil_water_tracer`] | feedwater rising through the coil | **secondary** loop mass flow |
+//! | [`Htr10SteamGeneratorVisual::with_coil_water_tracer`] | water rising through the coil | **secondary** loop mass flow |
+//! | [`Htr10SteamGeneratorVisual::with_feedwater_tracer`] | feedwater entering at the inlet nozzle | **secondary** loop mass flow, nozzle residence time |
+//! | [`Htr10SteamGeneratorVisual::with_steam_tracer`] | superheated steam leaving at the outlet nozzle | **secondary** loop mass flow, nozzle residence time |
 //!
 //! **Where each stream's inlet is, is geometry; which way the marks then
 //! travel, is physics.** The riser fills from the bottom because the hot gas
 //! duct enters at the foot of the vessel; the shell side fills from the top
 //! because the gas turns at the head of the riser and descends; the coil fills
 //! from the bottom because a once-through generator takes feedwater in low and
-//! delivers steam high. Those are facts about the machine. Direction of travel
+//! delivers steam high; the feedwater nozzle fills from its outboard end and
+//! the steam nozzle from its inboard end, because one brings fluid in and the
+//! other takes it out. Those are facts about the machine. Direction of travel
 //! along each path is **not** set here at all — [`TracerTrain::advance`] takes
 //! it from the sign of the mass flow the caller supplies, so a reversed or
 //! stalled loop reverses or freezes the marks it owns, and the two loops can
 //! disagree.
+//!
+//! Because the two nozzles sit on the same loop but face opposite ways, a
+//! positive secondary flow drives their marks in **opposite screen
+//! directions** — in at the bottom, out at the top — with no sign handling
+//! anywhere in this widget.
 //!
 //! **Draw order is load-bearing.** The shell-gas marks are drawn *between* the
 //! two halves of the winding — back half, gas, front half — so the near side
@@ -112,17 +123,21 @@ pub const DEFAULT_RISER_DIAMETER_FRACTION: f32 = 0.40;
 
 /// Pitch angle of the drawn coil, from the horizontal.
 ///
-/// **Maintainer-specified drawing parameter** (2026-09-21: *"angled around 20
-/// degrees"*). The real coil pitch is recorded as *Unknown* in the plant-data
-/// sheet, so this is a representation of a helix, not a measurement of one.
+/// **Maintainer-specified drawing parameter.** First given as ~~20 degrees~~
+/// (2026-09-21), then **CHANGED the same day to 7 degrees** once the coils
+/// were drawn as a continuous winding rather than as parallel strokes —
+/// *"coil angle should also be 7 degrees by default, i think that looks
+/// good"*. The real coil pitch is recorded as *Unknown* in the plant-data
+/// sheet, so this is a representation of a helix, not a measurement of one,
+/// and it is chosen on how it reads.
 ///
 /// It sets how many turns the winding makes over the bundle height, through
 /// the helix relation `tan(theta) = p / (2 pi r)` — so a **shallower** angle
-/// winds **more** turns, as a shallower helix genuinely does. Changing it
-/// therefore still changes the picture in a way that means something, which is
-/// why the parameter was kept when the coils moved from parallel strokes to a
-/// continuous winding.
-pub const DEFAULT_COIL_ANGLE_DEGREES: f64 = 20.0;
+/// winds **more** turns, as a shallower helix genuinely does. That is why the
+/// number came down when the style changed: at 20 degrees the winding was too
+/// open to read as a coil, and 7 degrees tightens it by roughly a factor of
+/// three (`tan 20 / tan 7 = 2.96`).
+pub const DEFAULT_COIL_ANGLE_DEGREES: f64 = 7.0;
 
 const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
 const OUTLINE: Color32 = Color32::from_rgb(150, 154, 162);
@@ -177,6 +192,8 @@ pub struct Htr10SteamGeneratorVisual {
     riser_tracer: Option<TracerTrain>,
     coil_water_tracer: Option<TracerTrain>,
     shell_gas_tracer: Option<TracerTrain>,
+    feedwater_tracer: Option<TracerTrain>,
+    steam_tracer: Option<TracerTrain>,
 }
 
 impl Htr10SteamGeneratorVisual {
@@ -209,6 +226,8 @@ impl Htr10SteamGeneratorVisual {
             riser_tracer: None,
             coil_water_tracer: None,
             shell_gas_tracer: None,
+            feedwater_tracer: None,
+            steam_tracer: None,
         }
     }
 
@@ -246,6 +265,29 @@ impl Htr10SteamGeneratorVisual {
     /// volume at a lower velocity.
     pub fn with_shell_gas_tracer(mut self, tracer: TracerTrain) -> Self {
         self.shell_gas_tracer = Some(tracer);
+        self
+    }
+
+    /// Tracer marks on the **feedwater inlet** nozzle.
+    ///
+    /// Advance with the secondary loop mass flow. The nozzle's inlet is its
+    /// outboard end — feedwater arrives from the turbine hall — so at a
+    /// positive flow these marks run **inward**, opposite to the steam marks
+    /// above them. Give it a short residence time: a nozzle is a far smaller
+    /// volume than the coil it feeds, so its marks should visibly outrun the
+    /// coil's.
+    pub fn with_feedwater_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.feedwater_tracer = Some(tracer);
+        self
+    }
+
+    /// Tracer marks on the **superheated steam outlet** nozzle.
+    ///
+    /// Advance with the secondary loop mass flow. The nozzle's inlet is its
+    /// inboard end — steam leaves the vessel — so at a positive flow these
+    /// marks run **outward**.
+    pub fn with_steam_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.steam_tracer = Some(tracer);
         self
     }
 
@@ -599,24 +641,60 @@ impl Widget for Htr10SteamGeneratorVisual {
         // superheated steam out high. Helium connections are deliberately NOT
         // drawn here — where they attach is the coaxial duct's business, and
         // `CoaxialDuctVisual` owns that.
-        painter.rect_filled(
-            Rect::from_min_max(
-                Pos2::new(cx + w * 0.30, y(0.085)),
-                Pos2::new(cx + w * 0.70, y(0.110)),
-            ),
-            2,
-            self.colour(self.steam_temp),
+        // Marks along a horizontal nozzle run.
+        //
+        // `inlet_at_left` says which end the stream ENTERS by — geometry of
+        // the connection, not a direction of travel. Position 0 sits at that
+        // end, and which way the marks then move comes from the sign of the
+        // mass flow the caller advanced the train with.
+        let nozzle_marks = |run: Rect, train: &TracerTrain, inlet_at_left: bool| {
+            let mark_w = (run.width() * 0.10).max(1.5);
+            for position in train.positions() {
+                let f = if inlet_at_left {
+                    position as f32
+                } else {
+                    1.0 - position as f32
+                };
+                let xc = run.left() + run.width() * f;
+                let a = (xc - 0.5 * mark_w).max(run.left());
+                let b = (xc + 0.5 * mark_w).min(run.right());
+                if b - a < 0.5 {
+                    continue;
+                }
+                painter.rect_filled(
+                    Rect::from_min_max(
+                        Pos2::new(a, run.top() + 0.5),
+                        Pos2::new(b, run.bottom() - 0.5),
+                    ),
+                    0,
+                    Color32::WHITE,
+                );
+            }
+        };
+
+        let steam_run = Rect::from_min_max(
+            Pos2::new(cx + w * 0.30, y(0.085)),
+            Pos2::new(cx + w * 0.70, y(0.110)),
         );
+        painter.rect_filled(steam_run, 2, self.colour(self.steam_temp));
+        // Steam LEAVES the vessel, so its inlet is the left (vessel) end.
+        if let Some(train) = &self.steam_tracer {
+            nozzle_marks(steam_run, train, true);
+        }
         self.tag(&painter, Pos2::new(cx + w * 0.86, y(0.0975)), "steam");
 
-        painter.rect_filled(
-            Rect::from_min_max(
-                Pos2::new(cx + w * 0.30, y(0.890)),
-                Pos2::new(cx + w * 0.70, y(0.915)),
-            ),
-            2,
-            self.colour(self.feedwater_temp),
+        let feedwater_run = Rect::from_min_max(
+            Pos2::new(cx + w * 0.30, y(0.890)),
+            Pos2::new(cx + w * 0.70, y(0.915)),
         );
+        painter.rect_filled(feedwater_run, 2, self.colour(self.feedwater_temp));
+        // Feedwater ENTERS the vessel from the turbine hall, so its inlet is
+        // the right (outboard) end and its marks run right-to-left at a
+        // positive flow — the opposite way to the steam above it, which is the
+        // whole point of drawing both.
+        if let Some(train) = &self.feedwater_tracer {
+            nozzle_marks(feedwater_run, train, false);
+        }
         self.tag(&painter, Pos2::new(cx + w * 0.88, y(0.9025)), "feedwater");
 
         painter.rect_stroke(shell, 0, Stroke::new(1.5, OUTLINE), StrokeKind::Middle);
@@ -655,10 +733,11 @@ mod tests {
         assert!((DEFAULT_RISER_DIAMETER_FRACTION - 0.40).abs() < 1e-6);
     }
 
-    /// The coil angle defaults to the specified 20 degrees.
+    /// The coil angle defaults to the specified 7 degrees (revised down from
+    /// 20 when the coils became a continuous winding).
     #[test]
-    fn coil_angle_defaults_to_twenty_degrees() {
-        assert!((DEFAULT_COIL_ANGLE_DEGREES - 20.0).abs() < 1e-9);
+    fn coil_angle_defaults_to_seven_degrees() {
+        assert!((DEFAULT_COIL_ANGLE_DEGREES - 7.0).abs() < 1e-9);
     }
 
     /// An out-of-range riser fraction is clamped rather than drawn, so a

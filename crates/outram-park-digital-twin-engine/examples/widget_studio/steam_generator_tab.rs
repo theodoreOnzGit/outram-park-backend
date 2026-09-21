@@ -58,7 +58,7 @@ pub struct SteamGeneratorTab {
     pub riser_fraction: f32,
     /// HTR-10 card: coil stroke angle from the horizontal, degrees.
     ///
-    /// Defaults to the maintainer-specified 20 degrees.
+    /// Defaults to the maintainer-specified 7 degrees (revised down from 20).
     pub coil_angle_degrees: f64,
 }
 
@@ -80,7 +80,7 @@ impl Default for SteamGeneratorTab {
             cell_width: 210.0,
             show_labels: true,
             riser_fraction: 0.40,
-            coil_angle_degrees: 20.0,
+            coil_angle_degrees: 7.0,
         }
     }
 }
@@ -234,6 +234,10 @@ pub fn controls(
     ui.add(
         egui::Slider::new(&mut tracers.coil_residence_s, 0.5..=60.0)
             .text("coil residence [s]"),
+    );
+    ui.add(
+        egui::Slider::new(&mut tracers.nozzle_residence_s, 0.2..=20.0)
+            .text("nozzle residence [s]"),
     );
     ui.label(
         RichText::new(
@@ -437,9 +441,15 @@ pub struct Htr10Tracers {
     pub shell_residence_s: f64,
     /// Residence time of water through the coil, s. Display choice.
     pub coil_residence_s: f64,
+    /// Residence time through either water-side nozzle, s. Display choice,
+    /// and deliberately short — a nozzle is a far smaller volume than the
+    /// coil it feeds, so its marks should visibly outrun the coil's.
+    pub nozzle_residence_s: f64,
     riser: TracerTrain,
     shell: TracerTrain,
     coil: TracerTrain,
+    feedwater: TracerTrain,
+    steam: TracerTrain,
 }
 
 impl Default for Htr10Tracers {
@@ -450,9 +460,12 @@ impl Default for Htr10Tracers {
             riser_residence_s: 3.0,
             shell_residence_s: 9.0,
             coil_residence_s: 14.0,
+            nozzle_residence_s: 2.5,
             riser: TracerTrain::new(4),
             shell: TracerTrain::new(5),
             coil: TracerTrain::new(6),
+            feedwater: TracerTrain::new(3),
+            steam: TracerTrain::new(3),
         }
     }
 }
@@ -472,6 +485,12 @@ impl Htr10Tracers {
             .advance(dt, Time::new::<second>(self.shell_residence_s), primary);
         self.coil
             .advance(dt, Time::new::<second>(self.coil_residence_s), secondary);
+        // Both water-side nozzles carry the same secondary flow as the coil,
+        // so they stall and reverse with it — but on their own, much shorter
+        // residence time.
+        let nozzle_tau = Time::new::<second>(self.nozzle_residence_s);
+        self.feedwater.advance(dt, nozzle_tau, secondary);
+        self.steam.advance(dt, nozzle_tau, secondary);
     }
 
     /// Attach this frame's trains to a widget.
@@ -480,5 +499,7 @@ impl Htr10Tracers {
             .with_riser_tracer(self.riser.clone())
             .with_shell_gas_tracer(self.shell.clone())
             .with_coil_water_tracer(self.coil.clone())
+            .with_feedwater_tracer(self.feedwater.clone())
+            .with_steam_tracer(self.steam.clone())
     }
 }
