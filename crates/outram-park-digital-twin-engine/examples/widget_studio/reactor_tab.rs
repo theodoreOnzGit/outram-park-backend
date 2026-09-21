@@ -6,12 +6,20 @@
 //! architectures can be compared directly and the colour response checked
 //! across all of them in a single glance.
 //!
+//! After them comes a **mini copy of the HTR-10 test-reactor schematic**
+//! (`Htr10ReactorSchematic`, the same widget the "Preview of test reactors" tab
+//! shows at full size). It reads that tab's state rather than these sliders,
+//! so the two always agree.
+//!
 //! **These are illustrative schematics, not validated models and not design
 //! drawings.** Geometry does not represent any specific licensed design. Each
 //! card names the scoping document that covers that reactor.
 
 use egui::{RichText, Vec2};
-use outram_park_digital_twin_engine::components::{ReactorArchetype, ReactorArchetypeVisual};
+use crate::test_reactors_tab::TestReactorsTab;
+use outram_park_digital_twin_engine::components::{
+    Htr10ReactorSchematic, ReactorArchetype, ReactorArchetypeVisual,
+};
 use uom::si::f64::ThermodynamicTemperature;
 use uom::si::thermodynamic_temperature::degree_celsius;
 
@@ -123,8 +131,9 @@ pub fn controls(ui: &mut egui::Ui, state: &mut ReactorTab) {
     ui.checkbox(&mut state.show_labels, "show internal labels");
 }
 
-/// Draws every archetype as a card in a wrapping grid.
-pub fn draw(ui: &mut egui::Ui, state: &ReactorTab) {
+/// Draws every archetype as a card in a wrapping grid, followed by a mini
+/// copy of the HTR-10 test-reactor schematic, driven by `htr10`.
+pub fn draw(ui: &mut egui::Ui, state: &ReactorTab, htr10: &TestReactorsTab) {
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
         .show(ui, |ui| {
@@ -140,10 +149,23 @@ pub fn draw(ui: &mut egui::Ui, state: &ReactorTab) {
             let avail = ui.available_width();
             let per_row = ((avail + gap) / (card_w + gap)).floor().max(1.0) as usize;
 
-            let all = ReactorArchetype::ALL;
-            for chunk in all.chunks(per_row) {
+            // The six archetypes, then the mini HTR-10 test-reactor schematic.
+            let cards: Vec<Card> = ReactorArchetype::ALL
+                .iter()
+                .map(|a| Card::Archetype(*a))
+                .chain(std::iter::once(Card::Htr10Schematic))
+                .collect();
+            for chunk in cards.chunks(per_row) {
                 ui.horizontal(|ui| {
-                    for archetype in chunk {
+                    for card in chunk {
+                        let archetype = match card {
+                            Card::Archetype(a) => a,
+                            Card::Htr10Schematic => {
+                                htr10_mini_card(ui, htr10, card_w, vessel_h, caption_h);
+                                ui.add_space(gap);
+                                continue;
+                            }
+                        };
                         ui.vertical(|ui| {
                             ui.set_width(card_w);
 
@@ -202,4 +224,60 @@ pub fn draw(ui: &mut egui::Ui, state: &ReactorTab) {
                 .weak(),
             );
         });
+}
+
+/// One card in the gallery.
+#[derive(Clone, Copy)]
+enum Card {
+    /// A generic architecture, drawn by `ReactorArchetypeVisual`.
+    Archetype(ReactorArchetype),
+    /// A mini copy of the HTR-10 test-reactor schematic.
+    Htr10Schematic,
+}
+
+/// Draws the mini HTR-10 card: the same `Htr10ReactorSchematic` the
+/// "Preview of test reactors" view shows, scaled to fit one card.
+///
+/// It reads the HTR-10 test-reactor state, not this gallery's shared sliders.
+/// Its temperatures, rods and moving tracers therefore match the full-size
+/// view, and are set from there.
+fn htr10_mini_card(
+    ui: &mut egui::Ui,
+    htr10: &TestReactorsTab,
+    card_w: f32,
+    vessel_h: f32,
+    caption_h: f32,
+) {
+    ui.vertical(|ui| {
+        ui.set_width(card_w);
+        let (rect, _response) =
+            ui.allocate_exact_size(Vec2::new(card_w, vessel_h), egui::Sense::hover());
+
+        // Largest vessel width whose native box fits inside the card, with the
+        // same 16 pt margin the archetype cards use.
+        let per_width = Htr10ReactorSchematic::native_size(1.0);
+        let width = (card_w - 16.0).min((vessel_h - 16.0) / per_width.y * per_width.x);
+        let mini = htr10.visual_at_width(width);
+        ui.put(
+            egui::Rect::from_center_size(rect.center(), mini.size()),
+            mini,
+        );
+
+        ui.allocate_ui(Vec2::new(card_w, caption_h), |ui| {
+            ui.label(RichText::new("HTR-10 (test reactor)").strong());
+            ui.label(
+                RichText::new(
+                    "Mini copy of the test-reactor schematic: three-pass helium path, \
+                     pebble bed.",
+                )
+                .small()
+                .weak(),
+            );
+            ui.label(
+                RichText::new("Set from the 'Preview of test reactors' tab.")
+                    .small()
+                    .weak(),
+            );
+        });
+    });
 }

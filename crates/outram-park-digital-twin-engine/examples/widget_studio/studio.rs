@@ -443,7 +443,9 @@ impl eframe::App for WidgetStudio {
         egui::CentralPanel::default().show(ui, |ui| match self.selected {
             WidgetUnderTest::SteamTurbine => self.turbine_canvas(ui),
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
-            WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),
+            WidgetUnderTest::Reactors => {
+                crate::reactor_tab::draw(ui, &self.reactors, &self.test_reactors)
+            }
             WidgetUnderTest::SteamGenerators => {
                 crate::steam_generator_tab::draw(ui, &self.steam_generators, &self.htr10_sg_tracers)
             }

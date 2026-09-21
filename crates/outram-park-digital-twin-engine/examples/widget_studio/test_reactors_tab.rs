@@ -134,8 +134,17 @@ impl TestReactorsTab {
 
     /// Build this frame's widget with the trains copied in.
     pub fn visual(&self) -> Htr10ReactorSchematic {
+        self.visual_at_width(self.vessel_width)
+    }
+
+    /// The same widget at a caller-chosen vessel width, in points.
+    ///
+    /// Used for the mini copy on the Reactor vessels gallery. It shares this
+    /// state, so its temperatures, rods and moving tracers match the full-size
+    /// view exactly.
+    pub fn visual_at_width(&self, vessel_width: f32) -> Htr10ReactorSchematic {
         let v = Htr10ReactorSchematic::new(
-            Htr10ReactorSchematic::native_size(self.vessel_width),
+            Htr10ReactorSchematic::native_size(vessel_width),
             degc(self.min_temp_degc),
             degc(self.max_temp_degc),
             degc(self.pebble_degc),
