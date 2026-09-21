@@ -53,14 +53,39 @@
 //!
 //! Dimensions that *are* cited are marked as such at the point of use.
 //!
-//! ## Animation
+//! ## Animation — three streams, each on its own flow
 //!
-//! Nothing in this widget moves. That is deliberate rather than unfinished:
-//! per the crate's "ANIMATION IS DERIVED FROM PHYSICS, NEVER HARDCODED" hard
-//! rule, a stream may only be animated from a real mass flow and residence
-//! time, and this widget is not given either. Colour *is* derived — every
-//! region is graded by a temperature the caller supplies.
+//! Three optional tracer trains, all obeying the crate's "ANIMATION IS DERIVED
+//! FROM PHYSICS, NEVER HARDCODED" hard rule:
+//!
+//! | Train | Stream | Advance it with |
+//! |---|---|---|
+//! | [`Htr10SteamGeneratorVisual::with_riser_tracer`] | helium climbing the central riser | **primary** loop mass flow |
+//! | [`Htr10SteamGeneratorVisual::with_shell_gas_tracer`] | helium descending across the coil | **primary** loop mass flow, shell-side residence time |
+//! | [`Htr10SteamGeneratorVisual::with_coil_water_tracer`] | feedwater rising through the coil | **secondary** loop mass flow |
+//!
+//! **Where each stream's inlet is, is geometry; which way the marks then
+//! travel, is physics.** The riser fills from the bottom because the hot gas
+//! duct enters at the foot of the vessel; the shell side fills from the top
+//! because the gas turns at the head of the riser and descends; the coil fills
+//! from the bottom because a once-through generator takes feedwater in low and
+//! delivers steam high. Those are facts about the machine. Direction of travel
+//! along each path is **not** set here at all — [`TracerTrain::advance`] takes
+//! it from the sign of the mass flow the caller supplies, so a reversed or
+//! stalled loop reverses or freezes the marks it owns, and the two loops can
+//! disagree.
+//!
+//! **Draw order is load-bearing.** The shell-gas marks are drawn *between* the
+//! two halves of the winding — back half, gas, front half — so the near side
+//! of the coil occludes them as they pass. That is what makes the gas read as
+//! moving down the middle of the helix rather than sliding across in front of
+//! it. The water marks ride the helix curve itself and are drawn only on the
+//! near half, for the same reason.
+//!
+//! Colour is derived too: every region is graded by a temperature the caller
+//! supplies.
 
+use crate::animation::TracerTrain;
 use crate::components::temperature_colour;
 use std::f32::consts::PI;
 use egui::{Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2,
@@ -149,6 +174,9 @@ pub struct Htr10SteamGeneratorVisual {
     riser_diameter_fraction: f32,
     coil_angle: Angle,
     show_labels: bool,
+    riser_tracer: Option<TracerTrain>,
+    coil_water_tracer: Option<TracerTrain>,
+    shell_gas_tracer: Option<TracerTrain>,
 }
 
 impl Htr10SteamGeneratorVisual {
@@ -178,7 +206,47 @@ impl Htr10SteamGeneratorVisual {
             riser_diameter_fraction: DEFAULT_RISER_DIAMETER_FRACTION,
             coil_angle: Angle::new::<degree>(DEFAULT_COIL_ANGLE_DEGREES),
             show_labels: true,
+            riser_tracer: None,
+            coil_water_tracer: None,
+            shell_gas_tracer: None,
         }
+    }
+
+    /// Tracer marks for the **primary** helium rising in the central riser.
+    ///
+    /// Advance this train with the **primary loop** mass flow and the riser's
+    /// residence time. Direction follows the flow's sign, because
+    /// [`TracerTrain::advance`] takes it from there — a reversed primary loop
+    /// runs these marks downward, and a stalled circulator freezes them.
+    ///
+    /// The train is **advanced by the application**, once per frame, and
+    /// copied in here at widget-build time: widgets are rebuilt every repaint,
+    /// so a train owned by the widget would reset its phase each frame. See
+    /// [`crate::animation`].
+    pub fn with_riser_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.riser_tracer = Some(tracer);
+        self
+    }
+
+    /// Tracer marks for the **secondary** water travelling up through the
+    /// coil.
+    ///
+    /// Advance with the **secondary loop** (feedwater) mass flow and the
+    /// coil's residence time. The marks follow the drawn helix itself rather
+    /// than sliding up a straight line, so they read as fluid inside the tube.
+    pub fn with_coil_water_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.coil_water_tracer = Some(tracer);
+        self
+    }
+
+    /// Tracer marks for the **shell-side helium** descending across the coil.
+    ///
+    /// Advance with the primary mass flow and the shell side's own residence
+    /// time — which is not the riser's, since the shell side is a far larger
+    /// volume at a lower velocity.
+    pub fn with_shell_gas_tracer(mut self, tracer: TracerTrain) -> Self {
+        self.shell_gas_tracer = Some(tracer);
+        self
     }
 
     /// On-screen size, in points.
@@ -316,6 +384,35 @@ impl Widget for Htr10SteamGeneratorVisual {
         );
         painter.rect_filled(riser, 2, helium_in);
         painter.rect_stroke(riser, 2, Stroke::new(1.2, INTERNALS), StrokeKind::Middle);
+
+        // Riser tracers.
+        //
+        // The riser's INLET is at the bottom — gas arrives from the hot gas
+        // duct at the foot of the vessel and climbs to the turn at the top.
+        // That is the machine's geometry, not an animation choice: a mark at
+        // train position 0 sits at the bottom and position 1 at the top, and
+        // which way it then travels comes from the sign of the mass flow the
+        // caller advanced the train with.
+        if let Some(train) = &self.riser_tracer {
+            let mark_h = ((bundle_bottom - bundle_top) * 0.035).max(2.0);
+            for position in train.positions() {
+                let yc = bundle_bottom - (bundle_bottom - bundle_top) * position as f32;
+                let a = (yc - 0.5 * mark_h).max(bundle_top);
+                let b = (yc + 0.5 * mark_h).min(bundle_bottom);
+                if b - a < 0.5 {
+                    continue;
+                }
+                painter.rect_filled(
+                    Rect::from_min_max(
+                        Pos2::new(riser.left() + 1.5, a),
+                        Pos2::new(riser.right() - 1.5, b),
+                    ),
+                    1,
+                    Color32::WHITE,
+                );
+            }
+        }
+
         self.tag(&painter, Pos2::new(cx, y(0.5)), "hot gas");
         self.tag(&painter, Pos2::new(cx, y(0.5) + 11.0), "riser");
 
@@ -386,7 +483,10 @@ impl Widget for Htr10SteamGeneratorVisual {
 
             let samples = 320;
             let width = (bundle_w * 0.15).max(1.2);
-            for behind in [true, false] {
+
+            // One pass of the winding: `behind` selects the half of each turn
+            // on the far side of the bundle axis.
+            let coil_pass = |behind: bool| {
                 for k in 0..samples {
                     let t0 = k as f32 / samples as f32;
                     let t1 = (k + 1) as f32 / samples as f32;
@@ -405,6 +505,84 @@ impl Widget for Htr10SteamGeneratorVisual {
                         c = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), 120);
                     }
                     painter.line_segment([p0, p1], Stroke::new(width, c));
+                }
+            };
+
+            // ── Draw order inside a bundle, and why it is this order ────────
+            //
+            // The shell-side gas goes *through* the bundle, so its marks are
+            // sandwiched between the two halves of the winding: back half,
+            // then the gas, then the front half over the top of it. The front
+            // of the coil therefore occludes the gas marks as they pass, which
+            // is what makes them read as travelling down the middle of the
+            // helix rather than sliding across in front of it.
+            coil_pass(true);
+
+            // Shell-side helium tracers.
+            //
+            // The shell side's INLET is at the TOP: gas turns at the head of
+            // the riser and descends across the coil. Geometry again, not an
+            // animation choice — position 0 is the top, and the direction of
+            // travel comes from the sign of the mass flow the caller advanced
+            // this train with.
+            if let Some(train) = &self.shell_gas_tracer {
+                let mark_h = (span * 0.030).max(2.0);
+                let mark_w = (bundle_w * 0.34).max(2.0);
+                for position in train.positions() {
+                    let yc = bundle_top + span * position as f32;
+                    let a = (yc - 0.5 * mark_h).max(bundle_top);
+                    let b = (yc + 0.5 * mark_h).min(bundle_bottom);
+                    if b - a < 0.5 {
+                        continue;
+                    }
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            Pos2::new(mid_x - 0.5 * mark_w, a),
+                            Pos2::new(mid_x + 0.5 * mark_w, b),
+                        ),
+                        1,
+                        // Slightly translucent: it is inside the bundle, seen
+                        // between the turns, not sitting on top of them.
+                        Color32::from_white_alpha(205),
+                    );
+                }
+            }
+
+            coil_pass(false);
+
+            // Secondary-water tracers, riding the helix itself.
+            //
+            // A once-through generator takes feedwater in at the BOTTOM and
+            // delivers steam at the top, so the coil's inlet is the bottom and
+            // train position 0 belongs there. The drawing parameter `t` runs
+            // from 0 at the top, hence `t = 1 - position`.
+            //
+            // Each mark is a short arc of the winding rather than a dot, so it
+            // reads as a plug of fluid inside the tube, and it is drawn only
+            // where the helix is on the near side — a mark on the hidden half
+            // would otherwise float in front of the coil it is supposed to be
+            // inside.
+            if let Some(train) = &self.coil_water_tracer {
+                let arc_samples = 7;
+                let arc_span = 0.012_f32;
+                for position in train.positions() {
+                    let centre_t = 1.0 - position as f32;
+                    for j in 0..arc_samples {
+                        let f0 = j as f32 / arc_samples as f32;
+                        let f1 = (j + 1) as f32 / arc_samples as f32;
+                        let t0 = (centre_t + arc_span * (f0 - 0.5)).clamp(0.0, 1.0);
+                        let t1 = (centre_t + arc_span * (f1 - 0.5)).clamp(0.0, 1.0);
+                        let a0 = turns * 2.0 * PI * t0;
+                        let a1 = turns * 2.0 * PI * t1;
+                        if (0.5 * (a0 + a1)).cos() < 0.0 {
+                            continue;
+                        }
+                        let p0 =
+                            Pos2::new(mid_x + coil_radius * a0.sin(), bundle_top + span * t0);
+                        let p1 =
+                            Pos2::new(mid_x + coil_radius * a1.sin(), bundle_top + span * t1);
+                        painter.line_segment([p0, p1], Stroke::new(width, Color32::WHITE));
+                    }
                 }
             }
 

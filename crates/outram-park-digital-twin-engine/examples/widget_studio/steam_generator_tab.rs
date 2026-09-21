@@ -23,8 +23,11 @@ use outram_park_digital_twin_engine::components::Htr10SteamGeneratorVisual;
 use outram_park_digital_twin_engine::components::steam_generator::{
     SteamGeneratorKind, SteamGeneratorScalars, SteamGeneratorVisual,
 };
+use outram_park_digital_twin_engine::animation::TracerTrain;
 use uom::si::angle::degree;
-use uom::si::f64::{Angle, ThermodynamicTemperature};
+use uom::si::f64::{Angle, MassRate, ThermodynamicTemperature, Time};
+use uom::si::mass_rate::kilogram_per_second;
+use uom::si::time::second;
 use uom::si::thermodynamic_temperature::degree_celsius;
 
 /// Studio state for the steam-generator gallery.
@@ -115,7 +118,11 @@ fn degc(value: f64) -> ThermodynamicTemperature {
 }
 
 /// Right-panel controls for the gallery.
-pub fn controls(ui: &mut egui::Ui, state: &mut SteamGeneratorTab) {
+pub fn controls(
+    ui: &mut egui::Ui,
+    state: &mut SteamGeneratorTab,
+    tracers: &mut Htr10Tracers,
+) {
     ui.heading("Steam generators");
     ui.label(
         RichText::new(
@@ -188,6 +195,57 @@ pub fn controls(ui: &mut egui::Ui, state: &mut SteamGeneratorTab) {
             .text("coil angle [deg]"),
     );
 
+    ui.add_space(6.0);
+    ui.label(RichText::new("HTR-10 tracers").strong());
+    ui.label(
+        RichText::new(
+            "Three streams on two independent loops. Direction and speed are \
+             read off these numbers — set a flow NEGATIVE to reverse that \
+             stream, or to zero to stall it. Stall the feedwater and the coil \
+             marks freeze while the gas keeps moving.",
+        )
+        .small()
+        .weak(),
+    );
+    ui.add(
+        egui::Slider::new(&mut tracers.primary_mass_flow_kg_per_s, -10.0..=10.0)
+            .text("primary (helium) [kg/s]"),
+    );
+    ui.add(
+        egui::Slider::new(&mut tracers.secondary_mass_flow_kg_per_s, -10.0..=10.0)
+            .text("secondary (feedwater) [kg/s]"),
+    );
+    ui.label(
+        RichText::new(
+            "Design values 4.32 and 3.49 kg/s — both Quoted in \
+             docs/reactor-scoping/htr10-plant-data.md section 6.",
+        )
+        .small()
+        .weak(),
+    );
+    ui.add(
+        egui::Slider::new(&mut tracers.riser_residence_s, 0.5..=40.0)
+            .text("riser residence [s]"),
+    );
+    ui.add(
+        egui::Slider::new(&mut tracers.shell_residence_s, 0.5..=60.0)
+            .text("shell-side residence [s]"),
+    );
+    ui.add(
+        egui::Slider::new(&mut tracers.coil_residence_s, 0.5..=60.0)
+            .text("coil residence [s]"),
+    );
+    ui.label(
+        RichText::new(
+            "The three residence times are DISPLAY CHOICES, not derived: the \
+             riser is a schematic device with no stated dimensions, so there \
+             is no volume to divide a flow into. Shown as sliders rather than \
+             hardcoded so that is visible.",
+        )
+        .small()
+        .weak(),
+    );
+
     ui.separator();
     ui.label(RichText::new("Colour scale [°C]").strong());
     ui.label(
@@ -223,7 +281,7 @@ pub fn controls(ui: &mut egui::Ui, state: &mut SteamGeneratorTab) {
 }
 
 /// Draws all three architectures side by side.
-pub fn draw(ui: &mut egui::Ui, state: &SteamGeneratorTab) {
+pub fn draw(ui: &mut egui::Ui, state: &SteamGeneratorTab, tracers: &Htr10Tracers) {
     egui::ScrollArea::both()
         .auto_shrink([false, false])
         .show(ui, |ui| {
@@ -309,7 +367,8 @@ pub fn draw(ui: &mut egui::Ui, state: &SteamGeneratorTab) {
                     } else {
                         htr10.without_labels()
                     };
-                    ui.put(rect, htr10);
+                    // Trains are copied in here, not owned by the widget.
+                    ui.put(rect, tracers.attach(htr10));
 
                     ui.allocate_ui(Vec2::new(card_w, caption_h), |ui| {
                         ui.label(RichText::new("HTR-10 (general structure)").strong());
@@ -347,4 +406,79 @@ pub fn draw(ui: &mut egui::Ui, state: &SteamGeneratorTab) {
                 .weak(),
             );
         });
+}
+
+// ── HTR-10 tracer state ─────────────────────────────────────────────────────
+
+/// The three tracer trains on the HTR-10 card, plus the flows that drive them.
+///
+/// Kept beside the tab state rather than inside the widget because widgets are
+/// rebuilt every repaint: a train living in one would reset its phase to zero
+/// each frame. The app advances these once per frame in `step` and copies them
+/// into the widget at build time.
+pub struct Htr10Tracers {
+    /// Primary (helium) loop mass flow, kg/s. Drives the riser and the shell
+    /// side. HTR-10 design value 4.32 kg/s
+    /// (`docs/reactor-scoping/htr10-plant-data.md` section 6, *Quoted*).
+    pub primary_mass_flow_kg_per_s: f64,
+    /// Secondary (feedwater/steam) loop mass flow, kg/s. Drives the coil.
+    /// HTR-10 design value 3.49 kg/s (same sheet, section 6, *Quoted*).
+    pub secondary_mass_flow_kg_per_s: f64,
+    /// Residence time of helium climbing the riser, s.
+    ///
+    /// A **display choice**, not a derived quantity: the riser is a schematic
+    /// device (see the widget's module docs) with no stated dimensions, so
+    /// there is no volume to divide a flow into. It is exposed as a slider and
+    /// labelled as such rather than being quietly hardcoded.
+    pub riser_residence_s: f64,
+    /// Residence time of helium descending the shell side, s. Also a display
+    /// choice, and deliberately longer than the riser's — the shell side is a
+    /// much larger volume at a lower velocity.
+    pub shell_residence_s: f64,
+    /// Residence time of water through the coil, s. Display choice.
+    pub coil_residence_s: f64,
+    riser: TracerTrain,
+    shell: TracerTrain,
+    coil: TracerTrain,
+}
+
+impl Default for Htr10Tracers {
+    fn default() -> Self {
+        Self {
+            primary_mass_flow_kg_per_s: 4.32,
+            secondary_mass_flow_kg_per_s: 3.49,
+            riser_residence_s: 3.0,
+            shell_residence_s: 9.0,
+            coil_residence_s: 14.0,
+            riser: TracerTrain::new(4),
+            shell: TracerTrain::new(5),
+            coil: TracerTrain::new(6),
+        }
+    }
+}
+
+impl Htr10Tracers {
+    /// Advance all three trains by `dt`.
+    ///
+    /// Each gets its own residence time and **its own loop's** mass flow, so
+    /// the primary and secondary sides animate independently: stall the
+    /// feedwater and the coil marks freeze while the gas keeps moving.
+    pub fn step(&mut self, dt: Time) {
+        let primary = MassRate::new::<kilogram_per_second>(self.primary_mass_flow_kg_per_s);
+        let secondary = MassRate::new::<kilogram_per_second>(self.secondary_mass_flow_kg_per_s);
+        self.riser
+            .advance(dt, Time::new::<second>(self.riser_residence_s), primary);
+        self.shell
+            .advance(dt, Time::new::<second>(self.shell_residence_s), primary);
+        self.coil
+            .advance(dt, Time::new::<second>(self.coil_residence_s), secondary);
+    }
+
+    /// Attach this frame's trains to a widget.
+    pub fn attach(&self, visual: Htr10SteamGeneratorVisual) -> Htr10SteamGeneratorVisual {
+        visual
+            .with_riser_tracer(self.riser.clone())
+            .with_shell_gas_tracer(self.shell.clone())
+            .with_coil_water_tracer(self.coil.clone())
+    }
 }

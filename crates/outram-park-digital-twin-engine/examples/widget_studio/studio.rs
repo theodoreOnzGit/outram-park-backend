@@ -157,6 +157,8 @@ pub struct WidgetStudio {
     coax_duct: crate::pipes::CoaxialDuctDemo,
     /// The steam-generator gallery: three architectures under shared sliders.
     steam_generators: crate::steam_generator_tab::SteamGeneratorTab,
+    /// Tracer trains on the HTR-10 steam-generator card. Advanced in `step`.
+    htr10_sg_tracers: crate::steam_generator_tab::Htr10Tracers,
     /// The pump gallery. Owns its own simulation clock, advanced in `step`,
     /// because a widget-owned clock would reset every repaint.
     pumps: crate::pump_tab::PumpTab,
@@ -204,6 +206,7 @@ impl Default for WidgetStudio {
             reactors: crate::reactor_tab::ReactorTab::default(),
             coax_duct: crate::pipes::CoaxialDuctDemo::default(),
             steam_generators: crate::steam_generator_tab::SteamGeneratorTab::default(),
+            htr10_sg_tracers: crate::steam_generator_tab::Htr10Tracers::default(),
             pumps: crate::pump_tab::PumpTab::default(),
             condensers: crate::condenser_tab::CondenserTab::default(),
             cooling_towers: crate::cooling_tower_tab::CoolingTowerTab::default(),
@@ -283,6 +286,7 @@ impl eframe::App for WidgetStudio {
             let sim_dt = Time::new::<second>(dt_real * self.sim_speed);
             self.pipe_step_errors = crate::pipes::step_rows(&mut self.pipe_rows, sim_dt);
             self.coax_duct.step(sim_dt);
+            self.htr10_sg_tracers.step(sim_dt);
             self.pipe_step_errors.extend(self.bend.step(sim_dt));
             // Pump impellers turn on an application-owned clock, like the turbine.
             self.pumps.step(sim_dt);
@@ -329,7 +333,11 @@ impl eframe::App for WidgetStudio {
                 WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
                 WidgetUnderTest::Reactors => crate::reactor_tab::controls(ui, &mut self.reactors),
                 WidgetUnderTest::SteamGenerators => {
-                    crate::steam_generator_tab::controls(ui, &mut self.steam_generators)
+                    crate::steam_generator_tab::controls(
+                        ui,
+                        &mut self.steam_generators,
+                        &mut self.htr10_sg_tracers,
+                    )
                 }
                 WidgetUnderTest::Pumps => crate::pump_tab::controls(ui, &mut self.pumps),
                 WidgetUnderTest::Condensers => {
@@ -351,7 +359,7 @@ impl eframe::App for WidgetStudio {
             WidgetUnderTest::PipeBend => crate::bend_tab::draw(ui, &self.bend),
             WidgetUnderTest::Reactors => crate::reactor_tab::draw(ui, &self.reactors),
             WidgetUnderTest::SteamGenerators => {
-                crate::steam_generator_tab::draw(ui, &self.steam_generators)
+                crate::steam_generator_tab::draw(ui, &self.steam_generators, &self.htr10_sg_tracers)
             }
             WidgetUnderTest::Pumps => crate::pump_tab::draw(ui, &self.pumps),
             WidgetUnderTest::Condensers => crate::condenser_tab::draw(ui, &self.condensers),
