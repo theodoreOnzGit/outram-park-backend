@@ -17,18 +17,19 @@
 //! vessel:
 //!
 //! ```text
-//!    ┌───────────────────────────┐
-//!    │   ┌───┐           ┌───┐   │  cold helium RETURNS LOW, through the
-//!    │   │ ↑ │  ┌─────┐  │ ↑ │   │  annulus of the coaxial duct
-//!    │   │ ↑ │  │ bed │  │ ↑ │   │
-//!    │   │ ↑ │  │  ↓  │  │ ↑ │   │  1. DOWN the short remaining annulus
-//!    │   └───┘  └──┬──┘  └───┘   │     to the bottom cavity
-//!    │             ▼             │  2. UP the coolant boreholes in the
-//!    │   ═══ hot plenum ═══╪═════▶     side reflector
-//!    │ ↓                 ↓ │ cold │ 3. DOWN through the pebble bed to the
-//!    │ ↓   bottom cavity  ↓│ hot  │    hot plenum, out through the duct's
-//!    │ └────────↓─────────┘│      │    inner tube
-//!    └─────────────────────┴──────┘
+//!    ┌─────────────────────────────┐
+//!    │  ╭───────╮       ╭───────╮  │  cold helium RETURNS LOW, through the
+//!    │  │ ╰═╗           ╔═════╯ │  │  annulus of the coaxial duct
+//!    │  │  ══ cold plenum (9.7 cm) ══ │
+//!    │  ↑ │      ┌─────┐        │↑  │  1. DOWN the annulus to the bottom
+//!    │  ↑ │      │ bed │        │↑  │     cavity
+//!    │  ↑ │      │  ↓  │        │↑  │  2. U-bend at the foot, UP the
+//!    │  ↑ │      └──┬──┘        │↑  │     boreholes, then a 90-degree turn
+//!    │  ╰─╮         ▼         ╭─╯  │     inward, level into the plenum
+//!    │    │ ══ hot plenum ════╪════▶  3. DOWN through the bed to the hot
+//!    │ ↓  ╰───────╮  ╭────────╯ cold│     plenum, out through the duct's
+//!    │ ↓  bottom  ╰──╯      hot │   │     inner tube
+//!    └──────────────────────────┴───┘
 //! ```
 //!
 //! **Where the cold gas comes back in is set by where the duct is**, and the
@@ -57,10 +58,33 @@
 //!
 //! ## What is cited and what is drawing
 //!
-//! Proportions come from the plant-data sheet wherever it has a number, and
-//! every one is marked at its constant. Where it records *Unknown*, this
-//! widget says so rather than inventing a figure. **It is a schematic, not a
-//! scale drawing and not a reproduction of any published figure.**
+//! Proportions come from the plant-data sheet and the r-z partition wherever
+//! they have a number, and every one is marked at its constant. Where they
+//! record *Unknown*, this widget says so rather than inventing a figure.
+//! **It is a schematic, not a scale drawing and not a reproduction of any
+//! published figure.**
+//!
+//! ### Specifically NOT to scale, and easy to mistake for it
+//!
+//! Asked directly whether the cold plenum is to scale (maintainer, 2026-09-21)
+//! — it is not, and the distinction is worth stating because the numbers
+//! around it *are* real:
+//!
+//! - **The cold plenum's band is an assignment, not an attested zone.** The
+//!   r-z dataset gives axial boundaries at 95.0, 105.0 and 114.7 cm, but it
+//!   carries **no material labels for the axial bands** — it identifies only
+//!   the core cavity, the conus, the bed and the gas space above it. What is
+//!   attested elsewhere is merely that the cold helium plenum sits *in the top
+//!   reflector*. Its elevation and extent here are therefore chosen, using
+//!   real boundary values, and should not be quoted as zone identities.
+//! - **The turn at the top of each borehole is a drawing device.** In the real
+//!   vessel these are channels drilled through graphite that open into a
+//!   plenum cavity. It is drawn as one shallow 90-degree bend
+//!   ([`TURN_RADIUS_FRACTION`]) that stays level with the plenum — **CHANGED
+//!   2026-09-21** from an inverted U, which drew the channel arching over the
+//!   plenum like external pipework.
+//! - **Where the internals sit within the vessel** ([`INTERNALS_TOP_FRACTION`])
+//!   is likewise a choice; no source reviewed gives their elevation.
 //!
 //! ## Animation
 //!
@@ -73,13 +97,24 @@
 //!
 //! Two of them are worth calling out:
 //!
-//! - **The boreholes are drawn as one continuous run**, U-bend and vertical
-//!   climb together, with marks placed along it by ARC LENGTH. The bend is
-//!   where the gas actually reverses — it arrives at the bottom cavity going
-//!   down and leaves going up — and drawing it as a bend rather than two
-//!   disconnected lines is what makes that reversal legible. Placing marks by
-//!   vertex index instead would bunch them at the corner, where the path is
-//!   finely sampled, and they would appear to jump it.
+//! - **Each borehole is ONE continuous run, annulus to cold plenum**: down the
+//!   annulus, a U-bend at the foot, the climb, then a single **90-degree**
+//!   turn inward and level into the plenum. The foot is a real reversal — the
+//!   gas arrives going down and leaves going up — and drawing it as a bend
+//!   rather than butted segments is what makes that legible. The top is one
+//!   quarter turn and **never rises above the plenum**; an arch there would
+//!   draw pipework standing over it, and these are channels through graphite.
+//!
+//!   Marks travel the whole run, placed by ARC LENGTH, so they go down, round,
+//!   up and in without jumping a corner or stopping at a joint. **The marks
+//!   arriving in the cold plenum are the same ones that left the annulus.**
+//!   Placing them by vertex index instead would bunch them at the corners,
+//!   where the path is finely sampled.
+//!
+//!   **The marks are painted with the channels, not with the other tracers.**
+//!   On the right-hand side the boreholes pass behind the coaxial duct, so
+//!   drawing them last would slide them across it as if the channel ran in
+//!   front. Painted early, the duct covers them and they pass behind it.
 //! - **The upper cold plenum runs two opposed streams inward.** The boreholes
 //!   deliver up both sides and the gas converges on the axis before turning
 //!   down into the bed, so this is the one place in the vessel where flow
@@ -177,6 +212,20 @@ pub const INTERNALS_HEIGHT_CM: f32 = 610.0;
 /// Top of the core cavity.
 pub const CORE_CAVITY_TOP_Z_CM: f32 = 130.0;
 
+/// Top of the band drawn as the cold-helium plenum, model z, centimetres.
+///
+/// **An assignment, not an attested zone.** 105.0 and 114.7 are real boundary
+/// values from the r-z partition, but that dataset carries no material labels
+/// for the axial bands. What is attested elsewhere is only that the cold
+/// helium plenum sits in the top reflector. One **single** band is used, at
+/// its true 9.7 cm thickness, rather than a thicker span picked for
+/// legibility — so the plenum is drawn to scale even though which band it is
+/// remains a choice.
+pub const COLD_PLENUM_TOP_Z_CM: f32 = 105.0;
+
+/// Bottom of that band, model z, centimetres.
+pub const COLD_PLENUM_BOTTOM_Z_CM: f32 = 114.7;
+
 /// Zero core height — the top of the conus, and the datum the bed is measured
 /// up from. IAEA-TECDOC-1382 part 2 states this explicitly.
 pub const CORE_ZERO_HEIGHT_Z_CM: f32 = 351.818;
@@ -272,29 +321,105 @@ const BORONATED: Color32 = Color32::from_rgb(44, 46, 52);
 const INTERNALS: Color32 = Color32::from_rgb(64, 68, 76);
 const VOID: Color32 = Color32::from_rgb(28, 30, 34);
 const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
-/// A U-bend pick-up: down the annulus, round the turn, up the borehole.
+/// Append a **quarter** turn: a vertical at `from_x` swinging into a
+/// horizontal at `to_y`, heading toward `to_x`.
 ///
-/// `entry` is where the run starts in the annulus, `riser_x` the borehole's
-/// centreline, `bend_y` how deep the turn reaches, and `top_y` the top of the
-/// climb. Returned as a polyline so a tracer can be placed along it by arc
-/// length — the mark then travels the bend at the same speed as the straights,
-/// which is what stops it appearing to jump the corner.
-fn u_bend_path(entry_x: f32, entry_y: f32, riser_x: f32, bend_y: f32, top_y: f32) -> Vec<Pos2> {
-    let mut points = vec![Pos2::new(entry_x, entry_y), Pos2::new(entry_x, bend_y)];
-    let mid_x = 0.5 * (entry_x + riser_x);
-    let bulge = (0.45 * (riser_x - entry_x).abs()).max(2.0);
-    let arc_samples = 14;
-    for i in 1..arc_samples {
-        let a = PI * i as f32 / arc_samples as f32;
-        points.push(Pos2::new(
-            mid_x + (entry_x - mid_x) * a.cos(),
-            bend_y + bulge * a.sin(),
+/// Enters tangent to the vertical and leaves tangent to the horizontal, so a
+/// climbing run turns once through 90 degrees and then travels level — which
+/// is what a channel meeting a plenum does. It does **not** arch over the top
+/// first; that would draw pipework standing above the plenum.
+fn push_quarter_bend(from_x: f32, to_x: f32, to_y: f32, radius: f32, out: &mut Vec<Pos2>) {
+    let inward = (to_x - from_x).signum();
+    let r = radius.max(1.0);
+    let centre = Pos2::new(from_x + inward * r, to_y + r);
+    let samples = 10;
+    for i in 0..=samples {
+        let a = 0.5 * PI * i as f32 / samples as f32;
+        out.push(Pos2::new(
+            centre.x - inward * r * a.cos(),
+            centre.y - r * a.sin(),
         ));
     }
-    points.push(Pos2::new(riser_x, bend_y));
-    points.push(Pos2::new(riser_x, top_y));
+}
+
+/// Append a half-turn joining two verticals at `y`, bulging by `bulge`.
+///
+/// A positive `bulge` reaches **downward** (a U), a negative one **upward**
+/// (an inverted U). Both ends leave tangent to the vertical they join, so a
+/// run built from these reads as one pipe rather than as segments butted
+/// together.
+fn push_bend(from_x: f32, to_x: f32, y: f32, bulge: f32, out: &mut Vec<Pos2>) {
+    let mid_x = 0.5 * (from_x + to_x);
+    let arc_samples = 14;
+    out.push(Pos2::new(from_x, y));
+    for i in 1..arc_samples {
+        let a = PI * i as f32 / arc_samples as f32;
+        out.push(Pos2::new(
+            mid_x + (from_x - mid_x) * a.cos(),
+            y + bulge * a.sin(),
+        ));
+    }
+    out.push(Pos2::new(to_x, y));
+}
+
+/// One coolant borehole's whole run, annulus to cold plenum.
+///
+/// Five pieces, because the gas turns twice and both turns are real:
+///
+/// ```text
+///        plenum ←──╮          (4) inverted-U over the top,
+///                  │              inward into the plenum
+///                  ↑ (3) climb
+///     annulus │    │
+///        (1)  ↓    │
+///             ╰────╯          (2) U-bend pick-up at the foot
+/// ```
+///
+/// Returned as a single polyline so a tracer placed along it by **arc length**
+/// travels the whole route — down, round, up, over and in — without jumping a
+/// corner or stopping at a joint. That continuity is the point: the marks
+/// arriving in the cold plenum are the same marks that left the annulus.
+#[allow(clippy::too_many_arguments)]
+fn borehole_path(
+    entry_x: f32,
+    entry_y: f32,
+    riser_x: f32,
+    bottom_bend_y: f32,
+    plenum_x: f32,
+    plenum_y: f32,
+) -> Vec<Pos2> {
+    let mut points = vec![Pos2::new(entry_x, entry_y)];
+
+    // (1) down the annulus, (2) round the foot, (3) up the borehole.
+    //
+    // The foot is a genuine U: the gas arrives going down and leaves going up,
+    // reversing in the open bottom cavity.
+    points.push(Pos2::new(entry_x, bottom_bend_y));
+    let foot_bulge = (FOOT_BULGE_FRACTION * (riser_x - entry_x).abs()).max(2.0);
+    push_bend(entry_x, riser_x, bottom_bend_y, foot_bulge, &mut points);
+
+    // (4) a single 90-degree turn into the plenum.
+    //
+    // **Not** an inverted U. An arch would draw the channel rising past the
+    // plenum and coming back down into it, which is pipework standing above
+    // the plenum that does not exist — these are channels drilled through
+    // graphite that open into a cavity. One quarter turn, then level.
+    let turn_radius = TURN_RADIUS_FRACTION * (plenum_x - riser_x).abs();
+    points.push(Pos2::new(riser_x, plenum_y + turn_radius.max(1.0)));
+    push_quarter_bend(riser_x, plenum_x, plenum_y, turn_radius, &mut points);
+    points.push(Pos2::new(plenum_x, plenum_y));
+
     points
 }
+
+/// How far the foot U reaches below its turn elevation, as a fraction of the
+/// horizontal distance it spans. A drawing choice.
+const FOOT_BULGE_FRACTION: f32 = 0.30;
+
+/// Radius of the quarter turn into the plenum, as a fraction of the horizontal
+/// distance it covers. A drawing choice, kept small so the turn reads as a
+/// corner rather than a sweep.
+const TURN_RADIUS_FRACTION: f32 = 0.35;
 
 /// Point at fraction `t` of a polyline's total length, `t` in `[0, 1]`.
 ///
@@ -611,8 +736,15 @@ impl Widget for Htr10ReactorSchematic {
         // At r = 144.6 cm, each 8 cm across. Drawn as one continuous run per
         // borehole: a U-bend picking the gas up at the foot of the annulus,
         // then the climb. Three per side, nested.
-        let riser_top_y = zy(114.7);
         let channel_half = radius_fraction(COOLANT_CHANNEL_DIAMETER_CM * 0.5) * bore;
+        // Where the boreholes deliver: the outer end of the cold plenum. The
+        // runs finish inside it, so the marks arriving there are the same ones
+        // that left the annulus.
+        let plenum_mid_y = zy(0.5 * (COLD_PLENUM_TOP_Z_CM + COLD_PLENUM_BOTTOM_Z_CM));
+        // Where the boreholes pick the gas up out of the annulus. The cold
+        // descent from the duct ends HERE — past this point the gas is in the
+        // boreholes, not still falling down the annulus.
+        let borehole_pickup_y = zy(bottom_z - 14.0);
         let mut riser_paths: Vec<Vec<Pos2>> = Vec::new();
         for side in [-1.0_f32, 1.0] {
             for k in 0..DRAWN_RISERS_PER_SIDE {
@@ -624,13 +756,25 @@ impl Widget for Htr10ReactorSchematic {
                     0.5 * (REFLECTOR_OUTER_RADIUS_CM + VESSEL_INNER_RADIUS_CM),
                     side,
                 );
-                let bend_y = zy(bottom_z + 22.0 + 20.0 * k as f32);
-                riser_paths.push(u_bend_path(
+                // Both ends nest, and in OPPOSITE senses: at the foot the
+                // outermost run turns shallowest, at the crown it arches
+                // highest. That keeps the three from crossing at either end
+                // and lets each one's turn stay visible.
+                // Kept close to the internals: the channels are inside the
+                // ceramics, and a long overhang draws pipework standing
+                // outside the reflector that is not there.
+                let bend_y = zy(bottom_z + 8.0 + 11.0 * k as f32);
+                let plenum_x = rx(
+                    CONTROL_ROD_CHANNEL_RADIUS_CM - 8.0 * k as f32,
+                    side,
+                );
+                riser_paths.push(borehole_path(
                     entry_x,
-                    zy(bottom_z - 14.0),
+                    borehole_pickup_y,
                     riser_x,
                     bend_y,
-                    riser_top_y,
+                    plenum_x,
+                    plenum_mid_y,
                 ));
             }
         }
@@ -638,6 +782,26 @@ impl Widget for Htr10ReactorSchematic {
         for path in &riser_paths {
             for seg in path.windows(2) {
                 painter.line_segment([seg[0], seg[1]], Stroke::new(riser_width, cold));
+            }
+        }
+
+        // Borehole tracers are drawn HERE, with the channels, rather than with
+        // the other tracers at the end.
+        //
+        // The boreholes run at r = 144.6 cm, which on the right-hand side puts
+        // them squarely behind the coaxial duct where it leaves the vessel.
+        // Drawn last, their marks would slide ACROSS the duct as though the
+        // channel passed in front of it. Drawn now, the duct is painted over
+        // them and they pass behind it, which is where the channel is.
+        if let Some(train) = &self.riser_tracer {
+            for path in &riser_paths {
+                for position in train.positions() {
+                    painter.circle_filled(
+                        point_along(path, position as f32),
+                        riser_width * 0.42,
+                        Color32::WHITE,
+                    );
+                }
             }
         }
 
@@ -716,12 +880,19 @@ impl Widget for Htr10ReactorSchematic {
         }
 
         // ── Upper cold plenum ──────────────────────────────────────────────
+        // Drawn at the TRUE thickness of one real band from the r-z
+        // partition, 9.7 cm, rather than a thicker span chosen to be easy to
+        // see. Which band it is remains an assignment — see the module docs.
         let cold_plenum = Rect::from_min_max(
-            Pos2::new(rx(CONTROL_ROD_CHANNEL_RADIUS_CM, -1.0), zy(95.0)),
-            Pos2::new(rx(CONTROL_ROD_CHANNEL_RADIUS_CM, 1.0), zy(114.7)),
+            Pos2::new(rx(CONTROL_ROD_CHANNEL_RADIUS_CM, -1.0), zy(COLD_PLENUM_TOP_Z_CM)),
+            Pos2::new(rx(CONTROL_ROD_CHANNEL_RADIUS_CM, 1.0), zy(COLD_PLENUM_BOTTOM_Z_CM)),
         );
-        painter.rect_filled(cold_plenum, 2, cold);
-        self.tag(&painter, Pos2::new(cx, zy(104.0)), "cold plenum");
+        painter.rect_filled(cold_plenum, 1, cold);
+        self.tag(
+            &painter,
+            Pos2::new(cx, zy(COLD_PLENUM_TOP_Z_CM - 11.0)),
+            "cold plenum",
+        );
 
         // ── Core cavity, the pebble bed inside it, and the conus ───────────
         //
@@ -820,8 +991,8 @@ impl Widget for Htr10ReactorSchematic {
         // pressure boundary, whether or not gas moves through a given part.
         // The MOVING part is shorter — from the duct down to the bottom
         // cavity — so fill and tracers cover deliberately different extents.
-        let annulus_top = zy(-40.0);
-        let annulus_bottom = zy(bottom_z + 90.0);
+        let annulus_top = zy(-6.0);
+        let annulus_bottom = zy(bottom_z + 44.0);
         let mut downcomer_rects = Vec::new();
         for side in [-1.0_f32, 1.0] {
             let a = rx(REFLECTOR_OUTER_RADIUS_CM, side);
@@ -834,9 +1005,12 @@ impl Widget for Htr10ReactorSchematic {
                 1,
                 cold,
             );
+            // The MOVING descent runs from the duct only as far as the
+            // boreholes pick the gas up. Below that the annulus is still
+            // full of cold helium, but the gas is in the channels.
             downcomer_rects.push(Rect::from_min_max(
                 Pos2::new(a.min(b), coax.center().y),
-                Pos2::new(a.max(b), annulus_bottom),
+                Pos2::new(a.max(b), borehole_pickup_y),
             ));
         }
 
@@ -883,18 +1057,6 @@ impl Widget for Htr10ReactorSchematic {
         if let Some(train) = &self.downcomer_tracer {
             for r in &downcomer_rects {
                 vertical_marks(*r, train, true);
-            }
-        }
-
-        if let Some(train) = &self.riser_tracer {
-            for path in &riser_paths {
-                for position in train.positions() {
-                    painter.circle_filled(
-                        point_along(path, position as f32),
-                        riser_width * 0.42,
-                        Color32::WHITE,
-                    );
-                }
             }
         }
 
@@ -1086,6 +1248,64 @@ mod tests {
         assert_eq!(COOLANT_BOREHOLES, 20);
         assert_eq!(CONTROL_ROD_CHANNELS, 10);
         assert!(DRAWN_RISERS_PER_SIDE * 2 < COOLANT_BOREHOLES);
+    }
+
+    /// The foot is a real U — it overshoots its turn elevation.
+    ///
+    /// Screen coordinates, so `y` grows downward and the foot bend must reach
+    /// *below* where it turns. Asserting the overshoot rather than just the
+    /// endpoints catches a bend that has silently collapsed into a straight
+    /// joint, which looks mitred and animates like a mark teleporting.
+    #[test]
+    fn the_foot_bend_overshoots_its_turn() {
+        let (entry_x, entry_y) = (190.0_f32, 600.0_f32);
+        let (riser_x, bottom_bend_y) = (140.0_f32, 640.0_f32);
+        let (plenum_x, plenum_y) = (100.0_f32, 104.0_f32);
+        let path = borehole_path(
+            entry_x,
+            entry_y,
+            riser_x,
+            bottom_bend_y,
+            plenum_x,
+            plenum_y,
+        );
+
+        assert_eq!(*path.first().unwrap(), Pos2::new(entry_x, entry_y));
+        assert_eq!(*path.last().unwrap(), Pos2::new(plenum_x, plenum_y));
+
+        let lowest = path.iter().fold(f32::MIN, |m, p| m.max(p.y));
+        assert!(
+            lowest > bottom_bend_y,
+            "the foot bend must reach below {bottom_bend_y}, got {lowest}"
+        );
+    }
+
+    /// **The run never rises above the plenum it enters.**
+    ///
+    /// It turns through 90 degrees and goes in level. An earlier version
+    /// arched over the top like pipework and came back down, which drew plant
+    /// that is not there — these are channels through graphite opening into a
+    /// cavity. Asserted so the arch cannot creep back.
+    #[test]
+    fn the_run_turns_into_the_plenum_without_arching_over_it() {
+        let plenum_y = 104.0_f32;
+        let path = borehole_path(190.0, 600.0, 140.0, 640.0, 100.0, plenum_y);
+        let highest = path.iter().fold(f32::MAX, |m, p| m.min(p.y));
+        assert!(
+            highest >= plenum_y - 1e-3,
+            "nothing may rise above the plenum at {plenum_y}, got {highest}"
+        );
+    }
+
+    /// Arc-length placement hits both ends exactly and stays on the path.
+    #[test]
+    fn point_along_spans_the_whole_run() {
+        let path = borehole_path(190.0, 600.0, 140.0, 640.0, 100.0, 104.0);
+        assert_eq!(point_along(&path, 0.0), *path.first().unwrap());
+        assert_eq!(point_along(&path, 1.0), *path.last().unwrap());
+        // Clamped, not wrapped or extrapolated.
+        assert_eq!(point_along(&path, -3.0), *path.first().unwrap());
+        assert_eq!(point_along(&path, 9.0), *path.last().unwrap());
     }
 
     /// Centimetres map onto the drawing monotonically, with the vessel wall at
