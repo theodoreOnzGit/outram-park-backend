@@ -137,6 +137,28 @@ converts to ppm of methane with a factor encoding methane's molar mass. For a
 radionuclide that factor is wrong twice over — wrong molar mass, and ppm is the
 wrong unit for an activity concentration. Use the mass-density return.
 
+## Start here
+
+```bash
+cargo run --release -p changi --example puff_site_survey
+```
+
+[`examples/puff_site_survey.rs`](examples/puff_site_survey.rs) is the entry
+point for the puff model and is written to be read top to bottom — one source
+leaking over a small site with a ring of sensors, what the stability class does
+to the answer, and the one place this port deliberately disagrees with its
+upstream, with the size of that disagreement measured rather than asserted.
+
+Two things in it are worth knowing before using the crate for anything:
+
+- **Stability, not wind speed, is the dominant control.** At the *same* 1.0 m/s,
+  a calm clear night reads ~77x a calm sunny afternoon, because the afternoon's
+  convection dilutes the plume far faster than any horizontal wind does.
+- **Upstream's mass doubling is not a factor of two you can divide out.** The
+  mass doubles exactly, but the two duplicated puffs carry *different* stability
+  classes, so the concentration ratio is geometry-dependent — 1.78 in the
+  example's configuration.
+
 ## Verification
 
 Every reference value comes from **compiling and running the upstream FLEXPART

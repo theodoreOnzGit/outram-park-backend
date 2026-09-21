@@ -202,6 +202,20 @@ the stability class is ambiguous. That is six of the ten (wind speed × day/nigh
 regimes — `U < 2` at any hour, `2 <= U < 3` at night, `3 <= U < 5` at any hour,
 and `5 <= U < 6` by day — so it is the common case, not an edge case.
 
+**The mass is doubled exactly; the reported concentration is not.** The two
+recycled puffs are given *different* stability classes — the ambiguous pair —
+so the second disperses differently from the first and contributes a different
+concentration. Measured by `examples/puff_site_survey.rs` at 1.5 m/s at midday
+(the A/B regime), one source, receptor 50 m downwind: peak concentration
+`9.6103e-1` ppm under the mass-conserving policy against `1.7119e0` under
+upstream's, a ratio of **1.78, not 2.00**.
+
+That matters for anyone reading a published `puff` result: the error is not a
+clean factor that can be divided back out. It depends on how far apart the two
+classes disperse at the receptor in question, which depends on the geometry.
+Reproduce such a result with `UpstreamRecycleStabilityClasses` rather than
+attempting to correct it.
+
 **This is the one place the port's default differs from upstream.** Mass
 conservation is not a style preference, so `EmissionPolicy::OnePuffPerEmission`
 is `Default` and `UpstreamRecycleStabilityClasses` must be named to get

@@ -553,6 +553,52 @@ mod tests {
         );
     }
 
+    /// The mass doubles exactly; the reported CONCENTRATION does not.
+    ///
+    /// The two recycled puffs carry *different* stability classes, so the
+    /// second disperses differently and contributes a different concentration.
+    /// Pinned because it is easy — and wrong — to describe upstream's defect as
+    /// "the answer doubles", which would invite a reader to divide a published
+    /// result by two and call it corrected.
+    ///
+    /// Measured 2026-09-21 at 1.5 m/s, midday (the ambiguous A/B regime), one
+    /// source, receptor 50 m downwind: ratio **1.78**, not 2.00.
+    #[test]
+    fn doubling_the_mass_does_not_double_the_concentration() {
+        let wind = constant_wind(
+            Velocity::new::<meter_per_second>(1.5),
+            Velocity::new::<meter_per_second>(0.0),
+            64,
+        );
+        let rate = MassRate::new::<kilogram_per_second>(3.5 / 3600.0);
+        let receptors = vec![Receptor {
+            x: Length::new::<meter>(50.0),
+            y: Length::new::<meter>(20.0),
+            z: Length::new::<meter>(2.0),
+        }];
+        let peak = |policy| {
+            simulate_sensor_mode(&[source()], rate, &wind, &receptors, &cfg(policy, 12))
+                .concentrations
+                .iter()
+                .map(|row| row[0])
+                .fold(0.0_f64, f64::max)
+        };
+        let ours = peak(EmissionPolicy::OnePuffPerEmission);
+        let upstream = peak(EmissionPolicy::UpstreamRecycleStabilityClasses);
+        assert!(ours > 0.0, "the test case must actually register something");
+        let ratio = upstream / ours;
+        assert!(
+            ratio > 1.0 && ratio < 2.0,
+            "expected a ratio strictly between 1 and 2 (the two puffs disperse \
+             differently), got {ratio}"
+        );
+        assert!(
+            (ratio - 1.78).abs() < 0.01,
+            "measured ratio moved from 1.78 to {ratio}; re-measure and update \
+             the doc comment, the example and docs/puff-code-to-code.md"
+        );
+    }
+
     /// In an unambiguous regime the two policies must agree exactly, which
     /// bounds the divergence to where the stability table is ambiguous.
     #[test]
