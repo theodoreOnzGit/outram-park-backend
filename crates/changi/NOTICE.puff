@@ -1,0 +1,62 @@
+NOTICE — `changi::puff`
+=======================
+
+`src/puff/` contains a Rust port of the R package `puff` (MIT). See
+`LICENSE.puff` for the upstream licence and the relicensing note.
+
+Upstream
+--------
+
+    Project  : puff — Simulate and Visualize the Gaussian Puff Forward
+               Atmospheric Model
+    URL      : https://github.com/Hammerling-Research-Group/puff
+    CRAN     : https://cran.r-project.org/package=puff
+    Version  : 0.1.1
+    Commit   : 5213d58daad5b6a2837890ff5da20b9b2c4e8213
+    Licence  : MIT + file LICENSE
+    Copyright: 2025 Hammerling Research Group
+
+Upstream authors, as listed in `DESCRIPTION`:
+
+    Teagan Ward, Philip Waggoner, Will Daniels, Meng Jia,
+    Dorit Hammerling (thesis supervisor), Callan Okenberg (maintainer)
+    — Colorado School of Mines
+
+Underlying model reference:
+
+    Jia, M., Fish, R., Daniels, W., Sprinkle, B. and Hammerling, D. (2024).
+    doi:10.26434/chemrxiv-2023-hc95q-v3
+
+This is an independent fork. It is **not** affiliated with, endorsed by, or
+supported by the Hammerling Research Group or the Colorado School of Mines.
+Defects in this port are this project's, not theirs.
+
+What was ported, and what was not
+---------------------------------
+
+Ported (upstream's physics, 1 219 of 2 296 R lines):
+
+    R/helpers.R              -> src/puff/{stability,dispersion,wind,concentration}.rs
+    R/simulate_sensor_mode.R -> src/puff/simulate.rs
+    R/simulate_grid_mode.R   -> src/puff/simulate.rs
+
+Not ported:
+
+    R/plots.R (1 077 lines, 47% of the package) — ggplot2/plotly chart
+    construction with no physics. `changi` is a headless library that must
+    build for Android and wasm32, and does not own its caller's plotting.
+
+Deviations from upstream are documented in `docs/puff-code-to-code.md` and
+flagged at each call site in the source. The one place the port's DEFAULT
+differs is the emission policy: upstream's data-frame recycling doubles the
+emitted mass whenever the stability class is ambiguous, and this port defaults
+to the mass-conserving reading while offering the upstream behaviour by name.
+
+Verification
+------------
+
+The port is verified code-to-code against the upstream R at commit 5213d58 —
+10 182 reference cases produced by executing upstream itself, replayed through
+the port by `tests/puff_code_to_code.rs`. Results in
+`docs/puff-code-to-code.md`. That is verification, not validation: it shows the
+translation is faithful, not that the model reproduces measured dispersion.
