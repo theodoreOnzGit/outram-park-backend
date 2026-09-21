@@ -39,6 +39,7 @@
 //! Full record: `crates/raffles/docs/scram-port-verification.md`.
 
 use raffles::scram::fault_tree::{Connective, FaultTreeBuilder, FaultTreeModel};
+use raffles::scram::importance::importance_factors;
 use raffles::scram::mocus::{minimal_cut_sets, DEFAULT_LIMIT_ORDER};
 use raffles::scram::probability::{top_event_probability, Approximation, EXACT_CUT_SET_LIMIT};
 use std::collections::{BTreeSet, HashMap};
@@ -62,6 +63,8 @@ struct Oracle {
     events: HashMap<String, f64>,
     products: Vec<BTreeSet<String>>,
     totals: HashMap<String, f64>,
+    /// Basic-event name -> `(occurrence, MIF, CIF, DIF, RAW, RRW)`.
+    importance: HashMap<String, (usize, f64, f64, f64, f64, f64)>,
 }
 
 fn fixture(name: &str) -> String {
@@ -127,6 +130,7 @@ fn load_oracles() -> HashMap<String, Oracle> {
                     events: HashMap::new(),
                     products: Vec::new(),
                     totals: HashMap::new(),
+                    importance: HashMap::new(),
                 });
             }
             "EVENT" => {
@@ -143,6 +147,21 @@ fn load_oracles() -> HashMap<String, Oracle> {
             "TOTAL" => {
                 if let Some(o) = cur.as_mut() {
                     o.totals.insert(f[1].to_string(), f[2].parse().unwrap());
+                }
+            }
+            "IMPORTANCE" => {
+                if let Some(o) = cur.as_mut() {
+                    o.importance.insert(
+                        f[1].to_string(),
+                        (
+                            f[2].parse().unwrap(),
+                            f[3].parse().unwrap(),
+                            f[4].parse().unwrap(),
+                            f[5].parse().unwrap(),
+                            f[6].parse().unwrap(),
+                            f[7].parse().unwrap(),
+                        ),
+                    );
                 }
             }
             "END" => {
@@ -270,25 +289,29 @@ fn agrees(ours: f64, theirs: f64, tol: f64) -> bool {
 /// the comparison rather than indices, so a mis-ordered index mapping cannot
 /// hide.
 ///
-/// **Result** (2026-09-21): 7 models compared, and every one produced exactly
-/// SCRAM's set of products — **46 cut sets in total, none missing and none
+/// **Result** (2026-09-21): 8 models compared, and every one produced exactly
+/// SCRAM's set of products — **438 cut sets in total, none missing and none
 /// spurious**.
 ///
-/// | model | cut sets, both |
-/// |---|---|
-/// | `TwoTrain/two_train` | 4 |
-/// | `Theatre/theatre` | 2 |
-/// | `SmallTree/SmallTree` | 2 |
-/// | `BSCU/BSCU` | 10 |
-/// | `Lift/lift` | 12 |
-/// | `HIPPS/HIPPS` | 9 |
-/// | `ne574/ne574` | 7 |
+/// | model | cut sets, both | max order |
+/// |---|---|---|
+/// | `TwoTrain/two_train` | 4 | 2 |
+/// | `Theatre/theatre` | 2 | 2 |
+/// | `SmallTree/SmallTree` | 2 | 2 |
+/// | `BSCU/BSCU` | 10 | 2 |
+/// | `Lift/lift` | 12 | 1 |
+/// | `HIPPS/HIPPS` | 9 | 2 |
+/// | `ne574/ne574` | 7 | 3 |
+/// | `Aralia/chinese` | **392** | **6** |
 ///
-/// Three models are skipped, each for a stated reason rather than silently:
+/// `Aralia/chinese` carries most of the weight: at 392 cut sets of up to
+/// order 6 it is nearly nine times the rest of the fixture combined, and it
+/// is the only model deep enough for a cut-set generation defect to have room
+/// to show up. The whole comparison still runs in under half a second.
+///
+/// One model is skipped, for a stated reason rather than silently:
 /// `ThreeMotor/three_motor` uses house events and has four candidate top
-/// gates; `ThreeLevels/top` and `TransTest/trans_one` define several fault
-/// trees in one file, so `extract_oracle.sh` refuses to attribute their
-/// products to a top event and they have no oracle entry.
+/// gates, so the structure extractor refuses it.
 ///
 /// **`HIPPS` is the one that earns its place.** It is the only model here with
 /// an `atleast` gate (`min="2"` of three pressure switches), so its nine cut
@@ -350,13 +373,21 @@ fn generated_cut_sets_match_the_ones_scram_found() {
     }
     println!("compared {compared} models, {total_cut_sets} cut sets");
     assert!(
-        compared >= 7,
-        "expected at least 7 models compared, got {compared}"
+        compared >= 8,
+        "expected at least 8 models compared, got {compared}"
     );
-    assert_eq!(
-        skipped.len(),
-        3,
-        "expected exactly three skips: {skipped:?}"
+    // Nothing may be skipped silently: every skip carries the reason the
+    // extractor recorded. Asserted by shape rather than by count, so that
+    // changing the model list cannot quietly turn a comparison into a skip.
+    for s in &skipped {
+        let (name, reason) = s.split_once(": ").expect("a skip states its reason");
+        assert!(!reason.trim().is_empty(), "{name} skipped without a reason");
+    }
+    assert!(
+        skipped
+            .iter()
+            .any(|s| s.starts_with("ThreeMotor/three_motor")),
+        "ThreeMotor is a deliberate, documented exclusion and must stay visible: {skipped:?}"
     );
 }
 
@@ -375,11 +406,12 @@ fn generated_cut_sets_match_the_ones_scram_found() {
 /// Tolerance `5e-6` relative — the resolution of upstream's
 /// 6-significant-figure report.
 ///
-/// **Result** (2026-09-21): **21 model/mode combinations checked across the 7
+/// **Result** (2026-09-21): **23 model/mode combinations checked across the 8
 /// readable models, all agreeing.** `Exact` is skipped where a model has more
 /// than [`EXACT_CUT_SET_LIMIT`] cut sets, since inclusion-exclusion is `2^n`;
-/// no model in the present fixture trips that, the largest being `BSCU` and
-/// `Lift` at 10 and 12.
+/// `Aralia/chinese` at 392 cut sets is the one that trips it, so its
+/// rare-event (0.001200259 against 0.001200260) and MCUB (0.001199599 against
+/// 0.001199600) are checked and its exact value is not.
 ///
 /// Spot values, ours against SCRAM:
 ///
@@ -436,7 +468,7 @@ fn quantifying_generated_cut_sets_reproduces_scrams_totals() {
         }
     }
     println!("checked {checked} model/mode combinations end to end");
-    assert!(checked >= 18, "expected a broad sweep, only {checked}");
+    assert!(checked >= 23, "expected a broad sweep, only {checked}");
 }
 
 /// **Methodology.** Properties every correct minimal-cut-set generator must
@@ -454,10 +486,11 @@ fn quantifying_generated_cut_sets_reproduces_scrams_totals() {
 /// 4. **Necessity** — removing any single member of any cut set makes the tree
 ///    evaluate false. Together with (3) this is the definition of minimal.
 ///
-/// **Result** (2026-09-21): all four hold for all **46 cut sets** of the 7
-/// readable models. Properties 3 and 4 between them evaluate the tree **120
-/// times** (46 sufficiency checks and 74 necessity checks, one per member of
-/// each cut set).
+/// **Result** (2026-09-21): all four hold for all **438 cut sets** of the 8
+/// readable models. Properties 3 and 4 between them evaluate the tree **2,580
+/// times** (438 sufficiency checks and 2,142 necessity checks, one per member
+/// of each cut set). Property 1 is `O(n^2)` in the cut-set count, so
+/// `Aralia/chinese` alone accounts for about 153,000 subset comparisons.
 #[test]
 fn generated_cut_sets_are_minimal_by_construction_not_by_luck() {
     let specs = load_models();
@@ -518,7 +551,7 @@ fn generated_cut_sets_are_minimal_by_construction_not_by_luck() {
         }
     }
     println!("{cut_sets_checked} cut sets, {evaluations} tree evaluations");
-    assert!(cut_sets_checked >= 45, "only {cut_sets_checked} cut sets");
+    assert!(cut_sets_checked >= 430, "only {cut_sets_checked} cut sets");
 }
 
 /// Evaluates the fault tree with exactly `true_events` set true.
@@ -629,16 +662,18 @@ fn the_unported_and_the_malformed_are_refused_not_guessed() {
 /// cut-set order the model has.
 ///
 /// **Result** (2026-09-21): exact agreement at every limit on every model —
-/// **14 (model, limit) cases**, the cut-set orders being `TwoTrain` 2,
-/// `Theatre` 2, `SmallTree` 2, `BSCU` 2, `Lift` 1, `HIPPS` 2, `ne574` 3.
+/// **20 (model, limit) cases**, the cut-set orders being `TwoTrain` 2,
+/// `Theatre` 2, `SmallTree` 2, `BSCU` 2, `Lift` 1, `HIPPS` 2, `ne574` 3 and
+/// `Aralia/chinese` **6**.
 ///
 /// This matters because truncation is applied *during* expansion, where a
 /// too-eager prune could drop a partial set that would still have reached a
 /// short cut set — the check is that it does not.
 ///
-/// The orders are all small, so this is a **weak** check of truncation and is
-/// recorded as such: nothing here exercises a limit deep inside a long cut
-/// set, which is where a real model's truncation actually bites.
+/// `Aralia/chinese` is what makes this a real check rather than a token one:
+/// its limits 1 through 5 each cut *inside* the distribution of cut-set
+/// orders, which is where an over-eager prune would show. The other seven
+/// models bottom out at order 3 and could not have distinguished it.
 #[test]
 fn truncating_by_order_drops_exactly_the_long_cut_sets() {
     let specs = load_models();
@@ -672,5 +707,128 @@ fn truncating_by_order_drops_exactly_the_long_cut_sets() {
         println!("{:<24} max order {max_order}", spec.name);
     }
     println!("{cases} (model, limit) cases");
-    assert!(cases >= 7, "only {cases} truncation cases");
+    assert!(cases >= 20, "only {cases} truncation cases");
+}
+
+/// **Methodology.** The importance factors, computed from cut sets **generated
+/// here** rather than read from the oracle — the last step of the pipeline
+/// that had only ever been checked against SCRAM's own products.
+///
+/// `scram_oracle_suite::every_importance_factor_matches_scram` hands the
+/// ranking SCRAM's cut sets, so it cannot distinguish "the importance
+/// arithmetic is right" from "the whole chain is right". This can: a cut-set
+/// generation defect that left the *totals* intact — a spurious cut set that
+/// duplicates an existing one's events, say — would still move the occurrence
+/// counts and the Birnbaum factor, and fail here.
+///
+/// Upstream runs its importance analysis on the exact BDD value, so
+/// [`Approximation::Exact`] is used to match it. That caps this at models with
+/// at most [`EXACT_CUT_SET_LIMIT`] cut sets, which excludes `Aralia/chinese`
+/// (392) and leaves the other seven.
+///
+/// Occurrence counts are compared **exactly**: they are integers, and a
+/// generated cut set that SCRAM did not find would change one even where the
+/// probabilities round to the same six figures.
+///
+/// **Result** (2026-09-21): **47 basic events across 7 models, all five
+/// factors each, plus the occurrence counts** — every one agreeing to `5e-6`
+/// relative, with `Theatre`'s `Mains_Fail` RRW the one documented singular
+/// point (see `scram_oracle_suite::rrw_diverges_from_upstream_only_at_the_singularity`).
+#[test]
+fn ranking_generated_cut_sets_reproduces_scrams_importance_factors() {
+    let specs = load_models();
+    let oracles = load_oracles();
+    let mut checked = 0;
+    let mut singular = 0;
+
+    for spec in &specs {
+        let Some(oracle) = oracles.get(&spec.name) else {
+            continue;
+        };
+        let Some((model, unpriced)) = build(spec, oracle) else {
+            continue;
+        };
+        let cut_sets = minimal_cut_sets(model.tree(), DEFAULT_LIMIT_ORDER).unwrap();
+        assert_no_unpriced(&spec.name, &cut_sets, &unpriced);
+        if cut_sets.len() > EXACT_CUT_SET_LIMIT {
+            println!(
+                "{:<24} skipped, {} cut sets exceeds the 2^n limit",
+                spec.name,
+                cut_sets.len()
+            );
+            continue;
+        }
+
+        for (name, &(occ, mif, cif, dif, raw, rrw)) in &oracle.importance {
+            let Some(event) = model.basic_event_index(name) else {
+                panic!(
+                    "{}: SCRAM ranked `{name}`, which the tree does not declare",
+                    spec.name
+                );
+            };
+            let ours = importance_factors(
+                event,
+                &cut_sets,
+                model.probabilities(),
+                Approximation::Exact,
+            )
+            .unwrap_or_else(|e| panic!("{} `{name}`: {e}", spec.name));
+
+            assert_eq!(
+                ours.occurrence, occ,
+                "{} `{name}`: occurrence ours {} scram {occ} — the generated cut sets \
+                 differ from SCRAM's in a way the probabilities hid",
+                spec.name, ours.occurrence
+            );
+            for (label, o, t) in [
+                ("MIF", ours.mif, mif),
+                ("CIF", ours.cif, cif),
+                ("DIF", ours.dif, dif),
+                ("RAW", ours.raw, raw),
+            ] {
+                assert!(
+                    agrees(o, t, 5e-6),
+                    "{} `{name}` {label}: ours {o}, SCRAM {t}",
+                    spec.name
+                );
+            }
+            if ours.rrw.is_infinite() {
+                // The documented divergence, asserted rather than excused: it
+                // may only happen where SCRAM reported exactly 0 and the event
+                // sits in every cut set.
+                assert_eq!(
+                    rrw, 0.0,
+                    "{} `{name}`: singular here but SCRAM gave {rrw}",
+                    spec.name
+                );
+                assert_eq!(
+                    ours.occurrence,
+                    cut_sets.len(),
+                    "{} `{name}`: RRW singular without the event being in every cut set",
+                    spec.name
+                );
+                singular += 1;
+            } else {
+                assert!(
+                    agrees(ours.rrw, rrw, 5e-6),
+                    "{} `{name}` RRW: ours {}, SCRAM {rrw}",
+                    spec.name,
+                    ours.rrw
+                );
+            }
+            checked += 1;
+        }
+        println!(
+            "{:<24} {:>2} events ranked from {} generated cut sets",
+            spec.name,
+            oracle.importance.len(),
+            cut_sets.len()
+        );
+    }
+    println!("checked {checked} basic events end to end, {singular} at the RRW singularity");
+    assert!(checked >= 40, "only {checked} events ranked");
+    assert_eq!(
+        singular, 1,
+        "expected exactly one singular RRW, got {singular}"
+    );
 }

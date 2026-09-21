@@ -38,7 +38,7 @@
 //!
 //! **Upstream's probability cut-off is not implemented.** SCRAM also discards
 //! a product whose probability falls below `Settings::cut_off_` (default
-//! `1e-8`); this module truncates by order only. On the seven models compared
+//! `1e-8`); this module truncates by order only. On the eight models compared
 //! in `tests/scram_mocus_oracle.rs` the cut-set sets come out equal anyway —
 //! measured, so the cut-off demonstrably does not bite there — but on a model
 //! where it does, this port will return cut sets SCRAM omits.

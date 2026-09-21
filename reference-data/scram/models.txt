@@ -78,14 +78,42 @@ GATE TrainTwo or - b:C b:D g:E
 GATE E and - b:H b:I
 TOP System
 END
-MODEL ThreeLevels/top
-GATE Top null - g:Middle
-GATE Middle null - g:Bottom
-GATE Bottom or - b:A b:B
-TOP Top
-END
-MODEL TransTest/trans_one
-CANNOT-PARSE <model> assembled by xi:include, structure is incomplete
-GATE TransOne and - b:C b:TransTwo
-TOP TransOne
+MODEL Aralia/chinese
+GATE r1 and - g:g1 g:g2
+GATE g2 and - g:g5 g:g4
+GATE g4 or - b:e5 b:e7 b:e4 b:e6 g:g8
+GATE g8 and - g:g11 g:g12
+GATE g12 and - g:g18 g:g19
+GATE g19 or - b:e24 b:e25
+GATE g18 or - b:e22 b:e23
+GATE g11 or - b:e14 b:e15 b:e16 g:g17
+GATE g17 and - g:g22 g:g23
+GATE g23 or - b:e20 b:e19
+GATE g22 or - b:e18 b:e17 b:e21
+GATE g5 or - b:e8 g:g9
+GATE g9 and - g:g13 g:g14
+GATE g14 or - b:e5 b:e7 b:e4 b:e6 g:g21
+GATE g21 and - g:g26 g:g27
+GATE g27 or - b:e12 b:e13
+GATE g26 or - b:e10 b:e9 b:e11 g:g31
+GATE g31 and - g:g34 g:g35
+GATE g35 or - b:e18 b:e17
+GATE g34 or - b:e20 b:e19 b:e21
+GATE g13 or - b:e1 b:e2 b:e3 g:g20
+GATE g20 and - g:g24 g:g25
+GATE g25 and - g:g29 g:g30
+GATE g30 or - b:e24 b:e25
+GATE g29 or - b:e22 b:e23
+GATE g24 or - b:e14 b:e15 b:e16 g:g28
+GATE g28 and - g:g32 g:g33
+GATE g33 or - b:e20 b:e19
+GATE g32 or - b:e18 b:e17 b:e21
+GATE g1 or - b:e1 b:e2 b:e3 g:g3
+GATE g3 and - g:g7 g:g6
+GATE g6 or - b:e10 b:e9 b:e11 g:g10
+GATE g10 and - g:g16 g:g15
+GATE g15 or - b:e18 b:e17
+GATE g16 or - b:e20 b:e19 b:e21
+GATE g7 or - b:e12 b:e13
+TOP r1
 END

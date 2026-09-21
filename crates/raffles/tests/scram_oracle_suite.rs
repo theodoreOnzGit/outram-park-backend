@@ -20,10 +20,10 @@
 //! | Upstream | <https://github.com/rakhimov/scram> @ `b85b7894` (2019-07-03) |
 //! | Version | SCRAM 0.16.2 |
 //! | Built with | GCC, Boost 1.83.0, libxml2 2.9.14, Release |
-//! | Models | upstream's own `input/` suite: 8 models, 58 basic events, 58 products |
+//! | Models | upstream's own `input/` suite: 9 models, 83 basic events, 450 products |
 //!
 //! Model selection is mechanical, not curated: a model is in if it has between
-//! 1 and 40 cut sets (the Aralia benchmarks reach 75,379 products and
+//! 1 and 600 cut sets (the largest Aralia benchmarks reach 75,379 products and
 //! exhausted memory on a first attempt) **and** its report contains exactly
 //! one `<sum-of-products>`. The second condition matters — a model defining
 //! several fault trees produces one result set per tree and the fixture format

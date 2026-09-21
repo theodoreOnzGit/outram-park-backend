@@ -61,23 +61,28 @@ several models (`HIPPS` especially) define them through `periodic-test` and
 
 ## `oracle.txt`
 
-Eight models, 58 basic events, 58 products.
+Nine models, 83 basic events, 450 products.
 
-| model | basic events | products |
-|---|---|---|
-| `TwoTrain/two_train` | 4 | 4 |
-| `Theatre/theatre` | 3 | 2 |
-| `SmallTree/SmallTree` | 4 | 2 |
-| `ThreeMotor/three_motor` | 11 | 12 |
-| `BSCU/BSCU` | 8 | 10 |
-| `Lift/lift` | 12 | 12 |
-| `HIPPS/HIPPS` | 9 | 9 |
-| `ne574/ne574` | 7 | 7 |
+| model | basic events | products | max order |
+|---|---|---|---|
+| `TwoTrain/two_train` | 4 | 4 | 2 |
+| `Theatre/theatre` | 3 | 2 | 2 |
+| `SmallTree/SmallTree` | 4 | 2 | 2 |
+| `ThreeMotor/three_motor` | 11 | 12 | 3 |
+| `BSCU/BSCU` | 8 | 10 | 2 |
+| `Lift/lift` | 12 | 12 | 1 |
+| `HIPPS/HIPPS` | 9 | 9 | 2 |
+| `ne574/ne574` | 7 | 7 | 3 |
+| `Aralia/chinese` | 25 | 392 | 6 |
+
+`Aralia/chinese` is nearly nine times the rest of the fixture combined and is
+the only model deep enough to exercise order truncation properly; the others
+bottom out at order 3. Extraction of all nine takes about 5 s.
 
 Model selection is mechanical rather than curated. A model is skipped when:
 
-- **it has more than 40 cut sets** — the Aralia benchmarks reach 75,379
-  products and exhausted memory on a first attempt; or
+- **it has more than 600 cut sets** — the largest Aralia benchmarks reach
+  75,379 products and exhausted memory on a first attempt; or
 - **its report contains more than one `<sum-of-products>`** — a model defining
   several fault trees produces one result set per tree, and this format has
   nowhere to say which product belongs to which, so merging them would be
@@ -102,8 +107,8 @@ tolerance rather than a tighter one.
 
 ## `models.txt`
 
-Fault-tree structure for the same eight models plus the two the oracle
-excludes, so that a reader can see what was refused and why.
+Fault-tree structure for the same nine models, so a reader can see what was
+refused and why.
 
 ```
 MODEL <suite>/<input basename>
@@ -119,7 +124,10 @@ the reason printed. Present refusals:
 | model | why |
 |---|---|
 | `ThreeMotor/three_motor` | house events (`E10`, `E12`), and four candidate top gates |
-| `TransTest/trans_one` | assembled by `xi:include`; the structure is only partly in the file |
+
+The `xi:include` refusal is also implemented and was exercised on
+`TransTest/trans_one`, which the multi-result guard now excludes from the
+oracle anyway; it stays as defence in depth.
 
 Only the flat single-connective gate form these models use is handled — one
 `<and>`/`<or>`/`<atleast>` per `<define-gate>`, or a bare `<event/>` child
@@ -139,7 +147,7 @@ cp <scram-src>/share/*.rng share/scram/     # the CLI needs its RelaxNG schemas
 MODELS="input/TwoTrain/two_train.xml input/Theatre/theatre.xml \
         input/SmallTree/SmallTree.xml input/ThreeMotor/three_motor.xml \
         input/BSCU/BSCU.xml input/Lift/lift.xml input/HIPPS/HIPPS.xml \
-        input/ne574/ne574.xml"
+        input/ne574/ne574.xml input/Aralia/chinese.xml"
 reference-data/scram/extract_oracle.sh ./bin/scram $MODELS \
     > reference-data/scram/oracle.txt
 reference-data/scram/extract_models.sh $MODELS \

@@ -227,8 +227,8 @@ independently of the implementation:
   expansion order, plus a published test problem.
 - **Fault trees** — upstream **SCRAM built from source and run**, on
   upstream's own input models, end to end: cut sets generated here compared
-  set-for-set against the products SCRAM found (46 of 46 across 7 models), and
-  the totals and importance factors compared on top. The oracles are committed
+  set-for-set against the products SCRAM found (438 of 438 across 8 models),
+  and the totals and importance factors compared on top. The oracles are committed
   under `reference-data/scram/`; the record, including what it does *not*
   establish, is
   [`docs/scram-port-verification.md`](docs/scram-port-verification.md).
