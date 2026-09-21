@@ -17,7 +17,10 @@
 //! |---|---|---|
 //! | dilution factor, `chi/Q` | s/m^3 | [`chi_over_q`] |
 //! | time-integrated air concentration | Bq·s/m^3 | [`units`] |
-//! | dry ground deposition | Bq/m^2 | (day 2) |
+//! | dry ground deposition | Bq/m^2 | [`deposition`] |
+//!
+//! [`source`] is the input side — what was released, over which windows — and
+//! [`survey`] is the one call that puts the three together.
 //!
 //! **It computes no dose quantity of any kind**, and none is planned here. See
 //! the scope limit below, which is binding.
@@ -66,4 +69,7 @@
 //! decision taken in `RESPONSIBLE_USE.md`.
 
 pub mod chi_over_q;
+pub mod deposition;
+pub mod source;
+pub mod survey;
 pub mod units;

@@ -106,6 +106,13 @@ pub mod prelude {
     pub use crate::activity::chi_over_q::{
         dilution_factors, DilutionFactors, StabilitySource,
     };
+    pub use crate::activity::deposition::{
+        dry_deposition, DepositionGroup, DryDepositionVelocity,
+    };
+    pub use crate::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
+    pub use crate::activity::survey::{
+        survey, DepositionVelocities, NuclideTotals, SiteSurvey,
+    };
     pub use crate::activity::units::{
         DilutionFactor, GroundDeposition, TimeIntegratedAirConcentration,
     };
