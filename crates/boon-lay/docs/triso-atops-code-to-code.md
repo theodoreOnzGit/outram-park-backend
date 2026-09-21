@@ -470,6 +470,9 @@ draft material until a human reviews it, and that review is outstanding here.
 > the block is a bookkeeping-pass task, and **only the maintainer may clear
 > either axis**. Until then, treat this crate as INCOMPLETE on both axes by
 > default — which is what the block would say anyway.
+>
+> **UPDATE 2026-09-21** — `crates/boon-lay/README.md` now exists and carries the
+> `Bookkeeping status` block, both axes ❌ pending the maintainer's review.
 
 ~~Still not covered, and tracked in `bn:op-b4a.2.7`:~~
 **CLOSED 2026-09-21** — every physics item below was ported and verified in the

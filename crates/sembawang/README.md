@@ -1,6 +1,9 @@
 # sembawang
 
-**SEMBAWANG** — the source-term end of the offsite chain (SEMBAWANG -> CHANGI -> REDHILL).
+**SEMBAWANG** — *Severe-accident Evolution and Melt Behaviour Analysis Workbench
+for Advanced Nuclear Geometries* — the source-term end of the offsite chain
+(SEMBAWANG -> CHANGI -> REDHILL). "Workbench" because it is a toolkit, not a
+single code.
 
 ## What exists, and what does not
 

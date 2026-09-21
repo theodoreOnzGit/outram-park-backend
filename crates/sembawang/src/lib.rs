@@ -1,5 +1,8 @@
 //! # SEMBAWANG
 //!
+//! **S**evere-accident **E**volution and **M**elt **B**ehaviour **A**nalysis
+//! **W**orkbench for **A**dvanced **N**uclear **G**eometries.
+//!
 //! **Severe accident progression** — melt behaviour, relocation, vessel
 //! failure, molten-core–concrete interaction, hydrogen and aerosol release.
 //!

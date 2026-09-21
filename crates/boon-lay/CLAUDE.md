@@ -7,7 +7,7 @@ in HTGRs and FHRs.
 The standalone source lives at:
 `/home/teddy0/Documents/research/boon-lay/`
 
-**Version:** 0.2.1  
+**Version:** ~~0.2.1~~ **CORRECTED 2026-09-21** — `Cargo.toml` says 0.1.3  
 **License:** GPL-3.0 (same as workspace default)
 
 ---
@@ -72,7 +72,7 @@ src/
         diffusion_coeffs/                 ← Cs, Ag, Sr diffusion coefficients in SiC/PyC
     tests/
   lagrangian_transmutation_and_fission_simulator/
-    mod.rs                                ← empty stub (future work)
+    mod.rs                                ← ~~empty stub (future work)~~ **CORRECTED 2026-09-21**: implemented in `lagrangian_diffusion::first_passage::depletion`; this `mod.rs` is the map
   triso_atops_fork/                       ← Eulerian/continuum TRISO release (fork of INL TRISO-ATOPS, MIT, commit de374c8)
     mod.rs                                ← module map + type aliases (DecayConstant, ReleaseFraction)
     nuclide_model/
@@ -84,8 +84,8 @@ src/
       mod.rs                              ← rb_fail + release_fraction_transient dispatchers (by ElementGroup)
       steady_state.rs                     ← Booth (long/short), breakthrough, attenuation, noble-gas <R/B>
       transient.rs                        ← accident variants: booth_transient, breakthrough_transient, rf_graph
-    activities/mod.rs                     ← SCAFFOLD (activity bookkeeping; bead op-b4a.2.2)
-    normal_operation/mod.rs               ← SCAFFOLD (nodal orchestration + JSON driver; beads op-b4a.2.2/.2.3)
+    activities/mod.rs                     ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented (`coolant_activity.rs`, `source_terms.rs`), code-to-code verified
+    normal_operation/mod.rs               ← ~~SCAFFOLD~~ **CORRECTED 2026-09-21**: implemented; `normal_operation_node` agrees with upstream to 3.1e-11
 ```
 
 ## triso_atops_fork — Eulerian TRISO release (fork of INL TRISO-ATOPS)
@@ -97,8 +97,10 @@ release fractions) as the complement to boon-lay's Lagrangian model. Provenance:
 `upstream_source/TRISO-ATOPS/` is gitignored/reference-only. The GUI was
 intentionally not ported (headless-library + Android rule). The cleanly-
 dimensioned physics core (diffusion + release models + nuclide model) is ported,
-uom-typed, and verified; the activity/nodal/run-file layer is scaffolded pending
-a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq). Full details,
+uom-typed, and verified; ~~the activity/nodal/run-file layer is scaffolded pending
+a dimensional-analysis pass (its upstream units mix atoms/Ci/Bq).~~ **CORRECTED
+2026-09-21** — the activity, normal-operation, accident and run set-up layers are
+implemented and covered by `docs/triso-atops-code-to-code.md` (two passes). Full details,
 Python→Rust module map, and V&V results: **`docs/triso-atops-fork.md`**.
 
 ---

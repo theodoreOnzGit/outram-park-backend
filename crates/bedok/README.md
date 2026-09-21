@@ -6,6 +6,21 @@ band **above 1-D neutronics and below CFD**.
 A Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation, ported from
 the `main_exec_diff3d_standalone` snapshot with the author's permission.
 
+## Citing BEDOK
+
+BEDOK is published. Cite the paper:
+
+> Than, Y. R., & Xiao, S. (2026). BEDOK: An In-House Numerical Reactor
+> Simulator Effort in Singapore. *Energy Engineering*, 123(9).
+
+This crate is the Rust translation of that work's MATLAB implementation. Cite
+the paper for the method and its results. Cite this crate only for the
+translation itself.
+
+Reference supplied by the maintainer on 2026-09-21. DOI and page range are
+**not recorded here** because they have not been checked; add them from the
+journal page rather than from memory.
+
 > **Status: translation complete.** All 50 MATLAB files are accounted for —
 > every solver, both coupling drivers, the critical-boron search, and all six
 > benchmark cases. The IAEA-3D eigenvalue matches the published value to

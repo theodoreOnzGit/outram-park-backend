@@ -1,3 +1,12 @@
+//! # BOON LAY
+//!
+//! **BO**mbardment of neutrons **O**n **N**uclides with **L**agrangian
+//! transport **a**nd transmutation **Y**ields.
+//!
+//! TRISO-particle and Lagrangian decay / transmutation simulator, and host of
+//! the TRISO-ATOPS fork (`triso_atops_fork`), which supplies the fission-product
+//! release physics that `sembawang` orchestrates.
+
 /// prelude is here for easy imports
 pub mod prelude;
 
