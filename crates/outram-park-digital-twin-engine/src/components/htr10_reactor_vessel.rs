@@ -618,7 +618,7 @@ pub(crate) fn draw_triso_pebble(
 /// Left slightly translucent so the bed fill behind the packing still shows
 /// through between and beneath pebbles, which is what gives the bed depth
 /// rather than reading as a flat field of discs.
-const PEBBLE_MATRIX: Color32 = Color32::from_rgba_premultiplied(28, 28, 32, 214);
+pub(crate) const PEBBLE_MATRIX: Color32 = Color32::from_rgba_premultiplied(28, 28, 32, 214);
 
 /// Draws the **settled** pebble bed: the baked DEM packing, placed by
 /// `transform` and cropped to `window`.

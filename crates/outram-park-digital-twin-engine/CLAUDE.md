@@ -363,6 +363,14 @@ run without it silently skips them.
 
 Android check (library reduces to `animation/`):
 
+> ~~The library reduces to `animation/` on Android and this check passes.~~
+> **CORRECTED 2026-09-21**: this check FAILS. Measured with the command
+> below: `src/app_scaffold/csv_display.rs:64` and `src/app_scaffold/crash.rs`
+> (lines 560, 614, 664) use `egui` without an Android gate, so
+> `app_scaffold/` does not reduce away. The failure predates the
+> 2026-09-21 widget work: it reproduces with that work stashed. Tracked in
+> GitHub issue #239.
+
 ```bash
 cargo check --release -p outram-park-digital-twin-engine --target aarch64-linux-android
 ```

@@ -28,6 +28,11 @@
 //! residence time that drives it from a component's fluid inventory and mass
 //! flow.
 //!
+//! [`PebbleTransits`] is the event-driven counterpart: nothing moves until an
+//! object is launched, and each crosses once and leaves. It animates single
+//! pebbles sent up a refuelling chute or down a defuelling chute, under the
+//! same direction-from-flow, speed-from-transit-time contract.
+//!
 //! ## Where tracer state lives
 //!
 //! Tracer motion is *stateful across frames*, but the visual components in
@@ -388,6 +393,74 @@ impl TracerTrain {
     }
 }
 
+/// Discrete objects sent along a path **one launch at a time**, each crossing
+/// it once and then leaving: a pebble lifted up a refuelling chute, or one
+/// discharged down a defuelling chute.
+///
+/// [`TracerTrain`] and [`TracerPulse`] both loop forever, which is right for a
+/// continuous flow. A pebble transit is an **event**: nothing moves until one
+/// is launched, and each one leaves when it reaches the far end.
+///
+/// Follows [`TracerTrain::advance`]'s contract: the sign of the driving
+/// `mass_flow` sets the direction, the `transit_time` sets the speed (a
+/// launched object crosses in exactly one transit time), and a zero or
+/// non-finite flow or transit time freezes everything in place rather than
+/// guessing at a speed. Objects enter at `0` (the inlet); with reversed flow
+/// they drift back and leave at `0`, with forward flow they leave at `1`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PebbleTransits {
+    /// Position of each object in flight along the path, in `[0, 1]`.
+    in_flight: Vec<f64>,
+}
+
+impl PebbleTransits {
+    /// Nothing in flight.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Put one new object at the inlet, position `0`.
+    pub fn launch(&mut self) {
+        self.in_flight.push(0.0);
+    }
+
+    /// Advance every object by `dt`, then drop any that have left the path.
+    ///
+    /// Returns how many left through the **far end** (position `1`) on this
+    /// call, so a caller can count completed transits.
+    pub fn advance(&mut self, dt: Time, transit_time: Time, mass_flow: MassRate) -> usize {
+        let m_dot = mass_flow.get::<kilogram_per_second>();
+        let tau = transit_time.get::<second>();
+        if !m_dot.is_finite() || m_dot == 0.0 || !tau.is_finite() || tau <= 0.0 {
+            return 0;
+        }
+        let step = dt.get::<second>() / tau * m_dot.signum();
+        for x in &mut self.in_flight {
+            *x += step;
+        }
+        let before = self.in_flight.len();
+        let arrived = self.in_flight.iter().filter(|x| **x > 1.0).count();
+        self.in_flight.retain(|x| (0.0..=1.0).contains(x));
+        debug_assert!(before - self.in_flight.len() >= arrived);
+        arrived
+    }
+
+    /// Positions of the objects in flight, each in `[0, 1]` from the inlet.
+    pub fn positions(&self) -> impl Iterator<Item = f64> + '_ {
+        self.in_flight.iter().copied()
+    }
+
+    /// How many objects are in flight.
+    pub fn len(&self) -> usize {
+        self.in_flight.len()
+    }
+
+    /// Whether nothing is in flight.
+    pub fn is_empty(&self) -> bool {
+        self.in_flight.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,6 +468,55 @@ mod tests {
 
     fn kgs(v: f64) -> MassRate {
         MassRate::new::<kilogram_per_second>(v)
+    }
+
+    fn secs(v: f64) -> Time {
+        Time::new::<second>(v)
+    }
+
+    /// A launched pebble crosses in exactly one transit time and then leaves,
+    /// counted as an arrival.
+    #[test]
+    fn a_launched_pebble_crosses_in_one_transit_time_then_leaves() {
+        let mut p = PebbleTransits::new();
+        assert!(p.is_empty(), "nothing moves until something is launched");
+        p.launch();
+        assert_eq!(p.advance(secs(2.0), secs(8.0), kgs(0.01)), 0);
+        let x: Vec<f64> = p.positions().collect();
+        assert!(
+            (x[0] - 0.25).abs() < 1e-12,
+            "quarter of the way after a quarter transit"
+        );
+        assert_eq!(p.advance(secs(6.5), secs(8.0), kgs(0.01)), 1, "arrives");
+        assert!(p.is_empty(), "and leaves the path");
+    }
+
+    /// Zero flow parks pebbles in place; reversed flow sends them back out of
+    /// the inlet without counting as arrivals.
+    #[test]
+    fn zero_flow_parks_and_reversed_flow_returns_pebbles() {
+        let mut p = PebbleTransits::new();
+        p.launch();
+        p.advance(secs(4.0), secs(8.0), kgs(1.0));
+        p.advance(secs(100.0), secs(8.0), kgs(0.0));
+        assert_eq!(p.positions().collect::<Vec<_>>(), vec![0.5], "parked");
+        assert_eq!(p.advance(secs(5.0), secs(8.0), kgs(-1.0)), 0);
+        assert!(p.is_empty(), "left back through the inlet");
+    }
+
+    /// Speed comes from the transit time alone; the flow's magnitude does not
+    /// change it (the train contract).
+    #[test]
+    fn pebble_speed_ignores_flow_magnitude() {
+        let (mut a, mut b) = (PebbleTransits::new(), PebbleTransits::new());
+        a.launch();
+        b.launch();
+        a.advance(secs(1.0), secs(10.0), kgs(0.001));
+        b.advance(secs(1.0), secs(10.0), kgs(50.0));
+        assert_eq!(
+            a.positions().collect::<Vec<_>>(),
+            b.positions().collect::<Vec<_>>()
+        );
     }
     fn s(v: f64) -> Time {
         Time::new::<second>(v)

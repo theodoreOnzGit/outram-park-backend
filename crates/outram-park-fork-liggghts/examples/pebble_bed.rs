@@ -25,7 +25,8 @@
 //!
 //! A minimal, fully reproducible **pebble-bed settling** demonstration built
 //! entirely on the crate's public [`DemSimulation`](outram_park_fork_liggghts::simulation::DemSimulation)
-//! engine. It seeds `N ≈ 200` equal graphite-sized spheres on a deterministic
+//! engine. It seeds ~~`N ≈ 200`~~ **296** (**CORRECTED 2026-09-21**: measured,
+//! 37 per layer x 8 layers) equal graphite-sized spheres on a deterministic
 //! staggered lattice inside a vertical [`Cylinder`](outram_park_fork_liggghts::boundary::Boundary::Cylinder)
 //! container closed by a floor [`Wall`](outram_park_fork_liggghts::boundary::Boundary::Wall),
 //! releases them under gravity, and runs the soft-sphere DEM loop long enough
@@ -45,6 +46,28 @@
 //!   pure-compute example, no BLAS and no GUI, so a plain `fn main()` suffices).
 //! - Qualitative settling behaviour: kinetic energy monotonically dissipates
 //!   through the normal dashpot and Coulomb friction until the bed is at rest.
+//!
+//! ## Timing (measured 2026-09-21)
+//!
+//! `--layers <n>` and `--steps <n>` override the defaults for timing runs; the
+//! DEM loop is timed on its own. Measured on an i9-13900K, release build,
+//! pinned with `taskset`, 10 000 steps each:
+//!
+//! | pebbles | core | wall time | ms/step | us per pebble-step |
+//! |---|---|---|---|---|
+//! | 296 (default) | E-core (CPU 16) | 2.84 s | 0.284 | 0.96 |
+//! | 407 (`--layers 11`) | E-core (CPU 16), 3 runs | 4.056-4.075 s | 0.406-0.408 | 1.00 |
+//! | 407 (`--layers 11`) | P-core (CPU 0) | 2.48 s | 0.248 | 0.61 |
+//! | 592 (`--layers 16`) | E-core (CPU 16), 3 runs | 5.77-5.93 s | 0.58-0.59 | 0.97-1.00 |
+//!
+//! Cost is linear in pebble count over this range (about 1.0 us per
+//! pebble-step on an E-core). **This is `DemSimulation` with a Hooke contact at
+//! `dt = 1e-4 s`.** The HTR-10 cases run on a different engine,
+//! `GranularSystem`, with a Hertz contact at `dt = 3.5e-5 s`
+//! (`examples/htr10_step_profile.rs`). That engine measured 0.67 us per
+//! pebble-step single-threaded on 27 554 pebbles, the same order as here, but
+//! the two are not the same code path, and the steps per simulated second
+//! differ with the timestep.
 //!
 //! ## Honest scope — this is a VERIFICATION DEMO, not a validated simulation
 //!
@@ -186,7 +209,7 @@ fn make_pebble(position: Vec3) -> Particle {
 /// budget). A grid point is kept only if its centre lies within the cylinder
 /// with a full pebble radius of clearance (radial distance ≤ `R_cyl − r`), so no
 /// pebble is seeded already overlapping the wall.
-fn seed_lattice() -> Vec<Particle> {
+fn seed_lattice(n_layers: usize) -> Vec<Particle> {
     // Largest radial coordinate a pebble *centre* may take without the pebble
     // poking through the cylinder wall.
     let max_center_radius = CYLINDER_RADIUS - PEBBLE_RADIUS;
@@ -194,7 +217,7 @@ fn seed_lattice() -> Vec<Particle> {
     let half_span = (max_center_radius / SPACING_XY).ceil() as i64 + 1;
 
     let mut particles = Vec::new();
-    for layer in 0..N_LAYERS {
+    for layer in 0..n_layers {
         let z = FIRST_LAYER_Z + layer as f64 * SPACING_Z;
         for ix in -half_span..=half_span {
             for iy in -half_span..=half_span {
@@ -210,7 +233,28 @@ fn seed_lattice() -> Vec<Particle> {
     particles
 }
 
+/// Read an optional `--name <value>` flag from the command line, falling back
+/// to `default` when it is absent. Panics on a value that does not parse, so a
+/// typo cannot silently run the default case.
+fn flag(name: &str, default: usize) -> usize {
+    let args: Vec<String> = std::env::args().collect();
+    match args.iter().position(|a| a == name) {
+        Some(i) => args
+            .get(i + 1)
+            .and_then(|v| v.parse().ok())
+            .unwrap_or_else(|| panic!("{name} needs a positive integer")),
+        None => default,
+    }
+}
+
 fn main() {
+    // Optional overrides, for timing runs at other sizes. With no flags the
+    // demo is exactly as documented: N_LAYERS layers, N_STEPS steps.
+    //   --layers <n>   seeded layers (about 25 pebbles each)
+    //   --steps  <n>   integration steps
+    let n_layers = flag("--layers", N_LAYERS);
+    let n_steps = flag("--steps", N_STEPS);
+
     // --- Domain: a vertical cylinder closed by a floor ---------------------
     // Cylinder axis is the world z-axis through the origin; it is infinite along
     // z (no end caps), and the floor Wall at z = 0 (outward normal +z) closes
@@ -229,7 +273,7 @@ fn main() {
     );
 
     // --- Assemble and run --------------------------------------------------
-    let particles = seed_lattice();
+    let particles = seed_lattice(n_layers);
     let n = particles.len();
     // Total solid volume of the pebbles [m^3] (all equal spheres).
     let single_volume = (4.0 / 3.0) * PI * PEBBLE_RADIUS.powi(3);
@@ -240,7 +284,10 @@ fn main() {
         .expect("dt is strictly positive");
 
     let ke_initial = sim.kinetic_energy();
-    sim.run(N_STEPS);
+    // Wall-clock time of the DEM loop alone, excluding set-up and reporting.
+    let started = std::time::Instant::now();
+    sim.run(n_steps);
+    let elapsed = started.elapsed().as_secs_f64();
     let ke_final = sim.kinetic_energy();
 
     // --- Diagnostics -------------------------------------------------------
@@ -277,8 +324,8 @@ fn main() {
         "Contact model  : Hooke spring-dashpot  k_n = {K_N:.1e} N/m, gamma_n = {GAMMA_N:.0} N.s/m, mu = {FRICTION}"
     );
     println!(
-        "Integration    : velocity-Verlet, dt = {DT:.1e} s, {N_STEPS} steps  (t = {:.3} s)",
-        N_STEPS as f64 * DT
+        "Integration    : velocity-Verlet, dt = {DT:.1e} s, {n_steps} steps  (t = {:.3} s)",
+        n_steps as f64 * DT
     );
     println!();
     println!("--- Results ---------------------------------------------------------");
@@ -293,6 +340,11 @@ fn main() {
     println!("Total pebble volume       : {total_pebble_volume:.6e} m^3");
     println!("Occupied bed volume       : {occupied_bed_volume:.6e} m^3  (pi R^2 x bed height)");
     println!("Packing fraction          : {packing_fraction:.4}");
+    println!(
+        "Wall time (DEM loop)      : {elapsed:.3} s  ({:.4} ms/step, {:.3} us per pebble-step)",
+        1e3 * elapsed / n_steps.max(1) as f64,
+        1e6 * elapsed / (n_steps.max(1) as f64 * n.max(1) as f64)
+    );
     println!();
     println!("Reference: monodisperse random close packing (RCP) ~ 0.6366 (Scott & Kilgour 1969).");
     println!("This is a small, ordered-lattice, wall-confined VERIFICATION demo, so its");

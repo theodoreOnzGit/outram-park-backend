@@ -145,6 +145,14 @@ const INTERNALS: Color32 = Color32::from_rgb(64, 68, 76);
 const VOID: Color32 = Color32::from_rgb(28, 30, 34);
 const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 
+/// Bottom of the riser and coil bundles, as a fraction of the vessel height
+/// from the top. A drawing choice.
+const BUNDLE_BOTTOM_FRACTION: f32 = 0.90;
+
+/// Bottom of the interior cavity, as a fraction of the vessel height from the
+/// top. A drawing choice.
+const INTERIOR_BOTTOM_FRACTION: f32 = 0.95;
+
 /// Letterbox `available` to the vessel's real proportions.
 ///
 /// Keeps the vessel's slenderness at any box size, so a wide panel does not
@@ -229,6 +237,21 @@ impl Htr10SteamGeneratorVisual {
             feedwater_tracer: None,
             steam_tracer: None,
         }
+    }
+
+    /// Where the hot gas duct connects, for a widget whose box is
+    /// `widget_rect` (the rect it will be placed in, of size [`Self::size`]).
+    ///
+    /// It is the **foot of the central riser**: on the vessel axis, between
+    /// the bottom of the bundles and the bottom of the cavity. Hot gas enters
+    /// there and climbs the riser. The widget still draws no duct itself; a
+    /// caller runs one to this point (the HTR-10 test-reactor page runs
+    /// `Htr10ReactorSchematic`'s coaxial duct here). Computed from the same
+    /// fractions the paint code uses.
+    pub fn gas_port(&self, widget_rect: Rect) -> Pos2 {
+        let rect = fit_native_aspect(widget_rect);
+        let f = 0.5 * (BUNDLE_BOTTOM_FRACTION + INTERIOR_BOTTOM_FRACTION);
+        Pos2::new(rect.center().x, rect.top() + f * rect.height())
     }
 
     /// Tracer marks for the **primary** helium rising in the central riser.
@@ -403,13 +426,13 @@ impl Widget for Htr10SteamGeneratorVisual {
         // Interior cavity the internals sit in.
         let interior = Rect::from_min_max(
             Pos2::new(cx - w * 0.45, y(0.05)),
-            Pos2::new(cx + w * 0.45, y(0.95)),
+            Pos2::new(cx + w * 0.45, y(INTERIOR_BOTTOM_FRACTION)),
         );
         painter.rect_filled(interior, (w * 0.06).round() as u8, VOID);
 
         // ── Vertical extent of the internals ────────────────────────────────
         let top_f = 0.10_f32;
-        let bottom_f = 0.90_f32;
+        let bottom_f = BUNDLE_BOTTOM_FRACTION;
         let bundle_top = y(top_f);
         let bundle_bottom = y(bottom_f);
 
@@ -721,6 +744,19 @@ mod tests {
             kelvins(377.15),
             kelvins(713.15),
         )
+    }
+
+    /// The gas port is the foot of the central riser: on the vessel axis,
+    /// below the bottom of the bundles and above the bottom of the cavity.
+    #[test]
+    fn the_gas_port_is_at_the_foot_of_the_riser() {
+        let v = visual();
+        let r = Rect::from_min_size(Pos2::new(15.0, 30.0), v.size());
+        let port = v.gas_port(r);
+        let vessel = fit_native_aspect(r);
+        assert!((port.x - vessel.center().x).abs() < 1e-4, "on the axis");
+        let f = (port.y - vessel.top()) / vessel.height();
+        assert!(f > BUNDLE_BOTTOM_FRACTION && f < INTERIOR_BOTTOM_FRACTION);
     }
 
     /// The riser defaults to the maintainer-specified 40 % of the diameter.
