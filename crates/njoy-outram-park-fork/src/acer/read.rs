@@ -260,19 +260,31 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
             pair_toks.len()
         )));
     }
+    // STRICT, deliberately. An earlier draft used `unwrap_or(0)` here and in the
+    // NXS/JXS/XSS parses below. That turns a corrupt token into a silent zero,
+    // which is the worst possible failure for a comparison tool: the table
+    // still "reads", the numbers still look plausible, and the difference gets
+    // attributed to physics. A file that will not parse must say so.
     let mut iz = [0i32; 16];
     let mut aw = [0f64; 16];
     for k in 0..16 {
-        iz[k] = pair_toks[2 * k].parse().unwrap_or(0);
-        aw[k] = pair_toks[2 * k + 1].parse().unwrap_or(0.0);
+        iz[k] = pair_toks[2 * k].parse().map_err(|e| {
+            NjoyError::EndfParse(format!("ACE IZ[{k}] {:?}: {e}", pair_toks[2 * k]))
+        })?;
+        aw[k] = pair_toks[2 * k + 1].parse().map_err(|e| {
+            NjoyError::EndfParse(format!("ACE AW[{k}] {:?}: {e}", pair_toks[2 * k + 1]))
+        })?;
     }
 
     // Lines 7-12: NXS(16) then JXS(32).
     let ints: Vec<i32> = lines[6..12]
         .iter()
         .flat_map(|l| l.split_whitespace())
-        .map(|t| t.parse::<i32>().unwrap_or(0))
-        .collect();
+        .map(|t| {
+            t.parse::<i32>()
+                .map_err(|e| NjoyError::EndfParse(format!("ACE NXS/JXS {t:?}: {e}")))
+        })
+        .collect::<Result<Vec<i32>, NjoyError>>()?;
     if ints.len() < 48 {
         return Err(NjoyError::EndfParse(format!(
             "ACE NXS/JXS: expected 48 integers, found {}",
@@ -288,8 +300,11 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
     let xss: Vec<f64> = lines[12..]
         .iter()
         .flat_map(|l| l.split_whitespace())
-        .map(|t| t.parse::<f64>().unwrap_or(0.0))
-        .collect();
+        .map(|t| {
+            t.parse::<f64>()
+                .map_err(|e| NjoyError::EndfParse(format!("ACE XSS value {t:?}: {e}")))
+        })
+        .collect::<Result<Vec<f64>, NjoyError>>()?;
 
     // NXS(1) is the declared XSS length. Disagreement means a truncated file,
     // which is worth an error rather than a silent short read -- a truncated
@@ -563,6 +578,31 @@ mod tests {
         for c in ['x', 'z', '0', 'C'] {
             assert!(AceClass::from_letter(c).is_none(), "letter {c:?} is not a class");
         }
+    }
+
+    /// A corrupt XSS token is an error, never a silent zero. This is the
+    /// failure the strict parses above exist to prevent: a table that still
+    /// "reads", with plausible numbers, whose difference gets blamed on physics.
+    #[test]
+    fn a_corrupt_value_is_an_error_not_a_silent_zero() {
+        let mut lines: Vec<String> = Vec::new();
+        lines.push("  1001.00c    0.999167  0.0000E+00   09/21/26".into());
+        lines.push(format!("{:<70}{:>10}", "test", "mat125"));
+        for _ in 0..4 {
+            lines.push("      0         0.      0         0.      0         0.      0         0.".into());
+        }
+        lines.push("        3        0        0        0        0        0        0        0".into());
+        lines.push("        0        0        0        0        0        0        0        0".into());
+        for _ in 0..4 {
+            lines.push("        1        0        0        0        0        0        0        0".into());
+        }
+        lines.push("   1.0000E+00   NOT_A_NUMBER   3.0000E+00".into());
+        let e = parse_type1(&lines.join("\n")).unwrap_err();
+        let msg = format!("{e}");
+        assert!(
+            msg.contains("NOT_A_NUMBER"),
+            "the error must name the offending token, got: {msg}"
+        );
     }
 
     #[test]
