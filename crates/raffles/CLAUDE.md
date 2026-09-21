@@ -111,8 +111,16 @@ that they are *independent* of upstream: two unrelated algorithms agreeing is
 evidence, a translation agreeing with its original is much weaker. That is the
 same rule the paper-derived Bayesian modules follow.
 
-Absent: the preprocessor, prime implicants, XML input, event trees,
-alignments, CCF groups, house events.
+Absent: the preprocessor, XML input, event trees, alignments, CCF groups,
+house events.
+
+~~prime implicants~~ **CORRECTED 2026-09-21** — `zbdd::prime_implicants`
+landed the same day, porting `ConvertBddPrimeImplicants` and `Bdd::Consensus`.
+It is what makes a non-coherent answer *exact* rather than conservative.
+Verified against `scram --prime-implicants` on 9 models, 441 implicants, signs
+included. Note upstream itself does not finish `--prime-implicants` on
+`Aralia/das9601` within five minutes — the cost is the algorithm's, not this
+port's.
 
 ~~ZBDD~~ **CORRECTED 2026-09-21** — `src/scram/zbdd.rs` landed the same day,
 porting `ConvertBdd`/`Minimize`/`Subsume`. It is how `Aralia/das9601`'s 4,259

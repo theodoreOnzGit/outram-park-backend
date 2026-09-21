@@ -70,17 +70,21 @@
 //! A caller who already has cut sets from elsewhere can skip straight to
 //! step 3; [`CutSet`] does not care where they came from.
 //!
-//! **Non-coherent trees are handled, and their answers mean something
-//! different.** Where a `not`, `nand`, `nor` or `xor` appears, a component
-//! *working* can contribute to the top event, and the minimal cut sets are
-//! **conservative**: quantifying them bounds the top-event probability from
-//! above rather than computing it. That is a property of the definition, not
-//! of this implementation — see [`mocus`].
+//! **Non-coherent trees are handled, and there the answer you ask for
+//! matters.** Where a `not`, `nand`, `nor` or `xor` appears, a component
+//! *working* can contribute to the top event. Minimal cut sets then discard
+//! that information and become **conservative** — quantifying them bounds the
+//! probability from above. Two things recover the exact answer:
+//! [`bdd::Bdd::probability`] for the probability itself, and
+//! [`zbdd::prime_implicants`] for the combinations, which keep the
+//! complemented literals. Measured on the fixture's small non-coherent model:
+//! cut sets sum to `0.80`, prime implicants to `0.54`, and the truth is
+//! `0.5032`.
 //!
 //! **What is still absent:** everything SCRAM does around this core — XML
 //! input models, event trees, alignments, common-cause-failure groups,
 //! substitutions and the expression library — plus, in the analysis itself,
-//! the preprocessor and prime implicants
+//! the preprocessor
 //! (upstream's `--prime-implicants`, which is what recovers the exact function
 //! a non-coherent tree describes).
 //!
@@ -117,5 +121,5 @@ pub use bdd::Bdd;
 pub use fault_tree::{Arg, Connective, FaultTree, FaultTreeBuilder, FaultTreeModel, Gate};
 pub use importance::{importance_factors, ImportanceFactors};
 pub use mocus::minimal_cut_sets;
-pub use zbdd::count_minimal_cut_sets;
+pub use zbdd::{count_minimal_cut_sets, prime_implicants, PrimeImplicant};
 pub use probability::{cut_set_probability, top_event_probability, Approximation, CutSet};

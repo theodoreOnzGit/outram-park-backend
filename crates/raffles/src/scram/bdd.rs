@@ -135,6 +135,12 @@ pub struct Bdd {
     /// `order_to_event[i]` is the basic-event index tested at position `i`.
     order_to_event: Vec<usize>,
     root: NodeId,
+    /// Construction tables, kept so [`Bdd::conjoin`] can extend the diagram
+    /// after the fact. A caller that only wants a probability never touches
+    /// them; the prime-implicant recursion does, at every node.
+    unique: HashMap<Ite, NodeId>,
+    apply_memo: HashMap<(Op, NodeId, NodeId), NodeId>,
+    not_memo: HashMap<NodeId, NodeId>,
 }
 
 /// The binary operations [`Builder::apply`] memoises.
@@ -363,6 +369,9 @@ impl Bdd {
             nodes: builder.nodes,
             order_to_event,
             root,
+            unique: builder.unique,
+            apply_memo: builder.apply_memo,
+            not_memo: builder.not_memo,
         })
     }
 
@@ -398,6 +407,33 @@ impl Bdd {
     /// How many variables the diagram orders.
     pub fn variable_count(&self) -> usize {
         self.order_to_event.len()
+    }
+
+    /// The conjunction of two nodes, extending the diagram as needed.
+    ///
+    /// Exposed for [`super::zbdd`]'s prime-implicant recursion, whose
+    /// consensus term is upstream's `Bdd::Consensus` — that is,
+    /// `Apply<kAnd>(ite->high(), ite->low())`. Nothing else should need to
+    /// grow the diagram after construction.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if the diagram exceeds
+    /// [`NODE_LIMIT`].
+    pub fn conjoin(&mut self, a: NodeId, b: NodeId) -> Result<NodeId> {
+        let mut builder = Builder {
+            nodes: std::mem::take(&mut self.nodes),
+            unique: std::mem::take(&mut self.unique),
+            apply_memo: std::mem::take(&mut self.apply_memo),
+            not_memo: std::mem::take(&mut self.not_memo),
+            event_to_order: HashMap::new(),
+        };
+        let result = builder.apply(Op::And, a, b);
+        self.nodes = std::mem::take(&mut builder.nodes);
+        self.unique = std::mem::take(&mut builder.unique);
+        self.apply_memo = std::mem::take(&mut builder.apply_memo);
+        self.not_memo = std::mem::take(&mut builder.not_memo);
+        result
     }
 
     /// The if-then-else at `node`, or `None` at a terminal.

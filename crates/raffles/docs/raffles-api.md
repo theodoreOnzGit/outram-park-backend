@@ -64,10 +64,11 @@ reasoning about the spread of their answers:
   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
   posterior sample and the evidence.
 - **[`scram`]** — fault trees: build one, generate its minimal cut sets,
-  quantify the top-event probability by cut sets or by a binary decision
-  diagram, and rank the basic events by the five standard importance
-  measures. Coherent and non-coherent, though a non-coherent tree's cut
-  sets are conservative where its BDD is exact.
+  derive its prime implicants, quantify the top-event probability by cut
+  sets or by a binary decision diagram, and rank the basic events by the
+  five standard importance measures. Coherent and non-coherent, though on
+  a non-coherent tree cut sets are conservative where the prime implicants
+  and the BDD are exact.
 - **[`gnn`]** — graph neural networks for physics: message-passing
   topology, the physics-guided bound on message-passing iterations, and
   (behind the `burn` feature) the network itself.
@@ -9495,17 +9496,21 @@ products rather than translated from its code — see that module.
 A caller who already has cut sets from elsewhere can skip straight to
 step 3; [`CutSet`] does not care where they came from.
 
-**Non-coherent trees are handled, and their answers mean something
-different.** Where a `not`, `nand`, `nor` or `xor` appears, a component
-*working* can contribute to the top event, and the minimal cut sets are
-**conservative**: quantifying them bounds the top-event probability from
-above rather than computing it. That is a property of the definition, not
-of this implementation — see [`mocus`].
+**Non-coherent trees are handled, and there the answer you ask for
+matters.** Where a `not`, `nand`, `nor` or `xor` appears, a component
+*working* can contribute to the top event. Minimal cut sets then discard
+that information and become **conservative** — quantifying them bounds the
+probability from above. Two things recover the exact answer:
+[`bdd::Bdd::probability`] for the probability itself, and
+[`zbdd::prime_implicants`] for the combinations, which keep the
+complemented literals. Measured on the fixture's small non-coherent model:
+cut sets sum to `0.80`, prime implicants to `0.54`, and the truth is
+`0.5032`.
 
 **What is still absent:** everything SCRAM does around this core — XML
 input models, event trees, alignments, common-cause-failure groups,
 substitutions and the expression library — plus, in the analysis itself,
-the preprocessor and prime implicants
+the preprocessor
 (upstream's `--prime-implicants`, which is what recovers the exact function
 a non-coherent tree describes).
 
@@ -9807,6 +9812,11 @@ pub struct Bdd {
   pub fn variable_count(self: &Self) -> usize { /* ... */ }
   ```
   How many variables the diagram orders.
+
+- ```rust
+  pub fn conjoin(self: &mut Self, a: NodeId, b: NodeId) -> Result<NodeId> { /* ... */ }
+  ```
+  The conjunction of two nodes, extending the diagram as needed.
 
 - ```rust
   pub fn ite(self: &Self, node: NodeId) -> Option<Ite> { /* ... */ }
@@ -11784,8 +11794,12 @@ path to `true`, and drops the rest. For a **coherent** tree that is exactly
 the minimal cut sets. For a **non-coherent** one it discards the
 requirement that some component be *working*, so the result is
 conservative in the same way [`super::mocus`]'s is, and for the same
-reason — upstream's ordinary path does the same, and only
-`--prime-implicants` (not ported) keeps the complemented literals.
+reason — upstream's ordinary path does the same.
+
+**[`prime_implicants`] is the exact alternative**, keeping the complemented
+literals, and is upstream's `--prime-implicants`. It costs more: the
+consensus term adds a third recursive call at every node, and upstream
+itself does not finish it on the fixture's largest model.
 
 # Example
 
@@ -11824,6 +11838,192 @@ the builder's node table.
 pub type SetId = usize;
 ```
 
+#### Struct `PrimeImplicant`
+
+A **prime implicant**: a minimal condition sufficient for the top event,
+recording both what must fail and what must hold.
+
+This is what a minimal cut set becomes once complemented literals are kept.
+On a **coherent** tree the two coincide and [`negative`](Self::negative) is
+always empty — no component working can ever help cause failure. On a
+**non-coherent** tree they differ, and the difference is the whole point:
+cut sets discard the negative literals and so describe a strictly larger
+function, while prime implicants describe the real one.
+
+Members are indices into the basic-event probability slice, as
+[`CutSet`]'s are.
+
+```rust
+pub struct PrimeImplicant {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn positive(self: &Self) -> &[usize] { /* ... */ }
+  ```
+  Basic events that must **occur**, ascending.
+
+- ```rust
+  pub fn negative(self: &Self) -> &[usize] { /* ... */ }
+  ```
+  Basic events that must **not** occur, ascending.
+
+- ```rust
+  pub fn order(self: &Self) -> usize { /* ... */ }
+  ```
+  Total number of literals — upstream reports this as the product's
+
+- ```rust
+  pub fn probability(self: &Self, event_probabilities: &[f64]) -> Result<f64> { /* ... */ }
+  ```
+  Probability that this implicant holds, for independent basic events.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Comparable**
+  - ```rust
+    fn compare(self: &Self, key: &K) -> Ordering { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Eq**
+- **Equivalent**
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+  - ```rust
+    fn equivalent(self: &Self, key: &K) -> bool { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **Ord**
+  - ```rust
+    fn cmp(self: &Self, other: &Self) -> $crate::cmp::Ordering { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **PartialOrd**
+  - ```rust
+    fn partial_cmp(self: &Self, other: &Self) -> $crate::option::Option<$crate::cmp::Ordering> { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 ### Functions
 
 #### Function `minimal_cut_sets`
@@ -11890,6 +12090,56 @@ limit.
 
 ```rust
 pub fn count_minimal_cut_sets(tree: &super::fault_tree::FaultTree) -> crate::Result<u128> { /* ... */ }
+```
+
+#### Function `prime_implicants`
+
+The prime implicants of a fault tree.
+
+Where [`minimal_cut_sets`] discards complemented literals — making its
+answer conservative on a non-coherent tree — this keeps them, so the result
+describes the tree's function **exactly**. On a coherent tree the two are
+the same sets and every implicant's [`PrimeImplicant::negative`] is empty.
+
+Returned implicants are sorted by order, then positive members, then
+negative, so two runs compare equal.
+
+# Cost
+
+Substantially more than cut sets, because the consensus term adds a third
+recursive call at every node. **Upstream is no faster**: `scram
+--prime-implicants` does not finish within five minutes on the fixture's
+`Aralia/das9601`, where its minimal cut sets take under a second. Expect
+this to be usable on small and medium trees only.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if either diagram exceeds its node
+limit.
+
+# Example
+
+```
+use raffles::scram::fault_tree::{Connective, FaultTreeBuilder};
+use raffles::scram::zbdd::prime_implicants;
+
+// `a AND NOT b` -- failure needs `a` to fail AND `b` to be working.
+let mut b = FaultTreeBuilder::new();
+b.basic_event("a", 0.1).unwrap();
+b.basic_event("b", 0.2).unwrap();
+b.gate("NotB", Connective::Not, &["b"]).unwrap();
+b.gate("Top", Connective::And, &["a", "NotB"]).unwrap();
+let model = b.build("Top").unwrap();
+
+let pis = prime_implicants(model.tree()).unwrap();
+assert_eq!(pis.len(), 1);
+assert_eq!(pis[0].positive(), &[0]);   // a must occur
+assert_eq!(pis[0].negative(), &[1]);   // b must not
+assert!((pis[0].probability(model.probabilities()).unwrap() - 0.08).abs() < 1e-12);
+```
+
+```rust
+pub fn prime_implicants(tree: &super::fault_tree::FaultTree) -> crate::Result<Vec<PrimeImplicant>> { /* ... */ }
 ```
 
 ### Constants and Statics
@@ -11991,6 +12241,18 @@ pub use mocus::minimal_cut_sets;
 
 ```rust
 pub use zbdd::count_minimal_cut_sets;
+```
+
+#### Re-export `prime_implicants`
+
+```rust
+pub use zbdd::prime_implicants;
+```
+
+#### Re-export `PrimeImplicant`
+
+```rust
+pub use zbdd::PrimeImplicant;
 ```
 
 #### Re-export `cut_set_probability`

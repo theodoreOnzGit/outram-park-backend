@@ -56,10 +56,11 @@
 //!   moves, and the transitional samplers (TMCMC, TEMCMC) that produce both a
 //!   posterior sample and the evidence.
 //! - **[`scram`]** — fault trees: build one, generate its minimal cut sets,
-//!   quantify the top-event probability by cut sets or by a binary decision
-//!   diagram, and rank the basic events by the five standard importance
-//!   measures. Coherent and non-coherent, though a non-coherent tree's cut
-//!   sets are conservative where its BDD is exact.
+//!   derive its prime implicants, quantify the top-event probability by cut
+//!   sets or by a binary decision diagram, and rank the basic events by the
+//!   five standard importance measures. Coherent and non-coherent, though on
+//!   a non-coherent tree cut sets are conservative where the prime implicants
+//!   and the BDD are exact.
 //! - **[`gnn`]** — graph neural networks for physics: message-passing
 //!   topology, the physics-guided bound on message-passing iterations, and
 //!   (behind the `burn` feature) the network itself.

@@ -1,0 +1,544 @@
+MODEL TwoTrain/two_train
+EVENT ValveOne 0.5
+EVENT PumpOne 0.7
+EVENT ValveTwo 0.5
+EVENT PumpTwo 0.7
+PI 2 +ValveOne +ValveTwo
+PI 2 +ValveOne +PumpTwo
+PI 2 +PumpOne +ValveTwo
+PI 2 +PumpOne +PumpTwo
+TOTAL exact 0.7225
+END
+MODEL Theatre/theatre
+EVENT Mains_Fail 0.03
+EVENT Gen_Fail 0.02
+EVENT Relay_Fail 0.05
+PI 2 +Gen_Fail +Mains_Fail
+PI 2 +Relay_Fail +Mains_Fail
+TOTAL exact 0.00207
+END
+MODEL SmallTree/SmallTree
+EVENT e1 0.160711
+EVENT e2 0.0838727
+EVENT e3 0.160711
+EVENT e4 0.0838727
+PI 2 +e1 +e2
+PI 2 +e3 +e4
+TOTAL exact 0.0267768
+END
+MODEL BSCU/BSCU
+EVENT ValidityMonitorFailure 0.00140062
+EVENT System1ElectronicFailure 0.231104
+EVENT LossOfSystem1PowerSupply 0.111535
+EVENT System2ElectronicFailure 0.231104
+EVENT LossOfSystem2PowerSupply 0.111535
+EVENT SwitchStuckInPosition1 0.0225186
+EVENT SwitchStuckInIntermediatePosition 0.00113815
+EVENT SwitchStuckInPosition2 0.0225186
+PI 2 +System2ElectronicFailure +System1ElectronicFailure
+PI 2 +System2ElectronicFailure +LossOfSystem1PowerSupply
+PI 2 +System2ElectronicFailure +SwitchStuckInPosition2
+PI 2 +LossOfSystem2PowerSupply +System1ElectronicFailure
+PI 2 +LossOfSystem2PowerSupply +LossOfSystem1PowerSupply
+PI 2 +LossOfSystem2PowerSupply +SwitchStuckInPosition2
+PI 2 +SwitchStuckInPosition1 +System1ElectronicFailure
+PI 2 +SwitchStuckInPosition1 +LossOfSystem1PowerSupply
+PI 1 +SwitchStuckInIntermediatePosition
+PI 1 +ValidityMonitorFailure
+TOTAL exact 0.112409
+END
+MODEL Lift/lift
+EVENT LMD_1 1e-06
+EVENT DPD_1 1e-06
+EVENT DM_1 1e-06
+EVENT PS_1 1e-06
+EVENT DOD_1 1e-06
+EVENT D_1 1e-06
+EVENT DMS_2 1e-06
+EVENT CP_1 1e-06
+EVENT LMD_2 1e-06
+EVENT LPD_1 1e-06
+EVENT DOD_2 1e-06
+EVENT DMS_1 1e-06
+PI 1 +LMD_2
+PI 1 +LPD_1
+PI 1 +DOD_2
+PI 1 +DMS_1
+PI 1 +DPD_1
+PI 1 +PS_1
+PI 1 +DOD_1
+PI 1 +D_1
+PI 1 +DM_1
+PI 1 +DMS_2
+PI 1 +CP_1
+PI 1 +LMD_1
+TOTAL exact 1.19999e-05
+END
+MODEL HIPPS/HIPPS
+EVENT PSHCCF 4.19999e-06
+EVENT PSH1Failure 8.39965e-05
+EVENT PSH2Failure 8.39965e-05
+EVENT PSH3Failure 8.39965e-05
+EVENT LogicSolverFailure 9.9999e-06
+EVENT SV1Failure 0.000311951
+EVENT SDV1Failure 0.000491879
+EVENT SV2Failure 0.000311951
+EVENT SDV2Failure 0.000491879
+PI 2 +PSH1Failure +PSH2Failure
+PI 2 +PSH1Failure +PSH3Failure
+PI 2 +PSH2Failure +PSH3Failure
+PI 1 +PSHCCF
+PI 1 +SV1Failure
+PI 1 +SDV1Failure
+PI 1 +SV2Failure
+PI 1 +SDV2Failure
+PI 1 +LogicSolverFailure
+TOTAL exact 0.00162091
+END
+MODEL ne574/ne574
+EVENT F 0.7
+EVENT G 0.2
+EVENT B 0.1
+EVENT C 0.3
+EVENT D 0.5
+EVENT H 0.4
+EVENT I 0.8
+PI 3 +H +I +F
+PI 3 +H +I +G
+PI 3 +H +I +B
+PI 2 +D +F
+PI 2 +D +G
+PI 2 +D +B
+PI 1 +C
+TOTAL exact 0.662208
+END
+MODEL Aralia/chinese
+EVENT e1 0.01
+EVENT e2 0.01
+EVENT e3 0.01
+EVENT e12 0.01
+EVENT e13 0.01
+EVENT e10 0.01
+EVENT e9 0.01
+EVENT e11 0.01
+EVENT e20 0.01
+EVENT e19 0.01
+EVENT e21 0.01
+EVENT e18 0.01
+EVENT e17 0.01
+EVENT e8 0.01
+EVENT e14 0.01
+EVENT e15 0.01
+EVENT e16 0.01
+EVENT e22 0.01
+EVENT e23 0.01
+EVENT e24 0.01
+EVENT e25 0.01
+EVENT e5 0.01
+EVENT e7 0.01
+EVENT e4 0.01
+EVENT e6 0.01
+PI 5 +e12 +e18 +e20 +e22 +e24
+PI 5 +e12 +e18 +e20 +e22 +e25
+PI 5 +e12 +e18 +e20 +e23 +e24
+PI 5 +e12 +e18 +e20 +e23 +e25
+PI 5 +e12 +e18 +e20 +e5 +e8
+PI 5 +e12 +e18 +e20 +e7 +e8
+PI 5 +e12 +e18 +e20 +e4 +e8
+PI 5 +e12 +e18 +e20 +e6 +e8
+PI 5 +e12 +e18 +e19 +e22 +e24
+PI 5 +e12 +e18 +e19 +e22 +e25
+PI 5 +e12 +e18 +e19 +e23 +e24
+PI 5 +e12 +e18 +e19 +e23 +e25
+PI 5 +e12 +e18 +e19 +e5 +e8
+PI 5 +e12 +e18 +e19 +e7 +e8
+PI 5 +e12 +e18 +e19 +e4 +e8
+PI 5 +e12 +e18 +e19 +e6 +e8
+PI 6 +e12 +e18 +e21 +e14 +e22 +e24
+PI 6 +e12 +e18 +e21 +e14 +e22 +e25
+PI 6 +e12 +e18 +e21 +e14 +e23 +e24
+PI 6 +e12 +e18 +e21 +e14 +e23 +e25
+PI 6 +e12 +e18 +e21 +e15 +e22 +e24
+PI 6 +e12 +e18 +e21 +e15 +e22 +e25
+PI 6 +e12 +e18 +e21 +e15 +e23 +e24
+PI 6 +e12 +e18 +e21 +e15 +e23 +e25
+PI 6 +e12 +e18 +e21 +e16 +e22 +e24
+PI 6 +e12 +e18 +e21 +e16 +e22 +e25
+PI 6 +e12 +e18 +e21 +e16 +e23 +e24
+PI 6 +e12 +e18 +e21 +e16 +e23 +e25
+PI 5 +e12 +e18 +e21 +e5 +e8
+PI 5 +e12 +e18 +e21 +e7 +e8
+PI 5 +e12 +e18 +e21 +e4 +e8
+PI 5 +e12 +e18 +e21 +e6 +e8
+PI 5 +e12 +e17 +e20 +e22 +e24
+PI 5 +e12 +e17 +e20 +e22 +e25
+PI 5 +e12 +e17 +e20 +e23 +e24
+PI 5 +e12 +e17 +e20 +e23 +e25
+PI 5 +e12 +e17 +e20 +e5 +e8
+PI 5 +e12 +e17 +e20 +e7 +e8
+PI 5 +e12 +e17 +e20 +e4 +e8
+PI 5 +e12 +e17 +e20 +e6 +e8
+PI 5 +e12 +e17 +e19 +e22 +e24
+PI 5 +e12 +e17 +e19 +e22 +e25
+PI 5 +e12 +e17 +e19 +e23 +e24
+PI 5 +e12 +e17 +e19 +e23 +e25
+PI 5 +e12 +e17 +e19 +e5 +e8
+PI 5 +e12 +e17 +e19 +e7 +e8
+PI 5 +e12 +e17 +e19 +e4 +e8
+PI 5 +e12 +e17 +e19 +e6 +e8
+PI 6 +e12 +e17 +e21 +e14 +e22 +e24
+PI 6 +e12 +e17 +e21 +e14 +e22 +e25
+PI 6 +e12 +e17 +e21 +e14 +e23 +e24
+PI 6 +e12 +e17 +e21 +e14 +e23 +e25
+PI 6 +e12 +e17 +e21 +e15 +e22 +e24
+PI 6 +e12 +e17 +e21 +e15 +e22 +e25
+PI 6 +e12 +e17 +e21 +e15 +e23 +e24
+PI 6 +e12 +e17 +e21 +e15 +e23 +e25
+PI 6 +e12 +e17 +e21 +e16 +e22 +e24
+PI 6 +e12 +e17 +e21 +e16 +e22 +e25
+PI 6 +e12 +e17 +e21 +e16 +e23 +e24
+PI 6 +e12 +e17 +e21 +e16 +e23 +e25
+PI 5 +e12 +e17 +e21 +e5 +e8
+PI 5 +e12 +e17 +e21 +e7 +e8
+PI 5 +e12 +e17 +e21 +e4 +e8
+PI 5 +e12 +e17 +e21 +e6 +e8
+PI 6 +e12 +e20 +e21 +e10 +e22 +e24
+PI 6 +e12 +e20 +e21 +e10 +e22 +e25
+PI 6 +e12 +e20 +e21 +e10 +e23 +e24
+PI 6 +e12 +e20 +e21 +e10 +e23 +e25
+PI 6 +e12 +e20 +e21 +e9 +e22 +e24
+PI 6 +e12 +e20 +e21 +e9 +e22 +e25
+PI 6 +e12 +e20 +e21 +e9 +e23 +e24
+PI 6 +e12 +e20 +e21 +e9 +e23 +e25
+PI 6 +e12 +e20 +e21 +e11 +e22 +e24
+PI 6 +e12 +e20 +e21 +e11 +e22 +e25
+PI 6 +e12 +e20 +e21 +e11 +e23 +e24
+PI 6 +e12 +e20 +e21 +e11 +e23 +e25
+PI 6 +e12 +e19 +e21 +e10 +e22 +e24
+PI 6 +e12 +e19 +e21 +e10 +e22 +e25
+PI 6 +e12 +e19 +e21 +e10 +e23 +e24
+PI 6 +e12 +e19 +e21 +e10 +e23 +e25
+PI 6 +e12 +e19 +e21 +e9 +e22 +e24
+PI 6 +e12 +e19 +e21 +e9 +e22 +e25
+PI 6 +e12 +e19 +e21 +e9 +e23 +e24
+PI 6 +e12 +e19 +e21 +e9 +e23 +e25
+PI 6 +e12 +e19 +e21 +e11 +e22 +e24
+PI 6 +e12 +e19 +e21 +e11 +e22 +e25
+PI 6 +e12 +e19 +e21 +e11 +e23 +e24
+PI 6 +e12 +e19 +e21 +e11 +e23 +e25
+PI 5 +e12 +e10 +e14 +e22 +e24
+PI 5 +e12 +e10 +e14 +e22 +e25
+PI 5 +e12 +e10 +e14 +e23 +e24
+PI 5 +e12 +e10 +e14 +e23 +e25
+PI 5 +e12 +e10 +e15 +e22 +e24
+PI 5 +e12 +e10 +e15 +e22 +e25
+PI 5 +e12 +e10 +e15 +e23 +e24
+PI 5 +e12 +e10 +e15 +e23 +e25
+PI 5 +e12 +e10 +e16 +e22 +e24
+PI 5 +e12 +e10 +e16 +e22 +e25
+PI 5 +e12 +e10 +e16 +e23 +e24
+PI 5 +e12 +e10 +e16 +e23 +e25
+PI 4 +e12 +e10 +e5 +e8
+PI 4 +e12 +e10 +e7 +e8
+PI 4 +e12 +e10 +e4 +e8
+PI 4 +e12 +e10 +e6 +e8
+PI 5 +e12 +e9 +e14 +e22 +e24
+PI 5 +e12 +e9 +e14 +e22 +e25
+PI 5 +e12 +e9 +e14 +e23 +e24
+PI 5 +e12 +e9 +e14 +e23 +e25
+PI 5 +e12 +e9 +e15 +e22 +e24
+PI 5 +e12 +e9 +e15 +e22 +e25
+PI 5 +e12 +e9 +e15 +e23 +e24
+PI 5 +e12 +e9 +e15 +e23 +e25
+PI 5 +e12 +e9 +e16 +e22 +e24
+PI 5 +e12 +e9 +e16 +e22 +e25
+PI 5 +e12 +e9 +e16 +e23 +e24
+PI 5 +e12 +e9 +e16 +e23 +e25
+PI 4 +e12 +e9 +e5 +e8
+PI 4 +e12 +e9 +e7 +e8
+PI 4 +e12 +e9 +e4 +e8
+PI 4 +e12 +e9 +e6 +e8
+PI 5 +e12 +e11 +e14 +e22 +e24
+PI 5 +e12 +e11 +e14 +e22 +e25
+PI 5 +e12 +e11 +e14 +e23 +e24
+PI 5 +e12 +e11 +e14 +e23 +e25
+PI 5 +e12 +e11 +e15 +e22 +e24
+PI 5 +e12 +e11 +e15 +e22 +e25
+PI 5 +e12 +e11 +e15 +e23 +e24
+PI 5 +e12 +e11 +e15 +e23 +e25
+PI 5 +e12 +e11 +e16 +e22 +e24
+PI 5 +e12 +e11 +e16 +e22 +e25
+PI 5 +e12 +e11 +e16 +e23 +e24
+PI 5 +e12 +e11 +e16 +e23 +e25
+PI 4 +e12 +e11 +e5 +e8
+PI 4 +e12 +e11 +e7 +e8
+PI 4 +e12 +e11 +e4 +e8
+PI 4 +e12 +e11 +e6 +e8
+PI 5 +e13 +e18 +e20 +e22 +e24
+PI 5 +e13 +e18 +e20 +e22 +e25
+PI 5 +e13 +e18 +e20 +e23 +e24
+PI 5 +e13 +e18 +e20 +e23 +e25
+PI 5 +e13 +e18 +e20 +e5 +e8
+PI 5 +e13 +e18 +e20 +e7 +e8
+PI 5 +e13 +e18 +e20 +e4 +e8
+PI 5 +e13 +e18 +e20 +e6 +e8
+PI 5 +e13 +e18 +e19 +e22 +e24
+PI 5 +e13 +e18 +e19 +e22 +e25
+PI 5 +e13 +e18 +e19 +e23 +e24
+PI 5 +e13 +e18 +e19 +e23 +e25
+PI 5 +e13 +e18 +e19 +e5 +e8
+PI 5 +e13 +e18 +e19 +e7 +e8
+PI 5 +e13 +e18 +e19 +e4 +e8
+PI 5 +e13 +e18 +e19 +e6 +e8
+PI 6 +e13 +e18 +e21 +e14 +e22 +e24
+PI 6 +e13 +e18 +e21 +e14 +e22 +e25
+PI 6 +e13 +e18 +e21 +e14 +e23 +e24
+PI 6 +e13 +e18 +e21 +e14 +e23 +e25
+PI 6 +e13 +e18 +e21 +e15 +e22 +e24
+PI 6 +e13 +e18 +e21 +e15 +e22 +e25
+PI 6 +e13 +e18 +e21 +e15 +e23 +e24
+PI 6 +e13 +e18 +e21 +e15 +e23 +e25
+PI 6 +e13 +e18 +e21 +e16 +e22 +e24
+PI 6 +e13 +e18 +e21 +e16 +e22 +e25
+PI 6 +e13 +e18 +e21 +e16 +e23 +e24
+PI 6 +e13 +e18 +e21 +e16 +e23 +e25
+PI 5 +e13 +e18 +e21 +e5 +e8
+PI 5 +e13 +e18 +e21 +e7 +e8
+PI 5 +e13 +e18 +e21 +e4 +e8
+PI 5 +e13 +e18 +e21 +e6 +e8
+PI 5 +e13 +e17 +e20 +e22 +e24
+PI 5 +e13 +e17 +e20 +e22 +e25
+PI 5 +e13 +e17 +e20 +e23 +e24
+PI 5 +e13 +e17 +e20 +e23 +e25
+PI 5 +e13 +e17 +e20 +e5 +e8
+PI 5 +e13 +e17 +e20 +e7 +e8
+PI 5 +e13 +e17 +e20 +e4 +e8
+PI 5 +e13 +e17 +e20 +e6 +e8
+PI 5 +e13 +e17 +e19 +e22 +e24
+PI 5 +e13 +e17 +e19 +e22 +e25
+PI 5 +e13 +e17 +e19 +e23 +e24
+PI 5 +e13 +e17 +e19 +e23 +e25
+PI 5 +e13 +e17 +e19 +e5 +e8
+PI 5 +e13 +e17 +e19 +e7 +e8
+PI 5 +e13 +e17 +e19 +e4 +e8
+PI 5 +e13 +e17 +e19 +e6 +e8
+PI 6 +e13 +e17 +e21 +e14 +e22 +e24
+PI 6 +e13 +e17 +e21 +e14 +e22 +e25
+PI 6 +e13 +e17 +e21 +e14 +e23 +e24
+PI 6 +e13 +e17 +e21 +e14 +e23 +e25
+PI 6 +e13 +e17 +e21 +e15 +e22 +e24
+PI 6 +e13 +e17 +e21 +e15 +e22 +e25
+PI 6 +e13 +e17 +e21 +e15 +e23 +e24
+PI 6 +e13 +e17 +e21 +e15 +e23 +e25
+PI 6 +e13 +e17 +e21 +e16 +e22 +e24
+PI 6 +e13 +e17 +e21 +e16 +e22 +e25
+PI 6 +e13 +e17 +e21 +e16 +e23 +e24
+PI 6 +e13 +e17 +e21 +e16 +e23 +e25
+PI 5 +e13 +e17 +e21 +e5 +e8
+PI 5 +e13 +e17 +e21 +e7 +e8
+PI 5 +e13 +e17 +e21 +e4 +e8
+PI 5 +e13 +e17 +e21 +e6 +e8
+PI 6 +e13 +e20 +e21 +e10 +e22 +e24
+PI 6 +e13 +e20 +e21 +e10 +e22 +e25
+PI 6 +e13 +e20 +e21 +e10 +e23 +e24
+PI 6 +e13 +e20 +e21 +e10 +e23 +e25
+PI 6 +e13 +e20 +e21 +e9 +e22 +e24
+PI 6 +e13 +e20 +e21 +e9 +e22 +e25
+PI 6 +e13 +e20 +e21 +e9 +e23 +e24
+PI 6 +e13 +e20 +e21 +e9 +e23 +e25
+PI 6 +e13 +e20 +e21 +e11 +e22 +e24
+PI 6 +e13 +e20 +e21 +e11 +e22 +e25
+PI 6 +e13 +e20 +e21 +e11 +e23 +e24
+PI 6 +e13 +e20 +e21 +e11 +e23 +e25
+PI 6 +e13 +e19 +e21 +e10 +e22 +e24
+PI 6 +e13 +e19 +e21 +e10 +e22 +e25
+PI 6 +e13 +e19 +e21 +e10 +e23 +e24
+PI 6 +e13 +e19 +e21 +e10 +e23 +e25
+PI 6 +e13 +e19 +e21 +e9 +e22 +e24
+PI 6 +e13 +e19 +e21 +e9 +e22 +e25
+PI 6 +e13 +e19 +e21 +e9 +e23 +e24
+PI 6 +e13 +e19 +e21 +e9 +e23 +e25
+PI 6 +e13 +e19 +e21 +e11 +e22 +e24
+PI 6 +e13 +e19 +e21 +e11 +e22 +e25
+PI 6 +e13 +e19 +e21 +e11 +e23 +e24
+PI 6 +e13 +e19 +e21 +e11 +e23 +e25
+PI 5 +e13 +e10 +e14 +e22 +e24
+PI 5 +e13 +e10 +e14 +e22 +e25
+PI 5 +e13 +e10 +e14 +e23 +e24
+PI 5 +e13 +e10 +e14 +e23 +e25
+PI 5 +e13 +e10 +e15 +e22 +e24
+PI 5 +e13 +e10 +e15 +e22 +e25
+PI 5 +e13 +e10 +e15 +e23 +e24
+PI 5 +e13 +e10 +e15 +e23 +e25
+PI 5 +e13 +e10 +e16 +e22 +e24
+PI 5 +e13 +e10 +e16 +e22 +e25
+PI 5 +e13 +e10 +e16 +e23 +e24
+PI 5 +e13 +e10 +e16 +e23 +e25
+PI 4 +e13 +e10 +e5 +e8
+PI 4 +e13 +e10 +e7 +e8
+PI 4 +e13 +e10 +e4 +e8
+PI 4 +e13 +e10 +e6 +e8
+PI 5 +e13 +e9 +e14 +e22 +e24
+PI 5 +e13 +e9 +e14 +e22 +e25
+PI 5 +e13 +e9 +e14 +e23 +e24
+PI 5 +e13 +e9 +e14 +e23 +e25
+PI 5 +e13 +e9 +e15 +e22 +e24
+PI 5 +e13 +e9 +e15 +e22 +e25
+PI 5 +e13 +e9 +e15 +e23 +e24
+PI 5 +e13 +e9 +e15 +e23 +e25
+PI 5 +e13 +e9 +e16 +e22 +e24
+PI 5 +e13 +e9 +e16 +e22 +e25
+PI 5 +e13 +e9 +e16 +e23 +e24
+PI 5 +e13 +e9 +e16 +e23 +e25
+PI 4 +e13 +e9 +e5 +e8
+PI 4 +e13 +e9 +e7 +e8
+PI 4 +e13 +e9 +e4 +e8
+PI 4 +e13 +e9 +e6 +e8
+PI 5 +e13 +e11 +e14 +e22 +e24
+PI 5 +e13 +e11 +e14 +e22 +e25
+PI 5 +e13 +e11 +e14 +e23 +e24
+PI 5 +e13 +e11 +e14 +e23 +e25
+PI 5 +e13 +e11 +e15 +e22 +e24
+PI 5 +e13 +e11 +e15 +e22 +e25
+PI 5 +e13 +e11 +e15 +e23 +e24
+PI 5 +e13 +e11 +e15 +e23 +e25
+PI 5 +e13 +e11 +e16 +e22 +e24
+PI 5 +e13 +e11 +e16 +e22 +e25
+PI 5 +e13 +e11 +e16 +e23 +e24
+PI 5 +e13 +e11 +e16 +e23 +e25
+PI 4 +e13 +e11 +e5 +e8
+PI 4 +e13 +e11 +e7 +e8
+PI 4 +e13 +e11 +e4 +e8
+PI 4 +e13 +e11 +e6 +e8
+PI 6 +e18 +e20 +e1 +e22 +e24 +e8
+PI 6 +e18 +e20 +e1 +e22 +e25 +e8
+PI 6 +e18 +e20 +e1 +e23 +e24 +e8
+PI 6 +e18 +e20 +e1 +e23 +e25 +e8
+PI 6 +e18 +e20 +e2 +e22 +e24 +e8
+PI 6 +e18 +e20 +e2 +e22 +e25 +e8
+PI 6 +e18 +e20 +e2 +e23 +e24 +e8
+PI 6 +e18 +e20 +e2 +e23 +e25 +e8
+PI 6 +e18 +e20 +e3 +e22 +e24 +e8
+PI 6 +e18 +e20 +e3 +e22 +e25 +e8
+PI 6 +e18 +e20 +e3 +e23 +e24 +e8
+PI 6 +e18 +e20 +e3 +e23 +e25 +e8
+PI 6 +e18 +e19 +e1 +e22 +e24 +e8
+PI 6 +e18 +e19 +e1 +e22 +e25 +e8
+PI 6 +e18 +e19 +e1 +e23 +e24 +e8
+PI 6 +e18 +e19 +e1 +e23 +e25 +e8
+PI 6 +e18 +e19 +e2 +e22 +e24 +e8
+PI 6 +e18 +e19 +e2 +e22 +e25 +e8
+PI 6 +e18 +e19 +e2 +e23 +e24 +e8
+PI 6 +e18 +e19 +e2 +e23 +e25 +e8
+PI 6 +e18 +e19 +e3 +e22 +e24 +e8
+PI 6 +e18 +e19 +e3 +e22 +e25 +e8
+PI 6 +e18 +e19 +e3 +e23 +e24 +e8
+PI 6 +e18 +e19 +e3 +e23 +e25 +e8
+PI 6 +e17 +e20 +e1 +e22 +e24 +e8
+PI 6 +e17 +e20 +e1 +e22 +e25 +e8
+PI 6 +e17 +e20 +e1 +e23 +e24 +e8
+PI 6 +e17 +e20 +e1 +e23 +e25 +e8
+PI 6 +e17 +e20 +e2 +e22 +e24 +e8
+PI 6 +e17 +e20 +e2 +e22 +e25 +e8
+PI 6 +e17 +e20 +e2 +e23 +e24 +e8
+PI 6 +e17 +e20 +e2 +e23 +e25 +e8
+PI 6 +e17 +e20 +e3 +e22 +e24 +e8
+PI 6 +e17 +e20 +e3 +e22 +e25 +e8
+PI 6 +e17 +e20 +e3 +e23 +e24 +e8
+PI 6 +e17 +e20 +e3 +e23 +e25 +e8
+PI 6 +e17 +e19 +e1 +e22 +e24 +e8
+PI 6 +e17 +e19 +e1 +e22 +e25 +e8
+PI 6 +e17 +e19 +e1 +e23 +e24 +e8
+PI 6 +e17 +e19 +e1 +e23 +e25 +e8
+PI 6 +e17 +e19 +e2 +e22 +e24 +e8
+PI 6 +e17 +e19 +e2 +e22 +e25 +e8
+PI 6 +e17 +e19 +e2 +e23 +e24 +e8
+PI 6 +e17 +e19 +e2 +e23 +e25 +e8
+PI 6 +e17 +e19 +e3 +e22 +e24 +e8
+PI 6 +e17 +e19 +e3 +e22 +e25 +e8
+PI 6 +e17 +e19 +e3 +e23 +e24 +e8
+PI 6 +e17 +e19 +e3 +e23 +e25 +e8
+PI 6 +e20 +e21 +e1 +e22 +e24 +e8
+PI 6 +e20 +e21 +e1 +e22 +e25 +e8
+PI 6 +e20 +e21 +e1 +e23 +e24 +e8
+PI 6 +e20 +e21 +e1 +e23 +e25 +e8
+PI 6 +e20 +e21 +e2 +e22 +e24 +e8
+PI 6 +e20 +e21 +e2 +e22 +e25 +e8
+PI 6 +e20 +e21 +e2 +e23 +e24 +e8
+PI 6 +e20 +e21 +e2 +e23 +e25 +e8
+PI 6 +e20 +e21 +e3 +e22 +e24 +e8
+PI 6 +e20 +e21 +e3 +e22 +e25 +e8
+PI 6 +e20 +e21 +e3 +e23 +e24 +e8
+PI 6 +e20 +e21 +e3 +e23 +e25 +e8
+PI 6 +e19 +e21 +e1 +e22 +e24 +e8
+PI 6 +e19 +e21 +e1 +e22 +e25 +e8
+PI 6 +e19 +e21 +e1 +e23 +e24 +e8
+PI 6 +e19 +e21 +e1 +e23 +e25 +e8
+PI 6 +e19 +e21 +e2 +e22 +e24 +e8
+PI 6 +e19 +e21 +e2 +e22 +e25 +e8
+PI 6 +e19 +e21 +e2 +e23 +e24 +e8
+PI 6 +e19 +e21 +e2 +e23 +e25 +e8
+PI 6 +e19 +e21 +e3 +e22 +e24 +e8
+PI 6 +e19 +e21 +e3 +e22 +e25 +e8
+PI 6 +e19 +e21 +e3 +e23 +e24 +e8
+PI 6 +e19 +e21 +e3 +e23 +e25 +e8
+PI 5 +e1 +e14 +e22 +e24 +e8
+PI 5 +e1 +e14 +e22 +e25 +e8
+PI 5 +e1 +e14 +e23 +e24 +e8
+PI 5 +e1 +e14 +e23 +e25 +e8
+PI 5 +e1 +e15 +e22 +e24 +e8
+PI 5 +e1 +e15 +e22 +e25 +e8
+PI 5 +e1 +e15 +e23 +e24 +e8
+PI 5 +e1 +e15 +e23 +e25 +e8
+PI 5 +e1 +e16 +e22 +e24 +e8
+PI 5 +e1 +e16 +e22 +e25 +e8
+PI 5 +e1 +e16 +e23 +e24 +e8
+PI 5 +e1 +e16 +e23 +e25 +e8
+PI 2 +e1 +e5
+PI 2 +e1 +e7
+PI 2 +e1 +e4
+PI 2 +e1 +e6
+PI 5 +e2 +e14 +e22 +e24 +e8
+PI 5 +e2 +e14 +e22 +e25 +e8
+PI 5 +e2 +e14 +e23 +e24 +e8
+PI 5 +e2 +e14 +e23 +e25 +e8
+PI 5 +e2 +e15 +e22 +e24 +e8
+PI 5 +e2 +e15 +e22 +e25 +e8
+PI 5 +e2 +e15 +e23 +e24 +e8
+PI 5 +e2 +e15 +e23 +e25 +e8
+PI 5 +e2 +e16 +e22 +e24 +e8
+PI 5 +e2 +e16 +e22 +e25 +e8
+PI 5 +e2 +e16 +e23 +e24 +e8
+PI 5 +e2 +e16 +e23 +e25 +e8
+PI 2 +e2 +e5
+PI 2 +e2 +e7
+PI 2 +e2 +e4
+PI 2 +e2 +e6
+PI 5 +e3 +e14 +e22 +e24 +e8
+PI 5 +e3 +e14 +e22 +e25 +e8
+PI 5 +e3 +e14 +e23 +e24 +e8
+PI 5 +e3 +e14 +e23 +e25 +e8
+PI 5 +e3 +e15 +e22 +e24 +e8
+PI 5 +e3 +e15 +e22 +e25 +e8
+PI 5 +e3 +e15 +e23 +e24 +e8
+PI 5 +e3 +e15 +e23 +e25 +e8
+PI 5 +e3 +e16 +e22 +e24 +e8
+PI 5 +e3 +e16 +e22 +e25 +e8
+PI 5 +e3 +e16 +e23 +e24 +e8
+PI 5 +e3 +e16 +e23 +e25 +e8
+PI 2 +e3 +e5
+PI 2 +e3 +e7
+PI 2 +e3 +e4
+PI 2 +e3 +e6
+TOTAL exact 0.00117058
+END
+MODEL models-for-this-port/noncoherent_small
+EVENT a 0.1
+EVENT b 0.2
+EVENT c 0.3
+EVENT d 0.4
+PI 2 +a -b
+PI 2 +c -d
+PI 2 -c +d
+TOTAL exact 0.5032
+END

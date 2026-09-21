@@ -25,7 +25,8 @@ which basic events matter. Three of its four modules are ports of
 | `scram::probability::top_event_probability` (`Exact`) | — | **no** — inclusion-exclusion, a second route to what the BDD gives |
 | `scram::bdd::Bdd::probability` | `ProbabilityAnalyzer<Bdd>::CalculateProbability` | yes |
 | `scram::bdd` (the diagram itself) | — | **no** — Bryant's algorithm from the tree, where upstream builds from a preprocessed `Pdag` |
-| `scram::zbdd` | `Zbdd::ConvertBdd`, `Zbdd::Minimize`, `Zbdd::Subsume` | yes |
+| `scram::zbdd::minimal_cut_sets` | `Zbdd::ConvertBdd`, `Zbdd::Minimize`, `Zbdd::Subsume` | yes |
+| `scram::zbdd::prime_implicants` | `Zbdd::ConvertBddPrimeImplicants`, `Bdd::Consensus` | yes |
 | `scram::importance::importance_factors` (the five derived factors) | `ImportanceAnalyzerBase::Analyze` | yes |
 | `scram::importance::importance_factors` (the Birnbaum factor) | — | **no** — the definition `P(top\|e) - P(top\|not e)` where upstream differentiates the BDD |
 | `scram::fault_tree::Connective` | `src/pdag.h` `enum Connective` | taxonomy only |
@@ -48,9 +49,7 @@ much less.
 
 **Still absent.** XML input handling (explicitly out of RAFFLES' scope), event
 trees, alignments, CCF groups, substitutions, house events, the `expression`
-library, the preprocessor, and prime implicants (upstream's
-`--prime-implicants`, along with `Zbdd::ConvertBddPrimeImplicants` and
-`Zbdd::EliminateComplements`).
+library, `Zbdd::EliminateComplements`, and the preprocessor.
 
 ~~and complement elimination (so non-coherent trees are **refused**, not
 approximated)~~ **CORRECTED 2026-09-21** — complement elimination landed the
@@ -179,6 +178,8 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | BDD against inclusion-exclusion | `scram_bdd_oracle::the_bdd_and_inclusion_exclusion_agree_where_both_can_run` | 7 models, to **1e-12** |
 | BDD gets what cut sets cannot | `scram_bdd_oracle::the_bdd_gets_the_non_coherent_answer_that_cut_sets_cannot` | `0.5032` exactly |
 | **Cut sets at scale**, vs SCRAM **and** vs MOCUS | `scram_bdd_oracle::zbdd_cut_sets_match_scram_and_mocus` | **10 models, 4,700 cut sets** |
+| **Prime implicants**, signs included | `scram_prime_implicants::prime_implicants_match_scram` | **9 models, 441 implicants** |
+| Prime implicants == cut sets when coherent | `scram_prime_implicants::on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets` | 8 models, no complement |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -453,6 +454,50 @@ The whole file runs in **0.9 s**. MOCUS is not attempted above a thousand
 products, since demonstrating its failure costs ~29 s and has its own
 reproduction test.
 
+### Prime implicants — the exact answer where cut sets are conservative
+
+A minimal cut set says which components failing is enough. A **prime
+implicant** also says which must be *working*, so it carries complemented
+literals and describes the function exactly. `zbdd::prime_implicants` ports
+`Zbdd::ConvertBddPrimeImplicants` together with `Bdd::Consensus` — the
+classical recursion in which an implicant of `f` either contains `x`, or
+contains its complement, or is an implicant of the consensus `f_x AND
+f_not-x`.
+
+Checked against `scram --probability --importance --prime-implicants`:
+**9 models, 441 implicants, compared as signed (positive, negative) name-set
+pairs** so a sign error cannot hide. `models-for-this-port/noncoherent_small`
+is the one carrying signs — `{+a,-b}`, `{+c,-d}`, `{-c,+d}` — and the other
+eight are coherent, which gives the second check:
+
+**On a coherent tree the prime implicants must be exactly the minimal cut
+sets**, with no complemented literal anywhere, because a component working can
+never help cause failure. That invariant holds on all 8, across 438
+implicants, and it pins the consensus recursion against the plain conversion —
+two code paths, same answer.
+
+#### They are also measurably tighter
+
+On `noncoherent_small`, whose true probability is `0.5032`:
+
+| | sum of products |
+|---|---|
+| prime implicants `{+a,-b} {+c,-d} {-c,+d}` | 0.08 + 0.18 + 0.28 = **0.54** |
+| minimal cut sets `{a} {c} {d}` | 0.1 + 0.3 + 0.4 = **0.80** |
+
+Both bound the truth from above, as a rare-event sum always does, but the
+implicants bound it far more tightly — which is the practical reason to want
+them. Each implicant's own probability is checked against the value SCRAM
+printed on the corresponding `<product>`.
+
+#### The cost is the algorithm's, not this port's
+
+`Aralia/das9601` is absent from the prime-implicant fixture because **upstream
+does not finish it either**: `scram --prime-implicants` exceeds five minutes
+on a model whose minimal cut sets it produces in about a second. The consensus
+term adds a third recursive call at every node. Recorded so the absence is not
+read as a limitation of this port.
+
 ### One deliberate divergence: RRW at the singularity
 
 `Theatre/theatre`, `Mains_Fail`: MIF, CIF, DIF and RAW all match SCRAM
@@ -541,11 +586,15 @@ third-party project was not part of this task.
 - **`Approximation::Exact` is still capped at 20 cut sets**, and that is
   inherent — it is `2^n`. It is no longer the only exact route, so the cap is
   a property of that function rather than of the crate.
-- **Non-coherent results are conservative, by definition.** Their minimal cut
-  sets bound the top-event probability from above; only prime implicants
-  (not ported) recover the exact function. Verified on one small written-here
-  model and one 4,259-product upstream model, the latter for quantification
-  only.
+- **A non-coherent tree's minimal cut sets are conservative, by definition.**
+  That is not a gap — `zbdd::prime_implicants` and `bdd::Bdd::probability`
+  both give the exact answer — but a caller who asks for cut sets on such a
+  tree and quantifies them gets an upper bound, and nothing in the types says
+  so.
+- **Prime implicants are verified on small and medium models only**: 9 of
+  them, 441 implicants, none larger than `Aralia/chinese`'s 392. Upstream
+  itself cannot produce them for `das9601`, so there is no oracle at that
+  scale to compare against.
 - **`scram::mocus` does not scale to a real PRA model**, and is kept as a
   second opinion rather than as the working path. `scram::zbdd` is what to use
   above a few hundred cut sets.
@@ -587,6 +636,7 @@ reference-data/scram/extract_models.sh $MODELS \
 
 # Check the port against them.
 cargo test -p raffles --release --test scram_bdd_oracle -- --nocapture
+cargo test -p raffles --release --test scram_prime_implicants -- --nocapture
 cargo test -p raffles --release --test scram_mocus_oracle -- --nocapture
 cargo test -p raffles --release --test scram_oracle_suite -- --nocapture
 cargo test -p raffles --release --test scram_cross_code -- --nocapture

@@ -33,10 +33,16 @@
 //   of its nodes can share an order; here a variable's ordering position is
 //   unique, so the index tiebreak is unrepresentable rather than dropped.
 //
-// Upstream's module handling, its prime-implicant path
-// (`ConvertBddPrimeImplicants`, reached under `--prime-implicants`) and its
-// `EliminateComplements` are NOT ported. See the module doc for what that
-// means for a non-coherent tree.
+//   ConvertBddPrimeImplicants -- ported, together with `Bdd::Consensus`
+//   (which is `Apply<kAnd>(ite->high(), ite->low())`, so here a plain `And`
+//   on the two branches). Upstream stores the sign in the node's `index` and
+//   compares `order` then `index`; this port folds both into one monotone
+//   key, `2*order` for a positive literal and `2*order + 1` for its
+//   complement, which reproduces upstream's two-level comparison exactly --
+//   positive sorts first there because `+i > -i`.
+//
+// Upstream's module handling and its `EliminateComplements` are NOT ported.
+// See the module doc for what that means for a non-coherent tree.
 // ---------------------------------------------------------------------------
 
 //! Zero-suppressed decision diagrams — minimal cut sets **at scale**.
@@ -63,8 +69,12 @@
 //! the minimal cut sets. For a **non-coherent** one it discards the
 //! requirement that some component be *working*, so the result is
 //! conservative in the same way [`super::mocus`]'s is, and for the same
-//! reason — upstream's ordinary path does the same, and only
-//! `--prime-implicants` (not ported) keeps the complemented literals.
+//! reason — upstream's ordinary path does the same.
+//!
+//! **[`prime_implicants`] is the exact alternative**, keeping the complemented
+//! literals, and is upstream's `--prime-implicants`. It costs more: the
+//! consensus term adds a third recursive call at every node, and upstream
+//! itself does not finish it on the fixture's largest model.
 //!
 //! # Example
 //!
@@ -116,13 +126,32 @@ pub const NODE_LIMIT: usize = 20_000_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct SetNode {
-    /// Ordering position of the variable, shared with the source
-    /// [`Bdd`] so the two walk in step.
-    order: usize,
-    /// The sub-family of sets that contain this variable, with it removed.
+    /// The **literal** tested, as one monotone key: `2 * order` for a
+    /// variable occurring, `2 * order + 1` for it not occurring.
+    ///
+    /// Folding the sign into the key is what lets [`Builder::subsume`] and
+    /// [`Builder::minimize`] serve both the minimal-cut-set and the
+    /// prime-implicant families unchanged. Upstream keeps the sign in a
+    /// separate `index` field and compares `order` then `index`; the two
+    /// orderings agree, because `+i > -i` puts the positive literal first
+    /// there as the even key does here.
+    ///
+    /// A minimal-cut-set family uses only even keys.
+    key: usize,
+    /// The sub-family of sets that contain this literal, with it removed.
     high: SetId,
     /// The sub-family of sets that do not contain it.
     low: SetId,
+}
+
+/// The key for "variable at `order` occurs".
+fn positive(order: usize) -> usize {
+    2 * order
+}
+
+/// The key for "variable at `order` does not occur".
+fn negative(order: usize) -> usize {
+    2 * order + 1
 }
 
 struct Builder {
@@ -140,11 +169,11 @@ impl Builder {
     /// The rule — a node whose `high` branch is the empty family is dropped in
     /// favour of its `low` branch — is what distinguishes a ZBDD from a BDD,
     /// and it is why a variable in no set costs nothing.
-    fn make(&mut self, order: usize, high: SetId, low: SetId) -> Result<SetId> {
+    fn make(&mut self, key: usize, high: SetId, low: SetId) -> Result<SetId> {
         if high == EMPTY {
             return Ok(low);
         }
-        let node = SetNode { order, high, low };
+        let node = SetNode { key, high, low };
         if let Some(&existing) = self.unique.get(&node) {
             return Ok(existing);
         }
@@ -165,10 +194,10 @@ impl Builder {
         Ok(id)
     }
 
-    fn order_of(&self, id: SetId) -> usize {
+    fn key_of(&self, id: SetId) -> usize {
         match id {
             EMPTY | BASE => usize::MAX,
-            _ => self.nodes[id - 2].order,
+            _ => self.nodes[id - 2].key,
         }
     }
 
@@ -186,7 +215,7 @@ impl Builder {
         let ite = bdd.ite(node).expect("not a terminal");
         let high = self.convert(bdd, ite.high)?;
         let low = self.convert(bdd, ite.low)?;
-        let result = self.make(ite.order, high, low)?;
+        let result = self.make(positive(ite.order), high, low)?;
         self.convert_memo.insert(node, result);
         Ok(result)
     }
@@ -216,7 +245,7 @@ impl Builder {
             return Ok(hit);
         }
 
-        let (ho, lo) = (self.order_of(high), self.order_of(low));
+        let (ho, lo) = (self.key_of(high), self.key_of(low));
         let result = if ho > lo {
             // `high` never tests `low`'s variable, so only the sets in `low`
             // that omit it can subsume anything here.
@@ -249,10 +278,10 @@ impl Builder {
         let node = self.nodes[id - 2];
         let high = self.minimize(node.high)?;
         let low = self.minimize(node.low)?;
-        // A set that contains this variable and is a superset of one that does
+        // A set that contains this literal and is a superset of one that does
         // not is not minimal. `make` then drops the node if nothing survives.
         let high = self.subsume(high, low)?;
-        let result = self.make(node.order, high, low)?;
+        let result = self.make(node.key, high, low)?;
         self.minimize_memo.insert(id, result);
         Ok(result)
     }
@@ -295,8 +324,9 @@ impl Builder {
             _ => {}
         }
         let node = self.nodes[id - 2];
+        debug_assert!(node.key % 2 == 0, "a cut-set family holds no complements");
         if limit_order.is_none_or(|k| current.len() < k) {
-            current.push(bdd.basic_event(node.order));
+            current.push(bdd.basic_event(node.key / 2));
             self.collect(node.high, bdd, current, limit_order, out);
             current.pop();
         }
@@ -387,4 +417,219 @@ pub fn count_minimal_cut_sets(tree: &FaultTree) -> Result<u128> {
     let converted = builder.convert(&bdd, bdd.root())?;
     let minimal = builder.minimize(converted)?;
     Ok(builder.count(minimal, &mut HashMap::new()))
+}
+
+/// A **prime implicant**: a minimal condition sufficient for the top event,
+/// recording both what must fail and what must hold.
+///
+/// This is what a minimal cut set becomes once complemented literals are kept.
+/// On a **coherent** tree the two coincide and [`negative`](Self::negative) is
+/// always empty — no component working can ever help cause failure. On a
+/// **non-coherent** tree they differ, and the difference is the whole point:
+/// cut sets discard the negative literals and so describe a strictly larger
+/// function, while prime implicants describe the real one.
+///
+/// Members are indices into the basic-event probability slice, as
+/// [`CutSet`]'s are.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PrimeImplicant {
+    positive: Vec<usize>,
+    negative: Vec<usize>,
+}
+
+impl PrimeImplicant {
+    /// Basic events that must **occur**, ascending.
+    pub fn positive(&self) -> &[usize] {
+        &self.positive
+    }
+
+    /// Basic events that must **not** occur, ascending.
+    pub fn negative(&self) -> &[usize] {
+        &self.negative
+    }
+
+    /// Total number of literals — upstream reports this as the product's
+    /// `order`, counting a complemented literal like any other.
+    pub fn order(&self) -> usize {
+        self.positive.len() + self.negative.len()
+    }
+
+    /// Probability that this implicant holds, for independent basic events.
+    ///
+    /// The product of `p` over the positive members and `1 - p` over the
+    /// negative ones. This is what upstream reports as a product's
+    /// `probability` under `--prime-implicants`.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if a member is out of range, or a
+    /// probability is outside `[0, 1]` or not finite.
+    pub fn probability(&self, event_probabilities: &[f64]) -> Result<f64> {
+        let mut product = 1.0;
+        for (members, occurring) in [(&self.positive, true), (&self.negative, false)] {
+            for &member in members {
+                let p = *event_probabilities.get(member).ok_or_else(|| {
+                    RafflesError::InvalidParameter {
+                        parameter: "prime implicant member".to_string(),
+                        value: member as f64,
+                        reason: format!(
+                            "basic-event index {member} is out of range for {} probabilities",
+                            event_probabilities.len()
+                        ),
+                    }
+                })?;
+                if !(0.0..=1.0).contains(&p) || !p.is_finite() {
+                    return Err(RafflesError::InvalidParameter {
+                        parameter: "basic-event probability".to_string(),
+                        value: p,
+                        reason: format!("probability of basic event {member} must lie in [0, 1]"),
+                    });
+                }
+                product *= if occurring { p } else { 1.0 - p };
+            }
+        }
+        Ok(product)
+    }
+}
+
+impl Builder {
+    /// Upstream `Zbdd::ConvertBddPrimeImplicants`.
+    ///
+    /// The classical recursion: an implicant of `f` either contains `x`, or
+    /// contains its complement, or contains neither — and the last case is
+    /// precisely an implicant of the **consensus** `f_x AND f_not-x`, which is
+    /// upstream's `Bdd::Consensus` and here a plain `And` on the two branches.
+    ///
+    /// Non-prime members are removed afterwards by [`Builder::minimize`],
+    /// exactly as upstream does: `Minimize(ConvertBdd(...))`.
+    fn convert_prime_implicants(&mut self, bdd: &mut Bdd, node: bdd::NodeId) -> Result<SetId> {
+        match node {
+            bdd::ZERO => return Ok(EMPTY),
+            bdd::ONE => return Ok(BASE),
+            _ => {}
+        }
+        if let Some(&hit) = self.convert_memo.get(&node) {
+            return Ok(hit);
+        }
+        let ite = bdd.ite(node).expect("not a terminal");
+        let consensus_node = bdd.conjoin(ite.high, ite.low)?;
+
+        let high = self.convert_prime_implicants(bdd, ite.high)?;
+        let low = self.convert_prime_implicants(bdd, ite.low)?;
+        let consensus = self.convert_prime_implicants(bdd, consensus_node)?;
+
+        // Upstream:
+        //   GetReducedVertex(ite, false, high,
+        //     GetReducedVertex(ite, true, low, consensus))
+        let without = self.make(negative(ite.order), low, consensus)?;
+        let result = self.make(positive(ite.order), high, without)?;
+        self.convert_memo.insert(node, result);
+        Ok(result)
+    }
+
+    /// Materialises a signed family.
+    fn collect_signed(
+        &self,
+        id: SetId,
+        bdd: &Bdd,
+        pos: &mut Vec<usize>,
+        neg: &mut Vec<usize>,
+        out: &mut Vec<PrimeImplicant>,
+    ) {
+        match id {
+            EMPTY => return,
+            BASE => {
+                if !pos.is_empty() || !neg.is_empty() {
+                    let mut positive = pos.clone();
+                    let mut negative = neg.clone();
+                    positive.sort_unstable();
+                    negative.sort_unstable();
+                    out.push(PrimeImplicant { positive, negative });
+                }
+                return;
+            }
+            _ => {}
+        }
+        let node = self.nodes[id - 2];
+        let event = bdd.basic_event(node.key / 2);
+        if node.key % 2 == 0 {
+            pos.push(event);
+            self.collect_signed(node.high, bdd, pos, neg, out);
+            pos.pop();
+        } else {
+            neg.push(event);
+            self.collect_signed(node.high, bdd, pos, neg, out);
+            neg.pop();
+        }
+        self.collect_signed(node.low, bdd, pos, neg, out);
+    }
+}
+
+/// The prime implicants of a fault tree.
+///
+/// Where [`minimal_cut_sets`] discards complemented literals — making its
+/// answer conservative on a non-coherent tree — this keeps them, so the result
+/// describes the tree's function **exactly**. On a coherent tree the two are
+/// the same sets and every implicant's [`PrimeImplicant::negative`] is empty.
+///
+/// Returned implicants are sorted by order, then positive members, then
+/// negative, so two runs compare equal.
+///
+/// # Cost
+///
+/// Substantially more than cut sets, because the consensus term adds a third
+/// recursive call at every node. **Upstream is no faster**: `scram
+/// --prime-implicants` does not finish within five minutes on the fixture's
+/// `Aralia/das9601`, where its minimal cut sets take under a second. Expect
+/// this to be usable on small and medium trees only.
+///
+/// # Errors
+///
+/// [`RafflesError::InvalidParameter`] if either diagram exceeds its node
+/// limit.
+///
+/// # Example
+///
+/// ```
+/// use raffles::scram::fault_tree::{Connective, FaultTreeBuilder};
+/// use raffles::scram::zbdd::prime_implicants;
+///
+/// // `a AND NOT b` -- failure needs `a` to fail AND `b` to be working.
+/// let mut b = FaultTreeBuilder::new();
+/// b.basic_event("a", 0.1).unwrap();
+/// b.basic_event("b", 0.2).unwrap();
+/// b.gate("NotB", Connective::Not, &["b"]).unwrap();
+/// b.gate("Top", Connective::And, &["a", "NotB"]).unwrap();
+/// let model = b.build("Top").unwrap();
+///
+/// let pis = prime_implicants(model.tree()).unwrap();
+/// assert_eq!(pis.len(), 1);
+/// assert_eq!(pis[0].positive(), &[0]);   // a must occur
+/// assert_eq!(pis[0].negative(), &[1]);   // b must not
+/// assert!((pis[0].probability(model.probabilities()).unwrap() - 0.08).abs() < 1e-12);
+/// ```
+pub fn prime_implicants(tree: &FaultTree) -> Result<Vec<PrimeImplicant>> {
+    let mut bdd = Bdd::build(tree)?;
+    let mut builder = Builder {
+        nodes: Vec::new(),
+        unique: HashMap::new(),
+        convert_memo: HashMap::new(),
+        minimize_memo: HashMap::new(),
+        subsume_memo: HashMap::new(),
+    };
+    let root = bdd.root();
+    let converted = builder.convert_prime_implicants(&mut bdd, root)?;
+    let minimal = builder.minimize(converted)?;
+
+    let mut out = Vec::new();
+    builder.collect_signed(minimal, &bdd, &mut Vec::new(), &mut Vec::new(), &mut out);
+    out.sort_unstable();
+    out.dedup();
+    out.sort_by(|a, b| {
+        a.order()
+            .cmp(&b.order())
+            .then_with(|| a.positive.cmp(&b.positive))
+            .then_with(|| a.negative.cmp(&b.negative))
+    });
+    Ok(out)
 }

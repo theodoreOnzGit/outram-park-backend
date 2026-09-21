@@ -42,13 +42,14 @@ confirmation that this build of SCRAM behaves as its authors intended — the
 oracle rests on the `scram` CLI, which is the same code path but not the same
 check.
 
-## Three fixtures, deliberately separate
+## Four fixtures, deliberately separate
 
 | file | parsed from | trusted for |
 |---|---|---|
 | `oracle.txt` | SCRAM's own **XML report** | the answers, for **coherent** models |
 | `oracle-noncoherent.txt` | SCRAM's own **XML report** | the answers, for **non-coherent** models |
-| `models.txt` | SCRAM's own **input models** | the question — gates, connectives, arguments, the top gate |
+| `oracle-prime-implicants.txt` | SCRAM's own **XML report**, under `--prime-implicants` | the **signed** products, which describe the function exactly |
+| `models.txt` | SCRAM's own **input models** | the question — gates, connectives, arguments, the top gate, declared probabilities |
 
 The coherent/non-coherent split is not tidiness. For a non-coherent tree
 SCRAM's reported exact probability is the **true function's**, from its BDD,
@@ -134,6 +135,23 @@ ceiling on it at every order limit — but **not** beyond `scram::zbdd`, which
 reproduces all 4,259 in under a second. Its products are also the only
 quantification check at that scale.
 
+## `oracle-prime-implicants.txt`
+
+Nine models, 441 prime implicants, from `scram --probability --importance
+--prime-implicants`. Products here carry **signs**: `PI 2 +a -b` means `a`
+must occur and `b` must not.
+
+For a coherent tree the prime implicants are the minimal cut sets, so eight of
+these nine duplicate `oracle.txt` — deliberately, because that duplication is
+the invariant `scram_prime_implicants` checks. The ninth,
+`models-for-this-port/noncoherent_small`, is the only one with a negative
+literal anywhere.
+
+**`Aralia/das9601` is absent because upstream cannot produce it**: `scram
+--prime-implicants` exceeds five minutes on a model whose minimal cut sets it
+gives in about a second. The generator reports the timeout on stderr rather
+than dropping it silently.
+
 ## `models.txt`
 
 Fault-tree structure for all eleven models, so a reader can see what was
@@ -204,6 +222,8 @@ reference-data/scram/extract_models.sh $MODELS \
   binary decision diagram, on every model of both fixtures, with no cut-set
   ceiling; and minimal cut sets by zero-suppressed diagram, compared against
   both SCRAM's products and this crate's own top-down generator.
+- `crates/raffles/tests/scram_prime_implicants.rs` — prime implicants with
+  their signs, and the invariant that a coherent tree's are its cut sets.
 - `crates/raffles/tests/scram_noncoherent.rs` — the non-coherent models:
   cut-set generation on the small one, the measured conservatism of cut-set
   quantification, and 4,259-product quantification on `das9601`.

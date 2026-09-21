@@ -215,9 +215,14 @@ file comes from before writing its attribution header.
        through Initializer/Model/Formula; this is a plain indexed structure a
        caller builds in Rust, since input parsing is out of RAFFLES' scope.
 
-   STILL ABSENT: the preprocessor, prime implicants (upstream's
-   --prime-implicants), XML input handling, event trees, alignments, CCF
-   groups, substitutions, house events, and the expression library.
+   STILL ABSENT: the preprocessor, XML input handling, event trees,
+   alignments, CCF groups, substitutions, house events, and the expression
+   library.
+
+   PRIME IMPLICANTS are present, in src/scram/zbdd.rs, porting
+   Zbdd::ConvertBddPrimeImplicants together with Bdd::Consensus (which is
+   Apply<kAnd> on an if-then-else node's two branches). Upstream's module
+   handling and its EliminateComplements are not ported.
 
    A ZBDD IS present, in src/scram/zbdd.rs, porting Zbdd::ConvertBdd,
    Zbdd::Minimize and Zbdd::Subsume with attribution. Upstream's module
