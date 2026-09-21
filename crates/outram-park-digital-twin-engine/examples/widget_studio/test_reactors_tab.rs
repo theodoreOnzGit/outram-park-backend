@@ -14,8 +14,11 @@
 //! Proportions that come from published dimensions are cited at their
 //! constants in the widget; everything else is drawing.
 
-use egui::{RichText, Vec2};
+use egui::RichText;
 use outram_park_digital_twin_engine::animation::TracerTrain;
+use outram_park_digital_twin_engine::components::htr10_reactor_schematic::{
+    CORE_CAVITY_HEIGHT_CM, CRITICAL_BED_HEIGHT_CM, EQUILIBRIUM_BED_HEIGHT_CM,
+};
 use outram_park_digital_twin_engine::components::Htr10ReactorSchematic;
 use uom::si::f64::{MassRate, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
@@ -45,6 +48,11 @@ pub struct TestReactorsTab {
     pub max_temp_degc: f64,
     /// Control-rod insertion, dimensionless `[0, 1]`.
     pub rod_frac: f32,
+    /// Pebble-bed height, cm, measured up from zero core height.
+    ///
+    /// Two values worth knowing: 123.06 cm at first criticality (the B1
+    /// benchmark) and 197 cm at the equilibrium full-power core.
+    pub bed_height_cm: f32,
     /// Drawn vessel width, in points. Height follows the native aspect.
     pub vessel_width: f32,
     /// Whether to draw the internal labels.
@@ -83,6 +91,7 @@ impl Default for TestReactorsTab {
             min_temp_degc: 30.0,
             max_temp_degc: 930.0,
             rod_frac: 0.35,
+            bed_height_cm: EQUILIBRIUM_BED_HEIGHT_CM,
             vessel_width: 220.0,
             show_labels: true,
             primary_mass_flow_kg_per_s: 4.32,
@@ -126,7 +135,7 @@ impl TestReactorsTab {
     /// Build this frame's widget with the trains copied in.
     pub fn visual(&self) -> Htr10ReactorSchematic {
         let v = Htr10ReactorSchematic::new(
-            Vec2::new(self.vessel_width, self.vessel_width / (4.0 / 11.0)),
+            Htr10ReactorSchematic::native_size(self.vessel_width),
             degc(self.min_temp_degc),
             degc(self.max_temp_degc),
             degc(self.pebble_degc),
@@ -136,11 +145,11 @@ impl TestReactorsTab {
             degc(self.vessel_degc),
         )
         .with_control_rod_frac(self.rod_frac)
+        .with_bed_height_cm(self.bed_height_cm)
         .with_downcomer_tracer(self.downcomer.clone())
         .with_riser_tracer(self.riser.clone())
         .with_plenum_tracer(self.plenum.clone())
-        .with_cold_plenum_tracer(self.cold_plenum.clone())
-;
+        .with_cold_plenum_tracer(self.cold_plenum.clone());
         if self.show_labels {
             v
         } else {
@@ -178,6 +187,33 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
             "The vessel wall sits near the INLET temperature, not the core's: the \
              downcomer annulus washes it in 250 °C helium to keep it there. Drag it \
              up and the drawing shows a vessel that is no longer being protected.",
+        )
+        .small()
+        .weak(),
+    );
+
+    ui.separator();
+    ui.label(RichText::new("Core loading").strong());
+    ui.add(
+        egui::Slider::new(&mut state.bed_height_cm, 0.0..=CORE_CAVITY_HEIGHT_CM)
+            .text("bed height [cm]")
+            .fixed_decimals(1),
+    );
+    ui.horizontal(|ui| {
+        if ui.button("first criticality").clicked() {
+            state.bed_height_cm = CRITICAL_BED_HEIGHT_CM;
+        }
+        if ui.button("equilibrium").clicked() {
+            state.bed_height_cm = EQUILIBRIUM_BED_HEIGHT_CM;
+        }
+    });
+    ui.label(
+        RichText::new(
+            "Measured UP from zero core height (the top of the conus), which is how \
+             the benchmark defines a loading. 123.06 cm is where HTR-10 first went \
+             critical in B1; 197 cm is the equilibrium full-power average. Under-load \
+             it and the gas space at the top of the cavity opens up — that space is \
+             what B1 is about.",
         )
         .small()
         .weak(),
