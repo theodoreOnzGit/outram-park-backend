@@ -383,6 +383,36 @@ fn n_scored(t: &Tally, bins: &[usize]) -> usize {
     bins.iter().filter(|&&b| t.bins[b].sum > 0.0).count()
 }
 
+/// Minimum number of scoring events a deep cell must carry before its variance
+/// estimate is used in a figure of merit.
+///
+/// A bin hit once or twice has a sample variance dominated by its own sampling
+/// noise: `rel_std_dev` on `n = 1` scores is not small-but-uncertain, it is
+/// meaningless. Every cell below this threshold is reported by count and
+/// excluded from the aggregate rather than being folded in at face value,
+/// because a deep-penetration FOM is exactly where a handful of lucky scores
+/// would otherwise manufacture an impressive-looking ratio.
+const MIN_SCORES_FOR_FOM: u64 = 10;
+
+/// Figure of merit for one tally bin, `FOM = 1 / (R^2 · t)` with `R` the
+/// relative standard deviation — OpenMC's definition and the one #258's
+/// acceptance criterion names.
+///
+/// `None` means "this cell cannot supply a FOM", which is a different
+/// statement from "this cell's FOM is zero" and is kept distinct on purpose:
+/// an unscored cell has an *undefined* FOM, and reporting it as `0.0` would
+/// let it be divided into a ratio as though it had been measured.
+fn fom(bin: &TallyBin, n_realizations: u64, t_seconds: f64) -> Option<f64> {
+    if bin.count < MIN_SCORES_FOR_FOM || bin.sum <= 0.0 || t_seconds <= 0.0 {
+        return None;
+    }
+    let rel = bin.rel_std_dev(n_realizations);
+    if !rel.is_finite() || rel <= 0.0 {
+        return None;
+    }
+    Some(1.0 / (rel * rel * t_seconds))
+}
+
 /// **LIVE**: the notebook's claim, tested. At matched wall-clock, the
 /// weight-window run must resolve flux in mesh cells the analog run never
 /// reaches.
@@ -403,13 +433,16 @@ fn shielded_room_weight_window() {
 
     // ── Arm 1: analog ──────────────────────────────────────────────────────
     let mut analog_tally = flux_tally();
+    // Bound once, used twice: the FOM below divides by this same count, and a
+    // literal repeated in two places is a silent wrong answer waiting to happen.
+    let n_analog = 2_500usize;
     let t0 = Instant::now();
     run_fixed_source(
         &geom,
         &mats,
         &nucs,
         &src,
-        &settings(2_500, 20_260_922, VarianceReduction::default()),
+        &settings(n_analog, 20_260_922, VarianceReduction::default()),
         Some(&mut analog_tally),
     );
     let t_analog = t0.elapsed().as_secs_f64();
@@ -524,6 +557,69 @@ fn shielded_room_weight_window() {
         "\nRESULT: analog reached {analog_deep} deep cells in {t_analog:.1} s; \
          weight windows reached {ww_deep} in {t_ww:.1} s"
     );
+
+    // ── Figure of merit, #258's third acceptance criterion ─────────────────
+    //
+    // `FOM = 1/(R^2 t)`. This is REPORTED, not asserted: the criterion asks
+    // for a measured improvement, and a gate on it would be a threshold I had
+    // chosen after seeing the number. The existing deep-cell assertion above
+    // is the pass criterion; this block is the measurement.
+    //
+    // Three populations are kept apart, because collapsing them is how a
+    // shielding FOM gets overstated:
+    //
+    //   * `both`     — cells where BOTH arms carry enough scores to estimate a
+    //                  variance. Only these yield a ratio, and the aggregate
+    //                  quoted is the GEOMETRIC mean, since a ratio's arithmetic
+    //                  mean is dominated by whichever cell happened to do best.
+    //   * `ww_only`  — cells the windows resolved and analog did not. The
+    //                  honest statement is that the ratio is UNDEFINED here
+    //                  (analog has no variance estimate to divide by), not
+    //                  that it is infinite. Their count is the real result.
+    //   * `neither`  — cells neither arm resolved. Windows did not help there
+    //                  either, and saying so is part of the measurement.
+    let mut ratios: Vec<f64> = Vec::new();
+    let (mut ww_only, mut analog_only, mut neither) = (0usize, 0usize, 0usize);
+    for &b in &deep {
+        let fa = fom(&analog_tally.bins[b], n_analog as u64, t_analog);
+        let fw = fom(&ww_tally.bins[b], n_ww as u64, t_ww);
+        match (fa, fw) {
+            (Some(a), Some(w)) => ratios.push(w / a),
+            (None, Some(_)) => ww_only += 1,
+            (Some(_), None) => analog_only += 1,
+            (None, None) => neither += 1,
+        }
+    }
+    println!(
+        "\nFOM (1/(R^2 t)) over {} deep cells, min {MIN_SCORES_FOR_FOM} scores to qualify:",
+        deep.len()
+    );
+    println!(
+        "  both arms resolved : {:3}   windows only: {ww_only:3}   analog only: {analog_only:3}   \
+         neither: {neither:3}",
+        ratios.len()
+    );
+    if ratios.is_empty() {
+        println!(
+            "  FOM ratio: NOT MEASURABLE — no deep cell carries >= {MIN_SCORES_FOR_FOM} scores \
+             in both arms, so there is no cell on which the ratio is defined. The \
+             {ww_only} windows-only cells are the improvement; it cannot be expressed \
+             as a FOM ratio without inventing a variance for the analog arm."
+        );
+    } else {
+        let log_sum: f64 = ratios.iter().map(|r| r.ln()).sum();
+        let geo = (log_sum / ratios.len() as f64).exp();
+        let mut sorted = ratios.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let lo = sorted[0];
+        let hi = sorted[sorted.len() - 1];
+        let med = sorted[sorted.len() / 2];
+        println!(
+            "  FOM ratio (windows / analog): geometric mean {geo:.2}x, median {med:.2}x, \
+             range {lo:.2}x - {hi:.2}x over {} cells",
+            ratios.len()
+        );
+    }
 
     // The notebook's claim, and the only thing asserted: at matched cost the
     // weight-window run gets further. Written as `>=` plus a strict

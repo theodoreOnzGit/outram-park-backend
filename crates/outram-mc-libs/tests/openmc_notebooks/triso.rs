@@ -130,7 +130,6 @@ use outram_mc_libs::pebble_beds::delta_tracking::{track_to_collision, Majorant};
 use outram_mc_libs::pebble_beds::keff_delta::run_keff_delta;
 use outram_mc_libs::pebble_beds::sphere_packing::PackedSpheres;
 use outram_mc_libs::physics::keff::KeffSettings;
-use outram_mc_libs::physics::reactor_physics::{run_keff_reactor_physics, ReactorPhysicsConfig};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg, SourceBox};
 
 // ── Regular-lattice geometry (for the nested-navigation test) ──────────────────
