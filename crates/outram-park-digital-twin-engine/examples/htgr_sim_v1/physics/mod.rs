@@ -3200,6 +3200,47 @@ mod tests {
     /// gated.
     ///
     /// **Results: printed by this test; see the run output.**
+    /// TEMPORARY ablation probe: is the LOFC shutdown failure caused by the
+    /// 2026-09-22 kernel Doppler channel, or was it already failing?
+    /// `fuel_share = 0` reproduces the pre-2026-09-22 model exactly.
+    #[test]
+    fn probe_lofc_with_and_without_the_kernel_channel() {
+        use uom::si::mass_rate::kilogram_per_second;
+
+        for share in [0.0, KernelDopplerChannel::HU_FUEL_SHARE_OF_ISOTHERMAL] {
+            let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+            let mut plant = HtgrPlant::new();
+            plant.protection.set_enabled(false);
+            plant.kinetics.set_kernel_fuel_share(share);
+            let steady = PlantCommands::default();
+
+            let settle_steps = (200.0 / PLANT_TIMESTEP_S).round() as usize;
+            for _ in 0..settle_steps {
+                plant.step(dt, steady.clone());
+            }
+            let p0 = plant.kinetics.total_power().get::<uom::si::power::watt>();
+
+            let mut tripped = steady.clone();
+            tripped.scenario = Scenario::Lofc;
+            tripped.helium_flow_setpoint = MassRate::new::<kilogram_per_second>(0.0);
+
+            let mut min_frac = f64::INFINITY;
+            let steps = (600.0 / PLANT_TIMESTEP_S).round() as usize;
+            for _ in 0..steps {
+                plant.step(dt, tripped.clone());
+                let p = plant.kinetics.total_power().get::<uom::si::power::watt>();
+                min_frac = min_frac.min(p / p0);
+            }
+            println!(
+                "fuel_share {share:.4}: settled {:.4} MW, minimum fission fraction reached \
+                 {:.4} (need <= 0.01), kernel Doppler now {:+.4} $",
+                p0 / 1.0e6,
+                min_frac,
+                plant.kinetics.kernel_doppler_reactivity_dollars()
+            );
+        }
+    }
+
     #[test]
     fn lofc_atws_reactor_shuts_itself_down() {
         let trace = run_lofc_atws(600.0, 200.0);
