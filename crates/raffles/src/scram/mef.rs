@@ -68,12 +68,10 @@
 //! using one would otherwise be read as a smaller, different model that
 //! happens to parse, which is the failure this whole port exists to avoid.
 //!
-//! The random deviates (`<lognormal-deviate>` and friends) are refused for
-//! the same reason; they belong to uncertainty analysis, which is its own
-//! chunk of the port. Two of upstream's models — `SmallTree/SmallTree` and
-//! `BSCU/BSCU` — use one and therefore cannot be read through here yet,
-//! though both are still covered by the analysis tests that take their
-//! probabilities from the oracle.
+//! The remaining expression elements — the trigonometric functions,
+//! `<switch>`, the test-event conditions and `<extern-function>` calls — are
+//! refused for the same reason. None appears in any of upstream's own input
+//! models.
 //!
 //! There is also **no schema validation**. Upstream validates against a
 //! RelaxNG grammar before looking at anything; this checks only what it needs
@@ -1233,6 +1231,58 @@ fn read_expression(element: &Element, scope: &Scope, index: &Index) -> Result<Ex
                 )))
             }
         },
+        // The random deviates. Upstream picks the log-normal flavour by
+        // arity, exactly as it picks the periodic test's:
+        // `Initializer::Extract<LognormalDeviate>`.
+        "uniform-deviate" => Expression::uniform_deviate(sub(0)?, sub(1)?),
+        "normal-deviate" => Expression::normal_deviate(sub(0)?, sub(1)?),
+        "lognormal-deviate" => match kids.len() {
+            3 => Expression::lognormal_deviate(sub(0)?, sub(1)?, sub(2)?),
+            2 => Expression::lognormal_deviate_normal(sub(0)?, sub(1)?),
+            n => {
+                return Err(invalid(format!(
+                    "<lognormal-deviate> with {n} arguments: MEF has a three-argument \
+                     (mean, error factor, level) and a two-argument (mu, sigma) form"
+                )))
+            }
+        },
+        "gamma-deviate" => Expression::gamma_deviate(sub(0)?, sub(1)?),
+        "beta-deviate" => Expression::beta_deviate(sub(0)?, sub(1)?),
+        // `<histogram>` is one expression -- the first boundary -- followed by
+        // one `<bin>` per interval, each holding its upper boundary and its
+        // weight. Upstream's `Initializer::Extract<Histogram>` splits them the
+        // same way.
+        "histogram" => {
+            let first = kids
+                .first()
+                .ok_or_else(|| invalid("<histogram> has no lower boundary".into()))?;
+            let mut boundaries = vec![read_expression(first, scope, index)?];
+            let mut weights = Vec::new();
+            for bin in &kids[1..] {
+                if bin.name != "bin" {
+                    return Err(invalid(format!(
+                        "<histogram> holds <{}>, expected <bin>",
+                        bin.name
+                    )));
+                }
+                let parts: Vec<&Element> = bin.structural().collect();
+                if parts.len() != 2 {
+                    return Err(invalid(format!(
+                        "<bin> takes an upper boundary and a weight, found {} children",
+                        parts.len()
+                    )));
+                }
+                boundaries.push(read_expression(parts[0], scope, index)?);
+                weights.push(read_expression(parts[1], scope, index)?);
+            }
+            if weights.is_empty() {
+                return Err(invalid("<histogram> has no <bin>".into()));
+            }
+            Expression::Histogram {
+                boundaries,
+                weights,
+            }
+        }
         "add" => Expression::Add(all()?),
         "sub" => Expression::Sub(all()?),
         "mul" => Expression::Mul(all()?),
@@ -1265,9 +1315,9 @@ fn read_expression(element: &Element, scope: &Scope, index: &Index) -> Result<Ex
         "gt" => Expression::Gt(Arc::new(sub(0)?), Arc::new(sub(1)?)),
         other => {
             return Err(invalid(format!(
-                "<{other}> is not an expression this reader knows. The random deviates \
-                 (uniform-deviate, normal-deviate, histogram, ...) belong to uncertainty \
-                 analysis and are their own chunk of the port"
+                "<{other}> is not an expression this reader knows. Still unread: the \
+                 trigonometric functions, <switch>, the test-event conditions, and \
+                 <extern-function> calls"
             )))
         }
     })

@@ -57,7 +57,7 @@ per benchmark model and every model here has one — `RiskAnalysisTest.TwoTrain`
 probabilities. So these numbers are not merely what this binary printed; they
 are what SCRAM's authors say it should print, checked.
 
-## Six fixtures, deliberately separate
+## Seven fixtures, deliberately separate
 
 | file | parsed from | trusted for |
 |---|---|---|
@@ -65,6 +65,7 @@ are what SCRAM's authors say it should print, checked.
 | `oracle-noncoherent.txt` | SCRAM's own **XML report** | the answers, for **non-coherent** models |
 | `oracle-prime-implicants.txt` | SCRAM's own **XML report**, under `--prime-implicants` | the **signed** products, which describe the function exactly |
 | `oracle-mef.txt` | SCRAM's own **XML report** | the answers for `mef_features`, the model covering the MEF constructs upstream's inputs never use |
+| `oracle-deviates.txt` | SCRAM's own **XML report** | the answers for `deviates`, the model covering all seven random deviates |
 | `oracle-multi-tree.txt` | SCRAM's own **XML report** | the answers for models defining **several** fault trees, one record per tree |
 | `models.txt` | SCRAM's own **input models** | the question — gates, connectives, arguments, the top gate, declared probabilities |
 
@@ -210,6 +211,7 @@ no *small* model exercising the feature — or, for the third, no model at all:
 | `noncoherent_small.xml` | of upstream's seven models with a negating connective, four produce no products, two are event-tree or alignment models, and the only usable one is `das9601` at 288 gates |
 | `house_events_small.xml` | upstream's only house-event model is `ThreeMotor`, which the extractor refuses for its `<define-component>` namespaces |
 | `mef_features.xml` | **no** upstream input uses `<iff>`, `<imply>`, `<cardinality>`, a `<constant>` formula argument or `<event type="…">`; a grep over all of `input/` finds none of the five. It also carries a second, independent instance of the private-namespace rule, with a shadowed parameter whose value differs between scopes |
+| `deviates.xml` | of the seven MEF random deviates, upstream's inputs use only `<lognormal-deviate>` (SmallTree, BSCU) and `<normal-deviate>` (Chinese); the uniform, two-argument log-normal, gamma, beta and histogram forms appear nowhere. The gamma, beta and histogram deviates sit inside an `<exponential>` because upstream's `EnsureProbability` checks the whole `interval()` against `[0, 1]` and their domains reach past 1 |
 
 **SCRAM is the oracle for both**: their expected answers come from running the
 compiled binary, exactly as for upstream's own models. Only the question is
@@ -303,6 +305,11 @@ reference-data/scram/extract_multi_tree_oracle.sh ./bin/scram \
 reference-data/scram/extract_oracle.sh ./bin/scram \
     reference-data/scram/models-for-this-port/mef_features.xml \
     > reference-data/scram/oracle-mef.txt
+
+# The random-deviate model, likewise.
+reference-data/scram/extract_oracle.sh ./bin/scram \
+    reference-data/scram/models-for-this-port/deviates.xml \
+    > reference-data/scram/oracle-deviates.txt
 ```
 
 ## Consumed by
@@ -328,5 +335,9 @@ reference-data/scram/extract_oracle.sh ./bin/scram \
   own expressions, and the cut sets, totals and importance factors that
   follow — `ThreeMotor` included, and `<xi:include>`, the private-namespace
   rule and the five MEF constructs upstream never uses with them.
+- `crates/raffles/tests/scram_deviates.rs` — the seven random deviates: each
+  one's deterministic value against SCRAM's, the two upstream log-normal
+  models read end to end, upstream's domain checks, and the `interval()` half
+  of validation that only bites when a deviate is present.
 - `crates/raffles/docs/scram-port-verification.md` — the full V&V record,
   including what this does **not** establish.

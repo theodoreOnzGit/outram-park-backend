@@ -102,7 +102,7 @@ difference is load-bearing.** Ported, with attribution headers:
 | `bdd.rs` (the probability recurrence only) | `ProbabilityAnalyzer<Bdd>::CalculateProbability` |
 | `zbdd.rs` | `ConvertBdd`, `Minimize`, `Subsume`, `ConvertBddPrimeImplicants`, `Bdd::Consensus`, `ConvertGraph`, `Apply<kAnd>`, `Apply<kOr>`, `EliminateComplements` |
 | `fault_tree.rs`'s `Connective` taxonomy | `pdag.h`'s `enum Connective` |
-| `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators |
+| `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators, and the seven random deviates' `value`/`Validate`/`interval` |
 | `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
 
 **Not** ports, each saying so in its own doc instead:
@@ -140,8 +140,8 @@ non-BDD ZBDD constructor was named explicitly.
 ~~Still to do under that direction: XML input (`initializer`, `xml`), the
 `expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
 `src/scram/expression.rs` and `src/scram/mef.rs`. Still to do: CCF groups,
-substitutions, event trees and sequences, alignments, the random deviates and
-the uncertainty analysis that consumes them, the preprocessor, `pdag`, and the
+substitutions, event trees and sequences, alignments, `Expression::Sample` and
+the uncertainty analysis that consumes it, the preprocessor, `pdag`, and the
 reporter. Progress is tracked in `docs/scram-port-verification.md`.
 
 ~~expressions~~ **CORRECTED 2026-09-22** — `src/scram/expression.rs` landed,
@@ -169,9 +169,19 @@ none: `share/input.rng` lets a connective take only an event reference, a
 `<not>` around one event, or a `<constant>`. SCRAM itself rejects a nested
 formula. Do not re-add that machinery.
 
+~~the random deviates (`SmallTree/SmallTree` and `BSCU/BSCU` are the two
+upstream models this costs)~~ **CORRECTED 2026-09-22** — all seven landed, and
+both models read. **Only their deterministic `value()` is ported**: sampling
+(`Expression::Sample`, each deviate's `DoSample`) lands with the uncertainty
+analysis, because `scram --uncertainty` is the only oracle for it and writing
+it sooner would mean writing it unverifiable. Their arrival is also what gave
+`Interval`/`Expression::interval` a purpose — a normal deviate's mean can be a
+good probability while its six-sigma domain is not, and upstream rejects the
+argument on the domain check.
+
 Still absent, and refused rather than skipped when a model uses them: CCF
-groups, substitutions, event trees, alignments, and the random deviates
-(`SmallTree/SmallTree` and `BSCU/BSCU` are the two upstream models this costs).
+groups, substitutions, event trees, alignments, the trigonometric operators
+and `<switch>`.
 `<define-extern-function>` is refused **deliberately and permanently** — it
 loads a shared library named by the input file, which the workspace
 `RESPONSIBLE_USE.md` rule on autonomous access forbids.

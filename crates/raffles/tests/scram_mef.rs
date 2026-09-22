@@ -34,10 +34,12 @@
 //! * **`<iff>`, `<imply>`, `<cardinality>`, `<constant>`, `<event type="…">`**
 //!   — five constructs **no upstream input model uses**, so a model written
 //!   for this port carries them and SCRAM supplies the answers.
-//! * `SmallTree/SmallTree` and `BSCU/BSCU` are **not** read here: both use
-//!   `<lognormal-deviate>`, and the random deviates belong to uncertainty
-//!   analysis, which is a later chunk of the port. The refusal is asserted
-//!   rather than skipped silently, so it cannot quietly become something else.
+//! * **The seven random deviates** — `SmallTree/SmallTree` and `BSCU/BSCU`
+//!   were out of reach until they landed, and the other five appear in no
+//!   upstream input at all, so `models-for-this-port/deviates.xml` carries
+//!   them with SCRAM's own answers in `oracle-deviates.txt`. **Every record in
+//!   every fixture now reads**; there is no allowance left for one that does
+//!   not.
 //!
 //! | | |
 //! |---|---|
@@ -169,31 +171,18 @@ fn all_oracles() -> Vec<Oracle> {
     let mut out = load_oracles("oracle.txt");
     out.extend(load_oracles("oracle-mef.txt"));
     out.extend(load_oracles("oracle-multi-tree.txt"));
+    out.extend(load_oracles("oracle-deviates.txt"));
     out
 }
 
-/// The two models that need the random deviates, with the reason each is out.
-///
-/// Asserted, not skipped: [`the_two_unreadable_models_fail_for_the_stated_reason`]
-/// checks that the refusal is still this one and not something else.
-const NEEDS_RANDOM_DEVIATES: [&str; 2] = ["SmallTree/SmallTree", "BSCU/BSCU"];
-
 /// Reads a model and builds the tree the oracle's answers belong to.
 ///
-/// `None` means the reader refused the model, which only the entries of
-/// [`NEEDS_RANDOM_DEVIATES`] may do.
+/// There is no allowance for a model that fails to read: every record in the
+/// fixtures must go through. `SmallTree/SmallTree` and `BSCU/BSCU` were the
+/// two exceptions until the random deviates landed on 2026-09-22.
 fn tree_for(oracle: &Oracle) -> Option<FaultTreeModel> {
-    let model = match MefModel::from_file(&model_path(&oracle.name)) {
-        Ok(m) => m,
-        Err(e) => {
-            assert!(
-                NEEDS_RANDOM_DEVIATES.contains(&oracle.name.as_str()),
-                "{}: the reader refused a model it is supposed to read -- {e}",
-                oracle.name
-            );
-            return None;
-        }
-    };
+    let model = MefModel::from_file(&model_path(&oracle.name))
+        .unwrap_or_else(|e| panic!("{}: the reader refused this model -- {e}", oracle.name));
     let top = oracle
         .top
         .as_ref()
@@ -239,9 +228,8 @@ fn agrees(ours: f64, theirs: f64, tol: f64) -> bool {
 /// Tolerance is `5e-6` relative, the resolution of upstream's
 /// 6-significant-figure report.
 ///
-/// **Results** (2026-09-22): 14 of the 16 records read, and all 94
-/// basic-event probabilities across them agree. The two that do not read are
-/// [`NEEDS_RANDOM_DEVIATES`].
+/// **Results** (2026-09-22): all 17 records read, and all 113 basic-event
+/// probabilities across them agree.
 #[test]
 fn probabilities_evaluated_from_the_xml_match_scrams() {
     let mut checked = 0;
@@ -270,7 +258,7 @@ fn probabilities_evaluated_from_the_xml_match_scrams() {
         );
     }
     println!("{checked} basic-event probabilities across {models} models");
-    assert!(checked >= 80, "only checked {checked} probabilities");
+    assert!(checked >= 110, "only checked {checked} probabilities");
 }
 
 /// **Methodology.** Generate the minimal cut sets with
@@ -278,10 +266,9 @@ fn probabilities_evaluated_from_the_xml_match_scrams() {
 /// the set of products against the set SCRAM reported. Set equality, not a
 /// count: a missing product and a spurious one would cancel in a count.
 ///
-/// **Results** (2026-09-22): every product of every readable model matches,
-/// `ThreeMotor/three_motor` included — 14 records, the two
-/// [`NEEDS_RANDOM_DEVIATES`] models aside. The largest is `Aralia/chinese` at
-/// 392 products.
+/// **Results** (2026-09-22): every product of every model matches,
+/// `ThreeMotor/three_motor` included — 17 records. The largest is
+/// `Aralia/chinese` at 392 products.
 #[test]
 fn cut_sets_generated_from_the_xml_match_scrams() {
     let mut checked = 0;
@@ -301,7 +288,7 @@ fn cut_sets_generated_from_the_xml_match_scrams() {
         );
         checked += 1;
     }
-    assert!(checked >= 12, "only checked {checked} models");
+    assert!(checked >= 17, "only checked {checked} models");
 }
 
 /// **Methodology.** Quantify the tree read from the XML in all three of
@@ -317,7 +304,7 @@ fn cut_sets_generated_from_the_xml_match_scrams() {
 /// inclusion-exclusion where it is coherent and within
 /// [`EXACT_CUT_SET_LIMIT`], since that is `2^n`.
 ///
-/// **Results** (2026-09-22): 41 model/mode combinations, every one agreeing
+/// **Results** (2026-09-22): 50 model/mode combinations, every one agreeing
 /// to `5e-6` relative — including `models-for-this-port/mef_features`, whose
 /// `<imply>`, `<iff>` and `<cardinality>` gates make it non-coherent and
 /// whose exact value therefore comes from the BDD.
@@ -360,7 +347,7 @@ fn totals_from_the_xml_match_scrams() {
         }
     }
     println!("checked {checked} model/mode combinations");
-    assert!(checked >= 30, "only checked {checked} combinations");
+    assert!(checked >= 45, "only checked {checked} combinations");
 }
 
 /// **Methodology.** Every importance factor of every basic event, computed
@@ -372,7 +359,7 @@ fn totals_from_the_xml_match_scrams() {
 /// `scram_oracle_suite::rrw_diverges_from_upstream_only_at_the_singularity`,
 /// and is passed over here rather than re-litigated.
 ///
-/// **Results** (2026-09-22): 59 basic events checked, every factor of every
+/// **Results** (2026-09-22): 78 basic events checked, every factor of every
 /// one agreeing to `5e-6` relative.
 #[test]
 fn importance_from_the_xml_matches_scrams() {
@@ -419,7 +406,7 @@ fn importance_from_the_xml_matches_scrams() {
         }
     }
     println!("checked {checked} basic events");
-    assert!(checked >= 40, "only checked {checked} events");
+    assert!(checked >= 70, "only checked {checked} events");
 }
 
 /// **Methodology — the model this reader was written for.**
@@ -629,28 +616,6 @@ fn the_mef_only_constructs_match_scram() {
         "mef_features [exact, BDD]: ours {exact}, SCRAM {}",
         oracle.totals["exact"]
     );
-}
-
-/// **Methodology.** The two models this reader cannot read must fail for the
-/// **stated** reason, and no other.
-///
-/// A refusal recorded in prose drifts: the reason is written once, the code
-/// changes, and the doc keeps claiming a limitation that has moved. This
-/// pins it — if `<lognormal-deviate>` stops being the blocker, this fails and
-/// the module doc has to be corrected with it.
-///
-/// **Results** (2026-09-22): both refusals name the random deviates.
-#[test]
-fn the_two_unreadable_models_fail_for_the_stated_reason() {
-    for model in NEEDS_RANDOM_DEVIATES {
-        let err = MefModel::from_file(&model_path(model))
-            .expect_err("still needs the random deviates")
-            .to_string();
-        assert!(
-            err.contains("deviate"),
-            "{model} now fails for a different reason: {err}"
-        );
-    }
 }
 
 /// **Methodology.** Everything this reader refuses, refused for a reason it

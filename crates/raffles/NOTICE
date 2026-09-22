@@ -222,8 +222,8 @@ file comes from before writing its attribution header.
        not, and says so. Its structure checks are narrower than the grammar.
 
    STILL ABSENT: the preprocessor, event trees, alignments, CCF groups,
-   substitutions, the random deviates and the uncertainty analysis over them,
-   and the reporter. Each construct src/scram/mef.rs does not read is REFUSED
+   substitutions, sampling and the uncertainty analysis over it, and the
+   reporter. Each construct src/scram/mef.rs does not read is REFUSED
    with a reason rather than skipped.
 
    <define-extern-function> is refused DELIBERATELY AND PERMANENTLY: it loads
@@ -240,9 +240,14 @@ file comes from before writing its attribution header.
    xml-rs pull parser rather than libxml2, so Android and wasm stay clean.
 
    THE EXPRESSION LIBRARY IS present, in src/scram/expression.rs, porting
-   p_exp/p_exp2, the exponential, GLM, Weibull and periodic-test models and
-   the numeric, Boolean and conditional operators. The random deviates
-   (lognormal-deviate and the rest) are not ported.
+   p_exp/p_exp2, the exponential, GLM, Weibull and periodic-test models, the
+   numeric, Boolean and conditional operators, and all seven random deviates
+   of src/expression/random_deviate.{h,cc} together with the Interval domain
+   type. Only each deviate's DETERMINISTIC value() is ported; Expression::
+   Sample() and each DoSample() land with the uncertainty analysis, whose
+   `scram --uncertainty` output is the only oracle for them. The
+   trigonometric operators and Switch are not ported, and appear in no
+   upstream input model.
 
    HOUSE EVENTS are present, as Arg::Constant -- conditions fixed for the
    analysis rather than sampled, which the MEF writes as

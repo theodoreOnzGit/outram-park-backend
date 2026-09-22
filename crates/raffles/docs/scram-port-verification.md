@@ -32,6 +32,9 @@ which basic events matter. Three of its four modules are ports of
 | `scram::fault_tree::Connective` | `src/pdag.h` `enum Connective` | taxonomy only |
 | `scram::fault_tree` (the rest) | — | **no** — a plain indexed structure a caller builds in Rust; `scram::mef` is what builds one from XML |
 | `scram::expression` | `src/expression/*.cc` (`p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators) | yes |
+| `scram::expression`'s seven random deviates (`value`, `Validate`, `interval`) | `src/expression/random_deviate.{h,cc}` | yes |
+| `scram::expression::Interval` | `Interval`, `Contains`, `IsNonNegative`, `IsPositive`, `IsProbability` | yes |
+| `Expression::Sample` / each deviate's `DoSample` | — | **not yet** — lands with the uncertainty analysis, where `scram --uncertainty` is the oracle |
 | `scram::mef` | `src/initializer.{h,cc}`, `src/xml.{h,cc}`, `src/element.{h,cc}`, `src/model.{h,cc}`, `src/fault_tree.{h,cc}`, `src/event.{h,cc}` | yes |
 | `scram::mef::Index` (name resolution) | `Initializer::GetEntity` / `GetEvent`, `mef::Id::id()`, `mef::Role` | yes |
 | `scram::mef::Lowering` (iff, imply, cardinality) | `Pdag::ConstructComplexGate` | yes |
@@ -262,6 +265,11 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | `<xi:include>` and cross-tree references | `scram_mef::xi_include_and_cross_fault_tree_references_resolve` | `TransTest`, `ThreeLevels` |
 | The five constructs upstream never uses | `scram_mef::the_mef_only_constructs_match_scram` | **9 products, 3 totals** |
 | Refusals, each naming its cause | `scram_mef::the_unported_and_the_malformed_are_refused_not_skipped` | **10 refusals** |
+| **All seven random deviates** vs SCRAM's computed values | `scram_deviates::every_deviate_value_matches_scrams` | **7 of 7** |
+| The two upstream log-normal models, end to end | `scram_deviates::the_two_upstream_lognormal_models_are_no_longer_refused` | `SmallTree` + `BSCU`, **12 events** |
+| Deviate means against their closed forms | `scram_deviates::each_deviate_value_matches_its_closed_form` | 7, to `1e-12` |
+| Upstream's domain checks | `scram_deviates::the_domain_checks_are_upstreams` | **12 refusals**, in upstream's order |
+| `interval()` and the domain half of validation | `scram_deviates::intervals_are_upstreams_and_are_what_makes_the_domain_checks_bite` | 7 cases |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -864,6 +872,88 @@ in prose, so it cannot quietly become a different refusal while the doc keeps
 claiming this one. Both models remain covered by the tests that take their
 probabilities from the oracle.
 
+### The seven random deviates — and the two models they unlocked
+
+`SmallTree/SmallTree` and `BSCU/BSCU` were, until 2026-09-22, the only two
+records in the whole fixture that `scram::mef` refused: both define their
+failure rates with `<lognormal-deviate>`. That refusal was **asserted** rather
+than written down, so it could not drift — and it is now gone. Every record in
+every fixture reads.
+
+Of the seven deviates, upstream's own input suite uses two:
+`<lognormal-deviate>` in its three-argument form and `<normal-deviate>`. The
+uniform, two-argument log-normal, gamma, beta and histogram forms appear in
+**no** upstream model, so `models-for-this-port/deviates.xml` uses all seven
+and SCRAM supplies the answers in `oracle-deviates.txt`.
+
+| event | deviate | RAFFLES | SCRAM |
+|---|---|---|---|
+| `u` | uniform(0.1, 0.3) | 0.200000 | 0.2 |
+| `n` | normal(0.5, 0.01) | 0.500000 | 0.5 |
+| `l3` | lognormal(2e-5, EF 3, 95 %) as a rate | 0.160711 | 0.160711 |
+| `l2` | lognormal(mu −12, sigma 0.5) as a rate | 0.0591672 | 0.0591672 |
+| `g` | gamma(k 2, theta 1e-6) as a rate | 0.0173674 | 0.0173674 |
+| `b` | beta(1, 999) as a rate | 0.999843 | 0.999843 |
+| `hist` | histogram over three bins as a rate | 0.0147817 | 0.0147817 |
+
+Three of them sit inside an `<exponential>` rather than standing as a
+probability, and that is upstream's doing rather than presentation:
+`EnsureProbability` checks an expression's whole `interval()` against `[0, 1]`,
+and the gamma, beta and histogram domains reach past 1.
+
+#### One substitution, checked rather than assumed
+
+Upstream gets the log-normal's scale parameter from Boost:
+
+```cpp
+double z = -std::sqrt(2) * boost::math::erfc_inv(2 * level_.value());
+return std::log(ef_.value()) / z;
+```
+
+This port has no `erfc_inv` and uses `distributions`' standard normal quantile
+on the identity `-sqrt(2) erfc^-1(2p) = Phi^-1(p)`. That is the kind of
+substitution that is right in the algebra and wrong by a factor of two in the
+code, so it is checked against the definition it claims to satisfy rather than
+assumed: `Phi(Phi^-1(p))` returns `p` to better than `1e-12` at the five
+levels MEF models use, `z_0.95` lands on the table value `1.6448536269514722`,
+and the end-to-end consequence — `SmallTree`'s `e1` — lands on SCRAM's
+`0.160711`.
+
+#### `interval()`, and why it is here rather than with the uncertainty analysis
+
+Upstream validates an argument **twice**: `EnsureNonNegative` and
+`EnsureWithin` compare the value against the range, and then the whole
+`interval()` against it. Without deviates the two are the same check, because
+upstream's default interval is the degenerate `[value, value]`. With them they
+differ, and the difference is the point: a `normal(0.5, 0.1)` has a mean that
+is a perfectly good probability and a domain of `[-0.1, 1.1]` that is neither
+a probability nor non-negative, and upstream rejects it. So `Interval` and the
+whole `interval()` lattice are ported with the deviates, not deferred.
+
+Two of the lattice's entries are ported **as upstream wrote them, and they
+look wrong**. `GammaDeviate::interval` computes
+
+```cpp
+theta * pow(gamma_q(k, gamma_q(k, 0) - 0.99), -1)
+```
+
+and `gamma_q(k, 0)` is 1 for every `k`, so the inner argument is the constant
+`0.01` and the result is `theta / Q(k, 0.01)` rather than the "99 percentile"
+the comment claims; `BetaDeviate::interval` has the same shape. Reproducing
+upstream's behaviour is the specification, so they are reproduced, with the
+reading recorded here. It affects a validation bound only, never a reported
+probability — which is why it is a note rather than a divergence.
+
+#### What is deliberately not here
+
+`Expression::Sample()` and each deviate's `DoSample()`. They have exactly one
+consumer upstream — the uncertainty analysis — and exactly one oracle,
+`scram --uncertainty`'s reported mean, sigma and quantiles. Writing them now
+would mean writing them with nothing to check them against, which is the
+failure this whole record exists to avoid. `Expression::is_deviate()` — the
+hook that analysis uses to decide whether a model needs sampling at all — is
+ported now, because it *is* checkable now.
+
 ## What this does NOT establish
 
 - **It is not validation.** Agreement with SCRAM shows this port reproduces
@@ -925,12 +1015,25 @@ probabilities from the oracle.
   do, and `oracle-multi-tree.txt` carries `ThreeLevels/top`'s three trees and
   `TransTest/trans_one`'s two. `scram_mef` checks all five, so
   `Connective::Null` has oracle coverage again.
-- **Two of upstream's models still cannot be read from XML** —
-  `SmallTree/SmallTree` and `BSCU/BSCU`, both using `<lognormal-deviate>`.
-  The random deviates and the uncertainty analysis that consumes them are a
-  later chunk. Both models are still covered by the tests that take their
-  probabilities from the oracle, so this is a gap in the *reader*, not in the
-  quantification.
+- ~~**Two of upstream's models still cannot be read from XML** —
+  `SmallTree/SmallTree` and `BSCU/BSCU`, both using `<lognormal-deviate>`.~~
+  **CORRECTED 2026-09-22** — the seven random deviates landed and both models
+  read. Every record in every fixture now reads; there is no allowance left in
+  the tests for one that does not.
+- **Nothing here is sampled.** Every number in this record is a *deterministic*
+  quantity: upstream's `value()` for each expression and the analysis built on
+  it. `Expression::Sample()` is not implemented, so the uncertainty analysis —
+  mean, sigma, quantiles over a Monte Carlo of the deviates — is not merely
+  unverified but absent. A deviate's mean is not its distribution, and nothing
+  here says anything about the spread.
+- **`interval()` is ported but only lightly exercised.** Seven cases, all in
+  `scram_deviates`. Upstream uses it inside `EnsureWithin`/`EnsureNonNegative`
+  on every argument of every expression; this port's `validate` checks the
+  values and the deviates' own domains, and does not yet run the domain check
+  over every operator argument the way upstream does.
+- **The trigonometric operators and `<switch>` are not ported.** They are in
+  the MEF grammar and in no upstream input model, so there would be no oracle
+  for them; `scram::mef` refuses them by name.
 - **`scram::mef` does not validate against the RelaxNG schema.** Upstream runs
   `share/input.rng` through libxml2 before looking at anything; this checks
   only what it needs to build the model, which is narrower. A document SCRAM

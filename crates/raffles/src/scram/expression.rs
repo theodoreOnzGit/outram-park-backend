@@ -6,7 +6,8 @@
 //   Upstream file:    src/expression/exponential.{h,cc}, src/expression/
 //                     constant.{h,cc}, src/expression/numerical.{h,cc},
 //                     src/expression/boolean.h, src/expression/
-//                     conditional.{h,cc}, src/expression.{h,cc}
+//                     conditional.{h,cc}, src/expression/
+//                     random_deviate.{h,cc}, src/expression.{h,cc}
 //   Upstream commit:  b85b78940de38996eeffec54d946824bd4280a1c  (2019-07-03)
 //   Accessed:         2026-09-22
 //
@@ -25,12 +26,21 @@
 // is constructed, so an ill-formed combination is unrepresentable rather
 // than checked.
 //
-// NOT ported: `Sample()` and the `random_deviate` expressions, which belong
-// to uncertainty analysis; `extern.{h,cc}`, which loads shared libraries
-// (and is barred by the workspace's "no autonomous access" rule); and
-// upstream's `Interval` arithmetic, which exists to validate sampled ranges
-// and has no consumer here yet. Upstream's `Validate()` checks are ported as
-// [`Expression::validate`].
+// NOT ported: `Expression::Sample()` and each deviate's `DoSample()`, which
+// only the uncertainty analysis calls and which land with it — implementing
+// them now would mean implementing them with nothing to check them against.
+// Also not ported: `extern.{h,cc}`, which loads shared libraries (barred by
+// the workspace's "no autonomous access" rule), `Switch`, and the
+// trigonometric operators, none of which appears in any upstream input model.
+//
+// ~~and upstream's `Interval` arithmetic, which exists to validate sampled
+// ranges and has no consumer here yet~~ **CORRECTED 2026-09-22** — it has a
+// consumer now. The random deviates are what make an expression's *domain*
+// differ from its value, and upstream's `EnsureNonNegative`/`EnsureWithin`
+// check both. [`Interval`] and [`Expression::interval`] are ported with
+// them.
+//
+// Upstream's `Validate()` checks are ported as [`Expression::validate`].
 // ---------------------------------------------------------------------------
 
 //! Expressions — how a basic event's probability is *computed* rather than
@@ -47,6 +57,22 @@
 //! appear nowhere in the input as literals — SCRAM computes them. Reproducing
 //! those exact values is the verification, and
 //! `tests/scram_expressions.rs` does it.
+//!
+//! # Random deviates
+//!
+//! The seven `<*-deviate>` and `<histogram>` elements are here too. Each has
+//! two faces upstream: `value()` is the distribution's **mean**, which is
+//! what an ordinary SCRAM run computes and prints, and `DoSample()` draws
+//! from it, which only the uncertainty analysis calls. **This module
+//! implements the first.** Sampling lands with the uncertainty analysis,
+//! where `scram --uncertainty` is the oracle for it;
+//! [`Expression::is_deviate`] is the hook that analysis will use and is
+//! implemented now because it is checkable now.
+//!
+//! Their arrival is also what gives [`Expression::interval`] a purpose: a
+//! normal deviate with a comfortable mean has a domain reaching six sigma
+//! below it, and upstream rejects such an argument on the *domain* half of
+//! its validation even though the value passes.
 //!
 //! # Example
 //!
@@ -219,6 +245,73 @@ pub enum Expression {
     Lt(Arc<Expression>, Arc<Expression>),
     /// Strictly greater than. Upstream `Gt`.
     Gt(Arc<Expression>, Arc<Expression>),
+    /// `<uniform-deviate>`. Upstream `UniformDeviate`.
+    ///
+    /// Its deterministic value is the midpoint, which is the distribution's
+    /// mean.
+    UniformDeviate {
+        /// Lower bound.
+        min: Arc<Expression>,
+        /// Upper bound.
+        max: Arc<Expression>,
+    },
+    /// `<normal-deviate>`. Upstream `NormalDeviate`.
+    NormalDeviate {
+        /// Mean.
+        mean: Arc<Expression>,
+        /// Standard deviation.
+        sigma: Arc<Expression>,
+    },
+    /// The three-argument `<lognormal-deviate>` — upstream's `Logarithmic`
+    /// flavour, parametrised by the distribution's **own** mean and an error
+    /// factor at a confidence level.
+    ///
+    /// `EF = exp(z_level * sigma)`, so `sigma = ln(EF) / z_level`, and
+    /// `mu = ln(mean) - sigma^2 / 2`. This is the flavour `SmallTree` and
+    /// `BSCU` use.
+    LognormalDeviate {
+        /// Mean of the log-normal distribution (not of the underlying normal).
+        mean: Arc<Expression>,
+        /// Error factor.
+        ef: Arc<Expression>,
+        /// Confidence level the error factor is quoted at, in `(0, 1)`.
+        level: Arc<Expression>,
+    },
+    /// The two-argument `<lognormal-deviate>` — upstream's `Normal` flavour,
+    /// parametrised by the **underlying normal's** mean and standard
+    /// deviation.
+    LognormalDeviateNormal {
+        /// Location parameter: mean of `ln X`.
+        mu: Arc<Expression>,
+        /// Scale parameter: standard deviation of `ln X`.
+        sigma: Arc<Expression>,
+    },
+    /// `<gamma-deviate>`. Upstream `GammaDeviate`, shape and **scale**.
+    GammaDeviate {
+        /// Shape parameter.
+        k: Arc<Expression>,
+        /// Scale parameter.
+        theta: Arc<Expression>,
+    },
+    /// `<beta-deviate>`. Upstream `BetaDeviate`.
+    BetaDeviate {
+        /// First shape parameter.
+        alpha: Arc<Expression>,
+        /// Second shape parameter.
+        beta: Arc<Expression>,
+    },
+    /// `<histogram>`. Upstream `Histogram`: a piecewise-constant density.
+    ///
+    /// `boundaries` has one more entry than `weights`: the first is the lower
+    /// bound of the first bin, and each later one closes a bin. Upstream keeps
+    /// them in one argument list split at the midpoint; here they are two
+    /// fields, which makes the length invariant representable.
+    Histogram {
+        /// Bin boundaries, strictly increasing, `weights.len() + 1` of them.
+        boundaries: Vec<Expression>,
+        /// Positive weight of each bin.
+        weights: Vec<Expression>,
+    },
 }
 
 /// `1 - exp(-lambda * t)` — upstream's `p_exp(lambda, time)`.
@@ -472,6 +565,28 @@ impl Expression {
             Expression::Eq(a, b) => (ev(a)? == ev(b)?) as u8 as f64,
             Expression::Lt(a, b) => (ev(a)? < ev(b)?) as u8 as f64,
             Expression::Gt(a, b) => (ev(a)? > ev(b)?) as u8 as f64,
+
+            // The random deviates evaluate to upstream's `value()`, which is
+            // the distribution's MEAN, not a draw. That is what SCRAM's
+            // deterministic analysis uses and what its report prints; drawing
+            // is `Expression::sample`.
+            Expression::UniformDeviate { min, max } => (ev(min)? + ev(max)?) / 2.0,
+            Expression::NormalDeviate { mean, .. } => ev(mean)?,
+            Expression::LognormalDeviate { mean, .. } => ev(mean)?,
+            // Upstream `Normal::mean()`: exp(location + scale^2 / 2).
+            Expression::LognormalDeviateNormal { mu, sigma } => {
+                let (mu, sigma) = (ev(mu)?, ev(sigma)?);
+                (mu + sigma.powi(2) / 2.0).exp()
+            }
+            Expression::GammaDeviate { k, theta } => ev(k)? * ev(theta)?,
+            Expression::BetaDeviate { alpha, beta } => {
+                let a = ev(alpha)?;
+                a / (a + ev(beta)?)
+            }
+            Expression::Histogram {
+                boundaries,
+                weights,
+            } => histogram_value(&all(boundaries)?, &all(weights)?)?,
         })
     }
 
@@ -563,6 +678,99 @@ impl Expression {
                 theta,
                 time,
             } => validate_periodic(&bad, &ev, lambda, tau, theta, time, Some(mu))?,
+
+            // Upstream `UniformDeviate::Validate`.
+            Expression::UniformDeviate { min, max } => {
+                let (lo, hi) = (ev(min)?, ev(max)?);
+                if lo >= hi {
+                    return Err(bad(
+                        "Uniform distribution",
+                        lo,
+                        "min value is more than max",
+                    ));
+                }
+            }
+            // Upstream `NormalDeviate::Validate` and
+            // `LognormalDeviate::Normal::Validate` -- the same check, in the
+            // same words.
+            Expression::NormalDeviate { sigma, .. }
+            | Expression::LognormalDeviateNormal { sigma, .. } => {
+                let s = ev(sigma)?;
+                if s <= 0.0 {
+                    return Err(bad("standard deviation", s, "cannot be negative or zero"));
+                }
+            }
+            // Upstream `LognormalDeviate::Logarithmic::Validate`, checked in
+            // upstream's own order: level, then error factor, then mean.
+            Expression::LognormalDeviate { mean, ef, level } => {
+                let l = ev(level)?;
+                if l <= 0.0 || l >= 1.0 {
+                    return Err(bad("confidence level", l, "is not within (0, 1)"));
+                }
+                let e = ev(ef)?;
+                if e <= 1.0 {
+                    return Err(bad(
+                        "error factor for log-normal distribution",
+                        e,
+                        "cannot be less than 1",
+                    ));
+                }
+                let m = ev(mean)?;
+                if m <= 0.0 {
+                    return Err(bad(
+                        "mean of log-normal distribution",
+                        m,
+                        "cannot be negative or zero",
+                    ));
+                }
+            }
+            // Upstream `GammaDeviate::Validate`.
+            Expression::GammaDeviate { k, theta } => {
+                for (e, what) in [
+                    (k, "k shape parameter for Gamma distribution"),
+                    (theta, "theta scale parameter for Gamma distribution"),
+                ] {
+                    let v = ev(e)?;
+                    if v <= 0.0 {
+                        return Err(bad(what, v, "cannot be negative or zero"));
+                    }
+                }
+            }
+            // Upstream `BetaDeviate::Validate`.
+            Expression::BetaDeviate { alpha, beta } => {
+                for (e, what) in [
+                    (alpha, "alpha shape parameter for Beta distribution"),
+                    (beta, "beta shape parameter for Beta distribution"),
+                ] {
+                    let v = ev(e)?;
+                    if v <= 0.0 {
+                        return Err(bad(what, v, "cannot be negative or zero"));
+                    }
+                }
+            }
+            // Upstream `Histogram::Validate`, plus the length invariant its
+            // constructor enforces.
+            Expression::Histogram {
+                boundaries,
+                weights,
+            } => {
+                let bounds: Vec<f64> = boundaries.iter().map(&ev).collect::<Result<_>>()?;
+                let w: Vec<f64> = weights.iter().map(&ev).collect::<Result<_>>()?;
+                histogram_shape(&bounds, &w)?;
+                if let Some(neg) = w.iter().find(|x| **x < 0.0) {
+                    return Err(bad("histogram weight", *neg, "cannot be negative"));
+                }
+                // Upstream's message says "strictly increasing" but its
+                // comparator is `lhs <= rhs`, so equal boundaries pass. The
+                // behaviour is ported, not the message's stricter reading.
+                if let Some(w) = bounds.windows(2).find(|w| w[0] > w[1]) {
+                    return Err(bad(
+                        "histogram upper boundaries",
+                        w[1],
+                        "are not increasing",
+                    ));
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -645,4 +853,496 @@ fn periodic_test_instant_test(lambda: f64, mu: f64, tau: f64, theta: f64, time: 
     let time_after_test = delta - num_periods as f64 * tau;
     let (p_lambda, p_mu) = (p_exp(lambda, time_after_test), p_exp(mu, time_after_test));
     prob * carry(p_lambda, p_mu, time_after_test) + p_lambda
+}
+
+/// A value's domain, for validation only — upstream's `Interval`.
+///
+/// Upstream is `boost::icl::continuous_interval<double>`, and the only
+/// operations it uses are the four constructors, `lower`/`upper`, `contains`
+/// and `within`. Those are what this carries; nothing here is a general
+/// interval-arithmetic type.
+///
+/// **What it is for.** Upstream validates an argument twice: its *value* must
+/// be in range, and its *sample domain* must be too
+/// (`EnsureNonNegative`/`EnsurePositive`/`EnsureWithin` in `expression.cc`).
+/// The second check only bites when a random deviate is involved — a normal
+/// deviate used as a failure rate has a domain reaching six sigma below its
+/// mean, and upstream rejects it however comfortable the mean looks.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Interval {
+    lower: f64,
+    upper: f64,
+    lower_open: bool,
+    upper_open: bool,
+}
+
+impl Interval {
+    /// `[lower, upper]`.
+    pub fn closed(lower: f64, upper: f64) -> Self {
+        Interval {
+            lower,
+            upper,
+            lower_open: false,
+            upper_open: false,
+        }
+    }
+
+    /// `(lower, upper]`.
+    pub fn left_open(lower: f64, upper: f64) -> Self {
+        Interval {
+            lower,
+            upper,
+            lower_open: true,
+            upper_open: false,
+        }
+    }
+
+    /// The degenerate interval `[value, value]`, which is upstream's default
+    /// `Expression::interval()` for anything that does not deviate.
+    pub fn point(value: f64) -> Self {
+        Interval::closed(value, value)
+    }
+
+    /// The lower bound.
+    pub fn lower(&self) -> f64 {
+        self.lower
+    }
+
+    /// The upper bound.
+    pub fn upper(&self) -> f64 {
+        self.upper
+    }
+
+    /// Whether `value` lies in the interval — upstream's `Contains`.
+    pub fn contains(&self, value: f64) -> bool {
+        let above = if self.lower_open {
+            value > self.lower
+        } else {
+            value >= self.lower
+        };
+        let below = if self.upper_open {
+            value < self.upper
+        } else {
+            value <= self.upper
+        };
+        above && below
+    }
+
+    /// Whether this interval lies entirely inside `other` — upstream's
+    /// `boost::icl::within`.
+    pub fn within(&self, other: &Interval) -> bool {
+        other.contains(self.lower) && other.contains(self.upper)
+    }
+
+    /// Upstream's `IsNonNegative`: **the lower bound alone**, open or not.
+    pub fn is_non_negative(&self) -> bool {
+        self.lower >= 0.0
+    }
+
+    /// Upstream's `IsPositive`: non-negative and not containing zero.
+    pub fn is_positive(&self) -> bool {
+        self.is_non_negative() && !self.contains(0.0)
+    }
+
+    /// Upstream's `IsProbability`: within `[0, 1]`.
+    pub fn is_probability(&self) -> bool {
+        self.within(&Interval::closed(0.0, 1.0))
+    }
+}
+
+impl std::fmt::Display for Interval {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}, {}{}",
+            if self.lower_open { '(' } else { '[' },
+            self.lower,
+            self.upper,
+            if self.upper_open { ')' } else { ']' }
+        )
+    }
+}
+
+/// The scale (`sigma`) and location (`mu`) of a log-normal deviate's
+/// underlying normal, for the three-argument `Logarithmic` flavour.
+///
+/// Upstream:
+///
+/// ```cpp
+/// double z = -std::sqrt(2) * boost::math::erfc_inv(2 * level_.value());
+/// return std::log(ef_.value()) / z;                       // scale
+/// return std::log(mean_.value()) - std::pow(scale(), 2) / 2;  // location
+/// ```
+///
+/// `-sqrt(2) * erfc_inv(2 p)` **is** the standard normal quantile at `p`, so
+/// this uses [`crate::distributions::Normal`]'s inverse CDF rather than
+/// introducing a second `erfc_inv`. The two agree to `1e-12` at the levels
+/// MEF models use, which `scram_deviates` asserts rather than assumes.
+fn lognormal_logarithmic(mean: f64, ef: f64, level: f64) -> (f64, f64) {
+    let z = crate::distributions::special::norm_ppf_std(level);
+    let scale = ef.ln() / z;
+    (scale, mean.ln() - scale.powi(2) / 2.0)
+}
+
+/// Upstream `Histogram::value()`: the weighted mean of the bin midpoints.
+///
+/// ```cpp
+/// sum_product += (cur_bound + prev_bound) * cur_weight;
+/// sum_weights += cur_weight;
+/// return sum_product / (2 * sum_weights);
+/// ```
+fn histogram_value(boundaries: &[f64], weights: &[f64]) -> Result<f64> {
+    histogram_shape(boundaries, weights)?;
+    let mut sum_weights = 0.0;
+    let mut sum_product = 0.0;
+    let mut prev = boundaries[0];
+    for (i, w) in weights.iter().enumerate() {
+        let cur = boundaries[i + 1];
+        sum_product += (cur + prev) * w;
+        sum_weights += w;
+        prev = cur;
+    }
+    if sum_weights == 0.0 {
+        return Err(RafflesError::InvalidParameter {
+            parameter: "histogram weights".to_string(),
+            value: 0.0,
+            reason: "the weights sum to zero, so the distribution has no mass".to_string(),
+        });
+    }
+    Ok(sum_product / (2.0 * sum_weights))
+}
+
+/// The length invariant upstream enforces in `Histogram`'s constructor.
+fn histogram_shape(boundaries: &[f64], weights: &[f64]) -> Result<()> {
+    if boundaries.len() != weights.len() + 1 || weights.is_empty() {
+        return Err(RafflesError::InvalidParameter {
+            parameter: "histogram".to_string(),
+            value: weights.len() as f64,
+            reason: format!(
+                "the number of weights is not equal to the number of intervals: {} \
+                 boundaries against {} weights",
+                boundaries.len(),
+                weights.len()
+            ),
+        });
+    }
+    Ok(())
+}
+
+impl Expression {
+    /// `<uniform-deviate>`.
+    pub fn uniform_deviate(min: Expression, max: Expression) -> Self {
+        Expression::UniformDeviate {
+            min: Arc::new(min),
+            max: Arc::new(max),
+        }
+    }
+
+    /// `<normal-deviate>`.
+    pub fn normal_deviate(mean: Expression, sigma: Expression) -> Self {
+        Expression::NormalDeviate {
+            mean: Arc::new(mean),
+            sigma: Arc::new(sigma),
+        }
+    }
+
+    /// The three-argument `<lognormal-deviate>`: mean, error factor, level.
+    pub fn lognormal_deviate(mean: Expression, ef: Expression, level: Expression) -> Self {
+        Expression::LognormalDeviate {
+            mean: Arc::new(mean),
+            ef: Arc::new(ef),
+            level: Arc::new(level),
+        }
+    }
+
+    /// The two-argument `<lognormal-deviate>`: the underlying normal's
+    /// parameters.
+    pub fn lognormal_deviate_normal(mu: Expression, sigma: Expression) -> Self {
+        Expression::LognormalDeviateNormal {
+            mu: Arc::new(mu),
+            sigma: Arc::new(sigma),
+        }
+    }
+
+    /// `<gamma-deviate>`: shape and scale.
+    pub fn gamma_deviate(k: Expression, theta: Expression) -> Self {
+        Expression::GammaDeviate {
+            k: Arc::new(k),
+            theta: Arc::new(theta),
+        }
+    }
+
+    /// `<beta-deviate>`.
+    pub fn beta_deviate(alpha: Expression, beta: Expression) -> Self {
+        Expression::BetaDeviate {
+            alpha: Arc::new(alpha),
+            beta: Arc::new(beta),
+        }
+    }
+
+    /// Whether the expression's value deviates from its mean — upstream's
+    /// `IsDeviate()`.
+    ///
+    /// A random deviate answers yes for itself; anything else answers yes if
+    /// any argument does. This is the hook uncertainty analysis uses to decide
+    /// whether a model needs sampling at all.
+    pub fn is_deviate(&self) -> bool {
+        match self {
+            Expression::UniformDeviate { .. }
+            | Expression::NormalDeviate { .. }
+            | Expression::LognormalDeviate { .. }
+            | Expression::LognormalDeviateNormal { .. }
+            | Expression::GammaDeviate { .. }
+            | Expression::BetaDeviate { .. }
+            | Expression::Histogram { .. } => true,
+            _ => self.args().iter().any(|a| a.is_deviate()),
+        }
+    }
+
+    /// The expression's direct arguments, in upstream's registration order.
+    ///
+    /// A `Vec` rather than an iterator: the workspace forbids trait objects,
+    /// and the alternative -- one enum wrapper per arity -- would be more
+    /// machinery than a short borrowed list is worth. Nothing calls this in a
+    /// hot loop.
+    fn args(&self) -> Vec<&Expression> {
+        match self {
+            Expression::Float(_)
+            | Expression::Bool(_)
+            | Expression::MissionTime
+            | Expression::Parameter(_) => Vec::new(),
+            Expression::Exponential { lambda, time } => vec![lambda, time],
+            Expression::Glm {
+                gamma,
+                lambda,
+                mu,
+                time,
+            } => vec![gamma, lambda, mu, time],
+            Expression::Weibull {
+                alpha,
+                beta,
+                t0,
+                time,
+            } => vec![alpha, beta, t0, time],
+            Expression::PeriodicTestInstantRepair {
+                lambda,
+                tau,
+                theta,
+                time,
+            } => vec![lambda, tau, theta, time],
+            Expression::PeriodicTestInstantTest {
+                lambda,
+                mu,
+                tau,
+                theta,
+                time,
+            } => vec![lambda, mu, tau, theta, time],
+            Expression::Add(xs)
+            | Expression::Sub(xs)
+            | Expression::Mul(xs)
+            | Expression::Div(xs)
+            | Expression::Min(xs)
+            | Expression::Max(xs)
+            | Expression::Mean(xs)
+            | Expression::And(xs)
+            | Expression::Or(xs) => xs.iter().collect(),
+            Expression::Neg(x)
+            | Expression::Abs(x)
+            | Expression::Exp(x)
+            | Expression::Log(x)
+            | Expression::Log10(x)
+            | Expression::Sqrt(x)
+            | Expression::Trunc(x)
+            | Expression::Round(x)
+            | Expression::Floor(x)
+            | Expression::Ceil(x)
+            | Expression::Not(x) => vec![x],
+            Expression::Pow(a, b)
+            | Expression::Mod(a, b)
+            | Expression::Eq(a, b)
+            | Expression::Lt(a, b)
+            | Expression::Gt(a, b) => vec![a, b],
+            Expression::Ite {
+                condition,
+                consequent,
+                alternate,
+            } => vec![condition, consequent, alternate],
+            Expression::UniformDeviate { min, max } => vec![min, max],
+            Expression::NormalDeviate { mean, sigma } => vec![mean, sigma],
+            Expression::LognormalDeviate { mean, ef, level } => vec![mean, ef, level],
+            Expression::LognormalDeviateNormal { mu, sigma } => vec![mu, sigma],
+            Expression::GammaDeviate { k, theta } => vec![k, theta],
+            Expression::BetaDeviate { alpha, beta } => vec![alpha, beta],
+            Expression::Histogram {
+                boundaries,
+                weights,
+            } => boundaries.iter().chain(weights.iter()).collect(),
+        }
+    }
+
+    /// The domain of values this expression can take — upstream's
+    /// `interval()`.
+    ///
+    /// Upstream's default is the degenerate `[value, value]`: an expression
+    /// with no randomness under it can only produce its own value. The
+    /// overrides are what matter, and they are ported one for one — the four
+    /// probability formulas are `[0, 1]`, the operators propagate their
+    /// arguments' bounds through the corners, and each deviate states its own.
+    ///
+    /// # Errors
+    ///
+    /// As [`Expression::evaluate`], since the bounds are computed from
+    /// argument values.
+    pub fn interval(&self, parameters: &Parameters, mission_time: f64) -> Result<Interval> {
+        let iv = |e: &Expression| e.interval(parameters, mission_time);
+        let ev = |e: &Expression| e.evaluate(parameters, mission_time);
+        let hull = |values: &[f64]| {
+            Interval::closed(
+                values.iter().copied().fold(f64::INFINITY, f64::min),
+                values.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            )
+        };
+        // Upstream `NaryExpression<T, 1>::interval`.
+        let unary = |x: &Expression, f: fn(f64) -> f64| -> Result<Interval> {
+            let a = iv(x)?;
+            Ok(hull(&[f(a.lower()), f(a.upper())]))
+        };
+        // Upstream `NaryExpression<T, 2>::interval` -- all four corners.
+        let corners = |x: &Interval, y: &Interval, f: fn(f64, f64) -> f64| {
+            [
+                f(x.upper(), y.upper()),
+                f(x.upper(), y.lower()),
+                f(x.lower(), y.upper()),
+                f(x.lower(), y.lower()),
+            ]
+        };
+        let binary = |a: &Expression, b: &Expression, f: fn(f64, f64) -> f64| -> Result<Interval> {
+            Ok(hull(&corners(&iv(a)?, &iv(b)?, f)))
+        };
+        // Upstream `NaryExpression<T, -1>::interval` -- a left fold, matching
+        // how the value itself is computed.
+        let nary = |xs: &[Expression], f: fn(f64, f64) -> f64| -> Result<Interval> {
+            let mut acc = iv(&xs[0])?;
+            for x in &xs[1..] {
+                acc = hull(&corners(&acc, &iv(x)?, f));
+            }
+            Ok(acc)
+        };
+
+        Ok(match self {
+            // The four probability formulas: upstream states [0, 1] outright.
+            Expression::Exponential { .. }
+            | Expression::Glm { .. }
+            | Expression::Weibull { .. }
+            | Expression::PeriodicTestInstantRepair { .. }
+            | Expression::PeriodicTestInstantTest { .. } => Interval::closed(0.0, 1.0),
+
+            Expression::Add(xs) => nary(xs, |a, b| a + b)?,
+            Expression::Sub(xs) => nary(xs, |a, b| a - b)?,
+            Expression::Mul(xs) => nary(xs, |a, b| a * b)?,
+            Expression::Div(xs) => nary(xs, |a, b| a / b)?,
+            Expression::Min(xs) => nary(xs, f64::min)?,
+            Expression::Max(xs) => nary(xs, f64::max)?,
+            // Upstream `Mean::interval`: the mean of the lower bounds and the
+            // mean of the upper bounds, NOT a corner sweep.
+            Expression::Mean(xs) => {
+                let mut lower = 0.0;
+                let mut upper = 0.0;
+                for x in xs {
+                    let a = iv(x)?;
+                    lower += a.lower();
+                    upper += a.upper();
+                }
+                let n = xs.len() as f64;
+                Interval::closed(lower / n, upper / n)
+            }
+            Expression::Neg(x) => unary(x, |v| -v)?,
+            Expression::Abs(x) => unary(x, f64::abs)?,
+            Expression::Exp(x) => unary(x, f64::exp)?,
+            Expression::Log(x) => unary(x, f64::ln)?,
+            Expression::Log10(x) => unary(x, f64::log10)?,
+            Expression::Sqrt(x) => unary(x, f64::sqrt)?,
+            Expression::Trunc(x) => unary(x, f64::trunc)?,
+            Expression::Round(x) => unary(x, f64::round)?,
+            Expression::Floor(x) => unary(x, f64::floor)?,
+            Expression::Ceil(x) => unary(x, f64::ceil)?,
+            Expression::Pow(a, b) => binary(a, b, f64::powf)?,
+            // `std::modulus<int>` upstream. A zero divisor is undefined there
+            // and would panic here, so the corner is reported as zero; the
+            // value path rejects it outright.
+            Expression::Mod(a, b) => binary(a, b, |x, y| {
+                let (x, y) = (x as i64, y as i64);
+                if y == 0 {
+                    0.0
+                } else {
+                    (x % y) as f64
+                }
+            })?,
+            // Upstream `Ite::interval`: the hull of the two branches.
+            Expression::Ite {
+                consequent,
+                alternate,
+                ..
+            } => {
+                let (t, f) = (iv(consequent)?, iv(alternate)?);
+                Interval::closed(t.lower().min(f.lower()), t.upper().max(f.upper()))
+            }
+
+            // Upstream `UniformDeviate::interval`.
+            Expression::UniformDeviate { min, max } => Interval::closed(ev(min)?, ev(max)?),
+            // Upstream `NormalDeviate::interval`: the ~99.9 % band.
+            Expression::NormalDeviate { mean, sigma } => {
+                let (m, delta) = (ev(mean)?, 6.0 * ev(sigma)?);
+                Interval::closed(m - delta, m + delta)
+            }
+            // Upstream `LognormalDeviate::interval`: `exp(3 * scale +
+            // location)`, the 99.9th percentile estimate, over `(0, high]`.
+            Expression::LognormalDeviate { mean, ef, level } => {
+                let (scale, location) = lognormal_logarithmic(ev(mean)?, ev(ef)?, ev(level)?);
+                Interval::left_open(0.0, (3.0 * scale + location).exp())
+            }
+            Expression::LognormalDeviateNormal { mu, sigma } => {
+                Interval::left_open(0.0, (3.0 * ev(sigma)? + ev(mu)?).exp())
+            }
+            // Upstream `GammaDeviate::interval`, ported as written:
+            //
+            //   theta * pow(gamma_q(k, gamma_q(k, 0) - 0.99), -1)
+            //
+            // `gamma_q(k, 0)` is 1 for every k, so the inner argument is the
+            // constant 0.01 and this is `theta / Q(k, 0.01)` rather than a
+            // quantile. It reads like it was meant to be `gamma_q_inv`, and
+            // BetaDeviate below has the same shape. It is reproduced as
+            // upstream wrote it because upstream's behaviour is the
+            // specification; it affects validation bounds only, never a
+            // reported probability.
+            Expression::GammaDeviate { k, theta } => {
+                use crate::distributions::special::gamma_q;
+                let (k, theta) = (ev(k)?, ev(theta)?);
+                let high = theta * gamma_q(k, gamma_q(k, 0.0) - 0.99).powi(-1);
+                Interval::left_open(0.0, high)
+            }
+            // Upstream `BetaDeviate::interval`: `pow(ibeta(alpha, beta, 0.99),
+            // -1)`. See the note on GammaDeviate above.
+            Expression::BetaDeviate { alpha, beta } => {
+                use crate::distributions::special::beta_inc_reg;
+                let high = beta_inc_reg(ev(alpha)?, ev(beta)?, 0.99).powi(-1);
+                Interval::closed(0.0, high)
+            }
+            // Upstream `Histogram::interval`: first boundary to last.
+            Expression::Histogram { boundaries, .. } => {
+                if boundaries.is_empty() {
+                    return Err(RafflesError::InvalidParameter {
+                        parameter: "histogram".to_string(),
+                        value: 0.0,
+                        reason: "a histogram needs at least two boundaries".to_string(),
+                    });
+                }
+                Interval::closed(ev(&boundaries[0])?, ev(&boundaries[boundaries.len() - 1])?)
+            }
+
+            // Upstream's default: an expression with no randomness under it
+            // can only produce its own value.
+            other => Interval::point(ev(other)?),
+        })
+    }
 }
