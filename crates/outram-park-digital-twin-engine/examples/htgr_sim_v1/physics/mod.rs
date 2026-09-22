@@ -1020,6 +1020,18 @@ impl HtgrPlant {
         let core_at_step_start = self.core;
         let primary_at_step_start = self.primary.lumped_state();
         let secondary_at_step_start = self.secondary.integrated_state();
+        // The passive path's reflector and vessel nodes are integrated state
+        // like the rest, so they are rewound per corrector too. Until
+        // 2026-09-22 they were not: with two correctors they advanced twice
+        // per step while the rewound bed lost their heat once, creating
+        // energy in the chain. See
+        // `tests::the_passive_path_conserves_energy_through_a_full_plant_step`.
+        let decay_heat_path_at_step_start = self.decay_heat_path.clone();
+        // The bed temperature the passive path is solved against: the
+        // start-of-step value on the first corrector, then the previous
+        // corrector's end-of-step value, the same predictor-corrector
+        // treatment as the helium couplings below.
+        let mut bed_for_passive_path = self.core.temperature();
 
         // The coupling variables. Initialised to their start-of-step values --
         // which is exactly what a single-corrector (plain Lie-split) step would
@@ -1053,6 +1065,7 @@ impl HtgrPlant {
                 self.primary.restore_lumped_state(primary_at_step_start);
                 self.secondary
                     .restore_integrated_state(secondary_at_step_start);
+                self.decay_heat_path = decay_heat_path_at_step_start.clone();
             }
 
             // 1. Kinetics -> reactor fission power. The reactivity feedback
@@ -1112,14 +1125,19 @@ impl HtgrPlant {
             //     the core cannot cool, the temperature feedback can never
             //     relax, and the reactor cannot go recritical as the real
             //     HTR-10 does. See [`decay_heat_removal`].
-            let passive_heat_loss = self
-                .decay_heat_path
-                .advance(dt, self.core.temperature());
+            //
+            //     Solved implicitly with the RCCS as a fixed 50 degC boundary
+            //     (see `CoreToRccsPath::advance`), against the corrector's bed
+            //     temperature, and rewound per corrector above; the heat
+            //     returned is exactly what the reflector receives, so the bed
+            //     is charged precisely that.
+            let passive_heat_loss = self.decay_heat_path.advance(dt, bed_for_passive_path);
             let net_core_source = reactor_power - passive_heat_loss;
 
             self.core_heat_to_helium =
                 self.core
                     .step(dt, net_core_source, core_inlet, self.primary.mass_flow());
+            bed_for_passive_path = self.core.temperature();
 
             // 3a. Primary hot leg: helium properties and the core-outlet
             //     temperature. Cheap (one CoolProp flash), so it is inside the
@@ -1863,6 +1881,67 @@ mod tests {
         bed_k: f64,
         steam_k: f64,
         duty_mw: f64,
+    }
+
+    /// V&V: **energy is conserved across the bed -> passive path seam through
+    /// a full plant step**, at the plant's own corrector count.
+    ///
+    /// # Methodology
+    ///
+    /// One plant step (0.1 s, [`PLANT_OUTER_CORRECTORS`] correctors) from the
+    /// design state, with the chain seeded 150 K out of equilibrium so heat
+    /// really moves on every pass. The bed is charged the final corrector's
+    /// `heat_from_core`; the reflector and vessel must have gained exactly
+    /// that less what reached the 50 degC RCCS, `dE = (q_core - q_rccs) dt`,
+    /// to 1e-6 of the step's heat.
+    ///
+    /// **Why 1e-6, not 1e-9.** `stored_energy` is `C T` from 0 K, about
+    /// 1.2e11 J, so the difference of two readings has a rounding floor of
+    /// `eps C T ~ 3e-5 J`, about 2e-9 of this step's ~1.6e4 J (first run:
+    /// the two sides agreed to every printed digit and still missed 1e-9).
+    /// 1e-6 sits 3e4 times above that floor and 1e6 times below the defect
+    /// it guards, which was the whole step's heat (100 %). A second check repeats it at 1, 2 and 4
+    /// correctors, so a missing rewind cannot hide behind the default.
+    ///
+    /// # Results (2026-09-22)
+    ///
+    /// Written with the fix. Before it the chain was advanced once per
+    /// corrector without a rewind, so at 2 correctors it stored about twice
+    /// the heat the bed lost; with it the balance closes to rounding at every
+    /// corrector count.
+    #[test]
+    fn the_passive_path_conserves_energy_through_a_full_plant_step() {
+        use uom::si::energy::joule;
+        use uom::si::power::watt;
+        for n_outer in [1, PLANT_OUTER_CORRECTORS, 4] {
+            let mut plant = HtgrPlant::new();
+            // Start the chain OUT of equilibrium with the bed (seeded for a
+            // bed 150 K hotter), so every corrector pass moves real heat. From
+            // the design state the chain is balanced and a missing rewind
+            // stores almost nothing extra at 2 correctors -- measured: it then
+            // failed only at 4.
+            plant.decay_heat_path = decay_heat_removal::CoreToRccsPath::new_at_steady_state(
+                ThermodynamicTemperature::new::<uom::si::thermodynamic_temperature::kelvin>(
+                    plant.core.temperature().get::<uom::si::thermodynamic_temperature::kelvin>()
+                        + 150.0,
+                ),
+            );
+            let dt = Time::new::<second>(0.1);
+            let before = plant.decay_heat_path.stored_energy().get::<joule>();
+            plant.step_with_correctors(dt, design_commands(), n_outer);
+            let after = plant.decay_heat_path.stored_energy().get::<joule>();
+            let q_in = plant.decay_heat_path.heat_from_core().get::<watt>();
+            let q_out = plant.decay_heat_path.heat_to_rccs().get::<watt>();
+            let expected = (q_in - q_out) * dt.get::<second>();
+            let scale = (q_in * dt.get::<second>()).abs().max(1.0);
+            assert!(
+                ((after - before) - expected).abs() / scale < 1e-6,
+                "{n_outer} corrector(s): the chain stored {:.6e} J but the bed lost \
+                 {:.6e} J net of the RCCS ({q_in:.1} W in, {q_out:.1} W out)",
+                after - before,
+                expected
+            );
+        }
     }
 
     /// Run the circulator flow ramp-down transient at `dt` with `n_outer` plant
