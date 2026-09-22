@@ -898,3 +898,143 @@ fn das9601_e18_sign_diagnostic() {
     println!("p(e18)           = {}", p[e]);
     println!("P(top)           = {:.12}", bdd.probability(p).unwrap());
 }
+
+/// **Methodology.** The **third** independent route to the same cut sets,
+/// against SCRAM's products and against the other two.
+///
+/// [`raffles::scram::zbdd::minimal_cut_sets_from_graph`] is upstream's
+/// non-BDD path — `Zbdd::ConvertGraph` folding the gate graph bottom-up with
+/// ZBDD `Apply`, then `EliminateComplements` and `Minimize`. It is what
+/// `Zbdd(const Gate&, const Settings&)` does and what upstream's MOCUS
+/// drives, and it shares with the BDD route only the `Minimize`/`Subsume`
+/// tail.
+///
+/// So the fixture is now answered by three algorithms that agree:
+///
+/// | route | how |
+/// |---|---|
+/// | `mocus` | classical top-down expansion with absorption |
+/// | `zbdd::minimal_cut_sets` | BDD, then `ConvertBdd` |
+/// | `zbdd::minimal_cut_sets_from_graph` | ZBDD folded straight from the graph |
+///
+/// **Result** (2026-09-22): printed below.
+#[test]
+fn the_graph_zbdd_route_matches_scram_and_the_bdd_route() {
+    use raffles::scram::zbdd;
+
+    let oracles = load_oracles();
+    let specs = load_models();
+    let products = load_products();
+    let mut checked = 0;
+    let mut total = 0usize;
+
+    for (name, oracle) in &oracles {
+        // `das9601` by this route is 240 s, against well under a second for
+        // everything else, so it has its own `long-tests`-gated test below
+        // rather than slowing this one by two orders of magnitude.
+        if name == "Aralia/das9601" {
+            continue;
+        }
+        let Some(spec) = specs.get(name) else {
+            continue;
+        };
+        let Some((model, _)) = build(name, spec, oracle) else {
+            continue;
+        };
+        let theirs = &products[name];
+
+        let started = std::time::Instant::now();
+        let ours = zbdd::minimal_cut_sets_from_graph(model.tree(), None)
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
+        let elapsed = started.elapsed();
+
+        let named = |sets: &[raffles::scram::CutSet]| -> BTreeSet<BTreeSet<String>> {
+            sets.iter()
+                .map(|c| {
+                    c.members()
+                        .iter()
+                        .map(|&i| model.basic_event_names()[i].clone())
+                        .collect()
+                })
+                .collect()
+        };
+        let ours_named = named(&ours);
+        let by_bdd = named(&zbdd::minimal_cut_sets(model.tree(), None).unwrap());
+
+        println!(
+            "{name:<40} graph {:>5} cut sets, scram {:>5}, bdd {:>5}   ({:.2} s)",
+            ours_named.len(),
+            theirs.len(),
+            by_bdd.len(),
+            elapsed.as_secs_f64()
+        );
+        assert_eq!(
+            ours_named, *theirs,
+            "{name}: graph route differs from SCRAM"
+        );
+        assert_eq!(
+            ours_named, by_bdd,
+            "{name}: graph route differs from the BDD route"
+        );
+        checked += 1;
+        total += ours_named.len();
+    }
+    println!("checked {checked} models, {total} cut sets by the graph route");
+    assert!(checked >= 10, "only {checked} models");
+    assert!(total >= 443, "only {total} cut sets");
+}
+
+/// **Methodology.** The graph route on `Aralia/das9601` — 288 gates,
+/// non-coherent, 4,259 cut sets — against SCRAM's products and the BDD route.
+///
+/// Separated and gated because it takes **240 s**, where every other model by
+/// the same route takes under a second. That cost is worth stating plainly:
+/// it is the absence of upstream's **preprocessor**. Its `limit_order`
+/// pruning would not help here (the default limit is 20 and this model's cut
+/// sets top out at order 9); what makes upstream fast on this model is module
+/// decomposition, which is not ported.
+///
+/// Runs in an ordinary `cargo test` — `long-tests` is in the default feature
+/// set — and is skipped by `cargo quick-test`.
+///
+/// **Result** (2026-09-22): 4,259 cut sets, equal to SCRAM's and to the BDD
+/// route's, in 240 s.
+#[test]
+#[cfg_attr(
+    not(feature = "long-tests"),
+    ignore = "long test (~240 s); runs by default, skipped under --no-default-features"
+)]
+fn the_graph_zbdd_route_handles_das9601_slowly_but_correctly() {
+    use raffles::scram::zbdd;
+
+    let oracles = load_oracles();
+    let specs = load_models();
+    let products = load_products();
+    let name = "Aralia/das9601";
+    let oracle = &oracles
+        .iter()
+        .find(|(n, _)| n == name)
+        .expect("in fixture")
+        .1;
+    let (model, _) = build(name, &specs[name], oracle).expect("readable");
+
+    let started = std::time::Instant::now();
+    let ours = zbdd::minimal_cut_sets_from_graph(model.tree(), None).unwrap();
+    println!(
+        "graph route: {} cut sets in {:.1} s",
+        ours.len(),
+        started.elapsed().as_secs_f64()
+    );
+
+    let named: BTreeSet<BTreeSet<String>> = ours
+        .iter()
+        .map(|c| {
+            c.members()
+                .iter()
+                .map(|&i| model.basic_event_names()[i].clone())
+                .collect()
+        })
+        .collect();
+    assert_eq!(named.len(), 4259);
+    assert_eq!(named, products[name], "graph route differs from SCRAM");
+}

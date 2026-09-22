@@ -9779,9 +9779,13 @@ pub struct Bdd {
 ###### Methods
 
 - ```rust
-  pub fn build(tree: &FaultTree) -> Result<Self> { /* ... */ }
+  pub fn variable_order(tree: &FaultTree) -> Vec<usize> { /* ... */ }
   ```
   Builds the diagram of a fault tree's Boolean function.
+
+- ```rust
+  pub fn build(tree: &FaultTree) -> Result<Self> { /* ... */ }
+  ```
 
 - ```rust
   pub fn node_count(self: &Self) -> usize { /* ... */ }
@@ -12230,6 +12234,34 @@ assert!((pis[0].probability(model.probabilities()).unwrap() - 0.08).abs() < 1e-1
 pub fn prime_implicants(tree: &super::fault_tree::FaultTree) -> crate::Result<Vec<PrimeImplicant>> { /* ... */ }
 ```
 
+#### Function `minimal_cut_sets_from_graph`
+
+The minimal cut sets of a fault tree, **without building a BDD**.
+
+This is upstream's other route: `Zbdd::ConvertGraph` folds the gate graph
+bottom-up with ZBDD `Apply`, then `EliminateComplements` deletes the
+complemented literals and `Minimize` absorbs. It is the path
+`Zbdd(const Gate&, const Settings&)` takes, and the one upstream's MOCUS
+drives.
+
+[`minimal_cut_sets`] answers the same question through a BDD. Keeping both
+is the point: they share the `Minimize`/`Subsume` tail and nothing else,
+so agreeing is evidence. `tests/scram_graph_zbdd.rs` checks them against
+each other, against [`super::mocus`], and against SCRAM's own products.
+
+`limit_order` discards cut sets above that order, applied when the family
+is listed; `None` keeps all of them.
+
+# Errors
+
+[`RafflesError::InvalidParameter`] if the diagram exceeds [`NODE_LIMIT`],
+or if the tree's minimal cut sets are the empty set (see
+[`super::mocus`]'s unity error).
+
+```rust
+pub fn minimal_cut_sets_from_graph(tree: &super::fault_tree::FaultTree, limit_order: Option<usize>) -> crate::Result<Vec<super::probability::CutSet>> { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `EMPTY`
@@ -12335,6 +12367,12 @@ pub use mocus::minimal_cut_sets;
 
 ```rust
 pub use zbdd::count_minimal_cut_sets;
+```
+
+#### Re-export `minimal_cut_sets_from_graph`
+
+```rust
+pub use zbdd::minimal_cut_sets_from_graph;
 ```
 
 #### Re-export `prime_implicants`

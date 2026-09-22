@@ -329,10 +329,16 @@ impl Bdd {
     ///
     /// [`RafflesError::InvalidParameter`] if the diagram exceeds
     /// [`NODE_LIMIT`] nodes.
-    pub fn build(tree: &FaultTree) -> Result<Self> {
-        // Variable order: first appearance in a depth-first walk from the top.
+    /// The variable ordering this module uses: basic events by first
+    /// appearance in a depth-first walk from the top gate.
+    ///
+    /// `result[i]` is the basic event tested at ordering position `i`.
+    /// Exposed so [`super::zbdd`]'s graph route can order its literals the
+    /// same way — a disagreement between the two routes is then a real
+    /// disagreement and not an ordering artefact.
+    pub fn variable_order(tree: &FaultTree) -> Vec<usize> {
         let mut order_to_event = Vec::new();
-        let mut event_to_order = HashMap::new();
+        let mut seen_events = std::collections::HashSet::new();
         let mut stack = vec![tree.top()];
         let mut seen_gates = vec![false; tree.gates().len()];
         while let Some(gate) = stack.pop() {
@@ -348,14 +354,23 @@ impl Bdd {
                     // A house event is a constant, so it orders no variable.
                     Arg::Constant(_) => {}
                     Arg::BasicEvent(e) => {
-                        event_to_order.entry(e).or_insert_with(|| {
+                        if seen_events.insert(e) {
                             order_to_event.push(e);
-                            order_to_event.len() - 1
-                        });
+                        }
                     }
                 }
             }
         }
+        order_to_event
+    }
+
+    pub fn build(tree: &FaultTree) -> Result<Self> {
+        let order_to_event = Self::variable_order(tree);
+        let event_to_order: HashMap<usize, usize> = order_to_event
+            .iter()
+            .enumerate()
+            .map(|(order, &event)| (event, order))
+            .collect();
 
         let mut builder = Builder {
             nodes: Vec::new(),

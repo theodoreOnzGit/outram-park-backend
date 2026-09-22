@@ -100,7 +100,7 @@
 use std::collections::HashMap;
 
 use super::bdd::{self, Bdd};
-use super::fault_tree::FaultTree;
+use super::fault_tree::{Arg, Connective, FaultTree};
 use super::probability::CutSet;
 use crate::{RafflesError, Result};
 
@@ -160,6 +160,66 @@ struct Builder {
     convert_memo: HashMap<bdd::NodeId, SetId>,
     minimize_memo: HashMap<SetId, SetId>,
     subsume_memo: HashMap<(SetId, SetId), SetId>,
+    // --- the graph route's tables; unused by the BDD route ---
+    and_memo: HashMap<(SetId, SetId), SetId>,
+    or_memo: HashMap<(SetId, SetId), SetId>,
+    gate_memo: HashMap<(usize, bool), SetId>,
+    eliminate_memo: HashMap<SetId, SetId>,
+    /// Basic-event index -> its ordering position, shared with
+    /// [`super::bdd::Bdd`] so both routes order literals identically.
+    event_order: HashMap<usize, usize>,
+}
+
+impl Builder {
+    fn new() -> Self {
+        Self {
+            nodes: Vec::new(),
+            unique: HashMap::new(),
+            convert_memo: HashMap::new(),
+            minimize_memo: HashMap::new(),
+            subsume_memo: HashMap::new(),
+            and_memo: HashMap::new(),
+            or_memo: HashMap::new(),
+            gate_memo: HashMap::new(),
+            eliminate_memo: HashMap::new(),
+            event_order: HashMap::new(),
+        }
+    }
+
+    /// Materialises the family against an explicit order-to-event map, for
+    /// the graph route, which has no [`Bdd`] to ask.
+    fn collect_by_order(
+        &self,
+        id: SetId,
+        order_to_event: &[usize],
+        current: &mut Vec<usize>,
+        limit_order: Option<usize>,
+        out: &mut Vec<Vec<usize>>,
+    ) {
+        match id {
+            EMPTY => return,
+            BASE => {
+                if !current.is_empty() {
+                    let mut set = current.clone();
+                    set.sort_unstable();
+                    out.push(set);
+                }
+                return;
+            }
+            _ => {}
+        }
+        let node = self.nodes[id - 2];
+        debug_assert!(
+            node.key % 2 == 0,
+            "complements must be eliminated before listing cut sets"
+        );
+        if limit_order.is_none_or(|k| current.len() < k) {
+            current.push(order_to_event[node.key / 2]);
+            self.collect_by_order(node.high, order_to_event, current, limit_order, out);
+            current.pop();
+        }
+        self.collect_by_order(node.low, order_to_event, current, limit_order, out);
+    }
 }
 
 impl Builder {
@@ -374,13 +434,7 @@ pub fn minimal_cut_sets(tree: &FaultTree, limit_order: Option<usize>) -> Result<
 /// [`RafflesError::InvalidParameter`] if the family diagram exceeds
 /// [`NODE_LIMIT`].
 pub fn from_bdd(bdd: &Bdd, limit_order: Option<usize>) -> Result<Vec<CutSet>> {
-    let mut builder = Builder {
-        nodes: Vec::new(),
-        unique: HashMap::new(),
-        convert_memo: HashMap::new(),
-        minimize_memo: HashMap::new(),
-        subsume_memo: HashMap::new(),
-    };
+    let mut builder = Builder::new();
     let converted = builder.convert(bdd, bdd.root())?;
     let minimal = builder.minimize(converted)?;
     // The family holding just the empty set is upstream's "UNITY/Base": the
@@ -412,13 +466,7 @@ pub fn from_bdd(bdd: &Bdd, limit_order: Option<usize>) -> Result<Vec<CutSet>> {
 /// limit.
 pub fn count_minimal_cut_sets(tree: &FaultTree) -> Result<u128> {
     let bdd = Bdd::build(tree)?;
-    let mut builder = Builder {
-        nodes: Vec::new(),
-        unique: HashMap::new(),
-        convert_memo: HashMap::new(),
-        minimize_memo: HashMap::new(),
-        subsume_memo: HashMap::new(),
-    };
+    let mut builder = Builder::new();
     let converted = builder.convert(&bdd, bdd.root())?;
     let minimal = builder.minimize(converted)?;
     Ok(builder.count(minimal, &mut HashMap::new()))
@@ -615,13 +663,7 @@ impl Builder {
 /// ```
 pub fn prime_implicants(tree: &FaultTree) -> Result<Vec<PrimeImplicant>> {
     let mut bdd = Bdd::build(tree)?;
-    let mut builder = Builder {
-        nodes: Vec::new(),
-        unique: HashMap::new(),
-        convert_memo: HashMap::new(),
-        minimize_memo: HashMap::new(),
-        subsume_memo: HashMap::new(),
-    };
+    let mut builder = Builder::new();
     let root = bdd.root();
     let converted = builder.convert_prime_implicants(&mut bdd, root)?;
     let minimal = builder.minimize(converted)?;
@@ -637,4 +679,310 @@ pub fn prime_implicants(tree: &FaultTree) -> Result<Vec<PrimeImplicant>> {
             .then_with(|| a.negative.cmp(&b.negative))
     });
     Ok(out)
+}
+
+// ===========================================================================
+// The non-BDD route: a ZBDD built straight from the gate graph.
+//
+// Ported from SCRAM's `Zbdd::ConvertGraph`, `Zbdd::Apply<kAnd>`,
+// `Zbdd::Apply<kOr>` and `Zbdd::EliminateComplements` (src/zbdd.cc, same
+// commit and licence as the header at the top of this file).
+//
+// Translation notes: upstream threads `limit_order` through every `Apply` as
+// a pruning optimisation and tracks `MayBeUnity` to decide when to decrement
+// it. Neither is ported -- this route applies the order limit when the family
+// is listed, as `from_bdd` does, so the answers match and only the work
+// differs. Upstream's module handling is likewise absent, there being no
+// preprocessor here to find modules.
+//
+// Upstream requires its input already in negation normal form with only AND
+// and OR gates ("Complements must be pushed down to variables", and
+// `Apply` asserts `kOr` for anything else) -- its preprocessor guarantees
+// that. There is no preprocessor here, so [`Builder::convert_gate`] does the
+// same job on the fly: it carries a sign through the recursion and expands
+// each connective into its AND/OR form under that sign, which is the same De
+// Morgan pushdown `super::mocus::branches` performs.
+// ===========================================================================
+
+impl Builder {
+    /// Upstream `Zbdd::Apply<kAnd>` — the **product** of two families.
+    ///
+    /// Not intersection: the cut sets of `AND(f, g)` are every union of one
+    /// set from `f` with one from `g`, which is what makes this the join and
+    /// why it can grow.
+    fn apply_and(&mut self, a: SetId, b: SetId) -> Result<SetId> {
+        if a == EMPTY || b == EMPTY {
+            return Ok(EMPTY);
+        }
+        if a == BASE {
+            return Ok(b);
+        }
+        if b == BASE || a == b {
+            return Ok(a);
+        }
+        if let Some(&hit) = self.and_memo.get(&(a.min(b), a.max(b))) {
+            return Ok(hit);
+        }
+        // Upstream orders the operands so the first tests the earlier
+        // literal; its two-level (order, index) comparison is this one key.
+        let (one, two) = if self.key_of(a) <= self.key_of(b) {
+            (a, b)
+        } else {
+            (b, a)
+        };
+        let (k1, k2) = (self.key_of(one), self.key_of(two));
+        let (n1, n2) = (self.nodes[one - 2], self.nodes[two - 2]);
+
+        let (high, low) = if k1 == k2 {
+            // Same literal:
+            //   (x*f1 + f0) * (x*g1 + g0) = x*(f1*(g1 + g0) + f0*g1) + f0*g0
+            let g = self.apply_or(n2.high, n2.low)?;
+            let t1 = self.apply_and(n1.high, g)?;
+            let t2 = self.apply_and(n1.low, n2.high)?;
+            (self.apply_or(t1, t2)?, self.apply_and(n1.low, n2.low)?)
+        } else if k1 / 2 == k2 / 2 {
+            // Same variable, opposite signs:
+            //   (x*f1 + f0) * (~x*g1 + g0) = x*f1*g0 + f0*(~x*g1 + g0)
+            (
+                self.apply_and(n1.high, n2.low)?,
+                self.apply_and(n1.low, two)?,
+            )
+        } else {
+            (self.apply_and(n1.high, two)?, self.apply_and(n1.low, two)?)
+        };
+
+        let result = self.reduce_after_apply(k1, high, low)?;
+        self.and_memo.insert((a.min(b), a.max(b)), result);
+        Ok(result)
+    }
+
+    /// Upstream `Zbdd::Apply<kOr>` — the **union** of two families.
+    fn apply_or(&mut self, a: SetId, b: SetId) -> Result<SetId> {
+        if a == BASE || b == BASE {
+            return Ok(BASE);
+        }
+        if a == EMPTY {
+            return Ok(b);
+        }
+        if b == EMPTY || a == b {
+            return Ok(a);
+        }
+        if let Some(&hit) = self.or_memo.get(&(a.min(b), a.max(b))) {
+            return Ok(hit);
+        }
+        let (one, two) = if self.key_of(a) <= self.key_of(b) {
+            (a, b)
+        } else {
+            (b, a)
+        };
+        let (k1, k2) = (self.key_of(one), self.key_of(two));
+        let (n1, n2) = (self.nodes[one - 2], self.nodes[two - 2]);
+
+        let (high, low) = if k1 == k2 {
+            (
+                self.apply_or(n1.high, n2.high)?,
+                self.apply_or(n1.low, n2.low)?,
+            )
+        } else {
+            // `x` and `~x` both leading straight to {∅} covers everything:
+            // upstream's `x + ~x = 1`.
+            if k1 / 2 == k2 / 2 && n1.high == BASE && n2.high == BASE {
+                let result = BASE;
+                self.or_memo.insert((a.min(b), a.max(b)), result);
+                return Ok(result);
+            }
+            (n1.high, self.apply_or(n1.low, two)?)
+        };
+
+        let result = self.reduce_after_apply(k1, high, low)?;
+        self.or_memo.insert((a.min(b), a.max(b)), result);
+        Ok(result)
+    }
+
+    /// The tail both `Apply` specialisations share.
+    ///
+    /// Upstream: a `high` branch that still tests the *same variable* is
+    /// absorbed into its own `low`, then `Minimize(GetReducedVertex(...))`.
+    /// The absorption is what keeps a literal from appearing twice on one
+    /// path.
+    fn reduce_after_apply(&mut self, key: usize, high: SetId, low: SetId) -> Result<SetId> {
+        let high = if high > BASE && self.key_of(high) / 2 == key / 2 {
+            self.nodes[high - 2].low
+        } else {
+            high
+        };
+        let reduced = self.make(key, high, low)?;
+        self.minimize(reduced)
+    }
+
+    /// Upstream `Zbdd::EliminateComplements`.
+    ///
+    /// A node testing a **complemented** literal is replaced by the union of
+    /// its two branches — which deletes the literal, since the sets that had
+    /// it and the sets that did not become one family. Positive nodes are
+    /// kept. This is the step that turns prime implicants into (conservative)
+    /// minimal cut sets, and it is why the BDD route's `convert` can simply
+    /// never create a negative node in the first place.
+    fn eliminate_complements(&mut self, id: SetId) -> Result<SetId> {
+        if id == EMPTY || id == BASE {
+            return Ok(id);
+        }
+        if let Some(&hit) = self.eliminate_memo.get(&id) {
+            return Ok(hit);
+        }
+        let node = self.nodes[id - 2];
+        let high = self.eliminate_complements(node.high)?;
+        let low = self.eliminate_complements(node.low)?;
+        let result = if node.key % 2 == 1 {
+            // Upstream: `return Apply<kOr>(high, low, limit_order);`
+            self.apply_or(high, low)?
+        } else {
+            let reduced = self.make(node.key, high, low)?;
+            self.minimize(reduced)?
+        };
+        self.eliminate_memo.insert(id, result);
+        Ok(result)
+    }
+
+    /// Upstream `Zbdd::ConvertGraph`, with the negation pushdown its
+    /// preprocessor would have done already folded in.
+    ///
+    /// `negated` is the sign the gate was reached under. Each connective
+    /// expands to an AND-fold or an OR-fold of its arguments under that sign,
+    /// which is the De Morgan dual when negated.
+    fn convert_gate(&mut self, tree: &FaultTree, gate: usize, negated: bool) -> Result<SetId> {
+        if let Some(&hit) = self.gate_memo.get(&(gate, negated)) {
+            return Ok(hit);
+        }
+        // A single literal is the family {{x}}.
+        let literal = |b: &mut Self, arg: Arg, sign: bool| -> Result<SetId> {
+            match arg {
+                Arg::Constant(v) => Ok(if v != sign { BASE } else { EMPTY }),
+                Arg::BasicEvent(e) => {
+                    let key = if sign {
+                        negative(b.event_order[&e])
+                    } else {
+                        positive(b.event_order[&e])
+                    };
+                    b.make(key, BASE, EMPTY)
+                }
+                Arg::Gate(_) => unreachable!("gates are converted, not made into literals"),
+            }
+        };
+        let resolve = |b: &mut Self, arg: Arg, sign: bool| -> Result<SetId> {
+            match arg {
+                Arg::Gate(g) => b.convert_gate(tree, g, sign),
+                other => literal(b, other, sign),
+            }
+        };
+
+        let args = tree.gates()[gate].args().to_vec();
+        let fold_and = |b: &mut Self, sign: bool| -> Result<SetId> {
+            let mut acc = BASE;
+            for arg in &args {
+                let v = resolve(b, *arg, sign)?;
+                acc = b.apply_and(acc, v)?;
+            }
+            Ok(acc)
+        };
+        let fold_or = |b: &mut Self, sign: bool| -> Result<SetId> {
+            let mut acc = EMPTY;
+            for arg in &args {
+                let v = resolve(b, *arg, sign)?;
+                acc = b.apply_or(acc, v)?;
+            }
+            Ok(acc)
+        };
+        // At least `k` of the arguments, by the same recurrence the BDD uses:
+        // row[j] is "at least j of those not yet consumed".
+        let choose = |b: &mut Self, k: usize, sign: bool| -> Result<SetId> {
+            let mut row: Vec<SetId> = (0..=k).map(|j| if j == 0 { BASE } else { EMPTY }).collect();
+            for arg in args.iter().rev() {
+                let v = resolve(b, *arg, sign)?;
+                let mut next = row.clone();
+                for j in 1..=k {
+                    let taken = b.apply_and(v, row[j - 1])?;
+                    next[j] = b.apply_or(taken, row[j])?;
+                }
+                row = next;
+            }
+            Ok(row[k])
+        };
+
+        let result = match (tree.gates()[gate].connective(), negated) {
+            (Connective::And, false) | (Connective::Nand, true) => fold_and(self, false)?,
+            (Connective::And, true) | (Connective::Nand, false) => fold_or(self, true)?,
+            (Connective::Or, false) | (Connective::Nor, true) => fold_or(self, false)?,
+            (Connective::Or, true) | (Connective::Nor, false) => fold_and(self, true)?,
+            (Connective::Null, sign) => fold_and(self, sign)?,
+            (Connective::Not, sign) => fold_and(self, !sign)?,
+            (Connective::Atleast { min }, false) => choose(self, min, false)?,
+            (Connective::Atleast { min }, true) => choose(self, args.len() - min + 1, true)?,
+            (Connective::Xor, sign) => {
+                // XOR is `a and not b` or `not a and b`; its negation, IFF,
+                // is `both` or `neither`.
+                let (s0, s1) = if sign { (false, true) } else { (false, false) };
+                let a0 = resolve(self, args[0], s0)?;
+                let b0 = resolve(self, args[1], !s1)?;
+                let left = self.apply_and(a0, b0)?;
+                let a1 = resolve(self, args[0], !s0)?;
+                let b1 = resolve(self, args[1], s1)?;
+                let right = self.apply_and(a1, b1)?;
+                self.apply_or(left, right)?
+            }
+        };
+        self.gate_memo.insert((gate, negated), result);
+        Ok(result)
+    }
+}
+
+/// The minimal cut sets of a fault tree, **without building a BDD**.
+///
+/// This is upstream's other route: `Zbdd::ConvertGraph` folds the gate graph
+/// bottom-up with ZBDD `Apply`, then `EliminateComplements` deletes the
+/// complemented literals and `Minimize` absorbs. It is the path
+/// `Zbdd(const Gate&, const Settings&)` takes, and the one upstream's MOCUS
+/// drives.
+///
+/// [`minimal_cut_sets`] answers the same question through a BDD. Keeping both
+/// is the point: they share the `Minimize`/`Subsume` tail and nothing else,
+/// so agreeing is evidence. `tests/scram_graph_zbdd.rs` checks them against
+/// each other, against [`super::mocus`], and against SCRAM's own products.
+///
+/// `limit_order` discards cut sets above that order, applied when the family
+/// is listed; `None` keeps all of them.
+///
+/// # Errors
+///
+/// [`RafflesError::InvalidParameter`] if the diagram exceeds [`NODE_LIMIT`],
+/// or if the tree's minimal cut sets are the empty set (see
+/// [`super::mocus`]'s unity error).
+pub fn minimal_cut_sets_from_graph(
+    tree: &FaultTree,
+    limit_order: Option<usize>,
+) -> Result<Vec<CutSet>> {
+    // Variable order: first appearance in a depth-first walk from the top,
+    // matching `super::bdd::Bdd::build` so the two routes order their
+    // literals identically and a disagreement cannot be an ordering artefact.
+    let bdd_order = Bdd::variable_order(tree);
+    let mut builder = Builder::new();
+    builder.event_order = bdd_order
+        .iter()
+        .enumerate()
+        .map(|(order, &event)| (event, order))
+        .collect();
+
+    let converted = builder.convert_gate(tree, tree.top(), false)?;
+    let eliminated = builder.eliminate_complements(converted)?;
+    let minimal = builder.minimize(eliminated)?;
+    if minimal == BASE {
+        return Err(super::mocus::unity_error());
+    }
+
+    let mut raw = Vec::new();
+    builder.collect_by_order(minimal, &bdd_order, &mut Vec::new(), limit_order, &mut raw);
+    raw.sort_unstable();
+    raw.dedup();
+    raw.sort_by(|a, b| a.len().cmp(&b.len()).then_with(|| a.cmp(b)));
+    raw.into_iter().map(|m| CutSet::new(&m)).collect()
 }

@@ -100,7 +100,7 @@ difference is load-bearing.** Ported, with attribution headers:
 | `probability.rs` | `RareEventCalculator`, `McubCalculator`, `CutSetProbabilityCalculator` |
 | `importance.rs` | `ImportanceAnalyzerBase::Analyze`'s five derived factors |
 | `bdd.rs` (the probability recurrence only) | `ProbabilityAnalyzer<Bdd>::CalculateProbability` |
-| `zbdd.rs` | `ConvertBdd`, `Minimize`, `Subsume`, `ConvertBddPrimeImplicants`, `Bdd::Consensus` |
+| `zbdd.rs` | `ConvertBdd`, `Minimize`, `Subsume`, `ConvertBddPrimeImplicants`, `Bdd::Consensus`, `ConvertGraph`, `Apply<kAnd>`, `Apply<kOr>`, `EliminateComplements` |
 | `fault_tree.rs`'s `Connective` taxonomy | `pdag.h`'s `enum Connective` |
 
 **Not** ports, each saying so in its own doc instead:
@@ -123,8 +123,20 @@ they are *independent* of upstream: two unrelated algorithms agreeing is
 evidence, a translation agreeing with its original is much weaker. That is the
 same rule the paper-derived Bayesian modules follow.
 
-Absent: the preprocessor, XML input, event trees, alignments, CCF groups,
-`define-component` namespaces.
+**SCOPE WIDENED AGAIN, 2026-09-22 (maintainer direction):** *everything
+except the GUI* is to be translated, with V&V. That brings XML input, event
+trees, alignments, CCF groups, substitutions, the expression library,
+`define-component` namespaces and the preprocessor **into** scope — all of
+which this file and the README previously recorded as out of it. The memory
+cap stays an exception (the largest Aralia benchmarks remain out), and the
+non-BDD ZBDD constructor was named explicitly.
+
+Still to do under that direction: XML input (`initializer`, `xml`), the
+`expression` library, CCF groups, substitutions, event trees and sequences,
+alignments, uncertainty analysis, the preprocessor, `pdag`, and the reporter.
+Progress is tracked in `docs/scram-port-verification.md`.
+
+Absent: the above list.
 
 ~~house events~~ **CORRECTED 2026-09-21** — `Arg::Constant` and
 `FaultTreeBuilder::house_event` landed the same day. Upstream's only
@@ -514,9 +526,14 @@ than deleted, because the crate owner's review is still outstanding and the
 scope has moved a long way since it was written.
 
 **Out of scope:** physics of any kind; simulation drivers, job scheduling and
-run-directory management; input-file / XML parsing; databases; plotting and
-reporting; RAVEN's optimisers; adaptive / model-in-the-loop samplers (they need
-the model-evaluation loop this crate deliberately does not own).
+run-directory management; databases; RAVEN's optimisers; adaptive /
+model-in-the-loop samplers (they need the model-evaluation loop this crate
+deliberately does not own).
+
+~~input-file / XML parsing; plotting and reporting~~ **CORRECTED 2026-09-22**
+— brought into scope for `src/scram/` by the maintainer's "everything except
+the GUI" direction. It remains out of scope for the RAVEN-derived modules,
+where no such instruction was given.
 
 The caller runs their own model and hands RAFFLES arrays of numbers.
 
