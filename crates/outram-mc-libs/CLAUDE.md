@@ -452,7 +452,7 @@ a translation of it.
 | Transport loop | `src/physics.cpp` | `collision()`, `transport_history_based()` |
 | Scattering | `src/physics_common.cpp` | Elastic, inelastic, CM-frame kinematics |
 | Fission | `src/physics.cpp` | ν sampling, fission bank creation |
-| Multigroup | `src/physics_mg.cpp` | Group-averaged cross-section transport (stub — pending) |
+| Multigroup | `src/physics_mg.cpp`, `src/mgxs.cpp` | Group-averaged cross-section transport — ~~stub — pending~~ **CORRECTED 2026-09-22**: implemented in `src/physics/physics_mg.rs` (771 lines) as `Mgxs` / `MgxsLibrary` + `run_keff_mg`, exercised live by `tests/openmc_notebooks/mg_mode_part_i.rs`. Still absent: anisotropic MG scattering (`src/scattdata.cpp`, `max_order`) and MGXS *generation* from CE data (the `njoy-outram-park-fork` track) |
 | Depletion | `src/chain.cpp`, `openmc/deplete/` | **Implemented** — CRAM `exp(A·dt)` burnup, `DepletionChain`, transmutation matrix, one-group operator (`src/depletion/`: `chain.rs`, `cram.rs`, `matrix.rs`, `operator.rs`); live one-group burnup test vs the `depletion` notebook |
 
 ### Out of scope (will NOT be ported)
