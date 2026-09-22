@@ -42,6 +42,7 @@ fn al27_thermal() -> AceTable {
         natom: 1.0,
         // THERMR card-4 emax; bounds the calcem grid the bins come from.
         emax_ev: 4.0,
+        ..Default::default()
     };
     AceTable::thermal_from_mf7(&mf7, temp, "al27", 0, &grid, opts).unwrap()
 }

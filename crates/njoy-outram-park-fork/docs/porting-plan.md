@@ -85,7 +85,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 |---|---|---|---|
 | `modules::acer` (driver) | `acer.f90` | ~1k | 🟡 CE cross-section + elastic/discrete angular + partial energy dists |
 | `ace` (fast CE) | `acefc.f90` | **19.7k** | 🟡 ESZ/MTR/SIG + LAND/AND + partial LDLW/DLW; the bulk still open |
-| `ace::thermal` | `aceth.f90` | ~2k | 🟡 thermal `…t` tables: elastic blocks done; ITXE secondary dists open |
+| `ace::thermal` | `aceth.f90` | ~2k | ✅ thermal `…t` tables: elastic blocks, and ITXE in all three IFENG forms (2026-09-22) |
 | — | `acecm.f90` | ~1k | 🟡 ACE shared utilities; ported on demand |
 | — | `acepn.f90` | 3.8k | ⬜ photonuclear ACE |
 | — | `acepa.f90` | ~2k | ✅ photoatomic ACE — `src/acer/photoatomic/` (2026-09-21) |

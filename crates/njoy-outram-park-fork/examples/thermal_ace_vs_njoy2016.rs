@@ -10,10 +10,14 @@
 //!
 //! NJOY2016 side, per tape: `reconr` -> `broadr` -> `thermr` -> `acer` with
 //! `iopt = 2`. **`iwt = 1` on ACER card 9 is required**, not cosmetic:
-//! `aceth.f90:674-676` sets `ifeng = 0` only for `iwt = 1` (`iwt = 0` gives the
-//! skewed `ifeng = 1`, `iwt = 2` the continuous-tabular `ifeng = 2`), and this
-//! port writes the equiprobable `IFENG = 0` form alone. Comparing against an
-//! `IFENG = 1` reference would be comparing two different representations.
+//! `aceth.f90:674-676` sets `ifeng` from ACER card 9's `iwt`: `iwt = 1` gives
+//! the equiprobable `IFENG = 0`, `iwt = 0` the skewed `IFENG = 1`, `iwt = 2`
+//! the continuous `IFENG = 2`. **All three are now written**, and this program
+//! reads the form off the reference's own `NXS(7)` rather than assuming one —
+//! comparing an `IFENG = 0` build against an `IFENG = 1` reference would be
+//! comparing two different representations, which is what it used to refuse to
+//! do. ~~This port writes the equiprobable IFENG = 0 form alone.~~
+//! **CORRECTED 2026-09-22.**
 //!
 //! **Ours is built on NJOY's own incident-energy grid**, read out of the
 //! reference table's ITIE block, and with NJOY's own `NIEB`/`NIL` dimensions.
@@ -45,7 +49,7 @@
 fn main() {
     use njoy_outram_park_fork::{
         acer::{
-            thermal::{jxs, nxs, ThermalAceOptions},
+            thermal::{jxs, nxs, InelasticForm, ThermalAceOptions},
             AceTable,
         },
         endf::tape::Tape,
@@ -131,15 +135,26 @@ fn main() {
         "  IDPNI={} NIL={} NIEB={} IDPNC={} NCL={} IFENG={}",
         t_nxs[nxs::IDPNI], nil, nieb, idpnc, t_nxs[nxs::NCL], ifeng
     );
-    if ifeng != 0 {
-        println!(
-            "\nREFUSING TO COMPARE: NJOY's table is IFENG={ifeng}; this port writes the\n\
-             equiprobable IFENG=0 form only. Re-run ACER with iwt=1 (aceth.f90:674-676).\n\
-             A number produced here would be comparing two different representations."
-        );
-        println!("SUMMARY tsl={tsl} mat={mat} ifeng={ifeng} verdict=NOT_COMPARABLE");
-        return;
-    }
+    let form = match ifeng {
+        0 => InelasticForm::Equiprobable,
+        1 => InelasticForm::Skewed,
+        2 => InelasticForm::Continuous,
+        other => {
+            println!(
+                "\nREFUSING TO COMPARE: NJOY's table is IFENG={other}, which \
+                 aceth.f90 does not define (only 0, 1 and 2 exist)."
+            );
+            println!("SUMMARY tsl={tsl} mat={mat} ifeng={other} verdict=NOT_COMPARABLE");
+            return;
+        }
+    };
+    // `NIL` means `nang - 1` for the binned forms and `nang + 1` for the
+    // continuous one (`aceth.f90:816-820`), so the cosine count has to be
+    // recovered through the form rather than from NIL alone.
+    let nang = match form {
+        InelasticForm::Continuous => (nil - 1) as usize,
+        _ => (nil + 1) as usize,
+    };
 
     // NJOY's own inelastic incident-energy grid, and its cross section.
     let itie = at(t_jxs[jxs::ITIE]);
@@ -192,9 +207,10 @@ fn main() {
     let emax_ev = grid_ev.last().copied().unwrap_or(4.0);
     let opts = ThermalAceOptions {
         n_outgoing: nieb,
-        n_cosines: (nil + 1) as usize,
+        n_cosines: nang,
         natom,
         emax_ev,
+        form,
     };
     let ours = match AceTable::thermal_from_mf7(&mf7, temp_k, "x", 0, &grid_ev, opts) {
         Ok(t) => t,
@@ -366,13 +382,158 @@ fn main() {
     // NIEB and NIL, so entry k of one table is the same (incident energy,
     // bin, cosine) as entry k of the other by construction. If NXS ever
     // disagreed the assertion above would have already failed.
-    let nang = (nil + 1) as usize;
     let stride = nang + 1;
     let want_len = nei * nieb * stride;
     let t_itxe = at(t_jxs[jxs::ITXE]);
     let o_itxe = (o_jxs[jxs::ITXE] - 1) as usize;
     println!("\n=== ITXE emission bins ({nei} x {nieb} x {stride} = {want_len} values) ===");
-    if t_itxe + want_len > t_xss.len() || o_itxe + want_len > o_xss.len() {
+    if form == InelasticForm::Continuous {
+        // IFENG=2: a 2*NEI table of (offset, count) pairs, then each incident
+        // energy's own (E', pdf, cdf, mu(1..nang)) points. The two codes choose
+        // their own point counts, so this is reported as a comparison of the
+        // LAWS at shared energies rather than a positional difference -- the
+        // only honest statement when the grids are not the same by
+        // construction.
+        println!("\n=== ITXE continuous emission law (IFENG=2) ===");
+        let t_counts: Vec<usize> =
+            (0..nei).map(|i| t_xss[t_itxe + nei + i] as usize).collect();
+        let o_counts: Vec<usize> =
+            (0..nei).map(|i| o_xss[o_itxe + nei + i] as usize).collect();
+        let t_tot: usize = t_counts.iter().sum();
+        let o_tot: usize = o_counts.iter().sum();
+        println!(
+            "  points per incident energy: ours {}..{} (total {o_tot}), \
+             njoy {}..{} (total {t_tot})",
+            o_counts.iter().min().copied().unwrap_or(0),
+            o_counts.iter().max().copied().unwrap_or(0),
+            t_counts.iter().min().copied().unwrap_or(0),
+            t_counts.iter().max().copied().unwrap_or(0),
+        );
+        // The CDF must end at 1 on both sides: that is a property of the law
+        // rather than of the grid, so it is checkable whatever the counts.
+        let mut worst_cdf = 0.0f64;
+        let mut worst_pdf_area = 0.0f64;
+        for (side, xss, itxe, counts) in [
+            ("ours", &o_xss[..], o_itxe, &o_counts),
+            ("njoy", &t_xss[..], t_itxe, &t_counts),
+        ] {
+            let mut w = 0.0f64;
+            let mut wa = 0.0f64;
+            for i in 0..nei {
+                let n = counts[i];
+                if n == 0 {
+                    continue;
+                }
+                let base = xss[itxe + i] as usize; // index BEFORE the first word
+                let last = base + (n - 1) * (nang + 3);
+                if last + 2 >= xss.len() {
+                    continue;
+                }
+                w = w.max((xss[last + 2] - 1.0).abs());
+                // Trapezoid of the stored density over the stored grid.
+                let mut area = 0.0f64;
+                for k in 1..n {
+                    let a = base + (k - 1) * (nang + 3);
+                    let b = base + k * (nang + 3);
+                    area += (xss[a + 1] + xss[b + 1]) * (xss[b] - xss[a]) / 2.0;
+                }
+                wa = wa.max((area - 1.0).abs());
+            }
+            println!("  {side}: worst |CDF_end - 1| {w:.3e}, worst |int pdf dE' - 1| {wa:.3e}");
+            worst_cdf = worst_cdf.max(w);
+            worst_pdf_area = worst_pdf_area.max(wa);
+        }
+        // When the two codes choose the SAME number of points at every
+        // incident energy -- which is itself a result, since the count comes
+        // out of the panel-merging threshold rather than from any input --
+        // entry k of one law is the same point as entry k of the other, and a
+        // positional value comparison becomes legitimate. Otherwise it is
+        // skipped rather than forced.
+        if o_counts == t_counts {
+            let (mut w_ep, mut w_pdf, mut w_cdf, mut w_mu) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+            // Reported BESIDE the headline, never instead of it: how much of
+            // the disagreement sits on the law's final point, where the two
+            // codes' outgoing-energy ranges end.
+            let (mut w_ep_int, mut w_mu_int, mut n_over) = (0.0f64, 0.0f64, 0usize);
+            let (mut at_ep, mut at_mu) = ((0usize, 0usize, 0.0f64, 0.0f64), (0usize, 0usize));
+            for i in 0..nei {
+                let n = o_counts[i];
+                let (ob, tb) = (o_xss[o_itxe + i] as usize, t_xss[t_itxe + i] as usize);
+                for k in 0..n {
+                    let (oa, ta) = (ob + k * (nang + 3), tb + k * (nang + 3));
+                    if oa + nang + 2 >= o_xss.len() || ta + nang + 2 >= t_xss.len() {
+                        continue;
+                    }
+                    let rel = |a: f64, b: f64| if b != 0.0 { ((a - b) / b).abs() } else { 0.0 };
+                    let d = rel(o_xss[oa], t_xss[ta]);
+                    if d > w_ep {
+                        w_ep = d;
+                        at_ep = (i, k, o_xss[oa], t_xss[ta]);
+                    }
+                    let interior = k + 1 < n;
+                    if interior {
+                        w_ep_int = w_ep_int.max(d);
+                    }
+                    if d > 1.0e-6 {
+                        n_over += 1;
+                    }
+                    w_pdf = w_pdf.max(rel(o_xss[oa + 1], t_xss[ta + 1]));
+                    w_cdf = w_cdf.max(rel(o_xss[oa + 2], t_xss[ta + 2]));
+                    for j in 0..nang {
+                        // Absolute for a cosine, which crosses zero.
+                        let d = (o_xss[oa + 3 + j] - t_xss[ta + 3 + j]).abs();
+                        if d > w_mu {
+                            w_mu = d;
+                            at_mu = (i, k);
+                        }
+                        if interior {
+                            w_mu_int = w_mu_int.max(d);
+                        }
+                    }
+                }
+            }
+            if let Ok(k) = std::env::var("OUTRAM_PARK_IFENG2_DUMP") {
+                let i: usize = k.parse().expect("incident energy index");
+                let n = o_counts[i];
+                let (ob, tb) = (o_xss[o_itxe + i] as usize, t_xss[t_itxe + i] as usize);
+                println!("  dump of incident energy {i} (E={:.6e} MeV, {n} points):", njoy_e[i]);
+                for k in 0..n.min(14) {
+                    let (oa, ta) = (ob + k * (nang + 3), tb + k * (nang + 3));
+                    println!(
+                        "    [{k:3}] E' ours {:.9e} njoy {:.9e} | pdf {:.6e} / {:.6e} \
+                         | cdf {:.9e} / {:.9e} | mu0 {:+.6} / {:+.6}",
+                        o_xss[oa], t_xss[ta], o_xss[oa + 1], t_xss[ta + 1],
+                        o_xss[oa + 2], t_xss[ta + 2], o_xss[oa + 3], t_xss[ta + 3]
+                    );
+                }
+            }
+            println!(
+                "  point counts are IDENTICAL, so comparing positionally:\n    \
+                 E'   worst REL {w_ep:.3e} at incident {} point {} (ours {:.9e} njoy {:.9e}, \
+                 of {} points)\n    \
+                 pdf  worst REL {w_pdf:.3e}\n    \
+                 cdf  worst REL {w_cdf:.3e}\n    \
+                 mu   worst ABS {w_mu:.3e} at incident {} point {}",
+                at_ep.0, at_ep.1, at_ep.2, at_ep.3, o_counts[at_ep.0], at_mu.0, at_mu.1
+            );
+            println!(
+                "    observation (NOT the headline): {n_over} of {o_tot} points differ in \
+                 E' by more than 1e-6;\n    \
+                 excluding each law's FINAL point, where the two outgoing ranges end, \
+                 E' worst REL is {w_ep_int:.3e} and mu worst ABS is {w_mu_int:.3e}"
+            );
+            itxe_ep = w_ep;
+            itxe_mu = w_mu;
+        } else {
+            println!(
+                "  point counts DIFFER, so no positional comparison is made; the \
+                 CDF/normalisation checks above are what holds without a shared grid."
+            );
+            itxe_ep = worst_cdf;
+            itxe_mu = worst_pdf_area;
+        }
+        itxe_n = o_tot;
+    } else if t_itxe + want_len > t_xss.len() || o_itxe + want_len > o_xss.len() {
         println!("  block does not fit in one of the tables -- NOT compared");
     } else {
         // E' and the cosines are different quantities and are kept apart: a

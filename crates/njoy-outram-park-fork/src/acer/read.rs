@@ -205,7 +205,12 @@ fn split_zaid(hz: &str) -> Result<(Option<f64>, AceClass), NjoyError> {
              upstream's class letters c/h/o/r/s/a/t/p/u/y (acer.f90:513-533)"
         ))
     })?;
-    let body = &trimmed[..trimmed.len() - letter.len_utf8()];
+    // Strip **every** trailing letter, not just one. The mcnpx variant writes a
+    // two-character class string (`"pp"`, `"ny"`, `"nt"`, `"nc"`), so taking a
+    // single character off `6000.000pp` leaves `6000.000p`, which does not
+    // parse and would silently lose the ZA. The class is still the last letter,
+    // which is the same in both conventions — `'p'`, `'y'`, `'t'`, `'c'`.
+    let body = trimmed.trim_end_matches(|c: char| c.is_ascii_alphabetic());
     let zaid_num = if class == AceClass::Thermal {
         // A thermal ZAID is a name ("al27.00"), not a number — upstream skips
         // the numeric read for exactly this case.
@@ -251,11 +256,25 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
         )));
     }
 
-    // Line 1: the ZAID is a fixed 10-column field; the rest is free-form.
+    // Line 1: the ZAID is a fixed field, 10 columns normally and 13 in the
+    // mcnpx variant (`acer.f90:490-494` picks between them from a user flag).
+    // A *file* carries no such flag, so the width is decided from the bytes:
+    // columns 11-13 are the mcnpx class suffix (`'pp '`, `'ny '`, `'nt '`,
+    // `'nc '`) in that variant and the first three columns of the `f12.6` AWR
+    // otherwise -- and an `f12.6` field cannot contain a letter.
     let l0 = lines[0];
-    let zaid_raw: Vec<u8> = l0.bytes().take(10).collect();
+    let hz_len = if l0
+        .as_bytes()
+        .get(10..13)
+        .is_some_and(|b| b.iter().any(|c| c.is_ascii_alphabetic()))
+    {
+        13
+    } else {
+        10
+    };
+    let zaid_raw: Vec<u8> = l0.bytes().take(hz_len).collect();
     let zaid = String::from_utf8_lossy(&zaid_raw).trim().to_string();
-    let rest: Vec<&str> = l0.get(10..).unwrap_or("").split_whitespace().collect();
+    let rest: Vec<&str> = l0.get(hz_len..).unwrap_or("").split_whitespace().collect();
     if rest.len() < 2 {
         return Err(NjoyError::EndfParse(format!(
             "ACE Type 1 line 1: expected awr and kT after the ZAID, got {l0:?}"
@@ -267,7 +286,17 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
     let kt_mev = rest[1]
         .parse()
         .map_err(|e| NjoyError::EndfParse(format!("ACE kT {:?}: {e}", rest[1])))?;
-    let date = rest.get(2).unwrap_or(&"").to_string();
+    // The date is a fixed `a10` field, not a free token: the line is
+    // `a10/a13, f12.6, 1x, 1pe11.4, 1x, a10`, so it starts 25 columns past the
+    // ZAID. Slicing it keeps NJOY's own `'  '//dater()` padding, which a
+    // trimmed token loses -- and losing it makes a read-then-write round trip
+    // differ in the header while every value matches.
+    let date_raw: Vec<u8> = l0
+        .as_bytes()
+        .get(hz_len + 25..hz_len + 35)
+        .map(|b| b.to_vec())
+        .unwrap_or_else(|| rest.get(2).unwrap_or(&"").as_bytes().to_vec());
+    let date = String::from_utf8_lossy(&date_raw).trim().to_string();
     let (zaid_num, class) = split_zaid(&zaid)?;
 
     // Line 2: 70-column comment then a 10-column material id. Sliced, never
@@ -358,7 +387,7 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
             mat_id,
             iz,
             aw,
-            raw_text: [zaid_raw, date.into_bytes(), comment_raw, mat_raw],
+            raw_text: [zaid_raw, date_raw, comment_raw, mat_raw],
         },
         nxs,
         jxs,
@@ -765,6 +794,94 @@ impl RawAceTable {
 }
 
 impl RawAceTable {
+    /// Which `xss` words this table's class writes as integers, derived from
+    /// `NXS`/`JXS` and the counts stored in `xss` itself.
+    ///
+    /// A file does not record the integer/real split, but for three of the
+    /// classes it does not have to: the writer walks a layout that `NXS` and
+    /// `JXS` fully describe, so the split can be **derived** rather than
+    /// guessed. That matters for a read-then-write round trip, where the
+    /// heuristic in [`to_type1_string`][Self::to_type1_string] gets an
+    /// integral *value* wrong — a dosimetry cross section of exactly
+    /// `1.00000000000E+00` comes back out as `1`.
+    ///
+    /// `None` for the continuous-energy and charged-particle classes, whose
+    /// writer (`change`, `acefc.f90:13066-13200`) decides word by word over a
+    /// far larger set of blocks; those keep the heuristic.
+    pub fn derive_xss_is_int(&self) -> Option<Vec<bool>> {
+        let n = self.xss.len();
+        let mut mask = vec![false; n];
+        let at = |loc: i32| -> usize { (loc.max(1) - 1) as usize };
+        let count = |p: usize| -> usize { self.xss.get(p).copied().unwrap_or(0.0).max(0.0) as usize };
+        match self.header.class {
+            // `phoout` writes every word as `1pe20.11` (`acepa.f90:966-999`).
+            AceClass::Photoatomic => Some(mask),
+            // `dosout` (`acedo.f90:520-550`): MTR and LSIG are integers, and
+            // inside SIGD so are `NR`, the `2*NR` region table and `NE`.
+            AceClass::Dosimetry => {
+                let ntr = self.nxs[3].max(0) as usize;
+                for k in 0..ntr {
+                    if let Some(m) = mask.get_mut(at(self.jxs[2]) + k) {
+                        *m = true;
+                    }
+                    if let Some(m) = mask.get_mut(at(self.jxs[5]) + k) {
+                        *m = true;
+                    }
+                }
+                let mut p = at(self.jxs[6]);
+                for _ in 0..ntr {
+                    if p >= n {
+                        break;
+                    }
+                    let nr = count(p);
+                    mask[p] = true;
+                    p += 1;
+                    for _ in 0..2 * nr {
+                        if p >= n {
+                            break;
+                        }
+                        mask[p] = true;
+                        p += 1;
+                    }
+                    if p >= n {
+                        break;
+                    }
+                    let ne = count(p);
+                    mask[p] = true;
+                    p += 1 + 2 * ne;
+                }
+                Some(mask)
+            }
+            // `throut` (`aceth.f90:2327-2385`): each block's leading `NE` is an
+            // integer, as is IFENG=2's `2*NE` locator/count table.
+            AceClass::Thermal => {
+                let itie = at(self.jxs[0]);
+                let ne = count(itie);
+                if itie < n {
+                    mask[itie] = true;
+                }
+                if self.nxs[6] > 1 {
+                    let itxe = at(self.jxs[2]);
+                    for k in 0..2 * ne {
+                        if let Some(m) = mask.get_mut(itxe + k) {
+                            *m = true;
+                        }
+                    }
+                }
+                for slot in [3usize, 6] {
+                    let loc = self.jxs[slot];
+                    if loc > 0 {
+                        if let Some(m) = mask.get_mut(at(loc)) {
+                            *m = true;
+                        }
+                    }
+                }
+                Some(mask)
+            }
+            _ => None,
+        }
+    }
+
     /// Serialise as a **Type 1** (ASCII) ACE file.
     ///
     /// The counterpart to [`to_type2_bytes`][Self::to_type2_bytes], so a table
@@ -789,9 +906,15 @@ impl RawAceTable {
                 format!("{fallback:<n$}")
             }
         };
+        // The ZAID field is `a10` normally and `a13` in the mcnpx variant
+        // (`acepa.f90:249-252`, `acedo.f90:504-511`, and the same pair in every
+        // other writer). Which one this table uses is not a flag it carries --
+        // it is the width of the field as stored, so take it from there rather
+        // than assuming the common case.
+        let hz_len = if self.header.raw_text[0].len() == 13 { 13 } else { 10 };
         out.push_str(&format!(
             "{}{} {} {}\n",
-            txt(0, &self.header.zaid, 10),
+            txt(0, &self.header.zaid, hz_len),
             fortran_f(self.header.awr, 12, 6),
             fortran_e(self.header.kt_mev, 4, 11),
             txt(1, &self.header.date, 10),
@@ -816,6 +939,7 @@ impl RawAceTable {
                 out.push('\n');
             }
         }
+        let derived = self.derive_xss_is_int();
         // Which words are written as integers is a property of the *class*,
         // because each class has its own writer. `phoout` (`acepa.f90:966-999`)
         // writes every photo-atomic word with `typen(l, nout, 2)`, i.e.
@@ -823,7 +947,7 @@ impl RawAceTable {
         // A builder that knows word by word supplies `xss_is_int` instead.
         let all_real = self.header.class == AceClass::Photoatomic;
         for (i, v) in self.xss.iter().enumerate() {
-            let as_int = match &self.xss_is_int {
+            let as_int = match self.xss_is_int.as_ref().or(derived.as_ref()) {
                 Some(mask) => mask.get(i).copied().unwrap_or(false),
                 None => !all_real && v.fract() == 0.0 && v.abs() < 1.0e9,
             };

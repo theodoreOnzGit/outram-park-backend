@@ -192,7 +192,10 @@ byte-exact), and `acer` writes Type 1 by default.
   faithful translation **verified by reading the Fortran, not by running it**;
   `src/acer/photoatomic/fluorescence.rs` says so at its head. Only the `nflo`
   table (`nflo_for`) is gated, by a unit test.
-- **The mcnpx variant** (13-character ZAID, `f10.3,'pp '`) is implemented and
-  unexercised — no reference file.
+- ~~**The mcnpx variant** (13-character ZAID, `f10.3,'pp '`) is implemented and
+  unexercised — no reference file.~~ **CORRECTED 2026-09-22** — a reference
+  was produced (`acer` with `iopt = -4`) and the output is **byte-identical**
+  to it, all 9 953 bytes. Gate:
+  `mcnpx_type1_output_is_byte_identical_to_njoy2016`.
 - **ENDF-4/5 tapes**, where photoelectric absorption is MT=602 rather than
   MT=522. The branch exists (`endf_version`); no such tape is held here.

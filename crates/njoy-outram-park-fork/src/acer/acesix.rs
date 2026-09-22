@@ -40,9 +40,13 @@
 //!
 //! `iwt` selects the target areas ([`BinWeights`], `aceth.f90:296-313`):
 //! `Variable` is NJOY's `1 4 10 ... 10 4 1` pattern (the default, which spends
-//! more bins on the distribution's tails), `Constant` is a flat `1/nbin`. The
-//! tabulated form (`iwt > 1`, `IFENG = 2`) writes `(xn, yn, cdf)` triples
-//! instead of `xbar` and is **not** ported here.
+//! more bins on the distribution's tails, and which the ACE table declares as
+//! `IFENG = 1`), `Constant` is a flat `1/nbin` (`IFENG = 0`).
+//!
+//! The **tabulated** form (`iwt = 2`, `IFENG = 2`) is a different routine
+//! rather than a third weight: it abandons the fixed bin count entirely and
+//! keeps the law's own points, storing `(E', pdf, cdf)` and the cosines at each
+//! one. See [`acesix_tabulated`].
 
 use crate::thermr::calcem::types::EqualProbableRow;
 
@@ -264,4 +268,159 @@ pub fn normalized_rows(rows: &[EqualProbableRow]) -> Vec<EqualProbableRow> {
             cosines: r.cosines.clone(),
         })
         .collect()
+}
+
+
+/// One point of the **tabulated** (`IFENG = 2`) emission law.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AcesixPoint {
+    /// `xn` — the outgoing energy \[eV\].
+    pub e_out_ev: f64,
+    /// `yn` — the probability density there, normalised over the law \[1/eV\].
+    pub pdf: f64,
+    /// The cumulative probability up to and including this point.
+    pub cdf: f64,
+    /// The `nang` equally-probable cosines at `xn`.
+    pub cosines: Vec<f64>,
+}
+
+/// `acesix`'s **tabulated** branch (`iwt = 2`, `aceth.f90:316-318, 380-527`) —
+/// the continuous `IFENG = 2` emission law.
+///
+/// ## How this differs from the equiprobable solve
+///
+/// [`acesix_equiprobable`] divides the law into a *fixed* number of bins of
+/// prescribed area and reports each bin's **area-weighted mean** `E'`. This
+/// keeps the law's own resolution instead: at every tabulated point it stores
+/// the point itself, the density there, and the running cumulative — so a
+/// sampler inverts a real CDF rather than picking a bin uniformly.
+///
+/// Three details are upstream's and matter:
+///
+/// 1. **`fract` is re-set to the panel's own area each step**
+///    (`aceth.f90:392-395`), so the closing test passes immediately and `xn`
+///    lands on the tabulated `x`. The exception is a panel whose area is below
+///    `eps/10 = 1e-6`: there `fract` keeps its previous value and the panel is
+///    *merged* into the next, which is what stops a law with a long
+///    near-zero tail from producing thousands of useless points.
+/// 2. **The cosines are taken at `xn`, not at a bin mean**, and snapped to the
+///    bracketing row when `xn` is within `eps = 1e-5` eV of it
+///    (`:469-476`) rather than interpolated across a degenerate interval.
+/// 3. **Normalisation happens at the end, over the whole law**
+///    (`:511-527`): the stored per-point areas are accumulated into the CDF
+///    and then both the CDF and every density are divided by the total. So the
+///    law is normalised exactly once, by its own integral, and not
+///    point-by-point.
+///
+/// `rows` must already be normalised to unit integral — [`normalized_rows`] —
+/// because the `eps/10` merge threshold above is an **absolute** area.
+pub fn acesix_tabulated(rows: &[EqualProbableRow], nang: usize) -> Vec<AcesixPoint> {
+    /// `eps` (`aceth.f90:63`).
+    const EPS: f64 = 1.0e-5;
+    let nep = rows.len();
+    if nep < 2 {
+        return Vec::new();
+    }
+    // Same first/last cosine fixup as the equiprobable path (`:344-352`).
+    let mut mu: Vec<Vec<f64>> = rows.iter().map(|r| r.cosines.clone()).collect();
+    mu[0] = mu[1].clone();
+    mu[nep - 1] = mu[nep - 2].clone();
+    let ep: Vec<f64> = rows.iter().map(|r| r.ep_ev).collect();
+    let pdf: Vec<f64> = rows.iter().map(|r| r.pdf).collect();
+
+    let mut out: Vec<AcesixPoint> = Vec::with_capacity(nep);
+    // `grall`/`xbar` are computed in upstream's shared loop but only *read* by
+    // the equiprobable branch and by the out-of-range cosine message, so this
+    // branch carries only `sum`.
+    let mut sum = 0.0f64;
+    let (mut xl, mut yl) = (ep[0], pdf[0]);
+    let mut fract = 1.0f64;
+    let mut i = 0usize;
+    while i < nep {
+        let (x, y) = (ep[i], pdf[i]);
+        i += 1;
+        loop {
+            let add = (y + yl) * (x - xl) / 2.0;
+            if x == xl {
+                break;
+            }
+            let last = i == nep;
+            if last {
+                // `:388-392` — the final panel closes whatever is left.
+                fract = sum + add;
+            } else {
+                if sum + add > EPS / 10.0 {
+                    fract = sum + add;
+                }
+                if sum + add < fract - fract / 10_000.0 {
+                    sum += add;
+                    break;
+                }
+            }
+            let xn = if last || sum + add < fract + fract / 10_000.0 {
+                x
+            } else if (y - yl).abs() > (y + yl) / 100_000.0 {
+                let f = (y - yl) / (x - xl);
+                let disc = ((yl / f).powi(2) + 2.0 * (fract - sum) / f).abs();
+                let sign = if f < 0.0 { -1.0 } else { 1.0 };
+                (xl - yl / f + sign * disc.sqrt()).clamp(xl, x)
+            } else {
+                (xl + (fract - sum) / yl).min(x)
+            };
+            let yn = yl + (y - yl) * (xn - xl) / (x - xl);
+
+            // Bracket `xn` (`:438-449`, the `iwt == 2` arm of the same loop).
+            let mut l = 1usize;
+            while l + 1 < nep && ep[l] < xn {
+                l += 1;
+            }
+            let (xlo, xhi) = (ep[l - 1], ep[l]);
+            let cosines: Vec<f64> = (0..nang)
+                .map(|k| {
+                    let v = if (xn - xhi).abs() < EPS {
+                        mu[l][k]
+                    } else if (xn - xlo).abs() < EPS {
+                        mu[l - 1][k]
+                    } else if xhi > xlo {
+                        mu[l - 1][k] + (mu[l][k] - mu[l - 1][k]) * (xn - xlo) / (xhi - xlo)
+                    } else {
+                        mu[l - 1][k]
+                    };
+                    v.clamp(-1.0, 1.0)
+                })
+                .collect();
+            out.push(AcesixPoint {
+                e_out_ev: xn,
+                pdf: yn,
+                // The incremental area for now; turned into the cumulative
+                // below, exactly as `:511-521` does.
+                cdf: fract,
+                cosines,
+            });
+            xl = xn;
+            yl = yn;
+            fract = 1.0;
+            sum = 0.0;
+            if xl >= x {
+                break;
+            }
+        }
+        xl = x;
+        yl = y;
+    }
+
+    // `:511-527` — accumulate the areas into a CDF, then normalise both the
+    // CDF and every density by the law's own total.
+    let mut area = 0.0f64;
+    for p in out.iter_mut() {
+        area += p.cdf;
+        p.cdf = area;
+    }
+    if area > 0.0 {
+        for p in out.iter_mut() {
+            p.pdf /= area;
+            p.cdf /= area;
+        }
+    }
+    out
 }

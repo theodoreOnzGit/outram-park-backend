@@ -54,12 +54,27 @@ const DATE: &str = "09/21/26";
 fn build(
     file_type: AceFileType,
 ) -> Option<(njoy_outram_park_fork::acer::read::RawAceTable, usize, usize)> {
+    build_with(file_type, false, DATE)
+}
+
+fn build_with(
+    file_type: AceFileType,
+    mcnpx: bool,
+    date: &str,
+) -> Option<(njoy_outram_park_fork::acer::read::RawAceTable, usize, usize)> {
     let tape_path = reference_endf_or_skip("photoat-synthetic-Z6.endf", "acer photoatomic")?;
     let tape = Tape::read_file(&tape_path).expect("read the synthetic Z=6 photoatomic tape");
     let opts = PhotoatomicOptions {
         suffix: 0.0,
-        comment: COMMENT.to_string(),
-        date: DATE.to_string(),
+        comment: if mcnpx {
+            format!("{COMMENT} mcnpx")
+        } else {
+            COMMENT.to_string()
+        },
+        // `hd` is whatever `dater()` returned when the reference was made, so
+        // it is an input to the comparison rather than a property of the port.
+        date: date.to_string(),
+        mcnpx,
         ..Default::default()
     };
     let built = photoatomic_ace(&tape, 600, &opts, None).expect("build the photoatomic table");
@@ -205,4 +220,46 @@ fn eszg_is_logged_and_zeros_survive() {
         "first grid point should be 1 keV in MeV, log is {e0}"
     );
     assert!(e1 > e0, "the energy column must ascend");
+}
+
+
+/// The **mcnpx** variant: a 13-character ZAID written `f10.3` then `"pp "`
+/// (`acepa.f90:255-256`), selected by a negative `iopt` on ACER card 2. It was
+/// implemented and unexercised until a reference was produced for it on
+/// 2026-09-22; this gate is that reference.
+#[test]
+fn mcnpx_type1_output_is_byte_identical_to_njoy2016() {
+    let Some(reference) = reference_file_or_skip(
+        "acer",
+        "z6_photoatomic_mcnpx_njoy2016.ace",
+        "acer photoatomic mcnpx",
+    ) else {
+        return;
+    };
+    let Some((table, _, _)) = build_with(AceFileType::Type1Ascii, true, "09/22/26") else {
+        return;
+    };
+    assert_eq!(
+        table.header.raw_text[0].len(),
+        13,
+        "the mcnpx ZAID field is 13 characters wide, not 10"
+    );
+    let want = std::fs::read_to_string(&reference).expect("read NJOY's mcnpx photoatomic ACE");
+    let got = table.to_type1_string();
+    if got != want {
+        let n = got
+            .bytes()
+            .zip(want.bytes())
+            .take_while(|(a, b)| a == b)
+            .count();
+        panic!(
+            "mcnpx photoatomic output differs from NJOY at byte {n} of {} (NJOY {} \
+             bytes)\n  ours: {:?}\n  njoy: {:?}",
+            got.len(),
+            want.len(),
+            &got[n.saturating_sub(40)..(n + 40).min(got.len())],
+            &want[n.saturating_sub(40)..(n + 40).min(want.len())],
+        );
+    }
+    eprintln!("[photoatomic-mcnpx] reproduced NJOY's {} bytes exactly", want.len());
 }

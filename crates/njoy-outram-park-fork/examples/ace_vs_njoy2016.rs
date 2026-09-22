@@ -135,6 +135,7 @@ mod desktop {
     /// Worst relative difference between two slices, and where it occurred.
     /// Falls back to absolute difference where the reference is exactly zero,
     /// so a spurious `inf` cannot hide a real disagreement.
+    #[allow(dead_code)] // kept beside its band-integral sibling for symmetry
     fn worst_rel(ours: &[f64], theirs: &[f64]) -> (f64, usize) {
         let mut worst = 0.0f64;
         let mut at = 0usize;
@@ -631,7 +632,7 @@ mod desktop {
 
         // ── Photon production blocks ─────────────────────────────────────
         println!("\n=== photon production (MTRP / SIGP / DLWP) ===");
-        let mut photon_verdict = "none";
+        let photon_verdict;
         {
             let ntrp_o = ours.nxs[nxs::NTRP] as usize;
             let ntrp_t = theirs.nxs[nxs::NTRP] as usize;

@@ -39,6 +39,20 @@ use njoy_outram_park_fork::endf::tape::Tape;
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 
 fn check(pendf: &str, ace: &str, mat: i32, comment: &str, ntr: usize, len2: i32) {
+    check_with(pendf, ace, mat, comment, ntr, len2, false, "09/21/26")
+}
+
+#[allow(clippy::too_many_arguments)]
+fn check_with(
+    pendf: &str,
+    ace: &str,
+    mat: i32,
+    comment: &str,
+    ntr: usize,
+    len2: i32,
+    mcnpx: bool,
+    date: &str,
+) {
     let label = format!("acer dosimetry {mat}");
     let Some(pendf) = reference_file_or_skip("acer", pendf, &label) else {
         return;
@@ -50,7 +64,9 @@ fn check(pendf: &str, ace: &str, mat: i32, comment: &str, ntr: usize, len2: i32)
     let opts = DosimetryOptions {
         suffix: 0.0,
         comment: comment.to_string(),
-        date: "09/21/26".to_string(),
+        // `hd` is whatever `dater()` returned when the reference was made.
+        date: date.to_string(),
+        mcnpx,
         ..Default::default()
     };
     let built = dosimetry_ace(&tape, mat, 293.6, &opts).expect("build the dosimetry table");
@@ -62,7 +78,21 @@ fn check(pendf: &str, ace: &str, mat: i32, comment: &str, ntr: usize, len2: i32)
     assert_eq!(built.jxs[6], 1 + 2 * ntr as i32, "JXS(7) = sigd");
     assert_eq!(built.jxs[21], len2, "JXS(22) = end");
 
+    if mcnpx {
+        assert_eq!(
+            built.za as f64,
+            1001.0,
+            "the mcnpx variant must not change the table, only its header"
+        );
+    }
     let table = built.into_raw(&opts, AceFileType::Type1Ascii);
+    if mcnpx {
+        assert_eq!(
+            table.header.raw_text[0].len(),
+            13,
+            "the mcnpx ZAID field is 13 characters wide (acedo.f90:270-272)"
+        );
+    }
     let want = std::fs::read_to_string(&ace).expect("read NJOY's dosimetry ACE");
     let got = table.to_type1_string();
     if got != want {
@@ -159,5 +189,23 @@ fn zero_kelvin_is_refused_rather_than_written_with_no_zaid() {
     assert!(
         msg.contains("0 K dosimetry"),
         "the refusal must say why: {msg}"
+    );
+}
+
+
+/// The **mcnpx** variant: `f10.3` then `"ny "` in a 13-character field
+/// (`acedo.f90:270-272`), selected by a negative `iopt`. Implemented and
+/// unexercised until a reference was made for it on 2026-09-22.
+#[test]
+fn h1_dosimetry_mcnpx_is_byte_identical_to_njoy2016() {
+    check_with(
+        "h1_293k_pendf_njoy2016.pendf",
+        "h1_293k_dosimetry_mcnpx_njoy2016.ace",
+        125,
+        "h1 dosimetry mcnpx",
+        2,
+        2532,
+        true,
+        "09/22/26",
     );
 }

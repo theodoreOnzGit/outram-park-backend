@@ -52,7 +52,7 @@
 //! | `iopt` | class | upstream | here |
 //! |---|---|---|---|
 //! | 1 | fast / continuous-energy (`c`) | `acefc.f90` | **built** — this module |
-//! | 2 | thermal S(α,β) (`t`) | `aceth.f90` | **built** — [`thermal`], `IFENG = 0` only |
+//! | 2 | thermal S(α,β) (`t`) | `aceth.f90` | **built** — [`thermal`], all three `IFENG` forms |
 //! | 3 | dosimetry (`y`) | `acedo.f90` | **built** — [`dosimetry`] |
 //! | 4 | photo-atomic (`p`) | `acepa.f90` | **built** — [`photoatomic`] |
 //! | 5 | photonuclear (`u`) | `acepn.f90` | not ported |

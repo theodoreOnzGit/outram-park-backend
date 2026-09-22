@@ -29,11 +29,16 @@ paired with the scatterer's own incident-neutron evaluation. Then
 Three choices in that deck are load-bearing, and each was a mistake first:
 
 1. **`iwt = 1` on ACER card 9 is required.** `aceth.f90:674-676` reads
-   `ifeng = 0; if (iwt.eq.0) ifeng=1; if (iwt.eq.2) ifeng=2`. This port writes
+   `ifeng = 0; if (iwt.eq.0) ifeng=1; if (iwt.eq.2) ifeng=2`. ~~This port writes
    the equiprobable `IFENG = 0` form only, so the default `iwt = 0` produces a
    **skewed `IFENG = 1`** reference and any number from it would be comparing
    two different representations. The comparator now **refuses** and says so
-   rather than printing a figure.
+   rather than printing a figure.~~ **CORRECTED 2026-09-22** — all three forms
+   are written now, and the comparator reads the form off the reference's own
+   `NXS(7)` instead of refusing. The numbers in *this* record remain
+   `IFENG = 0` numbers, measured against an `iwt = 1` reference; the other two
+   forms are in
+   [`acer_thermal_ifeng_vs_njoy2016.md`](acer_thermal_ifeng_vs_njoy2016.md).
 2. **Each tape is run at its OWN base temperature**, read from its MF=7.
    `IncoherentInelastic` holds `S(α,β)` at the base temperature, and the base
    temperatures are not what one would guess: Al-27's is **20 K**, H-in-H₂O's

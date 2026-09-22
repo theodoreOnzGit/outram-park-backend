@@ -131,9 +131,26 @@ Gate: `tests/ace_read_type1_vs_type2.rs`.
   be produced to read back. That is a gap in the *fixtures*, not in the reader —
   the container is class-independent and all ten class letters are unit-tested.
   Gate: `every_obtainable_class_reads`.
-- **mcnpx-format (13-character ZAID) is implemented but unexercised.** The
-  width is inferred from the Type-2 record length; no mcnpx file was available
-  to confirm it.
+- ~~**mcnpx-format (13-character ZAID) is implemented but unexercised.**~~
+  **CORRECTED 2026-09-22** — references were produced (`acer` with a negative
+  `iopt`) and it is gated. Two things came out of doing it:
+
+  1. **A Type-1 file records no width flag**, so the reader decides from the
+     bytes: columns 11-13 hold the mcnpx class suffix (`"pp "`, `"ny "`,
+     `"nt "`, `"nc "`) in that variant and the first three columns of the
+     `f12.6` AWR otherwise, and an `f12.6` field cannot contain a letter.
+     Upstream never has to decide — `acer.f90:490-494` takes the width from
+     the user's sign on `iopt`.
+  2. **Upstream cannot read back the mcnpx files it writes, for most
+     classes.** `acer.f90:510` reads the 13-character ZAID as `f10.0, a3` and
+     then dispatches on `ht(1:1)`. For photo-atomic that is `'p'` and works;
+     for dosimetry (`"ny "`) and thermal (`"nt "`) it is `'n'`, which matches
+     none of its branches. This port takes the class from the **last** letter
+     of the field instead — the same character in both conventions, `'p'`,
+     `'y'`, `'t'`, `'c'` — and reads all of them.
+
+  Gate: `type1_files_read_back_and_rewrite_byte_exactly`, five files across
+  both widths and two classes, each read and written back **byte for byte**.
 - **Reading is not editing.** Upstream's `iopt = 7/8` exist to print or edit a
   table and write it back out; this port reads and **writes back** (both
   containers) but has no print/edit half.
@@ -141,3 +158,41 @@ Gate: `tests/ace_read_type1_vs_type2.rs`.
   (`acer iopt = 4`) is ported; see `acer_photoatomic_vs_njoy2016.md`, where
   the Type-1 output is byte-identical to NJOY's.
 - **Nothing here is validation.** It says this port reads what NJOY2016 writes.
+
+
+## Read-then-write is byte-exact for three classes now (2026-09-22)
+
+The 2026-09-21 record said a Type-1 round trip was pinned "through the value
+domain" and deliberately **not** asserted byte-exact, because reproducing a
+formatted text container needs every edit descriptor to match *including which
+words the writer emits as integers*, which a file does not record.
+
+That is true in general and was too pessimistic for three of the classes. A
+file does not record the split, but for photo-atomic, dosimetry and thermal it
+does not have to: the writer walks a layout that `NXS` and `JXS` fully
+describe, so the split can be **derived**. `RawAceTable::derive_xss_is_int`
+does that, and five files now read back and rewrite byte for byte:
+
+| file | class | ZAID width | words |
+|---|---|---|---|
+| `z6_photoatomic_njoy2016.ace` | `p` | 10 | 449 |
+| `z6_photoatomic_mcnpx_njoy2016.ace` | `p` | 13 | 449 |
+| `h1_293k_dosimetry_njoy2016.ace` | `y` | 10 | 2 532 |
+| `h1_293k_dosimetry_mcnpx_njoy2016.ace` | `y` | 13 | 2 532 |
+| `mn55_293k_dosimetry_njoy2016.ace` | `y` | 10 | 70 440 |
+
+Two corrections were needed to get there, both invisible to a value
+comparison:
+
+- **The date is an `a10` field, not a free token.** It was being read by
+  whitespace-splitting the first line, which lost NJOY's `'  '//dater()`
+  padding, so a rewrite left-justified it. It is now sliced at a fixed offset
+  — 25 columns past the ZAID, whatever the ZAID's width.
+- **`f11.0` keeps its decimal point** and `1pE11.4` of zero is
+  `" 0.0000E+00"`, not `"0.0000"`. Both were wrong in the Type-1 writer and
+  both sit in the header, so every byte after them shifted.
+
+**The continuous-energy and charged-particle classes still use the
+heuristic** and are still only pinned through the value domain: `change`
+(`acefc.f90:13066-13200`) decides word by word over a much larger set of
+blocks, and deriving that is separate work.

@@ -106,7 +106,13 @@ so it cannot be quietly removed.
 - **Type 2 (binary) output.** `dosout`'s Type-2 branch uses `ner = 1`
   (`acedo.f90:495`) like every non-fast class and is served by the shared
   writer; no reference file was produced for it.
-- **The mcnpx variant** (13-character ZAID, `f10.3,'ny '`) is implemented and
-  unexercised.
+- ~~**The mcnpx variant** (13-character ZAID, `f10.3,'ny '`) is implemented and
+  unexercised.~~ **CORRECTED 2026-09-22** — a reference was produced
+  (`acer` with `iopt = -3`) and the output is **byte-identical** to it, all
+  52 133 bytes. Gate: `h1_dosimetry_mcnpx_is_byte_identical_to_njoy2016`.
+  Note that NJOY cannot read that file back: `acer.f90:510` dispatches on the
+  **first** character of the mcnpx suffix, which is `'n'` for `"ny "` and
+  matches none of its branches. This port reads it (it takes the class from
+  the last letter) and rewrites it byte for byte.
 - **Nothing here is validation.** It says this port writes what NJOY2016
   writes.

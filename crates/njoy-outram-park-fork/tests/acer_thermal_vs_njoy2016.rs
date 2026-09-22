@@ -142,6 +142,7 @@ fn al27_thermal_table_matches_njoy2016() {
             n_cosines: 16, // NIL = 15
             natom: 1.0,
             emax_ev,
+            ..Default::default()
         },
     )
     .expect("thermal ACE builds");

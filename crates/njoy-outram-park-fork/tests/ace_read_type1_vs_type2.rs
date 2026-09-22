@@ -38,7 +38,8 @@
 //! committed (5 MB + 2 MB); the test skips when they are absent, honouring
 //! `OUTRAM_PARK_REQUIRE_REFERENCE_DATA` so the skip cannot pass silently.
 
-use njoy_outram_park_fork::acer::read::{read_type1, read_type2, AceClass, AceFileType};
+use njoy_outram_park_fork::acer::read::{self as read, read_type1, read_type2, AceClass, AceFileType};
+use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 
 /// Where the two fixtures live when they have been generated.
 const T1: &str = "/tmp/t2/tape24";
@@ -365,4 +366,77 @@ fn type1_write_round_trips_through_values() {
         "[ace-type1-write] {} values round-tripped exactly through Type 1",
         original.xss.len()
     );
+}
+
+
+/// **mcnpx-format reading**, which was implemented and unexercised until
+/// references were produced on 2026-09-22.
+///
+/// A 13-character ZAID carries a **two**-character class string (`"pp "` for
+/// photo-atomic, `"ny "` for dosimetry), and the file records no flag saying
+/// which width it uses, so [`read_type1`] decides from the bytes: columns
+/// 11-13 hold letters in the mcnpx variant and the first three columns of the
+/// `f12.6` AWR otherwise.
+///
+/// The class letter is taken as the **last** letter of the field, which works
+/// for both conventions. Upstream's own read-back does not: `acer.f90:510`
+/// reads the mcnpx suffix with `a3` and then dispatches on `ht(1:1)`, so a
+/// dosimetry file's `"ny "` gives `'n'`, a thermal file's `"nt "` gives `'n'`,
+/// and neither matches any of its branches — **NJOY cannot read back the
+/// mcnpx files it writes for those classes.** Recorded here because it is the
+/// kind of thing a port is tempted to reproduce.
+#[test]
+fn type1_files_read_back_and_rewrite_byte_exactly() {
+    for (file, want_class, want_za, want_len2, hz_len) in [
+        ("z6_photoatomic_mcnpx_njoy2016.ace", AceClass::Photoatomic, 6000.0, 449, 13),
+        ("h1_293k_dosimetry_mcnpx_njoy2016.ace", AceClass::Dosimetry, 1001.0, 2532, 13),
+        // The standard-width files beside them, so the 10/13 decision is
+        // exercised both ways rather than only in the new direction.
+        ("z6_photoatomic_njoy2016.ace", AceClass::Photoatomic, 6000.0, 449, 10),
+        ("h1_293k_dosimetry_njoy2016.ace", AceClass::Dosimetry, 1001.0, 2532, 10),
+        ("mn55_293k_dosimetry_njoy2016.ace", AceClass::Dosimetry, 25055.0, 70440, 10),
+    ] {
+        let Some(path) = reference_file_or_skip("acer", file, "ace mcnpx read") else {
+            return;
+        };
+        let t = read::read_type1(&path).expect("read the mcnpx Type-1 file");
+        assert_eq!(t.header.class, want_class, "{file}: class from the last letter");
+        assert_eq!(
+            t.header.zaid_num,
+            Some(want_za),
+            "{file}: the ZA must survive a two-character class suffix"
+        );
+        assert_eq!(
+            t.header.raw_text[0].len(),
+            hz_len,
+            "{file}: ZAID field width, decided from the bytes"
+        );
+        assert_eq!(t.nxs[0] as usize, want_len2, "{file}: NXS(1)");
+        assert_eq!(t.xss.len(), want_len2, "{file}: XSS length");
+        // And writing it back reproduces the file, which is what says the
+        // width was recovered rather than guessed.
+        let text = std::fs::read_to_string(&path).expect("read as text");
+        let back = t.to_type1_string();
+        if back != text {
+            // Bounded, deliberately: an `assert_eq!` on two multi-megabyte
+            // strings buries the one differing byte in a screenful of noise.
+            let n = back
+                .bytes()
+                .zip(text.bytes())
+                .take_while(|(a, b)| a == b)
+                .count();
+            panic!(
+                "{file}: read-then-write differs at byte {n} of {} (file {} bytes)\n  \
+                 ours: {:?}\n  njoy: {:?}",
+                back.len(),
+                text.len(),
+                &back[n.saturating_sub(40)..(n + 40).min(back.len())],
+                &text[n.saturating_sub(40)..(n + 40).min(text.len())],
+            );
+        }
+        eprintln!(
+            "[ace-roundtrip] {file}: {want_class:?} ZA {want_za}, {want_len2} words, \
+             {hz_len}-column ZAID, round trip byte-exact"
+        );
+    }
 }

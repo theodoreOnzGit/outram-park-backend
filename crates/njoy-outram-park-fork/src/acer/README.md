@@ -34,7 +34,10 @@ Ported in [`crate::acer`]:
 - **4d energy dists (LDLW/DLW)** 🟡 — Law 3 (discrete levels) + Law 4 (MF=5 LF=1
   χ, MF=6 LAW=1 neutron); discrete-level angular wired.
 - **4e heating (ESZ col 5)** ✅ — `H(E)=KERMA/σ_total` from HEATR H1–H5.
-- **4f thermal `…t`** ✅ — inelastic (IFENG=0) + coherent/incoherent elastic.
+- **4f thermal `…t`** ✅ — inelastic in **all three** forms (IFENG=0
+  equiprobable, IFENG=1 skewed, IFENG=2 continuous; 2026-09-22) +
+  coherent/incoherent elastic. IFENG=2's ITXE layout reproduces NJOY's point
+  counts exactly on Al-27 and graphite.
 - **4b ν̄ (NU block)** ✅ *(2026-09-20 — bit-identical to NJOY2016, 347/347 values on U-235)*, continuum correlated angle (Law 44/61) ⬜.
 - **Photoatomic class `…p`** ✅ *(2026-09-21 — `acepa`'s `acepho`, `iheat`,
   `alax` and `phoout`; the Type-1 output is **byte-identical** to NJOY2016 on

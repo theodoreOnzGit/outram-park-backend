@@ -574,3 +574,75 @@ Two behaviours to know:
   write a table whose ZAID is `0.00y` with `AWR = 0` — measured, 269 494 bytes
   of it. This port errors instead, and
   `zero_kelvin_is_refused_rather_than_written_with_no_zaid` pins the refusal.
+
+## All three thermal IFENG forms are written now (2026-09-22)
+
+`aceth.f90:674-676` maps ACER card 9's `iwt` onto `NXS(7)`: `iwt = 1` is the
+equiprobable `IFENG = 0`, `iwt = 0` the skewed `IFENG = 1`, `iwt = 2` the
+continuous `IFENG = 2`. The port wrote the first only; it writes all three,
+selected by `ThermalAceOptions::form`. Record:
+[`verification_and_validation/acer_thermal_ifeng_vs_njoy2016.md`](verification_and_validation/acer_thermal_ifeng_vs_njoy2016.md).
+
+**`IFENG = 1` was nearly free and was nearly wrong.** Its bins come from
+`BinWeights::Variable`, which `acesix.rs` already had — the only missing piece
+was the flag. Writing `NXS(7) = 0` while using the variable weights would have
+produced a table that lies about its own contents, which is worse than not
+supporting the form: a sampler would draw the bins uniformly when the whole
+point of the `1 4 10 … 10 4 1` pattern is that they are not. `ifeng1_is_skewed_
+and_declares_itself` pins that 28 832 of 29 969 `ITXE` words actually move.
+
+**`IFENG = 2` reproduces NJOY's point counts exactly, and that is the result.**
+The continuous form abandons the fixed bin count: each incident energy keeps
+its own number of `(E', pdf, cdf, mu...)` points, decided by a panel-merging
+threshold (`:392-395`, absorb a panel contributing less than `eps/10 = 1e-6`).
+That count is not an input, so reproducing all 106 of Al-27's (48…212 points,
+10 518 total) and all 106 of graphite's (239…549, 36 092 total) is a statement
+about the algorithm rather than about the data. It also makes a **positional**
+comparison legitimate, and taken that way the disagreement is **exactly one
+point per incident energy** — the last one, where the two codes' outgoing
+ranges end. The 10 412 interior points agree to **4.2e-7** in `E'` and 5e-5 in
+cosine; the CDF agrees to 6.5e-6 everywhere.
+
+**A stored density may be negative, and upstream's is.** The gate bounds the
+magnitude, not the sign, because **NJOY's own Al-27 table carries 7 negative
+densities** out of 10 518 — the first `-8.47e-16` at a final point whose CDF
+has already reached 1. An `assert!(pdf >= 0.0)` would have failed against a
+file NJOY wrote. Check what upstream actually produces before deciding what
+"obviously" must hold.
+
+## mcnpx format, and why a read-then-write round trip is worth asserting (2026-09-22)
+
+The mcnpx variant (negative `iopt`, a 13-character ZAID) was "implemented and
+unexercised" in three V&V records. It took one NJOY run each to fix that, and
+the output is now **byte-identical** on both classes that have a reference —
+photo-atomic (9 953 bytes) and dosimetry (52 133 bytes). Asking what it would
+take to gate an unexercised path is usually cheaper than it looks; leaving the
+note in place was the expensive option.
+
+Three findings worth keeping:
+
+- **A file carries no width flag.** Upstream never needs one: `acer.f90:490-494`
+  takes the ZAID width from the sign the *user* typed on `iopt`. A reader given
+  only the file has to decide, and the decision is available in the bytes —
+  columns 11-13 hold the mcnpx class suffix (`"pp "`, `"ny "`, `"nt "`,
+  `"nc "`) in that variant and the first three columns of the `f12.6` AWR
+  otherwise, and an `f12.6` field cannot contain a letter.
+- **Upstream cannot read back most of the mcnpx files it writes.**
+  `acer.f90:510` reads the suffix `a3` and dispatches on `ht(1:1)`: `'p'` for
+  photo-atomic works, but dosimetry's `"ny "` and thermal's `"nt "` both give
+  `'n'`, which matches none of its branches. This port takes the class from the
+  **last** letter, which is the same character under both conventions. A
+  faithful port is not a bug-for-bug one; the divergence is recorded rather
+  than inherited.
+- **"Byte-exact is impossible here" was too pessimistic, and a value gate hid
+  two real defects.** The earlier record argued a Type-1 round trip could only
+  be pinned through the value domain, because the integer/real split is not
+  stored. It is not stored — but for photo-atomic, dosimetry and thermal it is
+  *derivable*, because `NXS`/`JXS` fully describe the writer's walk
+  (`RawAceTable::derive_xss_is_int`). Asserting bytes then exposed two header
+  bugs a value comparison cannot see: the date was being whitespace-split
+  rather than sliced as an `a10` field, losing NJOY's `'  '//dater()` padding,
+  and `f11.0` was written without its trailing decimal point while `1pE11.4` of
+  zero came out as `0.0000` instead of ` 0.0000E+00`. Five files now read back
+  and rewrite byte for byte. **CE and charged-particle tables still use the
+  heuristic** — `change` decides word by word over far more blocks.
