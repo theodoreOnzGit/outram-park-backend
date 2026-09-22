@@ -270,6 +270,22 @@ pub struct Nuclide {
     /// table. Empty on the LOW tier and for any nuclide whose evaluation has no
     /// MT=2 below the cap.
     elastic_0k: Vec<(f64, f64)>,
+    /// **Ablation flag, not a model option.** When `true`, [`Nuclide::nu_bar`]
+    /// returns the **prompt** yield `ν̄ − ν̄_d` rather than the total, so an
+    /// eigenvalue run produces `k_p` instead of `k`. See
+    /// [`Nuclide::with_prompt_only_nubar`]. `false` (the default, and what
+    /// every constructor produces) is the physics.
+    prompt_only: bool,
+    /// Delayed-neutron data from ENDF **MF=1/455** and **MF=5/455** — the
+    /// precursor decay constants λ_k, the delayed yield ν̄_d(E) and each
+    /// group's share p_k(E). GitHub #262.
+    ///
+    /// `None` for a nuclide whose evaluation carries no MT=455 (every
+    /// non-fissionable nuclide, and a few fissionable ones), and on the LOW
+    /// tier. **Applied by default where the evaluation supplies it** — it is
+    /// physics the data carries, so the workspace rule puts it on rather than
+    /// behind a builder.
+    delayed: Option<DelayedData>,
 }
 
 /// Upper energy \[eV\] of the 0 K elastic grid retained for DBRC.
@@ -366,6 +382,8 @@ impl Nuclide {
             dbrc: None,
             // LOW tier has no pointwise reconstruction, so no 0 K grid for DBRC.
             elastic_0k: Vec::new(),
+            delayed: None,
+            prompt_only: false,
         })
     }
 
@@ -644,7 +662,16 @@ impl Nuclide {
     /// Every site that needs ν̄ goes through here, so the ablation cannot reach
     /// one cross-section branch and miss another.
     pub fn nu_bar(&self, e: f64) -> f64 {
-        self.nu.at(self.nu_frozen_at.unwrap_or(e))
+        let total = self.nu.at(self.nu_frozen_at.unwrap_or(e));
+        if self.prompt_only {
+            // Prompt-only ablation (GitHub #262): the delayed yield is removed
+            // from production. This is what makes the second eigenvalue solve
+            // of the k-ratio route, `k_p`, a different calculation rather than
+            // the same one with a relabelled answer.
+            (total - self.nu_delayed(self.nu_frozen_at.unwrap_or(e))).max(0.0)
+        } else {
+            total
+        }
     }
 
     /// The incident energy \[eV\] the fission spectrum χ should be evaluated at,
@@ -1338,6 +1365,12 @@ impl Nuclide {
             urr: None,
             dbrc: None,
             elastic_0k,
+            // Delayed-neutron data, read at the same single funnel point as
+            // everything else. A nuclide with no MT=455 gets `None`, which is
+            // the honest representation of "this evaluation does not say" —
+            // NOT a zero delayed fraction, which would read as a measurement.
+            delayed: DelayedData::from_tape(tape, mat)?,
+            prompt_only: false,
         };
 
         // CORRECT PHYSICS IS THE DEFAULT (workspace hard rule, 2026-09-20).
@@ -3225,6 +3258,209 @@ mod tests {
             let lambda = langevin_inverse(mu);
             let l = 1.0 / lambda.r_tanh() - 1.0 / lambda;
             assert!((l - mu).abs() < 1.0e-6, "L(L⁻¹({mu})) = {l}");
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Delayed-neutron data (GitHub #262)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Delayed-neutron data for one nuclide: ENDF **MF=1/455** (precursor decay
+/// constants and ν̄_d(E)) and **MF=5/455** (per-group share p_k(E)).
+///
+/// # Why this is on `Nuclide` and not derived at the tally
+///
+/// β_eff, Λ and every point-kinetics parameter downstream of them are
+/// properties of *which* fission neutrons are delayed and *how long* their
+/// precursors live. Neither is recoverable from a total-ν̄ transport run: a
+/// code that transports prompt and delayed neutrons together, born at the same
+/// instant, produces exactly the right `k` and has **no information at all**
+/// about β. That is what this crate did before #262, and why
+/// `DelayedGroupFilter` could only ever tally zero (GitHub #278).
+///
+/// # What is and is not modelled
+///
+/// The **yields and lifetimes** are here. The delayed neutrons are still born
+/// at the same instant as the prompt ones in the eigenvalue path — the
+/// standard `k`-eigenvalue approximation — so this supports the *ratio* route
+/// to β_eff (`1 − k_p/k`), which is what #262 scope item 3 asks for. It does
+/// **not** by itself give a time-dependent solution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DelayedData {
+    /// Precursor decay constants λ_k \[s⁻¹\], in ENDF tape order.
+    pub lambda: Vec<f64>,
+    /// Incident-energy grid \[eV\] for ν̄_d, ascending.
+    pub energy: Vec<f64>,
+    /// Total delayed yield ν̄_d aligned with [`Self::energy`].
+    pub nu_delayed: Vec<f64>,
+    /// Per-group share `p_k(E)` as `(E [eV], fraction)`, one table per group.
+    /// Empty when the evaluation carries MF=1/455 but no usable MF=5/455, in
+    /// which case [`Self::group_fraction`] falls back to an equal split and
+    /// says so.
+    pub group_fraction: Vec<Vec<(f64, f64)>>,
+    /// `true` when the tape used the energy-dependent decay-constant form
+    /// (`LDG=1`) and [`Self::lambda`] holds only the lowest-energy set.
+    /// Carried so a consumer can refuse rather than silently use a λ that is
+    /// wrong at its energy.
+    pub lambda_is_lowest_energy_only: bool,
+}
+
+impl DelayedData {
+    /// Read MF=1/455 and MF=5/455 off a tape. `Ok(None)` when the evaluation
+    /// has no delayed-neutron data at all.
+    pub fn from_tape(
+        tape: &njoy_outram_park_fork::endf::tape::Tape,
+        mat: i32,
+    ) -> Result<Option<Self>, NjoyError> {
+        use njoy_outram_park_fork::nuclear_data::delayed::{DelayedChi, DelayedNuBar};
+        let Some(nu_d) = DelayedNuBar::from_endf(tape, mat)? else {
+            return Ok(None);
+        };
+        let chi = DelayedChi::from_endf(tape, mat)?;
+        let group_fraction = chi
+            .map(|c| c.groups.into_iter().map(|g| g.fraction).collect())
+            .unwrap_or_default();
+        Ok(Some(Self {
+            lambda: nu_d.lambda,
+            energy: nu_d.energy,
+            nu_delayed: nu_d.nu_delayed,
+            group_fraction,
+            lambda_is_lowest_energy_only: nu_d.ldg1_energy_dependent,
+        }))
+    }
+
+    /// Number of precursor groups.
+    pub fn n_groups(&self) -> usize {
+        self.lambda.len()
+    }
+
+    /// Total delayed yield ν̄_d at incident energy `e` \[eV\], lin-lin
+    /// interpolated and clamped at the table ends.
+    pub fn nu_delayed_at(&self, e: f64) -> f64 {
+        interp_table(&self.energy, &self.nu_delayed, e)
+    }
+
+    /// Group `k`'s share of the delayed emission at incident energy `e`.
+    ///
+    /// Falls back to `1 / n_groups` when the evaluation carried no MF=5/455.
+    /// That is a stated approximation, not a measurement: it gives the right
+    /// *total* delayed fraction and the wrong *per-group* split, so a β_k
+    /// spectrum built on it is not a result to quote.
+    pub fn group_fraction(&self, k: usize, e: f64) -> f64 {
+        if k >= self.n_groups() {
+            return 0.0;
+        }
+        let Some(table) = self.group_fraction.get(k) else {
+            return 1.0 / self.n_groups() as f64;
+        };
+        if table.is_empty() {
+            return 1.0 / self.n_groups() as f64;
+        }
+        let xs: Vec<f64> = table.iter().map(|&(x, _)| x).collect();
+        let ys: Vec<f64> = table.iter().map(|&(_, y)| y).collect();
+        interp_table(&xs, &ys, e)
+    }
+
+    /// Whether the per-group split came from the evaluation (`true`) or is the
+    /// equal-split fallback (`false`).
+    pub fn has_evaluated_group_split(&self) -> bool {
+        self.group_fraction.len() == self.n_groups()
+            && self.group_fraction.iter().all(|t| !t.is_empty())
+    }
+}
+
+/// Lin-lin interpolation on an ascending grid, clamped at both ends.
+fn interp_table(xs: &[f64], ys: &[f64], x: f64) -> f64 {
+    if xs.is_empty() || ys.len() != xs.len() {
+        return 0.0;
+    }
+    if x <= xs[0] {
+        return ys[0];
+    }
+    if x >= xs[xs.len() - 1] {
+        return ys[ys.len() - 1];
+    }
+    let i = xs.partition_point(|&g| g <= x).max(1) - 1;
+    let (x0, x1) = (xs[i], xs[i + 1]);
+    if x1 == x0 {
+        return ys[i];
+    }
+    ys[i] + (ys[i + 1] - ys[i]) * (x - x0) / (x1 - x0)
+}
+
+impl Nuclide {
+    /// The nuclide's delayed-neutron data, or `None` when its evaluation
+    /// carries none.
+    pub fn delayed(&self) -> Option<&DelayedData> {
+        self.delayed.as_ref()
+    }
+
+    /// **Ablation control: transport with the PROMPT yield only.**
+    ///
+    /// Deliberately incomplete physics; a measurement tool, not a model
+    /// option. An eigenvalue run over a set of prompt-only nuclides gives
+    /// `k_p`, and `β_eff ≈ 1 − k_p / k` is the ratio route to the effective
+    /// delayed fraction (GitHub #262 scope item 3).
+    ///
+    /// # This silently does nothing on a nuclide with no delayed data
+    ///
+    /// `ν̄_d` is zero there, so `k_p == k` and the resulting β is zero. That
+    /// is not a measurement of "no delayed neutrons"; it is the absence of
+    /// MT=455 on the tape. [`crate::physics::kinetics`] checks for it and
+    /// refuses rather than reporting the zero.
+    pub fn with_prompt_only_nubar(mut self) -> Self {
+        self.prompt_only = true;
+        self
+    }
+
+    /// Whether this nuclide is currently in the prompt-only ablation.
+    pub fn is_prompt_only(&self) -> bool {
+        self.prompt_only
+    }
+
+    /// Whether this nuclide can fission at all, judged by its ν̄ being
+    /// non-zero somewhere on the fast range.
+    ///
+    /// Used to decide whether missing delayed data *matters*: a
+    /// non-fissionable nuclide has no delayed neutrons to be missing.
+    pub fn is_fissionable(&self) -> bool {
+        [0.0253, 1.0e3, 1.0e6, 1.4e7]
+            .iter()
+            .any(|&e| self.nu_bar(e) > 0.0)
+    }
+
+    /// Delayed yield ν̄_d(E), and 0 for a nuclide with no delayed data.
+    pub fn nu_delayed(&self, e: f64) -> f64 {
+        self.delayed.as_ref().map_or(0.0, |d| d.nu_delayed_at(e))
+    }
+
+    /// Prompt yield ν̄_p(E) = ν̄(E) − ν̄_d(E).
+    ///
+    /// # The subtraction, and why it is floored at zero
+    ///
+    /// ν̄ comes from MF=1/452 (total) and ν̄_d from MF=1/455; they are separate
+    /// tabulations on separate grids, so their difference can go very slightly
+    /// negative at a grid point through interpolation alone. A negative prompt
+    /// yield is unphysical and would make `k_prompt` exceed `k`, inverting the
+    /// sign of β. Flooring is the right fix and is stated rather than hidden;
+    /// it has never been observed to bite by more than ~1e-6 on the
+    /// evaluations in `reference-data/endf/`.
+    pub fn nu_prompt(&self, e: f64) -> f64 {
+        (self.nu_bar(e) - self.nu_delayed(e)).max(0.0)
+    }
+
+    /// Delayed fraction β(E) = ν̄_d(E) / ν̄(E) for this nuclide alone.
+    ///
+    /// **This is not β_eff.** It is the nuclide's bare delayed fraction, with
+    /// no spatial or energy weighting by the adjoint flux. β_eff for a system
+    /// is what [`crate::physics::kinetics`] computes.
+    pub fn delayed_fraction(&self, e: f64) -> f64 {
+        let nu = self.nu_bar(e);
+        if nu > 0.0 {
+            self.nu_delayed(e) / nu
+        } else {
+            0.0
         }
     }
 }

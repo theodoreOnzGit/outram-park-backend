@@ -102,38 +102,58 @@ const X: [f64; 8] = [0.0, 100.0, 300.0, 800.0, 1050.0, 1250.0, 1450.0, 1550.0];
 const Y: [f64; 7] = [0.0, 100.0, 300.0, 1000.0, 1600.0, 1800.0, 1900.0];
 const Z: [f64; 4] = [0.0, 100.0, 600.0, 700.0];
 
-/// `(name, tape, atomic mass, natural abundance)` for every nuclide the
-/// substituted materials need.
-const NUCLIDES: &[(&str, &str, f64, f64)] = &[
-    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf", 1.008, 0.999_885),
-    ("C12", "n-006_C_012-ENDF8.0.endf", 12.011, 0.9893),
-    ("C13", "n-006_C_013-ENDF8.0.endf", 13.003, 0.0107),
-    ("O16", "n-008_O_016-ENDF8.0.endf", 15.999, 0.997_57),
-    ("Na23", "n-011_Na_023-ENDF8.0.endf", 22.990, 1.0),
-    ("Mg24", "n-012_Mg_024-ENDF8.0.endf", 24.305, 0.7899),
-    ("Mg25", "n-012_Mg_025-ENDF8.0.endf", 24.305, 0.1000),
-    ("Mg26", "n-012_Mg_026-ENDF8.0.endf", 24.305, 0.1101),
-    ("Al27", "n-013_Al_027-ENDF8.0.endf", 26.982, 1.0),
-    ("Si28", "n-014_Si_028-ENDF8.0.endf", 28.085, 0.922_23),
-    ("Si29", "n-014_Si_029-ENDF8.0.endf", 28.085, 0.046_85),
-    ("Si30", "n-014_Si_030-ENDF8.0.endf", 28.085, 0.030_92),
-    ("Fe54", "n-026_Fe_054-ENDF8.0.endf", 55.845, 0.058_45),
-    ("Fe56", "n-026_Fe_056-ENDF8.0.endf", 55.845, 0.917_54),
-    ("Fe57", "n-026_Fe_057-ENDF8.0.endf", 55.845, 0.021_19),
-    ("Fe58", "n-026_Fe_058-ENDF8.0.endf", 55.845, 0.002_82),
+/// `(name, tape, element molar mass)` for every nuclide this case needs.
+///
+/// # One isotope per element, and why
+///
+/// The first version of this test carried all sixteen natural isotopes of the
+/// eight elements. It was **OOM-killed** (SIGKILL) after 37 minutes at 13 GB
+/// of a 15 GB machine with no swap. Two causes, both worth recording rather
+/// than quietly working around:
+///
+/// - Sixteen simultaneous pointwise reconstructions at a 1e-3 tolerance is
+///   simply a lot of resident grid.
+/// - **Fe-57 is a known RECONR blow-up in this very workspace** — it and
+///   Mo-95 are `LRF=7` evaluations that OOM at every tolerance tried, which is
+///   already an open item in this repo's own task list. Including it was the
+///   mistake, and it was made by listing isotopes from an abundance table
+///   without checking them against what this workspace already knows.
+///
+/// So each element is folded onto its **principal** isotope at the element's
+/// full atom fraction. That is a third documented deviation from the
+/// notebook's materials, on top of the two in the module docs. It matters
+/// least for the elements that dominate — H is 99.99 % H-1 and O is 99.76 %
+/// O-16 — and most for Mg (78.99 % Mg-24) and Si (92.23 % Si-28). Since the
+/// notebook publishes no number, there is nothing for it to bias; it is
+/// recorded so a future numeric comparison does not start from the wrong
+/// composition.
+const NUCLIDES: &[(&str, &str, f64)] = &[
+    ("H1", "n-001_H_001-ENDF8.0-Beta6.endf", 1.008),
+    ("C12", "n-006_C_012-ENDF8.0.endf", 12.011),
+    ("O16", "n-008_O_016-ENDF8.0.endf", 15.999),
+    ("Na23", "n-011_Na_023-ENDF8.0.endf", 22.990),
+    ("Mg24", "n-012_Mg_024-ENDF8.0.endf", 24.305),
+    ("Al27", "n-013_Al_027-ENDF8.0.endf", 26.982),
+    ("Si28", "n-014_Si_028-ENDF8.0.endf", 28.085),
+    ("Fe56", "n-026_Fe_056-ENDF8.0.endf", 55.845),
 ];
+
+/// Reconstruction tolerance. Looser than the 1e-3 used for criticality work
+/// here: this case compares no number against the notebook, so grid fidelity
+/// buys nothing and costs the memory that killed the first attempt.
+const RECON_TOL: f64 = 5.0e-3;
 
 fn load_nuclides() -> Option<Vec<Nuclide>> {
     let base =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../reference-data/endf");
     let mut out = Vec::with_capacity(NUCLIDES.len());
-    for (name, file, _, _) in NUCLIDES {
+    for (name, file, _) in NUCLIDES {
         let p = base.join(file);
         if !p.exists() {
             eprintln!("SKIP: {} not in this checkout", p.display());
             return None;
         }
-        out.push(Nuclide::from_endf_file(&p, name, TEMP, 1.0e-3).ok()?);
+        out.push(Nuclide::from_endf_file(&p, name, TEMP, RECON_TOL).ok()?);
     }
     Some(out)
 }
@@ -142,37 +162,31 @@ fn index_of(name: &str) -> usize {
     NUCLIDES.iter().position(|(n, ..)| *n == name).unwrap()
 }
 
-/// Build a material from `(element, atom fraction)` pairs at a mass density,
-/// splitting each element over its natural isotopes.
+/// Build a material from `(principal isotope, atom fraction)` pairs at a mass
+/// density.
 ///
 /// Atom densities come out in atoms/barn-cm, which is what this crate's
 /// `NuclideComponent::atom_density` means (see the units table in the crate
-/// `CLAUDE.md`) — a units error here is the kind that produces a plausible
-/// but meaningless answer, so the conversion is written out:
+/// `CLAUDE.md`) — a units error here is the kind that produces a plausible but
+/// meaningless answer, so the conversion is written out:
 /// `N_i = rho * N_A / M_bar * x_i * 1e-24`.
-fn material(
-    id: i32,
-    name: &str,
-    density_g_cc: f64,
-    elements: &[(&[&str], f64)],
-) -> Material {
-    // Mean molar mass over the supplied atom fractions.
-    let mut m_bar = 0.0;
-    for (isos, frac) in elements {
-        let mass = NUCLIDES[index_of(isos[0])].2;
-        m_bar += frac * mass;
-    }
+///
+/// `M_bar` uses each **element's** molar mass, not its principal isotope's
+/// mass, so the number density matches the notebook's composition even though
+/// the isotopics do not.
+fn material(id: i32, name: &str, density_g_cc: f64, elements: &[(&str, f64)]) -> Material {
+    let m_bar: f64 = elements
+        .iter()
+        .map(|(iso, frac)| frac * NUCLIDES[index_of(iso)].2)
+        .sum();
     let n_total = density_g_cc * AVOGADRO / m_bar * 1.0e-24; // atoms/barn-cm
-    let mut components = Vec::new();
-    for (isos, frac) in elements {
-        for iso in *isos {
-            let i = index_of(iso);
-            components.push(NuclideComponent {
-                nuclide_idx: i,
-                atom_density: n_total * frac * NUCLIDES[i].3,
-            });
-        }
-    }
+    let components = elements
+        .iter()
+        .map(|(iso, frac)| NuclideComponent {
+            nuclide_idx: index_of(iso),
+            atom_density: n_total * frac,
+        })
+        .collect();
     Material {
         id,
         name: name.into(),
@@ -182,29 +196,28 @@ fn material(
 }
 
 /// Material 0 = air (N and Ar folded into O), material 1 = concrete (K and Ca
-/// folded into Si). See the module docs for the substitution and its size.
+/// folded into Si). See the module docs for the substitutions and their size.
 fn materials() -> Vec<Material> {
-    let o = &["O16"][..];
     let air = material(
         1,
         "air (N,Ar -> O)",
         0.001205,
-        &[(o, 0.784431 + 0.210748 + 0.0046)],
+        &[("O16", 0.784431 + 0.210748 + 0.0046)],
     );
     let concrete = material(
         2,
         "concrete (K,Ca -> Si)",
         2.3,
         &[
-            (&["H1"][..], 0.168759),
-            (&["C12", "C13"][..], 0.001416),
-            (o, 0.562524),
-            (&["Na23"][..], 0.011838),
-            (&["Mg24", "Mg25", "Mg26"][..], 0.0014),
-            (&["Al27"][..], 0.021354),
+            ("H1", 0.168759),
+            ("C12", 0.001416),
+            ("O16", 0.562524),
+            ("Na23", 0.011838),
+            ("Mg24", 0.0014),
+            ("Al27", 0.021354),
             // Si, plus K (0.005656) and Ca (0.018674) folded in.
-            (&["Si28", "Si29", "Si30"][..], 0.204115 + 0.005656 + 0.018674),
-            (&["Fe54", "Fe56", "Fe57", "Fe58"][..], 0.00426),
+            ("Si28", 0.204115 + 0.005656 + 0.018674),
+            ("Fe56", 0.00426),
         ],
     );
     vec![air, concrete]
@@ -376,7 +389,7 @@ fn n_scored(t: &Tally, bins: &[usize]) -> usize {
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
-    ignore = "reconstructs 16 nuclides from ENDF and runs three shielding transports (~20 min); runs by default"
+    ignore = "reconstructs 8 nuclides from ENDF and runs four shielding transports (~20 min); runs by default"
 )]
 fn shielded_room_weight_window() {
     let Some(nucs) = load_nuclides() else {
@@ -396,7 +409,7 @@ fn shielded_room_weight_window() {
         &mats,
         &nucs,
         &src,
-        &settings(20_000, 20_260_922, VarianceReduction::default()),
+        &settings(6_000, 20_260_922, VarianceReduction::default()),
         Some(&mut analog_tally),
     );
     let t_analog = t0.elapsed().as_secs_f64();
@@ -415,7 +428,7 @@ fn shielded_room_weight_window() {
         &mats,
         &nucs,
         &src,
-        &settings(4_000, 7_919, VarianceReduction::default()),
+        &settings(1_500, 7_919, VarianceReduction::default()),
         Some(&mut gen_tally),
     );
     let t_generate = t0.elapsed().as_secs_f64();

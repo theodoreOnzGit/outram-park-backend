@@ -50,3 +50,56 @@ paired over seeds. Two arms differing **only** in `KeffSettings::variance_reduct
    chosen for that reason: it measures the unbiasedness, which is what matters
    for correctness, on a problem where the variance argument cannot carry the
    result.
+
+---
+
+# Addendum — a second prediction, for the residual the first run left
+
+Written 2026-09-22 **after** the 96-seed run and **before** the `N = 8000`
+run's output was read. (The 8000-particle job was already in flight when this
+was written; nothing below is derived from its result, which had not been
+looked at. The reasoning is from theory and from the 96-seed numbers alone.)
+
+## What the first run left unresolved
+
+| | 24 seeds | 96 seeds |
+|---|---|---|
+| survival − analog | +212 ± 130 pcm (1.63 σ) | **+122 ± 62 pcm (1.97 σ)** |
+
+Prediction 1 said the difference should be **zero**. At 1.97 σ it is not
+resolved either way, and the significance went *up*, not down, when the
+statistics improved. Per this crate's own history — the hybrid-tracking gate
+that was "inside 4 σ and equally consistent with a real 1200 pcm bias" — that
+is a result that cannot be left as "consistent with zero" and called done.
+
+## The hypothesis
+
+**Fission-bank population control.** Power iteration with a fixed-size fission
+bank carries a well-known eigenvalue bias of order `1/N` in the bank size,
+with a coefficient proportional to the **variance of the per-history fission
+production**. Both arms carry it. Survival biasing changes that variance by
+construction — that is what it is for — so the two arms legitimately sit at
+slightly different points of the same `1/N` curve at finite `N`. This is a
+property of power iteration, not a defect in the estimator.
+
+Both runs above used `N = 2000` histories per generation.
+
+## The falsifiable consequence, stated before measuring
+
+Run the identical ablation at **`N = 8000`**, four times the bank.
+
+- **If the residual is population control**, it scales as `1/N` and must fall
+  to **≈ +31 pcm**, i.e. consistent with zero at the ~45 pcm sensitivity a
+  32-seed run at that `N` provides.
+- **If it stays near +122 pcm**, it is *not* population control, the residual
+  is real, and there is a defect in the survival-biasing estimator to find —
+  which would be reported as such, and the technique would not be recommended
+  for use until it was found.
+
+Anything in between (say +60 to +90 pcm) is a partial result and would be
+reported as one, with the next step being `N = 32000` rather than a
+declaration either way.
+
+**The scaling is the test, not the size.** A single number consistent with
+zero at wider error bars would prove nothing, which is exactly the trap the
+first run fell into.

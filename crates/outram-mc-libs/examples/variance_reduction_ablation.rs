@@ -108,9 +108,9 @@ fn model() -> (Geometry, Vec<Material>) {
     (geom, mats)
 }
 
-fn settings(seed: u64, vr: VarianceReduction) -> KeffSettings {
+fn settings(seed: u64, n_particles: usize, vr: VarianceReduction) -> KeffSettings {
     KeffSettings {
-        n_particles: 2000,
+        n_particles,
         n_inactive: 15,
         n_active: 40,
         temperature_k: TEMP,
@@ -136,6 +136,14 @@ fn main() {
         .nth(1)
         .and_then(|s| s.parse().ok())
         .unwrap_or(16);
+    // Second argument: histories per generation. It is a knob because the
+    // fission-bank population-control bias of power iteration scales as 1/N,
+    // and that is a *hypothesis about the residual* this study has to be able
+    // to test rather than assert — see the V&V write-up.
+    let n_particles: usize = std::env::args()
+        .nth(2)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(2000);
 
     let Some(nucs) = heu() else {
         eprintln!("SKIP: ENDF tapes not in this checkout");
@@ -166,12 +174,15 @@ fn main() {
         let t0 = Instant::now();
         let a = run_keff_csg(
             &geom, &mats, &nucs, src,
-            &settings(seed, VarianceReduction::default()), None,
+            &settings(seed, n_particles, VarianceReduction::default()), None,
         );
         t_analog += t0.elapsed().as_secs_f64();
 
         let t0 = Instant::now();
-        let b = run_keff_csg(&geom, &mats, &nucs, src, &settings(seed, survival.clone()), None);
+        let b = run_keff_csg(
+            &geom, &mats, &nucs, src,
+            &settings(seed, n_particles, survival.clone()), None,
+        );
         t_survival += t0.elapsed().as_secs_f64();
 
         k_analog.push(a.k_mean);

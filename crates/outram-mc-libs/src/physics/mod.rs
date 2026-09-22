@@ -56,6 +56,7 @@ pub mod fixed_source;
 pub mod scatter;
 pub mod fission;
 pub mod keff;
+pub mod kinetics;
 pub mod search;
 pub mod physics_mg;
 pub mod reactor_physics;
