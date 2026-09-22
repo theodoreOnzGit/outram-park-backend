@@ -97,6 +97,7 @@ fn track_capture_does_not_perturb_the_run() {
         Some(&mut traced_tally),
         Some(&mut rec),
         None,
+        None,
     );
 
     assert_eq!(
@@ -147,6 +148,7 @@ fn tracks_in_a_void_sphere_are_a_straight_line_to_the_boundary() {
         },
         None,
         Some(&mut rec),
+        None,
         None,
     );
 
@@ -216,6 +218,7 @@ fn a_surface_source_records_every_crossing_with_its_weight() {
         None,
         None,
         Some(&mut ss),
+        None,
     );
 
     println!(

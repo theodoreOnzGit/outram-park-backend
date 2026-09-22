@@ -73,6 +73,7 @@ use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
     free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
+use crate::geometry::distribcell::DistribcellOffsets;
 use crate::geometry::surface::BoundaryType;
 use crate::physics::track_output::{TrackEvent, TrackRecorder, TrackState};
 use crate::source::extra::{SurfaceCrossing, SurfaceSource};
@@ -503,6 +504,7 @@ pub fn run_keff_csg_seq(
                     leak_edges_gen,
                     &mut leak_batch,
                     &settings.variance_reduction,
+                    None,
                     None,
                     None,
                 );
@@ -1028,7 +1030,7 @@ pub(crate) fn transport_history(
     debug_assert!(analog.is_analog());
     transport_history_vr(
         site, geom, materials, nuclides, majorants, temp, k_running, next_bank, seed, tally,
-        batch, leak_edges, leak_batch, &analog, None, None,
+        batch, leak_edges, leak_batch, &analog, None, None, None,
     )
 }
 
@@ -1072,6 +1074,11 @@ pub(crate) fn transport_history_vr(
     // watched surface WITH ITS WEIGHT, for replay as a second stage's source.
     // Like track capture this draws no randomness.
     mut surface_source: Option<&mut SurfaceSource>,
+    // Distribcell offset tables (GitHub #261). Supplied when a tally carries a
+    // `DistribcellFilter` or a `CellInstanceFilter`; `None` otherwise, and the
+    // instance is then `None`, which those filters treat as "no match" rather
+    // than as instance 0.
+    distribcell: Option<&DistribcellOffsets>,
 ) -> HistoryOutcome {
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
@@ -1257,6 +1264,11 @@ pub(crate) fn transport_history_vr(
             };
             let leaf = *path.leaf();
             let cell_idx = leaf.cell;
+            // One walk of the coordinate stack per located path, not per
+            // score: the instance depends on where the particle IS, not on
+            // what is being tallied.
+            let cell_instance =
+                distribcell.and_then(|d| d.instance_of(geom, &path.levels));
 
             let sigma_t = match path.material {
                 Some(m) => materials[m].macro_xs_total(e, nuclides),
@@ -1392,7 +1404,7 @@ pub(crate) fn transport_history_vr(
                         let mid = stream(r, u, 0.5 * seg);
                         score_track_length(
                             batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
-                            mxs.as_ref(), w,
+                            mxs.as_ref(), w, cell_instance,
                         );
                     }
                     // ── Delta tracking: COLLISION estimator ────────────────
@@ -1452,6 +1464,7 @@ pub(crate) fn transport_history_vr(
                                         at,
                                         Some(&mxs),
                                         w,
+                                        cell_instance,
                                     );
                                 }
                             }

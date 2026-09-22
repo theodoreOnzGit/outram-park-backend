@@ -242,6 +242,10 @@ pub fn score_track_length(
     position: Position,
     macro_xs: Option<&MacroXs>,
     weight: f64,
+    // Instance of `cell_idx` within its repeated universe (GitHub #261).
+    // `None` where the caller has no distribcell tables, which is every
+    // caller that does not ask for a per-instance tally.
+    cell_instance: Option<usize>,
 ) {
     if distance <= 0.0 || !distance.is_finite() {
         return;
@@ -253,6 +257,7 @@ pub fn score_track_length(
         energy,
         surface_idx: usize::MAX,
         position,
+        cell_instance,
         // The track-length estimator's caller does not yet thread the angle,
         // time or particle type through. `..Default::default()` records that
         // honestly: an angular, time or particle filter on a track-length tally
@@ -529,11 +534,14 @@ pub fn score_collision(
     sigma_t: f64,
     macro_xs: &MacroXs,
     weight: f64,
+    // See `score_track_length`.
+    cell_instance: Option<usize>,
 ) {
     if sigma_t <= 0.0 {
         return;
     }
     let ev = FilterEvent {
+        cell_instance,
         cell_idx,
         material_idx,
         universe_idx,
@@ -636,9 +644,9 @@ mod tests {
             decay_rate: 0.0,
         };
         // Two collisions in cell 0 (Σ_t = 0.5 ⇒ 2 cm each), one in cell 5 (ignored).
-        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0);
-        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0);
-        score_collision(&mut t, 5, 0, 0, 1.0e6, 0.5, &xs, 1.0);
+        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        score_collision(&mut t, 0, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
+        score_collision(&mut t, 5, 0, 0, 1.0e6, 0.5, &xs, 1.0, None);
         assert!(
             (t.bins[0].sum - 4.0).abs() < 1e-12,
             "cell-0 flux sum {}",

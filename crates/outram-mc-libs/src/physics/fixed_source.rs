@@ -183,7 +183,9 @@ pub fn run_fixed_source(
     settings: &FixedSourceSettings,
     tally: Option<&mut Tally>,
 ) -> FixedSourceResult {
-    run_fixed_source_traced(geom, materials, nuclides, source, settings, tally, None, None)
+    run_fixed_source_traced(
+        geom, materials, nuclides, source, settings, tally, None, None, None,
+    )
 }
 
 /// [`run_fixed_source`] with **particle track capture** — GitHub #271.
@@ -202,6 +204,13 @@ pub fn run_fixed_source_traced(
     mut tally: Option<&mut Tally>,
     mut tracks: Option<&mut crate::physics::track_output::TrackRecorder>,
     mut surface_source: Option<&mut crate::source::extra::SurfaceSource>,
+    // Distribcell offset tables (GitHub #261), for a tally carrying a
+    // `DistribcellFilter` or a `CellInstanceFilter`.
+    //
+    // This is a parameter rather than something the transport derives because
+    // the tables are built PER TARGET CELL, and only the caller knows which
+    // cell its tally is about.
+    distribcell: Option<&crate::geometry::distribcell::DistribcellOffsets>,
 ) -> FixedSourceResult {
     let mut seed = settings.seed;
     let n_bins = tally.as_ref().map(|t| t.n_bins()).unwrap_or(0);
@@ -250,6 +259,7 @@ pub fn run_fixed_source_traced(
                     &settings.variance_reduction,
                     tracks.as_deref_mut(),
                     surface_source.as_deref_mut(),
+                    distribcell,
                 );
                 production_sum += prod.production;
                 for s in next {
