@@ -349,10 +349,24 @@ fn source() -> FixedSource {
     }
 }
 
+/// Batches per `run_fixed_source` call.
+///
+/// This is the tally's **realization** count, not the particle count:
+/// `run_fixed_source` flushes one realization per batch (`fixed_source.rs:150`
+/// says so explicitly). The figure of merit below divides by it, and an
+/// earlier draft of that block passed the PARTICLE count instead, which would
+/// have computed every variance with n = 25000 where the truth is n = 10.
+///
+/// Every chunk size is kept a multiple of this so all ten batches are
+/// non-empty: `run_fixed_source` splits with `n.div_ceil(n_batches)` and stops
+/// early once the particles run out, so a chunk of 15 would flush 8
+/// realizations rather than 10 and silently desynchronise the count.
+const N_BATCHES: usize = 10;
+
 fn settings(n_particles: usize, seed: u64, vr: VarianceReduction) -> FixedSourceSettings {
     FixedSourceSettings {
         n_particles,
-        n_batches: 10,
+        n_batches: N_BATCHES,
         temperature_k: TEMP,
         seed,
         variance_reduction: vr,
@@ -383,16 +397,33 @@ fn n_scored(t: &Tally, bins: &[usize]) -> usize {
     bins.iter().filter(|&&b| t.bins[b].sum > 0.0).count()
 }
 
-/// Minimum number of scoring events a deep cell must carry before its variance
-/// estimate is used in a figure of merit.
+/// The largest relative standard deviation a deep cell may carry and still
+/// contribute a figure of merit.
 ///
-/// A bin hit once or twice has a sample variance dominated by its own sampling
-/// noise: `rel_std_dev` on `n = 1` scores is not small-but-uncertain, it is
-/// meaningless. Every cell below this threshold is reported by count and
-/// excluded from the aggregate rather than being folded in at face value,
-/// because a deep-penetration FOM is exactly where a handful of lucky scores
-/// would otherwise manufacture an impressive-looking ratio.
-const MIN_SCORES_FOR_FOM: u64 = 10;
+/// # Why this is a relative error and not a hit count
+///
+/// The obvious guard is "the bin must have been scored at least `k` times",
+/// and a first draft of this used `TallyBin::count >= 10`. That guard does
+/// nothing: `flush_batch` scores EVERY bin once per realization, including
+/// bins that accumulated exactly zero, so `count` equals the realization count
+/// for every bin in the mesh whether or not a particle ever reached it. The
+/// check was always true and excluded nothing.
+///
+/// The bin's own relative error carries the information the count was supposed
+/// to. For a cell hit in `k` of `n` realizations with comparable scores,
+/// `rel_std_dev = sqrt((n - k) / (k (n - 1)))`, so at `n = 10`:
+///
+/// | `k` | 1 | 2 | 3 | 4 | 5 |
+/// |---|---|---|---|---|---|
+/// | `rel_std_dev` | 1.00 | 0.67 | 0.51 | 0.41 | 0.33 |
+///
+/// A cap of 0.5 therefore admits a cell resolved in roughly 4 of 10 batches
+/// or better, and rejects the one- and two-hit cells whose variance estimate
+/// is dominated by its own sampling noise. Deep penetration is exactly where
+/// a couple of lucky scores would otherwise manufacture a flattering ratio.
+///
+/// Fixed before any figure of merit was computed.
+const MAX_REL_STD_DEV_FOR_FOM: f64 = 0.5;
 
 /// Figure of merit for one tally bin, `FOM = 1 / (R^2 · t)` with `R` the
 /// relative standard deviation — OpenMC's definition and the one #258's
@@ -403,11 +434,11 @@ const MIN_SCORES_FOR_FOM: u64 = 10;
 /// an unscored cell has an *undefined* FOM, and reporting it as `0.0` would
 /// let it be divided into a ratio as though it had been measured.
 fn fom(bin: &TallyBin, n_realizations: u64, t_seconds: f64) -> Option<f64> {
-    if bin.count < MIN_SCORES_FOR_FOM || bin.sum <= 0.0 || t_seconds <= 0.0 {
+    if bin.sum <= 0.0 || t_seconds <= 0.0 {
         return None;
     }
     let rel = bin.rel_std_dev(n_realizations);
-    if !rel.is_finite() || rel <= 0.0 {
+    if !rel.is_finite() || rel <= 0.0 || rel > MAX_REL_STD_DEV_FOR_FOM {
         return None;
     }
     Some(1.0 / (rel * rel * t_seconds))
@@ -433,9 +464,11 @@ fn shielded_room_weight_window() {
 
     // ── Arm 1: analog ──────────────────────────────────────────────────────
     let mut analog_tally = flux_tally();
-    // Bound once, used twice: the FOM below divides by this same count, and a
-    // literal repeated in two places is a silent wrong answer waiting to happen.
-    let n_analog = 2_500usize;
+    // Fixed in advance, before any result was seen. 2500 particles ran the
+    // analog arm in 6.6 s, which left a ~4.5 s budget for the weight-window
+    // arm -- too thin for the figure of merit to mean anything. 25000 is a
+    // multiple of N_BATCHES and puts the analog arm near a minute.
+    let n_analog = 25_000usize;
     let t0 = Instant::now();
     run_fixed_source(
         &geom,
@@ -498,57 +531,62 @@ fn shielded_room_weight_window() {
     let budget = (t_analog - t_generate).max(0.1);
     let mut ww_tally = flux_tally();
     let vr = VarianceReduction::default().with_weight_windows(ww);
-    // Calibrate the particle count from a short timing probe rather than
-    // guessing: a split-heavy run is much slower per source particle, and
-    // guessing would make the "matched cost" claim untrue in whichever
-    // direction flattered the result.
-    let mut probe_tally = flux_tally();
-    let t0 = Instant::now();
-    let n_probe = 100usize;
-    run_fixed_source(
-        &geom,
-        &mats,
-        &nucs,
-        &src,
-        &settings(n_probe, 13, vr.clone()),
-        Some(&mut probe_tally),
-    );
-    let per_particle = t0.elapsed().as_secs_f64() / n_probe as f64;
-    // **Hard particle cap as well as the time budget.**
-    //
-    // A first version of this test sized the weight-window arm from the time
-    // budget alone, with a 200 000 upper clamp. That is unbounded in practice:
-    // the probe's 200 particles are drawn from the source region, where the
-    // MAGIC windows are dense and histories die quickly, so `per_particle`
-    // underestimates the cost of a particle that actually gets steered into
-    // the shield. The run then blows straight past its budget and the
-    // `t_ww < 3 t_analog` assertion only fires HOURS later, after the damage.
-    // That test ran 45 minutes before it was stopped and rewritten.
-    //
-    // The cap is 25x the probe, which bounds the arm at ~25x the probe's
-    // measured wall-clock whatever the extrapolation says.
-    let from_budget = (budget / per_particle) as usize;
-    let n_ww = from_budget.clamp(50, 25 * n_probe);
-    println!(
-        "WW probe : {:.3} s per source particle; budget {budget:.1} s -> \
-         {from_budget} particles, capped to {n_ww}",
-        per_particle
-    );
 
+    // ── Bound the arm by WALL-CLOCK, because that is the actual criterion ───
+    //
+    // Two earlier attempts bounded it by particle count instead and both ran
+    // for over an hour on a ~5 s budget:
+    //
+    //   1. size from the time budget, clamp at 200 000 particles;
+    //   2. size from a 100-particle timing probe, clamp at 25x the probe.
+    //
+    // Both fail the same way, and the second is not a weaker version of the
+    // first -- it is the same error. The probe's particles are drawn in the
+    // SOURCE region, where the MAGIC windows are dense and histories die
+    // quickly; a particle that actually gets steered into the shield splits
+    // repeatedly and costs orders of magnitude more. So `per_particle` from
+    // any probe underestimates the real cost, a particle CAP cannot bound the
+    // TIME, and the `t_ww < 3 t_analog` assertion only fires hours later,
+    // after the damage.
+    //
+    // The fix is to stop extrapolating. Run in chunks and check the clock
+    // after each, which makes the matched-cost claim true by construction
+    // rather than by a prediction that was wrong twice. Chunks are sized at
+    // ~5 % of the REMAINING budget from the cost measured so far, so the
+    // overshoot is bounded by one chunk instead of by an extrapolation, and
+    // every chunk is a multiple of N_BATCHES so the realization count stays
+    // exact.
+    let hard_cap = 500_000usize; // structural backstop; the clock is the bound
     let t0 = Instant::now();
-    run_fixed_source(
-        &geom,
-        &mats,
-        &nucs,
-        &src,
-        &settings(n_ww, 20_260_922, vr),
-        Some(&mut ww_tally),
-    );
+    let mut n_ww = 0usize;
+    let mut ww_realizations = 0u64;
+    let mut chunk = N_BATCHES;
+    while t0.elapsed().as_secs_f64() < budget && n_ww < hard_cap {
+        run_fixed_source(
+            &geom,
+            &mats,
+            &nucs,
+            &src,
+            &settings(chunk, 7_919 + n_ww as u64, vr.clone()),
+            Some(&mut ww_tally),
+        );
+        n_ww += chunk;
+        ww_realizations += N_BATCHES as u64;
+        let elapsed = t0.elapsed().as_secs_f64();
+        let remaining = budget - elapsed;
+        if remaining <= 0.0 {
+            break;
+        }
+        let per_particle = elapsed / n_ww as f64;
+        let want = (0.05 * remaining / per_particle.max(1.0e-9)) as usize;
+        chunk = (want / N_BATCHES).clamp(1, 1_000) * N_BATCHES;
+    }
     let t_ww = t0.elapsed().as_secs_f64() + t_generate;
     let ww_deep = n_scored(&ww_tally, &deep);
     let ww_total: f64 = ww_tally.bins.iter().map(|b| b.sum).sum();
     println!(
-        "WW       : {t_ww:.1} s total (incl. generation), {ww_deep}/{} deep cells scored, \
+        "WW       : {t_ww:.1} s total (incl. generation), {n_ww} particles in \
+         {ww_realizations} realizations, {ww_deep}/{} deep cells scored, \
          total flux {ww_total:.3e}",
         deep.len()
     );
@@ -581,8 +619,8 @@ fn shielded_room_weight_window() {
     let mut ratios: Vec<f64> = Vec::new();
     let (mut ww_only, mut analog_only, mut neither) = (0usize, 0usize, 0usize);
     for &b in &deep {
-        let fa = fom(&analog_tally.bins[b], n_analog as u64, t_analog);
-        let fw = fom(&ww_tally.bins[b], n_ww as u64, t_ww);
+        let fa = fom(&analog_tally.bins[b], N_BATCHES as u64, t_analog);
+        let fw = fom(&ww_tally.bins[b], ww_realizations, t_ww);
         match (fa, fw) {
             (Some(a), Some(w)) => ratios.push(w / a),
             (None, Some(_)) => ww_only += 1,
@@ -591,7 +629,7 @@ fn shielded_room_weight_window() {
         }
     }
     println!(
-        "\nFOM (1/(R^2 t)) over {} deep cells, min {MIN_SCORES_FOR_FOM} scores to qualify:",
+        "\nFOM (1/(R^2 t)) over {} deep cells, rel err <= {MAX_REL_STD_DEV_FOR_FOM} to qualify:",
         deep.len()
     );
     println!(
@@ -601,10 +639,11 @@ fn shielded_room_weight_window() {
     );
     if ratios.is_empty() {
         println!(
-            "  FOM ratio: NOT MEASURABLE — no deep cell carries >= {MIN_SCORES_FOR_FOM} scores \
-             in both arms, so there is no cell on which the ratio is defined. The \
-             {ww_only} windows-only cells are the improvement; it cannot be expressed \
-             as a FOM ratio without inventing a variance for the analog arm."
+            "  FOM ratio: NOT MEASURABLE — no deep cell is resolved to within \
+             {MAX_REL_STD_DEV_FOR_FOM} relative error in BOTH arms, so there is no cell \
+             on which the ratio is defined. The {ww_only} windows-only cells are the \
+             improvement; it cannot be expressed as a FOM ratio without inventing a \
+             variance for the analog arm."
         );
     } else {
         let log_sum: f64 = ratios.iter().map(|r| r.ln()).sum();
