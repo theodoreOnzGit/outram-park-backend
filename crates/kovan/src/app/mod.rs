@@ -2501,6 +2501,7 @@ impl eframe::App for DigitiseApp {
                 }
                 let mut opened_paper = None;
                 let mut sort_paper = None;
+                let mut open_setup = false;
                 let (index, graph) = match self.workspace.as_ref() {
                     Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
                     _ => (None, None),
@@ -2509,9 +2510,17 @@ impl eframe::App for DigitiseApp {
                     match self.mindmap.ui(ui, root.as_ref(), index, graph) {
                         Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
                         Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
+                        // No Kovan folder yet and the user asked for
+                        // something that needs one: open setup rather than
+                        // leaving the request nowhere.
+                        Some(MindmapAction::OpenSetup) => open_setup = true,
                         None => {}
                     }
                 });
+                if open_setup {
+                    let root = self.home.root().cloned();
+                    self.setup.show_for(root.as_ref());
+                }
                 if let Some(citekey) = sort_paper {
                     // The dialog is drawn app-wide by `sort_form_ui`, so it
                     // opens here on the Mindmap rather than sending the user

@@ -114,6 +114,14 @@ pub enum MindmapAction {
     /// does not own that dialog: the Wiki, the Mindmap and the PDF reader
     /// all reach the same one, so it lives with the app.
     SortPaper(String),
+    /// Something needing a Kovan folder was asked for while none is open —
+    /// the caller should open the setup dialog (maintainer, 2026-09-22).
+    ///
+    /// The map draws the built-in corpus with no folder at all (#247), so
+    /// "no folder open" is the **ordinary** first-run state here, not an
+    /// error. An action that needs somewhere to write therefore has to say
+    /// so and offer the way out, rather than vanishing from the menu.
+    OpenSetup,
 }
 
 /// One paper's mindmap/literature card (§9). Author/year is a **display
@@ -398,6 +406,30 @@ fn create_subtopic(
         _ => EntityConfig::topic(slug, name),
     };
     config.save(&dir).map_err(|e| e.to_string())
+}
+
+/// The stand-in for "Add subtopic here…" when **no Kovan folder is open**:
+/// a button that says why the action is unavailable and opens the setup
+/// dialog. Returns `true` on the frame it is clicked.
+///
+/// Shown rather than hidden (maintainer, 2026-09-22, whose own words are the
+/// label). Kovan draws its built-in nuclear-engineering map with no folder
+/// at all (#247), so a first-time user right-clicks a corpus topic before
+/// they have a library — and an entry that is simply absent is
+/// indistinguishable from the feature not existing. It reads as a bug, and
+/// the maintainer reported it as one ("i can't even see add subtopic").
+/// Saying what is missing, and being the way to fix it, turns a dead end
+/// into the next step.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn setup_prompt_item(ui: &mut egui::Ui) -> bool {
+    let clicked = ui
+        .button("please setup your kovan repo before adding subtopic")
+        .on_hover_text("opens the Kovan setup dialog")
+        .clicked();
+    if clicked {
+        ui.close();
+    }
+    clicked
 }
 
 /// The "Add subtopic" entry of a right-click menu: a button that arms
@@ -985,6 +1017,7 @@ impl MindmapState {
         let mut pin_moves: Vec<((String, String), Point)> = Vec::new();
         let mut unpin = None;
         let mut draft = self.subtopic_draft.take();
+        let mut open_setup = false;
         let selected = self.selected.clone();
         let pinned = &self.pinned;
         let expanded = &self.expanded;
@@ -1163,13 +1196,17 @@ impl MindmapState {
                         drilled = Some(concept.id.clone());
                         ui.close();
                     }
-                    if concept.kind.accepts_subtopics() && root.is_some() {
-                        subtopic_menu_item(
-                            ui,
-                            &concept.id.path,
-                            &concept.title,
-                            &mut draft,
-                        );
+                    if concept.kind.accepts_subtopics() {
+                        if root.is_some() {
+                            subtopic_menu_item(
+                                ui,
+                                &concept.id.path,
+                                &concept.title,
+                                &mut draft,
+                            );
+                        } else if setup_prompt_item(ui) {
+                            open_setup = true;
+                        }
                     }
                     if is_pinned && ui.button("Unpin").clicked() {
                         unpin = Some((here_key.clone(), id.clone()));
@@ -1241,6 +1278,9 @@ impl MindmapState {
         }
         if let Some(citekey) = reclassify_for {
             action = Some(MindmapAction::SortPaper(citekey));
+        }
+        if open_setup {
+            action = Some(MindmapAction::OpenSetup);
         }
 
         if let (Some(root), Some(index), Some(graph)) = (root, index, graph) {
