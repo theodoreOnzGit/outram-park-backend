@@ -9968,6 +9968,679 @@ disappearing process.
 pub const NODE_LIMIT: usize = 20_000_000;
 ```
 
+## Module `expression`
+
+Expressions — how a basic event's probability is *computed* rather than
+stated.
+
+A fault tree's leaves are rarely given as bare numbers. A component with a
+failure rate and a mission time has an **exponential** probability; one
+that is tested periodically and repaired has a probability that saws up
+and down with the test interval. The Model Exchange Format writes these as
+expression trees, and this module evaluates them.
+
+Two of the fixture's models need this to be read at all: `HIPPS` defines
+every basic event by `<periodic-test>` or `<GLM>`, and its probabilities
+appear nowhere in the input as literals — SCRAM computes them. Reproducing
+those exact values is the verification, and
+`tests/scram_expressions.rs` does it.
+
+# Example
+
+```
+use raffles::scram::expression::Expression;
+
+// A component with failure rate 1e-6/h over a 1000 h mission.
+let e = Expression::exponential(
+    Expression::float(1e-6),
+    Expression::float(1000.0),
+);
+let p = e.value().unwrap();
+assert!((p - (1.0 - (-1e-3f64).exp())).abs() < 1e-15);
+```
+
+```rust
+pub mod expression { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `Parameters`
+
+A named parameter's value, resolved when an expression is evaluated.
+
+Upstream models parameters as first-class `Parameter` expressions in a
+graph with cycle detection (`src/parameter.{h,cc}`, `src/cycle.h`). Here a
+parameter is a *name* looked up in this table, which keeps [`Expression`]
+a tree rather than a graph — the cycle it could otherwise form is
+unrepresentable instead of detected.
+
+```rust
+pub type Parameters = std::collections::HashMap<String, f64>;
+```
+
+#### Enum `Expression`
+
+How a quantity is computed.
+
+One enum rather than upstream's class hierarchy, per the workspace
+no-trait-objects rule. Arguments are `Arc`-shared because the MEF lets one
+parameter feed several expressions, and because the rules forbid `Box`.
+
+```rust
+pub enum Expression {
+    Float(f64),
+    Bool(bool),
+    MissionTime,
+    Parameter(String),
+    Exponential {
+        lambda: std::sync::Arc<Expression>,
+        time: std::sync::Arc<Expression>,
+    },
+    Glm {
+        gamma: std::sync::Arc<Expression>,
+        lambda: std::sync::Arc<Expression>,
+        mu: std::sync::Arc<Expression>,
+        time: std::sync::Arc<Expression>,
+    },
+    Weibull {
+        alpha: std::sync::Arc<Expression>,
+        beta: std::sync::Arc<Expression>,
+        t0: std::sync::Arc<Expression>,
+        time: std::sync::Arc<Expression>,
+    },
+    PeriodicTestInstantRepair {
+        lambda: std::sync::Arc<Expression>,
+        tau: std::sync::Arc<Expression>,
+        theta: std::sync::Arc<Expression>,
+        time: std::sync::Arc<Expression>,
+    },
+    PeriodicTestInstantTest {
+        lambda: std::sync::Arc<Expression>,
+        mu: std::sync::Arc<Expression>,
+        tau: std::sync::Arc<Expression>,
+        theta: std::sync::Arc<Expression>,
+        time: std::sync::Arc<Expression>,
+    },
+    Add(Vec<Expression>),
+    Sub(Vec<Expression>),
+    Mul(Vec<Expression>),
+    Div(Vec<Expression>),
+    Neg(std::sync::Arc<Expression>),
+    Abs(std::sync::Arc<Expression>),
+    Min(Vec<Expression>),
+    Max(Vec<Expression>),
+    Mean(Vec<Expression>),
+    Exp(std::sync::Arc<Expression>),
+    Log(std::sync::Arc<Expression>),
+    Log10(std::sync::Arc<Expression>),
+    Pow(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
+    Sqrt(std::sync::Arc<Expression>),
+    Mod(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
+    Trunc(std::sync::Arc<Expression>),
+    Round(std::sync::Arc<Expression>),
+    Floor(std::sync::Arc<Expression>),
+    Ceil(std::sync::Arc<Expression>),
+    Ite {
+        condition: std::sync::Arc<Expression>,
+        consequent: std::sync::Arc<Expression>,
+        alternate: std::sync::Arc<Expression>,
+    },
+    Not(std::sync::Arc<Expression>),
+    And(Vec<Expression>),
+    Or(Vec<Expression>),
+    Eq(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
+    Lt(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
+    Gt(std::sync::Arc<Expression>, std::sync::Arc<Expression>),
+}
+```
+
+##### Variants
+
+###### `Float`
+
+A literal number. Upstream `ConstantExpression`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `f64` |  |
+
+###### `Bool`
+
+A literal boolean, evaluating to 1 or 0. Upstream `ConstantExpression`
+with a `bool`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `bool` |  |
+
+###### `MissionTime`
+
+`<system-mission-time/>` — the model's mission time.
+
+###### `Parameter`
+
+A named parameter, resolved against a [`Parameters`] table.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Exponential`
+
+`1 - exp(-lambda * t)`. Upstream `Exponential`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lambda` | `std::sync::Arc<Expression>` | Failure rate, per hour. |
+| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+
+###### `Glm`
+
+The GLM (failure-on-demand plus repairable) model. Upstream `Glm`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `gamma` | `std::sync::Arc<Expression>` | Probability of failure on demand. |
+| `lambda` | `std::sync::Arc<Expression>` | Failure rate, per hour. |
+| `mu` | `std::sync::Arc<Expression>` | Repair rate, per hour. |
+| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+
+###### `Weibull`
+
+The Weibull failure model. Upstream `Weibull`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha` | `std::sync::Arc<Expression>` | Scale parameter. |
+| `beta` | `std::sync::Arc<Expression>` | Shape parameter. |
+| `t0` | `std::sync::Arc<Expression>` | Time shift before failures can begin. |
+| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+
+###### `PeriodicTestInstantRepair`
+
+Periodic testing with **instant repair** — upstream's four-argument
+`PeriodicTest`, its `InstantRepair` flavour.
+
+The component is tested every `tau` hours starting at `theta`, and a
+discovered failure is repaired instantly, so the probability resets at
+every test. This is the flavour the fixture's `HIPPS` uses.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lambda` | `std::sync::Arc<Expression>` | Failure rate while functioning, per hour. |
+| `tau` | `std::sync::Arc<Expression>` | Time between tests, hours. |
+| `theta` | `std::sync::Arc<Expression>` | Time before the first test, hours. |
+| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+
+###### `PeriodicTestInstantTest`
+
+Periodic testing with an **instant test** and a repair rate —
+upstream's five-argument `PeriodicTest`, its `InstantTest` flavour.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `lambda` | `std::sync::Arc<Expression>` | Failure rate while functioning, per hour. |
+| `mu` | `std::sync::Arc<Expression>` | Repair rate, per hour. |
+| `tau` | `std::sync::Arc<Expression>` | Time between tests, hours. |
+| `theta` | `std::sync::Arc<Expression>` | Time before the first test, hours. |
+| `time` | `std::sync::Arc<Expression>` | Mission time, hours. |
+
+###### `Add`
+
+Sum of the arguments. Upstream `Add`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Sub`
+
+First argument minus the rest. Upstream `Sub`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Mul`
+
+Product of the arguments. Upstream `Mul`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Div`
+
+First argument divided by the rest. Upstream `Div`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Neg`
+
+Arithmetic negation. Upstream `Neg`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Abs`
+
+Absolute value. Upstream `Abs`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Min`
+
+Smallest argument. Upstream `Min`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Max`
+
+Largest argument. Upstream `Max`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Mean`
+
+Arithmetic mean of the arguments. Upstream `Mean`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Exp`
+
+`e` raised to the argument. Upstream `Exp`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Log`
+
+Natural logarithm. Upstream `Log`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Log10`
+
+Base-10 logarithm. Upstream `Log10`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Pow`
+
+First argument raised to the second. Upstream `Pow`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+| 1 | `std::sync::Arc<Expression>` |  |
+
+###### `Sqrt`
+
+Square root. Upstream `Sqrt`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Mod`
+
+Remainder of integer division. Upstream `Mod`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+| 1 | `std::sync::Arc<Expression>` |  |
+
+###### `Trunc`
+
+Round towards zero. Upstream `Trunc` / `Integer`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Round`
+
+Round to the nearest integer. Upstream `Round`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Floor`
+
+Round down. Upstream `Floor`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Ceil`
+
+Round up. Upstream `Ceil`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `Ite`
+
+`if condition then consequent else alternate`. Upstream `Ite`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `condition` | `std::sync::Arc<Expression>` | Evaluated as a boolean: non-zero is true. |
+| `consequent` | `std::sync::Arc<Expression>` | Taken when the condition holds. |
+| `alternate` | `std::sync::Arc<Expression>` | Taken otherwise. |
+
+###### `Not`
+
+Logical negation: 1 when the argument is zero, else 0. Upstream `Not`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+
+###### `And`
+
+All arguments non-zero. Upstream `And`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Or`
+
+Any argument non-zero. Upstream `Or`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `Vec<Expression>` |  |
+
+###### `Eq`
+
+Equality. Upstream `Eq`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+| 1 | `std::sync::Arc<Expression>` |  |
+
+###### `Lt`
+
+Strictly less than. Upstream `Lt`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+| 1 | `std::sync::Arc<Expression>` |  |
+
+###### `Gt`
+
+Strictly greater than. Upstream `Gt`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `std::sync::Arc<Expression>` |  |
+| 1 | `std::sync::Arc<Expression>` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn float(value: f64) -> Self { /* ... */ }
+  ```
+  A literal number.
+
+- ```rust
+  pub fn exponential(lambda: Expression, time: Expression) -> Self { /* ... */ }
+  ```
+  `1 - exp(-lambda * t)`.
+
+- ```rust
+  pub fn glm(gamma: Expression, lambda: Expression, mu: Expression, time: Expression) -> Self { /* ... */ }
+  ```
+  The GLM model: failure on demand `gamma`, failure rate `lambda`,
+
+- ```rust
+  pub fn weibull(alpha: Expression, beta: Expression, t0: Expression, time: Expression) -> Self { /* ... */ }
+  ```
+  The Weibull model.
+
+- ```rust
+  pub fn periodic_test_instant_repair(lambda: Expression, tau: Expression, theta: Expression, time: Expression) -> Self { /* ... */ }
+  ```
+  Periodic testing with instant repair — the four-argument form.
+
+- ```rust
+  pub fn periodic_test_instant_test(lambda: Expression, mu: Expression, tau: Expression, theta: Expression, time: Expression) -> Self { /* ... */ }
+  ```
+  Periodic testing with an instant test and a repair rate — the
+
+- ```rust
+  pub fn value(self: &Self) -> Result<f64> { /* ... */ }
+  ```
+  Evaluates the expression with no parameters and the default mission
+
+- ```rust
+  pub fn evaluate(self: &Self, parameters: &Parameters, mission_time: f64) -> Result<f64> { /* ... */ }
+  ```
+  Evaluates the expression.
+
+- ```rust
+  pub fn validate(self: &Self, parameters: &Parameters, mission_time: f64) -> Result<()> { /* ... */ }
+  ```
+  Upstream's `Validate()`: the domain checks each formula requires.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+### Constants and Statics
+
+#### Constant `DEFAULT_MISSION_TIME`
+
+SCRAM's default mission time, in hours.
+
+Upstream `Settings::mission_time_`; a model that does not set one gets
+this, and `<system-mission-time/>` resolves to it.
+
+```rust
+pub const DEFAULT_MISSION_TIME: f64 = 8760.0;
+```
+
 ## Module `fault_tree`
 
 The fault tree itself — gates, their logic, and what feeds them.
@@ -12301,6 +12974,12 @@ pub const NODE_LIMIT: usize = 20_000_000;
 
 ```rust
 pub use bdd::Bdd;
+```
+
+#### Re-export `Expression`
+
+```rust
+pub use expression::Expression;
 ```
 
 #### Re-export `Arg`

@@ -111,6 +111,7 @@
 //! recorded in `crates/raffles/docs/scram-port-verification.md`.
 
 pub mod bdd;
+pub mod expression;
 pub mod fault_tree;
 pub mod importance;
 pub mod mocus;
@@ -118,6 +119,7 @@ pub mod probability;
 pub mod zbdd;
 
 pub use bdd::Bdd;
+pub use expression::Expression;
 pub use fault_tree::{Arg, Connective, FaultTree, FaultTreeBuilder, FaultTreeModel, Gate};
 pub use importance::{importance_factors, importance_factors_from_bdd, ImportanceFactors};
 pub use mocus::minimal_cut_sets;
