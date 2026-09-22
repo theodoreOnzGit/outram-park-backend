@@ -75,8 +75,14 @@
 //! - **Simulation drivers, job scheduling, file/XML input parsing, plotting,
 //!   databases.** RAVEN is a whole workflow application; RAFFLES ports only
 //!   its statistical core. A caller drives their own runs and hands RAFFLES
-//!   arrays of numbers. [`scram`] holds to the same line: it takes a fault
-//!   tree a caller has built in Rust, never a SCRAM input model.
+//!   arrays of numbers. ~~[`scram`] holds to the same line: it takes a fault
+//!   tree a caller has built in Rust, never a SCRAM input model.~~
+//!   **CORRECTED 2026-09-22** — [`scram`] no longer holds to that line: the
+//!   workspace maintainer directed that everything of SCRAM except its GUI be
+//!   translated, and [`scram::mef`] reads SCRAM's own Model Exchange Format
+//!   input models. Building a tree in Rust is still supported and is still
+//!   what the rest of the module takes. The line does hold for the
+//!   RAVEN-derived modules, where no such direction was given.
 //! - **Optimisation.** RAVEN's optimisers (gradient descent, genetic
 //!   algorithms, Bayesian optimisation) are out of scope unless the crate
 //!   owner decides otherwise.

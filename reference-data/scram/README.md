@@ -57,14 +57,24 @@ per benchmark model and every model here has one — `RiskAnalysisTest.TwoTrain`
 probabilities. So these numbers are not merely what this binary printed; they
 are what SCRAM's authors say it should print, checked.
 
-## Four fixtures, deliberately separate
+## Six fixtures, deliberately separate
 
 | file | parsed from | trusted for |
 |---|---|---|
 | `oracle.txt` | SCRAM's own **XML report** | the answers, for **coherent** models |
 | `oracle-noncoherent.txt` | SCRAM's own **XML report** | the answers, for **non-coherent** models |
 | `oracle-prime-implicants.txt` | SCRAM's own **XML report**, under `--prime-implicants` | the **signed** products, which describe the function exactly |
+| `oracle-mef.txt` | SCRAM's own **XML report** | the answers for `mef_features`, the model covering the MEF constructs upstream's inputs never use |
+| `oracle-multi-tree.txt` | SCRAM's own **XML report** | the answers for models defining **several** fault trees, one record per tree |
 | `models.txt` | SCRAM's own **input models** | the question — gates, connectives, arguments, the top gate, declared probabilities |
+
+`models.txt` is no longer the only route to the question. Since 2026-09-22
+`raffles::scram::mef` reads upstream's XML directly, and
+`crates/raffles/tests/scram_mef.rs` takes the question from
+`upstream-input/` — the models themselves, copied verbatim — rather than from
+the transcription. The transcription stays because the tests built on it
+stay, and because a second, independent reading of the same models is worth
+keeping.
 
 The coherent/non-coherent split is not tidiness. For a non-coherent tree
 SCRAM's reported exact probability is the **true function's**, from its BDD,
@@ -79,9 +89,14 @@ in it can prejudge a comparison. That split is what lets
 `crates/raffles/tests/scram_mocus_oracle.rs` generate cut sets in Rust and
 compare them against the ones SCRAM found.
 
-Basic-event probabilities come from `oracle.txt`, **not** from the models:
-several models (`HIPPS` especially) define them through `periodic-test` and
-`GLM` expressions that SCRAM evaluates and `raffles` does not.
+Basic-event probabilities come from `oracle.txt`, **not** from the models, for
+every test built on `models.txt`: several models (`HIPPS` especially) define
+them through `periodic-test` and `GLM` expressions, which that shell script
+does not evaluate. ~~expressions that SCRAM evaluates and `raffles` does
+not~~ **CORRECTED 2026-09-22** — `raffles::scram::expression` evaluates them,
+and `scram_mef.rs` computes all 94 basic-event probabilities from the models'
+own expressions and checks them against the ones SCRAM printed. The statement
+above is about the *shell extractor*, not about the crate.
 
 ## `oracle.txt`
 
@@ -171,15 +186,30 @@ literal anywhere.
 gives in about a second. The generator reports the timeout on stderr rather
 than dropping it silently.
 
+## Upstream's input models, copied verbatim
+
+`upstream-input/` holds the `.xml` inputs themselves, copied unchanged from
+upstream's `input/` at commit `b85b7894`, so that
+`crates/raffles/tests/scram_mef.rs` can read the *models* rather than a
+transcription of them. SCRAM is GPL-3.0-or-later and this repository is
+GPL-3.0-only, so the copy is same-licence; the provenance is the table at the
+top of this file.
+
+Fifteen files: the nine models `oracle.txt` covers, `Aralia/das9601`,
+`ThreeLevels/top` and the three of `TransTest/` (which `<xi:include>` splices),
+and `TwoTrain/common_cause.xml`, which exists only so a test can check that a
+model using CCF groups is **refused** rather than read as a smaller model.
+
 ## Models written for this port
 
-Two, both under `models-for-this-port/`, and both needed because upstream has
-no *small* model exercising the feature:
+Three, all under `models-for-this-port/`, each needed because upstream has
+no *small* model exercising the feature — or, for the third, no model at all:
 
 | model | why it was written |
 |---|---|
 | `noncoherent_small.xml` | of upstream's seven models with a negating connective, four produce no products, two are event-tree or alignment models, and the only usable one is `das9601` at 288 gates |
 | `house_events_small.xml` | upstream's only house-event model is `ThreeMotor`, which the extractor refuses for its `<define-component>` namespaces |
+| `mef_features.xml` | **no** upstream input uses `<iff>`, `<imply>`, `<cardinality>`, a `<constant>` formula argument or `<event type="…">`; a grep over all of `input/` finds none of the five. It also carries a second, independent instance of the private-namespace rule, with a shadowed parameter whose value differs between scopes |
 
 **SCRAM is the oracle for both**: their expected answers come from running the
 compiled binary, exactly as for upstream's own models. Only the question is
@@ -218,6 +248,12 @@ the reason printed. Present refusals:
 |---|---|
 | `ThreeMotor/three_motor` | uses `<define-component role="private">`, whose private namespaces this script does not model — an inner gate `E1` is really `t.E1` and distinct from the outer `E1`, and the script was silently merging them |
 
+**That refusal is now about the script alone.** `raffles::scram::mef` reads
+`ThreeMotor` correctly — 18 gates, 11 public and 7 inside the private
+component — and `scram_mef.rs` reproduces SCRAM's 12 products for it. The
+`CANNOT-PARSE` record stays because `extract_models.sh` still cannot read the
+model, which is the honest statement about that file.
+
 House events are **no longer** a reason to refuse a model: they are emitted as
 `h:` arguments and `HOUSE <name> <true|false>` records, and
 `raffles::scram` handles them. `ThreeMotor` was previously refused partly for
@@ -229,8 +265,15 @@ oracle anyway; it stays as defence in depth.
 
 Only the flat single-connective gate form these models use is handled — one
 `<and>`/`<or>`/`<atleast>` per `<define-gate>`, or a bare `<event/>` child
-meaning a pass-through (`null`) gate. A nested formula would be silently
-mis-parsed, so it is refused instead.
+meaning a pass-through (`null`) gate. ~~A nested formula would be silently
+mis-parsed, so it is refused instead.~~ **CORRECTED 2026-09-22** — MEF has no
+nested formulas to mis-parse: upstream's grammar (`share/input.rng`) lets a
+connective take only an event reference, a `<not>` around one event, or a
+`<constant>`, and SCRAM itself rejects a nested one. The script's guard is
+harmless but the reason given for it was wrong. What the script really cannot
+read is `<not>`, `<constant>`, `<iff>`, `<imply>` and `<cardinality>`, none of
+which appears in the models it is run on; `raffles::scram::mef` reads all of
+them.
 
 ## The generators
 
@@ -250,6 +293,16 @@ reference-data/scram/extract_oracle.sh ./bin/scram $MODELS \
     > reference-data/scram/oracle.txt
 reference-data/scram/extract_models.sh $MODELS \
     > reference-data/scram/models.txt
+
+# The per-tree fixture, for models defining several fault trees.
+reference-data/scram/extract_multi_tree_oracle.sh ./bin/scram \
+    input/TransTest/trans_one.xml input/ThreeLevels/top.xml \
+    > reference-data/scram/oracle-multi-tree.txt
+
+# The MEF-construct model, which lives here rather than upstream.
+reference-data/scram/extract_oracle.sh ./bin/scram \
+    reference-data/scram/models-for-this-port/mef_features.xml \
+    > reference-data/scram/oracle-mef.txt
 ```
 
 ## Consumed by
@@ -270,5 +323,10 @@ reference-data/scram/extract_models.sh $MODELS \
   every basic event, starting from SCRAM's own cut sets.
 - `crates/raffles/tests/scram_cross_code.rs` — the TwoTrains model in detail,
   with the oracle numbers written into the test doc comments.
+- `crates/raffles/tests/scram_mef.rs` — the MEF reader: upstream's models read
+  from their own XML, basic-event probabilities evaluated from the models'
+  own expressions, and the cut sets, totals and importance factors that
+  follow — `ThreeMotor` included, and `<xi:include>`, the private-namespace
+  rule and the five MEF constructs upstream never uses with them.
 - `crates/raffles/docs/scram-port-verification.md` — the full V&V record,
   including what this does **not** establish.

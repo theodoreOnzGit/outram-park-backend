@@ -85,6 +85,14 @@ outram-mc-libs.workspace = true
 # `burn-ndarray` — no `std` — and that the `wgpu` in the tree comes from
 # outram-mc-libs/njoy, not from burn.
 burn = { workspace = true, optional = true }
+# MODEL EXCHANGE FORMAT INPUT (src/scram/mef.rs). A pull parser, driven
+# directly: MEF's expression elements are an open set and the same element
+# name means different things by arity, so a serde-derived deserialiser does
+# not fit. Already in the lock
+# file as serde-xml-rs's own dependency, so it adds nothing to the build, and
+# it is pure Rust — no libxml2, unlike upstream — so Android and wasm stay
+# clean.
+xml-rs.workspace = true
 
 [features]
 default = ["long-tests"]

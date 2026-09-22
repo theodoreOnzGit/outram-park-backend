@@ -30,7 +30,12 @@ which basic events matter. Three of its four modules are ports of
 | `scram::importance::importance_factors` (the five derived factors) | `ImportanceAnalyzerBase::Analyze` | yes |
 | `scram::importance::importance_factors` (the Birnbaum factor) | — | **no** — the definition `P(top\|e) - P(top\|not e)` where upstream differentiates the BDD |
 | `scram::fault_tree::Connective` | `src/pdag.h` `enum Connective` | taxonomy only |
-| `scram::fault_tree` (the rest) | — | **no** — upstream builds its tree from XML through `Initializer`/`Model`/`Formula`; this is a plain indexed structure a caller builds in Rust |
+| `scram::fault_tree` (the rest) | — | **no** — a plain indexed structure a caller builds in Rust; `scram::mef` is what builds one from XML |
+| `scram::expression` | `src/expression/*.cc` (`p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators) | yes |
+| `scram::mef` | `src/initializer.{h,cc}`, `src/xml.{h,cc}`, `src/element.{h,cc}`, `src/model.{h,cc}`, `src/fault_tree.{h,cc}`, `src/event.{h,cc}` | yes |
+| `scram::mef::Index` (name resolution) | `Initializer::GetEntity` / `GetEvent`, `mef::Id::id()`, `mef::Role` | yes |
+| `scram::mef::Lowering` (iff, imply, cardinality) | `Pdag::ConstructComplexGate` | yes |
+| `scram::mef` schema validation | `xml::Validator` against `share/input.rng` | **no** — no RelaxNG; the structure checks here are narrower, and the module doc says so |
 | `scram::mocus` | `src/mocus.cc` | **no** — see below |
 
 **`scram::mocus` is not a translation of `src/mocus.cc`, and says so in its
@@ -51,12 +56,19 @@ much less.
 implicants, complement elimination and house events, the remainder is not one
 list but three:
 
-*Out of RAFFLES' declared scope, and would stay out even if written:* XML
+~~*Out of RAFFLES' declared scope, and would stay out even if written:* XML
 input handling, event trees, alignments, common-cause-failure groups,
 substitutions, the `expression` library, and `<define-component>` private
-namespaces. These are all **input-model and workflow** features. The crate's
-own boundary says a caller builds a tree in Rust and hands RAFFLES numbers;
-`docs/raven-port-scoping.md` says the same of RAVEN's XML.
+namespaces.~~ **CORRECTED 2026-09-22** — the maintainer's direction
+("everything except gui is to be translated with v and v") moved all of these
+**into** scope, and the first three of them have since landed:
+`scram::expression` (2026-09-22), `scram::mef` including
+`<define-component>`'s private namespaces and `<xi:include>` (2026-09-22).
+What is still out of the module, and refused rather than skipped when a model
+uses it: **common-cause-failure groups, substitutions, event trees,
+alignments, the random deviates, and `<define-extern-function>`**. The last is
+deliberate and stays out — it loads a shared library, which the workspace
+`RESPONSIBLE_USE.md` rule on autonomous access forbids.
 
 *An optimisation rather than a capability:* the **preprocessor**. Upstream
 spends 2,411 lines finding a good variable order and extracting modules. This
@@ -186,7 +198,11 @@ emits only structure, never a number. That is what lets
 the ones SCRAM found, with SCRAM's answer entering nowhere except as the thing
 being compared to. Basic-event probabilities still come from the **oracle**,
 because several models (`HIPPS` especially) define them through `periodic-test`
-and `GLM` expressions that SCRAM evaluates and this crate does not.
+and `GLM` expressions that `extract_models.sh` does not evaluate.
+~~that SCRAM evaluates and this crate does not~~ **CORRECTED 2026-09-22** —
+`scram::expression` evaluates them, and `tests/scram_mef.rs` computes every
+basic-event probability from the models' own expressions instead of taking it
+from the oracle. The limitation is the shell script's, not the crate's.
 
 **Both scripts refuse rather than guess**, and each refusal is recorded in the
 fixture instead of being silently dropped:
@@ -237,6 +253,15 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | **Prime implicants**, signs included | `scram_prime_implicants::prime_implicants_match_scram` | **10 models, 443 implicants** |
 | Prime implicants == cut sets when coherent | `scram_prime_implicants::on_a_coherent_tree_prime_implicants_are_the_minimal_cut_sets` | 9 models, no complement |
 | **Importance from the BDD**, both fixtures | `scram_bdd_oracle::bdd_importance_factors_match_scram_including_the_non_coherent_models` | **185 events, 11 models** |
+| **Expressions** vs SCRAM's computed probabilities | `scram_expressions::hipps_basic_event_probabilities_match_scrams_computed_values` | **9 of 9 `HIPPS` events** |
+| **Models read from their own XML**, probabilities evaluated | `scram_mef::probabilities_evaluated_from_the_xml_match_scrams` | **94 probabilities, 14 records** |
+| Cut sets from the XML vs SCRAM's products | `scram_mef::cut_sets_generated_from_the_xml_match_scrams` | **14 records, exact set equality** |
+| Totals from the XML, all three modes | `scram_mef::totals_from_the_xml_match_scrams` | **41 model/mode combinations** |
+| Importance from the XML | `scram_mef::importance_from_the_xml_matches_scrams` | **59 basic events x 5 factors** |
+| **`ThreeMotor`, unlocked** | `scram_mef::three_motor_is_unlocked_by_the_private_namespace_rule` | 18 gates, **12 products**, 4 structural assertions |
+| `<xi:include>` and cross-tree references | `scram_mef::xi_include_and_cross_fault_tree_references_resolve` | `TransTest`, `ThreeLevels` |
+| The five constructs upstream never uses | `scram_mef::the_mef_only_constructs_match_scram` | **9 products, 3 totals** |
+| Refusals, each naming its cause | `scram_mef::the_unported_and_the_malformed_are_refused_not_skipped` | **10 refusals** |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -376,10 +401,14 @@ which is exactly what SCRAM reports.
 #### The conservatism is real, measured, and must not be "fixed"
 
 For a non-coherent tree, SCRAM's reported probability with no approximation
-flag is the **true function's**, from its BDD. This port has no BDD, and its
-`Approximation::Exact` is inclusion-exclusion over the *minimal cut sets* —
-which describe a strictly larger function, because deleting the negative
-literals throws away the requirement that a component be working.
+flag is the **true function's**, from its BDD. ~~This port has no BDD, and
+its~~ **CORRECTED 2026-09-22** — this port now has one
+([`scram::bdd`](../src/scram/bdd.rs), verified in `tests/scram_bdd_oracle.rs`),
+and `tests/scram_mef.rs` uses it for exactly this case. The statement that
+still holds is the one the table below rests on: `Approximation::Exact` is
+inclusion-exclusion over the *minimal cut sets* — which describe a strictly
+larger function, because deleting the negative literals throws away the
+requirement that a component be working.
 
 | quantity | RAFFLES | SCRAM | |
 |---|---|---|---|
@@ -736,6 +765,105 @@ where the cut-off happens not to bite. This is recorded rather than raised
 upstream: `rakhimov/scram`'s last commit is from 2019 and filing against a
 third-party project was not part of this task.
 
+### Reading upstream's own models — the transcription removed
+
+Until 2026-09-22 the *question* reached the tests through `extract_models.sh`,
+a shell transcription of a flat subset of the Model Exchange Format. It said
+what it could not read, and one of its three `CANNOT-PARSE` records was
+`ThreeMotor/three_motor` — a model with a full oracle, an upstream test of its
+own (`RiskAnalysisTest.ThreeMotor`), and no analysis route in this crate.
+
+`scram::mef` reads the XML itself, so `tests/scram_mef.rs` goes from
+upstream's own `.xml` to the answers with nothing hand-written in between.
+The models are committed verbatim under
+`reference-data/scram/upstream-input/`.
+
+**Basic-event probabilities moved sides.** Every other test in this crate
+takes them from the oracle; this one *evaluates the models' own expressions*
+and checks the result against what SCRAM printed. All **94** agree to `5e-6`
+relative across **14** of the 16 fixture records.
+
+#### Name resolution is upstream's, rule for rule
+
+`Initializer::GetEntity` consults a **path table** keyed by
+`base_path + "." + name` and the model's **id table** keyed by `Id::id()` — a
+bare name for a public element, the full path for a private one — and tries
+the local path first. `mef::Index` reproduces both tables and that order,
+including two details that are easy to get wrong and that
+`three_motor_is_unlocked_by_the_private_namespace_rule` asserts separately:
+
+* a `<define-fault-tree>` **is** a path component (`DefineFaultTree` passes
+  the tree's own name as `base_path`), even though its public members keep
+  their bare names;
+* a `<define-component>`'s role **inherits** its container's — `GetRole(s,
+  parent_role)`, not a default of private.
+
+On `ThreeMotor` this gives 18 gates: 11 public, and 7 whose ids are
+`ThreeMotor.t.E1` … `ThreeMotor.t.E7`. `E4`'s `<gate name="t.E1"/>` reaches
+the private gate by local path; the private `E1`'s
+`<basic-event name="K1"/>` resolves **outward** to the public `K1`, since the
+component declares none. SCRAM's 12 products follow exactly.
+
+#### Five constructs no upstream input uses
+
+A grep over all of upstream's `input/` finds no `<iff>`, `<imply>`,
+`<cardinality>`, `<constant>` formula argument, or `<event type="…">`. None of
+them could therefore be checked against a model SCRAM ships.
+`models-for-this-port/mef_features.xml` uses all five, and SCRAM supplies the
+answers in `oracle-mef.txt`.
+
+The three connectives are the load-bearing ones: upstream calls them "rarely
+used connectives specific to the MEF", they have **no PDAG representation at
+all**, and `Pdag::ConstructComplexGate` rewrites each into the eight analysis
+connectives — `iff` as the complement of an `xor`, `imply` as
+`or(not a, b)`, `cardinality` as `and` of two `atleast` gates with upstream's
+`well_form` collapse applied to each. `mef::Lowering` performs the identical
+rewrite, and a wrong one changes the products. All 9 of SCRAM's products are
+reproduced, with all three totals.
+
+The same model carries a second, independent instance of the private-namespace
+rule: a parameter `rate` declared **both** publicly (`1.0e-5`) and inside the
+private component (`4.0e-5`), consumed by an `<exponential>` on each side. A
+resolution mistake shows up as a wrong *probability* rather than a read
+failure — SCRAM prints `MefFeatures.sub.p = 0.295594` and `shared =
+0.0838727`, and both are reproduced.
+
+#### Formulas do not nest, and an earlier claim here was wrong
+
+An earlier revision of `mef.rs` carried machinery for arbitrarily nested
+formulas and its module doc listed "nested formulas" among the things the
+shell extractor could not reach. **That was wrong about the format.**
+Upstream's grammar (`share/input.rng`, `define name="formula"`) admits a
+connective whose arguments are each an `argument`, and an `argument` is an
+event reference, `<not>` around one event reference, or a `<constant>` —
+never another connective. SCRAM itself rejects a nested formula with
+`ValidityError: Did not expect element and there`, which is how this was
+found. The claim is corrected in the module doc, and
+`the_unported_and_the_malformed_are_refused_not_skipped` pins the refusal.
+
+What *does* exist is the `<not>` wrapper, which upstream records as a
+complement flag on the argument and this port lowers into an anonymous
+negating gate — verified on `Aralia/das9601` and `noncoherent_small`, the
+only models that use it.
+
+#### What it refuses, and why that matters more than what it reads
+
+An element `mef.rs` does not recognise is an **error**, never a skip. A
+skipped `<define-CCF-group>` would leave a model that still parses, still
+analyses, and answers a different question — which is the failure this whole
+port exists to avoid. Ten refusals are asserted, each naming its cause: CCF
+groups, substitutions, event trees, alignments, extern functions, an unknown
+element, a typed reference naming the wrong kind of declaration, a private
+name reached from outside, an invalid `role`, and a nested formula.
+
+Two of upstream's models cannot be read yet — `SmallTree/SmallTree` and
+`BSCU/BSCU`, both using `<lognormal-deviate>`. The random deviates belong to
+uncertainty analysis, a later chunk. That refusal is **asserted**
+(`the_two_unreadable_models_fail_for_the_stated_reason`) rather than recorded
+in prose, so it cannot quietly become a different refusal while the doc keeps
+claiming this one. Both models remain covered by the tests that take their
+probabilities from the oracle.
+
 ## What this does NOT establish
 
 - **It is not validation.** Agreement with SCRAM shows this port reproduces
@@ -756,13 +884,15 @@ third-party project was not part of this task.
   `Approximation::Exact` cannot scale in principle (it is `2^n`, capped at 20
   cut sets), and `scram::mocus` is exponential in the worst case, which is
   exactly what upstream's ZBDD exists to avoid.
-- **`ThreeMotor/three_motor` is the one model no route covers structurally.**
-  Its 12 cut sets are checked against the quantification layer only. The cause
-  is `<define-component role="private">`: resolving those namespaces means
-  reimplementing MEF name resolution, which is input parsing and outside this
-  crate's scope — and getting it subtly wrong would build the *wrong tree*,
-  which is the failure mode this whole exercise exists to prevent. Refusing it
-  is the deliberate choice.
+- ~~**`ThreeMotor/three_motor` is the one model no route covers
+  structurally.** … resolving those namespaces means reimplementing MEF name
+  resolution, which is input parsing and outside this crate's scope~~
+  **CORRECTED 2026-09-22** — MEF name resolution was reimplemented, rule for
+  rule from `Initializer::GetEntity`, and `ThreeMotor` is now covered end to
+  end: 18 gates read, 12 products reproduced, with the two halves of the
+  private-namespace rule asserted separately. The *reason* the old entry gave
+  still stands as a warning — getting it subtly wrong builds the wrong tree —
+  which is why the test checks the resolution itself and not only the answers.
 - **`Approximation::Exact` is still capped at 20 cut sets**, and that is
   inherent — it is `2^n`. It is no longer the only exact route, so the cap is
   a property of that function rather than of the crate.
@@ -787,10 +917,34 @@ third-party project was not part of this task.
   which is where an over-eager prune would show; the other nine models bottom
   out at order 3. A real PRA truncation at order 8-10 on a model with hundreds
   of thousands of products is still untested.
-- **`Connective::Null` has no oracle coverage in the committed fixture.** It
-  did have — `ThreeLevels/top` is exactly that shape and agreed — but that
-  model was excluded when the multi-result guard was added, and the evidence is
-  no longer regenerable. It is covered by a unit test only.
+- ~~**`Connective::Null` has no oracle coverage in the committed fixture.** …
+  `ThreeLevels/top` … was excluded when the multi-result guard was added, and
+  the evidence is no longer regenerable.~~ **CORRECTED 2026-09-22** — it is
+  regenerable: `extract_multi_tree_oracle.sh` emits one record per
+  `<sum-of-products>`, which is what the multi-result guard was refusing to
+  do, and `oracle-multi-tree.txt` carries `ThreeLevels/top`'s three trees and
+  `TransTest/trans_one`'s two. `scram_mef` checks all five, so
+  `Connective::Null` has oracle coverage again.
+- **Two of upstream's models still cannot be read from XML** —
+  `SmallTree/SmallTree` and `BSCU/BSCU`, both using `<lognormal-deviate>`.
+  The random deviates and the uncertainty analysis that consumes them are a
+  later chunk. Both models are still covered by the tests that take their
+  probabilities from the oracle, so this is a gap in the *reader*, not in the
+  quantification.
+- **`scram::mef` does not validate against the RelaxNG schema.** Upstream runs
+  `share/input.rng` through libxml2 before looking at anything; this checks
+  only what it needs to build the model, which is narrower. A document SCRAM
+  would reject may be read here. Adding a RelaxNG validator in pure Rust is
+  not in prospect; what stands in for it is that every construct the reader
+  does not understand is an error rather than a skip.
+- **CCF groups, substitutions, event trees and alignments are refused, not
+  read.** Each is its own chunk of the port and each refusal is asserted. A
+  model using one cannot be silently mis-read as a smaller model, but it also
+  cannot be analysed.
+- **`<define-extern-function>` is refused deliberately and will stay refused.**
+  It loads a shared library named by the input file, which the workspace
+  `RESPONSIBLE_USE.md` rule on autonomous access to systems forbids. This is a
+  decision, not a gap.
 - **`imprecise::SystemStructure` is a different thing** and was checked for
   overlap before any of this was written: it does interval-valued reliability
   of series/parallel/k-of-n structures, not cut-set quantification.

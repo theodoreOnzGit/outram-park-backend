@@ -221,6 +221,15 @@ faer = "0.24"
 burn = { version = "0.21.0", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
 serde-xml-rs = "0.8.2"
+# Low-level pull XML parser. `serde-xml-rs` is the right tool for a FIXED
+# schema; the SCRAM Model Exchange Format is not one — its formulas nest
+# arbitrarily and its expression elements are an open set — so
+# `raffles::scram::mef` needs a reader it can drive itself. This costs the
+# build NOTHING new: `xml-rs` 0.8.28 is already in Cargo.lock as
+# `serde-xml-rs`'s own dependency (it appears there under its library name,
+# `xml`). Pure Rust, no C, so it keeps the Android/Termux and wasm builds
+# clean. Upstream SCRAM uses libxml2, which would not.
+xml-rs = "0.8.28"
 anyhow = "1.0.100"
 
 # OPC UA client/server — `async-opcua` (github.com/freeopcua/async-opcua), the

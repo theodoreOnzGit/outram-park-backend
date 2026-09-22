@@ -7604,6 +7604,7 @@ dependencies = [
  "burn",
  "outram-mc-libs",
  "thiserror 2.0.18",
+ "xml-rs",
 ]
 
 [[package]]

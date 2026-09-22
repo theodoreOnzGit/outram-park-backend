@@ -1,0 +1,142 @@
+<?xml version="1.0"?>
+
+<!--
+Written for RAFFLES' `scram` port, not taken from upstream.
+
+Upstream SCRAM's own input suite never uses five of the Model Exchange Format
+constructs that `crates/raffles/src/scram/mef.rs` has to read, so none of them
+could be verified against a model SCRAM ships. This model uses all five at a
+size where every cut set can be checked by hand, and SCRAM itself supplies the
+answers.
+
+  * `<iff>`, `<imply>` and `<cardinality>` — the three connectives upstream
+    calls "rarely used connectives specific to the MEF". They have no PDAG
+    form at all; `Pdag::ConstructComplexGate` rewrites each one, and this port
+    has to perform the identical rewrite.
+  * `<constant value="..."/>` as a formula argument, which upstream replaces
+    with its `HouseEvent::kTrue` / `kFalse` singletons.
+  * `<event name="..." type="gate"/>`, where the `type` attribute rather than
+    the element name decides which table the reference resolves in.
+
+It also exercises the private-namespace rule a second time, independently of
+`ThreeMotor/three_motor`:
+
+  * `E1` is declared BOTH publicly and inside the private component `sub`, so
+    a reader that merged the two namespaces would build a different tree.
+  * `sub` references `shared`, which it does not declare, so that reference
+    must resolve OUTWARD to the public model-data event.
+  * `sub` declares a parameter `rate` that shadows the public `rate`, with a
+    different value, so a resolution mistake shows up as a wrong probability
+    rather than as a read failure.
+
+The three MEF-only connectives each sit under an AND with a guard event. Left
+bare, `imply` and `iff` would each admit the empty product and the whole model
+would quantify to unity, which says nothing.
+-->
+
+<opsa-mef>
+  <define-fault-tree name="MefFeatures">
+    <define-gate name="top">
+      <or>
+        <gate name="guarded_vote"/>
+        <gate name="guarded_imply"/>
+        <gate name="guarded_iff"/>
+        <event name="sub.E1" type="gate"/>
+        <gate name="E1"/>
+        <constant value="false"/>
+      </or>
+    </define-gate>
+
+    <define-gate name="guarded_vote">
+      <and>
+        <basic-event name="t1"/>
+        <gate name="vote"/>
+        <constant value="true"/>
+      </and>
+    </define-gate>
+    <define-gate name="vote">
+      <label>Between one and two of three</label>
+      <cardinality min="1" max="2">
+        <basic-event name="d"/>
+        <basic-event name="e"/>
+        <basic-event name="f"/>
+      </cardinality>
+    </define-gate>
+
+    <define-gate name="guarded_imply">
+      <and>
+        <basic-event name="t2"/>
+        <gate name="implication"/>
+      </and>
+    </define-gate>
+    <define-gate name="implication">
+      <imply>
+        <basic-event name="a"/>
+        <basic-event name="b"/>
+      </imply>
+    </define-gate>
+
+    <define-gate name="guarded_iff">
+      <and>
+        <basic-event name="t3"/>
+        <gate name="equality"/>
+      </and>
+    </define-gate>
+    <define-gate name="equality">
+      <iff>
+        <basic-event name="g"/>
+        <not><basic-event name="h"/></not>
+      </iff>
+    </define-gate>
+
+    <define-gate name="E1">
+      <label>Public E1, which the private one must not be merged with</label>
+      <and>
+        <basic-event name="g"/>
+        <basic-event name="h"/>
+      </and>
+    </define-gate>
+
+    <define-parameter name="rate">
+      <float value="1.0e-5"/>
+    </define-parameter>
+
+    <define-component name="sub" role="private">
+      <define-gate name="E1">
+        <label>Private E1, reached from outside only as sub.E1</label>
+        <or>
+          <basic-event name="p"/>
+          <basic-event name="shared"/>
+        </or>
+      </define-gate>
+      <define-parameter name="rate">
+        <float value="4.0e-5"/>
+      </define-parameter>
+      <define-basic-event name="p">
+        <exponential>
+          <parameter name="rate"/>
+          <system-mission-time/>
+        </exponential>
+      </define-basic-event>
+    </define-component>
+  </define-fault-tree>
+
+  <model-data>
+    <define-basic-event name="t1"><float value="0.5"/></define-basic-event>
+    <define-basic-event name="t2"><float value="0.4"/></define-basic-event>
+    <define-basic-event name="t3"><float value="0.3"/></define-basic-event>
+    <define-basic-event name="a"><float value="0.1"/></define-basic-event>
+    <define-basic-event name="b"><float value="0.2"/></define-basic-event>
+    <define-basic-event name="d"><float value="0.05"/></define-basic-event>
+    <define-basic-event name="e"><float value="0.06"/></define-basic-event>
+    <define-basic-event name="f"><float value="0.07"/></define-basic-event>
+    <define-basic-event name="g"><float value="0.11"/></define-basic-event>
+    <define-basic-event name="h"><float value="0.12"/></define-basic-event>
+    <define-basic-event name="shared">
+      <exponential>
+        <parameter name="rate"/>
+        <system-mission-time/>
+      </exponential>
+    </define-basic-event>
+  </model-data>
+</opsa-mef>

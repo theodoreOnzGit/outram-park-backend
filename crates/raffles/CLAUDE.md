@@ -102,6 +102,8 @@ difference is load-bearing.** Ported, with attribution headers:
 | `bdd.rs` (the probability recurrence only) | `ProbabilityAnalyzer<Bdd>::CalculateProbability` |
 | `zbdd.rs` | `ConvertBdd`, `Minimize`, `Subsume`, `ConvertBddPrimeImplicants`, `Bdd::Consensus`, `ConvertGraph`, `Apply<kAnd>`, `Apply<kOr>`, `EliminateComplements` |
 | `fault_tree.rs`'s `Connective` taxonomy | `pdag.h`'s `enum Connective` |
+| `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators |
+| `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
 
 **Not** ports, each saying so in its own doc instead:
 
@@ -115,7 +117,11 @@ difference is load-bearing.** Ported, with attribution headers:
 - `bdd.rs`'s diagram construction — Bryant's algorithm from the tree, where
   upstream builds from a preprocessed `Pdag`.
 - The rest of `fault_tree.rs` — a plain indexed structure, not upstream's
-  XML-driven `Initializer`/`Model`/`Formula`.
+  `Initializer`/`Model`/`Formula`. `mef.rs` is what builds one from XML.
+- `mef.rs`'s **schema validation**, because there is none. Upstream validates
+  against `share/input.rng` with libxml2 first; this checks only what it needs
+  to build the model. Every construct it does not understand is an error
+  rather than a skip, which is what stands in for the grammar.
 
 **Do not retrofit an attribution header onto any of those.** A header is a
 statement about where a file came from, and the whole value of them is that
@@ -131,12 +137,44 @@ which this file and the README previously recorded as out of it. The memory
 cap stays an exception (the largest Aralia benchmarks remain out), and the
 non-BDD ZBDD constructor was named explicitly.
 
-Still to do under that direction: XML input (`initializer`, `xml`), the
-`expression` library, CCF groups, substitutions, event trees and sequences,
-alignments, uncertainty analysis, the preprocessor, `pdag`, and the reporter.
-Progress is tracked in `docs/scram-port-verification.md`.
+~~Still to do under that direction: XML input (`initializer`, `xml`), the
+`expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
+`src/scram/expression.rs` and `src/scram/mef.rs`. Still to do: CCF groups,
+substitutions, event trees and sequences, alignments, the random deviates and
+the uncertainty analysis that consumes them, the preprocessor, `pdag`, and the
+reporter. Progress is tracked in `docs/scram-port-verification.md`.
 
-Absent: the above list.
+~~expressions~~ **CORRECTED 2026-09-22** — `src/scram/expression.rs` landed,
+verified on `HIPPS`, upstream's own model whose every basic event is defined
+by a `<periodic-test>` or `<GLM>` expression and whose probabilities therefore
+appear nowhere as literals.
+
+~~XML input, `<define-component>` private namespaces~~ **CORRECTED
+2026-09-22** — `src/scram/mef.rs` landed. It removed the transcription step
+that stood between upstream's models and the tests: `tests/scram_mef.rs` reads
+upstream's own `.xml` (committed verbatim under
+`reference-data/scram/upstream-input/`), evaluates every basic-event
+probability from the model's own expressions, and checks the cut sets, totals
+and importance factors that follow. **`ThreeMotor/three_motor` is covered end
+to end for the first time** — the model that no route reached, because its
+`<define-component role="private">` declares a second `E1`. Name resolution is
+upstream's `Initializer::GetEntity` rule for rule, and two details it is easy
+to get wrong are asserted separately: a `<define-fault-tree>` **is** a path
+component, and a component's role **inherits** its container's rather than
+defaulting to private.
+
+**A claim this port made about the format was wrong, and is corrected.** An
+earlier `mef.rs` carried machinery for arbitrarily nested formulas. MEF has
+none: `share/input.rng` lets a connective take only an event reference, a
+`<not>` around one event, or a `<constant>`. SCRAM itself rejects a nested
+formula. Do not re-add that machinery.
+
+Still absent, and refused rather than skipped when a model uses them: CCF
+groups, substitutions, event trees, alignments, and the random deviates
+(`SmallTree/SmallTree` and `BSCU/BSCU` are the two upstream models this costs).
+`<define-extern-function>` is refused **deliberately and permanently** — it
+loads a shared library named by the input file, which the workspace
+`RESPONSIBLE_USE.md` rule on autonomous access forbids.
 
 ~~house events~~ **CORRECTED 2026-09-21** — `Arg::Constant` and
 `FaultTreeBuilder::house_event` landed the same day. Upstream's only

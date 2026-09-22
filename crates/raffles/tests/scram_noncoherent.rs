@@ -325,10 +325,11 @@ fn generated_cut_sets_of_a_non_coherent_tree_match_scram() {
 ///
 /// This is the distinction the whole file exists for. For a non-coherent tree
 /// SCRAM's reported `probability` with no approximation flag is the
-/// **true function's** probability, obtained from its BDD. This port has no
-/// BDD, and `Approximation::Exact` is inclusion-exclusion over the *minimal
-/// cut sets* — which for a non-coherent tree describe a strictly larger
-/// function, because deleting the negative literals throws away the
+/// **true function's** probability, obtained from its BDD. This port has one
+/// too ([`raffles::scram::bdd`], and `scram_mef` quantifies non-coherent
+/// trees with it), but `Approximation::Exact` is inclusion-exclusion over the
+/// *minimal cut sets* — which for a non-coherent tree describe a strictly
+/// larger function, because deleting the negative literals throws away the
 /// requirement that some component be working. So ours must come out
 /// **higher**, and a run where it did not would mean the elimination had lost
 /// something.

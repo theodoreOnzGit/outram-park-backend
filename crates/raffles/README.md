@@ -44,14 +44,19 @@ maker: propose changes of direction to them rather than making them.
 | `abc` | Approximate Bayesian Computation — three kernels, rejection ABC, and an approximate log-likelihood the transitional samplers consume directly |
 | `imprecise` | Imprecise probability — intervals, probability boxes, Clopper–Pearson confidence boxes, coherent-system reliability with or without a dependence assumption |
 | `model_selection` | Comparing models by evidence — Bayes factors, posterior model probabilities, the Kass–Raftery scale |
-| `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS, or a **ZBDD** for scale; coherent **and** non-coherent), derive its **prime implicants** where cut sets would be conservative, quantify the top event by rare-event, MCUB, exact inclusion-exclusion **or a BDD**, and rank the basic events by the five standard importance measures. Handles house events; no preprocessor, no XML input |
+| `scram` | Fault trees, after [SCRAM](https://github.com/rakhimov/scram) — build a tree, generate its minimal cut sets (classical MOCUS, or a **ZBDD** for scale; coherent **and** non-coherent), derive its **prime implicants** where cut sets would be conservative, quantify the top event by rare-event, MCUB, exact inclusion-exclusion **or a BDD**, and rank the basic events by the five standard importance measures. Handles house events, and **reads SCRAM's own Model Exchange Format input models** including `<define-component>` private namespaces and `<xi:include>`; no preprocessor |
 | `gnn` | Graph neural networks for physics — message-passing topology, the physics-guided bound on message-passing iterations, and (behind `burn`) the network itself |
 | `surrogate` | Reduced-order models — polynomial regression, and a `burn`-trained neural regressor behind the `burn` feature. Gaussian processes and sparse-grid polynomial chaos are **not** implemented |
 
 **Out of scope:** physics of any kind, simulation drivers, job scheduling,
-input-file/XML parsing, databases, plotting. RAVEN is a whole workflow
-application; RAFFLES ports only its statistical core. The caller runs their own
-model and hands RAFFLES arrays of numbers.
+databases, plotting. RAVEN is a whole workflow application; RAFFLES ports only
+its statistical core. The caller runs their own model and hands RAFFLES arrays
+of numbers.
+
+~~input-file/XML parsing~~ **CORRECTED 2026-09-22** — still out of scope for
+the RAVEN-derived modules, but **in** scope for `scram`, by the workspace
+maintainer's direction that everything of SCRAM except its GUI be translated.
+`scram::mef` reads SCRAM's own input models.
 
 Which RAVEN capabilities are in, which are out, and in what order they are
 approached is written up in the workspace-root scoping document
@@ -226,11 +231,13 @@ independently of the implementation:
 - **Surrogates** — exact reproduction of a polynomial at the matching
   expansion order, plus a published test problem.
 - **Fault trees** — upstream **SCRAM built from source and run**, on
-  upstream's own input models, end to end: cut sets generated here compared
-  set-for-set against the products SCRAM found (438 of 438 across 8 models),
-  and the totals and importance factors compared on top. The oracles are committed
-  under `reference-data/scram/`; the record, including what it does *not*
-  establish, is
+  upstream's own input models, end to end: the models are **read here from
+  their own XML**, every basic-event probability is evaluated from the model's
+  own expressions and checked against the one SCRAM printed (94 of them), and
+  the cut sets are compared set-for-set against the products SCRAM found,
+  with the totals and importance factors on top. The oracles are committed
+  under `reference-data/scram/` alongside the input models themselves; the
+  record, including what it does *not* establish, is
   [`docs/scram-port-verification.md`](docs/scram-port-verification.md).
 
 Per the workspace V&V rule, the documentation of each gate must state **both**

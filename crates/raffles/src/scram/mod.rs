@@ -81,12 +81,20 @@
 //! cut sets sum to `0.80`, prime implicants to `0.54`, and the truth is
 //! `0.5032`.
 //!
-//! **What is still absent:** everything SCRAM does around this core — XML
-//! input models, event trees, alignments, common-cause-failure groups,
-//! substitutions and the expression library — plus, in the analysis itself,
-//! the preprocessor
-//! (upstream's `--prime-implicants`, which is what recovers the exact function
-//! a non-coherent tree describes).
+//! **Reading SCRAM's own input models.** [`mef`] takes a Model Exchange
+//! Format document to a [`fault_tree::FaultTreeModel`], evaluating the
+//! basic-event expressions through [`expression`] on the way. It handles
+//! `<define-component>`'s private namespaces, `<xi:include>`, and all eleven
+//! MEF connectives, and it **refuses** rather than skips anything it does not
+//! read.
+//!
+//! ~~**What is still absent:** everything SCRAM does around this core — XML
+//! input models, … and the expression library~~ **CORRECTED 2026-09-22** —
+//! both landed. What is still absent: event trees, alignments,
+//! common-cause-failure groups, substitutions, the random deviates and the
+//! uncertainty analysis over them, the reporter, and — in the analysis
+//! itself — the preprocessor, whose absence is a cost in diagram size rather
+//! than in answers.
 //!
 //! ## Where this sits relative to the rest of the crate
 //!
@@ -114,12 +122,14 @@ pub mod bdd;
 pub mod expression;
 pub mod fault_tree;
 pub mod importance;
+pub mod mef;
 pub mod mocus;
 pub mod probability;
 pub mod zbdd;
 
 pub use bdd::Bdd;
 pub use expression::Expression;
+pub use mef::MefModel;
 pub use fault_tree::{Arg, Connective, FaultTree, FaultTreeBuilder, FaultTreeModel, Gate};
 pub use importance::{importance_factors, importance_factors_from_bdd, ImportanceFactors};
 pub use mocus::minimal_cut_sets;
