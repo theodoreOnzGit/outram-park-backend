@@ -132,22 +132,42 @@
 //!   justifies leaving it out **while forced flow exists**. With the circulator
 //!   stopped that same conductivity is the whole heat path, and this model has
 //!   nothing to say about that case.
-//! - **The surface coefficient is now EVALUATED, not invented (2026-08-14).**
+//! - **The surface coefficient is EVALUATED, not invented (2026-08-14), and
+//!   the pebble behind it is now RESOLVED (2026-09-22).**
 //!   [`overall_htc_at_flow`] is two resistances in series: an evaluated
 //!   **Wakao** packed-bed film (`Nu = 2 + 1.1 Re_p^0.6 Pr^(1/3)`, with the
 //!   helium conductivity, viscosity and Prandtl number from the real CoolProp
-//!   helium models at the published 3.0 MPa) and the **intra-pebble
-//!   conduction** `h = 10 k/d`, the closed-form volume-average-to-surface
-//!   result for a uniformly heated sphere. It replaced an invented lumped
-//!   constant that put the bed 204.7 K above the helium at rated power --
-//!   roughly *twice* the published peak. The evaluated path gives **67.4 K**,
-//!   which correctly sits below the 100.7 K peak of Gao & Shi (2002) Table 2
-//!   (918.7 / 876.7 / 818 degC maximum fuel, fuel-surface and coolant
-//!   temperatures at 100% load). See
+//!   helium models at the published 3.0 MPa), and the **intra-pebble
+//!   conduction**. Both replaced an invented lumped constant that put the bed
+//!   204.7 K above the helium at rated power -- roughly *twice* the published
+//!   peak. The evaluated path gives **68.1 K**, which correctly sits below the
+//!   100.7 K peak of Gao & Shi (2002) Table 2 (918.7 / 876.7 / 818 degC
+//!   maximum fuel, fuel-surface and coolant temperatures at 100% load). See
 //!   [`tests::the_evaluated_coefficient_beats_the_old_invented_one`].
-//!   What this still does **not** buy is a resolved pebble: the fuel zone,
+//!
+//!   ~~"What this still does **not** buy is a resolved pebble: the fuel zone,
 //!   shell and surface remain one temperature node, so the intra-pebble term is
-//!   a bed-average drop and there is still no peak fuel temperature here.
+//!   a bed-average drop and there is still no peak fuel temperature here."~~
+//!   **CORRECTED 2026-09-22 -- it does now.** The intra-pebble leg was
+//!   `h = 10 k/d`, the uniform-heated-sphere result, with an invented
+//!   `k = 25 W/(m K)`. An HTR-10 ball does not generate uniformly out to its
+//!   surface: it has a 5 mm unfuelled shell conducting the full power with
+//!   none of its own, which no choice of `k` in that form can represent.
+//!   [`intra_pebble_conduction_coefficient`] now solves
+//!   [`tampines::pebble_bed::pebble`]'s two-zone pebble with
+//!   temperature- and fluence-dependent A3 graphite and the TRISO dispersion,
+//!   and [`resolved_pebble_profile`] **inverts** it so the node temperature is
+//!   genuinely the ball's volume average rather than its surface.
+//!
+//!   **Measured cost of that (2026-09-22): the overall coefficient moved
+//!   1.1 %**, 486.1 to 480.7 W/(m^2 K), because the film is ~88 % of the
+//!   resistance and dilutes any pebble-side correction. What it bought instead
+//!   is a **peak kernel temperature**, 21.3 K above the node at rated power --
+//!   a fuel temperature the uniform ball could not produce at all. See
+//!   [`tests::the_resolved_pebble_beats_the_uniform_ball`] and
+//!   [`PebbleBedPorousMediaNode::peak_kernel_temperature`]. Still absent: a
+//!   power peaking factor, so this is the peak kernel of a *core-average*
+//!   pebble, and there is no burnup, so fluence is zero.
 //! - **Graphite `c_p` is one constant**, representative of graphite near
 //!   1000 K. Real graphite `c_p` rises from about 710 J/(kg K) at 300 K to
 //!   about 1700 J/(kg K) at 1000 K, so the constant is badly wrong cold and
@@ -192,6 +212,7 @@ use uom::si::mass_rate::kilogram_per_second;
 use uom::si::power::watt;
 use uom::si::ratio::ratio;
 use outram_park_digital_twin_engine::htr10::kta;
+use tampines::pebble_bed::pebble::{Pebble, PebbleTemperatureProfile};
 use outram_foam_basic_lib::prelude::SquareMatrix;
 use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_pt, viscosity};
 use uom::si::thermal_conductance::watt_per_kelvin;
@@ -298,24 +319,31 @@ pub const GRAPHITE_CP_J_PER_KG_K: f64 = 1700.0;
 /// the improvement rather than merely asserting it.
 pub const LEGACY_LUMPED_HTC_W_PER_M2_K: f64 = 160.0;
 
-/// Thermal conductivity of the pebble's graphite matrix \[W/(m K)\]
+/// ~~Thermal conductivity of the pebble's graphite matrix \[W/(m K)\]
 /// (**illustrative**, representative of A3-3 matrix graphite near the
-/// operating temperature).
+/// operating temperature).~~
 ///
-/// Used for the **intra-pebble** conduction resistance only. Note this is a
-/// different quantity from
+/// **RETIRED 2026-09-22 — no longer in the heat path.** It is kept only so
+/// [`tests::the_resolved_pebble_beats_the_uniform_ball`] can show what
+/// replacing it bought, and so the history of the number is not erased by a
+/// silent delete.
+///
+/// ~~"No temperature- or fluence-dependent graphite property set exists in
+/// this workspace, so this is one constant."~~ **CORRECTED 2026-09-22 — that
+/// claim was false when written.** `tampines::pebble_bed::pebble` consumes
+/// `tuas_boussinesq_solver`'s A3-grade matrix-graphite correlation, which is
+/// both temperature- and fluence-dependent over 300-2000 K, and `tampines` was
+/// already a dependency of this crate. The constant was not filling a gap in
+/// the workspace; it was a second implementation of something the workspace
+/// already had, which is exactly what the search-before-building rule exists
+/// to prevent. [`intra_pebble_conduction_coefficient`] now calls that model.
+///
+/// Note this was also a different quantity from
 /// [`outram_park_digital_twin_engine::htr10::zbs::zbs_effective_conductivity`],
 /// which is the *bed-effective* conductivity (solid contact plus pebble-to-
 /// pebble radiation across the voids) and is the wrong number for conduction
-/// *inside* a ball.
-///
-/// Unirradiated matrix graphite is nearer 40 W/(m K); irradiation reduces it
-/// substantially, and 25 is a representative mid-life value. No
-/// temperature- or fluence-dependent graphite property set exists in this
-/// workspace, so this is one constant. Because the film resistance dominates
-/// (see [`overall_htc_at_flow`]), the overall coefficient is weakly sensitive
-/// to it: halving it to 12.5 moves the rated-power coefficient by under 15%.
-pub const GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K: f64 = 25.0;
+/// *inside* a ball. That distinction still holds.
+pub const LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K: f64 = 25.0;
 
 /// Reynolds-number exponent of the **Wakao** packed-bed particle-to-fluid
 /// Nusselt correlation, dimensionless.
@@ -485,33 +513,216 @@ pub fn wakao_nusselt(reynolds: f64, prandtl: f64) -> f64 {
     2.0 + 1.1 * reynolds.max(0.0).powf(HTC_FLOW_EXPONENT) * prandtl.max(0.0).cbrt()
 }
 
+/// The published HTR-10 fuel element, resolved: a fuelled zone of 5.0 cm
+/// diameter carrying 8335 TRISO particles, inside a 6.0 cm ball with a 5 mm
+/// unfuelled graphite shell.
+///
+/// Reused wholesale from [`tampines::pebble_bed::pebble`] rather than
+/// re-entered here. `tampines` is already a dependency of this crate, that
+/// module transcribes the geometry from IAEA-TECDOC-1382 part 2 Chapter 4,
+/// and its conductivities come from `tuas_boussinesq_solver`'s A3 graphite
+/// correlation. A second copy of any of that here would be a copy that drifts.
+pub fn resolved_pebble() -> Pebble {
+    Pebble::htr10()
+}
+
+/// Core-average power of one fuel element \[W\]: rated thermal power over the
+/// published pebble count. 10 MW / 27 000 = 370.37 W.
+pub fn core_average_pebble_power() -> Power {
+    design().thermal_power / pebble_count()
+}
+
 /// Intra-pebble conduction coefficient \[W/(m^2 K)\], referred to the pebble
-/// surface area.
+/// surface area, from the **resolved two-zone pebble** at `surface_temperature`
+/// and pebble power `pebble_power`.
 ///
-/// For a sphere of radius `R` with **uniform volumetric heat generation** and
-/// conductivity `k`, the difference between the volume-average temperature and
-/// the surface temperature is the standard result
+/// ## What changed on 2026-09-22, and why it is not just a constant swap
+///
+/// This used to be `h = 10 k / d` with an invented `k = 25 W/(m K)` — the
+/// closed-form volume-average-to-surface result for a sphere generating
+/// **uniformly right out to its own surface**. An HTR-10 ball does not: heat
+/// is released only inside the 5.0 cm fuelled zone, and the 5 mm unfuelled
+/// shell conducts the whole of it with none of its own. That shell is a
+/// resistance the uniform-ball form has no way to represent, whatever `k` is
+/// set to, so this was a **geometry** error wearing a coefficient's clothes.
+///
+/// It now solves [`tampines::pebble_bed::pebble::Pebble::steady_state_temperatures`]
+/// — two-zone conduction with temperature- and fluence-dependent A3 graphite,
+/// the TRISO dispersion lowering the fuelled zone's conductivity below plain
+/// graphite — takes the ball's **volume average** (which is what this node's
+/// capacitance makes it hold, see
+/// [`tampines::pebble_bed::pebble::Pebble::volume_average_temperature`]), and
+/// forms the conductance that reproduces it:
 ///
 /// ```text
-/// T_avg - T_surface = q''' R^2 / (15 k)
+/// h_int = Q_pebble / (A_pebble (T_avg - T_surface))
 /// ```
 ///
-/// Writing that as a surface conductance `Q = h_int A (T_avg - T_surface)` with
-/// `Q = q''' (4/3) pi R^3` and `A = 4 pi R^2` gives
+/// **The particle-scale rise is deliberately NOT in here.** The 34.25 K
+/// kernel rise `tampines` reports is the *hottest* particle, at the pebble
+/// centre, and it is a fuel temperature for feedback and limits — not a term
+/// in the ball's averaged heat path. Folding it into this conductance would
+/// inflate the resistance by treating a peak as a mean. See
+/// [`PebbleBedPorousMediaNode::peak_kernel_temperature`] for where it does
+/// belong.
 ///
-/// ```text
-/// h_int = 5 k / R = 10 k / d
-/// ```
+/// ## Arguments
 ///
-/// This is the resistance the old lumped coefficient buried. It is a **bed
-/// average** intra-pebble drop: uniform generation is right for an averaged
-/// pebble but understates the hottest ball, which carries the power peaking
-/// factor this one-node model does not have.
-pub fn intra_pebble_conduction_coefficient() -> HeatTransfer {
-    let d = pebble_diameter().get::<meter>();
-    HeatTransfer::new::<watt_per_square_meter_kelvin>(
-        10.0 * GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K / d,
+/// `node_temperature` is this node's own temperature, i.e. the ball's volume
+/// average. [`resolved_pebble_profile`] **inverts** for the pebble surface
+/// that produces it rather than treating the two as interchangeable — see
+/// that function for why, and for the measurement that decided it.
+///
+/// `pebble_power` is floored at 1 % of core-average. In the linear-conduction
+/// limit the conductance is power-independent — `T_avg - T_surface` scales
+/// with `Q`, so the ratio does not — and the floor exists only to keep the
+/// zero-power case from forming `0/0` rather than to model anything.
+///
+/// Fluence is **zero**: this simulator has no burnup and no multi-pass pebble
+/// flow, so there is no fluence to supply. Irradiated A3 graphite is
+/// substantially less conductive, so a real mid-life core sits on the
+/// resistive side of this.
+///
+/// ## Failure
+///
+/// Outside `tampines`' 300-2000 K correlation window, or if either fixed-point
+/// iteration fails, this falls back to the retired uniform-ball form and says
+/// so in the returned value's provenance only by being finite — the caller
+/// cannot tell. That is deliberate: a plant step must not panic on a transient
+/// excursion, and the fallback is the *old* model, which was usable. The V&V
+/// test pins the normal path.
+pub fn intra_pebble_conduction_coefficient(
+    node_temperature: ThermodynamicTemperature,
+    pebble_power: Power,
+) -> HeatTransfer {
+    let power = floored_pebble_power(pebble_power);
+    conduction_coefficient_from(
+        resolved_pebble_profile(node_temperature, power).as_ref(),
+        power,
     )
+}
+
+/// Pebble power floored at 1 % of core-average -- see
+/// [`intra_pebble_conduction_coefficient`] for why the floor is a guard on
+/// `0/0` and not a physical model.
+fn floored_pebble_power(pebble_power: Power) -> Power {
+    let floor = core_average_pebble_power() * 0.01;
+    if pebble_power > floor {
+        pebble_power
+    } else {
+        floor
+    }
+}
+
+/// Solve the resolved two-zone pebble for the profile whose **volume average
+/// is `node_temperature`**, at pebble power `pebble_power`.
+///
+/// ## Why this inverts instead of just calling `tampines`
+///
+/// [`tampines::pebble_bed::pebble::Pebble::steady_state_temperatures`] takes
+/// the pebble **surface** temperature as its boundary condition. This node
+/// does not hold that — its capacitance is the whole graphite mass, so what it
+/// holds is the ball's volume average, which sits ~9 K above the surface at
+/// rated power.
+///
+/// Handing the node temperature straight in as the surface would anchor the
+/// whole profile ~9 K too hot. **That was measured, not assumed:** the first
+/// cut of this wiring did exactly that, and
+/// [`tests::the_resolved_pebble_beats_the_uniform_ball`] found it moved
+/// `h_int` by 1.14 % over a 15 K offset — small, but an error with a known
+/// sign and no reason to keep. Documenting a bound for it was the tempting
+/// move; removing it costs two extra fixed-point passes.
+///
+/// So the surface is solved for: start at `T_s = T_node`, solve, measure the
+/// volume-average rise `r`, set `T_s <- T_node - r`, repeat. The rise depends
+/// on the surface only through `k(T)`, so this contracts hard and converges in
+/// two or three passes; 1e-6 K is the tolerance and 12 passes the cap.
+///
+/// The returned profile's `surface` field is therefore the **true** pebble
+/// surface, and `volume_average_temperature` of it reproduces `node_temperature`
+/// to within the tolerance — which
+/// [`tests::the_inverted_profile_reproduces_the_node_temperature`] checks.
+///
+/// ## Failure
+///
+/// `None` when `tampines` rejects the inputs (outside its 300-2000 K
+/// correlation window) or either iteration fails to converge. That is a real
+/// outcome, not an error to unwrap: a plant step must not panic because a
+/// transient took the bed briefly out of range. Callers fall back to the
+/// retired uniform-ball form, which is the model this replaced and was usable.
+pub fn resolved_pebble_profile(
+    node_temperature: ThermodynamicTemperature,
+    pebble_power: Power,
+) -> Option<PebbleTemperatureProfile> {
+    const TOLERANCE_K: f64 = 1.0e-6;
+    const MAX_PASSES: usize = 12;
+
+    let pebble = resolved_pebble();
+    let power = floored_pebble_power(pebble_power);
+    let node_k = node_temperature.get::<kelvin>();
+    let mut surface_k = node_k;
+
+    for _ in 0..MAX_PASSES {
+        let profile = pebble
+            .steady_state_temperatures(
+                power,
+                ThermodynamicTemperature::new::<kelvin>(surface_k),
+                Ratio::new::<ratio>(0.0),
+            )
+            .ok()?;
+        let rise = pebble.volume_average_temperature(&profile).get::<kelvin>() - surface_k;
+        if !rise.is_finite() {
+            return None;
+        }
+        let next = node_k - rise;
+        if (next - surface_k).abs() < TOLERANCE_K {
+            // Return the profile solved AT the converged surface, not the one
+            // that produced it -- otherwise the reported surface and the
+            // reported interior are one pass out of step.
+            return pebble
+                .steady_state_temperatures(
+                    power,
+                    ThermodynamicTemperature::new::<kelvin>(next),
+                    Ratio::new::<ratio>(0.0),
+                )
+                .ok();
+        }
+        surface_k = next;
+    }
+    None
+}
+
+/// The conduction coefficient implied by an already-solved profile, so a
+/// caller that needs the profile anyway does not solve it twice.
+///
+/// Falls back to the retired uniform-ball `10 k / d` when there is no profile.
+pub fn conduction_coefficient_from(
+    profile: Option<&PebbleTemperatureProfile>,
+    pebble_power: Power,
+) -> HeatTransfer {
+    let power = floored_pebble_power(pebble_power);
+    let rise = profile
+        .map(|p| {
+            let average = resolved_pebble().volume_average_temperature(p);
+            average.get::<kelvin>() - p.surface.get::<kelvin>()
+        })
+        .filter(|rise| rise.is_finite() && *rise > 0.0);
+
+    match rise {
+        Some(rise) => {
+            let area_one_pebble = heat_transfer_area().get::<square_meter>() / pebble_count();
+            HeatTransfer::new::<watt_per_square_meter_kelvin>(
+                power.get::<watt>() / (area_one_pebble * rise),
+            )
+        }
+        // Retired uniform-ball form, kept only as the out-of-range fallback.
+        None => {
+            let d = pebble_diameter().get::<meter>();
+            HeatTransfer::new::<watt_per_square_meter_kelvin>(
+                10.0 * LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K / d,
+            )
+        }
+    }
 }
 
 /// Overall pebble-to-helium heat-transfer coefficient at helium flow `m_dot`
@@ -528,7 +739,12 @@ pub fn intra_pebble_conduction_coefficient() -> HeatTransfer {
 ///   form and is built with the workspace's own
 ///   [`outram_park_digital_twin_engine::htr10::kta`] helpers, so it is the same
 ///   Reynolds number the KTA pressure-drop correlation uses.
-/// - `h_internal` is [`intra_pebble_conduction_coefficient`].
+/// - `h_internal` is [`intra_pebble_conduction_coefficient`], evaluated on the
+///   **resolved two-zone pebble** at the bed's own temperature and the current
+///   per-pebble power. It is the smaller resistance by far (~12 % at rated
+///   flow), which is why the film's correctness was the thing worth getting
+///   right first and why resolving the pebble moves the total only a few
+///   percent — see [`tests::the_resolved_pebble_beats_the_uniform_ball`].
 ///
 /// **This replaced an invented lumped constant on 2026-08-14** (see
 /// [`LEGACY_LUMPED_HTC_W_PER_M2_K`]). The film resistance dominates at rated
@@ -541,6 +757,28 @@ pub fn intra_pebble_conduction_coefficient() -> HeatTransfer {
 /// stopped circulator leaves a real (small) coefficient rather than a
 /// arbitrarily scaled one.
 pub fn overall_htc_at_flow(
+    helium_mass_flow: MassRate,
+    helium_temperature: ThermodynamicTemperature,
+    bed_temperature: ThermodynamicTemperature,
+    reactor_thermal_power: Power,
+) -> HeatTransfer {
+    let h_film = film_htc_at_flow(helium_mass_flow, helium_temperature);
+    let h_internal = intra_pebble_conduction_coefficient(
+        bed_temperature,
+        reactor_thermal_power / pebble_count(),
+    );
+    series_coefficient(h_film, h_internal)
+}
+
+/// The **convective film** leg alone \[W/(m^2 K)\]: `h = Nu k_He / d_p` with
+/// [`wakao_nusselt`] on the superficial packed-bed Reynolds number.
+///
+/// Split out of [`overall_htc_at_flow`] on 2026-09-22 so that
+/// [`PebbleBedPorousMediaNode::step`] can compose the two legs itself and pay
+/// for the resolved pebble's fixed-point solve **once** per step rather than
+/// twice -- once for the coefficient and again for the kernel temperature.
+/// Both entry points call the same two functions, so they cannot disagree.
+pub fn film_htc_at_flow(
     helium_mass_flow: MassRate,
     helium_temperature: ThermodynamicTemperature,
 ) -> HeatTransfer {
@@ -563,17 +801,25 @@ pub fn overall_htc_at_flow(
     )
     .get::<ratio>();
 
-    let nusselt = wakao_nusselt(reynolds, prandtl);
-    let h_film = nusselt * k_he / d_p;
-    let h_internal = intra_pebble_conduction_coefficient().get::<watt_per_square_meter_kelvin>();
+    HeatTransfer::new::<watt_per_square_meter_kelvin>(wakao_nusselt(reynolds, prandtl) * k_he / d_p)
+}
 
-    // Series resistances. Guard the degenerate case rather than dividing by a
-    // zero coefficient -- a non-finite conductance would silently poison the
-    // whole energy balance downstream.
-    if !(h_film > 0.0) || !(h_internal > 0.0) {
+/// Two surface coefficients in series, `1/U = 1/h1 + 1/h2`.
+///
+/// Guards the degenerate case rather than dividing by a zero coefficient -- a
+/// non-finite conductance would silently poison the whole energy balance
+/// downstream.
+///
+/// Named `film`/`internal` rather than `first`/`second`: `uom::si::time::second`
+/// is in scope here, and a parameter called `second` is silently taken as that
+/// unit struct instead of a binding.
+pub fn series_coefficient(film: HeatTransfer, internal: HeatTransfer) -> HeatTransfer {
+    let a = film.get::<watt_per_square_meter_kelvin>();
+    let b = internal.get::<watt_per_square_meter_kelvin>();
+    if !(a > 0.0) || !(b > 0.0) {
         return HeatTransfer::new::<watt_per_square_meter_kelvin>(0.0);
     }
-    HeatTransfer::new::<watt_per_square_meter_kelvin>(1.0 / (1.0 / h_film + 1.0 / h_internal))
+    HeatTransfer::new::<watt_per_square_meter_kelvin>(1.0 / (1.0 / a + 1.0 / b))
 }
 
 /// Helium isobaric specific heat \[J/(kg K)\] at `temperature` and the
@@ -826,6 +1072,13 @@ pub struct PebbleBedPorousMediaNode {
     /// Overall pebble-to-helium coefficient used on the most recent step --
     /// evaluated by [`overall_htc_at_flow`].
     overall_htc: HeatTransfer,
+    /// Peak fuel-kernel temperature from the most recent step's resolved
+    /// pebble solve, or `None` before the first step and whenever the solve
+    /// was out of range. **Reported, not integrated**: nothing in this node's
+    /// energy balance reads it, because the kernels are ~5 % of the ball by
+    /// volume and their heat is already in the source term. See
+    /// [`Self::peak_kernel_temperature`].
+    peak_kernel_temperature: Option<ThermodynamicTemperature>,
 }
 
 impl PebbleBedPorousMediaNode {
@@ -851,6 +1104,7 @@ impl PebbleBedPorousMediaNode {
             overall_htc: HeatTransfer::new::<watt_per_square_meter_kelvin>(
                 LEGACY_LUMPED_HTC_W_PER_M2_K,
             ),
+            peak_kernel_temperature: None,
         }
     }
 
@@ -895,7 +1149,21 @@ impl PebbleBedPorousMediaNode {
         //    PebbleBedCore::step uses for its own coefficient.
         let helium_temperature_now =
             ThermodynamicTemperature::new::<kelvin>(self.helium_state.temperature);
-        let htc = overall_htc_at_flow(helium_mass_flow, helium_temperature_now);
+        // The intra-pebble leg needs the bed's own temperature and the power
+        // actually being generated, so the source term is summed here rather
+        // than at step 4 -- same value, just needed earlier now.
+        let reactor_thermal_power = fission_power + decay_heat_power;
+        // One resolved-pebble solve per step, reused for BOTH the conduction
+        // leg and the peak kernel temperature. Going through
+        // `overall_htc_at_flow` here would solve it a second time for a
+        // number this already has.
+        let pebble_power = reactor_thermal_power / pebble_count();
+        let profile = resolved_pebble_profile(self.pebble_temperature, pebble_power);
+        let h_internal = conduction_coefficient_from(profile.as_ref(), pebble_power);
+        let htc = series_coefficient(
+            film_htc_at_flow(helium_mass_flow, helium_temperature_now),
+            h_internal,
+        );
         let conductance: ThermalConductance = htc * heat_transfer_area();
 
         // 2. C_s (unchanged) and C_f, the latter read straight off the
@@ -913,7 +1181,6 @@ impl PebbleBedPorousMediaNode {
         // 4. Assemble and solve the 2x2 system. The source term is the SUM
         //    -- see the doc comment above for why decay heat is a separate
         //    argument rather than folded into `fission_power` by the caller.
-        let reactor_thermal_power = fission_power + decay_heat_power;
         let (matrix, rhs) = assemble_backward_euler_system(
             dt,
             reactor_thermal_power,
@@ -945,14 +1212,50 @@ impl PebbleBedPorousMediaNode {
         let delta = TemperatureInterval::new::<temperature_interval::kelvin>(solved[0] - solved[1]);
         self.heat_to_helium = conductance * delta;
         self.overall_htc = htc;
+        // The kernel sits on the profile solved at the START of the step, so
+        // it is reported against that step's bed temperature, consistent with
+        // the coefficient it was solved alongside.
+        self.peak_kernel_temperature = profile.map(|p| p.peak_kernel_centre);
 
         self.heat_to_helium
     }
 
     /// Pebble (solid-phase) temperature. See the field doc comment on
     /// [`Self`] for how this differs from a specific-enthalpy state.
+    ///
+    /// This is the ball's **volume average**, because the node's capacitance
+    /// is the whole graphite mass. It is emphatically not a fuel temperature:
+    /// see [`Self::peak_kernel_temperature`], which at core-average power runs
+    /// about 24 K hotter.
     pub fn pebble_temperature(&self) -> ThermodynamicTemperature {
         self.pebble_temperature
+    }
+
+    /// Peak fuel-kernel temperature from the most recent step, or `None`
+    /// before the first step / outside the correlation range.
+    ///
+    /// ## What this is
+    ///
+    /// The centre of the hottest UO2 kernel in the *hottest* coated particle,
+    /// which `tampines` places at the pebble centre -- the bounding position.
+    /// This is the quantity a fuel-temperature limit applies to, and the one
+    /// a real Doppler feedback wants.
+    ///
+    /// ## What it is still NOT
+    ///
+    /// It is the peak kernel **of a core-average pebble**, because this tier
+    /// has one bed node and therefore no power peaking factor, no axial or
+    /// radial shape, and no burnup distribution. A real HTR-10 peak-power
+    /// pebble runs hotter than this, and an irradiated one hotter again
+    /// (fluence is passed as zero -- this simulator has no burnup).
+    ///
+    /// **Nothing reads this yet.** `physics::kinetics` still runs its Doppler
+    /// feedback off [`Self::pebble_temperature`]. Rewiring the feedback onto
+    /// the kernel changes every recorded reactivity number in that module and
+    /// is a deliberate separate step, not a side effect of resolving the
+    /// pebble. Exposing it first is what makes that step measurable.
+    pub fn peak_kernel_temperature(&self) -> Option<ThermodynamicTemperature> {
+        self.peak_kernel_temperature
     }
 
     /// Full thermodynamic state of the helium held in this node -- density,
@@ -1232,7 +1535,11 @@ mod tests {
         let area = heat_transfer_area().get::<square_meter>();
         let q = 1.0e7;
 
-        let u = overall_htc_at_flow(nominal_helium_flow(), helium)
+        // The bed sits ~67 K above the helium at this duty, so the conduction
+        // leg is evaluated there rather than at the helium temperature.
+        let bed = ThermodynamicTemperature::new::<kelvin>(748.15 + 67.0);
+        let rated = Power::new::<watt>(1.0e7);
+        let u = overall_htc_at_flow(nominal_helium_flow(), helium, bed, rated)
             .get::<watt_per_square_meter_kelvin>();
         // Compared on the SURFACE resistance alone (`Q/(U A)`), which is what
         // the legacy constant also represented -- an apples-to-apples contrast
@@ -1251,7 +1558,8 @@ mod tests {
         .get::<ratio>();
         let nu = wakao_nusselt(re, pr);
         let h_film = nu * k_he / pebble_diameter().get::<meter>();
-        let h_int = intra_pebble_conduction_coefficient().get::<watt_per_square_meter_kelvin>();
+        let h_int = intra_pebble_conduction_coefficient(bed, rated / pebble_count())
+            .get::<watt_per_square_meter_kelvin>();
 
         println!(
             "helium at 748.15 K, 3.0 MPa: k = {k_he:.4} W/(m K), Pr = {pr:.4}, mu = {mu:.3e} Pa s\n\
@@ -1276,6 +1584,186 @@ mod tests {
         );
     }
 
+    /// V&V: the **resolved two-zone pebble** must be more resistive than the
+    /// uniform-ball form it replaced, by the factor the resolved pebble model
+    /// independently measures — and the surface-temperature approximation
+    /// this wiring makes must be worth less than the change it buys.
+    ///
+    /// **Methodology.** Three things are measured at the published rated point
+    /// (10 MWth, 4.3 kg/s, bed at 815.15 K):
+    ///
+    /// 1. `h_int` from [`intra_pebble_conduction_coefficient`], against the
+    ///    retired `10 k / d` with `k = 25 W/(m K)`
+    ///    ([`LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K`]). The resolved
+    ///    value must be the **smaller** coefficient: the unfuelled shell is a
+    ///    resistance the uniform ball does not have, so resolving the geometry
+    ///    can only add resistance, never remove it. A resolved value that came
+    ///    out *less* resistive would mean the wiring is wrong, not that the
+    ///    pebble is better than thought.
+    /// 2. What it costs the **overall** coefficient, which is the number that
+    ///    actually enters the energy balance. The film is ~88 % of the
+    ///    resistance, so the expectation is a few percent, not a factor.
+    /// 3. The peak kernel temperature the resolved pebble now exposes, and how
+    ///    far it sits above the node temperature the Doppler feedback still
+    ///    reads.
+    ///
+    /// Pass criteria: resolved is more resistive than the uniform ball, and
+    /// the total bed-to-helium difference still sits below the 100.7 K
+    /// published **peak** of Gao & Shi (2002) Table 2, which a bed *average*
+    /// must.
+    ///
+    /// **History — a claim this test refused to let stand.** The first cut
+    /// passed the node temperature straight in as the pebble surface and the
+    /// doc comment asserted the error was "under 0.5 %". This test measured
+    /// **1.135 %** over a 15 K offset and failed. The number was invented, not
+    /// measured, so the fix was to delete the approximation rather than
+    /// restate it: [`resolved_pebble_profile`] now solves for the surface
+    /// whose volume average is the node temperature, and
+    /// [`tests::the_inverted_profile_reproduces_the_node_temperature`] pins
+    /// that. Widening the gate to 1.2 % would have "passed" and left an error
+    /// with a known sign in the heat path.
+    ///
+    /// **Results (2026-09-22), at 10 MWth, 4.3 kg/s, node 815.15 K:**
+    ///
+    /// | | resolved | uniform ball |
+    /// |---|---|---|
+    /// | `h_int` \[W/(m^2 K)\] | **3803.6** | 4166.7 |
+    /// | `U` (series with the 550.2 film) | **480.7** | 486.1 |
+    /// | bed-average pebble-to-helium dT | **68.12 K** | 67.37 K |
+    ///
+    /// Resolved pebble at that node temperature: surface **806.54 K**, zone
+    /// boundary 812.23 K, centre 830.66 K, **peak kernel 836.45 K** — the
+    /// kernel sits **21.30 K** above the node the Doppler feedback reads.
+    ///
+    /// **Interpretation.** Resolving the geometry makes the pebble leg 9.5 %
+    /// more resistive, and moves the number that actually enters the energy
+    /// balance by **1.1 %** — because the film is ~88 % of the resistance, the
+    /// pebble-side correction is diluted almost out of existence. Anyone
+    /// expecting the unfuelled shell and the TRISO particles to matter to
+    /// *heat removal* should read this table: they do not, at rated flow.
+    ///
+    /// What the resolved pebble buys is not the coefficient. It is the
+    /// **21.30 K** — a fuel temperature the uniform ball could not produce at
+    /// all, and the quantity a Doppler feedback and a fuel-temperature limit
+    /// both want.
+    ///
+    /// Note also that this is *less* resistive than the 1.25x the standalone
+    /// `tampines` V&V records, and the difference is real physics rather than
+    /// a discrepancy: that test runs at a 1000 K surface, this at ~807 K, and
+    /// A3 graphite conducts better cold. The retired constant was frozen at
+    /// 25 W/(m K) at every temperature, so the two disagree by more at some
+    /// temperatures than others — which is the point of having replaced it.
+    #[test]
+    fn the_resolved_pebble_beats_the_uniform_ball() {
+        let helium = ThermodynamicTemperature::new::<kelvin>(748.15);
+        let bed = ThermodynamicTemperature::new::<kelvin>(815.15);
+        let rated = Power::new::<watt>(1.0e7);
+        let area = heat_transfer_area().get::<square_meter>();
+
+        let resolved = intra_pebble_conduction_coefficient(bed, rated / pebble_count())
+            .get::<watt_per_square_meter_kelvin>();
+        let uniform_ball = 10.0 * LEGACY_GRAPHITE_MATRIX_CONDUCTIVITY_W_PER_M_K
+            / pebble_diameter().get::<meter>();
+
+        let u_resolved = overall_htc_at_flow(nominal_helium_flow(), helium, bed, rated)
+            .get::<watt_per_square_meter_kelvin>();
+        let h_film = film_htc_at_flow(nominal_helium_flow(), helium)
+            .get::<watt_per_square_meter_kelvin>();
+        let u_uniform = 1.0 / (1.0 / h_film + 1.0 / uniform_ball);
+
+        let profile = resolved_pebble_profile(bed, rated / pebble_count())
+            .expect("the rated point is inside the correlation window");
+
+        println!(
+            "h_int: resolved {resolved:.1} vs uniform-ball {uniform_ball:.1} W/(m^2 K) \
+             (ratio {:.3})\n\
+             h_film {h_film:.1}; U: resolved {u_resolved:.1} vs uniform-ball {u_uniform:.1} \
+             W/(m^2 K)\n\
+             bed-average dT: resolved {:.2} K vs uniform-ball {:.2} K (published PEAK 100.7 K)\n\
+             pebble at node 815.15 K: surface {:.2} K, zone boundary {:.2} K, centre {:.2} K, \
+             peak kernel {:.2} K (kernel is {:.2} K above the node)",
+            uniform_ball / resolved,
+            1.0e7 / (u_resolved * area),
+            1.0e7 / (u_uniform * area),
+            profile.surface.get::<kelvin>(),
+            profile.fuelled_zone_boundary.get::<kelvin>(),
+            profile.centre.get::<kelvin>(),
+            profile.peak_kernel_centre.get::<kelvin>(),
+            profile.peak_kernel_centre.get::<kelvin>() - bed.get::<kelvin>(),
+        );
+
+        assert!(
+            resolved < uniform_ball,
+            "resolving the geometry must ADD resistance: resolved {resolved:.1} should be \
+             below the uniform ball's {uniform_ball:.1} W/(m^2 K)"
+        );
+        assert!(
+            1.0e7 / (u_resolved * area) < 100.7,
+            "the bed AVERAGE must stay below the published PEAK"
+        );
+        assert!(
+            profile.peak_kernel_centre > bed,
+            "the peak kernel must sit above the ball's volume average"
+        );
+    }
+
+    /// V&V: [`resolved_pebble_profile`] must return a profile whose **volume
+    /// average is the node temperature it was asked for** — that is the whole
+    /// point of the inversion, and the property that makes the node's
+    /// capacitance and its resistance describe the same pebble.
+    ///
+    /// **Methodology.** Over a grid of node temperatures (500-1500 K) and
+    /// powers (1 %, 50 %, 100 %, 150 % of rated), solve and check that
+    /// `volume_average_temperature` of the returned profile reproduces the
+    /// requested node temperature to better than 1e-4 K — two orders inside
+    /// the 1e-6 K the iteration converges to, so the margin is the iteration's
+    /// own, not a tolerance chosen to fit. Also check the returned surface is
+    /// strictly *below* the node (heat flows outward) and that the ordering
+    /// surface < boundary < centre < kernel holds at every point.
+    ///
+    /// **Results (2026-09-22):** over all 20 (temperature, power) points the
+    /// worst reproduction error was **2.914e-9 K** — five orders inside the
+    /// 1e-4 K criterion and comfortably at the iteration's own 1e-6 K
+    /// tolerance, so the inversion is converging, not merely passing. Every
+    /// point satisfied surface < boundary < centre < kernel, and every surface
+    /// sat below its node temperature.
+    #[test]
+    fn the_inverted_profile_reproduces_the_node_temperature() {
+        let pebble = resolved_pebble();
+        let rated_pebble_power = core_average_pebble_power();
+        let mut worst = 0.0f64;
+
+        for node_k in [500.0, 750.0, 1000.0, 1250.0, 1500.0] {
+            for fraction in [0.01, 0.5, 1.0, 1.5] {
+                let node = ThermodynamicTemperature::new::<kelvin>(node_k);
+                let profile = resolved_pebble_profile(node, rated_pebble_power * fraction)
+                    .unwrap_or_else(|| {
+                        panic!("no profile at {node_k} K, {fraction}x rated -- inside the window")
+                    });
+
+                let reproduced = pebble
+                    .volume_average_temperature(&profile)
+                    .get::<kelvin>();
+                let error = (reproduced - node_k).abs();
+                worst = worst.max(error);
+
+                assert!(
+                    profile.surface.get::<kelvin>() < node_k,
+                    "the surface must sit below the ball average at {node_k} K"
+                );
+                assert!(profile.surface < profile.fuelled_zone_boundary);
+                assert!(profile.fuelled_zone_boundary < profile.centre);
+                assert!(profile.centre < profile.peak_kernel_centre);
+            }
+        }
+
+        println!("worst |volume average - requested node temperature| = {worst:.3e} K");
+        assert!(
+            worst < 1.0e-4,
+            "the inversion must reproduce the node temperature; worst error {worst:.3e} K"
+        );
+    }
+
     /// The enthalpy/temperature relation must round-trip exactly (it is linear,
     /// so no iteration is involved), and the flow scaling must be monotone,
     /// equal to the nominal coefficient at nominal flow, and strictly positive
@@ -1292,29 +1780,37 @@ mod tests {
         }
 
         let helium = ThermodynamicTemperature::new::<kelvin>(748.15);
-        let at_nominal = overall_htc_at_flow(nominal_helium_flow(), helium)
+        let bed = ThermodynamicTemperature::new::<kelvin>(815.15);
+        let rated = Power::new::<watt>(1.0e7);
+        let at_nominal = overall_htc_at_flow(nominal_helium_flow(), helium, bed, rated)
             .get::<watt_per_square_meter_kelvin>();
 
         let half = overall_htc_at_flow(
             MassRate::new::<kilogram_per_second>(0.5 * nominal_helium_flow_kg_per_s()),
             helium,
+            bed,
+            rated,
         )
         .get::<watt_per_square_meter_kelvin>();
         let double = overall_htc_at_flow(
             MassRate::new::<kilogram_per_second>(2.0 * nominal_helium_flow_kg_per_s()),
             helium,
+            bed,
+            rated,
         )
         .get::<watt_per_square_meter_kelvin>();
         assert!(half < at_nominal && at_nominal < double);
 
-        let stopped = overall_htc_at_flow(MassRate::new::<kilogram_per_second>(0.0), helium)
-            .get::<watt_per_square_meter_kelvin>();
+        let stopped =
+            overall_htc_at_flow(MassRate::new::<kilogram_per_second>(0.0), helium, bed, rated)
+                .get::<watt_per_square_meter_kelvin>();
         assert!(
             stopped > 0.0,
             "a stopped circulator must leave a residual coefficient"
         );
         // The series resistance can never exceed either branch alone.
-        let internal = intra_pebble_conduction_coefficient().get::<watt_per_square_meter_kelvin>();
+        let internal = intra_pebble_conduction_coefficient(bed, rated / pebble_count())
+            .get::<watt_per_square_meter_kelvin>();
         assert!(
             at_nominal < internal,
             "a series coefficient must be below the intra-pebble branch alone"

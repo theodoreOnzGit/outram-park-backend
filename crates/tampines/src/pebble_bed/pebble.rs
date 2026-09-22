@@ -522,6 +522,100 @@ impl Pebble {
 
         unreachable!("the loop above returns on convergence or on exhaustion")
     }
+
+    /// Volume-average matrix temperature of the whole pebble, given a profile
+    /// from [`Self::steady_state_temperatures`].
+    ///
+    /// # Why this exists
+    ///
+    /// [`PebbleTemperatureProfile`] reports *point* temperatures — centre,
+    /// zone boundary, surface, hottest kernel. A **lumped** pebble-bed node
+    /// whose capacitance is the whole graphite mass does not hold any of
+    /// those: it holds the mass-average, and the resistance it must carry to
+    /// the coolant is the average-to-surface one. Without this, such a caller
+    /// has to re-derive the two-zone integral itself, which is how two
+    /// copies of one piece of physics start drifting apart.
+    ///
+    /// # Derivation
+    ///
+    /// The profile's *shape* is fixed by the geometry, so no conductivity is
+    /// needed here — only the three node temperatures and the two radii.
+    ///
+    /// In the fuelled zone the solution of uniform generation in a sphere is
+    /// parabolic, `T(r) - T_a = (T_0 - T_a)(1 - r^2/a^2)`, whose volume mean
+    /// over `r <= a` is
+    ///
+    /// ```text
+    /// <T>_fuelled = T_a + (2/5) (T_0 - T_a)
+    /// ```
+    ///
+    /// because `int_0^a (1 - r^2/a^2) r^2 dr / int_0^a r^2 dr = (1/3 - 1/5)/(1/3) = 2/5`.
+    ///
+    /// In the unfuelled shell nothing is generated, so the profile is the
+    /// pure conduction shape `T(r) - T_R = (T_a - T_R)(1/r - 1/R)/(1/a - 1/R)`,
+    /// whose volume mean over `a <= r <= R` is `T_R + (T_a - T_R) S` with
+    ///
+    /// ```text
+    ///      (R^2 - a^2)/2 - (R^3 - a^3)/(3R)
+    /// S = ----------------------------------
+    ///      (1/a - 1/R) (R^3 - a^3)/3
+    /// ```
+    ///
+    /// The two are then combined on their volume fractions, `a^3` and
+    /// `R^3 - a^3` over `R^3`.
+    ///
+    /// # What is deliberately NOT in this
+    ///
+    /// **The coated particles' own rise is excluded**, and that is correct
+    /// rather than an omission. [`PebbleTemperatureProfile::peak_kernel_centre`]
+    /// superposes the *hottest* particle, the one at the pebble centre; the
+    /// average particle sits cooler, and at HTR-10's ~5 % dispersion the
+    /// kernels' share of the ball's volume is small. Folding a peak-particle
+    /// rise into a volume mean would inflate it. The kernel temperature is a
+    /// *fuel* temperature for feedback and limits, not a term in the pebble's
+    /// heat path — keep the two uses apart.
+    ///
+    /// # Degenerate case
+    ///
+    /// With `a = R` (no unfuelled shell) this reduces to the textbook
+    /// `<T> - T_R = q''' R^2 / (15 k)`, which
+    /// [`tests::volume_average_reduces_to_the_uniform_sphere_result`] checks
+    /// against the closed form rather than against itself.
+    pub fn volume_average_temperature(
+        &self,
+        profile: &PebbleTemperatureProfile,
+    ) -> ThermodynamicTemperature {
+        let a = self.fuelled_zone_radius.get::<meter>();
+        let r_out = self.outer_radius.get::<meter>();
+        let t_surface = profile.surface.get::<kelvin>();
+        let rise_centre = profile.centre.get::<kelvin>() - t_surface;
+        let rise_boundary = profile.fuelled_zone_boundary.get::<kelvin>() - t_surface;
+
+        let a3 = a * a * a;
+        let r3 = r_out * r_out * r_out;
+        let shell_volume = r3 - a3;
+
+        // Parabolic fuelled zone: its mean sits 2/5 of the way from the zone
+        // boundary up to the centre.
+        let mean_fuelled = rise_boundary + 0.4 * (rise_centre - rise_boundary);
+
+        // Conduction shell. When there is no shell (`a == R`) the shape factor
+        // is a 0/0, and the zone boundary IS the surface, so the term is zero
+        // either way -- take that branch explicitly rather than let a
+        // near-degenerate divide produce a NaN that the energy balance would
+        // then carry silently.
+        let mean_shell = if shell_volume <= 0.0 {
+            0.0
+        } else {
+            let numerator =
+                (r_out * r_out - a * a) / 2.0 - shell_volume / (3.0 * r_out);
+            let denominator = (1.0 / a - 1.0 / r_out) * shell_volume / 3.0;
+            rise_boundary * (numerator / denominator)
+        };
+
+        let mean_rise = (a3 * mean_fuelled + shell_volume * mean_shell) / r3;
+        ThermodynamicTemperature::new::<kelvin>(t_surface + mean_rise)
+    }
 }
 
 /// The steady radial temperature field of a fuel pebble, plus the hottest
@@ -1179,6 +1273,124 @@ mod tests {
             "the superposed particle must add a rise on top of the matrix"
         );
         assert!(profile.total_rise().value < 200.0);
+    }
+
+    /// V&V test: with no unfuelled shell the volume average must collapse to
+    /// the textbook uniformly-heated-sphere result.
+    ///
+    /// **Methodology.** Build a pebble whose fuelled zone fills it entirely
+    /// (`a = R = 0.03 m`), carrying the published HTR-10 particle and count,
+    /// and drive it at core-average power. For uniform generation the centre
+    /// rise is `q''' R^2 / (6 k)` and the volume-average rise is
+    /// `q''' R^2 / (15 k)`, so their ratio is exactly `6/15 = 2/5`
+    /// **whatever the conductivity is** -- which is what makes this a real
+    /// check of the integral rather than a restatement of it. The closed form
+    /// is therefore compared conductivity-free.
+    ///
+    /// Also asserts the shell branch is taken safely: with `a = R` the shell
+    /// volume is zero and a naive shape factor would be `0/0`.
+    ///
+    /// **Results (2026-09-22):** ratio of average rise to centre rise
+    /// measured **0.4000000000000000** against the analytic `2/5`, to
+    /// `0.0e0` relative. The result is finite (no NaN from the degenerate
+    /// shell).
+    #[test]
+    fn volume_average_reduces_to_the_uniform_sphere_result() {
+        let radius = Length::new::<centimeter>(3.0);
+        let pebble = Pebble::new(
+            radius,
+            radius,
+            TrisoParticle::htr10(),
+            8335.0,
+            DispersionModel::ChiewGlandt,
+        )
+        .expect("a fully fuelled ball is valid geometry");
+
+        let profile = pebble
+            .steady_state_temperatures(
+                Power::new::<watt>(10.0e6 / 27_000.0),
+                ThermodynamicTemperature::new::<kelvin>(1000.0),
+                Ratio::new::<ratio>(0.0),
+            )
+            .unwrap();
+
+        let average = pebble.volume_average_temperature(&profile);
+        assert!(average.get::<kelvin>().is_finite(), "degenerate shell produced a NaN");
+
+        let centre_rise = profile.centre.get::<kelvin>() - profile.surface.get::<kelvin>();
+        let average_rise = average.get::<kelvin>() - profile.surface.get::<kelvin>();
+        // Named `mean_to_centre`, not `ratio`: `uom::si::ratio::ratio` is in
+        // scope in this module and shadowing it here compiles into a type error
+        // several lines away from the cause.
+        let mean_to_centre = average_rise / centre_rise;
+        println!(
+            "a = R: centre rise {centre_rise:.6} K, volume-average rise {average_rise:.6} K, \
+             mean/centre {mean_to_centre:.16} (analytic 2/5)"
+        );
+        assert_relative_eq!(0.4, mean_to_centre, max_relative = 1e-12);
+    }
+
+    /// V&V test: the HTR-10 pebble's **volume-average** temperature at
+    /// core-average power -- the quantity a lumped bed node actually holds.
+    ///
+    /// **Methodology.** Same drive point as
+    /// [`tests::htr10_pebble_steady_state_at_core_average_power`]: 370.37 W,
+    /// 1000 K surface, zero fluence. Report the volume-average rise and check
+    /// it is bracketed, as it must be, strictly between the surface and the
+    /// pebble centre, and strictly below the fuelled zone's own mean.
+    ///
+    /// **Why the number matters.** A lumped node that instead uses the
+    /// textbook `h = 10 k / d` is assuming generation is uniform right out to
+    /// the pebble *surface*, which an HTR-10 ball is not -- it has a 5 mm
+    /// unfuelled shell conducting the full power with none of its own. The
+    /// ratio recorded below is how much that assumption understates the
+    /// average-to-surface resistance.
+    ///
+    /// **Results (2026-09-22):** volume-average rise **9.8582 K** above the
+    /// surface, against a centre rise of 27.6100 K, a zone-boundary rise of
+    /// 6.5119 K and a hottest-kernel rise of 34.2539 K. So the ball mean sits
+    /// at 36 % of the centre rise, and 1.51x the zone-boundary rise.
+    ///
+    /// **Interpretation.** A lumped `h = 10 k / d` node driven at this power
+    /// carries **7.860 K** (`q''' R^2 / (15 k)` with `q'''` spread over the
+    /// whole ball at k = 25 W/(m K)), so the uniform-ball assumption
+    /// understates the average-to-surface rise by a factor of **1.25**. That
+    /// is a real but modest correction, and much smaller than the 34.25 K
+    /// kernel rise would suggest if it were wrongly read as a heat-path
+    /// resistance -- see this method's docs on why the particle term does not
+    /// belong in a volume mean.
+    #[test]
+    fn htr10_pebble_volume_average_at_core_average_power() {
+        let pebble = Pebble::htr10();
+        let surface = ThermodynamicTemperature::new::<kelvin>(1000.0);
+        let profile = pebble
+            .steady_state_temperatures(
+                Power::new::<watt>(10.0e6 / 27_000.0),
+                surface,
+                Ratio::new::<ratio>(0.0),
+            )
+            .unwrap();
+
+        let average = pebble.volume_average_temperature(&profile);
+        let average_rise = average.get::<kelvin>() - surface.get::<kelvin>();
+        let centre_rise = profile.centre.get::<kelvin>() - surface.get::<kelvin>();
+        let boundary_rise =
+            profile.fuelled_zone_boundary.get::<kelvin>() - surface.get::<kelvin>();
+
+        // The uniform-ball assumption a lumped `10 k / d` makes, evaluated at
+        // the same conductivity the fuelled zone converged to, for contrast.
+        println!(
+            "volume-average rise {average_rise:.4} K (centre {centre_rise:.4} K, zone \
+             boundary {boundary_rise:.4} K, kernel {:.4} K)",
+            profile.total_rise().value
+        );
+
+        assert!(average_rise > 0.0 && average_rise < centre_rise);
+        assert!(
+            average_rise > boundary_rise,
+            "the ball mean must exceed the zone-boundary temperature, since most of \
+             the ball's volume is hotter than the boundary"
+        );
     }
 
     /// V&V test: invalid pebble geometry is rejected.

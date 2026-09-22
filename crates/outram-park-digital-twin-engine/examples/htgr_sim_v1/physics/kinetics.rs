@@ -96,9 +96,23 @@
 //! [`HtgrKinetics`] is `Clone` precisely so the corrector can rewind it.
 //!
 //! What this still does not buy: the bed is one node, so the feedback runs off
-//! a core-average temperature, not a fuel-centre or peak temperature. A real
-//! Doppler feedback wants the fuel kernel temperature, which needs the
-//! intra-pebble split described in [`super::pebble_bed`].
+//! a core-average temperature, not a fuel-centre or peak temperature.
+//!
+//! ~~"A real Doppler feedback wants the fuel kernel temperature, which needs
+//! the intra-pebble split described in [`super::pebble_bed`]."~~
+//! **UPDATED 2026-09-22 -- the split now exists, and this module still does
+//! not use it.** [`super::pebble_bed::PebbleBedPorousMediaNode::peak_kernel_temperature`]
+//! reports the peak UO2 kernel from a resolved two-zone pebble, about 21.3 K
+//! above the bed node at rated power. The feedback here still reads the bed
+//! node.
+//!
+//! That is a deliberate hold, not an oversight. Moving the feedback onto the
+//! kernel shifts the reference temperature this layer's reactivity is measured
+//! *from*, so it changes every recorded number in this module and the headless
+//! baseline with them; doing it as a side effect of resolving the pebble would
+//! have buried a reactivity change inside a heat-transfer change, and neither
+//! would then be attributable. It wants its own change, with its own
+//! before/after. The availability is what makes that measurable.
 //!
 //! This slot is wired to the real `teh-o-prke` API (bead `op-wqk.9.2`). What
 //! remains scaffold-level is only the *plant-scale illustrative parameters*
