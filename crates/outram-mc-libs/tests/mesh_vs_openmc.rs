@@ -316,3 +316,120 @@ fn outside_is_none_and_the_outer_surface_is_inclusive() {
         "on-axis point must bin at phi = 0"
     );
 }
+
+/// Scope item 4: a [`MeshFilter`] must bin through **any** mesh type, and its
+/// `bin_volume` must agree with the per-type `volume` for the same bin.
+///
+/// The flat-index round trip is the load-bearing part. `bin_volume` takes a
+/// FLAT bin and has to unflatten it; `volume` takes `(i, j, k)` directly. If
+/// the unflattening disagreed with the flattening used by `bin`, a flux
+/// normalisation would divide by another bin's volume -- a wrong answer that
+/// looks entirely plausible, since every value would still be positive and of
+/// roughly the right size.
+#[test]
+fn the_mesh_filter_dispatches_over_every_mesh_type() {
+    use outram_mc_libs::tally::filter::{Filter, FilterEvent, MeshFilter};
+    use outram_mc_libs::tally::mesh::MeshKind;
+
+    for kind in [
+        MeshKind::Cylindrical(cyl()),
+        MeshKind::Spherical(sph()),
+        MeshKind::Rectilinear(rect()),
+    ] {
+        let n = kind.n_bins();
+        let filter = MeshFilter { mesh: kind.clone() };
+        assert_eq!(filter.n_bins(), n);
+
+        // Every flat bin's volume must match the typed `volume(i, j, k)`, and
+        // they must sum to the same total the previous test checked.
+        let mut sum = 0.0;
+        for b in 0..n {
+            let v = kind.bin_volume(b).expect("in-range bin has a volume");
+            assert!(v > 0.0, "bin {b} has non-positive volume {v}");
+            sum += v;
+        }
+        let typed_sum: f64 = match &kind {
+            MeshKind::Cylindrical(m) => {
+                let d = m.dimension();
+                (0..d[2])
+                    .flat_map(|k| (0..d[1]).flat_map(move |j| (0..d[0]).map(move |i| [i, j, k])))
+                    .map(|ijk| m.volume(ijk))
+                    .sum()
+            }
+            MeshKind::Spherical(m) => {
+                let d = m.dimension();
+                (0..d[2])
+                    .flat_map(|k| (0..d[1]).flat_map(move |j| (0..d[0]).map(move |i| [i, j, k])))
+                    .map(|ijk| m.volume(ijk))
+                    .sum()
+            }
+            MeshKind::Rectilinear(m) => {
+                let d = m.dimension();
+                (0..d[2])
+                    .flat_map(|k| (0..d[1]).flat_map(move |j| (0..d[0]).map(move |i| [i, j, k])))
+                    .map(|ijk| m.volume(ijk))
+                    .sum()
+            }
+            MeshKind::Regular(_) => unreachable!(),
+        };
+        assert!(
+            (sum - typed_sum).abs() / typed_sum < 1e-12,
+            "flat bin_volume sum {sum} disagrees with the typed sum {typed_sum}"
+        );
+
+        // Out of range is None, not a panic and not a wrong volume.
+        assert_eq!(kind.bin_volume(n), None);
+
+        // A point at a known centroid must reach the filter's bin.
+        let ev = FilterEvent {
+            position: Position::new(0.0, 0.0, 0.0),
+            ..Default::default()
+        };
+        // Origin is inside the cylindrical and spherical meshes (r starts at 0)
+        // but outside the rectilinear one (y starts at -1, z at 0 -> on the
+        // corner). Only assert the ones that are genuinely inside.
+        if matches!(kind, MeshKind::Cylindrical(_) | MeshKind::Spherical(_)) {
+            assert!(
+                filter.get_bin(&ev).is_some(),
+                "the origin lies inside a mesh whose radial grid starts at 0"
+            );
+        }
+    }
+}
+
+/// Every flat bin must round-trip: `bin_volume(flat)` for the flat index that
+/// `bin()` returns for that bin's own centroid.
+///
+/// Separate from the test above because that one only checks the SUM, which is
+/// invariant under a permutation of the bins. This one checks the mapping
+/// itself, which a permuted unflattening would fail.
+#[test]
+fn flat_bin_indices_round_trip_through_centroids() {
+    use outram_mc_libs::tally::mesh::MeshKind;
+
+    let m = cyl();
+    let kind = MeshKind::Cylindrical(m.clone());
+    let d = m.dimension();
+    for k in 0..d[2] {
+        for j in 0..d[1] {
+            for i in 0..d[0] {
+                let r = 0.5 * (m.r_grid[i] + m.r_grid[i + 1]);
+                let phi = 0.5 * (m.phi_grid[j] + m.phi_grid[j + 1]);
+                let z = 0.5 * (m.z_grid[k] + m.z_grid[k + 1]);
+                let p = Position::new(r * phi.cos(), r * phi.sin(), z);
+                let flat = kind.bin(p).expect("centroid is inside the mesh");
+                assert_eq!(
+                    flat,
+                    i + d[0] * (j + d[1] * k),
+                    "flat index disagrees at ({i},{j},{k})"
+                );
+                let via_flat = kind.bin_volume(flat).unwrap();
+                let via_ijk = m.volume([i, j, k]);
+                assert!(
+                    (via_flat - via_ijk).abs() / via_ijk < 1e-15,
+                    "bin_volume({flat}) = {via_flat} but volume({i},{j},{k}) = {via_ijk}"
+                );
+            }
+        }
+    }
+}

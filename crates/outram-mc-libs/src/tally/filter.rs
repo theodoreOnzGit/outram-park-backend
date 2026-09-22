@@ -19,7 +19,7 @@
 /// `Vec<Box<dyn Filter>>`, which violated both the "no trait objects" and "no
 /// `Box<T>`" rules and cost the exhaustiveness check that makes adding a filter
 /// safe.
-use super::mesh::RegularMesh;
+use super::mesh::MeshKind;
 use crate::geometry::position::{Direction, Position};
 use crate::particle::particle::ParticleType;
 
@@ -287,15 +287,23 @@ impl Filter for UniverseFilter {
 /// (`StructuredMesh::bins_crossed`) is a documented gap (bead op-6tz.13) — this
 /// port scores the whole segment into the midpoint's cell, which is exact for a
 /// mesh whose cells are large relative to the mean free path.
+/// **CHANGED 2026-09-22 (GitHub #260, scope item 4).** `mesh` was a concrete
+/// [`RegularMesh`]; it is now a [`MeshKind`], so the same filter serves the
+/// regular, rectilinear, cylindrical and spherical meshes. Enum dispatch rather
+/// than a trait object, per the workspace Rust design rule.
+///
+/// A cylindrical mesh filter is what an R-Z power profile actually needs, and
+/// before this it had to be faked through a Cartesian mesh (wrong bin shapes at
+/// the radial edge) or hand-built CSG cells (no mesh filter at all).
 pub struct MeshFilter {
-    pub mesh: RegularMesh,
+    pub mesh: MeshKind,
 }
 impl Filter for MeshFilter {
     fn n_bins(&self) -> usize {
         self.mesh.n_bins()
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
-        self.mesh.get_bin(ev.position)
+        self.mesh.bin(ev.position)
     }
 }
 

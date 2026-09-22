@@ -13,11 +13,19 @@
 //! present, verified bin-for-bin against OpenMC's own per-bin volumes to
 //! 2.854e-16 (`tests/mesh_vs_openmc.rs`).
 //!
+//! Scope item 4 (wiring into [`super::filter::MeshFilter`]) is done too, via
+//! [`MeshKind`]; per-bin volumes for flux normalisation (scope item 5) are on
+//! [`MeshKind::bin_volume`].
+//!
 //! Still absent, and still a real gap: the **unstructured** mesh family, which
 //! is planned via OpenFOAM `polyMesh` reuse and is explicitly out of scope for
-//! #260. Mesh **filters** and the mesh-tally scoring path are also not yet
-//! wired to the three new types -- that is scope item 4 of #260 and is not
-//! done, so a mesh tally still assumes a regular mesh.
+//! #260. Also still a gap, unchanged by this work and pre-dating it: the
+//! track-length **`bins_crossed`** sub-segmentation, so a segment is scored
+//! whole into its midpoint's cell rather than split across the cells it
+//! actually crosses. That approximation is exact only while a mesh cell is
+//! large relative to the mean free path, and it is **more** wrong on a
+//! cylindrical mesh than a Cartesian one, because a radial cell's width varies
+//! across it. Worth knowing before using a fine R-Z mesh.
 
 use crate::geometry::position::Position;
 
@@ -495,3 +503,71 @@ impl SphericalMesh {
 
 /// `FP_PRECISION` (`include/openmc/constants.h`) — the on-axis guard above.
 const FP_PRECISION: f64 = 1.0e-14;
+
+/// **Enum dispatch over every structured mesh type** — the form a
+/// [`super::filter::MeshFilter`] holds so one filter serves all four.
+///
+/// Enum rather than a trait object, per the workspace Rust design rule
+/// (`docs/claude-md/rust-design-rules.md`: dispatch with enums, no `Box<dyn>`).
+/// Upstream uses virtual dispatch off a `Mesh` base class; the enum is the
+/// faithful equivalent here and costs no indirection.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MeshKind {
+    Regular(RegularMesh),
+    Rectilinear(RectilinearMesh),
+    Cylindrical(CylindricalMesh),
+    Spherical(SphericalMesh),
+}
+
+impl MeshKind {
+    /// Total bins.
+    pub fn n_bins(&self) -> usize {
+        match self {
+            Self::Regular(m) => m.n_bins(),
+            Self::Rectilinear(m) => m.n_bins(),
+            Self::Cylindrical(m) => m.n_bins(),
+            Self::Spherical(m) => m.n_bins(),
+        }
+    }
+
+    /// Flat bin index containing `p`, or `None` if `p` is outside the mesh.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        match self {
+            Self::Regular(m) => m.get_bin(p),
+            Self::Rectilinear(m) => m.bin(p),
+            Self::Cylindrical(m) => m.bin(p),
+            Self::Spherical(m) => m.bin(p),
+        }
+    }
+
+    /// Volume of flat bin `bin` \[cm^3\], or `None` if out of range.
+    ///
+    /// This is what a **flux normalisation** needs: a track-length tally scores
+    /// `cm` and dividing by the bin volume is what turns it into a flux. It is
+    /// non-trivial for the curvilinear cases, which is why it is carried here
+    /// rather than left to the caller to work out per mesh type.
+    pub fn bin_volume(&self, bin: usize) -> Option<f64> {
+        if bin >= self.n_bins() {
+            return None;
+        }
+        Some(match self {
+            Self::Regular(m) => {
+                let w = m.width();
+                w[0] * w[1] * w[2]
+            }
+            Self::Rectilinear(m) => m.volume(unflatten(bin, m.dimension())),
+            Self::Cylindrical(m) => m.volume(unflatten(bin, m.dimension())),
+            Self::Spherical(m) => m.volume(unflatten(bin, m.dimension())),
+        })
+    }
+}
+
+/// Flat bin index back to `(i, j, k)`, first axis fastest — the inverse of
+/// `i + d0 (j + d1 k)`, which every mesh here uses.
+#[inline]
+fn unflatten(bin: usize, d: [usize; 3]) -> [usize; 3] {
+    let i = bin % d[0];
+    let j = (bin / d[0]) % d[1];
+    let k = bin / (d[0] * d[1]);
+    [i, j, k]
+}
