@@ -31,7 +31,7 @@
 // `Index`. That is the rule `ThreeMotor` needs and the reason it could not
 // be read before.
 //
-// NOT read here: event trees, alignments and
+// NOT read here: event trees and
 // `<define-extern-function>` — each is its own chunk. An unrecognised
 // element is REFUSED rather than skipped, so a model using one cannot be
 // silently mis-read as a smaller model. CCF groups ARE read, into
@@ -55,8 +55,8 @@
 //!
 //! `<define-fault-tree>` and `<define-component>`, `<define-gate>`,
 //! `<define-basic-event>`, `<define-house-event>`, `<define-parameter>`,
-//! `<define-CCF-group>`, `<define-substitution>`, `<model-data>`, all eleven
-//! MEF connectives, event references (`<event>`,
+//! `<define-CCF-group>`, `<define-substitution>`, `<define-alignment>`,
+//! `<model-data>`, all eleven MEF connectives, event references (`<event>`,
 //! `<gate>`, `<basic-event>`, `<house-event>`, and `<event type="…">`),
 //! `<not>` and `<constant>` arguments, and the expression elements
 //! [`super::expression`] evaluates.
@@ -68,7 +68,7 @@
 //!
 //! # What it does not
 //!
-//! Event trees, alignments and extern functions.
+//! Event trees and extern functions.
 //! **An element it does not recognise is an error**, never a skip — a model
 //! using one would otherwise be read as a smaller, different model that
 //! happens to parse, which is the failure this whole port exists to avoid.
@@ -86,6 +86,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use super::alignment::{Alignment, Phase};
 use super::ccf::{proxy_arguments, CcfGroup, CcfModel};
 use super::expression::{Expression, Parameters, DEFAULT_MISSION_TIME};
 use super::substitution::{ProductSubstitution, Substitution, SubstitutionTarget, SubstitutionType};
@@ -291,6 +292,11 @@ pub struct MefModel {
     /// [`MefModel::fault_tree`] applies them; [`MefModel::without_ccf`] is
     /// the explicit ablation.
     pub ccf_groups: Vec<CcfGroup>,
+    /// Alignments, in declaration order.
+    ///
+    /// A model with an alignment has **no single answer**: it is analysed once
+    /// per phase. [`MefModel::in_phase`] returns the model as it stands in one.
+    pub alignments: Vec<Alignment>,
     /// Substitutions, in declaration order.
     ///
     /// The **declarative** ones are applied by [`MefModel::fault_tree`], as a
@@ -675,10 +681,11 @@ impl MefModel {
                         child.name
                     )))
                 }
+                // Registered as a name only; its phases are read in the
+                // second pass, since a `<set-house-event>` may name a house
+                // event declared later.
                 "define-alignment" => {
-                    return Err(invalid(
-                        "alignments are not read yet (their own chunk of the port)".into(),
-                    ))
+                    child.need_attr("name")?;
                 }
                 "define-extern-library" | "define-extern-function" => {
                     return Err(invalid(
@@ -749,6 +756,11 @@ impl MefModel {
                     })?;
                     self.parameters
                         .insert(id, read_expression(e, scope, index)?);
+                }
+                "define-alignment" => {
+                    let alignment = read_alignment(child, scope, index)?;
+                    alignment.validate()?;
+                    self.alignments.push(alignment);
                 }
                 "define-substitution" => {
                     let substitution = read_substitution(child, scope, index)?;
@@ -1112,6 +1124,72 @@ impl MefModel {
                          model"
                     ))
                 })
+            })
+            .collect()
+    }
+
+    /// This model as it stands in one phase of one alignment — upstream's
+    /// `RiskAnalysis::RunAnalysis(Context)`.
+    ///
+    /// Two things change, and they are the whole of what a phase does:
+    ///
+    /// 1. the **mission time** becomes `time_fraction x mission_time`, so
+    ///    every `<exponential>` and `<periodic-test>` is evaluated over that
+    ///    phase's duration rather than the year;
+    /// 2. the phase's `<set-house-event>` instructions set the named house
+    ///    events, pruning whole branches.
+    ///
+    /// Upstream mutates the model and restores it with a `scope_guard`; this
+    /// returns a new one, so two phases cannot interfere and nothing has to be
+    /// put back.
+    ///
+    /// The returned model carries **no alignments**, so it has a single
+    /// answer and [`MefModel::fault_tree`] on it means what it says.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if there is no such alignment or
+    /// phase, or if an instruction names a house event the model does not
+    /// declare.
+    pub fn in_phase(&self, alignment: &str, phase: &str) -> Result<MefModel> {
+        let alignment = self
+            .alignments
+            .iter()
+            .find(|a| a.name == alignment)
+            .ok_or_else(|| invalid(format!("`{alignment}` is not a declared alignment")))?;
+        let phase = alignment.phase(phase).ok_or_else(|| {
+            invalid(format!(
+                "`{phase}` is not a phase of alignment `{}`",
+                alignment.name
+            ))
+        })?;
+        let mut out = self.clone();
+        out.alignments.clear();
+        out.mission_time = self.mission_time * phase.time_fraction;
+        for (house, state) in &phase.set_house_events {
+            if !out.house_events.contains_key(house) {
+                return Err(invalid(format!(
+                    "phase `{}` sets `{house}`, which is not a declared house event",
+                    phase.name
+                )));
+            }
+            out.house_events.insert(house.clone(), *state);
+        }
+        Ok(out)
+    }
+
+    /// Every `(alignment, phase)` pair the model declares, in declaration
+    /// order.
+    ///
+    /// The loop upstream's `RiskAnalysis::Analyze` runs. An empty result means
+    /// the model has a single configuration and needs no phase treatment.
+    pub fn phases(&self) -> Vec<(&str, &str)> {
+        self.alignments
+            .iter()
+            .flat_map(|a| {
+                a.phases
+                    .iter()
+                    .map(move |p| (a.name.as_str(), p.name.as_str()))
             })
             .collect()
     }
@@ -1575,6 +1653,66 @@ fn resolve_reference(element: &Element, scope: &Scope, index: &Index) -> Result<
     } else {
         index.resolve_typed(kind, name, scope)
     }
+}
+
+/// Reads a `<define-alignment>` — upstream's
+/// `Initializer::DefineAlignment` and `DefinePhase`.
+///
+/// A phase carries only `<set-house-event>` instructions: upstream types the
+/// field `std::vector<SetHouseEvent*>`, so the rest of its instruction
+/// language cannot appear here and is refused by name.
+fn read_alignment(element: &Element, scope: &Scope, index: &Index) -> Result<Alignment> {
+    let name = element.need_attr("name")?;
+    let mut phases = Vec::new();
+    for child in element.structural() {
+        if child.name != "define-phase" {
+            return Err(invalid(format!(
+                "alignment `{name}` holds <{}>, expected <define-phase>",
+                child.name
+            )));
+        }
+        let phase_name = child.need_attr("name")?;
+        let time_fraction: f64 = child.need_attr("time-fraction")?.parse().map_err(|_| {
+            invalid(format!(
+                "phase `{phase_name}` has a non-numeric `time-fraction`"
+            ))
+        })?;
+        let mut set_house_events = Vec::new();
+        for instruction in child.structural() {
+            if instruction.name != "set-house-event" {
+                return Err(invalid(format!(
+                    "phase `{phase_name}` holds <{}>; a phase takes only \
+                     <set-house-event> instructions, which is how upstream types the \
+                     field, and the rest of its instruction language belongs to event \
+                     trees",
+                    instruction.name
+                )));
+            }
+            let house =
+                index.resolve_typed("house-event", instruction.need_attr("name")?, scope)?;
+            let constant = instruction.structural().next().ok_or_else(|| {
+                invalid(format!(
+                    "<set-house-event name=\"{house}\"> carries no <constant>"
+                ))
+            })?;
+            if constant.name != "constant" {
+                return Err(invalid(format!(
+                    "<set-house-event name=\"{house}\"> holds <{}>, expected <constant>",
+                    constant.name
+                )));
+            }
+            set_house_events.push((house, constant.need_attr("value")? == "true"));
+        }
+        phases.push(Phase {
+            name: phase_name.to_string(),
+            time_fraction,
+            set_house_events,
+        });
+    }
+    Ok(Alignment {
+        name: scope.id(name),
+        phases,
+    })
 }
 
 /// Reads a `<define-substitution>` — upstream's

@@ -57,7 +57,7 @@ per benchmark model and every model here has one — `RiskAnalysisTest.TwoTrain`
 probabilities. So these numbers are not merely what this binary printed; they
 are what SCRAM's authors say it should print, checked.
 
-## Ten fixtures, deliberately separate
+## Eleven fixtures, deliberately separate
 
 | file | parsed from | trusted for |
 |---|---|---|
@@ -67,6 +67,7 @@ are what SCRAM's authors say it should print, checked.
 | `oracle-mef.txt` | SCRAM's own **XML report** | the answers for `mef_features`, the model covering the MEF constructs upstream's inputs never use |
 | `oracle-deviates.txt` | SCRAM's own **XML report** | the answers for `deviates`, the model covering all seven random deviates |
 | `oracle-ccf.txt` | SCRAM's own **XML report**, under `--ccf` | the answers with common-cause groups **applied**, which is a different question from `oracle.txt`'s |
+| `oracle-alignments.txt` | SCRAM's own **XML report**, per phase, run with **and** without `--ccf` | the answers for a model analysed once per operating configuration |
 | `oracle-uncertainty.txt` | SCRAM's own **XML report**, under `--uncertainty` | the Monte Carlo statistics. Compared **statistically**: the random streams differ, so the two runs agree in distribution and never sample for sample |
 | `oracle-substitutions.txt` | SCRAM's own **XML report** | the answers for upstream's two substitution models. The non-declarative one has **no exact total**, because SCRAM refuses to compute one |
 | `oracle-multi-tree.txt` | SCRAM's own **XML report** | the answers for models defining **several** fault trees, one record per tree |
@@ -199,12 +200,13 @@ transcription of them. SCRAM is GPL-3.0-or-later and this repository is
 GPL-3.0-only, so the copy is same-licence; the provenance is the table at the
 top of this file.
 
-Seventeen files: the nine models `oracle.txt` covers, `Aralia/das9601`,
+Eighteen files: the nine models `oracle.txt` covers, `Aralia/das9601`,
 `ThreeLevels/top` and the three of `TransTest/` (which `<xi:include>` splices),
 `TwoTrain/common_cause.xml` — the **one** upstream model with common-cause
 groups, and so the only upstream check on `scram::ccf` — and
 `TwoTrain/substitutions.xml` and `TwoTrain/nondeclarative_substitutions.xml`,
-which are the only two upstream models with substitutions.
+the only two upstream models with substitutions, and
+`TwoTrain/two_train_alignment.xml`, the only one with an alignment.
 
 ## Models written for this port
 
@@ -325,6 +327,13 @@ reference-data/scram/extract_substitution_oracle.sh ./bin/scram \
     reference-data/scram/upstream-input/TwoTrain/nondeclarative_substitutions.xml \
     > reference-data/scram/oracle-substitutions.txt
 
+# The alignment fixture. A model with an alignment has one result set per
+# phase, which extract_oracle.sh's one-result-per-model format cannot hold;
+# and this one has CCF groups too, so it is generated with and without --ccf.
+reference-data/scram/extract_alignment_oracle.sh ./bin/scram \
+    reference-data/scram/upstream-input/TwoTrain/two_train_alignment.xml \
+    > reference-data/scram/oracle-alignments.txt
+
 # The uncertainty fixture. The <histogram> is deliberately not extracted:
 # boost's bin edges are its own and are not reproducible, so recording them
 # would read as a comparison that was never made.
@@ -364,6 +373,10 @@ reference-data/scram/extract_ccf_oracle.sh ./bin/scram \
   own expressions, and the cut sets, totals and importance factors that
   follow — `ThreeMotor` included, and `<xi:include>`, the private-namespace
   rule and the five MEF constructs upstream never uses with them.
+- `crates/raffles/tests/scram_alignments.rs` — alignments: every phase's
+  products and probability against SCRAM's per-phase result sets, with and
+  without CCF, and the mission-time scaling and house-event setting asserted
+  on the model rather than inferred from the answers agreeing.
 - `crates/raffles/tests/scram_uncertainty.rs` — the Monte Carlo: means and
   spreads against SCRAM's, with both runs' sampling error carried through;
   each of the seven deviates against its closed-form moments, which does not

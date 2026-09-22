@@ -102,7 +102,8 @@
 //! both landed, and on 2026-09-22 so did the seven random deviates and the
 //! four common-cause-failure models ([`ccf`]) and the substitutions
 //! ([`substitution`]), and sampling with the uncertainty analysis over it
-//! ([`uncertainty`]). What is still absent: event trees, alignments, the
+//! ([`uncertainty`]) and the alignments ([`alignment`]). What is still
+//! absent: event trees, the
 //! reporter, and — in the analysis itself — the preprocessor, whose absence is
 //! a cost in diagram size rather than in answers.
 //!
@@ -136,6 +137,7 @@
 //! commit, the one build patch that was needed, and the measured agreement are
 //! recorded in `crates/raffles/docs/scram-port-verification.md`.
 
+pub mod alignment;
 pub mod bdd;
 pub mod ccf;
 pub mod expression;

@@ -636,7 +636,11 @@ fn the_mef_only_constructs_match_scram() {
 /// `scram_substitutions`, which checks their validation rather than their
 /// refusal.
 ///
-/// **Results** (2026-09-22): all eight refusals hold, each naming its cause.
+/// ~~A `<define-alignment>` refusal.~~ **CORRECTED 2026-09-22** — alignments
+/// landed the same day; that case moved to `scram_alignments`, which checks
+/// their validation rather than their refusal.
+///
+/// **Results** (2026-09-22): all seven refusals hold, each naming its cause.
 #[test]
 fn the_unported_and_the_malformed_are_refused_not_skipped() {
     let refuse = |xml: &str, expected: &str| {
@@ -659,10 +663,6 @@ fn the_unported_and_the_malformed_are_refused_not_skipped() {
     refuse(
         r#"<opsa-mef><define-event-tree name="E"/></opsa-mef>"#,
         "event-tree analysis",
-    );
-    refuse(
-        r#"<opsa-mef><define-alignment name="A"/></opsa-mef>"#,
-        "alignments",
     );
     refuse(
         r#"<opsa-mef><define-extern-library name="L"/></opsa-mef>"#,

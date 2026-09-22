@@ -221,7 +221,13 @@ file comes from before writing its attribution header.
        share/input.rng with libxml2 before reading it; src/scram/mef.rs does
        not, and says so. Its structure checks are narrower than the grammar.
 
-   STILL ABSENT: the preprocessor, event trees, alignments, and the reporter.
+   STILL ABSENT: the preprocessor, event trees, and the reporter.
+
+   ALIGNMENTS ARE present, in src/scram/alignment.rs, porting alignment.{h,cc}
+   and the phase application of RiskAnalysis::RunAnalysis: a phase scales the
+   mission time by its fraction and applies its <set-house-event>
+   instructions. Upstream mutates the model and restores it with a
+   scope_guard; MefModel::in_phase returns a new model instead.
 
    UNCERTAINTY ANALYSIS IS present, in src/scram/uncertainty.rs, porting
    uncertainty_analysis.{h,cc}: the Monte Carlo loop, the [0,1] clamp on a

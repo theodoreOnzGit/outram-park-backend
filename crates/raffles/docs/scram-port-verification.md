@@ -42,6 +42,7 @@ which basic events matter. Three of its four modules are ports of
 | `scram::mef::Index` (name resolution) | `Initializer::GetEntity` / `GetEvent`, `mef::Id::id()`, `mef::Role` | yes |
 | `scram::mef::Lowering` (iff, imply, cardinality) | `Pdag::ConstructComplexGate` | yes |
 | `scram::ccf` | `src/ccf_group.{h,cc}` — all four models, `CalculateProbabilities`, `ApplyModel` | yes |
+| `scram::alignment` | `src/alignment.{h,cc}`, and `RiskAnalysis::RunAnalysis`'s phase application | yes |
 | `scram::substitution` | `src/substitution.{h,cc}`, `Pdag::ConstructSubstitution`/`CollectSubstitution`, `Zbdd::ApplySubstitutions` | yes |
 | `scram::mef` schema validation | `xml::Validator` against `share/input.rng` | **no** — no RelaxNG; the structure checks here are narrower, and the module doc says so |
 | `scram::mocus` | `src/mocus.cc` | **no** — see below |
@@ -300,6 +301,9 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | Each deviate vs its **closed-form** moments | `scram_uncertainty::each_deviate_samples_its_own_distribution` | **7 deviates, 200k draws each** |
 | Upstream's statistics formulas | `scram_uncertainty::the_statistics_are_upstreams_formulas` | by hand on 5 samples |
 | Quantiles describe the same distribution | `scram_uncertainty::the_quantiles_describe_the_same_distribution` | 17 interior, worst 6.62 % |
+| **Alignments**: every phase vs SCRAM's | `scram_alignments::every_phase_matches_scrams` | **6 records**, exact set equality |
+| What a phase changes, asserted on the model | `scram_alignments::a_phase_scales_the_mission_time_and_sets_its_house_events` | 3 phases |
+| Alignment validation | `scram_alignments::the_malformed_are_refused_with_upstreams_reasons` | 5 refusals |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -1197,6 +1201,40 @@ Every trial would draw the same numbers and the reported spread would be
 exactly zero, which reads as "this model is certain" rather than as "you asked
 the wrong question". Upstream does not guard it.
 
+### Alignments — one model, three answers
+
+`TwoTrain/two_train_alignment` runs normally 99.452 % of the time, with
+`PumpOne` out for maintenance 0.274 % of it and `PumpTwo` for another 0.274 %.
+There is no single answer for such a model: upstream analyses it once per
+phase, and so does this.
+
+A phase changes two things, and both are checked:
+
+| phase | mission time | house event set | products (no CCF) | probability |
+|---|---|---|---|---|
+| `Normal` | 8711.9952 h | — | 4 | 0.0361 |
+| `PumpOne` | 24.0024 h | `PumpOneMaintenance` | 2 | 0.019 |
+| `PumpTwo` | 24.0024 h | `PumpTwoMaintenance` | 2 | 0.019 |
+
+**The probability alone would not have caught a mission-time error.** This
+model's basic events are literals, so scaling the mission time wrongly — or
+not at all — moves none of them, and a test comparing only totals would pass
+either way. So the scaling is asserted on the model itself, and the products
+are compared set-for-set, which is what shows the pruning: a maintenance phase
+drops from four products to two because its house event removes a whole pump.
+
+The model declares **CCF groups as well**, and this port applies those by
+default where upstream needs `--ccf`. The fixture therefore carries both runs
+— six records — so each of this port's paths is compared against the upstream
+run answering the same question. With CCF applied the three phases give 6, 4
+and 4 products at `0.0622587`, `0.0333694` and `0.0333694`, all matching.
+
+Upstream applies a phase by **mutating** the model and restoring it with a
+`scope_guard`. `MefModel::in_phase` returns a new model instead, so two phases
+cannot interfere and nothing has to be put back — and the returned model
+carries no alignment, so it has one answer and `fault_tree` on it means what
+it says.
+
 ## What this does NOT establish
 
 - **It is not validation.** Agreement with SCRAM shows this port reproduces
@@ -1308,6 +1346,12 @@ the wrong question". Upstream does not guard it.
   three declarative and two non-declarative rules between them, over four
   basic events. Nothing here says how the product pass behaves on a model with
   hundreds of rules, where the order rules fire in could matter.
+- **Alignments are verified on the one upstream model that has them**, whose
+  three phases differ only by a house event and a mission-time fraction, and
+  whose basic events are all literals. A model whose events are
+  `<exponential>`s would exercise the mission-time scaling where it actually
+  bites; this one does not, which is why the scaling is asserted on the model
+  rather than inferred from the answers.
 - **`imprecise::SystemStructure` is a different thing** and was checked for
   overlap before any of this was written: it does interval-valued reliability
   of series/parallel/k-of-n structures, not cut-set quantification.

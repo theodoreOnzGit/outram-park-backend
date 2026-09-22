@@ -105,6 +105,7 @@ difference is load-bearing.** Ported, with attribution headers:
 | `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators, and the seven random deviates' `value`/`Validate`/`interval` |
 | `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
 | `ccf.rs` | `ccf_group.{h,cc}` — all four common-cause models, `CalculateProbabilities`, the combination reciprocal and `ApplyModel`'s proxy-gate rewrite |
+| `alignment.rs` | `alignment.{h,cc}` and the phase application of `RiskAnalysis::RunAnalysis` — mission-time scaling and `<set-house-event>` |
 | `uncertainty.rs` | `uncertainty_analysis.{h,cc}` — the Monte Carlo loop and every statistic, including the `n/(n-1)` variance correction |
 | `substitution.rs` | `substitution.{h,cc}`, plus `Pdag::ConstructSubstitution` (declarative, a tree rewrite) and `Zbdd::ApplySubstitutions` (non-declarative, a pass over products) |
 
@@ -143,8 +144,7 @@ non-BDD ZBDD constructor was named explicitly.
 ~~Still to do under that direction: XML input (`initializer`, `xml`), the
 `expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
 `src/scram/expression.rs` and `src/scram/mef.rs`. Still to do:
-event trees and sequences, alignments, the preprocessor, `pdag`, and the
-reporter. Progress is tracked in `docs/scram-port-verification.md`.
+event trees and sequences, the preprocessor, `pdag`, and the reporter. Progress is tracked in `docs/scram-port-verification.md`.
 
 ~~expressions~~ **CORRECTED 2026-09-22** — `src/scram/expression.rs` landed,
 verified on `HIPPS`, upstream's own model whose every basic event is defined
@@ -207,8 +207,14 @@ been recorded as an unexplained 108-event divergence on `Aralia/das9601`;
 hand, and two hand calculations in opposite directions land on this port's
 sign. **Do not "fix" the sign to match SCRAM.**
 
+~~alignments~~ **CORRECTED 2026-09-22** — `src/scram/alignment.rs` landed.
+A model with an alignment has **no single answer**: `MefModel::in_phase`
+returns the model as it stands in one phase and the caller loops, which is
+upstream's own arrangement. Upstream mutates the model and restores it with a
+`scope_guard`; this returns a new model, so two phases cannot interfere.
+
 Still absent, and refused rather than skipped when a model uses them:
-event trees, alignments, the trigonometric operators and `<switch>`.
+event trees, the trigonometric operators and `<switch>`.
 `<define-extern-function>` is refused **deliberately and permanently** — it
 loads a shared library named by the input file, which the workspace
 `RESPONSIBLE_USE.md` rule on autonomous access forbids.
