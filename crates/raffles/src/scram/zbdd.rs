@@ -41,8 +41,13 @@
 //   complement, which reproduces upstream's two-level comparison exactly --
 //   positive sorts first there because `+i > -i`.
 //
-// Upstream's module handling and its `EliminateComplements` are NOT ported.
-// See the module doc for what that means for a non-coherent tree.
+// ~~Upstream's module handling and its `EliminateComplements` are NOT
+// ported.~~ **CORRECTED 2026-09-22** — `EliminateComplements` IS ported,
+// together with `ConvertGraph` and the `Apply<kAnd>`/`Apply<kOr>` they need:
+// that is upstream's non-BDD `Zbdd(const Gate&, const Settings&)`
+// constructor, reached here through [`minimal_cut_sets_from_graph`]. Only
+// upstream's MODULE handling is still absent, and that is an optimisation
+// rather than a capability -- see the module doc.
 // ---------------------------------------------------------------------------
 
 //! Zero-suppressed decision diagrams — minimal cut sets **at scale**.
@@ -946,8 +951,12 @@ impl Builder {
 ///
 /// [`minimal_cut_sets`] answers the same question through a BDD. Keeping both
 /// is the point: they share the `Minimize`/`Subsume` tail and nothing else,
-/// so agreeing is evidence. `tests/scram_graph_zbdd.rs` checks them against
-/// each other, against [`super::mocus`], and against SCRAM's own products.
+/// so agreeing is evidence. ~~`tests/scram_graph_zbdd.rs`~~ **CORRECTED
+/// 2026-09-22** — there is no such file and there never was; the checks live
+/// in `tests/scram_bdd_oracle.rs`
+/// (`the_graph_zbdd_route_matches_scram_and_the_bdd_route`), which
+/// compares this route against each other route, against [`super::mocus`],
+/// and against SCRAM's own products.
 ///
 /// `limit_order` discards cut sets above that order, applied when the family
 /// is listed; `None` keeps all of them.

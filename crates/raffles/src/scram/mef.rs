@@ -1089,6 +1089,33 @@ impl MefModel {
         Ok(out)
     }
 
+    /// The **expression** behind each basic event of `tree`, in its index
+    /// order.
+    ///
+    /// [`FaultTreeModel::probabilities`] holds the numbers those expressions
+    /// evaluated to. This hands back the expressions themselves, which is what
+    /// [`super::uncertainty::analyse`] needs: a Monte Carlo has to re-draw
+    /// them, not re-use their means.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if a basic event of the tree has no
+    /// expression in this model — which can only happen if the tree was built
+    /// from a different model.
+    pub fn basic_event_expressions(&self, tree: &FaultTreeModel) -> Result<Vec<Expression>> {
+        tree.basic_event_names()
+            .iter()
+            .map(|name| {
+                self.basic_events.get(name).cloned().ok_or_else(|| {
+                    invalid(format!(
+                        "`{name}` is a basic event of the tree but has no expression in this \
+                         model"
+                    ))
+                })
+            })
+            .collect()
+    }
+
     /// Flattens the model into a [`FaultTreeModel`] rooted at `top`.
     ///
     /// Only gates reachable from `top` are included, so a document declaring

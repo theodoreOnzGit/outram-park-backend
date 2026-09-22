@@ -105,6 +105,7 @@ difference is load-bearing.** Ported, with attribution headers:
 | `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators, and the seven random deviates' `value`/`Validate`/`interval` |
 | `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
 | `ccf.rs` | `ccf_group.{h,cc}` — all four common-cause models, `CalculateProbabilities`, the combination reciprocal and `ApplyModel`'s proxy-gate rewrite |
+| `uncertainty.rs` | `uncertainty_analysis.{h,cc}` — the Monte Carlo loop and every statistic, including the `n/(n-1)` variance correction |
 | `substitution.rs` | `substitution.{h,cc}`, plus `Pdag::ConstructSubstitution` (declarative, a tree rewrite) and `Zbdd::ApplySubstitutions` (non-declarative, a pass over products) |
 
 **Not** ports, each saying so in its own doc instead:
@@ -142,8 +143,7 @@ non-BDD ZBDD constructor was named explicitly.
 ~~Still to do under that direction: XML input (`initializer`, `xml`), the
 `expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
 `src/scram/expression.rs` and `src/scram/mef.rs`. Still to do:
-event trees and sequences, alignments, `Expression::Sample` and
-the uncertainty analysis that consumes it, the preprocessor, `pdag`, and the
+event trees and sequences, alignments, the preprocessor, `pdag`, and the
 reporter. Progress is tracked in `docs/scram-port-verification.md`.
 
 ~~expressions~~ **CORRECTED 2026-09-22** — `src/scram/expression.rs` landed,
@@ -173,10 +173,15 @@ formula. Do not re-add that machinery.
 
 ~~the random deviates (`SmallTree/SmallTree` and `BSCU/BSCU` are the two
 upstream models this costs)~~ **CORRECTED 2026-09-22** — all seven landed, and
-both models read. **Only their deterministic `value()` is ported**: sampling
-(`Expression::Sample`, each deviate's `DoSample`) lands with the uncertainty
-analysis, because `scram --uncertainty` is the only oracle for it and writing
-it sooner would mean writing it unverifiable. Their arrival is also what gave
+both models read. ~~Only their deterministic `value()` is ported~~ **CORRECTED 2026-09-22** —
+`Expression::sample` and `src/scram/uncertainty.rs` landed together, which is
+the order that made the sampling checkable at all.
+**The random stream differs from upstream's** (one static `std::mt19937`
+there, `outram_mc_libs::rng::lcg` here, reused per the
+search-before-building rule), so this is the **one part of the SCRAM port
+whose verification is statistical rather than exact**. Do not tighten
+`scram_uncertainty`'s tolerances into exact comparisons: they are set by the
+sample sizes, and SCRAM's own 1000 trials dominate every band. Their arrival is also what gave
 `Interval`/`Expression::interval` a purpose — a normal deviate's mean can be a
 good probability while its six-sigma domain is not, and upstream rejects the
 argument on the domain check.

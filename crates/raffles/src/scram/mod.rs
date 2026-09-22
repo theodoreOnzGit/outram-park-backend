@@ -101,12 +101,18 @@
 //! input models, … and the expression library~~ **CORRECTED 2026-09-22** —
 //! both landed, and on 2026-09-22 so did the seven random deviates and the
 //! four common-cause-failure models ([`ccf`]) and the substitutions
-//! ([`substitution`]). What is still absent: event trees, alignments,
-//! **sampling** and the uncertainty analysis over it, the
+//! ([`substitution`]), and sampling with the uncertainty analysis over it
+//! ([`uncertainty`]). What is still absent: event trees, alignments, the
 //! reporter, and — in the analysis itself — the preprocessor, whose absence is
-//! a cost in diagram size rather than in answers. A deviate evaluates to its
-//! mean, which is what an ordinary SCRAM run computes; nothing here draws
-//! from a distribution.
+//! a cost in diagram size rather than in answers.
+//!
+//! **Uncertainty analysis.** [`uncertainty::analyse`] runs upstream's Monte
+//! Carlo: draw every random deviate afresh each trial, quantify, and report
+//! the distribution of the answers. Because the random stream differs from
+//! upstream's, its verification is statistical rather than exact — the one
+//! place in this module where that is so, and `scram_uncertainty` states the
+//! confidence and checks the samplers a second way, against closed-form
+//! moments.
 //!
 //! ## Where this sits relative to the rest of the crate
 //!
@@ -139,6 +145,7 @@ pub mod mef;
 pub mod mocus;
 pub mod probability;
 pub mod substitution;
+pub mod uncertainty;
 pub mod zbdd;
 
 pub use bdd::Bdd;

@@ -221,8 +221,19 @@ file comes from before writing its attribution header.
        share/input.rng with libxml2 before reading it; src/scram/mef.rs does
        not, and says so. Its structure checks are narrower than the grammar.
 
-   STILL ABSENT: the preprocessor, event trees, alignments, sampling and the
-   uncertainty analysis over it, and the reporter.
+   STILL ABSENT: the preprocessor, event trees, alignments, and the reporter.
+
+   UNCERTAINTY ANALYSIS IS present, in src/scram/uncertainty.rs, porting
+   uncertainty_analysis.{h,cc}: the Monte Carlo loop, the [0,1] clamp on a
+   sampled probability, and every statistic including the n/(n-1) variance
+   correction and the exp(1.96 sigma) error factor. Expression::sample ports
+   Expression::Sample and each deviate's DoSample. THE RANDOM STREAM DIFFERS
+   -- upstream uses one static std::mt19937, this uses the workspace's
+   outram_mc_libs::rng::lcg -- so results agree in distribution and never
+   sample for sample, and the verification is statistical. Upstream's
+   histogram BIN EDGES are not reproduced (they come from boost::accumulators'
+   density accumulator and are not documented as reproducible); the quantiles
+   here are exact order statistics where upstream estimates them online.
 
    SUBSTITUTIONS ARE present, in src/scram/substitution.rs, porting
    substitution.{h,cc} together with Pdag::ConstructSubstitution (declarative

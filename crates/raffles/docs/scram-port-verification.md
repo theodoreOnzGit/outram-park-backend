@@ -34,7 +34,10 @@ which basic events matter. Three of its four modules are ports of
 | `scram::expression` | `src/expression/*.cc` (`p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators) | yes |
 | `scram::expression`'s seven random deviates (`value`, `Validate`, `interval`) | `src/expression/random_deviate.{h,cc}` | yes |
 | `scram::expression::Interval` | `Interval`, `Contains`, `IsNonNegative`, `IsPositive`, `IsProbability` | yes |
-| `Expression::Sample` / each deviate's `DoSample` | — | **not yet** — lands with the uncertainty analysis, where `scram --uncertainty` is the oracle |
+| `Expression::sample` / each deviate's `DoSample` | `Expression::Sample`, `RandomDeviate::DoSample` | yes — but on a different random stream, so verified statistically |
+| `scram::uncertainty` | `src/uncertainty_analysis.{h,cc}` | yes |
+| `scram::uncertainty`'s quantiles | `extended_p_square_quantile` | **no** — exact order statistics where upstream estimates online |
+| `scram::uncertainty`'s histogram bin edges | `boost::accumulators`' density accumulator | **no** — its range is undocumented and not reproducible |
 | `scram::mef` | `src/initializer.{h,cc}`, `src/xml.{h,cc}`, `src/element.{h,cc}`, `src/model.{h,cc}`, `src/fault_tree.{h,cc}`, `src/event.{h,cc}` | yes |
 | `scram::mef::Index` (name resolution) | `Initializer::GetEntity` / `GetEvent`, `mef::Id::id()`, `mef::Role` | yes |
 | `scram::mef::Lowering` (iff, imply, cardinality) | `Pdag::ConstructComplexGate` | yes |
@@ -81,11 +84,21 @@ port has neither, and computes the same answers without them — `das9601`'s
 386,261 diagram nodes are the price. A model that blew up under the naive
 order would need that work; nothing in the fixture does.
 
-*Genuinely absent, and reachable only through code this port does not have:*
+~~*Genuinely absent, and reachable only through code this port does not have:*
 `Zbdd::EliminateComplements`, which belongs to upstream's non-BDD `Zbdd(const
-Gate&)` constructor. This port's complement handling goes through the BDD
-instead and is verified against upstream's answers, so the routine has no
-caller here rather than a missing implementation.
+Gate&)` constructor.~~ **CORRECTED 2026-09-22** — that claim is contradicted
+by the code and was stale when written into this file. Upstream's **non-BDD
+ZBDD constructor is ported**: `Zbdd::ConvertGraph` folds the gate graph
+bottom-up with `Apply<kAnd>`/`Apply<kOr>`, `EliminateComplements` deletes the
+complemented literals and `Minimize`/`Subsume` absorb, and the whole route is
+[`scram::zbdd::minimal_cut_sets_from_graph`]. It was named explicitly in the
+maintainer's direction of 2026-09-22 ("include the non bdd constructor") and
+it landed. What is still absent from `zbdd` is upstream's **module handling**,
+which is an optimisation rather than a capability — see the preprocessor
+paragraph above.
+
+Keeping both ZBDD routes is the point: the graph route and the BDD route share
+the `Minimize`/`Subsume` tail and nothing else, so their agreeing is evidence.
 
 ~~and complement elimination (so non-coherent trees are **refused**, not
 approximated)~~ **CORRECTED 2026-09-21** — complement elimination landed the
@@ -282,6 +295,11 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | Upstream refuses an exact non-declarative analysis | `scram_substitutions::the_non_declarative_model_has_no_exact_total` | asserted in the fixture |
 | Inferred vs declared substitution type | `scram_substitutions::the_inferred_substitution_type_matches_the_declared_one` | 4 agree, 1 untyped |
 | Substitution validation | `scram_substitutions::the_malformed_are_refused_with_upstreams_reasons` | 6 refusals |
+| **Monte Carlo mean** vs SCRAM's | `scram_uncertainty::the_monte_carlo_mean_agrees_with_scrams_within_both_runs_error` | 3 models, within 4 se |
+| **Monte Carlo spread** vs SCRAM's | `scram_uncertainty::the_monte_carlo_spread_agrees_with_scrams` | 3 models |
+| Each deviate vs its **closed-form** moments | `scram_uncertainty::each_deviate_samples_its_own_distribution` | **7 deviates, 200k draws each** |
+| Upstream's statistics formulas | `scram_uncertainty::the_statistics_are_upstreams_formulas` | by hand on 5 samples |
+| Quantiles describe the same distribution | `scram_uncertainty::the_quantiles_describe_the_same_distribution` | 17 interior, worst 6.62 % |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -1103,6 +1121,82 @@ Six events can be checked by hand; 108 cannot. See
 [Importance from the BDD](#importance-from-the-bdd--and-a-sign-divergence-in-upstream)
 above, which is upgraded accordingly.
 
+### Uncertainty analysis — the one part verified statistically, and why
+
+Everything else in this record is an exact comparison to six significant
+figures. This is not, and the reason is structural rather than a shortfall:
+**upstream draws from one static `std::mt19937` and this port from
+`outram_mc_libs::rng::lcg`**, the workspace's generator. Two Monte Carlo runs
+from different streams agree in distribution and never sample for sample. The
+generator was reused rather than replaced because the workspace already has a
+tested one and a tested distribution library, and adding a second of either is
+the duplication the search-before-building rule exists to prevent.
+
+So the comparison carries **both** runs' sampling error. SCRAM's estimate has
+standard error `sigma / sqrt(1000)`; this port runs 100,000 trials, so its own
+error is ten times smaller and SCRAM's dominates every band. The test allows
+four standard errors of the difference rather than two — a 1-in-16,000
+false-failure rate per model, because a test that fails once a month for no
+reason gets ignored.
+
+| model | SCRAM mean | RAFFLES (100k) | gap | band |
+|---|---|---|---|---|
+| `SmallTree/SmallTree` | 0.0256955 | 0.0249788 | 0.000717 | 0.002747 |
+| `BSCU/BSCU` | 0.119838 | 0.115172 | 0.004666 | 0.023138 |
+| `models-for-this-port/deviates` | 1.97179e-07 | 2.07e-07 | 1.0e-08 | 4.6e-08 |
+
+| model | SCRAM sigma | RAFFLES | gap | band |
+|---|---|---|---|---|
+| `SmallTree/SmallTree` | 0.0216128 | 0.0213543 | 0.000258 | 0.001943 |
+| `BSCU/BSCU` | 0.182027 | 0.180997 | 0.001030 | 0.032723 |
+| `models-for-this-port/deviates` | 3.64046e-07 | 3.76e-07 | 1.2e-08 | 6.5e-08 |
+
+#### That is a weaker check, so the samplers are checked a second way
+
+A comparison of two Monte Carlo runs bounds a bias only to within the sampling
+error, and on `SmallTree` that is a few per cent. A sampler that drew from a
+slightly wrong distribution could pass it. So each of the seven deviates is
+also drawn **200,000 times on its own** and its sample moments compared against
+the **closed forms** — which involves SCRAM nowhere, and where the tolerance is
+set by the sample size rather than by agreement with anything:
+
+| deviate | mean ratio | variance ratio |
+|---|---|---|
+| uniform(2, 8) | 1.0002 | 1.0027 |
+| normal(3.5, 0.25) | 1.0000 | 1.0055 |
+| lognormal(mu −2, sigma 0.5) | 1.0011 | 1.0100 |
+| lognormal(2e-5, EF 3, 95 %) | 1.0018 | 1.0133 |
+| gamma(k 2, theta 1.5) | 1.0013 | 1.0080 |
+| beta(2, 5) | 1.0007 | 1.0049 |
+| histogram over three bins | 1.0009 | 1.0057 |
+
+The same test pins each deviate's `evaluate` to the closed-form **mean**, so a
+sampler drawing from the wrong distribution cannot hide behind a right mean,
+nor the reverse.
+
+#### Two things upstream reports that this does not reproduce
+
+* **The histogram's bin edges.** Upstream's come from `boost::accumulators`'
+  density accumulator, whose range is its own: on `SmallTree` the first edge is
+  `0.0021956` and the width `0.0100408`, which is not `(max - min) / 20`. The
+  generator does not extract them, because a fixture full of numbers that
+  cannot be reproduced reads as a comparison that was never made. The
+  *quantity* is the same — upstream's `<bin value=…>` is a fraction of samples
+  and the twenty sum to 1 — and this port reports that quantity on equal-width
+  bins of its own.
+* **The quantiles' exact values.** Upstream estimates them online with
+  `extended_p_square_quantile`, which never stores the samples; this sorts them
+  and takes the exact order statistic. They are compared loosely and only over
+  the interior (`0.1` to `0.9`), because an order statistic in the tail of a
+  1000-sample run is itself very noisy. Worst interior gap: **6.62 %**.
+
+#### One refusal that is this port's own
+
+A Monte Carlo over a model with **no** deviate is refused rather than answered.
+Every trial would draw the same numbers and the reported spread would be
+exactly zero, which reads as "this model is certain" rather than as "you asked
+the wrong question". Upstream does not guard it.
+
 ## What this does NOT establish
 
 - **It is not validation.** Agreement with SCRAM shows this port reproduces
@@ -1169,12 +1263,18 @@ above, which is upgraded accordingly.
   **CORRECTED 2026-09-22** — the seven random deviates landed and both models
   read. Every record in every fixture now reads; there is no allowance left in
   the tests for one that does not.
-- **Nothing here is sampled.** Every number in this record is a *deterministic*
-  quantity: upstream's `value()` for each expression and the analysis built on
-  it. `Expression::Sample()` is not implemented, so the uncertainty analysis —
-  mean, sigma, quantiles over a Monte Carlo of the deviates — is not merely
-  unverified but absent. A deviate's mean is not its distribution, and nothing
-  here says anything about the spread.
+- ~~**Nothing here is sampled.** … `Expression::Sample()` is not implemented,
+  so the uncertainty analysis … is not merely unverified but absent.~~
+  **CORRECTED 2026-09-22** — both landed. What remains true and matters more:
+  **the uncertainty analysis is the only part of this port whose verification
+  is statistical**, because the random streams differ. Its bands are set by
+  the sample sizes and are a few per cent wide on the mean; a bias smaller
+  than that would not be caught by the comparison against SCRAM, which is why
+  the samplers are also checked against closed-form moments.
+- **The Monte Carlo is checked on three models and 300,000 trials total.**
+  All three are small. Nothing here says how the loop behaves on a model where
+  one trial's quantification is expensive, which is the case that decides
+  whether an uncertainty analysis is usable at all.
 - **`interval()` is ported but only lightly exercised.** Seven cases, all in
   `scram_deviates`. Upstream uses it inside `EnsureWithin`/`EnsureNonNegative`
   on every argument of every expression; this port's `validate` checks the

@@ -26,10 +26,13 @@
 // is constructed, so an ill-formed combination is unrepresentable rather
 // than checked.
 //
-// NOT ported: `Expression::Sample()` and each deviate's `DoSample()`, which
-// only the uncertainty analysis calls and which land with it — implementing
-// them now would mean implementing them with nothing to check them against.
-// Also not ported: `extern.{h,cc}`, which loads shared libraries (barred by
+// ~~NOT ported: `Expression::Sample()` and each deviate's `DoSample()`~~
+// **CORRECTED 2026-09-22** — both landed, together with the uncertainty
+// analysis that is their only consumer and their only oracle. The random
+// STREAM differs (upstream: one static `std::mt19937`; here:
+// `outram_mc_libs::rng::lcg`), so a draw here is not the draw upstream would
+// have made and the verification is statistical; `scram_uncertainty` says at
+// what confidence. Not ported: `extern.{h,cc}`, which loads shared libraries (barred by
 // the workspace's "no autonomous access" rule), `Switch`, and the
 // trigonometric operators, none of which appears in any upstream input model.
 //
@@ -63,11 +66,9 @@
 //! The seven `<*-deviate>` and `<histogram>` elements are here too. Each has
 //! two faces upstream: `value()` is the distribution's **mean**, which is
 //! what an ordinary SCRAM run computes and prints, and `DoSample()` draws
-//! from it, which only the uncertainty analysis calls. **This module
-//! implements the first.** Sampling lands with the uncertainty analysis,
-//! where `scram --uncertainty` is the oracle for it;
-//! [`Expression::is_deviate`] is the hook that analysis will use and is
-//! implemented now because it is checkable now.
+//! from it, which only the uncertainty analysis calls.
+//! [`Expression::evaluate`] is the first and [`Expression::sample`] the
+//! second; [`super::uncertainty`] is what consumes the latter.
 //!
 //! Their arrival is also what gives [`Expression::interval`] a purpose: a
 //! normal deviate with a comfortable mean has a domain reaching six sigma
@@ -1407,4 +1408,257 @@ pub fn ensure_probability(
         });
     }
     Ok(())
+}
+
+/// Upstream `Histogram::DoSample`, which is
+/// `std::piecewise_constant_distribution`.
+///
+/// Nothing in [`crate::distributions`] is a piecewise-constant density, so
+/// this is written here rather than reused: the inverse CDF of a histogram is
+/// a linear interpolation inside the bin whose cumulative weight brackets `u`.
+fn histogram_sample(boundaries: &[f64], weights: &[f64], u: f64) -> Result<f64> {
+    histogram_shape(boundaries, weights)?;
+    let total: f64 = weights.iter().sum();
+    if total <= 0.0 {
+        return Err(RafflesError::InvalidParameter {
+            parameter: "histogram weights".to_string(),
+            value: total,
+            reason: "the weights sum to zero or less, so there is nothing to draw from".to_string(),
+        });
+    }
+    let target = u.clamp(0.0, 1.0) * total;
+    let mut cumulative = 0.0;
+    for (i, w) in weights.iter().enumerate() {
+        if cumulative + w >= target || i + 1 == weights.len() {
+            let within = if *w > 0.0 {
+                (target - cumulative) / w
+            } else {
+                0.0
+            };
+            let (lo, hi) = (boundaries[i], boundaries[i + 1]);
+            return Ok(lo + within.clamp(0.0, 1.0) * (hi - lo));
+        }
+        cumulative += w;
+    }
+    Ok(boundaries[boundaries.len() - 1])
+}
+
+impl Expression {
+    /// The same expression with its arguments replaced, in [`Expression::args`]
+    /// order.
+    ///
+    /// The inverse of `args`, and the two are asserted to round-trip in
+    /// `scram_uncertainty`. It exists so that [`Expression::sample`] needs one
+    /// recursion rather than a second copy of the whole `evaluate` match: a
+    /// composite expression is sampled by sampling its arguments, putting the
+    /// drawn values back as literals, and evaluating the result.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if `args` is not the length this
+    /// variant takes.
+    fn rebuild(&self, mut args: Vec<Expression>) -> Result<Expression> {
+        let wanted = self.args().len();
+        if args.len() != wanted {
+            return Err(RafflesError::InvalidParameter {
+                parameter: "arguments".to_string(),
+                value: args.len() as f64,
+                reason: format!(
+                    "this expression takes {wanted} arguments, given {}",
+                    args.len()
+                ),
+            });
+        }
+        let mut next = args.drain(..);
+        let mut one = || Arc::new(next.next().expect("checked length"));
+        Ok(match self {
+            Expression::Float(_)
+            | Expression::Bool(_)
+            | Expression::MissionTime
+            | Expression::Parameter(_) => self.clone(),
+            Expression::Exponential { .. } => Expression::Exponential {
+                lambda: one(),
+                time: one(),
+            },
+            Expression::Glm { .. } => Expression::Glm {
+                gamma: one(),
+                lambda: one(),
+                mu: one(),
+                time: one(),
+            },
+            Expression::Weibull { .. } => Expression::Weibull {
+                alpha: one(),
+                beta: one(),
+                t0: one(),
+                time: one(),
+            },
+            Expression::PeriodicTestInstantRepair { .. } => Expression::PeriodicTestInstantRepair {
+                lambda: one(),
+                tau: one(),
+                theta: one(),
+                time: one(),
+            },
+            Expression::PeriodicTestInstantTest { .. } => Expression::PeriodicTestInstantTest {
+                lambda: one(),
+                mu: one(),
+                tau: one(),
+                theta: one(),
+                time: one(),
+            },
+            Expression::Add(_) => Expression::Add(next.collect()),
+            Expression::Sub(_) => Expression::Sub(next.collect()),
+            Expression::Mul(_) => Expression::Mul(next.collect()),
+            Expression::Div(_) => Expression::Div(next.collect()),
+            Expression::Min(_) => Expression::Min(next.collect()),
+            Expression::Max(_) => Expression::Max(next.collect()),
+            Expression::Mean(_) => Expression::Mean(next.collect()),
+            Expression::And(_) => Expression::And(next.collect()),
+            Expression::Or(_) => Expression::Or(next.collect()),
+            Expression::Neg(_) => Expression::Neg(one()),
+            Expression::Abs(_) => Expression::Abs(one()),
+            Expression::Exp(_) => Expression::Exp(one()),
+            Expression::Log(_) => Expression::Log(one()),
+            Expression::Log10(_) => Expression::Log10(one()),
+            Expression::Sqrt(_) => Expression::Sqrt(one()),
+            Expression::Trunc(_) => Expression::Trunc(one()),
+            Expression::Round(_) => Expression::Round(one()),
+            Expression::Floor(_) => Expression::Floor(one()),
+            Expression::Ceil(_) => Expression::Ceil(one()),
+            Expression::Not(_) => Expression::Not(one()),
+            Expression::Pow(_, _) => Expression::Pow(one(), one()),
+            Expression::Mod(_, _) => Expression::Mod(one(), one()),
+            Expression::Eq(_, _) => Expression::Eq(one(), one()),
+            Expression::Lt(_, _) => Expression::Lt(one(), one()),
+            Expression::Gt(_, _) => Expression::Gt(one(), one()),
+            Expression::Ite { .. } => Expression::Ite {
+                condition: one(),
+                consequent: one(),
+                alternate: one(),
+            },
+            Expression::UniformDeviate { .. } => Expression::UniformDeviate {
+                min: one(),
+                max: one(),
+            },
+            Expression::NormalDeviate { .. } => Expression::NormalDeviate {
+                mean: one(),
+                sigma: one(),
+            },
+            Expression::LognormalDeviate { .. } => Expression::LognormalDeviate {
+                mean: one(),
+                ef: one(),
+                level: one(),
+            },
+            Expression::LognormalDeviateNormal { .. } => Expression::LognormalDeviateNormal {
+                mu: one(),
+                sigma: one(),
+            },
+            Expression::GammaDeviate { .. } => Expression::GammaDeviate {
+                k: one(),
+                theta: one(),
+            },
+            Expression::BetaDeviate { .. } => Expression::BetaDeviate {
+                alpha: one(),
+                beta: one(),
+            },
+            Expression::Histogram { boundaries, .. } => {
+                let rest: Vec<Expression> = next.collect();
+                let (b, w) = rest.split_at(boundaries.len());
+                Expression::Histogram {
+                    boundaries: b.to_vec(),
+                    weights: w.to_vec(),
+                }
+            }
+        })
+    }
+
+    /// Draws one value — upstream's `Expression::Sample`.
+    ///
+    /// `seed` is the state of `outram_mc_libs::rng::lcg`, the workspace's
+    /// generator; upstream uses a single static `std::mt19937`. **The streams
+    /// therefore differ**, so a sample from this port is not the sample
+    /// upstream would have drawn — only the distribution is the same. That is
+    /// what `scram_uncertainty` checks, and why it checks it statistically.
+    ///
+    /// Two details of upstream's semantics are reproduced deliberately:
+    ///
+    /// * an expression with **no deviate under it** returns its value
+    ///   unchanged, which is upstream's `Sample()` on a non-deviate;
+    /// * a **deviate's own parameters are taken at their `value()`**, not
+    ///   sampled. `UniformDeviate::DoSample` calls `min_.value()`, not
+    ///   `min_.Sample()`, so a distribution whose mean is itself uncertain
+    ///   draws from the mean's central value. That is upstream's behaviour,
+    ///   not an approximation of it.
+    ///
+    /// Upstream also **memoises** a sample per expression object per round,
+    /// so a parameter feeding several events contributes one draw to all of
+    /// them. Here a parameter is a name in the [`Parameters`] table, so the
+    /// caller gets the same effect by sampling the table once per round —
+    /// which is what [`super::uncertainty`] does.
+    ///
+    /// # Errors
+    ///
+    /// As [`Expression::evaluate`], plus a domain error from a distribution
+    /// whose parameters are invalid.
+    pub fn sample(
+        &self,
+        parameters: &Parameters,
+        mission_time: f64,
+        seed: &mut u64,
+    ) -> Result<f64> {
+        use crate::distributions::{Beta, ContinuousDistribution1D, Gamma, LogNormal, Normal, Uniform};
+        use outram_mc_libs::rng::lcg::prn;
+
+        if !self.is_deviate() {
+            return self.evaluate(parameters, mission_time);
+        }
+        let ev = |e: &Expression| e.evaluate(parameters, mission_time);
+        Ok(match self {
+            Expression::UniformDeviate { min, max } => {
+                Uniform::new(ev(min)?, ev(max)?)?.ppf(prn(seed))?
+            }
+            Expression::NormalDeviate { mean, sigma } => {
+                Normal::new(ev(mean)?, ev(sigma)?)?.ppf(prn(seed))?
+            }
+            Expression::LognormalDeviate { mean, ef, level } => {
+                let (scale, location) = lognormal_logarithmic(ev(mean)?, ev(ef)?, ev(level)?);
+                LogNormal::new(location, scale, 0.0)?.ppf(prn(seed))?
+            }
+            Expression::LognormalDeviateNormal { mu, sigma } => {
+                LogNormal::new(ev(mu)?, ev(sigma)?, 0.0)?.ppf(prn(seed))?
+            }
+            // Upstream draws `gamma_distribution(k)` and multiplies by
+            // `theta`, i.e. shape `k` and SCALE `theta`. This crate's `Gamma`
+            // takes shape and RATE, so the rate is `1 / theta`.
+            Expression::GammaDeviate { k, theta } => {
+                let theta = ev(theta)?;
+                Gamma::new(ev(k)?, 1.0 / theta, 0.0)?.ppf(prn(seed))?
+            }
+            Expression::BetaDeviate { alpha, beta } => {
+                Beta::new(ev(alpha)?, ev(beta)?, 0.0, 1.0)?.ppf(prn(seed))?
+            }
+            Expression::Histogram {
+                boundaries,
+                weights,
+            } => {
+                let b: Vec<f64> = boundaries.iter().map(&ev).collect::<Result<_>>()?;
+                let w: Vec<f64> = weights.iter().map(&ev).collect::<Result<_>>()?;
+                histogram_sample(&b, &w, prn(seed))?
+            }
+            // A composite: sample the arguments, put the drawn values back as
+            // literals, and evaluate. This is upstream's
+            // `ExpressionFormula::DoSample`, which computes the same formula
+            // with `arg->Sample()` in place of `arg->value()`.
+            other => {
+                let sampled: Vec<Expression> = other
+                    .args()
+                    .into_iter()
+                    .map(|a| {
+                        a.sample(parameters, mission_time, seed)
+                            .map(Expression::Float)
+                    })
+                    .collect::<Result<_>>()?;
+                other.rebuild(sampled)?.evaluate(parameters, mission_time)?
+            }
+        })
+    }
 }
