@@ -41,7 +41,9 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (no implicit capture / weight windows), target at rest. Both
+//! ~~Analog transport (no implicit capture / weight windows)~~ **CORRECTED
+//! 2026-09-22 (gh:#258)** — analog by default, with both available through
+//! `KeffSettings::variance_reduction`. Target at rest. Both
 //! data tiers now model inelastic down-scatter and forward-peaked elastic; they
 //! differ in how finely that physics is resolved:
 //!

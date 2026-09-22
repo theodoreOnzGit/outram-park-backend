@@ -19,7 +19,10 @@
 //!
 //! # Scope
 //!
-//! Analog transport (no variance reduction). Fission neutrons are tracked as
+//! ~~Analog transport (no variance reduction).~~ **CORRECTED 2026-09-22
+//! (gh:#258)** — analog by default; `FixedSourceSettings::variance_reduction`
+//! enables survival biasing, roulette and weight windows, which is what a
+//! shielding fixed source needs. Fission neutrons are tracked as
 //! secondaries with a per-source-particle safety cap, so a **sub-critical**
 //! (`k < 1`) or non-multiplying system converges; a super-critical system would
 //! multiply without bound and is capped (and physically meaningless for a fixed

@@ -44,7 +44,11 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (weight 1, no variance reduction). There is no
+//! Analog transport (weight 1). **The MG path does not yet read
+//! `variance_reduction`** — #258's survival biasing and weight windows are
+//! wired into the CSG kernel only, so an MG run is analog whatever the
+//! setting says. Stated rather than left to be discovered from a setting
+//! that silently does nothing. There is no
 //! delayed-neutron separation (delayed folded into ν̄).
 //!
 //! ~~Scattering is treated as isotropic in the lab frame (a P0 /

@@ -33,7 +33,12 @@
 //!
 //! # Fidelity
 //!
-//! Analog transport (weight 1, no implicit capture or variance reduction), same
+//! ~~Analog transport (weight 1, no implicit capture or variance reduction)~~
+//! **CORRECTED 2026-09-22 (gh:#258)** — analog is the DEFAULT, not the only
+//! option: `KeffSettings::variance_reduction` enables survival biasing,
+//! Russian roulette and mesh weight windows. Left alone it is analog and
+//! **bit-identical** to the pre-#258 build, pinned by
+//! `tests/variance_reduction_is_bit_identical_when_analog.rs`. Same
 //! collision physics and data tiers as [`crate::physics::keff`]. Tallies use the
 //! **track-length estimator**: each streamed segment of length `d` deposits `w·d`
 //! (flux) and `w·d·Σ_x` (reaction rates) into its cell × energy bin, accumulated
