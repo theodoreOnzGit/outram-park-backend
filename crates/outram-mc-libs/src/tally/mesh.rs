@@ -571,3 +571,106 @@ fn unflatten(bin: usize, d: [usize; 3]) -> [usize; 3] {
     let k = bin / (d[0] * d[1]);
     [i, j, k]
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesh surface crossings (GitHub #261, `MESH_SURFACE`)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Surface bins per mesh element: `4 * n_dimension` — for each of the three
+/// axes, the min and max face, each with an outward and an inward current.
+///
+/// `StructuredMesh::n_surface_bins` (`src/mesh.cpp:1189`) at OpenMC `afa7a14`.
+pub const SURFACE_BINS_PER_ELEMENT: usize = 12;
+
+impl RegularMesh {
+    /// Number of bins a [`crate::tally::filter_extra::MeshSurfaceFilter`] on
+    /// this mesh produces.
+    pub fn n_surface_bins(&self) -> usize {
+        SURFACE_BINS_PER_ELEMENT * self.n_bins()
+    }
+
+    /// The surface bin for one face of one element —
+    /// `SurfaceAggregator::surface` (`src/mesh.cpp:1296`):
+    /// `4 * n_dim * element + 4 * k + (max ? 2 : 0) + (inward ? 1 : 0)`.
+    pub fn surface_bin(&self, element: usize, axis: usize, max: bool, inward: bool) -> usize {
+        SURFACE_BINS_PER_ELEMENT * element
+            + 4 * axis
+            + if max { 2 } else { 0 }
+            + if inward { 1 } else { 0 }
+    }
+
+    /// Every surface bin the segment `r0 -> r1` crosses, in order of travel —
+    /// `StructuredMesh::surface_bins_crossed` (`src/mesh.cpp`).
+    ///
+    /// # What a crossing produces
+    ///
+    /// Each plane crossing scores **two** bins when both neighbouring elements
+    /// are inside the mesh: an **outward** current on the element being left
+    /// (through its max face when travelling in `+k`, its min face otherwise)
+    /// and an **inward** current on the element being entered, through the
+    /// opposite face. A crossing at the mesh boundary scores only the half
+    /// that is inside.
+    ///
+    /// That pairing is the whole point: a net current across an internal face
+    /// is `outward(left) - inward(right)` and a tally that recorded only one
+    /// side could not form it.
+    ///
+    /// # Implementation note
+    ///
+    /// Upstream walks the track incrementally, recomputing the distance to the
+    /// next grid boundary on one axis at a time. This enumerates the plane
+    /// crossings on all three axes and sorts them, which is equivalent for a
+    /// **uniform** grid (where every plane position is known in closed form)
+    /// and avoids reproducing the `TINY_BIT` nudging that the incremental form
+    /// needs. `surface_crossings_agree_with_an_incremental_walk` checks the
+    /// two against each other on randomised tracks rather than asserting the
+    /// equivalence.
+    pub fn surface_bins_crossed(&self, r0: Position, r1: Position) -> Vec<usize> {
+        let w = self.width();
+        let a = [r0.x, r0.y, r0.z];
+        let b = [r1.x, r1.y, r1.z];
+        let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+        if !(len > 0.0) {
+            return Vec::new();
+        }
+
+        // Every grid-plane crossing on the open interval (0, 1) in track
+        // parameter, as (t, axis, moving in +axis).
+        let mut events: Vec<(f64, usize, bool)> = Vec::new();
+        for k in 0..3 {
+            if d[k] == 0.0 || w[k] <= 0.0 || !w[k].is_finite() {
+                continue;
+            }
+            let forward = d[k] > 0.0;
+            for i in 0..=self.dimension[k] {
+                let plane = self.lower_left[k] + i as f64 * w[k];
+                let t = (plane - a[k]) / d[k];
+                if t > 0.0 && t < 1.0 {
+                    events.push((t, k, forward));
+                }
+            }
+        }
+        events.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut bins = Vec::with_capacity(2 * events.len());
+        for (t, k, forward) in events {
+            // Sample just either side of the crossing so the two elements are
+            // identified by position rather than by index arithmetic that
+            // would have to special-case the mesh edge.
+            let eps = 1.0e-9;
+            let at = |s: f64| {
+                Position::new(a[0] + d[0] * s, a[1] + d[1] * s, a[2] + d[2] * s)
+            };
+            let leaving = self.get_bin(at(t - eps));
+            let entering = self.get_bin(at(t + eps));
+            if let Some(e) = leaving {
+                bins.push(self.surface_bin(e, k, forward, false));
+            }
+            if let Some(e) = entering {
+                bins.push(self.surface_bin(e, k, !forward, true));
+            }
+        }
+        bins
+    }
+}

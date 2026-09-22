@@ -365,3 +365,299 @@ impl Filter for EnergyFunctionFilter {
         self.response(ev.energy).map(|w| vec![w])
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GitHub #261, second batch
+// ═══════════════════════════════════════════════════════════════════════════
+
+use crate::particle::particle::ParticleType;
+use crate::tally::mesh::MeshKind;
+
+/// **Legendre moment filter** — `LegendreFilter`
+/// (`src/tallies/filter_legendre.cpp`) at OpenMC `afa7a14`.
+///
+/// Deposits into **every** moment bin at once with weight `P_n(mu)`, where
+/// `mu` is the scattering cosine. It is a functional expansion, not a binning:
+/// see [`crate::tally::filter::FilterKind::is_expansion`].
+///
+/// # What it is for
+///
+/// This is the tally that MGXS generation is built on. `Sigma_s,l,g->g'` is
+/// the `l`-th Legendre moment of the scattering kernel, and this filter
+/// crossed with an [`crate::tally::filter::EnergyFilter`] and an
+/// [`crate::tally::filter::EnergyOutFilter`] is exactly how it is measured.
+/// Without it a generated library can only ever be P0 — which is the defect
+/// GitHub #265 priced at **−4371 pcm** on a leakage-dominated case.
+///
+/// # Why the weights are NOT `(l + 1/2) P_l`
+///
+/// `calc_pn_c` (`src/math_functions.cpp`) returns the bare `P_l(mu)`; the
+/// `(l + 1/2)` normalisation belongs to *evaluating* an expansion, not to
+/// accumulating its moments (see
+/// [`crate::physics::scattdata::evaluate_legendre`], which applies it on the
+/// way out). Folding it in here would double-apply it and silently rescale
+/// every moment above P0 — a mistake that leaves the P0 term looking correct,
+/// so a smoke test would not catch it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegendreFilter {
+    /// Highest moment; produces `order + 1` bins.
+    pub order: usize,
+}
+
+impl Filter for LegendreFilter {
+    fn n_bins(&self) -> usize {
+        self.order + 1
+    }
+    fn get_bin(&self, _ev: &FilterEvent) -> Option<usize> {
+        // An expansion filter has no single bin; the scoring path uses
+        // `expansion_moments`.
+        None
+    }
+    fn expansion_moments(&self, ev: &FilterEvent) -> Option<Vec<f64>> {
+        // `calc_pn_c`: P_0 = 1, P_1 = mu, Bonnet recursion above.
+        let mut p = vec![0.0; self.order + 1];
+        p[0] = 1.0;
+        if self.order >= 1 {
+            p[1] = ev.mu;
+        }
+        for l in 1..self.order {
+            let lf = l as f64;
+            p[l + 1] = ((2.0 * lf + 1.0) * ev.mu * p[l] - lf * p[l - 1]) / (lf + 1.0);
+        }
+        Some(p)
+    }
+}
+
+/// **Born-position mesh filter** — `MeshBornFilter`
+/// (`src/tallies/filter_meshborn.cpp`).
+///
+/// Bins by the mesh element the particle was **born** in, not the one it is
+/// in now. That is what separates "flux here" from "flux here *due to a source
+/// there*", which is the quantity a source-importance or adjoint-like study
+/// needs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshBornFilter {
+    /// The mesh; `n_bins` is its element count.
+    pub mesh: MeshKind,
+}
+
+impl Filter for MeshBornFilter {
+    fn n_bins(&self) -> usize {
+        self.mesh.n_bins()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        self.mesh.bin(ev.position_born)
+    }
+}
+
+/// **Parent-nuclide filter** — `ParentNuclideFilter`
+/// (`src/tallies/filter_parent_nuclide.cpp`).
+///
+/// Bins by which nuclide the particle descends from. An event whose parent is
+/// unknown, or is not in the list, matches nothing — it is **not** folded into
+/// a catch-all bin, because a decay-source study that silently attributed
+/// unknown parents to one nuclide would be reporting a fabricated spectrum.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParentNuclideFilter {
+    /// Nuclide indices, in bin order.
+    pub nuclides: Vec<usize>,
+}
+
+impl Filter for ParentNuclideFilter {
+    fn n_bins(&self) -> usize {
+        self.nuclides.len()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let parent = ev.parent_nuclide?;
+        self.nuclides.iter().position(|&n| n == parent)
+    }
+}
+
+/// **Cell-instance filter** — `CellInstanceFilter`
+/// (`src/tallies/filter_cell_instance.cpp`).
+///
+/// Bins explicit `(cell, instance)` pairs — the targeted form of a distribcell
+/// tally. This is what gives a per-pebble or per-pin result out of a repeated
+/// universe.
+///
+/// # Scope note
+///
+/// Upstream also walks the coordinate stack so that an *enclosing* cell can
+/// match, and has a `material_cells_only_` switch for that. This port matches
+/// the **lowest** coordinate level only, which is the `material_cells_only_`
+/// behaviour, because this crate's `FilterEvent` carries the leaf cell rather
+/// than the whole stack. A filter listing a non-leaf cell therefore matches
+/// nothing here where upstream would match it — stated rather than left to be
+/// discovered, and the reason [`Self::new`] cannot detect it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CellInstanceFilter {
+    /// `(cell index, instance)` pairs, in bin order.
+    pub pairs: Vec<(usize, usize)>,
+}
+
+impl Filter for CellInstanceFilter {
+    fn n_bins(&self) -> usize {
+        self.pairs.len()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let inst = ev.cell_instance?;
+        self.pairs
+            .iter()
+            .position(|&(c, i)| c == ev.cell_idx && i == inst)
+    }
+}
+
+/// **Mesh-and-material filter** — `MeshMaterialFilter`
+/// (`src/tallies/filter_meshmaterial.cpp`).
+///
+/// Bins `(mesh element, material)` pairs, for a homogenised-region tally where
+/// one mesh cell contains more than one material and the split matters.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshMaterialFilter {
+    /// The mesh.
+    pub mesh: MeshKind,
+    /// `(element, material)` pairs, in bin order.
+    pub pairs: Vec<(usize, usize)>,
+}
+
+impl Filter for MeshMaterialFilter {
+    fn n_bins(&self) -> usize {
+        self.pairs.len()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        let element = self.mesh.bin(ev.position)?;
+        self.pairs
+            .iter()
+            .position(|&(e, m)| e == element && m == ev.material_idx)
+    }
+}
+
+/// **Particle-production filter** — `ParticleProductionFilter`
+/// (`src/tallies/filter_particle_production.cpp`).
+///
+/// Scores the **secondaries a collision produced**, by particle type and
+/// optionally by their birth energy, each at its own weight. So unlike every
+/// other filter here it can match an event **more than once**, which is why it
+/// reports [`Self::matches`] rather than a single bin.
+///
+/// With `energy_bins` empty there is one bin per particle type; otherwise
+/// `particle_index * n_energy + energy_index`, matching upstream's layout.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParticleProductionFilter {
+    /// Particle types, in bin order.
+    pub particles: Vec<ParticleType>,
+    /// Ascending energy bounds \[eV\], or empty for no energy resolution.
+    pub energy_bins: Vec<f64>,
+}
+
+impl ParticleProductionFilter {
+    /// Number of energy bins (1 when unresolved).
+    fn n_energy(&self) -> usize {
+        if self.energy_bins.len() < 2 {
+            1
+        } else {
+            self.energy_bins.len() - 1
+        }
+    }
+
+    /// Every `(bin, weight)` this event produces — possibly none, possibly
+    /// several.
+    pub fn matches(&self, ev: &FilterEvent) -> Vec<(usize, f64)> {
+        let mut out = Vec::new();
+        for s in &ev.secondaries {
+            let Some(pi) = self.particles.iter().position(|&p| p == s.particle) else {
+                continue;
+            };
+            if self.energy_bins.len() < 2 {
+                out.push((pi, s.weight));
+                continue;
+            }
+            if s.energy < self.energy_bins[0] || s.energy > *self.energy_bins.last().unwrap() {
+                continue;
+            }
+            let ei = self
+                .energy_bins
+                .partition_point(|&b| b <= s.energy)
+                .saturating_sub(1)
+                .min(self.n_energy() - 1);
+            out.push((pi * self.n_energy() + ei, s.weight));
+        }
+        out
+    }
+}
+
+impl Filter for ParticleProductionFilter {
+    fn n_bins(&self) -> usize {
+        self.particles.len() * self.n_energy()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        // A single-bin answer is genuinely wrong for this filter when a
+        // collision produced several secondaries. The first match is returned
+        // so a caller using the common `get_bin` path is not silently given
+        // nothing, but `matches` is the correct entry point and the doc says
+        // so rather than leaving the partial answer to be discovered.
+        self.matches(ev).first().map(|&(b, _)| b)
+    }
+}
+
+/// **Mesh-surface (current) filter** — `MeshSurfaceFilter`
+/// (`src/tallies/filter_meshsurface.cpp`).
+///
+/// Bins the **faces** a track crosses rather than the elements it passes
+/// through, giving a current rather than a flux. That is the quantity a
+/// CMFD-style acceleration or a nodal coupling needs, and it is not
+/// recoverable from a flux tally.
+///
+/// One event can cross many faces, so like
+/// [`ParticleProductionFilter`] this filter reports [`Self::matches`] rather
+/// than a single bin; `get_bin` returns only the first crossing and its doc
+/// says so instead of leaving the partial answer to be found later.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeshSurfaceFilter {
+    /// The mesh whose faces are binned. Only [`MeshKind::Regular`] is
+    /// supported — the cylindrical and spherical meshes carry no face
+    /// crossing routine yet, and [`Self::new`] refuses them rather than
+    /// returning an empty bin list that reads as "this track crossed nothing".
+    pub mesh: crate::tally::mesh::RegularMesh,
+}
+
+impl MeshSurfaceFilter {
+    /// Build from a mesh.
+    ///
+    /// # Errors
+    ///
+    /// A non-regular mesh. See the field docs for why that is an error rather
+    /// than a silent zero.
+    pub fn new(mesh: MeshKind) -> Result<Self, String> {
+        match mesh {
+            MeshKind::Regular(m) => Ok(Self { mesh: m }),
+            other => Err(format!(
+                "mesh-surface currents need a regular mesh; {} has no face-crossing \
+                 routine ported yet, and returning no crossings would read as a track \
+                 that crossed nothing",
+                match other {
+                    MeshKind::Rectilinear(_) => "a rectilinear mesh",
+                    MeshKind::Cylindrical(_) => "a cylindrical mesh",
+                    MeshKind::Spherical(_) => "a spherical mesh",
+                    MeshKind::Regular(_) => unreachable!(),
+                }
+            )),
+        }
+    }
+
+    /// Every surface bin this track crosses, in order of travel.
+    pub fn matches(&self, ev: &FilterEvent) -> Vec<usize> {
+        self.mesh.surface_bins_crossed(ev.position_last, ev.position)
+    }
+}
+
+impl Filter for MeshSurfaceFilter {
+    fn n_bins(&self) -> usize {
+        self.mesh.n_surface_bins()
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        // Genuinely partial when a track crosses several faces. `matches` is
+        // the correct entry point.
+        self.matches(ev).first().copied()
+    }
+}
