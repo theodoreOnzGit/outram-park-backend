@@ -22,7 +22,7 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 | `src/geometry/surface.rs` | `src/surface.cpp` (1422 LOC), `include/openmc/surface.h` |
 | `src/geometry/cell.rs` | `src/cell.cpp` (1861 LOC), `include/openmc/cell.h` |
 | `src/geometry/universe.rs` | `src/universe.cpp` (217 LOC) |
-| `src/geometry/lattice.rs` | `src/lattice.cpp` (1219 LOC) |
+| `src/geometry/lattice/mod.rs` | `src/lattice.cpp` (1219 LOC) |
 | `src/geometry/geometry.rs` | `src/geometry.cpp` (495 LOC), `src/geometry_aux.cpp` |
 
 ### Particle
@@ -62,7 +62,7 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 | `src/physics/fixed_source.rs` | new orchestration (not a direct port) over `transport_csg::transport_history` — **fixed-source** driver (`run_fixed_source`): external point/box source, sub-critical multiplication, no `k_eff`; analytic void-streaming V&V |
 | `src/physics/scatter.rs` | `src/physics_common.cpp`, `src/physics.cpp` |
 | `src/physics/fission.rs` | `src/physics.cpp` — `fission()`, `create_fission_sites()` |
-| `src/physics/physics_mg.rs` | `src/physics_mg.cpp` |
+| `src/physics/physics_mg.rs` | `src/physics_mg.cpp`, `src/mgxs.cpp` — **implemented** (`Mgxs`, `MgxsLibrary`, `run_keff_mg`) |
 
 ### Depletion (new work — not a direct transport-module port)
 | Rust file | C++ / Python source |
@@ -83,11 +83,11 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 
 1. `rng/lcg.rs` — no deps ✅ (implemented)
 2. `geometry/position.rs` — no deps ✅ (implemented)
-3. `rng/distributions.rs` — depends on lcg ✅ (stubs)
+3. `rng/distributions.rs` — depends on lcg ✅ (~~stubs~~ **CORRECTED 2026-09-22** — implemented: `uniform`, `sample_normal`, `sample_normal_3d`, `sample_exp`, `maxwell`, `watt`, `isotropic_direction`)
 4. `geometry/surface.rs` — depends on position. **Full OpenMC surface set ✅**: axis planes (`XPlane`/`YPlane`/`ZPlane`) + general `Plane`, `Sphere`, `XCylinder`/`YCylinder`/`ZCylinder`, `XCone`/`YCone`/`ZCone`, general `Quadric` (op-ah7), and `XTorus`/`YTorus`/`ZTorus` (op-e5k, quartic ray intersection via an in-file degree-≤4 real-root solver) — evaluate/sense/distance/normal/reflect, all unit-tested.
 5. `geometry/cell.rs` — depends on surface (struct ✅; `contains()` RPN region eval ✅)
 6. `geometry/universe.rs` — depends on cell (struct ✅; `find_cell()` ✅)
-7. `geometry/lattice.rs` — depends on universe (`RectLattice` ✅; `HexLattice` ring construction + indexing ✅)
+7. `geometry/lattice/mod.rs` — depends on universe (`RectLattice` ✅; `HexLattice` ring construction + indexing ✅)
 8. `geometry/geometry.rs` — depends on cell/universe/lattice (`locate()` nested lattice descent ✅)
 9. `particle/bank.rs` — depends on position ✅ (implemented)
 10. `particle/particle.rs` — depends on position ✅ (implemented)
@@ -95,17 +95,17 @@ OpenMC reference C++ source tree: `/home/teddy0/Documents/research/openmc/`
 12. `material/reaction.rs` — depends on nuclide (✅)
 13. `material/thermal.rs` — depends on nuclide (✅; S(α,β) thermal-scatter tables)
 14. `material/material.rs` — depends on nuclide + reaction (✅; nuclide mixture + macroscopic XS)
-15. `source/spatial.rs` — depends on position + lcg (point + box ✅; sphere TODO)
-16. `source/energy.rs` — depends on distributions (stubs)
-17. `source/angle.rs` — depends on position + distributions (stubs)
+15. `source/spatial.rs` — depends on position + lcg (point + box ✅; ~~sphere TODO~~ **CORRECTED 2026-09-22** — `SphericalSource` is implemented and in `SpatialKind`)
+16. `source/energy.rs` — depends on distributions (~~stubs~~ **CORRECTED 2026-09-22** — `Monoenergetic`, `MaxwellSpectrum`, `WattSpectrum`, `TabulatedEnergy` ✅)
+17. `source/angle.rs` — depends on position + distributions (~~stubs~~ **CORRECTED 2026-09-22** — `IsotropicAngle`, `MonodirectionalAngle` ✅; `PolarAzimuthal`/`Mu` source angle distributions are genuinely absent)
 18. `source/source.rs` — depends on spatial/energy/angle ✅ (implemented)
-19. `tally/filter.rs` — no physics deps ✅ (4 filters implemented)
+19. `tally/filter.rs` — no physics deps ✅ (~~4 filters implemented~~ **CORRECTED 2026-09-22** — **15** `FilterKind` variants: Cell, Material, Energy, EnergyOut, Universe, Mesh, Surface, Mu, PolarAzimuthal, Time, Particle, DelayedGroup, SpatialLegendre, Zernike, SphericalHarmonics)
 20. `tally/tally.rs` — depends on filter ✅ (implemented)
 21. `tally/scoring.rs` — depends on particle + tally (✅; flux/reaction-rate scoring)
 22. `physics/scatter.rs` — depends on particle + nuclide (✅; elastic + CM-frame kinematics)
 23. `physics/fission.rs` — depends on particle + bank + nuclide (✅; ν sampling + fission-site banking)
 24. `physics/transport_csg.rs` — depends on all of the above (✅; live CSG k-eigenvalue loop, `run_keff_csg`). The generic history-based `physics/transport.rs` variant is still a stub.
-25. `physics/physics_mg.rs` — depends on transport (still a stub — last; multigroup mode pending)
+25. `physics/physics_mg.rs` — depends on transport (~~still a stub — last; multigroup mode pending~~ **CORRECTED 2026-09-22** — implemented, 771 lines: `Mgxs` / `MgxsLibrary` group constants and `run_keff_mg`, the MG twin of `run_keff_csg`. The `mg-mode-part-i` notebook harness runs it live. What is still absent is *generating* MGXS from CE data — that is the `njoy-outram-park-fork` track — and anisotropic MG scattering (`src/scattdata.cpp`: Legendre/tabular/histogram `max_order`), which is fixed at isotropic-in-lab here)
 
 ---
 
@@ -138,8 +138,9 @@ navigates surfaces/cells/universes/lattices (rect **and** hex), samples collisio
 scatters, and banks fission sites. It is validated against the **Godiva bare-sphere**
 benchmark (ICSBEP HEU-MET-FAST-001), see `docs/validation.md`. The
 `hexagonal-lattice` and `triso` notebook harnesses run this loop live. Still
-pending: the generic history-based `transport.rs`, multigroup (`physics_mg.rs`),
-DAGMC/unstructured mesh, photon transport, and the C-API.
+pending: the generic history-based `transport.rs`, ~~multigroup (`physics_mg.rs`),~~
+DAGMC/unstructured mesh, photon transport, and the C-API. **CORRECTED 2026-09-22**
+— multigroup is no longer pending; see item 25 of the porting order.
 
 **Godiva k_eff figures — status after `op-jis` (2026-08-06).** `rng::lcg::prn`
 gained OpenMC's PCG-RXS-M-XS output permutation; the LCG **state recurrence is
