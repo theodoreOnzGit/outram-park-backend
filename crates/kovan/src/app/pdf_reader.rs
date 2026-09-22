@@ -285,6 +285,36 @@ enum ConnectionPopup {
     ConfirmDelete { citekey: String, artifact_id: String },
 }
 
+/// The artifact whose region box is hit at `at`, when several overlap: the
+/// **smallest** containing region wins.
+///
+/// Artifact boxes nest and overlap routinely — a figure inside a section, two
+/// notes over one column — and picking the first (or last) in document order
+/// meant clicking a small box inside a larger one acted on the larger one
+/// (maintainer, 2026-09-22: "it goes to the right paper, but wrong
+/// artifact"). Smallest-wins is what a click on nested boxes means in every
+/// other interface, and it is the only rule that lets a small artifact inside
+/// a big one be reached at all.
+///
+/// Used by the right-click hit test, the hover highlight and single-click
+/// open alike, so the box you see highlighted is the one that acts.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn smallest_hit<'a>(
+    overlays: impl IntoIterator<Item = (&'a Artifact, Rect)>,
+    at: Pos2,
+) -> Option<&'a Artifact> {
+    overlays
+        .into_iter()
+        .filter(|(_, r)| r.contains(at))
+        .min_by(|(_, a), (_, b)| {
+            let area = |r: &Rect| r.width() * r.height();
+            area(a)
+                .partial_cmp(&area(b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(art, _)| art)
+}
+
 /// The relation-kind picker: a dropdown whose list is **fuzzy-filtered** by a
 /// search box inside it, like an autocomplete (maintainer, 2026-09-22).
 ///
@@ -2855,17 +2885,15 @@ impl PdfReaderState {
                     {
                         self.toggle_context_menu(screen_pos, ContextMenuTarget::Existing(i));
                     } else if let Some(id) = active_artifacts.as_deref().and_then(|arts| {
-                        artifact_overlays_for_page(
+                        let overlays = artifact_overlays_for_page(
                             arts,
                             page,
                             self.pages.page_size_px(),
                             origin,
                             zoom,
                             GAP,
-                        )
-                        .into_iter()
-                        .find(|(_, r)| r.contains(screen_pos))
-                        .map(|(art, _)| art.id().to_string())
+                        );
+                        smallest_hit(overlays, screen_pos).map(|a| a.id().to_string())
                     }) {
                         // op-30um.3: a saved artifact's own region box —
                         // the full Edit/Add-connection/Edit-connections/
@@ -2941,10 +2969,25 @@ impl PdfReaderState {
             // for editing.
             if let Some(artifacts) = active_artifacts.as_deref() {
                 let gui_theme = super::theme::GuiTheme::current(ui.visuals());
+                // Resolve the pointer to ONE artifact before drawing, by the
+                // same smallest-wins rule the right-click uses. Deciding it
+                // inside the loop marked every overlapping box as hit and
+                // let the last one win `open_target` — so the highlight and
+                // the click could disagree, and both could disagree with the
+                // right-click menu.
+                let hovered_id: Option<String> = hover_screen.and_then(|s| {
+                    let overlays: Vec<(&Artifact, Rect)> = want
+                        .clone()
+                        .flat_map(|p| {
+                            artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
+                        })
+                        .collect();
+                    smallest_hit(overlays, s).map(|a| a.id().to_string())
+                });
                 for p in want.clone() {
                     for (art, r) in artifact_overlays_for_page(artifacts, p, page_px, origin, zoom, GAP)
                     {
-                        let hit = hover_screen.is_some_and(|s| r.contains(s));
+                        let hit = hovered_id.as_deref() == Some(art.id());
                         if hit {
                             hover_id = Some(art.toml.kovan.created.clone());
                             if opened {
@@ -3709,6 +3752,38 @@ mod tests {
             })],
             fonts: Vec::new(),
         }
+    }
+
+    /// A click inside nested artifact boxes acts on the **smallest** one.
+    ///
+    /// Before this, the right-click took the first region in document order
+    /// and the hover/open path took the last, so a small figure inside a
+    /// larger section region was unreachable and the menu opened on the
+    /// wrong artifact (maintainer, 2026-09-22).
+    #[test]
+    fn nested_artifact_boxes_resolve_to_the_smallest() {
+        let big = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(100.0, 100.0));
+        let small = Rect::from_min_max(Pos2::new(40.0, 40.0), Pos2::new(60.0, 60.0));
+        let outer = make_artifact("section", ArtifactKind::Note, None);
+        let inner = make_artifact("figure", ArtifactKind::Note, None);
+
+        // Document order deliberately puts the big one first, which is what
+        // the old `find` would have returned.
+        let overlays = vec![(&outer, big), (&inner, small)];
+        assert_eq!(
+            smallest_hit(overlays.clone(), Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            Some("figure"),
+            "inside both, the inner box wins"
+        );
+        assert_eq!(
+            smallest_hit(overlays.clone(), Pos2::new(10.0, 10.0)).map(|a| a.id()),
+            Some("section"),
+            "outside the inner box, the outer one still hits"
+        );
+        assert!(
+            smallest_hit(overlays, Pos2::new(500.0, 500.0)).is_none(),
+            "a click outside every box hits nothing"
+        );
     }
 
     #[test]
