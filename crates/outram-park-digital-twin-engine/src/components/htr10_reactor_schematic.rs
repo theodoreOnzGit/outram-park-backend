@@ -404,6 +404,9 @@ const LABEL_BOX_GREY: Color32 = Color32::from_rgb(88, 90, 96);
 /// Label text size, points: 1.5x the original 9 pt (maintainer direction,
 /// 2026-09-22).
 const LABEL_FONT_SIZE: f32 = 13.5;
+
+/// Spacing between lines of a multi-line label, points.
+const LABEL_LINE_HEIGHT: f32 = 1.2 * LABEL_FONT_SIZE;
 const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 /// Append a **quarter** turn: a vertical at `from_x` swinging into a
 /// horizontal at `to_y`, heading toward `to_x`.
@@ -1055,7 +1058,11 @@ impl Htr10ReactorSchematic {
             rect.center(),
             Vec2::new(
                 rect.width().max(text_w + 8.0),
-                rect.height().max(LABEL_FONT_SIZE + 4.0),
+                // Tall enough for EVERY line, at the spacing `tag` draws them
+                // with; sizing to one line let two-line labels spill out
+                // (corrected 2026-09-22).
+                rect.height()
+                    .max(text.lines().count().max(1) as f32 * LABEL_LINE_HEIGHT + 4.0),
             ),
         );
         painter.rect_filled(rect, 2, LABEL_BOX_GREY);
@@ -1070,7 +1077,7 @@ impl Htr10ReactorSchematic {
             return;
         }
         let lines: Vec<&str> = text.lines().collect();
-        let line_h = 1.2 * LABEL_FONT_SIZE;
+        let line_h = LABEL_LINE_HEIGHT;
         let first = at.y - 0.5 * line_h * (lines.len() as f32 - 1.0);
         for (i, line) in lines.iter().enumerate() {
             painter.text(
@@ -1828,15 +1835,29 @@ impl Widget for Htr10ReactorSchematic {
             "refuelling\nchute",
         );
 
+        // The bed summary, boxed and on three lines, COMPLETELY OUTSIDE the
+        // pressure vessel: just past its right wall, level with its bottom
+        // (maintainer direction, 2026-09-22). Labels paint on the foreground
+        // layer, clipped only to the panel, so it may sit beyond the widget.
         if self.show_labels {
-            self.tag(
-                &labels,
-                Pos2::new(cx, rect.bottom() - h * 0.022),
-                &format!(
-                    "bed {:.0} cm of {:.0} cm cavity · pebbles DEM, to scale · {COOLANT_BOREHOLES} boreholes (3/side drawn)",
-                    bed_height, CORE_CAVITY_HEIGHT_CM
-                ),
+            let summary = format!(
+                "bed {:.0} cm of {:.0} cm cavity\npebbles DEM, to scale\n{COOLANT_BOREHOLES} boreholes (3/side drawn)",
+                bed_height, CORE_CAVITY_HEIGHT_CM
             );
+            let text_w = labels
+                .layout_no_wrap(
+                    summary.clone(),
+                    FontId::proportional(LABEL_FONT_SIZE),
+                    LABEL,
+                )
+                .size()
+                .x;
+            let size = Vec2::new(text_w + 8.0, 3.0 * LABEL_LINE_HEIGHT + 4.0);
+            let centre = Pos2::new(
+                rect.right() + 6.0 + 0.5 * size.x,
+                rect.bottom() - 0.5 * size.y,
+            );
+            self.label_box(&labels, Rect::from_center_size(centre, size), &summary);
         }
 
         response
@@ -2320,6 +2341,43 @@ mod tests {
         assert!(
             pebble_at > fill,
             "tube pebble painted at {pebble_at}, under a fill painted at {fill}"
+        );
+    }
+
+    /// A two-line boxed label's box is tall enough for both lines: its
+    /// rectangle contains the centres of both drawn lines with room for the
+    /// font on either side. Two-line labels once spilled out of a one-line
+    /// box (2026-09-22).
+    #[test]
+    fn a_two_line_label_box_holds_both_lines() {
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(400.0, 400.0))),
+            ..Default::default()
+        };
+        let _ = ctx.run_ui(input.clone(), |_| {});
+        let at = Pos2::new(200.0, 200.0);
+        let output = ctx.run_ui(input, |ui| {
+            let v = visual();
+            v.label_box(
+                ui.painter(),
+                Rect::from_center_size(at, Vec2::ZERO),
+                "refuelling\nchute",
+            );
+        });
+        let boxed = output
+            .shapes
+            .iter()
+            .find_map(|c| match &c.shape {
+                egui::Shape::Rect(r) if r.fill == LABEL_BOX_GREY => Some(r.rect),
+                _ => None,
+            })
+            .expect("the grey box is drawn");
+        let needed = 2.0 * LABEL_LINE_HEIGHT;
+        assert!(
+            boxed.height() >= needed,
+            "box {:.1} pt tall for two lines needing {needed:.1} pt",
+            boxed.height()
         );
     }
 
