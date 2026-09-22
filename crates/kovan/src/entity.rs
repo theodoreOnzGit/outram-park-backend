@@ -299,7 +299,7 @@ impl Classification {
 /// # Why this is a type and not a `String`
 ///
 /// Under §7's amendment the cite key *is* the paper's identity, and it becomes
-/// a path component: `papers/<citekey>/<citekey>.md`. Auto-generated keys like
+/// a path component: `papers/<year>/<citekey>/<citekey>.md`. Auto-generated keys like
 /// `wang2018multiphysics` are already safe, but hand-typed BibTeX keys are not
 /// constrained by anything — they routinely carry punctuation, and a key
 /// containing `/`, `..`, or a Windows-reserved name would escape the papers

@@ -54,7 +54,7 @@
 //! # The source document is implicit
 //!
 //! §15: an artifact does **not** repeat its paper's cite key. It lives inside
-//! `papers/<citekey>/<citekey>.md`, so the containing directory already says
+//! `papers/<year>/<citekey>/<citekey>.md`, so the containing directory already says
 //! which document it belongs to. Only the *location within* that document is
 //! recorded here.
 

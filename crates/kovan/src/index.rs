@@ -134,7 +134,7 @@ impl KnowledgeIndex {
         collections.sort_by(|a, b| a.path.cmp(&b.path));
 
         let mut papers = Vec::new();
-        scan_papers(&root.papers_dir(), &mut papers);
+        scan_papers(&root.paper_dirs(), &mut papers);
         papers.sort_by(|a, b| a.citekey.cmp(&b.citekey));
 
         Self {
@@ -269,16 +269,9 @@ fn scan_collections(dir: &Path, kind: EntityKind, prefix: String, out: &mut Vec<
     }
 }
 
-fn scan_papers(dir: &Path, out: &mut Vec<PaperEntry>) {
-    let Ok(read_dir) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in read_dir.flatten() {
-        let path = entry.path();
-        if !path.is_dir() || !EntityConfig::is_entity(&path) {
-            continue;
-        }
-        let Ok(config) = EntityConfig::load(&path) else {
+fn scan_papers(dirs: &[std::path::PathBuf], out: &mut Vec<PaperEntry>) {
+    for path in dirs {
+        let Ok(config) = EntityConfig::load(path) else {
             continue;
         };
         if config.kind != EntityKind::Paper {

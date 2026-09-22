@@ -207,23 +207,36 @@ pub fn ingest(
     } else {
         root.restricted_sources_dir()
     };
-    std::fs::create_dir_all(&store_dir).map_err(|source| IngestError::Io {
-        path: store_dir.clone(),
-        source,
-    })?;
-    let dest_pdf = store_dir.join(format!("{}.pdf", citekey.as_str()));
-    std::fs::copy(&preview.source_pdf, &dest_pdf).map_err(|source| IngestError::Io {
-        path: dest_pdf.clone(),
-        source,
-    })?;
+    // A PDF already in one of the folder's corpora is used where it is: a
+    // copy would duplicate a corpus document, and copying a proprietary one
+    // into the open corpus would publish it.
+    let dest_pdf = match corpus_resident(root, &preview.source_pdf) {
+        Some(in_place) => in_place,
+        None => {
+            std::fs::create_dir_all(&store_dir).map_err(|source| IngestError::Io {
+                path: store_dir.clone(),
+                source,
+            })?;
+            let dest_pdf = store_dir.join(format!("{}.pdf", citekey.as_str()));
+            std::fs::copy(&preview.source_pdf, &dest_pdf).map_err(|source| IngestError::Io {
+                path: dest_pdf.clone(),
+                source,
+            })?;
+            dest_pdf
+        }
+    };
 
     // §23 step 4: create/update the bibliography.
     let mut entry = preview.bib_entry.clone();
     entry.cite_key = citekey.as_str().to_string();
     append_bib_entry(root, entry)?;
 
-    // §23 steps 5-7: paper directory, kovan.toml, canonical Markdown stub.
-    let paper_dir = root.paper_dir(citekey.as_str());
+    // §23 steps 5-7: paper directory, kovan.toml, canonical Markdown stub,
+    // filed by year (maintainer direction, 2026-09-22).
+    let paper_dir = root.new_paper_dir(
+        citekey.as_str(),
+        preview.bib_entry.fields.get("year").map(String::as_str),
+    );
     let mut config = EntityConfig::paper(citekey.clone(), choice.access);
     if !choice.topics.is_empty() || !choice.projects.is_empty() {
         // op-8aq6: a classification naming a topic/project path that has no
@@ -246,6 +259,25 @@ pub fn ingest(
     let _ = KnowledgeIndex::rebuild(root).save_cache(root);
 
     Ok(())
+}
+
+/// `pdf`, as a path inside `root`, when it is already in one of the
+/// folder's corpora (open, proprietary or standard); `None` otherwise.
+fn corpus_resident(root: &KovanRoot, pdf: &Path) -> Option<PathBuf> {
+    let pdf = pdf.canonicalize().ok()?;
+    let root_dir = root.path().canonicalize().ok()?;
+    [
+        root.open_sources_dir(),
+        root.restricted_sources_dir(),
+        root.standard_corpus_dir(),
+    ]
+    .into_iter()
+    .filter_map(|d| d.canonicalize().ok())
+    .any(|d| pdf.starts_with(d))
+    .then(|| {
+        root.path()
+            .join(pdf.strip_prefix(&root_dir).unwrap_or(&pdf))
+    })
 }
 
 /// Append `entry` to `root`'s bibliography, creating the file if absent,
@@ -348,6 +380,83 @@ mod tests {
             rel,
             PathBuf::from("../../literature/open-corpus/wang2018multiphysics.pdf")
         );
+    }
+
+    /// A PDF already in a corpus is ingested where it is: no copy, and the
+    /// paper records the corpus path.
+    #[test]
+    fn a_corpus_pdf_is_ingested_in_place() {
+        let (_dir, root) = make_root();
+        let folder = root.open_corpus_dir().join("me-open-corpus");
+        std::fs::create_dir_all(&folder).unwrap();
+        let pdf = folder.join("original-name.pdf");
+        write_test_pdf(&pdf, "In Place Study");
+        let p = preview(&root, &pdf).unwrap();
+        let citekey = p.suggested_citekey.clone();
+        let choice = IngestChoice {
+            citekey: citekey.clone(),
+            access: Access::Open,
+            topics: vec![],
+            projects: vec![],
+        };
+        ingest(&root, &p, choice).unwrap();
+        let recorded = EntityConfig::load(&root.paper_dir(&citekey))
+            .unwrap()
+            .source
+            .unwrap()
+            .pdf
+            .unwrap();
+        assert_eq!(
+            recorded,
+            PathBuf::from("../../../literature/open-corpus/me-open-corpus/original-name.pdf")
+        );
+        // The test PDF carries no year, so the paper is filed as undated.
+        assert!(root
+            .papers_dir()
+            .join("undated")
+            .join(&citekey)
+            .join("kovan.toml")
+            .is_file());
+        let pdfs: Vec<_> = walk_pdfs(root.path());
+        assert_eq!(pdfs.len(), 1, "no copy expected: {pdfs:?}");
+    }
+
+    /// Papers are filed by the year of their bibliography entry
+    /// (maintainer direction, 2026-09-22), and found again wherever filed.
+    #[test]
+    fn a_paper_is_filed_under_its_year() {
+        let (dir, root) = make_root();
+        let pdf = dir.path().join("in.pdf");
+        write_test_pdf(&pdf, "A Dated Study");
+        let mut p = preview(&root, &pdf).unwrap();
+        p.bib_entry.fields.insert("year".into(), "2021".into());
+        let citekey = p.suggested_citekey.clone();
+        let choice = IngestChoice {
+            citekey: citekey.clone(),
+            access: Access::Open,
+            topics: vec![],
+            projects: vec![],
+        };
+        ingest(&root, &p, choice).unwrap();
+        let filed = root.papers_dir().join("2021").join(&citekey);
+        assert!(filed.join("kovan.toml").is_file());
+        assert_eq!(root.paper_dir(&citekey), filed);
+        assert_eq!(root.paper_dirs(), vec![filed.clone()]);
+        assert!(root.paper_markdown(&citekey).starts_with(&filed));
+        assert!(KnowledgeIndex::rebuild(&root).has_paper(&citekey));
+    }
+
+    fn walk_pdfs(dir: &Path) -> Vec<PathBuf> {
+        let mut out = Vec::new();
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                out.extend(walk_pdfs(&p));
+            } else if p.extension().is_some_and(|x| x == "pdf") {
+                out.push(p);
+            }
+        }
+        out
     }
 
     #[test]

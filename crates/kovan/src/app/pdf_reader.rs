@@ -140,7 +140,6 @@ use crate::digitiser::raster::PlotRaster;
 use crate::entity::Classification;
 use crate::graph::artifact_node;
 use crate::index::KnowledgeIndex;
-use crate::project;
 use crate::relation::{self, RelationKind};
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
@@ -205,7 +204,6 @@ struct Annotation {
     max: Pos2,
     text: String,
     created_at: String,
-    author: String,
     /// The annotate-canvas page's pixel size at `RENDER_DPI` when this box
     /// was drawn — so [`PdfReaderState::save_annotations_into_project`] can
     /// normalise `min`/`max` into a `[source] region` even for an
@@ -711,8 +709,6 @@ pub struct PdfReaderState {
     /// "kovan folder" project (op-63u0) to save annotations into, and the
     /// markdown file (relative to that root) they belong to — see
     /// [`Self::save_annotations_into_project`].
-    project_root: String,
-    project_markdown_rel: String,
     /// Cached structured-text page (op-z9u0), for [`Self::active_page`]
     /// only — re-extracted on page change.
     stext_cache: Option<(usize, StextPage)>,
@@ -860,32 +856,6 @@ fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) ->
             )
         })
         .collect()
-}
-
-/// Split `text` on lines starting with `### ` (one block per subsection,
-/// running to the next `### ` or EOF) and keep only the blocks containing
-/// at least one of `needles` — [`PdfReaderState::context_panel`]'s plain
-/// substring filter over a project's markdown, not a markdown parser.
-fn blocks_matching(text: &str, needles: &[&str]) -> Vec<String> {
-    let mut blocks = Vec::new();
-    let mut current: Option<String> = None;
-    for line in text.lines() {
-        if line.starts_with("### ") {
-            if let Some(block) = current.take() {
-                blocks.push(block);
-            }
-            current = Some(String::new());
-        }
-        if let Some(block) = &mut current {
-            block.push_str(line);
-            block.push('\n');
-        }
-    }
-    if let Some(block) = current {
-        blocks.push(block);
-    }
-    blocks.retain(|b| needles.iter().any(|n| b.contains(n)));
-    blocks
 }
 
 /// A short read-only preview of an artifact body for the page-context
@@ -1389,9 +1359,10 @@ impl PdfReaderState {
     /// [`classify::insert_artifact`], so it shows in the page-context list
     /// and `anchored_to_page`. The shared `context_editor`'s unsaved edits
     /// are folded in first, then it is reloaded and scrolled to the first
-    /// new block. Falls back to the plain-text
-    /// [`crate::project::append_to_section`] path only for a PDF outside any
-    /// paper.
+    /// new block. ~~Falls back to the plain-text
+    /// `crate::project::append_to_section` path for a PDF outside any
+    /// paper.~~ **CORRECTED 2026-09-22**: with no paper open the boxes stay in the reader and
+    /// the message says to ingest the PDF first.
     fn save_annotations_into_project(
         &mut self,
         active_paper: Option<&mut PaperSession>,
@@ -1402,7 +1373,6 @@ impl PdfReaderState {
         if let Some(ed) = self.annotate_editor.take() {
             if !ed.text.trim().is_empty() {
                 let page_px = self.current_page_px();
-                let author = self.author_name();
                 let anns = self.annotations.entry(self.active_page()).or_default();
                 match ed.editing_existing {
                     Some(i) if i < anns.len() => {
@@ -1416,7 +1386,6 @@ impl PdfReaderState {
                         max: ed.max,
                         text: ed.text,
                         created_at: utc_now_iso8601(),
-                        author,
                         page_px,
                     }),
                 }
@@ -1510,30 +1479,9 @@ impl PdfReaderState {
             return;
         }
 
-        // --- no active paper: the legacy plain-text section path ---
-        let mut block = String::new();
-        for (pg, anns) in &pending {
-            for ann in anns {
-                block.push_str(&format!(
-                    "### annotation — {}\n- author: {}\n- page: {}\n- pixel bbox: [{:.1}, {:.1}, {:.1}, {:.1}]\n\n{}\n\n",
-                    ann.created_at, ann.author, pg + 1, ann.min.x, ann.min.y, ann.max.x, ann.max.y, ann.text
-                ));
-            }
-        }
-        let block = block.trim_end();
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.message = "set the project root and markdown path first".to_string();
-            return;
-        }
-        match project::append_to_section(
-            std::path::Path::new(self.project_root.trim()),
-            self.project_markdown_rel.trim(),
-            "annotations",
-            block,
-        ) {
-            Ok(_) => self.message = format!("saved {count} annotation(s) into project markdown"),
-            Err(e) => self.message = e.to_string(),
-        }
+        // No paper open: the reader keeps the boxes until one is.
+        self.message = "no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes".to_string();
+        let _ = count;
     }
 
     /// Ask the continuous canvas to scroll one page forward, clamped to the
@@ -1759,8 +1707,10 @@ impl PdfReaderState {
     /// hands it back as a [`CropResult`] the app routes to the matching
     /// digitiser.
     ///
-    /// Falls back to the old disk-text `blocks_matching` preview over
-    /// `project_root`/`project_markdown_rel` when no paper is active.
+    /// ~~Falls back to the old disk-text `blocks_matching` preview over
+    /// `project_root`/`project_markdown_rel` when no paper is active.~~
+    /// **CORRECTED 2026-09-22**: with no paper open it says to ingest the PDF
+    /// ([`Self::context_panel_fallback`]).
     #[allow(clippy::needless_option_as_deref)] // `active_paper` reborrowed for two sinks
     fn context_panel(
         &mut self,
@@ -1969,64 +1919,15 @@ impl PdfReaderState {
         crop_result
     }
 
-    /// The pre-op-j178 read-only text preview, kept as the fallback for a
-    /// PDF opened outside any paper (see [`Self::context_panel`]'s doc):
-    /// raw text preview of whatever `project_root`/`project_markdown_rel`
-    /// records for [`Self::active_page`], read live off disk (not cached),
-    /// matching GitHub issue #30's "live from markdown file" ask. Filters
-    /// `### ...` subsections by a `page: N`/`page N,` marker, matching the
-    /// exact provenance text `Self::save_annotations_into_project`'s
-    /// fallback path emits.
+    /// What the page-context panel shows for a PDF that is not a paper yet.
+    /// ~~A raw text preview of a manual `project_root`/`project_markdown_rel`
+    /// file (GitHub issue #30).~~ **CORRECTED 2026-09-22**: those fields are gone; it says to
+    /// ingest the PDF, which creates the paper's Markdown.
     fn context_panel_fallback(&mut self, ui: &mut egui::Ui) {
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            ui.small(
-                "Set a project root + markdown path above to see this page's saved \
-                 annotations/CSVs here, live from the markdown file.",
-            );
-            return;
-        }
-        let path =
-            std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(e) => {
-                ui.colored_label(
-                    Color32::from_rgb(230, 90, 90),
-                    format!("{}: {e}", path.display()),
-                );
-                return;
-            }
-        };
-        let page = self.active_page();
-        let marker_a = format!("page: {}", page + 1);
-        let marker_b = format!("page {},", page + 1);
-        let blocks = blocks_matching(&text, &[&marker_a, &marker_b]);
-        if blocks.is_empty() {
-            ui.small("nothing saved for this page yet");
-            return;
-        }
-        egui::ScrollArea::vertical()
-            .id_salt("pdf_context_panel_scroll")
-            .show(ui, |ui| {
-                for block in blocks {
-                    // op-4x5s: highlight the block matching whatever annotation
-                    // box the pointer was hovering over the annotate canvas,
-                    // one frame ago (see `hover_created_at`'s doc).
-                    let is_linked = self
-                        .hover_created_at
-                        .as_deref()
-                        .is_some_and(|id| block.contains(id));
-                    if is_linked {
-                        egui::Frame::new()
-                            .fill(Color32::from_rgba_unmultiplied(255, 230, 60, 40))
-                            .inner_margin(4.0)
-                            .show(ui, |ui| ui.monospace(&block));
-                    } else {
-                        ui.monospace(&block);
-                    }
-                    ui.separator();
-                }
-            });
+        ui.small(
+            "This PDF is not a paper in your Kovan folder yet. Ingest it (the prompt \
+             when you open it, or Wiki → + Ingest Literature) to keep its notes here.",
+        );
     }
 
     /// Draw the toolbar and the continuous page canvas. `on_open_clicked` is
@@ -2043,9 +1944,10 @@ impl PdfReaderState {
     /// DigitiseApp::activate_paper`]'d paper, if any (op-q1qj, GH issue #35
     /// 2026-09-01 05:37: "project root isn't decided") — when `Some`,
     /// annotations save straight into its canonical Markdown and the
-    /// page-context panel reads live from the same file, instead of the
-    /// manual `project_root`/`project_markdown_rel` fields (which remain
-    /// the fallback for a PDF opened outside any paper).
+    /// page-context panel reads live from the same file. With `None` the
+    /// PDF is not a paper yet, and the reader says to ingest it (the manual
+    /// `project_root`/`project_markdown_rel` fallback was removed
+    /// 2026-09-22).
     ///
     /// `context_editor` is the shared page-context / Kvim-editor buffer
     /// (op-j178, GH issue #35 2026-09-02): the page-context panel renders it
@@ -2270,10 +2172,7 @@ impl PdfReaderState {
                     ui.label(format!("saving annotations into {citekey}'s notes"));
                 }
                 None => {
-                    ui.label("project root");
-                    ui.text_edit_singleline(&mut self.project_root);
-                    ui.label("markdown path");
-                    ui.text_edit_singleline(&mut self.project_markdown_rel);
+                    ui.label("not a paper yet: ingest this PDF to save annotations");
                 }
             }
             if ui.button("Save annotations").clicked() {
@@ -3310,7 +3209,6 @@ impl PdfReaderState {
                     ui.ctx().copy_text(text.clone());
                 }
                 if ui.button("Save as annotation").clicked() {
-                    let author = self.author_name();
                     let page_px = self.current_page_px();
                     self.annotations
                         .entry(self.active_page())
@@ -3320,7 +3218,6 @@ impl PdfReaderState {
                             max,
                             text: text.clone(),
                             created_at: utc_now_iso8601(),
-                            author,
                             page_px,
                         });
                     self.text_selection = None;
@@ -3372,7 +3269,6 @@ impl PdfReaderState {
         });
         if save {
             let editor = self.annotate_editor.take().expect("checked above");
-            let author = self.author_name();
             let page_px = self.current_page_px();
             let anns = self.annotations.entry(self.active_page()).or_default();
             match editor.editing_existing {
@@ -3387,7 +3283,6 @@ impl PdfReaderState {
                     max: editor.max,
                     text: editor.text,
                     created_at: utc_now_iso8601(),
-                    author,
                     page_px,
                 }),
             }
@@ -3524,46 +3419,6 @@ mod tests {
     }
 
     #[test]
-    fn blocks_matching_keeps_only_blocks_containing_a_needle() {
-        let text = "\
-### Fig. 7 — page 3, pixel bbox [1, 2, 3, 4]
-
-```csv
-x,y
-1,2
-```
-
-### annotation — 2026-08-24T00:00:00Z
-- author: x
-- page: 1
-- pixel bbox: [0, 0, 1, 1]
-
-a note
-";
-        let blocks = blocks_matching(text, &["page: 1"]);
-        assert_eq!(blocks.len(), 1);
-        assert!(blocks[0].starts_with("### annotation"));
-        assert!(blocks[0].contains("a note"));
-    }
-
-    #[test]
-    fn blocks_matching_supports_multiple_needles() {
-        let text = "### a — page 1,\nx\n### b\n- page: 2\ny\n### c\nz\n";
-        let blocks = blocks_matching(text, &["page 1,", "page: 2"]);
-        assert_eq!(blocks.len(), 2);
-    }
-
-    #[test]
-    fn blocks_matching_no_match_is_empty() {
-        assert!(blocks_matching("### a\nx\n", &["page: 99"]).is_empty());
-    }
-
-    #[test]
-    fn blocks_matching_text_with_no_headings_is_empty() {
-        assert!(blocks_matching("just prose, no ### headings\n", &["anything"]).is_empty());
-    }
-
-    #[test]
     fn substr_char_ranges_is_case_insensitive_and_non_overlapping() {
         let chars: Vec<char> = "The rho of the RHO-region, rhorho".chars().collect();
         let hits = substr_char_ranges(&chars, "rho");
@@ -3648,7 +3503,6 @@ a note
                 max: Pos2::new(30.0, 40.0),
                 text: "a note about figure 3".to_string(),
                 created_at: "2026-09-01T00:00:00Z".to_string(),
-                author: "tester".to_string(),
                 page_px: [100.0, 200.0],
             }],
         );

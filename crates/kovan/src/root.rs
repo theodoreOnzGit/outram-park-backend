@@ -65,6 +65,20 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+/// The folder under `papers/` for papers whose entry has no year.
+pub const UNDATED_PAPERS: &str = "undated";
+
+/// The subdirectories of `dir`, unsorted; empty when it cannot be read.
+fn subdirs(dir: &Path) -> Vec<PathBuf> {
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect()
+}
+
 /// Filename that marks a directory as a Kovan root (§2).
 ///
 /// Distinct from `kovan.toml`, which marks an *entity* inside a library (a
@@ -746,18 +760,67 @@ impl KovanRoot {
         self.root.join(STATE_DIR)
     }
 
-    /// Absolute path of one paper's directory, `papers/<citekey>/`.
+    /// Absolute path of one paper's directory: wherever it is filed,
+    /// `papers/<year>/<citekey>/` (maintainer direction, 2026-09-22: papers
+    /// are filed by year, [`Self::new_paper_dir`]) or the older flat
+    /// `papers/<citekey>/`. For a paper that does not exist, the flat path.
+    ///
+    /// ~~`papers/<citekey>/`; only joins paths and does not check
+    /// existence.~~ **CORRECTED 2026-09-22**: it now looks in the year
+    /// folders (a few `exists` checks).
     ///
     /// `citekey` is the paper's id under the §7 amendment — its BibTeX cite
     /// key, as produced by `kovan_literature::parse_bib_entries`. The caller
-    /// is responsible for having validated that it is filesystem-safe; this
-    /// method only joins paths and does not check existence.
+    /// is responsible for having validated that it is filesystem-safe.
     pub fn paper_dir(&self, citekey: &str) -> PathBuf {
-        self.papers_dir().join(citekey)
+        let flat = self.papers_dir().join(citekey);
+        if flat.join(crate::entity::ENTITY_MARKER).is_file() {
+            return flat;
+        }
+        self.year_dirs()
+            .into_iter()
+            .map(|y| y.join(citekey))
+            .find(|d| d.join(crate::entity::ENTITY_MARKER).is_file())
+            .unwrap_or(flat)
+    }
+
+    /// Where a new paper is filed: `papers/<year>/<citekey>/`, or
+    /// `papers/undated/<citekey>/` when `year` is not a four-digit year.
+    pub fn new_paper_dir(&self, citekey: &str, year: Option<&str>) -> PathBuf {
+        let year = year
+            .map(str::trim)
+            .filter(|y| y.len() == 4 && y.bytes().all(|b| b.is_ascii_digit()))
+            .unwrap_or(UNDATED_PAPERS);
+        self.papers_dir().join(year).join(citekey)
+    }
+
+    /// Every paper's directory: those in year folders and the older flat
+    /// ones, sorted.
+    pub fn paper_dirs(&self) -> Vec<PathBuf> {
+        let is_paper = |d: &Path| d.join(crate::entity::ENTITY_MARKER).is_file();
+        let mut dirs: Vec<PathBuf> = subdirs(&self.papers_dir())
+            .into_iter()
+            .filter(|d| is_paper(d))
+            .collect();
+        for year in self.year_dirs() {
+            dirs.extend(subdirs(&year).into_iter().filter(|d| is_paper(d)));
+        }
+        dirs.sort();
+        dirs
+    }
+
+    /// The folders under `papers/` that group papers (years, `undated`):
+    /// every subfolder that is not itself a paper.
+    fn year_dirs(&self) -> Vec<PathBuf> {
+        subdirs(&self.papers_dir())
+            .into_iter()
+            .filter(|d| !d.join(crate::entity::ENTITY_MARKER).is_file())
+            .collect()
     }
 
     /// Absolute path of one paper's canonical research Markdown,
-    /// `papers/<citekey>/<citekey>.md` (§12).
+    /// `papers/<year>/<citekey>/<citekey>.md` (§12; filed by year since
+    /// 2026-09-22, older papers flat at `papers/<citekey>/`).
     ///
     /// The directory name, the filename, the wiki-link target and the citation
     /// key are all the same string — that is the point of the §7 amendment.

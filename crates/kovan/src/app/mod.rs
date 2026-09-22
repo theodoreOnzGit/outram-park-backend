@@ -42,7 +42,6 @@ use crate::digitiser::dataset::{
 use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
-use crate::project;
 
 use advanced_git_view::AdvancedGitState;
 use bibliography::{BibliographyAction, BibliographyState};
@@ -408,8 +407,6 @@ pub struct DigitiseApp {
     /// markdown file (relative to that root) the CSV belongs to — both
     /// operator-supplied, same as `json_out`/`csv_out`, since a crop has no
     /// way to know which project/document it came from on its own.
-    project_root: String,
-    project_markdown_rel: String,
     message: String,
     /// `true` when `message` reports a failure — op-fueb: a calibration
     /// failure used to be indistinguishable from an ordinary status update
@@ -494,8 +491,6 @@ impl Default for DigitiseApp {
             csv_out: String::new(),
             pending_export: None,
             crop_provenance: None,
-            project_root: String::new(),
-            project_markdown_rel: String::new(),
             message: "load an image, then click the four axis reference points".to_string(),
             message_is_error: false,
         }
@@ -610,27 +605,22 @@ impl DigitiseApp {
         self.workspace = Some(WorkspaceKnowledge { index, graph });
     }
 
-    /// Whether `path` is already one of the open library's stored source
-    /// PDFs — i.e. lives under `root.open_sources_dir()` or
-    /// `root.restricted_sources_dir()`, where `ingest::ingest` (§23 step 3)
-    /// copies a paper's PDF to. Cheap prefix check rather than scanning every
-    /// paper's `kovan.toml`.
+    /// The paper whose `kovan.toml` records `path` as its PDF, if any.
     ///
-    /// ~~Correct as long as nothing else writes into those two directories.~~
-    /// **CORRECTED 2026-09-22**: since #255 both are corpus repositories
-    /// cloned with PDFs of their own, so a corpus PDF also counts here, and
-    /// opening one does not offer to ingest it (a copy would duplicate a
-    /// document already in the corpus).
-    fn already_ingested(&self, path: &std::path::Path) -> bool {
-        let Some(root) = self.home.root() else {
-            return false;
-        };
-        let Ok(canon) = path.canonicalize() else {
-            return false;
-        };
-        [root.open_sources_dir(), root.restricted_sources_dir()]
-            .into_iter()
-            .any(|dir| canon.starts_with(dir.canonicalize().unwrap_or(dir)))
+    /// ~~`already_ingested`: a cheap prefix check on the open and restricted
+    /// source folders.~~ **CORRECTED 2026-09-22**: since #255 those folders
+    /// are corpus repositories full of PDFs no paper owns yet, so being
+    /// inside one said nothing; opening such a PDF offered no ingest and the
+    /// reader showed the no-paper fallback ("Set a project root…"). This
+    /// reads each paper's recorded PDF instead (a few files per paper).
+    fn paper_owning_pdf(&self, path: &std::path::Path) -> Option<String> {
+        let root = self.home.root()?;
+        let target = path.canonicalize().ok()?;
+        root.paper_dirs().into_iter().find_map(|dir| {
+            let config = EntityConfig::load(&dir).ok()?;
+            let pdf = config.source?.pdf?;
+            (dir.join(pdf).canonicalize().ok()? == target).then_some(config.id)
+        })
     }
 
     /// A PDF was just opened (op-9sc7, GH issue #35 2026-09-01 05:22:
@@ -643,7 +633,7 @@ impl DigitiseApp {
         let Some(root) = self.home.root().cloned() else {
             return;
         };
-        if self.already_ingested(std::path::Path::new(path)) {
+        if self.paper_owning_pdf(std::path::Path::new(path)).is_some() {
             return;
         }
         if self.auto_ingest_opened_pdfs {
@@ -1221,10 +1211,12 @@ impl DigitiseApp {
     /// Markdown when one is open (`op-bd8p`, mirroring `pdf_reader.rs`'s
     /// `save_annotations_into_project`/op-q1qj: activation already resolved
     /// which paper and root this crop belongs to, so there is nothing left
-    /// to ask), falling back to the manual `project_root`/
-    /// `project_markdown_rel` fields + [`project::append_to_section`] only
-    /// when no paper is active (a crop loaded outside any paper — the old
-    /// `crate::project` "kovan folder" format, op-96am's original design).
+    /// to ask). ~~Falling back to the manual `project_root`/
+    /// `project_markdown_rel` fields + `project::append_to_section` when no
+    /// paper is active (op-96am's original design).~~ **CORRECTED 2026-09-22**: those fields are
+    /// gone (the Kovan folder comes from setup, a paper's Markdown from
+    /// ingest); with no paper open this reports that the PDF must be
+    /// ingested first.
     ///
     /// Distinct from [`Self::save`], which writes a standalone JSON/CSV
     /// file wherever asked — this instead folds the CSV into an existing
@@ -1281,52 +1273,7 @@ impl DigitiseApp {
             return;
         }
 
-        // --- no active paper: the legacy plain-text section path ---
-        //
-        // GH issue #35, 2026-09-08: this path writes a plain heading plus a
-        // bare ```csv fence with no `[kovan]` block, so what it saves is NOT
-        // an artifact — it has no id, no kind and no `[source]`, and the PDF
-        // canvas therefore draws no region box for it. That is why a
-        // digitised graph looks fine while it is still on screen and is
-        // simply gone the next time the paper is opened. It used to happen
-        // silently; say so instead, and refuse outright when there is no
-        // project markdown configured either, rather than writing data the
-        // GUI cannot show.
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error(
-                "no active paper — activate one (Wiki, Bibliography or Mindmap) \
-                 so this saves as a real artifact with a region box",
-            );
-            return;
-        }
-        let mut block = format!("### {title}");
-        if let Some(prov) = &self.crop_provenance {
-            block.push_str(&format!(
-                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1,
-                prov.min.x,
-                prov.min.y,
-                prov.max.x,
-                prov.max.y,
-                prov.created_at,
-                prov.author
-            ));
-        }
-        block.push_str("\n\n");
-        block.push_str(&csv_body);
-        match project::append_to_section(
-            std::path::Path::new(self.project_root.trim()),
-            self.project_markdown_rel.trim(),
-            "graph_csvs",
-            &block,
-        ) {
-            Ok(_) => self.set_status(
-                "saved as a plain section (no active paper) — this is NOT a Kovan \
-                 artifact and draws no box on the PDF; activate the paper and use \
-                 the reader's \"Upgrade to artifacts\" button to fix it",
-            ),
-            Err(e) => self.set_error(e.to_string()),
-        }
+        self.set_error("no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes");
     }
 
     /// Nearest point (index) to image-pixel position, within `max_px`.
@@ -1546,9 +1493,8 @@ impl DigitiseApp {
         // comes before the standalone file export (maintainer, 2026-09-02).
         ui.label("5. Save into project markdown:");
         // op-bd8p: an active paper already tells us exactly where this
-        // belongs -- no manual project root/markdown path to fill in.
-        // Those fields (op-96am's original design) stay available only for
-        // a crop loaded with no paper active.
+        // belongs -- no manual project root/markdown path to fill in (those
+        // fields were removed 2026-09-22).
         match self
             .active_paper
             .as_ref()
@@ -1558,14 +1504,7 @@ impl DigitiseApp {
                 ui.label(format!("saving into {citekey}'s notes"));
             }
             None => {
-                ui.horizontal(|ui| {
-                    ui.label("project root");
-                    ui.text_edit_singleline(&mut self.project_root);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("markdown path (relative)");
-                    ui.text_edit_singleline(&mut self.project_markdown_rel);
-                });
+                ui.label("no paper open: ingest the PDF to save into its notes");
             }
         }
         if let Some(prov) = &self.crop_provenance {
@@ -2047,10 +1986,17 @@ impl DigitiseApp {
         let path = path.to_string_lossy().into_owned();
         match target {
             FileDialogTarget::Image => self.load_image(&path),
-            FileDialogTarget::Pdf => {
-                self.pdf_reader.open(&path);
-                self.offer_ingest_if_new(&path);
-            }
+            FileDialogTarget::Pdf => match self.paper_owning_pdf(std::path::Path::new(&path)) {
+                // A paper's own PDF: open the paper, so notes save into it.
+                Some(citekey) => self.activate_paper_and_navigate(&citekey),
+                None => {
+                    // Not a paper's PDF: whatever paper was open no longer
+                    // matches the reader, so notes must not go into it.
+                    self.active_paper = None;
+                    self.pdf_reader.open(&path);
+                    self.offer_ingest_if_new(&path);
+                }
+            },
             FileDialogTarget::JsonExport => {
                 self.json_out = path;
                 // Finish an export that was only waiting on this path.
@@ -2711,6 +2657,40 @@ mod tests {
         citekey
     }
 
+    /// Opening a paper's own PDF opens the paper (so the page panel shows
+    /// its notes, not the "Set a project root" fallback); opening any other
+    /// PDF closes it and offers to ingest, even inside a corpus.
+    #[test]
+    fn opening_a_pdf_finds_its_paper_or_offers_ingest() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Owned Paper", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        let owned = app.paper_owning_pdf(
+            &root.paper_dir(&citekey).join(
+                EntityConfig::load(&root.paper_dir(&citekey))
+                    .unwrap()
+                    .source
+                    .unwrap()
+                    .pdf
+                    .unwrap(),
+            ),
+        );
+        assert_eq!(owned.as_deref(), Some(citekey.as_str()));
+
+        let stray = root.open_corpus_dir().join("stray.pdf");
+        write_test_pdf(&stray, "Stray");
+        assert_eq!(app.paper_owning_pdf(&stray), None);
+        app.activate_paper(&citekey).unwrap();
+        app.file_dialog_target = Some(FileDialogTarget::Pdf);
+        app.handle_picked_file(&stray);
+        assert!(app.active_paper.is_none());
+        assert_eq!(
+            app.pending_ingest_prompt.as_deref(),
+            Some(stray.to_string_lossy().as_ref())
+        );
+    }
+
     /// GH issue #35 2026-09-02: writing the active paper's Markdown changes
     /// the fingerprint the frame loop watches, which is what marks the Save
     /// Repository tab's git status stale.
@@ -3215,17 +3195,15 @@ mod tests {
     }
 
     #[test]
-    fn save_into_project_refuses_when_there_is_no_active_paper_and_no_project_fields() {
+    fn save_into_project_without_a_paper_says_to_ingest() {
         let mut app = DigitiseApp::default();
         app.dataset = Some(minimal_dataset());
 
         app.save_into_project();
 
-        // GH issue #35, 2026-09-08: this used to point at the manual
-        // project fields. It now names the real fix — activate a paper —
-        // because the manual path writes a plain section that is not a
-        // Kovan artifact and so never draws a region box on the PDF.
+        // GH issue #35, 2026-09-08, and 2026-09-22 (the manual project
+        // fields were removed): it names the real fix, ingesting the PDF.
         assert!(app.message_is_error, "{}", app.message);
-        assert!(app.message.contains("no active paper"), "{}", app.message);
+        assert!(app.message.contains("ingest this PDF"), "{}", app.message);
     }
 }
