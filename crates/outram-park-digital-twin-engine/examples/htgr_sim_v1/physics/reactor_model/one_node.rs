@@ -215,6 +215,7 @@ use outram_park_digital_twin_engine::htr10::kta;
 use tampines::pebble_bed::pebble::{Pebble, PebbleTemperatureProfile};
 use outram_foam_basic_lib::prelude::SquareMatrix;
 use outram_park_fork_coolprop::{Fluid, FluidState, conductivity, state_pt, viscosity};
+use uom::si::thermal_resistance::kelvin_per_watt;
 use uom::si::thermal_conductance::watt_per_kelvin;
 use uom::si::dynamic_viscosity::pascal_second;
 use uom::si::f64::DynamicViscosity;
@@ -692,6 +693,47 @@ pub fn resolved_pebble_profile(
     None
 }
 
+/// The **kernel-above-node** thermal resistance implied by an already-solved
+/// profile \[K/W of per-pebble power\], so a caller that needs the profile
+/// anyway does not solve it twice.
+///
+/// ```text
+/// R_kernel = (T_peak_kernel_centre - T_node) / P_pebble
+/// ```
+///
+/// `T_node` is the ball's **volume average**, which is what
+/// [`resolved_pebble_profile`] inverts for and therefore what the bed node's
+/// capacitance describes -- so this resistance and the node temperature refer
+/// to the same pebble, and their sum is the kernel. See
+/// [`PebbleBedPorousMediaNode::kernel_offset_resistance`] for why the slope is
+/// what crosses the module boundary rather than the temperature.
+///
+/// Returns `None` when there is no profile (outside the 300-2000 K correlation
+/// window) or when the power is too small for the quotient to mean anything.
+/// **There is no fallback here, deliberately**: the retired uniform ball had
+/// no kernel at all, so inventing a resistance for it would be inventing the
+/// very quantity this exists to supply. A `None` makes the Doppler channel
+/// fall back to the pre-2026-09-22 behaviour -- the bed node carrying the
+/// whole isothermal coefficient -- which is a model that was in service, not a
+/// fabrication. See [`crate::physics::kinetics::KernelDopplerChannel`].
+fn kernel_offset_resistance_from(
+    profile: Option<&PebbleTemperatureProfile>,
+    node_temperature: ThermodynamicTemperature,
+    pebble_power: Power,
+) -> Option<ThermalResistance> {
+    // The same floor the conduction leg uses, so the two legs of one profile
+    // are never evaluated at different powers.
+    let power_w = floored_pebble_power(pebble_power).get::<watt>();
+    if power_w <= 0.0 {
+        return None;
+    }
+    let rise_k = profile?.peak_kernel_centre.get::<kelvin>() - node_temperature.get::<kelvin>();
+    if !rise_k.is_finite() || rise_k <= 0.0 {
+        return None;
+    }
+    Some(ThermalResistance::new::<kelvin_per_watt>(rise_k / power_w))
+}
+
 /// The conduction coefficient implied by an already-solved profile, so a
 /// caller that needs the profile anyway does not solve it twice.
 ///
@@ -1079,6 +1121,23 @@ pub struct PebbleBedPorousMediaNode {
     /// volume and their heat is already in the source term. See
     /// [`Self::peak_kernel_temperature`].
     peak_kernel_temperature: Option<ThermodynamicTemperature>,
+    /// The **whole** resolved profile from the most recent step -- surface,
+    /// fuelled-zone boundary, matrix centre, peak kernel and the hottest
+    /// particle's own internal breakdown. `None` on the same terms as
+    /// [`Self::peak_kernel_temperature`], which is a projection of this.
+    ///
+    /// Carried in full because the pebble solve produces all of it anyway, and
+    /// the Map tab draws the real interior rather than interpolating between
+    /// two endpoints -- an interpolated interior would be a hardcoded picture
+    /// of a pebble, which this crate's "derive it from the physics" rule
+    /// forbids.
+    pebble_profile: Option<PebbleTemperatureProfile>,
+    /// Kernel-above-node thermal resistance from the most recent step's
+    /// resolved pebble solve \[K/W of *per-pebble* power\], or `None` when the
+    /// solve was out of range. See [`Self::kernel_offset_resistance`] -- this
+    /// is what lets the Doppler channel follow the kernel at the PROMPT
+    /// timescale without re-solving the pebble on every kinetics substep.
+    kernel_offset_resistance: Option<ThermalResistance>,
 }
 
 impl PebbleBedPorousMediaNode {
@@ -1105,6 +1164,8 @@ impl PebbleBedPorousMediaNode {
                 LEGACY_LUMPED_HTC_W_PER_M2_K,
             ),
             peak_kernel_temperature: None,
+            pebble_profile: None,
+            kernel_offset_resistance: None,
         }
     }
 
@@ -1216,6 +1277,11 @@ impl PebbleBedPorousMediaNode {
         // it is reported against that step's bed temperature, consistent with
         // the coefficient it was solved alongside.
         self.peak_kernel_temperature = profile.map(|p| p.peak_kernel_centre);
+        self.pebble_profile = profile;
+        // The same profile read as a RESISTANCE rather than a temperature, so
+        // the Doppler channel can follow the kernel between pebble solves.
+        self.kernel_offset_resistance =
+            kernel_offset_resistance_from(profile.as_ref(), self.pebble_temperature, pebble_power);
 
         self.heat_to_helium
     }
@@ -1249,13 +1315,74 @@ impl PebbleBedPorousMediaNode {
     /// pebble runs hotter than this, and an irradiated one hotter again
     /// (fluence is passed as zero -- this simulator has no burnup).
     ///
-    /// **Nothing reads this yet.** `physics::kinetics` still runs its Doppler
-    /// feedback off [`Self::pebble_temperature`]. Rewiring the feedback onto
-    /// the kernel changes every recorded reactivity number in that module and
-    /// is a deliberate separate step, not a side effect of resolving the
-    /// pebble. Exposing it first is what makes that step measurable.
+    /// ~~"**Nothing reads this yet.** `physics::kinetics` still runs its
+    /// Doppler feedback off [`Self::pebble_temperature`]."~~
+    /// **CORRECTED 2026-09-22 -- the Doppler channel now reads the kernel.**
+    /// [`crate::physics::kinetics::KernelDopplerChannel`] takes the *fuel*
+    /// share of the published isothermal coefficient and applies it to the
+    /// kernel, leaving the graphite share on this node; and
+    /// [`crate::physics::fission_product_release`] drives TRISO-ATOPS off the
+    /// same temperature. Both reach it through
+    /// [`Self::kernel_offset_resistance`] rather than this accessor, so they
+    /// can follow the kernel between pebble solves.
+    ///
+    /// This remains the *reported* kernel temperature -- what the diagnostics
+    /// table, the Map tab and a fuel-temperature limit read.
     pub fn peak_kernel_temperature(&self) -> Option<ThermodynamicTemperature> {
         self.peak_kernel_temperature
+    }
+
+    /// The whole resolved pebble profile from the most recent step, `None`
+    /// before the first step or outside the correlation window.
+    ///
+    /// [`Self::peak_kernel_temperature`] is the projection of this that the
+    /// feedback and release channels use; this exists for the Map tab, which
+    /// draws the interior, and for the hottest particle's own breakdown --
+    /// whose SiC temperature governs fission-product retention.
+    pub fn pebble_profile(&self) -> Option<PebbleTemperatureProfile> {
+        self.pebble_profile
+    }
+
+    /// The kernel-above-node thermal resistance from the most recent step
+    /// \[K per watt of **per-pebble** power\], or `None` when the resolved
+    /// solve was out of range.
+    ///
+    /// ## What this is for
+    ///
+    /// [`Self::peak_kernel_temperature`] is a temperature at one instant,
+    /// re-solved once per *plant* step. The Doppler feedback needs the kernel
+    /// at the **prompt** timescale -- the whole reason the kernel is the right
+    /// temperature for it is that a quarter-millimetre UO2 kernel follows a
+    /// power change essentially instantly, while the 5.3-tonne graphite bed
+    /// takes minutes (the separation `tampines::pebble_bed::feedback`'s module
+    /// doc is built around). A kernel temperature refreshed at 0.1 s and held
+    /// constant across 100 kinetics substeps would *lag* the power, which is
+    /// the opposite of the physics being added.
+    ///
+    /// So what crosses the boundary is the **slope**, not the value:
+    ///
+    /// ```text
+    /// T_kernel(t) = T_node + R_kernel * P_pebble(t)
+    /// ```
+    ///
+    /// `R_kernel` carries the slow, weakly non-linear part -- the bed
+    /// temperature and A3 graphite's `k(T)` -- and is refreshed once per plant
+    /// step, exactly like every other coupling variable in
+    /// [`crate::physics::HtgrPlant::step_with_correctors`]. `P_pebble(t)` is
+    /// the *instantaneous* power, read on every kinetics substep. Steady
+    /// conduction is linear in power, so this is exact in the linear limit and
+    /// the only approximation is holding `k(T)` fixed over one 0.1 s step;
+    /// [`tests::the_kernel_offset_is_linear_in_power`] measures what that
+    /// costs.
+    ///
+    /// # Why a resistance and not a temperature interval
+    ///
+    /// Because it is one: kelvin per watt, the conduction resistance from the
+    /// hottest kernel centre out to the ball's volume average. Typing it as
+    /// [`ThermalResistance`] makes multiplying it by anything other than a
+    /// power a compile error.
+    pub fn kernel_offset_resistance(&self) -> Option<ThermalResistance> {
+        self.kernel_offset_resistance
     }
 
     /// Full thermodynamic state of the helium held in this node -- density,
@@ -1704,6 +1831,124 @@ mod tests {
         assert!(
             profile.peak_kernel_centre > bed,
             "the peak kernel must sit above the ball's volume average"
+        );
+    }
+
+    /// V&V: the kernel offset must be **linear in power** to within a stated
+    /// error, because the Doppler channel holds its slope fixed across a plant
+    /// step and scales it by the instantaneous power.
+    ///
+    /// # What is actually being checked, and why it is not obvious
+    ///
+    /// [`PebbleBedPorousMediaNode::kernel_offset_resistance`] publishes
+    /// `R_kernel = dT/P`, refreshed once per 0.1 s plant step, and
+    /// [`crate::physics::kinetics::KernelDopplerChannel`] then evaluates
+    /// `dT(t) = R_kernel * P(t)` on every 1 ms kinetics substep. That is only
+    /// sound if `R_kernel` is genuinely constant *over the power excursion
+    /// within one step*. Steady conduction is linear in power, so it would be
+    /// exactly constant if `k` were -- but A3 graphite's conductivity and
+    /// UO2's both depend on temperature, and more power raises the interior
+    /// temperature and so changes `k`. The resistance is therefore **weakly
+    /// power-dependent**, and this measures how weakly.
+    ///
+    /// The alternative -- re-solving the pebble on every substep -- was
+    /// rejected on cost (100 inverted profile solves per plant step), so this
+    /// number is the price of that decision and belongs on the record.
+    ///
+    /// **Methodology.** At each of four bed temperatures spanning the
+    /// operating range (600-1100 K), solve the resolved pebble across
+    /// 0.25x-2.0x of core-average pebble power and form
+    /// `R_kernel = (T_peak_kernel - T_node) / P`. Report the spread relative
+    /// to the rated value. Pass criterion: within one bed temperature,
+    /// `R_kernel` varies by less than 10 % across a **fourfold** power range
+    /// -- far wider than one 0.1 s step can produce, so the per-step error is
+    /// smaller again by the ratio of the excursions. Also assert `R_kernel` is
+    /// monotone *increasing* in power, since `k(T)` falls with temperature.
+    ///
+    /// **Results (2026-09-22).** `R_kernel` \[K/W per pebble\]:
+    ///
+    /// | Bed node | 0.25x | 1.0x | 2.0x | spread |
+    /// |---|---|---|---|---|
+    /// | 600 K | 4.79571e-2 | 4.82044e-2 | 4.85361e-2 | 0.69 % |
+    /// | 800 K | 5.65582e-2 | 5.68444e-2 | 5.72284e-2 | 0.68 % |
+    /// | 950 K | 6.30120e-2 | 6.33243e-2 | 6.37429e-2 | 0.66 % |
+    /// | 1100 K | 6.92840e-2 | 6.96148e-2 | 7.00575e-2 | 0.64 % |
+    ///
+    /// **Worst spread 0.688 %** over a fourfold power range -- so the
+    /// linearisation is good to well under a percent over an excursion far
+    /// larger than any single step can produce.
+    ///
+    /// **Interpretation.** The resistance *rises* with power, because the
+    /// hotter interior conducts worse. Holding it fixed across a step
+    /// therefore **under-states** the offset during a power rise, and so
+    /// under-states the negative Doppler this channel supplies: the sign of
+    /// the approximation error is conservative for a prompt excursion, which
+    /// is the direction one would want if it had to be wrong.
+    ///
+    /// Note also the far *stronger* dependence on bed temperature -- 0.0482
+    /// K/W at 600 K against 0.0696 K/W at 1100 K, a **44 % rise**, which is
+    /// 60x the power-dependence. That is exactly why `R_kernel` is refreshed
+    /// every plant step from the bed's own temperature rather than fixed at a
+    /// design-point value: what actually moves it around is where the bed is,
+    /// not what power it is at.
+    ///
+    /// This is a linearisation claim, not a claim that the pebble is linear.
+    #[test]
+    fn the_kernel_offset_is_linear_in_power() {
+        let rated_pebble = core_average_pebble_power();
+        let mut worst_spread = 0.0f64;
+
+        println!("R_kernel [K/W per pebble], by bed temperature and power fraction:");
+        for node_k in [600.0, 800.0, 950.0, 1100.0] {
+            let node = ThermodynamicTemperature::new::<kelvin>(node_k);
+            let mut resistances = Vec::new();
+            for fraction in [0.25, 0.5, 1.0, 1.5, 2.0] {
+                let power = rated_pebble * fraction;
+                let profile = resolved_pebble_profile(node, power).unwrap_or_else(|| {
+                    panic!("no profile at {node_k} K, {fraction}x rated -- inside the window")
+                });
+                let r =
+                    (profile.peak_kernel_centre.get::<kelvin>() - node_k) / power.get::<watt>();
+                resistances.push((fraction, r));
+            }
+
+            let at_rated = resistances
+                .iter()
+                .find(|(f, _)| (*f - 1.0).abs() < 1e-12)
+                .map(|(_, r)| *r)
+                .expect("the rated point is in the sweep");
+            let spread = resistances
+                .iter()
+                .map(|(_, r)| (r / at_rated - 1.0).abs())
+                .fold(0.0f64, f64::max);
+            worst_spread = worst_spread.max(spread);
+
+            let cells: Vec<String> = resistances
+                .iter()
+                .map(|(f, r)| format!("{f:.2}x {r:.5e}"))
+                .collect();
+            println!(
+                "  node {node_k:>6.1} K: {}  (spread {:.2}% about rated)",
+                cells.join("  "),
+                spread * 100.0
+            );
+
+            assert!(
+                resistances.windows(2).all(|w| w[1].1 >= w[0].1),
+                "R_kernel must not FALL with power at {node_k} K -- k(T) decreases with \
+                 temperature, so a falling resistance means the solve is wrong"
+            );
+        }
+
+        println!(
+            "worst relative spread over a FOURFOLD power range = {:.3}%",
+            worst_spread * 100.0
+        );
+        assert!(
+            worst_spread < 0.10,
+            "R_kernel varies {:.2}% over 0.25-2.0x rated; the Doppler channel holds it fixed \
+             across a 0.1 s step, so this must stay small",
+            worst_spread * 100.0
         );
     }
 

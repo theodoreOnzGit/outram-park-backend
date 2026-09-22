@@ -90,7 +90,7 @@ use axial_seven_node::AxialSevenNodeCore;
 use coarse_mesh_genfoam::CoarseMeshGenFoamCore;
 use one_node::PebbleBedPorousMediaNode;
 use std::fmt;
-use uom::si::f64::{MassRate, Power, ThermodynamicTemperature, Time};
+use uom::si::f64::{MassRate, Power, ThermalResistance, ThermodynamicTemperature, Time};
 use uom::si::power::watt;
 
 /// Which pebble-bed fidelity tier is selected -- the `HeaterType`-shaped
@@ -278,6 +278,48 @@ impl ReactorModel {
             Self::OneNodePorousMedia(core) => core.helium_temperature(),
             Self::AxialSevenNode(core) => core.helium_outlet_temperature(),
             Self::CoarseMeshGenFoam(core) => core.helium_outlet_temperature(),
+        }
+    }
+
+    /// Peak fuel-kernel temperature, where the tier resolves one.
+    ///
+    /// `None` is the honest answer for the two placeholder tiers: neither
+    /// resolves the inside of a pebble, so neither has a kernel temperature to
+    /// report and neither may invent one. Consumers
+    /// ([`crate::physics::kinetics::KernelDopplerChannel`], the core map, the
+    /// TRISO-ATOPS release channel) fall back to bed-node behaviour on `None`.
+    pub fn peak_kernel_temperature(&self) -> Option<ThermodynamicTemperature> {
+        match self {
+            Self::OneNodePorousMedia(core) => core.peak_kernel_temperature(),
+            Self::AxialSevenNode(_) | Self::CoarseMeshGenFoam(_) => None,
+        }
+    }
+
+    /// The whole resolved pebble profile, where the tier resolves one.
+    ///
+    /// `None` for the two placeholder tiers, on the same terms as
+    /// [`Self::peak_kernel_temperature`]: neither resolves the inside of a
+    /// pebble, so neither has an interior to report and neither may invent
+    /// one. The Map tab draws "--" rather than a fabricated profile.
+    pub fn pebble_profile(
+        &self,
+    ) -> Option<tampines::pebble_bed::pebble::PebbleTemperatureProfile> {
+        match self {
+            Self::OneNodePorousMedia(core) => core.pebble_profile(),
+            Self::AxialSevenNode(_) | Self::CoarseMeshGenFoam(_) => None,
+        }
+    }
+
+    /// Kernel-above-node thermal resistance \[K/W of per-pebble power\],
+    /// where the tier resolves one. See
+    /// [`one_node::PebbleBedPorousMediaNode::kernel_offset_resistance`] for
+    /// why the *slope* rather than the temperature is what crosses this
+    /// boundary, and [`Self::peak_kernel_temperature`] for why the other two
+    /// tiers return `None`.
+    pub fn kernel_offset_resistance(&self) -> Option<ThermalResistance> {
+        match self {
+            Self::OneNodePorousMedia(core) => core.kernel_offset_resistance(),
+            Self::AxialSevenNode(_) | Self::CoarseMeshGenFoam(_) => None,
         }
     }
 }

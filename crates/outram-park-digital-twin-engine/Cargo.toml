@@ -137,6 +137,18 @@ serde.workspace = true
 # accessor into tampines is the tidier long-term home.
 outram-park-fork-coolprop.workspace = true
 
+# htgr_sim_v1's TRISO fission-product release channel
+# (`physics::fission_product_release`) drives `boon-lay`'s Rust fork of Idaho
+# National Laboratory's TRISO-ATOPS off the resolved fuel-kernel temperature.
+# A DEV-dependency, not a real one: only the example uses it, and this crate's
+# own CLAUDE.md forbids new physics in the library. No new weight in the tree
+# either -- `tampines` already depends on `boon-lay` (its `TrisoParticle`
+# converts to and from that crate's `TrisoCell`), so this entry makes an
+# existing transitive dependency nameable from the example rather than adding
+# one. AGPL/GPL note: `boon-lay` is GPL-3.0 like this crate, and the TRISO-ATOPS
+# fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
+boon-lay.workspace = true
+
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
 # as its intended real integration target, stepped by

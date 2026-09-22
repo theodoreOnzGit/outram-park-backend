@@ -6773,6 +6773,7 @@ name = "outram-park-digital-twin-engine"
 version = "0.0.2"
 dependencies = [
  "async-opcua",
+ "boon-lay",
  "chem-eng-real-time-process-control-simulator",
  "csv",
  "directories 5.0.1",

@@ -117,6 +117,10 @@ pub enum Panel {
     Diagnostics,
     /// Static HTR-10 R-Z benchmark geometry viewer (issue #23).
     Geometry,
+    /// Live core map -- the same R-Z geometry coloured from plant state,
+    /// drilled down to the fuel kernel, plus the TRISO-ATOPS release table.
+    /// See [`crate::app::map_tab`].
+    Map,
 }
 
 impl PanelSet for Panel {
@@ -125,6 +129,7 @@ impl PanelSet for Panel {
         Self::Plots,
         Self::Diagnostics,
         Self::Geometry,
+        Self::Map,
     ];
 
     fn label(&self) -> &'static str {
@@ -133,6 +138,7 @@ impl PanelSet for Panel {
             Self::Plots => "Time-History Plots",
             Self::Diagnostics => "Diagnostics",
             Self::Geometry => "HTR-10 Geometry",
+            Self::Map => "Map",
         }
     }
 }

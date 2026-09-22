@@ -14,6 +14,41 @@
 /// Maximum number of samples kept in each plot history buffer.
 const MAX_PLOT_SAMPLES: usize = 4000;
 
+/// One tracked nuclide's TRISO release state, projected onto the snapshot.
+///
+/// **Every activity here is per curie of that nuclide's core inventory**, not
+/// curies. See [`crate::physics::fission_product_release`] for why no real
+/// inventory is derived, and why quoting these as a source term for HTR-10 or
+/// any other reactor would be wrong.
+///
+/// Plain `Copy` scalars so the snapshot stays cheap to clone every frame --
+/// the same reason the rest of [`HtgrSnapshot`] is flat.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NuclideReleaseSnapshot {
+    /// Canonical TRISO-ATOPS name, e.g. `"Cs-137"`. Empty before the first
+    /// evaluation.
+    pub name: &'static str,
+    /// Release rate `R` out of the fuel \[Ci/s per Ci of core inventory\].
+    pub release_rate: f64,
+    /// Graphite hold-up `G` \[Ci per Ci\]. Zero for the volatiles, which
+    /// graphite does not retain.
+    pub graphite_activity: f64,
+    /// Circulating activity `C` in the primary loop \[Ci per Ci\].
+    pub circulating_activity: f64,
+    /// Plated-out activity `P` on circuit surfaces \[Ci per Ci\]. Zero for
+    /// noble gases, which do not plate out.
+    pub plate_out_activity: f64,
+    /// Activity held on the helium purification system \[Ci per Ci\]. Zero
+    /// for the metals, which the HPS does not scrub.
+    pub clean_up_activity: f64,
+}
+
+/// How many nuclides the release channel publishes to the snapshot. Matches
+/// [`crate::physics::fission_product_release::TRACKED_NUCLIDES`]; a mismatch
+/// is a compile error at the projection site rather than a silently truncated
+/// table.
+pub const TRACKED_RELEASE_NUCLIDES: usize = 5;
+
 /// Scalar snapshot of the HTGR plant, shared between the physics thread (which
 /// writes the output fields) and the GUI thread (which writes the control-input
 /// fields and reads everything for display).
@@ -116,10 +151,98 @@ pub struct HtgrSnapshot {
     /// through, so it is the one that must exceed the core outlet temperature
     /// — the gas cannot leave hotter than the solid heating it.
     ///
-    /// **Not a peak fuel temperature.** It is a bed average; a real HTR-10
-    /// peak fuel temperature is well above it and this model cannot resolve
-    /// one, having a single lumped bed node.
+    /// ~~"**Not a peak fuel temperature.** ... this model cannot resolve one,
+    /// having a single lumped bed node."~~ **CORRECTED 2026-09-22** -- the
+    /// first half stands (this field is still a bed average), but the model
+    /// now *does* resolve a kernel: see [`Self::peak_kernel_temperature_k`].
+    /// The bed node remains one node; what changed is that the pebble inside
+    /// it is resolved.
     pub bed_temperature_k: f64,
+    /// Peak fuel-**kernel** temperature \[K\], or `f64::NAN` when the
+    /// selected fidelity tier does not resolve one.
+    ///
+    /// The centre of the hottest UO2 kernel in a core-average pebble -- the
+    /// temperature the Doppler channel
+    /// ([`crate::physics::kinetics::KernelDopplerChannel`]) and the TRISO
+    /// release channel ([`crate::physics::fission_product_release`]) are both
+    /// driven from as of 2026-09-22, and the one a fuel-temperature limit
+    /// applies to.
+    ///
+    /// **`NAN`, not a fallback to the bed.** The two placeholder fidelity
+    /// tiers have no kernel, and substituting the bed temperature would put a
+    /// number under a "peak fuel" label that is systematically tens of kelvin
+    /// low. A `NAN` renders as "--" and cannot be misread.
+    ///
+    /// Still the peak kernel of a **core-average** pebble: no power peaking,
+    /// no axial or radial shape, no burnup. A real HTR-10 peak-power pebble
+    /// runs hotter.
+    pub peak_kernel_temperature_k: f64,
+    /// The kernel's rise above the bed node \[K\] -- `peak_kernel - bed`,
+    /// `NAN` when unresolved. Published separately because it is the quantity
+    /// the Doppler channel's reactivity is proportional to, and it is far more
+    /// legible on a trend plot than two nearly-equal absolute temperatures.
+    pub kernel_offset_k: f64,
+    /// Reactivity worth of the kernel Doppler channel \[$\].
+    ///
+    /// Zero at the design point by construction, negative above it. This is
+    /// the *additional* feedback the 2026-09-22 rewiring supplies; the
+    /// graphite share stays inside the closed-form prompt layer and is not
+    /// separately reportable. See [`crate::physics::kinetics::KernelDopplerChannel`].
+    pub kernel_doppler_dollars: f64,
+    /// Summed circulating activity across the tracked nuclides, **per curie of
+    /// core inventory** \[Ci/Ci\].
+    ///
+    /// **Not a curie figure for any reactor.** The release channel runs on a
+    /// unit-inventory basis and derives no inventory -- see
+    /// [`crate::physics::fission_product_release`] for why that refusal is
+    /// deliberate. Useful as a trend line that rises when the fuel gets
+    /// hotter; read the Map tab's table for the per-nuclide breakdown.
+    pub release_circulating_ci_per_ci: f64,
+    /// Kernel temperature the release channel's most recent evaluation was
+    /// taken at \[K\], `NAN` before the first evaluation.
+    ///
+    /// Published so a reader can see that the release numbers on screen were
+    /// produced at a temperature that may be up to
+    /// [`crate::physics::fission_product_release::RELEASE_EVALUATION_INTERVAL_S`]
+    /// old, rather than assuming they track the live kernel exactly.
+    pub release_evaluated_at_kernel_k: f64,
+    /// Per-nuclide TRISO release, on the unit-inventory basis. See
+    /// [`NuclideReleaseSnapshot`]; drawn as a table by the **Map** tab.
+    pub release: [NuclideReleaseSnapshot; TRACKED_RELEASE_NUCLIDES],
+
+    // --- Resolved pebble interior (the Map tab's drill-down) ---
+    /// Pebble outer-surface temperature \[K\], `NAN` when unresolved.
+    ///
+    /// These four fields plus [`Self::peak_kernel_temperature_k`] are the
+    /// **solved** profile from `tampines`'s two-zone pebble, published in full
+    /// rather than left to the GUI to interpolate. A drawn interior that was
+    /// interpolated between two endpoints would be a picture of a pebble
+    /// rather than a readout of one, which this crate's "derive it from the
+    /// physics, never hardcode it" rule forbids -- and it would hide exactly
+    /// the non-linearity (the unfuelled shell carrying heat it does not
+    /// generate) that resolving the pebble exists to capture.
+    ///
+    /// Note the ordering these must satisfy:
+    /// `surface < zone boundary < centre < SiC < kernel`.
+    pub pebble_surface_k: f64,
+    /// Fuelled-zone / unfuelled-shell boundary temperature \[K\], `NAN` when
+    /// unresolved. The 5 mm shell conducts the whole pebble's heat and
+    /// generates none of its own, so the drop across it is pure resistance.
+    pub pebble_zone_boundary_k: f64,
+    /// Pebble matrix centre temperature \[K\], `NAN` when unresolved. The
+    /// hottest point of the *graphite*, but not of the fuel.
+    pub pebble_centre_k: f64,
+    /// SiC outer-face temperature of the hottest coated particle \[K\],
+    /// `NAN` when unresolved.
+    ///
+    /// Published because **this** is the temperature that physically governs
+    /// SiC fission-product retention, while
+    /// [`crate::physics::fission_product_release`] hands TRISO-ATOPS the
+    /// *kernel* temperature for the silver breakthrough model, following
+    /// upstream. Showing both side by side makes that conservatism visible
+    /// instead of buried: SiC runs cooler than the kernel, so using the kernel
+    /// **over-states** silver release.
+    pub particle_sic_k: f64,
     /// Whether the reactor protection system is armed.
     ///
     /// **Defaults to `false`** by maintainer decision on 2026-08-12, so the
@@ -393,6 +516,18 @@ impl Default for HtgrSnapshot {
             delayed_power_mw: 0.0,
             fuel_temperature_k: 1069.0,
             bed_temperature_k: 700.0,
+            // NAN until the first physics tick resolves a pebble -- the
+            // opening frame must not show a fabricated fuel temperature.
+            peak_kernel_temperature_k: f64::NAN,
+            kernel_offset_k: f64::NAN,
+            kernel_doppler_dollars: 0.0,
+            release_circulating_ci_per_ci: 0.0,
+            release_evaluated_at_kernel_k: f64::NAN,
+            release: [NuclideReleaseSnapshot::default(); TRACKED_RELEASE_NUCLIDES],
+            pebble_surface_k: f64::NAN,
+            pebble_zone_boundary_k: f64::NAN,
+            pebble_centre_k: f64::NAN,
+            particle_sic_k: f64::NAN,
             reactivity_margin_dollars: 0.0,
             delayed_neutron_fraction_pcm: 650.0,
             core_inlet_temp_k: 442.15,

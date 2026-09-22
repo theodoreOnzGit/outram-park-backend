@@ -108,7 +108,7 @@ fn legend_entries() -> [(&'static str, ZoneMaterial); 13] {
 /// two rectangles its own doc comment describes it as the union of. This is
 /// a rendering-only decomposition; [`Htr10RzZone::vertices_cm`] (used for the
 /// physics-facing [`Htr10RzZone::volume_of_revolution`]) is untouched.
-fn zone_render_polygons(zone: &Htr10RzZone) -> Vec<Vec<(f64, f64)>> {
+pub(super) fn zone_render_polygons(zone: &Htr10RzZone) -> Vec<Vec<(f64, f64)>> {
     if zone.volume == 48 && zone.vertices_cm.len() == 6 {
         vec![
             vec![

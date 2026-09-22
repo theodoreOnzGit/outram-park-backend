@@ -94,6 +94,7 @@
 //! so the loop's Picard contraction factor *is* the Courant number.
 
 pub mod geometry_tab;
+pub mod map_tab;
 pub mod panels;
 pub mod plant_v1_1;
 // The v1 drawing is no longer on screen (v1.1 replaced it on 2026-09-22) but
@@ -714,6 +715,7 @@ impl eframe::App for HtgrSimApp {
                 Panel::Plots => draw_plots_panel(ui, &plots, display_unit),
                 Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
                 Panel::Geometry => draw_geometry_panel(ui, &mut self.geometry_zoom),
+                Panel::Map => map_tab::draw_map(ui, &snapshot),
             });
         });
 

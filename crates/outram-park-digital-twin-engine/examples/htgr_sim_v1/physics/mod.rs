@@ -176,6 +176,7 @@
 
 pub mod control_rods;
 pub mod decay_heat_removal;
+pub mod fission_product_release;
 pub mod kinetics;
 pub mod primary_loop;
 pub mod protection;
@@ -797,6 +798,10 @@ pub struct HtgrPlant {
     pub sim_time: Time,
     /// Passive decay-heat path out to the RCCS. See [`decay_heat_removal`].
     pub decay_heat_path: decay_heat_removal::CoreToRccsPath,
+    /// TRISO fission-product release, driven off the SAME resolved fuel-kernel
+    /// temperature as the Doppler channel. Quasi-steady and stateless, so it
+    /// sits outside the corrector loop -- see [`fission_product_release`].
+    pub release: fission_product_release::TrisoAtopsReleaseChannel,
     /// Sim time at which the current scenario was first commanded, `None`
     /// under [`Scenario::Normal`]. Drives the protection system's
     /// secondary-isolation delay.
@@ -820,6 +825,7 @@ impl HtgrPlant {
             protection: ReactorProtectionSystem::new(),
             sim_time: Time::new::<second>(0.0),
             decay_heat_path: decay_heat_removal::CoreToRccsPath::placeholder(),
+            release: fission_product_release::TrisoAtopsReleaseChannel::new_htr10(),
             scenario_started_at: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
         }
@@ -1048,6 +1054,18 @@ impl HtgrPlant {
             // the same predictor-corrector treatment every other coupling in
             // this loop gets. It is applied at KINETICS substep resolution
             // inside `step`, not as one lump per plant step.
+            // The kernel-above-node resistance from the bed's most recent
+            // resolved pebble solve, handed over BEFORE the kinetics steps so
+            // the Doppler channel can follow the kernel at substep resolution.
+            // Same predictor-corrector treatment as `core_heat_to_helium`
+            // above: the previous corrector's (or step's) value, tightening as
+            // the loop iterates. A `None` -- the bed's solve out of its
+            // correlation window -- disables the kernel term for the step and
+            // leaves the whole isothermal coefficient on the bed node, which
+            // is the model that was in service before the pebble was resolved.
+            // See `kinetics::KernelDopplerChannel`.
+            self.kinetics
+                .set_kernel_offset_resistance(self.core.kernel_offset_resistance());
             self.kinetics
                 .step(dt, external_reactivity_dollars, self.core_heat_to_helium);
 
@@ -1145,6 +1163,26 @@ impl HtgrPlant {
         mark_component("turbine-generator shaft (torque balance)");
         self.shaft
             .step(dt, self.secondary.turbine_power(), self.sim_time);
+
+        // 6. TRISO fission-product release, at the converged fuel-kernel
+        // temperature. OUTSIDE the corrector loop and after it, for the same
+        // reason the shaft is: it is a pure consumer of converged state and
+        // feeds nothing back into the plant. It is also quasi-steady and holds
+        // no integrated state, so there is nothing for a corrector to rewind
+        // and nothing gained by iterating it.
+        //
+        // It is handed the KERNEL temperature, not the bed's. On the two
+        // placeholder fidelity tiers that is `None` and the channel declines
+        // to evaluate rather than substituting the bed -- the release
+        // coefficients are Arrhenius, so the wrong temperature would not give
+        // a slightly wrong answer, it would give a confident one. See
+        // `fission_product_release`.
+        mark_component("TRISO fission-product release (TRISO-ATOPS)");
+        self.release.update(
+            self.sim_time.get::<second>(),
+            self.core.peak_kernel_temperature(),
+            self.core.temperature(),
+        );
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
@@ -1162,6 +1200,43 @@ impl HtgrPlant {
         // over. Drawing the kinetics node made the bed appear COOLER than the
         // gas leaving it, which is thermodynamically impossible.
         s.bed_temperature_k = self.pebble_temperature().get::<kelvin>();
+
+        // The resolved fuel kernel, and what it is worth. `NAN` rather than a
+        // fallback when the tier does not resolve one -- see the field docs.
+        let kernel = self.core.peak_kernel_temperature();
+        s.peak_kernel_temperature_k = kernel.map_or(f64::NAN, |t| t.get::<kelvin>());
+        s.kernel_offset_k = kernel.map_or(f64::NAN, |t| {
+            t.get::<kelvin>() - self.core.temperature().get::<kelvin>()
+        });
+        s.kernel_doppler_dollars = self.kinetics.kernel_doppler_reactivity_dollars();
+
+        // TRISO fission-product release, on a UNIT-INVENTORY basis. See
+        // `fission_product_release` -- these are Ci per Ci of core inventory
+        // and are not a source term for any reactor.
+        s.release_circulating_ci_per_ci = self.release.total_circulating();
+        s.release_evaluated_at_kernel_k = self
+            .release
+            .evaluated_at_kernel()
+            .map_or(f64::NAN, |t| t.get::<kelvin>());
+        // The resolved pebble interior, published in full -- see the field
+        // docs on why the GUI is not left to interpolate it.
+        let profile = self.core.pebble_profile();
+        s.pebble_surface_k = profile.map_or(f64::NAN, |p| p.surface.get::<kelvin>());
+        s.pebble_zone_boundary_k =
+            profile.map_or(f64::NAN, |p| p.fuelled_zone_boundary.get::<kelvin>());
+        s.pebble_centre_k = profile.map_or(f64::NAN, |p| p.centre.get::<kelvin>());
+        s.particle_sic_k = profile.map_or(f64::NAN, |p| {
+            p.hottest_particle.silicon_carbide_outer.get::<kelvin>()
+        });
+
+        for (slot, release) in s.release.iter_mut().zip(self.release.latest()) {
+            slot.name = release.name;
+            slot.release_rate = release.activities.release_rate;
+            slot.graphite_activity = release.activities.graphite_activity;
+            slot.circulating_activity = release.activities.circulating_activity;
+            slot.plate_out_activity = release.activities.plate_out_activity;
+            slot.clean_up_activity = release.activities.clean_up_activity;
+        }
         s.trip_reason = self.protection.trip_reason();
         s.scram_insertion_fraction = self.protection.scram_insertion();
         s.reactivity_margin_dollars = self.kinetics.reactivity_margin_dollars();
