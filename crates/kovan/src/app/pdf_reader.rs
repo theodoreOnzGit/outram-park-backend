@@ -305,14 +305,67 @@ fn smallest_hit<'a>(
 ) -> Option<&'a Artifact> {
     overlays
         .into_iter()
+        // Containment has to be tested in screen space: the pointer is a
+        // screen position, and this is the only step that needs the
+        // transform at all.
         .filter(|(_, r)| r.contains(at))
-        .min_by(|(_, a), (_, b)| {
-            let area = |r: &Rect| r.width() * r.height();
-            area(a)
-                .partial_cmp(&area(b))
+        // Everything after it is decided on the artifact's **own**
+        // normalised region, which is exact and does not depend on the
+        // current zoom (maintainer, 2026-09-22).
+        .min_by(|(a, _), (b, _)| {
+            hit_rank(a)
+                .partial_cmp(&hit_rank(b))
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
         .map(|(art, _)| art)
+}
+
+/// The ordering key [`smallest_hit`] ranks by: normalised area first, then
+/// page, then the region's own corners.
+///
+/// **Area** in page fractions rather than screen pixels — the same number at
+/// any zoom, and comparable across pages of different sizes, which screen
+/// area is not.
+///
+/// **Page and corners** are the tie-break, because an artifact is identified
+/// by its box (maintainer: "the artifact is uniquely identified by its box …
+/// That should be the discriminator between similar artifacts", and "the
+/// page matters too"). Two artifacts of equal area are then ordered by
+/// where they actually are, deterministically, instead of by whichever
+/// happened to be parsed first — the one case the area rule alone could not
+/// separate.
+///
+/// **Id** is the last element, so the order is **total**: no two distinct
+/// artifacts ever compare equal, whatever their geometry. That is deliberate
+/// redundancy (maintainer: "use the ids too … redundancy is good") — the
+/// geometry is what a click means, the id is what cannot collide, and
+/// falling through to it means the answer never depends on parse order.
+///
+/// A missing region sorts last (`INFINITY`). In practice it cannot occur:
+/// the overlays are built *from* regions, so an artifact without one is
+/// never a candidate. It is handled rather than unwrapped because the type
+/// admits it.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn hit_rank(art: &Artifact) -> (f64, u32, f64, f64, f64, f64, &str) {
+    let page = art
+        .toml
+        .source
+        .as_ref()
+        .and_then(|s| s.first_page())
+        .unwrap_or(u32::MAX);
+    let id = art.id();
+    match art.toml.source.as_ref().and_then(|src| src.region) {
+        Some(r) => (
+            (r.x1 - r.x0) * (r.y1 - r.y0),
+            page,
+            r.x0,
+            r.y0,
+            r.x1,
+            r.y1,
+            id,
+        ),
+        None => (f64::INFINITY, page, 0.0, 0.0, 0.0, 0.0, id),
+    }
 }
 
 /// The relation-kind picker: a dropdown whose list is **fuzzy-filtered** by a
@@ -3764,8 +3817,16 @@ mod tests {
     fn nested_artifact_boxes_resolve_to_the_smallest() {
         let big = Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(100.0, 100.0));
         let small = Rect::from_min_max(Pos2::new(40.0, 40.0), Pos2::new(60.0, 60.0));
-        let outer = make_artifact("section", ArtifactKind::Note, None);
-        let inner = make_artifact("figure", ArtifactKind::Note, None);
+        let anchor = |x0: f64, y0: f64, x1: f64, y1: f64| {
+            Some(SourceAnchor {
+                page: Some(3),
+                pages: None,
+                region: Some(Region { x0, y0, x1, y1 }),
+            })
+        };
+        // The same nesting as the screen rects below, in page fractions.
+        let outer = make_artifact("section", ArtifactKind::Note, anchor(0.0, 0.0, 1.0, 1.0));
+        let inner = make_artifact("figure", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
 
         // Document order deliberately puts the big one first, which is what
         // the old `find` would have returned.
@@ -3783,6 +3844,36 @@ mod tests {
         assert!(
             smallest_hit(overlays, Pos2::new(500.0, 500.0)).is_none(),
             "a click outside every box hits nothing"
+        );
+
+        // Redundancy: two artifacts with *identical* geometry — a duplicated
+        // crop — still resolve deterministically, by id, rather than by
+        // whichever was parsed first. Geometry is what a click means; the id
+        // is what cannot collide.
+        let twin_a = make_artifact("aaa", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let twin_b = make_artifact("zzz", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let forwards = vec![(&twin_a, small), (&twin_b, small)];
+        let backwards = vec![(&twin_b, small), (&twin_a, small)];
+        assert_eq!(
+            smallest_hit(forwards, Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            smallest_hit(backwards, Pos2::new(50.0, 50.0)).map(|a| a.id()),
+            "document order must not decide it"
+        );
+
+        // And the page separates artifacts that are otherwise identical.
+        let p3 = make_artifact("same", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        let mut p9 = make_artifact("same", ArtifactKind::Note, anchor(0.4, 0.4, 0.6, 0.6));
+        if let Some(src) = p9.toml.source.as_mut() {
+            src.page = Some(9);
+        }
+        assert_eq!(
+            smallest_hit(vec![(&p9, small), (&p3, small)], Pos2::new(50.0, 50.0)).map(|a| a
+                .toml
+                .source
+                .as_ref()
+                .and_then(|s| s.page)),
+            Some(Some(3)),
+            "the earlier page wins a geometric tie"
         );
     }
 
