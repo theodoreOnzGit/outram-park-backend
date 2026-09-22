@@ -13,6 +13,29 @@ A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, st
 > status, see the ⚠️ banner above: everything here is unverified until validated,
 > and **not** for facility operation.
 
+## How it started
+
+It started as a sketch. An early concept from 2025, drawn by hand on graph
+paper, titled **"Natural FHR Simulator, Mark I"**: a fluoride-salt-cooled
+high-temperature reactor (FHR) you could watch and operate.
+
+![Hand-drawn 2025 concept sketch of the Natural FHR Simulator Mark I: a pebble-bed core with control rod, graphite reflector and decay-heat removal loop; a primary salt pump labelled TUAS; an intermediate salt-to-salt heat exchanger; a helical steam generator, single-stage expansion turbine and condenser labelled TAMPINES](docs/images/fhr-simulator-mark-i-concept-2025.jpg)
+
+Everything on that page was a question for code to answer. On the left, the
+core: a pebble bed with a temperature-sensitive display, a control rod, a
+graphite reflector and a decay-heat removal loop. In the middle, a primary
+salt pump driving the salt through an intermediate salt-to-salt heat
+exchanger. On the right, a helical steam generator feeding a single-stage
+expansion turbine and a condenser. The sketch is honest about what it left
+out: "no HP, LP turbine for simplicity", and a primary pump that "really has
+parallel but simplify".
+
+Two labels on it already name the pieces that would carry the idea: **TUAS**
+under the salt loops, and **TAMPINES** under the steam side. Both are crates in
+[`outram-park-backend`](https://github.com/theodoreOnzGit/outram-park-backend)
+today (`tuas_boussinesq_solver` and `tampines`), and the rest of OUTRAM PARK
+grew around them.
+
 ## Note on AI-assisted development cost vs. value
 
 Much of the recent work on this workspace — the dependency / egui 0.34 migration,
