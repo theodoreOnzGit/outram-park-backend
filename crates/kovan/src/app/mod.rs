@@ -14,11 +14,14 @@ mod bibliography;
 mod csv_preview;
 mod home;
 mod kvim_editor;
+mod literature_list;
 mod nav;
 mod page_canvas;
 mod pdf_reader;
+mod setup;
 mod table_digitiser;
 mod theme;
+pub(crate) use theme::navigation_style;
 mod wiki;
 
 use eframe::egui::{
@@ -40,7 +43,6 @@ use crate::digitiser::dataset::{
 use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
-use crate::project;
 
 use advanced_git_view::AdvancedGitState;
 use bibliography::{BibliographyAction, BibliographyState};
@@ -62,16 +64,17 @@ use crate::mindmap::{MindmapAction, MindmapState};
 /// popup to attach to — see `op-p17q`, wired the same way).
 ///
 /// `Home` and `Wiki` are the Kovan redesign's startup/landing screens
-/// (GitHub issue #35 §2, §8, `op-9vo6.3`/`.8`) — `Home` is now the
+/// (GitHub issue #35 §2, §8, `op-9vo6.3`/`.8`). ~~`Home` is now the
 /// `#[default]`, replacing the previous default of launching straight into
-/// `PdfReader`. `DigitiseApp::ui` auto-transitions `Home` -> `Wiki` the
+/// `PdfReader`.~~ **CHANGED 2026-09-22 (epic #247):** `Mindmap` is the
+/// default, so Kovan opens on the built-in corpus map even with no folder;
+/// Home is where a folder is opened or created. `DigitiseApp::ui` auto-transitions `Home` -> `Wiki` the
 /// frame a root is opened/created (§8: "after opening a root, land in the
 /// Wiki, not the PDF reader"); the other variants stay reachable from the
 /// top bar exactly as before this redesign — removing them is `op-9vo6.25`
 /// (Research workspace)'s job, not this pass's.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum View {
-    #[default]
     Home,
     Wiki,
     Digitiser,
@@ -87,7 +90,10 @@ enum View {
     Bibliography,
     TableDigitiser,
     /// The interactive mindmap (§8, §9, `op-9vo6.21`), built on top of the
-    /// `Wiki` view's collection model.
+    /// `Wiki` view's collection model. **The default since 2026-09-22**
+    /// (maintainer brief, epic #247): Kovan always opens on its built-in
+    /// nuclear-engineering map, with or without a Kovan folder.
+    #[default]
     Mindmap,
     /// The Advanced Git tab (§38, `op-9vo6.20`) — a separate area, per that
     /// section's own wording, from ordinary Save Document/Save Repository.
@@ -126,13 +132,18 @@ enum FileDialogTarget {
     /// (op-9vo6.17). No extension filter — any text file is fair game for
     /// a general-purpose text editor.
     KvimFile,
+    /// Picked directory fills the setup dialog's Kovan-folder field (#255).
+    SetupFolder,
 }
 
 impl FileDialogTarget {
     /// Whether this target picks a directory (`pick_directory`) rather than
     /// a file — see [`DigitiseApp::open_picker`].
     fn is_directory(self) -> bool {
-        matches!(self, Self::KovanRootOpen | Self::KovanRootCreate)
+        matches!(
+            self,
+            Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder
+        )
     }
 
     /// Whether this target opens an existing file (`pick_file`) or names a
@@ -156,7 +167,9 @@ impl FileDialogTarget {
             Self::Pdf | Self::PdfIngest => Some("PDF"),
             Self::JsonExport | Self::TableJsonExport => Some("JSON"),
             Self::CsvExport | Self::TableCsvExport => Some("CSV"),
-            Self::KovanRootOpen | Self::KovanRootCreate | Self::KvimFile => None,
+            Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder | Self::KvimFile => {
+                None
+            }
         }
     }
 }
@@ -271,6 +284,21 @@ struct WorkspaceKnowledge {
 pub struct DigitiseApp {
     // chrome
     view: View,
+    /// The first-run setup dialog (#255) -- see [`setup`].
+    setup: setup::SetupDialog,
+    /// Work running off the GUI thread (cloning corpus repositories), each
+    /// ending in a one-line status message.
+    background_jobs: Vec<std::thread::JoinHandle<String>>,
+    /// A Kovan repository being cloned into a new folder by the setup
+    /// dialog; the folder is opened, and its corpora set up, when it lands.
+    library_clone: Option<LibraryClone>,
+    /// The PDF reader's list of the open folder's literature, built on
+    /// demand and dropped when the folder's knowledge changes.
+    literature: Option<literature_list::LiteratureList>,
+    /// The literature fuzzy finder (Ctrl+P).
+    literature_finder: literature_list::LiteratureFinder,
+    /// The document last opened in the reader, for the list's highlight.
+    reader_path: Option<std::path::PathBuf>,
     /// Browser-style back/forward history over every page (#242) -- see
     /// [`nav`].
     history: crate::navigation::NavHistory<nav::AppLocation>,
@@ -387,8 +415,6 @@ pub struct DigitiseApp {
     /// markdown file (relative to that root) the CSV belongs to — both
     /// operator-supplied, same as `json_out`/`csv_out`, since a crop has no
     /// way to know which project/document it came from on its own.
-    project_root: String,
-    project_markdown_rel: String,
     message: String,
     /// `true` when `message` reports a failure — op-fueb: a calibration
     /// failure used to be indistinguishable from an ordinary status update
@@ -418,6 +444,12 @@ impl Default for DigitiseApp {
     fn default() -> Self {
         Self {
             view: View::default(),
+            setup: setup::SetupDialog::default(),
+            background_jobs: Vec::new(),
+            library_clone: None,
+            literature: None,
+            literature_finder: Default::default(),
+            reader_path: None,
             history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
             theme: GuiTheme::default(),
             file_dialog: FileDialog::new()
@@ -470,8 +502,6 @@ impl Default for DigitiseApp {
             csv_out: String::new(),
             pending_export: None,
             crop_provenance: None,
-            project_root: String::new(),
-            project_markdown_rel: String::new(),
             message: "load an image, then click the four axis reference points".to_string(),
             message_is_error: false,
         }
@@ -531,6 +561,7 @@ impl DigitiseApp {
 
         if let Some(pdf) = &pdf_path {
             self.pdf_reader.open(&pdf.to_string_lossy());
+            self.reader_path = Some(pdf.clone());
         }
         self.kvim_editor.load_text(session.markdown());
 
@@ -582,27 +613,88 @@ impl DigitiseApp {
         let index = crate::index::KnowledgeIndex::rebuild(root);
         let _ = index.save_cache(root);
         let graph = crate::graph::KnowledgeGraph::rebuild(root, &index);
+        self.literature = None; // papers changed: re-mark the list
         let _ = graph.save_cache(root);
         self.workspace = Some(WorkspaceKnowledge { index, graph });
     }
 
-    /// Whether `path` is already one of the open library's stored source
-    /// PDFs — i.e. lives directly under `root.open_sources_dir()` or
-    /// `root.restricted_sources_dir()`, exactly where `ingest::ingest`
-    /// (§23 step 3) copies a paper's PDF to. Cheap prefix check rather than
-    /// scanning every paper's `kovan.toml`, and correct as long as nothing
-    /// else writes into those two directories — which nothing in this
-    /// crate does.
-    fn already_ingested(&self, path: &std::path::Path) -> bool {
-        let Some(root) = self.home.root() else {
-            return false;
+    /// Draw the ingest form, whichever tab is showing. It was drawn only in
+    /// the Wiki, so "Ingest…" from the PDF reader's prompt opened a form
+    /// nobody could see and appeared to do nothing (2026-09-22). On success
+    /// the knowledge is refreshed and the new paper opened, as the Wiki did.
+    fn ingest_form_ui(&mut self, ui: &mut egui::Ui) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
         };
-        let Ok(canon) = path.canonicalize() else {
-            return false;
+        let Some(citekey) = self
+            .wiki
+            .as_mut()
+            .and_then(|wiki| wiki.ingest_form(ui, &root))
+        else {
+            return;
         };
-        [root.open_sources_dir(), root.restricted_sources_dir()]
-            .into_iter()
-            .any(|dir| canon.starts_with(dir.canonicalize().unwrap_or(dir)))
+        self.refresh_knowledge(&root);
+        self.activate_paper_and_navigate(&citekey);
+    }
+
+    /// Ctrl+P opens the literature finder whenever a Kovan folder is open;
+    /// a PDF chosen there opens in the reader.
+    fn literature_finder_ui(&mut self, ctx: &egui::Context) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
+        };
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::P)) {
+            self.literature_finder.show();
+        }
+        if !self.literature_finder.open {
+            return;
+        }
+        if self.literature.as_ref().is_none_or(|l| l.root != root.path()) {
+            self.literature = Some(literature_list::LiteratureList::build(&root));
+        }
+        let chosen = self
+            .literature
+            .as_ref()
+            .and_then(|list| self.literature_finder.ui(ctx, list));
+        if let Some(path) = chosen {
+            self.open_document(&path);
+        }
+    }
+
+    /// Open `path` in the PDF reader: as its paper when one records it (so
+    /// notes save into it), otherwise on its own with the ingest offer.
+    fn open_document(&mut self, path: &std::path::Path) {
+        self.reader_path = Some(path.to_path_buf());
+        match self.paper_owning_pdf(path) {
+            Some(citekey) => self.activate_paper_and_navigate(&citekey),
+            None => {
+                // Not a paper's PDF: whatever paper was open no longer
+                // matches the reader, so notes must not go into it.
+                self.active_paper = None;
+                self.view = View::PdfReader;
+                let path = path.to_string_lossy().into_owned();
+                self.pdf_reader.open(&path);
+                self.offer_ingest_if_new(&path);
+            }
+        }
+    }
+
+    /// The paper whose `kovan.toml` records `path` as its PDF, if any.
+    ///
+    /// ~~`already_ingested`: a cheap prefix check on the open and restricted
+    /// source folders.~~ **CORRECTED 2026-09-22**: since #255 those folders
+    /// are corpus repositories full of PDFs no paper owns yet, so being
+    /// inside one said nothing; opening such a PDF offered no ingest and the
+    /// reader showed the no-paper fallback ("Set a project root…"). This
+    /// reads each paper's recorded PDF instead (a few files per paper).
+    fn paper_owning_pdf(&self, path: &std::path::Path) -> Option<String> {
+        let root = self.home.root()?;
+        let target = path.canonicalize().ok()?;
+        root.paper_dirs().into_iter().find_map(|dir| {
+            let config = EntityConfig::load(&dir).ok()?;
+            let pdf = config.source?.pdf?;
+            (dir.join(pdf).canonicalize().ok()? == target).then_some(config.id)
+        })
     }
 
     /// A PDF was just opened (op-9sc7, GH issue #35 2026-09-01 05:22:
@@ -615,7 +707,7 @@ impl DigitiseApp {
         let Some(root) = self.home.root().cloned() else {
             return;
         };
-        if self.already_ingested(std::path::Path::new(path)) {
+        if self.paper_owning_pdf(std::path::Path::new(path)).is_some() {
             return;
         }
         if self.auto_ingest_opened_pdfs {
@@ -1193,10 +1285,12 @@ impl DigitiseApp {
     /// Markdown when one is open (`op-bd8p`, mirroring `pdf_reader.rs`'s
     /// `save_annotations_into_project`/op-q1qj: activation already resolved
     /// which paper and root this crop belongs to, so there is nothing left
-    /// to ask), falling back to the manual `project_root`/
-    /// `project_markdown_rel` fields + [`project::append_to_section`] only
-    /// when no paper is active (a crop loaded outside any paper — the old
-    /// `crate::project` "kovan folder" format, op-96am's original design).
+    /// to ask). ~~Falling back to the manual `project_root`/
+    /// `project_markdown_rel` fields + `project::append_to_section` when no
+    /// paper is active (op-96am's original design).~~ **CORRECTED 2026-09-22**: those fields are
+    /// gone (the Kovan folder comes from setup, a paper's Markdown from
+    /// ingest); with no paper open this reports that the PDF must be
+    /// ingested first.
     ///
     /// Distinct from [`Self::save`], which writes a standalone JSON/CSV
     /// file wherever asked — this instead folds the CSV into an existing
@@ -1253,52 +1347,7 @@ impl DigitiseApp {
             return;
         }
 
-        // --- no active paper: the legacy plain-text section path ---
-        //
-        // GH issue #35, 2026-09-08: this path writes a plain heading plus a
-        // bare ```csv fence with no `[kovan]` block, so what it saves is NOT
-        // an artifact — it has no id, no kind and no `[source]`, and the PDF
-        // canvas therefore draws no region box for it. That is why a
-        // digitised graph looks fine while it is still on screen and is
-        // simply gone the next time the paper is opened. It used to happen
-        // silently; say so instead, and refuse outright when there is no
-        // project markdown configured either, rather than writing data the
-        // GUI cannot show.
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error(
-                "no active paper — activate one (Wiki, Bibliography or Mindmap) \
-                 so this saves as a real artifact with a region box",
-            );
-            return;
-        }
-        let mut block = format!("### {title}");
-        if let Some(prov) = &self.crop_provenance {
-            block.push_str(&format!(
-                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1,
-                prov.min.x,
-                prov.min.y,
-                prov.max.x,
-                prov.max.y,
-                prov.created_at,
-                prov.author
-            ));
-        }
-        block.push_str("\n\n");
-        block.push_str(&csv_body);
-        match project::append_to_section(
-            std::path::Path::new(self.project_root.trim()),
-            self.project_markdown_rel.trim(),
-            "graph_csvs",
-            &block,
-        ) {
-            Ok(_) => self.set_status(
-                "saved as a plain section (no active paper) — this is NOT a Kovan \
-                 artifact and draws no box on the PDF; activate the paper and use \
-                 the reader's \"Upgrade to artifacts\" button to fix it",
-            ),
-            Err(e) => self.set_error(e.to_string()),
-        }
+        self.set_error("no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes");
     }
 
     /// Nearest point (index) to image-pixel position, within `max_px`.
@@ -1518,9 +1567,8 @@ impl DigitiseApp {
         // comes before the standalone file export (maintainer, 2026-09-02).
         ui.label("5. Save into project markdown:");
         // op-bd8p: an active paper already tells us exactly where this
-        // belongs -- no manual project root/markdown path to fill in.
-        // Those fields (op-96am's original design) stay available only for
-        // a crop loaded with no paper active.
+        // belongs -- no manual project root/markdown path to fill in (those
+        // fields were removed 2026-09-22).
         match self
             .active_paper
             .as_ref()
@@ -1530,14 +1578,7 @@ impl DigitiseApp {
                 ui.label(format!("saving into {citekey}'s notes"));
             }
             None => {
-                ui.horizontal(|ui| {
-                    ui.label("project root");
-                    ui.text_edit_singleline(&mut self.project_root);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("markdown path (relative)");
-                    ui.text_edit_singleline(&mut self.project_markdown_rel);
-                });
+                ui.label("no paper open: ingest the PDF to save into its notes");
             }
         }
         if let Some(prov) = &self.crop_provenance {
@@ -1947,6 +1988,9 @@ impl DigitiseApp {
     /// Markdown Editor (op-wr08) panels, and the Gruvbox theme selector
     /// (op-t5sq).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
+        // Larger tabs and buttons in the top bar (maintainer direction,
+        // 2026-09-22); the pages below keep the theme's own sizes.
+        theme::navigation_style(ui);
         ui.horizontal(|ui| {
             self.nav_buttons(ui);
             ui.separator();
@@ -1979,6 +2023,13 @@ impl DigitiseApp {
                         ui.selectable_value(&mut self.theme, t, t.label());
                     }
                 });
+            if ui
+                .button("\u{2699} Setup")
+                .on_hover_text("Kovan folder and corpus repositories")
+                .clicked()
+            {
+                self.setup.show_for(self.home.root());
+            }
         });
     }
 
@@ -2009,10 +2060,7 @@ impl DigitiseApp {
         let path = path.to_string_lossy().into_owned();
         match target {
             FileDialogTarget::Image => self.load_image(&path),
-            FileDialogTarget::Pdf => {
-                self.pdf_reader.open(&path);
-                self.offer_ingest_if_new(&path);
-            }
+            FileDialogTarget::Pdf => self.open_document(std::path::Path::new(&path)),
             FileDialogTarget::JsonExport => {
                 self.json_out = path;
                 // Finish an export that was only waiting on this path.
@@ -2027,6 +2075,7 @@ impl DigitiseApp {
             FileDialogTarget::KovanRootCreate => {
                 self.home.begin_create(std::path::Path::new(&path))
             }
+            FileDialogTarget::SetupFolder => self.setup.folder = path,
             FileDialogTarget::PdfIngest => {
                 if let (Some(root), Some(wiki)) = (self.home.root(), self.wiki.as_mut()) {
                     if let Err(message) = wiki.begin_ingest(root, std::path::Path::new(&path)) {
@@ -2042,6 +2091,220 @@ impl DigitiseApp {
     }
 }
 
+impl DigitiseApp {
+    /// What the real application does once at start, and tests never do
+    /// (they build the app with `default()`): begin cloning the standard
+    /// corpus in the background (#253), and open the setup dialog on first
+    /// run unless a Kovan folder was given on the command line (#255).
+    pub fn start_up(&mut self, folder_given: bool) {
+        self.spawn_job(|| match crate::corpus_repos::ensure_standard_corpus() {
+            Ok(crate::corpus_repos::RepoState::Cloned) => "standard corpus downloaded".to_string(),
+            Ok(_) => String::new(),
+            Err(e) => format!("standard corpus not downloaded (the built-in map still works): {e}"),
+        });
+        if !folder_given && setup::is_first_run() {
+            self.setup.show_for(None);
+        }
+    }
+
+    /// Run `job` off the GUI thread; its message is shown when it finishes.
+    fn spawn_job(&mut self, job: impl FnOnce() -> String + Send + 'static) {
+        self.background_jobs.push(std::thread::spawn(job));
+    }
+
+    /// Show the message of every finished background job.
+    fn poll_background_jobs(&mut self) {
+        let (done, running): (Vec<_>, Vec<_>) = std::mem::take(&mut self.background_jobs)
+            .into_iter()
+            .partition(|j| j.is_finished());
+        self.background_jobs = running;
+        for job in done {
+            match job.join() {
+                Ok(message) if !message.is_empty() => self.set_status(message),
+                Ok(_) => {}
+                Err(_) => self.set_error("a background task failed unexpectedly"),
+            }
+        }
+    }
+
+    fn handle_setup(&mut self, request: setup::SetupRequest) {
+        match request {
+            setup::SetupRequest::Browse => self.open_picker(FileDialogTarget::SetupFolder),
+            setup::SetupRequest::Skip => {
+                setup::mark_first_run_done();
+                self.setup.open = false;
+            }
+            setup::SetupRequest::Finish {
+                folder,
+                library_remote,
+                open_remote,
+                proprietary_remote,
+            } => {
+                setup::remember_corpora(&crate::root::CorporaConfig {
+                    open_remote: open_remote.clone(),
+                    proprietary_remote: proprietary_remote.clone(),
+                });
+                match self.set_up_library(&folder, library_remote, open_remote, proprietary_remote)
+                {
+                    Ok(()) => {
+                        setup::mark_first_run_done();
+                        self.setup.open = false;
+                    }
+                    Err(e) => self.setup.set_message(e),
+                }
+            }
+        }
+    }
+
+    /// Set up `folder` as the user's Kovan folder: their own Kovan
+    /// repository plus the standard, open and closed corpora (maintainer
+    /// direction, 2026-09-22).
+    ///
+    /// With `library_remote` and an absent or empty `folder`, the Kovan
+    /// repository is cloned there in the background and set up when it lands
+    /// ([`Self::poll_library_clone`]). Otherwise the folder is opened, or
+    /// created, and given `library_remote` as `origin` if it has none.
+    fn set_up_library(
+        &mut self,
+        folder: &std::path::Path,
+        library_remote: Option<String>,
+        open_remote: Option<String>,
+        proprietary_remote: Option<String>,
+    ) -> Result<(), String> {
+        let empty = !folder.exists()
+            || std::fs::read_dir(folder).is_ok_and(|mut entries| entries.next().is_none());
+        if let (Some(url), true) = (library_remote.as_deref(), empty) {
+            if self.library_clone.is_some() {
+                return Err("a Kovan repository is already being cloned".into());
+            }
+            let (dir, url) = (folder.to_path_buf(), url.to_string());
+            self.set_status(format!("cloning your Kovan repository {url}…"));
+            self.library_clone = Some(LibraryClone {
+                job: std::thread::spawn(move || {
+                    crate::corpus_repos::ensure_repo(&dir, Some(&url), None)
+                        .map(|_| ())
+                        .map_err(|e| format!("your Kovan repository was not cloned: {e}"))
+                }),
+                folder: folder.to_path_buf(),
+                open_remote,
+                proprietary_remote,
+            });
+            return Ok(());
+        }
+        self.open_and_set_up(folder, library_remote, open_remote, proprietary_remote)
+    }
+
+    /// Open the finished clone of the user's Kovan repository, if any.
+    fn poll_library_clone(&mut self) {
+        if !self
+            .library_clone
+            .as_ref()
+            .is_some_and(|c| c.job.is_finished())
+        {
+            return;
+        }
+        let Some(clone) = self.library_clone.take() else {
+            return;
+        };
+        let result = match clone.job.join() {
+            Ok(Ok(())) => self.open_and_set_up(
+                &clone.folder,
+                None,
+                clone.open_remote,
+                clone.proprietary_remote,
+            ),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err("cloning your Kovan repository failed unexpectedly".into()),
+        };
+        if let Err(e) = result {
+            self.set_error(e);
+        }
+    }
+
+    /// Open `folder` as a Kovan folder, or create one there; record the
+    /// corpus remotes in its `kovan_root.toml`; and prepare its repositories
+    /// in the background: `library_remote` as the folder's `origin` if it has
+    /// none, then the standard, open and closed corpora.
+    fn open_and_set_up(
+        &mut self,
+        folder: &std::path::Path,
+        library_remote: Option<String>,
+        open_remote: Option<String>,
+        proprietary_remote: Option<String>,
+    ) -> Result<(), String> {
+        use crate::corpus_repos::RepoState;
+        use crate::root::{CorporaConfig, KovanRoot, RootConfig};
+        let mut root = match KovanRoot::open(folder) {
+            Ok(root) => root,
+            Err(_) => {
+                std::fs::create_dir_all(folder)
+                    .map_err(|e| format!("cannot create {}: {e}", folder.display()))?;
+                let name = folder
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "library".to_string());
+                KovanRoot::create(folder, RootConfig::new(&name, &name), true)
+                    .map_err(|e| format!("cannot make {} a Kovan folder: {e}", folder.display()))?
+            }
+        };
+        // The dialog's remotes, else those the folder already records (a
+        // cloned Kovan repository), else those remembered from an earlier
+        // setup: every new folder gets the user's corpora.
+        let recorded = root.config().corpora.clone();
+        let remembered = setup::remembered_corpora();
+        root.set_corpora(CorporaConfig {
+            open_remote: open_remote
+                .or(recorded.open_remote)
+                .or(remembered.open_remote),
+            proprietary_remote: proprietary_remote
+                .or(recorded.proprietary_remote)
+                .or(remembered.proprietary_remote),
+        })?;
+        self.home.open_dir(root.path());
+        if self.wiki.is_none() {
+            self.wiki = Some(WikiState::new());
+        }
+        self.refresh_knowledge(&root);
+        self.set_status("setting up your repositories…");
+        self.spawn_job(move || {
+            let describe = |name: &str, r: &Result<RepoState, _>| match r {
+                Ok(RepoState::Cloned) => format!("{name} downloaded"),
+                Ok(RepoState::Initialised) => {
+                    format!("{name} created locally (add a remote and push later)")
+                }
+                Ok(RepoState::Existing) => format!("{name} already present"),
+                Ok(RepoState::RemoteAdded) => format!("{name} connected to its GitHub repository"),
+                Ok(RepoState::SubmoduleAdded) => format!("{name} added as a submodule"),
+                Err(e) => format!("{name} not set up: {e}"),
+            };
+            let mut parts = Vec::new();
+            if let Some(url) = library_remote.as_deref() {
+                let r = if crate::corpus_repos::is_git_repo(root.path()) {
+                    crate::corpus_repos::ensure_repo(root.path(), Some(url), None)
+                } else {
+                    Ok(RepoState::Existing)
+                };
+                parts.push(describe("Kovan repository", &r));
+            }
+            let setup = crate::corpus_repos::ensure_library_corpora(&root);
+            parts.push(describe("standard corpus", &setup.standard));
+            parts.push(describe("open corpus", &setup.open));
+            parts.push(describe("proprietary corpus", &setup.proprietary));
+            parts.join("; ")
+        });
+        Ok(())
+    }
+}
+
+/// A clone of the user's Kovan repository in progress, with the corpus
+/// remotes to apply once it has landed.
+struct LibraryClone {
+    job: std::thread::JoinHandle<Result<(), String>>,
+    folder: std::path::PathBuf,
+    open_remote: Option<String>,
+    proprietary_remote: Option<String>,
+}
+
 impl eframe::App for DigitiseApp {
     // eframe 0.34 hands the root `Ui`; panels nest with `show_inside`,
     // CentralPanel last (same pattern as the workspace's digital-twin GUIs).
@@ -2055,6 +2318,13 @@ impl eframe::App for DigitiseApp {
         // A tab click just now may have switched between the Wiki and the
         // Mindmap: open it on the shared concept before it draws (#242).
         self.sync_shared_concept();
+        self.poll_background_jobs();
+        self.literature_finder_ui(ui.ctx());
+        self.ingest_form_ui(ui);
+        self.poll_library_clone();
+        if let Some(request) = self.setup.ui(ui.ctx()) {
+            self.handle_setup(request);
+        }
 
         self.file_dialog.update(ui.ctx());
         if let Some(path) = self.file_dialog.take_picked() {
@@ -2092,6 +2362,18 @@ impl eframe::App for DigitiseApp {
                             HomeAction::RequestCreateDialog => {
                                 self.open_picker(FileDialogTarget::KovanRootCreate)
                             }
+                            HomeAction::RequestSetupRepos => {
+                                let root = self.home.root().cloned();
+                                self.setup.show_for(root.as_ref())
+                            }
+                        }
+                    }
+                    // "+ Create Kovan Folder…" just made a folder: give it
+                    // the standard corpus and the user's open and closed
+                    // corpora, as setup does.
+                    if let Some(dir) = self.home.take_created() {
+                        if let Err(e) = self.open_and_set_up(&dir, None, None, None) {
+                            self.set_error(e);
                         }
                     }
                 });
@@ -2139,7 +2421,7 @@ impl eframe::App for DigitiseApp {
                         self.refresh_knowledge(&root);
                     }
                 }
-                // op-sr4n.2: a paper link was clicked, or "Ingest & Open"
+                // op-sr4n.2: a citation was opened, or "Ingest & Open"
                 // just finished — activate it and jump to it, same as
                 // Mindmap's own OpenPaper below.
                 if let Some(citekey) = opened_paper {
@@ -2147,34 +2429,32 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::Mindmap => {
-                if let Some(root) = self.home.root().cloned() {
+                // The map needs no folder: without one it shows the built-in
+                // corpus alone (epic #247).
+                let root = self.home.root().cloned();
+                if let Some(root) = &root {
                     if self.workspace.is_none() {
-                        self.refresh_knowledge(&root);
+                        self.refresh_knowledge(root);
                     }
-                    let mut opened_paper = None;
-                    if let Some(workspace) = self.workspace.as_ref() {
-                        egui::CentralPanel::default().show(ui, |ui| {
-                            if let Some(MindmapAction::OpenPaper(citekey)) =
-                                self.mindmap
-                                    .ui(ui, &root, &workspace.index, &workspace.graph)
-                            {
-                                opened_paper = Some(citekey);
-                            }
-                        });
+                }
+                let mut opened_paper = None;
+                let (index, graph) = match self.workspace.as_ref() {
+                    Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
+                    _ => (None, None),
+                };
+                egui::CentralPanel::default().show(ui, |ui| {
+                    if let Some(MindmapAction::OpenPaper(citekey)) =
+                        self.mindmap.ui(ui, root.as_ref(), index, graph)
+                    {
+                        opened_paper = Some(citekey);
                     }
-                    if let Some(citekey) = opened_paper {
-                        // op-sr4n.3: route through the same
-                        // activate_paper/view-switch helper Wiki uses,
-                        // rather than each view picking its own paper-
-                        // opening behaviour.
-                        self.activate_paper_and_navigate(&citekey);
-                    }
-                } else {
-                    egui::CentralPanel::default().show(ui, |ui| {
-                        ui.centered_and_justified(|ui| {
-                            ui.weak("no Kovan folder open — go to Home to open or create one");
-                        });
-                    });
+                });
+                if let Some(citekey) = opened_paper {
+                    // op-sr4n.3: route through the same
+                    // activate_paper/view-switch helper Wiki uses,
+                    // rather than each view picking its own paper-
+                    // opening behaviour.
+                    self.activate_paper_and_navigate(&citekey);
                 }
             }
             View::AdvancedGit => {
@@ -2218,6 +2498,37 @@ impl eframe::App for DigitiseApp {
                 // renders the *shared* kvim editor (same buffer as the Kvim
                 // Editor view) in place, with citation/wiki completion.
                 let root = self.home.root().cloned();
+                // The open folder's literature, on the left (2026-09-22).
+                if let Some(root) = root.as_ref() {
+                    if self
+                        .literature
+                        .as_ref()
+                        .is_none_or(|l| l.root != root.path())
+                    {
+                        self.literature = Some(literature_list::LiteratureList::build(root));
+                    }
+                    let current = self.reader_path.clone();
+                    let action = egui::Panel::left("pdf_literature")
+                        .resizable(true)
+                        .default_size(260.0)
+                        .min_size(160.0)
+                        .show(ui, |ui| {
+                            self.literature
+                                .as_mut()
+                                .and_then(|l| l.ui(ui, current.as_deref()))
+                        })
+                        .inner;
+                    match action {
+                        Some(literature_list::LiteratureAction::Open(path)) => {
+                            self.open_document(&path)
+                        }
+                        Some(literature_list::LiteratureAction::Refresh) => self.literature = None,
+                        Some(literature_list::LiteratureAction::Find) => {
+                            self.literature_finder.show()
+                        }
+                        None => {}
+                    }
+                }
                 egui::CentralPanel::default().show(ui, |ui| {
                     // op-q1qj: the active paper's session (if any) so the
                     // reader saves annotations straight into it instead of
@@ -2443,6 +2754,40 @@ mod tests {
         citekey
     }
 
+    /// Opening a paper's own PDF opens the paper (so the page panel shows
+    /// its notes, not the "Set a project root" fallback); opening any other
+    /// PDF closes it and offers to ingest, even inside a corpus.
+    #[test]
+    fn opening_a_pdf_finds_its_paper_or_offers_ingest() {
+        let (dir, root) = make_root();
+        let citekey = ingest_one(&root, dir.path(), "Owned Paper", Access::Open);
+        let mut app = DigitiseApp::default();
+        app.home.open_dir(root.path());
+        let owned = app.paper_owning_pdf(
+            &root.paper_dir(&citekey).join(
+                EntityConfig::load(&root.paper_dir(&citekey))
+                    .unwrap()
+                    .source
+                    .unwrap()
+                    .pdf
+                    .unwrap(),
+            ),
+        );
+        assert_eq!(owned.as_deref(), Some(citekey.as_str()));
+
+        let stray = root.open_corpus_dir().join("stray.pdf");
+        write_test_pdf(&stray, "Stray");
+        assert_eq!(app.paper_owning_pdf(&stray), None);
+        app.activate_paper(&citekey).unwrap();
+        app.file_dialog_target = Some(FileDialogTarget::Pdf);
+        app.handle_picked_file(&stray);
+        assert!(app.active_paper.is_none());
+        assert_eq!(
+            app.pending_ingest_prompt.as_deref(),
+            Some(stray.to_string_lossy().as_ref())
+        );
+    }
+
     /// GH issue #35 2026-09-02: writing the active paper's Markdown changes
     /// the fingerprint the frame loop watches, which is what marks the Save
     /// Repository tab's git status stale.
@@ -2534,7 +2879,10 @@ mod tests {
             active.pdf_path.is_none(),
             "a missing PDF must report unavailable, not a stale path"
         );
-        assert!(active.pdf_unavailable, "a paper that DOES record a source PDF, just not found locally, must flag it unavailable");
+        assert!(
+            active.pdf_unavailable,
+            "a paper that DOES record a source PDF, just not found locally, must flag it unavailable"
+        );
     }
 
     /// A paper genuinely catalogued from metadata alone (never had a source
@@ -2944,17 +3292,15 @@ mod tests {
     }
 
     #[test]
-    fn save_into_project_refuses_when_there_is_no_active_paper_and_no_project_fields() {
+    fn save_into_project_without_a_paper_says_to_ingest() {
         let mut app = DigitiseApp::default();
         app.dataset = Some(minimal_dataset());
 
         app.save_into_project();
 
-        // GH issue #35, 2026-09-08: this used to point at the manual
-        // project fields. It now names the real fix — activate a paper —
-        // because the manual path writes a plain section that is not a
-        // Kovan artifact and so never draws a region box on the PDF.
+        // GH issue #35, 2026-09-08, and 2026-09-22 (the manual project
+        // fields were removed): it names the real fix, ingesting the PDF.
         assert!(app.message_is_error, "{}", app.message);
-        assert!(app.message.contains("no active paper"), "{}", app.message);
+        assert!(app.message.contains("ingest this PDF"), "{}", app.message);
     }
 }

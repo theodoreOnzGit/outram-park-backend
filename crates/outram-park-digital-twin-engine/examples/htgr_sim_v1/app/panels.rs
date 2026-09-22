@@ -15,7 +15,6 @@ use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 use outram_park_digital_twin_engine::app_scaffold::{CsvSnapshotPanel, PanelSet, SharedState};
 use outram_park_digital_twin_engine::components::LegendUnit;
 
-use crate::app::geometry_tab::{draw_geometry, ZoomLevel};
 use crate::app::plant_v1_1::draw_plant_v1_1;
 use crate::app::schematic::SchematicTracers;
 use crate::app::state::{HtgrPlotData, HtgrSnapshot};
@@ -115,11 +114,13 @@ pub enum Panel {
     Plots,
     /// Numeric diagnostics table.
     Diagnostics,
-    /// Static HTR-10 R-Z benchmark geometry viewer (issue #23).
-    Geometry,
-    /// Live core map -- the same R-Z geometry coloured from plant state,
-    /// drilled down to the fuel kernel, plus the TRISO-ATOPS release table.
-    /// See [`crate::app::map_tab`].
+    /// Live thermal state and fission-product release: the R-Z core coloured
+    /// from plant state, drilled down through the pebble to the TRISO
+    /// particle, plus the TRISO-ATOPS release table. See
+    /// [`crate::app::thermal_tab`]. It replaced the static "HTR-10 Geometry"
+    /// viewer (issue #23), deleted 2026-09-22 at the maintainer's direction.
+    Thermal,
+    /// Gaussian puff atmospheric dispersion. See [`crate::app::map_tab`].
     Map,
 }
 
@@ -128,7 +129,7 @@ impl PanelSet for Panel {
         Self::Schematic,
         Self::Plots,
         Self::Diagnostics,
-        Self::Geometry,
+        Self::Thermal,
         Self::Map,
     ];
 
@@ -137,7 +138,7 @@ impl PanelSet for Panel {
             Self::Schematic => "Plant Schematic",
             Self::Plots => "Time-History Plots",
             Self::Diagnostics => "Diagnostics",
-            Self::Geometry => "HTR-10 Geometry",
+            Self::Thermal => "Live thermal state and FP release",
             Self::Map => "Map",
         }
     }
@@ -603,10 +604,6 @@ pub fn draw_schematic_panel(
     draw_plant_v1_1(ui, snapshot, tracers);
 }
 
-/// HTR-10 R-Z benchmark geometry panel body -- see [`crate::app::geometry_tab`].
-pub fn draw_geometry_panel(ui: &mut Ui, zoom: &mut ZoomLevel) {
-    draw_geometry(ui, zoom);
-}
 
 /// Time-history plots panel body.
 ///

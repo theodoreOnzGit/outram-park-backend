@@ -23,27 +23,31 @@
 //! to a different concept in either moves both.
 
 use super::{DigitiseApp, View};
+use crate::node_id::NodeId;
 use eframe::egui;
 
 /// One page in the history: which page, and what it was showing.
 ///
-/// `concept` is the collection path shown on the Wiki and Mindmap pages
-/// (`""` is the top of the wiki) and empty elsewhere. `paper` is the citekey
+/// `concept` is the concept shown on the Wiki and Mindmap pages, from either
+/// the built-in corpus or the user's library (`None` is the top, and it is
+/// always `None` on other pages). `paper` is the citekey
 /// open on the paper pages (PDF reader, Kvim editor) and `None` elsewhere, so
 /// going back to a paper page reopens the paper that was on it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct AppLocation {
     pub(super) view: View,
-    pub(super) concept: String,
+    pub(super) concept: Option<NodeId>,
     pub(super) paper: Option<String>,
 }
 
 impl AppLocation {
-    /// Where the app starts: the Home page.
+    /// Where the app starts: the Mindmap on the corpus root, so a fresh
+    /// Kovan opens on its nuclear-engineering map (maintainer brief,
+    /// 2026-09-22).
     pub(super) fn start() -> Self {
         Self {
             view: View::default(),
-            concept: String::new(),
+            concept: crate::mindmap::MindmapState::default().current().cloned(),
             paper: None,
         }
     }
@@ -61,11 +65,11 @@ impl AppLocation {
             View::Bibliography => "Bibliography",
             View::TableDigitiser => "Table Digitiser",
         };
-        match (&self.paper, is_concept_page(self.view)) {
-            (Some(citekey), _) => format!("{page}: {citekey}"),
-            (None, true) if !self.concept.is_empty() => format!("{page}: {}", self.concept),
-            (None, true) => format!("{page}: top"),
-            (None, false) => page.to_string(),
+        match (&self.paper, is_concept_page(self.view), &self.concept) {
+            (Some(citekey), _, _) => format!("{page}: {citekey}"),
+            (None, true, Some(id)) => format!("{page}: {}", id.path),
+            (None, true, None) => format!("{page}: top"),
+            (None, false, _) => page.to_string(),
         }
     }
 }
@@ -81,19 +85,20 @@ fn is_paper_page(view: View) -> bool {
 }
 
 impl DigitiseApp {
-    /// The concept the Wiki or Mindmap is showing, if `view` is one of them.
-    fn concept_on(&self, view: View) -> Option<&str> {
+    /// The concept the Wiki or Mindmap is showing, if `view` is one of them
+    /// (the inner `None` is the top).
+    fn concept_on(&self, view: View) -> Option<Option<NodeId>> {
         match view {
-            View::Wiki => self.wiki.as_ref().map(|w| w.current()),
-            View::Mindmap => Some(self.mindmap.current()),
+            View::Wiki => self.wiki.as_ref().map(|w| w.current().cloned()),
+            View::Mindmap => Some(self.mindmap.current().cloned()),
             _ => None,
         }
     }
 
     /// Show `concept` on both concept pages.
-    fn set_shared_concept(&mut self, concept: &str) {
+    fn set_shared_concept(&mut self, concept: Option<NodeId>) {
         if let Some(wiki) = self.wiki.as_mut() {
-            wiki.set_current(concept);
+            wiki.set_current(concept.clone());
         }
         self.mindmap.set_current(concept);
     }
@@ -102,7 +107,7 @@ impl DigitiseApp {
     pub(super) fn observed_location(&self) -> AppLocation {
         AppLocation {
             view: self.view,
-            concept: self.concept_on(self.view).unwrap_or_default().to_string(),
+            concept: self.concept_on(self.view).flatten(),
             paper: if is_paper_page(self.view) {
                 self.active_paper
                     .as_ref()
@@ -114,7 +119,7 @@ impl DigitiseApp {
     }
 
     /// The most recent concept either concept page showed, from the history.
-    fn last_shared_concept(&self) -> Option<String> {
+    fn last_shared_concept(&self) -> Option<Option<NodeId>> {
         std::iter::once(self.history.current())
             .chain(self.history.back_entries().iter().rev())
             .find(|l| is_concept_page(l.view))
@@ -128,7 +133,7 @@ impl DigitiseApp {
     pub(super) fn sync_shared_concept(&mut self) {
         if is_concept_page(self.view) && self.history.current().view != self.view {
             if let Some(concept) = self.last_shared_concept() {
-                self.set_shared_concept(&concept);
+                self.set_shared_concept(concept);
             }
         }
     }
@@ -137,8 +142,8 @@ impl DigitiseApp {
     /// concept change on one concept page is copied to the other first, so
     /// the two never disagree.
     pub(super) fn record_location(&mut self) {
-        if let Some(concept) = self.concept_on(self.view).map(str::to_string) {
-            self.set_shared_concept(&concept);
+        if let Some(concept) = self.concept_on(self.view) {
+            self.set_shared_concept(concept);
         }
         let here = self.observed_location();
         self.history.visit(here);
@@ -147,7 +152,7 @@ impl DigitiseApp {
     /// Show `location`: its page, its concept, and its paper.
     fn apply_location(&mut self, location: AppLocation) {
         if is_concept_page(location.view) {
-            self.set_shared_concept(&location.concept);
+            self.set_shared_concept(location.concept.clone());
         }
         if let Some(citekey) = &location.paper {
             let already_open = self
@@ -229,6 +234,7 @@ impl DigitiseApp {
 mod tests {
     use super::super::wiki::WikiState;
     use super::*;
+    use crate::node_id::Namespace;
 
     /// One frame's worth of navigation bookkeeping, without drawing: the
     /// sync that runs before a page draws and the record that runs after.
@@ -240,6 +246,7 @@ mod tests {
     #[test]
     fn switching_pages_records_steps_that_back_and_forward_retrace() {
         let mut app = DigitiseApp::default();
+        let start = app.view;
         frame(&mut app);
         app.view = View::Digitiser;
         frame(&mut app);
@@ -249,10 +256,26 @@ mod tests {
         app.go_back();
         assert_eq!(app.view, View::Digitiser);
         app.go_back();
-        assert_eq!(app.view, View::Home);
+        assert_eq!(app.view, start);
         assert!(!app.history.can_go_back());
         app.go_forward();
         assert_eq!(app.view, View::Digitiser);
+    }
+
+    /// Kovan opens on the Mindmap, centred on the built-in corpus root, with
+    /// no folder open (maintainer brief, 2026-09-22).
+    #[test]
+    fn kovan_opens_on_the_corpus_map() {
+        let app = DigitiseApp::default();
+        assert_eq!(app.view, View::Mindmap);
+        assert_eq!(
+            app.mindmap.current(),
+            Some(&NodeId::concept(
+                Namespace::Corpus,
+                crate::corpus::ROOT_TOPIC
+            ))
+        );
+        assert_eq!(app.history.current().view, View::Mindmap);
     }
 
     /// Going back and then to a new page discards the pages gone back from,
@@ -273,49 +296,70 @@ mod tests {
         frame(&mut app);
         frame(&mut app);
         assert!(!app.history.can_go_forward());
-        assert_eq!(app.history.back_entries().len(), 2, "Home, Digitiser");
+        assert_eq!(app.history.back_entries().len(), 2, "Mindmap, Digitiser");
     }
 
-    /// The Wiki and Mindmap are two views of one place: switching between
-    /// them keeps the concept, moving in either moves both, and back/forward
-    /// restores the concept as well as the page.
+    /// The Wiki and Mindmap are two views of one place, across the corpus
+    /// and the user's library: switching between them keeps the concept,
+    /// moving in either moves both, and back/forward restores the concept as
+    /// well as the page.
     #[test]
     fn the_wiki_and_mindmap_share_one_concept_through_history() {
+        let reactors = NodeId::concept(Namespace::Library, "reactors");
+        let htgr = NodeId::concept(Namespace::Library, "reactors/htgr");
+        let th = NodeId::concept(Namespace::Corpus, "nuclear-engineering/thermal-hydraulics");
         let mut app = DigitiseApp::default();
         app.wiki = Some(WikiState::new());
 
+        // Enter the Wiki (it opens on the shared concept), then move to a
+        // library concept there, as a click would.
         app.view = View::Wiki;
-        app.wiki.as_mut().unwrap().set_current("reactors");
+        frame(&mut app);
+        app.wiki
+            .as_mut()
+            .unwrap()
+            .set_current(Some(reactors.clone()));
         frame(&mut app);
 
         app.view = View::Mindmap;
         frame(&mut app);
         assert_eq!(
             app.mindmap.current(),
-            "reactors",
+            Some(&reactors),
             "the map opens where the wiki was"
         );
 
-        app.mindmap.set_current("reactors/htgr");
+        app.mindmap.set_current(Some(htgr.clone()));
         frame(&mut app);
         assert_eq!(
             app.wiki.as_ref().unwrap().current(),
-            "reactors/htgr",
+            Some(&htgr),
             "moving on the map moves the wiki too"
         );
 
+        app.mindmap.set_current(Some(th.clone()));
+        frame(&mut app);
+        assert_eq!(
+            app.wiki.as_ref().unwrap().current(),
+            Some(&th),
+            "corpus concepts are shared too"
+        );
+
+        app.go_back();
+        assert_eq!(app.mindmap.current(), Some(&htgr));
         app.go_back();
         assert_eq!(app.view, View::Mindmap);
-        assert_eq!(app.mindmap.current(), "reactors");
-        assert_eq!(app.wiki.as_ref().unwrap().current(), "reactors");
+        assert_eq!(app.mindmap.current(), Some(&reactors));
+        assert_eq!(app.wiki.as_ref().unwrap().current(), Some(&reactors));
 
         app.go_back();
         assert_eq!(app.view, View::Wiki);
-        assert_eq!(app.wiki.as_ref().unwrap().current(), "reactors");
+        assert_eq!(app.wiki.as_ref().unwrap().current(), Some(&reactors));
 
         app.go_forward();
         app.go_forward();
+        app.go_forward();
         assert_eq!(app.view, View::Mindmap);
-        assert_eq!(app.mindmap.current(), "reactors/htgr");
+        assert_eq!(app.mindmap.current(), Some(&th));
     }
 }

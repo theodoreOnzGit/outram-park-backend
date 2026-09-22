@@ -58,12 +58,26 @@
 //! papers = "papers"
 //! topics = "topics"
 //! projects = "projects"
-//! open_sources = "literature/open"
+//! open_sources = "literature/open-corpus"
 //! restricted_sources = "literature/proprietary"
 //! ```
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+/// The folder under `papers/` for papers whose entry has no year.
+pub const UNDATED_PAPERS: &str = "undated";
+
+/// The subdirectories of `dir`, unsorted; empty when it cannot be read.
+fn subdirs(dir: &Path) -> Vec<PathBuf> {
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect()
+}
 
 /// Filename that marks a directory as a Kovan root (§2).
 ///
@@ -122,7 +136,11 @@ impl std::fmt::Display for RootError {
             ),
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Self::Toml { path, message } => write!(f, "{}: {message}", path.display()),
-            Self::UnsupportedSchema { path, found, supported } => write!(
+            Self::UnsupportedSchema {
+                path,
+                found,
+                supported,
+            } => write!(
                 f,
                 "{}: schema_version {found} is newer than this build understands \
                  (supports {supported}) — upgrade Kovan to open this library",
@@ -134,7 +152,11 @@ impl std::fmt::Display for RootError {
                 path.display()
             ),
             Self::GitInit { path, message } => {
-                write!(f, "{}: could not initialise a git repository: {message}", path.display())
+                write!(
+                    f,
+                    "{}: could not initialise a git repository: {message}",
+                    path.display()
+                )
             }
         }
     }
@@ -172,11 +194,33 @@ pub struct RootPaths {
     /// Root of the project collection tree (§6). Shares the topic tree's
     /// machinery; `kind` in each `kovan.toml` distinguishes the semantics.
     pub projects: PathBuf,
-    /// Storage for open / redistributable source documents. Committable.
+    /// Storage for open / redistributable source documents: the user's
+    /// **open corpus**, a Git repository of its own, cloned from
+    /// [`CorporaConfig::open_remote`] or initialised locally (GitHub issue
+    /// #255), and mounted as a submodule when it has a remote. Gitignored by
+    /// the library, being its own repository.
+    ///
+    /// ~~Committable, and separate from an `open_corpus` repository at
+    /// `literature/open-corpus`, with this defaulting to `literature/open`.~~
+    /// **CORRECTED 2026-09-22** (maintainer direction: one open corpus, no
+    /// separate `open` folder): the two are the same folder, defaulting to
+    /// `literature/open-corpus`. A `kovan_root.toml` that names
+    /// `open_sources` explicitly keeps its own path.
     pub open_sources: PathBuf,
     /// Storage for restricted / proprietary source documents. Gitignored, and
-    /// must never reach a commit — see §4 and `DATA_POLICY.md`.
+    /// must never reach a commit — see §4 and `DATA_POLICY.md`. Since GitHub
+    /// issue #255 it is also a Git repository of its own, the user's
+    /// **proprietary corpus**, cloned from [`CorporaConfig::proprietary_remote`]
+    /// (a private repository) or initialised locally — see
+    /// [`crate::corpus_repos`].
     pub restricted_sources: PathBuf,
+    /// Kovan's **standard corpus** ([`crate::corpus::CORPUS_REPOSITORY_URL`],
+    /// the same for every user): mounted in every Kovan folder as a Git
+    /// submodule (maintainer direction, 2026-09-22), so the folder carries
+    /// the PDFs of the documents Kovan hardcodes. Gitignored like the other
+    /// corpora; a submodule is added with `--force`, and ignore rules never
+    /// apply to tracked paths.
+    pub standard_corpus: PathBuf,
 }
 
 impl Default for RootPaths {
@@ -186,8 +230,9 @@ impl Default for RootPaths {
             papers: PathBuf::from("papers"),
             topics: PathBuf::from("topics"),
             projects: PathBuf::from("projects"),
-            open_sources: PathBuf::from("literature/open"),
+            open_sources: PathBuf::from("literature/open-corpus"),
             restricted_sources: PathBuf::from("literature/proprietary"),
+            standard_corpus: PathBuf::from("literature/standard-corpus"),
         }
     }
 }
@@ -218,6 +263,32 @@ pub struct PrivateSubmoduleConfig {
     pub remote: String,
 }
 
+/// Where the user's two corpus repositories come from (GitHub issue #255):
+/// the `[corpora]` table of `kovan_root.toml`. Both optional; a corpus with no
+/// remote is initialised as a local Git repository, to be pushed later.
+///
+/// **Bare remote URLs only, never a credential or token**, exactly as
+/// [`PrivateSubmoduleConfig::remote`]: authentication stays with the ambient
+/// Git/SSH/credential manager (`DATA_POLICY.md`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorporaConfig {
+    /// Remote of the user's open corpus, e.g. a public GitHub repository.
+    /// Mounted at [`RootPaths::open_corpus`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_remote: Option<String>,
+    /// Remote of the user's proprietary corpus, which **must be private**.
+    /// Mounted at [`RootPaths::restricted_sources`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proprietary_remote: Option<String>,
+}
+
+impl CorporaConfig {
+    /// Whether neither remote is set (the table is then omitted on save).
+    pub fn is_empty(&self) -> bool {
+        self.open_remote.is_none() && self.proprietary_remote.is_none()
+    }
+}
+
 /// The parsed contents of `kovan_root.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RootConfig {
@@ -232,6 +303,10 @@ pub struct RootConfig {
     /// opted into one. Absent by default — see [`PrivateSubmoduleConfig`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_submodule: Option<PrivateSubmoduleConfig>,
+    /// The user's open and proprietary corpus remotes (#255). Absent in a
+    /// library that has none.
+    #[serde(default, skip_serializing_if = "CorporaConfig::is_empty")]
+    pub corpora: CorporaConfig,
 }
 
 impl RootConfig {
@@ -248,6 +323,7 @@ impl RootConfig {
             },
             paths: RootPaths::default(),
             private_submodule: None,
+            corpora: CorporaConfig::default(),
         }
     }
 
@@ -327,11 +403,17 @@ pub fn gitignore_for(
         "# Kovan derived/local state — fully rebuildable, safe to delete\n\
          {state}\n\
          {restricted_section}\n\
+         # The user's open corpus and Kovan's standard corpus — each its own\n\
+         # Git repository, mounted as a submodule when it has a remote (#255)\n\
+         {open_corpus}\n\
+         {standard_corpus}\n\n\
          # Temporary/editor files\n\
          *.tmp\n\
          *.swp\n\
          *~\n",
         state = gitignore_pattern(Path::new(STATE_DIR)),
+        open_corpus = gitignore_pattern(&paths.open_sources),
+        standard_corpus = gitignore_pattern(&paths.standard_corpus),
     )
 }
 
@@ -541,6 +623,41 @@ impl KovanRoot {
         &self.config
     }
 
+    /// Set this library's corpus remotes (#255) and write them to its
+    /// `kovan_root.toml`, safely: the new text is written to a temporary file
+    /// beside it, parsed back to check it round-trips, then renamed over the
+    /// original, so a failure at any step leaves the old file intact. Every
+    /// other setting in the file is kept.
+    ///
+    /// # Errors
+    ///
+    /// A message if serialising, writing, re-parsing or renaming fails; the
+    /// in-memory config is then unchanged too.
+    pub fn set_corpora(&mut self, corpora: CorporaConfig) -> Result<(), String> {
+        let mut updated = self.config.clone();
+        updated.corpora = corpora;
+        let text = updated.to_toml()?;
+        let target = self.root.join(ROOT_MARKER);
+        let tmp = self.root.join(format!("{ROOT_MARKER}.tmp"));
+        std::fs::write(&tmp, &text).map_err(|e| format!("writing {}: {e}", tmp.display()))?;
+        let reread = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
+        match toml::from_str::<RootConfig>(&reread) {
+            Ok(back) if back == updated => {}
+            Ok(_) => {
+                let _ = std::fs::remove_file(&tmp);
+                return Err("the rewritten kovan_root.toml did not round-trip; not saved".into());
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(format!("the rewritten kovan_root.toml does not parse: {e}"));
+            }
+        }
+        std::fs::rename(&tmp, &target)
+            .map_err(|e| format!("replacing {}: {e}", target.display()))?;
+        self.config = updated;
+        Ok(())
+    }
+
     /// Absolute path of this root's `kovan_root.toml`.
     pub fn marker_path(&self) -> PathBuf {
         self.root.join(ROOT_MARKER)
@@ -582,9 +699,21 @@ impl KovanRoot {
         self.root.join(&self.config.paths.projects)
     }
 
-    /// Absolute path of open / redistributable source storage.
+    /// Absolute path of open / redistributable source storage: the user's
+    /// open corpus, the same folder as [`Self::open_corpus_dir`].
     pub fn open_sources_dir(&self) -> PathBuf {
         self.root.join(&self.config.paths.open_sources)
+    }
+
+    /// Absolute path of Kovan's standard-corpus submodule in this library.
+    pub fn standard_corpus_dir(&self) -> PathBuf {
+        self.root.join(&self.config.paths.standard_corpus)
+    }
+
+    /// Absolute path of the user's open-corpus repository (#255), the same
+    /// folder as [`Self::open_sources_dir`].
+    pub fn open_corpus_dir(&self) -> PathBuf {
+        self.open_sources_dir()
     }
 
     /// Absolute path of restricted / proprietary source storage.
@@ -631,18 +760,67 @@ impl KovanRoot {
         self.root.join(STATE_DIR)
     }
 
-    /// Absolute path of one paper's directory, `papers/<citekey>/`.
+    /// Absolute path of one paper's directory: wherever it is filed,
+    /// `papers/<year>/<citekey>/` (maintainer direction, 2026-09-22: papers
+    /// are filed by year, [`Self::new_paper_dir`]) or the older flat
+    /// `papers/<citekey>/`. For a paper that does not exist, the flat path.
+    ///
+    /// ~~`papers/<citekey>/`; only joins paths and does not check
+    /// existence.~~ **CORRECTED 2026-09-22**: it now looks in the year
+    /// folders (a few `exists` checks).
     ///
     /// `citekey` is the paper's id under the §7 amendment — its BibTeX cite
     /// key, as produced by `kovan_literature::parse_bib_entries`. The caller
-    /// is responsible for having validated that it is filesystem-safe; this
-    /// method only joins paths and does not check existence.
+    /// is responsible for having validated that it is filesystem-safe.
     pub fn paper_dir(&self, citekey: &str) -> PathBuf {
-        self.papers_dir().join(citekey)
+        let flat = self.papers_dir().join(citekey);
+        if flat.join(crate::entity::ENTITY_MARKER).is_file() {
+            return flat;
+        }
+        self.year_dirs()
+            .into_iter()
+            .map(|y| y.join(citekey))
+            .find(|d| d.join(crate::entity::ENTITY_MARKER).is_file())
+            .unwrap_or(flat)
+    }
+
+    /// Where a new paper is filed: `papers/<year>/<citekey>/`, or
+    /// `papers/undated/<citekey>/` when `year` is not a four-digit year.
+    pub fn new_paper_dir(&self, citekey: &str, year: Option<&str>) -> PathBuf {
+        let year = year
+            .map(str::trim)
+            .filter(|y| y.len() == 4 && y.bytes().all(|b| b.is_ascii_digit()))
+            .unwrap_or(UNDATED_PAPERS);
+        self.papers_dir().join(year).join(citekey)
+    }
+
+    /// Every paper's directory: those in year folders and the older flat
+    /// ones, sorted.
+    pub fn paper_dirs(&self) -> Vec<PathBuf> {
+        let is_paper = |d: &Path| d.join(crate::entity::ENTITY_MARKER).is_file();
+        let mut dirs: Vec<PathBuf> = subdirs(&self.papers_dir())
+            .into_iter()
+            .filter(|d| is_paper(d))
+            .collect();
+        for year in self.year_dirs() {
+            dirs.extend(subdirs(&year).into_iter().filter(|d| is_paper(d)));
+        }
+        dirs.sort();
+        dirs
+    }
+
+    /// The folders under `papers/` that group papers (years, `undated`):
+    /// every subfolder that is not itself a paper.
+    fn year_dirs(&self) -> Vec<PathBuf> {
+        subdirs(&self.papers_dir())
+            .into_iter()
+            .filter(|d| !d.join(crate::entity::ENTITY_MARKER).is_file())
+            .collect()
     }
 
     /// Absolute path of one paper's canonical research Markdown,
-    /// `papers/<citekey>/<citekey>.md` (§12).
+    /// `papers/<year>/<citekey>/<citekey>.md` (§12; filed by year since
+    /// 2026-09-22, older papers flat at `papers/<citekey>/`).
     ///
     /// The directory name, the filename, the wiki-link target and the citation
     /// key are all the same string — that is the point of the §7 amendment.
@@ -949,6 +1127,59 @@ name = "Inner"
         assert!(gi.contains("*.tmp"), "{gi}");
         assert!(gi.contains("*.swp"), "{gi}");
         assert!(gi.contains("*~"), "{gi}");
+    }
+
+    /// The open-corpus repository is ignored by the library (it is its own
+    /// repository), and a `kovan_root.toml` written before #255, with no
+    /// `[corpora]` table, still loads with the defaults.
+    #[test]
+    fn the_open_corpus_is_ignored_and_older_configs_still_load() {
+        let gi = gitignore_for(&RootPaths::default(), None);
+        assert!(gi.contains("/literature/open-corpus/"), "{gi}");
+        assert!(gi.contains("/literature/standard-corpus/"), "{gi}");
+        let old = "schema_version = 1\n[library]\nid = \"lib\"\nname = \"Lib\"\n";
+        let cfg: RootConfig = toml::from_str(old).unwrap();
+        assert_eq!(
+            cfg.paths.open_sources,
+            PathBuf::from("literature/open-corpus")
+        );
+        assert!(cfg.corpora.is_empty());
+        // Remotes round-trip; an empty table is not written.
+        let mut with = RootConfig::new("lib", "Lib");
+        with.corpora.open_remote = Some("https://example.com/open.git".into());
+        let text = toml::to_string(&with).unwrap();
+        assert!(text.contains("open_remote"), "{text}");
+        assert!(
+            !toml::to_string(&RootConfig::new("a", "b"))
+                .unwrap()
+                .contains("[corpora]")
+        );
+        let back: RootConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back.corpora, with.corpora);
+    }
+
+    /// Corpus remotes are saved into `kovan_root.toml`, the rest of the file
+    /// kept, and reopening the library sees them.
+    #[test]
+    fn corpus_remotes_are_saved_and_reread() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut root =
+            KovanRoot::create(tmp.path(), RootConfig::new("lib", "My Lib"), false).unwrap();
+        root.set_corpora(CorporaConfig {
+            open_remote: Some("https://example.com/open.git".into()),
+            proprietary_remote: None,
+        })
+        .unwrap();
+        let reopened = KovanRoot::open(tmp.path()).unwrap();
+        assert_eq!(
+            reopened.config().corpora.open_remote.as_deref(),
+            Some("https://example.com/open.git")
+        );
+        assert_eq!(reopened.config().library.name, "My Lib", "the rest is kept");
+        assert!(
+            !tmp.path().join("kovan_root.toml.tmp").exists(),
+            "no temp file left"
+        );
     }
 
     #[test]

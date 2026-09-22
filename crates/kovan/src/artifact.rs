@@ -54,7 +54,7 @@
 //! # The source document is implicit
 //!
 //! §15: an artifact does **not** repeat its paper's cite key. It lives inside
-//! `papers/<citekey>/<citekey>.md`, so the containing directory already says
+//! `papers/<year>/<citekey>/<citekey>.md`, so the containing directory already says
 //! which document it belongs to. Only the *location within* that document is
 //! recorded here.
 
@@ -129,6 +129,48 @@ pub enum ArtifactError {
         line: usize,
         message: String,
     },
+}
+
+impl ArtifactError {
+    /// The heading of the block that could not be read.
+    pub fn heading(&self) -> &str {
+        match self {
+            Self::Malformed { heading, .. } | Self::BadAnchor { heading, .. } => heading,
+        }
+    }
+
+    /// The 1-based line of that heading.
+    pub fn line(&self) -> usize {
+        match self {
+            Self::Malformed { line, .. } | Self::BadAnchor { line, .. } => *line,
+        }
+    }
+
+    /// What is wrong with it.
+    pub fn message(&self) -> &str {
+        match self {
+            Self::Malformed { message, .. } | Self::BadAnchor { message, .. } => message,
+        }
+    }
+}
+
+/// `md` without the level-1 block whose heading, `# {heading}`, is on
+/// 1-based `line` ([`heading_span`]), or `None` when that line no longer
+/// holds that heading (the document changed since it was parsed), so
+/// nothing is removed from the wrong place.
+pub fn remove_block(md: &str, line: usize, heading: &str) -> Option<String> {
+    let lines: Vec<&str> = md.lines().collect();
+    let at = lines.get(line.checked_sub(1)?)?;
+    let text = at.strip_prefix("# ")?;
+    if text.trim() != heading.trim() {
+        return None;
+    }
+    let span = heading_span(md, line, ARTIFACT_LEVEL);
+    let mut kept: Vec<&str> = lines[..span.start].to_vec();
+    kept.extend_from_slice(&lines[span.end..]);
+    let mut out = kept.join("\n").trim_end().to_string();
+    out.push('\n');
+    Some(out)
 }
 
 impl std::fmt::Display for ArtifactError {
@@ -752,7 +794,16 @@ pub fn render_artifact_block(
 /// replace_artifact_body`) and a "which block is this line in?" hit test
 /// operate on.
 pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
-    let start = artifact.line.saturating_sub(1);
+    heading_span(md, artifact.line, artifact.level)
+}
+
+/// [`block_span`] for any heading: the 0-based, end-exclusive line range
+/// from the heading on 1-based `line` up to the next heading of depth
+/// `<= level` outside a fence, or the end of the document. Every `#`
+/// heading delimits a block, readable or not, so this also spans a block
+/// [`parse_document`] could not read (an [`ArtifactError`]).
+pub fn heading_span(md: &str, line: usize, level: u8) -> std::ops::Range<usize> {
+    let start = line.saturating_sub(1);
     let lines: Vec<&str> = md.lines().collect();
     let mut end = lines.len();
     // Fence tracking is not optional here. A `#` at the start of a line
@@ -772,7 +823,7 @@ pub fn block_span(md: &str, artifact: &Artifact) -> std::ops::Range<usize> {
             continue;
         }
         let hashes = line.chars().take_while(|c| *c == '#').count();
-        if hashes >= 1 && hashes <= artifact.level as usize && line.chars().nth(hashes) == Some(' ')
+        if hashes >= 1 && hashes <= level as usize && line.chars().nth(hashes) == Some(' ')
         {
             end = i;
             break;
@@ -1322,6 +1373,26 @@ modified = "m"
             parse_document("# Just a title\n\nprose only\n"),
             ParsedDocument::default()
         );
+    }
+
+    /// An unreadable block is its own `#`-delimited unit: removing it takes
+    /// its heading through to the next `#`, and leaves its neighbours whole.
+    #[test]
+    fn an_unreadable_block_is_removed_by_its_heading() {
+        let md = "# a\n\n```toml\n[kovan]\nid = \"a\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nkeep a\n# broken\n\n```toml\n[kovan]\nid = 3\n```\n\nbroken body\n\n## sub\n\nstill broken\n# c\n\n```toml\n[kovan]\nid = \"c\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n\nkeep c\n";
+        let doc = parse_document(md);
+        assert_eq!(doc.artifacts.len(), 2);
+        let problem = &doc.problems[0];
+        assert_eq!(problem.heading(), "broken");
+        let out = remove_block(md, problem.line(), problem.heading()).unwrap();
+        assert!(!out.contains("broken"), "{out}");
+        assert!(out.contains("keep a") && out.contains("# c") && out.contains("keep c"));
+        let after = parse_document(&out);
+        assert!(after.problems.is_empty());
+        assert_eq!(after.artifacts.len(), 2);
+        // A stale line or heading removes nothing.
+        assert_eq!(remove_block(md, problem.line(), "other"), None);
+        assert_eq!(remove_block(md, 1, "broken"), None);
     }
 
     #[test]

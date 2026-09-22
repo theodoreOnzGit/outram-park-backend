@@ -140,7 +140,6 @@ use crate::digitiser::raster::PlotRaster;
 use crate::entity::Classification;
 use crate::graph::artifact_node;
 use crate::index::KnowledgeIndex;
-use crate::project;
 use crate::relation::{self, RelationKind};
 use crate::root::KovanRoot;
 use crate::session::PaperSession;
@@ -205,7 +204,6 @@ struct Annotation {
     max: Pos2,
     text: String,
     created_at: String,
-    author: String,
     /// The annotate-canvas page's pixel size at `RENDER_DPI` when this box
     /// was drawn — so [`PdfReaderState::save_annotations_into_project`] can
     /// normalise `min`/`max` into a `[source] region` even for an
@@ -441,6 +439,11 @@ pub(super) fn saved_artifact_menu_entries(
 /// edge cases than a canvas-anchored popup, at the cost of not visually
 /// hovering right over the box while typing.
 struct AnnotateEditor {
+    /// The 0-based page the box is on, fixed when the editor opens. Saving
+    /// used the reader's current page instead, which can follow the view to
+    /// another page meanwhile: a note drawn on page 4 was filed on page 3
+    /// (maintainer's bug, 2026-09-22).
+    page: usize,
     min: Pos2,
     max: Pos2,
     text: String,
@@ -495,6 +498,55 @@ pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<R
     Region::from_pixels((min.x, min.y), (max.x, max.y), w, h)
 }
 
+
+/// Blocks whose `[source]` anchor cannot be shown where it belongs: a
+/// drawn kind (annotation, digitised graph or table) anchored to a page
+/// with no region, or one whose region is out of range or degenerate. Such
+/// a block draws no box, so nothing on the page can be clicked to fix it;
+/// [`PdfReaderState::malformed_panel`] lists them for deletion. A note
+/// anchored to a page with no region is legal (§15) and not listed.
+fn malformed_blocks(artifacts: &[Artifact]) -> Vec<(&Artifact, &'static str)> {
+    artifacts
+        .iter()
+        .filter(|a| {
+            matches!(
+                a.kind(),
+                ArtifactKind::Annotation | ArtifactKind::DigitisedGraph | ArtifactKind::DigitisedTable
+            )
+        })
+        .filter_map(|a| {
+            let source = a.toml.source.as_ref()?;
+            source.first_page()?;
+            match source.region {
+                None => Some((a, "no region: it was saved without its box")),
+                Some(r) if !r.is_valid() => Some((a, "region outside the page")),
+                Some(_) => None,
+            }
+        })
+        .collect()
+}
+
+/// The gap between pages on the continuous canvas, in points.
+const GAP: f32 = 16.0;
+
+/// The scroll offset that centres `region` (on 0-based `page`) in a
+/// `viewport` at `zoom`, never negative. Placed with
+/// [`region_to_screen_rect`] at a zero origin (content coordinates), so it
+/// agrees with where the box is drawn. `None` for an invalid region or
+/// before the canvas has been measured.
+fn region_centre_offset(
+    region: Region,
+    page: usize,
+    page_px: egui::Vec2,
+    zoom: f32,
+    viewport: egui::Vec2,
+) -> Option<egui::Vec2> {
+    if viewport.x <= 0.0 || viewport.y <= 0.0 {
+        return None;
+    }
+    let rect = region_to_screen_rect(region, page, page_px, Pos2::ZERO, zoom, GAP)?;
+    Some((rect.center().to_vec2() - viewport * 0.5).max(egui::Vec2::ZERO))
+}
 
 /// The screen-space rectangle [`Region`] (§15, normalised page fractions)
 /// reconstructs to on the continuous multi-page canvas, given which 0-based
@@ -633,6 +685,9 @@ struct SearchState {
 
 #[derive(Default)]
 pub struct PdfReaderState {
+    /// An unreadable block awaiting "Confirm delete" in
+    /// [`Self::malformed_panel`]: its heading's line and text.
+    confirm_remove_block: Option<(usize, String)>,
     path: String,
     source: ReaderSource,
     /// The page currently in view on the continuous canvas — the top page
@@ -708,11 +763,6 @@ pub struct PdfReaderState {
     /// Author name recorded on new annotations/crops (op-96am's provenance
     /// "author" field) — analogous to the digitiser's own "operator" field.
     author: String,
-    /// "kovan folder" project (op-63u0) to save annotations into, and the
-    /// markdown file (relative to that root) they belong to — see
-    /// [`Self::save_annotations_into_project`].
-    project_root: String,
-    project_markdown_rel: String,
     /// Cached structured-text page (op-z9u0), for [`Self::active_page`]
     /// only — re-extracted on page change.
     stext_cache: Option<(usize, StextPage)>,
@@ -860,32 +910,6 @@ fn line_hits(line: &kopitiam_pdf::mupdf::StextLine, needle: &str, scale: f32) ->
             )
         })
         .collect()
-}
-
-/// Split `text` on lines starting with `### ` (one block per subsection,
-/// running to the next `### ` or EOF) and keep only the blocks containing
-/// at least one of `needles` — [`PdfReaderState::context_panel`]'s plain
-/// substring filter over a project's markdown, not a markdown parser.
-fn blocks_matching(text: &str, needles: &[&str]) -> Vec<String> {
-    let mut blocks = Vec::new();
-    let mut current: Option<String> = None;
-    for line in text.lines() {
-        if line.starts_with("### ") {
-            if let Some(block) = current.take() {
-                blocks.push(block);
-            }
-            current = Some(String::new());
-        }
-        if let Some(block) = &mut current {
-            block.push_str(line);
-            block.push('\n');
-        }
-    }
-    if let Some(block) = current {
-        blocks.push(block);
-    }
-    blocks.retain(|b| needles.iter().any(|n| b.contains(n)));
-    blocks
 }
 
 /// A short read-only preview of an artifact body for the page-context
@@ -1233,25 +1257,146 @@ impl PdfReaderState {
     }
 
     /// Take the canvas to `artifact`'s page and zoom so its `[source]`
-    /// region roughly fills the view.
+    /// region roughly fills the view, centred on it.
     ///
     /// The zoom is derived from the region's own extent — a region covering
     /// a third of the page height is worth ~3x — clamped to the same
     /// `0.25..=4.0` range the zoom slider uses. An artifact with a page but
     /// no region just navigates, leaving the zoom alone: there is nothing
     /// to frame.
+    ///
+    /// **Fixed 2026-09-22:** the zoom was set, but the view only scrolled to
+    /// the page's top edge and kept its old horizontal offset, so it showed
+    /// the page's top-left corner rather than the box (maintainer: "zooms to
+    /// the wrong side"). The view is now centred on the region, placed with
+    /// [`region_to_screen_rect`], the same mapping the boxes are drawn with.
     fn go_to_artifact(&mut self, artifact: &Artifact) {
         let Some(page) = Self::artifact_page(artifact) else {
             return;
         };
         self.annotate_page = page;
-        self.scroll_request = Some(page);
         self.thumb_synced = None;
-        if let Some(region) = artifact.toml.source.as_ref().and_then(|s| s.region) {
-            let w = (region.x1 - region.x0).max(1e-3) as f32;
-            let h = (region.y1 - region.y0).max(1e-3) as f32;
-            // Fit the larger dimension, so neither axis overflows.
-            self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        let region = artifact.toml.source.as_ref().and_then(|s| s.region);
+        let Some(region) = region else {
+            self.scroll_request = Some(page);
+            return;
+        };
+        let w = (region.x1 - region.x0).max(1e-3) as f32;
+        let h = (region.y1 - region.y0).max(1e-3) as f32;
+        // Fit the larger dimension, so neither axis overflows.
+        self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        match region_centre_offset(
+            region,
+            page,
+            self.pages.page_size_px(),
+            self.zoom,
+            self.last_viewport,
+        ) {
+            Some(offset) => {
+                self.scroll_request = None;
+                self.forced_offset = Some(offset);
+            }
+            None => self.scroll_request = Some(page),
+        }
+    }
+
+    /// Warn about this paper's malformed blocks ([`malformed_blocks`]) and
+    /// offer to delete each one, through the same confirm step as the
+    /// canvas's "Delete annotation…". They cannot be right-clicked on the
+    /// page, having no box there, so the panel is the only place to reach
+    /// them (maintainer, 2026-09-22).
+    fn malformed_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        artifacts: &[Artifact],
+        session: Option<&mut PaperSession>,
+        context_editor: &mut KvimEditorState,
+    ) {
+        let bad = malformed_blocks(artifacts);
+        // Blocks that could not be read at all: still one `#`-delimited
+        // unit each (maintainer, 2026-09-22), so they can be removed whole.
+        let unreadable = session
+            .as_ref()
+            .map(|s| crate::artifact::parse_document(s.markdown()).problems)
+            .unwrap_or_default();
+        if bad.is_empty() && unreadable.is_empty() {
+            self.confirm_remove_block = None;
+            return;
+        }
+        let citekey = session.as_ref().map(|s| s.citekey().to_string());
+        let mut remove: Option<(usize, String)> = None;
+        egui::Frame::group(ui.style())
+            .stroke(Stroke::new(1.0, ui.visuals().warn_fg_color))
+            .show(ui, |ui| {
+                ui.colored_label(
+                    ui.visuals().warn_fg_color,
+                    format!(
+                        "\u{26a0} {} malformed block(s) in this paper",
+                        bad.len() + unreadable.len()
+                    ),
+                );
+                for (artifact, problem) in bad {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(format!("{} — {problem}", artifact.heading));
+                        if Self::artifact_page(artifact).is_some()
+                            && ui.small_button("Go to page").clicked()
+                        {
+                            self.go_to_artifact(artifact);
+                        }
+                        if let Some(ck) = &citekey {
+                            if ui.small_button("Delete…").clicked() {
+                                self.connection_popup = Some(ConnectionPopup::ConfirmDelete {
+                                    citekey: ck.clone(),
+                                    artifact_id: artifact.id().to_string(),
+                                });
+                            }
+                        }
+                    });
+                }
+                for problem in &unreadable {
+                    let key = (problem.line(), problem.heading().to_string());
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(format!(
+                            "# {} (line {}) — unreadable: {}",
+                            problem.heading(),
+                            problem.line(),
+                            problem.message()
+                        ));
+                        if self.confirm_remove_block.as_ref() == Some(&key) {
+                            if ui.small_button("Confirm delete").clicked() {
+                                remove = Some(key.clone());
+                            }
+                            if ui.small_button("Cancel").clicked() {
+                                self.confirm_remove_block = None;
+                            }
+                        } else if ui.small_button("Delete…").clicked() {
+                            self.confirm_remove_block = Some(key.clone());
+                        }
+                    });
+                }
+            });
+        ui.add_space(4.0);
+
+        let (Some((line, heading)), Some(session)) = (remove, session) else {
+            return;
+        };
+        self.confirm_remove_block = None;
+        // Fold in unsaved edits first, as saving annotations does.
+        if context_editor.is_modified() {
+            session.set_markdown(context_editor.text());
+        }
+        let Some(md) = crate::artifact::remove_block(session.markdown(), line, &heading) else {
+            self.message = format!("\"# {heading}\" moved since it was checked; nothing deleted");
+            return;
+        };
+        session.set_markdown(md);
+        match session.save_document() {
+            Ok(()) => {
+                self.message = format!("deleted the unreadable block \"# {heading}\"");
+                context_editor.load_text(session.markdown());
+                self.context_page_synced = None;
+            }
+            Err(e) => self.message = e.to_string(),
         }
     }
 
@@ -1389,9 +1534,10 @@ impl PdfReaderState {
     /// [`classify::insert_artifact`], so it shows in the page-context list
     /// and `anchored_to_page`. The shared `context_editor`'s unsaved edits
     /// are folded in first, then it is reloaded and scrolled to the first
-    /// new block. Falls back to the plain-text
-    /// [`crate::project::append_to_section`] path only for a PDF outside any
-    /// paper.
+    /// new block. ~~Falls back to the plain-text
+    /// `crate::project::append_to_section` path for a PDF outside any
+    /// paper.~~ **CORRECTED 2026-09-22**: with no paper open the boxes stay in the reader and
+    /// the message says to ingest the PDF first.
     fn save_annotations_into_project(
         &mut self,
         active_paper: Option<&mut PaperSession>,
@@ -1402,8 +1548,7 @@ impl PdfReaderState {
         if let Some(ed) = self.annotate_editor.take() {
             if !ed.text.trim().is_empty() {
                 let page_px = self.current_page_px();
-                let author = self.author_name();
-                let anns = self.annotations.entry(self.active_page()).or_default();
+                let anns = self.annotations.entry(ed.page).or_default();
                 match ed.editing_existing {
                     Some(i) if i < anns.len() => {
                         anns[i].text = ed.text;
@@ -1416,7 +1561,6 @@ impl PdfReaderState {
                         max: ed.max,
                         text: ed.text,
                         created_at: utc_now_iso8601(),
-                        author,
                         page_px,
                     }),
                 }
@@ -1510,30 +1654,9 @@ impl PdfReaderState {
             return;
         }
 
-        // --- no active paper: the legacy plain-text section path ---
-        let mut block = String::new();
-        for (pg, anns) in &pending {
-            for ann in anns {
-                block.push_str(&format!(
-                    "### annotation — {}\n- author: {}\n- page: {}\n- pixel bbox: [{:.1}, {:.1}, {:.1}, {:.1}]\n\n{}\n\n",
-                    ann.created_at, ann.author, pg + 1, ann.min.x, ann.min.y, ann.max.x, ann.max.y, ann.text
-                ));
-            }
-        }
-        let block = block.trim_end();
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.message = "set the project root and markdown path first".to_string();
-            return;
-        }
-        match project::append_to_section(
-            std::path::Path::new(self.project_root.trim()),
-            self.project_markdown_rel.trim(),
-            "annotations",
-            block,
-        ) {
-            Ok(_) => self.message = format!("saved {count} annotation(s) into project markdown"),
-            Err(e) => self.message = e.to_string(),
-        }
+        // No paper open: the reader keeps the boxes until one is.
+        self.message = "no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes".to_string();
+        let _ = count;
     }
 
     /// Ask the continuous canvas to scroll one page forward, clamped to the
@@ -1759,8 +1882,10 @@ impl PdfReaderState {
     /// hands it back as a [`CropResult`] the app routes to the matching
     /// digitiser.
     ///
-    /// Falls back to the old disk-text `blocks_matching` preview over
-    /// `project_root`/`project_markdown_rel` when no paper is active.
+    /// ~~Falls back to the old disk-text `blocks_matching` preview over
+    /// `project_root`/`project_markdown_rel` when no paper is active.~~
+    /// **CORRECTED 2026-09-22**: with no paper open it says to ingest the PDF
+    /// ([`Self::context_panel_fallback`]).
     #[allow(clippy::needless_option_as_deref)] // `active_paper` reborrowed for two sinks
     fn context_panel(
         &mut self,
@@ -1775,6 +1900,7 @@ impl PdfReaderState {
             self.context_panel_fallback(ui);
             return None;
         };
+        self.malformed_panel(ui, artifacts, active_paper.as_deref_mut(), context_editor);
         let page0 = self.active_page();
         let page = (page0 + 1) as u32;
         let anchored: Vec<&Artifact> = artifacts
@@ -1969,64 +2095,15 @@ impl PdfReaderState {
         crop_result
     }
 
-    /// The pre-op-j178 read-only text preview, kept as the fallback for a
-    /// PDF opened outside any paper (see [`Self::context_panel`]'s doc):
-    /// raw text preview of whatever `project_root`/`project_markdown_rel`
-    /// records for [`Self::active_page`], read live off disk (not cached),
-    /// matching GitHub issue #30's "live from markdown file" ask. Filters
-    /// `### ...` subsections by a `page: N`/`page N,` marker, matching the
-    /// exact provenance text `Self::save_annotations_into_project`'s
-    /// fallback path emits.
+    /// What the page-context panel shows for a PDF that is not a paper yet.
+    /// ~~A raw text preview of a manual `project_root`/`project_markdown_rel`
+    /// file (GitHub issue #30).~~ **CORRECTED 2026-09-22**: those fields are gone; it says to
+    /// ingest the PDF, which creates the paper's Markdown.
     fn context_panel_fallback(&mut self, ui: &mut egui::Ui) {
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            ui.small(
-                "Set a project root + markdown path above to see this page's saved \
-                 annotations/CSVs here, live from the markdown file.",
-            );
-            return;
-        }
-        let path =
-            std::path::Path::new(self.project_root.trim()).join(self.project_markdown_rel.trim());
-        let text = match std::fs::read_to_string(&path) {
-            Ok(t) => t,
-            Err(e) => {
-                ui.colored_label(
-                    Color32::from_rgb(230, 90, 90),
-                    format!("{}: {e}", path.display()),
-                );
-                return;
-            }
-        };
-        let page = self.active_page();
-        let marker_a = format!("page: {}", page + 1);
-        let marker_b = format!("page {},", page + 1);
-        let blocks = blocks_matching(&text, &[&marker_a, &marker_b]);
-        if blocks.is_empty() {
-            ui.small("nothing saved for this page yet");
-            return;
-        }
-        egui::ScrollArea::vertical()
-            .id_salt("pdf_context_panel_scroll")
-            .show(ui, |ui| {
-                for block in blocks {
-                    // op-4x5s: highlight the block matching whatever annotation
-                    // box the pointer was hovering over the annotate canvas,
-                    // one frame ago (see `hover_created_at`'s doc).
-                    let is_linked = self
-                        .hover_created_at
-                        .as_deref()
-                        .is_some_and(|id| block.contains(id));
-                    if is_linked {
-                        egui::Frame::new()
-                            .fill(Color32::from_rgba_unmultiplied(255, 230, 60, 40))
-                            .inner_margin(4.0)
-                            .show(ui, |ui| ui.monospace(&block));
-                    } else {
-                        ui.monospace(&block);
-                    }
-                    ui.separator();
-                }
-            });
+        ui.small(
+            "This PDF is not a paper in your Kovan folder yet. Ingest it (the prompt \
+             when you open it, or Wiki → + Ingest Literature) to keep its notes here.",
+        );
     }
 
     /// Draw the toolbar and the continuous page canvas. `on_open_clicked` is
@@ -2043,9 +2120,10 @@ impl PdfReaderState {
     /// DigitiseApp::activate_paper`]'d paper, if any (op-q1qj, GH issue #35
     /// 2026-09-01 05:37: "project root isn't decided") — when `Some`,
     /// annotations save straight into its canonical Markdown and the
-    /// page-context panel reads live from the same file, instead of the
-    /// manual `project_root`/`project_markdown_rel` fields (which remain
-    /// the fallback for a PDF opened outside any paper).
+    /// page-context panel reads live from the same file. With `None` the
+    /// PDF is not a paper yet, and the reader says to ingest it (the manual
+    /// `project_root`/`project_markdown_rel` fallback was removed
+    /// 2026-09-22).
     ///
     /// `context_editor` is the shared page-context / Kvim-editor buffer
     /// (op-j178, GH issue #35 2026-09-02): the page-context panel renders it
@@ -2270,10 +2348,7 @@ impl PdfReaderState {
                     ui.label(format!("saving annotations into {citekey}'s notes"));
                 }
                 None => {
-                    ui.label("project root");
-                    ui.text_edit_singleline(&mut self.project_root);
-                    ui.label("markdown path");
-                    ui.text_edit_singleline(&mut self.project_markdown_rel);
+                    ui.label("not a paper yet: ingest this PDF to save annotations");
                 }
             }
             if ui.button("Save annotations").clicked() {
@@ -2327,7 +2402,6 @@ impl PdfReaderState {
         // them and double-click a box to edit it — which the embedded reader
         // cannot (kopitiam#107). ---
         let zoom = self.zoom;
-        const GAP: f32 = 16.0;
         let n = self.source.page_count().max(1);
         let mut open_target: Option<String> = None;
 
@@ -2543,6 +2617,9 @@ impl PdfReaderState {
             // waiting, and while a block is being edited in the panel.
             let busy = self.draw_start.is_some()
                 || self.select_start.is_some()
+                // A finished selection waiting for "Save as annotation" is
+                // on the page it was made on (2026-09-22).
+                || self.text_selection.is_some()
                 || self.pending_box.is_some()
                 || self.annotate_editor.is_some()
                 || self.editing_block_id.is_some();
@@ -2554,7 +2631,12 @@ impl PdfReaderState {
             // A *gesture* is the one thing that should re-point the page at
             // the pointer — you draw/right-click on the page under the mouse,
             // whichever that is.
-            if !busy && (response.drag_started() || response.secondary_clicked()) {
+            //
+            // Not gated on `busy` (2026-09-22): with an Annotate editor open,
+            // a box drawn on the next page was measured against the held
+            // page, fell outside it, and was saved with no region. The
+            // editor now keeps its own page, so nothing depends on the hold.
+            if response.drag_started() || response.secondary_clicked() {
                 if let Some((p, _)) = response
                     .interact_pointer_pos()
                     .and_then(|s| self.pages.hit(s, origin, n, zoom, GAP))
@@ -2878,6 +2960,7 @@ impl PdfReaderState {
                             if ui.button("Annotate").clicked() {
                                 if let Some((min, max)) = self.pending_box {
                                     self.annotate_editor = Some(AnnotateEditor {
+                                        page: self.active_page(),
                                         min,
                                         max,
                                         text: String::new(),
@@ -2925,6 +3008,7 @@ impl PdfReaderState {
                                     .and_then(|a| a.get(i))
                                 {
                                     self.annotate_editor = Some(AnnotateEditor {
+                                        page: self.active_page(),
                                         min: a.min,
                                         max: a.max,
                                         text: a.text.clone(),
@@ -3310,7 +3394,6 @@ impl PdfReaderState {
                     ui.ctx().copy_text(text.clone());
                 }
                 if ui.button("Save as annotation").clicked() {
-                    let author = self.author_name();
                     let page_px = self.current_page_px();
                     self.annotations
                         .entry(self.active_page())
@@ -3320,7 +3403,6 @@ impl PdfReaderState {
                             max,
                             text: text.clone(),
                             created_at: utc_now_iso8601(),
-                            author,
                             page_px,
                         });
                     self.text_selection = None;
@@ -3340,10 +3422,10 @@ impl PdfReaderState {
     /// crop this frame" return path); an Annotate action never produces a
     /// [`CropResult`].
     fn annotate_editor_panel(&mut self, ui: &mut egui::Ui) -> Option<CropResult> {
-        let page = self.active_page();
         let Some(editor) = &mut self.annotate_editor else {
             return None;
         };
+        let page = editor.page;
         let mut save = false;
         let mut cancel = false;
         ui.group(|ui| {
@@ -3372,9 +3454,8 @@ impl PdfReaderState {
         });
         if save {
             let editor = self.annotate_editor.take().expect("checked above");
-            let author = self.author_name();
             let page_px = self.current_page_px();
-            let anns = self.annotations.entry(self.active_page()).or_default();
+            let anns = self.annotations.entry(editor.page).or_default();
             match editor.editing_existing {
                 Some(i) if i < anns.len() => {
                     anns[i].text = editor.text;
@@ -3387,7 +3468,6 @@ impl PdfReaderState {
                     max: editor.max,
                     text: editor.text,
                     created_at: utc_now_iso8601(),
-                    author,
                     page_px,
                 }),
             }
@@ -3523,44 +3603,49 @@ mod tests {
         assert_eq!(text, "");
     }
 
+    /// Going to an annotation centres its box: one in the bottom-right of
+    /// page 2 lands the view there, not at the page's top-left corner.
     #[test]
-    fn blocks_matching_keeps_only_blocks_containing_a_needle() {
-        let text = "\
-### Fig. 7 — page 3, pixel bbox [1, 2, 3, 4]
-
-```csv
-x,y
-1,2
-```
-
-### annotation — 2026-08-24T00:00:00Z
-- author: x
-- page: 1
-- pixel bbox: [0, 0, 1, 1]
-
-a note
-";
-        let blocks = blocks_matching(text, &["page: 1"]);
-        assert_eq!(blocks.len(), 1);
-        assert!(blocks[0].starts_with("### annotation"));
-        assert!(blocks[0].contains("a note"));
+    fn going_to_a_region_centres_it() {
+        let page_px = egui::vec2(1000.0, 1400.0);
+        let viewport = egui::vec2(400.0, 300.0);
+        let region = Region { x0: 0.6, y0: 0.7, x1: 0.9, y1: 0.9 };
+        let zoom = 2.0;
+        let off = region_centre_offset(region, 1, page_px, zoom, viewport).unwrap();
+        // Centre of the box in content coordinates.
+        let cx = 0.75 * 1000.0 * zoom;
+        let cy = (1400.0 * zoom + GAP) + 0.8 * 1400.0 * zoom;
+        assert_eq!(off, egui::vec2(cx - 200.0, cy - 150.0));
+        // Its box, drawn with the same mapping, sits in the middle of the view.
+        let drawn = region_to_screen_rect(region, 1, page_px, Pos2::ZERO - off, zoom, GAP).unwrap();
+        assert!((drawn.center() - (viewport * 0.5).to_pos2()).length() < 1e-3);
+        // Unmeasured canvas: no offset.
+        assert_eq!(region_centre_offset(region, 1, page_px, zoom, egui::Vec2::ZERO), None);
     }
 
+    /// A drawn annotation saved with no region (the 2026-09-22 bug) is
+    /// listed as malformed; one with its box, and a page-anchored note with
+    /// no region (legal, §15), are not.
     #[test]
-    fn blocks_matching_supports_multiple_needles() {
-        let text = "### a — page 1,\nx\n### b\n- page: 2\ny\n### c\nz\n";
-        let blocks = blocks_matching(text, &["page 1,", "page: 2"]);
-        assert_eq!(blocks.len(), 2);
-    }
-
-    #[test]
-    fn blocks_matching_no_match_is_empty() {
-        assert!(blocks_matching("### a\nx\n", &["page: 99"]).is_empty());
-    }
-
-    #[test]
-    fn blocks_matching_text_with_no_headings_is_empty() {
-        assert!(blocks_matching("just prose, no ### headings\n", &["anything"]).is_empty());
+    fn annotations_without_a_region_are_malformed() {
+        let block = |id: &str, kind: &str, source: &str| {
+            format!(
+                "# {id}\n\n```toml\n[kovan]\nid = \"{id}\"\nkind = \"{kind}\"\ncreated = \"c\"\nmodified = \"m\"\n\n[source]\n{source}\n```\n\nbody\n\n"
+            )
+        };
+        let md = [
+            block("boxed", "annotation", "page = 3\nregion = [0.1, 0.1, 0.5, 0.5]"),
+            block("boxless", "annotation", "page = 3"),
+            block("page-note", "note", "page = 4"),
+        ]
+        .concat();
+        let doc = crate::artifact::parse_document(&md);
+        assert_eq!(doc.artifacts.len(), 3, "{:?}", doc.problems);
+        let bad: Vec<&str> = malformed_blocks(&doc.artifacts)
+            .iter()
+            .map(|(a, _)| a.id())
+            .collect();
+        assert_eq!(bad, vec!["boxless"]);
     }
 
     #[test]
@@ -3648,7 +3733,6 @@ a note
                 max: Pos2::new(30.0, 40.0),
                 text: "a note about figure 3".to_string(),
                 created_at: "2026-09-01T00:00:00Z".to_string(),
-                author: "tester".to_string(),
                 page_px: [100.0, 200.0],
             }],
         );

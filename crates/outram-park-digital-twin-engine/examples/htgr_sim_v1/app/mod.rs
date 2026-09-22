@@ -93,10 +93,10 @@
 //! arrays' enthalpy convection is an explicit source inside the corrector loop,
 //! so the loop's Picard contraction factor *is* the Courant number.
 
-pub mod geometry_tab;
 pub mod map_tab;
 pub mod panels;
 pub mod plant_v1_1;
+pub mod thermal_tab;
 // The v1 drawing is no longer on screen (v1.1 replaced it on 2026-09-22) but
 // is kept: its helpers, tracer state and tests are still used by v1.1.
 #[allow(dead_code)]
@@ -121,7 +121,7 @@ use outram_park_digital_twin_engine::components::LegendUnit;
 use crate::physics::secondary_loop::{FeedwaterCommand, SecondaryCommands};
 use crate::physics::{HtgrPlant, PlantCommands};
 use panels::{
-    draw_controls, draw_diagnostics_panel, draw_geometry_panel, draw_plots_csv_panel,
+    draw_controls, draw_diagnostics_panel, draw_plots_csv_panel,
     draw_plots_panel, draw_schematic_panel, Panel,
 };
 use schematic::SchematicTracers;
@@ -268,10 +268,6 @@ pub struct HtgrSimApp {
     /// Owned here, not rebuilt per frame, so "Update CSV Data" clicks and the
     /// interval slider persist across repaints.
     plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel,
-    /// The HTR-10 Geometry tab's zoom level -- see
-    /// [`geometry_tab::ZoomLevel`]. Owned here so a zoom-button click
-    /// persists across repaints instead of resetting every frame.
-    geometry_zoom: geometry_tab::ZoomLevel,
     /// Flow-tracer trains for the schematic's connector runs. Owned here (not
     /// by the widgets, which are rebuilt every repaint) and advanced once per
     /// frame from the real loop residence times -- see
@@ -504,7 +500,6 @@ impl HtgrSimApp {
             open_panel: Panel::Schematic,
             plots_side_panel: panels::PlotsSidePanel::default(),
             plots_csv_panel: outram_park_digital_twin_engine::app_scaffold::CsvSnapshotPanel::new(),
-            geometry_zoom: geometry_tab::ZoomLevel::default(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
             plant_clock_rate: PlantClockRate::default(),
@@ -724,7 +719,7 @@ impl eframe::App for HtgrSimApp {
                 Panel::Schematic => {} // drawn above, outside this scroll area
                 Panel::Plots => draw_plots_panel(ui, &plots, display_unit),
                 Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
-                Panel::Geometry => draw_geometry_panel(ui, &mut self.geometry_zoom),
+                Panel::Thermal => thermal_tab::draw_thermal(ui, &snapshot),
                 Panel::Map => map_tab::draw_map(ui, &snapshot),
             });
         });

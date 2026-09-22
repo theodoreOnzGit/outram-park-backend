@@ -33,7 +33,9 @@
 //!
 //! US Government work, distribution unlimited, public domain. Catalogued in
 //! this workspace's KOVAN archive (Open tier) at
-//! `crates/kovan-literature/open/reports/kim1975-thermophysical-properties-stainless-steels.pdf`.
+//! `theodore-open-corpus/us-doe/kim1975-thermophysical-properties-stainless-steels.pdf` in the
+//! `reactor-literature` repository (moved there 2026-09-22; its metadata stays in
+//! `crates/kovan-literature/open/reports/kim1975-thermophysical-properties-stainless-steels.json`).
 //!
 //! Only the **solid-region** Type 304L equations are implemented here:
 //! Eq. (5) specific heat, Eq. (16) density, Eq. (28) thermal conductivity, and

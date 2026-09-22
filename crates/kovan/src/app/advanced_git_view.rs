@@ -11,8 +11,10 @@
 //! Most users shouldn't need Git vocabulary to save their work — the
 //! checkpoint's own words: "Most users should not need Git vocabulary."
 //! [`AdvancedGitState::ui`] therefore leads with "Changes since last save"
-//! and a single prominent Save Repository button; branches/history/remotes/
-//! fetch-pull-push (real Git concepts, §38) sit inside a collapsed
+//! and a single prominent Save Repository button; branches/history and the
+//! per-repository fetch-pull-push panels (real Git concepts, §38; since #255
+//! one panel each for the Kovan folder and its two corpus repositories, with
+//! the remote and branch taken from Git, never typed) sit inside a collapsed
 //! "Advanced…" section underneath, not as the tab's headline. Nothing about
 //! `crate::advanced_git`/`crate::repository`'s own behaviour changed here —
 //! this file is presentation only.
@@ -20,6 +22,41 @@
 use eframe::egui::{self, Color32};
 
 use crate::advanced_git::{self, BranchInfo, RemoteInfo};
+use std::path::PathBuf;
+
+/// One repository the tab can fetch, pull and push: the Kovan folder itself,
+/// or one of its corpus repositories (#255).
+///
+/// The remote and branch are **never typed by the user** (maintainer
+/// direction, 2026-09-22): the repositories were decided in the setup dialog,
+/// so each panel uses the repository's own `origin` and the branch it has
+/// checked out, read from Git on refresh.
+struct RepoPanel {
+    label: &'static str,
+    dir: PathBuf,
+    remotes: Vec<RemoteInfo>,
+    /// The branch checked out, if any.
+    branch: Option<String>,
+}
+
+impl RepoPanel {
+    fn load(label: &'static str, dir: PathBuf) -> Self {
+        Self {
+            label,
+            remotes: advanced_git::list_remotes_in(&dir).unwrap_or_default(),
+            branch: advanced_git::current_branch_in(&dir),
+            dir,
+        }
+    }
+
+    /// The remote to use: `origin` if present, otherwise the only remote.
+    fn remote(&self) -> Option<&RemoteInfo> {
+        self.remotes
+            .iter()
+            .find(|r| r.name == "origin")
+            .or_else(|| (self.remotes.len() == 1).then(|| &self.remotes[0]))
+    }
+}
 use crate::repository::SaveSummary;
 use crate::root::KovanRoot;
 use kovan_discovery::git::CommitInfo;
@@ -40,9 +77,8 @@ pub struct AdvancedGitState {
     status: Option<SaveSummary>,
     branches: Vec<BranchInfo>,
     history: Vec<CommitInfo>,
-    remotes: Vec<RemoteInfo>,
-    remote_input: String,
-    branch_input: String,
+    /// The Kovan folder, then each corpus repository that exists.
+    repos: Vec<RepoPanel>,
     message: String,
     message_is_error: bool,
 }
@@ -57,7 +93,14 @@ impl AdvancedGitState {
         }
         self.branches = advanced_git::local_branches(root).unwrap_or_default();
         self.history = advanced_git::history(root, 20).unwrap_or_default();
-        self.remotes = advanced_git::list_remotes(root).unwrap_or_default();
+        self.repos = std::iter::once(("Kovan folder", root.path().to_path_buf()))
+            .chain([
+                ("Open corpus", root.open_corpus_dir()),
+                ("Proprietary corpus", root.restricted_sources_dir()),
+            ])
+            .filter(|(_, dir)| crate::corpus_repos::is_git_repo(dir))
+            .map(|(label, dir)| RepoPanel::load(label, dir))
+            .collect();
     }
 
     /// Mark the git status stale so the next [`Self::ui`] re-scans — call
@@ -162,42 +205,114 @@ impl AdvancedGitState {
                 }
 
                 ui.add_space(8.0);
-                ui.strong("Remotes (system git)");
+                ui.strong("Repositories (system git)");
                 if !advanced_git::system_git_available() {
                     ui.weak("system git not found — Kovan still works; remote operations are unavailable");
                 }
-                for r in &self.remotes {
-                    ui.label(format!("{}: {}", r.name, r.url));
+                let mut action: Option<(usize, RemoteOp)> = None;
+                for (i, repo) in self.repos.iter().enumerate() {
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new(repo.label).strong());
+                    ui.weak(repo.dir.display().to_string());
+                    match (repo.remote(), &repo.branch) {
+                        (Some(remote), Some(branch)) => {
+                            ui.label(format!("{} ({}), branch {branch}", remote.url, remote.name));
+                            ui.horizontal(|ui| {
+                                if ui.button("Fetch").clicked() {
+                                    action = Some((i, RemoteOp::Fetch));
+                                }
+                                if ui.button("Pull").clicked() {
+                                    action = Some((i, RemoteOp::Pull));
+                                }
+                                if ui.button("Push").clicked() {
+                                    action = Some((i, RemoteOp::Push));
+                                }
+                            });
+                        }
+                        (None, _) => {
+                            ui.weak("no GitHub repository connected — add its URL in \u{2699} Setup");
+                        }
+                        (Some(remote), None) => {
+                            ui.label(format!("{} ({})", remote.url, remote.name));
+                            ui.weak("no branch checked out yet — save something first");
+                        }
+                    }
                 }
-                ui.horizontal(|ui| {
-                    ui.label("remote:");
-                    ui.text_edit_singleline(&mut self.remote_input);
-                    ui.label("branch:");
-                    ui.text_edit_singleline(&mut self.branch_input);
-                });
-                ui.horizontal(|ui| {
-                    if ui.button("Fetch").clicked() {
-                        self.run(root, |r, remote, _| advanced_git::fetch(r, remote));
-                    }
-                    if ui.button("Pull").clicked() {
-                        self.run(root, advanced_git::pull);
-                    }
-                    if ui.button("Push").clicked() {
-                        self.run(root, advanced_git::push);
-                    }
-                });
+                if let Some((i, op)) = action {
+                    self.run(i, op);
+                }
             });
         });
     }
 
-    fn run(
-        &mut self,
-        root: &KovanRoot,
-        op: impl Fn(&KovanRoot, &str, &str) -> Result<String, advanced_git::RemoteError>,
-    ) {
-        match op(root, &self.remote_input, &self.branch_input) {
-            Ok(_) => self.set_status("done"),
-            Err(e) => self.set_error(e.to_string()),
+    /// Fetch, pull or push repository `i` against its own remote and branch.
+    fn run(&mut self, i: usize, op: RemoteOp) {
+        let Some(repo) = self.repos.get(i) else {
+            return;
+        };
+        let (Some(remote), Some(branch)) = (repo.remote(), repo.branch.as_deref()) else {
+            return;
+        };
+        let (remote, label) = (remote.name.clone(), repo.label);
+        let result = match op {
+            RemoteOp::Fetch => advanced_git::fetch_in(&repo.dir, &remote),
+            RemoteOp::Pull => advanced_git::pull_in(&repo.dir, &remote, branch),
+            RemoteOp::Push => advanced_git::push_in(&repo.dir, &remote, branch),
+        };
+        match result {
+            Ok(_) => self.set_status(format!("{label}: {} done", op.verb())),
+            Err(e) => self.set_error(format!("{label}: {e}")),
         }
+    }
+}
+
+/// A remote operation a repository panel can run.
+#[derive(Debug, Clone, Copy)]
+enum RemoteOp {
+    Fetch,
+    Pull,
+    Push,
+}
+
+impl RemoteOp {
+    fn verb(self) -> &'static str {
+        match self {
+            Self::Fetch => "fetch",
+            Self::Pull => "pull",
+            Self::Push => "push",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn panel(names: &[&str]) -> RepoPanel {
+        RepoPanel {
+            label: "test",
+            dir: PathBuf::new(),
+            remotes: names
+                .iter()
+                .map(|n| RemoteInfo {
+                    name: n.to_string(),
+                    url: format!("https://example.com/{n}.git"),
+                })
+                .collect(),
+            branch: Some("main".into()),
+        }
+    }
+
+    /// The panel pushes to `origin`, or to the only remote there is; with
+    /// several and no `origin` it does not guess.
+    #[test]
+    fn the_remote_is_origin_or_the_only_one_never_a_guess() {
+        assert_eq!(
+            panel(&["upstream", "origin"]).remote().unwrap().name,
+            "origin"
+        );
+        assert_eq!(panel(&["github"]).remote().unwrap().name, "github");
+        assert!(panel(&["a", "b"]).remote().is_none());
+        assert!(panel(&[]).remote().is_none());
     }
 }

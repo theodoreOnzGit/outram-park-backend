@@ -25,6 +25,16 @@
 //! back a real Git index file. `gix`'s object-writing calls
 //! ([`gix::Repository::write_blob`]/`write_object`) already deduplicate by
 //! content hash, so re-saving unchanged files costs nothing extra.
+//!
+//! # Submodules are gitlinks, never walked
+//!
+//! Git would never flatten another repository into this one, so this does
+//! not either: a directory with its own `.git` is skipped, and each
+//! registered submodule (`.gitmodules`: the standard, open and proprietary
+//! corpora, #255) is recorded as a gitlink at its current commit, or at the
+//! commit already recorded when it is not downloaded. Before 2026-09-22 only
+//! the private submodule was handled, and a Save flattened the standard
+//! corpus into a real Kovan repository and dropped all three corpora.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -138,6 +148,12 @@ fn collect_files(
             continue;
         }
         if path.is_dir() {
+            // Another repository (a corpus submodule, or any nested clone)
+            // is never flattened into this one: a registered submodule is
+            // recorded as a gitlink instead ([`submodule_gitlinks`]).
+            if path.join(".git").exists() {
+                continue;
+            }
             collect_files(base, &path, excluded, out);
         } else if path.is_file() {
             if let Ok(rel) = path.strip_prefix(base) {
@@ -171,8 +187,10 @@ fn build_tree_from(
     repo: &gix::Repository,
     base: &Path,
     excluded: impl Fn(&Path) -> bool,
-    gitlink: Option<&SubmoduleGitlink>,
+    gitlinks: &[SubmoduleGitlink],
 ) -> Result<(gix::ObjectId, BTreeMap<String, gix::ObjectId>), RepositoryError> {
+    let linked: Vec<PathBuf> = gitlinks.iter().map(|l| base.join(&l.path)).collect();
+    let excluded = |path: &Path| excluded(path) || linked.iter().any(|l| path.starts_with(l));
     let mut files = Vec::new();
     collect_files(base, base, &excluded, &mut files);
 
@@ -221,7 +239,7 @@ fn build_tree_from(
         register_entry(rel, tree::EntryKind::Blob.into(), oid);
     }
 
-    if let Some(link) = gitlink {
+    for link in gitlinks {
         register_entry(&link.path, tree::EntryKind::Commit.into(), link.commit);
     }
     drop(register_entry);
@@ -270,9 +288,9 @@ fn build_tree_from(
 fn build_tree(
     repo: &gix::Repository,
     root: &KovanRoot,
-    gitlink: Option<&SubmoduleGitlink>,
+    gitlinks: &[SubmoduleGitlink],
 ) -> Result<(gix::ObjectId, BTreeMap<String, gix::ObjectId>), RepositoryError> {
-    build_tree_from(repo, root.path(), |path| is_excluded(root, path), gitlink)
+    build_tree_from(repo, root.path(), |path| is_excluded(root, path), gitlinks)
 }
 
 /// Flatten `tree_id`'s contents (recursively) into a `path -> blob id` map,
@@ -438,7 +456,7 @@ fn save_private_submodule(root: &KovanRoot) -> Result<Option<gix::ObjectId>, Rep
         gix::open(&submodule_dir).map_err(|e| RepositoryError::Git(e.to_string()))?;
 
     let excluded = |path: &Path| path.components().any(|c| c.as_os_str() == ".git");
-    let (tree_id, blobs) = build_tree_from(&sub_repo, &submodule_dir, excluded, None)?;
+    let (tree_id, blobs) = build_tree_from(&sub_repo, &submodule_dir, excluded, &[])?;
     let summary = diff_against_head(&sub_repo, &blobs)?;
 
     if summary.is_empty() {
@@ -452,11 +470,14 @@ fn save_private_submodule(root: &KovanRoot) -> Result<Option<gix::ObjectId>, Rep
     Ok(Some(commit_id))
 }
 
-/// Write (or rewrite) `.gitmodules` at the library root so real `git
-/// submodule` tooling — not just Kovan — recognises the configured private
-/// submodule. Always rewritten to the current single-submodule mapping
-/// rather than merged/diffed, since Kovan supports exactly one private
-/// literature submodule per library today.
+/// Make sure `.gitmodules` at the library root registers the configured
+/// private submodule, so real `git submodule` tooling (not just Kovan)
+/// recognises it. Other entries (the corpus submodules) are kept.
+///
+/// ~~Always rewritten to the current single-submodule mapping, since Kovan
+/// supports exactly one private literature submodule per library.~~
+/// **CORRECTED 2026-09-22**: a Kovan folder now has up to three corpus
+/// submodules (#255), and a rewrite would have unregistered the other two.
 fn write_gitmodules(
     root: &KovanRoot,
     submodule: &crate::root::PrivateSubmoduleConfig,
@@ -467,24 +488,165 @@ fn write_gitmodules(
         .restricted_sources
         .to_string_lossy()
         .replace('\\', "/");
-    let contents = format!(
+    if registered_submodules(root)
+        .iter()
+        .any(|p| p == Path::new(&rel))
+    {
+        return Ok(());
+    }
+    let path = root.path().join(".gitmodules");
+    let mut contents = std::fs::read_to_string(&path).unwrap_or_default();
+    if !contents.is_empty() && !contents.ends_with('\n') {
+        contents.push('\n');
+    }
+    contents.push_str(&format!(
         "[submodule \"{rel}\"]\n\tpath = {rel}\n\turl = {}\n",
         submodule.remote
-    );
-    let path = root.path().join(".gitmodules");
+    ));
     std::fs::write(&path, contents).map_err(|source| RepositoryError::Io { path, source })
 }
 
-/// A ready private submodule's gitlink, if any — the shared "what should
-/// `restricted_sources_dir()` look like in the parent tree right now"
-/// logic [`status`] (read-only, via [`private_submodule_head`]) and
-/// [`save_repository`] (committing, via [`save_private_submodule`]) each
-/// wrap around their own choice of how to get that commit id.
-fn submodule_gitlink(root: &KovanRoot, commit: Option<gix::ObjectId>) -> Option<SubmoduleGitlink> {
-    commit.map(|commit| SubmoduleGitlink {
-        path: root.config().paths.restricted_sources.clone(),
-        commit,
-    })
+/// The submodule paths `.gitmodules` registers, relative to the root.
+fn registered_submodules(root: &KovanRoot) -> Vec<PathBuf> {
+    std::fs::read_to_string(root.path().join(".gitmodules"))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("path"))
+        .filter_map(|rest| rest.trim_start().strip_prefix('='))
+        .map(|p| PathBuf::from(p.trim()))
+        .collect()
+}
+
+/// The commit a gitlink at `rel` records in `repo`'s `HEAD`, if any: what a
+/// submodule that is not downloaded yet keeps, rather than being dropped.
+fn gitlink_in_head(repo: &gix::Repository, rel: &Path) -> Option<gix::ObjectId> {
+    let head = repo.head_id().ok()?.detach();
+    let mut current = repo.find_commit(head).ok()?.tree_id().ok()?.detach();
+    let mut components: Vec<String> = rel
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    let last = components.pop()?;
+    for comp in &components {
+        let t = repo.find_tree(current).ok()?;
+        let decoded = t.decode().ok()?;
+        let e = decoded
+            .entries
+            .iter()
+            .find(|e| e.filename == comp.as_bytes() && e.mode.is_tree())?;
+        current = e.oid.to_owned();
+    }
+    let t = repo.find_tree(current).ok()?;
+    let decoded = t.decode().ok()?;
+    decoded
+        .entries
+        .iter()
+        .find(|e| e.filename == last.as_bytes() && e.mode.is_commit())
+        .map(|e| e.oid.to_owned())
+}
+
+/// The current `HEAD` of the repository at `dir`, if it is one with a commit.
+fn repo_head(dir: &Path) -> Option<gix::ObjectId> {
+    if !dir.join(".git").exists() {
+        return None;
+    }
+    gix::open(dir).ok()?.head_id().ok().map(|id| id.detach())
+}
+
+/// Commit everything in the open-corpus repository at `dir` with the
+/// system `git`, so its own `.gitignore` is respected (the open corpus is
+/// often shared, e.g. `reactor-literature`, and has build files of its
+/// own). The user's Git identity is used when set, Kovan's otherwise.
+/// Without `git`, nothing is committed and the current `HEAD` is recorded.
+fn commit_open_corpus(dir: &Path) -> Result<(), RepositoryError> {
+    use std::process::Command;
+    if !crate::advanced_git::system_git_available() {
+        return Ok(());
+    }
+    let git = |args: &[&str]| {
+        Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .output()
+            .map_err(|source| RepositoryError::Io {
+                path: dir.to_path_buf(),
+                source,
+            })
+    };
+    let failed = |what: &str, o: &std::process::Output| {
+        RepositoryError::Git(format!(
+            "open corpus {what}: {}",
+            String::from_utf8_lossy(&o.stderr).trim()
+        ))
+    };
+    let add = git(&["add", "-A"])?;
+    if !add.status.success() {
+        return Err(failed("git add", &add));
+    }
+    if git(&["diff", "--cached", "--quiet"])?.status.success() {
+        return Ok(()); // nothing staged
+    }
+    let has_identity = git(&["config", "user.email"])?.status.success();
+    let mut args = Vec::new();
+    if !has_identity {
+        args.extend(["-c", "user.name=Kovan", "-c", "user.email=kovan@localhost"]);
+    }
+    args.extend(["commit", "-q", "-m", "Save Kovan repository: open corpus"]);
+    let commit = git(&args)?;
+    if commit.status.success() {
+        Ok(())
+    } else {
+        Err(failed("git commit", &commit))
+    }
+}
+
+/// The gitlinks the Kovan repository's tree records: one per registered
+/// submodule (`.gitmodules`), plus the private submodule when it is ready.
+///
+/// Each is recorded at its repository's current `HEAD`; one not downloaded
+/// yet keeps the commit already in `HEAD` (never dropped, the defect that
+/// removed all three corpus submodules from a real Kovan repository on
+/// 2026-09-22). With `commit`, the user's own corpora are committed first:
+/// the private one as before ([`save_private_submodule`]), the open one
+/// with Git ([`commit_open_corpus`]). The standard corpus is never
+/// committed into: it is read-only to everyone but its maintainer.
+fn submodule_gitlinks(
+    root: &KovanRoot,
+    repo: &gix::Repository,
+    commit: bool,
+) -> Result<Vec<SubmoduleGitlink>, RepositoryError> {
+    let paths = &root.config().paths;
+    let mut rels = registered_submodules(root);
+    let private_ready = root.private_submodule_ready();
+    if private_ready && !rels.contains(&paths.restricted_sources) {
+        rels.push(paths.restricted_sources.clone());
+    }
+    let mut links = Vec::new();
+    for rel in rels {
+        let dir = root.path().join(&rel);
+        let head = if rel == paths.restricted_sources {
+            // Registered (setup's `git submodule add`) or configured as the
+            // private submodule. Its files are never walked into this tree
+            // either way ([`is_excluded`]).
+            if repo_head(&dir).is_none() && !private_ready {
+                None
+            } else if commit {
+                save_private_submodule(root)?
+            } else {
+                private_submodule_head(root)?
+            }
+        } else {
+            if commit && rel == paths.open_sources && repo_head(&dir).is_some() {
+                commit_open_corpus(&dir)?;
+            }
+            repo_head(&dir)
+        };
+        if let Some(commit) = head.or_else(|| gitlink_in_head(repo, &rel)) {
+            links.push(SubmoduleGitlink { path: rel, commit });
+        }
+    }
+    Ok(links)
 }
 
 /// What would change if [`save_repository`] ran right now — the "N changes
@@ -493,12 +655,8 @@ fn submodule_gitlink(root: &KovanRoot, commit: Option<gix::ObjectId>) -> Option<
 /// that guarantee's coverage.
 pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
     let repo = open(root)?;
-    let gitlink = if root.private_submodule_ready() {
-        submodule_gitlink(root, private_submodule_head(root)?)
-    } else {
-        None
-    };
-    let (_tree_id, blobs) = build_tree(&repo, root, gitlink.as_ref())?;
+    let gitlinks = submodule_gitlinks(root, &repo, false)?;
+    let (_tree_id, blobs) = build_tree(&repo, root, &gitlinks)?;
     diff_against_head(&repo, &blobs)
 }
 
@@ -521,17 +679,14 @@ pub fn status(root: &KovanRoot) -> Result<SaveSummary, RepositoryError> {
 pub fn save_repository(root: &KovanRoot) -> Result<Option<SaveSummary>, RepositoryError> {
     let mut repo = open(root)?;
 
-    let gitlink = if root.private_submodule_ready() {
-        let commit = save_private_submodule(root)?;
+    if root.private_submodule_ready() {
         if let Some(submodule) = root.private_submodule() {
             write_gitmodules(root, submodule)?;
         }
-        submodule_gitlink(root, commit)
-    } else {
-        None
-    };
+    }
+    let gitlinks = submodule_gitlinks(root, &repo, true)?;
 
-    let (tree_id, blobs) = build_tree(&repo, root, gitlink.as_ref())?;
+    let (tree_id, blobs) = build_tree(&repo, root, &gitlinks)?;
     let summary = diff_against_head(&repo, &blobs)?;
     if summary.is_empty() {
         return Ok(None);
@@ -632,10 +787,12 @@ mod tests {
         .unwrap();
 
         let summary = save_repository(&root).unwrap().unwrap();
-        assert!(summary
-            .added
-            .iter()
-            .any(|p| p.contains("wang2018multiphysics")));
+        assert!(
+            summary
+                .added
+                .iter()
+                .any(|p| p.contains("wang2018multiphysics"))
+        );
     }
 
     #[test]
@@ -864,5 +1021,166 @@ mod tests {
             "status must not itself change what a second status call sees"
         );
         assert!(before.added.iter().any(|p| p == "README.md"));
+    }
+
+    // -------------------------------------------------------------------
+    // Corpus submodules (#255): the 2026-09-22 regression, in which a Save
+    // flattened the standard corpus into a real Kovan repository and
+    // dropped all three corpus submodules.
+    // -------------------------------------------------------------------
+
+    fn git(dir: &Path, args: &[&str]) {
+        let ok = std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+            .args(args)
+            .output()
+            .unwrap()
+            .status
+            .success();
+        assert!(ok, "git {args:?}");
+    }
+
+    /// A repository at `dir` holding `file`, to stand in for a remote.
+    fn source_repo(dir: &Path, file: &str) -> String {
+        let f = dir.join(file);
+        std::fs::create_dir_all(f.parent().unwrap()).unwrap();
+        std::fs::write(&f, b"pdf").unwrap();
+        git(dir, &["init", "-q", "-b", "main"]);
+        git(dir, &["add", "."]);
+        git(dir, &["commit", "-q", "-m", "x"]);
+        dir.to_string_lossy().to_string()
+    }
+
+    /// A Kovan folder whose three corpora are submodules, as setup makes it.
+    fn root_with_corpora(tmp: &Path) -> KovanRoot {
+        let standard = source_repo(&tmp.join("std"), "kovan-standard-open-corpus/a.pdf");
+        let open = source_repo(&tmp.join("open"), "me-open-corpus/b.pdf");
+        let private = source_repo(&tmp.join("private"), "papers/c.pdf");
+        let mut root =
+            KovanRoot::create(&tmp.join("lib"), RootConfig::new("lib", "Lib"), true).unwrap();
+        root.set_corpora(crate::root::CorporaConfig {
+            open_remote: Some(open),
+            proprietary_remote: Some(private),
+        })
+        .unwrap();
+        let setup = crate::corpus_repos::ensure_library_corpora_with(&root, &standard, "main");
+        assert!(setup.standard.is_ok() && setup.open.is_ok() && setup.proprietary.is_ok());
+        root
+    }
+
+    fn head_tree_paths(root: &KovanRoot) -> BTreeMap<String, gix::ObjectId> {
+        let repo = gix::open(root.path()).unwrap();
+        let commit = repo.find_commit(repo.head_id().unwrap().detach()).unwrap();
+        let mut map = BTreeMap::new();
+        flatten_tree(&repo, commit.tree_id().unwrap().detach(), "", &mut map).unwrap();
+        map
+    }
+
+    /// Every corpus is recorded as a gitlink; none of its files are.
+    #[test]
+    fn corpora_are_saved_as_gitlinks_never_flattened() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let root = root_with_corpora(tmp.path());
+        save_repository(&root).unwrap().unwrap();
+        let repo = gix::open(root.path()).unwrap();
+        let head = repo.find_commit(repo.head_id().unwrap().detach()).unwrap();
+        let tree = head.tree_id().unwrap().detach();
+        for rel in [
+            "literature/standard-corpus",
+            "literature/open-corpus",
+            "literature/proprietary",
+        ] {
+            let mode = entry_mode_at(&repo, tree, Path::new(rel));
+            assert!(mode.is_some_and(|m| m.is_commit()), "{rel}: {mode:?}");
+        }
+        let paths = head_tree_paths(&root);
+        assert!(
+            !paths.keys().any(|p| p.ends_with(".pdf")),
+            "corpus files flattened into the Kovan repository: {paths:?}"
+        );
+        assert!(paths.contains_key(".gitmodules"));
+    }
+
+    /// Corpora registered but not downloaded (a plain clone, or a download
+    /// still running) keep their gitlinks: nothing is removed.
+    #[test]
+    fn undownloaded_corpora_keep_their_gitlinks() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let root = root_with_corpora(tmp.path());
+        save_repository(&root).unwrap().unwrap();
+        let copy = tmp.path().join("copy");
+        let ok = std::process::Command::new("git")
+            .arg("clone")
+            .arg("-q")
+            .arg(root.path())
+            .arg(&copy)
+            .status()
+            .unwrap()
+            .success();
+        assert!(ok);
+        let cloned = KovanRoot::open(&copy).unwrap();
+        assert!(!cloned.standard_corpus_dir().join(".git").exists());
+        assert!(status(&cloned).unwrap().is_empty());
+        assert_eq!(save_repository(&cloned).unwrap(), None);
+        assert_eq!(head_tree_paths(&cloned), head_tree_paths(&root));
+    }
+
+    /// A PDF ingested into the open corpus is committed THERE, and the Kovan
+    /// repository records only the bumped gitlink; the standard corpus is
+    /// never committed into.
+    #[test]
+    fn saving_commits_the_open_corpus_and_bumps_only_its_gitlink() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let root = root_with_corpora(tmp.path());
+        save_repository(&root).unwrap().unwrap();
+        let standard_before = repo_head(&root.standard_corpus_dir());
+
+        std::fs::write(root.open_corpus_dir().join("me-open-corpus/new.pdf"), b"n").unwrap();
+        std::fs::write(root.standard_corpus_dir().join("stray.pdf"), b"s").unwrap();
+        let summary = save_repository(&root).unwrap().unwrap();
+        assert_eq!(summary.changed, vec!["literature/open-corpus".to_string()]);
+        assert!(
+            summary.added.is_empty() && summary.removed.is_empty(),
+            "{summary:?}"
+        );
+        assert_eq!(repo_head(&root.standard_corpus_dir()), standard_before);
+        let open = gix::open(root.open_corpus_dir()).unwrap();
+        let tip = open.find_commit(open.head_id().unwrap().detach()).unwrap();
+        let mut files = BTreeMap::new();
+        flatten_tree(&open, tip.tree_id().unwrap().detach(), "", &mut files).unwrap();
+        assert!(files.contains_key("me-open-corpus/new.pdf"), "{files:?}");
+    }
+
+    /// Registering the private submodule keeps the corpus entries in
+    /// `.gitmodules` (it used to rewrite the file with its entry alone).
+    #[test]
+    fn registering_the_private_submodule_keeps_other_entries() {
+        let (_dir, root) = make_root_with_private_submodule();
+        let gm = root.path().join(".gitmodules");
+        std::fs::write(
+            &gm,
+            "[submodule \"literature/open-corpus\"]\n\tpath = literature/open-corpus\n\turl = u\n",
+        )
+        .unwrap();
+        write_gitmodules(&root, root.private_submodule().unwrap()).unwrap();
+        write_gitmodules(&root, root.private_submodule().unwrap()).unwrap();
+        let text = std::fs::read_to_string(&gm).unwrap();
+        assert!(text.contains("path = literature/open-corpus"), "{text}");
+        assert_eq!(
+            text.matches("path = literature/proprietary").count(),
+            1,
+            "{text}"
+        );
     }
 }

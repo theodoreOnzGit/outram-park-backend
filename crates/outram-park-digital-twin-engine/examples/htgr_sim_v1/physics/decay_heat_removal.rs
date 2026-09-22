@@ -84,6 +84,10 @@
 
 use tuas_boussinesq_solver::heat_transfer_correlations::heat_transfer_interactions::conductance::simple_radiation_conductance;
 use uom::si::area::square_meter;
+#[cfg(test)]
+use uom::si::energy::joule;
+#[cfg(test)]
+use uom::si::f64::Energy;
 use uom::si::f64::{Area, HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature, Time};
 use uom::si::heat_capacity::joule_per_kelvin;
 use uom::si::power::watt;
@@ -231,7 +235,14 @@ const REFLECTOR_CAPACITY_J_PER_K: f64 = 1.8e8;
 /// derived from the published vessel mass.
 const RPV_CAPACITY_J_PER_K: f64 = 6.0e7;
 
-/// Series combination of the three conductances \[W/K\].
+/// Fixed-point passes in [`CoreToRccsPath::advance`]'s implicit solve,
+/// re-evaluating the temperature-dependent conductances at the latest
+/// iterate. The nodes move a fraction of a kelvin per 0.1 s step, so the
+/// conductances barely change and three passes converge far below rounding
+/// of anything displayed; the energy balance is exact at any pass count.
+const IMPLICIT_PICARD_PASSES: usize = 3;
+
+/// Radiative conductance from the RPV to the fixed 50 degC RCCS \[W/K\].
 fn ua_rpv_rccs_w_per_k(rpv: ThermodynamicTemperature) -> f64 {
     simple_radiation_conductance(
         Area::new::<square_meter>(RPV_RADIATING_AREA_COEFF_M2),
@@ -514,51 +525,94 @@ impl CoreToRccsPath {
         })
     }
 
-    /// Advance the two solid nodes by `dt`, given the current bed temperature.
+    /// Advance the two solid nodes by `dt`, **implicitly**, given the bed
+    /// temperature, with the RCCS a fixed 50 degC boundary.
     ///
     /// Returns the heat rate **leaving the pebble bed**, which the caller must
     /// apply as a sink on the bed so energy is conserved across the seam.
     ///
-    /// Explicit Euler on both nodes. Justified rather than assumed: the
-    /// shortest time constant here is the RPV at roughly
-    /// `C/UA = 6.0e7/2600 ~ 2.3e4 s`, five orders above the 0.1 s plant step,
-    /// so stability is not in question and an implicit solve would buy nothing.
-    /// **If the capacities are ever revised downward by orders of magnitude,
-    /// re-check this.**
+    /// # The scheme
+    ///
+    /// Backward Euler on both nodes, the RCCS a Dirichlet boundary on the
+    /// vessel:
+    ///
+    /// ```text
+    /// C_r (T_r' - T_r)/dt = G1 (T_b - T_r') - G2 (T_r' - T_v')
+    /// C_v (T_v' - T_v)/dt = G2 (T_r' - T_v') - G3 (T_v' - T_rccs)
+    /// ```
+    ///
+    /// linear in the new temperatures `T_r'`, `T_v'` for given conductances,
+    /// so each pass is a 2x2 solve. Three of the conductances are temperature
+    /// dependent (`k_eff(T)` in `G1`, radiation in `G2` and `G3`), so they are
+    /// re-evaluated at the latest iterate and the solve repeated
+    /// ([`IMPLICIT_PICARD_PASSES`]). A few dozen flops per step: no cost to
+    /// real-time running.
+    ///
+    /// **Energy is conserved by construction.** The heat rates returned and
+    /// stored are computed from the SAME conductances the final solve used,
+    /// at the solved temperatures, so `C dT/dt = q_in - q_out` holds on each
+    /// node to rounding, and the bed is charged exactly the heat the
+    /// reflector receives.
+    ///
+    /// ~~Explicit Euler on both nodes, justified by the RPV time constant
+    /// (~2.3e4 s) against the 0.1 s step.~~ **CORRECTED 2026-09-22**
+    /// (maintainer direction): made implicit, and stepped inside the plant's
+    /// corrector loop against the corrector's bed temperature with its state
+    /// rewound per corrector ([`crate::physics::HtgrPlant::step_with_correctors`]).
+    /// The explicit version was advanced once per corrector without a rewind,
+    /// which created energy in the reflector and vessel. Implicit also stays
+    /// stable if the capacities are ever revised far downward.
     pub fn advance(&mut self, dt: Time, bed_temperature: ThermodynamicTemperature) -> Power {
         let dt_s = dt.get::<second>();
-        let t_bed = bed_temperature.get::<kelvin>();
-        let t_refl = self.reflector_temperature.get::<kelvin>();
-        let t_rpv = self.rpv_temperature.get::<kelvin>();
-        let t_sink = Self::rccs_boundary().get::<kelvin>();
+        let t_b = bed_temperature.get::<kelvin>();
+        let t_s = Self::rccs_boundary().get::<kelvin>();
+        let (t_r0, t_v0) = (
+            self.reflector_temperature.get::<kelvin>(),
+            self.rpv_temperature.get::<kelvin>(),
+        );
+        let a_r = self.reflector_capacity.get::<joule_per_kelvin>() / dt_s;
+        let a_v = self.rpv_capacity.get::<joule_per_kelvin>() / dt_s;
+        let g1 = ua_core_to_reflector_w_per_k(bed_temperature);
 
-        // Both conductances are re-evaluated at the CURRENT temperatures --
-        // `k_eff(T)` on the bed leg, Stefan-Boltzmann on the gap leg. Holding
-        // either constant is what the 2026-09-17 correction removed.
-        let q_core_refl = ua_core_to_reflector_w_per_k(bed_temperature) * (t_bed - t_refl);
-        let q_refl_rpv = ua_reflector_to_rpv_w_per_k(self.reflector_temperature, self.rpv_temperature)
-            * (t_refl - t_rpv);
-        // Radiative, so re-evaluated at the CURRENT vessel temperature every
-        // step rather than held at its design value.
-        let q_rpv_rccs = simple_radiation_conductance(
-            self.rpv_radiating_area,
-            self.rpv_temperature,
-            Self::rccs_boundary(),
-        )
-        .get::<watt_per_kelvin>()
-            * (t_rpv - t_sink);
+        let (mut t_r, mut t_v) = (t_r0, t_v0);
+        let (mut g2, mut g3) = (0.0, 0.0);
+        for _ in 0..IMPLICIT_PICARD_PASSES {
+            let refl = ThermodynamicTemperature::new::<kelvin>(t_r);
+            let rpv = ThermodynamicTemperature::new::<kelvin>(t_v);
+            g2 = ua_reflector_to_rpv_w_per_k(refl, rpv);
+            g3 = simple_radiation_conductance(self.rpv_radiating_area, rpv, Self::rccs_boundary())
+                .get::<watt_per_kelvin>();
+            // [a11 a12; a21 a22] [T_r'; T_v'] = [b1; b2]
+            let (a11, a12, b1) = (a_r + g1 + g2, -g2, a_r * t_r0 + g1 * t_b);
+            let (a21, a22, b2) = (-g2, a_v + g2 + g3, a_v * t_v0 + g3 * t_s);
+            let det = a11 * a22 - a12 * a21;
+            t_r = (b1 * a22 - a12 * b2) / det;
+            t_v = (a11 * b2 - a21 * b1) / det;
+        }
 
-        let c_refl = self.reflector_capacity.get::<joule_per_kelvin>();
-        let c_rpv = self.rpv_capacity.get::<joule_per_kelvin>();
+        // Heat rates from the conductances the final solve used, at its
+        // solution: this is what makes the balance exact.
+        let q_core_refl = g1 * (t_b - t_r);
+        let q_rpv_rccs = g3 * (t_v - t_s);
+        let _ = g2; // q_refl_rpv = g2 (t_r - t_v) is internal to the chain
 
-        self.reflector_temperature =
-            ThermodynamicTemperature::new::<kelvin>(t_refl + dt_s * (q_core_refl - q_refl_rpv) / c_refl);
-        self.rpv_temperature =
-            ThermodynamicTemperature::new::<kelvin>(t_rpv + dt_s * (q_refl_rpv - q_rpv_rccs) / c_rpv);
-
+        self.reflector_temperature = ThermodynamicTemperature::new::<kelvin>(t_r);
+        self.rpv_temperature = ThermodynamicTemperature::new::<kelvin>(t_v);
         self.heat_from_core = Power::new::<watt>(q_core_refl);
         self.heat_to_rccs = Power::new::<watt>(q_rpv_rccs);
         self.heat_from_core
+    }
+
+    /// Sensible energy held in the two solid nodes, `C_refl T_refl + C_rpv
+    /// T_rpv`, measured from 0 K. Only its *change* is meaningful; it lets a
+    /// plant-level test close the energy balance across the seam with the bed.
+    #[cfg(test)]
+    pub fn stored_energy(&self) -> Energy {
+        Energy::new::<joule>(
+            self.reflector_capacity.get::<joule_per_kelvin>()
+                * self.reflector_temperature.get::<kelvin>()
+                + self.rpv_capacity.get::<joule_per_kelvin>() * self.rpv_temperature.get::<kelvin>(),
+        )
     }
 
     /// Graphite moderator/reflector bulk temperature.
@@ -619,6 +673,67 @@ mod tests {
             "energy is not conserved across the core->reflector->RPV->RCCS chain: \
              in {q_in:.3} W, out {q_out:.3} W, stored {stored:.3} J, residual {residual:.3e} J"
         );
+    }
+
+    /// **The RCCS is a fixed 50 degC boundary, fed by vessel radiation.**
+    ///
+    /// Methodology: the sink must be exactly 50 degC (Jun et al. 2009 section
+    /// 2.4, second-hand -- see the module doc) and must not move however long
+    /// it receives heat; the heat reaching it must be `sigma A (T_rpv^4 -
+    /// T_rccs^4)` at the vessel's solved temperature, to the Picard tolerance
+    /// (1e-6 relative), i.e. radiation to 50 degC and nothing else.
+    #[test]
+    fn the_rccs_is_a_fixed_50_c_sink_fed_by_vessel_radiation() {
+        let sink = CoreToRccsPath::rccs_boundary();
+        assert!((sink.get::<degree_celsius>() - 50.0).abs() < 1e-12);
+        assert!((sink.get::<kelvin>() - 323.15).abs() < 1e-9);
+
+        let mut path = CoreToRccsPath::placeholder();
+        let hot = ThermodynamicTemperature::new::<degree_celsius>(900.0);
+        for _ in 0..1000 {
+            path.advance(Time::new::<second>(0.1), hot);
+            assert_eq!(CoreToRccsPath::rccs_boundary(), sink, "the sink must not drift");
+        }
+        let t_v = path.rpv_temperature().get::<kelvin>();
+        let expected = 5.670374419e-8 * RPV_RADIATING_AREA_COEFF_M2 * (t_v.powi(4) - 323.15_f64.powi(4));
+        let got = path.heat_to_rccs().get::<watt>();
+        assert!(
+            (got - expected).abs() / expected < 1e-6,
+            "vessel -> RCCS must be sigma A (T^4 - T_rccs^4): {got:.3} W vs {expected:.3} W"
+        );
+    }
+
+    /// **The implicit scheme is stable at any step and relaxes to the steady
+    /// state**, where an explicit one would diverge.
+    ///
+    /// Methodology: one step of 1e10 s from the design state with the bed
+    /// held 200 K hotter. Explicit Euler would overshoot by many orders of
+    /// magnitude; backward Euler must stay bounded (every node between the
+    /// bed and the sink), close the energy balance to 1e-9, and land on the
+    /// new steady state, where the same heat crosses the whole chain.
+    ///
+    /// **Why 1e10 s.** One backward-Euler step still stores `C dT/dt` in the
+    /// nodes, so `q_in - q_out = sum(C dT) / dt`. With ~2.4e8 J/K and a rise
+    /// of order 100 K that is ~2 kW at 1e7 s (first measured: 2.2 kW of
+    /// 357 kW, which is the scheme behaving correctly, not a settling
+    /// failure) and ~2 W at 1e10 s, under the 1e-3 check.
+    #[test]
+    fn a_huge_step_lands_on_the_steady_state() {
+        let mut path = CoreToRccsPath::placeholder();
+        let bed = ThermodynamicTemperature::new::<kelvin>(DESIGN_BED_TEMPERATURE_K + 200.0);
+        let e0 = path.stored_energy().get::<joule>();
+        let dt = Time::new::<second>(1.0e10);
+        let q_in = path.advance(dt, bed).get::<watt>();
+        let q_out = path.heat_to_rccs().get::<watt>();
+        let (t_r, t_v) = (
+            path.reflector_temperature().get::<kelvin>(),
+            path.rpv_temperature().get::<kelvin>(),
+        );
+        assert!(bed.get::<kelvin>() > t_r && t_r > t_v && t_v > 323.15, "{t_r} {t_v}");
+        assert!((q_in - q_out).abs() / q_in < 1e-3, "not settled: {q_in} vs {q_out}");
+        let stored = path.stored_energy().get::<joule>() - e0;
+        let residual = stored - (q_in - q_out) * 1.0e10;
+        assert!(residual.abs() / (q_in * 1.0e10) < 1e-9, "residual {residual:e} J");
     }
 
     /// **Heat must flow downhill.** With the bed hotter than the reflector,

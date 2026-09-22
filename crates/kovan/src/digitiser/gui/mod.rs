@@ -65,6 +65,7 @@ pub fn run(image_arg: Option<String>, startup: Startup) -> Result<(), String> {
         options,
         Box::new(move |_cc| {
             let mut app = crate::app::DigitiseApp::default();
+            app.start_up(startup.root.is_some());
             if let Some(path) = image_arg {
                 app.load_image(&path);
             }

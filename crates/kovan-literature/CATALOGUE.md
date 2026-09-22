@@ -18,10 +18,18 @@ Bookkeeping-status sign-off block) that do not belong in a library catalogue.
   INIS, gen-4.org, nucleus.iaea.org) does not grant redistribution rights.
   When unsure: proprietary. See `kovan_import/README.md` (workspace root) for
   the full intake workflow and `DATA_POLICY.md` for the provenance rules.
-- **`open/`** is committed; `.gitignore` deliberately un-ignores
-  `open/**/*.pdf` so collaborators get the open literature with the repo.
+- ~~**`open/`** is committed; `.gitignore` deliberately un-ignores
+  `open/**/*.pdf` so collaborators get the open literature with the repo.~~
+  **CHANGED 2026-09-22 (maintainer direction):** PDFs no longer live in this
+  repository. Open PDFs are in [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature) (`kovan-standard-open-corpus/`
+  for Kovan's built-in corpus, `theodore-open-corpus/` for the rest); proprietary
+  documents, PDF and extracted text alike, are in the private repository `propreitrary-literature-theodore`.
+  `open/` keeps only open documents' metadata JSON (and some Markdown); the
+  generated Markdown and BibTeX stay under `generated/`.
 - **`proprietary/`** and `generated/markdown/proprietary/` are gitignored and
-  never leave the machine. The JSON records under `proprietary/` hold
+  ~~never leave the machine~~ never enter this public repository. **CHANGED
+  2026-09-22:** the maintainer's copies are kept in the private GitHub
+  repository `propreitrary-literature-theodore`. The JSON records under `proprietary/` hold
   bibliographic facts only in their metadata; they and their PDFs stay local.
 - The canonical record for each document is its **`KovanDocument` JSON**;
   `kovan lit bibtex <json>` regenerates a citation from it on demand. Every
@@ -38,6 +46,7 @@ Technology (VINANST-15), Nha Trang, Vietnam, 9–11 August 2023. IAEA INIS
 record [9cr77-d5t43](https://inis.iaea.org/records/9cr77-d5t43),
 proceedings report INIS-VN-006.
 - Files: `choo-htr10-criticality.{json,pdf}`.
+- **RECLASSIFIED 2026-09-22 → proprietary** (maintainer decision: no verified reuse licence). The PDF and all extracted text (JSON, Markdown, BibTeX) moved to the private repository `propreitrary-literature-theodore`; nothing of it remains in this repository. The entry is kept here as the record of what it was.
 - *Good for:* HTR-10 initial-criticality modelling with Serpent and the HTR
   Code Package (HCP); the SNRSI-local companion to the IAEA benchmark. The
   authors are the maintainer's supervisor (Xiao) and a former colleague.
@@ -66,6 +75,7 @@ proceedings report INIS-VN-006.
 in Energy Research 9:704116.
 [doi:10.3389/fenrg.2021.704116](https://doi.org/10.3389/fenrg.2021.704116).
 - Files: `she2021pangu.{json,pdf}`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/cc-by/she2021pangu.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Licence:* **CC-BY**, verified from the copyright statement in the document
   itself — redistribution with attribution permitted, PDF committed.
 - *Good for:* the full HTR-10 operation history (Jan 2003 – May 2007) as a
@@ -84,6 +94,8 @@ Benchmark analysis related to initial testing of the HTTR and HTR-10.*
 IAEA-TECDOC-1382, Vienna, November 2003. Source:
 [www-pub.iaea.org](https://www-pub.iaea.org/MTCD/publications/PDF/te_1382_web/).
 - Files: `iaea-tecdoc-1382-part1.{json,pdf}`, `iaea-tecdoc-1382-part2.{json,pdf}`.
+- **RECLASSIFIED 2026-09-22 → proprietary** (maintainer decision: no verified reuse licence). The PDF and all extracted text (JSON, Markdown, BibTeX) moved to the private repository `propreitrary-literature-theodore`; nothing of it remains in this repository. The entry is kept here as the record of what it was.
+  The derived dataset `derived/tecdoc1382-htr10-control-rods.md` (facts, with provenance) stays committed.
 - *Tier basis:* openly published IAEA TECDOC.
 - *Good for:* **part 2, Chapter 4 is the HTR-10 core-physics benchmark** —
   problems B1 (critical loading height), B2 (k_eff vs. temperature), B3/B4
@@ -101,6 +113,7 @@ IAEA-TECDOC-1382, Vienna, November 2003. Source:
 (V)HTR-Modul.* EUR 28712 EN, JRC107642, Publications Office of the European
 Union. [doi:10.2760/270321](https://doi.org/10.2760/270321).
 - Files: `vhtr-modul-safety-jrc.json`, PDF archived as `kjna28712enn.pdf`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/jrc/kjna28712enn.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Licence:* reuse authorised provided the source is acknowledged (EC Decision
   2011/833/EU); photos not under EU copyright need separate permission.
 - *Good for:* the reference safety treatment of pebble-bed HTGRs — decay-heat
@@ -117,6 +130,7 @@ Multinational project (Denmark, Finland, France, Netherlands, Norway, Sweden,
 USA, West Germany).
 - Files: `nureg-cr-2671-marviken.{json,pdf}`; generated markdown at
   `generated/markdown/open/nureg-cr-2671-marviken.md`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/nrc/nureg-cr-2671-marviken.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Tier basis:* US NRC / NTIS publication — US federal government work, openly
   published. Access tier OPEN, decided from the document's own front matter.
 - *Good for:* THE reference for the Marviken full-scale critical-flow
@@ -161,6 +175,7 @@ Stainless Steels.* ANL-75-55, Argonne National Laboratory, Chemical Engineering
 Division, September 1975. Distribution category LMFBR Fuels and Materials
 (UC-79b). [OSTI 4152287](https://www.osti.gov/servlets/purl/4152287).
 - Files: `kim1975-thermophysical-properties-stainless-steels.{json,md,pdf}`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/us-doe/kim1975-thermophysical-properties-stainless-steels.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Licence:* **US Government work — public domain.** Prepared under contract
   W-31-109-Eng-38 for the U.S. Energy Research and Development Administration;
   the title page carries "DISTRIBUTION OF THIS DOCUMENT IS UNLIMITED". PDF
@@ -193,6 +208,7 @@ Pottlacher, G. *Measurements of thermophysical properties of solid and liquid
 NIST SRM 316L stainless steel.* Journal of Materials Science, Springer.
 [doi:10.1007/s10853-019-04261-6](https://doi.org/10.1007/s10853-019-04261-6).
 - Files: `pichler2020-316l-thermophysical-properties.{json,md,pdf}`.
+  **PDF MOVED 2026-09-22** (maintainer direction) to [`reactor-literature`](https://github.com/theodoreOnzGit/reactor-literature), `theodore-open-corpus/cc-by/pichler2020-316l-thermophysical-properties.pdf`; the JSON, Markdown and BibTeX stay here.
 - *Licence:* **CC BY 4.0**, verified from the copyright statement in the
   document, *and* declared an "Official contribution of the National Institute
   of Standards and Technology; not subject to copyright in the United States".
@@ -214,6 +230,13 @@ NIST SRM 316L stainless steel.* Journal of Materials Science, Springer.
   liquid-metal material exists (see `op-k74g`).
 
 ### Theses (`open/theses/`)
+
+> **RECLASSIFIED 2026-09-22 → proprietary**, all four (maintainer decision). This
+> subsection and the "Proprietary tier — theses" section below had listed the
+> three UC Berkeley theses in both tiers at once; that contradiction is resolved
+> in favour of proprietary. The PDFs, extracted text, BibTeX and
+> `open/theses/References.md` moved to the private repository `propreitrary-literature-theodore`. The text below is
+> kept as the record of what was here.
 
 Four open-access theses, each with committed PDF, generated markdown and
 BibTeX. The first three are UC Berkeley dissertations from eScholarship; full
@@ -251,6 +274,7 @@ under the direction of Ayman I. Hawari. NCSU Repository handle
 - Files: `zhu2014thermal.{json,pdf}`; markdown at
   `generated/markdown/open/zhu2014thermal.md`; BibTeX round-trips cleanly
   (checked 2026-08-19).
+- **RECLASSIFIED 2026-09-22 → proprietary** (maintainer decision: no verified reuse licence). The PDF and all extracted text (JSON, Markdown, BibTeX) moved to the private repository `propreitrary-literature-theodore`; nothing of it remains in this repository. The entry is kept here as the record of what it was.
 - *Tier decision:* Open. Copyright page reads "© Copyright 2014 Yuwei Zhu, All
   Rights Reserved" with no explicit redistribution licence stated, but the
   thesis is deposited and freely downloadable via NCSU's institutional
@@ -415,7 +439,25 @@ Group Meeting, November 2005. Obtained from
 - *Used by:* `docs/reactor-scoping/htr10-neutronics.md` (final section, Table 2
   values transcribed with provenance); `op-tvmf`, `op-lhu6`, `op-5c5r`.
 
+**`qin1996htr10design`** — Qin, Z. *General Design of the 10MW HTR.* Institute
+of Nuclear Energy Technology, Tsinghua University. JAERI-Conf 96-010, 3rd JAERI
+Symposium on HTGR Technologies (read from the document's title page; not
+catalogued before 2026-09-22).
+- *Tier rationale:* no copyright or licence statement found in the document.
+  Moved from `open/reports/` on 2026-09-22 (maintainer decision) to the private repository `propreitrary-literature-theodore`.
+
+**`mcdowell2011htgrcodes`** — McDowell, B.K., Mitchell, M.R., Pugh, R. et al.
+(2011). *High Temperature Gas Reactors: Assessment of Applicable Codes and
+Standards.* PNNL-20869, Pacific Northwest National Laboratory, prepared for the
+U.S. NRC, October 2011 (read from the title page; not catalogued before
+2026-09-22).
+- *Tier rationale:* no copyright or licence statement found in the document.
+  Moved from `open/reports/` on 2026-09-22 (maintainer decision) to the private repository `propreitrary-literature-theodore`.
+
 ## Proprietary tier — theses (`proprietary/theses/`)
+
+> **2026-09-22:** these three, and `zhu2014thermal` (NC State MS thesis, "©
+> Copyright 2014 Yuwei Zhu, All Rights Reserved"), are held in the private repository `propreitrary-literature-theodore`.
 
 All three are UC Berkeley Electronic Theses and Dissertations, publicly readable
 via eScholarship but carrying a bare `Copyright <year>` with no reuse licence —

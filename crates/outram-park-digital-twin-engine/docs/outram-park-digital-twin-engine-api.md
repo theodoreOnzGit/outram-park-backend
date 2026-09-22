@@ -2,7 +2,7 @@
 
 **Version:** 0.0.2
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `outram_park_digital_twin_engine`
 
@@ -101,6 +101,11 @@ evenly-spaced tracer marks sharing one phase, advanced by
 [`TracerTrain::advance`]. [`residence_time_from_flow`] computes the
 residence time that drives it from a component's fluid inventory and mass
 flow.
+
+[`PebbleTransits`] is the event-driven counterpart: nothing moves until an
+object is launched, and each crosses once and leaves. It animates single
+pebbles sent up a refuelling chute or down a defuelling chute, under the
+same direction-from-flow, speed-from-transit-time contract.
 
 ## Where tracer state lives
 
@@ -267,7 +272,7 @@ The rod is at its commanded depth and is not moving.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -296,7 +301,7 @@ The rod is at its commanded depth and is not moving.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -328,7 +333,7 @@ The rod is at its commanded depth and is not moving.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -496,7 +501,7 @@ pub struct ControlRodDrive {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -515,7 +520,7 @@ pub struct ControlRodDrive {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -542,7 +547,7 @@ pub struct ControlRodDrive {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -761,7 +766,7 @@ pub struct TracerPulse {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -780,7 +785,7 @@ pub struct TracerPulse {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -812,7 +817,7 @@ pub struct TracerPulse {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -946,7 +951,7 @@ No flow (or no finite residence time) -- tracers hold position.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -975,7 +980,7 @@ No flow (or no finite residence time) -- tracers hold position.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -1007,7 +1012,7 @@ No flow (or no finite residence time) -- tracers hold position.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -1179,7 +1184,7 @@ pub struct TracerTrain {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -1198,7 +1203,7 @@ pub struct TracerTrain {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -1230,7 +1235,233 @@ pub struct TracerTrain {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `PebbleTransits`
+
+Discrete objects sent along a path **one launch at a time**, each crossing
+it once and then leaving: a pebble lifted up a refuelling chute, or one
+discharged down a defuelling chute.
+
+[`TracerTrain`] and [`TracerPulse`] both loop forever, which is right for a
+continuous flow. A pebble transit is an **event**: nothing moves until one
+is launched, and each one leaves when it reaches the far end.
+
+Follows [`TracerTrain::advance`]'s contract: the sign of the driving
+`mass_flow` sets the direction, the `transit_time` sets the speed (a
+launched object crosses in exactly one transit time), and a zero or
+non-finite flow or transit time freezes everything in place rather than
+guessing at a speed. Objects enter at `0` (the inlet); with reversed flow
+they drift back and leave at `0`, with forward flow they leave at `1`.
+
+```rust
+pub struct PebbleTransits {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  Nothing in flight.
+
+- ```rust
+  pub fn launch(self: &mut Self) { /* ... */ }
+  ```
+  Put one new object at the inlet, position `0`.
+
+- ```rust
+  pub fn advance(self: &mut Self, dt: Time, transit_time: Time, mass_flow: MassRate) -> usize { /* ... */ }
+  ```
+  Advance every object by `dt`, then drop any that have left the path.
+
+- ```rust
+  pub fn positions(self: &Self) -> impl Iterator<Item = f64> + ''_ { /* ... */ }
+  ```
+  Positions of the objects in flight, each in `[0, 1]` from the inlet.
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  How many objects are in flight.
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  Whether nothing is in flight.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PebbleTransits { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> PebbleTransits { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PebbleTransits) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -1406,6 +1637,13 @@ pub use control_rod_drive::RodDriveMotion;
 
 ## Module `ciet_opcua`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:82:11: 82:33 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:82:10: 82:34 (#0))])]")`
+
+Not built for wasm: this module's OPC-UA / mDNS / networking stack has no
+browser equivalent (see the wasm target table in Cargo.toml). Android keeps
+it. Beads op-okqo.3, op-eeqw.2.
 OPC-UA (IEC 62541) interface layer for the CIET Educational Simulator v2.
 
 This module is the **shared interface** between the two CIET v2 binaries:
@@ -1825,6 +2063,8 @@ Wall-clock cost of the last timestep, ms.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **AsId**
+- **AsIdSalt**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -1875,7 +2115,7 @@ Wall-clock cost of the last timestep, ms.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -1909,7 +2149,7 @@ Wall-clock cost of the last timestep, ms.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -1941,7 +2181,7 @@ Wall-clock cost of the last timestep, ms.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -2096,6 +2336,8 @@ clamped to the Courant stability limit either way.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **AsId**
+- **AsIdSalt**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2146,7 +2388,7 @@ clamped to the Courant stability limit either way.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -2180,7 +2422,7 @@ clamped to the Courant stability limit either way.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -2212,7 +2454,7 @@ clamped to the Courant stability limit either way.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -2348,6 +2590,8 @@ Cheaper per timestep; useful on slow hardware and on Termux.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **AsId**
+- **AsIdSalt**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -2398,7 +2642,7 @@ Cheaper per timestep; useful on slow hardware and on Termux.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -2432,7 +2676,7 @@ Cheaper per timestep; useful on slow hardware and on Termux.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -2464,7 +2708,7 @@ Cheaper per timestep; useful on slow hardware and on Termux.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -3005,7 +3249,7 @@ pub struct CietOpcuaSimulator;
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -3034,7 +3278,7 @@ pub struct CietOpcuaSimulator;
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -3067,7 +3311,7 @@ pub struct CietOpcuaSimulator;
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -3220,7 +3464,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -3249,7 +3493,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -3332,7 +3576,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -3668,7 +3912,7 @@ pub enum HeaterType {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -3697,7 +3941,7 @@ pub enum HeaterType {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -3729,7 +3973,7 @@ pub enum HeaterType {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -3901,7 +4145,7 @@ pub struct HeaterControlSettings {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -3920,7 +4164,7 @@ pub struct HeaterControlSettings {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -3957,7 +4201,7 @@ pub struct HeaterControlSettings {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -4341,7 +4585,7 @@ pub struct CietState {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -4360,7 +4604,7 @@ pub struct CietState {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -4397,7 +4641,7 @@ pub struct CietState {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -4693,7 +4937,7 @@ pub struct CietUserControls {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -4712,7 +4956,7 @@ pub struct CietUserControls {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -4749,7 +4993,7 @@ pub struct CietUserControls {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -4899,6 +5143,13 @@ pub use state::SharedCietState;
 
 ## Module `opcua_core`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_arch\", value: Some(\"wasm32\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:93:11: 93:33 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:93:10: 93:34 (#0))])]")`
+
+Not built for wasm: this module's OPC-UA / mDNS / networking stack has no
+browser equivalent (see the wasm target table in Cargo.toml). Android keeps
+it. Beads op-okqo.3, op-eeqw.2.
 Reactor-agnostic OPC-UA (IEC 62541) server layer for OUTRAM PARK digital
 twins.
 
@@ -5130,7 +5381,7 @@ pub struct DiscoveredSimulator {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -5159,7 +5410,7 @@ pub struct DiscoveredSimulator {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -5191,7 +5442,7 @@ pub struct DiscoveredSimulator {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -5319,7 +5570,7 @@ pub struct MdnsAdvertisement {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Drop**
@@ -5343,7 +5594,7 @@ pub struct MdnsAdvertisement {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -5370,7 +5621,7 @@ pub struct MdnsAdvertisement {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -5496,7 +5747,7 @@ pub struct MdnsBrowser<S: OpcuaSimulator> {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Drop**
@@ -5520,7 +5771,7 @@ pub struct MdnsBrowser<S: OpcuaSimulator> {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -5547,7 +5798,7 @@ pub struct MdnsBrowser<S: OpcuaSimulator> {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -5687,7 +5938,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Error**
@@ -5707,7 +5958,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -5734,7 +5985,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -6267,7 +6518,7 @@ pub struct OpcuaServerConfig {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -6286,7 +6537,7 @@ pub struct OpcuaServerConfig {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -6313,7 +6564,7 @@ pub struct OpcuaServerConfig {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -6453,7 +6704,7 @@ pub struct OpcuaEndpointInfo {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -6472,7 +6723,7 @@ pub struct OpcuaEndpointInfo {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -6499,7 +6750,7 @@ pub struct OpcuaEndpointInfo {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -6629,7 +6880,7 @@ pub struct OpcuaServerHandle {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -6648,7 +6899,7 @@ pub struct OpcuaServerHandle {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -6675,7 +6926,7 @@ pub struct OpcuaServerHandle {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -6855,7 +7106,7 @@ which means it panicked. The panic message itself is on stderr.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Error**
@@ -6883,7 +7134,7 @@ which means it panicked. The panic message itself is on stderr.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -6910,7 +7161,7 @@ which means it panicked. The panic message itself is on stderr.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -7191,7 +7442,7 @@ pub struct OpcuaSimulatorProfile {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -7220,7 +7471,7 @@ pub struct OpcuaSimulatorProfile {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -7252,7 +7503,7 @@ pub struct OpcuaSimulatorProfile {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -7331,6 +7582,8 @@ Values a client may write.
     fn type_id(self: &Self) -> TypeId { /* ... */ }
     ```
 
+- **AsId**
+- **AsIdSalt**
 - **Borrow**
   - ```rust
     fn borrow(self: &Self) -> &T { /* ... */ }
@@ -7381,7 +7634,7 @@ Values a client may write.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -7415,7 +7668,7 @@ Values a client may write.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -7447,7 +7700,7 @@ Values a client may write.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -7752,7 +8005,7 @@ rewrite and its V&V tests share one provenance-checked source.
 
 | Source | Access tier | On-disk catalogue |
 |---|---|---|
-| IAEA-TECDOC-1382, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003 — Chapter 4 is the HTR-10 core physics benchmark | Open | `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json` (Chapter 4; `part1` is the HTTR half and front matter). |
+| IAEA-TECDOC-1382, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003 — Chapter 4 is the HTR-10 core physics benchmark | ~~Open~~ Proprietary (reclassified 2026-09-22: no verified reuse licence) | `iaea-tecdoc-1382-part2` (Chapter 4; `part1` is the HTTR half and front matter), held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`. |
 | Gao & Shi (2002), Nucl. Eng. Des. 218, 51-64, doi 10.1016/S0029-5493(02)00198-X | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/gao2002htr10th.json` (kovan-ddb61cb136fb98a9) |
 | Virtual Test Bed generic pebble-bed tutorial, step 2 (KTA worked example) | Open | `reference-data/virtual_test_bed/doc/content/htgr/generic-pbr-tutorial/step2.md` |
 | Virtual Test Bed generic PBR input (ZBS conductivity tabulation) | Open | `reference-data/virtual_test_bed/htgr/generic-pbr/pbr.i` |
@@ -7810,7 +8063,7 @@ pub mod design { /* ... */ }
 
 The HTR-10 design point as specified in the IAEA HTGR benchmark document,
 Chapter 4 (Open tier; catalogued at
-`crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json`; the
+`iaea-tecdoc-1382-part2` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`); the
 document is IAEA-TECDOC-1382, IAEA Vienna, November 2003).
 
 All fields are `uom` quantities; the doc comment of each field spells out
@@ -7951,7 +8204,7 @@ pub struct Htr10DesignPoint {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -7970,7 +8223,7 @@ pub struct Htr10DesignPoint {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -8002,7 +8255,7 @@ pub struct Htr10DesignPoint {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -8144,7 +8397,7 @@ pub struct Htr10FuelTemperatureLimits {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -8163,7 +8416,7 @@ pub struct Htr10FuelTemperatureLimits {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -8195,7 +8448,7 @@ pub struct Htr10FuelTemperatureLimits {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -8430,8 +8683,8 @@ roughly 1000 pcm. Every quantity here is tagged with
 
 | Source | Tier | On-disk |
 |---|---|---|
-| **IAEA-TECDOC-1382**, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003. Chapter 4 is the HTR-10 core physics benchmark | Open | `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json` (markdown at `generated/markdown/open/iaea-tecdoc-1382-part2.md`) |
-| Choo, A. J. Y. and Xiao, S. (2024), *Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package*, SNRSI/NUS | Open | `crates/kovan-literature/open/papers/choo-htr10-criticality.json` |
+| **IAEA-TECDOC-1382**, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003. Chapter 4 is the HTR-10 core physics benchmark | ~~Open~~ Proprietary (reclassified 2026-09-22: no verified reuse licence) | `iaea-tecdoc-1382-part2` (with its extracted Markdown), held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md` |
+| Choo, A. J. Y. and Xiao, S. (~~2024~~ 2023, **CORRECTED 2026-09-22** per the catalogue's INIS-record check; VINANST-15), *Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package*, SNRSI/NUS | ~~Open~~ Proprietary (reclassified 2026-09-22: no licence stated) | `choo-htr10-criticality`, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md` |
 | Wang, M.-J., Sheu, R.-J., Peir, J.-J. and Liang, J.-H. (2014), *Criticality calculations of the HTR-10 pebble-bed reactor with SCALE6/CSAS6 and MCNP5*, Ann. Nucl. Energy 64, 1-7, doi 10.1016/j.anucene.2013.09.031 | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/wang2014htr10criticality.json` |
 | Tantillo, F. et al. (2020), *HTR code package neutronics developments and benchmarks*, Nucl. Eng. Des. 362, 110603, doi 10.1016/j.nucengdes.2020.110603 | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/tantillo2020hcpneutronics.json` |
 
@@ -8543,7 +8796,7 @@ implement from it; never re-host it.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -8572,7 +8825,7 @@ implement from it; never re-host it.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -8604,7 +8857,7 @@ implement from it; never re-host it.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -8756,7 +9009,7 @@ Package / TRISHA versus Serpent, ENDF/B-VII.0.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -8785,7 +9038,7 @@ Package / TRISHA versus Serpent, ENDF/B-VII.0.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -8817,7 +9070,7 @@ Package / TRISHA versus Serpent, ENDF/B-VII.0.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -8979,7 +9232,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -9008,7 +9261,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -9040,7 +9293,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -9197,7 +9450,7 @@ treatment for pebble-bed fuel.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -9226,7 +9479,7 @@ treatment for pebble-bed fuel.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -9258,7 +9511,7 @@ treatment for pebble-bed fuel.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -9412,7 +9665,7 @@ section 4.2.1.3, "deviated benchmark"): dummy balls of density
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -9441,7 +9694,7 @@ section 4.2.1.3, "deviated benchmark"): dummy balls of density
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -9473,7 +9726,7 @@ section 4.2.1.3, "deviated benchmark"): dummy balls of density
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -9612,7 +9865,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -9631,7 +9884,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -9663,7 +9916,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -9810,7 +10063,7 @@ pub struct HumidAirComposition {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -9829,7 +10082,7 @@ pub struct HumidAirComposition {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -9861,7 +10114,7 @@ pub struct HumidAirComposition {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -9990,7 +10243,7 @@ pub struct DummyPebbleSpec {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -10009,7 +10262,7 @@ pub struct DummyPebbleSpec {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -10041,7 +10294,7 @@ pub struct DummyPebbleSpec {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -10235,7 +10488,7 @@ pub struct TrisoParticle {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -10254,7 +10507,7 @@ pub struct TrisoParticle {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -10286,7 +10539,7 @@ pub struct TrisoParticle {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -10432,7 +10685,7 @@ pub struct FuelPebbleSpec {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -10451,7 +10704,7 @@ pub struct FuelPebbleSpec {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -10483,7 +10736,7 @@ pub struct FuelPebbleSpec {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -10534,12 +10787,21 @@ pub struct FuelPebbleSpec {
 The core geometry the sources state **in text**, in the R-Z core-physics
 model of the IAEA benchmark (its Figure 4.10).
 
-**Deliberately incomplete.** The full zone map — conus angle, discharge-tube
-radius, individual reflector block boundaries, and the axial coordinates of
-the 83 material zones — exists in the source only as a *figure*, and is not
-recoverable from the text. Those dimensions are therefore absent here
-rather than guessed. See `docs/reactor-scoping/htr10-neutronics.md` for the
-routes to obtaining them.
+**Deliberately incomplete, in this struct only.** ~~The full zone map —
+conus angle, discharge-tube radius, individual reflector block boundaries,
+and the axial coordinates of the 83 material zones — exists in the source
+only as a *figure*, and is not recoverable from the text. Those dimensions
+are therefore absent here rather than guessed. See
+`docs/reactor-scoping/htr10-neutronics.md` for the routes to obtaining
+them.~~ **CORRECTED 2026-09-17** — that map has since been built: it is a
+hand-transcription of the source figure (Terry et al. 2005, Fig. 2), not
+text, at
+`crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/reactor_model/htr10_rz_geometry.rs`
+(added 2026-08-17/18; 753 lines, verified present — see that file's own
+"Status: NOT VALIDATED" section for its provenance caveats). This struct
+itself still holds only the text-recoverable dimensions and is unchanged;
+what is corrected is the implication that no fuller zone map exists in the
+workspace at all.
 
 ```rust
 pub struct Htr10CoreGeometry {
@@ -10663,7 +10925,7 @@ pub struct Htr10CoreGeometry {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -10682,7 +10944,7 @@ pub struct Htr10CoreGeometry {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -10714,7 +10976,7 @@ pub struct Htr10CoreGeometry {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -10848,7 +11110,7 @@ pub struct LoadingCurvePoint {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -10867,7 +11129,7 @@ pub struct LoadingCurvePoint {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -10899,7 +11161,7 @@ pub struct LoadingCurvePoint {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -11047,7 +11309,7 @@ pub struct FirstCriticalityMeasurement {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -11066,7 +11328,7 @@ pub struct FirstCriticalityMeasurement {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -11098,7 +11360,7 @@ pub struct FirstCriticalityMeasurement {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -11234,7 +11496,7 @@ pub struct PublishedKeff {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -11253,7 +11515,7 @@ pub struct PublishedKeff {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -11285,7 +11547,7 @@ pub struct PublishedKeff {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -11459,7 +11721,7 @@ standard first step several papers report before the full core.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -11488,7 +11750,7 @@ standard first step several papers report before the full core.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -11520,7 +11782,7 @@ standard first step several papers report before the full core.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -11653,7 +11915,7 @@ pub struct ControlRodWorth {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -11672,7 +11934,7 @@ pub struct ControlRodWorth {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -11704,7 +11966,7 @@ pub struct ControlRodWorth {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -12111,11 +12373,666 @@ tier).
 pub const ZBS_CONDUCTIVITY_WATT_PER_METER_KELVIN: [f64; 18] = _;
 ```
 
-## Module `app_scaffold`
+## Module `prelude`
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:92:11: 92:32 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:92:10: 92:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:100:11: 100:32 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:100:10: 100:33 (#0))])]")`
+
+Render 2-D schematic geometry to a character grid, so a diagram can be
+checked by a test or an agent instead of only by eye. See the module docs.
+Convenience re-exports: `use outram_park_digital_twin_engine::prelude::*;`
+Convenience re-exports — the intended entry point.
+
+```
+use outram_park_digital_twin_engine::prelude::*;
+```
+
+**A public item reachable only by its full module path is not considered
+exposed.** If you add one on the critical path, add it here in the same
+change.
+
+That rule is not decoration. Across seven crates dogfooded in gh #58, every
+usability finding had the same shape — the type was exported, the way in was
+not shown — and the two worst were preludes: one that imported *nothing*
+(an empty scope, no error, every later type failing to resolve with a
+message pointing at the wrong place), and one that exported a `todo!()`
+which panics.
+
+## Headless and ASCII come first
+
+```
+use outram_park_digital_twin_engine::prelude::*;
+
+// Any simulator implementing HeadlessModel runs with no GUI:
+//   let trace = run(&mut model, controls, HeadlessRun::default());
+
+// And any schematic geometry renders to a terminal-readable grid:
+let mut c = AsciiCanvas::new(20, 6, (0.0, 0.0), (10.0, 10.0));
+c.rect(1.0, 1.0, 9.0, 5.0, Some("CORE"));
+c.arrow(5.0, 2.0, 5.0, 4.0); // y grows DOWN, so this flows downward
+assert!(c.render().contains('v'));
+```
+
+```rust
+pub mod prelude { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `assert_deterministic`
+
+```rust
+pub use crate::headless::assert_deterministic;
+```
+
+#### Re-export `run`
+
+```rust
+pub use crate::headless::run;
+```
+
+#### Re-export `run_csv`
+
+```rust
+pub use crate::headless::run_csv;
+```
+
+#### Re-export `HeadlessModel`
+
+```rust
+pub use crate::headless::HeadlessModel;
+```
+
+#### Re-export `HeadlessRun`
+
+```rust
+pub use crate::headless::HeadlessRun;
+```
+
+#### Re-export `AsciiCanvas`
+
+```rust
+pub use crate::ascii::AsciiCanvas;
+```
+
+#### Re-export `PanelSet`
+
+```rust
+pub use crate::app_scaffold::PanelSet;
+```
+
+#### Re-export `SharedState`
+
+```rust
+pub use crate::app_scaffold::SharedState;
+```
+
+## Module `ascii`
+
+Render 2-D schematic geometry to a character grid.
+
+**Why this exists.** A GUI schematic can only be checked by a human looking
+at it, so in practice it stops being checked. `htgr_sim_v1` accumulated
+three drawing errors that way — core flow drawn upward when the model flows
+it downward, the steam generator drawn co-current when the physics is
+counter-current, and the SG vessel at the wrong height — while every test
+passed, because the tests check numbers and the picture was checked by eye.
+
+A character grid is a **diffable, greppable, terminal-readable** rendering
+that an agent or a CI job can inspect. Commit one as a fixture and a layout
+change shows up as a text diff.
+
+## This is not a substitute for assertions
+
+Rendering shows you *what changed*; it does not tell you *whether it is
+right*. Where a layout property is checkable — "the SG sits below the
+reactor", "gas and water traverse the exchanger in opposite directions" —
+**assert it directly on the geometry**, which is cheaper, sharper, and fails
+with a useful message. Use this to see the thing; use assertions to hold it
+in place.
+
+## Coordinates
+
+Screen convention, matching egui: **x grows right, y grows DOWN.** A shape
+at smaller `y` is *higher* on the screen. This trips people up constantly,
+so every direction-dependent method documents which way it means.
+
+No dependency on egui or any GUI stack — the API is plain `f32` pairs, so
+this works headless, in a test, on wasm, or anywhere else.
+
+```
+use outram_park_digital_twin_engine::ascii::AsciiCanvas;
+
+let mut c = AsciiCanvas::new(24, 8, (0.0, 0.0), (100.0, 100.0));
+c.rect(10.0, 10.0, 90.0, 60.0, Some("CORE"));
+c.arrow(50.0, 15.0, 50.0, 55.0); // downward flow
+let art = c.render();
+assert!(art.contains("CORE"));
+```
+
+```rust
+pub mod ascii { /* ... */ }
+```
+
+### Types
+
+#### Struct `AsciiCanvas`
+
+A fixed-size character grid with a world-to-cell mapping.
+
+```rust
+pub struct AsciiCanvas {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(cols: usize, rows: usize, min: (f32, f32), max: (f32, f32)) -> Self { /* ... */ }
+  ```
+  A blank canvas `cols` x `rows`, mapping world rectangle `min`..`max`
+
+- ```rust
+  pub fn size(self: &Self) -> (usize, usize) { /* ... */ }
+  ```
+  Grid size as `(cols, rows)`.
+
+- ```rust
+  pub fn point(self: &mut Self, x: f32, y: f32, ch: char) { /* ... */ }
+  ```
+  Write `ch` at a world point. Out-of-bounds points are dropped silently —
+
+- ```rust
+  pub fn line(self: &mut Self, x0: f32, y0: f32, x1: f32, y1: f32, ch: char) { /* ... */ }
+  ```
+  A straight line in `ch`, sampled densely enough to leave no gaps.
+
+- ```rust
+  pub fn polyline(self: &mut Self, pts: &[(f32, f32)], ch: char) { /* ... */ }
+  ```
+  A connected polyline.
+
+- ```rust
+  pub fn rect(self: &mut Self, x0: f32, y0: f32, x1: f32, y1: f32, label: Option<&str>) { /* ... */ }
+  ```
+  An axis-aligned box outline, optionally labelled at its top-left inside.
+
+- ```rust
+  pub fn arrow(self: &mut Self, x0: f32, y0: f32, x1: f32, y1: f32) { /* ... */ }
+  ```
+  An arrow from one world point to another, with a head showing direction.
+
+- ```rust
+  pub fn text(self: &mut Self, x: f32, y: f32, s: &str) { /* ... */ }
+  ```
+  Left-aligned text starting at a world point, clipped at the right edge.
+
+- ```rust
+  pub fn render(self: &Self) -> String { /* ... */ }
+  ```
+  The grid as text, one line per row, trailing blanks trimmed so the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> AsciiCanvas { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut fmt::Formatter<''_>) -> fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToSmolStr**
+  - ```rust
+    fn to_smolstr(self: &Self) -> SmolStr { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+## Module `headless`
+
+Drive a simulator with no GUI, no window and no thread -- required of every
+egui simulator in this workspace. See the module docs and gh #150.
+Drive a simulator with no GUI, no window and no thread.
+
+**Required of every egui simulator in this workspace** — see the "Every egui
+simulator ships a headless mode" hard rule in the root `CLAUDE.md`, and bead
+`op-otiy` / gh #150.
+
+## Why
+
+A GUI-only simulator cannot be tested and therefore cannot be trusted. An
+agent or a CI job cannot open a window, so the model ends up checked only by
+a human watching it, which in practice means not checked at all.
+
+The rule was written after the first headless run of `htgr_sim_v1`.
+`PlantCommands::default()` was documented as starting *"near steady state
+rather than on a prompt excursion"*; it actually overshoots to ~2.8x nominal
+power before settling. The docstring had been wrong, unnoticed, because
+nobody could run the thing without watching it.
+
+## The contract
+
+Implement [`HeadlessModel`] and you get [`run`], [`run_csv`] and a
+determinism check for free. The trait is deliberately narrow, and each
+requirement rules out a specific way headless testing goes wrong:
+
+- [`submit`](HeadlessModel::submit) — controls **one way in**
+- [`tick`](HeadlessModel::tick) — **exactly one** timestep, then return. No
+  loop, no thread, no clock. A model that owns its own cadence cannot be
+  scheduled by a test, a native pool, or a Web Worker.
+- [`sample`](HeadlessModel::sample) — observations **one way out**
+
+Implementations must be **deterministic**: same controls in, byte-identical
+trace out. No wall clock, no time-seeded RNG, no I/O inside `tick`.
+[`assert_deterministic`] checks it, and every committed fixture depends on
+that property holding.
+
+```rust
+pub mod headless { /* ... */ }
+```
+
+### Types
+
+#### Struct `HeadlessRun`
+
+How long to run and how often to record.
+
+```rust
+pub struct HeadlessRun {
+    pub steps: usize,
+    pub sample_every: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steps` | `usize` | Timesteps to advance. |
+| `sample_every` | `usize` | Record every `sample_every` steps. `1` records every step. The final<br>step is always recorded, so a run never ends on an unobserved state. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> HeadlessRun { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Traits
+
+#### Trait `HeadlessModel`
+
+A simulator that can be advanced headlessly.
+
+```rust
+pub trait HeadlessModel {
+    /* Associated items */
+}
+```
+
+> This trait is not object-safe and cannot be used in dynamic trait objects.
+
+##### Required Items
+
+###### Associated Types
+
+- `Controls`: Operator input. One way in.
+- `Sample`: One row of observations. One way out.
+
+###### Required Methods
+
+- `submit`: Accept new controls. Called before stepping, not per step.
+- `tick`: Advance **exactly one** timestep and return.
+- `sample`: Observe the current state.
+- `csv_header`: Column names for CSV output, matching [`sample_csv`](Self::sample_csv).
+- `sample_csv`: One CSV row for a sample.
+
+### Functions
+
+#### Function `run`
+
+Advance `model` and return the sampled trace.
+
+```rust
+pub fn run<M: HeadlessModel>(model: &mut M, controls: <M as >::Controls, cfg: HeadlessRun) -> Vec<<M as >::Sample> { /* ... */ }
+```
+
+#### Function `run_csv`
+
+[`run`], rendered as CSV with a header.
+
+```rust
+pub fn run_csv<M: HeadlessModel>(model: &mut M, controls: <M as >::Controls, cfg: HeadlessRun) -> String { /* ... */ }
+```
+
+#### Function `assert_deterministic`
+
+Assert that two fresh runs of the same configuration agree exactly.
+
+**The property every committed reference fixture rests on.** If this fails,
+no baseline means anything, and a failing regression test cannot be told
+apart from noise.
+
+`fresh` must build a *new* model each call — reusing one would test nothing.
+
+```rust
+pub fn assert_deterministic<M, F>(fresh: F, controls: <M as >::Controls, cfg: HeadlessRun)
+where
+    M: HeadlessModel,
+    F: FnMut() -> M,
+    <M as >::Sample: std::fmt::Debug { /* ... */ }
+```
+
+## Module `app_scaffold`
 
 Reusable `eframe::App` threading/locking + panel-dispatch scaffold.
 
@@ -12134,6 +13051,30 @@ any given panel is still the calling application's job.
 mandatory Rust design rules -- `RwLock` allows concurrent reads from
 multiple threads, where `Mutex` serialises even read-only access and so
 defeats parallelism during a timestep's compute phase.
+
+## Beyond threading: the rest of the "app builder" pattern
+
+[`SharedState`], [`spawn_physics_thread_monitored`] and [`RealTimePacer`]
+cover the physics-thread and real-time-pacing half of the reusable
+real-time-simulator pattern (bead `op-wqk.22`). Two more pieces of that
+same pattern live here as of this module's latest pass, both additive --
+neither is wired into an existing simulator yet, each simulator opts in
+on its own:
+
+- [`plot_history`] -- a generic bounded ring buffer ([`PlotHistory`]) for
+  the "keep the last `N` samples for a trend graph" loop every simulator
+  ends up hand-rolling.
+- [`csv_logging`] -- a real CSV file writer ([`CsvLogger`]) with interval
+  throttling, replacing the on-screen "CSV" text-label affordance that
+  exists today but never actually writes a file.
+- [`csv_display`] -- the on-screen half `csv_logging` doesn't cover: one
+  copyable text box ([`draw_csv_panel`]) with a one-click "Copy CSV"
+  button, replacing the per-row `ui.label(...)` pattern that requires
+  dragging a selection across however many rows are on screen.
+
+A fourth piece, OPC-UA, is **not** here -- it already has its own reusable
+home in [`crate::opcua_core`] (see that module's docs and bead
+`op-szmi.1`), so it is not duplicated in this module.
 
 ```rust
 pub mod app_scaffold { /* ... */ }
@@ -12303,7 +13244,7 @@ pub struct CrashReport {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -12322,7 +13263,7 @@ pub struct CrashReport {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -12349,7 +13290,7 @@ pub struct CrashReport {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -12521,7 +13462,7 @@ pub struct ThreadHealth {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -12540,7 +13481,7 @@ pub struct ThreadHealth {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -12572,7 +13513,7 @@ pub struct ThreadHealth {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -12718,7 +13659,7 @@ docs for what "fresh" has to mean.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -12747,7 +13688,7 @@ docs for what "fresh" has to mean.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -12779,7 +13720,7 @@ docs for what "fresh" has to mean.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -13005,6 +13946,803 @@ frame too, because the new run has not taken its first step yet.
 pub fn show_crash_modal_with_restart(ctx: &egui::Context, health: &ThreadHealth) -> CrashModalOutcome { /* ... */ }
 ```
 
+## Module `csv_display`
+
+Read-only CSV display with a one-click "Copy CSV" button.
+
+Replaces the copy-paste-from-screen pattern `ciet_educational_simulator_v2`
+and `fhr_sim_v2` hand-roll today (see [`super::csv_logging`]'s module doc
+comment for the survey): each renders its "CSV" as a separate
+`ui.label(...)` per row inside a `ScrollArea`
+(`ciet_simulator_v2/app/panels_and_pages/heater_page.rs`'s
+`ciet_sim_heater_page_csv` is the pattern), so getting the data out means
+dragging a selection across however many rows happen to be on screen --
+there is no way to select "all of it" in one gesture, and no copy button
+at all.
+
+This module renders the whole thing as **one** read-only text box (native
+drag-select and Ctrl+C still work on it, unlike a `ScrollArea` of separate
+labels) plus a button that copies the entire string to the clipboard in
+one click. It is generic over what a simulator's CSV columns are --
+exactly like [`super::csv_logging::CsvLogger`], this module does not know
+what a "reactor power" or a "fuel temperature" is, only how to join and
+display strings that are already columns.
+
+# Relationship to `csv_logging`
+
+[`super::csv_logging::CsvLogger`] writes a real file to disk;
+[`draw_csv_panel`] shows text on screen. A simulator can use either, both,
+or neither -- they share no state and do not have to agree on a row
+format, though [`rows_to_csv_string`] and [`CsvLogger::maybe_write_row`]
+both take `&[String]`-shaped rows, so the same row-building code can feed
+both if a caller wants a file **and** an on-screen copyable view.
+
+[`CsvLogger::maybe_write_row`]: super::csv_logging::CsvLogger::maybe_write_row
+
+# Snapshot-on-click, row cap, and time-interval filtering
+
+[`CsvSnapshotPanel`] ports three more behaviours from
+`ciet_educational_simulator_v2`'s hand-rolled pages -- their "Update CSV
+Data" button (`ciet_sim_heater_page_graph`) and the
+`csv_display_interval_seconds`/`graph_data_record_interval_seconds` ratio
+filter (`ciet_sim_heater_page_csv`) -- as reusable `app_scaffold`
+infrastructure, generic over any simulator's row-shaped time series, and
+**enabled by default** (a caller does not opt out of any of the three):
+
+1. **Snapshot on click, not every frame.** [`CsvSnapshotPanel::draw`]
+   only calls its `fetch_rows` closure -- and only rebuilds the displayed
+   text -- when the operator clicks "Update CSV Data". Between clicks the
+   box is frozen: a reader mid-copy-paste does not have the text shift
+   under them, and the row-filter/join is not repeated every repaint.
+2. **Time-interval subsampling**, via
+   [`CsvSnapshotPanel::display_interval_seconds`]: an operator-adjustable
+   "CSV Display Interval (Seconds)" slider keeps only rows whose time
+   (column 0 of each row, assumed seconds -- see
+   [`filter_rows_by_time_interval`]) has advanced by at least that many
+   seconds since the last kept row, independent of whatever rate the
+   source data is actually recorded at. This is CIET's filter; ported
+   unchanged in spirit (CIET additionally exposes the *recording*
+   interval as a second slider that mutates the shared sampler directly --
+   that half is caller-specific plumbing this generic module cannot own,
+   so it stays the caller's choice whether to expose one).
+3. **[`MAX_CSV_ROWS`]**, a hard cap (most-recent rows kept) applied after
+   the interval filter. Belt-and-suspenders beyond what CIET itself
+   does -- CIET relies on its 4000-sample ring buffer plus the interval
+   filter alone -- added here so a very small display interval cannot
+   still produce an unbounded string.
+
+```rust
+pub mod csv_display { /* ... */ }
+```
+
+### Types
+
+#### Struct `CsvSnapshotPanel`
+
+A CSV panel that snapshots on an "Update CSV Data" click, subsamples by a
+time interval, and caps its row count -- see the module doc comment's
+"Snapshot-on-click, row cap, and time-interval filtering" section for the
+full rationale and the `ciet_educational_simulator_v2` precedent each
+piece ports.
+
+Owns its state (the frozen text, the interval setting), so a caller keeps
+one `CsvSnapshotPanel` per CSV view as a field on its own `eframe::App`
+struct (or wherever it holds cross-frame GUI state) and calls
+[`Self::draw`] on it every repaint, the same way it would hold a
+[`super::plot_history::PlotHistory`] or a [`super::csv_logging::CsvLogger`].
+
+```rust
+pub struct CsvSnapshotPanel {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  A panel with no snapshot yet -- draws as just the header line (via
+
+- ```rust
+  pub fn display_interval_seconds(self: &Self) -> f64 { /* ... */ }
+  ```
+  The operator-adjustable subsampling interval currently in effect --
+
+- ```rust
+  pub fn refresh(self: &mut Self, header: &[&str], rows: &[Vec<String>]) { /* ... */ }
+  ```
+  Rebuild the frozen CSV text from `header`/`rows` right now, applying
+
+- ```rust
+  pub fn draw</* synthetic */ impl FnOnce() -> Vec<Vec<String>>: FnOnce() -> Vec<Vec<String>>>(self: &mut Self, ui: &mut Ui, id_salt: &str, title: &str, header: &[&str], fetch_rows: impl FnOnce() -> Vec<Vec<String>>) { /* ... */ }
+  ```
+  Draw the "Update CSV Data" button, the "CSV Display Interval
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `rows_to_csv_string`
+
+Join `header` and `rows` into CSV text via the `csv` crate, so a value
+containing a comma or a quote round-trips correctly instead of silently
+splitting a column -- the same reasoning [`super::csv_logging`]'s module
+doc comment gives for not hand comma-joining with `+ "," +`.
+
+# Panics
+
+Never in practice: writing to an in-memory `Vec<u8>` cannot fail the way
+writing to a file can, and the `csv` crate only emits valid UTF-8 when fed
+valid UTF-8 fields (which `String` always is).
+
+```rust
+pub fn rows_to_csv_string(header: &[&str], rows: &[Vec<String>]) -> String { /* ... */ }
+```
+
+#### Function `draw_csv_panel`
+
+Draw `title` as a heading with a "Copy CSV" button beside it, then
+`csv_text` in a scrollable, monospace text box below.
+
+`id_salt` must be unique among every [`draw_csv_panel`] call active in the
+same frame (egui's own requirement for any widget holding interaction
+state) -- pass something like `"heater_csv"` if a page has only one panel,
+or a value that varies per tab if a page can show several.
+
+**The box is read-only in practice, not enforced.** It is an
+[`egui::TextEdit::multiline`] over a throwaway per-frame copy of
+`csv_text`, which is what lets native drag-select and Ctrl+C work on the
+*whole* body as one contiguous selection -- a plain [`egui::Label`] is
+selectable too, but only one label's worth at a time, which is exactly
+the CIET/FHR pattern this module replaces. Any edit the user makes to the
+box is discarded the next frame, since `csv_text` (the real data this was
+built from, typically via [`rows_to_csv_string`]) is never written back --
+there is nothing for a stray keystroke to corrupt.
+
+```rust
+pub fn draw_csv_panel(ui: &mut egui::Ui, id_salt: &str, title: &str, csv_text: &str) { /* ... */ }
+```
+
+#### Function `filter_rows_by_time_interval`
+
+Keep only rows whose time -- **column 0 of each row, parsed as seconds**
+-- has advanced by at least `interval_seconds` since the last kept row.
+The first row is always kept. Rows whose column 0 does not parse as an
+`f64` are dropped rather than guessed at.
+
+This is `ciet_educational_simulator_v2`'s `csv_data_display_interval`
+ratio filter (`heater_page.rs`'s `ciet_sim_heater_page_csv`), generalised
+from "keep every Nth *sample*" (which needs to know the recording rate)
+to "keep every row at least `interval_seconds` newer than the last kept
+one" (which does not) -- algebraically the same result when the source is
+sampled at a uniform rate, and better-behaved when it is not.
+
+`interval_seconds <= 0.0` disables filtering (every row is kept) rather
+than treating it as "keep nothing" or dividing by zero.
+
+```rust
+pub fn filter_rows_by_time_interval(rows: &[Vec<String>], interval_seconds: f64) -> Vec<Vec<String>> { /* ... */ }
+```
+
+#### Function `cap_row_count`
+
+Keep at most `max_rows` rows, dropping from the **front** (oldest) if
+`rows` is longer -- see [`MAX_CSV_ROWS`].
+
+```rust
+pub fn cap_row_count(rows: &[Vec<String>], max_rows: usize) -> Vec<Vec<String>> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `MAX_CSV_ROWS`
+
+Hard cap on the number of rows [`CsvSnapshotPanel`] will ever freeze into
+a CSV, applied after [`filter_rows_by_time_interval`] -- see the module
+doc comment's "row cap" point. The most **recent** rows are kept, since a
+time series is normally read for its latest behaviour.
+
+4000 (maintainer choice, 2026-08-18) matches the ring-buffer size
+`htgr_sim_v1`/`fhr_sim_v2`'s plot histories already cap themselves at
+(`HtgrPlotData`'s `MAX_PLOT_SAMPLES`, `PagePlotData`'s
+`NUM_DATA_PTS_IN_PLOTS`) -- so a caller feeding this from one of those
+buffers never has the cap bind before the source data itself runs out.
+
+```rust
+pub const MAX_CSV_ROWS: usize = 4000;
+```
+
+#### Constant `DEFAULT_CSV_DISPLAY_INTERVAL_SECONDS`
+
+[`CsvSnapshotPanel`]'s starting "CSV Display Interval (Seconds)", before
+an operator has touched the slider -- matches
+`ciet_educational_simulator_v2`'s own default for the same field
+(`csv_data.rs`'s `csv_display_interval_seconds: 0.1`).
+
+```rust
+pub const DEFAULT_CSV_DISPLAY_INTERVAL_SECONDS: f64 = 0.1;
+```
+
+## Module `csv_logging`
+
+Opt-in, real CSV file export for a real-time simulator.
+
+The 2026-08-17 survey behind bead `op-wqk.22.2` found that despite the
+name, no simulator in this crate actually writes a CSV **file** today.
+`ciet_educational_simulator_v2`'s "CSV" pages (e.g.
+`ciet_simulator_v2/app/panels_and_pages/heater_page.rs`'s
+`ciet_sim_heater_page_csv`) and `fhr_sim_v2`'s equivalent
+(`examples/fhr_sim_v2/app/graph_pages/mod.rs`) render a scrollable
+on-screen `ui.label(...)` of hand comma-joined text -- a copy-paste-from-
+screen affordance, not a logging pipeline. `htgr_sim_v1` has no CSV
+affordance of either kind.
+
+[`CsvLogger`] is a real file writer any simulator can opt into: create it
+once with a header row and a minimum write interval, then call
+[`CsvLogger::maybe_write_row`] from the same sampling loop that already
+feeds a [`super::plot_history::PlotHistory`] (or any other per-tick
+source) -- it silently no-ops on ticks that arrive before the interval
+has elapsed, so the caller does not need its own throttling logic. The
+interval mirrors the `graph_data_record_interval_seconds` convention
+already used by the CIET v1-derived plot state (`ciet_data.rs`,
+`fhr_sim_v2`'s `graph_data/mod.rs`), so a future migration of that field
+onto this type is a narrow, mechanical change.
+
+Built on the `csv` crate, which is already a workspace dependency
+(`csv = "1.4.0"`, root `Cargo.toml`, consumed today by
+`tuas_boussinesq_solver`) -- this module adds `csv.workspace = true` to
+this crate's own `Cargo.toml` rather than hand-joining strings with
+commas the way the "fake CSV" display panels do, so a value that itself
+contains a comma or a quote is escaped correctly instead of corrupting
+the file.
+
+**This module is additive.** As of this pass no existing simulator has
+been wired to it -- each simulator's own column set (which physical
+quantities, in what units) is a separate follow-up decision left to that
+simulator's own maintainer, not something this generic logger should
+guess at.
+
+# What belongs in this module
+
+Generic, physics-free CSV row writing with interval throttling and
+file-system error reporting. Deciding *which* columns a given simulator
+logs, and *when* in its own loop to call [`maybe_write_row`], is that
+simulator's job -- this module does not know what a "reactor power" or a
+"fuel temperature" is.
+
+[`maybe_write_row`]: CsvLogger::maybe_write_row
+
+```rust
+pub mod csv_logging { /* ... */ }
+```
+
+### Types
+
+#### Enum `CsvLoggerError`
+
+Things that can go wrong creating or writing a [`CsvLogger`]'s file.
+
+Every variant carries the file path so the message is actionable without
+the caller having to remember which logger raised it (a simulator may run
+several: heater trend, plot export, ...).
+
+```rust
+pub enum CsvLoggerError {
+    Create {
+        path: std::path::PathBuf,
+        source: csv::Error,
+    },
+    Write {
+        path: std::path::PathBuf,
+        source: csv::Error,
+    },
+    Flush {
+        path: std::path::PathBuf,
+        source: std::io::Error,
+    },
+}
+```
+
+##### Variants
+
+###### `Create`
+
+The file could not be created (bad path, no write permission, disk
+full) or the header row could not be written to it.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `std::path::PathBuf` |  |
+| `source` | `csv::Error` |  |
+
+###### `Write`
+
+A data row could not be written -- normally only possible if the file
+was removed or the disk filled up after [`CsvLogger::create`]
+succeeded.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `std::path::PathBuf` |  |
+| `source` | `csv::Error` |  |
+
+###### `Flush`
+
+The row was handed to the writer's internal buffer but could not be
+flushed to disk.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `path` | `std::path::PathBuf` |  |
+| `source` | `std::io::Error` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, __formatter: &mut ::core::fmt::Formatter<''_>) -> ::core::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Error**
+  - ```rust
+    fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private18::Error + ''static> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToSmolStr**
+  - ```rust
+    fn to_smolstr(self: &Self) -> SmolStr { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CsvLogger`
+
+An open CSV file that writes at most one row per configured interval.
+
+Every accepted row is flushed to disk immediately (not left buffered) --
+a physics thread in this crate may be running under
+[`spawn_physics_thread_monitored`](super::spawn_physics_thread_monitored)
+and could panic on the very next tick; buffering rows in memory only to
+lose them on a crash would defeat the point of logging to a file at all.
+The interval throttling exists so that cost is paid at a sane cadence
+(e.g. once a second) instead of once per physics tick.
+
+```rust
+pub struct CsvLogger {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn create</* synthetic */ impl AsRef<Path>: AsRef<Path>>(path: impl AsRef<Path>, header: &[&str], interval: Duration) -> Result<Self, CsvLoggerError> { /* ... */ }
+  ```
+  Create a new CSV log at `path`, writing `header` as the first row
+
+- ```rust
+  pub fn maybe_write_row(self: &mut Self, now: Instant, row: &[String]) -> Result<bool, CsvLoggerError> { /* ... */ }
+  ```
+  Write `row` and flush it to disk, unless fewer than `interval` (see
+
+- ```rust
+  pub fn path(self: &Self) -> &Path { /* ... */ }
+  ```
+  The path this logger is writing to.
+
+- ```rust
+  pub fn interval(self: &Self) -> Duration { /* ... */ }
+  ```
+  The configured minimum interval between accepted rows.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
 ## Module `gui_frame_metrics`
 
 GUI-thread frame timing, shared by every simulator built on this scaffold.
@@ -13206,7 +14944,7 @@ pub struct GuiFrameMetrics {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -13225,7 +14963,7 @@ pub struct GuiFrameMetrics {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -13257,7 +14995,7 @@ pub struct GuiFrameMetrics {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -13275,6 +15013,300 @@ pub struct GuiFrameMetrics {
     fn clone_into(self: &Self, target: &mut T) { /* ... */ }
     ```
 
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+## Module `plot_history`
+
+Generic bounded time-history ring buffer for plot panels.
+
+Every simulator built on this crate ends up needing a "keep the last `N`
+samples for a trend graph" buffer, and as of the 2026-08-17 survey behind
+bead `op-wqk.22.1` this workspace had grown **three** near-duplicate,
+independently-bugged implementations of exactly that:
+
+- `HtgrPlotData` (`examples/htgr_sim_v1/app/state.rs`) -- a `Vec<[f64; 2]>`
+  per series, capped with a free function that does `buf.remove(0)` on
+  overflow: correct output, but an O(n) shift of the whole buffer on every
+  single sample once it is full.
+- `PagePlotData`, shared verbatim between `ciet_educational_simulator_v2`
+  (`src/bin/ciet_educational_simulator_v2/ciet_simulator_v2/app/
+  panels_and_pages/ciet_data.rs`) and `fhr_sim_v2`
+  (`examples/fhr_sim_v2/app/graph_data/mod.rs`), both descended from the
+  original CIET v1 GUI -- `Vec::insert(0, sample)` (newest-first) followed
+  by allocating a fresh `Vec` of a fixed `NUM_DATA_PTS_IN_PLOTS = 4000`
+  entries and copying the retained prefix back in, **every sample**. Worse
+  than the HTGR version, not better.
+
+[`PlotHistory`] replaces all of these with one generic, `VecDeque`-backed
+ring buffer: `push` is O(1) amortised (push the new sample, pop the
+oldest only once capacity is exceeded -- no shifting, no reallocating,
+no rebuilding), and iteration is oldest-first, matching the convention
+`HtgrPlotData` already uses and that `egui_plot::PlotPoints` expects.
+
+**This module is additive.** As of this pass no existing call site has
+been migrated onto it -- `examples/htgr_sim_v1/app/state.rs` is being
+edited concurrently by another session (a fast-forward-control change),
+and rewriting `ciet_educational_simulator_v2`'s / `fhr_sim_v2`'s plot
+state is entangled with their own pacing loops (see `op-wqk.22.3`).
+Migrating an existing simulator onto [`PlotHistory`] is tracked as
+follow-up work once this type has landed and been reviewed.
+
+# What belongs in this module
+
+A generic, physics-free, plotting-library-free bounded history buffer,
+and nothing that assumes a particular series shape, sampling cadence, or
+GUI plotting crate. Deciding *what* to sample, *how often*, and *which
+plotting widget* renders it is the calling simulator's job -- exactly as
+it is today for `HtgrPlotData`'s sampler thread in
+`examples/htgr_sim_v1/app/mod.rs::start_simulation`.
+
+```rust
+pub mod plot_history { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `XySample`
+
+A time-value sample pair `[t_seconds, value]`.
+
+This is the exact shape `egui_plot::PlotPoints` accepts from a
+`Vec<[f64; 2]>` and the shape `HtgrPlotData` already uses for each of its
+six series -- a convenience alias for callers whose samples are a plain
+`(time, value)` pair in SI units with no `uom` dimension attached (the
+dimension has already been divided out, e.g. `power.get::<megawatt>()`,
+before the sample is pushed).
+
+```rust
+pub type XySample = [f64; 2];
+```
+
+#### Struct `PlotHistory`
+
+A bounded, oldest-first time-history buffer holding at most `N` samples
+of `T`.
+
+Once [`push`](Self::push) has been called more than `N` times, each
+further push drops the single oldest retained sample -- a fixed-size
+sliding window over the most recent `N` samples, with no unbounded
+growth and no per-push reallocation.
+
+`T` is left fully generic: an [`XySample`] for a single trend line, a
+`uom`-typed tuple like `(Time, Power)` for a caller that wants to keep
+dimensioned data as long as possible, or any other per-sample payload.
+`N` is a `const` generic, not a runtime field, so the capacity of a given
+history is fixed at its type and cannot silently drift between the
+buffer and whatever reads it.
+
+# Example
+
+```
+use outram_park_digital_twin_engine::app_scaffold::plot_history::{PlotHistory, XySample};
+
+let mut power_history: PlotHistory<XySample, 3> = PlotHistory::new();
+power_history.push([0.0, 10.0]);
+power_history.push([1.0, 12.0]);
+power_history.push([2.0, 14.0]);
+power_history.push([3.0, 16.0]); // oldest sample [0.0, 10.0] is dropped
+
+let samples: Vec<XySample> = power_history.iter().copied().collect();
+assert_eq!(samples, vec![[1.0, 12.0], [2.0, 14.0], [3.0, 16.0]]);
+```
+
+```rust
+pub struct PlotHistory<T, const N: usize> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new() -> Self { /* ... */ }
+  ```
+  An empty history with room for up to `N` samples.
+
+- ```rust
+  pub fn push(self: &mut Self, sample: T) { /* ... */ }
+  ```
+  Push the newest `sample`, dropping the oldest retained sample first
+
+- ```rust
+  pub fn iter(self: &Self) -> impl Iterator<Item = &T> { /* ... */ }
+  ```
+  Iterate the retained samples oldest-first -- the order
+
+- ```rust
+  pub fn len(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of samples currently retained (`0..=N`).
+
+- ```rust
+  pub fn is_empty(self: &Self) -> bool { /* ... */ }
+  ```
+  `true` if no sample has been pushed yet (or [`clear`](Self::clear)
+
+- ```rust
+  pub const fn capacity(self: &Self) -> usize { /* ... */ }
+  ```
+  The fixed maximum retained-sample count -- always `N`, exposed as a
+
+- ```rust
+  pub fn clear(self: &mut Self) { /* ... */ }
+  ```
+  Drop every retained sample, e.g. when a simulator restarts a run from
+
+- ```rust
+  pub fn last(self: &Self) -> Option<&T> { /* ... */ }
+  ```
+  The most recently pushed sample, or `None` if the history is empty.
+
+- ```rust
+  pub fn to_vec(self: &Self) -> Vec<T>
+where
+    T: Clone { /* ... */ }
+  ```
+  Clone the retained samples out as an oldest-first `Vec<T>` -- the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **NoneValue**
+  - ```rust
+    fn null_value() -> T { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
 - **TryFrom**
   - ```rust
     fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
@@ -13472,7 +15504,7 @@ pub struct TickPacing {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -13501,7 +15533,7 @@ pub struct TickPacing {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -13533,7 +15565,7 @@ pub struct TickPacing {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -13647,6 +15679,11 @@ pub struct RealTimePacer {
   The simulated time one tick advances.
 
 - ```rust
+  pub fn set_simulated_per_tick(self: &mut Self, simulated_per_tick: Time) { /* ... */ }
+  ```
+  Change how much simulated time the **next** [`Self::pace`] call is
+
+- ```rust
   pub fn pace(self: &mut Self, compute: Duration, wall_elapsed: Duration) -> TickPacing { /* ... */ }
   ```
   Advance the plant clock by one tick and decide how long to sleep.
@@ -13727,7 +15764,7 @@ pub struct RealTimePacer {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -13746,7 +15783,7 @@ pub struct RealTimePacer {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -13773,7 +15810,7 @@ pub struct RealTimePacer {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -13966,7 +16003,7 @@ where
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -13985,7 +16022,7 @@ where
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -14012,7 +16049,7 @@ where
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -14166,10 +16203,76 @@ pub use crash::CrashReport;
 pub use crash::ThreadHealth;
 ```
 
+#### Re-export `cap_row_count`
+
+```rust
+pub use csv_display::cap_row_count;
+```
+
+#### Re-export `draw_csv_panel`
+
+```rust
+pub use csv_display::draw_csv_panel;
+```
+
+#### Re-export `filter_rows_by_time_interval`
+
+```rust
+pub use csv_display::filter_rows_by_time_interval;
+```
+
+#### Re-export `rows_to_csv_string`
+
+```rust
+pub use csv_display::rows_to_csv_string;
+```
+
+#### Re-export `CsvSnapshotPanel`
+
+```rust
+pub use csv_display::CsvSnapshotPanel;
+```
+
+#### Re-export `DEFAULT_CSV_DISPLAY_INTERVAL_SECONDS`
+
+```rust
+pub use csv_display::DEFAULT_CSV_DISPLAY_INTERVAL_SECONDS;
+```
+
+#### Re-export `MAX_CSV_ROWS`
+
+```rust
+pub use csv_display::MAX_CSV_ROWS;
+```
+
+#### Re-export `CsvLogger`
+
+```rust
+pub use csv_logging::CsvLogger;
+```
+
+#### Re-export `CsvLoggerError`
+
+```rust
+pub use csv_logging::CsvLoggerError;
+```
+
 #### Re-export `GuiFrameMetrics`
 
 ```rust
 pub use gui_frame_metrics::GuiFrameMetrics;
+```
+
+#### Re-export `PlotHistory`
+
+```rust
+pub use plot_history::PlotHistory;
+```
+
+#### Re-export `XySample`
+
+```rust
+pub use plot_history::XySample;
 ```
 
 #### Re-export `pace_tick`
@@ -14194,7 +16297,7 @@ pub use real_time_pacing::TickPacing;
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:94:11: 94:32 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:94:10: 94:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:113:11: 113:32 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:113:10: 113:33 (#0))])]")`
 
 Colour-map functions for physics-state-driven rendering.
 
@@ -14442,7 +16545,7 @@ pub fn steam_quality_colour_mark_1(steam_quality: f32) -> egui::Color32 { /* ...
 
 **Attributes:**
 
-- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:96:11: 96:32 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:96:10: 96:33 (#0))])]")`
+- `Other("#[attr = CfgTrace([Not(NameValue { name: \"target_os\", value: Some(\"android\"), span: crates/outram-park-digital-twin-engine/src/lib.rs:115:11: 115:32 (#0) }, crates/outram-park-digital-twin-engine/src/lib.rs:115:10: 115:33 (#0))])]")`
 
 Visual process object wrappers.
 
@@ -14606,7 +16709,7 @@ Turn anticlockwise on screen.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -14635,7 +16738,7 @@ Turn anticlockwise on screen.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -14672,7 +16775,7 @@ Turn anticlockwise on screen.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -14839,7 +16942,7 @@ pub struct PipeBendVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -14858,7 +16961,7 @@ pub struct PipeBendVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -14885,7 +16988,7 @@ pub struct PipeBendVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -15148,7 +17251,7 @@ of a second pass is not wanted.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -15177,7 +17280,7 @@ of a second pass is not wanted.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -15209,7 +17312,7 @@ of a second pass is not wanted.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -15342,7 +17445,7 @@ pub struct CondenserDisplayRange {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -15361,7 +17464,7 @@ pub struct CondenserDisplayRange {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -15393,7 +17496,7 @@ pub struct CondenserDisplayRange {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -15529,7 +17632,7 @@ pub struct CondenserScalars {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -15548,7 +17651,7 @@ pub struct CondenserScalars {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -15580,7 +17683,7 @@ pub struct CondenserScalars {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -15729,7 +17832,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -15748,7 +17851,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -15780,7 +17883,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -15910,6 +18013,11 @@ pub struct CondenserVisual {
   ```
   The wrapped component's **target** outlet quality, dimensionless in
 
+- ```rust
+  pub fn ports(kind: CondenserKind, box_rect: Rect) -> CondenserPorts { /* ... */ }
+  ```
+  Port positions for a condenser of `kind` whose box is `box_rect`, taken
+
 ###### Trait Implementations
 
 - **Any**
@@ -15951,7 +18059,7 @@ pub struct CondenserVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -15970,7 +18078,7 @@ pub struct CondenserVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -15997,7 +18105,7 @@ pub struct CondenserVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -16038,6 +18146,180 @@ pub struct CondenserVisual {
     ```
     Draws the condenser for [`CondenserVisual::kind`]: shell, exhaust neck,
 
+- **WithSubscriber**
+#### Struct `CondenserPorts`
+
+Where the pipes meet a [`CondenserVisual`].
+
+```rust
+pub struct CondenserPorts {
+    pub steam_in: egui::Pos2,
+    pub condensate_out: egui::Pos2,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steam_in` | `egui::Pos2` | Turbine exhaust in, at the top centre of the shell. |
+| `condensate_out` | `egui::Pos2` | Condensate out, at the bottom centre (the hotwell). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CondenserPorts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CondenserPorts) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 - **WithSubscriber**
 ### Functions
 
@@ -16418,7 +18700,7 @@ eliminators in the drawing.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -16447,7 +18729,7 @@ eliminators in the drawing.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -16479,7 +18761,7 @@ eliminators in the drawing.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -16619,7 +18901,7 @@ pub struct CoolingTowerScalars {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -16638,7 +18920,7 @@ pub struct CoolingTowerScalars {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -16670,7 +18952,7 @@ pub struct CoolingTowerScalars {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -16817,7 +19099,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -16836,7 +19118,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -16868,7 +19150,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -17063,7 +19345,7 @@ pub struct CoolingTowerVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -17082,7 +19364,7 @@ pub struct CoolingTowerVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -17109,7 +19391,7 @@ pub struct CoolingTowerVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -17350,6 +19632,7 @@ pub struct DistillationColumnVisual<''a> {
     pub stage_liquid_fraction: &'a [f64],
     pub screen_position: egui::Pos2,
     pub screen_vector: egui::Vec2,
+    pub side_draws: &'a [(usize, &'a str)],
 }
 ```
 
@@ -17361,6 +19644,7 @@ pub struct DistillationColumnVisual<''a> {
 | `stage_liquid_fraction` | `&'a [f64]` | Per-stage light-key liquid mole fraction \[-\], same ordering. Shown<br>as a text label on each tray; not currently used for colour (a second<br>colour channel would fight the temperature one for the reader's<br>attention). |
 | `screen_position` | `egui::Pos2` | On-screen centre position of the whole column. |
 | `screen_vector` | `egui::Vec2` | On-screen size of the whole column (width, total height including<br>the condenser cap and reboiler sump). |
+| `side_draws` | `&'a [(usize, &'a str)]` | Side draws to mark, as `(stage, label)`. Empty for a two-product<br>column; a crude unit draws several cuts down its length, and where they<br>come off is most of what distinguishes one from a benzene splitter.<br><br>Scalar-backed like the rest: the caller passes the stages its own model<br>actually draws from. Out-of-range stages are ignored rather than<br>clamped, so a mismatched slice cannot silently point at the wrong tray. |
 
 ##### Implementations
 
@@ -17370,6 +19654,11 @@ pub struct DistillationColumnVisual<''a> {
   pub fn from_scalars(stage_temperature_k: &'a [f64], stage_liquid_fraction: &'a [f64], screen_position: Pos2, screen_vector: Vec2) -> Self { /* ... */ }
   ```
   Build from the caller's own per-stage slices and screen geometry.
+
+- ```rust
+  pub fn with_side_draws(self: Self, side_draws: &'a [(usize, &'a str)]) -> Self { /* ... */ }
+  ```
+  Mark side draws at the given stages. See [`Self::side_draws`].
 
 ###### Trait Implementations
 
@@ -17412,7 +19701,7 @@ pub struct DistillationColumnVisual<''a> {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -17431,7 +19720,7 @@ pub struct DistillationColumnVisual<''a> {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -17458,7 +19747,7 @@ pub struct DistillationColumnVisual<''a> {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -17740,7 +20029,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -17759,7 +20048,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -17791,7 +20080,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -17969,7 +20258,7 @@ because it no longer depicts anything the model can stand behind.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -17998,7 +20287,7 @@ because it no longer depicts anything the model can stand behind.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -18030,7 +20319,7 @@ because it no longer depicts anything the model can stand behind.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -18158,7 +20447,7 @@ pub struct ReleaseSpecies {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -18187,7 +20476,7 @@ pub struct ReleaseSpecies {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -18219,7 +20508,7 @@ pub struct ReleaseSpecies {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -18402,7 +20691,7 @@ pub struct ExcursionOverlay {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -18421,7 +20710,7 @@ pub struct ExcursionOverlay {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -18448,7 +20737,7 @@ pub struct ExcursionOverlay {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -18822,7 +21111,7 @@ pub struct FhrReactorVesselVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -18841,7 +21130,7 @@ pub struct FhrReactorVesselVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -18868,7 +21157,7 @@ pub struct FhrReactorVesselVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -19227,7 +21516,7 @@ heated.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -19256,7 +21545,7 @@ heated.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -19288,7 +21577,7 @@ heated.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -19458,7 +21747,7 @@ adjacent channels carry arrows pointing opposite ways.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -19487,7 +21776,7 @@ adjacent channels carry arrows pointing opposite ways.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -19519,7 +21808,7 @@ adjacent channels carry arrows pointing opposite ways.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -19669,7 +21958,7 @@ outlets reduces to, which is why that kind can never reach
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -19698,7 +21987,7 @@ outlets reduces to, which is why that kind can never reach
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -19730,7 +22019,7 @@ outlets reduces to, which is why that kind can never reach
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -19863,7 +22152,7 @@ pub struct HeatExchangerDisplayRange {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -19882,7 +22171,7 @@ pub struct HeatExchangerDisplayRange {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -19914,7 +22203,7 @@ pub struct HeatExchangerDisplayRange {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -20048,7 +22337,7 @@ pub struct HeatExchangerScalars {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -20067,7 +22356,7 @@ pub struct HeatExchangerScalars {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -20099,7 +22388,7 @@ pub struct HeatExchangerScalars {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -20248,7 +22537,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -20267,7 +22556,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -20299,7 +22588,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -20497,7 +22786,7 @@ pub struct HeatExchangerVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -20516,7 +22805,7 @@ pub struct HeatExchangerVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -20543,7 +22832,7 @@ pub struct HeatExchangerVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -20717,6 +23006,1353 @@ gallery, which is the point of drawing the second construction at all.
 pub const PLATE_FRAME_ASPECT_RATIO: f32 = 1.35;
 ```
 
+## Module `htr10_plant`
+
+The whole HTR-10 plant on one canvas: the vessel, the coaxial duct, the
+steam generator, and the secondary loop (turbine, condenser, feed pump),
+joined by routed pipework.
+
+Moved here on 2026-09-22 from the widget studio's HTR-10 page, so the studio
+and `htgr_sim_v1` draw the plant from one implementation. The two differ
+only in where the numbers come from: the studio's display sliders, or the
+simulator's running model. Presentation only: nothing here computes a
+physical quantity, it lays out widgets and pipes from values the caller
+supplies.
+
+Every connection runs between ports the widgets report from their own
+drawing code ([`Htr10ReactorSchematic::duct_port`],
+[`Htr10SteamGeneratorVisual::gas_port`], `steam_port`, `feedwater_port`,
+[`TurbineVisual::ports`], [`CondenserVisual::ports`],
+[`PumpVisual::centrifugal_ports`]), so a pipe lands on the nozzle actually
+drawn.
+
+```rust
+pub mod htr10_plant { /* ... */ }
+```
+
+### Types
+
+#### Struct `SecondaryTracers`
+
+The four secondary-loop pipe runs' tracer trains, owned and advanced by the
+application.
+
+```rust
+pub struct SecondaryTracers {
+    pub main_steam: crate::animation::TracerTrain,
+    pub exhaust: crate::animation::TracerTrain,
+    pub condensate: crate::animation::TracerTrain,
+    pub feed: crate::animation::TracerTrain,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `main_steam` | `crate::animation::TracerTrain` | Steam generator steam outlet to turbine inlet. |
+| `exhaust` | `crate::animation::TracerTrain` | Turbine exhaust down into the condenser. |
+| `condensate` | `crate::animation::TracerTrain` | Condensate from the hotwell to the feed pump suction. |
+| `feed` | `crate::animation::TracerTrain` | Feed pump discharge up to the steam generator feedwater inlet. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SecondaryTracers { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `SecondaryLoopView`
+
+The secondary loop's state: everything its widgets and pipes need.
+
+The caller supplies real values from its own model, or display choices on a
+GUI test bench. Nothing is derived here.
+
+```rust
+pub struct SecondaryLoopView {
+    pub steam_temp: uom::si::f64::ThermodynamicTemperature,
+    pub feedwater_temp: uom::si::f64::ThermodynamicTemperature,
+    pub condensing_temp: uom::si::f64::ThermodynamicTemperature,
+    pub exhaust_quality: f64,
+    pub cooling_water_inlet_temp: uom::si::f64::ThermodynamicTemperature,
+    pub cooling_water_outlet_temp: uom::si::f64::ThermodynamicTemperature,
+    pub mass_flow: uom::si::f64::MassRate,
+    pub pipe_residence_time: uom::si::f64::Time,
+    pub turbine_speed: uom::si::f64::AngularVelocity,
+    pub pump_speed: uom::si::f64::AngularVelocity,
+    pub simulation_time: uom::si::f64::Time,
+    pub tracers: SecondaryTracers,
+    pub min_temp: uom::si::f64::ThermodynamicTemperature,
+    pub max_temp: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steam_temp` | `uom::si::f64::ThermodynamicTemperature` | Main steam temperature, leaving the steam generator. |
+| `feedwater_temp` | `uom::si::f64::ThermodynamicTemperature` | Feedwater temperature, entering the steam generator. |
+| `condensing_temp` | `uom::si::f64::ThermodynamicTemperature` | Condenser condensing temperature; also colours the exhaust and the<br>condensate line. |
+| `exhaust_quality` | `f64` | Turbine exhaust steam quality, `[0, 1]`. |
+| `cooling_water_inlet_temp` | `uom::si::f64::ThermodynamicTemperature` | Condenser cooling water in and out. |
+| `cooling_water_outlet_temp` | `uom::si::f64::ThermodynamicTemperature` |  |
+| `mass_flow` | `uom::si::f64::MassRate` | Secondary loop mass flow; its sign sets the tracer direction. |
+| `pipe_residence_time` | `uom::si::f64::Time` | Residence time along each pipe run; sets the tracer speed. |
+| `turbine_speed` | `uom::si::f64::AngularVelocity` | Turbine shaft speed; turns the rotor. |
+| `pump_speed` | `uom::si::f64::AngularVelocity` | Feed pump shaft speed; turns the impeller. Zero draws it stationary. |
+| `simulation_time` | `uom::si::f64::Time` | Application clock, for the rotor phases (phase = speed x time). |
+| `tracers` | `SecondaryTracers` | The pipe runs' tracer trains. |
+| `min_temp` | `uom::si::f64::ThermodynamicTemperature` | Colour scale shared by every widget and pipe on the canvas. |
+| `max_temp` | `uom::si::f64::ThermodynamicTemperature` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> SecondaryLoopView { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `draw_htr10_plant`
+
+Draw the whole plant: `reactor` (already built, with its tracers), a steam
+generator from `make_sg`, and the secondary loop from `secondary`.
+
+`make_sg` is called with the size the steam generator is drawn at (the
+vessel's own height scale; both vessels are 11 m on their data sheets) and
+returns it built with the caller's temperatures and tracers. The layout then
+connects the duct to it (`with_duct_inlet`), so the duct's three streams
+bend up inside it at the duct's own band heights.
+
+Allocates one canvas for everything and draws inside a child area, so the
+routed pipes and placed widgets cannot push the surrounding layout around.
+
+Returns the canvas rectangle it allocated. Every dimension of the layout is
+a fixed multiple of the reactor's vessel width, so a caller that wants the
+plant to fill a given space can divide that space by the returned size per
+unit vessel width and redraw at the matching scale.
+
+```rust
+pub fn draw_htr10_plant</* synthetic */ impl FnOnce(Vec2) -> Htr10SteamGeneratorVisual: FnOnce(egui::Vec2) -> crate::components::Htr10SteamGeneratorVisual>(ui: &mut egui::Ui, reactor: crate::components::Htr10ReactorSchematic, make_sg: impl FnOnce(egui::Vec2) -> crate::components::Htr10SteamGeneratorVisual, secondary: &SecondaryLoopView) -> egui::Rect { /* ... */ }
+```
+
+## Module `htr10_reactor_schematic`
+
+HTR-10 reactor vessel — a simplified schematic of its *general structure*.
+
+A second HTR-10 vessel widget, deliberately. [`Htr10ReactorVesselVisual`]
+is a detailed cut-away with a published-artwork feel and a set of flow
+anchors the `htgr_sim_v1` schematic pins its pipe runs to; changing it
+would move those runs. This one is the **simplified** counterpart, drawn in
+the same visual language as
+[`crate::components::Htr10SteamGeneratorVisual`] so the two read as parts
+of one plant, and free to be re-proportioned without breaking a consumer.
+
+[`Htr10ReactorVesselVisual`]: crate::components::Htr10ReactorVesselVisual
+
+## The three-pass helium path, which is the point of the drawing
+
+HTR-10's coolant does not simply fall through the core. It makes three
+passes, and a schematic that shows only the last one hides most of the
+vessel:
+
+```text
+   ┌─────────────────────────────┐
+   │  ╭───────╮       ╭───────╮  │  cold helium RETURNS LOW, through the
+   │  │ ╰═╗           ╔═════╯ │  │  annulus of the coaxial duct
+   │  │  ══ cold plenum (9.7 cm) ══ │
+   │    │      ┌─────┐        │   │  1. DOWN the annulus, duct to the
+   │    │      │ bed │        │   │     borehole pick-up only
+   │  ↑ │      │  ↓  │        │↑  │  2. U-bend at the foot, UP the
+   │  ↑ │      └──┬──┘        │↑  │     boreholes, then a 90-degree turn
+   │  ╰─╮         ▼         ╭─╯  │     inward, level into the plenum
+   │    │ ══ hot plenum ════╪════▶  3. DOWN through the bed to the hot
+   │ ↓  ╰───────╮  ╭────────╯ cold│     plenum, out through the duct's
+   │ ↓  bottom  ╰──╯      hot │   │     inner tube
+   └──────────────────────────┴───┘
+```
+
+**Where the cold gas comes back in is set by where the duct is**, and the
+duct is **low**: its hot inner tube has to meet the hot plenum, which sits
+in the *bottom* reflector. So the cold annulus delivers near the foot of
+the vessel, and pass 1 is a **short descent to the bottom cavity** — not a
+full-height downcomer fed from the top.
+
+**The annulus is drawn only where the gas moves** — from the duct centreline
+down to where the boreholes pick it up (maintainer direction, 2026-09-21).
+
+Worth knowing what that leaves out: section 4.2 records the annulus as
+*"filled with 250 degC cold helium to hold vessel temperature below limit"*
+over its **whole** height, so the real one is cold end to end regardless of
+where gas is flowing. Drawing only the live segment reads far better — the
+eye follows one path instead of a tall block with a short active part
+inside it — at the cost of no longer showing the whole boundary bathed in
+cold helium. A deliberate trade, not an oversight.
+
+Source for the sequence: `docs/reactor-scoping/htr10-plant-data.md`
+section 4.4, from two sources that agree — step 4 takes the cold helium
+into the RPV between the vessel and the core barrel *"down to the bottom of
+the reactor support structure, cooling the support structure first"*, and
+step 5 turns it up the reflector boreholes.
+
+**CORRECTED 2026-09-21.** The first version of this widget ran the
+downcomer over nearly the full vessel height with its inlet at the ~~top~~,
+which would have the cold gas arriving high and falling the length of the
+vessel. It returns **low**. Caught by the maintainer.
+
+## What is cited and what is drawing
+
+Proportions come from the plant-data sheet and the r-z partition wherever
+they have a number, and every one is marked at its constant. Where they
+record *Unknown*, this widget says so rather than inventing a figure.
+**It is a schematic, not a scale drawing and not a reproduction of any
+published figure.**
+
+### Specifically NOT to scale, and easy to mistake for it
+
+Asked directly whether the cold plenum is to scale (maintainer, 2026-09-21)
+— it is not, and the distinction is worth stating because the numbers
+around it *are* real:
+
+- **The cold plenum's band is an assignment, not an attested zone.** The
+  r-z dataset gives axial boundaries at 95.0, 105.0 and 114.7 cm, but it
+  carries **no material labels for the axial bands** — it identifies only
+  the core cavity, the conus, the bed and the gas space above it. What is
+  attested elsewhere is merely that the cold helium plenum sits *in the top
+  reflector*. Its elevation and extent here are therefore chosen, using
+  real boundary values, and should not be quoted as zone identities.
+- **The turn at the top of each borehole is a drawing device.** In the real
+  vessel these are channels drilled through graphite that open into a
+  plenum cavity. It is drawn as one shallow 90-degree bend
+  ([`TURN_RADIUS_FRACTION`]) that stays level with the plenum — **CHANGED
+  2026-09-21** from an inverted U, which drew the channel arching over the
+  plenum like external pipework.
+- **Where the internals sit within the vessel** ([`INTERNALS_TOP_FRACTION`])
+  is likewise a choice; no source reviewed gives their elevation.
+
+## Animation
+
+Six optional coolant tracer trains, all driven by the **primary** loop mass flow
+and obeying the crate's "ANIMATION IS DERIVED FROM PHYSICS, NEVER
+HARDCODED" hard rule. Each pass's inlet end is geometry; the direction the
+marks then travel comes from the sign of the flow the caller advanced the
+train with, so a reversed or stalled loop reverses or freezes all six
+together. (Four were added first; the two coaxial-duct trains, hot out
+through the inner tube and cold back through the annulus, were added on
+2026-09-21.)
+
+**The coaxial duct is painted in front of the annulus.** The annulus run
+starts at the duct centreline, where the cold return enters, and painted
+after the duct it cut vertically through the middle of it (maintainer,
+2026-09-21). The annulus and its marks are now painted first, then the duct
+and its own two trains over them.
+
+Two of them are worth calling out:
+
+- **Each borehole is ONE continuous run, annulus to cold plenum**: down the
+  annulus, a U-bend at the foot, the climb, then a single **90-degree**
+  turn inward and level into the plenum. The foot is a real reversal — the
+  gas arrives going down and leaves going up — and drawing it as a bend
+  rather than butted segments is what makes that legible. The top is one
+  quarter turn and **never rises above the plenum**; an arch there would
+  draw pipework standing over it, and these are channels through graphite.
+
+  Marks travel the whole run, placed by ARC LENGTH, so they go down, round,
+  up and in without jumping a corner or stopping at a joint. **The marks
+  arriving in the cold plenum are the same ones that left the annulus.**
+  Placing them by vertex index instead would bunch them at the corners,
+  where the path is finely sampled.
+
+  **The marks are painted with the channels, not with the other tracers.**
+  On the right-hand side the boreholes pass behind the coaxial duct, so
+  drawing them last would slide them across it as if the channel ran in
+  front. Painted early, the duct covers them and they pass behind it.
+- **The upper cold plenum runs two opposed streams inward.** The boreholes
+  deliver up both sides and the gas converges on the axis before turning
+  down into the bed, so this is the one place in the vessel where flow
+  visibly meets itself.
+
+**The discharge tube continues as a defuelling chute**: straight down the
+tube, then an inverted-L leg to the left dipping 15 degrees below
+horizontal, then a thin exit tube one pebble wide down through the bottom
+head, left open: the opening to the outside. All of it is filled with
+pebbles drawn exactly like the bed's. Only the ~3.3 m tube is cited; the
+rest is a drawing choice (maintainer direction, 2026-09-21). Since
+2026-09-22 each straight piece is exactly one DEM segment, with greyed-out
+elbows at the joints where no pebbles are.
+
+**A refuelling chute** closes the recirculation loop, one pebble wide: in
+through the bottom head from outside the vessel, up the left-hand side, a leg dipping about 15
+degrees to the centreline, then straight down past the upper plenum to the
+top of the core cavity, ending in the gas space above the pebbles (not at
+the bed surface; corrected 2026-09-22). **It is drawn EMPTY**: day to day,
+pebbles are lifted
+pneumatically up it one at a time, so the only pebble shown in it is the
+one in transit (`with_refuel_pebbles`, a `PebbleTransits` launched by the
+studio's [add pebble] button and driven by the LIFT gas flow, not the
+primary loop). [remove pebble] likewise sends a highlighted pebble down the
+defuelling route and out (`with_defuel_pebbles`). The vessel is DRAWN
+wider than the real one to make room for the refuelling chute
+([`REFUEL_CHUTE_ALLOWANCE_CM`]); the cited radius and aspect are unchanged.
+Its route is a drawing choice (maintainer direction, 2026-09-21).
+
+~~**Pebbles are not to scale.** Every drawn pebble has one radius, a fixed
+fraction of the vessel width, which comes out roughly twice the real 6 cm
+pebble.~~ **CORRECTED 2026-09-22**: pebbles are now drawn **to scale**, at
+the real 6 cm, and **every pebble is DEM**: the bed, the conus and the top
+0.25 m of the tube from a one-diameter cut-away slab of the settled HTR-10
+conus bed that this workspace's DEM port and LIGGGHTS agree on; the rest of
+the cited ~3.3 m tube from a DEM column baked below it; and the dog-leg and
+exit tube from DEM segments settled in place along the drawn route (1 828
+pebbles in all, `htr10_conus_packing`). The reducer bend is an approximate
+joint between the leg and exit segments. The widget says "(DEM packing, to
+scale)" on screen.
+
+**The fuel discharge tube carries no tracer, deliberately.** Pebbles are
+not coolant: they cross the core over weeks on a 5-pass recirculation
+route, and no source in the plant-data sheet gives a throughput to derive a
+rate from. Animating them would have meant inventing one, and at any speed
+that read well on screen it would have implied fuel moving at something
+like the gas velocity.
+
+**Nothing is drawn over the pebble bed**, matching the convention
+[`crate::components::htr10_reactor_vessel::Htr10FlowAnchors`] already sets:
+the geometry between the bed surface and the hot plenum says the flow goes
+down, and marks over the pebbles obscure the one region a reader most wants
+to see.
+
+```rust
+pub mod htr10_reactor_schematic { /* ... */ }
+```
+
+### Types
+
+#### Struct `DuctPort`
+
+Where the coaxial duct leaves [`Htr10ReactorSchematic`]: its outboard end,
+for connecting it to a steam generator drawn beside the vessel.
+
+```rust
+pub struct DuctPort {
+    pub end: egui::Pos2,
+    pub outer_height: f32,
+    pub inner_height: f32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `end` | `egui::Pos2` | Centre of the duct's outboard end, screen points. |
+| `outer_height` | `f32` | Height of the duct's outer body (the cold annulus), points. |
+| `inner_height` | `f32` | Height of the hot inner tube, points. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> DuctPort { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &DuctPort) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `Htr10ReactorSchematic`
+
+Simplified HTR-10 reactor vessel.
+
+Five temperatures drive the colouring, all supplied by the caller:
+
+| Field | Physical quantity |
+|---|---|
+| `pebble_temp` | fuel (pebble) temperature, K — the hottest region |
+| `inlet_temp` | cold helium entering the vessel, K (250 degC at design) |
+| `outlet_temp` | hot helium in the bottom plenum, K (700 degC at design) |
+| `reflector_temp` | graphite reflector bulk temperature, K |
+| `vessel_temp` | pressure-vessel wall temperature, K |
+
+```rust
+pub struct Htr10ReactorSchematic {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(size: Vec2, min_temp: ThermodynamicTemperature, max_temp: ThermodynamicTemperature, pebble_temp: ThermodynamicTemperature, inlet_temp: ThermodynamicTemperature, outlet_temp: ThermodynamicTemperature, reflector_temp: ThermodynamicTemperature, vessel_temp: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  Build the schematic.
+
+- ```rust
+  pub fn native_size(vessel_width: f32) -> Vec2 { /* ... */ }
+  ```
+  The box this widget wants for a given vessel width, including the room
+
+- ```rust
+  pub fn vessel_width(self: &Self) -> f32 { /* ... */ }
+  ```
+  Width of the vessel itself, points: the box [`Self::new`] was given,
+
+- ```rust
+  pub fn size(self: &Self) -> Vec2 { /* ... */ }
+  ```
+  On-screen size, in points: the vessel box ([`Self::native_size`]) plus
+
+- ```rust
+  pub fn with_bed_height_cm(self: Self, height_cm: f32) -> Self { /* ... */ }
+  ```
+  Pebble-bed height, centimetres, measured up from zero core height.
+
+- ```rust
+  pub fn with_control_rod_frac(self: Self, frac: f32) -> Self { /* ... */ }
+  ```
+  Where the control-rod bank is **drawn**, `0.0` out to `1.0` in.
+
+- ```rust
+  pub fn without_labels(self: Self) -> Self { /* ... */ }
+  ```
+  Turn the labels off — for thumbnails. Builder-style.
+
+- ```rust
+  pub fn drawn_bed_height_cm(self: &Self) -> f32 { /* ... */ }
+  ```
+  The bed height actually drawn, clamped into the core cavity.
+
+- ```rust
+  pub fn with_downcomer_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Pass 1: cold helium descending the annulus to the bottom cavity.
+
+- ```rust
+  pub fn with_riser_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Pass 2: cold helium picked up at the foot and climbing the boreholes.
+
+- ```rust
+  pub fn with_cold_plenum_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Cold helium converging in the upper cold plenum.
+
+- ```rust
+  pub fn with_plenum_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Hot helium crossing the bottom plenum to the duct nozzle.
+
+- ```rust
+  pub fn with_hot_duct_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Hot helium leaving through the coaxial duct's **inner tube**, towards
+
+- ```rust
+  pub fn with_cold_duct_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Cold helium returning through the coaxial duct's **annulus**, from the
+
+- ```rust
+  pub fn with_duct_extension(self: Self, points: f32) -> Self { /* ... */ }
+  ```
+  Run the coaxial duct `points` further past the vessel than its default
+
+- ```rust
+  pub fn duct_port(self: &Self, widget_rect: Rect) -> DuctPort { /* ... */ }
+  ```
+  Where the coaxial duct ends, for a widget whose box is `widget_rect`
+
+- ```rust
+  pub fn with_refuel_pebbles(self: Self, pebbles: PebbleTransits) -> Self { /* ... */ }
+  ```
+  Pebbles being lifted pneumatically up the refuelling chute into the
+
+- ```rust
+  pub fn with_defuel_pebbles(self: Self, pebbles: PebbleTransits) -> Self { /* ... */ }
+  ```
+  Pebbles being discharged down the defuelling route and out of the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **Widget**
+  - ```rust
+    fn ui(self: Self, ui: &mut Ui) -> Response { /* ... */ }
+    ```
+    Draws the vessel, the reflector's real radial bands, the three-pass
+
+- **WithSubscriber**
+### Functions
+
+#### Function `radius_fraction`
+
+A radius in centimetres, as a fraction of the vessel's **half**-width.
+
+The single place plant centimetres become drawing units. `1.0` is the
+DRAWN vessel wall, [`DRAWN_VESSEL_RADIUS_CM`]; the real wall line,
+[`VESSEL_INNER_RADIUS_CM`], sits just inside it (**CHANGED 2026-09-21**, when
+the vessel was drawn wider for the refuelling chute; `1.0` was previously
+the real wall).
+
+```rust
+pub fn radius_fraction(radius_cm: f32) -> f32 { /* ... */ }
+```
+
+#### Function `axial_fraction`
+
+A model `z` in centimetres, as a fraction of the vessel's height.
+
+`z = 0` is the top of the ceramic internals, which sit
+[`INTERNALS_TOP_FRACTION`] down the vessel.
+
+```rust
+pub fn axial_fraction(z_cm: f32) -> f32 { /* ... */ }
+```
+
+#### Function `fit_native_aspect`
+
+Letterbox `available` to the vessel's DRAWN proportions,
+[`DRAWN_ASPECT_RATIO`] (the real ones widened for the refuelling chute).
+
+```rust
+pub fn fit_native_aspect(available: egui::Rect) -> egui::Rect { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `DISCHARGE_TUBE_RADIUS_CM`
+
+Fuel discharge tube radius. Corroborated against Table 2.
+
+```rust
+pub const DISCHARGE_TUBE_RADIUS_CM: f32 = 25.0;
+```
+
+#### Constant `CORE_RADIUS_CM`
+
+Outer radius of the pebble-bed core. Corroborated: "core radius".
+
+```rust
+pub const CORE_RADIUS_CM: f32 = 90.0;
+```
+
+#### Constant `CONTROL_ROD_CHANNEL_RADIUS_CM`
+
+Centreline radius of the ten control-rod borings.
+
+**Inboard of the coolant boreholes**, which is the ordering a schematic
+most easily gets backwards: rods at 102.1 cm, coolant at 144.6 cm.
+
+```rust
+pub const CONTROL_ROD_CHANNEL_RADIUS_CM: f32 = 102.1;
+```
+
+#### Constant `CONTROL_ROD_CHANNEL_DIAMETER_CM`
+
+Diameter of a control-rod boring.
+
+```rust
+pub const CONTROL_ROD_CHANNEL_DIAMETER_CM: f32 = 13.0;
+```
+
+#### Constant `COOLANT_CHANNEL_RADIUS_CM`
+
+Centreline radius of the twenty cold-coolant boreholes.
+
+```rust
+pub const COOLANT_CHANNEL_RADIUS_CM: f32 = 144.6;
+```
+
+#### Constant `COOLANT_CHANNEL_DIAMETER_CM`
+
+Diameter of a coolant borehole.
+
+```rust
+pub const COOLANT_CHANNEL_DIAMETER_CM: f32 = 8.0;
+```
+
+#### Constant `BORONATED_BRICK_INNER_RADIUS_CM`
+
+Inner radius of the boronated carbon brick band.
+
+A **material** interface, so unlike the others it is not derivable from
+channel arithmetic — it is read from the figure only.
+
+```rust
+pub const BORONATED_BRICK_INNER_RADIUS_CM: f32 = 167.793;
+```
+
+#### Constant `REFLECTOR_OUTER_RADIUS_CM`
+
+Outer radius of the ceramic internals. Corroborated: reflector outer
+diameter 380 cm / 2.
+
+```rust
+pub const REFLECTOR_OUTER_RADIUS_CM: f32 = 190.0;
+```
+
+#### Constant `VESSEL_INNER_RADIUS_CM`
+
+Inner radius of the reactor pressure vessel, used as the drawing's radial
+datum.
+
+The sheet gives the RPV diameter only as **"more than 4 m"** (section 4.2,
+*Quoted* as a bound). Taking exactly 4 m is the **conservative** reading
+for this drawing: it is the smallest vessel consistent with the source, so
+it yields the **narrowest possible annulus** between the ceramics at 190 cm
+and the vessel wall. A real HTR-10 annulus is at least this wide, never
+tighter. Nothing here should be read as a claim that the vessel is 4 m.
+
+```rust
+pub const VESSEL_INNER_RADIUS_CM: f32 = 200.0;
+```
+
+#### Constant `INTERNALS_HEIGHT_CM`
+
+Full height of the ceramic internals (reflector and discharge tube).
+Corroborated: 610 − 0.
+
+```rust
+pub const INTERNALS_HEIGHT_CM: f32 = 610.0;
+```
+
+#### Constant `CORE_CAVITY_TOP_Z_CM`
+
+Top of the core cavity.
+
+```rust
+pub const CORE_CAVITY_TOP_Z_CM: f32 = 130.0;
+```
+
+#### Constant `COLD_PLENUM_TOP_Z_CM`
+
+Top of the band drawn as the cold-helium plenum, model z, centimetres.
+
+**An assignment, not an attested zone.** 105.0 and 114.7 are real boundary
+values from the r-z partition, but that dataset carries no material labels
+for the axial bands. What is attested elsewhere is only that the cold
+helium plenum sits in the top reflector. One **single** band is used, at
+its true 9.7 cm thickness, rather than a thicker span picked for
+legibility — so the plenum is drawn to scale even though which band it is
+remains a choice.
+
+```rust
+pub const COLD_PLENUM_TOP_Z_CM: f32 = 105.0;
+```
+
+#### Constant `COLD_PLENUM_BOTTOM_Z_CM`
+
+Bottom of that band, model z, centimetres.
+
+```rust
+pub const COLD_PLENUM_BOTTOM_Z_CM: f32 = 114.7;
+```
+
+#### Constant `CORE_ZERO_HEIGHT_Z_CM`
+
+Zero core height — the top of the conus, and the datum the bed is measured
+up from. IAEA-TECDOC-1382 part 2 states this explicitly.
+
+```rust
+pub const CORE_ZERO_HEIGHT_Z_CM: f32 = 351.818;
+```
+
+#### Constant `CONUS_BOTTOM_Z_CM`
+
+Bottom of the conus. Corroborated: conus height 388.764 − 351.818 = 36.946.
+
+```rust
+pub const CONUS_BOTTOM_Z_CM: f32 = 388.764;
+```
+
+#### Constant `CORE_CAVITY_HEIGHT_CM`
+
+Height of the core cavity. Corroborated against Table 2 exactly.
+
+```rust
+pub const CORE_CAVITY_HEIGHT_CM: f32 = _;
+```
+
+#### Constant `CRITICAL_BED_HEIGHT_CM`
+
+Pebble-bed height at **first criticality** in the B1 benchmark.
+Corroborated: 351.818 − 228.758 = 123.06.
+
+```rust
+pub const CRITICAL_BED_HEIGHT_CM: f32 = 123.06;
+```
+
+#### Constant `EQUILIBRIUM_BED_HEIGHT_CM`
+
+Average pebble-bed height at the **equilibrium** full-power core, from
+`docs/reactor-scoping/htr10-plant-data.md` section 4.3 (*Quoted*, three
+sources agree). Nearly twice the first-criticality loading — which is why
+the bed height is a parameter here rather than a constant.
+
+```rust
+pub const EQUILIBRIUM_BED_HEIGHT_CM: f32 = 197.0;
+```
+
+#### Constant `VESSEL_HEIGHT_CM`
+
+Vessel height used as the axial datum, centimetres.
+
+As with the radius, the sheet gives **"more than 11 m"** only, and 11 m is
+taken as the conservative reading.
+
+```rust
+pub const VESSEL_HEIGHT_CM: f32 = 1100.0;
+```
+
+#### Constant `HTR10_RPV_ASPECT_RATIO`
+
+Outer proportions of the reactor pressure vessel, width / height.
+
+Both dimensions are the conservative readings of "more than" bounds, so
+this is a **lower bound on slenderness** — the real vessel is at least this
+slender, never squatter.
+
+```rust
+pub const HTR10_RPV_ASPECT_RATIO: f32 = _;
+```
+
+#### Constant `REFUEL_CHUTE_ALLOWANCE_CM`
+
+Extra radius the DRAWN vessel is given beyond the real one, centimetres,
+to make room for the refuelling chute between the cold annulus and the
+wall on the left.
+
+**A drawing choice** (maintainer direction, 2026-09-21: "make the vessel
+slightly fatter to accommodate this chute"). It does NOT change
+[`VESSEL_INNER_RADIUS_CM`] or [`HTR10_RPV_ASPECT_RATIO`], which stay the
+real values; the cold annulus still ends at the real wall line, and the gap
+beyond it is the allowance. On the right, where there is no chute, the same
+gap is left empty.
+
+```rust
+pub const REFUEL_CHUTE_ALLOWANCE_CM: f32 = 25.0;
+```
+
+#### Constant `DRAWN_VESSEL_RADIUS_CM`
+
+Radius of the DRAWN vessel interior, centimetres: the real inner radius
+plus [`REFUEL_CHUTE_ALLOWANCE_CM`]. The drawing scale and the vessel's
+drawn proportions use this, never the plant data.
+
+```rust
+pub const DRAWN_VESSEL_RADIUS_CM: f32 = _;
+```
+
+#### Constant `DRAWN_ASPECT_RATIO`
+
+Proportions the vessel is DRAWN at, width / height: [`HTR10_RPV_ASPECT_RATIO`]
+widened by the refuelling-chute allowance. Not a plant proportion.
+
+```rust
+pub const DRAWN_ASPECT_RATIO: f32 = _;
+```
+
+#### Constant `DISCHARGE_TUBE_LENGTH_FRACTION`
+
+Fuel discharge tube length as a fraction of vessel height.
+
+From `docs/reactor-scoping/htr10-plant-data.md` section 4.3: *"about
+3.3 m"* (*Quoted*), over the 11 m vessel bound. This is the tube **below
+the core**, which is a different quantity from the r-z model's 610 cm
+innermost band — that band is the full model extent, not a tube length.
+
+```rust
+pub const DISCHARGE_TUBE_LENGTH_FRACTION: f32 = _;
+```
+
+#### Constant `COOLANT_BOREHOLES`
+
+Real number of coolant boreholes, for the label.
+
+```rust
+pub const COOLANT_BOREHOLES: usize = 20;
+```
+
+#### Constant `CONTROL_ROD_CHANNELS`
+
+Real number of control-rod borings, all in the side reflector.
+
+HTR-10 has **no in-core rods** — every one sits in the reflector, which is
+why none is ever drawn entering the bed.
+
+```rust
+pub const CONTROL_ROD_CHANNELS: usize = 10;
+```
+
+#### Constant `LABEL_REFERENCE_VESSEL_WIDTH`
+
+Drawn vessel width, points, at which labels are [`LABEL_FONT_SIZE`]: the
+widget studio's default vessel width, where that size was chosen.
+
+```rust
+pub const LABEL_REFERENCE_VESSEL_WIDTH: f32 = 220.0;
+```
+
 ## Module `htr10_reactor_vessel`
 
 Visual HTR-10 (pebble-bed high-temperature gas-cooled reactor) vessel.
@@ -20768,6 +24404,200 @@ pub mod htr10_reactor_vessel { /* ... */ }
 
 ### Types
 
+#### Struct `Htr10FlowAnchors`
+
+Screen-space anchor points on the drawn HTR-10 vessel that an external
+schematic overlays primary-helium flow indicators onto.
+
+A schematic that draws the primary circuit *outside* the vessel still has to
+line those runs up with the internal features this cut-away shows — the
+side-reflector coolant risers the cold helium climbs, the upper-plenum space
+above the bed, and the hot-gas plenum below it — or the picture reads as two
+unrelated drawings. Every field is derived from the *same* letterboxed
+rectangle and the *same* fractions [`Htr10ReactorVesselVisual::ui`] paints
+with, via [`flow_anchors`], so moving or re-proportioning the vessel carries
+the overlay with it. All values are in screen points.
+
+Screen `y` grows downward, matching egui: a smaller `y` is higher up.
+
+```rust
+pub struct Htr10FlowAnchors {
+    pub artwork_rect: egui::Rect,
+    pub reflector_riser_x: [f32; 4],
+    pub reflector_channel_top_y: f32,
+    pub reflector_channel_bottom_y: f32,
+    pub bed_top_y: f32,
+    pub bed_bottom_y: f32,
+    pub axis_x: f32,
+    pub hot_gas_plenum: egui::Rect,
+    pub hot_gas_duct_nozzle: egui::Pos2,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `artwork_rect` | `egui::Rect` | The letterboxed rectangle the vessel artwork is actually drawn in. |
+| `reflector_riser_x` | `[f32; 4]` | Screen `x` of each drawn side-reflector coolant riser — two per side,<br>four in all, ordered left pair then right pair. Cold helium rises<br>through these channels before reversing at the top of the core. |
+| `reflector_channel_top_y` | `f32` | Screen `y` where the drawn reflector channels **begin**, near the top of<br>the reflector — the elevation the upward cold-helium indication should<br>reach before it turns into the upper plenum. |
+| `reflector_channel_bottom_y` | `f32` | Screen `y` where the drawn reflector channels **end**, near the bottom<br>of the reflector — roughly the elevation cold helium enters the vessel<br>wall at, alongside the hot-gas duct. |
+| `bed_top_y` | `f32` | Screen `y` of the upper surface of the pebble bed. Explicit helium-flow<br>graphics must **stop here** — nothing is drawn over the bed itself — and<br>the geometry between this and [`Self::hot_gas_plenum`] is left to imply<br>the downward core flow. |
+| `bed_bottom_y` | `f32` | Screen `y` of the bottom of the drawn bed's discharge cone. Between this<br>and [`Self::hot_gas_plenum`] there is clear space below the pebbles<br>where a "hot helium collecting below the core" indicator can go without<br>overlapping the bed. |
+| `axis_x` | `f32` | Screen `x` of the vessel axis. |
+| `hot_gas_plenum` | `egui::Rect` | The drawn hot-gas plenum rectangle, in the bottom reflector below the<br>core, where hot helium collects before leaving through the duct. |
+| `hot_gas_duct_nozzle` | `egui::Pos2` | Outboard tip of the hot-gas duct nozzle on the vessel wall — where the<br>horizontal duct to the steam generator starts. Its centreline elevation<br>is [`Self::hot_gas_plenum`]'s mid-height. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Htr10FlowAnchors { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
 #### Struct `Htr10ReactorVesselVisual`
 
 Visual representation of the HTR-10 reactor vessel.
@@ -20868,7 +24698,7 @@ pub struct Htr10ReactorVesselVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -20887,7 +24717,7 @@ pub struct Htr10ReactorVesselVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -20914,7 +24744,7 @@ pub struct Htr10ReactorVesselVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -20970,6 +24800,20 @@ proportions at any size rather than stretching to fill its box.
 pub fn fit_native_aspect(available: egui::Rect) -> egui::Rect { /* ... */ }
 ```
 
+#### Function `flow_anchors`
+
+Compute the [`Htr10FlowAnchors`] for a vessel drawn in `box_rect`.
+
+Mirrors the geometry [`Htr10ReactorVesselVisual::ui`] builds — the same
+[`fit_native_aspect`] letterbox, the same dome/shell/carbon-brick/reflector
+shrink chain, the same [`pebble_bed_shape`] and the same plenum fractions —
+so the two cannot drift. Pinned by
+[`tests::the_flow_anchors_track_the_drawn_artwork`].
+
+```rust
+pub fn flow_anchors(box_rect: egui::Rect) -> Htr10FlowAnchors { /* ... */ }
+```
+
 ### Constants and Statics
 
 #### Constant `NATIVE_ASPECT_RATIO`
@@ -20982,6 +24826,439 @@ the machine rather than an invented one.
 
 ```rust
 pub const NATIVE_ASPECT_RATIO: f32 = _;
+```
+
+#### Constant `HELIUM_RISER_X_FRACS`
+
+Where the two drawn helium risers sit, as fractions of the vessel half-width.
+
+Also in the reflector annulus, either side of the rod boring: the real side
+reflector carries 20 coolant boreholes alongside its 10 rod channels, so
+interleaving them is the right picture. Cold helium rises through these
+before reversing at the top of the core.
+
+`pub` so a schematic drawing the primary-helium routing *outside* the
+vessel can line its "cold helium rising in the reflector" indicators up with
+the channels this cut-away actually paints, rather than eyeballing them —
+see [`flow_anchors`].
+
+```rust
+pub const HELIUM_RISER_X_FRACS: [f32; 2] = _;
+```
+
+## Module `htr10_steam_generator`
+
+HTR-10 steam generator — a schematic of its *general structure*.
+
+A dedicated widget rather than a variant of
+[`crate::components::SteamGeneratorVisual`], because it draws a specific
+internal arrangement rather than a generic once-through helical unit. The
+generic widget stays as it was and keeps serving every other caller.
+
+## The arrangement drawn here
+
+**Maintainer specification, 2026-09-21, in these words:** *"a general
+structure, a central hot gas riser taking up about 40% of the diameter, and
+two peripheral helical steam generators. The helical coils will be angled
+around ~~20~~ **7** degrees, ~~represented by short parallel strokes~~."*
+
+**REVISED the same day, also at the maintainer's request:** the coils are
+drawn as a **continuous winding** — *"some swirly things, so it looks
+simplified in style, and not too much like the actual schematic"* — rather
+than as parallel strokes. The pitch angle survives the change and still
+drives the drawing, now by setting how many turns the helix makes — and it
+was lowered from 20 to 7 degrees at the same time, because a winding needs
+a shallower pitch than parallel strokes did to read as a coil. See
+[`DEFAULT_COIL_ANGLE_DEGREES`].
+
+```text
+       ┌─────────────────────────┐
+       │ ⌇⌇⌇ │             │ ⌇⌇⌇ │   coil as a winding, turns set
+       │ ⌇⌇⌇ │   central   │ ⌇⌇⌇ │   by the ~7 deg pitch angle
+       │ ⌇⌇⌇ │  hot gas    │ ⌇⌇⌇ │
+       │ ⌇⌇⌇ │   riser     │ ⌇⌇⌇ │   two peripheral bundles
+       │ ⌇⌇⌇ │   ~40% D    │ ⌇⌇⌇ │
+       └─────────────────────────┘
+```
+
+The winding is drawn in the same stylisation as
+[`crate::components::SteamGeneratorVisual`]'s generic helical-coil unit, so
+the two read as the same kind of machine.
+
+## What this is and is not
+
+**It is a general-structure schematic, drawn to a specification, not a
+reproduction of any published figure and not the plant's phase-one
+internals.** Two points where it deliberately differs from what this
+workspace's own source review records, so nobody reads the picture as data:
+
+- `docs/reactor-scoping/htr10-plant-data.md` section 5 records the 30
+  helical modules as installed in an **annular space**, with the vessel
+  centre **reserved for a N2-He intermediate heat exchanger and empty in
+  the first stage**. The central riser drawn here is a schematic device for
+  showing where the hot gas goes, specified by the maintainer; it is not a
+  claim that a riser occupies that cavity.
+- The **40 % diameter** and **7 degree** coil angle are the maintainer's
+  drawing parameters. Neither is a plant dimension — section 5 of that
+  sheet lists the coil pitch as *Unknown*, and records only a 112 mm bundle
+  diameter per module, which this schematic does not attempt to resolve.
+
+Dimensions that *are* cited are marked as such at the point of use.
+
+## Animation — five streams on two loops
+
+Five optional tracer trains, all obeying the crate's "ANIMATION IS DERIVED
+FROM PHYSICS, NEVER HARDCODED" hard rule:
+
+| Train | Stream | Advance it with |
+|---|---|---|
+| [`Htr10SteamGeneratorVisual::with_riser_tracer`] | helium climbing the central riser | **primary** loop mass flow |
+| [`Htr10SteamGeneratorVisual::with_shell_gas_tracer`] | helium descending across the coil | **primary** loop mass flow, shell-side residence time |
+| [`Htr10SteamGeneratorVisual::with_coil_water_tracer`] | water rising through the coil | **secondary** loop mass flow |
+| [`Htr10SteamGeneratorVisual::with_feedwater_tracer`] | feedwater entering at the inlet nozzle | **secondary** loop mass flow, nozzle residence time |
+| [`Htr10SteamGeneratorVisual::with_steam_tracer`] | superheated steam leaving at the outlet nozzle | **secondary** loop mass flow, nozzle residence time |
+
+**Where each stream's inlet is, is geometry; which way the marks then
+travel, is physics.** The riser fills from the bottom because the hot gas
+duct enters at the foot of the vessel; the shell side fills from the top
+because the gas turns at the head of the riser and descends; the coil fills
+from the bottom because a once-through generator takes feedwater in low and
+delivers steam high; the feedwater nozzle fills from its outboard end and
+the steam nozzle from its inboard end, because one brings fluid in and the
+other takes it out. Those are facts about the machine. Direction of travel
+along each path is **not** set here at all — [`TracerTrain::advance`] takes
+it from the sign of the mass flow the caller supplies, so a reversed or
+stalled loop reverses or freezes the marks it owns, and the two loops can
+disagree.
+
+Because the two nozzles sit on the same loop but face opposite ways, a
+positive secondary flow drives their marks in **opposite screen
+directions** — in at the bottom, out at the top — with no sign handling
+anywhere in this widget.
+
+**Draw order is load-bearing.** The shell-gas marks are drawn *between* the
+two halves of the winding — back half, gas, front half — so the near side
+of the coil occludes them as they pass. That is what makes the gas read as
+moving down the middle of the helix rather than sliding across in front of
+it. The water marks ride the helix curve itself and are drawn only on the
+near half, for the same reason.
+
+Colour is derived too: every region is graded by a temperature the caller
+supplies.
+
+```rust
+pub mod htr10_steam_generator { /* ... */ }
+```
+
+### Types
+
+#### Struct `Htr10SteamGeneratorVisual`
+
+The HTR-10 steam generator, drawn as a general-structure schematic.
+
+Four temperatures drive the colouring, all supplied by the caller from its
+own model and all graded through the shared
+[`crate::components::temperature_colour`] map, so this widget reads on the
+same colour scale as every other one in the library:
+
+| Field | Physical quantity |
+|---|---|
+| [`Self::helium_inlet_temp`] | hot helium entering the riser from the reactor, K |
+| [`Self::helium_outlet_temp`] | cooled helium leaving the bundles, K |
+| [`Self::feedwater_temp`] | feedwater entering the coils at the bottom, K |
+| [`Self::steam_temp`] | superheated steam leaving at the top, K |
+
+At the HTR-10 design point those are 700 degC, 250 degC, 104 degC and
+440 degC respectively (`docs/reactor-scoping/htr10-plant-data.md` section
+6), but the widget imposes none of them — it draws what it is given.
+
+```rust
+pub struct Htr10SteamGeneratorVisual {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(size: Vec2, min_temp: ThermodynamicTemperature, max_temp: ThermodynamicTemperature, helium_inlet_temp: ThermodynamicTemperature, helium_outlet_temp: ThermodynamicTemperature, feedwater_temp: ThermodynamicTemperature, steam_temp: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  Build the schematic.
+
+- ```rust
+  pub fn gas_port(self: &Self, widget_rect: Rect) -> Pos2 { /* ... */ }
+  ```
+  Where the hot gas duct meets the vessel, for a widget whose box is
+
+- ```rust
+  pub fn steam_port(self: &Self, widget_rect: Rect) -> Pos2 { /* ... */ }
+  ```
+  Outer end of the **steam** outlet nozzle, on the right, for a widget
+
+- ```rust
+  pub fn feedwater_port(self: &Self, widget_rect: Rect) -> Pos2 { /* ... */ }
+  ```
+  Outer end of the **feedwater** inlet nozzle, on the right, for a widget
+
+- ```rust
+  pub fn with_duct_inlet(self: Self, outer_height: f32, inner_height: f32) -> Self { /* ... */ }
+  ```
+  Draw the coaxial hot gas duct's streams inside the vessel, entering at
+
+- ```rust
+  pub fn with_duct_inlet_tracers(self: Self, hot: TracerTrain, cold: TracerTrain) -> Self { /* ... */ }
+  ```
+  Tracer marks through the duct inlet's elbows (only drawn with
+
+- ```rust
+  pub fn with_riser_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Tracer marks for the **primary** helium rising in the central riser.
+
+- ```rust
+  pub fn with_coil_water_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Tracer marks for the **secondary** water travelling up through the
+
+- ```rust
+  pub fn with_shell_gas_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Tracer marks for the **shell-side helium** descending across the coil.
+
+- ```rust
+  pub fn with_feedwater_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Tracer marks on the **feedwater inlet** nozzle.
+
+- ```rust
+  pub fn with_steam_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Tracer marks on the **superheated steam outlet** nozzle.
+
+- ```rust
+  pub fn size(self: &Self) -> Vec2 { /* ... */ }
+  ```
+  On-screen size, in points.
+
+- ```rust
+  pub fn with_riser_diameter_fraction(self: Self, fraction: f32) -> Self { /* ... */ }
+  ```
+  Set the riser's share of the vessel diameter, dimensionless.
+
+- ```rust
+  pub fn with_coil_angle(self: Self, angle: Angle) -> Self { /* ... */ }
+  ```
+  Set the angle of the coil strokes from the horizontal. Builder-style.
+
+- ```rust
+  pub fn without_labels(self: Self) -> Self { /* ... */ }
+  ```
+  Turn the internal labels off — for thumbnails. Builder-style.
+
+- ```rust
+  pub fn drawn_riser_fraction(self: &Self) -> f32 { /* ... */ }
+  ```
+  The riser fraction actually used when drawing.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **Widget**
+  - ```rust
+    fn ui(self: Self, ui: &mut Ui) -> Response { /* ... */ }
+    ```
+    Draws the vessel, the central hot gas riser and the two peripheral
+
+- **WithSubscriber**
+### Functions
+
+#### Function `fit_native_aspect`
+
+Letterbox `available` to the vessel's real proportions.
+
+Keeps the vessel's slenderness at any box size, so a wide panel does not
+draw a squat generator that misrepresents the machine.
+
+```rust
+pub fn fit_native_aspect(available: egui::Rect) -> egui::Rect { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `HTR10_SG_ASPECT_RATIO`
+
+Outer proportions of the HTR-10 steam-generator pressure vessel,
+width / height.
+
+From `docs/reactor-scoping/htr10-plant-data.md` section 4.2: SG pressure
+vessel diameter **2.6 m** (*Quoted*), height **more than 11 m** (*Quoted*
+as a bound, and flagged *Uncertain* there because the scan is poor). 11 m
+is used as the height, which makes this a lower bound on slenderness — the
+real vessel is at least this slender, never squatter.
+
+```rust
+pub const HTR10_SG_ASPECT_RATIO: f32 = _;
+```
+
+#### Constant `DEFAULT_RISER_DIAMETER_FRACTION`
+
+Share of the vessel diameter taken by the central hot gas riser.
+
+**Maintainer-specified drawing parameter** (2026-09-21: *"about 40% of the
+diameter"*), not a plant dimension.
+
+```rust
+pub const DEFAULT_RISER_DIAMETER_FRACTION: f32 = 0.40;
+```
+
+#### Constant `DEFAULT_COIL_ANGLE_DEGREES`
+
+Pitch angle of the drawn coil, from the horizontal.
+
+**Maintainer-specified drawing parameter.** First given as ~~20 degrees~~
+(2026-09-21), then **CHANGED the same day to 7 degrees** once the coils
+were drawn as a continuous winding rather than as parallel strokes —
+*"coil angle should also be 7 degrees by default, i think that looks
+good"*. The real coil pitch is recorded as *Unknown* in the plant-data
+sheet, so this is a representation of a helix, not a measurement of one,
+and it is chosen on how it reads.
+
+It sets how many turns the winding makes over the bundle height, through
+the helix relation `tan(theta) = p / (2 pi r)` — so a **shallower** angle
+winds **more** turns, as a shallower helix genuinely does. That is why the
+number came down when the style changed: at 20 degrees the winding was too
+open to read as a coil, and 7 degrees tightens it by roughly a factor of
+three (`tan 20 / tan 7 = 2.96`).
+
+```rust
+pub const DEFAULT_COIL_ANGLE_DEGREES: f64 = 7.0;
 ```
 
 ## Module `instrumentation`
@@ -21074,7 +25351,7 @@ pub struct InstrumentationVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -21093,7 +25370,7 @@ pub struct InstrumentationVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -21120,7 +25397,7 @@ pub struct InstrumentationVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -21399,7 +25676,7 @@ pub struct PackedPebble {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -21418,7 +25695,7 @@ pub struct PackedPebble {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -21450,7 +25727,7 @@ pub struct PackedPebble {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -21772,7 +26049,7 @@ pub struct PipeScalars {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -21791,7 +26068,7 @@ pub struct PipeScalars {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -21818,7 +26095,7 @@ pub struct PipeScalars {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -21958,7 +26235,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -21977,7 +26254,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -22004,7 +26281,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -22143,7 +26420,7 @@ pub struct PipeScale {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -22162,7 +26439,7 @@ pub struct PipeScale {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -22199,7 +26476,7 @@ pub struct PipeScale {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -22343,7 +26620,7 @@ is not yet reading a per-cell quality from it: drawn between the two.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -22372,7 +26649,7 @@ is not yet reading a per-cell quality from it: drawn between the two.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -22404,7 +26681,7 @@ is not yet reading a per-cell quality from it: drawn between the two.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -22601,7 +26878,7 @@ pub struct PipeVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -22620,7 +26897,7 @@ pub struct PipeVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -22647,7 +26924,7 @@ pub struct PipeVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -22689,6 +26966,676 @@ pub struct PipeVisual {
     Draws the run as a rectangle divided into one box per finite-volume
 
 - **WithSubscriber**
+#### Struct `CoaxialDuctGeometry`
+
+Bore geometry of a **coaxial** run — a duct inside a duct, the two annular
+spaces carrying different streams in opposite directions.
+
+All lengths are real plant dimensions. The drawn picture is a longitudinal
+section, so the radii below set the band proportions across the run.
+
+The radial layout, axis outward:
+
+```text
+  ┌──────────────────────────  outer tube wall
+  │ ← ← ← annulus              (return stream)
+  │ ▒▒▒▒▒ insulation
+  │ ───── inner tube wall
+  │ → → → inner bore           (supply stream)
+  │ ───── inner tube wall
+  │ ▒▒▒▒▒ insulation
+  │ ← ← ← annulus
+  └──────────────────────────  outer tube wall
+```
+
+```rust
+pub struct CoaxialDuctGeometry {
+    pub inner_bore: uom::si::f64::Length,
+    pub outer_bore: uom::si::f64::Length,
+    pub insulation_fraction: f32,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `inner_bore` | `uom::si::f64::Length` | Inside diameter of the **inner** tube — the bore of the supply stream. |
+| `outer_bore` | `uom::si::f64::Length` | Inside diameter of the **outer** tube. The annulus is the space between<br>this and [`Self::inner_bore`]. |
+| `insulation_fraction` | `f32` | Share of the **radial annulus gap** taken up by thermal insulation,<br>dimensionless in `[0, 1)`, measured outward from the inner tube.<br><br>Insulation thickness is a *drawing* parameter, not a plant dimension:<br>see [`Self::htr10_hot_gas_duct`], where the source establishes that<br>insulation is present but never states how thick it is. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn htr10_hot_gas_duct() -> Self { /* ... */ }
+  ```
+  The HTR-10 hot gas duct: the horizontal coaxial duct inside the
+
+- ```rust
+  pub fn annulus_radial_gap(self: &Self) -> Length { /* ... */ }
+  ```
+  Radial gap between the inner tube's outside and the outer tube's
+
+- ```rust
+  pub fn inner_flow_area(self: &Self) -> Area { /* ... */ }
+  ```
+  Flow area of the inner bore, `pi d^2 / 4`.
+
+- ```rust
+  pub fn annulus_flow_area(self: &Self) -> Area { /* ... */ }
+  ```
+  Flow area of the annulus, `pi (D^2 - d^2) / 4`.
+
+- ```rust
+  pub fn inner_radius_fraction(self: &Self) -> f32 { /* ... */ }
+  ```
+  Inner bore as a fraction of the outer bore, which is what sets the band
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> CoaxialDuctGeometry { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &CoaxialDuctGeometry) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+#### Struct `CoaxialDuctVisual`
+
+Visual representation of a **coaxial duct** run: two streams, one inside
+the other, drawn as a longitudinal section.
+
+The counterpart of [`PipeVisual`] for the case a single-bore pipe cannot
+represent — a supply and a return sharing one duct body. Both streams take
+[`PipeScalars`], the same narrow interface [`PipeVisualState::Scalars`]
+uses, so a simulator whose loop physics is its own lumped model supplies
+that model's real state and gets correct colour and tracer motion.
+
+**Direction comes from the physics, not from an assumption.**
+`screen_vector` is the duct **axis**, not a flow direction. Each stream's
+tracers travel the way its own [`PipeScalars::mass_flow`] points: positive
+runs along `screen_vector`, negative runs against it. So the
+counter-current arrangement a coaxial duct is usually built for is a
+*consequence* of the state the caller supplies — pass a positive inner
+flow and a negative annulus flow — rather than something this widget
+imposes. A co-current duct, or a duct with one stream stalled, draws
+correctly for the same reason, and **a flow that reverses in a transient
+reverses its tracers** instead of continuing to animate a direction the
+model no longer has.
+
+**Scale.** Unlike [`PipeVisual`], drawn thickness is **not** derived from
+flow area through a [`PipeScale`]: a coaxial duct's whole readability
+depends on the *ratio* of its two bores, which a per-stream area scale
+would destroy. Thickness is set directly by
+[`Self::drawn_outer_thickness`], and the bands within it are in true
+proportion to the real bores through
+[`CoaxialDuctGeometry::inner_radius_fraction`]. The run **length** is the
+caller's `screen_vector` — see [`CoaxialDuctGeometry::htr10_hot_gas_duct`]
+on why no real length is carried.
+
+```rust
+pub struct CoaxialDuctVisual {
+    pub geometry: CoaxialDuctGeometry,
+    pub screen_position: egui::Pos2,
+    pub screen_vector: egui::Vec2,
+    pub core: PipeScalars,
+    pub annulus: PipeScalars,
+    pub min_temp: uom::si::f64::ThermodynamicTemperature,
+    pub max_temp: uom::si::f64::ThermodynamicTemperature,
+    pub drawn_outer_thickness: f32,
+    pub core_tracer: Option<crate::animation::TracerTrain>,
+    pub annulus_tracer: Option<crate::animation::TracerTrain>,
+    pub show_labels: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `geometry` | `CoaxialDuctGeometry` | Bore geometry, setting the band proportions. |
+| `screen_position` | `egui::Pos2` | On-screen anchor: the inner stream's inlet endpoint. |
+| `screen_vector` | `egui::Vec2` | On-screen direction and length, the inner stream's inlet to outlet. |
+| `core` | `PipeScalars` | Fluid state of the **inner** bore. |
+| `annulus` | `PipeScalars` | Fluid state of the **annulus**, flowing the opposite way. |
+| `min_temp` | `uom::si::f64::ThermodynamicTemperature` | Temperature drawn in the coldest displayable colour. |
+| `max_temp` | `uom::si::f64::ThermodynamicTemperature` | Temperature drawn in the hottest displayable colour. |
+| `drawn_outer_thickness` | `f32` | Total drawn thickness of the duct across the run, in screen points —<br>the outer tube's outside, wall to wall. |
+| `core_tracer` | `Option<crate::animation::TracerTrain>` | Tracer marks for the inner stream. Advanced by the application, once<br>per frame; see [`crate::animation`]. |
+| `annulus_tracer` | `Option<crate::animation::TracerTrain>` | Tracer marks for the annulus stream. |
+| `show_labels` | `bool` | Whether to draw the stream labels. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(geometry: CoaxialDuctGeometry, screen_position: Pos2, screen_vector: Vec2, core: PipeScalars, annulus: PipeScalars, min_temp: ThermodynamicTemperature, max_temp: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  Build a coaxial duct run.
+
+- ```rust
+  pub fn with_drawn_thickness(self: Self, points: f32) -> Self { /* ... */ }
+  ```
+  Set the total drawn thickness, in screen points. Builder-style.
+
+- ```rust
+  pub fn with_core_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Attach the inner-stream tracer train. Builder-style.
+
+- ```rust
+  pub fn with_annulus_tracer(self: Self, tracer: TracerTrain) -> Self { /* ... */ }
+  ```
+  Attach the annulus tracer train. Builder-style.
+
+- ```rust
+  pub fn without_labels(self: Self) -> Self { /* ... */ }
+  ```
+  Turn the stream labels off — for thumbnails. Builder-style.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **Widget**
+  - ```rust
+    fn ui(self: Self, ui: &mut Ui) -> Response { /* ... */ }
+    ```
+    Draws the duct as a longitudinal section: the annulus as the outer
+
+- **WithSubscriber**
+## Module `pipe_route`
+
+Routed pipework: a pipe drawn along a path of straight legs with a proper
+elbow at every corner, carrying one stream's temperature and tracers.
+
+Moved here from `examples/htgr_sim_v1/app/schematic.rs` (2026-09-22) so the
+widget studio's HTR-10 page and `htgr_sim_v1` draw pipework the same way,
+from one implementation. The code is `htgr_sim_v1`'s, unchanged in
+behaviour; only the stream's fields became `uom` quantities and it carries
+its own colour range instead of reading that example's constants.
+
+Presentation only: the stream's temperature, mass flow and residence time
+come from the caller's model. The tracer direction follows the sign of the
+mass flow and its speed the residence time, as [`PipeVisual`] documents.
+
+```rust
+pub mod pipe_route { /* ... */ }
+```
+
+### Types
+
+#### Struct `PipeStream`
+
+One fluid stream's state: everything a routed pipe needs to draw itself.
+
+The caller supplies real state from its own model, which is the contract
+[`PipeVisual::from_scalars`] documents. None of these is invented here.
+
+```rust
+pub struct PipeStream {
+    pub temperature: uom::si::f64::ThermodynamicTemperature,
+    pub mass_flow: uom::si::f64::MassRate,
+    pub residence_time: uom::si::f64::Time,
+    pub thickness: f32,
+    pub tracer: crate::animation::TracerTrain,
+    pub min_temp: uom::si::f64::ThermodynamicTemperature,
+    pub max_temp: uom::si::f64::ThermodynamicTemperature,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `temperature` | `uom::si::f64::ThermodynamicTemperature` | Bulk fluid temperature, which colours the pipe. |
+| `mass_flow` | `uom::si::f64::MassRate` | Mass flow, whose sign sets the tracer direction. |
+| `residence_time` | `uom::si::f64::Time` | Loop residence time, which sets the tracer speed. |
+| `thickness` | `f32` | Drawn pipe thickness, points. |
+| `tracer` | `crate::animation::TracerTrain` | The application-owned tracer train this stream's legs carry. |
+| `min_temp` | `uom::si::f64::ThermodynamicTemperature` | Cold end of the colour scale. |
+| `max_temp` | `uom::si::f64::ThermodynamicTemperature` | Hot end of the colour scale. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn run(self: &Self, from: Pos2, to: Pos2) -> PipeVisual { /* ... */ }
+  ```
+  One straight leg of this stream, from `from` to `to`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PipeStream { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
+- **WithSubscriber**
+### Functions
+
+#### Function `route`
+
+Draw a whole routed pipe path: one [`PipeVisual`] per straight leg and one
+[`PipeBendVisual`] per interior corner.
+
+`path` is the run's **centreline**, corner to corner, in screen points; the
+caller chooses the corners (this does not find a path). Every leg is
+trimmed back by half a pipe thickness at each interior corner so the elbow
+sector meets it flush. `trim_start`/`trim_end` do the same at the two ends,
+for a path that is continued by another path through a shared elbow.
+
+```rust
+pub fn route(ui: &mut egui::Ui, stream: &PipeStream, path: &[egui::Pos2], trim_start: bool, trim_end: bool) { /* ... */ }
+```
+
 ## Module `pump`
 
 Visual **pump**.
@@ -22924,7 +27871,7 @@ volumetric flow is enormous and the head is a metre or two.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -22953,7 +27900,7 @@ volumetric flow is enormous and the head is a metre or two.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -22990,7 +27937,7 @@ volumetric flow is enormous and the head is a metre or two.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -23131,6 +28078,11 @@ pub struct PumpVisual {
   ```
   Colour of the wetted passages: the shared temperature map when a fluid
 
+- ```rust
+  pub fn centrifugal_ports(box_rect: Rect) -> PumpPorts { /* ... */ }
+  ```
+  Port positions for a [`PumpKind::Centrifugal`] pump whose box is
+
 ###### Trait Implementations
 
 - **Any**
@@ -23172,7 +28124,7 @@ pub struct PumpVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -23191,7 +28143,7 @@ pub struct PumpVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -23218,7 +28170,7 @@ pub struct PumpVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -23259,6 +28211,180 @@ pub struct PumpVisual {
     ```
     Draws the machine selected by [`PumpVisual::kind`], letterboxed inside
 
+- **WithSubscriber**
+#### Struct `PumpPorts`
+
+Where the pipes meet a centrifugal [`PumpVisual`]'s casing.
+
+```rust
+pub struct PumpPorts {
+    pub suction: egui::Pos2,
+    pub discharge: egui::Pos2,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `suction` | `egui::Pos2` | Suction, on the casing at the impeller axis, on the right. |
+| `discharge` | `egui::Pos2` | Discharge, at the top of the nozzle, on the upper left. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> PumpPorts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &PumpPorts) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 - **WithSubscriber**
 ## Module `reactor_archetype`
 
@@ -23450,7 +28576,7 @@ heat exchanger all submerged in a sodium pool with a free surface.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -23479,7 +28605,7 @@ heat exchanger all submerged in a sodium pool with a free surface.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -23511,7 +28637,7 @@ heat exchanger all submerged in a sodium pool with a free surface.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -23667,7 +28793,7 @@ pub struct ReactorArchetypeVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -23686,7 +28812,7 @@ pub struct ReactorArchetypeVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -23713,7 +28839,7 @@ pub struct ReactorArchetypeVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -23849,7 +28975,7 @@ pub struct ReactorVesselVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -23868,7 +28994,7 @@ pub struct ReactorVesselVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -23895,7 +29021,7 @@ pub struct ReactorVesselVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -24144,7 +29270,7 @@ separators, no downcomer and no water level.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -24173,7 +29299,7 @@ separators, no downcomer and no water level.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -24205,7 +29331,7 @@ separators, no downcomer and no water level.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -24340,7 +29466,7 @@ pub struct SteamGeneratorScalars {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -24359,7 +29485,7 @@ pub struct SteamGeneratorScalars {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -24391,7 +29517,7 @@ pub struct SteamGeneratorScalars {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -24535,7 +29661,7 @@ pub struct SteamGeneratorPhysicsState {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -24554,7 +29680,7 @@ pub struct SteamGeneratorPhysicsState {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -24586,7 +29712,7 @@ pub struct SteamGeneratorPhysicsState {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -24736,7 +29862,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -24755,7 +29881,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -24787,7 +29913,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -24956,7 +30082,7 @@ pub struct SteamGeneratorVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -24975,7 +30101,7 @@ pub struct SteamGeneratorVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -25002,7 +30128,7 @@ pub struct SteamGeneratorVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -25356,7 +30482,7 @@ denser at inlet so one flow path carries the volume.
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Eq**
@@ -25385,7 +30511,7 @@ denser at inlet so one flow path carries the volume.
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -25422,7 +30548,7 @@ denser at inlet so one flow path carries the volume.
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -25565,7 +30691,7 @@ pub struct StageAngles {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -25584,7 +30710,7 @@ pub struct StageAngles {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -25616,7 +30742,7 @@ pub struct StageAngles {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -25674,6 +30800,10 @@ and what it can and cannot show.
 pub enum TurbineVisualState {
     SteamGenerator(tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine),
     SteamThermo(tampines::components::Turbine),
+    Scalars {
+        shaft_speed: uom::si::f64::AngularVelocity,
+        steam_temperature: Option<uom::si::f64::ThermodynamicTemperature>,
+    },
 }
 ```
 
@@ -25700,6 +30830,21 @@ Fields:
 | Index | Type | Documentation |
 |-------|------|---------------|
 | 0 | `tampines::components::Turbine` |  |
+
+###### `Scalars`
+
+Plain scalars from the caller, no physics model: a shaft speed, which
+turns the rotor, and optionally an inlet steam temperature, which
+colours the casing. The one variant that can do both. For a GUI test
+bench, or any caller whose own model already knows these two numbers.
+Added 2026-09-22.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `shaft_speed` | `uom::si::f64::AngularVelocity` | Shaft angular velocity; the rotor phase is `shaft_speed * t`. |
+| `steam_temperature` | `Option<uom::si::f64::ThermodynamicTemperature>` | Inlet steam temperature for the casing colour, if known. |
 
 ##### Implementations
 
@@ -25759,7 +30904,7 @@ Fields:
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -25778,7 +30923,7 @@ Fields:
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -25810,7 +30955,7 @@ Fields:
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -25905,6 +31050,11 @@ pub struct TurbineVisual {
   Wrap a [`tampines::components::Turbine`] — colour only, no rotation
 
 - ```rust
+  pub fn from_scalars(shaft_speed: AngularVelocity, steam_temperature: Option<ThermodynamicTemperature>, screen_position: Pos2, screen_vector: Vec2, min_temp: ThermodynamicTemperature, max_temp: ThermodynamicTemperature) -> Self { /* ... */ }
+  ```
+  A turbine from plain scalars, no physics model: the rotor turns at
+
+- ```rust
   pub fn at_time(self: Self, simulation_time: Time) -> Self { /* ... */ }
   ```
   Set the application-owned simulation clock. Builder-style, so it chains
@@ -25933,6 +31083,11 @@ pub struct TurbineVisual {
   pub fn casing_temperature(self: &Self) -> Option<ThermodynamicTemperature> { /* ... */ }
   ```
   Casing colour source: the inlet steam temperature, when the variant
+
+- ```rust
+  pub fn ports(screen_position: Pos2, screen_vector: Vec2, flow_path: TurbineFlowPath) -> TurbinePorts { /* ... */ }
+  ```
+  Port positions for a turbine drawn at `screen_position` (its centre)
 
 ###### Trait Implementations
 
@@ -25975,7 +31130,7 @@ pub struct TurbineVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -25994,7 +31149,7 @@ pub struct TurbineVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -26021,7 +31176,7 @@ pub struct TurbineVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -26062,6 +31217,180 @@ pub struct TurbineVisual {
     ```
     Draws `2 * BLADE_ROWS_PER_SIDE + 1` stator rows of growing radius, then
 
+- **WithSubscriber**
+#### Struct `TurbinePorts`
+
+Where a steam line meets [`TurbineVisual`]'s casing.
+
+```rust
+pub struct TurbinePorts {
+    pub steam_in: egui::Pos2,
+    pub exhaust_out: egui::Pos2,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `steam_in` | `egui::Pos2` | Steam admission, at the top of the annulus. |
+| `exhaust_out` | `egui::Pos2` | Exhaust to the condenser, at the casing edge below the last row. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **CastableFrom**
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> TurbinePorts { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Downcast**
+  - ```rust
+    fn downcast(self: &Self) -> &T { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any(self: Box<T>) -> Box<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn into_any_rc(self: Rc<T>) -> Rc<dyn Any> { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any(self: &Self) -> &dyn Any + ''static { /* ... */ }
+    ```
+
+  - ```rust
+    fn as_any_mut(self: &mut Self) -> &mut dyn Any + ''static { /* ... */ }
+    ```
+
+- **DowncastSync**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Instrument**
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **IntoAnyArc**
+  - ```rust
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
+    ```
+
+- **IntoEither**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &TurbinePorts) -> bool { /* ... */ }
+    ```
+
+- **Pointable**
+  - ```rust
+    unsafe fn init(init: <T as Pointable>::Init) -> usize { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref<''a>(ptr: usize) -> &'a T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn deref_mut<''a>(ptr: usize) -> &'a mut T { /* ... */ }
+    ```
+
+  - ```rust
+    unsafe fn drop(ptr: usize) { /* ... */ }
+    ```
+
+- **Read**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **SimdFrom**
+  - ```rust
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
+    ```
+
+- **SimdInto**
+  - ```rust
+    fn simd_into(self: Self, simd: S) -> T { /* ... */ }
+    ```
+
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, <T as TryFrom<U>>::Error> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+- **Upcast**
+  - ```rust
+    fn upcast(self: &Self) -> Option<&T> { /* ... */ }
+    ```
+
+- **VZip**
+  - ```rust
+    fn vzip(self: Self) -> V { /* ... */ }
+    ```
+
+- **WasmNotSend**
+- **WasmNotSendSync**
+- **WasmNotSync**
 - **WithSubscriber**
 ## Module `valve`
 
@@ -26148,7 +31477,7 @@ pub struct ValveVisual {
 
 - **DowncastSync**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **Freeze**
@@ -26167,7 +31496,7 @@ pub struct ValveVisual {
 
 - **IntoAnyArc**
   - ```rust
-    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Send + Sync> { /* ... */ }
+    fn into_any_arc(self: Arc<T>) -> Arc<dyn Any + Sync + Send> { /* ... */ }
     ```
 
 - **IntoEither**
@@ -26194,7 +31523,7 @@ pub struct ValveVisual {
 - **Send**
 - **SimdFrom**
   - ```rust
-    fn simd_from(value: T, _simd: S) -> T { /* ... */ }
+    fn simd_from(_simd: S, value: T) -> T { /* ... */ }
     ```
 
 - **SimdInto**
@@ -26358,10 +31687,28 @@ pub use heat_exchanger::HeatExchangerVisual;
 pub use heat_exchanger::HeatExchangerVisualState;
 ```
 
+#### Re-export `Htr10ReactorSchematic`
+
+```rust
+pub use htr10_reactor_schematic::Htr10ReactorSchematic;
+```
+
+#### Re-export `Htr10FlowAnchors`
+
+```rust
+pub use htr10_reactor_vessel::Htr10FlowAnchors;
+```
+
 #### Re-export `Htr10ReactorVesselVisual`
 
 ```rust
 pub use htr10_reactor_vessel::Htr10ReactorVesselVisual;
+```
+
+#### Re-export `Htr10SteamGeneratorVisual`
+
+```rust
+pub use htr10_steam_generator::Htr10SteamGeneratorVisual;
 ```
 
 #### Re-export `InstrumentationVisual`
@@ -26380,6 +31727,18 @@ pub use legend::LegendUnit;
 
 ```rust
 pub use legend::TemperatureLegend;
+```
+
+#### Re-export `CoaxialDuctGeometry`
+
+```rust
+pub use pipe::CoaxialDuctGeometry;
+```
+
+#### Re-export `CoaxialDuctVisual`
+
+```rust
+pub use pipe::CoaxialDuctVisual;
 ```
 
 #### Re-export `PipePhaseShade`

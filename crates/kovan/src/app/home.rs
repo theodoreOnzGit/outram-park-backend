@@ -30,6 +30,11 @@ use crate::root::{KovanRoot, RootConfig};
 const MAX_RECENT: usize = 10;
 
 fn recent_roots_path() -> Option<PathBuf> {
+    // Tests open throwaway folders; they must not land in the user's real
+    // recent list (seen 2026-09-22: `/tmp/.tmp…` entries on the home page).
+    if cfg!(test) {
+        return None;
+    }
     directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
         .map(|d| d.config_dir().join("recent_roots.toml"))
 }
@@ -80,6 +85,9 @@ fn push_recent(roots: &mut Vec<PathBuf>, path: PathBuf) {
 pub enum HomeAction {
     RequestOpenDialog,
     RequestCreateDialog,
+    /// Open the setup dialog, which defines the three repositories: the
+    /// user's Kovan repository, open corpus and closed corpus.
+    RequestSetupRepos,
 }
 
 /// State for the startup screen. Owns the recent-roots list and, once one
@@ -93,6 +101,9 @@ pub struct HomeState {
     /// id/name prompt (§5's `[library] id/name`) before
     /// [`KovanRoot::create`] actually runs.
     pending_create_dir: Option<PathBuf>,
+    /// A folder "+ Create Kovan Folder…" just made, for the app to give its
+    /// corpora ([`Self::take_created`]).
+    created: Option<PathBuf>,
     new_library_id: String,
     new_library_name: String,
     message: String,
@@ -105,6 +116,7 @@ impl Default for HomeState {
             recent_roots: load_recent_roots(),
             root: None,
             pending_create_dir: None,
+            created: None,
             new_library_id: String::new(),
             new_library_name: String::new(),
             message: String::new(),
@@ -143,6 +155,12 @@ impl HomeState {
         }
     }
 
+    /// The folder "+ Create Kovan Folder…" just made, once: the app then
+    /// clones its corpora.
+    pub fn take_created(&mut self) -> Option<PathBuf> {
+        self.created.take()
+    }
+
     /// A directory was picked for "+ Create Kovan Folder…" — stash it and
     /// show the id/name prompt rather than creating immediately.
     pub fn begin_create(&mut self, dir: &Path) {
@@ -169,6 +187,7 @@ impl HomeState {
             Ok(root) => {
                 push_recent(&mut self.recent_roots, root.path().to_path_buf());
                 self.set_status(format!("created {}", root.path().display()));
+                self.created = Some(root.path().to_path_buf());
                 self.root = Some(root);
             }
             Err(e) => {
@@ -248,6 +267,16 @@ impl HomeState {
                 }
                 if ui.button("+ Create Kovan Folder…").clicked() {
                     action = Some(HomeAction::RequestCreateDialog);
+                }
+                if ui
+                    .button("\u{2699} Set up repositories…")
+                    .on_hover_text(
+                        "Your Kovan repository, open corpus and closed corpus (three GitHub \
+                         repositories)",
+                    )
+                    .clicked()
+                {
+                    action = Some(HomeAction::RequestSetupRepos);
                 }
             });
         });

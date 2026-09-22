@@ -1496,7 +1496,7 @@ mod tests {
     /// Reference: IAEA-TECDOC-1382, *Evaluation of high temperature gas cooled
     /// reactor performance: Benchmark analysis related to initial testing of
     /// the HTTR and HTR-10*, section 4.1 and Table 4-1; ingested at
-    /// `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`.
+    /// `iaea-tecdoc-1382-part2` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
     /// Pass criterion: core volume within 1% of 5.0 m^3, filling fraction
     /// within 2% of 0.61.
     ///

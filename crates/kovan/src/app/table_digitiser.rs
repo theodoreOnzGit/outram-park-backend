@@ -14,7 +14,6 @@ use eframe::egui::{self, Color32};
 use crate::digitiser::dataset::{utc_now_iso8601, ReviewInterface, ReviewStatus};
 use crate::digitiser::raster::PlotRaster;
 use crate::digitiser::table_ocr::{self, RecognizedTable};
-use crate::project;
 use crate::session::PaperSession;
 
 use super::csv_preview::draw_csv_preview;
@@ -40,8 +39,6 @@ pub struct TableDigitiserState {
     /// `super::DigitiseApp::crop_provenance` for the same idea on the plot
     /// digitiser side.
     crop_provenance: Option<CropProvenance>,
-    project_root: String,
-    project_markdown_rel: String,
     message: String,
     message_is_error: bool,
 }
@@ -59,8 +56,6 @@ impl Default for TableDigitiserState {
             csv_out: String::new(),
             pending_export: None,
             crop_provenance: None,
-            project_root: String::new(),
-            project_markdown_rel: String::new(),
             message: String::new(),
             message_is_error: false,
         }
@@ -206,10 +201,13 @@ impl TableDigitiserState {
 
     /// Append this table's CSV into the active paper's own canonical
     /// Markdown when one is open (`op-bd8p`, same reasoning as
-    /// `super::DigitiseApp::save_into_project` — see its doc), falling back
+    /// `super::DigitiseApp::save_into_project` — see its doc). ~~Falling back
     /// to the manual `project_root`/`project_markdown_rel` fields +
-    /// [`project::append_to_section`] (op-96am/op-x9qn's original design)
-    /// only when no paper is active.
+    /// `project::append_to_section` (op-96am/op-x9qn's original design) when
+    /// no paper is active.~~ **CORRECTED 2026-09-22**: those fields are gone (maintainer
+    /// direction: the Kovan folder comes from setup and a paper's Markdown is
+    /// created at ingest); with no paper open this reports that the PDF
+    /// must be ingested first.
     fn save_into_project(&mut self, active_paper: Option<&mut PaperSession>) {
         let Some(t) = &self.table else {
             self.set_error("nothing to save — run OCR first");
@@ -260,46 +258,7 @@ impl TableDigitiserState {
             return;
         }
 
-        // --- no active paper: the legacy plain-text section path ---
-        //
-        // See the same fallback in `app/mod.rs`: what this writes is not a
-        // `[kovan]` artifact, so it never draws a region box on the PDF
-        // canvas (GH issue #35, 2026-09-08).
-        if self.project_root.trim().is_empty() || self.project_markdown_rel.trim().is_empty() {
-            self.set_error(
-                "no active paper — activate one (Wiki, Bibliography or Mindmap) \
-                 so this saves as a real artifact with a region box",
-            );
-            return;
-        }
-        let mut block = "### Digitised table".to_string();
-        if let Some(prov) = &self.crop_provenance {
-            block.push_str(&format!(
-                " — page {}, pixel bbox [{:.1}, {:.1}, {:.1}, {:.1}], {}, {}",
-                prov.page_index + 1,
-                prov.min.x,
-                prov.min.y,
-                prov.max.x,
-                prov.max.y,
-                prov.created_at,
-                prov.author
-            ));
-        }
-        block.push_str("\n\n");
-        block.push_str(&csv_body);
-        match project::append_to_section(
-            std::path::Path::new(self.project_root.trim()),
-            self.project_markdown_rel.trim(),
-            "table_csvs",
-            &block,
-        ) {
-            Ok(_) => self.set_status(
-                "saved as a plain section (no active paper) — this is NOT a Kovan \
-                 artifact and draws no box on the PDF; activate the paper and use \
-                 the reader's \"Upgrade to artifacts\" button to fix it",
-            ),
-            Err(e) => self.set_error(e.to_string()),
-        }
+        self.set_error("no paper open: ingest this PDF (or open its paper from the Wiki, Bibliography or Mindmap) so this saves into its notes");
     }
 
     /// Returns `Some(request)` the frame a "Browse…" button is clicked
@@ -412,14 +371,7 @@ impl TableDigitiserState {
                 ui.label(format!("saving into {citekey}'s notes"));
             }
             None => {
-                ui.horizontal(|ui| {
-                    ui.label("project root");
-                    ui.text_edit_singleline(&mut self.project_root);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("markdown path (relative)");
-                    ui.text_edit_singleline(&mut self.project_markdown_rel);
-                });
+                ui.label("no paper open: ingest the PDF to save into its notes");
             }
         }
         if let Some(prov) = &self.crop_provenance {
@@ -564,16 +516,15 @@ mod tests {
     }
 
     #[test]
-    fn save_into_project_refuses_when_there_is_no_active_paper_and_no_project_fields() {
+    fn save_into_project_without_a_paper_says_to_ingest() {
         let mut state = TableDigitiserState {
             table: Some(table()),
             ..Default::default()
         };
         state.save_into_project(None);
-        // GH issue #35, 2026-09-08: names the real fix (activate a paper)
-        // rather than the manual project fields, whose path writes a plain
-        // section that is not a Kovan artifact and draws no region box.
+        // GH issue #35, 2026-09-08, and 2026-09-22 (the manual project
+        // fields were removed): it names the real fix, ingesting the PDF.
         assert!(state.message_is_error, "{}", state.message);
-        assert!(state.message.contains("no active paper"), "{}", state.message);
+        assert!(state.message.contains("ingest this PDF"), "{}", state.message);
     }
 }

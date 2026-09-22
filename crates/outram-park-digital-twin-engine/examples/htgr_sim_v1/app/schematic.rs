@@ -7,7 +7,7 @@
 //! The defining feature of this plant is not the equipment list, it is the
 //! layout. Following the description in IAEA-TECDOC-1382 (ingested into this
 //! workspace's literature layer at
-//! `crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`)
+//! `iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`)
 //! and the corrected topology of GitHub issue #154:
 //!
 //! - The reactor and the steam generator sit in **two separate pressure

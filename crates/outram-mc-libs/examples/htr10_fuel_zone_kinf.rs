@@ -92,7 +92,7 @@
 //! high temperature gas cooled reactor performance: Benchmark analysis related
 //! to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003,
 //! Table 4-38 (Open tier; catalogued at
-//! `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json`,
+//! `iaea-tecdoc-1382-part2` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`),
 //! markdown line 1101). They are not derived, fitted or invented here.
 //!
 //! The kernel radius (0.025 cm), fuelled-zone radius (2.5 cm) and particle
