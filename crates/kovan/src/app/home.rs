@@ -30,6 +30,11 @@ use crate::root::{KovanRoot, RootConfig};
 const MAX_RECENT: usize = 10;
 
 fn recent_roots_path() -> Option<PathBuf> {
+    // Tests open throwaway folders; they must not land in the user's real
+    // recent list (seen 2026-09-22: `/tmp/.tmp…` entries on the home page).
+    if cfg!(test) {
+        return None;
+    }
     directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
         .map(|d| d.config_dir().join("recent_roots.toml"))
 }

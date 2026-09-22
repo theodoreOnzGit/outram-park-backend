@@ -264,6 +264,7 @@ pub fn ensure_corpus(
             .args(["submodule", "update", "--init", "--", &rel_str])
             .output()?;
         return if output.status.success() {
+            attach_to_branch(dir);
             Ok(RepoState::Cloned)
         } else {
             Err(CorpusRepoError::Clone {
@@ -297,6 +298,35 @@ pub fn ensure_corpus(
             remote: url.to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
         })
+    }
+}
+
+/// Put a freshly fetched submodule at `dir` back on a branch: `git
+/// submodule update` leaves it on a detached `HEAD`, where a commit (an
+/// ingested PDF) is on no branch and cannot simply be pushed. Only a remote
+/// branch whose tip IS the recorded commit is used, so nothing moves; when
+/// there is none, the submodule stays detached. Best effort.
+fn attach_to_branch(dir: &Path) {
+    let git = |args: &[&str]| Command::new("git").arg("-C").arg(dir).args(args).output();
+    let Ok(out) = git(&[
+        "for-each-ref",
+        "--points-at",
+        "HEAD",
+        "--format=%(refname:strip=3)",
+        "refs/remotes/origin",
+    ]) else {
+        return;
+    };
+    let branches = String::from_utf8_lossy(&out.stdout).to_string();
+    if let Some(branch) = branches.lines().find(|b| !b.is_empty() && *b != "HEAD") {
+        let _ = git(&[
+            "checkout",
+            "-q",
+            "-B",
+            branch,
+            "--track",
+            &format!("origin/{branch}"),
+        ]);
     }
 }
 
@@ -667,6 +697,12 @@ mod tests {
                 .open_corpus_dir()
                 .join("my-open-corpus/b.pdf")
                 .exists()
+        );
+        // Fetched onto its branch, not a detached HEAD, so an ingest there
+        // can be committed and pushed.
+        assert_eq!(
+            crate::advanced_git::current_branch_in(&cloned.open_corpus_dir()).as_deref(),
+            Some("main")
         );
     }
 

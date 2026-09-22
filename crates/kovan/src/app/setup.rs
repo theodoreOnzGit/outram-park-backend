@@ -192,6 +192,9 @@ impl SetupDialog {
 /// platform config folder: every new Kovan folder gets these corpora
 /// (maintainer direction, 2026-09-22), not only the one the dialog set up.
 fn remembered_corpora_file() -> Option<PathBuf> {
+    if cfg!(test) {
+        return None; // never the user's real config under test
+    }
     directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
         .map(|d| d.config_dir().join("corpora.toml"))
 }
@@ -234,6 +237,9 @@ fn write_corpora(path: &Path, given: &CorporaConfig) -> std::io::Result<()> {
 /// The file whose presence records that first run is over, in Kovan's
 /// platform config folder (beside `recent_roots.toml`).
 fn first_run_marker() -> Option<PathBuf> {
+    if cfg!(test) {
+        return None; // never the user's real config under test
+    }
     directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
         .map(|d| d.config_dir().join("setup_done"))
 }
