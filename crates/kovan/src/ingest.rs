@@ -340,11 +340,11 @@ mod tests {
     #[test]
     fn relative_to_computes_a_sibling_subtree_path() {
         let base = PathBuf::from("/lib/papers/wang2018multiphysics");
-        let target = PathBuf::from("/lib/literature/open/wang2018multiphysics.pdf");
+        let target = PathBuf::from("/lib/literature/open-corpus/wang2018multiphysics.pdf");
         let rel = relative_to(&base, &target);
         assert_eq!(
             rel,
-            PathBuf::from("../../literature/open/wang2018multiphysics.pdf")
+            PathBuf::from("../../literature/open-corpus/wang2018multiphysics.pdf")
         );
     }
 
@@ -368,9 +368,11 @@ mod tests {
 
         let paper_dir = root.paper_dir(&p.suggested_citekey);
         assert!(paper_dir.join("kovan.toml").is_file());
-        assert!(paper_dir
-            .join(format!("{}.md", p.suggested_citekey))
-            .is_file());
+        assert!(
+            paper_dir
+                .join(format!("{}.md", p.suggested_citekey))
+                .is_file()
+        );
         let stored_pdf = root
             .open_sources_dir()
             .join(format!("{}.pdf", p.suggested_citekey));

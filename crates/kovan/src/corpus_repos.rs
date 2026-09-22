@@ -49,6 +49,9 @@ pub enum RepoState {
     /// `origin` (a corpus first created locally, whose URL the user gave
     /// later), so it can be pushed without typing the URL again.
     RemoteAdded,
+    /// Mounted in the Kovan folder as a Git submodule of its remote: cloned
+    /// as one, or an existing repository at the path adopted as one.
+    SubmoduleAdded,
 }
 
 /// Why [`ensure_repo`] could not make a directory a repository.
@@ -168,31 +171,157 @@ fn clone(url: &str, dir: &Path, branch: Option<&str>) -> Result<(), CorpusRepoEr
     }
 }
 
-/// The outcome for each of a Kovan folder's two corpus repositories.
+/// The outcome for each of a Kovan folder's three corpus repositories.
 #[derive(Debug)]
 pub struct CorporaSetup {
+    /// Kovan's standard corpus, the same for every user.
+    pub standard: Result<RepoState, CorpusRepoError>,
+    /// The user's open corpus.
     pub open: Result<RepoState, CorpusRepoError>,
+    /// The user's proprietary (closed) corpus.
     pub proprietary: Result<RepoState, CorpusRepoError>,
 }
 
-/// Make `root`'s open corpus and proprietary corpus Git repositories, from
-/// the remotes in its `[corpora]` table, or locally where none is given
-/// (#255). Each is attempted independently; one failing does not stop the
-/// other.
+/// Make the three corpus repositories of `root` (maintainer direction,
+/// 2026-09-22: a Kovan folder is its own repository plus the standard, open
+/// and closed corpora):
+///
+/// - **standard corpus** at [`KovanRoot::standard_corpus_dir`], from
+///   [`crate::corpus::CORPUS_REPOSITORY_URL`], the same for every user;
+/// - **open corpus** at [`KovanRoot::open_corpus_dir`] and **proprietary
+///   corpus** at [`KovanRoot::restricted_sources_dir`], from the user's own
+///   remotes in `[corpora]`.
+///
+/// Each is attempted independently; one failing does not stop the others.
+/// See [`ensure_corpus`] for how each is set up.
 pub fn ensure_library_corpora(root: &KovanRoot) -> CorporaSetup {
+    ensure_library_corpora_with(
+        root,
+        crate::corpus::CORPUS_REPOSITORY_URL,
+        crate::corpus::CORPUS_REPOSITORY_BRANCH,
+    )
+}
+
+/// [`ensure_library_corpora`] with the standard corpus's remote and branch
+/// given, so tests can use a local repository instead of the network.
+pub fn ensure_library_corpora_with(
+    root: &KovanRoot,
+    standard_remote: &str,
+    standard_branch: &str,
+) -> CorporaSetup {
     let corpora = &root.config().corpora;
     CorporaSetup {
-        open: ensure_repo(
+        standard: ensure_corpus(
+            root,
+            &root.standard_corpus_dir(),
+            Some(standard_remote),
+            Some(standard_branch),
+        ),
+        open: ensure_corpus(
+            root,
             &root.open_corpus_dir(),
             corpora.open_remote.as_deref(),
             None,
         ),
-        proprietary: ensure_repo(
+        proprietary: ensure_corpus(
+            root,
             &root.restricted_sources_dir(),
             corpora.proprietary_remote.as_deref(),
             None,
         ),
     }
+}
+
+/// Set up one corpus repository at `dir` inside `root`.
+///
+/// - **`root` is a Git repository and `remote` is known:** the corpus becomes
+///   a **submodule** of `root` ([`RepoState::SubmoduleAdded`]), cloned into
+///   `dir` or, if a repository is already there, adopted as it is (its files
+///   are never replaced). Already a submodule: [`RepoState::Existing`], or
+///   [`RepoState::Cloned`] after fetching one that was registered but not yet
+///   fetched (a plain clone of someone's Kovan repository).
+///   `--force` is used because the corpus paths are gitignored for the local
+///   case below; ignore rules do not apply to tracked paths.
+/// - Otherwise: [`ensure_repo`], a plain clone or a local repository.
+pub fn ensure_corpus(
+    root: &KovanRoot,
+    dir: &Path,
+    remote: Option<&str>,
+    branch: Option<&str>,
+) -> Result<RepoState, CorpusRepoError> {
+    let Some(url) = remote.filter(|_| root.has_git()) else {
+        return ensure_repo(dir, remote, branch);
+    };
+    let rel = dir.strip_prefix(root.path()).unwrap_or(dir);
+    let rel_str = rel.to_string_lossy().replace('\\', "/");
+    if is_submodule(root.path(), &rel_str) {
+        if is_git_repo(dir) {
+            return Ok(RepoState::Existing);
+        }
+        // Registered but not fetched, as after a plain clone of someone's
+        // Kovan repository: fetch it now.
+        let output = submodule_git(root.path())
+            .args(["submodule", "update", "--init", "--", &rel_str])
+            .output()?;
+        return if output.status.success() {
+            Ok(RepoState::Cloned)
+        } else {
+            Err(CorpusRepoError::Clone {
+                remote: url.to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            })
+        };
+    }
+    let has_files = dir.is_dir() && std::fs::read_dir(dir)?.next().is_some();
+    if has_files && !is_git_repo(dir) {
+        return Err(CorpusRepoError::NotEmpty(dir.to_path_buf()));
+    }
+    if dir.is_dir() && !has_files {
+        // The folder skeleton's empty directory: `git submodule add` refuses
+        // an existing path that is not a repository, empty or not.
+        std::fs::remove_dir(dir)?;
+    }
+    if !crate::advanced_git::system_git_available() {
+        return Err(CorpusRepoError::GitUnavailable);
+    }
+    let mut cmd = submodule_git(root.path());
+    cmd.args(["submodule", "add", "--force"]);
+    if let (Some(b), false) = (branch, is_git_repo(dir)) {
+        cmd.args(["-b", b]);
+    }
+    let output = cmd.arg(url).arg(&rel_str).output()?;
+    if output.status.success() {
+        Ok(RepoState::SubmoduleAdded)
+    } else {
+        Err(CorpusRepoError::Clone {
+            remote: url.to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        })
+    }
+}
+
+/// `git -C root`, for a submodule command. Under test, local file-path
+/// remotes are allowed: Git refuses them for submodules by default, the
+/// tests' stand-in remotes are local paths, and a repository-local setting
+/// does not reach the clone Git runs for the submodule, whereas `-c` does.
+fn submodule_git(root: &Path) -> Command {
+    let mut cmd = Command::new("git");
+    #[cfg(test)]
+    cmd.args(["-c", "protocol.file.allow=always"]);
+    cmd.arg("-C").arg(root);
+    cmd
+}
+
+/// Whether `rel` (a path relative to the repository at `root`) is a
+/// submodule there: tracked as a gitlink, index mode `160000`.
+fn is_submodule(root: &Path, rel: &str) -> bool {
+    Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["ls-files", "--stage", "--", rel])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).starts_with("160000"))
+        .unwrap_or(false)
 }
 
 /// Where Kovan keeps its clone of the standard corpus: the platform
@@ -389,16 +518,132 @@ mod tests {
         );
     }
 
-    /// A Kovan folder with no `[corpora]` remotes gets two local repositories.
+    /// A local repository with one commit, standing in for a remote.
+    fn source_repo(dir: &Path, file: &str) -> String {
+        touch(&dir.join(file));
+        let git = |args: &[&str]| {
+            let ok = Command::new("git")
+                .arg("-C")
+                .arg(dir)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .output()
+                .unwrap()
+                .status
+                .success();
+            assert!(ok, "git {args:?}");
+        };
+        git(&["init", "-q", "-b", "main"]);
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "x"]);
+        dir.to_string_lossy().to_string()
+    }
+
+    /// A Kovan folder that is not a Git repository and has no remotes of its
+    /// own gets local repositories for its corpora; the standard corpus is
+    /// cloned.
     #[test]
-    fn a_library_without_remotes_gets_two_local_repositories() {
+    fn a_library_without_git_or_remotes_gets_local_repositories() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
         let tmp = tempfile::tempdir().unwrap();
-        let root = KovanRoot::create(tmp.path(), RootConfig::new("lib", "Lib"), false).unwrap();
-        let setup = ensure_library_corpora(&root);
+        let standard = source_repo(&tmp.path().join("std"), "kovan-standard-open-corpus/a.pdf");
+        let lib = tmp.path().join("lib");
+        let root = KovanRoot::create(&lib, RootConfig::new("lib", "Lib"), false).unwrap();
+        let setup = ensure_library_corpora_with(&root, &standard, "main");
+        assert_eq!(setup.standard.unwrap(), RepoState::Cloned);
         assert_eq!(setup.open.unwrap(), RepoState::Initialised);
         assert_eq!(setup.proprietary.unwrap(), RepoState::Initialised);
-        assert!(is_git_repo(&root.open_corpus_dir()));
-        assert!(is_git_repo(&root.restricted_sources_dir()));
+        assert!(
+            root.standard_corpus_dir()
+                .join("kovan-standard-open-corpus/a.pdf")
+                .exists()
+        );
+    }
+
+    /// In a Kovan folder that is a Git repository, every corpus with a remote
+    /// becomes a submodule; one without stays a local repository; a second
+    /// run changes nothing.
+    #[test]
+    fn corpora_with_remotes_become_submodules() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let standard = source_repo(&tmp.path().join("std"), "kovan-standard-open-corpus/a.pdf");
+        let open = source_repo(&tmp.path().join("open"), "my-open-corpus/b.pdf");
+        let lib = tmp.path().join("lib");
+        let mut root = KovanRoot::create(&lib, RootConfig::new("lib", "Lib"), true).unwrap();
+        root.set_corpora(crate::root::CorporaConfig {
+            open_remote: Some(open.clone()),
+            proprietary_remote: None,
+        })
+        .unwrap();
+        let setup = ensure_library_corpora_with(&root, &standard, "main");
+        assert_eq!(setup.standard.unwrap(), RepoState::SubmoduleAdded);
+        assert_eq!(setup.open.unwrap(), RepoState::SubmoduleAdded);
+        assert_eq!(setup.proprietary.unwrap(), RepoState::Initialised);
+        assert!(is_submodule(&lib, "literature/standard-corpus"));
+        assert!(is_submodule(&lib, "literature/open-corpus"));
+        assert!(!is_submodule(&lib, "literature/proprietary"));
+        assert!(root.open_corpus_dir().join("my-open-corpus/b.pdf").exists());
+        let again = ensure_library_corpora_with(&root, &standard, "main");
+        assert_eq!(again.standard.unwrap(), RepoState::Existing);
+        assert_eq!(again.open.unwrap(), RepoState::Existing);
+    }
+
+    /// A plain clone of someone's Kovan repository has its corpus submodules
+    /// registered but empty; setting it up fetches them.
+    #[test]
+    fn a_cloned_kovan_repository_fetches_its_corpora() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let standard = source_repo(&tmp.path().join("std"), "kovan-standard-open-corpus/a.pdf");
+        let open = source_repo(&tmp.path().join("open"), "my-open-corpus/b.pdf");
+        let lib = tmp.path().join("lib");
+        let mut root = KovanRoot::create(&lib, RootConfig::new("lib", "Lib"), true).unwrap();
+        root.set_corpora(crate::root::CorporaConfig {
+            open_remote: Some(open),
+            proprietary_remote: None,
+        })
+        .unwrap();
+        ensure_library_corpora_with(&root, &standard, "main");
+        for args in [&["add", "-A"][..], &["commit", "-q", "-m", "corpora"]] {
+            let ok = Command::new("git")
+                .arg("-C")
+                .arg(&lib)
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "git {args:?}");
+        }
+
+        let copy = tmp.path().join("copy");
+        assert_eq!(
+            ensure_repo(&copy, Some(&lib.to_string_lossy()), None).unwrap(),
+            RepoState::Cloned
+        );
+        let cloned = KovanRoot::open(&copy).unwrap();
+        assert!(
+            !cloned
+                .open_corpus_dir()
+                .join("my-open-corpus/b.pdf")
+                .exists()
+        );
+        let setup = ensure_library_corpora_with(&cloned, &standard, "main");
+        assert_eq!(setup.standard.unwrap(), RepoState::Cloned);
+        assert_eq!(setup.open.unwrap(), RepoState::Cloned);
+        assert!(
+            cloned
+                .open_corpus_dir()
+                .join("my-open-corpus/b.pdf")
+                .exists()
+        );
     }
 
     /// Both accepted layouts: `*open-corpus*` top-level folders when present

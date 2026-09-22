@@ -259,9 +259,16 @@ mod tests {
         );
     }
 
+    /// Held by every test that changes the process's working directory or
+    /// `HOME`: both are process-wide, and tests run in parallel, so without it
+    /// one test's directory leaks into another's (seen 2026-09-22 as an
+    /// intermittent failure of the workspace-preference test).
+    static PROCESS_STATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// The failure must name what it tried, or "not found" is unactionable.
     #[test]
     fn a_failed_search_names_every_path_it_tried() {
+        let _guard = PROCESS_STATE.lock().unwrap_or_else(|e| e.into_inner());
         // Point HOME somewhere empty so the search cannot succeed, and run from
         // a directory with no workspace above it.
         let tmp = tempfile::tempdir().unwrap();
@@ -304,6 +311,7 @@ mod tests {
     /// the repository's .gitignore already covers it.
     #[test]
     fn the_workspace_is_preferred_when_one_can_be_found() {
+        let _guard = PROCESS_STATE.lock().unwrap_or_else(|e| e.into_inner());
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path().join("ws");
         make_workspace(&root);

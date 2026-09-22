@@ -58,7 +58,7 @@
 //! papers = "papers"
 //! topics = "topics"
 //! projects = "projects"
-//! open_sources = "literature/open"
+//! open_sources = "literature/open-corpus"
 //! restricted_sources = "literature/proprietary"
 //! ```
 
@@ -122,7 +122,11 @@ impl std::fmt::Display for RootError {
             ),
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Self::Toml { path, message } => write!(f, "{}: {message}", path.display()),
-            Self::UnsupportedSchema { path, found, supported } => write!(
+            Self::UnsupportedSchema {
+                path,
+                found,
+                supported,
+            } => write!(
                 f,
                 "{}: schema_version {found} is newer than this build understands \
                  (supports {supported}) — upgrade Kovan to open this library",
@@ -134,7 +138,11 @@ impl std::fmt::Display for RootError {
                 path.display()
             ),
             Self::GitInit { path, message } => {
-                write!(f, "{}: could not initialise a git repository: {message}", path.display())
+                write!(
+                    f,
+                    "{}: could not initialise a git repository: {message}",
+                    path.display()
+                )
             }
         }
     }
@@ -172,7 +180,18 @@ pub struct RootPaths {
     /// Root of the project collection tree (§6). Shares the topic tree's
     /// machinery; `kind` in each `kovan.toml` distinguishes the semantics.
     pub projects: PathBuf,
-    /// Storage for open / redistributable source documents. Committable.
+    /// Storage for open / redistributable source documents: the user's
+    /// **open corpus**, a Git repository of its own, cloned from
+    /// [`CorporaConfig::open_remote`] or initialised locally (GitHub issue
+    /// #255), and mounted as a submodule when it has a remote. Gitignored by
+    /// the library, being its own repository.
+    ///
+    /// ~~Committable, and separate from an `open_corpus` repository at
+    /// `literature/open-corpus`, with this defaulting to `literature/open`.~~
+    /// **CORRECTED 2026-09-22** (maintainer direction: one open corpus, no
+    /// separate `open` folder): the two are the same folder, defaulting to
+    /// `literature/open-corpus`. A `kovan_root.toml` that names
+    /// `open_sources` explicitly keeps its own path.
     pub open_sources: PathBuf,
     /// Storage for restricted / proprietary source documents. Gitignored, and
     /// must never reach a commit — see §4 and `DATA_POLICY.md`. Since GitHub
@@ -181,12 +200,13 @@ pub struct RootPaths {
     /// (a private repository) or initialised locally — see
     /// [`crate::corpus_repos`].
     pub restricted_sources: PathBuf,
-    /// The user's **open corpus**: a Git repository of redistributable
-    /// literature, cloned from [`CorporaConfig::open_remote`] or initialised
-    /// locally (GitHub issue #255). Gitignored by the library, being its own
-    /// repository. Distinct from [`Self::open_sources`], which is committed
-    /// with the library itself.
-    pub open_corpus: PathBuf,
+    /// Kovan's **standard corpus** ([`crate::corpus::CORPUS_REPOSITORY_URL`],
+    /// the same for every user): mounted in every Kovan folder as a Git
+    /// submodule (maintainer direction, 2026-09-22), so the folder carries
+    /// the PDFs of the documents Kovan hardcodes. Gitignored like the other
+    /// corpora; a submodule is added with `--force`, and ignore rules never
+    /// apply to tracked paths.
+    pub standard_corpus: PathBuf,
 }
 
 impl Default for RootPaths {
@@ -196,9 +216,9 @@ impl Default for RootPaths {
             papers: PathBuf::from("papers"),
             topics: PathBuf::from("topics"),
             projects: PathBuf::from("projects"),
-            open_sources: PathBuf::from("literature/open"),
+            open_sources: PathBuf::from("literature/open-corpus"),
             restricted_sources: PathBuf::from("literature/proprietary"),
-            open_corpus: PathBuf::from("literature/open-corpus"),
+            standard_corpus: PathBuf::from("literature/standard-corpus"),
         }
     }
 }
@@ -369,14 +389,17 @@ pub fn gitignore_for(
         "# Kovan derived/local state — fully rebuildable, safe to delete\n\
          {state}\n\
          {restricted_section}\n\
-         # The user's open corpus — its own Git repository (#255)\n\
-         {open_corpus}\n\n\
+         # The user's open corpus and Kovan's standard corpus — each its own\n\
+         # Git repository, mounted as a submodule when it has a remote (#255)\n\
+         {open_corpus}\n\
+         {standard_corpus}\n\n\
          # Temporary/editor files\n\
          *.tmp\n\
          *.swp\n\
          *~\n",
         state = gitignore_pattern(Path::new(STATE_DIR)),
-        open_corpus = gitignore_pattern(&paths.open_corpus),
+        open_corpus = gitignore_pattern(&paths.open_sources),
+        standard_corpus = gitignore_pattern(&paths.standard_corpus),
     )
 }
 
@@ -662,14 +685,21 @@ impl KovanRoot {
         self.root.join(&self.config.paths.projects)
     }
 
-    /// Absolute path of open / redistributable source storage.
+    /// Absolute path of open / redistributable source storage: the user's
+    /// open corpus, the same folder as [`Self::open_corpus_dir`].
     pub fn open_sources_dir(&self) -> PathBuf {
         self.root.join(&self.config.paths.open_sources)
     }
 
-    /// Absolute path of the user's open-corpus repository (#255).
+    /// Absolute path of Kovan's standard-corpus submodule in this library.
+    pub fn standard_corpus_dir(&self) -> PathBuf {
+        self.root.join(&self.config.paths.standard_corpus)
+    }
+
+    /// Absolute path of the user's open-corpus repository (#255), the same
+    /// folder as [`Self::open_sources_dir`].
     pub fn open_corpus_dir(&self) -> PathBuf {
-        self.root.join(&self.config.paths.open_corpus)
+        self.open_sources_dir()
     }
 
     /// Absolute path of restricted / proprietary source storage.
@@ -1038,16 +1068,16 @@ name = "Inner"
 
     /// The open-corpus repository is ignored by the library (it is its own
     /// repository), and a `kovan_root.toml` written before #255, with no
-    /// `open_corpus` path and no `[corpora]` table, still loads with the
-    /// defaults.
+    /// `[corpora]` table, still loads with the defaults.
     #[test]
     fn the_open_corpus_is_ignored_and_older_configs_still_load() {
         let gi = gitignore_for(&RootPaths::default(), None);
         assert!(gi.contains("/literature/open-corpus/"), "{gi}");
+        assert!(gi.contains("/literature/standard-corpus/"), "{gi}");
         let old = "schema_version = 1\n[library]\nid = \"lib\"\nname = \"Lib\"\n";
         let cfg: RootConfig = toml::from_str(old).unwrap();
         assert_eq!(
-            cfg.paths.open_corpus,
+            cfg.paths.open_sources,
             PathBuf::from("literature/open-corpus")
         );
         assert!(cfg.corpora.is_empty());
@@ -1056,9 +1086,11 @@ name = "Inner"
         with.corpora.open_remote = Some("https://example.com/open.git".into());
         let text = toml::to_string(&with).unwrap();
         assert!(text.contains("open_remote"), "{text}");
-        assert!(!toml::to_string(&RootConfig::new("a", "b"))
-            .unwrap()
-            .contains("[corpora]"));
+        assert!(
+            !toml::to_string(&RootConfig::new("a", "b"))
+                .unwrap()
+                .contains("[corpora]")
+        );
         let back: RootConfig = toml::from_str(&text).unwrap();
         assert_eq!(back.corpora, with.corpora);
     }

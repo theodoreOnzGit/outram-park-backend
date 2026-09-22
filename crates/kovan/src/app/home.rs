@@ -80,6 +80,9 @@ fn push_recent(roots: &mut Vec<PathBuf>, path: PathBuf) {
 pub enum HomeAction {
     RequestOpenDialog,
     RequestCreateDialog,
+    /// Open the setup dialog, which defines the three repositories: the
+    /// user's Kovan repository, open corpus and closed corpus.
+    RequestSetupRepos,
 }
 
 /// State for the startup screen. Owns the recent-roots list and, once one
@@ -248,6 +251,16 @@ impl HomeState {
                 }
                 if ui.button("+ Create Kovan Folder…").clicked() {
                     action = Some(HomeAction::RequestCreateDialog);
+                }
+                if ui
+                    .button("\u{2699} Set up repositories…")
+                    .on_hover_text(
+                        "Your Kovan repository, open corpus and closed corpus (three GitHub \
+                         repositories)",
+                    )
+                    .clicked()
+                {
+                    action = Some(HomeAction::RequestSetupRepos);
                 }
             });
         });

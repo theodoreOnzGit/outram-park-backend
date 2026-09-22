@@ -1,11 +1,13 @@
 //! The first-run setup dialog (GitHub issue #255).
 //!
 //! What belongs here: the window that asks, on first launch, for the Kovan
-//! folder and then, optionally, the user's **open corpus** and **proprietary
-//! corpus** GitHub repositories; and the marker that remembers first run is
-//! over. It is **skippable** (maintainer decision, 2026-09-22): the built-in
+//! folder and then, optionally, the user's three GitHub repositories: their
+//! own **Kovan repository** (the folder itself), **open corpus** and
+//! **proprietary corpus**; and the marker that remembers first run is over.
+//! Kovan's standard corpus is not asked for: every folder gets it. The dialog
+//! is **skippable** (maintainer decision, 2026-09-22): the built-in
 //! nuclear-engineering map shows with or without a folder (epic #247), and the
-//! top bar's "⚙ Setup" reopens the dialog at any time.
+//! top bar's "⚙ Setup" and the home page's "Set up repositories…" reopen it.
 //!
 //! What does not belong here: creating the folder or the repositories. The
 //! dialog only returns a [`SetupRequest`]; the app acts on it with
@@ -20,10 +22,13 @@ use std::path::PathBuf;
 pub(super) enum SetupRequest {
     /// Open the folder picker for the Kovan folder field.
     Browse,
-    /// Set up with these answers. `folder` is required; either remote may be
-    /// absent, in which case that corpus is initialised as a local repository.
+    /// Set up with these answers. `folder` is required; any remote may be
+    /// absent, in which case that corpus is initialised as a local repository
+    /// (or, for `library_remote`, the folder keeps no remote).
     Finish {
         folder: PathBuf,
+        /// The user's own Kovan repository (the folder's `origin`).
+        library_remote: Option<String>,
         open_remote: Option<String>,
         proprietary_remote: Option<String>,
     },
@@ -37,6 +42,7 @@ pub(super) struct SetupDialog {
     pub(super) open: bool,
     /// The Kovan folder path, typed or picked.
     pub(super) folder: String,
+    library_remote: String,
     open_remote: String,
     proprietary_remote: String,
     message: String,
@@ -56,6 +62,11 @@ impl SetupDialog {
         self.message.clear();
         if let Some(root) = root {
             self.folder = root.path().display().to_string();
+            self.library_remote = crate::advanced_git::list_remotes_in(root.path())
+                .ok()
+                .and_then(|rs| rs.into_iter().find(|r| r.name == "origin"))
+                .map(|r| r.url)
+                .unwrap_or_default();
             let c = &root.config().corpora;
             self.open_remote = c.open_remote.clone().unwrap_or_default();
             self.proprietary_remote = c.proprietary_remote.clone().unwrap_or_default();
@@ -80,7 +91,9 @@ impl SetupDialog {
             .show(ctx, |ui| {
                 ui.label(
                     "Kovan always shows its built-in nuclear-engineering map. Set up \
-                     your own Kovan folder to add your knowledge on top of it.",
+                     your own Kovan folder to add your knowledge on top of it: your \
+                     Kovan repository, plus your open and proprietary corpora. Kovan's \
+                     standard corpus is added to every folder automatically.",
                 );
                 ui.add_space(8.0);
 
@@ -92,6 +105,15 @@ impl SetupDialog {
                         request = Some(SetupRequest::Browse);
                     }
                 });
+                ui.weak(
+                    "Your own Kovan repository on GitHub (optional): an empty folder is \
+                     cloned from it, with its corpora; an existing one gets it as its remote.",
+                );
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.library_remote)
+                        .hint_text("https://github.com/you/your-kovan-repo.git")
+                        .desired_width(420.0),
+                );
                 ui.add_space(6.0);
 
                 ui.strong("2. Open corpus (optional)");
@@ -129,14 +151,19 @@ impl SetupDialog {
                         let folder = self.folder.trim();
                         if folder.is_empty() {
                             self.message = "Choose a Kovan folder first.".into();
-                        } else if [&self.open_remote, &self.proprietary_remote]
-                            .iter()
-                            .any(|r| r.trim().contains(char::is_whitespace))
+                        } else if [
+                            &self.library_remote,
+                            &self.open_remote,
+                            &self.proprietary_remote,
+                        ]
+                        .iter()
+                        .any(|r| r.trim().contains(char::is_whitespace))
                         {
                             self.message = "A repository URL cannot contain spaces.".into();
                         } else {
                             request = Some(SetupRequest::Finish {
                                 folder: PathBuf::from(folder),
+                                library_remote: remote(&self.library_remote),
                                 open_remote: remote(&self.open_remote),
                                 proprietary_remote: remote(&self.proprietary_remote),
                             });

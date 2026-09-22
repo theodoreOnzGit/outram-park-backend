@@ -289,6 +289,9 @@ pub struct DigitiseApp {
     /// Work running off the GUI thread (cloning corpus repositories), each
     /// ending in a one-line status message.
     background_jobs: Vec<std::thread::JoinHandle<String>>,
+    /// A Kovan repository being cloned into a new folder by the setup
+    /// dialog; the folder is opened, and its corpora set up, when it lands.
+    library_clone: Option<LibraryClone>,
     /// Browser-style back/forward history over every page (#242) -- see
     /// [`nav`].
     history: crate::navigation::NavHistory<nav::AppLocation>,
@@ -438,6 +441,7 @@ impl Default for DigitiseApp {
             view: View::default(),
             setup: setup::SetupDialog::default(),
             background_jobs: Vec::new(),
+            library_clone: None,
             history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
             theme: GuiTheme::default(),
             file_dialog: FileDialog::new()
@@ -2118,27 +2122,99 @@ impl DigitiseApp {
             }
             setup::SetupRequest::Finish {
                 folder,
+                library_remote,
                 open_remote,
                 proprietary_remote,
-            } => match self.set_up_library(&folder, open_remote, proprietary_remote) {
-                Ok(()) => {
-                    setup::mark_first_run_done();
-                    self.setup.open = false;
+            } => {
+                match self.set_up_library(&folder, library_remote, open_remote, proprietary_remote)
+                {
+                    Ok(()) => {
+                        setup::mark_first_run_done();
+                        self.setup.open = false;
+                    }
+                    Err(e) => self.setup.set_message(e),
                 }
-                Err(e) => self.setup.set_message(e),
-            },
+            }
         }
     }
 
-    /// Open `folder` as a Kovan folder, or create one there, record the
-    /// corpus remotes in its `kovan_root.toml`, and prepare its two corpus
-    /// repositories in the background (cloned, or initialised locally).
+    /// Set up `folder` as the user's Kovan folder: their own Kovan
+    /// repository plus the standard, open and closed corpora (maintainer
+    /// direction, 2026-09-22).
+    ///
+    /// With `library_remote` and an absent or empty `folder`, the Kovan
+    /// repository is cloned there in the background and set up when it lands
+    /// ([`Self::poll_library_clone`]). Otherwise the folder is opened, or
+    /// created, and given `library_remote` as `origin` if it has none.
     fn set_up_library(
         &mut self,
         folder: &std::path::Path,
+        library_remote: Option<String>,
         open_remote: Option<String>,
         proprietary_remote: Option<String>,
     ) -> Result<(), String> {
+        let empty = !folder.exists()
+            || std::fs::read_dir(folder).is_ok_and(|mut entries| entries.next().is_none());
+        if let (Some(url), true) = (library_remote.as_deref(), empty) {
+            if self.library_clone.is_some() {
+                return Err("a Kovan repository is already being cloned".into());
+            }
+            let (dir, url) = (folder.to_path_buf(), url.to_string());
+            self.set_status(format!("cloning your Kovan repository {url}…"));
+            self.library_clone = Some(LibraryClone {
+                job: std::thread::spawn(move || {
+                    crate::corpus_repos::ensure_repo(&dir, Some(&url), None)
+                        .map(|_| ())
+                        .map_err(|e| format!("your Kovan repository was not cloned: {e}"))
+                }),
+                folder: folder.to_path_buf(),
+                open_remote,
+                proprietary_remote,
+            });
+            return Ok(());
+        }
+        self.open_and_set_up(folder, library_remote, open_remote, proprietary_remote)
+    }
+
+    /// Open the finished clone of the user's Kovan repository, if any.
+    fn poll_library_clone(&mut self) {
+        if !self
+            .library_clone
+            .as_ref()
+            .is_some_and(|c| c.job.is_finished())
+        {
+            return;
+        }
+        let Some(clone) = self.library_clone.take() else {
+            return;
+        };
+        let result = match clone.job.join() {
+            Ok(Ok(())) => self.open_and_set_up(
+                &clone.folder,
+                None,
+                clone.open_remote,
+                clone.proprietary_remote,
+            ),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err("cloning your Kovan repository failed unexpectedly".into()),
+        };
+        if let Err(e) = result {
+            self.set_error(e);
+        }
+    }
+
+    /// Open `folder` as a Kovan folder, or create one there; record the
+    /// corpus remotes in its `kovan_root.toml`; and prepare its repositories
+    /// in the background: `library_remote` as the folder's `origin` if it has
+    /// none, then the standard, open and closed corpora.
+    fn open_and_set_up(
+        &mut self,
+        folder: &std::path::Path,
+        library_remote: Option<String>,
+        open_remote: Option<String>,
+        proprietary_remote: Option<String>,
+    ) -> Result<(), String> {
+        use crate::corpus_repos::RepoState;
         use crate::root::{CorporaConfig, KovanRoot, RootConfig};
         let mut root = match KovanRoot::open(folder) {
             Ok(root) => root,
@@ -2153,37 +2229,56 @@ impl DigitiseApp {
                     .map_err(|e| format!("cannot make {} a Kovan folder: {e}", folder.display()))?
             }
         };
+        // A cloned Kovan repository already records its corpora; keep them
+        // unless the dialog names others.
+        let recorded = root.config().corpora.clone();
         root.set_corpora(CorporaConfig {
-            open_remote,
-            proprietary_remote,
+            open_remote: open_remote.or(recorded.open_remote),
+            proprietary_remote: proprietary_remote.or(recorded.proprietary_remote),
         })?;
         self.home.open_dir(root.path());
         if self.wiki.is_none() {
             self.wiki = Some(WikiState::new());
         }
         self.refresh_knowledge(&root);
-        self.set_status("setting up your corpus repositories…");
+        self.set_status("setting up your repositories…");
         self.spawn_job(move || {
-            let setup = crate::corpus_repos::ensure_library_corpora(&root);
-            let describe = |name: &str, r: &Result<crate::corpus_repos::RepoState, _>| match r {
-                Ok(crate::corpus_repos::RepoState::Cloned) => format!("{name} cloned"),
-                Ok(crate::corpus_repos::RepoState::Initialised) => {
+            let describe = |name: &str, r: &Result<RepoState, _>| match r {
+                Ok(RepoState::Cloned) => format!("{name} downloaded"),
+                Ok(RepoState::Initialised) => {
                     format!("{name} created locally (add a remote and push later)")
                 }
-                Ok(crate::corpus_repos::RepoState::Existing) => format!("{name} already present"),
-                Ok(crate::corpus_repos::RepoState::RemoteAdded) => {
-                    format!("{name} connected to its GitHub repository")
-                }
+                Ok(RepoState::Existing) => format!("{name} already present"),
+                Ok(RepoState::RemoteAdded) => format!("{name} connected to its GitHub repository"),
+                Ok(RepoState::SubmoduleAdded) => format!("{name} added as a submodule"),
                 Err(e) => format!("{name} not set up: {e}"),
             };
-            format!(
-                "{}; {}",
-                describe("open corpus", &setup.open),
-                describe("proprietary corpus", &setup.proprietary)
-            )
+            let mut parts = Vec::new();
+            if let Some(url) = library_remote.as_deref() {
+                let r = if crate::corpus_repos::is_git_repo(root.path()) {
+                    crate::corpus_repos::ensure_repo(root.path(), Some(url), None)
+                } else {
+                    Ok(RepoState::Existing)
+                };
+                parts.push(describe("Kovan repository", &r));
+            }
+            let setup = crate::corpus_repos::ensure_library_corpora(&root);
+            parts.push(describe("standard corpus", &setup.standard));
+            parts.push(describe("open corpus", &setup.open));
+            parts.push(describe("proprietary corpus", &setup.proprietary));
+            parts.join("; ")
         });
         Ok(())
     }
+}
+
+/// A clone of the user's Kovan repository in progress, with the corpus
+/// remotes to apply once it has landed.
+struct LibraryClone {
+    job: std::thread::JoinHandle<Result<(), String>>,
+    folder: std::path::PathBuf,
+    open_remote: Option<String>,
+    proprietary_remote: Option<String>,
 }
 
 impl eframe::App for DigitiseApp {
@@ -2200,6 +2295,7 @@ impl eframe::App for DigitiseApp {
         // Mindmap: open it on the shared concept before it draws (#242).
         self.sync_shared_concept();
         self.poll_background_jobs();
+        self.poll_library_clone();
         if let Some(request) = self.setup.ui(ui.ctx()) {
             self.handle_setup(request);
         }
@@ -2239,6 +2335,10 @@ impl eframe::App for DigitiseApp {
                             }
                             HomeAction::RequestCreateDialog => {
                                 self.open_picker(FileDialogTarget::KovanRootCreate)
+                            }
+                            HomeAction::RequestSetupRepos => {
+                                let root = self.home.root().cloned();
+                                self.setup.show_for(root.as_ref())
                             }
                         }
                     }
@@ -2680,7 +2780,10 @@ mod tests {
             active.pdf_path.is_none(),
             "a missing PDF must report unavailable, not a stale path"
         );
-        assert!(active.pdf_unavailable, "a paper that DOES record a source PDF, just not found locally, must flag it unavailable");
+        assert!(
+            active.pdf_unavailable,
+            "a paper that DOES record a source PDF, just not found locally, must flag it unavailable"
+        );
     }
 
     /// A paper genuinely catalogued from metadata alone (never had a source
