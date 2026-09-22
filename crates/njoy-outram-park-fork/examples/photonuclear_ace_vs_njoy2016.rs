@@ -3,8 +3,11 @@
 //!
 //! ```text
 //! cargo run --release -p njoy-outram-park-fork \
-//!   --example photonuclear_ace_vs_njoy2016 -- <tape.endf> <mat> <njoy.ace> [comment] [date]
+//!   --example photonuclear_ace_vs_njoy2016 -- <tape.endf> <mat> <njoy.ace> [comment] [date] [out.ace]
 //! ```
+//!
+//! With `out.ace` the built table is written there as well, which is how the
+//! port's own copy in the `reference-data/ace` submodule is produced.
 //!
 //! Both codes read the same tape. Results are recorded in
 //! `verification_and_validation/acer_photonuclear_vs_njoy2016.md`.
@@ -125,6 +128,10 @@ fn main() {
         worst = worst.max(cmp("WHOLE XSS", &mine.xss, &njoy.xss));
     }
     println!("WORST RELATIVE {worst:.3e}");
+    if let Some(out) = args.get(5) {
+        std::fs::write(out, mine.to_type1_string()).expect("write our table");
+        println!("wrote our table to {out}");
+    }
     if let Ok(text) = std::fs::read_to_string(&args[2]) {
         let re = mine.to_type1_string();
         if re == text {
