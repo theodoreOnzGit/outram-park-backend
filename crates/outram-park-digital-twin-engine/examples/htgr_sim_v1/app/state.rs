@@ -49,6 +49,36 @@ pub struct NuclideReleaseSnapshot {
 /// table.
 pub const TRACKED_RELEASE_NUCLIDES: usize = 5;
 
+/// One receptor's atmospheric dispersion result, projected onto the snapshot.
+///
+/// **`chi_over_q` is the quotable number**; the two activity fields are on the
+/// release channel's per-curie-of-core-inventory basis *and* per unit of a
+/// placeholder leak fraction, so they are a transfer function rather than a
+/// consequence. See [`crate::physics::atmospheric_dispersion`], whose binding
+/// scope limit applies: research, education and V&V only, and **no dose
+/// quantity of any kind**.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ReceptorSnapshot {
+    /// Compass bearing from the release point, degrees clockwise from north.
+    pub bearing_deg: f64,
+    /// Distance from the release point, metres.
+    pub distance_m: f64,
+    /// Dilution factor `chi/Q` in s/m^3 -- independent of the source, and
+    /// therefore of every inventory and leak-rate input in the chain.
+    pub chi_over_q: f64,
+    /// Time-integrated air concentration, Bq.s/m^3 per Ci of core inventory.
+    /// Not a concentration at any reactor.
+    pub air_bq_s_per_m3: f64,
+    /// Ground deposition, Bq/m^2 per Ci of core inventory. Dry only --
+    /// `changi` does not port wet scavenging, so this is **not** an upper
+    /// bound; rain would raise it.
+    pub ground_bq_per_m2: f64,
+}
+
+/// How many receptors the dispersion channel publishes. Matches
+/// [`crate::physics::atmospheric_dispersion::RECEPTOR_COUNT`].
+pub const DISPERSION_RECEPTORS: usize = 24;
+
 /// Scalar snapshot of the HTGR plant, shared between the physics thread (which
 /// writes the output fields) and the GUI thread (which writes the control-input
 /// fields and reads everything for display).
@@ -243,6 +273,30 @@ pub struct HtgrSnapshot {
     /// instead of buried: SiC runs cooler than the kernel, so using the kernel
     /// **over-states** silver release.
     pub particle_sic_k: f64,
+
+    // --- Atmospheric dispersion (Gaussian puff) ---
+    /// One entry per receptor, ordered distance-major then compass sector.
+    /// All-zero before the first dispersion evaluation.
+    pub receptors: [ReceptorSnapshot; DISPERSION_RECEPTORS],
+    /// Operator wind speed, m/s, driving the dispersion model.
+    ///
+    /// A **control input**: written by the GUI, read by the physics thread,
+    /// never written back (see `HtgrPlant::write_snapshot`). Grouped with the
+    /// dispersion outputs rather than with the other controls because it is
+    /// only meaningful beside them.
+    pub wind_speed_m_per_s: f64,
+    /// Operator wind direction, **the direction the wind blows FROM**, degrees
+    /// clockwise from north -- the meteorological convention. A plume travels
+    /// towards the opposite bearing; the convention is spelled into the field
+    /// name because that inversion is the classic sign error in a dispersion
+    /// display.
+    pub wind_from_deg: f64,
+    /// Pasquill stability class letter that ran, empty before the first
+    /// evaluation.
+    pub stability_class: &'static str,
+    /// Plant time of the most recent dispersion evaluation, seconds; `NAN`
+    /// before the first.
+    pub dispersion_evaluated_at_s: f64,
     /// Whether the reactor protection system is armed.
     ///
     /// **Defaults to `false`** by maintainer decision on 2026-08-12, so the
@@ -528,6 +582,11 @@ impl Default for HtgrSnapshot {
             pebble_zone_boundary_k: f64::NAN,
             pebble_centre_k: f64::NAN,
             particle_sic_k: f64::NAN,
+            receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
+            wind_speed_m_per_s: 3.0,
+            wind_from_deg: 0.0,
+            stability_class: "",
+            dispersion_evaluated_at_s: f64::NAN,
             reactivity_margin_dollars: 0.0,
             delayed_neutron_fraction_pcm: 650.0,
             core_inlet_temp_k: 442.15,

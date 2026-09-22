@@ -6774,6 +6774,7 @@ version = "0.0.2"
 dependencies = [
  "async-opcua",
  "boon-lay",
+ "changi",
  "chem-eng-real-time-process-control-simulator",
  "csv",
  "directories 5.0.1",

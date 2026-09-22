@@ -738,7 +738,6 @@ impl HtgrKinetics {
     pub fn new_htr10_published(reference_power: Power) -> Self {
         use uom::si::f64::{TemperatureCoefficient, ThermodynamicTemperature};
         use uom::si::temperature_coefficient::per_kelvin;
-        use uom::si::thermodynamic_temperature::kelvin;
 
         let prompt_generation_time = Time::new::<second>(Self::HTR10_PROMPT_GENERATION_TIME_S);
 

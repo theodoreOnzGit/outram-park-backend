@@ -271,6 +271,17 @@ impl Htr10TrisoAtopsInputs {
 pub struct NuclideRelease {
     /// Canonical TRISO-ATOPS name, e.g. `"Cs-137"`.
     pub name: &'static str,
+    /// Atomic number `Z`. Carried so a downstream consumer can classify the
+    /// nuclide by element without a second lookup table that could drift out
+    /// of step with [`TRACKED_NUCLIDES`] -- see
+    /// [`crate::physics::atmospheric_dispersion`], which groups by it for
+    /// **deposition** (a grouping that deliberately differs from TRISO-ATOPS's
+    /// transport grouping for Se and Te).
+    pub z: u32,
+    /// Radioactive decay constant `lambda = ln2 / t_half`. Carried for the
+    /// same reason: the dispersion channel needs it for decay in transit, and
+    /// re-deriving it downstream would mean two half-life tables.
+    pub decay_constant: uom::si::f64::Frequency,
     /// The six normal-operation outputs, **per curie of core inventory** of
     /// this nuclide. `release_rate` and `source_rate` are per second; the
     /// other four are pool inventories.
@@ -434,6 +445,8 @@ impl TrisoAtopsReleaseChannel {
 
                 NuclideRelease {
                     name: nuclide.name,
+                    z: nuclide.z,
+                    decay_constant: nuclide.decay_constant(),
                     activities,
                 }
             })

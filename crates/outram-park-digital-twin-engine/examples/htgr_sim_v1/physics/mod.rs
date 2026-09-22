@@ -175,6 +175,7 @@
 //! composes).
 
 pub mod control_rods;
+pub mod atmospheric_dispersion;
 pub mod decay_heat_removal;
 pub mod fission_product_release;
 pub mod kinetics;
@@ -367,6 +368,14 @@ pub struct PlantCommands {
     pub secondary: SecondaryCommands,
     /// Which accident scenario, if any, the plant is running.
     pub scenario: Scenario,
+    /// Wind driving the atmospheric dispersion channel.
+    ///
+    /// A **command**, not plant state: the wind is weather, so the operator
+    /// dials it in exactly as they would read it off a met mast. It reaches
+    /// the plant the same way every other command does rather than being
+    /// poked into the dispersion channel directly, so a headless run and the
+    /// GUI drive it identically.
+    pub meteorology: atmospheric_dispersion::Meteorology,
 }
 
 /// The accident scenario the plant is running.
@@ -437,6 +446,7 @@ impl Default for PlantCommands {
             // flow the same bank position settles somewhere else entirely.
             helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
+            meteorology: atmospheric_dispersion::Meteorology::default(),
             scenario: Scenario::Normal,
         }
     }
@@ -802,6 +812,13 @@ pub struct HtgrPlant {
     /// temperature as the Doppler channel. Quasi-steady and stateless, so it
     /// sits outside the corrector loop -- see [`fission_product_release`].
     pub release: fission_product_release::TrisoAtopsReleaseChannel,
+    /// Gaussian puff atmospheric dispersion, driven by the release channel's
+    /// circulating pool. Quasi-steady like the release channel and far more
+    /// expensive, so it is throttled harder and sits outside the corrector
+    /// loop -- see [`atmospheric_dispersion`], whose binding scope limit
+    /// (research/education/V&V only, no dose quantity of any kind) applies to
+    /// everything it produces.
+    pub dispersion: atmospheric_dispersion::AtmosphericDispersionChannel,
     /// Sim time at which the current scenario was first commanded, `None`
     /// under [`Scenario::Normal`]. Drives the protection system's
     /// secondary-isolation delay.
@@ -826,6 +843,7 @@ impl HtgrPlant {
             sim_time: Time::new::<second>(0.0),
             decay_heat_path: decay_heat_removal::CoreToRccsPath::placeholder(),
             release: fission_product_release::TrisoAtopsReleaseChannel::new_htr10(),
+            dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
             scenario_started_at: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
         }
@@ -922,6 +940,7 @@ impl HtgrPlant {
             helium_flow_setpoint,
             secondary: secondary_commands,
             scenario,
+            meteorology: _,
         } = commands;
 
         // Apply the scenario BEFORE the sim clock advances, so `scenario_time`
@@ -1183,6 +1202,22 @@ impl HtgrPlant {
             self.core.peak_kernel_temperature(),
             self.core.temperature(),
         );
+
+        // 7. Atmospheric dispersion, driven by the release channel's
+        // circulating pool. Last, and outside the corrector loop, for the same
+        // reason as the two above: a pure consumer of converged state that
+        // feeds nothing back. Throttled harder still (60 s against the release
+        // channel's 1 s) because a puff run is the most expensive thing in
+        // this plant and is quasi-steady -- nothing it reads can change faster.
+        mark_component("atmospheric dispersion (Gaussian puff)");
+        // Apply the commanded wind before evaluating. `set_meteorology` forces
+        // a re-evaluation when the value actually changes, so an operator who
+        // turns the wind sees the rose follow without waiting out the throttle.
+        if commands.meteorology != self.dispersion.meteorology() {
+            self.dispersion.set_meteorology(commands.meteorology);
+        }
+        self.dispersion
+            .update(self.sim_time.get::<second>(), &self.release);
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
@@ -1228,6 +1263,26 @@ impl HtgrPlant {
         s.particle_sic_k = profile.map_or(f64::NAN, |p| {
             p.hottest_particle.silicon_carbide_outer.get::<kelvin>()
         });
+
+        // Atmospheric dispersion. chi/Q is the quotable field; the two
+        // activity fields are a transfer function -- see the snapshot's own
+        // field docs and `atmospheric_dispersion`'s scope limit.
+        // NOTE: `wind_speed_m_per_s` and `wind_from_deg` are deliberately NOT
+        // written here. They are GUI-owned CONTROL INPUTS, like the rod
+        // position and the flow setpoint -- `write_snapshot` writes output
+        // fields only, and echoing a command back would overwrite whatever the
+        // operator had just dialled in on the very next tick.
+        if let Some(result) = self.dispersion.latest() {
+            s.dispersion_evaluated_at_s = result.evaluated_at_s;
+            s.stability_class = result.stability.map_or("", |c| c.letter());
+            for (slot, r) in s.receptors.iter_mut().zip(result.receptors.iter()) {
+                slot.bearing_deg = r.bearing_deg;
+                slot.distance_m = r.distance_m;
+                slot.chi_over_q = r.chi_over_q;
+                slot.air_bq_s_per_m3 = r.air_bq_s_per_m3;
+                slot.ground_bq_per_m2 = r.ground_bq_per_m2;
+            }
+        }
 
         for (slot, release) in s.release.iter_mut().zip(self.release.latest()) {
             slot.name = release.name;
@@ -1354,6 +1409,7 @@ mod tests {
             helium_flow_setpoint: nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
             scenario: Scenario::Normal,
+            meteorology: atmospheric_dispersion::Meteorology::default(),
         }
     }
 

@@ -149,6 +149,19 @@ outram-park-fork-coolprop.workspace = true
 # fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
 boon-lay.workspace = true
 
+# htgr_sim_v1's atmospheric dispersion channel
+# (`physics::atmospheric_dispersion`) takes the TRISO release channel's
+# circulating activity out of the primary circuit and downwind, using
+# `changi`'s Gaussian puff model (a port of the R package `puff` 0.1.1) and its
+# activity layer. DEV-dependency for the same reasons as `boon-lay` above:
+# example-only, and this crate's CLAUDE.md forbids new physics in the library.
+#
+# SCOPE (RESPONSIBLE_USE.md, and `changi::activity`'s own binding scope limit):
+# research, education and V&V only. Never for emergency planning, emergency
+# response, dose assessment for real populations, or Level 3 PSA. No dose
+# quantity of any kind is computed.
+changi.workspace = true
+
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
 # as its intended real integration target, stepped by
