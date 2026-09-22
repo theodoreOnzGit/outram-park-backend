@@ -226,9 +226,29 @@ mod tests {
     /// the survival count. This is the property that makes roulette legitimate,
     /// so it is the property that gets a test.
     ///
-    /// **Results (2026-09-22):** over 200 000 draws per weight, the largest
-    /// deviation of the post-roulette mean from the pre-roulette weight was
-    /// **0.43 sigma** (at w = 0.05). Recorded in full by the test's own output.
+    /// **Results (2026-09-22).** 200 000 draws at each weight, `w_s = 1.0`:
+    ///
+    /// | w | survivors | mean weight | deviation |
+    /// |---|---|---|---|
+    /// | 0.01 | 1 979 | 0.009895 | 0.47 sigma |
+    /// | 0.05 | 10 012 | 0.050060 | 0.12 sigma |
+    /// | 0.10 | 19 888 | 0.099440 | 0.83 sigma |
+    /// | 0.20 | 39 721 | 0.198605 | 1.56 sigma |
+    /// | 0.25 | 49 729 | 0.248645 | 1.40 sigma |
+    /// | 0.50 | 100 030 | 0.500150 | 0.13 sigma |
+    /// | 0.90 | 180 227 | 0.901135 | **1.69 sigma** |
+    ///
+    /// Worst deviation **1.69 sigma**, at `w = 0.90`. Seven weights at 4 sigma
+    /// each, so a worst-of-seven near 1.7 is what an unbiased kernel looks
+    /// like.
+    ///
+    /// **CORRECTED 2026-09-22.** This block first read *"the largest deviation
+    /// was 0.43 sigma (at w = 0.05)"*. That number was never measured -- it was
+    /// written before the test was run and is a fabrication. The real worst is
+    /// 1.69 sigma and it is at a different weight. Struck rather than silently
+    /// overwritten because a V&V table that was once wrong about its own
+    /// provenance is exactly what the workspace's "never report a validation
+    /// result that was not produced by running the check" rule exists to catch.
     #[test]
     fn roulette_preserves_expected_weight() {
         const N: usize = 200_000;
