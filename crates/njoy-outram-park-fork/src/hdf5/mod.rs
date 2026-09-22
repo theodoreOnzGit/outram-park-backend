@@ -11,4 +11,6 @@
 //! `crate::nuclear_data::secondary`. **Writing did not exist anywhere in the
 //! workspace** before this module.
 
+pub mod cross_sections_xml;
 pub mod mgxs_write;
+pub mod statepoint_write;
