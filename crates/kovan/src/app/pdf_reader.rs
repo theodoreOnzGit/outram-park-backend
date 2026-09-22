@@ -400,8 +400,8 @@ fn relation_kind_picker(ui: &mut egui::Ui, kind: &mut RelationKind, query: &mut 
                     by_label.max(by_wire).map(|s| (s, k))
                 })
                 .collect();
-            // Best first; ties keep `ALL`'s order so the list is stable.
-            ranked.sort_by(|a, b| b.0.cmp(&a.0));
+            // Best first; ties keep `ALL`'s order, since the sort is stable.
+            ranked.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
             if ranked.is_empty() {
                 ui.weak("no matching kind");
             }
