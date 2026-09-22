@@ -19,11 +19,14 @@
 //! | turbine rotor | shaft speed |
 //! | condenser | exhaust quality, condensate temperature, cooling water |
 //! | secondary tracers | secondary mass flow and residence time |
+//! | feed pump rotor | feedwater (secondary) mass flow, by the affinity law |
 //!
-//! Two things are not model state, and are stated rather than invented: the
-//! feed pump draws stationary, because this plant has no pump shaft-speed
-//! model (the same choice v1 made), and the bed height is the equilibrium
-//! loading, since the model has no bed-height variable.
+//! One thing is not model state, and is stated rather than invented: the bed
+//! height is the equilibrium loading, since the model has no bed-height
+//! variable. ~~The feed pump draws stationary, because this plant has no pump
+//! shaft-speed model.~~ **CHANGED 2026-09-22**: the pump now turns at a speed
+//! derived from the feedwater flow; see [`feed_pump_speed`] for the relation
+//! and its one assumed number.
 //!
 //! **Offline demonstration only**, per the workspace `RESPONSIBLE_USE.md`.
 
@@ -38,18 +41,54 @@ use outram_park_digital_twin_engine::components::htr10_plant::{
 };
 use outram_park_digital_twin_engine::components::htr10_reactor_schematic::EQUILIBRIUM_BED_HEIGHT_CM;
 use outram_park_digital_twin_engine::components::{Htr10ReactorSchematic, Htr10SteamGeneratorVisual};
-use uom::si::angular_velocity::radian_per_second;
+use uom::si::angular_velocity::{radian_per_second, revolution_per_minute};
+use uom::si::ratio::ratio;
 use uom::si::f64::{AngularVelocity, MassRate, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
 
+/// Feed-pump shaft speed at the published nominal feedwater flow, rpm.
+///
+/// **An assumed number, not HTR-10 data**: the plant-data sources used here
+/// do not publish the feedwater pump's speed. 2950 rpm is a two-pole
+/// induction motor on a 50 Hz grid (3000 rpm synchronous, less about 1.7 %
+/// slip), the usual drive for a small boiler feed pump. China's grid is
+/// 50 Hz, the same grid behind the turbine's 3000 rpm. Replace it if a
+/// published figure turns up. Chosen by the maintainer (2026-09-22) over a
+/// slowed display rate, knowing it strobes at screen frame rates.
+const RATED_FEED_PUMP_SPEED_RPM: f64 = 2950.0;
+
+/// Feed-pump shaft speed for a feedwater mass flow `flow`.
+///
+/// **Pump affinity law**, flow proportional to speed (Q/Q_rated = N/N_rated),
+/// anchored at the published nominal flow
+/// ([`crate::physics::secondary_loop::nominal_secondary_flow`], 12.5 t/h) and
+/// [`RATED_FEED_PUMP_SPEED_RPM`]. Zero flow stops the pump and a negative flow
+/// turns it backwards, so the rotor follows the flow's sign like every other
+/// animation in this engine.
+///
+/// **Limitation, stated:** the affinity law is exact only between similar
+/// operating points, which holds for a friction-dominated system. A feed pump
+/// working against a boiler's static head changes speed less than
+/// proportionally with flow, so this overstates the speed swing. The plant
+/// has no pump model or pump curve to do better with: this drives the
+/// picture, not a hydraulic calculation.
+fn feed_pump_speed(flow: MassRate) -> AngularVelocity {
+    let nominal = crate::physics::secondary_loop::nominal_secondary_flow();
+    let rated = AngularVelocity::new::<revolution_per_minute>(RATED_FEED_PUMP_SPEED_RPM);
+    rated * (flow / nominal).get::<ratio>()
+}
+
 fn k(value_k: f64) -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<kelvin>(value_k)
 }
 
-/// Vessel width, points, that the zoom readout calls 100 %.
-const NOMINAL_VESSEL_WIDTH: f32 = 300.0;
+/// Vessel width, points, that the zoom readout calls 100 %: the width at which
+/// the plant's labels are drawn at their tuned 13.5 pt (labels scale with the
+/// drawing).
+const NOMINAL_VESSEL_WIDTH: f32 =
+    outram_park_digital_twin_engine::components::htr10_reactor_schematic::LABEL_REFERENCE_VESSEL_WIDTH;
 /// Zoom limits, as drawn vessel width in points. Below the minimum the labels
 /// crowd the artwork; above the maximum the canvas gets unwieldy to pan.
 const MIN_VESSEL_WIDTH: f32 = 120.0;
@@ -319,8 +358,9 @@ fn draw_plant_at(
         mass_flow: MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
         pipe_residence_time: Time::new::<second>(snapshot.secondary_residence_time_s),
         turbine_speed: AngularVelocity::new::<radian_per_second>(snapshot.shaft_speed_rad_per_s),
-        // No pump shaft-speed model in this plant: drawn stationary, as in v1.
-        pump_speed: AngularVelocity::new::<radian_per_second>(0.0),
+        pump_speed: feed_pump_speed(MassRate::new::<kilogram_per_second>(
+            snapshot.secondary_mass_flow_kg_per_s,
+        )),
         simulation_time: Time::new::<second>(snapshot.sim_time_s),
         tracers: SecondaryTracers {
             main_steam: secondary_train,
@@ -339,6 +379,19 @@ fn draw_plant_at(
 mod tests {
     use super::*;
     use egui::Vec2;
+
+    /// The feed pump follows the feedwater flow by the affinity law: rated
+    /// speed at the published nominal flow, half speed at half flow, stopped
+    /// at zero flow, backwards for a reversed flow.
+    #[test]
+    fn the_feed_pump_speed_is_proportional_to_the_feedwater_flow() {
+        let nominal = crate::physics::secondary_loop::nominal_secondary_flow();
+        let rpm = |flow: MassRate| feed_pump_speed(flow).get::<revolution_per_minute>();
+        assert!((rpm(nominal) - RATED_FEED_PUMP_SPEED_RPM).abs() < 1e-9);
+        assert!((rpm(0.5 * nominal) - 0.5 * RATED_FEED_PUMP_SPEED_RPM).abs() < 1e-9);
+        assert_eq!(rpm(0.0 * nominal), 0.0);
+        assert!(rpm(-1.0 * nominal) < 0.0);
+    }
 
     /// The plant can be panned 40 % of the viewport past each edge, and a
     /// plant too small to fill the viewport even with that margin is centred.

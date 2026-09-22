@@ -1378,7 +1378,10 @@ impl Widget for Htr10ReactorSchematic {
             // fully withdrawn rod.
             self.label_box(
                 &labels,
-                Rect::from_center_size(Pos2::new(cx, rect.top() - drive_band + 10.0 * self.label_scale()), Vec2::ZERO),
+                Rect::from_center_size(
+                    Pos2::new(cx, rect.top() - drive_band + 10.0 * self.label_scale()),
+                    Vec2::ZERO,
+                ),
                 &format!("{CONTROL_ROD_CHANNELS} control rod drives"),
             );
         }
@@ -1863,7 +1866,10 @@ impl Widget for Htr10ReactorSchematic {
         self.label_box(
             &labels,
             Rect::from_center_size(
-                Pos2::new(refuel_x + w * 0.13, rect.top() + dome * 0.35 - 7.0 * self.label_scale()),
+                Pos2::new(
+                    refuel_x + w * 0.13,
+                    rect.top() + dome * 0.35 - 7.0 * self.label_scale(),
+                ),
                 Vec2::ZERO,
             ),
             "refuelling\nchute",
@@ -1879,11 +1885,7 @@ impl Widget for Htr10ReactorSchematic {
                 bed_height, CORE_CAVITY_HEIGHT_CM
             );
             let text_w = labels
-                .layout_no_wrap(
-                    summary.clone(),
-                    self.label_font(),
-                    LABEL,
-                )
+                .layout_no_wrap(summary.clone(), self.label_font(), LABEL)
                 .size()
                 .x;
             let s = self.label_scale();
@@ -2422,8 +2424,14 @@ mod tests {
         };
         let (font, small) = at_width(LABEL_REFERENCE_VESSEL_WIDTH);
         let (big_font, big) = at_width(2.0 * LABEL_REFERENCE_VESSEL_WIDTH);
-        assert!((font - LABEL_FONT_SIZE).abs() < 1e-3, "{font} pt at the reference");
-        assert!((big_font - 2.0 * font).abs() < 1e-3, "font doubles with the drawing");
+        assert!(
+            (font - LABEL_FONT_SIZE).abs() < 1e-3,
+            "{font} pt at the reference"
+        );
+        assert!(
+            (big_font - 2.0 * font).abs() < 1e-3,
+            "font doubles with the drawing"
+        );
         // Text layout rounds to pixels, so allow a point of slack.
         let ratio = big / small;
         assert!(

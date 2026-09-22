@@ -1138,8 +1138,7 @@ mod tests {
             for step in 0..200 {
                 let bundle_w = 2.0 + 2.0 * step as f32;
                 let span = ratio * bundle_w;
-                let (turns, width) =
-                    coil_turns_and_stroke(span, bundle_w, 0.34 * bundle_w, theta);
+                let (turns, width) = coil_turns_and_stroke(span, bundle_w, 0.34 * bundle_w, theta);
                 let gap = span / turns - width;
                 assert!(
                     gap >= MIN_COIL_GAP - 1e-3,

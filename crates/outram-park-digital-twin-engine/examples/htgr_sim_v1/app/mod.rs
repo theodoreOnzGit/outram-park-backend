@@ -266,6 +266,9 @@ pub struct HtgrSimApp {
     /// frame from the real loop residence times -- see
     /// [`outram_park_digital_twin_engine::animation`].
     tracers: SchematicTracers,
+    /// The plant clock's current rate, measured between snapshots, which sets
+    /// how fast the tracers advance per frame -- see [`PlantClockRate`].
+    plant_clock_rate: PlantClockRate,
     /// Temperature display unit for **every readout on screen** -- the
     /// operator's degC/K toggle (kopi-beans `op-qpgw`).
     ///
@@ -493,6 +496,7 @@ impl HtgrSimApp {
             geometry_zoom: geometry_tab::ZoomLevel::default(),
             display_unit: LegendUnit::default(),
             tracers: SchematicTracers::new(),
+            plant_clock_rate: PlantClockRate::default(),
         }
     }
 
@@ -541,6 +545,67 @@ impl HtgrSimApp {
         self.plots = run.plots;
         self.thread_health = run.thread_health;
         self.tracers = SchematicTracers::new();
+        self.plant_clock_rate = PlantClockRate::default();
+    }
+}
+
+/// The right-hand controls panel's body, in a vertical scroll area, so every
+/// control stays reachable when the window is shorter than the panel
+/// (maintainer direction, 2026-09-22). The CSV view is not wrapped: it has its
+/// own scroll area, and nesting two would leave the inner one unbounded.
+fn scrollable_controls(ui: &mut egui::Ui, body: impl FnOnce(&mut egui::Ui)) {
+    egui::ScrollArea::vertical()
+        .id_salt("htgr_controls_scroll")
+        .auto_shrink([false, false])
+        .show(ui, body);
+}
+
+/// Wall time over which [`PlantClockRate`] measures the plant clock, seconds:
+/// five snapshot publishes ([`PHYSICS_TICK`]). Long enough that the frame at
+/// which a publish is noticed (about 16 ms of jitter) moves the rate by only
+/// about 3 %, short enough that switching fast-forward on shows within half a
+/// second. A measurement window, nothing physical.
+const PLANT_RATE_WINDOW_S: f64 = 5.0 * PHYSICS_TICK.as_secs_f64();
+
+/// The plant clock's current rate, plant seconds per wall second, measured on
+/// the GUI side from the snapshots it receives.
+///
+/// The physics thread's own `real_time_ratio` is cumulative since the run
+/// began, so it hardly moves when fast-forward is switched on; this measures
+/// the rate over the last [`PLANT_RATE_WINDOW_S`] instead. It reads about 1
+/// at real time, the burst factor under fast-forward, less than 1 when the
+/// model lags, and 0 when the plant clock stops (paused or stalled), because
+/// then no plant time passes in the window. It reads 0 until the first window
+/// has been measured, rather than assuming real time.
+#[derive(Debug, Clone, Copy, Default)]
+struct PlantClockRate {
+    /// Plant and wall time, seconds, at the start of the current window.
+    window_start: Option<(f64, f64)>,
+    /// Rate measured over the last complete window.
+    rate: f64,
+}
+
+impl PlantClockRate {
+    /// Record this frame's plant time `sim_time_s` at wall time `wall_s`, both
+    /// seconds, and return the current rate.
+    fn observe(&mut self, sim_time_s: f64, wall_s: f64) -> f64 {
+        match self.window_start {
+            // First sample, or the plant clock went backwards (a restart):
+            // start a fresh window.
+            None => self.window_start = Some((sim_time_s, wall_s)),
+            Some((sim0, _)) if sim_time_s < sim0 => {
+                *self = Self::default();
+                self.window_start = Some((sim_time_s, wall_s));
+            }
+            Some((sim0, wall0)) => {
+                let wall_elapsed = wall_s - wall0;
+                if wall_elapsed >= PLANT_RATE_WINDOW_S {
+                    self.rate = ((sim_time_s - sim0) / wall_elapsed).max(0.0);
+                    self.window_start = Some((sim_time_s, wall_s));
+                }
+            }
+        }
+        self.rate
     }
 }
 
@@ -563,21 +628,24 @@ impl eframe::App for HtgrSimApp {
 
         let snapshot = self.physics.snapshot();
 
-        // Advance the flow tracers by the FRAME time, at the speed the
-        // snapshot's residence time and mass flow set (a mark crosses a run
-        // in one residence time; its direction is the sign of the flow).
+        // Advance the flow tracers every frame by the PLANT time that frame
+        // stands for: the frame's wall time times the plant clock's current
+        // rate. The speed along a run still comes only from the snapshot's
+        // residence time and the direction from the sign of its mass flow.
         //
-        // ~~Advanced by the plant-clock delta between frames (op-v5zb).~~
-        // **CHANGED 2026-09-22, maintainer direction**: the physics thread
-        // publishes the snapshot at 10 Hz (`PHYSICS_TICK`), so the plant clock
-        // steps in 100 ms jumps and tracers driven by it jumped with it, which
-        // read as a choppy frame rate. Frame time is smooth; the speed still
-        // comes only from the model's residence time. The cost, stated: when
-        // the physics falls behind wall clock, the marks run at the transport
-        // speed of the latest state rather than slowing with the plant clock.
+        // History: first by the plant-clock delta between frames (op-v5zb),
+        // which stepped at the 10 Hz snapshot rate and looked choppy; then
+        // (2026-09-22, maintainer direction) by bare frame time, which was
+        // smooth but ignored fast-forward and a lagging model. Frame time
+        // times the measured rate (2026-09-22, maintainer direction: "the
+        // tracers should also move faster when fast forward is applied") is
+        // smooth AND follows the plant clock: 20x under a 20x fast-forward,
+        // slower when the model falls behind, stopped when it stalls.
         // `stable_dt` is clamped so a stalled frame cannot fling the marks.
+        let wall_s = ui.input(|i| i.time);
+        let rate = self.plant_clock_rate.observe(snapshot.sim_time_s, wall_s);
         let frame_dt = ui.input(|i| i.stable_dt).clamp(0.0, 0.1) as f64;
-        self.tracers.advance(Time::new::<second>(frame_dt), &snapshot);
+        self.tracers.advance(Time::new::<second>(frame_dt * rate), &snapshot);
 
         egui::Panel::top("htgr_top").show(ui, |ui| {
             ui.heading(
@@ -615,14 +683,18 @@ impl eframe::App for HtgrSimApp {
                 ui.separator();
                 match self.plots_side_panel {
                     panels::PlotsSidePanel::ReactorControls => {
-                        draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
+                        scrollable_controls(ui, |ui| {
+                            draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
+                        });
                     }
                     panels::PlotsSidePanel::Csv => {
                         draw_plots_csv_panel(ui, &mut self.plots_csv_panel, &plots);
                     }
                 }
             } else {
-                draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit);
+                scrollable_controls(ui, |ui| {
+                    draw_controls(ui, &self.physics, &snapshot, &mut self.display_unit)
+                });
             }
         });
 
@@ -653,6 +725,32 @@ impl eframe::App for HtgrSimApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The tracers' clock follows the plant clock: about 1 at real time, the
+    /// burst factor under fast-forward, 0 when the plant stops, and it starts
+    /// again cleanly after a restart takes the plant clock back to zero.
+    #[test]
+    fn the_plant_clock_rate_follows_fast_forward_and_stops_with_the_plant() {
+        let mut rate = PlantClockRate::default();
+        assert_eq!(rate.observe(0.0, 0.0), 0.0, "nothing measured yet");
+        let w = PLANT_RATE_WINDOW_S;
+        // Real time for one window.
+        assert!((rate.observe(w, w) - 1.0).abs() < 1e-12);
+        // 20x fast-forward for one window.
+        assert!((rate.observe(w + 20.0 * w, 2.0 * w) - 20.0).abs() < 1e-9);
+        // Mid-window samples keep the last measured rate.
+        assert!((rate.observe(w + 30.0 * w, 2.5 * w) - 20.0).abs() < 1e-9);
+        // The plant clock stops at 21 w of plant time, reached halfway through
+        // this window: the window closing at 3 w still holds that plant time.
+        let stopped_at = w + 40.0 * w;
+        assert!((rate.observe(stopped_at, 3.0 * w) - 20.0).abs() < 1e-9);
+        // The next complete window, with the clock stopped throughout, reads
+        // zero, so the tracers stop with the plant.
+        assert_eq!(rate.observe(stopped_at, 4.0 * w), 0.0);
+        // A restart takes the plant clock back to zero: a fresh window.
+        assert_eq!(rate.observe(0.0, 10.0 * w), 0.0);
+        assert!((rate.observe(w, 11.0 * w) - 1.0).abs() < 1e-12);
+    }
 
     /// V&V: **restarting starts a new plant; it never resumes the crashed one.**
     ///

@@ -259,7 +259,7 @@ fn max_absorbable_duty(
 /// Nominal secondary mass flow the loop is seeded at: the published 12.5 t/hr
 /// main steam flow, i.e. 3.4722 kg/s (via the design point, which carries the
 /// conversion rather than a rounded 3.47).
-fn nominal_secondary_flow() -> MassRate {
+pub(crate) fn nominal_secondary_flow() -> MassRate {
     super::pebble_bed::design().main_steam_mass_flow
 }
 
