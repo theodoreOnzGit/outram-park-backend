@@ -263,11 +263,14 @@ struct ContextMenu {
 #[derive(Debug, Clone)]
 enum ConnectionPopup {
     /// "Add connection..." — a fuzzy target picker (backed by
-    /// [`library_candidates`]) plus a cyclable [`RelationKind`].
+    /// [`library_candidates`]) plus a fuzzy [`RelationKind`] picker.
     Add {
         source: String,
         query: String,
         kind: RelationKind,
+        /// What is typed in the relation-kind picker. Separate from `query`,
+        /// which searches the *target*: the two searches are independent.
+        kind_query: String,
     },
     /// "Edit connections..." / "Delete connection..." — both open the same
     /// view of every [`relation::UserRelation`] touching `node`
@@ -280,6 +283,53 @@ enum ConnectionPopup {
     /// [`classify::delete_artifact_cascade`] exactly once; `No` calls
     /// nothing at all (the dialog is closed, `self` otherwise untouched).
     ConfirmDelete { citekey: String, artifact_id: String },
+}
+
+/// The relation-kind picker: a dropdown whose list is **fuzzy-filtered** by a
+/// search box inside it, like an autocomplete (maintainer, 2026-09-22).
+///
+/// It replaced a single button that cycled [`RelationKind::ALL`] one step per
+/// click. With eight kinds that is up to seven clicks to reach the one you
+/// want, in an order nobody memorises, and the current value is the only one
+/// ever on screen — so you cannot see what the alternatives are. A dropdown
+/// shows them; the search box means you do not have to read all eight.
+///
+/// Ranked through [`crate::fuzzy::fuzzy_score`], the same scorer as the
+/// target search directly beside it and as every other Kovan finder, so the
+/// two halves of this dialog behave identically.
+fn relation_kind_picker(ui: &mut egui::Ui, kind: &mut RelationKind, query: &mut String) {
+    egui::ComboBox::from_id_salt("relation-kind")
+        .selected_text(kind.label())
+        .show_ui(ui, |ui| {
+            ui.add(
+                egui::TextEdit::singleline(query)
+                    .hint_text("filter\u{2026}")
+                    .desired_width(160.0),
+            );
+            let mut ranked: Vec<(i32, RelationKind)> = RelationKind::ALL
+                .into_iter()
+                .filter_map(|k| {
+                    // Match the human label and the wire name both: someone
+                    // who has read a `[relation]` block searches `uses_data`,
+                    // someone who has not searches `uses data`.
+                    let by_label = crate::fuzzy::fuzzy_score(query, k.label());
+                    let by_wire = crate::fuzzy::fuzzy_score(query, k.as_str());
+                    by_label.max(by_wire).map(|s| (s, k))
+                })
+                .collect();
+            // Best first; ties keep `ALL`'s order so the list is stable.
+            ranked.sort_by(|a, b| b.0.cmp(&a.0));
+            if ranked.is_empty() {
+                ui.weak("no matching kind");
+            }
+            for (_, k) in ranked {
+                if ui.selectable_label(*kind == k, k.label()).clicked() {
+                    *kind = k;
+                    query.clear();
+                    ui.close();
+                }
+            }
+        });
 }
 
 /// What one [`MenuEntry`] does when clicked, for the op-30um.3/.6 saved-
@@ -3150,6 +3200,7 @@ impl PdfReaderState {
                                                                 source,
                                                                 query: String::new(),
                                                                 kind: RelationKind::RelatedTo,
+                                                                kind_query: String::new(),
                                                             });
                                                     }
                                                 }
@@ -3257,6 +3308,7 @@ impl PdfReaderState {
                 source,
                 mut query,
                 mut kind,
+                mut kind_query,
             } => {
                 egui::Window::new("Add connection…")
                     .collapsible(false)
@@ -3273,9 +3325,7 @@ impl PdfReaderState {
                             ui.label("connect");
                             ui.monospace(&source);
                             ui.label("as:");
-                            if ui.button(kind.label()).clicked() {
-                                kind = kind.next();
-                            }
+                            relation_kind_picker(ui, &mut kind, &mut kind_query);
                         });
                         ui.add(
                             egui::TextEdit::singleline(&mut query)
@@ -3314,7 +3364,12 @@ impl PdfReaderState {
                         }
                     });
                 if !close {
-                    self.connection_popup = Some(ConnectionPopup::Add { source, query, kind });
+                    self.connection_popup = Some(ConnectionPopup::Add {
+                        source,
+                        query,
+                        kind,
+                        kind_query,
+                    });
                 }
             }
             ConnectionPopup::Manage { node } => {
