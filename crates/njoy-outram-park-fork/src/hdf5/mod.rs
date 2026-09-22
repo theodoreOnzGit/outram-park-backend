@@ -13,4 +13,5 @@
 
 pub mod cross_sections_xml;
 pub mod mgxs_write;
+pub mod nuclide_write;
 pub mod statepoint_write;
