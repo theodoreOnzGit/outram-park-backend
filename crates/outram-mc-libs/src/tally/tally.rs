@@ -70,7 +70,7 @@ pub enum ScoreType {
 }
 
 /// A single tally accumulator bin: running sum + sum-of-squares for statistics.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct TallyBin {
     pub sum: f64,
     pub sum_sq: f64,
@@ -108,6 +108,7 @@ impl TallyBin {
 }
 
 /// A tally.  Maps to `openmc::Tally`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tally {
     pub id: i32,
     pub name: String,

@@ -68,6 +68,7 @@ use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
     free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
+use crate::physics::track_output::{TrackEvent, TrackRecorder, TrackState};
 use crate::physics::weight_windows::{apply as apply_window, WindowOutcome, WindowState};
 use crate::physics::variance_reduction::{
     russian_roulette, survival_bias_absorption, VarianceReduction,
@@ -495,6 +496,7 @@ pub fn run_keff_csg_seq(
                     leak_edges_gen,
                     &mut leak_batch,
                     &settings.variance_reduction,
+                    None,
                 );
                 production += outcome.production;
                 virtual_run_total += outcome.virtual_collisions;
@@ -1000,7 +1002,7 @@ pub(crate) fn transport_history(
     debug_assert!(analog.is_analog());
     transport_history_vr(
         site, geom, materials, nuclides, majorants, temp, k_running, next_bank, seed, tally,
-        batch, leak_edges, leak_batch, &analog,
+        batch, leak_edges, leak_batch, &analog, None,
     )
 }
 
@@ -1036,6 +1038,10 @@ pub(crate) fn transport_history_vr(
     leak_edges: &[f64],
     leak_batch: &mut [f64],
     vr: &VarianceReduction,
+    // Track capture (GitHub #271). `None` records nothing and costs a single
+    // `Option` check per event; recording draws no randomness, so a run with
+    // capture on gives the same eigenvalue bit for bit as one without.
+    mut tracks: Option<&mut TrackRecorder>,
 ) -> HistoryOutcome {
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
@@ -1110,6 +1116,47 @@ pub(crate) fn transport_history_vr(
             ..WindowState::default()
         };
 
+        if let Some(t) = tracks.as_deref_mut() {
+            // Unconditionally: `begin` is what counts a refused track, and
+            // `record` is a no-op when there is no current track. Guarding
+            // this with `is_full` left `dropped_tracks` permanently zero.
+            {
+                t.begin();
+                t.record(TrackState {
+                    r,
+                    u,
+                    energy: e,
+                    time: 0.0,
+                    weight: w,
+                    cell: usize::MAX,
+                    material: None,
+                    event: TrackEvent::Born,
+                });
+            }
+        }
+
+        /// Record one phase-space state on the current track, if capturing.
+        ///
+        /// A macro rather than a closure because the state is assembled from
+        /// locals the closure would have to borrow mutably alongside the
+        /// recorder.
+        macro_rules! track {
+            ($event:expr, $cell:expr, $material:expr) => {
+                if let Some(t) = tracks.as_deref_mut() {
+                    t.record(TrackState {
+                        r,
+                        u,
+                        energy: e,
+                        time: 0.0,
+                        weight: w,
+                        cell: $cell,
+                        material: $material,
+                        event: $event,
+                    });
+                }
+            };
+        }
+
         /// One weight-window checkpoint. Upstream has two,
         /// `weight_window_checkpoint_surface` and
         /// `weight_window_checkpoint_collision`; both call the same routine,
@@ -1166,6 +1213,7 @@ pub(crate) fn transport_history_vr(
                 stuck_path_cm += path_cm;
                 stuck_last_e = e;
                 score_leak(leak_batch, leak_edges, e, w);
+                track!(TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             }
             // Locate: which cell/material are we in?
@@ -1174,6 +1222,7 @@ pub(crate) fn transport_history_vr(
                 // Lost the particle (numerical edge case) — treat as a leak at
                 // last-known energy, same reasoning as the MAX_EVENTS arm.
                 score_leak(leak_batch, leak_edges, e, w);
+                track!(TrackEvent::Lost, usize::MAX, None);
                 break 'history;
             };
             let leaf = *path.leaf();
@@ -1483,6 +1532,7 @@ pub(crate) fn transport_history_vr(
                     if w < cutoff {
                         w = russian_roulette(w, survive, seed);
                         if w == 0.0 {
+                            track!(TrackEvent::Rouletted, cell_idx, Some(m));
                             break 'history;
                         }
                     }
@@ -1533,8 +1583,10 @@ pub(crate) fn transport_history_vr(
                             e: e_born,
                         });
                     }
+                    track!(TrackEvent::Fission, cell_idx, Some(m));
                     break 'history; // fission absorbs the incident neutron
                 } else if xi < x.absorption {
+                    track!(TrackEvent::Absorption, cell_idx, Some(m));
                     break 'history; // capture
                 } else if xi < x.absorption + x.inelastic {
                     let (e2, u2) = match nuc.sample_inelastic(e, seed) {
@@ -1755,11 +1807,15 @@ pub(crate) fn transport_history_vr(
                     e = e2;
                     u = u2;
                 }
+                track!(TrackEvent::Scatter, cell_idx, Some(m));
                 // `weight_window_checkpoint_collision` — AFTER the outgoing
                 // energy is set, because the window is resolved in energy and
                 // the particle's importance is that of where it is going, not
                 // where it came from.
-                weight_window_checkpoint!(break 'history);
+                weight_window_checkpoint!({
+                    track!(TrackEvent::Rouletted, cell_idx, Some(m));
+                    break 'history;
+                });
             } else {
                 // ── Boundary crossing ──────────────────────────────────────
                 path_cm += d_bound.distance;
@@ -1773,6 +1829,7 @@ pub(crate) fn transport_history_vr(
                             // (unchanged since the last collision).
                             leak_vacuum += 1;
                             score_leak(leak_batch, leak_edges, e, w);
+                            track!(TrackEvent::Leak, cell_idx, path.material);
                             break 'history;
                         }
                         r = crossed.r;
@@ -1781,8 +1838,12 @@ pub(crate) fn transport_history_vr(
                         // so the next `locate` cannot re-select the cell it just
                         // left (GitHub #168 — see `Geometry::cross_surface`).
                         on_surface = crossed.on_surface;
+                        track!(TrackEvent::SurfaceCrossing, cell_idx, path.material);
                         // `weight_window_checkpoint_surface`.
-                        weight_window_checkpoint!(break 'history);
+                        weight_window_checkpoint!({
+                            track!(TrackEvent::Rouletted, cell_idx, path.material);
+                            break 'history;
+                        });
                     }
                     Crossing::Lattice => {
                         r = stream(r, u, NUDGE); // step into the next tile, re-locate
@@ -1792,11 +1853,15 @@ pub(crate) fn transport_history_vr(
                         // Streamed to infinity — a leak at the true escape energy.
                         leak_infinity += 1;
                         score_leak(leak_batch, leak_edges, e, w);
+                        track!(TrackEvent::Leak, cell_idx, path.material);
                         break 'history;
                     }
                 }
             }
         }
+    }
+    if let Some(t) = tracks.as_deref_mut() {
+        t.finish();
     }
     HistoryOutcome {
         production,

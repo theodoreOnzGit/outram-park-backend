@@ -105,6 +105,7 @@ pub fn mt_matches(event_mt: i32, target_mt: i32) -> bool {
 }
 
 // ── Filters ─────────────────────────────────────────────────────────────────
+#[derive(Debug, Clone, PartialEq)]
 
 /// Bin by the **MT number** of the event. `openmc::ReactionFilter`.
 ///
@@ -140,6 +141,7 @@ impl Filter for ReactionFilter {
         self.matching_bins(ev.event_mt).into_iter().next()
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Bin by the particle's **collision number**. `openmc::CollisionFilter`.
 ///
@@ -158,6 +160,7 @@ impl Filter for CollisionFilter {
         self.bins.iter().position(|&n| n == ev.n_collision)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Bin by the cell the particle came **from**. `openmc::CellFromFilter`.
 pub struct CellFromFilter {
@@ -173,6 +176,7 @@ impl Filter for CellFromFilter {
             .and_then(|c| self.cells.iter().position(|&x| x == c))
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Bin by the cell the particle was **born** in. `openmc::CellBornFilter`.
 pub struct CellBornFilter {
@@ -188,6 +192,7 @@ impl Filter for CellBornFilter {
             .and_then(|c| self.cells.iter().position(|&x| x == c))
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Bin by the material the particle came **from**.
 /// `openmc::MaterialFromFilter`.
@@ -204,6 +209,7 @@ impl Filter for MaterialFromFilter {
             .and_then(|m| self.materials.iter().position(|&x| x == m))
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Bin by the particle's **weight**. `openmc::WeightFilter`.
 ///
@@ -238,6 +244,7 @@ impl Filter for WeightFilter {
         Some(lo)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Bin by the cosine between the particle direction and the **surface normal**
 /// at a surface crossing. `openmc::MuSurfaceFilter`.
@@ -283,6 +290,7 @@ impl Filter for MuSurfaceFilter {
         Some(lo)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// **Arbitrary response function of energy** — the ICRP flux-to-dose filter.
 /// `openmc::EnergyFunctionFilter`.

@@ -178,7 +178,26 @@ pub fn run_fixed_source(
     nuclides: &[Nuclide],
     source: &FixedSource,
     settings: &FixedSourceSettings,
+    tally: Option<&mut Tally>,
+) -> FixedSourceResult {
+    run_fixed_source_traced(geom, materials, nuclides, source, settings, tally, None)
+}
+
+/// [`run_fixed_source`] with **particle track capture** — GitHub #271.
+///
+/// Every phase-space state of the first `recorder.max_tracks` histories is
+/// recorded. Recording draws no randomness, so this returns exactly the same
+/// result as [`run_fixed_source`] with the same inputs — pinned by
+/// `track_capture_does_not_perturb_the_run`, because a debugging instrument
+/// that changes the thing being debugged is worse than none.
+pub fn run_fixed_source_traced(
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
+    source: &FixedSource,
+    settings: &FixedSourceSettings,
     mut tally: Option<&mut Tally>,
+    mut tracks: Option<&mut crate::physics::track_output::TrackRecorder>,
 ) -> FixedSourceResult {
     let mut seed = settings.seed;
     let n_bins = tally.as_ref().map(|t| t.n_bins()).unwrap_or(0);
@@ -225,6 +244,7 @@ pub fn run_fixed_source(
                     &[],
                     &mut [],
                     &settings.variance_reduction,
+                    tracks.as_deref_mut(),
                 );
                 production_sum += prod.production;
                 for s in next {

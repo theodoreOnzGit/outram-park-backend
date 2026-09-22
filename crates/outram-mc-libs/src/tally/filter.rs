@@ -44,6 +44,7 @@ pub trait Filter: Send + Sync {
         None
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Snapshot of particle state passed to filters at scoring time.
 ///
@@ -223,6 +224,7 @@ impl Default for FilterEvent {
 }
 
 // ── Concrete filters ──────────────────────────────────────────────────────────
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by cell.  Maps to `openmc::CellFilter`.
 ///
@@ -250,6 +252,7 @@ impl Filter for CellFilter {
         self.cell_indices.iter().position(|&c| c == ev.cell_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by material.  Maps to `openmc::MaterialFilter`.
 ///
@@ -270,6 +273,7 @@ impl Filter for MaterialFilter {
             .position(|&m| m == ev.material_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by energy bin (contiguous group boundaries in eV).
 /// Maps to `openmc::EnergyFilter`.
@@ -310,6 +314,7 @@ impl Filter for EnergyFilter {
         Some(idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by **outgoing** (post-collision) energy. Maps to
 /// `openmc::EnergyoutFilter`.
@@ -354,6 +359,7 @@ impl Filter for EnergyOutFilter {
         Some(idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by universe.  Maps to `openmc::UniverseFilter`.
 pub struct UniverseFilter {
@@ -369,6 +375,7 @@ impl Filter for UniverseFilter {
             .position(|&u| u == ev.universe_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by a regular spatial mesh.  Maps to `openmc::MeshFilter`.
 ///
@@ -415,6 +422,7 @@ pub enum LegendreAxis {
     /// Expand along the z coordinate.
     Z,
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Functional-expansion (Legendre) filter along one Cartesian axis.
 ///
@@ -518,6 +526,7 @@ fn legendre_pn(order: usize, x: f64) -> Vec<f64> {
 }
 
 // ── Filters added 2026-09-16 ─────────────────────────────────────────────────
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by the surface an event crossed. Maps to `openmc::SurfaceFilter`
 /// (`src/tallies/filter_surface.cpp`).
@@ -548,6 +557,7 @@ impl Filter for SurfaceFilter {
             .position(|&s| s == ev.surface_idx)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by the **change-of-direction cosine** of a scatter. Maps to
 /// `openmc::MuFilter` (`src/tallies/filter_mu.cpp`).
@@ -572,6 +582,7 @@ impl Filter for MuFilter {
         bin_in_edges(&self.bounds, ev.mu)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by the particle's **polar and azimuthal angles of travel**. Maps to
 /// `openmc::PolarAzimuthalFilter` (`src/tallies/filter_azimuthal.cpp` +
@@ -602,6 +613,7 @@ impl Filter for PolarAzimuthalFilter {
         Some(i_p * self.azimuthal.len().saturating_sub(1) + i_a)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by time since the particle was born. Maps to `openmc::TimeFilter`
 /// (`src/tallies/filter_time.cpp`).
@@ -624,6 +636,7 @@ impl Filter for TimeFilter {
         bin_in_edges(&self.bounds, ev.time)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by particle type. Maps to `openmc::ParticleFilter`
 /// (`src/tallies/filter_particle.cpp`).
@@ -647,6 +660,7 @@ impl Filter for ParticleFilter {
         self.particles.iter().position(|&p| p == ev.particle)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Filter by delayed-neutron precursor group. Maps to
 /// `openmc::DelayedGroupFilter` (`src/tallies/filter_delayedgroup.cpp`).
@@ -728,6 +742,7 @@ impl Filter for DelayedGroupFilter {
         self.groups.iter().position(|&x| x == g)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Functional-expansion filter in **Zernike polynomials** over a disc in the
 /// `x`-`y` plane. Maps to `openmc::ZernikeFilter`
@@ -783,6 +798,7 @@ impl Filter for ZernikeFilter {
         Some(zernike_zn(self.order, rho, dy.atan2(dx)))
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 
 /// Functional-expansion filter in **real spherical harmonics** of the particle's
 /// direction. Maps to `openmc::SphericalHarmonicsFilter`
@@ -964,6 +980,7 @@ fn assoc_legendre(l: usize, m: usize, x: f64) -> f64 {
 /// adding a filter is a compile error at every site that must handle it — the
 /// property `Box<dyn Filter>` cost, and the reason the workspace's design rules
 /// ask for enums here. The [`Filter`] trait stays as the per-struct contract.
+#[derive(Debug, Clone, PartialEq)]
 pub enum FilterKind {
     /// [`CellFilter`].
     Cell(CellFilter),
