@@ -90,6 +90,40 @@ pub struct FilterEvent {
     /// once, so a tally carrying an [`EnergyFilter`] and an [`EnergyOutFilter`]
     /// bins `(g_in, g_out)` from a single event.
     pub energy_out: Option<f64>,
+
+    // ── Added for GitHub #261 ───────────────────────────────────────────────
+    /// MT number of the event. Consumed by
+    /// [`super::filter_extra::ReactionFilter`]; `0` for an event that is not a
+    /// reaction (a surface crossing, a track-length segment).
+    pub event_mt: i32,
+    /// Number of collisions this particle has had. Consumed by
+    /// [`super::filter_extra::CollisionFilter`], which matches it EXACTLY --
+    /// it is a set of collision numbers, not a range.
+    pub n_collision: u32,
+    /// Cell the particle came **from**, or `None` when it has no previous cell
+    /// (its first event). [`super::filter_extra::CellFromFilter`].
+    pub cell_from: Option<usize>,
+    /// Cell the particle was **born** in.
+    /// [`super::filter_extra::CellBornFilter`].
+    pub cell_born: Option<usize>,
+    /// Material the particle came **from**.
+    /// [`super::filter_extra::MaterialFromFilter`].
+    pub material_from: Option<usize>,
+    /// Particle weight at the event. [`super::filter_extra::WeightFilter`].
+    ///
+    /// **1.0 in analog transport**, which is every run today -- see #258. A
+    /// weight filter is therefore not useful yet, and the field defaults to 1.0
+    /// rather than 0.0 so that a filter binning it does not silently drop every
+    /// event against a `[0, 1]` grid.
+    pub weight: f64,
+    /// Cosine between the direction of travel and the **surface normal** at a
+    /// surface crossing, with the normal already flipped to the side the
+    /// particle came from. [`super::filter_extra::MuSurfaceFilter`].
+    ///
+    /// Deliberately separate from [`Self::mu`], which is a SCATTERING cosine at
+    /// a collision. They are different quantities at different events and
+    /// conflating them would tally scattering angles into a surface tally.
+    pub surface_mu: f64,
 }
 
 impl Default for FilterEvent {
@@ -122,6 +156,16 @@ impl Default for FilterEvent {
             particle: ParticleType::Neutron,
             delayed_group: None,
             energy_out: None,
+            event_mt: 0,
+            n_collision: 0,
+            cell_from: None,
+            cell_born: None,
+            material_from: None,
+            // 1.0, not 0.0: analog transport has unit weight, and a weight
+            // filter binning a default event against a [0, 1] grid would
+            // otherwise drop it silently.
+            weight: 1.0,
+            surface_mu: 0.0,
         }
     }
 }
