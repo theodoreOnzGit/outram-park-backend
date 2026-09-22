@@ -120,13 +120,29 @@ fn attach_artifact_connections(root: &KovanRoot, papers: &mut [PaperEntry]) {
         let mut found: Vec<String> = relations
             .iter()
             .filter_map(|r| {
-                // Both endpoints are stored as identity *strings*
-                // (`graph::NodeId`), so they are parsed here rather than
-                // matched on shape — a substring test would confuse
-                // `artifact:a2020x#fig3` with a paper whose citekey merely
-                // starts the same way.
-                let source = crate::node_id::NodeId::parse(&r.source).ok()?;
-                let target = crate::node_id::NodeId::parse(&r.target).ok()?;
+                // Both endpoints are stored as identity *strings*, so they
+                // are parsed rather than matched on shape — a substring test
+                // would confuse `artifact:a2020x#fig3` with a paper whose
+                // citekey merely starts the same way.
+                //
+                // **They are `graph`-style ids** (`paper:…`, `collection:…`,
+                // `artifact:<citekey>#<id>`), which `NodeId::from_graph_id`
+                // reads and `NodeId::parse` does **not**: `parse` expects the
+                // typed `<namespace>:<kind>/<path>` form, so it rejects
+                // `artifact:…` at the namespace and returns `Err`. Using it
+                // here dropped every relation silently and left
+                // `via_artifacts` permanently empty — a connected artifact
+                // changed nothing anywhere (maintainer, 2026-09-22).
+                //
+                // `parse` is still tried second: a target may be a **corpus**
+                // node (`corpus:concept/…`), which only `parse` understands,
+                // now that the connection finder offers the corpus.
+                let read = |id: &str| {
+                    crate::node_id::NodeId::from_graph_id(id)
+                        .or_else(|| crate::node_id::NodeId::parse(id).ok())
+                };
+                let source = read(&r.source)?;
+                let target = read(&r.target)?;
                 let from_this_paper = source.kind == EntryKind::Literature
                     && source.artifact.is_some()
                     && source.path == paper.citekey;

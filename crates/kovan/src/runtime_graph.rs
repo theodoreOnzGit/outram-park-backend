@@ -126,6 +126,10 @@ pub fn concept(index: Option<&KnowledgeIndex>, id: &NodeId) -> Option<RuntimeCon
     match id.namespace {
         Namespace::Corpus => corpus::topic_at(&id.path).map(corpus_concept),
         Namespace::Library => {
+            // A mirrored path is the corpus concept, not a user one.
+            if is_corpus_mirror(&id.path) {
+                return corpus::topic_at(&id.path).map(corpus_concept);
+            }
             let index = index?;
             if let Some(c) = index.collections.iter().find(|c| c.path == id.path) {
                 return Some(library_concept(index, &c.path, c.kind, &c.name));
@@ -271,7 +275,28 @@ pub fn citations(
 /// concept, or the top from a top-level concept. `None` when already at the
 /// top, where there is nowhere to go.
 pub fn up_one_level(current: Option<&NodeId>) -> Option<Option<NodeId>> {
-    current.map(NodeId::parent_concept)
+    current.map(|id| id.parent_concept().map(|p| canonical_concept(&p)))
+}
+
+/// The identity a concept should actually be addressed by.
+///
+/// A **library** concept whose path is a corpus topic path is mirrored
+/// scaffolding ([`is_corpus_mirror`]); the concept it stands for is the
+/// **corpus** node. Anything navigating by path — going up a level, a
+/// breadcrumb — can land on the mirror, and would then show a light-green
+/// user card where the dark-green corpus card belongs (maintainer,
+/// 2026-09-22: "when i press the up button, i see the light green (topic)
+/// version of the node, rather than the Corpus (dark green)").
+///
+/// Everything else is returned unchanged.
+pub fn canonical_concept(id: &NodeId) -> NodeId {
+    if id.kind == EntryKind::Concept
+        && id.namespace == Namespace::Library
+        && is_corpus_mirror(&id.path)
+    {
+        return NodeId::concept(Namespace::Corpus, &id.path);
+    }
+    id.clone()
 }
 
 /// The breadcrumb from the top to `id`: each ancestor concept and `id`
@@ -287,7 +312,7 @@ pub fn breadcrumb(index: Option<&KnowledgeIndex>, id: &NodeId) -> Vec<(NodeId, S
                 .unwrap_or(&node.path)
                 .to_string()
         });
-        at = node.parent_concept();
+        at = node.parent_concept().map(|p| canonical_concept(&p));
         chain.push((node, title));
     }
     chain.reverse();
@@ -296,6 +321,32 @@ pub fn breadcrumb(index: Option<&KnowledgeIndex>, id: &NodeId) -> Vec<(NodeId, S
 
 #[cfg(test)]
 mod tests {
+    /// Going up from a user concept nested under a mirrored corpus branch
+    /// lands on the **corpus** node, not the light-green mirror standing in
+    /// for it on disk (maintainer, 2026-09-22).
+    #[test]
+    fn up_from_a_mirrored_branch_lands_on_the_corpus_node() {
+        use super::*;
+        let parent = "nuclear-engineering/fuel-and-materials/triso";
+        assert!(corpus::topic_at(parent).is_some(), "fixture assumption");
+
+        let mine = NodeId::concept(Namespace::Library, &format!("{parent}/my-notes"));
+        let up = up_one_level(Some(&mine)).flatten().expect("a parent");
+        assert_eq!(up.path, parent);
+        assert_eq!(
+            up.namespace,
+            Namespace::Corpus,
+            "the mirror must resolve to the corpus concept"
+        );
+
+        // And the card drawn for that mirror is the corpus one.
+        let as_library = NodeId::concept(Namespace::Library, parent);
+        assert_eq!(
+            concept(None, &as_library).map(|c| c.kind),
+            Some(ConceptKind::CorpusTopic)
+        );
+    }
+
     use super::*;
     use crate::entity::{Access, CiteKey, EntityConfig};
     use crate::root::{KovanRoot, RootConfig};

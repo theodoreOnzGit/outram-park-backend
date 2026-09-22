@@ -333,10 +333,22 @@ pub fn concept_citations(
         .papers_in(path)
         .into_iter()
         .map(|p| {
-            let (title, author_year) = entries
+            let (title, mut author_year) = entries
                 .get(&p.citekey)
                 .cloned()
                 .unwrap_or_else(|| (p.citekey.clone(), String::new()));
+            // Say *why* a paper is here when it is not filed here itself
+            // (#276). Without this a paper reached through one of its
+            // artifacts is indistinguishable from one the user filed under
+            // this concept, and the two are different statements.
+            if p.via_artifacts.iter().any(|t| t == path) {
+                let note = "via an artifact";
+                author_year = if author_year.is_empty() {
+                    note.to_string()
+                } else {
+                    format!("{author_year} \u{2014} {note}")
+                };
+            }
             Citation {
                 citekey: p.citekey.clone(),
                 title,
