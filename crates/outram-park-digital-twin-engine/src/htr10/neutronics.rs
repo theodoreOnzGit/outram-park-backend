@@ -44,8 +44,8 @@
 //!
 //! | Source | Tier | On-disk |
 //! |---|---|---|
-//! | **IAEA-TECDOC-1382**, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003. Chapter 4 is the HTR-10 core physics benchmark | Open | `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json` (markdown at `generated/markdown/open/iaea-tecdoc-1382-part2.md`) |
-//! | Choo, A. J. Y. and Xiao, S. (2024), *Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package*, SNRSI/NUS | Open | `crates/kovan-literature/open/papers/choo-htr10-criticality.json` |
+//! | **IAEA-TECDOC-1382**, *Evaluation of high temperature gas cooled reactor performance: Benchmark analysis related to initial testing of the HTTR and HTR-10*, IAEA Vienna, November 2003. Chapter 4 is the HTR-10 core physics benchmark | ~~Open~~ Proprietary (reclassified 2026-09-22: no verified reuse licence) | `iaea-tecdoc-1382-part2` (with its extracted Markdown), held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md` |
+//! | Choo, A. J. Y. and Xiao, S. (~~2024~~ 2023, **CORRECTED 2026-09-22** per the catalogue's INIS-record check; VINANST-15), *Criticality Analysis of HTR-10 Using the High-Temperature Gas-Cooled Reactor Code Package*, SNRSI/NUS | ~~Open~~ Proprietary (reclassified 2026-09-22: no licence stated) | `choo-htr10-criticality`, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md` |
 //! | Wang, M.-J., Sheu, R.-J., Peir, J.-J. and Liang, J.-H. (2014), *Criticality calculations of the HTR-10 pebble-bed reactor with SCALE6/CSAS6 and MCNP5*, Ann. Nucl. Energy 64, 1-7, doi 10.1016/j.anucene.2013.09.031 | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/wang2014htr10criticality.json` |
 //! | Tantillo, F. et al. (2020), *HTR code package neutronics developments and benchmarks*, Nucl. Eng. Des. 362, 110603, doi 10.1016/j.nucengdes.2020.110603 | Proprietary (cited, not re-hosted) | `crates/kovan-literature/proprietary/papers/tantillo2020hcpneutronics.json` |
 //!

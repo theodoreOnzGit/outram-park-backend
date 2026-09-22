@@ -9,7 +9,7 @@
 //   Carbide." MS thesis, North Carolina State University (advisor A. I.
 //   Hawari). Chapter 3.1 (Eqs. 3.4-3.8) and Chapter 4.1.
 //   Catalogued in this workspace as
-//   `crates/kovan-literature/open/theses/zhu2014thermal.{json,pdf}`.
+//   `zhu2014thermal` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
 //
 //   Companion paper (NOT catalogued here — no freely available copy located):
 //   Zhu, Y. and Hawari, A. I. (2015). "Implementation of a Generalized Coherent

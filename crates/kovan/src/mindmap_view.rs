@@ -199,6 +199,55 @@ pub fn star_layout(fan_sizes: &[usize]) -> StarLayout {
 /// radius a real star needs.
 pub const MAX_RING_GROWTH_STEPS: usize = 200;
 
+/// A connector between two cards: a cubic Bézier curve `[start, control 1,
+/// control 2, end]` in world units, from an edge of one card to an edge of
+/// the other (maintainer direction, 2026-09-22: "a smooth curved line from
+/// edge to edge, not to the centre of the box").
+///
+/// **Which edges** depends on where the cards sit relative to each other:
+/// the connector runs along the axis with the larger clear gap between them.
+/// Side by side, it leaves the facing left/right edges at their midpoints;
+/// one above the other, the facing top/bottom edges. It leaves and arrives at
+/// right angles to those edges, the control points pulled out along the same
+/// axis by half the distance between the ends (at least [`CARD_GAP`]), which
+/// is what makes it read as one smooth S or arc.
+///
+/// `None` when the cards overlap on both axes (possible with pinned cards):
+/// there is no clear edge to join, and a curve through the cards would be
+/// noise. A drawing rule, nothing physical.
+pub fn connector(a: Point, b: Point) -> Option<[Point; 4]> {
+    let (w, h) = CARD_SIZE;
+    let (dx, dy) = (b.x - a.x, b.y - a.y);
+    let gap_x = dx.abs() - w;
+    let gap_y = dy.abs() - h;
+    if gap_x < 0.0 && gap_y < 0.0 {
+        return None;
+    }
+    if gap_x >= gap_y {
+        let s = dx.signum();
+        let start = Point::new(a.x + s * 0.5 * w, a.y);
+        let end = Point::new(b.x - s * 0.5 * w, b.y);
+        let pull = (0.5 * (end.x - start.x).abs()).max(CARD_GAP);
+        Some([
+            start,
+            Point::new(start.x + s * pull, start.y),
+            Point::new(end.x - s * pull, end.y),
+            end,
+        ])
+    } else {
+        let s = dy.signum();
+        let start = Point::new(a.x, a.y + s * 0.5 * h);
+        let end = Point::new(b.x, b.y - s * 0.5 * h);
+        let pull = (0.5 * (end.y - start.y).abs()).max(CARD_GAP);
+        Some([
+            start,
+            Point::new(start.x, start.y + s * pull),
+            Point::new(end.x, end.y - s * pull),
+            end,
+        ])
+    }
+}
+
 /// The world-space box that holds every card: the centre card at the origin
 /// (when `has_centre`) and a card at each of `ring`.
 pub fn star_bounds(has_centre: bool, ring: &[Point]) -> Bounds {
@@ -485,6 +534,53 @@ mod tests {
         let parent = l.ring[0]; // straight up
         for p in &l.fans[0] {
             assert!(p.y <= parent.y + 1e-9, "fan card below its parent: {p:?}");
+        }
+    }
+
+    /// Is `p` on the border of the card centred at `c`?
+    fn on_edge(p: Point, c: Point) -> bool {
+        let (hw, hh) = (0.5 * CARD_SIZE.0, 0.5 * CARD_SIZE.1);
+        let (x, y) = ((p.x - c.x).abs(), (p.y - c.y).abs());
+        ((x - hw).abs() < 1e-9 && y <= hh + 1e-9) || ((y - hh).abs() < 1e-9 && x <= hw + 1e-9)
+    }
+
+    /// Cards side by side join facing left/right edges, horizontally; cards
+    /// one above the other join facing top/bottom edges, vertically. Either
+    /// way the curve starts and ends on a card edge, never at a centre.
+    #[test]
+    fn a_connector_joins_the_facing_edges() {
+        let a = Point::new(0.0, 0.0);
+        // To the right and a little down: a horizontal connector.
+        let [s, c1, c2, e] = connector(a, Point::new(400.0, 60.0)).unwrap();
+        assert!(on_edge(s, a) && on_edge(e, Point::new(400.0, 60.0)));
+        assert_eq!(s.x, 0.5 * CARD_SIZE.0, "leaves the right edge");
+        assert_eq!(e.x, 400.0 - 0.5 * CARD_SIZE.0, "arrives at the left edge");
+        assert!(
+            c1.y == s.y && c2.y == e.y,
+            "leaves and arrives horizontally"
+        );
+        // Straight below: a vertical connector.
+        let b = Point::new(30.0, 300.0);
+        let [s, c1, c2, e] = connector(a, b).unwrap();
+        assert_eq!(s.y, 0.5 * CARD_SIZE.1, "leaves the bottom edge");
+        assert_eq!(e.y, 300.0 - 0.5 * CARD_SIZE.1, "arrives at the top edge");
+        assert!(c1.x == s.x && c2.x == e.x, "leaves and arrives vertically");
+        assert!(on_edge(s, a) && on_edge(e, b));
+    }
+
+    /// Swapping the two cards gives the same curve, reversed; overlapping
+    /// cards get none; every ring spoke in a star has one.
+    #[test]
+    fn connectors_are_symmetric_and_exist_for_every_spoke() {
+        let (a, b) = (Point::new(10.0, -20.0), Point::new(-350.0, 90.0));
+        let mut there = connector(a, b).unwrap();
+        there.reverse();
+        assert_eq!(Some(there), connector(b, a));
+        assert_eq!(connector(a, Point::new(20.0, -10.0)), None);
+        for n in [1, 4, 9, 30] {
+            for p in star_positions(n) {
+                assert!(connector(Point::new(0.0, 0.0), p).is_some(), "n={n}: {p:?}");
+            }
         }
     }
 

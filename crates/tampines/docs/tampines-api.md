@@ -2,7 +2,7 @@
 
 **Version:** 0.0.2
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `tampines`
 
@@ -39,6 +39,41 @@ psychrometrics, and multiphase thermal-hydraulics. It is distinct from
   `tampines-steam-tables` / `outram-park-fork-coolprop`), reactor physics
   (`teh-o-prke`, `outram-mc-libs`, `njoy-outram-park-fork`), or GUI /
   visualization code (`outram-park-digital-twin-gui`).
+
+## Reaching real time: evaluate a surrogate, not the full model
+
+This crate holds the physics a transient evaluates *most often* — fluid
+properties, HEM critical flow, drift-flux closures, packed-bed conjugate
+heat transfer, the KTA and ZBS correlations. That makes it the inner loop
+of every coupled run, and a digital twin at interactive rates cannot afford
+a full property or closure solve per tick per node.
+
+**The intended answer is a surrogate, and it is [`raffles`].** `raffles` is
+this workspace's port of RAVEN's uncertainty-quantification core, where a
+reduced-order model is a first-class object: sample the expensive model
+over its state space once, fit a cheap stand-in, evaluate that per tick.
+
+This is written down because it is not the obvious move. The natural
+reaction to a slow closure is to put a lookup table next to it, and a dozen
+bespoke tables scattered through this crate is precisely the outcome to
+avoid — they drift from the correlations they approximate, and none of them
+carries an error estimate. Prefer a `raffles` surrogate over a local table,
+and if you find yourself writing a table anyway, treat it as a stopgap and
+say so at the call site.
+
+Two constraints on any implementation:
+
+- **The surrogate must stay Android-clean.** Dense linear algebra for
+  fitting comes from the pure-Rust `faer` already in the workspace
+  dependencies — never a system BLAS or `ndarray-linalg`, per the
+  workspace's Android/Termux rule.
+- **A surrogate without an error bound is not usable here.** These feed
+  safety-relevant transients, and a fast wrong answer is worse than a slow
+  right one.
+
+The ROM layer itself does not exist yet — `raffles::surrogate` is currently
+a stub. Tracked in the workspace beads as `op-38my`; the dependency is
+wired ahead of it so the intent is visible from the manifest.
 
 ## Status
 
@@ -11074,7 +11109,7 @@ HTR-10 **isothermal** temperature coefficient of reactivity over
 
 Source: IAEA-TECDOC-1382 part 2, Chapter 4, Table 4-33 (Open tier;
 catalogued at
-`crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.pdf`). The
+`iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`). The
 document tabulates `delta-k/k` per degree Celsius; a coefficient *per
 degree Celsius* and *per kelvin* are numerically identical, since only the
 size of the degree matters.
@@ -11970,7 +12005,7 @@ expression.
 
 Geometry for [`TrisoParticle::htr10`] comes from **IAEA-TECDOC-1382 part 2,
 Chapter 4** (Open tier; catalogued at
-`crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.pdf`),
+`iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`),
 Table 4-2 / Table 4-17: kernel radius 0.025 cm, UO2 density 10.4 g/cm^3,
 coating layers PyC/PyC/SiC/PyC of thickness 0.009/0.004/0.0035/0.004 cm and
 density 1.1/1.9/3.18/1.9 g/cm^3.

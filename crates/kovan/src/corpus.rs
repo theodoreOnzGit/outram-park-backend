@@ -210,6 +210,10 @@ pub struct CorpusConnection {
     pub source: &'static str,
     pub target: &'static str,
     pub relation: RelationKind,
+    /// Where the source document states the relationship (a reference-list
+    /// entry, a page). Required: a corpus connection is added only on a
+    /// document's own evidence.
+    pub basis: &'static str,
 }
 
 /// Shorthand for a topic with no ontology link.
@@ -234,9 +238,11 @@ const fn linked(path: &'static str, title: &'static str, link: OntologyLink) -> 
 pub const ROOT_TOPIC: &str = "nuclear-engineering";
 
 /// The Git repository holding the corpus PDFs (maintainer direction,
-/// 2026-09-22), under `kovan-open-corpus/`, with a README recording each
+/// 2026-09-22), under `kovan-standard-open-corpus/`, with a README recording each
 /// document's licence basis. Kovan may clone it into a library's
-/// `literature/kovan-open-corpus/`; the map never depends on it (#253).
+/// `literature/kovan-open-corpus/`; the map never depends on it (#253). In this
+/// workspace the same repository is checked out as the Git submodule
+/// `crates/kovan-literature/reactor-literature/`.
 pub const CORPUS_REPOSITORY_URL: &str = "https://github.com/theodoreOnzGit/reactor-literature.git";
 
 /// The branch of [`CORPUS_REPOSITORY_URL`] to use.
@@ -278,8 +284,11 @@ pub const TOPICS: &[CorpusTopic] = &[
         "nuclear-engineering/thermal-hydraulics/two-phase-flow",
         "Two-Phase Flow",
     ),
+    // Critical heat flux is a boiling (two-phase) limit, so it sits under
+    // Two-Phase Flow (maintainer direction, 2026-09-22), not beside it as the
+    // original brief listed it.
     topic(
-        "nuclear-engineering/thermal-hydraulics/critical-heat-flux",
+        "nuclear-engineering/thermal-hydraulics/two-phase-flow/critical-heat-flux",
         "Critical Heat Flux",
     ),
     linked(
@@ -383,12 +392,34 @@ const PHYSOR_2026_BASIS: &str =
     "CC BY 4.0, as recorded on the paper's Zenodo DOI record (checked 2026-09-22)";
 
 /// Curated literature (#250), supplied by the maintainer on 2026-09-22 and
-/// held in [`CORPUS_REPOSITORY_URL`]. Titles, authors and years are read
+/// held in [`CORPUS_REPOSITORY_URL`]. **Only documents in that repository's
+/// `kovan-standard-open-corpus/` folder are hardcoded** (maintainer direction,
+/// 2026-09-22); the maintainer's own open literature (`theodore-open-corpus/`,
+/// including the TUAS paper, which was listed here until then) is not. Titles, authors and years are read
 /// from each document's own title and front-matter pages; topics from its
-/// abstract and contents. No corpus connection is listed between them: none
-/// cites another entry here (NUREG-2201 and NUREG/KM-0006 cite NUREG-0800,
-/// but chapters 19.2 and 15.0.2, not the Section 4.2 held here).
+/// abstract and contents. The one citation between entries is in
+/// [`CONNECTIONS`] (NUREG-2201 and NUREG/KM-0006 also cite NUREG-0800, but
+/// chapters 19.2 and 15.0.2, not the Section 4.2 held here, so those are not
+/// connections).
 pub const LITERATURE: &[CorpusLiterature] = &[
+    CorpusLiterature {
+        id: "wash-1400",
+        kind: LiteratureKind::Report,
+        title: "Reactor Safety Study: An Assessment of Accident Risks in U.S. Commercial Nuclear Power \
+                Plants (WASH-1400, NUREG-75/014), Executive Summary and Main Report",
+        authors: &["U.S. Nuclear Regulatory Commission"],
+        year: Some(1975),
+        topics: &[
+            "nuclear-engineering/pra",
+            "nuclear-engineering/safety/severe-accidents",
+            "nuclear-engineering/safety/source-term",
+            "nuclear-engineering/reactor-systems/lwr",
+        ],
+        source_url: Some("https://www.nrc.gov/docs/ML1533/ML15334A199.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML15334A199.pdf"),
+        status: SourceStatus::VerifiedPublicDomain,
+        status_basis: NRC_BASIS,
+    },
     CorpusLiterature {
         id: "nureg-0800-4.2",
         kind: LiteratureKind::Report,
@@ -402,7 +433,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/safety",
         ],
         source_url: Some("https://www.nrc.gov/docs/ML0707/ML070740002.pdf"),
-        corpus_file: Some("kovan-open-corpus/nrc/ML070740002.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML070740002.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
         status_basis: NRC_BASIS,
     },
@@ -417,7 +448,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/safety/accident-analysis",
         ],
         source_url: Some("https://www.nrc.gov/docs/ML1302/ML13028A421.pdf"),
-        corpus_file: Some("kovan-open-corpus/nrc/ML13028A421.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML13028A421.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
         status_basis: NRC_BASIS,
     },
@@ -433,7 +464,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/scientific-computing/validation",
         ],
         source_url: Some("https://www.nrc.gov/docs/ML1332/ML13325A086.pdf"),
-        corpus_file: Some("kovan-open-corpus/nrc/ML13325A086.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML13325A086.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
         status_basis: NRC_BASIS,
     },
@@ -447,7 +478,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/pra",
         ],
         source_url: Some("https://www.nrc.gov/docs/ML1624/ML16245A032.pdf"),
-        corpus_file: Some("kovan-open-corpus/nrc/ML16245A032.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML16245A032.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
         status_basis: NRC_BASIS,
     },
@@ -463,7 +494,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/scientific-computing",
         ],
         source_url: Some("https://www.nrc.gov/docs/ML1233/ML12338A215.pdf"),
-        corpus_file: Some("kovan-open-corpus/nrc/ML12338A215.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML12338A215.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
         status_basis: NRC_BASIS,
     },
@@ -480,27 +511,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/reactor-systems/sfr",
         ],
         source_url: Some("https://www.nrc.gov/docs/ML2206/ML22063A060.pdf"),
-        corpus_file: Some("kovan-open-corpus/nrc/ML22063A060.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/nrc/ML22063A060.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
         status_basis: NRC_BASIS,
-    },
-    CorpusLiterature {
-        id: "ong2024tuas",
-        kind: LiteratureKind::Paper,
-        title: "An open-source Thermo-hydraulic Uniphase Advection and Convection Solver for Salt Flows (TUAS)",
-        authors: &["Ong, T.K.C.", "Xiao, S.", "Peterson, P.F."],
-        year: Some(2024),
-        topics: &[
-            "nuclear-engineering/thermal-hydraulics/single-phase-flow",
-            "nuclear-engineering/thermal-hydraulics/natural-circulation",
-            "nuclear-engineering/reactor-systems/fhr",
-            "nuclear-engineering/scientific-computing/verification",
-            "nuclear-engineering/scientific-computing/validation",
-        ],
-        source_url: Some("https://doi.org/10.1016/j.jandt.2025.03.006"),
-        corpus_file: Some("kovan-open-corpus/ong/tuas-theodore-ong.pdf"),
-        status: SourceStatus::VerifiedOpenLicence,
-        status_basis: "CC BY 4.0, stated in the article itself; authored by the corpus maintainer",
     },
     CorpusLiterature {
         id: "hori2026physor",
@@ -513,7 +526,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/reactor-systems/htgr/prismatic",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20803716"),
-        corpus_file: Some("kovan-open-corpus/physor-2026/physor2026-206-hori-pod-burnup-httr.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-206-hori-pod-burnup-httr.pdf"),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
@@ -529,7 +542,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/reactor-systems/research-reactors",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20804104"),
-        corpus_file: Some("kovan-open-corpus/physor-2026/physor2026-306-bures-subcritical-simulator.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-306-bures-subcritical-simulator.pdf"),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
@@ -546,7 +559,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/safety/accident-analysis",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20803769"),
-        corpus_file: Some("kovan-open-corpus/physor-2026/physor2026-343-acierno-hexana-sfr.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-343-acierno-hexana-sfr.pdf"),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
@@ -563,16 +576,22 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/scientific-computing/validation",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20803785"),
-        corpus_file: Some("kovan-open-corpus/physor-2026/physor2026-449-krpan-msre-hyper-fidelity.pdf"),
+        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-449-krpan-msre-hyper-fidelity.pdf"),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
 ];
 
-/// Curated corpus-level relationships. Empty: no corpus entry cites another
-/// (see [`LITERATURE`]). A connection is added only where a document states
-/// the relationship.
-pub const CONNECTIONS: &[CorpusConnection] = &[];
+/// Curated corpus-level relationships, each on a document's own evidence
+/// ([`CorpusConnection::basis`]). A citation is recorded as
+/// [`RelationKind::RelatedTo`]: citing a work shows relevance, not agreement.
+pub const CONNECTIONS: &[CorpusConnection] = &[CorpusConnection {
+    source: "corpus:literature/nureg-2201",
+    target: "corpus:literature/wash-1400",
+    relation: RelationKind::RelatedTo,
+    basis: "NUREG-2201 reference list: \"WASH-1400, (NUREG-75/014), October 1975\"; \
+            discussed in its text as the first PRA",
+}];
 
 /// The topic at `path`, if any.
 pub fn topic_at(path: &str) -> Option<&'static CorpusTopic> {
@@ -678,6 +697,12 @@ mod tests {
             TOPICS.iter().any(|t| t.id() == id) || LITERATURE.iter().any(|l| l.id() == id)
         };
         for c in CONNECTIONS {
+            assert!(
+                !c.basis.is_empty(),
+                "{} -> {} has no evidence",
+                c.source,
+                c.target
+            );
             assert!(exists(c.source), "missing source {}", c.source);
             assert!(exists(c.target), "missing target {}", c.target);
         }

@@ -17,6 +17,7 @@ mod kvim_editor;
 mod nav;
 mod page_canvas;
 mod pdf_reader;
+mod setup;
 mod table_digitiser;
 mod theme;
 mod wiki;
@@ -130,13 +131,18 @@ enum FileDialogTarget {
     /// (op-9vo6.17). No extension filter — any text file is fair game for
     /// a general-purpose text editor.
     KvimFile,
+    /// Picked directory fills the setup dialog's Kovan-folder field (#255).
+    SetupFolder,
 }
 
 impl FileDialogTarget {
     /// Whether this target picks a directory (`pick_directory`) rather than
     /// a file — see [`DigitiseApp::open_picker`].
     fn is_directory(self) -> bool {
-        matches!(self, Self::KovanRootOpen | Self::KovanRootCreate)
+        matches!(
+            self,
+            Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder
+        )
     }
 
     /// Whether this target opens an existing file (`pick_file`) or names a
@@ -160,7 +166,9 @@ impl FileDialogTarget {
             Self::Pdf | Self::PdfIngest => Some("PDF"),
             Self::JsonExport | Self::TableJsonExport => Some("JSON"),
             Self::CsvExport | Self::TableCsvExport => Some("CSV"),
-            Self::KovanRootOpen | Self::KovanRootCreate | Self::KvimFile => None,
+            Self::KovanRootOpen | Self::KovanRootCreate | Self::SetupFolder | Self::KvimFile => {
+                None
+            }
         }
     }
 }
@@ -275,6 +283,11 @@ struct WorkspaceKnowledge {
 pub struct DigitiseApp {
     // chrome
     view: View,
+    /// The first-run setup dialog (#255) -- see [`setup`].
+    setup: setup::SetupDialog,
+    /// Work running off the GUI thread (cloning corpus repositories), each
+    /// ending in a one-line status message.
+    background_jobs: Vec<std::thread::JoinHandle<String>>,
     /// Browser-style back/forward history over every page (#242) -- see
     /// [`nav`].
     history: crate::navigation::NavHistory<nav::AppLocation>,
@@ -422,6 +435,8 @@ impl Default for DigitiseApp {
     fn default() -> Self {
         Self {
             view: View::default(),
+            setup: setup::SetupDialog::default(),
+            background_jobs: Vec::new(),
             history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
             theme: GuiTheme::default(),
             file_dialog: FileDialog::new()
@@ -1983,6 +1998,13 @@ impl DigitiseApp {
                         ui.selectable_value(&mut self.theme, t, t.label());
                     }
                 });
+            if ui
+                .button("\u{2699} Setup")
+                .on_hover_text("Kovan folder and corpus repositories")
+                .clicked()
+            {
+                self.setup.show_for(self.home.root());
+            }
         });
     }
 
@@ -2031,6 +2053,7 @@ impl DigitiseApp {
             FileDialogTarget::KovanRootCreate => {
                 self.home.begin_create(std::path::Path::new(&path))
             }
+            FileDialogTarget::SetupFolder => self.setup.folder = path,
             FileDialogTarget::PdfIngest => {
                 if let (Some(root), Some(wiki)) = (self.home.root(), self.wiki.as_mut()) {
                     if let Err(message) = wiki.begin_ingest(root, std::path::Path::new(&path)) {
@@ -2043,6 +2066,116 @@ impl DigitiseApp {
                 Err(e) => self.set_error(format!("{path}: {e}")),
             },
         }
+    }
+}
+
+impl DigitiseApp {
+    /// What the real application does once at start, and tests never do
+    /// (they build the app with `default()`): begin cloning the standard
+    /// corpus in the background (#253), and open the setup dialog on first
+    /// run unless a Kovan folder was given on the command line (#255).
+    pub fn start_up(&mut self, folder_given: bool) {
+        self.spawn_job(|| match crate::corpus_repos::ensure_standard_corpus() {
+            Ok(crate::corpus_repos::RepoState::Cloned) => "standard corpus downloaded".to_string(),
+            Ok(_) => String::new(),
+            Err(e) => format!("standard corpus not downloaded (the built-in map still works): {e}"),
+        });
+        if !folder_given && setup::is_first_run() {
+            self.setup.show_for(None);
+        }
+    }
+
+    /// Run `job` off the GUI thread; its message is shown when it finishes.
+    fn spawn_job(&mut self, job: impl FnOnce() -> String + Send + 'static) {
+        self.background_jobs.push(std::thread::spawn(job));
+    }
+
+    /// Show the message of every finished background job.
+    fn poll_background_jobs(&mut self) {
+        let (done, running): (Vec<_>, Vec<_>) = std::mem::take(&mut self.background_jobs)
+            .into_iter()
+            .partition(|j| j.is_finished());
+        self.background_jobs = running;
+        for job in done {
+            match job.join() {
+                Ok(message) if !message.is_empty() => self.set_status(message),
+                Ok(_) => {}
+                Err(_) => self.set_error("a background task failed unexpectedly"),
+            }
+        }
+    }
+
+    fn handle_setup(&mut self, request: setup::SetupRequest) {
+        match request {
+            setup::SetupRequest::Browse => self.open_picker(FileDialogTarget::SetupFolder),
+            setup::SetupRequest::Skip => {
+                setup::mark_first_run_done();
+                self.setup.open = false;
+            }
+            setup::SetupRequest::Finish {
+                folder,
+                open_remote,
+                proprietary_remote,
+            } => match self.set_up_library(&folder, open_remote, proprietary_remote) {
+                Ok(()) => {
+                    setup::mark_first_run_done();
+                    self.setup.open = false;
+                }
+                Err(e) => self.setup.set_message(e),
+            },
+        }
+    }
+
+    /// Open `folder` as a Kovan folder, or create one there, record the
+    /// corpus remotes in its `kovan_root.toml`, and prepare its two corpus
+    /// repositories in the background (cloned, or initialised locally).
+    fn set_up_library(
+        &mut self,
+        folder: &std::path::Path,
+        open_remote: Option<String>,
+        proprietary_remote: Option<String>,
+    ) -> Result<(), String> {
+        use crate::root::{CorporaConfig, KovanRoot, RootConfig};
+        let mut root = match KovanRoot::open(folder) {
+            Ok(root) => root,
+            Err(_) => {
+                std::fs::create_dir_all(folder)
+                    .map_err(|e| format!("cannot create {}: {e}", folder.display()))?;
+                let name = folder
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "library".to_string());
+                KovanRoot::create(folder, RootConfig::new(&name, &name), true)
+                    .map_err(|e| format!("cannot make {} a Kovan folder: {e}", folder.display()))?
+            }
+        };
+        root.set_corpora(CorporaConfig {
+            open_remote,
+            proprietary_remote,
+        })?;
+        self.home.open_dir(root.path());
+        if self.wiki.is_none() {
+            self.wiki = Some(WikiState::new());
+        }
+        self.refresh_knowledge(&root);
+        self.set_status("setting up your corpus repositories…");
+        self.spawn_job(move || {
+            let setup = crate::corpus_repos::ensure_library_corpora(&root);
+            let describe = |name: &str, r: &Result<crate::corpus_repos::RepoState, _>| match r {
+                Ok(crate::corpus_repos::RepoState::Cloned) => format!("{name} cloned"),
+                Ok(crate::corpus_repos::RepoState::Initialised) => {
+                    format!("{name} created locally (add a remote and push later)")
+                }
+                Ok(crate::corpus_repos::RepoState::Existing) => format!("{name} already present"),
+                Err(e) => format!("{name} not set up: {e}"),
+            };
+            format!(
+                "{}; {}",
+                describe("open corpus", &setup.open),
+                describe("proprietary corpus", &setup.proprietary)
+            )
+        });
+        Ok(())
     }
 }
 
@@ -2059,6 +2192,10 @@ impl eframe::App for DigitiseApp {
         // A tab click just now may have switched between the Wiki and the
         // Mindmap: open it on the shared concept before it draws (#242).
         self.sync_shared_concept();
+        self.poll_background_jobs();
+        if let Some(request) = self.setup.ui(ui.ctx()) {
+            self.handle_setup(request);
+        }
 
         self.file_dialog.update(ui.ctx());
         if let Some(path) = self.file_dialog.take_picked() {

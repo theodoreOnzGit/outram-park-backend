@@ -2,7 +2,7 @@
 
 **Version:** 0.1.6
 
-**Format Version:** 61
+**Format Version:** 60
 
 # Module `tuas_boussinesq_solver`
 
@@ -653,6 +653,18 @@ entities and property helpers) without naming their full module paths.
 `beta_testing` is the current, near-stable prelude; `alpha_nightly` is
 reserved for unstable, in-development re-exports.
 
+The plain path works and is the one to reach for:
+
+```
+use tuas_boussinesq_solver::prelude::*;
+
+// Types come from the prelude alone -- no deep module paths needed.
+let steel: SolidMaterial = SolidMaterial::SteelSS304L;
+let therminol: LiquidMaterial = LiquidMaterial::TherminolVP1;
+let _m: Material = steel.into();
+let _l: Material = therminol.into();
+```
+
 ```rust
 pub mod prelude { /* ... */ }
 ```
@@ -814,6 +826,14 @@ pub use crate::heat_transfer_correlations::heat_transfer_interactions::heat_tran
 
 ```rust
 pub use crate::control_volume_dimensions::*;
+```
+
+### Re-exports
+
+#### Re-export `beta_testing::*`
+
+```rust
+pub use beta_testing::*;
 ```
 
 ## Module `boussinesq_thermophysical_properties`
@@ -2974,7 +2994,9 @@ ANL-75-55, Argonne National Laboratory.
 
 US Government work, distribution unlimited, public domain. Catalogued in
 this workspace's KOVAN archive (Open tier) at
-`crates/kovan-literature/open/reports/kim1975-thermophysical-properties-stainless-steels.pdf`.
+`theodore-open-corpus/us-doe/kim1975-thermophysical-properties-stainless-steels.pdf` in the
+`reactor-literature` repository (moved there 2026-09-22; its metadata stays in
+`crates/kovan-literature/open/reports/kim1975-thermophysical-properties-stainless-steels.json`).
 
 Only the **solid-region** Type 304L equations are implemented here:
 Eq. (5) specific heat, Eq. (16) density, Eq. (28) thermal conductivity, and

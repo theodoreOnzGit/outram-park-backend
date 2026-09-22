@@ -37,6 +37,11 @@ exclude = [
     # these carry an open provenance path — but repo-only, like /docs/: the
     # published crate is a library, not a data distribution.
     "/derived/",
+    # /reactor-literature/ is a Git submodule (the maintainer's
+    # theodoreOnzGit/reactor-literature repository: the Kovan standard open
+    # corpus and the maintainer's open corpus, as PDFs). Repo-only, never
+    # packaged: the crate is a library, not a PDF distribution.
+    "/reactor-literature/",
 ]
 
 [dependencies]

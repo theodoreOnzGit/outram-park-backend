@@ -1,3 +1,6 @@
 [submodule "reference-data/ace"]
 	path = reference-data/ace
 	url = https://github.com/theodoreOnzGit/ace_and_other_data.git
+[submodule "crates/kovan-literature/reactor-literature"]
+	path = crates/kovan-literature/reactor-literature
+	url = https://github.com/theodoreOnzGit/reactor-literature.git

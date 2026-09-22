@@ -1576,7 +1576,8 @@ mod tests {
     }
 
     /// The first 12 lines `pdf-extract` returns for
-    /// `open/reports/kjna28712enn.pdf` (JRC, EUR 28712 EN), reproduced exactly —
+    /// `kjna28712enn.pdf` (JRC, EUR 28712 EN; the PDF moved on 2026-09-22 to the
+    /// `reactor-literature` repository, `theodore-open-corpus/jrc/`), reproduced exactly —
     /// including the blank line between every visual line, which is what
     /// truncated the title, and the trailing spaces.
     ///

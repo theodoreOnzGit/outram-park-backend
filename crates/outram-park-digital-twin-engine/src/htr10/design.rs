@@ -34,7 +34,7 @@ use uom::si::volume::cubic_meter;
 
 /// The HTR-10 design point as specified in the IAEA HTGR benchmark document,
 /// Chapter 4 (Open tier; catalogued at
-/// `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.json`; the
+/// `iaea-tecdoc-1382-part2` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`); the
 /// document is IAEA-TECDOC-1382, IAEA Vienna, November 2003).
 ///
 /// All fields are `uom` quantities; the doc comment of each field spells out

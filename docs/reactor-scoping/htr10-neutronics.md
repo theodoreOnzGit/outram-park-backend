@@ -77,7 +77,7 @@ Both constraints point the same way, which is a good sign the shape is right.
 ## 2. The benchmark problems, and the trap in B1
 
 All four are defined in IAEA-TECDOC-1382 Chapter 4 (Open tier;
-`crates/kovan-literature/generated/markdown/open/iaea-tecdoc-1382-part2.md`).
+`iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
 
 > **Source deduplication (resolved 2026-08-11).** An earlier ingest of the
 > *same Chapter 4* without TECDOC provenance (`htr-10-iaea.md` / `.json`) has

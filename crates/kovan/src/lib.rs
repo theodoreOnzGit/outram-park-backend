@@ -56,6 +56,7 @@ pub mod autocomplete;
 pub mod classify;
 pub mod commands;
 pub mod corpus;
+pub mod corpus_repos;
 pub mod digitiser;
 pub mod entity;
 pub mod graph;

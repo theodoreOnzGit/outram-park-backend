@@ -552,13 +552,15 @@ A system BLAS is **only** needed to run `outram-foam-basic-lib`'s
 library in the workspace needs it (`sudo pacman -S openblas` /
 `sudo apt install libopenblas-dev`).
 
-**This workspace has a submodule as of 2026-09-20** — `reference-data/ace`
-(`theodoreOnzGit/ace_and_other_data`), holding the gzipped NJOY2016 ACE tables
-that are too large to track here directly. Clone with
-`git clone --recurse-submodules`, or run `git submodule update --init
-reference-data/ace` afterwards. A plain clone leaves that path an **empty
-directory rather than an error**, so nothing complains until something looks
-for a table and does not find one.
+**This workspace has two submodules** — `reference-data/ace`
+(`theodoreOnzGit/ace_and_other_data`, since 2026-09-20), holding the gzipped
+NJOY2016 ACE tables that are too large to track here directly, and
+`crates/kovan-literature/reactor-literature` (`theodoreOnzGit/reactor-literature`,
+since 2026-09-22), holding the open literature PDFs (see "Literature and the
+Kovan corpus" below). Clone with `git clone --recurse-submodules`, or run
+`git submodule update --init` afterwards. A plain clone leaves each path an
+**empty directory rather than an error**, so nothing complains until something
+looks for a file and does not find one.
 
 ```bash
 cargo build --workspace --release                   # all libraries
@@ -648,6 +650,19 @@ versions in the root `[workspace.dependencies]`) are in
 Two things to know without opening it: **all nuclear-data code belongs in
 `njoy-outram-park-fork`** (transport crates are data-free), and **a crate's own
 `CLAUDE.md` is the authority for its status**, never a roster row.
+
+## Literature and the Kovan corpus (brief)
+
+- **PDFs do not live in this repository.** Open literature is in the
+  `reactor-literature` Git submodule at `crates/kovan-literature/reactor-literature/`
+  (`git submodule update --init` it): `kovan-standard-open-corpus/` and
+  `theodore-open-corpus/`, each README stating every document's licence basis.
+  Proprietary literature is in the maintainer's private repository, never here.
+- **Kovan's built-in corpus** is the nuclear-engineering map compiled into
+  `crates/kovan/src/corpus.rs`: the topic tree plus metadata for exactly the
+  documents in `kovan-standard-open-corpus/`, nothing else.
+- Details and rules: [`crates/kovan-literature/CLAUDE.md`](crates/kovan-literature/CLAUDE.md)
+  and its `CATALOGUE.md`.
 
 ## Session completion
 

@@ -22,7 +22,8 @@
 //! citations drop down on hover, and its right-click menu opens them (#245).
 //! A ▸ on a ring card fans its own sub-concepts outward without moving the
 //! centre, and dragging any card but the centre pins it there for that star,
-//! until "Unpin" or "Unpin all" (#246). It sits on a two-axis `ScrollArea`
+//! until "Unpin" or "Reset nodes" (#246; the button was "Unpin all" until
+//! the maintainer renamed it, 2026-09-22). It sits on a two-axis `ScrollArea`
 //! (drag or scroll to pan) whose canvas stops 25 % of the map's own size past
 //! each edge, plus half a viewport width sideways
 //! ([`crate::mindmap_view::CanvasLayout`]); −, +, Fit, 100 % and
@@ -718,7 +719,26 @@ impl MindmapState {
 
         // ── Breadcrumb ──────────────────────────────────────────────────
         let mut crumb_to: Option<Option<NodeId>> = None;
+        let up = crate::runtime_graph::up_one_level(self.current.as_ref());
         ui.horizontal(|ui| {
+            // Up one level (maintainer direction, 2026-09-22): to the parent
+            // concept, or to the top from a top-level one.
+            let up_label = match &up {
+                Some(Some(parent)) => crate::runtime_graph::concept(index, parent)
+                    .map(|c| c.title)
+                    .unwrap_or_else(|| parent.path.clone()),
+                Some(None) => "the top".to_string(),
+                None => String::new(),
+            };
+            if ui
+                .add_enabled(up.is_some(), egui::Button::new("\u{2B06} Up"))
+                .on_hover_text(format!("Up one level, to {up_label}"))
+                .on_disabled_hover_text("Already at the top")
+                .clicked()
+            {
+                crumb_to = up.clone();
+            }
+            ui.separator();
             if ui.link("Top").clicked() {
                 crumb_to = Some(None);
             }
@@ -836,7 +856,7 @@ impl MindmapState {
             ui.label(format!("{:.0} %", 100.0 * shown_zoom));
             ui.separator();
             if ui
-                .add_enabled(any_pinned_here, egui::Button::new("Unpin all"))
+                .add_enabled(any_pinned_here, egui::Button::new("Reset nodes"))
                 .on_hover_text("Put every card you dragged here back in its place")
                 .clicked()
             {
@@ -939,21 +959,27 @@ impl MindmapState {
             let z = zoom as f32;
             let card_size = egui::vec2(CARD_SIZE.0 as f32, CARD_SIZE.1 as f32) * z;
 
-            // Spokes under the cards: centre to ring, ring to its fan.
+            // Connectors under the cards, centre to ring and ring to its fan:
+            // smooth curves from edge to edge, the edges chosen by where the
+            // two cards sit ([`crate::mindmap_view::connector`]).
             let stroke = egui::Stroke::new((1.5 * z).max(0.5), egui::Color32::from_gray(120));
             let ring_at: Vec<Point> = cards
                 .iter()
                 .filter_map(|(_, p, r)| matches!(r, CardRole::Ring(_)).then_some(*p))
                 .collect();
             for (_, p, role) in &cards {
-                match role {
-                    CardRole::Ring(_) if centre.is_some() => {
-                        painter.line_segment([at(Point::new(0.0, 0.0)), at(*p)], stroke);
-                    }
-                    CardRole::Fan(i, _) => {
-                        painter.line_segment([at(ring_at[*i]), at(*p)], stroke);
-                    }
-                    _ => {}
+                let from = match role {
+                    CardRole::Ring(_) if centre.is_some() => Point::new(0.0, 0.0),
+                    CardRole::Fan(i, _) => ring_at[*i],
+                    _ => continue,
+                };
+                if let Some(curve) = crate::mindmap_view::connector(from, *p) {
+                    painter.add(egui::epaint::CubicBezierShape::from_points_stroke(
+                        curve.map(at),
+                        false,
+                        egui::Color32::TRANSPARENT,
+                        stroke,
+                    ));
                 }
             }
 

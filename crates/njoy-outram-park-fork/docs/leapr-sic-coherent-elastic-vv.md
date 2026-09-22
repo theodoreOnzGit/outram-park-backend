@@ -174,7 +174,7 @@ about the evaluation.
   describes the in-house routine that produced MT=2. No freely available copy
   has been located, and it is **not** in `crates/kovan-literature`. The 2014
   MS thesis (the primary source actually used) is:
-  `crates/kovan-literature/open/theses/zhu2014thermal.{json,pdf}`.
+  `zhu2014thermal` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
 - Root-causing the ~10 % difference in the fitted `W'` itself (see the end of
   Result 3). This one is about this port, not the evaluation, and is the most
   likely place a real defect on our side is still hiding.

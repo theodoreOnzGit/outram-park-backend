@@ -175,8 +175,18 @@ pub struct RootPaths {
     /// Storage for open / redistributable source documents. Committable.
     pub open_sources: PathBuf,
     /// Storage for restricted / proprietary source documents. Gitignored, and
-    /// must never reach a commit — see §4 and `DATA_POLICY.md`.
+    /// must never reach a commit — see §4 and `DATA_POLICY.md`. Since GitHub
+    /// issue #255 it is also a Git repository of its own, the user's
+    /// **proprietary corpus**, cloned from [`CorporaConfig::proprietary_remote`]
+    /// (a private repository) or initialised locally — see
+    /// [`crate::corpus_repos`].
     pub restricted_sources: PathBuf,
+    /// The user's **open corpus**: a Git repository of redistributable
+    /// literature, cloned from [`CorporaConfig::open_remote`] or initialised
+    /// locally (GitHub issue #255). Gitignored by the library, being its own
+    /// repository. Distinct from [`Self::open_sources`], which is committed
+    /// with the library itself.
+    pub open_corpus: PathBuf,
 }
 
 impl Default for RootPaths {
@@ -188,6 +198,7 @@ impl Default for RootPaths {
             projects: PathBuf::from("projects"),
             open_sources: PathBuf::from("literature/open"),
             restricted_sources: PathBuf::from("literature/proprietary"),
+            open_corpus: PathBuf::from("literature/open-corpus"),
         }
     }
 }
@@ -218,6 +229,32 @@ pub struct PrivateSubmoduleConfig {
     pub remote: String,
 }
 
+/// Where the user's two corpus repositories come from (GitHub issue #255):
+/// the `[corpora]` table of `kovan_root.toml`. Both optional; a corpus with no
+/// remote is initialised as a local Git repository, to be pushed later.
+///
+/// **Bare remote URLs only, never a credential or token**, exactly as
+/// [`PrivateSubmoduleConfig::remote`]: authentication stays with the ambient
+/// Git/SSH/credential manager (`DATA_POLICY.md`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CorporaConfig {
+    /// Remote of the user's open corpus, e.g. a public GitHub repository.
+    /// Mounted at [`RootPaths::open_corpus`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_remote: Option<String>,
+    /// Remote of the user's proprietary corpus, which **must be private**.
+    /// Mounted at [`RootPaths::restricted_sources`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proprietary_remote: Option<String>,
+}
+
+impl CorporaConfig {
+    /// Whether neither remote is set (the table is then omitted on save).
+    pub fn is_empty(&self) -> bool {
+        self.open_remote.is_none() && self.proprietary_remote.is_none()
+    }
+}
+
 /// The parsed contents of `kovan_root.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RootConfig {
@@ -232,6 +269,10 @@ pub struct RootConfig {
     /// opted into one. Absent by default — see [`PrivateSubmoduleConfig`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_submodule: Option<PrivateSubmoduleConfig>,
+    /// The user's open and proprietary corpus remotes (#255). Absent in a
+    /// library that has none.
+    #[serde(default, skip_serializing_if = "CorporaConfig::is_empty")]
+    pub corpora: CorporaConfig,
 }
 
 impl RootConfig {
@@ -248,6 +289,7 @@ impl RootConfig {
             },
             paths: RootPaths::default(),
             private_submodule: None,
+            corpora: CorporaConfig::default(),
         }
     }
 
@@ -327,11 +369,14 @@ pub fn gitignore_for(
         "# Kovan derived/local state — fully rebuildable, safe to delete\n\
          {state}\n\
          {restricted_section}\n\
+         # The user's open corpus — its own Git repository (#255)\n\
+         {open_corpus}\n\n\
          # Temporary/editor files\n\
          *.tmp\n\
          *.swp\n\
          *~\n",
         state = gitignore_pattern(Path::new(STATE_DIR)),
+        open_corpus = gitignore_pattern(&paths.open_corpus),
     )
 }
 
@@ -541,6 +586,41 @@ impl KovanRoot {
         &self.config
     }
 
+    /// Set this library's corpus remotes (#255) and write them to its
+    /// `kovan_root.toml`, safely: the new text is written to a temporary file
+    /// beside it, parsed back to check it round-trips, then renamed over the
+    /// original, so a failure at any step leaves the old file intact. Every
+    /// other setting in the file is kept.
+    ///
+    /// # Errors
+    ///
+    /// A message if serialising, writing, re-parsing or renaming fails; the
+    /// in-memory config is then unchanged too.
+    pub fn set_corpora(&mut self, corpora: CorporaConfig) -> Result<(), String> {
+        let mut updated = self.config.clone();
+        updated.corpora = corpora;
+        let text = updated.to_toml()?;
+        let target = self.root.join(ROOT_MARKER);
+        let tmp = self.root.join(format!("{ROOT_MARKER}.tmp"));
+        std::fs::write(&tmp, &text).map_err(|e| format!("writing {}: {e}", tmp.display()))?;
+        let reread = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
+        match toml::from_str::<RootConfig>(&reread) {
+            Ok(back) if back == updated => {}
+            Ok(_) => {
+                let _ = std::fs::remove_file(&tmp);
+                return Err("the rewritten kovan_root.toml did not round-trip; not saved".into());
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(format!("the rewritten kovan_root.toml does not parse: {e}"));
+            }
+        }
+        std::fs::rename(&tmp, &target)
+            .map_err(|e| format!("replacing {}: {e}", target.display()))?;
+        self.config = updated;
+        Ok(())
+    }
+
     /// Absolute path of this root's `kovan_root.toml`.
     pub fn marker_path(&self) -> PathBuf {
         self.root.join(ROOT_MARKER)
@@ -585,6 +665,11 @@ impl KovanRoot {
     /// Absolute path of open / redistributable source storage.
     pub fn open_sources_dir(&self) -> PathBuf {
         self.root.join(&self.config.paths.open_sources)
+    }
+
+    /// Absolute path of the user's open-corpus repository (#255).
+    pub fn open_corpus_dir(&self) -> PathBuf {
+        self.root.join(&self.config.paths.open_corpus)
     }
 
     /// Absolute path of restricted / proprietary source storage.
@@ -949,6 +1034,57 @@ name = "Inner"
         assert!(gi.contains("*.tmp"), "{gi}");
         assert!(gi.contains("*.swp"), "{gi}");
         assert!(gi.contains("*~"), "{gi}");
+    }
+
+    /// The open-corpus repository is ignored by the library (it is its own
+    /// repository), and a `kovan_root.toml` written before #255, with no
+    /// `open_corpus` path and no `[corpora]` table, still loads with the
+    /// defaults.
+    #[test]
+    fn the_open_corpus_is_ignored_and_older_configs_still_load() {
+        let gi = gitignore_for(&RootPaths::default(), None);
+        assert!(gi.contains("/literature/open-corpus/"), "{gi}");
+        let old = "schema_version = 1\n[library]\nid = \"lib\"\nname = \"Lib\"\n";
+        let cfg: RootConfig = toml::from_str(old).unwrap();
+        assert_eq!(
+            cfg.paths.open_corpus,
+            PathBuf::from("literature/open-corpus")
+        );
+        assert!(cfg.corpora.is_empty());
+        // Remotes round-trip; an empty table is not written.
+        let mut with = RootConfig::new("lib", "Lib");
+        with.corpora.open_remote = Some("https://example.com/open.git".into());
+        let text = toml::to_string(&with).unwrap();
+        assert!(text.contains("open_remote"), "{text}");
+        assert!(!toml::to_string(&RootConfig::new("a", "b"))
+            .unwrap()
+            .contains("[corpora]"));
+        let back: RootConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back.corpora, with.corpora);
+    }
+
+    /// Corpus remotes are saved into `kovan_root.toml`, the rest of the file
+    /// kept, and reopening the library sees them.
+    #[test]
+    fn corpus_remotes_are_saved_and_reread() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut root =
+            KovanRoot::create(tmp.path(), RootConfig::new("lib", "My Lib"), false).unwrap();
+        root.set_corpora(CorporaConfig {
+            open_remote: Some("https://example.com/open.git".into()),
+            proprietary_remote: None,
+        })
+        .unwrap();
+        let reopened = KovanRoot::open(tmp.path()).unwrap();
+        assert_eq!(
+            reopened.config().corpora.open_remote.as_deref(),
+            Some("https://example.com/open.git")
+        );
+        assert_eq!(reopened.config().library.name, "My Lib", "the rest is kept");
+        assert!(
+            !tmp.path().join("kovan_root.toml.tmp").exists(),
+            "no temp file left"
+        );
     }
 
     #[test]

@@ -14,7 +14,7 @@
 //!
 //! are both from IAEA-TECDOC-1382 part 2, the HTR-10 benchmark problem set.
 //! The document is in this workspace's open literature archive at
-//! `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.pdf`.
+//! `iaea-tecdoc-1382-part2` (proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`).
 //!
 //! The **shape** of the worth curve is Lamarsh's integral rod-worth formula for
 //! a cosine flux, evaluated by [`teh_o_prke::control_rod_feedback::obtain_rod_worth_cylinder`]

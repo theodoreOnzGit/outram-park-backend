@@ -59,7 +59,7 @@
 //!
 //! Geometry for [`TrisoParticle::htr10`] comes from **IAEA-TECDOC-1382 part 2,
 //! Chapter 4** (Open tier; catalogued at
-//! `crates/kovan-literature/open/reports/iaea-tecdoc-1382-part2.pdf`),
+//! `iaea-tecdoc-1382-part2`, proprietary since 2026-09-22, held in the maintainer's private literature repository; see `crates/kovan-literature/CATALOGUE.md`),
 //! Table 4-2 / Table 4-17: kernel radius 0.025 cm, UO2 density 10.4 g/cm^3,
 //! coating layers PyC/PyC/SiC/PyC of thickness 0.009/0.004/0.0035/0.004 cm and
 //! density 1.1/1.9/3.18/1.9 g/cm^3.

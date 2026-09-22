@@ -210,6 +210,13 @@ pub fn citations(
     }
 }
 
+/// Where "up one level" goes from `current` (`None` is the top): the parent
+/// concept, or the top from a top-level concept. `None` when already at the
+/// top, where there is nowhere to go.
+pub fn up_one_level(current: Option<&NodeId>) -> Option<Option<NodeId>> {
+    current.map(NodeId::parent_concept)
+}
+
 /// The breadcrumb from the top to `id`: each ancestor concept and `id`
 /// itself, with its title.
 pub fn breadcrumb(index: Option<&KnowledgeIndex>, id: &NodeId) -> Vec<(NodeId, String)> {
@@ -307,10 +314,18 @@ mod tests {
     fn corpus_literature_is_cited_by_its_topics() {
         let pra = NodeId::concept(Namespace::Corpus, "nuclear-engineering/pra");
         let cites = citations(None, &HashMap::new(), &pra);
-        assert_eq!(cites.len(), 1);
-        assert_eq!(cites[0].citekey, "nureg-2201");
+        let keys: Vec<&str> = cites.iter().map(|c| c.citekey.as_str()).collect();
+        assert_eq!(
+            keys,
+            ["nureg-2201", "wash-1400"],
+            "sorted by author and year"
+        );
         assert_eq!(cites[0].author_year, "Siu 2016");
-        assert_eq!(cites[0].namespace, Namespace::Corpus);
+        assert_eq!(
+            cites[1].author_year,
+            "U.S. Nuclear Regulatory Commission 1975"
+        );
+        assert!(cites.iter().all(|c| c.namespace == Namespace::Corpus));
 
         let msr = NodeId::concept(Namespace::Corpus, "nuclear-engineering/reactor-systems/msr");
         let keys: Vec<String> = citations(None, &HashMap::new(), &msr)
@@ -324,11 +339,38 @@ mod tests {
         );
     }
 
+    /// Up goes to the parent, from a top-level concept to the top, and
+    /// nowhere from the top.
+    #[test]
+    fn up_one_level_climbs_to_the_top_and_stops() {
+        let chf = NodeId::concept(
+            Namespace::Corpus,
+            "nuclear-engineering/thermal-hydraulics/two-phase-flow/critical-heat-flux",
+        );
+        let tpf = up_one_level(Some(&chf)).unwrap().unwrap();
+        assert_eq!(
+            tpf.path,
+            "nuclear-engineering/thermal-hydraulics/two-phase-flow"
+        );
+        let th = up_one_level(Some(&tpf)).unwrap().unwrap();
+        assert_eq!(th.path, "nuclear-engineering/thermal-hydraulics");
+        let ne = up_one_level(Some(&th)).unwrap().unwrap();
+        assert_eq!(ne.path, "nuclear-engineering");
+        assert_eq!(
+            up_one_level(Some(&ne)),
+            Some(None),
+            "the root goes to the top"
+        );
+        assert_eq!(up_one_level(None), None, "nowhere above the top");
+        let mine = NodeId::concept(Namespace::Library, "htgrs");
+        assert_eq!(up_one_level(Some(&mine)), Some(None));
+    }
+
     #[test]
     fn the_breadcrumb_names_every_ancestor() {
         let chf = NodeId::concept(
             Namespace::Corpus,
-            "nuclear-engineering/thermal-hydraulics/critical-heat-flux",
+            "nuclear-engineering/thermal-hydraulics/two-phase-flow/critical-heat-flux",
         );
         let titles: Vec<String> = breadcrumb(None, &chf).into_iter().map(|(_, t)| t).collect();
         assert_eq!(
@@ -336,6 +378,7 @@ mod tests {
             [
                 "Nuclear Engineering",
                 "Thermal Hydraulics",
+                "Two-Phase Flow",
                 "Critical Heat Flux"
             ]
         );
