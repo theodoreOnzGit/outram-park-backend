@@ -211,6 +211,55 @@ fn main() {
         1.0e5 * sd_d,
         (d / sd_d).abs()
     );
+
+    // ── The PAIRED statistic, and the assumption the unpaired one rests on ──
+    //
+    // Both arms run on the SAME seed list, so `sqrt(sema^2 + sems^2)` above is
+    // the error of the difference only if the two arms are uncorrelated
+    // seed-by-seed. That is plausible — survival biasing consumes a different
+    // number of random draws, so the streams diverge after the first few
+    // collisions — but plausible is not measured, and the direction matters:
+    // a POSITIVE correlation would make the true error SMALLER than quoted,
+    // which would make a residual that reads "consistent with zero" not be.
+    //
+    // So compute the difference's standard error directly from the per-seed
+    // differences, which needs no independence assumption at all, and report
+    // the correlation alongside it. If the two error bars agree, the unpaired
+    // number every earlier row in this study quoted is vindicated; if they do
+    // not, the paired one is right and the earlier rows need re-reading.
+    let diffs: Vec<f64> = k_survival
+        .iter()
+        .zip(k_analog.iter())
+        .map(|(s, a)| s - a)
+        .collect();
+    let (md, sdd, semd) = stats(&diffs);
+    let rho = {
+        let n = k_analog.len() as f64;
+        if n < 2.0 || sda == 0.0 || sds == 0.0 {
+            0.0
+        } else {
+            let cov: f64 = k_analog
+                .iter()
+                .zip(k_survival.iter())
+                .map(|(a, b)| (a - ma) * (b - ms))
+                .sum::<f64>()
+                / (n - 1.0);
+            cov / (sda * sds)
+        }
+    };
+    println!(
+        "  PAIRED     : survival - analog = {:+.0} +/- {:.0} pcm ({:.2} sigma), \
+         seed-to-seed sd {:.0} pcm",
+        1.0e5 * md,
+        1.0e5 * semd,
+        (md / semd).abs(),
+        1.0e5 * sdd
+    );
+    println!(
+        "  correlation between arms over seeds = {rho:+.3}  \
+         (unpaired error is right only near 0; paired/unpaired = {:.2}x)",
+        semd / sd_d
+    );
     println!("  sd ratio  (analog / survival) = {:.2}x", sda / sds);
     println!("  cost ratio (survival / analog) = {:.2}x", t_survival / t_analog);
     println!("  FOM ratio (survival / analog)  = {:.2}x", fom_s / fom_a);
