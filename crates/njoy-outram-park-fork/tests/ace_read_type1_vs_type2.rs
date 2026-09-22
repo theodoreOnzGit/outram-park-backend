@@ -440,3 +440,63 @@ fn type1_files_read_back_and_rewrite_byte_exactly() {
         );
     }
 }
+
+
+/// **The `iopt = 7` edit half**: read a table, change its ZAID suffix and its
+/// comment, and write it back. Upstream's `phofix` (`acepa.f90:344-368`) is
+/// three steps and this is all three, checked against NJOY's own output of
+/// exactly that run.
+///
+/// The reference was made with
+/// `acer / 0 21 0 24 25 / 7 0 1 .30 / 'z6 photoatomic resuffixed'`, i.e. read
+/// `z6_photoatomic_njoy2016.ace` and rewrite it with suffix `.30`.
+///
+/// Note what is **not** regenerated: `hd`, the processing date, comes off the
+/// file rather than from `dater()`, so an edited table still carries the date
+/// it was built on. That is upstream's behaviour and is what makes this
+/// comparison reproducible at all.
+#[test]
+fn iopt7_resuffix_and_recomment_matches_njoy2016() {
+    let Some(src) = reference_file_or_skip("acer", "z6_photoatomic_njoy2016.ace", "ace edit")
+    else {
+        return;
+    };
+    let Some(want_path) =
+        reference_file_or_skip("acer", "z6_photoatomic_suff30_njoy2016.ace", "ace edit")
+    else {
+        return;
+    };
+    let mut t = read::read_type1(&src).expect("read the source table");
+    t.apply_edits(Some(0.30), Some("z6 photoatomic resuffixed"), false)
+        .expect("apply the iopt=7 edits");
+    assert_eq!(t.header.zaid, "6000.30p", "the ZAID suffix must change");
+    assert_eq!(t.header.zaid_num, Some(6000.30), "and so must the numeric ZAID");
+
+    let want = std::fs::read_to_string(&want_path).expect("read NJOY's edited file");
+    let got = t.to_type1_string();
+    if got != want {
+        let n = got
+            .bytes()
+            .zip(want.bytes())
+            .take_while(|(a, b)| a == b)
+            .count();
+        panic!(
+            "the edited table differs from NJOY at byte {n} of {} (NJOY {} bytes)\n  \
+             ours: {:?}\n  njoy: {:?}",
+            got.len(),
+            want.len(),
+            &got[n.saturating_sub(40)..(n + 40).min(got.len())],
+            &want[n.saturating_sub(40)..(n + 40).min(want.len())],
+        );
+    }
+    eprintln!("[ace-edit] iopt=7 resuffix reproduced NJOY's {} bytes exactly", want.len());
+
+    // A thermal ZAID is a name, so a suffix must NOT be applied to it
+    // (`acepa.f90:350`). Pinned on a synthetic header rather than a file,
+    // because no thermal Type-1 reference is committed.
+    let mut th = t.clone();
+    th.header.class = AceClass::Thermal;
+    th.header.zaid = "al27.00t".into();
+    th.apply_edits(Some(0.99), None, true).expect("thermal edit");
+    assert_eq!(th.header.zaid, "al27.00t", "a thermal ZAID must survive a suffix");
+}

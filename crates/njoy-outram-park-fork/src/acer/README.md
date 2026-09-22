@@ -50,6 +50,13 @@ Ported in [`crate::acer`]:
   `iopt = 3`.)*
 - **Photonuclear class `…u`** ⬜ — `acepn` not started.
 
+## One reader, one writer (2026-09-22)
+
+`read.rs` is the only ACE reader and `RawAceTable::to_type1_string` /
+`to_type2_bytes` the only serialisers; `write.rs` is now a thin conversion
+from `AceTable`, and the Fortran edit descriptors live once in
+`fortran_fmt.rs`. Nothing outside this crate parses or writes ACE.
+
 ## Testing
 
 `tests/acer.rs` (NXS/JXS self-consistency, Type-1 round-trip, DLW-walk, ESZ

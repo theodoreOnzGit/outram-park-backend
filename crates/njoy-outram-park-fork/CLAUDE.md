@@ -646,3 +646,44 @@ Three findings worth keeping:
   zero came out as `0.0000` instead of ` 0.0000E+00`. Five files now read back
   and rewrite byte for byte. **CE and charged-particle tables still use the
   heuristic** — `change` decides word by word over far more blocks.
+
+## One ACE serialiser, one set of edit descriptors (2026-09-22)
+
+The crate had **two** independent Type-1 ACE writers — `AceTable`'s own in
+`src/acer/write.rs` and `RawAceTable::to_type1_string` in `src/acer/read.rs` —
+each with its own copies of `fortran_e`, `fortran_f`, `fortran_f0` and the
+text padding. `AceTable` now converts to `RawAceTable` and the serialisation
+happens once, on the shared descriptors in `src/acer/fortran_fmt.rs`.
+
+**They had already drifted, and only a byte comparison found it.** The
+read-side copies wrote `1pE11.4` of zero as `0.0000` instead of
+`" 0.0000E+00"`, dropped `f11.0`'s trailing decimal point, and used Rust's
+`{:E}` exponent (`E4`) where Fortran writes a signed two-digit one (`E+04`).
+All three are **header** fields, so every byte after them shifted — and the
+only test of that path compared *values*, which cannot see a header at all.
+The rule this leaves: **two implementations of one format is one
+implementation and one latent bug.**
+
+Merging meant picking one mantissa formulation, and it was picked by
+measurement. `write.rs` took the mantissa from Rust's `{:E}` (correctly
+rounded); `read.rs` divided by `10^floor(log10 x)`. They disagree on **17 of
+every 400 000** random values by one unit in the 12th digit, and the division
+is the wrong one — it rounds twice. The shared helper uses `{:E}`, and all
+1.5 MB of byte-exact NJOY comparisons (photo-atomic Type 1 and Type 2,
+dosimetry H-1 and Mn-55, both mcnpx variants) still reproduce exactly.
+`mantissa_is_correctly_rounded_not_divided` pins the measured case.
+
+**Two capabilities fell out of the merge**, which is the usual sign that the
+duplication was load-bearing: `AceTable::write_type2` and
+`NuclearDataLibrary::write_ace_type2` exist now. The old `AceTable`-specific
+writer could emit Type 1 alone, so nothing this crate built had a binary form,
+and nobody had noticed because the CE tests only ever wrote text.
+
+**Where the ad-hoc readers went.** `acer::read` is the single reader:
+`tests/acer.rs`, `tests/thermal_ace.rs`, `tests/thermal_ace_zrh.rs`,
+`examples/ace_vs_njoy2016.rs` and `examples/thermal_ace_vs_njoy2016.rs` keep
+thin adapters that delegate to it and nothing else, and no crate outside
+`njoy-outram-park-fork` parses or writes ACE at all (checked across all 43).
+Turning the test round trips into *write-then-read-with-the-production-reader*
+is what makes them real: a table this crate writes but its own reader cannot
+read now fails.

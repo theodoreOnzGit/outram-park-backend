@@ -4,8 +4,11 @@
 //! - `acelod` — load ENDF data into the ACE arrays (the ESZ block and the
 //!   MTR/LQR/TYR/LSIG/SIG cross-section blocks) — see [`build`].
 //! - `aceout` + `change` — the Type-1 ASCII file format (header, NXS/JXS arrays,
-//!   then the XSS data block written four 20-character fields per line) — see
-//!   [`write`].
+//!   then the XSS data block written four 20-character fields per line).
+//!   **One serialiser**: [`read::RawAceTable::to_type1_string`] and
+//!   [`read::RawAceTable::to_type2_bytes`], on the shared edit descriptors in
+//!   [`fortran_fmt`]. [`write`] converts an [`AceTable`] into that raw form
+//!   and nothing else.
 //!
 //! ## What an ACE table is
 //!
@@ -56,7 +59,7 @@
 //! | 3 | dosimetry (`y`) | `acedo.f90` | **built** — [`dosimetry`] |
 //! | 4 | photo-atomic (`p`) | `acepa.f90` | **built** — [`photoatomic`] |
 //! | 5 | photonuclear (`u`) | `acepn.f90` | not ported |
-//! | 7, 8 | read a Type-1 / Type-2 file | `acer.f90` | **read and rewritten** — [`read`] |
+//! | 7, 8 | read / edit a Type-1 / Type-2 file | `acer.f90` | **read, edited and rewritten** — [`read`]; the `print` half is not implemented |
 //!
 //! ## Entry point
 //!
@@ -80,6 +83,7 @@ pub mod angular;
 pub mod build;
 pub mod dosimetry;
 pub mod energy;
+pub mod fortran_fmt;
 pub mod nu;
 pub mod photoatomic;
 pub mod photon_blocks;

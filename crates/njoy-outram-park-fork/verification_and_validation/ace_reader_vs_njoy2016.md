@@ -151,9 +151,17 @@ Gate: `tests/ace_read_type1_vs_type2.rs`.
 
   Gate: `type1_files_read_back_and_rewrite_byte_exactly`, five files across
   both widths and two classes, each read and written back **byte for byte**.
-- **Reading is not editing.** Upstream's `iopt = 7/8` exist to print or edit a
-  table and write it back out; this port reads and **writes back** (both
-  containers) but has no print/edit half.
+- ~~**Reading is not editing.**~~ **CORRECTED 2026-09-22** — the **edit** half
+  of `iopt = 7/8` is implemented and gated: `RawAceTable::apply_edits` is
+  `phofix`'s three steps (`acepa.f90:344-368`) — re-suffix the ZAID, replace
+  the comment, keep or clear the IZ/AW pairs — and reproduces NJOY's own
+  `acer iopt=7 ... .30` output **byte for byte**. A thermal ZAID is a name and
+  is left alone by a suffix, which is pinned separately. Gate:
+  `iopt7_resuffix_and_recomment_matches_njoy2016`.
+
+  **The `print` half is still not implemented** — `phoprt`, `dosprt`,
+  `thrprt` and `acefc`'s printer produce a human listing, not data, and
+  nothing here consumes one.
 - **`p` is now produced as well as read.** The photo-atomic path
   (`acer iopt = 4`) is ported; see `acer_photoatomic_vs_njoy2016.md`, where
   the Type-1 output is byte-identical to NJOY's.
@@ -196,3 +204,30 @@ comparison:
 heuristic** and are still only pinned through the value domain: `change`
 (`acefc.f90:13066-13200`) decides word by word over a much larger set of
 blocks, and deriving that is separate work.
+
+
+## And one writer, as of the same day
+
+The byte comparisons above were only possible because the writers were merged.
+Until 2026-09-22 this crate had **two** Type-1 serialisers — `AceTable`'s own
+and `RawAceTable::to_type1_string` — with two copies of the Fortran edit
+descriptors between them. They had drifted, in the direction the section above
+records: the read-side copies were the wrong ones.
+
+`AceTable` now converts to `RawAceTable`, the descriptors live once in
+`src/acer/fortran_fmt.rs`, and the choice between the two mantissa
+formulations was made by measurement rather than by seniority — Rust's `{:E}`
+(correctly rounded) against `x / 10^floor(log10 x)` (rounds twice), which
+disagree on **17 of every 400 000** random values by one unit in the 12th
+digit. Every byte-exact comparison in this record was re-run afterwards and
+still holds.
+
+Two capabilities came with it, which is usually how one finds out the
+duplication mattered: `AceTable::write_type2` and
+`NuclearDataLibrary::write_ace_type2`. The old `AceTable` serialiser could
+emit Type 1 only, so no continuous-energy or thermal table this crate built
+had a binary form. Gate: `one_writer_and_both_containers_for_a_built_table`
+in `tests/acer.rs`, which asserts that `write_to` *is* the shared serialiser
+byte for byte, and that a built table survives a Type-2 file round trip with
+**zero** differing values (a binary container stores raw doubles, unlike
+Type 1's 12 printed digits).

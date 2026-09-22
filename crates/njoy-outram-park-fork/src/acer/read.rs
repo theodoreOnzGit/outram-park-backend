@@ -41,6 +41,9 @@
 
 use std::path::Path;
 
+use crate::acer::fortran_fmt::{
+    fixed_field, fortran_e, fortran_e20, fortran_f, fortran_f0, fortran_i20,
+};
 use crate::NjoyError;
 
 /// Which ACE class a table belongs to, from the ZAID's trailing letter.
@@ -707,14 +710,6 @@ mod tests {
 /// Pad or truncate `s` to exactly `n` bytes of ASCII, space-filled on the right.
 ///
 /// Fortran `character(n)` fields are fixed width and space-padded; a shorter
-/// string must be padded, a longer one truncated, or the record length changes
-/// and the reader on the other side loses alignment.
-fn fixed_field(s: &str, n: usize) -> Vec<u8> {
-    let mut v: Vec<u8> = s.bytes().take(n).collect();
-    v.resize(n, b' ');
-    v
-}
-
 /// Emit one Fortran unformatted sequential record: 4-byte length, body, length.
 fn push_record(out: &mut Vec<u8>, body: &[u8]) {
     let n = body.len() as u32;
@@ -794,6 +789,74 @@ impl RawAceTable {
 }
 
 impl RawAceTable {
+    /// The edits upstream's `iopt = 7/8` applies between reading a table and
+    /// writing it back — `phofix` (`acepa.f90:344-368`), and the same three
+    /// steps in `thrfix`, `dosfix`, `phnfix` and `acefix`.
+    ///
+    /// * `suffix` — replace the ZAID's fractional part: `ZA + suff`, written
+    ///   `f9.2` then the class letter, or `f10.3` then the three-character
+    ///   class string in the mcnpx variant. `None` leaves the ZAID alone, and
+    ///   so does **any** suffix on a **thermal** table, whose ZAID is a name
+    ///   and not a number (`acepa.f90:350-352` tests `ht(1:1) /= 't'`).
+    ///   Upstream spells "leave it alone" as a negative `suff`; this port uses
+    ///   `None`, because a negative suffix is not a value anyone means.
+    /// * `comment` — replace `hk`. Upstream keeps the file's own comment when
+    ///   the user supplies an empty one (`:361-363`), so an empty string here
+    ///   is a no-op rather than a way to blank it.
+    /// * `keep_iz_aw` — upstream's `nxtra /= 0` branch (`:364-368`), which
+    ///   copies the **file's** IZ/AW pairs over the caller's. Since a table
+    ///   read from a file already carries them, that is "keep"; `false`
+    ///   clears them, which is what `nxtra = 0` writes.
+    ///
+    /// # Errors
+    /// [`NjoyError::EndfParse`] when a suffix is asked for but the ZAID has no
+    /// numeric part to rebuild it from.
+    pub fn apply_edits(
+        &mut self,
+        suffix: Option<f64>,
+        comment: Option<&str>,
+        keep_iz_aw: bool,
+    ) -> Result<(), NjoyError> {
+        if let Some(suff) = suffix {
+            if self.header.class != AceClass::Thermal {
+                let za = self.header.zaid_num.ok_or_else(|| {
+                    NjoyError::EndfParse(format!(
+                        "apply_edits: ZAID {:?} has no numeric part, so a suffix \
+                         cannot be applied",
+                        self.header.zaid
+                    ))
+                })?;
+                let raw = &self.header.raw_text[0];
+                let mcnpx = raw.len() == 13;
+                let class_str = if mcnpx {
+                    String::from_utf8_lossy(&raw[10..13]).to_string()
+                } else {
+                    String::from_utf8_lossy(&raw[9..10]).to_string()
+                };
+                let zaid_num = za.round() + suff;
+                let hz = if mcnpx {
+                    format!("{zaid_num:10.3}{class_str}")
+                } else {
+                    format!("{zaid_num:9.2}{class_str}")
+                };
+                self.header.zaid = hz.trim().to_string();
+                self.header.zaid_num = Some(zaid_num);
+                self.header.raw_text[0] = hz.into_bytes();
+            }
+        }
+        if let Some(hk) = comment {
+            if !hk.trim().is_empty() {
+                self.header.comment = hk.to_string();
+                self.header.raw_text[2] = format!("{hk:<70}").into_bytes();
+            }
+        }
+        if !keep_iz_aw {
+            self.header.iz = [0; 16];
+            self.header.aw = [0.0; 16];
+        }
+        Ok(())
+    }
+
     /// Which `xss` words this table's class writes as integers, derived from
     /// `NXS`/`JXS` and the counts stored in `xss` itself.
     ///
@@ -952,7 +1015,7 @@ impl RawAceTable {
                 None => !all_real && v.fract() == 0.0 && v.abs() < 1.0e9,
             };
             if as_int {
-                out.push_str(&format!("{:20}", v.round() as i64));
+                out.push_str(&fortran_i20(*v));
             } else {
                 out.push_str(&fortran_e20(*v));
             }
@@ -967,54 +1030,3 @@ impl RawAceTable {
     }
 }
 
-fn fortran_f(v: f64, w: usize, d: usize) -> String {
-    format!("{v:>w$.d$}")
-}
-
-/// Fortran `F11.0`: an integer-valued field that **keeps its decimal point**
-/// (`         0.`). Rust's `{:.0}` drops the point, which silently changes
-/// every IZ/AW line of a written header.
-fn fortran_f0(v: f64) -> String {
-    let body = format!("{}.", v.round() as i64);
-    format!("{body:>11}")
-}
-
-/// Fortran `1pEw.d`: one digit before the point, `d` after, and a **signed
-/// two-digit exponent** — `" 0.0000E+00"`, not Rust's `"0E0"`.
-///
-/// Zero is written in the same shape rather than as a plain `0.0000`, which is
-/// what `1pe11.4` of `tz = 0` produces on every 0 K table NJOY writes; getting
-/// that wrong is invisible in a value comparison and shifts every byte of the
-/// header.
-fn fortran_e(v: f64, d: usize, w: usize) -> String {
-    if v == 0.0 || !v.is_finite() {
-        let mant = if d == 0 {
-            "0".to_string()
-        } else {
-            format!("0.{}", "0".repeat(d))
-        };
-        return format!("{:>w$}", format!(" {mant}E+00"));
-    }
-    let sign = if v < 0.0 { '-' } else { ' ' };
-    let a = v.abs();
-    let mut exp = a.log10().floor() as i32;
-    let mut mant = a / 10f64.powi(exp);
-    // Rounding the mantissa can carry it to 10.0; renormalise so the field
-    // keeps its single leading digit.
-    if format!("{mant:.*}", d).starts_with("10") {
-        mant /= 10.0;
-        exp += 1;
-    }
-    let body = format!(
-        "{sign}{mant:.*}E{}{:02}",
-        d,
-        if exp < 0 { "-" } else { "+" },
-        exp.abs()
-    );
-    format!("{body:>w$}")
-}
-
-/// NJOY's `1pE20.11` for a real XSS word (`typen`'s `iflag = 2`).
-fn fortran_e20(v: f64) -> String {
-    fortran_e(v, 11, 20)
-}
