@@ -871,6 +871,9 @@ pub struct PdfReaderState {
     /// under the mouse stays under the mouse. `ScrollArea` applies it before
     /// layout and input, so it is exact and one-shot.
     forced_offset: Option<egui::Vec2>,
+    /// An artifact jump asked for before the canvas could satisfy it, to be
+    /// retried once it can. See [`PdfReaderState::go_to_artifact`].
+    pending_jump: Option<Artifact>,
     message: String,
     // annotations — in-memory only, see the module doc comment.
     tool: AnnotationTool,
@@ -1135,6 +1138,8 @@ impl PdfReaderState {
         self.scroll_anchor = egui::Vec2::ZERO;
         self.last_viewport = egui::Vec2::ZERO;
         self.forced_offset = None;
+        // Any jump still queued belongs to the document being replaced.
+        self.pending_jump = None;
         self.last_offset = egui::Vec2::ZERO;
         self.thumb_synced = None;
         self.annotations.clear();
@@ -1409,6 +1414,17 @@ impl PdfReaderState {
         };
     }
 
+    /// Whether the canvas knows enough to place a region: pages rasterised
+    /// (so there is a page size) and the viewport measured at least once (so
+    /// there is something to centre within).
+    ///
+    /// Both are cleared by [`Self::reset_interaction_state`] when a document
+    /// opens, and only filled in once the canvas has drawn a frame.
+    fn canvas_ready(&self) -> bool {
+        let px = self.pages.page_size_px();
+        px.x > 0.0 && px.y > 0.0 && self.last_viewport != egui::Vec2::ZERO
+    }
+
     /// Take the canvas to `artifact`'s page and zoom so its `[source]`
     /// region sits in the middle of the view at
     /// [`REGION_VIEW_FRACTION`] of it, centred on it.
@@ -1435,6 +1451,18 @@ impl PdfReaderState {
             self.scroll_request = Some(page);
             return;
         };
+        // Opening a paper clears `pages` and `last_viewport`
+        // (`reset_interaction_state`), so a jump requested in the same
+        // gesture that opens the document has no page size and no viewport
+        // to centre against: the framing silently degenerated to "page 1",
+        // and only a second click — once the canvas had drawn — worked
+        // (maintainer, 2026-09-22). Defer instead, and retry when the canvas
+        // can answer.
+        if !self.canvas_ready() {
+            self.scroll_request = Some(page);
+            self.pending_jump = Some(artifact.clone());
+            return;
+        }
         let w = (region.x1 - region.x0).max(1e-3) as f32;
         let h = (region.y1 - region.y0).max(1e-3) as f32;
         // Fit the larger dimension, so neither axis overflows.
@@ -3119,6 +3147,16 @@ impl PdfReaderState {
         let viewport_size = scroll_out.inner_rect.size();
         if viewport_size.x > 0.0 && viewport_size.y > 0.0 {
             self.last_viewport = viewport_size;
+            // A jump deferred because the canvas was not ready yet: now it
+            // is. Taken before retrying so a jump that still cannot be
+            // satisfied re-arms itself rather than looping within one frame.
+            if let Some(artifact) = self.pending_jump.take() {
+                if self.canvas_ready() {
+                    self.go_to_artifact(&artifact);
+                } else {
+                    self.pending_jump = Some(artifact);
+                }
+            }
         }
         self.last_offset = scroll_out.state.offset;
         self.scroll_anchor = egui::vec2(
@@ -3805,6 +3843,51 @@ mod tests {
             })],
             fonts: Vec::new(),
         }
+    }
+
+    /// A jump asked for before the canvas has drawn is **deferred**, not
+    /// silently downgraded to "page 1".
+    ///
+    /// Opening a paper clears the page cache and the viewport, so an
+    /// artifact clicked in the same gesture that opens the document had
+    /// nothing to centre against — it landed on the first page, and only a
+    /// second click worked (maintainer, 2026-09-22).
+    #[test]
+    fn an_artifact_jump_before_the_canvas_is_ready_is_deferred() {
+        let mut state = PdfReaderState::default();
+        assert!(
+            !state.canvas_ready(),
+            "a fresh reader has no page size and no measured viewport"
+        );
+
+        let artifact = make_artifact(
+            "figure",
+            ArtifactKind::DigitisedGraph,
+            Some(SourceAnchor {
+                page: Some(6),
+                pages: None,
+                region: Some(Region {
+                    x0: 0.1,
+                    y0: 0.2,
+                    x1: 0.5,
+                    y1: 0.6,
+                }),
+            }),
+        );
+        state.go_to_artifact(&artifact);
+
+        assert_eq!(
+            state.pending_jump.as_ref().map(|a| a.id()),
+            Some("figure"),
+            "the jump is queued for when the canvas can satisfy it"
+        );
+        // The page is still requested straight away, so the wait is spent on
+        // the right page rather than the first one.
+        assert_eq!(state.scroll_request, Some(5), "0-based page 6");
+
+        // Opening another document drops a jump into the old one.
+        state.reset_interaction_state();
+        assert!(state.pending_jump.is_none());
     }
 
     /// A click inside nested artifact boxes acts on the **smallest** one.
