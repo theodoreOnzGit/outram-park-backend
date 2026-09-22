@@ -11,6 +11,7 @@
 
 mod advanced_git_view;
 mod bibliography;
+mod collection_picker;
 mod csv_preview;
 mod home;
 mod kvim_editor;
@@ -635,6 +636,29 @@ impl DigitiseApp {
         };
         self.refresh_knowledge(&root);
         self.activate_paper_and_navigate(&citekey);
+    }
+
+    /// Draw the sort-a-paper dialog, on whichever tab asked for it.
+    ///
+    /// Like the ingest form, this is app-wide rather than owned by the Wiki
+    /// page: a sort started from the Mindmap's "Sort into…" or the PDF
+    /// reader's "Sort & categorise" has to appear where the user is
+    /// (2026-09-22). On a successful save the shared knowledge state is
+    /// rebuilt, since the classification the views draw from has changed.
+    fn sort_form_ui(&mut self, ui: &mut egui::Ui) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
+        };
+        // The picker ranks against the shared index, so the dialog only
+        // draws once a workspace is loaded — before that there is nothing to
+        // sort into anyway.
+        let saved = match (self.wiki.as_mut(), self.workspace.as_ref()) {
+            (Some(w), Some(workspace)) => w.classify_form(ui, &root, &workspace.index),
+            _ => false,
+        };
+        if saved {
+            self.refresh_knowledge(&root);
+        }
     }
 
     /// Ctrl+P opens the literature finder whenever a Kovan folder is open;
@@ -2321,6 +2345,7 @@ impl eframe::App for DigitiseApp {
         self.poll_background_jobs();
         self.literature_finder_ui(ui.ctx());
         self.ingest_form_ui(ui);
+        self.sort_form_ui(ui);
         self.poll_library_clone();
         if let Some(request) = self.setup.ui(ui.ctx()) {
             self.handle_setup(request);
@@ -2396,7 +2421,6 @@ impl eframe::App for DigitiseApp {
                                     opened_paper = Some(citekey);
                                     knowledge_changed = true;
                                 }
-                                Some(WikiAction::KnowledgeChanged) => knowledge_changed = true,
                                 None => {}
                             }
                         }
@@ -2438,17 +2462,30 @@ impl eframe::App for DigitiseApp {
                     }
                 }
                 let mut opened_paper = None;
+                let mut sort_paper = None;
                 let (index, graph) = match self.workspace.as_ref() {
                     Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
                     _ => (None, None),
                 };
                 egui::CentralPanel::default().show(ui, |ui| {
-                    if let Some(MindmapAction::OpenPaper(citekey)) =
-                        self.mindmap.ui(ui, root.as_ref(), index, graph)
-                    {
-                        opened_paper = Some(citekey);
+                    match self.mindmap.ui(ui, root.as_ref(), index, graph) {
+                        Some(MindmapAction::OpenPaper(citekey)) => opened_paper = Some(citekey),
+                        Some(MindmapAction::SortPaper(citekey)) => sort_paper = Some(citekey),
+                        None => {}
                     }
                 });
+                if let Some(citekey) = sort_paper {
+                    // The dialog is drawn app-wide by `sort_form_ui`, so it
+                    // opens here on the Mindmap rather than sending the user
+                    // to the Wiki.
+                    if self.wiki.is_none() {
+                        self.wiki = Some(wiki::WikiState::new());
+                    }
+                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    {
+                        w.open_sort_flow(citekey, &workspace.index);
+                    }
+                }
                 if let Some(citekey) = opened_paper {
                     // op-sr4n.3: route through the same
                     // activate_paper/view-switch helper Wiki uses,
@@ -2493,6 +2530,7 @@ impl eframe::App for DigitiseApp {
             }
             View::PdfReader => {
                 let mut open_clicked = false;
+                let mut sort_clicked: Option<String> = None;
                 let mut crop_result = None;
                 // op-j178 / GH issue #35 2026-09-02: the page-context panel
                 // renders the *shared* kvim editor (same buffer as the Kvim
@@ -2544,6 +2582,7 @@ impl eframe::App for DigitiseApp {
                     crop_result = self.pdf_reader.ui(
                         ui,
                         || open_clicked = true,
+                        |citekey| sort_clicked = Some(citekey),
                         active_session,
                         &mut self.kvim_editor,
                         completion,
@@ -2551,6 +2590,17 @@ impl eframe::App for DigitiseApp {
                 });
                 if open_clicked {
                     self.open_picker(FileDialogTarget::Pdf);
+                }
+                // #275: "Sort & categorise" in the reader opens the same
+                // dialog the Wiki and the Mindmap use, over the reader.
+                if let Some(citekey) = sort_clicked {
+                    if self.wiki.is_none() {
+                        self.wiki = Some(wiki::WikiState::new());
+                    }
+                    if let (Some(w), Some(workspace)) = (self.wiki.as_mut(), self.workspace.as_ref())
+                    {
+                        w.open_sort_flow(citekey, &workspace.index);
+                    }
                 }
                 // op-p17q/op-hnhp: the reader just completed a
                 // crop-then-right-click gesture — load the cropped region

@@ -947,6 +947,26 @@ fn first_note_heading_line(md: &str, page: usize) -> Option<usize> {
     None
 }
 
+/// How much of the view an artifact's `[source]` region fills when jumping to
+/// it, as a fraction of the **shorter** screen axis.
+///
+/// `0.5` puts the region in a quadrant of the page — half the width and half
+/// the height — leaving its surroundings visible around it. It was `1.0`, so
+/// the region filled the whole view and you landed with no context at all
+/// (maintainer, 2026-09-22: "a bit annoying"). Raise it toward `1.0` to frame
+/// regions more tightly.
+const REGION_VIEW_FRACTION: f32 = 0.5;
+
+/// Zoom range, shared by the slider, the `+`/`-` keys and the toolbar buttons.
+const ZOOM_RANGE: std::ops::RangeInclusive<f32> = 0.25..=4.0;
+
+/// One zoom step, as a multiplier. `1.25` per press, the same for the `+`/`-`
+/// keys and the toolbar's `-` / `+` buttons so the two cannot drift apart.
+const ZOOM_STEP: f32 = 1.25;
+
+/// The zoom the `Reset` button returns to: the page at its natural size.
+const ZOOM_DEFAULT: f32 = 1.0;
+
 impl PdfReaderState {
     /// A fresh reader — `Read` mode and hot-reload both **on** by default
     /// for a PDF (GitHub issue #30's explicit "hot reload by default in
@@ -1257,13 +1277,14 @@ impl PdfReaderState {
     }
 
     /// Take the canvas to `artifact`'s page and zoom so its `[source]`
-    /// region roughly fills the view, centred on it.
+    /// region sits in the middle of the view at
+    /// [`REGION_VIEW_FRACTION`] of it, centred on it.
     ///
     /// The zoom is derived from the region's own extent — a region covering
-    /// a third of the page height is worth ~3x — clamped to the same
-    /// `0.25..=4.0` range the zoom slider uses. An artifact with a page but
-    /// no region just navigates, leaving the zoom alone: there is nothing
-    /// to frame.
+    /// a third of the page height is worth ~1.5x at the default fraction —
+    /// clamped to the same `0.25..=4.0` range the zoom slider uses. An
+    /// artifact with a page but no region just navigates, leaving the zoom
+    /// alone: there is nothing to frame.
     ///
     /// **Fixed 2026-09-22:** the zoom was set, but the view only scrolled to
     /// the page's top edge and kept its old horizontal offset, so it showed
@@ -1284,7 +1305,8 @@ impl PdfReaderState {
         let w = (region.x1 - region.x0).max(1e-3) as f32;
         let h = (region.y1 - region.y0).max(1e-3) as f32;
         // Fit the larger dimension, so neither axis overflows.
-        self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        self.zoom = (REGION_VIEW_FRACTION / w.max(h))
+            .clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
         match region_centre_offset(
             region,
             page,
@@ -2138,6 +2160,7 @@ impl PdfReaderState {
         &mut self,
         ui: &mut egui::Ui,
         mut on_open_clicked: impl FnMut(),
+        mut on_sort_clicked: impl FnMut(String),
         active_paper: Option<&mut PaperSession>,
         context_editor: &mut KvimEditorState,
         completion: Option<CompletionSource<'_>>,
@@ -2151,8 +2174,30 @@ impl PdfReaderState {
         });
 
         ui.horizontal(|ui| {
-            if ui.button("Open…").clicked() {
+            if ui.button("Open\u{2026}").clicked() {
                 on_open_clicked();
+            }
+            // Reading a paper is when you know where it belongs, so the
+            // sort action lives here rather than only in the Wiki or the
+            // Mindmap (maintainer, 2026-09-22, #275). The dialog itself is
+            // drawn app-wide by `DigitiseApp::sort_form_ui`, so it opens
+            // over the reader.
+            //
+            // Disabled, with the reason on hover, when there is no active
+            // paper: sorting needs a citekey, and a PDF opened straight off
+            // disk has none until it is ingested.
+            let sortable = active_citekey.clone();
+            if ui
+                .add_enabled(sortable.is_some(), egui::Button::new("Sort & categorise"))
+                .on_hover_text("file this paper under topics and projects")
+                .on_disabled_hover_text(
+                    "no active paper \u{2014} ingest this PDF first, or open it from the Wiki",
+                )
+                .clicked()
+            {
+                if let Some(citekey) = sortable {
+                    on_sort_clicked(citekey);
+                }
             }
             ui.label(if self.path.is_empty() {
                 "nothing open"
@@ -2261,8 +2306,37 @@ impl PdfReaderState {
             // case that anchors the zoom on the centre of what is on
             // screen — well-defined and stable. Ctrl+scroll / `+` / `-`
             // over the page anchor on the pointer instead.
-            ui.add(egui::Slider::new(&mut self.zoom, 0.25..=4.0).text("zoom"))
+            ui.add(egui::Slider::new(&mut self.zoom, ZOOM_RANGE).text("zoom"))
                 .on_hover_text("Ctrl+scroll, or + / -, zooms about the pointer");
+            // Beside the slider (maintainer, 2026-09-22). Like the slider,
+            // and unlike Ctrl+scroll, these are pressed with the pointer
+            // *outside* the viewer, so they anchor on the centre of what is
+            // on screen — the canvas's zoom-change handling keeps that point
+            // fixed. Same step as the `+`/`-` keys.
+            if ui
+                .add_enabled(self.zoom > *ZOOM_RANGE.start(), egui::Button::new("−"))
+                .on_hover_text("zoom out one step")
+                .clicked()
+            {
+                self.zoom = (self.zoom / ZOOM_STEP).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+            }
+            if ui
+                .add_enabled(self.zoom < *ZOOM_RANGE.end(), egui::Button::new("+"))
+                .on_hover_text("zoom in one step")
+                .clicked()
+            {
+                self.zoom = (self.zoom * ZOOM_STEP).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
+            }
+            if ui
+                .add_enabled(
+                    (self.zoom - ZOOM_DEFAULT).abs() > f32::EPSILON,
+                    egui::Button::new("Reset"),
+                )
+                .on_hover_text("back to 100 %")
+                .clicked()
+            {
+                self.zoom = ZOOM_DEFAULT;
+            }
             ui.separator();
             ui.label("tool:");
             ui.selectable_value(&mut self.tool, AnnotationTool::None, "Pan")
@@ -2507,15 +2581,15 @@ impl PdfReaderState {
                 )
             });
             let step = if plus {
-                1.25
+                ZOOM_STEP
             } else if minus {
-                1.0 / 1.25
+                1.0 / ZOOM_STEP
             } else {
                 1.0
             };
             let factor = pinch * step;
             if (factor - 1.0).abs() > 1e-4 {
-                let new_zoom = (zoom * factor).clamp(0.25, 4.0);
+                let new_zoom = (zoom * factor).clamp(*ZOOM_RANGE.start(), *ZOOM_RANGE.end());
                 if (new_zoom - zoom).abs() > f32::EPSILON {
                     // Anchor on the pointer; if it is outside the viewer
                     // (a `+`/`-` press with the mouse parked elsewhere), on

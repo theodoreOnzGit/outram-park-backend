@@ -47,8 +47,21 @@ impl ConceptKind {
     /// Whether the user may add a subtopic under a concept of this kind.
     /// Corpus topics are read-only; attaching user knowledge to them is a
     /// connection (#252), not a subtopic.
+    /// Whether a **user** subtopic may be added under a concept of this kind.
+    ///
+    /// `CorpusTopic` says yes (maintainer, 2026-09-22, #274) — and this is
+    /// not a hole in the corpus being read-only. The corpus node itself is
+    /// never edited; what is created is a node in the **user's** library,
+    /// parented to the corpus one. That is the overlay epic #247 describes:
+    /// *"opening a personal folder extends the map and never replaces it"*.
+    /// Refusing it left the built-in nuclear-engineering branches — the only
+    /// thing on screen before a folder is opened — with no way to add
+    /// anything, which read as the gesture being broken.
+    ///
+    /// `Unsorted` says no: it is synthetic, has no directory, and exists
+    /// only while unclassified papers do.
     pub fn accepts_subtopics(self) -> bool {
-        matches!(self, Self::Topic | Self::Project)
+        matches!(self, Self::Topic | Self::Project | Self::CorpusTopic)
     }
 }
 
@@ -304,8 +317,16 @@ mod tests {
             ConceptKind::Topic
         );
         assert!(concept(None, &NodeId::concept(Namespace::Corpus, "nope")).is_none());
-        assert!(!ConceptKind::CorpusTopic.accepts_subtopics());
+        // A corpus topic accepts a **user** subtopic (#274, maintainer
+        // 2026-09-22). This assertion was `!…` until then: the corpus node
+        // itself stays immutable, but refusing the gesture left the built-in
+        // branches — all you see before a folder is open — with no way to add
+        // anything. `Unsorted` still refuses: it is synthetic and has no
+        // directory to create anything in.
+        assert!(ConceptKind::CorpusTopic.accepts_subtopics());
         assert!(ConceptKind::Topic.accepts_subtopics());
+        assert!(ConceptKind::Project.accepts_subtopics());
+        assert!(!ConceptKind::Unsorted.accepts_subtopics());
     }
 
     /// Corpus literature appears as citations of the topics it is filed

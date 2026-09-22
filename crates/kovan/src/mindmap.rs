@@ -109,6 +109,11 @@ pub enum MindmapAction {
     /// Research workspace (`op-9vo6.10`'s `PaperSession`), once that
     /// navigation exists.
     OpenPaper(String),
+    /// "Sort into…" was chosen on a citation — the caller should open the
+    /// shared sort-a-paper flow for this citekey (`op-j3ib`). The Mindmap
+    /// does not own that dialog: the Wiki, the Mindmap and the PDF reader
+    /// all reach the same one, so it lives with the app.
+    SortPaper(String),
 }
 
 /// One paper's mindmap/literature card (§9). Author/year is a **display
@@ -452,14 +457,38 @@ enum CardRole {
     Fan(usize, usize),
 }
 
+/// An action a view offers on a citation, beyond "Open".
+///
+/// Views differ in what they can do with a paper, so each passes the set it
+/// supports to [`citations_menu`] rather than the menu hard-coding one
+/// "secondary" slot. The Mindmap offers both; the Wiki offers Reclassify.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CitationAction {
+    /// Show the paper's literature card (§9).
+    LiteratureCard,
+    /// Sort the paper into topics/projects (`op-j3ib`).
+    Reclassify,
+}
+
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+impl CitationAction {
+    /// The menu label for this action.
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            CitationAction::LiteratureCard => "Literature card",
+            CitationAction::Reclassify => "Sort into…",
+        }
+    }
+}
+
 /// What a click in a citation list asked for.
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 pub(crate) enum CitationPick {
     /// Open the paper (a back/forward step).
     Open(String),
-    /// The view's second action on a paper: the literature card on the
-    /// Mindmap, reclassify on the Wiki.
-    Secondary(String),
+    /// One of the view's extra actions, on this citekey.
+    Action(CitationAction, String),
 }
 
 /// The read-only citation list shown when hovering a concept: at most
@@ -493,14 +522,14 @@ pub(crate) fn citations_hover(ui: &mut egui::Ui, title: &str, citations: &[Citat
 const HOVER_CITATION_LIMIT: usize = 12;
 
 /// The actionable citation list in a concept's right-click menu: every
-/// citation as a sub-menu with "Open" and `secondary`. Corpus citations are
-/// listed but not yet actionable: they open through the source resolver
-/// (#253).
+/// citation as a sub-menu with "Open" and each of `actions`. Corpus
+/// citations are listed but not yet actionable: they open through the source
+/// resolver (#253).
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 pub(crate) fn citations_menu(
     ui: &mut egui::Ui,
     citations: &[Citation],
-    secondary: &str,
+    actions: &[CitationAction],
 ) -> Option<CitationPick> {
     let mut pick = None;
     if citations.is_empty() {
@@ -524,13 +553,15 @@ pub(crate) fn citations_menu(
                         pick = Some(CitationPick::Open(c.citekey.clone()));
                         ui.close();
                     }
-                    if ui
-                        .add_enabled(actionable, egui::Button::new(secondary))
-                        .on_disabled_hover_text(not_yet)
-                        .clicked()
-                    {
-                        pick = Some(CitationPick::Secondary(c.citekey.clone()));
-                        ui.close();
+                    for action in actions {
+                        if ui
+                            .add_enabled(actionable, egui::Button::new(action.label()))
+                            .on_disabled_hover_text(not_yet)
+                            .clicked()
+                        {
+                            pick = Some(CitationPick::Action(*action, c.citekey.clone()));
+                            ui.close();
+                        }
                     }
                 });
             }
@@ -688,14 +719,27 @@ impl MindmapState {
         (centre, ring)
     }
 
-    /// Card colour by kind: corpus topics Gruvbox aqua, projects orange,
-    /// topics blue (the palette the old renderer used), Unsorted grey.
+    /// Card colour by kind.
+    ///
+    /// **The two greens carry meaning** (maintainer, 2026-09-22, #274):
+    /// **dark green is the built-in corpus and is immutable; light green is
+    /// the user's own topics and is editable.** Since a corpus topic now
+    /// accepts a user subtopic, the two sit side by side in the same map and
+    /// the colour is how you tell which is which at a glance.
+    ///
+    /// Colour is never the *only* signal: the card's right-click menu still
+    /// prints "built-in corpus (read-only)", for anyone who cannot separate
+    /// the greens. Both are mid-luminance so they read against the light and
+    /// the dark theme alike.
+    ///
+    /// Projects stay orange and Unsorted stays grey — neither is on the
+    /// corpus/user axis the greens encode.
     fn color_for(kind: crate::runtime_graph::ConceptKind) -> egui::Color32 {
         use crate::runtime_graph::ConceptKind;
         match kind {
-            ConceptKind::CorpusTopic => egui::Color32::from_rgb(142, 192, 124),
+            ConceptKind::CorpusTopic => egui::Color32::from_rgb(56, 124, 68),
+            ConceptKind::Topic => egui::Color32::from_rgb(150, 210, 140),
             ConceptKind::Project => egui::Color32::from_rgb(220, 150, 60),
-            ConceptKind::Topic => egui::Color32::from_rgb(90, 140, 220),
             ConceptKind::Unsorted => egui::Color32::from_gray(150),
         }
     }
@@ -936,6 +980,7 @@ impl MindmapState {
         let mut drilled: Option<NodeId> = None;
         let mut opened_paper = None;
         let mut literature_card_for = None;
+        let mut reclassify_for = None;
         let mut newly_selected = None;
         let mut toggled: Option<NodeId> = None;
         let mut pin_moves: Vec<((String, String), Point)> = Vec::new();
@@ -1101,9 +1146,18 @@ impl MindmapState {
                         ui.weak("built-in corpus (read-only)");
                     }
                     ui.separator();
-                    match citations_menu(ui, &c.citations, "Literature card") {
+                    match citations_menu(
+                        ui,
+                        &c.citations,
+                        &[CitationAction::LiteratureCard, CitationAction::Reclassify],
+                    ) {
                         Some(CitationPick::Open(k)) => opened_paper = Some(k),
-                        Some(CitationPick::Secondary(k)) => literature_card_for = Some(k),
+                        Some(CitationPick::Action(CitationAction::LiteratureCard, k)) => {
+                            literature_card_for = Some(k)
+                        }
+                        Some(CitationPick::Action(CitationAction::Reclassify, k)) => {
+                            reclassify_for = Some(k)
+                        }
                         None => {}
                     }
                     ui.separator();
@@ -1171,6 +1225,11 @@ impl MindmapState {
                 Err(e) => self.message = format!("could not add subtopic: {e}"),
             }
         }
+        if let (Some(index), true) = (index, self.showing_unsorted_inbox()) {
+            if let Some(citekey) = self.unsorted_inbox_ui(ui, root, index) {
+                action = Some(MindmapAction::SortPaper(citekey));
+            }
+        }
         if let Some(citekey) = literature_card_for {
             self.selected = Some(graph::paper_node(&citekey));
         }
@@ -1180,12 +1239,103 @@ impl MindmapState {
         if let Some(citekey) = opened_paper {
             action = Some(MindmapAction::OpenPaper(citekey));
         }
+        if let Some(citekey) = reclassify_for {
+            action = Some(MindmapAction::SortPaper(citekey));
+        }
 
         if let (Some(root), Some(index), Some(graph)) = (root, index, graph) {
             self.literature_card_ui(ui, root, index, graph);
         }
 
         action
+    }
+
+    /// Whether the map has been drilled into the synthetic **Unsorted**
+    /// concept, so the inbox is what the user is asking to see.
+    fn showing_unsorted_inbox(&self) -> bool {
+        self.current.as_ref().is_some_and(|id| {
+            id.path == crate::runtime_graph::UNSORTED_PATH
+                && id.namespace == crate::node_id::Namespace::Library
+        })
+    }
+
+    /// The Unsorted inbox: **one box per unclassified paper**, each with its
+    /// own right-click menu (#273).
+    ///
+    /// Returns the citekey whose "Sort into…" was chosen, if any.
+    ///
+    /// # Why papers appear here as boxes at all
+    ///
+    /// Epic #241 is explicit that the map shows *"concepts and projects
+    /// only"*, and #245 removed papers as rows on that basis. **Unsorted is
+    /// the deliberate exception**, and the exception is narrow: papers are
+    /// boxes *inside this view*, never nodes in the concept graph.
+    ///
+    /// The reason is structural rather than cosmetic. Everywhere else a
+    /// paper is reached as a *citation of the concept it is filed under* —
+    /// but an unsorted paper is by definition filed under nothing, so that
+    /// mechanism cannot reach it. Sorting a paper requires seeing the paper.
+    /// Drilling into Unsorted and finding an empty ring, which is what
+    /// happened before this, made the inbox look empty when it was not.
+    ///
+    /// The view empties itself: a sorted paper leaves on the next rebuild,
+    /// and `runtime_graph::needs_unsorted` drops the whole card once the
+    /// last one is gone.
+    fn unsorted_inbox_ui(
+        &self,
+        ui: &mut egui::Ui,
+        root: Option<&KovanRoot>,
+        index: &KnowledgeIndex,
+    ) -> Option<String> {
+        let papers = index.papers_in(crate::runtime_graph::UNSORTED_PATH);
+        let mut sort_me = None;
+        egui::Window::new("Unsorted")
+            .default_width(420.0)
+            .anchor(egui::Align2::RIGHT_TOP, egui::vec2(-12.0, 12.0))
+            .show(ui.ctx(), |ui| {
+                if papers.is_empty() {
+                    ui.weak("nothing unsorted \u{2014} everything is filed.");
+                    return;
+                }
+                ui.weak(format!(
+                    "{} paper(s) with no classification. Right-click one to file it.",
+                    papers.len()
+                ));
+                ui.separator();
+                egui::ScrollArea::vertical()
+                    .max_height(420.0)
+                    .show(ui, |ui| {
+                        for p in &papers {
+                            // Its own box, so each paper is a distinct
+                            // right-click target rather than a row in a list.
+                            egui::Frame::group(ui.style()).show(ui, |ui| {
+                                ui.set_width(ui.available_width());
+                                let (title, author_year) = match root {
+                                    Some(root) => bib_display(root, &p.citekey),
+                                    None => (p.citekey.clone(), String::new()),
+                                };
+                                ui.strong(&title);
+                                if !author_year.is_empty() {
+                                    ui.weak(&author_year);
+                                }
+                                ui.weak(&p.citekey);
+                                let resp = ui.interact(
+                                    ui.min_rect(),
+                                    ui.id().with(("unsorted-box", &p.citekey)),
+                                    egui::Sense::click(),
+                                );
+                                resp.context_menu(|ui| {
+                                    if ui.button("Sort into\u{2026}").clicked() {
+                                        sort_me = Some(p.citekey.clone());
+                                        ui.close();
+                                    }
+                                });
+                            });
+                            ui.add_space(4.0);
+                        }
+                    });
+            });
+        sort_me
     }
 
     fn literature_card_ui(

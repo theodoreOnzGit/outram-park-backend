@@ -46,6 +46,61 @@ pub(super) struct SetupDialog {
     open_remote: String,
     proprietary_remote: String,
     message: String,
+    /// Which fields the chosen folder already answers for itself, so the
+    /// dialog shows them read-only. See [`Locks`].
+    locks: Locks,
+    /// The `folder` value [`Locks`] were computed for, so they are recomputed
+    /// when the user types or browses to a different one — and **only** then,
+    /// since deriving them shells out to `git`.
+    locked_for: Option<String>,
+}
+
+/// Which remotes the chosen folder already has, and so must not be edited
+/// here (maintainer, 2026-09-22: *"these should auto-populate and become
+/// read-only. I don't [want] users messing up their git like that"*).
+///
+/// This is a guard against a **silent divergence**, not just a convenience.
+/// `ensure_repo` never changes an existing `origin` and `ensure_corpus`
+/// adopts a corpus repository that is already there — but `set_corpora`
+/// would still write whatever the dialog said into `kovan_root.toml`. A user
+/// who edited a field would end up with a recorded remote that Git does not
+/// have, and nothing would report it.
+///
+/// A field is locked when its repository **exists on disk already**, and the
+/// value shown is then that repository's own `origin` — the truth, rather
+/// than what `kovan_root.toml` intended.
+#[derive(Default)]
+struct Locks {
+    library: bool,
+    open: bool,
+    proprietary: bool,
+}
+
+/// One remote field: editable when the folder does not already answer for
+/// it, and read-only with an explanation when it does ([`Locks`]).
+///
+/// Locked fields are shown rather than hidden: the user needs to see which
+/// remote their folder is on, and hiding it would make an unexpected value
+/// invisible. `why` says what makes it read-only, so "I cannot type here"
+/// never reads as a bug.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn remote_field(ui: &mut egui::Ui, value: &mut String, locked: bool, hint: &str, why: &str) {
+    ui.add_enabled(
+        !locked,
+        egui::TextEdit::singleline(value)
+            .hint_text(hint)
+            .desired_width(420.0),
+    );
+    if locked {
+        let shown = if value.trim().is_empty() {
+            "a local repository with no remote".to_string()
+        } else {
+            value.trim().to_string()
+        };
+        ui.weak(format!(
+            "\u{1F512} {why}: {shown}. Kovan will not change it — use Git if you need to."
+        ));
+    }
 }
 
 /// A trimmed remote URL, or `None` for an empty field.
@@ -83,6 +138,54 @@ impl SetupDialog {
         }
     }
 
+    /// The `origin` URL of the repository at `dir`, or `None` when `dir` is
+    /// not a repository or has no `origin`.
+    fn origin_of(dir: &Path) -> Option<String> {
+        if !crate::corpus_repos::is_git_repo(dir) {
+            return None;
+        }
+        crate::advanced_git::list_remotes_in(dir)
+            .ok()?
+            .into_iter()
+            .find(|r| r.name == "origin")
+            .map(|r| r.url)
+    }
+
+    /// Recompute [`Locks`] for the currently chosen folder, filling each
+    /// locked field with the remote its repository actually has.
+    ///
+    /// A repository that exists but has no `origin` still locks the field:
+    /// it is a local corpus Kovan created, and pointing it at a remote here
+    /// would not do so on disk. The field shows that plainly instead.
+    fn refresh_locks(&mut self) {
+        if self.locked_for.as_deref() == Some(self.folder.as_str()) {
+            return;
+        }
+        self.locked_for = Some(self.folder.clone());
+        self.locks = Locks::default();
+        let folder = PathBuf::from(self.folder.trim());
+        if self.folder.trim().is_empty() || !folder.is_dir() {
+            return;
+        }
+        if crate::corpus_repos::is_git_repo(&folder) {
+            self.locks.library = true;
+            self.library_remote = Self::origin_of(&folder).unwrap_or_default();
+        }
+        let Ok(root) = KovanRoot::open(&folder) else {
+            return;
+        };
+        let open_dir = root.open_corpus_dir();
+        if crate::corpus_repos::is_git_repo(&open_dir) {
+            self.locks.open = true;
+            self.open_remote = Self::origin_of(&open_dir).unwrap_or_default();
+        }
+        let restricted_dir = root.restricted_sources_dir();
+        if crate::corpus_repos::is_git_repo(&restricted_dir) {
+            self.locks.proprietary = true;
+            self.proprietary_remote = Self::origin_of(&restricted_dir).unwrap_or_default();
+        }
+    }
+
     /// Show a message (a validation problem, or the outcome) in the dialog.
     pub(super) fn set_message(&mut self, message: impl Into<String>) {
         self.message = message.into();
@@ -93,6 +196,7 @@ impl SetupDialog {
         if !self.open {
             return None;
         }
+        self.refresh_locks();
         let mut request = None;
         egui::Window::new("Set up Kovan")
             .collapsible(false)
@@ -119,10 +223,12 @@ impl SetupDialog {
                     "Your own Kovan repository on GitHub (optional): an empty folder is \
                      cloned from it, with its corpora; an existing one gets it as its remote.",
                 );
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.library_remote)
-                        .hint_text("https://github.com/you/your-kovan-repo.git")
-                        .desired_width(420.0),
+                remote_field(
+                    ui,
+                    &mut self.library_remote,
+                    self.locks.library,
+                    "https://github.com/you/your-kovan-repo.git",
+                    "This folder is already a Git repository",
                 );
                 ui.add_space(6.0);
 
@@ -132,10 +238,12 @@ impl SetupDialog {
                      or in top-level folders whose name contains \"open-corpus\". Left \
                      empty, a local repository is created for you to push later.",
                 );
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.open_remote)
-                        .hint_text("https://github.com/you/your-open-corpus.git")
-                        .desired_width(420.0),
+                remote_field(
+                    ui,
+                    &mut self.open_remote,
+                    self.locks.open,
+                    "https://github.com/you/your-open-corpus.git",
+                    "This corpus already exists in the folder",
                 );
                 ui.add_space(6.0);
 
@@ -144,10 +252,12 @@ impl SetupDialog {
                     "Literature you may not redistribute. Kovan never commits it to your \
                      Kovan folder. Left empty, a local repository is created instead.",
                 );
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.proprietary_remote)
-                        .hint_text("https://github.com/you/your-private-corpus.git")
-                        .desired_width(420.0),
+                remote_field(
+                    ui,
+                    &mut self.proprietary_remote,
+                    self.locks.proprietary,
+                    "https://github.com/you/your-private-corpus.git",
+                    "This corpus already exists in the folder",
                 );
                 ui.weak("URLs only: never put a password or token here.");
 
@@ -265,6 +375,50 @@ pub(super) fn mark_first_run_done() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder that already answers for a remote locks that field and shows
+    /// the repository's **own** `origin`, not whatever was typed before
+    /// (maintainer, 2026-09-22: a user must not be able to edit Kovan into
+    /// disagreeing with Git). A corpus that exists without a remote locks
+    /// too, because pointing it somewhere here would not move it on disk.
+    #[test]
+    fn an_existing_repository_locks_its_remote_field() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let lib = tmp.path().join("lib");
+        let root = KovanRoot::create(&lib, crate::root::RootConfig::new("lib", "Lib"), true)
+            .unwrap();
+        // An open corpus that exists locally, with no remote of its own.
+        crate::corpus_repos::ensure_repo(&root.open_corpus_dir(), None, None).unwrap();
+
+        let mut dialog = SetupDialog {
+            folder: lib.display().to_string(),
+            // What a user might have typed before choosing this folder.
+            open_remote: "https://example.com/typed-by-hand.git".into(),
+            ..Default::default()
+        };
+        dialog.refresh_locks();
+
+        assert!(dialog.locks.library, "the folder is a Git repository");
+        assert!(dialog.locks.open, "its open corpus already exists");
+        assert!(
+            !dialog.locks.proprietary,
+            "the proprietary corpus has no repository yet"
+        );
+        assert_eq!(
+            dialog.open_remote, "",
+            "the typed value is replaced by the repository's own (absent) origin"
+        );
+
+        // Recomputed only when the folder changes, so the lock does not cost
+        // a `git` call every frame.
+        dialog.folder = tmp.path().join("elsewhere").display().to_string();
+        dialog.refresh_locks();
+        assert!(!dialog.locks.library);
+        assert!(!dialog.locks.open);
+    }
 
     #[test]
     fn empty_remote_fields_mean_no_remote() {
