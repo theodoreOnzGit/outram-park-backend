@@ -612,10 +612,65 @@ pub struct DelayedGroupFilter {
     pub groups: Vec<usize>,
 }
 
+impl DelayedGroupFilter {
+    /// **This filter cannot currently tally anything, and saying so is the
+    /// point of this constructor.** GitHub #262.
+    ///
+    /// # Why it is refused rather than left constructible
+    ///
+    /// Audited 2026-09-22
+    /// (`verification_and_validation/delayed_neutrons/audit_2026_09_22.md`):
+    /// **nothing in this crate ever sets [`FilterEvent::delayed_group`].**
+    /// Every site that assigns `Some(..)` is a test. `physics::fission` folds
+    /// delayed neutrons into the total ν̄ and treats them as prompt — a
+    /// legitimate, clearly-labelled eigenvalue approximation — so no precursor
+    /// group is ever sampled to put on an event.
+    ///
+    /// A filter in that state does not fail. It sees `None` at every event,
+    /// bins nothing, and the tally returns **exactly zero** with no error and
+    /// no empty-result diagnostic.
+    ///
+    /// That is worse than the usual silent-wrong-answer, because **zero is a
+    /// value a physicist might accept**: a delayed-group tally over a
+    /// non-fissile region genuinely should be zero, so the wrong answer is
+    /// indistinguishable from a right one without knowing the geometry.
+    ///
+    /// # When this starts working
+    ///
+    /// When ν̄ is split into prompt and delayed in the transport loop and the
+    /// sampled precursor group is recorded on the event. The data is already
+    /// in the workspace and unused — `njoy-outram-park-fork`'s
+    /// `nuclear_data::delayed` carries MF=1/455 (λ_k, ν̄_d(E)) and MF=5/455
+    /// (abundances, delayed spectra). See #262 scope items 2 and 3. At that
+    /// point this constructor returns `Ok` and the struct's `Filter` impl
+    /// below already does the right thing unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Always, until the above lands. The error names the audit so a caller
+    /// who hits it can read why rather than guess.
+    pub fn new(groups: Vec<usize>) -> Result<Self, String> {
+        Err(format!(
+            "a DelayedGroupFilter over {} group(s) would tally exactly ZERO: nothing in \
+             this crate sets FilterEvent::delayed_group, because physics::fission folds \
+             delayed neutrons into the total nu-bar and treats them as prompt. See \
+             GitHub #262 and \
+             verification_and_validation/delayed_neutrons/audit_2026_09_22.md. \
+             Refused rather than returning a silent zero, which is indistinguishable \
+             from a correct result over a non-fissile region.",
+            groups.len()
+        ))
+    }
+}
+
 impl Filter for DelayedGroupFilter {
     fn n_bins(&self) -> usize {
         self.groups.len()
     }
+    /// Correct as written, and deliberately left alone: the moment
+    /// `delayed_group` is populated by the transport loop this bins properly
+    /// with no change here. What is refused is *constructing* the filter while
+    /// that field is always `None` — see [`Self::new`].
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         let g = ev.delayed_group?;
         self.groups.iter().position(|&x| x == g)
