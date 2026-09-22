@@ -882,6 +882,7 @@ impl LumpCellMc {
                                 d_bound.coord_level,
                                 pos,
                                 dir,
+                                &mut seed,
                             );
                             if !crossed.alive {
                                 if self.boundary == CellBoundary::White {

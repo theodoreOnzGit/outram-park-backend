@@ -864,7 +864,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (a) True 3-surface corner (+x,+y,+z): a ray heading into it retroreflects —
     // all three components negated.
     let u = Direction::from_unnormalised(1.0, 1.0, 1.0);
-    let c3 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.5), u);
+    let c3 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.5), u, &mut 0x5EED_0259_u64);
     let (u3, alive) = (c3.u, c3.alive);
     assert!(alive, "reflective corner keeps the particle alive");
     assert!(
@@ -889,7 +889,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (b) Min-side corner (-x,-y): with the plane normals all pointing +axis, the
     // sign-agnostic crossing test must still negate both crossed components.
     let um = Direction::from_unnormalised(-1.0, -1.0, 0.3);
-    let u2 = geom.cross_surface(0, Position::new(-0.5, -0.5, 0.0), um).u;
+    let u2 = geom.cross_surface(0, Position::new(-0.5, -0.5, 0.0), um, &mut 0x5EED_0259_u64).u;
     assert!((u2.u + um.u).abs() < 1e-12, "min-corner: u.x not negated");
     assert!((u2.v + um.v).abs() < 1e-12, "min-corner: u.y not negated");
     assert!(
@@ -900,7 +900,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (c) Edge (2 surfaces, +x & +y): only the two crossed components flip; the
     // free (z) component is preserved.
     let ue = Direction::from_unnormalised(1.0, 1.0, 0.5);
-    let ue2 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.1), ue).u;
+    let ue2 = geom.cross_surface(1, Position::new(0.5, 0.5, 0.1), ue, &mut 0x5EED_0259_u64).u;
     assert!((ue2.u + ue.u).abs() < 1e-12, "edge: u.x not negated");
     assert!((ue2.v + ue.v).abs() < 1e-12, "edge: u.y not negated");
     assert!(
@@ -911,7 +911,7 @@ fn corner_reflection_composes_at_exact_corner() {
     // (d) Lone wall (no other coincident surface): unchanged single reflection —
     // only the normal component flips.
     let ul = Direction::from_unnormalised(1.0, 0.2, 0.0);
-    let ul2 = geom.cross_surface(1, Position::new(0.5, 0.0, 0.0), ul).u;
+    let ul2 = geom.cross_surface(1, Position::new(0.5, 0.0, 0.0), ul, &mut 0x5EED_0259_u64).u;
     assert!((ul2.u + ul.u).abs() < 1e-12, "lone wall: u.x not negated");
     assert!(
         (ul2.v - ul.v).abs() < 1e-12,
@@ -993,7 +993,7 @@ fn corner_grazing_history_terminates_without_pingpong() {
                 r = stream(r, u, d.distance);
                 match d.crossing {
                     Crossing::Surface(i) => {
-                        let crossed = geom.cross_surface(i, r, u);
+                        let crossed = geom.cross_surface(i, r, u, &mut 0x5EED_0259_u64);
                         assert!(crossed.alive, "reflective wall must not kill the particle");
                         r = crossed.r;
                         u = crossed.u;
