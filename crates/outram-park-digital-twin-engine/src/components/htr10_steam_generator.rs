@@ -97,6 +97,7 @@
 //! supplies.
 
 use crate::animation::TracerTrain;
+use crate::components::htr10_reactor_schematic::point_along;
 use crate::components::temperature_colour;
 use std::f32::consts::PI;
 use egui::{Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2,
@@ -147,7 +148,16 @@ const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 
 /// Bottom of the riser and coil bundles, as a fraction of the vessel height
 /// from the top. A drawing choice.
-const BUNDLE_BOTTOM_FRACTION: f32 = 0.90;
+///
+/// **CHANGED 2026-09-21** from 0.90, to leave an inlet space below the bundles
+/// where the hot gas duct's three streams turn up into the riser and the two
+/// bundles (see [`Htr10SteamGeneratorVisual::with_duct_inlet`]).
+const BUNDLE_BOTTOM_FRACTION: f32 = 0.80;
+
+/// Elevation of the hot gas duct's centreline on the vessel's left wall, as a
+/// fraction of the vessel height from the top: in the inlet space, between the
+/// bundle bottom and the cavity bottom. A drawing choice.
+const GAS_PORT_FRACTION: f32 = 0.90;
 
 /// Bottom of the interior cavity, as a fraction of the vessel height from the
 /// top. A drawing choice.
@@ -169,6 +179,31 @@ pub fn fit_native_aspect(available: Rect) -> Rect {
     }
 }
 
+
+/// Centreline of a pipe that runs horizontally from `start`, turns up through
+/// a 90-degree bend of centreline radius `radius`, and rises to `end_y`.
+///
+/// Used for the hot gas duct's streams inside the vessel. `turn_x` is where
+/// the vertical leg runs. The radius is reduced if the run or the rise is too
+/// short for it, so the bend never overshoots either leg.
+fn elbow_up(start: Pos2, turn_x: f32, end_y: f32, radius: f32) -> Vec<Pos2> {
+    let r = radius
+        .min((turn_x - start.x).max(0.0))
+        .min((start.y - end_y).max(0.0));
+    let centre = Pos2::new(turn_x - r, start.y - r);
+    let mut out = vec![start];
+    const SEGMENTS: usize = 12;
+    for i in 0..=SEGMENTS {
+        // pi/2 is the point level with the run, 0 the point above the turn.
+        let theta = 0.5 * PI * (1.0 - i as f32 / SEGMENTS as f32);
+        out.push(Pos2::new(
+            centre.x + r * theta.cos(),
+            centre.y + r * theta.sin(),
+        ));
+    }
+    out.push(Pos2::new(turn_x, end_y));
+    out
+}
 /// The HTR-10 steam generator, drawn as a general-structure schematic.
 ///
 /// Four temperatures drive the colouring, all supplied by the caller from its
@@ -202,6 +237,14 @@ pub struct Htr10SteamGeneratorVisual {
     shell_gas_tracer: Option<TracerTrain>,
     feedwater_tracer: Option<TracerTrain>,
     steam_tracer: Option<TracerTrain>,
+    /// `(outer_height, inner_height)` of a connected duct, points. See
+    /// [`Self::with_duct_inlet`].
+    duct_inlet: Option<(f32, f32)>,
+    /// Marks through the hot elbow, riser-bound. See
+    /// [`Self::with_duct_inlet_tracers`].
+    hot_elbow_tracer: Option<TracerTrain>,
+    /// Marks through both cold elbows, duct-bound.
+    cold_elbow_tracer: Option<TracerTrain>,
 }
 
 impl Htr10SteamGeneratorVisual {
@@ -236,22 +279,72 @@ impl Htr10SteamGeneratorVisual {
             shell_gas_tracer: None,
             feedwater_tracer: None,
             steam_tracer: None,
+            duct_inlet: None,
+            hot_elbow_tracer: None,
+            cold_elbow_tracer: None,
         }
     }
 
-    /// Where the hot gas duct connects, for a widget whose box is
+    /// Where the hot gas duct meets the vessel, for a widget whose box is
     /// `widget_rect` (the rect it will be placed in, of size [`Self::size`]).
     ///
-    /// It is the **foot of the central riser**: on the vessel axis, between
-    /// the bottom of the bundles and the bottom of the cavity. Hot gas enters
-    /// there and climbs the riser. The widget still draws no duct itself; a
-    /// caller runs one to this point (the HTR-10 test-reactor page runs
-    /// `Htr10ReactorSchematic`'s coaxial duct here). Computed from the same
-    /// fractions the paint code uses.
+    /// It is the duct centreline on the vessel's **left wall**, in the inlet
+    /// space below the bundles. The duct stops here, OUTSIDE the vessel;
+    /// inside, [`Self::with_duct_inlet`] draws its streams turning up into the
+    /// riser and the bundles (**CHANGED 2026-09-21**, from a port at the foot
+    /// of the riser on the axis). Computed from the same fractions the paint
+    /// code uses.
     pub fn gas_port(&self, widget_rect: Rect) -> Pos2 {
         let rect = fit_native_aspect(widget_rect);
-        let f = 0.5 * (BUNDLE_BOTTOM_FRACTION + INTERIOR_BOTTOM_FRACTION);
-        Pos2::new(rect.center().x, rect.top() + f * rect.height())
+        Pos2::new(rect.left(), rect.top() + GAS_PORT_FRACTION * rect.height())
+    }
+
+    /// Draw the coaxial hot gas duct's streams inside the vessel, entering at
+    /// [`Self::gas_port`] with the duct's own band heights, in points:
+    /// `outer_height` for the whole duct and `inner_height` for its hot inner
+    /// tube.
+    ///
+    /// Inside, each stream turns up through a 90-degree bend (maintainer
+    /// specification, 2026-09-21):
+    ///
+    /// ```text
+    ///      left bundle   riser   right bundle
+    ///          ▲           ▲          ▲
+    ///   ═══════╯ (top cold band)      │
+    ///   ━━━━━━━━━━━━━━━━━━━╯ (hot)     │
+    ///   ══════════════════════════════╯ (bottom cold band)
+    /// ```
+    ///
+    /// - the **hot inner tube** runs to the axis and bends up into the central
+    ///   riser, where the hot gas climbs;
+    /// - the **top cold band** bends up into the **left** bundle;
+    /// - the **bottom cold band** passes under the hot bend and turns up into
+    ///   the **right** bundle.
+    ///
+    /// Physically the cold helium leaves the bundles at the bottom and returns
+    /// down these legs to the duct's annulus; the drawing only fixes the
+    /// geometry. Without this call the vessel is drawn with no helium
+    /// connections, as before.
+    pub fn with_duct_inlet(mut self, outer_height: f32, inner_height: f32) -> Self {
+        self.duct_inlet = Some((outer_height.max(0.0), inner_height.max(0.0)));
+        self
+    }
+
+    /// Tracer marks through the duct inlet's elbows (only drawn with
+    /// [`Self::with_duct_inlet`]). Advance both with the **primary** loop
+    /// mass flow and a residence time for the elbows.
+    ///
+    /// - `hot`: its inlet is the **wall** end, so positive flow carries the
+    ///   marks in along the hot tube and up into the riser.
+    /// - `cold`: drawn on both cold legs; its inlet is the **bundle** end,
+    ///   because the cooled helium leaves the bundles at the bottom, so
+    ///   positive flow carries the marks down and out to the duct's annulus.
+    ///
+    /// Marks are placed by arc length, so they follow each bend smoothly.
+    pub fn with_duct_inlet_tracers(mut self, hot: TracerTrain, cold: TracerTrain) -> Self {
+        self.hot_elbow_tracer = Some(hot);
+        self.cold_elbow_tracer = Some(cold);
+        self
     }
 
     /// Tracer marks for the **primary** helium rising in the central riser.
@@ -658,6 +751,88 @@ impl Widget for Htr10SteamGeneratorVisual {
             );
         }
 
+        // ── Hot gas duct inlet: three streams turning up (if connected) ────
+        //
+        // The duct stops at the left wall; inside, the hot inner tube bends up
+        // into the riser, the top cold band into the left bundle, and the
+        // bottom cold band passes under the hot bend into the right bundle.
+        // See `with_duct_inlet`. Drawn after the internals and before the
+        // nozzles.
+        if let Some((outer_h, inner_h)) = self.duct_inlet {
+            let yc = y(GAS_PORT_FRACTION);
+            let outer_top = yc - 0.5 * outer_h;
+            let hot_top = yc - 0.5 * inner_h;
+            let hot_bottom = yc + 0.5 * inner_h;
+            let outer_bottom = yc + 0.5 * outer_h;
+            let cold_upper_h = hot_top - outer_top;
+            let cold_lower_h = outer_bottom - hot_bottom;
+            // Where each vertical leg rises: the middle of each bundle, and
+            // the axis for the riser.
+            let bundle_mid = 0.5 * (riser_half + cavity_half);
+            let wall = rect.left();
+            let helium_out = self.colour(self.helium_outlet_temp);
+            let legs = [
+                (
+                    Pos2::new(wall, 0.5 * (outer_top + hot_top)),
+                    cx - bundle_mid,
+                    cold_upper_h,
+                    helium_out,
+                ),
+                (
+                    Pos2::new(wall, 0.5 * (hot_bottom + outer_bottom)),
+                    cx + bundle_mid,
+                    cold_lower_h,
+                    helium_out,
+                ),
+                (Pos2::new(wall, yc), cx, inner_h, helium_in),
+            ];
+            // Walls of all three first, then the fills, so where the legs run
+            // side by side at the wall they read as one duct.
+            let paths: Vec<Vec<Pos2>> = legs
+                .iter()
+                .map(|(start, turn_x, thick, _)| {
+                    elbow_up(*start, *turn_x, bundle_bottom, 1.2 * thick)
+                })
+                .collect();
+            for (path, (_, _, thick, _)) in paths.iter().zip(&legs) {
+                painter.add(egui::Shape::line(
+                    path.clone(),
+                    Stroke::new(thick + 2.0, INTERNALS),
+                ));
+            }
+            for (path, (_, _, thick, colour)) in paths.iter().zip(&legs) {
+                painter.add(egui::Shape::line(
+                    path.clone(),
+                    Stroke::new(*thick, *colour),
+                ));
+            }
+
+            // Tracer marks: short bars across each leg, placed by arc length
+            // so they follow the bend. The hot leg (index 2) fills from the
+            // wall; the cold legs (0, 1) fill from the bundle end, so their
+            // position runs backwards along the path.
+            let bar = |path: &[Pos2], t: f32, thick: f32| {
+                let at = point_along(path, t);
+                let ahead = point_along(path, (t + 0.01).min(1.0));
+                let behind = point_along(path, (t - 0.01).max(0.0));
+                let tangent = (ahead - behind).normalized();
+                let across = egui::vec2(-tangent.y, tangent.x) * (0.5 * thick - 0.5).max(0.5);
+                painter.line_segment([at - across, at + across], Stroke::new(2.0, Color32::WHITE));
+            };
+            if let Some(train) = &self.hot_elbow_tracer {
+                for position in train.positions() {
+                    bar(&paths[2], position as f32, legs[2].2);
+                }
+            }
+            if let Some(train) = &self.cold_elbow_tracer {
+                for leg in 0..2 {
+                    for position in train.positions() {
+                        bar(&paths[leg], 1.0 - position as f32, legs[leg].2);
+                    }
+                }
+            }
+        }
+
         // ── Nozzles ─────────────────────────────────────────────────────────
         //
         // Water side on the right, facing the turbine hall: feedwater in low,
@@ -707,8 +882,9 @@ impl Widget for Htr10SteamGeneratorVisual {
         self.tag(&painter, Pos2::new(cx + w * 0.86, y(0.0975)), "steam");
 
         let feedwater_run = Rect::from_min_max(
-            Pos2::new(cx + w * 0.30, y(0.890)),
-            Pos2::new(cx + w * 0.70, y(0.915)),
+            // Just above the bundle bottom, where the coil takes feedwater in.
+            Pos2::new(cx + w * 0.30, y(BUNDLE_BOTTOM_FRACTION - 0.010)),
+            Pos2::new(cx + w * 0.70, y(BUNDLE_BOTTOM_FRACTION + 0.015)),
         );
         painter.rect_filled(feedwater_run, 2, self.colour(self.feedwater_temp));
         // Feedwater ENTERS the vessel from the turbine hall, so its inlet is
@@ -718,7 +894,11 @@ impl Widget for Htr10SteamGeneratorVisual {
         if let Some(train) = &self.feedwater_tracer {
             nozzle_marks(feedwater_run, train, false);
         }
-        self.tag(&painter, Pos2::new(cx + w * 0.88, y(0.9025)), "feedwater");
+        self.tag(
+            &painter,
+            Pos2::new(cx + w * 0.88, y(BUNDLE_BOTTOM_FRACTION + 0.0025)),
+            "feedwater",
+        );
 
         painter.rect_stroke(shell, 0, Stroke::new(1.5, OUTLINE), StrokeKind::Middle);
 
@@ -746,17 +926,45 @@ mod tests {
         )
     }
 
-    /// The gas port is the foot of the central riser: on the vessel axis,
-    /// below the bottom of the bundles and above the bottom of the cavity.
+    /// The gas port is on the vessel's left wall, in the inlet space below
+    /// the bundles and above the bottom of the cavity.
     #[test]
-    fn the_gas_port_is_at_the_foot_of_the_riser() {
+    fn the_gas_port_is_on_the_left_wall_below_the_bundles() {
         let v = visual();
         let r = Rect::from_min_size(Pos2::new(15.0, 30.0), v.size());
         let port = v.gas_port(r);
         let vessel = fit_native_aspect(r);
-        assert!((port.x - vessel.center().x).abs() < 1e-4, "on the axis");
+        assert!((port.x - vessel.left()).abs() < 1e-4, "on the left wall");
         let f = (port.y - vessel.top()) / vessel.height();
         assert!(f > BUNDLE_BOTTOM_FRACTION && f < INTERIOR_BOTTOM_FRACTION);
+    }
+
+    /// Each elbow runs level from its start, turns up once, and ends exactly
+    /// above the turn at `end_y`.
+    #[test]
+    fn an_elbow_runs_level_then_rises_at_the_turn() {
+        let start = Pos2::new(0.0, 100.0);
+        let path = elbow_up(start, 40.0, 20.0, 10.0);
+        assert_eq!(path[0], start);
+        let end = *path.last().unwrap();
+        assert_eq!(
+            end,
+            Pos2::new(40.0, 20.0),
+            "vertical leg at turn_x to end_y"
+        );
+        for p in &path {
+            assert!(
+                p.x >= start.x - 1e-4 && p.x <= 40.0 + 1e-4,
+                "never overshoots the turn"
+            );
+            assert!(
+                p.y <= start.y + 1e-4 && p.y >= 20.0 - 1e-4,
+                "never dips or overshoots"
+            );
+        }
+        // A radius too big for the rise is reduced, not overshot.
+        let tight = elbow_up(start, 40.0, 95.0, 50.0);
+        assert!(tight.iter().all(|p| p.y >= 95.0 - 1e-4));
     }
 
     /// The riser defaults to the maintainer-specified 40 % of the diameter.

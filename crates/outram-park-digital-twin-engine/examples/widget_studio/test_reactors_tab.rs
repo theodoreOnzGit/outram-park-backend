@@ -123,6 +123,12 @@ pub struct TestReactorsTab {
     /// from the Steam generators tab. Its primary flow is kept equal to this
     /// tab's, so the whole loop stalls or reverses together.
     pub sg_tracers: crate::steam_generator_tab::Htr10Tracers,
+    /// Residence time through the duct inlet's elbows inside the steam
+    /// generator, s. Display choice: the elbows are a drawing device with no
+    /// stated volume.
+    pub sg_elbow_residence_s: f64,
+    sg_hot_elbow: TracerTrain,
+    sg_cold_elbow: TracerTrain,
 }
 
 impl Default for TestReactorsTab {
@@ -164,6 +170,9 @@ impl Default for TestReactorsTab {
             refuel_pebbles: PebbleTransits::new(),
             defuel_pebbles: PebbleTransits::new(),
             sg_tracers: crate::steam_generator_tab::Htr10Tracers::default(),
+            sg_elbow_residence_s: 2.0,
+            sg_hot_elbow: TracerTrain::new(4),
+            sg_cold_elbow: TracerTrain::new(4),
         }
     }
 }
@@ -204,6 +213,10 @@ impl TestReactorsTab {
         // reactor's flow.
         self.sg_tracers.primary_mass_flow_kg_per_s = self.primary_mass_flow_kg_per_s;
         self.sg_tracers.step(dt);
+        let elbow_tau = Time::new::<second>(self.sg_elbow_residence_s);
+        let primary_flow = MassRate::new::<kilogram_per_second>(self.primary_mass_flow_kg_per_s);
+        self.sg_hot_elbow.advance(dt, elbow_tau, primary_flow);
+        self.sg_cold_elbow.advance(dt, elbow_tau, primary_flow);
         self.pebbles_removed += self.defuel_pebbles.advance(
             dt,
             Time::new::<second>(self.defuel_transit_s),
@@ -366,6 +379,7 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
     ui.add(
         egui::Slider::new(&mut state.cold_duct_residence_s, 0.2..=20.0).text("duct, cold annulus"),
     );
+    ui.add(egui::Slider::new(&mut state.sg_elbow_residence_s, 0.2..=20.0).text("SG inlet elbows"));
 
     ui.separator();
     ui.label(RichText::new("Pebble handling").strong());
@@ -410,7 +424,7 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
     );
     ui.label(
         RichText::new(
-            "All six are DISPLAY CHOICES, not derived: the sheet gives no internal \
+            "All seven are DISPLAY CHOICES, not derived: the sheet gives no internal \
              volumes for these passes, so there is nothing to divide a flow into. \
              Sliders rather than hardcoded constants, so that is visible.",
         )
@@ -497,9 +511,11 @@ pub fn draw(ui: &mut egui::Ui, state: &TestReactorsTab) {
 /// that paints them (`Htr10ReactorSchematic::duct_port`,
 /// `Htr10SteamGeneratorVisual::gas_port`). The steam generator is placed so
 /// its gas port is level with the duct and `DUCT_GAP_FRACTION` vessel widths
-/// clear of the vessel, and the duct is then extended to reach it. That runs
-/// the hot inner tube to the foot of the steam generator's central riser,
-/// where the hot gas enters.
+/// clear of the vessel, and the duct is then extended to reach it. The duct
+/// stops at the steam generator's left wall; inside, the steam generator
+/// draws the hot inner tube bending up into its central riser and the two
+/// cold bands bending up into the left and right coil bundles
+/// (`Htr10SteamGeneratorVisual::with_duct_inlet`).
 ///
 /// Both vessels are drawn at the same height scale: each is 11 m tall on its
 /// data sheet (`HTR10_SG_ASPECT_RATIO` is 2.6 m by 11 m). The steam generator
@@ -531,6 +547,11 @@ fn draw_plant(ui: &mut egui::Ui, state: &TestReactorsTab) {
     // Lay out in local coordinates, reactor at the origin.
     let reactor_local = egui::Rect::from_min_size(egui::Pos2::ZERO, reactor_size);
     let duct = reactor.duct_port(reactor_local);
+    // The steam generator draws the duct's three streams turning up inside it,
+    // at the duct's own band heights, so they meet the duct exactly.
+    let sg = sg
+        .with_duct_inlet(duct.outer_height, duct.inner_height)
+        .with_duct_inlet_tracers(state.sg_hot_elbow.clone(), state.sg_cold_elbow.clone());
     let sg_origin_local = egui::Rect::from_min_size(egui::Pos2::ZERO, sg_size);
     let gas = sg.gas_port(sg_origin_local);
     let sg_min = egui::pos2(
@@ -549,8 +570,9 @@ fn draw_plant(ui: &mut egui::Ui, state: &TestReactorsTab) {
     );
     let shift = canvas.min.to_vec2() - egui::vec2(0.0, top);
 
-    // The steam generator first, so the duct is painted over its foot and
-    // reads as entering it.
+    // The duct now stops at the steam generator's left wall (its gas port);
+    // inside, the steam generator draws the bends. Painted first, so the
+    // duct's end sits over the wall.
     ui.put(sg_local.translate(shift), state.sg_tracers.attach(sg));
     // The extended reactor is wider (its box includes the duct), but its
     // vessel is anchored at the left of the box, so the origin is unchanged.

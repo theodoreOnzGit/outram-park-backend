@@ -572,7 +572,7 @@ fn refuelling_route(start: Pos2, top_y: f32, centre_x: f32, dip_deg: f32, end_y:
 /// By **arc length**, not by vertex index: spacing marks evenly over vertices
 /// would bunch them wherever the path is finely sampled, which for a U-bend is
 /// exactly at the corner.
-fn point_along(points: &[Pos2], t: f32) -> Pos2 {
+pub(crate) fn point_along(points: &[Pos2], t: f32) -> Pos2 {
     match points.len() {
         0 => Pos2::ZERO,
         1 => points[0],
