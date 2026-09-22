@@ -38,17 +38,30 @@
 //! [`Geometry`], but with group-indexed collision physics instead of CE lookups.
 //! At each collision in group `g` the reaction is partitioned on the group total
 //! Σ_t,g into fission | capture | scatter; a scatter samples the outgoing group
-//! `g'` from row `g` of the scattering matrix (direction resampled isotropically,
-//! the P0 assumption); a fission banks `n ≈ ν̄_g/k` next-generation sites whose
-//! birth group is drawn from χ.
+//! `g'` from row `g` of the scattering matrix and then the outgoing cosine from
+//! that transfer's own angular kernel; a fission banks `n ≈ ν̄_g/k`
+//! next-generation sites whose birth group is drawn from χ.
 //!
 //! # Fidelity
 //!
-//! Analog transport (weight 1, no variance reduction). Scattering is treated as
-//! isotropic in the lab frame (a P0 / transport-corrected set); anisotropic
-//! (P_N) scattering matrices are not modelled. There is no delayed-neutron
-//! separation (delayed folded into ν̄). This matches the simplest OpenMC MG mode
-//! (`isotropic` angular representation).
+//! Analog transport (weight 1, no variance reduction). There is no
+//! delayed-neutron separation (delayed folded into ν̄).
+//!
+//! ~~Scattering is treated as isotropic in the lab frame (a P0 /
+//! transport-corrected set); anisotropic (P_N) scattering matrices are not
+//! modelled. This matches the simplest OpenMC MG mode (`isotropic` angular
+//! representation).~~ **CORRECTED 2026-09-22 (GitHub #265)** — this was true
+//! when written and is no longer. Anisotropic scattering is now modelled:
+//! [`Mgxs::with_legendre_scattering`] attaches Legendre moments per `(g, g')`
+//! transfer, and the kernel samples the outgoing cosine from them and rotates
+//! the incoming direction, mirroring `scatter` (`src/physics_mg.cpp:86-90`).
+//! A set built by [`Mgxs::new`] alone still carries no moments, so it is still
+//! sampled isotropically — that is a property of the *data*, not of the
+//! transport kernel, and [`ScatterAngle`] now records which it is.
+//!
+//! **What this was worth, measured rather than asserted.** See
+//! `examples/mg_scatter_anisotropy_ablation.rs` and
+//! `verification_and_validation/mg_anisotropic_scattering/`.
 //!
 //! # Example
 //!
@@ -76,6 +89,8 @@ use crate::geometry::position::{stream, Direction, Position};
 use crate::physics::fission::sample_num_neutrons;
 use crate::physics::keff::KeffResult;
 use crate::physics::transport_csg::SourceBox;
+use crate::physics::scatter::rotate_direction;
+use crate::physics::scattdata::LegendreKernel;
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
 use crate::mathf::RealMath;
@@ -118,6 +133,56 @@ pub struct Mgxs {
     /// Scattering matrix Σ_s,g→g' \[cm⁻¹\], length `G·G`, **row-major**:
     /// `scatter[g * G + g']` transfers from group `g` into group `g'`.
     pub scatter: Vec<f64>,
+    /// How the outgoing cosine is sampled. [`ScatterAngle::Isotropic`] unless
+    /// the caller supplied Legendre moments — see
+    /// [`Mgxs::with_legendre_scattering`]. GitHub #265.
+    pub scatter_angle: ScatterAngle,
+}
+
+/// The angular representation a [`Mgxs`] set carries for its scattering matrix.
+///
+/// # Why this is data and not a flag
+///
+/// Before GitHub #265 the MG kernel resampled the outgoing direction
+/// **isotropically in the lab frame** at every scatter, so a set carrying real
+/// P1+ moments was transported as if it were P0. Nothing said so, and nothing
+/// could: the anisotropy assumption lived in a doc comment.
+///
+/// It now lives here. A set built by [`Mgxs::new`] declares
+/// [`Self::Isotropic`] because it genuinely has no moments to apply; a set
+/// built through [`Mgxs::with_legendre_scattering`] carries them and the
+/// kernel uses them **by default**. Throwing them away is
+/// [`Mgxs::without_scatter_anisotropy`] — a named, visible act, per the
+/// workspace rule that correct physics is the default setting rather than an
+/// opt-in.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ScatterAngle {
+    /// Isotropic in the lab frame: `⟨μ⟩ = 0` for every transfer. Correct for a
+    /// transport-corrected P0 set, **wrong in a known direction** for a plain
+    /// one — it understates `⟨μ⟩`, inflates `Σ_tr = Σ_t(1 − ⟨μ⟩)` and
+    /// suppresses leakage.
+    Isotropic,
+    /// One Legendre kernel per `(g, g')` transfer, row-major over `G·G`.
+    /// `None` marks a transfer with no data, which is sampled isotropically —
+    /// the same treatment upstream's `gmin`/`gmax` banding gives an
+    /// out-of-band group.
+    Legendre {
+        /// Highest moment carried, for reporting.
+        order: usize,
+        /// `kernels[g * G + g']`.
+        kernels: Vec<Option<LegendreKernel>>,
+    },
+}
+
+impl ScatterAngle {
+    /// The kernel for transfer `g → g'`, if this representation has one.
+    #[inline]
+    pub fn kernel(&self, g: usize, gp: usize, n_groups: usize) -> Option<&LegendreKernel> {
+        match self {
+            Self::Isotropic => None,
+            Self::Legendre { kernels, .. } => kernels[g * n_groups + gp].as_ref(),
+        }
+    }
 }
 
 impl Mgxs {
@@ -172,7 +237,97 @@ impl Mgxs {
             nu_fission,
             chi,
             scatter,
+            scatter_angle: ScatterAngle::Isotropic,
         }
+    }
+
+    /// Attach Legendre angular moments to the scattering matrix.
+    ///
+    /// `moments[g * G + g']` holds `a_0 .. a_order` for that transfer, in the
+    /// normalisation [`evaluate_legendre`] expects — the same `dist` array
+    /// upstream's `ScattDataLegendre` stores. An empty entry means "no data
+    /// for this transfer", which is sampled isotropically.
+    ///
+    /// **The moments are used from here on with no further opt-in.** That is
+    /// the point: a set that carries anisotropy is transported with it.
+    ///
+    /// # Errors
+    ///
+    /// A `moments` array that is not `G × G`, or an entry whose series is
+    /// non-positive everywhere on `[-1, 1]` and so cannot be sampled at all.
+    pub fn with_legendre_scattering(
+        mut self,
+        moments: Vec<Vec<f64>>,
+    ) -> Result<Self, String> {
+        let g = self.n_groups;
+        if moments.len() != g * g {
+            return Err(format!(
+                "Legendre moments must be a {g}x{g} row-major array, got {} entries",
+                moments.len()
+            ));
+        }
+        let mut order = 0usize;
+        let mut kernels = Vec::with_capacity(g * g);
+        for (i, coeffs) in moments.into_iter().enumerate() {
+            if coeffs.is_empty() {
+                kernels.push(None);
+                continue;
+            }
+            order = order.max(coeffs.len() - 1);
+            let k = LegendreKernel::new(coeffs).map_err(|e| {
+                format!("transfer {} -> {}: {e}", i / g, i % g)
+            })?;
+            kernels.push(Some(k));
+        }
+        self.scatter_angle = ScatterAngle::Legendre { order, kernels };
+        Ok(self)
+    }
+
+    /// **Ablate** the scattering anisotropy: throw the moments away and sample
+    /// the outgoing direction isotropically in the lab frame.
+    ///
+    /// This exists so an ablation study can price the anisotropy against the
+    /// same set. It is deliberately verbose to call and deliberately not the
+    /// default; an ablation that is the default is not an ablation, it is a
+    /// missing term.
+    pub fn without_scatter_anisotropy(mut self) -> Self {
+        self.scatter_angle = ScatterAngle::Isotropic;
+        self
+    }
+
+    /// The declared mean cosine of transfer `g → g'`, or 0 where the set is
+    /// isotropic. See [`LegendreKernel::mean_cosine`] — this is the moment
+    /// ratio, not necessarily what gets sampled.
+    pub fn transfer_mean_cosine(&self, g: usize, gp: usize) -> f64 {
+        self.scatter_angle
+            .kernel(g, gp, self.n_groups)
+            .map(|k| k.mean_cosine())
+            .unwrap_or(0.0)
+    }
+
+    /// The **scatter-weighted** mean cosine out of group `g`, using the cosine
+    /// each transfer actually samples ([`LegendreKernel::sampled_mean_cosine`])
+    /// rather than the one it declares.
+    ///
+    /// This is the `⟨μ⟩` that enters `Σ_tr,g = Σ_t,g (1 − ⟨μ⟩_g)`, so it is the
+    /// quantity a leakage prediction must be built on.
+    pub fn group_mean_cosine(&self, g: usize) -> f64 {
+        let gsz = self.n_groups;
+        let row = &self.scatter[g * gsz..(g + 1) * gsz];
+        let sum: f64 = row.iter().sum();
+        if !(sum > 0.0) {
+            return 0.0;
+        }
+        let mut acc = 0.0;
+        for (gp, &s) in row.iter().enumerate() {
+            let mu = self
+                .scatter_angle
+                .kernel(g, gp, gsz)
+                .map(|k| k.sampled_mean_cosine())
+                .unwrap_or(0.0);
+            acc += s * mu;
+        }
+        acc / sum
     }
 
     /// Scatter-out cross section of group `g` from the matrix: Σ_row = Σ_g' Σ_s,g→g'.
@@ -505,10 +660,29 @@ fn transport_history(
             } else if xi < mat.absorption[g] {
                 break 'history; // radiative capture → dead
             } else {
-                // Scatter to a new group; resample direction isotropically (P0).
-                g = mat.sample_scatter_group(g, seed);
-                let (dx, dy, dz) = isotropic_direction(seed);
-                u = Direction::new(dx, dy, dz);
+                // Scatter to a new group, then set the outgoing direction.
+                let g_last = g;
+                g = mat.sample_scatter_group(g_last, seed);
+                // `scatter` (`src/physics_mg.cpp:86-90`): sample mu from the
+                // transfer's own kernel and ROTATE the incoming direction by
+                // it. Only a transfer with no angular data is resampled
+                // isotropically, which is what a P0 set is.
+                match mat.scatter_angle.kernel(g_last, g, mat.n_groups) {
+                    Some(kernel) => match kernel.sample_mu(seed) {
+                        Ok(mu) => u = rotate_direction(u, mu, seed),
+                        // Upstream calls `fatal_error` here. Killing a whole
+                        // eigenvalue run on one pathological kernel is worse
+                        // than losing one history, but falling back to
+                        // isotropic would silently reintroduce #265's defect
+                        // for exactly the most peaked kernels — so the history
+                        // is dropped and the run's statistics carry the loss.
+                        Err(_) => break 'history,
+                    },
+                    None => {
+                        let (dx, dy, dz) = isotropic_direction(seed);
+                        u = Direction::new(dx, dy, dz);
+                    }
+                }
             }
         } else {
             // ── Boundary crossing ──────────────────────────────────────────
