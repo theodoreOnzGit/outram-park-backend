@@ -6,8 +6,9 @@
 //! ([`star_positions`]), the star's extent ([`star_bounds`]), and the
 //! arithmetic of the scrollable canvas it is drawn on ([`CanvasLayout`]):
 //! how big the canvas is at a zoom, where a world point lands on it, and the
-//! **pan limit of 25 % of the map's own size** past each edge (maintainer
-//! direction, 2026-09-22).
+//! **pan limit**: 25 % of the map's own size past each edge (maintainer
+//! direction, 2026-09-22), plus half a viewport width sideways (added the same
+//! day, for more horizontal room; see [`HORIZONTAL_PAN_VIEWPORT_FRACTION`]).
 //!
 //! What does not belong here: drawing, input, or which nodes exist. The egui
 //! page is [`crate::mindmap`]; the node set comes from the knowledge index.
@@ -21,7 +22,7 @@
 //! (`examples/htgr_sim_v1/app/plant_v1_1.rs`, `content_layout`). The logic is
 //! ported, not shared: that crate is not a dependency of this one. The
 //! difference is the margin: there it is 40 % of the viewport, here 25 % of
-//! the content.
+//! the content plus, horizontally, half the viewport.
 //!
 //! # Units
 //!
@@ -41,6 +42,15 @@ pub const CARD_GAP: f64 = 24.0;
 /// map's own width and height (maintainer direction, 2026-09-22: "don't let
 /// me scroll past 25% of where the mindmap content is").
 pub const PAN_MARGIN_FRACTION: f64 = 0.25;
+
+/// Extra horizontal pan room, as a fraction of the viewport width, added on
+/// each side on top of [`PAN_MARGIN_FRACTION`] (maintainer direction,
+/// 2026-09-22: "give me more horizontal space to pan around"). Half a
+/// viewport lets either side edge of the map be brought to the middle of the
+/// screen, even at Fit, where the map is usually narrower than the window and
+/// the content margin alone left nothing to scroll sideways. Vertical pan
+/// room is unchanged. A viewing margin, nothing physical.
+pub const HORIZONTAL_PAN_VIEWPORT_FRACTION: f64 = 0.5;
 
 /// The diagonal of a card: the least centre-to-centre distance at which two
 /// cards cannot overlap, whatever direction one lies from the other.
@@ -227,9 +237,11 @@ pub fn star_bounds(has_centre: bool, ring: &[Point]) -> Bounds {
 ///
 /// The canvas is the map at `zoom`, plus a margin of [`PAN_MARGIN_FRACTION`]
 /// of the drawn map's width and height on every side, so the scroll area lets
-/// the view travel exactly that far past each edge and no further. When the
-/// canvas would be smaller than the viewport on an axis, it is widened to the
-/// viewport and the map is centred on that axis (nothing to scroll there).
+/// the view travel exactly that far past each edge and no further.
+/// Horizontally the margin also gains [`HORIZONTAL_PAN_VIEWPORT_FRACTION`] of
+/// the viewport width. When the canvas would still be smaller than the
+/// viewport on an axis, it is widened to the viewport and the map is centred
+/// on that axis (nothing to scroll there).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CanvasLayout {
     /// Where the world origin lands on the canvas, points from its top left.
@@ -243,17 +255,22 @@ pub struct CanvasLayout {
 impl CanvasLayout {
     /// Lay out `bounds` at `zoom` in a viewport of `viewport` points.
     pub fn new(bounds: Bounds, zoom: f64, viewport: (f64, f64)) -> Self {
-        let axis = |min: f64, extent: f64, view: f64| {
+        let axis = |min: f64, extent: f64, view: f64, view_fraction: f64| {
             let drawn = extent * zoom;
-            let margin = PAN_MARGIN_FRACTION * drawn;
+            let margin = PAN_MARGIN_FRACTION * drawn + view_fraction * view;
             let canvas = drawn + 2.0 * margin;
             let extra = (0.5 * (view - canvas)).max(0.0);
             // Canvas position of the world origin on this axis.
             let origin = margin + extra - min * zoom;
             (origin, canvas + 2.0 * extra)
         };
-        let (ox, sx) = axis(bounds.min_x, bounds.width(), viewport.0);
-        let (oy, sy) = axis(bounds.min_y, bounds.height(), viewport.1);
+        let (ox, sx) = axis(
+            bounds.min_x,
+            bounds.width(),
+            viewport.0,
+            HORIZONTAL_PAN_VIEWPORT_FRACTION,
+        );
+        let (oy, sy) = axis(bounds.min_y, bounds.height(), viewport.1, 0.0);
         Self {
             origin: (ox, oy),
             size: (sx, sy),
@@ -336,8 +353,8 @@ mod tests {
         assert!(ring[3].x < 0.0, "left");
     }
 
-    /// The view can pan exactly 25 % of the drawn map past each edge, at any
-    /// zoom, when the map is bigger than the viewport.
+    /// The view can pan exactly 25 % of the drawn map past the top and bottom
+    /// edges, and that plus half a viewport past the side edges, at any zoom.
     #[test]
     fn the_pan_margin_is_a_quarter_of_the_drawn_map() {
         let bounds = Bounds {
@@ -346,34 +363,67 @@ mod tests {
             max_x: 300.0,
             max_y: 150.0,
         };
+        let view = (100.0, 100.0);
+        let extra_x = HORIZONTAL_PAN_VIEWPORT_FRACTION * view.0;
         for zoom in [1.0, 2.0, 3.5] {
-            let c = CanvasLayout::new(bounds, zoom, (100.0, 100.0));
+            let c = CanvasLayout::new(bounds, zoom, view);
             let (w, h) = (400.0 * zoom, 200.0 * zoom);
-            assert!((c.size.0 - 1.5 * w).abs() < 1e-9, "width at zoom {zoom}");
+            // Vertically: exactly a quarter of the drawn map on each side.
             assert!((c.size.1 - 1.5 * h).abs() < 1e-9, "height at zoom {zoom}");
-            // The map's top-left corner is a quarter of its size in.
+            // Horizontally: a quarter of the map plus half a viewport.
+            assert!(
+                (c.size.0 - (1.5 * w + 2.0 * extra_x)).abs() < 1e-9,
+                "width at zoom {zoom}"
+            );
             let (x, y) = c.to_canvas(Point::new(bounds.min_x, bounds.min_y));
-            assert!((x - 0.25 * w).abs() < 1e-9 && (y - 0.25 * h).abs() < 1e-9);
+            assert!((x - (0.25 * w + extra_x)).abs() < 1e-9 && (y - 0.25 * h).abs() < 1e-9);
         }
     }
 
-    /// A map smaller than the viewport is centred, with nothing to scroll.
+    /// At the Fit zoom the map fills the viewport's height and is narrower
+    /// than its width, which used to leave nothing to scroll sideways. Now
+    /// either side edge of the map can be panned to the middle of the screen
+    /// (maintainer direction, 2026-09-22).
     #[test]
-    fn a_small_map_is_centred_without_scrolling() {
+    fn at_fit_either_side_edge_can_reach_the_middle_of_the_screen() {
+        let bounds = star_bounds(true, &star_positions(9));
+        let view = (1600.0, 700.0);
+        let c = CanvasLayout::new(bounds, fit_zoom(bounds, view), view);
+        assert!(c.size.0 > view.0, "there is room to scroll sideways");
+        let max_offset = c.size.0 - view.0;
+        let (left, _) = c.to_canvas(Point::new(bounds.min_x, 0.0));
+        let (right, _) = c.to_canvas(Point::new(bounds.max_x, 0.0));
+        // Scrolled fully left, the map's left edge is at or right of the
+        // middle; scrolled fully right, its right edge at or left of it.
+        assert!(left >= 0.5 * view.0 - 1e-9, "left edge reaches {left}");
+        assert!(
+            right - max_offset <= 0.5 * view.0 + 1e-9,
+            "right edge reaches {}",
+            right - max_offset
+        );
+    }
+
+    /// A map much smaller than the viewport is centred; it pans sideways
+    /// (the horizontal room) but not vertically.
+    #[test]
+    fn a_small_map_is_centred_and_pans_only_sideways() {
         let bounds = Bounds {
             min_x: 0.0,
             min_y: 0.0,
             max_x: 100.0,
             max_y: 40.0,
         };
-        let c = CanvasLayout::new(bounds, 1.0, (1000.0, 600.0));
-        assert_eq!(c.size, (1000.0, 600.0));
+        let view = (1000.0, 600.0);
+        let c = CanvasLayout::new(bounds, 1.0, view);
+        assert_eq!(c.size.1, 600.0, "nothing to scroll vertically");
+        assert!(c.size.0 > 1000.0, "room to pan sideways");
+        let (ox, oy) = c.offset_centring(bounds.centre(), view);
         let (x, y) = c.to_canvas(bounds.centre());
-        assert!((x - 500.0).abs() < 1e-9 && (y - 300.0).abs() < 1e-9);
-        assert_eq!(
-            c.offset_centring(bounds.centre(), (1000.0, 600.0)),
-            (0.0, 0.0)
+        assert!(
+            (x - ox - 500.0).abs() < 1e-9 && (y - oy - 300.0).abs() < 1e-9,
+            "centred"
         );
+        assert_eq!(oy, 0.0);
     }
 
     /// Canvas and world coordinates are inverses, and centring a point puts

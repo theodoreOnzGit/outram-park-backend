@@ -24,7 +24,8 @@
 //! centre, and dragging any card but the centre pins it there for that star,
 //! until "Unpin" or "Unpin all" (#246). It sits on a two-axis `ScrollArea`
 //! (drag or scroll to pan) whose canvas stops 25 % of the map's own size past
-//! each edge ([`crate::mindmap_view::CanvasLayout`]); −, +, Fit, 100 % and
+//! each edge, plus half a viewport width sideways
+//! ([`crate::mindmap_view::CanvasLayout`]); −, +, Fit, 100 % and
 //! Re-centre buttons and Ctrl + scroll set the zoom, which redraws the cards
 //! at scale (text included) and keeps the middle of the view fixed. Moving to
 //! another concept re-centres. **KOVAN stays the sole data model:** the star
