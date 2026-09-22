@@ -57,6 +57,7 @@
 //! | One-group scalar flux | neutrons / (cm²·s) |
 //! | One-group microscopic cross section | barn |
 
+pub mod integrators;
 pub mod matrix;
 pub mod cram;
 pub mod chain;
