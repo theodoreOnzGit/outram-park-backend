@@ -43,7 +43,7 @@
 use crate::rng::lcg::prn;
 
 /// Variance-reduction settings for a run. All-off is analog.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VarianceReduction {
     /// Implicit capture: reduce weight by the absorption probability instead of
     /// killing the particle. `settings::survival_biasing`.
@@ -57,6 +57,13 @@ pub struct VarianceReduction {
     /// Scale the cutoff and survival weight by the particle's **birth** weight
     /// rather than using them absolutely. `settings::survival_normalization`.
     pub survival_normalization: bool,
+    /// Mesh weight windows, applied at the surface-crossing and collision
+    /// checkpoints. `None` plays no window game, which is the default.
+    ///
+    /// `Arc` rather than an owned value: the bounds are one array shared by
+    /// every history in a run and must not be cloned per particle. Read-only
+    /// data is `Arc<T>` per the workspace Rust rules.
+    pub weight_windows: Option<std::sync::Arc<crate::physics::weight_windows::WeightWindows>>,
 }
 
 impl Default for VarianceReduction {
@@ -72,14 +79,27 @@ impl Default for VarianceReduction {
             weight_cutoff: 0.25,
             weight_survive: 1.0,
             survival_normalization: false,
+            weight_windows: None,
         }
     }
 }
 
 impl VarianceReduction {
     /// Is this an analog run — nothing to do, take the untouched path?
+    ///
+    /// Weight windows count: a run that splits and rouletted at the
+    /// checkpoints is not analog, whatever `survival_biasing` says.
     pub fn is_analog(&self) -> bool {
-        !self.survival_biasing
+        !self.survival_biasing && self.weight_windows.is_none()
+    }
+
+    /// Attach mesh weight windows.
+    pub fn with_weight_windows(
+        mut self,
+        ww: crate::physics::weight_windows::WeightWindows,
+    ) -> Self {
+        self.weight_windows = Some(std::sync::Arc::new(ww));
+        self
     }
 
     /// Reject configurations that cannot do what they appear to.

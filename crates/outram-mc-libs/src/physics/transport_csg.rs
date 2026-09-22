@@ -68,6 +68,10 @@ use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
     free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
+use crate::physics::weight_windows::{apply as apply_window, WindowOutcome, WindowState};
+use crate::physics::variance_reduction::{
+    russian_roulette, survival_bias_absorption, VarianceReduction,
+};
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::{future_seed, prn};
 use crate::tally::scoring::{
@@ -476,7 +480,7 @@ pub fn run_keff_csg_seq(
                 &[]
             };
             for site in &source {
-                let outcome = transport_history(
+                let outcome = transport_history_vr(
                     *site,
                     geom,
                     materials,
@@ -490,6 +494,7 @@ pub fn run_keff_csg_seq(
                     &mut batch,
                     leak_edges_gen,
                     &mut leak_batch,
+                    &settings.variance_reduction,
                 );
                 production += outcome.production;
                 virtual_run_total += outcome.virtual_collisions;
@@ -970,6 +975,54 @@ pub(crate) fn transport_history(
     geom: &Geometry,
     materials: &[Material],
     nuclides: &[Nuclide],
+    majorants: &[Majorant],
+    temp: f64,
+    k_running: f64,
+    next_bank: &mut Vec<Site>,
+    seed: &mut u64,
+    tally: Option<&Tally>,
+    batch: &mut [f64],
+    leak_edges: &[f64],
+    leak_batch: &mut [f64],
+) -> HistoryOutcome {
+    // Analog. Delegating rather than duplicating is what makes "analog is
+    // untouched" checkable instead of merely claimed: there is one history
+    // loop, and `ANALOG.is_analog()` is true, so every branch this change adds
+    // is skipped. `tests/variance_reduction_is_bit_identical_when_analog.rs`
+    // pins that at the eigenvalue.
+    let analog = VarianceReduction {
+        survival_biasing: false,
+        weight_cutoff: 0.25,
+        weight_survive: 1.0,
+        survival_normalization: false,
+        weight_windows: None,
+    };
+    debug_assert!(analog.is_analog());
+    transport_history_vr(
+        site, geom, materials, nuclides, majorants, temp, k_running, next_bank, seed, tally,
+        batch, leak_edges, leak_batch, &analog,
+    )
+}
+
+/// [`transport_history`] with an explicit variance-reduction configuration.
+///
+/// GitHub #258. With [`VarianceReduction::is_analog`] true this is the analog
+/// kernel, unchanged and consuming the RNG stream in exactly the same order —
+/// that is the property the whole crate's recorded V&V rests on, so it is
+/// pinned by a test rather than asserted here.
+///
+/// With survival biasing on the structure follows
+/// `sample_neutron_reaction` (`src/physics.cpp`) at OpenMC `afa7a14`:
+/// fission sites are banked from `w/k · νΣ_f/Σ_t` **whether or not** the
+/// collision "is" a fission, the weight is then reduced by `Σ_a/Σ_t` rather
+/// than the particle being killed, the outgoing reaction is drawn from the
+/// scattering channels alone, and Russian roulette is played last.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn transport_history_vr(
+    site: Site,
+    geom: &Geometry,
+    materials: &[Material],
+    nuclides: &[Nuclide],
     // Majorants indexed by `TrackingMethod::Delta`. EMPTY when no region
     // declares delta tracking, which is every model predating bn:op-867c --
     // and that is what makes this change bit-identical for all of them.
@@ -982,6 +1035,7 @@ pub(crate) fn transport_history(
     batch: &mut [f64],
     leak_edges: &[f64],
     leak_batch: &mut [f64],
+    vr: &VarianceReduction,
 ) -> HistoryOutcome {
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
@@ -1004,20 +1058,103 @@ pub(crate) fn transport_history(
     let mut neg_from_lattice: u64 = 0;
     let mut neg_from_surface: u64 = 0;
     const NUDGE: f64 = 1.0e-9;
+    /// Jump-ahead distance between a weight-window split child's stream and
+    /// its parent's. `DEFAULT_STRIDE` is the per-particle stride the crate
+    /// already uses to separate history streams (`rng::lcg::init_seed`), so a
+    /// split child is as independent of its parent as two source particles
+    /// are of each other.
+    const SPLIT_STRIDE: u64 = crate::rng::lcg::DEFAULT_STRIDE;
     let mut production = 0.0;
-    let mut stack: Vec<Site> = vec![site];
+    // (site, weight, optional own RNG stream). `None` continues the shared
+    // stream, which is what every secondary before #258 did and is what keeps
+    // an analog run bit-identical. `Some` is used ONLY for weight-window split
+    // children, which get a disjoint sub-stream by `future_seed` jump-ahead —
+    // `CLAUDE.md`'s `op-rbo` lesson is that a quoted sigma is only meaningful
+    // if the streams behind it are independent, and a split is the one place
+    // in this loop that creates a genuinely new particle rather than
+    // continuing an existing one.
+    let mut stack: Vec<(Site, f64, Option<u64>)> = vec![(site, 1.0, None)];
 
     // Safety cap on events per history: a particle in a purely-scattering
     // reflective medium with vanishing absorption could otherwise bounce forever.
     // 100k events is far beyond any physical history (mean ~tens of collisions).
     const MAX_EVENTS: u32 = 100_000;
 
-    while let Some(start) = stack.pop() {
+    while let Some((start, start_wgt, own_seed)) = stack.pop() {
+        // A split child transports on its own stream; everything else
+        // continues the shared one, exactly as before #258.
+        let mut owned_seed = own_seed.unwrap_or(0);
+        let seed: &mut u64 = match own_seed {
+            Some(_) => &mut owned_seed,
+            None => &mut *seed,
+        };
         let mut r = start.r;
         let mut u = start.u;
         let mut e = start.e;
         let mut on_surface = SurfaceToken::NONE;
         let mut events = 0u32;
+        // Statistical weight. Fission sites are always born at 1 (upstream
+        // `create_fission_sites`: `site.wgt = 1./weight`, and `weight` is 1
+        // without uniform-fission-source weighting), so the weight is a
+        // within-history quantity and never needs storing on a `Site`.
+        // Under analog transport it stays exactly 1.0 and every `w` below is
+        // the literal 1.0 the analog kernel passed before this change.
+        let mut w = start_wgt;
+        // Birth weight, for `survival_normalization` and for the weight
+        // window's birth renormalisation.
+        let w_birth = w;
+        // Weight-window bookkeeping that persists across this sub-history's
+        // checkpoints (`wgt_ww_born`, `ww_factor`, `n_split` upstream).
+        let mut ww_state = WindowState {
+            weight_born: w_birth,
+            ..WindowState::default()
+        };
+
+        /// One weight-window checkpoint. Upstream has two,
+        /// `weight_window_checkpoint_surface` and
+        /// `weight_window_checkpoint_collision`; both call the same routine,
+        /// so this is written once and invoked at both places.
+        ///
+        /// `$kill` is what to do when the game kills the particle — the two
+        /// call sites sit at different points in the loop and need different
+        /// control flow.
+        macro_rules! weight_window_checkpoint {
+            ($kill:expr) => {
+                if let Some(ww) = vr.weight_windows.as_ref() {
+                    if let Some(window) = ww.look_up(r, e) {
+                        match apply_window(window, &mut ww_state, w, seed) {
+                            WindowOutcome::Unchanged => {}
+                            WindowOutcome::Killed => {
+                                // A rouletted particle is not a leak and not an
+                                // absorption; it is an estimator decision, and
+                                // scoring it anywhere would double-count the
+                                // weight the survivors already carry.
+                                $kill
+                            }
+                            WindowOutcome::Survived { weight } => w = weight,
+                            WindowOutcome::Split { copies, weight } => {
+                                // `copies - 1` new particles, each on its own
+                                // jumped-ahead stream; this one carries the
+                                // last share. Total weight is conserved
+                                // exactly - pinned by
+                                // `splitting_conserves_total_weight`.
+                                let mut child_seed = *seed;
+                                for _ in 1..copies {
+                                    child_seed =
+                                        crate::rng::lcg::future_seed(SPLIT_STRIDE, child_seed);
+                                    stack.push((
+                                        Site { r, u, e },
+                                        weight,
+                                        Some(child_seed),
+                                    ));
+                                }
+                                w = weight;
+                            }
+                        }
+                    }
+                }
+            };
+        }
 
         'history: loop {
             events += 1;
@@ -1028,7 +1165,7 @@ pub(crate) fn transport_history(
                 stuck_events += 1;
                 stuck_path_cm += path_cm;
                 stuck_last_e = e;
-                score_leak(leak_batch, leak_edges, e, 1.0);
+                score_leak(leak_batch, leak_edges, e, w);
                 break 'history;
             }
             // Locate: which cell/material are we in?
@@ -1036,7 +1173,7 @@ pub(crate) fn transport_history(
                 lost_locate += 1;
                 // Lost the particle (numerical edge case) — treat as a leak at
                 // last-known energy, same reasoning as the MAX_EVENTS arm.
-                score_leak(leak_batch, leak_edges, e, 1.0);
+                score_leak(leak_batch, leak_edges, e, w);
                 break 'history;
             };
             let leaf = *path.leaf();
@@ -1091,7 +1228,7 @@ pub(crate) fn transport_history(
                         // supply. Leaking is the honest failure: delta tracking
                         // with no bound would silently bias, and falling back to
                         // surface tracking would silently change the method.
-                        score_leak(leak_batch, leak_edges, e, 1.0);
+                        score_leak(leak_batch, leak_edges, e, w);
                         break 'history;
                     };
                     // The region's OWN extent, not the nearest surface -- a bed
@@ -1145,7 +1282,7 @@ pub(crate) fn transport_history(
                             virtual_collisions: v,
                         } => {
                             virtual_collisions += u64::from(v);
-                            score_leak(leak_batch, leak_edges, e, 1.0);
+                            score_leak(leak_batch, leak_edges, e, w);
                             break 'history;
                         }
                     }
@@ -1176,7 +1313,7 @@ pub(crate) fn transport_history(
                         let mid = stream(r, u, 0.5 * seg);
                         score_track_length(
                             batch, t, cell_idx, mat_idx, leaf.universe, e, seg, mid,
-                            mxs.as_ref(), 1.0,
+                            mxs.as_ref(), w,
                         );
                     }
                     // ── Delta tracking: COLLISION estimator ────────────────
@@ -1235,7 +1372,7 @@ pub(crate) fn transport_history(
                                         1.0 / mxs.total,
                                         at,
                                         Some(&mxs),
-                                        1.0,
+                                        w,
                                     );
                                 }
                             }
@@ -1289,7 +1426,80 @@ pub(crate) fn transport_history(
                 } else {
                     nuc.xs_at_energy(e, mat_temp)
                 };
-                let xi = prn(seed) * x.total;
+                // ── The reaction draw ─────────────────────────────────
+                //
+                // Analog: `xi = prn * Sigma_t`, and the ladder below decides
+                // fission / capture / scatter, exactly as before #258.
+                //
+                // Survival biasing: fission sites are banked from the expected
+                // production whether or not this collision "is" a fission, the
+                // weight is reduced by the absorption probability instead of
+                // the particle being killed, and the reaction is drawn from
+                // the SCATTERING channels alone —
+                // `sample_neutron_reaction` (`src/physics.cpp`) at `afa7a14`.
+                // Offsetting the draw by `x.absorption` puts it past every
+                // absorption threshold, so the **same** ladder serves both
+                // paths and the fission/capture arms are simply unreachable
+                // rather than duplicated with different bounds.
+                let xi = if vr.survival_biasing {
+                    if x.nu_fission > 0.0 && x.total > 0.0 {
+                        // `create_fission_sites`: nu_t = wgt/keff * nuSigma_f/Sigma_t.
+                        let nu_t = w * x.nu_fission / (k_running * x.total);
+                        production += w * x.nu_fission / x.total;
+                        let mut n = nu_t as usize;
+                        if prn(seed) <= nu_t - n as f64 {
+                            n += 1;
+                        }
+                        for _ in 0..n {
+                            let (dx, dy, dz) = isotropic_direction(seed);
+                            let e_born = nuc.sample_fission_energy(e, seed);
+                            if let Some(t) = tally {
+                                score_fission_birth(
+                                    batch, t, cell_idx, m, leaf.universe, e, e_born, r, w,
+                                );
+                            }
+                            next_bank.push(Site {
+                                r,
+                                u: Direction::new(dx, dy, dz),
+                                e: e_born,
+                            });
+                        }
+                    }
+
+                    // `absorption()`: w -= w * Sigma_a / Sigma_t.
+                    let (w_new, _absorbed) =
+                        survival_bias_absorption(w, x.absorption, x.total);
+                    w = w_new;
+
+                    // Roulette on the reduced weight. Killing here is correct
+                    // and is NOT the analog kill: the expected weight is
+                    // preserved by the promotion, which
+                    // `physics::variance_reduction` pins with its own test.
+                    let (cutoff, survive) = if vr.survival_normalization {
+                        (vr.weight_cutoff * w_birth, vr.weight_survive * w_birth)
+                    } else {
+                        (vr.weight_cutoff, vr.weight_survive)
+                    };
+                    if w < cutoff {
+                        w = russian_roulette(w, survive, seed);
+                        if w == 0.0 {
+                            break 'history;
+                        }
+                    }
+
+                    // Draw the outgoing reaction from the SCATTERING channels
+                    // only. Offsetting by `x.absorption` lands past every
+                    // absorption threshold, so the ladder below is reused
+                    // unchanged rather than duplicated with different bounds.
+                    let scatter_xs = (x.total - x.absorption).max(0.0);
+                    if scatter_xs <= 0.0 {
+                        break 'history; // pure absorber: nothing left to scatter
+                    }
+                    x.absorption + prn(seed) * scatter_xs
+                } else {
+                    prn(seed) * x.total
+                };
+
                 if xi < x.fission {
                     let nu_bar = if x.fission > 0.0 {
                         x.nu_fission / x.fission
@@ -1314,7 +1524,7 @@ pub(crate) fn transport_history(
                                 e,
                                 e_born,
                                 r,
-                                1.0,
+                                w,
                             );
                         }
                         next_bank.push(Site {
@@ -1350,7 +1560,7 @@ pub(crate) fn transport_history(
                     // short: inelastic is where a fast neutron loses most of its
                     // energy on a heavy nuclide.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
                     }
                     e = e2;
                     u = u2;
@@ -1377,17 +1587,23 @@ pub(crate) fn transport_history(
                     // (`Nuclide::with_unit_n2n_multiplicity`) leaves both arms'
                     // RNG streams in exact lockstep.
                     if nuc.emits_n2n_secondary() {
-                        stack.push(Site {
-                            r,
-                            u: sec_u2,
-                            e: sec_e2,
-                        });
+                        // Secondary from the same collision: continues the
+                        // shared stream at its current position, as before.
+                        stack.push((
+                            Site {
+                                r,
+                                u: sec_u2,
+                                e: sec_e2,
+                            },
+                            w,
+                            None,
+                        ));
                     }
                     // Multiplicity counts: this is a NU-scatter matrix, so every
                     // neutron actually emitted scores its own (E_in, E_out). The
                     // secondary is scored only when emitted, matching its gate.
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
                         if nuc.emits_n2n_secondary() {
                             score_scatter_matrix(
                                 batch,
@@ -1398,7 +1614,7 @@ pub(crate) fn transport_history(
                                 e,
                                 sec_e2,
                                 r,
-                                1.0,
+                                w,
                             );
                         }
                     }
@@ -1426,7 +1642,7 @@ pub(crate) fn transport_history(
                             (e2, u2)
                         };
                         if nuc.emits_n2n_secondary() {
-                            stack.push(Site { r, u: su, e: se });
+                            stack.push((Site { r, u: su, e: se }, w, None));
                             if let Some(t) = tally {
                                 score_scatter_matrix(
                                     batch,
@@ -1437,13 +1653,13 @@ pub(crate) fn transport_history(
                                     e,
                                     se,
                                     r,
-                                    1.0,
+                                    w,
                                 );
                             }
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
                     }
                     e = e2;
                     u = u2;
@@ -1474,7 +1690,7 @@ pub(crate) fn transport_history(
                         break;
                     }
                     for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
-                        stack.push(Site { r, u: *su, e: *se });
+                        stack.push((Site { r, u: *su, e: *se }, w, None));
                         if let Some(t) = tally {
                             score_scatter_matrix(
                                 batch,
@@ -1485,12 +1701,12 @@ pub(crate) fn transport_history(
                                 e,
                                 *se,
                                 r,
-                                1.0,
+                                w,
                             );
                         }
                     }
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
                     }
                     e = e2;
                     u = u2;
@@ -1534,11 +1750,16 @@ pub(crate) fn transport_history(
                     // is left to the track-length estimator (see
                     // `score_scatter_matrix`).
                     if let Some(t) = tally {
-                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, 1.0);
+                        score_scatter_matrix(batch, t, cell_idx, m, leaf.universe, e, e2, r, w);
                     }
                     e = e2;
                     u = u2;
                 }
+                // `weight_window_checkpoint_collision` — AFTER the outgoing
+                // energy is set, because the window is resolved in energy and
+                // the particle's importance is that of where it is going, not
+                // where it came from.
+                weight_window_checkpoint!(break 'history);
             } else {
                 // ── Boundary crossing ──────────────────────────────────────
                 path_cm += d_bound.distance;
@@ -1551,7 +1772,7 @@ pub(crate) fn transport_history(
                             // Vacuum leak — `e` is the true escape energy
                             // (unchanged since the last collision).
                             leak_vacuum += 1;
-                            score_leak(leak_batch, leak_edges, e, 1.0);
+                            score_leak(leak_batch, leak_edges, e, w);
                             break 'history;
                         }
                         r = crossed.r;
@@ -1560,6 +1781,8 @@ pub(crate) fn transport_history(
                         // so the next `locate` cannot re-select the cell it just
                         // left (GitHub #168 — see `Geometry::cross_surface`).
                         on_surface = crossed.on_surface;
+                        // `weight_window_checkpoint_surface`.
+                        weight_window_checkpoint!(break 'history);
                     }
                     Crossing::Lattice => {
                         r = stream(r, u, NUDGE); // step into the next tile, re-locate
@@ -1568,7 +1791,7 @@ pub(crate) fn transport_history(
                     Crossing::None => {
                         // Streamed to infinity — a leak at the true escape energy.
                         leak_infinity += 1;
-                        score_leak(leak_batch, leak_edges, e, 1.0);
+                        score_leak(leak_batch, leak_edges, e, w);
                         break 'history;
                     }
                 }

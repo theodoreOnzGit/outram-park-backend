@@ -51,6 +51,7 @@ pub mod transport_csg;
 pub mod particle_restart;
 pub mod scattdata;
 pub mod variance_reduction;
+pub mod weight_windows;
 pub mod fixed_source;
 pub mod scatter;
 pub mod fission;

@@ -29,7 +29,7 @@ use crate::geometry::geometry::Geometry;
 use crate::geometry::position::{Direction, Position};
 use crate::material::material::Material;
 use crate::material::nuclide::Nuclide;
-use crate::physics::transport_csg::{transport_history, Site};
+use crate::physics::transport_csg::{transport_history_vr, Site};
 use crate::rng::distributions::isotropic_direction;
 use crate::rng::lcg::prn;
 use crate::tally::scoring::flush_batch;
@@ -84,7 +84,9 @@ impl FixedSource {
 }
 
 /// Settings for a fixed-source run.
-#[derive(Debug, Clone, Copy)]
+/// Not `Copy`: since GitHub #258 this carries an optional `Arc` to a weight
+/// window set. Clone it explicitly where a copy was previously implicit.
+#[derive(Debug, Clone)]
 pub struct FixedSourceSettings {
     /// Number of source particles to sample and transport.
     pub n_particles: usize,
@@ -100,11 +102,19 @@ pub struct FixedSourceSettings {
     /// backstop against runaway multiplication if a (mis-specified)
     /// super-critical system is run as a fixed source.
     pub max_secondaries: usize,
+    /// Variance reduction (GitHub #258). The [`Default`] is analog.
+    ///
+    /// A fixed-source shielding run is the case variance reduction exists for:
+    /// analog histories die long before reaching a detector behind a shield,
+    /// so the attenuated tally never converges. That is why this field is here
+    /// and not only on [`crate::physics::keff::KeffSettings`].
+    pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
 }
 
 impl Default for FixedSourceSettings {
     fn default() -> Self {
         Self {
+            variance_reduction: Default::default(),
             n_particles: 10_000,
             n_batches: 20,
             temperature_k: 293.6,
@@ -196,7 +206,7 @@ pub fn run_fixed_source(
                 total_histories += 1;
                 let mut next: Vec<Site> = Vec::new();
                 // k_running = 1.0: analog multiplicity (no eigenvalue normalization).
-                let prod = transport_history(
+                let prod = transport_history_vr(
                     site,
                     geom,
                     materials,
@@ -214,6 +224,7 @@ pub fn run_fixed_source(
                     // tally, a separate feature. Pass the disabled sink.
                     &[],
                     &mut [],
+                    &settings.variance_reduction,
                 );
                 production_sum += prod.production;
                 for s in next {

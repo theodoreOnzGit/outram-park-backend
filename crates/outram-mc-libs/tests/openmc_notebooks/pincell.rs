@@ -907,7 +907,7 @@ fn csg_multithread_agrees_with_single_thread() {
         src,
         &KeffSettings {
             compute: ComputeType::CpuSingleThread,
-            ..base
+            ..base.clone()
         },
         None,
     );
@@ -918,7 +918,7 @@ fn csg_multithread_agrees_with_single_thread() {
         src,
         &KeffSettings {
             compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(1)),
-            ..base
+            ..base.clone()
         },
         None,
     );
@@ -929,7 +929,7 @@ fn csg_multithread_agrees_with_single_thread() {
         src,
         &KeffSettings {
             compute: ComputeType::CpuMultiThread(ThreadCount::Fixed(4)),
-            ..base
+            ..base.clone()
         },
         None,
     );
