@@ -324,6 +324,59 @@ pub fn library_candidates(
         }
     }
 
+    // The **built-in corpus** (maintainer, 2026-09-22): its topics and its
+    // literature are nodes too, and a connection may legitimately point at
+    // one. Searching only the user's own folder meant that with a small
+    // library the finder looked almost empty, and the nuclear-engineering
+    // map you can see on screen was unreachable from it.
+    //
+    // These are namespaced `Namespace::Corpus` through `CorpusTopic::id` /
+    // `CorpusLiterature::id`, so they cannot collide with a user node of the
+    // same path, and the detail text says which is which.
+    if want(CandidateKind::Topic) {
+        for topic in crate::corpus::TOPICS {
+            if !matches_query(query, &[topic.path, topic.title]) {
+                continue;
+            }
+            out.push(LibraryCandidate {
+                kind: CandidateKind::Topic,
+                node: topic.id().to_string(),
+                candidate: Candidate {
+                    label: topic.title.to_string(),
+                    insert_text: topic.path.to_string(),
+                    detail: "corpus topic".to_string(),
+                },
+            });
+        }
+    }
+
+    if want(CandidateKind::Paper) {
+        for lit in crate::corpus::LITERATURE {
+            if !matches_query(query, &[lit.id, lit.title]) {
+                continue;
+            }
+            let year = lit.year.map(|y| y.to_string()).unwrap_or_default();
+            let author = lit.authors.first().copied().unwrap_or_default();
+            out.push(LibraryCandidate {
+                kind: CandidateKind::Paper,
+                node: crate::node_id::NodeId::literature(
+                    crate::node_id::Namespace::Corpus,
+                    lit.id,
+                )
+                .to_string(),
+                candidate: Candidate {
+                    label: lit.title.to_string(),
+                    insert_text: lit.id.to_string(),
+                    detail: [String::from("corpus literature"), author.to_string(), year]
+                        .into_iter()
+                        .filter(|s| !s.is_empty())
+                        .collect::<Vec<_>>()
+                        .join(" \u{2014} "),
+                },
+            });
+        }
+    }
+
     if want(CandidateKind::Artifact) {
         for paper in &index.papers {
             let Ok(text) = std::fs::read_to_string(root.paper_markdown(&paper.citekey)) else {
@@ -593,13 +646,43 @@ mod tests {
         }
     }
 
+    /// An empty query lists the user's whole library **and** the built-in
+    /// corpus (maintainer, 2026-09-22: the connection finder "needs to fuzzy
+    /// find across the entire kovan corpus", not only the open folder).
+    ///
+    /// Asserted as containment rather than an exact count: the corpus grows
+    /// whenever `corpus.rs` gains an entry, and a count here would turn every
+    /// such addition into an unrelated test failure. The library side is
+    /// still exact, since that comes from this test's own fixture.
     #[test]
-    fn library_candidates_empty_query_lists_everything_no_match_query_is_empty() {
+    fn library_candidates_empty_query_lists_the_library_and_the_corpus() {
         let (_dir, root, index) = make_library();
 
         let all = library_candidates(&root, &index, "", &[]);
-        // 2 papers + 1 topic + 1 project + 2 artifacts = 6.
-        assert_eq!(all.len(), 6, "{all:?}");
+        let nodes: Vec<&str> = all.iter().map(|c| c.node.as_str()).collect();
+
+        // The fixture's own 2 papers + 1 topic + 1 project + 2 artifacts.
+        for expected in [
+            "paper:lee2020corrosion",
+            "paper:wang2018multiphysics",
+            "collection:htgrs",
+            "collection:reactor-vessel",
+            "artifact:lee2020corrosion#corrosion-rate",
+            "artifact:wang2018multiphysics#conduction-coeff",
+        ] {
+            assert!(nodes.contains(&expected), "missing {expected}: {nodes:?}");
+        }
+
+        // And the corpus, in its own namespace so it cannot collide with a
+        // user node of the same path.
+        assert!(
+            nodes.iter().any(|n| n.starts_with("corpus:concept/")),
+            "no corpus topic offered: {nodes:?}"
+        );
+        assert!(
+            nodes.iter().any(|n| n.starts_with("corpus:literature/")),
+            "no corpus literature offered: {nodes:?}"
+        );
 
         assert!(library_candidates(&root, &index, "nonexistentxyz123", &[]).is_empty());
     }

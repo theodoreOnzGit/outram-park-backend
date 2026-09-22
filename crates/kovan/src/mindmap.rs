@@ -400,38 +400,37 @@ fn create_subtopic(
     config.save(&dir).map_err(|e| e.to_string())
 }
 
-/// The "Add subtopic" entry of a right-click menu: a button that opens a
-/// name field for a subtopic under `parent` (shown as `parent_label`), and a
-/// Create button that requests it. `parent` is a library concept path (`""`
-/// for the top of the user's library). The half-typed name lives in
-/// `draft`, which the page keeps between frames.
+/// The "Add subtopic" entry of a right-click menu: a button that arms
+/// `draft` for a subtopic under `parent` (shown as `parent_label`) and
+/// closes the menu. `parent` is a library concept path (`""` for the top of
+/// the user's library). The half-typed name lives in `draft`, which the page
+/// keeps between frames.
+///
+/// **The name is NOT typed here (fixed 2026-09-22).** This used to host the
+/// text field and a Create button inside the context menu itself, and the
+/// maintainer reported that "the box refuses to let me add topic": a
+/// `TextEdit` inside an egui context menu does not reliably keep focus —
+/// interacting with it can dismiss the menu that owns it, so the field
+/// cannot be typed into. The entry now only *arms* the draft;
+/// [`MindmapState::subtopic_dialog_ui`] draws a real window where the name
+/// can actually be entered, which is also how every other text entry in this
+/// app already works (the sort dialog, the connection dialogs).
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 fn subtopic_menu_item(
     ui: &mut egui::Ui,
     parent: &str,
     parent_label: &str,
     draft: &mut Option<(String, String)>,
-    request: &mut Option<(String, String)>,
 ) {
-    match draft {
-        Some((target, text)) if target == parent => {
-            ui.label(format!("New subtopic under {parent_label}:"));
-            ui.horizontal(|ui| {
-                ui.text_edit_singleline(text);
-                if ui.button("Create").clicked() {
-                    *request = Some((parent.to_string(), text.clone()));
-                    ui.close();
-                }
-            });
-            if request.is_some() {
-                *draft = None;
-            }
-        }
-        _ => {
-            if ui.button("Add subtopic here…").clicked() {
-                *draft = Some((parent.to_string(), String::new()));
-            }
-        }
+    if ui
+        .button("Add subtopic here\u{2026}")
+        .on_hover_text(format!("a new subtopic under {parent_label}"))
+        .clicked()
+    {
+        *draft = Some((parent.to_string(), String::new()));
+        // Close the menu: the name is typed in the dialog
+        // ([`MindmapState::subtopic_dialog_ui`]), not here.
+        ui.close();
     }
 }
 
@@ -985,7 +984,6 @@ impl MindmapState {
         let mut toggled: Option<NodeId> = None;
         let mut pin_moves: Vec<((String, String), Point)> = Vec::new();
         let mut unpin = None;
-        let mut create_subtopic_req = None;
         let mut draft = self.subtopic_draft.take();
         let selected = self.selected.clone();
         let pinned = &self.pinned;
@@ -1000,7 +998,7 @@ impl MindmapState {
             }
             if let Some((parent, label)) = &canvas_subtopic_parent {
                 background.context_menu(|ui| {
-                    subtopic_menu_item(ui, parent, label, &mut draft, &mut create_subtopic_req);
+                    subtopic_menu_item(ui, parent, label, &mut draft);
                 });
             }
 
@@ -1171,7 +1169,6 @@ impl MindmapState {
                             &concept.id.path,
                             &concept.title,
                             &mut draft,
-                            &mut create_subtopic_req,
                         );
                     }
                     if is_pinned && ui.button("Unpin").clicked() {
@@ -1218,6 +1215,9 @@ impl MindmapState {
                 self.expanded.insert(id);
             }
         }
+        // The dialog is the only source of a create request now: the menu
+        // entry only arms the draft (see `subtopic_menu_item`).
+        let create_subtopic_req = self.subtopic_dialog_ui(ui);
         if let (Some((parent, name)), Some(root), Some(index)) = (create_subtopic_req, root, index)
         {
             match create_subtopic(root, index, &parent, &name) {
@@ -1248,6 +1248,62 @@ impl MindmapState {
         }
 
         action
+    }
+
+    /// The "new subtopic" dialog, shown while a subtopic draft is armed.
+    ///
+    /// A real window rather than an entry inside the right-click menu, for
+    /// the focus reason recorded on [`subtopic_menu_item`]. Returns
+    /// `Some((parent_path, name))` on the frame Create is pressed.
+    fn subtopic_dialog_ui(&mut self, ui: &mut egui::Ui) -> Option<(String, String)> {
+        let Some((parent, text)) = &mut self.subtopic_draft else {
+            return None;
+        };
+        let parent = parent.clone();
+        let mut request = None;
+        let mut cancel = false;
+        let under = if parent.is_empty() {
+            "the top of your library".to_string()
+        } else {
+            parent.clone()
+        };
+        egui::Window::new("New subtopic")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .show(ui.ctx(), |ui| {
+                ui.label(format!("Under {under}:"));
+                let field = ui.add(
+                    egui::TextEdit::singleline(text)
+                        .hint_text("name")
+                        .desired_width(280.0),
+                );
+                // Focus it on the frame the dialog appears, so the name can
+                // be typed without a click first.
+                if !field.has_focus() && text.is_empty() {
+                    field.request_focus();
+                }
+                let submitted =
+                    field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                ui.horizontal(|ui| {
+                    let named = !text.trim().is_empty();
+                    if (ui
+                        .add_enabled(named, egui::Button::new("Create"))
+                        .clicked()
+                        || (submitted && named))
+                        && named
+                    {
+                        request = Some((parent.clone(), text.clone()));
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        if request.is_some() || cancel {
+            self.subtopic_draft = None;
+        }
+        request
     }
 
     /// Whether the map has been drilled into the synthetic **Unsorted**
