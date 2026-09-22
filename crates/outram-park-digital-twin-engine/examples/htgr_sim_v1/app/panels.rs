@@ -549,9 +549,8 @@ pub fn draw_schematic_panel(
     // v1.1 replaced the v1 schematic (2026-09-22). The shared plant drawing
     // has no unit toggle yet, so `display_unit` is unused here for now.
     let _ = display_unit;
-    egui::ScrollArea::both()
-        .auto_shrink([false, false])
-        .show(ui, |ui| draw_plant_v1_1(ui, snapshot, tracers));
+    // The central panel already scrolls; the plant scales itself to fit it.
+    draw_plant_v1_1(ui, snapshot, tracers);
 }
 
 /// HTR-10 R-Z benchmark geometry panel body -- see [`crate::app::geometry_tab`].

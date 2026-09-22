@@ -95,12 +95,17 @@ pub struct SecondaryLoopView {
 ///
 /// Allocates one canvas for everything and draws inside a child area, so the
 /// routed pipes and placed widgets cannot push the surrounding layout around.
+///
+/// Returns the canvas rectangle it allocated. Every dimension of the layout is
+/// a fixed multiple of the reactor's vessel width, so a caller that wants the
+/// plant to fill a given space can divide that space by the returned size per
+/// unit vessel width and redraw at the matching scale.
 pub fn draw_htr10_plant(
     ui: &mut Ui,
     reactor: Htr10ReactorSchematic,
     make_sg: impl FnOnce(Vec2) -> Htr10SteamGeneratorVisual,
     secondary: &SecondaryLoopView,
-) {
+) -> Rect {
     let reactor_size = reactor.size();
     let vw = reactor.vessel_width();
     let vessel_h = vw / crate::components::htr10_reactor_schematic::DRAWN_ASPECT_RATIO;
@@ -279,4 +284,5 @@ pub fn draw_htr10_plant(
         min_t,
         max_t,
     ));
+    canvas
 }

@@ -402,11 +402,15 @@ const VOID: Color32 = Color32::from_rgb(28, 30, 34);
 const LABEL_BOX_GREY: Color32 = Color32::from_rgb(88, 90, 96);
 
 /// Label text size, points: 1.5x the original 9 pt (maintainer direction,
-/// 2026-09-22).
+/// 2026-09-22). This is the size at a drawn vessel width of
+/// [`LABEL_REFERENCE_VESSEL_WIDTH`]; labels scale with the drawing from there.
 const LABEL_FONT_SIZE: f32 = 13.5;
 
 /// Spacing between lines of a multi-line label, points.
 const LABEL_LINE_HEIGHT: f32 = 1.2 * LABEL_FONT_SIZE;
+/// Drawn vessel width, points, at which labels are [`LABEL_FONT_SIZE`]: the
+/// widget studio's default vessel width, where that size was chosen.
+pub const LABEL_REFERENCE_VESSEL_WIDTH: f32 = 220.0;
 const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 /// Append a **quarter** turn: a vertical at `from_x` swinging into a
 /// horizontal at `to_y`, heading toward `to_x`.
@@ -1042,19 +1046,37 @@ impl Htr10ReactorSchematic {
         temperature_colour(t, self.min_temp, self.max_temp)
     }
 
+    /// How much the labels are scaled: the drawn vessel width over
+    /// [`LABEL_REFERENCE_VESSEL_WIDTH`]. Labels (font, line spacing, box
+    /// padding and offsets) scale with the drawing, so they keep the same
+    /// proportion to the artwork at every zoom (maintainer direction,
+    /// 2026-09-22). A drawing scale, nothing physical.
+    fn label_scale(&self) -> f32 {
+        (self.size.x / LABEL_REFERENCE_VESSEL_WIDTH).max(0.05)
+    }
+
+    /// Label font at this drawing's scale.
+    fn label_font(&self) -> FontId {
+        FontId::proportional(LABEL_FONT_SIZE * self.label_scale())
+    }
+
+    /// Spacing between lines of a multi-line label at this drawing's scale.
+    fn label_line_height(&self) -> f32 {
+        LABEL_LINE_HEIGHT * self.label_scale()
+    }
+
     /// A label in a box: grey fill, internals-coloured edge, the text centred.
     /// Every boxed label on the widget uses this, so they all match
     /// (maintainer direction, 2026-09-22). The box grows to fit the text if
-    /// `rect` is thinner than the font, and widens to fit the text.
+    /// `rect` is thinner than the font, and widens to fit the text. Text and
+    /// padding scale with the drawing (see [`Self::label_scale`]), and so does
+    /// `rect`, so the whole box stays in proportion at any zoom.
     fn label_box(&self, painter: &Painter, rect: Rect, text: &str) {
+        let s = self.label_scale();
         // Wide enough for the text too, when labels are shown.
         let text_w = if self.show_labels {
             painter
-                .layout_no_wrap(
-                    text.to_owned(),
-                    FontId::proportional(LABEL_FONT_SIZE),
-                    LABEL,
-                )
+                .layout_no_wrap(text.to_owned(), self.label_font(), LABEL)
                 .size()
                 .x
         } else {
@@ -1063,16 +1085,22 @@ impl Htr10ReactorSchematic {
         let rect = Rect::from_center_size(
             rect.center(),
             Vec2::new(
-                rect.width().max(text_w + 8.0),
+                rect.width().max(text_w + 8.0 * s),
                 // Tall enough for EVERY line, at the spacing `tag` draws them
                 // with; sizing to one line let two-line labels spill out
                 // (corrected 2026-09-22).
-                rect.height()
-                    .max(text.lines().count().max(1) as f32 * LABEL_LINE_HEIGHT + 4.0),
+                rect.height().max(
+                    text.lines().count().max(1) as f32 * self.label_line_height() + 4.0 * s,
+                ),
             ),
         );
-        painter.rect_filled(rect, 2, LABEL_BOX_GREY);
-        painter.rect_stroke(rect, 2, Stroke::new(1.2, INTERNALS), StrokeKind::Middle);
+        painter.rect_filled(rect, 2.0 * s, LABEL_BOX_GREY);
+        painter.rect_stroke(
+            rect,
+            2.0 * s,
+            Stroke::new(1.2 * s.max(0.5), INTERNALS),
+            StrokeKind::Middle,
+        );
         self.tag(painter, rect.center(), text);
     }
 
@@ -1083,14 +1111,14 @@ impl Htr10ReactorSchematic {
             return;
         }
         let lines: Vec<&str> = text.lines().collect();
-        let line_h = LABEL_LINE_HEIGHT;
+        let line_h = self.label_line_height();
         let first = at.y - 0.5 * line_h * (lines.len() as f32 - 1.0);
         for (i, line) in lines.iter().enumerate() {
             painter.text(
                 Pos2::new(at.x, first + i as f32 * line_h),
                 egui::Align2::CENTER_CENTER,
                 *line,
-                FontId::proportional(LABEL_FONT_SIZE),
+                self.label_font(),
                 LABEL,
             );
         }
@@ -1350,7 +1378,7 @@ impl Widget for Htr10ReactorSchematic {
             // fully withdrawn rod.
             self.label_box(
                 &labels,
-                Rect::from_center_size(Pos2::new(cx, rect.top() - drive_band + 10.0), Vec2::ZERO),
+                Rect::from_center_size(Pos2::new(cx, rect.top() - drive_band + 10.0 * self.label_scale()), Vec2::ZERO),
                 &format!("{CONTROL_ROD_CHANNELS} control rod drives"),
             );
         }
@@ -1760,7 +1788,7 @@ impl Widget for Htr10ReactorSchematic {
         // direction, 2026-09-22).
         let elbow = Rect::from_points(&tube_leg_joint)
             .union(Rect::from_points(&leg_exit_joint))
-            .expand(3.0);
+            .expand(3.0 * self.label_scale());
         // Two lines, as the maintainer asked: "discharge tube" / "to opening".
         self.label_box(&labels, elbow, "discharge tube\nto opening");
 
@@ -1835,7 +1863,7 @@ impl Widget for Htr10ReactorSchematic {
         self.label_box(
             &labels,
             Rect::from_center_size(
-                Pos2::new(refuel_x + w * 0.13, rect.top() + dome * 0.35 - 7.0),
+                Pos2::new(refuel_x + w * 0.13, rect.top() + dome * 0.35 - 7.0 * self.label_scale()),
                 Vec2::ZERO,
             ),
             "refuelling\nchute",
@@ -1853,14 +1881,15 @@ impl Widget for Htr10ReactorSchematic {
             let text_w = labels
                 .layout_no_wrap(
                     summary.clone(),
-                    FontId::proportional(LABEL_FONT_SIZE),
+                    self.label_font(),
                     LABEL,
                 )
                 .size()
                 .x;
-            let size = Vec2::new(text_w + 8.0, 3.0 * LABEL_LINE_HEIGHT + 4.0);
+            let s = self.label_scale();
+            let size = Vec2::new(text_w + 8.0 * s, 3.0 * self.label_line_height() + 4.0 * s);
             let centre = Pos2::new(
-                rect.right() + 6.0 + 0.5 * size.x,
+                rect.right() + 6.0 * s + 0.5 * size.x,
                 rect.bottom() - 0.5 * size.y,
             );
             self.label_box(&labels, Rect::from_center_size(centre, size), &summary);
@@ -2350,6 +2379,59 @@ mod tests {
         );
     }
 
+    /// Labels scale in proportion with the drawing, so a zoomed plant keeps
+    /// the same picture: at twice the vessel width, a label box is twice the
+    /// size (maintainer direction, 2026-09-22). At the reference width the
+    /// font is the 13.5 pt it was tuned at.
+    #[test]
+    fn labels_scale_in_proportion_with_the_drawing() {
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 800.0))),
+            ..Default::default()
+        };
+        let _ = ctx.run_ui(input.clone(), |_| {});
+        let at = Pos2::new(400.0, 400.0);
+        let at_width = |w: f32| {
+            let v = Htr10ReactorSchematic::new(
+                Htr10ReactorSchematic::native_size(w),
+                kelvins(300.0),
+                kelvins(1200.0),
+                kelvins(1100.0),
+                kelvins(523.15),
+                kelvins(973.15),
+                kelvins(900.0),
+                kelvins(530.0),
+            );
+            let output = ctx.run_ui(input.clone(), |ui| {
+                v.label_box(
+                    ui.painter(),
+                    Rect::from_center_size(at, Vec2::ZERO),
+                    "hot plenum",
+                );
+            });
+            let boxed = output
+                .shapes
+                .iter()
+                .find_map(|c| match &c.shape {
+                    egui::Shape::Rect(r) if r.fill == LABEL_BOX_GREY => Some(r.rect),
+                    _ => None,
+                })
+                .expect("the grey box is drawn");
+            (v.label_font().size, boxed.size())
+        };
+        let (font, small) = at_width(LABEL_REFERENCE_VESSEL_WIDTH);
+        let (big_font, big) = at_width(2.0 * LABEL_REFERENCE_VESSEL_WIDTH);
+        assert!((font - LABEL_FONT_SIZE).abs() < 1e-3, "{font} pt at the reference");
+        assert!((big_font - 2.0 * font).abs() < 1e-3, "font doubles with the drawing");
+        // Text layout rounds to pixels, so allow a point of slack.
+        let ratio = big / small;
+        assert!(
+            (ratio.x - 2.0).abs() < 0.05 && (ratio.y - 2.0).abs() < 0.05,
+            "box {small:?} -> {big:?}, ratio {ratio:?}"
+        );
+    }
+
     /// A two-line boxed label's box is tall enough for both lines: its
     /// rectangle contains the centres of both drawn lines with room for the
     /// font on either side. Two-line labels once spilled out of a one-line
@@ -2379,7 +2461,7 @@ mod tests {
                 _ => None,
             })
             .expect("the grey box is drawn");
-        let needed = 2.0 * LABEL_LINE_HEIGHT;
+        let needed = 2.0 * visual().label_line_height();
         assert!(
             boxed.height() >= needed,
             "box {:.1} pt tall for two lines needing {needed:.1} pt",

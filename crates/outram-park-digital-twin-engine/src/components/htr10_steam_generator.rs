@@ -97,7 +97,9 @@
 //! supplies.
 
 use crate::animation::TracerTrain;
-use crate::components::htr10_reactor_schematic::point_along;
+use crate::components::htr10_reactor_schematic::{
+    point_along, DRAWN_ASPECT_RATIO, LABEL_REFERENCE_VESSEL_WIDTH,
+};
 use crate::components::temperature_colour;
 use std::f32::consts::PI;
 use egui::{Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2,
@@ -146,8 +148,20 @@ const INTERNALS: Color32 = Color32::from_rgb(64, 68, 76);
 const VOID: Color32 = Color32::from_rgb(28, 30, 34);
 
 /// Label text size, points: 1.5x the original 9 pt (maintainer direction,
-/// 2026-09-22), matching the HTR-10 vessel schematic.
+/// 2026-09-22), matching the HTR-10 vessel schematic. This is the size when the steam
+/// generator is drawn at the height of a reactor vessel
+/// [`LABEL_REFERENCE_VESSEL_WIDTH`] wide; labels scale with the drawing.
 const LABEL_FONT_SIZE: f32 = 13.5;
+
+/// Thinnest drawn coil stroke, points: below this a line stops reading as a
+/// tube. A drawing parameter, nothing physical.
+const MIN_COIL_STROKE: f32 = 1.0;
+
+/// Least clear space between adjacent coil turns, points. egui feathers each
+/// stroke edge by about a point, eating into the gap from both sides, so 3 pt
+/// leaves at least a point visibly clear and the turns never touch. A drawing
+/// parameter, nothing physical.
+const MIN_COIL_GAP: f32 = 3.0;
 
 /// Fill of every boxed label, matching the HTR-10 vessel schematic's.
 const LABEL_BOX_GREY: Color32 = Color32::from_rgb(88, 90, 96);
@@ -492,6 +506,16 @@ impl Htr10SteamGeneratorVisual {
         temperature_colour(t, self.min_temp, self.max_temp)
     }
 
+    /// How much the labels are scaled. This vessel is drawn at the height of
+    /// the reactor vessel beside it, so its labels scale by the same factor as
+    /// the reactor's: drawn height over the height of a reactor vessel
+    /// [`LABEL_REFERENCE_VESSEL_WIDTH`] wide. Labels therefore keep their
+    /// proportion to the artwork at every zoom (maintainer direction,
+    /// 2026-09-22). A drawing scale, nothing physical.
+    fn label_scale(&self) -> f32 {
+        (self.size.y * DRAWN_ASPECT_RATIO / LABEL_REFERENCE_VESSEL_WIDTH).max(0.05)
+    }
+
     /// A label in a grey box, the same format as the HTR-10 vessel's boxed
     /// labels, so the whole plant page matches (maintainer direction,
     /// 2026-09-22): grey fill, internals-coloured edge, text centred on `at`.
@@ -499,14 +523,20 @@ impl Htr10SteamGeneratorVisual {
         if !self.show_labels {
             return;
         }
+        let s = self.label_scale();
         let galley = painter.layout_no_wrap(
             text.to_owned(),
-            FontId::proportional(LABEL_FONT_SIZE),
+            FontId::proportional(LABEL_FONT_SIZE * s),
             LABEL,
         );
-        let rect = Rect::from_center_size(at, galley.size() + Vec2::new(8.0, 4.0));
-        painter.rect_filled(rect, 2, LABEL_BOX_GREY);
-        painter.rect_stroke(rect, 2, Stroke::new(1.2, INTERNALS), StrokeKind::Middle);
+        let rect = Rect::from_center_size(at, galley.size() + Vec2::new(8.0, 4.0) * s);
+        painter.rect_filled(rect, 2.0 * s, LABEL_BOX_GREY);
+        painter.rect_stroke(
+            rect,
+            2.0 * s,
+            Stroke::new(1.2 * s.max(0.5), INTERNALS),
+            StrokeKind::Middle,
+        );
         painter.galley(rect.center() - 0.5 * galley.size(), galley, LABEL);
     }
 
@@ -705,11 +735,10 @@ impl Widget for Htr10SteamGeneratorVisual {
             // height `H` is `H / (2 pi r tan theta)`. A shallower angle winds
             // more turns, which is what a shallower helix actually does.
             let theta = (self.coil_angle.get::<degree>() as f32).to_radians();
-            let tan_theta = theta.tan().abs().max(0.02);
-            let turns = (span / (2.0 * PI * coil_radius * tan_theta)).clamp(2.0, 40.0);
-
-            let samples = 320;
-            let width = (bundle_w * 0.15).max(1.2);
+            let (turns, width) = coil_turns_and_stroke(span, bundle_w, coil_radius, theta);
+            // Enough samples per turn that the winding stays a smooth curve
+            // at every turn count.
+            let samples = ((turns * 32.0).ceil() as usize).max(64);
 
             // One pass of the winding: `behind` selects the half of each turn
             // on the far side of the bundle axis.
@@ -815,7 +844,7 @@ impl Widget for Htr10SteamGeneratorVisual {
 
             self.tag(
                 &labels,
-                Pos2::new(mid_x, y(top_f) - 9.0),
+                Pos2::new(mid_x, y(top_f) - 9.0 * self.label_scale()),
                 "helical coil",
             );
         }
@@ -975,6 +1004,35 @@ impl Widget for Htr10SteamGeneratorVisual {
     }
 }
 
+
+/// Number of drawn turns and the stroke width, points, for a coil of drawn
+/// height `span`, bundle width `bundle_w` and helix radius `coil_radius`,
+/// wound at pitch angle `theta` (radians).
+///
+/// The turn count comes from the helix relation `tan(theta) = p / (2 pi r)`,
+/// so over a height `H` the coil makes `H / (2 pi r tan theta)` turns and a
+/// shallower angle winds more of them. The stroke is 15 % of the bundle width.
+///
+/// **Adjacent turns never touch, at any drawn size** (maintainer direction,
+/// 2026-09-22). Two limits are applied. First, at least [`MIN_COIL_GAP`] of
+/// clear space is kept between turns by thinning the stroke. Second, where
+/// even a [`MIN_COIL_STROKE`] line will not fit, fewer turns are drawn. The
+/// second limit is a level-of-detail choice: on a very small drawing the turn
+/// count is set by what can be seen, not by the coil angle.
+fn coil_turns_and_stroke(span: f32, bundle_w: f32, coil_radius: f32, theta: f32) -> (f32, f32) {
+    let tan_theta = theta.tan().abs().max(0.02);
+    let mut turns = (span / (2.0 * PI * coil_radius * tan_theta)).clamp(2.0, 40.0);
+    let min_pitch = MIN_COIL_STROKE + MIN_COIL_GAP;
+    if span / turns < min_pitch {
+        turns = (span / min_pitch).max(1.0);
+    }
+    let pitch = span / turns;
+    let width = (bundle_w * 0.15)
+        .min(pitch - MIN_COIL_GAP)
+        .max(MIN_COIL_STROKE);
+    (turns, width)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1058,6 +1116,44 @@ mod tests {
     fn riser_defaults_to_forty_percent_of_the_diameter() {
         assert!((visual().drawn_riser_fraction() - 0.40).abs() < 1e-6);
         assert!((DEFAULT_RISER_DIAMETER_FRACTION - 0.40).abs() < 1e-6);
+    }
+
+    /// Adjacent coil turns keep a clear gap at every drawn size (maintainer
+    /// direction, 2026-09-22: the turns overlapped at some zooms).
+    ///
+    /// Method: sweep the bundle width from 2 to 400 pt at three height
+    /// ratios, including the drawn one (a 0.7-height span over a bundle
+    /// 0.064 of the height wide, about 11:1), and check that the clear space
+    /// between turns, pitch minus stroke, is at least [`MIN_COIL_GAP`]. Then
+    /// check that a large drawing still takes its turn count from the helix
+    /// relation, so the level-of-detail limit only acts on small drawings.
+    ///
+    /// Before the fix, the drawn ratio at the plant view's smallest zoom gave
+    /// about 2.4 pt between turns, roughly 1.4 pt after edge feathering, and
+    /// less on smaller drawings.
+    #[test]
+    fn coil_turns_never_touch_at_any_size() {
+        let theta = (DEFAULT_COIL_ANGLE_DEGREES as f32).to_radians();
+        for ratio in [3.0_f32, 11.0, 20.0] {
+            for step in 0..200 {
+                let bundle_w = 2.0 + 2.0 * step as f32;
+                let span = ratio * bundle_w;
+                let (turns, width) =
+                    coil_turns_and_stroke(span, bundle_w, 0.34 * bundle_w, theta);
+                let gap = span / turns - width;
+                assert!(
+                    gap >= MIN_COIL_GAP - 1e-3,
+                    "bundle {bundle_w} pt, span {span} pt: {turns:.1} turns, \
+                     stroke {width:.2} pt leaves {gap:.2} pt"
+                );
+            }
+        }
+        // A large drawing is unaffected: turns follow tan(theta) = p / (2 pi r).
+        let (bundle_w, span) = (100.0_f32, 300.0_f32);
+        let (turns, width) = coil_turns_and_stroke(span, bundle_w, 34.0, theta);
+        let expected = span / (2.0 * PI * 34.0 * theta.tan());
+        assert!((turns - expected).abs() < 1e-3, "{turns} vs {expected}");
+        assert!((width - 15.0).abs() < 1e-3, "15 % of the bundle: {width}");
     }
 
     /// The coil angle defaults to the specified 7 degrees (revised down from
