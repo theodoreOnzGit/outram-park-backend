@@ -52,6 +52,7 @@ pub mod particle_restart;
 pub mod scattdata;
 pub mod state_point;
 pub mod track_output;
+pub mod ufs;
 pub mod variance_reduction;
 pub mod weight_windows;
 pub mod fixed_source;
