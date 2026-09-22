@@ -14,9 +14,9 @@
 //! [`crate::root::KovanRoot`] and [`crate::corpus_repos`], so none of the Git
 //! or filesystem logic lives in GUI code.
 
-use crate::root::KovanRoot;
+use crate::root::{CorporaConfig, KovanRoot};
 use eframe::egui;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// What the user asked the dialog to do.
 pub(super) enum SetupRequest {
@@ -70,6 +70,16 @@ impl SetupDialog {
             let c = &root.config().corpora;
             self.open_remote = c.open_remote.clone().unwrap_or_default();
             self.proprietary_remote = c.proprietary_remote.clone().unwrap_or_default();
+        } else {
+            // No folder open: offer the corpora remembered from an earlier
+            // setup. An open folder's own `kovan_root.toml` is its authority.
+            let remembered = remembered_corpora();
+            if self.open_remote.is_empty() {
+                self.open_remote = remembered.open_remote.unwrap_or_default();
+            }
+            if self.proprietary_remote.is_empty() {
+                self.proprietary_remote = remembered.proprietary_remote.unwrap_or_default();
+            }
         }
     }
 
@@ -178,6 +188,49 @@ impl SetupDialog {
     }
 }
 
+/// Where Kovan remembers the user's open and closed corpus remotes, in its
+/// platform config folder: every new Kovan folder gets these corpora
+/// (maintainer direction, 2026-09-22), not only the one the dialog set up.
+fn remembered_corpora_file() -> Option<PathBuf> {
+    directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan")
+        .map(|d| d.config_dir().join("corpora.toml"))
+}
+
+/// The user's remembered corpus remotes; empty when none were ever given.
+pub(super) fn remembered_corpora() -> CorporaConfig {
+    remembered_corpora_file()
+        .map(|p| read_corpora(&p))
+        .unwrap_or_default()
+}
+
+/// Remember the remotes `given` names, keeping any it leaves out. Best
+/// effort: failing to write only means new folders are not given them.
+pub(super) fn remember_corpora(given: &CorporaConfig) {
+    if let Some(p) = remembered_corpora_file() {
+        let _ = write_corpora(&p, given);
+    }
+}
+
+fn read_corpora(path: &Path) -> CorporaConfig {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| toml::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+fn write_corpora(path: &Path, given: &CorporaConfig) -> std::io::Result<()> {
+    let old = read_corpora(path);
+    let merged = CorporaConfig {
+        open_remote: given.open_remote.clone().or(old.open_remote),
+        proprietary_remote: given.proprietary_remote.clone().or(old.proprietary_remote),
+    };
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let text = toml::to_string(&merged).map_err(std::io::Error::other)?;
+    std::fs::write(path, text)
+}
+
 /// The file whose presence records that first run is over, in Kovan's
 /// platform config folder (beside `recent_roots.toml`).
 fn first_run_marker() -> Option<PathBuf> {
@@ -213,6 +266,40 @@ mod tests {
         assert_eq!(
             remote("  https://github.com/a/b.git "),
             Some("https://github.com/a/b.git".to_string())
+        );
+    }
+
+    /// Remembered remotes are merged: a later setup that names only one
+    /// corpus keeps the other.
+    #[test]
+    fn remembered_corpora_merge() {
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("cfg/corpora.toml");
+        assert!(read_corpora(&file).is_empty());
+        write_corpora(
+            &file,
+            &CorporaConfig {
+                open_remote: Some("https://example.com/o.git".into()),
+                proprietary_remote: Some("https://example.com/p.git".into()),
+            },
+        )
+        .unwrap();
+        write_corpora(
+            &file,
+            &CorporaConfig {
+                open_remote: Some("https://example.com/o2.git".into()),
+                proprietary_remote: None,
+            },
+        )
+        .unwrap();
+        let back = read_corpora(&file);
+        assert_eq!(
+            back.open_remote.as_deref(),
+            Some("https://example.com/o2.git")
+        );
+        assert_eq!(
+            back.proprietary_remote.as_deref(),
+            Some("https://example.com/p.git")
         );
     }
 

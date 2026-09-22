@@ -380,6 +380,30 @@ pub fn open_corpus_folders(repo: &Path) -> Vec<PathBuf> {
     }
 }
 
+/// Where an ingested open PDF is stored in the open-corpus repository at
+/// `repo`: the user's own `*open-corpus*` folder when there is exactly one
+/// besides [`crate::corpus::STANDARD_CORPUS_FOLDER`] (so a user whose open
+/// corpus is `reactor-literature` ingests into `theodore-open-corpus/`, never
+/// the standard corpus), otherwise the repository root.
+///
+/// The root is right for a plain open corpus. With several folders of the
+/// user's own, which one a document belongs in is theirs to decide, so it
+/// goes to the root to be moved by hand.
+pub fn open_corpus_ingest_dir(repo: &Path) -> PathBuf {
+    let own: Vec<PathBuf> = open_corpus_folders(repo)
+        .into_iter()
+        .filter(|f| f != repo)
+        .filter(|f| {
+            f.file_name()
+                .is_none_or(|n| n != crate::corpus::STANDARD_CORPUS_FOLDER)
+        })
+        .collect();
+    match own.as_slice() {
+        [one] => one.clone(),
+        _ => repo.to_path_buf(),
+    }
+}
+
 /// Every PDF in an open-corpus repository's document folders
 /// ([`open_corpus_folders`]), searched recursively, skipping `.git`, sorted.
 pub fn open_corpus_pdfs(repo: &Path) -> Vec<PathBuf> {
@@ -644,6 +668,26 @@ mod tests {
                 .join("my-open-corpus/b.pdf")
                 .exists()
         );
+    }
+
+    /// Ingest goes to the user's own open-corpus folder, never the standard
+    /// corpus's; to the root when there is no single one.
+    #[test]
+    fn ingest_goes_to_the_users_own_open_corpus_folder() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path().join("r");
+        touch(&repo.join("kovan-standard-open-corpus/a.pdf"));
+        assert_eq!(open_corpus_ingest_dir(&repo), repo);
+        touch(&repo.join("theodore-open-corpus/b.pdf"));
+        assert_eq!(
+            open_corpus_ingest_dir(&repo),
+            repo.join("theodore-open-corpus")
+        );
+        touch(&repo.join("second-open-corpus/c.pdf"));
+        assert_eq!(open_corpus_ingest_dir(&repo), repo);
+        let plain = tmp.path().join("plain");
+        touch(&plain.join("x.pdf"));
+        assert_eq!(open_corpus_ingest_dir(&plain), plain);
     }
 
     /// Both accepted layouts: `*open-corpus*` top-level folders when present

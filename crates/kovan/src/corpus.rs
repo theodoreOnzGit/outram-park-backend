@@ -15,7 +15,9 @@
 //!   [`ConnectionOrigin::KovanCorpus`] so the GUI can refuse to edit them.
 //!
 //! What does not belong here: PDFs (never shipped in the crate; they live in
-//! a library's `literature/kovan-open-corpus/`), user annotations, and user
+//! ~~a library's `literature/kovan-open-corpus/`~~ **CORRECTED 2026-09-22**:
+//! [`STANDARD_CORPUS_FOLDER`] of [`CORPUS_REPOSITORY_URL`], mounted in every
+//! Kovan folder at `literature/standard-corpus/`), user annotations, and user
 //! connections (the user's own `mindmap/connections.toml`, #252).
 //!
 //! # Topics are a browsing hierarchy, not an ontology
@@ -144,7 +146,9 @@ pub enum SourceStatus {
 }
 
 impl SourceStatus {
-    /// Whether the PDF may be placed in `literature/kovan-open-corpus/`.
+    /// Whether the PDF may be placed in the standard corpus
+    /// ([`STANDARD_CORPUS_FOLDER`]; ~~`literature/kovan-open-corpus/`~~,
+    /// corrected 2026-09-22).
     pub fn redistributable(self) -> bool {
         matches!(self, Self::VerifiedPublicDomain | Self::VerifiedOpenLicence)
     }
@@ -239,14 +243,20 @@ pub const ROOT_TOPIC: &str = "nuclear-engineering";
 
 /// The Git repository holding the corpus PDFs (maintainer direction,
 /// 2026-09-22), under `kovan-standard-open-corpus/`, with a README recording each
-/// document's licence basis. Kovan may clone it into a library's
-/// `literature/kovan-open-corpus/`; the map never depends on it (#253). In this
+/// document's licence basis. Kovan mounts it in every Kovan folder as the
+/// submodule `literature/standard-corpus/` (~~`literature/kovan-open-corpus/`~~,
+/// corrected 2026-09-22); the map never depends on it (#253). In this
 /// workspace the same repository is checked out as the Git submodule
 /// `crates/kovan-literature/reactor-literature/`.
 pub const CORPUS_REPOSITORY_URL: &str = "https://github.com/theodoreOnzGit/reactor-literature.git";
 
 /// The branch of [`CORPUS_REPOSITORY_URL`] to use.
 pub const CORPUS_REPOSITORY_BRANCH: &str = "main";
+
+/// The folder of [`CORPUS_REPOSITORY_URL`] holding the hardcoded documents.
+/// Kovan never writes into it (it is read-only to everyone but the corpus
+/// maintainer, who edits it with Git directly).
+pub const STANDARD_CORPUS_FOLDER: &str = "kovan-standard-open-corpus";
 
 /// The initial nuclear-engineering hierarchy (maintainer brief, 2026-09-22).
 /// Parents come before children. Extend by adding rows.
@@ -474,9 +484,7 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         title: "Probabilistic Risk Assessment and Regulatory Decisionmaking: Some Frequently Asked Questions (NUREG-2201)",
         authors: &["Siu, N.", "Stutzke, M.", "Dennis, S.", "Harrison, D."],
         year: Some(2016),
-        topics: &[
-            "nuclear-engineering/pra",
-        ],
+        topics: &["nuclear-engineering/pra"],
         source_url: Some("https://www.nrc.gov/docs/ML1624/ML16245A032.pdf"),
         corpus_file: Some("kovan-standard-open-corpus/nrc/ML16245A032.pdf"),
         status: SourceStatus::VerifiedPublicDomain,
@@ -502,7 +510,13 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         id: "nureg-cr-7289",
         kind: LiteratureKind::Report,
         title: "Nuclear Data Assessment for Advanced Reactors (NUREG/CR-7289)",
-        authors: &["Bostelmann, F.", "Ilas, G.", "Celik, C.", "Holcomb, A.M.", "Wieselquist, W.A."],
+        authors: &[
+            "Bostelmann, F.",
+            "Ilas, G.",
+            "Celik, C.",
+            "Holcomb, A.M.",
+            "Wieselquist, W.A.",
+        ],
         year: Some(2022),
         topics: &[
             "nuclear-engineering/nuclear-data",
@@ -526,7 +540,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/reactor-systems/htgr/prismatic",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20803716"),
-        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-206-hori-pod-burnup-httr.pdf"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/physor-2026/physor2026-206-hori-pod-burnup-httr.pdf",
+        ),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
@@ -542,7 +558,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/reactor-systems/research-reactors",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20804104"),
-        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-306-bures-subcritical-simulator.pdf"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/physor-2026/physor2026-306-bures-subcritical-simulator.pdf",
+        ),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
@@ -559,7 +577,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/safety/accident-analysis",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20803769"),
-        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-343-acierno-hexana-sfr.pdf"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/physor-2026/physor2026-343-acierno-hexana-sfr.pdf",
+        ),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
@@ -567,7 +587,15 @@ pub const LITERATURE: &[CorpusLiterature] = &[
         id: "krpan2026physor",
         kind: LiteratureKind::Paper,
         title: "A peek into the MSRE, six decades later: a hyper-fidelity simulation of the classical molten salt reactor",
-        authors: &["Krpan, R.", "Fiorina, C.", "Clarno, K.", "Genoni, C.", "Gentry, C.A.", "Park, S.M.", "Ragusa, J."],
+        authors: &[
+            "Krpan, R.",
+            "Fiorina, C.",
+            "Clarno, K.",
+            "Genoni, C.",
+            "Gentry, C.A.",
+            "Park, S.M.",
+            "Ragusa, J.",
+        ],
         year: Some(2026),
         topics: &[
             "nuclear-engineering/reactor-systems/msr",
@@ -576,7 +604,9 @@ pub const LITERATURE: &[CorpusLiterature] = &[
             "nuclear-engineering/scientific-computing/validation",
         ],
         source_url: Some("https://doi.org/10.5281/zenodo.20803785"),
-        corpus_file: Some("kovan-standard-open-corpus/physor-2026/physor2026-449-krpan-msre-hyper-fidelity.pdf"),
+        corpus_file: Some(
+            "kovan-standard-open-corpus/physor-2026/physor2026-449-krpan-msre-hyper-fidelity.pdf",
+        ),
         status: SourceStatus::VerifiedOpenLicence,
         status_basis: PHYSOR_2026_BASIS,
     },
@@ -713,10 +743,12 @@ mod tests {
         let htgr = topic_at("nuclear-engineering/reactor-systems/htgr").unwrap();
         assert_eq!(htgr.ontology.unwrap().id(), "htgr");
         assert!(htgr.aliases().contains(&"HTGR"));
-        assert!(topic_at("nuclear-engineering/pra")
-            .unwrap()
-            .aliases()
-            .is_empty());
+        assert!(
+            topic_at("nuclear-engineering/pra")
+                .unwrap()
+                .aliases()
+                .is_empty()
+        );
     }
 
     #[test]

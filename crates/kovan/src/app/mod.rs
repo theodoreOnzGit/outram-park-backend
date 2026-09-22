@@ -611,12 +611,16 @@ impl DigitiseApp {
     }
 
     /// Whether `path` is already one of the open library's stored source
-    /// PDFs — i.e. lives directly under `root.open_sources_dir()` or
-    /// `root.restricted_sources_dir()`, exactly where `ingest::ingest`
-    /// (§23 step 3) copies a paper's PDF to. Cheap prefix check rather than
-    /// scanning every paper's `kovan.toml`, and correct as long as nothing
-    /// else writes into those two directories — which nothing in this
-    /// crate does.
+    /// PDFs — i.e. lives under `root.open_sources_dir()` or
+    /// `root.restricted_sources_dir()`, where `ingest::ingest` (§23 step 3)
+    /// copies a paper's PDF to. Cheap prefix check rather than scanning every
+    /// paper's `kovan.toml`.
+    ///
+    /// ~~Correct as long as nothing else writes into those two directories.~~
+    /// **CORRECTED 2026-09-22**: since #255 both are corpus repositories
+    /// cloned with PDFs of their own, so a corpus PDF also counts here, and
+    /// opening one does not offer to ingest it (a copy would duplicate a
+    /// document already in the corpus).
     fn already_ingested(&self, path: &std::path::Path) -> bool {
         let Some(root) = self.home.root() else {
             return false;
@@ -2126,6 +2130,10 @@ impl DigitiseApp {
                 open_remote,
                 proprietary_remote,
             } => {
+                setup::remember_corpora(&crate::root::CorporaConfig {
+                    open_remote: open_remote.clone(),
+                    proprietary_remote: proprietary_remote.clone(),
+                });
                 match self.set_up_library(&folder, library_remote, open_remote, proprietary_remote)
                 {
                     Ok(()) => {
@@ -2229,12 +2237,18 @@ impl DigitiseApp {
                     .map_err(|e| format!("cannot make {} a Kovan folder: {e}", folder.display()))?
             }
         };
-        // A cloned Kovan repository already records its corpora; keep them
-        // unless the dialog names others.
+        // The dialog's remotes, else those the folder already records (a
+        // cloned Kovan repository), else those remembered from an earlier
+        // setup: every new folder gets the user's corpora.
         let recorded = root.config().corpora.clone();
+        let remembered = setup::remembered_corpora();
         root.set_corpora(CorporaConfig {
-            open_remote: open_remote.or(recorded.open_remote),
-            proprietary_remote: proprietary_remote.or(recorded.proprietary_remote),
+            open_remote: open_remote
+                .or(recorded.open_remote)
+                .or(remembered.open_remote),
+            proprietary_remote: proprietary_remote
+                .or(recorded.proprietary_remote)
+                .or(remembered.proprietary_remote),
         })?;
         self.home.open_dir(root.path());
         if self.wiki.is_none() {
@@ -2340,6 +2354,14 @@ impl eframe::App for DigitiseApp {
                                 let root = self.home.root().cloned();
                                 self.setup.show_for(root.as_ref())
                             }
+                        }
+                    }
+                    // "+ Create Kovan Folder…" just made a folder: give it
+                    // the standard corpus and the user's open and closed
+                    // corpora, as setup does.
+                    if let Some(dir) = self.home.take_created() {
+                        if let Err(e) = self.open_and_set_up(&dir, None, None, None) {
+                            self.set_error(e);
                         }
                     }
                 });

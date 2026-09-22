@@ -96,6 +96,9 @@ pub struct HomeState {
     /// id/name prompt (§5's `[library] id/name`) before
     /// [`KovanRoot::create`] actually runs.
     pending_create_dir: Option<PathBuf>,
+    /// A folder "+ Create Kovan Folder…" just made, for the app to give its
+    /// corpora ([`Self::take_created`]).
+    created: Option<PathBuf>,
     new_library_id: String,
     new_library_name: String,
     message: String,
@@ -108,6 +111,7 @@ impl Default for HomeState {
             recent_roots: load_recent_roots(),
             root: None,
             pending_create_dir: None,
+            created: None,
             new_library_id: String::new(),
             new_library_name: String::new(),
             message: String::new(),
@@ -146,6 +150,12 @@ impl HomeState {
         }
     }
 
+    /// The folder "+ Create Kovan Folder…" just made, once: the app then
+    /// clones its corpora.
+    pub fn take_created(&mut self) -> Option<PathBuf> {
+        self.created.take()
+    }
+
     /// A directory was picked for "+ Create Kovan Folder…" — stash it and
     /// show the id/name prompt rather than creating immediately.
     pub fn begin_create(&mut self, dir: &Path) {
@@ -172,6 +182,7 @@ impl HomeState {
             Ok(root) => {
                 push_recent(&mut self.recent_roots, root.path().to_path_buf());
                 self.set_status(format!("created {}", root.path().display()));
+                self.created = Some(root.path().to_path_buf());
                 self.root = Some(root);
             }
             Err(e) => {

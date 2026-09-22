@@ -199,9 +199,11 @@ pub fn ingest(
         });
     }
 
-    // §23 step 3: store the PDF under open/restricted source storage.
+    // §23 step 3: store the PDF under open/restricted source storage. The
+    // open one is the user's open-corpus repository: into their own folder
+    // there, never the standard corpus's (#255).
     let store_dir = if choice.access.is_committable() {
-        root.open_sources_dir()
+        crate::corpus_repos::open_corpus_ingest_dir(&root.open_sources_dir())
     } else {
         root.restricted_sources_dir()
     };
