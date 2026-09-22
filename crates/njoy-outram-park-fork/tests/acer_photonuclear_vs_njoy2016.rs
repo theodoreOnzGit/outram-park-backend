@@ -20,12 +20,43 @@
 //! NJOY input that produced the reference:
 //!
 //! ```text
-//! acer / 20 21 0 24 25 / 5 1 1 .00 / 'z6 photonuclear' / 600 0.
+//! acer / 20 21 0 26 27 / 5 1 1 .00 /
+//! 'Z6SYN photonuclear NJOY2016 2016.79 ac5adf5 2026-09-22 opb 94e5640' /
+//! 600 0.
 //! ```
 //!
 //! with the synthetic tape on both units 20 and 21 — a photo-nuclear
 //! evaluation has no resonances, so its own linear MF=3 serves as the PENDF
 //! `acephn` takes the ACE energy grid from (`acepn.f90:207-227`).
+//!
+//! ## The comment line is the provenance, so this test reproduces it too
+//!
+//! The 70-character `hk` field on line 2 is free text that travels with the
+//! data, and this fixture uses it to record **who built the table, from which
+//! NJOY2016, against which commit of this repository**. That is not
+//! decoration: the byte-identity assertion below covers line 2 like every
+//! other line, so the `comment` this test passes to
+//! [`PhotonuclearOptions`] must equal the one in the NJOY deck above or the
+//! test fails at byte 47. A fixture regenerated with a different stamp
+//! therefore cannot be swapped in silently.
+//!
+//! The same table, and this port's own copy of it, are archived in the
+//! `reference-data/ace` submodule
+//! (`theodoreOnzGit/ace_and_other_data`) as
+//! `{reference,outram-park}-njoy/synthetic/0K/Z6-photonuclear.ace.gz`, with
+//! the SHA-256 of each uncompressed table in its `MANIFEST.tsv`. The fixture
+//! here is the *same bytes* as the reference copy there —
+//! `7b64749a19ec4051732576f79bda07378e3b8e976c36c70c19575e83a251186a` — so the
+//! two cannot drift unnoticed:
+//!
+//! ```text
+//! sha256sum reference-data/acer/z6_photonuclear_njoy2016.ace
+//! grep Z6SYN reference-data/ace/MANIFEST.tsv | cut -f9
+//! ```
+//!
+//! The submodule holds the port's copy as well, which this repository does
+//! not: it is 557 kB that asserts nothing a test here does not already assert,
+//! and it exists so the pair can be diffed without a Rust toolchain.
 //!
 //! ## Results (2026-09-22)
 //!
@@ -182,7 +213,8 @@ fn built_table_is_byte_identical_to_njoy2016() {
     let tape = Tape::read_file(&tape_path).expect("read the synthetic photonuclear tape");
     let opts = PhotonuclearOptions {
         suffix: 0.0,
-        comment: "z6 photonuclear".to_string(),
+        comment: "Z6SYN photonuclear NJOY2016 2016.79 ac5adf5 2026-09-22 opb 94e5640"
+            .to_string(),
         date: "09/22/26".to_string(),
         ..Default::default()
     };

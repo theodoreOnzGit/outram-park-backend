@@ -776,3 +776,15 @@ implemented, pinned against NJOY's own output.
 `LANG = 2`, `NA > 0`, `ND > 0`, `LCT /= 1`, recoil subsections, MF=4/MF=5,
 `LAW = 2`/`LAW = 4`, and MT=18's nubar substitution. A photo-nuclear table
 that silently omits an emitted particle still reads and still looks plausible.
+
+**The pair is archived, and the `hk` comment is the provenance.** Both tables
+— NJOY2016's and this port's — live in the `reference-data/ace` submodule as
+`{reference,outram-park}-njoy/synthetic/0K/Z6-photonuclear.ace.gz`, each
+stamped inside its own 70-character `hk` field with generator, version, commit
+and date. They differ in that one line and agree on the other 556 781 bytes, so
+the pair *is* the evidence and a `diff` re-checks it without a Rust toolchain.
+The fixture this crate tests against is the same bytes as the reference copy
+(SHA-256 `7b64749a…a251186a`, in the submodule's `MANIFEST.tsv`). Because the
+gate is byte-identity, the stamp is asserted like any other line: regenerate
+the fixture under a different comment and the test fails at byte 47 rather than
+accepting it.

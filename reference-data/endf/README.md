@@ -449,3 +449,12 @@ supplies the ACE energy grid, and MF=6/MT=5 with four emitted particles —
 neutron, proton, alpha and photon — each a LAW=1 continuum subsection
 (LANG=1, NA=0). NJOY2016 turns it into a 27 453-word `6012.00u` table with
 four `IXSA` production blocks.
+
+**What was made from it.** NJOY2016's table is committed as
+`reference-data/acer/z6_photonuclear_njoy2016.ace` and is the fixture
+`crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs` asserts
+byte-identity against. That table **and this port's own copy of it** are also
+archived in the `reference-data/ace` submodule under
+`{reference,outram-park}-njoy/synthetic/0K/Z6-photonuclear.ace.gz`, where the
+two differ in exactly one line — the 70-character `hk` comment each generator
+stamps itself into — and agree on the other 556 781 bytes.

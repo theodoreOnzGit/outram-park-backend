@@ -26,16 +26,47 @@ What it exercises: `NSUB = 0`, MF=3/MT=5 (the LANL single-non-elastic form
 that supplies the ACE energy grid, `acepn.f90:207-227`), and MF=6/MT=5 with
 four emitted particles, each LAW=1 / LANG=1 / NA=0.
 
-NJOY input:
+NJOY input, the whole deck:
 
 ```text
-acer / 20 21 0 24 25 / 5 1 1 .00 / 'z6 photonuclear' / 600 0.
+acer
+20 21 0 26 27
+5 1 1 .00/
+'Z6SYN photonuclear NJOY2016 2016.79 ac5adf5 2026-09-22 opb 94e5640'/
+600 0./
+stop
 ```
 
 with the tape on both units — a photo-nuclear evaluation has no resonances, so
 its own linear MF=3 serves as the PENDF. Output: a 27 453-word `6012.00u`
 table, 556 781 bytes, committed as
 `reference-data/acer/z6_photonuclear_njoy2016.ace`.
+
+### The `hk` comment carries the provenance, and the gate covers it
+
+Card 3 is the 70-character `hk` field. It is used here to record the generator,
+its version and commit, and the commit of *this* repository the run was made
+against, so a copy of this table found loose on disk still says where it came
+from. Because the gate below is byte-identity, line 2 is asserted like every
+other line: the builder must be given the same string, and a fixture
+regenerated under a different stamp cannot be swapped in without the test
+noticing.
+
+**Both tables are archived in the `reference-data/ace` submodule**
+(`theodoreOnzGit/ace_and_other_data`, commit `95bc03e`) as
+`reference-njoy/synthetic/0K/Z6-photonuclear.ace.gz` and
+`outram-park-njoy/synthetic/0K/Z6-photonuclear.ace.gz` — NJOY2016's and this
+port's, side by side, each stamped with its own generator. They differ in
+**exactly one line**, the `hk` comment; the other 556 781 bytes are identical,
+which the submodule's README gives a two-line `diff` for. The reference copy is
+the same bytes as the fixture committed here, SHA-256
+`7b64749a19ec4051732576f79bda07378e3b8e976c36c70c19575e83a251186a`, recorded in
+that repository's `MANIFEST.tsv`, so the two locations cannot drift unnoticed.
+
+This repository keeps only the reference copy: the port's own table asserts
+nothing that `built_table_is_byte_identical_to_njoy2016` does not already
+assert, and it is in the submodule so the pair can be diffed without a Rust
+toolchain.
 
 ## Results — read side (2026-09-22)
 
