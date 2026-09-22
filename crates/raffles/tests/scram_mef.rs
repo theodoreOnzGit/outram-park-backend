@@ -626,15 +626,14 @@ fn the_mef_only_constructs_match_scram() {
 /// different, smaller model. Each case below is a construct upstream supports
 /// and this chunk does not, or a document defect.
 ///
-/// **Results** (2026-09-22): all ten refusals hold, each naming its cause.
+/// ~~A whole upstream model whose only unread construct is CCF groups —
+/// `TwoTrain/common_cause`.~~ **CORRECTED 2026-09-22** — CCF groups landed
+/// the same day, so that case moved to `scram_ccf`, where the model is read
+/// and its answers checked rather than its refusal.
+///
+/// **Results** (2026-09-22): all nine refusals hold, each naming its cause.
 #[test]
 fn the_unported_and_the_malformed_are_refused_not_skipped() {
-    // A whole upstream model whose only unread construct is CCF groups.
-    let err = MefModel::from_file(&model_path("TwoTrain/common_cause"))
-        .expect_err("CCF groups are not read yet")
-        .to_string();
-    assert!(err.contains("common-cause"), "{err}");
-
     let refuse = |xml: &str, expected: &str| {
         let element = raffles::scram::mef::parse_xml(xml).expect("well-formed XML");
         let err = MefModel::from_element(&element)

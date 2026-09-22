@@ -38,6 +38,7 @@ which basic events matter. Three of its four modules are ports of
 | `scram::mef` | `src/initializer.{h,cc}`, `src/xml.{h,cc}`, `src/element.{h,cc}`, `src/model.{h,cc}`, `src/fault_tree.{h,cc}`, `src/event.{h,cc}` | yes |
 | `scram::mef::Index` (name resolution) | `Initializer::GetEntity` / `GetEvent`, `mef::Id::id()`, `mef::Role` | yes |
 | `scram::mef::Lowering` (iff, imply, cardinality) | `Pdag::ConstructComplexGate` | yes |
+| `scram::ccf` | `src/ccf_group.{h,cc}` — all four models, `CalculateProbabilities`, `ApplyModel` | yes |
 | `scram::mef` schema validation | `xml::Validator` against `share/input.rng` | **no** — no RelaxNG; the structure checks here are narrower, and the module doc says so |
 | `scram::mocus` | `src/mocus.cc` | **no** — see below |
 
@@ -270,6 +271,10 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | Deviate means against their closed forms | `scram_deviates::each_deviate_value_matches_its_closed_form` | 7, to `1e-12` |
 | Upstream's domain checks | `scram_deviates::the_domain_checks_are_upstreams` | **12 refusals**, in upstream's order |
 | `interval()` and the domain half of validation | `scram_deviates::intervals_are_upstreams_and_are_what_makes_the_domain_checks_bite` | 7 cases |
+| **CCF events** vs SCRAM's `--ccf` run | `scram_ccf::the_generated_ccf_events_match_scrams` | **30 events, 2 models** |
+| The CCF-rewritten tree | `scram_ccf::the_rewritten_tree_matches_scrams` | **32 products**, 3 totals, importance |
+| CCF applied by default, ablation checked | `scram_ccf::ccf_is_applied_by_default_and_the_ablation_is_the_independent_analysis` | `0.0622587` vs `0.0361`, **+72 %** |
+| CCF factor bookkeeping and its refusals | `scram_ccf::factor_levels_are_upstreams_and_the_malformed_are_refused` | 6 refusals |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -954,6 +959,76 @@ failure this whole record exists to avoid. `Expression::is_deviate()` — the
 hook that analysis uses to decide whether a model needs sampling at all — is
 ported now, because it *is* checkable now.
 
+### Common-cause failure groups — and one default this port changed on purpose
+
+A fault tree that treats two pumps as independent understates the risk. A CCF
+group says they are coupled, and applying it **rewrites the tree** rather than
+adjusting a number: each member becomes a proxy gate over the shared-failure
+events it belongs to, so the shared failure shows up as a *single* event in the
+cut sets.
+
+On `TwoTrain/common_cause`, upstream's own model:
+
+| | products | orders | probability |
+|---|---|---|---|
+| CCF applied | 6 | 2 of order 1, 4 of order 2 | **0.0622587** |
+| CCF ablated | 4 | all order 2 | **0.0361** |
+
+Both match the corresponding SCRAM run exactly. The gap is **+72 %**.
+
+#### This port applies CCF groups by default; upstream needs `--ccf`
+
+That is a deliberate divergence, and the workspace rule it follows is the one
+about physics the data supplies being applied unless a caller explicitly
+ablates it. A model that declares a CCF group has already said its components
+are coupled; a run that quietly ignores that reports a risk the model itself
+says is wrong, and — as the table shows — by a wide margin.
+`MefModel::without_ccf` is the visible ablation, it reproduces SCRAM's
+non-`--ccf` answer, and the default is **asserted** so it cannot drift back
+off, which is the other half of that rule.
+
+#### Three of the four models had no upstream model to check against
+
+Upstream's whole input suite uses `beta-factor` and nothing else.
+`models-for-this-port/ccf_models.xml` uses all four, at group size 3 for the
+three multi-level models so that the `1/C(n-1, i)` combination reciprocal is
+exercised at a value other than 1.
+
+| group | model | level | RAFFLES | SCRAM |
+|---|---|---|---|---|
+| `Valves` | beta-factor | 1 | 0.08 | 0.08 |
+| `Valves` | beta-factor | 2 | 0.02 | 0.02 |
+| `Mgl` | MGL | 1 | 0.045 | 0.045 |
+| `Mgl` | MGL | 2 | 0.0015 | 0.0015 |
+| `Mgl` | MGL | 3 | 0.002 | 0.002 |
+| `Alpha` | alpha-factor | 1 | 0.039823 | 0.039823 |
+| `Alpha` | alpha-factor | 2 | 0.00309735 | 0.00309735 |
+| `Alpha` | alpha-factor | 3 | 0.0039823 | 0.0039823 |
+| `Phi` | phi-factor | 1 | 0.04 | 0.04 |
+| `Phi` | phi-factor | 2 | 0.0075 | 0.0075 |
+| `Phi` | phi-factor | 3 | 0.0025 | 0.0025 |
+
+#### A `<members>` element DECLARES its basic events
+
+This is the detail that decides whether `TwoTrain/common_cause` loads at all.
+Upstream's `ProcessCcfMembers` **constructs** a `BasicEvent` per member, with
+the group's own base path and role, and registers it; the model declares
+`ValveOne` nowhere else. Reading the members as *references* — which is what
+they look like — makes the model fail with "undefined event `ValveOne`", which
+is exactly how this was found.
+
+#### A refusal established by running the binary, not by reading the asserts
+
+An alpha-factor group with a single factor is malformed. Upstream's source
+says so only through `assert(probabilities.size() > 1)`, which a release build
+does not check — so the honest way to find out what SCRAM *does* was to run it
+on that input. It refuses with **"Expression requires 2 or more arguments"**:
+with one factor the model's weighted sum is an `Add` of a single argument, and
+`detail::EnsureMultivariateArgs` throws from the `NaryExpression<T, -1>`
+constructor. That check was missing from this port's `Expression::validate`
+and is now there — along with the recursion it also lacked, which had meant a
+malformed argument three levels down passed unexamined.
+
 ## What this does NOT establish
 
 - **It is not validation.** Agreement with SCRAM shows this port reproduces
@@ -1040,10 +1115,16 @@ ported now, because it *is* checkable now.
   would reject may be read here. Adding a RelaxNG validator in pure Rust is
   not in prospect; what stands in for it is that every construct the reader
   does not understand is an error rather than a skip.
-- **CCF groups, substitutions, event trees and alignments are refused, not
-  read.** Each is its own chunk of the port and each refusal is asserted. A
-  model using one cannot be silently mis-read as a smaller model, but it also
-  cannot be analysed.
+- ~~**CCF groups**, substitutions, event trees and alignments are refused, not
+  read.~~ **CORRECTED 2026-09-22** — CCF groups are read and applied; the
+  other three are still refused, each refusal asserted. A model using one
+  cannot be silently mis-read as a smaller model, but it also cannot be
+  analysed.
+- **CCF groups are verified on two models and 30 events.** Both are small —
+  group sizes 2 and 3 — and the whole check rests on one upstream model plus
+  one written here. A real PRA uses groups of 4 to 8, where the combination
+  count grows as `2^n` and the MGL and alpha formulas have many more terms.
+  Nothing here says how this behaves there.
 - **`<define-extern-function>` is refused deliberately and will stay refused.**
   It loads a shared library named by the input file, which the workspace
   `RESPONSIBLE_USE.md` rule on autonomous access to systems forbids. This is a

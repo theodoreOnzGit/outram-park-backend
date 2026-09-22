@@ -607,6 +607,34 @@ impl Expression {
         };
         let ev = |e: &Expression| e.evaluate(parameters, mission_time);
 
+        // Upstream validates every registered expression, not only the one at
+        // hand, so this recurses. An earlier revision checked the top node
+        // only, which meant a malformed argument three levels down passed.
+        for arg in self.args() {
+            arg.validate(parameters, mission_time)?;
+        }
+
+        // Upstream `detail::EnsureMultivariateArgs`, thrown from the
+        // `NaryExpression<T, -1>` constructor. It is what refuses an
+        // alpha-factor CCF group with a single factor: the weighted sum over
+        // the factors is then an `Add` of one argument.
+        if let Expression::Add(xs)
+        | Expression::Sub(xs)
+        | Expression::Mul(xs)
+        | Expression::Div(xs)
+        | Expression::Min(xs)
+        | Expression::Max(xs)
+        | Expression::Mean(xs) = self
+        {
+            if xs.len() < 2 {
+                return Err(bad(
+                    "expression",
+                    xs.len() as f64,
+                    "requires 2 or more arguments",
+                ));
+            }
+        }
+
         match self {
             Expression::Exponential { lambda, time } => {
                 // Upstream: EnsureNonNegative(lambda, "rate of failure"),
@@ -1345,4 +1373,38 @@ impl Expression {
             other => Interval::point(ev(other)?),
         })
     }
+}
+
+/// Upstream `EnsureProbability` (`src/expression.cc`).
+///
+/// Two checks, not one: the expression's **value** must be a probability, and
+/// so must its whole [`Interval`]. The second only bites when a random deviate
+/// is involved, and it is the reason [`Expression::interval`] exists.
+///
+/// # Errors
+///
+/// [`RafflesError::InvalidParameter`] naming which of the two failed.
+pub fn ensure_probability(
+    expression: &Expression,
+    parameters: &Parameters,
+    mission_time: f64,
+    what: &str,
+) -> Result<()> {
+    let value = expression.evaluate(parameters, mission_time)?;
+    if !(0.0..=1.0).contains(&value) {
+        return Err(RafflesError::InvalidParameter {
+            parameter: what.to_string(),
+            value,
+            reason: format!("invalid {what} value"),
+        });
+    }
+    let interval = expression.interval(parameters, mission_time)?;
+    if !interval.is_probability() {
+        return Err(RafflesError::InvalidParameter {
+            parameter: what.to_string(),
+            value,
+            reason: format!("invalid {what} sample domain {interval}"),
+        });
+    }
+    Ok(())
 }

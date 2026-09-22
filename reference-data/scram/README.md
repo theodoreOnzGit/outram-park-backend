@@ -57,7 +57,7 @@ per benchmark model and every model here has one — `RiskAnalysisTest.TwoTrain`
 probabilities. So these numbers are not merely what this binary printed; they
 are what SCRAM's authors say it should print, checked.
 
-## Seven fixtures, deliberately separate
+## Eight fixtures, deliberately separate
 
 | file | parsed from | trusted for |
 |---|---|---|
@@ -66,6 +66,7 @@ are what SCRAM's authors say it should print, checked.
 | `oracle-prime-implicants.txt` | SCRAM's own **XML report**, under `--prime-implicants` | the **signed** products, which describe the function exactly |
 | `oracle-mef.txt` | SCRAM's own **XML report** | the answers for `mef_features`, the model covering the MEF constructs upstream's inputs never use |
 | `oracle-deviates.txt` | SCRAM's own **XML report** | the answers for `deviates`, the model covering all seven random deviates |
+| `oracle-ccf.txt` | SCRAM's own **XML report**, under `--ccf` | the answers with common-cause groups **applied**, which is a different question from `oracle.txt`'s |
 | `oracle-multi-tree.txt` | SCRAM's own **XML report** | the answers for models defining **several** fault trees, one record per tree |
 | `models.txt` | SCRAM's own **input models** | the question — gates, connectives, arguments, the top gate, declared probabilities |
 
@@ -198,8 +199,8 @@ top of this file.
 
 Fifteen files: the nine models `oracle.txt` covers, `Aralia/das9601`,
 `ThreeLevels/top` and the three of `TransTest/` (which `<xi:include>` splices),
-and `TwoTrain/common_cause.xml`, which exists only so a test can check that a
-model using CCF groups is **refused** rather than read as a smaller model.
+and `TwoTrain/common_cause.xml` — the **one** upstream model with
+common-cause groups, and so the only upstream check on `scram::ccf`.
 
 ## Models written for this port
 
@@ -211,6 +212,7 @@ no *small* model exercising the feature — or, for the third, no model at all:
 | `noncoherent_small.xml` | of upstream's seven models with a negating connective, four produce no products, two are event-tree or alignment models, and the only usable one is `das9601` at 288 gates |
 | `house_events_small.xml` | upstream's only house-event model is `ThreeMotor`, which the extractor refuses for its `<define-component>` namespaces |
 | `mef_features.xml` | **no** upstream input uses `<iff>`, `<imply>`, `<cardinality>`, a `<constant>` formula argument or `<event type="…">`; a grep over all of `input/` finds none of the five. It also carries a second, independent instance of the private-namespace rule, with a shadowed parameter whose value differs between scopes |
+| `ccf_models.xml` | of the four common-cause models, upstream's whole input suite uses `beta-factor` and nothing else; MGL, alpha-factor and phi-factor appear nowhere. Group size is 3 for the three multi-level models so the `1/C(n-1, i)` combination reciprocal is exercised at a value other than 1 |
 | `deviates.xml` | of the seven MEF random deviates, upstream's inputs use only `<lognormal-deviate>` (SmallTree, BSCU) and `<normal-deviate>` (Chinese); the uniform, two-argument log-normal, gamma, beta and histogram forms appear nowhere. The gamma, beta and histogram deviates sit inside an `<exponential>` because upstream's `EnsureProbability` checks the whole `interval()` against `[0, 1]` and their domains reach past 1 |
 
 **SCRAM is the oracle for both**: their expected answers come from running the
@@ -310,6 +312,12 @@ reference-data/scram/extract_oracle.sh ./bin/scram \
 reference-data/scram/extract_oracle.sh ./bin/scram \
     reference-data/scram/models-for-this-port/deviates.xml \
     > reference-data/scram/oracle-deviates.txt
+
+# The common-cause fixture, which needs `--ccf` and so has its own generator.
+reference-data/scram/extract_ccf_oracle.sh ./bin/scram \
+    reference-data/scram/upstream-input/TwoTrain/common_cause.xml \
+    reference-data/scram/models-for-this-port/ccf_models.xml \
+    > reference-data/scram/oracle-ccf.txt
 ```
 
 ## Consumed by
@@ -335,6 +343,10 @@ reference-data/scram/extract_oracle.sh ./bin/scram \
   own expressions, and the cut sets, totals and importance factors that
   follow — `ThreeMotor` included, and `<xi:include>`, the private-namespace
   rule and the five MEF constructs upstream never uses with them.
+- `crates/raffles/tests/scram_ccf.rs` — common-cause groups: the generated CCF
+  events and their probabilities for all four models, the rewritten tree's
+  products and totals, and the default-on / explicitly-ablated pair checked
+  against SCRAM with and without `--ccf`.
 - `crates/raffles/tests/scram_deviates.rs` — the seven random deviates: each
   one's deterministic value against SCRAM's, the two upstream log-normal
   models read end to end, upstream's domain checks, and the `interval()` half

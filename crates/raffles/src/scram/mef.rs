@@ -31,10 +31,14 @@
 // `Index`. That is the rule `ThreeMotor` needs and the reason it could not
 // be read before.
 //
-// NOT ported here: CCF groups, substitutions, event trees, alignments and
+// NOT read here: substitutions, event trees, alignments and
 // `<define-extern-function>` — each is its own chunk. An unrecognised
 // element is REFUSED rather than skipped, so a model using one cannot be
-// silently mis-read as a smaller model.
+// silently mis-read as a smaller model. CCF groups ARE read, into
+// [`super::ccf`]; note that their `<members>` element DECLARES its basic
+// events rather than referencing them, which is upstream's
+// `ProcessCcfMembers` and the reason `TwoTrain/common_cause.xml` declares
+// `ValveOne` nowhere else.
 // ---------------------------------------------------------------------------
 
 //! Reading SCRAM's Model Exchange Format.
@@ -51,7 +55,8 @@
 //!
 //! `<define-fault-tree>` and `<define-component>`, `<define-gate>`,
 //! `<define-basic-event>`, `<define-house-event>`, `<define-parameter>`,
-//! `<model-data>`, all eleven MEF connectives, event references (`<event>`,
+//! `<define-CCF-group>`, `<model-data>`, all eleven MEF connectives, event
+//! references (`<event>`,
 //! `<gate>`, `<basic-event>`, `<house-event>`, and `<event type="…">`),
 //! `<not>` and `<constant>` arguments, and the expression elements
 //! [`super::expression`] evaluates.
@@ -63,7 +68,7 @@
 //!
 //! # What it does not
 //!
-//! CCF groups, substitutions, event trees, alignments and extern functions.
+//! Substitutions, event trees, alignments and extern functions.
 //! **An element it does not recognise is an error**, never a skip — a model
 //! using one would otherwise be read as a smaller, different model that
 //! happens to parse, which is the failure this whole port exists to avoid.
@@ -81,6 +86,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use super::ccf::{proxy_arguments, CcfGroup, CcfModel};
 use super::expression::{Expression, Parameters, DEFAULT_MISSION_TIME};
 use super::fault_tree::{Connective, FaultTreeBuilder, FaultTreeModel};
 use crate::{RafflesError, Result};
@@ -279,6 +285,11 @@ pub struct MefModel {
     pub gates: HashMap<String, Formula>,
     /// Declaration order of the gates, so a model reads back deterministically.
     pub gate_order: Vec<String>,
+    /// Common-cause failure groups, in declaration order.
+    ///
+    /// [`MefModel::fault_tree`] applies them; [`MefModel::without_ccf`] is
+    /// the explicit ablation.
+    pub ccf_groups: Vec<CcfGroup>,
 }
 
 /// One naming scope: the container a declaration sits in.
@@ -607,12 +618,36 @@ impl MefModel {
                         return Err(invalid(format!("parameter `{id}` is declared twice")));
                     }
                 }
+                // A group's `<members>` DECLARE their basic events rather
+                // than referencing them — upstream's `ProcessCcfMembers`
+                // constructs a `BasicEvent` per member with the group's own
+                // base path and role. `TwoTrain/common_cause.xml` declares
+                // `ValveOne` nowhere else, and reading the members as
+                // references instead is how that model fails to load.
                 "define-CCF-group" => {
-                    return Err(invalid(
-                        "common-cause-failure groups are not read yet (their own chunk of \
-                         the port); refusing rather than reading a model without them"
-                            .into(),
-                    ))
+                    let group = child.need_attr("name")?;
+                    let members = child
+                        .structural()
+                        .find(|c| c.name == "members")
+                        .ok_or_else(|| {
+                            invalid(format!("CCF group `{group}` declares no <members>"))
+                        })?;
+                    for member in members.structural() {
+                        if member.name != "basic-event" {
+                            return Err(invalid(format!(
+                                "CCF group `{group}` holds <{}> among its members, \
+                                 expected <basic-event>",
+                                member.name
+                            )));
+                        }
+                        let id = index.basic_events.declare(
+                            member.need_attr("name")?,
+                            scope,
+                            "basic event",
+                        )?;
+                        index.claim_event_id(&id)?;
+                        index.basic_events.ids.insert(id);
+                    }
                 }
                 "define-substitution" => {
                     return Err(invalid(
@@ -708,6 +743,18 @@ impl MefModel {
                     self.parameters
                         .insert(id, read_expression(e, scope, index)?);
                 }
+                "define-CCF-group" => {
+                    let group = read_ccf_group(child, scope, index)?;
+                    // Upstream `CcfGroup::AddDistribution`: every member's own
+                    // probability is the group's distribution. That is what
+                    // an analysis WITHOUT the CCF model uses, so it has to be
+                    // recorded whether or not the model is applied.
+                    for member in &group.members {
+                        self.basic_events
+                            .insert(member.clone(), group.distribution.clone());
+                    }
+                    self.ccf_groups.push(group);
+                }
                 // Read during registration, as upstream does.
                 "define-house-event" => {}
                 other => {
@@ -720,6 +767,129 @@ impl MefModel {
             }
         }
         Ok(())
+    }
+
+    /// Every parameter's value, resolved by repeated passes.
+    ///
+    /// This terminates because upstream forbids parameter cycles
+    /// (`src/cycle.h`); a cycle here simply fails to resolve and is reported
+    /// rather than detected structurally.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] naming the parameters that could not
+    /// be resolved.
+    pub fn resolved_parameters(&self) -> Result<Parameters> {
+        let mut resolved = Parameters::new();
+        for _ in 0..self.parameters.len().max(1) {
+            let mut progressed = false;
+            for (name, e) in &self.parameters {
+                if resolved.contains_key(name) {
+                    continue;
+                }
+                if let Ok(v) = e.evaluate(&resolved, self.mission_time) {
+                    resolved.insert(name.clone(), v);
+                    progressed = true;
+                }
+            }
+            if !progressed {
+                break;
+            }
+        }
+        if resolved.len() < self.parameters.len() {
+            let missing: Vec<&String> = self
+                .parameters
+                .keys()
+                .filter(|k| !resolved.contains_key(*k))
+                .collect();
+            return Err(invalid(format!(
+                "these parameters could not be resolved, which upstream would report as a \
+                 cycle: {missing:?}"
+            )));
+        }
+        Ok(resolved)
+    }
+
+    /// This model with its common-cause groups **dropped** — the explicit
+    /// ablation.
+    ///
+    /// Equivalent to running SCRAM *without* `--ccf`: the members keep the
+    /// group's distribution as their own independent probability, which is
+    /// what upstream's `AddDistribution` assigns them, and no CCF event is
+    /// created. It is a real analysis, and a strictly optimistic one; it is
+    /// here so that dropping the coupling is something a caller has to ask
+    /// for and say why.
+    pub fn without_ccf(&self) -> MefModel {
+        let mut out = self.clone();
+        out.ccf_groups.clear();
+        out
+    }
+
+    /// This model with every common-cause group applied — upstream's
+    /// `CcfGroup::ApplyModel`, over the whole model.
+    ///
+    /// Each member basic event becomes a proxy gate of the same id, an `or`
+    /// over every CCF event that couples it, and each `k`-subset of a group's
+    /// members gains a basic event `[A B …]` carrying that level's
+    /// probability.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if a group fails upstream's
+    /// validation, names a member that is not a declared basic event, or its
+    /// factors do not suit its model.
+    pub fn apply_ccf(&self) -> Result<MefModel> {
+        if self.ccf_groups.is_empty() {
+            return Ok(self.clone());
+        }
+        let parameters = self.resolved_parameters()?;
+        let mut out = self.clone();
+        out.ccf_groups.clear();
+        for group in &self.ccf_groups {
+            group.validate(&parameters, self.mission_time)?;
+            let events = group.events()?;
+            for member in &group.members {
+                if out.basic_events.remove(member).is_none() {
+                    return Err(invalid(format!(
+                        "CCF group `{}` names `{member}`, which is not a declared basic \
+                         event",
+                        group.name
+                    )));
+                }
+            }
+            for event in &events {
+                // Upstream refuses a malformed factor set at expression
+                // CONSTRUCTION -- an alpha-factor group with one factor makes
+                // the weighted sum an `Add` of a single argument, and
+                // `EnsureMultivariateArgs` throws. Here the expression is a
+                // value, so the same refusal comes from validating it.
+                event.probability.validate(&parameters, self.mission_time)?;
+                out.basic_events
+                    .insert(event.id.clone(), event.probability.clone());
+            }
+            let arguments = proxy_arguments(&events);
+            // Iterated in the group's own member order, not the map's: a
+            // HashMap walk would make the gate order differ between runs, and
+            // this workspace has already lost a day to exactly that.
+            for member in &group.members {
+                let args = arguments.get(member).cloned().unwrap_or_default();
+                out.gates.insert(
+                    member.clone(),
+                    Formula {
+                        connective: MefConnective::Or,
+                        args: args
+                            .into_iter()
+                            .map(|name| FormulaArg::Event {
+                                name,
+                                complement: false,
+                            })
+                            .collect(),
+                    },
+                );
+                out.gate_order.push(member.clone());
+            }
+        }
+        Ok(out)
     }
 
     /// Flattens the model into a [`FaultTreeModel`] rooted at `top`.
@@ -748,39 +918,16 @@ impl MefModel {
     /// [`RafflesError::InvalidParameter`] if `top` is not a declared gate, a
     /// reference resolves to nothing, or an expression fails to evaluate.
     pub fn fault_tree(&self, top: &str) -> Result<FaultTreeModel> {
+        // A model that declares a CCF group has said its components are
+        // coupled; applying that is the default, and `without_ccf` is the
+        // visible ablation.
+        if !self.ccf_groups.is_empty() {
+            return self.apply_ccf()?.fault_tree(top);
+        }
         if !self.gates.contains_key(top) {
             return Err(invalid(format!("`{top}` is not a declared gate")));
         }
-        // Parameters may reference each other; resolve by repeated passes,
-        // which terminates because upstream forbids cycles (src/cycle.h) and
-        // a cycle here simply fails to resolve and is reported.
-        let mut resolved = Parameters::new();
-        for _ in 0..self.parameters.len().max(1) {
-            let mut progressed = false;
-            for (name, e) in &self.parameters {
-                if resolved.contains_key(name) {
-                    continue;
-                }
-                if let Ok(v) = e.evaluate(&resolved, self.mission_time) {
-                    resolved.insert(name.clone(), v);
-                    progressed = true;
-                }
-            }
-            if !progressed {
-                break;
-            }
-        }
-        if resolved.len() < self.parameters.len() {
-            let missing: Vec<&String> = self
-                .parameters
-                .keys()
-                .filter(|k| !resolved.contains_key(*k))
-                .collect();
-            return Err(invalid(format!(
-                "these parameters could not be resolved, which upstream would report as a \
-                 cycle: {missing:?}"
-            )));
-        }
+        let resolved = self.resolved_parameters()?;
 
         // Walk from the top, collecting the gates and events actually used.
         let mut lowering = Lowering::new(self);
@@ -1175,6 +1322,117 @@ fn resolve_reference(element: &Element, scope: &Scope, index: &Index) -> Result<
     } else {
         index.resolve_typed(kind, name, scope)
     }
+}
+
+/// Reads a `<define-CCF-group>` — upstream's `Initializer::DefineCcfGroup`
+/// plus `AddMember` / `AddDistribution` / `AddFactor`.
+///
+/// The factor level is optional in the grammar. Upstream deduces a missing one
+/// as "one past the previous", starting at the model's minimum level:
+///
+/// ```cpp
+/// if (!level) level = prev_level_ ? (prev_level_ + 1) : min_level;
+/// ```
+fn read_ccf_group(element: &Element, scope: &Scope, index: &Index) -> Result<CcfGroup> {
+    let name = element.need_attr("name")?;
+    let model = CcfModel::parse(element.need_attr("model")?)?;
+    let mut members: Vec<String> = Vec::new();
+    let mut distribution: Option<Expression> = None;
+    let mut factor_elements: Vec<&Element> = Vec::new();
+
+    for child in element.structural() {
+        match child.name.as_str() {
+            "members" => {
+                for m in child.structural() {
+                    // A DECLARATION, not a reference: see the first pass.
+                    let id = scope.id(m.need_attr("name")?);
+                    if members.contains(&id) {
+                        return Err(invalid(format!("CCF group `{name}` names `{id}` twice")));
+                    }
+                    members.push(id);
+                }
+            }
+            "distribution" => {
+                let e = child.structural().next().ok_or_else(|| {
+                    invalid(format!("CCF group `{name}` has an empty <distribution>"))
+                })?;
+                distribution = Some(read_expression(e, scope, index)?);
+            }
+            // The grammar allows either a <factors> wrapper or bare <factor>
+            // children, and upstream accepts both.
+            "factors" => factor_elements.extend(child.structural()),
+            "factor" => factor_elements.push(child),
+            other => {
+                return Err(invalid(format!(
+                    "CCF group `{name}` holds <{other}>, which is not part of the group"
+                )))
+            }
+        }
+    }
+
+    let distribution = distribution
+        .ok_or_else(|| invalid(format!("CCF group `{name}` declares no <distribution>")))?;
+    if members.len() < 2 {
+        return Err(invalid(format!(
+            "CCF group `{name}` has {} member(s); at least 2 are needed",
+            members.len()
+        )));
+    }
+
+    let min_level = model.min_level(members.len());
+    let mut factors: Vec<(usize, Expression)> = Vec::new();
+    let mut previous = 0usize;
+    for f in factor_elements {
+        if f.name != "factor" {
+            return Err(invalid(format!(
+                "CCF group `{name}` holds <{}> among its factors",
+                f.name
+            )));
+        }
+        let level = match f.attr("level") {
+            Some(text) => text.parse().map_err(|_| {
+                invalid(format!("CCF group `{name}` has a non-numeric factor level"))
+            })?,
+            None if previous != 0 => previous + 1,
+            None => min_level,
+        };
+        if level < min_level {
+            return Err(invalid(format!(
+                "CCF group `{name}`: the factor level ({level}) is less than the minimum \
+                 level ({min_level}) for the {} model",
+                model.as_str()
+            )));
+        }
+        if level > members.len() {
+            return Err(invalid(format!(
+                "CCF group `{name}`: the factor level {level} is more than the number of \
+                 members ({})",
+                members.len()
+            )));
+        }
+        if factors.iter().any(|(l, _)| *l == level) {
+            return Err(invalid(format!(
+                "CCF group `{name}`: redefinition of the CCF factor for level {level}"
+            )));
+        }
+        let e = f
+            .structural()
+            .next()
+            .ok_or_else(|| invalid(format!("CCF group `{name}` has an empty <factor>")))?;
+        factors.push((level, read_expression(e, scope, index)?));
+        previous = level;
+    }
+    factors.sort_by_key(|(level, _)| *level);
+
+    Ok(CcfGroup {
+        name: scope.id(name),
+        model,
+        members,
+        distribution,
+        factors,
+        base_path: scope.base_path.clone(),
+        private: scope.private,
+    })
 }
 
 /// Reads an expression element.

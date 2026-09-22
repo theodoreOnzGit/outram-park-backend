@@ -221,9 +221,17 @@ file comes from before writing its attribution header.
        share/input.rng with libxml2 before reading it; src/scram/mef.rs does
        not, and says so. Its structure checks are narrower than the grammar.
 
-   STILL ABSENT: the preprocessor, event trees, alignments, CCF groups,
-   substitutions, sampling and the uncertainty analysis over it, and the
-   reporter. Each construct src/scram/mef.rs does not read is REFUSED
+   STILL ABSENT: the preprocessor, event trees, alignments, substitutions,
+   sampling and the uncertainty analysis over it, and the reporter.
+
+   COMMON-CAUSE FAILURE GROUPS ARE present, in src/scram/ccf.rs, porting
+   ccf_group.{h,cc}: all four models (beta-factor, MGL, alpha-factor,
+   phi-factor), their CalculateProbabilities formulas, the combination
+   reciprocal, and ApplyModel's proxy-gate rewrite with CcfEvent::MakeName's
+   bracketed naming. THIS PORT APPLIES THEM BY DEFAULT, where upstream
+   applies them only under `scram --ccf`; MefModel::without_ccf is the
+   explicit ablation and both paths are verified against the corresponding
+   upstream run. Each construct src/scram/mef.rs does not read is REFUSED
    with a reason rather than skipped.
 
    <define-extern-function> is refused DELIBERATELY AND PERMANENTLY: it loads

@@ -104,6 +104,7 @@ difference is load-bearing.** Ported, with attribution headers:
 | `fault_tree.rs`'s `Connective` taxonomy | `pdag.h`'s `enum Connective` |
 | `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators, and the seven random deviates' `value`/`Validate`/`interval` |
 | `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
+| `ccf.rs` | `ccf_group.{h,cc}` — all four common-cause models, `CalculateProbabilities`, the combination reciprocal and `ApplyModel`'s proxy-gate rewrite |
 
 **Not** ports, each saying so in its own doc instead:
 
@@ -139,7 +140,7 @@ non-BDD ZBDD constructor was named explicitly.
 
 ~~Still to do under that direction: XML input (`initializer`, `xml`), the
 `expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
-`src/scram/expression.rs` and `src/scram/mef.rs`. Still to do: CCF groups,
+`src/scram/expression.rs` and `src/scram/mef.rs`. Still to do:
 substitutions, event trees and sequences, alignments, `Expression::Sample` and
 the uncertainty analysis that consumes it, the preprocessor, `pdag`, and the
 reporter. Progress is tracked in `docs/scram-port-verification.md`.
@@ -179,8 +180,19 @@ it sooner would mean writing it unverifiable. Their arrival is also what gave
 good probability while its six-sigma domain is not, and upstream rejects the
 argument on the domain check.
 
-Still absent, and refused rather than skipped when a model uses them: CCF
-groups, substitutions, event trees, alignments, the trigonometric operators
+~~CCF groups~~ **CORRECTED 2026-09-22** — `src/scram/ccf.rs` landed, porting
+all four models (beta-factor, MGL, alpha-factor, phi-factor) and
+`ApplyModel`'s proxy-gate rewrite. **They are applied BY DEFAULT**, not behind
+a flag as upstream's `--ccf` is, per the workspace rule that physics the data
+supplies is applied unless a caller ablates it; `MefModel::without_ccf` is the
+visible ablation and both paths are pinned against the corresponding SCRAM
+run. The default is asserted by
+`scram_ccf::ccf_is_applied_by_default_and_the_ablation_is_the_independent_analysis`
+— do not turn it off. Only upstream's `beta-factor` appears in any upstream
+input model, so `models-for-this-port/ccf_models.xml` carries all four.
+
+Still absent, and refused rather than skipped when a model uses them:
+substitutions, event trees, alignments, the trigonometric operators
 and `<switch>`.
 `<define-extern-function>` is refused **deliberately and permanently** — it
 loads a shared library named by the input file, which the workspace

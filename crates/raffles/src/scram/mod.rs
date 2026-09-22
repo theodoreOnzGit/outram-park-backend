@@ -88,10 +88,20 @@
 //! MEF connectives, and it **refuses** rather than skips anything it does not
 //! read.
 //!
+//! **Common-cause failure groups are applied by default.** A model that
+//! declares one has said its components are coupled, and [`ccf`] rewrites the
+//! tree accordingly — each member becomes a proxy gate over the shared-failure
+//! events it belongs to. Upstream does this only under `scram --ccf`;
+//! [`mef::MefModel::without_ccf`] is the explicit ablation, and both paths are
+//! verified against the corresponding SCRAM run. On
+//! `TwoTrain/common_cause` the difference is `0.0622587` against `0.0361` —
+//! ignoring a declared group is not a small approximation.
+//!
 //! ~~**What is still absent:** everything SCRAM does around this core — XML
 //! input models, … and the expression library~~ **CORRECTED 2026-09-22** —
-//! both landed, and on 2026-09-22 so did the seven random deviates. What is
-//! still absent: event trees, alignments, common-cause-failure groups,
+//! both landed, and on 2026-09-22 so did the seven random deviates and the
+//! four common-cause-failure models ([`ccf`]). What is
+//! still absent: event trees, alignments,
 //! substitutions, **sampling** and the uncertainty analysis over it, the
 //! reporter, and — in the analysis itself — the preprocessor, whose absence is
 //! a cost in diagram size rather than in answers. A deviate evaluates to its
@@ -121,6 +131,7 @@
 //! recorded in `crates/raffles/docs/scram-port-verification.md`.
 
 pub mod bdd;
+pub mod ccf;
 pub mod expression;
 pub mod fault_tree;
 pub mod importance;
