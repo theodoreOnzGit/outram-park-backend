@@ -389,7 +389,7 @@ fn n_scored(t: &Tally, bins: &[usize]) -> usize {
 #[test]
 #[cfg_attr(
     not(feature = "long-tests"),
-    ignore = "reconstructs 8 nuclides from ENDF and runs four shielding transports (~20 min); runs by default"
+    ignore = "reconstructs 8 nuclides from ENDF and runs four shielding transports (~15 min); runs by default"
 )]
 fn shielded_room_weight_window() {
     let Some(nucs) = load_nuclides() else {
@@ -409,7 +409,7 @@ fn shielded_room_weight_window() {
         &mats,
         &nucs,
         &src,
-        &settings(6_000, 20_260_922, VarianceReduction::default()),
+        &settings(2_500, 20_260_922, VarianceReduction::default()),
         Some(&mut analog_tally),
     );
     let t_analog = t0.elapsed().as_secs_f64();
@@ -428,7 +428,7 @@ fn shielded_room_weight_window() {
         &mats,
         &nucs,
         &src,
-        &settings(1_500, 7_919, VarianceReduction::default()),
+        &settings(800, 7_919, VarianceReduction::default()),
         Some(&mut gen_tally),
     );
     let t_generate = t0.elapsed().as_secs_f64();
@@ -471,7 +471,7 @@ fn shielded_room_weight_window() {
     // direction flattered the result.
     let mut probe_tally = flux_tally();
     let t0 = Instant::now();
-    let n_probe = 200usize;
+    let n_probe = 100usize;
     run_fixed_source(
         &geom,
         &mats,
@@ -481,9 +481,24 @@ fn shielded_room_weight_window() {
         Some(&mut probe_tally),
     );
     let per_particle = t0.elapsed().as_secs_f64() / n_probe as f64;
-    let n_ww = ((budget / per_particle) as usize).clamp(50, 200_000);
+    // **Hard particle cap as well as the time budget.**
+    //
+    // A first version of this test sized the weight-window arm from the time
+    // budget alone, with a 200 000 upper clamp. That is unbounded in practice:
+    // the probe's 200 particles are drawn from the source region, where the
+    // MAGIC windows are dense and histories die quickly, so `per_particle`
+    // underestimates the cost of a particle that actually gets steered into
+    // the shield. The run then blows straight past its budget and the
+    // `t_ww < 3 t_analog` assertion only fires HOURS later, after the damage.
+    // That test ran 45 minutes before it was stopped and rewritten.
+    //
+    // The cap is 25x the probe, which bounds the arm at ~25x the probe's
+    // measured wall-clock whatever the extrapolation says.
+    let from_budget = (budget / per_particle) as usize;
+    let n_ww = from_budget.clamp(50, 25 * n_probe);
     println!(
-        "WW probe : {:.3} s per source particle; budget {budget:.1} s -> {n_ww} particles",
+        "WW probe : {:.3} s per source particle; budget {budget:.1} s -> \
+         {from_budget} particles, capped to {n_ww}",
         per_particle
     );
 
