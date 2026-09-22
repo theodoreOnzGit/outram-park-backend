@@ -45,6 +45,10 @@ pub enum RepoState {
     /// Initialised as a new local repository (no remote given), keeping any
     /// files already in the directory.
     Initialised,
+    /// Already a repository with no `origin`; the given remote was added as
+    /// `origin` (a corpus first created locally, whose URL the user gave
+    /// later), so it can be pushed without typing the URL again.
+    RemoteAdded,
 }
 
 /// Why [`ensure_repo`] could not make a directory a repository.
@@ -96,7 +100,9 @@ pub fn is_git_repo(dir: &Path) -> bool {
 
 /// Make `dir` a Git repository. See the module doc's safety rules.
 ///
-/// - Already a repository: [`RepoState::Existing`], untouched.
+/// - Already a repository: [`RepoState::Existing`], untouched, except that a
+///   given `remote` is added as `origin` when the repository has no `origin`
+///   yet ([`RepoState::RemoteAdded`]). An existing `origin` is never changed.
 /// - `remote` given: cloned into `dir` (`branch`, if given, is the branch to
 ///   check out), provided `dir` is absent or empty.
 /// - No `remote`: initialised in place, creating `dir` if needed.
@@ -106,6 +112,20 @@ pub fn ensure_repo(
     branch: Option<&str>,
 ) -> Result<RepoState, CorpusRepoError> {
     if is_git_repo(dir) {
+        if let Some(url) = remote {
+            let has_origin = crate::advanced_git::list_remotes_in(dir)
+                .map(|rs| rs.iter().any(|r| r.name == "origin"))
+                .unwrap_or(true);
+            if !has_origin {
+                crate::advanced_git::add_remote_in(dir, "origin", url).map_err(|e| {
+                    CorpusRepoError::Clone {
+                        remote: url.to_string(),
+                        stderr: e.to_string(),
+                    }
+                })?;
+                return Ok(RepoState::RemoteAdded);
+            }
+        }
         return Ok(RepoState::Existing);
     }
     let has_files = dir.is_dir() && std::fs::read_dir(dir)?.next().is_some();
@@ -284,6 +304,39 @@ mod tests {
         assert!(is_git_repo(&dir));
         assert!(dir.join("already-here.pdf").exists(), "nothing removed");
         assert_eq!(ensure_repo(&dir, None, None).unwrap(), RepoState::Existing);
+    }
+
+    /// A corpus created locally gets its URL as `origin` when the user gives
+    /// one later; an existing `origin` is never replaced.
+    #[test]
+    fn a_later_url_becomes_origin_but_never_replaces_one() {
+        if !crate::advanced_git::system_git_available() {
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("open-corpus");
+        assert_eq!(
+            ensure_repo(&dir, None, None).unwrap(),
+            RepoState::Initialised
+        );
+        let url = "https://example.com/mine.git";
+        assert_eq!(
+            ensure_repo(&dir, Some(url), None).unwrap(),
+            RepoState::RemoteAdded
+        );
+        let origin = |d: &Path| {
+            crate::advanced_git::list_remotes_in(d)
+                .unwrap()
+                .into_iter()
+                .find(|r| r.name == "origin")
+                .map(|r| r.url)
+        };
+        assert_eq!(origin(&dir).as_deref(), Some(url));
+        assert_eq!(
+            ensure_repo(&dir, Some("https://example.com/other.git"), None).unwrap(),
+            RepoState::Existing
+        );
+        assert_eq!(origin(&dir).as_deref(), Some(url), "not replaced");
     }
 
     /// A clone never overwrites a folder that already holds files.

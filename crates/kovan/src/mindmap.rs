@@ -721,6 +721,7 @@ impl MindmapState {
         let mut crumb_to: Option<Option<NodeId>> = None;
         let up = crate::runtime_graph::up_one_level(self.current.as_ref());
         ui.horizontal(|ui| {
+            crate::app::navigation_style(ui);
             // Up one level (maintainer direction, 2026-09-22): to the parent
             // concept, or to the top from a top-level one.
             let up_label = match &up {
@@ -832,6 +833,7 @@ impl MindmapState {
         let mut unpin_all = false;
         let mut collapse_all = false;
         ui.horizontal(|ui| {
+            crate::app::navigation_style(ui);
             ui.label("Zoom:");
             if ui.button(" − ").clicked() {
                 vp.zoom = Some(shown_zoom / ZOOM_STEP);
@@ -869,7 +871,13 @@ impl MindmapState {
                 collapse_all = true;
             }
             ui.separator();
-            ui.weak("Drag the background or scroll to pan; drag a card to pin it; Ctrl + scroll to zoom");
+            ui.label(
+                egui::RichText::new(
+                    "Drag the background or scroll to pan; drag a card to pin it; Ctrl + scroll to zoom",
+                )
+                .small()
+                .weak(),
+            );
         });
 
         // ── Viewport: which zoom, and whether to move the scroll offset ─

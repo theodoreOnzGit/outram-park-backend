@@ -139,13 +139,15 @@ pub fn system_git_available() -> bool {
         .unwrap_or(false)
 }
 
-fn run_git(root: &KovanRoot, args: &[&str]) -> Result<String, RemoteError> {
+/// Run the system `git` in the repository at `dir` (any repository, not only
+/// a Kovan folder: the corpus repositories too, #255).
+fn run_git_in(dir: &std::path::Path, args: &[&str]) -> Result<String, RemoteError> {
     if !system_git_available() {
         return Err(RemoteError::GitUnavailable);
     }
     let output = Command::new("git")
         .arg("-C")
-        .arg(root.path())
+        .arg(dir)
         .args(args)
         .output()
         .map_err(RemoteError::Io)?;
@@ -168,7 +170,12 @@ pub struct RemoteInfo {
 /// The library's configured remotes (`git remote -v`, fetch URLs, deduped
 /// by name).
 pub fn list_remotes(root: &KovanRoot) -> Result<Vec<RemoteInfo>, RemoteError> {
-    let text = run_git(root, &["remote", "-v"])?;
+    list_remotes_in(root.path())
+}
+
+/// The remotes of the repository at `dir` (see [`list_remotes`]).
+pub fn list_remotes_in(dir: &std::path::Path) -> Result<Vec<RemoteInfo>, RemoteError> {
+    let text = run_git_in(dir, &["remote", "-v"])?;
     let mut seen = std::collections::BTreeSet::new();
     let mut out = Vec::new();
     for line in text.lines() {
@@ -188,17 +195,45 @@ pub fn list_remotes(root: &KovanRoot) -> Result<Vec<RemoteInfo>, RemoteError> {
 
 /// `git fetch <remote>` — network I/O via the system binary, never gitoxide.
 pub fn fetch(root: &KovanRoot, remote: &str) -> Result<String, RemoteError> {
-    run_git(root, &["fetch", remote])
+    fetch_in(root.path(), remote)
 }
 
 /// `git pull <remote> <branch>`.
 pub fn pull(root: &KovanRoot, remote: &str, branch: &str) -> Result<String, RemoteError> {
-    run_git(root, &["pull", remote, branch])
+    pull_in(root.path(), remote, branch)
 }
 
 /// `git push <remote> <branch>`.
 pub fn push(root: &KovanRoot, remote: &str, branch: &str) -> Result<String, RemoteError> {
-    run_git(root, &["push", remote, branch])
+    push_in(root.path(), remote, branch)
+}
+
+/// [`fetch`] in the repository at `dir`.
+pub fn fetch_in(dir: &std::path::Path, remote: &str) -> Result<String, RemoteError> {
+    run_git_in(dir, &["fetch", remote])
+}
+
+/// [`pull`] in the repository at `dir`.
+pub fn pull_in(dir: &std::path::Path, remote: &str, branch: &str) -> Result<String, RemoteError> {
+    run_git_in(dir, &["pull", remote, branch])
+}
+
+/// [`push`] in the repository at `dir`.
+pub fn push_in(dir: &std::path::Path, remote: &str, branch: &str) -> Result<String, RemoteError> {
+    run_git_in(dir, &["push", remote, branch])
+}
+
+/// `git remote add <name> <url>` in the repository at `dir`.
+pub fn add_remote_in(dir: &std::path::Path, name: &str, url: &str) -> Result<String, RemoteError> {
+    run_git_in(dir, &["remote", "add", name, url])
+}
+
+/// The branch checked out in the repository at `dir`, if any (read with
+/// `gix`, no subprocess). `None` for a detached head or no repository.
+pub fn current_branch_in(dir: &std::path::Path) -> Option<String> {
+    let repo = gix::open(dir).ok()?;
+    let name = repo.head_name().ok().flatten()?;
+    Some(name.shorten().to_string())
 }
 
 #[cfg(test)]

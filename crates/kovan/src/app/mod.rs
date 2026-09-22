@@ -20,6 +20,7 @@ mod pdf_reader;
 mod setup;
 mod table_digitiser;
 mod theme;
+pub(crate) use theme::navigation_style;
 mod wiki;
 
 use eframe::egui::{
@@ -1966,6 +1967,9 @@ impl DigitiseApp {
     /// Markdown Editor (op-wr08) panels, and the Gruvbox theme selector
     /// (op-t5sq).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
+        // Larger tabs and buttons in the top bar (maintainer direction,
+        // 2026-09-22); the pages below keep the theme's own sizes.
+        theme::navigation_style(ui);
         ui.horizontal(|ui| {
             self.nav_buttons(ui);
             ui.separator();
@@ -2167,6 +2171,9 @@ impl DigitiseApp {
                     format!("{name} created locally (add a remote and push later)")
                 }
                 Ok(crate::corpus_repos::RepoState::Existing) => format!("{name} already present"),
+                Ok(crate::corpus_repos::RepoState::RemoteAdded) => {
+                    format!("{name} connected to its GitHub repository")
+                }
                 Err(e) => format!("{name} not set up: {e}"),
             };
             format!(

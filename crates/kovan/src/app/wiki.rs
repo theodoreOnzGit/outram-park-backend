@@ -379,6 +379,7 @@ impl WikiState {
         // Breadcrumb, through the runtime graph (corpus and library, #249).
         let index_opt = Some(index);
         ui.horizontal_wrapped(|ui| {
+            super::navigation_style(ui);
             let mut go_to = None;
             if ui.link("Top").clicked() {
                 go_to = Some(None);
