@@ -18,6 +18,7 @@ pub mod excursion;
 pub mod fhr_reactor_vessel;
 pub mod heat_exchanger;
 pub(crate) mod htr10_conus_packing;
+pub mod htr10_plant;
 pub mod htr10_reactor_schematic;
 pub mod htr10_reactor_vessel;
 pub mod htr10_steam_generator;

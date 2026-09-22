@@ -442,6 +442,27 @@ fn k(value_k: f64) -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<kelvin>(value_k)
 }
 
+/// Feedwater and condensate temperatures from the snapshot's enthalpies, by
+/// a (p, h) flash on the steam tables: feedwater at the steam pressure,
+/// condensate at the condenser pressure. Shared by the v1 schematic and the
+/// v1.1 plant view, so both colour the same streams the same way.
+pub(crate) fn feed_and_condensate_temps(
+    snapshot: &HtgrSnapshot,
+) -> (ThermodynamicTemperature, ThermodynamicTemperature) {
+    let reference_volume = Volume::new::<cubic_meter>(1.0);
+    let feedwater: HemSteamCv = HemSteamCv::new_from_ph(
+        Pressure::new::<megapascal>(snapshot.steam_pressure_mpa),
+        AvailableEnergy::new::<joule_per_kilogram>(snapshot.feedwater_enthalpy_j_per_kg),
+        reference_volume,
+    );
+    let condensate: HemSteamCv = HemSteamCv::new_from_ph(
+        Pressure::new::<kilopascal>(snapshot.condenser_pressure_kpa),
+        AvailableEnergy::new::<joule_per_kilogram>(snapshot.condensate_enthalpy_j_per_kg),
+        reference_volume,
+    );
+    (feedwater.get_temperature(), condensate.get_temperature())
+}
+
 // Pipework is drawn with `route` and `PipeStream`, moved to the engine's
 // `components::pipe_route` on 2026-09-22 so the widget studio can share it.
 
@@ -800,8 +821,6 @@ pub fn draw_schematic(
     // rebuilt here from the pressures and enthalpies the plant model actually
     // published. These are genuine IAPWS-IF97 flashes of real model state, not
     // stand-ins.
-    let reference_volume = Volume::new::<cubic_meter>(1.0);
-    let steam_pressure = Pressure::new::<megapascal>(snapshot.steam_pressure_mpa);
     let condenser_pressure = Pressure::new::<kilopascal>(snapshot.condenser_pressure_kpa);
 
     // (The live steam state used to be flashed here to colour the turbine
@@ -809,21 +828,10 @@ pub fn draw_schematic(
     // It is now generator-backed so the rotor can turn, and that variant
     // carries no steam path -- see section 7. The steam temperature reaches the
     // screen through the `T_steam` readout instead.)
-    let feedwater: HemSteamCv = HemSteamCv::new_from_ph(
-        steam_pressure,
-        AvailableEnergy::new::<joule_per_kilogram>(snapshot.feedwater_enthalpy_j_per_kg),
-        reference_volume,
-    );
     // The hotwell condensate is the saturated liquid at condenser pressure, so
     // its temperature is also the turbine exhaust temperature: the exhaust is
     // two-phase at that same pressure.
-    let condensate: HemSteamCv = HemSteamCv::new_from_ph(
-        condenser_pressure,
-        AvailableEnergy::new::<joule_per_kilogram>(snapshot.condensate_enthalpy_j_per_kg),
-        reference_volume,
-    );
-    let feedwater_temp = feedwater.get_temperature();
-    let condensate_temp = condensate.get_temperature();
+    let (feedwater_temp, condensate_temp) = feed_and_condensate_temps(snapshot);
 
     // ── Streams ─────────────────────────────────────────────────────────
     let hot_helium = PipeStream {

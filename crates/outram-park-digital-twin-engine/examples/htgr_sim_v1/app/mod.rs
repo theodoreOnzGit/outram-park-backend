@@ -95,6 +95,10 @@
 
 pub mod geometry_tab;
 pub mod panels;
+pub mod plant_v1_1;
+// The v1 drawing is no longer on screen (v1.1 replaced it on 2026-09-22) but
+// is kept: its helpers, tracer state and tests are still used by v1.1.
+#[allow(dead_code)]
 pub mod schematic;
 pub mod state;
 

@@ -17,30 +17,18 @@
 use egui::RichText;
 use outram_park_digital_twin_engine::animation::{PebbleTransits, TracerTrain};
 use outram_park_digital_twin_engine::components::htr10_reactor_schematic::{
-    CORE_CAVITY_HEIGHT_CM, CRITICAL_BED_HEIGHT_CM, DRAWN_ASPECT_RATIO, EQUILIBRIUM_BED_HEIGHT_CM,
+    CORE_CAVITY_HEIGHT_CM, CRITICAL_BED_HEIGHT_CM, EQUILIBRIUM_BED_HEIGHT_CM,
 };
-use outram_park_digital_twin_engine::components::htr10_steam_generator::HTR10_SG_ASPECT_RATIO;
-use outram_park_digital_twin_engine::components::pipe_route::{route, PipeStream};
-use outram_park_digital_twin_engine::components::{
-    CondenserDisplayRange, CondenserKind, CondenserScalars, CondenserVisual, Htr10ReactorSchematic,
-    Htr10SteamGeneratorVisual, PumpVisual, TurbineFlowPath, TurbineVisual,
+use outram_park_digital_twin_engine::components::htr10_plant::{
+    draw_htr10_plant, SecondaryLoopView, SecondaryTracers,
 };
-use outram_park_digital_twin_engine::components::pump::PumpKind;
+use outram_park_digital_twin_engine::components::{Htr10ReactorSchematic, Htr10SteamGeneratorVisual};
 
 /// HTR-10 feedwater temperature, degC. `docs/reactor-scoping/htr10-plant-data.md`
 /// section 6, *Quoted* ([S2] Table 1 and [S5] section 1 agree).
 const FEEDWATER_DEGC: f64 = 104.0;
 /// HTR-10 steam outlet temperature, degC. Same sheet and sources, *Quoted*.
 const STEAM_DEGC: f64 = 440.0;
-
-/// Horizontal gap between the vessel and the steam generator, as a multiple
-/// of the vessel width: the length of duct left visible between them. A
-/// drawing choice; no source gives the duct length.
-const DUCT_GAP_FRACTION: f32 = 0.6;
-
-/// Secondary-loop pipe thickness, as a fraction of the vessel width. A drawing
-/// choice.
-const STEAM_PIPE_FRACTION: f32 = 0.035;
 use uom::si::angular_velocity::revolution_per_minute;
 use uom::si::f64::{AngularVelocity, MassRate, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
@@ -615,210 +603,50 @@ pub fn draw(ui: &mut egui::Ui, state: &TestReactorsTab) {
 /// sits raised because its gas port is at its foot, while the duct leaves the
 /// reactor at the hot plenum, about mid-height.
 fn draw_plant(ui: &mut egui::Ui, state: &TestReactorsTab) {
-    let reactor = state.visual();
-    let reactor_size = reactor.size();
-    let vw = state.vessel_width;
-    let vessel_h = vw / DRAWN_ASPECT_RATIO;
-    let sg_size = egui::vec2(vessel_h * HTR10_SG_ASPECT_RATIO, vessel_h);
     let (min_t, max_t) = (degc(state.min_temp_degc), degc(state.max_temp_degc));
-
-    // Helium enters hot (the reactor outlet) and leaves cold (the reactor
-    // inlet): one loop, so the two widgets share temperatures and scale.
-    let sg = Htr10SteamGeneratorVisual::new(
-        sg_size,
-        min_t,
-        max_t,
-        degc(state.outlet_degc),
-        degc(state.inlet_degc),
-        degc(FEEDWATER_DEGC),
-        degc(STEAM_DEGC),
-    );
-    let sg = if state.show_labels {
-        sg
-    } else {
-        sg.without_labels()
-    };
-
-    // ── Primary side: reactor, duct and steam generator ────────────────────
-    // Lay out in local coordinates, reactor at the origin.
-    let reactor_local = egui::Rect::from_min_size(egui::Pos2::ZERO, reactor_size);
-    let duct = reactor.duct_port(reactor_local);
-    // The steam generator draws the duct's three streams turning up inside it,
-    // at the duct's own band heights, so they meet the duct exactly.
-    let sg = sg
-        .with_duct_inlet(duct.outer_height, duct.inner_height)
+    // Helium enters the steam generator hot (the reactor outlet) and leaves
+    // cold (the reactor inlet): one loop, so the two widgets share scale.
+    let make_sg = |size: egui::Vec2| {
+        let sg = Htr10SteamGeneratorVisual::new(
+            size,
+            min_t,
+            max_t,
+            degc(state.outlet_degc),
+            degc(state.inlet_degc),
+            degc(FEEDWATER_DEGC),
+            degc(STEAM_DEGC),
+        )
         .with_duct_inlet_tracers(state.sg_hot_elbow.clone(), state.sg_cold_elbow.clone());
-    let gas = sg.gas_port(egui::Rect::from_min_size(egui::Pos2::ZERO, sg_size));
-    let sg_min = egui::pos2(
-        reactor_local.right() + DUCT_GAP_FRACTION * vw,
-        duct.end.y - gas.y,
-    );
-    let sg_local = egui::Rect::from_min_size(sg_min, sg_size);
-    let extension = (sg_min.x + gas.x) - duct.end.x;
-
-    // ── Secondary side: turbine, condenser, feed pump ──────────────────────
-    // Each is placed from its own reported ports, so the pipes land on the
-    // nozzles the widgets actually draw. Sizes and gaps are drawing choices.
-    let steam_port = sg.steam_port(sg_local);
-    let feed_port = sg.feedwater_port(sg_local);
-
-    let turbine_size = egui::vec2(0.8 * vw, 0.3 * vw);
-    let turbine_centre = egui::pos2(
-        steam_port.x + 0.3 * vw + 0.5 * turbine_size.x,
-        steam_port.y + 0.15 * vw + 0.5 * turbine_size.y,
-    );
-    let turbine_ports =
-        TurbineVisual::ports(turbine_centre, turbine_size, TurbineFlowPath::SingleFlow);
-
-    let condenser_kind = CondenserKind::TwoPass;
-    let condenser_size = egui::vec2(0.6 * vw, 0.5 * vw);
-    let condenser_box = egui::Rect::from_min_size(
-        egui::pos2(
-            turbine_ports.exhaust_out.x - 0.5 * condenser_size.x,
-            turbine_ports.exhaust_out.y + 0.12 * vw,
+        let sg = if state.show_labels {
+            sg
+        } else {
+            sg.without_labels()
+        };
+        state.sg_tracers.attach(sg)
+    };
+    let rpm = |v| AngularVelocity::new::<revolution_per_minute>(v);
+    let secondary = SecondaryLoopView {
+        steam_temp: degc(STEAM_DEGC),
+        feedwater_temp: degc(FEEDWATER_DEGC),
+        condensing_temp: degc(state.condensing_degc),
+        exhaust_quality: state.exhaust_quality,
+        cooling_water_inlet_temp: degc(state.cooling_water_in_degc),
+        cooling_water_outlet_temp: degc(state.cooling_water_out_degc),
+        mass_flow: MassRate::new::<kilogram_per_second>(
+            state.sg_tracers.secondary_mass_flow_kg_per_s,
         ),
-        condenser_size,
-    );
-    let condenser_ports = CondenserVisual::ports(condenser_kind, condenser_box);
-
-    // The pump sits below the feedwater nozzle (its discharge rises to it)
-    // and left of the condensate line (its suction faces right).
-    let pump_size = egui::vec2(0.32 * vw, 0.32 * vw);
-    let probe =
-        PumpVisual::centrifugal_ports(egui::Rect::from_min_size(egui::Pos2::ZERO, pump_size));
-    let pump_top = (feed_port.y + 0.10 * vw).max(condenser_ports.condensate_out.y + 0.10 * vw);
-    let pump_box = egui::Rect::from_min_size(
-        egui::pos2(
-            condenser_ports.condensate_out.x - 0.2 * vw - probe.suction.x,
-            pump_top,
-        ),
-        pump_size,
-    );
-    let pump_ports = PumpVisual::centrifugal_ports(pump_box);
-
-    // Pipe centrelines, corner to corner.
-    let main_steam_path = [
-        steam_port,
-        egui::pos2(turbine_ports.steam_in.x, steam_port.y),
-        turbine_ports.steam_in,
-    ];
-    let exhaust_path = [turbine_ports.exhaust_out, condenser_ports.steam_in];
-    let condensate_path = [
-        condenser_ports.condensate_out,
-        egui::pos2(condenser_ports.condensate_out.x, pump_ports.suction.y),
-        pump_ports.suction,
-    ];
-    let feed_path = [
-        pump_ports.discharge,
-        egui::pos2(pump_ports.discharge.x, feed_port.y),
-        feed_port,
-    ];
-
-    // ── Canvas: the bounding box of everything, then shift it into place ───
-    let turbine_rect = egui::Rect::from_center_size(turbine_centre, turbine_size);
-    let bounds = [
-        reactor_local,
-        sg_local,
-        turbine_rect,
-        condenser_box,
-        pump_box,
-    ]
-    .into_iter()
-    .reduce(|a, b| a.union(b))
-    .expect("five rects");
-    let top = bounds.top().min(0.0);
-    let (canvas, _response) = ui.allocate_exact_size(
-        egui::vec2(bounds.right(), bounds.bottom() - top),
-        egui::Sense::hover(),
-    );
-    let shift = canvas.min.to_vec2() - egui::vec2(0.0, top);
-    let at = |p: egui::Pos2| p + shift;
-    // Everything is drawn in a child area, so routed pipes and placed widgets
-    // cannot push the surrounding panel layout around.
-    let mut canvas_ui = ui.new_child(egui::UiBuilder::new().max_rect(canvas));
-    let ui = &mut canvas_ui;
-
-    // Pipes first, so each widget's nozzle is painted over the pipe's end.
-    let secondary =
-        MassRate::new::<kilogram_per_second>(state.sg_tracers.secondary_mass_flow_kg_per_s);
-    let pipe = |temperature, tracer| PipeStream {
-        temperature,
-        mass_flow: secondary,
-        residence_time: Time::new::<second>(state.secondary_pipe_residence_s),
-        thickness: STEAM_PIPE_FRACTION * vw,
-        tracer,
+        pipe_residence_time: Time::new::<second>(state.secondary_pipe_residence_s),
+        turbine_speed: rpm(state.turbine_rpm),
+        pump_speed: rpm(state.pump_rpm),
+        simulation_time: Time::new::<second>(state.simulation_time_s),
+        tracers: SecondaryTracers {
+            main_steam: state.sec_main_steam,
+            exhaust: state.sec_exhaust,
+            condensate: state.sec_condensate,
+            feed: state.sec_feed,
+        },
         min_temp: min_t,
         max_temp: max_t,
     };
-    let condensing = degc(state.condensing_degc);
-    for (stream, path) in [
-        (
-            pipe(degc(STEAM_DEGC), state.sec_main_steam),
-            &main_steam_path[..],
-        ),
-        (pipe(condensing, state.sec_exhaust), &exhaust_path[..]),
-        (pipe(condensing, state.sec_condensate), &condensate_path[..]),
-        (pipe(degc(FEEDWATER_DEGC), state.sec_feed), &feed_path[..]),
-    ] {
-        let path: Vec<egui::Pos2> = path.iter().map(|p| at(*p)).collect();
-        route(ui, &stream, &path, false, false);
-    }
-
-    // The duct now stops at the steam generator's left wall (its gas port);
-    // inside, the steam generator draws the bends. Painted first, so the
-    // duct's end sits over the wall.
-    ui.put(sg_local.translate(shift), state.sg_tracers.attach(sg));
-    // The extended reactor is wider (its box includes the duct), but its
-    // vessel is anchored at the left of the box, so the origin is unchanged.
-    let reactor = reactor.with_duct_extension(extension);
-    let reactor_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, reactor.size());
-    ui.put(reactor_rect.translate(shift), reactor);
-
-    let time = Time::new::<second>(state.simulation_time_s);
-    ui.add(
-        TurbineVisual::from_scalars(
-            AngularVelocity::new::<revolution_per_minute>(state.turbine_rpm),
-            Some(degc(STEAM_DEGC)),
-            at(turbine_centre),
-            turbine_size,
-            min_t,
-            max_t,
-        )
-        .with_flow_path(TurbineFlowPath::SingleFlow)
-        .at_time(time),
-    );
-    // No labels on this condenser: on the plant page they crowd the loop
-    // (maintainer direction, 2026-09-22).
-    ui.add(
-        CondenserVisual::from_scalars(
-            condenser_kind,
-            at(condenser_box.center()),
-            condenser_size,
-            CondenserDisplayRange {
-                min_temp: min_t,
-                max_temp: max_t,
-            },
-            CondenserScalars {
-                exhaust_quality: state.exhaust_quality,
-                condensing_temp: condensing,
-                condensate_temp: condensing,
-                cooling_water_inlet_temp: degc(state.cooling_water_in_degc),
-                cooling_water_outlet_temp: degc(state.cooling_water_out_degc),
-                // No model supplies a hotwell level here; `None` draws it hatched
-                // rather than inventing one.
-                hotwell_level_frac: None,
-            },
-        )
-        .without_labels(),
-    );
-    ui.add(PumpVisual::from_scalars(
-        PumpKind::Centrifugal,
-        at(pump_box.center()),
-        pump_size,
-        AngularVelocity::new::<revolution_per_minute>(state.pump_rpm),
-        time,
-        Some(degc(FEEDWATER_DEGC)),
-        min_t,
-        max_t,
-    ));
+    draw_htr10_plant(ui, state.visual(), make_sg, &secondary);
 }

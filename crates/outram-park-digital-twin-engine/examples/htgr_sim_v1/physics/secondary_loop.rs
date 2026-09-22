@@ -419,7 +419,7 @@ const MIN_SECONDARY_FLOW_KG_PER_S: f64 = 0.5;
 const MAX_SECONDARY_FLOW_KG_PER_S: f64 = 12.0;
 
 /// Cooling-water inlet temperature \[K\] (**invented**), ~25 degC.
-const COOLING_WATER_INLET_K: f64 = 298.15;
+pub(crate) const COOLING_WATER_INLET_K: f64 = 298.15;
 
 /// Cooling-water mass flow \[kg/s\] (**invented**), sized for a ~10 K rise at
 /// the nominal condenser duty of a 10 MWth plant.

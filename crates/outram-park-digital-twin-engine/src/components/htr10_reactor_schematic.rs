@@ -883,6 +883,12 @@ impl Htr10ReactorSchematic {
         )
     }
 
+    /// Width of the vessel itself, points: the box [`Self::new`] was given,
+    /// without the duct's run. The plant canvas scales everything from it.
+    pub fn vessel_width(&self) -> f32 {
+        self.size.x
+    }
+
     /// On-screen size, in points: the vessel box ([`Self::native_size`]) plus
     /// the run of the coaxial duct to its right.
     ///
