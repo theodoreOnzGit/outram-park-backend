@@ -159,6 +159,25 @@ const BUNDLE_BOTTOM_FRACTION: f32 = 0.80;
 /// bundle bottom and the cavity bottom. A drawing choice.
 const GAS_PORT_FRACTION: f32 = 0.90;
 
+/// Water-side nozzles' inner and outer ends, as fractions of the vessel width
+/// from the axis: they run from inside the shell out to the right. Drawing
+/// choices.
+const NOZZLE_INNER_X: f32 = 0.30;
+const NOZZLE_OUTER_X: f32 = 0.70;
+
+/// Steam outlet nozzle, top and bottom, as fractions of the vessel height from
+/// the top: high, where a once-through generator delivers steam.
+const STEAM_NOZZLE_SPAN: (f32, f32) = (0.085, 0.110);
+
+/// Feedwater inlet nozzle, top and bottom, fractions of the vessel height: just
+/// above the bundle bottom, where the coil takes feedwater in.
+fn feedwater_nozzle_span() -> (f32, f32) {
+    (
+        BUNDLE_BOTTOM_FRACTION - 0.010,
+        BUNDLE_BOTTOM_FRACTION + 0.015,
+    )
+}
+
 /// Bottom of the interior cavity, as a fraction of the vessel height from the
 /// top. A drawing choice.
 const INTERIOR_BOTTOM_FRACTION: f32 = 0.95;
@@ -297,6 +316,29 @@ impl Htr10SteamGeneratorVisual {
     pub fn gas_port(&self, widget_rect: Rect) -> Pos2 {
         let rect = fit_native_aspect(widget_rect);
         Pos2::new(rect.left(), rect.top() + GAS_PORT_FRACTION * rect.height())
+    }
+
+    /// Outer end of the **steam** outlet nozzle, on the right, for a widget
+    /// whose box is `widget_rect`: where the main steam line to the turbine
+    /// connects. From the same constants the nozzle is painted with.
+    pub fn steam_port(&self, widget_rect: Rect) -> Pos2 {
+        let rect = fit_native_aspect(widget_rect);
+        let f = 0.5 * (STEAM_NOZZLE_SPAN.0 + STEAM_NOZZLE_SPAN.1);
+        Pos2::new(
+            rect.center().x + rect.width() * NOZZLE_OUTER_X,
+            rect.top() + f * rect.height(),
+        )
+    }
+
+    /// Outer end of the **feedwater** inlet nozzle, on the right, for a widget
+    /// whose box is `widget_rect`: where the feed line from the pump connects.
+    pub fn feedwater_port(&self, widget_rect: Rect) -> Pos2 {
+        let rect = fit_native_aspect(widget_rect);
+        let (a, b) = feedwater_nozzle_span();
+        Pos2::new(
+            rect.center().x + rect.width() * NOZZLE_OUTER_X,
+            rect.top() + 0.5 * (a + b) * rect.height(),
+        )
     }
 
     /// Draw the coaxial hot gas duct's streams inside the vessel, entering at
@@ -483,7 +525,14 @@ impl Widget for Htr10SteamGeneratorVisual {
     /// themselves carry the **water-side** temperature at their elevation, so
     /// the two sides of the heat exchange are separately visible.
     fn ui(self, ui: &mut Ui) -> Response {
-        let (response, painter) = ui.allocate_painter(self.size, Sense::hover());
+        // The water-side nozzles reach 0.70 of the vessel width from the axis,
+        // past the widget's own box. A painter clipped to the box (what
+        // `allocate_painter` gives) cut them off at the wall, leaving the pipes
+        // that connect to them nothing to meet. So the box is allocated for
+        // layout, and painting is clipped only by the surrounding panel
+        // (corrected 2026-09-22).
+        let response = ui.allocate_response(self.size, Sense::hover());
+        let painter = ui.painter().clone();
         let rect = fit_native_aspect(response.rect);
         let w = rect.width();
         let h = rect.height();
@@ -871,8 +920,8 @@ impl Widget for Htr10SteamGeneratorVisual {
         };
 
         let steam_run = Rect::from_min_max(
-            Pos2::new(cx + w * 0.30, y(0.085)),
-            Pos2::new(cx + w * 0.70, y(0.110)),
+            Pos2::new(cx + w * NOZZLE_INNER_X, y(STEAM_NOZZLE_SPAN.0)),
+            Pos2::new(cx + w * NOZZLE_OUTER_X, y(STEAM_NOZZLE_SPAN.1)),
         );
         painter.rect_filled(steam_run, 2, self.colour(self.steam_temp));
         // Steam LEAVES the vessel, so its inlet is the left (vessel) end.
@@ -883,8 +932,8 @@ impl Widget for Htr10SteamGeneratorVisual {
 
         let feedwater_run = Rect::from_min_max(
             // Just above the bundle bottom, where the coil takes feedwater in.
-            Pos2::new(cx + w * 0.30, y(BUNDLE_BOTTOM_FRACTION - 0.010)),
-            Pos2::new(cx + w * 0.70, y(BUNDLE_BOTTOM_FRACTION + 0.015)),
+            Pos2::new(cx + w * NOZZLE_INNER_X, y(feedwater_nozzle_span().0)),
+            Pos2::new(cx + w * NOZZLE_OUTER_X, y(feedwater_nozzle_span().1)),
         );
         painter.rect_filled(feedwater_run, 2, self.colour(self.feedwater_temp));
         // Feedwater ENTERS the vessel from the turbine hall, so its inlet is
@@ -937,6 +986,20 @@ mod tests {
         assert!((port.x - vessel.left()).abs() < 1e-4, "on the left wall");
         let f = (port.y - vessel.top()) / vessel.height();
         assert!(f > BUNDLE_BOTTOM_FRACTION && f < INTERIOR_BOTTOM_FRACTION);
+    }
+
+    /// Both water ports are at the outer ends of their nozzles, right of the
+    /// vessel; steam high, feedwater low, just above the bundle bottom.
+    #[test]
+    fn water_ports_are_right_of_the_vessel_steam_above_feedwater() {
+        let v = visual();
+        let r = Rect::from_min_size(Pos2::new(15.0, 30.0), v.size());
+        let vessel = fit_native_aspect(r);
+        let (s, f) = (v.steam_port(r), v.feedwater_port(r));
+        assert!(s.x > vessel.right() && (s.x - f.x).abs() < 1e-4);
+        assert!(s.y < f.y, "steam leaves above the feedwater inlet");
+        let ff = (f.y - vessel.top()) / vessel.height();
+        assert!((ff - BUNDLE_BOTTOM_FRACTION).abs() < 0.02);
     }
 
     /// Each elbow runs level from its start, turns up once, and ends exactly

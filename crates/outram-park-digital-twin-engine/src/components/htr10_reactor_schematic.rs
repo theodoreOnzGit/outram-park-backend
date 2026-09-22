@@ -142,8 +142,10 @@
 //!
 //! **A refuelling chute** closes the recirculation loop, one pebble wide: in
 //! through the bottom head from outside the vessel, up the left-hand side, a leg dipping about 15
-//! degrees to the centreline, then straight down past the upper plenum into
-//! the core. **It is drawn EMPTY**: day to day, pebbles are lifted
+//! degrees to the centreline, then straight down past the upper plenum to the
+//! top of the core cavity, ending in the gas space above the pebbles (not at
+//! the bed surface; corrected 2026-09-22). **It is drawn EMPTY**: day to day,
+//! pebbles are lifted
 //! pneumatically up it one at a time, so the only pebble shown in it is the
 //! one in transit (`with_refuel_pebbles`, a `PebbleTransits` launched by the
 //! studio's [add pebble] button and driven by the LIFT gas flow, not the
@@ -153,11 +155,17 @@
 //! ([`REFUEL_CHUTE_ALLOWANCE_CM`]); the cited radius and aspect are unchanged.
 //! Its route is a drawing choice (maintainer direction, 2026-09-21).
 //!
-//! **Pebbles are not to scale.** Every drawn pebble has one radius, a fixed
+//! ~~**Pebbles are not to scale.** Every drawn pebble has one radius, a fixed
 //! fraction of the vessel width, which comes out roughly twice the real 6 cm
-//! pebble. There are also far fewer of them: a few hundred drawn against about
-//! 27 000 in the core. They show WHAT fills the bed, cone and chute, not how
-//! many pebbles there are or how big. The widget says so on screen.
+//! pebble.~~ **CORRECTED 2026-09-22**: pebbles are now drawn **to scale**, at
+//! the real 6 cm, and the bed, conus and top 0.25 m of the discharge tube come
+//! from **DEM**: a one-diameter cut-away slab of the settled HTR-10 conus bed
+//! that this workspace's DEM port and LIGGGHTS agree on, and below its
+//! shortened 0.25 m of tube a DEM column baked for the rest of the cited
+//! ~3.3 m tube (1 677 pebbles in all, `htr10_conus_packing`). Only the
+//! dog-leg, the reducer and the exit tube are filled by pattern, at the same
+//! size. The widget says
+//! "(DEM packing, to scale)" on screen.
 //!
 //! **The fuel discharge tube carries no tracer, deliberately.** Pebbles are
 //! not coolant: they cross the core over weeks on a 5-pass recirculation
@@ -173,7 +181,10 @@
 //! to see.
 
 use crate::animation::{PebbleTransits, TracerTrain};
-use crate::components::htr10_reactor_vessel::{draw_triso_pebble, PEBBLE_MATRIX};
+use crate::components::htr10_conus_packing::{CONUS_SLAB, PEBBLE_RADIUS_M, SLAB_DEPTH_M};
+use crate::components::htr10_reactor_vessel::{
+    blend_rgb, depth_shade, draw_triso_pebble, BED_BACKDROP, PEBBLE_MATRIX,
+};
 use crate::components::temperature_colour;
 use std::f32::consts::PI;
 use egui::{
@@ -496,6 +507,133 @@ struct DefuellingRoute {
     exit: Vec<Pos2>,
 }
 
+/// Elevation of the control rods' TOP when fully withdrawn, centimetres, z
+/// increasing downward from the top of the internals. A drawing choice: no
+/// source reviewed gives the rods' parked position.
+const ROD_TOP_Z_CM: f32 = 40.0;
+
+/// Full rod stroke, centimetres: from the parked top, [`ROD_TOP_Z_CM`], down
+/// to zero core height, where a fully inserted rod's tip sits.
+const ROD_STROKE_CM: f32 = CORE_ZERO_HEIGHT_Z_CM - ROD_TOP_Z_CM;
+
+/// Length of a control rod standing out above the head, in the same units as
+/// `stroke`, for an insertion fraction in `[0, 1]`.
+///
+/// **Exactly the length that has come out of the core** (maintainer direction,
+/// 2026-09-22): the rod is rigid, so every centimetre withdrawn from the core
+/// is a centimetre more above the head. Fully inserted, nothing stands above;
+/// fully withdrawn, the whole stroke does. Drawn at the SAME scale as the
+/// tip's travel inside the vessel, so the two lengths always add up to the
+/// stroke. Out-of-range insertions clamp.
+fn rod_above_head(insertion: f32, stroke: f32) -> f32 {
+    (1.0 - insertion.clamp(0.0, 1.0)) * stroke
+}
+
+/// Heights of the two drive stages above the head (the housing, then the
+/// pressure-boundary extension inside it), as fractions of the vessel height.
+/// Drawing choices, fixed so they do not grow with the drive band.
+const DRIVE_STAGE_HEIGHTS: [(f32, f32); 2] = [(1.35, 0.036), (0.95, 0.082)];
+
+/// Length of discharge tube the DEM packing covers below the conus,
+/// centimetres: the whole drawn tube, the cited ~3.3 m (**CHANGED 2026-09-22**
+/// from 25 cm, when a DEM column was baked for the tube below the conus run's
+/// shortened 0.25 m; see `htr10_conus_packing`). Only the dog-leg, the reducer
+/// and the exit tube beyond it are filled by pattern.
+const DEM_TUBE_LENGTH_CM: f32 = DISCHARGE_TUBE_LENGTH_FRACTION * VESSEL_HEIGHT_CM;
+
+/// Paint a pipe along `line` as filled shapes, with its width given at every
+/// point (`widths[i]` at `line[i]`): one trapezoid per segment and a disc at
+/// every interior joint, sized to the local width.
+///
+/// A thick polyline stroke leaves notches at each corner, where one segment's
+/// square end meets the next at an angle, and it cannot change width at all.
+/// This draws corners as smooth round joints and lets a pipe taper, which is
+/// what the reducer from the defuelling chute into its thin exit tube needs.
+/// The two ends stay square, which is what keeps an open end looking open.
+fn paint_tapered_pipe(painter: &Painter, line: &[Pos2], widths: &[f32], colour: Color32) {
+    debug_assert_eq!(line.len(), widths.len());
+    for (i, seg) in line.windows(2).enumerate() {
+        let along = seg[1] - seg[0];
+        if along.length() < 1e-3 {
+            continue;
+        }
+        let normal = egui::vec2(-along.y, along.x).normalized();
+        let (a, b) = (0.5 * widths[i], 0.5 * widths[i + 1]);
+        painter.add(egui::Shape::convex_polygon(
+            vec![
+                seg[0] + normal * a,
+                seg[1] + normal * b,
+                seg[1] - normal * b,
+                seg[0] - normal * a,
+            ],
+            colour,
+            Stroke::NONE,
+        ));
+    }
+    if line.len() > 2 {
+        for i in 1..line.len() - 1 {
+            painter.circle_filled(line[i], 0.5 * widths[i], colour);
+        }
+    }
+}
+
+/// The pipe's width at fraction `t` of its length, interpolated by arc length
+/// between the per-point `widths`. Companion to [`point_along`].
+fn width_along(line: &[Pos2], widths: &[f32], t: f32) -> f32 {
+    let total: f32 = line.windows(2).map(|s| s[0].distance(s[1])).sum();
+    if total <= 0.0 || line.len() < 2 {
+        return widths.first().copied().unwrap_or(0.0);
+    }
+    let target = t.clamp(0.0, 1.0) * total;
+    let mut walked = 0.0;
+    for (i, seg) in line.windows(2).enumerate() {
+        let len = seg[0].distance(seg[1]);
+        if walked + len >= target {
+            let f = if len > 0.0 {
+                (target - walked) / len
+            } else {
+                0.0
+            };
+            return widths[i] + (widths[i + 1] - widths[i]) * f;
+        }
+        walked += len;
+    }
+    widths[widths.len() - 1]
+}
+
+/// Join a wide pipe to a narrow one round a corner, smoothly.
+///
+/// `before` runs into `corner` and `after` leaves it. The centreline is cut
+/// back by `cut` points either side of the corner and joined by a quadratic
+/// curve through it, and the width tapers linearly from `wide` to `narrow`
+/// along the curve. Returns the curve's points, first on `before`'s run and
+/// last on `after`'s, with a width for each.
+fn tapered_bend(
+    before: Pos2,
+    corner: Pos2,
+    after: Pos2,
+    cut: f32,
+    wide: f32,
+    narrow: f32,
+) -> (Vec<Pos2>, Vec<f32>) {
+    let into = (corner - before).normalized();
+    let out = (after - corner).normalized();
+    let cut_in = cut.min(0.5 * corner.distance(before));
+    let cut_out = cut.min(0.5 * corner.distance(after));
+    let start = corner - into * cut_in;
+    let end = corner + out * cut_out;
+    const SEGMENTS: usize = 16;
+    let mut points = Vec::with_capacity(SEGMENTS + 1);
+    let mut widths = Vec::with_capacity(SEGMENTS + 1);
+    for i in 0..=SEGMENTS {
+        let s = i as f32 / SEGMENTS as f32;
+        let a = start + (corner - start) * s;
+        let b = corner + (end - corner) * s;
+        points.push(a + (b - a) * s);
+        widths.push(wide + (narrow - wide) * s);
+    }
+    (points, widths)
+}
 /// Centrelines of the defuelling route.
 ///
 /// ```text
@@ -630,6 +768,10 @@ impl VesselLayout {
                 full.bottom() - chute_band,
             ),
         ));
+        // Anchor the vessel at the LEFT of its space, so the duct to its right
+        // stays attached whatever box the caller gives; fitting alone would
+        // centre a height-limited vessel and leave the duct short.
+        let rect = rect.translate(Vec2::new(full.left() - rect.left(), 0.0));
         Self {
             rect,
             drive_band,
@@ -724,12 +866,17 @@ pub fn fit_native_aspect(available: Rect) -> Rect {
 const WALL_FRACTION: f32 = 0.035;
 
 /// Share of the widget's height reserved **above** the vessel for the control
-/// rod drives.
+/// rod drives, as a fraction of the vessel's own height.
 ///
 /// The drives stand proud of the head on the real machine, so they need room
 /// outside the pressure boundary. See [`Htr10ReactorSchematic::native_size`],
 /// which adds this on top of the vessel's own aspect.
-const DRIVE_BAND_FRACTION: f32 = 0.12;
+///
+/// **CHANGED 2026-09-22** from 0.12: a withdrawn rod now stands above the head
+/// by exactly the length it has come out of the core, at true scale (see
+/// [`rod_above_head`]), so the band must hold the whole stroke plus a margin
+/// for the label.
+const DRIVE_BAND_FRACTION: f32 = ROD_STROKE_CM / VESSEL_HEIGHT_CM + 0.04;
 
 /// Share of the widget reserved **below** the vessel, as a fraction of the
 /// vessel's own height, for the defuelling chute's open end.
@@ -1175,7 +1322,7 @@ impl Widget for Htr10ReactorSchematic {
         // is the one a schematic most easily gets backwards, so it is drawn
         // from the cited radii rather than by eye, and asserted in the tests.
         let rod_half = radius_fraction(CONTROL_ROD_CHANNEL_DIAMETER_CM * 0.5) * bore;
-        let rod_top_z = 40.0;
+        let rod_top_z = ROD_TOP_Z_CM;
         let rod_bottom_z = CORE_ZERO_HEIGHT_Z_CM;
         let mut rod_xs = Vec::new();
         for side in [-1.0_f32, 1.0] {
@@ -1202,20 +1349,22 @@ impl Widget for Htr10ReactorSchematic {
 
         // ── Control rod DRIVES, standing above the head ────────────────────
         //
-        // Concentric cylinders: the housing, the pressure-boundary extension
-        // inside it, and the stem inside that. Each rod's drive sits directly
-        // over its boring, so the drives inherit the same cited radius as the
-        // channels below them.
+        // Concentric cylinders: the housing and the pressure-boundary
+        // extension inside it, then the ROD itself standing out of them. Each
+        // rod's drive sits directly over its boring, so the drives inherit the
+        // same cited radius as the channels below them.
+        //
+        // **The rod stands above the head by exactly the length that has come
+        // out of the core** (maintainer direction, 2026-09-22), at the SAME
+        // screen scale as the tip's travel inside the vessel, so the length
+        // inside and the length outside always add up to the stroke. Both come
+        // from `control_rod_insertion_frac`, so they move together.
+        let stroke_px = zy(rod_bottom_z) - zy(rod_top_z);
         for x in &rod_xs {
             let head_y = rect.top() + dome * 0.16;
-            let stages: [(f32, f32); 3] = [
-                (1.35, 0.30),
-                (0.95, 0.68),
-                (0.45, 1.00),
-            ];
-            for (width_mult, height_mult) in stages {
+            for (width_mult, height_frac) in DRIVE_STAGE_HEIGHTS {
                 let half = rod_half * width_mult;
-                let top = head_y - drive_band * height_mult;
+                let top = head_y - h * height_frac;
                 painter.rect_filled(
                     Rect::from_min_max(
                         Pos2::new(x - half, top),
@@ -1234,11 +1383,20 @@ impl Widget for Htr10ReactorSchematic {
                     StrokeKind::Middle,
                 );
             }
+            // The rod, in the same colour as its length inside the vessel.
+            let rod_top = head_y - rod_above_head(self.control_rod_insertion_frac, stroke_px);
+            let rod = Rect::from_min_max(
+                Pos2::new(x - rod_half * 0.45, rod_top),
+                Pos2::new(x + rod_half * 0.45, head_y),
+            );
+            painter.rect_filled(rod, 1, Color32::from_rgb(196, 200, 208));
+            painter.rect_stroke(rod, 1, Stroke::new(1.0, OUTLINE), StrokeKind::Middle);
         }
         if self.show_labels {
             self.tag(
                 &painter,
-                Pos2::new(cx, rect.top() - drive_band * 0.55),
+                // At the top of the band, clear of a fully withdrawn rod.
+                Pos2::new(cx, rect.top() - drive_band + 8.0),
                 &format!("{CONTROL_ROD_CHANNELS} control rod drives"),
             );
         }
@@ -1280,7 +1438,12 @@ impl Widget for Htr10ReactorSchematic {
         );
         painter.rect_filled(bed, 2, self.colour(self.pebble_temp));
 
-        let pebble_r = (w * 0.014).max(1.0);
+        // Pebbles are drawn TO SCALE: the real 6 cm pebble, the size the DEM
+        // bed below was run at (**CHANGED 2026-09-22** from a representative
+        // size about 2.2x real). At studio sizes that is around 1.4 pt, where
+        // `draw_triso_pebble` draws a plain tinted disc rather than a speckle
+        // too small to see.
+        let pebble_r = radius_fraction(PEBBLE_RADIUS_M * 100.0) * bore;
         // One pebble, drawn identically everywhere: the SAME design as
         // `htgr_sim_v1`'s HTR-10 vessel, a graphite body speckled with TRISO
         // kernels at the fuel colour (`draw_triso_pebble`, maintainer
@@ -1293,20 +1456,6 @@ impl Widget for Htr10ReactorSchematic {
             pebble_index.set(i + 1);
             draw_triso_pebble(&painter, at, pebble_r, PEBBLE_MATRIX, kernel, i);
         };
-        let rows = ((bed.height() / (pebble_r * 2.4)).floor() as usize).max(1);
-        let cols = ((bed.width() / (pebble_r * 2.4)).floor() as usize).max(1);
-        for r in 0..rows {
-            for c in 0..cols {
-                let stagger = if r % 2 == 0 { 0.0 } else { pebble_r * 1.2 };
-                let px = bed.left() + pebble_r * 1.2 + c as f32 * pebble_r * 2.4 + stagger;
-                let py = bed.top() + pebble_r * 1.2 + r as f32 * pebble_r * 2.4;
-                if px + pebble_r > bed.right() || py + pebble_r > bed.bottom() {
-                    continue;
-                }
-                draw_pebble(Pos2::new(px, py));
-            }
-        }
-
         // Conus, narrowing to the discharge tube.
         let tube_half = radius_fraction(DISCHARGE_TUBE_RADIUS_CM) * bore;
         painter.add(egui::Shape::convex_polygon(
@@ -1319,40 +1468,44 @@ impl Widget for Htr10ReactorSchematic {
             self.colour(self.pebble_temp),
             Stroke::new(1.0, INTERNALS),
         ));
-        // Pebbles in the conus too (maintainer direction, 2026-09-21): the
-        // bed does not stop at zero core height, it funnels into the tube.
-        // Rows on the same pitch as the bed, each as wide as the cone is at
-        // that height, so they narrow towards the tube.
-        let (cone_top, cone_bottom) = (zy(CORE_ZERO_HEIGHT_Z_CM), zy(CONUS_BOTTOM_Z_CM));
-        let cone_pitch = 2.4 * pebble_r;
-        let mut y = cone_top + 1.2 * pebble_r;
-        let mut row = 0;
-        while y + pebble_r <= cone_bottom {
-            let frac = (y - cone_top) / (cone_bottom - cone_top).max(1.0);
-            // Half-width of the cone at the pebble's LOWEST point, so the
-            // circle stays inside the sloping wall.
-            let frac_low = ((y + pebble_r) - cone_top) / (cone_bottom - cone_top).max(1.0);
-            let half_top = 0.5 * cavity.width();
-            let half = half_top + (tube_half - half_top) * frac_low.max(frac);
-            let usable = half - pebble_r;
-            if usable >= 0.0 {
-                let stagger = if row % 2 == 0 { 0.0 } else { 0.5 * cone_pitch };
-                let n = (2.0 * usable / cone_pitch).floor() as i32;
-                for k in 0..=n {
-                    let x = cx - usable + stagger + k as f32 * cone_pitch;
-                    if x <= cx + usable {
-                        draw_pebble(Pos2::new(x, y));
-                    }
-                }
+        // Pebbles from DEM, not a pattern (maintainer direction, 2026-09-22):
+        // a cut-away slab of the settled HTR-10 conus bed, the run on which
+        // this workspace's DEM port and LIGGGHTS agree, at exactly this
+        // vessel's dimensions, plus a DEM column baked for the rest of the
+        // discharge tube below that run's shortened 0.25 m. Together they fill
+        // the bed, the conus and the whole ~3.3 m tube. See
+        // `htr10_conus_packing` for the sources and the cut.
+        //
+        // Painted straight through the table, farthest first, with the far
+        // layer shaded toward the backdrop as `htgr_sim_v1`'s bed is. The
+        // bed-height slider crops it: pebbles reaching above the drawn bed
+        // top are left out, so an under-loaded bed shows a cut top rather
+        // than a settled free surface at that height.
+        let bed_top_m = bed_height / 100.0;
+        for (index, pebble) in CONUS_SLAB.iter().enumerate() {
+            let [x, z, y] = *pebble;
+            if z + PEBBLE_RADIUS_M > bed_top_m {
+                continue;
             }
-            y += cone_pitch;
-            row += 1;
+            let at = Pos2::new(
+                rx(x.abs() * 100.0, x.signum()),
+                zy(CORE_ZERO_HEIGHT_Z_CM - z * 100.0),
+            );
+            let shade = depth_shade(1.0 + y / SLAB_DEPTH_M);
+            draw_triso_pebble(
+                &painter,
+                at,
+                pebble_r,
+                blend_rgb(BED_BACKDROP, PEBBLE_MATRIX, shade),
+                blend_rgb(BED_BACKDROP, kernel, shade),
+                index as i32,
+            );
         }
         self.tag(&painter, Pos2::new(cx, bed.center().y), "pebble bed");
         self.tag(
             &painter,
             Pos2::new(cx, bed.center().y + 11.0),
-            "(pebbles not to scale)",
+            "(DEM packing, to scale)",
         );
 
         // ── Hot helium plenum, in the bottom reflector ─────────────────────
@@ -1570,19 +1723,21 @@ impl Widget for Htr10ReactorSchematic {
         // bed's, they show WHAT fills the channel, not how many pebbles do.
         // `filled` false draws an EMPTY pipe (walls and a void bore), for a
         // route pebbles only pass through one at a time.
-        let draw_route_piece = |line: &[Pos2], bore_width: f32, filled: bool| {
-            painter.add(egui::Shape::line(
-                line.to_vec(),
-                Stroke::new(bore_width + 2.4, INTERNALS),
-            ));
-            painter.add(egui::Shape::line(
-                line.to_vec(),
-                Stroke::new(bore_width, if filled { pebble_fill } else { VOID }),
-            ));
+        let dem_tube_end_y = zy(CONUS_BOTTOM_Z_CM + DEM_TUBE_LENGTH_CM);
+        let draw_route_piece = |line: &[Pos2], widths: &[f32], filled: bool| {
+            // Filled quads with round joints, not a thick stroke, so the
+            // bends are smooth rather than notched (maintainer, 2026-09-22).
+            let walls: Vec<f32> = widths.iter().map(|w| w + 2.4).collect();
+            paint_tapered_pipe(&painter, line, &walls, INTERNALS);
+            paint_tapered_pipe(
+                &painter,
+                line,
+                widths,
+                if filled { pebble_fill } else { VOID },
+            );
             if !filled {
                 return;
             }
-            let across = ((bore_width / pitch).floor() as usize).max(1);
             let length: f32 = line.windows(2).map(|s| s[0].distance(s[1])).sum();
             if length <= pitch {
                 return;
@@ -1595,15 +1750,40 @@ impl Widget for Htr10ReactorSchematic {
                 let behind = point_along(line, (t - 0.01).max(0.0));
                 let tangent = (ahead - behind).normalized();
                 let normal = egui::vec2(-tangent.y, tangent.x);
+                // Rows across follow the LOCAL width, so they thin out through
+                // the reducer.
+                // The top of the tube is DEM (the slab above); pattern pebbles
+                // only start where that run's shortened tube ends.
+                if at.y < dem_tube_end_y {
+                    continue;
+                }
+                let across = ((width_along(line, widths, t) / pitch).floor() as usize).max(1);
                 for k in 0..across {
                     let offset = (k as f32 - 0.5 * (across as f32 - 1.0)) * pitch;
                     draw_pebble(at + normal * offset);
                 }
             }
         };
-        // The thin exit tube first, so the chute's corner covers the joint.
-        draw_route_piece(&route.exit, 2.0 * pebble_r, true);
-        draw_route_piece(&route.chute, 2.0 * tube_half, true);
+        // ONE continuous piece: the vertical tube and the dog-leg at full
+        // bore, then a smooth tapered bend (a reducer) into the thin exit tube
+        // rather than a square step (maintainer direction, 2026-09-22).
+        let wide = 2.0 * tube_half;
+        let narrow = 2.0 * pebble_r;
+        let (bend, bend_widths) = tapered_bend(
+            route.chute[1],
+            route.chute[2],
+            route.exit[1],
+            1.5 * wide,
+            wide,
+            narrow,
+        );
+        let mut discharge = vec![route.chute[0], route.chute[1]];
+        let mut discharge_widths = vec![wide, wide];
+        discharge.extend(bend);
+        discharge_widths.extend(bend_widths);
+        discharge.push(route.exit[1]);
+        discharge_widths.push(narrow);
+        draw_route_piece(&discharge, &discharge_widths, true);
 
         self.tag(
             &painter,
@@ -1625,7 +1805,9 @@ impl Widget for Htr10ReactorSchematic {
         // widened vessel leaves between the cold annulus and the wall on the
         // LEFT, to the top-left of the inner vessel, then a leg to the
         // centreline dipping about 15 degrees, then straight down the axis,
-        // past the upper plenum, into the core onto the top of the bed
+        // past the upper plenum, ending at the top of the core cavity, in the
+        // gas space above the bed (corrected 2026-09-22; it went down onto the
+        // bed surface before)
         // (maintainer direction, 2026-09-21). Drawn last, so it passes in
         // front of the plenum. With the defuelling chute it closes the pebble
         // recirculation loop. The route is a drawing choice; see
@@ -1641,12 +1823,16 @@ impl Widget for Htr10ReactorSchematic {
             rect.top() + dome * 0.35,
             cx,
             REFUEL_DIP_DEG,
-            bed.top(),
+            // Ends at the top of the core cavity, opening into the gas space
+            // ABOVE the pebbles; it never reaches down to the bed surface
+            // (maintainer correction, 2026-09-22). A pebble leaving it falls
+            // through the gas onto the bed.
+            zy(CORE_CAVITY_TOP_Z_CM),
         );
         // EMPTY day to day: pebbles are lifted pneumatically one at a time,
         // so the chute is drawn as a bare pipe and only the pebble in transit
         // is shown (maintainer direction, 2026-09-21).
-        draw_route_piece(&refuel, 2.0 * pebble_r, false);
+        draw_route_piece(&refuel, &vec![2.0 * pebble_r; refuel.len()], false);
         // A pebble in transit, highlighted so it reads against a packed
         // column as well as in an empty chute.
         // Same TRISO design, plus a white ring so the moving one stands out.
@@ -1660,9 +1846,7 @@ impl Widget for Htr10ReactorSchematic {
             }
         }
         if let Some(pebbles) = &self.defuel_pebbles {
-            // The whole discharge route as one path: tube, leg, exit tube.
-            let mut discharge = route.chute.clone();
-            discharge.extend(route.exit.iter().skip(1));
+            // The same discharge path the pipe is painted along.
             for position in pebbles.positions() {
                 draw_moving_pebble(point_along(&discharge, position as f32));
             }
@@ -1966,8 +2150,19 @@ mod tests {
             "the widget box grows with the duct, so the duct is never clipped"
         );
         assert!(
-            (base.end.x - r.right()).abs() < 1e-3,
-            "the duct ends exactly at the widget box edge, not beyond it"
+            base.end.x <= r.right() + 1e-3,
+            "the duct never runs past the widget box, where it would be clipped"
+        );
+        // In a box of the widget's native proportions it ends exactly at the
+        // edge.
+        let native = Htr10ReactorSchematic {
+            size: Htr10ReactorSchematic::native_size(200.0),
+            ..visual()
+        };
+        let nr = Rect::from_min_size(origin, native.size());
+        assert!(
+            (native.duct_port(nr).end.x - nr.right()).abs() < 1e-3,
+            "native box: the duct ends exactly at the edge"
         );
         assert!((longer.end.x - base.end.x - 55.0).abs() < 1e-3);
         assert!((longer.end.y - base.end.y).abs() < 1e-6);
@@ -1988,9 +2183,13 @@ mod tests {
     /// guessed; run with `-- --nocapture`. The assertion only checks that
     /// pebbles were drawn at all.
     ///
-    /// **Measured 2026-09-21** (equilibrium bed): **8 122** circles at a
-    /// 220 pt vessel (the studio page), **524** at 130 pt (the mini card,
-    /// where pebbles fall to a single TRISO dot). The full-size figure is
+    /// **Measured 2026-09-22, after the DEM slab and tube column** (equilibrium
+    /// bed): **1 848** (1 646 before the tube column)
+    /// circles at both a 220 pt vessel (the studio page) and 130 pt (the mini
+    /// card). The pebbles are now real size, about 1.4 pt at 220 pt, which is
+    /// below the size where `draw_triso_pebble` draws a speckle, so each is a
+    /// single disc. (Earlier the same day, representative-size pebbles with
+    /// speckles: 8 038 and 556; 2026-09-21: 8 122 and 524.) The full-size figure is
     /// about 40 % of the ~20 000 that made `htgr_sim_v1` laggy; if this page
     /// is reported slow, the bed can move to the same baked-texture path.
     #[test]
@@ -2019,6 +2218,72 @@ mod tests {
             println!("vessel width {vessel_width} pt: {circles} circles per repaint");
             assert!(circles > 100, "pebbles should be drawn: {circles}");
         }
+    }
+
+    /// The rod above the head is exactly the length withdrawn from the core:
+    /// inside plus outside always equals the stroke, fully inserted leaves
+    /// nothing above, and the drive band is tall enough to hold a fully
+    /// withdrawn rod without clipping it.
+    #[test]
+    fn the_rod_above_the_head_is_exactly_the_length_withdrawn() {
+        let stroke = 311.8_f32;
+        for i in 0..=10 {
+            let f = i as f32 / 10.0;
+            let inside = f * stroke;
+            let outside = rod_above_head(f, stroke);
+            assert!((inside + outside - stroke).abs() < 1e-3, "at f = {f}");
+        }
+        assert_eq!(rod_above_head(1.0, stroke), 0.0, "inserted: nothing above");
+        assert_eq!(
+            rod_above_head(0.0, stroke),
+            stroke,
+            "withdrawn: whole stroke"
+        );
+        assert_eq!(rod_above_head(-1.0, stroke), stroke);
+        assert_eq!(rod_above_head(2.0, stroke), 0.0);
+        assert!(
+            DRIVE_BAND_FRACTION > ROD_STROKE_CM / VESSEL_HEIGHT_CM,
+            "the drive band must hold the full stroke"
+        );
+    }
+
+    /// The DEM slab sits inside this vessel's walls, cm for cm: every pebble
+    /// within the barrel above zero core height, within the conus's taper
+    /// between it and the tube, and within the 25 cm tube below, down to the
+    /// source run's valve. It is sorted farthest first, and every pebble is in
+    /// the one-diameter slab behind the cut.
+    #[test]
+    fn the_dem_slab_fits_this_vessel_and_is_sorted_farthest_first() {
+        let cone_h = CONUS_BOTTOM_Z_CM - CORE_ZERO_HEIGHT_Z_CM;
+        // 0.3 mm of slack for the table's five-decimal rounding and the DEM's
+        // own contact overlap.
+        let slack = 0.03;
+        for p in CONUS_SLAB {
+            let (x, z, y) = (p[0] * 100.0, p[1] * 100.0, p[2] * 100.0);
+            let wall = if z >= 0.0 {
+                CORE_RADIUS_CM
+            } else if z >= -cone_h {
+                CORE_RADIUS_CM + (DISCHARGE_TUBE_RADIUS_CM - CORE_RADIUS_CM) * (-z / cone_h)
+            } else {
+                assert!(
+                    z >= -(cone_h + DEM_TUBE_LENGTH_CM) - slack,
+                    "below the valve: {z}"
+                );
+                DISCHARGE_TUBE_RADIUS_CM
+            };
+            // The slab is a cut, so a pebble's reach in x is bounded by the
+            // wall at its own depth, never by more than the wall radius.
+            assert!(
+                x.abs() <= wall + slack,
+                "outside the wall at z = {z}: x = {x}"
+            );
+            assert!(y <= 0.0 && y >= -SLAB_DEPTH_M * 100.0, "outside the slab: {y}");
+        }
+        assert!(
+            CONUS_SLAB.windows(2).all(|w| w[0][2] <= w[1][2]),
+            "sorted farthest first"
+        );
+        assert_eq!(CONUS_SLAB.len(), 1677);
     }
 
     /// Widening the drawn vessel for the refuelling chute must leave the

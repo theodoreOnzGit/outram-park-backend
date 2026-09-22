@@ -175,9 +175,11 @@
 //!   rather than predicting it.
 //!
 //! - **No turbine casing colour.** A consequence of the above.
-//!   `TurbineVisualState` has no variant carrying both a shaft speed and a
-//!   steam state, and the generator variant reports no casing temperature, so
-//!   the turbine draws neutral grey. Rotation was judged the more informative
+//!   ~~`TurbineVisualState` has no variant carrying both a shaft speed and a
+//!   steam state~~ **CORRECTED 2026-09-22**: `TurbineVisualState::Scalars` now
+//!   carries both (`TurbineVisual::from_scalars`), so this can be lifted; this
+//!   simulator has not been switched to it yet. The generator variant reports
+//!   no casing temperature, so the turbine still draws neutral grey. Rotation was judged the more informative
 //!   of the two; the steam temperature is still shown as the `T_steam`
 //!   readout.
 //! - **No feedwater control valve.** The secondary loop controls feed *flow*,
@@ -206,15 +208,15 @@ use outram_park_digital_twin_engine::animation::TracerTrain;
 use outram_park_digital_twin_engine::components::htr10_reactor_vessel::{
     self, Htr10FlowAnchors, Htr10ReactorVesselVisual,
 };
+use outram_park_digital_twin_engine::components::pipe_route::{route, PipeStream};
 use outram_park_digital_twin_engine::components::pump::PumpKind;
 use outram_park_digital_twin_engine::components::steam_generator::{
     SteamGeneratorKind, SteamGeneratorScalars,
 };
 use outram_park_digital_twin_engine::components::control_rod_drive::slewed_control_rod_insertion;
 use outram_park_digital_twin_engine::components::{
-    CondenserVisual, InstrumentationVisual, LegendUnit, PipeBendVisual, PipeScalars, PipeScale,
-    PipeVisual, PumpVisual, SteamGeneratorVisual, TemperatureLegend, TurbineFlowPath,
-    TurbineVisual,
+    CondenserVisual, InstrumentationVisual, LegendUnit, PumpVisual, SteamGeneratorVisual,
+    TemperatureLegend, TurbineFlowPath, TurbineVisual,
 };
 
 use tampines::components::Condenser;
@@ -440,128 +442,8 @@ fn k(value_k: f64) -> ThermodynamicTemperature {
     ThermodynamicTemperature::new::<kelvin>(value_k)
 }
 
-/// One fluid stream's real state, everything a connector run needs to draw
-/// itself.
-///
-/// Every field is read from [`HtgrSnapshot`] -- this is the caller-supplies-
-/// real-state contract [`PipeVisual::from_scalars`] documents, not a stub.
-#[derive(Debug, Clone, Copy)]
-struct Stream {
-    /// Bulk fluid temperature \[K\].
-    temperature_k: f64,
-    /// Mass flow \[kg/s\], which sets the tracer direction.
-    mass_flow_kg_per_s: f64,
-    /// Loop residence time \[s\], which sets the tracer speed.
-    residence_time_s: f64,
-    /// Drawn pipe thickness in points -- see [`HELIUM_PIPE_THICKNESS`].
-    thickness: f32,
-    /// The app-owned tracer train this stream's runs carry.
-    tracer: TracerTrain,
-}
-
-impl Stream {
-    /// Build one straight run of this stream, from `from` to `to`.
-    fn run(&self, from: Pos2, to: Pos2) -> PipeVisual {
-        PipeVisual::from_scalars(
-            PipeScalars {
-                temperature: k(self.temperature_k),
-                mass_flow: MassRate::new::<kilogram_per_second>(self.mass_flow_kg_per_s),
-                residence_time: Time::new::<second>(self.residence_time_s),
-            },
-            from,
-            to - from,
-            k(DISPLAY_MIN_K),
-            k(DISPLAY_MAX_K),
-        )
-        .with_scale(PipeScale {
-            min_thickness_points: self.thickness,
-            ..PipeScale::default()
-        })
-        .with_tracer(self.tracer)
-    }
-}
-
-/// Draw one elbow at `corner`, turning from `d_in` to `d_out`.
-///
-/// The two runs' inner corners are made coincident at a single point, which is
-/// the construction [`PipeBendVisual`] documents: each run's centreline stops
-/// half a thickness short of the geometric corner, and the inner corner sits
-/// half a thickness inboard of that on the inside of the turn. Getting this
-/// wrong is what makes elbows read as two rectangles butted together.
-fn elbow(
-    ui: &mut Ui,
-    corner: Pos2,
-    d_in: Vec2,
-    d_out: Vec2,
-    thickness: f32,
-    upstream_k: f64,
-    downstream_k: f64,
-) {
-    let half = 0.5 * thickness;
-    // Outward normal of the incoming run, on the OUTSIDE of the turn. Screen y
-    // grows downward, so a positive cross product is a clockwise turn.
-    let cross = d_in.x * d_out.y - d_in.y * d_out.x;
-    let sign = if cross >= 0.0 { -1.0 } else { 1.0 };
-    let normal_in = Vec2::new(-d_in.y, d_in.x) * sign;
-
-    let inlet_end = corner - d_in * half;
-    let inner_corner = inlet_end - normal_in * half;
-
-    ui.add(PipeBendVisual::new(
-        inner_corner,
-        d_in,
-        d_out,
-        thickness,
-        k(upstream_k),
-        k(downstream_k),
-        k(DISPLAY_MIN_K),
-        k(DISPLAY_MAX_K),
-    ));
-}
-
-/// Draw a whole routed pipe path: one [`PipeVisual`] per straight leg and one
-/// [`PipeBendVisual`] per interior corner.
-///
-/// `path` is the run's **centreline**, corner to corner. Every leg is trimmed
-/// back by half a pipe thickness at each interior corner so the elbow sector
-/// meets it flush. `trim_start`/`trim_end` do the same at the two ends, for a
-/// path that is continued by another path through a shared elbow.
-fn route(ui: &mut Ui, stream: &Stream, path: &[Pos2], trim_start: bool, trim_end: bool) {
-    if path.len() < 2 {
-        return;
-    }
-    let half = 0.5 * stream.thickness;
-    let directions: Vec<Vec2> = path
-        .windows(2)
-        .map(|leg| (leg[1] - leg[0]).normalized())
-        .collect();
-    let last = directions.len() - 1;
-
-    for (i, leg) in path.windows(2).enumerate() {
-        let direction = directions[i];
-        let mut from = leg[0];
-        let mut to = leg[1];
-        if i > 0 || trim_start {
-            from += direction * half;
-        }
-        if i < last || trim_end {
-            to -= direction * half;
-        }
-        ui.add(stream.run(from, to));
-    }
-
-    for i in 1..directions.len() {
-        elbow(
-            ui,
-            path[i],
-            directions[i - 1],
-            directions[i],
-            stream.thickness,
-            stream.temperature_k,
-            stream.temperature_k,
-        );
-    }
-}
+// Pipework is drawn with `route` and `PipeStream`, moved to the engine's
+// `components::pipe_route` on 2026-09-22 so the widget studio can share it.
 
 /// Draw `count` small arrowheads evenly along the segment `from` -> `to`, each
 /// pointing the way the segment runs, in `colour`.
@@ -944,39 +826,43 @@ pub fn draw_schematic(
     let condensate_temp = condensate.get_temperature();
 
     // ── Streams ─────────────────────────────────────────────────────────
-    let hot_helium = Stream {
-        temperature_k: snapshot.core_outlet_temp_k,
-        mass_flow_kg_per_s: snapshot.helium_mass_flow_kg_per_s,
-        residence_time_s: snapshot.helium_residence_time_s,
+    let hot_helium = PipeStream {
+        temperature: k(snapshot.core_outlet_temp_k),
+        mass_flow: MassRate::new::<kilogram_per_second>(snapshot.helium_mass_flow_kg_per_s),
+        residence_time: Time::new::<second>(snapshot.helium_residence_time_s),
         thickness: HELIUM_PIPE_THICKNESS,
         tracer: tracers.primary,
+        min_temp: k(DISPLAY_MIN_K),
+        max_temp: k(DISPLAY_MAX_K),
     };
     // Leaving the steam generator: this is what the circulator lifts.
-    let cold_helium = Stream {
-        temperature_k: snapshot.ihx_outlet_temp_k,
+    let cold_helium = PipeStream {
+        temperature: k(snapshot.ihx_outlet_temp_k),
         ..hot_helium
     };
     // Arriving at the core: the model's core inlet lags the SG outlet by the
     // loop transport time, so the last leg of the return really is a different
     // temperature during a transient.
-    let core_inlet_helium = Stream {
-        temperature_k: snapshot.core_inlet_temp_k,
+    let core_inlet_helium = PipeStream {
+        temperature: k(snapshot.core_inlet_temp_k),
         ..hot_helium
     };
 
-    let main_steam = Stream {
-        temperature_k: snapshot.sg_steam_outlet_temp_k,
-        mass_flow_kg_per_s: snapshot.secondary_mass_flow_kg_per_s,
-        residence_time_s: snapshot.secondary_residence_time_s,
+    let main_steam = PipeStream {
+        temperature: k(snapshot.sg_steam_outlet_temp_k),
+        mass_flow: MassRate::new::<kilogram_per_second>(snapshot.secondary_mass_flow_kg_per_s),
+        residence_time: Time::new::<second>(snapshot.secondary_residence_time_s),
         thickness: STEAM_PIPE_THICKNESS,
         tracer: tracers.secondary,
+        min_temp: k(DISPLAY_MIN_K),
+        max_temp: k(DISPLAY_MAX_K),
     };
-    let exhaust = Stream {
-        temperature_k: condensate_temp.get::<kelvin>(),
+    let exhaust = PipeStream {
+        temperature: condensate_temp,
         ..main_steam
     };
-    let feed = Stream {
-        temperature_k: feedwater_temp.get::<kelvin>(),
+    let feed = PipeStream {
+        temperature: feedwater_temp,
         ..main_steam
     };
 
@@ -1398,8 +1284,9 @@ pub fn draw_schematic(
     // and not an animation constant.
     //
     // TRADE-OFF, stated because it is a real loss of information: the widget's
-    // `TurbineVisualState` enum has no variant carrying BOTH a shaft speed and
-    // a steam state, and the generator variant deliberately reports no casing
+    // `TurbineVisualState` enum ~~has no variant carrying BOTH a shaft speed
+    // and a steam state~~ (CORRECTED 2026-09-22: `Scalars` now does, via
+    // `TurbineVisual::from_scalars`; not yet adopted here), and the generator variant deliberately reports no casing
     // temperature (it is an electromechanical model with no steam path). So
     // the casing here draws neutral grey instead of at the live steam
     // temperature, which is what the thermo-backed variant used to give. The

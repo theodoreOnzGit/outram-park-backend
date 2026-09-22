@@ -54,7 +54,7 @@ use std::f64::consts::PI;
 use tampines::components::Turbine;
 use tampines_steam_tables::steam_turbine_equations::generator::ThreePhaseElectricGeneratorTurbine;
 use uom::si::angle::radian;
-use uom::si::f64::{Angle, ThermodynamicTemperature, Time};
+use uom::si::f64::{Angle, AngularVelocity, ThermodynamicTemperature, Time};
 use uom::si::ratio::ratio;
 use uom::ConstZero;
 
@@ -333,6 +333,17 @@ pub enum TurbineVisualState {
     /// Steam turbine known only by its thermodynamic inlet state. Colours the
     /// casing; cannot report a shaft speed, so the rotor is drawn stationary.
     SteamThermo(Turbine),
+    /// Plain scalars from the caller, no physics model: a shaft speed, which
+    /// turns the rotor, and optionally an inlet steam temperature, which
+    /// colours the casing. The one variant that can do both. For a GUI test
+    /// bench, or any caller whose own model already knows these two numbers.
+    /// Added 2026-09-22.
+    Scalars {
+        /// Shaft angular velocity; the rotor phase is `shaft_speed * t`.
+        shaft_speed: AngularVelocity,
+        /// Inlet steam temperature for the casing colour, if known.
+        steam_temperature: Option<ThermodynamicTemperature>,
+    },
 }
 
 /// Visual representation of a steam turbine.
@@ -413,6 +424,36 @@ impl TurbineVisual {
         }
     }
 
+    /// A turbine from plain scalars, no physics model: the rotor turns at
+    /// `shaft_speed` (phase `shaft_speed * t`, with `t` from [`Self::at_time`])
+    /// and the casing takes the colour of `steam_temperature` when one is
+    /// given, grey when not. See [`TurbineVisualState::Scalars`].
+    ///
+    /// Like [`crate::components::PumpVisual::from_scalars`]: the caller owns
+    /// the numbers, and the motion is derived from the speed it passes, never
+    /// from a rate chosen here.
+    pub fn from_scalars(
+        shaft_speed: AngularVelocity,
+        steam_temperature: Option<ThermodynamicTemperature>,
+        screen_position: Pos2,
+        screen_vector: Vec2,
+        min_temp: ThermodynamicTemperature,
+        max_temp: ThermodynamicTemperature,
+    ) -> Self {
+        Self {
+            state: TurbineVisualState::Scalars {
+                shaft_speed,
+                steam_temperature,
+            },
+            screen_position,
+            screen_vector,
+            flow_path: TurbineFlowPath::default(),
+            simulation_time: Time::ZERO,
+            min_temp,
+            max_temp,
+        }
+    }
+
     /// Set the application-owned simulation clock. Builder-style, so it chains
     /// onto either constructor.
     pub fn at_time(mut self, simulation_time: Time) -> Self {
@@ -454,6 +495,9 @@ impl TurbineVisual {
         match &self.state {
             TurbineVisualState::SteamGenerator(g) => (g.get_omega() * self.simulation_time).into(),
             TurbineVisualState::SteamThermo(_) => Angle::ZERO,
+            TurbineVisualState::Scalars { shaft_speed, .. } => {
+                (*shaft_speed * self.simulation_time).into()
+            }
         }
     }
 
@@ -467,6 +511,9 @@ impl TurbineVisual {
         match &self.state {
             TurbineVisualState::SteamGenerator(_) => None,
             TurbineVisualState::SteamThermo(t) => Some(t.inlet.get_temperature()),
+            TurbineVisualState::Scalars {
+                steam_temperature, ..
+            } => *steam_temperature,
         }
     }
 }
@@ -760,6 +807,46 @@ impl Widget for TurbineVisual {
     }
 }
 
+/// Where a steam line meets [`TurbineVisual`]'s casing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TurbinePorts {
+    /// Steam admission, at the top of the annulus.
+    pub steam_in: Pos2,
+    /// Exhaust to the condenser, at the casing edge below the last row.
+    pub exhaust_out: Pos2,
+}
+
+impl TurbineVisual {
+    /// Port positions for a turbine drawn at `screen_position` (its centre)
+    /// with box `screen_vector`, the same two arguments its constructors take.
+    ///
+    /// Computed from this widget's own [`BLADE_ROWS`] and
+    /// [`HUB_RADIUS_FRACTION`], so a connecting pipe meets the casing where it
+    /// is drawn. Moved here from `htgr_sim_v1`'s `turbine_nozzles`, which
+    /// restated those constants (2026-09-22).
+    ///
+    /// - [`TurbineFlowPath::SingleFlow`]: admission half a blade pitch inside
+    ///   the LEFT end, exhaust half a pitch inside the RIGHT end.
+    /// - [`TurbineFlowPath::DoubleFlow`]: admission at the centre, exhaust at
+    ///   the right end (the left end mirrors it).
+    pub fn ports(
+        screen_position: Pos2,
+        screen_vector: Vec2,
+        flow_path: TurbineFlowPath,
+    ) -> TurbinePorts {
+        let rect = Rect::from_center_size(screen_position, screen_vector);
+        let half_pitch = 0.5 * rect.width() / BLADE_ROWS as f32;
+        let hub_radius = 0.5 * rect.height() * HUB_RADIUS_FRACTION;
+        let admission_x = match flow_path {
+            TurbineFlowPath::SingleFlow => rect.left() + half_pitch,
+            TurbineFlowPath::DoubleFlow => rect.center().x,
+        };
+        TurbinePorts {
+            steam_in: Pos2::new(admission_x, rect.center().y - hub_radius),
+            exhaust_out: Pos2::new(rect.right() - half_pitch, rect.bottom()),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1066,5 +1153,47 @@ mod stage_lean_tests {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod port_tests {
+    use super::*;
+    use uom::si::angular_velocity::radian_per_second;
+    use uom::si::thermodynamic_temperature::kelvin;
+    use uom::si::time::second;
+
+    /// Single flow admits at the LEFT end and exhausts at the RIGHT end,
+    /// below the casing centre, both inside the box.
+    #[test]
+    fn single_flow_ports_are_left_inlet_and_right_exhaust() {
+        let (centre, size) = (Pos2::new(200.0, 100.0), Vec2::new(160.0, 60.0));
+        let p = TurbineVisual::ports(centre, size, TurbineFlowPath::SingleFlow);
+        let rect = Rect::from_center_size(centre, size);
+        assert!(p.steam_in.x < centre.x && p.steam_in.x > rect.left());
+        assert!(
+            p.steam_in.y < centre.y,
+            "admission at the top of the annulus"
+        );
+        assert!(p.exhaust_out.x > centre.x && p.exhaust_out.x < rect.right());
+        assert_eq!(p.exhaust_out.y, rect.bottom(), "exhaust at the casing edge");
+    }
+
+    /// The scalar turbine turns at the speed it is given and colours its
+    /// casing from the temperature it is given, with no physics model.
+    #[test]
+    fn scalar_turbine_turns_at_its_speed_and_takes_its_colour() {
+        let t = |v| ThermodynamicTemperature::new::<kelvin>(v);
+        let v = TurbineVisual::from_scalars(
+            AngularVelocity::new::<radian_per_second>(2.0),
+            Some(t(700.0)),
+            Pos2::ZERO,
+            Vec2::new(100.0, 40.0),
+            t(300.0),
+            t(900.0),
+        )
+        .at_time(Time::new::<second>(1.5));
+        assert!((v.rotor_angle().get::<radian>() - 3.0).abs() < 1e-9);
+        assert_eq!(v.casing_temperature(), Some(t(700.0)));
     }
 }
