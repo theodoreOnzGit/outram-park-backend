@@ -66,7 +66,17 @@ pub struct WeightWindow {
     /// Absolute weight below which the particle is killed outright.
     pub weight_cutoff: f64,
     /// Cap on the number of copies one split may produce.
-    pub max_split: f64,
+    ///
+    /// **Integral, matching upstream's `int max_split_` (`weight_windows.h:200`),
+    /// and that is load-bearing rather than cosmetic.** `apply` divides the
+    /// parent's weight by `n_split` and emits `round(n_split)` particles. Those
+    /// two agree only while `n_split` is exactly an integer. Upstream gets that
+    /// for free because `max_split` is an `int`, so `min(ceil(..), max_split)`
+    /// cannot be fractional. An earlier draft of this port widened the field to
+    /// `f64`, which admitted `max_split = 2.5` -> `round(2.5) = 3` copies each
+    /// of weight `w/2.5`, i.e. `1.2 w` total — weight created from nothing, in
+    /// the one routine whose entire justification is that it is weight-neutral.
+    pub max_split: u32,
 }
 
 impl Default for WeightWindow {
@@ -77,7 +87,7 @@ impl Default for WeightWindow {
             max_lb_ratio: 1.0,
             survival_weight: 0.5,
             weight_cutoff: DEFAULT_WEIGHT_CUTOFF,
-            max_split: 10.0,
+            max_split: 10,
         }
     }
 }
@@ -199,10 +209,18 @@ pub fn apply(
         // is what keeps the split count stable when the ratio sits within
         // rounding of an integer. Upstream comments this at length because it
         // was a real defect; reproduced rather than simplified.
+        // Upstream rejects `max_split <= 1` when parsing (`weight_windows.cpp:103`).
+        // A public Rust field cannot be validated on assignment, so the floor of
+        // 1 is enforced here, at the point of use. One is deliberately the floor
+        // and not two: upstream's `max_split_ = 1` means "never split" (it gives
+        // `n_split = 1`, leaving the weight untouched), and clamping to 2 would
+        // silently start splitting where upstream does not. Only 0 is excluded,
+        // because it would divide the weight by zero.
+        let cap = window.max_split.max(1) as f64;
         let n_split = (weight / ((1.0 + WEIGHT_WINDOW_REL_TOL) * window.upper_weight))
             .ceil()
             .max(2.0)
-            .min(window.max_split);
+            .min(cap);
         state.n_split += n_split;
         let copies = n_split.round() as usize;
         return WindowOutcome::Split {
@@ -212,7 +230,7 @@ pub fn apply(
     }
 
     if weight < window.lower_weight * (1.0 - WEIGHT_WINDOW_REL_TOL) {
-        let weight_survive = (weight * window.max_split).min(window.survival_weight);
+        let weight_survive = (weight * window.max_split as f64).min(window.survival_weight);
         let w = russian_roulette(weight, weight_survive, seed);
         return if w == 0.0 {
             WindowOutcome::Killed
@@ -244,8 +262,9 @@ pub struct WeightWindows {
     pub survival_ratio: f64,
     /// Carried into every [`WeightWindow`] produced.
     pub max_lb_ratio: f64,
-    /// Carried into every [`WeightWindow`] produced.
-    pub max_split: f64,
+    /// Carried into every [`WeightWindow`] produced. Integral — see
+    /// [`WeightWindow::max_split`] for why that matters.
+    pub max_split: u32,
     /// Carried into every [`WeightWindow`] produced.
     pub weight_cutoff: f64,
 }
@@ -303,7 +322,7 @@ impl WeightWindows {
             upper,
             survival_ratio: 3.0,
             max_lb_ratio: 1.0,
-            max_split: 10.0,
+            max_split: 10,
             weight_cutoff: DEFAULT_WEIGHT_CUTOFF,
         })
     }
@@ -522,12 +541,62 @@ mod tests {
                     );
                     assert!(copies >= 2, "a split must produce at least 2");
                     assert!(
-                        copies as f64 <= w.max_split,
+                        copies as u32 <= w.max_split.max(1),
                         "{copies} copies exceeds max_split {}",
                         w.max_split
                     );
                 }
                 other => panic!("weight {weight} is above the window but gave {other:?}"),
+            }
+        }
+    }
+
+    /// **The conservation invariant, against every `max_split` a caller can
+    /// set** — the regression pin for a defect this port introduced and
+    /// upstream cannot have.
+    ///
+    /// `apply` emits `round(n_split)` copies each carrying `weight / n_split`,
+    /// so the two agree only while `n_split` is exactly integral. Upstream gets
+    /// that from `int max_split_` (`weight_windows.h:200`). While this port
+    /// carried `max_split: f64`, `max_split = 2.5` gave `round(2.5) = 3` copies
+    /// of `w/2.5` each — `1.2 w`, weight created by the one routine whose whole
+    /// justification is being weight-neutral. The field is now `u32`.
+    ///
+    /// `max_split = 0` is included because a public field admits it and it is
+    /// the value that would divide by zero. It is floored to 1 at the point of
+    /// use, matching upstream's `max_split_ = 1` "never split" behaviour rather
+    /// than inventing a split upstream would not make.
+    #[test]
+    fn splitting_conserves_weight_for_every_max_split() {
+        let base = flat_windows(0.25, 1.0);
+        for cap in 0u32..=12 {
+            let mut ww = base.clone();
+            ww.max_split = cap;
+            let w = ww.look_up(Position::new(0.5, 0.5, 0.5), 1.0e6).unwrap();
+            let mut seed = 20_260_922;
+            for weight in [1.5, 2.0, 3.7, 5.0, 9.0, 40.0, 1.0e3] {
+                let mut st = neutral_state(0.25, 1.0);
+                match apply(w, &mut st, weight, &mut seed) {
+                    WindowOutcome::Split { copies, weight: each } => {
+                        let total = copies as f64 * each;
+                        assert!(
+                            (total - weight).abs() <= 1e-12 * weight,
+                            "max_split {cap}: weight {weight} split into \
+                             {copies} x {each} = {total}, which is not {weight}"
+                        );
+                        assert!(each.is_finite() && each > 0.0, "max_split {cap}: each = {each}");
+                        assert!(
+                            copies as u32 <= cap.max(1),
+                            "max_split {cap}: {copies} copies exceeds the cap"
+                        );
+                    }
+                    WindowOutcome::Unchanged => {
+                        // `cap <= 1` is upstream's "never split"; nothing to check
+                        // beyond the fact that no weight moved.
+                        assert!(cap <= 1, "max_split {cap} refused to split weight {weight}");
+                    }
+                    other => panic!("max_split {cap}, weight {weight} gave {other:?}"),
+                }
             }
         }
     }
@@ -563,7 +632,7 @@ mod tests {
             }
             let mean = total / N as f64;
             // Var of the per-trial weight is p(1-p)w_s^2 with p = w/w_s.
-            let w_s = (start * w.max_split).min(w.survival_weight);
+            let w_s = (start * w.max_split as f64).min(w.survival_weight);
             let p = start / w_s;
             let sigma = (p * (1.0 - p) / N as f64).sqrt() * w_s;
             let dev = (mean - start).abs() / sigma;
