@@ -60,13 +60,80 @@ It is also a **validator**: a table whose counts do not add up walks off its
 own end and is reported, rather than producing a plausible answer.
 `a_corrupt_count_is_refused_rather_than_walked_past` pins that.
 
-## Results — build side
+## Results — build side (2026-09-22)
 
-**Not yet.** `acephn` (`acepn.f90:27-1853`) is 1 826 lines and is being ported
-incrementally. Nothing is claimed for it here until it produces a table to
-compare, and the gates in `tests/acer_photonuclear_vs_njoy2016.rs` currently
-cover the read side alone — deliberately, so this record cannot be read as
-saying more than has been measured.
+| check | result |
+|---|---|
+| built from the tape, 27 453 words | **byte-identical**, all 556 781 bytes |
+| worst value difference over every word | **1.0e-13** — the file's own print precision |
+| `NXS`, `JXS` | identical |
+
+So `acer iopt = 5` is at parity on this input: both codes read the same tape
+and write the same file.
+
+### Three defects the comparison found, and one it did not
+
+**1. `gety1`'s initialisation returns an `xnext` that is not `xlast`** — and the
+photo-nuclear grid starts from it. The zero-extension scan shades the returned
+break down by `down = 0.999999` when the *next* point is the first non-zero one
+(`endf.f90:1511`), so the grid's first energy is just **below** the reaction
+threshold. This port returned `xlast` instead and produced a 37-point grid
+where NJOY makes 38. The fix is in `src/endf/gety1.rs`; it changes nothing for
+the photo-atomic or dosimetry paths, which never use the initialisation's
+`xnext`.
+
+**2. `ip > 1` excludes the photon, not just the neutron.** `acepn.f90:1809`
+folds a particle's production heating into the table total only when `ip > 1`,
+and `ip` is the **ZAP** — so both the neutron (ZAP 1) *and* the photon
+(ZAP 0) are excluded. Reading it as "everything but the neutron" put the
+photon's whole contribution in twice and left the heating column 39 % high at
+the top of the grid.
+
+**3. `avll` is updated inside the `ig /= 1` guard** (`:1690`), so the second
+outgoing point's trapezoid uses `avll = 0` rather than `E'(1)`. Hoisting it out
+adds `pdf(1)·E'(1)·dE/2` to every law's mean outgoing energy — about **4e-8
+MeV**, invisible in the value and exactly enough to flip `sigfig(·, 7, 0)` on
+the heating block. That one was only visible because the criterion is bytes: a
+1e-7 tolerance would have passed it.
+
+**And one the comparison did not find**, because it was designed out: the
+builder does not track its own integer/real flags. It derives them from
+`layout::walk` — the same port of `phnout` the reader uses, already
+byte-verified. One description of the structure means the builder cannot
+disagree with the reader about where a locator is, and a table the walk cannot
+traverse is reported as a builder defect rather than written out.
+
+## What is ported, and what refuses
+
+`src/acer/photonuclear/build.rs` covers the path a LANL-style photo-nuclear
+file takes. Everything else returns [`NjoyError::NotPorted`] **naming itself**:
+
+| ported | refused by name |
+|---|---|
+| MF=3 with `MT = 2` or `MT > 4` | `ielas = 1` (an MF=3/MT=2 elastic section) |
+| MF=6 `LAW=1`, `LANG=1`, `NA=0`, `LCT=1` → ACE law 61 | `LANG=2` (Kalbach-Mann → law 44); `NA > 0`; `ND > 0`; `LCT /= 1` |
+| heating from the `e+q` fallback | heating from an explicit recoil subsection (ZAP > 2004) |
+| the isotropic `ptleg2` case | `ptleg2`'s adaptive reconstruction for `NA > 0` |
+| | MF=4/MF=5 (neutron-only, → ACE laws 33 and 4) |
+| | MF=6 `LAW=2` (→ law 33) and `LAW=4` two-body recoils |
+| | MT=18 fission with its MF=1/452 or /456 nubar substitution |
+
+Refusing is the point. A photo-nuclear table that silently omits an emitted
+particle or an angular law still reads, still looks plausible, and is wrong in
+a way no consumer can detect.
+
+### `ptleg2` was checked and rejected for reuse
+
+This crate already has `acer::angular::legendre_cosine_law`, which converts a
+Legendre angular list to a tabulated cosine law — the obvious thing to reuse.
+It is **not** the same routine: `ptleg2` (`acecm.f90`) uses tolerances
+`2e-4`/`2e-3`, a 24-deep stack, a `1e-10` floor and a negative-lobe repair
+pass, where `legendre_cosine_law` uses `ANGLE_TOL = 5e-3` and its own
+bisection. They produce different grids, so reusing it would have lost byte
+parity. Only the isotropic case (`NA = 0`, where upstream sets `nord = 1,
+fl(1) = 0` and the reconstruction converges on its three priming points) is
+implemented, and it is pinned against NJOY's own output: `mu = [-1, 0, 1]`,
+`pdf = [0.5, 0.5, 0.5]`.
 
 ## Not covered
 

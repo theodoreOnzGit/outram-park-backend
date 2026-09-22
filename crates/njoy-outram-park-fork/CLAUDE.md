@@ -728,3 +728,51 @@ so rather than implying otherwise. Also untested, and stated there: whether a
 production photo-nuclear evaluation exercises branches the synthetic tape does
 not — MF=4-only angular data, MT=18 with its nubar, discrete MT=600-849
 levels, and the `ielas = 1` elastic path.
+
+## `acer iopt = 5` reaches byte parity, and how three defects were found (2026-09-22)
+
+`src/acer/photonuclear/build.rs` ports `acephn`'s LANL-style path and
+reproduces NJOY2016's own photo-nuclear ACE **byte for byte** — 27 453 words,
+556 781 bytes, worst value difference **1.0e-13**. Both codes read the same
+synthetic NSUB=0 tape. Full record:
+[`verification_and_validation/acer_photonuclear_vs_njoy2016.md`](verification_and_validation/acer_photonuclear_vs_njoy2016.md).
+
+**Every one of the three defects was in this port, not upstream, and two would
+have survived a tolerance.**
+
+1. **`gety1`'s initialisation returns an `xnext` that is not `xlast`.** The
+   zero-extension scan shades the returned break down by `0.999999` when the
+   *next* point is the first non-zero one (`endf.f90:1511`), so a grid walk
+   starts just **below** the reaction threshold. This port returned `xlast`,
+   giving a 37-point grid where NJOY makes 38. A real `gety1` contract bug,
+   fixed in `src/endf/gety1.rs`; it changes nothing for the photo-atomic or
+   dosimetry paths, which discard that value.
+2. **`ip > 1` excludes the photon, not just the neutron.** `acepn.f90:1809`
+   folds production heating into the table total only for `ip > 1`, and `ip`
+   is the **ZAP** — so ZAP 1 (neutron) *and* ZAP 0 (photon) are both out.
+   Reading it as "everything but the neutron" double-counted the photon and
+   left the heating column 39 % high.
+3. **`avll` is updated inside the `ig /= 1` guard** (`:1690`), so the second
+   outgoing point's trapezoid uses `0`, not `E'(1)`. Hoisting it out adds
+   ~**4e-8 MeV** to every law's mean outgoing energy — invisible in the value,
+   and exactly enough to flip `sigfig(., 7, 0)` on the heating block. **A 1e-7
+   tolerance would have passed this.** Bytes found it.
+
+**The builder does not track its own integer/real flags.** It derives them
+from `layout::walk`, the same port of `phnout` the reader uses and already
+byte-verified, so the builder cannot disagree with the reader about where a
+locator is — and a table the walk cannot traverse is reported as a *builder*
+defect instead of being written out. Worth copying: when a format's structure
+is recoverable from the data, describe it once and let both directions use it.
+
+**`ptleg2` was checked and rejected for reuse.** `acer::angular::legendre_cosine_law`
+looks like the same conversion and is not: `ptleg2` uses tolerances
+`2e-4`/`2e-3`, a 24-deep stack, a `1e-10` floor and a negative-lobe repair,
+against `ANGLE_TOL = 5e-3` and a different bisection. Reusing it would have
+produced a different grid and lost parity. Only the isotropic case is
+implemented, pinned against NJOY's own output.
+
+**Everything unported refuses by name** (`NjoyError::NotPorted`): `ielas = 1`,
+`LANG = 2`, `NA > 0`, `ND > 0`, `LCT /= 1`, recoil subsections, MF=4/MF=5,
+`LAW = 2`/`LAW = 4`, and MT=18's nubar substitution. A photo-nuclear table
+that silently omits an emitted particle still reads and still looks plausible.

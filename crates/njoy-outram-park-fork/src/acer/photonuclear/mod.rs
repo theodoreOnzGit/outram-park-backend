@@ -19,10 +19,13 @@
 //! [`crate::acer::read::RawAceTable::derive_xss_is_int`] uses the walk here,
 //! so a read-then-write round trip is byte-exact.
 //!
-//! **Build: in progress.** `acephn` (`acepn.f90:27-1853`) is 1 826 lines and
-//! is being ported incrementally; see
-//! `verification_and_validation/acer_photonuclear_vs_njoy2016.md` for what is
-//! measured so far.
+//! **Build: done for the LANL-style path, and byte-exact.** [`build`] ports
+//! `acephn` (`acepn.f90:27-1853`) for MF=3 plus MF=6 `LAW=1`/`LANG=1`, and
+//! reproduces NJOY's own `acer iopt=5` output **byte for byte** (556 781
+//! bytes, worst value difference 1.0e-13). Every representation it does not
+//! cover returns [`crate::NjoyError::NotPorted`] naming itself rather than
+//! writing a table that is quietly missing something; the list is in
+//! `verification_and_validation/acer_photonuclear_vs_njoy2016.md`.
 //!
 //! ## Reference data
 //!
@@ -35,4 +38,5 @@
 //! use here: it verifies that the two codes agree, and claims nothing about
 //! physics.
 
+pub mod build;
 pub mod layout;

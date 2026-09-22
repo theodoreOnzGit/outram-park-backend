@@ -34,6 +34,8 @@
 //! | read NJOY's 27 453-word table | class `u`, ZA 6012, structure recovered |
 //! | read-then-write, 556 781 bytes | **byte-identical** |
 //! | layout walk | 4 emitted particles, ends exactly at `NXS(1)` |
+//! | **build** from the tape, 556 781 bytes | **byte-identical** |
+//! | worst value difference over all 27 453 words | **1.0e-13** — the file's own print precision |
 //!
 //! The byte-identical round trip is the load-bearing one: a photo-nuclear
 //! table's integer/real split is not stored anywhere, so reproducing it
@@ -42,7 +44,11 @@
 //! law bodies — exactly as `phnout` does. Getting one count or one locator
 //! wrong anywhere in those 27 453 words changes a byte.
 
+use njoy_outram_park_fork::acer::photonuclear::build::{photonuclear_ace, PhotonuclearOptions};
 use njoy_outram_park_fork::acer::photonuclear::layout::{self, jxs, nxs};
+use njoy_outram_park_fork::acer::read::AceFileType;
+use njoy_outram_park_fork::endf::tape::Tape;
+use njoy_outram_park_fork::reference_data::reference_endf_or_skip;
 use njoy_outram_park_fork::acer::read::{self, AceClass};
 use njoy_outram_park_fork::reference_data::reference_file_or_skip;
 
@@ -157,4 +163,79 @@ fn a_corrupt_count_is_refused_rather_than_walked_past() {
         format!("{err}").contains("past the end"),
         "the refusal should say what went wrong: {err}"
     );
+}
+
+
+/// **The build side.** Both codes read `photonuc-synthetic-Z6.endf`, and the
+/// written file must match byte for byte.
+///
+/// A photo-nuclear evaluation has no resonances, so its own linear MF=3 is the
+/// PENDF `acephn` takes the grid from — the tape is passed for both.
+#[test]
+fn built_table_is_byte_identical_to_njoy2016() {
+    let Some(tape_path) = reference_endf_or_skip("photonuc-synthetic-Z6.endf", "acephn") else {
+        return;
+    };
+    let Some(ace) = reference_file_or_skip("acer", ACE, "acephn") else {
+        return;
+    };
+    let tape = Tape::read_file(&tape_path).expect("read the synthetic photonuclear tape");
+    let opts = PhotonuclearOptions {
+        suffix: 0.0,
+        comment: "z6 photonuclear".to_string(),
+        date: "09/22/26".to_string(),
+        ..Default::default()
+    };
+    let built = photonuclear_ace(&tape, &tape, 600, &opts).expect("build the photonuclear table");
+    assert_eq!(built.za, 6012, "ZA");
+    assert_eq!(built.nxs[nxs::NES], 38, "NES — the grid off the PENDF's MF=3");
+    assert_eq!(built.nxs[nxs::NTYPE], 4, "NTYPE — n, photon, proton, alpha");
+
+    let table = built.into_raw(&opts, AceFileType::Type1Ascii);
+    let want = std::fs::read_to_string(&ace).expect("read NJOY's photonuclear ACE");
+    let got = table.to_type1_string();
+    if got != want {
+        let n = got
+            .bytes()
+            .zip(want.bytes())
+            .take_while(|(a, b)| a == b)
+            .count();
+        panic!(
+            "the built photonuclear table differs from NJOY at byte {n} of {} \
+             (NJOY {} bytes)\n  ours: {:?}\n  njoy: {:?}",
+            got.len(),
+            want.len(),
+            &got[n.saturating_sub(40)..(n + 40).min(got.len())],
+            &want[n.saturating_sub(40)..(n + 40).min(want.len())],
+        );
+    }
+    eprintln!("[photonuclear-build] reproduced NJOY's {} bytes exactly", want.len());
+}
+
+/// Every representation this port does **not** cover must refuse by name
+/// rather than quietly writing a table that is missing something. A
+/// photo-nuclear table that silently drops an emitted particle still reads and
+/// still looks plausible.
+#[test]
+fn unported_representations_refuse_by_name() {
+    let Some(tape_path) = reference_endf_or_skip("photonuc-synthetic-Z6.endf", "acephn") else {
+        return;
+    };
+    let tape = Tape::read_file(&tape_path).expect("read the tape");
+    let opts = PhotonuclearOptions::default();
+    // A photo-ATOMIC tape has NSUB = 3 (or no NSUB=0), so it must be rejected
+    // as the wrong sublibrary rather than half-processed.
+    if let Some(pa) = reference_endf_or_skip("photoat-synthetic-Z6.endf", "acephn wrong sublib") {
+        let other = Tape::read_file(&pa).expect("read the photoatomic tape");
+        let err = photonuclear_ace(&other, &other, 600, &opts)
+            .expect_err("a photoatomic tape is not a photonuclear one");
+        let m = format!("{err}");
+        assert!(
+            m.contains("photonuclear") || m.contains("MF=6"),
+            "the refusal must say what is wrong: {m}"
+        );
+    }
+    // And the supported tape must still build, so the guard above is not just
+    // refusing everything.
+    assert!(photonuclear_ace(&tape, &tape, 600, &opts).is_ok());
 }

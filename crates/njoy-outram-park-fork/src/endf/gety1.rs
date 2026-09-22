@@ -60,6 +60,11 @@ pub struct Gety1 {
     ir: usize,
     xlast: f64,
     ylast: f64,
+    /// What upstream's `x = 0` call returns. It is **not** `xlast`: the
+    /// zero-extension scan shades it down by `down` when the *next* point is
+    /// the first non-zero one (`endf.f90:1511`), and a caller that walks a
+    /// grid from it starts one shaded point earlier than `xlast` would give.
+    init: Gety1Value,
 }
 
 impl Gety1 {
@@ -83,10 +88,12 @@ impl Gety1 {
         let mut ip = 1usize;
         let mut ir = 1usize;
         let (mut xlast, mut ylast) = (0.0f64, 0.0f64);
+        let mut xnext = XBIG;
         while np > 0 {
             let (x_ip, y_ip) = pairs[ip - 1];
             xlast = x_ip;
             ylast = y_ip;
+            xnext = xlast;
             if ylast != 0.0 {
                 xlast *= DOWN;
                 break;
@@ -94,7 +101,13 @@ impl Gety1 {
             if np < 2 || ip >= np - 1 {
                 break;
             }
+            // `:1511` -- when the NEXT point is the first non-zero one, the
+            // returned break is shaded down, so a grid walk starts just below
+            // the threshold rather than on it.
             if pairs[ip].1 != 0.0 {
+                if ip > 1 {
+                    xnext *= DOWN;
+                }
                 break;
             }
             ip += 1;
@@ -110,6 +123,11 @@ impl Gety1 {
             ir,
             xlast,
             ylast,
+            init: Gety1Value {
+                y: ylast,
+                xnext,
+                idis: false,
+            },
         }
     }
 
@@ -117,6 +135,12 @@ impl Gety1 {
     /// "sequential" means, and upstream's `x < xlast` branch returns zero
     /// rather than re-seeking.
     pub fn get(&mut self, x: f64) -> Gety1Value {
+        // Upstream branches on `x > 0` and re-runs the initialisation
+        // otherwise (`endf.f90:1489`). The scan is idempotent, so the stored
+        // answer is returned instead of repeating it.
+        if x <= 0.0 {
+            return self.init;
+        }
         let np = self.pairs.len();
         if np == 0 {
             return Gety1Value {

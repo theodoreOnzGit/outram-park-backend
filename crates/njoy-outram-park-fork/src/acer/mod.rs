@@ -58,7 +58,7 @@
 //! | 2 | thermal S(α,β) (`t`) | `aceth.f90` | **built** — [`thermal`], all three `IFENG` forms |
 //! | 3 | dosimetry (`y`) | `acedo.f90` | **built** — [`dosimetry`] |
 //! | 4 | photo-atomic (`p`) | `acepa.f90` | **built** — [`photoatomic`] |
-//! | 5 | photonuclear (`u`) | `acepn.f90` | **read and rewritten byte-exactly** — [`photonuclear`]; the builder is in progress |
+//! | 5 | photonuclear (`u`) | `acepn.f90` | **built**, byte-exact — [`photonuclear`] (LANL-style path; others refuse by name) |
 //! | 7, 8 | read / edit a Type-1 / Type-2 file | `acer.f90` | **read, edited and rewritten** — [`read`]; the `print` half is not implemented |
 //!
 //! ## Entry point
