@@ -228,6 +228,14 @@ impl IfpTallies {
     /// fewer than `n_generation` active generations, or IFP was off. Returning
     /// `0/0` would give a NaN that propagates into a kinetics model.
     pub fn beta_eff(&self, settings: &IfpSettings) -> Result<f64, String> {
+        if !settings.delayed_group {
+            return Err(
+                "this run carried no ancestor delayed groups \
+                 (`IfpSettings::delayed_group` is false), so the beta numerator is \
+                 identically zero. That is a configuration, not a beta_eff of zero."
+                    .into(),
+            );
+        }
         if self.denominator <= 0.0 {
             return Err(format!(
                 "the IFP denominator is {}, with {} fissions skipped for a shallow \
@@ -246,10 +254,19 @@ impl IfpTallies {
     ///
     /// As [`Self::beta_eff`].
     pub fn generation_time(&self, settings: &IfpSettings) -> Result<f64, String> {
+        if !settings.lifetime {
+            return Err(
+                "this run carried no ancestor lifetimes (`IfpSettings::lifetime` is \
+                 false), so the time numerator is identically zero. That is a \
+                 configuration, not a generation time of zero."
+                    .into(),
+            );
+        }
         if self.denominator <= 0.0 {
             return Err(format!(
-                "the IFP denominator is {}; see `beta_eff` for what that means",
-                self.denominator
+                "the IFP denominator is {}, with {} fissions skipped for a shallow \
+                 lineage; no fission reached {} generations deep. See `beta_eff`.",
+                self.denominator, self.skipped_shallow, settings.n_generation
             ));
         }
         Ok(self.time_numerator / self.denominator)
@@ -416,5 +433,14 @@ mod tests {
         assert!(l.is_converged(&s));
         assert_eq!(l.oldest_delayed_group(&s), Some(1));
         assert_eq!(l.oldest_lifetime(&s), None);
+
+        // And asking for the quantity that was NOT carried is an error rather
+        // than a zero: a Lambda of zero from a run that never recorded a
+        // lifetime is a configuration, not a measurement.
+        let mut t = IfpTallies::default();
+        t.score_fission(&s, &l, 1.0);
+        assert!(t.beta_eff(&s).is_ok());
+        let err = t.generation_time(&s).unwrap_err();
+        assert!(err.contains("configuration, not a generation time"), "{err}");
     }
 }

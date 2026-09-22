@@ -68,7 +68,9 @@ use crate::physics::keff::{KeffResult, KeffSettings};
 use crate::physics::scatter::{
     free_gas_elastic_scatter_dbrc, rotate_direction, two_body_scatter, two_body_scatter_with_mu,
 };
+use crate::geometry::surface::BoundaryType;
 use crate::physics::track_output::{TrackEvent, TrackRecorder, TrackState};
+use crate::source::extra::{SurfaceCrossing, SurfaceSource};
 use crate::physics::weight_windows::{apply as apply_window, WindowOutcome, WindowState};
 use crate::physics::variance_reduction::{
     russian_roulette, survival_bias_absorption, VarianceReduction,
@@ -496,6 +498,7 @@ pub fn run_keff_csg_seq(
                     leak_edges_gen,
                     &mut leak_batch,
                     &settings.variance_reduction,
+                    None,
                     None,
                 );
                 production += outcome.production;
@@ -1020,7 +1023,7 @@ pub(crate) fn transport_history(
     debug_assert!(analog.is_analog());
     transport_history_vr(
         site, geom, materials, nuclides, majorants, temp, k_running, next_bank, seed, tally,
-        batch, leak_edges, leak_batch, &analog, None,
+        batch, leak_edges, leak_batch, &analog, None, None,
     )
 }
 
@@ -1060,6 +1063,10 @@ pub(crate) fn transport_history_vr(
     // `Option` check per event; recording draws no randomness, so a run with
     // capture on gives the same eigenvalue bit for bit as one without.
     mut tracks: Option<&mut TrackRecorder>,
+    // Surface-source recording (GitHub #264). Records every crossing of a
+    // watched surface WITH ITS WEIGHT, for replay as a second stage's source.
+    // Like track capture this draws no randomness.
+    mut surface_source: Option<&mut SurfaceSource>,
 ) -> HistoryOutcome {
     // Virtual collisions rejected inside delta regions (bn:op-867c.5).
     // Stays zero on a purely surface-tracked model.
@@ -1840,6 +1847,35 @@ pub(crate) fn transport_history_vr(
                 r = stream(r, u, d_bound.distance);
                 match d_bound.crossing {
                     Crossing::Surface(i_surf) => {
+                        // `src/particle.cpp:376-385`: a surface-source
+                        // crossing is recorded BEFORE the crossing when the
+                        // surface carries a boundary condition and AFTER when
+                        // it does not.
+                        //
+                        // That split is not a detail. On a BC surface the
+                        // post-crossing state is either gone (vacuum) or
+                        // reflected, and neither is what a replay wants; on an
+                        // internal surface the post-crossing state IS the
+                        // far-side starting point. A first version of this
+                        // recorded only the "after" case, and so recorded
+                        // **nothing at all** for a vacuum boundary - which is
+                        // the surface a two-stage shielding run exists to
+                        // record at.
+                        let has_bc = !matches!(
+                            geom.surfaces[i_surf].bc(),
+                            BoundaryType::Transmissive
+                        );
+                        if has_bc {
+                            if let Some(ss) = surface_source.as_deref_mut() {
+                                ss.record(SurfaceCrossing {
+                                    r,
+                                    u,
+                                    energy: e,
+                                    weight: w,
+                                    surface_idx: i_surf,
+                                });
+                            }
+                        }
                         let crossed =
                             geom.cross_surface_in_frame(i_surf, &path, d_bound.coord_level, r, u, seed);
                         if !crossed.alive {
@@ -1857,6 +1893,20 @@ pub(crate) fn transport_history_vr(
                         // left (GitHub #168 — see `Geometry::cross_surface`).
                         on_surface = crossed.on_surface;
                         track!(TrackEvent::SurfaceCrossing, cell_idx, path.material);
+                        // `surf_source_` with NO boundary condition: record
+                        // AFTER the crossing. The far-side state is what a
+                        // replayed particle must start from.
+                        if !has_bc {
+                            if let Some(ss) = surface_source.as_deref_mut() {
+                                ss.record(SurfaceCrossing {
+                                    r,
+                                    u,
+                                    energy: e,
+                                    weight: w,
+                                    surface_idx: i_surf,
+                                });
+                            }
+                        }
                         // `weight_window_checkpoint_surface`.
                         weight_window_checkpoint!({
                             track!(TrackEvent::Rouletted, cell_idx, path.material);

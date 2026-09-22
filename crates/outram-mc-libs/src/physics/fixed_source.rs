@@ -180,7 +180,7 @@ pub fn run_fixed_source(
     settings: &FixedSourceSettings,
     tally: Option<&mut Tally>,
 ) -> FixedSourceResult {
-    run_fixed_source_traced(geom, materials, nuclides, source, settings, tally, None)
+    run_fixed_source_traced(geom, materials, nuclides, source, settings, tally, None, None)
 }
 
 /// [`run_fixed_source`] with **particle track capture** — GitHub #271.
@@ -198,6 +198,7 @@ pub fn run_fixed_source_traced(
     settings: &FixedSourceSettings,
     mut tally: Option<&mut Tally>,
     mut tracks: Option<&mut crate::physics::track_output::TrackRecorder>,
+    mut surface_source: Option<&mut crate::source::extra::SurfaceSource>,
 ) -> FixedSourceResult {
     let mut seed = settings.seed;
     let n_bins = tally.as_ref().map(|t| t.n_bins()).unwrap_or(0);
@@ -245,6 +246,7 @@ pub fn run_fixed_source_traced(
                     &mut [],
                     &settings.variance_reduction,
                     tracks.as_deref_mut(),
+                    surface_source.as_deref_mut(),
                 );
                 production_sum += prod.production;
                 for s in next {
@@ -275,7 +277,7 @@ mod tests {
     use crate::geometry::cell::{Cell, CellFill, HalfSpaceSense, RegionToken};
     use crate::geometry::surface::{BoundaryType, Sphere, SurfaceKind};
     use crate::geometry::universe::Universe;
-    use crate::tally::filter::{CellFilter, Filter, FilterKind};
+    use crate::tally::filter::{CellFilter, FilterKind};
     use crate::tally::tally::{ScoreType, Tally, TallyBin};
 
     /// A single-cell sphere of radius `r_cm`; `fill` chooses void or a material.

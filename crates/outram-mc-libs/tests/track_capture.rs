@@ -96,6 +96,7 @@ fn track_capture_does_not_perturb_the_run() {
         &settings(),
         Some(&mut traced_tally),
         Some(&mut rec),
+        None,
     );
 
     assert_eq!(
@@ -146,6 +147,7 @@ fn tracks_in_a_void_sphere_are_a_straight_line_to_the_boundary() {
         },
         None,
         Some(&mut rec),
+        None,
     );
 
     assert_eq!(rec.tracks.len(), 32);
@@ -173,4 +175,90 @@ fn tracks_in_a_void_sphere_are_a_straight_line_to_the_boundary() {
     }
     assert_eq!(rec.ending_in(TrackEvent::Leak).len(), 32);
     assert!(rec.ending_in(TrackEvent::Lost).is_empty(), "no history was lost");
+}
+
+/// **A two-stage surface source carries the weight across the boundary.**
+///
+/// GitHub #264's acceptance rests on this: what the first stage puts across a
+/// surface is what the second stage must start from. A replayed particle at
+/// unit weight inflates stage two by exactly what stage one removed, and the
+/// answer stays plausible.
+///
+/// Here the first stage is a 2 MeV point source at the centre of a void
+/// sphere, every neutron of which crosses the boundary exactly once. So the
+/// recorded crossing count must equal the history count, the total recorded
+/// weight must equal the total source weight, and every crossing must sit on
+/// the sphere pointing outwards.
+///
+/// # Results, 2026-09-22
+///
+/// Printed at run time.
+#[test]
+fn a_surface_source_records_every_crossing_with_its_weight() {
+    use outram_mc_libs::source::extra::SurfaceSource;
+
+    let geom = void_sphere();
+    let src = FixedSource::Point {
+        r: Position::ZERO,
+        energy_ev: 2.0e6,
+    };
+    let n = 500usize;
+    let mut ss = SurfaceSource::recording(vec![], 10_000);
+    let res = run_fixed_source_traced(
+        &geom,
+        &[],
+        &[],
+        &src,
+        &FixedSourceSettings {
+            n_particles: n,
+            ..settings()
+        },
+        None,
+        None,
+        Some(&mut ss),
+    );
+
+    println!(
+        "{} histories, {} crossings recorded, total weight {:.3}, dropped {}",
+        res.total_histories,
+        ss.crossings.len(),
+        ss.total_weight(),
+        ss.dropped
+    );
+    assert_eq!(
+        ss.crossings.len(),
+        n,
+        "in a void sphere every history crosses the boundary exactly once"
+    );
+    assert_eq!(ss.dropped, 0);
+    assert!(
+        (ss.total_weight() - n as f64).abs() < 1e-9,
+        "the recorded weight {} is not the source weight {n}; a two-stage run \
+         built on this would be wrong by exactly the difference",
+        ss.total_weight()
+    );
+
+    for (i, c) in ss.crossings.iter().enumerate() {
+        let rad = (c.r.x * c.r.x + c.r.y * c.r.y + c.r.z * c.r.z).sqrt();
+        assert!(
+            (rad - R).abs() < 1.0e-6,
+            "crossing {i} is at radius {rad}, not on the sphere"
+        );
+        assert_eq!(c.energy, 2.0e6, "a void sphere changes no energy");
+        assert_eq!(c.weight, 1.0, "analog transport has unit weight");
+        // Outward: the direction must have a positive component along r.
+        let dot = c.r.x * c.u.u + c.r.y * c.u.v + c.r.z * c.u.w;
+        assert!(
+            dot > 0.0,
+            "crossing {i} points INWARD (r.u = {dot}); the state was recorded \
+             before the crossing, so every replayed particle would start on the \
+             wrong side of the surface"
+        );
+    }
+
+    // And it replays: a sampled site carries the recorded weight.
+    let mut seed = 5;
+    let site = ss.sample(&mut seed).unwrap();
+    assert_eq!(site.wgt, 1.0);
+    assert_eq!(site.e, 2.0e6);
 }
