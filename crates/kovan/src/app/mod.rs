@@ -14,6 +14,7 @@ mod bibliography;
 mod csv_preview;
 mod home;
 mod kvim_editor;
+mod literature_list;
 mod nav;
 mod page_canvas;
 mod pdf_reader;
@@ -291,6 +292,13 @@ pub struct DigitiseApp {
     /// A Kovan repository being cloned into a new folder by the setup
     /// dialog; the folder is opened, and its corpora set up, when it lands.
     library_clone: Option<LibraryClone>,
+    /// The PDF reader's list of the open folder's literature, built on
+    /// demand and dropped when the folder's knowledge changes.
+    literature: Option<literature_list::LiteratureList>,
+    /// The literature fuzzy finder (Ctrl+P).
+    literature_finder: literature_list::LiteratureFinder,
+    /// The document last opened in the reader, for the list's highlight.
+    reader_path: Option<std::path::PathBuf>,
     /// Browser-style back/forward history over every page (#242) -- see
     /// [`nav`].
     history: crate::navigation::NavHistory<nav::AppLocation>,
@@ -439,6 +447,9 @@ impl Default for DigitiseApp {
             setup: setup::SetupDialog::default(),
             background_jobs: Vec::new(),
             library_clone: None,
+            literature: None,
+            literature_finder: Default::default(),
+            reader_path: None,
             history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
             theme: GuiTheme::default(),
             file_dialog: FileDialog::new()
@@ -550,6 +561,7 @@ impl DigitiseApp {
 
         if let Some(pdf) = &pdf_path {
             self.pdf_reader.open(&pdf.to_string_lossy());
+            self.reader_path = Some(pdf.clone());
         }
         self.kvim_editor.load_text(session.markdown());
 
@@ -601,8 +613,51 @@ impl DigitiseApp {
         let index = crate::index::KnowledgeIndex::rebuild(root);
         let _ = index.save_cache(root);
         let graph = crate::graph::KnowledgeGraph::rebuild(root, &index);
+        self.literature = None; // papers changed: re-mark the list
         let _ = graph.save_cache(root);
         self.workspace = Some(WorkspaceKnowledge { index, graph });
+    }
+
+    /// Ctrl+P opens the literature finder whenever a Kovan folder is open;
+    /// a PDF chosen there opens in the reader.
+    fn literature_finder_ui(&mut self, ctx: &egui::Context) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
+        };
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::P)) {
+            self.literature_finder.show();
+        }
+        if !self.literature_finder.open {
+            return;
+        }
+        if self.literature.as_ref().is_none_or(|l| l.root != root.path()) {
+            self.literature = Some(literature_list::LiteratureList::build(&root));
+        }
+        let chosen = self
+            .literature
+            .as_ref()
+            .and_then(|list| self.literature_finder.ui(ctx, list));
+        if let Some(path) = chosen {
+            self.open_document(&path);
+        }
+    }
+
+    /// Open `path` in the PDF reader: as its paper when one records it (so
+    /// notes save into it), otherwise on its own with the ingest offer.
+    fn open_document(&mut self, path: &std::path::Path) {
+        self.reader_path = Some(path.to_path_buf());
+        match self.paper_owning_pdf(path) {
+            Some(citekey) => self.activate_paper_and_navigate(&citekey),
+            None => {
+                // Not a paper's PDF: whatever paper was open no longer
+                // matches the reader, so notes must not go into it.
+                self.active_paper = None;
+                self.view = View::PdfReader;
+                let path = path.to_string_lossy().into_owned();
+                self.pdf_reader.open(&path);
+                self.offer_ingest_if_new(&path);
+            }
+        }
     }
 
     /// The paper whose `kovan.toml` records `path` as its PDF, if any.
@@ -1986,17 +2041,7 @@ impl DigitiseApp {
         let path = path.to_string_lossy().into_owned();
         match target {
             FileDialogTarget::Image => self.load_image(&path),
-            FileDialogTarget::Pdf => match self.paper_owning_pdf(std::path::Path::new(&path)) {
-                // A paper's own PDF: open the paper, so notes save into it.
-                Some(citekey) => self.activate_paper_and_navigate(&citekey),
-                None => {
-                    // Not a paper's PDF: whatever paper was open no longer
-                    // matches the reader, so notes must not go into it.
-                    self.active_paper = None;
-                    self.pdf_reader.open(&path);
-                    self.offer_ingest_if_new(&path);
-                }
-            },
+            FileDialogTarget::Pdf => self.open_document(std::path::Path::new(&path)),
             FileDialogTarget::JsonExport => {
                 self.json_out = path;
                 // Finish an export that was only waiting on this path.
@@ -2255,6 +2300,7 @@ impl eframe::App for DigitiseApp {
         // Mindmap: open it on the shared concept before it draws (#242).
         self.sync_shared_concept();
         self.poll_background_jobs();
+        self.literature_finder_ui(ui.ctx());
         self.poll_library_clone();
         if let Some(request) = self.setup.ui(ui.ctx()) {
             self.handle_setup(request);
@@ -2432,6 +2478,37 @@ impl eframe::App for DigitiseApp {
                 // renders the *shared* kvim editor (same buffer as the Kvim
                 // Editor view) in place, with citation/wiki completion.
                 let root = self.home.root().cloned();
+                // The open folder's literature, on the left (2026-09-22).
+                if let Some(root) = root.as_ref() {
+                    if self
+                        .literature
+                        .as_ref()
+                        .is_none_or(|l| l.root != root.path())
+                    {
+                        self.literature = Some(literature_list::LiteratureList::build(root));
+                    }
+                    let current = self.reader_path.clone();
+                    let action = egui::Panel::left("pdf_literature")
+                        .resizable(true)
+                        .default_size(260.0)
+                        .min_size(160.0)
+                        .show(ui, |ui| {
+                            self.literature
+                                .as_mut()
+                                .and_then(|l| l.ui(ui, current.as_deref()))
+                        })
+                        .inner;
+                    match action {
+                        Some(literature_list::LiteratureAction::Open(path)) => {
+                            self.open_document(&path)
+                        }
+                        Some(literature_list::LiteratureAction::Refresh) => self.literature = None,
+                        Some(literature_list::LiteratureAction::Find) => {
+                            self.literature_finder.show()
+                        }
+                        None => {}
+                    }
+                }
                 egui::CentralPanel::default().show(ui, |ui| {
                     // op-q1qj: the active paper's session (if any) so the
                     // reader saves annotations straight into it instead of

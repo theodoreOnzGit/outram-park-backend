@@ -59,6 +59,7 @@ pub mod corpus;
 pub mod corpus_repos;
 pub mod digitiser;
 pub mod entity;
+pub mod fuzzy;
 pub mod graph;
 pub mod index;
 pub mod mindmap;

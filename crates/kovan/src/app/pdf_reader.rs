@@ -706,9 +706,6 @@ pub struct PdfReaderState {
     /// Author name recorded on new annotations/crops (op-96am's provenance
     /// "author" field) — analogous to the digitiser's own "operator" field.
     author: String,
-    /// "kovan folder" project (op-63u0) to save annotations into, and the
-    /// markdown file (relative to that root) they belong to — see
-    /// [`Self::save_annotations_into_project`].
     /// Cached structured-text page (op-z9u0), for [`Self::active_page`]
     /// only — re-extracted on page change.
     stext_cache: Option<(usize, StextPage)>,
