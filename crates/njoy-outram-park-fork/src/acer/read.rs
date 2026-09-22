@@ -941,6 +941,12 @@ impl RawAceTable {
                 }
                 Some(mask)
             }
+            // `phnout` (`acepn.f90:2504-2780`) navigates by locator through a
+            // per-emitted-particle structure, and every count it needs is
+            // stored beside the data -- so the whole split is recoverable.
+            AceClass::Photonuclear => {
+                crate::acer::photonuclear::layout::int_mask(&self.nxs, &self.jxs, &self.xss)
+            }
             _ => None,
         }
     }

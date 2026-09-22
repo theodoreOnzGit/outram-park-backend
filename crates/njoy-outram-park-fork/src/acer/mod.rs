@@ -58,7 +58,7 @@
 //! | 2 | thermal S(α,β) (`t`) | `aceth.f90` | **built** — [`thermal`], all three `IFENG` forms |
 //! | 3 | dosimetry (`y`) | `acedo.f90` | **built** — [`dosimetry`] |
 //! | 4 | photo-atomic (`p`) | `acepa.f90` | **built** — [`photoatomic`] |
-//! | 5 | photonuclear (`u`) | `acepn.f90` | not ported |
+//! | 5 | photonuclear (`u`) | `acepn.f90` | **read and rewritten byte-exactly** — [`photonuclear`]; the builder is in progress |
 //! | 7, 8 | read / edit a Type-1 / Type-2 file | `acer.f90` | **read, edited and rewritten** — [`read`]; the `print` half is not implemented |
 //!
 //! ## Entry point
@@ -87,6 +87,7 @@ pub mod fortran_fmt;
 pub mod nu;
 pub mod photoatomic;
 pub mod photon_blocks;
+pub mod photonuclear;
 
 /// True when the evaluation supplies **MF=4/5/6 secondary distributions for
 /// MT=19** (first-chance fission) — upstream's `mt19` flag, set from the tape

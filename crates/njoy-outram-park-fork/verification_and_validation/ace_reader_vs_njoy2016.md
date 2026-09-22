@@ -126,11 +126,17 @@ Gate: `tests/ace_read_type1_vs_type2.rs`.
   | `92000.00p` | photoatomic | `acer iopt=4` | 71 807 |
   | `2004.00a` | charged particle (alpha) | `acer iopt=1`, alpha sublibrary | 674 |
 
-  The two still uncovered are **`u` (photonuclear)** and **`y` (dosimetry)**:
+  ~~The two still uncovered are **`u` (photonuclear)** and **`y` (dosimetry)**:
   neither sublibrary is present in `reference-data/endf/`, so no such table can
-  be produced to read back. That is a gap in the *fixtures*, not in the reader —
-  the container is class-independent and all ten class letters are unit-tested.
-  Gate: `every_obtainable_class_reads`.
+  be produced to read back.~~ **CORRECTED 2026-09-22 — both are covered now,
+  and neither needed the missing sublibrary.** `y` came from running
+  `acer iopt=3` on an ordinary broadened PENDF; `u` came from generating a
+  synthetic NSUB=0 photo-nuclear tape (the IAEA host being blocked by the
+  environment's network policy) and running `acer iopt=5` on it. Both are read
+  **and rewritten byte for byte** — see `acer_photonuclear_vs_njoy2016.md`.
+  **Every class letter upstream dispatches on has now been read from a file
+  NJOY wrote.** Gates: `every_obtainable_class_reads` and
+  `type1_files_read_back_and_rewrite_byte_exactly`.
 - ~~**mcnpx-format (13-character ZAID) is implemented but unexercised.**~~
   **CORRECTED 2026-09-22** — references were produced (`acer` with a negative
   `iopt`) and it is gated. Two things came out of doing it:

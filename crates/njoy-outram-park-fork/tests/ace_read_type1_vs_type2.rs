@@ -395,6 +395,10 @@ fn type1_files_read_back_and_rewrite_byte_exactly() {
         ("z6_photoatomic_njoy2016.ace", AceClass::Photoatomic, 6000.0, 449, 10),
         ("h1_293k_dosimetry_njoy2016.ace", AceClass::Dosimetry, 1001.0, 2532, 10),
         ("mn55_293k_dosimetry_njoy2016.ace", AceClass::Dosimetry, 25055.0, 70440, 10),
+        // Class `u`. Until 2026-09-22 this was the one class letter that had
+        // never been read from a real file, for want of a photo-nuclear tape;
+        // it is read here from NJOY's own `acer iopt=5` output.
+        ("z6_photonuclear_njoy2016.ace", AceClass::Photonuclear, 6012.0, 27453, 10),
     ] {
         let Some(path) = reference_file_or_skip("acer", file, "ace mcnpx read") else {
             return;

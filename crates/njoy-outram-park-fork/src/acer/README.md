@@ -48,7 +48,10 @@ Ported in [`crate::acer`]:
   **byte-identical** to NJOY2016 on H-1 (2 532 words) and Mn-55 (70 440 words,
   MF=10 isomeric channels included). NJOY's own test suite never runs
   `iopt = 3`.)*
-- **Photonuclear class `…u`** ⬜ — `acepn` not started.
+- **Photonuclear class `…u`** 🟡 *(2026-09-22)* — `phnout`'s layout walk is
+  ported (`src/acer/photonuclear/layout.rs`), so a photo-nuclear table reads
+  and rewrites **byte-exactly** (27 453 words, 556 781 bytes). The builder
+  `acephn` (1 826 lines) is in progress.
 
 ## One reader, one writer (2026-09-22)
 

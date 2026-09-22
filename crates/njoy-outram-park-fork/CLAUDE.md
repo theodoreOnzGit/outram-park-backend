@@ -687,3 +687,44 @@ thin adapters that delegate to it and nothing else, and no crate outside
 Turning the test round trips into *write-then-read-with-the-production-reader*
 is what makes them real: a table this crate writes but its own reader cannot
 read now fails.
+
+## Photo-nuclear: NJOY rebuilt, a tape synthesised, class `u` closed (2026-09-22)
+
+NJOY2016 was rebuilt from `upstream_source/NJOY2016` on this machine — a clean
+100 % `cmake` build with gfortran 13.3.0 into `build2/` — so the oracle is
+reproducible rather than inherited.
+
+**The blocker was data, not code.** `acer iopt = 5` needs a photo-nuclear
+(NSUB=0) ENDF tape; `reference-data/endf/` has none, and the IAEA NDS host
+`acquire` downloads from is **blocked by the execution environment's network
+policy** (the agent proxy answers `403` to CONNECT on
+`www-nds.iaea.org:443`). The environment's rule is to report a blocked host,
+not route around it. So the tape was **synthesised** —
+`photonuc-synthetic-Z6.endf` plus its committed generator — which is the
+device this repository already uses twice over. It is fed to both codes, so it
+verifies that they agree on identical input; it says nothing about physics and
+nothing is claimed from it.
+
+**What that immediately bought.** NJOY turned it into a 27 453-word `6012.00u`
+table on the first run, and porting `phnout`'s layout walk
+(`acepn.f90:2504-2780`, now `src/acer/photonuclear/layout.rs`) made that table
+**read back and rewrite byte for byte**. With it, **every class letter
+upstream dispatches on has now been read from a file NJOY wrote** — `u` was
+the last one outstanding, and it had been sitting in the V&V record as "a gap
+in the fixtures" since the reader was written.
+
+**Why the walk is worth more than a mask.** A photo-nuclear table's
+integer/real split is stored nowhere, so reproducing NJOY's bytes requires
+walking the *whole* per-emitted-particle structure: `PXS`, `PHN`, `MTRP`,
+`TYRP`, `LSIGP`/`SIGP` with its MF=12/13 branch, `LANDP`/`ANDP` with its
+equiprobable-versus-tabulated sub-branch, and `LDLWP`/`DLWP` with law bodies
+4, 44, 61, 7/9 and 33 — law 61 alone needs two levels of locator chasing. One
+wrong count anywhere in 27 453 words changes a byte, so the round trip is a
+sharp test of the whole structure, and the same walk serves as a structural
+validator and as the builder's skeleton.
+
+**The builder (`acephn`, 1 826 lines) is not done**, and the V&V record says
+so rather than implying otherwise. Also untested, and stated there: whether a
+production photo-nuclear evaluation exercises branches the synthetic tape does
+not — MF=4-only angular data, MT=18 with its nubar, discrete MT=600-849
+levels, and the `ielas = 1` elastic path.
