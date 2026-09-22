@@ -46,11 +46,6 @@ struct IngestFlow {
     preview: IngestPreview,
     citekey: String,
     access: Access,
-    /// Comma-separated, matching §16's slash-path syntax per entry — full
-    /// fuzzy `+ New Topic` completion is `op-9vo6.16`'s job; a text field is
-    /// enough for this pass to actually classify something.
-    topics_text: String,
-    projects_text: String,
     message: String,
 }
 
@@ -66,8 +61,6 @@ impl IngestFlow {
             preview,
             citekey,
             access: Access::Restricted,
-            topics_text: String::new(),
-            projects_text: String::new(),
             message,
         }
     }
@@ -220,15 +213,9 @@ impl WikiState {
                     "Restricted / proprietary",
                 );
                 ui.radio_value(&mut flow.access, Access::Open, "Open / redistributable");
-
-                ui.horizontal(|ui| {
-                    ui.label("Topics (comma-separated, e.g. htgrs/materials):");
-                    ui.text_edit_singleline(&mut flow.topics_text);
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Projects:");
-                    ui.text_edit_singleline(&mut flow.projects_text);
-                });
+                // No topics or projects here (maintainer, 2026-09-22: too
+                // much at ingest). The paper starts unsorted; classify it
+                // later with Reclassify.
 
                 if !flow.message.is_empty() {
                     ui.colored_label(Color32::from_rgb(220, 90, 90), &flow.message);
@@ -250,8 +237,8 @@ impl WikiState {
             let choice = IngestChoice {
                 citekey: citekey.clone(),
                 access: flow.access,
-                topics: split_paths(&flow.topics_text),
-                projects: split_paths(&flow.projects_text),
+                topics: Vec::new(),
+                projects: Vec::new(),
             };
             match ingest::ingest(root, &flow.preview, choice) {
                 Ok(()) => {

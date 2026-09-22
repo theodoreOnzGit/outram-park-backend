@@ -494,6 +494,28 @@ pub(super) fn normalise_region(min: Pos2, max: Pos2, w: f32, h: f32) -> Option<R
 }
 
 
+/// The gap between pages on the continuous canvas, in points.
+const GAP: f32 = 16.0;
+
+/// The scroll offset that centres `region` (on 0-based `page`) in a
+/// `viewport` at `zoom`, never negative. Placed with
+/// [`region_to_screen_rect`] at a zero origin (content coordinates), so it
+/// agrees with where the box is drawn. `None` for an invalid region or
+/// before the canvas has been measured.
+fn region_centre_offset(
+    region: Region,
+    page: usize,
+    page_px: egui::Vec2,
+    zoom: f32,
+    viewport: egui::Vec2,
+) -> Option<egui::Vec2> {
+    if viewport.x <= 0.0 || viewport.y <= 0.0 {
+        return None;
+    }
+    let rect = region_to_screen_rect(region, page, page_px, Pos2::ZERO, zoom, GAP)?;
+    Some((rect.center().to_vec2() - viewport * 0.5).max(egui::Vec2::ZERO))
+}
+
 /// The screen-space rectangle [`Region`] (§15, normalised page fractions)
 /// reconstructs to on the continuous multi-page canvas, given which 0-based
 /// `page` it is anchored to, that page's logical pixel size at the render
@@ -1200,25 +1222,46 @@ impl PdfReaderState {
     }
 
     /// Take the canvas to `artifact`'s page and zoom so its `[source]`
-    /// region roughly fills the view.
+    /// region roughly fills the view, centred on it.
     ///
     /// The zoom is derived from the region's own extent — a region covering
     /// a third of the page height is worth ~3x — clamped to the same
     /// `0.25..=4.0` range the zoom slider uses. An artifact with a page but
     /// no region just navigates, leaving the zoom alone: there is nothing
     /// to frame.
+    ///
+    /// **Fixed 2026-09-22:** the zoom was set, but the view only scrolled to
+    /// the page's top edge and kept its old horizontal offset, so it showed
+    /// the page's top-left corner rather than the box (maintainer: "zooms to
+    /// the wrong side"). The view is now centred on the region, placed with
+    /// [`region_to_screen_rect`], the same mapping the boxes are drawn with.
     fn go_to_artifact(&mut self, artifact: &Artifact) {
         let Some(page) = Self::artifact_page(artifact) else {
             return;
         };
         self.annotate_page = page;
-        self.scroll_request = Some(page);
         self.thumb_synced = None;
-        if let Some(region) = artifact.toml.source.as_ref().and_then(|s| s.region) {
-            let w = (region.x1 - region.x0).max(1e-3) as f32;
-            let h = (region.y1 - region.y0).max(1e-3) as f32;
-            // Fit the larger dimension, so neither axis overflows.
-            self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        let region = artifact.toml.source.as_ref().and_then(|s| s.region);
+        let Some(region) = region else {
+            self.scroll_request = Some(page);
+            return;
+        };
+        let w = (region.x1 - region.x0).max(1e-3) as f32;
+        let h = (region.y1 - region.y0).max(1e-3) as f32;
+        // Fit the larger dimension, so neither axis overflows.
+        self.zoom = (1.0 / w.max(h)).clamp(0.25, 4.0);
+        match region_centre_offset(
+            region,
+            page,
+            self.pages.page_size_px(),
+            self.zoom,
+            self.last_viewport,
+        ) {
+            Some(offset) => {
+                self.scroll_request = None;
+                self.forced_offset = Some(offset);
+            }
+            None => self.scroll_request = Some(page),
         }
     }
 
@@ -2223,7 +2266,6 @@ impl PdfReaderState {
         // them and double-click a box to edit it — which the embedded reader
         // cannot (kopitiam#107). ---
         let zoom = self.zoom;
-        const GAP: f32 = 16.0;
         let n = self.source.page_count().max(1);
         let mut open_target: Option<String> = None;
 
@@ -3413,6 +3455,26 @@ mod tests {
             Pos2::new(1100.0, 1100.0),
         );
         assert_eq!(text, "");
+    }
+
+    /// Going to an annotation centres its box: one in the bottom-right of
+    /// page 2 lands the view there, not at the page's top-left corner.
+    #[test]
+    fn going_to_a_region_centres_it() {
+        let page_px = egui::vec2(1000.0, 1400.0);
+        let viewport = egui::vec2(400.0, 300.0);
+        let region = Region { x0: 0.6, y0: 0.7, x1: 0.9, y1: 0.9 };
+        let zoom = 2.0;
+        let off = region_centre_offset(region, 1, page_px, zoom, viewport).unwrap();
+        // Centre of the box in content coordinates.
+        let cx = 0.75 * 1000.0 * zoom;
+        let cy = (1400.0 * zoom + GAP) + 0.8 * 1400.0 * zoom;
+        assert_eq!(off, egui::vec2(cx - 200.0, cy - 150.0));
+        // Its box, drawn with the same mapping, sits in the middle of the view.
+        let drawn = region_to_screen_rect(region, 1, page_px, Pos2::ZERO - off, zoom, GAP).unwrap();
+        assert!((drawn.center() - (viewport * 0.5).to_pos2()).length() < 1e-3);
+        // Unmeasured canvas: no offset.
+        assert_eq!(region_centre_offset(region, 1, page_px, zoom, egui::Vec2::ZERO), None);
     }
 
     #[test]
