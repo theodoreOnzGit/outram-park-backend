@@ -34,7 +34,7 @@
 
 use eframe::egui::{self, Color32};
 
-use crate::entity::{Access, Classification, EntityConfig, EntityKind};
+use crate::entity::{Access, Classification, EntityConfig};
 use crate::index::KnowledgeIndex;
 use crate::ingest::{self, IngestChoice, IngestPreview};
 use crate::root::KovanRoot;
@@ -83,8 +83,9 @@ fn split_paths(text: &str) -> Vec<String> {
 
 /// A pending "sort this paper" flow (op-j3ib, GH issue #35's 2026-09-01
 /// 05:33 "if i right click the literature, i want to be able to sort it") —
-/// opened by right-clicking a paper link, prefilled from its current
-/// classification.
+/// ~~opened by right-clicking a paper link~~ opened from "Reclassify…" on a
+/// citation in a concept's right-click menu (papers stopped being rows on
+/// 2026-09-22, #245), prefilled from its current classification.
 struct ClassifyFlow {
     citekey: String,
     topics_text: String,
@@ -126,19 +127,24 @@ pub enum WikiAction {
 }
 
 pub struct WikiState {
-    /// Slash-separated path of the collection currently drilled into; `""`
-    /// is both tree roots shown together.
-    current: String,
+    /// The concept being shown, from the built-in corpus or the user's
+    /// library (#249); `None` is the top, where the corpus root and the
+    /// user's own top-level concepts are listed together.
+    current: Option<crate::node_id::NodeId>,
     ingest_flow: Option<IngestFlow>,
     classify_flow: Option<ClassifyFlow>,
+    /// Parsed bibliography for the citation lists (#245), re-read only when
+    /// the file changes.
+    bib: crate::mindmap::BibCache,
 }
 
 impl Default for WikiState {
     fn default() -> Self {
         Self {
-            current: String::new(),
+            current: None,
             ingest_flow: None,
             classify_flow: None,
+            bib: crate::mindmap::BibCache::default(),
         }
     }
 }
@@ -148,18 +154,16 @@ impl WikiState {
         Self::default()
     }
 
-    /// Slash-separated path of the concept (collection) being shown; `""` is
-    /// the top of the wiki. Read by the app's back/forward history (#242).
-    pub(crate) fn current(&self) -> &str {
-        &self.current
+    /// The concept being shown (`None` is the top). Read by the app's
+    /// back/forward history (#242).
+    pub(crate) fn current(&self) -> Option<&crate::node_id::NodeId> {
+        self.current.as_ref()
     }
 
-    /// Show the concept at `path`: how back/forward, and the Mindmap sharing
-    /// its location with this view, move the Wiki (#242).
-    pub(crate) fn set_current(&mut self, path: &str) {
-        if self.current != path {
-            self.current = path.to_string();
-        }
+    /// Show `concept`: how back/forward, and the Mindmap sharing its
+    /// location with this view, move the Wiki (#242).
+    pub(crate) fn set_current(&mut self, concept: Option<crate::node_id::NodeId>) {
+        self.current = concept;
     }
 
     /// A PDF was picked (from the "+ Ingest Literature…" button's dialog) —
@@ -372,107 +376,108 @@ impl WikiState {
         });
         ui.separator();
 
-        // Breadcrumb.
+        // Breadcrumb, through the runtime graph (corpus and library, #249).
+        let index_opt = Some(index);
         ui.horizontal_wrapped(|ui| {
             let mut go_to = None;
-            if ui.link("Wiki").clicked() {
-                go_to = Some(String::new());
+            if ui.link("Top").clicked() {
+                go_to = Some(None);
             }
-            let mut acc = String::new();
-            for part in self.current.split('/').filter(|s| !s.is_empty()) {
-                ui.label(">");
-                if !acc.is_empty() {
-                    acc.push('/');
-                }
-                acc.push_str(part);
-                if ui.link(part).clicked() {
-                    go_to = Some(acc.clone());
+            if let Some(cur) = &self.current {
+                for (id, title) in crate::runtime_graph::breadcrumb(index_opt, cur) {
+                    ui.label(">");
+                    if ui.link(title).clicked() {
+                        go_to = Some(Some(id));
+                    }
                 }
             }
-            if let Some(path) = go_to {
-                self.current = path;
+            if let Some(to) = go_to {
+                self.current = to;
             }
         });
         ui.add_space(8.0);
 
-        // op-sr4n.4: a freshly ingested paper defaults to
-        // `Classification::unsorted()` (a single topic path literally named
-        // "unsorted", entity.rs's `UNSORTED` constant) but no
-        // `topics/unsorted/kovan.toml` directory is ever created for it — so
-        // without this, `children_of("")` never surfaces it and the paper is
-        // invisible in the Wiki, violating "a paper must never disappear
-        // merely because it has not been classified yet". A synthetic entry
-        // at the tree root, shown only while there is something to show,
-        // makes the existing `current = path` / `papers_in(path)` drill-down
-        // machinery reach it with no new collection type or on-disk directory.
-        let unsorted_count = if self.current.is_empty() {
-            index.papers_in("unsorted").len()
-        } else {
-            0
-        };
+        // Concepts only, as on the Mindmap (maintainer direction, 2026-09-22,
+        // #245): papers are not rows. A concept's citations drop down on
+        // hover and are actionable from its right-click menu. The concept
+        // list comes from the runtime graph, which also supplies the
+        // synthetic "Unsorted" concept at the top so an unclassified paper
+        // never disappears (op-sr4n.4).
         let mut open_paper = None;
         let mut classify_target = None;
-
+        let entries = self.bib.entries(root).clone();
+        let mut drill_into = None;
         egui::ScrollArea::vertical().show(ui, |ui| {
-            let children: Vec<(String, EntityKind, String)> = index
-                .children_of(&self.current)
-                .into_iter()
-                .map(|c| (c.path.clone(), c.kind, c.name.clone()))
-                .collect();
-            let papers: Vec<String> = index
-                .papers_in(&self.current)
-                .into_iter()
-                .map(|p| p.citekey.clone())
-                .collect();
+            let children = crate::runtime_graph::children(index_opt, self.current.as_ref());
+            let here = self
+                .current
+                .as_ref()
+                .map(|id| crate::runtime_graph::citations(index_opt, &entries, id))
+                .unwrap_or_default();
 
-            if children.is_empty()
-                && papers.is_empty()
-                && unsorted_count == 0
-                && self.current.is_empty()
-            {
-                ui.weak("(no topics or projects yet — use + Ingest Literature to get started)");
+            if self.current.is_none() && children.len() <= 1 {
+                ui.weak("(your library has no topics or projects yet — use + Ingest Literature to get started)");
             }
 
-            let mut drill_into = None;
-            if unsorted_count > 0 {
-                if ui
-                    .link(format!("\u{1F4E5} Unsorted ({unsorted_count})"))
-                    .clicked()
-                {
-                    drill_into = Some("unsorted".to_string());
-                }
+            // The concept you are on: its own citations, as one hoverable,
+            // right-clickable line.
+            if !here.is_empty() {
+                let title = self
+                    .current
+                    .as_ref()
+                    .and_then(|id| crate::runtime_graph::concept(index_opt, id))
+                    .map(|c| c.title)
+                    .unwrap_or_default();
+                let resp = ui
+                    .add(
+                        egui::Label::new(format!("\u{1F4C4} {} citation(s) here", here.len()))
+                            .sense(egui::Sense::click()),
+                    )
+                    .on_hover_ui(|ui| crate::mindmap::citations_hover(ui, &title, &here));
+                resp.context_menu(|ui| {
+                    pick_citation(ui, &here, &mut open_paper, &mut classify_target);
+                });
+                ui.add_space(6.0);
             }
-            for (path, kind, name) in &children {
-                let icon = match kind {
-                    EntityKind::Topic => "\u{1F4C1}",
-                    EntityKind::Project => "\u{1F4E6}",
-                    EntityKind::Paper => "",
+
+            for c in &children {
+                use crate::runtime_graph::ConceptKind;
+                let cites = crate::runtime_graph::citations(index_opt, &entries, &c.id);
+                let icon = match c.kind {
+                    ConceptKind::CorpusTopic => "\u{1F4DA}",
+                    ConceptKind::Topic => "\u{1F4C1}",
+                    ConceptKind::Project => "\u{1F4E6}",
+                    ConceptKind::Unsorted => "\u{1F4E5}",
                 };
-                if ui.link(format!("{icon} {name}")).clicked() {
-                    drill_into = Some(path.clone());
+                let label = format!("{icon} {}", c.title);
+                let mut text = format!("{label}   \u{1F4C4} {}", cites.len());
+                if c.sub_concepts > 0 {
+                    text.push_str(&format!("   \u{2937} {}", c.sub_concepts));
                 }
-            }
-            if let Some(path) = drill_into {
-                self.current = path;
-            }
-
-            if !papers.is_empty() {
-                ui.add_space(8.0);
-                ui.label("Papers");
-                for citekey in &papers {
-                    // op-sr4n.2: clicking a paper activates it (GH issue #35's
-                    // "unify root and active-paper context" comment).
-                    // op-j3ib: right-clicking it opens the "sort" form.
-                    let resp = ui.link(format!("\u{1F4C4} {citekey}"));
-                    if resp.clicked() {
-                        open_paper = Some(citekey.clone());
-                    }
-                    if resp.secondary_clicked() {
-                        classify_target = Some(citekey.clone());
-                    }
+                let resp = ui
+                    .link(text)
+                    .on_hover_ui(|ui| crate::mindmap::citations_hover(ui, &label, &cites));
+                if resp.clicked() {
+                    drill_into = Some(c.id.clone());
                 }
+                resp.context_menu(|ui| {
+                    ui.strong(&label);
+                    if c.kind == ConceptKind::CorpusTopic {
+                        ui.weak("built-in corpus (read-only)");
+                    }
+                    ui.separator();
+                    pick_citation(ui, &cites, &mut open_paper, &mut classify_target);
+                    ui.separator();
+                    if ui.button("Go here").clicked() {
+                        drill_into = Some(c.id.clone());
+                        ui.close();
+                    }
+                });
             }
         });
+        if let Some(id) = drill_into {
+            self.current = Some(id);
+        }
 
         if let Some(citekey) = classify_target {
             self.classify_flow = Some(ClassifyFlow::new(citekey, index));
@@ -481,5 +486,21 @@ impl WikiState {
             action = Some(WikiAction::OpenPaper(citekey));
         }
         action
+    }
+}
+
+/// A concept's citation menu on the Wiki: each citation opens the paper or
+/// reclassifies it (the right-click-a-paper action from when papers were
+/// rows, op-j3ib), writing the choice into `open` or `classify`.
+fn pick_citation(
+    ui: &mut egui::Ui,
+    citations: &[crate::mindmap::Citation],
+    open: &mut Option<String>,
+    classify: &mut Option<String>,
+) {
+    match crate::mindmap::citations_menu(ui, citations, "Reclassify…") {
+        Some(crate::mindmap::CitationPick::Open(k)) => *open = Some(k),
+        Some(crate::mindmap::CitationPick::Secondary(k)) => *classify = Some(k),
+        None => {}
     }
 }

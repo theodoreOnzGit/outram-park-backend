@@ -62,16 +62,17 @@ use crate::mindmap::{MindmapAction, MindmapState};
 /// popup to attach to — see `op-p17q`, wired the same way).
 ///
 /// `Home` and `Wiki` are the Kovan redesign's startup/landing screens
-/// (GitHub issue #35 §2, §8, `op-9vo6.3`/`.8`) — `Home` is now the
+/// (GitHub issue #35 §2, §8, `op-9vo6.3`/`.8`). ~~`Home` is now the
 /// `#[default]`, replacing the previous default of launching straight into
-/// `PdfReader`. `DigitiseApp::ui` auto-transitions `Home` -> `Wiki` the
+/// `PdfReader`.~~ **CHANGED 2026-09-22 (epic #247):** `Mindmap` is the
+/// default, so Kovan opens on the built-in corpus map even with no folder;
+/// Home is where a folder is opened or created. `DigitiseApp::ui` auto-transitions `Home` -> `Wiki` the
 /// frame a root is opened/created (§8: "after opening a root, land in the
 /// Wiki, not the PDF reader"); the other variants stay reachable from the
 /// top bar exactly as before this redesign — removing them is `op-9vo6.25`
 /// (Research workspace)'s job, not this pass's.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 enum View {
-    #[default]
     Home,
     Wiki,
     Digitiser,
@@ -87,7 +88,10 @@ enum View {
     Bibliography,
     TableDigitiser,
     /// The interactive mindmap (§8, §9, `op-9vo6.21`), built on top of the
-    /// `Wiki` view's collection model.
+    /// `Wiki` view's collection model. **The default since 2026-09-22**
+    /// (maintainer brief, epic #247): Kovan always opens on its built-in
+    /// nuclear-engineering map, with or without a Kovan folder.
+    #[default]
     Mindmap,
     /// The Advanced Git tab (§38, `op-9vo6.20`) — a separate area, per that
     /// section's own wording, from ordinary Save Document/Save Repository.
@@ -2139,7 +2143,7 @@ impl eframe::App for DigitiseApp {
                         self.refresh_knowledge(&root);
                     }
                 }
-                // op-sr4n.2: a paper link was clicked, or "Ingest & Open"
+                // op-sr4n.2: a citation was opened, or "Ingest & Open"
                 // just finished — activate it and jump to it, same as
                 // Mindmap's own OpenPaper below.
                 if let Some(citekey) = opened_paper {
@@ -2147,34 +2151,32 @@ impl eframe::App for DigitiseApp {
                 }
             }
             View::Mindmap => {
-                if let Some(root) = self.home.root().cloned() {
+                // The map needs no folder: without one it shows the built-in
+                // corpus alone (epic #247).
+                let root = self.home.root().cloned();
+                if let Some(root) = &root {
                     if self.workspace.is_none() {
-                        self.refresh_knowledge(&root);
+                        self.refresh_knowledge(root);
                     }
-                    let mut opened_paper = None;
-                    if let Some(workspace) = self.workspace.as_ref() {
-                        egui::CentralPanel::default().show(ui, |ui| {
-                            if let Some(MindmapAction::OpenPaper(citekey)) =
-                                self.mindmap
-                                    .ui(ui, &root, &workspace.index, &workspace.graph)
-                            {
-                                opened_paper = Some(citekey);
-                            }
-                        });
+                }
+                let mut opened_paper = None;
+                let (index, graph) = match self.workspace.as_ref() {
+                    Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
+                    _ => (None, None),
+                };
+                egui::CentralPanel::default().show(ui, |ui| {
+                    if let Some(MindmapAction::OpenPaper(citekey)) =
+                        self.mindmap.ui(ui, root.as_ref(), index, graph)
+                    {
+                        opened_paper = Some(citekey);
                     }
-                    if let Some(citekey) = opened_paper {
-                        // op-sr4n.3: route through the same
-                        // activate_paper/view-switch helper Wiki uses,
-                        // rather than each view picking its own paper-
-                        // opening behaviour.
-                        self.activate_paper_and_navigate(&citekey);
-                    }
-                } else {
-                    egui::CentralPanel::default().show(ui, |ui| {
-                        ui.centered_and_justified(|ui| {
-                            ui.weak("no Kovan folder open — go to Home to open or create one");
-                        });
-                    });
+                });
+                if let Some(citekey) = opened_paper {
+                    // op-sr4n.3: route through the same
+                    // activate_paper/view-switch helper Wiki uses,
+                    // rather than each view picking its own paper-
+                    // opening behaviour.
+                    self.activate_paper_and_navigate(&citekey);
                 }
             }
             View::AdvancedGit => {

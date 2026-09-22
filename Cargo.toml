@@ -341,14 +341,10 @@ egui_extras = { version = "0.36.1", features = ["all_loaders"] }
 # In-app file/directory picker widget (pure egui, no GTK/native-dialog
 # backend). 0.15.0 is the first version pinned to egui 0.36.
 egui-file-dialog = "0.15.0"
-# Interactive graph widget (pan/zoom/node-drag/selection/hit-testing/layout)
-# for the Mindmap view (op-jvjc, GH issue #35 checkpoint S9), replacing
-# mindmap.rs's hand-rolled painter-based renderer. 0.32.0 pins
-# `egui = "0.36"` (default-features off, "persistence" feature) -- an exact
-# match to this workspace's own egui pin above -- and `petgraph = "0.8"`
-# (see the petgraph bump above). KOVAN's KnowledgeIndex/KnowledgeGraph stay
-# the sole authoritative data model; egui_graphs is presentation-only.
-egui_graphs = "0.32.0"
+# ~~egui_graphs = "0.32.0"~~ -- REMOVED 2026-09-22 (GitHub issue #243, epic
+# #241): kovan's Mindmap now draws its own cards on a scroll-area canvas. It
+# had no other consumer. The petgraph bump above was made for it and is left
+# as it stands.
 env_logger = "0.11.10"
 image = { version = "0.25.10", features = ["jpeg", "png"] }
 local-ip-address = "0.6.13"
