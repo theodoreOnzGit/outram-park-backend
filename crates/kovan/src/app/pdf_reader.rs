@@ -2395,9 +2395,15 @@ impl PdfReaderState {
             if is_pdf {
                 ui.selectable_value(&mut self.tool, AnnotationTool::SelectText, "Select text");
             }
-            if ui.button("Clear page annotations").clicked() {
-                self.annotations.remove(&self.active_page());
-            }
+            // "Clear page annotations" was removed on 2026-09-22 (maintainer:
+            // "i want the user to right click annotations selectively to
+            // delete"). It wiped every annotation on the page in one click,
+            // with no confirmation and no undo — a destructive action sitting
+            // between two harmless tool toggles. Selective deletion already
+            // exists and is the intended path: right-click an artifact and
+            // choose "Delete annotation…", which confirms first
+            // (`ConnectionPopup::ConfirmDelete`) and cascades properly
+            // through `classify::delete_artifact_cascade`.
             ui.separator();
             ui.label("author:");
             ui.add(egui::TextEdit::singleline(&mut self.author).desired_width(100.0));
@@ -3615,12 +3621,24 @@ impl PdfReaderState {
         let Some(result) = &self.bibtex else { return };
         match result {
             Ok(entry) => {
+                let mut close = false;
                 ui.horizontal(|ui| {
                     ui.label("BibTeX:");
                     if ui.button("\u{1F4CB} Copy").clicked() {
                         ui.ctx().copy_text(entry.clone());
                     }
+                    // Generated BibTeX had no way out but opening another
+                    // document: the panel held the last result for the rest
+                    // of the session, eating canvas height (maintainer,
+                    // 2026-09-22).
+                    if ui.button("Close").clicked() {
+                        close = true;
+                    }
                 });
+                if close {
+                    self.bibtex = None;
+                    return;
+                }
                 let mut scratch = entry.clone();
                 ui.add(
                     egui::TextEdit::multiline(&mut scratch)
@@ -3630,7 +3648,19 @@ impl PdfReaderState {
                 );
             }
             Err(e) => {
-                ui.colored_label(Color32::from_rgb(230, 90, 90), format!("BibTeX: {e}"));
+                let message = format!("BibTeX: {e}");
+                let mut close = false;
+                ui.horizontal(|ui| {
+                    ui.colored_label(Color32::from_rgb(230, 90, 90), &message);
+                    // A failure needs dismissing at least as much as a
+                    // success does.
+                    if ui.button("Close").clicked() {
+                        close = true;
+                    }
+                });
+                if close {
+                    self.bibtex = None;
+                }
             }
         }
     }

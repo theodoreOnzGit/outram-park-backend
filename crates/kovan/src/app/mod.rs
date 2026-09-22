@@ -198,6 +198,15 @@ enum ClickMode {
     EditPoints,
     /// Double-click adds a hand-placed point (op-8ixa).
     AddPoint,
+    /// Click, or drag, removes points under the cursor (gh:#277).
+    ///
+    /// Right-click already deletes the nearest marker in **every** mode and
+    /// still does — that is the fast path once you know it exists. The
+    /// trouble is that nothing on screen says so, which leaves a new user no
+    /// way to discover it, and it is one gesture per point when a trace has
+    /// picked up a run of strays along an axis label. A mode you can see,
+    /// select, and then sweep covers both gaps.
+    Erase,
 }
 
 /// Which shape the calibration reference box is (op-vyb9): the original
@@ -1512,6 +1521,11 @@ impl DigitiseApp {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.mode, ClickMode::EditPoints, "Edit/drag");
             ui.selectable_value(&mut self.mode, ClickMode::AddPoint, "Add points");
+            ui.selectable_value(&mut self.mode, ClickMode::Erase, "\u{1F9FD} Eraser")
+                .on_hover_text(
+                    "click or drag over points to remove them; right-click still \
+                     removes the nearest point in any mode",
+                );
             if ui.button("Delete selected").clicked() {
                 self.delete_selected();
             }
@@ -1776,6 +1790,30 @@ impl DigitiseApp {
                     let (px, py) = to_image(pos);
                     if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
                         self.selected = Some(i);
+                        self.delete_selected();
+                    }
+                }
+            }
+            // Eraser mode (gh:#277): a plain left click removes the nearest
+            // point, and a drag sweeps a run of them out in one gesture.
+            // `dragged()` rather than `drag_started()` so holding the button
+            // down and moving keeps erasing, which is the whole reason the
+            // mode is worth having over the per-point right-click.
+            if self.mode == ClickMode::Erase {
+                // The pointer says which mode is live: an eraser that looks
+                // like the point tool costs someone their trace.
+                response
+                    .clone()
+                    .on_hover_cursor(egui::CursorIcon::NoDrop);
+            }
+            if self.mode == ClickMode::Erase && (response.clicked() || response.dragged()) {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    let (px, py) = to_image(pos);
+                    if let Some(i) = self.nearest_point(px, py, 12.0 / zoom as f64) {
+                        self.selected = Some(i);
+                        // The same deletion the right-click uses, so the two
+                        // cannot drift: one path, one set of provenance and
+                        // review-status side effects.
                         self.delete_selected();
                     }
                 }
