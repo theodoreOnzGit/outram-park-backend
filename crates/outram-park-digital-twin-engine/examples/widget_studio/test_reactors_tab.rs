@@ -426,10 +426,7 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
     ui.add(egui::Slider::new(&mut state.downcomer_residence_s, 0.3..=30.0).text("downcomer"));
     ui.add(egui::Slider::new(&mut state.riser_residence_s, 0.3..=30.0).text("reflector risers"));
     ui.add(egui::Slider::new(&mut state.plenum_residence_s, 0.2..=20.0).text("hot plenum"));
-    ui.add(
-        egui::Slider::new(&mut state.cold_plenum_residence_s, 0.2..=20.0)
-            .text("cold plenum"),
-    );
+    ui.add(egui::Slider::new(&mut state.cold_plenum_residence_s, 0.2..=20.0).text("cold plenum"));
     ui.add(
         egui::Slider::new(&mut state.hot_duct_residence_s, 0.2..=20.0).text("duct, hot inner tube"),
     );
@@ -790,25 +787,30 @@ fn draw_plant(ui: &mut egui::Ui, state: &TestReactorsTab) {
         .with_flow_path(TurbineFlowPath::SingleFlow)
         .at_time(time),
     );
-    ui.add(CondenserVisual::from_scalars(
-        condenser_kind,
-        at(condenser_box.center()),
-        condenser_size,
-        CondenserDisplayRange {
-            min_temp: min_t,
-            max_temp: max_t,
-        },
-        CondenserScalars {
-            exhaust_quality: state.exhaust_quality,
-            condensing_temp: condensing,
-            condensate_temp: condensing,
-            cooling_water_inlet_temp: degc(state.cooling_water_in_degc),
-            cooling_water_outlet_temp: degc(state.cooling_water_out_degc),
-            // No model supplies a hotwell level here; `None` draws it hatched
-            // rather than inventing one.
-            hotwell_level_frac: None,
-        },
-    ));
+    // No labels on this condenser: on the plant page they crowd the loop
+    // (maintainer direction, 2026-09-22).
+    ui.add(
+        CondenserVisual::from_scalars(
+            condenser_kind,
+            at(condenser_box.center()),
+            condenser_size,
+            CondenserDisplayRange {
+                min_temp: min_t,
+                max_temp: max_t,
+            },
+            CondenserScalars {
+                exhaust_quality: state.exhaust_quality,
+                condensing_temp: condensing,
+                condensate_temp: condensing,
+                cooling_water_inlet_temp: degc(state.cooling_water_in_degc),
+                cooling_water_outlet_temp: degc(state.cooling_water_out_degc),
+                // No model supplies a hotwell level here; `None` draws it hatched
+                // rather than inventing one.
+                hotwell_level_frac: None,
+            },
+        )
+        .without_labels(),
+    );
     ui.add(PumpVisual::from_scalars(
         PumpKind::Centrifugal,
         at(pump_box.center()),

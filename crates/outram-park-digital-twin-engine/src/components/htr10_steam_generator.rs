@@ -144,6 +144,13 @@ const STEEL: Color32 = Color32::from_rgb(96, 100, 108);
 const OUTLINE: Color32 = Color32::from_rgb(150, 154, 162);
 const INTERNALS: Color32 = Color32::from_rgb(64, 68, 76);
 const VOID: Color32 = Color32::from_rgb(28, 30, 34);
+
+/// Label text size, points: 1.5x the original 9 pt (maintainer direction,
+/// 2026-09-22), matching the HTR-10 vessel schematic.
+const LABEL_FONT_SIZE: f32 = 13.5;
+
+/// Fill of every boxed label, matching the HTR-10 vessel schematic's.
+const LABEL_BOX_GREY: Color32 = Color32::from_rgb(88, 90, 96);
 const LABEL: Color32 = Color32::from_rgb(212, 212, 216);
 
 /// Bottom of the riser and coil bundles, as a fraction of the vessel height
@@ -485,17 +492,22 @@ impl Htr10SteamGeneratorVisual {
         temperature_colour(t, self.min_temp, self.max_temp)
     }
 
+    /// A label in a grey box, the same format as the HTR-10 vessel's boxed
+    /// labels, so the whole plant page matches (maintainer direction,
+    /// 2026-09-22): grey fill, internals-coloured edge, text centred on `at`.
     fn tag(&self, painter: &Painter, at: Pos2, text: &str) {
         if !self.show_labels {
             return;
         }
-        painter.text(
-            at,
-            egui::Align2::CENTER_CENTER,
-            text,
-            FontId::proportional(9.0),
+        let galley = painter.layout_no_wrap(
+            text.to_owned(),
+            FontId::proportional(LABEL_FONT_SIZE),
             LABEL,
         );
+        let rect = Rect::from_center_size(at, galley.size() + Vec2::new(8.0, 4.0));
+        painter.rect_filled(rect, 2, LABEL_BOX_GREY);
+        painter.rect_stroke(rect, 2, Stroke::new(1.2, INTERNALS), StrokeKind::Middle);
+        painter.galley(rect.center() - 0.5 * galley.size(), galley, LABEL);
     }
 
     /// Water-side temperature at height fraction `f`, `0` at the top.
@@ -533,6 +545,15 @@ impl Widget for Htr10SteamGeneratorVisual {
         // (corrected 2026-09-22).
         let response = ui.allocate_response(self.size, Sense::hover());
         let painter = ui.painter().clone();
+        // Labels on the FOREGROUND layer, clipped to the panel, so no part of
+        // the plant schematic covers them (maintainer direction, 2026-09-22).
+        let labels = ui
+            .ctx()
+            .layer_painter(egui::LayerId::new(
+                egui::Order::Foreground,
+                response.id.with("htr10_sg_labels"),
+            ))
+            .with_clip_rect(ui.clip_rect());
         let rect = fit_native_aspect(response.rect);
         let w = rect.width();
         let h = rect.height();
@@ -620,8 +641,7 @@ impl Widget for Htr10SteamGeneratorVisual {
             }
         }
 
-        self.tag(&painter, Pos2::new(cx, y(0.5)), "hot gas");
-        self.tag(&painter, Pos2::new(cx, y(0.5) + 11.0), "riser");
+        self.tag(&labels, Pos2::new(cx, y(0.5)), "hot gas riser");
 
         // ── Two peripheral helical bundles ──────────────────────────────────
         //
@@ -794,7 +814,7 @@ impl Widget for Htr10SteamGeneratorVisual {
             }
 
             self.tag(
-                &painter,
+                &labels,
                 Pos2::new(mid_x, y(top_f) - 9.0),
                 "helical coil",
             );
@@ -928,7 +948,7 @@ impl Widget for Htr10SteamGeneratorVisual {
         if let Some(train) = &self.steam_tracer {
             nozzle_marks(steam_run, train, true);
         }
-        self.tag(&painter, Pos2::new(cx + w * 0.86, y(0.0975)), "steam");
+        self.tag(&labels, Pos2::new(cx + w * 0.86, y(0.0975)), "steam");
 
         let feedwater_run = Rect::from_min_max(
             // Just above the bundle bottom, where the coil takes feedwater in.
@@ -944,7 +964,7 @@ impl Widget for Htr10SteamGeneratorVisual {
             nozzle_marks(feedwater_run, train, false);
         }
         self.tag(
-            &painter,
+            &labels,
             Pos2::new(cx + w * 0.88, y(BUNDLE_BOTTOM_FRACTION + 0.0025)),
             "feedwater",
         );

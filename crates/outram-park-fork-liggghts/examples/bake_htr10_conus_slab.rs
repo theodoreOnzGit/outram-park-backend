@@ -120,6 +120,30 @@ fn main() {
     let column_kept = kept.len() - conus_kept;
     eprintln!("column: kept {column_kept} of {column_all} in the slab below the valve");
 
+    // The dog-leg and the exit tube, settled in place along the drawn route.
+    let (leg, leg_ke, _leg_start, leg_end) = settle_leg(steps, threads);
+    let before_leg = kept.len();
+    for c in &leg {
+        // The corner overlaps the tube column's region; keep the column's.
+        let in_column = c.x.abs() < TUBE_RADIUS && c.z > COLUMN_FLOOR_Z + PEBBLE_RADIUS_M;
+        if (-depth..=0.0).contains(&c.y) && !in_column {
+            kept.push([c.x, c.z, c.y]);
+        }
+    }
+    let leg_kept = kept.len() - before_leg;
+    let (exit, exit_ke) = settle_exit(leg_end, steps, threads);
+    let before_exit = kept.len();
+    // Below the leg's lower wall only; single file, so kept whatever its depth
+    // (a one-diameter slab through a 7 cm tube would saw half of them away).
+    let leg_low = leg_end.z - LEG_RADIUS / LEG_DIP_DEG.to_radians().cos();
+    for c in &exit {
+        if c.z + PEBBLE_RADIUS_M <= leg_low {
+            kept.push([c.x, c.z, c.y.min(0.0)]);
+        }
+    }
+    let exit_kept = kept.len() - before_exit;
+    eprintln!("leg: kept {leg_kept}; exit: kept {exit_kept}");
+
     kept.sort_by(|a, b| a[2].total_cmp(&b[2]));
 
     let top = kept.iter().map(|p| p[1]).fold(f64::MIN, f64::max) + PEBBLE_RADIUS_M;
@@ -227,9 +251,34 @@ fn main() {
     .unwrap();
     writeln!(
         w,
-        "//! come from the conus run and {column_kept} from the column."
+        "//! come from the conus run, {column_kept} from the column, {leg_kept} from the"
     )
     .unwrap();
+    writeln!(w, "//! dog-leg and {exit_kept} from the exit tube.").unwrap();
+    writeln!(w, "//!").unwrap();
+    writeln!(
+        w,
+        "//! **The dog-leg and exit tube are settled IN PLACE**, not discharged: each is"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "//! seeded loose throughout and settled under gravity against its own walls,"
+    )
+    .unwrap();
+    writeln!(
+        w,
+        "//! because 15 degrees is below the angle of repose and gravity alone would"
+    )
+    .unwrap();
+    writeln!(w, "//! not fill the leg. Leg: a {LEG_RADIUS} m pipe, {LEG_RUN:.4} m run dipping {LEG_DIP_DEG} degrees,").unwrap();
+    writeln!(w, "//! final KE {leg_ke:.2e} J per pebble. Exit: a {EXIT_RADIUS:.3} m tube, single file, floor at").unwrap();
+    writeln!(
+        w,
+        "//! z = {EXIT_FLOOR_Z:.5} m, final KE {exit_ke:.2e} J per pebble; its pebbles are kept"
+    )
+    .unwrap();
+    writeln!(w, "//! at any depth (depth clamped to the cut face).").unwrap();
     writeln!(w, "//!").unwrap();
     writeln!(
         w,
@@ -411,4 +460,149 @@ fn settle_column(steps: usize, threads: usize) -> (Vec<Vec3>, f64) {
         "the settled column does not reach the conus run's valve; raise COLUMN_OVERFILL"
     );
     (centres, sys.kinetic_energy() / n as f64)
+}
+
+// ── The dog-leg and the exit tube: settle-in-place DEM segments ─────────────
+//
+// Gravity alone cannot carry pebbles along a leg dipping 15 degrees: that is
+// below graphite's angle of repose, so they would pile a short heap past the
+// elbow and stop. The drawn chute is shown full, so each segment is filled
+// the way the old bake fills a vessel: seeded loose throughout, then settled
+// under gravity against its own walls. This is a packing SETTLED IN PLACE, not
+// a discharge flow, and the table header says so.
+//
+// The segments follow the schematic's drawn route, so they sit where the
+// chute is drawn. These numbers restate `Htr10ReactorSchematic`'s drawing
+// constants, and its tests check that the table's leg and exit pebbles lie on
+// that route:
+// - leg: from the tube's end on the axis, horizontal run
+//   `CHUTE_LEG_RUN_FRACTION (0.55) x DRAWN_VESSEL_RADIUS_CM (225 cm)`, dipping
+//   `CHUTE_DIP_DEG` (15 degrees);
+// - exit: vertical from the leg's end down to the drawn opening, 0.8 of the
+//   chute band below the vessel bottom: z = 1019.7 cm below the internals top.
+
+/// Dip of the dog-leg below horizontal, degrees (schematic `CHUTE_DIP_DEG`).
+const LEG_DIP_DEG: f64 = 15.0;
+/// Horizontal run of the dog-leg, metres (0.55 x 2.25 m, schematic).
+const LEG_RUN: f64 = 0.55 * 2.25;
+/// Radius of the dog-leg pipe, metres: the discharge tube's.
+const LEG_RADIUS: f64 = TUBE_RADIUS;
+/// Radius of the exit tube, metres: 1.2 pebble diameters wide, so single-file
+/// pebbles do not jam (a tube exactly one diameter wide would).
+const EXIT_RADIUS: f64 = 0.6 * 2.0 * PEBBLE_RADIUS_M;
+/// Floor of the exit tube, metres, z up from zero core height: the drawn
+/// opening, 1019.7 cm below the internals top, which sit 351.818 cm above
+/// zero core height.
+const EXIT_FLOOR_Z: f64 = -(1019.7 - 351.818) / 100.0;
+
+/// Seed a loose, jittered lattice at every point inside `inside`, scanning the
+/// box `lo..hi`. Same pitch and jitter as the tube column.
+fn seed_region(lo: Vec3, hi: Vec3, seed: u64, inside: impl Fn(Vec3) -> bool) -> Vec<Particle> {
+    let d = 2.0 * PEBBLE_RADIUS_M;
+    let pitch = 1.1 * d;
+    let mut state = seed;
+    let mut out = Vec::new();
+    let mut z = lo.z;
+    while z <= hi.z {
+        let (ox, oy) = (splitmix(&mut state) * pitch, splitmix(&mut state) * pitch);
+        let mut x = lo.x + ox;
+        while x <= hi.x {
+            let mut y = lo.y + oy;
+            while y <= hi.y {
+                let p = Vec3::new(
+                    x + (splitmix(&mut state) - 0.5) * 0.08 * d,
+                    y + (splitmix(&mut state) - 0.5) * 0.08 * d,
+                    z,
+                );
+                if inside(p) {
+                    out.push(pebble(p));
+                }
+                y += pitch;
+            }
+            x += pitch;
+        }
+        z += pitch;
+    }
+    out
+}
+
+/// Settle `seeds` against `boundaries` under gravity; return the centres and
+/// the final kinetic energy per pebble.
+fn settle(
+    label: &str,
+    seeds: Vec<Particle>,
+    boundaries: Vec<Boundary>,
+    steps: usize,
+    threads: usize,
+) -> (Vec<Vec3>, f64) {
+    let n = seeds.len();
+    let material = GranularMaterial::new(YOUNGS_MODULUS, POISSON_RATIO, RESTITUTION, FRICTION)
+        .expect("valid graphite material");
+    let model = GranularContactModel::hertz_history(material)
+        .with_rolling(RollingModel::cdt(ROLLING_FRICTION).expect("valid mu_r"));
+    let mut sys = GranularSystem::new(seeds, boundaries, model, Vec3::new(0.0, 0.0, -9.81), DT)
+        .expect("valid system")
+        .with_compute(ComputeType::CpuMultiThread(ThreadCount::Fixed(threads)));
+    eprintln!("{label}: {n} pebbles seeded, settling {steps} steps");
+    sys.run(steps);
+    let ke = sys.kinetic_energy() / n.max(1) as f64;
+    eprintln!("{label}: final KE per pebble {ke:.3e} J");
+    (sys.particles().iter().map(|p| p.position).collect(), ke)
+}
+
+/// The dog-leg: a capped pipe along the drawn leg, filled and settled in place.
+fn settle_leg(steps: usize, threads: usize) -> (Vec<Vec3>, f64, Vec3, Vec3) {
+    let dip = LEG_DIP_DEG.to_radians();
+    let dir = Vec3::new(-dip.cos(), 0.0, -dip.sin());
+    let start = Vec3::new(0.0, 0.0, COLUMN_FLOOR_Z);
+    let length = LEG_RUN / dip.cos();
+    let end = start.add(dir.scale(length));
+    let reach = LEG_RADIUS - PEBBLE_RADIUS_M - 1.0e-3;
+    let inside = |p: Vec3| {
+        let along = p.sub(start).dot(dir);
+        let radial = p.sub(start).sub(dir.scale(along)).norm();
+        along >= PEBBLE_RADIUS_M + 1.0e-3
+            && along <= length - PEBBLE_RADIUS_M - 1.0e-3
+            && radial <= reach
+    };
+    let lo = Vec3::new(end.x - LEG_RADIUS, -LEG_RADIUS, end.z - LEG_RADIUS);
+    let hi = Vec3::new(start.x + LEG_RADIUS, LEG_RADIUS, start.z + LEG_RADIUS);
+    let seeds = seed_region(lo, hi, COLUMN_SEED ^ 0x1E6, inside);
+    let boundaries = vec![
+        Boundary::cylinder(start, dir, LEG_RADIUS).expect("dog-leg pipe"),
+        Boundary::wall(start, dir).expect("leg start cap"),
+        Boundary::wall(end, dir.scale(-1.0)).expect("leg end cap"),
+    ];
+    let (centres, ke) = settle("leg", seeds, boundaries, steps, threads);
+    (centres, ke, start, end)
+}
+
+/// The exit tube: single file in a narrow vertical tube from the leg's end to
+/// the drawn opening, settled on a floor there.
+fn settle_exit(leg_end: Vec3, steps: usize, threads: usize) -> (Vec<Vec3>, f64) {
+    let axis = Vec3::new(leg_end.x, 0.0, 0.0);
+    let reach = EXIT_RADIUS - PEBBLE_RADIUS_M;
+    let inside = |p: Vec3| {
+        let dx = p.x - axis.x;
+        (dx * dx + p.y * p.y).sqrt() <= reach.max(0.0) + 1.0e-9
+    };
+    // Single file: seed straight down the axis at the tube pitch.
+    let d = 2.0 * PEBBLE_RADIUS_M;
+    let mut seeds = Vec::new();
+    let mut z = EXIT_FLOOR_Z + PEBBLE_RADIUS_M + 1.0e-3;
+    let mut state = COLUMN_SEED ^ 0xE817;
+    while z <= leg_end.z {
+        let jitter = (splitmix(&mut state) - 0.5) * 2.0 * reach;
+        let p = Vec3::new(axis.x + jitter, 0.0, z);
+        if inside(p) {
+            seeds.push(pebble(p));
+        }
+        z += 1.1 * d;
+    }
+    let boundaries = vec![
+        Boundary::cylinder(axis, Vec3::new(0.0, 0.0, 1.0), EXIT_RADIUS).expect("exit tube"),
+        Boundary::wall(Vec3::new(0.0, 0.0, EXIT_FLOOR_Z), Vec3::new(0.0, 0.0, 1.0))
+            .expect("exit floor"),
+    ];
+    settle("exit", seeds, boundaries, steps, threads)
 }
