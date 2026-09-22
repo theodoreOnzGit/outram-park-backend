@@ -156,3 +156,33 @@ with statistics rather than moved:
 The cost ratio came in slightly **below** the predicted floor (1.45 against
 1.5), so that part of Addendum 1's prediction was marginally wrong and is
 recorded as such.
+
+---
+
+## Outcome, appended 2026-09-22 after the run — original text above UNEDITED
+
+The `N = 32000`, 48-seed run measured **`survival − analog = +14 ± 22 pcm`
+(0.61 σ)**.
+
+- The `≈ +8 pcm` population-control prediction sits **0.3 σ** from it.
+- The residual did **not** stay near +83 pcm, so the conditional conclusion
+  above — "survival biasing in this port has a defect that must be found" —
+  is **not triggered**.
+
+**One claim made above did not survive, and it is this file's own.** The
+sentence *"the two predictions are ~4 sigma apart and the run can actually
+decide"* **overstated the power of its own test.** It treated `+83` and `+122`
+— themselves measurements carrying `±64` and `±62` — as though they were exact
+values. Tested against those measurements rather than their central values,
+the separation is **1.0 σ and 1.6 σ**, not 4 σ.
+
+The run was still worth making and its result still stands; what it delivers
+is a **bound** — asymptotic bias `|b| ≤ 57 pcm at 2 σ` from the three-row
+`b + c/N` fit — rather than the clean discrimination promised here. The `1/N`
+explanation is favoured over a constant bias at only **1.7 σ**, which is
+consistency, not confirmation.
+
+The full arithmetic is in
+[`ablation_2026_09_22.md`](ablation_2026_09_22.md). This paragraph is appended
+rather than edited in, so the overstatement stays visible: a pre-registration
+that is quietly corrected after the fact is not a pre-registration.
