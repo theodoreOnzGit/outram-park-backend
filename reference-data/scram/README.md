@@ -57,7 +57,7 @@ per benchmark model and every model here has one — `RiskAnalysisTest.TwoTrain`
 probabilities. So these numbers are not merely what this binary printed; they
 are what SCRAM's authors say it should print, checked.
 
-## Eight fixtures, deliberately separate
+## Nine fixtures, deliberately separate
 
 | file | parsed from | trusted for |
 |---|---|---|
@@ -67,6 +67,7 @@ are what SCRAM's authors say it should print, checked.
 | `oracle-mef.txt` | SCRAM's own **XML report** | the answers for `mef_features`, the model covering the MEF constructs upstream's inputs never use |
 | `oracle-deviates.txt` | SCRAM's own **XML report** | the answers for `deviates`, the model covering all seven random deviates |
 | `oracle-ccf.txt` | SCRAM's own **XML report**, under `--ccf` | the answers with common-cause groups **applied**, which is a different question from `oracle.txt`'s |
+| `oracle-substitutions.txt` | SCRAM's own **XML report** | the answers for upstream's two substitution models. The non-declarative one has **no exact total**, because SCRAM refuses to compute one |
 | `oracle-multi-tree.txt` | SCRAM's own **XML report** | the answers for models defining **several** fault trees, one record per tree |
 | `models.txt` | SCRAM's own **input models** | the question — gates, connectives, arguments, the top gate, declared probabilities |
 
@@ -197,10 +198,12 @@ transcription of them. SCRAM is GPL-3.0-or-later and this repository is
 GPL-3.0-only, so the copy is same-licence; the provenance is the table at the
 top of this file.
 
-Fifteen files: the nine models `oracle.txt` covers, `Aralia/das9601`,
+Seventeen files: the nine models `oracle.txt` covers, `Aralia/das9601`,
 `ThreeLevels/top` and the three of `TransTest/` (which `<xi:include>` splices),
-and `TwoTrain/common_cause.xml` — the **one** upstream model with
-common-cause groups, and so the only upstream check on `scram::ccf`.
+`TwoTrain/common_cause.xml` — the **one** upstream model with common-cause
+groups, and so the only upstream check on `scram::ccf` — and
+`TwoTrain/substitutions.xml` and `TwoTrain/nondeclarative_substitutions.xml`,
+which are the only two upstream models with substitutions.
 
 ## Models written for this port
 
@@ -313,6 +316,14 @@ reference-data/scram/extract_oracle.sh ./bin/scram \
     reference-data/scram/models-for-this-port/deviates.xml \
     > reference-data/scram/oracle-deviates.txt
 
+# The substitution fixture. SCRAM refuses an exact analysis of a
+# non-declarative model, so its generator falls back to --rare-event and
+# records only the totals the binary will produce.
+reference-data/scram/extract_substitution_oracle.sh ./bin/scram \
+    reference-data/scram/upstream-input/TwoTrain/substitutions.xml \
+    reference-data/scram/upstream-input/TwoTrain/nondeclarative_substitutions.xml \
+    > reference-data/scram/oracle-substitutions.txt
+
 # The common-cause fixture, which needs `--ccf` and so has its own generator.
 reference-data/scram/extract_ccf_oracle.sh ./bin/scram \
     reference-data/scram/upstream-input/TwoTrain/common_cause.xml \
@@ -343,6 +354,10 @@ reference-data/scram/extract_ccf_oracle.sh ./bin/scram \
   own expressions, and the cut sets, totals and importance factors that
   follow — `ThreeMotor` included, and `<xi:include>`, the private-namespace
   rule and the five MEF constructs upstream never uses with them.
+- `crates/raffles/tests/scram_substitutions.rs` — substitutions: the products
+  after both kinds are applied, the declarative model's totals, upstream's
+  refusal of an exact non-declarative analysis, the inferred-vs-declared type
+  check, and the six-event case that diagnosed upstream's MIF sign defect.
 - `crates/raffles/tests/scram_ccf.rs` — common-cause groups: the generated CCF
   events and their probabilities for all four models, the rewritten tree's
   products and totals, and the default-on / explicitly-ablated pair checked

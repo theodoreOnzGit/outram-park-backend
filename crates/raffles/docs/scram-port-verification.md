@@ -39,6 +39,7 @@ which basic events matter. Three of its four modules are ports of
 | `scram::mef::Index` (name resolution) | `Initializer::GetEntity` / `GetEvent`, `mef::Id::id()`, `mef::Role` | yes |
 | `scram::mef::Lowering` (iff, imply, cardinality) | `Pdag::ConstructComplexGate` | yes |
 | `scram::ccf` | `src/ccf_group.{h,cc}` — all four models, `CalculateProbabilities`, `ApplyModel` | yes |
+| `scram::substitution` | `src/substitution.{h,cc}`, `Pdag::ConstructSubstitution`/`CollectSubstitution`, `Zbdd::ApplySubstitutions` | yes |
 | `scram::mef` schema validation | `xml::Validator` against `share/input.rng` | **no** — no RelaxNG; the structure checks here are narrower, and the module doc says so |
 | `scram::mocus` | `src/mocus.cc` | **no** — see below |
 
@@ -275,6 +276,12 @@ Tolerance throughout is `5e-6` relative — the resolution of upstream's
 | The CCF-rewritten tree | `scram_ccf::the_rewritten_tree_matches_scrams` | **32 products**, 3 totals, importance |
 | CCF applied by default, ablation checked | `scram_ccf::ccf_is_applied_by_default_and_the_ablation_is_the_independent_analysis` | `0.0622587` vs `0.0361`, **+72 %** |
 | CCF factor bookkeeping and its refusals | `scram_ccf::factor_levels_are_upstreams_and_the_malformed_are_refused` | 6 refusals |
+| **Substitutions**: products after substitution | `scram_substitutions::products_after_substitution_match_scrams` | **2 models**, exact set equality |
+| Declarative substitution totals | `scram_substitutions::the_declarative_model_totals_match_scrams` | exact `0.329175` by BDD |
+| **The MIF sign defect, diagnosed** | `scram_substitutions::the_declarative_model_importance_is_upstreams_magnitudes_with_the_signs_flipped` | 6 of 6 inverted, hand-checked |
+| Upstream refuses an exact non-declarative analysis | `scram_substitutions::the_non_declarative_model_has_no_exact_total` | asserted in the fixture |
+| Inferred vs declared substitution type | `scram_substitutions::the_inferred_substitution_type_matches_the_declared_one` | 4 agree, 1 untyped |
+| Substitution validation | `scram_substitutions::the_malformed_are_refused_with_upstreams_reasons` | 6 refusals |
 
 The whole SCRAM suite — all 15 tests across three files plus the module's own
 unit tests — runs in about 1.5 s in release mode.
@@ -703,12 +710,36 @@ a complemented module). A complemented root would flip every factor of that
 model and nothing else — exactly the pattern measured. This port uses explicit
 terminals and has no root complement to forget.
 
-The alternative is that upstream intends a criticality convention rather than
-the signed difference; the `-mif` on complemented modules argues against it,
-but this has **not been established either way**. The test therefore asserts
-the *measurement* — magnitudes equal, signs opposite, exactly 108 of them —
-not the explanation. Not raised upstream: `rakhimov/scram`'s last commit is
-from 2019 and filing against a third-party project was not part of this task.
+~~The alternative is that upstream intends a criticality convention rather
+than the signed difference … this has **not been established either way**.~~
+**UPGRADED 2026-09-22 — a second model and a hand calculation.**
+`TwoTrain/substitutions` shows the same inversion: **six** basic events, every
+one at ratio exactly `-1.000000`, with the top-event probability agreeing to
+the last digit so the diagram is not in question. At six events the Birnbaum
+factor can be computed by hand, and two were, in opposite directions:
+
+```text
+MIF(PumpTwo)  = P(top | P2) - P(top | ~P2) = 0.40050 - 0.16275 = +0.23775
+                                                        SCRAM:   -0.23775
+MIF(ValveOne) = P(top | V1) - P(top | ~V1) = 0.25200 - 0.40635 = -0.15435
+                                                        SCRAM:   +0.15435
+```
+
+Both are the definition `P(top | e) - P(top | not e)`, both land on this
+port's sign, and one is positive while the other is negative — so this is not
+a convention difference, which would move both the same way. **The defect is
+upstream's.** The derivations are in
+`scram_substitutions::the_declarative_model_importance_is_upstreams_magnitudes_with_the_signs_flipped`,
+which asserts the inversion rather than papering over it.
+
+Still **not** established: that upstream's BDD root is in fact complemented on
+these two models. Showing that needs SCRAM instrumented, not read. What is
+established is the pattern a root complement predicts — magnitudes untouched,
+every sign flipped, the total probability unaffected because
+`CalculateTotalProbability` *does* apply the negation — now observed on two
+unrelated models and on no other. Not raised upstream: `rakhimov/scram`'s last
+commit is from 2019 and filing against a third-party project was not part of
+this task.
 
 ### One deliberate divergence: RRW at the singularity
 
@@ -1029,6 +1060,49 @@ constructor. That check was missing from this port's `Expression::validate`
 and is now there — along with the recursion it also lacked, which had meant a
 malformed argument three levels down passed unexamined.
 
+### Substitutions — and the finding that fell out of them
+
+Upstream ships two models for substitutions and both are checked, end to end,
+from their own XML.
+
+| model | kind | products |
+|---|---|---|
+| `TwoTrain/substitutions` | declarative | 3 |
+| `TwoTrain/nondeclarative_substitutions` | non-declarative | 4 |
+
+The two kinds live in different layers upstream and do here too. A
+**declarative** substitution is a logical implication conjoined with the root
+(`Pdag::ConstructSubstitution`), which is a tree rewrite and makes the tree
+non-coherent. A **non-declarative** one is a pass over the generated products
+(`Zbdd::ApplySubstitutions`): for every product containing the whole
+hypothesis, remove the source events, add the target, re-minimise. The second
+model shows what that does — the unsubstituted tree gives
+`{V1,V2} {V1,P2} {P1,V2} {P1,P2}`, the exchange rule turns `{V1,V2}` into
+`{V1,V3}`, and the recovery rule collapses `{P1,P2}` to a single
+**order-1** product `{HotBackupPump}`.
+
+**Upstream refuses an exact analysis of a non-declarative model** — "Non-
+declarative substitutions do not apply to exact analyses" — because the
+rewritten product list is no longer the minimal cut sets of any Boolean
+function. The fixture therefore carries no exact total for that model, and
+that absence is asserted rather than left as a gap in a table.
+
+**The free oracle.** MEF's `type` attribute on a substitution is optional and
+purely descriptive — nothing in the analysis branches on it — while
+`Substitution::type()` *infers* the type from the shape. Where a model
+declares one, the two must agree, and they arrive by completely different
+routes. Four of the five declared types are reproduced; the fifth declares
+none, and the inference returns none for it too.
+
+**And the finding.** Getting importance factors for the declarative model
+meant going through the BDD, since the tree is non-coherent — and every one of
+its six factors came out with SCRAM's magnitude and the opposite sign. That is
+the same pattern `Aralia/das9601` shows on 108 events, which this record had
+recorded as a *measurement with a candidate explanation and no conclusion*.
+Six events can be checked by hand; 108 cannot. See
+[Importance from the BDD](#importance-from-the-bdd--and-a-sign-divergence-in-upstream)
+above, which is upgraded accordingly.
+
 ## What this does NOT establish
 
 - **It is not validation.** Agreement with SCRAM shows this port reproduces
@@ -1116,8 +1190,9 @@ malformed argument three levels down passed unexamined.
   not in prospect; what stands in for it is that every construct the reader
   does not understand is an error rather than a skip.
 - ~~**CCF groups**, substitutions, event trees and alignments are refused, not
-  read.~~ **CORRECTED 2026-09-22** — CCF groups are read and applied; the
-  other three are still refused, each refusal asserted. A model using one
+  read.~~ **CORRECTED 2026-09-22** — CCF groups and substitutions are read and
+  applied; event trees and alignments are still refused, each refusal
+  asserted. A model using one
   cannot be silently mis-read as a smaller model, but it also cannot be
   analysed.
 - **CCF groups are verified on two models and 30 events.** Both are small —
@@ -1129,6 +1204,10 @@ malformed argument three levels down passed unexamined.
   It loads a shared library named by the input file, which the workspace
   `RESPONSIBLE_USE.md` rule on autonomous access to systems forbids. This is a
   decision, not a gap.
+- **Substitutions are verified on upstream's two models and nothing else** —
+  three declarative and two non-declarative rules between them, over four
+  basic events. Nothing here says how the product pass behaves on a model with
+  hundreds of rules, where the order rules fire in could matter.
 - **`imprecise::SystemStructure` is a different thing** and was checked for
   overlap before any of this was written: it does interval-valued reliability
   of series/parallel/k-of-n structures, not cut-set quantification.

@@ -221,8 +221,13 @@ file comes from before writing its attribution header.
        share/input.rng with libxml2 before reading it; src/scram/mef.rs does
        not, and says so. Its structure checks are narrower than the grammar.
 
-   STILL ABSENT: the preprocessor, event trees, alignments, substitutions,
-   sampling and the uncertainty analysis over it, and the reporter.
+   STILL ABSENT: the preprocessor, event trees, alignments, sampling and the
+   uncertainty analysis over it, and the reporter.
+
+   SUBSTITUTIONS ARE present, in src/scram/substitution.rs, porting
+   substitution.{h,cc} together with Pdag::ConstructSubstitution (declarative
+   substitutions, a tree rewrite) and Zbdd::ApplySubstitutions
+   (non-declarative ones, a pass over the generated products).
 
    COMMON-CAUSE FAILURE GROUPS ARE present, in src/scram/ccf.rs, porting
    ccf_group.{h,cc}: all four models (beta-factor, MGL, alpha-factor,

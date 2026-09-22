@@ -31,7 +31,7 @@
 // `Index`. That is the rule `ThreeMotor` needs and the reason it could not
 // be read before.
 //
-// NOT read here: substitutions, event trees, alignments and
+// NOT read here: event trees, alignments and
 // `<define-extern-function>` — each is its own chunk. An unrecognised
 // element is REFUSED rather than skipped, so a model using one cannot be
 // silently mis-read as a smaller model. CCF groups ARE read, into
@@ -55,8 +55,8 @@
 //!
 //! `<define-fault-tree>` and `<define-component>`, `<define-gate>`,
 //! `<define-basic-event>`, `<define-house-event>`, `<define-parameter>`,
-//! `<define-CCF-group>`, `<model-data>`, all eleven MEF connectives, event
-//! references (`<event>`,
+//! `<define-CCF-group>`, `<define-substitution>`, `<model-data>`, all eleven
+//! MEF connectives, event references (`<event>`,
 //! `<gate>`, `<basic-event>`, `<house-event>`, and `<event type="…">`),
 //! `<not>` and `<constant>` arguments, and the expression elements
 //! [`super::expression`] evaluates.
@@ -68,7 +68,7 @@
 //!
 //! # What it does not
 //!
-//! Substitutions, event trees, alignments and extern functions.
+//! Event trees, alignments and extern functions.
 //! **An element it does not recognise is an error**, never a skip — a model
 //! using one would otherwise be read as a smaller, different model that
 //! happens to parse, which is the failure this whole port exists to avoid.
@@ -88,6 +88,7 @@ use std::sync::Arc;
 
 use super::ccf::{proxy_arguments, CcfGroup, CcfModel};
 use super::expression::{Expression, Parameters, DEFAULT_MISSION_TIME};
+use super::substitution::{ProductSubstitution, Substitution, SubstitutionTarget, SubstitutionType};
 use super::fault_tree::{Connective, FaultTreeBuilder, FaultTreeModel};
 use crate::{RafflesError, Result};
 
@@ -290,6 +291,14 @@ pub struct MefModel {
     /// [`MefModel::fault_tree`] applies them; [`MefModel::without_ccf`] is
     /// the explicit ablation.
     pub ccf_groups: Vec<CcfGroup>,
+    /// Substitutions, in declaration order.
+    ///
+    /// The **declarative** ones are applied by [`MefModel::fault_tree`], as a
+    /// tree rewrite. The **non-declarative** ones are a pass over the
+    /// generated products, which the caller runs with
+    /// [`MefModel::product_substitutions`] and
+    /// [`super::substitution::apply_to_products`].
+    pub substitutions: Vec<Substitution>,
 }
 
 /// One naming scope: the container a declaration sits in.
@@ -649,12 +658,10 @@ impl MefModel {
                         index.basic_events.ids.insert(id);
                     }
                 }
+                // Registered as a name only; its hypothesis, target and
+                // source are read in the second pass.
                 "define-substitution" => {
-                    return Err(invalid(
-                        "substitutions are not read yet (their own chunk of the port); \
-                         refusing rather than reading a model without them"
-                            .into(),
-                    ))
+                    child.need_attr("name")?;
                 }
                 "define-event-tree"
                 | "define-initiating-event"
@@ -742,6 +749,11 @@ impl MefModel {
                     })?;
                     self.parameters
                         .insert(id, read_expression(e, scope, index)?);
+                }
+                "define-substitution" => {
+                    let substitution = read_substitution(child, scope, index)?;
+                    substitution.validate()?;
+                    self.substitutions.push(substitution);
                 }
                 "define-CCF-group" => {
                     let group = read_ccf_group(child, scope, index)?;
@@ -892,6 +904,191 @@ impl MefModel {
         Ok(out)
     }
 
+    /// This model with its **declarative** substitutions applied to the tree
+    /// rooted at `top` — upstream's `Pdag::ConstructSubstitution`.
+    ///
+    /// Each declarative substitution becomes a logical implication,
+    /// `hypothesis -> target`, written as `or(not hypothesis, target)`; a
+    /// `false` target — a delete term — has no target to imply, so the
+    /// conjunct is `not hypothesis` alone. The analysed root becomes the `and`
+    /// of the original root with all of them, which is what makes the tree
+    /// **non-coherent**: the implications carry complements.
+    ///
+    /// The original root keeps its formula under the name
+    /// `<top>.unsubstituted`, and `top` becomes the conjunction, so the tree
+    /// still answers to the name the caller asked for.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if `top` is not a declared gate or a
+    /// substitution fails upstream's validation.
+    pub fn apply_declarative_substitutions(&self, top: &str) -> Result<MefModel> {
+        let declarative: Vec<&Substitution> = self
+            .substitutions
+            .iter()
+            .filter(|s| s.declarative())
+            .collect();
+        let mut out = self.clone();
+        // The non-declarative ones stay: they are a pass over the products,
+        // which `product_substitutions` hands the caller.
+        out.substitutions.retain(|s| !s.declarative());
+        if declarative.is_empty() {
+            return Ok(out);
+        }
+        let original = self
+            .gates
+            .get(top)
+            .ok_or_else(|| invalid(format!("`{top}` is not a declared gate")))?
+            .clone();
+
+        let unsubstituted = format!("{top}.unsubstituted");
+        out.gates.insert(unsubstituted.clone(), original);
+        out.gate_order.push(unsubstituted.clone());
+
+        let mut conjuncts = vec![FormulaArg::Event {
+            name: unsubstituted,
+            complement: false,
+        }];
+        for substitution in declarative {
+            substitution.validate()?;
+            let hypothesis_gate = format!("{}.hypothesis", substitution.name);
+            out.gates
+                .insert(hypothesis_gate.clone(), substitution.hypothesis.clone());
+            out.gate_order.push(hypothesis_gate.clone());
+
+            let implication = format!("{}.implication", substitution.name);
+            let formula = match &substitution.target {
+                // `or(not hypothesis, target)`.
+                SubstitutionTarget::Event(event) => Formula {
+                    connective: MefConnective::Or,
+                    args: vec![
+                        FormulaArg::Event {
+                            name: hypothesis_gate,
+                            complement: true,
+                        },
+                        FormulaArg::Event {
+                            name: event.clone(),
+                            complement: false,
+                        },
+                    ],
+                },
+                // A delete term: upstream sets the same gate to `kNull` with
+                // the complemented hypothesis as its only argument, which is
+                // `not hypothesis`.
+                SubstitutionTarget::Constant(false) => Formula {
+                    connective: MefConnective::Null,
+                    args: vec![FormulaArg::Event {
+                        name: hypothesis_gate,
+                        complement: true,
+                    }],
+                },
+                // Refused by `Substitution::validate` as having no effect.
+                SubstitutionTarget::Constant(true) => {
+                    return Err(invalid(format!(
+                        "`{}`: substitution has no effect",
+                        substitution.name
+                    )))
+                }
+            };
+            out.gates.insert(implication.clone(), formula);
+            out.gate_order.push(implication.clone());
+            conjuncts.push(FormulaArg::Event {
+                name: implication,
+                complement: false,
+            });
+        }
+        out.gates.insert(
+            top.to_string(),
+            Formula {
+                connective: MefConnective::And,
+                args: conjuncts,
+            },
+        );
+        Ok(out)
+    }
+
+    /// The **non-declarative** substitutions, in the basic-event indices of
+    /// `tree` — upstream's `Pdag::CollectSubstitution`.
+    ///
+    /// Hand the result to
+    /// [`super::substitution::apply_to_products`] together with the generated
+    /// cut sets. An `or` hypothesis becomes one rule per argument, which is
+    /// upstream's own split and is what keeps every rule a plain conjunction
+    /// to test against a product.
+    ///
+    /// **Only the rare-event and MCUB totals mean anything afterwards.**
+    /// Upstream refuses an exact analysis outright — "Non-declarative
+    /// substitutions do not apply to exact analyses" — because the rewritten
+    /// product list is no longer the minimal cut sets of any Boolean function.
+    ///
+    /// # Errors
+    ///
+    /// [`RafflesError::InvalidParameter`] if a hypothesis, source or target
+    /// names an event the tree does not contain, or the hypothesis uses a
+    /// connective other than `and`, `or` or `null`.
+    pub fn product_substitutions(&self, tree: &FaultTreeModel) -> Result<Vec<ProductSubstitution>> {
+        let index = |name: &str| -> Result<usize> {
+            tree.basic_event_index(name).ok_or_else(|| {
+                invalid(format!(
+                    "substitution names `{name}`, which is not a basic event of this tree"
+                ))
+            })
+        };
+        let mut out = Vec::new();
+        for substitution in self.substitutions.iter().filter(|s| !s.declarative()) {
+            substitution.validate()?;
+            let target = match &substitution.target {
+                SubstitutionTarget::Event(e) => Some(index(e)?),
+                // Upstream's index 0, which its product pass treats as "add
+                // nothing".
+                SubstitutionTarget::Constant(_) => None,
+            };
+            let source: Vec<usize> = substitution
+                .source
+                .iter()
+                .map(|s| index(s))
+                .collect::<Result<_>>()?;
+            let names: Vec<&str> = substitution
+                .hypothesis
+                .args
+                .iter()
+                .map(|a| match a {
+                    FormulaArg::Event { name, .. } => Ok(name.as_str()),
+                    FormulaArg::Constant(_) => Err(invalid(format!(
+                        "`{}`: a non-declarative hypothesis is over basic events only",
+                        substitution.name
+                    ))),
+                })
+                .collect::<Result<_>>()?;
+            match substitution.hypothesis.connective {
+                MefConnective::Null | MefConnective::And => {
+                    out.push(ProductSubstitution {
+                        hypothesis: names.iter().map(|n| index(n)).collect::<Result<_>>()?,
+                        source,
+                        target,
+                    });
+                }
+                MefConnective::Or => {
+                    for name in names {
+                        out.push(ProductSubstitution {
+                            hypothesis: vec![index(name)?],
+                            source: source.clone(),
+                            target,
+                        });
+                    }
+                }
+                other => {
+                    return Err(invalid(format!(
+                        "`{}`: non-declarative substitution hypotheses only allow AND/OR/\\
+                         NULL connectives, not <{other:?}>",
+                        substitution.name
+                    )))
+                }
+            }
+        }
+        Ok(out)
+    }
+
     /// Flattens the model into a [`FaultTreeModel`] rooted at `top`.
     ///
     /// Only gates reachable from `top` are included, so a document declaring
@@ -924,6 +1121,12 @@ impl MefModel {
         if !self.ccf_groups.is_empty() {
             return self.apply_ccf()?.fault_tree(top);
         }
+        // A declarative substitution is a statement about the world, so it
+        // is applied like the CCF groups are. The non-declarative ones are a
+        // pass over the products and are left to the caller.
+        if self.substitutions.iter().any(|s| s.declarative()) {
+            return self.apply_declarative_substitutions(top)?.fault_tree(top);
+        }
         if !self.gates.contains_key(top) {
             return Err(invalid(format!("`{top}` is not a declared gate")));
         }
@@ -932,6 +1135,29 @@ impl MefModel {
         // Walk from the top, collecting the gates and events actually used.
         let mut lowering = Lowering::new(self);
         lowering.gate(top)?;
+
+        // Upstream's `Pdag::GatherVariables(substitution, ...)`: a
+        // non-declarative substitution's own events join the graph before it
+        // is built, even when no gate reaches them. `ValveThree` in
+        // `TwoTrain/nondeclarative_substitutions.xml` is exactly that -- it
+        // exists only as an exchange target, and without this it has no index
+        // for the product pass to name.
+        for substitution in &self.substitutions {
+            let mut named: Vec<&String> = substitution.source.iter().collect();
+            if let SubstitutionTarget::Event(target) = &substitution.target {
+                named.push(target);
+            }
+            for arg in &substitution.hypothesis.args {
+                if let FormulaArg::Event { name, .. } = arg {
+                    named.push(name);
+                }
+            }
+            for name in named {
+                if self.basic_events.contains_key(name) {
+                    lowering.events.push(name.clone());
+                }
+            }
+        }
 
         let mut builder = FaultTreeBuilder::new();
         lowering.events.sort_unstable();
@@ -1322,6 +1548,71 @@ fn resolve_reference(element: &Element, scope: &Scope, index: &Index) -> Result<
     } else {
         index.resolve_typed(kind, name, scope)
     }
+}
+
+/// Reads a `<define-substitution>` — upstream's
+/// `Initializer::DefineSubstitution`.
+///
+/// The `type` attribute is optional and purely descriptive: upstream infers
+/// the "traditional" type from the shape
+/// ([`Substitution::inferred_type`]) and nothing in the analysis branches on
+/// the attribute.
+fn read_substitution(element: &Element, scope: &Scope, index: &Index) -> Result<Substitution> {
+    let name = element.need_attr("name")?;
+    let declared_type = match element.attr("type") {
+        Some(t) => Some(SubstitutionType::parse(t)?),
+        None => None,
+    };
+    let mut hypothesis: Option<Formula> = None;
+    let mut target: Option<SubstitutionTarget> = None;
+    let mut source: Vec<String> = Vec::new();
+
+    for child in element.structural() {
+        match child.name.as_str() {
+            "hypothesis" => {
+                let f = child.structural().next().ok_or_else(|| {
+                    invalid(format!("substitution `{name}` has an empty <hypothesis>"))
+                })?;
+                hypothesis = Some(read_formula(f, scope, index)?);
+            }
+            "target" => {
+                let t = child.structural().next().ok_or_else(|| {
+                    invalid(format!("substitution `{name}` has an empty <target>"))
+                })?;
+                target = Some(if t.name == "constant" {
+                    SubstitutionTarget::Constant(t.need_attr("value")? == "true")
+                } else {
+                    SubstitutionTarget::Event(resolve_reference(t, scope, index)?)
+                });
+            }
+            "source" => {
+                for e in child.structural() {
+                    let id = resolve_reference(e, scope, index)?;
+                    if source.contains(&id) {
+                        return Err(invalid(format!(
+                            "substitution `{name}` names `{id}` twice as a source"
+                        )));
+                    }
+                    source.push(id);
+                }
+            }
+            other => {
+                return Err(invalid(format!(
+                    "substitution `{name}` holds <{other}>, which is not part of it"
+                )))
+            }
+        }
+    }
+
+    Ok(Substitution {
+        name: scope.id(name),
+        declared_type,
+        hypothesis: hypothesis
+            .ok_or_else(|| invalid(format!("substitution `{name}` declares no <hypothesis>")))?,
+        target: target
+            .ok_or_else(|| invalid(format!("substitution `{name}` declares no <target>")))?,
+        source,
+    })
 }
 
 /// Reads a `<define-CCF-group>` — upstream's `Initializer::DefineCcfGroup`

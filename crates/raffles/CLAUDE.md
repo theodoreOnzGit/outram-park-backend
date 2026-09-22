@@ -105,6 +105,7 @@ difference is load-bearing.** Ported, with attribution headers:
 | `expression.rs` | `src/expression/*.cc` — `p_exp`, GLM, Weibull, periodic test, the numeric and Boolean operators, and the seven random deviates' `value`/`Validate`/`interval` |
 | `mef.rs` | `initializer`, `xml`, `element`, `model`, `fault_tree`, `event` — the MEF reader, including `Initializer::GetEntity`'s name resolution and `Pdag::ConstructComplexGate`'s rewrites |
 | `ccf.rs` | `ccf_group.{h,cc}` — all four common-cause models, `CalculateProbabilities`, the combination reciprocal and `ApplyModel`'s proxy-gate rewrite |
+| `substitution.rs` | `substitution.{h,cc}`, plus `Pdag::ConstructSubstitution` (declarative, a tree rewrite) and `Zbdd::ApplySubstitutions` (non-declarative, a pass over products) |
 
 **Not** ports, each saying so in its own doc instead:
 
@@ -141,7 +142,7 @@ non-BDD ZBDD constructor was named explicitly.
 ~~Still to do under that direction: XML input (`initializer`, `xml`), the
 `expression` library, …~~ **CORRECTED 2026-09-22** — the first two landed:
 `src/scram/expression.rs` and `src/scram/mef.rs`. Still to do:
-substitutions, event trees and sequences, alignments, `Expression::Sample` and
+event trees and sequences, alignments, `Expression::Sample` and
 the uncertainty analysis that consumes it, the preprocessor, `pdag`, and the
 reporter. Progress is tracked in `docs/scram-port-verification.md`.
 
@@ -191,9 +192,18 @@ run. The default is asserted by
 — do not turn it off. Only upstream's `beta-factor` appears in any upstream
 input model, so `models-for-this-port/ccf_models.xml` carries all four.
 
+~~substitutions~~ **CORRECTED 2026-09-22** — `src/scram/substitution.rs`
+landed. Both upstream models are checked end to end, and the work turned up a
+**defect in upstream**: `ImportanceAnalyzer<Bdd>::CalculateMif` omits the
+root-complement negation that `CalculateTotalProbability` applies, so every
+Birnbaum factor of an affected model comes out with the wrong sign. This had
+been recorded as an unexplained 108-event divergence on `Aralia/das9601`;
+`TwoTrain/substitutions` reproduces it on six events, small enough to check by
+hand, and two hand calculations in opposite directions land on this port's
+sign. **Do not "fix" the sign to match SCRAM.**
+
 Still absent, and refused rather than skipped when a model uses them:
-substitutions, event trees, alignments, the trigonometric operators
-and `<switch>`.
+event trees, alignments, the trigonometric operators and `<switch>`.
 `<define-extern-function>` is refused **deliberately and permanently** — it
 loads a shared library named by the input file, which the workspace
 `RESPONSIBLE_USE.md` rule on autonomous access forbids.

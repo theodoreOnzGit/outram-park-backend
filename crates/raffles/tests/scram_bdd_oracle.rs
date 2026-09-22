@@ -760,11 +760,21 @@ fn zbdd_cut_sets_match_scram_and_mocus() {
 /// pattern measured. This port uses explicit terminals and has no root
 /// complement to forget.
 ///
-/// The alternative is that upstream intends a criticality convention rather
-/// than the signed difference; the `-mif` on complemented modules argues
-/// against it, but this has not been established either way, and the test
-/// asserts the *measurement* — magnitudes equal, signs opposite, exactly 108
-/// of them — rather than the explanation.
+/// ~~The alternative is that upstream intends a criticality convention rather
+/// than the signed difference … this has not been established either way.~~
+/// **UPGRADED 2026-09-22** — `TwoTrain/substitutions` shows the same
+/// inversion on **six** basic events, small enough for the Birnbaum factor to
+/// be computed by hand. Two were, in opposite directions:
+/// `MIF(PumpTwo) = +0.23775` where SCRAM says `-0.23775`, and
+/// `MIF(ValveOne) = -0.15435` where SCRAM says `+0.15435`. A convention
+/// difference would move both the same way; these move oppositely, and both
+/// land on this port's sign. **The defect is upstream's.** The derivations are
+/// in
+/// `scram_substitutions::the_declarative_model_importance_is_upstreams_magnitudes_with_the_signs_flipped`.
+///
+/// This test still asserts the *measurement* — magnitudes equal, signs
+/// opposite, exactly 108 of them — because that is what it can check at this
+/// model's scale; the diagnosis lives where it was made.
 #[test]
 fn bdd_importance_factors_match_scram_including_the_non_coherent_models() {
     use raffles::scram::importance::importance_factors_from_bdd;

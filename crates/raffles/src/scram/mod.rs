@@ -100,9 +100,9 @@
 //! ~~**What is still absent:** everything SCRAM does around this core — XML
 //! input models, … and the expression library~~ **CORRECTED 2026-09-22** —
 //! both landed, and on 2026-09-22 so did the seven random deviates and the
-//! four common-cause-failure models ([`ccf`]). What is
-//! still absent: event trees, alignments,
-//! substitutions, **sampling** and the uncertainty analysis over it, the
+//! four common-cause-failure models ([`ccf`]) and the substitutions
+//! ([`substitution`]). What is still absent: event trees, alignments,
+//! **sampling** and the uncertainty analysis over it, the
 //! reporter, and — in the analysis itself — the preprocessor, whose absence is
 //! a cost in diagram size rather than in answers. A deviate evaluates to its
 //! mean, which is what an ordinary SCRAM run computes; nothing here draws
@@ -138,6 +138,7 @@ pub mod importance;
 pub mod mef;
 pub mod mocus;
 pub mod probability;
+pub mod substitution;
 pub mod zbdd;
 
 pub use bdd::Bdd;
