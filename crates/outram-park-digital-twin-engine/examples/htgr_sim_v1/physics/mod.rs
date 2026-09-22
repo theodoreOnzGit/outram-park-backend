@@ -265,7 +265,7 @@ use turbine_generator::TurbineGeneratorShaft;
 ///
 /// author change, i want 0.55 so there is some ability to demonstrate 
 /// shutdown on ATWS after DLOFC or LOFC
-pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.55;
+pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.50;
 
 /// Fraction of rated helium flow the simulator opens at: **0.30**.
 ///
