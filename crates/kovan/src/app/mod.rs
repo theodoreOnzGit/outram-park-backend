@@ -2502,6 +2502,7 @@ impl eframe::App for DigitiseApp {
                 let mut opened_paper = None;
                 let mut sort_paper = None;
                 let mut open_setup = false;
+                let mut knowledge_changed = false;
                 let (index, graph) = match self.workspace.as_ref() {
                     Some(w) if root.is_some() => (Some(&w.index), Some(&w.graph)),
                     _ => (None, None),
@@ -2514,9 +2515,15 @@ impl eframe::App for DigitiseApp {
                         // something that needs one: open setup rather than
                         // leaving the request nowhere.
                         Some(MindmapAction::OpenSetup) => open_setup = true,
+                        Some(MindmapAction::KnowledgeChanged) => knowledge_changed = true,
                         None => {}
                     }
                 });
+                if knowledge_changed {
+                    if let Some(root) = root.clone() {
+                        self.refresh_knowledge(&root);
+                    }
+                }
                 if open_setup {
                     let root = self.home.root().cloned();
                     self.setup.show_for(root.as_ref());

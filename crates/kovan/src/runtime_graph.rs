@@ -147,6 +147,13 @@ pub fn top_level(index: Option<&KnowledgeIndex>) -> Vec<RuntimeConcept> {
             index
                 .children_of("")
                 .into_iter()
+                // A library collection whose path *is* a corpus topic path is
+                // overlay scaffolding, not a concept of its own: it exists
+                // only so a user subtopic can be nested under that corpus
+                // branch on disk. The corpus node already represents it, and
+                // listing it here would show the same branch twice — once
+                // dark green, once light.
+                .filter(|c| corpus::topic_at(&c.path).is_none())
                 .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
         );
         if needs_unsorted(index) {
@@ -165,9 +172,29 @@ pub fn children(index: Option<&KnowledgeIndex>, parent: Option<&NodeId>) -> Vec<
         return Vec::new();
     }
     match parent.namespace {
-        Namespace::Corpus => corpus::children_of(&parent.path)
-            .map(corpus_concept)
-            .collect(),
+        Namespace::Corpus => {
+            // Corpus children first (dark green, immutable), then the user's
+            // own subtopics written under the same path (light green,
+            // editable) — the overlay #247 describes and #274 asked for.
+            //
+            // Without this second half, adding a subtopic under a corpus
+            // topic wrote the entity to disk and drew nothing: the corpus
+            // arm returned only `corpus::children_of`, so the new node had
+            // nowhere to appear (maintainer, 2026-09-22: "i should see a
+            // light green node popping out and linked. I don't see
+            // anything").
+            let mut out: Vec<RuntimeConcept> =
+                corpus::children_of(&parent.path).map(corpus_concept).collect();
+            if let Some(index) = index {
+                out.extend(
+                    index
+                        .children_of(&parent.path)
+                        .into_iter()
+                        .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
+                );
+            }
+            out
+        }
         Namespace::Library => match index {
             Some(index) => index
                 .children_of(&parent.path)

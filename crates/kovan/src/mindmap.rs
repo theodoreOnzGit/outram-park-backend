@@ -114,6 +114,10 @@ pub enum MindmapAction {
     /// does not own that dialog: the Wiki, the Mindmap and the PDF reader
     /// all reach the same one, so it lives with the app.
     SortPaper(String),
+    /// A subtopic was created — the caller should rebuild the shared
+    /// `KnowledgeIndex` before the next frame, or the new node is on disk
+    /// and absent from every view until the folder is reopened.
+    KnowledgeChanged,
     /// Something needing a Kovan folder was asked for while none is open —
     /// the caller should open the setup dialog (maintainer, 2026-09-22).
     ///
@@ -371,9 +375,10 @@ fn extract_summary(markdown: &str) -> String {
 )]
 fn create_subtopic(
     root: &KovanRoot,
-    index: &KnowledgeIndex,
+    _index: &KnowledgeIndex,
     parent_path: &str,
     name: &str,
+    kind: EntityKind,
 ) -> Result<(), String> {
     if name.trim().is_empty() {
         return Err("name must not be empty".to_string());
@@ -382,16 +387,7 @@ fn create_subtopic(
     if slug.is_empty() {
         return Err("name has no usable characters for an id".to_string());
     }
-    let parent_kind = if parent_path.is_empty() {
-        EntityKind::Topic
-    } else {
-        index
-            .collections
-            .iter()
-            .find(|c| c.path == parent_path)
-            .map(|c| c.kind)
-            .unwrap_or(EntityKind::Topic)
-    };
+    let parent_kind = kind;
     let tree_root = match parent_kind {
         EntityKind::Project => root.projects_dir(),
         _ => root.topics_dir(),
@@ -401,6 +397,22 @@ fn create_subtopic(
     } else {
         tree_root.join(parent_path).join(&slug)
     };
+    // Every ancestor segment must exist as an entity or the new subtopic is
+    // invisible: `index::scan_collections` skips a directory without a
+    // `kovan.toml` and does **not** recurse into it, so a subtopic under a
+    // **corpus** parent — whose path has no user directories behind it —
+    // would be written to disk and then never indexed, never drawn
+    // (maintainer, 2026-09-22). `ensure_classification_paths` is the same
+    // routine ingestion and the sort dialog already use for exactly this.
+    if !parent_path.is_empty() {
+        let ancestors = vec![parent_path.to_string()];
+        let (topics, projects) = match kind {
+            EntityKind::Project => (Vec::new(), ancestors),
+            _ => (ancestors, Vec::new()),
+        };
+        crate::entity::ensure_classification_paths(root, &topics, &projects)
+            .map_err(|e| e.to_string())?;
+    }
     let config = match parent_kind {
         EntityKind::Project => EntityConfig::project(slug, name),
         _ => EntityConfig::topic(slug, name),
@@ -452,17 +464,22 @@ fn subtopic_menu_item(
     ui: &mut egui::Ui,
     parent: &str,
     parent_label: &str,
-    draft: &mut Option<(String, String)>,
+    draft: &mut Option<(String, String, EntityKind)>,
 ) {
-    if ui
-        .button("Add subtopic here\u{2026}")
-        .on_hover_text(format!("a new subtopic under {parent_label}"))
-        .clicked()
-    {
-        *draft = Some((parent.to_string(), String::new()));
-        // Close the menu: the name is typed in the dialog
-        // ([`MindmapState::subtopic_dialog_ui`]), not here.
-        ui.close();
+    for (label, kind, what) in [
+        ("Add subtopic here\u{2026}", EntityKind::Topic, "subtopic"),
+        ("Add project here\u{2026}", EntityKind::Project, "project"),
+    ] {
+        if ui
+            .button(label)
+            .on_hover_text(format!("a new {what} under {parent_label}"))
+            .clicked()
+        {
+            *draft = Some((parent.to_string(), String::new(), kind));
+            // Close the menu: the name is typed in the dialog
+            // ([`MindmapState::subtopic_dialog_ui`]), not here.
+            ui.close();
+        }
     }
 }
 
@@ -669,7 +686,7 @@ pub struct MindmapState {
     pinned: std::collections::HashMap<(String, String), crate::mindmap_layout::Point>,
     /// The subtopic name being typed in a right-click menu, and the library
     /// concept path it will go under.
-    subtopic_draft: Option<(String, String)>,
+    subtopic_draft: Option<(String, String, EntityKind)>,
     bib: BibCache,
 }
 
@@ -763,14 +780,16 @@ impl MindmapState {
     /// the greens. Both are mid-luminance so they read against the light and
     /// the dark theme alike.
     ///
-    /// Projects stay orange and Unsorted stays grey — neither is on the
-    /// corpus/user axis the greens encode.
+    /// **Projects are light lilac** (maintainer, 2026-09-22) — off the
+    /// green axis entirely, because a project is a different *kind* of thing
+    /// from a topic rather than a different owner of one. Unsorted stays
+    /// grey: it is an inbox, not a concept.
     fn color_for(kind: crate::runtime_graph::ConceptKind) -> egui::Color32 {
         use crate::runtime_graph::ConceptKind;
         match kind {
             ConceptKind::CorpusTopic => egui::Color32::from_rgb(56, 124, 68),
             ConceptKind::Topic => egui::Color32::from_rgb(150, 210, 140),
-            ConceptKind::Project => egui::Color32::from_rgb(220, 150, 60),
+            ConceptKind::Project => egui::Color32::from_rgb(198, 176, 232),
             ConceptKind::Unsorted => egui::Color32::from_gray(150),
         }
     }
@@ -1255,10 +1274,17 @@ impl MindmapState {
         // The dialog is the only source of a create request now: the menu
         // entry only arms the draft (see `subtopic_menu_item`).
         let create_subtopic_req = self.subtopic_dialog_ui(ui);
-        if let (Some((parent, name)), Some(root), Some(index)) = (create_subtopic_req, root, index)
+        if let (Some((parent, name, kind)), Some(root), Some(index)) =
+            (create_subtopic_req, root, index)
         {
-            match create_subtopic(root, index, &parent, &name) {
-                Ok(()) => self.message = format!("added {name:?}"),
+            match create_subtopic(root, index, &parent, &name, kind) {
+                Ok(()) => {
+                    self.message = format!("added {name:?}");
+                    // Without this the entity is written and nothing draws
+                    // it: every view reads the shared index, which still
+                    // predates the new node.
+                    action = Some(MindmapAction::KnowledgeChanged);
+                }
                 Err(e) => self.message = format!("could not add subtopic: {e}"),
             }
         }
@@ -1295,11 +1321,15 @@ impl MindmapState {
     /// A real window rather than an entry inside the right-click menu, for
     /// the focus reason recorded on [`subtopic_menu_item`]. Returns
     /// `Some((parent_path, name))` on the frame Create is pressed.
-    fn subtopic_dialog_ui(&mut self, ui: &mut egui::Ui) -> Option<(String, String)> {
-        let Some((parent, text)) = &mut self.subtopic_draft else {
+    fn subtopic_dialog_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+    ) -> Option<(String, String, EntityKind)> {
+        let Some((parent, text, kind)) = &mut self.subtopic_draft else {
             return None;
         };
         let parent = parent.clone();
+        let kind = *kind;
         let mut request = None;
         let mut cancel = false;
         let under = if parent.is_empty() {
@@ -1307,7 +1337,11 @@ impl MindmapState {
         } else {
             parent.clone()
         };
-        egui::Window::new("New subtopic")
+        let what = match kind {
+            EntityKind::Project => "project",
+            _ => "subtopic",
+        };
+        egui::Window::new(format!("New {what}"))
             .collapsible(false)
             .resizable(false)
             .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
@@ -1333,7 +1367,7 @@ impl MindmapState {
                         || (submitted && named))
                         && named
                     {
-                        request = Some((parent.clone(), text.clone()));
+                        request = Some((parent.clone(), text.clone(), kind));
                     }
                     if ui.button("Cancel").clicked() {
                         cancel = true;
@@ -1536,6 +1570,57 @@ mod tests {
         );
     }
 
+    /// A subtopic added under a **corpus** topic appears as a light-green
+    /// user concept under it, and does not also appear as a second top-level
+    /// branch (#274; maintainer 2026-09-22: "i should see a light green node
+    /// popping out and linked").
+    ///
+    /// Three things have to hold together for that, and each failed on its
+    /// own at some point: the ancestor path must be materialised as entities
+    /// or `scan_collections` never reaches the new node; `children` must ask
+    /// the index as well as the corpus; and `top_level` must not list the
+    /// mirrored ancestors as concepts of their own.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn a_subtopic_under_a_corpus_topic_shows_beneath_it() {
+        use crate::node_id::{Namespace, NodeId};
+        use crate::runtime_graph::{children, top_level, ConceptKind};
+
+        let (_dir, root) = make_root();
+        let parent = "nuclear-engineering/fuel-and-materials/triso";
+        assert!(
+            crate::corpus::topic_at(parent).is_some(),
+            "fixture assumes this corpus topic exists"
+        );
+
+        let index = KnowledgeIndex::rebuild(&root);
+        create_subtopic(&root, &index, parent, "My TRISO Notes", EntityKind::Topic).unwrap();
+        let index = KnowledgeIndex::rebuild(&root);
+
+        let under = children(Some(&index), Some(&NodeId::concept(Namespace::Corpus, parent)));
+        let mine = under
+            .iter()
+            .find(|c| c.title == "My TRISO Notes")
+            .expect("the new subtopic is drawn under its corpus parent");
+        assert_eq!(
+            mine.kind,
+            ConceptKind::Topic,
+            "a user topic (light green), not a corpus one"
+        );
+        assert_eq!(mine.id.namespace, Namespace::Library);
+
+        // The mirrored ancestors exist on disk so the tree is walkable, but
+        // they are scaffolding — the corpus node already represents them.
+        let tops: Vec<String> = top_level(Some(&index))
+            .into_iter()
+            .map(|c| c.title)
+            .collect();
+        assert!(
+            !tops.iter().any(|t| t == "nuclear-engineering"),
+            "the mirrored corpus path must not become its own branch: {tops:?}"
+        );
+    }
+
     /// Papers not yet classified are never lost: at the top they are the
     /// citations of a synthetic "Unsorted" card.
     #[test]
@@ -1688,22 +1773,39 @@ mod tests {
         );
     }
 
+    /// The **caller** chooses what is created, and it lands in that kind's
+    /// own tree.
+    ///
+    /// ~~`create_subtopic_matches_the_parents_kind`~~ **CHANGED 2026-09-22**:
+    /// the kind used to be inferred from the parent, so a project could only
+    /// ever be born under another project. The menu now offers "Add project
+    /// here…" beside "Add subtopic here…" (maintainer), which means a project
+    /// can be started under a topic — including under a **corpus** topic,
+    /// whose kind is not a user kind at all and which the old inference
+    /// silently read as `Topic`.
     #[test]
-    fn create_subtopic_matches_the_parents_kind() {
+    fn create_subtopic_puts_each_kind_in_its_own_tree() {
         let (_dir, root) = make_root();
         EntityConfig::project("outram-park", "Outram Park")
             .save(&root.projects_dir().join("outram-park"))
             .unwrap();
         let index = KnowledgeIndex::rebuild(&root);
 
-        create_subtopic(&root, &index, "outram-park", "Sub Effort").unwrap();
+        create_subtopic(&root, &index, "outram-park", "Sub Effort", EntityKind::Project).unwrap();
         assert!(EntityConfig::is_entity(
             &root.projects_dir().join("outram-park").join("sub-effort")
         ));
 
-        create_subtopic(&root, &index, "", "New Topic").unwrap();
+        create_subtopic(&root, &index, "", "New Topic", EntityKind::Topic).unwrap();
         assert!(EntityConfig::is_entity(
             &root.topics_dir().join("new-topic")
+        ));
+
+        // A project started under a topic: the new entity goes in the
+        // projects tree at the mirrored path, not beside the topic.
+        create_subtopic(&root, &index, "new-topic", "Side Quest", EntityKind::Project).unwrap();
+        assert!(EntityConfig::is_entity(
+            &root.projects_dir().join("new-topic").join("side-quest")
         ));
     }
 
@@ -1711,6 +1813,6 @@ mod tests {
     fn create_subtopic_rejects_an_empty_name() {
         let (_dir, root) = make_root();
         let index = KnowledgeIndex::rebuild(&root);
-        assert!(create_subtopic(&root, &index, "", "   ").is_err());
+        assert!(create_subtopic(&root, &index, "", "   ", EntityKind::Topic).is_err());
     }
 }
