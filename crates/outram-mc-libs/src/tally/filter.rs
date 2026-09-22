@@ -1054,6 +1054,9 @@ pub enum FilterKind {
     /// [`super::filter_extra::MeshSurfaceFilter`] — mesh-face currents; also
     /// matches one event in several bins.
     MeshSurface(super::filter_extra::MeshSurfaceFilter),
+    /// [`super::filter_extra::DistribcellFilter`] — one bin per instance of a
+    /// repeated cell. The sixteenth and last of #261's list.
+    Distribcell(super::filter_extra::DistribcellFilter),
 }
 
 impl FilterKind {
@@ -1137,6 +1140,7 @@ impl FilterKind {
             FilterKind::MeshMaterial(_) => "meshmaterial",
             FilterKind::ParticleProduction(_) => "particleproduction",
             FilterKind::MeshSurface(_) => "meshsurface",
+            FilterKind::Distribcell(_) => "distribcell",
         }
     }
 
@@ -1178,6 +1182,7 @@ impl FilterKind {
             FilterKind::MeshMaterial(f) => f,
             FilterKind::ParticleProduction(f) => f,
             FilterKind::MeshSurface(f) => f,
+            FilterKind::Distribcell(f) => f,
         }
     }
 }

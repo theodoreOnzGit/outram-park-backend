@@ -669,3 +669,39 @@ impl Filter for MeshSurfaceFilter {
         self.matches(ev).first().copied()
     }
 }
+
+/// **Distribcell filter** — one bin per instance of a repeated cell.
+/// `DistribcellFilter` (`src/tallies/filter_distribcell.cpp`).
+///
+/// A cell defined once inside a universe that a lattice repeats 400 times is
+/// one cell and 400 instances; a [`CellFilter`] bins all 400 together and this
+/// gives 400 bins. See [`crate::geometry::distribcell`] for how the instance
+/// index is formed.
+///
+/// # The instance must be supplied by the transport
+///
+/// This filter reads [`FilterEvent::cell_instance`], which the transport sets
+/// from [`crate::geometry::distribcell::DistribcellOffsets::instance_of`]. An
+/// event with no instance matches **nothing** rather than bin 0 — binning an
+/// unknown instance into the first bin would put every un-instanced event on
+/// one pebble.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DistribcellFilter {
+    /// The repeated cell.
+    pub cell_idx: usize,
+    /// How many instances it has — from `DistribcellOffsets::n_instances`.
+    pub n_instances: usize,
+}
+
+impl Filter for DistribcellFilter {
+    fn n_bins(&self) -> usize {
+        self.n_instances
+    }
+    fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
+        if ev.cell_idx != self.cell_idx {
+            return None;
+        }
+        let i = ev.cell_instance?;
+        (i < self.n_instances).then_some(i)
+    }
+}

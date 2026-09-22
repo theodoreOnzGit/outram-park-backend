@@ -24,7 +24,7 @@
 //!
 //! # Results, 2026-09-22
 //!
-//! 30 variants, all constructible, all dispatched, all reporting a bin count.
+//! 31 variants, all constructible, all dispatched, all reporting a bin count.
 
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::particle::particle::ParticleType;
@@ -112,6 +112,10 @@ fn one_of_each() -> Vec<FilterKind> {
             energy_bins: vec![],
         }),
         FilterKind::MeshSurface(MeshSurfaceFilter::new(a_mesh()).unwrap()),
+        FilterKind::Distribcell(DistribcellFilter {
+            cell_idx: 0,
+            n_instances: 6,
+        }),
     ]
 }
 
@@ -170,7 +174,7 @@ fn every_filter_kind_is_reachable_and_binnable() {
     // 29 variants: 28 constructed above plus the refused `DelayedGroup`.
     assert_eq!(
         filters.len() + REFUSED_VARIANTS,
-        30,
+        31,
         "the variant count changed. If a filter was ADDED, construct it above \
          so this gate covers it; `FilterKind::name` will already have failed \
          to compile if it was not dispatched."
@@ -462,4 +466,52 @@ fn a_non_regular_mesh_is_refused_for_surface_currents() {
     }))
     .unwrap_err();
     assert!(err.contains("regular mesh"), "{err}");
+}
+
+/// **An event with no instance matches nothing, not bin 0.**
+///
+/// Binning an un-instanced event into the first bin would put every such event
+/// on one pebble, which is exactly the result a per-pebble tally exists to
+/// avoid.
+#[test]
+fn a_distribcell_filter_refuses_an_event_with_no_instance() {
+    let f = DistribcellFilter {
+        cell_idx: 4,
+        n_instances: 6,
+    };
+    assert_eq!(f.n_bins(), 6);
+    for i in 0..6 {
+        let ev = FilterEvent {
+            cell_idx: 4,
+            cell_instance: Some(i),
+            ..FilterEvent::default()
+        };
+        assert_eq!(f.get_bin(&ev), Some(i));
+    }
+    // No instance at all.
+    assert_eq!(
+        f.get_bin(&FilterEvent {
+            cell_idx: 4,
+            ..FilterEvent::default()
+        }),
+        None,
+        "an un-instanced event must not land in bin 0"
+    );
+    // Wrong cell, and an instance past the end.
+    assert_eq!(
+        f.get_bin(&FilterEvent {
+            cell_idx: 9,
+            cell_instance: Some(0),
+            ..FilterEvent::default()
+        }),
+        None
+    );
+    assert_eq!(
+        f.get_bin(&FilterEvent {
+            cell_idx: 4,
+            cell_instance: Some(6),
+            ..FilterEvent::default()
+        }),
+        None
+    );
 }
