@@ -559,6 +559,24 @@ pub fn run_keff_csg_seq(
         if next_bank.is_empty() {
             break;
         }
+
+        // `k` trigger (GitHub #263): stop once the eigenvalue's own
+        // uncertainty meets the requested metric. Checked only on active
+        // generations, and only once there are at least two of them — a
+        // standard error from one realisation is not a number.
+        if let Some(trig) = settings.keff_trigger {
+            if active && active_k.len() >= 2 {
+                let stats = crate::tally::trigger::BinStats {
+                    sum: active_k.iter().sum(),
+                    sum_sq: active_k.iter().map(|k| k * k).sum(),
+                };
+                let ratio = crate::tally::trigger::bin_ratio(stats, active_k.len(), &trig);
+                if crate::tally::trigger::satisfied(ratio) {
+                    break;
+                }
+            }
+        }
+
         source = resample(&next_bank, settings.n_particles, &mut seed);
     }
 

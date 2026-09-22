@@ -161,6 +161,19 @@ pub struct KeffSettings {
     /// `tests/variance_reduction_is_bit_identical_when_analog.rs` pins that
     /// leaving it alone changes nothing at all.
     pub variance_reduction: crate::physics::variance_reduction::VarianceReduction,
+    /// **Run until `k` reaches a target precision** rather than for a fixed
+    /// generation count — GitHub #263 scope items 1, 2 and 4.
+    ///
+    /// `None` (the default) runs exactly `n_active` active generations, which
+    /// is what every recorded result in this crate was measured with. With a
+    /// trigger, `n_active` becomes the **maximum**: the run stops early once
+    /// the metric is met, and still stops at `n_active` if it never is.
+    ///
+    /// A trigger cannot make a run go longer than `n_active`. Upstream has a
+    /// separate `n_max_batches` for that; conflating the two here would let a
+    /// tightened threshold silently multiply the cost of a study, which is
+    /// the opposite of what this feature is for.
+    pub keff_trigger: Option<crate::tally::trigger::Trigger>,
 }
 
 impl Default for KeffSettings {
@@ -178,6 +191,7 @@ impl Default for KeffSettings {
             watt_b: 2.249e-6,
             compute: ComputeType::CpuSingleThread,
             variance_reduction: Default::default(),
+            keff_trigger: None,
         }
     }
 }

@@ -103,3 +103,56 @@ declaration either way.
 **The scaling is the test, not the size.** A single number consistent with
 zero at wider error bars would prove nothing, which is exactly the trap the
 first run fell into.
+
+---
+
+# Addendum 2 — the N = 8000 result, and why it settles nothing
+
+Measured 2026-09-22, 32 paired seeds at `N = 8000`:
+
+    survival - analog = +83 +/- 64 pcm (1.30 sigma)
+
+Addendum 1 predicted **≈ +31 pcm** if the residual is population control, and
+**≈ +122 pcm** if it is real.
+
+**It is +83, which is the band Addendum 1 named in advance as a partial
+result** — and the honest reading is worse than "partial". Against the
+`N = 2000` value of `+122 ± 62`, this is a difference of `39 ± 89 pcm`: the
+two measurements are **statistically indistinguishable**. The central value
+fell by a factor 1.47 where `1/N` predicts 4, but with these error bars the
+measurement cannot tell a factor of 4 from a factor of 1.
+
+So the test was **underpowered**, and saying "consistent with population
+control" would be exactly the failure this crate's own history warns about —
+the hybrid-tracking gate that was "inside 4 sigma and equally consistent with
+a real 1200 pcm bias".
+
+Addendum 1 pre-registered the next step for this case, and it is being taken
+rather than reinterpreted: **`N = 32000`, 48 seeds**.
+
+| hypothesis | predicted at N = 32000 |
+|---|---|
+| population control (`1/N` from the `N = 2000` value) | **≈ +8 pcm** |
+| a real estimator bias | **≈ +83 to +122 pcm** |
+
+At 48 seeds the combined standard error is ~20 pcm, so the two predictions are
+~4 sigma apart and the run can actually decide. **If the residual stays near
++83 pcm, it is not population control, and survival biasing in this port has a
+defect that must be found before the technique is used anywhere.** That is
+stated here, before the run, so the conclusion is not chosen after seeing the
+number.
+
+## What is not in question
+
+Everything except the bias check already met its prediction and has tightened
+with statistics rather than moved:
+
+| | predicted | N=2000 (96 seeds) | N=8000 (32 seeds) |
+|---|---|---|---|
+| sd ratio | 1.2–1.5x | 1.49x | 1.46x |
+| cost ratio | 1.5–3x | 1.45x | 1.45x |
+| FOM ratio | 0.5–1.5x | 1.55x | 1.47x |
+
+The cost ratio came in slightly **below** the predicted floor (1.45 against
+1.5), so that part of Addendum 1's prediction was marginally wrong and is
+recorded as such.
