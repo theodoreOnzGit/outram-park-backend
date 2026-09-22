@@ -11,7 +11,6 @@
 
 mod advanced_git_view;
 mod bibliography;
-mod collection_picker;
 mod csv_preview;
 mod home;
 mod kvim_editor;

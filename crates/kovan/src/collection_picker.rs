@@ -1,12 +1,15 @@
 //! A fuzzy picker over the library's topics and projects (#272).
 //!
+//! Crate-level rather than under `app/`: the sort dialog picks a destination
+//! with it, and so does the mindmap's "Move…", which lives outside `app`.
+//!
 //! Sorting a paper used to mean typing a slash-separated classification path
 //! from memory into a comma-separated text field, and a typo did not fail —
 //! `entity::ensure_classification_paths` obligingly *created* the mistyped
 //! path, so `htgr/materials` quietly joined `htgrs/materials` in the tree.
 //!
 //! This is the same interaction as the literature finder #252 established
-//! (`super::literature_list::LiteratureFinder`): type a few letters, take
+//! (`crate::app::literature_list::LiteratureFinder`): type a few letters, take
 //! ranked matches, Enter picks the best. That one is specialised to PDFs, so
 //! this is its sibling rather than a reuse of it — but both rank through
 //! [`crate::fuzzy::fuzzy_score`], so they order candidates identically.
@@ -22,7 +25,7 @@ use crate::index::{CollectionEntry, KnowledgeIndex};
 
 /// Most suggestions shown at once. Matches the literature finder's own cap:
 /// a list longer than this stops being scannable and starts being a scroll.
-pub(super) const PICKER_RESULTS: usize = 8;
+pub(crate) const PICKER_RESULTS: usize = 8;
 
 /// The collections of `kind` in `index` that match `query`, best first, at
 /// most [`PICKER_RESULTS`].
@@ -32,7 +35,7 @@ pub(super) const PICKER_RESULTS: usize = 8;
 /// path-only match would miss the first, a name-only match the second.
 /// Already-chosen paths are excluded: offering one again can only produce a
 /// duplicate.
-pub(super) fn rank<'a>(
+pub(crate) fn rank<'a>(
     index: &'a KnowledgeIndex,
     kind: EntityKind,
     query: &str,
@@ -62,7 +65,7 @@ pub(super) fn rank<'a>(
 /// Whether `query` names a collection that does not exist yet, and so would
 /// be **created**. An empty or whitespace-only query creates nothing, and
 /// neither does one that exactly matches an existing path.
-pub(super) fn would_create(index: &KnowledgeIndex, kind: EntityKind, query: &str) -> bool {
+pub(crate) fn would_create(index: &KnowledgeIndex, kind: EntityKind, query: &str) -> bool {
     let q = query.trim();
     !q.is_empty()
         && !index

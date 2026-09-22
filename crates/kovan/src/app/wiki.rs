@@ -128,7 +128,7 @@ fn picker_section(
     query: &mut String,
     index: &KnowledgeIndex,
 ) {
-    use super::collection_picker::{rank, would_create};
+    use crate::collection_picker::{rank, would_create};
     ui.strong(label);
     if chosen.is_empty() {
         ui.weak("none yet");
