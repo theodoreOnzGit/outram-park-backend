@@ -253,6 +253,13 @@ fall under it too.
 
 ## Crate-specific conventions
 
+- **Scripted edits: python, never perl (HARD RULE, maintainer direction
+  2026-09-22).** Perl `s#…#…#` substitutions abort on `#` (`#[test]`,
+  `#[derive]`), and `s|…|…|` silently turns `\|` into regex alternation — both
+  happened in one session, the second corrupting a doc comment. Use the Edit
+  tool, or a `python3` heredoc with exact-string replacement that asserts the
+  old text was found. (An ad-hoc editing tool, not a tracked script, so the
+  workspace "no Python for docs/accounting" rule does not apply.)
 - **Tracer state is application-owned.** Visual components are `egui::Widget`s
   consumed by value and rebuilt every repaint. A `TracerTrain` owned by a
   widget would reset its phase to zero each frame, so the *app* owns the train,

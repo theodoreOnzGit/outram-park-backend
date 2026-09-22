@@ -16,7 +16,8 @@ use outram_park_digital_twin_engine::app_scaffold::{CsvSnapshotPanel, PanelSet, 
 use outram_park_digital_twin_engine::components::LegendUnit;
 
 use crate::app::geometry_tab::{draw_geometry, ZoomLevel};
-use crate::app::schematic::{draw_schematic, SchematicTracers};
+use crate::app::plant_v1_1::draw_plant_v1_1;
+use crate::app::schematic::SchematicTracers;
 use crate::app::state::{HtgrPlotData, HtgrSnapshot};
 use crate::physics::secondary_loop::ranges;
 
@@ -530,16 +531,26 @@ pub fn draw_schematic_panel(
     tracers: &SchematicTracers,
     display_unit: LegendUnit,
 ) {
-    ui.heading(
-        "HTGR (helium-cooled, graphite-moderated pebble bed) -- demonstration model, \
-         HTR-10-style two-vessel arrangement",
+    // The version title, drawn large and first so it is always on screen.
+    ui.label(
+        egui::RichText::new("HTGR Simulator v1.1")
+            .size(26.0)
+            .strong(),
+    );
+    ui.label(
+        "HTR-10-style helium-cooled pebble-bed plant, driven by the running model \
+         -- offline demonstration only",
     );
     // egui's built-in whole-window zoom (Options::zoom_with_keyboard,
     // default on) -- not schematic-specific, but this heading is the first
     // thing a reader sees, so it is the natural place to mention it.
     ui.small("Tip: Ctrl+ / Ctrl- zoom the whole window in/out, Ctrl+0 resets.");
     ui.separator();
-    draw_schematic(ui, snapshot, tracers, display_unit);
+    // v1.1 replaced the v1 schematic (2026-09-22). The shared plant drawing
+    // has no unit toggle yet, so `display_unit` is unused here for now.
+    let _ = display_unit;
+    // The central panel already scrolls; the plant scales itself to fit it.
+    draw_plant_v1_1(ui, snapshot, tracers);
 }
 
 /// HTR-10 R-Z benchmark geometry panel body -- see [`crate::app::geometry_tab`].

@@ -62,6 +62,7 @@ pub mod index;
 pub mod mindmap;
 pub mod mindmap_layout;
 pub mod mindmap_model;
+pub mod navigation;
 pub mod ingest;
 pub mod session;
 pub mod project;

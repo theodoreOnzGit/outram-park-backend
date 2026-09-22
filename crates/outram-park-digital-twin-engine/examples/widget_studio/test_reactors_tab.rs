@@ -17,9 +17,11 @@
 use egui::RichText;
 use outram_park_digital_twin_engine::animation::{PebbleTransits, TracerTrain};
 use outram_park_digital_twin_engine::components::htr10_reactor_schematic::{
-    CORE_CAVITY_HEIGHT_CM, CRITICAL_BED_HEIGHT_CM, DRAWN_ASPECT_RATIO, EQUILIBRIUM_BED_HEIGHT_CM,
+    CORE_CAVITY_HEIGHT_CM, CRITICAL_BED_HEIGHT_CM, EQUILIBRIUM_BED_HEIGHT_CM,
 };
-use outram_park_digital_twin_engine::components::htr10_steam_generator::HTR10_SG_ASPECT_RATIO;
+use outram_park_digital_twin_engine::components::htr10_plant::{
+    draw_htr10_plant, SecondaryLoopView, SecondaryTracers,
+};
 use outram_park_digital_twin_engine::components::{Htr10ReactorSchematic, Htr10SteamGeneratorVisual};
 
 /// HTR-10 feedwater temperature, degC. `docs/reactor-scoping/htr10-plant-data.md`
@@ -27,12 +29,8 @@ use outram_park_digital_twin_engine::components::{Htr10ReactorSchematic, Htr10St
 const FEEDWATER_DEGC: f64 = 104.0;
 /// HTR-10 steam outlet temperature, degC. Same sheet and sources, *Quoted*.
 const STEAM_DEGC: f64 = 440.0;
-
-/// Horizontal gap between the vessel and the steam generator, as a multiple
-/// of the vessel width: the length of duct left visible between them. A
-/// drawing choice; no source gives the duct length.
-const DUCT_GAP_FRACTION: f32 = 0.6;
-use uom::si::f64::{MassRate, ThermodynamicTemperature, Time};
+use uom::si::angular_velocity::revolution_per_minute;
+use uom::si::f64::{AngularVelocity, MassRate, ThermodynamicTemperature, Time};
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::thermodynamic_temperature::degree_celsius;
 use uom::si::time::second;
@@ -123,6 +121,33 @@ pub struct TestReactorsTab {
     /// from the Steam generators tab. Its primary flow is kept equal to this
     /// tab's, so the whole loop stalls or reverses together.
     pub sg_tracers: crate::steam_generator_tab::Htr10Tracers,
+    /// Residence time through the duct inlet's elbows inside the steam
+    /// generator, s. Display choice: the elbows are a drawing device with no
+    /// stated volume.
+    pub sg_elbow_residence_s: f64,
+    sg_hot_elbow: TracerTrain,
+    sg_cold_elbow: TracerTrain,
+    /// Turbine shaft speed, rpm. Display choice: drives the rotor's turning,
+    /// no model behind it (the studio tests GUI, not physics).
+    pub turbine_rpm: f64,
+    /// Feed pump shaft speed, rpm. Display choice.
+    pub pump_rpm: f64,
+    /// Condenser condensing temperature, degC. Display choice: the plant sheet
+    /// records no turbine or condenser data.
+    pub condensing_degc: f64,
+    /// Turbine exhaust steam quality, `[0, 1]`. Display choice.
+    pub exhaust_quality: f64,
+    /// Condenser cooling water in and out, degC. Display choices.
+    pub cooling_water_in_degc: f64,
+    pub cooling_water_out_degc: f64,
+    /// Residence time along each secondary-loop pipe run, s. Display choice.
+    pub secondary_pipe_residence_s: f64,
+    /// Page clock, s, for the turbine and pump rotors (phase = speed x time).
+    pub simulation_time_s: f64,
+    sec_main_steam: TracerTrain,
+    sec_exhaust: TracerTrain,
+    sec_condensate: TracerTrain,
+    sec_feed: TracerTrain,
 }
 
 impl Default for TestReactorsTab {
@@ -164,6 +189,21 @@ impl Default for TestReactorsTab {
             refuel_pebbles: PebbleTransits::new(),
             defuel_pebbles: PebbleTransits::new(),
             sg_tracers: crate::steam_generator_tab::Htr10Tracers::default(),
+            sg_elbow_residence_s: 2.0,
+            sg_hot_elbow: TracerTrain::new(4),
+            sg_cold_elbow: TracerTrain::new(4),
+            turbine_rpm: 3000.0,
+            pump_rpm: 2900.0,
+            condensing_degc: 40.0,
+            exhaust_quality: 0.90,
+            cooling_water_in_degc: 25.0,
+            cooling_water_out_degc: 35.0,
+            secondary_pipe_residence_s: 3.0,
+            simulation_time_s: 0.0,
+            sec_main_steam: TracerTrain::new(4),
+            sec_exhaust: TracerTrain::new(3),
+            sec_condensate: TracerTrain::new(4),
+            sec_feed: TracerTrain::new(4),
         }
     }
 }
@@ -204,6 +244,24 @@ impl TestReactorsTab {
         // reactor's flow.
         self.sg_tracers.primary_mass_flow_kg_per_s = self.primary_mass_flow_kg_per_s;
         self.sg_tracers.step(dt);
+        let elbow_tau = Time::new::<second>(self.sg_elbow_residence_s);
+        let primary_flow = MassRate::new::<kilogram_per_second>(self.primary_mass_flow_kg_per_s);
+        self.sg_hot_elbow.advance(dt, elbow_tau, primary_flow);
+        self.sg_cold_elbow.advance(dt, elbow_tau, primary_flow);
+        // The secondary loop's pipes follow the secondary flow (3.49 kg/s at
+        // design, from the plant sheet via the steam generator's tracers).
+        self.simulation_time_s += dt.get::<second>();
+        let secondary =
+            MassRate::new::<kilogram_per_second>(self.sg_tracers.secondary_mass_flow_kg_per_s);
+        let pipe_tau = Time::new::<second>(self.secondary_pipe_residence_s);
+        for train in [
+            &mut self.sec_main_steam,
+            &mut self.sec_exhaust,
+            &mut self.sec_condensate,
+            &mut self.sec_feed,
+        ] {
+            train.advance(dt, pipe_tau, secondary);
+        }
         self.pebbles_removed += self.defuel_pebbles.advance(
             dt,
             Time::new::<second>(self.defuel_transit_s),
@@ -356,15 +414,42 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
     ui.add(egui::Slider::new(&mut state.downcomer_residence_s, 0.3..=30.0).text("downcomer"));
     ui.add(egui::Slider::new(&mut state.riser_residence_s, 0.3..=30.0).text("reflector risers"));
     ui.add(egui::Slider::new(&mut state.plenum_residence_s, 0.2..=20.0).text("hot plenum"));
-    ui.add(
-        egui::Slider::new(&mut state.cold_plenum_residence_s, 0.2..=20.0)
-            .text("cold plenum"),
-    );
+    ui.add(egui::Slider::new(&mut state.cold_plenum_residence_s, 0.2..=20.0).text("cold plenum"));
     ui.add(
         egui::Slider::new(&mut state.hot_duct_residence_s, 0.2..=20.0).text("duct, hot inner tube"),
     );
     ui.add(
         egui::Slider::new(&mut state.cold_duct_residence_s, 0.2..=20.0).text("duct, cold annulus"),
+    );
+    ui.add(egui::Slider::new(&mut state.sg_elbow_residence_s, 0.2..=20.0).text("SG inlet elbows"));
+    ui.add(
+        egui::Slider::new(&mut state.secondary_pipe_residence_s, 0.2..=20.0)
+            .text("secondary loop pipes"),
+    );
+
+    ui.separator();
+    ui.label(RichText::new("Secondary loop (display choices)").strong());
+    ui.add(egui::Slider::new(&mut state.turbine_rpm, 0.0..=3600.0).text("turbine [rpm]"));
+    ui.add(egui::Slider::new(&mut state.pump_rpm, 0.0..=3600.0).text("feed pump [rpm]"));
+    ui.add(egui::Slider::new(&mut state.condensing_degc, 20.0..=100.0).text("condensing [degC]"));
+    ui.add(egui::Slider::new(&mut state.exhaust_quality, 0.5..=1.0).text("exhaust quality"));
+    ui.add(
+        egui::Slider::new(&mut state.cooling_water_in_degc, 5.0..=50.0)
+            .text("cooling water in [degC]"),
+    );
+    ui.add(
+        egui::Slider::new(&mut state.cooling_water_out_degc, 5.0..=60.0)
+            .text("cooling water out [degC]"),
+    );
+    ui.label(
+        RichText::new(
+            "Steam 440 degC, feedwater 104 degC and the 3.49 kg/s flow are quoted plant values. \
+             The plant sheet records NO turbine or condenser data, so everything above is a \
+             display choice for testing the widgets. At 3000 rpm the rotor turns 50 times a \
+             second, faster than the screen refreshes, so it may appear to crawl or reverse.",
+        )
+        .small()
+        .weak(),
     );
 
     ui.separator();
@@ -410,7 +495,7 @@ pub fn controls(ui: &mut egui::Ui, state: &mut TestReactorsTab) {
     );
     ui.label(
         RichText::new(
-            "All six are DISPLAY CHOICES, not derived: the sheet gives no internal \
+            "All seven are DISPLAY CHOICES, not derived: the sheet gives no internal \
              volumes for these passes, so there is nothing to divide a flow into. \
              Sliders rather than hardcoded constants, so that is visible.",
         )
@@ -489,72 +574,79 @@ pub fn draw(ui: &mut egui::Ui, state: &TestReactorsTab) {
         });
 }
 
-/// The vessel and the steam generator side by side, joined by the coaxial
-/// duct: the full-size HTR-10 page only (the mini card on the Reactor vessels
-/// gallery shows the vessel alone).
+/// The HTR-10 plant on the full-size page (the mini card on the Reactor vessels
+/// gallery shows the vessel alone): the vessel and the steam generator joined
+/// by the coaxial duct, and the secondary loop, the steam generator's steam out
+/// to a single-flow turbine, its exhaust down into a condenser, the condensate
+/// to a centrifugal feed pump, and the feed back up into the steam generator.
+///
+/// Every pipe runs between ports the widgets report from their own drawing
+/// code (`steam_port`, `feedwater_port`, `TurbineVisual::ports`,
+/// `CondenserVisual::ports`, `PumpVisual::centrifugal_ports`), and is drawn
+/// with the engine's `pipe_route::route`: straight legs, a proper elbow at
+/// each corner, and tracers following the secondary flow. No physics model runs
+/// here: the studio tests widgets, so the turbine and pump turn at
+/// display-choice speeds and the condenser takes display-choice temperatures.
 ///
 /// Both widgets report their connection points from the same layout code
 /// that paints them (`Htr10ReactorSchematic::duct_port`,
 /// `Htr10SteamGeneratorVisual::gas_port`). The steam generator is placed so
 /// its gas port is level with the duct and `DUCT_GAP_FRACTION` vessel widths
-/// clear of the vessel, and the duct is then extended to reach it. That runs
-/// the hot inner tube to the foot of the steam generator's central riser,
-/// where the hot gas enters.
+/// clear of the vessel, and the duct is then extended to reach it. The duct
+/// stops at the steam generator's left wall; inside, the steam generator
+/// draws the hot inner tube bending up into its central riser and the two
+/// cold bands bending up into the left and right coil bundles
+/// (`Htr10SteamGeneratorVisual::with_duct_inlet`).
 ///
 /// Both vessels are drawn at the same height scale: each is 11 m tall on its
 /// data sheet (`HTR10_SG_ASPECT_RATIO` is 2.6 m by 11 m). The steam generator
 /// sits raised because its gas port is at its foot, while the duct leaves the
 /// reactor at the hot plenum, about mid-height.
 fn draw_plant(ui: &mut egui::Ui, state: &TestReactorsTab) {
-    let reactor = state.visual();
-    let reactor_size = reactor.size();
-    let vessel_h = state.vessel_width / DRAWN_ASPECT_RATIO;
-    let sg_size = egui::vec2(vessel_h * HTR10_SG_ASPECT_RATIO, vessel_h);
-
-    // Helium enters hot (the reactor outlet) and leaves cold (the reactor
-    // inlet): one loop, so the two widgets share temperatures and scale.
-    let sg = Htr10SteamGeneratorVisual::new(
-        sg_size,
-        degc(state.min_temp_degc),
-        degc(state.max_temp_degc),
-        degc(state.outlet_degc),
-        degc(state.inlet_degc),
-        degc(FEEDWATER_DEGC),
-        degc(STEAM_DEGC),
-    );
-    let sg = if state.show_labels {
-        sg
-    } else {
-        sg.without_labels()
+    let (min_t, max_t) = (degc(state.min_temp_degc), degc(state.max_temp_degc));
+    // Helium enters the steam generator hot (the reactor outlet) and leaves
+    // cold (the reactor inlet): one loop, so the two widgets share scale.
+    let make_sg = |size: egui::Vec2| {
+        let sg = Htr10SteamGeneratorVisual::new(
+            size,
+            min_t,
+            max_t,
+            degc(state.outlet_degc),
+            degc(state.inlet_degc),
+            degc(FEEDWATER_DEGC),
+            degc(STEAM_DEGC),
+        )
+        .with_duct_inlet_tracers(state.sg_hot_elbow.clone(), state.sg_cold_elbow.clone());
+        let sg = if state.show_labels {
+            sg
+        } else {
+            sg.without_labels()
+        };
+        state.sg_tracers.attach(sg)
     };
-
-    // Lay out in local coordinates, reactor at the origin.
-    let reactor_local = egui::Rect::from_min_size(egui::Pos2::ZERO, reactor_size);
-    let duct = reactor.duct_port(reactor_local);
-    let sg_origin_local = egui::Rect::from_min_size(egui::Pos2::ZERO, sg_size);
-    let gas = sg.gas_port(sg_origin_local);
-    let sg_min = egui::pos2(
-        reactor_local.right() + DUCT_GAP_FRACTION * state.vessel_width,
-        duct.end.y - gas.y,
-    );
-    let sg_local = egui::Rect::from_min_size(sg_min, sg_size);
-    let extension = (sg_min.x + gas.x) - duct.end.x;
-
-    // Allocate the bounding box, then shift both into it.
-    let top = sg_local.top().min(0.0);
-    let bottom = sg_local.bottom().max(reactor_local.bottom());
-    let (canvas, _response) = ui.allocate_exact_size(
-        egui::vec2(sg_local.right(), bottom - top),
-        egui::Sense::hover(),
-    );
-    let shift = canvas.min.to_vec2() - egui::vec2(0.0, top);
-
-    // The steam generator first, so the duct is painted over its foot and
-    // reads as entering it.
-    ui.put(sg_local.translate(shift), state.sg_tracers.attach(sg));
-    // The extended reactor is wider (its box includes the duct), but its
-    // vessel is anchored at the left of the box, so the origin is unchanged.
-    let reactor = reactor.with_duct_extension(extension);
-    let reactor_rect = egui::Rect::from_min_size(egui::Pos2::ZERO, reactor.size());
-    ui.put(reactor_rect.translate(shift), reactor);
+    let rpm = |v| AngularVelocity::new::<revolution_per_minute>(v);
+    let secondary = SecondaryLoopView {
+        steam_temp: degc(STEAM_DEGC),
+        feedwater_temp: degc(FEEDWATER_DEGC),
+        condensing_temp: degc(state.condensing_degc),
+        exhaust_quality: state.exhaust_quality,
+        cooling_water_inlet_temp: degc(state.cooling_water_in_degc),
+        cooling_water_outlet_temp: degc(state.cooling_water_out_degc),
+        mass_flow: MassRate::new::<kilogram_per_second>(
+            state.sg_tracers.secondary_mass_flow_kg_per_s,
+        ),
+        pipe_residence_time: Time::new::<second>(state.secondary_pipe_residence_s),
+        turbine_speed: rpm(state.turbine_rpm),
+        pump_speed: rpm(state.pump_rpm),
+        simulation_time: Time::new::<second>(state.simulation_time_s),
+        tracers: SecondaryTracers {
+            main_steam: state.sec_main_steam,
+            exhaust: state.sec_exhaust,
+            condensate: state.sec_condensate,
+            feed: state.sec_feed,
+        },
+        min_temp: min_t,
+        max_temp: max_t,
+    };
+    draw_htr10_plant(ui, state.visual(), make_sg, &secondary);
 }

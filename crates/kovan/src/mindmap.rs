@@ -351,6 +351,22 @@ impl Default for MindmapState {
 
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 impl MindmapState {
+    /// Slash-separated path of the concept (collection) at the centre; `""`
+    /// is the top of the wiki. Read by the app's back/forward history (#242).
+    pub(crate) fn current(&self) -> &str {
+        &self.current
+    }
+
+    /// Centre the map on the concept at `path`: how back/forward, and the
+    /// Wiki sharing its location with this view, move the map (#242). A
+    /// selection or open menu belongs to the old centre, so both are cleared.
+    pub(crate) fn set_current(&mut self, path: &str) {
+        if self.current != path {
+            self.current = path.to_string();
+            self.selected = None;
+            self.context_menu = None;
+        }
+    }
     /// Build the star-topology graph for `current`'s scope: one anchor node
     /// for `current` itself (when non-empty), with an edge to each direct
     /// child collection and each directly-classified paper. At the shared

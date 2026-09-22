@@ -413,31 +413,36 @@ impl eframe::App for WidgetStudio {
 
         egui::Panel::right("controls")
             .min_size(320.0)
-            .show(ui, |ui| match self.selected {
-                WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
-                WidgetUnderTest::Pipes => self.pipe_controls(ui),
-                WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
-                WidgetUnderTest::Reactors => crate::reactor_tab::controls(ui, &mut self.reactors),
-                WidgetUnderTest::SteamGenerators => {
-                    crate::steam_generator_tab::controls(
-                        ui,
-                        &mut self.steam_generators,
-                        &mut self.htr10_sg_tracers,
-                    )
-                }
-                WidgetUnderTest::Pumps => crate::pump_tab::controls(ui, &mut self.pumps),
-                WidgetUnderTest::Condensers => {
-                    crate::condenser_tab::controls(ui, &mut self.condensers)
-                }
-                WidgetUnderTest::CoolingTowers => {
-                    crate::cooling_tower_tab::controls(ui, &mut self.cooling_towers)
-                }
-                WidgetUnderTest::HeatExchangers => {
-                    crate::heat_exchanger_tab::controls(ui, &mut self.heat_exchangers)
-                }
-                WidgetUnderTest::Excursion => {
-                    crate::excursion_tab::controls(ui, &mut self.excursion)
-                }
+            .show(ui, |ui| {
+                // Scrollable: the controls outgrow the window (maintainer, 2026-09-22).
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| match self.selected {
+                        WidgetUnderTest::SteamTurbine => self.turbine_controls(ui),
+                        WidgetUnderTest::Pipes => self.pipe_controls(ui),
+                        WidgetUnderTest::PipeBend => crate::bend_tab::controls(ui, &mut self.bend),
+                        WidgetUnderTest::Reactors => {
+                            crate::reactor_tab::controls(ui, &mut self.reactors)
+                        }
+                        WidgetUnderTest::SteamGenerators => crate::steam_generator_tab::controls(
+                            ui,
+                            &mut self.steam_generators,
+                            &mut self.htr10_sg_tracers,
+                        ),
+                        WidgetUnderTest::Pumps => crate::pump_tab::controls(ui, &mut self.pumps),
+                        WidgetUnderTest::Condensers => {
+                            crate::condenser_tab::controls(ui, &mut self.condensers)
+                        }
+                        WidgetUnderTest::CoolingTowers => {
+                            crate::cooling_tower_tab::controls(ui, &mut self.cooling_towers)
+                        }
+                        WidgetUnderTest::HeatExchangers => {
+                            crate::heat_exchanger_tab::controls(ui, &mut self.heat_exchangers)
+                        }
+                        WidgetUnderTest::Excursion => {
+                            crate::excursion_tab::controls(ui, &mut self.excursion)
+                        }
+                    });
             });
 
         egui::CentralPanel::default().show(ui, |ui| match self.selected {
@@ -496,10 +501,16 @@ impl WidgetStudio {
 
         egui::Panel::right("test_reactor_controls")
             .min_size(320.0)
-            .show(ui, |ui| match self.test_reactor {
-                TestReactor::Htr10 => {
-                    crate::test_reactors_tab::controls(ui, &mut self.test_reactors)
-                }
+            .show(ui, |ui| {
+                // Scrollable: the HTR-10 controls are longer than the window
+                // (maintainer direction, 2026-09-22).
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| match self.test_reactor {
+                        TestReactor::Htr10 => {
+                            crate::test_reactors_tab::controls(ui, &mut self.test_reactors)
+                        }
+                    });
             });
 
         egui::CentralPanel::default().show(ui, |ui| match self.test_reactor {

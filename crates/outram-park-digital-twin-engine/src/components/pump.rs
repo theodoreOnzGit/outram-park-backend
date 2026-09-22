@@ -1201,6 +1201,33 @@ impl Widget for PumpVisual {
     }
 }
 
+/// Where the pipes meet a centrifugal [`PumpVisual`]'s casing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PumpPorts {
+    /// Suction, on the casing at the impeller axis, on the right.
+    pub suction: Pos2,
+    /// Discharge, at the top of the nozzle, on the upper left.
+    pub discharge: Pos2,
+}
+
+impl PumpVisual {
+    /// Port positions for a [`PumpKind::Centrifugal`] pump whose box is
+    /// `box_rect` (the rect its `screen_position`/`screen_vector` describe).
+    ///
+    /// Computed from this widget's own volute layout: both ports sit midway
+    /// between the volute's cutwater and throat radii, the discharge at the
+    /// nozzle top and the suction at the impeller axis. Moved here from
+    /// `htgr_sim_v1`'s `pump_discharge` / `pump_suction`, which restated those
+    /// fractions (2026-09-22).
+    pub fn centrifugal_ports(box_rect: Rect) -> PumpPorts {
+        let lay = VoluteLayout::new(PumpKind::Centrifugal.fit_native_aspect(box_rect));
+        let mid = 0.5 * (lay.cutwater_radius + lay.throat_radius);
+        PumpPorts {
+            suction: Pos2::new(lay.centre.x + mid, lay.centre.y),
+            discharge: Pos2::new(lay.centre.x - mid, lay.nozzle_top),
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1669,5 +1696,24 @@ mod tests {
             assert!(!kind.typical_service().is_empty());
         }
         assert_eq!(PumpKind::ALL.len(), 3);
+    }
+}
+
+#[cfg(test)]
+mod port_tests {
+    use super::*;
+
+    /// The discharge leaves the top, on the left; the suction is on the right
+    /// at the impeller axis, below the discharge. Both sit inside the box.
+    #[test]
+    fn centrifugal_ports_are_top_left_discharge_and_right_suction() {
+        let b = Rect::from_min_size(Pos2::new(10.0, 20.0), Vec2::new(80.0, 80.0));
+        let p = PumpVisual::centrifugal_ports(b);
+        let fitted = PumpKind::Centrifugal.fit_native_aspect(b);
+        assert_eq!(p.discharge.y, fitted.top(), "discharge at the nozzle top");
+        assert!(p.discharge.x < fitted.center().x, "discharge on the left");
+        assert!(p.suction.x > fitted.center().x, "suction on the right");
+        assert!(p.suction.y > p.discharge.y, "suction below the discharge");
+        assert!(b.contains(p.suction) && b.expand(0.01).contains(p.discharge));
     }
 }

@@ -262,7 +262,10 @@ use turbine_generator::TurbineGeneratorShaft;
 /// [`kinetics::HtgrKinetics::HTR10_EFFECTIVE_DELAYED_FRACTION`] of 7.26e-3.
 /// One physical quantity, two values, 11.7 % apart. Every dollar figure above
 /// depends on which one is used; the pcm figures do not. Not fixed here.
-pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.780927;
+///
+/// author change, i want 0.55 so there is some ability to demonstrate 
+/// shutdown on ATWS after DLOFC or LOFC
+pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.50;
 
 /// Fraction of rated helium flow the simulator opens at: **0.30**.
 ///

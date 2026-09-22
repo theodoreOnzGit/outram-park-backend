@@ -148,6 +148,20 @@ impl WikiState {
         Self::default()
     }
 
+    /// Slash-separated path of the concept (collection) being shown; `""` is
+    /// the top of the wiki. Read by the app's back/forward history (#242).
+    pub(crate) fn current(&self) -> &str {
+        &self.current
+    }
+
+    /// Show the concept at `path`: how back/forward, and the Mindmap sharing
+    /// its location with this view, move the Wiki (#242).
+    pub(crate) fn set_current(&mut self, path: &str) {
+        if self.current != path {
+            self.current = path.to_string();
+        }
+    }
+
     /// A PDF was picked (from the "+ Ingest Literature…" button's dialog) —
     /// run §22's automatic-detection preview and open the classification
     /// form. On failure (an unreadable PDF), returns the error message for

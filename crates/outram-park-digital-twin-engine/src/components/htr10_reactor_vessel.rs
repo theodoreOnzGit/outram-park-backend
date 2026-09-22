@@ -564,7 +564,7 @@ pub(crate) fn triso_dot_offset(index: i32, k: usize, radius: f32) -> Vec2 {
 }
 
 /// Linear interpolation between two colours, keeping `a`'s alpha.
-fn blend_rgb(a: Color32, b: Color32, t: f32) -> Color32 {
+pub(crate) fn blend_rgb(a: Color32, b: Color32, t: f32) -> Color32 {
     let t = t.clamp(0.0, 1.0);
     let mix = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
     Color32::from_rgba_unmultiplied(
@@ -726,7 +726,7 @@ pub(crate) fn draw_packed_pebbles_direct(
 /// Not black: a bed lit from the front still scatters some light into its
 /// interior, and fading to pure black makes the far layers read as holes rather
 /// than as pebbles further away.
-const BED_BACKDROP: Color32 = Color32::from_rgb(16, 16, 20);
+pub(crate) const BED_BACKDROP: Color32 = Color32::from_rgb(16, 16, 20);
 
 /// Brightness a pebble is drawn at, given its depth fraction.
 ///
