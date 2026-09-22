@@ -6,4 +6,5 @@ pub mod lattice;
 pub mod virtual_lattice;
 pub mod geometry;
 pub mod triso_particle;
+pub mod plot;
 pub mod volume_calc;
