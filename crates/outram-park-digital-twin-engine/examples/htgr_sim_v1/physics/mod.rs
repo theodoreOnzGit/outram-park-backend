@@ -217,41 +217,73 @@ use reactor_model::{ReactorModel, ReactorModelKind};
 use secondary_loop::{SecondaryCommands, SteamSecondaryLoop};
 use turbine_generator::TurbineGeneratorShaft;
 
-/// **Control-rod bank insertion the simulator opens at**, 0.6035 (fraction,
-/// dimensionless).
+/// **Control-rod bank insertion the simulator opens at**, ~~0.6035~~
+/// ~~0.780927~~ **0.50** (fraction, dimensionless).
 ///
-/// The bank position the simulator opens at: **0.780927**, the insertion that
-/// holds the plant at the HTR-10 safety-demonstration test's **3 MWth** initial
-/// condition when the circulator runs at 30 % of rated flow.
+/// This constant has had three values and the prose below had drifted behind
+/// all of them, so the struck-through history is kept deliberately: a reader
+/// who finds an old number quoted elsewhere needs to be able to date it.
 ///
-/// # This is a PART-LOAD opening state, not the critical position
+/// # Where it sits relative to critical -- and the SIGN has changed
 ///
 /// ~~"Very nearly the bank position at which this core is critical with no
 /// external reactivity. Withdrawing the bank by even ten percent from here is
-/// a prompt excursion."~~ **CHANGED 2026-09-17** at the maintainer's request,
-/// so the simulator opens where the 15 Oct 2003 loss-of-forced-cooling ATWS
-/// test began rather than at rated power.
+/// a prompt excursion."~~ **CHANGED 2026-09-17**, so the simulator opened
+/// where the 15 Oct 2003 loss-of-forced-cooling ATWS test began rather than at
+/// rated power.
 ///
-/// Cold-clean critical is **0.604535**; this sits far deeper, commanding
-/// **-5.5186 $** of external reactivity. The reactor is held at 3 MWth by the
+/// ~~"Cold-clean critical is 0.604535; this sits far deeper, commanding
+/// -5.5186 $ of external reactivity. The reactor is held at 3 MWth by the
 /// bank, not by feedback, and the plant is *sub*critical in the cold-clean
-/// sense -- which is the point, because the LOFC demonstration starts from
-/// part load.
+/// sense."~~ **CORRECTED 2026-09-22 -- that is now backwards.** Cold-clean
+/// critical is **0.604535** and the bank now opens at **0.50**, which is
+/// *shallower*. The plant therefore starts **super**critical in the
+/// cold-clean sense and is held down by feedback rather than by the bank --
+/// the opposite of what the struck text describes, and the reason the opening
+/// transient is a rise rather than a hold.
 ///
-/// # Measured, not chosen
+/// **Why 0.50:** set by the maintainer so enough bank is left to insert that a
+/// shutdown on an ATWS following a DLOFC or LOFC can actually be demonstrated.
+/// Holding a power target was the *previous* criterion; it is not this one.
+/// Confirmed 2026-09-22 that 0.50, not 0.55, is intended.
 ///
-/// Found by bisecting settled power against insertion, at 1.290 kg/s helium
-/// (30 % of the published 4.3 kg/s) with a 1200 s settle, xenon off:
+/// The **-5.5186 $** figure above belonged to 0.780927 and is not re-derived
+/// here; see the struck table below for what it was and how it was found.
 ///
-/// | Quantity | Value |
+/// # ~~Measured, not chosen~~ CHOSEN, as of 2026-09-22 -- and that is the
+/// # maintainer's call, not a defect
+///
+/// **CORRECTED 2026-09-22.** The table below measured **0.780927**. The
+/// constant is now **0.50**, set by the maintainer so the simulator opens with
+/// enough bank withdrawn to demonstrate shutdown on an ATWS after a DLOFC or
+/// LOFC. Confirmed 2026-09-22: 0.50 is the intended value. (The commit that
+/// introduced it carried a note reading "i want 0.55"; the value shipped was
+/// 0.50 and 0.50 is what was meant.)
+///
+/// So the heading above is now wrong as written, and the table is kept
+/// **struck through** rather than deleted because it is the provenance of the
+/// number this replaced, and because it records the method that would have to
+/// be re-run to re-derive a power target:
+///
+/// | Quantity | ~~Value~~ SUPERSEDED |
 /// |---|---|
-/// | insertion | **0.780927** |
-/// | settled power | **3.0428 MW** (target 3.0000) |
-/// | external reactivity | **-5.5186 $** |
-/// | helium flow | 1.290 kg/s |
+/// | ~~insertion~~ | ~~**0.780927**~~ |
+/// | ~~settled power~~ | ~~**3.0428 MW** (target 3.0000)~~ |
+/// | ~~external reactivity~~ | ~~**-5.5186 $**~~ |
+/// | helium flow | 1.290 kg/s (unchanged) |
 ///
-/// Reproduce with `tests::report_the_rod_position_that_holds_three_megawatts`
-/// (about 34 minutes -- it settles the plant 15 times).
+/// **The settled power at 0.50 is NOT 3 MW, and is not yet measured here.**
+/// Less insertion is more reactivity, so it settles higher; by how much
+/// depends on feedback and takes a long settle to find, which is why the
+/// commit introducing it said "awaiting steady state (it takes very long)".
+/// Marked **not re-checked** deliberately rather than left reading as though
+/// the 3.0428 MW above still applied: a stale number that looks measured is
+/// worse than an absent one.
+///
+/// Re-derive with `tests::report_the_rod_position_that_holds_three_megawatts`
+/// (about 34 minutes -- it settles the plant 15 times) if a power target is
+/// wanted again. Note that test bisects *for* 3 MW; it does not report the
+/// power at a *given* insertion, which is the question 0.50 raises.
 ///
 /// # The dollar figures here are ambiguous, and that is a real defect
 ///
@@ -263,11 +295,17 @@ use turbine_generator::TurbineGeneratorShaft;
 /// One physical quantity, two values, 11.7 % apart. Every dollar figure above
 /// depends on which one is used; the pcm figures do not. Not fixed here.
 ///
-/// author change, i want 0.55 so there is some ability to demonstrate 
-/// shutdown on ATWS after DLOFC or LOFC
 pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.50;
 
 /// Fraction of rated helium flow the simulator opens at: **0.30**.
+///
+/// **The name lies about the units and the call site cannot tell.** This is a
+/// dimensionless *fraction*, not kg/s: it is consumed as
+/// `GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow()`, so the plant
+/// opens at **1.290 kg/s**, not 0.30 kg/s -- a factor of 4.3 apart, and both
+/// are plausible-looking helium flows for this machine. Left named as-is
+/// rather than renamed in a change about something else; read the
+/// multiplication, not the suffix.
 ///
 /// The HTR-10 loss-of-forced-cooling test began from part load, and
 /// [`GUI_INITIAL_ROD_INSERTION`] was bisected against settled power AT this
