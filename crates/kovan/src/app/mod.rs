@@ -618,6 +618,25 @@ impl DigitiseApp {
         self.workspace = Some(WorkspaceKnowledge { index, graph });
     }
 
+    /// Draw the ingest form, whichever tab is showing. It was drawn only in
+    /// the Wiki, so "Ingest…" from the PDF reader's prompt opened a form
+    /// nobody could see and appeared to do nothing (2026-09-22). On success
+    /// the knowledge is refreshed and the new paper opened, as the Wiki did.
+    fn ingest_form_ui(&mut self, ui: &mut egui::Ui) {
+        let Some(root) = self.home.root().cloned() else {
+            return;
+        };
+        let Some(citekey) = self
+            .wiki
+            .as_mut()
+            .and_then(|wiki| wiki.ingest_form(ui, &root))
+        else {
+            return;
+        };
+        self.refresh_knowledge(&root);
+        self.activate_paper_and_navigate(&citekey);
+    }
+
     /// Ctrl+P opens the literature finder whenever a Kovan folder is open;
     /// a PDF chosen there opens in the reader.
     fn literature_finder_ui(&mut self, ctx: &egui::Context) {
@@ -2301,6 +2320,7 @@ impl eframe::App for DigitiseApp {
         self.sync_shared_concept();
         self.poll_background_jobs();
         self.literature_finder_ui(ui.ctx());
+        self.ingest_form_ui(ui);
         self.poll_library_clone();
         if let Some(request) = self.setup.ui(ui.ctx()) {
             self.handle_setup(request);

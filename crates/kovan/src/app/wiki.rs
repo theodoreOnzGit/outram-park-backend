@@ -185,7 +185,7 @@ impl WikiState {
     /// activates it immediately (op-sr4n.2: "Ingest & Open" must actually
     /// open, not just refresh the index) and refreshes the shared knowledge
     /// state (op-dkll).
-    fn ingest_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<String> {
+    pub(super) fn ingest_form(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> Option<String> {
         let Some(flow) = &mut self.ingest_flow else {
             return None;
         };
@@ -361,9 +361,9 @@ impl WikiState {
     ) -> Option<WikiAction> {
         let mut action = None;
 
-        if let Some(citekey) = self.ingest_form(ui, root) {
-            action = Some(WikiAction::OpenPaper(citekey));
-        }
+        // The ingest form is drawn by the app, over every tab
+        // (`DigitiseApp::ingest_form_ui`): started from the PDF reader's
+        // ingest prompt it must show there, not only in the Wiki (2026-09-22).
         if self.classify_form(ui, root) {
             action = Some(WikiAction::KnowledgeChanged);
         }
