@@ -1482,25 +1482,35 @@ impl Widget for Htr10ReactorSchematic {
         // top are left out, so an under-loaded bed shows a cut top rather
         // than a settled free surface at that height.
         let bed_top_m = bed_height / 100.0;
-        for (index, pebble) in CONUS_SLAB.iter().enumerate() {
-            let [x, z, y] = *pebble;
-            if z + PEBBLE_RADIUS_M > bed_top_m {
-                continue;
+        // Where the conus ends and the discharge tube begins, metres below zero
+        // core height. Pebbles below it are painted LATER, over the tube's
+        // fill: the tube is drawn at the end (it passes through the bottom
+        // head), and painting its pebbles here put them under that fill, where
+        // they could not be seen (corrected 2026-09-22).
+        let tube_top_m = -(CONUS_BOTTOM_Z_CM - CORE_ZERO_HEIGHT_Z_CM) / 100.0;
+        let draw_dem_pebbles = |in_tube: bool| {
+            for (index, pebble) in CONUS_SLAB.iter().enumerate() {
+                let [x, z, y] = *pebble;
+                if z + PEBBLE_RADIUS_M > bed_top_m || (z < tube_top_m) != in_tube {
+                    continue;
+                }
+                let at = Pos2::new(
+                    rx(x.abs() * 100.0, x.signum()),
+                    zy(CORE_ZERO_HEIGHT_Z_CM - z * 100.0),
+                );
+                let shade = depth_shade(1.0 + y / SLAB_DEPTH_M);
+                draw_triso_pebble(
+                    &painter,
+                    at,
+                    pebble_r,
+                    blend_rgb(BED_BACKDROP, PEBBLE_MATRIX, shade),
+                    blend_rgb(BED_BACKDROP, kernel, shade),
+                    index as i32,
+                );
             }
-            let at = Pos2::new(
-                rx(x.abs() * 100.0, x.signum()),
-                zy(CORE_ZERO_HEIGHT_Z_CM - z * 100.0),
-            );
-            let shade = depth_shade(1.0 + y / SLAB_DEPTH_M);
-            draw_triso_pebble(
-                &painter,
-                at,
-                pebble_r,
-                blend_rgb(BED_BACKDROP, PEBBLE_MATRIX, shade),
-                blend_rgb(BED_BACKDROP, kernel, shade),
-                index as i32,
-            );
-        }
+        };
+        // The bed and the conus now; the tube's pebbles after the tube.
+        draw_dem_pebbles(false);
         self.tag(&painter, Pos2::new(cx, bed.center().y), "pebble bed");
         self.tag(
             &painter,
@@ -1784,6 +1794,8 @@ impl Widget for Htr10ReactorSchematic {
         discharge.push(route.exit[1]);
         discharge_widths.push(narrow);
         draw_route_piece(&discharge, &discharge_widths, true);
+        // The tube's DEM pebbles, over its fill (see `draw_dem_pebbles`).
+        draw_dem_pebbles(true);
 
         self.tag(
             &painter,
@@ -2284,6 +2296,71 @@ mod tests {
             "sorted farthest first"
         );
         assert_eq!(CONUS_SLAB.len(), 1677);
+    }
+
+    /// The discharge tube's DEM pebbles are painted OVER the tube's fill, not
+    /// under it. They were once drawn with the bed, before the tube, and the
+    /// tube's solid fill then hid every one of them (2026-09-22). Renders the
+    /// widget headlessly and checks that, at a tube pebble's centre, its
+    /// circle comes after every filled polygon covering that point.
+    #[test]
+    fn tube_dem_pebbles_are_painted_over_the_tube_fill() {
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1200.0, 1600.0))),
+            max_texture_side: Some(8192),
+            ..Default::default()
+        };
+        let _ = ctx.run_ui(input.clone(), |_| {});
+        let size = Htr10ReactorSchematic::native_size(220.0);
+        let origin = Pos2::new(10.0, 10.0);
+        let output = ctx.run_ui(input, |ui| {
+            let v = Htr10ReactorSchematic {
+                size,
+                ..visual().with_bed_height_cm(EQUILIBRIUM_BED_HEIGHT_CM)
+            };
+            let r = Rect::from_min_size(origin, v.size());
+            ui.put(r, v);
+        });
+
+        // Where one tube pebble lands on screen, by the widget's own layout.
+        let probe = visual();
+        let widget = Htr10ReactorSchematic { size, ..probe };
+        let layout = VesselLayout::new(
+            Rect::from_min_size(origin, widget.size()),
+            widget.duct_reach(),
+        );
+        let tube_top_m = -(CONUS_BOTTOM_Z_CM - CORE_ZERO_HEIGHT_Z_CM) / 100.0;
+        let p = CONUS_SLAB
+            .iter()
+            .find(|p| p[1] < tube_top_m - 0.5)
+            .expect("a pebble well down the tube");
+        let at = Pos2::new(
+            layout.rx(p[0].abs() * 100.0, p[0].signum()),
+            layout.zy(CORE_ZERO_HEIGHT_Z_CM - p[1] * 100.0),
+        );
+
+        let mut last_fill_over = None;
+        let mut pebble_at = None;
+        for (i, clipped) in output.shapes.iter().enumerate() {
+            match &clipped.shape {
+                egui::Shape::Path(path)
+                    if path.closed
+                        && path.fill != Color32::TRANSPARENT
+                        && Rect::from_points(&path.points).contains(at) =>
+                {
+                    last_fill_over = Some(i);
+                }
+                egui::Shape::Circle(c) if c.center.distance(at) < 0.5 => pebble_at = Some(i),
+                _ => {}
+            }
+        }
+        let pebble_at = pebble_at.expect("the tube pebble is drawn");
+        let fill = last_fill_over.expect("the tube is filled at that point");
+        assert!(
+            pebble_at > fill,
+            "tube pebble painted at {pebble_at}, under a fill painted at {fill}"
+        );
     }
 
     /// Widening the drawn vessel for the refuelling chute must leave the
