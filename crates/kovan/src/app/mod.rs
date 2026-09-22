@@ -14,6 +14,7 @@ mod bibliography;
 mod csv_preview;
 mod home;
 mod kvim_editor;
+mod nav;
 mod page_canvas;
 mod pdf_reader;
 mod table_digitiser;
@@ -270,6 +271,9 @@ struct WorkspaceKnowledge {
 pub struct DigitiseApp {
     // chrome
     view: View,
+    /// Browser-style back/forward history over every page (#242) -- see
+    /// [`nav`].
+    history: crate::navigation::NavHistory<nav::AppLocation>,
     theme: GuiTheme,
     file_dialog: FileDialog,
     file_dialog_target: Option<FileDialogTarget>,
@@ -414,6 +418,7 @@ impl Default for DigitiseApp {
     fn default() -> Self {
         Self {
             view: View::default(),
+            history: crate::navigation::NavHistory::new(nav::AppLocation::start()),
             theme: GuiTheme::default(),
             file_dialog: FileDialog::new()
                 .add_file_filter_extensions("Images", vec!["png", "jpg", "jpeg"])
@@ -1943,6 +1948,8 @@ impl DigitiseApp {
     /// (op-t5sq).
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            self.nav_buttons(ui);
+            ui.separator();
             ui.selectable_value(&mut self.view, View::Home, "Home");
             ui.selectable_value(&mut self.view, View::Wiki, "Wiki");
             ui.selectable_value(&mut self.view, View::Mindmap, "Mindmap");
@@ -2041,7 +2048,13 @@ impl eframe::App for DigitiseApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.theme.apply(ui.ctx());
 
+        // Back/forward from the keyboard and mouse side buttons, applied
+        // before anything draws so the whole frame shows the new location.
+        self.handle_nav_input(ui.ctx());
         egui::Panel::top("topbar").show(ui, |ui| self.top_bar(ui));
+        // A tab click just now may have switched between the Wiki and the
+        // Mindmap: open it on the shared concept before it draws (#242).
+        self.sync_shared_concept();
 
         self.file_dialog.update(ui.ctx());
         if let Some(path) = self.file_dialog.take_picked() {
@@ -2364,6 +2377,11 @@ impl eframe::App for DigitiseApp {
             self.kvim_editor
                 .sync_to_disk_text(active.session.markdown());
         }
+
+        // Record where this frame ended up as a history step, if it moved
+        // (#242). Last, so every route that navigates -- a tab, a breadcrumb,
+        // a drill-in, opening a paper -- is caught in one place.
+        self.record_location();
 
         // GH issue #35 2026-09-02: after any save wrote a tracked repo file,
         // auto-refresh the Save Repository tab's git status (it otherwise
