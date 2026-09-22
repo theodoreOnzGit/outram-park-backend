@@ -216,9 +216,29 @@ pub struct HtgrKinetics {
 /// - **Every reactivity number recorded for the `alpha_iso` term stays valid.**
 ///   The change is additive and attributable, which is what the hold noted in
 ///   this module's doc comment was waiting for.
-/// - **The design point is neutral by construction.** `dT_ref` is the offset
-///   at the bed's own design point and rated power, so this term is *zero*
-///   there and the steady state is unchanged. Everything it moves is transient.
+/// - ~~"**The design point is neutral by construction.** `dT_ref` is the
+///   offset at the bed's own design point and rated power, so this term is
+///   *zero* there and the steady state is unchanged. Everything it moves is
+///   transient."~~
+///   **CORRECTED 2026-09-22 — true at RATED power, and misleading about this
+///   simulator.** The term is indeed identically zero at the reference state
+///   (950 K bed, 10 MWth), and
+///   [`tests::the_design_point_is_neutral`] still measures that. But **this
+///   simulator does not open at rated power** — it settles near 3.4 MWth, and
+///   at part load the kernel runs permanently cooler than its rated
+///   reference, so the channel contributes a near-constant **+0.31 $** rather
+///   than a small perturbation. The steady state is therefore *not*
+///   unchanged: ablating the channel moves the settled power from 3.3652 MW
+///   to 0.0896 MW, a factor of 37.
+///
+///   The magnitude is bounded — the term saturates at
+///   `-alpha_D * dT_ref / beta` = **+0.32 $** as power goes to zero — but
+///   bounded is not negligible here, and it is enough to stop the LOFC ATWS
+///   transient terminating. See
+///   [`super::tests::the_kernel_doppler_channel_is_ablated_on_the_lofc_transient`],
+///   which measures all of it, and which is why
+///   [`super::tests::lofc_atws_reactor_shuts_itself_down`] is currently
+///   failing rather than silenced.
 ///
 /// ## One bookkeeping detail, stated because it looks like a bug
 ///
