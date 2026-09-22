@@ -654,10 +654,15 @@ checks our MF=2/MT=152 against NJOY's committed 16-energy PENDF, and
 
 ### The two photoatomic tapes are compared through GAMINR, not ACER
 
-`src/acer/README.md` already records the dosimetry/photoatomic/photonuclear
+~~`src/acer/README.md` already records the dosimetry/photoatomic/photonuclear
 ACE classes (`acedo`/`acepa`/`acepn`) as unported, so there is no ACE table to
-difference. Both tapes are nonetheless code-to-code compared against NJOY2016
-via `tests/gaminr_vs_njoy2016.rs`, against committed GENDF goldens:
+difference.~~ **CORRECTED 2026-09-21** — `acepa` is now ported, and both
+photoatomic tapes **are** differenced as ACE tables against NJOY's own
+`acer iopt=4` output: byte-identical on the synthetic Z=6 tape, and 71 781 of
+71 807 words at print precision on U. See
+`acer_photoatomic_vs_njoy2016.md`. Dosimetry (`acedo`) and photonuclear
+(`acepn`) remain unported. The GAMINR comparison below stands as written and is
+now one of two independent routes through these tapes:
 `njoy_gaminr_u_photoatomic_matches_gamout` and
 `njoy_gaminr_synthetic_z6_matches_gamout` both pass.
 

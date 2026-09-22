@@ -175,7 +175,9 @@
 //! composes).
 
 pub mod control_rods;
+pub mod atmospheric_dispersion;
 pub mod decay_heat_removal;
+pub mod fission_product_release;
 pub mod kinetics;
 pub mod primary_loop;
 pub mod protection;
@@ -217,41 +219,73 @@ use reactor_model::{ReactorModel, ReactorModelKind};
 use secondary_loop::{SecondaryCommands, SteamSecondaryLoop};
 use turbine_generator::TurbineGeneratorShaft;
 
-/// **Control-rod bank insertion the simulator opens at**, 0.6035 (fraction,
-/// dimensionless).
+/// **Control-rod bank insertion the simulator opens at**, ~~0.6035~~
+/// ~~0.780927~~ **0.50** (fraction, dimensionless).
 ///
-/// The bank position the simulator opens at: **0.780927**, the insertion that
-/// holds the plant at the HTR-10 safety-demonstration test's **3 MWth** initial
-/// condition when the circulator runs at 30 % of rated flow.
+/// This constant has had three values and the prose below had drifted behind
+/// all of them, so the struck-through history is kept deliberately: a reader
+/// who finds an old number quoted elsewhere needs to be able to date it.
 ///
-/// # This is a PART-LOAD opening state, not the critical position
+/// # Where it sits relative to critical -- and the SIGN has changed
 ///
 /// ~~"Very nearly the bank position at which this core is critical with no
 /// external reactivity. Withdrawing the bank by even ten percent from here is
-/// a prompt excursion."~~ **CHANGED 2026-09-17** at the maintainer's request,
-/// so the simulator opens where the 15 Oct 2003 loss-of-forced-cooling ATWS
-/// test began rather than at rated power.
+/// a prompt excursion."~~ **CHANGED 2026-09-17**, so the simulator opened
+/// where the 15 Oct 2003 loss-of-forced-cooling ATWS test began rather than at
+/// rated power.
 ///
-/// Cold-clean critical is **0.604535**; this sits far deeper, commanding
-/// **-5.5186 $** of external reactivity. The reactor is held at 3 MWth by the
+/// ~~"Cold-clean critical is 0.604535; this sits far deeper, commanding
+/// -5.5186 $ of external reactivity. The reactor is held at 3 MWth by the
 /// bank, not by feedback, and the plant is *sub*critical in the cold-clean
-/// sense -- which is the point, because the LOFC demonstration starts from
-/// part load.
+/// sense."~~ **CORRECTED 2026-09-22 -- that is now backwards.** Cold-clean
+/// critical is **0.604535** and the bank now opens at **0.50**, which is
+/// *shallower*. The plant therefore starts **super**critical in the
+/// cold-clean sense and is held down by feedback rather than by the bank --
+/// the opposite of what the struck text describes, and the reason the opening
+/// transient is a rise rather than a hold.
 ///
-/// # Measured, not chosen
+/// **Why 0.50:** set by the maintainer so enough bank is left to insert that a
+/// shutdown on an ATWS following a DLOFC or LOFC can actually be demonstrated.
+/// Holding a power target was the *previous* criterion; it is not this one.
+/// Confirmed 2026-09-22 that 0.50, not 0.55, is intended.
 ///
-/// Found by bisecting settled power against insertion, at 1.290 kg/s helium
-/// (30 % of the published 4.3 kg/s) with a 1200 s settle, xenon off:
+/// The **-5.5186 $** figure above belonged to 0.780927 and is not re-derived
+/// here; see the struck table below for what it was and how it was found.
 ///
-/// | Quantity | Value |
+/// # ~~Measured, not chosen~~ CHOSEN, as of 2026-09-22 -- and that is the
+/// # maintainer's call, not a defect
+///
+/// **CORRECTED 2026-09-22.** The table below measured **0.780927**. The
+/// constant is now **0.50**, set by the maintainer so the simulator opens with
+/// enough bank withdrawn to demonstrate shutdown on an ATWS after a DLOFC or
+/// LOFC. Confirmed 2026-09-22: 0.50 is the intended value. (The commit that
+/// introduced it carried a note reading "i want 0.55"; the value shipped was
+/// 0.50 and 0.50 is what was meant.)
+///
+/// So the heading above is now wrong as written, and the table is kept
+/// **struck through** rather than deleted because it is the provenance of the
+/// number this replaced, and because it records the method that would have to
+/// be re-run to re-derive a power target:
+///
+/// | Quantity | ~~Value~~ SUPERSEDED |
 /// |---|---|
-/// | insertion | **0.780927** |
-/// | settled power | **3.0428 MW** (target 3.0000) |
-/// | external reactivity | **-5.5186 $** |
-/// | helium flow | 1.290 kg/s |
+/// | ~~insertion~~ | ~~**0.780927**~~ |
+/// | ~~settled power~~ | ~~**3.0428 MW** (target 3.0000)~~ |
+/// | ~~external reactivity~~ | ~~**-5.5186 $**~~ |
+/// | helium flow | 1.290 kg/s (unchanged) |
 ///
-/// Reproduce with `tests::report_the_rod_position_that_holds_three_megawatts`
-/// (about 34 minutes -- it settles the plant 15 times).
+/// **The settled power at 0.50 is NOT 3 MW, and is not yet measured here.**
+/// Less insertion is more reactivity, so it settles higher; by how much
+/// depends on feedback and takes a long settle to find, which is why the
+/// commit introducing it said "awaiting steady state (it takes very long)".
+/// Marked **not re-checked** deliberately rather than left reading as though
+/// the 3.0428 MW above still applied: a stale number that looks measured is
+/// worse than an absent one.
+///
+/// Re-derive with `tests::report_the_rod_position_that_holds_three_megawatts`
+/// (about 34 minutes -- it settles the plant 15 times) if a power target is
+/// wanted again. Note that test bisects *for* 3 MW; it does not report the
+/// power at a *given* insertion, which is the question 0.50 raises.
 ///
 /// # The dollar figures here are ambiguous, and that is a real defect
 ///
@@ -263,11 +297,17 @@ use turbine_generator::TurbineGeneratorShaft;
 /// One physical quantity, two values, 11.7 % apart. Every dollar figure above
 /// depends on which one is used; the pcm figures do not. Not fixed here.
 ///
-/// author change, i want 0.55 so there is some ability to demonstrate 
-/// shutdown on ATWS after DLOFC or LOFC
 pub const GUI_INITIAL_ROD_INSERTION: f64 = 0.50;
 
 /// Fraction of rated helium flow the simulator opens at: **0.30**.
+///
+/// **The name lies about the units and the call site cannot tell.** This is a
+/// dimensionless *fraction*, not kg/s: it is consumed as
+/// `GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow()`, so the plant
+/// opens at **1.290 kg/s**, not 0.30 kg/s -- a factor of 4.3 apart, and both
+/// are plausible-looking helium flows for this machine. Left named as-is
+/// rather than renamed in a change about something else; read the
+/// multiplication, not the suffix.
 ///
 /// The HTR-10 loss-of-forced-cooling test began from part load, and
 /// [`GUI_INITIAL_ROD_INSERTION`] was bisected against settled power AT this
@@ -328,6 +368,14 @@ pub struct PlantCommands {
     pub secondary: SecondaryCommands,
     /// Which accident scenario, if any, the plant is running.
     pub scenario: Scenario,
+    /// Wind driving the atmospheric dispersion channel.
+    ///
+    /// A **command**, not plant state: the wind is weather, so the operator
+    /// dials it in exactly as they would read it off a met mast. It reaches
+    /// the plant the same way every other command does rather than being
+    /// poked into the dispersion channel directly, so a headless run and the
+    /// GUI drive it identically.
+    pub meteorology: atmospheric_dispersion::Meteorology,
 }
 
 /// The accident scenario the plant is running.
@@ -398,6 +446,7 @@ impl Default for PlantCommands {
             // flow the same bank position settles somewhere else entirely.
             helium_flow_setpoint: GUI_INITIAL_HELIUM_FLOW_KG_PER_S * nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
+            meteorology: atmospheric_dispersion::Meteorology::default(),
             scenario: Scenario::Normal,
         }
     }
@@ -759,6 +808,17 @@ pub struct HtgrPlant {
     pub sim_time: Time,
     /// Passive decay-heat path out to the RCCS. See [`decay_heat_removal`].
     pub decay_heat_path: decay_heat_removal::CoreToRccsPath,
+    /// TRISO fission-product release, driven off the SAME resolved fuel-kernel
+    /// temperature as the Doppler channel. Quasi-steady and stateless, so it
+    /// sits outside the corrector loop -- see [`fission_product_release`].
+    pub release: fission_product_release::TrisoAtopsReleaseChannel,
+    /// Gaussian puff atmospheric dispersion, driven by the release channel's
+    /// circulating pool. Quasi-steady like the release channel and far more
+    /// expensive, so it is throttled harder and sits outside the corrector
+    /// loop -- see [`atmospheric_dispersion`], whose binding scope limit
+    /// (research/education/V&V only, no dose quantity of any kind) applies to
+    /// everything it produces.
+    pub dispersion: atmospheric_dispersion::AtmosphericDispersionChannel,
     /// Sim time at which the current scenario was first commanded, `None`
     /// under [`Scenario::Normal`]. Drives the protection system's
     /// secondary-isolation delay.
@@ -782,6 +842,8 @@ impl HtgrPlant {
             protection: ReactorProtectionSystem::new(),
             sim_time: Time::new::<second>(0.0),
             decay_heat_path: decay_heat_removal::CoreToRccsPath::placeholder(),
+            release: fission_product_release::TrisoAtopsReleaseChannel::new_htr10(),
+            dispersion: atmospheric_dispersion::AtmosphericDispersionChannel::new(),
             scenario_started_at: None,
             core_heat_to_helium: Power::new::<watt>(0.0),
         }
@@ -878,6 +940,7 @@ impl HtgrPlant {
             helium_flow_setpoint,
             secondary: secondary_commands,
             scenario,
+            meteorology: _,
         } = commands;
 
         // Apply the scenario BEFORE the sim clock advances, so `scenario_time`
@@ -1010,6 +1073,18 @@ impl HtgrPlant {
             // the same predictor-corrector treatment every other coupling in
             // this loop gets. It is applied at KINETICS substep resolution
             // inside `step`, not as one lump per plant step.
+            // The kernel-above-node resistance from the bed's most recent
+            // resolved pebble solve, handed over BEFORE the kinetics steps so
+            // the Doppler channel can follow the kernel at substep resolution.
+            // Same predictor-corrector treatment as `core_heat_to_helium`
+            // above: the previous corrector's (or step's) value, tightening as
+            // the loop iterates. A `None` -- the bed's solve out of its
+            // correlation window -- disables the kernel term for the step and
+            // leaves the whole isothermal coefficient on the bed node, which
+            // is the model that was in service before the pebble was resolved.
+            // See `kinetics::KernelDopplerChannel`.
+            self.kinetics
+                .set_kernel_offset_resistance(self.core.kernel_offset_resistance());
             self.kinetics
                 .step(dt, external_reactivity_dollars, self.core_heat_to_helium);
 
@@ -1107,6 +1182,42 @@ impl HtgrPlant {
         mark_component("turbine-generator shaft (torque balance)");
         self.shaft
             .step(dt, self.secondary.turbine_power(), self.sim_time);
+
+        // 6. TRISO fission-product release, at the converged fuel-kernel
+        // temperature. OUTSIDE the corrector loop and after it, for the same
+        // reason the shaft is: it is a pure consumer of converged state and
+        // feeds nothing back into the plant. It is also quasi-steady and holds
+        // no integrated state, so there is nothing for a corrector to rewind
+        // and nothing gained by iterating it.
+        //
+        // It is handed the KERNEL temperature, not the bed's. On the two
+        // placeholder fidelity tiers that is `None` and the channel declines
+        // to evaluate rather than substituting the bed -- the release
+        // coefficients are Arrhenius, so the wrong temperature would not give
+        // a slightly wrong answer, it would give a confident one. See
+        // `fission_product_release`.
+        mark_component("TRISO fission-product release (TRISO-ATOPS)");
+        self.release.update(
+            self.sim_time.get::<second>(),
+            self.core.peak_kernel_temperature(),
+            self.core.temperature(),
+        );
+
+        // 7. Atmospheric dispersion, driven by the release channel's
+        // circulating pool. Last, and outside the corrector loop, for the same
+        // reason as the two above: a pure consumer of converged state that
+        // feeds nothing back. Throttled harder still (60 s against the release
+        // channel's 1 s) because a puff run is the most expensive thing in
+        // this plant and is quasi-steady -- nothing it reads can change faster.
+        mark_component("atmospheric dispersion (Gaussian puff)");
+        // Apply the commanded wind before evaluating. `set_meteorology` forces
+        // a re-evaluation when the value actually changes, so an operator who
+        // turns the wind sees the rose follow without waiting out the throttle.
+        if commands.meteorology != self.dispersion.meteorology() {
+            self.dispersion.set_meteorology(commands.meteorology);
+        }
+        self.dispersion
+            .update(self.sim_time.get::<second>(), &self.release);
     }
 
     /// Project the current plant state onto the shared [`HtgrSnapshot`],
@@ -1124,6 +1235,63 @@ impl HtgrPlant {
         // over. Drawing the kinetics node made the bed appear COOLER than the
         // gas leaving it, which is thermodynamically impossible.
         s.bed_temperature_k = self.pebble_temperature().get::<kelvin>();
+
+        // The resolved fuel kernel, and what it is worth. `NAN` rather than a
+        // fallback when the tier does not resolve one -- see the field docs.
+        let kernel = self.core.peak_kernel_temperature();
+        s.peak_kernel_temperature_k = kernel.map_or(f64::NAN, |t| t.get::<kelvin>());
+        s.kernel_offset_k = kernel.map_or(f64::NAN, |t| {
+            t.get::<kelvin>() - self.core.temperature().get::<kelvin>()
+        });
+        s.kernel_doppler_dollars = self.kinetics.kernel_doppler_reactivity_dollars();
+
+        // TRISO fission-product release, on a UNIT-INVENTORY basis. See
+        // `fission_product_release` -- these are Ci per Ci of core inventory
+        // and are not a source term for any reactor.
+        s.release_circulating_ci_per_ci = self.release.total_circulating();
+        s.release_evaluated_at_kernel_k = self
+            .release
+            .evaluated_at_kernel()
+            .map_or(f64::NAN, |t| t.get::<kelvin>());
+        // The resolved pebble interior, published in full -- see the field
+        // docs on why the GUI is not left to interpolate it.
+        let profile = self.core.pebble_profile();
+        s.pebble_surface_k = profile.map_or(f64::NAN, |p| p.surface.get::<kelvin>());
+        s.pebble_zone_boundary_k =
+            profile.map_or(f64::NAN, |p| p.fuelled_zone_boundary.get::<kelvin>());
+        s.pebble_centre_k = profile.map_or(f64::NAN, |p| p.centre.get::<kelvin>());
+        s.particle_sic_k = profile.map_or(f64::NAN, |p| {
+            p.hottest_particle.silicon_carbide_outer.get::<kelvin>()
+        });
+
+        // Atmospheric dispersion. chi/Q is the quotable field; the two
+        // activity fields are a transfer function -- see the snapshot's own
+        // field docs and `atmospheric_dispersion`'s scope limit.
+        // NOTE: `wind_speed_m_per_s` and `wind_from_deg` are deliberately NOT
+        // written here. They are GUI-owned CONTROL INPUTS, like the rod
+        // position and the flow setpoint -- `write_snapshot` writes output
+        // fields only, and echoing a command back would overwrite whatever the
+        // operator had just dialled in on the very next tick.
+        if let Some(result) = self.dispersion.latest() {
+            s.dispersion_evaluated_at_s = result.evaluated_at_s;
+            s.stability_class = result.stability.map_or("", |c| c.letter());
+            for (slot, r) in s.receptors.iter_mut().zip(result.receptors.iter()) {
+                slot.bearing_deg = r.bearing_deg;
+                slot.distance_m = r.distance_m;
+                slot.chi_over_q = r.chi_over_q;
+                slot.air_bq_s_per_m3 = r.air_bq_s_per_m3;
+                slot.ground_bq_per_m2 = r.ground_bq_per_m2;
+            }
+        }
+
+        for (slot, release) in s.release.iter_mut().zip(self.release.latest()) {
+            slot.name = release.name;
+            slot.release_rate = release.activities.release_rate;
+            slot.graphite_activity = release.activities.graphite_activity;
+            slot.circulating_activity = release.activities.circulating_activity;
+            slot.plate_out_activity = release.activities.plate_out_activity;
+            slot.clean_up_activity = release.activities.clean_up_activity;
+        }
         s.trip_reason = self.protection.trip_reason();
         s.scram_insertion_fraction = self.protection.scram_insertion();
         s.reactivity_margin_dollars = self.kinetics.reactivity_margin_dollars();
@@ -1241,6 +1409,7 @@ mod tests {
             helium_flow_setpoint: nominal_helium_flow(),
             secondary: SecondaryCommands::default(),
             scenario: Scenario::Normal,
+            meteorology: atmospheric_dispersion::Meteorology::default(),
         }
     }
 

@@ -117,6 +117,10 @@ pub enum Panel {
     Diagnostics,
     /// Static HTR-10 R-Z benchmark geometry viewer (issue #23).
     Geometry,
+    /// Live core map -- the same R-Z geometry coloured from plant state,
+    /// drilled down to the fuel kernel, plus the TRISO-ATOPS release table.
+    /// See [`crate::app::map_tab`].
+    Map,
 }
 
 impl PanelSet for Panel {
@@ -125,6 +129,7 @@ impl PanelSet for Panel {
         Self::Plots,
         Self::Diagnostics,
         Self::Geometry,
+        Self::Map,
     ];
 
     fn label(&self) -> &'static str {
@@ -133,6 +138,7 @@ impl PanelSet for Panel {
             Self::Plots => "Time-History Plots",
             Self::Diagnostics => "Diagnostics",
             Self::Geometry => "HTR-10 Geometry",
+            Self::Map => "Map",
         }
     }
 }
@@ -518,6 +524,50 @@ fn draw_secondary_controls(
          resistive load with no governor and no throttle valve, so there is \
          nothing to command. Feedwater flow is what moves the load.",
     );
+
+    // ── Meteorology ─────────────────────────────────────────────────────
+    //
+    // Weather, not plant state, and grouped last because it commands nothing
+    // about the reactor -- it only steers the dispersion map on the Map tab.
+    // An operator would read these off a met mast rather than set them, which
+    // is why the labels name the measurement rather than a setpoint.
+    ui.separator();
+    ui.label("Meteorology (drives the Map tab's dispersion rose)");
+    let mut wind_speed = snapshot.wind_speed_m_per_s;
+    let mut wind_from = snapshot.wind_from_deg;
+
+    // 0.5 m/s floor, not zero: the Pasquill-Gifford stability lookup is
+    // defined from a non-zero wind, and a dead calm is a regime a Gaussian
+    // puff model cannot represent at all (nothing advects, so the puffs pile
+    // up at the source and the model's own travel-distance sigmas are
+    // undefined). Stated rather than silently clamped.
+    let speed_changed = ui
+        .add(
+            egui::Slider::new(&mut wind_speed, 0.5..=15.0)
+                .text("wind speed (m/s)")
+                .drag_value_speed(0.01),
+        )
+        .changed();
+    let direction_changed = ui
+        .add(
+            egui::Slider::new(&mut wind_from, 0.0..=360.0)
+                .text("wind FROM (deg from north)")
+                .drag_value_speed(0.1),
+        )
+        .changed();
+    ui.small(
+        "Meteorological convention: the direction the wind blows FROM. A wind \
+         from 0 deg (north) carries the plume SOUTH. Below 0.5 m/s a Gaussian \
+         puff model has nothing to advect and the stability lookup is \
+         undefined, so the slider stops there rather than clamping silently.",
+    );
+
+    if speed_changed || direction_changed {
+        physics.update(|s| {
+            s.wind_speed_m_per_s = wind_speed;
+            s.wind_from_deg = wind_from;
+        });
+    }
 }
 
 /// Schematic panel body.

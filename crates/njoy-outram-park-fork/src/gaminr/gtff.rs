@@ -35,7 +35,6 @@
 //! / discontinuity conventions including the `shade` extrapolation just past
 //! the last point.
 
-use crate::endf::interp::{terp1, IntLaw};
 use crate::groupr::kinematics::legndr;
 use crate::NjoyError;
 
@@ -58,10 +57,6 @@ const RNDOFF: f64 = 1.0000001;
 pub const EMAX: f64 = 1.0e12;
 /// `close` (`:1210`).
 const CLOSE: f64 = 0.99999;
-/// `shade` in `terpa` (`endf.f90`).
-const SHADE: f64 = 1.00001;
-/// `xbig` in `terpa`.
-const XBIG: f64 = 1.0e12;
 
 /// `epair` (`phys.f90:49`): the electron rest energy `m_e c^2` \[eV\],
 /// `amasse * amu * c^2 / ev` with `amasse = 5.48579909065e-4` amu and
@@ -88,50 +83,12 @@ impl PhotonTab1 {
     /// `shade` times it `y = y_np` with `xnext = shade^2 x_np` (`xbig` if
     /// `y_np = 0`); beyond that `y = 0`, `xnext = xbig`. `idis = 1` for a
     /// histogram region or a duplicated `xnext`.
+    ///
+    /// Delegates to [`crate::endf::interp::terpa`], the generic port of
+    /// `endf.f90`'s routine — MF=27 is one TAB1 among many and does not need
+    /// its own copy of the boundary conventions.
     pub fn terpa(&self, x: f64) -> (f64, f64, bool) {
-        let p = &self.pairs;
-        let np = p.len();
-        if np == 0 {
-            return (0.0, XBIG, false);
-        }
-        if x < p[0].0 {
-            return (0.0, p[0].0, true);
-        }
-        let last = p[np - 1];
-        if x >= last.0 {
-            if x < SHADE * last.0 {
-                let xnext = if last.1 > 0.0 {
-                    SHADE * SHADE * last.0
-                } else {
-                    XBIG
-                };
-                return (last.1, xnext, false);
-            }
-            return (0.0, XBIG, false);
-        }
-        // Bracket: 1-based ip with x(ip-1) <= x < x(ip).
-        let ip = p.partition_point(|q| q.0 <= x) + 1; // 1-based upper point
-        let ip = ip.max(2).min(np);
-        // Region: the first with nbt >= ip.
-        let mut law = 2u32;
-        for &(nbt, int) in &self.interp {
-            if ip as u32 <= nbt {
-                law = int;
-                break;
-            }
-        }
-        let (x1, y1) = p[ip - 2];
-        let (x2, y2) = p[ip - 1];
-        let y = if x == x1 {
-            y1
-        } else {
-            terp1(x1, y1, x2, y2, x, IntLaw::from_code(law)).unwrap_or(y1)
-        };
-        let mut idis = law == 1;
-        if ip < np && p[ip].0 == x2 {
-            idis = true;
-        }
-        (y, x2, idis)
+        crate::endf::interp::terpa(&self.interp, &self.pairs, x)
     }
 }
 
@@ -498,6 +455,7 @@ const QW10: [f64; 10] = [
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::endf::interp::{TERPA_SHADE as SHADE, TERPA_XBIG as XBIG};
 
     fn form_factor(z: f64) -> PhotonTab1 {
         let xs = [0.0, 0.01, 0.1, 0.5, 1.0, 5.0, 100.0, 1.0e9];

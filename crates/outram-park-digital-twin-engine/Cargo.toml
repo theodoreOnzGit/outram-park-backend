@@ -137,6 +137,31 @@ serde.workspace = true
 # accessor into tampines is the tidier long-term home.
 outram-park-fork-coolprop.workspace = true
 
+# htgr_sim_v1's TRISO fission-product release channel
+# (`physics::fission_product_release`) drives `boon-lay`'s Rust fork of Idaho
+# National Laboratory's TRISO-ATOPS off the resolved fuel-kernel temperature.
+# A DEV-dependency, not a real one: only the example uses it, and this crate's
+# own CLAUDE.md forbids new physics in the library. No new weight in the tree
+# either -- `tampines` already depends on `boon-lay` (its `TrisoParticle`
+# converts to and from that crate's `TrisoCell`), so this entry makes an
+# existing transitive dependency nameable from the example rather than adding
+# one. AGPL/GPL note: `boon-lay` is GPL-3.0 like this crate, and the TRISO-ATOPS
+# fork inside it carries its upstream MIT notice, which is GPLv3-compatible.
+boon-lay.workspace = true
+
+# htgr_sim_v1's atmospheric dispersion channel
+# (`physics::atmospheric_dispersion`) takes the TRISO release channel's
+# circulating activity out of the primary circuit and downwind, using
+# `changi`'s Gaussian puff model (a port of the R package `puff` 0.1.1) and its
+# activity layer. DEV-dependency for the same reasons as `boon-lay` above:
+# example-only, and this crate's CLAUDE.md forbids new physics in the library.
+#
+# SCOPE (RESPONSIBLE_USE.md, and `changi::activity`'s own binding scope limit):
+# research, education and V&V only. Never for emergency planning, emergency
+# response, dose assessment for real populations, or Level 3 PSA. No dose
+# quantity of any kind is computed.
+changi.workspace = true
+
 # htgr_sim_v1's `physics::reactor_model::coarse_mesh_genfoam` placeholder cites
 # this crate's `genfoam` module (multi-region neutronics + thermal-hydraulics)
 # as its intended real integration target, stepped by

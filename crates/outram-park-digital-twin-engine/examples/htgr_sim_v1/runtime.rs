@@ -99,6 +99,7 @@ impl PlantControls {
     /// The per-step physics arguments these controls imply.
     fn to_commands(&self) -> PlantCommands {
         PlantCommands {
+            meteorology: crate::physics::atmospheric_dispersion::Meteorology::default(),
             control_rod_insertion_fraction: self.control_rod_insertion_fraction,
             helium_flow_setpoint: MassRate::new::<kilogram_per_second>(
                 self.helium_flow_setpoint_kg_per_s,

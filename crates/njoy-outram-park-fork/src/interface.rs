@@ -272,6 +272,28 @@ impl NuclearDataLibrary {
     /// [`NjoyError::EndfParse`] if the MF=4 section is malformed, or
     /// [`NjoyError::Io`] if the file cannot be written.
     pub fn write_ace<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
+        self.build_ace()?.write_type1(path).map_err(NjoyError::Io)
+    }
+
+    /// The same table in the **Type-2** (Fortran unformatted sequential)
+    /// container — `acer`'s `itype = 2`.
+    ///
+    /// Available since the crate's two Type-1 writers were merged (2026-09-22):
+    /// before that, `AceTable` had its own serialiser which could emit Type 1
+    /// only, so nothing this crate built had a binary form. Both containers
+    /// now go through [`crate::acer::read::RawAceTable`].
+    ///
+    /// # Errors
+    /// As [`write_ace`][Self::write_ace].
+    pub fn write_ace_type2<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
+        self.build_ace()?.write_type2(path)
+    }
+
+    /// Assemble the table both writers share.
+    ///
+    /// # Errors
+    /// As [`write_ace`][Self::write_ace].
+    fn build_ace(&self) -> Result<crate::acer::AceTable, NjoyError> {
         let r = self.reconr.as_ref().ok_or(NjoyError::NotPorted(
             "call .reconstruct() before .write_ace()",
         ))?;
@@ -325,7 +347,7 @@ impl NuclearDataLibrary {
             crate::acer::has_mt19_distributions(&self.tape, self.mat),
             photon_entries.as_deref(),
         );
-        ace.write_type1(path).map_err(NjoyError::Io)
+        Ok(ace)
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

@@ -94,6 +94,7 @@
 //! so the loop's Picard contraction factor *is* the Courant number.
 
 pub mod geometry_tab;
+pub mod map_tab;
 pub mod panels;
 pub mod plant_v1_1;
 // The v1 drawing is no longer on screen (v1.1 replaced it on 2026-09-22) but
@@ -144,6 +145,16 @@ fn plant_commands_from(s: &HtgrSnapshot) -> PlantCommands {
     PlantCommands {
         control_rod_insertion_fraction: s.control_rod_insertion_fraction,
         helium_flow_setpoint: MassRate::new::<kilogram_per_second>(s.helium_flow_setpoint_kg_per_s),
+        // Wind is weather, not plant state -- the operator dials it in the way
+        // they would read it off a met mast. Nothing is clamped here; the
+        // dispersion channel bounds it, same as every other command.
+        meteorology: crate::physics::atmospheric_dispersion::Meteorology {
+            speed: uom::si::f64::Velocity::new::<uom::si::velocity::meter_per_second>(
+                s.wind_speed_m_per_s,
+            ),
+            direction_from: uom::si::f64::Angle::new::<uom::si::angle::degree>(s.wind_from_deg),
+            ..crate::physics::atmospheric_dispersion::Meteorology::default()
+        },
         scenario: if s.circulator_tripped {
             crate::physics::Scenario::Lofc
         } else {
@@ -714,6 +725,7 @@ impl eframe::App for HtgrSimApp {
                 Panel::Plots => draw_plots_panel(ui, &plots, display_unit),
                 Panel::Diagnostics => draw_diagnostics_panel(ui, &snapshot, display_unit),
                 Panel::Geometry => draw_geometry_panel(ui, &mut self.geometry_zoom),
+                Panel::Map => map_tab::draw_map(ui, &snapshot),
             });
         });
 

@@ -132,31 +132,24 @@ struct ParsedAce {
     xss: Vec<f64>,
 }
 
-/// Parse a Type-1 ASCII ACE table written by [`AceTable::write_to`].
+/// Parse a Type-1 ASCII ACE table written by [`AceTable::write_to`], through
+/// the library reader.
 ///
-/// Layout: 2 header lines, 4 IZAW lines, 6 lines of NXS(16)+JXS(32) (8 ints
-/// each), then the XSS data (4 values per line). Numeric fields are
-/// whitespace-separable because every field is right-justified in its column.
+/// This was a hand-rolled parser — one of five near-identical copies in this
+/// crate — until `acer::read` landed on 2026-09-21. Going through the library
+/// makes this a real **write -> read round trip**: the same reader that
+/// consumes NJOY2016's output consumes ours. A table this crate writes but its
+/// own reader cannot read now fails here, and so does one whose `NXS(1)`
+/// disagrees with the number of values actually written — a check the
+/// hand-rolled version did not make.
 fn parse_type1(text: &str) -> ParsedAce {
-    let lines: Vec<&str> = text.lines().collect();
-    // Skip 2 header + 4 IZAW lines.
-    let mut ints: Vec<i32> = Vec::new();
-    for line in &lines[6..12] {
-        for tok in line.split_whitespace() {
-            ints.push(tok.parse().unwrap());
-        }
+    let t = njoy_outram_park_fork::acer::read::parse_type1(text)
+        .expect("our own Type-1 output must be readable by our own reader");
+    ParsedAce {
+        nxs: t.nxs.to_vec(),
+        jxs: t.jxs.to_vec(),
+        xss: t.xss,
     }
-    assert_eq!(ints.len(), 48, "expected 16 NXS + 32 JXS integers");
-    let nxs = ints[..16].to_vec();
-    let jxs = ints[16..].to_vec();
-
-    let mut xss: Vec<f64> = Vec::new();
-    for line in &lines[12..] {
-        for tok in line.split_whitespace() {
-            xss.push(tok.parse().unwrap());
-        }
-    }
-    ParsedAce { nxs, jxs, xss }
 }
 
 #[test]
@@ -603,4 +596,77 @@ fn esz_heating_column_is_physical() {
         (150.0..200.0).contains(&hmax),
         "peak heating {hmax} MeV should be ~185 MeV (thermal-fission dominated)"
     );
+}
+
+
+/// **One writer, and the continuous-energy class can now write Type 2.**
+///
+/// Until 2026-09-22 this crate had two independent Type-1 serialisers —
+/// `AceTable`'s own in `src/acer/write.rs` and `RawAceTable::to_type1_string`
+/// in `src/acer/read.rs` — with two copies of the Fortran edit descriptors
+/// between them, which had drifted (the read-side copy wrote `1pE11.4` of
+/// zero as `0.0000` and dropped `f11.0`'s decimal point). `AceTable` now
+/// converts to `RawAceTable` and there is one serialiser.
+///
+/// Two consequences are checked here:
+///
+/// 1. **The text a built table writes is exactly what the shared serialiser
+///    produces** — i.e. the delegation is real rather than a second path that
+///    happens to agree today.
+/// 2. **A continuous-energy table has a binary form now.** The old
+///    `AceTable`-specific writer could emit Type 1 only, so nothing this crate
+///    built could be written as Type 2. Both containers must read back to the
+///    same table, which is the same property
+///    `tests/ace_read_type1_vs_type2.rs` asserts for NJOY's own files.
+#[test]
+fn one_writer_and_both_containers_for_a_built_table() {
+    use njoy_outram_park_fork::acer::read::{self, AceFileType};
+
+    let ace = build_full("n-001_H_002-ENDF8.0.endf", 128);
+
+    // (1) `write_to` is the shared serialiser, byte for byte.
+    let mut buf: Vec<u8> = Vec::new();
+    ace.write_to(&mut buf).unwrap();
+    let raw = ace.to_raw(AceFileType::Type1Ascii).expect("to_raw");
+    assert_eq!(
+        String::from_utf8(buf).unwrap(),
+        raw.to_type1_string(),
+        "AceTable::write_to must be RawAceTable::to_type1_string and nothing else"
+    );
+    assert_eq!(raw.header.class, read::AceClass::ContinuousNeutron);
+    assert_eq!(
+        raw.xss_is_int.as_ref().map(|m| m.len()),
+        Some(ace.xss.len()),
+        "the built table's own integer mask must be carried, not re-derived \
+         by the reader's heuristic"
+    );
+
+    // (2) Type 2 round trip, through a real file so the record framing is
+    // exercised rather than an in-memory buffer.
+    let dir = std::env::temp_dir().join(format!(
+        "outram-ace-type2-{}",
+        std::process::id()
+    ));
+    std::fs::create_dir_all(&dir).expect("scratch dir");
+    let path = dir.join("h2.type2.ace");
+    ace.write_type2(&path).expect("write Type 2");
+    let back = read::read(&path).expect("read Type 2 back");
+    assert_eq!(back.nxs, ace.nxs, "NXS through Type 2");
+    assert_eq!(back.jxs, ace.jxs, "JXS through Type 2");
+    assert_eq!(back.xss.len(), ace.xss.len(), "XSS length through Type 2");
+    // Type 2 stores raw doubles, so this is exact -- unlike Type 1, which
+    // rounds to 12 printed digits.
+    let differing = back
+        .xss
+        .iter()
+        .zip(ace.xss.iter())
+        .filter(|(a, b)| a != b)
+        .count();
+    assert_eq!(
+        differing, 0,
+        "Type 2 is a binary container, so every value must come back bit-identical"
+    );
+    // And the container is sniffed, not assumed.
+    assert_eq!(back.file_type, AceFileType::Type2Binary);
+    let _ = std::fs::remove_dir_all(&dir);
 }

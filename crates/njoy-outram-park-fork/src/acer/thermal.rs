@@ -40,7 +40,9 @@
 //! - **LEAPR** (`leapr.f90`) — *generates* MF=7 when an evaluation lacks it;
 //!   optional, since the ENDF/B thermal sublibrary ships MF=7.
 
-use crate::acer::acesix::{acesix_equiprobable, normalized_rows, BinWeights};
+use crate::acer::acesix::{
+    acesix_equiprobable, acesix_tabulated, normalized_rows, AcesixPoint, BinWeights,
+};
 use crate::thermr::calcem::iform0::compute_iform0;
 use crate::thermr::calcem::types::{Iform0Table, IncidentEnergyRecord};
 use crate::thermr::inelastic::OutgoingBin;
@@ -51,6 +53,51 @@ use super::AceTable;
 
 /// eV → MeV.
 const EMEV: f64 = 1.0e6;
+
+/// Which inelastic secondary-energy form the table stores — `NXS(7)`, and the
+/// `iwt` that selects it on ACER card 9 (`aceth.f90:674-676`).
+///
+/// This is **not** three flavours of the same block. The first two share a
+/// layout and differ only in how the fixed `NIEB` bins are weighted; the third
+/// changes the layout, the meaning of `NIL`, and the length of the table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InelasticForm {
+    /// `iwt = 1`, `IFENG = 0` — `NIEB` bins of equal probability. `NIL` is
+    /// `nang - 1`. What production `tsl` libraries have historically shipped.
+    #[default]
+    Equiprobable,
+    /// `iwt = 0`, `IFENG = 1` — the same `NIEB` bins under NJOY's default
+    /// `1 4 10 … 10 4 1` weighting, so the outlying bins carry a tenth of the
+    /// probability of an interior one. **Same layout and same `NIL`**; only
+    /// the bin edges move, and `NXS(7)` tells a sampler not to draw uniformly.
+    Skewed,
+    /// `iwt = 2`, `IFENG = 2` — the continuous form. The fixed bin count is
+    /// abandoned: each incident energy stores its own number of
+    /// `(E', pdf, cdf, mu_1..mu_nang)` points, `NIL` becomes `nang + 1`, and a
+    /// `2 * NEI` table of (offset, count) pairs is written ahead of `ITXE`
+    /// (`aceth.f90:815-851`).
+    Continuous,
+}
+
+impl InelasticForm {
+    /// `NXS(7)`.
+    pub fn ifeng(self) -> i32 {
+        match self {
+            InelasticForm::Equiprobable => 0,
+            InelasticForm::Skewed => 1,
+            InelasticForm::Continuous => 2,
+        }
+    }
+    /// `NIL` (`aceth.f90:816-820`): `nang - 1` for the binned forms and
+    /// `nang + 1` for the continuous one, which carries a density and a
+    /// cumulative beside each cosine set.
+    pub fn nil(self, nang: usize) -> i32 {
+        match self {
+            InelasticForm::Continuous => (nang + 1) as i32,
+            _ => (nang - 1) as i32,
+        }
+    }
+}
 
 /// Options for the thermal inelastic table dimensions.
 #[derive(Debug, Clone, Copy)]
@@ -67,6 +114,8 @@ pub struct ThermalAceOptions {
     /// Upper limit of the thermal treatment \[eV\] — THERMR card-4 `emax`,
     /// which bounds the `calcem` incident-energy grid the bins are built from.
     pub emax_ev: f64,
+    /// Which inelastic secondary-energy form to write (`NXS(7)`).
+    pub form: InelasticForm,
 }
 
 /// THERMR card-4 `tol`, 0.05 in the standard thermal decks.
@@ -104,6 +153,7 @@ impl Default for ThermalAceOptions {
             n_cosines: 8,
             emax_ev: 4.0,
             natom: 1.0,
+            form: InelasticForm::Equiprobable,
         }
     }
 }
@@ -173,11 +223,10 @@ impl AceTable {
     /// range (beyond the NJOY `T/1000 + 5` K tolerance).
     ///
     /// # Known gaps (not silently missing — tracked, not yet ported)
-    /// - **IFENG is always 0** (equiprobable): the skewed (IFENG=1) and
-    ///   continuous-tabular (IFENG=2) inelastic secondary-energy forms are not
-    ///   implemented. IFENG=0 is what production ACE thermal libraries (e.g.
-    ///   the LANL `tsl` distributions) typically ship, so this covers the
-    ///   common case.
+    /// - **All three `IFENG` forms are written** — equiprobable (0), skewed
+    ///   (1) and continuous (2) — selected by
+    ///   [`ThermalAceOptions::form`]. ~~IFENG is always 0.~~ **CORRECTED
+    ///   2026-09-22.**
     /// - **`opts.natom` is a single scalar** — multi-scatterer mixing (`nmix` >
     ///   1 in `aceth.f90`, e.g. a material with two distinct bound-atom
     ///   populations contributing to the same thermal table) is not supported;
@@ -205,36 +254,53 @@ impl AceTable {
         // (`nmix` in `aceth.f90`). Every material here is treated as nmix=1.
         let natom = opts.natom;
 
-        // Per incident energy: cross section + equiprobable emission bins.
-        // TODO(IFENG=1/2): only the equiprobable (IFENG=0) form is produced.
-        // The skewed (IFENG=1) and continuous-tabular (IFENG=2) secondary-energy
-        // forms are not ported (`iwt > 1` in `aceth.f90`).
         let xs: Vec<f64> = energy_grid
             .iter()
             .map(|&e| ii.cross_section(e, temp_k, natom))
             .collect();
-        // The bins come from `calcem` through the ported `acesix`, which is what
-        // NJOY does: THERMR writes the MF=6 emission matrix and ACER bins it.
-        // `BinWeights::Constant` (`iwt = 1`) is required, not chosen — the ACE
-        // `IFENG = 0` block's bins are sampled uniformly, and the variable
-        // `1 4 10 ... 10 4 1` pattern deliberately makes them *un*equally
-        // probable ("outlying bins with smaller probabilities", `acer.f90:131`).
+        // The emission law comes from `calcem` through the ported `acesix`,
+        // which is what NJOY does: THERMR writes the MF=6 emission matrix and
+        // ACER turns it into bins or into a tabulated density.
+        //
+        // The weighting is **fixed by the form, not chosen**: `IFENG = 0`'s
+        // bins are sampled uniformly so they must be equal-area
+        // (`BinWeights::Constant`, `iwt = 1`), while `IFENG = 1` exists
+        // precisely to make them unequal ("outlying bins with smaller
+        // probabilities", `acer.f90:131`) and so takes the variable
+        // `1 4 10 ... 10 4 1` pattern. Pairing either with the other flag
+        // would write a table whose NXS(7) lies about its own contents.
         let calcem = compute_iform0(ii, natom, nang, opts.emax_ev, CALCEM_TOL)?;
-        let emission: Vec<Vec<OutgoingBin>> = energy_grid
-            .iter()
-            .map(|&e| {
-                let Some(rec) = nearest_calcem_record(&calcem, e) else {
-                    return Vec::new();
-                };
-                acesix_equiprobable(&normalized_rows(&rec.rows), nieb, BinWeights::Constant)
-                    .into_iter()
-                    .map(|b| OutgoingBin {
-                        e_out_ev: b.e_out_ev,
-                        cosines: b.cosines,
-                    })
-                    .collect()
-            })
-            .collect();
+        let mut emission: Vec<Vec<OutgoingBin>> = Vec::new();
+        let mut tabulated: Vec<Vec<AcesixPoint>> = Vec::new();
+        if opts.form == InelasticForm::Continuous {
+            tabulated = energy_grid
+                .iter()
+                .map(|&e| match nearest_calcem_record(&calcem, e) {
+                    Some(rec) => acesix_tabulated(&normalized_rows(&rec.rows), nang),
+                    None => Vec::new(),
+                })
+                .collect();
+        } else {
+            let weights = match opts.form {
+                InelasticForm::Skewed => BinWeights::Variable,
+                _ => BinWeights::Constant,
+            };
+            emission = energy_grid
+                .iter()
+                .map(|&e| {
+                    let Some(rec) = nearest_calcem_record(&calcem, e) else {
+                        return Vec::new();
+                    };
+                    acesix_equiprobable(&normalized_rows(&rec.rows), nieb, weights)
+                        .into_iter()
+                        .map(|b| OutgoingBin {
+                            e_out_ev: b.e_out_ev,
+                            cosines: b.cosines,
+                        })
+                        .collect()
+                })
+                .collect();
+        }
 
         let mut xss: Vec<f64> = Vec::new();
         let mut is_int: Vec<bool> = Vec::new();
@@ -255,19 +321,49 @@ impl AceTable {
         for &s in &xs {
             real(s, &mut xss, &mut is_int);
         }
-        // ── ITXE: per incident energy, NIEB × [E'(MeV), μ(1..nang)] ─────────
+        // ── ITXE ────────────────────────────────────────────────────────────
+        // IFENG 0/1: NEI x NIEB x [E'(MeV), mu(1..nang)].
+        // IFENG 2  : a 2*NEI table of (offset, point count) first, then each
+        //            incident energy's own [E'(MeV), pdf(1/MeV), cdf,
+        //            mu(1..nang)] points (`aceth.f90:815-851`).
         let itxe = xss.len() as i32 + 1;
-        for bins in &emission {
-            for k in 0..nieb {
-                // A missing bin (zero cross section) degrades to E'=E, isotropic.
-                let (ep, cos) = match bins.get(k) {
-                    Some(b) => (b.e_out_ev, b.cosines.clone()),
-                    None => (energy_grid[0], uniform_cosines(nang)),
-                };
-                real(ep / EMEV, &mut xss, &mut is_int);
-                for j in 0..nang {
-                    let mu = cos.get(j).copied().unwrap_or(0.0);
-                    real(mu, &mut xss, &mut is_int);
+        if opts.form == InelasticForm::Continuous {
+            // Reserve the locator/count table, then fill it as the data lands.
+            let counts: Vec<usize> = tabulated.iter().map(|p| p.len()).collect();
+            let table_start = xss.len();
+            for _ in 0..2 * nei {
+                xss.push(0.0);
+                is_int.push(true);
+            }
+            for (i, points) in tabulated.iter().enumerate() {
+                // Upstream stores the index **before** the first word, not the
+                // word's own locator (`:825`, `xss(itxe-1+i) = indx` with the
+                // data written at `xss(indx+k)` for `k` from 1).
+                xss[table_start + i] = xss.len() as f64;
+                xss[table_start + nei + i] = counts[i] as f64;
+                for p in points {
+                    real(p.e_out_ev / EMEV, &mut xss, &mut is_int);
+                    // A density per eV becomes a density per MeV (`:838`).
+                    real(p.pdf * EMEV, &mut xss, &mut is_int);
+                    real(p.cdf, &mut xss, &mut is_int);
+                    for j in 0..nang {
+                        real(p.cosines.get(j).copied().unwrap_or(0.0), &mut xss, &mut is_int);
+                    }
+                }
+            }
+        } else {
+            for bins in &emission {
+                for k in 0..nieb {
+                    // A missing bin (zero cross section) degrades to E'=E, isotropic.
+                    let (ep, cos) = match bins.get(k) {
+                        Some(b) => (b.e_out_ev, b.cosines.clone()),
+                        None => (energy_grid[0], uniform_cosines(nang)),
+                    };
+                    real(ep / EMEV, &mut xss, &mut is_int);
+                    for j in 0..nang {
+                        let mu = cos.get(j).copied().unwrap_or(0.0);
+                        real(mu, &mut xss, &mut is_int);
+                    }
                 }
             }
         }
@@ -342,11 +438,11 @@ impl AceTable {
         let mut nxs_arr = [0i32; 16];
         nxs_arr[nxs::LEN_XSS] = xss.len() as i32;
         nxs_arr[nxs::IDPNI] = 3;
-        nxs_arr[nxs::NIL] = (nang - 1) as i32;
+        nxs_arr[nxs::NIL] = opts.form.nil(nang);
         nxs_arr[nxs::NIEB] = nieb as i32;
         nxs_arr[nxs::IDPNC] = idpnc;
         nxs_arr[nxs::NCL] = ncl;
-        nxs_arr[nxs::IFENG] = 0; // TODO(IFENG=1/2): only the equiprobable form is written
+        nxs_arr[nxs::IFENG] = opts.form.ifeng();
         nxs_arr[nxs::NCLI] = ncli;
 
         let mut jxs_arr = [0i32; 32];

@@ -1,7 +1,24 @@
-//! Serialise an [`AceTable`] to a **Type-1 ASCII** ACE file.
+//! Serialise an [`AceTable`] by handing it to the **one** ACE serialiser.
 //!
-//! Ports `aceout` (the header) and `change` (the XSS data block) from NJOY2016
-//! `acefc.f90` for the `itype == 1`, `mcnpx == 0` case. The on-disk layout is:
+//! ## What this used to be, and why it changed (2026-09-22)
+//!
+//! This file was a second, independent implementation of the Type-1 writer:
+//! its own header layout, its own IZ/AW and NXS/JXS loops, its own XSS loop,
+//! and its own copies of `fortran_e`, `fortran_f`, `fortran_f0` and the text
+//! padding. [`RawAceTable::to_type1_string`] was a third. Two writers of one
+//! format is one writer and one latent bug, and that is exactly what
+//! happened: the copies had drifted, and the read-side one wrote `1pE11.4` of
+//! zero as `0.0000`, dropped `f11.0`'s decimal point and used Rust's `{:E}`
+//! exponent. Every byte after those header fields shifted, and nothing caught
+//! it because the only test of that path compared *values*.
+//!
+//! So [`AceTable`] now converts to a [`RawAceTable`] — the type the ported
+//! reader produces — and the serialisation happens once, in
+//! [`RawAceTable::to_type1_string`] and [`RawAceTable::to_type2_bytes`], on
+//! the shared edit descriptors in [`crate::acer::fortran_fmt`]. The output is
+//! unchanged; what changed is that there is now nothing to drift.
+//!
+//! The on-disk layout, for reference:
 //!
 //! ```text
 //! line 1:  ZAID(a10) AWR(f12.6) ' ' kT(1pe11.4) ' ' date(a10)
@@ -11,20 +28,87 @@
 //! N lines: XSS data                          — 4 values per line, 20-char fields
 //! ```
 //!
-//! Each XSS word is written as an integer (`i20`) or a real (`1pE20.11`) per its
-//! [`AceTable::xss_is_int`] flag, four to a line — the line breaks are positional
-//! (every fourth value), exactly as NJOY's `typen` buffers them.
+//! Each XSS word is written as an integer (`i20`) or a real (`1pE20.11`) per
+//! its [`AceTable::xss_is_int`] flag, four to a line — the line breaks are
+//! positional (every fourth value), exactly as NJOY's `typen` buffers them.
+//! That flag is carried into the raw table rather than re-derived, so a
+//! built table never falls back to the reader's heuristic.
 
 use std::io::{self, Write};
 use std::path::Path;
 
+use super::fortran_fmt::fixed;
+use super::read::{AceClass, AceFileType, AceHeader, RawAceTable};
 use super::AceTable;
+use crate::NjoyError;
 
 impl AceTable {
+    /// This table as the container-agnostic [`RawAceTable`] the ported reader
+    /// and writers share.
+    ///
+    /// The class is taken from the ZAID's last letter, the same rule
+    /// [`crate::acer::read::read_type1`] applies, so a table round-trips
+    /// through a file as the class it was built as. An unrecognised letter is
+    /// an error rather than a silent default — a table whose class nothing can
+    /// name cannot be written correctly by any of the class writers.
+    ///
+    /// # Errors
+    /// [`NjoyError::EndfParse`] when the ZAID does not end in one of
+    /// upstream's class letters.
+    pub fn to_raw(&self, file_type: AceFileType) -> Result<RawAceTable, NjoyError> {
+        let letter = self.zaid.trim().chars().last().ok_or_else(|| {
+            NjoyError::EndfParse("AceTable: empty ZAID, so no class can be determined".into())
+        })?;
+        let class = AceClass::from_letter(letter).ok_or_else(|| {
+            NjoyError::EndfParse(format!(
+                "AceTable: ZAID {:?} ends in {letter:?}, which is not one of upstream's \
+                 class letters c/h/o/r/s/a/t/p/u/y (acer.f90:513-533)",
+                self.zaid
+            ))
+        })?;
+        let zaid_num = if class == AceClass::Thermal {
+            None
+        } else {
+            self.zaid.trim()[..self.zaid.trim().len() - letter.len_utf8()]
+                .trim()
+                .parse::<f64>()
+                .ok()
+        };
+        Ok(RawAceTable {
+            file_type,
+            header: AceHeader {
+                raw_text: [
+                    fixed(&self.zaid, 10).into_bytes(),
+                    fixed(&self.date, 10).into_bytes(),
+                    fixed(&self.comment, 70).into_bytes(),
+                    fixed(&self.mat_id, 10).into_bytes(),
+                ],
+                zaid: self.zaid.clone(),
+                zaid_num,
+                class,
+                awr: self.awr,
+                kt_mev: self.kt_mev,
+                date: self.date.clone(),
+                comment: self.comment.clone(),
+                mat_id: self.mat_id.clone(),
+                // A table this crate builds carries no IZ/AW pairs; upstream
+                // fills them only from ACER's `nxtra` cards.
+                iz: [0; 16],
+                aw: [0.0; 16],
+            },
+            nxs: self.nxs,
+            jxs: self.jxs,
+            xss_is_int: Some(self.xss_is_int.clone()),
+            xss: self.xss.clone(),
+        })
+    }
+
     /// Write this table to `path` as a Type-1 ASCII ACE file.
     ///
     /// # Errors
     /// Propagates any [`std::io::Error`] from creating or writing the file.
+    /// A ZAID whose class letter is unrecognised is reported as an
+    /// [`io::ErrorKind::InvalidData`] error.
     pub fn write_type1<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
         let mut f = io::BufWriter::new(std::fs::File::create(path)?);
         self.write_to(&mut f)
@@ -34,148 +118,26 @@ impl AceTable {
     ///
     /// Exposed (rather than only [`write_type1`][Self::write_type1]) so callers
     /// can serialise to an in-memory buffer — used by the round-trip tests.
+    ///
+    /// # Errors
+    /// As [`write_type1`][Self::write_type1].
     pub fn write_to<W: Write>(&self, w: &mut W) -> io::Result<()> {
-        // ── Header ──────────────────────────────────────────────────────────
-        writeln!(
-            w,
-            "{:<10}{} {} {:<10}",
-            fixed10(&self.zaid),
-            fortran_f(self.awr, 12, 6),
-            fortran_e(self.kt_mev, 4, 11),
-            fixed10(&self.date),
-        )?;
-        writeln!(
-            w,
-            "{:<70}{:<10}",
-            fixed(&self.comment, 70),
-            fixed10(&self.mat_id)
-        )?;
-
-        // ── 16 (IZ, AW) pairs, 4 per line (all zero for a plain neutron table) ─
-        for row in 0..4 {
-            let mut line = String::new();
-            for col in 0..4 {
-                let _ = row * 4 + col;
-                line.push_str(&format!("{:7}{}", 0, fortran_f0(0.0)));
-            }
-            writeln!(w, "{line}")?;
-        }
-
-        // ── NXS (16) then JXS (32): 48 integers, 8 per line (i9) ────────────
-        let ints: Vec<i32> = self.nxs.iter().chain(self.jxs.iter()).copied().collect();
-        for chunk in ints.chunks(8) {
-            let mut line = String::new();
-            for &v in chunk {
-                line.push_str(&format!("{v:9}"));
-            }
-            writeln!(w, "{line}")?;
-        }
-
-        // ── XSS data: 4 values per line, 20-char fields ─────────────────────
-        let mut col = 0;
-        let mut line = String::new();
-        for (i, &v) in self.xss.iter().enumerate() {
-            if self.xss_is_int[i] {
-                line.push_str(&format!("{:20}", v.round() as i64));
-            } else {
-                line.push_str(&fortran_e(v, 11, 20));
-            }
-            col += 1;
-            if col == 4 {
-                writeln!(w, "{line}")?;
-                line.clear();
-                col = 0;
-            }
-        }
-        if col > 0 {
-            writeln!(w, "{line}")?; // flush the partial final line
-        }
-        Ok(())
-    }
-}
-
-// ── Fortran-style formatting helpers ───────────────────────────────────────────
-
-/// Truncate or pad `s` to exactly `n` characters (left-justified).
-fn fixed(s: &str, n: usize) -> String {
-    let mut t: String = s.chars().take(n).collect();
-    while t.chars().count() < n {
-        t.push(' ');
-    }
-    t
-}
-
-/// Exactly 10 characters, left-justified (header string fields).
-fn fixed10(s: &str) -> String {
-    fixed(s, 10)
-}
-
-/// Fortran `Fw.d` fixed-point format: width `w`, `d` decimals, right-justified.
-fn fortran_f(x: f64, w: usize, d: usize) -> String {
-    format!("{x:>w$.d$}")
-}
-
-/// Fortran `F11.0` format: integer-valued with a trailing decimal point, e.g.
-/// `0.0` → `"         0."`. Rust's `{:.0}` drops the point, so add it back.
-fn fortran_f0(x: f64) -> String {
-    let body = format!("{}.", x.round() as i64);
-    format!("{body:>11}")
-}
-
-/// Fortran `1pEw.d` scientific format: one digit before the point, `decimals`
-/// after, a signed two-digit exponent, right-justified to `width`.
-///
-/// Example: `fortran_e(92235.0, 11, 20)` → `"  9.22350000000E+04"`.
-fn fortran_e(x: f64, decimals: usize, width: usize) -> String {
-    if x == 0.0 || !x.is_finite() {
-        let mant = if decimals == 0 {
-            "0".to_string()
-        } else {
-            format!("0.{}", "0".repeat(decimals))
-        };
-        return format!("{:>width$}", format!(" {mant}E+00"));
-    }
-    let sign = if x < 0.0 { '-' } else { ' ' };
-    let s = format!("{:.*E}", decimals, x.abs());
-    let (mant, exp) = s.split_once('E').unwrap();
-    let exp: i32 = exp.parse().unwrap();
-    let exp_sign = if exp < 0 { '-' } else { '+' };
-    let body = format!("{sign}{mant}E{exp_sign}{:02}", exp.abs());
-    format!("{body:>width$}")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn e_format_width_and_roundtrip() {
-        // 1pE20.11 of a positive number: width 20, 11 mantissa digits, signed exp.
-        let s = fortran_e(92235.0, 11, 20);
-        assert_eq!(s.len(), 20, "field must be exactly 20 wide: {s:?}");
-        assert!(s.trim().ends_with("E+04"));
-        assert!((s.trim().parse::<f64>().unwrap() - 92235.0).abs() < 1e-3);
+        let raw = self
+            .to_raw(AceFileType::Type1Ascii)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+        w.write_all(raw.to_type1_string().as_bytes())
     }
 
-    #[test]
-    fn e_format_zero_and_negative() {
-        assert_eq!(fortran_e(0.0, 11, 20).trim(), "0.00000000000E+00");
-        let neg = fortran_e(-1.5e-7, 11, 20);
-        assert_eq!(neg.len(), 20);
-        assert!((neg.trim().parse::<f64>().unwrap() + 1.5e-7).abs() < 1e-18);
-    }
-
-    #[test]
-    fn e11_4_temperature_field() {
-        // kT field is 1pE11.4 (width 11).
-        let s = fortran_e(2.53e-8, 4, 11);
-        assert_eq!(s.len(), 11, "{s:?}");
-        assert!((s.trim().parse::<f64>().unwrap() - 2.53e-8).abs() < 1e-11);
-    }
-
-    #[test]
-    fn f0_has_trailing_point() {
-        assert_eq!(fortran_f0(0.0), "         0.");
-        assert_eq!(fortran_f0(0.0).len(), 11);
+    /// Write this table as a **Type 2** (Fortran unformatted sequential) ACE
+    /// file — the container `acer`'s `itype = 2` produces.
+    ///
+    /// Available only since the two writers were merged: the old
+    /// `AceTable`-specific serialiser could emit Type 1 alone, so a
+    /// continuous-energy or thermal table built here had no binary form.
+    ///
+    /// # Errors
+    /// As [`write_type1`][Self::write_type1], plus any write failure.
+    pub fn write_type2<P: AsRef<Path>>(&self, path: P) -> Result<(), NjoyError> {
+        self.to_raw(AceFileType::Type2Binary)?.write_type2(path)
     }
 }
