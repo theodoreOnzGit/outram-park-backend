@@ -88,8 +88,8 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `ace::thermal` | `aceth.f90` | ~2k | 🟡 thermal `…t` tables: elastic blocks done; ITXE secondary dists open |
 | — | `acecm.f90` | ~1k | 🟡 ACE shared utilities; ported on demand |
 | — | `acepn.f90` | 3.8k | ⬜ photonuclear ACE |
-| — | `acepa.f90` | ~2k | ⬜ photoatomic ACE |
-| — | `acedo.f90` | ~1k | ⬜ dosimetry ACE |
+| — | `acepa.f90` | ~2k | ✅ photoatomic ACE — `src/acer/photoatomic/` (2026-09-21) |
+| — | `acedo.f90` | ~1k | ✅ dosimetry ACE — `src/acer/dosimetry.rs` (2026-09-21) |
 | `wmp` | *(MIT WMP_Library — not NJOY)* | — | 🟡 4g evaluator + Faddeeva + `load_h5` done; `from_blob` TODO (`src/wmp/`) |
 
 ### Multigroup & covariance (Phase 5 — not needed by OpenMC CE)

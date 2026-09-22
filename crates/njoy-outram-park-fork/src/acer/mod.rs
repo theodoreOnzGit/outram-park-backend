@@ -28,16 +28,35 @@
 //! | ESZ (energy grid, total, disappearance, elastic, heating) | 1 (`esz`) | **built** |
 //! | MTR / LQR / TYR / LSIG / SIG (reaction cross sections) | 3–7 | **built** |
 //! | LAND / AND (**elastic** angular distribution, MT=2) | 8–9 | **built** (see [`angular`]) |
-//! | NU (fission ν̄) | 2 (`nu`) | deferred (needs MF=1/MT=452) |
-//! | LAND / AND (non-elastic angular distributions) | 8–9 | deferred (couples with MF=5/6) |
-//! | LDLW / DLW (energy distributions) | 10–11 | deferred (needs MF=5/MF=6) |
+//! | NU (fission ν̄) | 2 (`nu`) | **built** (see [`nu`]) |
+//! | LAND / AND (non-elastic angular distributions) | 8–9 | **built** (see [`angular`]) |
+//! | LDLW / DLW (energy distributions) | 10–11 | **built** (see [`energy`]) |
+//! | GPD / MTRP / LSIGP / SIGP / LANDP / ANDP / LDLWP / DLWP (photon production) | 12–19 | **built** (see [`photon_blocks`]) |
 //! | heating (KERMA) — ESZ column 5 | — | **built** (HEATR H1–H5, via `from_reconr_full`'s `heating` arg) |
 //!
-//! The file this writes carries cross sections plus the **elastic** angular
-//! distribution. Secondary energy distributions (DLW) and non-elastic angular
-//! data are still absent, so a transport code cannot yet follow an inelastic or
-//! fission collision — this remains a foundation the later ACER increments build
-//! on, now with elastic scattering populated.
+//! > ~~The file this writes carries cross sections plus the **elastic**
+//! > angular distribution. Secondary energy distributions (DLW) and
+//! > non-elastic angular data are still absent, so a transport code cannot yet
+//! > follow an inelastic or fission collision.~~ **CORRECTED 2026-09-21** —
+//! > that claim was left behind by the increments that added them. `build.rs`
+//! > populates JXS slots 2 (NU), 8–9 (LAND/AND for every reaction, not just
+//! > elastic), 10–11 (LDLW/DLW) and 12–19 (the photon-production blocks);
+//! > `grep -n 'jxs\[' src/acer/build.rs` lists them. The V&V records in
+//! > `verification_and_validation/acer_ce_vs_njoy2016_multi_nuclide.md` compare
+//! > all of them against NJOY over 55 evaluations.
+//!
+//! ## Other ACE classes
+//!
+//! `acer` writes five kinds of table and this crate now builds three of them:
+//!
+//! | `iopt` | class | upstream | here |
+//! |---|---|---|---|
+//! | 1 | fast / continuous-energy (`c`) | `acefc.f90` | **built** — this module |
+//! | 2 | thermal S(α,β) (`t`) | `aceth.f90` | **built** — [`thermal`], `IFENG = 0` only |
+//! | 3 | dosimetry (`y`) | `acedo.f90` | **built** — [`dosimetry`] |
+//! | 4 | photo-atomic (`p`) | `acepa.f90` | **built** — [`photoatomic`] |
+//! | 5 | photonuclear (`u`) | `acepn.f90` | not ported |
+//! | 7, 8 | read a Type-1 / Type-2 file | `acer.f90` | **read and rewritten** — [`read`] |
 //!
 //! ## Entry point
 //!
@@ -59,8 +78,10 @@
 pub mod acesix;
 pub mod angular;
 pub mod build;
+pub mod dosimetry;
 pub mod energy;
 pub mod nu;
+pub mod photoatomic;
 pub mod photon_blocks;
 
 /// True when the evaluation supplies **MF=4/5/6 secondary distributions for

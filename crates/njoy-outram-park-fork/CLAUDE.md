@@ -479,3 +479,98 @@ None of this workspace's criticality cases is affected by the MF=4/5 wiring:
 Godiva and the thermal cases run on ENDF/B-VIII.0 evaluations that all carry
 MF=6. The `mean_cosine` fix does reach the fast-tier MGXS `mu-bar` column and
 anything reading `elastic_mubar_cm` / `inelastic_mubar_cm`.
+
+## The photo-atomic ACE class landed, and two container facts came with it (2026-09-21)
+
+`acer iopt = 4` is ported — `src/acer/photoatomic/` carries `acepho`, `iheat`,
+`alax` and `phoout` from `acepa.f90`. The Type-1 output is **byte-identical**
+to NJOY2016's own file on `reference-data/endf/photoat-synthetic-Z6.endf`
+(9 950 bytes, gated by `tests/acer_photoatomic_vs_njoy2016.rs`); on U
+ENDF/B-VIII.0, **71 781 of 71 807 words** sit at the file's own print
+precision. Full record:
+[`verification_and_validation/acer_photoatomic_vs_njoy2016.md`](verification_and_validation/acer_photoatomic_vs_njoy2016.md).
+
+Three things are worth carrying forward.
+
+### `ner = 512` is the fast path's number, not ACE's
+
+The Type-2 (binary) XSS is blocked **one real per record** by every writer
+except the fast/charged-particle one: `aceth.f90:571`, `acepa.f90:297`,
+`acedo.f90:319`, `acepn.f90:1877` all declare `ner = 1`; only
+`acefc.f90:187` says 512. This never affected *reading* — a Fortran
+unformatted record carries its own length — but the Type-2 writer committed in
+`42c361576` used 512 for every class, so it would have written a thermal or
+photo-atomic file with the right values and the wrong bytes. That commit's
+"container parity" claim was true for class `c` and overstated for the rest;
+`xss_per_record(class)` now supplies the value.
+
+**And the asymmetry goes further than the blocking:** `phoout` applies the
+ESZG natural log *inside its `itype == 1` branch only*
+(`acepa.f90:966-973`), so **NJOY's Type-2 photo-atomic file carries linear
+energies and cross sections while its Type-1 file carries logs**. Measured,
+not inferred: the Type-2 data starts at `1.0000000000001e-3` where the Type-1
+file has `-6.90775527898`. A port that "fixed" that would stop reproducing
+upstream's files, so `PhotoatomicAce::into_raw` takes the target container.
+
+### `terp1` now uses upstream's grouping, and `gety1` is not `terpa`
+
+Two corrections in `src/endf/`, both found by comparing *binary* output where
+a 12-digit text comparison sees nothing:
+
+- **`terp1`** evaluated lin-lin as `y1 + r·(y2−y1)` with `r` precomputed;
+  `endf.f90:1431` writes `y1 + (x−x1)*(y2−y1)/(x2−x1)`, which is a different
+  rounding. Laws 4 and 5 used `powf` where upstream uses `exp(… ln …)`. The
+  degenerate-interval test was a tolerance (`|x2−x1| < EPSILON`) where
+  upstream tests exact equality — that one would return `y1` on a
+  legitimately narrow panel.
+- **`gety1`** (`src/endf/gety1.rs`) is a *new* module, not an alias for
+  `terpa`. The two disagree at every boundary: `gety1` skips leading
+  zero-valued points ("zero extension as in mf13"), shades its first retained
+  abscissa down by `0.999999`, and holds the last value out to `1e12` where
+  `terpa` drops to zero just past `shade`. Reaching for `terpa` where upstream
+  used `gety1` gives an energy grid that is wrong at its first point and its
+  last — invisible in a shared-grid comparison. Same lesson as the
+  `skip6`/`skip6a` split above: **read the upstream routine that owns the
+  input format, not the one whose name matches.**
+
+### A residual that is upstream's convergence, not the port's arithmetic
+
+The heating column disagrees with NJOY by up to 8.7e-8 at 26 of 11 942
+energies, all above 14 MeV, and it attributes entirely to `iheat`. Three
+hypotheses were tested and killed (round-off amplification in the attribution;
+conditioning — 1.4e-16 under a 1-ulp input change; the `1 − unow`
+cancellation — worth 0.0). The cause is the fourth: **upstream's `pnow/2`
+panel rule stops converging above ~300 MeV**, carrying 4.9e-5 of its own
+truncation at 1.5 GeV and 9.9e-4 at 10 GeV, measured by refining the panel
+limit (`iheat_refined`). `iheat` keeps upstream's rule; the refined path
+exists as a control, not as the default. Above ~300 MeV *neither* code
+supplies photon heating to better than 1e-4, and that is the number to quote.
+
+## Dosimetry (`acer iopt = 3`) landed too, and NJOY does not test it (2026-09-21)
+
+`src/acer/dosimetry.rs` ports `acedos` and `dosout`. Output is
+**byte-identical** to NJOY2016 on two cases — H-1 (2 reactions, 2 532 words,
+52 130 bytes) and Mn-55 (119 reactions, 70 440 words, 1 427 267 bytes) — with
+both codes reading the same PENDF so the comparison isolates `acedos`. Record:
+[`verification_and_validation/acer_dosimetry_vs_njoy2016.md`](verification_and_validation/acer_dosimetry_vs_njoy2016.md).
+
+**All 40 cases in `upstream_source/NJOY2016/tests` were checked and none runs
+`iopt = 3`.** This gate covers a path with no regression cover upstream. Worth
+remembering the next time a discrepancy in a little-used module looks
+surprising: "NJOY does it this way" is only evidence that the code says so,
+not that anyone has ever run it.
+
+Two behaviours to know:
+
+- **MF=3 and MF=10 store an interpolation table differently** — the first as
+  all `NBT` then all `INT` (`acedo.f90:150-153`), the second as `(NBT, INT)`
+  pairs (`:220-223`) — and `dosout` writes both as `2·NR` undifferentiated
+  words, so nothing downstream can tell which convention a reaction used. The
+  port reproduces both rather than picking one.
+- **A 0 K dosimetry table is refused here, and that is a deliberate
+  divergence.** `acedos`'s temperature search runs only while the temperature
+  does *not* match, so at `tempd = 0` (and at any `tempd < 1.0102 K`) the loop
+  body never executes and `za`/`awr` are never read. NJOY really does then
+  write a table whose ZAID is `0.00y` with `AWR = 0` — measured, 269 494 bytes
+  of it. This port errors instead, and
+  `zero_kelvin_is_refused_rather_than_written_with_no_zaid` pins the refusal.

@@ -36,13 +36,23 @@ Ported in [`crate::acer`]:
 - **4e heating (ESZ col 5)** ✅ — `H(E)=KERMA/σ_total` from HEATR H1–H5.
 - **4f thermal `…t`** ✅ — inelastic (IFENG=0) + coherent/incoherent elastic.
 - **4b ν̄ (NU block)** ✅ *(2026-09-20 — bit-identical to NJOY2016, 347/347 values on U-235)*, continuum correlated angle (Law 44/61) ⬜.
-- **Dosimetry / photoatomic / photonuclear classes** ⬜ — `acedo`/`acepa`/`acepn`
-  not started.
+- **Photoatomic class `…p`** ✅ *(2026-09-21 — `acepa`'s `acepho`, `iheat`,
+  `alax` and `phoout`; the Type-1 output is **byte-identical** to NJOY2016 on
+  the synthetic Z=6 tape, and 71 781 of 71 807 words are at the file's print
+  precision on U ENDF/B-VIII.0)*. Fluorescence (JFLO) is translated but
+  unexercised — no atomic-relaxation tape is held here.
+- **Dosimetry class `…y`** ✅ *(2026-09-21 — `acedo`'s `acedos` and `dosout`;
+  **byte-identical** to NJOY2016 on H-1 (2 532 words) and Mn-55 (70 440 words,
+  MF=10 isomeric channels included). NJOY's own test suite never runs
+  `iopt = 3`.)*
+- **Photonuclear class `…u`** ⬜ — `acepn` not started.
 
 ## Testing
 
 `tests/acer.rs` (NXS/JXS self-consistency, Type-1 round-trip, DLW-walk, ESZ
-heating physicality on U-235), `tests/thermal_ace.rs`, `tests/thermal_ace_zrh.rs`.
+heating physicality on U-235), `tests/thermal_ace.rs`, `tests/thermal_ace_zrh.rs`,
+`tests/acer_photoatomic_vs_njoy2016.rs` and
+`tests/acer_dosimetry_vs_njoy2016.rs` (byte equality against NJOY's own files).
 See `docs/porting-plan.md` §4 for the full V&V trail.
 
 ## Caveats

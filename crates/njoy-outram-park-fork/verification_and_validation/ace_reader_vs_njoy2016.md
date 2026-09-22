@@ -52,6 +52,26 @@ ASCII and 2 154 676 bytes of binary, sharing no bytes. Reading both and
 requiring the same table is a real test of the Type-2 layout, which was taken
 from the writer at `acefc.f90:13028-13053` (`ner = 512`, `nbw = 8`, at `:187`).
 
+> ~~`ner = 512`, `nbw = 8` — the Type-2 XSS record blocking.~~
+> **CORRECTED 2026-09-21.** Those are the values for the **fast /
+> charged-particle** path *only*. Every other ACE writer blocks the Type-2 XSS
+> **one real per record**: thermal (`aceth.f90:571` and `:2302`),
+> photo-atomic (`acepa.f90:297`, `:931`), dosimetry (`acedo.f90:319`, `:495`)
+> and photonuclear (`acepn.f90:1877`, `:2481`) all declare `ner = 1`,
+> `nbw = 1`. Measured the same day on NJOY's own Type-2 photo-atomic output
+> for the synthetic Z = 6 tape: a 500-byte header record followed by **449
+> records of 8 bytes each**, 7 692 bytes total.
+>
+> This did **not** affect reading — a Fortran unformatted record carries its
+> own length, so `read_type2` recovers `xss` whatever the blocking is, and the
+> Al-27 result below stands. It *did* affect writing: the `to_type2_bytes`
+> committed in `42c361576` used 512 for every class, so it would have written
+> a thermal or photo-atomic Type-2 file with the right values and the wrong
+> bytes. The commit message's claim of "container parity" was therefore true
+> for class `c` and overstated for the rest. `xss_per_record(class)` now
+> supplies the value and `tests/acer_photoatomic_vs_njoy2016.rs` gates it
+> against NJOY's own file.
+
 | quantity | result |
 |---|---|
 | class from ZAID | `c` on both |
@@ -115,5 +135,9 @@ Gate: `tests/ace_read_type1_vs_type2.rs`.
   width is inferred from the Type-2 record length; no mcnpx file was available
   to confirm it.
 - **Reading is not editing.** Upstream's `iopt = 7/8` exist to print or edit a
-  table and write it back out; this port reads only.
+  table and write it back out; this port reads and **writes back** (both
+  containers) but has no print/edit half.
+- **`p` is now produced as well as read.** The photo-atomic path
+  (`acer iopt = 4`) is ported; see `acer_photoatomic_vs_njoy2016.md`, where
+  the Type-1 output is byte-identical to NJOY's.
 - **Nothing here is validation.** It says this port reads what NJOY2016 writes.

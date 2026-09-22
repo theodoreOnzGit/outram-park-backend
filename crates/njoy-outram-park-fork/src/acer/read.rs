@@ -154,6 +154,18 @@ pub struct RawAceTable {
     pub jxs: [i32; 32],
     /// The `XSS` data block.
     pub xss: Vec<f64>,
+    /// Which `xss` words the Type-1 writer must print as integers (`typen`'s
+    /// `iflag = 1`, `acecm.f90:790`), when that is known.
+    ///
+    /// It is known for a table this crate **built** — each class's writer says
+    /// word by word which are integers — and unknowable for a table **read**
+    /// from a file, because the file does not record it. `None` means "infer
+    /// it", which [`to_type1_string`][Self::to_type1_string] does the only way
+    /// available: an exactly-integral value small enough to be a locator,
+    /// count or MT number is written as one. That reproduces NJOY on the
+    /// tables tested and is a guess in general, which is why a builder should
+    /// supply the mask instead of relying on it.
+    pub xss_is_int: Option<Vec<bool>>,
 }
 
 impl RawAceTable {
@@ -351,15 +363,41 @@ pub fn parse_type1(text: &str) -> Result<RawAceTable, NjoyError> {
         nxs,
         jxs,
         xss,
+        xss_is_int: None,
     })
 }
 
 // ── Type 2: Fortran unformatted sequential ──────────────────────────────────
 
-/// One f64 per XSS value; `nbw = 8` in `acefc.f90:188`.
+/// One f64 per XSS value.
 const XSS_BYTES: usize = 8;
-/// `ner = 512` (`acefc.f90:187`) — XSS values per data record.
-const XSS_PER_RECORD: usize = 512;
+
+/// `ner` — XSS values per Type-2 data record, **which is not the same for
+/// every ACE class**.
+///
+/// The fast/charged-particle writer blocks the data 512 reals to a record
+/// (`acefc.f90:187`, `ner = 512`). Every other writer uses **one real per
+/// record**: thermal (`aceth.f90:571`, and again at `:2302`), photoatomic
+/// (`acepa.f90:297`, `:931`), dosimetry (`acedo.f90:319`, `:495`) and
+/// photonuclear (`acepn.f90:1877`, `:2481`) all declare `ner = 1`.
+///
+/// This matters only for **writing**: a Fortran unformatted record carries its
+/// own length, so [`read_type2`] recovers `xss` whatever the blocking is. A
+/// writer that guessed 512 for a thermal or photoatomic table would produce a
+/// file with the same values and different bytes.
+///
+/// Measured 2026-09-21 on NJOY's own Type-2 photoatomic output for the
+/// synthetic Z=6 tape: a 500-byte header record followed by 449 records of
+/// exactly 8 bytes each, total 7692 bytes — one real per record.
+pub(crate) fn xss_per_record(class: AceClass) -> usize {
+    match class {
+        AceClass::ContinuousNeutron | AceClass::ChargedParticle(_) => 512,
+        AceClass::Thermal
+        | AceClass::Photoatomic
+        | AceClass::Photonuclear
+        | AceClass::Dosimetry => 1,
+    }
+}
 
 /// Read one Fortran unformatted sequential record.
 ///
@@ -409,11 +447,6 @@ fn take_i32(b: &[u8], o: &mut usize) -> i32 {
     v
 }
 
-fn take_str(b: &[u8], o: &mut usize, n: usize) -> String {
-    let s = String::from_utf8_lossy(&b[*o..*o + n]).to_string();
-    *o += n;
-    s
-}
 
 /// Read a **Type 2** (binary) ACE file — upstream `acer`'s `iopt = 8`.
 ///
@@ -502,9 +535,11 @@ pub fn read_type2<P: AsRef<Path>>(path: P) -> Result<RawAceTable, NjoyError> {
         for _ in 0..rec.len() / XSS_BYTES {
             xss.push(take_f64(&rec, &mut ro));
         }
-        if rec.len() / XSS_BYTES > XSS_PER_RECORD {
+        let ner = xss_per_record(class);
+        if rec.len() / XSS_BYTES > ner {
             return Err(NjoyError::EndfParse(format!(
-                "ACE Type 2: data record holds {} reals, more than ner = {XSS_PER_RECORD}",
+                "ACE Type 2: data record holds {} reals, more than ner = {ner} for a \
+                 {class:?} table",
                 rec.len() / XSS_BYTES
             )));
         }
@@ -529,6 +564,7 @@ pub fn read_type2<P: AsRef<Path>>(path: P) -> Result<RawAceTable, NjoyError> {
         nxs,
         jxs,
         xss,
+        xss_is_int: None,
     })
 }
 
@@ -668,7 +704,9 @@ impl RawAceTable {
     /// record 1   hz(10), aw0, tz, hd(10), hk(70), hm(10),
     ///            (izn(i) integer, awn(i) real, i=1,16),
     ///            NXS(16), JXS(32)
-    /// record 2+  XSS in chunks of ner = 512 reals (acefc.f90:187)
+    /// record 2+  XSS in chunks of ner reals -- 512 for a fast or
+    ///            charged-particle table, 1 for every other class; see
+    ///            [`xss_per_record`]
     /// ```
     ///
     /// The ZAID is written at the width it was read at (10, or 13 for mcnpx),
@@ -708,7 +746,7 @@ impl RawAceTable {
 
         let mut out = Vec::with_capacity(head.len() + self.xss.len() * XSS_BYTES + 4096);
         push_record(&mut out, &head);
-        for chunk in self.xss.chunks(XSS_PER_RECORD) {
+        for chunk in self.xss.chunks(xss_per_record(self.header.class)) {
             let mut body = Vec::with_capacity(chunk.len() * XSS_BYTES);
             for v in chunk {
                 body.extend_from_slice(&v.to_le_bytes());
@@ -752,11 +790,11 @@ impl RawAceTable {
             }
         };
         out.push_str(&format!(
-            "{}{} {} {:<10}\n",
+            "{}{} {} {}\n",
             txt(0, &self.header.zaid, 10),
             fortran_f(self.header.awr, 12, 6),
             fortran_e(self.header.kt_mev, 4, 11),
-            self.header.date,
+            txt(1, &self.header.date, 10),
         ));
         out.push_str(&format!(
             "{}{}\n",
@@ -778,9 +816,19 @@ impl RawAceTable {
                 out.push('\n');
             }
         }
+        // Which words are written as integers is a property of the *class*,
+        // because each class has its own writer. `phoout` (`acepa.f90:966-999`)
+        // writes every photo-atomic word with `typen(l, nout, 2)`, i.e.
+        // `1pe20.11`, so a zero there is `0.00000000000E+00` and not `0`.
+        // A builder that knows word by word supplies `xss_is_int` instead.
+        let all_real = self.header.class == AceClass::Photoatomic;
         for (i, v) in self.xss.iter().enumerate() {
-            if v.fract() == 0.0 && v.abs() < 1.0e9 {
-                out.push_str(&format!("{:20}", *v as i64));
+            let as_int = match &self.xss_is_int {
+                Some(mask) => mask.get(i).copied().unwrap_or(false),
+                None => !all_real && v.fract() == 0.0 && v.abs() < 1.0e9,
+            };
+            if as_int {
+                out.push_str(&format!("{:20}", v.round() as i64));
             } else {
                 out.push_str(&fortran_e20(*v));
             }
@@ -799,29 +847,50 @@ fn fortran_f(v: f64, w: usize, d: usize) -> String {
     format!("{v:>w$.d$}")
 }
 
+/// Fortran `F11.0`: an integer-valued field that **keeps its decimal point**
+/// (`         0.`). Rust's `{:.0}` drops the point, which silently changes
+/// every IZ/AW line of a written header.
 fn fortran_f0(v: f64) -> String {
-    format!("{v:>11.0}")
+    let body = format!("{}.", v.round() as i64);
+    format!("{body:>11}")
 }
 
+/// Fortran `1pEw.d`: one digit before the point, `d` after, and a **signed
+/// two-digit exponent** — `" 0.0000E+00"`, not Rust's `"0E0"`.
+///
+/// Zero is written in the same shape rather than as a plain `0.0000`, which is
+/// what `1pe11.4` of `tz = 0` produces on every 0 K table NJOY writes; getting
+/// that wrong is invisible in a value comparison and shifts every byte of the
+/// header.
 fn fortran_e(v: f64, d: usize, w: usize) -> String {
-    if v == 0.0 {
-        return format!("{:>w$}", format!("{:.*}", d, 0.0));
+    if v == 0.0 || !v.is_finite() {
+        let mant = if d == 0 {
+            "0".to_string()
+        } else {
+            format!("0.{}", "0".repeat(d))
+        };
+        return format!("{:>w$}", format!(" {mant}E+00"));
     }
-    let s = format!("{:.*E}", d, v);
-    format!("{s:>w$}")
+    let sign = if v < 0.0 { '-' } else { ' ' };
+    let a = v.abs();
+    let mut exp = a.log10().floor() as i32;
+    let mut mant = a / 10f64.powi(exp);
+    // Rounding the mantissa can carry it to 10.0; renormalise so the field
+    // keeps its single leading digit.
+    if format!("{mant:.*}", d).starts_with("10") {
+        mant /= 10.0;
+        exp += 1;
+    }
+    let body = format!(
+        "{sign}{mant:.*}E{}{:02}",
+        d,
+        if exp < 0 { "-" } else { "+" },
+        exp.abs()
+    );
+    format!("{body:>w$}")
 }
 
-/// NJOY's `1pE20.11` for a real XSS word.
+/// NJOY's `1pE20.11` for a real XSS word (`typen`'s `iflag = 2`).
 fn fortran_e20(v: f64) -> String {
-    if v == 0.0 {
-        return format!("{:>20}", "0.00000000000E+00");
-    }
-    let exp = v.abs().log10().floor() as i32;
-    let mant = v / 10f64.powi(exp);
-    let (mant, exp) = if mant.abs() >= 10.0 {
-        (mant / 10.0, exp + 1)
-    } else {
-        (mant, exp)
-    };
-    format!("{:>20}", format!("{mant:.11}E{}{:02}", if exp < 0 { "-" } else { "+" }, exp.abs()))
+    fortran_e(v, 11, 20)
 }
