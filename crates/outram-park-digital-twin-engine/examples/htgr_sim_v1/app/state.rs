@@ -111,8 +111,14 @@ pub struct HtgrSnapshot {
     ///
     /// Assembled into a [`crate::physics::secondary_loop::FeedwaterCommand`] by
     /// the physics thread; this snapshot deliberately stays plain scalars so it
-    /// is cheap to clone every frame. Defaults to AUTO, which is the behaviour
-    /// this simulator had before the mode existed.
+    /// is cheap to clone every frame.
+    ///
+    /// ~~"Defaults to AUTO, which is the behaviour this simulator had before
+    /// the mode existed."~~ **CORRECTED 2026-09-22 -- it defaults to `true`,
+    /// i.e. MANUAL**, and has since the maintainer change of 2026-08-17 that
+    /// moved [`crate::physics::secondary_loop::FeedwaterCommand::default`] to
+    /// MANUAL at 10.0 kg/s. Verified by reading the `Default` impl below,
+    /// which sets this field `true`.
     pub feedwater_manual: bool,
     /// User-commanded feedwater mass flow \[kg/s\], used only in **MANUAL**.
     ///
@@ -523,6 +529,27 @@ pub struct HtgrSnapshot {
     pub fast_forward_enabled: bool,
 }
 
+/// The feedwater demand `physics::secondary_loop::FeedwaterCommand::default()`
+/// carries, in kg/s, or the pump's minimum if that default is ever changed to
+/// AUTO.
+///
+/// Reads the physics default rather than restating a number, so the GUI's
+/// opening demand cannot drift away from the plant's the way it did before
+/// 2026-09-22. If the default is switched back to AUTO the MANUAL slider needs
+/// *some* opening value, and the pump's own floor is the only non-invented
+/// choice available.
+fn default_feedwater_manual_flow_kg_per_s() -> f64 {
+    use uom::si::mass_rate::kilogram_per_second;
+    match crate::physics::secondary_loop::FeedwaterCommand::default() {
+        crate::physics::secondary_loop::FeedwaterCommand::Manual { mass_flow_demand } => {
+            mass_flow_demand.get::<kilogram_per_second>()
+        }
+        crate::physics::secondary_loop::FeedwaterCommand::Auto { .. } => {
+            crate::physics::secondary_loop::MIN_SECONDARY_FLOW_KG_PER_S
+        }
+    }
+}
+
 impl Default for HtgrSnapshot {
     /// The **first frame only**: the physics thread overwrites every output
     /// field on its first tick, roughly one `PHYSICS_TICK` (100 ms) after the
@@ -551,12 +578,22 @@ impl Default for HtgrSnapshot {
             control_rod_insertion_fraction: crate::physics::GUI_INITIAL_ROD_INSERTION,
             // The blower runs at startup; the operator trips it deliberately.
             circulator_tripped: false,
-            // Feedwater in AUTO at the published 440 degC, and the condenser at
-            // its design 7 kPa: the opening state is the plant's design
-            // condition, and is exactly `physics::PlantCommands::default()`.
-            // `the_gui_defaults_are_the_plant_command_defaults` pins that.
+            // ~~"Feedwater in AUTO at the published 440 degC ... the opening
+            // state is exactly `physics::PlantCommands::default()`."~~
+            // **CORRECTED 2026-09-22.** Two claims here were false. The
+            // feedwater station defaults to **MANUAL**, not AUTO (maintainer
+            // change 2026-08-17, see `FeedwaterCommand::default`), and the
+            // opening state was **not** `PlantCommands::default()` at all --
+            // this block restated two operating-point numbers that had since
+            // drifted from the constants the physics derives them from, and
+            // `the_gui_defaults_are_the_plant_command_defaults` had been
+            // failing because of it. See that test for the measured mismatch.
+            //
+            // Both are now DERIVED rather than restated, which is the actual
+            // fix: a second copy of an operating point is what drifted, so
+            // removing the copy is what stops it drifting again.
             feedwater_manual: true,
-            feedwater_manual_flow_kg_per_s: 4.0,
+            feedwater_manual_flow_kg_per_s: default_feedwater_manual_flow_kg_per_s(),
             feedwater_target_steam_temp_k: 713.15,
             condenser_pressure_setpoint_kpa: 7.0,
             rps_enabled: false,
@@ -564,7 +601,16 @@ impl Default for HtgrSnapshot {
             trip_reason: None,
             scram_insertion_fraction: 0.0,
             external_reactivity_dollars: 0.0,
-            helium_flow_setpoint_kg_per_s: 4.3,
+            // Derived, not restated: `GUI_INITIAL_HELIUM_FLOW_KG_PER_S` is a
+            // dimensionless FRACTION of rated despite its name (its own doc
+            // comment says so), so the opening flow is 0.30 * 4.3 = 1.29 kg/s.
+            // This field held a bare 4.3 until 2026-09-22, which opened the
+            // GUI at RATED flow while the physics defaulted to part load --
+            // and `GUI_INITIAL_ROD_INSERTION` was bisected at part load, so
+            // the two were a matched pair that had come apart.
+            helium_flow_setpoint_kg_per_s: (crate::physics::GUI_INITIAL_HELIUM_FLOW_KG_PER_S
+                * crate::physics::nominal_helium_flow())
+            .get::<uom::si::mass_rate::kilogram_per_second>(),
             reactor_power_mw: 10.0,
             prompt_power_mw: 10.0,
             delayed_power_mw: 0.0,
