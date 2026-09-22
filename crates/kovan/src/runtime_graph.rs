@@ -147,13 +147,7 @@ pub fn top_level(index: Option<&KnowledgeIndex>) -> Vec<RuntimeConcept> {
             index
                 .children_of("")
                 .into_iter()
-                // A library collection whose path *is* a corpus topic path is
-                // overlay scaffolding, not a concept of its own: it exists
-                // only so a user subtopic can be nested under that corpus
-                // branch on disk. The corpus node already represents it, and
-                // listing it here would show the same branch twice — once
-                // dark green, once light.
-                .filter(|c| corpus::topic_at(&c.path).is_none())
+                .filter(|c| !is_corpus_mirror(&c.path))
                 .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
         );
         if needs_unsorted(index) {
@@ -161,6 +155,25 @@ pub fn top_level(index: Option<&KnowledgeIndex>) -> Vec<RuntimeConcept> {
         }
     }
     out
+}
+
+/// Whether a **library** collection path is really just a mirror of a corpus
+/// topic — scaffolding, not a concept of its own.
+///
+/// Nesting a user subtopic under a corpus branch needs that branch to exist
+/// as directories on disk, because `index::scan_collections` will not walk
+/// past a directory with no `kovan.toml`. Those mirrored ancestors are an
+/// implementation detail of the overlay; the **corpus** node already
+/// represents that concept.
+///
+/// Drawing them produced exactly the duplicates the maintainer reported on
+/// 2026-09-22 — "there is a TRISO (corpus) and triso (topic)", "Fuel &
+/// Materials now has a fuse-and-materials" — one dark-green card and one
+/// light-green card for the same idea, differing only in whether the title
+/// had been slugified. A user concept *inside* a mirrored path is not
+/// affected: its own path is not a corpus path, so it still draws.
+pub fn is_corpus_mirror(path: &str) -> bool {
+    corpus::topic_at(path).is_some()
 }
 
 /// The direct sub-concepts of `parent`, or [`top_level`] for `None`.
@@ -190,6 +203,9 @@ pub fn children(index: Option<&KnowledgeIndex>, parent: Option<&NodeId>) -> Vec<
                     index
                         .children_of(&parent.path)
                         .into_iter()
+                        // Never the mirrored scaffolding: the corpus card
+                        // beside it already is that concept.
+                        .filter(|c| !is_corpus_mirror(&c.path))
                         .map(|c| library_concept(index, &c.path, c.kind, &c.name)),
                 );
             }
@@ -199,6 +215,7 @@ pub fn children(index: Option<&KnowledgeIndex>, parent: Option<&NodeId>) -> Vec<
             Some(index) => index
                 .children_of(&parent.path)
                 .into_iter()
+                .filter(|c| !is_corpus_mirror(&c.path))
                 .map(|c| library_concept(index, &c.path, c.kind, &c.name))
                 .collect(),
             None => Vec::new(),

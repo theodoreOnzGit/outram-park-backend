@@ -483,6 +483,126 @@ fn subtopic_menu_item(
     }
 }
 
+/// The directory holding the concept at `path` of `kind`.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn concept_dir(root: &KovanRoot, path: &str, kind: EntityKind) -> std::path::PathBuf {
+    let tree = match kind {
+        EntityKind::Project => root.projects_dir(),
+        _ => root.topics_dir(),
+    };
+    tree.join(path)
+}
+
+/// Remove an **empty** user concept: its `kovan.toml` and its directory.
+///
+/// The caller has already established that it has no sub-concepts and no
+/// papers filed under it ([`concept_crud_items`]). This re-checks the
+/// directory itself rather than trusting that: the index is a snapshot, and
+/// a `remove_dir_all` on a stale one would delete a subtree the user could
+/// not see was there. `remove_dir` (not `_all`) fails rather than recurses,
+/// which is the guarantee wanted here.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn delete_concept(root: &KovanRoot, path: &str, kind: EntityKind) -> Result<(), String> {
+    let dir = concept_dir(root, path, kind);
+    if !EntityConfig::is_entity(&dir) {
+        return Err(format!("{path:?} is not a concept directory"));
+    }
+    // Check emptiness BEFORE removing anything. An earlier version deleted
+    // `kovan.toml` first and only then found the folder non-empty, leaving a
+    // half-deleted concept: a directory of live sub-concepts with no record
+    // of itself, invisible to the index and unreachable in the map. Its own
+    // test caught it.
+    let leftovers: Vec<String> = std::fs::read_dir(&dir)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n != "kovan.toml")
+        .collect();
+    if !leftovers.is_empty() {
+        return Err(format!(
+            "{path:?} is not empty: it still holds {}",
+            leftovers.join(", ")
+        ));
+    }
+    std::fs::remove_file(dir.join("kovan.toml")).map_err(|e| e.to_string())?;
+    std::fs::remove_dir(&dir).map_err(|e| e.to_string())
+}
+
+/// The user-concept CRUD entries — Rename and Delete — in the same
+/// right-click menu as the add actions (maintainer, 2026-09-22).
+///
+/// # What these do, and deliberately do not
+///
+/// **Rename changes the display name only.** A concept's identity is its
+/// *path* (the slug chain on disk), and that is what every paper's
+/// classification and every `[[link]]` refers to; `EntityConfig::name` is
+/// only what the card shows. So renaming here is complete and safe — nothing
+/// else in the library refers to the name.
+///
+/// **Delete is offered only for an empty concept** — no sub-concepts, and no
+/// papers filed directly under it. Deleting one that is not empty would
+/// orphan every reference to its path, which is the transactional rewrite
+/// epic #241 explicitly deferred ("Rename / Move / Merge / Delete stay out:
+/// they need the transactional rewrite of classifications and `[[...]]`
+/// links"). Rather than half-do it, the entry is shown disabled with the
+/// reason, so the limit is visible instead of mysterious.
+///
+/// Corpus concepts get neither: they are immutable and are not ours to edit.
+///
+/// Returns the deletion requested this frame, if any.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn concept_crud_items(
+    ui: &mut egui::Ui,
+    path: &str,
+    title: &str,
+    kind: EntityKind,
+    child_concepts: usize,
+    filed_papers: usize,
+    rename: &mut Option<(String, EntityKind, String)>,
+) -> Option<(String, EntityKind)> {
+    let mut delete = None;
+    if ui.button("Rename\u{2026}").clicked() {
+        *rename = Some((path.to_string(), kind, title.to_string()));
+        ui.close();
+    }
+    let empty = child_concepts == 0 && filed_papers == 0;
+    let response = ui.add_enabled(empty, egui::Button::new("Delete"));
+    let response = if empty {
+        response.on_hover_text("removes this empty concept")
+    } else {
+        response.on_disabled_hover_text(format!(
+            "not empty: {child_concepts} sub-concept(s), {filed_papers} paper(s) filed here. \
+             Move or re-file them first."
+        ))
+    };
+    if response.clicked() {
+        delete = Some((path.to_string(), kind));
+        ui.close();
+    }
+    delete
+}
+
+/// The "Add literature here…" entry: arms `draft` with the concept path
+/// being filed under, and closes the menu. The paper is chosen in
+/// [`MindmapState::literature_dialog_ui`] — a fuzzy search, for the same
+/// focus reason the subtopic name is not typed in the menu either.
+///
+/// This is the inverse of the sort dialog: that one starts from a paper and
+/// picks concepts, this one starts from a concept and picks a paper. Both
+/// write the same thing — a path in the paper's classification — so a
+/// library sorted either way is indistinguishable afterwards.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn literature_menu_item(ui: &mut egui::Ui, parent: &str, parent_label: &str, draft: &mut Option<(String, String)>) {
+    if ui
+        .button("Add literature here\u{2026}")
+        .on_hover_text(format!("file a paper under {parent_label}"))
+        .clicked()
+    {
+        *draft = Some((parent.to_string(), String::new()));
+        ui.close();
+    }
+}
+
 /// One concept card: the concept from the runtime graph (corpus or library,
 /// #249) and the papers it cites (GitHub issues #244, #245). Papers are not
 /// cards; they are a concept's citations.
@@ -687,6 +807,12 @@ pub struct MindmapState {
     /// The subtopic name being typed in a right-click menu, and the library
     /// concept path it will go under.
     subtopic_draft: Option<(String, String, EntityKind)>,
+    /// A pending "Add literature here…": the concept path being filed
+    /// under, and what is typed in its fuzzy search.
+    literature_draft: Option<(String, String)>,
+    /// A pending "Rename…": the concept path, its kind, and the new display
+    /// name being typed.
+    rename_draft: Option<(String, EntityKind, String)>,
     bib: BibCache,
 }
 
@@ -707,6 +833,8 @@ impl Default for MindmapState {
             expanded: Default::default(),
             pinned: Default::default(),
             subtopic_draft: None,
+            literature_draft: None,
+            rename_draft: None,
             bib: BibCache::default(),
         }
     }
@@ -737,6 +865,8 @@ impl MindmapState {
             self.current = concept;
             self.selected = None;
             self.subtopic_draft = None;
+            self.literature_draft = None;
+            self.rename_draft = None;
         }
     }
 
@@ -1037,6 +1167,9 @@ impl MindmapState {
         let mut unpin = None;
         let mut draft = self.subtopic_draft.take();
         let mut open_setup = false;
+        let mut literature_draft = self.literature_draft.take();
+        let mut rename_draft = self.rename_draft.take();
+        let mut delete_req: Option<(String, EntityKind)> = None;
         let selected = self.selected.clone();
         let pinned = &self.pinned;
         let expanded = &self.expanded;
@@ -1223,6 +1356,39 @@ impl MindmapState {
                                 &concept.title,
                                 &mut draft,
                             );
+                            literature_menu_item(
+                                ui,
+                                &concept.id.path,
+                                &concept.title,
+                                &mut literature_draft,
+                            );
+                            // CRUD, for the user's own concepts only — the
+                            // corpus is immutable.
+                            if let (Some(index), Some(entity_kind)) = (
+                                index,
+                                match concept.kind {
+                                    crate::runtime_graph::ConceptKind::Topic => {
+                                        Some(EntityKind::Topic)
+                                    }
+                                    crate::runtime_graph::ConceptKind::Project => {
+                                        Some(EntityKind::Project)
+                                    }
+                                    _ => None,
+                                },
+                            ) {
+                                ui.separator();
+                                if let Some(req) = concept_crud_items(
+                                    ui,
+                                    &concept.id.path,
+                                    &concept.title,
+                                    entity_kind,
+                                    index.children_of(&concept.id.path).len(),
+                                    index.papers_in(&concept.id.path).len(),
+                                    &mut rename_draft,
+                                ) {
+                                    delete_req = Some(req);
+                                }
+                            }
                         } else if setup_prompt_item(ui) {
                             open_setup = true;
                         }
@@ -1251,6 +1417,8 @@ impl MindmapState {
 
         // ── Apply this frame's interaction ──────────────────────────────
         self.subtopic_draft = draft;
+        self.literature_draft = literature_draft;
+        self.rename_draft = rename_draft;
         if let Some(sel) = newly_selected {
             self.selected = sel;
         }
@@ -1273,6 +1441,28 @@ impl MindmapState {
         }
         // The dialog is the only source of a create request now: the menu
         // entry only arms the draft (see `subtopic_menu_item`).
+        if self.literature_dialog_ui(ui, root, index) {
+            action = Some(MindmapAction::KnowledgeChanged);
+        }
+        if let Some(root) = root {
+            if self.rename_dialog_ui(ui, root) {
+                action = Some(MindmapAction::KnowledgeChanged);
+            }
+            if let Some((path, kind)) = delete_req {
+                match delete_concept(root, &path, kind) {
+                    Ok(()) => {
+                        self.message = format!("deleted {path:?}");
+                        // Standing on a concept that no longer exists would
+                        // show an empty star with no way back.
+                        if self.current.as_ref().is_some_and(|c| c.path == path) {
+                            self.set_current(None);
+                        }
+                        action = Some(MindmapAction::KnowledgeChanged);
+                    }
+                    Err(e) => self.message = format!("could not delete: {e}"),
+                }
+            }
+        }
         let create_subtopic_req = self.subtopic_dialog_ui(ui);
         if let (Some((parent, name, kind)), Some(root), Some(index)) =
             (create_subtopic_req, root, index)
@@ -1378,6 +1568,190 @@ impl MindmapState {
             self.subtopic_draft = None;
         }
         request
+    }
+
+    /// The rename dialog: a new **display name** for a user concept.
+    ///
+    /// Returns `true` on the frame a rename is saved. The concept's path is
+    /// untouched — see [`concept_crud_items`] for why that makes this a
+    /// complete operation rather than half of one.
+    fn rename_dialog_ui(&mut self, ui: &mut egui::Ui, root: &KovanRoot) -> bool {
+        let Some((path, kind, name)) = &mut self.rename_draft else {
+            return false;
+        };
+        let (path, kind) = (path.clone(), *kind);
+        let mut save = false;
+        let mut cancel = false;
+        egui::Window::new("Rename")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .show(ui.ctx(), |ui| {
+                ui.label(format!("New name for {path}:"));
+                let field = ui.add(
+                    egui::TextEdit::singleline(name)
+                        .hint_text("name")
+                        .desired_width(280.0),
+                );
+                let submitted =
+                    field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                ui.weak("Only the displayed name changes; its path stays the same, so nothing filed under it moves.");
+                ui.horizontal(|ui| {
+                    let named = !name.trim().is_empty();
+                    if (ui.add_enabled(named, egui::Button::new("Rename")).clicked()
+                        || (submitted && named))
+                        && named
+                    {
+                        save = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+
+        let mut renamed = false;
+        if save {
+            let new_name = self
+                .rename_draft
+                .as_ref()
+                .map(|(_, _, n)| n.trim().to_string())
+                .unwrap_or_default();
+            let dir = concept_dir(root, &path, kind);
+            match EntityConfig::load(&dir) {
+                Ok(mut config) => {
+                    config.name = Some(new_name.clone());
+                    match config.save(&dir) {
+                        Ok(()) => {
+                            self.message = format!("renamed to {new_name:?}");
+                            renamed = true;
+                        }
+                        Err(e) => self.message = format!("could not rename: {e}"),
+                    }
+                }
+                Err(e) => self.message = format!("could not read {path:?}: {e}"),
+            }
+            self.rename_draft = None;
+        }
+        if cancel {
+            self.rename_draft = None;
+        }
+        renamed
+    }
+
+    /// The "Add literature here" dialog: a fuzzy search over the library's
+    /// papers, filing the chosen one under the armed concept.
+    ///
+    /// Returns `true` on the frame a paper is filed, so the caller can
+    /// rebuild the shared index.
+    ///
+    /// Only the **user's own** papers are offered. Corpus literature is
+    /// already filed by the corpus itself (`CorpusLiterature::topics`) and
+    /// has no user-side `kovan.toml` to write a classification into — so
+    /// offering it would be a control that cannot do anything.
+    fn literature_dialog_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        root: Option<&KovanRoot>,
+        index: Option<&KnowledgeIndex>,
+    ) -> bool {
+        let (Some(root), Some(index)) = (root, index) else {
+            return false;
+        };
+        let Some((concept, query)) = &mut self.literature_draft else {
+            return false;
+        };
+        let concept = concept.clone();
+        let mut chosen: Option<String> = None;
+        let mut cancel = false;
+        egui::Window::new("Add literature")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .show(ui.ctx(), |ui| {
+                ui.label(format!("File a paper under {concept}:"));
+                ui.add(
+                    egui::TextEdit::singleline(query)
+                        .hint_text("search your library\u{2026}")
+                        .desired_width(360.0),
+                );
+                ui.separator();
+                let hits = crate::autocomplete::library_candidates(
+                    root,
+                    index,
+                    query,
+                    &[crate::autocomplete::CandidateKind::Paper],
+                );
+                egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
+                    let mut any = false;
+                    for hit in &hits {
+                        // Corpus entries come back from the same search; they
+                        // are not ours to reclassify.
+                        if hit.node.starts_with("corpus:") {
+                            continue;
+                        }
+                        any = true;
+                        if ui
+                            .button(format!(
+                                "{} \u{2014} {}",
+                                hit.candidate.label, hit.candidate.detail
+                            ))
+                            .clicked()
+                        {
+                            chosen = Some(hit.candidate.insert_text.clone());
+                        }
+                    }
+                    if !any {
+                        ui.weak("no matching paper in your library");
+                    }
+                });
+                if ui.button("Cancel").clicked() {
+                    cancel = true;
+                }
+            });
+
+        let mut filed = false;
+        if let Some(citekey) = chosen {
+            // A project path files under `projects`, a topic path under
+            // `topics`; a corpus path is a topic, which is also the fallback
+            // for a path the index does not know.
+            let as_project = index
+                .collections
+                .iter()
+                .find(|c| c.path == concept)
+                .is_some_and(|c| c.kind == EntityKind::Project);
+            let dir = root.paper_dir(&citekey);
+            match EntityConfig::load(&dir) {
+                Ok(mut config) => {
+                    let list = if as_project {
+                        &mut config.classification.projects
+                    } else {
+                        &mut config.classification.topics
+                    };
+                    if !list.iter().any(|p| p == &concept) {
+                        list.push(concept.clone());
+                    }
+                    // Filing it anywhere real takes it out of the inbox.
+                    config
+                        .classification
+                        .topics
+                        .retain(|t| t != crate::entity::UNSORTED);
+                    match config.save(&dir) {
+                        Ok(()) => {
+                            self.message = format!("filed {citekey:?} under {concept:?}");
+                            filed = true;
+                        }
+                        Err(e) => self.message = format!("could not file it: {e}"),
+                    }
+                }
+                Err(e) => self.message = format!("could not read {citekey:?}: {e}"),
+            }
+            self.literature_draft = None;
+        }
+        if cancel {
+            self.literature_draft = None;
+        }
+        filed
     }
 
     /// Whether the map has been drilled into the synthetic **Unsorted**
@@ -1610,7 +1984,10 @@ mod tests {
         assert_eq!(mine.id.namespace, Namespace::Library);
 
         // The mirrored ancestors exist on disk so the tree is walkable, but
-        // they are scaffolding — the corpus node already represents them.
+        // they are scaffolding — the corpus node already represents them, at
+        // *every* level. The maintainer saw both halves of this fail:
+        // "there is a TRISO (corpus) and triso (topic)" and "Fuel & Materials
+        // now has a fuel-and-materials".
         let tops: Vec<String> = top_level(Some(&index))
             .into_iter()
             .map(|c| c.title)
@@ -1619,6 +1996,71 @@ mod tests {
             !tops.iter().any(|t| t == "nuclear-engineering"),
             "the mirrored corpus path must not become its own branch: {tops:?}"
         );
+
+        for (parent, twin) in [
+            ("nuclear-engineering", "fuel-and-materials"),
+            ("nuclear-engineering/fuel-and-materials", "triso"),
+        ] {
+            let kids: Vec<String> =
+                children(Some(&index), Some(&NodeId::concept(Namespace::Corpus, parent)))
+                    .into_iter()
+                    .map(|c| c.title)
+                    .collect();
+            assert!(
+                !kids.iter().any(|t| t == twin),
+                "{parent} shows a slugified twin {twin:?} beside its corpus card: {kids:?}"
+            );
+        }
+    }
+
+    /// Deleting an empty user concept removes it; a concept with children or
+    /// filed papers is refused rather than cascaded (the transactional
+    /// rewrite #241 defers). `delete_concept` re-checks the directory itself
+    /// rather than trusting the index snapshot the menu used.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn delete_concept_removes_an_empty_one_and_refuses_a_populated_one() {
+        let (_dir, root) = make_root();
+        let index = KnowledgeIndex::rebuild(&root);
+        create_subtopic(&root, &index, "", "Scratch", EntityKind::Topic).unwrap();
+        create_subtopic(&root, &index, "scratch", "Keeper", EntityKind::Topic).unwrap();
+
+        // The parent still holds a child on disk: refused, and it survives.
+        assert!(delete_concept(&root, "scratch", EntityKind::Topic).is_err());
+        assert!(EntityConfig::is_entity(
+            &root.topics_dir().join("scratch").join("keeper")
+        ));
+
+        // The leaf is empty: it goes.
+        delete_concept(&root, "scratch/keeper", EntityKind::Topic).unwrap();
+        assert!(!root.topics_dir().join("scratch").join("keeper").exists());
+
+        // And now the parent is empty too.
+        delete_concept(&root, "scratch", EntityKind::Topic).unwrap();
+        assert!(!root.topics_dir().join("scratch").exists());
+    }
+
+    /// Renaming changes the display name and leaves the path alone, so
+    /// nothing filed under the concept moves.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn renaming_a_concept_keeps_its_path() {
+        let (_dir, root) = make_root();
+        let index = KnowledgeIndex::rebuild(&root);
+        create_subtopic(&root, &index, "", "Old Name", EntityKind::Topic).unwrap();
+
+        let dir = concept_dir(&root, "old-name", EntityKind::Topic);
+        let mut config = EntityConfig::load(&dir).unwrap();
+        config.name = Some("New Name".to_string());
+        config.save(&dir).unwrap();
+
+        let index = KnowledgeIndex::rebuild(&root);
+        let entry = index
+            .collections
+            .iter()
+            .find(|c| c.path == "old-name")
+            .expect("the path is unchanged");
+        assert_eq!(entry.name, "New Name");
     }
 
     /// Papers not yet classified are never lost: at the top they are the
