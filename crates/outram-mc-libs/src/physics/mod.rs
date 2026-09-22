@@ -48,6 +48,7 @@
 pub mod compute;
 pub mod transport;
 pub mod transport_csg;
+pub mod variance_reduction;
 pub mod fixed_source;
 pub mod scatter;
 pub mod fission;
