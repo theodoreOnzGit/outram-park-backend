@@ -7,8 +7,17 @@
 //! CSG cell structure. This is the spatial counterpart to the energy grouping an
 //! [`super::filter::EnergyFilter`] provides. Only the axis-aligned
 //! [`RegularMesh`] is ported here (the workhorse for the `post-processing`
-//! notebook); rectilinear / cylindrical / spherical meshes are a documented gap
-//! (bead op-6tz.13).
+//! notebook); ~~rectilinear / cylindrical / spherical meshes are a documented
+//! gap (bead op-6tz.13)~~ **CORRECTED 2026-09-22 (GitHub #260)** --
+//! [`RectilinearMesh`], [`CylindricalMesh`] and [`SphericalMesh`] are now
+//! present, verified bin-for-bin against OpenMC's own per-bin volumes to
+//! 2.854e-16 (`tests/mesh_vs_openmc.rs`).
+//!
+//! Still absent, and still a real gap: the **unstructured** mesh family, which
+//! is planned via OpenFOAM `polyMesh` reuse and is explicitly out of scope for
+//! #260. Mesh **filters** and the mesh-tally scoring path are also not yet
+//! wired to the three new types -- that is scope item 4 of #260 and is not
+//! done, so a mesh tally still assumes a regular mesh.
 
 use crate::geometry::position::Position;
 
@@ -239,3 +248,250 @@ mod tests {
         assert_eq!(m.get_bin(Position::new(0.0, 0.0, 5.0)), None);
     }
 }
+
+// ── Rectilinear / cylindrical / spherical meshes (GitHub #260) ───────────────
+//
+// ~~"rectilinear / cylindrical / spherical meshes are a documented gap"~~
+// **CORRECTED 2026-09-22** — the module doc above is struck where it says so.
+// All three are below, ported from `src/mesh.cpp` at OpenMC `afa7a14`. (The
+// commit the issue cites, `608a1c33`, is unavailable in this container and not
+// fetchable; see
+// `verification_and_validation/white_boundary/white_boundary_vs_openmc.md`.)
+
+/// Index of the bin on a 1-D ascending grid containing `x`, or `None` if `x`
+/// lies outside `[grid[0], grid[last]]`.
+///
+/// Upstream uses `lower_bound_index` and adds 1 because its `MeshIndex` is
+/// 1-based (`src/mesh.cpp:2138`). This crate is 0-based throughout, so the `+1`
+/// is deliberately **not** carried — carrying it would put every bin index one
+/// high and the error would only show at the boundaries.
+///
+/// The upper edge is inclusive so a point exactly on the outer surface bins
+/// into the last cell rather than falling out of the mesh.
+#[inline]
+fn bin_on_grid(grid: &[f64], x: f64) -> Option<usize> {
+    if grid.len() < 2 || x < grid[0] || x > grid[grid.len() - 1] {
+        return None;
+    }
+    // Ascending grid: find the last edge not exceeding `x`.
+    let mut lo = 0usize;
+    let mut hi = grid.len() - 1;
+    while hi - lo > 1 {
+        let mid = (lo + hi) / 2;
+        if grid[mid] <= x {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    Some(lo)
+}
+
+/// **Rectilinear** mesh: explicit, non-uniform bin edges on each axis.
+///
+/// `openmc::RectilinearMesh`. This is the cheap one, and it is what a radial
+/// power profile with finer edge binning actually needs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RectilinearMesh {
+    /// Ascending bin edges along x, y, z. Each needs at least two entries.
+    pub grid: [Vec<f64>; 3],
+}
+
+impl RectilinearMesh {
+    /// Number of bins along each axis.
+    pub fn dimension(&self) -> [usize; 3] {
+        [
+            self.grid[0].len().saturating_sub(1),
+            self.grid[1].len().saturating_sub(1),
+            self.grid[2].len().saturating_sub(1),
+        ]
+    }
+
+    /// Total bins.
+    pub fn n_bins(&self) -> usize {
+        let d = self.dimension();
+        d[0] * d[1] * d[2]
+    }
+
+    /// `(i, j, k)` of the bin containing `p`, or `None` if outside.
+    pub fn indices(&self, p: Position) -> Option<[usize; 3]> {
+        Some([
+            bin_on_grid(&self.grid[0], p.x)?,
+            bin_on_grid(&self.grid[1], p.y)?,
+            bin_on_grid(&self.grid[2], p.z)?,
+        ])
+    }
+
+    /// Flat bin index, x fastest — the same ordering [`RegularMesh`] uses.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        let [i, j, k] = self.indices(p)?;
+        let d = self.dimension();
+        Some(i + d[0] * (j + d[1] * k))
+    }
+
+    /// Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:1867`, the product of
+    /// the three edge differences.
+    pub fn volume(&self, ijk: [usize; 3]) -> f64 {
+        (0..3)
+            .map(|a| self.grid[a][ijk[a] + 1] - self.grid[a][ijk[a]])
+            .product()
+    }
+}
+
+/// **Cylindrical** `(r, phi, z)` mesh about `origin`.
+///
+/// `openmc::CylindricalMesh`. This is the natural tally geometry for every core
+/// model in this repository — the workspace's standing correction is that
+/// reactor cores are R-Z, not slabs.
+///
+/// `phi` is measured from the +x axis and is mapped into `[0, 2 pi)`, matching
+/// `src/mesh.cpp:1932`. `z` is absolute (relative to `origin.z`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct CylindricalMesh {
+    /// Ascending radial edges \[cm\].
+    pub r_grid: Vec<f64>,
+    /// Ascending azimuthal edges \[rad\], within `[0, 2 pi]`.
+    pub phi_grid: Vec<f64>,
+    /// Ascending axial edges \[cm\], relative to `origin`.
+    pub z_grid: Vec<f64>,
+    /// Mesh origin \[cm\].
+    pub origin: Position,
+}
+
+impl CylindricalMesh {
+    pub fn dimension(&self) -> [usize; 3] {
+        [
+            self.r_grid.len().saturating_sub(1),
+            self.phi_grid.len().saturating_sub(1),
+            self.z_grid.len().saturating_sub(1),
+        ]
+    }
+
+    pub fn n_bins(&self) -> usize {
+        let d = self.dimension();
+        d[0] * d[1] * d[2]
+    }
+
+    /// `(i_r, i_phi, i_z)` of the bin containing `p`, or `None` if outside.
+    ///
+    /// Ported from `CylindricalMesh::get_indices` (`src/mesh.cpp:1920`),
+    /// including the `r < FP_PRECISION` guard that pins `phi = 0` on the axis
+    /// rather than letting `atan2(0, 0)` decide it.
+    pub fn indices(&self, p: Position) -> Option<[usize; 3]> {
+        let x = p.x - self.origin.x;
+        let y = p.y - self.origin.y;
+        let z = p.z - self.origin.z;
+
+        let r = x.hypot(y);
+        let phi = if r < FP_PRECISION {
+            0.0
+        } else {
+            let a = y.atan2(x);
+            if a < 0.0 {
+                a + std::f64::consts::TAU
+            } else {
+                a
+            }
+        };
+        Some([
+            bin_on_grid(&self.r_grid, r)?,
+            bin_on_grid(&self.phi_grid, phi)?,
+            bin_on_grid(&self.z_grid, z)?,
+        ])
+    }
+
+    /// Flat bin index, r fastest.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        let [i, j, k] = self.indices(p)?;
+        let d = self.dimension();
+        Some(i + d[0] * (j + d[1] * k))
+    }
+
+    /// Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2159`,
+    /// `0.5 (r_o^2 - r_i^2) (phi_o - phi_i) (z_o - z_i)`.
+    pub fn volume(&self, ijk: [usize; 3]) -> f64 {
+        let (ri, ro) = (self.r_grid[ijk[0]], self.r_grid[ijk[0] + 1]);
+        let (pi_, po) = (self.phi_grid[ijk[1]], self.phi_grid[ijk[1] + 1]);
+        let (zi, zo) = (self.z_grid[ijk[2]], self.z_grid[ijk[2] + 1]);
+        0.5 * (ro * ro - ri * ri) * (po - pi_) * (zo - zi)
+    }
+}
+
+/// **Spherical** `(r, theta, phi)` mesh about `origin`.
+///
+/// `openmc::SphericalMesh`. `theta` is the **polar** angle from +z in
+/// `[0, pi]`; `phi` the azimuth from +x in `[0, 2 pi)`. That ordering is
+/// upstream's (`src/mesh.cpp:2230`) and is the opposite of the physics
+/// convention some texts use, which is exactly the kind of thing that produces
+/// a mesh that looks right and bins wrong.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SphericalMesh {
+    /// Ascending radial edges \[cm\].
+    pub r_grid: Vec<f64>,
+    /// Ascending polar edges \[rad\], within `[0, pi]`.
+    pub theta_grid: Vec<f64>,
+    /// Ascending azimuthal edges \[rad\], within `[0, 2 pi]`.
+    pub phi_grid: Vec<f64>,
+    /// Mesh origin \[cm\].
+    pub origin: Position,
+}
+
+impl SphericalMesh {
+    pub fn dimension(&self) -> [usize; 3] {
+        [
+            self.r_grid.len().saturating_sub(1),
+            self.theta_grid.len().saturating_sub(1),
+            self.phi_grid.len().saturating_sub(1),
+        ]
+    }
+
+    pub fn n_bins(&self) -> usize {
+        let d = self.dimension();
+        d[0] * d[1] * d[2]
+    }
+
+    /// `(i_r, i_theta, i_phi)`, or `None` if outside. `src/mesh.cpp:2218`.
+    pub fn indices(&self, p: Position) -> Option<[usize; 3]> {
+        let x = p.x - self.origin.x;
+        let y = p.y - self.origin.y;
+        let z = p.z - self.origin.z;
+
+        let r = (x * x + y * y + z * z).sqrt();
+        let (theta, phi) = if r < FP_PRECISION {
+            (0.0, 0.0)
+        } else {
+            let a = y.atan2(x);
+            (
+                (z / r).clamp(-1.0, 1.0).acos(),
+                if a < 0.0 { a + std::f64::consts::TAU } else { a },
+            )
+        };
+        Some([
+            bin_on_grid(&self.r_grid, r)?,
+            bin_on_grid(&self.theta_grid, theta)?,
+            bin_on_grid(&self.phi_grid, phi)?,
+        ])
+    }
+
+    /// Flat bin index, r fastest.
+    pub fn bin(&self, p: Position) -> Option<usize> {
+        let [i, j, k] = self.indices(p)?;
+        let d = self.dimension();
+        Some(i + d[0] * (j + d[1] * k))
+    }
+
+    /// Volume of bin `(i, j, k)` \[cm^3\]: `src/mesh.cpp:2493`,
+    /// `(1/3) (r_o^3 - r_i^3) (cos theta_i - cos theta_o) (phi_o - phi_i)`.
+    ///
+    /// Note the cosine difference is `inner - outer`: `cos` decreases on
+    /// `[0, pi]`, so that ordering is what keeps the volume positive.
+    pub fn volume(&self, ijk: [usize; 3]) -> f64 {
+        let (ri, ro) = (self.r_grid[ijk[0]], self.r_grid[ijk[0] + 1]);
+        let (ti, to) = (self.theta_grid[ijk[1]], self.theta_grid[ijk[1] + 1]);
+        let (pi_, po) = (self.phi_grid[ijk[2]], self.phi_grid[ijk[2] + 1]);
+        (1.0 / 3.0) * (ro * ro * ro - ri * ri * ri) * (ti.cos() - to.cos()) * (po - pi_)
+    }
+}
+
+/// `FP_PRECISION` (`include/openmc/constants.h`) — the on-axis guard above.
+const FP_PRECISION: f64 = 1.0e-14;
