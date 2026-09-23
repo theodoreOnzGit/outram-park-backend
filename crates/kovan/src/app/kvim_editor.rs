@@ -176,6 +176,16 @@ pub struct KvimEditorState {
     /// focus, so the cursor greyed out and further typing did nothing —
     /// which reads exactly like being kicked back to Normal mode).
     text_area_id: Option<egui::Id>,
+    /// The line a press landed on in the **read-only** preview, kept until
+    /// the button comes back up so an unhurried press-release can still be
+    /// recognised as a click on that line (GH issue #282 — same egui
+    /// threshold that broke click-to-insert in the editable path).
+    preview_press_line: Option<usize>,
+    /// Set by [`Self::begin_insert`]; consumed by the next [`Self::text_area`],
+    /// which hands keyboard focus to the text area once it has an id to give
+    /// it. A one-shot flag, not a mode: after that frame the ordinary focus
+    /// rules apply (GH issue #282).
+    pending_focus: bool,
 }
 
 impl Default for KvimEditorState {
@@ -188,6 +198,8 @@ impl Default for KvimEditorState {
             pending_scroll_to_line: None,
             anchor_bands: Vec::new(),
             hover_band: None,
+            preview_press_line: None,
+            pending_focus: false,
             text_area_id: None,
         }
     }
@@ -274,7 +286,7 @@ impl KvimEditorState {
     /// no library context (e.g. before a Kovan root is open).
     pub fn ui(&mut self, ui: &mut egui::Ui, completion: Option<CompletionSource<'_>>) {
         ui.horizontal(|ui| {
-            ui.strong(self.editor.mode().label());
+            ui.strong(self.mode_label());
             let pos = self.editor.cursor();
             ui.weak(format!("{}:{}", pos.line + 1, pos.col + 1));
             if self.is_modified() {
@@ -412,6 +424,57 @@ impl KvimEditorState {
             if let Some(id) = self.text_area_id {
                 ui.ctx().memory_mut(|m| m.request_focus(id));
             }
+        }
+    }
+
+    /// The current mode's label — "NORMAL", "INSERT", "VISUAL", … — as shown
+    /// in the editor's own status line. The one reading of the engine's mode
+    /// a caller outside this module gets, so nothing else has to reach into
+    /// [`Editor`].
+    pub fn mode_label(&self) -> &'static str {
+        self.editor.mode().label()
+    }
+
+    /// Open this editor ready to type: Insert mode, with keyboard focus
+    /// claimed on the next frame (GH issue #282).
+    ///
+    /// For the callers that open an editor *because the user already
+    /// clicked* — the PDF reader's page-context panel opening a block from
+    /// its card or its banded preview line. [`Self::load_text`] builds a
+    /// fresh [`Editor`], which starts in Normal mode with no focus, so
+    /// without this the click that asked for an editor lands the user in
+    /// front of one where typing runs Vim commands. GH issue #35's own ask:
+    /// "a single click to bring me into insert mode, not double click".
+    ///
+    /// Call it *after* `load_text`, which resets the editor.
+    pub fn begin_insert(&mut self) {
+        if self.editor.mode() != Mode::Insert {
+            let _ = self.editor.handle_key(KvimKey::esc());
+            let _ = self.editor.handle_key(KvimKey::char('i'));
+        }
+        self.pending_focus = true;
+    }
+
+    /// Finish a mouse drag: a drag that selected **nothing** was really a
+    /// click, so treat it as one and enter Insert mode (GH issue #282).
+    ///
+    /// egui promotes a press to a drag once it passes *either* of
+    /// [`egui::Options`]' thresholds — `max_click_dist` (6 px: a trackpad
+    /// wobble) or `max_click_duration` (0.8 s: resting on the button) — and
+    /// from then on `Response::clicked()` never fires. `text_area`'s
+    /// click-to-insert arm therefore missed every unhurried click, leaving
+    /// the editor in the Visual mode the drag had entered, where typing runs
+    /// Vim commands instead of inserting text. The maintainer's report,
+    /// 2026-09-23: "when i click the page context editor in kvim, i expect
+    /// to go into insert mode. It doesn't do that."
+    ///
+    /// A drag that *did* select something is left alone — that is a real
+    /// selection the user made on purpose.
+    fn end_drag(&mut self) {
+        self.dragging = false;
+        if self.editor.selection().is_some_and(|(start, end)| start == end) {
+            let _ = self.editor.handle_key(KvimKey::esc());
+            let _ = self.editor.handle_key(KvimKey::char('i'));
         }
     }
 
@@ -557,9 +620,26 @@ impl KvimEditorState {
         if read_only {
             let mut clicked_line = None;
             if let Some(p) = response.interact_pointer_pos() {
-                if response.clicked() {
-                    clicked_line = Some(to_position(p).line);
+                let line = to_position(p).line;
+                if response.drag_started() {
+                    self.preview_press_line = Some(line);
                 }
+                if response.clicked() {
+                    clicked_line = Some(line);
+                } else if response.drag_stopped() {
+                    // A press egui promoted to a drag (held past 0.8 s, or
+                    // wobbled past 6 px) never reports `clicked()`, so
+                    // clicking a banded block to open it used to fail for
+                    // exactly the unhurried clicks people make — #282. A
+                    // press and release on the *same line* is a click; a
+                    // drag across lines is not, and still opens nothing.
+                    if self.preview_press_line.take() == Some(line) {
+                        clicked_line = Some(line);
+                    }
+                }
+            }
+            if !response.is_pointer_button_down_on() {
+                self.preview_press_line = None;
             }
             self.paint(ui, rect, char_width, line_height, line_count, &response);
             return clicked_line;
@@ -568,6 +648,11 @@ impl KvimEditorState {
         self.text_area_id = Some(response.id);
 
         if response.clicked() || response.drag_started() {
+            response.request_focus();
+        }
+        // An editor opened by a click elsewhere (a page-context card, a
+        // banded preview line) takes focus on its first frame — #282.
+        if std::mem::take(&mut self.pending_focus) {
             response.request_focus();
         }
 
@@ -600,7 +685,7 @@ impl KvimEditorState {
                 self.editor.move_cursor(to_position(pointer));
             }
         } else if response.drag_stopped() {
-            self.dragging = false;
+            self.end_drag();
         } else if response.clicked() {
             if let Some(pointer) = response.interact_pointer_pos() {
                 let pos = to_position(pointer);
@@ -884,6 +969,125 @@ mod tests {
         state.load_text("a\nb\n");
         state.jump_to_line(999);
         assert!(state.editor.cursor().line < 999);
+    }
+
+    // ------------------------------------------------------------------
+    // GH issue #282 — click-to-insert.
+    // ------------------------------------------------------------------
+
+    /// The maintainer's report, 2026-09-23: clicking the page-context editor
+    /// did not enter Insert mode. egui calls a press a *drag* once it passes
+    /// `max_click_dist` (6 px) or `max_click_duration` (0.8 s), so an
+    /// unhurried click never reached the `clicked()` arm and left the editor
+    /// in the Visual mode the drag had entered. A drag that selected nothing
+    /// is a click.
+    #[test]
+    fn a_drag_that_selected_nothing_is_a_click_and_enters_insert_mode() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        // Exactly what `text_area` does on `drag_started` with no movement.
+        state.editor.move_cursor(Position::new(0, 4));
+        state.editor.handle_key(KvimKey::char('v')).unwrap();
+        state.dragging = true;
+
+        state.end_drag();
+
+        assert_eq!(state.editor.mode(), Mode::Insert);
+        assert!(!state.dragging);
+        assert_eq!(state.text(), "hello world\n", "no key leaked into the buffer");
+    }
+
+    /// A drag that *did* select something is a real selection and is left
+    /// alone — the fix must not undo dragging-to-select.
+    #[test]
+    fn a_drag_that_selected_text_stays_in_visual_mode() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello world\n");
+        select(&mut state, Position::new(0, 0), Position::new(0, 4));
+        state.dragging = true;
+
+        state.end_drag();
+
+        assert_eq!(state.editor.mode(), Mode::Visual);
+        assert_eq!(state.clipboard_text(), "hello");
+    }
+
+    /// An editor opened by a click elsewhere (a page-context card, a banded
+    /// preview line) comes up ready to type, and asks for focus once.
+    #[test]
+    fn begin_insert_opens_ready_to_type_and_claims_focus_once() {
+        let mut state = KvimEditorState::default();
+        state.load_text("the prose body\n");
+        assert_eq!(state.editor.mode(), Mode::Normal, "load_text starts in Normal");
+
+        state.begin_insert();
+
+        assert_eq!(state.editor.mode(), Mode::Insert);
+        assert!(state.pending_focus);
+        // The flag is one-shot: the next paint consumes it.
+        assert!(std::mem::take(&mut state.pending_focus));
+        assert!(!state.pending_focus);
+        assert_eq!(state.text(), "the prose body\n", "no key leaked into the buffer");
+    }
+
+    /// Drive the read-only preview headlessly (no window, no GPU) through a
+    /// press at one position and a release at the same position `hold`
+    /// seconds later, and report which line it opened.
+    fn preview_press_release(hold: f64) -> Option<usize> {
+        let ctx = egui::Context::default();
+        let mut state = KvimEditorState::default();
+        state.load_text("one\ntwo\nthree\nfour\nfive\n");
+        let pos = egui::pos2(30.0, 70.0);
+        let mut opened = None;
+
+        let mut frame = |time: f64, events: Vec<egui::Event>| {
+            let input = egui::RawInput {
+                time: Some(time),
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    if let Some(line) = state.ui_readonly(ui) {
+                        opened = Some(line);
+                    }
+                });
+            });
+        };
+
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(0.0, vec![egui::Event::PointerMoved(pos)]);
+        frame(0.1, vec![button(true)]);
+        frame(0.1 + hold, Vec::new());
+        frame(0.1 + hold, vec![button(false)]);
+        opened
+    }
+
+    /// GH issue #282, the other half: the page-context **preview** opens a
+    /// block on click, and a press egui promoted to a drag (held past its
+    /// 0.8 s `max_click_duration`) never reports `clicked()` — so an
+    /// unhurried click on a banded block used to open nothing at all.
+    ///
+    /// Asserted as "the slow press opens the same line the quick one does",
+    /// so the test does not depend on font metrics or panel layout.
+    #[test]
+    fn a_slow_press_on_the_preview_opens_the_same_line_a_quick_click_does() {
+        let quick = preview_press_release(0.0);
+        assert!(quick.is_some(), "the quick click did not land on the text area");
+        assert_eq!(
+            preview_press_release(1.5),
+            quick,
+            "a press held past egui's max_click_duration must still open its line"
+        );
     }
 
     // ------------------------------------------------------------------

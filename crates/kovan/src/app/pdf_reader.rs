@@ -1605,6 +1605,11 @@ impl PdfReaderState {
             ArtifactKind::DigitisedTable | ArtifactKind::DigitisedGraph => None,
             _ => {
                 self.block_editor.load_text(&artifact.body);
+                // The user clicked to get here, so the editor opens ready to
+                // type rather than in Normal mode with no focus — GH issue
+                // #282, and #35's "a single click to bring me into insert
+                // mode, not double click".
+                self.block_editor.begin_insert();
                 self.editing_block_id = Some(artifact.id().to_string());
                 None
             }
@@ -4200,6 +4205,13 @@ mod tests {
         assert_eq!(state.editing_block_id.as_deref(), Some("graphite-note"));
         assert_eq!(state.block_editor.text(), "the prose body");
         assert_eq!(PdfReaderState::artifact_page(art), Some(2));
+        // #282: the user already clicked to get here, so the editor opens
+        // ready to type rather than in Normal mode.
+        assert_eq!(
+            state.block_editor.mode_label(),
+            "INSERT",
+            "opening a block from the page-context panel must land in Insert mode"
+        );
     }
 
     #[test]
