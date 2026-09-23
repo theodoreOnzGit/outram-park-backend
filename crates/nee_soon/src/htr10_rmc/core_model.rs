@@ -211,6 +211,18 @@ pub struct AssembledCore {
     /// Bottom of the conus \[cm\] — the deepest fuelled z. Equal to
     /// `-bed_half_height` when no conus is modelled.
     pub conus_floor: f64,
+    /// Top of the empty core cavity \[cm\], i.e. where the axial reflector
+    /// begins. Equals `bed_half_height` when no reflector is built.
+    pub cavity_top: f64,
+    /// Half-height \[cm\] of the whole assembled model — the outer reflector
+    /// cylinder runs from `-refl_half_height` to `+refl_half_height`.
+    ///
+    /// **The model is symmetric in EXTENT and asymmetric in CONTENTS**: above
+    /// the bed sit the helium cavity then the axial reflector, below it the
+    /// conus of dummy pebbles then solid graphite all the way down. Anything
+    /// reporting the axial build must read this rather than adding up the
+    /// named constants, which describe the top half only.
+    pub refl_half_height: f64,
 }
 
 /// **Assemble a delta-tracked pebble bed inside a surface-tracked reflector.**
@@ -573,6 +585,12 @@ pub fn assemble(n_rings: usize, n_axial: usize, majorant_index: usize) -> Assemb
         lat_pitch,
         lat_height,
         conus_floor: -bed_half_height,
+        cavity_top: if refl_thickness > 0.0 {
+            bed_half_height + cavity_above_bed(2.0 * bed_half_height)
+        } else {
+            bed_half_height
+        },
+        refl_half_height,
     }
 }
 
@@ -1337,5 +1355,7 @@ pub fn assemble_explicit_triso(
         lat_pitch,
         lat_height,
         conus_floor,
+        cavity_top,
+        refl_half_height,
     }
 }

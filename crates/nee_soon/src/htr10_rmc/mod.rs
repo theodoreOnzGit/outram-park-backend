@@ -87,6 +87,7 @@ pub mod bed;
 pub mod reflector;
 pub mod core_model;
 pub mod control_rod;
+pub mod materials;
 
 /// The paper's single RMC `k_eff` curve against fuel-loading height, Tables 3
 /// and 4 (`(height_cm, k_eff)`).

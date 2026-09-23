@@ -123,15 +123,12 @@
 
 use std::time::Instant;
 
-use nee_soon::htr10_rmc::core_model::{
-    PAPER_FILLING_FRACTION, HTR10_BORED_CARBON, HTR10_BORED_BORON, assemble_explicit_triso, mat,
-};
+use nee_soon::htr10_rmc::core_model::{assemble_explicit_triso, mat};
 use nee_soon::htr10_rmc::reflector::zone_composition;
-use outram_mc_libs::material::material::{Material, NuclideComponent};
 use outram_mc_libs::material::nuclide::Nuclide;
 use outram_mc_libs::material::thermal::ThermalScattering;
 use outram_mc_libs::pebble_beds::delta_tracking::Majorant;
-use outram_mc_libs::pebble_beds::htr10::{fuel_pebble_materials, BoronReading, Htr10Nuclides};
+use outram_mc_libs::pebble_beds::htr10::{BoronReading, Htr10Nuclides};
 use outram_mc_libs::physics::keff::{ComputeType, KeffSettings, ThreadCount};
 use outram_mc_libs::physics::transport_csg::{run_keff_csg_hybrid, SourceBox};
 use outram_mc_libs::geometry::position::Position;
@@ -186,8 +183,6 @@ const NUC: Htr10Nuclides = Htr10Nuclides {
     si28: 5,
     b10: 6,
 };
-/// Natural boron is 19.9 at.% B-10; the rest is effectively a non-absorber.
-const B10_OF_NATURAL: f64 = 0.199;
 
 fn env_usize(k: &str, d: usize) -> usize {
     std::env::var(k)
@@ -329,128 +324,33 @@ fn main() {
     } else {
         BoronReading::Natural
     };
-    let mut mats = fuel_pebble_materials(NUC, boron, TEMP_K);
-    mats.truncate(6);
-    // 6: helium -- deliberately near-void, as the paper's own model omits it.
-    mats.push(Material {
-        id: 70,
-        name: "helium".into(),
-        components: vec![],
-        temperature: TEMP_K,
-    });
-    // 7: reflector, TECDOC Table 4-3 zone 22 (graphite reflector structure).
-    // OUTRAM_HTR10_REFL_ZONE selects which TECDOC Table 4-3 zone stands in for
-    // the WHOLE reflector. Zone 22 (the default) is the cleanest graphite in
-    // the table -- highest carbon, near-zero boron -- so it is the OPTIMISTIC
-    // bound. Zone 17 is boronated carbon brick (natural boron 3.46e-3, ~7000x
-    // zone 22), so using it everywhere is the PESSIMISTIC bound. The real
-    // reflector is a mixture of both and the truth lies between them; this
-    // knob measures how wide that bracket is before the R-Z zone map is built.
+    // The material set now lives in `htr10_rmc::materials` so that this
+    // example and `htr10_geometry_export` cannot drift apart -- the exporter
+    // writes the manuscript's material table and must describe the model this
+    // eigenvalue is actually computed with. The ENVIRONMENT KNOBS stay here;
+    // the module takes an explicit config.
     let zone_id = std::env::var("OUTRAM_HTR10_REFL_ZONE")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(22usize);
-    let z = zone_composition(zone_id).expect("zone is listed");
-    // OUTRAM_HTR10_REFL_SCALE scales the reflector's CARBON density.
-    //
-    // The model gives every remaining reflector region TECDOC zone 22, which
-    // is rank 1 of 40 distinct carbon densities in Table 4-3 -- the DENSEST
-    // graphite available, used everywhere. The zone-count-weighted mean over
-    // the table is 15.5 % lower. Building the real R-Z zone map is a larger
-    // job; this knob measures the SENSITIVITY dk/d(rho_C) instead, so the
-    // remaining residual can be checked against a plausible density change
-    // without inventing a "representative" zone.
-    //
-    // It is a BOUND, not a model. 1.0 is the unmodified zone-22 reflector.
     let refl_scale: f64 = std::env::var("OUTRAM_HTR10_REFL_SCALE")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(1.0);
+    let z_report = zone_composition(zone_id).expect("zone is listed");
     println!(
         "  reflector zone: {zone_id} (C {:.4e} x{refl_scale:.3}, natural B {:.4e})",
-        z.carbon, z.natural_boron
+        z_report.carbon, z_report.natural_boron
     );
-    mats.push(Material {
-        id: 71,
-        name: "reflector graphite (TECDOC zone 22)".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: NUC.c_graphite,
-                atom_density: z.carbon * refl_scale,
-            },
-            NuclideComponent {
-                nuclide_idx: NUC.b10,
-                atom_density: if matches!(boron, BoronReading::None) {
-                    0.0
-                } else {
-                    z.natural_boron * B10_OF_NATURAL
-                },
-            },
-        ],
-        temperature: TEMP_K,
-    });
-    // 8: boronated carbon brick, the outermost reflector annulus. TECDOC
-    // Table 4-3 zone 17 -- natural boron 3.4635e-3, ~7300x zone 22's.
-    let zb = zone_composition(17).expect("zone 17 is listed");
-    mats.push(Material {
-        id: 72,
-        name: "boronated carbon brick (TECDOC zone 17)".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: NUC.c_graphite,
-                atom_density: zb.carbon,
-            },
-            NuclideComponent {
-                nuclide_idx: NUC.b10,
-                atom_density: if matches!(boron, BoronReading::None) {
-                    0.0
-                } else {
-                    zb.natural_boron * B10_OF_NATURAL
-                },
-            },
-        ],
-        temperature: TEMP_K,
-    });
-    // 9: side reflector homogenised with its control-rod borings, TECDOC
-    // zones 31-40 -- ten consecutive zones at one reduced density, which is
-    // what a bored region looks like. 28.1 % less carbon than zone 22.
-    mats.push(Material {
-        id: 73,
-        name: "bored side reflector (TECDOC zones 31-40)".into(),
-        components: vec![
-            NuclideComponent {
-                nuclide_idx: NUC.c_graphite,
-                atom_density: HTR10_BORED_CARBON,
-            },
-            NuclideComponent {
-                nuclide_idx: NUC.b10,
-                atom_density: if matches!(boron, BoronReading::None) {
-                    0.0
-                } else {
-                    HTR10_BORED_BORON * B10_OF_NATURAL
-                },
-            },
-        ],
-        temperature: TEMP_K,
-    });
-    // 10: homogenised dummy pebbles = pebble graphite scaled to the bed's
-    // filling fraction. What the discharge tube actually contains (Terry 2005
-    // section 2), between the two bounds of solid graphite and pure helium.
-    let dummy_graphite = mats[mat::GRAPHITE].clone();
-    mats.push(Material {
-        id: 74,
-        name: "homogenised dummy pebbles (0.61 packing)".into(),
-        components: dummy_graphite
-            .components
-            .iter()
-            .map(|c| NuclideComponent {
-                nuclide_idx: c.nuclide_idx,
-                atom_density: c.atom_density * PAPER_FILLING_FRACTION,
-            })
-            .collect(),
-        temperature: TEMP_K,
-    });
-    assert_eq!(mats.len(), mat::HOMOG_DUMMY + 1);
+    let mats = nee_soon::htr10_rmc::materials::htr10_material_set(
+        NUC,
+        nee_soon::htr10_rmc::materials::Htr10MaterialConfig {
+            temperature_k: TEMP_K,
+            boron,
+            reflector_zone: zone_id,
+            reflector_carbon_scale: refl_scale,
+        },
+    );
 
     // OUTRAM_HTR10_SURFACE=1 runs the SAME geometry with surface tracking only.
     let surface_only = std::env::var("OUTRAM_HTR10_SURFACE").is_ok();
