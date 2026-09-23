@@ -59,6 +59,20 @@
 //! applies with full force: this is an offline educational demonstration and
 //! not a source-term calculation for any real plant.
 //!
+//! **An HTR-10 inventory is now available as data, and this module still does
+//! not use it.** `reference/htr10_equilibrium_core_inventory.csv` holds the
+//! published equilibrium-core inventory of 22 nuclides — including all five
+//! of [`TRACKED_NUCLIDES`] — transcribed from Liu & Cao (2002), Table 1; its
+//! provenance and access terms are in `reference/References.md`. Wiring it in
+//! would change what this module *reports* (curies rather than a transfer
+//! function) and every recorded number with it, so it is a maintainer's call
+//! and has not been made. The file is noted here so the next reader does not
+//! conclude from the paragraphs above that no inventory exists and go looking
+//! for one. Note also that the deeper objection stands regardless: the
+//! failure fractions below are **not** HTR-10 fuel-qualification data, so a
+//! curie figure would still be the product of one reactor's inventory and
+//! another's fuel quality.
+//!
 //! # What else is an input rather than a derivation
 //!
 //! The geometry is published and read from `tampines` (see
