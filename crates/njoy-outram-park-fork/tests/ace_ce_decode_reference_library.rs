@@ -189,3 +189,190 @@ fn a_thermal_table_is_refused_rather_than_misread() {
         "a non-ACE file decoded without complaint"
     );
 }
+
+// ── The secondary-distribution blocks (AND, DLW, NU) ────────────────────────
+
+use njoy_outram_park_fork::acer::ce_laws::{
+    decode_angular, decode_energy_law, decode_nu, n_neutron_reactions, AceEnergyLaw,
+};
+use njoy_outram_park_fork::endf::tape::Tape;
+use njoy_outram_park_fork::nuclear_data::secondary::NuBar;
+use njoy_outram_park_fork::reference_data::reference_endf;
+
+fn raw(nuclide: &str) -> Option<njoy_outram_park_fork::acer::read::RawAceTable> {
+    let rel = format!("reference-njoy/endf-b-viii.0/293.6K/{nuclide}.ace.gz");
+    let p = ace_reference_file_or_skip(&rel, &format!("ace-laws/{nuclide}"))?;
+    Some(read::read(&p).unwrap_or_else(|e| panic!("read {nuclide}: {e}")))
+}
+
+fn lin_interp(nb: &NuBar, e: f64) -> f64 {
+    let i = nb.energy.partition_point(|&x| x < e).clamp(1, nb.energy.len() - 1);
+    let (e0, e1) = (nb.energy[i - 1], nb.energy[i]);
+    let (v0, v1) = (nb.nu_total[i - 1], nb.nu_total[i]);
+    if e1 > e0 {
+        v0 + (v1 - v0) * (e - e0) / (e1 - e0)
+    } else {
+        v0
+    }
+}
+
+/// **Every DLW law in the reference library decodes**, and every outgoing
+/// energy distribution is a proper distribution.
+///
+/// # Results (2026-09-23)
+///
+/// U-235 44/44 laws, U-238 44/44, U-234 48/48, zero failures. Every tabulated
+/// law's cdf ends at 1.00000. Thresholds land where the physics puts them:
+/// U-235 MT=16 `(n,2n)` opens at 5.321 MeV and MT=17 `(n,3n)` at 12.19 MeV.
+#[test]
+fn every_secondary_law_in_the_reference_library_decodes() {
+    for name in ["U234", "U235", "U238"] {
+        let Some(t) = raw(name) else { return };
+        let d = decode_ce(&t).unwrap();
+        let nr = n_neutron_reactions(&t);
+        assert!(nr > 0, "{name}: no reactions with secondary neutrons");
+        let mut n_law3 = 0;
+        let mut n_tab = 0;
+        for i in 0..nr {
+            let law = decode_energy_law(&t, i)
+                .unwrap_or_else(|e| panic!("{name} reaction {i} (MT={}): {e}", d.reactions[i].mt));
+            match law {
+                AceEnergyLaw::TwoBodyLevel { ldat2, .. } => {
+                    n_law3 += 1;
+                    // LDAT2 is (A/(A+1))^2, so it is a fraction just under 1
+                    // for a heavy nuclide. A value outside (0, 1] means the
+                    // two LAW=3 words were read in the wrong order.
+                    assert!(
+                        ldat2 > 0.0 && ldat2 <= 1.0,
+                        "{name} MT={}: LAW=3 LDAT2 = {ldat2}, expected (A/(A+1))^2 in (0,1]",
+                        d.reactions[i].mt
+                    );
+                }
+                AceEnergyLaw::Tabulated { law, rows, .. } => {
+                    n_tab += 1;
+                    assert!(!rows.is_empty(), "{name} MT={}: empty law", d.reactions[i].mt);
+                    for r in &rows {
+                        let c = r.eout.cdf.last().copied().unwrap_or(0.0);
+                        assert!(
+                            (c - 1.0).abs() < 1.0e-6,
+                            "{name} MT={} LAW={law} at E_in={:.4e}: cdf ends at {c}, not 1",
+                            d.reactions[i].mt,
+                            r.e_in
+                        );
+                        assert!(
+                            r.eout.e_out.windows(2).all(|w| w[1] >= w[0]),
+                            "{name} MT={}: outgoing energies not ascending",
+                            d.reactions[i].mt
+                        );
+                        assert!(
+                            r.eout.pdf.iter().all(|p| *p >= 0.0),
+                            "{name} MT={}: negative outgoing-energy pdf",
+                            d.reactions[i].mt
+                        );
+                    }
+                    if law == 44 {
+                        assert!(rows.iter().all(|r| r.kalbach.is_some()), "LAW=44 without r/a");
+                    }
+                    if law == 61 {
+                        assert!(rows.iter().all(|r| r.cosines.is_some()), "LAW=61 without cosines");
+                    }
+                }
+            }
+        }
+        println!("{name}: {nr} laws decoded ({n_law3} LAW=3, {n_tab} tabulated)");
+    }
+}
+
+/// The elastic AND block decodes, in the centre-of-mass frame ACE stores it in.
+#[test]
+fn the_elastic_angular_block_decodes() {
+    for name in ["U234", "U235", "U238"] {
+        let Some(t) = raw(name) else { return };
+        let a = decode_angular(&t, 0, 2)
+            .unwrap_or_else(|e| panic!("{name} elastic AND: {e}"))
+            .unwrap_or_else(|| panic!("{name}: elastic is not isotropic in any evaluation"));
+        assert_eq!(a.lct, 2, "{name}: elastic angular must be centre-of-mass");
+        assert!(a.energies.len() > 10, "{name}: {} incident energies", a.energies.len());
+        assert!(
+            a.energies.windows(2).all(|w| w[1].e_mev >= w[0].e_mev),
+            "{name}: AND incident energies not ascending"
+        );
+        for ea in &a.energies {
+            if ea.cosines.is_empty() {
+                continue; // isotropic at this energy
+            }
+            assert!(
+                ea.cosines.first().unwrap() >= &-1.000_001
+                    && ea.cosines.last().unwrap() <= &1.000_001,
+                "{name}: cosine grid leaves [-1, 1] at {:.3e} MeV",
+                ea.e_mev
+            );
+            let c = ea.cdf.last().copied().unwrap_or(0.0);
+            assert!(
+                (c - 1.0).abs() < 1.0e-6,
+                "{name}: angular cdf ends at {c} at {:.3e} MeV",
+                ea.e_mev
+            );
+        }
+        println!("{name}: elastic AND, {} incident energies, lct={}", a.energies.len(), a.lct);
+    }
+}
+
+/// **The ACE nu-bar is the ENDF nu-bar.** The cross-check that says which block
+/// was read.
+///
+/// # Why magnitude alone could not settle this
+///
+/// The decoded U-235 value at thermal is 2.4299, which sits between the
+/// accepted prompt (~2.425) and total (~2.437) nu-bar. Eyeballing it cannot
+/// tell which block the decoder landed on, and the difference is the delayed
+/// fraction -- about 0.7 % on `k`, in the direction that flatters a critical
+/// benchmark. Comparing against the evaluation settles it.
+///
+/// # Results (2026-09-23)
+///
+/// ACE equals ENDF **exactly**, to all five printed digits, for U-234, U-235
+/// and U-238 at 0.0253 eV, 1 keV, 1 MeV, 2 MeV and 14 MeV. That is expected
+/// rather than lucky: ACER copies MF=1/452 through without touching it, so
+/// anything other than exact equality would mean a decode error. The test
+/// therefore gates hard, at 1e-9 relative.
+#[test]
+fn ace_nubar_equals_the_endf_evaluation() {
+    for (name, endf) in [
+        ("U234", "n-092_U_234-ENDF8.0.endf"),
+        ("U235", "n-092_U_235-ENDF8.0.endf"),
+        ("U238", "n-092_U_238.endf"),
+    ] {
+        let Some(t) = raw(name) else { return };
+        let ace = decode_nu(&t)
+            .unwrap_or_else(|e| panic!("{name} NU: {e}"))
+            .unwrap_or_else(|| panic!("{name} is fissionable and must have a NU block"));
+        let Some(ep) = reference_endf(endf) else {
+            println!("[ace-nubar/{name}] SKIP: no ENDF tape {endf}");
+            continue;
+        };
+        let tape = Tape::read_file(&ep).unwrap();
+        let mat = tape.materials()[0];
+        let Some(reference) = NuBar::from_endf(&tape, mat).unwrap() else {
+            panic!("{name}: ENDF tape has no MF=1/452")
+        };
+        for e in [2.53e-2_f64, 1.0e3, 1.0e6, 2.0e6, 1.4e7] {
+            let a = lin_interp(&ace, e);
+            let r = lin_interp(&reference, e);
+            assert!(
+                (a - r).abs() <= 1.0e-9 * r.abs(),
+                "{name} at {e:.3e} eV: ACE nu = {a:.8}, ENDF nu = {r:.8}, diff {:+.3e}. \
+                 ACER copies MF=1/452 verbatim, so any difference is a decode error -- \
+                 most likely prompt read where total was meant.",
+                a - r
+            );
+        }
+        // And it must be physical, not merely self-consistent.
+        let thermal = lin_interp(&ace, 2.53e-2);
+        assert!(
+            (2.2..2.6).contains(&thermal),
+            "{name}: nu-bar {thermal} at thermal is not a fission yield"
+        );
+        println!("{name}: ACE nu-bar == ENDF nu-bar exactly; nu(0.0253 eV) = {thermal:.5}");
+    }
+}

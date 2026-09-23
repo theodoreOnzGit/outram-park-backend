@@ -82,6 +82,7 @@ pub mod acesix;
 pub mod angular;
 pub mod build;
 pub mod ce_decode;
+pub mod ce_laws;
 pub mod dosimetry;
 pub mod energy;
 pub mod fortran_fmt;
