@@ -77,6 +77,7 @@
 use std::time::Instant;
 
 use outram_mc_libs::geometry::cell::{Cell, HalfSpaceSense, RegionToken};
+use outram_mc_libs::mathf::RealMath;
 use outram_mc_libs::geometry::geometry::Geometry;
 use outram_mc_libs::geometry::position::Position;
 use outram_mc_libs::geometry::surface::{
@@ -770,7 +771,10 @@ fn shielded_room_weight_window() {
             continue;
         }
         any_measurable = true;
-        let geo = (ratios.iter().map(|r| r.ln()).sum::<f64>() / ratios.len() as f64).exp();
+        // Through `RealMath`, which is this crate's convention for every
+        // transcendental (`mathf.rs`): `r_ln`/`r_exp` are PETIR in every build,
+        // so a reported number does not depend on the host's libm.
+        let geo = (ratios.iter().map(|r| r.r_ln()).sum::<f64>() / ratios.len() as f64).r_exp();
         let mut sorted = ratios.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         println!(
