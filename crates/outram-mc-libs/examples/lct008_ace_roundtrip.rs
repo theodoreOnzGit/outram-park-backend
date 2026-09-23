@@ -52,6 +52,66 @@
 //! (a known open defect), so including it would make this example unrunnable
 //! for a reason that has nothing to do with ACE.
 
+//! # Results (2026-09-23, ENDF/B-VIII.0, seed 1)
+//!
+//! ```text
+//! ENDF route : k_eff = 0.84980 +/- 0.00232
+//! ACE  route : k_eff = 0.85250 +/- 0.00258
+//! difference : +269.3 pcm  (combined sigma 346.6 pcm, 0.78 sigma)  -> AGREE
+//!
+//! ENDF parse                 0.45 s   0.04 %    U235  267.6 MB
+//! RECONR (0 K)             114.15 s   9.22 %    U238  326.1 MB
+//! BROADR (-> 293.6 K)       27.52 s   2.22 %    O16    10.2 MB
+//! ACER build               198.55 s  16.04 %    H1      0.2 MB
+//! ACE write                 10.85 s   0.88 %    B10     2.9 MB
+//! ACE read                   2.90 s   0.23 %    606.9 MB total
+//! Nuclide::from_ace          0.23 s   0.02 %
+//! Nuclide::from_endf_file  147.92 s  11.95 %
+//! transport (ENDF route)   131.34 s  10.61 %
+//! transport (ACE route)    603.56 s  48.77 %
+//!                         1237.47 s 100.00 %
+//! ```
+//!
+//! ## The parity result, and how much it is worth
+//!
+//! The two routes agree at **0.78 sigma**. That is a pass, and it is a **weak**
+//! one: at a combined sigma of 347 pcm it cannot exclude a real difference of a
+//! couple of hundred pcm. The sensitive check on the same question is
+//! `tests/nuclide_from_ace_vs_endf.rs`, which compares **cross sections**
+//! rather than `k` and resolves agreement to **0.03 %**. Read this as an
+//! end-to-end confirmation that nothing is grossly wrong, not as a tight bound.
+//!
+//! ## AN OPEN ANOMALY: the ACE route transports 4.6x SLOWER
+//!
+//! 603.56 s against 131.34 s, same geometry, same settings, same seed, and
+//! `k` agreeing. **This runs opposite to expectation.** `Nuclide::from_ace`
+//! sets `urr: None` and `dbrc: None` (documented omissions -- the UNR block is
+//! not decoded and an already-broadened table carries no 0 K elastic), so the
+//! ACE route should be doing strictly LESS work per collision than the ENDF
+//! route, which applies both.
+//!
+//! Candidate causes, none of them measured:
+//!
+//! - **Grid size.** `from_ace` puts MT=1 and MT=2 on the full ESZ grid, which
+//!   for U-238 is 284 415 points. If RECONR's own per-MT grids are shorter,
+//!   every lookup pays more -- though binary search makes that a logarithmic
+//!   penalty, not a 4.6x one.
+//! - **Inelastic level count.** `xs_at_energy` sums `eval_mt` over every level
+//!   in `inel`, one search each. If the ACE route retains the 40 discrete
+//!   levels where the ENDF route lumps them under MT=4 (or the reverse), the
+//!   per-collision cost differs by that factor. `ce_decode::channel_mts` drops
+//!   levels only when the lump is present, and whether our ACER emits MT=4
+//!   has not been checked here.
+//! - **Fission spectrum representation.** The ACE route always produces
+//!   `FissionSpectrum::ContinuousTabular`; the ENDF route may produce a Watt
+//!   form, which is far cheaper to sample.
+//!
+//! **This is recorded as an open question, not a conclusion.** It does not
+//! affect the parity result -- the two `k` values agree -- but a 4.6x cost
+//! difference between two routes to the same physics is a defect somewhere,
+//! and guessing which would be exactly the mistake this workspace's porting
+//! rule warns against.
+//!
 use std::time::{Duration, Instant};
 
 use njoy_outram_park_fork::acer::{angular::parse_elastic_angular, energy::build_emissions, AceTable};
