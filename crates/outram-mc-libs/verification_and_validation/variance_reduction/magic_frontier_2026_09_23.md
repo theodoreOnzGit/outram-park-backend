@@ -122,3 +122,71 @@ mechanism, not a measurement, and it is the next thing to test.
 The assertion `ww_deep > analog_deep` is unchanged and still fails honestly.
 The test is marked `#[ignore]` because it cannot complete in a tractable time,
 with the reason naming this document — not because the criterion was moved.
+
+---
+
+# The figure of merit, measured (#258 acceptance item 3)
+
+Measured 2026-09-23 on the run that completes, after MAGIC was seeded from the
+analog tally and the chunk growth was bounded. **Acceptance item 3 is now
+answered, and the answer is negative.**
+
+## Conditions
+
+Analog arm 50 000 particles in 138.4 s. Window arm: six MAGIC iterations
+(117.6 s, leaving 751/1178 cells carrying a window) plus a matched-cost scoring
+run, 172.9 s total. Deep region: 68 cells beyond 200 cm of concrete.
+
+## Results
+
+| depth band | FOM ratio (windows / analog) | cells | windows-only |
+|---|---|---|---|
+| 0–400 cm (source side) | **0.011x** (median 0.012, range 0.003–0.032) | 27 | 0 |
+| 400–900 cm (mid-field) | **0.007x** (median 0.006, range 0.000–0.044) | 101 | 0 |
+| 900–1450 cm (far field) | **0.011x** (median 0.009, range 0.001–0.434) | 58 | 0 |
+
+**Weight windows are roughly 100x WORSE than analog by figure of merit on this
+configuration, in every band.** `windows-only 0` in all three bands means they
+never resolved a cell the analog arm did not.
+
+**Unbiasedness holds**: flux per source particle 1712.43 analog against 1878.06
+windowed, **+9.67 %**, within the 25 % gate and consistent with the window
+arm's 240-particle statistics. So this is a cost result, not a correctness one —
+the windows do not move the answer, they just pay far too much for it.
+
+## The mechanism, from the numbers
+
+At matched cost the window arm bought **240 particles against analog's 50 000**
+(0.72 s/particle against 2.8 ms). It reaches no deeper, so it simply has worse
+statistics everywhere, and the FOM ratio is close to the particle-count ratio.
+
+The standing explanation for the 260x per-particle cost is the **window mesh
+being far too coarse for the window ratio**: cells are 1550/31 = **50 cm**
+against a fast-neutron mean free path in concrete of order 5–10 cm, so each
+cell is 5–10 mfp and the flux falls by 10^2–10^4 across it, against a window
+ratio of 5. Every cell crossing therefore splits at the `max_split = 10` cap,
+paying for splits that buy no penetration because the *next* cell has no window
+yet. Standard guidance is that the flux should change by less than the window
+ratio across one mesh cell; this violates it by two to three orders of
+magnitude.
+
+**That remains a hypothesis with a stated mechanism, not a measurement.** The
+discriminating test is a mesh refined until adjacent-cell flux ratios are below
+5 (roughly 10–16 cm cells, so ~100x120 rather than 31x38), which needs
+proportionally more statistics to populate and was not run here.
+
+## What #258 can conclude
+
+- **Unbiasedness: established.** Both on the eigenvalue problem
+  (`+14 ± 22 pcm`, bias bounded ≤57 pcm at 2 σ) and here (+9.67 % on flux per
+  source particle, within statistics).
+- **Worth on a deep-penetration problem: measured, and negative.** ~100x worse
+  by FOM at matched cost. The technique is implemented and unbiased; it has
+  **not** been shown to pay on the case it exists for.
+- **The notebook's deep-penetration claim is NOT reproduced.** The frontier was
+  still advancing at +23 cells/iteration when the run was cut off; reaching the
+  deep region needs ~20 more iterations at a rising cost, about 2 hours.
+
+Quoting this as "variance reduction works" would be wrong. The correct
+statement is that the estimator is right and the configuration is wrong, with
+the mesh resolution named as the next thing to test.
