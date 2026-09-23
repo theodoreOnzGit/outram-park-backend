@@ -31,10 +31,14 @@
 //!   mandatory review step, same as the plot digitiser's auto-trace errors
 //!   are expected to be caught and hand-corrected.
 //! - **Model download.** The `.traineddata` model file must already be on
-//!   disk; the operator supplies its path. `kopitiam`'s own OCR pipeline
-//!   downloads models on demand into a cache — that download machinery is
-//!   not ported here (out of scope for this pass; a natural follow-up if a
-//!   model-path text field turns out to be too much friction in practice).
+//!   disk. ~~The operator supplies its path.~~ **CORRECTED 2026-09-23**
+//!   (GH issue #287): the operator no longer types a path — [`discover_model`]
+//!   finds one, and the front end runs OCR as soon as a region arrives. The
+//!   maintainer's own words: "i don't want to deal with selecting an OCR
+//!   model, i should be able to just see the table and csv extracted". The
+//!   *download* machinery is still not ported: if no model is on the machine,
+//!   [`discover_model`] returns `None` and the front end says which
+//!   directories it looked in.
 
 use std::path::Path;
 
@@ -191,6 +195,144 @@ pub fn recognize_table(
     })
 }
 
+/// The file name of the model [`discover_model`] prefers.
+pub const PREFERRED_MODEL: &str = "eng.traineddata";
+
+/// Tesseract's orientation-and-script-detection data, which
+/// [`discover_model`] never picks.
+///
+/// It is a `.traineddata` file and sits in the same directory as the real
+/// models, but it carries **no LSTM recognizer** — `LstmRecognizer::load`
+/// on it can only fail, so choosing it would turn "no model installed" into
+/// an obscure load error.
+const NOT_A_RECOGNIZER: &str = "osd.traineddata";
+
+/// The directories searched for a `.traineddata` model, in order (#287).
+///
+/// 1. **`$KOVAN_TESSDATA`** — the explicit override, kept because the field
+///    it replaces was an override in practice. It may name a *file* as well
+///    as a directory; see [`discover_model`].
+/// 2. **`$TESSDATA_PREFIX`** — Tesseract's own variable. Both the directory
+///    it names and `<it>/tessdata` are searched, because the convention has
+///    meant each at different times.
+/// 3. **Kovan's own application-data folder**, `<data>/tessdata` — where a
+///    model a user downloads for Kovan alone can be dropped, beside the
+///    standard corpus clone.
+/// 4. **The usual system locations** for a distribution's tesseract data.
+///
+/// The list is returned whether or not the directories exist; searching a
+/// missing directory simply finds nothing.
+pub fn model_search_dirs() -> Vec<std::path::PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(explicit) = std::env::var_os("KOVAN_TESSDATA") {
+        dirs.push(std::path::PathBuf::from(explicit));
+    }
+    if let Some(prefix) = std::env::var_os("TESSDATA_PREFIX") {
+        let prefix = std::path::PathBuf::from(prefix);
+        dirs.push(prefix.join("tessdata"));
+        dirs.push(prefix);
+    }
+    if let Some(data) = directories::ProjectDirs::from("org", "OUTRAM PARK", "kovan") {
+        dirs.push(data.data_dir().join("tessdata"));
+    }
+    dirs.extend(
+        [
+            "/usr/share/tessdata",
+            "/usr/local/share/tessdata",
+            "/usr/share/tesseract-ocr/5/tessdata",
+            "/usr/share/tesseract-ocr/4.00/tessdata",
+            "/opt/homebrew/share/tessdata",
+            "/opt/local/share/tessdata",
+        ]
+        .into_iter()
+        .map(std::path::PathBuf::from),
+    );
+    dirs
+}
+
+/// Every `.traineddata` model on the machine worth trying, best first
+/// (#287): [`model_search_dirs`] order, and within each directory
+/// [`PREFERRED_MODEL`] before the rest.
+///
+/// **Directory order outranks language.** An `eng.traineddata` in
+/// `/usr/share` does *not* jump ahead of a model in `KOVAN_TESSDATA`, or the
+/// override would stop being one — the preference decides between models the
+/// user has not chosen between, nothing more.
+///
+/// A **list**, not one path, because a model being present does not mean it
+/// can be used: measured 2026-09-23 on the maintainer's machine, the only
+/// model installed (`afr.traineddata`) is rejected by `kopitiam-ocr` 0.1.0
+/// with "network outputs 96 != recoder code_range + 1 = 97 (CTC-null
+/// invariant)". A caller walks this list and uses the first that loads, so
+/// one unusable file does not stand in for "no OCR on this machine".
+pub fn discover_models() -> Vec<std::path::PathBuf> {
+    discover_models_in(&model_search_dirs())
+}
+
+/// [`discover_models`] over an explicit list — the testable half.
+pub fn discover_models_in(dirs: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
+    let mut found: Vec<std::path::PathBuf> = Vec::new();
+    for d in dirs {
+        if d.is_file() {
+            found.push(d.clone());
+            continue;
+        }
+        found.extend(models_in(d));
+    }
+    found.dedup();
+    found
+}
+
+/// The first model [`discover_models`] would try, or `None` if the machine
+/// has none.
+pub fn discover_model() -> Option<std::path::PathBuf> {
+    discover_models().into_iter().next()
+}
+
+/// [`discover_model`] over an explicit list — the testable half.
+pub fn discover_model_in(dirs: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
+    discover_models_in(dirs).into_iter().next()
+}
+
+/// Every usable-looking `.traineddata` in one directory, preferred first,
+/// never [`NOT_A_RECOGNIZER`].
+fn models_in(dir: &Path) -> Vec<std::path::PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut out: Vec<std::path::PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.extension().is_some_and(|e| e == "traineddata")
+                && p.file_name().is_some_and(|n| n != NOT_A_RECOGNIZER)
+        })
+        .collect();
+    out.sort();
+    if let Some(i) = out
+        .iter()
+        .position(|p| p.file_name().is_some_and(|n| n == PREFERRED_MODEL))
+    {
+        out.swap(0, i);
+    }
+    out
+}
+
+/// The model to use from one directory: [`PREFERRED_MODEL`] if it is there,
+/// otherwise the alphabetically first other `.traineddata`, never
+/// [`NOT_A_RECOGNIZER`].
+///
+/// Falling back to *some other language* is deliberate. These models are
+/// Latin-script LSTM recognizers; one trained on another language still
+/// reads digits and Latin letters, which is most of what a data table is,
+/// and a usable table the operator then corrects beats an empty tab. The
+/// front end says which model it used, so a reader knows why the words may
+/// be worse than the numbers.
+pub fn pick_model_in(dir: &Path) -> Option<std::path::PathBuf> {
+    models_in(dir).into_iter().next()
+}
+
 /// Split one recognized line into cells on runs of 2+ spaces — see the
 /// module doc's "table structure" limitation. A single-space gap (an
 /// ordinary word boundary) stays inside one cell.
@@ -226,6 +368,85 @@ fn split_into_cells(line: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #287: English wins when it is there, and the orientation/script data
+    /// is never chosen — it has no recognizer, so picking it would turn "no
+    /// model installed" into an obscure load failure.
+    #[test]
+    fn model_discovery_prefers_english_and_never_the_orientation_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let write = |name: &str| std::fs::write(dir.path().join(name), b"x").unwrap();
+        write("osd.traineddata");
+        write("afr.traineddata");
+        write("eng.traineddata");
+        assert_eq!(
+            pick_model_in(dir.path()),
+            Some(dir.path().join("eng.traineddata"))
+        );
+
+        std::fs::remove_file(dir.path().join("eng.traineddata")).unwrap();
+        assert_eq!(
+            pick_model_in(dir.path()),
+            Some(dir.path().join("afr.traineddata")),
+            "another Latin-script model is better than nothing"
+        );
+
+        std::fs::remove_file(dir.path().join("afr.traineddata")).unwrap();
+        assert_eq!(
+            pick_model_in(dir.path()),
+            None,
+            "osd alone is not a model to recognise with"
+        );
+    }
+
+    /// The search takes the first directory that has one, and a search entry
+    /// that is itself a file is used as the model — which is how
+    /// `KOVAN_TESSDATA` can name one.
+    #[test]
+    fn model_discovery_takes_the_first_hit_and_accepts_a_file() {
+        let empty = tempfile::tempdir().unwrap();
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        std::fs::write(first.path().join("deu.traineddata"), b"x").unwrap();
+        std::fs::write(second.path().join("eng.traineddata"), b"x").unwrap();
+
+        assert_eq!(
+            discover_model_in(&[
+                empty.path().to_path_buf(),
+                first.path().to_path_buf(),
+                second.path().to_path_buf(),
+            ]),
+            Some(first.path().join("deu.traineddata")),
+            "order decides; it does not go looking for a better language"
+        );
+
+        let named_file = second.path().join("eng.traineddata");
+        assert_eq!(
+            discover_model_in(std::slice::from_ref(&named_file)),
+            Some(named_file)
+        );
+        assert_eq!(
+            discover_model_in(&[empty.path().to_path_buf()]),
+            None,
+            "a machine with no model says so rather than guessing a path"
+        );
+    }
+
+    /// The order the doc promises, in the order it promises it — a reader
+    /// troubleshooting "it picked the wrong model" needs this to be true.
+    #[test]
+    fn the_search_order_starts_with_the_overrides() {
+        let dirs = model_search_dirs();
+        let strings: Vec<String> = dirs.iter().map(|d| d.display().to_string()).collect();
+        assert!(
+            strings.iter().any(|d| d.ends_with("tessdata")),
+            "no tessdata directory in the search path: {strings:?}"
+        );
+        assert!(
+            strings.contains(&"/usr/share/tessdata".to_string()),
+            "the usual system location is missing: {strings:?}"
+        );
+    }
 
     #[test]
     fn splits_on_two_or_more_spaces_not_single() {

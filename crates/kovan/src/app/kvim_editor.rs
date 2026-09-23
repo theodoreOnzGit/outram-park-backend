@@ -650,6 +650,33 @@ impl KvimEditorState {
         if response.clicked() || response.drag_started() {
             response.request_focus();
         }
+        // **Own the keyboard while focused** (GH issue #289). Without this,
+        // egui's own focus system gets these keys first: `Memory::begin_pass`
+        // reads the focused widget's `EventFilter`, and with the default one
+        // **Escape surrenders focus**, Tab moves to the next widget and the
+        // arrow keys move focus by direction. In a modal editor that is
+        // fatal rather than untidy — pressing Esc to leave Insert dropped
+        // focus, so the `u` after it never reached the engine at all and
+        // fell through to the app's own shortcuts (`j`/`k` turn the PDF
+        // reader's pages). The maintainer, 2026-09-23: "i want kvim to act
+        // like vim keys ... u to undo etc."
+        //
+        // `set_focus_lock_filter` only takes effect from the *second* frame
+        // of focus (it requires `had_focus_last_frame`), which is egui's own
+        // constraint and the same one its `TextEdit` lives with.
+        if response.has_focus() {
+            ui.memory_mut(|m| {
+                m.set_focus_lock_filter(
+                    response.id,
+                    egui::EventFilter {
+                        tab: true,
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        escape: true,
+                    },
+                );
+            });
+        }
         // An editor opened by a click elsewhere (a page-context card, a
         // banded preview line) takes focus on its first frame — #282.
         if std::mem::take(&mut self.pending_focus) {
@@ -969,6 +996,102 @@ mod tests {
         state.load_text("a\nb\n");
         state.jump_to_line(999);
         assert!(state.editor.cursor().line < 999);
+    }
+
+    // ------------------------------------------------------------------
+    // GH issue #289 — the editor owns the keyboard while it has focus.
+    // ------------------------------------------------------------------
+
+    /// Drive the editable editor headlessly (no window, no GPU) across
+    /// `frames`, each a list of events, and give back the buffer at the end.
+    fn drive(state: &mut KvimEditorState, frames: Vec<Vec<egui::Event>>) -> String {
+        let ctx = egui::Context::default();
+        for (n, events) in frames.into_iter().enumerate() {
+            let input = egui::RawInput {
+                time: Some(n as f64 * 0.1),
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                events,
+                ..Default::default()
+            };
+            let _ = ctx.run_ui(input, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    state.ui(ui, None);
+                });
+            });
+        }
+        state.text()
+    }
+
+    fn key(key: egui::Key) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }
+    }
+
+    /// The maintainer, 2026-09-23: "i want kvim to act like vim keys ... u to
+    /// undo etc." Type in Insert, press Escape, press `u` — and the edit is
+    /// undone.
+    ///
+    /// The failure this pins is not in the engine (which undoes correctly
+    /// when driven directly) but in egui's focus system: with a default
+    /// `EventFilter`, **Escape surrenders focus**, so the `u` that follows
+    /// never reaches the editor and is handled by the app instead. Checked
+    /// capable of failing by removing the `set_focus_lock_filter` call.
+    #[test]
+    fn escape_then_u_undoes_rather_than_dropping_focus() {
+        let mut state = KvimEditorState::default();
+        state.load_text("hello\n");
+        state.begin_insert();
+
+        let text = drive(
+            &mut state,
+            vec![
+                Vec::new(),                                  // focus lands
+                Vec::new(),                                  // focus lock applies
+                vec![egui::Event::Text("X".into())],         // type in Insert
+                vec![key(egui::Key::Escape)],                // leave Insert
+                vec![egui::Event::Text("u".into())],         // undo
+            ],
+        );
+
+        assert_eq!(state.mode_label(), "NORMAL", "Escape did not reach the engine");
+        assert_eq!(text, "hello\n", "`u` did not undo: {text:?}");
+    }
+
+    /// Tab and the arrow keys are the editor's too, not egui's focus
+    /// navigation — the same filter, and the same failure mode if it is not
+    /// set: the keystroke moves focus to another widget instead of editing.
+    #[test]
+    fn arrow_keys_move_the_cursor_instead_of_moving_focus() {
+        let mut state = KvimEditorState::default();
+        state.load_text("abc\ndef\n");
+        state.begin_insert();
+
+        drive(
+            &mut state,
+            vec![
+                Vec::new(),
+                Vec::new(),
+                vec![key(egui::Key::Escape)],
+                vec![key(egui::Key::ArrowDown), key(egui::Key::ArrowRight)],
+                vec![egui::Event::Text("x".into())],
+            ],
+        );
+
+        // `x` in Normal mode deletes the grapheme under the cursor, so where
+        // it landed says where the arrows took it.
+        assert_eq!(
+            state.text(),
+            "abc\ndf\n",
+            "the arrows did not move the cursor to line 2, column 2"
+        );
     }
 
     // ------------------------------------------------------------------

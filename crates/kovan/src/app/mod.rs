@@ -30,7 +30,6 @@ use eframe::egui::{
 };
 use egui_file_dialog::FileDialog;
 
-use crate::digitiser::auto::{auto_digitise, AutoDigitiseConfig, AxisPixelRefs, AxisValueSpec};
 use crate::entity::EntityConfig;
 use crate::session::PaperSession;
 use crate::digitiser::calibration::{
@@ -40,9 +39,8 @@ use crate::digitiser::dataset::{
     utc_now_iso8601, xy_uncertainty_interval, DigitisedDataset, DigitisedPoint, FigureSource,
     PointOrigin, ReviewInterface, ReviewStatus, DATASET_SCHEMA_VERSION,
 };
-use crate::digitiser::detect::DetectConfig;
 use crate::digitiser::raster::PlotRaster;
-use crate::digitiser::trace::{CurveSelector, TraceConfig, TraceStrategy};
+use crate::digitiser::trace::CurveSelector;
 
 use advanced_git_view::AdvancedGitState;
 use bibliography::{BibliographyAction, BibliographyState};
@@ -197,6 +195,11 @@ enum ClickMode {
     EditPoints,
     /// Double-click adds a hand-placed point (op-8ixa).
     AddPoint,
+    /// Drag draws a stroke along the curve; letting go snaps it onto the
+    /// ink and lays points 2 px apart (#290 — "we won't do auto-trace
+    /// anymore. It will be manual, were i draw a line and it will be snapped
+    /// to the curve after i let go of the mouse").
+    DrawTrace,
     /// Click, or drag, removes points under the cursor (gh:#277).
     ///
     /// Right-click already deletes the nearest marker in **every** mode and
@@ -410,8 +413,11 @@ pub struct DigitiseApp {
     y_log: bool,
     // trace tuning
     threshold: u8,
-    step: u32,
-    strategy: TraceStrategy,
+    /// Spacing between points laid along a drawn stroke, in image pixels
+    /// (#290 — "the points will be placed 2 pixels apart", which is the
+    /// default; the slider exists because a dense figure sometimes wants
+    /// coarser).
+    snap_spacing: f64,
     // provenance input
     figure: String,
     document_title: String,
@@ -425,6 +431,10 @@ pub struct DigitiseApp {
     dataset: Option<DigitisedDataset>,
     selected: Option<usize>,
     dragging: Option<usize>,
+    /// The stroke being drawn in [`ClickMode::DrawTrace`], in **image**
+    /// pixels, in the order it was drawn (#290). Empty unless a drag is in
+    /// progress; consumed and cleared when the button comes up.
+    stroke: Vec<(f64, f64)>,
     json_out: String,
     csv_out: String,
     /// An export waiting on a destination: set when an export button is
@@ -513,8 +523,7 @@ impl Default for DigitiseApp {
             x_log: false,
             y_log: false,
             threshold: 128,
-            step: 1,
-            strategy: TraceStrategy::ContinuityNearest,
+            snap_spacing: 2.0,
             figure: String::new(),
             document_title: String::new(),
             document_id: String::new(),
@@ -526,6 +535,7 @@ impl Default for DigitiseApp {
             dataset: None,
             selected: None,
             dragging: None,
+            stroke: Vec::new(),
             json_out: String::new(),
             csv_out: String::new(),
             pending_export: None,
@@ -1086,90 +1096,59 @@ impl DigitiseApp {
     }
 
     /// The automatic pass: trace with the current calibration and tuning.
-    fn auto_trace(&mut self) {
+    /// Turn the stroke just drawn into points on the curve (#290).
+    ///
+    /// The maintainer's replacement for auto-trace: "i draw a line and it
+    /// will be snapped to the curve after i let go of the mouse. the points
+    /// will be placed 2 pixels apart." Every point goes in through
+    /// [`Self::add_point`], the same path a hand-placed marker uses, so
+    /// calibration, ordering and the dataset's review state behave exactly as
+    /// they do for a point placed by double-click.
+    ///
+    /// The stroke is cleared whether or not anything came of it — a stroke
+    /// that found no ink is a gesture the operator can simply repeat, not a
+    /// state to be left in.
+    fn snap_drawn_stroke(&mut self) {
+        let stroke = std::mem::take(&mut self.stroke);
+        if stroke.len() < 2 {
+            return; // a stray click in draw mode, not a stroke
+        }
         let Some(raster) = &self.raster else {
             self.set_error("load an image first");
             return;
         };
-        let cal = match self.calibration() {
-            Ok(c) => c,
+        let config = crate::digitiser::trace::SnapConfig {
+            selector: CurveSelector::DarkestBand {
+                max_luminance: self.threshold,
+            },
+            spacing_px: self.snap_spacing,
+            ..crate::digitiser::trace::SnapConfig::default()
+        };
+        let snapped = match crate::digitiser::trace::snap_stroke(raster, &stroke, &config) {
+            Ok(points) => points,
             Err(e) => {
-                self.set_error(e);
+                self.set_error(e.to_string());
                 return;
             }
         };
-        // Auto-trace's column/row scan is inherently axis-aligned (same
-        // boundary as `auto.rs`'s own automatic detection pipeline — see
-        // its doc comment) — a Parallelogram calibration (op-vyb9) is a
-        // hand-digitisation aid for a skewed photo, not something the
-        // automatic tracer can drive.
-        let PlotCalibration::AxisAligned { x: x_cal, y: y_cal } = cal else {
+        if snapped.is_empty() {
             self.set_error(
-                "Auto-trace needs Rectangle calibration — switch back from Parallelogram, \
-                 or hand-place points instead (double-click on the image)",
+                "nothing under that stroke looked like a curve — draw along the line, \
+                 or raise the ink threshold",
             );
             return;
-        };
-        let source = match self.source(raster) {
-            Ok(s) => s,
-            Err(e) => {
-                self.set_error(e);
-                return;
-            }
-        };
-        let config = AutoDigitiseConfig {
-            x: AxisValueSpec {
-                scale: x_cal.scale,
-                refs: AxisPixelRefs::Explicit {
-                    r1: x_cal.r1,
-                    r2: x_cal.r2,
-                },
-            },
-            y: AxisValueSpec {
-                scale: y_cal.scale,
-                refs: AxisPixelRefs::Explicit {
-                    r1: y_cal.r1,
-                    r2: y_cal.r2,
-                },
-            },
-            detect: DetectConfig::default(),
-            trace: TraceConfig {
-                selector: CurveSelector::DarkestBand {
-                    max_luminance: self.threshold,
-                },
-                strategy: self.strategy,
-                column_step: self.step,
-                inset: 3,
-                max_column_fill: 0.6,
-            },
-        };
-        match auto_digitise(
-            raster,
-            &config,
-            source,
-            self.x_label.clone(),
-            self.y_label.clone(),
-            format!("{} via kovan (gui)", self.operator_name()),
-            utc_now_iso8601(),
-        ) {
-            Ok(d) => {
-                let n = d.points.len();
-                self.dataset = Some(d);
-                self.selected = None;
-                self.mode = ClickMode::EditPoints;
-                if n == 0 {
-                    self.set_error(
-                        "auto pass traced 0 points — check the ink threshold/curve colour, \
-                         and that the reference box actually brackets the curve",
-                    );
-                } else {
-                    self.set_status(format!(
-                        "auto pass traced {n} points — verify, correct, then mark reviewed"
-                    ));
-                }
-            }
-            Err(e) => self.set_error(e.to_string()),
         }
+        if self.dataset.is_none() {
+            self.start_empty();
+        }
+        let n = snapped.len();
+        for p in snapped {
+            self.add_point(p.x_px, p.y_px);
+        }
+        self.set_status(format!(
+            "snapped {n} point(s) onto the curve, {} px apart",
+            self.snap_spacing
+        ));
     }
 
     /// Start an empty dataset from the calibration alone, for figures
@@ -1510,27 +1489,32 @@ impl DigitiseApp {
         ui.checkbox(&mut self.y_log, "y axis logarithmic");
         ui.separator();
 
-        ui.label("2. Automatic pass:");
+        // #290: ~~"2. Automatic pass"~~ — the automatic column scan and its
+        // strategy/step controls are gone from this panel (maintainer,
+        // 2026-09-23: "we won't do auto-trace anymore"). `trace_curve` and
+        // `auto.rs` remain for `kovan-cli digitise`, which is a different
+        // surface and was not part of that decision.
+        ui.label("2. Trace the curve:");
         ui.add(egui::Slider::new(&mut self.threshold, 1..=254).text("ink threshold"));
-        ui.add(egui::Slider::new(&mut self.step, 1..=20).text("column step"));
-        ComboBox::from_label("strategy")
-            .selected_text(format!("{:?}", self.strategy))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut self.strategy,
-                    TraceStrategy::ContinuityNearest,
-                    "ContinuityNearest",
-                );
-                ui.selectable_value(&mut self.strategy, TraceStrategy::LargestRun, "LargestRun");
-                ui.selectable_value(
-                    &mut self.strategy,
-                    TraceStrategy::ColumnCentroid,
-                    "ColumnCentroid",
-                );
-            });
+        ui.add(
+            egui::Slider::new(&mut self.snap_spacing, 1.0..=20.0)
+                .text("point spacing (px)")
+                .step_by(1.0),
+        )
+        .on_hover_text("distance between points along the stroke you draw");
         ui.horizontal(|ui| {
-            if ui.button("Auto-trace").clicked() {
-                self.auto_trace();
+            if ui
+                .selectable_label(self.mode == ClickMode::DrawTrace, "\u{270F} Draw trace")
+                .on_hover_text(
+                    "hold the left button and draw along the curve; let go and the \
+                     stroke snaps onto it",
+                )
+                .clicked()
+            {
+                self.mode = ClickMode::DrawTrace;
+                if self.dataset.is_none() {
+                    self.start_empty();
+                }
             }
             if ui.button("Start empty (hand-place)").clicked() {
                 self.start_empty();
@@ -1542,6 +1526,7 @@ impl DigitiseApp {
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.mode, ClickMode::EditPoints, "Edit/drag");
             ui.selectable_value(&mut self.mode, ClickMode::AddPoint, "Add points");
+            ui.selectable_value(&mut self.mode, ClickMode::DrawTrace, "\u{270F} Draw trace");
             ui.selectable_value(&mut self.mode, ClickMode::Erase, "\u{1F9FD} Eraser")
                 .on_hover_text(
                     "click or drag over points to remove them; right-click still \
@@ -1839,6 +1824,27 @@ impl DigitiseApp {
                     }
                 }
             }
+            // #290: draw along the curve, let go, and the stroke snaps onto
+            // the ink. `dragged()` rather than `drag_started()` so every
+            // frame of the gesture contributes a vertex — the stroke is the
+            // path the pointer took, not its two ends.
+            if self.mode == ClickMode::DrawTrace {
+                response.clone().on_hover_cursor(egui::CursorIcon::Crosshair);
+                if response.dragged() {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let (px, py) = to_image(pos);
+                        // Skip a repeat of the same pixel: a slow hand emits
+                        // many frames without moving, and they only make the
+                        // polyline longer to resample.
+                        if self.stroke.last() != Some(&(px, py)) {
+                            self.stroke.push((px, py));
+                        }
+                    }
+                }
+                if response.drag_stopped() {
+                    self.snap_drawn_stroke();
+                }
+            }
             // Adding a point is a double left-click (graphReader precedent) —
             // a single click in AddPoint mode is reserved for future
             // click-drag box-select, so it deliberately does not add here.
@@ -2061,6 +2067,21 @@ impl DigitiseApp {
                     }
                     painter.circle_filled(pos, 2.5, colour);
                 }
+            }
+
+            // #290: the stroke as it is being drawn. Without it the gesture
+            // is invisible until the button comes up, and a stroke you
+            // cannot see is one you cannot aim.
+            if self.stroke.len() >= 2 {
+                let path: Vec<Pos2> = self
+                    .stroke
+                    .iter()
+                    .map(|&(px, py)| to_screen(px, py))
+                    .collect();
+                painter.add(egui::Shape::line(
+                    path,
+                    Stroke::new(2.0_f32, Color32::from_rgb(40, 160, 220)),
+                ));
             }
         });
     }
@@ -2897,7 +2918,7 @@ mod tests {
         let start = RepoSaveFingerprint::capture(&root, None);
 
         // A relation artifact (what the PDF reader's "Add connection…" writes).
-        std::fs::write(&root.mindmap_markdown(), "# mindmap\n").unwrap();
+        std::fs::write(root.mindmap_markdown(), "# mindmap\n").unwrap();
         let after_relation = RepoSaveFingerprint::capture(&root, None);
         assert_ne!(start, after_relation, "mindmap.md is not watched");
 

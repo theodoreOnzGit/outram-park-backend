@@ -1293,3 +1293,166 @@ here. Wanted on a real desktop: that the light blue and dark blue read well in
 both themes (the fill is a fixed colour, not a themed one), that the underline
 sits right at Fit zoom, and that "Add hyperlink…" lands where the maintainer
 expects beside "Add subtopic…".
+
+## The table digitiser reads on arrival, and finds its own model (2026-09-23, GH issue #287)
+
+**Maintainer, 2026-09-23:** "the table digitiser, i don't want to deal with
+selecting an OCR model, i should be able to just see the table and csv
+extracted"; "when i click read table, the OCR should already be run"; "and csv
+extracted"; "then i can edit the csv table, and save the artifact".
+
+`table_ocr`'s own module doc had predicted this exactly — model download was left
+out as "a natural follow-up **if a model-path text field turns out to be too much
+friction in practice**". It did, and that paragraph is now struck through in
+place rather than quietly rewritten.
+
+### What changed
+
+- **`discover_models`** searches, in order: `$KOVAN_TESSDATA` (which may name a
+  file, so it can point at one model), `$TESSDATA_PREFIX` and `<it>/tessdata`,
+  Kovan's own application-data folder, then the usual system tessdata
+  directories. Within a directory `eng.traineddata` is preferred; **across**
+  directories order wins, so the override stays an override rather than being
+  beaten by a system English model.
+- **`osd.traineddata` is never chosen.** It sits beside the real models and is a
+  `.traineddata`, but it carries no LSTM recognizer, so picking it converts "no
+  model installed" into an obscure load error.
+- **`load_crop` recognises immediately** — no button, no path field. The tab
+  shows which model read it, offers "Read again", and shows the **CSV** beside
+  the editable grid, read-only, because the cells are the editable copy and two
+  editable views of one table would have to answer which of them wins.
+
+### A model being installed does not mean it can be used
+
+Measured on the maintainer's machine while building this: `tesseract 5.5.3-1` is
+installed, `/usr/share/tessdata/` holds only `afr.traineddata` and
+`osd.traineddata`, and **`find / -name eng.traineddata` is empty**. Worse, the
+one usable-looking model is rejected outright by the recognizer:
+
+```
+/usr/share/tessdata/afr.traineddata: format error:
+network outputs 96 != recoder code_range + 1 = 97 (CTC-null invariant)
+```
+
+So the first design — "discover a model, use it" — would have reported an
+obscure format error where the real answer is "install the English model". The
+digitiser therefore **walks every candidate** and uses the first that loads,
+collecting the rejections, and when none works it says so with the files it
+tried and the package to install (`tesseract-data-eng`, verified to be the right
+Arch package name). Falling back to another language is still worth doing where
+it loads: these are Latin-script LSTM models and a table is mostly digits, and
+the status line names the model so odd words can be told from a bad crop.
+
+~~**Unverified, and filed as GH issue #288:** whether `eng.traineddata` loads at
+all.~~ **RESOLVED the same day** — the maintainer installed
+`tesseract-data-eng 2:4.1.0-5` (23 MB on disk, 9 MB download) and it fails
+identically:
+
+| model | `num_outputs` | `code_range` | the check demands |
+|---|---|---|---|
+| `eng.traineddata` | 111 | 111 | 112 |
+| `afr.traineddata` | 96 | 96 | 97 |
+
+Both satisfy `num_outputs == code_range`; `kopitiam-ocr` 0.1.0 computes
+`expected = code_range + 1`. Two unrelated languages, each exactly one short in
+the same direction, so **no `tesseract-data` 4.1.0 model loads at all** — a
+defect in the engine, not a missing or broken model. `kopitiam-ocr` is a
+separate repository, so the fix cannot land here; #288 records the one line to
+compare against Tesseract's own `LoadCharsets`.
+
+The failure message was corrected once that was known: with models present but
+unloadable it no longer says "install `tesseract-data-eng`", which would send
+the user after a file they already have.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 642 tests, all passing. Four new:
+English preferred and `osd` never chosen, directory order beating language with
+a bare file accepted as a model, the documented search order actually containing
+the system location, and — machine-independently — that a loaded crop is read at
+once, never leaving the old "set the model path, then Run OCR" state, with any
+failure naming both what it tried and how to fix it.
+
+**Not verified:** no successful OCR pass has been run anywhere in this work,
+because no model on this machine loads (see above). The recognition path itself
+is unchanged from the button-driven version that came before, but "Read table
+now lands on a filled-in table" has not been *seen* — only that it is attempted
+and that the failure is honest. That waits on #288.
+
+## kvim owns the keyboard; the graph digitiser is drawn, not auto-traced (2026-09-23, GH issues #289, #290)
+
+### The editor never left Insert mode (#289)
+
+**Maintainer, 2026-09-23:** "When in the text edit mode, i want kvim to act like
+vim keys, until the thing is saved. means ctrl+shift+v to paste, u to undo etc."
+
+Neither the engine nor the key mapping was at fault. Driven directly,
+`kopitiam-neovim` does the right thing — `i`, `X`, `Esc`, `u` restores the
+buffer — and `map_event` maps Escape. The loss is in **egui**:
+`egui-0.36.1/src/memory/mod.rs:570` reads the focused widget's `EventFilter`
+and, for keys the filter does not claim, **Escape sets `focused_widget = None`**
+while Tab and the arrows move focus by direction. `EventFilter::default()`
+claims none of them, and the kvim text area is a plain `ui.interact`.
+
+So Escape **never reached the engine**: the editor stayed in Insert for ever,
+`u` typed a `u`, and — once focus was gone — the keys after it went to the
+*app*, where `j`/`k`/`n` are the PDF reader's page-turn shortcuts. That is a
+much worse failure than the report suggested, and it was invisible from the
+Rust side of the adapter, which looked correct.
+
+`Memory::set_focus_lock_filter` with all four claimed, while the editor has
+focus. It applies from the second frame of focus (`had_focus_last_frame`),
+egui's own constraint and the one its `TextEdit` lives with.
+
+### Auto-trace replaced by a drawn stroke (#290)
+
+**Maintainer, same day:** "for graph digitiser, we won't do auto-trace anymore.
+It will be manual, were i draw a line and it will be snapped to the curve after
+i let go of the mouse. the points will be placed 2 pixels apart."
+
+`trace::snap_stroke` resamples the drawn polyline by **arc length** (so the
+points are 2 px apart *along the stroke*, which on a steep segment is finer in x
+than any column scan), snaps each sample vertically onto the nearest ink run
+within a radius, and reads the run's centroid and thickness exactly as
+`trace_curve` does — so the per-point uncertainty `dataset` derives from line
+thickness keeps working unchanged.
+
+Two things the tests caught, both real:
+
+1. **A clipped run gives a wrong centroid and a wrong thickness.** The search
+   window truncates the ink wherever the drawn point sat near its edge; the
+   first version read the truncated run and put a point at y = 49 on a band
+   centred at 50. The run is now grown back to the ink's real extent before
+   anything is read off it — which matters twice over, because thickness feeds
+   uncertainty.
+2. **"Drew off the curve" and "drew near a gridline" are different things.** A
+   test asserting that straying off the band produced nothing failed because the
+   fixture had a gridline at row 20 and the snap correctly found it. The
+   behaviour is right and is now pinned deliberately by
+   `a_stroke_drawn_along_a_gridline_snaps_to_the_gridline`: the snap takes the
+   ink under the stroke, gridline included. A `max_thickness_px` cap keeps an
+   axis or a bar from being read as a curve.
+
+**The GUI's auto-trace is gone** — button, strategy picker, column-step slider,
+`DigitiseApp::auto_trace` and the `step`/`strategy` fields, rather than left
+sitting unreachable. `trace_curve` and `auto.rs` stay for `kovan-cli digitise`,
+a different surface that was not part of the decision.
+
+**Open, not done:** `PointOrigin` has three variants and a snapped stroke is
+honestly none of them — a human drew it, a machine placed it on the ink. Points
+are recorded `HandPlaced`, since the gesture is the human's; a fourth variant
+would be the fuller record and is a serialized-schema change.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 651 tests, all passing. New:
+two headless egui tests for #289 (Escape-then-`u` undoes; the arrows move the
+cursor rather than focus), each **checked capable of failing** by removing the
+focus lock — without it the editor still reports `INSERT` after Escape — and
+seven for #290 covering the snap, the 2 px spacing (and that it is a setting),
+dropped samples, deduplication, the gridline behaviour and the thickness cap.
+
+**Not verified:** no drawn stroke has been made with a real mouse, and no
+rendering has been seen — no display here. The gesture handling
+(`dragged`/`drag_stopped` into `snap_drawn_stroke`) is covered only by the
+library function underneath it.
