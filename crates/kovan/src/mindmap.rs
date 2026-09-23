@@ -558,13 +558,41 @@ fn concept_crud_items(
 /// write the same thing — a path in the paper's classification — so a
 /// library sorted either way is indistinguishable afterwards.
 #[cfg(all(feature = "gui", not(target_os = "android")))]
-fn literature_menu_item(ui: &mut egui::Ui, parent: &str, parent_label: &str, draft: &mut Option<(String, String)>) {
+fn literature_menu_item(
+    ui: &mut egui::Ui,
+    parent: &str,
+    parent_label: &str,
+    draft: &mut Option<(String, String)>,
+) {
     if ui
         .button("Add literature here\u{2026}")
         .on_hover_text(format!("file a paper under {parent_label}"))
         .clicked()
     {
         *draft = Some((parent.to_string(), String::new()));
+        ui.close();
+    }
+}
+
+/// "Add hyperlink…" on a concept's right-click menu (#285), beside "Add
+/// subtopic…" where the maintainer asked for it.
+///
+/// Only arms the draft; the picking is done in
+/// [`MindmapState::hyperlink_dialog_ui`], the same split the subtopic and
+/// literature entries already use.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn hyperlink_menu_item(
+    ui: &mut egui::Ui,
+    source: &crate::node_id::NodeId,
+    label: &str,
+    draft: &mut Option<(crate::node_id::NodeId, String)>,
+) {
+    if ui
+        .button("Add hyperlink\u{2026}")
+        .on_hover_text(format!("link {label} to another concept on the map"))
+        .clicked()
+    {
+        *draft = Some((source.clone(), String::new()));
         ui.close();
     }
 }
@@ -577,6 +605,148 @@ fn literature_menu_item(ui: &mut egui::Ui, parent: &str, parent_label: &str, dra
 struct StarCard {
     concept: crate::runtime_graph::RuntimeConcept,
     citations: Vec<Citation>,
+}
+
+/// A light-blue link card in the star: something the concept you are on is
+/// **linked to**, as opposed to one of its sub-concepts (#285, #286).
+///
+/// Two very different stores feed the same card, because to a reader they
+/// are the same thing — "this points somewhere else":
+///
+/// - a concept hyperlink the user made here, from
+///   [`crate::connections`] (`mindmap/connections.toml`);
+/// - a relation artifact whose other end is this concept, from
+///   [`crate::relation`] (`mindmap.md`) — typically an annotation in a paper
+///   connected to this topic in the PDF reader.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+#[derive(Debug, Clone)]
+struct LinkCard {
+    /// What the card says.
+    label: String,
+    /// The small line under it: which kind of link this is.
+    detail: String,
+    /// Where a double-click goes.
+    target: LinkTarget,
+    /// The other end, for the tooltip and for "Remove link".
+    node: crate::node_id::NodeId,
+    /// Whether this link is the user's own hyperlink, and so can be removed
+    /// from here. A relation artifact belongs to the paper that owns it and
+    /// is edited in the PDF reader, not on the map.
+    removable: bool,
+}
+
+/// What double-clicking a [`LinkCard`] does.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+#[derive(Debug, Clone)]
+enum LinkTarget {
+    /// Travel to another concept.
+    Concept(crate::node_id::NodeId),
+    /// Open a paper (an artifact link opens the paper that owns it).
+    Paper(String),
+}
+
+/// The user's links, cached like [`BibCache`]: both files are re-read only
+/// when their modification time or length changes, so drawing the map does
+/// not parse `mindmap.md` sixty times a second.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+#[derive(Default)]
+pub struct LinkCache {
+    connections_stamp: Option<(std::time::SystemTime, u64)>,
+    relations_stamp: Option<(std::time::SystemTime, u64)>,
+    connections: Vec<crate::connections::Connection>,
+    relations: Vec<crate::relation::UserRelation>,
+}
+
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn file_stamp(path: &std::path::Path) -> Option<(std::time::SystemTime, u64)> {
+    std::fs::metadata(path)
+        .and_then(|m| Ok((m.modified()?, m.len())))
+        .ok()
+}
+
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+impl LinkCache {
+    /// The link cards for the concept at `current`, refreshing from disk
+    /// first if either file changed.
+    fn cards(
+        &mut self,
+        root: &KovanRoot,
+        index: Option<&KnowledgeIndex>,
+        current: &crate::node_id::NodeId,
+    ) -> Vec<LinkCard> {
+        let stamp = file_stamp(&root.mindmap_connections());
+        if stamp.is_none() || stamp != self.connections_stamp {
+            self.connections_stamp = stamp;
+            self.connections = crate::connections::load(root);
+        }
+        let stamp = file_stamp(&root.mindmap_markdown());
+        if stamp.is_none() || stamp != self.relations_stamp {
+            self.relations_stamp = stamp;
+            self.relations = crate::relation::connections_all(root);
+        }
+
+        let title_of = |node: &crate::node_id::NodeId| -> String {
+            if let Some(artifact) = &node.artifact {
+                // An artifact is named by the paper it is in plus its own id
+                // — the identity the reader shows, not a guessed heading.
+                return format!("{}#{artifact}", node.path);
+            }
+            crate::runtime_graph::concept(index, node)
+                .map(|c| c.title)
+                .unwrap_or_else(|| node.path.clone())
+        };
+
+        let mut out: Vec<LinkCard> = crate::connections::for_node(&self.connections, current)
+            .into_iter()
+            .map(|other| LinkCard {
+                label: title_of(other),
+                detail: "hyperlink".to_string(),
+                target: link_target(other),
+                node: other.clone(),
+                removable: true,
+            })
+            .collect();
+
+        // `relation`'s endpoints are the older untyped `graph::NodeId`
+        // strings (`artifact:<citekey>#<id>`, `collection:<path>`), so they
+        // are read into typed ids before being compared — and **canonicalised**
+        // on both sides, for two different reasons. A connection made in the
+        // PDF reader names the *library* path of a topic: canonicalising the
+        // relation's end is what puts the card on the **corpus** node the map
+        // shows for a mirrored path, and canonicalising `current` is what
+        // puts it there when the user is standing on the mirror itself. The
+        // same trap `runtime_graph::canonical_concept` was written for after
+        // the Up button landed on the light-green mirror of a corpus topic.
+        let here = crate::runtime_graph::canonical_concept(current);
+        for rel in &self.relations {
+            let ends = [&rel.source, &rel.target].map(|e| {
+                candidate_node_id(e).map(|id| (crate::runtime_graph::canonical_concept(&id), id))
+            });
+            let other = match &ends {
+                [Some((canon, _)), Some((_, raw))] if *canon == here => raw,
+                [Some((_, raw)), Some((canon, _))] if *canon == here => raw,
+                _ => continue,
+            };
+            out.push(LinkCard {
+                label: title_of(other),
+                detail: rel.kind.label().to_string(),
+                target: link_target(other),
+                node: other.clone(),
+                removable: false,
+            });
+        }
+        out
+    }
+}
+
+/// Where a link to `node` goes: another concept travels, a literature node
+/// (a paper, or one of its artifacts) opens that paper.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn link_target(node: &crate::node_id::NodeId) -> LinkTarget {
+    match node.kind {
+        crate::node_id::EntryKind::Concept => LinkTarget::Concept(node.clone()),
+        crate::node_id::EntryKind::Literature => LinkTarget::Paper(node.path.clone()),
+    }
 }
 
 /// Where a card sits in the star, for drawing and for which controls it has.
@@ -717,6 +887,21 @@ const ZOOM_STEP: f64 = 1.25;
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 const CARD_FONT_SIZE: f64 = 14.0;
 
+/// A link card's fill: "light blue boxes with dark blue underlined text,
+/// just like hyperlinks in markdown or wikipedia" (maintainer, 2026-09-23,
+/// #285). Solid rather than the 25 % wash the concept cards use, because
+/// what makes a hyperlink recognisable is the block of pale colour behind
+/// dark text, not a tint of the border.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+const LINK_FILL: egui::Color32 = egui::Color32::from_rgb(198, 224, 250);
+
+/// A link card's text, border and underline — the dark blue every wiki
+/// trains the eye to read as "this goes somewhere". Dark enough to carry
+/// the contrast against [`LINK_FILL`] in either theme, since the fill is a
+/// fixed light colour rather than a themed one.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+const LINK_TEXT: egui::Color32 = egui::Color32::from_rgb(20, 60, 160);
+
 /// The page's pan/zoom state, kept between frames (GitHub issue #243).
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -784,6 +969,12 @@ pub struct MindmapState {
     move_draft: Option<(String, EntityKind, String)>,
     /// A pending "Delete…", awaiting confirmation.
     delete_draft: Option<(String, EntityKind)>,
+    /// A pending "Add hyperlink…" (#285): the concept the link starts from,
+    /// and what is typed in its fuzzy search.
+    hyperlink_draft: Option<(crate::node_id::NodeId, String)>,
+    /// The user's links into the current star (#285, #286), re-read only
+    /// when their files change.
+    links: LinkCache,
     bib: BibCache,
 }
 
@@ -808,9 +999,25 @@ impl Default for MindmapState {
             rename_draft: None,
             move_draft: None,
             delete_draft: None,
+            hyperlink_draft: None,
+            links: LinkCache::default(),
             bib: BibCache::default(),
         }
     }
+}
+
+/// The [`crate::node_id::NodeId`] behind a finder candidate's node string
+/// (#285).
+///
+/// `library_candidates` mixes two identity syntaxes: a library collection
+/// arrives as `collection:<path>` (the older untyped [`crate::graph`] form)
+/// and a corpus topic as its `NodeId`'s own string. Both are read here so
+/// nothing downstream has to know which it got.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn candidate_node_id(node: &str) -> Option<crate::node_id::NodeId> {
+    crate::node_id::NodeId::parse(node)
+        .ok()
+        .or_else(|| crate::node_id::NodeId::from_graph_id(node))
 }
 
 /// A string key for "the star centred on `current`", for pins.
@@ -842,6 +1049,7 @@ impl MindmapState {
             self.rename_draft = None;
             self.move_draft = None;
             self.delete_draft = None;
+            self.hyperlink_draft = None;
         }
     }
 
@@ -911,7 +1119,10 @@ impl MindmapState {
         graph: Option<&KnowledgeGraph>,
     ) -> Option<MindmapAction> {
         use crate::mindmap_layout::Point;
-        use crate::mindmap_view::{fit_zoom, star_bounds, star_layout, CanvasLayout, CARD_SIZE};
+        use crate::mindmap_view::{
+            fit_zoom, parent_position, star_bounds, star_layout_with_parent, up_button_centre,
+            CanvasLayout, CARD_SIZE, UP_BUTTON_SIZE,
+        };
         use crate::node_id::{Namespace, NodeId};
 
         let mut action = None;
@@ -919,17 +1130,19 @@ impl MindmapState {
         // ── Breadcrumb ──────────────────────────────────────────────────
         let mut crumb_to: Option<Option<NodeId>> = None;
         let up = crate::runtime_graph::up_one_level(self.current.as_ref());
+        // Up one level (maintainer direction, 2026-09-22): to the parent
+        // concept, or to the top from a top-level one. Named once here, for
+        // both the breadcrumb button and the parent card in the star (#283).
+        let up_label = match &up {
+            Some(Some(parent)) => crate::runtime_graph::concept(index, parent)
+                .map(|c| c.title)
+                .unwrap_or_else(|| parent.path.clone()),
+            Some(None) => "the top".to_string(),
+            None => String::new(),
+        };
         ui.horizontal(|ui| {
             crate::app::navigation_style(ui);
-            // Up one level (maintainer direction, 2026-09-22): to the parent
-            // concept, or to the top from a top-level one.
-            let up_label = match &up {
-                Some(Some(parent)) => crate::runtime_graph::concept(index, parent)
-                    .map(|c| c.title)
-                    .unwrap_or_else(|| parent.path.clone()),
-                Some(None) => "the top".to_string(),
-                None => String::new(),
-            };
+            let up_label = &up_label;
             if ui
                 .add_enabled(up.is_some(), egui::Button::new("\u{2B06} Up"))
                 .on_hover_text(format!("Up one level, to {up_label}"))
@@ -983,8 +1196,19 @@ impl MindmapState {
                 .collect();
             (centre, ring, fans)
         };
-        let fan_sizes: Vec<usize> = fans.iter().map(Vec::len).collect();
-        let auto = star_layout(&fan_sizes);
+        // #285/#286: the user's links sit on the ring beside the
+        // sub-concepts, so the layout spaces them like any other card.
+        let links: Vec<LinkCard> = match (root, self.current.clone()) {
+            (Some(r), Some(current)) => self.links.cards(r, index, &current),
+            _ => Vec::new(),
+        };
+        let mut fan_sizes: Vec<usize> = fans.iter().map(Vec::len).collect();
+        fan_sizes.extend(std::iter::repeat_n(0, links.len()));
+        // #283: the ring turns half a step when the parent card is shown, so
+        // nothing sits in the corridor the dotted line and the Up button use.
+        let auto = star_layout_with_parent(&fan_sizes, up.is_some());
+        let parent_at = up.is_some().then(|| parent_position(&auto));
+        let up_button_at = up.is_some().then(|| up_button_centre(&auto));
         let here_key = star_key(&self.current);
         let placed = |card: &StarCard, auto: Point| {
             self.pinned
@@ -1004,10 +1228,28 @@ impl MindmapState {
                 cards.push((c, placed(c, auto.fans[i][k]), CardRole::Fan(i, k)));
             }
         }
+        // The link cards take the ring slots after the sub-concepts. They are
+        // pinnable like any other card, keyed by their target's node id.
+        let link_cards: Vec<(&LinkCard, Point)> = links
+            .iter()
+            .enumerate()
+            .map(|(k, l)| {
+                let auto = auto.ring[ring.len() + k];
+                let pinned = self
+                    .pinned
+                    .get(&(here_key.clone(), l.node.to_string()))
+                    .copied();
+                (l, pinned.unwrap_or(auto))
+            })
+            .collect();
         let ring_points: Vec<Point> = cards
             .iter()
             .filter(|(_, _, r)| *r != CardRole::Centre)
             .map(|(_, p, _)| *p)
+            .chain(link_cards.iter().map(|(_, p)| *p))
+            // The parent card is part of the map: Fit and the pan limits have
+            // to know about it, or it sits outside where the view can go.
+            .chain(parent_at)
             .collect();
         let bounds = star_bounds(centre.is_some(), &ring_points);
         let any_pinned_here = self.pinned.keys().any(|(c, _)| c == &here_key);
@@ -1133,6 +1375,10 @@ impl MindmapState {
             area = area.scroll_offset(egui::vec2(x as f32, y as f32));
         }
         let mut drilled: Option<NodeId> = None;
+        // Set by the Up button or a double-click on the parent card (#283).
+        let mut go_up = false;
+        // A hyperlink the user asked to remove (#285).
+        let mut remove_link: Option<crate::node_id::NodeId> = None;
         let mut opened_paper = None;
         let mut literature_card_for = None;
         let mut reclassify_for = None;
@@ -1146,6 +1392,7 @@ impl MindmapState {
         let mut rename_draft = self.rename_draft.take();
         let mut move_draft = self.move_draft.take();
         let mut delete_draft = self.delete_draft.take();
+        let mut hyperlink_draft = self.hyperlink_draft.take();
         let selected = self.selected.clone();
         let pinned = &self.pinned;
         let expanded = &self.expanded;
@@ -1192,6 +1439,116 @@ impl MindmapState {
                         egui::Color32::TRANSPARENT,
                         stroke,
                     ));
+                }
+            }
+            // #285/#286: a link's connector is the same curve in the link
+            // blue, so it reads as attached to this concept but not as one
+            // of its sub-concepts.
+            let link_stroke = egui::Stroke::new((1.5 * z).max(0.5), LINK_TEXT);
+            for (_, p) in &link_cards {
+                if let Some(curve) = crate::mindmap_view::connector(Point::new(0.0, 0.0), *p) {
+                    painter.add(egui::epaint::CubicBezierShape::from_points_stroke(
+                        curve.map(at),
+                        false,
+                        egui::Color32::TRANSPARENT,
+                        link_stroke,
+                    ));
+                }
+            }
+
+            // ── "Up one level": the parent card (#283) ──────────────
+            // Drawn before the concept cards so the dotted line passes under
+            // anything it meets. Maintainer, 2026-09-23: "a purple node with
+            // an up button that allows user to go up one level, this will be
+            // connected to central node in dotted line with an up button
+            // within a box on the dotted line. double clicking brings us to
+            // that level."
+            if let (Some(parent), Some(button)) = (parent_at, up_button_at) {
+                // Purple, and deliberately not one of `color_for`'s kinds:
+                // this card is not a concept, it is where you came from. The
+                // nearest neighbour on the palette is the projects' light
+                // lilac, so this one is darker and more saturated.
+                let purple = egui::Color32::from_rgb(150, 110, 210);
+                let rounding = 6.0 * z;
+
+                let line = [
+                    at(Point::new(0.0, -0.5 * CARD_SIZE.1)),
+                    at(Point::new(parent.x, parent.y + 0.5 * CARD_SIZE.1)),
+                ];
+                painter.extend(egui::Shape::dashed_line(
+                    &line,
+                    egui::Stroke::new((1.5 * z).max(0.5), purple),
+                    (10.0 * z).max(2.0),
+                    (7.0 * z).max(2.0),
+                ));
+
+                // The Up button, in its own box on that line.
+                let b = egui::Rect::from_center_size(
+                    at(button),
+                    egui::vec2(UP_BUTTON_SIZE.0 as f32, UP_BUTTON_SIZE.1 as f32) * z,
+                );
+                let br = ui
+                    .interact(b, ui.id().with("mindmap-up-button"), egui::Sense::click())
+                    .on_hover_text(format!("Up one level, to {up_label}"));
+                painter.rect_filled(b, rounding, ui.visuals().extreme_bg_color);
+                painter.rect_stroke(
+                    b,
+                    rounding,
+                    egui::Stroke::new((1.5 * z).max(0.5), purple),
+                    egui::StrokeKind::Middle,
+                );
+                painter.text(
+                    b.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "\u{2B06}",
+                    egui::FontId::proportional((CARD_FONT_SIZE * zoom) as f32),
+                    purple,
+                );
+                if br.clicked() {
+                    go_up = true;
+                }
+
+                // The card itself, painted like a concept card so it reads as
+                // part of the same map, and double-clicked like one to travel.
+                let r = egui::Rect::from_center_size(at(parent), card_size);
+                let resp = ui
+                    .interact(r, ui.id().with("mindmap-up-card"), egui::Sense::click())
+                    .on_hover_text(format!("Double-click to go up to {up_label}"));
+                painter.rect_filled(r, rounding, purple.gamma_multiply(0.25));
+                painter.rect_filled(
+                    egui::Rect::from_min_max(r.min, egui::pos2(r.min.x + 6.0 * z, r.max.y)),
+                    egui::CornerRadius {
+                        nw: rounding as u8,
+                        sw: rounding as u8,
+                        ne: 0,
+                        se: 0,
+                    },
+                    purple,
+                );
+                painter.rect_stroke(
+                    r,
+                    rounding,
+                    egui::Stroke::new((1.2 * z).max(0.5), purple),
+                    egui::StrokeKind::Middle,
+                );
+                let text = painter.with_clip_rect(r.shrink(3.0 * z));
+                let left = r.min.x + 12.0 * z;
+                text.text(
+                    egui::pos2(left, r.center().y - 7.0 * z),
+                    egui::Align2::LEFT_CENTER,
+                    &up_label,
+                    egui::FontId::proportional((CARD_FONT_SIZE * zoom) as f32),
+                    ui.visuals().strong_text_color(),
+                );
+                text.text(
+                    egui::pos2(left, r.center().y + 10.0 * z),
+                    egui::Align2::LEFT_CENTER,
+                    "\u{2B06} up one level",
+                    egui::FontId::proportional((0.78 * CARD_FONT_SIZE * zoom) as f32),
+                    ui.visuals().weak_text_color(),
+                );
+                if resp.double_clicked() {
+                    go_up = true;
                 }
             }
 
@@ -1324,14 +1681,16 @@ impl MindmapState {
                         drilled = Some(concept.id.clone());
                         ui.close();
                     }
+                    // #285. Offered on every concept, corpus included: the
+                    // link is recorded in the *user's* own
+                    // `mindmap/connections.toml`, so linking from a built-in
+                    // topic changes nothing that is read-only.
+                    if root.is_some() {
+                        hyperlink_menu_item(ui, &concept.id, &concept.title, &mut hyperlink_draft);
+                    }
                     if concept.kind.accepts_subtopics() {
                         if root.is_some() {
-                            subtopic_menu_item(
-                                ui,
-                                &concept.id.path,
-                                &concept.title,
-                                &mut draft,
-                            );
+                            subtopic_menu_item(ui, &concept.id.path, &concept.title, &mut draft);
                             literature_menu_item(
                                 ui,
                                 &concept.id.path,
@@ -1374,6 +1733,90 @@ impl MindmapState {
                     }
                 });
             }
+
+            // ── Link cards (#285, #286) ─────────────────────────────
+            // "light blue boxes with dark blue underlined text, just like
+            // hyperlinks in markdown or wikipedia" (maintainer, 2026-09-23).
+            for (link, p) in &link_cards {
+                let key = link.node.to_string();
+                let r = egui::Rect::from_center_size(at(*p), card_size);
+                let resp = ui.interact(
+                    r,
+                    ui.id().with(("mindmap-link", &key)),
+                    egui::Sense::click_and_drag(),
+                );
+                let rounding = 6.0 * z;
+                painter.rect_filled(r, rounding, LINK_FILL);
+                painter.rect_stroke(
+                    r,
+                    rounding,
+                    egui::Stroke::new((1.2 * z).max(0.5), LINK_TEXT),
+                    egui::StrokeKind::Middle,
+                );
+                let text = painter.with_clip_rect(r.shrink(3.0 * z));
+                let left = r.min.x + 12.0 * z;
+                let drawn = text.text(
+                    egui::pos2(left, r.center().y - 7.0 * z),
+                    egui::Align2::LEFT_CENTER,
+                    &link.label,
+                    egui::FontId::proportional((CARD_FONT_SIZE * zoom) as f32),
+                    LINK_TEXT,
+                );
+                // The underline is what makes it read as a link rather than
+                // as a blue card; drawn from the text's own box so it is
+                // exactly as wide as the text at any zoom.
+                text.line_segment(
+                    [
+                        egui::pos2(drawn.min.x, drawn.max.y),
+                        egui::pos2(drawn.max.x, drawn.max.y),
+                    ],
+                    egui::Stroke::new((1.0 * z).max(0.5), LINK_TEXT),
+                );
+                text.text(
+                    egui::pos2(left, r.center().y + 10.0 * z),
+                    egui::Align2::LEFT_CENTER,
+                    format!("\u{1F517} {}", link.detail),
+                    egui::FontId::proportional((0.78 * CARD_FONT_SIZE * zoom) as f32),
+                    LINK_TEXT.gamma_multiply(0.75),
+                );
+
+                let resp = resp.on_hover_text(format!("{}\ndouble-click to follow", link.node));
+                if resp.double_clicked() {
+                    match &link.target {
+                        LinkTarget::Concept(id) => drilled = Some(id.clone()),
+                        LinkTarget::Paper(citekey) => opened_paper = Some(citekey.clone()),
+                    }
+                }
+                if resp.dragged() {
+                    let d = resp.drag_delta() / z;
+                    pin_moves.push((
+                        (here_key.clone(), key.clone()),
+                        Point::new(p.x + d.x as f64, p.y + d.y as f64),
+                    ));
+                }
+                resp.context_menu(|ui| {
+                    ui.strong(&link.label);
+                    ui.weak(link.node.to_string());
+                    ui.separator();
+                    if ui.button("Follow").clicked() {
+                        match &link.target {
+                            LinkTarget::Concept(id) => drilled = Some(id.clone()),
+                            LinkTarget::Paper(citekey) => opened_paper = Some(citekey.clone()),
+                        }
+                        ui.close();
+                    }
+                    if link.removable {
+                        if ui.button("Remove hyperlink").clicked() {
+                            remove_link = Some(link.node.clone());
+                            ui.close();
+                        }
+                    } else {
+                        // A relation artifact belongs to the paper that owns
+                        // it; the PDF reader's Connections window edits it.
+                        ui.weak("a connection from a paper \u{2014} edit it in the reader");
+                    }
+                });
+            }
         });
         let vp = &mut self.viewport;
         vp.last_zoom = zoom;
@@ -1396,6 +1839,7 @@ impl MindmapState {
         self.rename_draft = rename_draft;
         self.move_draft = move_draft;
         self.delete_draft = delete_draft;
+        self.hyperlink_draft = hyperlink_draft;
         if let Some(sel) = newly_selected {
             self.selected = sel;
         }
@@ -1426,6 +1870,9 @@ impl MindmapState {
                 action = Some(MindmapAction::KnowledgeChanged);
             }
         }
+        if self.hyperlink_dialog_ui(ui, root, index) {
+            action = Some(MindmapAction::KnowledgeChanged);
+        }
         let create_subtopic_req = self.subtopic_dialog_ui(ui);
         if let (Some((parent, name, kind)), Some(root), Some(index)) =
             (create_subtopic_req, root, index)
@@ -1448,6 +1895,28 @@ impl MindmapState {
         }
         if let Some(citekey) = literature_card_for {
             self.selected = Some(graph::paper_node(&citekey));
+        }
+        // #283: the Up button on the dotted line, or a double-click on the
+        // purple card. `up` is `Some(None)` when the level above is the top.
+        if go_up {
+            if let Some(target) = up.clone() {
+                self.set_current(target);
+            }
+        }
+        if let Some(target) = remove_link {
+            match (root, self.current.clone()) {
+                (Some(root), Some(current)) => {
+                    match crate::connections::remove(root, &current, &target) {
+                        Ok(true) => {
+                            self.message = "link removed".to_string();
+                            action = Some(MindmapAction::KnowledgeChanged);
+                        }
+                        Ok(false) => self.message = "that link is already gone".to_string(),
+                        Err(e) => self.message = format!("could not remove the link: {e}"),
+                    }
+                }
+                _ => self.message = "no library open".to_string(),
+            }
         }
         if let Some(id) = drilled {
             self.set_current(Some(id));
@@ -1474,10 +1943,113 @@ impl MindmapState {
     /// A real window rather than an entry inside the right-click menu, for
     /// the focus reason recorded on [`subtopic_menu_item`]. Returns
     /// `Some((parent_path, name))` on the frame Create is pressed.
-    fn subtopic_dialog_ui(
+    /// The "Add hyperlink…" picker (#285).
+    ///
+    /// **The same fuzzy finder as everywhere else** (maintainer, 2026-09-23:
+    /// "hyperlink addition ui should be the same fuzzyfinder"), over
+    /// [`crate::autocomplete::library_candidates`] restricted to topics and
+    /// projects — not [`crate::collection_picker::rank`], which sees only
+    /// the user's own library. The maintainer's own example links a user
+    /// topic to "the NJOY entry within the code corpus", and a corpus node
+    /// is exactly what `rank` cannot offer.
+    ///
+    /// Returns `true` on the frame a link is recorded, so the caller
+    /// rebuilds the shared knowledge and the new card is drawn at once
+    /// rather than after a restart (#286).
+    fn hyperlink_dialog_ui(
         &mut self,
         ui: &mut egui::Ui,
-    ) -> Option<(String, String, EntityKind)> {
+        root: Option<&KovanRoot>,
+        index: Option<&KnowledgeIndex>,
+    ) -> bool {
+        use crate::autocomplete::{library_candidates, CandidateKind};
+        let Some((source, query)) = self.hyperlink_draft.clone() else {
+            return false;
+        };
+        let (Some(root), Some(index)) = (root, index) else {
+            // No library open: nowhere to record it. Drop the draft rather
+            // than leaving a dialog that cannot succeed.
+            self.hyperlink_draft = None;
+            return false;
+        };
+
+        let mut text = query;
+        let mut close = false;
+        let mut added = false;
+        let source_label = crate::runtime_graph::concept(Some(index), &source)
+            .map(|c| c.title)
+            .unwrap_or_else(|| source.path.clone());
+
+        egui::Window::new("Add hyperlink")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .show(ui.ctx(), |ui| {
+                ui.label(format!("Link {source_label} to:"));
+                let field = ui.add(
+                    egui::TextEdit::singleline(&mut text)
+                        .hint_text("search topics and projects\u{2026}")
+                        .desired_width(360.0),
+                );
+                if !field.has_focus() && text.is_empty() {
+                    field.request_focus();
+                }
+                ui.separator();
+                let candidates = library_candidates(
+                    root,
+                    index,
+                    &text,
+                    &[CandidateKind::Topic, CandidateKind::Project],
+                );
+                egui::ScrollArea::vertical()
+                    .max_height(260.0)
+                    .show(ui, |ui| {
+                        if candidates.is_empty() {
+                            ui.weak("no matches");
+                        }
+                        for c in &candidates {
+                            let Some(target) = candidate_node_id(&c.node) else {
+                                continue;
+                            };
+                            if target == source {
+                                continue; // a node cannot link to itself
+                            }
+                            if ui
+                                .small_button(format!(
+                                    "\u{1F517} {}  \u{2014}  {}",
+                                    c.candidate.label, c.candidate.detail
+                                ))
+                                .clicked()
+                            {
+                                match crate::connections::add(root, &source, &target) {
+                                    Ok(()) => {
+                                        self.message = format!(
+                                            "linked {source_label} to {}",
+                                            c.candidate.label
+                                        );
+                                        added = true;
+                                    }
+                                    Err(e) => self.message = format!("could not link: {e}"),
+                                }
+                                close = true;
+                            }
+                        }
+                    });
+                ui.separator();
+                if ui.button("Cancel").clicked() {
+                    close = true;
+                }
+            });
+
+        if close {
+            self.hyperlink_draft = None;
+        } else {
+            self.hyperlink_draft = Some((source, text));
+        }
+        added
+    }
+
+    fn subtopic_dialog_ui(&mut self, ui: &mut egui::Ui) -> Option<(String, String, EntityKind)> {
         let Some((parent, text, kind)) = &mut self.subtopic_draft else {
             return None;
         };
@@ -1510,13 +2082,10 @@ impl MindmapState {
                 if !field.has_focus() && text.is_empty() {
                     field.request_focus();
                 }
-                let submitted =
-                    field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                let submitted = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 ui.horizontal(|ui| {
                     let named = !text.trim().is_empty();
-                    if (ui
-                        .add_enabled(named, egui::Button::new("Create"))
-                        .clicked()
+                    if (ui.add_enabled(named, egui::Button::new("Create")).clicked()
                         || (submitted && named))
                         && named
                     {
@@ -1590,7 +2159,9 @@ impl MindmapState {
                     }
                     let entered =
                         field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    ui.weak("Everything filed under it, and every artifact that names it, is updated.");
+                    ui.weak(
+                        "Everything filed under it, and every artifact that names it, is updated.",
+                    );
                     ui.horizontal(|ui| {
                         let named = !text.trim().is_empty();
                         if (ui.add_enabled(named, egui::Button::new("Rename")).clicked()
@@ -1605,7 +2176,14 @@ impl MindmapState {
                     });
                 });
             if submit {
-                run(self, &path, kind, ConceptOp::Rename { new_name: text.clone() });
+                run(
+                    self,
+                    &path,
+                    kind,
+                    ConceptOp::Rename {
+                        new_name: text.clone(),
+                    },
+                );
                 self.rename_draft = None;
             } else if close {
                 self.rename_draft = None;
@@ -1745,29 +2323,31 @@ impl MindmapState {
                     query,
                     &[crate::autocomplete::CandidateKind::Paper],
                 );
-                egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
-                    let mut any = false;
-                    for hit in &hits {
-                        // Corpus entries come back from the same search; they
-                        // are not ours to reclassify.
-                        if hit.node.starts_with("corpus:") {
-                            continue;
+                egui::ScrollArea::vertical()
+                    .max_height(260.0)
+                    .show(ui, |ui| {
+                        let mut any = false;
+                        for hit in &hits {
+                            // Corpus entries come back from the same search; they
+                            // are not ours to reclassify.
+                            if hit.node.starts_with("corpus:") {
+                                continue;
+                            }
+                            any = true;
+                            if ui
+                                .button(format!(
+                                    "{} \u{2014} {}",
+                                    hit.candidate.label, hit.candidate.detail
+                                ))
+                                .clicked()
+                            {
+                                chosen = Some(hit.candidate.insert_text.clone());
+                            }
                         }
-                        any = true;
-                        if ui
-                            .button(format!(
-                                "{} \u{2014} {}",
-                                hit.candidate.label, hit.candidate.detail
-                            ))
-                            .clicked()
-                        {
-                            chosen = Some(hit.candidate.insert_text.clone());
+                        if !any {
+                            ui.weak("no matching paper in your library");
                         }
-                    }
-                    if !any {
-                        ui.weak("no matching paper in your library");
-                    }
-                });
+                    });
                 if ui.button("Cancel").clicked() {
                     cancel = true;
                 }
@@ -1963,6 +2543,190 @@ mod tests {
         (dir, root)
     }
 
+    /// #285: a hyperlink the user made shows as a removable link card, on
+    /// both ends of the link, and points at the other concept.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn a_concept_hyperlink_shows_as_a_removable_link_card_from_both_ends() {
+        use crate::node_id::{Namespace, NodeId};
+        let (_dir, root) = make_root();
+        EntityConfig::topic("njoy", "NJOY")
+            .save(&root.topics_dir().join("njoy"))
+            .unwrap();
+        let index = crate::index::KnowledgeIndex::rebuild(&root);
+        let mine = NodeId::concept(Namespace::Library, "njoy");
+        let corpus = NodeId::concept(Namespace::Corpus, crate::corpus::ROOT_TOPIC);
+        crate::connections::add(&root, &mine, &corpus).unwrap();
+
+        let mut cache = LinkCache::default();
+        let here = cache.cards(&root, Some(&index), &mine);
+        assert_eq!(here.len(), 1);
+        assert_eq!(here[0].detail, "hyperlink");
+        assert!(here[0].removable, "the user's own link can be removed here");
+        assert!(matches!(&here[0].target, LinkTarget::Concept(id) if *id == corpus));
+
+        // Persisted once, seen from both ends.
+        let there = cache.cards(&root, Some(&index), &corpus);
+        assert_eq!(there.len(), 1);
+        assert!(matches!(&there[0].target, LinkTarget::Concept(id) if *id == mine));
+
+        // And a concept with no links has none.
+        assert!(cache
+            .cards(
+                &root,
+                Some(&index),
+                &NodeId::concept(Namespace::Library, "elsewhere")
+            )
+            .is_empty());
+    }
+
+    /// #286: an artifact connected to a topic in the PDF reader shows on
+    /// that topic's star, and opening it opens the paper.
+    ///
+    /// The relation names the topic by its **library** path, which is what
+    /// the reader writes; the star is standing on the node the map shows.
+    /// Both go through `canonical_concept`, so a mirrored library path and
+    /// the corpus node it stands for are the same place — without that the
+    /// card silently fails to appear.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn a_relation_from_a_paper_shows_on_the_concept_it_points_at() {
+        use crate::node_id::{Namespace, NodeId};
+        let (_dir, root) = make_root();
+        EntityConfig::topic("htgrs", "HTGRs")
+            .save(&root.topics_dir().join("htgrs"))
+            .unwrap();
+        EntityConfig::paper(
+            CiteKey::parse("wang2018multiphysics").unwrap(),
+            Access::Open,
+        )
+        .with_topics(["htgrs"])
+        .save_paper(&root.paper_dir("wang2018multiphysics"))
+        .unwrap();
+        let mut paper = crate::session::PaperSession::open(&root, "wang2018multiphysics").unwrap();
+        paper.append_block(
+            "# Conduction Coefficient\n\n```toml\n[kovan]\nid = \"conduction-coeff\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
+        );
+        paper.save_document().unwrap();
+        let index = crate::index::KnowledgeIndex::rebuild(&root);
+
+        crate::relation::add_connection(
+            &root,
+            &crate::graph::artifact_node("wang2018multiphysics", "conduction-coeff"),
+            &crate::graph::collection_node("htgrs"),
+            crate::relation::RelationKind::RelatedTo,
+        )
+        .unwrap();
+
+        let mut cache = LinkCache::default();
+        let cards = cache.cards(
+            &root,
+            Some(&index),
+            &NodeId::concept(Namespace::Library, "htgrs"),
+        );
+        assert_eq!(cards.len(), 1, "the linked artifact is missing: {cards:?}");
+        assert!(
+            cards[0].label.contains("conduction-coeff"),
+            "{}",
+            cards[0].label
+        );
+        assert!(
+            !cards[0].removable,
+            "a relation belongs to its paper, not to the map"
+        );
+        assert!(matches!(
+            &cards[0].target,
+            LinkTarget::Paper(k) if k == "wang2018multiphysics"
+        ));
+    }
+
+    /// The mirror case the canonicalisation is actually for: the reader
+    /// records the connection against the **library** path of a topic that
+    /// mirrors a corpus one, while the map has you standing on the **corpus**
+    /// node. They are the same place, and the card has to appear there.
+    ///
+    /// Both directions are asserted because each is carried by a *different*
+    /// half of the canonicalisation, which a first version of this test got
+    /// wrong: canonicalising the **relation's end** is what makes the card
+    /// appear on the corpus node, and canonicalising **`current`** is what
+    /// makes it appear when you are standing on the library mirror instead.
+    /// Each half was checked capable of failing by removing it. The failure
+    /// is silent on screen either way — the card simply is not drawn.
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn a_relation_to_a_mirrored_library_topic_shows_on_its_corpus_node() {
+        use crate::node_id::{Namespace, NodeId};
+        let (_dir, root) = make_root();
+        // A corpus topic path, mirrored into the user's library — the shape
+        // `runtime_graph::is_corpus_mirror` is about.
+        let mirrored = crate::corpus::TOPICS[1].path;
+        assert!(crate::runtime_graph::is_corpus_mirror(mirrored));
+        let mut dir = root.topics_dir();
+        for segment in mirrored.split('/') {
+            dir = dir.join(segment);
+            EntityConfig::topic(segment, segment).save(&dir).unwrap();
+        }
+        EntityConfig::paper(CiteKey::parse("lee2020corrosion").unwrap(), Access::Open)
+            .save_paper(&root.paper_dir("lee2020corrosion"))
+            .unwrap();
+        let mut paper = crate::session::PaperSession::open(&root, "lee2020corrosion").unwrap();
+        paper.append_block(
+            "# A Note\n\n```toml\n[kovan]\nid = \"a-note\"\nkind = \"note\"\ncreated = \"c\"\nmodified = \"m\"\n```\n",
+        );
+        paper.save_document().unwrap();
+        let index = crate::index::KnowledgeIndex::rebuild(&root);
+
+        crate::relation::add_connection(
+            &root,
+            &crate::graph::artifact_node("lee2020corrosion", "a-note"),
+            &crate::graph::collection_node(mirrored),
+            crate::relation::RelationKind::RelatedTo,
+        )
+        .unwrap();
+
+        let mut cache = LinkCache::default();
+        let on_corpus_node = cache.cards(
+            &root,
+            Some(&index),
+            &NodeId::concept(Namespace::Corpus, mirrored),
+        );
+        assert_eq!(
+            on_corpus_node.len(),
+            1,
+            "the link made against the library mirror is invisible on the corpus node"
+        );
+        assert!(on_corpus_node[0].label.contains("a-note"));
+
+        // And the other way round: standing on the library mirror itself.
+        let on_library_mirror = cache.cards(
+            &root,
+            Some(&index),
+            &NodeId::concept(Namespace::Library, mirrored),
+        );
+        assert_eq!(
+            on_library_mirror.len(),
+            1,
+            "the same link is invisible from the mirror node it was made against"
+        );
+    }
+
+    /// The finder hands back two identity syntaxes; both have to be readable
+    /// or "Add hyperlink…" silently skips half its own candidates (#285).
+    #[test]
+    #[cfg(all(feature = "gui", not(target_os = "android")))]
+    fn a_candidates_node_id_is_read_in_either_syntax() {
+        use crate::node_id::{Namespace, NodeId};
+        assert_eq!(
+            candidate_node_id("collection:htgrs/fuel"),
+            Some(NodeId::concept(Namespace::Library, "htgrs/fuel"))
+        );
+        assert_eq!(
+            candidate_node_id("corpus:concept/nuclear-data"),
+            Some(NodeId::concept(Namespace::Corpus, "nuclear-data"))
+        );
+        assert_eq!(candidate_node_id("nonsense"), None);
+    }
+
     #[test]
     #[cfg(all(feature = "gui", not(target_os = "android")))]
     fn star_cards_show_concepts_with_papers_as_citations() {
@@ -2042,7 +2806,10 @@ mod tests {
         create_subtopic(&root, &index, parent, "My TRISO Notes", EntityKind::Topic).unwrap();
         let index = KnowledgeIndex::rebuild(&root);
 
-        let under = children(Some(&index), Some(&NodeId::concept(Namespace::Corpus, parent)));
+        let under = children(
+            Some(&index),
+            Some(&NodeId::concept(Namespace::Corpus, parent)),
+        );
         let mine = under
             .iter()
             .find(|c| c.title == "My TRISO Notes")
@@ -2072,11 +2839,13 @@ mod tests {
             ("nuclear-engineering", "fuel-and-materials"),
             ("nuclear-engineering/fuel-and-materials", "triso"),
         ] {
-            let kids: Vec<String> =
-                children(Some(&index), Some(&NodeId::concept(Namespace::Corpus, parent)))
-                    .into_iter()
-                    .map(|c| c.title)
-                    .collect();
+            let kids: Vec<String> = children(
+                Some(&index),
+                Some(&NodeId::concept(Namespace::Corpus, parent)),
+            )
+            .into_iter()
+            .map(|c| c.title)
+            .collect();
             assert!(
                 !kids.iter().any(|t| t == twin),
                 "{parent} shows a slugified twin {twin:?} beside its corpus card: {kids:?}"
@@ -2254,7 +3023,14 @@ mod tests {
             .unwrap();
         let index = KnowledgeIndex::rebuild(&root);
 
-        create_subtopic(&root, &index, "outram-park", "Sub Effort", EntityKind::Project).unwrap();
+        create_subtopic(
+            &root,
+            &index,
+            "outram-park",
+            "Sub Effort",
+            EntityKind::Project,
+        )
+        .unwrap();
         assert!(EntityConfig::is_entity(
             &root.projects_dir().join("outram-park").join("sub-effort")
         ));
@@ -2266,7 +3042,14 @@ mod tests {
 
         // A project started under a topic: the new entity goes in the
         // projects tree at the mirrored path, not beside the topic.
-        create_subtopic(&root, &index, "new-topic", "Side Quest", EntityKind::Project).unwrap();
+        create_subtopic(
+            &root,
+            &index,
+            "new-topic",
+            "Side Quest",
+            EntityKind::Project,
+        )
+        .unwrap();
         assert!(EntityConfig::is_entity(
             &root.projects_dir().join("new-topic").join("side-quest")
         ));

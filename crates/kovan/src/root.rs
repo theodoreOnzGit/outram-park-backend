@@ -836,6 +836,28 @@ impl KovanRoot {
         self.path().join("mindmap.md")
     }
 
+    /// The library's mind-map data directory, `<root>/mindmap/`.
+    ///
+    /// Beside [`Self::mindmap_markdown`], not inside it: `mindmap.md` holds
+    /// the relation *artifacts* (each owned by a paper), while this directory
+    /// holds the mind map's own data — today just
+    /// [`Self::mindmap_connections`]. Tracked and human-readable, like
+    /// everything else outside `.kovan/`.
+    pub fn mindmap_dir(&self) -> PathBuf {
+        self.path().join("mindmap")
+    }
+
+    /// The user's own node-to-node connections, `<root>/mindmap/connections.toml`
+    /// (maintainer decision, 2026-09-22: "user connections go in the user
+    /// root's `mindmap/connections.toml`, persisted once, reverse edges
+    /// derived"; first built for GH issue #285).
+    ///
+    /// A missing file means "no connections yet", never an error — see
+    /// [`crate::connections::load`].
+    pub fn mindmap_connections(&self) -> PathBuf {
+        self.mindmap_dir().join("connections.toml")
+    }
+
     pub fn paper_markdown(&self, citekey: &str) -> PathBuf {
         self.paper_dir(citekey).join(format!("{citekey}.md"))
     }
@@ -1149,11 +1171,9 @@ name = "Inner"
         with.corpora.open_remote = Some("https://example.com/open.git".into());
         let text = toml::to_string(&with).unwrap();
         assert!(text.contains("open_remote"), "{text}");
-        assert!(
-            !toml::to_string(&RootConfig::new("a", "b"))
-                .unwrap()
-                .contains("[corpora]")
-        );
+        assert!(!toml::to_string(&RootConfig::new("a", "b"))
+            .unwrap()
+            .contains("[corpora]"));
         let back: RootConfig = toml::from_str(&text).unwrap();
         assert_eq!(back.corpora, with.corpora);
     }

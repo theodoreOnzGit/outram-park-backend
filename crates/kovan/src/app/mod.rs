@@ -258,10 +258,27 @@ struct ActivePaper {
 /// save site keeps the four Markdown-writing paths (Save Document,
 /// annotation save, inline block edit, digitiser CSV) and the `.bib` editor
 /// covered from one place, and also catches an external edit.
+///
+/// **Since GH issue #286 it also drives `refresh_knowledge`.** The maintainer,
+/// 2026-09-23: "i do see these artifacts load when i restart kovan, but i
+/// don't want to have to restart kovan to see those hyperlinks. once i click
+/// save annotations, i should be able to see them on the mindmap as well."
+/// The shared `WorkspaceKnowledge` was rebuilt only on opening a root, on
+/// setup, and after an ingest or a reclassify — so an artifact or a
+/// connection saved in the PDF reader was on disk and in that reader's own
+/// lists, but the Mindmap and the Wiki went on drawing the index they had
+/// read at startup.
+///
+/// The mind map's own files are watched here too, because a connection is
+/// written to them rather than to the active paper: `mindmap.md` for a
+/// relation artifact, `mindmap/connections.toml` for a concept hyperlink
+/// (#285).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct RepoSaveFingerprint {
     paper_md: Option<std::time::SystemTime>,
     bib: Option<std::time::SystemTime>,
+    mindmap_md: Option<std::time::SystemTime>,
+    connections: Option<std::time::SystemTime>,
 }
 
 impl RepoSaveFingerprint {
@@ -270,6 +287,8 @@ impl RepoSaveFingerprint {
         Self {
             paper_md: active.and_then(|a| mtime(a.session.markdown_path())),
             bib: mtime(&root.bibliography_path()),
+            mindmap_md: mtime(&root.mindmap_markdown()),
+            connections: mtime(&root.mindmap_connections()),
         }
     }
 }
@@ -2803,10 +2822,16 @@ impl eframe::App for DigitiseApp {
         // GH issue #35 2026-09-02: after any save wrote a tracked repo file,
         // auto-refresh the Save Repository tab's git status (it otherwise
         // only re-scans on first open or an explicit Refresh click).
-        if let Some(root) = self.home.root() {
-            let fp = RepoSaveFingerprint::capture(root, self.active_paper.as_ref());
+        if let Some(root) = self.home.root().cloned() {
+            let fp = RepoSaveFingerprint::capture(&root, self.active_paper.as_ref());
             if self.repo_save_fingerprint.is_some_and(|prev| prev != fp) {
                 self.advanced_git.mark_stale();
+                // #286: the same save also changed what the Mindmap, the
+                // Wiki and the completion popups should be showing. Rebuild
+                // the one shared knowledge state here rather than at each
+                // save site — the same reason the git status is marked from
+                // here, and it catches an external edit too.
+                self.refresh_knowledge(&root);
             }
             self.repo_save_fingerprint = Some(fp);
         }
@@ -2858,6 +2883,36 @@ mod tests {
         };
         ingest::ingest(root, &preview, choice).unwrap();
         citekey
+    }
+
+    /// GH issue #286: a connection is written to the mind map's own files,
+    /// not to the active paper, so the save fingerprint has to watch them —
+    /// otherwise nothing tells the app to rebuild the shared knowledge and
+    /// the Mindmap keeps drawing what it read at startup.
+    #[test]
+    fn the_save_fingerprint_notices_a_connection_in_either_mindmap_file() {
+        use crate::node_id::{Namespace, NodeId};
+        let (_dir, root) = make_root();
+
+        let start = RepoSaveFingerprint::capture(&root, None);
+
+        // A relation artifact (what the PDF reader's "Add connection…" writes).
+        std::fs::write(&root.mindmap_markdown(), "# mindmap\n").unwrap();
+        let after_relation = RepoSaveFingerprint::capture(&root, None);
+        assert_ne!(start, after_relation, "mindmap.md is not watched");
+
+        // A concept hyperlink (#285).
+        crate::connections::add(
+            &root,
+            &NodeId::concept(Namespace::Library, "njoy"),
+            &NodeId::concept(Namespace::Corpus, "nuclear-data/njoy"),
+        )
+        .unwrap();
+        let after_hyperlink = RepoSaveFingerprint::capture(&root, None);
+        assert_ne!(
+            after_relation, after_hyperlink,
+            "mindmap/connections.toml is not watched"
+        );
     }
 
     /// Opening a paper's own PDF opens the paper (so the page panel shows

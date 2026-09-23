@@ -73,6 +73,13 @@ fn card_diagonal() -> f64 {
 /// Measuring by the diagonal is conservative (cards are wider than tall), but
 /// it holds in every direction, so there is no angle at which two cards meet.
 pub fn star_positions(n: usize) -> Vec<Point> {
+    star_positions_offset(n, 0.0)
+}
+
+/// [`star_positions`], with every card turned `offset` radians clockwise
+/// around the centre. The radius is unchanged, so the cards stay exactly as
+/// far apart as they were — only where the *gaps* between them fall moves.
+fn star_positions_offset(n: usize, offset: f64) -> Vec<Point> {
     if n == 0 {
         return Vec::new();
     }
@@ -86,7 +93,7 @@ pub fn star_positions(n: usize) -> Vec<Point> {
     (0..n)
         .map(|i| {
             // Angle from straight up, clockwise (screen y grows downward).
-            let a = 2.0 * PI * i as f64 / n as f64;
+            let a = offset + 2.0 * PI * i as f64 / n as f64;
             Point::new(r * a.sin(), -r * a.cos())
         })
         .collect()
@@ -162,8 +169,40 @@ fn cards_collide(a: Point, b: Point) -> bool {
 /// The loop is capped at [`MAX_RING_GROWTH_STEPS`] as a guard, never reached
 /// in the tested range.
 pub fn star_layout(fan_sizes: &[usize]) -> StarLayout {
+    star_layout_offset(fan_sizes, 0.0)
+}
+
+/// [`star_layout`], rotated half a step when the "up one level" card is drawn
+/// above the star (GitHub issue #283).
+///
+/// [`star_positions`] puts ring card 0 exactly straight up, which is where
+/// the dotted connector to the parent card and the Up button on it go — the
+/// card would cover both. Turning the ring by half a step (`pi / n`) puts the
+/// *gap* between two ring cards at the top instead, for every `n`.
+///
+/// ~~Radii are untouched, so no card moves relative to any other.~~
+/// **CORRECTED 2026-09-23** — a rotated star can come out with a *larger*
+/// ring: [`cards_collide`] compares axis-aligned boxes, which is not
+/// rotation-invariant (cards are 170 x 46, so two of them side by side need
+/// far more room than two stacked), so the growth loop can fire for the
+/// turned ring where it did not for the straight one. Seen at `n = 10`. The
+/// invariant that holds is the one that matters: no two cards overlap, and no
+/// card sits in the corridor straight up.
+///
+/// `has_parent = false` is exactly [`star_layout`].
+pub fn star_layout_with_parent(fan_sizes: &[usize], has_parent: bool) -> StarLayout {
     let n = fan_sizes.len();
-    let base = star_positions(n);
+    let offset = if has_parent && n > 0 {
+        PI / n as f64
+    } else {
+        0.0
+    };
+    star_layout_offset(fan_sizes, offset)
+}
+
+fn star_layout_offset(fan_sizes: &[usize], offset: f64) -> StarLayout {
+    let n = fan_sizes.len();
+    let base = star_positions_offset(n, offset);
     let base_r = base.first().map(|p| p.x.hypot(p.y)).unwrap_or(0.0);
     let mut scale = 1.0;
     let mut layout = StarLayout {
@@ -193,6 +232,54 @@ pub fn star_layout(fan_sizes: &[usize]) -> StarLayout {
         scale *= 1.1;
     }
     layout
+}
+
+/// The Up button's box, in world units — the box drawn **on** the dotted
+/// connector between the centre card and the parent card (#283). A drawing
+/// choice, sized to hold one arrow glyph.
+pub const UP_BUTTON_SIZE: (f64, f64) = (30.0, 26.0);
+
+/// Where the "up one level" card goes: straight above the star, one card
+/// spacing clear of the furthest card in `layout` (#283).
+///
+/// Measuring from the **furthest** card, not the ring radius, is what keeps
+/// it clear of an expanded fan that reaches further out than the ring does.
+/// One spacing (a card diagonal plus [`CARD_GAP`]) is enough on its own: any
+/// card near enough on the x axis to matter lies at most `furthest` from the
+/// centre, so it is at least a spacing below this card on the y axis, and
+/// [`cards_collide`] needs both axes to be close.
+pub fn parent_position(layout: &StarLayout) -> Point {
+    let furthest = layout
+        .all_points()
+        .map(|p| p.x.hypot(p.y))
+        .fold(0.0_f64, f64::max);
+    Point::new(0.0, -(furthest + card_diagonal() + CARD_GAP))
+}
+
+/// Where the Up button's box sits on the dotted run between the centre card's
+/// top edge and the parent card's bottom edge (#283).
+///
+/// The middle of that run, **but never nearer the star than the furthest card
+/// reaches**. Half-way is the obvious place and is where it ends up when
+/// there is no ring at all, but an expanded fan can swing a card up to within
+/// a few points of the corridor — one was found sitting exactly on the button
+/// at `n = 3` — and a button drawn under a card cannot be pressed. Pushing it
+/// past the furthest card's radius clears *every* card whatever its angle:
+/// each one has `|y| <= furthest`, so the gap on the y axis alone is then
+/// more than half the two boxes' heights, and [`cards_collide`]-style overlap
+/// needs both axes to be close.
+pub fn up_button_centre(layout: &StarLayout) -> Point {
+    let parent = parent_position(layout);
+    let top_of_centre = -0.5 * CARD_SIZE.1;
+    let bottom_of_parent = parent.y + 0.5 * CARD_SIZE.1;
+    let middle = 0.5 * (top_of_centre + bottom_of_parent);
+    let furthest = layout
+        .all_points()
+        .map(|p| p.x.hypot(p.y))
+        .fold(0.0_f64, f64::max);
+    let clear = -(furthest + 0.5 * (CARD_SIZE.1 + UP_BUTTON_SIZE.1) + CARD_GAP);
+    // Both are negative (up the screen); the further one is the smaller.
+    Point::new(0.0, middle.min(clear))
 }
 
 /// Guard on [`star_layout`]'s ring growth: 1.1^200 is about 2e8, far past any
@@ -370,6 +457,107 @@ mod tests {
 
     fn overlap(a: Point, b: Point) -> bool {
         (a.x - b.x).abs() < CARD_SIZE.0 && (a.y - b.y).abs() < CARD_SIZE.1
+    }
+
+    /// Whether a box of `size` centred at `a` overlaps a card centred at `b`.
+    fn box_hits_card(a: Point, size: (f64, f64), b: Point) -> bool {
+        (a.x - b.x).abs() < 0.5 * (size.0 + CARD_SIZE.0)
+            && (a.y - b.y).abs() < 0.5 * (size.1 + CARD_SIZE.1)
+    }
+
+    /// Stars with a parent card, across ring sizes and with a fan or two
+    /// expanded — the shapes the layout actually has to survive.
+    fn stars_with_parents() -> Vec<(usize, StarLayout)> {
+        let mut out = Vec::new();
+        for n in 0..=16 {
+            for expanded in [0usize, 1, 5] {
+                let mut fan_sizes = vec![0; n];
+                for (i, f) in fan_sizes.iter_mut().enumerate() {
+                    // Expand the card nearest the top, where a fan is most
+                    // likely to reach up towards the parent card.
+                    if i == 0 {
+                        *f = expanded;
+                    }
+                }
+                out.push((n, star_layout_with_parent(&fan_sizes, true)));
+            }
+        }
+        out
+    }
+
+    /// #283: the parent card must not touch anything in the star, including
+    /// an expanded fan that reaches further out than the ring does.
+    #[test]
+    fn the_parent_card_clears_every_card_in_the_star() {
+        for (n, layout) in stars_with_parents() {
+            let parent = parent_position(&layout);
+            assert!(parent.y < 0.0, "n={n}: the parent card must be above");
+            assert!(
+                !overlap(parent, Point::new(0.0, 0.0)),
+                "n={n}: the parent card hits the centre card"
+            );
+            for (i, p) in layout.all_points().enumerate() {
+                assert!(
+                    !overlap(parent, p),
+                    "n={n}: the parent card hits card {i} at {p:?}"
+                );
+            }
+        }
+    }
+
+    /// #283: the Up button sits on the dotted line between the centre and the
+    /// parent, so the corridor it occupies has to be clear — which is the
+    /// whole reason the ring is rotated half a step when a parent is shown.
+    #[test]
+    fn the_up_button_box_clears_every_card_in_the_star() {
+        for (n, layout) in stars_with_parents() {
+            let button = up_button_centre(&layout);
+            assert!(
+                !box_hits_card(button, UP_BUTTON_SIZE, Point::new(0.0, 0.0)),
+                "n={n}: the Up button covers the centre card"
+            );
+            for (i, p) in layout.all_points().enumerate() {
+                assert!(
+                    !box_hits_card(button, UP_BUTTON_SIZE, p),
+                    "n={n}: the Up button covers card {i} at {p:?}"
+                );
+            }
+        }
+    }
+
+    /// What the rotation is actually for: no ring card left in the corridor
+    /// straight up, where the dotted connector and the Up button are drawn.
+    ///
+    /// Deliberately *not* "every radius is unchanged" — that was the first
+    /// version of this test and it failed at `n = 10`, because
+    /// [`cards_collide`] compares axis-aligned boxes and so is not
+    /// rotation-invariant: a turned ring can trip the growth loop where the
+    /// straight one did not. The layout is still correct there; the
+    /// assumption was wrong, and `star_layout_with_parent`'s doc now says so.
+    #[test]
+    fn the_parent_rotation_leaves_the_corridor_above_the_centre_empty() {
+        for n in 1..=16 {
+            let fan_sizes = vec![0; n];
+            assert_eq!(
+                star_layout_with_parent(&fan_sizes, false).ring,
+                star_layout(&fan_sizes).ring,
+                "n={n}: has_parent = false must be exactly star_layout"
+            );
+            let turned = star_layout_with_parent(&fan_sizes, true);
+            for (i, p) in turned.ring.iter().enumerate() {
+                assert!(
+                    !(p.x.abs() < 1.0 && p.y < 0.0),
+                    "n={n}: ring card {i} sits in the corridor at {p:?}"
+                );
+            }
+            let mut all = vec![Point::new(0.0, 0.0)];
+            all.extend(turned.all_points());
+            for (i, a) in all.iter().enumerate() {
+                for (j, b) in all.iter().enumerate().skip(i + 1) {
+                    assert!(!overlap(*a, *b), "n={n}: cards {i} and {j} overlap");
+                }
+            }
+        }
     }
 
     /// No two cards of a star touch, for any number of children, and none

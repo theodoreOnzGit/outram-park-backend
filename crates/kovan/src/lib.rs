@@ -57,6 +57,7 @@ pub mod classify;
 pub(crate) mod collection_picker;
 pub mod concept_ops;
 pub mod commands;
+pub mod connections;
 pub mod corpus;
 pub mod corpus_repos;
 pub mod digitiser;

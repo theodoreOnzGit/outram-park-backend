@@ -118,7 +118,13 @@ pub fn wiki_candidates(index: &KnowledgeIndex, query: &str) -> Vec<Candidate> {
                 crate::entity::EntityKind::Paper => continue, // collections never carry this kind
             };
             out.push(Candidate {
-                label: collection.name.clone(),
+                // The **full path**, not `collection.name` (GH issue #284).
+                // A name is the last segment alone, so `njoy/2016` and
+                // `njoy/2021` both showed up as bare years — "without
+                // context, i cannot tell what it is" (maintainer,
+                // 2026-09-23). Nothing is lost: the name is the tail of the
+                // path.
+                label: collection.path.clone(),
                 insert_text: collection.path.clone(),
                 detail: kind.to_string(),
             });
@@ -285,7 +291,11 @@ pub fn library_candidates(
 
     if want(CandidateKind::Paper) {
         for candidate in citation_candidates(root, query) {
-            if !index.papers.iter().any(|p| p.citekey == candidate.insert_text) {
+            if !index
+                .papers
+                .iter()
+                .any(|p| p.citekey == candidate.insert_text)
+            {
                 continue; // bibliography entry with no corresponding library paper
             }
             let node = paper_node(&candidate.insert_text);
@@ -316,7 +326,8 @@ pub fn library_candidates(
                 kind,
                 node: collection_node(&collection.path),
                 candidate: Candidate {
-                    label: collection.name.clone(),
+                    // Full path, per GH issue #284 — see `wiki_candidates`.
+                    label: collection.path.clone(),
                     insert_text: collection.path.clone(),
                     detail: detail.to_string(),
                 },
@@ -342,9 +353,12 @@ pub fn library_candidates(
                 kind: CandidateKind::Topic,
                 node: topic.id().to_string(),
                 candidate: Candidate {
-                    label: topic.title.to_string(),
+                    // Path here too (#284). A corpus topic's `title` is the
+                    // human name rather than a path segment, so it moves to
+                    // the detail instead of being dropped.
+                    label: topic.path.to_string(),
                     insert_text: topic.path.to_string(),
-                    detail: "corpus topic".to_string(),
+                    detail: format!("corpus topic \u{2014} {}", topic.title),
                 },
             });
         }
@@ -359,11 +373,8 @@ pub fn library_candidates(
             let author = lit.authors.first().copied().unwrap_or_default();
             out.push(LibraryCandidate {
                 kind: CandidateKind::Paper,
-                node: crate::node_id::NodeId::literature(
-                    crate::node_id::Namespace::Corpus,
-                    lit.id,
-                )
-                .to_string(),
+                node: crate::node_id::NodeId::literature(crate::node_id::Namespace::Corpus, lit.id)
+                    .to_string(),
                 candidate: Candidate {
                     label: lit.title.to_string(),
                     insert_text: lit.id.to_string(),
@@ -560,8 +571,14 @@ mod tests {
         let hits = library_candidates(&root, &index, "conduction", &[]);
         assert_eq!(hits.len(), 1, "{hits:?}");
         assert_eq!(hits[0].kind, CandidateKind::Artifact);
-        assert_eq!(hits[0].node, "artifact:wang2018multiphysics#conduction-coeff");
-        assert_eq!(hits[0].candidate.insert_text, "wang2018multiphysics#conduction-coeff");
+        assert_eq!(
+            hits[0].node,
+            "artifact:wang2018multiphysics#conduction-coeff"
+        );
+        assert_eq!(
+            hits[0].candidate.insert_text,
+            "wang2018multiphysics#conduction-coeff"
+        );
 
         // "corrosion" matches lee2020corrosion's artifact heading AND the
         // citation-style paper citekey itself is unrelated — but the
@@ -590,14 +607,70 @@ mod tests {
             .any(|c| c.kind == CandidateKind::Topic && c.node == "collection:htgrs"));
 
         let hits = library_candidates(&root, &index, "reactor", &[]);
-        assert!(hits.iter().any(
-            |c| c.kind == CandidateKind::Project && c.node == "collection:reactor-vessel"
-        ));
+        assert!(hits
+            .iter()
+            .any(|c| c.kind == CandidateKind::Project && c.node == "collection:reactor-vessel"));
 
         let hits = library_candidates(&root, &index, "wang2018multiphysics", &[]);
         assert!(hits
             .iter()
             .any(|c| c.kind == CandidateKind::Paper && c.node == "paper:wang2018multiphysics"));
+    }
+
+    /// GH issue #284: two sibling subtopics whose leaf names carry no
+    /// meaning on their own must be told apart in the finder.
+    #[test]
+    fn a_subtopics_label_is_its_full_path_not_its_leaf_name() {
+        let (_dir, root) = make_root();
+        // `scan_collections` only descends into a directory that is itself an
+        // entity, so the parent topic has to exist for the years to be seen.
+        EntityConfig::topic("njoy", "NJOY")
+            .save(&root.topics_dir().join("njoy"))
+            .unwrap();
+        for year in ["2016", "2021"] {
+            EntityConfig::topic(year, year)
+                .save(&root.topics_dir().join("njoy").join(year))
+                .unwrap();
+        }
+        let index = KnowledgeIndex::rebuild(&root);
+
+        let labels = |hits: Vec<String>| {
+            let mut hits = hits;
+            hits.sort();
+            hits
+        };
+
+        let from_finder = labels(
+            library_candidates(&root, &index, "njoy", &[CandidateKind::Topic])
+                .into_iter()
+                .map(|c| c.candidate.label)
+                .collect(),
+        );
+        assert_eq!(
+            from_finder,
+            ["njoy", "njoy/2016", "njoy/2021"],
+            "connection finder"
+        );
+
+        let from_wiki = labels(
+            wiki_candidates(&index, "njoy")
+                .into_iter()
+                .map(|c| c.label)
+                .collect(),
+        );
+        assert_eq!(
+            from_wiki,
+            ["njoy", "njoy/2016", "njoy/2021"],
+            "[[ completion"
+        );
+
+        // Searching the leaf still finds it, and still shows the whole path.
+        let by_leaf: Vec<String> =
+            library_candidates(&root, &index, "2016", &[CandidateKind::Topic])
+                .into_iter()
+                .map(|c| c.candidate.label)
+                .collect();
+        assert_eq!(by_leaf, ["njoy/2016"]);
     }
 
     #[test]
@@ -620,7 +693,11 @@ mod tests {
             &root,
             &index,
             "conduction",
-            &[CandidateKind::Paper, CandidateKind::Topic, CandidateKind::Project],
+            &[
+                CandidateKind::Paper,
+                CandidateKind::Topic,
+                CandidateKind::Project,
+            ],
         );
         assert!(hits.is_empty(), "{hits:?}");
     }

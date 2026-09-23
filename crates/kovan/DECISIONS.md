@@ -1132,3 +1132,150 @@ exercised only through egui's own input state here.
 schema-sensitive block as raw text is how the fenced TOML gets broken; clicking a
 banded block to open it in the editor is the edit path, as the preview's caption
 says.
+
+## The mindmap's purple "up one level" card, and full paths in the finder (2026-09-23, GH issues #283, #284)
+
+### The parent card (#283)
+
+**Maintainer, 2026-09-23:** "i want a purple node with an up button that allows
+user to go up one level, this will be connected to central node in dotted line
+with an up button within a box on the dotted line. double clicking brings us to
+that level."
+
+Going up already existed as `runtime_graph::up_one_level` behind the breadcrumb's
+`⬆ Up` button; this adds the representation in the star itself. The card shows
+the parent concept's title, or *the top* from a top-level concept, and is drawn
+only when `up_one_level` is `Some` — which is exactly when there is a centre
+card.
+
+**Purple is not a concept colour.** `color_for`'s palette means ownership (dark
+green corpus, light green user, lilac project); this card is not a concept at
+all, it is where you came from, so it sits off that palette — darker and more
+saturated than the projects' lilac so the two do not read as the same family.
+
+**The ring turns half a step when the card is shown.** `star_positions` puts
+ring card 0 exactly straight up, which is where the dotted connector and the Up
+button go, so the card would cover both. `star_layout_with_parent` rotates by
+`pi / n`, putting the *gap* between two ring cards at the top for every `n`.
+
+Two things the layout tests found, which guessing would have got wrong:
+
+1. **The first version of the rotation test asserted "every radius is
+   unchanged". It failed at `n = 10`** — `cards_collide` compares axis-aligned
+   boxes and so is not rotation-invariant (a card is 170 x 46: two side by side
+   need far more room than two stacked), so a turned ring can trip the growth
+   loop where the straight one did not. The layout was right and the assumption
+   was wrong; the doc on `star_layout_with_parent` now records it, and the test
+   asserts what actually matters — nothing in the corridor, nothing overlapping.
+2. **The Up button at the midpoint of the line was found underneath a fan card**
+   at `n = 3`. It is now clamped past the furthest card's radius: every card has
+   `|y| <= furthest`, so clearing that radius clears every card at every angle,
+   which a midpoint cannot promise. With no ring at all it is still the midpoint.
+
+### Full paths in the finder (#284)
+
+**Maintainer, same day:** "i put njoy there and added 2016 and 2021, it shows up
+in fuzzy finder as 2016 and 2021. without context, i cannot tell what it is."
+
+`autocomplete.rs` labelled topic and project candidates with
+`CollectionEntry::name` — the last path segment. The path was already in
+`insert_text`, and `matches_query` already ranked on both, so only the *display*
+threw the context away. Labels are now the full path, in `wiki_candidates` (the
+kvim `[[` popup) and in `library_candidates` (the PDF reader's connection
+picker). A built-in corpus topic labels with its path too, and its human title
+moves into the detail text rather than being dropped.
+
+`collection_picker::rank`'s consumers — the Wiki's sort dialog, the mindmap's
+"Move…" — already printed `c.path` and are unchanged.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 626 tests, all passing. New:
+four in `mindmap_view` (the parent card clears every card including expanded
+fans, the Up button box clears every card, the corridor is empty and nothing
+overlaps after the rotation, `has_parent = false` is exactly `star_layout`), and
+one in `autocomplete` pinning the full-path labels through both finders,
+including that searching the leaf `2016` still finds `njoy/2016` and still shows
+the whole path.
+
+**Not verified:** the parent card's drawing and its double-click were not
+exercised — the geometry is tested, the painting is not. Wanted on a real
+desktop: that the purple reads against both themes, and that the Up button is
+comfortably clickable at Fit zoom on a large star.
+
+## Mind-map links: hyperlinks between concepts, linked artifacts, and no restart to see them (2026-09-23, GH issues #285, #286)
+
+**Maintainer, 2026-09-23:** "in the add subtopic right click on the mindmap, i
+also want to add hyperlink. For example, NJOY is a nuclear data processing code,
+so it should like link to the NJOY entry within the code corpus. hyperlinks
+should be light blue boxes with dark blue underlined text, just like hyperlinks
+in markdown or wikipedia"; "hyperlink addition ui should be the same
+fuzzyfinder"; "also i can't see artifacts i linked to the mindmap yet"; and,
+correcting that last one, "i do see these artifacts load when i restart kovan,
+but i don't want to have to restart kovan to see those hyperlinks. once i click
+save annotations, i should be able to see them on the mindmap as well."
+
+### Why a new store, and not `relation::add_connection`
+
+`add_connection` refuses a collection outright — `SourceNotArtifact`, "a
+collection cannot own a relation, having no file of its own" — and a
+concept→concept hyperlink is precisely that excluded case. Asked, the maintainer
+chose the new file over relaxing the old one, which is also their own 2026-09-22
+decision getting its first user: `crates/kovan/src/connections.rs`, writing
+`<root>/mindmap/connections.toml`, one entry per link, **written once with the
+reverse derived** (`for_node` answers from either end).
+
+**Two stores for now, deliberately.** Relations owned by an artifact stay in
+`mindmap.md`; only the ownerless links go in the new file. Folding the first
+into the second is the migration that decision implies and is *not* done here.
+
+### One card type for both (#285 and #286)
+
+To a reader a hyperlink and a linked annotation are the same thing — "this
+points somewhere else" — so both draw as the same light-blue card with dark-blue
+underlined text, on the ring beside the sub-concepts, and both follow on a
+double-click (a concept travels; a paper or artifact opens the paper). They
+differ only in what the right-click menu offers: the user's own hyperlink can be
+removed from the map, while a relation belongs to the paper that owns it and
+says so.
+
+**The mirror trap, and how it was nearly missed.** `relation`'s endpoints are
+the older untyped `graph::NodeId` strings, so they are read into typed ids
+before comparing — and canonicalised on **both** sides, for two different
+reasons: canonicalising the relation's end is what puts the card on the
+**corpus** node the map shows for a mirrored path, and canonicalising the
+current node is what puts it there when the user is standing on the mirror
+itself. The first version of the test asserted only one direction and passed
+with the other half of the fix deleted; both directions are now asserted and
+each half was checked capable of failing by removing it. This is the same trap
+`runtime_graph::canonical_concept` was written for after the Up button landed on
+the light-green mirror of a corpus topic.
+
+### Seeing it without a restart (#286)
+
+The shared `WorkspaceKnowledge` was rebuilt only on opening a root, on setup and
+after an ingest or a reclassify. Saving an annotation or adding a connection
+wrote to disk and changed nothing on screen until the next launch —
+`RepoSaveFingerprint` already noticed such a save once per frame (it exists to
+re-run `git status`), so it now also calls `refresh_knowledge`, and it watches
+`mindmap.md` and `mindmap/connections.toml` as well, because a connection is
+written to those rather than to the active paper. Watching files rather than
+threading a signal out of every save site keeps every writing path covered from
+one place, and catches an external edit too.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests`: 638 tests, all passing. New:
+seven in `connections` (round trip, both ends, the readable TOML shape, no
+duplicate in either direction, no self-link, removal from either direction, a
+malformed row skipped, an unreadable file being "none" rather than a failure),
+four in `mindmap` (a hyperlink card from both ends, a relation card on the
+concept it points at, the mirror case in both directions, both candidate id
+syntaxes), and one in `app` pinning that the save fingerprint notices either
+mind-map file.
+
+**Not verified:** none of the drawing or the dialogs were exercised — no display
+here. Wanted on a real desktop: that the light blue and dark blue read well in
+both themes (the fill is a fixed colour, not a themed one), that the underline
+sits right at Fit zoom, and that "Add hyperlink…" lands where the maintainer
+expects beside "Add subtopic…".
