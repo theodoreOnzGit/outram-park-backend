@@ -1229,15 +1229,29 @@ reverse derived** (`for_node` answers from either end).
 `mindmap.md`; only the ownerless links go in the new file. Folding the first
 into the second is the migration that decision implies and is *not* done here.
 
-### One card type for both (#285 and #286)
+### ~~One card type for both (#285 and #286)~~ — CORRECTED the same day
 
-To a reader a hyperlink and a linked annotation are the same thing — "this
+~~To a reader a hyperlink and a linked annotation are the same thing — "this
 points somewhere else" — so both draw as the same light-blue card with dark-blue
-underlined text, on the ring beside the sub-concepts, and both follow on a
-double-click (a concept travels; a paper or artifact opens the paper). They
-differ only in what the right-click menu offers: the user's own hyperlink can be
-removed from the map, while a relation belongs to the paper that owns it and
-says so.
+underlined text, on the ring beside the sub-concepts.~~
+
+**CORRECTED 2026-09-23**, maintainer: *"differentiate between artifacts and
+hyperlinks. artifacts should live in the right click when i right click a box,
+hyperlinks can live as linked boxes"*. The two are not the same thing to the
+person reading the map:
+
+- **A hyperlink is a place**, so it is a light-blue card with dark-blue
+  underlined text on the ring, double-clicked to travel, with "Remove
+  hyperlink" on its own right-click menu.
+- **A linked artifact is a detail of a concept**, so it is an entry on that
+  concept's right-click menu — `LinkCache::linked_artifacts`, one line per
+  relation, opening the paper it belongs to. Nothing is drawn for it.
+
+The correction also keeps the star readable: a topic with a dozen annotations
+connected to it would otherwise bury its sub-concepts under a dozen boxes,
+while the menu holds any number without touching the layout. Only literature
+ends count as artifacts; a concept on the far side of a relation is not offered
+here.
 
 **The mirror trap, and how it was nearly missed.** `relation`'s endpoints are
 the older untyped `graph::NodeId` strings, so they are read into typed ids
@@ -1269,10 +1283,10 @@ one place, and catches an external edit too.
 seven in `connections` (round trip, both ends, the readable TOML shape, no
 duplicate in either direction, no self-link, removal from either direction, a
 malformed row skipped, an unreadable file being "none" rather than a failure),
-four in `mindmap` (a hyperlink card from both ends, a relation card on the
-concept it points at, the mirror case in both directions, both candidate id
-syntaxes), and one in `app` pinning that the save fingerprint notices either
-mind-map file.
+four in `mindmap` (a hyperlink card from both ends, a relation offered on the
+menu **and not drawn as a card**, the mirror case in both directions, both
+candidate id syntaxes), and one in `app` pinning that the save fingerprint
+notices either mind-map file.
 
 **Not verified:** none of the drawing or the dialogs were exercised — no display
 here. Wanted on a real desktop: that the light blue and dark blue read well in

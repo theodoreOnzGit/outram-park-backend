@@ -607,32 +607,41 @@ struct StarCard {
     citations: Vec<Citation>,
 }
 
-/// A light-blue link card in the star: something the concept you are on is
-/// **linked to**, as opposed to one of its sub-concepts (#285, #286).
+/// A light-blue hyperlink card in the star: another concept the one you are
+/// on is linked to, from [`crate::connections`] (#285).
 ///
-/// Two very different stores feed the same card, because to a reader they
-/// are the same thing — "this points somewhere else":
-///
-/// - a concept hyperlink the user made here, from
-///   [`crate::connections`] (`mindmap/connections.toml`);
-/// - a relation artifact whose other end is this concept, from
-///   [`crate::relation`] (`mindmap.md`) — typically an annotation in a paper
-///   connected to this topic in the PDF reader.
+/// ~~A relation artifact whose other end is this concept draws as one of
+/// these too.~~ **CORRECTED 2026-09-23** (maintainer: "differentiate between
+/// artifacts and hyperlinks") — a relation is a [`LinkedArtifact`] and lives
+/// on the card's right-click menu. Only the user's own concept-to-concept
+/// hyperlinks are drawn as boxes.
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 #[derive(Debug, Clone)]
 struct LinkCard {
     /// What the card says.
     label: String,
-    /// The small line under it: which kind of link this is.
-    detail: String,
     /// Where a double-click goes.
     target: LinkTarget,
-    /// The other end, for the tooltip and for "Remove link".
+    /// The other end, for the tooltip and for "Remove hyperlink".
     node: crate::node_id::NodeId,
-    /// Whether this link is the user's own hyperlink, and so can be removed
-    /// from here. A relation artifact belongs to the paper that owns it and
-    /// is edited in the PDF reader, not on the map.
-    removable: bool,
+}
+
+/// One artifact or paper joined to a concept by a [`crate::relation`] — an
+/// annotation connected to this topic in the PDF reader, say.
+///
+/// **Not a card.** Maintainer, 2026-09-23: "artifacts should live in the
+/// right click when i right click a box, hyperlinks can live as linked
+/// boxes". So these are listed on the concept card's context menu, where
+/// they cannot crowd the star, and only the user's own hyperlinks are drawn.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+#[derive(Debug, Clone)]
+struct LinkedArtifact {
+    /// `<citekey>#<artifact id>`, or the citekey alone for a whole paper.
+    label: String,
+    /// The relation's own kind, e.g. "supports".
+    kind: String,
+    /// The paper to open.
+    citekey: String,
 }
 
 /// What double-clicking a [`LinkCard`] does.
@@ -666,14 +675,8 @@ fn file_stamp(path: &std::path::Path) -> Option<(std::time::SystemTime, u64)> {
 
 #[cfg(all(feature = "gui", not(target_os = "android")))]
 impl LinkCache {
-    /// The link cards for the concept at `current`, refreshing from disk
-    /// first if either file changed.
-    fn cards(
-        &mut self,
-        root: &KovanRoot,
-        index: Option<&KnowledgeIndex>,
-        current: &crate::node_id::NodeId,
-    ) -> Vec<LinkCard> {
+    /// Re-read either file that changed since the last frame.
+    fn refresh(&mut self, root: &KovanRoot) {
         let stamp = file_stamp(&root.mindmap_connections());
         if stamp.is_none() || stamp != self.connections_stamp {
             self.connections_stamp = stamp;
@@ -684,40 +687,55 @@ impl LinkCache {
             self.relations_stamp = stamp;
             self.relations = crate::relation::connections_all(root);
         }
+    }
 
-        let title_of = |node: &crate::node_id::NodeId| -> String {
-            if let Some(artifact) = &node.artifact {
-                // An artifact is named by the paper it is in plus its own id
-                // — the identity the reader shows, not a guessed heading.
-                return format!("{}#{artifact}", node.path);
-            }
-            crate::runtime_graph::concept(index, node)
-                .map(|c| c.title)
-                .unwrap_or_else(|| node.path.clone())
-        };
-
-        let mut out: Vec<LinkCard> = crate::connections::for_node(&self.connections, current)
+    /// The concept hyperlinks on `current` — the light-blue cards drawn in
+    /// its star (#285).
+    ///
+    /// **Only the user's own hyperlinks.** Relations from a paper are not
+    /// cards: maintainer, 2026-09-23, "differentiate between artifacts and
+    /// hyperlinks. artifacts should live in the right click when i right
+    /// click a box, hyperlinks can live as linked boxes" — so they come out
+    /// of [`Self::linked_artifacts`] and go on the card's menu instead.
+    fn hyperlinks(
+        &mut self,
+        root: &KovanRoot,
+        index: Option<&KnowledgeIndex>,
+        current: &crate::node_id::NodeId,
+    ) -> Vec<LinkCard> {
+        self.refresh(root);
+        crate::connections::for_node(&self.connections, current)
             .into_iter()
             .map(|other| LinkCard {
-                label: title_of(other),
-                detail: "hyperlink".to_string(),
+                label: node_title(index, other),
                 target: link_target(other),
                 node: other.clone(),
-                removable: true,
             })
-            .collect();
+            .collect()
+    }
 
-        // `relation`'s endpoints are the older untyped `graph::NodeId`
-        // strings (`artifact:<citekey>#<id>`, `collection:<path>`), so they
-        // are read into typed ids before being compared — and **canonicalised**
-        // on both sides, for two different reasons. A connection made in the
-        // PDF reader names the *library* path of a topic: canonicalising the
-        // relation's end is what puts the card on the **corpus** node the map
-        // shows for a mirrored path, and canonicalising `current` is what
-        // puts it there when the user is standing on the mirror itself. The
-        // same trap `runtime_graph::canonical_concept` was written for after
-        // the Up button landed on the light-green mirror of a corpus topic.
-        let here = crate::runtime_graph::canonical_concept(current);
+    /// The artifacts and papers connected to `node` by a relation — what a
+    /// right-click on that concept's card offers (#286).
+    ///
+    /// `relation`'s endpoints are the older untyped `graph::NodeId` strings
+    /// (`artifact:<citekey>#<id>`, `collection:<path>`), so they are read
+    /// into typed ids before being compared — and **canonicalised** on both
+    /// sides, for two different reasons. A connection made in the PDF reader
+    /// names the *library* path of a topic: canonicalising the relation's end
+    /// is what finds it for the **corpus** node the map shows for a mirrored
+    /// path, and canonicalising `node` is what finds it when the user is on
+    /// the mirror itself. The same trap `runtime_graph::canonical_concept`
+    /// was written for after the Up button landed on the light-green mirror
+    /// of a corpus topic.
+    fn linked_artifacts(
+        &mut self,
+        root: &KovanRoot,
+        index: Option<&KnowledgeIndex>,
+        node: &crate::node_id::NodeId,
+    ) -> Vec<LinkedArtifact> {
+        self.refresh(root);
+        let here = crate::runtime_graph::canonical_concept(node);
+        let mut out = Vec::new();
         for rel in &self.relations {
             let ends = [&rel.source, &rel.target].map(|e| {
                 candidate_node_id(e).map(|id| (crate::runtime_graph::canonical_concept(&id), id))
@@ -727,15 +745,32 @@ impl LinkCache {
                 [Some((_, raw)), Some((canon, _))] if *canon == here => raw,
                 _ => continue,
             };
-            out.push(LinkCard {
-                label: title_of(other),
-                detail: rel.kind.label().to_string(),
-                target: link_target(other),
-                node: other.clone(),
-                removable: false,
+            // Only literature ends are artifacts; a concept on the far side
+            // of a relation is someone else's hyperlink, not this menu's
+            // business.
+            if other.kind != crate::node_id::EntryKind::Literature {
+                continue;
+            }
+            out.push(LinkedArtifact {
+                label: node_title(index, other),
+                kind: rel.kind.label().to_string(),
+                citekey: other.path.clone(),
             });
         }
         out
+    }
+}
+
+/// How a node is named on a card or a menu entry: an artifact by the paper
+/// it is in plus its own id (the identity the reader shows, never a guessed
+/// heading), a concept by its title.
+#[cfg(all(feature = "gui", not(target_os = "android")))]
+fn node_title(index: Option<&KnowledgeIndex>, node: &crate::node_id::NodeId) -> String {
+    match &node.artifact {
+        Some(artifact) => format!("{}#{artifact}", node.path),
+        None => crate::runtime_graph::concept(index, node)
+            .map(|c| c.title)
+            .unwrap_or_else(|| node.path.clone()),
     }
 }
 
@@ -1196,11 +1231,28 @@ impl MindmapState {
                 .collect();
             (centre, ring, fans)
         };
-        // #285/#286: the user's links sit on the ring beside the
+        // #285: the user's own hyperlinks sit on the ring beside the
         // sub-concepts, so the layout spaces them like any other card.
         let links: Vec<LinkCard> = match (root, self.current.clone()) {
-            (Some(r), Some(current)) => self.links.cards(r, index, &current),
+            (Some(r), Some(current)) => self.links.hyperlinks(r, index, &current),
             _ => Vec::new(),
+        };
+        // #286, as corrected 2026-09-23: a relation from a paper is *not* a
+        // card — it is listed on the right-click menu of the concept it is
+        // attached to. Collected here for every concept the star draws, since
+        // the menus are built inside the canvas closure.
+        let linked_artifacts: std::collections::HashMap<String, Vec<LinkedArtifact>> = match root {
+            Some(r) => std::iter::once(centre.as_ref())
+                .chain(ring.iter().map(Some))
+                .chain(fans.iter().flatten().map(Some))
+                .flatten()
+                .map(|c| {
+                    let found = self.links.linked_artifacts(r, index, &c.concept.id);
+                    (c.concept.id.to_string(), found)
+                })
+                .filter(|(_, found)| !found.is_empty())
+                .collect(),
+            None => Default::default(),
         };
         let mut fan_sizes: Vec<usize> = fans.iter().map(Vec::len).collect();
         fan_sizes.extend(std::iter::repeat_n(0, links.len()));
@@ -1676,6 +1728,24 @@ impl MindmapState {
                         }
                         None => {}
                     }
+                    // #286, as corrected 2026-09-23: "artifacts should live
+                    // in the right click when i right click a box". One entry
+                    // per relation attached to this concept; opening one opens
+                    // the paper it belongs to, the same as a citation.
+                    if let Some(linked) = linked_artifacts.get(&id) {
+                        ui.separator();
+                        ui.weak(format!("{} linked artifact(s)", linked.len()));
+                        for a in linked {
+                            if ui
+                                .button(format!("\u{1F517} {}", a.label))
+                                .on_hover_text(format!("{} \u{2014} opens the paper", a.kind))
+                                .clicked()
+                            {
+                                opened_paper = Some(a.citekey.clone());
+                                ui.close();
+                            }
+                        }
+                    }
                     ui.separator();
                     if ui.button("Go here").clicked() {
                         drilled = Some(concept.id.clone());
@@ -1775,7 +1845,7 @@ impl MindmapState {
                 text.text(
                     egui::pos2(left, r.center().y + 10.0 * z),
                     egui::Align2::LEFT_CENTER,
-                    format!("\u{1F517} {}", link.detail),
+                    "\u{1F517} hyperlink",
                     egui::FontId::proportional((0.78 * CARD_FONT_SIZE * zoom) as f32),
                     LINK_TEXT.gamma_multiply(0.75),
                 );
@@ -1805,15 +1875,9 @@ impl MindmapState {
                         }
                         ui.close();
                     }
-                    if link.removable {
-                        if ui.button("Remove hyperlink").clicked() {
-                            remove_link = Some(link.node.clone());
-                            ui.close();
-                        }
-                    } else {
-                        // A relation artifact belongs to the paper that owns
-                        // it; the PDF reader's Connections window edits it.
-                        ui.weak("a connection from a paper \u{2014} edit it in the reader");
+                    if ui.button("Remove hyperlink").clicked() {
+                        remove_link = Some(link.node.clone());
+                        ui.close();
                     }
                 });
             }
@@ -2547,7 +2611,7 @@ mod tests {
     /// both ends of the link, and points at the other concept.
     #[test]
     #[cfg(all(feature = "gui", not(target_os = "android")))]
-    fn a_concept_hyperlink_shows_as_a_removable_link_card_from_both_ends() {
+    fn a_concept_hyperlink_shows_as_a_link_card_from_both_ends() {
         use crate::node_id::{Namespace, NodeId};
         let (_dir, root) = make_root();
         EntityConfig::topic("njoy", "NJOY")
@@ -2559,20 +2623,18 @@ mod tests {
         crate::connections::add(&root, &mine, &corpus).unwrap();
 
         let mut cache = LinkCache::default();
-        let here = cache.cards(&root, Some(&index), &mine);
+        let here = cache.hyperlinks(&root, Some(&index), &mine);
         assert_eq!(here.len(), 1);
-        assert_eq!(here[0].detail, "hyperlink");
-        assert!(here[0].removable, "the user's own link can be removed here");
         assert!(matches!(&here[0].target, LinkTarget::Concept(id) if *id == corpus));
 
         // Persisted once, seen from both ends.
-        let there = cache.cards(&root, Some(&index), &corpus);
+        let there = cache.hyperlinks(&root, Some(&index), &corpus);
         assert_eq!(there.len(), 1);
         assert!(matches!(&there[0].target, LinkTarget::Concept(id) if *id == mine));
 
         // And a concept with no links has none.
         assert!(cache
-            .cards(
+            .hyperlinks(
                 &root,
                 Some(&index),
                 &NodeId::concept(Namespace::Library, "elsewhere")
@@ -2580,8 +2642,11 @@ mod tests {
             .is_empty());
     }
 
-    /// #286: an artifact connected to a topic in the PDF reader shows on
-    /// that topic's star, and opening it opens the paper.
+    /// #286, as corrected on 2026-09-23: an artifact connected to a topic in
+    /// the PDF reader is offered on that concept's **right-click menu**, and
+    /// is *not* drawn as a card — "differentiate between artifacts and
+    /// hyperlinks. artifacts should live in the right click when i right
+    /// click a box, hyperlinks can live as linked boxes".
     ///
     /// The relation names the topic by its **library** path, which is what
     /// the reader writes; the star is standing on the node the map shows.
@@ -2590,7 +2655,7 @@ mod tests {
     /// card silently fails to appear.
     #[test]
     #[cfg(all(feature = "gui", not(target_os = "android")))]
-    fn a_relation_from_a_paper_shows_on_the_concept_it_points_at() {
+    fn a_relation_from_a_paper_is_offered_on_the_menu_not_drawn_as_a_card() {
         use crate::node_id::{Namespace, NodeId};
         let (_dir, root) = make_root();
         EntityConfig::topic("htgrs", "HTGRs")
@@ -2619,25 +2684,23 @@ mod tests {
         .unwrap();
 
         let mut cache = LinkCache::default();
-        let cards = cache.cards(
-            &root,
-            Some(&index),
-            &NodeId::concept(Namespace::Library, "htgrs"),
+        let here = NodeId::concept(Namespace::Library, "htgrs");
+        let linked = cache.linked_artifacts(&root, Some(&index), &here);
+        assert_eq!(
+            linked.len(),
+            1,
+            "the linked artifact is missing: {linked:?}"
         );
-        assert_eq!(cards.len(), 1, "the linked artifact is missing: {cards:?}");
         assert!(
-            cards[0].label.contains("conduction-coeff"),
+            linked[0].label.contains("conduction-coeff"),
             "{}",
-            cards[0].label
+            linked[0].label
         );
+        assert_eq!(linked[0].citekey, "wang2018multiphysics");
         assert!(
-            !cards[0].removable,
-            "a relation belongs to its paper, not to the map"
+            cache.hyperlinks(&root, Some(&index), &here).is_empty(),
+            "a relation must not also be drawn as a hyperlink card"
         );
-        assert!(matches!(
-            &cards[0].target,
-            LinkTarget::Paper(k) if k == "wang2018multiphysics"
-        ));
     }
 
     /// The mirror case the canonicalisation is actually for: the reader
@@ -2685,7 +2748,7 @@ mod tests {
         .unwrap();
 
         let mut cache = LinkCache::default();
-        let on_corpus_node = cache.cards(
+        let on_corpus_node = cache.linked_artifacts(
             &root,
             Some(&index),
             &NodeId::concept(Namespace::Corpus, mirrored),
@@ -2698,7 +2761,7 @@ mod tests {
         assert!(on_corpus_node[0].label.contains("a-note"));
 
         // And the other way round: standing on the library mirror itself.
-        let on_library_mirror = cache.cards(
+        let on_library_mirror = cache.linked_artifacts(
             &root,
             Some(&index),
             &NodeId::concept(Namespace::Library, mirrored),
