@@ -15,6 +15,10 @@
 //! unknown elements would read a *future* `cross_sections.xml` and quietly
 //! return an incomplete index.
 //!
+//! The element scanner itself lives in [`super::xml_scan`], shared with the
+//! depletion-chain reader. It used to be private to this file; it was extracted
+//! (and its quadratic-time index conversion fixed) on 2026-09-23.
+//!
 //! # What this does NOT do
 //!
 //! It does not read the `.h5` files the index points at. The index is a
@@ -23,6 +27,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use super::xml_scan::scan;
 use crate::error::NjoyError;
 
 /// What kind of data an entry points at — OpenMC's `type` attribute.
@@ -84,8 +89,8 @@ impl CrossSectionsIndex {
     /// one silently makes a run depend on file order.
     pub fn parse(xml: &str) -> Result<Self, NjoyError> {
         let mut out = CrossSectionsIndex::default();
-        for (i, tag) in tags(xml).into_iter().enumerate() {
-            let (name, attrs, text) = tag;
+        for (i, el) in scan(xml).into_iter().enumerate() {
+            let (name, attrs, text) = (el.name, el.attrs, el.text);
             match name.as_str() {
                 "cross_sections" => {}
                 "directory" => {
@@ -175,124 +180,6 @@ impl CrossSectionsIndex {
     pub fn of_kind(&self, kind: LibraryType) -> Vec<&LibraryEntry> {
         self.entries.iter().filter(|e| e.kind == kind).collect()
     }
-}
-
-/// Split the document into `(element name, attributes, text)` triples.
-///
-/// Handles exactly what `cross_sections.xml` uses: self-closing elements with
-/// attributes, and elements whose only content is text. Comments and the XML
-/// declaration are skipped. Anything else falls through to the caller's
-/// unrecognised-element error, which is the intent.
-fn tags(xml: &str) -> Vec<(String, BTreeMap<String, String>, String)> {
-    let mut out = Vec::new();
-    let bytes: Vec<char> = xml.chars().collect();
-    let mut i = 0usize;
-    while i < bytes.len() {
-        if bytes[i] != '<' {
-            i += 1;
-            continue;
-        }
-        // Skip comments and declarations.
-        if xml[byte_at(&bytes, i)..].starts_with("<!--") {
-            match xml[byte_at(&bytes, i)..].find("-->") {
-                Some(off) => {
-                    let abs = byte_at(&bytes, i) + off + 3;
-                    i = char_at(xml, abs);
-                    continue;
-                }
-                None => break,
-            }
-        }
-        if bytes[i + 1] == '?' || bytes[i + 1] == '!' || bytes[i + 1] == '/' {
-            while i < bytes.len() && bytes[i] != '>' {
-                i += 1;
-            }
-            i += 1;
-            continue;
-        }
-        let start = i + 1;
-        let mut j = start;
-        while j < bytes.len() && bytes[j] != '>' {
-            j += 1;
-        }
-        let inner: String = bytes[start..j].iter().collect();
-        let self_closing = inner.trim_end().ends_with('/');
-        let inner = inner.trim_end().trim_end_matches('/');
-        let mut parts = inner.splitn(2, char::is_whitespace);
-        let name = parts.next().unwrap_or("").trim().to_string();
-        let attrs = parse_attrs(parts.next().unwrap_or(""));
-
-        // Text content, for a non-self-closing element.
-        let mut text = String::new();
-        i = j + 1;
-        if !self_closing {
-            let mut k = i;
-            while k < bytes.len() && bytes[k] != '<' {
-                text.push(bytes[k]);
-                k += 1;
-            }
-            // Only consume the text if what follows closes THIS element;
-            // otherwise leave the position alone so nested elements are seen.
-            let rest: String = bytes[k..].iter().take(name.len() + 3).collect();
-            if rest.starts_with(&format!("</{name}")) {
-                i = k;
-            } else {
-                text.clear();
-            }
-        }
-        if !name.is_empty() {
-            out.push((name, attrs, text));
-        }
-    }
-    out
-}
-
-fn byte_at(chars: &[char], i: usize) -> usize {
-    chars[..i].iter().map(|c| c.len_utf8()).sum()
-}
-
-fn char_at(s: &str, byte: usize) -> usize {
-    s[..byte.min(s.len())].chars().count()
-}
-
-fn parse_attrs(s: &str) -> BTreeMap<String, String> {
-    let mut out = BTreeMap::new();
-    let chars: Vec<char> = s.chars().collect();
-    let mut i = 0;
-    while i < chars.len() {
-        while i < chars.len() && chars[i].is_whitespace() {
-            i += 1;
-        }
-        let start = i;
-        while i < chars.len() && chars[i] != '=' && !chars[i].is_whitespace() {
-            i += 1;
-        }
-        if i >= chars.len() {
-            break;
-        }
-        let key: String = chars[start..i].iter().collect();
-        while i < chars.len() && (chars[i] == '=' || chars[i].is_whitespace()) {
-            i += 1;
-        }
-        if i >= chars.len() {
-            break;
-        }
-        let quote = chars[i];
-        if quote != '"' && quote != '\'' {
-            break;
-        }
-        i += 1;
-        let vstart = i;
-        while i < chars.len() && chars[i] != quote {
-            i += 1;
-        }
-        let value: String = chars[vstart..i].iter().collect();
-        i += 1;
-        if !key.is_empty() {
-            out.insert(key, value);
-        }
-    }
-    out
 }
 
 #[cfg(test)]

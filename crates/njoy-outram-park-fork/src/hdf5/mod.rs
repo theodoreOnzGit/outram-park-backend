@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 
-//! **HDF5 read and write for the OpenMC interchange formats.** GitHub #270.
+//! **Read and write for the OpenMC interchange formats.** GitHub #270.
+//!
+//! Mostly HDF5, plus the two small XML files OpenMC ships beside its HDF5
+//! libraries and cannot be used without: the `cross_sections.xml` library index
+//! and the depletion chain. They live here because they are nuclear data and
+//! the same maintainer direction applies to them.
 //!
 //! Maintainer direction: HDF5 belongs on the njoy side, for both reading and
 //! writing, because it is nuclear data. `outram-mc-libs` stays data-free and
@@ -12,6 +17,8 @@
 //! workspace** before this module.
 
 pub mod cross_sections_xml;
+pub mod depletion_chain_xml;
 pub mod mgxs_write;
 pub mod nuclide_write;
 pub mod statepoint_write;
+mod xml_scan;

@@ -63,6 +63,10 @@ pub mod cram;
 pub mod chain;
 pub mod operator;
 
+pub use chain::{
+    ChainImportError, DecayBranch, DepletionChain, NeutronReaction, NuclideData, ReactionKind,
+    UnmodelledChannel, UnmodelledReason,
+};
 pub use matrix::DepletionMatrix;
 
 use std::collections::HashMap;
