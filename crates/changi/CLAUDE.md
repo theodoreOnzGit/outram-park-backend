@@ -85,6 +85,14 @@ and ppm is the wrong unit for an activity concentration, which belongs in
 Bq/m^3. `gaussian_puff_concentration` returns a `MassDensity` for exactly this
 reason; the ppm helper exists for the code-to-code comparison.
 
+**External numbers go in `docs/References.md`, with their retrieval status.**
+The Singapore wind climatology the examples run at is recorded there with its
+source, the date, which figures are MSS's and which are this project's own
+sector choices, and the fact that `weather.gov.sg` was egress-blocked so the
+page was never read directly. Do not add a climatological or material figure
+to this crate without a row in that file, and do not upgrade a
+`Not re-checked` row without actually re-checking it.
+
 **Watch `uom` round trips on very small quantities.** Returning ppm as a
 `uom::Ratio` was measured to lose five significant digits, because `Ratio`
 stores its base unit and the `/1e6` pushed puff concentrations subnormal. `uom`

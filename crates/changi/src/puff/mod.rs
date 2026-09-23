@@ -42,6 +42,11 @@
 //! | `helpers.R` — `gpuff` | [`concentration`] | The Gaussian puff kernel itself |
 //! | `simulate_sensor_mode.R`, `simulate_grid_mode.R` | [`simulate`] | The two run modes |
 //!
+//! [`climatology`] has **no upstream** — it is this crate's own, holding the
+//! illustrative Singapore wind conditions the examples run at, with their
+//! provenance. It is not part of the ported physics and is not covered by the
+//! code-to-code verification.
+//!
 //! ## What is NOT ported
 //!
 //! **`R/plots.R` (1 077 of upstream's 2 296 lines — 47 % of the package).**
@@ -74,6 +79,7 @@
 //! establishes the translation is faithful; it says nothing about whether the
 //! model reproduces measured dispersion.
 
+pub mod climatology;
 pub mod concentration;
 pub mod dispersion;
 pub mod simulate;

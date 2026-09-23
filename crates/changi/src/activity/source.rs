@@ -98,7 +98,10 @@ impl NuclideRelease {
     #[must_use]
     pub fn total_released(&self) -> Radioactivity {
         Radioactivity::new::<becquerel>(
-            self.released.iter().map(|a| a.get::<becquerel>()).sum::<f64>(),
+            self.released
+                .iter()
+                .map(|a| a.get::<becquerel>())
+                .sum::<f64>(),
         )
     }
 }
@@ -142,8 +145,14 @@ impl SourceTerm {
     /// # Panics
     /// Panics with a message naming the violated invariant.
     pub fn validate(&self) {
-        assert!(!self.windows.is_empty(), "a source term needs at least one release window");
-        assert!(!self.nuclides.is_empty(), "a source term needs at least one nuclide");
+        assert!(
+            !self.windows.is_empty(),
+            "a source term needs at least one release window"
+        );
+        assert!(
+            !self.nuclides.is_empty(),
+            "a source term needs at least one nuclide"
+        );
         for pair in self.windows.windows(2) {
             let (a, b) = (pair[0], pair[1]);
             assert!(

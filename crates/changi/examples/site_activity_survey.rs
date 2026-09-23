@@ -28,6 +28,7 @@ use changi::activity::chi_over_q::{dilution_factors, StabilitySource};
 use changi::activity::deposition::DepositionGroup;
 use changi::activity::source::{NuclideRelease, ReleaseWindow, SourceTerm};
 use changi::activity::survey::{survey, total_released, DepositionVelocities};
+use changi::puff::climatology::MEAN_WIND_SPEED_M_PER_S;
 use changi::puff::simulate::{constant_wind, EmissionPolicy, Receptor, RunConfig, Source};
 use changi::puff::stability::StabilityClass;
 use uom::si::f64::{Frequency, Length, Radioactivity, Time, Velocity};
@@ -40,8 +41,16 @@ use uom::si::velocity::meter_per_second;
 /// Receptor distances, metres downwind on the plume centreline.
 const DISTANCES_M: [f64; 8] = [100.0, 200.0, 500.0, 1000.0, 2000.0, 3000.0, 5000.0, 8000.0];
 
-/// Wind speed, held constant.
-const WIND_SPEED_M_PER_S: f64 = 4.0;
+/// Wind speed held constant for the whole run — Singapore's **mean surface
+/// wind**, about 2 m/s.
+///
+/// Taken from [`changi::puff::climatology`] rather than written as a round
+/// number here, so the figure and its provenance live in one place. It is
+/// roughly half the 4 m/s this example used previously, and light winds give
+/// systematically higher concentrations: less dilution per unit distance, and
+/// a longer transit time for decay to act over. Note also that 2 m/s sits
+/// exactly on a Pasquill band edge — see that module for what that costs.
+const WIND_SPEED_M_PER_S: f64 = MEAN_WIND_SPEED_M_PER_S;
 
 /// Simulation and emission step.
 const STEP_S: f64 = 10.0;
@@ -157,7 +166,10 @@ fn main() {
     println!();
 
     println!("Released");
-    println!("  {:<7}  {:>12}  {:>10}  {:>10}", "nuclide", "Bq", "Ci", "group");
+    println!(
+        "  {:<7}  {:>12}  {:>10}  {:>10}",
+        "nuclide", "Bq", "Ci", "group"
+    );
     for n in &term.nuclides {
         let q = n.total_released();
         println!(

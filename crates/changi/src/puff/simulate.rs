@@ -633,6 +633,13 @@ mod tests {
     ///
     /// Measured 2026-09-21 at 1.5 m/s, midday (the ambiguous A/B regime), one
     /// source, receptor 50 m downwind: ratio **1.78**, not 2.00.
+    ///
+    /// **1.78 is this configuration's number, not a characteristic one.**
+    /// Measured across the four Singapore monsoon conditions at two hours
+    /// (2026-09-23), the ratio spans **1.04 to 3.97** — on both sides of 2. The
+    /// assertion below therefore pins the bound `1 < ratio < 2` only for the
+    /// specific case it constructs, and the general claim is that the ratio is
+    /// geometry-dependent, not that it is under 2.
     #[test]
     fn doubling_the_mass_does_not_double_the_concentration() {
         let wind = constant_wind(
@@ -659,8 +666,9 @@ mod tests {
         let ratio = upstream / ours;
         assert!(
             ratio > 1.0 && ratio < 2.0,
-            "expected a ratio strictly between 1 and 2 (the two puffs disperse \
-             differently), got {ratio}"
+            "expected a ratio strictly between 1 and 2 FOR THIS CONFIGURATION \
+             (the two puffs disperse differently); got {ratio}. Note the ratio \
+             exceeds 2 in other geometries -- see the doc comment."
         );
         assert!(
             (ratio - 1.78).abs() < 0.01,

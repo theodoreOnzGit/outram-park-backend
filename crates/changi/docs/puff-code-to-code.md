@@ -210,11 +210,18 @@ concentration. Measured by `examples/puff_site_survey.rs` at 1.5 m/s at midday
 `9.6103e-1` ppm under the mass-conserving policy against `1.7119e0` under
 upstream's, a ratio of **1.78, not 2.00**.
 
+**Measured more widely 2026-09-23**, across the four Singapore monsoon
+conditions in `puff::climatology` at both 14:00 and 02:00, receptor 50 m
+downwind on each condition's own plume axis: the ratio ranges from **1.04 to
+3.97**, on *both* sides of 2. Where the two ambiguous classes disperse very
+differently the extra puff dominates the reading; where they are close it
+barely moves it.
+
 That matters for anyone reading a published `puff` result: the error is not a
-clean factor that can be divided back out. It depends on how far apart the two
-classes disperse at the receptor in question, which depends on the geometry.
-Reproduce such a result with `UpstreamRecycleStabilityClasses` rather than
-attempting to correct it.
+clean factor that can be divided back out, and it is not even bounded by 2. It
+depends on how far apart the two classes disperse at the receptor in question,
+which depends on the geometry. Reproduce such a result with
+`UpstreamRecycleStabilityClasses` rather than attempting to correct it.
 
 **This is the one place the port's default differs from upstream.** Mass
 conservation is not a style preference, so `EmissionPolicy::OnePuffPerEmission`
