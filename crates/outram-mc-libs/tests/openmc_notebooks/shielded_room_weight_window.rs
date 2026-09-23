@@ -364,10 +364,22 @@ fn geometry() -> Geometry {
 /// of magnitude, and the FOM measured on it (0.007-0.011x) should be read as
 /// "this configuration", never as "this technique".
 fn mesh() -> RegularMesh {
+    // Overridable so the long, properly-resolved measurement is a deliberate
+    // invocation rather than a permanent cost on every run:
+    //   OUTRAM_WW_MESH_NX / _NY   (default 31 x 38, i.e. 50 cm cells)
+    // The 16 cm configuration is `OUTRAM_WW_MESH_NX=97 OUTRAM_WW_MESH_NY=119`.
+    let nx = std::env::var("OUTRAM_WW_MESH_NX")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(31usize);
+    let ny = std::env::var("OUTRAM_WW_MESH_NY")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(38usize);
     RegularMesh {
         lower_left: [0.0, 0.0, 0.0],
         upper_right: [1550.0, 1900.0, 700.0],
-        dimension: [31, 38, 1],
+        dimension: [nx, ny, 1],
     }
 }
 
@@ -576,7 +588,14 @@ fn shielded_room_weight_window() {
     // arms resolve. Walking the frontier all the way is a 2-hour measurement,
     // recorded in `magic_frontier_2026_09_23.md` with the rate needed to
     // budget it, not a per-run gate.
-    const MAGIC_ITERATIONS: usize = 6;
+    // `OUTRAM_WW_MAGIC_ITERS` overrides; 6 is what fits in the ~10 min the
+    // routine test is allowed.
+    let magic_iterations: usize = std::env::var("OUTRAM_WW_MAGIC_ITERS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(6usize);
+    const MAGIC_ITERATIONS_DOC: usize = 6;
+    let _ = MAGIC_ITERATIONS_DOC;
     const MAGIC_PARTICLES: usize = 400;
     let t_gen0 = Instant::now();
 
@@ -608,7 +627,7 @@ fn shielded_room_weight_window() {
     // extra statistics are exactly what lets MAGIC resolve the next shell.
     let mut gen_tally = flux_tally();
     let mut gen_realizations = 0u64;
-    for it in 1..=MAGIC_ITERATIONS {
+    for it in 1..=magic_iterations {
         let vr = VarianceReduction::default().with_weight_windows(ww.clone());
         run_fixed_source(
             &geom,
@@ -634,7 +653,7 @@ fn shielded_room_weight_window() {
     let t_generate = t_gen0.elapsed().as_secs_f64();
     let n_valid = ww.lower.iter().filter(|&&l| l > 0.0).count();
     println!(
-        "MAGIC    : {t_generate:.1} s over {MAGIC_ITERATIONS} iterations; \
+        "MAGIC    : {t_generate:.1} s over {magic_iterations} iterations; \
          {n_valid}/{n_m} cells carry a window"
     );
     assert!(
