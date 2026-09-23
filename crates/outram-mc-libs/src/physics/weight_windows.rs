@@ -419,7 +419,26 @@ impl WeightWindows {
                 mean[i] = sum[i] / nf;
                 if sum[i] > 0.0 {
                     let var = (sum_sq[i] / nf - mean[i] * mean[i]) / (nf - 1.0);
-                    rel_err[i] = var.max(0.0).sqrt() / mean[i];
+                    // **A cancelled variance is not a resolved cell.**
+                    //
+                    // `sum_sq/n - mean^2` subtracts two nearly-equal numbers
+                    // whenever the relative spread is small, loses most of its
+                    // significant digits, and can come out negative. Clamping
+                    // that to zero and dividing turns `rel_err` into 0, which
+                    // sails through the `rel_err > threshold` test below -- so
+                    // a cell whose variance had lost all precision was granted
+                    // a window as though it were perfectly converged.
+                    //
+                    // That is a branch decided by round-off, the same failure
+                    // as `bedok`'s one-ulp `sinh` (commit 98e7c0586) changing
+                    // the iteration count. A non-positive variance here means
+                    // "cannot be resolved", which is exactly what INFINITY
+                    // already means in this array, so say that instead.
+                    rel_err[i] = if var > 0.0 {
+                        var.sqrt() / mean[i]
+                    } else {
+                        f64::INFINITY
+                    };
                 }
                 // Flux density, not integrated score.
                 if volumes[m] > 0.0 {

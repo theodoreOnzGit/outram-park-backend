@@ -76,7 +76,11 @@ pub fn bin_uncertainty(stats: BinStats, n: usize) -> Option<(f64, f64, f64)> {
     if mean == 0.0 {
         return None;
     }
-    let std_dev = ((stats.sum_sq / nf - mean * mean) / (nf - 1.0)).sqrt();
+    // Same cancelling form as `TallyBin::rel_std_dev` carried before
+    // `variance()` existed; clamped here so a cancelled variance reports as
+    // converged-to-zero rather than NaN, which would make a trigger
+    // comparison silently false.
+    let std_dev = ((stats.sum_sq / nf - mean * mean) / (nf - 1.0)).max(0.0).sqrt();
     let rel_err = std_dev / mean.abs();
     Some((mean, std_dev, rel_err))
 }

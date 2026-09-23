@@ -318,13 +318,39 @@ fn geometry() -> Geometry {
     }
 }
 
-/// The tally mesh: the notebook's `RegularMesh.from_domain(geometry)`, coarser
-/// (50 cm cells rather than ~3 cm) so this runs in test time.
+/// The tally and weight-window mesh.
+///
+/// # The cell size is a physics parameter, not a performance knob
+///
+/// This started at `[31, 38, 1]` -- **50 cm cells** -- described in the comment
+/// it replaced as "coarser (50 cm rather than ~3 cm) so this runs in test
+/// time". That coarsening broke the method, and the reasoning is worth keeping
+/// because the mistake is easy to repeat.
+///
+/// A weight window steers by splitting a particle whose weight exceeds the
+/// local upper bound, into at most `max_split = 10` copies. For the population
+/// to track the flux the window must not fall by more than roughly the window
+/// ratio (5) across one cell. In concrete a fast neutron's mean free path is
+/// of order 5-10 cm, so a **50 cm cell is 5-10 mfp** and the flux falls by
+/// `10^2` to `10^4` across it. Tracking that needs `ceil(10^4 / 5)` splits and
+/// the cap allows 10, so the population **cannot** follow the attenuation: the
+/// survivors drop below the lower bound and are rouletted away. The windows
+/// then pay the full splitting cost near the source and buy no penetration --
+/// measured as a FOM ratio of 0.007-0.011x and zero deep cells reached.
+///
+/// At **16 cm** the cells are ~1.7-3.3 mfp and the per-cell flux ratio is
+/// ~5-27, close to the window ratio, so a crossing needs a handful of splits
+/// rather than thousands.
+///
+/// Standard guidance says the flux should change by less than the window ratio
+/// across one mesh cell. The 50 cm mesh violated that by two to three orders of
+/// magnitude, which is why it is stated here as a physics constraint rather
+/// than left as a runtime convenience.
 fn mesh() -> RegularMesh {
     RegularMesh {
         lower_left: [0.0, 0.0, 0.0],
         upper_right: [1550.0, 1900.0, 700.0],
-        dimension: [31, 38, 1],
+        dimension: [97, 119, 1],
     }
 }
 
