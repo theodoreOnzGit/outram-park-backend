@@ -35,6 +35,38 @@
 //! distribution and must NOT be read as the code's answer. It is reported with
 //! that spread attached.
 
+//! # Results (2026-09-23, ENDF/B-VIII.0, seed 1)
+//!
+//! ```text
+//! k_eff = 1.00206 +/- 0.00163   (+206 pcm vs ICSBEP 1.0000 +/- 0.0010)
+//!                                +1.19 sd of the 173 pcm seed-to-seed spread
+//!
+//! stage                     time [s]     % of accounted
+//! ENDF parse                   0.32       0.08 %
+//! RECONR (0 K)               122.96      29.39 %
+//! BROADR (-> 293.6 K)         41.86      10.00 %
+//! ACER build                 109.88      26.26 %
+//! ACE write                   11.40       2.73 %
+//! ACE read                     3.12       0.75 %
+//! Nuclide::from_ace            0.26       0.06 %
+//! transport (k_eff)          128.64      30.74 %
+//!                            418.44     100.00 %
+//!
+//! U-234  42 357 grid points,  47.8 MB      data prep  69.3 %
+//! U-235 143 789 grid points, 267.6 MB      transport  30.7 %
+//! U-238 284 415 grid points, 326.1 MB      641.5 MB total
+//! ```
+//!
+//! **Building the library costs 286.42 s; loading it back costs 3.37 s** -- an
+//! 85x asymmetry, which is the entire reason the ACE format exists. RECONR
+//! (29 %) and the ACER build (26 %) dominate preparation; the ASCII write is
+//! 2.7 % and the read 0.8 %, so the format's verbosity is not the cost.
+//!
+//! The `k` is ONE SEED. At +1.19 sd of this configuration's own spread it is an
+//! unremarkable draw, and it is neither evidence for nor against the port's
+//! accuracy -- `godiva_keff_ensemble.rs` and its 256-seed `+16 +/- 11 pcm` is
+//! where that question is answered.
+//!
 use std::time::{Duration, Instant};
 
 use njoy_outram_park_fork::acer::{angular::parse_elastic_angular, energy::build_emissions, AceTable};
@@ -88,6 +120,9 @@ impl Stages {
 fn main() {
     let mut st = Stages::default();
     let wall = Instant::now();
+    // Per-process, so two concurrent runs cannot race on the same paths.
+    let scratch = std::env::temp_dir().join(format!("godiva_ace_{}", std::process::id()));
+    std::fs::create_dir_all(&scratch).expect("scratch dir");
 
     println!("Godiva via ENDF -> ACE -> Nuclide, all through this workspace's own code\n");
 
@@ -160,7 +195,7 @@ fn main() {
         // Write to disk and read back, so the round trip goes through the
         // actual Type-1 text format rather than staying in memory -- the
         // formatting layer is where a precision loss would hide.
-        let out = std::env::temp_dir().join(format!("godiva_{name}.ace"));
+        let out = scratch.join(format!("{name}.ace"));
         let t = Instant::now();
         ace.write_type1(&out).expect("write ACE");
         st.ace_write += t.elapsed();
@@ -175,10 +210,14 @@ fn main() {
         st.from_ace += t.elapsed();
 
         println!(
-            "  {name}: {} grid points, ACE {:.1} MB",
+            "  {name}: {} grid points, ACE {:.1} MB (read back, removed)",
             raw.nxs[njoy_outram_park_fork::acer::nxs::NES],
             std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0) as f64 / 1.0e6
         );
+        // Delete as soon as it has been read. A full Godiva library is 641 MB
+        // and this container's writable space is a fixed allowance, not a
+        // disk: the first version of this example left all three files behind.
+        let _ = std::fs::remove_file(&out);
         nuclides.push(n);
     }
 
@@ -258,5 +297,6 @@ fn main() {
             / tot_s,
         (st.ace_read + st.from_ace).as_secs_f64()
     );
-    println!("  ACE written: {:.1} MB total", ace_bytes_total as f64 / 1.0e6);
+    println!("  ACE written: {:.1} MB total (all removed after reading)", ace_bytes_total as f64 / 1.0e6);
+    let _ = std::fs::remove_dir_all(&scratch);
 }
