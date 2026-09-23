@@ -1116,14 +1116,41 @@ pub(crate) fn transport_history_vr(
     // if the streams behind it are independent, and a split is the one place
     // in this loop that creates a genuinely new particle rather than
     // continuing an existing one.
-    let mut stack: Vec<(Site, f64, Option<u64>)> = vec![(site, 1.0, None)];
+    // **The weight-window bookkeeping travels WITH the banked particle.**
+    //
+    // Upstream keeps `wgt_born`, `wgt_ww_born` and `n_split` on the particle
+    // and copies all three onto every bank site -- in `split` (`particle.cpp:
+    // 140-142`) AND in `create_secondary` (`:114-116`) -- restoring them in
+    // `from_source` (`:201-202`). This port dropped them, giving every popped
+    // particle a fresh `WindowState`, and that is not a cosmetic divergence:
+    //
+    //   * `n_split` reset to 0 on every daughter, so `MAX_HISTORY_SPLITS`
+    //     never bit and the split cascade had no depth limit at all;
+    //   * `ww_born` reset to -1, so a daughter re-anchored the window to its
+    //     own REDUCED weight. The birth normalisation then scaled the window
+    //     down until the daughter was above the upper bound again -- and it
+    //     split again. Exponential growth, by construction.
+    //
+    // Measured before the fix: the shielded-room test ran 5.6 HOURS against a
+    // 64-second budget, having produced no result three times over. The
+    // per-split conservation test passed throughout, because it exercises one
+    // split in isolation and never iterates.
+    let mut stack: Vec<(Site, f64, Option<u64>, WindowState)> = vec![(
+        site,
+        1.0,
+        None,
+        WindowState {
+            weight_born: 1.0,
+            ..WindowState::default()
+        },
+    )];
 
     // Safety cap on events per history: a particle in a purely-scattering
     // reflective medium with vanishing absorption could otherwise bounce forever.
     // 100k events is far beyond any physical history (mean ~tens of collisions).
     const MAX_EVENTS: u32 = 100_000;
 
-    while let Some((start, start_wgt, own_seed)) = stack.pop() {
+    while let Some((start, start_wgt, own_seed, start_ww)) = stack.pop() {
         // A split child transports on its own stream; everything else
         // continues the shared one, exactly as before #258.
         let mut owned_seed = own_seed.unwrap_or(0);
@@ -1145,13 +1172,10 @@ pub(crate) fn transport_history_vr(
         let mut w = start_wgt;
         // Birth weight, for `survival_normalization` and for the weight
         // window's birth renormalisation.
-        let w_birth = w;
-        // Weight-window bookkeeping that persists across this sub-history's
-        // checkpoints (`wgt_ww_born`, `ww_factor`, `n_split` upstream).
-        let mut ww_state = WindowState {
-            weight_born: w_birth,
-            ..WindowState::default()
-        };
+        // Inherited from whoever banked this particle, never re-derived from
+        // its own weight -- see the note on `stack` above.
+        let mut ww_state = start_ww;
+        let w_birth = ww_state.weight_born;
 
         if let Some(t) = tracks.as_deref_mut() {
             // Unconditionally: `begin` is what counts a refused track, and
@@ -1230,6 +1254,13 @@ pub(crate) fn transport_history_vr(
                                         Site { r, u, e },
                                         weight,
                                         Some(child_seed),
+                                        // `apply` has already charged this
+                                        // split to `n_split`; the daughters
+                                        // inherit that count and the parent's
+                                        // birth anchors, so the cascade is
+                                        // bounded and the window they see is
+                                        // the window the parent saw.
+                                        ww_state,
                                     ));
                                 }
                                 w = weight;
@@ -1691,7 +1722,7 @@ pub(crate) fn transport_history_vr(
                                 e: sec_e2,
                             },
                             w,
-                            None,
+                            None, ww_state,
                         ));
                     }
                     // Multiplicity counts: this is a NU-scatter matrix, so every
@@ -1737,7 +1768,7 @@ pub(crate) fn transport_history_vr(
                             (e2, u2)
                         };
                         if nuc.emits_n2n_secondary() {
-                            stack.push((Site { r, u: su, e: se }, w, None));
+                            stack.push((Site { r, u: su, e: se }, w, None, ww_state));
                             if let Some(t) = tally {
                                 score_scatter_matrix(
                                     batch,
@@ -1785,7 +1816,7 @@ pub(crate) fn transport_history_vr(
                         break;
                     }
                     for (se, su) in extras.iter().take(n_emit.saturating_sub(1).min(2)) {
-                        stack.push((Site { r, u: *su, e: *se }, w, None));
+                        stack.push((Site { r, u: *su, e: *se }, w, None, ww_state));
                         if let Some(t) = tally {
                             score_scatter_matrix(
                                 batch,

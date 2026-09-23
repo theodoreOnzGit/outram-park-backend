@@ -464,11 +464,13 @@ fn shielded_room_weight_window() {
 
     // ── Arm 1: analog ──────────────────────────────────────────────────────
     let mut analog_tally = flux_tally();
-    // Fixed in advance, before any result was seen. 2500 particles ran the
-    // analog arm in 6.6 s, which left a ~4.5 s budget for the weight-window
-    // arm -- too thin for the figure of merit to mean anything. 25000 is a
-    // multiple of N_BATCHES and puts the analog arm near a minute.
-    let n_analog = 25_000usize;
+    // Sized so the window arm has room left after MAGIC, not so the result
+    // comes out a particular way. 2500 particles ran analog in 6.6 s, leaving
+    // ~4.5 s -- too thin for a figure of merit to mean anything. 25000 took
+    // 68.7 s, but six MAGIC iterations then consumed nearly all of it. 50000
+    // keeps generation a minority of the budget so most of the window arm's
+    // time goes into the measurement it is being judged on.
+    let n_analog = 50_000usize;
     let t0 = Instant::now();
     run_fixed_source(
         &geom,
@@ -486,48 +488,90 @@ fn shielded_room_weight_window() {
         deep.len()
     );
 
-    // ── Stage 2a: a short run to fill a tally MAGIC can learn from ─────────
-    let mut gen_tally = flux_tally();
-    let t0 = Instant::now();
-    run_fixed_source(
-        &geom,
-        &mats,
-        &nucs,
-        &src,
-        &settings(800, 7_919, VarianceReduction::default()),
-        Some(&mut gen_tally),
-    );
-    let t_generate = t0.elapsed().as_secs_f64();
-
+    // ── Stage 2: ITERATIVE MAGIC ──────────────────────────────────────────
+    //
+    // **MAGIC is an iterative method, and one pass of it is not it.**
+    //
+    // The first version of this test ran a single analog generating pass and
+    // then scored with whatever windows came out. It failed, correctly:
+    //
+    //     MAGIC : 558/1178 cells carry a window
+    //     WW    : 4140 particles, 0/68 deep cells scored
+    //
+    // MAGIC builds windows from a forward flux tally, so it can only place a
+    // window in a cell the generating run actually reached. The generating run
+    // was analog, and analog reaches **zero** deep cells -- that is the entire
+    // premise of the problem. So the deep region had no windows (`lower = -1`,
+    // no game played), nothing steered particles into the shield, and the
+    // window arm reproduced the analog arm exactly.
+    //
+    // The method bootstraps instead: each iteration runs with the PREVIOUS
+    // iteration's windows, reaches a little further than the last, and the next
+    // update places windows in the cells it just reached. The penetration depth
+    // grows iteration by iteration. That is what makes it work on a
+    // deep-penetration problem and it is why the literature always quotes a
+    // number of iterations.
+    //
+    // Every iteration's wall-clock is charged to the window arm, so the
+    // matched-cost comparison stays honest -- a user who wants windows pays for
+    // generating them.
     let m = mesh();
     let n_m = m.n_bins();
-    let sum: Vec<f64> = gen_tally.bins.iter().map(|b| b.sum).collect();
-    let sum_sq: Vec<f64> = gen_tally.bins.iter().map(|b| b.sum_sq).collect();
     let cell_volume = (1550.0 / 31.0) * (1900.0 / 38.0) * 700.0;
-    let mut ww = WeightWindows::new(
-        m,
-        vec![0.0, 2.0e7],
-        vec![-1.0; n_m],
-        vec![-1.0; n_m],
-    )
-    .unwrap();
-    ww.update_magic(&sum, &sum_sq, &vec![cell_volume; n_m], 10, 1.0, 5.0)
-        .unwrap();
+    let mut ww = WeightWindows::new(m, vec![0.0, 2.0e7], vec![-1.0; n_m], vec![-1.0; n_m])
+        .expect("flat window set");
+
+    const MAGIC_ITERATIONS: usize = 6;
+    const MAGIC_PARTICLES: usize = 800;
+    let t_gen0 = Instant::now();
+    for it in 0..MAGIC_ITERATIONS {
+        // Iteration 0 has no windows yet, so it is analog by construction.
+        let vr = if it == 0 {
+            VarianceReduction::default()
+        } else {
+            VarianceReduction::default().with_weight_windows(ww.clone())
+        };
+        // A FRESH tally each iteration. Accumulating across iterations would
+        // pool flux estimates made under different weight windows, which is a
+        // different (and worse-conditioned) estimator than the latest one --
+        // MAGIC uses the most recent iteration's flux shape.
+        let mut gen_tally = flux_tally();
+        run_fixed_source(
+            &geom,
+            &mats,
+            &nucs,
+            &src,
+            &settings(MAGIC_PARTICLES, 7_919 + it as u64 * 101, vr),
+            Some(&mut gen_tally),
+        );
+        let sum: Vec<f64> = gen_tally.bins.iter().map(|b| b.sum).collect();
+        let sum_sq: Vec<f64> = gen_tally.bins.iter().map(|b| b.sum_sq).collect();
+        ww.update_magic(&sum, &sum_sq, &vec![cell_volume; n_m], 10, 1.0, 5.0)
+            .expect("MAGIC update");
+        let n_valid = ww.lower.iter().filter(|&&l| l > 0.0).count();
+        let reached = n_scored(&gen_tally, &deep);
+        println!(
+            "MAGIC it{it}: {n_valid}/{n_m} cells carry a window, generating run \
+             reached {reached}/{} deep cells",
+            deep.len()
+        );
+    }
+    let t_generate = t_gen0.elapsed().as_secs_f64();
     let n_valid = ww.lower.iter().filter(|&&l| l > 0.0).count();
     println!(
-        "MAGIC    : {t_generate:.1} s to fill the tally; {n_valid}/{n_m} cells carry a window"
+        "MAGIC    : {t_generate:.1} s over {MAGIC_ITERATIONS} iterations; \
+         {n_valid}/{n_m} cells carry a window"
     );
     assert!(
         n_valid > 0,
-        "MAGIC produced no windows at all — the generating run scored nothing, \
+        "MAGIC produced no windows at all -- the generating runs scored nothing, \
          so there is nothing to test"
     );
 
-    // ── Arm 2: weight windows, at matched wall-clock ───────────────────────
-    //
-    // The notebook's own fairness criterion: spend the same total time. The
-    // generation run counts against the weight-window arm's budget, because a
-    // user who wants windows has to pay for them.
+    // The window arm's budget is whatever the analog arm cost, MINUS what the
+    // six MAGIC iterations already spent. A user who wants windows pays for
+    // generating them, so generation is charged here and not treated as free
+    // set-up.
     let budget = (t_analog - t_generate).max(0.1);
     let mut ww_tally = flux_tally();
     let vr = VarianceReduction::default().with_weight_windows(ww);

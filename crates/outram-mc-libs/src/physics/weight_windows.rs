@@ -601,6 +601,96 @@ mod tests {
         }
     }
 
+    /// **The split cascade terminates** -- the test that the one-shot
+    /// conservation checks above could never have failed.
+    ///
+    /// # What this pins, and what it cost not to have
+    ///
+    /// `splitting_conserves_total_weight` splits once, from a freshly built
+    /// `WindowState`, and checks the arithmetic. It passes whether or not the
+    /// daughters inherit their parent's bookkeeping, because it never looks at
+    /// a daughter.
+    ///
+    /// Upstream copies `wgt_born`, `wgt_ww_born` and `n_split` onto every bank
+    /// site, in `Particle::split` (`particle.cpp:140-142`) and in
+    /// `create_secondary` (`:114-116`), restoring them in `from_source`
+    /// (`:201-202`). When this port dropped them, each daughter started from a
+    /// default state, so:
+    ///
+    /// - `n_split` was 0 again, and `MAX_HISTORY_SPLITS` never bit;
+    /// - `ww_born` was -1 again, so the birth normalisation re-anchored the
+    ///   window to the daughter's REDUCED weight, scaled it down, and left the
+    ///   daughter above the new upper bound -- so it split again, forever.
+    ///
+    /// The shielded-room test ran **5.6 hours against a 64-second budget**
+    /// before this was found, and was misdiagnosed twice as a loop-bounding
+    /// problem. Every weight-conservation test passed the whole time.
+    ///
+    /// This drives the cascade the way transport does -- daughters fed back
+    /// through `apply` carrying the state they were banked with -- and asserts
+    /// it reaches a fixed point instead of growing.
+    #[test]
+    fn the_split_cascade_terminates_because_daughters_inherit_their_parent() {
+        let ww = flat_windows(0.25, 1.0);
+        let w = ww.look_up(Position::new(0.5, 0.5, 0.5), 1.0e6).unwrap();
+        let mut seed = 20_260_923;
+
+        // One particle far above the window: 40x the upper bound.
+        let mut live: Vec<(f64, WindowState)> = vec![(40.0, neutral_state(0.25, 1.0))];
+        let mut produced = 0usize;
+
+        for generation in 0..40 {
+            let mut next: Vec<(f64, WindowState)> = Vec::new();
+            for (weight, mut st) in live.drain(..) {
+                match apply(w, &mut st, weight, &mut seed) {
+                    WindowOutcome::Split { copies, weight: each } => {
+                        produced += copies - 1;
+                        // Exactly what transport does: the daughters inherit
+                        // the parent's state, `n_split` already charged.
+                        for _ in 0..copies {
+                            next.push((each, st));
+                        }
+                    }
+                    WindowOutcome::Unchanged => next.push((weight, st)),
+                    WindowOutcome::Survived { weight } => next.push((weight, st)),
+                    WindowOutcome::Killed => {}
+                }
+            }
+            live = next;
+            assert!(
+                live.len() <= 4096,
+                "generation {generation}: the cascade reached {} particles. It is \
+                 not converging, which means a daughter is re-qualifying to split \
+                 -- check that the parent's `ww_born` and `n_split` are inherited.",
+                live.len()
+            );
+            // A fixed point: nothing split this generation.
+            if live.iter().all(|(weight, _)| {
+                *weight <= w.upper_weight * (1.0 + WEIGHT_WINDOW_REL_TOL)
+                    && *weight >= w.lower_weight * (1.0 - WEIGHT_WINDOW_REL_TOL)
+            }) {
+                println!(
+                    "cascade settled after {} generations: {} particles, {produced} produced",
+                    generation + 1,
+                    live.len()
+                );
+                // Weight is conserved across the WHOLE cascade, not just one split.
+                let total: f64 = live.iter().map(|(weight, _)| *weight).sum();
+                assert!(
+                    (total - 40.0).abs() < 1.0e-9 * 40.0,
+                    "cascade conserved {total} of the original 40.0"
+                );
+                return;
+            }
+        }
+        panic!(
+            "the split cascade had not settled after 40 generations ({} particles live). \
+             Before daughters inherited their parent's window state this never settled \
+             at all.",
+            live.len()
+        );
+    }
+
     /// **The unbiasedness invariant for roulette**, measured rather than
     /// asserted: the mean weight of the survivors, times the survival rate,
     /// must equal the weight going in.
