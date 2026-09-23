@@ -904,3 +904,91 @@ correctly."
    possible — see "Verification" above) — if the picker's default filter
    doesn't behave as the API docs describe, that would only surface on a
    real desktop run.
+
+## A conflicted pull asks "sure anot?", and can be forced (2026-09-23, GH issue #279)
+
+**Maintainer, 2026-09-23:** "there are merge conflicts when i pull from there. I
+want it such to be when merge conflicts arise during pull, kovan gives a popup
+box saying (you may have unsaved changes, u sure u want to pull anot?) then two
+boxes say (yes, can) or (no, i manage myself)" — about the local Kovan folder
+(`local-kovan-repo`). Clarified in the same exchange: **"yes, can" is a forced
+pull, overriding local changes.**
+
+### What Git actually prints — measured, not assumed
+
+Before writing the classifier, each failure mode was reproduced against a real
+`git` driving a local bare remote (2026-09-23). The result that shaped the
+design:
+
+| case | Git says | stream |
+|---|---|---|
+| uncommitted edit to a file the merge touches | `error: Your local changes to the following files would be overwritten by merge:` | stderr |
+| both sides committed the same lines | `CONFLICT (content): Merge conflict in <file>` / `Automatic merge failed` | **stdout** |
+| pulled again, merge unresolved | `error: Pulling is not possible because you have unmerged files.` | stderr |
+| both sides committed, no `pull.rebase` set | `fatal: Need to specify how to reconcile divergent branches.` | stderr |
+
+The second row is why this was not a pure GUI change. `advanced_git::run_git_in`
+kept **stderr only** on a non-zero exit, so the true merge-conflict case — the
+one the issue is about — rendered in the tab as `From <url>\n * branch main ->
+FETCH_HEAD`, **a message that does not mention a conflict at all**. That is
+fixed here (`git_output_in` keeps both streams; `pull_in` classifies on the
+pair), and it would have been missed entirely by reasoning about what `git pull`
+"obviously" prints.
+
+The divergent-branches row is included in `is_conflict` deliberately, even
+though Git frames it as missing configuration rather than a conflict: the folder
+*has* diverged, and the forced pull is exactly what resolves it.
+
+### The two answers
+
+- **"yes, can"** → `advanced_git::force_pull_in`: abort whatever merge or rebase
+  the failed pull left behind, `git fetch <remote> <branch>`,
+  `git reset --hard FETCH_HEAD`, `git clean -fd`. `FETCH_HEAD` rather than
+  `<remote>/<branch>` so it also works in a folder with no remote-tracking ref.
+  **Untracked files are wiped too** — the maintainer's explicit choice when
+  asked, the folder being meant to end up an exact mirror of the remote. Ignored
+  files and submodule contents survive (`clean` without `-x`, without `-ff`).
+- **"no, i manage myself"** → `advanced_git::abort_in_progress_in`: restore the
+  pre-pull state, also the maintainer's choice when asked. The alternative —
+  leaving Git's half-applied merge in place for the user to resolve by hand — was
+  rejected as leaving a folder in a state whose owner "should not need Git
+  vocabulary" (op-wqaw) cannot get out of, and whose next Pull click fails
+  confusingly until they do.
+
+`abort_in_progress_in` checks `git rev-parse --git-path MERGE_HEAD` /
+`rebase-merge` / `rebase-apply` rather than running `git merge --abort` and
+swallowing the failure, because that exits 128 with "There is no merge to abort"
+in the common case where Git refused the pull outright and changed nothing.
+
+Only `RemoteError::Conflict` raises the prompt. A bad URL, an unknown branch or
+a refused credential stays a plain `Failed` and a red message: destroying the
+folder is not the answer to a typo, and a forced pull must never be offered as
+if it were a generic retry.
+
+### Verification
+
+`cargo test --release -p kovan --lib --tests` — 13 tests over the two touched
+modules, all passing (2026-09-23):
+
+- `a_conflict_is_told_apart_from_an_ordinary_pull_failure` — the six real
+  messages captured above classify as conflicts; a missing repository, an
+  unknown ref, a failed authentication, `Already up to date.` and an empty
+  string do not.
+- `an_uncommitted_edit_makes_pull_report_a_conflict` — real bare remote, real
+  `git pull`; the `Conflict` carries Git's own reason, and nothing on disk moved.
+- `declining_the_prompt_restores_the_folder_to_its_pre_pull_state` — after a
+  merge left in progress, "no" returns `HEAD`, the file contents and
+  `git status` to exactly their pre-pull values.
+- `the_forced_pull_makes_the_folder_match_the_remote_exactly` — the unpushed
+  commit, the uncommitted edit, the untracked file and the untracked directory
+  are all gone; the log is the remote's, not a merge; a second forced pull on an
+  already-matching folder is a no-op rather than an error.
+- Three view-level tests, one of them driving `egui::Context::run_ui` headless
+  (no window, no GPU): the prompt is raised with the right repository and no red
+  message, an ordinary failure raises no prompt, and drawing the prompt across
+  two frames without pressing either button neither pulls nor cancels.
+
+**Not verified:** no interactive click-through of the dialog itself — the
+buttons' handlers are covered only through `force_pull_in`/`abort_in_progress_in`
+being tested directly. The maintainer should confirm the wording and the button
+order on a real desktop before trusting the destructive branch.
