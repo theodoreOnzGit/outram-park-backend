@@ -26,6 +26,59 @@
 //!
 //! Run deliberately; it reconstructs U-238 twice and writes a ~326 MB ACE file,
 //! which it deletes after reading.
+//!
+//! # Results (2026-09-23, U-238, ENDF/B-VIII.0 at 293.6 K)
+//!
+//! ```text
+//! ENDF: inelastic levels = 40   urr = Some((20000.0, 149008.7))  dbrc = true
+//! ACE : inelastic levels = 40   urr = None                        dbrc = false
+//!
+//! ENDF: 520445 xs_at_energy calls in 0.769 s   (1.48 us/call)   [acc 1.606e7]
+//! ACE : 520445 xs_at_energy calls in 3.050 s   (5.86 us/call)   [acc 1.606e7]
+//! ```
+//!
+//! ## The answer: it IS cross-section lookup, at 3.96x per call
+//!
+//! That accounts for essentially the whole 4.6x transport gap
+//! `lct008_ace_roundtrip.rs` measured, so the cause is in `xs_at_energy` and
+//! not in secondary sampling.
+//!
+//! **Two of the three candidates are refuted:**
+//!
+//! - **Inelastic level count: 40 on BOTH routes.** Ruled out. `channel_mts`
+//!   does not drop U-238's levels, because its ACE table carries no MT=4 lump
+//!   to drop them under.
+//! - **Fission spectrum representation: not the cause**, since this measures
+//!   pure cross-section lookup with no sampling at all.
+//!
+//! **And the premise held, which sharpens the puzzle rather than resolving it:**
+//! the ENDF route really does carry URR (20–149 keV) and DBRC, and the ACE
+//! route really does carry neither. So the ACE route performs *less* physics per
+//! lookup and is still four times slower.
+//!
+//! ## The remaining explanation, and why it is a design consequence not a bug
+//!
+//! The surviving candidate is **grid size**. ACE stores every reaction on one
+//! **union** energy grid — 284 415 points for U-238 — so `from_ace` gives each
+//! of the ~49 sections an array spanning its threshold to the top of that grid.
+//! RECONR instead thins each MT's grid independently, so the ENDF route's
+//! per-MT arrays are much shorter. `xs_at_energy` sums `eval_mt` over all 40
+//! levels plus the lumps, so the ACE route walks far more memory per call. At
+//! 4x this looks like memory traffic rather than binary-search depth, which is
+//! logarithmic and could not produce it.
+//!
+//! That is **inherent to the ACE format's union-grid design**, not a defect in
+//! the decoder — MCNP pays the same cost. It is recorded because "the ACE route
+//! is ~4x slower per lookup" is a real performance characteristic a caller
+//! should know, and because thinning the per-MT grids after decode would be a
+//! legitimate optimisation if it ever matters.
+//!
+//! ## A parity result, obtained for free
+//!
+//! The accumulated totals are **identical: 1.606e7 on both routes** over 520 445
+//! energies spanning 1e-4 to 2e7 eV. That is a far tighter statement of ACE/ENDF
+//! agreement than `lct008_ace_roundtrip.rs`'s 0.78 sigma on `k`, and it came out
+//! of a timing harness.
 fn main() {
     use njoy_outram_park_fork::acer::{angular::parse_elastic_angular, energy::build_emissions, AceTable};
     use njoy_outram_park_fork::broadr::broaden_result;

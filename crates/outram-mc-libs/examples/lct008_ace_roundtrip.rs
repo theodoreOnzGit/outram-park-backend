@@ -106,11 +106,26 @@
 //!   `FissionSpectrum::ContinuousTabular`; the ENDF route may produce a Watt
 //!   form, which is far cheaper to sample.
 //!
-//! **This is recorded as an open question, not a conclusion.** It does not
-//! affect the parity result -- the two `k` values agree -- but a 4.6x cost
-//! difference between two routes to the same physics is a defect somewhere,
-//! and guessing which would be exactly the mistake this workspace's porting
-//! rule warns against.
+//! **RESOLVED 2026-09-23** by `examples/ace_vs_endf_route_cost.rs`, which
+//! measured U-238 both ways: `xs_at_energy` costs **1.48 us/call on the ENDF
+//! route and 5.86 us/call on the ACE route -- 3.96x**, which accounts for
+//! essentially the whole 4.6x transport gap. So the cause is cross-section
+//! lookup, not secondary sampling.
+//!
+//! Of the three candidates above, **two are refuted**: the inelastic level
+//! count is **40 on both** routes, and the fission spectrum cannot be
+//! implicated by a measurement that does no sampling. The premise held (the
+//! ENDF route does carry URR 20-149 keV and DBRC; the ACE route carries
+//! neither), which sharpens rather than resolves it -- the ACE route does
+//! *less* physics per lookup and is still 4x slower.
+//!
+//! The surviving explanation is **grid size, and it is a design consequence
+//! rather than a defect**: ACE stores every reaction on one union grid
+//! (284 415 points for U-238), so each of ~49 sections spans its threshold to
+//! the top of that grid, where RECONR thins each MT independently.
+//! `xs_at_energy` sums over all 40 levels, so the ACE route walks far more
+//! memory per call. MCNP pays the same cost. Thinning the per-MT grids after
+//! decode would be a legitimate optimisation if it ever matters.
 //!
 use std::time::{Duration, Instant};
 
